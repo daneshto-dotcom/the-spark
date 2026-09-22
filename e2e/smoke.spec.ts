@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 47; // S182 — 46 → 47 carries TWO wire changes, merged from two branches: a new serialized BOND_SEVERED cause 'unit' (the Voltkin crackle stopped being every creature's) AND prevPos leaving the wire (a REQUIRED field becomes absent; the peer-lag fix).
+const LOCAL_PROTO_V = 48; // S186 — 47 → 48: the win bar, the spawn rate and the free-spark cap all became functions of world.waveNumber. No field changed, but all three are SHARED CONSTANTS both peers compute from, so two builds advertising 47 would shake hands and then disagree about when the match ends (precedents: 32→33 a new victory condition, 33→34 the wave driving the spawn rate). (S182 — 46 → 47 carried the BOND_SEVERED cause 'unit' and prevPos leaving the wire.)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

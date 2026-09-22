@@ -22,6 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   HUNTER_TRIGGER_SCORE,
   PHASE_1_WIN_SCORE,
@@ -31,6 +32,10 @@ import {
   winScoreForWave,
   winScoreMultiplierForWave,
 } from '../constants.ts';
+import { formatSoloScore, formatTierBanner } from '../render/ui.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
+import { mulberry32 } from './rng.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { restore, snapshot } from './save.ts';
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
@@ -205,6 +210,98 @@ describe('S186 — ⛔ THE ANTI-COAST PROPERTY, through the real win gate', () =
     won.scoreProgress = 50_000;
     won.scoreByPlayer.set(asPlayerId(0), 50_000);
     expect(runGate(won)).toBe('WIN');
+  });
+});
+
+describe('S186 — ⛔ THE HUD HALF, WHICH WAS ENTIRELY UNGUARDED UNTIL THE S186 AUDIT', () => {
+  /*
+   * ⛔ EVERY OTHER TEST CALLS THE FORMATTERS AT WAVE 1 — THE ONE INPUT WHERE OLD AND NEW BEHAVIOUR
+   * AGREE. So `ui.ts` could have been reverted to `PHASE_1_WIN_SCORE` with the entire suite green,
+   * and in a wave-11 match every seat's row would have read `/2500` against a live bar of 10,000.
+   * The audit found this; these are the assertions that close it.
+   */
+  it('⭐ the tier banner prints the CURRENT wave’s bar, not the opening one', () => {
+    expect(formatTierBanner(1, 6)).toContain(`/${winScoreForWave(6)}`);
+    expect(formatTierBanner(1, 6)).toContain('/5000');
+    expect(formatTierBanner(1, 11)).toContain('/10000');
+    expect(formatTierBanner(1, 21)).toContain('/50000');
+    // and it is genuinely different from the wave-1 string, or the assertion above proves nothing
+    expect(formatTierBanner(1, 6)).not.toBe(formatTierBanner(1, 1));
+  });
+
+  it('⭐ the solo score readout does too', () => {
+    expect(formatSoloScore(100, 6)).toBe(`SCORE 100/${winScoreForWave(6)}`);
+    expect(formatSoloScore(100, 6)).toBe('SCORE 100/5000');
+    expect(formatSoloScore(100, 21)).toBe('SCORE 100/50000');
+    expect(formatSoloScore(100, 6)).not.toBe(formatSoloScore(100, 1));
+  });
+
+  it('⛔ and the LEADERBOARD ROW is enumerated mechanically, because it is not an exported function', () => {
+    /*
+     * The per-seat row is built inline inside a Pixi draw method, so no unit test can call it. ⚠ A
+     * source-text guard proves a line EXISTS and cannot prove it is REACHED — so this is deliberately
+     * MECHANICAL in the S182 sense: it counts every denominator site in the file and pins the total,
+     * so a fourth one cannot appear un-waved and an existing one cannot silently revert.
+     */
+    const ui = readFileSync(new URL('../render/ui.ts', import.meta.url), 'utf8');
+    const waved = ui.match(/winScoreForWave\(/g) ?? [];
+    expect(waved.length, 'formatTierBanner + formatSoloScore + the leaderboard row = 3 sites').toBe(3);
+    expect(
+      ui.includes('/${PHASE_1_WIN_SCORE}'),
+      'no denominator may read the fixed opening bar any more',
+    ).toBe(false);
+  });
+});
+
+describe('S186 — the HUNTER follows the bar, driven through the real host tick', () => {
+  it('⛔ does NOT fire at the wave-1 trigger when the match is on a higher band', () => {
+    /*
+     * The audit found every host-tick run stays inside wave 1, where `hunterTriggerScoreForWave`
+     * equals the old constant — so reverting `hostTick` to `HUNTER_TRIGGER_SCORE` kept the whole
+     * suite green while, in a wave-11 match, the hunter would fire at 1875 of a 10,000 bar (18.75 %
+     * instead of 75 %), spending the game's only anti-runaway mechanic in the opening minutes.
+     */
+    const world = board();
+    world.waveNumber = 11;
+    const above1875 = HUNTER_TRIGGER_SCORE + 100; // comfortably past the OLD trigger
+    expect(above1875).toBeLessThan(hunterTriggerScoreForWave(11)); // ...and short of the new one
+    world.scoreProgress = above1875;
+    world.scoreByPlayer.set(asPlayerId(0), above1875);
+
+    const d = {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(3)),
+      controls: { state: { kind: 'Idle' }, applyPerSubstep() {} },
+      botManager: null,
+      gameStateExtras: makeGameStateExtras(),
+      alivePeerIds: null,
+      hostSeats: new Map(),
+    } as unknown as HostTickDeps;
+    const st = makeHostTickState(world);
+    for (let t = 0; t < 120; t++) runHostTick(world, d, st);
+
+    expect(
+      world.hunterSpawned,
+      'at wave 11 the hunter must wait for 75% of the 10,000 bar, not 75% of the opening one',
+    ).toBe(false);
+  });
+
+  it('and it DOES fire once the current band’s 75% is reached', () => {
+    const world = board();
+    world.waveNumber = 11;
+    const at75 = hunterTriggerScoreForWave(11);
+    world.scoreProgress = at75;
+    world.scoreByPlayer.set(asPlayerId(0), at75);
+    const d = {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(3)),
+      controls: { state: { kind: 'Idle' }, applyPerSubstep() {} },
+      botManager: null,
+      gameStateExtras: makeGameStateExtras(),
+      alivePeerIds: null,
+      hostSeats: new Map(),
+    } as unknown as HostTickDeps;
+    const st = makeHostTickState(world);
+    for (let t = 0; t < 120; t++) runHostTick(world, d, st);
+    expect(world.hunterSpawned).toBe(true);
   });
 });
 

@@ -701,7 +701,43 @@ export type { NetSnapshot };
  * direction: the stale peer does not ignore the absence, it dereferences it. A v46 peer is refused
  * outright, which is exactly what this gate is for.
  */
-export const PROTOCOL_VERSION = 47 as const;
+/**
+ * ⛔⛔ S186 — **BUMPED 47 -> 48: THE RULES CHANGED WITHOUT THE WIRE CHANGING**, and that is the dangerous
+ * DIRECTION THIS FILE'S OWN HISTORY KEEPS RECORDING.**
+ *
+ * S186 shipped no new field, no new action and no new discriminant. Every value it added derives
+ * from `world.waveNumber`, which has been synced and hashed since S157 B8. By the letter of the
+ * additive-optional rule that costs nothing — and that reading is WRONG, for the same reason the
+ * `VOLTKIN_HP` and `attackRange` bumps were taken: **a SHARED CONSTANT both peers compute from is
+ * part of the protocol even though it never rides the wire.** Two builds that both advertise 47
+ * would pass `detectProtocolMismatch`, shake hands, and then disagree about the rules of the match.
+ *
+ * Three independent divergences, each sufficient on its own:
+ *
+ * 1. **THE VICTORY CONDITION.** `winScoreForWave` bands the win bar 2,500 → 50,000 by wave, and
+ *    `tickGameState` — which the CLIENT also runs (`main.ts`, for its local transitions) — gates on
+ *    it. A stale peer at wave 6 still believes 2,500 and declares a WIN the host has not. ⭐ This is
+ *    exactly the class of **S154 AMENDMENT C (32→33)**, whose own note reads *"plus a NEW VICTORY
+ *    CONDITION in tickGameState: a stale peer would keep playing a match the host has already
+ *    ended."* Same mechanism, opposite sign.
+ *
+ * 2. **THE SPAWN RATE.** `waveSpawnMultiplier` gained a band factor. ⭐ **S157 B8 (33→34) was taken
+ *    for precisely this**: *"the wave drives the quarry's spawn rate, so a v33 peer would compute a
+ *    different number of shapes than the host and diverge on the state hash."* S186 changed that
+ *    function's OUTPUT, so a v47 worker mirror computes a different spawn interval than a v48 host
+ *    — the identical failure, reached by changing the formula instead of the input.
+ *
+ * 3. **THE EVICTION SET.** `freeSparkSoftCapForWave` decides which sparks `enforceFreeSparkCap`
+ *    despawns. Two peers with different caps despawn different sparks and diverge on the hash.
+ *
+ * ⚠ **AND THE AUDIT IS WHAT CAUGHT THIS.** S186 shipped its four priorities claiming no bump was
+ * needed, reasoning only from "no new field". The end-of-session runtime audit constructed the
+ * concrete scenario — owner deploys, brother has yesterday's tab open, both advertise 47, the match
+ * reaches wave 6 — and it is a real one. ⛔ **THE LESSON FOR THE NEXT SESSION: the question is not
+ * "did a field change?" but "can two builds that will shake hands now disagree about anything either
+ * of them computes?"** A refused peer is the whole point of this gate.
+ */
+export const PROTOCOL_VERSION = 48 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -974,6 +1010,23 @@ export interface HelloMsg {
    * zero velocity — a settled board is unaffected, a mid-swing one settles instead of oscillating;
    * this widens the already-accepted migration gap that `save.ts` records for creatures.)
    *
+   * S186: 47->48 (THE RULES CHANGED WITHOUT THE WIRE CHANGING — owner's dynamic scoring spec. NO new
+   * field, NO new action, NO new discriminant: the win bar, the quarry's spawn rate and the
+   * free-spark cap all became functions of `world.waveNumber`, which has been synced since 33->34.
+   * ⛔ THE FIRST BUMP IN THIS LIST FOR A CHANGE THAT TOUCHED NO FIELD AT ALL, and it is the
+   * SHARED-CONSTANT class this list already records three times (`VOLTKIN_HP` 27->28, `attackRange`
+   * 31->32, `castleHp`'s absence meaning "use your own constant" 32->33): a value both peers COMPUTE
+   * is part of the protocol even when it never rides the wire. Two builds advertising 47 would pass
+   * `detectProtocolMismatch`, shake hands, and then disagree three ways — (a) `tickGameState`, which
+   * the CLIENT also runs, gates on `winScoreForWave`, so a stale peer at wave 6 declares a WIN the
+   * host has not, the exact mechanism of 32->33's *"a NEW VICTORY CONDITION in tickGameState"*;
+   * (b) `waveSpawnMultiplier` gained a band factor, so a stale worker mirror computes a different
+   * spawn interval — which is precisely why 33->34 was taken; (c) `freeSparkSoftCapForWave` decides
+   * which sparks are evicted, so two peers despawn different ones. ⚠ Found by the end-of-session
+   * audit AFTER the four priorities had shipped claiming no bump was needed, reasoning only from
+   * "no new field". The question is not *did a field change* but *can two builds that will shake
+   * hands disagree about anything either of them computes*.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1011,7 +1064,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 47;
+  readonly protoVersion: 48;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

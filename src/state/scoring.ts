@@ -264,6 +264,17 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
  */
 export function applyLeaderDecay(world: World, leaderId: PlayerId | null): void {
   if (world.gameMode === 'solo' || leaderId === null) return;
+  /*
+   * ⚠ S186 — DELIBERATELY STILL THE OPENING BAR, AND THAT IS A BUG THE MOMENT THIS IS RE-ENABLED.
+   *
+   * `LEADER_DECAY_ENABLED` is false (R28), so this cannot execute in production and S186 did not
+   * change it. But the S186 dynamic win bar made `PHASE_1_WIN_SCORE` the WAVE-1 value rather than
+   * "the win score": flip the flag on at wave 12 and the rubber-band would fire at 1875 — 18.75 % of
+   * the live 10,000 bar instead of the 75 % R28 describes — bleeding every seat for the rest of the
+   * match. ⛔ WHOEVER RE-ENABLES THIS MUST CHANGE THIS LINE TO `winScoreForWave(world.waveNumber)`
+   * in the same commit. Left as-is rather than silently retuned, because changing a dormant
+   * mechanic's behaviour without the owner asking is how a balance change ships unnoticed.
+   */
   const threshold = PHASE_1_WIN_SCORE * LEADER_DECAY_THRESHOLD_FRACTION;
   const leaderScore = world.scoreByPlayer.get(leaderId) ?? 0;
   if (leaderScore <= threshold) return;

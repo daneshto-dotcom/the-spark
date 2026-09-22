@@ -165,12 +165,19 @@ level five and then everyone can win at level five."* **A session that "fixes" t
 overtake a banked score is reversing this ruling** — `dynamicWinScore.test.ts` drives the real gate
 at waves 5 and 6 with the same 3,000 banked and asserts WIN then NOT-WIN.
 
-⭐ **IT COST NO WIRE CHANGE AT ALL, AND THAT IS WHY IT IS BUILT THIS WAY.** `world.waveNumber` was
-already hashed and already rode the wire additive-optionally (it drives the spawn rate), so both
-peers DERIVE the same bar from state they already agree on. No new field, no four-sites work, **no
-`PROTOCOL_VERSION` bump.** The bands are stored as MULTIPLIERS rather than absolute literals so the
-E2E `readTestWinScore()` seam still scales the whole ladder — absolutes would have set the seam to 50
-and left the sim demanding 5,000 from wave 6 on.
+⭐ **IT COST NO WIRE CHANGE.** `world.waveNumber` was already hashed and already rode the wire
+additive-optionally (it drives the spawn rate), so both peers DERIVE the same bar from state they
+already agree on: no new field and no four-sites work. The bands are stored as MULTIPLIERS rather
+than absolute literals so the E2E `readTestWinScore()` seam still scales the whole ladder — absolutes
+would have set the seam to 50 and left the sim demanding 5,000 from wave 6 on.
+
+⛔⛔ **BUT IT STILL EARNED A PROTOCOL BUMP, AND S186 GOT THIS WRONG BEFORE ITS OWN AUDIT CAUGHT IT.**
+The four priorities shipped claiming 47 was fine, reasoning only from *"no new field"*. `tickGameState`
+is run by **every peer, including the client**, and it gates on `winScoreForWave` — so two builds both
+advertising 47 would shake hands and then disagree about when the match ends. ⭐ **The precedent was
+already in `protocol.ts`, in as many words:** 39→40 says *"⛔ THE BUMP IS FOR THE RULE, NOT FOR THE
+FIELD … a v39 peer ends the match the instant ANY castle reaches zero, while a v40 host plays on …
+Both peers run that function."* Identical mechanism. **See §6 — the version is 48.**
 
 ⭐ **THE TICK ORDER MAKES HIS BOUNDARY EXACT FOR FREE.** The wave increments on the BUILD edge in
 `hostTick`, which runs BEFORE `tickScoring` (FIGHT-only, so it is skipped on the flip tick) and
@@ -287,11 +294,26 @@ goes after that leader's avatar.
 The owner reported he could not build in the bottom band. Two independent things stand on that
 ground, and **a session that finds only one of them will "fix" the wrong one**.
 
-**1 · The off-screen rule.** `blueprintLegality` keeps a stamp's whole FOOTPRINT on the canvas. So a
-recipe's dead band equals its own half-height: 64 px for a laser turret, 80 px for a tier-9 boss
-tower. ⛔ **It is SYMMETRICAL — the same band is dead at the TOP and on both SIDES.** It only reads as
-a bottom problem because `FOOTER_TOP_Y` is 996, so that band lies under the menu while the identical
-band at the top is empty sky.
+**1 · The off-screen rule.** `blueprintLegality` keeps a stamp's whole FOOTPRINT on the canvas, so
+every recipe has a dead band at the top, the bottom AND both sides. ⛔ **IT IS NOT A BOTTOM RULE** —
+it only reads as one because `FOOTER_TOP_Y` is 996, so the bottom band lies under the menu while the
+band at the top is empty sky nobody tries to build in.
+
+⚠ **BUT THE FOUR BANDS ARE NOT THE SAME SIZE, AND S186 FIRST GOT THIS WRONG.** Most recipes are
+vertically ASYMMETRIC, so the top band and the bottom band differ:
+
+| recipe | top | bottom | side |
+|---|---:|---:|---:|
+| tier-3 race tower | 46 | **29** | 41.4 |
+| stink tower | 56 | **34** | 50.1 |
+| pentagram | 52 | **44.4** | 50.0 |
+| lightning hub | 56 | **47.6** | 53.8 |
+| laser turret · Helga · goblin tower | 56 | 56 | 50.1 |
+| tier-9 boss tower | 76 | **72.1** | 75.0 |
+
+Exactly four of the nineteen are vertically symmetric — and the **laser turret is one of them**, which
+is exactly how "symmetrical" got written onto this page from a single measurement.
+`buildableEdges.test.ts` prints the real table and asserts the set stays mixed.
 
 ⭐ **S186 gave back the 8 px that were free**: `EDGE_PAD` 8 → 0, on all four sides, for all 19
 recipes. The old 8 was an aesthetic borrowed from a panel (*"matching the panel's 8 px canvas
@@ -338,11 +360,26 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **47**. A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **48**. A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
 
-⚠ **PROTOCOL 47 CARRIES TWO CHANGES FROM TWO PARALLEL BRANCHES.** Both are recorded below.
+⛔⛔ **S186 TOOK 47 → 48 FOR A CHANGE THAT TOUCHED NO FIELD AT ALL — THE FIRST IN THIS REPO'S
+HISTORY, AND THE ONE EVERY FUTURE SESSION SHOULD READ.** S186 rebanded the win score, the quarry's
+spawn rate and the free-spark cap. All three derive from `world.waveNumber`, which has been synced
+since 33→34, so by the letter of the additive-optional rule the change was free — and that reading
+was WRONG. ⭐ **A SHARED CONSTANT BOTH PEERS COMPUTE FROM IS PART OF THE PROTOCOL EVEN THOUGH IT
+NEVER RIDES THE WIRE**, which is the class `VOLTKIN_HP` (27→28), `attackRange` (31→32) and
+`castleHp` (32→33) were all bumped for. Two builds advertising 47 would shake hands and then
+disagree three ways: `tickGameState` — **which the CLIENT also runs** — gates on `winScoreForWave`,
+so a stale peer at wave 6 declares a WIN the host has not (the exact mechanism of 32→33's *"a NEW
+VICTORY CONDITION in tickGameState"*); a stale worker mirror computes a different spawn interval
+(precisely why 33→34 was taken); and the two evict different free sparks. ⚠ **It was found by the
+end-of-session audit, AFTER the four priorities had shipped claiming no bump was needed** — the
+reasoning had stopped at "no new field". **The question is not *did a field change*, it is *can two
+builds that will shake hands disagree about anything either of them computes*.**
+
+⚠ **PROTOCOL 47 CARRIED TWO CHANGES FROM TWO PARALLEL BRANCHES.** Both are recorded below.
 
 ⭐ **S182 took 46 → 47 for exactly that second reason**, and it is the worked example: the owner
 reported *"Voltkin music and electric beams"* on his zombie boss. The beams were a stale negation
@@ -681,7 +718,11 @@ rank worse.** Whoever builds H has to normalise for difficulty or the board stop
 `creatures/retaliation.ts`, called from `damageEntity` and nowhere else, so no strike path can
 implement it differently or forget it. **No new field and no protocol bump**: it writes the
 existing `Creature.targetCreatureId` / `Defender.targetCreatureId`, which is why `PROTOCOL_VERSION`
-stays 47.
+needed no bump of its own. ⚠ S186 — this sentence used to read *"which is why `PROTOCOL_VERSION`
+stays 47"*, and S186 moved the version for an unrelated reason (see §6). The claim that matters is
+unchanged and is now stated as itself: **retaliation added NO serialized field and NO new
+discriminant**, so it never owed a bump. Pinning it to a version literal made a static fact look
+like it had changed.
 
 | ruling | what the code does |
 |---|---|

@@ -121,16 +121,30 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it('⛔ surfaces that the castle pool no longer matches the points race', () => {
     // CASTLE_MAX_HP's own docblock claims equality with PHASE_1_WIN_SCORE. That is now only true
     // for waves 1-5, and the canon must say so rather than let him find it mid-match.
-    expect(CASTLE_MAX_HP).toBe(PHASE_1_WIN_SCORE);
+    /*
+     * ⚠ THIS USED TO ASSERT `CASTLE_MAX_HP === PHASE_1_WIN_SCORE`, which turns a coincidence into an
+     * invariant R88 never granted: a future owner retune of the OPENING bar would then red a castle
+     * assertion, and the tempting green would be to move the castle pool with it — retuning every
+     * castle relationship S181 measured. What matters is the CONSEQUENCE, so that is what is pinned.
+     */
     expect(winScoreForWave(6)).toBeGreaterThan(CASTLE_MAX_HP);
     expect(canonSays('castle-rush becomes the correct')).toBe(true);
   });
 
-  it('records that the dynamic bar cost NO protocol bump, and the reason', () => {
-    // It derives from a field that was already hashed for the spawn rate. If a future session adds
-    // a wire field for it, this red flag says the cheaper path already existed.
-    expect(canonSays('No new field, no four-sites work')).toBe(true);
-    expect(canonSays('already hashed')).toBe(true);
+  it('⛔ records that the dynamic bar cost no FIELD but DID earn a protocol bump', () => {
+    /*
+     * ⛔ THIS TEST USED TO PIN THE OPPOSITE, AND IT WAS GREEN OVER A REAL DEFECT — the exact
+     * S182-lesson-2 shape. It asserted the canon said "no PROTOCOL_VERSION bump", which was the
+     * conclusion S186 reached from "no new field" and which its own end-of-session audit refuted:
+     * `tickGameState` runs on every peer and gates on `winScoreForWave`, so two builds advertising
+     * 47 would shake hands and disagree about when the match ends. The canon now carries the
+     * correction AND the 39->40 precedent that was already in protocol.ts when the wrong call was
+     * made, so the next session inherits the reasoning rather than the mistake.
+     */
+    expect(canonSays('no new field and no four-sites work')).toBe(true);
+    expect(canonSays('IT STILL EARNED A PROTOCOL BUMP')).toBe(true);
+    expect(canonSays('THE BUMP IS FOR THE RULE, NOT FOR THE')).toBe(true);
+    expect(PROTOCOL_VERSION).toBe(48);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -165,10 +179,15 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('THERE IS EXACTLY ONE QUARRY FOR THE WHOLE TABLE')).toBe(true);
   });
 
-  it('⭐ §4b — the edge rule: symmetrical, and bounded by a ground attacker’s reach', () => {
+  it('⭐ §4b — the edge rule: NOT a bottom rule, and bounded by a ground attacker’s reach', () => {
     // ⛔ The two facts a session must not re-derive: the bottom is NOT special, and the thing that
     // stops the rule going further is that a tower below 1075 cannot be attacked at all.
-    expect(canonSays('It is SYMMETRICAL')).toBe(true);
+    // ⛔ THIS USED TO ASSERT canonSays('It is SYMMETRICAL'), AND THE CANON SAID IT BECAUSE I
+    // GENERALISED FROM THE ONE RECIPE I HAD MEASURED. 15 of 19 are vertically asymmetric (a tier-3
+    // tower is 46 top / 29 bottom); the laser turret I measured happens to be 56/56. The claim that
+    // survives is that the rule is NOT a bottom rule, which is what actually matters to a reader.
+    expect(canonSays('IT IS NOT A BOTTOM RULE')).toBe(true);
+    expect(canonSays('THE FOUR BANDS ARE NOT THE SAME SIZE')).toBe(true);
     expect(canonSays('the lowest strikeable y')).toBe(true);
     // Derived, so a retune of either constant moves the canon with it.
     expect(CANVAS_HEIGHT - WORLD_EDGE_MARGIN + 35).toBe(1075);
@@ -436,8 +455,15 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   it('§9b records that retaliation cost no protocol bump, and that is still true', () => {
-    expect(canonSays('stays 47')).toBe(true);
-    expect(PROTOCOL_VERSION).toBe(47);
+    /*
+     * ⚠ S186 — THIS USED TO ASSERT `PROTOCOL_VERSION === 47` TO PROVE A CLAIM ABOUT RETALIATION, so
+     * S186's bump (taken for the dynamic win bar, nothing to do with retaliation) turned it red and
+     * the tempting green would have been to edit the number — quietly re-pinning an unrelated fact to
+     * the next version, and the next. The claim is STATIC: retaliation added no serialized field and
+     * no new discriminant, so it never owed a bump. That is what is asserted now.
+     */
+    expect(canonSays('retaliation added NO serialized field and NO new')).toBe(true);
+    expect(canonSays('needed no bump of its own')).toBe(true);
   });
 
   /**

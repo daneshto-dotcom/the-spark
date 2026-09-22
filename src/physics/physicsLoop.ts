@@ -149,7 +149,10 @@ export function stepPhysics(
   }
 
   // S109 P1 — TTL reap runs BEFORE the count-cap so a 10s-old Free spark always despawns
-  // regardless of how many are live (the cap only fires past FREE_SPARK_SOFT_CAP).
+  // regardless of how many are live (the cap only fires past the wave's ceiling).
+  //
+  // ⚠ S186 — this line used to name `FREE_SPARK_SOFT_CAP` as that ceiling. It is now the FLOOR of
+  // one: `freeSparkSoftCapForWave` scales with the faucet, to `FREE_SPARK_POOL_CEILING` (96).
   reapExpiredFreeSparks(world);
   enforceFreeSparkCap(world);
 

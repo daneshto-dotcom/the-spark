@@ -73,7 +73,17 @@ const mono = (chars: number, size: number): number => Math.ceil(chars * size * A
  */
 const TOP_BAR = winScoreForWave(WIN_SCORE_BANDS[WIN_SCORE_BANDS.length - 1]!.lastWave);
 const BAR_DIGITS = String(TOP_BAR).length;
-const WIDEST_ROW = mono(4 + (BAR_DIGITS * 2 + 1) + 5, 16);
+/*
+ * ⚠ S186 AUDIT — THE PREFIX IS FIVE CHARACTERS, NOT FOUR. The first version of this line counted
+ * `>` + `*` + `B7` as 4 and forgot the SPACE before the score, making the modelled row one glyph
+ * narrower than the string `drawMultiplayerHUD` actually builds. The bound stayed conservative only
+ * because `ADVANCE` (0.6) is itself deliberately wider than the measured live advance — i.e. one
+ * safety margin was quietly paying for another's arithmetic error. Each term is named now so the
+ * next retune cannot repeat it.
+ */
+const ROW_PREFIX = '>'.length + '*'.length + 'B7'.length + ' '.length; // 5
+const ROW_SUFFIX = ' <YOU'.length; // 5
+const WIDEST_ROW = mono(ROW_PREFIX + (BAR_DIGITS * 2 + 1) + ROW_SUFFIX, 16);
 
 /**
  * `TIER 100  —  50000/50000` at 26 px — the longest milestone label `formatTierBanner` can emit.

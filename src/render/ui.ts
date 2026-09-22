@@ -786,7 +786,10 @@ export class HUD {
    * pulses at 500 and 1000", and BOTH halves were stale: the target went 1500→2500 in S177 (five
    * acts, not three), and in S186 it stopped being a constant at all — `winScoreForWave` bands it
    * 2500→50,000, so the top band is 100 tier pulses. The tier ladder is still exact at every band
-   * because each one is a whole multiple of `SCORE_TIER_STEP`; `dynamicWinScore.test.ts` pins that. The v0.6 diagnosis is that nobody can
+   * because each band is a whole multiple of `SCORE_TIER_STEP`. ⚠ An earlier version of this line
+   * credited `dynamicWinScore.test.ts` with pinning that, and it does not — the exactness invariant
+   * lives in `ui.tierBanner.test.ts` ("the shipped constants really do give an exact tier
+   * structure"). A citation to a test that does not contain the assertion is worse than none. The v0.6 diagnosis is that nobody can
    * feel it. The pulse itself is not missing — `drawScoreTier` renders a ring + bloom for 48
    * ticks (0.8 s) — but it draws in WORLD space at the placement position, on an open and
    * partly fogged canvas, so it reads as "some effect happened" rather than "I crossed a

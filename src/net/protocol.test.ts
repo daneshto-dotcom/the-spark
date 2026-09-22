@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 47 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 48 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -90,7 +90,13 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // paragraphs up ("all three of the others said 'is 17' while asserting 18"). Site 5 of the
     // checklist says "this number **and its test title**" for exactly this reason. A title is what a
     // human reads when deciding whether the pin is current, so a stale one is worse than none.
-    expect(PROTOCOL_VERSION).toBe(47);
+    // ⭐ S186 — 47 → 48, AND IT IS THE FIRST BUMP IN THIS REPO TAKEN FOR A CHANGE THAT TOUCHED NO
+    // FIELD AT ALL. S186 rebanded the win score, the spawn rate and the free-spark cap; all three are
+    // SHARED CONSTANTS both peers compute from `world.waveNumber`, so two builds advertising 47 would
+    // shake hands and then disagree about when the match ends and how many shapes exist. See the
+    // JSDoc on the const for the three divergences and the two precedents (32→33 for a new victory
+    // condition, 33→34 because the wave drives the spawn rate).
+    expect(PROTOCOL_VERSION).toBe(48);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {

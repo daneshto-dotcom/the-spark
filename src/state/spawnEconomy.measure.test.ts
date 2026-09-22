@@ -165,6 +165,27 @@ describe('S186 — what the quarry actually delivers, wave by wave', () => {
     ).toBeLessThanOrEqual(FREE_SPARK_TTL_TICKS + PHYSICS_HZ);
   });
 
+  it('⛔ the WIRED cap really governs the pool — measured, not just computed', () => {
+    /*
+     * ⛔ THE AUDIT FOUND THIS MISSING AND IT IS THE ONE THAT MATTERS. The test below asserts the
+     * FUNCTION returns the right numbers; nothing asserted that `physicsLoop` actually calls it. So
+     * reverting `enforceFreeSparkCap` to the fixed `FREE_SPARK_SOFT_CAP` left the whole suite green
+     * — including the test literally titled "the cap tracks the faucet instead of throttling it" —
+     * while the measured wave-20 peak of 96 was clipped back to 24 and the fixed cap became exactly
+     * the throttle its own docblock says it must not be.
+     *
+     * This drives the real loop and requires the standing pool to EXCEED the old fixed cap.
+     */
+    const r = runWave(20);
+    expect(
+      r.peakPool,
+      'at wave 20 the pool must be allowed past the old fixed 24, or the cap is still the throttle',
+    ).toBeGreaterThan(FREE_SPARK_SOFT_CAP);
+    expect(r.peakPool).toBeLessThanOrEqual(freeSparkSoftCapForWave(20));
+    // ...and wave 1 must still be governed by the original number, unchanged.
+    expect(runWave(1).peakPool).toBeLessThanOrEqual(FREE_SPARK_SOFT_CAP);
+  });
+
   it('⚠ the cap tracks the faucet instead of throttling it, and stays inside its perf ceiling', () => {
     // Wave 1 must be byte-unchanged — the floor is today's constant.
     expect(freeSparkSoftCapForWave(1)).toBe(FREE_SPARK_SOFT_CAP);

@@ -834,30 +834,38 @@ export const SPARK_INITIAL_VELOCITY_MAX = 12;
 export const FREE_SPARK_SOFT_CAP = 24;
 
 /**
- * ââ S186 â **THE CAP HAD TO MOVE WITH THE RATE, OR THE STEP-UP WOULD HAVE BEEN PARTLY IMAGINARY.**
+ * ⛔⛔ S186 — **THE CAP HAD TO MOVE WITH THE RATE, OR THE STEP-UP WOULD HAVE BEEN PARTLY IMAGINARY.**
  *
  * Its docblock above calls 24 a **safety valve rather than a throttle**, sized so *"ordinary play
  * never touches it"* against a measured p95 of 15 and a peak of 18 at the wave-1 faucet. The S186
  * band step-up raises the faucet, so a fixed 24 would have silently become the throttle the constant
  * explicitly says it must not be.
  *
- * â­ **AND IT IS EXACTLY THE MOMENT HE COMPLAINED ABOUT.** The pool only approaches its idle
- * steady state when nothing is consuming â which is precisely the BUILD whistle, when the whole
+ * ⭐ **AND IT IS EXACTLY THE MOMENT HE COMPLAINED ABOUT.** The pool only approaches its idle
+ * steady state when nothing is consuming — which is precisely the BUILD whistle, when the whole
  * fleet is released on one tick and spends ~5 s walking ~870 px to the quarry. A cap of 24 truncates
  * the buffer that would have been waiting for them. Raising it with the rate is what puts shapes on
  * the ground when they arrive.
  *
- * SIZED, NOT GUESSED: the idle steady state is Little's Law, `Î»(wave) Ã TTL`. This returns exactly
+ * SIZED, NOT GUESSED: the idle steady state is Little's Law, `λ(wave) × TTL`. This returns exactly
  * that, floored at today's 24 so **wave 1 is byte-unchanged**.
  *
- * â  **THE CEILING IS A PERFORMANCE BOUND AND IS MINE.** `render/renderer.ts` syncs one display
- * object per free spark and `state/vortex.ts` runs an O(freeSparks Ã anchors) pull scan, whose note
- * says to *"revisit only if the free-spark cap is ever raised by an order of magnitude"*. 96 is 4Ã,
- * deliberately inside that tolerance. â It caps the standing POOL, never the arrival RATE â the
+ * ⚠ **THE CEILING IS A PERFORMANCE BOUND AND IS MINE.** `render/renderer.ts` syncs one display
+ * object per free spark and `state/vortex.ts` runs an O(freeSparks × anchors) pull scan, whose note
+ * says to *"revisit only if the free-spark cap is ever raised by an order of magnitude"*. 96 is 4×,
+ * deliberately inside that tolerance. ⛔ It caps the standing POOL, never the arrival RATE — the
  * owner's S157 *"dont cap"* ruling is about the rate and is untouched.
  */
 export const FREE_SPARK_POOL_CEILING = 96;
 
+/*
+ * ⚠ S186 AUDIT — STRICTLY, THIS IS NOT A PURE FUNCTION OF SYNCED STATE: it also reads
+ * `SPAWN_RATE_PER_SECOND`, which is itself `readTestSpawnRate() ?? 1.125` and therefore a
+ * module-init `window` seam. ⭐ IT ADDS NO NEW EXPOSURE, and that is why it is left alone: the same
+ * constant already feeds `spawner.tick` directly, so if that seam ever diverged between the host page
+ * and the `?worker=1` worker, the SPAWN STREAM would diverge first and far more loudly than the
+ * eviction set. Named here so a future divergence hunt does not have to rediscover the coupling.
+ */
 export function freeSparkSoftCapForWave(waveNumber: number): number {
   const idleSteadyState = Math.ceil(
     SPAWN_RATE_PER_SECOND * waveSpawnMultiplier(waveNumber) * (FREE_SPARK_TTL_TICKS / PHYSICS_HZ),
@@ -1250,6 +1258,15 @@ export const HUNTER_TRIGGER_SCORE =
  * `stateHashFull` covers — and it would be invisible to vitest, because jsdom gives every suite one
  * shared `window`. Hoisting the read matches exactly what `HUNTER_TRIGGER_SCORE` and
  * `PHASE_1_WIN_SCORE` already do one line above and below.
+ *
+ * ⚠ **AND IT DOES NOT MAKE THE SEAM WORKER-SAFE — IT ONLY STOPS THIS FUNCTION MAKING IT WORSE.**
+ * The S186 audit corrected an earlier version of this paragraph that claimed otherwise. Under the
+ * E2E override the MAIN THREAD still captures the seam value while the WORKER captures `null` and
+ * derives, so the two still differ — exactly as they already do for `HUNTER_TRIGGER_SCORE` and
+ * `PHASE_1_WIN_SCORE`. What hoisting buys is that the read is no longer PER TICK, which is the part
+ * this function introduced. ⛔ The seam split is pre-existing and unfixed: if `?worker=1` is ever
+ * made default-on, or a hunter spec is run with it, THIS is the hypothesis to check first. It is
+ * benign today only because no `?worker=1` spec sets `__TEST_HUNTER_TRIGGER_SCORE__`.
  */
 const HUNTER_TRIGGER_OVERRIDE = readTestHunterTriggerScore();
 
@@ -1623,29 +1640,29 @@ export const CHEWER_MAX_PER_VICTIM = 10_000; // was dead code (never passed a vi
 export const WAVE_SPAWN_RATE_STEP = 0.2;
 
 /**
- * â­â­ S186 (owner) â **THE RAMP GETS A STEP-UP AT EACH OF HIS FOUR BOUNDARIES.**
+ * ⭐⭐ S186 (owner) — **THE RAMP GETS A STEP-UP AT EACH OF HIS FOUR BOUNDARIES.**
  *
  * Owner, S186: *"we already kind of did that, we implemented that a while ago. But every wave the
- * primitives need to be spawned quicker and quicker. So far it does that but not fast enough â
+ * primitives need to be spawned quicker and quicker. So far it does that but not fast enough —
  * because at wave like six or seven all your gatherers are waiting in line and not moving until the
  * shapes come up. So we need that too, like significantly faster: after wave 5, then after wave 10
  * even more, even faster after 15, even faster after 20."*
  *
- * â **THIS LAYERS ON THE S157 LINEAR RAMP, IT DOES NOT REPLACE IT.** His S157 ruling (*"wave 1 is
- * normal. wave 2 is 1.2. wave 3 is 1.4x faster"*) is still exactly what waves 1â5 do, and his
- * *"dont cap"* still holds â the linear term keeps climbing past wave 25, so the product is
+ * ⛔ **THIS LAYERS ON THE S157 LINEAR RAMP, IT DOES NOT REPLACE IT.** His S157 ruling (*"wave 1 is
+ * normal. wave 2 is 1.2. wave 3 is 1.4x faster"*) is still exactly what waves 1–5 do, and his
+ * *"dont cap"* still holds — the linear term keeps climbing past wave 25, so the product is
  * unbounded. A session that replaces the linear base, or clamps the RATE, is reversing a live ruling.
  *
- * â  **THE FACTORS ARE MINE, NOT HIS. HE GAVE THE SHAPE, NOT THE NUMBERS.** They are sized off a
+ * ⚠ **THE FACTORS ARE MINE, NOT HIS. HE GAVE THE SHAPE, NOT THE NUMBERS.** They are sized off a
  * measurement rather than taste, and `spawnEconomy.measure.test.ts` re-runs it:
  *
- * Â· One shared quarry serves the whole table (`main.ts` builds exactly one `Spawner`), so
+ * · One shared quarry serves the whole table (`main.ts` builds exactly one `Spawner`), so
  *   `SPAWN_RATE_PER_SECOND` 1.125 is a BOARD-WIDE faucet, not a per-seat one.
- * Â· One fully-upgraded gatherer delivers ~0.227 shapes/s; un-upgraded, ~0.09.
- * Â· So at wave 6 the old 2.25/s fed about **ten** upgraded gatherers for the entire table â two or
+ * · One fully-upgraded gatherer delivers ~0.227 shapes/s; un-upgraded, ~0.09.
+ * · So at wave 6 the old 2.25/s fed about **ten** upgraded gatherers for the entire table — two or
  *   three per seat. That is the crossover, and it lands exactly on his *"wave like six or seven"*.
  *
- * Ã1.6 at wave 6 takes the faucet to 3.6/s, which feeds ~16 upgraded haulers â the fleet he and his
+ * ×1.6 at wave 6 takes the faucet to 3.6/s, which feeds ~16 upgraded haulers — the fleet he and his
  * brother actually had. Each later band adds another 0.6 to the factor, so every boundary is a
  * bigger jump in absolute shapes/s than the one before it: *"even faster, even faster."*
  */
@@ -1658,7 +1675,7 @@ export const WAVE_SPAWN_BANDS: ReadonlyArray<{ readonly lastWave: number; readon
 ];
 
 /**
- * The band step-up for a wave. Past the last band the FACTOR plateaus â but the linear term above
+ * The band step-up for a wave. Past the last band the FACTOR plateaus — but the linear term above
  * does not, so the RATE still rises every wave forever, which is what his *"dont cap"* ruling
  * requires. Total by construction, for the same reason `winScoreMultiplierForWave` is.
  */
@@ -2118,12 +2135,12 @@ export const ARMY_RETREAT_LEAD_TICKS = 180;
  * two victory conditions are meant to feel like equal-length races (*"castle OR 1500 points wins"*),
  * so one shared magnitude says that better than two tuned ones.
  *
- * â ï¸ **S186 â THAT EQUALITY NOW HOLDS ONLY FOR WAVES 1â5, AND IT IS LEFT THAT WAY ON PURPOSE.**
- * `WIN_SCORE_BANDS` made the points race climb 2,500 â 50,000 while this pool stayed 2,500, so the
+ * ⚠️ **S186 — THAT EQUALITY NOW HOLDS ONLY FOR WAVES 1–5, AND IT IS LEFT THAT WAY ON PURPOSE.**
+ * `WIN_SCORE_BANDS` made the points race climb 2,500 → 50,000 while this pool stayed 2,500, so the
  * longer a match runs the more decisively **castle-rush becomes the correct strategy**. Not changed:
  * he did not ask, R88 pins ONE castle constant for every seat, and moving it would retune every
- * castle relationship measured in S181. Recorded in `SPARK_CANON.md` Â§3b as a consequence of his own
- * spec rather than absorbed silently â so a future session reading the sentence above does not
+ * castle relationship measured in S181. Recorded in `SPARK_CANON.md` §3b as a consequence of his own
+ * spec rather than absorbed silently — so a future session reading the sentence above does not
  * "restore" a coupling by raising this number.
  *
  * ⛔ ONE CONSTANT FOR EVERY SEAT, AND IT MUST STAY THAT WAY FOR NOW. Owner ruling R88, restated in

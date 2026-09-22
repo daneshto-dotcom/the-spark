@@ -224,6 +224,18 @@ function isPosShape(pos: unknown): pos is Vec2 {
  * it. The bank is where a shape pulled out of the castle came from, so returning it there is the
  * outcome that costs him nothing.
  *
+ * ⚠ **AND IT BANKS ANY CARRIED SHAPE, INCLUDING ONE NEVER TAKEN FROM A CASTLE — SAID PLAINLY HERE
+ * BECAUSE THE SENTENCE ABOVE DOES NOT COVER THAT CASE.** A player can `PICKUP_SPARK` a loose shape
+ * off the quarry floor, so holding one across a whistle deposits it without the gatherer haul. The
+ * S186 audit raised this as an exploit and it is real but small: it yields ONE shape per crossing,
+ * costs the player those build seconds, and needs deliberate timing every wave.
+ *
+ * ⛔ **NOT NARROWED, ON PURPOSE.** Distinguishing "stuck" from "deliberately held" needs a
+ * carrying-since tick — a new serialized field, the four-sites treatment and a protocol bump — to
+ * police a one-shape edge. His ruling was "a shape still in hand goes to the bank", without a
+ * provenance clause, and inventing one is a balance decision he has not been asked for. Recorded
+ * here and in the handoff rather than silently either way.
+ *
  * ⭐⭐ **AND BANKING IS WHY THIS NEEDS NO CLIENT-SIDE COMPANION FIX, WHICH DROPPING WOULD HAVE.**
  * The local `ControlState` is NOT world state, so the host cannot clear it. But banking DELETES the
  * spark from `world.freeSparks`, and `applyControlsPerSubstep` recomputes `mine` from exactly that

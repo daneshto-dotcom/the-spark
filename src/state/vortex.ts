@@ -64,6 +64,13 @@ export function applyVortexPull(world: World, attractedId: SparkId | null = null
   // are a handful, so this is ~O(50 × few) per tick. A SpatialGrid lookup would add overhead +
   // its own determinism surface for no measurable win. Justified deviation; revisit only if the
   // free-spark cap is ever raised by an order of magnitude.
+  //
+  // ⚠ S186 — THE BOUND THIS NOTE CITES HAS MOVED, AND THE NOTE IS KEPT ONLY BECAUSE ITS CONCLUSION
+  // STILL HOLDS. The cap is no longer a fixed 24: `freeSparkSoftCapForWave` scales it with the wave,
+  // to a ceiling of `FREE_SPARK_POOL_CEILING` (96). That is 4x, deliberately chosen to stay INSIDE
+  // this note's own "order of magnitude" tolerance — but a perf session profiling this scan at a
+  // high wave must budget against 96, not 24, and the measured peak pool at waves 20 and 25 is
+  // exactly 96 (saturated). If the ceiling is ever raised again, this is the note that says stop.
   for (const spark of world.freeSparks.values()) {
     if (spark.state.kind !== 'Free') continue; // carried/placed sparks are not free to pull
     if (attractedId !== null && spark.id === attractedId) continue; // don't fight the player's drag

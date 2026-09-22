@@ -59,3 +59,6 @@ test-results-*/
 assets-source/**/.req-*.json
 assets-source/**/.resp-*.json
 assets-source/**/*.raw
+
+# S186 - local gate logs (captured $? output). Never commit: stale, large, and invisible to git diff.
+.tmp-gates/

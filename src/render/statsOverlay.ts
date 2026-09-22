@@ -7,6 +7,7 @@
  * press ~ (or `) to toggle. EMA smoothing damps single-frame spikes.
  */
 
+import { freeSparkSoftCapForWave } from '../constants.ts';
 import { Application, Text, TextStyle } from 'pixi.js';
 import {
   FREE_SPARK_SOFT_CAP,
@@ -54,6 +55,8 @@ export class StatsOverlay {
   private framesSinceFps = 0;
   private sparkCount = 0;
   private freeSparkCount = 0;
+  /** S186 — the live, wave-dependent ceiling; see `recordWorld`. Opening value = the wave-1 cap. */
+  private freeSparkCap: number = FREE_SPARK_SOFT_CAP;
   private primitiveCount = 0;
   private bondCount = 0;
   private worstStrain = 0;
@@ -108,6 +111,15 @@ export class StatsOverlay {
       if (s.state.kind === 'Free') free++;
     }
     this.freeSparkCount = free;
+    /*
+     * ⛔ S186 — THE CAP IS A FUNCTION OF THE WAVE NOW, SO THE DENOMINATOR HAD TO FOLLOW.
+     *
+     * This read `FREE_SPARK_SOFT_CAP` (24) directly, so from wave 6 on the overlay printed a
+     * denominator up to 4x wrong AND raised its `!` warning permanently — at wave 20 it would have
+     * read `free 96/24 !` for the whole match. A perf overlay that cries wolf gets ignored, and then
+     * its REAL warnings get ignored with it.
+     */
+    this.freeSparkCap = freeSparkSoftCapForWave(world.waveNumber);
     this.primitiveCount = world.primitives.size;
     this.bondCount = world.bonds.size;
     this.effectsCount = effectsActive;
@@ -129,7 +141,7 @@ export class StatsOverlay {
     const physBad = this.physicsMs > PHYSICS_BUDGET_MS;
     const renderBad = this.renderMs > RENDER_BUDGET_MS;
     const fpsBad = this.fps > 0 && this.fps < FPS_TARGET - 2;
-    const capBad = this.freeSparkCount >= FREE_SPARK_SOFT_CAP;
+    const capBad = this.freeSparkCount >= this.freeSparkCap;
     const strainBad = this.worstStrain > 0.7;
 
     this.text.text =
@@ -137,7 +149,7 @@ export class StatsOverlay {
       `phys     ${this.physicsMs.toFixed(2).padStart(5, ' ')} ms ${physBad ? '!' : ' '} (≤ ${PHYSICS_BUDGET_MS})\n` +
       `render   ${this.renderMs.toFixed(2).padStart(5, ' ')} ms ${renderBad ? '!' : ' '} (≤ ${RENDER_BUDGET_MS})\n` +
       `entities ${this.sparkCount}\n` +
-      `free     ${this.freeSparkCount.toString().padStart(2, ' ')}/${FREE_SPARK_SOFT_CAP}${capBad ? ' !' : ''}\n` +
+      `free     ${this.freeSparkCount.toString().padStart(3, ' ')}/${this.freeSparkCap}${capBad ? ' !' : ''}\n` +
       `prims    ${this.primitiveCount}\n` +
       `bonds    ${this.bondCount}\n` +
       `strain   ${this.worstStrain.toFixed(2)}${strainBad ? ' !' : ''}\n` +
