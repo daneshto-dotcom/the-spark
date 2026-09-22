@@ -148,14 +148,27 @@ describe('stampRefusalAt', () => {
 
   it.each(ALL_BLUEPRINT_IDS)('%s: every canvas edge is refused by footprint', (id) => {
     const w = setup();
-    const r = blueprintRadius(id);
+    /*
+     * ⛔ S186 — RE-DERIVED FROM `blueprintExtent`, AND THE OLD FORM WAS A LATENT TEST BUG THAT THE
+     * `EDGE_PAD` CHANGE EXPOSED RATHER THAN CAUSED.
+     *
+     * The fifth probe used `blueprintRadius(id)` — the CIRCUMRADIUS — while the rule it probes uses
+     * `blueprintExtent(id).minDx`, the true horizontal reach. Where a recipe's widest arm is not its
+     * longest the two differ (laserTurret: circumradius 56 vs minDx −50.105), so at a pad of 8 the
+     * probe landed outside the legal area anyway and the mismatch never showed. At pad 0 it stops
+     * refusing for NINE of nineteen recipes — the six tier-3 race towers, stinkTower, laserTurret and
+     * helga — not because the rule regressed but because the probe was in the wrong place.
+     *
+     * Now derived from the same function the rule uses, so the two cannot drift apart again.
+     */
+    const minDx = blueprintExtent(id).minDx;
     for (const centre of [
       { x: 2, y: 300 },
       { x: CANVAS_WIDTH - 2, y: 300 },
       { x: 300, y: 2 },
       { x: 300, y: CANVAS_HEIGHT - 2 },
-      // One radius INSIDE the edge minus a hair — the case a centre-only check would wrongly allow.
-      { x: r - 4, y: 300 },
+      // The outermost NODE one hair outside the edge — what a centre-only check would wrongly allow.
+      { x: -minDx - 4, y: 300 },
     ]) {
       expect(stampRefusalAt(w, centre, P0, id)).toBe('OFF SCREEN');
     }

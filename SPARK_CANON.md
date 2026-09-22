@@ -282,6 +282,46 @@ goes after that leader's avatar.
 
 ---
 
+## 4b · ⭐ WHERE A TOWER MAY BE PLACED — THE EDGE RULE (S186)
+
+The owner reported he could not build in the bottom band. Two independent things stand on that
+ground, and **a session that finds only one of them will "fix" the wrong one**.
+
+**1 · The off-screen rule.** `blueprintLegality` keeps a stamp's whole FOOTPRINT on the canvas. So a
+recipe's dead band equals its own half-height: 64 px for a laser turret, 80 px for a tier-9 boss
+tower. ⛔ **It is SYMMETRICAL — the same band is dead at the TOP and on both SIDES.** It only reads as
+a bottom problem because `FOOTER_TOP_Y` is 996, so that band lies under the menu while the identical
+band at the top is empty sky.
+
+⭐ **S186 gave back the 8 px that were free**: `EDGE_PAD` 8 → 0, on all four sides, for all 19
+recipes. The old 8 was an aesthetic borrowed from a panel (*"matching the panel's 8 px canvas
+inset"*), not a safety margin. `FOOTPRINT_MARGIN` (12) is untouched, so a node at the boundary is
+still drawn in full.
+
+⛔ **AND THIS IS THE CONSTRAINT THAT BOUNDS ANYTHING FURTHER.** A creature clamps at
+`CANVAS_HEIGHT − WORLD_EDGE_MARGIN` = **1040** and `goblinMelee` has a **35 px** arm, so **1075** is
+the lowest strikeable y. A tower whose lowest CONNECTOR sits below it cannot be attacked at all —
+and a building in this game dies only through its connectors (§4), so that tower would be
+invulnerable. At pad 0 a laser turret's lowest node is **1068**, inside the arm with 7 px to spare.
+`buildableEdges.test.ts` asserts it for every recipe, derived from the constants.
+
+**2 · The footer plates, and they are the bigger half.** The footer occupies the bottom **84 px** and
+its opaque surfaces swallow clicks **on purpose** — `s182UiSurfaceGuards.test.ts` records that
+planting a structure under a plate the player cannot see was reported **three separate times**, and
+lists the gates that now refuse it. So the dead band and the footer stand on the same ground.
+
+⛔ **THEREFORE GEOMETRY ALONE CANNOT GIVE HIM THE BOTTOM BAND**, and lowering the edge rule further
+would put towers under a plate the guards then refuse anyway. ⚠ **THE OPEN QUESTION IS THE FOOTER,
+NOT THE EDGE RULE** — move it to a side rail, or auto-hide it while a tower is armed. That is his
+call and it is the only thing left in this item.
+
+⚠ **AND ONE MORE THING WORTH CHECKING BEFORE ANYONE BUILDS ANY OF IT:** a LOOSE SHAPE has no edge
+rule at all — it can already be hand-placed anywhere in that band today. Only a stamped TOWER is
+refused. If what he was doing in the playtest was dropping shapes rather than stamping a tower, the
+blocker was a footer plate and never this rule.
+
+---
+
 ## 5 · WHO SHOOTS WHAT
 
 | building | targets | range |

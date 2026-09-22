@@ -55,8 +55,32 @@ import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
-/** Keep the whole footprint on-screen with a little air, matching the panel's 8 px canvas inset. */
-const EDGE_PAD = 8;
+/**
+ * ⭐ S186 (owner playtest #5) — **8 → 0. THIS IS THE PART OF THE DEAD BAND THAT WAS FREE.**
+ *
+ * He reported that he cannot build in the bottom band. Measured: for a laser turret (footprint
+ * 100.21 × 112.00 px) the lowest legal centre was y = 1016, so **64 px of canvas held no legal tower
+ * centre**. ⚠ And the bottom is NOT special — the identical rule left 64 px dead at the TOP and
+ * ~58 px on each SIDE. It only READS as a bottom problem because `FOOTER_TOP_Y` is 996, so that
+ * band lies under the menu while the identical band at the top is empty sky.
+ *
+ * Of those 64 px, exactly 8 were free to give back and they are given back here. The other 56 are
+ * not air: 12 is `FOOTPRINT_MARGIN`, the outermost node's own draw radius (a node is a POINT but
+ * draws 8–10.8 px wide), and 44 is the node offset itself — past that a connector is off-screen,
+ * which is a ruling, not a constant.
+ *
+ * ⛔ **THE OLD 8 WAS AN AESTHETIC BORROWED FROM A PANEL, NOT A SAFETY MARGIN** — its own comment said
+ * *"matching the panel's 8 px canvas inset"*. The safety argument belongs to `FOOTPRINT_MARGIN`,
+ * which is untouched, so a node at the boundary is still drawn in full.
+ *
+ * ⭐ **AND IT STAYS ATTACKABLE, WHICH IS THE CONSTRAINT THAT ACTUALLY MATTERS.** Verified against the
+ * shipped numbers rather than assumed: a creature clamps at `CANVAS_HEIGHT - WORLD_EDGE_MARGIN` =
+ * 1040 and `goblinMelee` has a 35 px arm, so the lowest strikeable y is **1075**. At pad 0 a laser
+ * turret's lowest centre is 1024 and its lowest NODE is 1024 + (56 − 12) = **1068** — inside the arm
+ * with 7 px to spare. A tower nobody can reach would be strictly worse than a band nobody can build
+ * in.
+ */
+const EDGE_PAD = 0;
 
 /**
  * Why a stamp is refused. Returned rather than a bare boolean so the panel/ghost can SAY why —

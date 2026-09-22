@@ -273,8 +273,15 @@ function isValidPlacementPos(pos: Vec2, avatarPos: Vec2): boolean {
    * not on EXISTENCE, so build legality and the playfield disagreed. They agree now.
    *
    * ⚠ THE BLUEPRINT PATH WAS ALREADY SAFE and is deliberately untouched — `blueprintLegality`'s
-   * `EDGE_PAD` of 8 bounds a stamp's whole FOOTPRINT, landing its centre at x ≤ 1904, which is 24 px
-   * from a clamped attacker and inside a 35 px arm. This free-placement path was the only hole.
+   * `EDGE_PAD` bounds a stamp's whole FOOTPRINT — not its centre — so its outermost NODE stays
+   * inside a clamped attacker's reach. This free-placement path was the only hole.
+   *
+   * ⚠ S186 — THIS PARAGRAPH USED TO QUOTE "an `EDGE_PAD` of 8 … centre at x ≤ 1904". Both halves
+   * were wrong to keep: the pad is now **0** (owner playtest #5), and the 1904 was never
+   * reproducible from the live extents in the first place — the loosest recipe puts its centre at
+   * 1870.6. The ARGUMENT survives the retune and the numbers did not, so the numbers are gone.
+   * The arithmetic that pins the reach now lives at `EDGE_PAD` itself, beside the constants it is
+   * derived from.
    */
   if (pos.x < WORLD_EDGE_MARGIN || pos.x > CANVAS_WIDTH - WORLD_EDGE_MARGIN) return false;
   if (pos.y < WORLD_EDGE_MARGIN || pos.y > CANVAS_HEIGHT - WORLD_EDGE_MARGIN) return false;

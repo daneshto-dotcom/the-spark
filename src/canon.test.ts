@@ -32,6 +32,8 @@ import {
   CASTLE_MAX_HP,
   CASTLE_PEN,
   HAZARD_SPAWN_ENABLED,
+  CANVAS_HEIGHT,
+  FOOTER_TOP_Y,
   FREE_SPARK_POOL_CEILING,
   FREE_SPARK_SOFT_CAP,
   PHASE_1_WIN_SCORE,
@@ -50,6 +52,7 @@ import {
   STINK_BAG_HP,
   STINK_TOWER_ATTACK_RANGE,
   TURRET_ATTACK_RANGE,
+  WORLD_EDGE_MARGIN,
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
 import { structurePoolFifths, unitPoolFifths } from './state/stats.ts';
@@ -160,6 +163,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // Reasoning about the faucet per-seat is wrong by the seat count, and is the easiest mistake to
     // make from inside gathererLifecycle.
     expect(canonSays('THERE IS EXACTLY ONE QUARRY FOR THE WHOLE TABLE')).toBe(true);
+  });
+
+  it('⭐ §4b — the edge rule: symmetrical, and bounded by a ground attacker’s reach', () => {
+    // ⛔ The two facts a session must not re-derive: the bottom is NOT special, and the thing that
+    // stops the rule going further is that a tower below 1075 cannot be attacked at all.
+    expect(canonSays('It is SYMMETRICAL')).toBe(true);
+    expect(canonSays('the lowest strikeable y')).toBe(true);
+    // Derived, so a retune of either constant moves the canon with it.
+    expect(CANVAS_HEIGHT - WORLD_EDGE_MARGIN + 35).toBe(1075);
+    expect(canonSays('**1075**')).toBe(true);
+  });
+
+  it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {
+    // Geometry alone cannot give him the bottom band; lowering the rule further puts towers under a
+    // plate whose guards refuse them anyway. The open question is the footer, not EDGE_PAD.
+    expect(canonSays('GEOMETRY ALONE CANNOT GIVE HIM THE BOTTOM BAND')).toBe(true);
+    expect(canonSays('THE OPEN QUESTION IS THE FOOTER')).toBe(true);
+    expect(FOOTER_TOP_Y).toBe(CANVAS_HEIGHT - 84);
   });
 
   it('prints the castle numbers that are actually shipped', () => {
