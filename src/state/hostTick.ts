@@ -138,6 +138,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -1424,6 +1425,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * retune anyone's balance numbers.
    */
   world.pendingCreatureDeaths = new Set();
+  // ⭐ S188 F1 — and the lifesteal accumulator beside it: heals made during the batch are summed, not
+  // applied, so a vampire melee cannot depend on loop order either (see `racial/lifesteal.ts`).
+  world.pendingLifestealFifths = new Map();
 
   // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
   // never simulates; S28 NetSnapshot v2 mirrors host→client creature state).
@@ -2111,6 +2115,12 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     runRacialPerksFight(world);
   }
 
+  // ⭐ S188 F1 — the batch's heals land HERE: after every blow of the tick, before anyone is swept, so
+  // a unit killed this tick is not healed back and a survivor's heal does not depend on loop order.
+  if (world.pendingLifestealFifths !== null) {
+    applyPendingLifesteal(world);
+    world.pendingLifestealFifths = null;
+  }
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
     world.pendingCreatureDeaths = null;

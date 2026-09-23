@@ -35,7 +35,11 @@ import type { Controls } from '../../input/controls.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { DraftPick } from '../draft.ts';
 import type { RaceId } from '../races.ts';
-import { asBondId, asPlayerId, asPrimitiveId, asSpawnerId, type BondId, type PlayerId } from '../../types.ts';
+import {
+  asBondId, asDefenderId, asPlayerId, asPrimitiveId, asSpawnerId, asStinkCloudId, type BondId, type PlayerId,
+} from '../../types.ts';
+import { makeDefender } from '../defenders/defender.ts';
+import { applyVoltkinChain, chainJumpFifths } from '../creatures/voltkinChain.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -281,6 +285,47 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
     a.ehp = 0;
     damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a));
     expect(a.ehp).toBe(0);
+  });
+
+  /* ⭐ S188 fix round F7 — the three arms the first cut left untested: Helga, a landed bag, a chain link. */
+  it('F7 — a hit on HELGA (the one defender with a pool) heals the attacker', () => {
+    const { w, a } = vampireAttacker();
+    const anchor = addShape(w, P1, 900, 900);
+    const helga = makeDefender({
+      id: asDefenderId(w.nextDefenderId++), kind: 'princess', ownerPlayerId: P1,
+      anchorPrimitiveId: anchor.id, recipeId: 'helga' as never, pos: { x: 900, y: 900 }, registeredAtTick: 0,
+    });
+    w.defenders.set(helga.id, helga);
+    expect(helga.ehp, 'fixture: Helga has a pool').not.toBeNull();
+    const before = helga.ehp!;
+    damageEntity(w, { kind: 'defender', id: helga.id }, GOBLIN_SWING, 'creature', by(a));
+    expect(helga.ehp, 'the blow landed').toBe(before - GOBLIN_SWING);
+    expect(a.ehp).toBe(1 + lifestealFifths(GOBLIN_SWING, BLOOD_DEBT_LIFESTEAL_PCT));
+  });
+
+  it('F7 — a hit on a LANDED STINK BAG heals the attacker', () => {
+    const { w, a } = vampireAttacker();
+    const id = asStinkCloudId(4401);
+    // A bag that SURVIVES the hit, so its burst (which would also hit the attacker) does not fire.
+    w.stinkClouds.set(id, { id, pos: { x: 950, y: 950 }, ownerPlayerId: P1, landedAtTick: w.tick, radius: 40, ehp: 30 } as never);
+    damageEntity(w, { kind: 'stinkCloud', id }, GOBLIN_SWING, 'creature', by(a));
+    expect(w.stinkClouds.get(id)?.ehp, 'the blow landed').toBe(30 - GOBLIN_SWING);
+    expect(a.ehp).toBe(1 + lifestealFifths(GOBLIN_SWING, BLOOD_DEBT_LIFESTEAL_PCT));
+  });
+
+  it('F7 — every VOLTKIN CHAIN LINK heals the Voltkin, at the link’s own diminished hit', () => {
+    const { w } = vampireAttacker();
+    const volt = unit(w, 'voltkin', P0, 400, 400);
+    volt.ehp = 1;
+    const seed = unit(w, 't3Warband', P1, 450, 400);
+    const link = unit(w, 't3Warband', P1, 520, 400); // 70 px from the seed, inside the hop range
+    const linkBefore = link.ehp;
+    const hops = applyVoltkinChain(w, volt, { kind: 'creature', id: seed.id, pos: { ...seed.pos } });
+    const jump1 = chainJumpFifths(attackFifths(getCreatureConfig('voltkin').atk, getCreatureConfig('voltkin').pen), 1);
+    expect(hops, 'fixture: the bolt jumped').toBeGreaterThanOrEqual(1);
+    expect(link.ehp, 'the link took the jump-1 hit').toBe(linkBefore - jump1);
+    // The seed is NOT re-hit here (its strike belongs to applyCreatureAttack), so the only heal is the link's.
+    expect(volt.ehp).toBe(1 + lifestealFifths(jump1, BLOOD_DEBT_LIFESTEAL_PCT));
   });
 
   it('a null attacker (area damage) and a DEFENDER attacker heal no creature', () => {
