@@ -55,6 +55,8 @@ import {
   WORLD_EDGE_MARGIN,
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
+import { DRAFT_WAVE_INTERVAL, isDraftWave, raceUnitPoolAfterPicks } from './state/draft.ts';
+import { CASTLE_HP_GAIN_BY_BAND } from './state/castleUpgrades.ts';
 import { structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
@@ -265,6 +267,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`| ${STINK_TOWER_ATTACK_RANGE} |`)).toBe(true);
     expect(canonSays(`| Helga | units only | ${PRINCESS_SLAP_RANGE} |`)).toBe(true);
     expect(canonSays(`| ${CASTLE_ATTACK_RANGE} |`)).toBe(true);
+  });
+
+  it('⭐ §3d — the draft schedule, the floor-at-one rule and the castle bands', () => {
+    // The canon must carry the RULINGS, not just the handoff. Every number is derived from the
+    // constant it describes, so a retune turns this RED instead of quietly misleading.
+    expect(DRAFT_WAVE_INTERVAL).toBe(5);
+    expect([1, 6, 11, 16, 21].every(isDraftWave)).toBe(true);
+    expect([5, 10, 15, 20].some(isDraftWave)).toBe(false);
+    expect(canonSays('waves 6, 11, 16, 21')).toBe(true);
+    // His worked example, the one that makes a percentage expressible at all.
+    expect(canonSays('Instead of six health he will have seven')).toBe(true);
+    expect(raceUnitPoolAfterPicks(0)).toBe(6);
+    expect(raceUnitPoolAfterPicks(1)).toBe(7);
+    // The castle band table, read off the constant rather than retyped.
+    expect(CASTLE_HP_GAIN_BY_BAND).toEqual([250, 350, 450, 550, 650]);
+    for (const g of CASTLE_HP_GAIN_BY_BAND) expect(canonSays(String(g))).toBe(true);
+    // ⛔ And the canon must SAY the racial buffs are unbuilt, or the next session assumes they are.
+    expect(canonSays('**NOT BUILT**')).toBe(true);
   });
 
   it('prints the live PROTOCOL_VERSION', () => {

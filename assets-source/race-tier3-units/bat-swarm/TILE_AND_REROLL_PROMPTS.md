@@ -65,3 +65,39 @@ cooperation from the generator at all.
 
 **So the eat loop needs no new art.** Ping-pong the descent frames of `v2-crouch-in.png`. Only the
 one-shot sheets have to be generated, and both already exist.
+
+## 4 · THE FULL TILE SET — what still needs generating
+
+⚠ **THE GENERAL TRACK NEEDS ONLY FOUR CARDS, NOT ONE PER LEVEL.** It cycles HP → DEF → ATK → PEN →
+HP, so L0 = TOUGHER, L5 = ARMOURED, L10 = STRONGER, L15 = PIERCING, L20 = TOUGHER again. The four in
+§1 cover every level forever. The owner asked for "seven per level"; it is four generals total plus
+six racials per level.
+
+Same preamble as §1. Subject and palette per card:
+
+### Level 0 racials — the four beyond BLOOD DEBT and THE RISEN
+
+| NAME | SUBJECT | PALETTE |
+|---|---|---|
+| POWER OF RA (mummies) | a colossal golden sun-disc eye opening in a black sky, firing one blinding pillar of light onto cracked desert ground that shatters and glows white at the impact | gold / obsidian / blinding white |
+| BLOOD FRENZY (orcs) | a roaring orc warlord centre, veins blazing molten orange, the roar rippling outward through a pack behind him whose eyes ignite in sequence | rust-red / molten orange / smoke-grey |
+| SCORCHED GROUND (demons) | a cracked hellscape floor at a low angle, fissures venting fire, the whole territory glowing from beneath | ember-red / charcoal / sulphur yellow |
+| DEEP CURRENT (nagas) | a vortex of black water, a naga gatherer dissolving into it on one side and reforming out of a second vortex on the other, shapes carried through | deep teal / abyss black / cyan |
+
+### Level 5 racials — the five he has ruled
+
+| NAME | SUBJECT | PALETTE |
+|---|---|---|
+| CRIMSON TIDE (vampires, 50 % lifesteal) | a tidal wave of blood curling over a battlefield, a vampiric silhouette inside the curl drinking it in, wounds sealing | deep crimson / wine-black / pale rose |
+| CORPSE EATER (zombies) | an enormous bloated zombie hunched over a heap, jaws impossibly wide, a sickly green aura pulling wisps of life into its mouth | rotten green / bruise-purple / bile yellow |
+| ENDLESS DYNASTY (mummies) | a cracked pyramid with sarcophagi bursting open down its face, one pharaoh already striding out, more waking above | sandstone gold / tomb-black / turquoise |
+| APEX PREDATOR (nagas) | one monstrous armoured piranha filling the card, dwarfing a shoal fleeing in its wake | steel-blue / blood-orange / deep-sea black |
+| HELLSPAWN (demons) | a demonic pencil-creature splitting mid-shriek into two copies, and those two already splitting again | demon violet / ember red / graphite |
+
+### Level 10 — the one he has ruled
+
+| NAME | SUBJECT | PALETTE |
+|---|---|---|
+| THE SWARM (vampires) | a colossal bat-shaped cloud of thousands of bats, wings across the whole card, one pair of burning red eyes at its heart | wine-purple / crimson / near-black |
+
+⛔ **ORCS LEVEL 5 IS THE ONLY GAP** — he has not ruled it. Everything else he has ruled now has a card.

@@ -203,6 +203,110 @@ seat, and raising it would retune every castle relationship measured in S181.
 
 ---
 
+## 3d · ⭐⭐ THE UPGRADE DRAFT, AND THE KEEP YOU CAN NOW BUY (S187)
+
+
+> *"As the game starts, it gives you like five seconds to choose an upgrade, one of the two … on the
+
+> left is like the regular one, the 10% HP to all spawned units, and on the right will be your racial
+
+> one."* — owner, S187
+
+
+A draft opens **before wave 1 and again on waves 6, 11, 16, 21** — `(wave − 1) % 5 === 0`. ⚠ **NOT on
+
+waves 5/10/15**: `waveNumber` increments on ENTRY INTO BUILD, so the BUILD after wave 5's FIGHT is
+
+wave 6. The original spec contradicted itself on exactly this point.
+
+
+| | |
+
+|---|---|
+
+| general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
+
+| the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent` |
+
+| deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is 560 × 270 on the spawn disc |
+
+| racial track | **every race is COMING SOON and NOT choosable** — his instruction. The tile is drawn but absent from the hit-test |
+
+
+⛔ **THE FLOOR-AT-ONE RULE IS WHAT MAKES A PERCENTAGE POSSIBLE AT ALL**, and it is his:
+
+
+> *"Ten percent of a one-one-one-one unit comes out as 0.6 … but we don't have a 0.6, so we just add
+
+> one point. Instead of six health he will have seven. Anything that doesn't ship as at least a whole
+
+> number you just give him the lowest amount possible, which is one."*
+
+
+The castle-spawned unit is `1/1/1/1` (R125), so its pool is **6 fifths**. It compounds: 6 → 7 → 8. A
+
+260-fifth boss gets a true 26. That is strictly better than R118's flat `+1 POINT`, which was the
+
+same step for a chewer and for a Kraken. **R118 is superseded.**
+
+
+⛔ **AND IT AUTO-TAKES THE RACIAL ONE AT THE DEADLINE — A REVERSAL OF R106**, which assigned the
+
+general. His S187 ruling governs. ⚠ While every racial is COMING SOON the fallback is the general
+
+option, because a deadline that took a non-existent option would grant nothing.
+
+
+### ⭐ THE CASTLE NOW CLIMBS TOO — §3b's CONSEQUENCE IS CLOSED
+
+
+§3b had to record that castle-rush strengthens the longer a match runs, because the win bar climbed
+
+to 50,000 and `CASTLE_MAX_HP` stayed 2,500. He has now answered it: **HP, ATK, DEF and PEN are
+
+purchasable at 100 victory points each, capped at 10 per axis**, with the HP gain on the SAME five
+
+wave bands as the win bar and the quarry:
+
+
+| wave band | 1–5 | 6–10 | 11–15 | 16–20 | 21–25 |
+
+|---|---:|---:|---:|---:|---:|
+
+| HP per point | 250 | 350 | 450 | 550 | 650 |
+
+
+⛔ **THE GAIN IS BAKED AT PURCHASE.** The seat stores an accumulated `hpBonus`, not a level it
+
+re-derives — recomputing would re-price every earlier purchase at the current band.
+
+
+⛔ **AND THE CASTLE STAYS OFF THE LADDER** (§2's deliberate exception). HP adds raw points; DEF
+
+applies the ladder's ratio to INCOMING damage — `floor(amount × 5 / (5 + def))`, floored and **never
+
+below 1 on a real hit**, so a keep can always be felled. ⚠ Past wave 25 the gain holds at 650; that
+
+clamp is MINE, like the win bar's.
+
+
+### ⛔ WHAT IS SPECIFIED BUT **NOT BUILT**
+
+
+Every racial buff. All six level-0 (vampire lifesteal 20 %, zombie kill-to-spawn, mummy Power of Ra,
+
+orc rage propagation, demon quadrant burn, naga gatherer teleport), the four level-5 (demon chewer
+
+split, mummy pharaoh-per-1000, naga elite piranha 3×, zombie Corpse Eater) and vampires' level-10 bat
+
+swarm at 6×. **The substrate carries them; none of the mechanics exist.** Vampires L5 is 50 %
+
+lifesteal, not a second thing.
+
+
+---
+
+
 ## 3c · ⭐⭐ THE QUARRY — ONE SHARED FAUCET, AND IT STEPS UP AT THE SAME FOUR WAVES (S186)
 
 > *"Every wave the primitives need to be spawned quicker and quicker. So far it does that but not
