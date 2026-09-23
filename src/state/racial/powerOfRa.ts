@@ -57,7 +57,8 @@ import type { BondId, PlayerId } from '../../types.ts';
 import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
 import { applyRadialDamage, damageConnector } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
-import { dispatch, type World } from '../world.ts';
+import type { World } from '../world.ts';
+import { applySeverBond } from '../severBond.ts';
 import { raAimPoint, raCastRefusal, type CastPowerOfRaAction } from './powerOfRaRules.ts';
 
 /** What one column deals — to a creature, a shape and a connector alike. ONE LADDER (S177 P1). */
@@ -177,8 +178,18 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
        * a protocol change this branch may not make. ⚠ MINE, and one side effect is the owner's to
        * judge: 'raid' plays the player-sever SFX (`audioManager`), so a column that cuts three
        * connectors plays it three times.
+       *
+       * ⛔ S188 audit F1 — **THE SEVER IS RESOLVED INLINE, NOT DISPATCHED.** `dispatch` runs the
+       * bench and elimination gates on any action carrying a `playerId`, and SEVER_BOND is `'deny'`
+       * in both — policies written for a player's INTENTS. A caster eaten by the hunter (or whose
+       * castle fell) between the cast and a column therefore had every connector the column broke
+       * REFUSED: the pool drained, the connector stood, the overkill banked. This sever is not the
+       * caster acting now; it is the CONSEQUENCE of damage that has already landed, the same thing
+       * the column's creature arm does to units with no gate at all. So it goes straight to the one
+       * sever reducer, `applySeverBond`, which still runs `canSeverBond` (a `'raid'` sever passes it,
+       * by its own rule) and still does the topology split and the effects in order.
        */
-      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
+      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
     }
   }
 

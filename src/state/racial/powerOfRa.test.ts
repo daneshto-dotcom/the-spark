@@ -384,6 +384,39 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S188 audit F1 — a column still breaks the connector if the caster is benched or out mid-strike', () => {
+  it.each([
+    ['benched by the hunter', (w: World) => { w.players.get(P0)!.benchedUntilTick = w.tick + 100_000; }],
+    ['eliminated (castle fell)', (w: World) => { w.players.get(P0)!.castleHp = 0; }],
+  ] as const)('⛔ %s after the cast: the enemy connector still breaks, no pool banked past it', (_l, arrange) => {
+    const w = raWorld();
+    cast(w, AIM.x, AIM.y);
+    const strike = w.players.get(P0)!.raStrikes[0]!;
+    const spot = raStrikeColumnPos(P0, 0, strike);
+    /*
+     * ⚠ A LONG connector: both shapes stand OUTSIDE the 70 px column, only the midpoint is inside.
+     * With shapes inside the circle the area damage razes them and takes the bond with it, so the
+     * test would pass even if the sever were refused — which is exactly how the first draft of this
+     * test stayed green over the bug (caught by mutating the fix back out).
+     */
+    const a = addPrim(w, P1, spot.x - 90, spot.y);
+    const b = addPrim(w, P1, spot.x + 90, spot.y);
+    const bondId = w.nextBondId++ as unknown as BondId;
+    w.bonds.set(bondId, { id: bondId, aId: a.id, bId: b.id, a, b, restLength: 180, stiffnessTier: 'MID',
+      damageFifths: 0, createdTick: 0 } as never);
+    a.bonds.add(bondId);
+    b.bonds.add(bondId);
+    // anti-vacuity: both shapes really are outside the column, so only a SEVER can take the bond
+    expect(Math.hypot(a.pos.x - spot.x, a.pos.y - spot.y)).toBeGreaterThan(RA_COLUMN_RADIUS);
+    expect(Math.hypot(b.pos.x - spot.x, b.pos.y - spot.y)).toBeGreaterThan(RA_COLUMN_RADIUS);
+    arrange(w); // AFTER the cast, BEFORE the column
+    w.tick = raColumnImpactTick(strike.untilTick, 0);
+    runPowerOfRa(w);
+    expect(w.bonds.has(bondId), 'the column that drained its pool must also cut it').toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 P6 — once per FIGHT, across two fights, through the real match clock', () => {
   it('⭐ cast in fight N → refused for the rest of N → refused in BUILD → legal again in fight N+1', () => {
     const w = raWorld();

@@ -35,6 +35,11 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   (s188/ra-vfx ships it) cut at runtime by `CARD_PICTURE_WINDOW`, falling back to power-of-ra.webp.
   S182 fill count 8 → 9 (the pip). `getUiPoints().raSlot`. Footer suites green, typecheck 0.
 
+- AUDIT F1 DONE: the column's connector sever calls `applySeverBond` directly (not `dispatch`), so a
+  caster benched/eliminated mid-strike no longer has the sever refused by the actor gates. Test with
+  a LONG connector (shapes outside the circle) — the first draft passed over the bug via shape
+  razing; mutating the fix back to `dispatch` now turns 2 tests red.
+
 ## IN PROGRESS / NEXT
 - AUDIT FIXES queued (coordinator): F1 column sever must not depend on caster bench/elim; F4 aim
   must not swallow the card's FIX/SCRAP/FEED; F2 teach the BOT to cast (host + worker identical).
