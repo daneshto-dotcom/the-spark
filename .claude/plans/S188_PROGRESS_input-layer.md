@@ -52,7 +52,16 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
   plate-only -> 2 red; isOver ignoring visibility -> 1 red.
 
 ## IN PROGRESS / NEXT
-- full gates (typecheck, vitest, build); browser look on a random port.
+- GATES on this tree (f46ac49): TYPECHECK_EXIT=0; VITEST_EXIT=0 (349 files / 5866 tests);
+  BUILD_EXIT=0, entry 926.4 KiB (cap 1000, headroom 73.6; racial-c was 925.6 -> +0.8 KiB).
+  Benign, ruled: the vitest run rewrote `pentagramBuildability.test.ts.snap` with LF endings only
+  (`git diff --stat` empty); restored with `git checkout --`.
+- MERGE PREVIEW (`git merge-tree --write-tree master HEAD`, no refs touched): ONE conflict, in
+  `src/render/draftOverlay.ts`, at the end of the class — master's (s188/cards) `layoutText` vs this
+  branch's `isOver` / `isOverChoosable`. Resolution: keep both; on master's panel `isOverChoosable`
+  must read `this.opts !== null && draftHitTest(x, y, this.opts) !== null` (`offered` is gone there;
+  tsc fails loudly until it is changed). main.ts auto-merges.
+- NEXT: browser look on a random port.
 
 ## KNOWN-BROKEN
 - nothing known.
