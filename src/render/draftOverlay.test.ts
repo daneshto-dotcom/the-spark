@@ -674,6 +674,22 @@ describe('when the panel is up at all', () => {
     expect(picks).toEqual([]);
   });
 
+  it('⛔ a pointer that LEAVES the panel unlights the tile and drops the detail plate', () => {
+    // pointermove only arrives while over the panel, so without a leave handler the last hover sticks.
+    const { w, seat } = startedWorld();
+    const o = new DraftOverlay(() => {}, { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+    o.render(w, seat);
+    const idle = tileFills(o);
+    move(o, centre(racialTileRect()));
+    o.render(w, seat);
+    expect(child<Text>(o.container, 'tip').text).not.toBe('');
+    o.container.emit('pointerleave', {} as never);
+    o.render(w, seat);
+    expect(child<Text>(o.container, 'tip').text).toBe('');
+    expect(tileFills(o)).toEqual(idle);
+    expect(frameWidths(o)).toEqual([1, 1]);
+  });
+
   it('⭐ hovering a live tile LIGHTS it — plate, card and frame — and only that tile', async () => {
     const { w, seat } = startedWorld();
     const o = new DraftOverlay(() => {}, { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });

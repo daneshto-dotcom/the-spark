@@ -409,6 +409,16 @@ export class DraftOverlay {
       const p = e.global;
       this.hover = this.opts === null ? null : draftHitTest(p.x, p.y, this.opts);
     });
+    /*
+     * `pointermove` only reaches this container while the pointer is OVER it, so a pointer that
+     * leaves the panel between two samples would leave a tile lit and its detail plate up. Pixi
+     * sends `pointerleave` to the container when the pointer leaves it entirely — both off the panel
+     * onto the board and off the canvas — and, unlike `pointerout`, not when it merely crosses
+     * between the panel's own children, so this one handler is enough.
+     */
+    this.container.on('pointerleave', () => {
+      this.hover = null;
+    });
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
       /*
        * ⛔ PRIMARY BUTTON ONLY. Pixi v8 dispatches `pointertap` for EVERY button
