@@ -109,6 +109,10 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'It is the counterplay that keeps an untargetable cloud killable.',
   'state/raceUnitEmit.ts':
     'POPULATION COUNT for the castle emit cadence.',
+  // ⭐ S188 (s188/racial-b) — ENDLESS DYNASTY's A3 sentinel.
+  'state/racial/endlessDynasty.ts':
+    'POPULATION COUNT. `livePharaohs` counts the seat\'s OWN live Pharaohs against the A3 performance ' +
+    'sentinel before one is born. It selects no victim and reads no enemy.',
   'state/vision.ts':
     'FOG. Builds the vision set. Reads positions, selects no victim — and gating it would make ' +
     'untargetable units invisible rather than unclickable, which is a different (and wrong) feature.',
