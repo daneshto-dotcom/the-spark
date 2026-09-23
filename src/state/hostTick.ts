@@ -143,7 +143,7 @@ import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
-import { isStunned } from './creatures/creature.ts';
+import { isStunned, ragedFireTick } from './creatures/creature.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
 // the BotManager comment documents the invariant).
@@ -1935,7 +1935,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         afterCfg !== null &&
         (afterCfg.chewsConnectors
           ? after.ticksInState > 0 && after.ticksInState % CHEW_INTERVAL_TICKS === 0
-          : after.ticksInState === afterCfg.attackFireTick);
+          : after.ticksInState === ragedFireTick(afterCfg.attackFireTick, after)); // S188 — see ragedFireTick
       if (
         after !== undefined &&
         after.state === 'ATTACKING' &&

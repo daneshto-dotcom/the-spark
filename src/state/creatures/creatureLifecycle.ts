@@ -39,6 +39,7 @@ import {
   isStunned,
   isUntargetable,
   rageMultiplier,
+  ragedFireTick,
   isChannellingRa,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
@@ -1142,7 +1143,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     const stinkCloudValid =
       enemyStinkCloudInReach(world, creature, engageRange(config)) !== null;
     const targetGoneEarly =
-      creature.ticksInState <= config.attackFireTick &&
+      creature.ticksInState <= ragedFireTick(config.attackFireTick, creature) && // S188 — the fire tick the host check uses
       !bondValid &&
       !creatureValid &&
       !primitiveValid &&

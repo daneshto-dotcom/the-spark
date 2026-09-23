@@ -121,6 +121,24 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
 }
 
 /**
+ * ⛔⛔ S188 — **THE FIRE TICK SCALES WITH THE CADENCE, OR AN ENRAGED CREATURE NEVER HITS ANYTHING.**
+ *
+ * Rage halved `attackCadenceTicks` (60 → 30) and left `attackFireTick` at 30. The FSM leaves
+ * ATTACKING the moment `ticksInState` reaches the halved cadence, which is BEFORE `hostTick`'s fire
+ * check reads `ticksInState === attackFireTick` — so from S168 until S188 an enraged Warlord swung
+ * and never landed a single blow (measured: 0 fifths banked on a building in 360 ticks, against 54
+ * calm). BLOOD FRENZY spreads rage to a whole army, which turned that into "the perk makes every orc
+ * stop attacking" — the test `racial/bloodFrenzy.test.ts` that measures banked damage is what found it.
+ *
+ * *"attacks x2 quicker"* halves the whole swing: wind-up AND recovery. Read at the two sim sites that
+ * compare against the fire tick (the `hostTick` fire check, the FSM's `targetGoneEarly`). Floored at 1
+ * for the same reason the cadence is.
+ */
+export function ragedFireTick(fireTick: number, c: Pick<Creature, 'enraged'>): number {
+  return Math.max(1, Math.round(fireTick / rageMultiplier(c)));
+}
+
+/**
  * ⭐⭐ S169 (owner R152) — **IS THIS CREATURE STUNNED RIGHT NOW?** The ONE read of `stunnedUntilTick`.
  *
  * Owner: *"the player is stuck on idle and cant do anything ... it has to be consistent and coherent

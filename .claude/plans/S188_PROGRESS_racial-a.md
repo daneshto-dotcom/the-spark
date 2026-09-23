@@ -7,8 +7,8 @@ mechanic's tests pass.
 |---|---|---|---|
 | BLOOD DEBT (lifesteal 20 %) | vampires.l0 | ✅ DONE (BUILT flipped) — 20 tests incl. host-tick REACH on connector + castle arms | `state/racial/lifesteal.ts` (new), `state/damage.ts` (heal call in each arm + `damageConnector` attacker param), 4 `damageConnector` call sites |
 | CRIMSON TIDE (lifesteal 50 %) | vampires.l5 | ✅ DONE (BUILT flipped) — replaces 20, pinned | same |
-| BLOOD FRENZY | orcs.l0 | NEXT | `state/racial/bloodFrenzy.ts` (new), `racialTick.ts` slot |
-| THE HORDE GROWS | orcs.l5 | not started | `state/racial/hordeGrows.ts` (new), `creatureLifecycle.ts underGoblinCaps`, `raceUnitEmit.ts` cadence |
+| BLOOD FRENZY | orcs.l0 | ✅ DONE (BUILT flipped) — 16 tests; found + fixed the S168 enraged-never-fires defect (`ragedFireTick`) | `state/racial/bloodFrenzy.ts` (new), `racialTick.ts` slot |
+| THE HORDE GROWS | orcs.l5 | NEXT | `state/racial/hordeGrows.ts` (new), `creatureLifecycle.ts underGoblinCaps`, `raceUnitEmit.ts` cadence |
 | SCORCHED GROUND | demons.l0 | not started | `state/racial/scorchedGround.ts` (new), `racialTick.ts` slot, `damage.callSites.test.ts` (+1 null site), zone ember tint (render) |
 | DEEP CURRENT | nagas.l0 | not started | `state/racial/deepCurrent.ts` (new), `gathererLifecycle.ts` HAULING, vortex (render) |
 
@@ -23,6 +23,13 @@ mechanic's tests pass.
 - ⚠ SHARED TEST TOUCHED: `src/state/draftLifecycle.test.ts` — the deadline cases pinned the GENERAL
   literal (true only while every racial was COMING SOON). Re-pinned to derive the auto-pick from
   `draftOptionsFor`, so it holds as every branch flips its perks. Other branches may hit the same.
+
+- ⛔ PRE-EXISTING S168 DEFECT FOUND + FIXED (in scope: BLOOD FRENZY is useless without it): rage halved
+  the cadence 60→30 but left `attackFireTick` 30, so the FSM left ATTACKING one tick before the fire
+  check — an enraged Warlord NEVER landed a blow. Fix: `ragedFireTick` beside `rageMultiplier`
+  (`creature.ts`), read at `hostTick.ts` fire check + `creatureLifecycle.ts` targetGoneEarly.
+  Mutation-tested (restoring the old fire check turns bloodFrenzy.test.ts red). Sim-rule change →
+  rides the S188 49→50 bump; merge owner should add it to the protocol docblock.
 
 ## Known broken
 

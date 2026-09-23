@@ -16,6 +16,7 @@ import {
   creatureMaxEhp,
   makeCreature,
   rageMultiplier,
+  ragedFireTick,
   type Creature,
   type CreatureType,
 } from '../creatures/creature.ts';
@@ -228,34 +229,42 @@ describe('S188 BLOOD FRENZY — ⭐ REACH through the real host tick', () => {
     expect(w.creatures.get(mine.id)?.enraged ?? false).toBe(false);
   });
 
-  it('⭐ BEHAVIOUR, not just the bit: a frenzied orc banks TWICE the damage on a building', () => {
-    const banked = (picks: DraftPick[]): number => {
+  /**
+   * ⛔⛔ THIS IS THE TEST THAT FOUND THE S168 DEFECT — `ragedFireTick` in `creatures/creature.ts`.
+   * Its first run measured a frenzied raider banking **0** against a calm one's 54: rage halved the
+   * cadence to 30 and left the fire tick at 30, so an enraged unit left ATTACKING one tick before it
+   * would have struck. An enraged Warlord had never landed a blow since S168.
+   *
+   * ⚠ TWENTY connectors (pool 20 × 25 = 500), so no connector breaks inside the window: a break
+   * SPENDS the pool and drains `damageFifths`, which would hide swings from this sum.
+   */
+  it('⭐ BEHAVIOUR, not just the bit: a frenzied orc banks EXACTLY TWICE the damage on a building', () => {
+    const banked = (picks: DraftPick[], type: CreatureType): number => {
       const w = twoSeat();
       seatAs(w, P0, 'orcs', picks);
       warlord(w, P0, 150, 150, 40);
-      const bonds = building(w, P1, 500, 300, 5);
-      const raider = unit(w, 't3Warband', P0, 495, 300);
-      raider.ehp = 10_000; // hold it on the board; this measures the swing rate, nothing else
-      const trace: number[] = [];
-      const d = deps();
-      const st = makeHostTickState(w);
-      let total = 0;
-      const seen = new Map(bonds.map((b) => [b, 0] as const));
-      for (let t = 0; t < 360; t++) {
-        runHostTick(w, d, st);
-        for (const b of bonds) {
-          const now = w.bonds.get(b)?.damageFifths ?? seen.get(b)!;
-          if (now > seen.get(b)!) total += now - seen.get(b)!;
-          seen.set(b, now);
-        }
-        trace.push(total);
-      }
-      return total;
+      const bonds = building(w, P1, 500, 300, 20);
+      const orc = unit(w, type, P0, 495, 300);
+      orc.ehp = 10_000; // hold it on the board; this measures the swing rate, nothing else
+      ticks(w, 600);
+      expect(bonds.every((b) => w.bonds.has(b)), 'fixture: nothing broke, so nothing was drained').toBe(true);
+      return bonds.reduce((s, b) => s + (w.bonds.get(b)?.damageFifths ?? 0), 0);
     };
-    const calm = banked(['hp']);
-    const frenzied = banked(['racial']);
-    expect(calm, 'fixture: the calm raider strikes the building').toBeGreaterThan(0);
-    expect(frenzied).toBeGreaterThanOrEqual(calm * 1.5);
+    for (const type of ['t3Warband', 'raceUnit'] as CreatureType[]) {
+      const calm = banked(['hp'], type);
+      const frenzied = banked(['racial'], type);
+      expect(calm, `fixture: the calm ${type} strikes the building`).toBeGreaterThan(0);
+      expect(frenzied, `${type}: twice the swings`).toBe(calm * WARLORD_RAGE_MULTIPLIER);
+    }
+  });
+
+  it('⛔ ragedFireTick: an enraged swing lands INSIDE its halved cycle; a calm one is unchanged', () => {
+    for (const cfg of Object.values(CREATURE_CONFIGS)) {
+      const cadence = Math.max(1, Math.round(cfg.attackCadenceTicks / WARLORD_RAGE_MULTIPLIER));
+      if (cfg.attackFireTick >= cfg.attackCadenceTicks) continue; // the chewer's legacy span — never enraged
+      expect(ragedFireTick(cfg.attackFireTick, { enraged: true }), cfg.type).toBeLessThan(cadence);
+      expect(ragedFireTick(cfg.attackFireTick, { enraged: false })).toBe(cfg.attackFireTick);
+    }
   });
 });
 
