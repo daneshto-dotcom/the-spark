@@ -41,11 +41,18 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
 - S182 tripwires (`s182UiSurfaceGuards.test.ts`, 12 green): draft predicates by name; GATE A draft
   guard precedes every acting handler (whole onDown, bounded by onMove); GATE B/C/D; wiring.
 
+- BUG 2 TESTS: `src/input/controls.draftPanel.test.ts` (150 green) — real Controls + real
+  DraftOverlay + real FooterBand. 7 scenarios (armed stamp, own gatherer, RMB raid, LMB card,
+  spark drag release, potato release, Ra cast) x seats x 6 derived points, each run PRE-FIX (panel
+  drawn, unwired: anti-vacuity), OPEN (no board action; tower stays armed; Ra keeps aiming) and
+  CLOSED (wired == unwired). One-click test: pick + nothing else. isOver covers every drawn Graphics
+  incl. the tip plate below the panel; tip swallows only while drawn; cursor pointer on live tiles.
+  MUTATIONS (by hand via scratchpad/mutate.py, each restored byte-for-byte): onDown guard -> 42 red;
+  PLACE_FROM_FREE clause -> 6 red; potato clause -> 6 red; cursor clause -> 1 red; isOver
+  plate-only -> 2 red; isOver ignoring visibility -> 1 red.
+
 ## IN PROGRESS / NEXT
-- Bug 1: layer the tab under the open cards in `FooterBand.isOverCollapseTab` (the ONE predicate
-  the click router, `isOverChip` and `isOverBandSurface` all read).
-- Bug 2: `DraftOverlay.isOver` / `isOverChoosable`, `Controls.setDraftPanel`, gates in onDown /
-  potato / PLACE_FROM_FREE / cursor, main.ts wiring.
+- full gates (typecheck, vitest, build); browser look on a random port.
 
 ## KNOWN-BROKEN
 - nothing known.
