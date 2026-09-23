@@ -684,21 +684,16 @@ export class FooterBand {
    * `isPointerOverCard()` (the WHOLE card) while the hover cursor asks only `isOverAnyAction` and
    * `ownedRowAt` (its CONTROLS) — the card's body swallows a click without claiming to be
    * clickable. The plate is the same kind of surface and gets the same treatment.
+   *
+   * ⛔⛔ **S187 — THE COLLAPSE IS HONOURED HERE TOO, AND THIS IS THE HALF THAT MATTERS.** Teaching
+   * only `isOverChip` would hide the menu and still refuse every placement underneath it: the band
+   * would swallow clicks while INVISIBLE, which is this file's own twice-shipped defect wearing a
+   * new hat. Giving the owner's brother the bottom band means releasing THIS surface; the cursor is
+   * the cosmetic half. The tab itself stays opaque in both states, so nothing can be planted under
+   * the one control that brings the menu back.
    */
   isOverBandSurface(x: number, y: number): boolean {
-    /*
-     * ⛔⛔ S187 — **THE COLLAPSE MUST BE HONOURED HERE TOO, AND THIS IS THE HALF THAT MATTERS.**
-     *
-     * `isOverChip` decides the CURSOR; this decides whether a tower may be PLANTED. A collapse that
-     * only taught the first one would hide the menu and still refuse every placement underneath it —
-     * the band would swallow clicks while invisible, which is the precise defect this file records
-     * shipping TWICE in one session (see `isOverCarryBill`). Giving him the bottom band means
-     * releasing THIS surface; the cursor is the cosmetic half.
-     *
-     * The tab itself stays opaque in both states and is still returned by `isOverChip` above, so
-     * nothing can be planted under the one control that brings the menu back.
-     */
-    if (this.collapsed) return this.isOverCollapseTab(x, y);
+    if (this.collapsed) return this.isOverCollapseTab(x, y); // S187 — see the docblock above
     return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
   }
 
