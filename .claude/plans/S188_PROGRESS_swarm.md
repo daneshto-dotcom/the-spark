@@ -10,7 +10,7 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 | 3 · tests (`racial/theSwarm.test.ts`) + flip `RACIAL_PERK_BUILT['vampires.l10']` | ✅ flipped; racial/ + racialPerks + draft* = 115/115 green. Mutations M1 (old `perkDraftIndex`) → 8 extra red; M2 (swarm arm without the perk guard) → 6 red; both restored. Art-existence tests land with the atlas commit. |
 | 4 · art: swarm atlas (fly / attack / die) + renderer fallback to the bat | ✅ `t3-vampires-bat-swarm` packed (fly = sheet-fly, attack = sheet-attack ×0.8, die = sheet-die-v2 grid-inpainted); check:atlas on race-tier3-units exit 0, swarm clean on all 5 checks; idle/walk body 124 px vs the bat's 125 |
 | 5 · card `public/art/upgrade-cards/l10-vampires.webp` (502×484, q82, cover top-anchored) | ✅ built with master's own `cover_fit_top` + save args (parity: rebuilding l5-vampires that way is byte-identical to master's shipped webp); 36.0 KB. Looked at 251×242: dark but NOT a black rectangle — the white title reads, the bat silhouette + red eyes read against the wine swarm. Not altered. `build-upgrade-cards.py` / the 16-card test live on master — merge owner reconciles |
-| 6 · gates: typecheck · vitest · build · check:atlas | ⏳ |
+| 6 · gates: typecheck · vitest · build · check:atlas | ✅ at de4d66d (captured `$?`): typecheck 0 · vitest 0 (5701 / 347 files) · build 0 (925.8 KiB, cap 1000, headroom 74.2 — racial-d tip 925.2, so this branch adds ~0.6 KiB JS) · check:atlas 0 |
 
 ## Sheet study (measured this session, before any packing)
 
@@ -34,3 +34,16 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 - `build-scattered-sheet-atlas.mjs` gained the two opt-in keys; the elite piranha and corpse-eater
   specs rebuild BYTE-IDENTICAL (sha256) with the change.
 - Full unit suite after the mechanic commit: 5699 / 347 files, exit 0.
+
+## Looked at (real GoblinRenderer, dev server on port 32474, in-page Pixi app — the shared browser pane was hidden)
+
+- The swarm resolved ITS OWN sheet (`t3-vampires-bat-swarm-atlas.png`); sprite 119×119 vs the bat's 62×60 → 2× the bat.
+- Fallback: with the swarm path pointed at a missing file, both swarms drew with the BAT's sheet at 2× (124×119),
+  zero errors, no puppet.
+
+## Merge-owner reconciliation owed (these live on master, not on this branch)
+
+- `src/render/draftOverlay.test.ts` (cards): "at level 10 every race is COMING SOON" (line ~175), `referenced`
+  `toHaveLength(16)` (~270 — now 17), "ships nothing else — no l10 card" (~280) — all go RED by design.
+- `scripts/build-upgrade-cards.py` `CARDS` lacks `l10-vampires` (its docstring says deliberately not built).
+- master's `racialPerks.test.ts` still pins 12 perks / `racialPerkFor(race, 2)` null — this branch re-pins it.
