@@ -460,8 +460,9 @@ function child<T>(c: Container, label: string): T {
 function move(o: DraftOverlay, p: { x: number; y: number }): void {
   o.container.emit('pointermove', { global: p } as never);
 }
-function tap(o: DraftOverlay, p: { x: number; y: number }): void {
-  o.container.emit('pointertap', { global: p } as never);
+/** A primary-button tap — what a left click, a finger or a pen delivers. */
+function tap(o: DraftOverlay, p: { x: number; y: number }, button = 0): void {
+  o.container.emit('pointertap', { global: p, button } as never);
 }
 
 describe('⭐ the class, with a racial perk ON OFFER', () => {
@@ -474,6 +475,22 @@ describe('⭐ the class, with a racial perk ON OFFER', () => {
     tap(o, centre(racialTileRect()));
     tap(o, centre(generalTileRect()));
     expect(picks).toEqual(['racial', 'hp']);
+  });
+
+  it('⛔ a MIDDLE or RIGHT button tap picks NOTHING — right-click is the put-it-back / raid gesture', () => {
+    // Pixi v8 dispatches pointertap for every button; a pick is permanent, so only button 0 may make it.
+    const { w, seat } = startedWorld();
+    const picks: DraftPick[] = [];
+    const o = new DraftOverlay((p) => picks.push(p), { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+    o.render(w, seat);
+    expect(draftTileViews(offerAsIfBuilt(1, w.players.get(seat)!.raceId)).racial.choosable).toBe(true);
+    for (const button of [1, 2]) {
+      tap(o, centre(generalTileRect()), button);
+      tap(o, centre(racialTileRect()), button);
+    }
+    expect(picks).toEqual([]);
+    tap(o, centre(racialTileRect()), 0); // and the primary button still works on the same panel
+    expect(picks).toEqual(['racial']);
   });
 
   it('hovering the racial tile opens ITS detail panel, from RACIAL_PERK_COPY', () => {

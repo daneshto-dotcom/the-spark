@@ -410,6 +410,14 @@ export class DraftOverlay {
       this.hover = this.opts === null ? null : draftHitTest(p.x, p.y, this.opts);
     });
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
+      /*
+       * ⛔ PRIMARY BUTTON ONLY. Pixi v8 dispatches `pointertap` for EVERY button
+       * (`EventBoundary.mapPointerUp`), and right-click is this game's put-it-back / raid gesture —
+       * without this line a right-click that happened to land on the panel committed a permanent
+       * pick, the racial one included. A pick cannot be undone, so only a deliberate primary press
+       * may make it. Touch and pen contact both report button 0, so they still work.
+       */
+      if (e.button !== 0) return;
       if (this.opts === null) return;
       const p = e.global;
       const pick = pickForTile(draftHitTest(p.x, p.y, this.opts), this.opts);
