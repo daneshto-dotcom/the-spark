@@ -18,11 +18,19 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   `--top 310 --side 700` from `assets-source/upgrade-cards/l0-mummies.png`.
 - typecheck 0; the racial-c suites migrated to `raStrikes` and pass.
 
+- racialPerks.test.ts registry assertions updated (12 → 13; `l10-mummies` card in a PENDING_ART
+  set; conditional perks excluded from the no-picks offer check) — 13 green.
+- `src/state/racial/wrathOfRa.test.ts` — 15 green: conditional offer for BOTH seats (holder offered
+  + deadline takes it; general-at-L0 seat COMING SOON, refused, deadline gives the general), no-picks
+  safe default, other races, sandworm-index guard, end-to-end draft; 3 charges + 4th no-op + refill
+  next fight + POWER alone still once; per-charge patterns; REACH of three overlapping strikes via
+  runHostTick; save round-trip, capped/validated rehydrate, order hashed.
+- MUTATIONS (by hand, restored): requirement check removed from seatHoldsPerk → 1 red; WRATH line
+  removed from raChargesFor → 3 red.
+
 ## IN PROGRESS / NEXT
-- racialPerks.test.ts registry assertions (12 → 13, pending card art, conditional offer)
-- WRATH tests: conditional offer both seats, 3 charges, 4th refused, refill next fight, overlap REACH
 - footer: square icon sprite + pips + states; collapsed compact icon; fill enumeration
 - canon notes (SANDWORM ruled-not-built); gates
 
 ## KNOWN-BROKEN
-- `src/state/racialPerks.test.ts` — 3 registry tests red until updated (next step).
+- nothing known (the footer still draws P6's sun button until the icon commit lands).

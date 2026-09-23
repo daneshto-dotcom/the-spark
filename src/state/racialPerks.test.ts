@@ -16,6 +16,7 @@ import {
   RACIAL_PERK_BUILT,
   RACIAL_PERK_COPY,
   RACIAL_PERK_IDS,
+  RACIAL_PERK_REQUIRES,
   RACIAL_PERKS_BY_RACE,
   perkDraftIndex,
   perkRace,
@@ -44,10 +45,15 @@ function startedWorld(): World {
 const firstSeat = (w: World): PlayerId => [...w.players.keys()][0] as PlayerId;
 
 describe('the registry', () => {
-  it('names exactly twelve perks: every race at level 0 and level 5', () => {
-    expect(RACIAL_PERK_IDS).toHaveLength(12);
+  it('names every race at level 0 and level 5, and mummies at level 10 (S188 P11, WRATH OF RA)', () => {
+    // ⚠ S188 P11 — 12 → 13. `s188/swarm` adds `vampires.l10` to the same list; the merge owner
+    // reconciles the count and the vampires row.
+    expect(RACIAL_PERK_IDS).toHaveLength(13);
     for (const race of ALL_RACES) {
-      expect(RACIAL_PERKS_BY_RACE[race]).toEqual([`${race}.l0`, `${race}.l5`]);
+      const want = race === 'mummies'
+        ? ['mummies.l0', 'mummies.l5', 'mummies.l10']
+        : [`${race}.l0`, `${race}.l5`];
+      expect(RACIAL_PERKS_BY_RACE[race]).toEqual(want);
     }
   });
 
@@ -61,16 +67,26 @@ describe('the registry', () => {
   });
 
   it('gives every perk a card that EXISTS in the art source folder', () => {
+    /*
+     * ⚠ S188 P11 — ONE CARD IS NAMED BEFORE ITS ART EXISTS, on purpose: the owner is generating
+     * `l10-mummies` now. A tile whose card has not loaded keeps its text title (the overlay's own
+     * rule), so a pending card costs a picture, never a broken panel. Delete the entry when it lands.
+     */
+    const PENDING_ART = new Set(['l10-mummies']);
     for (const perk of RACIAL_PERK_IDS) {
       const card = RACIAL_PERK_COPY[perk].card;
+      if (PENDING_ART.has(card)) continue;
       expect(existsSync(`assets-source/upgrade-cards/${card}.png`), `${perk} -> ${card}.png`).toBe(true);
     }
   });
 
-  it('offers a perk ONLY when it is built, and never past level 5 (levels 10+ are undesigned)', () => {
+  it('offers a perk ONLY when it is built, and never an undesigned level', () => {
     for (const race of ALL_RACES) {
       for (const [index, perk] of RACIAL_PERKS_BY_RACE[race].entries()) {
-        expect(racialPerkFor(race, index)).toBe(RACIAL_PERK_BUILT[perk] ? perk : null);
+        // ⭐ S188 P11 — a perk with a REQUIREMENT is not offered without the seat's picks (the safe
+        // default); the conditional offer itself is pinned in `racial/wrathOfRa.test.ts`.
+        const unconditional = RACIAL_PERK_REQUIRES[perk] === undefined;
+        expect(racialPerkFor(race, index)).toBe(RACIAL_PERK_BUILT[perk] && unconditional ? perk : null);
       }
       expect(racialPerkFor(race, 2)).toBeNull();
       expect(racialPerkFor(race, 9)).toBeNull();
