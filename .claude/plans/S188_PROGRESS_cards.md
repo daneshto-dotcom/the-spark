@@ -21,12 +21,14 @@
   stale lit tile, no lit tile, PLAYING gate removed). Survivor: the tap handler's `pickForTile`
   belt — an equivalent mutant, the hit-test already refuses the dead tile.
 
+- MANIFEST.md updated (orcs L5 ruled, L5 cards landed, wiring decision implemented, WIRED table with
+  KB per card, l10 not shipped). Canon notes in `.claude/plans/S188_CANON_NOTES_cards.md`.
+
 ## IN PROGRESS
-- MANIFEST.md stale lines, canon notes, then full gates + screenshot.
+- full gates (typecheck, vitest, build) + dev-server screenshot of the panel.
 
 ## NEXT
-- MANIFEST.md stale lines; `.claude/plans/S188_CANON_NOTES_cards.md`.
-- Gates: typecheck, vitest, build. Dev server on a random port + screenshot of the panel.
+- final clean commit + report.
 
 ## KNOWN BROKEN
 - nothing known. Full vitest + build not yet run.
