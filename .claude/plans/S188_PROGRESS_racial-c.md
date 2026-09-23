@@ -16,10 +16,17 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
 - `CAST_POWER_OF_RA`: both protocol.ts records, benchGate 'deny', elimination 'deny', world.ts union
   + reducer arm. racialTick.ts racial-c slot filled.
 - typecheck green at this point.
+- `src/state/racial/powerOfRa.test.ts` — 41 tests GREEN: every reducer refusal as a whole-world
+  no-op (19 cases + missing seat + second cast), REACH through `runHostTick` (5 columns × 300 to an
+  enemy creature, 0 to own; enemy connector breaks with a 300 hit, own connector 0; a 16-connector
+  enemy banks 300; no column lands after FIGHT→BUILD), once-per-FIGHT across two real fights,
+  rematch reset, carry FSM, both allowlists + wire parser, bench/elimination deny through dispatch,
+  save/net round-trip, absent-when-null, malformed rehydrate, hash per field, 2-run determinism.
+- MUTATION TESTS (run by hand, restored): spare `caster`→`null` → 2 red; delete the USED line in
+  `raCastRefusal` → 2 red.
+- `'mummies.l0': true` in RACIAL_PERK_BUILT (racial-c block only).
 
 ## IN PROGRESS / NEXT
-- tests: `src/state/racial/powerOfRa.test.ts` (refusals, REACH through runHostTick, allowlists,
-  wire/save round-trip, hash contribution, once-per-FIGHT across two fights, mutation test)
 - render: refactor `drawRaRitual` column loop into a shared `drawRaColumns`; player strikes +
   aim preview in `drawBossAuras` (`bossAuras.ts`); `src/render/raAimPreview.ts` client-local context
 - footer: Ra button left of the chip row (`footerBand.ts`), carry readout shifts left of it; S182
@@ -28,4 +35,6 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
 - flip `'mummies.l0': true` ONLY after the tests pass; canon notes file; gates; browser look
 
 ## KNOWN-BROKEN
-- nothing known yet (mummies.l0 still `false`, so the mechanic is unreachable in play)
+- ⚠ IF SALVAGING BEFORE THE UI COMMIT LANDS: `mummies.l0` is choosable in the draft but there is
+  NO button and NO targeting yet, so a player could pick it and have no way to use it. Either land
+  the UI or revert the one-line flip in `src/state/racialPerks.ts` (and the draft-live test).
