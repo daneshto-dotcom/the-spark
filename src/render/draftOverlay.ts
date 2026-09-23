@@ -151,10 +151,74 @@ export function draftHitTest(x: number, y: number): 'general' | null {
   return inside(generalTileRect(), x, y) ? 'general' : null;
 }
 
+/**
+ * ⭐ THE AXIS EMBLEM — a big vector glyph filling the lower two-thirds of a tile.
+ *
+ * Painted rather than an atlas lookup, for the reason the pencil chewer's portrait is painted: it
+ * costs no art, it cannot go missing behind a `Partial<>` table (the failure that gave the owner
+ * "this silly goblin warrior"), and it scales cleanly. Four shapes, one per axis, each legible at a
+ * glance without reading the words:
+ *   hp  — a heart        · def — a shield
+ *   atk — a blade        · pen — an arrowhead punching through a broken bar
+ *
+ * ⚠ OUTLINE ONLY, NO OPAQUE FILL. Every opaque `.fill({` in this module is enumerated and paired
+ * with a hit-test by `draftOverlay.test.ts`; a decorative emblem drawn with `fill` would inflate
+ * that count and force a false entry. Strokes keep the enumeration honest AND read better over the
+ * tile plate.
+ */
+function drawAxisGlyph(g: Graphics, pick: DraftPick, cx: number, cy: number, r: number, tint: number, alpha: number): void {
+  const w = 5;
+  if (pick === 'hp') {
+    const k = r * 0.95;
+    g.moveTo(cx, cy + k * 0.85)
+      .bezierCurveTo(cx - k * 1.5, cy - k * 0.15, cx - k * 0.55, cy - k * 1.05, cx, cy - k * 0.35)
+      .bezierCurveTo(cx + k * 0.55, cy - k * 1.05, cx + k * 1.5, cy - k * 0.15, cx, cy + k * 0.85)
+      .stroke({ color: tint, width: w, alpha, join: 'round' });
+    return;
+  }
+  if (pick === 'def') {
+    const k = r;
+    g.moveTo(cx, cy - k)
+      .lineTo(cx + k * 0.82, cy - k * 0.55)
+      .lineTo(cx + k * 0.82, cy + k * 0.2)
+      .lineTo(cx, cy + k)
+      .lineTo(cx - k * 0.82, cy + k * 0.2)
+      .lineTo(cx - k * 0.82, cy - k * 0.55)
+      .closePath()
+      .stroke({ color: tint, width: w, alpha, join: 'round' });
+    g.moveTo(cx, cy - k * 0.55).lineTo(cx, cy + k * 0.5)
+      .stroke({ color: tint, width: w * 0.5, alpha: alpha * 0.7 });
+    return;
+  }
+  if (pick === 'atk') {
+    const k = r;
+    // A blade on the diagonal, with a crossguard.
+    g.moveTo(cx - k * 0.72, cy + k * 0.86).lineTo(cx + k * 0.62, cy - k * 0.86)
+      .stroke({ color: tint, width: w * 1.5, alpha, cap: 'round' });
+    g.moveTo(cx - k * 0.1, cy - k * 0.1).lineTo(cx + k * 0.5, cy + k * 0.32)
+      .stroke({ color: tint, width: w, alpha, cap: 'round' });
+    g.moveTo(cx - k * 0.72, cy + k * 0.86).lineTo(cx - k * 0.95, cy + k * 1.05)
+      .stroke({ color: tint, width: w * 0.8, alpha: alpha * 0.8, cap: 'round' });
+    return;
+  }
+  // pen — an arrowhead driving through a broken bar.
+  const k = r;
+  g.moveTo(cx - k * 0.95, cy).lineTo(cx - k * 0.2, cy)
+    .stroke({ color: tint, width: w * 1.3, alpha: alpha * 0.55, cap: 'round' });
+  g.moveTo(cx + k * 0.45, cy).lineTo(cx + k * 0.95, cy)
+    .stroke({ color: tint, width: w * 1.3, alpha: alpha * 0.55, cap: 'round' });
+  g.moveTo(cx - k * 0.1, cy - k * 0.62)
+    .lineTo(cx + k * 0.6, cy)
+    .lineTo(cx - k * 0.1, cy + k * 0.62)
+    .stroke({ color: tint, width: w, alpha, join: 'round' });
+}
+
 export class DraftOverlay {
   readonly container = new Container();
   private readonly plate = new Graphics();
   private readonly tiles = new Graphics();
+  /** The big axis emblem in each tile. Its own Graphics so the tile plates can be redrawn alone. */
+  private readonly glyphs = new Graphics();
   private readonly title: Text;
   private readonly clock: Text;
   private readonly generalTitle: Text;
@@ -162,6 +226,8 @@ export class DraftOverlay {
   private readonly racialTitle: Text;
   private readonly racialLine: Text;
   private readonly tip: Text;
+  /** The COMING SOON tile's placeholder mark. See the note at its draw site. */
+  private readonly racialMark: Text;
   private readonly tipPlate = new Graphics();
   private hover: 'general' | null = null;
   private readonly onPick: (p: DraftPick) => void;
@@ -173,20 +239,35 @@ export class DraftOverlay {
     this.container.zIndex = 900;
 
     const h1 = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 22, fill: INK });
-    const h2 = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: INK });
+    /*
+     * ⛔ TWO SEPARATE INSTANCES, NOT ONE SHARED ONE, AND THIS WAS A REAL BUG.
+     *
+     * The first cut built one `h2` style and handed it to BOTH lines. `render` then set
+     * `racialLine.style.fill = RACE_COLORS[race]` each frame — and because the two Texts pointed at
+     * the SAME TextStyle object, that repainted the general option's headline in the race colour
+     * too. Every geometry and hit-test assertion stayed green; it was visible only by looking at the
+     * running game. A shared mutable style is a shared mutable object like any other.
+     */
+    const h2General = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: INK });
+    const h2Racial = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: DIM });
     const small = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontSize: 15, fill: DIM });
     const tipStyle = new TextStyle({ fontFamily: ['Kanit', 'sans-serif'], fontSize: 15, fill: INK, wordWrap: true, wordWrapWidth: PANEL_W - 40 });
 
     this.title = new Text({ text: 'CHOOSE YOUR UPGRADE', style: h1 });
     this.clock = new Text({ text: '', style: small });
     this.generalTitle = new Text({ text: '', style: h1 });
-    this.generalLine = new Text({ text: '', style: h2 });
+    this.generalLine = new Text({ text: '', style: h2General });
     this.racialTitle = new Text({ text: 'YOUR RACE', style: h1 });
-    this.racialLine = new Text({ text: 'COMING SOON', style: h2 });
+    this.racialLine = new Text({ text: 'COMING SOON', style: h2Racial });
     this.tip = new Text({ text: '', style: tipStyle });
+    this.racialMark = new Text({
+      text: '?',
+      style: new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 74, fill: DIM }),
+    });
+    this.racialMark.alpha = 0.35;
 
-    this.container.addChild(this.plate, this.tiles, this.title, this.clock,
-      this.generalTitle, this.generalLine, this.racialTitle, this.racialLine,
+    this.container.addChild(this.plate, this.tiles, this.glyphs, this.title, this.clock,
+      this.generalTitle, this.generalLine, this.racialTitle, this.racialLine, this.racialMark,
       this.tipPlate, this.tip);
 
     this.container.on('pointermove', (e: FederatedPointerEvent) => {
@@ -272,6 +353,25 @@ export class DraftOverlay {
     this.racialTitle.y = r.y + 18;
     this.racialLine.x = r.x + 16;
     this.racialLine.y = r.y + 48;
+    /*
+     * The emblems, sized off the tile so they fill the space the words leave empty. The general one
+     * takes the plate's gold; the racial one takes the seat's race colour at low alpha, so the dead
+     * tile still reads as THEIRS rather than as a blank.
+     */
+    this.glyphs.clear();
+    const gr = Math.min(g.w, g.h - 70) * 0.34;
+    drawAxisGlyph(this.glyphs, opts.general, g.x + g.w / 2, g.y + g.h * 0.66, gr, PLATE_EDGE,
+      this.hover === 'general' ? 0.95 : 0.7);
+    /*
+     * ⛔ THE DEAD TILE GETS A QUESTION MARK, NOT THE GENERAL'S EMBLEM. The first cut drew the same
+     * axis glyph on both sides at low alpha, which reads as "this option gives you the same thing" —
+     * the opposite of true, and the exact misreading a COMING SOON tile must not invite. A '?' says
+     * "something, not yet decided", which is what it actually is.
+     */
+    this.racialMark.x = r.x + r.w / 2 - this.racialMark.width / 2;
+    this.racialMark.y = r.y + r.h * 0.66 - this.racialMark.height / 2;
+    this.racialMark.style.fill = RACE_COLORS[race];
+
     this.racialTitle.alpha = 0.5;
     this.racialLine.alpha = 0.5;
     this.racialLine.style.fill = RACE_COLORS[race];

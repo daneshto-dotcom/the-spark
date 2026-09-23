@@ -159,6 +159,7 @@ import { BlueprintGhost } from './render/blueprintGhost.ts';
 import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
+import { DraftOverlay } from './render/draftOverlay.ts';
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -790,6 +791,18 @@ async function bootstrap(): Promise<void> {
    */
   const damageNumbers = new DamageNumbers();
   void loadDamageFont();
+  /*
+   * ⭐⭐ S187 — THE UPGRADE DRAFT PANEL. Eager, not lazily imported like the NONET overlay: it
+   * loads no assets and draws a handful of rectangles, and it must be on screen the INSTANT the
+   * match starts — the pre-wave-1 draft opens on the same tick `gameState` becomes PLAYING, so a
+   * chunk fetch would put the panel up after the player had already started building.
+   *
+   * The pick leaves as a CLIENT INTENT and the host decides. On a joiner that is the whole story;
+   * on a host or solo seat `dispatchFn` reduces it locally, which is the same path.
+   */
+  const draftOverlay = new DraftOverlay((pick) => {
+    dispatchFn({ type: 'CHOOSE_DRAFT', playerId: world.localPlayerId, pick });
+  });
   // S100 P1 (TD Phase 1a) — chewerRenderer draws the persistent 'chewer' creatures (original
   // pencil sketch + physics-driven hop); creatureRenderer keeps Voltkin. Both drain world.creatures
   // partitioned by creature.type. aboveFogLayer for the same cross-player-reach fog rule.
@@ -919,6 +932,8 @@ async function bootstrap(): Promise<void> {
    * how to play it"*), so it must never be occluded by a sprite or dimmed by fog.
    */
   app.stage.addChild(damageNumbers.layer);
+  // ⭐ S187 — above the numbers and the board: it is a modal choice, and nothing may occlude it.
+  app.stage.addChild(draftOverlay.container);
   // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
   // see the comment there). Relative order preserved: beta, ⚙ (after beta — S18 P1
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
@@ -4048,6 +4063,17 @@ Network routes: ${v.detail}`;
     goblinRenderer.sync(world);
     // ⭐ S172 — after both creature renderers, so a number spawned this frame is drawn on top.
     damageNumbers.sync(world);
+    /*
+     * ⭐ S187 — rendered UNCONDITIONALLY, with no `if` in front of it, and handed the local seat
+     * rather than consulting it internally. Visibility is recomputed from `world.draft` every
+     * frame, so there is no show()/hide() pair to forget on a new exit path — the S150 P3 rule
+     * this file already applies to the arcade overlay, for the same reason: a renderer keyed on a
+     * latched edge leaks onto screens it does not belong on, and this repo shipped that twice.
+     *
+     * It also means a JOINER who arrives mid-BUILD with a draft already open sees the panel, which
+     * a one-shot open event would never have delivered.
+     */
+    draftOverlay.render(world, world.localPlayerId);
     // S103 P3 — laser-turret defenders (charge/beam off synced state). Cheap when none live.
     turretRenderer.sync(world);
     // S103 P4 — HELGA princess defenders (articulated slap rig off synced state). Cheap when none live.
