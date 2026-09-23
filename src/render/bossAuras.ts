@@ -60,13 +60,14 @@ import {
   RA_RITUAL_TICKS,
 } from '../constants.ts';
 import { isStunned, isChannellingRa } from '../state/creatures/creature.ts';
-import { raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
+import { raColumnImpactTick, raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
 import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview } from './raAimPreview.ts';
+import { drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -154,6 +155,9 @@ function drawRaRitual(
   id: number,
   boss: { pos: { x: number; y: number }; raRitualUntilTick?: number },
 ): void {
+  // ⭐ S188 — a Pharaoh on the board is the earliest sign a strike is coming: fetch its art now, long
+  // before his ritual, so the first column lands as the owner's sprite and not as the code fallback.
+  ensureRaStrikeArt();
   const until = boss.raRitualUntilTick;
   if (until === undefined) return;
   if (!isChannellingRa(boss, world.tick)) return;
@@ -174,6 +178,22 @@ function drawRaRitual(
  * only WHERE the columns fall, and that is handed in as the SIM's own landing function, never
  * re-derived here: the Pharaoh passes `raColumnPos` around himself, a caster passes
  * `raStrikeColumnPos` around the aim. `until` is the same deadline shape for both.
+ *
+ * ⭐⭐ S188 `s188/ra-vfx` — **THE OWNER'S ART, ON THE SAME CLOCK.** *"it doesn't look good the way you
+ * did it with code … an instantaneous fast beam of light, you can't even see it"*. Once his sheet has
+ * loaded (`raStrikeArt()`), each column plays its own 23-frame strike — ring, beam, flash, explosion,
+ * mushroom cloud, smoke — with the slot chosen by `raStrikeFrameAt(tick, raColumnImpactTick(until,
+ * k))`: the SIM's own impact tick for that column, the one `runPharaohRitual` / `runPowerOfRa` deal
+ * damage on. So the flash is on the damage tick for the Pharaoh and for a player alike, by
+ * construction, and nothing is remembered between frames. What does NOT change with the art:
+ *   · the growing shade + outline — the owner's R171-B promise, at the EXACT kill radius — stays
+ *     under the rune ring, because the drawn ring is a perspective ellipse and the kill area is round;
+ *   · the scorch at the true kill radius for `RA_FLASH_TICKS` after impact (it states the hitbox).
+ * Only the thin code shaft is replaced. Without the art (still loading, failed, or the unit suite)
+ * this function draws exactly what it drew before S188.
+ *
+ * ⚠ SPRITES ARE DRAWN LAST, IN PAINTER'S ORDER (y, then k), so a later column's rune ring never
+ * paints over an earlier column's mushroom cloud that stands in front of it.
  */
 function drawRaColumns(
   g: Graphics,
@@ -181,16 +201,22 @@ function drawRaColumns(
   until: number,
   columnPos: (k: number) => { x: number; y: number },
 ): void {
+  ensureRaStrikeArt();
+  const art = raStrikeArt();
   const start = until - RA_RITUAL_TICKS;
   const elapsed = tick - start;
+  const sprites: Array<{ slot: number; x: number; y: number; k: number }> = [];
 
   for (let k = 0; k < RA_COLUMN_COUNT; k++) {
     const windowStart = k * RA_COLUMN_TICKS;
     const impact = (k + 1) * RA_COLUMN_TICKS;
     if (elapsed < windowStart) continue;              // not yet announced
-    if (elapsed > impact + RA_FLASH_TICKS) continue;  // done and faded
+
+    const slot = art === null ? null : raStrikeFrameAt(tick, raColumnImpactTick(until, k));
+    if (elapsed > impact + RA_FLASH_TICKS && slot === null) continue;  // done and faded
 
     const pos = columnPos(k);
+    if (slot !== null) sprites.push({ slot, x: pos.x, y: pos.y, k });
 
     if (elapsed < impact) {
       /*
@@ -202,6 +228,13 @@ function drawRaColumns(
       const r = RA_COLUMN_RADIUS * (0.18 + 0.82 * t);
       g.circle(pos.x, pos.y, r).fill({ color: RA_TELEGRAPH_TINT, alpha: 0.10 + 0.22 * t });
       g.circle(pos.x, pos.y, r).stroke({ color: RA_TELEGRAPH_TINT, width: 1.5, alpha: 0.35 + 0.5 * t });
+    } else if (art !== null) {
+      // The owner's sprite carries the beam and the blast; the code keeps only the hitbox scorch.
+      if (elapsed <= impact + RA_FLASH_TICKS) {
+        const f = 1 - (elapsed - impact) / RA_FLASH_TICKS; // 1 → 0
+        g.circle(pos.x, pos.y, RA_COLUMN_RADIUS * (1 + (1 - f) * 0.25))
+          .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
+      }
     } else {
       /*
        * THE COLUMN, FROM THE SKY. Drawn as a tall tapering shaft standing on the circle plus a
@@ -227,6 +260,10 @@ function drawRaColumns(
         .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
     }
   }
+
+  if (art === null || sprites.length === 0) return;
+  sprites.sort((a, b) => a.y - b.y || a.k - b.k);
+  for (const s of sprites) drawRaStrikeFrame(g, art, s.slot, s.x, s.y);
 }
 
 /* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to

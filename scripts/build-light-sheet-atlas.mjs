@@ -244,7 +244,9 @@ for c in kept:
     if cut: touching.append(c['n'])
     if c['n'] in beam_frames and not cut:
         fail(f"[light-sheet] beam frame {c['n']} is not cut by its cell top — beamFrames is wrong for this sheet")
-    beam_top.append(c['top_out'] + INSET if c['n'] in beam_frames else None)
+    # The CUT row itself; the renderer samples its strip RA_BEAM_STRIP_INSET (2) px below it, clear of
+    # the gutter's anti-aliasing, and starts the sky continuation exactly here so nothing is drawn twice.
+    beam_top.append(c['top_out'] if c['n'] in beam_frames else None)
 print(f'  touching the cell top: {touching}; continued into the sky: {sorted(beam_frames)}')
 
 # ── 5. BLAST FOOTPRINT — sized to the column's REAL damage radius by the renderer ────────────────
