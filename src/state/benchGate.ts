@@ -98,6 +98,14 @@ export const BENCH_INTENT_POLICY = {
    * the benched player. The points stay in the bank.
    */
   UPGRADE_CASTLE_STAT: 'deny',
+  /**
+   * ⭐ S188 P6 — **DENY. POWER OF RA IS AN ATTACK**, the RAID_TARGET / SEVER_BOND class: five columns
+   * that kill units and cut connectors. The bench is the hunter's punish window, and a benched
+   * (eaten) player calling down Ra from inside it would make the punish cosmetic. Nothing is spent
+   * by the refusal — the once-per-fight charge stays unused, and it is still there if the bench
+   * lifts before the fight ends.
+   */
+  CAST_POWER_OF_RA: 'deny',
   // V6-1.2 — re-tasking an EXISTING unit costs nothing and gains nothing; it is the economic
   // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
   // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.
