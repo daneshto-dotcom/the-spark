@@ -199,6 +199,10 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // S164 P1 — upgrades are per-match, like the score that bought them. Carrying a level across a
     // rematch would hand the previous match's winner a compounding head start nobody ruled on.
     player.castleRegenLevel = 0;
+    // ⭐ S188 — ENDLESS DYNASTY counts from the moment the perk is taken, in THIS match. A rematch that
+    // kept last match's running loss would raise its first Pharaoh early (and the perk resets anyway,
+    // because `draftPicks` is cleared below).
+    player.dynastyHpLost = 0;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter

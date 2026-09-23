@@ -494,6 +494,12 @@ interface SerializedPlayer {
     readonly penLevel: number;
   };
   /**
+   * ⭐ S188 — ENDLESS DYNASTY's running castle-HP loss (`Player.dynastyHpLost`). Additive-optional and
+   * emitted only when non-zero, so every seat without `mummies.l5` costs no bytes and every pre-S188
+   * save loads. It rides the 49 → 50 bump the S188 substrate already took for the racial RULES.
+   */
+  dynastyHpLost?: number;
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -1914,6 +1920,10 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
               defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
               penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
             },
+      // ⭐ S188 — READ FROM THE WIRE (the `raidPoints` rule above: a literal 0 here would restart every
+      // seat's count toward its next Pharaoh on every snapshot apply and every host migration).
+      // Coerced and floored because it crosses a trust boundary and feeds the spawn arithmetic.
+      dynastyHpLost: Math.max(0, Math.trunc(Number(p.dynastyHpLost ?? 0)) || 0),
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2119,6 +2129,9 @@ function serializePlayer(p: Player): SerializedPlayer {
     p.castleUpgrades.penLevel > 0
       ? { castleUpgrades: { ...p.castleUpgrades } }
       : {}),
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
+    // the perk held, so every other seat stays byte-identical to a v49 snapshot.
+    ...(p.dynastyHpLost > 0 ? { dynastyHpLost: p.dynastyHpLost } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
