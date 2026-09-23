@@ -293,6 +293,13 @@ clamp is MINE, like the win bar's.
 ### ⛔ WHAT IS SPECIFIED BUT **NOT BUILT**
 
 
+⭐ **ORCS LEVEL 5 — `THE HORDE GROWS`, ruled S187 and the last gap at that level.** Goblin towers
+allow **20** spawned goblins instead of 10, **and** the castle emits its base unit **twice as
+fast**. ⚠ The goblin ceiling is documented as LOAD-BEARING, not cosmetic ({`constants.ts`}:
+`GOBLIN_MELEE_CONFIG.persistent = true`, so goblins never age out) — raising 10 → 20 is fine,
+removing the ceiling is not. **Levels 0 and 5 are now fully ruled for all six races; levels 10–20
+have 16 racial slots still undesigned, only vampires L10 exists.**
+
 Every racial buff. All six level-0 (vampire lifesteal 20 %, zombie kill-to-spawn, mummy Power of Ra,
 
 orc rage propagation, demon quadrant burn, naga gatherer teleport), the four level-5 (demon chewer

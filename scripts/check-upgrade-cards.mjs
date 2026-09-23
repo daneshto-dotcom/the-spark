@@ -45,11 +45,17 @@ const EXPECTED = [
   ['l5-mummies.png', 'ENDLESS DYNASTY'],
   ['l5-nagas.png', 'APEX PREDATOR'],
   ['l5-demons.png', 'HELLSPAWN'],
+  ['l5-orcs.png', 'THE HORDE GROWS'],
   ['l10-vampires.png', 'THE SWARM'],
 ];
 
-/** ⛔ Orcs L5 is deliberately NOT in EXPECTED — the owner has not ruled that upgrade. */
-const UNRULED = ['l5-orcs.png'];
+/**
+ * ⭐ S187 — orcs L5 was the last unruled slot in levels 0 and 5, and the owner closed it:
+ * THE HORDE GROWS. Nothing at those two levels is unruled any more. Levels 10-20 are a
+ * different matter — only vampires L10 exists, so 16 racial slots remain undesigned, and
+ * they are absent here because a card cannot precede a mechanic.
+ */
+const UNRULED = [];
 
 /**
  * Deliberate alternates the owner generated and asked to keep. Known, so they are not reported as
@@ -59,7 +65,7 @@ const UNRULED = ['l5-orcs.png'];
  * primary is the one with more foreground rock and stronger diagonal fissures, which reads better
  * shrunk to a 251px tile; the alt is flatter and more uniform. Swapping them is a file rename.
  */
-const ALTERNATES = ['l0-demons-alt.png'];
+const ALTERNATES = ['l0-demons-alt.png', 'l5-demons-alt.png'];
 
 /** Read a PNG's dimensions from its IHDR. No image library, so this script has no dependencies. */
 function pngSize(path) {
@@ -118,7 +124,8 @@ if (strays.length > 0) {
   console.log(`\n[cards] ⚠ unrecognised files — check the spelling against MANIFEST.md:`);
   for (const f of strays) console.log(`   ??   ${f}`);
 }
-console.log(`\n[cards] ⛔ orcs L5 is unruled by the owner, so l5-orcs.png is not expected yet.`);
+console.log(`
+[cards] ⛔ levels 0 and 5 are fully ruled. Levels 10-20 have 16 racial slots undesigned.`);
 
 if (failures.length > 0) {
   console.error(`\n[cards] ${failures.length} FAILED:`);

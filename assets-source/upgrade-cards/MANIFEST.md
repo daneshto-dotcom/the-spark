@@ -98,3 +98,29 @@ kind of thing a later session re-enables by accident.
 | ⏳ owner generating now | the five level-5 racials + THE SWARM |
 | ⛔ unruled | orcs level 5 — no mechanic, so no card |
 | ⚠ alternate kept | `l0-demons-alt.png` — SCORCHED GROUND was generated twice. The primary is the one with more foreground rock and stronger diagonal fissures, which survives the shrink to a 251 px tile better. Swapping them is a rename. |
+
+## ⭐ ORCS LEVEL 5 — RULED S187, the last gap at that level
+
+`l5-orcs.png` — **THE HORDE GROWS**. Goblin towers allow **20** spawned goblins instead of 10, and
+the castle emits its base unit **twice as fast**.
+
+⚠ The goblin ceiling is documented as LOAD-BEARING rather than cosmetic: `GOBLIN_MELEE_CONFIG.persistent`
+is true, so goblins never age out. Raising 10 → 20 is fine; removing the ceiling is not.
+
+**Levels 0 and 5 are now fully ruled for all six races.** Levels 10–20 have 16 racial slots still
+undesigned — only vampires L10 (THE SWARM) exists.
+
+## ⚠ THE FIVE GROK CARDS WERE PORTRAIT AND HAD TO BE CROPPED
+
+`l5-zombies`, `l5-nagas`, `l5-demons`, `l5-demons-alt` and `l10-vampires` arrived at **784 × 1168**
+(ratio 0.671) against a tile of 1.037 — a 35 % drift. They were cropped **top-anchored** to 784 × 756:
+the title is baked into the top ~15 % and the subject sits directly beneath it, so a centred crop
+would have shaved the lettering and a bottom crop would have lost the subject. The loss is spent on
+the lower background. Verified by eye afterwards — all four keep their title and their subject.
+
+⚠ `l10-vampires.png` (THE SWARM) is **very dark**. At 251 px it may read as a near-black rectangle.
+Look at it in-game before accepting it; a brightness lift or a re-roll may be wanted.
+
+⚠ `l5-demons-alt.png` is the second HELLSPAWN. The owner picked the other one (`isESS`) and the pick
+is right for a reason worth keeping: the primary's radiating composition reads as ONE thing becoming
+MANY, which is what the upgrade does; the alternate is an undifferentiated pile.
