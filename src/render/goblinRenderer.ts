@@ -103,6 +103,27 @@ export const PIRANHA_ELITE_ATLAS_BASE = `${t3UnitAtlasBase('nagas')}-elite`;
 export const CORPSE_EATER_FEED_ATLAS_BASE = `${t9BossAtlasBase('zombies')}-feed`;
 const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
 
+/**
+ * ⭐ S188 THE SWARM — the bat swarm's OWN sheet (fly / attack / die), packed from the owner's bat-swarm
+ * sheets by `scripts/build-scattered-sheet-atlas.mjs` (`assets-source/race-tier3-units/bat-swarm/
+ * atlas-spec.json`), its body fitted to the shipped bat's body height so `BAT_SWARM_SPRITE_SCALE_MUL`
+ * is the size ratio. `theSwarm.test.ts` asserts both files exist.
+ */
+export const BAT_SWARM_ATLAS_BASE = `${t3UnitAtlasBase('vampires')}-swarm`;
+
+/**
+ * ⭐ S188 — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS THE UNIT IT WAS PROMOTED FROM.**
+ *
+ * `loadAtlas` fails silently, and until now a type with no resolved sheet fell straight to
+ * `drawGoblin`'s green procedural puppet — the look the owner has reported as a regression twice. A
+ * bat swarm whose sheet is still in flight (or 404s on some peer) instead draws with the ordinary
+ * bat's sheet, at the swarm's own scale: the right animal, visibly bigger, never green.
+ * Pure and exported so the fallback is testable without Pixi.
+ */
+export function atlasFallbackType(type: CreatureType): CreatureType | null {
+  return type === 't3BatSwarm' ? 't3Bat' : null;
+}
+
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
@@ -135,6 +156,9 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    * race and the creature (`t3-vampires-bat`) and a hand-typed path that 404s is silent too.
    */
   t3Bat: t3UnitAtlasBase('vampires'),
+  // ⭐ S188 THE SWARM — the bat swarm. See `BAT_SWARM_ATLAS_BASE` for which sheet, and
+  // `atlasFallbackType` for what it draws until that sheet resolves.
+  t3BatSwarm: BAT_SWARM_ATLAS_BASE,
   t3Piranha: t3UnitAtlasBase('nagas'),
   // ⭐ S188 APEX PREDATOR — the elite piranha. See `PIRANHA_ELITE_ATLAS_BASE` for which sheet.
   t3PiranhaElite: PIRANHA_ELITE_ATLAS_BASE,
@@ -375,6 +399,8 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
   // ⭐ S188 APEX PREDATOR — absent from this Set the elite would fight, kill and die INVISIBLE.
   't3PiranhaElite',
+  // ⭐ S188 THE SWARM — and the bat swarm, for the same reason.
+  't3BatSwarm',
   /*
    * ⛔ S167 — THE SIX BOSSES, AND THIS SET FAILS DIFFERENTLY FROM `ATLASES` ABOVE. A type missing
    * from `ATLASES` draws the green puppet; a type missing from HERE draws NOTHING AT ALL — the boss
@@ -637,6 +663,8 @@ export class GoblinRenderer {
     // ⭐ S188 APEX PREDATOR — a naga seat can field the elite from the level-5 draft on, so its sheet
     // is part of that race's kit and warms with the rest rather than popping in green mid-fight.
     if (race === 'nagas') this.ensureTypeAtlas('t3PiranhaElite');
+    // ⭐ S188 THE SWARM — likewise a vampire seat's level-10 swarm.
+    if (race === 'vampires') this.ensureTypeAtlas('t3BatSwarm');
   }
 
   /**
@@ -1058,9 +1086,12 @@ export class GoblinRenderer {
       // S169 — safety net for a race-keyed sheet that appeared without a preload (a joiner whose
       // roster arrived late, a race added mid-match by the rainbow shuffle). Idempotent Set probe.
       this.ensureTypeAtlas(c.type);
+      // ⭐ S188 — a promoted unit with no resolved sheet borrows its base unit's (`atlasFallbackType`).
+      const fallbackType = atlasFallbackType(c.type);
+      if (fallbackType !== null) this.ensureTypeAtlas(fallbackType);
       const atlas = this.atlases.get(
         this.atlasKeyFor(world, c.type, c.ownerPlayerId as unknown as number),
-      );
+      ) ?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined);
       if (atlas !== undefined) {
         // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
         const lift = GOBLIN_LIFT[c.type] ?? 0;

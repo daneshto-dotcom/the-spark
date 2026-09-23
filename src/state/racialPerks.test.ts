@@ -17,12 +17,21 @@ import {
   RACIAL_PERK_COPY,
   RACIAL_PERK_IDS,
   RACIAL_PERKS_BY_RACE,
+  LEVELS_PER_DRAFT,
   perkDraftIndex,
   perkRace,
   racialPerkFor,
   seatHoldsPerk,
 } from './racialPerks.ts';
-import { DRAFT_PICKS, GENERAL_PICKS, generalPickForWave, isDamagePick, isPoolPick } from './draft.ts';
+import {
+  DRAFT_PICKS,
+  DRAFT_WAVE_INTERVAL,
+  GENERAL_PICKS,
+  draftIndexForWave,
+  generalPickForWave,
+  isDamagePick,
+  isPoolPick,
+} from './draft.ts';
 import {
   applyDraftChoice,
   autoPickFor,
@@ -44,11 +53,28 @@ function startedWorld(): World {
 const firstSeat = (w: World): PlayerId => [...w.players.keys()][0] as PlayerId;
 
 describe('the registry', () => {
-  it('names exactly twelve perks: every race at level 0 and level 5', () => {
-    expect(RACIAL_PERK_IDS).toHaveLength(12);
+  it('names exactly thirteen perks: every race at level 0 and level 5, and vampires at level 10', () => {
+    expect(RACIAL_PERK_IDS).toHaveLength(13);
+    expect(new Set(RACIAL_PERK_IDS).size).toBe(RACIAL_PERK_IDS.length);
     for (const race of ALL_RACES) {
-      expect(RACIAL_PERKS_BY_RACE[race]).toEqual([`${race}.l0`, `${race}.l5`]);
+      // S188 (`s188/swarm`) — THE SWARM is the one designed level-10 perk; every other row stops at 5.
+      const row = race === 'vampires'
+        ? [`${race}.l0`, `${race}.l5`, `${race}.l10`]
+        : [`${race}.l0`, `${race}.l5`];
+      expect(RACIAL_PERKS_BY_RACE[race]).toEqual(row);
     }
+    // Every id in a row is in the id list, and vice versa.
+    expect(new Set(Object.values(RACIAL_PERKS_BY_RACE).flat())).toEqual(new Set(RACIAL_PERK_IDS));
+  });
+
+  it('⭐ the draft index is DERIVED from the level in the id (level / 5), one level per draft', () => {
+    expect(LEVELS_PER_DRAFT).toBe(DRAFT_WAVE_INTERVAL);
+    expect(perkDraftIndex('vampires.l0')).toBe(0);
+    expect(perkDraftIndex('vampires.l5')).toBe(1);
+    // ⛔ the old body (`endsWith('.l0') ? 0 : 1`) returned 1 here — THE SWARM would have been a
+    // second level-5 perk, held by every vampire seat that took CRIMSON TIDE.
+    expect(perkDraftIndex('vampires.l10')).toBe(2);
+    expect(draftIndexForWave(11)).toBe(perkDraftIndex('vampires.l10'));
   });
 
   it('agrees with itself: a perk id’s race and draft index are the row and column it sits in', () => {
@@ -67,12 +93,14 @@ describe('the registry', () => {
     }
   });
 
-  it('offers a perk ONLY when it is built, and never past level 5 (levels 10+ are undesigned)', () => {
+  it('offers a perk ONLY when it is built, and nothing past the end of a row (undesigned levels)', () => {
     for (const race of ALL_RACES) {
       for (const [index, perk] of RACIAL_PERKS_BY_RACE[race].entries()) {
         expect(racialPerkFor(race, index)).toBe(RACIAL_PERK_BUILT[perk] ? perk : null);
       }
-      expect(racialPerkFor(race, 2)).toBeNull();
+      // Level 10 is designed for vampires only (THE SWARM); every other race is COMING SOON there.
+      if (race !== 'vampires') expect(racialPerkFor(race, 2)).toBeNull();
+      expect(racialPerkFor(race, 3)).toBeNull();
       expect(racialPerkFor(race, 9)).toBeNull();
     }
   });
@@ -86,6 +114,17 @@ describe('seatHoldsPerk — the one question every mechanic asks', () => {
     // ⛔ a seat of ANOTHER race that picked racial holds its OWN race's perk, never this one
     expect(seatHoldsPerk(vamp, 'zombies.l0')).toBe(false);
     expect(seatHoldsPerk({ raceId: 'vampires', draftPicks: [] }, 'vampires.l0')).toBe(false);
+  });
+
+  it('S188 — level 10 is its OWN index: CRIMSON TIDE does not grant THE SWARM, nor the reverse', () => {
+    const tide = { raceId: 'vampires' as const, draftPicks: ['racial' as const, 'racial' as const] };
+    expect(seatHoldsPerk(tide, 'vampires.l5')).toBe(true);
+    expect(seatHoldsPerk(tide, 'vampires.l10')).toBe(false); // no wave-11 pick yet
+    const swarm = { raceId: 'vampires' as const, draftPicks: ['hp' as const, 'def' as const, 'racial' as const] };
+    expect(seatHoldsPerk(swarm, 'vampires.l10')).toBe(true);
+    expect(seatHoldsPerk(swarm, 'vampires.l5')).toBe(false);
+    expect(seatHoldsPerk({ raceId: 'vampires', draftPicks: ['racial', 'racial', 'atk'] }, 'vampires.l10')).toBe(false);
+    expect(seatHoldsPerk({ raceId: 'nagas', draftPicks: ['racial', 'racial', 'racial'] }, 'vampires.l10')).toBe(false);
   });
 
   it('the racial literal buffs no stat — R104 held by the type system', () => {

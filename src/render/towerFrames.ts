@@ -191,6 +191,19 @@ export const DIREWOLF_SPRITE_SCALE_MUL = 2;
 export const PIRANHA_ELITE_SPRITE_SCALE_MUL = 2;
 
 /**
+ * ⭐ S188 (owner, THE SWARM — vampires level 10) — the bat swarm is drawn at **2×** the bat.
+ *
+ * ⚠ MINE, NOT THE OWNER'S — he ruled the swarm's STATS (*"whatever we did for the piranha, we double
+ * that"*) and never its size. 2 is the one precedent he HAS set for an upgraded tier-3 unit (the elite
+ * piranha, *"two times bigger"*), so a promoted bat reads as the same KIND of upgrade as a promoted
+ * piranha; doubling the size along with the stats (4×) would bury a 1v1 board under one unit. The
+ * swarm atlas is packed with its body fitted to the shipped bat's body height, so this multiplier
+ * alone is the size ratio. RENDER-ONLY, like every multiplier here. A one-line change once he has
+ * seen it fight.
+ */
+export const BAT_SWARM_SPRITE_SCALE_MUL = 2;
+
+/**
  * PURE — the extra sprite-scale multiplier for a creature type. `1` for everything that is not a
  * boss, which is every unit shipped before S167.
  *
@@ -201,6 +214,7 @@ export const PIRANHA_ELITE_SPRITE_SCALE_MUL = 2;
 export function creatureSpriteScaleMul(type: CreatureType): number {
   if (type === 'direwolf') return DIREWOLF_SPRITE_SCALE_MUL;
   if (type === 't3PiranhaElite') return PIRANHA_ELITE_SPRITE_SCALE_MUL;
+  if (type === 't3BatSwarm') return BAT_SWARM_SPRITE_SCALE_MUL;
   return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
 }
 
