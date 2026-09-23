@@ -290,6 +290,26 @@ below 1 on a real hit**, so a keep can always be felled. ⚠ Past wave 25 the ga
 clamp is MINE, like the win bar's.
 
 
+### ⭐ A FUTURE DIRECTION HE WANTS ON RECORD — A RANDOMISED UPGRADE POOL (S187)
+
+> *"Eventually we could even add a randomizer of upgrades. There'll be a pool of 20 upgrades for
+> general, and a pool for racial, and you never know which upgrade will come at every level. It could
+> be tiers of upgrades too — five different upgrades you can have at level five, which are racial or
+> global, and you don't know. So each game will be completely different. That makes it even more
+> interesting. Just something to record to think about for the future."* — owner, S187
+
+⚠ **NOT SCHEDULED, NOT DESIGNED — recorded so it is not re-invented from scratch.** His reasoning for
+the whole draft system is that it makes the game DYNAMIC: players take different paths and start
+planning around them (*"if I do a general upgrade, then when we reach level 15 my racial is going to
+be a lot stronger because…"*). A random pool is the next step of that same idea.
+
+⭐ **THE SUBSTRATE ALREADY ALLOWS IT, AND THAT IS WORTH KNOWING BEFORE ANYONE REDESIGNS.** The draft
+event carries the wave and nothing else; the OFFER is derived by `draftOptionsFor(waveNumber)`, a pure
+function. A random pool means making that function read a seeded selection instead of a fixed table —
+`world.draft` would carry the rolled option ids, minted host-side and BROADCAST exactly as the NONET
+seed is, never recomputed per peer. No new architecture; a different `draftOptionsFor` and two more
+integers on an event that already exists.
+
 ### ⛔ WHAT IS SPECIFIED BUT **NOT BUILT**
 
 
