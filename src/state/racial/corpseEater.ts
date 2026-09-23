@@ -299,7 +299,17 @@ function feedStep(world: World, boss: Creature): void {
   clampToLeash(boss);
 }
 
-/** Hand him back to the ordinary pipeline cleanly — see the file docblock's last ⛔. */
+/**
+ * Hand him back to the ordinary pipeline cleanly — see the file docblock's last ⛔.
+ *
+ * ⚠ S188 (audit F5) — AND AT THE FIGHT→BUILD EDGE THIS NEVER RUNS, BY DESIGN. The runner is FIGHT-gated
+ * with every other boss skill (`hostTick`'s FIGHT block → `runRacialPerksFight`), so a window that
+ * straddles the whistle is simply CUT SHORT: `recallArmies` sends him home and does this release's job
+ * (targets cleared, ATTACKING → SEEKING), no bite lands during BUILD, and the stamp is left to expire
+ * — BUILD (`PHASE_DURATION_TICKS`, 5400) is longer than the window (480), pinned by the test file, so it
+ * can never reach the next FIGHT. Nothing is paused and nothing is carried over; the once-per-life latch
+ * is spent. The renderer stops drawing the feed at the edge (`showsCorpseEaterFeed`).
+ */
 function release(boss: Creature): void {
   boss.state = 'SEEKING';
   boss.ticksInState = 0;

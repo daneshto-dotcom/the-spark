@@ -476,3 +476,35 @@ describe('S188 CORPSE EATER — audit F1: a knocked-back boss is RE-ANCHORED, ne
     expect(Math.hypot(b.pos.x - a.x, b.pos.y - a.y)).toBeLessThanOrEqual(CORPSE_EATER_LEASH_RADIUS + 1e-9);
   });
 });
+
+describe('S188 CORPSE EATER — audit F5: a window that straddles the FIGHT→BUILD whistle', () => {
+  it('⭐⭐ is CUT SHORT: he is recalled home, released, and bites nothing in BUILD (real runHostTick)', () => {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    const food = put(w, 't3Scarab', P0, CX + 20);
+    food.ehp = 1_000_000;
+    const d = deps();
+    const st = makeHostTickState(w);
+    // Food pinned at his feet WHEREVER he is, so any bite the sim lands in BUILD would show.
+    const tick = (): void => {
+      runHostTick(w, d, st);
+      for (const id of [...w.creatures.keys()]) if (id !== b.id && id !== food.id) w.creatures.delete(id);
+      food.pos.x = b.pos.x + 20; food.pos.y = b.pos.y; food.prevPos.x = food.pos.x; food.prevPos.y = food.pos.y;
+    };
+    for (let i = 0; i < 5; i++) tick();
+    expect(isCorpseEaterFeeding(b, w.tick)).toBe(true);
+    const sat = { ...b.corpseEaterAnchor! };
+    w.phaseEndsAtTick = w.tick + 60; // the whistle blows mid-feed
+    while (w.matchPhase === 'FIGHT') tick();
+    expect(isCorpseEaterFeeding(b, w.tick), 'the scenario is real: the window straddles the edge').toBe(true);
+    expect(Math.hypot(b.pos.x - sat.x, b.pos.y - sat.y), 'recallArmies sent him home').toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS);
+    expect(b.state, 'released').not.toBe('ATTACKING');
+    const [foodAtEdge, bossAtEdge] = [food.ehp, b.ehp];
+    const home = { x: b.pos.x, y: b.pos.y };
+    while (isCorpseEaterFeeding(b, w.tick)) tick();
+    expect(w.matchPhase, 'the window expired inside BUILD').toBe('BUILD');
+    expect(food.ehp, 'no bite in BUILD').toBe(foodAtEdge);
+    expect(b.ehp, 'no heal in BUILD').toBe(bossAtEdge);
+    expect(b.pos, 'and the leash did not drag him back to the fight').toEqual(home);
+  });
+});
