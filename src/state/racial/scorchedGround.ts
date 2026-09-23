@@ -23,6 +23,9 @@
  *    them), not Helga, not structures.
  *  · **FIGHT only** — it runs in `racialTick.ts`'s FIGHT slot beside the boss auras, for the reason
  *    that slot is gated: nothing may be attacked during BUILD (R5).
+ *  · ⛔ S188 fix round F4 — **A FALLEN CASTLE'S LAND STOPS BURNING.** `castleHp <= 0` is the guard
+ *    every castle-derived effect uses (the gun, regen, the race-unit emitter): an eliminated seat's
+ *    perk must not go on damaging the board after it is out. The ember look follows the same test.
  *  · **`damageEntity(…, 1, 'aura', null)`** — `'aura'` because it is exactly the zombie aura's kind of
  *    damage; attacker `null` because burning ground is not an entity: nobody retaliates against it
  *    and nobody lifesteals from it. `damage.callSites.test.ts` records it among the `null` sites.
@@ -50,7 +53,7 @@ export function scorchedZones(world: World): Array<{ seat: PlayerId; zone: numbe
   const seats = [...world.players.keys()].sort((a, b) => Number(a) - Number(b));
   for (const seat of seats) {
     const pl = world.players.get(seat);
-    if (pl === undefined || !seatHoldsPerk(pl, 'demons.l0')) continue;
+    if (pl === undefined || pl.castleHp <= 0 || !seatHoldsPerk(pl, 'demons.l0')) continue; // F4
     const zone = zoneOwner(seat as unknown as number, world.layout);
     if (zone !== null) out.push({ seat, zone });
   }

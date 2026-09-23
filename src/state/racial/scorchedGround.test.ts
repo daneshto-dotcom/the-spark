@@ -143,6 +143,30 @@ describe('S188 SCORCHED GROUND — ⭐ REACH through the real host tick', () => 
     expect(burned('orcs', ['racial'], IN_DEMON_LAND)).toBe(0);
   });
 
+  it('⛔ F4 — an ELIMINATED demon seat’s land stops burning (castle fallen)', () => {
+    const w = twoSeat();
+    seatAs(w, P0, 'demons', ['racial']);
+    w.players.get(P0)!.castleHp = 0;
+    expect(scorchedZones(w)).toEqual([]);
+    // Driven directly: with seat 0's castle down the match itself is decided, so the host tick would
+    // (correctly) stop running the FIGHT slot for a different reason and prove nothing about this guard.
+    const v = heldUnit(w, 't3Warband', P1, IN_DEMON_LAND);
+    const full = v.ehp;
+    const interval = dotIntervalTicks(maxPoolFifths(v.type), SCORCHED_GROUND_PER_MILLE);
+    for (let i = 0; i < interval * 3; i++) {
+      runScorchedGround(w);
+      w.tick++;
+    }
+    expect(v.ehp).toBe(full);
+    // CONTROL: the same board with the castle standing does burn over the same window.
+    w.players.get(P0)!.castleHp = 1;
+    for (let i = 0; i < interval * 3; i++) {
+      runScorchedGround(w);
+      w.tick++;
+    }
+    expect(full - v.ehp).toBe(3);
+  });
+
   it('⛔ BUILD burns nothing — nothing may be attacked while the walls are up', () => {
     const w = twoSeat('BUILD');
     seatAs(w, P0, 'demons', ['racial']);
@@ -183,8 +207,12 @@ describe('S188 SCORCHED GROUND — ⭐ REACH through the real host tick', () => 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 SCORCHED GROUND — the ember look is derived from the picks', () => {
   it('a holding seat’s backdrop is ember; every other seat’s is untinted', () => {
-    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'] })).toBe(SCORCHED_ZONE_TINT);
-    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['hp'] })).toBe(0xffffff);
-    expect(zoneBackdropTint({ raceId: 'vampires', draftPicks: ['racial'] })).toBe(0xffffff);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 2500 })).toBe(SCORCHED_ZONE_TINT);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['hp'], castleHp: 2500 })).toBe(0xffffff);
+    expect(zoneBackdropTint({ raceId: 'vampires', draftPicks: ['racial'], castleHp: 2500 })).toBe(0xffffff);
+  });
+
+  it('⛔ F4 — a FALLEN demon seat’s land stops looking scorched', () => {
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 0 })).toBe(0xffffff);
   });
 });
