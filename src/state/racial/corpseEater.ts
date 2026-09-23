@@ -39,10 +39,12 @@
  * reducer — range check, initiative roll, attribution, retaliation, kill count — so "the same damage as
  * he would by attacking" is true by construction rather than by a copy of the formula.
  *
- * ⚠ THE BITE RUNS ON THE FEED CLOCK, NOT ON `ticksInState`. `(tick - start) % cadence === fireTick`
- * is derived from the synced stamp, so retaliation (which rewrites a victim's state and zeroes its
- * `ticksInState`) cannot reset his wind-up, and a change of victim cannot either. It is still exactly
- * his normal cadence: one bite per `attackCadenceTicks`, landing at `attackFireTick`.
+ * ⭐ THE BITE RUNS ON HIS ORDINARY SWING CLOCK: `ticksInState` from 0 on engaging, the bite at
+ * `attackFireTick`, repeating every `attackCadenceTicks`. That includes the ordinary consequence of
+ * retaliation (an out-of-reach attacker drops him to SEEKING and restarts his wind-up — R183-A as
+ * ruled in R184-A), because "the same ... as he would by attacking" is the rule, and a feed that was
+ * immune to it would be a second attack model. A feed-clock variant was tried first and measured
+ * worse: a unit walking through his arm between two clock slots was never bitten at all.
  *
  * ⛔ AND THE LAST FEEDING TICK RELEASES HIM (SEEKING, no target). Without it the fan-out would resume
  * him mid-ATTACKING with a target that may be one of his OWN units, and the ordinary FSM would finish
@@ -83,11 +85,6 @@ export const CORPSE_EATER_HEAL_PCT = 100;
  * is at his feet but cannot walk off to chase. Overrule on sight.
  */
 export const CORPSE_EATER_LEASH_RADIUS = 60;
-
-/** Where the feed started, in ticks since the stamp. 0 on the stamp tick. */
-function feedTickOf(boss: Creature, tick: number): number {
-  return tick - ((boss.corpseEaterUntilTick as number) - CORPSE_EATER_TICKS);
-}
 
 function sameState(boss: Creature, s: CreatureState): void {
   if (boss.state !== s) {
@@ -229,16 +226,23 @@ function feedStep(world: World, boss: Creature): void {
     const a = boss.corpseEaterAnchor as Vec2;
     boss.targetPos = { x: a.x, y: a.y };
   } else if (distSq(boss.pos, victim.pos) <= cfg.attackRange * cfg.attackRange) {
-    boss.targetCreatureId = victim.id;
-    sameState(boss, 'ATTACKING');
-    // His normal cadence (divided by rage, exactly as the FSM divides it), on the feed clock.
+    /*
+     * ⭐ HIS NORMAL SWING, on the FSM's own clock: entering ATTACKING (or turning to a new victim)
+     * starts the wind-up at 0, the bite lands at `attackFireTick`, and the swing repeats every
+     * `attackCadenceTicks` (divided by rage, exactly as the FSM divides it) while the victim stays in
+     * reach. A creature that walks through his arm is bitten on the same schedule it would be by his
+     * ordinary attack — no earlier, no later.
+     */
     const cadence = Math.max(1, Math.round(cfg.attackCadenceTicks / rageMultiplier(boss)));
     const fire = Math.min(cfg.attackFireTick, cadence - 1);
-    const phase = feedTickOf(boss, world.tick) % cadence;
-    // ⭐ ticksInState follows the feed clock so the ordinary attack row, if the eat art is missing,
-    // swings in time with the bites instead of against them.
-    boss.ticksInState = phase;
-    if (phase === fire) bite(world, boss, victim.id);
+    if (boss.state !== 'ATTACKING' || boss.targetCreatureId !== victim.id) {
+      boss.state = 'ATTACKING';
+      boss.ticksInState = 0;
+    } else {
+      boss.ticksInState = (boss.ticksInState + 1) % cadence;
+    }
+    boss.targetCreatureId = victim.id;
+    if (boss.ticksInState === fire) bite(world, boss, victim.id);
   } else {
     // In reach of the leash but not of his arm: shuffle toward it, never past the leash.
     boss.targetCreatureId = victim.id;
