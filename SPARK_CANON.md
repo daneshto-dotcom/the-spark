@@ -293,6 +293,22 @@ clamp is MINE, like the win bar's.
 ### ⛔ WHAT IS SPECIFIED BUT **NOT BUILT**
 
 
+⛔⛔ **GOBLINS DO NOT ENRAGE, AND THE ORC LEVEL-0 BUFF MUST NOT TOUCH THEM (ruled S187).**
+
+> *"Goblins do not enrage, right? We said enraging works only on orc units, any racial units.
+> Goblins are not — goblins can be built by anyone … they don't change their colour and enrage
+> like the orcs would."* — owner, S187
+
+`BLOOD FRENZY` spreads the warlord's rage to that seat's **orc RACIAL units only**. A goblin is a
+GLOBAL tower unit — any race can build a goblin tower — so a goblin owned by an orc seat is still
+not an orc. ⚠ **The obvious implementation is the wrong one**: filtering by `ownerPlayerId` alone
+would enrage that seat's goblins too, because they pass the ownership test. The predicate is
+ownership **AND** creature type, and the visual follows it — no rage tint on a goblin.
+
+⚠ `THE HORDE GROWS` at level 5 raising the goblin cap is NOT in tension with this. The owner
+named the reason himself: *"orcs and goblins do tend to work together"*. Orcs get MORE goblins;
+the goblins simply never rage.
+
 ⭐ **ORCS LEVEL 5 — `THE HORDE GROWS`, ruled S187 and the last gap at that level.** Goblin towers
 allow **20** spawned goblins instead of 10, **and** the castle emits its base unit **twice as
 fast**. ⚠ The goblin ceiling is documented as LOAD-BEARING, not cosmetic ({`constants.ts`}:

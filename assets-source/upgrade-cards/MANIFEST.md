@@ -124,3 +124,21 @@ Look at it in-game before accepting it; a brightness lift or a re-roll may be wa
 ⚠ `l5-demons-alt.png` is the second HELLSPAWN. The owner picked the other one (`isESS`) and the pick
 is right for a reason worth keeping: the primary's radiating composition reads as ONE thing becoming
 MANY, which is what the upgrade does; the alternate is an undifferentiated pile.
+
+## ⛔⛔ GOBLINS DO NOT ENRAGE — read this before implementing BLOOD FRENZY
+
+Owner, S187: *"Goblins do not enrage, right? We said enraging works only on orc units, any racial
+units. Goblins are not — goblins can be built by anyone … they don't change their colour and enrage
+like the orcs would."*
+
+`BLOOD FRENZY` (orcs L0) spreads the warlord's rage to that seat's **orc RACIAL units only**. A
+goblin is a GLOBAL tower unit that any race can build, so a goblin owned by an orc seat is still not
+an orc.
+
+⚠ **THE OBVIOUS IMPLEMENTATION IS THE WRONG ONE.** Filtering by `ownerPlayerId` alone enrages that
+seat's goblins too, because they pass the ownership test. The predicate is ownership **AND** creature
+type, and the visual follows it — no rage tint on a goblin.
+
+⚠ This does NOT conflict with `THE HORDE GROWS` raising the goblin cap at L5. The owner named the
+reason himself: *"orcs and goblins do tend to work together."* Orcs get more goblins; the goblins
+just never rage.
