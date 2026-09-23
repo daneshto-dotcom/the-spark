@@ -318,12 +318,12 @@ type CardState = Texture | 'loading' | 'failed';
 export class DraftOverlay {
   readonly container = new Container();
   private readonly plate = new Graphics();
-  private readonly tiles = new Graphics();
+  private readonly tiles = new Graphics({ label: 'tiles' });
   /** The card art. A sprite each, clipped to its tile by a stencil. */
   private readonly generalCard = new Sprite();
   private readonly racialCard = new Sprite();
   /** The tile outlines, drawn ABOVE the cards so the hover highlight shows on the art. Strokes only. */
-  private readonly frames = new Graphics();
+  private readonly frames = new Graphics({ label: 'frames' });
   private readonly title: Text;
   private readonly clock: Text;
   private readonly generalTitle: Text;
@@ -491,13 +491,19 @@ export class DraftOverlay {
     const race = pl.raceId;
     const opts = this.optionsFor(ev.waveNumber, race);
     this.opts = opts;
-    // A hover left over from a tile that is no longer choosable must not light it up.
-    if (pickForTile(this.hover, opts) === null) this.hover = null;
     const views = draftTileViews(opts);
 
     const g = generalTileRect();
     const r = racialTileRect();
     const liveRacial = views.racial.choosable;
+    /*
+     * ⛔ WHAT IS LIT IS "UNDER THE CURSOR **AND** CHOOSABLE", never the cursor alone. `hover` is
+     * recomputed only on a pointer MOVE, so a cursor resting on the racial tile when the offer goes
+     * dead (the next draft, or a registry that says no) would otherwise keep lighting a tile that no
+     * longer answers a click.
+     */
+    const litGeneral = this.hover === 'general';
+    const litRacial = liveRacial && this.hover === 'racial';
 
     this.plate.clear();
     this.plate
@@ -508,25 +514,23 @@ export class DraftOverlay {
     this.tiles.clear();
     this.tiles
       .roundRect(g.x, g.y, g.w, g.h, CORNER)
-      .fill({ color: this.hover === 'general' ? TILE_HOVER : TILE_BG, alpha: 1 });
+      .fill({ color: litGeneral ? TILE_HOVER : TILE_BG, alpha: 1 });
     // The racial tile: a full plate when its perk is on offer; the dimmed dead tile when it is not.
     this.tiles
       .roundRect(r.x, r.y, r.w, r.h, CORNER)
-      .fill({ color: this.hover === 'racial' ? TILE_HOVER : TILE_BG, alpha: liveRacial ? 1 : 0.55 });
+      .fill({ color: litRacial ? TILE_HOVER : TILE_BG, alpha: liveRacial ? 1 : 0.55 });
 
-    const generalShown = this.placeCard(this.generalCard, this.cardTexture(views.general.card), g,
-      this.hover === 'general');
-    const racialShown = this.placeCard(this.racialCard, this.cardTexture(views.racial.card), r,
-      this.hover === 'racial');
+    const generalShown = this.placeCard(this.generalCard, this.cardTexture(views.general.card), g, litGeneral);
+    const racialShown = this.placeCard(this.racialCard, this.cardTexture(views.racial.card), r, litRacial);
 
     this.frames.clear();
     this.frames
       .roundRect(g.x, g.y, g.w, g.h, CORNER)
-      .stroke({ color: PLATE_EDGE, width: this.hover === 'general' ? 3 : 1, alpha: this.hover === 'general' ? 1 : 0.8 });
+      .stroke({ color: PLATE_EDGE, width: litGeneral ? 3 : 1, alpha: litGeneral ? 1 : 0.8 });
     this.frames
       .roundRect(r.x, r.y, r.w, r.h, CORNER)
       .stroke(liveRacial
-        ? { color: RACE_COLORS[race], width: this.hover === 'racial' ? 3 : 1, alpha: this.hover === 'racial' ? 1 : 0.8 }
+        ? { color: RACE_COLORS[race], width: litRacial ? 3 : 1, alpha: litRacial ? 1 : 0.8 }
         : { color: RACE_COLORS[race], width: 1, alpha: 0.35 });
 
     this.title.x = PANEL_X + PANEL_W / 2 - this.title.width / 2;
@@ -553,7 +557,7 @@ export class DraftOverlay {
     this.racialMark.style.fill = RACE_COLORS[race];
 
     // The hover panel. Only a CHOOSABLE tile has one; hovering the dead tile must not promise anything.
-    const hovered = this.hover === 'general' ? views.general : this.hover === 'racial' ? views.racial : null;
+    const hovered = litGeneral ? views.general : litRacial ? views.racial : null;
     const detail = hovered?.detail ?? null;
     this.tip.text = detail ?? '';
     this.tipPlate.clear();

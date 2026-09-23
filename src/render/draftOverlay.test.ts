@@ -19,7 +19,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { Texture, TextureSource, type Container, type Sprite, type Text } from 'pixi.js';
+import { Texture, TextureSource, type Container, type Graphics, type Sprite, type Text } from 'pixi.js';
 import {
   DraftOverlay,
   PANEL_H,
@@ -657,22 +657,65 @@ describe('when the panel is up at all', () => {
     expect(picks).toEqual([]);
   });
 
-  it('⛔ a hover carried into a draft where that tile is dead does not light it up', () => {
+  it('⭐ hovering a live tile LIGHTS it — plate, card and frame — and only that tile', async () => {
+    const { w, seat } = startedWorld();
+    const o = new DraftOverlay(() => {}, { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+    o.render(w, seat);
+    await settle();
+    o.render(w, seat);
+    const [gIdle, rIdle] = tileFills(o);
+    move(o, centre(racialTileRect()));
+    o.render(w, seat);
+    const [gNow, rNow] = tileFills(o);
+    expect(rNow.color).not.toBe(rIdle.color);
+    expect(gNow.color).toBe(gIdle.color);
+    expect(child<Sprite>(o.container, 'racialCard').tint).toBe(0xffffff);
+    expect(child<Sprite>(o.container, 'generalCard').tint).not.toBe(0xffffff);
+    expect(frameWidths(o)).toEqual([1, 3]);
+  });
+
+  it('⛔ a cursor RESTING on the racial tile when its offer goes dead does not keep it lit', () => {
+    // `hover` only updates on a pointer move, so this is the path a stale highlight would take.
     const { w, seat } = startedWorld();
     let live = true;
     const o = new DraftOverlay(() => {}, {
       optionsFor: (wave, race) => (live ? offerAsIfBuilt(wave, race) : offerDead(wave)),
       loadCard: recordingLoader().load,
     });
+    live = false;
+    o.render(w, seat);
+    const deadBaseline = tileFills(o)[1];
+    live = true;
     o.render(w, seat);
     move(o, centre(racialTileRect()));
     o.render(w, seat);
     expect(child<Text>(o.container, 'tip').text).not.toBe('');
     live = false;
-    o.render(w, seat);
+    o.render(w, seat); // no pointer move in between
     expect(child<Text>(o.container, 'tip').text).toBe('');
+    expect(tileFills(o)[1]).toEqual(deadBaseline);
+    expect(deadBaseline.alpha).toBeLessThan(1); // and it is the DIMMED plate
   });
 });
+
+/** The two tile plates' fill styles, in draw order: [general, racial]. */
+function tileFills(o: DraftOverlay): { color: number; alpha: number }[] {
+  const g = child<Graphics>(o.container, 'tiles');
+  return g.context.instructions
+    .filter((i) => i.action === 'fill')
+    .map((i) => {
+      const st = i.data.style as { color: number; alpha: number };
+      return { color: st.color, alpha: st.alpha };
+    });
+}
+
+/** The two tile frames' stroke widths, in draw order: [general, racial]. */
+function frameWidths(o: DraftOverlay): number[] {
+  const g = child<Graphics>(o.container, 'frames');
+  return g.context.instructions
+    .filter((i) => i.action === 'stroke')
+    .map((i) => (i.data.style as { width: number }).width);
+}
 
 describe('the countdown', () => {
   it('reads in seconds, because that is what he sees', () => {

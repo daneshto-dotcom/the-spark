@@ -14,8 +14,15 @@
   `.fill(` (5 fills), and the CLASS driven for real (stub OffscreenCanvas + injected offer/loader).
   typecheck 0, this file 50/50.
 
+- Hover lighting tied to choosability (`litRacial = liveRacial && hover === 'racial'`), tested via
+  the Graphics instruction list. 51/51.
+- Mutation tests: 9 of 10 mutants killed (dead tile in hit-test, racial sprite given the general card,
+  title always drawn, shared h2 style, a sneaky `.fill(0xffffff)`, `/ 5` arithmetic restored,
+  stale lit tile, no lit tile, PLAYING gate removed). Survivor: the tap handler's `pickForTile`
+  belt — an equivalent mutant, the hit-test already refuses the dead tile.
+
 ## IN PROGRESS
-- mutation tests of the guards.
+- MANIFEST.md stale lines, canon notes, then full gates + screenshot.
 
 ## NEXT
 - MANIFEST.md stale lines; `.claude/plans/S188_CANON_NOTES_cards.md`.
