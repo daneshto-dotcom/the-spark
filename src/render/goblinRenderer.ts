@@ -84,13 +84,13 @@ import { T9_BOSS_TYPE, t9BossAtlasBase } from '../state/t9BossIds.ts';
  * described in a comment and checkable by nobody is a prophecy, not a guard.
  */
 /**
- * ⭐ S188 APEX PREDATOR — the elite piranha's sheet.
- *
- * ⚠ FALLBACK: until its own atlas is packed this is the ORDINARY piranha's sheet, drawn at
- * `PIRANHA_ELITE_SPRITE_SCALE_MUL` (2x) — the mechanic ships on the base art rather than waiting for
- * the elite art (the S188 brief's rule). The art commit repoints this one constant.
+ * ⭐ S188 APEX PREDATOR — the elite piranha's OWN sheet, packed from the owner's swim / attack / death
+ * sheets by `scripts/build-scattered-sheet-atlas.mjs` (`assets-source/race-tier3-units/piranha-elite/
+ * atlas-spec.json`). Its body is fitted to the shipped piranha's measured body height, so
+ * `PIRANHA_ELITE_SPRITE_SCALE_MUL` (2) is exactly his *"two times bigger"*. `apexPredator.test.ts`
+ * asserts both files exist — a 404 here is SILENT (the loader catches and draws the green puppet).
  */
-export const PIRANHA_ELITE_ATLAS_BASE = t3UnitAtlasBase('nagas');
+export const PIRANHA_ELITE_ATLAS_BASE = `${t3UnitAtlasBase('nagas')}-elite`;
 
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',

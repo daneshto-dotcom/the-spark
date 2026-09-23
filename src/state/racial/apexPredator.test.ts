@@ -35,6 +35,9 @@ import { hashWorldStateFull } from '../stateHashFull.ts';
 import { creatureSpriteScaleMul, PIRANHA_ELITE_SPRITE_SCALE_MUL } from '../../render/towerFrames.ts';
 import { RACIAL_PERK_BUILT, racialPerkFor } from '../racialPerks.ts';
 import { towerUnitForSeat } from './apexPredator.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ATLASES, GOBLIN_KINDS, PIRANHA_ELITE_ATLAS_BASE } from '../../render/goblinRenderer.ts';
 import '../godlyRecipes/raceTower.ts';
 
 const P0 = asPlayerId(0);
@@ -206,5 +209,27 @@ describe('S188 APEX PREDATOR — the new type on the wire', () => {
     const fresh = makeWorld(0);
     restore(snapshot(w), fresh);
     expect(fresh.creatures.get(id)!.ehp).toBe(w.creatures.get(id)!.ehp);
+  });
+});
+
+describe('S188 APEX PREDATOR — the elite has its OWN art, sized to the claim', () => {
+  const root = join(process.cwd(), 'public');
+  const read = (base: string): { cellH: number; states: Record<string, { frames: number }> } =>
+    JSON.parse(readFileSync(join(root, `${base}-anim.json`), 'utf-8'));
+
+  it('⭐⭐ the renderer points at a sheet that EXISTS on disk, and it is not the ordinary piranha’s', () => {
+    // A failed atlas load is SILENT in this renderer (it falls back to the green puppet).
+    expect(ATLASES.t3PiranhaElite).toBe(PIRANHA_ELITE_ATLAS_BASE);
+    expect(PIRANHA_ELITE_ATLAS_BASE).not.toBe(ATLASES.t3Piranha);
+    expect(existsSync(join(root, `${PIRANHA_ELITE_ATLAS_BASE}-atlas.png`))).toBe(true);
+    expect(existsSync(join(root, `${PIRANHA_ELITE_ATLAS_BASE}-anim.json`))).toBe(true);
+    expect(GOBLIN_KINDS.has(ELITE), 'absent from GOBLIN_KINDS it would be invisible').toBe(true);
+  });
+
+  it('⭐ same four 12-frame rows and the same cell HEIGHT as the piranha — so 2x draw = 2x the piranha', () => {
+    const elite = read(PIRANHA_ELITE_ATLAS_BASE);
+    const base = read(ATLASES.t3Piranha!);
+    expect(elite.cellH).toBe(base.cellH);
+    for (const st of ['idle', 'walk', 'attack', 'die']) expect(elite.states[st]?.frames, st).toBe(12);
   });
 });
