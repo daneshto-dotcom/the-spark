@@ -131,6 +131,47 @@ describe('S188 P6 — button → aim → click → CAST_POWER_OF_RA', () => {
   });
 });
 
+describe("S188 audit F4 — while aiming, the character card's own buttons still work", () => {
+  /** A card at (1500..1800, 300..600) with one FIX button at (1550..1650, 520..560). */
+  function withCard(c: Controls): unknown[] {
+    const calls: unknown[] = [];
+    const inCard = (x: number, y: number) => x >= 1500 && x <= 1800 && y >= 300 && y <= 600;
+    const inBtn = (x: number, y: number) => x >= 1550 && x <= 1650 && y >= 520 && y <= 560;
+    c.setCharacterSheet({
+      select() {}, selection: () => null, ownedRowAt: () => null, setHover() {},
+      isOver: inCard,
+      actionAt: (x: number, y: number) => (inBtn(x, y) ? { kind: 'FIX' } : null),
+      isOverAnyAction: inBtn,
+      actionPrimitiveId: () => 7 as never,
+      actionFeedSpawnerId: () => null,
+    });
+    c.setSheetActionHandler((action, primitiveId) => calls.push([action.kind, primitiveId]));
+    return calls;
+  }
+
+  it("⭐ a FIX press while aiming is the card's, not a cast — and the aim survives it", () => {
+    const { c, band, sent } = rig();
+    const calls = withCard(c);
+    const b = buttonMid(band);
+    down(c, b.x, b.y);
+    down(c, 1600, 540);
+    expect(calls, 'the card button acted').toEqual([['FIX', 7]]);
+    expect(casts(sent)).toHaveLength(0);
+    expect(raAimPreview(), 'still aiming').not.toBeNull();
+  });
+
+  it('⛔ the card BODY is still ground the player cannot see: swallowed, no cast, still aiming', () => {
+    const { c, band, sent } = rig();
+    const calls = withCard(c);
+    const b = buttonMid(band);
+    down(c, b.x, b.y);
+    down(c, 1700, 400);
+    expect(calls).toHaveLength(0);
+    expect(casts(sent)).toHaveLength(0);
+    expect(raAimPreview()).not.toBeNull();
+  });
+});
+
 describe('S188 P6 — the button refuses, and says so, when the reducer would', () => {
   it('⛔ in BUILD the press does not aim and plays the refused cue', () => {
     const { w, c, band, sent } = rig();

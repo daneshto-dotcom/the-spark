@@ -40,6 +40,10 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   a LONG connector (shapes outside the circle) — the first draft passed over the bug via shape
   razing; mutating the fix back to `dispatch` now turns 2 tests red.
 
+- AUDIT F4 DONE: `handleRaAimClick` moved one line down in `onDown`, BELOW `handleSheetActionClick`
+  (the card's FIX/SCRAP/FEED act while aiming, as with a held tower) and still ABOVE the castle click
+  (aiming at your own keep casts). 2 tests; moving the line back turns the FIX test red.
+
 ## IN PROGRESS / NEXT
 - AUDIT FIXES queued (coordinator): F1 column sever must not depend on caster bench/elim; F4 aim
   must not swallow the card's FIX/SCRAP/FEED; F2 teach the BOT to cast (host + worker identical).
