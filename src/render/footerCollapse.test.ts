@@ -61,9 +61,16 @@ class BandModel {
   private controlsCover(x: number, y: number): boolean {
     return y >= FOOTER_TOP_Y && x > 200 && x < CANVAS_WIDTH - 200;
   }
+  /**
+   * ⭐ S188 — the open tower menu's cards. Empty here (no menu open), which is every case this model
+   * asserts; the tab being ONE LAYER BELOW an open card is driven through the real band and the real
+   * `Controls` in `input/controls.footerArrowLayer.test.ts`. Transcribed so the pairing stays true.
+   */
+  openCards: Array<{ x: number; y: number; w: number; h: number }> = [];
   isOverCollapseTab(x: number, y: number): boolean {
     const r = collapseTabRect(this.collapsed);
-    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    if (!(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) return false;
+    return this.collapsed || !this.openCards.some((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
   }
   isOverChip(x: number, y: number): boolean {
     if (this.collapsed) return this.isOverCollapseTab(x, y);
