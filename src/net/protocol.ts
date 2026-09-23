@@ -774,8 +774,20 @@ export type { NetSnapshot };
  *      kills that rise, chewers that split, pharaohs from castle losses, a feeding boss, an elite
  *      piranha. The SHARED-CONSTANT class this list records five times over: two builds that shake
  *      hands would disagree about who survives the first exchange.
- *   3. The branch-specific wire changes (a new client intent, new serialized fields, a new
- *      `CreatureType`) are recorded here by the merge owner as each branch lands.
+ *   3. The branch-specific wire changes, recorded by the merge owner as each branch landed:
+ *      · **A NEW CLIENT INTENT, `CAST_POWER_OF_RA { playerId, x, y }`** (s188/racial-c) — in both
+ *        allowlist records; a v49 host would drop it and the mummy seat could never cast.
+ *      · **A NEW SERIALIZED `CreatureType`, `'t3PiranhaElite'`** (s188/racial-d, APEX PREDATOR) — a v49
+ *        peer has no config for it and would fall through every per-type table.
+ *      · **New optional fields**: `Creature.hellspawnGen` (s188/racial-b), `Creature.corpseEaterUntilTick`
+ *        + `corpseEaterAnchor` (s188/racial-d), `Player.dynastyHpLost` (s188/racial-b),
+ *        `Player.raStrike` (s188/racial-c). Each emitted only when set, each hashed.
+ *      · **A changed meaning, not a new field** (s188/castle): an absent `castleHp` now reads as THAT
+ *        SEAT's upgraded ceiling (`castleMaxHpFor`), not the flat `CASTLE_MAX_HP` — a v49 peer would
+ *        read a bought 2750 keep as 2500. No v49 client could buy HP, so no live board carries it.
+ *      · **A fixed rule both peers compute** (s188/racial-a): an ENRAGED creature now lands its blow
+ *        (`ragedFireTick`); since S168 rage halved the cadence and left the fire tick past the end of
+ *        the cycle, so a raging Warlord never hit. Two builds would disagree on every raging swing.
  */
 export const PROTOCOL_VERSION = 50 as const;
 
