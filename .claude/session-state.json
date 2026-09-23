@@ -1,7 +1,7 @@
 {
   "session_id": "S188",
   "session_kind": "owner-driven: build + wire all L0/L5 racial mechanics, the 17 cards, castle upgrade buttons; six autonomous worktrees, main session = merge owner. Pre-approved.",
-  "session_start": "2026-09-23",
+  "session_start": "2026-09-23T11:30:02.735Z",
   "prior_session_archive": ".claude/session-archive/session-state_S187_2026-09-23.json",
   "phase": "DO",
   "tier": "Full",
@@ -30,18 +30,150 @@
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
       "check_completed": true,
       "checkpoint_commit": "fb3c8f3 (~/.claude) + 199f40a (Founder DNA)",
-      "check_method": "27/27 behavioural tests (boot-read-gate.test.sh) incl. 7-way concurrent Read marks, /c/ and /cygdrive spellings, resume keeps reads, owner waiver, fail-open on garbage/unknown session/home dir. Mutation-tested twice: gate always-allow -> 4 red; is_read always-true -> 13 red; restored -> 27/27. GROK-ANALYST review: concurrency lost-update ACCEPTED (marker files), silent fail-open ACCEPTED (error log + wrapper log), cygdrive ACCEPTED; relative path / HOME / timeout / subagent-cwd ruled benign with reasons. Live-proven on this session: bootstrapped manifest listed 10 reads incl. an IN-PROGRESS plan pre-flight never surfaced; all 10 opened via Read and recorded. Also fixed pre-flight trace-slug bug (spaced project names matched another project's trace)."
+      "check_method": "27/27 behavioural tests (boot-read-gate.test.sh) incl. 7-way concurrent Read marks, /c/ and /cygdrive spellings, resume keeps reads, owner waiver, fail-open on garbage/unknown session/home dir. Mutation-tested twice: gate always-allow -> 4 red; is_read always-true -> 13 red; restored -> 27/27. GROK-ANALYST review: concurrency lost-update ACCEPTED (marker files), silent fail-open ACCEPTED (error log + wrapper log), cygdrive ACCEPTED; relative path / HOME / timeout / subagent-cwd ruled benign with reasons. Live-proven on this session: bootstrapped manifest listed 10 reads incl. an IN-PROGRESS plan pre-flight never surfaced; all 10 opened via Read and recorded. Also fixed pre-flight trace-slug bug (spaced project names matched another project's trace).",
+      "real_context_tokens_at_close": null,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
+          "needle": "GATED_TOOLS = {\"Edit\", \"Write\", \"MultiEdit\", \"NotebookEdit\", \"Agent\", \"Task\", \"Workflow\"}"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
+          "needle": "def is_read(st, key):"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
+          "needle": "WAIVE_TOKEN = \"boot-waive\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/boot-read-gate.sh",
+          "needle": "wrapper rc=%s"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/settings.json",
+          "needle": "boot-read-gate.sh gate"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/settings.json",
+          "needle": "boot-read-gate.sh track"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/settings.json",
+          "needle": "boot-read-gate.sh start"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/settings.json",
+          "needle": "boot-read-gate.sh prompt"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/pre-flight.sh",
+          "needle": "PROJECT_SLUG=$(printf '%s' \"$PROJECT_NAME\" | tr ' ' '-')"
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/.claude/hooks/tests/boot-read-gate.test.sh",
+          "needle": "7 concurrent tracks all land"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/boot-manifest.json",
+          "needle": "\"path\": \"SPARK_CANON.md\""
+        },
+        {
+          "type": "file_contains",
+          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/.claude/boot-manifest.json",
+          "needle": "\"scope\": \"descendants\""
+        }
+      ]
     },
     {
       "id": "P1",
       "title": "Racial substrate: 'racial' pick, racialPerks.ts registry, draft validation, racialTick slots, PROTOCOL 49->50",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
+      "check_completed": true,
+      "checkpoint_commit": "87f3dc4",
+      "real_context_tokens_at_close": 550288,
+      "real_context_pct_at_close": 55.03,
+      "check_method": "Gates on the substrate tree: typecheck exit 0; vitest 5628 tests / 343 files exit 0; build exit 0 at 919.8 KiB (80.2 KiB headroom, shared by six branches). New racialPerks.test.ts (13 tests): registry integrity (12 ids, row/column agree, every card file EXISTS), the offer follows RACIAL_PERK_BUILT, seatHoldsPerk race+index, 'racial' buffs no stat, only-offered picks accepted, the deadline takes racial exactly when offered, 'racial' survives save/load, the post-sweep queue is FIFO / non-recursive / per-world. Mutation test: removing the pickIsOffered check turns 2 red; restored 13/13. Two S187 tests RE-PINNED (not silenced): the pool/damage classification now covers GENERAL_PICKS and pins 'racial' as neither; the chooser test relied on the latent any-pick bug. EOL verified per file after every edit (CRLF files stayed CRLF; canon kept its exact mixed counts). Protocol 49->50 across all six sites incl. e2e LOCAL_PROTO_V and canon §6. Council: Grok 4 challenges rejected with code-grounded reasons; Gemini 3 accepted (A1,A2,A4) + 1 modified (A3); prime-audit A5 (spawn-during-iteration) accepted and built into the substrate as queueAfterStrike/drainRacialSpawnQueue.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/draft.ts",
+          "needle": "export type DraftPick = GeneralPick | 'racial';"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/draftEvent.ts",
+          "needle": "if (!pickIsOffered(world, seat, ev.waveNumber, pick)) return;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/draftEvent.ts",
+          "needle": "export function playerHoldsPerk("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/racialPerks.ts",
+          "needle": "export function seatHoldsPerk("
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/racialPerks.ts",
+          "pattern": "^  '[a-z]+\\.l[05]': (true|false),",
+          "op": "==",
+          "value": 12
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/racial/racialTick.ts",
+          "needle": "export function queueAfterStrike("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "drainRacialSpawnQueue(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runRacialPerksFight(world);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 50 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "readonly protoVersion: 50;"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/smoke.spec.ts",
+          "needle": "const LOCAL_PROTO_V = 50;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/racialPerks.test.ts",
+          "needle": "only an offered option may be taken"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -53,7 +185,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/cards"
+      "branch": "s188/cards",
+      "worktree": ".claude/worktrees/s188-cards",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P3",
@@ -65,7 +199,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/castle"
+      "branch": "s188/castle",
+      "worktree": ".claude/worktrees/s188-castle",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P4",
@@ -77,7 +213,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-a"
+      "branch": "s188/racial-a",
+      "worktree": ".claude/worktrees/s188-racial-a",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P5",
@@ -89,7 +227,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-b"
+      "branch": "s188/racial-b",
+      "worktree": ".claude/worktrees/s188-racial-b",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P6",
@@ -101,7 +241,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-c"
+      "branch": "s188/racial-c",
+      "worktree": ".claude/worktrees/s188-racial-c",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P7",
@@ -113,7 +255,9 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-d"
+      "branch": "s188/racial-d",
+      "worktree": ".claude/worktrees/s188-racial-d",
+      "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
       "id": "P8",
@@ -127,6 +271,9 @@
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    "P0 #s188-printing-a-boot-list-is-not-reading-it #boot #enforcement #owner-frustration: pre-flight had PRINTED every boot file for months and nothing checked any was opened; S188 skimmed the traces through tail|cut and never opened S187's recorded research, then started re-deriving specs that were on disk. A rule the model must remember fails exactly when it matters, so it became a gate: boot reads are required, marked only by the Read tool, and Edit/Write/Agent/Workflow are denied until done. The build also exposed two latent defects the old advice hid: pre-flight's trace slug never matched a spaced project name (it pointed SPARK at another project's file), and an IN-PROGRESS plan in .claude/plans/ that pre-flight never scans. Grok caught a lost-update race in the first design (parallel Reads rewriting one JSON); per-read marker files remove it.",
+    "P1 #s188-a-second-option-turns-a-latent-bug-live #draft #validation: applyDraftChoice had pushed ANY pick since S187 - harmless while the panel could only send the offered general, live the moment a racial option exists. Found by asking what the reducer ASSUMED about its input once the input's range widened (S187's own lesson, one layer up). And two S187 tests encoded the latent bug as expected behaviour - one chose ATK at the HP draft and passed only because nothing refused it. A test that passes because of a bug is a pin on the bug; re-pin it to the intent, never delete it."
+  ],
   "carry_forward_findings": []
 }
