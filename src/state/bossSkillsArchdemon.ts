@@ -20,10 +20,9 @@ import {
   ARCHDEMON_TELEPORT_INTERVAL_TICKS,
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
-import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
-import { isStunned, isUntargetable } from './creatures/creature.ts';
+import { isStunned, isUntargetable, creatureMaxEhp } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
@@ -70,7 +69,8 @@ export function runArchdemonHell(world: World): void {
       if (id === demonId) continue;
       if (c.ownerPlayerId === demon.ownerPlayerId) continue; // "any ENEMY around"
       if (c.ehp <= 0) continue;
-      if (c.ehp * 100 >= maxPoolFifths(c.type) * ARCHDEMON_HELL_THRESHOLD_PCT) continue;
+      // ⭐ S187 — the victim's own max, so a drafted unit is judged against the pool it actually has.
+      if (c.ehp * 100 >= creatureMaxEhp(c) * ARCHDEMON_HELL_THRESHOLD_PCT) continue;
       const dx = c.pos.x - demon.pos.x;
       const dy = c.pos.y - demon.pos.y;
       if (dx * dx + dy * dy <= rSq) doomed.push(id);

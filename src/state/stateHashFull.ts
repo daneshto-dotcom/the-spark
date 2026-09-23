@@ -286,7 +286,7 @@ type SparkHashed =
 type CreatureHashed =
   | 'id' | 'type' | 'ownerPlayerId' | 'pos' | 'prevPos' | 'targetPos' | 'targetBondId'
   | 'targetCreatureId' | 'targetPrimitiveId' | 'state' | 'ticksInState' | 'killCount' | 'spawnedAtTick'
-  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'ehp' | 'poopyUntilTick'
+  | 'despawnAtTick' | 'sourceSpawnerId' | 'chewProgress' | 'ehp' | 'maxEhp' | 'poopyUntilTick'
   /*
    * ⭐ S168 (owner R149) — the Orc Warlord's RAGE latch. HASHED rather than 'acknowledged', which is
    * a deliberate choice: the field is NOT serialized (it is derived, and the client never simulates),
@@ -513,7 +513,12 @@ export function determinismParts(world: World): string[] {
   for (const [id, pl] of seats) {
     parts.push(
       `pl${n(id)}:${pl.castleHp},${pl.castleRegenLevel},${pl.raceId},`
-        + `${n(pl.eliminatedAtTick ?? null)},${pl.raidPoints},${pl.raidProgress}`,
+        + `${n(pl.eliminatedAtTick ?? null)},${pl.raidPoints},${pl.raidProgress}`
+        // ⭐ S187 — the drafted upgrades, JOINED IN PICK ORDER. Two peers holding the same
+        // picks in a different sequence are a genuine divergence: the list drives a
+        // leaderboard row (R113), so the order is observable state, not an implementation
+        // detail. Sorting here would hide exactly the bug this oracle exists to surface.
+        + `,d${pl.draftPicks.join('')}`,
     );
   }
 
@@ -565,7 +570,7 @@ export function determinismParts(world: World): string[] {
   for (const c of creatures) {
     parts.push(
       `c${n(c.id)}:${c.type}:${c.pos.x},${c.pos.y}:${v2(c.prevPos)}:${v2(c.targetPos)}` +
-        `:${c.state}:${c.ticksInState}:ehp${o(c.ehp)}:cw${o(c.chewProgress)}` +
+        `:${c.state}:${c.ticksInState}:ehp${o(c.ehp)}:mx${o(c.maxEhp)}:cw${o(c.chewProgress)}` +
         `:tb${n(c.targetBondId)}:tc${n(c.targetCreatureId)}:tp${n(c.targetPrimitiveId)}` +
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +

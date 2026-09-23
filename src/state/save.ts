@@ -67,6 +67,8 @@ import { defaultRaceForSeat, isRaceId, type RaceId } from './races.ts';
 import type { SpawnerState } from '../game/spawner.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
+import { creatureMaxEhp } from './creatures/creature.ts';
+import { DRAFT_PICKS, type DraftPick } from './draft.ts';
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -465,6 +467,13 @@ interface SerializedPlayer {
    */
   castleRegenLevel?: number;
   /**
+   * ⭐ S187 — the seat's drafted upgrades, in pick order. Additive-optional and emitted only when
+   * non-empty, so a seat that has drafted nothing costs no bytes and every pre-S187 save loads.
+   *
+   * ⚠ ORDER IS SIGNIFICANT: it is hashed as a joined string. Never sort it on the way in or out.
+   */
+  draftPicks?: readonly DraftPick[];
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -639,6 +648,13 @@ interface SerializedCreature {
    * the ~3 KB primitives/bonds payload.
    */
   readonly killCount?: number;
+  /**
+   * ⭐ S187 — this creature's OWN full pool, when a draft buff made it differ from its type's.
+   * Absent = the type's config pool. See `Creature.maxEhp` for why the buff cannot survive without
+   * it: the `ehp` emit below is conditional on being BELOW the config pool, so a buffed creature
+   * would write nothing and the receiver would rebuild it unbuffed.
+   */
+  readonly maxEhp?: number;
   /**
    * S58 (#3) — owning player. Additive-optional (pre-S58 NetSnapshots omit it;
    * `deserializeCreature` rehydrates as 0 via nullish-coalescing). Pre-S58 this
@@ -1847,6 +1863,13 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       castleHp: p.castleHp ?? CASTLE_MAX_HP,
       // S164 P1 — absent means nobody bought it, i.e. level 0 / no regeneration.
       castleRegenLevel: p.castleRegenLevel ?? 0,
+      // ⭐ S187 — rehydrate the drafted upgrades. Absent means "drafted nothing", which is the right
+      // answer for every pre-S187 save. Each value is validated against DRAFT_PICKS rather than
+      // trusted: this crosses the wire, and an unknown literal would reach the buff maths and the
+      // hash. A bad entry is DROPPED, not defaulted, so a malformed peer cannot invent an upgrade.
+      draftPicks: (p.draftPicks ?? []).filter((d): d is DraftPick =>
+        (DRAFT_PICKS as readonly string[]).includes(d),
+      ),
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2040,6 +2063,10 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.castleHp < CASTLE_MAX_HP ? { castleHp: p.castleHp } : {}),
     // S164 P1 — emitted only when bought, so an un-upgraded board is byte-identical to v40.
     ...(p.castleRegenLevel > 0 ? { castleRegenLevel: p.castleRegenLevel } : {}),
+    // ⭐ S187 — emitted only when the seat has drafted something, so an un-drafted seat stays
+    // byte-identical to every prior save. Copied, never aliased: the live World must not share an
+    // array with a snapshot.
+    ...(p.draftPicks.length > 0 ? { draftPicks: [...p.draftPicks] } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
@@ -2130,9 +2157,13 @@ function serializeCreature(c: Creature): SerializedCreature {
     // VOLTKIN_HP 2→8 did (27→28). It is retained because creatures are numerous and nearly always
     // undamaged; it is DOCUMENTED because the last three bumps were each discovered rather than
     // predicted. S151's goblin 6→1 is one of the changes 28→29 pays for.
-    ...(c.ehp < unitPoolFifths(getCreatureConfig(c.type).hp, getCreatureConfig(c.type).def)
-      ? { ehp: c.ehp }
-      : {}),
+    // ⭐ S187 — the threshold is now the creature's OWN max, not the type's. A buffed creature sits
+    // ABOVE the config pool, so the old test (`ehp < configPool`) was false for it and its health
+    // was never written — the receiver rebuilt it unbuffed. That was a silent, wire-only data loss.
+    ...(c.ehp < creatureMaxEhp(c) ? { ehp: c.ehp } : {}),
+    // ⭐ S187 — and the max itself, only when it differs from the type's. Unbuffed creatures — which
+    // is nearly all of them, nearly always — stay byte-identical to every prior save.
+    ...(c.maxEhp !== undefined ? { maxEhp: c.maxEhp } : {}),
     // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
@@ -2496,9 +2527,16 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // S102/S151 — rehydrate the effective pool from a host save of a damaged creature. The coalesce
     // covers the emit-only-when-damaged case and any pre-S151 save, defaulting to the FULL pool
     // derived from this peer's own config (see the emit site for why that coupling forces a bump).
+    // ⭐ S187 — the coalesce target is the creature's OWN max when it carries one, so a buffed
+    // creature that was at full health (and therefore wrote no `ehp`) rehydrates at its BUFFED
+    // pool rather than its type's. Getting this wrong is how the buff would survive the emit and
+    // still be lost on the way back in.
     ehp:
       s.ehp ??
+      s.maxEhp ??
       unitPoolFifths(getCreatureConfig(s.type).hp, getCreatureConfig(s.type).def),
+    // ⭐ S187 — absent means "this creature's pool is its type's", the correct pre-S187 reading.
+    ...(s.maxEhp !== undefined ? { maxEhp: s.maxEhp } : {}),
     // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
     // every reader gates on `!== undefined && tick < poopyUntilTick`.

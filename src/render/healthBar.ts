@@ -65,8 +65,8 @@ import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul, towerArtForRecipe, towerRingCentroid, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { labelStructureComponents } from './structureComponents.ts';
-import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
+import { creatureMaxEhp } from '../state/creatures/creature.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
@@ -170,8 +170,9 @@ export function drawHealthBars(
   for (const c of world.creatures.values()) {
     if (c.ehp <= 0) continue;
     if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
-    const cfg = getCreatureConfig(c.type);
-    const max = unitPoolFifths(cfg.hp, cfg.def);
+    // ⭐ S187 — the creature's OWN max, so a drafted unit's bar reads full at its buffed pool
+    // instead of overflowing past the right-hand end of the bar.
+    const max = creatureMaxEhp(c);
     if (max <= 0) continue;
     const scale = creatureSpriteScaleMul(c.type);
     const b = box?.(c.id) ?? null;

@@ -33,7 +33,7 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned boss takes no action; see `stunGates.test.ts`.
-import { isStunned } from './creatures/creature.ts';
+import { isStunned, creatureMaxEhp } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import type { World } from './world.ts';
@@ -108,7 +108,9 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
     const spent = ledger.get(id) ?? 0;
     if (spent >= VLAD_LIFE_SAP_USES) continue;
 
-    const max = bossMaxPoolFifths(vlad.type);
+    // ⭐ S187 — his OWN max. `bossMaxPoolFifths(type)` would clamp a drafted Vlad's heal back to
+    // the unbuffed pool, so the buff would appear to work and then quietly cap.
+    const max = creatureMaxEhp(vlad);
     // `ehp / max < 40%` without dividing — exact in integers, and it cannot drift if the pool is
     // ever retuned to something that does not divide by five.
     if (vlad.ehp * 100 >= max * VLAD_LIFE_SAP_TRIGGER_PCT) continue;

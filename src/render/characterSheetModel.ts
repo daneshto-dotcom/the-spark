@@ -66,6 +66,7 @@ import { castleShotFifths } from '../state/castleGuns.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
+import { creatureMaxEhp } from '../state/creatures/creature.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
@@ -1166,7 +1167,10 @@ function creatureSheet(
   const c = world.creatures.get(target.id);
   if (c === undefined) return null;
   const cfg = getCreatureConfig(c.type);
-  const max = unitPoolFifths(cfg.hp, cfg.def);
+  // ⭐ S187 — this creature's OWN max, so a drafted unit's sheet shows the pool it actually
+  // has. `cfg` is still the source for the four STAT POINTS below, which the draft does not
+  // move: the buff scales the derived pool, not the points it was derived from.
+  const max = creatureMaxEhp(c);
   const race = world.players.get(c.ownerPlayerId)?.raceId ?? null;
   const frozen = isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId);
   const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen, {

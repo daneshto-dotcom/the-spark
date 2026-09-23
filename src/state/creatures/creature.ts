@@ -20,8 +20,14 @@
 
 import type { BondId, PlayerId, PrimitiveId, Vec2, SpawnerId } from '../../types.ts';
 import type { CreatureId } from '../../types.ts';
-import { VOLTKIN_CONFIG, isUntargetableType, type CreatureConfig } from './voltkin-config.ts';
+import {
+  VOLTKIN_CONFIG,
+  getCreatureConfig,
+  isUntargetableType,
+  type CreatureConfig,
+} from './voltkin-config.ts';
 import { unitPoolFifths } from '../stats.ts';
+import { draftedPoolFifths, type DraftPick } from '../draft.ts';
 import { WARLORD_RAGE_MULTIPLIER } from '../../constants.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
@@ -578,6 +584,34 @@ export interface Creature {
    */
   ehp: number;
   /**
+   * ⭐⭐ S187 — **THIS CREATURE'S OWN FULL POOL, WHEN IT DIFFERS FROM ITS TYPE'S.** Absent = the
+   * type's config pool, which is every creature born to a seat that has drafted nothing.
+   *
+   * ⛔ **WITHOUT THIS FIELD THE DRAFT BUFF SILENTLY DISAPPEARS ACROSS THE WIRE, AND THE PROOF IS
+   * FOUR LINES AWAY IN `serializeCreature`.** That site emits `ehp` ONLY when the creature is
+   * damaged — i.e. when `c.ehp < unitPoolFifths(cfg.hp, cfg.def)` — so an undamaged creature costs
+   * no bytes and the receiver rebuilds the pool from ITS OWN compiled `hp`/`def`. A buffed race unit
+   * sits at **7** against a config pool of **6**, so `7 < 6` is false, nothing is written, and the
+   * peer rebuilds it as 6. The buff would work on the host's screen and not exist on the joiner's.
+   * `save.ts` already names this coupling *"the R71 SHARED-CONSTANT HAZARD, KNOWINGLY RETAINED"* and
+   * warns that any change to those two values forces a PROTOCOL_VERSION bump. The draft is exactly
+   * such a change, which is one of the two reasons S187 goes 48 → 49.
+   *
+   * ⛔ **AND IT MUST BE STORED RATHER THAN DERIVED, BECAUSE "FROM NOW ON" IS A BIRTH PROPERTY.** The
+   * owner's wording is *"10% HP to all spawned units from now on"*: a unit already on the board when
+   * a draft resolves keeps the pool it was born with. A derived max would retroactively buff every
+   * living unit the instant its owner drafted, which is a different game.
+   *
+   * ⚠ **READ IT THROUGH `creatureMaxEhp`, NEVER BY RE-DERIVING FROM THE CONFIG.** The max pool was
+   * re-derived at thirteen separate sites before this field existed, and a site that still derives it
+   * will clamp a buffed creature's heal to the UNBUFFED maximum. `creatureMaxPool.guard.test.ts`
+   * enumerates the remaining direct derivations mechanically and fails when a new one appears.
+   *
+   * ADDITIVE-OPTIONAL on the wire, emitted only when present, so an unbuffed creature stays
+   * byte-identical to every prior save and the replay-equivalence guards keep passing.
+   */
+  maxEhp?: number;
+  /**
    * S109 P2 — tick until which a seagull-pooped creature crawls at POOP_SLOW_MULTIPLIER speed
    * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
    * at expiry). Consumed by `computeSteeringAccel` (scales the steering accel while live).
@@ -718,6 +752,26 @@ export function lifetimeStartTick(
   return clock.matchPhase === 'BUILD' ? clock.phaseEndsAtTick : spawnedAtTick;
 }
 
+/**
+ * ⭐⭐ S187 — **THE ONE PLACE THAT ANSWERS "HOW BIG IS THIS CREATURE'S POOL?"**
+ *
+ * Prefers the creature's own stored max (a drafted buff, baked at birth) and falls back to its
+ * type's config pool, which is correct for every creature born to a seat that has drafted nothing.
+ *
+ * ⛔ **EVERY MAX-POOL READ GOES THROUGH HERE.** Before S187 the max was re-derived from
+ * `getCreatureConfig` at thirteen sites across `render/` and `state/`, including three heal clamps
+ * (`runVladLifeSap`, `runWarlordRage`, `runArchdemonHell`) and the health bar. A site that still
+ * derives it would clamp a buffed creature to its UNBUFFED maximum — the buff would appear to work
+ * and then quietly cap. `creatureMaxPool.guard.test.ts` counts the direct derivations that remain
+ * and fails when a new one appears, because a source-text guard can prove a line exists but never
+ * that it is reached (S182 lesson 2).
+ */
+export function creatureMaxEhp(c: Pick<Creature, 'type' | 'maxEhp'>): number {
+  if (c.maxEhp !== undefined) return c.maxEhp;
+  const cfg = getCreatureConfig(c.type);
+  return unitPoolFifths(cfg.hp, cfg.def);
+}
+
 export function makeCreature(
   config: CreatureConfig,
   args: {
@@ -737,8 +791,23 @@ export function makeCreature(
      * already on the wire, so this needs no new wire field and no PROTOCOL_VERSION bump.
      */
     clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number };
+    /**
+     * ⭐ S187 — the OWNER SEAT's drafted upgrades, read once at birth to size this creature's pool.
+     *
+     * OMITTING IT MEANS "unbuffed", which is byte-identical to every pre-S187 call site and is the
+     * right answer for a creature with no owning seat. The caller passes
+     * `world.players.get(ownerPlayerId)?.draftPicks` — it is the SEAT's list, not the creature's, and
+     * it is snapshotted here rather than referenced, because "from now on" means a unit keeps the
+     * pool it was born with when its owner drafts again later.
+     */
+    draftPicks?: readonly DraftPick[];
   },
 ): Creature {
+  const basePool = unitPoolFifths(config.hp, config.def);
+  const pool =
+    args.draftPicks === undefined || args.draftPicks.length === 0
+      ? basePool
+      : draftedPoolFifths(config.hp, config.def, args.draftPicks);
   return {
     id: args.id,
     type: config.type,
@@ -764,7 +833,12 @@ export function makeCreature(
     chewProgress: 0,
     // S151 P2 — the pool is HP POINTS x the DEF multiplier, in fifths. def is 0 across the
     // shipped roster, so this is exactly the old hit count x5 and every kill count is unchanged.
-    ehp: unitPoolFifths(config.hp, config.def),
+    // ⭐ S187 — and `pool` is that same value unless the owning seat has drafted a pool upgrade.
+    ehp: pool,
+    // ⭐ S187 — stored ONLY when it differs from the type's config pool, so an unbuffed creature
+    // carries no extra field, serializes to the same bytes as before, and leaves every
+    // replay-equivalence guard untouched. See the field's docblock for why deriving it is unsafe.
+    ...(pool !== basePool ? { maxEhp: pool } : {}),
   };
 }
 

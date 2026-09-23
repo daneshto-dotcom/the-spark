@@ -15,6 +15,7 @@ import {
 } from '../constants.ts';
 import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
+import type { DraftPick } from '../state/draft.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -70,6 +71,29 @@ interface PlayerCommon {
    * is exactly what `tsc` CANNOT catch at the two carry-FSM rebuilds in this file.
    */
   castleRegenLevel: number;
+  /**
+   * ⭐⭐ S187 (owner) — **EVERY UPGRADE THIS SEAT HAS DRAFTED, IN THE ORDER IT TOOK THEM.**
+   *
+   * The draft offers one general option and one racial option before wave 1 and again every fifth
+   * wave; this is the record of what was taken. Empty is the correct opening value and the correct
+   * value for a seat that has never reached a draft.
+   *
+   * ⛔ **AN ORDERED LIST, NOT FOUR COUNTERS, AND THE REASON IS R113.** The owner's visibility ruling
+   * puts one icon per drafted wave beside the player's name, *"stacking left to right so the whole
+   * history reads at a glance"*. Counters cannot render that row; a list can, and the buff maths only
+   * ever needs `filter(...).length`, which is cheap at ≤ 10 entries.
+   *
+   * ⚠ **THE ORDER IS APPEND-ONLY AND NEVER SORTED.** It is hashed as a joined string, so two peers
+   * that applied the same picks in a different sequence would hash differently. Nothing may reorder
+   * it; `applyDraftPercent` is deliberately order-independent so the SIM cannot notice, but the HASH
+   * would.
+   *
+   * ⛔ REQUIRED, NOT OPTIONAL, and for exactly the reason `castleRegenLevel` above is: a required
+   * field goes red at the two carry-FSM rebuilds in this file, which are the sites `tsc` cannot
+   * otherwise catch. An optional one would be silently reset every time a seat picked up a shape —
+   * which for this field means losing every upgrade the player had drafted all match.
+   */
+  draftPicks: DraftPick[];
   /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
@@ -221,6 +245,9 @@ export function makeIdlePlayer(
     castleHp: CASTLE_MAX_HP,
     // S164 P1 — 0 = no regeneration until a level is bought (R128).
     castleRegenLevel: 0,
+    // ⭐ S187 — a new seat has drafted nothing. Empty is also what every pre-S187 save deserializes
+    // to, so an old save loads as an un-upgraded match rather than throwing.
+    draftPicks: [],
     raceId,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
@@ -259,6 +286,10 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // below calls out as the ones tsc cannot catch. Making `castleRegenLevel` REQUIRED is what
     // turned that trap into a compile error here instead of a silently reset upgrade.
     castleRegenLevel: player.castleRegenLevel,
+    // ⭐ S187 — AND THE FIFTH ENTRY IN THIS FILE'S DOCUMENTED PATTERN. Omitting `draftPicks`
+    // here would wipe every upgrade a seat had drafted the instant its player picked up or
+    // dropped a shape. Required, so tsc reds this line rather than letting it go silently.
+    draftPicks: player.draftPicks,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -310,6 +341,10 @@ export function drop(player: Player): IdlePlayer {
     // below calls out as the ones tsc cannot catch. Making `castleRegenLevel` REQUIRED is what
     // turned that trap into a compile error here instead of a silently reset upgrade.
     castleRegenLevel: player.castleRegenLevel,
+    // ⭐ S187 — AND THE FIFTH ENTRY IN THIS FILE'S DOCUMENTED PATTERN. Omitting `draftPicks`
+    // here would wipe every upgrade a seat had drafted the instant its player picked up or
+    // dropped a shape. Required, so tsc reds this line rather than letting it go silently.
+    draftPicks: player.draftPicks,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

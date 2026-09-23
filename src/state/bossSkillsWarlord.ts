@@ -19,10 +19,9 @@ import {
   WARLORD_RAGE_TRIGGER_PCT,
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
-import { maxPoolFifths } from './damageOverTime.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned boss summons nothing. RAGE is exempt (a latch, not an action).
-import { isStunned } from './creatures/creature.ts';
+import { isStunned, creatureMaxEhp } from './creatures/creature.ts';
 import { dispatch, type World } from './world.ts';
 
 /**
@@ -52,7 +51,7 @@ export function runWarlordRage(world: World): void {
     const boss = world.creatures.get(id);
     if (boss === undefined) continue;
     if (boss.ehp <= 0) continue; // a corpse neither rages nor calms
-    const max = maxPoolFifths(boss.type);
+    const max = creatureMaxEhp(boss); // ⭐ S187 — his own max; the rage threshold is a fraction of it
 
     if (boss.enraged === true) {
       // R151 — the ONLY way out short of dying, and it is strictly ABOVE the line.

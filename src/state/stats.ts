@@ -157,6 +157,40 @@ export function attackFifths(atk: number, pen: number): number {
 }
 
 /**
+ * ⭐⭐ S187 (owner) — **A DRAFT BUFF IS A PERCENTAGE OF THE LADDER NUMBER, FLOORED, MINIMUM ONE.**
+ *
+ * > *"When we have the 10% HP increase of a one-one-one-one unit then it comes out as 0.6 … but we
+ * > don't have a 0.6, so what we do is we just add one point. So instead of six health he will have
+ * > seven health. As easy as this. Anything that doesn't ship as at least a whole number you just
+ * > give him the lowest amount possible, which is one."* — owner, S187
+ *
+ * ⛔ **THIS RULING IS WHAT MAKES A PERCENTAGE EXPRESSIBLE ON THIS LADDER AT ALL.** The castle-spawned
+ * unit is `1/1/1/1` (R125, `RACE_UNIT_*`), so its pool is `1 × (5+1) = 6` fifths. Ten percent of 6 is
+ * 0.6, and `damageEntity` THROWS on a non-integer by design — the stat system is integer fifths
+ * precisely so no float can reach the damage path and diverge the host from the `?worker=1` mirror.
+ * Before this ruling the only options were a buff that truncated to nothing, or a fractional amount
+ * that cannot exist. The floor-at-one rule gives the small unit a real step (6 → 7) while a large
+ * pool still scales properly (a 260-fifth boss gets a true 26). That is strictly better than the
+ * flat `+1 POINT` R118 had settled for, which was the same size for a chewer and for a Kraken.
+ *
+ * ⚠ **IT COMPOUNDS, DELIBERATELY.** Each pick applies to the value as it stands, so two picks on a
+ * race unit read 6 → 7 → 8 rather than 6 → 7 → 7. R101 makes the draft recurring with no ceiling,
+ * and compounding is the only reading under which a late pick is still worth taking.
+ *
+ * ⛔ **ALL-INTEGER AND ORDER-INDEPENDENT, AND BOTH ARE LOAD-BEARING.** `v * pct` is an integer
+ * product and the division floors, so no float is ever constructed. The result depends only on the
+ * COUNT of picks — never on the order they arrived, nor the tick they landed — which is what keeps
+ * two peers agreeing after a mid-match joiner replays them in a different sequence.
+ */
+export function applyDraftPercent(baseFifths: number, picks: number, pct: number): number {
+  let v = baseFifths;
+  for (let i = 0; i < picks; i++) {
+    v += Math.max(1, Math.floor((v * pct) / 100));
+  }
+  return v;
+}
+
+/**
  * ⛔⛔ **SUPERSEDED S177 P1 — RETIRED, AND NOTHING IN THE DAMAGE PATH CALLS IT.**
  *
  * This was the bridge between two damage scales. There is only ONE scale now: the owner's ×5 ladder,
