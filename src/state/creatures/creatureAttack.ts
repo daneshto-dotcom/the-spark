@@ -42,6 +42,8 @@ import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, isWit
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
+// ⭐ S188 demons.l5 — a split chewer hits for its generation's share (identity for everyone else).
+import { hellspawnStrikeFifths } from '../racial/hellspawn.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
 import { applyVoltkinChain } from './voltkinChain.ts';
 import { mix32 } from '../rng.ts';
@@ -195,7 +197,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const died = damageEntity(
       world,
       { kind: 'creature', id: action.targetCreatureId },
-      attackFifths(getCreatureConfig(creature.type).atk, getCreatureConfig(creature.type).pen),
+      hellspawnStrikeFifths(creature, attackFifths(getCreatureConfig(creature.type).atk, getCreatureConfig(creature.type).pen)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -309,7 +311,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const killed = damageEntity(
       world,
       { kind: 'defender', id: defenderId },
-      attackFifths(attackerConfig.atk, attackerConfig.pen),
+      hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -390,7 +392,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       const died = damageEntity(
         world,
         { kind: 'primitive', id: prim.id },
-        attackFifths(attackerConfig.atk, attackerConfig.pen),
+        hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
         'creature',
         { kind: 'creature', id: creature.id },
       );
@@ -437,7 +439,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const killed = damageEntity(
       world,
       { kind: 'stinkCloud', id: cloudId },
-      attackFifths(attackerConfig.atk, attackerConfig.pen),
+      hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -500,7 +502,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       damageEntity(
         world,
         { kind: 'castle', seat: castleSeat },
-        attackFifths(attackerConfig.atk, attackerConfig.pen),
+        hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
         'creature',
         { kind: 'creature', id: creature.id },
       );
@@ -533,7 +535,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // ⭐ S177 P9 (owner) — *"only when they reach it"*. Same gate, same predicate, same reason as the
   // creature arm above: this one could also sever a connector from any distance whatsoever.
   if (!isWithinAttackRange(world, creature, action.bondId)) return world;
-  const broke = damageConnector(world, action.bondId, attackFifths(attacker.atk, attacker.pen));
+  const broke = damageConnector(world, action.bondId, hellspawnStrikeFifths(creature, attackFifths(attacker.atk, attacker.pen)));
 
   /*
    * ⭐ S159 P2 (owner R77) — CHAIN LIGHTNING, AND IT FIRES WHETHER OR NOT THIS CONNECTOR GAVE WAY.

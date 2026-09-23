@@ -810,6 +810,12 @@ interface SerializedCreature {
    * fall through a switch — no `PROTOCOL_VERSION` bump.
    */
   readonly raRitualUntilTick?: number;
+  /**
+   * ⭐ S188 (`demons.l5`) — the HELLSPAWN generation (1 or 2). Additive-optional, emitted only when
+   * set. It must reach the joiner as well as the worker: the renderer DERIVES the split chewer's size
+   * from it. It rides the 49 → 50 bump the S188 substrate took for the racial RULES.
+   */
+  readonly hellspawnGen?: 1 | 2;
 }
 
 /**
@@ -2238,6 +2244,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
     ...(c.raRitualUntilTick !== undefined ? { raRitualUntilTick: c.raRitualUntilTick } : {}), // S171 R142
+    ...(c.hellspawnGen !== undefined ? { hellspawnGen: c.hellspawnGen } : {}), // S188 demons.l5
   };
 }
 
@@ -2612,6 +2619,9 @@ function deserializeCreature(s: SerializedCreature): Creature {
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142
+    // ⭐ S188 demons.l5 — validated, never trusted: only 1 and 2 are generations. Anything else off the
+    // wire is dropped, which reads as an ordinary chewer rather than inventing a third split.
+    ...(s.hellspawnGen === 1 || s.hellspawnGen === 2 ? { hellspawnGen: s.hellspawnGen } : {}),
   };
 }
 

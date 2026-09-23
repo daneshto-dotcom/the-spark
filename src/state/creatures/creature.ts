@@ -713,6 +713,25 @@ export interface Creature {
    * Mutable; defaults undefined (no factory change).
    */
   raRitualUntilTick?: number;
+  /**
+   * ⭐⭐ S188 (owner) — **HELLSPAWN: WHICH GENERATION OF A SPLIT PENCIL CHEWER THIS IS.** Absent = an
+   * ordinary chewer (generation 0).
+   *
+   * > *"when a pencil chewer dies, it spawns two more pencil chewers with half the stats in each. So
+   * > 50% and 50% of the main one. And when those die, each one of those spawn two more with 25%
+   * > stats each."* — owner, S187 (`demons.l5`, `racial/hellspawn.ts`)
+   *
+   * `1` = a child at 50 %, `2` = a grandchild at 25 %, and a generation-2 death spawns NOTHING — the
+   * field is what makes the chain terminate (Council A2). It also carries the STRIKE: a child's hit is
+   * derived from its generation at strike time (`hellspawnStrikeFifths`), because a creature's damage
+   * is rebuilt from its TYPE's config and a split chewer is still a `'chewer'`. Its POOL rides the
+   * existing `maxEhp` (S187), so it needs no second pool field.
+   *
+   * ⛔ SERIALIZED AND HASHED — all four sites (`CreatureHashed` + the `:hg` projection + the per-field
+   * test + the save/wire round-trip the worker INIT rides). A mirror that lost it would split a
+   * grandchild again and hit for the full chewer strike. Additive-optional, emitted only when set.
+   */
+  hellspawnGen?: 1 | 2;
 }
 
 /**
