@@ -21,7 +21,16 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
   but gatherer / raid / sheet picks still reach them.
 
 ## DONE (committed)
-- (nothing yet)
+- BUG 1 FIX: `FooterBand.isOverCollapseTab` answers false where an open card covers the tab (only
+  while expanded). That predicate is read by `handleFooterChipClick`, `isOverChip` (cursor) and
+  `isOverBandSurface` (placement refusal), so all three agree. `controls.ts` comment at the tab
+  test corrected (it claimed the tab floats above the menu). typecheck 0. Tests NOT yet written.
+- BUG 2 FIX: `DraftOverlay.isOver` (every Graphics child's `containsPoint`, i.e. plate + tiles +
+  hover-tip plate as drawn this frame) and `isOverChoosable` (visible && offered && draftHitTest);
+  a block appended at the END of the class, nothing else in the file touched. `Controls`:
+  `DraftPanelLike`, `setDraftPanel`, `isPointerOverDraftPanel` / `isPointerOverDraftChoice`;
+  onDown early return right after the castle-panel guard; potato + PLACE_FROM_FREE gates; cursor.
+  main.ts `controls.setDraftPanel(draftOverlay)`. typecheck 0. Tests NOT yet written.
 
 ## IN PROGRESS / NEXT
 - Bug 1: layer the tab under the open cards in `FooterBand.isOverCollapseTab` (the ONE predicate

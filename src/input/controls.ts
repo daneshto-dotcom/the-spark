@@ -202,6 +202,19 @@ export interface CastlePanelLike {
 }
 
 /**
+ * ⭐⭐ S188 (audit F1) — THE UPGRADE DRAFT PANEL, as the input layer sees it. Structural for the
+ * reason every surface above is: this layer must not import the renderer.
+ *
+ * Two questions, the S182 split: `isOver` is the SURFACE (everything the panel draws — the commit
+ * gates ask it) and `isOverChoosable` is the CONTROL (a tile a click would pick — the cursor asks
+ * it). The pick itself never comes through here: it is the panel's own Pixi `pointertap`.
+ */
+export interface DraftPanelLike {
+  isOver(x: number, y: number): boolean;
+  isOverChoosable(x: number, y: number): boolean;
+}
+
+/**
  * V6-1.2 — PURE: the next value in a gatherer's preference cycle (Any → the six primitives → Any).
  * Extracted as a free function so the cycle is unit-testable without a Pixi Application / DOM —
  * the ui.ts `captureTierBanner` precedent, and the reason V6-0.2's untestable scan shipped broken.
@@ -487,6 +500,11 @@ export class Controls {
     this.characterSheet = sheet;
   }
 
+  /** ⭐ S188 (audit F1) — main.ts injects the draft panel, like the three surfaces above. */
+  setDraftPanel(panel: DraftPanelLike): void {
+    this.draftPanel = panel;
+  }
+
   /**
    * S181 — `main.ts` injects the card's FIX / SCRAP / FEED dispatch, exactly as it already does for
    * the popover's. Same `dispatchFn` seam, so the three network paths (wire intent / postIntent /
@@ -508,6 +526,7 @@ export class Controls {
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
+  private draftPanel: DraftPanelLike | null = null;
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
     | null = null;
@@ -542,10 +561,15 @@ export class Controls {
     if (!this.isPointerOverFooterChip() || this.footerBand === null) return false;
 
     /*
-     * ⭐⭐ S187 — THE COLLAPSE TAB IS TESTED FIRST, and the ordering argument is the one already
-     * written three lines below for the tower card: whatever floats ABOVE the others must be read
-     * before them, or its click falls through to whatever sits behind it. Collapsed, the tab is the
-     * ONLY control left — reading chips first would make the menu impossible to bring back.
+     * ⭐⭐ S187 — THE COLLAPSE TAB IS TESTED FIRST. Collapsed, the tab is the ONLY control left —
+     * reading chips first would make the menu impossible to bring back.
+     *
+     * ⛔ S188 (owner) — BUT IT IS NOT ON TOP OF AN OPEN MENU, and this comment used to claim it was
+     * ("whatever floats ABOVE the others must be read before them"). The expanded tab sits UNDER the
+     * tower cards: every tier's menu is drawn over it, and pressing the Lightning Hub card collapsed
+     * the footer instead of arming the hub. `footerBand.isOverCollapseTab` now answers false wherever
+     * an open card covers the tab, so a press there falls through to `cardAt` below — decided in that
+     * one predicate so this router, the cursor and the placement gates agree. See its docblock.
      */
     if (this.footerBand.isOverCollapseTab?.(this.cursor.x, this.cursor.y) === true) {
       void playUiClickSFX();
@@ -981,6 +1005,34 @@ export class Controls {
   }
 
   /**
+   * ⛔⛔ S188 (audit F1) — **IS THE POINTER UNDER THE UPGRADE DRAFT PANEL?** The SURFACE question,
+   * asked by the `onDown` early return and both `onUp` commit gates.
+   *
+   * The S181 defect in a sixth place: the panel (zIndex 900, opaque, ~559×270 over the quarry, its
+   * side margins over buildable ground, plus the hover-detail plate below it) was registered in none
+   * of this file's gates. Pixi's `pointertap` makes the pick and does not stop the native event, so
+   * one click on a tile ALSO stamped an armed tower, re-tasked a gatherer, raided on a right-click or
+   * opened a card under the panel — and the draft is open during BUILD by design, with the board
+   * live underneath (`draftEvent.ts`), from the first tick of every match.
+   */
+  private isPointerOverDraftPanel(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.draftPanel !== null &&
+      this.draftPanel.isOver(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /** ⭐ S188 (audit F1) — the CONTROL half, for the cursor: a tile a click would pick. */
+  private isPointerOverDraftChoice(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.draftPanel !== null &&
+      this.draftPanel.isOverChoosable(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /**
    * S136 P0 — OWN-CASTLE CLICK (owner playtest item 2). Opens the context panel; clicking the same
    * castle again closes it. Returns true when the click was consumed.
    *
@@ -1055,6 +1107,16 @@ export class Controls {
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
     // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
     if (this.isPointerOverPanel()) return;
+    /*
+     * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
+     * Ra aim, the card's buttons, the castle click, the armed stamp and every world pick. It is drawn
+     * above all of them (zIndex 900 sorts it over the band and the character card, which are
+     * zIndex 0), so nothing hidden under it may act — a card button included. ONE return covers LMB
+     * and RMB: the stamp, the gatherer / bomb / rainbow / potato / spark picks, the sheet, the raid and
+     * a Ra cast (which keeps aiming, the held-tower rule). The pick itself is the panel's own Pixi
+     * `pointertap`, which this does not touch. Mirrored in both `onUp` commit gates.
+     */
+    if (this.isPointerOverDraftPanel()) return;
     // ⭐ S149 P4 (R36) — THE FOOTER BAND. Same rule and the same reason as the panel guard
     // above: this handler hit-tests world objects with no notion of UI, so a chip press would
     // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —
@@ -1395,7 +1457,10 @@ export class Controls {
       // is on the same card as the buttons, so a player learns the card lies about what is live.
       (this.characterSheet?.ownedRowAt(this.cursor.x, this.cursor.y) ?? null) !== null ||
       (this.castlePanel?.isOpen() === true &&
-        this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
+        this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)) ||
+      // ⭐ S188 (audit F1) — a draft tile a click would PICK. The control question, never the
+      // surface one: the COMING SOON tile and the plate swallow a click but are not controls.
+      this.isPointerOverDraftChoice();
     /*
      * S153 P4 (owner R81) — *"everything clickable should pop out, be highlighted and/or make a
      * sound"*. The cursor already answered "is this clickable?"; this makes the CONTROL itself
@@ -1461,7 +1526,9 @@ export class Controls {
         meNow.carriedPotatoId !== undefined &&
         !this.isPointerOverPanel() &&
         !this.isPointerOverFooterSurface() &&
-        !this.isPointerOverCard()
+        !this.isPointerOverCard() &&
+        // ⛔ S188 (audit F1) — nor under the draft panel: a potato released there stays carried.
+        !this.isPointerOverDraftPanel()
       ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
@@ -1552,7 +1619,11 @@ export class Controls {
           !this.isPointerOverPanel() &&
           !this.isPointerOverFooterSurface() &&
           // S181 — and not over the character card, which is drawn above every other surface.
-          !this.isPointerOverCard()
+          !this.isPointerOverCard() &&
+          // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
+          // over its side margins placed on ground the plate hides; now it is a rejected placement
+          // (the DROP above has released the claim, so nothing is stranded).
+          !this.isPointerOverDraftPanel()
         ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
