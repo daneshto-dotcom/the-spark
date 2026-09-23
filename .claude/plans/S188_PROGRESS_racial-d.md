@@ -2,8 +2,14 @@
 
 | perk | mechanic | art |
 |---|---|---|
-| `zombies.l5` CORPSE EATER | ✅ DONE — `racial/corpseEater.ts`, 24 tests, flipped (2a36d35) | in progress — eat loop (ping-pong of v2-crouch-in) + burp |
-| `nagas.l5` APEX PREDATOR | ✅ DONE — `racial/apexPredator.ts`, 13 tests, flipped (456166e, 40b97a4) | FALLBACK live (base piranha sheet at 2x); elite atlas in progress |
+| `zombies.l5` CORPSE EATER | ✅ DONE — `racial/corpseEater.ts`, 24 tests, flipped (2a36d35) | ✅ DONE — `t9boss-zombies-feed` sheet (9e2bf15) + renderer ping-pong (`render/corpseEaterFrames.ts`) |
+| `nagas.l5` APEX PREDATOR | ✅ DONE — `racial/apexPredator.ts`, 15 tests, flipped (456166e, 40b97a4) | ✅ DONE — own atlas `t3-nagas-piranha-elite` (838d1b1), fallback retired |
+
+Canon text for the merge owner: `.claude/plans/S188_CANON_NOTES_racial-d.md`.
+
+**FINAL GATES at 0c23c95** (captured `$?`): typecheck 0 · vitest 0 (5674 / 346 files) · build 0
+(925.2 KiB, headroom 74.8 — substrate 87f3dc4 measured 919.8, so this branch adds **5.5 KiB**) ·
+check:atlas 0.
 
 Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 0.
 
@@ -28,7 +34,10 @@ Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 
 potatoLifecycle, characterSheetModel name, goblinRenderer ATLASES + GOBLIN_KINDS + preloadRaceKit,
 towerFrames scale, voltkin-config CREATURE_CONFIGS + the hand-maintained key list test.
 
-## Art — next
-- Elite piranha: 3 sheets (swim/attack/death, 8x3 each, RGBA, overlapping cells — the alpha-gutter
-  intake cannot slice them) → one 12-frame-per-row atlas `t3-nagas-piranha-elite`.
-- Corpse eater: v2-crouch-in (sit-down + loop) and v2-stand-and-burp → extra rows.
+## Art — as built
+- New intake `scripts/build-scattered-sheet-atlas.mjs` (nearest-body / uniform assignment,
+  centroid / ground alignment, one fitted scale). Specs: `assets-source/race-tier3-units/piranha-elite/
+  atlas-spec.json`, `assets-source/race-tier9-bosses/zombie-corpse-eater/atlas-spec.json`.
+- Elite piranha: body fitted to the shipped piranha's 128/200 → the 2x draw is exactly 2x. Guard clean.
+- Corpse eater: SEPARATE sheet (not extra rows — the shipped sheet stays byte-identical), standing
+  frames fitted to 261/320, ground on the shipped feet row 312. Guard clean (near-white pocket 59/60).
