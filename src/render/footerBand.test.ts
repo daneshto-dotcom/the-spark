@@ -396,6 +396,8 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      *   6. the COLLAPSE TAB plate   → `isOverCollapseTab` (via `isOverChip`)   ← S187
      *   7. the POWER OF RA plate    → `isOverRaButton` (via `isOverChip`, both states)  ← S188 P6
      *   8. the POWER OF RA sun disc → `isOverRaButton` — drawn INSIDE plate 7, same rectangle
+     *      (S188 P11: now only the FALLBACK while the skill's picture has not loaded)
+     *   9. a WRATH OF RA charge pip → `isOverRaButton` — drawn INSIDE plate 7, same rectangle ← P11
      *
      * ⚠ IF THIS GOES RED, DO NOT BUMP THE NUMBER. A sixth opaque fill means a sixth surface the
      * player cannot see through, and something must hit-test it before this test is updated — that
@@ -406,15 +408,19 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     const fills = src.match(/\.fill\(\{/g) ?? [];
     expect(
       fills.length,
-      `the band now fills ${fills.length} opaque rectangles, not 8 — register the new one in ` +
+      `the band now fills ${fills.length} opaque rectangles, not 9 — register the new one in ` +
         '`isOverChip` (a control) or `isOverBandSurface` (a readout) BEFORE updating this count',
-    ).toBe(8);
+    ).toBe(9);
     /*
      * ⭐ S188 P6 — 6 → 8, and again the rule was followed: both new fills are the POWER OF RA
      * button (its plate, and the sun disc drawn inside that plate), hit-tested by `isOverRaButton`,
      * which `isOverChip` asks FIRST in both collapse states (and `isOverBandSurface` likewise), so the
      * compact button beside the collapsed tab is as solid as the full one. Behavioural proof of the
      * rectangle is in `footerRaButton.test.ts`.
+     *
+     * ⭐ S188 P11 — 8 → 9, the same rule: the ninth is the WRATH OF RA charge pip, drawn inside the
+     * skill's square (on the overlay above its picture) and hit-tested by that square's
+     * `isOverRaButton`. The picture itself is a Sprite, not a fill, and sits inside the same square.
      */
     /*
      * ⭐ S187 — 5 → 6, AND THE RULE ABOVE WAS FOLLOWED RATHER THAN THE NUMBER BUMPED. The sixth is

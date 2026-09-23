@@ -22,8 +22,8 @@ import { footerBandModel } from './footerBandModel.ts';
 import {
   CARRY_PLATE_PAD,
   FooterBand,
-  RA_BUTTON_COLLAPSED_W,
-  RA_BUTTON_W,
+  RA_ICON_COLLAPSED_SIZE,
+  RA_ICON_SIZE,
   collapseTabRect,
   layoutCarryBill,
   layoutChips,
@@ -73,7 +73,8 @@ describe('S188 P6 — where the button sits', () => {
     expect(first - (r.x + r.w)).toBeLessThanOrEqual(20);
     expect(r.y).toBe(chips[0]!.y);
     expect(r.h).toBe(chips[0]!.h);
-    expect(r.w).toBe(RA_BUTTON_W);
+    expect(r.w).toBe(RA_ICON_SIZE);
+    expect(r.h, 'S188 P11 - a SQUARE slot, the WoW icon').toBe(r.w);
     expect(r.y).toBeGreaterThanOrEqual(FOOTER_TOP_Y);
     expect(r.y + r.h).toBeLessThanOrEqual(CANVAS_HEIGHT);
   });
@@ -108,7 +109,7 @@ describe('S188 P6 — where the button sits', () => {
     const r = layoutRaButton([], true)!;
     const tab = collapseTabRect(true);
     expect(r.compact).toBe(true);
-    expect(r.w).toBe(RA_BUTTON_COLLAPSED_W);
+    expect(r.w).toBe(RA_ICON_COLLAPSED_SIZE);
     expect(r.h).toBe(tab.h);
     expect(r.y + r.h).toBe(CANVAS_HEIGHT);
     expect(r.x + r.w).toBeLessThan(tab.x);
@@ -117,7 +118,7 @@ describe('S188 P6 — where the button sits', () => {
 
 describe('S188 P6 — the button SAYS why it is refused', () => {
   it.each<[RaCastRefusal | null, boolean, string]>([
-    [null, false, 'CALL RA'],
+    [null, false, ''], // S188 P11 - a ready WoW slot is its picture; its name shows on hover
     [null, true, 'AIMING'],
     ['NOT_FIGHT', false, 'FIGHT ONLY'],
     ['USED', false, 'USED'],
@@ -191,5 +192,29 @@ describe('S188 P6 — the REAL band: drawn ⇔ hit-tested, in both collapse stat
     w.matchPhase = 'BUILD';
     b.sync(w);
     expect(raAimPreview(), 'refused: the aim is dropped').toBeNull();
+  });
+});
+
+describe('S188 P11 — the slot shows WRATH OF RA\'s charges', () => {
+  it('⭐ three pips\' worth for a WRATH seat, one spent per cast, refused only when all are gone', () => {
+    const w = world(1, true);
+    w.players.get(P0)!.draftPicks.push('hp', 'racial'); // level 5 general, level 10 WRATH
+    w.waveNumber = 11;
+    const b = band();
+    b.sync(w);
+    expect(b.getUiPoints().raSlot).toMatchObject({ charges: 3, left: 3, wrath: true, refusal: null });
+    for (const left of [2, 1, 0]) {
+      dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 500 + left, y: 400 });
+      b.sync(w);
+      expect(b.getUiPoints().raSlot?.left).toBe(left);
+    }
+    expect(b.getUiPoints().raSlot?.refusal, 'the slot dims only once all three are spent').toBe('USED');
+  });
+
+  it('a POWER-only seat shows one charge and no WRATH', () => {
+    const w = world(1, true);
+    const b = band();
+    b.sync(w);
+    expect(b.getUiPoints().raSlot).toMatchObject({ charges: 1, left: 1, wrath: false });
   });
 });

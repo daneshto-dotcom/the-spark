@@ -28,8 +28,16 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
 - MUTATIONS (by hand, restored): requirement check removed from seatHoldsPerk → 1 red; WRATH line
   removed from raChargesFor → 3 red.
 
+- FOOTER ICON (`footerBand.ts`): the slot is a 46 px SQUARE showing the skill's picture (Sprite,
+  lazy `Assets.load`), edge + WRATH pips on an overlay Graphics above it; ready gold / aiming green /
+  refused dimmed grey + reason beneath; name on hover; compact 20 px square beside the collapsed
+  tab; sun glyph fallback until the texture loads. WRATH uses `/art/upgrade-cards/l10-mummies.webp`
+  (s188/ra-vfx ships it) cut at runtime by `CARD_PICTURE_WINDOW`, falling back to power-of-ra.webp.
+  S182 fill count 8 → 9 (the pip). `getUiPoints().raSlot`. Footer suites green, typecheck 0.
+
 ## IN PROGRESS / NEXT
-- footer: square icon sprite + pips + states; collapsed compact icon; fill enumeration
+- AUDIT FIXES queued (coordinator): F1 column sever must not depend on caster bench/elim; F4 aim
+  must not swallow the card's FIX/SCRAP/FEED; F2 teach the BOT to cast (host + worker identical).
 - canon notes (SANDWORM ruled-not-built); gates
 
 ## KNOWN-BROKEN
