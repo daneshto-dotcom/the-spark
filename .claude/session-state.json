@@ -260,6 +260,32 @@
       "dispatched": "2026-09-23 background agent, base 87f3dc4"
     },
     {
+      "id": "P10",
+      "title": "s188/input-layer: footer arrow one layer below the tower menu + draft panel click-through (audit F1)",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "branch": "s188/input-layer",
+      "worktree": ".claude/worktrees/s188-input-layer",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+    },
+    {
+      "id": "P9",
+      "title": "s188/swarm: THE SWARM (vampires.l10) — scope amendment SA1",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "branch": "s188/swarm",
+      "worktree": ".claude/worktrees/s188-swarm",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+    },
+    {
       "id": "P8",
       "title": "Merge owner: audit each branch, fix, merge one at a time with gates, e2e, canon, deploy, verify-deploy",
       "status": "pending",
@@ -275,5 +301,35 @@
     "P0 #s188-printing-a-boot-list-is-not-reading-it #boot #enforcement #owner-frustration: pre-flight had PRINTED every boot file for months and nothing checked any was opened; S188 skimmed the traces through tail|cut and never opened S187's recorded research, then started re-deriving specs that were on disk. A rule the model must remember fails exactly when it matters, so it became a gate: boot reads are required, marked only by the Read tool, and Edit/Write/Agent/Workflow are denied until done. The build also exposed two latent defects the old advice hid: pre-flight's trace slug never matched a spaced project name (it pointed SPARK at another project's file), and an IN-PROGRESS plan in .claude/plans/ that pre-flight never scans. Grok caught a lost-update race in the first design (parallel Reads rewriting one JSON); per-read marker files remove it.",
     "P1 #s188-a-second-option-turns-a-latent-bug-live #draft #validation: applyDraftChoice had pushed ANY pick since S187 - harmless while the panel could only send the offered general, live the moment a racial option exists. Found by asking what the reducer ASSUMED about its input once the input's range widened (S187's own lesson, one layer up). And two S187 tests encoded the latent bug as expected behaviour - one chose ATK at the HP draft and passed only because nothing refused it. A test that passes because of a bug is a pin on the bug; re-pin it to the intent, never delete it."
   ],
-  "carry_forward_findings": []
+  "carry_forward_findings": [],
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-09-23T15:48:07.984469Z",
+    "fields": [
+      "budget_total",
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  },
+  "scope_amendments": [
+    {
+      "id": "SA1",
+      "priority": "P9",
+      "when": "2026-09-23 evening",
+      "owner_verbatim": "Yeah, I mean, the swarm, you better build them in an external agent, not yourself, because we've already defined it. We have the even the art for the upgrade. So there's no reason not to build it. Do it this session.",
+      "scope": "THE SWARM (vampires.l10): the vampire seat's tier-3 bat tower emits a bat swarm at x6 bat stats, own atlas, its card on the level-10 tile. Branch s188/swarm off s188/racial-d."
+    },
+    {
+      "id": "SA2",
+      "priority": "P10",
+      "when": "2026-09-23 evening",
+      "owner_verbatim": "the arrow that takes down the footer ... reads more important than the tower above it ... it'd be one layer below ... Send a different agent to do it. Don't do it yourself.",
+      "scope": "Footer collapse arrow sits one layer below an open tower menu; plus audit F1 (draft panel click-through to the board). Branch s188/input-layer off s188/racial-c."
+    }
+  ]
 }
