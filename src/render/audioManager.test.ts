@@ -7,12 +7,15 @@
  * happens via manual smoke test post-deploy.
  */
 
+import { readFileSync } from 'node:fs';
+
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { asPrimitiveId } from '../types.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
   stopMusic,
+  shutDownAudioForDeadServer,
   enterNonetRealm,
   exitNonetRealm,
   playMusic,
@@ -681,6 +684,8 @@ describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
   const startedUrls: string[] = [];
   /** Sources started, so a case can assert the theme was STOPPED and not merely replaced. */
   const stoppedUrls: string[] = [];
+  /** `AudioContext.close()` calls — the dead-dev-server shutdown's oracle. */
+  let closeCalls = 0;
 
   const realWindow = (globalThis as { window?: unknown }).window;
   const realFetch = (globalThis as { fetch?: unknown }).fetch;
@@ -689,6 +694,7 @@ describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
   function installAudioEnv(opts: { nonetFails?: boolean } = {}): void {
     startedUrls.length = 0;
     stoppedUrls.length = 0;
+    closeCalls = 0;
 
     const makeGain = (): unknown => ({
       gain: {
@@ -707,6 +713,7 @@ describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
       currentTime: 0,
       destination: {},
       resume: async (): Promise<void> => {},
+      close: async (): Promise<void> => { closeCalls += 1; },
       createGain: makeGain,
       createBufferSource: (): unknown => {
         const node = {
@@ -880,5 +887,36 @@ describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
     expect(stoppedUrls).toContain(DEFAULT_MUSIC_SRC);
     expect(inspectAudioChain().musicSourceActive).toBe(false);
     expect(inspectAudioChain().nonetSourceActive).toBe(true);
+  });
+
+  /*
+   * ⛔ 2026-09-23 — THE MUSIC FROM NOWHERE. A finished session left SPARK open in a hidden Claude
+   * browser pane, and it played on after every session, seat and browser was closed. Killing its
+   * orphaned `vite` did not stop it: the track was already decoded. The page must stop itself.
+   */
+  it('a dead dev server CLOSES the context, and no later play call brings the music back', async () => {
+    initAudio();
+    await playMusic();
+    await flush();
+    expect(startedUrls, 'positive control: the music really was playing').toContain(DEFAULT_MUSIC_SRC);
+    const startsBefore = startedUrls.length;
+
+    shutDownAudioForDeadServer();
+    expect(closeCalls, 'suspend() is undone by the next play call; only close() is final').toBe(1);
+
+    // Everything that normally (re)starts sound: the gesture init, the PLAYING edge, a NONET trial.
+    initAudio();
+    await playMusic();
+    await enterNonetRealm();
+    await flush();
+    expect(startedUrls.length, 'a page whose server is gone must stay silent').toBe(startsBefore);
+    expect(inspectAudioChain().musicSourceActive).toBe(false);
+  });
+
+  it('the shutdown is wired to Vite losing its server, and only in dev (import.meta.hot)', () => {
+    const src = readFileSync(new URL('./audioManager.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    expect(src).toMatch(
+      /if \(import\.meta\.hot\) \{\n\s*import\.meta\.hot\.on\('vite:ws:disconnect', shutDownAudioForDeadServer\);\n\}/,
+    );
   });
 });
