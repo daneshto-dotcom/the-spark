@@ -286,6 +286,19 @@
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
     },
     {
+      "id": "P11",
+      "title": "s188/wrath: WRATH OF RA (mummies.l10, needs mummies.l0) + WoW-style Ra skill icon; SANDWORM recorded not built — SA3",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "branch": "s188/wrath",
+      "worktree": ".claude/worktrees/s188-wrath",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+    },
+    {
       "id": "P8",
       "title": "Merge owner: audit each branch, fix, merge one at a time with gates, e2e, canon, deploy, verify-deploy",
       "status": "pending",
@@ -330,6 +343,14 @@
       "when": "2026-09-23 evening",
       "owner_verbatim": "the arrow that takes down the footer ... reads more important than the tower above it ... it'd be one layer below ... Send a different agent to do it. Don't do it yourself.",
       "scope": "Footer collapse arrow sits one layer below an open tower menu; plus audit F1 (draft panel click-through to the board). Branch s188/input-layer off s188/racial-c."
+    },
+    {
+      "id": "SA3",
+      "priority": "P11",
+      "when": "2026-09-23 evening",
+      "owner_verbatim": "at level 10, they will have the power of Ra, but times three. So you can use it three times per fight phase, just by clicking the skill on the bottom left ... the skill has to have the art of the picture, just like a lot smaller, it's like a little square ... think World of Warcraft ... it's only if you've chosen Power of Ra level zero, you can upgrade it to Power of Ra level three ... and if the mummies did not choose Power of Ra level zero then instead at level 10 they will receive ... a sandworm ... Just record it for now and don't implement that part yet.",
+      "scope": "WRATH OF RA (mummies.l10, offered only to a seat holding mummies.l0): 3 casts per FIGHT, same aimed 5-column strike. Skill button becomes a WoW-style square icon from the card art. SANDWORM (the other mummies L10, for seats WITHOUT mummies.l0): RULED, NOT BUILT - a tier-4 tower spawning an underground sandworm, untargetable except when it surfaces to strike, visible by the ground moving above it; art pending from the owner.",
+      "branch": "s188/wrath off s188/racial-c (supersedes s188/racial-c at merge)"
     }
   ]
 }
