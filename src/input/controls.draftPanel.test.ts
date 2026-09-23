@@ -99,6 +99,12 @@ interface RigOpts {
   readonly open?: boolean;
   /** A mummies seat holding POWER OF RA, in a FIGHT, with the wave-6 draft still owed. */
   readonly ra?: boolean;
+  /**
+   * The seat under test plays MUMMIES, at the wave-1 draft. `mummies.l0` is built, so once the
+   * s188/cards panel (live racial tile) is merged that seat's right-hand tile is CHOOSABLE; on a
+   * panel whose racial tile is still COMING SOON it is dead. The assertions hold either way.
+   */
+  readonly mummies?: boolean;
 }
 
 interface Rig {
@@ -153,7 +159,8 @@ function rig(o: RigOpts = {}): Rig {
   dispatch(w, {
     type: 'START_GAME', mode: 'bots', isHost: true,
     roster: [0, 1].map((s) => ({
-      seat: s, color: PLAYER_COLORS[s]!, raceId: o.ra === true && s === seatN ? ('mummies' as const) : undefined,
+      seat: s, color: PLAYER_COLORS[s]!,
+      raceId: (o.ra === true || o.mummies === true) && s === seatN ? ('mummies' as const) : undefined,
     })),
     botSeats: [1],
   });
@@ -390,6 +397,48 @@ describe('⭐ ONE click on a tile: the pick, and nothing else', () => {
     expect(after.picks, 'the pick').toHaveLength(1);
     expect(boardActions(after), 'and nothing else').toEqual([]);
   });
+});
+
+describe('⭐ the racial tile, DEAD or LIVE — the board under it is never reached', () => {
+  /*
+   * The verifier's ask: run the stamp with the racial tile dead AND live. On this branch the panel's
+   * racial tile is COMING SOON; with s188/cards merged a mummies seat at wave 1 is offered
+   * `mummies.l0` and the tile is choosable. `isOverChoosable` says which world the test is in, and
+   * the pick count follows it; the board assertions do not care.
+   */
+  const p = POINTS['the racial tile, outer edge (clear of the quarry keep-out)']!;
+  const cases: ReadonlyArray<{ seat: 0 | 1; what: string; arm: boolean }> = [
+    { seat: 0, what: 'one of your gatherers under it', arm: false },
+    { seat: 1, what: 'one of your gatherers under it', arm: false },
+    // Seat 1's own ground: the stamp the audit reproduced under this tile.
+    { seat: 1, what: 'a tower armed', arm: true },
+  ];
+  for (const k of cases) {
+    it(`seat ${k.seat} (mummies), ${k.what}: the racial tile's pick, if live, and nothing else`, () => {
+      const act = (r: Rig): void => {
+        if (k.arm) {
+          r.castle.armed = STAMPED;
+        } else {
+          const g = ownGatherer(r);
+          g.pos.x = p.x;
+          g.pos.y = p.y;
+        }
+        click(r.c, p);
+        panelTap(r.overlay, p);
+      };
+      const before = rig({ seat: k.seat, mummies: true, wire: false });
+      act(before);
+      expect(boardActions(before).length, 'pre-fix it acted on the board (anti-vacuity)').toBeGreaterThan(0);
+
+      const r = rig({ seat: k.seat, mummies: true });
+      const live = r.overlay.isOverChoosable(p.x, p.y);
+      console.info(`[draftPanel.test] seat ${k.seat} racial tile is ${live ? 'LIVE' : 'DEAD (COMING SOON)'} on this tree`);
+      act(r);
+      expect(boardActions(r), `racial tile ${live ? 'LIVE' : 'dead'}: nothing reaches the board`).toEqual([]);
+      expect(r.picks, live ? 'the live tile makes its pick' : 'the dead tile picks nothing').toEqual(live ? ['racial'] : []);
+      if (k.arm) expect(r.castle.armed, 'and the tower stays in hand').toBe(STAMPED);
+    });
+  }
 });
 
 describe('⭐ the panel as a surface — `DraftOverlay.isOver` registers everything it draws', () => {

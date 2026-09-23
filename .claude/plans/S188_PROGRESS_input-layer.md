@@ -61,7 +61,18 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
   branch's `isOver` / `isOverChoosable`. Resolution: keep both; on master's panel `isOverChoosable`
   must read `this.opts !== null && draftHitTest(x, y, this.opts) !== null` (`offered` is gone there;
   tsc fails loudly until it is changed). main.ts auto-merges.
-- NEXT: browser look on a random port.
+- POST-MERGE CHECK (scratch export of `git merge-tree --write-tree master HEAD`, conflict resolved
+  as above, node_modules junctioned from this worktree; nothing written to any worktree/ref):
+  tsc -b --noEmit 0; 8 affected files 302 green; `controls.draftPanel.test.ts` 153 green with the
+  racial tile LIVE (picks 'racial', board untouched) — on this branch the same file is green with it
+  DEAD. Added the dead/live racial-tile block (3 cases) to the test file.
+- BROWSER LOOK (vite on 127.0.0.1:33134 from THIS worktree): bug 1 SEEN — tier 6 open, Lightning
+  Hub card over the arrow; click at the overlap (960,986) armed lightningHub, footer stayed up;
+  re-click chip 6 closed the menu; the same point then collapsed the footer. Bug 2 NOT seen: the
+  shared Browser pane's tab was taken over by another agent (origin changed to localhost:32474 /
+  39975 mid-test); a background tab of my own does not run the game loop. One of my clicks (frame
+  287,225) may have landed on the other agent's page. Server killed (the task's exit 1 = my kill).
+- NEXT: final gates on the final tree; report.
 
 ## KNOWN-BROKEN
 - nothing known.
