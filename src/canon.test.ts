@@ -57,7 +57,8 @@ import {
 import { PROTOCOL_VERSION } from './net/protocol.ts';
 import { DRAFT_WAVE_INTERVAL, isDraftWave, raceUnitPoolAfterPicks } from './state/draft.ts';
 import { CASTLE_HP_GAIN_BY_BAND } from './state/castleUpgrades.ts';
-import { structurePoolFifths, unitPoolFifths } from './state/stats.ts';
+import { DRONE_ATK, DRONE_PEN } from './constants.ts';
+import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
 // S182 — §7 the damage ramp, §8 the repair fee, §9 the open blast.
@@ -287,6 +288,20 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**NOT BUILT**')).toBe(true);
   });
 
+  it('⛔ §9d — the four recurring questions are CLOSED, and §10 no longer lists them as open', () => {
+    // The owner: "Resolve all of this now. Don't bring this up again." Each of these was raised
+    // with him in more than one session AFTER he had answered it. This test is what stops a
+    // future session quietly moving them back to the open list.
+    expect(canonSays('CLOSED. It is NOT a defect he wants fixed')).toBe(true);
+    expect(canonSays('CLOSED at **120 fifths**')).toBe(true);
+    expect(canonSays('The bar follows the star')).toBe(true);
+    expect(canonSays('so it is never "owed" again')).toBe(true);
+    // ⛔ And the two that used to sit in §10 must be marked ANSWERED there, not merely moved.
+    expect(canonSays('§9d')).toBe(true);
+    // The lightning hub number is DERIVED, so a drone retune moves it and this goes red.
+    expect(4 * attackFifths(DRONE_ATK, DRONE_PEN)).toBe(120);
+  });
+
   it('prints the live PROTOCOL_VERSION', () => {
     expect(canonSays(`is **${PROTOCOL_VERSION}**`)).toBe(true);
   });
@@ -398,9 +413,15 @@ describe('SPARK_CANON.md is bound to the code', () => {
    * owner ruled 120 fifths believing it was undefined, and it is in fact an instant-kill radial
    * clear. Until he answers, the blast must stay exactly as S157 left it.
    */
-  it('§9 keeps R182-C open — the blast is STILL the radial clear, not a ladder number', () => {
+  it('§9d RULED R182-C at 120 fifths — but the CODE is still the radial clear, and says so', () => {
+    /*
+     * ⭐ S187 — the premise of this test moved, its teeth did not. The QUESTION is closed (the owner
+     * killed the raze and his "four times a drone" number stands), but the CODE is unchanged, so the
+     * canon says RULED-NOT-YET-BUILT and this asserts BOTH halves. A canon that claimed behaviour the
+     * tree does not have would be the exact rot this file exists to prevent, pointing the other way.
+     */
     expect(canonSays('R182-C')).toBe(true);
-    expect(canonSays('UNANSWERED. Nothing was built.')).toBe(true);
+    expect(canonSays('RULED, NOT YET BUILT')).toBe(true);
     const lifecycle = readFileSync(new URL('./state/potatoLifecycle.ts', import.meta.url), 'utf8');
     const arm = lifecycle.slice(lifecycle.indexOf('export function applyStructureSelfDestruct'));
     const body = arm.slice(0, 1200);

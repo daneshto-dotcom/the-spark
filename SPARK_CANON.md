@@ -946,11 +946,149 @@ of the building art. Reported as "damage numbers print over blank ground". He li
 raised between his S175 *"you gotta see damage everywhere"* and R183-E *"you don't have to see the
 connectors"* — S175 wins for the floating number, R183-E still governs the connector's own alpha.
 
+## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187)
+
+
+> *"Resolve all of this now. Do what needs to be done. Don't bring this up again."* — owner, S187
+
+
+⛔ **EVERY ITEM BELOW WAS RAISED WITH HIM IN MORE THAN ONE SESSION AFTER HE HAD ALREADY ANSWERED IT.**
+
+That is the exact failure §0 of this document exists to prevent, committed against the very list of
+
+open questions meant to prevent it. **Do not re-open any of these. Do not put them in a handoff's
+
+"needs the owner" list.**
+
+
+### 1 · THE EMPTY QUARRY — CLOSED. It is NOT a defect he wants fixed.
+
+
+> *"No, no, no. For the empty quarry, that's NOT the waiting in line that I saw. The waiting in line
+
+> is because at level 10 or 12 you each have twelve gatherers on full speed and they gather the shapes
+
+> way faster than they can be taken. That's why I said we should scale it up."* — owner, S187
+
+
+The measurement in §3c is real and stays recorded. **His complaint was the FAUCET RATE, which S186
+
+already fixed with the band step-up.** He examined the empty-quarry finding and said it is not his
+
+problem. That is an answer, not a deferral. ⛔ Do not ask again whether to stop the FIGHT-phase reap.
+
+
+### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**.
+
+
+> *"The lightning hub self-destruct will have to rework then. It can't destroy everything around it,
+
+> but there should be a certain damage output."* — owner, S187
+
+
+That is the second half of R182-C and it completes it. He ruled the AMOUNT in S182 —
+
+*"four times a drone's damage"* — and the only reason it sat open is that the blast turned out to be
+
+an instant-kill raze rather than a number, which he had not known. **He has now killed the raze. So
+
+his number stands and the item is finished:**
+
+
+```
+
+4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
+
+```
+
+
+⚠ **RULED, NOT YET BUILT — and that distinction is why this file has tests.** The DECISION is final and must never be re-asked. The CODE still calls `applyRadialClear`, and `canon.test.ts` asserts that it does, so this page cannot drift ahead of the tree. The work owed: `applyStructureSelfDestruct` (`potatoLifecycle.ts`) stops calling `applyRadialClear` and deals **120**
+
+to every enemy entity inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) instead. ⚠ **The S157 P0
+
+owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes and units. He has
+
+never reversed that, and *"he will also bring down some of his own connectors"* from S182 is NOT
+
+current behaviour and must not be reintroduced on the strength of this ruling.
+
+
+⚠ 120 will not kill a tier-9 boss (pools 260–462) where the raze deleted one outright. That is the
+
+consequence of his own ruling, stated so nobody reads it later as a regression.
+
+
+### 3 · THE HEALTH BAR ON A WELDED HUB — CLOSED. **The bar follows the star.**
+
+
+He already ruled the principle in S182: **the STAR is what counts.** S182 did not apply it to the bar
+
+only because it changes the bar for every structure in the game, which that branch judged too big a
+
+change to take unasked. He has now asked. ⚠ **RULED, NOT YET BUILT** — the decision is final, the code is owed. The work: **`healthBar.ts` switches to the same denominator the
+
+damage art uses — `structurePoolFifths(component.bonds.size)` over the tower's OWN star — so the two
+
+agree by construction rather than by coincidence.** `structureRamp.test.ts`'s divergence assertion
+
+inverts to an AGREEMENT assertion in the same commit.
+
+
+### 4 · `SEVER_BOND` — CLOSED, and written down here so it is never "owed" again.
+
+
+A **bond** is the wire between two shapes. It is not drawn as an object you can click: what you see is
+
+two shapes with a line between them, and the "field" is the invisible band along that line. Severing
+
+is what CUTS that wire, and there is exactly one action for it — `SEVER_BOND` — reached six ways:
+
+
+| who severs | cause | file |
+
+|---|---|---|
+
+| a creature chewing a connector | `'unit'` | `creatures/creatureAttack.ts` |
+
+| a suicide bomber's blast | `'unit'` | `creatures/suicideBlast.ts` |
+
+| a Voltkin's lightning chain | `'unit'` | `creatures/voltkinChain.ts` |
+
+| a bomb | `'bomb'` | `bombLifecycle.ts` |
+
+| the physics solver, when a wire is stretched past breaking | — | `physics/physicsLoop.ts` |
+
+| a player spending charges to cut an enemy wire | — | `disruptionManager.ts` (`DEFENSIVE_SEVER_CHARGE_COST` 2) |
+
+
+⛔ **THE PART THAT MATTERS AND KEEPS BEING MISSED:** a tower has no health of its own. It dies when its
+
+RECIPE BREAKS, and the recipe breaks when enough wires are cut. So "attacking a building" IS severing
+
+its bonds — §4's *"connectors: yes, this is how buildings die"*. The wire is invisible, the damage
+
+lands on it, and the tower falls when the shape no longer forms its recipe.
+
+
+⚠ And a new `cause` value costs a PROTOCOL BUMP — never additive-optional. A stale peer that receives
+
+an unknown cause falls through `severToastRenderer`'s switch and goes silent, which S182 shipped.
+
+
+---
+
+
 ## 10 · ⛔ OPEN — needs the owner, do not guess
+
+⛔⛔ **R182-C AND R182-F ARE NO LONGER OPEN. THEY MOVED TO §9d IN S187 AND MUST NOT COME BACK
+HERE.** Their entries below are kept ONLY as the reasoning that produced the answers — the
+questions themselves are ANSWERED. Re-listing either one as "needs the owner" is the exact
+failure he named: *"I don't understand why you're bringing this up every session."*
+
 
 *(Both of S180's castle questions were answered — see §3.)*
 
-### ⛔ R182-C — the lightning hub's self-destruct DAMAGE. **UNANSWERED. Nothing was built.**
+### ✅ R182-C — the lightning hub's self-destruct DAMAGE. **ANSWERED S187 → §9d. 120 fifths.**
 
 He ruled *"four times a drone's damage"* = 4 × `attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = **120
 fifths** — **believing the blast had no number. It has something else entirely.**
@@ -973,7 +1111,7 @@ S182 built the ramp, the threshold and the repair fee and **left `applyStructure
 byte-identical**, deliberately. `canon.test.ts` asserts it is still the radial clear, so this cannot be
 quietly half-answered.
 
-### ⛔ R182-F — the HEALTH BAR and the DAMAGE ART disagree on a WELDED hub
+### ✅ R182-F — the health bar vs the damage art. **ANSWERED S187 → §9d. The bar follows the star.**
 
 **Measured, not suspected.** They share the threshold (`TOWER_DAMAGED_BELOW` 0.5) but not the
 denominator, and the denominator is what decides:
