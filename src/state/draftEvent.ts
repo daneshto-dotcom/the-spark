@@ -29,12 +29,15 @@
 
 import type { World } from './world.ts';
 import type { PlayerId } from '../types.ts';
+import type { RaceId } from './races.ts';
 import {
   draftIndexForWave,
   generalPickForWave,
   isDraftWave,
   type DraftPick,
+  type GeneralPick,
 } from './draft.ts';
+import { racialPerkFor, seatHoldsPerk, type RacialPerkId } from './racialPerks.ts';
 import { PHASE_DURATION_TICKS } from '../constants.ts';
 
 /**
@@ -93,18 +96,45 @@ export function seatMustStillPick(world: World, seat: PlayerId, waveNumber: numb
  * *"in the end of the build phase, it just takes the racial one automatically."* The later ruling
  * governs, and it is recorded as a reversal rather than applied quietly.
  *
- * ⚠ **BUT EVERY RACIAL IS `COMING SOON` TODAY, SO THE FALLBACK IS THE GENERAL ONE.** He asked for
- * exactly that — *"on the right side, no upgrade, and just like coming soon or something, and it's
- * not choosable"* — and a deadline that auto-took a non-existent option would grant nothing at all,
- * which is strictly worse than the rule it implements. When a race's perk is defined, this function
- * returns it and nothing else changes.
+ * ⚠ **AND WHERE A RACE HAS NO PERK ON OFFER, THE FALLBACK IS THE GENERAL ONE.** He asked for exactly
+ * that — *"on the right side, no upgrade, and just like coming soon or something, and it's not
+ * choosable"* — and a deadline that auto-took a non-existent option would grant nothing at all,
+ * which is strictly worse than the rule it implements.
+ *
+ * ⭐ S188 — **THE REVERSAL IS NOW LIVE.** With the level-0 and level-5 perks built, a seat that does
+ * not choose at those drafts gets its RACE's perk; at levels 10+ (undesigned) it still gets the
+ * general. Bots draft through this same deadline, so a bot takes its racial by default — the
+ * `SPARK_RACES_SPEC` §9.5 ruling that a bot picks its race option.
  */
 export function autoPickFor(world: World, seat: PlayerId, waveNumber: number): DraftPick {
-  void world;
-  void seat;
-  // The racial slot is unimplemented, so there is nothing to prefer yet. `racialPickFor(seat)` goes
-  // here, ahead of the general fallback, the moment the first race perk lands.
+  const pl = world.players.get(seat);
+  if (pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber)) !== null) {
+    return 'racial';
+  }
   return generalPickForWave(waveNumber);
+}
+
+/**
+ * ⛔ S188 — **ONLY AN OFFERED OPTION MAY BE TAKEN.** Until S188 `applyDraftChoice` pushed whatever
+ * `pick` the intent carried, so a modified client could take ATK at the HP draft, or stack PEN
+ * forever. That was latent while the panel could only send the offered general; it is not latent
+ * once a second option exists. The offer is exactly two things: this wave's general axis, and
+ * `'racial'` when this seat's race has a built perk at this draft.
+ */
+export function pickIsOffered(world: World, seat: PlayerId, waveNumber: number, pick: DraftPick): boolean {
+  if (pick === generalPickForWave(waveNumber)) return true;
+  if (pick !== 'racial') return false;
+  const pl = world.players.get(seat);
+  return pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber)) !== null;
+}
+
+/**
+ * ⭐ THE QUESTION EVERY RACIAL MECHANIC ASKS OF THE WORLD: does this seat hold this perk?
+ * A thin `World` wrapper over `seatHoldsPerk`, which is the pure one and explains the rule.
+ */
+export function playerHoldsPerk(world: World, playerId: PlayerId, perk: RacialPerkId): boolean {
+  const pl = world.players.get(playerId);
+  return pl !== undefined && seatHoldsPerk(pl, perk);
 }
 
 /**
@@ -139,6 +169,7 @@ export function applyDraftChoice(world: World, seat: PlayerId, pick: DraftPick):
   const ev = world.draft;
   if (ev === null) return;
   if (!seatMustStillPick(world, seat, ev.waveNumber)) return;
+  if (!pickIsOffered(world, seat, ev.waveNumber, pick)) return;
   const pl = world.players.get(seat);
   if (pl === undefined) return;
   pl.draftPicks.push(pick);
@@ -182,12 +213,17 @@ export function tickDraft(world: World): void {
 /**
  * The two options a seat is shown. The renderer reads this; it is not stored.
  *
- * `racial: null` renders as the non-choosable COMING SOON tile he asked for.
+ * `racial: null` renders as the non-choosable COMING SOON tile he asked for — the answer for every
+ * race at levels 10+, and for any level-0/5 perk whose mechanic is not built (`RACIAL_PERK_BUILT`).
  */
 export function draftOptionsFor(
   waveNumber: number,
-): { readonly general: DraftPick; readonly racial: null } {
-  return { general: generalPickForWave(waveNumber), racial: null };
+  race: RaceId,
+): { readonly general: GeneralPick; readonly racial: RacialPerkId | null } {
+  return {
+    general: generalPickForWave(waveNumber),
+    racial: racialPerkFor(race, draftIndexForWave(waveNumber)),
+  };
 }
 
 /** Ticks remaining before the deadline takes the pick, for the panel's countdown. Never negative. */

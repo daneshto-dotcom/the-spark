@@ -41,11 +41,21 @@ import { applyDraftPercent, attackFifths, unitPoolFifths } from './stats.ts';
  * lesson 7). The exhaustive switches fail the build; a consumer with a TOLERANT `default` will
  * silently do the wrong thing and stay green. When the six racial perks land, grep for
  * `DraftPick` and check every `default:` arm before assuming the compiler covered it.
+ *
+ * ⭐ S188 — **`'racial'` IS THE FIFTH VALUE, AND IT IS ONE LITERAL FOR TWELVE PERKS.** Which perk a
+ * racial pick is follows from the seat's race and the pick's index (`racialPerks.ts` explains why
+ * that is not stored). The general axes keep their own type, `GeneralPick`, so the buff arithmetic
+ * below can only ever be handed an axis — `isPoolPick('racial')` is false by construction, and a
+ * racial pick therefore buffs no stat, which is R104's line held by the type system.
  */
-export type DraftPick = 'hp' | 'def' | 'atk' | 'pen';
+export type GeneralPick = 'hp' | 'def' | 'atk' | 'pen';
+export type DraftPick = GeneralPick | 'racial';
 
 /** Every value of `DraftPick`, for the exhaustiveness tests and the wire validator. */
-export const DRAFT_PICKS: readonly DraftPick[] = ['hp', 'def', 'atk', 'pen'] as const;
+export const DRAFT_PICKS: readonly DraftPick[] = ['hp', 'def', 'atk', 'pen', 'racial'] as const;
+
+/** The four general axes alone. */
+export const GENERAL_PICKS: readonly GeneralPick[] = ['hp', 'def', 'atk', 'pen'] as const;
 
 /**
  * ⭐ HIS NUMBER: *"the 10% HP to all spawned units"*. One constant, so a retune after his first
@@ -89,11 +99,11 @@ export function draftIndexForWave(waveNumber: number): number {
  * ⛔ This REPLACES R111's order (ATK → DEF → HP → PEN). His S187 wording is the later ruling and it
  * governs; R111 is superseded, not forgotten.
  */
-export const GENERAL_TRACK: readonly DraftPick[] = ['hp', 'def', 'atk', 'pen'] as const;
+export const GENERAL_TRACK: readonly GeneralPick[] = ['hp', 'def', 'atk', 'pen'] as const;
 
 /** The general option offered at a given wave. */
-export function generalPickForWave(waveNumber: number): DraftPick {
-  return GENERAL_TRACK[draftIndexForWave(waveNumber) % GENERAL_TRACK.length] as DraftPick;
+export function generalPickForWave(waveNumber: number): GeneralPick {
+  return GENERAL_TRACK[draftIndexForWave(waveNumber) % GENERAL_TRACK.length] as GeneralPick;
 }
 
 /**

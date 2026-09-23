@@ -137,6 +137,7 @@ import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHealth.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
+import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
@@ -2094,12 +2095,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
      * stops launching on the same tick he starts channelling rather than one tick later.
      */
     runPharaohRitual(world);
+    // ⭐ S188 — the racial upgrades that run on a cadence (BLOOD FRENZY, SCORCHED GROUND, the
+    // POWER OF RA columns, CORPSE EATER, …). Beside the boss skills and inside the same FIGHT gate
+    // for the same reasons; `racial/racialTick.ts` holds one slot per mechanic.
+    runRacialPerksFight(world);
   }
 
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
     world.pendingCreatureDeaths = null;
   }
+  // ⭐ S188 — creatures born BECAUSE of this tick's combat (THE RISEN, HELLSPAWN, ENDLESS DYNASTY)
+  // are born HERE, after the sweep, never inserted into `world.creatures` while the strike batch
+  // is iterating it (Council A5 — see `racial/racialTick.ts`).
+  drainRacialSpawnQueue(world);
 
   // S87 — VS-BOTS: bots think + act (host-only by construction — bots mode
   // has no client). Runs BEFORE the hunter/hazard polls so a bot's

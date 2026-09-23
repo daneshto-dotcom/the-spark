@@ -507,7 +507,7 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **49**. A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **50** (S188 — the racial upgrades; see the S188 entry on the const). A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
 

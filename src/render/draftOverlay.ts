@@ -44,7 +44,7 @@ import {
   PHYSICS_HZ,
 } from '../constants.ts';
 import { RACE_COLORS } from '../state/races.ts';
-import { DRAFT_BUFF_PCT, type DraftPick } from '../state/draft.ts';
+import { DRAFT_BUFF_PCT, type DraftPick, type GeneralPick } from '../state/draft.ts';
 import { draftOptionsFor, draftTicksRemaining } from '../state/draftEvent.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId } from '../types.ts';
@@ -82,7 +82,7 @@ interface OptionCopy {
  * not parse *"21 of 24 unit types"* and said so. So these read "every unit you spawn from now on",
  * never "creatures whose ownerPlayerId matches the drafting seat".
  */
-const COPY: Readonly<Record<DraftPick, OptionCopy>> = {
+const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
   hp: {
     title: 'TOUGHER',
     line: `+${DRAFT_BUFF_PCT}% HEALTH`,
@@ -166,7 +166,7 @@ export function draftHitTest(x: number, y: number): 'general' | null {
  * that count and force a false entry. Strokes keep the enumeration honest AND read better over the
  * tile plate.
  */
-function drawAxisGlyph(g: Graphics, pick: DraftPick, cx: number, cy: number, r: number, tint: number, alpha: number): void {
+function drawAxisGlyph(g: Graphics, pick: GeneralPick, cx: number, cy: number, r: number, tint: number, alpha: number): void {
   const w = 5;
   if (pick === 'hp') {
     const k = r * 0.95;
@@ -311,7 +311,9 @@ export class DraftOverlay {
     }
     this.container.visible = true;
 
-    const opts = draftOptionsFor(ev.waveNumber);
+    // S188 — the offer now carries the seat's racial perk (null = COMING SOON). The tile itself is
+    // wired by the s188/cards branch; the substrate only keeps this call honest.
+    const opts = draftOptionsFor(ev.waveNumber, pl.raceId);
     this.offered = opts.general;
     const copy = COPY[opts.general];
     const race = pl.raceId;

@@ -149,7 +149,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('THE BUMP IS FOR THE RULE, NOT FOR THE')).toBe(true);
     // ⭐ S187 — 49. The S186 reasoning this test guards is UNCHANGED; only the live version moved,
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
-    expect(PROTOCOL_VERSION).toBe(49);
+    // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
+    expect(PROTOCOL_VERSION).toBe(50);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {

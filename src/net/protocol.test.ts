@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 49 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 50 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -99,7 +99,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // ⭐ S187 — 48 → 49, and an ORDINARY one after that unusual predecessor: `CHOOSE_DRAFT` is a
     // new CLIENT INTENT, which is the case this gate was built for. A v48 host has no row for it
     // and drops a v49 joiner's pick, so that seat could never draft while others could.
-    expect(PROTOCOL_VERSION).toBe(49);
+    // ⭐ S188 — 49 → 50: the racial upgrades. `'racial'` is a new discriminant value on
+    // `CHOOSE_DRAFT.pick`, and twelve new sim rules are computed by both peers.
+    expect(PROTOCOL_VERSION).toBe(50);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {

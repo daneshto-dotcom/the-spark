@@ -758,7 +758,26 @@ export type { NetSnapshot };
  * allowlist is exactly what the gate was built for. Recorded in full anyway, because S186's
  * lesson was that the reasoning gets skipped when the answer looks obvious.
  */
-export const PROTOCOL_VERSION = 49 as const;
+/**
+ * ⭐⭐ S188 — **BUMPED 49 -> 50: THE RACIAL UPGRADES GO LIVE.** Twelve level-0 and level-5 racial
+ * mechanics, built on six parallel branches and taken as ONE bump in the shared substrate so no two
+ * branches could each earn "the same" 50 for different reasons and drop one docblock (S182 lesson 6).
+ * Every reason below is sufficient on its own:
+ *
+ *   1. **A NEW DISCRIMINANT VALUE on an existing action** — `CHOOSE_DRAFT.pick` gains `'racial'`.
+ *      A v49 host does not know it: its `applyDraftChoice` would push it unvalidated, or its save
+ *      validator would drop it, and either way two peers would disagree about a seat's picks — the
+ *      field that decides every drafted unit's pool and damage. The silent-divergence half of a
+ *      mismatch, which is the more dangerous half.
+ *   2. **TWELVE NEW SIM RULES THAT BOTH PEERS COMPUTE** — lifesteal on every hit, a territory that
+ *      burns, a warlord's rage spreading, goblin caps and castle cadence, gatherers that teleport,
+ *      kills that rise, chewers that split, pharaohs from castle losses, a feeding boss, an elite
+ *      piranha. The SHARED-CONSTANT class this list records five times over: two builds that shake
+ *      hands would disagree about who survives the first exchange.
+ *   3. The branch-specific wire changes (a new client intent, new serialized fields, a new
+ *      `CreatureType`) are recorded here by the merge owner as each branch lands.
+ */
+export const PROTOCOL_VERSION = 50 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1056,6 +1075,11 @@ export interface HelloMsg {
    * SHARED-CONSTANT class again. `Creature.maxEhp` carries the buffed pool, and a v48 peer does
    * not know that field exists.)
    *
+   * S188: 49->50 (THE RACIAL UPGRADES — `CHOOSE_DRAFT.pick` gains the discriminant `'racial'`, which
+   * a v49 host would accept unvalidated or drop, splitting two peers' pick lists; and twelve new sim
+   * rules both peers compute. Taken ONCE in the shared substrate for six parallel branches; the new
+   * intent, fields and creature type each branch adds are recorded on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1093,7 +1117,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 49;
+  readonly protoVersion: 50;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

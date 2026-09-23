@@ -1,0 +1,9 @@
+{
+  "_doc": "Project-declared boot reads, enforced by ~/.claude/hooks/boot-read-gate.sh (S188, owner mandate). The handoff, boot-snapshot, muscle-memory traces, CLAUDE_LOOP and IN-PROGRESS plans are required automatically; list here only what THIS project adds. Paths are relative to this project's root.",
+  "required": [
+    {
+      "path": "SPARK_CANON.md",
+      "why": "SPARK CLAUDE.md: READ SPARK_CANON.md BEFORE ANSWERING ANYTHING ABOUT THE GAME (owner, S180)"
+    }
+  ]
+}

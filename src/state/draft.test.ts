@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DRAFT_BUFF_PCT,
   DRAFT_PICKS,
+  GENERAL_PICKS,
   DRAFT_WAVE_INTERVAL,
   GENERAL_TRACK,
   damagePickCount,
@@ -94,13 +95,18 @@ describe('which picks move which derived number', () => {
     );
   });
 
-  it('every DraftPick is classified as exactly one of pool or damage', () => {
-    // A new value added to the union without a home here would silently buff nothing.
-    for (const p of DRAFT_PICKS) {
+  it('every GENERAL pick is classified as exactly one of pool or damage — and "racial" as NEITHER', () => {
+    // A new general axis added without a home here would silently buff nothing.
+    // ⭐ S188 — `'racial'` joined `DraftPick` and is DELIBERATELY neither: a racial perk buffs no stat
+    // (R104's line — the draft's racial side is a mechanic, never an axis). Its home is
+    // `racialPerks.ts`. Pinned explicitly so a future value cannot hide behind this exception.
+    for (const p of GENERAL_PICKS) {
       const asPool = poolPickCount([p]);
       const asDmg = damagePickCount([p]);
       expect(asPool + asDmg).toBe(1);
     }
+    expect(DRAFT_PICKS.filter((p) => !(GENERAL_PICKS as readonly string[]).includes(p))).toEqual(['racial']);
+    expect(poolPickCount(['racial']) + damagePickCount(['racial'])).toBe(0);
   });
 });
 

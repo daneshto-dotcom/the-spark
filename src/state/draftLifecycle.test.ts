@@ -133,11 +133,17 @@ describe('the deadline — the proof the sim never waits', () => {
     const w = startedWorld();
     const seats = seatsOf(w);
     const chooser = seats[0] as PlayerId;
-    applyDraftChoice(w, chooser, 'atk');
+    // ⚠ S188 — this chose 'atk' at the HP draft until S188, which only worked because
+    // `applyDraftChoice` accepted ANY pick (a latent bug, fixed: only an OFFERED option may be taken —
+    // `racialPerks.test.ts` pins the refusal). It now chooses the offered axis, and the guard's real
+    // point is kept: the chooser's pick is made BEFORE the deadline and the deadline does not add a
+    // second one on top of it.
+    applyDraftChoice(w, chooser, generalPickForWave(1));
+    expect(w.players.get(chooser)?.draftPicks).toEqual([generalPickForWave(1)]);
 
     advance(w, DRAFT_DEADLINE_TICKS);
 
-    expect(w.players.get(chooser)?.draftPicks).toEqual(['atk']);
+    expect(w.players.get(chooser)?.draftPicks).toEqual([generalPickForWave(1)]);
     for (const s of seats.slice(1)) {
       expect(w.players.get(s)?.draftPicks).toEqual([generalPickForWave(1)]);
     }
