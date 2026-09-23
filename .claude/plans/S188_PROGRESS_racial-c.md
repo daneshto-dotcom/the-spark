@@ -40,11 +40,14 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
   count 6 -> 8 (plate + sun disc, both hit-tested by isOverRaButton). `footerRaButton.test.ts` drives
   the REAL FooterBand (Pixi constructs fine headless). Footer tests green, typecheck 0.
 
+- TARGETING (`input/controls.ts`): `toggleRaAim` / `handleRaAimClick`; button press aims, board
+  click casts at `raAimPoint(cursor)`, RMB / Esc / second press cancel, card + footer surfaces
+  swallow while aiming, refused press → refused cue, tower pick drops aim, aim disarms a held tower,
+  crosshair cursor. `src/input/controls.powerOfRa.test.ts` (9 green) drives the REAL Controls
+  handlers + REAL FooterBand.
+
 ## IN PROGRESS / NEXT
-- controls: button → targeting; LMB casts; RMB/Esc cancel (`input/controls.ts`)
-- flip `'mummies.l0': true` ONLY after the tests pass; canon notes file; gates; browser look
+- canon notes file; full gates (typecheck / vitest / build); browser look
 
 ## KNOWN-BROKEN
-- ⚠ IF SALVAGING BEFORE THE UI COMMIT LANDS: `mummies.l0` is choosable in the draft but there is
-  NO button and NO targeting yet, so a player could pick it and have no way to use it. Either land
-  the UI or revert the one-line flip in `src/state/racialPerks.ts` (and the draft-live test).
+- nothing known. The UI has landed, so the flip is no longer ahead of the mechanic.
