@@ -233,7 +233,13 @@ function maybeTrigger(world: World, boss: Creature): void {
   boss.targetPos = { x: boss.pos.x, y: boss.pos.y };
 }
 
-/** One bite through the ordinary strike reducer, and the heal for whatever it actually took. */
+/**
+ * One bite through the ordinary strike reducer, and the heal: **100 % of the bite's amount — the whole
+ * `attackFifths(atk, pen)`, overkill included — capped at his max.** "Overkill included" is the brief's
+ * reading of *"for as much as he attacks that's as much as he heals"*: a bite that fells a 28-fifth
+ * scarab still heals the full swing. A bite the reducer REFUSED (out of reach, lost the initiative
+ * roll) removed nothing and heals nothing.
+ */
 function bite(world: World, boss: Creature, victimId: CreatureId): void {
   const victim = world.creatures.get(victimId);
   if (victim === undefined) return;

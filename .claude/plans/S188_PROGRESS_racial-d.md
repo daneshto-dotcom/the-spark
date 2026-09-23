@@ -23,7 +23,7 @@ Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 
   (type + serialize + deserialize), stateHashFull (union + projection `:ce…@…`), contribution tests.
 - While feeding the hostTick fan-out `continue`s past him (beside stun gate 3); the slot drives
   target (enemy first, else own non-boss, sticky), movement (leash-projected), bite (the ordinary
-  `CREATURE_ATTACK` reducer on his normal swing clock) and heal (= ehp the victim actually lost, capped).
+  `CREATURE_ATTACK` reducer on his normal swing clock) and heal (= 100 % of the bite's amount, the whole `attackFifths(atk, pen)` with overkill included, capped at his max).
   Last feeding tick releases him to SEEKING with no target.
 - `CORPSE_EATER_LEASH_RADIUS = 60` is MINE.
 
