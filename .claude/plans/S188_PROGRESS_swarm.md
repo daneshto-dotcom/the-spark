@@ -9,7 +9,7 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 | 2 · mechanic: `t3BatSwarm` (bat ×6), promotion in `towerUnitForSeat`, every consumer | ✅ wip commit 1 — typecheck exit 0 |
 | 3 · tests (`racial/theSwarm.test.ts`) + flip `RACIAL_PERK_BUILT['vampires.l10']` | ✅ flipped; racial/ + racialPerks + draft* = 115/115 green. Mutations M1 (old `perkDraftIndex`) → 8 extra red; M2 (swarm arm without the perk guard) → 6 red; both restored. Art-existence tests land with the atlas commit. |
 | 4 · art: swarm atlas (fly / attack / die) + renderer fallback to the bat | ✅ `t3-vampires-bat-swarm` packed (fly = sheet-fly, attack = sheet-attack ×0.8, die = sheet-die-v2 grid-inpainted); check:atlas on race-tier3-units exit 0, swarm clean on all 5 checks; idle/walk body 124 px vs the bat's 125 |
-| 5 · card `public/art/upgrade-cards/l10-vampires.webp` (502×484, q82, cover top-anchored) | ⏳ |
+| 5 · card `public/art/upgrade-cards/l10-vampires.webp` (502×484, q82, cover top-anchored) | ✅ built with master's own `cover_fit_top` + save args (parity: rebuilding l5-vampires that way is byte-identical to master's shipped webp); 36.0 KB. Looked at 251×242: dark but NOT a black rectangle — the white title reads, the bat silhouette + red eyes read against the wine swarm. Not altered. `build-upgrade-cards.py` / the 16-card test live on master — merge owner reconciles |
 | 6 · gates: typecheck · vitest · build · check:atlas | ⏳ |
 
 ## Sheet study (measured this session, before any packing)
