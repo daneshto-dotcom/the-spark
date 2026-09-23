@@ -33,6 +33,7 @@ import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { defaultRaceForSeat, type RaceId } from './races.ts';
 import { isEliminated } from './elimination.ts';
 import { openDraftIfDue } from './draftEvent.ts';
+import { castleMaxHpFor, emptyCastleUpgrades } from './castleUpgrades.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -40,7 +41,6 @@ import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 
 
-import { CASTLE_MAX_HP } from '../constants.ts';
 /* ────────────────────────── Action types ───────────────────────────── */
 
 export type StartGameAction = {
@@ -194,11 +194,16 @@ export function applyStartGame(world: World, action: StartGameAction): World {
      * ⚠ `eliminatedAtTick` MUST be cleared alongside it, or `markFallenSeats`' write-once guard
      * keeps last match's stamp and `matchPlacings` ranks the new match by the old one's deaths.
      */
-    player.castleHp = CASTLE_MAX_HP;
     player.eliminatedAtTick = undefined;
     // S164 P1 — upgrades are per-match, like the score that bought them. Carrying a level across a
     // rematch would hand the previous match's winner a compounding head start nobody ruled on.
     player.castleRegenLevel = 0;
+    // ⛔ S188 — AND THE S187 CASTLE STATS, which this loop never reset: a seat that bought ATK/DEF/HP
+    // in match 1 opened match 2 with a 120-fifth shot, a third of incoming damage, and a ceiling above
+    // the 2500 it was reset to. Reset FIRST, then set the pool from the reset seat's own ceiling, so
+    // `castleHp` and `castleMaxHpFor` cannot drift apart (they are equal: 2500 for no upgrades).
+    player.castleUpgrades = emptyCastleUpgrades();
+    player.castleHp = castleMaxHpFor(player.castleUpgrades);
     // ⭐ S188 — ENDLESS DYNASTY counts from the moment the perk is taken, in THIS match. A rematch that
     // kept last match's running loss would raise its first Pharaoh early (and the perk resets anyway,
     // because `draftPicks` is cleared below).
