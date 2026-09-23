@@ -175,7 +175,7 @@ describe('S179 — removed is not killed', () => {
     const perSwing: string[][] = [];
     let seen = 0;
     for (let i = 0; i < 4; i++) {
-      damageConnector(w, b1, swing);
+      damageConnector(w, b1, swing, null);
       dn.sync(w);
       const all = printed(dn);
       perSwing.push(all.slice(seen));

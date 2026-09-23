@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeWorld } from './world.ts';
 import { applyStartGame } from './gameMode.ts';
-import { openDraftIfDue, applyDraftChoice, tickDraft, DRAFT_DEADLINE_TICKS } from './draftEvent.ts';
+import { openDraftIfDue, applyDraftChoice, tickDraft, DRAFT_DEADLINE_TICKS, draftOptionsFor } from './draftEvent.ts';
 import { generalPickForWave } from './draft.ts';
 import { PHASE_DURATION_TICKS, FIGHT_PHASE_TICKS } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
@@ -100,6 +100,19 @@ describe('picking', () => {
   });
 });
 
+/**
+ * ⭐ S188 — WHAT THE DEADLINE TAKES IS DERIVED FROM THE OFFER, NOT ASSUMED TO BE THE GENERAL.
+ * Until S188 every racial was COMING SOON, so the deadline could only ever take the general and these
+ * cases pinned that literal. His S187 reversal of R106 is live now: a silent seat whose race has a
+ * BUILT level-0 perk gets the racial. Deriving it from `draftOptionsFor` keeps the guard's real claim
+ * (the sim never waits; every silent seat gets exactly one pick) true as each branch flips its perks.
+ */
+function autoPickAtWave1(w: World, s: PlayerId): string {
+  const race = w.players.get(s)?.raceId;
+  if (race === undefined) throw new Error('fixture: seat missing');
+  return draftOptionsFor(1, race).racial !== null ? 'racial' : generalPickForWave(1);
+}
+
 describe('the deadline — the proof the sim never waits', () => {
   it('auto-picks for every silent seat when the BUILD runs out, and the match moves on', () => {
     const w = startedWorld();
@@ -110,7 +123,7 @@ describe('the deadline — the proof the sim never waits', () => {
 
     expect(w.draft).toBeNull();
     for (const s of seats) {
-      expect(w.players.get(s)?.draftPicks).toEqual([generalPickForWave(1)]);
+      expect(w.players.get(s)?.draftPicks).toEqual([autoPickAtWave1(w, s)]);
     }
   });
 
@@ -145,7 +158,7 @@ describe('the deadline — the proof the sim never waits', () => {
 
     expect(w.players.get(chooser)?.draftPicks).toEqual([generalPickForWave(1)]);
     for (const s of seats.slice(1)) {
-      expect(w.players.get(s)?.draftPicks).toEqual([generalPickForWave(1)]);
+      expect(w.players.get(s)?.draftPicks).toEqual([autoPickAtWave1(w, s)]);
     }
   });
 });

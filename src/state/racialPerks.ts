@@ -85,8 +85,8 @@ export function perkDraftIndex(perk: RacialPerkId): number {
  */
 export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   // ── s188/racial-a ─────────────────────────────────────────────────────────────────────────────
-  'vampires.l0': false,
-  'vampires.l5': false,
+  'vampires.l0': true, // S188 racial-a — BLOOD DEBT: state/racial/lifesteal.ts
+  'vampires.l5': true, // S188 racial-a — CRIMSON TIDE: state/racial/lifesteal.ts
   'orcs.l0': false,
   'orcs.l5': false,
   'demons.l0': false,
