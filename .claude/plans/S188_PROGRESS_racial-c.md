@@ -47,7 +47,10 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
   handlers + REAL FooterBand.
 
 ## IN PROGRESS / NEXT
-- canon notes file; full gates (typecheck / vitest / build); browser look
+- DONE: canon notes (`.claude/plans/S188_CANON_NOTES_racial-c.md`); full gates — TYPECHECK_EXIT=0,
+  VITEST_EXIT=0 (347 files / 5699 tests), BUILD_EXIT=0 (925.6 KiB, +5.8 KiB over the 919.8 KiB
+  substrate at 87f3dc4, headroom 74.4 KiB).
+- NEXT: browser look (dev server on a random port, never 5173)
 
 ## KNOWN-BROKEN
 - nothing known. The UI has landed, so the flip is no longer ahead of the mechanic.
