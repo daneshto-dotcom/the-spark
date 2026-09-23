@@ -36,7 +36,7 @@
 import type { World } from '../worldTypes.ts';
 
 // ── s188/racial-a imports ─────────────────────────────────────────────────────────────────────────
-// (racial-a: replace this line with your imports)
+import { runBloodFrenzy } from './bloodFrenzy.ts';
 // ── s188/racial-b imports ─────────────────────────────────────────────────────────────────────────
 // (racial-b: replace this line with your imports)
 // ── s188/racial-c imports ─────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ import type { World } from '../worldTypes.ts';
 /** One host tick of every racial mechanic that runs on a cadence. FIGHT only — see the docblock. */
 export function runRacialPerksFight(world: World): void {
   // ── s188/racial-a ───────────────────────────────────────────────────────────────────────────────
-  // (racial-a: replace this line with your call(s) — BLOOD FRENZY, SCORCHED GROUND)
+  runBloodFrenzy(world); // orcs.l0 — after `runWarlordRage` in this tick, so the latch has spoken
   // ── s188/racial-b ───────────────────────────────────────────────────────────────────────────────
   // (racial-b: replace this line with your call(s) — ENDLESS DYNASTY, if it needs a tick)
   // ── s188/racial-c ───────────────────────────────────────────────────────────────────────────────
