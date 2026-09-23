@@ -16,6 +16,7 @@ import {
 import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 import type { DraftPick } from '../state/draft.ts';
+import { emptyCastleUpgrades, type CastleUpgrades } from '../state/castleUpgrades.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -94,6 +95,20 @@ interface PlayerCommon {
    * which for this field means losing every upgrade the player had drafted all match.
    */
   draftPicks: DraftPick[];
+  /**
+   * ⭐⭐ S187 (owner) — **THE KEEP'S PURCHASED STATS.** HP / ATK / DEF / PEN, bought with victory
+   * points at `CASTLE_UPGRADE_PRICE` each, exactly as `castleRegenLevel` above is.
+   *
+   * ⛔ ONE OBJECT, NOT FIVE FIELDS: one hash projection, one additive-optional wire entry, and one
+   * thing to remember at the two carry-FSM rebuilds below instead of five of each.
+   *
+   * ⚠ It carries an accumulated `hpBonus` as well as a level, because the HP a purchase buys depends
+   * on the WAVE it was made on (250 early, 650 late). Re-deriving it from the level would re-price
+   * every earlier purchase at the current band. See `castleUpgrades.ts`.
+   *
+   * REQUIRED, for the reason `castleRegenLevel` and `draftPicks` are: tsc reds the rebuilds.
+   */
+  castleUpgrades: CastleUpgrades;
   /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
@@ -248,6 +263,8 @@ export function makeIdlePlayer(
     // ⭐ S187 — a new seat has drafted nothing. Empty is also what every pre-S187 save deserializes
     // to, so an old save loads as an un-upgraded match rather than throwing.
     draftPicks: [],
+    // ⭐ S187 — and has bought nothing for its keep.
+    castleUpgrades: emptyCastleUpgrades(),
     raceId,
     raidProgress: 0,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
@@ -290,6 +307,8 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // here would wipe every upgrade a seat had drafted the instant its player picked up or
     // dropped a shape. Required, so tsc reds this line rather than letting it go silently.
     draftPicks: player.draftPicks,
+    // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
+    castleUpgrades: player.castleUpgrades,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -345,6 +364,8 @@ export function drop(player: Player): IdlePlayer {
     // here would wipe every upgrade a seat had drafted the instant its player picked up or
     // dropped a shape. Required, so tsc reds this line rather than letting it go silently.
     draftPicks: player.draftPicks,
+    // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
+    castleUpgrades: player.castleUpgrades,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

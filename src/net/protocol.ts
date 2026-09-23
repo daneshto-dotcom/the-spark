@@ -1478,6 +1478,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   UPGRADE_CASTLE_REGEN: true,
   // ⭐ S187 — the upgrade draft's pick. A CLIENT INTENT, so it is in both records.
   CHOOSE_DRAFT: true,
+  // ⭐ S187 — buy a castle stat (HP/ATK/DEF/PEN). A CLIENT INTENT, so likewise in both.
+  UPGRADE_CASTLE_STAT: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1649,6 +1651,9 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ignores the intent when no draft is open or that seat has already chosen, so a client
   // acting on a stale view simply no-ops instead of stacking a second upgrade.
   CHOOSE_DRAFT: true,
+  // ⭐ S187 — a joiner buys stats for its OWN keep. Affordability and the cap are host-decided, and
+  // the WAVE is read host-side, so a client cannot buy a late-band upgrade early.
+  UPGRADE_CASTLE_STAT: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

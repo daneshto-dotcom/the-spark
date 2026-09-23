@@ -58,6 +58,7 @@ import {
 import type { PlayerId } from '../types.ts';
 import { spendScore } from './gameMode.ts';
 import type { World } from './world.ts';
+import { castleMaxHpFor } from './castleUpgrades.ts';
 
 /** CLIENT INTENT (R129: purchasable in any phase). Mirrors `UpgradeGathererSpeedAction`. */
 export interface UpgradeCastleRegenAction {
@@ -117,10 +118,14 @@ export function castleRegenTick(world: World): void {
     const p = world.players.get(seat);
     if (p === undefined) continue;
     if (p.castleHp <= 0) continue; // fallen stays fallen — R131
-    if (p.castleHp >= CASTLE_MAX_HP) continue; // nothing to do, and never overheal
+    // ⭐ S187 — THIS SEAT'S ceiling, not the global constant. A seat that bought HP would otherwise
+    // heal only to 2,500 and its purchase would do nothing above that — the exact failure
+    // `creatureMaxEhp` exists to prevent one system down.
+    const maxHp = castleMaxHpFor(p.castleUpgrades);
+    if (p.castleHp >= maxHp) continue; // nothing to do, and never overheal
     const gain = castleRegenPerSecond(p.castleRegenLevel);
     if (gain <= 0) continue;
-    p.castleHp = Math.min(CASTLE_MAX_HP, p.castleHp + gain);
+    p.castleHp = Math.min(maxHp, p.castleHp + gain);
   }
 }
 

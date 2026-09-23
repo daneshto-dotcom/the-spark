@@ -69,6 +69,7 @@ import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
+import { emptyCastleUpgrades } from './castleUpgrades.ts';
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -481,6 +482,17 @@ interface SerializedPlayer {
    * ⚠ ORDER IS SIGNIFICANT: it is hashed as a joined string. Never sort it on the way in or out.
    */
   draftPicks?: readonly DraftPick[];
+  /**
+   * ⭐ S187 — the keep's purchased stats, additive-optional and emitted only when something has been
+   * bought, so an un-upgraded seat costs no bytes and every pre-S187 save loads unchanged.
+   */
+  castleUpgrades?: {
+    readonly hpLevel: number;
+    readonly hpBonus: number;
+    readonly atkLevel: number;
+    readonly defLevel: number;
+    readonly penLevel: number;
+  };
   /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
@@ -1889,6 +1901,19 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       draftPicks: (p.draftPicks ?? []).filter((d): d is DraftPick =>
         (DRAFT_PICKS as readonly string[]).includes(d),
       ),
+      // ⭐ S187 — absent means "bought nothing", the right reading for every pre-S187 save. Each
+      // number is coerced and floored rather than trusted: this crosses the wire, and a fractional
+      // or negative bonus would reach the castle ceiling and the damage divisor.
+      castleUpgrades:
+        p.castleUpgrades === undefined
+          ? emptyCastleUpgrades()
+          : {
+              hpLevel: Math.max(0, Math.trunc(p.castleUpgrades.hpLevel)),
+              hpBonus: Math.max(0, Math.trunc(p.castleUpgrades.hpBonus)),
+              atkLevel: Math.max(0, Math.trunc(p.castleUpgrades.atkLevel)),
+              defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
+              penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
+            },
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2086,6 +2111,14 @@ function serializePlayer(p: Player): SerializedPlayer {
     // byte-identical to every prior save. Copied, never aliased: the live World must not share an
     // array with a snapshot.
     ...(p.draftPicks.length > 0 ? { draftPicks: [...p.draftPicks] } : {}),
+    // ⭐ S187 — emitted only when the seat has bought something, so an un-upgraded seat stays
+    // byte-identical to every prior save. Copied, never aliased.
+    ...(p.castleUpgrades.hpLevel > 0 ||
+    p.castleUpgrades.atkLevel > 0 ||
+    p.castleUpgrades.defLevel > 0 ||
+    p.castleUpgrades.penLevel > 0
+      ? { castleUpgrades: { ...p.castleUpgrades } }
+      : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),

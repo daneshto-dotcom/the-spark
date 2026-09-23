@@ -88,6 +88,16 @@ export const BENCH_INTENT_POLICY = {
    * ⚠ It also cannot be used to stall: the deadline fires regardless of who is benched.
    */
   CHOOSE_DRAFT: 'allow',
+  /**
+   * ⭐ S187 — **DENY, and note it differs from `CHOOSE_DRAFT` directly above it.** A draft pick
+   * chooses between two offers and costs nothing; this SPENDS victory points and advances the seat,
+   * which is the whole of what the bench exists to stop. It takes `UPGRADE_CASTLE_REGEN`'s ruling
+   * verbatim, because it is the same act on the same currency for the same building.
+   *
+   * ⚠ And nothing is lost by waiting: unlike the draft, there is no deadline that would choose for
+   * the benched player. The points stay in the bank.
+   */
+  UPGRADE_CASTLE_STAT: 'deny',
   // V6-1.2 — re-tasking an EXISTING unit costs nothing and gains nothing; it is the economic
   // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
   // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.

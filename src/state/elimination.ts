@@ -74,6 +74,9 @@ export const ELIMINATION_INTENT_POLICY = {
   // exactly the pure tax UPGRADE_CASTLE_REGEN is denied for. ⚠ Note this is STRICTER than the bench,
   // which allows it — the direction elimination.test.ts requires.
   CHOOSE_DRAFT: 'deny',
+  // ⭐ S187 — a fallen keep is at zero and elimination is not reversible, so buying HP, damage or
+  // defence for it is the same pure tax UPGRADE_CASTLE_REGEN is denied for (R131).
+  UPGRADE_CASTLE_STAT: 'deny',
   PULL_FROM_BANK: 'deny',
   BUILD_BLUEPRINT: 'deny',
   FEED_TOWER: 'deny',

@@ -48,6 +48,7 @@ import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
+import { castleDamageAfterDefence } from './castleUpgrades.ts';
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -183,7 +184,14 @@ export function damageEntity(
     if (seat === undefined) return false;
     if (seat.castleHp <= 0) return false; // already fallen — idempotent, never double-fires the win
     if (amount === 0) return false;
-    seat.castleHp = Math.max(0, seat.castleHp - amount);
+    /*
+     * ⭐ S187 — PURCHASED DEFENCE, APPLIED HERE AND NOWHERE ELSE. This is the single site the castle
+     * takes damage, so a seat's DEF level belongs here rather than at each of the many things that
+     * can hit a keep. `castleDamageAfterDefence` floors the reduction and never returns 0 on a real
+     * hit, so a high DEF cannot make a keep immune to small attackers.
+     */
+    const taken = castleDamageAfterDefence(amount, seat.castleUpgrades);
+    seat.castleHp = Math.max(0, seat.castleHp - taken);
     return seat.castleHp === 0;
   }
   if (amount === 0) return false;

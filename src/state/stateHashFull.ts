@@ -526,7 +526,13 @@ export function determinismParts(world: World): string[] {
         // picks in a different sequence are a genuine divergence: the list drives a
         // leaderboard row (R113), so the order is observable state, not an implementation
         // detail. Sorting here would hide exactly the bug this oracle exists to surface.
-        + `,d${pl.draftPicks.join('')}`,
+        + `,d${pl.draftPicks.join('')}`
+        // ⭐ S187 — the keep's purchased stats. They decide damage DEALT (atk/pen), damage TAKEN
+        // (def) and the regen CEILING (hpBonus), so two peers disagreeing about them diverge on the
+        // next exchange. Projected field by field rather than stringified, so a field added to
+        // CastleUpgrades later cannot ride in unnoticed.
+        + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
+        + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`,
     );
   }
 

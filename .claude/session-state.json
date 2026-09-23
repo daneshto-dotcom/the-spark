@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 4541,
+  "tool_calls_session_total": 4542,
   "session_id": "S187",
   "session_kind": "owner-driven: the upgrade draft (level 0 + every 5 waves), the general stat track, castle upgrades, footer collapse. Pre-approved for autonomous execution.",
   "session_start": "2026-09-23",
@@ -339,11 +339,92 @@
     {
       "id": "P4",
       "title": "Castle upgrades: HP/ATK/DEF/PEN bought with victory points, band-scaled",
-      "status": "in_progress",
-      "priority_state": "unlocked",
+      "status": "completed",
+      "priority_state": "completed",
       "unlock_source": "user",
       "pdr_approved": true,
-      "deliberation_completed": true
+      "deliberation_completed": true,
+      "check_completed": true,
+      "check_method": "Castle upgrades: typecheck 0, vitest 5613/342 (+31), build 0 at 918.9 KiB under the 1000 charter, each read from a captured $?. 31 tests across two files: the arithmetic (his band table, the cap, the ladder-native ATK/PEN, DEF as a floored ratio that can never reach 0 on a real hit) AND an end-to-end pass that drives the REAL reducer and the REAL damage path — 100 damage becomes 50 at DEF 5, a fallen seat buys nothing, the wave is read host-side so a late band cannot be bought early, and only the buying seat is affected. The bench and elimination policy gates BOTH went red on the new intent and forced real rulings: deny on the bench (unlike CHOOSE_DRAFT, this SPENDS) and deny when eliminated (R131).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/castleUpgrades.ts",
+          "needle": "export const CASTLE_HP_GAIN_BY_BAND: readonly number[] = [250, 350, 450, 550, 650] as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleUpgrades.ts",
+          "needle": "export const CASTLE_UPGRADE_MAX_LEVEL = 10;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleUpgrades.ts",
+          "needle": "export const CASTLE_UPGRADE_PRICE = 100;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleUpgrades.ts",
+          "needle": "hpBonus: u.hpBonus + castleHpGainForWave(waveNumber)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleUpgrades.ts",
+          "needle": "return Math.max(1, reduced);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "castleDamageAfterDefence(amount, seat.castleUpgrades)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleGuns.ts",
+          "needle": "castleShotFifthsFor(player.castleUpgrades)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/castleRegen.ts",
+          "needle": "castleMaxHpFor(p.castleUpgrades)"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "castleUpgrades",
+          "op": ">=",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "castleUpgrades: { ...p.castleUpgrades }"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "? emptyCastleUpgrades()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "cu${pl.castleUpgrades.hpLevel}"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "UPGRADE_CASTLE_STAT: true,"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/benchGate.ts",
+          "needle": "UPGRADE_CASTLE_STAT: 'deny',"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "UPGRADE_CASTLE_STAT: 'deny',"
+        }
+      ]
     },
     {
       "id": "P5",

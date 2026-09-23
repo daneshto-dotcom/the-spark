@@ -46,8 +46,15 @@ import { damageEntity } from './damage.ts';
 import { findNearestEnemyCreatureFrom } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import type { World } from './worldTypes.ts';
+import { castleShotFifthsFor } from './castleUpgrades.ts';
 
-/** The damage one castle shot deals, in fifths. Exported so tests and the HUD cannot drift from it. */
+/**
+ * The damage one castle shot deals, in fifths, for a seat that has bought nothing.
+ *
+ * ⚠ S187 — KEPT, and still the base. A seat with purchased ATK/PEN fires
+ * `castleShotFifthsFor(player.castleUpgrades)` instead; this remains the un-upgraded figure the
+ * canon and the tests quote (`attackFifths(5, 3)` = 40).
+ */
 export function castleShotFifths(): number {
   return attackFifths(CASTLE_ATK, CASTLE_PEN);
 }
@@ -101,7 +108,6 @@ export function castleGunsTick(world: World): void {
   );
 
   const rangeSq = CASTLE_ATTACK_RANGE * CASTLE_ATTACK_RANGE;
-  const amount = castleShotFifths();
 
   for (const playerId of seats) {
     const player = world.players.get(playerId);
@@ -109,6 +115,13 @@ export function castleGunsTick(world: World): void {
     if (player.castleHp <= 0) continue; // eliminated — see above
     const seat = playerId as unknown as number;
     if (!castleFiresOnTick(seat, world.tick)) continue;
+
+    /*
+     * ⭐ S187 — THIS SEAT'S SHOT, computed inside the loop rather than hoisted above it. Purchased
+     * ATK and PEN are ladder points, so two keeps on the same board now fire different numbers; a
+     * value hoisted out of the loop would have given every castle the first seat's upgrades.
+     */
+    const amount = castleShotFifthsFor(player.castleUpgrades);
 
     const from = castleAnchor(seat, world.layout);
     const targetId = findNearestEnemyCreatureFrom(world, from, playerId, rangeSq);

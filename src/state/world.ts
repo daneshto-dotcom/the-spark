@@ -182,6 +182,8 @@ import {
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
 import { submitSudokuSolve } from './sudokuEvent.ts';
 import { applyDraftChoice, type ChooseDraftAction } from './draftEvent.ts';
+import { applyUpgradeCastleStat, type UpgradeCastleStatAction } from './castleUpgrades.ts';
+import { spendScore } from './gameMode.ts';
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -361,6 +363,8 @@ export type GameAction =
   | UpgradeCastleRegenAction
   // ⭐ S187 — CLIENT INTENT: choose one of the draft's two options.
   | ChooseDraftAction
+  // ⭐ S187 — CLIENT INTENT: buy a castle stat with victory points.
+  | UpgradeCastleStatAction
   | SetGathererPreferenceAction
   | EnqueueGathererOrderAction
   | CancelGathererOrderAction
@@ -908,6 +912,12 @@ export function dispatch(world: World, action: GameAction): World {
     // the host, and a no-op when the draft has closed or the seat has already chosen.
     case 'CHOOSE_DRAFT':
       applyDraftChoice(world, action.playerId, action.pick);
+      return world;
+
+    // ⭐ S187 — buy a castle stat. The wave is read from the WORLD, never from the action, so a
+    // client cannot name its own band and buy a 650-point upgrade on wave 1.
+    case 'UPGRADE_CASTLE_STAT':
+      applyUpgradeCastleStat(world, action, (seat, amount) => spendScore(world, seat, amount));
       return world;
 
     case 'PULL_FROM_BANK':
