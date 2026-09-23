@@ -50,7 +50,14 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
 - DONE: canon notes (`.claude/plans/S188_CANON_NOTES_racial-c.md`); full gates — TYPECHECK_EXIT=0,
   VITEST_EXIT=0 (347 files / 5699 tests), BUILD_EXIT=0 (925.6 KiB, +5.8 KiB over the 919.8 KiB
   substrate at 87f3dc4, headroom 74.4 KiB).
-- NEXT: browser look (dev server on a random port, never 5173)
+- BROWSER LOOK (vite on :25307, built-in pane, solo match with the seat set to mummies + racial
+  and FIGHT via the DEV `__SPARK__.world` seam — the draft tile is P2's): the sun button "CALL RA"
+  sits left of chip 3; pressing it turns it green "AIMING" and five full-radius circles follow the
+  cursor; clicking cast `{wave 1, x 1344, y 349, untilTick 648}` and the button went grey "USED";
+  the column-1 telegraph drew at its landing spot; collapsed, the compact sun sits left of the tab.
+  Server stopped, pane blanked.
+
+## STATUS: COMPLETE — see the final report
 
 ## KNOWN-BROKEN
 - nothing known. The UI has landed, so the flip is no longer ahead of the mechanic.
