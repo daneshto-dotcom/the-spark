@@ -206,6 +206,18 @@ export function isChannellingRa(
 }
 
 /**
+ * ⭐⭐ S188 (owner, CORPSE EATER) — **IS THIS BOSS FEEDING RIGHT NOW?** The ONE read of
+ * `corpseEaterUntilTick`, on the `isStunned` shape: strictly `<`, so stamping `tick + N` yields exactly
+ * N feeding ticks. Takes `tick` rather than the World so the renderer and the fan-out can both ask.
+ */
+export function isCorpseEaterFeeding(
+  c: Pick<Creature, 'corpseEaterUntilTick'>,
+  tick: number,
+): boolean {
+  return c.corpseEaterUntilTick !== undefined && tick < c.corpseEaterUntilTick;
+}
+
+/**
  * ⭐ S169 (owner R152) — APPLY A STUN, TAKING THE MAX.
  *
  * *"it has to be consistent"* — two sources overlapping must not let the shorter one cut the longer
@@ -713,6 +725,25 @@ export interface Creature {
    * Mutable; defaults undefined (no factory change).
    */
   raRitualUntilTick?: number;
+  /*
+   * ⭐⭐ S188 (owner, zombies level 5 — CORPSE EATER) — **THE FEED DEADLINE: THE TICK THE ZOMBIE BOSS
+   * STOPS EATING.** *"once he reaches 20% HP, he starts eating everyone around him … for like eight
+   * seconds."* Stamped `tick + CORPSE_EATER_TICKS` by `racial/corpseEater.ts` and NEVER cleared, so
+   * `!== undefined` is also the once-per-life latch — the `raRitualUntilTick` shape exactly.
+   *
+   * ⚠ ADDITIVE-OPTIONAL and emitted only while set, like the stun and the ritual stamps above; HASHED
+   * because it decides who the boss attacks, how he moves and whether the fan-out drives him at all.
+   * It must be ON THE WIRE for the same reason those are: the eat loop is DERIVED per frame from this
+   * stamp on both peers. Read through `isCorpseEaterFeeding`, never directly.
+   */
+  corpseEaterUntilTick?: number;
+  /*
+   * ⭐ S188 — WHERE HE SAT DOWN TO EAT. *"he shouldn't be moving a lot. He moves only in a tiny radius
+   * around him."* The leash centre, stamped with the deadline above and never moved; it has to be
+   * stored because the boss's own position is exactly what the leash constrains. Same wire/hash
+   * treatment as the deadline, and meaningless once the deadline has passed.
+   */
+  corpseEaterAnchor?: Vec2;
 }
 
 /**

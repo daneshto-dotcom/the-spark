@@ -143,7 +143,7 @@ import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
-import { isStunned } from './creatures/creature.ts';
+import { isCorpseEaterFeeding, isStunned } from './creatures/creature.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
 // the BotManager comment documents the invariant).
@@ -1501,6 +1501,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * skip at the top of the iteration is the only shape that cannot rot as arms are added.
        */
       if (creature !== undefined && isStunned(creature, world.tick)) continue;
+      /*
+       * ⭐ S188 (CORPSE EATER, zombies level 5) — A FEEDING ZOMBIE BOSS IS NOT DRIVEN FROM HERE. For
+       * his ~8 s window `racial/corpseEater.ts` is the whole of his behaviour (target, leash, bite,
+       * heal) — letting this loop run him too would have him march and strike on top of the feed.
+       * One skip at the top, for the reason stun gate 3 gives above.
+       */
+      if (creature !== undefined && isCorpseEaterFeeding(creature, world.tick)) continue;
       /*
        * ⭐ S158 P3 (CF-S157-e) — `&& !targetsStructures` IS THE WHOLE FIX, AND HERE IS WHY IT IS A
        * CONJUNCT RATHER THAN A REORDER.

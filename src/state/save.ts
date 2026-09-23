@@ -804,6 +804,14 @@ interface SerializedCreature {
    * fall through a switch — no `PROTOCOL_VERSION` bump.
    */
   readonly raRitualUntilTick?: number;
+  /**
+   * ⭐ S188 (CORPSE EATER, zombies level 5) — the zombie boss's feed deadline and its leash centre.
+   * Emitted only once stamped, so a board with no feeding boss is byte-identical. They ride the wire
+   * (the eat loop is derived from them per frame on both peers) and the worker mirror rebuilds from
+   * this shape, so omitting either would diverge the wide hash the moment a boss sat down to eat.
+   */
+  readonly corpseEaterUntilTick?: number;
+  readonly corpseEaterAnchor?: { x: number; y: number };
 }
 
 /**
@@ -2225,6 +2233,11 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
     ...(c.raRitualUntilTick !== undefined ? { raRitualUntilTick: c.raRitualUntilTick } : {}), // S171 R142
+    // ⭐ S188 CORPSE EATER — the feed deadline and its leash centre, emitted only once stamped.
+    ...(c.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: c.corpseEaterUntilTick } : {}),
+    ...(c.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 
@@ -2599,6 +2612,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142
+    // ⭐ S188 CORPSE EATER — copied, never aliased, so a restored world cannot share a Vec2 with its payload.
+    ...(s.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: s.corpseEaterUntilTick } : {}),
+    ...(s.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 

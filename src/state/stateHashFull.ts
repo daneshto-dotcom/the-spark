@@ -330,7 +330,14 @@ type CreatureHashed =
    * before any hash code existed. Two sub-sites still follow — the projection below and the
    * per-field contribution test.
    */
-  | 'raRitualUntilTick';
+  | 'raRitualUntilTick'
+  /*
+   * ⭐ S188 (CORPSE EATER) — the zombie boss's feed deadline and leash centre. HASHED: together they
+   * decide whether the fan-out drives him at all, whom he bites and where he may stand, so a host and
+   * a mirror disagreeing about either diverge in movement and damage on the same tick.
+   */
+  | 'corpseEaterUntilTick'
+  | 'corpseEaterAnchor';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -598,6 +605,8 @@ export function determinismParts(world: World): string[] {
         // S171 R142/R171-A — the Ra ritual deadline. Same `o()` absent-marker treatment, so a board
         // with no Pharaoh mid-ritual hashes identically to one where the field never existed.
         `:rr${o(c.raRitualUntilTick)}`,
+        // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
+        `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
     );
   }
 
