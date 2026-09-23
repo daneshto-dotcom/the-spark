@@ -72,7 +72,28 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
   shared Browser pane's tab was taken over by another agent (origin changed to localhost:32474 /
   39975 mid-test); a background tab of my own does not run the game loop. One of my clicks (frame
   287,225) may have landed on the other agent's page. Server killed (the task's exit 1 = my kill).
-- NEXT: final gates on the final tree; report.
+- FINAL GATES on 435dcfe: TYPECHECK_EXIT=0; VITEST_EXIT=0 (349 files / 5869 tests); BUILD_EXIT=0,
+  entry 926.4 KiB (cap 1000, headroom 73.6). Snapshot EOL-only rewrite restored again (benign).
+
+## STATUS: COMPLETE — both bugs fixed, tested, mutation-tested; branch ready for the merge owner.
+
+## WHAT THE NEXT SESSION / MERGE OWNER MUST DO
+1. Merge AFTER s188/racial-c (this branch sits on its tip). ONE conflict: `src/render/draftOverlay.ts`,
+   end of class — keep master's `layoutText` AND this branch's `isOver` / `isOverChoosable`; change
+   `isOverChoosable` to `this.container.visible && this.opts !== null && draftHitTest(x, y, this.opts) !== null`.
+   (Pre-validated in a scratch export: tsc 0, 302 affected tests green, draft test green with the
+   racial tile LIVE.)
+2. Re-run e2e on the merged tree (NOT run here). Any spec that clicks the board inside the draft
+   plate (x 680-1241, y 404-676, + the hover tip below it) while the wave-1 draft is open will now be
+   swallowed and must pick the draft first. Static scan: the gating specs' board clicks are outside
+   it; the @archived-hazard specs (bomb forceBomb(960,540), potato, rainbow) click in the quarry.
+3. Owner decision to surface (not a defect): on two-card tiers (5, 7) the 10 px seam between the
+   cards shows the arrow and a press there collapses (literal "one layer below"). If he wants the
+   arrow dead while ANY menu is open, flip the seam test in controls.footerArrowLayer.test.ts.
+4. Bug 2 browser look was NOT done (shared Browser pane taken over by another agent).
+5. Optional doc-only: draftOverlay.test.ts FILLS rows for the plate / hover plate could name
+   `isOver` as their swallow hit-test (left untouched here to avoid a second conflict with master).
 
 ## KNOWN-BROKEN
-- nothing known.
+- nothing known. RMB over the open draft panel no longer puts a held tower / Ra aim back (the panel
+  swallows it, castle-panel precedent); Escape still does.
