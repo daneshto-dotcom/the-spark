@@ -155,7 +155,66 @@
       "deliberation_completed": true,
       "check_completed": true,
       "checkpoint_commit": "6d08951ecbc0db66ff8804273744fc696a0b897d",
-      "check_method": "P1/P2/P3 verified by: (a) typecheck exit 0 read from a captured $?; (b) vitest 5571/339 likewise; (c) build exit 0, bundle 916.0 KiB under the 1000 charter; (d) MUTATION TEST — restoring the pre-S187 serialize condition fails 2 of draftRoundTrip's assertions, so the wire guard has teeth rather than merely existing; (e) draftBuffReaches drives the REAL spawn reducer and reads the pool off the creature that comes out (6->7, compounds to 8, damage picks leave the pool alone, other seats untouched); (f) VERIFIED IN THE RUNNING GAME in the browser pane — panel opens pre-wave-1, hover highlights + raises the tooltip, click lands the pick and closes the panel. That last step found TWO bugs every test was green over: a TextStyle instance shared by both tiles (setting the racial colour repainted the general headline), and the dead tile drawing the general's own emblem."
+      "check_method": "P1/P2/P3 verified by: (a) typecheck exit 0 read from a captured $?; (b) vitest 5571/339 likewise; (c) build exit 0, bundle 916.0 KiB under the 1000 charter; (d) MUTATION TEST — restoring the pre-S187 serialize condition fails 2 of draftRoundTrip's assertions, so the wire guard has teeth rather than merely existing; (e) draftBuffReaches drives the REAL spawn reducer and reads the pool off the creature that comes out (6->7, compounds to 8, damage picks leave the pool alone, other seats untouched); (f) VERIFIED IN THE RUNNING GAME in the browser pane — panel opens pre-wave-1, hover highlights + raises the tooltip, click lands the pick and closes the panel. That last step found TWO bugs every test was green over: a TextStyle instance shared by both tiles (setting the racial colour repainted the general headline), and the dead tile drawing the general's own emblem.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "export function applyDraftPercent"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stats.ts",
+          "needle": "Math.max(1, Math.floor((v * pct) / 100))"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/game/player.ts",
+          "needle": "draftPicks: DraftPick[];"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/game/player.ts",
+          "pattern": "draftPicks",
+          "op": ">=",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "export function creatureMaxEhp"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "maxEhp?: number;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "...(c.ehp < creatureMaxEhp(c) ? { ehp: c.ehp } : {}),"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/state/save.ts",
+          "needle": "c.ehp < unitPoolFifths(getCreatureConfig(c.type)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "'maxEhp'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "mx${o(c.maxEhp)}"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/stateHashFull.ts",
+          "needle": "d${pl.draftPicks.join('')}"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -166,7 +225,41 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "check_completed": true,
-      "checkpoint_commit": "6d08951ecbc0db66ff8804273744fc696a0b897d"
+      "checkpoint_commit": "6d08951ecbc0db66ff8804273744fc696a0b897d",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/draft.ts",
+          "needle": "export const GENERAL_TRACK"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/draft.ts",
+          "needle": "['hp', 'def', 'atk', 'pen']"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/draft.ts",
+          "needle": "export const DRAFT_BUFF_PCT = 10;"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/state/creatures/creatureLifecycle.ts",
+          "pattern": "draftPicks",
+          "op": ">=",
+          "value": 5
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "draftedPoolFifths(config.hp, config.def, args.draftPicks)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "s.maxEhp ??"
+        }
+      ]
     },
     {
       "id": "P3",
@@ -177,14 +270,78 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "check_completed": true,
-      "checkpoint_commit": "6d08951ecbc0db66ff8804273744fc696a0b897d"
+      "checkpoint_commit": "6d08951ecbc0db66ff8804273744fc696a0b897d",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "export function draftHitTest"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "COMING SOON"
+        },
+        {
+          "type": "file_lacks",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "return 'racial'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.test.ts",
+          "needle": "const fills = code.match(/\\.fill\\(\\{/g) ?? [];"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/draftOverlay.test.ts",
+          "pattern": "what: '",
+          "op": "==",
+          "value": 4
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.test.ts",
+          "needle": "expect(clickable).toHaveLength(1);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "const draftOverlay = new DraftOverlay"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "app.stage.addChild(draftOverlay.container);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "draftOverlay.render(world, world.localPlayerId);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "const h2Racial = new TextStyle"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 49 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "CHOOSE_DRAFT: true,"
+        }
+      ]
     },
     {
       "id": "P4",
       "title": "Castle upgrades: HP/ATK/DEF/PEN bought with victory points, band-scaled",
       "status": "in_progress",
-      "priority_state": "locked",
-      "unlock_source": "pending",
+      "priority_state": "unlocked",
+      "unlock_source": "user",
       "pdr_approved": true,
       "deliberation_completed": true
     },
@@ -198,7 +355,36 @@
       "deliberation_completed": true,
       "check_completed": true,
       "checkpoint_commit": "0a1e5f7a4536611e4dcc8725ea0abbdafd954e03",
-      "check_method": "Footer collapse: typecheck 0, vitest 5582/340, build 0 (917 KiB under the 1000 charter), each read from a captured $?. The S182 fill enumeration went RED on the new tab (5 fills -> 6) and was satisfied by hit-testing it FIRST, then naming it in the enumeration, as that test instructs. VERIFIED IN THE RUNNING GAME: clicked the tab, the whole tier row and shape strip vanished and the tab dropped to the screen edge with the chevron flipped UP; clicked again and the menu returned with the chevron down. Full round trip."
+      "check_method": "Footer collapse: typecheck 0, vitest 5582/340, build 0 (917 KiB under the 1000 charter), each read from a captured $?. The S182 fill enumeration went RED on the new tab (5 fills -> 6) and was satisfied by hit-testing it FIRST, then naming it in the enumeration, as that test instructs. VERIFIED IN THE RUNNING GAME: clicked the tab, the whole tier row and shape strip vanished and the tab dropped to the screen edge with the chevron flipped UP; clicked again and the menu returned with the chevron down. Full round trip.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "export function collapseTabRect"
+        },
+        {
+          "type": "grep_count",
+          "path": "src/render/footerBand.ts",
+          "pattern": "if \\(this\\.collapsed\\) return this\\.isOverCollapseTab\\(x, y\\);",
+          "op": "==",
+          "value": 2
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "this.drawCollapseTab(g);"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "this.footerBand.isOverCollapseTab?.(this.cursor.x, this.cursor.y) === true"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.test.ts",
+          "needle": "isOverCollapseTab"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
