@@ -8,7 +8,7 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 | 1 · registry: `vampires.l10` in `racialPerks.ts` (+ generic `perkDraftIndex`) | ✅ wip commit 1 (BUILT still false) |
 | 2 · mechanic: `t3BatSwarm` (bat ×6), promotion in `towerUnitForSeat`, every consumer | ✅ wip commit 1 — typecheck exit 0 |
 | 3 · tests (`racial/theSwarm.test.ts`) + flip `RACIAL_PERK_BUILT['vampires.l10']` | ✅ flipped; racial/ + racialPerks + draft* = 115/115 green. Mutations M1 (old `perkDraftIndex`) → 8 extra red; M2 (swarm arm without the perk guard) → 6 red; both restored. Art-existence tests land with the atlas commit. |
-| 4 · art: swarm atlas (fly / attack / die) + renderer fallback to the bat | ⏳ |
+| 4 · art: swarm atlas (fly / attack / die) + renderer fallback to the bat | ✅ `t3-vampires-bat-swarm` packed (fly = sheet-fly, attack = sheet-attack ×0.8, die = sheet-die-v2 grid-inpainted); check:atlas on race-tier3-units exit 0, swarm clean on all 5 checks; idle/walk body 124 px vs the bat's 125 |
 | 5 · card `public/art/upgrade-cards/l10-vampires.webp` (502×484, q82, cover top-anchored) | ⏳ |
 | 6 · gates: typecheck · vitest · build · check:atlas | ⏳ |
 
@@ -21,3 +21,16 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 | `sheet-attack.png` | 6×4 | soft (21 % a=0) | the only attack sheet |
 | `sheet-die-v1.png` | **5×5** | **0 % transparent** — opaque magenta wash + grey grid baked in | ⛔ unusable (confirms FINDINGS) |
 | `sheet-die-v2.png` | 6×4 | soft (16 % a=0) | ✅ usable, BUT a grey 2-px grid is baked in at x=256k/256k+1, y=255+256k (alpha ≈ 39/20) — must be erased before slicing |
+
+## Chosen, and why (the art commit)
+
+- **fly = `sheet-fly.png`**: the same soft-glow drawing as attack + die. The re-roll `sheet-fly-matted.png`
+  fails the guard (largest near-white pocket 137 px > 60, 6,417 near-white px on the cut edge > 60 —
+  measured); a colour-to-alpha re-matte of `raw-fly-v2.webp` removed the white but ghosted the swarm on black.
+- **attack = `sheet-attack.png` × `scaleMul` 0.8**: drawn at a larger zoom (eye glow 27×31 vs fly 20×26).
+  Without it the attack row is 1.28× wider than idle/walk (a check-2 WIDE fail).
+- **die = `sheet-die-v2.png`** (the owner's "fourth one"); v1 is 0 % transparent. v2's baked 2 px grid
+  inpainted (`inpaintLines`).
+- `build-scattered-sheet-atlas.mjs` gained the two opt-in keys; the elite piranha and corpse-eater
+  specs rebuild BYTE-IDENTICAL (sha256) with the change.
+- Full unit suite after the mechanic commit: 5699 / 347 files, exit 0.

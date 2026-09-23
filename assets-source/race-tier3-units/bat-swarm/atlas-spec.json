@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "S188 THE SWARM — the bat swarm (vampires level 10). Built by scripts/build-scattered-sheet-atlas.mjs.",
+    "SHEETS CHOSEN (every sheet in this folder was measured S188 before choosing — see FINDINGS.md + the branch report):",
+    "· FLY = sheet-fly.png (8x3), NOT the 6x4 re-roll. sheet-fly-matted.png was matted by border flood-fill, which keeps",
+    "  ENCLOSED white: 12,611 opaque near-white px, largest pocket 137 px, 6,417 px of it on the cut edge — white blotches",
+    "  on the black board and a check:atlas FAIL (pocket max 60, edge max 60). A colour-to-alpha re-matte of raw-fly-v2",
+    "  fixed the white but ghosted the swarm on black, and the re-roll is a crisper cel style than attack/die. sheet-fly",
+    "  is the SAME soft-glow drawing as the attack and die sheets (largest white pocket 15, 0 on the edge).",
+    "· ATTACK = sheet-attack.png (6x4), the only one. scaleMul 0.8: it was generated at a larger zoom than the fly and die",
+    "  sheets — measured on the red eye glow, whose size does not change with pose: 27x31 px (attack) vs 20x26 (fly) and",
+    "  ~21x24 (die frames 1-4), ratio ~0.79. Without it the attack row reads 1.28x WIDER than the idle/walk rows.",
+    "· DIE = sheet-die-v2.png (6x4). sheet-die-v1.png is REJECTED: 0.0% transparent (opaque magenta wash, grey grid baked in,",
+    "  and a 5x5 grid). v2 has a 2 px grey grid baked in too (x = 256k, y = 255 + 256k, alpha ~39/20) — inpainted below.",
+    "FRAMES: idle/walk = every other fly frame (1..23; the cycle V -> level -> wrapped -> V closes 23 -> 1).",
+    "attack = every other frame 1..23: pick 7 (sheet frame 13) is the first X-slash frame, at tick 30 = GOBLIN_ATTACK_FIRE_TICK",
+    "at 5 ticks/frame — the slash appears as the damage lands. die = every other frame 2..24, ending on the fully dispersed one.",
+    "SIZE: the fly frames' median body height is fitted to 125 px in a 200 px cell — the SHIPPED bat's measured body height",
+    "(check-atlas-scenery's own measure) — so BAT_SWARM_SPRITE_SCALE_MUL (2, MINE) is exactly the swarm:bat size ratio.",
+    "ticksPerFrame = the shipped bat's (idle 7 / walk 4 / attack 5 / die 5)."
+  ],
+  "name": "t3-vampires-bat-swarm",
+  "outDir": "public/art/race-tier3-units",
+  "cellH": 200,
+  "cellW": 200,
+  "align": "centroid",
+  "fitBodyHeightPx": 125,
+  "fitReference": [{ "source": "fly", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23] }],
+  "sources": [
+    { "id": "fly", "path": "assets-source/race-tier3-units/bat-swarm/sheet-fly.png", "grid": { "cols": 8, "rows": 3 }, "assign": "uniform" },
+    { "id": "attack", "path": "assets-source/race-tier3-units/bat-swarm/sheet-attack.png", "grid": { "cols": 6, "rows": 4 }, "assign": "uniform", "scaleMul": 0.8 },
+    {
+      "id": "die", "path": "assets-source/race-tier3-units/bat-swarm/sheet-die-v2.png", "grid": { "cols": 6, "rows": 4 }, "assign": "uniform",
+      "inpaintLines": { "x": [256, 512, 768, 1024, 1280], "y": [255, 511, 767], "halfWidth": 1 }
+    }
+  ],
+  "states": [
+    { "name": "idle", "source": "fly", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 7 },
+    { "name": "walk", "source": "fly", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 4 },
+    { "name": "attack", "source": "attack", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 5 },
+    { "name": "die", "source": "die", "frames": [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], "ticksPerFrame": 5 }
+  ]
+}

@@ -316,7 +316,20 @@ describe('S188 THE SWARM — its OWN art, and a missing sheet degrades to the ba
   const read = (base: string): { cellH: number; states: Record<string, { frames: number }> } =>
     JSON.parse(readFileSync(join(root, `${base}-anim.json`), 'utf-8'));
 
-  // ART-TESTS-LAND-WITH-THE-ATLAS
+  it('⭐⭐ the renderer points at a sheet that EXISTS on disk, and it is not the bat’s', () => {
+    expect(ATLASES.t3BatSwarm).toBe(BAT_SWARM_ATLAS_BASE);
+    expect(BAT_SWARM_ATLAS_BASE).not.toBe(ATLASES.t3Bat);
+    expect(existsSync(join(root, `${BAT_SWARM_ATLAS_BASE}-atlas.png`))).toBe(true);
+    expect(existsSync(join(root, `${BAT_SWARM_ATLAS_BASE}-anim.json`))).toBe(true);
+    expect(GOBLIN_KINDS.has(SWARM), 'absent from GOBLIN_KINDS it would be invisible').toBe(true);
+  });
+
+  it('⭐ the four rows the renderer asks for (idle / walk / attack / die), 12 frames each', () => {
+    const swarm = read(BAT_SWARM_ATLAS_BASE);
+    for (const st of ['idle', 'walk', 'attack', 'die']) expect(swarm.states[st]?.frames, st).toBe(12);
+    expect(swarm.cellH).toBe(read(ATLASES.t3Bat!).cellH);
+  });
+
   it('⭐ a swarm whose sheet has not resolved draws with the BAT’s sheet — never the green puppet', () => {
     expect(atlasFallbackType(SWARM)).toBe('t3Bat');
     expect(ATLASES[atlasFallbackType(SWARM)!]).toBeTypeOf('string');
