@@ -6,8 +6,8 @@ Brief: `.claude/plans/2026-09-23_S188_BATCH_PDR.md` → BRIEF P5 (+ A2, A3, A5).
 |---|---|---|---|
 | THE RISEN | `zombies.l0` | **DONE** (BUILT=true; 16 tests; 2 mutations red) | `state/racial/theRisen.ts` (new), `creatures/creatureLifecycle.ts` death arm, `damage.ts` (one line: attacker threaded into `damageCreature`), `raceUnitEmit.ts` (additive: `spawnRaceUnitAtCastle`) |
 | ENDLESS DYNASTY | `mummies.l5` | **DONE** (BUILT=true; 21 tests; overkill-clamp mutation red) | `state/racial/endlessDynasty.ts` (new), `game/player.ts`, `gameMode.ts`, `save.ts`, `stateHashFull.ts`, `damage.ts` castle arm |
-| HELLSPAWN | `demons.l5` | in progress — SIM + 22 tests DONE (salvage 86d2ed3 verified: typecheck 0, 539 related tests); A2 mutation reds 3; NEXT: render tint, then flip BUILT | `state/racial/hellspawn.ts` (new), `creatures/creature.ts`, `save.ts`, `stateHashFull.ts`, `creatureAttack.ts`, `render/chewerRenderer.ts`, `render/structureRampRenderer.ts` |
-| differential (A5) | all three | next | `state/racial/racialB.differential.test.ts` (new) |
+| HELLSPAWN | `demons.l5` | **DONE** (BUILT=true; 22 sim + 5 render tests; A2 mutation reds 3) | `state/racial/hellspawn.ts` (new), `creatures/creature.ts`, `save.ts`, `stateHashFull.ts`, `creatureAttack.ts`, `render/chewerRenderer.ts`, `render/structureRampRenderer.ts` |
+| differential (A5) | all three | NEXT | `state/racial/racialB.differential.test.ts` (new) |
 
 ## Decisions so far (all MINE unless quoted)
 - Kill signal = the FIRST time a creature's lethality is decided in `damageCreature` (the deferral set
