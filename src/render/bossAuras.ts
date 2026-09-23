@@ -64,6 +64,9 @@ import { raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
 import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
+import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
+import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
+import { raAimPreview } from './raAimPreview.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -112,6 +115,9 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
     if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, world, bossId as number, boss);
   }
+  // ⭐ S188 P6 — POWER OF RA: called strikes and the local aim. Walks `world.players`, not the boss
+  // loop above, so it draws on a board with no boss on it (the usual case).
+  drawPowerOfRa(g, world);
 }
 
 /* ── RA RITUAL dial. ⚠ THE LOOK IS MINE; THE MECHANIC AND THE TELEGRAPH ARE HIS (R142, R171-B). */
@@ -152,13 +158,31 @@ function drawRaRitual(
   if (until === undefined) return;
   if (!isChannellingRa(boss, world.tick)) return;
 
-  const start = until - RA_RITUAL_TICKS;
-  const elapsed = world.tick - start;
-
   // The priest himself: a rising halo while he channels, so the source of it all is legible.
   const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
   g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
     .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
+
+  drawRaColumns(g, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
+}
+
+/**
+ * ⭐ S188 P6 — **THE FIVE TELEGRAPHS AND COLUMNS, SHARED BY THE PHARAOH AND BY POWER OF RA.**
+ *
+ * Lifted VERBATIM out of `drawRaRitual` so a player's aimed strike draws through the Pharaoh's own
+ * code — *"hits like the lightning beams from the sky, kind of like Pharaoh has"*. What differs is
+ * only WHERE the columns fall, and that is handed in as the SIM's own landing function, never
+ * re-derived here: the Pharaoh passes `raColumnPos` around himself, a caster passes
+ * `raStrikeColumnPos` around the aim. `until` is the same deadline shape for both.
+ */
+function drawRaColumns(
+  g: Graphics,
+  tick: number,
+  until: number,
+  columnPos: (k: number) => { x: number; y: number },
+): void {
+  const start = until - RA_RITUAL_TICKS;
+  const elapsed = tick - start;
 
   for (let k = 0; k < RA_COLUMN_COUNT; k++) {
     const windowStart = k * RA_COLUMN_TICKS;
@@ -166,7 +190,7 @@ function drawRaRitual(
     if (elapsed < windowStart) continue;              // not yet announced
     if (elapsed > impact + RA_FLASH_TICKS) continue;  // done and faded
 
-    const pos = raColumnPos(id, k, boss.pos.x, boss.pos.y);
+    const pos = columnPos(k);
 
     if (elapsed < impact) {
       /*
@@ -203,6 +227,56 @@ function drawRaRitual(
         .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
     }
   }
+}
+
+/* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to
+ * click on the area of the map"*), not the look of the cursor between the two clicks. */
+const RA_AIM_TINT = 0xffd970;
+
+/**
+ * ⭐⭐ S188 P6 (owner, `mummies.l0`) — **POWER OF RA: EVERY SEAT'S CALLED STRIKE, AND THE AIM UNDER
+ * THE LOCAL CURSOR.**
+ *
+ * THE STRIKE is drawn through `drawRaColumns` — the Pharaoh's own telegraph and beam — from ONE
+ * synced record (`Player.raStrike`) and `world.tick`, landing where the SIM lands it
+ * (`raStrikeColumnPos`). Nothing is pushed to `world.effects`, so a joiner sees every column the
+ * host lands. ⚠ Not fog-gated, deliberately: a column of sunlight from the sky is visible to
+ * everyone, it gives away nothing about the CASTER's position (they aim anywhere), and the victim is
+ * exactly who most needs to see the telegraph to get out of it.
+ *
+ * ⛔ GATED ON FIGHT, BECAUSE THE SIM IS. `runPowerOfRa` runs only inside the FIGHT gate, so a strike
+ * whose later columns fall after the FIGHT→BUILD edge never lands them — a telegraph drawn for them
+ * would be a promise the sim does not keep.
+ *
+ * THE AIM (between the two clicks) shows the five kill circles at FULL radius where the columns
+ * WILL fall if the player clicks now — `raStrikeColumnPos` on the point the REDUCER will store
+ * (`raAimPoint`, the same normalisation), and only while `raCastRefusal` says the cast is legal.
+ * Three calls into the sim's own rules and nothing re-derived, so the preview cannot disagree with
+ * the strike.
+ */
+function drawPowerOfRa(g: Graphics, world: World): void {
+  if (world.matchPhase === 'FIGHT') {
+    const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
+    for (const [seat, p] of seats) {
+      const strike = p.raStrike;
+      if (strike === null) continue;
+      drawRaColumns(g, world.tick, strike.untilTick, (k) => raStrikeColumnPos(seat, k, strike));
+    }
+  }
+
+  const aimAt = raAimPreview();
+  if (aimAt === null) return;
+  if (raCastRefusal(world, aimAt.seat) !== null) return;
+  const aim = raAimPoint(aimAt.x, aimAt.y);
+  if (aim === null) return;
+  const pulse = 0.5 + 0.5 * Math.sin((world.tick / 7) % (Math.PI * 2));
+  for (let k = 0; k < RA_COLUMN_COUNT; k++) {
+    const pos = raStrikeColumnPos(aimAt.seat, k, aim);
+    g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).fill({ color: RA_AIM_TINT, alpha: 0.08 + 0.06 * pulse });
+    g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).stroke({ color: RA_AIM_TINT, width: 2, alpha: 0.55 + 0.3 * pulse });
+  }
+  // The point itself: a small sun, so the player sees what the five circles are centred on.
+  g.circle(aim.x, aim.y, 7).stroke({ color: 0xffffff, width: 2, alpha: 0.9 });
 }
 
 /**
