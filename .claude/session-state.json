@@ -193,7 +193,7 @@
       "title": "Footer collapse arrow (unblocks the bottom band for 4-player)",
       "status": "in_progress",
       "priority_state": "in_progress",
-      "unlock_source": "pending",
+      "unlock_source": "user",
       "pdr_approved": true,
       "deliberation_completed": true
     }

@@ -166,7 +166,42 @@ export interface FooterChipGeom {
 /** R81 — pixels a hovered chip grows on each side. Small: the row is dense and must not reflow. */
 const HOVER_GROW = 2;
 
+/**
+ * ⭐⭐ S187 (owner) — **THE COLLAPSE TAB.** His design, and his brother's problem:
+ *
+ * > *"My brother is worrying that for a four player game the bottom two quadrants are losing space
+ * > because they have this menu there … maybe there should be like an arrow down that removes that
+ * > whole menu so you can build there, and then the arrow is looking up and you click on it and it
+ * > brings back the menu with the tiers. Very clickable, very understandable, very obvious."*
+ *
+ * ⛔ **AND THIS IS THE ONLY THING THAT CAN ACTUALLY GIVE HIM THE BOTTOM BAND.** Canon §4b records
+ * that the dead band and the footer stand on the SAME ground, so lowering the edge rule further just
+ * puts towers under a plate the guards then refuse. Geometry could not solve it; releasing the
+ * surface can.
+ *
+ * ⚠ The tab is DELIBERATELY SMALL and centred. Collapsed, it is the only footer pixel left, so every
+ * pixel it occupies is board the player has asked to get back.
+ */
+export const COLLAPSE_TAB_W = 76;
+export const COLLAPSE_TAB_H = 20;
+
+/** Where the tab sits. Expanded it rides the band's top edge; collapsed it hugs the screen bottom. */
+export function collapseTabRect(collapsed: boolean): { x: number; y: number; w: number; h: number } {
+  return {
+    x: Math.round(CANVAS_WIDTH / 2 - COLLAPSE_TAB_W / 2),
+    y: collapsed ? CANVAS_HEIGHT - COLLAPSE_TAB_H : FOOTER_TOP_Y - COLLAPSE_TAB_H,
+    w: COLLAPSE_TAB_W,
+    h: COLLAPSE_TAB_H,
+  };
+}
+
 export class FooterBand {
+  /**
+   * ⭐ S187 — is the band hidden? RENDER-ONLY, never world state: it is one player's view
+   * preference, it must not reach the wire, and two peers disagreeing about it is not a divergence.
+   * `selected` above is render-only for exactly the same reason.
+   */
+  private collapsed = false;
   /** S153 P4 — complexity of the chip under the pointer, or null. Set by `setHover`. */
   private hoverChip: number | null = null;
   /** S153 P4 — id of the tower card under the pointer, or null. */
@@ -244,6 +279,21 @@ export class FooterBand {
     this.carry = null;
 
     if (world.gameState !== 'PLAYING') {
+      this.hideLabelsFrom(0);
+      return;
+    }
+
+    /*
+     * ⭐⭐ S187 — COLLAPSED: draw the tab and nothing else, then stop.
+     *
+     * ⛔ The early return is what makes it real. `this.chips`, `this.strip` and `this.carry` were
+     * cleared at the top of `sync`, so every hit-test that reads them is already empty for this
+     * frame — the band cannot swallow a click it did not draw. Hiding the band by alpha instead
+     * would have left all three populated, which is the invisible-but-clickable defect this file
+     * records shipping twice.
+     */
+    this.drawCollapseTab(g);
+    if (this.collapsed) {
       this.hideLabelsFrom(0);
       return;
     }
@@ -560,8 +610,58 @@ export class FooterBand {
    * make every world object in the bottom 7.8% of the board unclickable, which is the defect that
    * got the original footer deleted.
    */
+  /**
+   * ⭐ S187 — paint the tab. Drawn in BOTH states, because collapsed it is the only way back.
+   *
+   * The chevron points the way the click will move the menu: DOWN while the band is up (click to
+   * send it away), UP while it is hidden (click to bring it back). His words were *"very clickable,
+   * very understandable, very obvious"*, so it is a filled plate with a bright edge rather than a
+   * bare glyph — a lone chevron on the board reads as decoration.
+   */
+  private drawCollapseTab(g: Graphics): void {
+    const r = collapseTabRect(this.collapsed);
+    g.roundRect(r.x, r.y, r.w, r.h, 6)
+      .fill({ color: 0x0b0f16, alpha: 0.92 })
+      .stroke({ color: 0x8fa2c4, width: 1.5, alpha: 0.85 });
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    const k = 5;
+    // Down while expanded, up while collapsed.
+    const dir = this.collapsed ? -1 : 1;
+    g.moveTo(cx - 9, cy - k * dir)
+      .lineTo(cx, cy + k * dir)
+      .lineTo(cx + 9, cy - k * dir)
+      .stroke({ color: 0xe8eef8, width: 2.4, alpha: 0.95, join: 'round', cap: 'round' });
+  }
+
+  /** ⭐ S187 — the tab, always live in both states. It is the only way back once collapsed. */
+  isOverCollapseTab(x: number, y: number): boolean {
+    const r = collapseTabRect(this.collapsed);
+    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
+  /** ⭐ S187 — flip it. Returns the new state so the caller can play a sound or log. */
+  toggleCollapsed(): boolean {
+    this.collapsed = !this.collapsed;
+    return this.collapsed;
+  }
+
+  /** ⭐ S187 — for the tests and for any caller that needs to know the band is out of the way. */
+  isCollapsed(): boolean {
+    return this.collapsed;
+  }
+
   isOverChip(x: number, y: number): boolean {
-    return this.chipAt(x, y) !== null || this.cardAt(x, y) !== null || this.isOverShapeStrip(x, y);
+    // ⛔ S187 — COLLAPSED, THE ONLY CONTROL LEFT IS THE TAB. Returning the chips here would keep the
+    // cursor promising `pointer` over a menu that is not drawn, and `handleFooterChipClick` would
+    // open a panel from an invisible button.
+    if (this.collapsed) return this.isOverCollapseTab(x, y);
+    return (
+      this.chipAt(x, y) !== null ||
+      this.cardAt(x, y) !== null ||
+      this.isOverShapeStrip(x, y) ||
+      this.isOverCollapseTab(x, y)
+    );
   }
 
   /**
@@ -586,6 +686,19 @@ export class FooterBand {
    * clickable. The plate is the same kind of surface and gets the same treatment.
    */
   isOverBandSurface(x: number, y: number): boolean {
+    /*
+     * ⛔⛔ S187 — **THE COLLAPSE MUST BE HONOURED HERE TOO, AND THIS IS THE HALF THAT MATTERS.**
+     *
+     * `isOverChip` decides the CURSOR; this decides whether a tower may be PLANTED. A collapse that
+     * only taught the first one would hide the menu and still refuse every placement underneath it —
+     * the band would swallow clicks while invisible, which is the precise defect this file records
+     * shipping TWICE in one session (see `isOverCarryBill`). Giving him the bottom band means
+     * releasing THIS surface; the cursor is the cosmetic half.
+     *
+     * The tab itself stays opaque in both states and is still returned by `isOverChip` above, so
+     * nothing can be planted under the one control that brings the menu back.
+     */
+    if (this.collapsed) return this.isOverCollapseTab(x, y);
     return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
   }
 

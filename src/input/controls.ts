@@ -90,6 +90,12 @@ import { stinkTowerAt } from '../render/stinkTowerCover.ts';
  * behaves exactly as before.
  */
 export interface FooterBandLike {
+  /**
+   * ⭐ S187 — the collapse tab. Optional for the same reason every other member of this interface
+   * is structurally typed: a test harness that does not model the tab behaves exactly as before.
+   */
+  isOverCollapseTab?(x: number, y: number): boolean;
+  toggleCollapsed?(): boolean;
   isOverChip(x: number, y: number): boolean;
   /** S182 — `isOverChip` OR any opaque readout the band draws. See `isPointerOverFooterSurface`. */
   isOverBandSurface(x: number, y: number): boolean;
@@ -528,6 +534,18 @@ export class Controls {
    */
   private handleFooterChipClick(): boolean {
     if (!this.isPointerOverFooterChip() || this.footerBand === null) return false;
+
+    /*
+     * ⭐⭐ S187 — THE COLLAPSE TAB IS TESTED FIRST, and the ordering argument is the one already
+     * written three lines below for the tower card: whatever floats ABOVE the others must be read
+     * before them, or its click falls through to whatever sits behind it. Collapsed, the tab is the
+     * ONLY control left — reading chips first would make the menu impossible to bring back.
+     */
+    if (this.footerBand.isOverCollapseTab?.(this.cursor.x, this.cursor.y) === true) {
+      void playUiClickSFX();
+      this.footerBand.toggleCollapsed?.();
+      return true;
+    }
 
     // ⭐ S149 P5 — A TOWER CARD IS CHECKED FIRST. The open menu floats ABOVE the chips, so testing
     // chips first would let a card click fall through to the bar behind it and merely toggle the
