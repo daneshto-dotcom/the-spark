@@ -24,8 +24,19 @@
 - MANIFEST.md updated (orcs L5 ruled, L5 cards landed, wiring decision implemented, WIRED table with
   KB per card, l10 not shipped). Canon notes in `.claude/plans/S188_CANON_NOTES_cards.md`.
 
+- LOOKED at the running game (vite on port 22492, Browser pane, solo vs 1 Player):
+  - registry as committed (all BUILT false): TOUGHER card, no overlay title, +10% HEALTH in the bottom
+    band; right tile = dimmed COMING SOON + '?'; hovering it shows NO tip; hovering TOUGHER shows its tip.
+  - registry flipped IN THE PAGE ONLY (module object, not the file): BLOOD DEBT card + LIFESTEAL 20%
+    in race colour, hover tip = its RACIAL_PERK_COPY detail, click -> draftPicks ['racial'];
+    wave 6 -> ARMOURED + CRIMSON TIDE, click -> ['racial','racial']; nagas L0 DEEP CURRENT;
+    orcs L5 THE HORDE GROWS; demons wave 16 (L15) -> PIERCING + COMING SOON (correct, undesigned).
+  - no general art on the racial tile, no race tint leaking onto the general line.
+- A first full-gate run (before the cutoff) read TYPECHECK 0 / VITEST 0 (5664/343) / BUILD 0 (923.0 KiB);
+  being RE-RUN now per the coordinator — do not trust it.
+
 ## IN PROGRESS
-- full gates (typecheck, vitest, build) + dev-server screenshot of the panel.
+- re-run of the full gates.
 
 ## NEXT
 - final clean commit + report.
