@@ -47,6 +47,7 @@ const EXPECTED = [
   ['l5-demons.png', 'HELLSPAWN'],
   ['l5-orcs.png', 'THE HORDE GROWS'],
   ['l10-vampires.png', 'THE SWARM'],
+  ['l10-mummies.png', 'WRATH OF RA — S188, the clean master cropped from l10-mummies-raw.png'],
 ];
 
 /**
@@ -66,6 +67,13 @@ const UNRULED = [];
  * shrunk to a 251px tile; the alt is flatter and more uniform. Swapping them is a file rename.
  */
 const ALTERNATES = ['l0-demons-alt.png', 'l5-demons-alt.png'];
+
+/**
+ * S188 — the owner's RAW render, kept as the untouched original of a master that had to be cropped
+ * (white margin + rounded black frame; `build-upgrade-cards.py` records the crop box). Known, never
+ * built and never expected.
+ */
+const RAW_SOURCES = ['l10-mummies-raw.png'];
 
 /** Read a PNG's dimensions from its IHDR. No image library, so this script has no dependencies. */
 function pngSize(path) {
@@ -111,7 +119,7 @@ for (const [file, label] of EXPECTED) {
 }
 
 // Anything in the folder that is not an expected name, so a typo'd filename is not silently ignored.
-const known = new Set([...EXPECTED.map(([f]) => f), ...UNRULED, ...ALTERNATES, 'MANIFEST.md']);
+const known = new Set([...EXPECTED.map(([f]) => f), ...UNRULED, ...ALTERNATES, ...RAW_SOURCES, 'MANIFEST.md']);
 const strays = readdirSync(DIR).filter((f) => !known.has(f) && !f.startsWith('.'));
 
 console.log(`[cards] ${present.length}/${EXPECTED.length} present in assets-source/upgrade-cards/`);

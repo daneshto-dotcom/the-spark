@@ -59,6 +59,12 @@ for "seven per level"; it is **four generals plus six racials per level**.
 | # | file | race | name | what it does |
 |---|---|---|---|---|
 | 17 | `l10-vampires.png` | vampires | THE SWARM | the tier-3 bat tower becomes a bat-swarm generator at 6× base |
+| 18 | `l10-mummies.png` | mummies | WRATH OF RA | ⭐ S188 — the card ships from `s188/ra-vfx`; the mechanic `mummies.l10` is built in `s188/wrath` |
+
+⭐ `l10-mummies.png` is a CROP, not the owner's file as delivered. `l10-mummies-raw.png` (1024 × 1024) came with a
+white outer margin and a rounded black frame; the master is its dark inner panel, box (88, 88, 936, 936) →
+848 × 848, edge to edge with the baked WRATH OF RA title intact in the top band. The raw file stays here as the
+untouched original (`check-upgrade-cards.mjs` knows it as a raw source, not a stray).
 
 ⛔ `l10-vampires.png` is **not shipped**. Level 10 has no mechanic and is out of S188's scope by the
 owner's word, and a card cannot precede its mechanic. `build-upgrade-cards.py` leaves it out, and
@@ -93,7 +99,7 @@ session re-enables by accident. `draftOverlay.test.ts` asserts it is gone.
 
 | | |
 |---|---|
-| runtime files | `public/art/upgrade-cards/<name>.webp` — the 16 cards of levels 0 and 5 |
+| runtime files | `public/art/upgrade-cards/<name>.webp` — the 16 cards of levels 0 and 5, plus `l10-mummies` (WRATH OF RA, S188) |
 | built by | `python scripts/build-upgrade-cards.py` — 502 × 484 (2× the tile), cover-fit top-anchored, lossy WebP q82 |
 | loaded by | `DraftOverlay` in `src/render/draftOverlay.ts`, **lazily** through Pixi `Assets`, one card per tile, on first draw |
 | general tile | `general-<axis>` for the wave's axis |
@@ -108,8 +114,9 @@ Shipped sizes (static payload — the bundle cap does not count these; a seat fe
 | `l0-vampires` | 46.0 | `l0-zombies` | 64.9 | `l0-mummies` | 69.7 | `l0-orcs` | 76.5 |
 | `l0-demons` | 72.4 | `l0-nagas` | 76.7 | `l5-vampires` | 57.6 | `l5-zombies` | 63.0 |
 | `l5-mummies` | 86.6 | `l5-orcs` | 60.5 | `l5-demons` | 54.4 | `l5-nagas` | 43.3 |
+| `l10-mummies` | 59.1 | | | | | | |
 
-**Total 1012.7 KB** for all sixteen, against ~35 MB of source PNGs that stay here as the lossless
+**Total 1071.7 KB** for all seventeen (1012.7 KB for the sixteen of levels 0/5, + 59.1 KB WRATH OF RA), against ~35 MB of source PNGs that stay here as the lossless
 masters.
 
 ## Landed so far
