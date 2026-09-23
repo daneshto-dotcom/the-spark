@@ -70,7 +70,7 @@ import type { Creature, CreatureState, CreatureType } from './creatures/creature
 import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
 import { emptyCastleUpgrades } from './castleUpgrades.ts';
-import { raStrikeFromWire } from './racial/powerOfRaRules.ts';
+import { raStrikesFromWire } from './racial/powerOfRaRules.ts';
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -522,12 +522,13 @@ interface SerializedPlayer {
   eliminatedAtTick?: number;
   raidProgress?: number;
   /**
-   * ⭐ S188 P6 — POWER OF RA (`mummies.l0`): this seat's last call to Ra — the wave, the aimed point
-   * and the deadline (`RaStrike`). Additive-optional and emitted only once a seat has cast, so a
-   * board where nobody called Ra stays byte-identical. Validated on the way in (`raStrikeFromWire`):
-   * it crosses a trust boundary and a malformed one must read as "never cast", not as a strike.
+   * ⭐ S188 P6 / P11 — POWER OF RA / WRATH OF RA: this seat's calls to Ra this fight, each the wave,
+   * the aimed point and the deadline (`RaStrike`), in cast order (the index seeds the pattern).
+   * Additive-optional and emitted only once a seat has cast, so a board where nobody called Ra stays
+   * byte-identical. Validated on the way in (`raStrikesFromWire`): malformed entries are dropped and
+   * at most three are kept, because it crosses a trust boundary.
    */
-  raStrike?: { readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number };
+  raStrikes?: ReadonlyArray<{ readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number }>;
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
    * undefined (pre-S72-P3 byte-compat).
@@ -1931,7 +1932,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       raidProgress: p.raidProgress ?? 0,
       // ⭐ S188 P6 — READ FROM THE WIRE, validated. Absent = never cast (every pre-S188 save). A
       // literal `null` here would forget every seat's cast on every client frame and let it cast twice.
-      raStrike: raStrikeFromWire(p.raStrike),
+      raStrikes: raStrikesFromWire(p.raStrikes),
       // ⭐ S161 P2 — READ FROM THE WIRE, and note there is no `?? 0`: `undefined` is the MEANING
       // here ("this seat is still in the match"), not a missing value to be defaulted. Coercing it
       // to 0 would mark every living player as having been eliminated on tick zero.
@@ -2135,7 +2136,7 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // ⭐ S188 P6 — emitted only once the seat has called Ra. Copied, never aliased.
-    ...(p.raStrike !== null ? { raStrike: { ...p.raStrike } } : {}),
+    ...(p.raStrikes.length > 0 ? { raStrikes: p.raStrikes.map((s) => ({ ...s })) } : {}),
     // S161 P2 — emit the elimination stamp only once a seat is actually out, so a live board stays
     // byte-identical to v39. `save.test.ts` asserts that byte-identity.
     ...(p.eliminatedAtTick !== undefined ? { eliminatedAtTick: p.eliminatedAtTick } : {}),

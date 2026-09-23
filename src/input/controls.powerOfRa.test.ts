@@ -88,7 +88,7 @@ describe('S188 P6 — button → aim → click → CAST_POWER_OF_RA', () => {
     down(c, 700.4, 300.6);
     expect(casts(sent)).toEqual([{ type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 301 }]);
     expect(raAimPreview(), 'one cast, then the aim is put away').toBeNull();
-    expect(w.players.get(P0)!.raStrike, 'and it reached the reducer').toMatchObject({ x: 700, y: 301 });
+    expect(w.players.get(P0)!.raStrikes[0], 'and it reached the reducer').toMatchObject({ x: 700, y: 301 });
   });
 
   it('⛔ RMB cancels — nothing is sent', () => {

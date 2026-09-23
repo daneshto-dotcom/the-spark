@@ -313,7 +313,7 @@ export class DraftOverlay {
 
     // S188 — the offer now carries the seat's racial perk (null = COMING SOON). The tile itself is
     // wired by the s188/cards branch; the substrate only keeps this call honest.
-    const opts = draftOptionsFor(ev.waveNumber, pl.raceId);
+    const opts = draftOptionsFor(ev.waveNumber, pl.raceId, pl.draftPicks); // S188 P11 — seat-aware
     this.offered = opts.general;
     const copy = COPY[opts.general];
     const race = pl.raceId;

@@ -168,19 +168,20 @@ interface PlayerCommon {
    */
   raidProgress: number;
   /**
-   * ⭐ S188 P6 (owner, `mummies.l0`) — **THIS SEAT'S LAST CALL TO RA, or `null` if it has never
-   * called one this match.** *"once per fight, you can use the power of Ra … you get to choose where
-   * it lands."* The whole mechanic's state: the wave it was cast in (once per FIGHT), the aimed
-   * point and the deadline the Pharaoh's impact-tick function reads. See `RaStrike`.
+   * ⭐ S188 P6 (owner, `mummies.l0`) — **THIS SEAT'S CALLS TO RA THIS FIGHT.** *"once per fight, you
+   * can use the power of Ra … you get to choose where it lands."* Each entry is the whole state of
+   * one strike: its wave, the aimed point, the deadline the Pharaoh's impact-tick function reads.
+   * ⭐ S188 P11 — A LIST, because WRATH OF RA (`mummies.l10`) gives three per fight and they may be in
+   * the air at once. Never more than `WRATH_OF_RA_CHARGES`; see `RaStrike` for why the index matters.
    *
    * ⛔ REQUIRED, NOT OPTIONAL — the `castleRegenLevel` / `draftPicks` rule: a required field goes
    * red at the two carry-FSM rebuilds below, and an optional one would silently forget a cast the
    * moment the seat picked up a shape — handing it a second strike in the same fight.
    *
-   * Serialized additive-optional (emitted only when non-null), hashed in the `pl{seat}:` part,
+   * Serialized additive-optional (emitted only when non-empty), hashed in the `pl{seat}:` part,
    * cleared per match in `applyStartGame`.
    */
-  raStrike: RaStrike | null;
+  raStrikes: RaStrike[];
   /**
    * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
    * cursor doubles as the single avatar (avatarRenderer.ts reads
@@ -283,7 +284,7 @@ export function makeIdlePlayer(
     raceId,
     raidProgress: 0,
     // ⭐ S188 P6 — POWER OF RA: nothing called yet.
-    raStrike: null,
+    raStrikes: [],
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     territorialShrinkUntilTick: null,
   };
@@ -313,7 +314,7 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     raidProgress: player.raidProgress,
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
-    raStrike: player.raStrike,
+    raStrikes: player.raStrikes,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -373,7 +374,7 @@ export function drop(player: Player): IdlePlayer {
     raidProgress: player.raidProgress,
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
-    raStrike: player.raStrike,
+    raStrikes: player.raStrikes,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a

@@ -186,16 +186,17 @@ describe('S188 P6 — the reducer: legal only for a mummies.l0 seat, in FIGHT, o
     const w = raWorld();
     const t0 = w.tick;
     cast(w, AIM.x, AIM.y);
-    expect(w.players.get(P0)!.raStrike).toEqual({
+    expect(w.players.get(P0)!.raStrikes).toHaveLength(1);
+    expect(w.players.get(P0)!.raStrikes[0]).toEqual({
       wave: w.waveNumber, x: AIM.x, y: AIM.y, untilTick: t0 + RA_RITUAL_TICKS,
     });
-    expect(w.players.get(P1)!.raStrike, 'the other seat is untouched').toBeNull();
+    expect(w.players.get(P1)!.raStrikes, 'the other seat is untouched').toEqual([]);
   });
 
   it('⭐ COUNCIL A1 — a float aim is STORED as its rounded integer, clamped to the canvas', () => {
     const w = raWorld();
     cast(w, 100.4, 1079.6);
-    expect(w.players.get(P0)!.raStrike).toMatchObject({ x: 100, y: 1080 });
+    expect(w.players.get(P0)!.raStrikes[0]).toMatchObject({ x: 100, y: 1080 });
     expect(raAimPoint(0, 0)).toEqual({ x: 0, y: 0 });
     expect(raAimPoint(CANVAS_WIDTH, CANVAS_HEIGHT)).toEqual({ x: CANVAS_WIDTH, y: CANVAS_HEIGHT });
     expect(raAimPoint(CANVAS_WIDTH - 0.2, 0.4)).toEqual({ x: CANVAS_WIDTH, y: 0 });
@@ -233,7 +234,7 @@ describe('S188 P6 — the reducer: legal only for a mummies.l0 seat, in FIGHT, o
     // …and the reducer itself, bypassing dispatch's bench/elimination gates, refuses too.
     expect(() => applyCastPowerOfRa(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: x as number, y: y as number }))
       .not.toThrow();
-    expect(w.players.get(P0)!.raStrike, 'nothing was stored').toBeNull();
+    expect(w.players.get(P0)!.raStrikes, 'nothing was stored').toEqual([]);
     expect(fingerprint(w), 'the refusal must leave the whole world as it found it').toBe(before);
   });
 
@@ -248,10 +249,10 @@ describe('S188 P6 — the reducer: legal only for a mummies.l0 seat, in FIGHT, o
   it('⛔ NO-OP: a second cast in the SAME fight keeps the first aim, and says USED', () => {
     const w = raWorld();
     cast(w, AIM.x, AIM.y);
-    const first = w.players.get(P0)!.raStrike;
+    const first = [...w.players.get(P0)!.raStrikes];
     w.tick += 5;
     cast(w, 200, 900);
-    expect(w.players.get(P0)!.raStrike, 'the second call changed nothing').toBe(first);
+    expect(w.players.get(P0)!.raStrikes, 'the second call changed nothing').toEqual(first);
     expect(raCastRefusal(w, P0)).toBe('USED');
   });
 
@@ -278,7 +279,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     const own = victim(w, P0, 140, 900);
     const t0 = w.tick;
     cast(w, AIM.x, AIM.y);
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
 
     for (let k = 0; k < RA_COLUMN_COUNT; k++) {
       const impact = raColumnImpactTick(strike.untilTick, k);
@@ -310,7 +311,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     const d = deps();
     const s = makeHostTickState(w);
     cast(w, AIM.x, AIM.y);
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
     const spot = raStrikeColumnPos(P0, 0, strike);
     const enemy = pair(w, P1, spot.x, spot.y - 18);
     const own = pair(w, P0, spot.x, spot.y + 18);
@@ -337,7 +338,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
   it('⭐ an enemy connector too big to break in one column still BANKS the full 300', () => {
     const w = raWorld();
     cast(w, AIM.x, AIM.y);
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
     const spot = raStrikeColumnPos(P0, 0, strike);
     // A 16-connector enemy chain: pool 16 × 21 = 336 > 300, so one column banks rather than cuts.
     const prims: Primitive[] = [];
@@ -365,7 +366,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     const d = deps();
     const s = makeHostTickState(w);
     cast(w, AIM.x, AIM.y);
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
     tickTo(w, d, s, raColumnImpactTick(strike.untilTick, 1)); // two columns are down
     // End the fight for real, through the match clock.
     w.phaseEndsAtTick = w.tick + 1;
@@ -390,10 +391,10 @@ describe('S188 P6 — once per FIGHT, across two fights, through the real match 
     const s = makeHostTickState(w);
     const waveA = w.waveNumber;
     cast(w, AIM.x, AIM.y);
-    expect(w.players.get(P0)!.raStrike!.wave).toBe(waveA);
+    expect(w.players.get(P0)!.raStrikes[0]!.wave).toBe(waveA);
     tickTo(w, d, s, w.tick + 30);
     cast(w, 300, 300);
-    expect(w.players.get(P0)!.raStrike!.x, 'still fight N: the second call is refused').toBe(AIM.x);
+    expect(w.players.get(P0)!.raStrikes[0]!.x, 'still fight N: the second call is refused').toBe(AIM.x);
 
     w.phaseEndsAtTick = w.tick + 1;
     tickTo(w, d, s, w.tick + 2);
@@ -401,21 +402,21 @@ describe('S188 P6 — once per FIGHT, across two fights, through the real match 
     expect(w.waveNumber, 'the wave turns on entry into BUILD').toBe(waveA + 1);
     cast(w, 300, 300);
     expect(raCastRefusal(w, P0)).toBe('NOT_FIGHT');
-    expect(w.players.get(P0)!.raStrike!.wave, 'refused in BUILD').toBe(waveA);
+    expect(w.players.get(P0)!.raStrikes[0]!.wave, 'refused in BUILD').toBe(waveA);
 
     w.phaseEndsAtTick = w.tick + 1;
     tickTo(w, d, s, w.tick + 2);
     expect(w.matchPhase).toBe('FIGHT');
     expect(raCastRefusal(w, P0), 'a new fight, a new call').toBeNull();
     cast(w, 300, 300);
-    expect(w.players.get(P0)!.raStrike).toMatchObject({ wave: waveA + 1, x: 300, y: 300 });
+    expect(w.players.get(P0)!.raStrikes[0]).toMatchObject({ wave: waveA + 1, x: 300, y: 300 });
     expect(raCastRefusal(w, P0)).toBe('USED');
   });
 
   it('⭐ a REMATCH starts with no strike stored (applyStartGame)', () => {
     const w = raWorld();
     cast(w, AIM.x, AIM.y);
-    expect(w.players.get(P0)!.raStrike).not.toBeNull();
+    expect(w.players.get(P0)!.raStrikes).toHaveLength(1);
     w.gameState = 'TITLE';
     dispatch(w, {
       type: 'START_GAME', mode: '1v1', isHost: true,
@@ -424,7 +425,7 @@ describe('S188 P6 — once per FIGHT, across two fights, through the real match 
         { seat: 1, color: PLAYER_COLORS[1]!, raceId: 'orcs' },
       ],
     });
-    expect(w.players.get(P0)!.raStrike).toBeNull();
+    expect(w.players.get(P0)!.raStrikes).toEqual([]);
   });
 
   it('⛔ the carry FSM does not forget a cast (pickup / drop rebuild the player)', async () => {
@@ -433,8 +434,8 @@ describe('S188 P6 — once per FIGHT, across two fights, through the real match 
     cast(w, AIM.x, AIM.y);
     const p = w.players.get(P0)!;
     const carried = pickup(p, 77 as never);
-    expect(carried.raStrike).toEqual(p.raStrike);
-    expect(drop(carried).raStrike).toEqual(p.raStrike);
+    expect(carried.raStrikes).toEqual(p.raStrikes);
+    expect(drop(carried).raStrikes).toEqual(p.raStrikes);
   });
 });
 
@@ -454,7 +455,7 @@ describe('S188 P6 — the intent is on BOTH allowlists, and both policies decide
     const before = w.diagnostics.rejectReasons.actorBenched;
     cast(w, AIM.x, AIM.y);
     expect(w.diagnostics.rejectReasons.actorBenched).toBe(before + 1);
-    expect(w.players.get(P0)!.raStrike).toBeNull();
+    expect(w.players.get(P0)!.raStrikes).toEqual([]);
   });
 
   it('⛔ ELIMINATION: deny — and dispatch really refuses a fallen caster', () => {
@@ -464,33 +465,33 @@ describe('S188 P6 — the intent is on BOTH allowlists, and both policies decide
     const before = w.diagnostics.rejectReasons.actorEliminated;
     cast(w, AIM.x, AIM.y);
     expect(w.diagnostics.rejectReasons.actorEliminated).toBe(before + 1);
-    expect(w.players.get(P0)!.raStrike).toBeNull();
+    expect(w.players.get(P0)!.raStrikes).toEqual([]);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S188 P6 — Player.raStrike survives the save, the wire and the hash', () => {
+describe('S188 P6 — Player.raStrikes survives the save, the wire and the hash', () => {
   it('⭐ save → JSON → restore, and net snapshot → JSON → apply, both carry it exactly', () => {
     const w = raWorld();
     cast(w, AIM.x, AIM.y);
-    const want = w.players.get(P0)!.raStrike;
+    const want = w.players.get(P0)!.raStrikes;
 
     const saved = JSON.parse(JSON.stringify(snapshot(w)));
     const r = makeWorld(1);
     restore(saved, r);
-    expect(r.players.get(P0)!.raStrike).toEqual(want);
-    expect(r.players.get(P1)!.raStrike).toBeNull();
+    expect(r.players.get(P0)!.raStrikes).toEqual(want);
+    expect(r.players.get(P1)!.raStrikes).toEqual([]);
 
     const net = JSON.parse(JSON.stringify(netSnapshot(w)));
     const c = makeWorld(2);
     applyNetSnapshot(net, c);
-    expect(c.players.get(P0)!.raStrike).toEqual(want);
+    expect(c.players.get(P0)!.raStrikes).toEqual(want);
   });
 
   it('⭐ a seat that never cast costs no bytes — the key is absent, not null', () => {
     const w = raWorld();
     const players = snapshot(w).players as unknown as Record<string, unknown>[];
-    for (const p of players) expect('raStrike' in p).toBe(false);
+    for (const p of players) expect('raStrikes' in p).toBe(false);
   });
 
   it('⛔ a malformed strike from the wire rehydrates as "never cast", never as a strike', () => {
@@ -509,12 +510,12 @@ describe('S188 P6 — Player.raStrike survives the save, the wire and the hash',
     const w = raWorld();
     const none = hashWorldStateFull(w);
     const base: RaStrike = { wave: 1, x: 500, y: 400, untilTick: 1000 };
-    w.players.get(P0)!.raStrike = base;
+    w.players.get(P0)!.raStrikes = [base];
     const withStrike = hashWorldStateFull(w);
     expect(withStrike, 'null → a strike').not.toBe(none);
     for (const [k, v] of [['wave', 2], ['x', 501], ['y', 401], ['untilTick', 1001]] as const) {
-      w.players.get(P0)!.raStrike = { ...base, [k]: v };
-      expect(hashWorldStateFull(w), `raStrike.${k}`).not.toBe(withStrike);
+      w.players.get(P0)!.raStrikes = [{ ...base, [k]: v }];
+      expect(hashWorldStateFull(w), `raStrikes[0].${k}`).not.toBe(withStrike);
     }
   });
 
