@@ -306,22 +306,52 @@ describe('S188 P3 — REACH: pressing each button spends, levels, and changes th
     expect(w.players.get(P0)!.castleRegenLevel, 'no stat press bought regen').toBe(0);
   });
 
-  it('⭐ HP: the pool rises by the BAND gain, and the real host tick heals the keep up to it', () => {
-    const measure = (buyHp: boolean, wave: number): number => {
+  /*
+   * ⭐⭐ S188 P3 fix 2 — *"each a hundred victory points will upgrade the castle by … 250"*. The
+   * purchase ADDS the band gain to the keep's CURRENT HP as well as to its ceiling. This case read
+   * "the host tick heals the keep up to it" and bought REGEN first, because until the fix a purchase
+   * only moved the ceiling — so without regen it did nothing a player could see.
+   */
+  it('⭐ HP: one press adds the BAND gain to the keep NOW — no regen needed — and a host tick keeps it', () => {
+    const measure = (wave: number, startHp: number): { hp: number; max: number } => {
       const w = hostWorld(1000);
       w.waveNumber = wave;
-      const m = mountPanel(w);
-      press(m, w, 'castleRegen'); // regen is what can heal a keep above where it stands
-      if (buyHp) press(m, w, 'castleHp');
-      expect(w.players.get(P0)!.castleHp).toBe(CASTLE_MAX_HP);
+      w.players.get(P0)!.castleHp = startHp;
+      press(mountPanel(w), w, 'castleHp');
+      expect(w.players.get(P0)!.castleRegenLevel, 'no regen was bought').toBe(0);
       const d = hostDeps();
       const st = makeHostTickState(w);
-      for (let i = 0; i < 60 * 30; i++) runHostTick(w, d, st); // 30 s — well past the 10–14 s needed
-      return w.players.get(P0)!.castleHp;
+      for (let i = 0; i < 60 * 5; i++) runHostTick(w, d, st); // 5 s of BUILD: nothing hits, nothing heals
+      const p = w.players.get(P0)!;
+      return { hp: p.castleHp, max: castleMaxHpFor(p.castleUpgrades) };
     };
-    expect(measure(false, 1), 'no HP bought: the keep is already at its ceiling').toBe(CASTLE_MAX_HP);
-    expect(measure(true, 1), 'wave 1: +250, healed to exactly the new ceiling').toBe(CASTLE_MAX_HP + 250);
-    expect(measure(true, 6), 'wave 6: +350 — the band is read on the purchase wave').toBe(CASTLE_MAX_HP + 350);
+    expect(measure(1, CASTLE_MAX_HP), 'wave 1, full keep: 2750 / 2750').toEqual({
+      hp: CASTLE_MAX_HP + 250, max: CASTLE_MAX_HP + 250,
+    });
+    expect(measure(6, CASTLE_MAX_HP), 'wave 6: +350 — the band is read on the purchase wave').toEqual({
+      hp: CASTLE_MAX_HP + 350, max: CASTLE_MAX_HP + 350,
+    });
+    expect(measure(1, 1000), 'a DAMAGED keep gains the 250 too, and is not topped up to max').toEqual({
+      hp: 1250, max: CASTLE_MAX_HP + 250,
+    });
+  });
+
+  it('⚠ HP: ATK / DEF / PEN presses do NOT touch current HP — only HP buys HP', () => {
+    for (const key of ['castleAtk', 'castleDef', 'castlePen'] as const) {
+      const w = hostWorld(1000);
+      w.players.get(P0)!.castleHp = 1000;
+      press(mountPanel(w), w, key);
+      expect(w.players.get(P0)!.castleHp, key).toBe(1000);
+    }
+  });
+
+  it('⛔ HP: a fallen keep is NOT revived by the reducer, and pays nothing', () => {
+    const w = hostWorld(1000);
+    w.players.get(P0)!.castleHp = 0;
+    dispatch(w, { type: 'UPGRADE_CASTLE_STAT', playerId: P0, stat: 'hp' });
+    expect(w.players.get(P0)!.castleHp).toBe(0);
+    expect(upgrades(w).hpBonus).toBe(0);
+    expect(w.scoreByPlayer.get(P0)).toBe(1000);
   });
 
   it('⭐ ATK: the castle’s shot, measured on the victim through the real host tick, rises 40 → 48', () => {
