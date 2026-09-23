@@ -1504,6 +1504,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   CHOOSE_DRAFT: true,
   // ⭐ S187 — buy a castle stat (HP/ATK/DEF/PEN). A CLIENT INTENT, so likewise in both.
   UPGRADE_CASTLE_STAT: true,
+  // ⭐ S188 P6 — POWER OF RA: call Ra on an aimed point. A CLIENT INTENT, so it is in both records.
+  CAST_POWER_OF_RA: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1678,6 +1680,12 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ⭐ S187 — a joiner buys stats for its OWN keep. Affordability and the cap are host-decided, and
   // the WAVE is read host-side, so a client cannot buy a late-band upgrade early.
   UPGRADE_CASTLE_STAT: true,
+  // ⭐ S188 P6 — a joiner calls Ra for its OWN seat (the seat is host-stamped). The host re-resolves
+  // the perk, the phase and once-per-fight, and NORMALISES the aim (Council A1): the wire parser
+  // checks only `type`, so a NaN, a string or an off-board point arrives here and must no-op.
+  // ⛔ A row omitted HERE compiles clean, and the host would drop a joiner's cast SILENTLY while the
+  // host seat's own worked — the seat asymmetry this list keeps warning about.
+  CAST_POWER_OF_RA: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

@@ -40,7 +40,7 @@ import type { World } from '../worldTypes.ts';
 // ── s188/racial-b imports ─────────────────────────────────────────────────────────────────────────
 // (racial-b: replace this line with your imports)
 // ── s188/racial-c imports ─────────────────────────────────────────────────────────────────────────
-// (racial-c: replace this line with your imports)
+import { runPowerOfRa } from './powerOfRa.ts';
 // ── s188/racial-d imports ─────────────────────────────────────────────────────────────────────────
 // (racial-d: replace this line with your imports)
 // ── end imports ───────────────────────────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ export function runRacialPerksFight(world: World): void {
   // ── s188/racial-b ───────────────────────────────────────────────────────────────────────────────
   // (racial-b: replace this line with your call(s) — ENDLESS DYNASTY, if it needs a tick)
   // ── s188/racial-c ───────────────────────────────────────────────────────────────────────────────
-  // (racial-c: replace this line with your call(s) — POWER OF RA column resolution)
+  runPowerOfRa(world); // POWER OF RA (mummies.l0) — lands whichever aimed column is due this tick
   // ── s188/racial-d ───────────────────────────────────────────────────────────────────────────────
   // (racial-d: replace this line with your call(s) — CORPSE EATER)
   // ── end ─────────────────────────────────────────────────────────────────────────────────────────

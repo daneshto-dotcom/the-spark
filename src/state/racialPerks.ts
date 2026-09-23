@@ -96,7 +96,7 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'demons.l5': true, // HELLSPAWN — racial/hellspawn.ts
   'mummies.l5': true, // ENDLESS DYNASTY — racial/endlessDynasty.ts
   // ── s188/racial-c ─────────────────────────────────────────────────────────────────────────────
-  'mummies.l0': false,
+  'mummies.l0': true,
   // ── s188/racial-d ─────────────────────────────────────────────────────────────────────────────
   'zombies.l5': false,
   'nagas.l5': false,

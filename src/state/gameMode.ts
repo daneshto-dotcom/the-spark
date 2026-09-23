@@ -180,6 +180,11 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     player.benchedUntilTick = undefined;
     // S72 P3 — a fresh match starts with no carried potato (start-of-match invariant).
     player.carriedPotatoId = undefined;
+    // ⭐ S188 P6 — POWER OF RA is once per FIGHT of THIS match. `applyStartGame` does not rebuild
+    // existing seats, so without this a rematch would open with last match's strike still stored:
+    // waves restart at 1, so a strike cast on wave N last match would REFUSE the cast on wave N of
+    // this one, and it would hash and serialize a strike nobody cast this match.
+    player.raStrike = null;
     /*
      * ⛔ S161 CLOSE-OUT (lane 1) — **A REMATCH STARTS WITH A STANDING CASTLE.**
      *

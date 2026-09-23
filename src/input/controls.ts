@@ -75,6 +75,10 @@ import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
+// ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
+// rule that this layer must not import Pixi still holds.
+import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
+import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -96,6 +100,8 @@ export interface FooterBandLike {
    */
   isOverCollapseTab?(x: number, y: number): boolean;
   toggleCollapsed?(): boolean;
+  /** ⭐ S188 P6 — the POWER OF RA skill button. Optional for the same reason as the tab above. */
+  isOverRaButton?(x: number, y: number): boolean;
   isOverChip(x: number, y: number): boolean;
   /** S182 — `isOverChip` OR any opaque readout the band draws. See `isPointerOverFooterSurface`. */
   isOverBandSurface(x: number, y: number): boolean;
@@ -547,6 +553,14 @@ export class Controls {
       return true;
     }
 
+    // ⭐ S188 P6 — THE POWER OF RA BUTTON: press to aim, press again to put it away. Beside the tab
+    // in the collapsed state and beside the chips otherwise; neither overlaps anything, so the
+    // position in this chain is readability, not a tie-break.
+    if (this.footerBand.isOverRaButton?.(this.cursor.x, this.cursor.y) === true) {
+      this.toggleRaAim();
+      return true;
+    }
+
     // ⭐ S149 P5 — A TOWER CARD IS CHECKED FIRST. The open menu floats ABOVE the chips, so testing
     // chips first would let a card click fall through to the bar behind it and merely toggle the
     // menu shut — precisely the "it isnt clickable" the owner reported.
@@ -563,6 +577,7 @@ export class Controls {
       // chips did not. Accept and refuse now sound different here too.
       void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
       if (this.footerBand.cardEnabled(card)) {
+        setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
         this.castlePanel?.armExternal(card);
         this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
       } else {
@@ -590,6 +605,60 @@ export class Controls {
     const complexity = this.footerBand.chipAt(this.cursor.x, this.cursor.y);
     if (complexity === null) return false;
     this.footerBand.select(complexity);
+    return true;
+  }
+
+  /**
+   * ⭐⭐ S188 P6 (owner, `mummies.l0`) — **THE POWER OF RA GESTURE.**
+   *
+   * > *"you click on it and then you have to click on the area of the map where you want it to land"*
+   *
+   * Press the button → AIMING (the five circles follow the cursor, `bossAuras.ts`). The next board
+   * click CASTS there; RMB or Escape puts it away; pressing the button again puts it away. While
+   * aiming, the aim owns the next board click exactly as a held tower does, so nothing else under
+   * the cursor (a spark, a gatherer, a card) also acts.
+   *
+   * ⛔ EVERY DECISION HERE ASKS THE REDUCER'S OWN PREDICATES — `raCastRefusal` for "may I", and
+   * `raAimPoint` for "is that a place" — so the client can never send what the host would refuse
+   * for a reason the client could have seen. The host re-checks all of it regardless.
+   */
+  private toggleRaAim(): void {
+    if (raAimPreview() !== null) {
+      setRaAimPreview(null);
+      void playUiClickSFX();
+      return;
+    }
+    if (raCastRefusal(this.world, this.playerId) !== null) {
+      void playUiRefusedSFX(); // a refused control says so — the button's caption names why
+      return;
+    }
+    // One gesture in hand at a time: a held tower is put back, so the next click cannot stamp it.
+    if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    setRaAimPreview({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
+    void playUiClickSFX();
+  }
+
+  /** ⭐ S188 P6 — while aiming, the board click is the cast. Returns true when it consumed the click. */
+  private handleRaAimClick(button: number): boolean {
+    if (raAimPreview() === null) return false;
+    if (button === 2) {
+      setRaAimPreview(null);
+      return true;
+    }
+    if (button !== 0) return false;
+    // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
+    // held-tower rule for the same two surfaces.
+    if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
+    if (raCastRefusal(this.world, this.playerId) !== null) {
+      setRaAimPreview(null);
+      void playUiRefusedSFX();
+      return true;
+    }
+    const aim = raAimPoint(this.cursor.x, this.cursor.y);
+    if (aim === null) return true; // off the board: keep aiming
+    this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
+    setRaAimPreview(null);
+    void playUiClickSFX();
     return true;
   }
 
@@ -992,6 +1061,7 @@ export class Controls {
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
     if (e.button === 0 && this.handleFooterChipClick()) return;
+    if (this.handleRaAimClick(e.button)) return; // ⭐ S188 P6 — an aimed Ra owns the next board click
     /*
      * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
      * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
@@ -1292,6 +1362,9 @@ export class Controls {
       this.state = { ...this.state, cursor: { ...this.cursor } };
     }
     // S53 P2 — ConnectDrag branch removed (unreachable state post-S52 P1).
+    // ⭐ S188 P6 — the Ra aim follows the cursor.
+    const aiming = raAimPreview();
+    if (aiming !== null) setRaAimPreview({ seat: aiming.seat, x: this.cursor.x, y: this.cursor.y });
     this.updateHoverCursor();
   };
 
@@ -1337,7 +1410,8 @@ export class Controls {
     // change hue. So it looks like it's popping out."* Fed from the SAME predicate evaluated three
     // lines above, never a parallel hit test — see this function's own docblock.
     this.characterSheet?.setHover(this.cursor.x, this.cursor.y);
-    const want = overUi ? 'pointer' : '';
+    // ⭐ S188 P6 — a crosshair over the board while aiming Ra: the next click lands the strike.
+    const want = overUi ? 'pointer' : raAimPreview() !== null ? 'crosshair' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
     // a canvas that already moves the cursor every frame.
     if (this.lastCursorStyle !== want) {
@@ -1579,6 +1653,11 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
+    if (e.key === 'Escape' && raAimPreview() !== null) {
+      setRaAimPreview(null);
+      return;
+    }
     // S144 P3 — Escape puts a held tower down. Checked BEFORE the sudoku guard's sibling checks so
     // there is always a keyboard way out of a picked-up state, even if the pointer path is confused.
     if (e.key === 'Escape' && this.castlePanel?.armedBlueprint() != null) {
