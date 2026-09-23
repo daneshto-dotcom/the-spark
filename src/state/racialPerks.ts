@@ -124,7 +124,7 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'zombies.l5': true,
   'nagas.l5': true,
   // ── s188/swarm ────────────────────────────────────────────────────────────────────────────────
-  'vampires.l10': false,
+  'vampires.l10': true,
   // ── end ───────────────────────────────────────────────────────────────────────────────────────
 };
 

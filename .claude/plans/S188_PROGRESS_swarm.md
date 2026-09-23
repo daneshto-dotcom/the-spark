@@ -7,7 +7,7 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
 | 0 · read PDR §0–§8 + BRIEF P7, canon §2/§3d, ART_PIPELINE, bat-swarm FINDINGS + TILE §2 | ✅ done |
 | 1 · registry: `vampires.l10` in `racialPerks.ts` (+ generic `perkDraftIndex`) | ✅ wip commit 1 (BUILT still false) |
 | 2 · mechanic: `t3BatSwarm` (bat ×6), promotion in `towerUnitForSeat`, every consumer | ✅ wip commit 1 — typecheck exit 0 |
-| 3 · tests (`racial/theSwarm.test.ts`) + flip `RACIAL_PERK_BUILT['vampires.l10']` | ⏳ |
+| 3 · tests (`racial/theSwarm.test.ts`) + flip `RACIAL_PERK_BUILT['vampires.l10']` | ✅ flipped; racial/ + racialPerks + draft* = 115/115 green. Mutations M1 (old `perkDraftIndex`) → 8 extra red; M2 (swarm arm without the perk guard) → 6 red; both restored. Art-existence tests land with the atlas commit. |
 | 4 · art: swarm atlas (fly / attack / die) + renderer fallback to the bat | ⏳ |
 | 5 · card `public/art/upgrade-cards/l10-vampires.webp` (502×484, q82, cover top-anchored) | ⏳ |
 | 6 · gates: typecheck · vitest · build · check:atlas | ⏳ |
