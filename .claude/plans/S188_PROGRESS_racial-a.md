@@ -9,8 +9,8 @@ mechanic's tests pass.
 | CRIMSON TIDE (lifesteal 50 %) | vampires.l5 | ✅ DONE (BUILT flipped) — replaces 20, pinned | same |
 | BLOOD FRENZY | orcs.l0 | ✅ DONE (BUILT flipped) — 16 tests; found + fixed the S168 enraged-never-fires defect (`ragedFireTick`) | `state/racial/bloodFrenzy.ts` (new), `racialTick.ts` slot |
 | THE HORDE GROWS | orcs.l5 | ✅ DONE (BUILT flipped) — 12 tests, REACH via FEED_TOWER dispatch + runHostTick castle, both wirings mutation-tested | `state/racial/hordeGrows.ts` (new), `creatureLifecycle.ts underGoblinCaps`, `raceUnitEmit.ts` cadence |
-| SCORCHED GROUND | demons.l0 | NEXT | `state/racial/scorchedGround.ts` (new), `racialTick.ts` slot, `damage.callSites.test.ts` (+1 null site), zone ember tint (render) |
-| DEEP CURRENT | nagas.l0 | not started | `state/racial/deepCurrent.ts` (new), `gathererLifecycle.ts` HAULING, vortex (render) |
+| SCORCHED GROUND | demons.l0 | ✅ DONE (BUILT flipped) — 13 tests; zone + ownership guards mutation-tested; ember tint on the zone backdrop sprite | `state/racial/scorchedGround.ts` (new), `racialTick.ts` slot, `damage.callSites.test.ts` (+1 null site), zone ember tint (render) |
+| DEEP CURRENT | nagas.l0 | NEXT | `state/racial/deepCurrent.ts` (new), `gathererLifecycle.ts` HAULING, vortex (render) |
 
 ## Decisions recorded so far (MINE unless quoted)
 
@@ -30,6 +30,8 @@ mechanic's tests pass.
   (`creature.ts`), read at `hostTick.ts` fire check + `creatureLifecycle.ts` targetGoneEarly.
   Mutation-tested (restoring the old fire check turns bloodFrenzy.test.ts red). Sim-rule change →
   rides the S188 49→50 bump; merge owner should add it to the protocol docblock.
+
+- `damage.callSites.test.ts` re-pinned 14/8/6 → 15/8/7 (+1 null site: `racial/scorchedGround.ts`).
 
 ## Known broken
 

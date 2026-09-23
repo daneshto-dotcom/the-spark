@@ -37,6 +37,7 @@ import type { World } from '../worldTypes.ts';
 
 // ── s188/racial-a imports ─────────────────────────────────────────────────────────────────────────
 import { runBloodFrenzy } from './bloodFrenzy.ts';
+import { runScorchedGround } from './scorchedGround.ts';
 // ── s188/racial-b imports ─────────────────────────────────────────────────────────────────────────
 // (racial-b: replace this line with your imports)
 // ── s188/racial-c imports ─────────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ import { runBloodFrenzy } from './bloodFrenzy.ts';
 export function runRacialPerksFight(world: World): void {
   // ── s188/racial-a ───────────────────────────────────────────────────────────────────────────────
   runBloodFrenzy(world); // orcs.l0 — after `runWarlordRage` in this tick, so the latch has spoken
+  runScorchedGround(world); // demons.l0 — 1 fifth per victim on its own cadence, inside the deferral
   // ── s188/racial-b ───────────────────────────────────────────────────────────────────────────────
   // (racial-b: replace this line with your call(s) — ENDLESS DYNASTY, if it needs a tick)
   // ── s188/racial-c ───────────────────────────────────────────────────────────────────────────────
