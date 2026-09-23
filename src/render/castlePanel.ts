@@ -63,6 +63,18 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { ZoneLayout } from '../state/zones.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import type { World } from '../state/world.ts';
+// ⭐ S188 P3 — the keep's own four stats. The SAME functions the reducer decides with (cap, price,
+// level) and the SAME preview the S187 module wrote for this HUD, so a row cannot promise a
+// purchase `applyUpgradeCastleStat` refuses, or print a gain it does not bake.
+import {
+  CASTLE_UPGRADE_MAX_LEVEL,
+  CASTLE_UPGRADE_PRICE,
+  canBuyCastleStat,
+  castleLevelOf,
+  castleUpgradePreview,
+  type CastleStat,
+} from '../state/castleUpgrades.ts';
+import type { PlayerId } from '../types.ts';
 
 /**
  * Panel box. Sized to the widest label at fontSize 17 plus padding.
@@ -80,6 +92,17 @@ export const ROW_INNER_W = PANEL_W - PANEL_PAD * 2;
 /** Monospace advance at ROW_FONT_SIZE — the ratio Pixi's default monospace renders at. */
 export const ROW_FONT_ADVANCE = 10.2;
 const ROW_H = 44;
+/**
+ * ⭐ S188 P3 — a row's optional second line (`PanelControl.detail`). ⚠ MINE, not the owner's: sized
+ * so a 17px label and an 11px detail both sit inside the SAME 44px row, so adding a detail never
+ * changes a row's height — and so never moves `rowsTop`, `panelHeight` or `getUiPoints`.
+ */
+export const ROW_DETAIL_FONT_SIZE = 11;
+/** Monospace advance at `ROW_DETAIL_FONT_SIZE`, the same 0.6 ratio as `ROW_FONT_ADVANCE`. */
+export const ROW_DETAIL_FONT_ADVANCE = 6.6;
+/** Where the label's centre moves to when the row carries a detail line, and where the detail sits. */
+const ROW_LABEL_Y_WITH_DETAIL = 15;
+const ROW_DETAIL_Y = 33;
 const ROW_GAP = 8;
 const TITLE_H = 26;
 /**
@@ -576,6 +599,12 @@ export interface PanelControl {
   readonly label: string;
   readonly enabled: boolean;
   readonly reason: string;
+  /**
+   * ⭐ S188 P3 — an optional SECOND line, drawn small under `label`. Absent on the three original
+   * rows, which therefore draw exactly as before. The castle-stat rows put "what the next point
+   * buys" here, because level + price + gain on one 17px line is 25 characters and the row fits 24.
+   */
+  readonly detail?: string;
   readonly onActivate: () => void;
 }
 
@@ -600,10 +629,49 @@ export interface PanelControl {
  * control, so REGEN at exactly 100 was the one purchase available - and it was the missing row.
  *
  * Every consumer now counts from here, so a fourth row is one entry and cannot half-land.
+ *
+ * ⭐⭐ S188 P3 (owner) — AND IT DID NOT HALF-LAND: FOUR ROWS JOINED IT. *"For now on, we just have
+ * regen and I'm pretty sure we have already spec'd out the upgrade for the castle health. So wire
+ * that in and implement it."* S187 built HP / ATK / DEF / PEN in the SIM (`castleUpgrades.ts`,
+ * intent `UPGRADE_CASTLE_STAT`) and nothing dispatched it — his *"we just have regen"* was exactly
+ * right. They are rows of THIS list, drawn by the same loop, hit-tested by the same Graphics child
+ * and reported by the same `getUiPoints`, which is what the S165 note above says a new row costs.
  */
-export const CASTLE_ROW_KEYS = ['buyGatherer', 'upgradeSpeed', 'castleRegen'] as const;
+export const CASTLE_ROW_KEYS = [
+  'buyGatherer', 'upgradeSpeed', 'castleRegen',
+  'castleHp', 'castleAtk', 'castleDef', 'castlePen',
+] as const;
 
-export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onActivate'>> {
+/** One control row's key. The union `activate` switches over exhaustively. */
+export type CastleRowKey = (typeof CASTLE_ROW_KEYS)[number];
+
+/**
+ * ⭐ S188 P3 — which row buys which stat, and the word it is printed under. HIS order: *"castle HP …
+ * attack as well, and for defense and for penetration"*.
+ */
+export const CASTLE_STAT_ROWS: ReadonlyArray<{
+  readonly key: CastleRowKey;
+  readonly stat: CastleStat;
+  readonly word: string;
+}> = [
+  { key: 'castleHp', stat: 'hp', word: 'HP' },
+  { key: 'castleAtk', stat: 'atk', word: 'ATK' },
+  { key: 'castleDef', stat: 'def', word: 'DEF' },
+  { key: 'castlePen', stat: 'pen', word: 'PEN' },
+];
+
+/**
+ * PURE — the castle controls. `viewedSeat` is the seat whose keep the panel is open on; it defaults
+ * to the local seat, which is the only keep `controls.ts` will open it on (`handleCastleClick`).
+ *
+ * ⚠ S188 P3 — the parameter exists so "not your castle" is a REASON the model states rather than an
+ * assumption the click path happens to hold. Every row here spends the LOCAL seat's points on the
+ * LOCAL seat's keep, so a panel open on any other seat must not offer a castle-stat purchase at all.
+ */
+export function castleControlsModel(
+  world: World,
+  viewedSeat: PlayerId = world.localPlayerId,
+): Array<Omit<PanelControl, 'onActivate'>> {
   const score = Math.floor(world.scoreByPlayer.get(world.localPlayerId) ?? 0);
   const me = world.players.get(world.localPlayerId);
   // ⚠ HONOUR THE SAME INPUT LOCKS THE CANVAS PATH DOES (carried over verbatim from the footer these
@@ -655,6 +723,60 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
           ? `NEED ${CASTLE_REGEN_UPGRADE_PRICE}`
           : '';
 
+  /*
+   * ⭐⭐ S188 P3 — THE FOUR CASTLE-STAT ROWS. The regen row above is the template, line for line:
+   * one price, the blocker printed IN PLACE of the price, no phase gate (the reducer has none — it is
+   * `UPGRADE_CASTLE_REGEN`'s posture), and every refusal names itself.
+   *
+   * The blockers, in the reducer's own guard order (`applyUpgradeCastleStat`):
+   *   · NOT YOURS   — the panel is open on a keep that is not the local seat's, or the local seat has
+   *                   no player (a mirror before its roster lands). The purchase would be the local
+   *                   seat's, so offering it over someone else's keep would be a lie.
+   *   · LOCKED      — a NONET trial or a bench, the SAME `locked` the three rows above honour (the
+   *                   bench gate also denies the intent host-side: `benchGate.ts`).
+   *   · CASTLE LOST — R131, a fallen keep buys nothing (reducer + `elimination.ts` deny it too).
+   *   · MAX         — `canBuyCastleStat`, the reducer's own cap predicate, not a second comparison.
+   *   · NEED 100    — `CASTLE_UPGRADE_PRICE`, against the same floored score the rows above use.
+   *
+   * ⚠ THE LEVEL IS PRINTED IN EVERY STATE, not only when enabled (the regen row drops it when
+   * disabled). His cap is *"a maximum of ten upgrade points"*, so `3/10` is the one place a player
+   * can read how far along an axis he is — and it matters MOST on the MAX and NEED rows.
+   *
+   * ⭐ THE SECOND LINE IS WHAT THE NEXT POINT BUYS — `castleUpgradePreview`, S187's own HUD string:
+   * `+250 HP` for HP (the CURRENT wave's band, the same `world.waveNumber` the reducer bakes from),
+   * `+8 DAMAGE` / `+5 DAMAGE` for ATK / PEN on the ladder, `-17% TAKEN` for DEF. Shown while you can
+   * buy it AND while you are saving for it (NEED), because "what am I saving for" is the question a
+   * short row raises. Hidden on MAX (the preview itself says MAX) and on the three rows where no
+   * amount of points would buy it.
+   */
+  const notMine = me === undefined || viewedSeat !== world.localPlayerId;
+  const needStat = `NEED ${CASTLE_UPGRADE_PRICE}`;
+  const statRows = CASTLE_STAT_ROWS.map(({ key, stat, word }) => {
+    const reason = notMine
+      ? 'NOT YOURS'
+      : locked
+        ? 'LOCKED'
+        : me.castleHp <= 0
+          ? 'CASTLE LOST'
+          : !canBuyCastleStat(me.castleUpgrades, stat)
+            ? 'MAX'
+            : score < CASTLE_UPGRADE_PRICE
+              ? needStat
+              : '';
+    const lvl = me === undefined ? 0 : castleLevelOf(me.castleUpgrades, stat);
+    const head = `${word} ${lvl}/${CASTLE_UPGRADE_MAX_LEVEL}`;
+    const showNext = me !== undefined && (reason === '' || reason === needStat);
+    return {
+      key,
+      label: reason === '' ? `${head}  ${CASTLE_UPGRADE_PRICE}` : `${head}  ${reason}`,
+      detail: showNext
+        ? `NEXT ${castleUpgradePreview(me.castleUpgrades, stat, world.waveNumber)}`
+        : '',
+      enabled: reason === '',
+      reason,
+    };
+  });
+
   return [
     {
       key: 'buyGatherer',
@@ -682,6 +804,7 @@ export function castleControlsModel(world: World): Array<Omit<PanelControl, 'onA
       enabled: regenReason === '',
       reason: regenReason,
     },
+    ...statRows,
   ];
 }
 
@@ -799,7 +922,9 @@ export class CastlePanel {
   private readonly container: Container;
   private readonly plate: Graphics;
   private readonly titleText: Text;
-  private readonly rows: Array<{ box: Container; bg: Graphics; label: Text; hover: boolean }> = [];
+  private readonly rows: Array<{
+    box: Container; bg: Graphics; label: Text; detail: Text; hover: boolean;
+  }> = [];
   /**
    * S146 P2 — INVENTORY swatches: exactly ONE PER `SparkType`, showing that type's count.
    * `filled` latches per frame so a click on a type you hold none of no-ops.
@@ -855,6 +980,8 @@ export class CastlePanel {
   private onBuyGatherer: (() => void) | null = null;
   private onUpgradeSpeed: (() => void) | null = null;
   private onCastleRegen: (() => void) | null = null;
+  /** S188 P3 — the four castle-stat rows' one dispatch, injected by main.ts. */
+  private onCastleStat: ((stat: CastleStat) => void) | null = null;
   /** S181 — when set, the panel docks flush beneath the character card instead of beside the keep. */
   private dock: { x: number; y: number; w: number; h: number } | null = null;
   /** Latched per frame from `castleControlsModel`, so a pointertap cannot fire a disabled row. */
@@ -888,9 +1015,18 @@ export class CastlePanel {
       });
       label.anchor.set(0.5);
       label.position.set((PANEL_W - PANEL_PAD * 2) / 2, ROW_H / 2);
+      // ⭐ S188 P3 — the optional second line (`PanelControl.detail`). Built for every row so the
+      // loop stays one shape; a row with no detail leaves it empty and its label centred.
+      const detail = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: ROW_DETAIL_FONT_SIZE, fill: 0x9fc4e8 }),
+      });
+      detail.anchor.set(0.5);
+      detail.position.set((PANEL_W - PANEL_PAD * 2) / 2, ROW_DETAIL_Y);
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
+      box.addChild(detail);
       box.position.set(PANEL_PAD, rowsTop() + i * (ROW_H + ROW_GAP));
       box.eventMode = 'static';
       box.cursor = 'pointer';
@@ -899,7 +1035,7 @@ export class CastlePanel {
       box.on('pointerover', () => { this.rows[idx].hover = true; });
       box.on('pointerout', () => { this.rows[idx].hover = false; });
       this.container.addChild(box);
-      this.rows.push({ box, bg, label, hover: false });
+      this.rows.push({ box, bg, label, detail, hover: false });
     }
 
     // S146 P2 — THE INVENTORY STRIP. One box PER SHAPE TYPE (six, always), each showing that
@@ -1013,6 +1149,16 @@ export class CastlePanel {
   /** main.ts injects the UPGRADE_GATHERER_SPEED dispatch for the local seat. */
   setUpgradeSpeedHandler(fn: () => void): void {
     this.onUpgradeSpeed = fn;
+  }
+
+  /**
+   * ⭐ S188 P3 — main.ts injects the UPGRADE_CASTLE_STAT dispatch for the local seat. ONE handler for
+   * the four rows, parameterised by the stat, because they are one intent with a `stat` field — four
+   * setters would be four chances for one of them to be left unwired, which is how S164's regen row
+   * shipped invisible.
+   */
+  setCastleStatHandler(fn: (stat: CastleStat) => void): void {
+    this.onCastleStat = fn;
   }
 
   /**
@@ -1138,11 +1284,43 @@ export class CastlePanel {
 
   private activate(idx: number): void {
     if (this.enabled[idx] !== true) return;
-    // S164 P1 — a third row; an index chain is fine at three, but the NEXT one should become a map.
-    const fn = idx === 0 ? this.onBuyGatherer : idx === 1 ? this.onUpgradeSpeed : this.onCastleRegen;
+    /*
+     * ⭐ S188 P3 — THE INDEX CHAIN BECAME A KEY SWITCH, as S164's note here asked ("an index chain is
+     * fine at three, but the NEXT one should become a map"). The chain was `idx === 0 ? … : idx === 1
+     * ? … : regen`, so a fourth row would have fallen into its last arm and silently bought REGEN.
+     * An exhaustive switch over `CastleRowKey` makes a new key a `tsc` error until it is handled.
+     */
+    const key = CASTLE_ROW_KEYS[idx];
+    if (key === undefined) return;
+    const fn = this.handlerFor(key);
     if (fn === null) return;
     this.spendArmed = true;
     fn();
+  }
+
+  /** The injected dispatch for one row, or null while main.ts has not injected it yet. */
+  private handlerFor(key: CastleRowKey): (() => void) | null {
+    switch (key) {
+      case 'buyGatherer':
+        return this.onBuyGatherer;
+      case 'upgradeSpeed':
+        return this.onUpgradeSpeed;
+      case 'castleRegen':
+        return this.onCastleRegen;
+      case 'castleHp':
+      case 'castleAtk':
+      case 'castleDef':
+      case 'castlePen': {
+        const onStat = this.onCastleStat;
+        const row = CASTLE_STAT_ROWS.find((r) => r.key === key);
+        if (onStat === null || row === undefined) return null;
+        return () => onStat(row.stat);
+      }
+      default: {
+        const unreachable: never = key;
+        return unreachable;
+      }
+    }
   }
 
   /**
@@ -1340,7 +1518,8 @@ export class CastlePanel {
     this.container.visible = this.selected !== null;
     if (this.selected === null) return;
 
-    const model = castleControlsModel(world);
+    // ⭐ S188 P3 — the seat the panel is OPEN ON, so "not your castle" is decided by the model.
+    const model = castleControlsModel(world, this.selected as unknown as PlayerId);
     this.enabled = model.map((m) => m.enabled);
     this.reasons = model.map((m) => m.reason);
 
@@ -1493,6 +1672,12 @@ export class CastlePanel {
       // again here, which is what made the disabled row overflow its box.
       row.label.text = m.label;
       row.label.style.fill = on ? 0xffffff : 0x6b7a88;
+      // ⭐ S188 P3 — a row with a detail line lifts its label to make room; one without it draws
+      // exactly where every row drew before this change.
+      const detail = m.detail ?? '';
+      row.label.position.y = detail === '' ? ROW_H / 2 : ROW_LABEL_Y_WITH_DETAIL;
+      row.detail.text = detail;
+      row.detail.style.fill = on ? 0x9fc4e8 : 0x6b7a88;
       row.box.cursor = on ? 'pointer' : 'default';
     }
   }

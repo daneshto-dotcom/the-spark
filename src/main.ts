@@ -979,6 +979,12 @@ async function bootstrap(): Promise<void> {
   castlePanel.setCastleRegenHandler(() => {
     dispatchFn({ type: 'UPGRADE_CASTLE_REGEN', playerId: world.localPlayerId });
   });
+  // ⭐ S188 P3 — buy a castle stat (HP / ATK / DEF / PEN, S187's `castleUpgrades.ts`). The regen
+  // dispatch directly above is the template, for the same three-path reason; ⛔ and likewise NOT in
+  // `PREDICTABLE_ACTIONS` — an optimistic HP purchase would move the bar's max, then snap back.
+  castlePanel.setCastleStatHandler((stat) => {
+    dispatchFn({ type: 'UPGRADE_CASTLE_STAT', playerId: world.localPlayerId, stat });
+  });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
   castlePanel.setPullHandler((sparkType) => {

@@ -47,9 +47,10 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_ATK,
   CASTLE_ATTACK_RANGE,
   CASTLE_FIRE_INTERVAL_TICKS,
-  CASTLE_MAX_HP,
+  CASTLE_PEN,
   PHYSICS_HZ,
   RACE_TOWER_EMIT_INTERVAL_TICKS,
   ALL_SPARK_TYPES,
@@ -62,7 +63,9 @@ import {
   ZOMBIE_AURA_PER_MILLE,
 } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
-import { castleShotFifths } from '../state/castleGuns.ts';
+// ⭐ S188 P3 — the PURCHASED numbers, through the functions the sim reads (the base
+// `castleShotFifths()` stays in castleGuns.ts; the card no longer prints it).
+import { castleMaxHpFor, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -1364,8 +1367,40 @@ function castleSheet(
   if (p === undefined) return null;
   const mine = target.seat === seat;
   const anchor = castleAnchor(target.seat as unknown as number, world.layout);
+  /*
+   * ⭐⭐ S188 P3 — THE CARD READS THE KEEP'S PURCHASED STATS, not the constants it was built from.
+   *
+   * ⛔ WHAT IT SAID BEFORE WAS FALSE THE MOMENT A PURCHASE LANDED. The first row was
+   * `castleShotFifths()` — the UN-upgraded 40 — and the bar's max was the flat `CASTLE_MAX_HP`, so a
+   * keep that bought ATK kept printing 40 while its gun (`castleGunsTick` reads
+   * `castleShotFifthsFor`) hit for 48, and a keep that bought HP read `2500 / 2500` over a ceiling
+   * of 2750. Every number here now comes from the SAME function the sim reads for it.
+   *
+   * ⭐ ATK / PEN / DEF IN THE UNIT CARD'S SHAPE (`statRowsFor`): offence before defence, and the shot
+   * sits on the ATK row it is derived FROM — his own correction, *"the 150 a swing is right where the
+   * attack row is"*. That is why SHOT is no longer its own row: it is this row's derived number.
+   *
+   * ⚠ NO `HP` ROW, deliberately. The castle's pool is off the ladder (canon §2), so an HP row would
+   * print 2750 against the radar's unit-scale HP axis and pin it to the rim forever. The pool is the
+   * health bar's `max`, which the card already prints as `cur / max`.
+   *
+   * ⚠ DEF's derived text is `castleUpgradePreview` of the PREVIOUS level — i.e. literally the string
+   * the panel's DEF button showed as "NEXT" before this point was bought — so the button's promise
+   * and the card's readout cannot disagree by a rounding rule written twice.
+   */
+  const u = p.castleUpgrades;
   const stats: SheetStatRow[] = [
-    { label: 'SHOT', points: castleShotFifths(), derived: 'a shot' },
+    { label: 'ATK', points: CASTLE_ATK + u.atkLevel, derived: `${castleShotFifthsFor(u)} a shot` },
+    { label: 'PEN', points: CASTLE_PEN + u.penLevel, derived: null },
+    {
+      label: 'DEF',
+      points: u.defLevel,
+      derived:
+        u.defLevel === 0
+          ? null
+          : castleUpgradePreview({ ...u, defLevel: u.defLevel - 1 }, 'def', world.waveNumber)
+              .toLowerCase(),
+    },
     { label: 'RANGE', points: CASTLE_ATTACK_RANGE, derived: 'px' },
     { label: 'RELOAD', points: Math.round(CASTLE_FIRE_INTERVAL_TICKS / PHYSICS_HZ), derived: 'seconds' },
     { label: 'REGEN', points: p.castleRegenLevel, derived: p.castleRegenLevel === 0 ? 'not bought' : 'level' },
@@ -1377,7 +1412,8 @@ function castleSheet(
     portrait: { kind: 'castleFrame', race: p.raceId ?? null },
     health: {
       cur: Math.max(0, p.castleHp),
-      max: CASTLE_MAX_HP,
+      // ⭐ S188 P3 — THIS seat's ceiling (`castleRegenTick` heals to the same number).
+      max: castleMaxHpFor(u),
       frozen: isConcealed(anchor.x, anchor.y, target.seat),
     },
     stats,

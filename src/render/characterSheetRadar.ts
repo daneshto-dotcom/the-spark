@@ -256,16 +256,16 @@ export function flatten(points: readonly RadarPoint[]): number[] {
  *     fed from a second source it could drift from the printed rows — a chart that contradicts the
  *     column six pixels to its left is worse than no chart, and nothing in the suite would catch it.
  *
- * ⚠ RETURNS `null` RATHER THAN A PARTIAL CHART. A card without all four rows — the CASTLE prints
- * SHOT / RANGE / RELOAD / REGEN, a structure prints CONNECTORS / SHAPES — gets no radar at all.
- * Drawing three of four axes would silently claim the fourth is zero.
+ * ⚠ RETURNS `null` BELOW `RADAR_MIN_AXES`, RATHER THAN A DEGENERATE CHART. Only rows with an entry
+ * in `AXIS_SPECS` become axes; a card with fewer than three of them gets no radar at all.
  *
- * ⛔ **AND THE CASTLE IS EXCLUDED FOR A REASON WORTH KEEPING WRITTEN DOWN.** The owner asked for one
- * there too, pointing at the dead space on its card. But three of its four numbers are FLAT
- * CONSTANTS with no upgrade path anywhere in the tree — `castleShotFifths()`, `CASTLE_ATTACK_RANGE`
- * and `CASTLE_FIRE_INTERVAL_TICKS` — so its radar would draw the identical shape in every match of
- * every game, with only REGEN moving. That is decoration, not information, and it was put to him
- * rather than built.
+ * ⛔⛔ S188 — **THE CASTLE HAS A RADAR, AND THIS DOCBLOCK SAID IT DID NOT.** It read *"the castle is
+ * excluded"* — the pre-S185 argument that its numbers were flat constants, so its chart would never
+ * move. The owner overruled that in S185 (see `AXIS_SPECS` above: *"The castle gets a radar"*), and
+ * from then on the castle card's SHOT / RANGE / RELOAD rows drew a three-axis chart. Since S188 P3
+ * the keep's ATK / PEN / DEF are PURCHASABLE and its card prints ATK · PEN · DEF · RANGE · RELOAD
+ * (REGEN has no axis), so it draws a FIVE-axis chart that moves with every purchase — exactly the
+ * *"when we do building upgrades … it will be dynamic"* he asked for.
  */
 export function radarAxesFromRows(
   rows: readonly { readonly label: string; readonly points: number }[],

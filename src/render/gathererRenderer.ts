@@ -29,9 +29,10 @@ import {
   PLAYER_COLORS,
   RAINBOW_FLYOVER_DURATION_TICKS,
   SparkType,
-  CASTLE_MAX_HP,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
+import { castleMaxHpFor } from '../state/castleUpgrades.ts';
+import type { Player } from '../game/player.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { ticksSinceCastleShot } from '../state/castleGuns.ts';
 import { findNearestEnemyCreatureFrom } from '../state/creatures/creatureAI.ts';
@@ -99,6 +100,20 @@ export function castleBarTopY(anchorY: number, hasSprite: boolean): number {
     ? anchorY + KEEP_H / 2 - CASTLE_SPRITE_PX // foot at the box's foot, rising CASTLE_SPRITE_PX
     : anchorY - KEEP_H / 2; //                   no art loaded: the box IS the building
   return artTopY - BAR_LIFT;
+}
+
+/**
+ * ⭐ S188 P3 — how full a keep is, 0..1 (negative on over-damage, as before), against **THIS seat's**
+ * ceiling. It drives BOTH the keep's HP bar (`drawKeep`) and its damage art (`castleStateForHp`).
+ *
+ * ⛔ IT DIVIDED BY THE FLAT `CASTLE_MAX_HP`. Once a keep can buy HP (S187), a 2750 keep read as
+ * 110 % — a full-width bar and intact art while it was 250 short — and a keep at 2600 / 2750 showed
+ * no damage at all. `castleMaxHpFor` is the same ceiling `castleRegenTick` heals to and the card prints.
+ *
+ * Pure and exported so the arithmetic is testable without a Pixi stage.
+ */
+export function keepHpFraction(player: Pick<Player, 'castleHp' | 'castleUpgrades'>): number {
+  return player.castleHp / castleMaxHpFor(player.castleUpgrades);
 }
 const GATHERER_RADIUS = 11;
 // S136 P0 — KEEP_W / KEEP_H were promoted to constants.ts so the click target (isPointInKeep) and
@@ -363,7 +378,7 @@ export class GathererRenderer {
       // S154 AMENDMENT C — pass the castle's health so the keep can show its damage.
       // ⭐ S161 W1-B — and the RACE, so it can show whose castle it is.
       const seatN = seat as unknown as number;
-      const hpFrac = player.castleHp / CASTLE_MAX_HP;
+      const hpFrac = keepHpFraction(player); // ⭐ S188 P3 — this seat's upgraded ceiling
       liveSeats.add(seatN);
       const hasSprite = this.syncCastleSprite(
         seatN,
@@ -525,7 +540,8 @@ export class GathererRenderer {
      *
      * The HP itself is simulation state and the win gate reads it, but a castle that can be destroyed
      * and shows no sign of it is an invisible feature — which is the failure mode this whole session
-     * has been fixing. So the keep carries a bar: full width at CASTLE_MAX_HP, shrinking as it takes
+     * has been fixing. So the keep carries a bar: full width at the seat's own ceiling (S188:
+     * `keepHpFraction`, i.e. CASTLE_MAX_HP plus any bought HP), shrinking as it takes
      * damage, and it only appears ONCE DAMAGED so an untouched board looks exactly as it did.
      *
      * ⚠ RENDER-ONLY and derived from `player.castleHp`, which already rides the wire — no new field,
