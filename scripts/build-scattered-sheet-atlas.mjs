@@ -187,7 +187,9 @@ if spec['align'] == 'centroid':
 else:
     cw = int(spec['cellW'])
     foot = float(spec['footAnchorY'])
-    anchor_y = foot * chh - 1                  # the ground line lands on the anchor row
+    # The ground line lands on the anchor row — or on groundRowPx when the sheet this one must MATCH
+    # stands its feet above its own anchor (measured, e.g. the shipped zombie idle: row 312 of 320).
+    anchor_y = float(spec.get('groundRowPx', foot * chh - 1))
     if anchor_y - up * scale < 0 or max(left, right) * scale > cw / 2:
         raise SystemExit(f"[scattered] a frame overflows the {cw}x{chh} cell at scale {scale:.3f}")
 cols_out = max(len(st['frames']) for st in spec['states'])
