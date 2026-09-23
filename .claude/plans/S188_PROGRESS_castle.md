@@ -17,12 +17,14 @@ Branch `s188/castle`, worktree `.claude/worktrees/s188-castle`. **STATUS: DONE �
 - Live client (vite :29866, solo): panel drawn, real click on HP spent 100 → 0, hpLevel 1, hpBonus 250.
 - Canon text: `.claude/plans/S188_CANON_NOTES_castle.md`.
 
-## KNOWN-BROKEN / SUSPICIOUS (outside scope — report, do not fix)
-- `state/save.ts:2107` emits `castleHp` only when `< CASTLE_MAX_HP` and rehydrates absent as
-  `CASTLE_MAX_HP`; with bought HP + regen a keep sits above 2500, so a joiner reads 2500.
-- An HP purchase raises only the CEILING (`hpBonus`); `castleHp` is not topped up, so without regen
-  the purchase changes nothing but the bar's max.
-- `render/gathererRenderer.ts:366` keep bar (+ castle art state) divide by `CASTLE_MAX_HP`.
-- `render/damageNumbers.ts:282` credits the castle with the BASE shot, not the upgraded one.
-- `render/characterSheetRadar.ts:263` docblock says the castle gets no radar; it has drawn one since
-  S185 (SHOT/RANGE/RELOAD) and now draws five axes (ATK/PEN/DEF/RANGE/RELOAD).
+## FIX ROUND (merge owner sent back items 1–5) — ALL DONE
+- 1e2a8a1 save.ts emit + rehydrate against `castleMaxHpFor` (was the wire bug) — mutation-tested.
+- 3538965 an HP purchase adds its band gain to current HP too.
+- 3b580c1 keep bar + damage art divide by the seat's upgraded max (`keepHpFraction`).
+- 0813feb kill floater prints the upgraded shot.
+- c062ea3 radar docblock corrected (comment only).
+- Gates after the round: typecheck 0 · vitest 0 (5674 / 345) · build 0 (921.8 KiB, 78.2 headroom).
+
+## STILL OPEN, OUTSIDE SCOPE (report, do not fix)
+- `state/gameMode.ts` ~:197–245 resets `castleHp`, `castleRegenLevel` and `draftPicks` at match
+  start but NOT `castleUpgrades`, so bought castle stats carry into a rematch for an existing seat.
