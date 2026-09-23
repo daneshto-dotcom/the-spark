@@ -10,7 +10,7 @@ mechanic's tests pass.
 | BLOOD FRENZY | orcs.l0 | ✅ DONE (BUILT flipped) — 16 tests; found + fixed the S168 enraged-never-fires defect (`ragedFireTick`) | `state/racial/bloodFrenzy.ts` (new), `racialTick.ts` slot |
 | THE HORDE GROWS | orcs.l5 | ✅ DONE (BUILT flipped) — 12 tests, REACH via FEED_TOWER dispatch + runHostTick castle, both wirings mutation-tested | `state/racial/hordeGrows.ts` (new), `creatureLifecycle.ts underGoblinCaps`, `raceUnitEmit.ts` cadence |
 | SCORCHED GROUND | demons.l0 | ✅ DONE (BUILT flipped) — 13 tests; zone + ownership guards mutation-tested; ember tint on the zone backdrop sprite | `state/racial/scorchedGround.ts` (new), `racialTick.ts` slot, `damage.callSites.test.ts` (+1 null site), zone ember tint (render) |
-| DEEP CURRENT | nagas.l0 | NEXT | `state/racial/deepCurrent.ts` (new), `gathererLifecycle.ts` HAULING, vortex (render) |
+| DEEP CURRENT | nagas.l0 | ✅ DONE (BUILT flipped) — 8 tests, REACH via runHostTick, snap wiring mutation-tested; vortex derived from the jump | `state/racial/deepCurrent.ts` (new), `gathererLifecycle.ts` HAULING, vortex (render) |
 
 ## Decisions recorded so far (MINE unless quoted)
 
@@ -33,6 +33,10 @@ mechanic's tests pass.
 
 - `damage.callSites.test.ts` re-pinned 14/8/6 → 15/8/7 (+1 null site: `racial/scorchedGround.ts`).
 
+## Next
+
+- FULL GATES (typecheck, vitest, build) → canon notes file → final report.
+
 ## Known broken
 
-- nothing yet
+- nothing known

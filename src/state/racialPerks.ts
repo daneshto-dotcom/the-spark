@@ -90,7 +90,7 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'orcs.l0': true, // S188 racial-a — BLOOD FRENZY: state/racial/bloodFrenzy.ts
   'orcs.l5': true, // S188 racial-a — THE HORDE GROWS: state/racial/hordeGrows.ts
   'demons.l0': true, // S188 racial-a — SCORCHED GROUND: state/racial/scorchedGround.ts
-  'nagas.l0': false,
+  'nagas.l0': true, // S188 racial-a — DEEP CURRENT: state/racial/deepCurrent.ts
   // ── s188/racial-b ─────────────────────────────────────────────────────────────────────────────
   'zombies.l0': false,
   'demons.l5': false,

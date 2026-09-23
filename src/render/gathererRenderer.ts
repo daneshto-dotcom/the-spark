@@ -55,7 +55,35 @@ import {
 } from './raceMotifs.ts';
 import { BAR_LIFT } from './healthBar.ts';
 import type { GathererId, PlayerId, SparkId } from '../types.ts';
+import { seatHoldsPerk } from '../state/racialPerks.ts';
 import type { World } from '../state/world.ts';
+
+/**
+ * ⭐ S188 — DEEP CURRENT's VORTEX, DERIVED FROM THE POSITION JUMP (never a one-shot effect push).
+ *
+ * A naga gatherer holding the perk snaps from the quarry to its keep in one tick (`racial/deepCurrent.ts`).
+ * The renderer sees that as a jump no walk can make, and opens a swirl at BOTH ends. Every peer sees the
+ * same synced positions, so every peer draws it; a 10 Hz peer sees the jump in one snapshot and draws it
+ * the same way. ⚠ MINE: the threshold, lifetime and colour. The fastest walk is ~6.6 px a tick, i.e.
+ * ~40 px between two 10 Hz snapshots, and the shortest quarry-to-keep hop is ~700 px, so 200 sits well
+ * clear of both. The shelter snap at the BUILD edge is excluded by state (it lands SHELTERED).
+ */
+export const DEEP_CURRENT_JUMP_PX = 200;
+const DEEP_CURRENT_VORTEX_FRAMES = 36;
+const DEEP_CURRENT_VORTEX_COLOR = 0x3fd7ff;
+
+/** PURE — is this frame-to-frame move a DEEP CURRENT teleport, to be drawn as a vortex? */
+export function isDeepCurrentJump(
+  prev: { x: number; y: number } | undefined,
+  next: { x: number; y: number },
+  holdsPerk: boolean,
+  state: string,
+): boolean {
+  if (!holdsPerk || prev === undefined || state === 'SHELTERED') return false;
+  const dx = next.x - prev.x;
+  const dy = next.y - prev.y;
+  return dx * dx + dy * dy > DEEP_CURRENT_JUMP_PX * DEEP_CURRENT_JUMP_PX;
+}
 
 /** Ticks each primitive is held before morphing to the next (~1.2 s at 60 Hz — never per-tick). */
 const MORPH_TICKS = 72;
@@ -206,6 +234,9 @@ export class GathererRenderer {
   /** Drawn ON TOP of the castle sprites: the HP bar, the bank glyphs, and the shot VFX. */
   private readonly overlay: Graphics;
   private readonly castleSprites: Map<number, Sprite> = new Map();
+  /** S188 DEEP CURRENT — last drawn position per gatherer, and the open swirls. Render-local only. */
+  private readonly lastGathererPos: Map<GathererId, { x: number; y: number }> = new Map();
+  private vortices: Array<{ x: number; y: number; age: number; owner: PlayerId }> = [];
   /** Per-race atlas cache. A key present with `null` means "tried, failed — use the fallback". */
   private readonly atlases: Map<RaceId, CastleAtlas | null> = new Map();
 
@@ -396,6 +427,15 @@ export class GathererRenderer {
       if (!liveSeats.has(seat)) sp.visible = false;
     }
     for (const gatherer of world.gatherers.values()) {
+      // ⭐ S188 — DEEP CURRENT: tracked BEFORE the fog cull, so a jump is seen even if one end is dark.
+      const was = this.lastGathererPos.get(gatherer.id);
+      const ownerPl = world.players.get(gatherer.ownerPlayerId);
+      const holds = ownerPl !== undefined && seatHoldsPerk(ownerPl, 'nagas.l0');
+      if (was !== undefined && isDeepCurrentJump(was, gatherer.pos, holds, gatherer.state)) {
+        this.vortices.push({ x: was.x, y: was.y, age: 0, owner: gatherer.ownerPlayerId });
+        this.vortices.push({ x: gatherer.pos.x, y: gatherer.pos.y, age: 0, owner: gatherer.ownerPlayerId });
+      }
+      this.lastGathererPos.set(gatherer.id, { x: gatherer.pos.x, y: gatherer.pos.y });
       /*
        * ⭐⭐ S170 (owner) — **FOG: THE GATHERER UNITS ARE CULLED, THE CASTLE IS NOT.**
        *
@@ -440,6 +480,25 @@ export class GathererRenderer {
         raceId,
       );
     }
+    this.drawDeepCurrentVortices(g, world);
+  }
+
+  /** S188 — the DEEP CURRENT swirls: three arcs spiralling in and fading, at each end of a teleport. */
+  private drawDeepCurrentVortices(g: Graphics, world: World): void {
+    for (const id of this.lastGathererPos.keys()) if (!world.gatherers.has(id)) this.lastGathererPos.delete(id);
+    if (this.vortices.length === 0) return;
+    for (const v of this.vortices) {
+      v.age += 1;
+      if (isConcealed(v.x, v.y, v.owner)) continue; // the fog rule the gatherer itself obeys
+      const t = v.age / DEEP_CURRENT_VORTEX_FRAMES;
+      const alpha = Math.max(0, 1 - t);
+      for (let k = 0; k < 3; k++) {
+        const r = (10 + 9 * k) * (1 - 0.6 * t);
+        const a0 = t * 9 + (k * Math.PI * 2) / 3;
+        g.arc(v.x, v.y, r, a0, a0 + Math.PI * 1.2).stroke({ width: 2.5 - k * 0.5, color: DEEP_CURRENT_VORTEX_COLOR, alpha: alpha * (0.9 - k * 0.2) });
+      }
+    }
+    this.vortices = this.vortices.filter((v) => v.age < DEEP_CURRENT_VORTEX_FRAMES);
   }
 
   /**
