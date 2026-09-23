@@ -33,9 +33,15 @@ mechanic's tests pass.
 
 - `damage.callSites.test.ts` re-pinned 14/8/6 → 15/8/7 (+1 null site: `racial/scorchedGround.ts`).
 
+## Gates (HEAD 9de4aa4, all captured `$?`)
+
+- typecheck 0 · vitest 0 (5699 tests / 349 files) · build 0 (923.2 KiB; base 87f3dc4 = 919.8 KiB → +3.4 KiB)
+- first full vitest run was RED (1): `untargetableCallSites.test.ts` flagged `scorchedGround.ts` → recorded as an AREA verdict (9de4aa4), re-run green.
+- Canon text + constants: `.claude/plans/S188_CANON_NOTES_racial-a.md`.
+
 ## Next
 
-- FULL GATES (typecheck, vitest, build) → canon notes file → final report.
+- final report only.
 
 ## Known broken
 
