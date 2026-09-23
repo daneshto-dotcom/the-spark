@@ -37,8 +37,7 @@
 
 - RE-RUN after the cutoff, exit codes captured: TYPECHECK_EXIT=0 · VITEST_EXIT=0 (5664 tests / 343
   files) · BUILD_EXIT=0 (main entry 923.0 KiB; base 87f3dc4 measured 919.8 KiB -> +3.2 KiB; 77.0 KiB
-  headroom). vitest rewrites `pentagramBuildability.test.ts.snap` with CRLF on Windows — content
-  identical ignoring CR, restored, not committed.
+  headroom). The `pentagramBuildability.test.ts.snap` noise is explained under KNOWN BROKEN.
 
 - FIX ROUND (independent audit):
   - F2 `2d8bd6a` — pointertap ignores every button but 0 (Pixi v8 taps on RMB/MMB; RMB is put-it-back
@@ -50,11 +49,16 @@
   - ⚠ Correction: git-bash `grep -c $''` reported these files as CRLF; a Python byte count shows
     they are LF on disk and in every blob (base included). No EOL change was ever made.
 
+- Gates after the fix round, captured exit codes: TYPECHECK_EXIT=0 · VITEST_EXIT=0 (5666 tests / 343
+  files) · BUILD_EXIT=0 (main entry 923.1 KiB, 76.9 KiB headroom).
+
 ## IN PROGRESS
-- final gates after the fix round.
+- nothing. Branch complete after the fix round.
 
 ## NEXT
 - merge owner: land `.claude/plans/S188_CANON_NOTES_cards.md`; run e2e on the merged tree.
 
 ## KNOWN BROKEN
-- nothing known. Full gates were run and exit 0 (see above); re-run after the fix round below.
+- nothing known. `pentagramBuildability.test.ts.snap` shows as modified after every vitest run: vitest
+  rewrites it with LF bytes IDENTICAL to the blob (`git diff --quiet` exits 0), and with
+  core.autocrlf=true git flags it because a checkout would write CRLF. Benign, not mine, restored.
