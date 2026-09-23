@@ -10,42 +10,78 @@
  * > the right will be your racial one."*
  *
  * `SPAWNER_RADIUS` is 125, so the disc is 250 across; the plate is 270 tall (his *"slightly
- * bigger"*) and 560 wide (*"about twice longer"*), centred on `SPAWNER_CENTER`. Every number below
+ * bigger"*) and 559 wide (*"about twice longer"*), centred on `SPAWNER_CENTER`. Every number below
  * is computed from the constants, so if the quarry ever moves or resizes the panel follows it.
  *
- * ## ⛔ THE RIGHT-HAND TILE IS DELIBERATELY DEAD, AND THAT IS HIS INSTRUCTION
+ * ## ⭐ S188 — THE RIGHT-HAND TILE IS LIVE WHEN ITS MECHANIC IS, AND DEAD WHEN IT IS NOT
+ *
+ * S187 shipped the right tile dead, on his instruction:
  *
  * > *"for now just have only on the left side the general upgrades, and on the right side no upgrade
  * > and just like coming soon or something, and it's not choosable."*
  *
- * This REVERSES R126, which said never to ship a two-option draft where one option does nothing
- * ("not a choice, a broken screen every player learns to ignore"). His later ruling governs. The
- * tile is drawn at reduced alpha, tinted with the seat's race colour so it still reads as *theirs*,
- * and — the part that matters — it is **not in the hit-test list at all**, so a click there does
- * nothing rather than silently picking the general option.
+ * S188 builds the level-0 and level-5 mechanics, and the tile now follows
+ * `draftOptionsFor(wave, race).racial` — nothing else decides it:
  *
- * ## ⛔ EVERY OPAQUE SURFACE HERE IS ENUMERATED, AND S182 IS THE REASON
+ *   - **a perk id** → CHOOSABLE. It joins the hit-test (`draftHitTest` returns `'racial'`), gets the
+ *     hover highlight and a detail panel from `RACIAL_PERK_COPY`, draws its card, and a click sends
+ *     `onPick('racial')`.
+ *   - **null** → the S187 COMING SOON tile, unchanged: dimmed, race-tinted so it still reads as
+ *     *theirs*, a `?` mark, and **absent from the hit-test** — a click there does nothing rather
+ *     than silently picking the general option. That state is not a leftover: it is the answer at
+ *     levels 10+ for every race, and for any level-0/5 perk whose branch has not landed
+ *     (`RACIAL_PERK_BUILT` false).
+ *
+ * ⛔ The hit-test and the renderer read the SAME options object — `draftHitTest(x, y, opts)` takes
+ * it as data — so a tile cannot be drawn live and hit-tested dead, or the reverse.
+ *
+ * ## ⭐ S188 — THE CARDS (`assets-source/upgrade-cards/MANIFEST.md`)
+ *
+ * Every tile that has a card draws it: the general tile `general-<axis>`, the racial tile
+ * `RACIAL_PERK_COPY[perk].card`. They are fetched LAZILY through Pixi `Assets` from
+ * `public/art/upgrade-cards/`, so a slow or missing card never blocks the panel — until it arrives
+ * (or if it never does) the tile draws its text title exactly as S187 did.
+ *
+ * ⛔ **A TILE THAT SHOWS ITS CARD DOES NOT DRAW THE OVERLAY'S OWN TITLE.** The card carries its name
+ * in baked lettering, and the two collide — the manifest's "one wiring decision". The effect line
+ * (`+10% HEALTH`) and the hover detail stay in both states; only the NAME is duplicated.
+ *
+ * ⛔ **`drawAxisGlyph` IS DELETED, NOT DORMANT.** The owner rejected the vector emblems it painted —
+ * *"just a hand drawn heart that looks gay"* — and a dead painter that still compiles is exactly the
+ * kind of thing a later session re-enables by accident. `draftOverlay.test.ts` asserts it is gone.
+ *
+ * ## ⛔ EVERY FILL HERE IS ENUMERATED, AND S182 IS THE REASON
  *
  * That session shipped a live bug under a green source-text tripwire: the guard proved a line
- * EXISTED but could not prove the failing path REACHED it. The fix it found — counting the opaque
- * `.fill({` calls mechanically and pairing each with its hit-test — is what `draftOverlay.test.ts`
- * does to this file. A new opaque plate fails that test until someone hit-tests it or declares it
- * decorative.
+ * EXISTED but could not prove the failing path REACHED it. The fix it found — counting the fill
+ * calls mechanically and pairing each with its hit-test — is what `draftOverlay.test.ts` does to
+ * this file. A new opaque plate fails that test until someone hit-tests it or declares it
+ * decorative. A card SPRITE is not a fill; the stencil that rounds its corners is, and is listed.
  *
  * RENDER-ONLY. This module reads `World` and never mutates it; a pick leaves through `onPick`, which
  * the caller turns into the host-authoritative choice.
  */
 
-import { Container, Graphics, Text, TextStyle, type FederatedPointerEvent } from 'pixi.js';
+import {
+  Assets,
+  Container,
+  Graphics,
+  Sprite,
+  Text,
+  TextStyle,
+  type FederatedPointerEvent,
+  type Texture,
+} from 'pixi.js';
 import {
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
   PHYSICS_HZ,
 } from '../constants.ts';
-import { RACE_COLORS } from '../state/races.ts';
+import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { DRAFT_BUFF_PCT, type DraftPick, type GeneralPick } from '../state/draft.ts';
-import { draftOptionsFor, draftTicksRemaining } from '../state/draftEvent.ts';
+import { draftOptionsFor, draftTicksRemaining, seatMustStillPick } from '../state/draftEvent.ts';
+import { RACIAL_PERK_COPY } from '../state/racialPerks.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId } from '../types.ts';
 
@@ -61,6 +97,8 @@ export const PANEL_Y = Math.round(SPAWNER_CENTER_Y - PANEL_H / 2);
 const SEAM = 2;
 const TILE_W = Math.round((PANEL_W - SEAM) / 2);
 const PAD = 14;
+/** The tile's corner radius — the plate, the frame and the card stencil all use it. */
+const CORNER = 9;
 
 const PLATE_BG = 0x10131c;
 const PLATE_EDGE = 0xd8b45a;
@@ -68,6 +106,11 @@ const TILE_BG = 0x1b2030;
 const TILE_HOVER = 0x27304a;
 const INK = 0xf2efe6;
 const DIM = 0x7d8596;
+/**
+ * A card that is not under the cursor is drawn a touch darker, so the hovered one visibly lifts.
+ * ⚠ MINE, not the owner's — a legibility choice, not a ruling.
+ */
+const CARD_IDLE_TINT = 0xd2d2d2;
 
 /* ── the four general options, in the player's words rather than the code's ───────────────────── */
 
@@ -75,6 +118,8 @@ interface OptionCopy {
   readonly title: string;
   readonly line: string;
   readonly detail: string;
+  /** Basename of the card under `public/art/upgrade-cards/` — the same shape as `RacialPerkCopy.card`. */
+  readonly card: string;
 }
 
 /**
@@ -89,6 +134,7 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
     detail:
       `Every unit you spawn from now on has ${DRAFT_BUFF_PCT}% more health. ` +
       'Units already on the board keep what they were born with.',
+    card: 'general-hp',
   },
   def: {
     title: 'ARMOURED',
@@ -96,6 +142,7 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
     detail:
       `Every unit you spawn from now on takes ${DRAFT_BUFF_PCT}% longer to kill. ` +
       'Units already on the board keep what they were born with.',
+    card: 'general-def',
   },
   atk: {
     title: 'STRONGER',
@@ -103,6 +150,7 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
     detail:
       `Every unit you spawn from now on hits ${DRAFT_BUFF_PCT}% harder. ` +
       'Units already on the board keep what they were born with.',
+    card: 'general-atk',
   },
   pen: {
     title: 'PIERCING',
@@ -110,8 +158,22 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
     detail:
       `Every unit you spawn from now on cuts ${DRAFT_BUFF_PCT}% deeper through armour. ` +
       'Units already on the board keep what they were born with.',
+    card: 'general-pen',
   },
 };
+
+/** What a seat is offered — exactly `draftOptionsFor`'s shape, so the panel cannot drift from it. */
+export type DraftOptions = ReturnType<typeof draftOptionsFor>;
+/** The two tiles. */
+export type DraftTile = 'general' | 'racial';
+
+/** Where the shipped cards live (`scripts/build-upgrade-cards.py` writes them). */
+export const UPGRADE_CARD_DIR = '/art/upgrade-cards';
+
+/** The URL of a card, from its basename (`general-hp`, `l0-vampires`, …). */
+export function upgradeCardUrl(card: string): string {
+  return `${UPGRADE_CARD_DIR}/${card}.webp`;
+}
 
 /** Seconds left, for the countdown. Ticks are the sim's unit; the player reads seconds. */
 export function formatDraftClock(ticks: number): string {
@@ -126,7 +188,7 @@ export function generalTileRect(): { x: number; y: number; w: number; h: number 
   return { x: PANEL_X + PAD, y: PANEL_Y + PAD, w: TILE_W - PAD * 2, h: PANEL_H - PAD * 2 };
 }
 
-/** The right tile's rectangle. It is drawn but NOT hit-tested — see the module docblock. */
+/** The right tile's rectangle. Hit-tested only while a racial perk is on offer. */
 export function racialTileRect(): { x: number; y: number; w: number; h: number } {
   return {
     x: PANEL_X + TILE_W + SEAM + PAD,
@@ -141,84 +203,127 @@ function inside(r: { x: number; y: number; w: number; h: number }, x: number, y:
 }
 
 /**
- * Which tile, if any, a point lands on.
+ * Which tile, if any, a point lands on — given the options the panel is DRAWING.
  *
- * ⛔ Returns `'general'` ONLY. The racial tile is deliberately absent: his instruction is that it is
- * *"not choosable"*, and the honest way to implement that is for the hit-test not to know it exists.
- * Returning `'racial'` and then ignoring it downstream is how a dead option becomes a live bug.
+ * ⛔ The racial tile answers ONLY while `opts.racial` is a perk. When it is null the tile is the
+ * COMING SOON plate his S187 instruction asked for (*"not choosable"*), and the honest way to
+ * implement that is for the hit-test not to know it exists. Returning `'racial'` and then ignoring
+ * it downstream is how a dead option becomes a live bug.
  */
-export function draftHitTest(x: number, y: number): 'general' | null {
-  return inside(generalTileRect(), x, y) ? 'general' : null;
+export function draftHitTest(x: number, y: number, opts: DraftOptions): DraftTile | null {
+  if (inside(generalTileRect(), x, y)) return 'general';
+  if (opts.racial !== null && inside(racialTileRect(), x, y)) return 'racial';
+  return null;
 }
 
 /**
- * ⭐ THE AXIS EMBLEM — a big vector glyph filling the lower two-thirds of a tile.
- *
- * Painted rather than an atlas lookup, for the reason the pencil chewer's portrait is painted: it
- * costs no art, it cannot go missing behind a `Partial<>` table (the failure that gave the owner
- * "this silly goblin warrior"), and it scales cleanly. Four shapes, one per axis, each legible at a
- * glance without reading the words:
- *   hp  — a heart        · def — a shield
- *   atk — a blade        · pen — an arrowhead punching through a broken bar
- *
- * ⚠ OUTLINE ONLY, NO OPAQUE FILL. Every opaque `.fill({` in this module is enumerated and paired
- * with a hit-test by `draftOverlay.test.ts`; a decorative emblem drawn with `fill` would inflate
- * that count and force a false entry. Strokes keep the enumeration honest AND read better over the
- * tile plate.
+ * The pick a click on `tile` sends. The general tile sends this wave's axis; the racial tile sends
+ * the literal `'racial'` (the race and the draft index name the perk — `racialPerks.ts`), and only
+ * while one is on offer. Belt and braces with `draftHitTest`: the host refuses an un-offered pick
+ * too (`pickIsOffered`), but a panel that never sends one is the first line.
  */
-function drawAxisGlyph(g: Graphics, pick: GeneralPick, cx: number, cy: number, r: number, tint: number, alpha: number): void {
-  const w = 5;
-  if (pick === 'hp') {
-    const k = r * 0.95;
-    g.moveTo(cx, cy + k * 0.85)
-      .bezierCurveTo(cx - k * 1.5, cy - k * 0.15, cx - k * 0.55, cy - k * 1.05, cx, cy - k * 0.35)
-      .bezierCurveTo(cx + k * 0.55, cy - k * 1.05, cx + k * 1.5, cy - k * 0.15, cx, cy + k * 0.85)
-      .stroke({ color: tint, width: w, alpha, join: 'round' });
-    return;
-  }
-  if (pick === 'def') {
-    const k = r;
-    g.moveTo(cx, cy - k)
-      .lineTo(cx + k * 0.82, cy - k * 0.55)
-      .lineTo(cx + k * 0.82, cy + k * 0.2)
-      .lineTo(cx, cy + k)
-      .lineTo(cx - k * 0.82, cy + k * 0.2)
-      .lineTo(cx - k * 0.82, cy - k * 0.55)
-      .closePath()
-      .stroke({ color: tint, width: w, alpha, join: 'round' });
-    g.moveTo(cx, cy - k * 0.55).lineTo(cx, cy + k * 0.5)
-      .stroke({ color: tint, width: w * 0.5, alpha: alpha * 0.7 });
-    return;
-  }
-  if (pick === 'atk') {
-    const k = r;
-    // A blade on the diagonal, with a crossguard.
-    g.moveTo(cx - k * 0.72, cy + k * 0.86).lineTo(cx + k * 0.62, cy - k * 0.86)
-      .stroke({ color: tint, width: w * 1.5, alpha, cap: 'round' });
-    g.moveTo(cx - k * 0.1, cy - k * 0.1).lineTo(cx + k * 0.5, cy + k * 0.32)
-      .stroke({ color: tint, width: w, alpha, cap: 'round' });
-    g.moveTo(cx - k * 0.72, cy + k * 0.86).lineTo(cx - k * 0.95, cy + k * 1.05)
-      .stroke({ color: tint, width: w * 0.8, alpha: alpha * 0.8, cap: 'round' });
-    return;
-  }
-  // pen — an arrowhead driving through a broken bar.
-  const k = r;
-  g.moveTo(cx - k * 0.95, cy).lineTo(cx - k * 0.2, cy)
-    .stroke({ color: tint, width: w * 1.3, alpha: alpha * 0.55, cap: 'round' });
-  g.moveTo(cx + k * 0.45, cy).lineTo(cx + k * 0.95, cy)
-    .stroke({ color: tint, width: w * 1.3, alpha: alpha * 0.55, cap: 'round' });
-  g.moveTo(cx - k * 0.1, cy - k * 0.62)
-    .lineTo(cx + k * 0.6, cy)
-    .lineTo(cx - k * 0.1, cy + k * 0.62)
-    .stroke({ color: tint, width: w, alpha, join: 'round' });
+export function pickForTile(tile: DraftTile | null, opts: DraftOptions): DraftPick | null {
+  if (tile === 'general') return opts.general;
+  if (tile === 'racial' && opts.racial !== null) return 'racial';
+  return null;
 }
+
+/** What one tile shows. Pure — the class below applies it; the test reads it. */
+export interface DraftTileView {
+  /** In the hit-test, hoverable, sends a pick. */
+  readonly choosable: boolean;
+  /** Card basename, or null for a tile that has no card (the COMING SOON tile). */
+  readonly card: string | null;
+  readonly title: string;
+  readonly line: string;
+  /** The hover detail panel's text, or null for a tile that must promise nothing. */
+  readonly detail: string | null;
+}
+
+/**
+ * ⭐ THE TWO TILES, FROM THE OPTIONS ALONE.
+ *
+ * ⛔ **THE RACIAL TILE'S CARD COMES ONLY FROM `opts.racial`.** S187 found, by looking at the running
+ * game, that the first cut drew the GENERAL option's emblem on the dead tile — which reads as "this
+ * option gives you the same thing", the opposite of true. Deriving each tile's art from its own
+ * option, and nothing else, is what makes that impossible here; the test pins it.
+ */
+export function draftTileViews(opts: DraftOptions): { readonly general: DraftTileView; readonly racial: DraftTileView } {
+  const g = COPY[opts.general];
+  const general: DraftTileView = { choosable: true, card: g.card, title: g.title, line: g.line, detail: g.detail };
+  if (opts.racial === null) {
+    return {
+      general,
+      racial: { choosable: false, card: null, title: 'YOUR RACE', line: 'COMING SOON', detail: null },
+    };
+  }
+  const r = RACIAL_PERK_COPY[opts.racial];
+  return {
+    general,
+    racial: { choosable: true, card: r.card, title: r.title, line: r.line, detail: r.detail },
+  };
+}
+
+/**
+ * ⛔ THE MANIFEST'S ONE WIRING DECISION: a tile whose card is ON SCREEN does not draw the overlay's
+ * own title (the baked lettering and the text collide). A tile with no card — or whose card has not
+ * arrived, or failed — keeps the text title, so the name is always shown exactly once.
+ */
+export function drawsOwnTitle(view: DraftTileView, cardShown: boolean): boolean {
+  return !(view.card !== null && cardShown);
+}
+
+/**
+ * Cover-fit a card into a tile, anchored to the TOP. Every card carries its name in the top band,
+ * so any crop is spent on the bottom edge, never on the lettering (the shipped cards are already
+ * the tile's ratio at 2×; this keeps a mis-sized one from shaving the title).
+ */
+export function coverFitTop(
+  texW: number,
+  texH: number,
+  r: { x: number; y: number; w: number; h: number },
+): { x: number; y: number; scale: number } {
+  const scale = Math.max(r.w / texW, r.h / texH);
+  return { x: r.x + (r.w - texW * scale) / 2, y: r.y, scale };
+}
+
+/** Shrink a line to `maxW` if it would overflow its tile. Never grows it. */
+function fitWidth(t: Text, maxW: number): void {
+  t.scale.set(1);
+  if (t.width > maxW) t.scale.set(maxW / t.width);
+}
+
+/**
+ * The rounded-corner STENCIL a card is clipped to, so a rectangular sprite does not poke past the
+ * tile's corners. A Pixi mask is never drawn as a surface — it covers nothing and swallows nothing.
+ */
+function cardStencil(r: { x: number; y: number; w: number; h: number }): Graphics {
+  return new Graphics().roundRect(r.x, r.y, r.w, r.h, CORNER).fill({ color: 0xffffff });
+}
+
+/** Seams the tests use. Production passes neither. */
+export interface DraftOverlayDeps {
+  /**
+   * Where the offer comes from. Production: `draftOptionsFor`. A test injects an offered perk here,
+   * because on a branch every `RACIAL_PERK_BUILT` entry may still be false — the choosable state
+   * must be testable without flipping somebody else's registry.
+   */
+  readonly optionsFor?: (waveNumber: number, race: RaceId) => DraftOptions;
+  /** How a card texture is fetched. Production: Pixi `Assets`, which caches by URL. */
+  readonly loadCard?: (url: string) => Promise<Texture>;
+}
+
+type CardState = Texture | 'loading' | 'failed';
 
 export class DraftOverlay {
   readonly container = new Container();
   private readonly plate = new Graphics();
-  private readonly tiles = new Graphics();
-  /** The big axis emblem in each tile. Its own Graphics so the tile plates can be redrawn alone. */
-  private readonly glyphs = new Graphics();
+  private readonly tiles = new Graphics({ label: 'tiles' });
+  /** The card art. A sprite each, clipped to its tile by a stencil. */
+  private readonly generalCard = new Sprite();
+  private readonly racialCard = new Sprite();
+  /** The tile outlines, drawn ABOVE the cards so the hover highlight shows on the art. Strokes only. */
+  private readonly frames = new Graphics({ label: 'frames' });
   private readonly title: Text;
   private readonly clock: Text;
   private readonly generalTitle: Text;
@@ -229,27 +334,39 @@ export class DraftOverlay {
   /** The COMING SOON tile's placeholder mark. See the note at its draw site. */
   private readonly racialMark: Text;
   private readonly tipPlate = new Graphics();
-  private hover: 'general' | null = null;
+  private hover: DraftTile | null = null;
+  /** The options last DRAWN. The pointer handlers read these, never a fresh recomputation. */
+  private opts: DraftOptions | null = null;
+  private readonly cards = new Map<string, CardState>();
   private readonly onPick: (p: DraftPick) => void;
+  private readonly optionsFor: (waveNumber: number, race: RaceId) => DraftOptions;
+  private readonly loadCard: (url: string) => Promise<Texture>;
 
-  constructor(onPick: (p: DraftPick) => void) {
+  constructor(onPick: (p: DraftPick) => void, deps: DraftOverlayDeps = {}) {
     this.onPick = onPick;
+    this.optionsFor = deps.optionsFor ?? draftOptionsFor;
+    this.loadCard = deps.loadCard ?? ((url) => Assets.load<Texture>(url));
     this.container.visible = false;
     this.container.eventMode = 'static';
     this.container.zIndex = 900;
 
     const h1 = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 22, fill: INK });
     /*
-     * ⛔ TWO SEPARATE INSTANCES, NOT ONE SHARED ONE, AND THIS WAS A REAL BUG.
+     * ⛔ SEPARATE INSTANCES, NOT ONE SHARED ONE, AND THIS WAS A REAL BUG.
      *
      * The first cut built one `h2` style and handed it to BOTH lines. `render` then set
      * `racialLine.style.fill = RACE_COLORS[race]` each frame — and because the two Texts pointed at
      * the SAME TextStyle object, that repainted the general option's headline in the race colour
      * too. Every geometry and hit-test assertion stayed green; it was visible only by looking at the
-     * running game. A shared mutable style is a shared mutable object like any other.
+     * running game. A shared mutable style is a shared mutable object like any other. (`h1` IS
+     * shared by the three titles, and that is safe only because nothing ever writes to it.)
+     *
+     * S188 — the dark stroke is what keeps a line legible when it sits on card art rather than on
+     * the plain tile.
      */
-    const h2General = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: INK });
-    const h2Racial = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: DIM });
+    const lineStroke = { color: 0x05060a, width: 5, join: 'round' as const };
+    const h2General = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: INK, stroke: lineStroke });
+    const h2Racial = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 30, fill: DIM, stroke: lineStroke });
     const small = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontSize: 15, fill: DIM });
     const tipStyle = new TextStyle({ fontFamily: ['Kanit', 'sans-serif'], fontSize: 15, fill: INK, wordWrap: true, wordWrapWidth: PANEL_W - 40 });
 
@@ -265,23 +382,107 @@ export class DraftOverlay {
       style: new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 74, fill: DIM }),
     });
     this.racialMark.alpha = 0.35;
+    // Labels, so the test can find each part by name rather than by child index.
+    this.generalCard.label = 'generalCard';
+    this.racialCard.label = 'racialCard';
+    this.generalTitle.label = 'generalTitle';
+    this.generalLine.label = 'generalLine';
+    this.racialTitle.label = 'racialTitle';
+    this.racialLine.label = 'racialLine';
+    this.racialMark.label = 'racialMark';
+    this.tip.label = 'tip';
 
-    this.container.addChild(this.plate, this.tiles, this.glyphs, this.title, this.clock,
+    const generalMask = cardStencil(generalTileRect());
+    const racialMask = cardStencil(racialTileRect());
+    this.generalCard.mask = generalMask;
+    this.racialCard.mask = racialMask;
+    this.generalCard.visible = false;
+    this.racialCard.visible = false;
+
+    this.container.addChild(this.plate, this.tiles,
+      this.generalCard, generalMask, this.racialCard, racialMask, this.frames,
+      this.title, this.clock,
       this.generalTitle, this.generalLine, this.racialTitle, this.racialLine, this.racialMark,
       this.tipPlate, this.tip);
 
     this.container.on('pointermove', (e: FederatedPointerEvent) => {
       const p = e.global;
-      this.hover = draftHitTest(p.x, p.y);
+      this.hover = this.opts === null ? null : draftHitTest(p.x, p.y, this.opts);
+    });
+    /*
+     * `pointermove` only reaches this container while the pointer is OVER it, so a pointer that
+     * leaves the panel between two samples would leave a tile lit and its detail plate up. Pixi
+     * sends `pointerleave` to the container when the pointer leaves it entirely — both off the panel
+     * onto the board and off the canvas — and, unlike `pointerout`, not when it merely crosses
+     * between the panel's own children, so this one handler is enough.
+     */
+    this.container.on('pointerleave', () => {
+      this.hover = null;
     });
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
+      /*
+       * ⛔ PRIMARY BUTTON ONLY. Pixi v8 dispatches `pointertap` for EVERY button
+       * (`EventBoundary.mapPointerUp`), and right-click is this game's put-it-back / raid gesture —
+       * without this line a right-click that happened to land on the panel committed a permanent
+       * pick, the racial one included. A pick cannot be undone, so only a deliberate primary press
+       * may make it. Touch and pen contact both report button 0, so they still work.
+       */
+      if (e.button !== 0) return;
+      if (this.opts === null) return;
       const p = e.global;
-      if (draftHitTest(p.x, p.y) === null) return;
-      if (this.offered !== null) this.onPick(this.offered);
+      const pick = pickForTile(draftHitTest(p.x, p.y, this.opts), this.opts);
+      if (pick !== null) this.onPick(pick);
     });
   }
 
-  private offered: DraftPick | null = null;
+  /**
+   * The card's texture if it has ARRIVED, else null — and the first ask starts the fetch.
+   *
+   * ⛔ LAZY, AND A FAILURE IS FINAL AND HARMLESS. A card that 404s or fails to decode is recorded as
+   * `'failed'` and the tile keeps its text title for the rest of the page session. The panel is
+   * never held back waiting on art: the draft opens on the tick the match starts, and a player who
+   * is already reading "TOUGHER" loses nothing if the picture is late.
+   */
+  private cardTexture(card: string | null): Texture | null {
+    if (card === null) return null;
+    const state = this.cards.get(card);
+    if (state === undefined) {
+      this.cards.set(card, 'loading');
+      // Through a `then` so a loader that THROWS rather than rejects still lands in 'failed'.
+      Promise.resolve().then(() => this.loadCard(upgradeCardUrl(card))).then(
+        (t) => { this.cards.set(card, t); },
+        () => { this.cards.set(card, 'failed'); },
+      );
+      return null;
+    }
+    return typeof state === 'string' ? null : state;
+  }
+
+  /** Put a card on its tile, or take it off. Returns whether it is on screen. */
+  private placeCard(
+    sprite: Sprite,
+    tex: Texture | null,
+    r: { x: number; y: number; w: number; h: number },
+    lit: boolean,
+  ): boolean {
+    if (tex === null) {
+      sprite.visible = false;
+      return false;
+    }
+    sprite.texture = tex;
+    const fit = coverFitTop(tex.width, tex.height, r);
+    sprite.position.set(fit.x, fit.y);
+    sprite.scale.set(fit.scale);
+    sprite.tint = lit ? 0xffffff : CARD_IDLE_TINT;
+    sprite.visible = true;
+    return true;
+  }
+
+  private hide(): void {
+    this.container.visible = false;
+    this.opts = null;
+    this.hover = null;
+  }
 
   /**
    * Draw one frame.
@@ -292,34 +493,35 @@ export class DraftOverlay {
    */
   render(world: World, localSeat: PlayerId | null): void {
     const ev = world.draft;
-    if (ev === null || localSeat === null) {
-      this.container.visible = false;
-      this.offered = null;
+    // PLAYING only: the draft is match state, and on any other screen the local race is not real.
+    if (ev === null || localSeat === null || world.gameState !== 'PLAYING') {
+      this.hide();
       return;
     }
     const pl = world.players.get(localSeat);
-    if (pl === undefined) {
-      this.container.visible = false;
-      return;
-    }
     // The panel is for a seat that still owes a pick. One that has chosen watches the board.
-    const owed = pl.draftPicks.length < (Math.floor((ev.waveNumber - 1) / 5) + 1);
-    if (!owed) {
-      this.container.visible = false;
-      this.offered = null;
+    if (pl === undefined || !seatMustStillPick(world, localSeat, ev.waveNumber)) {
+      this.hide();
       return;
     }
     this.container.visible = true;
 
-    // S188 — the offer now carries the seat's racial perk (null = COMING SOON). The tile itself is
-    // wired by the s188/cards branch; the substrate only keeps this call honest.
-    const opts = draftOptionsFor(ev.waveNumber, pl.raceId);
-    this.offered = opts.general;
-    const copy = COPY[opts.general];
     const race = pl.raceId;
+    const opts = this.optionsFor(ev.waveNumber, race);
+    this.opts = opts;
+    const views = draftTileViews(opts);
 
     const g = generalTileRect();
     const r = racialTileRect();
+    const liveRacial = views.racial.choosable;
+    /*
+     * ⛔ WHAT IS LIT IS "UNDER THE CURSOR **AND** CHOOSABLE", never the cursor alone. `hover` is
+     * recomputed only on a pointer MOVE, so a cursor resting on the racial tile when the offer goes
+     * dead (the next draft, or a registry that says no) would otherwise keep lighting a tile that no
+     * longer answers a click.
+     */
+    const litGeneral = this.hover === 'general';
+    const litRacial = liveRacial && this.hover === 'racial';
 
     this.plate.clear();
     this.plate
@@ -329,14 +531,25 @@ export class DraftOverlay {
 
     this.tiles.clear();
     this.tiles
-      .roundRect(g.x, g.y, g.w, g.h, 9)
-      .fill({ color: this.hover === 'general' ? TILE_HOVER : TILE_BG, alpha: 1 })
-      .stroke({ color: PLATE_EDGE, width: this.hover === 'general' ? 2 : 1, alpha: 0.8 });
-    // The dead tile: race-tinted so it still reads as theirs, dimmed so it reads as unavailable.
+      .roundRect(g.x, g.y, g.w, g.h, CORNER)
+      .fill({ color: litGeneral ? TILE_HOVER : TILE_BG, alpha: 1 });
+    // The racial tile: a full plate when its perk is on offer; the dimmed dead tile when it is not.
     this.tiles
-      .roundRect(r.x, r.y, r.w, r.h, 9)
-      .fill({ color: TILE_BG, alpha: 0.55 })
-      .stroke({ color: RACE_COLORS[race], width: 1, alpha: 0.35 });
+      .roundRect(r.x, r.y, r.w, r.h, CORNER)
+      .fill({ color: litRacial ? TILE_HOVER : TILE_BG, alpha: liveRacial ? 1 : 0.55 });
+
+    const generalShown = this.placeCard(this.generalCard, this.cardTexture(views.general.card), g, litGeneral);
+    const racialShown = this.placeCard(this.racialCard, this.cardTexture(views.racial.card), r, litRacial);
+
+    this.frames.clear();
+    this.frames
+      .roundRect(g.x, g.y, g.w, g.h, CORNER)
+      .stroke({ color: PLATE_EDGE, width: litGeneral ? 3 : 1, alpha: litGeneral ? 1 : 0.8 });
+    this.frames
+      .roundRect(r.x, r.y, r.w, r.h, CORNER)
+      .stroke(liveRacial
+        ? { color: RACE_COLORS[race], width: litRacial ? 3 : 1, alpha: litRacial ? 1 : 0.8 }
+        : { color: RACE_COLORS[race], width: 1, alpha: 0.35 });
 
     this.title.x = PANEL_X + PANEL_W / 2 - this.title.width / 2;
     this.title.y = PANEL_Y - 34;
@@ -344,51 +557,63 @@ export class DraftOverlay {
     this.clock.x = PANEL_X + PANEL_W - this.clock.width - 4;
     this.clock.y = PANEL_Y - 30;
 
-    this.generalTitle.text = copy.title;
-    this.generalLine.text = copy.line;
-    this.generalTitle.x = g.x + 16;
-    this.generalTitle.y = g.y + 18;
-    this.generalLine.x = g.x + 16;
-    this.generalLine.y = g.y + 48;
+    this.layoutText(this.generalTitle, this.generalLine, views.general, generalShown, g);
+    this.layoutText(this.racialTitle, this.racialLine, views.racial, racialShown, r);
+    this.racialTitle.alpha = liveRacial ? 1 : 0.5;
+    this.racialLine.alpha = liveRacial ? 1 : 0.5;
+    this.racialLine.style.fill = RACE_COLORS[race];
 
-    this.racialTitle.x = r.x + 16;
-    this.racialTitle.y = r.y + 18;
-    this.racialLine.x = r.x + 16;
-    this.racialLine.y = r.y + 48;
     /*
-     * The emblems, sized off the tile so they fill the space the words leave empty. The general one
-     * takes the plate's gold; the racial one takes the seat's race colour at low alpha, so the dead
-     * tile still reads as THEIRS rather than as a blank.
+     * ⛔ THE DEAD TILE GETS A QUESTION MARK, NEVER ANOTHER OPTION'S ART. The first cut drew the
+     * general's emblem on both sides at low alpha, which reads as "this option gives you the same
+     * thing" — the opposite of true. A '?' says "something, not yet decided", which is what it is.
+     * A LIVE racial tile has its own card and needs no mark.
      */
-    this.glyphs.clear();
-    const gr = Math.min(g.w, g.h - 70) * 0.34;
-    drawAxisGlyph(this.glyphs, opts.general, g.x + g.w / 2, g.y + g.h * 0.66, gr, PLATE_EDGE,
-      this.hover === 'general' ? 0.95 : 0.7);
-    /*
-     * ⛔ THE DEAD TILE GETS A QUESTION MARK, NOT THE GENERAL'S EMBLEM. The first cut drew the same
-     * axis glyph on both sides at low alpha, which reads as "this option gives you the same thing" —
-     * the opposite of true, and the exact misreading a COMING SOON tile must not invite. A '?' says
-     * "something, not yet decided", which is what it actually is.
-     */
+    this.racialMark.visible = !liveRacial;
     this.racialMark.x = r.x + r.w / 2 - this.racialMark.width / 2;
     this.racialMark.y = r.y + r.h * 0.66 - this.racialMark.height / 2;
     this.racialMark.style.fill = RACE_COLORS[race];
 
-    this.racialTitle.alpha = 0.5;
-    this.racialLine.alpha = 0.5;
-    this.racialLine.style.fill = RACE_COLORS[race];
-
-    // The hover panel. Only the live tile has one; hovering a dead tile must not promise anything.
-    const showTip = this.hover === 'general';
-    this.tip.text = showTip ? copy.detail : '';
+    // The hover panel. Only a CHOOSABLE tile has one; hovering the dead tile must not promise anything.
+    const hovered = litGeneral ? views.general : litRacial ? views.racial : null;
+    const detail = hovered?.detail ?? null;
+    this.tip.text = detail ?? '';
     this.tipPlate.clear();
-    if (showTip) {
+    if (detail !== null) {
       this.tip.x = PANEL_X + 20;
       this.tip.y = PANEL_Y + PANEL_H + 14;
       this.tipPlate
         .roundRect(PANEL_X, PANEL_Y + PANEL_H + 6, PANEL_W, this.tip.height + 16, 8)
         .fill({ color: PLATE_BG, alpha: 0.95 })
         .stroke({ color: PLATE_EDGE, width: 1, alpha: 0.6 });
+    }
+  }
+
+  /**
+   * A tile's two lines. With its card on screen the card IS the title, so the overlay's own title is
+   * hidden and the effect line moves to the bottom band, clear of the baked lettering. Without a
+   * card both sit top-left, exactly as S187 laid them out.
+   */
+  private layoutText(
+    title: Text,
+    line: Text,
+    view: DraftTileView,
+    cardShown: boolean,
+    r: { x: number; y: number; w: number; h: number },
+  ): void {
+    title.text = view.title;
+    line.text = view.line;
+    fitWidth(title, r.w - 32);
+    fitWidth(line, r.w - 24);
+    title.visible = drawsOwnTitle(view, cardShown);
+    title.x = r.x + 16;
+    title.y = r.y + 18;
+    if (cardShown) {
+      line.x = r.x + (r.w - line.width) / 2;
+      line.y = r.y + r.h - line.height - 8;
+    } else {
+      line.x = r.x + 16;
+      line.y = r.y + 48;
     }
   }
 }
