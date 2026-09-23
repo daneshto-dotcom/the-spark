@@ -35,11 +35,16 @@
 - A first full-gate run (before the cutoff) read TYPECHECK 0 / VITEST 0 (5664/343) / BUILD 0 (923.0 KiB);
   being RE-RUN now per the coordinator — do not trust it.
 
+- RE-RUN after the cutoff, exit codes captured: TYPECHECK_EXIT=0 · VITEST_EXIT=0 (5664 tests / 343
+  files) · BUILD_EXIT=0 (main entry 923.0 KiB; base 87f3dc4 measured 919.8 KiB -> +3.2 KiB; 77.0 KiB
+  headroom). vitest rewrites `pentagramBuildability.test.ts.snap` with CRLF on Windows — content
+  identical ignoring CR, restored, not committed.
+
 ## IN PROGRESS
-- re-run of the full gates.
+- nothing. Branch complete.
 
 ## NEXT
-- final clean commit + report.
+- merge owner: land `.claude/plans/S188_CANON_NOTES_cards.md`; run e2e on the merged tree.
 
 ## KNOWN BROKEN
 - nothing known. Full vitest + build not yet run.
