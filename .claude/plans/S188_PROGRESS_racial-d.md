@@ -2,28 +2,33 @@
 
 | perk | mechanic | art |
 |---|---|---|
-| `zombies.l5` CORPSE EATER | in progress — design fixed (see below) | next |
-| `nagas.l5` APEX PREDATOR | next | next |
+| `zombies.l5` CORPSE EATER | ✅ DONE — `racial/corpseEater.ts`, 24 tests, flipped (2a36d35) | in progress — eat loop (ping-pong of v2-crouch-in) + burp |
+| `nagas.l5` APEX PREDATOR | ✅ DONE — `racial/apexPredator.ts`, 13 tests, flipped (456166e, 40b97a4) | FALLBACK live (base piranha sheet at 2x); elite atlas in progress |
 
-## Design, fixed before coding (so a salvage knows the intent)
+Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 0.
 
-**CORPSE EATER** — new file `src/state/racial/corpseEater.ts`, called from the racial-d slot of
-`src/state/racial/racialTick.ts`.
-- Trigger: zombie tier-9 boss (`t9BossZombies`) whose owner `seatHoldsPerk(…,'zombies.l5')`, not stunned,
-  alive, not a corpse-in-waiting, `ehp*100 <= creatureMaxEhp*20`, latch `corpseEaterUntilTick === undefined`
-  (never cleared ⇒ once per life). Stamps `corpseEaterUntilTick = tick + 480` and
-  `corpseEaterAnchor = {x,y}` (two new optional Creature fields — four sites: creature.ts, save.ts
-  serialize+deserialize, stateHashFull union+projection, contribution test).
-- While feeding (`tick < corpseEaterUntilTick`): the boss is SKIPPED by the hostTick creature fan-out
-  (one `continue`, like stun gate 3) and driven by the slot instead:
-  target = nearest ENEMY creature within (leash + attackRange) of the ANCHOR, else nearest OWN non-boss
-  creature; sticky while valid; bite on the feed clock `(tick - start) % cadence === fireTick` through
-  the normal `CREATURE_ATTACK` reducer; heal = victim ehp actually lost, capped at `creatureMaxEhp`.
-  Movement: SEEKING toward the target projected into the leash circle; ATTACKING (braked) when in reach;
-  hard clamp to the leash circle at the end of the slot. Stunned ⇒ no trigger, no bite, no steering, no clamp.
-  Last feeding tick ⇒ release to SEEKING with no target (so the normal FSM never finishes a bite on an own unit).
-- Leash radius is MINE.
+## Mechanic design as built
 
-**APEX PREDATOR** — `CreatureType 't3PiranhaElite'`, config = `T3_STATS.piranha` × 3 on hp/def/atk/pen
-(derived, never literals), 2× draw scale; the tier-3 tower's two emit sites (hostTick cadence emit,
-`goblinTowerFeed.applyFeedTower`) promote `t3Piranha → t3PiranhaElite` when the owner holds `nagas.l5`.
+**CORPSE EATER** — `src/state/racial/corpseEater.ts`, called from the racial-d slot of `racialTick.ts`.
+- Trigger: zombie tier-9 boss whose owner `playerHoldsPerk(…,'zombies.l5')`, not stunned, alive, not a
+  corpse-in-waiting, `ehp*100 <= creatureMaxEhp*20`, latch `corpseEaterUntilTick === undefined` (never
+  cleared ⇒ once per life). Stamps `corpseEaterUntilTick = tick + 480` + `corpseEaterAnchor`.
+- Fields: `Creature.corpseEaterUntilTick?`, `Creature.corpseEaterAnchor?` — creature.ts, save.ts
+  (type + serialize + deserialize), stateHashFull (union + projection `:ce…@…`), contribution tests.
+- While feeding the hostTick fan-out `continue`s past him (beside stun gate 3); the slot drives
+  target (enemy first, else own non-boss, sticky), movement (leash-projected), bite (the ordinary
+  `CREATURE_ATTACK` reducer on his normal swing clock) and heal (= ehp the victim actually lost, capped).
+  Last feeding tick releases him to SEEKING with no target.
+- `CORPSE_EATER_LEASH_RADIUS = 60` is MINE.
+
+**APEX PREDATOR** — `src/state/racial/apexPredator.ts` `towerUnitForSeat`; both tier-3 emit sites
+(hostTick cadence arm, `goblinTowerFeed.applyFeedTower`) call it. `t3PiranhaElite` config =
+`T3_STATS.piranha` × `APEX_PREDATOR_STAT_MUL` (3) on hp/def/atk/pen, derived; speed unchanged.
+`PIRANHA_ELITE_SPRITE_SCALE_MUL = 2` (his). Every `'t3Piranha'` consumer visited: stats.ts ×2,
+potatoLifecycle, characterSheetModel name, goblinRenderer ATLASES + GOBLIN_KINDS + preloadRaceKit,
+towerFrames scale, voltkin-config CREATURE_CONFIGS + the hand-maintained key list test.
+
+## Art — next
+- Elite piranha: 3 sheets (swim/attack/death, 8x3 each, RGBA, overlapping cells — the alpha-gutter
+  intake cannot slice them) → one 12-frame-per-row atlas `t3-nagas-piranha-elite`.
+- Corpse eater: v2-crouch-in (sit-down + loop) and v2-stand-and-burp → extra rows.
