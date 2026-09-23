@@ -51,6 +51,16 @@ const EXPECTED = [
 /** ⛔ Orcs L5 is deliberately NOT in EXPECTED — the owner has not ruled that upgrade. */
 const UNRULED = ['l5-orcs.png'];
 
+/**
+ * Deliberate alternates the owner generated and asked to keep. Known, so they are not reported as
+ * strays, but not EXPECTED either — nothing is missing if they are absent.
+ *
+ * `l0-demons-alt.png`: he generated SCORCHED GROUND twice and could not choose. Both are good. The
+ * primary is the one with more foreground rock and stronger diagonal fissures, which reads better
+ * shrunk to a 251px tile; the alt is flatter and more uniform. Swapping them is a file rename.
+ */
+const ALTERNATES = ['l0-demons-alt.png'];
+
 /** Read a PNG's dimensions from its IHDR. No image library, so this script has no dependencies. */
 function pngSize(path) {
   const b = readFileSync(path);
@@ -95,7 +105,7 @@ for (const [file, label] of EXPECTED) {
 }
 
 // Anything in the folder that is not an expected name, so a typo'd filename is not silently ignored.
-const known = new Set([...EXPECTED.map(([f]) => f), ...UNRULED, 'MANIFEST.md']);
+const known = new Set([...EXPECTED.map(([f]) => f), ...UNRULED, ...ALTERNATES, 'MANIFEST.md']);
 const strays = readdirSync(DIR).filter((f) => !known.has(f) && !f.startsWith('.'));
 
 console.log(`[cards] ${present.length}/${EXPECTED.length} present in assets-source/upgrade-cards/`);

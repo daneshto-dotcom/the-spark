@@ -73,3 +73,28 @@ land, the tile draws the card as a texture and the emblem function is deleted, n
 
 ⚠ The card carries its own name in baked lettering. If a generator garbles the letters, the art is
 still usable: the overlay renders the real title text and can draw it over the card's top band.
+
+## ⛔ ONE WIRING DECISION THE ART FORCES — READ BEFORE IMPLEMENTING
+
+**The cards carry their own name in baked lettering, and it came out clean on all ten** — no
+garbling, so the fallback in the note above is not needed. But the overlay ALSO draws its own title
+text at the top-left of each tile (`generalTitle`, `racialTitle` in `draftOverlay.ts`).
+**They will collide.**
+
+When the cards are wired: stop drawing the overlay's own title for any tile that HAS a card, and keep
+drawing it for any tile that does not — the racial tiles stay text-only until their card lands, so
+both states must work. The effect line (`+10% HEALTH`) and the hover detail panel stay in both cases;
+only the NAME is duplicated.
+
+⭐ And `drawAxisGlyph` gets deleted at the same time, not left dormant. The owner rejected it
+(*"just a hand drawn heart that looks gay"*), and a dead painter that still compiles is exactly the
+kind of thing a later session re-enables by accident.
+
+## Landed so far (S187)
+
+| state | files |
+|---|---|
+| ✅ generated, all 1254×1254, all pass the checker | the four generals + all six level-0 racials |
+| ⏳ owner generating now | the five level-5 racials + THE SWARM |
+| ⛔ unruled | orcs level 5 — no mechanic, so no card |
+| ⚠ alternate kept | `l0-demons-alt.png` — SCORCHED GROUND was generated twice. The primary is the one with more foreground rock and stronger diagonal fissures, which survives the shrink to a 251 px tile better. Swapping them is a rename. |
