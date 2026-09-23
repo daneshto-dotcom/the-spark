@@ -26,9 +26,14 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
   `raCastRefusal` → 2 red.
 - `'mummies.l0': true` in RACIAL_PERK_BUILT (racial-c block only).
 
+- RENDER (verified after the e587460 salvage: typecheck 0, 33 tests green incl. bossAuras +
+  Pharaoh ritual suites): `drawRaRitual`'s column loop extracted VERBATIM into `drawRaColumns`
+  (Pharaoh behaviour unchanged, pinned by a new regression test); `drawPowerOfRa` draws every seat's
+  strike (FIGHT-gated like the sim) + the local aim (5 full-radius circles via raCastRefusal +
+  raAimPoint + raStrikeColumnPos); `src/render/raAimPreview.ts` client-local aim context;
+  `src/render/powerOfRaRender.test.ts`.
+
 ## IN PROGRESS / NEXT
-- render: refactor `drawRaRitual` column loop into a shared `drawRaColumns`; player strikes +
-  aim preview in `drawBossAuras` (`bossAuras.ts`); `src/render/raAimPreview.ts` client-local context
 - footer: Ra button left of the chip row (`footerBand.ts`), carry readout shifts left of it; S182
   fill count 6 → 7 in `footerBand.test.ts`
 - controls: button → targeting; LMB casts; RMB/Esc cancel (`input/controls.ts`)

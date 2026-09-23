@@ -13,9 +13,12 @@ import type { Graphics } from 'pixi.js';
 import { drawBossAuras } from './bossAuras.ts';
 import { setRaAimPreview } from './raAimPreview.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
-import { PLAYER_COLORS, RA_COLUMN_COUNT, RA_COLUMN_RADIUS, RA_COLUMN_TICKS } from '../constants.ts';
-import { asPlayerId } from '../types.ts';
+import { PLAYER_COLORS, RA_COLUMN_COUNT, RA_COLUMN_RADIUS, RA_COLUMN_TICKS, RA_RITUAL_TICKS } from '../constants.ts';
+import { asCreatureId, asPlayerId } from '../types.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
+import { raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
+import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
+import type { Creature } from '../state/creatures/creature.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -94,6 +97,35 @@ describe('S188 P6 — the AIM telegraph is the strike it promises', () => {
     w.tick += RA_COLUMN_TICKS * 10; // long after the strike, same fight
     r = recorder(); drawBossAuras(r.g, w);
     expect(r.ops, 'already used this fight').toHaveLength(0);
+  });
+});
+
+describe('S188 P6 — ⛔ THE PHARAOH\'S OWN RITUAL IS UNCHANGED by the shared column drawer', () => {
+  it('⭐ a channelling Pharaoh still telegraphs column k at raColumnPos(boss, k), growing, then beams', () => {
+    const w = makeWorld(3);
+    w.gameState = 'PLAYING';
+    w.creatures.clear();
+    const id = 41;
+    const boss = {
+      id: asCreatureId(id), type: T9_BOSS_TYPE.mummies, ownerPlayerId: P0,
+      pos: { x: 800, y: 500 }, prevPos: { x: 800, y: 500 }, state: 'SEEKING', ticksInState: 0,
+      stateEnteredTick: 0, spawnTick: 0, despawnAtTick: 1_000_000, ehp: 1, sourceSpawnerId: null,
+      targetBondId: null, targetCreatureId: null, targetPrimitiveId: null,
+      raRitualUntilTick: w.tick + RA_RITUAL_TICKS - RA_COLUMN_TICKS / 2, // column 0, half grown
+    } as unknown as Creature;
+    w.creatures.set(boss.id, boss);
+
+    let r = recorder(); drawBossAuras(r.g, w);
+    const spot = at(raColumnPos(id, 0, 800, 500));
+    const half = (RA_COLUMN_RADIUS * (0.18 + 0.82 * 0.5)).toFixed(3);
+    expect(r.ops).toContain(`circle ${spot} ${half}`);
+    expect(r.ops.some((o) => o.startsWith('moveTo')), 'no beam before impact').toBe(false);
+
+    w.tick += RA_COLUMN_TICKS / 2 + 1;
+    r = recorder(); drawBossAuras(r.g, w);
+    expect(r.ops.some((o) => o.startsWith('moveTo')), 'the column from the sky').toBe(true);
+    // …and column 1's telegraph has opened on ITS spot.
+    expect(r.ops.some((o) => o.startsWith(`circle ${at(raColumnPos(id, 1, 800, 500))}`))).toBe(true);
   });
 });
 
