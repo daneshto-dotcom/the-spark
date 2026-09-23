@@ -47,6 +47,8 @@ import {
   type CastleRowKey,
 } from './castlePanel.ts';
 import { characterSheetModel } from './characterSheetModel.ts';
+import { keepHpFraction } from './gathererRenderer.ts';
+import { castleStateForHp } from './castleFrames.ts';
 import {
   CASTLE_HP_GAIN_BY_BAND,
   CASTLE_UPGRADE_MAX_LEVEL,
@@ -559,6 +561,34 @@ describe('S188 P3 — the castle card shows the upgraded HP / ATK / DEF / PEN', 
         expect(rect.y + rect.h, `${layout} seat ${s} panel bottom`).toBeLessThanOrEqual(1080);
       }
     }
+  });
+});
+
+/* -------------------------------------------------------------------------------------------- *
+ *   4b · S188 P3 fix 3 — the KEEP's own bar and damage art read the upgraded ceiling
+ * -------------------------------------------------------------------------------------------- */
+
+describe('S188 P3 — the keep’s HP bar and damage art divide by THIS seat’s max', () => {
+  const up = { hpLevel: 1, hpBonus: 250, atkLevel: 0, defLevel: 0, penLevel: 0 };
+
+  it('a full upgraded keep reads 1.0, not 1.1 — and 2600 / 2750 reads as short, not full', () => {
+    expect(keepHpFraction({ castleHp: CASTLE_MAX_HP + 250, castleUpgrades: up })).toBe(1);
+    expect(keepHpFraction({ castleHp: 2600, castleUpgrades: up })).toBeCloseTo(2600 / 2750, 10);
+    expect(keepHpFraction({ castleHp: 2600, castleUpgrades: up })).toBeLessThan(1);
+    // an un-upgraded seat is exactly what it was
+    expect(keepHpFraction({ castleHp: 1250, castleUpgrades: upgrades(hostWorld(0)) })).toBe(0.5);
+  });
+
+  it('⛔ the damage ART follows it: 1300 / 2750 is DAMAGED, where the flat divisor said intact', () => {
+    expect(castleStateForHp(keepHpFraction({ castleHp: 1300, castleUpgrades: up }))).toBe('damaged');
+    expect(castleStateForHp(1300 / CASTLE_MAX_HP), 'the old reading, for contrast').toBe('intact');
+  });
+
+  it('the renderer computes the fraction it hands to the bar AND the art from keepHpFraction', () => {
+    const src = readFileSync(new URL('./gathererRenderer.ts', import.meta.url), 'utf8');
+    expect(src).toContain('const hpFrac = keepHpFraction(player);');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code, 'no render site divides by the flat constant any more').not.toMatch(/\/\s*CASTLE_MAX_HP/);
   });
 });
 
