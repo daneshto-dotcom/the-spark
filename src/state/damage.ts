@@ -49,6 +49,7 @@ import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
+import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — mummies.l5
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -191,7 +192,11 @@ export function damageEntity(
      * hit, so a high DEF cannot make a keep immune to small attackers.
      */
     const taken = castleDamageAfterDefence(amount, seat.castleUpgrades);
+    const hpBefore = seat.castleHp;
     seat.castleHp = Math.max(0, seat.castleHp - taken);
+    // ⭐ S188 — ENDLESS DYNASTY counts what the keep ACTUALLY lost: after DEF, and after the clamp, so
+    // a killing blow's overkill is not a loss. A no-op for every seat without `mummies.l5`.
+    accrueDynastyLoss(world, target.seat, hpBefore - seat.castleHp);
     return seat.castleHp === 0;
   }
   if (amount === 0) return false;
@@ -202,7 +207,11 @@ export function damageEntity(
       // ⭐ S155 N1 — pass the host tick's one-tick deferral set THROUGH, so a mutual melee exchange
       // resolves simultaneously instead of being decided by `creatures` iteration order. `null`
       // outside that batch ⇒ immediate deletion, exactly as before, for every other damage source.
-      const died = damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
+      // ⭐ S188 — and the killer's id rides along, read only at the death decision (THE RISEN).
+      const died = damageCreature(
+        world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
+        attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
+      );
       /*
        * ⭐⭐ S183 (owner R183-A…D) — **THE VICTIM TURNS ON ITS ATTACKER.** One call, at the one
        * funnel every creature hit passes through, so no strike path can implement the ruling

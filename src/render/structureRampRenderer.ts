@@ -34,6 +34,7 @@
  * synced target; it never invents one.
  */
 import { Application, Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
+import { DEMON_PENTAGRAM_TINT, isDemonicSeat } from './hellspawnLook.ts'; // ⭐ S188 demons.l5
 import type { World } from '../state/world.ts';
 import type { PrimitiveId } from '../types.ts';
 import { isConcealed } from './concealment.ts';
@@ -184,6 +185,8 @@ export class StructureRampRenderer {
    */
   private drawStructure(
     world: World, key: string, anchorId: PrimitiveId, spec: RampSpec,
+    /** ⭐ S188 — a sprite tint; `0xffffff` (none) for everything but a HELLSPAWN seat's pentagram. */
+    tint = 0xffffff,
   ): boolean {
     const anchor = world.primitives.get(anchorId);
     if (anchor === undefined) return false;
@@ -218,6 +221,7 @@ export class StructureRampRenderer {
       this.sprites.set(key, sprite);
     }
     this.place(sprite, spec, tex, cx, cy);
+    sprite.tint = tint;
 
     // Declared HERE, after the sprite is committed — never above the fog skip or the atlas bail.
     markTowerCover(members, bonds, newestTick);
@@ -252,7 +256,11 @@ export class StructureRampRenderer {
       if (!world.primitives.has(sp.anchorPrimitiveId)) continue; // the anchor is gone — really dead
       const key = `s${Number(sp.id)}`;
       present.add(key);
-      if (this.drawStructure(world, key, sp.anchorPrimitiveId, spec)) live.add(key);
+      // ⭐ S188 demons.l5 — *"the pencil chewers and the pentagram become demonic"*: derived per frame.
+      const tint = sp.recipeId === 'pentagram' && isDemonicSeat(world.players, sp.ownerPlayerId)
+        ? DEMON_PENTAGRAM_TINT
+        : 0xffffff;
+      if (this.drawStructure(world, key, sp.anchorPrimitiveId, spec, tint)) live.add(key);
     }
     /*
      * ⭐⭐ S183 — **DEFENDERS ARE A DIFFERENT COLLECTION AND THEY ALWAYS WERE.** The laser turret

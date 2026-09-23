@@ -330,7 +330,13 @@ type CreatureHashed =
    * before any hash code existed. Two sub-sites still follow — the projection below and the
    * per-field contribution test.
    */
-  | 'raRitualUntilTick';
+  | 'raRitualUntilTick'
+  /*
+   * ⭐ S188 (`demons.l5`) — the HELLSPAWN generation. HASHED: it decides whether a death splits and how
+   * hard the survivor hits, so a host and a `?worker=1` mirror disagreeing about it diverge on the
+   * next chewer death. Projected as `:hg` below; its contribution test is `racial/hellspawn.test.ts`.
+   */
+  | 'hellspawnGen';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -532,7 +538,10 @@ export function determinismParts(world: World): string[] {
         // next exchange. Projected field by field rather than stringified, so a field added to
         // CastleUpgrades later cannot ride in unnoticed.
         + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
-        + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`,
+        + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
+        // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
+        // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
+        + `,dy${pl.dynastyHpLost}`,
     );
   }
 
@@ -598,6 +607,8 @@ export function determinismParts(world: World): string[] {
         // S171 R142/R171-A — the Ra ritual deadline. Same `o()` absent-marker treatment, so a board
         // with no Pharaoh mid-ritual hashes identically to one where the field never existed.
         `:rr${o(c.raRitualUntilTick)}`,
+        // S188 demons.l5 — the HELLSPAWN generation. Absent marker for every ordinary creature.
+        `:hg${o(c.hellspawnGen)}`,
     );
   }
 
