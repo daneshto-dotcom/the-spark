@@ -95,9 +95,15 @@ test.describe('S136 P0 — castle context panel', () => {
      * Both consumers now count from `CASTLE_ROW_KEYS`, so a fourth row cannot half-land. This
      * expectation stays a hard-coded literal on purpose: derived from the same constant it would
      * assert `x === x` and pass with any number of rows, which is how the last one slipped through.
+     *
+     * ⭐ S188 P3 — SEVEN, and still a literal for the same reason: the four castle-stat rows (HP /
+     * ATK / DEF / PEN, the S187 sim wired to a button at last) joined the list.
      */
     expect(open.rowCenters.map((r) => r.key))
-      .toEqual(['buyGatherer', 'upgradeSpeed', 'castleRegen']);
+      .toEqual([
+        'buyGatherer', 'upgradeSpeed', 'castleRegen',
+        'castleHp', 'castleAtk', 'castleDef', 'castlePen',
+      ]);
     // On-canvas for this seat — panelOrigin flips the box when it would overflow.
     expect(open.rect!.x).toBeGreaterThanOrEqual(0);
     expect(open.rect!.x + open.rect!.w).toBeLessThanOrEqual(CANVAS_WIDTH);
@@ -153,6 +159,45 @@ test.describe('S136 P0 — castle context panel', () => {
       return Array.from(w.gatherers.values()).map((g) => g.speedLevel);
     });
     expect(Math.max(...lvl)).toBeGreaterThanOrEqual(1);
+  });
+
+  /*
+   * ⭐ S188 P3 — THE CASTLE-STAT ROWS ARE PRESSED BY A REAL POINTER, not only by the unit suite.
+   * Modelled line for line on the SPEED case above. At the opening balance (100) the HP row is
+   * exactly affordable (`CASTLE_UPGRADE_PRICE` 100), so this is the first purchase a player can make
+   * on it — the same shape as the S165 regen row that shipped undrawn and was found by the owner.
+   */
+  test('⭐ S188 P3 — a castle-stat row click really spends and raises that axis', async ({ page }) => {
+    await bootSolo(page);
+    const keep0 = await keepAnchor(page, 0);
+    await clickCanvas(page, keep0.x, keep0.y);
+    const before = await readWorldState(page);
+    const scoreBefore = before.scoreByPlayer.find(([id]) => id === before.localPlayerId)![1];
+
+    const hp = (await readPanel(page)).rowCenters.find((r) => r.key === 'castleHp')!;
+    expect(hp.enabled, `the HP row is disabled: ${hp.reason}`).toBe(true);
+    expect(hp.reason).toBe('');
+
+    await clickCanvas(page, hp.x, hp.y);
+    await waitForWorld(
+      page,
+      (w) => (w.scoreByPlayer.find(([id]) => id === w.localPlayerId)?.[1] ?? scoreBefore) < scoreBefore,
+      'score debited by the castle HP purchase',
+    );
+    const bought = await page.evaluate(() => {
+      const w = (window as {
+        __SPARK__: {
+          world: {
+            localPlayerId: number;
+            players: Map<number, { castleUpgrades: { hpLevel: number; hpBonus: number } }>;
+          };
+        };
+      }).__SPARK__.world;
+      const me = w.players.get(w.localPlayerId);
+      return me === undefined ? null : { hpLevel: me.castleUpgrades.hpLevel, hpBonus: me.castleUpgrades.hpBonus };
+    });
+    expect(bought?.hpLevel, 'one point bought on the HP axis').toBe(1);
+    expect(bought?.hpBonus, 'and its band gain baked in').toBeGreaterThan(0);
   });
 
   test('a click on a panel row does NOT also act on the board underneath it', async ({ page }) => {
