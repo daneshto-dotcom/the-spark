@@ -294,7 +294,13 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // future session quietly moving them back to the open list.
     expect(canonSays('CLOSED. It is NOT a defect he wants fixed')).toBe(true);
     expect(canonSays('CLOSED at **120 fifths**')).toBe(true);
-    expect(canonSays('The bar follows the star')).toBe(true);
+    // ⭐ S187 — he WIDENED this from one denominator swap to three rules. All three must be in the
+    // canon or the next session re-asks the half that is missing.
+    expect(canonSays('ONE NUMBER, THREE SURFACES')).toBe(true);
+    expect(canonSays('WIDTH IS BOUNDED AND PROPORTIONAL')).toBe(true);
+    expect(canonSays('the damage art follows that same health')).toBe(true);
+    // ⛔ And the two bounds are explicitly NOT ruled — they must be measured, not invented.
+    expect(canonSays('THE TWO BOUNDS ARE NOT RULED')).toBe(true);
     expect(canonSays('so it is never "owed" again')).toBe(true);
     // ⛔ And the two that used to sit in §10 must be marked ANSWERED there, not merely moved.
     expect(canonSays('§9d')).toBe(true);

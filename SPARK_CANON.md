@@ -1018,14 +1018,42 @@ current behaviour and must not be reintroduced on the strength of this ruling.
 consequence of his own ruling, stated so nobody reads it later as a regression.
 
 
-### 3 · THE HEALTH BAR ON A WELDED HUB — CLOSED. **The bar follows the star.**
+### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
+
+> *"The bar needs to follow the art or the art needs to follow the bar — it has to be consistent.
+> And we can't have too much of big bars. When you connect a bunch of structures you can have really
+> big buildings with a lot of health; it doesn't mean the bar needs to be the whole screen. There
+> should be a maximum size of a bar and a minimum size of a bar, and it should be proportional. If a
+> building has 20 HP or if it has 20,000 HP it should be bigger obviously if it has 20,000, but only
+> proportionally — it gets a millimetre bigger every thousand HP or something. We have to see what's
+> the maximum and what's the minimum, and just put it on a scale. And the damage of the structure
+> needs to follow the health of the bar. And same as the character sheet — the health bar on the
+> tower sheet when you click on it has to follow the actual health of the tower."* — owner, S187
+
+**RULE 1 — ONE NUMBER, THREE SURFACES.** The board bar, the damage art (cracks / frame) and the
+CHARACTER SHEET bar all read the SAME pool. Today the board bar uses the whole component
+(`structureDefenceFifths`) while the damage art uses the tower's own star
+(`structurePoolFifths(bonds.size)`), so a welded hub reads 48 % green on the bar and 32 % cracked in
+the art. He ruled the STAR counts in S182, so **the bar and the sheet both move onto the star.**
+
+**RULE 2 — ⭐ NEW: THE BAR'S WIDTH IS BOUNDED AND PROPORTIONAL.** Welding structures together makes
+arbitrarily large pools, and a bar that scales 1:1 with the pool would run off the screen. So the
+bar has a **minimum width**, a **maximum width**, and scales between them with the pool — his
+*"a millimetre bigger every thousand HP"*. ⚠ **THE TWO BOUNDS ARE NOT RULED** — he said *"we have
+to see what's the maximum and what's the minimum"*. They must be MEASURED off the real roster (the
+smallest lone shape at 5 fifths against the largest realistic welded component) and flagged as MINE
+at the constant, not invented.
+
+**RULE 3 — the damage art follows that same health**, so the frame a player sees and the bar they
+read can never tell different stories.
 
 
 He already ruled the principle in S182: **the STAR is what counts.** S182 did not apply it to the bar
 
 only because it changes the bar for every structure in the game, which that branch judged too big a
 
-change to take unasked. He has now asked. ⚠ **RULED, NOT YET BUILT** — the decision is final, the code is owed. The work: **`healthBar.ts` switches to the same denominator the
+change to take unasked. ⚠ **RULED, NOT YET BUILT** — the decisions are final, the code is owed, and it is now THREE
+surfaces plus a width scale rather than one denominator swap. The work: **`healthBar.ts` switches to the same denominator the
 
 damage art uses — `structurePoolFifths(component.bonds.size)` over the tower's OWN star — so the two
 
