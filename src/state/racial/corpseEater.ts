@@ -51,7 +51,7 @@
  * that bite with no heal and no feed rule behind it.
  */
 
-import { PHYSICS_HZ } from '../../constants.ts';
+import { PHYSICS_HZ, PHYSICS_SUBSTEPS, VELOCITY_DAMPING } from '../../constants.ts';
 import type { CreatureId, Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 import { dispatch } from '../world.ts';
@@ -173,6 +173,45 @@ function clampToLeash(boss: Creature): void {
   boss.pos.y = at.y;
 }
 
+/**
+ * ⭐ THE MOST HIS OWN LEGS CAN CARRY HIM IN ONE TICK — the integrator's terminal speed at his (rage-
+ * scaled) accel: `substeps × a·h² / (1 − damping)`. Steering is clamped to `maxAccel`, so from rest or
+ * below this speed nothing he does himself can exceed it. Measured for the zombie boss: ~1.9 px/tick.
+ * Exported for the test file.
+ */
+export function corpseEaterOwnStepPx(boss: Creature): number {
+  const a = getCreatureConfig(boss.type).maxAccel * rageMultiplier(boss);
+  const h = 1 / (PHYSICS_HZ * PHYSICS_SUBSTEPS);
+  return (PHYSICS_SUBSTEPS * a * h * h) / (1 - VELOCITY_DAMPING);
+}
+
+/**
+ * ⛔ S188 FIX (audit F1) — **A BOSS SHOVED OUT OF HIS LEASH SITS BACK DOWN WHERE HE LANDED; HE IS NEVER
+ * SNAPPED BACK.** The Kraken's sonar stuns AND flings (`prevPos` shove, ~26 px/substep), the stun gate
+ * rightly suspends the leash for the whole slide, and the first unstunned feed tick used to clamp him
+ * straight back onto the circle — a one-tick teleport of up to ~860 px, on both peers.
+ *
+ * So, when he is found OUTSIDE the leash and it was not his own doing — he was stunned on the previous
+ * tick (`stunnedUntilTick === tick` is exactly the first acting tick), or the overshoot is more than his
+ * own legs can produce in a tick (`corpseEaterOwnStepPx`, the backstop for any other push) — the leash
+ * is RE-ANCHORED at his feet, and the rest of the slide is spent: `prevPos = pos`. He sat down to eat
+ * and *"he shouldn't be moving a lot"*; still gliding 30 px/tick after the stun would be the opposite.
+ *
+ * ⚠ ORDINARY OVERSHOOT STILL CLAMPS. His own shuffle toward a victim can poke a pixel or two past the
+ * circle; that is corrected by `clampToLeash`, never by moving the anchor, or the leash would creep
+ * outward a step at a time. Reach (`isFeedable`) is measured from the anchor, so it follows him.
+ */
+function reanchorIfDisplaced(world: World, boss: Creature): void {
+  const anchor = boss.corpseEaterAnchor as Vec2;
+  const over = Math.sqrt(distSq(anchor, boss.pos)) - CORPSE_EATER_LEASH_RADIUS;
+  if (over <= 0) return;
+  const justUnstunned = boss.stunnedUntilTick === world.tick;
+  if (!justUnstunned && over <= corpseEaterOwnStepPx(boss)) return; // his own step — the clamp's job
+  boss.corpseEaterAnchor = { x: boss.pos.x, y: boss.pos.y };
+  boss.prevPos.x = boss.pos.x;
+  boss.prevPos.y = boss.pos.y;
+}
+
 /** Arm the skill: once per life, at ≤ 20 %, for a seat holding the perk, not while stunned. */
 function maybeTrigger(world: World, boss: Creature): void {
   if (boss.corpseEaterUntilTick !== undefined) return; // ⛔ the once-per-life latch — never cleared
@@ -214,6 +253,7 @@ function bite(world: World, boss: Creature, victimId: CreatureId): void {
 /** One feeding tick for one unstunned, living boss. */
 function feedStep(world: World, boss: Creature): void {
   const cfg = getCreatureConfig(boss.type);
+  reanchorIfDisplaced(world, boss); // audit F1 — before reach is measured from the anchor
   boss.targetBondId = null;
   boss.targetPrimitiveId = null;
   const victimId = pickFeedTarget(world, boss);
