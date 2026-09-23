@@ -88,7 +88,7 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'vampires.l0': true, // S188 racial-a — BLOOD DEBT: state/racial/lifesteal.ts
   'vampires.l5': true, // S188 racial-a — CRIMSON TIDE: state/racial/lifesteal.ts
   'orcs.l0': true, // S188 racial-a — BLOOD FRENZY: state/racial/bloodFrenzy.ts
-  'orcs.l5': false,
+  'orcs.l5': true, // S188 racial-a — THE HORDE GROWS: state/racial/hordeGrows.ts
   'demons.l0': false,
   'nagas.l0': false,
   // ── s188/racial-b ─────────────────────────────────────────────────────────────────────────────

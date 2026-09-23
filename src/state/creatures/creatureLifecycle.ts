@@ -48,7 +48,6 @@ import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
   GOBLIN_MAX_GLOBAL,
-  GOBLIN_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_VICTIM,
   RA_RITUAL_TICKS,
@@ -56,6 +55,7 @@ import {
 // S113 Batch C — a lightning-drone spawn uses its OWN cap (runtime-only call; the
 // creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
 import { underDroneCaps } from '../droneLifecycle.ts';
+import { goblinCapPerSpawner } from '../racial/hordeGrows.ts'; // S188 — THE HORDE GROWS
 import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 // S169 — the tier-9 boss exemption at the null-spawner population gate; see the note there.
 // Type-only cycle-safe: `t9BossIds` imports `CreatureType` with `import type` and nothing runtime.
@@ -421,7 +421,9 @@ export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boole
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
   }
   if (global >= GOBLIN_MAX_GLOBAL) return false;
-  if (perSpawner >= GOBLIN_MAX_PER_SPAWNER) return false;
+  // ⭐ S188 — THE HORDE GROWS raises THIS tower's ceiling to 20 when its seat holds orcs.l5. Raised,
+  // never removed: `goblinCapPerSpawner` returns `GOBLIN_MAX_PER_SPAWNER` for everyone else.
+  if (perSpawner >= goblinCapPerSpawner(world, sourceSpawnerId)) return false;
   return true;
 }
 

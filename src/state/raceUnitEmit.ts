@@ -64,6 +64,7 @@ import { castleAnchor } from './gatherers/gatherer.ts';
 import { spreadTargetPos } from './creatures/creatureAI.ts';
 import { asCreatureId } from '../types.ts';
 import { dispatch, type World } from './world.ts';
+import { castleEmitIntervalTicks } from './racial/hordeGrows.ts';
 
 /**
  * ⭐ THE CASTLE'S SENTINEL `SpawnerId`, PER SEAT (owner R133).
@@ -135,14 +136,24 @@ export function isCastleSpawnerId(id: SpawnerId | null): boolean {
  * four units into one snapshot. Spread by SEAT ID, not by an accumulated counter — the same idiom
  * as `ticksSinceCastleShot`.
  */
-export function ticksSinceCastleEmit(seat: number, tick: number): number {
-  const i = RACE_UNIT_EMIT_INTERVAL_TICKS;
+export function ticksSinceCastleEmit(
+  seat: number,
+  tick: number,
+  // ⭐ S188 — THE HORDE GROWS halves it for an orc seat (`racial/hordeGrows.ts`). Defaulted so every
+  // existing caller and test keeps the owner's 30 s; the phase stays spread by seat either way.
+  interval: number = RACE_UNIT_EMIT_INTERVAL_TICKS,
+): number {
+  const i = interval;
   return (((tick - Math.trunc(seat)) % i) + i) % i;
 }
 
 /** True on exactly the tick this seat's castle produces. */
-export function castleEmitsOnTick(seat: number, tick: number): boolean {
-  return ticksSinceCastleEmit(seat, tick) === 0;
+export function castleEmitsOnTick(
+  seat: number,
+  tick: number,
+  interval: number = RACE_UNIT_EMIT_INTERVAL_TICKS,
+): boolean {
+  return ticksSinceCastleEmit(seat, tick, interval) === 0;
 }
 
 /**
@@ -205,7 +216,7 @@ export function raceUnitEmitTick(world: World): void {
     if (player === undefined) continue;
     if (player.castleHp <= 0) continue; // the keep is gone — see above
     const seat = playerId as unknown as number;
-    if (!castleEmitsOnTick(seat, world.tick)) continue;
+    if (!castleEmitsOnTick(seat, world.tick, castleEmitIntervalTicks(player))) continue; // S188 — THE HORDE GROWS
     if (!underRaceUnitCaps(world, playerId)) continue;
 
     const anchor = castleAnchor(seat, world.layout);
