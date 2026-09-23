@@ -38,7 +38,10 @@ import { syncCreatureProjectiles } from './creatureProjectile.ts';
 import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 // S169 R152 — the STUN read, for the idle-pose override and the derived "seeing stars".
-import { isStunned, rageMultiplier } from '../state/creatures/creature.ts';
+import { isStunned, rageMultiplier, isCorpseEaterFeeding, type Creature } from '../state/creatures/creature.ts';
+// S188 CORPSE EATER — the eat loop, derived per frame from the synced feed deadline.
+import { corpseEaterElapsed, corpseEaterFrame } from './corpseEaterFrames.ts';
+import { seatHoldsPerk } from '../state/racialPerks.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
@@ -83,6 +86,23 @@ import { T9_BOSS_TYPE, t9BossAtlasBase } from '../state/t9BossIds.ts';
  * no test COULD import it, and the direwolf duly shipped invisible. A table whose correctness is
  * described in a comment and checkable by nobody is a prophecy, not a guard.
  */
+/**
+ * ⭐ S188 APEX PREDATOR — the elite piranha's OWN sheet, packed from the owner's swim / attack / death
+ * sheets by `scripts/build-scattered-sheet-atlas.mjs` (`assets-source/race-tier3-units/piranha-elite/
+ * atlas-spec.json`). Its body is fitted to the shipped piranha's measured body height, so
+ * `PIRANHA_ELITE_SPRITE_SCALE_MUL` (2) is exactly his *"two times bigger"*. `apexPredator.test.ts`
+ * asserts both files exist — a 404 here is SILENT (the loader catches and draws the green puppet).
+ */
+export const PIRANHA_ELITE_ATLAS_BASE = `${t3UnitAtlasBase('nagas')}-elite`;
+
+/**
+ * ⭐ S188 CORPSE EATER — the zombie boss's feed sheet (`feedIn` / `feedLoop` / `feedOut`), packed at his
+ * main sheet's cell and foot anchor so the one sprite can switch sheets mid-fight without moving.
+ * Loaded only for a boss whose seat holds `zombies.l5`; until it resolves he feeds on his ordinary rows.
+ */
+export const CORPSE_EATER_FEED_ATLAS_BASE = `${t9BossAtlasBase('zombies')}-feed`;
+const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
+
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
@@ -116,6 +136,8 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    */
   t3Bat: t3UnitAtlasBase('vampires'),
   t3Piranha: t3UnitAtlasBase('nagas'),
+  // ⭐ S188 APEX PREDATOR — the elite piranha. See `PIRANHA_ELITE_ATLAS_BASE` for which sheet.
+  t3PiranhaElite: PIRANHA_ELITE_ATLAS_BASE,
   t3Scarab: t3UnitAtlasBase('mummies'),
   t3Hound: t3UnitAtlasBase('zombies'),
   t3Warband: t3UnitAtlasBase('orcs'),
@@ -351,6 +373,8 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * all three of which a new renderer gets subtly wrong.
    */
   't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
+  // ⭐ S188 APEX PREDATOR — absent from this Set the elite would fight, kill and die INVISIBLE.
+  't3PiranhaElite',
   /*
    * ⛔ S167 — THE SIX BOSSES, AND THIS SET FAILS DIFFERENTLY FROM `ATLASES` ABOVE. A type missing
    * from `ATLASES` draws the green puppet; a type missing from HERE draws NOTHING AT ALL — the boss
@@ -515,6 +539,8 @@ export class GoblinRenderer {
   private readonly raceLoadStarted: Set<RaceId> = new Set();
   /** S169 — per-TYPE lazy-load latch, the type-keyed twin of `raceLoadStarted`. */
   private readonly typeLoadStarted: Set<CreatureType> = new Set();
+  /** S188 — the corpse-eater feed sheet's load latch. */
+  private feedLoadStarted = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -608,6 +634,9 @@ export class GoblinRenderer {
     this.ensureRaceAtlas(race);
     this.ensureTypeAtlas(RACE_TOWER_UNIT[race]);
     this.ensureTypeAtlas(T9_BOSS_TYPE[race]);
+    // ⭐ S188 APEX PREDATOR — a naga seat can field the elite from the level-5 draft on, so its sheet
+    // is part of that race's kit and warms with the rest rather than popping in green mid-fight.
+    if (race === 'nagas') this.ensureTypeAtlas('t3PiranhaElite');
   }
 
   /**
@@ -712,10 +741,14 @@ export class GoblinRenderer {
   private syncSprite(
     id: CreatureId, type: CreatureType, atlas: LoadedAtlas, state: string, ticksInState: number,
     x: number, y: number, face: 1 | -1, alpha: number, tint: number, enraged: boolean,
+    /** S188 — a row and frame chosen by the caller (the corpse-eater feed), bypassing the FSM map. */
+    forced?: { name: string; index: number },
   ): void {
     // FSM state → animation row. SEEKING is the only state a goblin actually travels in, so it is
     // the walk; SPAWNING and DESPAWNING read as idle rather than getting their own art.
-    const name = state === 'ATTACKING' ? 'attack' : state === 'SEEKING' ? 'walk' : 'idle';
+    const name = forced !== undefined
+      ? forced.name
+      : state === 'ATTACKING' ? 'attack' : state === 'SEEKING' ? 'walk' : 'idle';
     const row = atlas.cells[name] ?? atlas.cells.idle;
     if (row === undefined || row.length === 0) return;
     const st = atlas.manifest.states[name] ?? atlas.manifest.states.idle;
@@ -748,7 +781,10 @@ export class GoblinRenderer {
     let i: number;
     // ⭐ S179 (owner) — ground-driven for the three he named; everything else is tick-driven as
     // before. See GROUND_DRIVEN_GAIT for why the global version was wrong.
-    if (name === 'walk' && GROUND_DRIVEN_GAIT.has(type)) {
+    if (forced !== undefined) {
+      this.gait.delete(id);
+      i = Math.min(row.length - 1, Math.max(0, forced.index));
+    } else if (name === 'walk' && GROUND_DRIVEN_GAIT.has(type)) {
       const prev = this.gait.get(id);
       const px = prev === undefined
         ? 0
@@ -847,6 +883,35 @@ export class GoblinRenderer {
    * two players watching the same stunned unit see the stars in the same place, and a crowd of
    * stunned units does not pulse in lockstep because the id offsets them.
    */
+  /**
+   * ⭐ S188 CORPSE EATER — the feed sheet and frame for a zombie boss that is feeding right now, or
+   * `null` to draw him normally. Also starts the feed sheet's one-time load the first time a zombie
+   * boss appears for a seat holding the perk — before he can reach 20 %, so it is resolved in time.
+   */
+  private corpseEaterFeed(
+    world: World, c: Creature, stunned: boolean,
+  ): { atlas: LoadedAtlas; frame: { name: string; index: number } } | null {
+    if (c.type !== T9_BOSS_TYPE.zombies) return null;
+    if (!this.feedLoadStarted) {
+      const owner = world.players.get(c.ownerPlayerId);
+      if (owner !== undefined && seatHoldsPerk(owner, 'zombies.l5')) {
+        this.feedLoadStarted = true;
+        this.loadAtlas(CORPSE_EATER_FEED_KEY, CORPSE_EATER_FEED_ATLAS_BASE);
+      }
+    }
+    if (stunned || !isCorpseEaterFeeding(c, world.tick)) return null;
+    const feed = this.atlases.get(CORPSE_EATER_FEED_KEY);
+    const st = feed?.manifest.states;
+    if (feed === undefined || st?.feedIn === undefined || st.feedLoop === undefined || st.feedOut === undefined) {
+      return null; // not resolved yet (or a peer's fetch failed) — his ordinary rows, never nothing
+    }
+    const f = corpseEaterFrame(
+      corpseEaterElapsed(c.corpseEaterUntilTick as number, world.tick),
+      { feedIn: st.feedIn, feedLoop: st.feedLoop, feedOut: st.feedOut },
+    );
+    return { atlas: feed, frame: { name: f.row, index: f.index } };
+  }
+
   /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
   private dropSprite(id: CreatureId): void {
     const sp = this.sprites.get(id);
@@ -1053,7 +1118,16 @@ export class GoblinRenderer {
          * the FSM gate stops `ticksInState` advancing.
          */
         const stunnedNow = isStunned(c, world.tick);
-        this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true);
+        // ⭐ S188 CORPSE EATER — while he feeds, the frame comes from the feed sheet and the synced
+        // deadline. A stunned boss keeps R152's idle pose, like every other stunned unit.
+        const feed = this.corpseEaterFeed(world, c, stunnedNow);
+        if (feed !== null) {
+          this.syncSprite(c.id, c.type, feed.atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, feed.frame);
+          // ⚠ The CORPSE must find the main sheet's `die` row — the feed sheet has none.
+          this.spriteAtlas.set(c.id, atlas);
+        } else {
+          this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true);
+        }
         // ⭐ S170 P5 — scaled by the sprite multiplier, or the ring sits inside a boss.
         if (stunnedNow) drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, Number(c.id), alpha, creatureSpriteScaleMul(c.type));
       } else {

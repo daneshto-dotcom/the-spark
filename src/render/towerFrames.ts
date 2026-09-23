@@ -181,6 +181,16 @@ export const T9_BOSS_SPRITE_SCALE_MUL = 1.6;
 export const DIREWOLF_SPRITE_SCALE_MUL = 2;
 
 /**
+ * ⭐ S188 (owner, APEX PREDATOR) — HIS NUMBER: *"two times bigger than the current piranha"*.
+ *
+ * ⚠ RENDER-ONLY, like the direwolf's: the sprite, never the hitbox, the attack range or the pool —
+ * the elite's extra strength is its tripled stat line, and a physically bigger unit would be a
+ * second balance change he did not ask for. The elite atlas is packed at the piranha's cell and
+ * subject fill, so this multiplier alone is what makes it twice the size.
+ */
+export const PIRANHA_ELITE_SPRITE_SCALE_MUL = 2;
+
+/**
  * PURE — the extra sprite-scale multiplier for a creature type. `1` for everything that is not a
  * boss, which is every unit shipped before S167.
  *
@@ -190,6 +200,7 @@ export const DIREWOLF_SPRITE_SCALE_MUL = 2;
  */
 export function creatureSpriteScaleMul(type: CreatureType): number {
   if (type === 'direwolf') return DIREWOLF_SPRITE_SCALE_MUL;
+  if (type === 't3PiranhaElite') return PIRANHA_ELITE_SPRITE_SCALE_MUL;
   return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
 }
 

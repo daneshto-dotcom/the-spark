@@ -256,6 +256,8 @@ const POTATO_CLEARS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * FAILS when it is incomplete — `potatoClears.test.ts` is now that something.
    */
   't3Hound', 't3Scarab', 't3Piranha', 't3Bat', 't3Warband', 't3Souleater',
+  // S188 APEX PREDATOR — a tower unit like the piranha it replaces, so the same potato rule.
+  't3PiranhaElite',
   /*
    * ⛔ AND THE SIX TIER-9 BOSSES ARE DELIBERATELY **ABSENT** — a decision, not the same omission.
    *

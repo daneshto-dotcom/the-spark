@@ -43,7 +43,7 @@ import { runScorchedGround } from './scorchedGround.ts';
 // ── s188/racial-c imports ─────────────────────────────────────────────────────────────────────────
 import { runPowerOfRa } from './powerOfRa.ts';
 // ── s188/racial-d imports ─────────────────────────────────────────────────────────────────────────
-// (racial-d: replace this line with your imports)
+import { runCorpseEater } from './corpseEater.ts'; // CORPSE EATER (zombies.l5)
 // ── end imports ───────────────────────────────────────────────────────────────────────────────────
 
 /** One host tick of every racial mechanic that runs on a cadence. FIGHT only — see the docblock. */
@@ -61,7 +61,7 @@ export function runRacialPerksFight(world: World): void {
   // ── s188/racial-c ───────────────────────────────────────────────────────────────────────────────
   runPowerOfRa(world); // POWER OF RA (mummies.l0) — lands whichever aimed column is due this tick
   // ── s188/racial-d ───────────────────────────────────────────────────────────────────────────────
-  // (racial-d: replace this line with your call(s) — CORPSE EATER)
+  runCorpseEater(world); // CORPSE EATER (zombies.l5) — see `corpseEater.ts`
   // ── end ─────────────────────────────────────────────────────────────────────────────────────────
   void world;
 }

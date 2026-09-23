@@ -224,6 +224,18 @@ export function isChannellingRa(
 }
 
 /**
+ * ⭐⭐ S188 (owner, CORPSE EATER) — **IS THIS BOSS FEEDING RIGHT NOW?** The ONE read of
+ * `corpseEaterUntilTick`, on the `isStunned` shape: strictly `<`, so stamping `tick + N` yields exactly
+ * N feeding ticks. Takes `tick` rather than the World so the renderer and the fan-out can both ask.
+ */
+export function isCorpseEaterFeeding(
+  c: Pick<Creature, 'corpseEaterUntilTick'>,
+  tick: number,
+): boolean {
+  return c.corpseEaterUntilTick !== undefined && tick < c.corpseEaterUntilTick;
+}
+
+/**
  * ⭐ S169 (owner R152) — APPLY A STUN, TAKING THE MAX.
  *
  * *"it has to be consistent"* — two sources overlapping must not let the shorter one cut the longer
@@ -379,6 +391,20 @@ export type CreatureType =
   | 't3Hound'
   | 't3Scarab'
   | 't3Piranha'
+  /* ── S188 (owner, nagas level 5 — APEX PREDATOR) — THE ELITE PIRANHA ──────────────────────────
+   * *"upgrade the tier three piranha into a big one ... all the stats you take and you just triple
+   * them"* and *"two times bigger than the current piranha"*.
+   *
+   * ⛔ ITS OWN LITERAL, for the reason the `t3*` block above states in full: an undamaged creature
+   * carries no stats on the wire and the receiver rebuilds them from `CREATURE_CONFIGS` keyed by
+   * TYPE, so tripled stats are only expressible as a distinct type. SERIALIZED — a stale peer would
+   * accept the literal and find no config — so it rides the S188 PROTOCOL 49 → 50 bump.
+   *
+   * ⚠ The `t3` prefix is load-bearing, not cosmetic: `underGoblinCaps` exempts every `t3*` type from
+   * the tower cap (tier-3 is limitless) and the character sheet tiers it by the same prefix, so the
+   * elite joins the piranha's population rules for free. Emitted only by a naga seat's piranha tower
+   * once that seat holds `nagas.l5` (`racial/apexPredator.ts`). */
+  | 't3PiranhaElite'
   | 't3Bat'
   | 't3Warband'
   | 't3Souleater'
@@ -750,6 +776,25 @@ export interface Creature {
    * grandchild again and hit for the full chewer strike. Additive-optional, emitted only when set.
    */
   hellspawnGen?: 1 | 2;
+  /*
+   * ⭐⭐ S188 (owner, zombies level 5 — CORPSE EATER) — **THE FEED DEADLINE: THE TICK THE ZOMBIE BOSS
+   * STOPS EATING.** *"once he reaches 20% HP, he starts eating everyone around him … for like eight
+   * seconds."* Stamped `tick + CORPSE_EATER_TICKS` by `racial/corpseEater.ts` and NEVER cleared, so
+   * `!== undefined` is also the once-per-life latch — the `raRitualUntilTick` shape exactly.
+   *
+   * ⚠ ADDITIVE-OPTIONAL and emitted only while set, like the stun and the ritual stamps above; HASHED
+   * because it decides who the boss attacks, how he moves and whether the fan-out drives him at all.
+   * It must be ON THE WIRE for the same reason those are: the eat loop is DERIVED per frame from this
+   * stamp on both peers. Read through `isCorpseEaterFeeding`, never directly.
+   */
+  corpseEaterUntilTick?: number;
+  /*
+   * ⭐ S188 — WHERE HE SAT DOWN TO EAT. *"he shouldn't be moving a lot. He moves only in a tiny radius
+   * around him."* The leash centre, stamped with the deadline above and never moved; it has to be
+   * stored because the boss's own position is exactly what the leash constrains. Same wire/hash
+   * treatment as the deadline, and meaningless once the deadline has passed.
+   */
+  corpseEaterAnchor?: Vec2;
 }
 
 /**

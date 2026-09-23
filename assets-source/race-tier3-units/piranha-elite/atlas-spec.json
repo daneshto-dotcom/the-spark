@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "S188 APEX PREDATOR — the elite piranha. Built by scripts/build-scattered-sheet-atlas.mjs.",
+    "Three already-matted 8x3 sheets from the owner; frames overlap (no gutters) and the pitch is irregular,",
+    "so components are assigned to the nearest fitted body and each frame is aligned on its centroid.",
+    "SIZE: the swim frames' median body height is fitted to 128 px in a 200 px cell — the SHIPPED piranha's",
+    "measured body height (check-atlas-scenery's own measure) — so PIRANHA_ELITE_SPRITE_SCALE_MUL = 2 is",
+    "exactly his 'two times bigger than the current piranha'.",
+    "idle and walk share the swim loop (every other frame = one full cycle in 12); die stops at frame 21:",
+    "frames 22-24 are flat saturated-blue blots, not art (inspected S188)."
+  ],
+  "name": "t3-nagas-piranha-elite",
+  "outDir": "public/art/race-tier3-units",
+  "cellH": 200,
+  "cellW": 200,
+  "align": "centroid",
+  "fitBodyHeightPx": 128,
+  "fitReference": [{ "source": "swim", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23] }],
+  "sources": [
+    { "id": "swim", "path": "assets-source/race-tier3-units/piranha-elite/sheet-swim.png", "grid": { "cols": 8, "rows": 3 }, "assign": "nearest-body" },
+    { "id": "attack", "path": "assets-source/race-tier3-units/piranha-elite/sheet-attack.png", "grid": { "cols": 8, "rows": 3 }, "assign": "nearest-body" },
+    { "id": "death", "path": "assets-source/race-tier3-units/piranha-elite/sheet-death.png", "grid": { "cols": 8, "rows": 3 }, "assign": "nearest-body" }
+  ],
+  "states": [
+    { "name": "idle", "source": "swim", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 7 },
+    { "name": "walk", "source": "swim", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 4 },
+    { "name": "attack", "source": "attack", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "ticksPerFrame": 5 },
+    { "name": "die", "source": "death", "frames": [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 20, 21], "ticksPerFrame": 5 }
+  ]
+}
