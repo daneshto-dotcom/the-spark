@@ -44,9 +44,13 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   (the card's FIX/SCRAP/FEED act while aiming, as with a held tower) and still ABOVE the castle click
   (aiming at your own keep casts). 2 tests; moving the line back turns the FIX test red.
 
+- AUDIT F2 DONE: `src/bots/botRa.ts` `botRaAction` (pure over synced state, total order: most
+  column hits on enemy creatures + connector midpoints, tie → nearer own castle → id order; casts at
+  ≥ 3 hits, or ≥ 1 in the last ~12 s of the fight; one strike in the air at a time; eval every 30
+  ticks phase-spread by seat), called from `BotController.tick` as a castle command. 6 tests through
+  runHostTick + a real BotManager; removing the send turns 4 red. Bot + host/worker suites green.
+
 ## IN PROGRESS / NEXT
-- AUDIT FIXES queued (coordinator): F1 column sever must not depend on caster bench/elim; F4 aim
-  must not swallow the card's FIX/SCRAP/FEED; F2 teach the BOT to cast (host + worker identical).
 - canon notes (SANDWORM ruled-not-built); gates
 
 ## KNOWN-BROKEN
