@@ -52,8 +52,8 @@ mechanic's tests pass.
 | item | status |
 |---|---|
 | F1 lifesteal order-independence (`pendingLifestealFifths`) | ✅ DONE — lifestealOrder.test.ts (real host tick, mirrored pairs), mutation-tested |
-| F3 rage transition mid-swing | NEXT |
-| F4 eliminated demon seat keeps burning | not started |
+| F3 rage transition mid-swing | ✅ DONE — `Creature.attackCycleRaged` latch (four sites), rageCycle.test.ts, mutation-tested |
+| F4 eliminated demon seat keeps burning | NEXT |
 | F7 missing lifesteal arm tests (Helga, stink bag, Voltkin link) | not started |
 
 - F1 fixture lesson: a MUTUAL duel is arbitrated by the S156 P4 initiative roll (`winsInitiative`,

@@ -794,6 +794,8 @@ interface SerializedCreature {
    * Emitted only when true, so a world with no enraged Warlord stays byte-identical.
    */
   readonly enraged?: boolean;
+  /** S188 F3 — the ATTACKING cycle's latched rage (`Creature.attackCycleRaged`). Emitted only when true. */
+  readonly attackCycleRaged?: boolean;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -2277,6 +2279,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     // stays byte-identical to every prior save.
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
+    ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
@@ -2658,6 +2661,7 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // ⛔ S168 — the RAGE latch survives the round-trip. Absent means calm, which is the correct
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
+    ...(s.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142
