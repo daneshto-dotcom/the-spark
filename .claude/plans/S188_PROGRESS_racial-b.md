@@ -18,5 +18,7 @@ Brief: `.claude/plans/2026-09-23_S188_BATCH_PDR.md` → BRIEF P5 (+ A2, A3, A5).
 - THE RISEN committed; full suite after it: 344 files / 5644 tests, exit 0.
 - ENDLESS DYNASTY committed (typecheck 0, 25 related files / 407 tests green). Session was cut off at 18:20 by the spend limit; resumed, salvage verified.
 
-## Remaining
-- canon notes file, full gates (typecheck / vitest / build), final report.
+## FINAL GATES (captured exit codes, on efe4fd2)
+- typecheck 0 · vitest 0 (348 files / 5693 tests) · build 0 (923.3 KiB, +3.5 KiB over the substrate's 919.8; 76.7 KiB headroom)
+- First full run went red (VITEST_EXIT=1) on untargetableCallSites.test.ts — livePharaohs is an own-seat population count; recorded as a NOT_ACQUISITION verdict (efe4fd2), then green.
+- All three mechanics DONE and BUILT. Canon text: S188_CANON_NOTES_racial-b.md.
