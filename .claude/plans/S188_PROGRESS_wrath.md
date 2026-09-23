@@ -50,8 +50,11 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   ticks phase-spread by seat), called from `BotController.tick` as a castle command. 6 tests through
   runHostTick + a real BotManager; removing the send turns 4 red. Bot + host/worker suites green.
 
-## IN PROGRESS / NEXT
-- canon notes (SANDWORM ruled-not-built); gates
+- GATES on cba78b1: TYPECHECK_EXIT=0 · VITEST_EXIT=0 (349 files / 5726 tests) · BUILD_EXIT=0
+  (928.2 KiB, +2.6 KiB over racial-c's 925.6; 71.8 KiB headroom). Snapshot file re-written
+  content-identically by the suite (benign, as on racial-c).
+- BROWSER LOOK (vite :39975, own tab only — the pane is shared with other agents): WRATH seat at
+  wave 11 → the picture icon left of chip 3; aim → green edge + AIMING beneath; cast → slot
+  {charges 3, left 2}; the second aim's circles show charge 1's own pattern. Server stopped, tab closed.
 
-## KNOWN-BROKEN
-- nothing known (the footer still draws P6's sun button until the icon commit lands).
+## STATUS: COMPLETE — see the final report
