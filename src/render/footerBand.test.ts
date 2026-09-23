@@ -394,6 +394,8 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      *   4. the CARRY READOUT plate  → `isOverCarryBill` (via `isOverBandSurface`)  ← the miss
      *   5. the tower card plate     → `cardAt`
      *   6. the COLLAPSE TAB plate   → `isOverCollapseTab` (via `isOverChip`)   ← S187
+     *   7. the POWER OF RA plate    → `isOverRaButton` (via `isOverChip`, both states)  ← S188 P6
+     *   8. the POWER OF RA sun disc → `isOverRaButton` — drawn INSIDE plate 7, same rectangle
      *
      * ⚠ IF THIS GOES RED, DO NOT BUMP THE NUMBER. A sixth opaque fill means a sixth surface the
      * player cannot see through, and something must hit-test it before this test is updated — that
@@ -404,9 +406,16 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     const fills = src.match(/\.fill\(\{/g) ?? [];
     expect(
       fills.length,
-      `the band now fills ${fills.length} opaque rectangles, not 6 — register the new one in ` +
+      `the band now fills ${fills.length} opaque rectangles, not 8 — register the new one in ` +
         '`isOverChip` (a control) or `isOverBandSurface` (a readout) BEFORE updating this count',
-    ).toBe(6);
+    ).toBe(8);
+    /*
+     * ⭐ S188 P6 — 6 → 8, and again the rule was followed: both new fills are the POWER OF RA
+     * button (its plate, and the sun disc drawn inside that plate), hit-tested by `isOverRaButton`,
+     * which `isOverChip` asks FIRST in both collapse states (and `isOverBandSurface` likewise), so the
+     * compact button beside the collapsed tab is as solid as the full one. Behavioural proof of the
+     * rectangle is in `footerRaButton.test.ts`.
+     */
     /*
      * ⭐ S187 — 5 → 6, AND THE RULE ABOVE WAS FOLLOWED RATHER THAN THE NUMBER BUMPED. The sixth is
      * the collapse tab, a CONTROL, hit-tested by `isOverCollapseTab` and folded into `isOverChip`
@@ -415,7 +424,7 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      * fill before any of that was written, which is exactly what it is for.
      */
     // Anti-vacuity: every hit-test that pairs with them must still be named in this file.
-    for (const fn of ['chipAt(', 'paletteAt(', 'queueChipAt(', 'cardAt(', 'isOverCarryBill(', 'isOverCollapseTab(']) {
+    for (const fn of ['chipAt(', 'paletteAt(', 'queueChipAt(', 'cardAt(', 'isOverCarryBill(', 'isOverCollapseTab(', 'isOverRaButton(']) {
       expect(src, `${fn} is what makes one of those five fills clickable-or-blocking`).toContain(fn);
     }
   });

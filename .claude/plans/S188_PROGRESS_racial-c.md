@@ -33,9 +33,14 @@ Updated with every wip commit. The merge owner can salvage from here if this ses
   raAimPoint + raStrikeColumnPos); `src/render/raAimPreview.ts` client-local aim context;
   `src/render/powerOfRaRender.test.ts`.
 
+- FOOTER BUTTON (`footerBand.ts`): `layoutRaButton` (left of the chip row; compact 44x20 beside the
+  collapse tab when collapsed), `raButtonCaption` (exhaustive), `drawRaButton`, `isOverRaButton`
+  asked first in `isOverChip` + `isOverBandSurface` (both states); carry readout anchored left of the
+  button (`layoutCarryBill` 3rd param); stale aim dropped in sync; `getUiPoints().ra`. S182 fill
+  count 6 -> 8 (plate + sun disc, both hit-tested by isOverRaButton). `footerRaButton.test.ts` drives
+  the REAL FooterBand (Pixi constructs fine headless). Footer tests green, typecheck 0.
+
 ## IN PROGRESS / NEXT
-- footer: Ra button left of the chip row (`footerBand.ts`), carry readout shifts left of it; S182
-  fill count 6 → 7 in `footerBand.test.ts`
 - controls: button → targeting; LMB casts; RMB/Esc cancel (`input/controls.ts`)
 - flip `'mummies.l0': true` ONLY after the tests pass; canon notes file; gates; browser look
 
