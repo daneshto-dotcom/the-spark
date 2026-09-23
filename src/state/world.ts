@@ -785,7 +785,9 @@ export function dispatch(world: World, action: GameAction): World {
        * Damage still ACCUMULATES on the bond, so the cut is a matter of when, not whether.
        */
       const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
-      const shouldSever = damageConnector(world, action.target.id, connectorDamage);
+      // S188 — `null`: the raider is a player avatar, not a creature — nothing to heal, nobody to
+      // turn on (the same answer this file's two `damageEntity` raid arms give).
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
         dispatch(world, {
           type: 'SEVER_BOND',

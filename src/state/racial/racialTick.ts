@@ -36,7 +36,8 @@
 import type { World } from '../worldTypes.ts';
 
 // ── s188/racial-a imports ─────────────────────────────────────────────────────────────────────────
-// (racial-a: replace this line with your imports)
+import { runBloodFrenzy } from './bloodFrenzy.ts';
+import { runScorchedGround } from './scorchedGround.ts';
 // ── s188/racial-b imports ─────────────────────────────────────────────────────────────────────────
 // (racial-b: replace this line with your imports)
 // ── s188/racial-c imports ─────────────────────────────────────────────────────────────────────────
@@ -47,8 +48,14 @@ import { runPowerOfRa } from './powerOfRa.ts';
 
 /** One host tick of every racial mechanic that runs on a cadence. FIGHT only — see the docblock. */
 export function runRacialPerksFight(world: World): void {
+  // ⛔ S188 (racial-a audit F2) — a DECIDED match mutates nothing. The FIGHT gate in `hostTick` answers
+  // the phase question only; a match can end during FIGHT, and every boss skill in that block returns
+  // on `gameState !== 'PLAYING'` for exactly this reason. Without it SCORCHED GROUND kept burning the
+  // post-game board and BLOOD FRENZY kept rewriting `enraged` after the result was in.
+  if (world.gameState !== 'PLAYING') return;
   // ── s188/racial-a ───────────────────────────────────────────────────────────────────────────────
-  // (racial-a: replace this line with your call(s) — BLOOD FRENZY, SCORCHED GROUND)
+  runBloodFrenzy(world); // orcs.l0 — after `runWarlordRage` in this tick, so the latch has spoken
+  runScorchedGround(world); // demons.l0 — 1 fifth per victim on its own cadence, inside the deferral
   // ── s188/racial-b ───────────────────────────────────────────────────────────────────────────────
   // (racial-b: replace this line with your call(s) — ENDLESS DYNASTY, if it needs a tick)
   // ── s188/racial-c ───────────────────────────────────────────────────────────────────────────────

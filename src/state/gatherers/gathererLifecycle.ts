@@ -43,6 +43,7 @@ import { spendScore } from '../gameMode.ts';
 import type { World } from '../worldTypes.ts';
 import { castleAnchor, gathererSpeed, makeGatherer, type Gatherer } from './gatherer.ts';
 import { isEliminated } from '../elimination.ts';
+import { deepCurrentSnap } from '../racial/deepCurrent.ts'; // S188 — DEEP CURRENT
 
 export interface BuyGathererAction {
   readonly type: 'BUY_GATHERER';
@@ -533,7 +534,10 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
       return world;
     }
     const home = castleAnchor(g.ownerPlayerId as unknown as number, world.layout);
-    const arrived = stepToward(g, { x: home.x, y: home.y + GATHERER_DEPOSIT_OFFSET_Y }, GATHERER_REACH);
+    const depositAt = { x: home.x, y: home.y + GATHERER_DEPOSIT_OFFSET_Y };
+    // ⭐ S188 — DEEP CURRENT (nagas L0): a holding seat's gatherer SNAPS onto the deposit point instead
+    // of walking there; everything below (cargo slaving, deposit, re-seek) is unchanged.
+    const arrived = deepCurrentSnap(world, g, depositAt) || stepToward(g, depositAt, GATHERER_REACH);
     // The cargo rides the gatherer (pos slaved, prevPos kept equal so the physics substeps do not
     // fling it — it is escrowed and therefore skipped by the spawner bounds/reap anyway).
     carried.pos.x = g.pos.x;

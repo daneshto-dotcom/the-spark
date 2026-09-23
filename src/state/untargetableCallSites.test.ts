@@ -113,6 +113,11 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
   'state/racial/endlessDynasty.ts':
     'POPULATION COUNT. `livePharaohs` counts the seat\'s OWN live Pharaohs against the A3 performance ' +
     'sentinel before one is born. It selects no victim and reads no enemy.',
+  'state/racial/scorchedGround.ts':
+    'AREA (S188 SCORCHED GROUND). Every enemy standing in the territory of the demon seat burns — it ' +
+    'asks who is inside a zone, exactly as the rot aura asks who is inside a radius, and picks no ' +
+    'victim. Reaching an untargetable unit is the "untargetable is NOT invulnerable" ruling; a ' +
+    'channelling Pharaoh is already immune inside `damageCreature`, so no gate is owed here.',
   'state/vision.ts':
     'FOG. Builds the vision set. Reads positions, selects no victim — and gating it would make ' +
     'untargetable units invisible rather than unclickable, which is a different (and wrong) feature.',

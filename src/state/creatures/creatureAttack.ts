@@ -535,7 +535,14 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // ⭐ S177 P9 (owner) — *"only when they reach it"*. Same gate, same predicate, same reason as the
   // creature arm above: this one could also sever a connector from any distance whatsoever.
   if (!isWithinAttackRange(world, creature, action.bondId)) return world;
-  const broke = damageConnector(world, action.bondId, hellspawnStrikeFifths(creature, attackFifths(attacker.atk, attacker.pen)));
+  // S188 — HELLSPAWN scales a split chewer's strike (arg 3); the striker rides along so BLOOD DEBT
+  // heals it (arg 4). Kept as a whole-line comment: `damageConnector.callSites.test.ts` reads arg 4.
+  const broke = damageConnector(
+    world,
+    action.bondId,
+    hellspawnStrikeFifths(creature, attackFifths(attacker.atk, attacker.pen)),
+    { kind: 'creature', id: creature.id },
+  );
 
   /*
    * ⭐ S159 P2 (owner R77) — CHAIN LIGHTNING, AND IT FIRES WHETHER OR NOT THIS CONNECTOR GAVE WAY.
