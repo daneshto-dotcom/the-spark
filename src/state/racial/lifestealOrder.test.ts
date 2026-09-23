@@ -8,17 +8,26 @@
  * ACCUMULATED (`World.pendingLifestealFifths`) and applied just before the deferred sweep, sorted by
  * creature id, skipping anyone who died this tick.
  *
- * The fixture is two identical duels on one board through the REAL host tick. In pair A the vampire
+ * The fixture is two identical fights on one board through the REAL host tick. In pair A the vampire
  * is inserted BEFORE its attacker; in pair B AFTER. Warband vs warband: 24-fifth pool, 18-fifth swing,
- * CRIMSON TIDE heals 9. The vampire starts at 12: blow-first it would be 12 + 9 − 18 = 3 and live;
- * struck-first it is 12 − 18 and dead. Both duels must end the same way.
+ * CRIMSON TIDE heals 9. The vampire starts at 12: heal-first it would be 12 + 9 − 18 = 3 and live;
+ * struck-first it is 12 − 18 and dead. Both fights must end the same way.
+ *
+ * ⚠ NO STRIKE IS MUTUAL, AND THAT IS LOAD-BEARING. Two units targeting EACH OTHER are arbitrated by
+ * the S156 P4 initiative roll (`winsInitiative`, owner ruling) — only one swings, decided by ids and
+ * tick — so a mutual duel would differ between the pairs for a reason that has nothing to do with
+ * loop order (the first cut of this test measured exactly that). So the vampire strikes a STUNNED
+ * enemy chewer (which targets nobody) while the enemy warband strikes the vampire.
  */
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, phaseDurationTicks } from '../../constants.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
-import { asCreatureId, makeCreature, type Creature } from '../creatures/creature.ts';
+import { asCreatureId, makeCreature, type Creature, type CreatureType } from '../creatures/creature.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
+import { damageEntity } from '../damage.ts';
+import { applyPendingLifesteal } from './lifesteal.ts';
+import { creatureMaxEhp } from '../creatures/creature.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
 import { mulberry32 } from '../rng.ts';
 import { makeGameStateExtras } from '../gameState.ts';
@@ -50,8 +59,8 @@ function board(): World {
   return w;
 }
 
-function unit(w: World, owner: PlayerId, x: number, y: number): Creature {
-  const c = makeCreature(getCreatureConfig('t3Warband'), {
+function unit(w: World, owner: PlayerId, x: number, y: number, type: CreatureType = 't3Warband'): Creature {
+  const c = makeCreature(getCreatureConfig(type), {
     id: asCreatureId(w.nextCreatureId++), ownerPlayerId: owner, pos: { x, y }, targetPos: { x, y },
     spawnedAtTick: w.tick, sourceSpawnerId: asSpawnerId(900 + w.creatures.size), clock: w,
   });
@@ -69,26 +78,101 @@ describe('S188 F1 — a vampire melee resolves the same whatever the insertion o
   it('⛔ two identical duels, vampire inserted first vs second, end identically', () => {
     const w = board();
     // Pair A — the vampire first. Pair B — the attacker first. Far apart, far from both keeps' guns.
-    const vA = unit(w, P0, 600, 250);
-    const eA = unit(w, P1, 620, 250);
-    const eB = unit(w, P1, 620, 830);
-    const vB = unit(w, P0, 600, 830);
+    // Each pair: the enemy warband E 25 px behind the vampire V, a stunned enemy chewer X 15 px ahead.
+    // V's nearest enemy is X (so V strikes X, not E); E's only enemy is V; X targets nobody.
+    const pair = (y: number, vampireFirst: boolean) => {
+      const make = () => {
+        const v = unit(w, P0, 600, y);
+        const x = unit(w, P1, 615, y, 'chewer');
+        x.stunnedUntilTick = w.tick + 100_000;
+        return { v, x };
+      };
+      if (vampireFirst) {
+        const { v, x } = make();
+        return { v, x, e: unit(w, P1, 575, y) };
+      }
+      const e = unit(w, P1, 575, y);
+      return { e, ...make() };
+    };
+    const A = pair(250, true);
+    const B = pair(830, false);
+    const vA = A.v, eA = A.e, vB = B.v, eB = B.e;
     vA.ehp = 12;
     vB.ehp = 12;
+    expect([...w.creatures.keys()].indexOf(vA.id)).toBeLessThan([...w.creatures.keys()].indexOf(eA.id));
+    expect([...w.creatures.keys()].indexOf(vB.id)).toBeGreaterThan([...w.creatures.keys()].indexOf(eB.id));
 
     const d = deps();
     const st = makeHostTickState(w);
     let struck = false;
     for (let t = 0; t < 200 && !struck; t++) {
       runHostTick(w, d, st);
-      // the first exchange has landed once either attacker has been hurt
-      struck = (w.creatures.get(eA.id)?.ehp ?? 0) < 24 || (w.creatures.get(eB.id)?.ehp ?? 0) < 24;
+      // the first exchange has landed once either vampire has been struck or has struck its chewer
+      struck = !w.creatures.has(A.x.id) || !w.creatures.has(B.x.id) ||
+        (w.creatures.get(vA.id)?.ehp ?? 0) !== 12 || (w.creatures.get(vB.id)?.ehp ?? 0) !== 12;
     }
-    expect(struck, 'fixture: the duels engaged').toBe(true);
+    expect(struck, 'fixture: the fights engaged').toBe(true);
+    expect(w.creatures.has(A.x.id), 'both vampires landed their blow').toBe(w.creatures.has(B.x.id));
     const a = w.creatures.get(vA.id);
     const b = w.creatures.get(vB.id);
     expect(a === undefined, 'pair A vampire alive/dead').toBe(b === undefined);
     expect(a?.ehp).toBe(b?.ehp);
     expect(w.creatures.get(eA.id)?.ehp).toBe(w.creatures.get(eB.id)?.ehp);
+    // ⭐ And the rule both now follow: heals land AFTER every blow of the tick, and a unit killed this
+    // tick is not healed back over the line — so 12 − 18 is dead in BOTH, whatever the order.
+    expect(a).toBeUndefined();
+  });
+});
+
+describe('S188 F1 — the accumulator itself', () => {
+  const vampireAt = (w: World, ehp: number): Creature => {
+    const v = unit(w, P0, 600, 250);
+    v.ehp = ehp;
+    return v;
+  };
+  const by = (c: Creature) => ({ kind: 'creature' as const, id: c.id });
+
+  it('inside the batch a heal is only SUMMED; it lands at the close, capped at the full pool', () => {
+    const w = board();
+    const v = vampireAt(w, 5);
+    w.pendingCreatureDeaths = new Set();
+    w.pendingLifestealFifths = new Map();
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v)); // +9
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v)); // +9
+    expect(v.ehp, 'nothing applied mid-batch').toBe(5);
+    expect(w.pendingLifestealFifths.get(v.id)).toBe(18);
+    applyPendingLifesteal(w);
+    expect(v.ehp).toBe(Math.min(creatureMaxEhp(v), 5 + 18)); // 23 of 24
+    expect(w.pendingLifestealFifths.size).toBe(0);
+  });
+
+  it('⛔ a unit that died in the batch, or is pending death, is not healed back', () => {
+    const w = board();
+    const dead = vampireAt(w, 3);
+    const doomed = vampireAt(w, 3);
+    w.pendingCreatureDeaths = new Set([doomed.id]);
+    w.pendingLifestealFifths = new Map([[dead.id, 9], [doomed.id, 9]]);
+    dead.ehp = 0;
+    applyPendingLifesteal(w);
+    expect(dead.ehp).toBe(0);
+    expect(doomed.ehp).toBe(3);
+  });
+
+  it('outside the batch (no accumulator open) a heal lands at once, as before', () => {
+    const w = board();
+    const v = vampireAt(w, 5);
+    expect(w.pendingLifestealFifths).toBeNull();
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v));
+    expect(v.ehp).toBe(14);
+  });
+
+  it('⛔ the accumulator is null at every tick boundary (never serialized, never hashed)', () => {
+    const w = board();
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let i = 0; i < 5; i++) {
+      runHostTick(w, d, st);
+      expect(w.pendingLifestealFifths).toBeNull();
+    }
   });
 });

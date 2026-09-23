@@ -46,3 +46,16 @@ mechanic's tests pass.
 ## Known broken
 
 - nothing known
+
+## FIX ROUND (after merge into master; branch fast-forwarded to master f61d6f5)
+
+| item | status |
+|---|---|
+| F1 lifesteal order-independence (`pendingLifestealFifths`) | ✅ DONE — lifestealOrder.test.ts (real host tick, mirrored pairs), mutation-tested |
+| F3 rage transition mid-swing | NEXT |
+| F4 eliminated demon seat keeps burning | not started |
+| F7 missing lifesteal arm tests (Helga, stink bag, Voltkin link) | not started |
+
+- F1 fixture lesson: a MUTUAL duel is arbitrated by the S156 P4 initiative roll (`winsInitiative`,
+  ids + tick), so two mirrored duels differ for a reason unrelated to loop order. The fixture uses
+  one-sided strikes (vampire → stunned chewer, enemy → vampire).
