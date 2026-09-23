@@ -325,7 +325,7 @@ describe('⛔ the mechanical fill enumeration (the S182 lesson)', () => {
     { what: 'the LEFT (general) tile', hitTest: "draftHitTest -> 'general'" },
     { what: 'the RIGHT (racial) tile', hitTest: "draftHitTest -> 'racial' while a perk is offered; NONE while COMING SOON" },
     { what: 'the card stencil (one call, one per tile)', hitTest: 'decorative — a Pixi mask, never drawn as a surface' },
-    { what: 'the hover detail plate', hitTest: 'decorative — appears only under the cursor' },
+    { what: 'the hover detail plate', hitTest: 'decorative — drawn BELOW the panel while a choosable tile is hovered; never clickable' },
   ];
 
   const src = readFileSync(join(__dirname, 'draftOverlay.ts'), 'utf8');

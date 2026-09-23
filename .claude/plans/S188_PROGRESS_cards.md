@@ -33,18 +33,28 @@
     orcs L5 THE HORDE GROWS; demons wave 16 (L15) -> PIERCING + COMING SOON (correct, undesigned).
   - no general art on the racial tile, no race tint leaking onto the general line.
 - A first full-gate run (before the cutoff) read TYPECHECK 0 / VITEST 0 (5664/343) / BUILD 0 (923.0 KiB);
-  being RE-RUN now per the coordinator — do not trust it.
+  superseded by the re-run below.
 
 - RE-RUN after the cutoff, exit codes captured: TYPECHECK_EXIT=0 · VITEST_EXIT=0 (5664 tests / 343
   files) · BUILD_EXIT=0 (main entry 923.0 KiB; base 87f3dc4 measured 919.8 KiB -> +3.2 KiB; 77.0 KiB
   headroom). vitest rewrites `pentagramBuildability.test.ts.snap` with CRLF on Windows — content
   identical ignoring CR, restored, not committed.
 
+- FIX ROUND (independent audit):
+  - F2 `2d8bd6a` — pointertap ignores every button but 0 (Pixi v8 taps on RMB/MMB; RMB is put-it-back
+    / raid). `tap()` helper sends button 0; new test: buttons 1 and 2 pick nothing on either tile.
+    Mutant (guard removed) -> 1 failed / 51 passed.
+  - F3 `07eb0d4` — `pointerleave` clears hover. New test. Mutant (handler removed) -> 1 failed / 52.
+  - F4 — this file's stale gate line, and the FILLS row for the hover plate (drawn BELOW the panel).
+  - Per the coordinator: NO is-over-panel predicate, controls.ts untouched (`s188/input-layer` owns F1).
+  - ⚠ Correction: git-bash `grep -c $''` reported these files as CRLF; a Python byte count shows
+    they are LF on disk and in every blob (base included). No EOL change was ever made.
+
 ## IN PROGRESS
-- nothing. Branch complete.
+- final gates after the fix round.
 
 ## NEXT
 - merge owner: land `.claude/plans/S188_CANON_NOTES_cards.md`; run e2e on the merged tree.
 
 ## KNOWN BROKEN
-- nothing known. Full vitest + build not yet run.
+- nothing known. Full gates were run and exit 0 (see above); re-run after the fix round below.
