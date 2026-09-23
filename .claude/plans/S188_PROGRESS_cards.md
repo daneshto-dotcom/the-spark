@@ -9,14 +9,17 @@
   `pickForTile`, `draftTileViews`, `drawsOwnTitle`, `coverFitTop`, `seatMustStillPick` replaces `/ 5`,
   PLAYING gate, constructor seams `{ optionsFor, loadCard }` for tests.
 
+- `src/render/draftOverlay.test.ts` rewritten — 50 tests: 3-arg hit-test in BOTH racial states,
+  card files on disk (16, 502x484, <=150 KB, no l10, no strays), fill enumeration widened to any
+  `.fill(` (5 fills), and the CLASS driven for real (stub OffscreenCanvas + injected offer/loader).
+  typecheck 0, this file 50/50.
+
 ## IN PROGRESS
-- `src/render/draftOverlay.test.ts` — rewrite for the 3-arg hit-test, both racial states, the card
-  files on disk, the broadened fill enumeration (5 fills), and class-level tests with a stub
-  OffscreenCanvas. **Until this lands `npm run typecheck` is RED (old 2-arg calls in the test).**
+- mutation tests of the guards.
 
 ## NEXT
 - MANIFEST.md stale lines; `.claude/plans/S188_CANON_NOTES_cards.md`.
 - Gates: typecheck, vitest, build. Dev server on a random port + screenshot of the panel.
 
 ## KNOWN BROKEN
-- typecheck red until the test rewrite lands (test file only; production code compiles).
+- nothing known. Full vitest + build not yet run.

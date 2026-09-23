@@ -382,6 +382,15 @@ export class DraftOverlay {
       style: new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 74, fill: DIM }),
     });
     this.racialMark.alpha = 0.35;
+    // Labels, so the test can find each part by name rather than by child index.
+    this.generalCard.label = 'generalCard';
+    this.racialCard.label = 'racialCard';
+    this.generalTitle.label = 'generalTitle';
+    this.generalLine.label = 'generalLine';
+    this.racialTitle.label = 'racialTitle';
+    this.racialLine.label = 'racialLine';
+    this.racialMark.label = 'racialMark';
+    this.tip.label = 'tip';
 
     const generalMask = cardStencil(generalTileRect());
     const racialMask = cardStencil(racialTileRect());
