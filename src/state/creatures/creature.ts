@@ -373,6 +373,20 @@ export type CreatureType =
   | 't3Hound'
   | 't3Scarab'
   | 't3Piranha'
+  /* ── S188 (owner, nagas level 5 — APEX PREDATOR) — THE ELITE PIRANHA ──────────────────────────
+   * *"upgrade the tier three piranha into a big one ... all the stats you take and you just triple
+   * them"* and *"two times bigger than the current piranha"*.
+   *
+   * ⛔ ITS OWN LITERAL, for the reason the `t3*` block above states in full: an undamaged creature
+   * carries no stats on the wire and the receiver rebuilds them from `CREATURE_CONFIGS` keyed by
+   * TYPE, so tripled stats are only expressible as a distinct type. SERIALIZED — a stale peer would
+   * accept the literal and find no config — so it rides the S188 PROTOCOL 49 → 50 bump.
+   *
+   * ⚠ The `t3` prefix is load-bearing, not cosmetic: `underGoblinCaps` exempts every `t3*` type from
+   * the tower cap (tier-3 is limitless) and the character sheet tiers it by the same prefix, so the
+   * elite joins the piranha's population rules for free. Emitted only by a naga seat's piranha tower
+   * once that seat holds `nagas.l5` (`racial/apexPredator.ts`). */
+  | 't3PiranhaElite'
   | 't3Bat'
   | 't3Warband'
   | 't3Souleater'

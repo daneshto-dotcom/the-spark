@@ -138,6 +138,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
@@ -1124,7 +1125,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           if (anchor !== undefined && race !== null) {
             dispatch(world, {
               type: 'SPAWN_CREATURE',
-              creatureType: RACE_TOWER_UNIT[race],
+              // ⭐ S188 APEX PREDATOR — the seat's promotion (piranha → elite for `nagas.l5`), the
+              // same rule the fed path asks; see `racial/apexPredator.ts`.
+              creatureType: towerUnitForSeat(world, sp.ownerPlayerId, RACE_TOWER_UNIT[race]),
               ownerPlayerId: sp.ownerPlayerId,
               pos: { x: anchor.pos.x, y: anchor.pos.y },
               targetPos: { x: anchor.pos.x, y: anchor.pos.y },

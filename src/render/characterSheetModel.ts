@@ -385,6 +385,8 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
   t3Hound: 'HOUND',
   t3Scarab: 'SCARAB',
   t3Piranha: 'PIRANHA',
+  // S188 APEX PREDATOR — his words: *"upgrade the tier three piranha into a big one"*.
+  t3PiranhaElite: 'ELITE PIRANHA',
   t3Bat: 'BAT',
   t3Warband: 'WARBAND',
   t3Souleater: 'SOULEATER',

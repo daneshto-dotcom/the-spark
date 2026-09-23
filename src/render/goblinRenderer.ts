@@ -83,6 +83,15 @@ import { T9_BOSS_TYPE, t9BossAtlasBase } from '../state/t9BossIds.ts';
  * no test COULD import it, and the direwolf duly shipped invisible. A table whose correctness is
  * described in a comment and checkable by nobody is a prophecy, not a guard.
  */
+/**
+ * ⭐ S188 APEX PREDATOR — the elite piranha's sheet.
+ *
+ * ⚠ FALLBACK: until its own atlas is packed this is the ORDINARY piranha's sheet, drawn at
+ * `PIRANHA_ELITE_SPRITE_SCALE_MUL` (2x) — the mechanic ships on the base art rather than waiting for
+ * the elite art (the S188 brief's rule). The art commit repoints this one constant.
+ */
+export const PIRANHA_ELITE_ATLAS_BASE = t3UnitAtlasBase('nagas');
+
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
@@ -116,6 +125,8 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    */
   t3Bat: t3UnitAtlasBase('vampires'),
   t3Piranha: t3UnitAtlasBase('nagas'),
+  // ⭐ S188 APEX PREDATOR — the elite piranha. See `PIRANHA_ELITE_ATLAS_BASE` for which sheet.
+  t3PiranhaElite: PIRANHA_ELITE_ATLAS_BASE,
   t3Scarab: t3UnitAtlasBase('mummies'),
   t3Hound: t3UnitAtlasBase('zombies'),
   t3Warband: t3UnitAtlasBase('orcs'),
@@ -351,6 +362,8 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * all three of which a new renderer gets subtly wrong.
    */
   't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
+  // ⭐ S188 APEX PREDATOR — absent from this Set the elite would fight, kill and die INVISIBLE.
+  't3PiranhaElite',
   /*
    * ⛔ S167 — THE SIX BOSSES, AND THIS SET FAILS DIFFERENTLY FROM `ATLASES` ABOVE. A type missing
    * from `ATLASES` draws the green puppet; a type missing from HERE draws NOTHING AT ALL — the boss
@@ -608,6 +621,9 @@ export class GoblinRenderer {
     this.ensureRaceAtlas(race);
     this.ensureTypeAtlas(RACE_TOWER_UNIT[race]);
     this.ensureTypeAtlas(T9_BOSS_TYPE[race]);
+    // ⭐ S188 APEX PREDATOR — a naga seat can field the elite from the level-5 draft on, so its sheet
+    // is part of that race's kit and warms with the rest rather than popping in green mid-fight.
+    if (race === 'nagas') this.ensureTypeAtlas('t3PiranhaElite');
   }
 
   /**
