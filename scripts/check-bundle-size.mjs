@@ -16,7 +16,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CAP_KIB = 1000; // ← keep in sync with LOCKED_DECISIONS.md § Bundle charter (750→900 S145; 900→1000 S180)
+const CAP_KIB = 1100; // ← keep in sync with LOCKED_DECISIONS.md § Bundle charter (750→900 S145; 900→1000 S180; 1000→1100 S188)
 const CAP_BYTES = CAP_KIB * 1024;
 // S101 early-warning band: shout when headroom drops below this BEFORE the hard cap
 // silently hard-fails `npm run build` (= the exact command deploy.yml runs → a breach
