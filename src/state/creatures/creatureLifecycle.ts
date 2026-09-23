@@ -59,6 +59,8 @@ import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 // S169 — the tier-9 boss exemption at the null-spawner population gate; see the note there.
 // Type-only cycle-safe: `t9BossIds` imports `CreatureType` with `import type` and nothing runtime.
 import { isT9BossType, T9_BOSS_TYPE } from '../t9BossIds.ts';
+// ⭐ S188 — the racial mechanics' one death hook (THE RISEN, HELLSPAWN). See `damageCreature`.
+import { onCreatureDeathDecided } from '../racial/racialDeaths.ts';
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -536,6 +538,12 @@ export function damageCreature(
    * both blows landing, a mutual engagement destroys both, so a bigger army wins on attrition.
    */
   deferDelete?: Set<CreatureId>,
+  /**
+   * ⭐ S188 — WHICH CREATURE DEALT THE BLOW, when a creature did (`damageEntity` forwards its
+   * `DamageAttacker` here). Read ONLY at the death decision below, by the racial mechanics that
+   * care who killed whom (THE RISEN). Omitted / `null` = nobody to credit, and changes nothing.
+   */
+  killerId?: CreatureId | null,
 ): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
@@ -619,6 +627,18 @@ export function damageCreature(
       c.ehp = 1;
       c.raRitualUntilTick = world.tick + RA_RITUAL_TICKS;
       return false; // he is NOT dead — no kill count, no reward, no death VFX
+    }
+    /*
+     * ⭐⭐ S188 — THE RACIAL MECHANICS HEAR ABOUT THIS DEATH HERE, AND EXACTLY ONCE.
+     *
+     * The same branch the ritual above treats as "about to die", for the same reasons. ⛔ ONCE:
+     * under the deferral a corpse-in-waiting is still in the map with `ehp <= 0`, so a second
+     * lethal blow this tick re-enters this branch — membership in the deferral set is what says it
+     * already died. (The immediate arm deletes, so a second blow finds nothing.) Everything the
+     * hook does is QUEUED and happens after the sweep — `racial/racialTick.ts`, Council A5.
+     */
+    if (deferDelete === undefined || !deferDelete.has(creatureId)) {
+      onCreatureDeathDecided(world, c, killerId ?? null);
     }
     if (deferDelete !== undefined) {
       // Still "dead" to the caller (kill counts, effects, return value) — only the REMOVAL waits, so

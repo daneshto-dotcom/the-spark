@@ -249,3 +249,43 @@ export function raceUnitEmitTick(world: World): void {
  * should overrule on sight if it looks wrong on the board.
  */
 const RACE_UNIT_SPAWN_SPREAD = 46;
+
+/**
+ * ⭐ S188 — ONE race unit at `owner`'s keep, OFF the cadence: THE RISEN (`zombies.l0`) raises a kill
+ * here. *"Every unit you kill is spawned like a one, one, one, one zombie from the castle."*
+ *
+ * ⛔ IT IS THE CASTLE EMITTER'S OWN SPAWN, NOT A LOOK-ALIKE. Same literal (`raceUnit`, R125's
+ * 1/1/1/1), same per-seat sentinel spawner id (so it answers to `underRaceUnitCaps` and never to
+ * the goblin family, this module's defect 3), same golden-angle spread keyed on the pre-minted id,
+ * same born-standing-at-its-keep `targetPos`. So it is sized by the seat's draft picks inside
+ * `applySpawnCreature` and shelters / releases / recalls like every castle soldier (the module
+ * docblock's "no new state" argument holds for it unchanged).
+ *
+ * ⚠ ADDED BESIDE `raceUnitEmitTick`, NOT EXTRACTED OUT OF IT. The per-seat body above is the
+ * cadence's; a parallel S188 branch retunes that cadence, so extracting it would put two branches
+ * on the same lines. The two bodies must stay in step — change one, change both.
+ *
+ * ⛔ A FALLEN CASTLE PRODUCES NOTHING, by the rule `raceUnitEmitTick` states: a destroyed keep that
+ * kept minting soldiers would make its own destruction cosmetic. ⚠ MINE for THE RISEN: a kill made
+ * by a fallen seat's surviving army raises nobody.
+ *
+ * @returns whether a unit was actually born.
+ */
+export function spawnRaceUnitAtCastle(world: World, owner: PlayerId): boolean {
+  if (world.gameState !== 'PLAYING') return false;
+  const player = world.players.get(owner);
+  if (player === undefined || player.castleHp <= 0) return false;
+  if (!underRaceUnitCaps(world, owner)) return false;
+  const seat = owner as unknown as number;
+  const id = asCreatureId(world.nextCreatureId);
+  const pos = spreadTargetPos(castleAnchor(seat, world.layout), id, RACE_UNIT_SPAWN_SPREAD);
+  dispatch(world, {
+    type: 'SPAWN_CREATURE',
+    creatureType: 'raceUnit',
+    ownerPlayerId: owner,
+    pos,
+    targetPos: pos,
+    sourceSpawnerId: castleSpawnerId(seat),
+  });
+  return world.creatures.has(id);
+}

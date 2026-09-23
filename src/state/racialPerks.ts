@@ -92,7 +92,7 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'demons.l0': false,
   'nagas.l0': false,
   // ── s188/racial-b ─────────────────────────────────────────────────────────────────────────────
-  'zombies.l0': false,
+  'zombies.l0': true, // THE RISEN — racial/theRisen.ts
   'demons.l5': false,
   'mummies.l5': false,
   // ── s188/racial-c ─────────────────────────────────────────────────────────────────────────────

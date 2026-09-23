@@ -202,7 +202,11 @@ export function damageEntity(
       // ⭐ S155 N1 — pass the host tick's one-tick deferral set THROUGH, so a mutual melee exchange
       // resolves simultaneously instead of being decided by `creatures` iteration order. `null`
       // outside that batch ⇒ immediate deletion, exactly as before, for every other damage source.
-      const died = damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
+      // ⭐ S188 — and the killer's id rides along, read only at the death decision (THE RISEN).
+      const died = damageCreature(
+        world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
+        attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
+      );
       /*
        * ⭐⭐ S183 (owner R183-A…D) — **THE VICTIM TURNS ON ITS ATTACKER.** One call, at the one
        * funnel every creature hit passes through, so no strike path can implement the ruling
