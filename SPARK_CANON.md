@@ -88,6 +88,7 @@ the 24 in a single blow.
 | Damage an attacker deals to it | **its own `attackFifths(atk, pen)`** — the same ladder as everything else |
 | Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
 | Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level (1.0–1.8 % of the pool) |
+| Bought stats | **HP / ATK / DEF / PEN**, 100 VP a point, 10 per axis — live buttons since S188 (§3d) |
 
 ⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
 
@@ -177,7 +178,7 @@ is run by **every peer, including the client**, and it gates on `winScoreForWave
 advertising 47 would shake hands and then disagree about when the match ends. ⭐ **The precedent was
 already in `protocol.ts`, in as many words:** 39→40 says *"⛔ THE BUMP IS FOR THE RULE, NOT FOR THE
 FIELD … a v39 peer ends the match the instant ANY castle reaches zero, while a v40 host plays on …
-Both peers run that function."* Identical mechanism. **See §6 — the version is 49.**
+Both peers run that function."* Identical mechanism. **See §6 for the live version.**
 
 ⭐ **THE TICK ORDER MAKES HIS BOUNDARY EXACT FOR FREE.** The wave increments on the BUILD edge in
 `hostTick`, which runs BEFORE `tickScoring` (FIGHT-only, so it is skipped on the flip tick) and
@@ -203,92 +204,118 @@ seat, and raising it would retune every castle relationship measured in S181.
 
 ---
 
-## 3d · ⭐⭐ THE UPGRADE DRAFT, AND THE KEEP YOU CAN NOW BUY (S187)
-
+## 3d · ⭐⭐ THE UPGRADE DRAFT, AND THE KEEP YOU CAN NOW BUY (S187, LIVE S188)
 
 > *"As the game starts, it gives you like five seconds to choose an upgrade, one of the two … on the
-
 > left is like the regular one, the 10% HP to all spawned units, and on the right will be your racial
-
 > one."* — owner, S187
 
-
 A draft opens **before wave 1 and again on waves 6, 11, 16, 21** — `(wave − 1) % 5 === 0`. ⚠ **NOT on
-
 waves 5/10/15**: `waveNumber` increments on ENTRY INTO BUILD, so the BUILD after wave 5's FIGHT is
-
-wave 6. The original spec contradicted itself on exactly this point.
-
+wave 6. The original spec contradicted itself on exactly this point. So "level 0" is the wave-1 draft
+(draft index 0) and "level 5" is the wave-6 draft (draft index 1).
 
 | | |
-
 |---|---|
-
 | general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
-
 | the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent` |
-
-| deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is 560 × 270 on the spawn disc |
-
-| racial track | **every race is COMING SOON and NOT choosable** — his instruction. The tile is drawn but absent from the hit-test |
-
+| deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is **559 × 270** on the spawn disc (`PANEL_W` × `PANEL_H`), two tiles of **251 × 242** |
+| racial track | ⭐ **LEVELS 0 AND 5 ARE LIVE FOR ALL SIX RACES (S188).** The tile is choosable exactly when `draftOptionsFor(wave, race).racial` names a perk — i.e. when `RACIAL_PERK_BUILT` says its mechanic exists — and it then joins the hit-test and sends `'racial'`. Levels 10+ stay the dimmed COMING SOON tile, **absent from the hit-test** |
+| a pick that was not offered | **refused** — `pickIsOffered` (S188) |
+| what a racial pick buffs | **no ladder stat at all** — it is a mechanic, never an axis (R104) |
 
 ⛔ **THE FLOOR-AT-ONE RULE IS WHAT MAKES A PERCENTAGE POSSIBLE AT ALL**, and it is his:
 
-
 > *"Ten percent of a one-one-one-one unit comes out as 0.6 … but we don't have a 0.6, so we just add
-
 > one point. Instead of six health he will have seven. Anything that doesn't ship as at least a whole
-
 > number you just give him the lowest amount possible, which is one."*
 
-
 The castle-spawned unit is `1/1/1/1` (R125), so its pool is **6 fifths**. It compounds: 6 → 7 → 8. A
-
 260-fifth boss gets a true 26. That is strictly better than R118's flat `+1 POINT`, which was the
+same step for a chewer and for a Kraken. **R118 is superseded.** ⭐ S188 — the same rule floors every
+racial percentage in §3e: a lifesteal heal, a split chewer's pool and its bite.
 
-same step for a chewer and for a Kraken. **R118 is superseded.**
+⛔ **AND IT AUTO-TAKES THE RACIAL ONE AT THE DEADLINE — HIS REVERSAL OF R106, LIVE SINCE S188.** R106
+assigned the general; his S187 ruling governs: *"in the end of the build phase it just takes the
+racial one automatically."* `autoPickFor` returns `'racial'` whenever a perk is on offer, so at levels
+0 and 5 a seat that does not choose gets its RACE's perk — and so does every bot, which drafts through
+the same deadline (`SPARK_RACES_SPEC` §9.5). ⚠ At levels 10+, where nothing is on offer, it still
+takes the general option: a deadline that took a non-existent option would grant nothing.
 
+⛔ **ONLY AN OFFERED OPTION MAY BE TAKEN (S188).** Until S188 `applyDraftChoice` pushed whatever `pick`
+the intent carried, so a modified client could take ATK at the HP draft, or stack PEN forever. It was
+latent while the panel could only send the offered general; it is not latent once a second option
+exists. `pickIsOffered` admits exactly two things: this wave's general axis, and `'racial'` when this
+seat's race has a built perk at this draft.
 
-⛔ **AND IT AUTO-TAKES THE RACIAL ONE AT THE DEADLINE — A REVERSAL OF R106**, which assigned the
+⭐ **A RACIAL PICK IS ONE LITERAL FOR TWELVE PERKS.** `DraftPick = GeneralPick | 'racial'`. Which perk
+it is follows from the seat's race and the pick's index, so it is never stored twice, and every
+mechanic asks one question — `seatHoldsPerk` — which checks the RACE as well as the pick: a seat of
+another race that picked its racial holds ITS OWN race's perk, never this one. ⛔ `isPoolPick('racial')`
+and `isDamagePick('racial')` are false by construction, so the pick moves no pool and no damage
+number (R104).
 
-general. His S187 ruling governs. ⚠ While every racial is COMING SOON the fallback is the general
-
-option, because a deadline that took a non-existent option would grant nothing.
-
+⭐ **EVERY TILE DRAWS ITS CARD (S188).** The general tile shows `general-<axis>`; the racial tile shows
+`RACIAL_PERK_COPY[perk].card` while its perk is on offer — **16** cards in `public/art/upgrade-cards/`,
+fetched lazily (`upgradeCardUrl`), so a slow or missing card leaves the tile on its text title and
+never blocks the panel. ⛔ A tile showing its card draws **no overlay title** — the name is baked into
+the art and the two collided. ⛔ `drawAxisGlyph` is **deleted**, not dormant — owner: *"just a hand
+drawn heart that looks gay"*. ⚠ `l10-vampires` is **not shipped**: level 10 has no mechanic on this
+tree.
 
 ### ⭐ THE CASTLE NOW CLIMBS TOO — §3b's CONSEQUENCE IS CLOSED
 
-
 §3b had to record that castle-rush strengthens the longer a match runs, because the win bar climbed
-
 to 50,000 and `CASTLE_MAX_HP` stayed 2,500. He has now answered it: **HP, ATK, DEF and PEN are
-
 purchasable at 100 victory points each, capped at 10 per axis**, with the HP gain on the SAME five
-
 wave bands as the win bar and the quarry:
 
-
 | wave band | 1–5 | 6–10 | 11–15 | 16–20 | 21–25 |
-
 |---|---:|---:|---:|---:|---:|
-
 | HP per point | 250 | 350 | 450 | 550 | 650 |
 
-
 ⛔ **THE GAIN IS BAKED AT PURCHASE.** The seat stores an accumulated `hpBonus`, not a level it
-
 re-derives — recomputing would re-price every earlier purchase at the current band.
 
-
 ⛔ **AND THE CASTLE STAYS OFF THE LADDER** (§2's deliberate exception). HP adds raw points; DEF
-
 applies the ladder's ratio to INCOMING damage — `floor(amount × 5 / (5 + def))`, floored and **never
-
 below 1 on a real hit**, so a keep can always be felled. ⚠ Past wave 25 the gain holds at 650; that
-
 clamp is MINE, like the win bar's.
 
+### ⭐⭐ S188 — AND NOW HE CAN PRESS THEM: THE FOUR CASTLE BUTTONS ARE LIVE
+
+S187 built all four in the sim and nothing dispatched `UPGRADE_CASTLE_STAT` — his *"we just have
+regen"* was exactly right. The castle panel now carries **four rows under REGEN — HP, ATK, DEF, PEN** —
+each printing its level out of **10** (`CASTLE_UPGRADE_MAX_LEVEL`), its price **100**
+(`CASTLE_UPGRADE_PRICE`), and on a second line what the NEXT point buys (`castleUpgradePreview` — for
+HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MAX` · `LOCKED` ·
+`CASTLE LOST` · `NOT YOURS`. The castle's sheet prints the PURCHASED numbers: one ATK point turns the
+**40** shot into **48** (`castleShotFifthsFor`).
+
+| | |
+|---|---|
+| a bought HP point | **adds its band gain to the keep's CURRENT HP too**, not only to its ceiling |
+| an absent `castleHp` on the wire | reads as **that seat's upgraded ceiling** (`castleMaxHpFor`), not the flat 2500 — see §6 |
+| a rematch | **every bought stat resets** — they used to carry into the next match |
+| regen | still a percentage of the **flat base pool**, not of the bought ceiling — MINE, unchanged |
+
+⛔ **THE HP FIX IS HIS TABLE, READ LITERALLY.** *"Each a hundred victory points. If it's in the first
+five waves then by 250 …"* — owner, S187. He is buying 250 HP, and a keep that paid for it must HAVE
+it. Raising only `hpBonus` moved the ceiling and left `castleHp` where it stood, so without regen the
+purchase bought nothing but a longer bar — 2500 / 2750. The heal is the baked delta, capped at the new
+ceiling, and never on a fallen keep (R131).
+
+⛔ **THE REMATCH FIX WAS A HIGH FINDING.** `applyStartGame` reset `castleRegenLevel` and never the S187
+`castleUpgrades`, so a seat that bought in match 1 opened match 2 with the upgraded shot, reduced
+incoming damage and a ceiling above the pool it had been reset to — reachable the moment the buttons
+existed. The reset now comes FIRST and `castleHp` is set from the reset seat's own ceiling, so the two
+cannot drift.
+
+⚠ **REGEN IS MINE, AND LEFT ALONE ON PURPOSE.** `castleRegenPerSecond` takes the level and nothing
+else — R128's percentage of the flat `CASTLE_MAX_HP` — so a keep that bought HP still regenerates
+25–45 HP a second (§3). He has not ruled whether regen should follow bought HP, and a percentage of
+the ceiling would be a buff that rode along unasked — the S181 regen lesson in §3. One line changes it
+if he wants it.
 
 ### ⭐ A FUTURE DIRECTION HE WANTS ON RECORD — A RANDOMISED UPGRADE POOL (S187)
 
@@ -310,45 +337,160 @@ function. A random pool means making that function read a seeded selection inste
 seed is, never recomputed per peer. No new architecture; a different `draftOptionsFor` and two more
 integers on an event that already exists.
 
-### ⛔ WHAT IS SPECIFIED BUT **NOT BUILT**
+### ⛔ WHAT IS STILL **NOT BUILT** (S188)
 
+All twelve level-0 and level-5 racials are built (§3e). Past them, on this tree, **nothing is**: the
+racial tile at levels 10+ is COMING SOON, and `RACIAL_PERKS_BY_RACE` holds exactly two perks per race.
 
-⛔⛔ **GOBLINS DO NOT ENRAGE, AND THE ORC LEVEL-0 BUFF MUST NOT TOUCH THEM (ruled S187).**
+| | race · level | status on this tree |
+|---|---|---|
+| **THE SWARM** | vampires · 10 | designed — the vampire seat's bat tower emits a bat swarm at 6× a bat's stats, with its own atlas and the `l10-vampires` card. Being built on its own branch; **not here** |
+| **WRATH OF RA** | mummies · 10, only for a seat that took POWER OF RA | POWER OF RA three times per FIGHT, from a small square skill icon cut from the card art. Being built on its own branch; **not here** |
+| **THE SANDWORM** | mummies · 10, for a seat that did NOT take POWER OF RA | **RULED, art pending, NOT BUILT** — a tier-4 tower that spawns an underground sandworm, untargetable except when it surfaces to strike, visible only by the ground moving above it |
+| everything else | level 10 for zombies, orcs, demons and nagas; levels 15 and 20 for every race | **undesigned** |
+
+> *"The swarm … we've already defined it. We have the even the art for the upgrade. So there's no
+> reason not to build it. Do it this session."* — owner, S188
+
+> *"At level 10, they will have the power of Ra, but times three. So you can use it three times per
+> fight phase … it's only if you've chosen Power of Ra level zero … and if the mummies did not choose
+> Power of Ra level zero then instead at level 10 they will receive … a sandworm … Just record it for
+> now and don't implement that part yet."* — owner, S188
+
+⚠ **MUMMIES LEVEL 10 IS THE FIRST RACIAL THAT FORKS ON AN EARLIER PICK.** `racialPerkFor(race,
+draftIndex)` cannot express it — it sees the race and the draft, not what the seat took at level 0 —
+so whoever builds it widens that function, and `draftOptionsFor`, `pickIsOffered` and `autoPickFor`
+follow it.
+
+⚠ **THE 6× IS HIS NUMBER, AND NO CONSTANT CARRIES IT ON THIS TREE YET.** The branch that builds THE
+SWARM lands the constant with its assertion, and moves THE SWARM out of this table in the same commit.
+
+## 3e · ⭐⭐ THE TWELVE RACIAL UPGRADES — ALL BUILT (S188)
+
+> *"Make sure the racial mechanics work … let's do zero and five, okay? Because all of those are
+> designed and spec'd. You just need to build and wire them."* — owner, S188
+
+A seat holds a perk iff it is of that race AND its pick at that draft is `'racial'` (`seatHoldsPerk`).
+Every perk below is `RACIAL_PERK_BUILT: true`, so its tile is choosable and the deadline takes it. The
+standing rules apply to all twelve: the floor-at-one, the ONE ladder, and *"if something doesn't work
+when I play it, I'll just change it … don't argue if it's too OP"*.
+
+| perk | race · level | the rule | the numbers | MINE |
+|---|---|---|---|---|
+| **BLOOD DEBT** | vampires · 0 | every creature the seat owns heals a share of every hit it LANDS — on a creature, a connector, a lone shape, a stink bag, Helga or a castle | `BLOOD_DEBT_LIFESTEAL_PCT` = **20** % | the share is of the hit SWUNG (overkill in, castle DEF not yet applied) |
+| **CRIMSON TIDE** | vampires · 5 | the lifesteal rate becomes 50 %, and it REPLACES 20 — never 70 | `CRIMSON_TIDE_LIFESTEAL_PCT` = **50** % | — |
+| **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1 | a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
+| **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses |
+| **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; a column due after the FIGHT never lands |
+| **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; the sentinel |
+| **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN latch, every ORC RACIAL creature it owns rages too — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
+| **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
+| **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
+| **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | ageing out is not dying; the red/black tint is a placeholder |
+| **DEEP CURRENT** | nagas · 0 | the gatherer's walk HOME becomes a snap onto its deposit point, shape in hand; the walk out is unchanged | `deepCurrentSnap` — no number | the snap lands one tick after the claim |
+| **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat tripled, drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **3** → **9 / 0 / 6 / 3** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
+
+**His words, one per perk** (S187, verbatim — the S188 PDR §2 holds them in full):
+
+- **BLOOD DEBT** — *"They will heal 20% of each damage output. So let's say if a spawn has 20 a hit,
+  then they would be healed by 4 HP every time they hit someone."*
+- **CRIMSON TIDE** — *"50% life steal for vampires at level five for all units it might be op but
+  we'll see"*
+- **THE RISEN** — *"any racial characters kill. So not like Voltkin or Helga or Pencil Chewers …
+  Every unit you kill is spawned like a one, one, one, one zombie from the castle."*
+- **CORPSE EATER** — *"once he reaches 20% HP, he starts eating everyone around him … he has 100%
+  life steal on his attack, so for as much as he attacks that's as much as he heals, for like eight
+  seconds … enemy units first, obviously."*
+- **POWER OF RA** — *"once per fight, you can use the power of Ra … kind of like Pharaoh has. But you
+  get to choose where it lands."*
+- **ENDLESS DYNASTY** — *"every time a castle loses 1,000 points, it spawns a pharaoh … from now on
+  and until the end of the game."*
+- **BLOOD FRENZY** — *"Every time your orc warlord does rage … any orc spawn on the screen that is
+  currently playing also goes into rage … they move two times faster and they attack two times
+  faster."*
+- **THE HORDE GROWS** — *"the goblin towers allow 20 instead of 10. And also your castle generates the
+  base unit twice as fast."*
+- **SCORCHED GROUND** — *"if it's a four player, then it's a quarter of the map. If it's a two player
+  game, it's half … the same mechanic as our zombie boss, two percent of their total HP per second
+  that they're there."*
+- **HELLSPAWN** — *"when a pencil chewer dies, it spawns two more pencil chewers with half the stats
+  in each … And when those die, each one of those spawn two more with 25% stats each."*
+- **DEEP CURRENT** — *"they will go to get a shape and then they will teleport back to base rather
+  than having to walk all the way back."*
+- **APEX PREDATOR** — *"So all the stats you take and you just triple them"* and *"two times bigger
+  than the current piranha"*.
+
+### ⛔ WHAT THE S188 AUDITS ESTABLISHED — READ BEFORE TOUCHING ANY OF THEM
+
+⛔⛔ **BLOOD FRENZY'S PREDICATE IS OWNERSHIP AND RACE-CREATURE TYPE. GOBLINS NEVER RAGE (ruled S187).**
 
 > *"Goblins do not enrage, right? We said enraging works only on orc units, any racial units.
 > Goblins are not — goblins can be built by anyone … they don't change their colour and enrage
 > like the orcs would."* — owner, S187
 
-`BLOOD FRENZY` spreads the warlord's rage to that seat's **orc RACIAL units only**. A goblin is a
-GLOBAL tower unit — any race can build a goblin tower — so a goblin owned by an orc seat is still
-not an orc. ⚠ **The obvious implementation is the wrong one**: filtering by `ownerPlayerId` alone
-would enrage that seat's goblins too, because they pass the ownership test. The predicate is
-ownership **AND** creature type, and the visual follows it — no rage tint on a goblin.
+A goblin is a GLOBAL tower unit — any race builds goblin towers — so a goblin owned by an orc seat
+passes the ownership test and must FAIL the type test (`isOrcRacialCreatureType`: the castle soldier,
+the orc tier-3 unit, the Warlord). ⚠ **Filtering by owner alone is the obvious implementation and the
+wrong one.** No rage and no rage tint on a goblin. Two more guards: the frenzy only ever SETS a
+Warlord — only his own latch calms him — and a source is a Warlord raging by his OWN latch (below
+`WARLORD_RAGE_TRIGGER_PCT` of his pool), or two Warlords would keep each other raging forever. ⚠ THE
+HORDE GROWS raising the goblin cap is not in tension with this: *"orcs and goblins do tend to work
+together"*. Orcs get MORE goblins; the goblins simply never rage.
 
-⚠ `THE HORDE GROWS` at level 5 raising the goblin cap is NOT in tension with this. The owner
-named the reason himself: *"orcs and goblins do tend to work together"*. Orcs get MORE goblins;
-the goblins simply never rage.
+⛔⛔ **AND BLOOD FRENZY FOUND AN S168 BUG: AN ENRAGED UNIT HAD LANDED NOTHING FOR TWENTY SESSIONS.**
+Rage halved `attackCadenceTicks` (60 → 30) and left `attackFireTick` at 30, so the FSM left ATTACKING
+on the very tick the fire check would have fired — a raging Warlord swung and never hit. `ragedFireTick`
+now halves the fire tick with the cadence (30 → **15**), read at the `hostTick` fire check and the
+FSM's `targetGoneEarly`, and an enraged unit banks **exactly double** a calm one's damage through the
+real host tick (`bloodFrenzy.test.ts`). It is a rule both peers compute, so it rides PROTOCOL 50 (§6).
 
-⭐ **ORCS LEVEL 5 — `THE HORDE GROWS`, ruled S187 and the last gap at that level.** Goblin towers
-allow **20** spawned goblins instead of 10, **and** the castle emits its base unit **twice as
-fast**. ⚠ The goblin ceiling is documented as LOAD-BEARING, not cosmetic ({`constants.ts`}:
-`GOBLIN_MELEE_CONFIG.persistent = true`, so goblins never age out) — raising 10 → 20 is fine,
-removing the ceiling is not. **Levels 0 and 5 are now fully ruled for all six races; levels 10–20
-have 16 racial slots still undesigned, only vampires L10 exists.**
+⛔ **HELLSPAWN TERMINATES BY GENERATION, NOT BY LUCK.** The generation lives on the creature
+(`Creature.hellspawnGen`, serialized and hashed) and a generation-2 death spawns nothing, so one
+chewer has at most **6** descendants, ever. Every child's pool and bite are floored at one, so no
+child is born dead — the one way a split could loop (Council A2). The children, like THE RISEN's
+soldier and ENDLESS DYNASTY's Pharaoh, are QUEUED and born after the death sweep, never inserted into
+`world.creatures` while the strike batch iterates it (Council A5).
 
-Every racial buff. All six level-0 (vampire lifesteal 20 %, zombie kill-to-spawn, mummy Power of Ra,
+⛔ **ENDLESS DYNASTY COUNTS WHAT THE KEEP ACTUALLY LOST** — after its bought DEF and after the clamp at
+zero, so a killing blow's overkill is not a loss — from the moment the perk is taken. **Regen never
+un-counts a loss** (`Player.dynastyHpLost` only rises), and one hit crossing two thousands raises two.
+⚠ `DYNASTY_LIVE_PHARAOH_SENTINEL` (**40** live Pharaohs a seat) is a **PERFORMANCE sentinel, never a
+gameplay cap** (Council A3, MINE): past it the Pharaoh is not born and its 1,000 is still consumed.
 
-orc rage propagation, demon quadrant burn, naga gatherer teleport), the four level-5 (demon chewer
+⛔ **POWER OF RA IS THE PHARAOH'S OWN STRIKE, RE-CENTRED.** The same functions and constants —
+`attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = **300** fifths a column over `RA_COLUMN_RADIUS` **70** px,
+five columns two seconds apart — so a retune of his ultimate retunes this one. **Once per FIGHT** (one
+cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two differences, both MINE: it
+**spares the caster** (the Pharaoh's own columns spare nobody), and it cuts CONNECTORS as well,
+because a building dies through its connectors (§4). The host rounds the aim to integers and clamps it
+to the canvas (Council A1). The button sits in the footer, left of the tier chips, where he put it.
 
-split, mummy pharaoh-per-1000, naga elite piranha 3×, zombie Corpse Eater) and vampires' level-10 bat
+⛔ **CORPSE EATER HEALS THE WHOLE BITE, OVERKILL INCLUDED** — *"for as much as he attacks that's as
+much as he heals"*. Inside the death deferral a lethally-bitten victim stays in the map below zero, so
+the heal is the full hit, not only what the victim had left. Once per boss LIFE (the stamp is never
+cleared). The bite is his ordinary `CREATURE_ATTACK` on his ordinary swing clock, so "the same damage
+as he would by attacking" is true by construction. ⚠ The **60 px** leash is MINE.
 
-swarm at 6×. **The substrate carries them; none of the mechanics exist.** Vampires L5 is 50 %
+⚠ **APEX PREDATOR: "×3 EVERY STAT" IS ×3 HEALTH BUT ×4 BITE — SHIPPED AS HIS LITERAL WORDS, AND
+FLAGGED FOR HIM.** The ladder multiplies ATK by (5 + PEN), and both are tripled: pool **15 → 45**, bite
+**12 → 48**. "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
+both of the tower's emit sites (the free trickle and FEED_TOWER) ask one function, `towerUnitForSeat`.
 
-lifesteal, not a second thing.
+⚠ **SCORCHED GROUND IS HIS 2 %, NOT THE ZOMBIE BOSS'S 2.5 %** — **20** per-mille against
+`ZOMBIE_AURA_PER_MILLE` **25**, on the aura's unchanged mechanic (one fifth a tick, the RATE carries the
+percentage). ⚠ **The rate is derived from the victim TYPE's base pool** (`maxPoolFifths(type)`), not
+from its drafted `maxEhp`, so the nominal **50 s** to burn anything to death is exact only for an
+undrafted unit: a castle soldier drafted 6 → 7 burns in about **58 s**, and a split chewer, whose pool
+is below its type's, burns faster. Recorded, not changed.
 
+⭐ **LIFESTEAL IS ONE CALL AT THE TWO FUNNELS.** `applyLifesteal` runs inside `damageEntity` and
+`damageConnector` (which gained a required attacker for it), so no strike path can forget it and a
+BUILDING hit heals too. The heal is `max(1, floor(hit × pct / 100))` — his floor-at-one — capped at the
+attacker's own full pool, never an overheal. His example is exact: a **20**-fifth hit heals **4**. A
+turret beam, the castle gun, a raid and every area blast pass no creature attacker, so nobody heals
+from them, and a dead attacker heals nothing.
 
 ---
-
 
 ## 3c · ⭐⭐ THE QUARRY — ONE SHARED FAUCET, AND IT STEPS UP AT THE SAME FOUR WAVES (S186)
 
@@ -510,6 +652,15 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 `PROTOCOL_VERSION` is **50** (S188 — the racial upgrades; see the S188 entry on the const). A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
+
+⭐⭐ **WHAT RIDES 50 (S188)** — `PROTOCOL_VERSION`'s own docblock is the source, and every item on it
+earns the bump alone: `CHOOSE_DRAFT.pick` gains the discriminant `'racial'`; the new client intent
+**`CAST_POWER_OF_RA`**; the new serialized `CreatureType` **`'t3PiranhaElite'`**; five optional fields,
+each emitted only when set and each hashed — `Creature.hellspawnGen`, `Creature.corpseEaterUntilTick`,
+`Creature.corpseEaterAnchor`, `Player.dynastyHpLost`, `Player.raStrike`; an absent `castleHp` now
+meaning THAT seat's upgraded ceiling (a changed meaning, not a field — a v49 peer would read a bought
+keep back at the flat 2500); the enraged-blow rule (`ragedFireTick`, §3e); and the twelve racial rules
+both peers compute.
 
 ⭐⭐ **S187 TOOK 48 → 49 FOR A NEW CLIENT INTENT, `CHOOSE_DRAFT` — AN ORDINARY BUMP, AND THE
 CONTRAST WITH ITS PREDECESSOR IS THE POINT.** The upgrade draft sends the seat's pick as a client
