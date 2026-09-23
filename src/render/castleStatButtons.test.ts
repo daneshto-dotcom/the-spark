@@ -57,7 +57,6 @@ import {
   type CastleStat,
 } from '../state/castleUpgrades.ts';
 import { castleFiresOnTick, castleShotFifths } from '../state/castleGuns.ts';
-import { castleRegensOnTick } from '../state/castleRegen.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
