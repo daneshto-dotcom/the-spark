@@ -737,7 +737,28 @@ export type { NetSnapshot };
  * "did a field change?" but "can two builds that will shake hands now disagree about anything either
  * of them computes?"** A refused peer is the whole point of this gate.
  */
-export const PROTOCOL_VERSION = 48 as const;
+
+/**
+ * ⭐⭐ S187 — **BUMPED 48 -> 49: A NEW CLIENT INTENT, `CHOOSE_DRAFT`.**
+ *
+ * The owner's upgrade draft offers each seat one of two options before wave 1 and again every
+ * fifth wave. The pick travels as a CLIENT INTENT, which is the plainest reason on this whole
+ * list: a v48 host has no `CHOOSE_DRAFT` row in its allowlist, so it would DROP a v49 joiner's
+ * pick outright. That seat could then never draft while every other seat could — and the
+ * deadline would quietly choose for it, permanently, every five waves.
+ *
+ * ⚠ **AND THERE IS A SECOND, INDEPENDENT REASON, WHICH WOULD HAVE EARNED THE BUMP ALONE.** A
+ * drafted upgrade changes a unit's POOL and its DAMAGE. Creature `ehp` is emitted only when the
+ * creature is damaged, so an undamaged one is rebuilt by the receiver from ITS OWN compiled
+ * `hp`/`def` — the SHARED-CONSTANT class this list already records four times. `Creature.maxEhp`
+ * now carries the buffed pool across, but a v48 peer does not know the field exists and would
+ * rebuild every drafted unit at its unbuffed size.
+ *
+ * ⭐ This is the ordinary kind of bump, unlike 47->48 directly above it — a new action in the
+ * allowlist is exactly what the gate was built for. Recorded in full anyway, because S186's
+ * lesson was that the reasoning gets skipped when the answer looks obvious.
+ */
+export const PROTOCOL_VERSION = 49 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1027,6 +1048,14 @@ export interface HelloMsg {
    * "no new field". The question is not *did a field change* but *can two builds that will shake
    * hands disagree about anything either of them computes*.)
    *
+   * S187: 48->49 (A NEW CLIENT INTENT, `CHOOSE_DRAFT` — the owner's upgrade draft. A v48 host has
+   * no row for it in the allowlist and would DROP a v49 joiner's pick, so that seat could never
+   * draft while others could and the deadline would choose for it, permanently, every five waves.
+   * ⚠ Independently sufficient on its own: a drafted upgrade changes a unit's POOL, and an
+   * undamaged creature's `ehp` is rebuilt by the receiver from its OWN `hp`/`def` — the
+   * SHARED-CONSTANT class again. `Creature.maxEhp` carries the buffed pool, and a v48 peer does
+   * not know that field exists.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1064,7 +1093,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 48;
+  readonly protoVersion: 49;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -1447,6 +1476,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   UPGRADE_GATHERER_SPEED: true,
   // S164 P1 — castle regen upgrade (owner R128). A CLIENT INTENT, so it is in both records.
   UPGRADE_CASTLE_REGEN: true,
+  // ⭐ S187 — the upgrade draft's pick. A CLIENT INTENT, so it is in both records.
+  CHOOSE_DRAFT: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1614,6 +1645,10 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ownership- and affordability-gated in the reducer, so the host never trusts the client's view.
   UPGRADE_GATHERER_SPEED: true,
   UPGRADE_CASTLE_REGEN: true,
+  // ⭐ S187 — a joiner picks its OWN seat's upgrade. The host decides: `applyDraftChoice`
+  // ignores the intent when no draft is open or that seat has already chosen, so a client
+  // acting on a stale view simply no-ops instead of stacking a second upgrade.
+  CHOOSE_DRAFT: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

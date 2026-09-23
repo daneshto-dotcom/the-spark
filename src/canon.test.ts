@@ -144,7 +144,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('no new field and no four-sites work')).toBe(true);
     expect(canonSays('IT STILL EARNED A PROTOCOL BUMP')).toBe(true);
     expect(canonSays('THE BUMP IS FOR THE RULE, NOT FOR THE')).toBe(true);
-    expect(PROTOCOL_VERSION).toBe(48);
+    // ⭐ S187 — 49. The S186 reasoning this test guards is UNCHANGED; only the live version moved,
+    // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
+    expect(PROTOCOL_VERSION).toBe(49);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {

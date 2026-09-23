@@ -54,6 +54,17 @@ export interface DraftEvent {
 }
 
 /**
+ * CLIENT INTENT. Host-authoritative and no-op-never-throw, the `UPGRADE_CASTLE_REGEN` posture: a
+ * joiner can raise it against a stale view (a draft that has already closed, or a pick it has
+ * already made) and the reducer must simply ignore it rather than throw or double-apply.
+ */
+export interface ChooseDraftAction {
+  readonly type: 'CHOOSE_DRAFT';
+  readonly playerId: PlayerId;
+  readonly pick: DraftPick;
+}
+
+/**
  * How long a seat has before the pick is made for it.
  *
  * ⭐ HIS RULING, and it is a WHOLE BUILD rather than the five seconds the panel suggests:

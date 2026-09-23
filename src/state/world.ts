@@ -181,6 +181,7 @@ import {
 // Re-export addScore from gameMode.ts for back-compat with placePrimitive.ts
 // and session15.test.ts (S16 P0 extraction preserved external import paths).
 import { submitSudokuSolve } from './sudokuEvent.ts';
+import { applyDraftChoice, type ChooseDraftAction } from './draftEvent.ts';
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -358,6 +359,8 @@ export type GameAction =
   | UpgradeGathererSpeedAction
   // S164 P1 — CLIENT INTENT: buy a castle-regen level with victory points (R128).
   | UpgradeCastleRegenAction
+  // ⭐ S187 — CLIENT INTENT: choose one of the draft's two options.
+  | ChooseDraftAction
   | SetGathererPreferenceAction
   | EnqueueGathererOrderAction
   | CancelGathererOrderAction
@@ -900,6 +903,12 @@ export function dispatch(world: World, action: GameAction): World {
     // no-op-never-throw.
     case 'UPGRADE_CASTLE_REGEN':
       return applyUpgradeCastleRegen(world, action);
+
+    // ⭐ S187 — the draft pick. Same posture as the two upgrades above: a CLIENT INTENT, decided by
+    // the host, and a no-op when the draft has closed or the seat has already chosen.
+    case 'CHOOSE_DRAFT':
+      applyDraftChoice(world, action.playerId, action.pick);
+      return world;
 
     case 'PULL_FROM_BANK':
       return applyPullFromBank(world, action);

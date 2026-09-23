@@ -70,6 +70,10 @@ export const ELIMINATION_INTENT_POLICY = {
   // and allowing it would make elimination self-reversing, which `eliminatedAtTick`'s write-once
   // stamp cannot survive — a revived seat sorts below every seat it went on to beat.
   UPGRADE_CASTLE_REGEN: 'deny',
+  // ⭐ S187 — a fallen seat spawns nothing, so an upgrade to "every unit you spawn from now on" is
+  // exactly the pure tax UPGRADE_CASTLE_REGEN is denied for. ⚠ Note this is STRICTER than the bench,
+  // which allows it — the direction elimination.test.ts requires.
+  CHOOSE_DRAFT: 'deny',
   PULL_FROM_BANK: 'deny',
   BUILD_BLUEPRINT: 'deny',
   FEED_TOWER: 'deny',

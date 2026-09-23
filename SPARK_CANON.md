@@ -177,7 +177,7 @@ is run by **every peer, including the client**, and it gates on `winScoreForWave
 advertising 47 would shake hands and then disagree about when the match ends. ⭐ **The precedent was
 already in `protocol.ts`, in as many words:** 39→40 says *"⛔ THE BUMP IS FOR THE RULE, NOT FOR THE
 FIELD … a v39 peer ends the match the instant ANY castle reaches zero, while a v40 host plays on …
-Both peers run that function."* Identical mechanism. **See §6 — the version is 48.**
+Both peers run that function."* Identical mechanism. **See §6 — the version is 49.**
 
 ⭐ **THE TICK ORDER MAKES HIS BOUNDARY EXACT FOR FREE.** The wave increments on the BUILD edge in
 `hostTick`, which runs BEFORE `tickScoring` (FIGHT-only, so it is skipped on the flip tick) and
@@ -360,9 +360,18 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **48**. A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **49**. A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
+
+⭐⭐ **S187 TOOK 48 → 49 FOR A NEW CLIENT INTENT, `CHOOSE_DRAFT` — AN ORDINARY BUMP, AND THE
+CONTRAST WITH ITS PREDECESSOR IS THE POINT.** The upgrade draft sends the seat's pick as a client
+intent, and a v48 host has no row for it in the allowlist: it would DROP a v49 joiner's pick, so
+that seat could never draft while every other seat could, and the deadline would choose for it
+permanently, every five waves. ⚠ A second reason would have earned it alone — a drafted upgrade
+changes a unit's POOL, an undamaged creature's `ehp` is rebuilt by the receiver from its OWN
+`hp`/`def`, and the new `Creature.maxEhp` that carries the buffed pool is a field a v48 peer does
+not know exists.
 
 ⛔⛔ **S186 TOOK 47 → 48 FOR A CHANGE THAT TOUCHED NO FIELD AT ALL — THE FIRST IN THIS REPO'S
 HISTORY, AND THE ONE EVERY FUTURE SESSION SHOULD READ.** S186 rebanded the win score, the quarry's
