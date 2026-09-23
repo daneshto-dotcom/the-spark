@@ -473,6 +473,9 @@ export function makeWorld(rngSeed: number): World {
     botSeats: new Set(),
     // S93 — NONET event: no trial active, not yet fired this match.
     sudoku: null,
+    // ⭐ S187 — no draft is open at birth. `applyStartGame` opens the pre-wave-1 one at the
+    // TITLE->PLAYING edge, which is the only place that knows a match has actually begun.
+    draft: null,
     sudokuFiredThisMatch: false,
     waveNumber: 1, // S157 B8 — the opening BUILD is wave 1
     // S97 P5 — per-type godly guard: no godly type fired yet this match.

@@ -66,6 +66,11 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextPrimitiveId', 'nextBondId', 'nextCreatureId', 'nextSpawnerId', 'nextDefenderId',
   'nextBombId', 'nextHunterId', 'nextPotatoId', 'nextRainbowId', 'nextSeagullId',
   'nextPoopId', 'sudoku', 'pendingCreatureSpawn',
+  // ⭐ S187 — THE OPEN UPGRADE DRAFT. A world SCALAR (a two-integer record or null, projected as
+  // the `dr` part), not an entity family, so it belongs here beside `sudoku` rather than in
+  // EXPECTED below — that list enumerates only the families that own a per-element projection
+  // LOOP, which is the thing the sibling test guards against silently deleting.
+  'draft',
   // S158 P6 — the landed-stink-bag allocator cursor (a scalar, like every other nextXId above).
   'nextStinkCloudId',
   // V6-1.1 — the gatherer allocator cursor (a scalar, like every other nextXId above).

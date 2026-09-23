@@ -257,6 +257,14 @@ export interface WorldSnapshot {
     readonly resolvedTick: number | null;
   };
   sudokuFiredThisMatch?: boolean;
+  /**
+   * ⭐ S187 — the open draft, additive-optional. Absent means no pick is pending, which is true for
+   * most of a match and byte-identical to every pre-S187 save.
+   */
+  draft?: {
+    readonly openedAtTick: number;
+    readonly waveNumber: number;
+  };
   /** S157 B8 — the wave counter. Optional so a pre-S157 save restores to wave 1. */
   waveNumber?: number;
   /**
@@ -1115,6 +1123,12 @@ export function snapshot(
             resolvedTick: world.sudoku.resolvedTick,
           },
     sudokuFiredThisMatch: world.sudokuFiredThisMatch ? true : undefined,
+    // ⭐ S187 — the open draft. A joiner mid-BUILD must see the panel and be able to pick, and the
+    // worker mirror must agree on the deadline tick, so this is state rather than local UI.
+    draft:
+      world.draft === null
+        ? undefined
+        : { openedAtTick: world.draft.openedAtTick, waveNumber: world.draft.waveNumber },
     // S157 B8 — omitted on wave 1 so an opening snapshot stays byte-identical to pre-S157.
     waveNumber: world.waveNumber > 1 ? world.waveNumber : undefined,
     // S97 P5 — emit the per-type godly guard only when non-empty (sorted ⇒ byte-stable, like discoveredCombos).
@@ -1631,6 +1645,11 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
           resolvedTick: snap.sudoku.resolvedTick,
         };
   world.sudokuFiredThisMatch = snap.sudokuFiredThisMatch ?? false;
+  // ⭐ S187 — absent means no draft is open, which is the right reading for every pre-S187 save.
+  world.draft =
+    snap.draft === undefined
+      ? null
+      : { openedAtTick: snap.draft.openedAtTick, waveNumber: snap.draft.waveNumber };
   world.waveNumber = snap.waveNumber ?? 1; // S157 B8
   world.godlyFiredThisMatch = new Set((snap.godlyFiredThisMatch ?? []) as GodlyId[]); // S97 P5
 

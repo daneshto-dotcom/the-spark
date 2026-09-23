@@ -151,6 +151,9 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   nextStinkCloudId: 'hashed',
   /** The NONET trial FREEZES the sim, so its presence and identity are sim state. */
   sudoku: 'hashed',
+  // ⭐ S187 — the open draft decides when picks are forced, and a pick changes damage and pools.
+  // Two sims that disagreed about the deadline tick would diverge on the tick it fired.
+  draft: 'hashed',
   /** A queued spawn is pending sim work, not presentation. Discriminant only (see body). */
   pendingCreatureSpawn: 'hashed',
 
@@ -494,6 +497,11 @@ export function determinismParts(world: World): string[] {
     // wholesale: it is a small flat record, only non-null during a NONET trial, and its
     // key order is fixed by its construction site.
     `sk${world.sudoku === null ? '_' : JSON.stringify(world.sudoku)}`,
+    // ⭐ S187 — the open draft. Two integers, projected by name rather than stringified so a
+    // field added to DraftEvent later cannot ride in unnoticed. Its DEADLINE is what makes it
+    // sim state: two peers disagreeing about `openedAtTick` force the automatic picks on
+    // different ticks, and a pick moves damage and pools.
+    `dr${world.draft === null ? '_' : `${world.draft.openedAtTick},${world.draft.waveNumber}`}`,
     // A queued spawn is pending sim work. Discriminant only — the spawn's payload is
     // consumed on the next tick and lands in `creatures`, which is hashed in full.
     `pc${world.pendingCreatureSpawn === null ? '_' : '1'}`,

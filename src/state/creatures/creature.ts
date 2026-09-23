@@ -860,6 +860,8 @@ export function makeVoltkinCreature(args: {
    * FIGHT. Optional, so every existing call (and the replay guards) keeps the absolute clock.
    */
   clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number };
+  /** ⭐ S187 — forwarded to `makeCreature`, so a Voltkin is sized by its owner's drafted upgrades. */
+  draftPicks?: readonly DraftPick[];
 }): Creature {
   return makeCreature(VOLTKIN_CONFIG, { ...args, sourceSpawnerId: null });
 }

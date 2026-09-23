@@ -16,6 +16,7 @@ import type { Player } from '../game/player.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Spark } from '../game/spark.ts';
 import type { SudokuEvent } from './sudoku.ts';
+import type { DraftEvent } from './draftEvent.ts';
 import type { ZoneLayout } from './zones.ts';
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
@@ -696,6 +697,21 @@ export interface World {
    * the wire, never the grid. Cleared on resolve-window expiry + START_GAME / RETURN_TO_TITLE.
    */
   sudoku: SudokuEvent | null;
+  /**
+   * ⭐⭐ S187 (owner) — **THE OPEN UPGRADE DRAFT, or null when no pick is pending.**
+   *
+   * Opened before wave 1 and again on entry into waves 6, 11, 16, 21 …; closed when every seat has
+   * picked, or by `tickDraft` when the BUILD deadline passes and the remaining picks are made
+   * automatically.
+   *
+   * ⛔ UNLIKE `sudoku` ABOVE, THIS DOES NOT FREEZE THE SIM. R106 forbids it and the owner described
+   * the same behaviour — BUILD runs underneath while the panel is up. See `draftEvent.ts`.
+   *
+   * ⚠ It carries two integers and no pick map: "has this seat picked?" is DERIVED from the length of
+   * its own `draftPicks`, because the Nth pick is by construction the pick for the Nth draft. A
+   * second copy of that fact on the wire is a second thing that can drift.
+   */
+  draft: DraftEvent | null;
   /**
    * S93 — once-per-match guard (mirror of hunterSpawned): the NONET trial fires at most once
    * per match. Reset on START_GAME / RETURN_TO_TITLE.

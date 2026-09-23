@@ -136,6 +136,7 @@ import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 // S182 (owner R182-A/B) — the hub's own star health, the ONE copy of that arithmetic.
 import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHealth.ts';
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
+import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
@@ -382,6 +383,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // matchPhase they last observed — the shipped `rainbowSwitchTick` / creatureRenderer death-watcher
   // pattern. A transient sim effect would be LOST to a joiner and to a post-migration client, who
   // receive a snapshot with the phase already flipped and would silently never get the transition.
+  /*
+   * ⭐⭐ S187 — THE DRAFT DEADLINE, AND IT RUNS BEFORE THE CLOCK BLOCK ON PURPOSE.
+   *
+   * The deadline is a whole BUILD, and `applyStartGame` stamps `phaseEndsAtTick` with the same
+   * `world.tick + PHASE_DURATION_TICKS`, so the two land on the SAME TICK. Resolving first means
+   * the automatic picks are made while `matchPhase` is still 'BUILD' — the phase the player was
+   * choosing in — rather than after the board has already flipped to FIGHT underneath them.
+   *
+   * ⚠ It is also OUTSIDE the `flipped` guard, because it is keyed on its own relative deadline
+   * rather than on a phase edge. A draft opened at a wave edge expires one BUILD later, which
+   * is not a boundary crossing at all.
+   */
+  tickDraft(world);
+
   if (world.gameState === 'PLAYING') {
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
@@ -426,6 +441,15 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * tick — the same reason that guard is keyed on "the loop ran AND we landed in X".
          */
         world.waveNumber += 1;
+        /*
+         * ⭐⭐ S187 — AND A NEW WAVE MAY OPEN A DRAFT. Waves 6, 11, 16, 21 … qualify; the pre-wave-1
+         * draft is opened by `applyStartGame` instead, because the opening BUILD never crosses this
+         * edge (see the wave-counter note directly above).
+         *
+         * ⚠ Placed INSIDE the `flipped` guard with the counter it follows, so a NONET freeze that
+         * skips a whole phase opens exactly one draft per boundary crossing rather than one a tick.
+         */
+        openDraftIfDue(world, world.waveNumber);
         /*
          * ⭐ S157 B6 — and the fight she outlived her scaffold in is over, so now she goes.
          *

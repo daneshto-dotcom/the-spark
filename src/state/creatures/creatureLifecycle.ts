@@ -245,6 +245,10 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
       }
     }
     const id = asCreatureId(world.nextCreatureId++);
+    // ⭐ S187 — the owning seat's drafted upgrades, read ONCE here. This reducer is the single
+    // choke point every creature in the game is born through, which is why the buff is wired here
+    // rather than at each of the callers that dispatch a spawn.
+    const draftPicks = world.players.get(action.ownerPlayerId)?.draftPicks;
     const creature =
       action.creatureType === 'voltkin'
         ? makeVoltkinCreature({
@@ -255,6 +259,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
             spawnedAtTick: world.tick,
         // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
         clock: world,
+            draftPicks,
           })
         : makeCreature(getCreatureConfig(action.creatureType), {
             id,
@@ -265,6 +270,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
         clock: world,
             sourceSpawnerId: null,
+            draftPicks,
           });
     world.creatures.set(id, creature);
     return world;
@@ -288,6 +294,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
         clock: world,
         sourceSpawnerId,
+        draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
       }),
     );
     return world;
@@ -351,6 +358,9 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
         clock: world,
     sourceSpawnerId,
+    // ⭐ S187 — the third and last spawn site in this reducer. This is the one the CASTLE
+    // emitter reaches, so it is the one that sizes a drafted seat's race units.
+    draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
   });
   world.creatures.set(id, creature);
   return world;

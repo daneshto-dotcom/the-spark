@@ -32,6 +32,7 @@ import {
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { defaultRaceForSeat, type RaceId } from './races.ts';
 import { isEliminated } from './elimination.ts';
+import { openDraftIfDue } from './draftEvent.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -232,6 +233,18 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
   world.waveNumber = 1; // S157 B8 — every match opens on wave 1
+  /*
+   * ⭐⭐ S187 — EVERY SEAT STARTS A MATCH HAVING DRAFTED NOTHING, and the pre-wave-1 draft opens
+   * here, at the one TITLE/LOBBY->PLAYING edge every entry path takes (solo, bots, host 1v1, joiner).
+   *
+   * ⛔ CLEARING THE PICKS IS NOT OPTIONAL. `applyStartGame` does not rebuild the players — a second
+   * match in the same page session reuses the same Player objects — so a seat that drafted last
+   * match would carry every upgrade into the next one. That is the same class of bug as the
+   * `world.tick` reset trap this function's own clock comment describes.
+   */
+  for (const pl of world.players.values()) pl.draftPicks.length = 0;
+  world.draft = null;
+  openDraftIfDue(world, world.waveNumber);
   world.godlyFiredThisMatch.clear(); // S97 P5 — each godly type can fire again next match
   // S77 P3 — clear seagulls/poops/fouled-prims at match start (same all-hazards invariant).
   world.seagulls.clear();
@@ -486,6 +499,9 @@ export function applyReturnToTitle(world: World): World {
   // S93 — drop any active NONET trial + reset the once-per-match guard on title-return.
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
+  // ⭐ S187 — and the draft panel. It is match state; leaving it up would paint a pick prompt over
+  // the title screen, and `applyStartGame` would then decline to open the real one.
+  world.draft = null;
   world.godlyFiredThisMatch.clear(); // S97 P5 — reset the per-type godly guard on title-return
   // S77 P3 — clear seagulls/poops/fouled-prims on title-return (mirror of the other hazards).
   world.seagulls.clear();
