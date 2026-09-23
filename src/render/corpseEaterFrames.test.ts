@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { corpseEaterElapsed, corpseEaterFrame, type FeedTiming } from './corpseEaterFrames.ts';
+import { corpseEaterElapsed, corpseEaterFrame, showsCorpseEaterFeed, type FeedTiming } from './corpseEaterFrames.ts';
 import { CORPSE_EATER_TICKS } from '../state/racial/corpseEater.ts';
 import { CORPSE_EATER_FEED_ATLAS_BASE } from './goblinRenderer.ts';
 import { t9BossAtlasBase } from '../state/t9BossIds.ts';
@@ -63,5 +63,20 @@ describe('S188 CORPSE EATER — the schedule inside the 480-tick window', () => 
   it('elapsed is derived from the synced deadline alone', () => {
     expect(corpseEaterElapsed(1480, 1000)).toBe(0);
     expect(corpseEaterElapsed(1480, 1479)).toBe(CORPSE_EATER_TICKS - 1);
+  });
+});
+
+describe('S188 audit F5 — the feed is drawn only while it is really happening', () => {
+  const feeding = { corpseEaterUntilTick: 1480, stunnedUntilTick: undefined };
+  it('⭐ in FIGHT, inside the window, unstunned: drawn', () => {
+    expect(showsCorpseEaterFeed(feeding, { tick: 1100, matchPhase: 'FIGHT' })).toBe(true);
+  });
+  it('⭐⭐ in BUILD — the window straddled the whistle and he was recalled home — NOT drawn', () => {
+    expect(showsCorpseEaterFeed(feeding, { tick: 1100, matchPhase: 'BUILD' })).toBe(false);
+  });
+  it('stunned (R152 idle pose), or outside the window: not drawn', () => {
+    expect(showsCorpseEaterFeed({ ...feeding, stunnedUntilTick: 1200 }, { tick: 1100, matchPhase: 'FIGHT' })).toBe(false);
+    expect(showsCorpseEaterFeed(feeding, { tick: 1480, matchPhase: 'FIGHT' })).toBe(false);
+    expect(showsCorpseEaterFeed({ corpseEaterUntilTick: undefined, stunnedUntilTick: undefined }, { tick: 5, matchPhase: 'FIGHT' })).toBe(false);
   });
 });
