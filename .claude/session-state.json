@@ -182,7 +182,7 @@
     {
       "id": "P4",
       "title": "Castle upgrades: HP/ATK/DEF/PEN bought with victory points, band-scaled",
-      "status": "pending",
+      "status": "in_progress",
       "priority_state": "locked",
       "unlock_source": "pending",
       "pdr_approved": true,
@@ -191,11 +191,14 @@
     {
       "id": "P5",
       "title": "Footer collapse arrow (unblocks the bottom band for 4-player)",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "unlock_source": "user",
       "pdr_approved": true,
-      "deliberation_completed": true
+      "deliberation_completed": true,
+      "check_completed": true,
+      "checkpoint_commit": "0a1e5f7a4536611e4dcc8725ea0abbdafd954e03",
+      "check_method": "Footer collapse: typecheck 0, vitest 5582/340, build 0 (917 KiB under the 1000 charter), each read from a captured $?. The S182 fill enumeration went RED on the new tab (5 fills -> 6) and was satisfied by hit-testing it FIRST, then naming it in the enumeration, as that test instructs. VERIFIED IN THE RUNNING GAME: clicked the tab, the whole tier row and shape strip vanished and the tab dropped to the screen edge with the chevron flipped UP; clicked again and the menu returned with the chevron down. Full round trip."
     }
   ],
   "reflexion_entries_to_archive": [
