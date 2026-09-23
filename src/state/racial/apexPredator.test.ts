@@ -21,7 +21,7 @@ import { makeGameStateExtras } from '../gameState.ts';
 import type { Controls } from '../../input/controls.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { asCreatureId, asPlayerId, type PlayerId } from '../../types.ts';
-import type { DraftPick } from '../draft.ts';
+import { draftedPoolFifths, type DraftPick } from '../draft.ts';
 import {
   APEX_PREDATOR_STAT_MUL,
   CREATURE_CONFIGS,
@@ -131,7 +131,11 @@ describe('S188 APEX PREDATOR — the tower emits the elite ONLY for a naga seat 
     expect(count(w, ELITE)).toBe(1);
     expect(count(w, 't3Piranha')).toBe(0);
     const e = [...w.creatures.values()].find((c) => c.type === ELITE)!;
-    expect(creatureMaxEhp(e), 'born on the elite pool').toBe(unitPoolFifths(getCreatureConfig(ELITE).hp, getCreatureConfig(ELITE).def));
+    // The seat also holds the general 'hp' pick, so the elite is born on the DRAFTED elite pool —
+    // the general draft buffs it exactly as it buffs every unit the seat spawns (45 → 49).
+    const cfg = getCreatureConfig(ELITE);
+    expect(creatureMaxEhp(e), 'born on the (drafted) elite pool').toBe(draftedPoolFifths(cfg.hp, cfg.def, ['hp', 'racial']));
+    expect(creatureMaxEhp(e)).toBeGreaterThan(unitPoolFifths(getCreatureConfig('t3Piranha').hp, getCreatureConfig('t3Piranha').def) * 3);
   });
 
   it('negative: a naga seat WITHOUT the level-5 pick still gets ordinary piranhas, on both paths', () => {
