@@ -154,8 +154,18 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
 - mutant: ring survival back to the exact walk → 8 RED; restored.
 - gates: typecheck 0 · vitest 0 (6039 / 368).
 
+### step F3 — item 3 LANDED: the lightning hub's self-raze takes its OWN star
+- `hostTick.ts` (spawner-destruction branch): `componentOf(dying)` → `towerMembersAt(world,
+  'lightningHub', anchor).prims` (fallback `[dying.id]`). The blast (`STRUCTURE_SELFDESTRUCT` →
+  `applyStructureSelfDestruct` → `applyRadialClear`, the S157 owner exemption, R182-C's
+  ruled-not-built 120 fifths) is UNTOUCHED — only which members are deleted.
+- test: a hub welded (real placement, merge sweep) to a laser turret, doomed on its own star (34/50),
+  self-destructs in FIGHT → the blast fires; the hub + its 5 own leaves are razed (no orphans); the
+  welding square, the turret hub and all 6 spirals stand, and the turret is still a tower.
+- mutant (raze back to `componentOf`) → RED; restored. `src/state` 187 files / 3113 tests EXIT=0.
+
 ## IN-FLIGHT
-- item 3.
+- item 4 (verify only).
 
 ## NEXT
 
@@ -173,7 +183,7 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
 - none. No constant introduced; every count is derived from `blueprints.ts`.
 
 ## FINDINGS (reported, not fixed — outside the file boundary)
-- F1 `placePrimitive.ts` S107 P4 `collectSpawnerLockedPrimitiveIds`: auto-bond EXCLUDES a live
+- F1 (FIXED in follow-up item 1+2) `placePrimitive.ts` S107 P4 `collectSpawnerLockedPrimitiveIds`: auto-bond EXCLUDES a live
   SPAWNER's whole component — (a) a JOINER cannot weld onto any spawner (host re-pick skips it), (b)
   NOBODY can merge a drop into a second live spawner. It was the old mitigation for exactly the
   defect fixed here, and it now blocks R185-B's own example (welding two bat towers — spawners).
@@ -184,9 +194,7 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
   tower with survival — a weld on its chain likely makes the TV art vanish (same class, unverified).
 - F5 `spawnerZoneRenderer.ts:87` centres the aura disc on `componentOf(anchor)` — it drifts toward
   welds (cosmetic; per-bond cover alpha is correct, so weld connectors draw at alpha 1).
-- F2 `hostTick.ts:856` the lightning hub's self-raze takes `componentOf(dying)` — a hub welded into a
-  lattice (leaf welds, legal since S158; hub welds, legal now) RAZES THE WHOLE WELDED STRUCTURE,
-  including a welded sibling tower. Should raze `towerMembersAt(...).prims`. Pre-existing class.
+- F2 `hostTick.ts:856` hub self-raze took the whole welded structure — FIXED in follow-up item 3.
 
 ## HOTSPOT HUNKS (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 - NONE. No hotspot file touched. No wire field, no hash field, no worker field added.

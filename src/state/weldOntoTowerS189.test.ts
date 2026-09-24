@@ -1069,3 +1069,59 @@ describe('ARITHMETIC — IGNITION ⊆ SURVIVAL for all twelve race rings', () =>
     }
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// S189 C2 item 3 — THE LIGHTNING HUB'S SELF-RAZE TAKES ITS OWN STAR, NOT THE WELDED STRUCTURE.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐⭐ S189 C2 item 3 — a hub welded to a laser turret self-destructs; the turret STANDS', () => {
+  it('the hub and its own five leaves are razed; the turret, its shapes and the weld are not', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const hub = star(w, SparkType.Dot, SparkType.Circle, LIGHTNING_HUB_DEGREE, 500, 300);
+    const turret = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 640, 300);
+    tick(w, st, 3);
+    expect([...w.creatureSpawners.values()].map((sp) => sp.recipeId)).toEqual(['lightningHub']);
+    expect(w.defenders.size).toBe(1);
+
+    const weld = placeLikeAPlayer(w, SparkType.Square, { x: 570, y: 300 });
+    const comp = componentOf(hub.hub, w.primitives, w.bonds);
+    expect(comp.primitiveIds.has(turret.hub.id), 'the hub and the turret are ONE welded structure').toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'the welded hub stands').toBe(1);
+
+    // Doom it on its OWN star (R182-B): 34 of its own 50, below a third. Direct banking, no sever.
+    let left = 34;
+    for (const bid of [...hub.hub.bonds].sort((x, y) => x - y)) {
+      const other = w.bonds.get(bid)!;
+      const leafId = other.aId === hub.hub.id ? other.bId : other.aId;
+      if (!hub.leaves.some((l) => l.id === leafId)) continue; // only its own arms
+      const take = Math.min(left, 7);
+      other.damageFifths += take;
+      left -= take;
+      if (left <= 0) break;
+    }
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    let blasts = 0;
+    const d0 = deps();
+    const cursor = { lastMatcherTick: -1 };
+    for (let i = 0; i < 4 * REVALIDATE_INTERVAL_TICKS && w.creatureSpawners.size > 0; i++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d0, st);
+      for (const e of w.effects) if (e.kind === 'BOMB_EXPLODE') blasts++;
+    }
+    expect(w.creatureSpawners.size, 'the doomed hub self-destructed').toBe(0);
+    expect(blasts, 'and the blast still went off (untouched)').toBeGreaterThan(0);
+
+    // Its OWN star is gone — no bond-less orphans (S157 P0's reason for razing survives).
+    expect(w.primitives.has(hub.hub.id)).toBe(false);
+    for (const l of hub.leaves) expect(w.primitives.has(l.id), `own leaf ${l.id} razed`).toBe(false);
+    // …and nothing it was welded to.
+    expect(w.primitives.has(weld.id), 'the welding square is the player’s, not the hub’s').toBe(true);
+    expect(w.primitives.has(turret.hub.id), 'the turret hub stands').toBe(true);
+    for (const l of turret.leaves) expect(w.primitives.has(l.id), `turret leaf ${l.id}`).toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'and the laser turret is still a tower').toBe(1);
+  });
+});

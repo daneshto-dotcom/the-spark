@@ -85,7 +85,8 @@ import { stinkCloudTick, sweepExpiredStinkClouds } from './defenders/stinkCloud.
 import { applyRadialDamage } from './damage.ts';
 import { bankCarriedSparksAtPhaseEdge } from './sparkLifecycle.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
-import { componentOf } from '../game/structure.ts';
+// S189 C2 item 3 — the lightning hub's self-raze takes its OWN members (was `componentOf`).
+import { towerMembersAt } from './towerMembers.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
 import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
@@ -854,7 +855,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           if (sp.recipeId === 'lightningHub') {
             const dying = world.primitives.get(sp.anchorPrimitiveId);
             if (dying !== undefined) {
-              const selfIds = [...componentOf(dying, world.primitives, world.bonds).primitiveIds];
+              /*
+               * ⭐⭐ S189 C2 item 3 — THE HUB RAZES ITS OWN STAR, NOT EVERYTHING WELDED TO IT.
+               *
+               * This was `componentOf(dying)`: correct while nothing could be welded to a live hub,
+               * and since S158 (leaf welds) and S189 (hub welds) it deleted the WHOLE welded
+               * structure — a laser turret welded to the hub, its shapes, a lattice — when the hub
+               * went. R182-B says the opposite in the owner's words: *"the neighbouring shapes are
+               * protecting it then, and it's fine"* — they are the player's, not the hub's.
+               *
+               * So the set is the hub's OWN members (`towerMembersAt`: the Dot + its own Circle
+               * arms, the same walk that decided it stood and that its fuse read). S157 P0's reason
+               * for razing at all survives intact — the hub's own leaves cannot linger as bond-less
+               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT` →
+               * `applyStructureSelfDestruct` → `applyRadialClear`, its owner exemption, and the
+               * ruled-not-built 120 fifths of R182-C) is untouched.
+               */
+              const selfIds = [
+                ...(towerMembersAt(world, 'lightningHub', sp.anchorPrimitiveId)?.prims ?? [dying.id]),
+              ];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
                 pos: { x: dying.pos.x, y: dying.pos.y },
