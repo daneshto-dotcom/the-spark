@@ -95,7 +95,9 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
     /*
      * It is drawn above the band, the card and the board (zIndex 900), so its guard must precede
      * every handler that acts: the footer router, the Ra aim, the card's buttons, the castle click,
-     * the armed stamp and the world picks. One early return covers LMB and RMB.
+     * the armed stamp and the world picks. One early return covers LMB and RMB — ⭐ S190 (IL-2): an
+     * RMB first puts back what is in hand (the Ra aim or a held tower), which acts on no ground; the
+     * raid under the plate stays swallowed. The reach is `controls.draftPanel.test.ts`.
      */
     // The WHOLE handler, bounded by the next one, so no anchor can fall off the end of a window.
     const start = controls.indexOf('private onDown = (e: PointerEvent): void => {');
@@ -103,8 +105,13 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
     expect(start, 'onDown moved or was renamed').toBeGreaterThan(-1);
     expect(end, 'onMove no longer follows onDown').toBeGreaterThan(start);
     const block = controls.slice(start, end);
-    const guard = block.indexOf('if (this.isPointerOverDraftPanel()) return;');
+    const guard = block.indexOf('if (this.isPointerOverDraftPanel()) {');
     expect(guard, 'the draft guard is in onDown').toBeGreaterThan(-1);
+    // S190 (IL-2) — the guard's body puts back what is in hand and RETURNS; it dispatches nothing.
+    const body = block.slice(guard, block.indexOf('this.handleFooterChipClick()'));
+    expect(body).toContain('      return;');
+    expect(body, 'nothing under the plate may be dispatched from the guard').not.toContain('dispatchFn');
+    expect(body).not.toContain('onBuildBlueprint');
     for (const later of [
       'this.handleFooterChipClick()',
       'this.handleRaAimClick(e.button)',

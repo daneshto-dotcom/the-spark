@@ -534,6 +534,48 @@ describe('⭐ the cursor promises a pointer exactly where a click picks', () => 
   });
 });
 
+describe('⛔ S190 (audit IL-2) — a RIGHT-click on the plate still puts back what is in hand; the raid stays swallowed', () => {
+  /*
+   * RMB is the put-it-back gesture, and it acts on the HAND, not on the ground the plate hides — so
+   * the panel must not eat it. An enemy unit sits under every point, so a raid that leaked through
+   * the put-back would show as a RAID_TARGET.
+   */
+  it.each(Object.entries(POINTS))('a held tower + RMB at %s: put back, nothing raided, nothing built', (_name, p) => {
+    const r = rig();
+    enemyGoblinAt(r, p);
+    r.castle.armed = STAMPED;
+    clearLogs(r);
+    click(r.c, p, 2);
+    expect(r.castle.armed, 'the tower is put back').toBeNull();
+    expect(boardActions(r), 'and no RAID_TARGET / build / card reached the board').toEqual([]);
+    expect(r.picks, 'a right-click makes no pick').toEqual([]);
+  });
+
+  it.each(Object.entries(POINTS))('POWER OF RA aimed + RMB at %s: put away, nothing raided', (_name, p) => {
+    const r = rig({ ra: true });
+    enemyGoblinAt(r, p);
+    const b = r.band.getUiPoints().ra;
+    expect(b, 'the seat holds Ra, so its button is drawn').not.toBeNull();
+    click(r.c, centre(b!));
+    expect(raAimPreview(), 'aiming').not.toBeNull();
+    clearLogs(r);
+    click(r.c, p, 2);
+    expect(raAimPreview(), 'the aim is put away').toBeNull();
+    expect(boardActions(r)).toEqual([]);
+  });
+
+  it('with nothing in hand an RMB on the plate is still swallowed (the raid scenario above), and LMB still keeps the tower', () => {
+    const r = rig();
+    const p = POINTS['the left side margin']!;
+    enemyGoblinAt(r, p);
+    click(r.c, p, 2);
+    expect(boardActions(r), 'no raid through the plate').toEqual([]);
+    r.castle.armed = STAMPED;
+    click(r.c, p);
+    expect(r.castle.armed, 'LMB is swallowed, not a put-back').toBe(STAMPED);
+  });
+});
+
 describe('⛔ S190 (audit IL-1) — a control HIDDEN under the plate promises nothing: no pointer, no highlight', () => {
   /*
    * A character-card control straddling the plate's LEFT edge. `onDown` swallows every click on the

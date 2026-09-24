@@ -1116,7 +1116,21 @@ export class Controls {
      * a Ra cast (which keeps aiming, the held-tower rule). The pick itself is the panel's own Pixi
      * `pointertap`, which this does not touch. Mirrored in both `onUp` commit gates.
      */
-    if (this.isPointerOverDraftPanel()) return;
+    if (this.isPointerOverDraftPanel()) {
+      /*
+       * ⛔ S190 (audit IL-2) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND. RMB is this game's
+       * put-it-back gesture — the Ra aim (`handleRaAimClick`) and a held tower (the armed arm below)
+       * — and it acts on the HAND, not on the ground under the plate, so the plate has no reason to
+       * eat it. The RAID stays swallowed: that one does act on the board. The aim is tested first,
+       * the order `onDown` itself keeps; one gesture is in hand at a time, so at most one is set. The
+       * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
+       */
+      if (e.button === 2) {
+        if (raAimPreview() !== null) setRaAimPreview(null);
+        else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+      }
+      return;
+    }
     // ⭐ S149 P4 (R36) — THE FOOTER BAND. Same rule and the same reason as the panel guard
     // above: this handler hit-tests world objects with no notion of UI, so a chip press would
     // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —

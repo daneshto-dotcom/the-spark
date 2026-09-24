@@ -140,3 +140,11 @@ tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest
   Hotspot note: controls.ts only, one self-contained hunk in `updateHoverCursor`. Not changed (scope):
   the Ra-aim CROSSHAIR still shows over the plate while aiming (the click there is swallowed and
   keeps aiming) — reported to the merge owner, not fixed.
+- [x] STEP 4 — IL-2: the onDown draft guard now puts back what is in hand on RMB (Ra aim cleared first,
+  else an armed blueprint disarmed — `onDown`'s own order), then returns; the raid stays swallowed.
+  This SUPERSEDES the KNOWN-BROKEN note above ("RMB over the open draft panel no longer puts a held
+  tower / Ra aim back") — it does now. GATE A tripwire follows the new guard shape (`{` body returns,
+  dispatches nothing). Reach tests (13): held tower + RMB at 6 points -> disarmed, no RAID_TARGET, no
+  pick; Ra aimed + RMB at 6 points -> aim cleared, nothing raided; nothing in hand -> RMB swallowed and
+  LMB keeps the tower. typecheck 0; 199 green. MUTATIONS (restored, cmp 0): plain `return` -> 12 red;
+  RMB falling through after the put-back -> 25 red (the raid leaks).
