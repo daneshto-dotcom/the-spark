@@ -146,6 +146,25 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - Branch diff: `main.ts` (1 line moved), `draftOverlay.ts`, `gathererRenderer.ts`,
   `goblinRenderer.ts`, 4 new test files, the two plan notes.
 
+## FOLLOW-UP (merge owner, after acceptance) — the C7 defect at its other LIVE sites
+- Fixed, one commit: `render/bossAuras.ts` `drawSonarWave` (the Kraken sonar's 4 body rings, was
+  :359, and its foam edge, was :366) and `render/raceMotifs.ts` `drawRaceKeepFallback` naga shell
+  crest (was :100). Each arc now `moveTo`s its own start first. Only the DRAWING changed — the
+  Kraken mechanic (`s189/units`' C10) is untouched.
+- `bossAuras.test.ts`'s hand-rolled Graphics recorder gained a `moveTo` method (it had none, so the
+  four existing sonar tests would have thrown). No assertion there changed.
+- Test: `src/render/s189PenLiftArcs.test.ts` (4) — real Pixi `Graphics`, pen parked by a prior shape;
+  every sonar ring's points lie on one circle about the boss, every crest point inside the keep, all
+  finite. **Mutation-tested once for the set**: all three `moveTo`s removed → both invariant tests red
+  (sonar ring 0: a point 1272 px off its circle; crest path 0 starts at (0, 0)); restored → green.
+- **SKIPPED on the merge owner's instruction**: `render/rainbowRenderer.ts:53` and
+  `render/rainbowFlyoverRenderer.ts:259` carry the same bare `arc()`, but the rainbow and its flyover
+  are ARCHIVED (canon §1 — unreachable in production). Left as-is, noted here.
+- Gates after the follow-up (captured $?): TYPECHECK_EXIT=0 · VITEST_EXIT=0 (`--maxWorkers=6`, 6032 / 372) ·
+  BUILD_EXIT=0 (944.5 / 1100 KiB, +0.3 KiB total for the branch). Snapshot EOL rewrite recurred — benign,
+  `git diff --quiet` 0, restored.
+- Still report-only: the codex z-order (`main.ts` ~1393, F2) — not touched.
+
 ## In flight
 - nothing — branch complete, awaiting audit + merge
 

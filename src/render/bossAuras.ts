@@ -352,18 +352,29 @@ function drawSonarWave(
   const front = KRAKEN_SONAR_RANGE * t;
   const fade = 1 - t;
 
+  /*
+   * ⛔ S189 — EVERY ARC LIFTS THE PEN TO ITS OWN START FIRST (`moveTo`). A bare Pixi `arc()` joins
+   * the pen's last position to its start, and after each fill/stroke the pen sits wherever the
+   * previous shape ended — stale `Point.shared` after a shape, `undefined` after an arc — so each wave
+   * was stroked with a line from elsewhere on the board into it. The C7 defect (`gathererRenderer.ts`
+   * DEEP CURRENT swirl) and the S86 P2 one (`hazardRing.ts`). `s189PenLiftArcs.test.ts` pins it.
+   */
+  const a0 = heading - half;
+  const startAt = (r: number): [number, number] => [boss.pos.x + r * Math.cos(a0), boss.pos.y + r * Math.sin(a0)];
   // Stacked arcs trailing the front: the body of the water, thinning as it passes.
   for (let k = 0; k < SONAR_ARCS; k++) {
     const r = front - k * 14;
     if (r <= 6) continue;
-    g.arc(boss.pos.x, boss.pos.y, r, heading - half, heading + half)
+    g.moveTo(...startAt(r))
+      .arc(boss.pos.x, boss.pos.y, r, heading - half, heading + half)
       .stroke({ width: 5 - k, color: SONAR_TINT, alpha: (0.5 - k * 0.1) * fade });
   }
   // ⭐ THE FOAMY LEADING EDGE, thicker and brighter than the body. It is drawn LAST and at the front
   // radius so it coincides with where the knockback is applied — the wave must look like it CARRIES
   // the units it shoves, which is the detail that makes it read as force rather than as a coloured
   // triangle.
-  g.arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
+  g.moveTo(...startAt(front))
+    .arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
     .stroke({ width: 7, color: SONAR_FOAM_TINT, alpha: 0.75 * fade });
 }
 

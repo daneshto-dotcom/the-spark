@@ -97,7 +97,11 @@ export function drawRaceKeepFallback(
       // A scalloped shell crest: three arcs across the top.
       for (let i = 0; i < 3; i++) {
         const cx = left + w * (0.2 + i * 0.3);
-        g.arc(cx, bodyTop, w * 0.15, Math.PI, 0)
+        // ⛔ S189 — `moveTo` the arc's own start (angle π: `cx − r`) first. A bare `arc()` after the
+        // body band's fill joined the pen's stale position to the crest — a filled wedge and a line
+        // from elsewhere on the board. Same defect as C7; `s189PenLiftArcs.test.ts` pins it.
+        g.moveTo(cx - w * 0.15, bodyTop)
+          .arc(cx, bodyTop, w * 0.15, Math.PI, 0)
           .fill({ color, alpha: 0.35 })
           .stroke({ width: 1.5, color, alpha: 0.85 });
       }
