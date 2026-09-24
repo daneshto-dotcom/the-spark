@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 214,
+  "tool_calls_session_total": 284,
   "session_id": "S188",
   "session_kind": "owner-driven: build + wire all L0/L5 racial mechanics, the 17 cards, castle upgrade buttons; six autonomous worktrees, main session = merge owner. Pre-approved.",
   "session_start": "2026-09-23T11:30:02.735Z",
@@ -14,9 +14,9 @@
   "unlock_source": "user",
   "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "council": {
-    "grok": "grok-4.20-0309-reasoning: 4 challenges, all REJECTED with code-grounded reasons",
-    "gemini": "gemini-3.1-pro-preview: 4 challenges, 3 ACCEPTED (A1,A2,A4) + 1 MODIFIED (A3)",
-    "prime_audit": "A5 accepted: spawns deferred out of the strike-batch iteration"
+    "grok": "4 challenges: G1 rej, G2 split, G3 split, G4 rej",
+    "gemini": "3 challenges: M1 acc, M2 acc (fix shape), M3 rej+test",
+    "ledger": ".claude/plans/2026-09-24_S189_BATCH_PDR.md §6"
   },
   "priorities": [
     {
