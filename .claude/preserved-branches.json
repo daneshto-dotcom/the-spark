@@ -1,13 +1,9 @@
 {
-  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S188 carry-forward work: each is pushed to origin and resumes next session; delete an entry when its branch merges.",
+  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S188 carry-forwards (pushed to origin) + S189's four PREPARED worktrees (branched at master 15035b9, npm ci done, empty until the next session dispatches them per .claude/plans/2026-09-24_S189_BATCH_PDR.md). Delete an entry when its branch merges.",
   "preserved": [
     {
       "branch": "s188/canon",
       "reason": "S188 canon text; wip"
-    },
-    {
-      "branch": "s188/deploy2-candidate",
-      "reason": "deploy #2: racial-a + racial-d audit fix rounds; blocked on 3 e2e reds"
     },
     {
       "branch": "s188/draft-atk",
@@ -22,20 +18,28 @@
       "reason": "Ra strike sprite + WRATH card; wip"
     },
     {
-      "branch": "s188/racial-a",
-      "reason": "its fix round is already on deploy2-candidate; worktree kept for resume"
-    },
-    {
-      "branch": "s188/racial-d",
-      "reason": "its fix round is already on deploy2-candidate; swarm is based on it"
-    },
-    {
       "branch": "s188/swarm",
       "reason": "THE SWARM; complete, audit died on the spend limit"
     },
     {
       "branch": "s188/wrath",
       "reason": "WRATH OF RA + square Ra icon + bots cast Ra; complete, audit died on the spend limit"
+    },
+    {
+      "branch": "s189/net",
+      "reason": "S189 PDR §5.1 — disconnect/lag/quickmatch; prepared worktree, dispatch after the hunt"
+    },
+    {
+      "branch": "s189/units",
+      "reason": "S189 PDR §5.2 — Voltkin/Helga/Kraken + sim LOWs; prepared worktree"
+    },
+    {
+      "branch": "s189/weld",
+      "reason": "S189 PDR §5.3 — welding onto towers; prepared worktree"
+    },
+    {
+      "branch": "s189/render",
+      "reason": "S189 PDR §5.4 — spark layer, teleport line + render LOWs; prepared worktree"
     }
   ]
 }
