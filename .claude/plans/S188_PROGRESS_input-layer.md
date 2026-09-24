@@ -111,3 +111,16 @@ tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest
   draftOverlay.test.ts's count of two `draftHitTest(p.x, p.y, this.opts)` holds). CRLF preserved
   (python newline=''). main.ts auto-merged. typecheck 0; draftOverlay + draftPanel + s182 guards
   218 green (racial tile LIVE for mummies on the merged tree). Merge exit 1 = the conflict (resolved).
+  ⚠ master moved to 637ab2e (one more plan-file commit) between the check and the merge, so the merge
+  commit d995a09's second parent is 637ab2e; 2d4391a..637ab2e touches only S190_DISPATCH_LOG.md.
+- [x] STEP 2 — IL-B1 CONFIRMED from the code: `START_GAME` opens the pre-wave-1 draft in every mode
+  (gameMode.ts `openDraftIfDue`), the deadline is a whole BUILD (5400 ticks), and (960,540) is inside
+  the plate (seam between the tiles, so no pick either) — the "illegal drop" case was refused by the
+  draft guard, never by the quarry. Fix in `e2e/click-to-build.spec.ts` only: `resolveDraft` (a real
+  click on the general tile, geometry imported LIVE from `/src/render/draftOverlay.ts` in the page;
+  polls `world.draft === null` and `controls.draftPanel.isOver(960,540) === false`), used before the
+  illegal click; plus a sibling case (draft OPEN, stink tower armed, click the plate's left margin ->
+  nothing stamped, nothing spent, still armed; then resolve and the SAME point builds the tower).
+  `npx playwright test e2e/click-to-build.spec.ts` E2E_CTB_EXIT=0, 4/4. MUTATION (both at once, restored
+  byte-for-byte, cmp 0): onDown draft guard + the armed-arm `canStampAt` line removed -> E2E exit 1,
+  exactly cases 3 (armed null: the quarry gate is now what it tests) and 4 (4 primitives under the plate).
