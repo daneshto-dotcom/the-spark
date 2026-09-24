@@ -31,7 +31,10 @@ import { draftedAttackFifths, type DraftPick } from '../draft.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { attackFifths } from '../stats.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
-import { makeCreature, type Creature, type CreatureType } from './creature.ts';
+import { phaseDurationTicks } from '../../constants.ts';
+import { CORPSE_EATER_TRIGGER_PCT, runCorpseEater } from '../racial/corpseEater.ts';
+import type { RaceId } from '../races.ts';
+import { creatureMaxEhp, makeCreature, type Creature, type CreatureType } from './creature.ts';
 import { chainJumpFifths } from './voltkinChain.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 
@@ -257,5 +260,73 @@ describe('⛔ …and the three strikes that live outside it', () => {
       return DEEP - bag.ehp;
     });
     expect(r).toEqual({ drafted: draftedStrike('lightningDrone'), plain: typeStrike('lightningDrone') });
+  });
+});
+
+describe('⛔ the heals that are a share of the strike follow the BUFFED strike', () => {
+  it('lifesteal (CRIMSON TIDE, 50 %): a drafted 8 heals 4, the type’s 6 heals 3', () => {
+    const run = (picks: DraftPick[]) => {
+      const w = baseWorld();
+      const seat = w.players.get(P0)!;
+      (seat as { raceId: RaceId }).raceId = 'vampires';
+      seat.draftPicks = [...picks]; // vampires.l5 is the racial pick at draft index 1
+      const a = attacker(w, 'raceUnit', picks, 500, 500);
+      a.ehp = 1;
+      const bag = punchingBag(w, 510, 500);
+      a.targetCreatureId = bag.id;
+      dispatch(w, { type: 'CREATURE_ATTACK', creatureId: a.id, bondId: null, targetCreatureId: bag.id });
+      return { dealt: DEEP - bag.ehp, healed: a.ehp - 1 };
+    };
+    expect(run(['racial', 'racial', 'atk', 'pen'])).toEqual({ dealt: 8, healed: 4 });
+    expect(run(['racial', 'racial'])).toEqual({ dealt: 6, healed: 3 });
+  });
+
+  it('CORPSE EATER (100 %): the zombie boss heals exactly his OWN drafted bite', () => {
+    const BOSS: CreatureType = 't9BossZombies';
+    const run = (picks: DraftPick[]) => {
+      const w = makeWorld(0x5188);
+      dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+      w.gameState = 'PLAYING';
+      w.matchPhase = 'FIGHT';
+      w.phaseEndsAtTick = w.tick + phaseDurationTicks('FIGHT') * 10;
+      w.draft = null;
+      w.creatures.clear();
+      const seat = w.players.get(P0)!;
+      (seat as { raceId: RaceId }).raceId = 'zombies';
+      seat.draftPicks = [...picks]; // zombies.l5 is the racial pick at draft index 1
+      (w.players.get(P1)! as { raceId: RaceId }).raceId = 'orcs';
+      const boss = makeCreature(getCreatureConfig(BOSS), {
+        id: asCreatureId(w.nextCreatureId++), ownerPlayerId: P0, pos: { x: 960, y: 540 },
+        targetPos: { x: 960, y: 540 }, spawnedAtTick: w.tick, sourceSpawnerId: null, draftPicks: picks,
+      });
+      boss.state = 'SEEKING';
+      boss.ehp = Math.floor((creatureMaxEhp(boss) * CORPSE_EATER_TRIGGER_PCT) / 100);
+      w.creatures.set(boss.id, boss);
+      const food = makeCreature(getCreatureConfig('t9BossVampires'), {
+        id: asCreatureId(w.nextCreatureId++), ownerPlayerId: P1, pos: { x: 980, y: 540 },
+        targetPos: { x: 980, y: 540 }, spawnedAtTick: w.tick, sourceSpawnerId: null,
+      });
+      food.state = 'SEEKING';
+      food.maxEhp = DEEP;
+      food.ehp = DEEP;
+      w.creatures.set(food.id, food);
+      const before = boss.ehp;
+      // corpseEater.test.ts's slot harness: one feed call per emulated strike batch, clock advancing.
+      for (let i = 0; i <= getCreatureConfig(BOSS).attackFireTick; i++) {
+        w.pendingCreatureDeaths = new Set();
+        runCorpseEater(w);
+        for (const id of w.pendingCreatureDeaths) w.creatures.delete(id);
+        w.pendingCreatureDeaths = null;
+        w.tick++;
+      }
+      return { bite: DEEP - food.ehp, healed: boss.ehp - before };
+    };
+    const drafted = run(['hp', 'racial', 'atk']);
+    expect(drafted.bite, 'one bite, his OWN drafted strike').toBe(draftedStrike(BOSS));
+    expect(drafted.healed).toBe(drafted.bite);
+    const plain = run(['hp', 'racial']);
+    expect(plain.bite).toBe(typeStrike(BOSS));
+    expect(plain.healed).toBe(plain.bite);
+    expect(drafted.bite).toBeGreaterThan(plain.bite);
   });
 });
