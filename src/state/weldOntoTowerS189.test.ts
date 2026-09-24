@@ -68,6 +68,7 @@ import {
   markTowerCover,
 } from '../render/towerCover.ts';
 import { planStructureRepair } from './structureRepair.ts';
+import { collectSpawnerLockedPrimitiveIds } from './placePrimitive.ts';
 import { applyBuildBlueprint } from './blueprintBuild.ts';
 import { blueprintBill } from './blueprints.ts';
 import { makeCastleBank } from './castleBank.ts';
@@ -449,6 +450,24 @@ describe('⭐ S189 C2 — a welded PENTAGRAM is drawn on its own five', () => {
   });
 });
 
+describe('⭐ S189 C2 item 1 — a JOINER can weld onto a live SPAWNER (the S107 P4 lock, narrowed)', () => {
+  it('the host re-pick now lands on a goblin tower, and the tower stands', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const p1 = w.players.get(P1)!;
+    w.players.set(P1, { ...p1, avatarPos: { x: 1400, y: 300 } });
+    const goblin = star(w, SparkType.Circle, SparkType.Circle, GOBLIN_TOWER_HUB_DEGREE, 1400, 300, 40, P1);
+    tick(w, st, 2);
+    expect([...w.creatureSpawners.values()].map((sp) => sp.recipeId)).toEqual(['goblinTower']);
+    expect(collectSpawnerLockedPrimitiveIds(w).size, 'a contains-survival spawner is not locked').toBe(0);
+
+    const sq = placeLikeAPlayer(w, SparkType.Square, { x: 1420, y: 318 }, P1);
+    expect(neighbours(w, sq), "the joiner's drop bonds onto the goblin hub").toContain(goblin.hub.id);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'and the welded goblin tower stands').toBe(1);
+  });
+});
+
 describe('⭐⭐ S189 C2 / Council M3 — TWO TOWERS WELDED TOGETHER: BOTH survive (R185-B)', () => {
   it('a laser turret and a goblin tower welded by one square both stand', () => {
     const w = worldInBuild();
@@ -460,14 +479,13 @@ describe('⭐⭐ S189 C2 / Council M3 — TWO TOWERS WELDED TOGETHER: BOTH survi
     expect([...w.creatureSpawners.values()].map((s) => s.recipeId)).toEqual(['goblinTower']);
 
     /*
-     * ⚠ THE DROP IS AIMED AT THE GOBLIN TOWER'S LEAF, AND THAT IS NOT INCIDENTAL. `placePrimitive`'s
-     * S107 P4 "locked ring" refuses to MERGE a placement into a live SPAWNER's component (it was the
-     * old mitigation for exactly the defect S189 fixes). So the square's PRIMARY bond goes into the
-     * spawner — allowed on the local path — and the merge sweep then reaches the turret, a DEFENDER,
-     * which is not locked. The reverse drop welds nothing; that lock is reported, not changed here.
+     * ⭐ S189 C2 item 1 — THE DROP IS AIMED AT THE TURRET, and the merge sweep reaches the GOBLIN
+     * TOWER, a live SPAWNER. Before the S107 P4 lock was narrowed this was the direction that welded
+     * NOTHING: the sweep refused any live spawner's component. Now only a tower a weld would kill is
+     * locked, so the square joins both.
      */
-    const sq = placeLikeAPlayer(w, SparkType.Square, { x: 566, y: 300 });
-    expect(neighbours(w, sq)).toContain(goblin.leaves[2]!.id);
+    const sq = placeLikeAPlayer(w, SparkType.Square, { x: 556, y: 300 });
+    expect(neighbours(w, sq)).toContain(turret.leaves[0]!.id);
     const comp = componentOf(turret.hub, w.primitives, w.bonds);
     expect(comp.primitiveIds.has(goblin.hub.id), 'the square must weld the two into ONE structure').toBe(true);
 
@@ -486,19 +504,13 @@ describe('⭐⭐ S189 C2 / Council M3 — TWO TOWERS WELDED TOGETHER: BOTH survi
     expect(w.creatureSpawners.size).toBe(2);
 
     /*
-     * ⚠ PLACEMENT CANNOT MAKE THIS WELD TODAY, and the case says so rather than hiding it: the S107 P4
-     * lock refuses to merge a drop into a second live spawner, so a triangle dropped between the rings
-     * bonds to ring A only. The weld below is therefore minted directly — it is the SURVIVAL rule that
-     * is under test, and a welded pair must stand however the weld came to exist. The lock itself is
-     * reported for the merge owner (it now blocks the R185-B "weld two bat towers" play for spawners).
+     * ⭐ S189 C2 item 1 — ONE REAL DROP WELDS BOTH RINGS. Before the S107 P4 lock was narrowed, the
+     * merge sweep refused ring B (a second live spawner) and this weld could only be minted by hand.
      */
-    const dropped = placeLikeAPlayer(w, SparkType.Triangle, { x: 560, y: 286.9 });
-    const nd = neighbours(w, dropped);
+    const t = placeLikeAPlayer(w, SparkType.Triangle, { x: 560, y: 286.9 });
+    const nd = neighbours(w, t);
     expect(nd.some((id) => a.some((p) => p.id === id)), 'the drop reaches ring A').toBe(true);
-    expect(nd.some((id) => b.some((p) => p.id === id)), 'but S107 P4 refuses the merge into ring B').toBe(false);
-    const t = mk(w, SparkType.Triangle, 560, 300);
-    bond(w, t, a[1]!);
-    bond(w, t, b[4]!);
+    expect(nd.some((id) => b.some((p) => p.id === id)), 'and merges into ring B').toBe(true);
 
     tick(w, st, PAST_TWO_POLLS);
     expect(w.creatureSpawners.size, 'both pentagrams stand').toBe(2);

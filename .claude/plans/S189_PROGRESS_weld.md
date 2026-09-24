@@ -113,8 +113,20 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
     one `creatureSpriteScaleMul` line); mine will be the import (:66) and `towerRingCentroid` (:392)
     only — disjoint hunks, expected to merge cleanly. I do not touch goblinRenderer.ts.
 
+### step F1 — item 1 LANDED: the S107 P4 lock is NARROWED to towers a weld would kill
+- `placePrimitive.ts` `collectSpawnerLockedPrimitiveIds`: a spawner whose recipe has a CONTAINS
+  survival shape (`towerShapeFor !== null`) is skipped. All three lock sites (host re-pick, host
+  merge candidates, merge sweep) read this one builder, so all three open together.
+- ⚠ ORDER, deliberate: the lock is NARROWED, not deleted, in this commit, so the race rings — still
+  on R136 until item 2 — stay protected between commits. Item 2 moves them onto contains, at which
+  point the lock is empty for every shipped recipe without another edit.
+- tests: a JOINER's drop now bonds onto a live goblin tower (host re-pick) and it stands; the M3 pair
+  tests now weld through REAL placement (turret→goblin via the merge sweep; one triangle merges two
+  live pentagrams) — the hand-minted weld is gone. Mutant (skip removed) → those 3 RED; restored.
+- runs: weld file 30/30; `src/state` + `src/bots` + `src/input` 202 files / 3280 tests EXIT=0.
+
 ## IN-FLIGHT
-- item 1.
+- item 2.
 
 ## NEXT
 
