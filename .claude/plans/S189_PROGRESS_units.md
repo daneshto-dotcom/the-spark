@@ -379,3 +379,34 @@ queued — only `endHostTickSpawnWindow`'s final drain can do that. ⭐ Mutation
 +0", "nothing queued when the tick ends: expected 1 to be +0"); an early return that skips the line is
 the same mutation. Restored byte-identical. No production change (the try/finally hardening the audit
 listed as optional was NOT added — fix-only-these).
+
+### U2-7 / U5 (LOW) — the dropped whole-world hash check now has a verdict — DONE (investigated, no code)
+
+**Measured, not guessed.** Probe (scratch, deleted): the exact LOW c fixture (`boardWithDeadHighestId`),
+`snapshot` (no `spawnerState`) → `restore` into a fresh world, then `determinismParts` diffed part by
+part. **Exactly ONE part differs — the surviving creature's**, and only in two fields:
+`prevPos` (saved 1201.60,826.97 → restored = pos 1201.36,826.91) and `targetPos` (saved 100.83,557.56
+→ restored = pos). Every counter part (`nextPrimitiveId`, `nextBondId`, `nextPulledSparkId`,
+`nextCreatureId`, …) matched. Control: a board with no ticks run round-trips with ZERO differing parts.
+
+**Verdict: BENIGN for determinism, a known save-format limit, not a counter and not this brief.**
+`save.ts:159` documents it: a creature's *"`targetPos`/`prevPos`/`spawnedAtTick` have no serializer
+surface at all"*. So any restore (save/load, `?worker=1` adoption, a migration successor) zeroes every
+creature's velocity and resets its steering target to its own position for one tick; SEEKING AI
+re-derives `targetPos` on its next selection (every tick for goblins/Voltkin; a chewer on its throttle
+slot). Peers cannot diverge on it — after any of those restores exactly ONE sim is authoritative and
+every mirror applies its snapshots. The visible cost is a one-tick momentum loss at the restore
+moment (e.g. a Kraken victim restored mid-slide stops dead). If the owner ever wants it, the fix is
+the hunter's S135 shape (emit `prevPos` additive-optional) — reported, not built.
+
+**The audit's U5 suspect (`nextPulledSparkId`) is NOT what differed here** (no pull happened in the
+fixture, so both worlds held −1) — **but it is a REAL, separate, latent gap, confirmed by reading:**
+`save.ts` never serializes `nextPulledSparkId` and `applySnapshotCore` never re-derives it; the
+migration takeover (`main.ts:3440-3444`) and the worker-FAILURE fallback (`main.ts:3071-3076`) repair
+it through `rebuildAuthorityAllocators`, but the worker's own INIT (`workerSim.ts:213` `restore(snap,
+world)`) does NOT — so an adopted worker resumes the descending allocator at `makeWorld`'s −1 while
+live pulled shapes may already hold −1, −2, …; the next `PULL_FROM_BANK` (`gathererLifecycle.ts:215`)
+then writes over a living entity. Latent: `WORKER_DEFAULT_ON = false` (`workerFlag.ts:74`). NOT fixed
+here — it is not a one-line counter in the sites this branch touched (the natural fix is one line in
+`workerSim.ts` calling `rebuildAuthorityAllocators`, or LOW c's serialize shape for this counter);
+**for the merge owner.** `activeCinematicPlayerId` (also hashed, not in save.ts) did not differ here.
