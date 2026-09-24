@@ -1,25 +1,41 @@
 {
   "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S188 carry-forward work: each is pushed to origin and resumes next session; delete an entry when its branch merges.",
   "preserved": [
-    "s188/canon",
-    "s188/deploy2-candidate",
-    "s188/draft-atk",
-    "s188/input-layer",
-    "s188/ra-vfx",
-    "s188/racial-a",
-    "s188/racial-d",
-    "s188/swarm",
-    "s188/wrath"
-  ],
-  "reason": {
-    "s188/deploy2-candidate": "deploy #2: racial-a + racial-d audit fix rounds; blocked on 3 e2e reds",
-    "s188/input-layer": "footer arrow layering + draft-panel click-through; complete, needs audit",
-    "s188/wrath": "WRATH OF RA + square Ra icon + bots cast Ra; complete, audit died on the spend limit",
-    "s188/swarm": "THE SWARM; complete, audit died on the spend limit",
-    "s188/ra-vfx": "Ra strike sprite + WRATH card; wip",
-    "s188/draft-atk": "S187's dead ATK/PEN draft picks; salvaged mid-flight, unverified",
-    "s188/canon": "S188 canon text; wip",
-    "s188/racial-a": "its fix round is already on deploy2-candidate; worktree kept for resume",
-    "s188/racial-d": "its fix round is already on deploy2-candidate; swarm is based on it"
-  }
+    {
+      "branch": "s188/canon",
+      "reason": "S188 canon text; wip"
+    },
+    {
+      "branch": "s188/deploy2-candidate",
+      "reason": "deploy #2: racial-a + racial-d audit fix rounds; blocked on 3 e2e reds"
+    },
+    {
+      "branch": "s188/draft-atk",
+      "reason": "S187's dead ATK/PEN draft picks; salvaged mid-flight, unverified"
+    },
+    {
+      "branch": "s188/input-layer",
+      "reason": "footer arrow layering + draft-panel click-through; complete, needs audit"
+    },
+    {
+      "branch": "s188/ra-vfx",
+      "reason": "Ra strike sprite + WRATH card; wip"
+    },
+    {
+      "branch": "s188/racial-a",
+      "reason": "its fix round is already on deploy2-candidate; worktree kept for resume"
+    },
+    {
+      "branch": "s188/racial-d",
+      "reason": "its fix round is already on deploy2-candidate; swarm is based on it"
+    },
+    {
+      "branch": "s188/swarm",
+      "reason": "THE SWARM; complete, audit died on the spend limit"
+    },
+    {
+      "branch": "s188/wrath",
+      "reason": "WRATH OF RA + square Ra icon + bots cast Ra; complete, audit died on the spend limit"
+    }
+  ]
 }
