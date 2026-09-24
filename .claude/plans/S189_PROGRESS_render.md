@@ -59,7 +59,8 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - NEGATIVE: staged after the lift, the panel covers the cruiser (the order is the mechanism); panel
   closed → hit-test null.
 - Source-text guard on main.ts (footer lift < sheet lift < draft staged < cruiser lift), which states
-  its own limit (EXISTS, not REACHED; `e2e/fog.spec.ts` is the runtime half).
+  its own limit (EXISTS, not REACHED). ⚠ CORRECTED (audit R2-4): NOTHING at runtime covers the
+  draft-panel relationship — `e2e/fog.spec.ts` checks the cruiser against the footer only.
 - Mechanical enumeration: every code-level `.zIndex =` in src/ is exactly `[render/exitButton.ts]`.
 - **Mutation-tested**: restored `this.container.zIndex = 900` → 3 red (REACH, no-zIndex, enumeration),
   restored → green.
@@ -287,10 +288,13 @@ They can stack on top of each other."*
   merge" — NOTHING was merged; `git status` clean, no MERGE_HEAD). The text was mangled and committed in
   3df4cbb; rewritten here with the Write tool. Resolved.
 
-## AUDIT R2-1 / R2-4 (merge owner) — next
-- R2-1: codex backdrop + CONNECTION LOST backdrop are passive, so clicks fall through to the (now lower)
-  draft panel. Fix: `eventMode = 'static'` on both backdrops; hit-test test; mutation-tested.
-- R2-4: correct the false "e2e/fog.spec.ts is C1's runtime half" claim (it never looks at the panel).
+## AUDIT R2-1 / R2-4 (merge owner)
+- R2-1: DONE (4a0bf23) — verified first (reverting the fix makes a click over a tile reach the hidden
+  panel through both backdrops). `bg.eventMode = 'static'` in `codexOverlay.ts` and `overlayBg.eventMode =
+  'static'` in `connectionLostOverlay.ts`; `s189OverlaysSwallowDraftClicks.test.ts` (5) through the real
+  overlays + EventBoundary; the Return button check is structural (child order + mode) because Node
+  computes no world transform for a moved child — stated in the test. Mutation-tested: 3 red.
+- R2-4: DONE — the claim is corrected in `s189CruiserAboveDraft.test.ts` and above; no e2e added.
 
 ## NEXT — R190-H (ra-vfx is on master 5934d3b)
 - `git merge master`, keep ra-vfx's two S190 finale guards (absence check + structureWatchEpoch check),

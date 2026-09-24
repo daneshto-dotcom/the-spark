@@ -22,8 +22,10 @@
  *   3. ⚠ THE main.ts ORDER ITSELF, BY SOURCE TEXT — AND THIS IS THE LIMIT OF THE FILE. No renderer
  *      runs under vitest and main.ts is never imported here (canon §7b R183-G), so (1) stages a MODEL
  *      of main.ts's sequence. The source-text guard below proves the three lines EXIST in that order;
- *      it cannot prove they are REACHED at runtime. `e2e/fog.spec.ts` reads the live stage index of
- *      `avatarRendererLocal` and is the runtime half.
+ *      it cannot prove they are REACHED at runtime. ⚠ AND NOTHING AT RUNTIME COVERS THIS RELATIONSHIP:
+ *      `e2e/fog.spec.ts` reads the live stage index of `avatarRendererLocal`, but only against the
+ *      FOOTER — it never looks at the draft panel. (S189 audit R2-4 corrected an earlier claim here
+ *      that it was this file's "runtime half".)
  */
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
