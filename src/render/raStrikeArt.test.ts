@@ -38,7 +38,7 @@ import { PLAYER_COLORS, RA_COLUMN_COUNT, RA_COLUMN_RADIUS, RA_COLUMN_TICKS, RA_R
 import { asCreatureId, asPlayerId } from '../types.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import type { RaStrike } from '../state/racial/powerOfRaRules.ts';
-import { raColumnImpactTick, raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
+import { raColumnImpactTick, raColumnPos, runPharaohRitual } from '../state/bossSkillsPharaohRitual.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { Creature } from '../state/creatures/creature.ts';
 
@@ -446,6 +446,74 @@ describe('S188 ra-vfx — ⛔ no atlas (still loading, failed, or no DOM): the c
       pw.tick = tick;
       expect(() => drawBossAuras(bare, pw), `tick ${tick}`).not.toThrow();
     }
+  });
+});
+
+/* ── 3b. THE PHARAOH'S FINALE (RAVFX-5) ──────────────────────────────────────────────────────── */
+
+describe("S188 ra-vfx — RAVFX-5: the Pharaoh's FIFTH column plays out after the host removes him", () => {
+  const UNTIL = 5_000;
+  const finale = (k: number) => raColumnPos(PHARAOH_ID, k, PHARAOH_AT.x, PHARAOH_AT.y);
+
+  /** He is seen channelling on his last tick, then the REAL sim lands column 4 and removes him. */
+  function finaleBoard(): World {
+    const pw = pharaohBoard(UNTIL);
+    pw.tick = UNTIL - 1;
+    drawBossAuras(recorder().g, pw);
+    pw.tick = UNTIL;
+    runPharaohRitual(pw);
+    expect(pw.creatures.has(asCreatureId(PHARAOH_ID)), 'anti-vacuity: the sim removed him on the deadline').toBe(false);
+    return pw;
+  }
+
+  it('⭐⭐ with the art: the flash ON the deadline, then the explosion and the cloud, then gone', () => {
+    const art = shippedArt();
+    setRaStrikeArtForTests(art);
+    const pw = finaleBoard();
+    for (const [dt, slot] of [[0, 9], [6, 10], [50, 16], [109, 22]] as const) {
+      pw.tick = UNTIL + dt;
+      const r = recorder(); drawBossAuras(r.g, pw);
+      expect(drawnSlots(art, r.quads, finale), `deadline + ${dt}`).toEqual([[4, slot]]);
+    }
+    pw.tick = UNTIL + 110;
+    const r = recorder(); drawBossAuras(r.g, pw);
+    expect(r.ops, 'the smoke has cleared').toHaveLength(0);
+  });
+
+  it('⭐ without the art: the code column from the sky still lands on the finale spot', () => {
+    setRaStrikeArtForTests(null);
+    const pw = finaleBoard();
+    pw.tick = UNTIL + 1;
+    const r = recorder(); drawBossAuras(r.g, pw);
+    const at4 = `circle ${key(finale(4).x, finale(4).y)}`;
+    expect(r.ops.some((o) => o.startsWith('moveTo')), 'the shaft').toBe(true);
+    expect(r.ops.some((o) => o.startsWith(at4)), 'on column 4').toBe(true);
+  });
+
+  it('⛔ a Pharaoh cleared away EARLY (a match reset) never had his finale land, and none is drawn', () => {
+    setRaStrikeArtForTests(shippedArt());
+    const pw = pharaohBoard(UNTIL);
+    pw.tick = UNTIL - RA_RITUAL_TICKS + 10; // seen only at the start of his ritual
+    drawBossAuras(recorder().g, pw);
+    pw.creatures.clear();
+    pw.tick = UNTIL;
+    const r = recorder(); drawBossAuras(r.g, pw);
+    expect(r.ops).toHaveLength(0);
+  });
+
+  it('⛔ the tail belongs to ITS world, and to a match still PLAYING', () => {
+    setRaStrikeArtForTests(shippedArt());
+    const pw = finaleBoard();
+    const other = pharaohBoard(UNTIL); // another world at the same tick, with no finale of its own
+    other.creatures.clear();
+    other.tick = UNTIL;
+    const a = recorder(); drawBossAuras(a.g, other);
+    expect(a.ops, 'another world').toHaveLength(0);
+
+    pw.gameState = 'WIN'; // the sim lands nothing outside PLAYING
+    pw.tick = UNTIL + 6;
+    const b = recorder(); drawBossAuras(b.g, pw);
+    expect(b.ops, 'not PLAYING').toHaveLength(0);
   });
 });
 

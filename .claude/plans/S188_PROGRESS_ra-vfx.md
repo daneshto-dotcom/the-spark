@@ -222,10 +222,41 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
 - Comment-only: the rebuild's atlas PNG and manifest are `cmp`-identical to RAVFX-7's; `node --check`
   exit 0.
 
+### RAVFX-5 (MED) — DONE, RENDER-ONLY — the Pharaoh's finale column plays out after he is gone
+- Confirmed: column 4 lands on `raColumnImpactTick(U, 4)` = U; on that tick `isChannellingRa` is
+  false so `drawRaRitual` returns before `drawRaColumns`, and `runPharaohRitual` removes him — the
+  finale's flash / explosion / cloud (art) and the code shaft (fallback) never drew. Reproduced by
+  mutation A below (the fix removed = the pre-fix behaviour): both finale tests RED.
+- `src/render/bossAuras.ts` (render-only — `src/state`, `src/net`, `src/bots` untouched): a tail
+  cache, `WeakMap<World, Map<"id@until", {id, until, owner, x, y, lastSeenTick}>>`, written by
+  `drawRaRitual` on every channelling frame (`rememberRaRitual`), drawn by `drawRaRitualTails` right
+  after the boss loop through the SAME `drawRaColumns(g, tick, until, raColumnPos(id, k, x, y))` — so
+  every tail frame is still `raStrikeFrameAt(tick, until)`. Gates, each tested: only `tick ≥ until`
+  (never double-drawn with the live ritual); only while `gameState === 'PLAYING'` (the sim's own
+  landing gate); only if he was seen channelling within `RA_TAIL_SIGHTING_SLACK_TICKS` (30, MINE — 10 Hz
+  snapshots = 6 ticks, so a few lost ones are tolerated) of the deadline, so a Pharaoh cleared early
+  (match reset / godly abort — both `creatures.clear()` paths) never shows a finale the sim did not
+  land; fog-gated at his last position like the live ritual; evicted after
+  `RA_RITUAL_TAIL_TICKS` = max(`RA_STRIKE_TAIL_TICKS` 110, `RA_FLASH_TICKS`+1) or on a clock rewind.
+  The cached position IS the landing spot: the ritual file states a channelling Pharaoh cannot move.
+- `drawRaRitual`'s `boss` param gains `ownerPlayerId` (the call site already passes the Creature);
+  new imports: `type PlayerId` and `RA_STRIKE_TAIL_TICKS` (on the branch's own import line — not the
+  line wrath edits).
+- Tests (4, through the REAL `runPharaohRitual` removing him on the deadline): with the art the
+  finale shows [4, 9] at U, [4, 10] at U+6, [4, 16] at U+50, [4, 22] at U+109 and nothing at U+110;
+  without the art the code shaft lands on column 4 at U+1; NEGATIVE: a Pharaoh seen only at his
+  ritual's start and then cleared draws nothing at U; another world at the same tick draws nothing,
+  and a match that is no longer PLAYING draws nothing. 23/23; `npm run typecheck` exit 0.
+- ⭐ MUTATION-TESTED: (A) the `drawRaRitualTails` call removed → the two finale tests RED; (B) the
+  sighting guard removed → the early-clear test RED; (C) the PLAYING gate removed → the world/phase
+  test RED. Restored, `cmp`-verified.
+- ⚠ Residual, stated: a joiner who connects after he is removed has nothing cached and sees no tail
+  (≤ 1.8 s of VFX); a match reset inside the last 30 ticks of a ritual while still PLAYING would show
+  a finale — no production path does that without leaving PLAYING that I found.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
-- ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
-  impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
-  flash was equally lost). Needs a sim/wire change to fix; not an art change.
+- ~~⚠ The Pharaoh's 5th column never shows its explosion … Needs a sim/wire change to fix.~~
+  ⭐ S190 RAVFX-5: WRONG — it did not need a sim change. FIXED render-only (see the RAVFX-5 section).
 - ⚠ The strike draws into `goblinRenderer.graphics`, which is UNDER the unit sprites, so a mushroom
   cloud sits behind units standing north of it. Layering above units needs a new display layer
   (the fogHiddenLayer index hazard) or the arrowLayer path — left as is.

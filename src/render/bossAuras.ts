@@ -48,6 +48,7 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
+import type { PlayerId } from '../types.ts';
 import {
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
@@ -67,7 +68,7 @@ import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview } from './raAimPreview.ts';
-import { drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
+import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -116,6 +117,8 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
     if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, world, bossId as number, boss);
   }
+  // ⭐ RAVFX-5 — the Pharaoh's FINALE column, played out after the host has removed him.
+  drawRaRitualTails(g, world);
   // ⭐ S188 P6 — POWER OF RA: called strikes and the local aim. Walks `world.players`, not the boss
   // loop above, so it draws on a board with no boss on it (the usual case).
   drawPowerOfRa(g, world);
@@ -153,7 +156,7 @@ function drawRaRitual(
   g: Graphics,
   world: World,
   id: number,
-  boss: { pos: { x: number; y: number }; raRitualUntilTick?: number },
+  boss: { pos: { x: number; y: number }; raRitualUntilTick?: number; ownerPlayerId: PlayerId },
 ): void {
   // ⭐ S188 — a Pharaoh on the board is the earliest sign a strike is coming: fetch its art now, long
   // before his ritual, so the first column lands as the owner's sprite and not as the code fallback.
@@ -161,6 +164,7 @@ function drawRaRitual(
   const until = boss.raRitualUntilTick;
   if (until === undefined) return;
   if (!isChannellingRa(boss, world.tick)) return;
+  rememberRaRitual(world, id, boss.ownerPlayerId, boss.pos, until);
 
   // The priest himself: a rising halo while he channels, so the source of it all is legible.
   const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
@@ -168,6 +172,68 @@ function drawRaRitual(
     .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
 
   drawRaColumns(g, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
+}
+
+/**
+ * ⭐⭐ RAVFX-5 — **THE FINALE COLUMN OUTLIVES THE PRIEST.** The fifth column lands on
+ * `raColumnImpactTick(until, 4)` = `until` itself — the tick `isChannellingRa` turns false, so
+ * `drawRaRitual` returns before drawing it, and the tick `runPharaohRitual` removes him. Nothing was
+ * left to derive the finale's flash, explosion and mushroom cloud from, so the ultimate's biggest
+ * moment never showed (with the art OR the code beam).
+ *
+ * ⚠ THIS IS THE ONE THING THE RA DRAWING REMEMBERS BETWEEN FRAMES, AND ONLY WHAT THE SIM NO LONGER
+ * SAYS: who he was, where he stood (a channelling Pharaoh cannot move, so it is where the column
+ * lands), whose he was, and his deadline. Every frame of the tail is still the pure
+ * `raStrikeFrameAt(tick, until)` through the SAME `drawRaColumns`, so a peer's tail is on the same
+ * frame as the host's. Render-only: nothing is written to the world, nothing crosses the wire.
+ *   · keyed per WORLD (a `WeakMap`), so no other world — a test fixture, a new session — ever sees it;
+ *   · drawn only for `tick ≥ until` (before that he is drawn live — never twice), only while
+ *     `gameState` is PLAYING (the sim's own gate for landing a column), and only if he was SEEN
+ *     channelling within `RA_TAIL_SIGHTING_SLACK_TICKS` of the deadline — a Pharaoh cleared away
+ *     early (a match reset, a godly abort) never had his finale land, and must not appear to;
+ *   · fog-gated at his last position, exactly like the live ritual;
+ *   · evicted once the tail has played (`RA_RITUAL_TAIL_TICKS`) or the clock runs backwards.
+ * ⚠ A joiner who arrives after he is gone has nothing to remember and sees no tail — ≤ 1.8 s of VFX.
+ */
+interface RaRitualTail {
+  readonly id: number;
+  readonly until: number;
+  readonly owner: PlayerId;
+  x: number;
+  y: number;
+  lastSeenTick: number;
+}
+const raRitualTails = new WeakMap<World, Map<string, RaRitualTail>>();
+/** Long enough for the art's whole aftermath, and for the code beam's flash when there is no art. */
+const RA_RITUAL_TAIL_TICKS = Math.max(RA_STRIKE_TAIL_TICKS, RA_FLASH_TICKS + 1);
+/**
+ * How close to the deadline he must have been seen channelling for his finale to be drawn. ⚠ MINE: a
+ * peer samples the host at 10 Hz (6 ticks), so 30 tolerates a few lost snapshots and still refuses a
+ * Pharaoh who vanished well before his last column was due.
+ */
+const RA_TAIL_SIGHTING_SLACK_TICKS = 30;
+
+function rememberRaRitual(world: World, id: number, owner: PlayerId, pos: { x: number; y: number }, until: number): void {
+  let tails = raRitualTails.get(world);
+  if (tails === undefined) { tails = new Map(); raRitualTails.set(world, tails); }
+  const key = `${id}@${until}`;
+  const t = tails.get(key);
+  if (t === undefined) tails.set(key, { id, until, owner, x: pos.x, y: pos.y, lastSeenTick: world.tick });
+  else { t.x = pos.x; t.y = pos.y; t.lastSeenTick = Math.max(t.lastSeenTick, world.tick); }
+}
+
+function drawRaRitualTails(g: Graphics, world: World): void {
+  const tails = raRitualTails.get(world);
+  if (tails === undefined || tails.size === 0) return;
+  for (const [key, t] of tails) {
+    const age = world.tick - t.until;
+    if (age >= RA_RITUAL_TAIL_TICKS || world.tick < t.until - RA_RITUAL_TICKS) { tails.delete(key); continue; }
+    if (age < 0) continue; // still channelling: `drawRaRitual` draws him live
+    if (world.gameState !== 'PLAYING') continue;
+    if (t.lastSeenTick < t.until - RA_TAIL_SIGHTING_SLACK_TICKS) continue;
+    if (isConcealed(t.x, t.y, t.owner)) continue;
+    drawRaColumns(g, world.tick, t.until, (k) => raColumnPos(t.id, k, t.x, t.y));
+  }
 }
 
 /**
