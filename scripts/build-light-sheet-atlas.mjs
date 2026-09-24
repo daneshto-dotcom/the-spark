@@ -28,33 +28,54 @@
  *    (measured beam centres sit within 2.2 px of it on every beam frame).
  * 3. ⛔ **SOME CELLS CARRY A LIT RECTANGLE, AND IT MUST NOT SHIP.** Frames 10-16 were drawn on a warm
  *    ground wash (sum-of-RGB 20-220 at the cell edges, rising toward the impact) that stops dead at the
- *    cell border — on the board it would read as a glowing box. It is removed in two steps:
- *      · the wash is estimated from the cell's own LEFT and RIGHT edge columns (a low-percentile
- *        filter along y, so an explosion that grazes the edge does not count as wash) and subtracted,
- *        interpolated linearly across the cell — the top of every cell is black sky, so nothing is
- *        estimated there (the beam enters through it and is ART);
- *      · alpha is feathered to zero over `featherPx` at the left, right and bottom edges, so whatever
- *        wash survives the subtraction (it is brighter in the middle than at the edges) fades out
- *        before the rectangle can show. The TOP edge is feathered too on every frame that is NOT a
- *        beam frame (RAVFX-1): frames 21-23's fire-and-smoke column is cut by the cell top exactly as a
- *        beam is, and shipped unfeathered it read as a sawn-off box top. A BEAM frame's top is left
- *        hard — the beam is cut by it and the renderer continues it upward from there (`beamTop`) —
- *        and the TOP-EDGE GUARD fails the build if any other frame reaches its cell top with more
- *        than `topEdgeMaxAlpha` in its first `topEdgeGuardRows` rows.
+ *    cell border — on the board it would read as a glowing box. It is removed in three steps:
+ *      · SUBTRACT — the wash is estimated ONLY from the cell's own LEFT and RIGHT edge columns (inset
+ *        `washEdgeInsetPx`, a `washPercentile` filter over `washWindowPx` along y, so an explosion that
+ *        grazes the edge does not count as wash), interpolated linearly across the cell and
+ *        subtracted. Nothing is estimated from the TOP row, and not because it is sky — it is NOT
+ *        black on every cell: the beam frames 5-14 and frames 21-23's fire-and-smoke column run
+ *        through it, and they are ART, so a top-row estimate would subtract the subject itself;
+ *      · ⭐ THE POOL — the wash is brighter in the middle than at the edges, so the subtraction leaves
+ *        a translucent slab (measured alpha 60-95 of 255 across the lower cell of frames 10-16). In
+ *        the rows where the edge columns are lit (a weight ramping to 1 at `washRowFullAt`, made
+ *        monotone DOWNWARD because lit ground runs to the cell bottom), every pixel below
+ *        `poolAlphaMax` is attenuated toward an ellipse around the impact point (`poolRx` of the cell
+ *        width, `poolUp` / `poolDown` of its height above / below), keeping `poolKeep` at its centre.
+ *        The weight ramps with alpha, so art at or above `poolAlphaMax` is untouched and there is no
+ *        step between the two; enclosed ink (point 4) is never attenuated;
+ *      · FEATHER — alpha is feathered to zero over `featherPx` at the left, right and bottom edges, so
+ *        whatever wash survives fades out before the rectangle can show. The TOP edge is feathered too
+ *        on every frame that is NOT a beam frame (RAVFX-1): frames 21-23's fire-and-smoke column is
+ *        cut by the cell top exactly as a beam is, and shipped unfeathered it read as a sawn-off box
+ *        top. A BEAM frame's top is left hard — the beam is cut by it and the renderer continues it
+ *        upward from there (`beamTop`) — and the TOP-EDGE GUARD fails the build if any other frame
+ *        reaches its cell top with more than `topEdgeMaxAlpha` in its first `topEdgeGuardRows` rows.
+ *        Finally anything under `alphaFloor` is zeroed, so no near-invisible haze fills the cell.
  * 4. ⭐ **ALPHA IS LIGHT, NOT A KEYED CUT-OUT.** A beam, a flash, fire and embers on black are LIGHT,
  *    and the hub's binary key would turn their soft falloff into an opaque brown rim. So alpha is the
- *    pixel's own brightness (`max(R,G,B) / alphaFullAt`, clamped) and the colour is un-premultiplied
- *    against black — the classic additive-to-alpha conversion. The ONE exception is enclosed dark ink
- *    (rock outlines, the gaps between rubble): a dim component that neither touches the border nor is
- *    large (`enclosedBgLimitPct`) stays opaque, exactly the area rule the hub intake uses for pockets.
+ *    pixel's own brightness AFTER the wash is subtracted (`max(R,G,B) / alphaFullAt`, clamped) and the
+ *    colour is un-premultiplied against black — the classic additive-to-alpha conversion. Two rules
+ *    refine it:
+ *      · ⚠ HUE — subtracting a WARM wash from a white-hot core leaves it BLUE. So a bright pixel keeps
+ *        its OBSERVED colour, blended in by its observed `max(R,G,B)` from `keepHueFromMax` (none) to
+ *        `keepHueFullMax` (all); the subtraction still decides its alpha, and only the dim halo takes
+ *        the un-premultiplied colour;
+ *      · ⛔ THIN INK — the one exception to light-as-alpha is enclosed dark ink (rock outlines, the gaps
+ *        between rubble): a dim component (wash-subtracted `max ≤ inkDimMax`) that does not touch the
+ *        cell border, is not large (≤ `enclosedBgLimitPct` of the cell — the hub intake's area rule for
+ *        pockets) AND is THIN — no pixel of it survives two 3×3 erosions — stays opaque in its
+ *        wash-subtracted colour. A dim BLOB that survives the erosions (the dark ground inside the
+ *        landing ring, which the fire splits in two in frame 7) is background showing through, not
+ *        ink: shipped opaque it drew a black hole under the beam.
  *
  * ⭐ **THE DOWNSTREAM CONTRACT IS THE SAME PAIR**, `<name>-atlas.png` + `<name>-anim.json`, rows of 12,
  * `cellW` / `cellH` / `footAnchor` / `subjectFill` / `states{row, frames}`. What this manifest adds is
  * what an EVENT needs and a building does not: `sourceFrames` (which sheet frame each slot holds, so a
  * dropped frame is on the record), `frameTicks` + `impactFrame` (the timeline, pinned by a unit test
  * against the renderer's constant), `beamTop` (per slot, where the source cell's top edge cut the
- * beam, or null) and `blastWidthPx` (the widest blast footprint, which the renderer sizes to the
- * column's REAL damage radius). There is no per-state `ticksPerFrame`: a strike is a timeline hung on
+ * beam, or null), `cellTop` (per slot, the output row EVERY source cell's top edge landed on — a beam
+ * slot's `beamTop` equals it; the unit test reads the shipped top edges through it) and `blastWidthPx`
+ * (the widest blast footprint, which the renderer sizes to the column's REAL damage radius). There is no per-state `ticksPerFrame`: a strike is a timeline hung on
  * an impact tick, not a loop at one cadence.
  *
  * Usage:  node scripts/build-light-sheet-atlas.mjs <spec.json>

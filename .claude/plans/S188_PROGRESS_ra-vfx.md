@@ -210,6 +210,18 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
 - ⭐ MUTATION-TESTED: the mummies-seat call removed → that test RED; the aim call removed → the aim
   test RED. Restored, `cmp`-verified.
 
+### RAVFX-10 (LOW) — DONE — the intake docblock now says what the code does
+- `scripts/build-light-sheet-atlas.mjs` points 3-4 rewritten against the Python they describe:
+  the wash is estimated only from the left/right edge columns — and the old reason ("the top of every
+  cell is black sky") was FALSE (beam frames 5-14 and the fire column of 21-23 cross it), now
+  replaced by the true one; THE POOL (edge-lit rows, monotone-down weight, ellipse attenuation,
+  alpha-ramped so art is untouched, ink never attenuated); the top feather + guard; `alphaFloor`;
+  the HUE blend for bright pixels; the THIN-ink (two-erosion) rule and why a dim BLOB is background.
+  The manifest contract paragraph now lists `cellTop` (added in RAVFX-1). This closes S188's
+  NEXT-SESSION item 2.
+- Comment-only: the rebuild's atlas PNG and manifest are `cmp`-identical to RAVFX-7's; `node --check`
+  exit 0.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
