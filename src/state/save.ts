@@ -162,6 +162,25 @@ export interface WorldSnapshot {
    */
   creatures?: SerializedCreature[];
   /**
+   * ⭐ S189 (LOW c, Council M2) — **THE CREATURE-ID COUNTER, MONOTONIC ACROSS A SAVE.**
+   *
+   * `applySnapshotCore` used to re-derive `world.nextCreatureId` as `max(LIVE id) + 1`, so every id a
+   * creature had held and died with above the highest survivor was minted AGAIN after a save/restore,
+   * a `?worker=1` adoption (its INIT is a save) or a host migration (the successor applies the last
+   * NetSnapshot). An id is a creature's identity everywhere it is keyed — renderer death-watchers,
+   * retaliation and strike targets, attributions — so a reused id can inherit a dead creature's
+   * references.
+   *
+   * ⚠ ADDITIVE-OPTIONAL, AND EMITTED ONLY WHEN THE RE-DERIVATION WOULD BE WRONG (the counter is ahead
+   * of `max(live id) + 1`), so a board where no creature died above the highest survivor — and every
+   * pre-S189 save — stays byte-identical. The reader takes `max(this, re-derived)`, so an absent field
+   * (an old save or an old host) degrades to exactly the old derivation, and a value below a live id
+   * can never be adopted. It rides the NetSnapshot on purpose (unlike `nextPrimitiveId`): a
+   * migration successor is a CLIENT until it is promoted, and the last snapshot it applied is the only
+   * place it can learn the counter. The wide hash already covers the field (`stateHashFull`).
+   */
+  nextCreatureId?: number;
+  /**
    * S71 P1 — host-authoritative bombs for the 1v1 client mirror + host save/load.
    * Additive-optional (creature precedent; NO schemaVersion bump). Emitted only
    * when non-empty so pre-S71 saves stay byte-identical on the wire.
@@ -1074,6 +1093,17 @@ interface SerializedStinkCloud {
   readonly ehp: number;
 }
 
+/**
+ * ⭐ S189 (LOW c) — what `applySnapshotCore` re-derives for `nextCreatureId` from LIVE ids alone:
+ * `max(id) + 1`, or 0 with no creature. `snapshot()` emits the real counter only when it is ahead of
+ * this. Pure; exported for the test.
+ */
+export function rederivedNextCreatureId(ids: Iterable<CreatureId>): number {
+  let maxId = -1;
+  for (const id of ids) if ((id as number) > maxId) maxId = id as number;
+  return maxId + 1;
+}
+
 export function snapshot(
   world: World,
   // S82 P2 — host-only extras injected by the SAVE call site. The Spawner is not part of
@@ -1116,6 +1146,11 @@ export function snapshot(
     creatures: world.creatures.size > 0
       ? [...world.creatures.values()].map(serializeCreature)
       : undefined,
+    // ⭐ S189 (LOW c) — the counter, only when `max(live id) + 1` would under-state it. See the field.
+    nextCreatureId:
+      world.nextCreatureId > rederivedNextCreatureId(world.creatures.keys())
+        ? world.nextCreatureId
+        : undefined,
     // S71 P1 — emit bombs only when present so pre-S71 saves stay byte-identical
     // (the field stays undefined and JSON.stringify drops it).
     bombs: world.bombs.size > 0
@@ -1593,6 +1628,16 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if ((c.id as number) > maxId) maxId = c.id as number;
     }
     if (maxId >= 0) world.nextCreatureId = maxId + 1;
+  }
+  // ⭐ S189 (LOW c, Council M2) — the SERIALIZED counter wins when it is ahead of the re-derivation,
+  // so a dead creature's id is never minted again. `max`, never a blind overwrite: an absent field (old
+  // save / old host) keeps the derivation above, and a value at or below a live id is ignored.
+  if (
+    typeof snap.nextCreatureId === 'number' &&
+    Number.isInteger(snap.nextCreatureId) &&
+    snap.nextCreatureId > world.nextCreatureId
+  ) {
+    world.nextCreatureId = snap.nextCreatureId;
   }
 
   // S71 P1 — bombs: clear + rehydrate (mirror of the creature pattern). Reset the

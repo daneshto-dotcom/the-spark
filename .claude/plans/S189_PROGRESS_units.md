@@ -14,9 +14,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | C8 · Helga patrol clamped to the board | done | 82b4040 |
 | C10 · Kraken sonar short knockback + stun | done | 37929de |
 | LOW a · corpse-eater bite latch | done | e594e88 |
-| LOW b · castle regen of effective max | done | (this commit) |
-| LOW c · serialized nextCreatureId | next | |
-| LOW d · spawn-queue gap outside runHostTick | pending | |
+| LOW b · castle regen of effective max | done | 7c1036c |
+| LOW c · serialized nextCreatureId | done | (this commit) |
+| LOW d · spawn-queue gap outside runHostTick | next | |
 
 ## C3 — what was measured (the merge owner should read this before merging)
 
@@ -180,9 +180,41 @@ vitest 0 — **6017 / 371**; tsc 0.
 Protocol: **no bump.** Regen runs only inside `runHostTick`; `castleHp` rides the existing field; no
 client computes a rate (the castle panel shows the level, not a number).
 
+## LOW (c) — `nextCreatureId` is serialized and monotonic (Council M2 fix shape)
+
+**Defect:** `applySnapshotCore` set `nextCreatureId = max(LIVE id) + 1`, so when the highest-id
+creature had died, a save/restore, a `?worker=1` adoption (its INIT is `snapshot()` → `restore()`)
+or a host migration (the successor applies the last NetSnapshot) minted the dead creature's id
+again. Measured by the mutation: after a real castle-gun kill through the host tick the restored
+world minted id **1** — an id that had existed before the save — instead of **3**.
+
+**The four sites, as they stand after this commit:**
+- factory: `world.ts:437` `nextCreatureId: 0` — already existed;
+- hash: `stateHashFull.ts:143` (`'hashed'`) + `:499` projection — already existed;
+- **serialize (NEW, save.ts hotspot):** `WorldSnapshot.nextCreatureId?: number` (additive-optional,
+  NOT omitted from `NetSnapshot` on purpose — a migration successor is a client until promoted);
+  emitted by `snapshot()` ONLY when the counter is ahead of `rederivedNextCreatureId(live ids)`
+  (new exported pure helper) — so every pre-S189 save and any board with no dead id above the
+  survivors stays byte-identical; read in `applySnapshotCore` as `max(serialized, re-derived)`
+  (integer-checked) — an absent field is exactly the old derivation, a stale low value is ignored;
+- worker: rides `save.ts` (INIT save + `netSnapshot` mirror) — no worker file touched.
+
+**Tests:** `src/state/creatureIdCounter.test.ts` (7) — arithmetic; REACH (a real kill through the
+host tick → save/restore mints the counter; a NetSnapshot-applying successor holds the host's
+counter); NO COLLISION (three post-restore mints, none ever existed before the save); negatives
+(byte-identity: key absent when the derivation is right, for both `snapshot` and `netSnapshot`; an
+old snapshot without the key → the derivation; a serialized value below a live id → ignored).
+⭐ MUTATION-TESTED (reader dropped → 3 red: "expected 1 to be 3", "id 1 was minted before the
+save"); restored byte-identical. vitest 0 — **6024 / 372**; tsc 0.
+
+**Protocol:** additive-optional wire field → by the project rule **no bump owed**. Only the host
+mints; an old client ignores the key; an old successor re-derives (the old behaviour) — no two
+builds disagree about anything either computes. ⚠ The merge owner may still fold it into a train's
+bump docblock as a documented wire addition.
+
 ## In flight
 
-LOW c — serialize the monotonic `nextCreatureId` (save.ts hotspot).
+LOW d — the racial spawn queue's out-of-tick gap (`racial/racialTick.ts`).
 
 ## Decisions
 
@@ -198,7 +230,12 @@ LOW c — serialize the monotonic `nextCreatureId` (save.ts hotspot).
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
-(none yet)
+`save.ts` only (LOW c), four self-contained hunks, no refactor:
+1. `WorldSnapshot` — new optional field `nextCreatureId?: number` + docblock (after `creatures?`).
+2. new exported pure `rederivedNextCreatureId(ids)` just above `export function snapshot(`.
+3. `snapshot()` — one emitted key after `creatures:` (undefined unless ahead of the derivation).
+4. `applySnapshotCore` — one `max(...)` block right after the existing creature re-derivation.
+No change to `stateHashFull.ts` (already hashed), `worldTypes.ts` (field exists) or `main.ts`.
 
 ## Wire / hash / shared-rule changes (for the merge owner's bump decision)
 
@@ -207,6 +244,9 @@ LOW c — serialize the monotonic `nextCreatureId` (save.ts hotspot).
 - C10: host-only rule (sonar impulse size); `prevPos` is off the wire; no field, no bump.
 - LOW a: host-only feed clock now reads the existing `attackCycleRaged` latch; no new field; no bump.
 - LOW b: host-only regen RATE now a percent of the seat's effective max; no new field; no bump.
+- LOW c: NEW additive-optional wire/save field `nextCreatureId?` (emitted only when the live-id
+  derivation would under-state it); already in the wide hash; no bump owed (additive-optional,
+  host-only minting).
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
@@ -248,3 +288,10 @@ LOW c — serialize the monotonic `nextCreatureId` (save.ts hotspot).
   `CASTLE_UPGRADE_PRICE` from `constants.ts`; it lives in `castleUpgrades.ts` (vitest does not
   typecheck; tsc would have caught it). Fixed.
 - LOW b mutation run — EXIT 1, 1 failed: EXPECTED.
+- LOW c first run — 2 failed: INVESTIGATED AND RESOLVED — fixture: (1) the castle emitter
+  (`raceUnitEmitTick`, runs in FIGHT too) minted units above the dead goblin, so it was no longer
+  the highest id → the fixture now kills those through `damageEntity` and asserts only the low-id
+  goblin survives; (2) a whole-world `hashWorldStateFull` equality after restore differed for
+  reasons unrelated to the counter (not investigated further — outside this brief) → that case was
+  replaced by a direct NO-COLLISION check against every id that ever existed. Then `tsc` EXIT 1
+  (`'P0' is declared but never read` in the new test) — fixed. The mutation run: EXIT 1, EXPECTED.
