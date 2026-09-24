@@ -86,8 +86,35 @@ SURVIVE.
   · `npm run build` → BUILD_EXIT=0 — 948.4 KiB (base 944.2) = **+4.2 KiB** of the shared headroom.
   · e2e NOT run (brief).
 
+## FOLLOW-UP ROUND (merge owner, after report 1) — items 1-4, one commit each
+
+### step F0 — ESTIMATE (file by file), measured before any edit. VERDICT: ~3-3.5 h ⇒ about an
+afternoon ⇒ PROCEED (the stop rule is not triggered).
+- item 1 (S107 P4 spawner lock): `placePrimitive.ts` — the lock is read at 3 sites (host target
+  re-pick :205, host merge candidates :215, the merge sweep :390) through ONE builder
+  `collectSpawnerLockedPrimitiveIds` :677. No test pins the lock (grep). The client pickers in
+  `controls.ts` / `dragPreview.ts` never applied it, so removing it makes host and preview AGREE.
+  ~10 lines + a new test. ~45 min.
+- item 2 (race rings onto contains): `towerMembers.ts` (classify the 12 ids as rings, derived from
+  the blueprint), `spawnerLifecycle.ts` (2 arms), `goblinKinds.ts` (1), `raceTower.ts` +
+  `t9BossTower.ts` member fns (1 line each), `hostTick.ts` t9 raze (1), and THREE renderer files —
+  `render/towerRenderer.ts:211` (mine), `render/towerFrames.ts:392`, `render/groundDecalRenderer.ts:173`
+  (`healthBar.ts` delegates to `towerFrames.towerRingCentroid`, no edit). ⚠ My report-1 said "five
+  renderer files"; the measured count is three. Each hunk is `ringMembersAt(` → `ringCycleAt(` (same
+  signature, same walk-order return, same null contract) + its import. ~1.5-2 h with tests.
+- item 3 (hub raze): `hostTick.ts:856` one call + test. ~30 min.
+- item 4 (Voltkin TV verify): read + a probe. ~20 min.
+- SIBLING-BRANCH OVERLAP (`git diff --name-only $(git merge-base master B) B`):
+  · `s189/render`: main.ts, bossAuras.ts, draftOverlay.ts, gathererRenderer.ts, goblinRenderer.ts,
+    raceMotifs.ts + tests — NO overlap with my files.
+  · `s188/swarm`: characterSheetModel.ts, goblinRenderer.ts, **towerFrames.ts**, creature.ts,
+    voltkin-config.ts, potatoLifecycle.ts, apexPredator.ts, theSwarm.ts, racialPerks.ts, stats.ts —
+    ⚠ OVERLAP: `render/towerFrames.ts`. Swarm's hunk is at ~:190-217 (BAT_SWARM_SPRITE_SCALE_MUL +
+    one `creatureSpriteScaleMul` line); mine will be the import (:66) and `towerRingCentroid` (:392)
+    only — disjoint hunks, expected to merge cleanly. I do not touch goblinRenderer.ts.
+
 ## IN-FLIGHT
-- none — report delivered to the merge owner.
+- item 1.
 
 ## NEXT
 
