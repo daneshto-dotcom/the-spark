@@ -429,3 +429,45 @@ describe('S190 C5 — the index agrees with the reference across every kind of c
     expect(stats.compared).toBeGreaterThan(24 * 3 * 6);
   }, 60_000);
 });
+
+describe('S190 C5 — the epoch cache is REAL, and its one blind spot is the one the guards pin', () => {
+  /**
+   * Anti-vacuity for everything above: if the index silently rebuilt on every scan, every
+   * comparison in this file would pass and the fix would be a no-op. So prove the reuse directly,
+   * using the one change the fingerprint deliberately does NOT see — a `placerColor` rewrite.
+   * Inside an epoch the cached classification must win (reuse is real); outside one the live scan
+   * must win (a throwaway cannot be stale). This is also why `bondTargetIndex.guards.test.ts`
+   * pins `placerColor`'s writers to the rainbow, which can never run inside the creature loop.
+   */
+  it('inside an epoch a placerColor rewrite is NOT seen (reuse); outside one it is (fresh)', () => {
+    mode = 'checked';
+    inject = null;
+    const m = startC5Match(false);
+    const w = m.world;
+    while (w.tick < fightStartTick(2) + 60) { m.bots.tick(w); runHostTick(w, m.deps, m.state); w.effects.length = 0; }
+    topUpCreatures(w, w.creatures.size + 4, ['voltkin']); // relative: the board already has creatures
+    const c = [...w.creatures.values()].find((x) => x.type === 'voltkin')!;
+    const own = ownerColourOf(w, c);
+    const before = H.real.findNearestBondTarget(w, c, false);
+    expect(before, 'fixture: a bond to aim at').not.toBeNull();
+    const bond = w.bonds.get(before!)!;
+    const pa = w.primitives.get(bond.aId)!;
+    const pb = w.primitives.get(bond.bId)!;
+    const saved = [pa.placerColor, pb.placerColor] as const;
+    const wasEnemy = saved[0] !== own || saved[1] !== own;
+    expect(wasEnemy, 'fixture: the nearest bond is an enemy bond').toBe(true);
+
+    H.real.openBondTargetEpoch(w);
+    try {
+      expect(H.real.findNearestBondTarget(w, c, false)).toBe(before); // builds the cache
+      pa.placerColor = own; pb.placerColor = own; // now an OWN bond — the fingerprint cannot see it
+      expect(H.real.findNearestBondTarget(w, c, false), 'the cached classification is reused inside the epoch').toBe(before);
+    } finally {
+      H.real.closeBondTargetEpoch();
+    }
+    const fresh = H.real.findNearestBondTarget(w, c, false);
+    expect(fresh).toBe(H.ref.referenceFindNearestBondTarget(w, c, false));
+    expect(fresh, 'non-vacuous: the rewrite really changes the live answer').not.toBe(before);
+    pa.placerColor = saved[0]; pb.placerColor = saved[1];
+  }, 60_000);
+});

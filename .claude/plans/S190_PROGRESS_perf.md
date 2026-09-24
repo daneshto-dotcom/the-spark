@@ -71,6 +71,57 @@ findNearestBondTarget 22.2 % self; stepPhysics 15.8 % (computeTerritorialInfluen
   the fork, min 137, 123 creatures.
 - ⚠ Cost: 18.6 s for the long case on the unchanged code (the checked twin runs the naive scan ~7× per
   creature per tick). Re-measured after step 3.
-## Step 3 — the change — (pending)
+## Step 3 — the change  ✅
+- ⚠ RESUMED once: the org spend limit killed this agent mid-step; on resume `git status` matched this
+  file exactly (steps 1-2 committed, step 3 uncommitted in the tree), so nothing was lost or redone.
+- `src/state/creatures/creatureAI.ts` — the bond-target index. Per tick, per OWNER COLOUR, `world.bonds`
+  is classified ONCE into `enemy` (isEnemyBondWithColor — Voltkin set + spread universe), `strict`
+  (the S162 AND-tightening — enemy-only nearest set), `own` (everything else, degenerate included),
+  `victims` (sorted) and `byVictim`. Each creature's scan is then one flat pass (`nearestBondIn`) over
+  a pre-classified array, reading positions LIVE, with the same `(distSq, bondId)` total order and the
+  arithmetic of `distSq(pos, bondMidpoint(bond))` written out op-for-op. `spreadEnemyTarget`'s two
+  full passes now read the bucket (victim list; the chosen victim's bonds only).
+- ⛔ The mid-tick hazard, answered from the code: the three scan sites (hostTick drone arm ~1552,
+  structure-attacker arm `structureTargets` ~1628, Voltkin/chewer arm ~1810) all run INSIDE the
+  creature loop, interleaved with CREATURE_ATTACK (a connector gives way → razePrimitives),
+  DRONE_EXPLODE and SUICIDE_BLAST. So the cache is (1) only reusable inside an EPOCH that
+  `runHostTick` opens immediately before that loop and closes after it (keyed to world + tick; outside
+  it every call builds a throwaway from the live world), and (2) re-validated before EVERY scan by an
+  exact O(1) fingerprint — bonds.size, nextBondId, primitives.size, nextPrimitiveId, and both Maps'
+  identity — rebuilt on any change. Exact because every bond is born through `makeBond`
+  (nextBondId++), every shape through nextPrimitiveId++, and both die only through `razePrimitives`.
+- NOT seen by the fingerprint, by design: `placerColor` (only the rainbow writes it, from a player/bot
+  intent, never inside the loop) and `placedBy` (never written). Owner colour is safe: buckets are
+  keyed by colour VALUE and re-resolved per call.
+- `src/state/hostTick.ts` — **outside the brief's file boundary, kept minimal**: 12 lines — two
+  imports, `openBondTargetEpoch(world)` immediately before `for (const id of creatureIds)`, and
+  `closeBondTargetEpoch()` immediately after the loop. Needed because only the host tick knows where
+  the loop begins and ends; an epoch any wider would span code that can rewrite `placerColor`.
+- `src/state/buildingTargeting.test.ts:258` — the S181 source-text guard RE-DERIVED, not deleted or
+  loosened: it sliced 4000 chars after `export function findNearestBondTarget` and looked for
+  `isEnemyBondWithColor`. The filter now lives in `buildColourBucket`, so the guard slices each of the
+  four scan functions exactly (to the closing brace), asserts the entry reads `colourBucketFor(`, that
+  the builder holds the ownership filter, and that NONE of the four mentions a recipe / defender /
+  tower smell. (A window over the entry alone would have stayed green over a recipe filter in the
+  builder — the S182 "exists vs reached" hole.)
+- NEW `src/state/creatures/bondTargetIndex.guards.test.ts` — the fingerprint's preconditions pinned
+  mechanically over comment-stripped production source: bond-id allocator = placePrimitive.ts only;
+  bonds.set / primitives.set / nextPrimitiveId++ site lists; bonds.delete + primitives.delete =
+  razePrimitives.ts only; placerColor writers = rainbowLifecycle.ts only, TRIGGER_RAINBOW dispatched
+  only from botController.ts + controls.ts, placedBy never written; the epoch opened exactly once, with
+  nothing between it and the loop, and closed after the last CREATURE_ATTACK dispatch and before
+  castleGunsTick. First run red on two of MY regexes (a docblock naming `nextBondId++`, and the
+  action's `readonly type:` declaration) — resolved by stripping comments and matching `{ type:`.
+- Oracle additions: an anti-vacuity test proving the epoch cache is really REUSED (a placerColor
+  rewrite inside an epoch is not seen; outside, the live answer changes and matches the reference).
+  First run red: my fixture `topUpCreatures(w, 8, …)` added nothing on a board already above 8 —
+  fixed to top up relative to the current count.
+- Result on the changed code: oracle window 97 672 host scans / 386 391 comparisons / **0 mismatches**
+  / hashes identical all 600 ticks — the SAME counters as on the unchanged code, which is itself a
+  sign the tick went down the same path. Targeting suites: 10 files / 151 tests green
+  (bondTargetIndex ×2, buildingTargeting, creatureAI, towerDefense, hostTick.differential,
+  hostTick.replay, save.replay, creatureProjectile, s181Regressions). tsc EXIT=0.
+- ⭐ No PROTOCOL_VERSION bump is owed: nothing serialized, nothing on the wire, no new discriminant,
+  and the differential test proves the sim's outputs are byte-identical.
 ## Step 4 — AFTER numbers — (pending)
 ## Step 5 — gates — (pending)
