@@ -180,6 +180,24 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
   Trystero; below 9.3 Mbit/s it queues unbounded and Trystero drops after 10 s → client starvation — a candidate
   C4 mechanism), reproduction through the real Trystero action wire first.
 
+- **P9 render follow-up** `fd8d90b` (Kraken sonar rings + naga fallback crest `moveTo`; test mutation-proven) —
+  verified; `bossAuras.ts` auto-merges with ra-vfx and with wrath (merge-tree). → **independent AUDIT running**
+  (`s190-branch-audit.js`, run `wf_1ddae473-5ee`, 2 lenses + verify). Every S189/S190 branch gets this audit
+  before it merges (S182 lesson 1) — the script is generic (`args` = branch, worktree, base, brief, lenses).
+- **P8 `s189/weld` core DONE (code tip f870446)**: survival = "the tower still CONTAINS its recipe" (new
+  `src/state/towerMembers.ts`), building still EXACT (keeps recipes from overlapping). Cause: each recipe check did
+  "is a tower here?" AND "does the live tower still stand?" with an exact-equality test — a drop bonded to the
+  laser hub (8 bonds ≠ 6) → removed within 0.5 s; pentagram/Helga demanded the whole component = blueprint
+  (S158 B2b never applied to them). 29 tests incl. brother's joiner path, two towers welded both survive, host-vs-
+  worker hash differential; gates 0/0/0 (6026, 948.4 KiB, +4.2). ⛔ A RULE EVERY PEER COMPUTES → **bump owed in
+  train C**. Health bar (§9d rule 1): brother's welded turret — pool 204 vs its own star 66 → bar 83 % / art 49 %;
+  the bar change (not built) must use `starPoolFifths`/`towerMembersAt`, not `hub.bonds.size`.
+  → **FOLLOW-UP sent (inside C2 — these block the owner's own R185-B bat-tower example):** (1) `placePrimitive.ts`
+  S107 P4 auto-bond skip means nothing can weld onto a live spawner; (2) tier-3/tier-9 race towers still dissolve
+  on a same-type weld (R136 exact rule); (3) `hostTick.ts:856` hub self-destruct razes the whole connected
+  structure incl. welded towers (must take only its own members; the blast itself untouched). Estimate first; stop
+  and report if beyond an afternoon. Then its audit.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
