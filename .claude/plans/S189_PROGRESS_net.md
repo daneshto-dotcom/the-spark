@@ -15,8 +15,10 @@ The merge owner resumes from this file if this agent is cut off.
 | 3a | C5 — MEASURE (instrument `src/net/c5WaveFiveMeasure.test.ts`, opt-in `SPARK_C5_MEASURE=1`) | done | b72a4c4 |
 | 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | done | 0c9acdc |
 | 4a | C4 — diagnosis + e2e REPRODUCTION (hard blip) + the auto-reconnect fix (coordinator priority 2) | done | 6dae206 |
-| 4b | C4 — E3 drop-reason logging (coordinator priority 3) | done | (this commit) |
-| 4c | C4 — A1 Escape-as-cancel (coordinator priority 4) — train A IS on master (5934d3b, coordinator); `git merge master` first; needs `src/input/controls.ts` | next | |
+| 4b | C4 — E3 drop-reason logging (coordinator priority 3) | done | fe9b4ac |
+| 4m | merge master (5934d3b, train A / deploy #3) into s189/net — clean, no conflicts | done | ffab016 |
+| 4c | C4 — A1 Escape-as-cancel does not arm the double-Escape leave | done | (this commit) |
+| 5 | final gates (typecheck, full vitest, build) + report | next | |
 | 4 | C4 disconnect — own diagnosis, reproduction test BEFORE any fix | pending | |
 
 ## In flight
@@ -172,6 +174,25 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 - Reproduced first: `peerDropLog.test.ts` RED before the change (5/5 — no such line), GREEN after; mutation
   (drop the `logPeerDrop` call) → 3 red; restored from a byte copy.
 
+## C4 / A1 — a cancel no longer arms "leave the match" (step 4c)
+
+- Mechanism (hunt A1, re-verified on the merged tree): `Controls` registers its window keydown listener
+  first (constructed at `main.ts:~618`); Escape there drops a held tower (`controls.ts` onKeyDown) or puts
+  the Ra aim away, and returned WITHOUT marking the event. `main.ts`'s double-Escape listener then saw the
+  same event; its only guard (`castlePanel.armedBlueprint() !== null`) read the state AFTER the disarm, so
+  the cancel counted as press #1 and one more Escape inside `TITLE_EXIT_CONFIRM_MS` (1600) ran
+  `leaveToTitle()` → `teardownNet` → Trystero `@_leave` → the OTHER player: RECONNECTING → CONNECTION LOST.
+- FIX: `controls.ts` — `consumeCancel(e)` (`preventDefault`, tolerant of hand-built test events) on both
+  cancel branches. `src/input/doubleEscapeLeave.ts` — the leave handler body, moved out of `main.ts` as
+  `makeDoubleEscapeLeave(deps)` (same guards, same order), plus: a consumed Escape is not a leave press
+  and resets the chord. `main.ts` registers it with the same deps (thunks — `exitButton`/`leaveToTitle`
+  are declared later, as before).
+- Reproduced first: `doubleEscapeLeave.test.ts` drives the REAL `Controls` + the real handler through a
+  window stub in main.ts's registration order, one event object per press. PRE-fix EXIT=1 (tower, Ra aim
+  and double-cancel all LEFT the match); POST EXIT=0. Mutation (drop the tower `consumeCancel`) → 2 red.
+- ⚠ `e2e/exit-match.spec.ts` (bare double-Escape in solo) is the e2e for the unchanged half; not re-run
+  here (e2e budget spent) — owed to the merge owner's lanes.
+
 ## Decisions
 
 - Step 1: `--strictPort` goes on the webServer COMMAND only; `vite.config.ts` keeps `strictPort: false`
@@ -201,6 +222,12 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 
 ## Hotspot hunks (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts`)
 
+- `src/main.ts` (step 4c, session/leave section): the inline double-Escape `keydown` listener body
+  (~1607-1638, 32 lines) replaced by `window.addEventListener('keydown', makeDoubleEscapeLeave({…}))`;
+  import of `makeDoubleEscapeLeave`; the now-unused `TITLE_EXIT_CONFIRM_MS` import removed. The S153
+  docblock above it is unchanged.
+- `src/input/controls.ts` (step 4c — outside the original boundary, authorised by the coordinator for A1):
+  `consumeCancel` helper + one call on each of the two Escape-cancel branches. Nothing else.
 - `src/main.ts` (step 4b): `terminalLossCause` + `TerminalLossCause` added to the reconnectPolicy import;
   `let terminalCause` beside `let connectionLost`; set in the zombie branch and the terminal else-branch; one
   log block (two edges) just above the existing `if (connectionLost && !lastConnectionLost)` cinematic-abort.
@@ -213,6 +240,8 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
      `reconnectRetryDue(...)` — the overlay branches below it are unchanged.
 
 ## Wire / hash / shared-rule changes (each owes a protocol-bump verdict; branch never bumps)
+
+- A1 (step 4c): local input handling only. No wire, no hash, no bump.
 
 - E3 (step 4b): console lines only. No wire, no hash, no bump.
 
@@ -231,6 +260,10 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   save.ts, no HELLO/LOBBY field.
 
 ## Gate exit codes (captured `$?`)
+
+- step 4c: `doubleEscapeLeave.test.ts` PRE EXIT=1 (4 red: 3 = the mechanism, 1 = a test-harness listener
+  reset, fixed) → POST EXIT=0; typecheck EXIT=0 (after removing the unused import: first run EXIT=1,
+  TS6133 — RESOLVED); `npx vitest run src/input/` EXIT=0 (8 files / 257). Mutation EXIT=1 (2 red).
 
 - step 4b: `peerDropLog.test.ts` PRE EXIT=1 (5 red, the reproduction) → POST EXIT=0; typecheck EXIT=0;
   `npx vitest run src/net/` EXIT=0 (36 files / 554 + 3 skipped). Mutation EXIT=1 (3 red).

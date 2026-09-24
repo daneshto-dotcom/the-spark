@@ -47,7 +47,6 @@ import {
   type SparkType,
   // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
   // the ceiling on how much of the bank one click may decant.
-  TITLE_EXIT_CONFIRM_MS,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -65,6 +64,8 @@ import { Controls, type ControlsDispatchFn } from './input/controls.ts';
 import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
+// ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
+import { makeDoubleEscapeLeave } from './input/doubleEscapeLeave.ts';
 // ⭐ S189 (C4) — the reconnect schedule + the lone-survivor claim gate (see reconnectPolicy.ts).
 import {
   hasSurvivorToHostFor,
@@ -1604,38 +1605,30 @@ async function bootstrap(): Promise<void> {
    * swallow an Escape meant for the codex, the bot setup, the settings panel, the arcade, or a
    * blueprint disarm.
    */
-  let lastEscapeAtMs: number | null = null;
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (world.gameState !== 'PLAYING') return;
-    if (chordBlocked()) return; // typing a name / NONET / a cinematic is running
-    if (codexOverlay !== null && codexOverlay.isVisible()) return;
-    if (castlePanel.armedBlueprint() !== null) return; // the disarm press owns this Escape
-    /*
-     * ⭐ S155 P2 — Escape CANCELS the leave modal rather than leaving.
-     *
-     * Ordered above the double-press logic on purpose. With the confirm up, Escape is unambiguously
-     * "back out of this dialog" — every other overlay in the game already answers Escape that way —
-     * and letting the gesture fall through to the second-press branch would mean a player who opened
-     * the dialog and hit Escape to dismiss it got ejected from the match instead. That is the same
-     * class of accident the modal itself was chosen to prevent (Council C6).
-     */
-    if (exitButton.isConfirmOpen()) {
-      exitButton.closeConfirm();
-      lastEscapeAtMs = null; // and it does NOT count as the first press of a new double-tap
-      return;
-    }
-    const nowMs = performance.now();
-    if (lastEscapeAtMs !== null && nowMs - lastEscapeAtMs < TITLE_EXIT_CONFIRM_MS) {
-      lastEscapeAtMs = null;
-      // S155 P2 — the shared thunk (was an inline teardown+dispatch copy). Behaviour is identical:
-      // leaveToTitle additionally calls stopQuickmatch(), which this path was silently MISSING — a
-      // double-Escape out of a quickmatch match left the discovery running.
-      leaveToTitle();
-      return;
-    }
-    lastEscapeAtMs = nowMs;
-  });
+  /*
+   * ⭐ S155 P2 — Escape with the leave-confirm open CANCELS it rather than leaving (every other overlay
+   * answers Escape that way; falling through to the second press would eject a player who opened the
+   * dialog and hit Escape to dismiss it — Council C6). Kept in `makeDoubleEscapeLeave`.
+   *
+   * ⛔ S189 A1 — the handler body moved to `input/doubleEscapeLeave.ts` so the REAL handler can be tested
+   * behind the real `Controls`, in this registration order. It now also ignores an Escape that
+   * `Controls` consumed as a CANCEL (a held tower, the Ra aim) — before, that press counted as the first
+   * of the pair, and one more Escape abandoned the match (the other player: CONNECTION LOST).
+   */
+  window.addEventListener(
+    'keydown',
+    makeDoubleEscapeLeave({
+      isPlaying: () => world.gameState === 'PLAYING',
+      chordBlocked: () => chordBlocked(), // typing a name / NONET / a cinematic is running
+      codexOpen: () => codexOverlay !== null && codexOverlay.isVisible(),
+      towerArmed: () => castlePanel.armedBlueprint() !== null, // the disarm press owns this Escape
+      confirmOpen: () => exitButton.isConfirmOpen(),
+      closeConfirm: () => exitButton.closeConfirm(),
+      // S155 P2 — the shared thunk: teardown + RETURN_TO_TITLE + stopQuickmatch.
+      leave: () => leaveToTitle(),
+      now: () => performance.now(),
+    }),
+  );
 
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
