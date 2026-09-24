@@ -26,7 +26,7 @@
  * RENDER-ONLY: reads `world`, never mutates it.
  */
 
-import { Application, Assets, Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
 import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
 // S169 R153 — the strip states which race owns each shape, in that race's colour.
@@ -251,25 +251,21 @@ const RA_TINT = 0xffd970;
 const RA_PIP_R = 3;
 
 /**
- * ⭐ S188 P11 — the picture each skill shows.
+ * ⭐ S188 P11 — the picture each skill shows, each PRE-CUT from its own card by
+ * `scripts/cut-skill-icon.py --preset <name>` (its `CUTS` table holds one window per card):
  *
- *   · POWER OF RA — `public/art/skills/power-of-ra.webp`, pre-cut from `l0-mummies` below its title
- *     (`scripts/cut-skill-icon.py --top 310 --side 700`).
- *   · WRATH OF RA — the WRATH card itself, `public/art/upgrade-cards/l10-mummies.webp`, shipped by
- *     the `s188/ra-vfx` branch. It is a whole CARD, title and all, so the same picture window is cut
- *     out of it AT RUNTIME (`CARD_PICTURE_WINDOW`, the proportions of the l0 cut). Until that file
- *     exists — or if it fails to load — WRATH shows the POWER OF RA picture: the same god.
+ *   · POWER OF RA — `power-of-ra.webp`, from `l0-mummies` (`--top 310 --side 700`): the Eye of Ra.
+ *   · WRATH OF RA — `wrath-of-ra.webp`, from `l10-mummies` (`--top 96 --side 752`): all THREE eyes.
+ *
+ * ⛔ S190 (audit W-5) — WRATH used to be cut at RUNTIME from the whole l10 card with the l0 card's
+ * proportions, and that window sliced the three eyes down to the middle beam. A card's window is a
+ * property of its composition, so each is cut once, by eye, and shipped. If WRATH's picture fails to
+ * load it falls back to the POWER OF RA picture: the same god.
  */
 export const SKILL_ICON = {
-  power: { url: '/art/skills/power-of-ra.webp', window: null },
-  wrath: { url: '/art/upgrade-cards/l10-mummies.webp', window: 'card' },
+  power: { url: '/art/skills/power-of-ra.webp' },
+  wrath: { url: '/art/skills/wrath-of-ra.webp' },
 } as const;
-/**
- * The picture window of an upgrade card, as fractions of its edge: the l0-mummies cut (x 277..977,
- * y 310..1010 of 1254) — below the baked title band, the eye and the column. ⚠ MINE, measured on the
- * level-0 card; assumes the level-10 card keeps the same layout (the cards are one family).
- */
-export const CARD_PICTURE_WINDOW = { left: 277 / 1254, top: 310 / 1254, side: 700 / 1254 } as const;
 
 /** What the slot needs to know about the local seat this frame. */
 export interface RaSlotState {
@@ -905,9 +901,9 @@ export class FooterBand {
   }
 
   /**
-   * ⭐ S188 P11 — the picture, loaded once per art and kept. WRATH OF RA's card is cut to its picture
-   * window at runtime and falls back to the POWER OF RA picture when it is absent. A headless run has
-   * no loader; the catch leaves `raIconReady` false and the sun glyph draws instead.
+   * ⭐ S188 P11 — the picture, loaded once per art and kept. WRATH OF RA's icon falls back to the
+   * POWER OF RA picture when it cannot load. A headless run has no loader; the catch leaves
+   * `raIconReady` false and the sun glyph draws instead.
    */
   private ensureRaIcon(key: 'power' | 'wrath'): Sprite {
     if (this.raIcon === null) {
@@ -932,21 +928,8 @@ export class FooterBand {
           loadPower();
         } else {
           void Assets.load<Texture>(SKILL_ICON.wrath.url)
-            .then((card) => {
-              const w = card.width;
-              const h = card.height;
-              const edgePx = Math.min(w, h);
-              adopt(new Texture({
-                source: card.source,
-                frame: new Rectangle(
-                  Math.round(CARD_PICTURE_WINDOW.left * w),
-                  Math.round(CARD_PICTURE_WINDOW.top * h),
-                  Math.round(CARD_PICTURE_WINDOW.side * edgePx),
-                  Math.round(CARD_PICTURE_WINDOW.side * edgePx),
-                ),
-              }));
-            })
-            .catch(loadPower); // the WRATH card is not there yet: the same god, the POWER picture
+            .then(adopt)
+            .catch(loadPower); // the WRATH picture failed: the same god, the POWER picture
         }
       } catch {
         // no loader (headless): the glyph fallback draws

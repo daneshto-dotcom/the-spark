@@ -102,3 +102,12 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   stacked beside the castle (not among the 64 oldest — asserted) → the strike lands on the cluster.
   MUTATION (restored): ordering by id first → red (aimed 355 px away). The census note (L1-05) is the
   merge owner's — the scan form is unchanged.
+- [x] W-5 — the WRATH icon's runtime crop (l0 proportions on the l10 card) sliced the three eyes.
+  Now PRE-CUT per card: `scripts/cut-skill-icon.py` gained a `CUTS` table (one window per card) and
+  `--preset`; `public/art/skills/wrath-of-ra.webp` (128 px, 8.9 KB) cut `--top 96 --side 752` from
+  `assets-source/upgrade-cards/l10-mummies.png` (848 px) — all three eyes + beams (⚠ MINE, by eye vs 3
+  alternatives; OWNER SHOULD SEE IT). power-of-ra.webp re-cut via its preset is byte-identical.
+  `SKILL_ICON.wrath` → `/art/skills/wrath-of-ra.webp`; `CARD_PICTURE_WINDOW` + the runtime
+  `Texture`/`Rectangle` frame path DELETED (fallback to the POWER picture kept). New
+  `src/render/skillIcons.test.ts` pins the table (power l0 310/700, wrath l10 96/752), each window
+  inside its card, each icon a shipped 128 px WebP. MUTATION: pointing wrath back at the l10 card → 3 red.
