@@ -77,8 +77,8 @@ import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
 // rule that this layer must not import Pixi still holds.
-import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
-import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { noteRaCastSent, raAimPreview, raLocalCastRefusal, setRaAimPreview } from '../render/raAimPreview.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -645,6 +645,8 @@ export class Controls {
    * ⛔ EVERY DECISION HERE ASKS THE REDUCER'S OWN PREDICATES — `raCastRefusal` for "may I", and
    * `raAimPoint` for "is that a place" — so the client can never send what the host would refuse
    * for a reason the client could have seen. The host re-checks all of it regardless.
+   * ⭐ S190 W-4 — through `raLocalCastRefusal`: the reducer's predicate, plus the casts this client
+   * has sent and not yet seen synced, so a joiner cannot spend a fourth WRATH charge it does not have.
    */
   private toggleRaAim(): void {
     if (raAimPreview() !== null) {
@@ -652,7 +654,7 @@ export class Controls {
       void playUiClickSFX();
       return;
     }
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       void playUiRefusedSFX(); // a refused control says so — the button's caption names why
       return;
     }
@@ -673,13 +675,16 @@ export class Controls {
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
     // held-tower rule for the same two surfaces.
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       setRaAimPreview(null);
       void playUiRefusedSFX();
       return true;
     }
     const aim = raAimPoint(this.cursor.x, this.cursor.y);
     if (aim === null) return true; // off the board: keep aiming
+    // ⭐ S190 W-4 — counted BEFORE the send: the next aim's pattern is the next charge's, even on a
+    // joiner whose synced strikes have not caught up with this one yet.
+    noteRaCastSent(this.world, this.playerId);
     this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
     setRaAimPreview(null);
     void playUiClickSFX();

@@ -82,3 +82,16 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   RACIAL_PERK_IDS.length` = 17 now, 18 with swarm), shipped == referenced exactly, `l10-mummies`
   asserted referenced. `racialPerks.test.ts`: the S188 P11 `PENDING_ART` skip deleted (the source PNG is
   on master). Both files 68/68 green.
+- [x] W-4 / WRATH-L1-04 — the joiner's preview could show charge 0's pattern while the host landed
+  charge 1's. Client-side only, NO wire field, the shared rule untouched: `src/render/raAimPreview.ts`
+  keeps the casts this client has SENT and not yet seen synced (keyed to its World, seat and wave;
+  clears on catch-up, a wave change, or `RA_PENDING_TIMEOUT_TICKS` = 90 synced ticks ⚠ MINE, so a
+  cast the host refused frees its charge). `raCastsInWaveLocal` / `raLocalCastRefusal` /
+  `raChargesLeftLocal` are read by the aim preview (`bossAuras.ts`), the footer slot (`footerBand.ts`)
+  and the gesture (`controls.ts`, which notes the cast BEFORE dispatching). `raCastRefusal` (the
+  reducer's) is unchanged. Docblocks at powerOfRa.ts:73-76 and bossAuras.ts corrected.
+  Tests (`controls.powerOfRa.test.ts`, a joiner rig whose dispatch only SENDS): the second aim's
+  circles == the host's index-1 strike; pips 3→2 at once; three unsynced casts → USED + refused cue;
+  a never-applied cast expires at 91 ticks. MUTATION: removing `noteRaCastSent` → 3 red. The first
+  cut leaked a record from one test's World into the next (`controls.draftPanel.test.ts` went 19 red)
+  — hence the World key.

@@ -72,7 +72,8 @@ export const RA_STRIKE_FIFTHS = attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN);
  * ⭐ S188 P11 — `charge` is the strike's index among this fight's casts (0 for POWER OF RA's only
  * one), folded into the seed as `seat + MAX_PLAYERS × charge` so WRATH OF RA's three strikes fall in
  * three different patterns while charge 0 keeps exactly the S188 P6 pattern. The index is known to
- * the aiming client before the click (`raCastsInWave`), so the preview still cannot lie. ⚠ MINE.
+ * the aiming client before the click — ⚠ S190 W-4: exactly only once its previous cast has synced,
+ * so the client adds the casts it has sent and not yet seen (`raCastsInWaveLocal`, render-side). ⚠ MINE.
  */
 export function raStrikeColumnPos(
   seat: PlayerId,

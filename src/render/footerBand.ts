@@ -38,14 +38,12 @@ import type { SparkType } from '../constants.ts';
 // ⭐ S188 P6 — POWER OF RA: the button reads the REDUCER's own predicate, never a second copy of it.
 import {
   WRATH_OF_RA_PERK,
-  raCastRefusal,
   raChargesFor,
-  raChargesLeft,
   seatHasPowerOfRa,
   type RaCastRefusal,
 } from '../state/racial/powerOfRaRules.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
-import { raAimPreview, setRaAimPreview } from './raAimPreview.ts';
+import { raAimPreview, raChargesLeftLocal, raLocalCastRefusal, setRaAimPreview } from './raAimPreview.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 // S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
 // computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
@@ -451,16 +449,18 @@ export class FooterBand {
      * An aim left over from a cast that is no longer legal (the fight ended, the seat was benched)
      * is dropped here, so the button never says AIMING over a refusal and the next board click is
      * not swallowed by a dead gesture. The aim is this client's view state (`raAimPreview.ts`).
+     * ⭐ S190 W-4 — the refusal and the pips count this client's sent-but-not-yet-synced casts too
+     * (`raLocalCastRefusal` / `raChargesLeftLocal`), so a joiner's slot never shows a spent charge.
      */
     const me = world.players.get(world.localPlayerId);
     const raHeld = seatHasPowerOfRa(me);
-    const raRefusal = raHeld ? raCastRefusal(world, world.localPlayerId) : null;
+    const raRefusal = raHeld ? raLocalCastRefusal(world, world.localPlayerId) : null;
     if (raAimPreview() !== null && (!raHeld || raRefusal !== null)) setRaAimPreview(null);
     const raSlot: RaSlotState | null = raHeld && me !== undefined
       ? {
           refusal: raRefusal,
           charges: raChargesFor(me),
-          left: raChargesLeft(world, world.localPlayerId),
+          left: raChargesLeftLocal(world, world.localPlayerId),
           wrath: seatHoldsPerk(me, WRATH_OF_RA_PERK),
         }
       : null;
