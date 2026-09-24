@@ -126,3 +126,12 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   a POWER picture landing after the seat became WRATH is dropped. Disk half: `skillIcons.test.ts`
   (W-5) pins both files exist as 128 px WebP. MUTATIONS (restored): removing the superseded-key
   guard → 1 red; + loading POWER's url for WRATH → 3 red.
+- [x] FINAL GATES on 077f7b0: TYPECHECK_EXIT=0 · VITEST_EXIT=1 (373 files / 6272 tests, ONE red:
+  `canon.test.ts` "§3d/§3e — what is built and what is not is read off the registry" — SPARK_CANON §3e
+  has no WRATH OF RA row; the MERGE OWNER's, red by design) · BUILD_EXIT=0 (951.6 KiB, cap 1100,
+  148.4 KiB headroom; +3.5 KiB over train A's 948.1).
+- NOT DONE here, the merge owner's (train B): PROTOCOL 50→51 + one docblock (WRATH-L1-01 / W-2),
+  canon §3d/§3e + its canon.test pins, botRa census note (L1-05), doc rot (L1-07 / W-9, incl. the
+  stale draftOverlay.test.ts:176 title and powerOfRaRules.ts:24 / protocol.ts:784 `raStrike`).
+
+## STATUS (S190): PHASE 2 COMPLETE — 9 local commits, not pushed.
