@@ -50,6 +50,41 @@ slots 0-3 = sheet 1-4 ring, 18 t each, -120..-49 · 4-5 = sheet 5-6 beam drop, 6
 4. Look at it in the browser pane (port from the random-port rule, never 5173), force a strike via
    `__SPARK__`, check the sky-continuation join (possible 1-px seam where the strip meets the cut).
 
+## S190 — worktree agent `s188-ra-vfx` (brief: PDR §5.5 of `2026-09-24_S189_BATCH_PDR.md`)
+
+Scope of THIS run, exactly: (1) the owed `raStrikeArt.test.ts`, (2) gates on the branch as-is,
+(3) `git merge master` into the branch + gates again, (4) mechanics-unchanged diff check. NOT in
+scope, left for the merge owner / a later session: NEXT-SESSION items 2 (atlas-script docblock) and
+4 (browser-pane look) above. Never pushed; never touched `master`, wrath, or sibling worktrees.
+
+### Step 1 — DONE — `src/render/raStrikeArt.test.ts`, 15 tests, 15/15 green (new file, LF)
+- THE CLOCK: pre-impact sum === `RA_COLUMN_TICKS` (and `RA_STRIKE_LEAD_TICKS`); impact → 9,
+  impact−1 → 8, impact−120 → 0, impact−121 → null, impact+109 → 22, impact+110 → null.
+- THE MANIFEST (read from `public/art/ra-strike/`): `frameTicks` === code, `impactFrame` 9,
+  `sourceFrames` 23 w/o 20, `droppedFrames` [20], `sourceFrames[9]` 10, states strike 12 /
+  aftermath 11, PNG IHDR 2568×448 = cellW×12 × cellH×2, `beamTop` non-null for sheet 5-14 exactly,
+  `raStrikeDrawScale(196)×196 ≈ 140`; `raStrikeArtFrom` on the shipped manifest slices 23 frames
+  (strips exactly where `beamTop`); a re-timed manifest / wrong `impactFrame` is REFUSED (null).
+- REACH (real code path, `drawBossAuras` → `drawRaColumns` → `drawRaStrikeFrame`, with the REAL
+  sliced art injected via `setRaStrikeArtForTests`): a called strike and a channelling Pharaoh with
+  the SAME `until` put the same (column, slot) pairs on screen at window start / impact−1 / impact /
+  impact+50, equal to `raStrikeFrameAt(tick, raColumnImpactTick(until,k))`; column 0 reads
+  [0, 8, 9, 16] (anti-vacuity). Each sprite is inverted back to its anchor and matched to the sim's
+  own landing spot. The beam continuation: 16 strips (`RA_BEAM_SKY_BANDS`), strictly fading, first
+  band's bottom AT the cut; none at impact+50. The tail: at impact+50 the fallback draws nothing on
+  column 0 while the art draws slot 16. Painter's order: a pair where the LATER column is farther up
+  the screen is painted later-column-first.
+- NEGATIVE: art null → the Pharaoh telegraph + the pre-S188 code shaft draw, zero `texture` ops, no
+  throw; a Graphics with NO `texture`/`setFillStyle` methods does not throw across three ticks.
+- `afterEach(() => setRaStrikeArtForTests(null))`.
+- ⭐ MUTATION-TESTED (then restored byte-identical, `cmp` verified):
+  · M1 `raColumnImpactTick(until, k)` → `(until, 0)` in `bossAuras.ts` → 2 tests RED (the same-slot
+    REACH test and the beam-strip test). This is the ONE guard the brief asks for.
+  · M2 the painter's-order `sprites.sort(...)` removed → the painter test RED.
+- ⚠ Design note (MINE): a column lives 230 ticks and they fall 120 apart, so at most TWO strike
+  sprites are ever on screen at once — the painter test was first written for 3 and went red on
+  anti-vacuity, which is how that number was found.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
