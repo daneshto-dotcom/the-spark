@@ -205,6 +205,16 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
   → fix round under its own audit (run `wf_3bd767c8-18c`). If clean, ra-vfx rides TRAIN A with input-layer (no
   wire change) — before wrath, as RAVFX-4 requires.
 
+- **P2 input-layer PHASE 2 DONE (tip 7439780)** — merge d995a09 (the IL-M1 recipe), IL-B1 `43789df` (click-to-build
+  resolves the draft via `generalTileRect()`; sibling case with the draft open), IL-1 `79f88ec`, IL-2 `5f44bf8`, docs
+  `ac85a97`. Mutation-proven each. Merged-tree gates 0/0/0 (6185 tests, 945.1 KiB), click-to-build 4/4, no wire.
+  Verified here: merge-tree vs master CLEAN, vs s188/ra-vfx CLEAN. Its own note: the Ra crosshair still shows over
+  the draft plate while aiming (Ra is FIGHT-only, the draft BUILD-only → unreachable). ⚠ It warns: any OTHER e2e
+  spec clicking inside the panel during the first BUILD is now swallowed → the merged-tree e2e:gating run is where
+  that shows. → fix round under audit (run `wf_04c0a5e0-4c0`).
+- **TRAIN A = s188/input-layer + s188/ra-vfx → deploy #3** once both fix-round audits are clean. No bump (neither
+  touches the wire).
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
