@@ -1,5 +1,5 @@
 {
-  "tool_calls_session_total": 284,
+  "tool_calls_session_total": 318,
   "session_id": "S188",
   "session_kind": "owner-driven: build + wire all L0/L5 racial mechanics, the 17 cards, castle upgrade buttons; six autonomous worktrees, main session = merge owner. Pre-approved.",
   "session_start": "2026-09-23T11:30:02.735Z",
@@ -7,7 +7,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-  "session_status": "S188 CLOSING",
+  "session_status": "S189 CLOSING — planned + deploy #2 shipped; execution carried to next session (weekly quota at 96%)",
   "protocol_version": 50,
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -107,10 +107,10 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
       "check_completed": true,
-      "checkpoint_commit": "87f3dc4",
-      "real_context_tokens_at_close": 550288,
-      "real_context_pct_at_close": 55.03,
-      "check_method": "Gates on the substrate tree: typecheck exit 0; vitest 5628 tests / 343 files exit 0; build exit 0 at 919.8 KiB (80.2 KiB headroom, shared by six branches). New racialPerks.test.ts (13 tests): registry integrity (12 ids, row/column agree, every card file EXISTS), the offer follows RACIAL_PERK_BUILT, seatHoldsPerk race+index, 'racial' buffs no stat, only-offered picks accepted, the deadline takes racial exactly when offered, 'racial' survives save/load, the post-sweep queue is FIFO / non-recursive / per-world. Mutation test: removing the pickIsOffered check turns 2 red; restored 13/13. Two S187 tests RE-PINNED (not silenced): the pool/damage classification now covers GENERAL_PICKS and pins 'racial' as neither; the chooser test relied on the latent any-pick bug. EOL verified per file after every edit (CRLF files stayed CRLF; canon kept its exact mixed counts). Protocol 49->50 across all six sites incl. e2e LOCAL_PROTO_V and canon §6. Council: Grok 4 challenges rejected with code-grounded reasons; Gemini 3 accepted (A1,A2,A4) + 1 modified (A3); prime-audit A5 (spawn-during-iteration) accepted and built into the substrate as queueAfterStrike/drainRacialSpawnQueue.",
+      "checkpoint_commit": "15035b9",
+      "real_context_tokens_at_close": 352837,
+      "real_context_pct_at_close": 35.28,
+      "check_method": "Deploy #2 = s188/deploy2-candidate re-gated S189 in its OWN worktree (.claude/worktrees/s188-deploy2) on a quiet machine, every exit code captured to a file: e2e:gating E2E_GATING_EXIT=0 (69/69 — the three S188 @visual reds hub-ramp-art x2 / tower-art were load, all three passed), typecheck 0, vitest 0 (5996/367), build 0 (944.2/1100 KiB, headroom 155.8), e2e:races 0 (5/5). Wire diff vs live: one additive-optional field Creature.attackCycleRaged (no bump). merge-tree clean; merged --no-ff into master (15035b9), src identical to the candidate; pushed; Pages run 35972498814 success; verify-deploy first FAILED on LIVE (main checkout dist stale from S188 — investigated, not waived), rebuilt, re-ran: VERIFY_DEPLOY_EXIT=0, 4/4.",
       "verification": [
         {
           "type": "file_contains",
@@ -376,7 +376,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
+      "note": "brief in .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P9",
@@ -389,7 +390,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
+      "note": "brief in .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P11",
@@ -402,7 +404,8 @@
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
+      "note": "brief in .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P8",
@@ -414,21 +417,36 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "note": "Deploy #1 LIVE (5c6615f, verify-deploy 4/4). Deploy #2 = s188/deploy2-candidate (the racial-a and racial-d fix rounds; unit 5996/367 green) is BLOCKED: e2e:gating 3/69 red on @visual tower/hub sprite tests on a loaded machine, and the re-run could not start (Playwright webServer 60 s timeout in the resumed session, although vite starts in 312 ms). Next session: re-run e2e on the candidate, then merge and deploy."
+      "note": "brief in .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     }
   ],
   "reflexion_entries_to_archive": [
-    "P0 #s188-printing-a-boot-list-is-not-reading-it #boot #enforcement #owner-frustration: pre-flight had PRINTED every boot file for months and nothing checked any was opened; S188 skimmed the traces through tail|cut and never opened S187's recorded research, then started re-deriving specs that were on disk. A rule the model must remember fails exactly when it matters, so it became a gate: boot reads are required, marked only by the Read tool, and Edit/Write/Agent/Workflow are denied until done. The build also exposed two latent defects the old advice hid: pre-flight's trace slug never matched a spaced project name (it pointed SPARK at another project's file), and an IN-PROGRESS plan in .claude/plans/ that pre-flight never scans. Grok caught a lost-update race in the first design (parallel Reads rewriting one JSON); per-read marker files remove it.",
-    "P1 #s188-a-second-option-turns-a-latent-bug-live #draft #validation: applyDraftChoice had pushed ANY pick since S187 - harmless while the panel could only send the offered general, live the moment a racial option exists. Found by asking what the reducer ASSUMED about its input once the input's range widened (S187's own lesson, one layer up). And two S187 tests encoded the latent bug as expected behaviour - one chose ATK at the HP draft and passed only because nothing refused it. A test that passes because of a bug is a pin on the bug; re-pin it to the intent, never delete it.",
-    "P2 #s188-the-tile-a-click-goes-through #ui-layering: the cards branch was right against its brief and the panel still let a click reach the board, because controls.ts listens on the raw canvas and knows nothing about Pixi overlays. The fill-count tripwire paired each plate with draftHitTest, a predicate only the overlay itself consults, so the guard was green over the leak (S182 lesson 2 again). Every opaque surface needs a predicate the INPUT layer asks, not one the surface asks itself.",
-    "P3 #s188-new-buttons-expose-old-bugs #wire: the castle upgrades had been built since S187 with no button, and three latent bugs lived there unseen - castleHp above 2500 never crossed the wire, an HP buy moved only the ceiling, and bought stats survived a rematch. A feature nobody can press is a feature nobody has tested; wiring the UI is when the sim finally gets exercised.",
-    "P4 #s188-a-boss-skill-that-never-fired #measure: rage halved the attack cycle and left the fire tick past its end, so since S168 an enraged Warlord landed NOTHING. It was found only because the frenzy test measured damage dealt instead of asserting the flag was set. Assert the OUTCOME the owner would see, never the flag that should cause it.",
-    "P5 #s188-spawn-during-iteration #determinism: three mechanics make creatures from events inside the strike batch, and a JS Map visits entries added mid-loop, so a newborn would act on its birth tick - deterministic on host AND worker, so no hash oracle would ever catch it. The Council prime-audit named it before any code existed; the substrate queue made the right thing the easy thing for three branches at once.",
-    "P6 #s188-cross-branch-defect-has-no-owner #merge: racial-a made damageConnector's attacker REQUIRED while racial-c called it with three arguments; each was green against master and only the merge failed. Then a census test failed on a trailing comment my own conflict resolution introduced. Typecheck plus the full suite after EVERY merge is what surfaced both.",
-    "P7 #s188-save-every-step-paid #resilience: the org spend limit killed every agent at once, twice. Because the owner asked for wip commits every step, nothing was lost: salvage commits captured in-flight files and each agent resumed from its own transcript. Long parallel runs need commit-as-you-go as a standing brief rule, not an emergency message.",
-    "SESSION #s188-do-not-ship-a-red-you-cannot-clear #deploy: the deploy-2 tree went 3/69 red on @visual sprite tests that were green an hour earlier, and the re-run could not start. Probably load - but a red you cannot clear is not shipped onto a build the owner is playing; the merges were parked on a candidate branch and master reset to the verified live commit."
+    {
+      "priority": "P1",
+      "tags": [
+        "verify-deploy",
+        "stale-artifact",
+        "load-vs-defect"
+      ],
+      "entry": "Two reds this session were the MEASUREMENT, not the code: S188's three @visual e2e failures were machine load (69/69 on a quiet run), and verify-deploy's LIVE failure was a stale dist/ in the checkout that had not built. Both were re-run under the right conditions instead of waived or chased as bugs. A failing check is a finding about the check first."
+    },
+    {
+      "priority": "planning",
+      "tags": [
+        "quota",
+        "handoff-as-deliverable",
+        "read-before-fanout"
+      ],
+      "entry": "A hand-read of main.ts answered the handoff's first question (can a protocol mismatch cause CONNECTION LOST? no — the overlay needs PLAYING and a mismatched HELLO never gets there) before any agent ran. Stopping 14 in-flight agents at 96% quota cost nothing because none had finished and their scripts were saved into the repo."
+    }
   ],
-  "carry_forward_findings": [],
+  "carry_forward_findings": [
+    "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
+    "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
+    "e2e webServer: hashed port + vite strictPort:false lets an orphan vite shift the port while Playwright polls the old URL (S188 timeout) — in the net brief",
+    "S173_NONET_STAGES.md is SUPERSEDED by canon §9 R182-G/H — close it in P10",
+    "Owner numbers to confirm: APEX PREDATOR bite x4, THE SWARM bite x11"
+  ],
   "budget_total": 1000000,
   "totals": {
     "turns": 0,
