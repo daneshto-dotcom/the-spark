@@ -14,14 +14,29 @@ is BUILT"), each number with its `canon.test.ts` assertion in the same commit.
 | | value | constant | whose |
 |---|---|---|---|
 | offered | the **wave-11** draft (draft index 2 = level 10), **vampires only**; every other race is COMING SOON at level 10 | `RACIAL_PERKS_BY_RACE.vampires[2] === 'vampires.l10'` | his |
-| stat multiplier | **×6** on HP, DEF, ATK, PEN = 2 × the piranha's ×3 | `THE_SWARM_STAT_MUL = 2 * APEX_PREDATOR_STAT_MUL` | his ("double that") |
+| stat multiplier | **×6** on HP, DEF, ATK, PEN = 2 × the piranha's ×3 | `THE_SWARM_STAT_MUL = 2 * APEX_PREDATOR_STAT_MUL` | his ("double that"; confirmed **R190-D**, below) |
 | swarm stat line | **12 / 0 / 12 / 6** (bat 2 / 0 / 2 / 1), speed unchanged (1.2) | `T3_BAT_SWARM_STATS` (derived) | his ×6; speed MINE |
 | on the ladder | pool **60** (bat 10, ×6) · bite **132** (bat 12, **×11** — PEN is ×6 too) | `unitPoolFifths` / `attackFifths` | arithmetic |
 | draw size | **2×** the bat | `BAT_SWARM_SPRITE_SCALE_MUL = 2` | ⚠ MINE (unruled) |
 
-⚠ **Say this to him**: "every stat ×6" is ×6 on the pool (DEF 0) but **×11 on the bite**, because the ladder
-multiplies ATK by (5 + PEN) and both are ×6. One swarm bite (132) is more than a whole 5-connector tower
-level (130). His literal words, shipped as such (*"don't argue if it's too OP"*).
+✅ **CLOSED — owner ruling R190-D (S190), never re-ask**: *"every stat multiplied from the base: a bat
+1/1/1/1 → 6/6/6/6"*. So every one of the four stats is multiplied, PEN included, and the **×11 bite (132) is the
+correct consequence**, not a defect: the ladder multiplies ATK by (5 + PEN) and both are ×6 — 12 × (5 + 6) = 132
+against the bat's 2 × (5 + 1) = 12. (His 1/1/1/1 is illustrative; the bat's real line is 2 / 0 / 2 / 1,
+`T3_STATS.bat` at `constants.ts:1790`, so the swarm is 12 / 0 / 12 / 6 — DEF stays 0 because 0 × 6 = 0.)
+One swarm bite (132) is more than a whole 5-connector tower level (130, `structurePoolFifths`).
+
+**Stated consequences (R190-D), for the canon:**
+- ⚠ **With CRIMSON TIDE, one swarm bite heals more than the swarm's whole pool.** `lifestealFifths(132, 50)` =
+  floor(132 × 50 / 100) = **66** fifths, against an undrafted swarm pool of **60** (`unitPoolFifths(12, 0)`).
+  The heal is capped at the attacker's own max (`creatureMaxEhp`), so in practice every swarm that lands a bite
+  is topped back to full. Under BLOOD DEBT alone it is floor(132 × 20 / 100) = 26. Vampire bots take both by
+  default (`autoPickFor` picks the racial whenever one is offered).
+- The character-sheet radar's ATK ceiling rises **10 → 12** for every unit, because the swarm's ATK 12 is now the
+  largest ATK in the roster (audit SW-7, lens 2; render-only). **Left as is** by the merge owner's S190 call —
+  noted here so the next session does not "discover" it. Measured S190 (`RADAR_MAX_ATK`): 12 with the swarm, 10
+  without (Vlad). The SHOT (biggest-hit) ceiling does NOT move: Vlad's 150 still tops the swarm's 132 (third,
+  after the demon boss's 135).
 
 "From now on": decided at the EMIT (both tower emit sites ask `towerUnitForSeat`), so bats already alive
 stay bats. A vampire seat that takes the GENERAL at wave 11 keeps its bats.
@@ -40,13 +55,23 @@ getCreatureConfig('t3Bat').hp` (and def/atk/pen), `unitPoolFifths(12, 0) === 60`
 - `RACIAL_PERK_BUILT` gains its own `// ── s188/swarm ──` block: `'vampires.l10': true`.
 - `RACIAL_PERK_COPY['vampires.l10']` = THE SWARM / BAT SWARMS / card `l10-vampires`.
 
-## For the PROTOCOL 50 docblock (the merge owner writes it)
+## For the PROTOCOL 51 docblock (train B, 50 → 51 ONCE — the merge owner writes it)
 
-- New `CreatureType` **`'t3BatSwarm'`** — serialized (`deserializeCreature` writes `type` with no whitelist),
-  so a stale peer would accept it and find no config: covered by the substrate's 49 → 50 (the
-  `t3PiranhaElite` shape exactly).
-- No new field, no new intent, no new `GameEffect`, no new discriminant on an existing action. The
-  `'racial'` pick at draft index 2 is the existing literal at a new index — no wire change.
+⛔ CORRECTED S190 (audit SW-1 / SWARM-W1): this section said the swarm was "covered by the substrate's 49 → 50".
+It is not — **50 is LIVE (deploy #2) and has no `t3BatSwarm`**. This branch never edits `PROTOCOL_VERSION`; its
+two reasons for train B's 51:
+
+1. **New serialized `CreatureType` `'t3BatSwarm'`.** It rides `Creature.type` in net snapshots, saves and the worker
+   INIT; `deserializeCreature` copies `type` with no whitelist, so a v50 peer accepts it and finds no
+   `CREATURE_CONFIGS` entry (`creatureMaxEhp` → `getCreatureConfig` → undefined → throws).
+2. **The level-10 vampire offer — a changed shared rule both peers compute.** `racialPerkFor('vampires', 2)` is now
+   `'vampires.l10'`, so `pickIsOffered` accepts `'racial'` at wave 11 for a vampire seat, `autoPickFor` takes it at
+   the deadline (bots included), and `seatHoldsPerk` answers a perk that promotes `t3Bat` → `t3BatSwarm` at emit.
+
+- No new field, no new intent, no new `GameEffect`, no new discriminant on an existing action. The `'racial'` pick
+  at draft index 2 is the existing literal at a new index. ⚠ `creature.ts`'s `t3BatSwarm` docblock still says it
+  "rides the S188 PROTOCOL 49 → 50 bump" — a stale code comment left for the merge owner's 51 commit (not in this
+  branch's S190 fix list).
 
 ## Art (for §7 / the art notes)
 
