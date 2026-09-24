@@ -12,9 +12,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | 0 · progress skeleton | done | 550c765 |
 | C3 · Voltkin prefers enemy structures | done — GUARD ONLY, no production change (see C3 below) | 36e3386 |
 | C8 · Helga patrol clamped to the board | done | 82b4040 |
-| C10 · Kraken sonar short knockback + stun | done | (this commit) |
-| LOW a · corpse-eater bite latch | next | |
-| LOW b · castle regen of effective max | pending | |
+| C10 · Kraken sonar short knockback + stun | done | 37929de |
+| LOW a · corpse-eater bite latch | done | (this commit) |
+| LOW b · castle regen of effective max | next | |
 | LOW c · serialized nextCreatureId | pending | |
 | LOW d · spawn-queue gap outside runHostTick | pending | |
 
@@ -130,9 +130,34 @@ Protocol: **no bump owed.** The sonar runs only inside `runHostTick` (host + wor
 discriminant. ⚠ Stale owner-facing doc for the merge owner: `BOSS_STATS_TABLE.md:57` still says
 *"knocks back 26 px"* — now 70 px of slide (not edited: outside my file boundary).
 
+## LOW (a) — CORPSE EATER's bite clock latches rage per cycle
+
+**Defect:** `feedStep` computed `cadence = round(attackCadenceTicks / rageMultiplier(boss))` from the
+LIVE `enraged` bit every tick — the class deploy #2's F3 closed for the FSM with `attackCycleRaged`.
+Measured through the real host tick (by the mutation): calm → raged after the calm bite bit again
+**29** ticks later (should finish the calm swing: 59); raged → calm on the raged fire tick bit AGAIN
+**1** tick later (a second bite in one swing).
+
+**Fix:** the feed clock reads `attackCycleMultiplier(boss)` (the F3 latch) and latches
+`attackCycleRaged` from `enraged` on the cycle's first tick (`ticksInState === 0` — this clock starts
+at 0 on engaging, the FSM's at 1). The modulo of the ENDING cycle uses its own latched cadence.
+Movement (`corpseEaterOwnStepPx`) still reads the live bit, as every creature's does.
+
+⚠ **LATENT IN PRODUCTION:** the only `enraged` writers are `runWarlordRage` (orc boss only) and
+BLOOD FRENZY (`isOrcRacialCreatureType`: race unit / orc tier-3 / orc boss), so nothing that ships
+enrages a zombie boss. The test sets the bit as a fixture.
+
+**Tests:** `src/state/racial/corpseEaterRageLatch.test.ts` (4) — arithmetic, a negative (no flip →
+every gap = 60), and two REACH cases through the real host tick (the 59 and the no-double-bite).
+⭐ MUTATION-TESTED (live bit restored → exactly those two red: "expected 29 to be 59", "expected 1 to
+be greater than 1"); restored byte-identical. vitest 0 — **6013 / 370**; tsc 0.
+
+Protocol: **no bump.** `attackCycleRaged` is already serialized and hashed (F3, deploy #2); the feed
+clock is host-only. No new field or site.
+
 ## In flight
 
-LOW a — CORPSE EATER's bite timer reads live rage (`racial/corpseEater.ts` `feedStep`).
+LOW b — castle regen as a % of the effective (upgraded) max.
 
 ## Decisions
 
@@ -155,6 +180,7 @@ LOW a — CORPSE EATER's bite timer reads live rage (`racial/corpseEater.ts` `fe
 - C3: none.
 - C8: host-only motion rule (Helga clamped to the board); no field, no bump.
 - C10: host-only rule (sonar impulse size); `prevPos` is off the wire; no field, no bump.
+- LOW a: host-only feed clock now reads the existing `attackCycleRaged` latch; no new field; no bump.
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
@@ -187,3 +213,4 @@ LOW a — CORPSE EATER's bite timer reads live rage (`racial/corpseEater.ts` `fe
 - corpseEater.test.ts F1 after the fix — `expected 70.0000000000773 to be greater than 180`:
   EXPECTED BY DESIGN (the ladder moved) → re-pinned to the constant, see C10.
 - C10 mutation run — EXIT 1, 3 failed: EXPECTED.
+- LOW a mutation run — EXIT 1, 2 failed: EXPECTED.
