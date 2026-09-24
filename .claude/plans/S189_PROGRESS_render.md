@@ -239,47 +239,59 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 ## R190-I (owner ruling, boundary extended) — DONE: every hit and every heal, separately, joiners too
 Owner: *"It has to show -12 and +2 separately, in different colors … it shows every single hit or heal.
 They can stack on top of each other."*
-- **Field**:  — a MONOTONIC counter of every heal APPLIED (after the max
-  cap), written only via  (, self-contained block
+- **Field**: `Creature.healedFifths?: number` — a MONOTONIC counter of every heal APPLIED (after the max
+  cap), written only via `noteCreatureHeal(c, ehpBefore)` (`creatures/creature.ts`, self-contained block
   at the end of the interface + the helper). Absent = 0; no factory change; no reset needed (creatures
   are born fresh; nothing clears it mid-life).
-- **The four heal sites** (minimal hunks —  also edits lifesteal.ts / corpseEater.ts):
-  ·  — import line;  immediate arm (+2 lines around the ehp write);
-     loop (+2 lines around the ehp write).
-  ·  — import line;  (+2 lines around ).
-  ·  — import list (+1 line );  (+2 lines around
-    ; local named  because  is taken).
-- **Wire (save.ts, HOTSPOT — three self-contained hunks)**:  (+docblock);
-   emits it only when > 0;  accepts only a positive integer.
-- **Hash (stateHashFull.ts, HOTSPOT — two self-contained hunks)**:  in   (+docblock) and  in the creature projection. NOT added to the narrow
-  production . Contribution test added to .
-- **Worker**: the mirror rebuilds creatures from the same  snapshot (  strips only ), so the counter reaches a  host's main thread; the wide hash
-  now covers it for the host-vs-worker differential.
-- **Renderer**:   → heal =
-  counter rise, hit = ehp drop + heal; both emitted at the same anchor (R185-D untouched),   stacks them. Fallbacks to the old net reading: counter went down (migration onto an older build) → no
-  heal; a rise the counter does not explain → shown as a heal.
+- **The four heal sites** (minimal hunks — `s189/units` also edits lifesteal.ts / corpseEater.ts):
+  · `racial/lifesteal.ts` — the import line; `applyLifesteal` immediate arm (+2 lines around the ehp
+    write); `applyPendingLifesteal` loop (+2 lines around the ehp write).
+  · `bossSkills.ts` — the import line; `runVladLifeSap` (+2 lines around `vlad.ehp = …`).
+  · `racial/corpseEater.ts` — the import list (+1 line `noteCreatureHeal,`); `bite` (+2 lines around
+    `boss.ehp = …`; the local is `ehpBefore` because `before` is already taken there).
+- **Wire (`save.ts`, HOTSPOT — three self-contained hunks)**: `SerializedCreature.healedFifths?` (+docblock);
+  `serializeCreature` emits it only when > 0; `deserializeCreature` accepts only a positive integer.
+- **Hash (`stateHashFull.ts`, HOTSPOT — two self-contained hunks)**: `'healedFifths'` in `CreatureHashed`
+  (+docblock) and `:hf${o(c.healedFifths)}` in the creature projection. NOT added to the narrow
+  production `hashWorldState`. Contribution test added to `stateHashFull.test.ts`.
+- **Worker**: the `?worker=1` mirror rebuilds creatures from the same `serializeCreature` snapshot
+  (`trimMirrorCreature` strips only `targetCreatureId`), so the counter reaches the host's main thread;
+  the wide hash now covers it for the host-vs-worker differential.
+- **Renderer**: `damageNumbers.ts` `creaturePoolChange(prevEhp, curEhp, prevHealed, curHealed)` → heal =
+  counter rise, hit = ehp drop + heal; both emitted at the same anchor (R185-D untouched) and `place`
+  stacks them. Fallbacks to the old net reading: a counter that went down (host migration onto an older
+  build) counts no heal; a rise the counter does not explain is shown as a heal.
 - **PROTOCOL — no bump needed, and why**: additive-optional, emitted only once > 0; the deserializer copies
   named fields, so a stale peer (same v50 without this code) ignores it and prints the old net number; no
   sim on any peer READS the counter (host migration onto a stale build just stops counting — the fallback
-  handles the counter never rising); not in the narrow production hash, so no false desync. A stale peer
-  therefore cannot disagree about anything it SIMULATES — only its floaters differ.
-- **Wire cost (MINE, measured by construction)**:  ≈ 17–19 bytes per creature that has
-  ever healed, per snapshot — i.e. vampire units under BLOOD DEBT/CRIMSON TIDE, Vlad after a sap, the
-  zombie boss after a bite. Zero for everything else. Flag for  (C5 lag) if a vampire army is
-  large.
+  handles a counter that never rises); not in the narrow production hash, so no false desync. A stale
+  peer cannot disagree about anything it SIMULATES — only its floaters differ.
+- **Wire cost (MINE, by construction)**: `,"healedFifths":N` ≈ 17–19 bytes per creature that has ever
+  healed, per snapshot — vampire units under BLOOD DEBT / CRIMSON TIDE, Vlad after a sap, the zombie boss
+  after a bite. Zero for everything else. Flag for `s189/net` (C5 lag) if a vampire army is large.
 - **Stated limit**: resolution is one observation — two hits on the same host tick (or inside one 10 Hz
   snapshot on a joiner) still merge into one red number, two heals into one green one. Splitting those
   would need a per-hit event list on the wire; not built.
-- **Tests**:  FLIPPED (10): host BLOOD DEBT → red 12 + green 2
-  (+ enemy red 12); CRIMSON TIDE → red 12 + green 6; JOINER via real HostSync→ClientSync→interpolateInto →
-  red 12 + green 2; STALE PEER (counter stripped from the wire) → old net red 10, no error; singles exact;
-   arithmetic + both fallbacks.  (10): each of the
-  four sites through its real entry point writes exactly what landed (incl. the cap), counter absent while
-  0, round-trips netSnapshot→applyNetSnapshot, junk off the wire rejected.  +1.
-- **Mutation-tested**: (a)  ignoring the counter → 5 red in the floater test (host
-  ×2, joiner, arithmetic ×2); (b)  removed at the pending-batch site → the site test red.
+- **Tests**: `src/render/s189HealInsideNetFloater.test.ts` FLIPPED (10): host BLOOD DEBT → red 12 + green 2
+  (+ the enemy's red 12); CRIMSON TIDE → red 12 + green 6; JOINER through the real
+  HostSync → ClientSync → interpolateInto → red 12 + green 2; STALE PEER (counter stripped from the wire)
+  → old net red 10, no error; singles exact; `creaturePoolChange` arithmetic + both fallbacks.
+  `src/state/s189HealCounter.test.ts` (10): each of the four sites through its real entry point writes
+  exactly what landed (incl. under the cap); counter absent while 0; round-trips
+  netSnapshot → applyNetSnapshot; junk off the wire rejected. `stateHashFull.test.ts` +1.
+- **Mutation-tested**: (a) `creaturePoolChange` ignoring the counter → 5 red in the floater test (host ×2,
+  joiner, arithmetic ×2); (b) `noteCreatureHeal` removed at the pending-batch site → the site test red.
   Both restored → green.
+- Non-zero exit: the first write of this section went through a bash `node -e` with backticks, which bash
+  executed as command substitutions (one was `git merge master`, which failed "not something we can
+  merge" — NOTHING was merged; `git status` clean, no MERGE_HEAD). The text was mangled and committed in
+  3df4cbb; rewritten here with the Write tool. Resolved.
+
+## AUDIT R2-1 / R2-4 (merge owner) — next
+- R2-1: codex backdrop + CONNECTION LOST backdrop are passive, so clicks fall through to the (now lower)
+  draft panel. Fix: `eventMode = 'static'` on both backdrops; hit-test test; mutation-tested.
+- R2-4: correct the false "e2e/fog.spec.ts is C1's runtime half" claim (it never looks at the panel).
 
 ## NEXT — R190-H (ra-vfx is on master 5934d3b)
-- , keep ra-vfx's two S190 finale guards (absence check + structureWatchEpoch check), then
-  draw ONLY the Ra strike above unit sprites, with a z-order test that states its limit.
+- `git merge master`, keep ra-vfx's two S190 finale guards (absence check + structureWatchEpoch check),
+  then draw ONLY the Ra strike above unit sprites, with a z-order test that states its limit.
