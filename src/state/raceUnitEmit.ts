@@ -64,6 +64,7 @@ import { castleAnchor } from './gatherers/gatherer.ts';
 import { spreadTargetPos } from './creatures/creatureAI.ts';
 import { asCreatureId } from '../types.ts';
 import { dispatch, type World } from './world.ts';
+import { castleEmitIntervalTicks } from './racial/hordeGrows.ts';
 
 /**
  * ⭐ THE CASTLE'S SENTINEL `SpawnerId`, PER SEAT (owner R133).
@@ -135,14 +136,24 @@ export function isCastleSpawnerId(id: SpawnerId | null): boolean {
  * four units into one snapshot. Spread by SEAT ID, not by an accumulated counter — the same idiom
  * as `ticksSinceCastleShot`.
  */
-export function ticksSinceCastleEmit(seat: number, tick: number): number {
-  const i = RACE_UNIT_EMIT_INTERVAL_TICKS;
+export function ticksSinceCastleEmit(
+  seat: number,
+  tick: number,
+  // ⭐ S188 — THE HORDE GROWS halves it for an orc seat (`racial/hordeGrows.ts`). Defaulted so every
+  // existing caller and test keeps the owner's 30 s; the phase stays spread by seat either way.
+  interval: number = RACE_UNIT_EMIT_INTERVAL_TICKS,
+): number {
+  const i = interval;
   return (((tick - Math.trunc(seat)) % i) + i) % i;
 }
 
 /** True on exactly the tick this seat's castle produces. */
-export function castleEmitsOnTick(seat: number, tick: number): boolean {
-  return ticksSinceCastleEmit(seat, tick) === 0;
+export function castleEmitsOnTick(
+  seat: number,
+  tick: number,
+  interval: number = RACE_UNIT_EMIT_INTERVAL_TICKS,
+): boolean {
+  return ticksSinceCastleEmit(seat, tick, interval) === 0;
 }
 
 /**
@@ -205,7 +216,7 @@ export function raceUnitEmitTick(world: World): void {
     if (player === undefined) continue;
     if (player.castleHp <= 0) continue; // the keep is gone — see above
     const seat = playerId as unknown as number;
-    if (!castleEmitsOnTick(seat, world.tick)) continue;
+    if (!castleEmitsOnTick(seat, world.tick, castleEmitIntervalTicks(player))) continue; // S188 — THE HORDE GROWS
     if (!underRaceUnitCaps(world, playerId)) continue;
 
     const anchor = castleAnchor(seat, world.layout);
@@ -249,3 +260,43 @@ export function raceUnitEmitTick(world: World): void {
  * should overrule on sight if it looks wrong on the board.
  */
 const RACE_UNIT_SPAWN_SPREAD = 46;
+
+/**
+ * ⭐ S188 — ONE race unit at `owner`'s keep, OFF the cadence: THE RISEN (`zombies.l0`) raises a kill
+ * here. *"Every unit you kill is spawned like a one, one, one, one zombie from the castle."*
+ *
+ * ⛔ IT IS THE CASTLE EMITTER'S OWN SPAWN, NOT A LOOK-ALIKE. Same literal (`raceUnit`, R125's
+ * 1/1/1/1), same per-seat sentinel spawner id (so it answers to `underRaceUnitCaps` and never to
+ * the goblin family, this module's defect 3), same golden-angle spread keyed on the pre-minted id,
+ * same born-standing-at-its-keep `targetPos`. So it is sized by the seat's draft picks inside
+ * `applySpawnCreature` and shelters / releases / recalls like every castle soldier (the module
+ * docblock's "no new state" argument holds for it unchanged).
+ *
+ * ⚠ ADDED BESIDE `raceUnitEmitTick`, NOT EXTRACTED OUT OF IT. The per-seat body above is the
+ * cadence's; a parallel S188 branch retunes that cadence, so extracting it would put two branches
+ * on the same lines. The two bodies must stay in step — change one, change both.
+ *
+ * ⛔ A FALLEN CASTLE PRODUCES NOTHING, by the rule `raceUnitEmitTick` states: a destroyed keep that
+ * kept minting soldiers would make its own destruction cosmetic. ⚠ MINE for THE RISEN: a kill made
+ * by a fallen seat's surviving army raises nobody.
+ *
+ * @returns whether a unit was actually born.
+ */
+export function spawnRaceUnitAtCastle(world: World, owner: PlayerId): boolean {
+  if (world.gameState !== 'PLAYING') return false;
+  const player = world.players.get(owner);
+  if (player === undefined || player.castleHp <= 0) return false;
+  if (!underRaceUnitCaps(world, owner)) return false;
+  const seat = owner as unknown as number;
+  const id = asCreatureId(world.nextCreatureId);
+  const pos = spreadTargetPos(castleAnchor(seat, world.layout), id, RACE_UNIT_SPAWN_SPREAD);
+  dispatch(world, {
+    type: 'SPAWN_CREATURE',
+    creatureType: 'raceUnit',
+    ownerPlayerId: owner,
+    pos,
+    targetPos: pos,
+    sourceSpawnerId: castleSpawnerId(seat),
+  });
+  return world.creatures.has(id);
+}

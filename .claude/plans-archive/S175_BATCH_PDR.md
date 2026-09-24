@@ -1,0 +1,161 @@
+# PDR — S175 BATCH (Full tier)
+
+STATUS: AWAITING OWNER APPROVAL
+Generated: 2026-09-13 | Base commit: 5e19853 | Baseline: typecheck 0, vitest 4416/4416, atlas-guard 1 (known)
+
+---
+
+## 0 · WHAT PHASE A.0 CHANGED (constitutional, Rule 21)
+
+Seven probe lanes dispatched read-only; **6 returned, 1 (codex) died on the 5-hour limit and was
+re-run BY HAND** (S161 rule: a hunt that returns nothing is not a completed hunt). Every row below
+is a CLAIM-vs-TREE delta that moves scope.
+
+| # | check | the claim (backlog/handoff) | the tree |
+|---|---|---|---|
+| Δ1 | Warlord 2× move speed | OWED | **ALREADY WIRED** — `creatureVerlet.ts:168` `config.maxAccel * rageMultiplier(c)` |
+| Δ2 | Warlord `enraged` field | partially wired | **ALL FOUR SITES DONE** — factory `creature.ts:754`, serialize `save.ts:1963/2331`, hash `stateHashFull.ts:285/559`, worker via `restore` |
+| Δ3 | "the tint is a one-liner" | assign `sp.tint` | **THE CHANNEL IS OCCUPIED** by the seat cue, `goblinRenderer.ts:624` |
+| Δ4 | direwolf art | "now has art" / "has no art" | **BOTH HALF-TRUE.** Art exists (3 stills + 4 clips + seed, tracked). The RENDERER is aliased to the goblin-hound sheet at `goblinRenderer.ts:180`. No atlas, no spec. |
+| Δ5 | direwolf/walk clip | NOT RECOVERABLE (protocol table) | **CLEAN PASS.** `walk.mp4` mtime 21:17 postdates the table. **The doc is stale.** |
+| Δ6 | voltkin/walk clip | must re-roll | **RECOVERABLE AT $0** — frames 36–71 clean; `sampleStart:36 + sampleWindow:36` |
+| Δ7 | direwolf/die `sampleStart:68` | "recoverable" | packable but **ARTISTICALLY EMPTY** — frames 68–95 are a motionless corpse, identical bbox |
+| Δ8 | cutscene stops the sim | implied tick gate | **NO TICK GATE EXISTS.** `activeCinematicPlayerId` appears in zero of hostTick/physics/simWorker. It is a 4.8 s opaque rect + an input lock. |
+| Δ9 | removing the cutscene | greenfield code change | **A SILENT PATH ALREADY SHIPS** and is already default for repeat showings (`godlyOrchestration.ts:177`) |
+| Δ10 | cutscene is "skippable via Space/Esc" | its own docblock | **IT IS NOT.** `skipIfActive()` has ZERO callers repo-wide. |
+| Δ11 | intact/damaged/destroyed for the TV | "maps to the engine" | **THE WHOLE MACHINE IS LIVE** — `towerFrames.ts:64/83/190`, `towerRenderer.ts:235`. But the TV has **no entity to hang it on**. |
+| Δ12 | connector hiding: "what field flips?" | may be host-only | **NO FIELD FLIPS.** Derived from topology (`ringMembersAt` over synced `world.bonds`). ⇒ renderer-only is TRUE. |
+| Δ13 | connector ramp anchor | `ignitedAtTick` | ⛔ **STRIPPED ON THE WIRE** by `trimMirrorSpawner`, re-seeded 10×/s. Use `Bond.createdTick`. |
+| Δ14 | atlas: `scripts/matte-*.py` is the tool | re-matte with a tighter edge | **WRONG TOOL.** The real matte is embedded Python in `build-sprite-atlas.mjs:203-286`, and there is **no tighter-edge knob** — erosion is hardcoded at `:284`. |
+| Δ15 | atlas debt is 15 files | 6 size + 9 fringe | **13 distinct** — the sets overlap. And all six "size" failures are **WIDTH-ONLY**. |
+| Δ16 | veo cost | $0.50/clip → 8 clips = $4.00 | ⛔ **OWNER MEASURED ~$20.** Every cost line in `ART_VEO_PROTOCOL.md §5` is understated ~4-5×. |
+
+⭐ **THE SEQUENCING CONSEQUENCE:** the owner's #1 pick (finish the Warlord) DEPENDS on his #2
+(pack the clips) — the summon works, but the wolf wears a goblin-hound's sheet. P1 and P2 merge.
+
+⭐ **THE MONEY CONSEQUENCE (Δ16):** with the real rate unknown and 4-5× the documented one,
+**this batch generates NOTHING.** 6 of 8 clips pack at $0 and the entire direwolf ships at $0.
+
+---
+
+## 1 · OBJECTIVE
+
+Finish the Orc Warlord with his own art; take the Voltkin cutscene out of the player's way; and
+convert the TV from a cinematic into a built structure he emerges from in-game. Ship the cheap,
+already-measured wins around them. **Zero generation spend.**
+
+## 2 · SCOPE
+
+### P1 — FINISH THE ORC WARLORD ⭐ his pick
+- Rage RED tint at `goblinRenderer.ts:624`, gated on `c.enraged === true` (never on type).
+- ⛔ **NOT a naive `sp.tint = 0xff0000`.** A Pixi tint is a MULTIPLY; S151 shipped exactly that with
+  the seat colour and the goblins came out "unreadable dark-red smudges" (repaired S152 with
+  `washTowardsWhite`, documented at `goblinRenderer.ts:608-622`). A saturated red zeroes G and B on
+  already-dark orc art. Use a washed red (`washTowardsWhite(0xff0000, ~0.45)` → `0xff7373`), which
+  reddens while preserving luminance. Number is MINE; it gets measured against a screenshot.
+- Close the **missing integration test**: today only the pure helper is asserted
+  (`bossSkillsLate.test.ts:156`) — both production ×2 call sites could be deleted with a green suite.
+- Files: `goblinRenderer.ts`, one test file. **No protocol bump** (`enraged` shipped under 44→45).
+
+### P2 — PACK THE DIREWOLF, $0.00 → completes P1
+- New `assets-source/direwolf/atlas-specs.json` (~40 lines), shape copied from
+  `race-tier3-units/atlas-specs.json`. ⚠ `enclosedWhiteLimitPct: 4e-05`, **not** the 0.003 default —
+  taking it by omission is "exactly the S165 defect the owner saw" (`ART_VEO_PROTOCOL.md:354`).
+- idle / walk / attack pack from the existing clips with **no `sampleStart`** (Δ5, Δ7).
+- Re-point `goblinRenderer.ts:180` `'/godly/goblin-hound/anim/goblin-hound'` → the direwolf sheet.
+  One line + refresh the stopgap comment at `:167-172`.
+- Fix the **stale verdict table** in `ART_VEO_PROTOCOL.md` (Δ5) and correct §5 COST (Δ16).
+- **Q1 owed** — the `die` row, three options, all $0. See §6.
+
+### P3 — REMOVE THE VOLTKIN CUTSCENE (code half)
+- Force the already-shipped silent path (`godlyOrchestration.ts:177`), drop the vignette gate.
+- Delete the input lock: `controls.ts:373` + `castlePanel.ts:407,541`.
+- Re-time `pendingCreatureSpawn` (`godlyOrchestration.ts:230-235`) — the 4.8 s delay exists only to
+  hide the creature under the black rect; leaving it gives a dead pause, which is WORSE.
+- ⛔ **#1 TRAP:** `cutsceneOverlay.onComplete` is the SOLE driver of `GODLY_COMPLETE` and of
+  `pendingCinematics` advancement. Removing it without replacing that callback latches
+  `activeCinematicPlayerId` forever. Replace before deleting.
+- ⚠ Moves replay/differential baselines (`save.replay.test.ts`, `hostTick.differential.test.ts`,
+  `workerSim.differential.test.ts`). That churn is expected, not a regression.
+
+### P4 — THE TV BECOMES A BUILT STRUCTURE (his new direction)
+> *"we're redoing the whole way that Voltkin is coming out of the TV. It's gonna be in game …
+> like the tower is being built … kind of like when bosses come out, but even cooler."*
+- ⛔ **THE DECISIVE COST:** there is **no entity**. `voltkin` is the only `kind:'cinematic'` recipe
+  (`voltkin.ts:343`); it registers no spawner and no defender, and `targetComponentPrimitiveIds` is
+  cleared on GODLY_COMPLETE. `towerRenderer.sync` iterates `world.creatureSpawners` and never sees it.
+- So P4 = give the recipe a real structure entity, pack `tv-1..tv-6` into an atlas, and let the
+  existing intact/damaged/destroyed machine drive it.
+- ⚠ Widening `TowerState` breaks `tsc` across BOTH row tables (`T3_TOWER_STATE_ROWS`,
+  `T9_TOWER_STATE_ROWS`) — the compile-time coverage contract biting. Budget for it.
+- ⚠ `findVoltkinChain` returns only the FIRST match — draws one TV on a two-TV board.
+- **Split:** P4a = TV as a structure with the 4 damage states. P4b = the emergence animation
+  (frames-not-ticks, client-local, copying `TOWER_CRUMBLE_FRAMES`/`crumbleFrameIndex`).
+
+### P5 — CODEX: tier order + the owed tests
+- Sort at `main.ts:1095` — the fix site the code itself names (`codexOverlay.ts:54-56`).
+- Write the (b) assertions owed at `codexOverlay.test.ts:21-26`. **Q2 owed** — see §6.
+- ✅ Verified by hand: the discovery gate IS fully removed; `codexStore.ts` is gone.
+
+### P6 — CONNECTOR HIDING (renderer-only, confirmed Δ12)
+- New `src/render/towerCover.ts` modelled on `concealment.ts`; alpha consumed at
+  `structureRenderer.ts:109/126` and the three bond draws at `:212/217-228/233`.
+- Ramp anchored on `Bond.createdTick` (Δ13), pure, tick-driven, ~2 s.
+- ⛔ Must NOT copy concealment's cull-and-reap: `structureRenderer.ts:108` `continue`s before
+  `seen.add`, and the cleanup DESTROYS the sprite — a faded shape must still reach `seen` or it pops.
+- ⛔ Reveal must key on the same `ringMembersAt(...) !== null` the sprite keys on, not on spawner
+  existence — otherwise a 0.5 s window of no tower AND no connectors (two clocks).
+- **Q3 owed** — see §6.
+
+### P7 — THE ATLAS DEBT (the cheaper half, never tried)
+- Add the missing erosion knob to `build-sprite-atlas.mjs:284` (Δ14) and re-matte the 9 fringed.
+- Re-measure `normaliseStateWidth` on ONE atlas. ⚠ S173 measured that enabling it made the spread
+  WORSE (1.42× → 1.71×). That negative result stands until re-measured; do not overturn it by
+  inference.
+- Goal: get `atlas-guard` OFF red so a real failure can be seen.
+
+### OUT OF SCOPE (carried, with reason)
+R173-B · B7+B8 damage numbers · the Pharaoh's stances + Ra · Vlad life-sap · NONET stages ·
+12-frames-per-state · **all veo generation** (Δ16).
+
+## 3 · TESTING
+Per priority: `npm run typecheck`, `npx vitest run`, and for art `npm run check:atlas` — each read
+from a **captured `$?`**, never a wrapper line, never through a pipe. Baseline to beat:
+typecheck 0, vitest 4416/4416. `verification[]` authored AT priority close, then RUN.
+
+## 4 · PROTOCOL VERSION
+**Stays 46.** Nothing in P1–P7 adds a discriminant, a required wire field or a `GameEffect` kind.
+P4 must be built to keep that true — derive the visual per frame, do not mint an effect.
+
+## 5 · RISKS
+1. ⛔ P4's entity change is the only item that touches sim shape. If it grows, split it out.
+2. ⛔ P3's `onComplete` trap (above) — strictly worse than today if fumbled.
+3. ⚠ `GOBLIN_KINDS` is hand-maintained and no test imports it; a type missing draws NOTHING.
+4. ⚠ `atlas-guard` already red — new art added to it fails invisibly. P7 exists partly to fix that.
+5. ⚠ `assets-source/voltkin-tv/` carries ~8.9 MB of duplicated contact sheets already committed.
+6. ⚠ Voltkin's design reads close to a well-known franchise character. Pre-existing, not new here,
+   but the TV expands his on-screen presence — flagging once, per the S95 rework.
+
+## 6 · QUESTIONS FOR THE OWNER (case constructed, per the project rule)
+
+**Q1 — the direwolf's DIE row.** All three cost $0.
+  (a) `sampleStart:68` — 12 frames of a motionless corpse; the collapse is NOT in the window.
+  (b) **use `direwolf-dead.png`** — the purpose-drawn dead wolf from your sheet. *My recommendation.*
+  (c) omit `die` — the wolf vanishes on death, as it does today.
+
+**Q2 — codex tier order.** Measured node counts: **3** = the six race towers AND the stink tower;
+**4** = goblin tower; **5** = pentagram, lightning hub; **6** = laser turret; **9** = the six t9
+towers. So sorting ascending by tier puts the **stink tower FIRST (tied)**, which contradicts
+*"stink tower is last"*. What is the rule — a hand-authored order, or tier-ascending with the stink
+tower pinned to the end?
+
+**Q3 — connector hiding scope.** Does "a tower on top of them" include `world.defenders`
+(turret / Helga / stink tower), which also stand on structures, or only the race towers? Guessing
+wrong silently leaves one family visible.
+
+**Q4 — veo cost.** Nothing this batch spends money, but the doc says $0.50/clip and you measured
+~$20 for 8. May I record your figure as the rate, so future budgets are honest?
+
+## 7 · SEQUENCE
+P1+P2 together (they complete each other) → P3 → P5 → P6 → P7 → P4a → P4b.
+Commit + push after EACH priority. Pushing is shipping.

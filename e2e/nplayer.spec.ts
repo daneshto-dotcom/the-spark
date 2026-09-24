@@ -208,8 +208,20 @@ test.describe('S63 / S147 R41 - FULL-TABLE render: MAX_PLAYERS seated + avatars/
       w.gameMode = '1v1';
       w.gameState = 'PLAYING';
       w.localPlayerId = 0;
+      /*
+       * ⛔ S188 — CLONE THE FACTORY-BUILT SEAT 0, never hand-roll a Player. This fixture used to seat six
+       * object literals carrying only the S63 fields, so every field added since (S187 `castleUpgrades`,
+       * `draftPicks`, S188 `dynastyHpLost`, `raStrike`, …) was `undefined` on seats 1–5. It stayed green
+       * only until a per-frame reader touched one: S188's keep bar reads `castleUpgrades` and the render
+       * loop threw "reading 'hpBonus'" every frame. Production never builds a Player this way (the type
+       * makes those fields REQUIRED and every construction site goes through `makeIdlePlayer`), so the
+       * fix is the fixture, not a defensive `?.` in the game. Cloning the real seat keeps it true forever.
+       */
+      const template = w.players.get(0);
+      if (template === undefined) throw new Error('fixture: seat 0 missing from makeWorld');
       for (let seat = 0; seat < colors.length; seat++) {
         w.players.set(seat, {
+          ...structuredClone(template as Record<string, unknown>),
           id: seat,
           color: colors[seat],
           kind: 'Idle',

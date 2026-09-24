@@ -12,7 +12,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CASTLE_ATTACK_RANGE, CASTLE_MAX_HP, PLAYER_COLORS, TURRET_ATTACK_RANGE } from '../constants.ts';
+import {
+  CASTLE_ATK, CASTLE_ATTACK_RANGE, CASTLE_MAX_HP, CASTLE_PEN, PLAYER_COLORS, TURRET_ATTACK_RANGE,
+} from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -235,7 +237,18 @@ describe('the BUILDING and CASTLE cards — the half the owner found empty', () 
     expect(view.title).toBe('CASTLE');
     expect(view.health.max).toBe(CASTLE_MAX_HP);
     expect(view.health.cur).toBe(w.players.get(P0)!.castleHp);
-    expect(view.stats.find((r) => r.label === 'SHOT')!.points).toBe(castleShotFifths());
+    /*
+     * ⭐ S188 P3 — RE-PINNED, NOT RELAXED. This read the SHOT row, which printed the UN-upgraded
+     * `castleShotFifths()` whatever the keep had bought. The shot now sits on the ATK row it is
+     * derived from (the unit card's shape), and for a keep that has bought nothing it is still
+     * exactly the base shot — derived from the constants, so a retune cannot half-land.
+     */
+    const atk = view.stats.find((r) => r.label === 'ATK')!;
+    expect(atk.points).toBe(CASTLE_ATK);
+    expect(atk.derived).toBe(`${castleShotFifths()} a shot`);
+    expect(view.stats.find((r) => r.label === 'PEN')!.points).toBe(CASTLE_PEN);
+    expect(view.stats.find((r) => r.label === 'DEF')!.points).toBe(0);
+    expect(view.stats.find((r) => r.label === 'SHOT'), 'the shot is ATK’s derived number now').toBeUndefined();
     expect(view.stats.find((r) => r.label === 'RANGE')!.points).toBe(CASTLE_ATTACK_RANGE);
   });
 

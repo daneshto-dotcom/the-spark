@@ -111,6 +111,23 @@ interface PlayerCommon {
    */
   castleUpgrades: CastleUpgrades;
   /**
+   * ⭐⭐ S188 (owner) — **ENDLESS DYNASTY'S RUNNING TOTAL: castle HP this seat has LOST since it took
+   * `mummies.l5`.** *"every time a castle loses 1,000 points, it spawns a pharaoh … from now on and
+   * until the end of the game."* Each whole 1,000 raises one Pharaoh (`racial/endlessDynasty.ts`).
+   *
+   * ⚠ CUMULATIVE AND MONOTONIC — regeneration never un-counts a loss (MINE: his words are "loses",
+   * and a regen that took the count back would let a healing keep never reach its next Pharaoh).
+   * 0 for every seat without the perk, forever.
+   *
+   * ⛔ A SIM INPUT, SO IT IS SERIALIZED AND HASHED. Only the host (and its `?worker=1` mirror) reads
+   * it, but a host migration or a worker INIT that lost it would restart the count, and a mirror that
+   * disagreed about it would raise a Pharaoh on a different tick — the class the wide hash exists to
+   * catch.
+   *
+   * REQUIRED, for the reason `castleRegenLevel` and `draftPicks` are: tsc reds the rebuilds.
+   */
+  dynastyHpLost: number;
+  /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
    * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
@@ -281,6 +298,8 @@ export function makeIdlePlayer(
     draftPicks: [],
     // ⭐ S187 — and has bought nothing for its keep.
     castleUpgrades: emptyCastleUpgrades(),
+    // ⭐ S188 — and has lost nothing toward ENDLESS DYNASTY.
+    dynastyHpLost: 0,
     raceId,
     raidProgress: 0,
     // ⭐ S188 P6 — POWER OF RA: nothing called yet.
@@ -330,6 +349,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     draftPicks: player.draftPicks,
     // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
     castleUpgrades: player.castleUpgrades,
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
+    // restart the count toward the next Pharaoh.
+    dynastyHpLost: player.dynastyHpLost,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -390,6 +412,9 @@ export function drop(player: Player): IdlePlayer {
     draftPicks: player.draftPicks,
     // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
     castleUpgrades: player.castleUpgrades,
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
+    // restart the count toward the next Pharaoh.
+    dynastyHpLost: player.dynastyHpLost,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

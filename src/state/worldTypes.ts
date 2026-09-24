@@ -376,6 +376,22 @@ export interface World {
    */
   pendingCreatureDeaths: Set<CreatureId> | null;
   /**
+   * ⭐ S188 (fix round F1) — TRANSIENT, ONE-TICK accumulator for BLOOD DEBT / CRIMSON TIDE heals made
+   * during the same strike batch `pendingCreatureDeaths` defers. `null` everywhere except inside it.
+   *
+   * ⛔ WHY IT EXISTS — the S155 N1 class, reopened by lifesteal. Healing the attacker AT THE MOMENT
+   * its blow lands made a melee depend on `creatures` ITERATION ORDER: a vampire unit reached first
+   * was topped up before the incoming blow and lived; the identical unit one slot later was struck
+   * first and died. So while the batch is open a heal is only SUMMED here, and `runHostTick` applies
+   * the sums — sorted by creature id, each capped at `creatureMaxEhp`, skipping anyone dead or
+   * pending death — immediately before the deferred sweep (`racial/lifesteal.ts`).
+   *
+   * ⚠ NEVER SERIALIZED AND NEVER HASHED — `'acknowledged'` in FIELD_COVERAGE, for the reason
+   * `pendingCreatureDeaths` gives: it is opened and drained inside one host tick, so no snapshot,
+   * save or hash can observe a non-null value.
+   */
+  pendingLifestealFifths: Map<CreatureId, number> | null;
+  /**
    * S25 P0 — monotonic counter for creature IDs. Host-only mint authority.
    */
   nextCreatureId: number;

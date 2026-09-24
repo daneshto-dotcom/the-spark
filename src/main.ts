@@ -979,6 +979,12 @@ async function bootstrap(): Promise<void> {
   castlePanel.setCastleRegenHandler(() => {
     dispatchFn({ type: 'UPGRADE_CASTLE_REGEN', playerId: world.localPlayerId });
   });
+  // ⭐ S188 P3 — buy a castle stat (HP / ATK / DEF / PEN, S187's `castleUpgrades.ts`). The regen
+  // dispatch directly above is the template, for the same three-path reason; ⛔ and likewise NOT in
+  // `PREDICTABLE_ACTIONS` — an optimistic HP purchase would move the bar's max, then snap back.
+  castlePanel.setCastleStatHandler((stat) => {
+    dispatchFn({ type: 'UPGRADE_CASTLE_STAT', playerId: world.localPlayerId, stat });
+  });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
   castlePanel.setPullHandler((sparkType) => {
@@ -1059,6 +1065,10 @@ async function bootstrap(): Promise<void> {
   // S152 — the popover needs the same click-guard treatment the panel and the band get, or a
   // press on SCRAP would also act on the board underneath it.
   controls.setCharacterSheet(characterSheet);
+  // ⭐ S188 (audit F1) — and the draft panel, the fourth surface. Its tile pick is its own Pixi
+  // `pointertap`, which does not stop the canvas handler, so without this a click on a tile ALSO
+  // acted on the board under the plate (a stamped tower, a re-tasked gatherer, a raid).
+  controls.setDraftPanel(draftOverlay);
   /*
    * ⭐ The portrait comes off the sprite sheet ALREADY IN MEMORY for a unit that is on screen — his
    * *"just take from the generated images that we made for them."* Injected rather than imported so

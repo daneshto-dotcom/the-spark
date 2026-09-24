@@ -58,3 +58,18 @@ Branch starts at racial-c's tip 3b63c92 (POWER OF RA). Updated with every wip co
   {charges 3, left 2}; the second aim's circles show charge 1's own pattern. Server stopped, tab closed.
 
 ## STATUS: COMPLETE — see the final report
+
+## S190 — PHASE 2 (fix agent; the merge owner audited the branch, 2 lenses, all confirmed)
+Fix ONLY the confirmed findings, one commit each. Not mine (merge owner, train B): PROTOCOL 51 +
+docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc rot (L1-07 / W-9).
+
+- [x] MERGE master 5934d3b (deploy #3: ra-vfx + input-layer + canon). Conflicts:
+  · `src/render/draftOverlay.ts` — master's render block kept, the pre-cards hunk dropped; W-1 applied
+    in the resolution: `DraftOverlayDeps.optionsFor` + the private field widened to
+    `(waveNumber, race, picks?: readonly DraftPick[])`, called with `pl.draftPicks`.
+  · `src/state/save.ts` — imports only: master's castleUpgrades line + `raStrikesFromWire` (W-8).
+  · NOT a textual conflict but a compile break: master's `src/render/raStrikeArt.test.ts` (ra-vfx)
+    read `Player.raStrike` twice → `.raStrikes[0]!` / `toEqual([])`, as its own MERGE NOTE said.
+  · Hotspot hunks: save.ts (import line only).
+  · Gates on the merge: typecheck 0; vitest 1 (2 red): `canon.test.ts` §3d/§3e registry (MERGE OWNER's,
+    red by design — WRATH OF RA has no §3e row yet) and draftOverlay cards-on-disk 16→17 (W-3, next).

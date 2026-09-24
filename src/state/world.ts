@@ -432,6 +432,8 @@ export function makeWorld(rngSeed: number): World {
     creatures: new Map(),
     // S155 N1 — transient; opened + swept inside runHostTick only.
     pendingCreatureDeaths: null,
+    // S188 F1 — transient; opened + drained inside runHostTick only (see worldTypes).
+    pendingLifestealFifths: null,
     nextCreatureId: 0,
     // S100 P1 (TD Phase 1a) — host-authoritative creature spawners; empty at world birth.
     creatureSpawners: new Map(),
@@ -785,7 +787,9 @@ export function dispatch(world: World, action: GameAction): World {
        * Damage still ACCUMULATES on the bond, so the cut is a matter of when, not whether.
        */
       const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
-      const shouldSever = damageConnector(world, action.target.id, connectorDamage);
+      // S188 — `null`: the raider is a player avatar, not a creature — nothing to heal, nobody to
+      // turn on (the same answer this file's two `damageEntity` raid arms give).
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
         dispatch(world, {
           type: 'SEVER_BOND',

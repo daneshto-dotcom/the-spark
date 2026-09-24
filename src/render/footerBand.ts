@@ -975,10 +975,31 @@ export class FooterBand {
     return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   }
 
-  /** ⭐ S187 — the tab, always live in both states. It is the only way back once collapsed. */
+  /**
+   * ⭐ S187 — the tab, live in both states. It is the only way back once collapsed.
+   *
+   * ⛔⛔ S188 (owner) — **AND IT IS ONE LAYER BELOW ANY OPEN TOWER MENU.**
+   *
+   * > *"the arrow that takes down the footer it actually reads more important than the tower above
+   * > it … I'm clicking on number six. It brings up Lightning Hub. That's right over the down arrow.
+   * > What I would do is click on six again. It would bring down the Lightning Hub and then the down
+   * > arrow would be active. So it'd be one layer below."*
+   *
+   * The expanded tab rides the band's top edge (y 976-996) and the menu floats above the band
+   * (y 941-1003), both centred — so EVERY tier's menu is drawn over it: a one-card tier covers it
+   * whole, a two-card tier (5, 7) leaves only the 10 px seam between the cards. `sync` paints the
+   * tab first and the cards after, so the cards are on top, and the hit-test now says the same thing
+   * the pixels do: where an open card covers the tab, the point is the CARD's.
+   *
+   * ⚠ DECIDED HERE, IN THE ONE PREDICATE, rather than by reordering `handleFooterChipClick` — this
+   * is what the click router, `isOverChip` (the cursor) and `isOverBandSurface` (the placement
+   * refusal) all read, so the three cannot disagree about whose pixel it is. Only while expanded:
+   * `this.cards` is not cleared by a collapsed `sync`, and the collapsed tab sits below every card.
+   */
   isOverCollapseTab(x: number, y: number): boolean {
     const r = collapseTabRect(this.collapsed);
-    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    if (!(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) return false;
+    return this.collapsed || this.cardAt(x, y) === null;
   }
 
   /** ⭐ S187 — flip it. Returns the new state so the caller can play a sound or log. */

@@ -1,0 +1,83 @@
+CLAIM:
+The draft panel is in none of controls.ts's UI-surface gates. One physical click on a draft tile reaches both the overlay's Pixi pointertap (the pick) and controls.ts's raw canvas handlers underneath. So a tile click can also place, raid or select on ground the zIndex-900 panel hides.
+
+EVIDENCE:
+Nothing in src/input/*.ts or main.ts references the draft panel (grep -i draft finds none). controls.ts registers pointerdown on the canvas (:344) and pointerup on window (:350). Pixi registers its own capture listeners on the same canvas/window (EventSystem.mjs:323-327) and never calls stopImmediatePropagation, so both fire. onDown's only early returns are the castle panel, footer chips, card buttons, castle click and the armed-stamp guards (card/footer). The stamp arm checks only canStampAt (blueprintLegality.ts:115-247). The quarry keep-out is per node at SPAWNER_RADIUS+FOOTPRINT_MARGIN = 137 px from (960,540), but the general tile spans x 695-946 and the racial tile x 976-1227 at y 419-661. So (720,540) is legal seat-0 ground under ARMOURED/TOUGHER and (1200,540) is legal seat-1 ground under the now-live racial tile in PITCH_2P. The same pattern appears in the tests: s182UiSurfaceGuards.test.ts enumerates gates A-E for the panel, footer and card and never mentions the draft panel. The S187 overlay had the identical leak; this branch did not create it, but it makes a second tile live.
+
+SCENARIO:
+(1) PLACE: 2P match, wave-6 draft open in BUILD, seat 0 has a t3 tower armed from the footer. The player clicks the ARMOURED card at (720,540). onDown: armed arm, not over the card or footer, canStampAt true, so onBuildBlueprint stamps the tower (and spends for it) under the opaque panel. Pixi's pointertap then sends CHOOSE_DRAFT 'def'. Two actions from one click. The mirror case for seat 1 is the racial tile at (1200,540), which this branch made live. (2) SELECT: nothing armed, and one of the seat's own gatherers is SEEKING in the quarry within 26 px of the click. The click sends SET_GATHERER_PREFERENCE as well as the pick, silently re-tasking that gatherer. A free quarry spark sends PICKUP_SPARK the same way; a bomb, rainbow or potato fires TRIGGER_*/PICKUP_POTATO; otherwise handleSheetSelect opens a character card. (3) A spark or potato dragged from the board and released over the panel's side margins commits PLACE_FROM_FREE/PLACE_POTATO on unseen ground: gates B and C (:1387, :1477) do not know the panel. (4) RAID: a right-click on a tile sends RAID_TARGET on a creature/bond under it (and also picks, see F2). (5) The hover cursor never shows a pointer over the two live tiles (gate D).
+
+VERIFIER REASONING:
+Every symbol and line the auditor cites exists, and the core defect reproduces through the real Controls.onDown, not just from reading it.
+
+Why it happens:
+- **Pixi does not stop the native event.** Pixi v8.19.0 registers its pointerdown on the canvas and its pointerup on globalThis as capture listeners (EventSystem.mjs:323-327). There is no native stopPropagation in EventSystem. controls.ts binds its own onDown to the canvas (:344) and onUp to window (:350), so both handlers fire for one click. controls.ts's own S136 comment at :983-987 already says so.
+- **The board is live under the panel by design.** The draft is open during BUILD with the board running underneath (draftEvent.ts:8-13). The pre-wave-1 draft opens at match start, so every match begins with the panel up in BUILD.
+- **Nothing in the input layer knows about the panel.** Nothing in src/input references it. main.ts only constructs it (:803), adds it to the stage (:936) and renders it (:4076). isInputLocked (:420) checks only sudoku and bench.
+- **No gate checks it.** onDown's early returns (:988, :994, :1014, :1016, :1047, :1069), the potato gate (:1385-1391), the PLACE_FROM_FREE gate (:1476-1482) and updateHoverCursor (:1313) all ignore the draft panel. So does s182UiSurfaceGuards.test.ts (grep -i draft finds nothing).
+
+Geometry checked by probe:
+- Panel: 681,405, 559×270.
+- General tile: x 695-946, y 419-661.
+- Racial tile: x 976-1227, same y range.
+
+What reproduced:
+- **Seat 0 stamp.** 2P PITCH_2P world after START_GAME: phase BUILD, gameState PLAYING, draft wave 1 open, both seats still owe a pick. canBuildAt(720,540) is true for seat 0. 18 of 19 blueprints are legal to stamp there. With t3TowerVampires armed, `onDown({button:0, clientX:720, clientY:540})` called onBuildBlueprint at (720,540) and disarmed. `draftHitTest(720,540)` is 'general', so Pixi's pointertap also sends CHOOSE_DRAFT: two actions from one click.
+- **Seat 1 stamp.** With a real seat 1, `onDown` at (1200,540) stamped t3TowerVampires the same way.
+- **Gatherer re-task.** A seat-0 gatherer at (900,540) plus a click at (905,540) dispatched SET_GATHERER_PREFERENCE under the general tile.
+- **RAID, release and hover (scenarios 3-5).** These hold from the code as written. The right-mouse branch (:1208-1287) has no UI guard. Gates B and C lack a draft predicate. The draft container sets no `cursor`, and controls only writes 'pointer' for its own predicates.
+
+Corrections to the claim (the defect stands, but these details are wrong):
+1. **"Now-live racial tile" is wrong on this branch in isolation.** RACIAL_PERK_BUILT is all false (racialPerks.ts:86-104). The probe found draftOptionsFor returns racial:null for all six races at waves 1 and 6, and draftHitTest(1200,540) returns null. The right tile is still COMING SOON until the racial-a..d branches merge. So on this branch a seat-1 click at (1200,540) is one hidden stamp with no pick. The "pick plus stamp" form on the right tile only exists after the merge. The leak does not depend on the tile being live, because the plate is opaque (alpha 0.97) over its whole rect.
+2. **"A free quarry spark sends PICKUP_SPARK" is wrong.** pickSpark skips un-escrowed sparks inside the spawn disc (controls.ts:1672). PICKUP_SPARK under the panel is still reachable for escrowed sparks, and for sparks on panel ground outside the disc (x 681-835 and 1085-1240).
+3. **The leak predates this branch.** The overlay was added in S187 (c036152). This branch's diff does not touch controls.ts, and the PDR puts controls.ts in s188/racial-c's boundary (PDR:95 and :99). The sequencing advice is right.
+
+On the suggested fix:
+- **Placement is correct.** Pixi auto-enables sortableChildren when a zIndex child is added (sortMixin.mjs:14-18), so the zIndex-900 panel sits above the character card for both drawing and Pixi hit-testing. The draft guard therefore has to come before handleSheetActionClick, i.e. right after :988 as proposed. Otherwise a card button hidden under the panel would fire.
+- **The isOver rect is incomplete.** The panel also draws an opaque hover-detail plate outside the panel rect: `tipPlate.roundRect(PANEL_X, PANEL_Y+PANEL_H+6, PANEL_W, tip.height+16)` at alpha 0.95 (draftOverlay.ts:565-570). A plate-rect-only isOver would not cover it. It is nearly always transient, but the S182 rule is that every opaque fill is registered.
+- **The armed-arm check is redundant.** Once the onDown early return exists, adding the draft check to the armed-stamp arm changes nothing. It is harmless, and it gives the tripwire a string to find.
+- **The test should be a behaviour test, not only a source-text tripwire.** Controls turned out to be drivable headlessly, despite the s182UiSurfaceGuards.test.ts header saying the pointer path cannot run in the unit suite. A text guard proves a line exists, not that it is reached (CLAUDE.md lesson 2).
+
+The probe was run from scratchpad files only; the worktree is unmodified (git status is clean).
+
+VERIFIER EVIDENCE:
+- controls.ts:344 `canvas.addEventListener('pointerdown', this.onDown)`; controls.ts:350 `window.addEventListener('pointerup', this.onUp)`.
+- node_modules/pixi.js/lib/events/EventSystem.mjs:323-327 registers the capture listeners. `grep stopPropagation` in that file finds nothing.
+- controls.ts:988 `if (this.isPointerOverPanel()) return;` is the only surface early return before the world picks. The armed arm (:1025-1082) checks isPointerOverCard, isPointerOverFooterSurface and canStampAt only.
+- controls.ts:1385-1391 (potato) and :1476-1482 (PLACE_FROM_FREE) check panel, footer and card only. updateHoverCursor (:1313-1348) has no draft term.
+- draftEvent.ts:8-13: "BUILD runs underneath — the player keeps gathering and building while the panel is up".
+- draftOverlay.ts:349-351: visible=false, eventMode 'static', zIndex 900. :412-417 is the pointertap pick. :565-570 is the opaque tipPlate below the panel rect.
+- racialPerks.ts:86-104: every RACIAL_PERK_BUILT entry is false on this branch.
+- controls.ts:1672 skips in-disc un-escrowed sparks in pickSpark.
+- sortMixin.mjs:14-18: zIndex makes the parent sortable, so the panel is topmost.
+- Scratch vitest probe (real Controls, stub canvas `{addEventListener, getBoundingClientRect→0,0,1920,1080, style}` plus a window stub), run with a scratch config that merges vite.config.ts. Printed output:
+  - `layout PITCH_2P phase BUILD gameState PLAYING draft {openedAtTick:0, waveNumber:1}`
+  - `canBuildAt(720,540,p0) true` and `canBuildAt(1200,540,P1) true`
+  - `blueprints legal at (720,540) for p0: 18 / 19`
+  - `hit (720,540) general`; `hit (1200,540) dead null live racial`
+  - `STAMP under general tile: built=[{"id":"t3TowerVampires","centre":{"x":720,"y":540}}] armed after= null`
+  - `P1 STAMP under right tile: built=[{"id":"t3TowerVampires","centre":{"x":1200,"y":540}}]`
+  - `click (905,540) hit general dispatched ["SET_GATHERER_PREFERENCE"]`
+  - `draftOptionsFor` returns racial:null for all six races at waves 1 and 6.
+  - EXIT=0 for both probe files. The worktree's git status is clean afterwards.
+- git log: draftOverlay.ts was added in c036152 (S187). `git diff master...HEAD` touches draftOverlay.ts only, not controls.ts. PDR:99 lists `input/controls.ts` under s188/racial-c.
+
+FIX:
+Land this on the merged tree after s188/racial-c, since controls.ts is in its file boundary.
+
+1. **Add two predicates to DraftOverlay.**
+   - `isOver(x, y)`: returns `container.visible && (inside(PANEL rect) || (tipPlate is drawn && inside(tip rect)))`. Record the tip rect in render() when the tip plate is drawn. It sits at PANEL_X, PANEL_Y+PANEL_H+6, PANEL_W wide, tip.height+16 tall. This registers every opaque fill the overlay draws, not only the plate. Pin it against draftOverlay.test.ts's existing opaque-fill enumeration.
+   - `isOverChoosable(x, y)`: returns `container.visible && opts !== null && draftHitTest(x, y, opts) !== null`, for the cursor.
+
+2. **Wire it into Controls.**
+   - Add a structural `DraftPanelLike { isOver; isOverChoosable }`, a `setDraftPanel()` setter called from main.ts, and `private isPointerOverDraftPanel()`, with the same gameState==='PLAYING' shape as isPointerOverPanel.
+   - In onDown, add `if (this.isPointerOverDraftPanel()) return;` right after :988 and BEFORE handleSheetActionClick. The panel is zIndex 900, so it is drawn and Pixi-hit-tested above the character card, and a card button hidden under it must not fire. This one return covers LMB and RMB (raid), the armed stamp, the gatherer, bomb, rainbow, potato and spark picks, and the sheet. Pixi's pointertap still makes the pick.
+   - Add `!this.isPointerOverDraftPanel()` to the potato gate (:1385) and the PLACE_FROM_FREE gate (:1476). The armed-arm check becomes redundant but is harmless.
+   - In updateHoverCursor, OR in `this.draftPanel?.isOverChoosable(x, y)`. Use the choosable test, not isOver: the dead COMING SOON tile must not advertise a pointer.
+
+3. **Tests.**
+   - Extend s182UiSurfaceGuards.test.ts gates A-D with the new predicate.
+   - Add a behaviour test. Construct Controls headlessly with a stub canvas and a window stub, as the verifier's probe did. With the draft open and a tower armed, assert that a click at the general-tile centre and at the racial-tile centre builds nothing and dispatches nothing. Assert the same for a gatherer and a creature placed under the panel, for LMB and RMB. Do this because a source-text tripwire cannot prove the guard is reached.
+   - Run the stamp assertions with the racial tile dead (this branch) and live (post-merge registry).
+
+4. **Re-run the gates on the merged tree,** including e2e:gating. Any spec that clicks the board inside x 681-1240, y 405-675 (+ tip) during wave-1 BUILD without picking first will change behaviour and has to pick the draft first.

@@ -27,7 +27,6 @@ import {
   type StiffnessTier,
   type SparkType,
   PHASE_DURATION_TICKS,
-  CASTLE_MAX_HP,
 } from '../constants.ts';
 import { type GameEffect } from '../game/effects.ts';
 import { makePrimitiveFromSpark, type Primitive } from '../game/primitive.ts';
@@ -69,7 +68,7 @@ import type { Bomb } from './bomb.ts';
 import type { Creature, CreatureState, CreatureType } from './creatures/creature.ts';
 import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
-import { emptyCastleUpgrades } from './castleUpgrades.ts';
+import { castleMaxHpFor, emptyCastleUpgrades, type CastleUpgrades } from './castleUpgrades.ts';
 import { raStrikesFromWire } from './racial/powerOfRaRules.ts';
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
@@ -495,6 +494,12 @@ interface SerializedPlayer {
     readonly penLevel: number;
   };
   /**
+   * ⭐ S188 — ENDLESS DYNASTY's running castle-HP loss (`Player.dynastyHpLost`). Additive-optional and
+   * emitted only when non-zero, so every seat without `mummies.l5` costs no bytes and every pre-S188
+   * save loads. It rides the 49 → 50 bump the S188 substrate already took for the racial RULES.
+   */
+  dynastyHpLost?: number;
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -790,6 +795,8 @@ interface SerializedCreature {
    * Emitted only when true, so a world with no enraged Warlord stays byte-identical.
    */
   readonly enraged?: boolean;
+  /** S188 F3 — the ATTACKING cycle's latched rage (`Creature.attackCycleRaged`). Emitted only when true. */
+  readonly attackCycleRaged?: boolean;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -813,6 +820,20 @@ interface SerializedCreature {
    * fall through a switch — no `PROTOCOL_VERSION` bump.
    */
   readonly raRitualUntilTick?: number;
+  /**
+   * ⭐ S188 (`demons.l5`) — the HELLSPAWN generation (1 or 2). Additive-optional, emitted only when
+   * set. It must reach the joiner as well as the worker: the renderer DERIVES the split chewer's size
+   * from it. It rides the 49 → 50 bump the S188 substrate took for the racial RULES.
+   */
+  readonly hellspawnGen?: 1 | 2;
+  /**
+   * ⭐ S188 (CORPSE EATER, zombies level 5) — the zombie boss's feed deadline and its leash centre.
+   * Emitted only once stamped, so a board with no feeding boss is byte-identical. They ride the wire
+   * (the eat loop is derived from them per frame on both peers) and the worker mirror rebuilds from
+   * this shape, so omitting either would diverge the wide hash the moment a boss sat down to eat.
+   */
+  readonly corpseEaterUntilTick?: number;
+  readonly corpseEaterAnchor?: { x: number; y: number };
 }
 
 /**
@@ -1884,6 +1905,21 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   }
 
   for (const p of snap.players) {
+    // ⭐ S187 — absent means "bought nothing", the right reading for every pre-S187 save. Each
+    // number is coerced and floored rather than trusted: this crosses the wire, and a fractional
+    // or negative bonus would reach the castle ceiling and the damage divisor.
+    // ⛔ S188 P3 — HOISTED ABOVE THE LITERAL so `castleHp`'s absent-default can read the SAME row's
+    // ceiling. The serializer omits `castleHp` exactly when it equals `castleMaxHpFor(upgrades)`.
+    const castleUpgrades: CastleUpgrades =
+      p.castleUpgrades === undefined
+        ? emptyCastleUpgrades()
+        : {
+            hpLevel: Math.max(0, Math.trunc(p.castleUpgrades.hpLevel)),
+            hpBonus: Math.max(0, Math.trunc(p.castleUpgrades.hpBonus)),
+            atkLevel: Math.max(0, Math.trunc(p.castleUpgrades.atkLevel)),
+            defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
+            penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
+          };
     const base = {
       id: p.id,
       color: p.color,
@@ -1900,7 +1936,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // raid points on every snapshot apply, i.e. on every client frame and every host migration.
       // Precisely the defect S151 P2 shipped into the bond deserializer and caught only by audit.
       raidPoints: p.raidPoints ?? 0,
-      castleHp: p.castleHp ?? CASTLE_MAX_HP,
+      // ⛔ S188 P3 — absent means "at THIS seat's ceiling", the exact complement of the emit
+      // condition in `serializePlayer`. A flat `CASTLE_MAX_HP` here read a 2750 keep back as 2500.
+      castleHp: p.castleHp ?? castleMaxHpFor(castleUpgrades),
       // S164 P1 — absent means nobody bought it, i.e. level 0 / no regeneration.
       castleRegenLevel: p.castleRegenLevel ?? 0,
       // ⭐ S187 — rehydrate the drafted upgrades. Absent means "drafted nothing", which is the right
@@ -1910,19 +1948,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       draftPicks: (p.draftPicks ?? []).filter((d): d is DraftPick =>
         (DRAFT_PICKS as readonly string[]).includes(d),
       ),
-      // ⭐ S187 — absent means "bought nothing", the right reading for every pre-S187 save. Each
-      // number is coerced and floored rather than trusted: this crosses the wire, and a fractional
-      // or negative bonus would reach the castle ceiling and the damage divisor.
-      castleUpgrades:
-        p.castleUpgrades === undefined
-          ? emptyCastleUpgrades()
-          : {
-              hpLevel: Math.max(0, Math.trunc(p.castleUpgrades.hpLevel)),
-              hpBonus: Math.max(0, Math.trunc(p.castleUpgrades.hpBonus)),
-              atkLevel: Math.max(0, Math.trunc(p.castleUpgrades.atkLevel)),
-              defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
-              penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
-            },
+      // ⭐ S187 — validated above the literal (S188 P3), so the castleHp default shares it.
+      castleUpgrades,
+      // ⭐ S188 — READ FROM THE WIRE (the `raidPoints` rule above: a literal 0 here would restart every
+      // seat's count toward its next Pharaoh on every snapshot apply and every host migration).
+      // Coerced and floored because it crosses a trust boundary and feeds the spawn arithmetic.
+      dynastyHpLost: Math.max(0, Math.trunc(Number(p.dynastyHpLost ?? 0)) || 0),
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2116,7 +2147,18 @@ function serializePlayer(p: Player): SerializedPlayer {
     // S152 P1 — emit the raid wallet only when non-zero, so a board where nobody has raided stays
     // byte-identical to pre-S152 (the `damageFifths` / `carriedPotatoId` precedent above).
     ...(p.raidPoints > 0 ? { raidPoints: p.raidPoints } : {}),
-    ...(p.castleHp < CASTLE_MAX_HP ? { castleHp: p.castleHp } : {}),
+    /*
+     * ⛔ S188 P3 — "BELOW MAX" MEANS BELOW **THIS SEAT'S** MAX. This compared against the flat
+     * `CASTLE_MAX_HP`, which was the whole range `castleHp` could take until S187 let a keep BUY HP.
+     * A keep at 2750 / 2750, or healing through 2600 / 2750, was then NOT below 2500, so it was never
+     * emitted — and every peer rehydrated the absent value as 2500. A silent divergence on the number
+     * that ends the match: the S187 `maxEhp` bug class exactly ("when you widen the range a value can
+     * take, re-read every condition that gates on it").
+     *
+     * ⭐ STILL BYTE-IDENTICAL FOR EVERY UN-UPGRADED SEAT: `castleMaxHpFor(empty)` is `CASTLE_MAX_HP`.
+     * The rehydrate below defaults to the SAME per-seat number, read from the same snapshot row.
+     */
+    ...(p.castleHp < castleMaxHpFor(p.castleUpgrades) ? { castleHp: p.castleHp } : {}),
     // S164 P1 — emitted only when bought, so an un-upgraded board is byte-identical to v40.
     ...(p.castleRegenLevel > 0 ? { castleRegenLevel: p.castleRegenLevel } : {}),
     // ⭐ S187 — emitted only when the seat has drafted something, so an un-drafted seat stays
@@ -2131,6 +2173,9 @@ function serializePlayer(p: Player): SerializedPlayer {
     p.castleUpgrades.penLevel > 0
       ? { castleUpgrades: { ...p.castleUpgrades } }
       : {}),
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
+    // the perk held, so every other seat stays byte-identical to a v49 snapshot.
+    ...(p.dynastyHpLost > 0 ? { dynastyHpLost: p.dynastyHpLost } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
@@ -2235,10 +2280,17 @@ function serializeCreature(c: Creature): SerializedCreature {
     // stays byte-identical to every prior save.
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
+    ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
     ...(c.raRitualUntilTick !== undefined ? { raRitualUntilTick: c.raRitualUntilTick } : {}), // S171 R142
+    ...(c.hellspawnGen !== undefined ? { hellspawnGen: c.hellspawnGen } : {}), // S188 demons.l5
+    // ⭐ S188 CORPSE EATER — the feed deadline and its leash centre, emitted only once stamped.
+    ...(c.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: c.corpseEaterUntilTick } : {}),
+    ...(c.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 
@@ -2610,9 +2662,18 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // ⛔ S168 — the RAGE latch survives the round-trip. Absent means calm, which is the correct
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
+    ...(s.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142
+    // ⭐ S188 demons.l5 — validated, never trusted: only 1 and 2 are generations. Anything else off the
+    // wire is dropped, which reads as an ordinary chewer rather than inventing a third split.
+    ...(s.hellspawnGen === 1 || s.hellspawnGen === 2 ? { hellspawnGen: s.hellspawnGen } : {}),
+    // ⭐ S188 CORPSE EATER — copied, never aliased, so a restored world cannot share a Vec2 with its payload.
+    ...(s.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: s.corpseEaterUntilTick } : {}),
+    ...(s.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 

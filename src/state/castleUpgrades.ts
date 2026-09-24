@@ -242,5 +242,25 @@ export function applyUpgradeCastleStat(world: {
   const score = world.scoreByPlayer.get(action.playerId) ?? 0;
   if (score < CASTLE_UPGRADE_PRICE) return;
   spend(action.playerId, CASTLE_UPGRADE_PRICE);
-  buyer.castleUpgrades = withCastlePurchase(buyer.castleUpgrades, action.stat, world.waveNumber);
+  const before = buyer.castleUpgrades;
+  buyer.castleUpgrades = withCastlePurchase(before, action.stat, world.waveNumber);
+  /*
+   * ⭐⭐ S188 P3 — AN HP PURCHASE HEALS BY WHAT IT BUYS, NOT ONLY RAISES THE CEILING.
+   *
+   * > *"each a hundred victory points will upgrade the castle by … 250"* — owner (S187 table:
+   * > *"Each a hundred victory points. If it's in the first five waves then by 250 …"*)
+   *
+   * He is buying 250 HP, and a keep that paid for it must HAVE it. Raising only `hpBonus` moved the
+   * ceiling and left `castleHp` where it stood, so without regen the purchase changed nothing but
+   * the bar's max — 2500 / 2750, a keep no stronger than before it paid.
+   *
+   * ⚠ THE GAIN IS THE BAKED DELTA (`hpBonus` after − before), so it is the same number the ceiling
+   * rose by, read ONCE on the purchase wave. Capped at the new ceiling as a guard (it cannot exceed
+   * it: `castleHp ≤ old max`, and the ceiling rose by the same gain). ⛔ Never on a fallen keep —
+   * `castleHp <= 0` returned above (R131), so a purchase cannot revive an eliminated seat.
+   */
+  const gained = buyer.castleUpgrades.hpBonus - before.hpBonus;
+  if (gained > 0) {
+    buyer.castleHp = Math.min(castleMaxHpFor(buyer.castleUpgrades), buyer.castleHp + gained);
+  }
 }

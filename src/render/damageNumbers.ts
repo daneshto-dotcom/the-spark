@@ -63,7 +63,8 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 // state already held: per-type attack config, the shared fifths ladder, and the keep's pure
 // (seat, tick) firing schedule. No new wire field, no protocol bump.
 import { CASTLE_ATTACK_RANGE } from '../constants.ts';
-import { castleFiresOnTick, castleShotFifths } from '../state/castleGuns.ts';
+import { castleFiresOnTick } from '../state/castleGuns.ts';
+import { castleShotFifthsFor } from '../state/castleUpgrades.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
@@ -279,7 +280,9 @@ export function fatalBlowFifths(
     const dy = c.y - at.y;
     const r = CASTLE_ATTACK_RANGE + FATAL_REACH_SLACK;
     if (dx * dx + dy * dy > r * r) continue;
-    best = Math.max(best, castleShotFifths());
+    // ⭐ S188 P3 — THIS keep's shot, with its bought ATK / PEN: the number `castleGunsTick` deals
+    // (it reads `castleShotFifthsFor` too). The base `castleShotFifths()` printed 40 for a 48 kill.
+    best = Math.max(best, castleShotFifthsFor(p.castleUpgrades));
   }
 
   return best > 0 ? best : null;

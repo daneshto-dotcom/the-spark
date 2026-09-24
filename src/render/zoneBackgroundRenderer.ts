@@ -55,6 +55,7 @@ import {
 } from '../constants.ts';
 import { zoneOwner, type ZoneLayout } from '../state/zones.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
+import { seatHoldsPerk } from '../state/racialPerks.ts';
 
 /**
  * How strongly the backdrop shows through.
@@ -65,6 +66,27 @@ import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
  * board unmistakably a board. It is one constant and it is cheap to overrule on sight.
  */
 const ZONE_BG_ALPHA = 0.55;
+
+/**
+ * ⭐ S188 — SCORCHED GROUND (demons L0): *"burning hell"*. A seat holding it has its backdrop washed
+ * toward ember red, so the burning quarter reads as burning to everyone who can see the board.
+ *
+ * ⚠ DERIVED EVERY FRAME from `Player.draftPicks` (synced) — no wire field, no effect push, and the
+ * same tint on every peer. A multiply tint on the existing sprite rather than a new Graphics: this
+ * layer deliberately paints nothing opaque (see the constructor). ⚠ MINE, a placeholder look until
+ * he supplies art, and it shows only while backdrops are on — with them off the board is plain black.
+ */
+export const SCORCHED_ZONE_TINT = 0xff6a3a;
+
+/**
+ * PURE — the backdrop tint for a seat: ember while it holds SCORCHED GROUND and its castle stands,
+ * untinted otherwise (S188 F4 — a fallen seat's land has stopped burning, so it must stop LOOKING it).
+ */
+export function zoneBackdropTint(
+  player: Parameters<typeof seatHoldsPerk>[0] & { readonly castleHp: number },
+): number {
+  return player.castleHp > 0 && seatHoldsPerk(player, 'demons.l0') ? SCORCHED_ZONE_TINT : 0xffffff;
+}
 
 /**
  * S165 (owner) - THE QUARRY IS A PORTAL, NOT GROUND, SO NO RACE OWNS IT.
@@ -440,6 +462,7 @@ export class ZoneBackgroundRenderer {
         sp.texture = tex;
       }
 
+      sp.tint = zoneBackdropTint(player); // S188 — SCORCHED GROUND, derived each frame
       const r = zoneRect(zone, layout);
       /*
        * COVER, not stretch. The generated aspect never matches the zone exactly — 3:4 is the
