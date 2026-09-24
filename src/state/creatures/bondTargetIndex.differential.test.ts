@@ -37,7 +37,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { World } from '../world.ts';
 import type { Creature, CreatureType } from './creature.ts';
-import type { BondId, PrimitiveId } from '../../types.ts';
+import { asPrimitiveId, type BondId, type PrimitiveId } from '../../types.ts';
 
 type RealAI = typeof import('./creatureAI.ts');
 type RefAI = typeof import('./bondTargetReference.fixtures.ts');
@@ -347,67 +347,94 @@ describe(`S190 C5 — the bond-target index is byte-identical to the scan it rep
 
 /* ───────────────────────────── the small, exact cases ───────────────────────────── */
 
-describe('S190 C5 — the index agrees with the reference across every kind of change between two scans', () => {
-  it('sever, weld (strict and mixed), raze, a degenerate bond, a rainbow recolour and an exact tie — all agree', () => {
-    resetStats();
-    mode = 'checked';
-    inject = null;
-    const m = startC5Match(false);
-    const w = m.world;
-    // A real board: run the bots through two BUILDs so every seat has structures.
-    while (w.tick < fightStartTick(2) + 60) { m.bots.tick(w); runHostTick(w, m.deps, m.state); w.effects.length = 0; }
-    topUpCreatures(w, 24, DIFF_MIX);
-    const all = (): void => { for (const c of w.creatures.values()) compareAll(w, c); };
-    all();
-    // The scanning creature must belong to a seat that HAS shapes, or no mixed bond can exist for it.
-    const hasShapes = (c: Creature): boolean => [...w.primitives.values()].some((x) => x.placerColor === ownerColourOf(w, c));
-    const c0 = [...w.creatures.values()].find(hasShapes)!;
-    expect(c0, 'fixture: a creature whose seat has built something').toBeDefined();
+/** A real board: the bots through two BUILDs so every seat has structures, then 24 creatures. */
+function exactBoard(): World {
+  const m = startC5Match(false);
+  const w = m.world;
+  while (w.tick < fightStartTick(2) + 60) { m.bots.tick(w); runHostTick(w, m.deps, m.state); w.effects.length = 0; }
+  topUpCreatures(w, 24, DIFF_MIX);
+  return w;
+}
+/** The scanning creature must belong to a seat that HAS shapes, or no mixed bond can exist for it. */
+const hasShapes = (w: World, c: Creature): boolean =>
+  [...w.primitives.values()].some((x) => x.placerColor === ownerColourOf(w, c));
+const compareEvery = (w: World): void => { for (const c of w.creatures.values()) compareAll(w, c); };
+/** A new shape minted the way production mints one: from `world.nextPrimitiveId++`. */
+function mintShape(w: World, template: Primitive, x: number, y: number): Primitive {
+  const id = asPrimitiveId(w.nextPrimitiveId++);
+  const p = { ...template, id, pos: { x, y }, prevPos: { x, y }, bonds: new Set<BondId>() } as Primitive;
+  w.primitives.set(id, p);
+  return p;
+}
 
+/**
+ * Every kind of change between two scans, compared against the reference after each one. Run twice:
+ * OUTSIDE an epoch (every call builds a throwaway) and INSIDE one (the cache must follow every change
+ * through its fingerprint). ⚠ The rainbow step runs outside the epoch in BOTH runs — a `placerColor`
+ * rewrite is the one change the fingerprint deliberately cannot see, which is why
+ * `bondTargetIndex.guards.test.ts` pins the rainbow out of the creature loop.
+ */
+function smallExactSequence(inEpoch: boolean): void {
+  resetStats();
+  mode = 'checked';
+  inject = null;
+  const w = exactBoard();
+  const open = (): void => { if (inEpoch) H.real.openBondTargetEpoch(w); };
+  const close = (): void => { if (inEpoch) H.real.closeBondTargetEpoch(); };
+  const c0 = [...w.creatures.values()].find((c) => hasShapes(w, c))!;
+  expect(c0, 'fixture: a creature whose seat has built something').toBeDefined();
+  const own = ownerColourOf(w, c0);
+
+  open();
+  try {
+    compareEvery(w);
     // sever the bond the first creature wants
     const target = H.real.findNearestBondTarget(w, c0, false);
     expect(target, 'fixture: the board has bonds').not.toBeNull();
     razePrimitives(w, [], [target!], true);
-    all();
+    compareEvery(w);
     expect(H.real.findNearestBondTarget(w, c0, false)).not.toBe(target);
 
     // weld its two nearest enemy shapes: the new bond must be seen at once
-    const own = ownerColourOf(w, c0);
     const [p, q] = nearestPrims(w, c0, (x) => x.placerColor !== own, 2);
     expect(p !== undefined && q !== undefined, 'fixture: two enemy shapes').toBe(true);
     const welded = weld(w, p!, q!);
     expect(welded).not.toBeNull();
-    all();
+    compareEvery(w);
     // and a MIXED weld: enemy for Voltkin, not for an enemy-only scan
     const [mine] = nearestPrims(w, c0, (x) => x.placerColor === own, 1);
     expect(mine, 'fixture: an own shape').toBeDefined();
     const mixedId = weld(w, p!, mine!);
     expect(mixedId).not.toBeNull();
-    all();
+    compareEvery(w);
 
     // raze a whole primitive (it and every bond on it)
     razePrimitives(w, [q!.id]);
-    all();
+    compareEvery(w);
 
     // ⚠ a DEGENERATE bond — an endpoint missing from `world.primitives` while the bond survives. No
     // production path leaves one (`razePrimitives` takes the incident bonds with the shape), but the
     // scan has always classified it as OWN rather than crash, and the index must say the same.
-    if (mixedId !== null) {
-      const bond = w.bonds.get(mixedId)!;
-      const survivor = w.primitives.get(bond.aId)!;
-      w.primitives.delete(bond.aId);
-      all();
-      w.primitives.set(survivor.id, survivor);
-    }
+    const bond = w.bonds.get(mixedId!)!;
+    const survivor = w.primitives.get(bond.aId)!;
+    w.primitives.delete(bond.aId);
+    compareEvery(w);
+    w.primitives.set(survivor.id, survivor);
+    compareEvery(w);
+  } finally {
+    close();
+  }
 
-    // a rainbow recolour BETWEEN scans (never inside the creature loop — see the index docblock)
-    for (const pr of w.primitives.values()) if (pr.placerColor === own) pr.placerColor = PLAYER_COLORS[3]!;
-    all();
+  // a rainbow recolour BETWEEN scans — outside any epoch, as the guards require
+  for (const pr of w.primitives.values()) if (pr.placerColor === own) pr.placerColor = PLAYER_COLORS[3]!;
+  compareEvery(w);
 
+  open();
+  try {
     // an EXACT tie: two bonds whose midpoints are both exactly 50 px away (integer coordinates, so
     // the squared distances are bit-equal), re-inserted HIGH id first, so that if Map order decided
     // anything the higher id would win.
-    const four = nearestPrims(w, c0, (x) => x.placerColor !== own, 4);
+    const four = nearestPrims(w, c0, (x) => x.placerColor !== own && x.placerColor !== PLAYER_COLORS[3], 4);
     expect(four.length, 'fixture: four enemy shapes for the tie').toBe(4);
     const [e1, e2, e3, e4] = four as [Primitive, Primitive, Primitive, Primitive];
     w.bonds.clear();
@@ -423,10 +450,110 @@ describe('S190 C5 — the index agrees with the reference across every kind of c
     w.bonds.clear();
     w.bonds.set(second, b2);
     w.bonds.set(first, b1);
-    all();
+    compareEvery(w);
     expect(H.real.findNearestBondTarget(w, c0, false), 'the lower id wins an exact tie, whatever the Map order').toBe(first);
+  } finally {
+    close();
+  }
+  expect(stats.mismatches, firstMismatches.join('\n')).toBe(0);
+  expect(stats.compared).toBeGreaterThan(24 * 3 * 6);
+}
+
+describe('S190 C5 — the index agrees with the reference across every kind of change between two scans', () => {
+  it('sever, weld (strict and mixed), raze, a degenerate bond, a rainbow recolour and an exact tie — OUTSIDE an epoch', () => {
+    smallExactSequence(false);
+  }, 60_000);
+  it('the same sequence INSIDE an epoch — the cache follows every change (the rainbow step stays outside)', () => {
+    smallExactSequence(true);
+  }, 60_000);
+});
+
+/**
+ * ⭐ S190 audit PERF-1 — **THE ID COUNTERS ARE THE HALF OF THE FINGERPRINT THAT CATCHES A SWAP.**
+ *
+ * A removal and a birth with NO scan between them leave every SIZE where it was. Only the id counter
+ * moves, so these cases are built to leave exactly that one signal, and then every creature is
+ * compared against the reference. Mutation-checked when written: deleting the `nextBondId` conjunct
+ * from `bondTargetIndexFor` turns the bond case red, and deleting the `nextPrimitiveId` conjunct turns
+ * the degenerate shape case red (results in `S190_PROGRESS_perf.md`).
+ *
+ * ⚠ The LONE-shape swap cannot turn red under either mutation, and that is a fact about the index,
+ * not a gap in the test: a shape with no bonds is in no bucket, so replacing it changes no bond scan.
+ * The shape counter only matters when a BONDED shape leaves while its bonds stay — the degenerate
+ * state below, which no production path produces (`razePrimitives` takes the bonds with the shape).
+ * The primitive half of the fingerprint is defence in depth for that state.
+ */
+describe('S190 C5 — PERF-1: a swap that leaves every size unchanged is caught by the id counters', () => {
+  it('a BOND swap inside an epoch: raze one enemy bond, weld two enemy shapes, no scan between', () => {
+    resetStats();
+    mode = 'checked';
+    inject = null;
+    const w = exactBoard();
+    const c = [...w.creatures.values()].find((x) => hasShapes(w, x) && H.real.findNearestBondTarget(w, x, true) !== null)!;
+    expect(c, 'fixture: a creature with an enemy bond to aim at').toBeDefined();
+    const own = ownerColourOf(w, c);
+    H.real.openBondTargetEpoch(w);
+    try {
+      const target = H.real.findNearestBondTarget(w, c, true)!; // builds the cache
+      const sizes = [w.bonds.size, w.primitives.size, w.nextPrimitiveId];
+      const nextBondBefore = w.nextBondId;
+      razePrimitives(w, [], [target]); // razeOrphans=false: no shape leaves, only the bond
+      // Two enemy shapes near the creature that are not already welded to each other.
+      const near = nearestPrims(w, c, (x) => x.placerColor !== own, 10);
+      let welded: BondId | null = null;
+      for (let i = 0; i < near.length && welded === null; i++) {
+        for (let j = i + 1; j < near.length && welded === null; j++) welded = weld(w, near[i]!, near[j]!);
+      }
+      expect(welded, 'fixture: two enemy shapes to weld').not.toBeNull();
+      expect([w.bonds.size, w.primitives.size, w.nextPrimitiveId], 'every size where it was').toEqual(sizes);
+      expect(w.nextBondId, 'only the bond counter moved').toBe(nextBondBefore + 1);
+      compareEvery(w);
+      // Non-vacuous: the razed bond was this creature's pick, so a stale cache would still return it.
+      expect(H.ref.referenceFindNearestBondTarget(w, c, true)).not.toBe(target);
+    } finally {
+      H.real.closeBondTargetEpoch();
+    }
     expect(stats.mismatches, firstMismatches.join('\n')).toBe(0);
-    expect(stats.compared).toBeGreaterThan(24 * 3 * 6);
+  }, 60_000);
+
+  it('a SHAPE swap inside an epoch: a lone shape razed and one minted, then a bonded shape lost and one minted', () => {
+    resetStats();
+    mode = 'checked';
+    inject = null;
+    const w = exactBoard();
+    const template = w.primitives.values().next().value!;
+    const lone = mintShape(w, template, 30, 30); // a lone shape to swap, minted before the cache
+    const c = [...w.creatures.values()].find((x) => hasShapes(w, x) && H.real.findNearestBondTarget(w, x, false) !== null)!;
+    expect(c, 'fixture: a creature with a bond to aim at').toBeDefined();
+    H.real.openBondTargetEpoch(w);
+    try {
+      // (a) the literal swap: raze a lone shape, mint another — no bond scan can change.
+      compareEvery(w); // builds the cache
+      let sizes = [w.bonds.size, w.primitives.size, w.nextBondId];
+      razePrimitives(w, [lone.id]);
+      mintShape(w, template, 40, 40);
+      expect([w.bonds.size, w.primitives.size, w.nextBondId], 'every size where it was').toEqual(sizes);
+      compareEvery(w);
+
+      // (b) the degenerate swap: a BONDED endpoint of this creature's pick leaves while its bond stays,
+      //     and a lone shape is minted so `primitives.size` ends where it started. The pick's bond is
+      //     now degenerate (classified OWN); only `nextPrimitiveId` says anything changed.
+      const pick = H.real.findNearestBondTarget(w, c, false)!;
+      const pickBond = w.bonds.get(pick)!;
+      const pickIsEnemy = H.ref.referenceFindNearestBondTarget(w, c, false) === pick &&
+        (w.primitives.get(pickBond.aId)!.placerColor !== ownerColourOf(w, c) || w.primitives.get(pickBond.bId)!.placerColor !== ownerColourOf(w, c));
+      expect(pickIsEnemy, 'fixture: the pick is an ENEMY bond, so losing an endpoint moves it to own').toBe(true);
+      sizes = [w.bonds.size, w.primitives.size, w.nextBondId];
+      w.primitives.delete(pickBond.aId);
+      mintShape(w, template, 50, 50);
+      expect([w.bonds.size, w.primitives.size, w.nextBondId], 'every size where it was').toEqual(sizes);
+      compareEvery(w);
+      // Non-vacuous: the live answer moved off the degenerate bond, so a stale cache would disagree.
+      expect(H.ref.referenceFindNearestBondTarget(w, c, false)).not.toBe(pick);
+    } finally {
+      H.real.closeBondTargetEpoch();
+    }
+    expect(stats.mismatches, firstMismatches.join('\n')).toBe(0);
   }, 60_000);
 });
 

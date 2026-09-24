@@ -188,3 +188,26 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   `src/state/creatures/bondTargetIndex.differential.test.ts`,
   `src/state/creatures/bondTargetIndex.guards.test.ts`, this file, `S190_CANON_NOTES_perf.md`.
 - NOT touched: PROTOCOL_VERSION (stays 50 — no bump owed), SPARK_CANON.md, src/canon.test.ts.
+
+## Audit round (coordinator: no correctness defect, five LOW items; tests + docs only)
+### PERF-1 — the id-counter half of the fingerprint now has a test  ✅
+- `bondTargetIndex.differential.test.ts`: two new cases INSIDE `openBondTargetEpoch` / finally
+  `closeBondTargetEpoch`, each with NO scan between the removal and the birth, asserting every size is
+  unchanged and only the counter moved, then comparing every creature against the reference:
+  · BOND swap: raze the creature's enemy pick (razeOrphans=false, so no shape leaves) and weld two
+    enemy shapes → bonds.size unchanged, nextBondId +1.
+  · SHAPE swap: (a) raze a lone shape and mint one — as asked; (b) lose a BONDED endpoint of the
+    creature's enemy pick while its bond stays (degenerate) and mint a lone shape → primitives.size
+    unchanged, nextPrimitiveId +1, the pick moves to OWN.
+- The existing small exact sequence now runs twice: outside an epoch and INSIDE one (the rainbow
+  step kept outside, as the guards require).
+- MUTATION CHECK (production file restored byte-for-byte afterwards; `git diff` empty, 1268 CRLF):
+  · `nextBondId` conjunct deleted → BOND swap **RED** (EXIT=1), shape swap green.
+  · `nextPrimitiveId` conjunct deleted → SHAPE swap **RED** (EXIT=1: `raceUnit structureTargets
+    index bondId 5 / reference bondId 131`), bond swap green.
+  · ⚠ My first attempt at the second mutant did NOT apply (the needle expected a trailing `&&`; it is
+    the last conjunct), so that run's green was no verdict — caught from the Python assert, re-run
+    with the right needle.
+  · Stated plainly: the LONE-shape swap (a) cannot go red under either mutant — a bond-less shape is
+    in no bucket, so no bond scan changes. The shape counter only matters in the degenerate state (b),
+    which no production path produces; it is defence in depth.
