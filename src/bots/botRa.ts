@@ -20,8 +20,13 @@
  * enemy creatures and connectors its FIVE columns would actually land on — the reducer's own aim
  * normalisation (`raAimPoint`) and the sim's own landing function (`raStrikeColumnPos`, with the
  * charge index the cast will get), so the bot scores the strike it will really make. Best score
- * wins; ties go to the aim nearer the bot's own castle (defend first), then to the candidate order,
- * which is creature ids ascending, then bond ids ascending.
+ * wins; ties go to the aim nearer the bot's own castle (defend first), then to the candidate order.
+ *
+ * ⭐ S190 (audit WRATH-L1-06) — THE CANDIDATES ARE THE ENEMIES NEAREST THE BOT'S OWN CASTLE, not the
+ * oldest. They were creature ids ascending, sliced at `BOT_RA_MAX_CANDIDATES` — and ids only grow, so
+ * on a crowded late board the wave actually marching on the bot was never an aim point. Each family
+ * is now ordered by squared distance to the castle anchor, then by id (a total order), before the
+ * slice; every enemy still COUNTS as a hit wherever it stands.
  *
  * ⚠ ALL MINE, NONE THE OWNER'S: when it casts (a cluster worth ≥ `BOT_RA_MIN_HITS`, or anything
  * at all once the fight is nearly over), how often it looks (`BOT_RA_EVAL_EVERY_TICKS`, phase-spread
@@ -44,6 +49,8 @@ export const BOT_RA_MIN_HITS = 3;
 export const BOT_RA_MAX_CANDIDATES = 64;
 
 interface Target {
+  /** The creature's or bond's id — the tie-break that makes the candidate order total. */
+  readonly id: number;
   readonly x: number;
   readonly y: number;
 }
@@ -65,20 +72,24 @@ export function botRaAction(world: World, seat: PlayerId): GameAction | null {
   const creatures: Target[] = [...world.creatures.values()]
     .filter((c) => c.ownerPlayerId !== seat)
     .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number))
-    .map((c) => ({ x: c.pos.x, y: c.pos.y }));
+    .map((c) => ({ id: c.id as unknown as number, x: c.pos.x, y: c.pos.y }));
   const bonds: Target[] = [...world.bonds.values()]
     .filter((b) => world.primitives.get(b.aId)?.placedBy !== seat && world.primitives.get(b.bId)?.placedBy !== seat)
     .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number))
-    .map((b) => ({ x: (b.a.pos.x + b.b.pos.x) / 2, y: (b.a.pos.y + b.b.pos.y) / 2 }));
+    .map((b) => ({ id: b.id as unknown as number, x: (b.a.pos.x + b.b.pos.x) / 2, y: (b.a.pos.y + b.b.pos.y) / 2 }));
   const targets = [...creatures, ...bonds];
   if (targets.length === 0) return null;
+  const home = castleAnchor(s, world.layout);
+  // S190 L1-06 — nearest the castle first, then id: a total order, so the slice is deterministic.
+  const d2Home = (t: Target): number => (t.x - home.x) ** 2 + (t.y - home.y) ** 2;
+  const nearestFirst = (list: readonly Target[]): Target[] =>
+    [...list].sort((a, b) => d2Home(a) - d2Home(b) || a.id - b.id);
   const candidates = [
-    ...creatures.slice(0, BOT_RA_MAX_CANDIDATES),
-    ...bonds.slice(0, BOT_RA_MAX_CANDIDATES),
+    ...nearestFirst(creatures).slice(0, BOT_RA_MAX_CANDIDATES),
+    ...nearestFirst(bonds).slice(0, BOT_RA_MAX_CANDIDATES),
   ];
 
   const charge = raCastsInWave(me, world.waveNumber);
-  const home = castleAnchor(s, world.layout);
   const r2 = RA_COLUMN_RADIUS * RA_COLUMN_RADIUS;
   let best: { aim: { x: number; y: number }; hits: number; d2: number } | null = null;
   for (const c of candidates) {

@@ -17,7 +17,8 @@ import { makeGameStateExtras } from '../state/gameState.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { hashWorldStateFull } from '../state/stateHashFull.ts';
 import { BotManager } from './botManager.ts';
-import { botRaAction, BOT_RA_EVAL_EVERY_TICKS } from './botRa.ts';
+import { botRaAction, BOT_RA_EVAL_EVERY_TICKS, BOT_RA_MAX_CANDIDATES } from './botRa.ts';
+import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { DraftPick } from '../state/draft.ts';
 
 const HUMAN = asPlayerId(0); // orcs
@@ -155,5 +156,53 @@ describe('S188 audit F2 — a bot mummy casts POWER OF RA in a real bots match',
     const a = once();
     expect(a.strikes).not.toBe('[]');
     expect(once()).toEqual(a);
+  });
+});
+
+/*
+ * ⭐ S190 (audit WRATH-L1-06) — THE CANDIDATE CAP MUST NOT EXCLUDE THE WAVE THAT IS ATTACKING.
+ * Candidates were the 64 OLDEST enemy creatures (ids ascending), so on a crowded late board the
+ * newest units — the ones marching on the bot — were never an aim point.
+ */
+describe('S190 L1-06 — on a crowded board the bot still aims at the newest cluster at its gate', () => {
+  it('⭐ 66 older lone enemies far away + a NEWER cluster near its castle → it strikes the cluster', () => {
+    const { w, d } = match(['racial']);
+    const home = castleAnchor(BOT as unknown as number, w.layout);
+    // The cluster: 8 units stacked beside the bot's castle, spawned LAST (the highest ids).
+    const near = { x: home.x + (home.x < 960 ? 160 : -160), y: home.y };
+    // The old ones: a 145 px grid (a 70 px-radius column can hold at most one), none nearer the
+    // castle than the cluster and none a column's reach (150 + 70) from it, spawned FIRST.
+    const spots = new Map<CreatureId, { x: number; y: number }>();
+    const far: { x: number; y: number }[] = [];
+    for (let y = 40; y <= 980 && far.length < 66; y += 145) {
+      for (let x = 40; x <= 1880 && far.length < 66; x += 145) {
+        if (Math.hypot(x - home.x, y - home.y) < 350 || Math.hypot(x - near.x, y - near.y) < 350) continue;
+        far.push({ x, y });
+      }
+    }
+    expect(far, 'anti-vacuity: enough old enemies to overflow the cap').toHaveLength(66);
+    for (const p of far) spots.set(enemy(w, p.x, p.y), p);
+    const clusterIds: CreatureId[] = [];
+    for (let i = 0; i < 8; i++) {
+      const p = { x: near.x + (i % 4) * 4, y: near.y + Math.floor(i / 4) * 4 };
+      const id = enemy(w, p.x, p.y);
+      clusterIds.push(id);
+      spots.set(id, p);
+    }
+    expect(spots.size, 'anti-vacuity: more enemies than the candidate cap').toBeGreaterThan(BOT_RA_MAX_CANDIDATES);
+    const oldest = [...spots.keys()].sort((a, b) => Number(a) - Number(b)).slice(0, BOT_RA_MAX_CANDIDATES);
+    expect(clusterIds.some((id) => oldest.includes(id)), 'the cluster is NOT among the 64 oldest').toBe(false);
+
+    const s = makeHostTickState(w);
+    for (let t = 0; t < BOT_RA_EVAL_EVERY_TICKS * 3; t++) {
+      for (const [id, p] of spots) {
+        const c = w.creatures.get(id);
+        if (c !== undefined) { c.pos = { ...p }; c.prevPos = { ...p }; c.targetPos = { ...p }; }
+      }
+      runHostTick(w, d, s);
+    }
+    const strikes = w.players.get(BOT)!.raStrikes;
+    expect(strikes, 'the bot called Ra').toHaveLength(1);
+    expect(Math.hypot(strikes[0]!.x - near.x, strikes[0]!.y - near.y), 'aimed at the new cluster').toBeLessThanOrEqual(20);
   });
 });

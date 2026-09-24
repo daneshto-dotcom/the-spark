@@ -95,3 +95,10 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   a never-applied cast expires at 91 ticks. MUTATION: removing `noteRaCastSent` → 3 red. The first
   cut leaked a record from one test's World into the next (`controls.draftPanel.test.ts` went 19 red)
   — hence the World key.
+- [x] WRATH-L1-06 — `src/bots/botRa.ts`: each candidate family is ordered by squared distance to the
+  bot's castle anchor, then id (total order), BEFORE the `BOT_RA_MAX_CANDIDATES` slice (was: ids
+  ascending = the 64 oldest). Every enemy still counts as a hit. Test (`botRa.test.ts` S190 L1-06,
+  through runHostTick + a real BotManager): 66 older lone enemies on a 145 px grid far away + 8 newer
+  stacked beside the castle (not among the 64 oldest — asserted) → the strike lands on the cluster.
+  MUTATION (restored): ordering by id first → red (aimed 355 px away). The census note (L1-05) is the
+  merge owner's — the scan form is unchanged.
