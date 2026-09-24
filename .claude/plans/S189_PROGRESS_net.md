@@ -1,9 +1,21 @@
-**STATUS: COMPLETE — awaiting the merge owner's audit (train D)**
+**STATUS: IN-PROGRESS — audit fix round (7 items)**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
 Branch `s189/net`, based at `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Commits are LOCAL, never pushed.
 The merge owner resumes from this file if this agent is cut off.
+
+## FIX ROUND (audit wf_6bc5b278, S190)
+
+- **FR-2 (audit NET-2) — snapshot gate per PEER, not per strategy.** `transport.ts`: one slot
+  `{inFlight, pending}` per peer on each strategy (`snapSlots`), each snapshot sent with
+  `action.send(serialized, { target: peerId })`; a departed peer's slot is dropped in `onPeerLeave`, and a
+  waiting snapshot only goes to a peer still in the live handle. Failing test first
+  (`snapshotBackpressure.test.ts` "PER PEER", harness now multi-peer): a 20 Mbit/s peer beside a stalled one
+  got **3/100** snapshots → after: **100/100**. Mutation: dropping `{ target: peerId }` → red (5/100). A first
+  mutation (gate on "any slot in flight") stayed GREEN — an equivalent mutant, since each slot's own `finally`
+  still drains it; recorded, not counted. `npx vitest run src/net/` EXIT=0 (36 files / 555 + 3 skipped).
+  Protocol: none — the same bytes to the same peers; only the send grouping changed.
 
 ## Steps
 

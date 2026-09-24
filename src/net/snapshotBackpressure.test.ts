@@ -102,8 +102,10 @@ class SimChannel {
  */
 const link = vi.hoisted(() => ({
   bytesPerSec: 0,
+  /** ⭐ S189 fix round — per-peer uplink rates (bytes/s; 0 = a channel that never drains). Default: one 'client'. */
+  peerRates: null as Record<string, number> | null,
   propagationMs: 30,
-  received: [] as Array<{ kind: string; seq: number | null; atMs: number }>,
+  received: [] as Array<{ kind: string; seq: number | null; atMs: number; peer: string }>,
   channel: null as unknown,
   room: null as unknown,
   stop: [] as Array<() => void>,
@@ -124,26 +126,30 @@ vi.mock('@trystero-p2p/nostr', async () => {
     selfId: 'host-self',
     getRelaySockets: () => ({}),
     joinRoom: () => {
-      // The CLIENT end: Trystero's own reassembly, recording every COMPLETE message it hands up.
-      const clientWire = aw.createActionWireManager({
-        getPeer: () => undefined,
-        getPeerIds: () => [],
-        canReceiveFromPeer: () => true,
-        throwIfAborted: () => undefined,
-      });
-      clientWire.makeInternalAction('msg').onMessage((payload) => {
-        const m = JSON.parse(payload as string) as { kind: string; snapshotSeq?: number };
-        link.received.push({ kind: m.kind, seq: m.snapshotSeq ?? null, atMs: Date.now() });
-      });
-      const channel = new SimChannel(link.bytesPerSec, (c) => {
-        setTimeout(() => clientWire.handleData('host-self', c.slice().buffer as ArrayBuffer), link.propagationMs);
-      });
-      link.channel = channel;
-      link.stop.push(() => channel.stop());
-      const peer = { channel, sendData: (c: Chunk) => channel.send(c) };
+      const rates = link.peerRates ?? { client: link.bytesPerSec };
+      const peers = new Map<string, { channel: SimChannel; sendData(c: Chunk): void }>();
+      for (const [peerId, rate] of Object.entries(rates)) {
+        // Each CLIENT end: Trystero's own reassembly, recording every COMPLETE message it hands up.
+        const clientWire = aw.createActionWireManager({
+          getPeer: () => undefined,
+          getPeerIds: () => [],
+          canReceiveFromPeer: () => true,
+          throwIfAborted: () => undefined,
+        });
+        clientWire.makeInternalAction('msg').onMessage((payload) => {
+          const m = JSON.parse(payload as string) as { kind: string; snapshotSeq?: number };
+          link.received.push({ kind: m.kind, seq: m.snapshotSeq ?? null, atMs: Date.now(), peer: peerId });
+        });
+        const channel = new SimChannel(rate, (c) => {
+          setTimeout(() => clientWire.handleData('host-self', c.slice().buffer as ArrayBuffer), link.propagationMs);
+        });
+        if (link.channel === null) link.channel = channel;
+        link.stop.push(() => channel.stop());
+        peers.set(peerId, { channel, sendData: (c: Chunk) => channel.send(c) });
+      }
       const hostWire = aw.createActionWireManager({
-        getPeer: (id) => (id === 'client' ? peer : undefined),
-        getPeerIds: () => ['client'],
+        getPeer: (id) => peers.get(id),
+        getPeerIds: () => [...peers.keys()],
         canReceiveFromPeer: () => true,
         throwIfAborted: () => undefined,
       });
@@ -198,15 +204,30 @@ interface Run {
 }
 
 /** The host's 10 Hz snapshot loop, for `seconds`, over a link of `mbit` Mbit/s, through a real NetTransport. */
-async function runLink(opts: { mbit: number; kib: number; seconds: number; raw?: boolean }): Promise<Run> {
+async function runLink(opts: {
+  mbit: number;
+  kib: number;
+  seconds: number;
+  raw?: boolean;
+  /** ⭐ S189 fix round — several peers at their own rates (Mbit/s); `delivered` is then for `measure`. */
+  peersMbit?: Record<string, number>;
+  measure?: string;
+}): Promise<Run> {
   vi.useFakeTimers();
   link.bytesPerSec = (opts.mbit * 1e6) / 8;
+  link.peerRates =
+    opts.peersMbit === undefined
+      ? null
+      : Object.fromEntries(Object.entries(opts.peersMbit).map(([k, v]) => [k, (v * 1e6) / 8]));
+  link.channel = null;
   link.received.length = 0;
   const t = new NetTransport();
   t.connect('ROOMAA');
-  // Let the (mocked, rejecting) torrent chunk load settle, then the client arrives.
+  // Let the (mocked, rejecting) torrent chunk load settle, then the client(s) arrive.
   await vi.advanceTimersByTimeAsync(10);
-  (link.room as { onPeerJoin: (id: string) => void }).onPeerJoin('client');
+  for (const id of Object.keys(opts.peersMbit ?? { client: 0 })) {
+    (link.room as { onPeerJoin: (id: string) => void }).onPeerJoin(id);
+  }
   const sentAt = new Map<number, number>();
   const intervalMs = 1000 / NET_SNAPSHOT_HZ;
   const t0 = Date.now();
@@ -225,8 +246,9 @@ async function runLink(opts: { mbit: number; kib: number; seconds: number; raw?:
   }
   // Drain: stop sending, give the link time to finish what is in flight.
   await vi.advanceTimersByTimeAsync(2000);
+  const measured = opts.measure ?? 'client';
   const delivered = link.received
-    .filter((r) => r.kind === 'NETSNAPSHOT' && r.seq !== null)
+    .filter((r) => r.kind === 'NETSNAPSHOT' && r.seq !== null && r.peer === measured)
     .map((r) => ({ seq: r.seq!, atMs: r.atMs, latencyMs: r.atMs - sentAt.get(r.seq!)! }));
   let maxGapMs = 0;
   let prev = t0;
@@ -293,6 +315,18 @@ describe('S189 C5 — the host snapshot stream over a link that cannot carry it'
     expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
     // The channel's own buffer stays at ~one snapshot, not tens of MiB.
     expect(r.maxBuffered).toBeLessThan(512 * 1024);
+  }, 60_000);
+
+  it('⛔ PER PEER: one STALLED peer (a dying channel) does not hold back the healthy peer — it still gets ~10 Hz', async () => {
+    /*
+     * S189 fix round (audit NET-2). The first cut gated per STRATEGY, and Trystero's `action.send`
+     * resolves only when EVERY target has drained — so in a 3-4 seat match the slowest (or a dying,
+     * still-'open') channel set the snapshot rate for everyone. Gated per peer, each sends on its own.
+     */
+    const r = await runLink({ mbit: 0, kib: 60, seconds: 10, peersMbit: { fast: 20, stalled: 0 }, measure: 'fast' });
+    console.log(`[S189 NET-2] fast peer: ${r.delivered.length} of ${r.sends} snapshots with a stalled sibling`);
+    expect(r.delivered.length, 'the healthy peer must not inherit the stalled peer\'s rate').toBeGreaterThan(r.sends * 0.85);
+    expect(r.maxGapMs).toBeLessThan(500);
   }, 60_000);
 
   it('NEGATIVE: a link that KEEPS UP (20 Mbit/s) skips nothing — every snapshot arrives', async () => {

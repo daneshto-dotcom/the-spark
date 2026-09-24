@@ -184,13 +184,12 @@ interface StrategyHandle {
   icePollTimer: ReturnType<typeof setInterval> | null;
   icePollStartMs: number;
   /**
-   * ⭐ S189 — snapshot backpressure, per strategy: is a NETSNAPSHOT still being handed to Trystero,
-   * and the newest one waiting behind it. OPTIONAL so a handle built without them (tests inject
-   * handles directly) reads as "idle, nothing waiting". See `sendSnapshotOn`.
+   * ⭐ S189 — snapshot backpressure, PER PEER on this strategy: is a NETSNAPSHOT still being handed to
+   * Trystero for that peer, and the newest one waiting behind it. OPTIONAL so a handle built without
+   * it (tests inject handles directly) reads as "idle, nothing waiting". See `sendSnapshotOn`.
    */
-  snapInFlight?: boolean;
-  snapPending?: string | null;
-  /** Snapshots superseded before they were sent — the count a starved uplink shows up as. */
+  snapSlots?: Map<string, { inFlight: boolean; pending: string | null }>;
+  /** Snapshots superseded before they were sent, summed over peers — how a starved uplink shows up. */
   snapSkipped?: number;
 }
 
@@ -598,6 +597,7 @@ export class NetTransport {
         console.info(`[net] ${name} onPeerLeave: ${peerId}`);
         this.logPeerDrop(name, peerId);
         handle.peers.delete(peerId);
+        handle.snapSlots?.delete(peerId); // ⭐ S189 — its snapshot slot goes with it
         // Only fire leave when ALL strategies have lost this peer.
         const stillSeenElsewhere = Array.from(this.strategies.values()).some(
           (s) => s.peers.has(peerId),
@@ -851,7 +851,7 @@ export class NetTransport {
    * (`snapshotBackpressure.test.ts`): 5 Mbit/s → 40–47 s latency and 8–10 s gaps between whole
    * snapshots, past `HOST_STARVATION_MS`.
    *
-   * ⭐ LATEST WINS. At most ONE snapshot in flight per strategy, and at most one waiting — the newest.
+   * ⭐ LATEST WINS. At most ONE snapshot in flight per PEER, and at most one waiting — the newest.
    * A snapshot is the WHOLE world (no deltas), so a superseded one carries nothing the next does not;
    * the client's seq gate already treats a gap as normal. On a link that keeps up nothing is ever
    * skipped (the in-flight send finishes inside the 100 ms cadence); on one that cannot, the rate falls
@@ -860,22 +860,35 @@ export class NetTransport {
    * ⚠ "In flight" is Trystero's promise: it resolves once the last chunk is handed to the channel,
    * which its own wait keeps within ~64 KiB of the wire. Control traffic (HELLO, INTENT, LOBBY_*,
    * MIGRATION_CLAIM …) never enters this gate — it is small, rare, and must never be dropped.
+   *
+   * ⛔ S189 fix round (audit NET-2) — PER PEER, NOT PER STRATEGY. Trystero's `action.send` to several
+   * targets resolves only when EVERY target has drained, and a dying channel stays 'open' for ~5-10 s
+   * (ICE disconnected + Trystero's 5 s close delay). Gated per strategy, one slow or dying client set
+   * the snapshot rate for every client in a 3-4 seat match — reproduced: a healthy peer beside a stalled
+   * one received 3 of 100 snapshots. Each peer now has its own slot and its own targeted send
+   * (`{ target: peerId }`, Trystero 0.25). Wire cost is unchanged: Trystero already sent per peer.
    */
   private sendSnapshotOn(handle: StrategyHandle, serialized: string): void {
-    if (handle.snapInFlight === true) {
-      if ((handle.snapPending ?? null) !== null) handle.snapSkipped = (handle.snapSkipped ?? 0) + 1;
-      handle.snapPending = serialized;
-      return;
+    for (const peerId of handle.peers) {
+      const slots = (handle.snapSlots ??= new Map());
+      let slot = slots.get(peerId);
+      if (slot === undefined) slots.set(peerId, (slot = { inFlight: false, pending: null }));
+      if (slot.inFlight) {
+        if (slot.pending !== null) handle.snapSkipped = (handle.snapSkipped ?? 0) + 1;
+        slot.pending = serialized;
+        continue;
+      }
+      this.transmitSnapshot(handle, peerId, serialized);
     }
-    this.transmitSnapshot(handle, serialized);
   }
 
-  private transmitSnapshot(handle: StrategyHandle, serialized: string): void {
+  private transmitSnapshot(handle: StrategyHandle, peerId: string, serialized: string): void {
     const action = handle.action;
-    if (action === null) return;
-    handle.snapInFlight = true;
+    const slot = handle.snapSlots?.get(peerId);
+    if (action === null || slot === undefined) return;
+    slot.inFlight = true;
     const now = performance.now();
-    if (netStats.isEnabled()) netStats.recordSend(handle.name, serialized.length, handle.peers.size, now);
+    if (netStats.isEnabled()) netStats.recordSend(handle.name, serialized.length, 1, now);
     // Once per snapshot, however many strategies carry it (the S182 `snap tx` contract).
     if (netStats.isEnabled() && serialized !== this.lastEnvelopeCounted) {
       this.lastEnvelopeCounted = serialized;
@@ -883,20 +896,26 @@ export class NetTransport {
     }
     let sent: Promise<unknown>;
     try {
-      sent = Promise.resolve(action.send(serialized));
+      sent = Promise.resolve(action.send(serialized, { target: peerId }));
     } catch (err) {
       sent = Promise.reject(err);
     }
     sent
       .catch((err: unknown) => this.onSendFailed(handle, err))
       .finally(() => {
-        handle.snapInFlight = false;
-        const next = handle.snapPending ?? null;
-        handle.snapPending = null;
-        // Only on the handle that is still live: a disconnect or a reconnect replaces handles, and a
-        // snapshot for a room we have left must go nowhere.
-        if (next !== null && this.connected && this.strategies.get(handle.name) === handle) {
-          this.transmitSnapshot(handle, next);
+        slot.inFlight = false;
+        const next = slot.pending;
+        slot.pending = null;
+        // Only on the handle that is still live, to a peer still in it: a disconnect or a reconnect
+        // replaces handles, a departed peer's slot is dropped — and a snapshot for either goes nowhere.
+        if (
+          next !== null &&
+          this.connected &&
+          this.strategies.get(handle.name) === handle &&
+          handle.peers.has(peerId) &&
+          handle.snapSlots?.get(peerId) === slot
+        ) {
+          this.transmitSnapshot(handle, peerId, next);
         }
       });
   }
