@@ -215,6 +215,23 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
 - **TRAIN A = s188/input-layer + s188/ra-vfx → deploy #3** once both fix-round audits are clean. No bump (neither
   touches the wire).
 
+- **P10 canon PHASE 2 DONE (s188/canon, 7 commits to ac9bf69)** — master merged (no conflicts), 36 claims checked
+  vs master (3 wrong: Ra aim is REFUSED off-canvas not clamped; ATK/PEN picks buy nothing live; Scorched burn
+  time rounds), 6 deploy-#2 facts added, goblin-ceiling warning restored, session readings flagged MINE; +17 canon
+  tests (56 in canon.test.ts), gates 0/0. Four tests are RED BY DESIGN when trains land (a new L10 perk; a caller
+  of `draftedAttackFifths`; `attackCycleRaged` entering the 50 docblock; units' regen change) — each train fixes
+  the canon in the same commit. ⛔ **MERGE-OWNER DECISION: canon rides TRAIN A, not E** — its tripwires make "the
+  canon describes the merged tree" enforced per train instead of hoped-for at the end, and the live canon's stale
+  §3d stops misleading sessions four deploys sooner. Under a one-lens audit (run `wf_1460d7a5-967`).
+- **Merge-owner items for train A (docs-only, one commit after the merges):** add `Creature.attackCycleRaged` to
+  the PROTOCOL 50 docblock in `protocol.ts` (a comment — it rides 50, additive-optional; canon §6 text in the SAME
+  commit, since its tripwire fires); project CLAUDE.md bundle-cap line (1000 → 1100 KiB, measured) and protocol
+  line (46 → "read the constant", 50 today).
+- **OWNER QUESTION (CANON-10, recorded open):** deploy #1 (5c6615f) and deploy #2 (15035b9) both advertise 50, but
+  #2 changed four host-side sim rules (lifesteal batch-sum, rage latch, fallen demon seat, corpse-eater re-anchor).
+  Clients do not run those rules, so the exposure is a stale-tab HOST or a host-migration successor on #1. Train
+  B's 50 → 51 closes the window by refusing both old builds; no separate action proposed.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
