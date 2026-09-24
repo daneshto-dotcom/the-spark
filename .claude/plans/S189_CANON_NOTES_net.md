@@ -53,3 +53,17 @@ creatures) … 84.0 KiB … 6.88 Mbit/s"*.
   (a split-brain, since the real host has no partition evidence and refuses the claim) — it does
   NOT by itself show the CONNECTION LOST overlay, which needs a transport-level peer loss
   (`main.ts:3636-3643`: `peerCount() === 0 || hostLost`).
+
+## §9 / reconnect — the S82 auto-reconnect, as it is after S189 (C4)
+
+- `src/net/reconnectPolicy.ts`: `RECONNECT_GRACE_MS` 15 000 (unchanged) · `RECONNECT_FIRST_RETRY_DELAY_MS`
+  1 000 (unchanged) · **`RECONNECT_RETRY_MS` = `JOIN_STALL_WARN_MS` = 8 000** (was 4 000, below a measured
+  6.3 s fresh join). The loop keeps retrying past the grace, behind the terminal overlay, until a peer
+  returns (the overlay clears itself) or the player returns to title.
+- `NetTransport.connect()` never joins a room code whose previous `leave()` is still in flight (waits up to
+  `PENDING_LEAVE_CAP_MS` 2 000), a room is left once, and a still-leaving room is never adopted — because
+  Trystero's `joinRoom` returns the room still registered under that id.
+- A migration CLAIM needs a survivor other than the lost host (`hasSurvivorToHostFor`): **in a 1v1 the
+  survivor never claims the host seat**; it reconnects. 3+-seat migration is unchanged.
+- Suggested assertions: pin the three constants to `reconnectPolicy.ts`, and `RECONNECT_RETRY_MS > 6300`
+  (the measured fresh join) — `reconnectPolicy.test.ts` already asserts the latter.

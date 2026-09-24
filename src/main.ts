@@ -65,6 +65,14 @@ import { Controls, type ControlsDispatchFn } from './input/controls.ts';
 import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
+// ⭐ S189 (C4) — the reconnect schedule + the lone-survivor claim gate (see reconnectPolicy.ts).
+import {
+  hasSurvivorToHostFor,
+  reconnectRetryDue,
+  RECONNECT_FIRST_RETRY_DELAY_MS,
+  RECONNECT_GRACE_MS,
+  RECONNECT_RETRY_MS,
+} from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
 import {
@@ -2457,9 +2465,8 @@ Network routes: ${v.detail}`;
   // (the common case) recovers almost immediately; subsequent retries pace at RETRY_MS.
   let reconnectUntilMs = 0;
   let reconnectNextRetryMs = 0;
-  const RECONNECT_GRACE_MS = 15_000;
-  const RECONNECT_RETRY_MS = 4_000;
-  const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
+  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (was 4 s, now JOIN_STALL_WARN_MS = 8 s)
+  // and RECONNECT_FIRST_RETRY_DELAY_MS (1 s) moved to `net/reconnectPolicy.ts`, imported above.
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. The host
   // triggers via the same post-drain ARC_FLASH scan since S119 (its twin cursor below);
   // client peer must mirror that feedback or 1v1 plays as visually & kinesthe-
@@ -3398,7 +3405,10 @@ Network routes: ${v.detail}`;
           );
           if (
             ladderDelayMs !== null &&
-            nowMigMs - migrationLossObservedAtMs >= graceMs + ladderDelayMs
+            nowMigMs - migrationLossObservedAtMs >= graceMs + ladderDelayMs &&
+            // ⛔ S189 (C4) — only with a SURVIVOR to host for. A lone client that claims hosts an empty
+            // match and, being a host, stops reconnecting: the reproduction ended exactly there.
+            hasSurvivorToHostFor(alivePeers, session.hostPeerId)
           ) {
             {
               const newEpoch = session.currentEpoch + 1;
@@ -3707,13 +3717,29 @@ Network routes: ${v.detail}`;
       const ladderMsUi = migrationSeam?.ladderMs ?? CLAIM_LADDER_MS;
       const migrationDeadlineMs =
         reconnectUntilMs + ladderMsUi * MAX_PLAYERS + 5000;
+      /*
+       * ⭐ S189 (C4) — the retry is no longer confined to the grace, and an attempt is left alone for a
+       * healthy join's budget (RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS, 8 s) instead of 4 s — a fresh
+       * join measured ~6.3 s, so the old cadence tore every attempt down before it could land. Past the
+       * grace the terminal overlay still shows (unchanged), with the loop still trying behind it; the
+       * `!peersGone` branch below clears the overlay the moment a peer is back.
+       */
+      if (
+        session.roomCode !== null &&
+        reconnectRetryDue({
+          nowMs,
+          nextRetryMs: reconnectNextRetryMs,
+          isHost: world.isHost,
+          hasRoomCode: true,
+          migrationCase,
+        })
+      ) {
+        reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
+        console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
+        if (session.netTransport !== null) session.netTransport.disconnect();
+        connectAsClient(clientJoinDeps, session.roomCode);
+      }
       if (nowMs < reconnectUntilMs) {
-        if (!world.isHost && session.roomCode !== null && nowMs >= reconnectNextRetryMs && !migrationCase) {
-          reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
-          console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
-          if (session.netTransport !== null) session.netTransport.disconnect();
-          connectAsClient(clientJoinDeps, session.roomCode);
-        }
         if (migrationCase) {
           lobbyScreen.setConnectionLostMigrating((migrationDeadlineMs - nowMs) / 1000);
         } else {

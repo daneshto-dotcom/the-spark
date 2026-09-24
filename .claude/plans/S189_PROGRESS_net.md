@@ -13,8 +13,10 @@ The merge owner resumes from this file if this agent is cut off.
 | 1 | e2e webServer `--strictPort` + its test | done | 68b04a7 |
 | 2 | C6 quickmatch seat — find the per-machine bias, fix, two-seeker test in both arrival orders | done | 2bbcd20 |
 | 3a | C5 — MEASURE (instrument `src/net/c5WaveFiveMeasure.test.ts`, opt-in `SPARK_C5_MEASURE=1`) | done | b72a4c4 |
-| 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | done | (this commit) |
-| 4 | C4 — own diagnosis, reproduction BEFORE any fix | next | |
+| 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | done | 0c9acdc |
+| 4a | C4 — diagnosis + e2e REPRODUCTION (hard blip) + the auto-reconnect fix (coordinator priority 2) | done | (this commit) |
+| 4b | C4 — E3 drop-reason logging (coordinator priority 3) | next | |
+| 4c | C4 — A1 Escape-as-cancel (coordinator priority 4) — WAIT until the coordinator says train A is on master, then `git merge master` first; needs `src/input/controls.ts` | blocked | |
 | 4 | C4 disconnect — own diagnosis, reproduction test BEFORE any fix | pending | |
 
 ## In flight
@@ -112,6 +114,50 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   mechanism: Trystero's 10 s wait bounds the buffer to ~10 s × uplink (measured 7.0 MiB @5 Mbit/s), and an
   uplink fast enough to exceed 16 MiB (~13 Mbit/s) carries the 9.3 Mbit/s demand with no backlog.
 
+## C4 — diagnosis (my own, then matched against the hunt's verified A2/A4/E2 — they agree)
+
+- The owner (R190-A, via the coordinator): BOTH players saw CONNECTION LOST, both still in the game, "lagging
+  very hard right before", before wave 5 ended. So: a TRANSPORT-level loss (the overlay needs
+  `peerCount() === 0 || hostLost`, `main.ts:3636-3643`) that the auto-reconnect failed to heal in 15 s.
+- The trigger class (hunt A4, agreed): every mid-match peer removal the app does not start itself comes from
+  Trystero's RTCPeerConnection lifecycle (ICE disconnected >= 5 s, failed/closed, channel close). The
+  pre-S189 snapshot backlog (step 3b) does NOT by itself drop the transport (measured buffer <= 7 MiB, under
+  Chrome's 16 MiB channel cap) — it produces the lag and 26-67 s silences.
+- ⛔ THE RECOVERY WAS BROKEN — REPRODUCED END-TO-END over real WebRTC + live relays
+  (`e2e/reconnect-hard-blip.spec.ts`, run PRE-fix, EXIT=1): the joiner's peer connection closed mid-match ->
+  reconnect attempts at 1450 / 5503 / 9541 / 13663 ms -> **never recovered within 45 s**; the joiner ended
+  `isHost: true` (it had CLAIMED the host seat with no peers) and both boards froze behind the terminal
+  overlay (which the open draft panel hid — see "for the merge owner"). Measured the same session: a
+  clean-disconnect rejoin (the only case `reconnect.spec.ts` covers) re-binds Trystero's still-open SHARED
+  peer connection in ~0.2 s; a FRESH join took **6.3 s**.
+- Three faults, all in code, all fixed here:
+  1. The rejoin bound to the DYING room: `disconnect()` fire-and-forgets `leave()`, the loop calls
+     `connectAsClient` in the same frame, and Trystero's `joinRoom` returns the still-registered room
+     (`strategy.mjs:79`) until `onSelfLeave` (after `await leaveAction.send` + 99 ms, `room.mjs:70-78`).
+     A second `leave()` on that room then deletes the NEXT room's registry entry + Nostr topics (hunt A2).
+     -> FIX `transport.ts`: `connect()` waits for a same-code leave in flight (`pendingLeaves`, capped
+     `PENDING_LEAVE_CAP_MS` 2 s); a room is left ONCE (`leavingRooms` WeakSet) and a still-leaving room is
+     never adopted; chunk-load callbacks check a connect GENERATION (a disconnect+connect inside a torrent
+     chunk load used to start an orphaned second torrent room).
+  2. A retry killed the join it was waiting for: `RECONNECT_RETRY_MS` 4 s < a fresh join (6.3 s measured;
+     "3-6 s" per reconnect.spec's own comment). -> `RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS` (8 s), and the
+     loop no longer stops at the grace (terminal overlay unchanged; it clears itself when a peer returns).
+  3. The lone 1v1 client claimed the host seat at 15 s with NO peer to host for, and a host never
+     reconnects -> both sides stuck. -> the claim requires `hasSurvivorToHostFor(alivePeers, hostPeerId)`
+     (the rule `main.ts`'s own overlay-split comment already stated: "peerCount === 0 = OUR transport
+     died — the S82 reconnect-cycle is the only path back").
+- Falls out for free: hunt A3 (a DEPOSED host re-joining its own dying room -> ghost peer) — the same
+  `disconnect(); connectAsClient()` pattern at `main.ts:2586-2587`, now fixed by (1). Hunt B-2 (a 2p host
+  frozen >= 21 s gets deposed): in a 1v1 the client no longer claims (the host is the only alive peer) ->
+  the board pauses until the host returns. 3+-seat migration unchanged (a survivor exists).
+- ⚠ The post-fix e2e (`e2e/reconnect-hard-blip.spec.ts`, @quarantine-flaky) was NOT re-run by me — my two
+  targeted e2e runs were the rejoin-latency measurement (temporary spec, deleted) and the pre-fix
+  reproduction. It is OWED to the merge owner: expected GREEN post-fix (one attempt at ~1 s, landing ~7 s).
+- ⛔ FOR THE MERGE OWNER (render, outside my boundary): during a draft the DRAFT PANEL draws OVER the
+  connection-lost overlay (`app.stage.addChild(draftOverlay.container)` at `main.ts:~936` is added after
+  the lobby screen's overlay) and hides the "CONNECTION LOST" text and its Return-to-Title button — seen in
+  the reproduction's screenshots (dark 0.88 veil, draft panel on top, no text).
+
 ## Decisions
 
 - Step 1: `--strictPort` goes on the webServer COMMAND only; `vite.config.ts` keeps `strictPort: false`
@@ -141,9 +187,19 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 
 ## Hotspot hunks (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts`)
 
-- none yet
+- `src/main.ts` (step 4a, net/reconnect sections only, self-contained):
+  1. import block after `./net/session.ts` — `hasSurvivorToHostFor`, `reconnectRetryDue`, `RECONNECT_*`
+     from `./net/reconnectPolicy.ts`;
+  2. the three local `RECONNECT_*` consts (was ~2460-2462) replaced by a 2-line comment (same names imported);
+  3. the migration-claim `if` (~3399) gains `&& hasSurvivorToHostFor(alivePeers, session.hostPeerId)`;
+  4. the reconnect retry moved OUT of `if (nowMs < reconnectUntilMs)` to just before it, gated by
+     `reconnectRetryDue(...)` — the overlay branches below it are unchanged.
 
 ## Wire / hash / shared-rule changes (each owes a protocol-bump verdict; branch never bumps)
+
+- C4 (step 4a): NO wire change. Reconnect timing and the leave/join ordering are local. The claim gate
+  changes only WHEN a lone peer would claim — a claim it would have broadcast to nobody. Two builds that
+  shake hands cannot disagree about any value either computes. No bump owed.
 
 - C5b: NO wire change — when snapshots are sent, never what they contain. A v50 peer receiving from a
   gated host sees only fewer snapshots (its seq gate already accepts gaps). No bump owed.
@@ -156,6 +212,12 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   save.ts, no HELLO/LOBBY field.
 
 ## Gate exit codes (captured `$?`)
+
+- step 4a: e2e `reconnect-hard-blip.spec.ts` PRE-fix EXIT=1 (the reproduction — attempts 1450/5503/9541/
+  13663 ms, no recovery in 45 s); e2e temp rejoin-latency spec EXIT=0 (fresh join 6299 ms; clean rejoins
+  2014/2031/2038 ms incl. the 1 s first-retry delay). typecheck EXIT=0; `npx vitest run src/net/
+  src/ci.e2eLanes.test.ts src/ci.e2ePort.test.ts` EXIT=0 (37 files / 562 tests + 3 skipped). Mutations:
+  no leave-wait + 4 s cadence -> EXIT=1, 6 red; restored from byte copies.
 
 - step 3b: typecheck EXIT=0; `npx vitest run src/net/` EXIT=0 (33 files passed + 1 skipped [the opt-in
   instrument] / 535 tests + 3 skipped).
@@ -173,6 +235,15 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   hook" and "the larger code demotes" — both false after step 2 (ageless beacons only). A comment, no test.
 
 ## Non-zero exits and their verdicts
+
+- step 4a: `npm run probe-relays` output interleaved with a vitest run of `src/state/zzProbeClone.test.ts`
+  — NOT from my worktree (no such file here). BENIGN: a SIBLING agent shares this session's scratchpad and
+  wrote to the same `probe.log` path. The relay result itself was intact (8/9 relays answered). Since then
+  my scratch files are prefixed `net_`.
+- step 4a: first `rejoinSameRoom` run EXIT=1 (3 red) — my test did not reset its room counter between
+  tests. RESOLVED (`reg.n = 0` in afterEach).
+- step 4a: two bash heredocs failed to PARSE (exit 2, nothing ran) — tool quoting; the scripts now go
+  through files. BENIGN, verified nothing was committed by them.
 
 - step 3b: first typecheck EXIT=1 — TS7016 on importing Trystero's internal `action-wire.mjs` (no .d.ts,
   not in the package `exports`). RESOLVED: typed by cast + `@ts-expect-error` at that one import.

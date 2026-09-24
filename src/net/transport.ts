@@ -62,6 +62,26 @@ import {
 } from './iceConfig.ts';
 
 export { classifyJoinError };
+
+/**
+ * ⭐ S189 (C4) — a leave() in flight, per room code, shared by every NetTransport on the page (the
+ * reconnect loop makes a NEW transport for the same code). See the note in `connect()`.
+ */
+const pendingLeaves = new Map<string, Promise<unknown>>();
+/**
+ * The longest a connect() waits for that leave. MINE, not the owner's: a normal leave settles in
+ * ~100 ms (one leave message + Trystero's 99 ms sleep); the cap only matters for a leave message
+ * queued behind a congested channel, and it must not hold a rejoin hostage.
+ */
+export const PENDING_LEAVE_CAP_MS = 2_000;
+/**
+ * ⛔ S189 (C4) — every room this page has called `leave()` on. A room must be left ONCE: a second
+ * `leave()` runs Trystero's `onSelfLeave` again, which deletes the registry entry and Nostr topic
+ * subscriptions KEYED BY ROOM ID — i.e. the NEWER room's, if one has joined that code since
+ * (verified S189 against nostr 0.25.2 by the disconnect hunt, finding A2). And a room that is still
+ * leaving must never be adopted by a new join.
+ */
+const leavingRooms = new WeakSet<object>();
 // S62 — re-export Trystero's local peer id so net handlers can self-identify in
 // the broadcast roster (each client matches its own seat by peerId === selfId).
 // selfId is a stable per-page-load constant, identical across all strategies.
@@ -233,6 +253,10 @@ export class NetTransport {
   private lastSeq = 0;
   private lastKind: string | null = null;
   private connected = false;
+  /** ⭐ S189 — the room this transport joined, so `disconnect()` can register its leave. */
+  private roomCode: string | null = null;
+  /** ⭐ S189 — bumped by every connect()/disconnect(): a deferred start from an older one is void. */
+  private connectGen = 0;
 
   public onError: ErrorHandler | null = null;
 
@@ -358,6 +382,8 @@ export class NetTransport {
       throw new Error('NetTransport already connected; call disconnect() first');
     }
     this.connected = true;
+    this.roomCode = roomCode;
+    const gen = ++this.connectGen;
     console.info(
       `[net] connect: roomCode=${roomCode} appId=${APP_ID} ice=${ICE_SERVERS.length} ` +
         `strategies=[${Object.entries(STRATEGY_FLAGS)
@@ -365,7 +391,39 @@ export class NetTransport {
           .map(([n]) => n)
           .join(',')}]`,
     );
+    /*
+     * ⛔⛔ S189 (C4) — **NEVER JOIN A ROOM THAT IS STILL LEAVING.**
+     *
+     * Trystero's `joinRoom` returns the room ALREADY registered under that id (`strategy.mjs`:
+     * `if (occupiedRooms[appId]?.[roomId]) return occupiedRooms[appId][roomId]`), and a room stays
+     * registered until its async `leave()` finishes — `await leaveAction.send("")`, a 99 ms sleep,
+     * THEN `onSelfLeave` unregisters it (`room.mjs`). `disconnect()` fires `leave()` without waiting,
+     * and the reconnect loop and the migration rejoin both call `disconnect()` then `connect()` on the
+     * SAME code back to back — so the new transport bound itself to the dying room and could never
+     * see a peer. Reproduced over real WebRTC (`e2e/reconnect-hard-blip.spec.ts`).
+     *
+     * So a connect to a code with a leave in flight waits for that leave (capped — a leave queued
+     * behind a congested channel must not hold the rejoin hostage), then starts. `connected` is true
+     * throughout, so `send()` in that window takes the ordinary startup path: no strategy yet, dropped
+     * with a warn — the same as the first ~100 ms of any join.
+     */
+    const pending = pendingLeaves.get(roomCode);
+    if (pending !== undefined) {
+      console.info(`[net] connect: waiting for the previous leave of ${roomCode} to finish`);
+      void Promise.race([pending, new Promise((r) => setTimeout(r, PENDING_LEAVE_CAP_MS))]).then(() => {
+        if (this.connected && this.connectGen === gen) this.startAllStrategies(roomCode);
+      });
+      return;
+    }
+    this.startAllStrategies(roomCode);
+  }
 
+  /** The body of `connect()` — every enabled strategy joins `roomCode`. */
+  private startAllStrategies(roomCode: string): void {
+    // ⚠ S189 — the chunk-load callbacks below check the GENERATION, not just `connected`: a
+    // disconnect()+connect() inside one chunk load (the reconnect loop does exactly that) made the
+    // OLD callback see `connected === true` and start a second, orphaned torrent room.
+    const gen = this.connectGen;
     // Nostr — primary, always-on, eager static import.
     if (STRATEGY_FLAGS.nostr) {
       this.startStrategy(
@@ -381,7 +439,7 @@ export class NetTransport {
     if (STRATEGY_FLAGS.torrent) {
       void import('@trystero-p2p/torrent')
         .then((mod) => {
-          if (!this.connected) return;
+          if (!this.connected || this.connectGen !== gen) return;
           this.startStrategy(
             'torrent',
             roomCode,
@@ -402,7 +460,7 @@ export class NetTransport {
     if (STRATEGY_FLAGS.mqtt) {
       void import('@trystero-p2p/mqtt')
         .then((mod) => {
-          if (!this.connected) return;
+          if (!this.connected || this.connectGen !== gen) return;
           this.startStrategy(
             'mqtt',
             roomCode,
@@ -481,6 +539,12 @@ export class NetTransport {
         },
       );
 
+      // ⛔ S189 (C4) — Trystero hands back a room still registered under this id. If that room is one
+      // we are LEAVING (the leave outlived PENDING_LEAVE_CAP_MS), adopting it binds this transport to a
+      // room that is about to go deaf. Refuse; the reconnect loop's next attempt joins a fresh one.
+      if (leavingRooms.has(room)) {
+        throw new Error('the room is still leaving — refusing to adopt it (S189)');
+      }
       handle.room = room;
       handle.state = 'ready';
 
@@ -861,17 +925,39 @@ export class NetTransport {
   }
 
   disconnect(): void {
+    const leaves: Promise<unknown>[] = [];
     for (const handle of this.strategies.values()) {
       this.stopIcePoll(handle);
-      if (handle.room !== null) {
+      if (handle.room !== null && !leavingRooms.has(handle.room)) {
+        leavingRooms.add(handle.room);
         console.info(`[net] disconnect strategy=${handle.name}`);
         // leave() returns a Promise in 0.25; fire-and-forget (await would
         // delay the next connect() unnecessarily; teardown is best-effort).
-        void handle.room.leave().catch((err: unknown) => {
-          console.warn('[net] leave failed:', handle.name, err);
-        });
+        // ⭐ S189 — still not awaited HERE, but REGISTERED, so a connect() to the same code waits
+        // for it instead of binding to the dying room (see the note in `connect()`).
+        let left: Promise<unknown>;
+        try {
+          left = Promise.resolve(handle.room.leave());
+        } catch (err) {
+          left = Promise.reject(err);
+        }
+        leaves.push(
+          left.catch((err: unknown) => {
+            console.warn('[net] leave failed:', handle.name, err);
+          }),
+        );
       }
     }
+    if (this.roomCode !== null && leaves.length > 0) {
+      const code = this.roomCode;
+      const settled = Promise.all(leaves);
+      pendingLeaves.set(code, settled);
+      void settled.then(() => {
+        if (pendingLeaves.get(code) === settled) pendingLeaves.delete(code);
+      });
+    }
+    this.roomCode = null;
+    this.connectGen++;
     this.strategies.clear();
     this.peerSet.clear();
     // S53 P1 — clear protocol-mismatch latch on disconnect. Lifetime of the
