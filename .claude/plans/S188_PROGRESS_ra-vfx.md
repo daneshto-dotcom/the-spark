@@ -116,6 +116,8 @@ Each exit read from a captured `$?`, output redirected to a file (never a pipe):
   (0 CRs in both). `git add` refreshed the index stat; nothing staged, tree clean.
 - Follow-up commit (post-merge): the four `.raStrike!` reads in `raStrikeArt.test.ts` folded into
   ONE helper `castStrike(w)` — see the wrath prediction below. Typecheck 0, file 15/15.
+  Re-run on the tip bc37cdb: `npx vitest run` → **VITEST_EXIT=0**, 368 files / 6011 tests.
+  (Build not re-run: bc37cdb changes only a test file and this log; a7a894b's build stands.)
 
 ### Step 4 — DONE — mechanics unchanged
 - `git diff b5c9fc9 11ab8ac -- src/state src/net src/bots` (the branch's OWN commits) → **empty** (0 lines).
