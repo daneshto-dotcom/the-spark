@@ -328,3 +328,13 @@ They can stack on top of each other."*
     above; source-text guard on the creature-renderer construction order (limit stated in the file).
   · Mutation-tested: (a) strike routed back to `g` → 3 red; (b) projectile clear moved back after the
     auras (wipes the strike) → 3 red. Both restored.
+
+## FINAL GATES (tip cd86076 = merged with master 1477aea; exit codes captured from files)
+- `npm run typecheck` → TYPECHECK_EXIT=0
+- `npx vitest run --maxWorkers=6` → VITEST_EXIT=0, 6292 tests / 378 files
+- `npm run build` → BUILD_EXIT=0, entry 948.9 / 1100 KiB, headroom 151.1 (master measured 948.1 → +0.8)
+- e2e not run (branch rule). Snapshot EOL rewrite recurred — benign (`git diff --quiet` 0), restored.
+- **Wire / hash vs master** (all R190-I, all self-contained, listed above): `Creature.healedFifths`
+  (additive-optional, emitted only once > 0) in `save.ts`; `'healedFifths'` + `:hf` in `stateHashFull.ts`
+  (wide oracle only). **No PROTOCOL_VERSION bump needed** (reasoning in the R190-I section). Nothing else
+  under `src/state` or `src/net` changed.
