@@ -54,7 +54,8 @@ import { isGoblinTowerComponent } from './goblinKinds.ts';
 import { GOBLIN_TOWER_HUB_DEGREE, LIGHTNING_HUB_DEGREE, STINK_TOWER_HUB_DEGREE } from '../constants.ts';
 import { starArmsAt } from './godlyRecipes/starShape.ts';
 import { ringCycleAt } from './godlyRecipes/ringShape.ts';
-import { towerMembersAt, towerShapeFor, towerStandsAt } from './towerMembers.ts';
+import { towerFootprintAt, towerMembersAt, towerShapeFor, towerStandsAt } from './towerMembers.ts';
+import { readFileSync } from 'node:fs';
 import { starBankedFifths, starPoolFifths } from './structureStarHealth.ts';
 import { structurePoolFifths } from './stats.ts';
 import { rampHealthFrac, rampMembersAt, rampSpecFor, rampTargetFrame } from '../render/structureRamp.ts';
@@ -1286,5 +1287,49 @@ describe('⭐ S189 C2 audit W3 — bot raid targeting picks an OWN connector of 
     };
     expect(Math.min(...weldBonds.map(d2))).toBeLessThan(d2(pick!.bondId));
     void nodes;
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W2-1 / W5 — the spawner aura and the ground zone are drawn over the tower's OWN members.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W2-1 / W5 — aura strokes and ground zone never ride a weld', () => {
+  it('two welded bat towers: each footprint is its own ring, with no weld connector in it', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const id = RACE_TOWER_IDS[race];
+    stamp(w, id, { x: 450, y: 300 });
+    stamp(w, id, { x: 570, y: 300 });
+    tick(w, st, 3);
+    const drops = [286, 300, 314].map((y) => placeLikeAPlayer(w, RACE_FEED_SHAPE[race], { x: 510, y }));
+    tick(w, st, PAST_TWO_POLLS);
+    const towers = [...w.creatureSpawners.values()].filter((sp) => sp.recipeId === id);
+    expect(towers.length).toBe(2);
+    const weldBonds = new Set(drops.flatMap((d) => [...d.bonds]));
+    expect(weldBonds.size).toBeGreaterThan(0);
+    for (const sp of towers) {
+      const fp = towerFootprintAt(w, sp.recipeId, sp.anchorPrimitiveId)!;
+      expect(fp.prims.length, 'the footprint is the ring, not the welded lattice').toBe(RACE_TOWER_SIZE);
+      expect(fp.bonds.length).toBe(RACE_TOWER_SIZE);
+      for (const b of fp.bonds) expect(weldBonds.has(b), `aura stroke ${b} is not a weld`).toBe(false);
+      for (const d of drops) expect(fp.prims).not.toContain(d.id);
+    }
+  });
+
+  it('a welded laser turret (a non-race tower): the ground-zone footprint is its own star', () => {
+    const { w, hub, leaves, welds } = weldedTurret();
+    const fp = towerFootprintAt(w, 'laserTurret', hub.id)!;
+    expect([...fp.prims].sort(byId)).toEqual([hub.id, ...leaves.map((l) => l.id)].sort(byId));
+    for (const t of welds) expect(fp.prims).not.toContain(t.id);
+  });
+
+  it('MECHANICAL — neither renderer walks componentOf any more; both take towerFootprintAt', () => {
+    for (const f of ['../render/spawnerZoneRenderer.ts', '../render/groundDecalRenderer.ts']) {
+      const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(src.includes('componentOf('), `${f} still calls componentOf`).toBe(false);
+      expect(src.includes('towerFootprintAt('), `${f} must take the tower's own footprint`).toBe(true);
+    }
   });
 });

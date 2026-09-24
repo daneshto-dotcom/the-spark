@@ -231,8 +231,16 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   → the pick is one of the pentagram's own five. Against the OLD botBrain (stashed) → RED, picks
   weld bond 5. `src/bots` suite EXIT=0.
 
+### fix-round item 4 (audit W2-1 / W5) LANDED — aura strokes and ground zone ride the tower's OWN members
+- NEW `towerMembers.ts` `towerFootprintAt`: own members, or the component only for a recipe with no
+  survival shape (none of the spawners). `spawnerZoneRenderer` (disc centre/radius + the charged
+  strokes and beads) and `groundDecalRenderer` (every recipe, not only race rings) take it.
+- tests: two welded bat towers — each footprint is its own 3-ring, no weld connector in it; a welded
+  laser turret's footprint is its own star; MECHANICAL — neither renderer calls `componentOf(` and
+  both call `towerFootprintAt(`. `src/render` suite EXIT=0.
+
 ## IN-FLIGHT
-- fix-round item 4 (W2-1/W5 aura + decal).
+- fix-round item 5 (W2-2 hub-raze orphans).
 
 ## NEXT
 

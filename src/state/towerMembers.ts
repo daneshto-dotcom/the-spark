@@ -54,6 +54,7 @@ import type { BondId, PrimitiveId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import { blueprintFor } from './blueprints.ts';
+import { componentOf } from '../game/structure.ts';
 import { starArmsAt, type StarArmSpec } from './godlyRecipes/starShape.ts';
 import { ringCycleAt, ringRemainsAt } from './godlyRecipes/ringShape.ts';
 
@@ -195,6 +196,31 @@ export function towerMembersAt(world: World, recipeId: GodlyId, anchorId: Primit
   // ⚠ Fewer than `n` by construction, so a broken ring can never read as whole on the ramp — the
   // wreck's shapes may carry more same-type bonds than the ring had (a weld of the ring's own type).
   return { prims: remains, bonds: inside.slice(0, shape.n - 1), whole: false };
+}
+
+/**
+ * S189 C2 (audit W2-1 / W5) — PURE — the shapes and connectors a tower's GROUND ZONE and AURA are
+ * drawn over: its OWN members when it has a survival shape, otherwise (a recipe this module does not
+ * govern) its connected component, which is what those renderers walked before. `null` when the
+ * anchor is gone.
+ *
+ * ⛔ WHY IT EXISTS. `spawnerZoneRenderer` drew a charged "cut here" stroke over every bond of the
+ * anchor's COMPONENT, skipping the covered ones — so on a welded tower the only strokes left were
+ * over the WELDS, the connectors whose cut kills nothing, and two welded towers drew them twice.
+ * `groundDecalRenderer` centred a non-race tower's ground zone on the whole welded lattice. One
+ * walk — the one the sim uses to decide the tower stands — for both.
+ */
+export function towerFootprintAt(
+  world: World,
+  recipeId: GodlyId,
+  anchorId: PrimitiveId,
+): { readonly prims: readonly PrimitiveId[]; readonly bonds: readonly BondId[] } | null {
+  const own = towerMembersAt(world, recipeId, anchorId);
+  if (own !== null) return own;
+  const anchor = world.primitives.get(anchorId);
+  if (anchor === undefined) return null;
+  const comp = componentOf(anchor, world.primitives, world.bonds);
+  return { prims: [...comp.primitiveIds], bonds: [...comp.bondIds] };
 }
 
 /** PURE — does the live tower `recipeId` at `anchorId` still stand? */
