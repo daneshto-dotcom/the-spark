@@ -259,3 +259,9 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   the merge owner to re-measure and LENGTHEN the window / raise FORK_WAVE rather than lower a floor, and
   never to take an existence floor to zero.
 - Re-run: ORACLE_EXIT=0, identical counters to S190 (97 672 scans / 0 mismatches).
+
+### Audit-round gates (exit codes captured to a file)
+TYPECHECK_EXIT=0 · VITEST_EXIT=0 (369 files passed / 1 skipped; 6006 tests passed / 2 skipped — +3 over
+the first round: the in-epoch small exact run and the two PERF-1 swaps) · BUILD_EXIT=0 (945.1 KiB of
+1100). The suite again rewrote `pentagramBuildability.test.ts.snap` to LF with identical content —
+benign, restored.
