@@ -69,6 +69,7 @@ import {
 } from '../render/towerCover.ts';
 import { planStructureRepair } from './structureRepair.ts';
 import { damageEntity } from './damage.ts';
+import { nearestEnemySpawnerBond } from '../bots/botBrain.ts';
 import { collectSpawnerLockedPrimitiveIds } from './placePrimitive.ts';
 import { applyBuildBlueprint } from './blueprintBuild.ts';
 import { blueprintBill } from './blueprints.ts';
@@ -1251,5 +1252,39 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
     buildSomethingElsewhere(w);
     tick(w, st, 3);
     expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'no hall, no Helga').toBe(false);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W3 — a bot's raid aims at the tower's OWN connectors, never at a weld.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W3 — bot raid targeting picks an OWN connector of a welded enemy tower', () => {
+  it('with a weld nearer the bot than any own connector, the pick is still an own connector', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const sp = [...w.creatureSpawners.values()][0]!;
+    const weld = placeLikeAPlayer(w, SparkType.Triangle, { x: 500, y: 300 - 42.5 - 30 });
+    const weldBonds = [...weld.bonds];
+    expect(weldBonds.length).toBeGreaterThan(0);
+    const from = { x: weld.pos.x, y: weld.pos.y - 10 }; // the bot stands just past the weld
+
+    const own = towerMembersAt(w, sp.recipeId, sp.anchorPrimitiveId)!;
+    const pick = nearestEnemySpawnerBond(w, P1, from);
+    expect(pick, 'an enemy spawner exists, so there is a pick').not.toBeNull();
+    expect(own.bonds, 'the pick is one of the pentagram’s OWN five').toContain(pick!.bondId);
+    expect(weldBonds).not.toContain(pick!.bondId);
+
+    // The case discriminates: a weld connector IS nearer the bot than the pick.
+    const d2 = (bid: BondId): number => {
+      const b = w.bonds.get(bid)!;
+      const a = w.primitives.get(b.aId)!.pos;
+      const c = w.primitives.get(b.bId)!.pos;
+      return ((a.x + c.x) / 2 - from.x) ** 2 + ((a.y + c.y) / 2 - from.y) ** 2;
+    };
+    expect(Math.min(...weldBonds.map(d2))).toBeLessThan(d2(pick!.bondId));
+    void nodes;
   });
 });

@@ -216,8 +216,23 @@ the committed tree, each a captured $?:
 - `npm run build` → BUILD_EXIT=0 — 948.1 KiB (base 944.2) = +3.9 KiB of the shared headroom
 - e2e NOT run (brief).
 
+## ⛔ AUDIT FIX ROUND (2 lenses; journal wf_f67b55a1-d32) — owner's standing order: no unapproved
+spec changes. REVERT the spare rules (W1/W2-4/W6) and Helga's contains FIRST build (W2); fix W3,
+W2-1/W5, W2-2, W8. NOT this round: W9/W2-6 (P4 lock → bot frontier welds; owner question), the
+protocol bump (W11/W2-3) and canon/stale comments (W10/W2-5) — merge owner's.
+ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict identity), item 2
+(Helga dormant revive), item 6 (differential) — item 2 is the large one (~36 files read defenders).
+
+### fix-round item 3 (audit W3) LANDED — bot raids aim at the tower's OWN connectors
+- `botBrain.ts` `nearestEnemySpawnerBond`: iterates `towerMembersAt(...).bonds` instead of the
+  whole `componentOf`; no rng draw here (the call site's single draw is untouched); same nearest /
+  first-seen tie-break, own-member order a pure function of bond ids. Docblock rewritten.
+- test: welded pentagram, the bot stands past the weld (a weld connector is nearer than any own one)
+  → the pick is one of the pentagram's own five. Against the OLD botBrain (stashed) → RED, picks
+  weld bond 5. `src/bots` suite EXIT=0.
+
 ## IN-FLIGHT
-- none — follow-up report delivered to the merge owner.
+- fix-round item 4 (W2-1/W5 aura + decal).
 
 ## NEXT
 
