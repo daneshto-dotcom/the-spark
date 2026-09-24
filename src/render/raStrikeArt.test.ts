@@ -34,6 +34,7 @@ import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { PLAYER_COLORS, RA_COLUMN_COUNT, RA_COLUMN_RADIUS, RA_COLUMN_TICKS, RA_RITUAL_TICKS } from '../constants.ts';
 import { asCreatureId, asPlayerId } from '../types.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
+import type { RaStrike } from '../state/racial/powerOfRaRules.ts';
 import { raColumnImpactTick, raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { Creature } from '../state/creatures/creature.ts';
@@ -99,6 +100,16 @@ function strikeBoard(): World {
   w.phaseEndsAtTick = w.tick + 1_000_000;
   w.creatures.clear();
   return w;
+}
+
+/**
+ * Seat 0 calls POWER OF RA at (700, 400); returns the synced strike record the renderer reads.
+ * ⚠ MERGE NOTE: the ONE line that reads the player's strike field. `s188/wrath` turns
+ * `Player.raStrike` into `Player.raStrikes[]` — after that merge this becomes `.raStrikes[0]!`.
+ */
+function castStrike(w: World): RaStrike {
+  dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
+  return w.players.get(P0)!.raStrike!;
 }
 
 /** A Pharaoh channelling the ritual whose deadline is `until`, alone on a board. */
@@ -228,8 +239,7 @@ describe('S188 ra-vfx — the Pharaoh and POWER OF RA play the same art on the s
     setRaStrikeArtForTests(art);
 
     const sw = strikeBoard();
-    dispatch(sw, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-    const strike = sw.players.get(P0)!.raStrike!;
+    const strike = castStrike(sw);
     const until = strike.untilTick;
     const pw = pharaohBoard(until);
 
@@ -256,8 +266,7 @@ describe('S188 ra-vfx — the Pharaoh and POWER OF RA play the same art on the s
     const art = shippedArt();
     setRaStrikeArtForTests(art);
     const sw = strikeBoard();
-    dispatch(sw, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-    const strike = sw.players.get(P0)!.raStrike!;
+    const strike = castStrike(sw);
     const impact0 = raColumnImpactTick(strike.untilTick, 0);
 
     sw.tick = impact0; // column 0 flashes (slot 9, a beam); column 1 is a rune ring (slot 0, none)
@@ -277,8 +286,7 @@ describe('S188 ra-vfx — the Pharaoh and POWER OF RA play the same art on the s
 
   it('⭐ the aftermath is the art\'s alone: at impact+50 the sprite draws where the code fallback draws nothing', () => {
     const sw = strikeBoard();
-    dispatch(sw, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-    const strike = sw.players.get(P0)!.raStrike!;
+    const strike = castStrike(sw);
     const spot0 = raStrikeColumnPos(P0, 0, strike);
     sw.tick = raColumnImpactTick(strike.untilTick, 0) + 50;
 
@@ -297,8 +305,7 @@ describe('S188 ra-vfx — the Pharaoh and POWER OF RA play the same art on the s
     const art = shippedArt();
     setRaStrikeArtForTests(art);
     const sw = strikeBoard();
-    dispatch(sw, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-    const strike = sw.players.get(P0)!.raStrike!;
+    const strike = castStrike(sw);
     // A column lives 230 ticks and they fall 120 apart, so two are on screen at once. Pick a pair
     // where the LATER column stands NEARER the top of the screen — the case a k-order draw gets wrong.
     const pos = (k: number) => raStrikeColumnPos(P0, k, strike);

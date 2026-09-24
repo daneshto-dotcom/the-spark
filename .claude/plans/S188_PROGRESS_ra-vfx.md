@@ -100,6 +100,50 @@ Each exit read from a captured `$?`, output redirected to a file (never a pipe):
   file — the index stores LF; not a failure). Grep for `×` in the logs also matches the test TITLE
   "IHDR = cellW×12", not a failure.
 
+### Step 3 — DONE — `git merge master` (cf40f41) into the branch → merge commit a7a894b
+- **ZERO textual conflicts.** The branch's 17 files and master's 158 changed files since b5c9fc9
+  are DISJOINT (`comm -12` of the two `--name-only` lists is empty). The one master change on the
+  Ra path is `src/state/racial/powerOfRa.ts` (racial-a's `damageConnector(..., null)` attacker arg)
+  — sim-side, no render-path effect. Master changed no `package.json` / lockfile, so no reinstall.
+- Gates on the MERGED tree (a7a894b), each from a captured `$?`:
+  · `npm run typecheck` → **TYPECHECK_EXIT=0**
+  · `npx vitest run` → **VITEST_EXIT=0** — 368 files / **6011 tests** passed, 0 failed
+  · `npm run build` → **BUILD_EXIT=0** — main entry **946.3 KiB**, cap **1100 KiB**, headroom
+    **153.7 KiB**. Against the brief's master headroom of 155.8 KiB, this branch costs **2.1 KiB**.
+- Benign, named: `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` showed as
+  ` M` after the merge with an EMPTY `git diff` — the unit suite rewrote the checked-out snapshot
+  with LF during the pre-merge run (mtime 16:10:09 = that run); content identical to HEAD's blob
+  (0 CRs in both). `git add` refreshed the index stat; nothing staged, tree clean.
+- Follow-up commit (post-merge): the four `.raStrike!` reads in `raStrikeArt.test.ts` folded into
+  ONE helper `castStrike(w)` — see the wrath prediction below. Typecheck 0, file 15/15.
+
+### Step 4 — DONE — mechanics unchanged
+- `git diff b5c9fc9 11ab8ac -- src/state src/net src/bots` (the branch's OWN commits) → **empty** (0 lines).
+- `git diff master HEAD -- src/state src/net src/bots` (after the merge) → **empty** (0 lines).
+
+### ⭐ For the merge owner — the Ra drawing path, and the `s188/wrath` prediction (READ-ONLY)
+Files this branch touches on the Ra drawing path / the `l10-mummies` card:
+`src/render/bossAuras.ts` (`drawRaRitual` + `drawRaColumns` + one import), `src/render/raStrikeArt.ts`
+(new), `src/render/raStrikeArt.test.ts` (new), `src/render/draftOverlay.test.ts`
+(`AHEAD_OF_THEIR_PERK = ['l10-mummies']`), `public/art/upgrade-cards/l10-mummies.webp`,
+`assets-source/upgrade-cards/{l10-mummies.png,l10-mummies-raw.png,MANIFEST.md}`,
+`scripts/{build-upgrade-cards.py,check-upgrade-cards.mjs}`, `public/art/ra-strike/*`,
+`assets-source/ra-strike/*`, `scripts/build-light-sheet-atlas.mjs`, `package.json` (`check:atlas`).
+Prediction against the CURRENT `s188/wrath` tip c72b7ad, by `git merge-tree --write-tree` (writes no
+ref, merges nothing):
+- `bossAuras.ts` is the ONLY file both branches touch, and it **auto-merges cleanly** (wrath's hunks
+  are the `raCastsInWave` import and `drawPowerOfRa`; mine are the `raColumnImpactTick` /
+  `raStrikeArt` imports, `drawRaRitual` and `drawRaColumns`).
+- ⚠ `draftOverlay.ts` + `save.ts` conflict for wrath-vs-master ALREADY (same result with or without
+  this branch) — that is wrath's merge, not this one.
+- ⛔ **SEMANTIC break, not textual: wrath turns `Player.raStrike` into `Player.raStrikes: RaStrike[]`.**
+  After wrath lands, `raStrikeArt.test.ts` fails `tsc` at ONE line — `castStrike()`'s
+  `return w.players.get(P0)!.raStrike!;` → `return w.players.get(P0)!.raStrikes[0]!;` (the same edit
+  wrath made in `powerOfRaRender.test.ts`). wrath's `raStrikeColumnPos(seat, k, aim, charge = 0)`
+  defaults the charge to 0 (read at c72b7ad), and the test's single cast IS charge 0, so its 3-arg
+  calls stand unchanged. Nothing in `bossAuras.ts`'s merged `drawRaColumns` needs touching: wrath
+  calls it once per charge with that charge's `untilTick`, and every frame is derived from `until`.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
