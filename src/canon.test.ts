@@ -153,6 +153,22 @@ import {
 import { APEX_PREDATOR_STAT_MUL, T3_PIRANHA_ELITE_STATS } from './state/creatures/voltkin-config.ts';
 import { PIRANHA_ELITE_SPRITE_SCALE_MUL } from './render/towerFrames.ts';
 import { ragedFireTick } from './state/creatures/creature.ts';
+// S189 P10 — CANON-2: the deploy-#2 fix rounds (F1 lifesteal batch, F3 rage latch, F4 fallen demon
+// seat, racial-d F1 re-anchor + F5 whistle cut), which the S188 text predates.
+import { PHASE_DURATION_TICKS } from './constants.ts';
+import { FIELD_COVERAGE } from './state/stateHashFull.ts';
+import { makeWorld } from './state/world.ts';
+import { applyLifesteal, applyPendingLifesteal } from './state/racial/lifesteal.ts';
+import {
+  asCreatureId,
+  attackCycleMultiplier,
+  makeCreature,
+  type Creature,
+} from './state/creatures/creature.ts';
+import { scorchedZones } from './state/racial/scorchedGround.ts';
+import { SCORCHED_ZONE_TINT, zoneBackdropTint } from './render/zoneBackgroundRenderer.ts';
+import { showsCorpseEaterFeed } from './render/corpseEaterFrames.ts';
+import { corpseEaterOwnStepPx } from './state/racial/corpseEater.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -599,6 +615,106 @@ describe('SPARK_CANON.md is bound to the code', () => {
     )).toBe(true);
     expect(canonSays(`pool **${unitPoolFifths(base.hp, base.def)} → ${unitPoolFifths(elite.hp, elite.def)}**`)).toBe(true);
     expect(canonSays(`**${attackFifths(base.atk, base.pen)} → ${attackFifths(elite.atk, elite.pen)}**`)).toBe(true);
+  });
+
+  /* ══ S189 P10 — CANON-2: what deploy #2 changed under the same 50 ══════════════════════════ */
+
+  it('⛔ §3e — inside the strike batch a lifesteal heal is SUMMED, then landed before the sweep (F1)', () => {
+    const w = makeWorld(0x189);
+    const seat: PlayerId = asPlayerId(0);
+    w.players.set(seat, { raceId: 'vampires', draftPicks: ['racial'] } as never);
+    const unit = (id: number): Creature => {
+      const c = makeCreature(getCreatureConfig('raceUnit'), {
+        id: asCreatureId(id), ownerPlayerId: seat, pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0,
+      });
+      c.ehp = 1;
+      w.creatures.set(c.id, c);
+      return c;
+    };
+    const alive = unit(1);
+    const dying = unit(2);
+    expect(w.pendingLifestealFifths).toBeNull(); // null at every tick boundary
+    w.pendingLifestealFifths = new Map();
+    w.pendingCreatureDeaths = new Set([dying.id]);
+    applyLifesteal(w, { kind: 'creature', id: alive.id }, 20);
+    applyLifesteal(w, { kind: 'creature', id: dying.id }, 20);
+    expect(alive.ehp).toBe(1); // summed, NOT applied mid-batch
+    applyPendingLifesteal(w);
+    expect(alive.ehp).toBe(1 + lifestealFifths(20, BLOOD_DEBT_LIFESTEAL_PCT));
+    expect(dying.ehp).toBe(1); // killed this tick → never healed back over the line
+    // Transient, so never hashed; and the host lands it BEFORE the deferred sweep.
+    expect(FIELD_COVERAGE.pendingLifestealFifths).toBe('acknowledged');
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
+    const land = host.indexOf('applyPendingLifesteal(world);');
+    expect(land).toBeGreaterThan(-1);
+    expect(host.indexOf('sweepDeferredDeaths(world, world.pendingCreatureDeaths);')).toBeGreaterThan(land);
+    expect(canonSays('INSIDE THE HOST\'S STRIKE BATCH A HEAL IS SUMMED, NOT APPLIED')).toBe(true);
+    expect(canonSays('**before the deferred death sweep**')).toBe(true);
+  });
+
+  it('⛔ §3e — a rage change mid-swing waits for the next cycle: the latch, not the live bit (F3)', () => {
+    expect(attackCycleMultiplier({ attackCycleRaged: true })).toBe(WARLORD_RAGE_MULTIPLIER);
+    expect(attackCycleMultiplier({})).toBe(1);
+    // A creature that is enraged NOW but started this cycle calm swings on the CALM fire tick.
+    const liveOnly: Pick<Creature, 'attackCycleRaged' | 'enraged'> = { enraged: true };
+    expect(ragedFireTick(GOBLIN_ATTACK_FIRE_TICK, liveOnly)).toBe(GOBLIN_ATTACK_FIRE_TICK);
+    // The latch is taken on the cycle's first tick, and it is on the wire and in the hash.
+    const fsm = readFileSync(new URL('./state/creatures/creatureLifecycle.ts', import.meta.url), 'utf8');
+    const latch = fsm.indexOf('creature.attackCycleRaged = true');
+    expect(latch).toBeGreaterThan(-1);
+    expect(fsm.slice(latch - 200, latch)).toContain('creature.ticksInState === 1');
+    const save = readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8');
+    expect(save).toContain('c.attackCycleRaged === true ? { attackCycleRaged: true }');
+    const hash = readFileSync(new URL('./state/stateHashFull.ts', import.meta.url), 'utf8');
+    expect(hash).toContain("| 'attackCycleRaged'"); // the union…
+    expect(hash).toContain(':ar${'); // …and the hand-written projection
+    expect(canonSays('**`Creature.attackCycleRaged`**')).toBe(true);
+    expect(canonSays('One blow per cycle, always.')).toBe(true);
+  });
+
+  it('⛔ §3e — a fallen demon seat’s land stops burning, and stops LOOKING like it (F4)', () => {
+    const layout = makeWorld(0x189).layout;
+    const seat: PlayerId = asPlayerId(0);
+    const zonesFor = (castleHp: number) => scorchedZones({
+      players: new Map([[seat, { raceId: 'demons', draftPicks: ['racial'], castleHp }]]),
+      layout,
+    } as unknown as World);
+    expect(zonesFor(1)).toHaveLength(1);
+    expect(zonesFor(0)).toHaveLength(0);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 1 })).toBe(SCORCHED_ZONE_TINT);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 0 })).toBe(0xffffff);
+    expect(canonSays('A FALLEN SEAT\'S LAND STOPS BURNING')).toBe(true);
+  });
+
+  it('⛔ §3e — CORPSE EATER: a shoved boss is re-anchored, and the whistle cuts the feed short (F1, F5)', () => {
+    // His own step, the backstop that tells a shove from a shuffle.
+    const step = corpseEaterOwnStepPx({ type: 't9BossZombies' } as Creature);
+    expect(canonSays(`about **${step.toFixed(1)}** px for the zombie boss`)).toBe(true);
+    const eater = readFileSync(new URL('./state/racial/corpseEater.ts', import.meta.url), 'utf8');
+    const feed = eater.slice(eater.indexOf('function feedStep('));
+    expect(feed.indexOf('reanchorIfDisplaced(world, boss)')).toBeGreaterThan(-1);
+    expect(feed.indexOf('reanchorIfDisplaced(world, boss)')).toBeLessThan(feed.indexOf('pickFeedTarget(world, boss)'));
+    expect(canonSays('HE IS NEVER SNAPPED BACK')).toBe(true);
+    // F5 — the window can never reach the next FIGHT, and the feed is not drawn in BUILD.
+    expect(CORPSE_EATER_TICKS).toBeLessThan(PHASE_DURATION_TICKS);
+    expect(canonSays(`(\`PHASE_DURATION_TICKS\`, **${PHASE_DURATION_TICKS}** ticks)`)).toBe(true);
+    expect(canonSays(`outlasts the window (**${CORPSE_EATER_TICKS}**)`)).toBe(true);
+    const feeding = { corpseEaterUntilTick: 100 };
+    expect(showsCorpseEaterFeed(feeding, { tick: 50, matchPhase: 'FIGHT' })).toBe(true);
+    expect(showsCorpseEaterFeed(feeding, { tick: 50, matchPhase: 'BUILD' })).toBe(false);
+  });
+
+  it('⚠ §6 — `attackCycleRaged` rides 50, and the canon records that the 50 docblock omits it', () => {
+    const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
+    const constAt = proto.indexOf('export const PROTOCOL_VERSION');
+    const doc = proto.slice(proto.lastIndexOf('/**', constAt), constAt);
+    expect(doc).toContain('BUMPED 49 -> 50'); // the right docblock
+    // ⚠ The GAP this sentence records. When the merge owner amends the docblock, this goes RED on
+    // purpose: delete the canon's "does not list" sentence in the same commit.
+    expect(doc).not.toContain('attackCycleRaged');
+    expect(canonSays('THE DOCBLOCK DOES NOT LIST: `Creature.attackCycleRaged`')).toBe(true);
+    // CANON-10 is the owner's, and the canon must say it is OPEN rather than answer it.
+    expect(canonSays('DEPLOY #1 AND DEPLOY #2 BOTH ADVERTISE 50')).toBe(true);
   });
 
   it('⛔ §9d — the four recurring questions are CLOSED, and §10 no longer lists them as open', () => {

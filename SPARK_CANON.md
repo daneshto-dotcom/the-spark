@@ -448,6 +448,14 @@ now halves the fire tick with the cadence (30 → **15**), read at the `hostTick
 FSM's `targetGoneEarly`, and an enraged unit banks **exactly double** a calm one's damage through the
 real host tick (`bloodFrenzy.test.ts`). It is a rule both peers compute, so it rides PROTOCOL 50 (§6).
 
+⛔ **AND A RAGE CHANGE MID-SWING WAITS FOR THE NEXT CYCLE (deploy #2, fix round F3).** Cadence and
+fire tick used to be re-derived from the LIVE `enraged` bit every tick, so rage → calm after the raged
+fire tick fired AGAIN at the calm one, and calm → rage past the raged fire tick skipped both and lost
+the blow — routine for a whole army once BLOOD FRENZY switches it on and off. The FSM now latches
+`enraged` into **`Creature.attackCycleRaged`** on the cycle's first tick (`ticksInState === 1`), and
+that cycle's cadence and `ragedFireTick` read the LATCH (`attackCycleMultiplier`); movement still reads
+the live bit. One blow per cycle, always. The latch is serialized (only when true) and hashed — see §6.
+
 ⛔ **HELLSPAWN TERMINATES BY GENERATION, NOT BY LUCK.** The generation lives on the creature
 (`Creature.hellspawnGen`, serialized and hashed) and a generation-2 death spawns nothing, so one
 chewer has at most **6** descendants, ever. Every child's pool and bite are floored at one, so no
@@ -480,6 +488,22 @@ the heal is the full hit, not only what the victim had left. Once per boss LIFE 
 cleared). The bite is his ordinary `CREATURE_ATTACK` on his ordinary swing clock, so "the same damage
 as he would by attacking" is true by construction. ⚠ The **60 px** leash is MINE.
 
+⛔ **A BOSS SHOVED OUT OF HIS LEASH SITS DOWN WHERE HE LANDS — HE IS NEVER SNAPPED BACK (deploy #2, fix
+round F1).** The Kraken's sonar stuns AND flings; the stun rightly suspends the leash for the whole
+slide, and the first unstunned feed tick used to clamp him straight back onto the circle — a one-tick
+teleport, on both peers. Now, when he is found outside the leash through no step of his own — stunned
+on the tick before, or displaced further than his own legs carry him in a tick (`corpseEaterOwnStepPx`,
+about **1.9** px for the zombie boss) — the leash is RE-ANCHORED at his feet and the rest of the slide
+is spent (`prevPos = pos`). His own shuffle past the circle still clamps, or the leash would creep
+outward a step at a time.
+
+⛔ **AND THE WHISTLE CUTS A FEED SHORT (deploy #2, fix round F5).** The feed runner is FIGHT-gated with
+every boss skill, so a window straddling FIGHT → BUILD simply ends: `recallArmies` sends him home, no
+bite lands in BUILD, and the stamp is left to expire — BUILD (`PHASE_DURATION_TICKS`, **5400** ticks)
+outlasts the window (**480**), so it can never reach the next FIGHT. Nothing is paused or carried
+over; the once-per-life latch is spent. The renderer stops drawing the feed at the edge
+(`showsCorpseEaterFeed`).
+
 ⚠ **APEX PREDATOR: "×3 EVERY STAT" IS ×3 HEALTH BUT ×4 BITE — SHIPPED AS HIS LITERAL WORDS, AND
 FLAGGED FOR HIM.** The ladder multiplies ATK by (5 + PEN), and both are tripled: pool **15 → 45**, bite
 **12 → 48**. "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
@@ -494,12 +518,27 @@ castle soldier and a chewer burn in **50 s**, a 260-fifth boss in **52 s**. A ca
 6 → 7 burns in about **58 s**, and a split chewer, whose pool is below its type's, burns faster.
 Recorded, not changed.
 
+⛔ **A FALLEN SEAT'S LAND STOPS BURNING (deploy #2, fix round F4).** `scorchedZones` skips a seat whose
+`castleHp <= 0` — the guard every castle-derived effect uses (the gun, regen, the race-unit emitter) —
+so an eliminated demon seat's perk does not go on damaging the board after it is out, and the ember
+tint (`zoneBackdropTint`) follows the same test.
+
 ⭐ **LIFESTEAL IS ONE CALL AT THE TWO FUNNELS.** `applyLifesteal` runs inside `damageEntity` and
 `damageConnector` (which gained a required attacker for it), so no strike path can forget it and a
 BUILDING hit heals too. The heal is `max(1, floor(hit × pct / 100))` — his floor-at-one — capped at the
 attacker's own full pool, never an overheal. His example is exact: a **20**-fifth hit heals **4**. A
 turret beam, the castle gun, a raid and every area blast pass no creature attacker, so nobody heals
 from them, and a dead attacker heals nothing.
+
+⛔ **AND INSIDE THE HOST'S STRIKE BATCH A HEAL IS SUMMED, NOT APPLIED (deploy #2, fix round F1).**
+Healing at the moment a blow landed made a melee depend on `world.creatures` iteration order — the
+S155 N1 class: the vampire reached first was topped up before the incoming blow and lived, the
+identical one a slot later died. While the batch's `world.pendingLifestealFifths` is open,
+`applyLifesteal` only ADDS to it; `runHostTick` lands the sums (`applyPendingLifesteal`) after every
+blow of the tick and **before the deferred death sweep** — in creature-id order, each capped at the
+creature's own full pool, and skipping anyone dead or pending death, so a unit killed this tick is
+never healed back over the line. Outside the batch the heal is immediate. The accumulator is
+transient: never serialized, never hashed (`'acknowledged'` in `FIELD_COVERAGE`).
 
 ---
 
@@ -660,7 +699,8 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **50** (S188 — the racial upgrades; see the S188 entry on the const). A mismatched peer is **refused outright** — there is no degraded-play
+`PROTOCOL_VERSION` is **50** (S188 — the racial upgrades; see the S188 entry on the const).
+A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
 
@@ -672,6 +712,16 @@ each emitted only when set and each hashed — `Creature.hellspawnGen`, `Creatur
 meaning THAT seat's upgraded ceiling (a changed meaning, not a field — a v49 peer would read a bought
 keep back at the flat 2500); the enraged-blow rule (`ragedFireTick`, §3e); and the twelve racial rules
 both peers compute.
+
+⚠ **AND ONE MORE OPTIONAL FIELD RIDES 50 THAT THE DOCBLOCK DOES NOT LIST: `Creature.attackCycleRaged`**
+(deploy #2, fix round F3 — the per-cycle rage latch, §3e). It is emitted only when true and hashed (the
+`CreatureHashed` union and the `:ar` projection). Recorded here so this list is complete; amending
+`protocol.ts`'s docblock is the merge owner's.
+
+⚠ **OPEN — FOR THE OWNER, NOT DECIDED HERE (S189): DEPLOY #1 AND DEPLOY #2 BOTH ADVERTISE 50.** The
+deploy-#2 fix rounds changed four sim rules — the lifesteal batch, the per-cycle rage latch, a fallen
+demon seat's burn, the feeding boss's re-anchor — and added that field, all under the same 50, so a
+peer still holding the deploy-#1 bundle would shake hands with a deploy-#2 host.
 
 ⭐⭐ **S187 TOOK 48 → 49 FOR A NEW CLIENT INTENT, `CHOOSE_DRAFT` — AN ORDINARY BUMP, AND THE
 CONTRAST WITH ITS PREDECESSOR IS THE POINT.** The upgrade draft sends the seat's pick as a client

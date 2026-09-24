@@ -102,3 +102,16 @@ branch pins what is already true on master now, so train E is only the deltas.
   `persistent`) · SCORCHED GROUND: "50 s exact for an undrafted unit" was imprecise — the interval
   rounds (a 260-fifth boss burns in 52 s; asserted). Canon test exit 0 (49), typecheck exit 0; markers
   byte-checked (⛔ 65→66, ⚠ 61→65, ⭐ 68, no mojibake).
+- **Step 4 — CANON-2: the deploy-#2 facts the S188 text predates.** Canon text added, each with its
+  assertion: the lifesteal strike-batch SUM (`world.pendingLifestealFifths` → `applyPendingLifesteal`
+  before `sweepDeferredDeaths`; a behavioural mini-world proves summed-not-applied and that a
+  pending-death unit is never healed; `FIELD_COVERAGE` `'acknowledged'`) · the per-cycle rage LATCH
+  (`Creature.attackCycleRaged`, `attackCycleMultiplier`, `ragedFireTick` ignores the live bit; the
+  `ticksInState === 1` latch site, serialize + union + `:ar` projection) · a fallen demon seat stops
+  burning and stops tinting (`scorchedZones`, `zoneBackdropTint`) · CORPSE EATER re-anchor
+  (`corpseEaterOwnStepPx` ≈ 1.9 px, `reanchorIfDisplaced` before `pickFeedTarget`) and the whistle cut
+  (480 < `PHASE_DURATION_TICKS` 5400, `showsCorpseEaterFeed` false in BUILD). §6: `attackCycleRaged`
+  added to "what rides 50" with a test that pins the DOCBLOCK GAP (it goes red on purpose when the
+  merge owner amends `protocol.ts` — delete the canon sentence then); CANON-10 recorded as OPEN, not
+  decided. §6's version sentence is now ALONE on its line (702) — text byte-identical, pin untouched.
+  Canon test exit 0 (54), typecheck exit 0; markers ⛔ 66→71, ⚠ 65→67, ⭐ 68.
