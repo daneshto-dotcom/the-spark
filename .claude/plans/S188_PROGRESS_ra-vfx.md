@@ -3,9 +3,11 @@
 Brief: the owner's new ART for the Ra sky strike (Pharaoh ritual + POWER OF RA share `drawRaColumns`)
 and the WRATH OF RA upgrade card. MECHANICS DO NOT CHANGE.
 
-STATUS: **S190 — READY FOR THE MERGE OWNER (merge AFTER `s188/wrath`, train B).** Tests written,
-gates green before AND after `git merge master`, mechanics diff empty — see the S190 section. Still
-OPEN (not in the S190 brief): NEXT-SESSION item 2 (atlas-script docblock) and item 4 (browser look).
+STATUS: **S190 FIX ROUND DONE — READY FOR THE MERGE OWNER. ⭐ Merges BEFORE `s188/wrath` now** (wrath
+needs this branch's `l10-mummies.webp`); was: after wrath, train B. Tests written, gates green
+before AND after `git merge master` and after the fix round, mechanics diff empty — see the S190
+sections. Still OPEN: NEXT-SESSION item 4 only (the browser-pane look; the unit suite cannot see
+pixels composited by Pixi). Item 2 (the intake docblock) was closed by RAVFX-10.
 (S188 status, superseded: stopped on the coordinator's session-close order, tests + gates not done.)
 
 ## Done (committed)
@@ -251,8 +253,20 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
   sighting guard removed → the early-clear test RED; (C) the PLAYING gate removed → the world/phase
   test RED. Restored, `cmp`-verified.
 - ⚠ Residual, stated: a joiner who connects after he is removed has nothing cached and sees no tail
-  (≤ 1.8 s of VFX); a match reset inside the last 30 ticks of a ritual while still PLAYING would show
-  a finale — no production path does that without leaving PLAYING that I found.
+  (≤ 1.8 s of VFX). Of the three production `creatures.clear()` paths, the title-return
+  (`gameMode.ts:480`) leaves PLAYING and the snapshot rehydrate (`save.ts:1586`) rebuilds a live
+  Pharaoh, but I did NOT verify that `applyGodlyAbort` (`godlyActions.ts:113`, peer drop) leaves
+  PLAYING — an abort inside the last 30 ticks of a ritual could still show a finale that never landed.
+
+### FIX ROUND gates — on the tip 9b98680, each exit from a captured `$?` (redirected, never piped)
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run --maxWorkers=6` → **VITEST_EXIT=0** — 368 files / **6019 tests** (6011 + the 8 new)
+- `npm run build` → **BUILD_EXIT=0** — main entry **947.0 KiB**, cap 1100, headroom **153.0 KiB**;
+  this branch now costs **2.8 KiB** of master's 155.8 KiB headroom (was 2.1 before the round)
+- `npm run check:atlas` → **ATLAS_EXIT=0** (ra-strike clean on scenery + letterbox)
+- `git diff master HEAD -- src/state src/net src/bots` → **empty** (0 lines)
+- ⚠ `master` has moved 6 commits since my merge (now 59184f7); its changed files and this branch's
+  are disjoint (`comm -12` empty). NOT re-merged — not in the round's brief.
 
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ~~⚠ The Pharaoh's 5th column never shows its explosion … Needs a sim/wire change to fix.~~
