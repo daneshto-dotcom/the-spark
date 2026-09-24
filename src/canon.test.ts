@@ -24,7 +24,7 @@
  * assertion lands here in the SAME commit.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CASTLE_ATTACK_RANGE,
@@ -78,6 +78,15 @@ import {
 } from './state/castleUpgrades.ts';
 // S189 P10 — §3d as it is LIVE since S188: the draft's offer rules, its panel, the castle buttons.
 import { autoPickFor, pickIsOffered } from './state/draftEvent.ts';
+import {
+  RACIAL_PERKS_BY_RACE,
+  RACIAL_PERK_BUILT,
+  RACIAL_PERK_COPY,
+  RACIAL_PERK_IDS,
+  perkDraftIndex,
+  perkRace,
+  racialPerkFor,
+} from './state/racialPerks.ts';
 import { PANEL_H, PANEL_W, generalTileRect, racialTileRect } from './render/draftOverlay.ts';
 import { CASTLE_ROW_KEYS } from './render/castlePanel.ts';
 import type { World } from './state/worldTypes.ts';
@@ -383,8 +392,55 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // The castle band table, read off the constant rather than retyped.
     expect(CASTLE_HP_GAIN_BY_BAND).toEqual([250, 350, 450, 550, 650]);
     for (const g of CASTLE_HP_GAIN_BY_BAND) expect(canonSays(String(g))).toBe(true);
-    // ⛔ And the canon must SAY the racial buffs are unbuilt, or the next session assumes they are.
-    expect(canonSays('**NOT BUILT**')).toBe(true);
+    /*
+     * ⛔ S189 P10 (CANON-7) — THIS USED TO ASSERT `canonSays('**NOT BUILT**')`, "or the next session
+     * assumes they are built". S188 BUILT twelve of them, and the needle stayed green because a
+     * heading still said NOT BUILT — a tripwire proving only that a string existed. What is and is
+     * not built is now read off the REGISTRY, perk by perk, in the case below.
+     */
+  });
+
+  /**
+   * ⛔ S189 P10 (CANON-7) — THE RACIAL REGISTRY AND THE CANON AGREE PERK FOR PERK. Registry-driven:
+   * every perk `racialPerks.ts` knows must be a §3e row under its race and level, BUILT; §3e may hold
+   * no row the registry lacks; and every level the registry has no perk for must be named in §3d's
+   * NOT-BUILT table. A perk added (THE SWARM, WRATH OF RA) turns this RED until the canon moves it —
+   * which is exactly the commit the canon rule asks for.
+   */
+  it('⛔ §3d/§3e — what is built and what is not is read off the registry, not off a heading', () => {
+    const e = CANON.indexOf('## 3e ·');
+    const section3e = CANON.slice(e, CANON.indexOf('\n### ', e));
+    const rows = [...section3e.matchAll(/^\| \*\*([A-Z][A-Z ]+)\*\* \| ([a-z]+) · (\d+) \|/gm)];
+    const titles = RACIAL_PERK_IDS.map((p) => RACIAL_PERK_COPY[p].title);
+    expect(rows.map((r) => r[1]).sort()).toEqual([...titles].sort()); // no missing row, no extra row
+    for (const perk of RACIAL_PERK_IDS) {
+      const race = perkRace(perk);
+      const index = perkDraftIndex(perk);
+      expect(RACIAL_PERK_BUILT[perk], perk).toBe(true);
+      expect(racialPerkFor(race, index), perk).toBe(perk); // built → choosable → the deadline takes it
+      expect(canonSays(`| **${RACIAL_PERK_COPY[perk].title}** | ${race} · ${index * DRAFT_WAVE_INTERVAL} |`), perk).toBe(true);
+      // Its card is on disk — the tile the canon says it draws.
+      expect(existsSync(new URL(`../public/art/upgrade-cards/${RACIAL_PERK_COPY[perk].card}.webp`, import.meta.url)), perk)
+        .toBe(true);
+    }
+    expect(RACIAL_PERK_IDS.length).toBe(12);
+    expect(canonSays('## 3e · ⭐⭐ THE TWELVE RACIAL UPGRADES — ALL BUILT')).toBe(true);
+    // Nothing past level 5 exists on this tree — and the canon's NOT-BUILT table names every gap.
+    const races = Object.keys(RACIAL_PERKS_BY_RACE) as Array<keyof typeof RACIAL_PERKS_BY_RACE>;
+    for (const race of races) {
+      expect(RACIAL_PERKS_BY_RACE[race], race).toHaveLength(2);
+      expect(racialPerkFor(race, 2), race).toBeNull(); // level 10: COMING SOON
+    }
+    expect(canonSays('`RACIAL_PERKS_BY_RACE` holds exactly two perks per race')).toBe(true);
+    expect(canonSays('| **THE SWARM** | vampires · 10 |')).toBe(true);
+    expect(canonSays('| **WRATH OF RA** | mummies · 10')).toBe(true);
+    expect(canonSays('| **THE SANDWORM** | mummies · 10')).toBe(true);
+    expect(canonSays('level 10 for zombies, orcs, demons and nagas; levels 15 and 20 for every race')).toBe(true);
+    // The card count the canon prints: the four general cards plus one per registry perk.
+    const cards = readdirSync(new URL('../public/art/upgrade-cards/', import.meta.url))
+      .filter((f) => f.endsWith('.webp'));
+    expect(cards).toHaveLength(GENERAL_TRACK.length + RACIAL_PERK_IDS.length);
+    expect(canonSays(`**${cards.length}** cards in \`public/art/upgrade-cards/\``)).toBe(true);
   });
 
   /**

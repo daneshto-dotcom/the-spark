@@ -123,3 +123,12 @@ branch pins what is already true on master now, so train E is only the deltas.
   remember): pool half = exactly `state/creatures/creature.ts`, damage half = none. ⚠ It goes RED on
   purpose when `s188/draft-atk` merges — replace the PENDING paragraph with the live rule then.
   Canon test exit 0 (55), typecheck exit 0; ⛔ 71→74.
+- **Step 6 — CANON-7: the stale `canonSays('**NOT BUILT**')` tripwire replaced by a registry-driven
+  enumeration.** After S188 that needle proved only that a heading existed. The new case reads
+  `racialPerks.ts`: every `RACIAL_PERK_IDS` perk is BUILT, choosable (`racialPerkFor`), a §3e row under
+  its race and level, and has its card on disk; §3e has NO row the registry lacks (the row set is
+  parsed out of the section and compared); every race has exactly two perks and nothing at level 10,
+  and §3d's NOT-BUILT table names THE SWARM, WRATH OF RA, THE SANDWORM and "everything else"; the card
+  count the canon prints = 4 general + one per perk, counted on disk. ⚠ It goes RED on purpose when
+  swarm / wrath add an L10 perk (train E). Canon test exit 0 (56), typecheck exit 0. No canon text
+  change in this step.
