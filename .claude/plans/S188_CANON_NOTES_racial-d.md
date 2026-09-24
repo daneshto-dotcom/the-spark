@@ -14,7 +14,7 @@ its constant; the suggested assertion is the line to pin.
 |---|---|---|---|
 | trigger | ≤ **20 %** of his OWN max pool | `CORPSE_EATER_TRIGGER_PCT = 20` | his |
 | window | **480 ticks** (8 s) | `CORPSE_EATER_TICKS = 8 * PHYSICS_HZ` | his |
-| life steal | **100 %** of the fifths the bite actually removed, capped at his max | `CORPSE_EATER_HEAL_PCT = 100` | his |
+| life steal | **100 %** of the bite's amount — the whole `attackFifths(atk, pen)`, overkill included — capped at his max | `CORPSE_EATER_HEAL_PCT = 100` | his 100 %; overkill-included is the brief's reading of *"for as much as he attacks"* |
 | leash | **60 px** around where he sat down | `CORPSE_EATER_LEASH_RADIUS = 60` | ⚠ MINE |
 | bite | his ordinary strike: `attackFifths(atk, pen)` through `CREATURE_ATTACK`, his normal cadence | — | his ("same damage as he would by attacking") |
 

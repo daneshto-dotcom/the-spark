@@ -432,6 +432,8 @@ export function makeWorld(rngSeed: number): World {
     creatures: new Map(),
     // S155 N1 — transient; opened + swept inside runHostTick only.
     pendingCreatureDeaths: null,
+    // S188 F1 — transient; opened + drained inside runHostTick only (see worldTypes).
+    pendingLifestealFifths: null,
     nextCreatureId: 0,
     // S100 P1 (TD Phase 1a) — host-authoritative creature spawners; empty at world birth.
     creatureSpawners: new Map(),

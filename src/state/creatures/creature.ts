@@ -134,8 +134,17 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
  * compare against the fire tick (the `hostTick` fire check, the FSM's `targetGoneEarly`). Floored at 1
  * for the same reason the cadence is.
  */
-export function ragedFireTick(fireTick: number, c: Pick<Creature, 'enraged'>): number {
-  return Math.max(1, Math.round(fireTick / rageMultiplier(c)));
+export function ragedFireTick(fireTick: number, c: Pick<Creature, 'attackCycleRaged'>): number {
+  return Math.max(1, Math.round(fireTick / attackCycleMultiplier(c)));
+}
+
+/**
+ * ⭐ S188 (fix round F3) — the rage multiplier of the CURRENT ATTACKING CYCLE: the latch
+ * `attackCycleRaged` took on the cycle's first tick, not the live bit. Read by the cycle's cadence
+ * and fire tick (`creatureLifecycle`, `hostTick`); movement still reads the live `rageMultiplier`.
+ */
+export function attackCycleMultiplier(c: Pick<Creature, 'attackCycleRaged'>): number {
+  return c.attackCycleRaged === true ? WARLORD_RAGE_MULTIPLIER : 1;
 }
 
 /**
@@ -607,6 +616,20 @@ export interface Creature {
    * the only read, so `undefined` and `false` mean the same thing everywhere.
    */
   enraged?: boolean;
+  /**
+   * ⭐ S188 (fix round F3) — **THE RAGE THIS ATTACKING CYCLE RUNS AT, LATCHED ON ITS FIRST TICK.**
+   *
+   * Cadence and fire tick used to be re-derived from the LIVE `enraged` bit every tick, so a rage
+   * change in the middle of a swing broke one-blow-per-cycle: rage → calm after the raged fire tick
+   * (15) fired AGAIN at the calm one (30), and calm → rage after tick 15 skipped both fire ticks and
+   * lost the blow. BLOOD FRENZY makes those transitions routine for a whole army. The FSM now latches
+   * `enraged` here when a cycle starts (`ticksInState === 1`) and the cycle's cadence and fire tick
+   * read THIS, so a mid-swing change takes effect from the next cycle.
+   *
+   * ⚠ SERIALIZED AND HASHED (a sim input on both peers), ADDITIVE-OPTIONAL: emitted only when true,
+   * so a board with nothing raging stays byte-identical. `undefined` and `false` mean the same thing.
+   */
+  attackCycleRaged?: boolean;
   /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.

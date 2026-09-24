@@ -1,356 +1,176 @@
 {
-  "session_id": "S188",
-  "session_kind": "owner-driven: build + wire all L0/L5 racial mechanics, the 17 cards, castle upgrade buttons; six autonomous worktrees, main session = merge owner. Pre-approved.",
-  "session_start": "2026-09-23T11:30:02.735Z",
-  "prior_session_archive": ".claude/session-archive/session-state_S187_2026-09-23.json",
+  "session_id": "S190",
+  "session_kind": "owner-driven: DISPATCH the S189 batch PDR (pre-approved) — research workflows + six worktree agents + merge trains A-E",
+  "session_start": "2026-09-24",
+  "prior_session_archive": ".claude/session-archive/session-state_S189_2026-09-24.json",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-  "session_status": "S188 IN-PROGRESS",
+  "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+  "session_status": "S190 EXECUTING — owner approved the full batch S190; every priority dispatched in parallel",
   "protocol_version": 50,
+  "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
+  "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "council": {
-    "grok": "grok-4.20-0309-reasoning: 4 challenges, all REJECTED with code-grounded reasons",
-    "gemini": "gemini-3.1-pro-preview: 4 challenges, 3 ACCEPTED (A1,A2,A4) + 1 MODIFIED (A3)",
-    "prime_audit": "A5 accepted: spawns deferred out of the strike-batch iteration"
+    "rounds": 2,
+    "ledger": ".claude/plans/2026-09-24_S189_BATCH_PDR.md §8"
   },
   "priorities": [
     {
       "id": "P0",
-      "title": "BOOT-READ GATE: no session skips the boot / muscle-memory layer (owner mandate, ecosystem-wide)",
-      "status": "completed",
-      "priority_state": "completed",
+      "title": "s189/net: CONNECTION LOST (C4) + lag at wave 5 (C5) + quickmatch seat (C6)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "check_completed": true,
-      "checkpoint_commit": "fb3c8f3 (~/.claude) + 199f40a (Founder DNA)",
-      "check_method": "27/27 behavioural tests (boot-read-gate.test.sh) incl. 7-way concurrent Read marks, /c/ and /cygdrive spellings, resume keeps reads, owner waiver, fail-open on garbage/unknown session/home dir. Mutation-tested twice: gate always-allow -> 4 red; is_read always-true -> 13 red; restored -> 27/27. GROK-ANALYST review: concurrency lost-update ACCEPTED (marker files), silent fail-open ACCEPTED (error log + wrapper log), cygdrive ACCEPTED; relative path / HOME / timeout / subagent-cwd ruled benign with reasons. Live-proven on this session: bootstrapped manifest listed 10 reads incl. an IN-PROGRESS plan pre-flight never surfaced; all 10 opened via Read and recorded. Also fixed pre-flight trace-slug bug (spaced project names matched another project's trace).",
-      "real_context_tokens_at_close": null,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
-          "needle": "GATED_TOOLS = {\"Edit\", \"Write\", \"MultiEdit\", \"NotebookEdit\", \"Agent\", \"Task\", \"Workflow\"}"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
-          "needle": "def is_read(st, key):"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/boot_read_gate.py",
-          "needle": "WAIVE_TOKEN = \"boot-waive\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/boot-read-gate.sh",
-          "needle": "wrapper rc=%s"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/settings.json",
-          "needle": "boot-read-gate.sh gate"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/settings.json",
-          "needle": "boot-read-gate.sh track"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/settings.json",
-          "needle": "boot-read-gate.sh start"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/settings.json",
-          "needle": "boot-read-gate.sh prompt"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/pre-flight.sh",
-          "needle": "PROJECT_SLUG=$(printf '%s' \"$PROJECT_NAME\" | tr ' ' '-')"
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/.claude/hooks/tests/boot-read-gate.test.sh",
-          "needle": "7 concurrent tracks all land"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/boot-manifest.json",
-          "needle": "\"path\": \"SPARK_CANON.md\""
-        },
-        {
-          "type": "file_contains",
-          "path": "C:/Users/onesh/OneDrive/Desktop/Claude/Founder DNA/.claude/boot-manifest.json",
-          "needle": "\"scope\": \"descendants\""
-        }
-      ]
-    },
-    {
-      "id": "P1",
-      "title": "Racial substrate: 'racial' pick, racialPerks.ts registry, draft validation, racialTick slots, PROTOCOL 49->50",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "check_completed": true,
-      "checkpoint_commit": "87f3dc4",
-      "real_context_tokens_at_close": 550288,
-      "real_context_pct_at_close": 55.03,
-      "check_method": "Gates on the substrate tree: typecheck exit 0; vitest 5628 tests / 343 files exit 0; build exit 0 at 919.8 KiB (80.2 KiB headroom, shared by six branches). New racialPerks.test.ts (13 tests): registry integrity (12 ids, row/column agree, every card file EXISTS), the offer follows RACIAL_PERK_BUILT, seatHoldsPerk race+index, 'racial' buffs no stat, only-offered picks accepted, the deadline takes racial exactly when offered, 'racial' survives save/load, the post-sweep queue is FIFO / non-recursive / per-world. Mutation test: removing the pickIsOffered check turns 2 red; restored 13/13. Two S187 tests RE-PINNED (not silenced): the pool/damage classification now covers GENERAL_PICKS and pins 'racial' as neither; the chooser test relied on the latent any-pick bug. EOL verified per file after every edit (CRLF files stayed CRLF; canon kept its exact mixed counts). Protocol 49->50 across all six sites incl. e2e LOCAL_PROTO_V and canon §6. Council: Grok 4 challenges rejected with code-grounded reasons; Gemini 3 accepted (A1,A2,A4) + 1 modified (A3); prime-audit A5 (spawn-during-iteration) accepted and built into the substrate as queueAfterStrike/drainRacialSpawnQueue.",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/draft.ts",
-          "needle": "export type DraftPick = GeneralPick | 'racial';"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/draftEvent.ts",
-          "needle": "if (!pickIsOffered(world, seat, ev.waveNumber, pick)) return;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/draftEvent.ts",
-          "needle": "export function playerHoldsPerk("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/racialPerks.ts",
-          "needle": "export function seatHoldsPerk("
-        },
-        {
-          "type": "grep_count",
-          "path": "src/state/racialPerks.ts",
-          "pattern": "^  '[a-z]+\\.l[05]': (true|false),",
-          "op": "==",
-          "value": 12
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/racial/racialTick.ts",
-          "needle": "export function queueAfterStrike("
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "drainRacialSpawnQueue(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/hostTick.ts",
-          "needle": "runRacialPerksFight(world);"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "export const PROTOCOL_VERSION = 50 as const;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "readonly protoVersion: 50;"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/smoke.spec.ts",
-          "needle": "const LOCAL_PROTO_V = 50;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/racialPerks.test.ts",
-          "needle": "only an offered option may be taken"
-        }
-      ]
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/net",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P2",
-      "title": "s188/cards: wire the 17 cards, racial tile live",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/input-layer: footer arrow (C9) + draft click-through - audit, fix, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/cards",
-      "worktree": ".claude/worktrees/s188-cards",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/input-layer",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P3",
-      "title": "s188/castle: castle HP/ATK/DEF/PEN upgrade buttons",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/wrath: WRATH OF RA - audit, fix, merge (train B, protocol 51)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/castle",
-      "worktree": ".claude/worktrees/s188-castle",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/wrath",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P4",
-      "title": "s188/racial-a: BLOOD DEBT, CRIMSON TIDE, BLOOD FRENZY, THE HORDE GROWS, SCORCHED GROUND, DEEP CURRENT",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/swarm: THE SWARM - audit, fix, merge (train B, protocol 51)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-a",
-      "worktree": ".claude/worktrees/s188-racial-a",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/swarm",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P5",
-      "title": "s188/racial-b: THE RISEN, HELLSPAWN, ENDLESS DYNASTY",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/ra-vfx: owed tests + gates, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-b",
-      "worktree": ".claude/worktrees/s188-racial-b",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/ra-vfx",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P6",
-      "title": "s188/racial-c: POWER OF RA",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/draft-atk: finish drafted ATK/PEN + HELLSPAWN card numbers, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-c",
-      "worktree": ".claude/worktrees/s188-racial-c",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/draft-atk",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P7",
-      "title": "s188/racial-d: CORPSE EATER, APEX PREDATOR",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s189/units: C3 Voltkin, C8 Helga, C10 Kraken + sim LOWs",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-d",
-      "worktree": ".claude/worktrees/s188-racial-d",
-      "dispatched": "2026-09-23 background agent, base 87f3dc4"
-    },
-    {
-      "id": "P10",
-      "title": "s188/input-layer: footer arrow one layer below the tower menu + draft panel click-through (audit F1)",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/units",
       "status": "in_progress",
       "priority_state": "in_progress",
-      "branch": "s188/input-layer",
-      "worktree": ".claude/worktrees/s188-input-layer",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
-    },
-    {
-      "id": "P9",
-      "title": "s188/swarm: THE SWARM (vampires.l10) — scope amendment SA1",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "branch": "s188/swarm",
-      "worktree": ".claude/worktrees/s188-swarm",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
-    },
-    {
-      "id": "P11",
-      "title": "s188/wrath: WRATH OF RA (mummies.l10, needs mummies.l0) + WoW-style Ra skill icon; SANDWORM recorded not built — SA3",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "branch": "s188/wrath",
-      "worktree": ".claude/worktrees/s188-wrath",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P8",
-      "title": "Merge owner: audit each branch, fix, merge one at a time with gates, e2e, canon, deploy, verify-deploy",
-      "status": "pending",
-      "priority_state": "pending",
+      "title": "s189/weld: C2 welding onto a tower must not dissolve it",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/weld",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+    },
+    {
+      "id": "P9",
+      "title": "s189/render: C1 spark above draft panel, C7 teleport line + render LOWs",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/render",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+    },
+    {
+      "id": "P10",
+      "title": "Canon + stale CLAUDE.md lines + S173 plan closed SUPERSEDED + pdca-context.sh string ids",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     }
   ],
-  "reflexion_entries_to_archive": [
-    "P0 #s188-printing-a-boot-list-is-not-reading-it #boot #enforcement #owner-frustration: pre-flight had PRINTED every boot file for months and nothing checked any was opened; S188 skimmed the traces through tail|cut and never opened S187's recorded research, then started re-deriving specs that were on disk. A rule the model must remember fails exactly when it matters, so it became a gate: boot reads are required, marked only by the Read tool, and Edit/Write/Agent/Workflow are denied until done. The build also exposed two latent defects the old advice hid: pre-flight's trace slug never matched a spaced project name (it pointed SPARK at another project's file), and an IN-PROGRESS plan in .claude/plans/ that pre-flight never scans. Grok caught a lost-update race in the first design (parallel Reads rewriting one JSON); per-read marker files remove it.",
-    "P1 #s188-a-second-option-turns-a-latent-bug-live #draft #validation: applyDraftChoice had pushed ANY pick since S187 - harmless while the panel could only send the offered general, live the moment a racial option exists. Found by asking what the reducer ASSUMED about its input once the input's range widened (S187's own lesson, one layer up). And two S187 tests encoded the latent bug as expected behaviour - one chose ATK at the HP draft and passed only because nothing refused it. A test that passes because of a bug is a pin on the bug; re-pin it to the intent, never delete it."
+  "reflexion_entries_to_archive": [],
+  "carry_forward_findings": [
+    "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
+    "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
+    "e2e webServer: hashed port + vite strictPort:false lets an orphan vite shift the port while Playwright polls the old URL (S188 timeout) — in the net brief",
+    "S173_NONET_STAGES.md is SUPERSEDED by canon §9 R182-G/H — close it in P10",
+    "Owner numbers to confirm: APEX PREDATOR bite x4, THE SWARM bite x11",
+    "INFRA DEFECT (S189): session-state.json lost-update race — a write followed by git add in the SAME Bash call committed the OLD content three times (fe027c6, 15f5938, 8663da6 all hold S188). Suspect the tool-call counter hook (.claude/session-state.json.tmp.counter.<pid> read-modify-rename). Rebuilt S189 by hand; verify session_id in a SEPARATE call before trusting it. Hunt the writer in ~/.claude/hooks."
   ],
-  "carry_forward_findings": [],
+  "scope_amendments": [],
   "budget_total": 1000000,
+  "tool_calls_session_total": 0,
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
     "budget_status": "GREEN"
   },
   "auto_fill_applied": {
-    "ts": "2026-09-23T15:48:07.984469Z",
+    "ts": "2026-09-24T13:49:20.400741Z",
     "fields": [
-      "budget_total",
       "totals"
     ],
     "validator_version": "s110-three-tier-v1"
   },
-  "scope_amendments": [
-    {
-      "id": "SA1",
-      "priority": "P9",
-      "when": "2026-09-23 evening",
-      "owner_verbatim": "Yeah, I mean, the swarm, you better build them in an external agent, not yourself, because we've already defined it. We have the even the art for the upgrade. So there's no reason not to build it. Do it this session.",
-      "scope": "THE SWARM (vampires.l10): the vampire seat's tier-3 bat tower emits a bat swarm at x6 bat stats, own atlas, its card on the level-10 tile. Branch s188/swarm off s188/racial-d."
-    },
-    {
-      "id": "SA2",
-      "priority": "P10",
-      "when": "2026-09-23 evening",
-      "owner_verbatim": "the arrow that takes down the footer ... reads more important than the tower above it ... it'd be one layer below ... Send a different agent to do it. Don't do it yourself.",
-      "scope": "Footer collapse arrow sits one layer below an open tower menu; plus audit F1 (draft panel click-through to the board). Branch s188/input-layer off s188/racial-c."
-    },
-    {
-      "id": "SA3",
-      "priority": "P11",
-      "when": "2026-09-23 evening",
-      "owner_verbatim": "at level 10, they will have the power of Ra, but times three. So you can use it three times per fight phase, just by clicking the skill on the bottom left ... the skill has to have the art of the picture, just like a lot smaller, it's like a little square ... think World of Warcraft ... it's only if you've chosen Power of Ra level zero, you can upgrade it to Power of Ra level three ... and if the mummies did not choose Power of Ra level zero then instead at level 10 they will receive ... a sandworm ... Just record it for now and don't implement that part yet.",
-      "scope": "WRATH OF RA (mummies.l10, offered only to a seat holding mummies.l0): 3 casts per FIGHT, same aimed 5-column strike. Skill button becomes a WoW-style square icon from the card art. SANDWORM (the other mummies L10, for seats WITHOUT mummies.l0): RULED, NOT BUILT - a tier-4 tower spawning an underground sandworm, untargetable except when it surfaces to strike, visible by the ground moving above it; art pending from the owner.",
-      "branch": "s188/wrath off s188/racial-c (supersedes s188/racial-c at merge)"
-    }
-  ]
+  "owner_approval_s190_verbatim": "After a full and complete boot sequence, you already have the plan from last session. I approve the full session priority batch. And full independent agent run and work trees work on all priorities in parallel."
 }

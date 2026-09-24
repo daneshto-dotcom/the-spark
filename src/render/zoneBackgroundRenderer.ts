@@ -78,9 +78,14 @@ const ZONE_BG_ALPHA = 0.55;
  */
 export const SCORCHED_ZONE_TINT = 0xff6a3a;
 
-/** PURE — the backdrop tint for a seat: ember if it holds SCORCHED GROUND, untinted otherwise. */
-export function zoneBackdropTint(player: Parameters<typeof seatHoldsPerk>[0]): number {
-  return seatHoldsPerk(player, 'demons.l0') ? SCORCHED_ZONE_TINT : 0xffffff;
+/**
+ * PURE — the backdrop tint for a seat: ember while it holds SCORCHED GROUND and its castle stands,
+ * untinted otherwise (S188 F4 — a fallen seat's land has stopped burning, so it must stop LOOKING it).
+ */
+export function zoneBackdropTint(
+  player: Parameters<typeof seatHoldsPerk>[0] & { readonly castleHp: number },
+): number {
+  return player.castleHp > 0 && seatHoldsPerk(player, 'demons.l0') ? SCORCHED_ZONE_TINT : 0xffffff;
 }
 
 /**
