@@ -12,7 +12,8 @@ import { PLAYER_COLORS, TITLE_EXIT_CONFIRM_MS } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { Controls } from './controls.ts';
-import { makeDoubleEscapeLeave } from './doubleEscapeLeave.ts';
+import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './doubleEscapeLeave.ts';
+import { closeSettingsOnEscape } from '../render/settingsOverlay.ts';
 import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
 
 const P0 = asPlayerId(0);
@@ -40,11 +41,20 @@ interface Rig {
   leaves: number;
   armed: { id: string } | null;
   clock: { t: number };
+  /** The Codex's visibility (S189 fix round — its close handler is registered between the two). */
+  codex: boolean;
+  /** The settings panel's visibility (its Escape listeners are on the panel/document: they run FIRST). */
+  settings: boolean;
 }
 
 /** A PLAYING solo match with the real Controls, then the leave handler — registered in main.ts's order. */
 function rig(): Rig {
   keydown = [];
+  // The settings panel listens on its root and on `document`, which a window listener only hears
+  // AFTER — so, in dispatch order, it goes first. The real function its two handlers both call.
+  const settingsFirst: Listener = (e) => {
+    if (r.settings) closeSettingsOnEscape(e as { key: string }, () => { r.settings = false; });
+  };
   const w = makeWorld(0xa1);
   w.gameState = 'TITLE';
   dispatch(w, {
@@ -59,7 +69,9 @@ function rig(): Rig {
     style: { cursor: '' },
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 1920, height: 1080, right: 1920, bottom: 1080, x: 0, y: 0 }),
   };
-  const r: Rig = { w, c: null as unknown as Controls, leaves: 0, armed: null, clock: { t: 10_000 } };
+  const r: Rig = {
+    w, c: null as unknown as Controls, leaves: 0, armed: null, clock: { t: 10_000 }, codex: false, settings: false,
+  };
   r.c = new Controls({ canvas } as never, w, P0, (a) => dispatch(w, a));
   r.c.setCastlePanel({
     armedBlueprint: () => r.armed,
@@ -67,12 +79,17 @@ function rig(): Rig {
       r.armed = null;
     },
   } as never);
+  // main.ts order: Controls (constructed ~:618), the Codex close (~:1576), then the leave handler.
+  window.addEventListener(
+    'keydown',
+    makeOverlayEscapeClose(() => r.codex, () => { r.codex = false; }) as Listener,
+  );
   window.addEventListener(
     'keydown',
     makeDoubleEscapeLeave({
       isPlaying: () => w.gameState === 'PLAYING',
       chordBlocked: () => false,
-      codexOpen: () => false,
+      codexOpen: () => r.codex,
       towerArmed: () => r.armed !== null,
       confirmOpen: () => false,
       closeConfirm: () => undefined,
@@ -82,7 +99,8 @@ function rig(): Rig {
       now: () => r.clock.t,
     }) as Listener,
   );
-  expect(keydown.length, 'Controls first, then the leave handler — main.ts order').toBe(2);
+  expect(keydown.length, 'Controls, the Codex close, then the leave handler — main.ts order').toBe(3);
+  keydown.unshift(settingsFirst);
   return r;
 }
 
@@ -136,6 +154,24 @@ describe('S189 A1 — a cancel is not the first press of "leave the match"', () 
     expect(r.leaves).toBe(1);
   });
 
+  it('⛔ REACH (audit NET-3): close the CODEX with Escape, press Escape again — the match is NOT abandoned', () => {
+    const r = rig();
+    r.codex = true;
+    press(r, 'Escape'); // closes the Codex
+    expect(r.codex).toBe(false);
+    press(r, 'Escape');
+    expect(r.leaves, 'closing the Codex must not be the first press of a leave').toBe(0);
+  });
+
+  it('⛔ REACH (audit NET-3): close SETTINGS with Escape, press Escape again — the match is NOT abandoned', () => {
+    const r = rig();
+    r.settings = true;
+    press(r, 'Escape'); // closes the settings panel
+    expect(r.settings).toBe(false);
+    press(r, 'Escape');
+    expect(r.leaves, 'closing settings must not be the first press of a leave').toBe(0);
+  });
+
   it('NEGATIVE: two bare Escapes leave, and two Escapes too far apart do not', () => {
     const a = rig();
     press(a, 'Escape');
@@ -145,5 +181,24 @@ describe('S189 A1 — a cancel is not the first press of "leave the match"', () 
     press(b, 'Escape');
     press(b, 'Escape', TITLE_EXIT_CONFIRM_MS + 1);
     expect(b.leaves).toBe(0);
+  });
+});
+
+describe('S189 fix round (audit NET-3) — the real handlers use the tested functions', () => {
+  // A source guard proves a line EXISTS, not that it is reached — the REACH cases above do that. This
+  // one only pins that the production handlers are the functions those cases drive.
+  const strip = (src: string): string => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  it('both settings Escape listeners call closeSettingsOnEscape, and no other Escape check exists there', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = strip(readFileSync(new URL('../render/settingsOverlay.ts', import.meta.url), 'utf8'));
+    expect(src.match(/closeSettingsOnEscape\(e, hide\)/g)?.length).toBe(2);
+    expect(src.match(/'Escape'/g)?.length, 'only inside closeSettingsOnEscape').toBe(1);
+  });
+  it('main.ts closes the Codex through makeOverlayEscapeClose and leaves through makeDoubleEscapeLeave', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = strip(readFileSync(new URL('../main.ts', import.meta.url), 'utf8'));
+    expect(src.match(/makeOverlayEscapeClose\(/g)?.length).toBe(1);
+    expect(src.match(/makeDoubleEscapeLeave\(/g)?.length).toBe(1);
+    expect(src.indexOf('makeOverlayEscapeClose(')).toBeLessThan(src.indexOf('makeDoubleEscapeLeave('));
   });
 });

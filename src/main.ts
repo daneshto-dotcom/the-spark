@@ -65,7 +65,7 @@ import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 // ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
-import { makeDoubleEscapeLeave } from './input/doubleEscapeLeave.ts';
+import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './input/doubleEscapeLeave.ts';
 // ⭐ S189 (C4) — the reconnect schedule + the lone-survivor claim gate (see reconnectPolicy.ts).
 import {
   hasSurvivorToHostFor,
@@ -1573,12 +1573,15 @@ async function bootstrap(): Promise<void> {
   // only the on-screen CLOSE button). Guarded on the codex being visible so this never swallows an
   // Escape meant for another overlay; returns immediately after closing so it can't double-handle
   // (settingsOverlay owns its own Escape on its DOM root — mirror of botSetupOverlay.ts / settingsOverlay.ts).
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && codexOverlay !== null && codexOverlay.isVisible()) {
-      codexOverlay.setVisible(false);
-      return;
-    }
-  });
+  // ⭐ S189 fix round (audit NET-3) — via `makeOverlayEscapeClose`, which marks the press consumed so
+  // closing the Codex is not the first press of the double-Escape leave registered below.
+  window.addEventListener(
+    'keydown',
+    makeOverlayEscapeClose(
+      () => codexOverlay !== null && codexOverlay.isVisible(),
+      () => codexOverlay?.setVisible(false),
+    ),
+  );
 
   /*
    * ⭐ S153 A2 — LEAVE A MATCH IN PROGRESS. Owner: *"i dont want to have to restart the page to go

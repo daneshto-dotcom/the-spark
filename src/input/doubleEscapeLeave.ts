@@ -12,8 +12,14 @@
  * a repeat because a lagging wave-5 frame did not show the first — and the match was abandoned: this
  * tab went to the title, the OTHER player got CONNECTION LOST 15 s later.
  *
- * Now `Controls` marks a cancel as consumed (`preventDefault`), and this handler treats a consumed
- * Escape as "not a leave press" — and resets the chord, so the NEXT press starts a fresh pair.
+ * Now every Escape that is used for something else marks the press consumed (`preventDefault`), and
+ * this handler treats a consumed Escape as "not a leave press" — and resets the chord, so the NEXT press
+ * starts a fresh pair. THE CONSUMERS, all of which run before this handler (keep the list whole):
+ *   · `Controls` — dropping a held tower, putting the Power-of-Ra aim away (`consumeCancel`);
+ *   · the Codex close in `main.ts` (`makeOverlayEscapeClose`, below);
+ *   · the settings panel's two Escape listeners (`closeSettingsOnEscape`, `render/settingsOverlay.ts`),
+ *     on its root and on `document`, which a window listener only hears after them.
+ * ⚠ S189 fix round (audit NET-3): the first cut covered only the first bullet.
  */
 import { TITLE_EXIT_CONFIRM_MS } from '../constants.ts';
 
@@ -62,5 +68,21 @@ export function makeDoubleEscapeLeave(deps: DoubleEscapeDeps): (e: DoubleEscapeK
       return;
     }
     lastEscapeAtMs = nowMs;
+  };
+}
+
+/**
+ * ⭐ S189 fix round (audit NET-3) — an overlay's "Escape closes me" keydown handler (the Codex, in
+ * `main.ts`). Registered BEFORE the leave handler, so it must mark the press consumed or the close
+ * counts as the first press of "leave the match".
+ */
+export function makeOverlayEscapeClose(
+  isOpen: () => boolean,
+  close: () => void,
+): (e: { key: string; preventDefault?: () => void }) => void {
+  return (e) => {
+    if (e.key !== 'Escape' || !isOpen()) return;
+    close();
+    if (typeof e.preventDefault === 'function') e.preventDefault(); // consumed: not a leave press
   };
 }

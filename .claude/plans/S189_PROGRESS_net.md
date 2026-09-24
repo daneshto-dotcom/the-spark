@@ -17,6 +17,18 @@ The merge owner resumes from this file if this agent is cut off.
   still drains it; recorded, not counted. `npx vitest run src/net/` EXIT=0 (36 files / 555 + 3 skipped).
   Protocol: none — the same bytes to the same peers; only the send grouping changed.
 
+- **FR-3 (audit NET-3) — closing the Codex or Settings with Escape no longer arms the leave.**
+  `main.ts`'s Codex close is now `makeOverlayEscapeClose(isOpen, close)` (in `input/doubleEscapeLeave.ts`,
+  marks the press consumed); `render/settingsOverlay.ts`'s two Escape listeners (panel root + document) both
+  call the new `closeSettingsOnEscape(e, hide)`, which also `preventDefault`s. Docblock consumer list made
+  whole. Failing test first: two REACH cases in `doubleEscapeLeave.test.ts` with the Codex close registered
+  between Controls and the leave handler and the settings listener first in dispatch order (it is
+  document-level) — both LEFT the match before, pass after. Mutation: drop the settings `preventDefault` →
+  red. Source guards: settings has exactly 2 `closeSettingsOnEscape(e, hide)` calls and no other Escape
+  check; main.ts has one `makeOverlayEscapeClose(` before one `makeDoubleEscapeLeave(`. `vitest src/input/
+  + audioManager` EXIT=0 (9 files / 338). Hotspot: `main.ts` Codex listener (~1570, 6 lines → the
+  factory) + import. Protocol: none (local input).
+
 ## Steps
 
 | # | step | state | commit |
