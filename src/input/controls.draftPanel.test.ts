@@ -533,3 +533,64 @@ describe('⭐ the cursor promises a pointer exactly where a click picks', () => 
     expect(r.canvas.style.cursor).toBe('');
   });
 });
+
+describe('⛔ S190 (audit IL-1) — a control HIDDEN under the plate promises nothing: no pointer, no highlight', () => {
+  /*
+   * A character-card control straddling the plate's LEFT edge. `onDown` swallows every click on the
+   * plate, so the half under it must read plain and must not light up, while the half outside it is
+   * a live control. Driven through the real `Controls.onMove` and the real drawn panel.
+   */
+  const inside = POINTS['the left side margin']!;
+  const outside = { x: PANEL_X - PAD / 2, y: MID_Y };
+  const onControl = (p: Pt): boolean => p.x >= PANEL_X - PAD && p.x <= PANEL_X + PAD && Math.abs(p.y - MID_Y) <= 20;
+
+  function sheetWithControlAcrossTheEdge(kind: 'button' | 'owned row', hovers: Pt[]): CharacterSheetLike {
+    const hit = (x: number, y: number): boolean => onControl({ x, y });
+    return {
+      ...sheetStub([]),
+      isOverAnyAction: (x, y) => kind === 'button' && hit(x, y),
+      ownedRowAt: (x, y) => (kind === 'owned row' && hit(x, y) ? ({ kind: 'castle', seat: asPlayerId(0) } as SheetSelectable) : null),
+      setHover(x, y) { hovers.push({ x, y }); },
+    };
+  }
+
+  for (const kind of ['button', 'owned row'] as const) {
+    it(`a card ${kind} under the plate reads plain and does not lift; just outside the plate it is a control`, () => {
+      const r = rig();
+      const hovers: Pt[] = [];
+      r.c.setCharacterSheet(sheetWithControlAcrossTheEdge(kind, hovers));
+      // Anti-vacuity: both points are on the control; only one is under the plate.
+      expect(onControl(inside) && onControl(outside)).toBe(true);
+      expect(r.overlay.isOver(inside.x, inside.y), 'inside is under the plate').toBe(true);
+      expect(r.overlay.isOver(outside.x, outside.y), 'outside is not').toBe(false);
+
+      move(r.c, outside);
+      expect(r.canvas.style.cursor, 'off the plate the control is live').toBe('pointer');
+      expect(hovers.at(-1), 'and its highlight is fed the cursor').toEqual(outside);
+
+      move(r.c, inside);
+      expect(r.canvas.style.cursor, 'under the plate the click is swallowed, so no pointer').toBe('');
+      expect(onControl(hovers.at(-1)!), 'and nothing hidden lifts').toBe(false);
+    });
+
+    it(`closed, the same ${kind} is a control on both sides of where the plate was`, () => {
+      const r = rig({ open: false });
+      const hovers: Pt[] = [];
+      r.c.setCharacterSheet(sheetWithControlAcrossTheEdge(kind, hovers));
+      for (const p of [outside, inside]) {
+        move(r.c, p);
+        expect(r.canvas.style.cursor).toBe('pointer');
+        expect(hovers.at(-1)).toEqual(p);
+      }
+    });
+  }
+
+  it('a live tile over a hidden card button is still a pointer — the tile\'s', () => {
+    const r = rig();
+    const hovers: Pt[] = [];
+    r.c.setCharacterSheet({ ...sheetStub([]), isOverAnyAction: () => true, setHover(x, y) { hovers.push({ x, y }); } });
+    move(r.c, centre(G));
+    expect(r.canvas.style.cursor).toBe('pointer');
+    expect(hovers.at(-1), 'the card under the tile still does not lift').toEqual({ x: -1, y: -1 });
+  });
+});

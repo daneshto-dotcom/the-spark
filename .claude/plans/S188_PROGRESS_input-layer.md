@@ -124,3 +124,19 @@ tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest
   `npx playwright test e2e/click-to-build.spec.ts` E2E_CTB_EXIT=0, 4/4. MUTATION (both at once, restored
   byte-for-byte, cmp 0): onDown draft guard + the armed-arm `canStampAt` line removed -> E2E exit 1,
   exactly cases 3 (armed null: the quarry gate is now what it tests) and 4 (4 primitives under the plate).
+  (Coordinator's later correction "no new __SPARK__ seam; derive the tile from the exported panel
+  geometry" is what this does: `generalTileRect()` from the module itself; no main.ts change.)
+- [x] STEP 3 — IL-1 / IL-B2: `updateHoverCursor` asks `underDraft = isPointerOverDraftPanel()` once;
+  `overUi = underDraft ? isPointerOverDraftChoice() : <the old chain>` (the draft-choice clause MOVED
+  into the branch — off the plate it could never be true, every choosable tile lies inside the plate);
+  under the plate `footerBand.setHover` / `characterSheet.setHover` get (-1,-1). GATE D re-scoped in
+  `s182UiSurfaceGuards.test.ts`: both GATE D tests read the WHOLE function (`hoverBlock`, the 1800-char
+  window no longer reached its end); new case "the SURFACE question may only SUPPRESS": asked once (in
+  code), as the ternary condition, the choice only inside it, the highlights fed `lift`. Reach tests
+  in `controls.draftPanel.test.ts` (5): a card button / owned row straddling the plate's left edge ->
+  '' + no lift under the plate, 'pointer' + lift just outside; closed -> pointer both sides; a live tile
+  over a hidden button -> pointer, card not lifted. typecheck 0; 186 green (draftPanel, s182, arrow).
+  MUTATIONS (restored, cmp 0): old OR chain -> 2 red; `lift = this.cursor` -> 3 red.
+  Hotspot note: controls.ts only, one self-contained hunk in `updateHoverCursor`. Not changed (scope):
+  the Ra-aim CROSSHAIR still shows over the plate while aiming (the click there is swallowed and
+  keeps aiming) — reported to the merge owner, not fixed.

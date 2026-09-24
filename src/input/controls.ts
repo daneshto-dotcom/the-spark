@@ -1446,8 +1446,19 @@ export class Controls {
    * which is the failure mode a second, parallel hover hit-test would have introduced.
    */
   private updateHoverCursor(): void {
-    const overUi =
-      this.isPointerOverFooterChip() ||
+    /*
+     * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
+     * The panel is drawn above the band and the card (zIndex 900) and `onDown` swallows every click
+     * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
+     * not earn a pointer or light up — that promised a click the guard then ate. The draft SURFACE
+     * question may only SUPPRESS a pointer here, never grant one: under the plate the answer is the
+     * CONTROL question's (`isPointerOverDraftChoice`), and off it the draft has nothing to say, since
+     * every choosable tile lies inside the plate.
+     */
+    const underDraft = this.isPointerOverDraftPanel();
+    const overUi = underDraft
+      ? this.isPointerOverDraftChoice()
+      : this.isPointerOverFooterChip() ||
       // ⭐⭐ S181 — the CARD's buttons, replacing the retired popover's. Includes DISABLED ones on
       // purpose: the pointer should say "this is a control" even when the control is refusing, which
       // is what makes a greyed FIX read as deliberate rather than as dead plate.
@@ -1457,10 +1468,7 @@ export class Controls {
       // is on the same card as the buttons, so a player learns the card lies about what is live.
       (this.characterSheet?.ownedRowAt(this.cursor.x, this.cursor.y) ?? null) !== null ||
       (this.castlePanel?.isOpen() === true &&
-        this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)) ||
-      // ⭐ S188 (audit F1) — a draft tile a click would PICK. The control question, never the
-      // surface one: the COMING SOON tile and the plate swallow a click but are not controls.
-      this.isPointerOverDraftChoice();
+        this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y));
     /*
      * S153 P4 (owner R81) — *"everything clickable should pop out, be highlighted and/or make a
      * sound"*. The cursor already answered "is this clickable?"; this makes the CONTROL itself
@@ -1470,11 +1478,14 @@ export class Controls {
      * ⚠ FED FROM THE VERY PREDICATES EVALUATED DIRECTLY ABOVE, never a parallel hit test. A
      * highlight that can disagree with the click path is worse than none.
      */
-    this.footerBand?.setHover(this.cursor.x, this.cursor.y);
+    // ⛔ S190 (IL-1) — under the draft plate nothing hidden lifts either: the highlights are fed an
+    // off-canvas point, so they agree with the cursor above and with the click `onDown` swallows.
+    const lift = underDraft ? { x: -1, y: -1 } : this.cursor;
+    this.footerBand?.setHover(lift.x, lift.y);
     // ⭐⭐ S181 (owner) — *"any button that's clickable should, when you mouse over it, slightly
     // change hue. So it looks like it's popping out."* Fed from the SAME predicate evaluated three
     // lines above, never a parallel hit test — see this function's own docblock.
-    this.characterSheet?.setHover(this.cursor.x, this.cursor.y);
+    this.characterSheet?.setHover(lift.x, lift.y);
     // ⭐ S188 P6 — a crosshair over the board while aiming Ra: the next click lands the strike.
     const want = overUi ? 'pointer' : raAimPreview() !== null ? 'crosshair' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on

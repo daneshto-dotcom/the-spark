@@ -59,6 +59,19 @@ function blockFrom(anchor: string, len = 2600): string {
   return controls.slice(i, i + len);
 }
 
+/**
+ * ⭐ S190 — the WHOLE of `updateHoverCursor`, bounded by the next member rather than a char window:
+ * its docblocks grew past the old 1800 chars, and a `not.toContain` over a window that no longer
+ * reaches the end of the function proves nothing about the part it cannot see.
+ */
+function hoverBlock(): string {
+  const start = controls.indexOf('private updateHoverCursor(): void {');
+  const end = controls.indexOf('private lastCursorStyle', start);
+  expect(start, 'updateHoverCursor moved or was renamed').toBeGreaterThan(-1);
+  expect(end, 'lastCursorStyle no longer follows updateHoverCursor').toBeGreaterThan(start);
+  return controls.slice(start, end);
+}
+
 describe('S182 — the three UI surfaces, and the gates that must know about all of them', () => {
   it('the three predicates still exist and are still asked by name', () => {
     // Anti-vacuity for every assertion below: if one is renamed, this fails first and says so.
@@ -167,14 +180,35 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
   });
 
   it('GATE D — the hover cursor answers for every surface a click can hit', () => {
-    const block = blockFrom('private updateHoverCursor(): void {', 1800);
+    const block = hoverBlock();
     expect(block).toContain('this.isPointerOverFooterChip()');
     expect(block).toContain('isOverAnyAction(this.cursor.x, this.cursor.y)');
     expect(block).toContain('ownedRowAt(this.cursor.x, this.cursor.y)');
     expect(block).toContain('this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)');
-    // ⭐ S188 — a CHOOSABLE draft tile; the CONTROL question, never the draft SURFACE one.
+    // ⭐ S188 — a CHOOSABLE draft tile; the CONTROL question grants the pointer.
     expect(block).toContain('this.isPointerOverDraftChoice()');
-    expect(block, 'the cursor must not ask the draft SURFACE question').not.toContain('isPointerOverDraftPanel');
+  });
+
+  it('⛔ GATE D — the draft SURFACE question may only SUPPRESS a pointer, never grant one (S190, IL-1)', () => {
+    /*
+     * Under the plate `onDown` swallows every click, so a card button or a footer chip hidden there
+     * must not earn a pointer or a highlight. The surface predicate is therefore asked exactly once,
+     * as the CONDITION of the choice — and the only thing it lets through is the draft's own CONTROL
+     * question. The reach half (a card button under the plate reads plain) is driven through the real
+     * `Controls` in `controls.draftPanel.test.ts`.
+     */
+    const block = hoverBlock();
+    // Counted in CODE only — the docblock above the choice names both predicates.
+    const code = block.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code.split('isPointerOverDraftPanel').length - 1, 'asked once, as the condition').toBe(1);
+    expect(block).toContain('const underDraft = this.isPointerOverDraftPanel();');
+    expect(block, 'under the plate, only a choosable tile is a control')
+      .toMatch(/const overUi = underDraft\s*\?\s*this\.isPointerOverDraftChoice\(\)\s*:/);
+    expect(code.split('isPointerOverDraftChoice').length - 1, 'and only inside that branch').toBe(1);
+    // …and the highlights ask the same question, or a hidden button still lifts under the plate.
+    expect(block).toContain('const lift = underDraft ? { x: -1, y: -1 } : this.cursor;');
+    expect(block).toContain('this.footerBand?.setHover(lift.x, lift.y);');
+    expect(block).toContain('this.characterSheet?.setHover(lift.x, lift.y);');
   });
 
   it('⛔ S188 — the draft predicates reach the panel, and main.ts wires it', () => {
@@ -200,7 +234,7 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
      * So the hover path must ask the CONTROL question and the commit gates the SURFACE one, and a
      * future "simplification" that collapses them back into one predicate fails here.
      */
-    const block = blockFrom('private updateHoverCursor(): void {', 1800);
+    const block = hoverBlock();
     expect(
       block,
       'the cursor must ask the CONTROL test — `isPointerOverFooterSurface` includes opaque readouts',
