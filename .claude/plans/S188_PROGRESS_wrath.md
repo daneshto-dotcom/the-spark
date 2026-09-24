@@ -118,3 +118,11 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   collapsed WRATH → 3 pips, overlay bounds inside the hit rect, 3→2 on a cast; BUILD → 'FIGHT ONLY'
   left of the square, the ground under the words still board; POWER-only ready → no pips, no words.
   MUTATION (restored): the two old compact early-outs → 2 red.
+- [x] W-7 — the picture path is tested. `FooterBand` takes an optional third ctor arg
+  `FooterBandDeps { loadIcon }` (the draft panel's `loadCard` shape; production = Pixi `Assets`,
+  `main.ts` unchanged). `footerRaButton.test.ts` S190 W-7 (deferred loader): glyph until the POWER
+  picture arrives, then the picture inset 2 px in the square, loaded once; refused → tint 0x5a5a5a /
+  alpha 0.7; WRATH fetches `wrath-of-ra.webp`, not POWER's; a failing WRATH load falls back to POWER;
+  a POWER picture landing after the seat became WRATH is dropped. Disk half: `skillIcons.test.ts`
+  (W-5) pins both files exist as 128 px WebP. MUTATIONS (restored): removing the superseded-key
+  guard → 1 red; + loading POWER's url for WRATH → 3 red.

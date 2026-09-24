@@ -269,6 +269,12 @@ export const SKILL_ICON = {
   wrath: { url: '/art/skills/wrath-of-ra.webp' },
 } as const;
 
+/** ⭐ S190 W-7 — seams the tests use (the draft panel's `loadCard` shape). Production passes none. */
+export interface FooterBandDeps {
+  /** How a skill icon is fetched. Production: Pixi `Assets`, which caches by URL. */
+  readonly loadIcon?: (url: string) => Promise<Texture>;
+}
+
 /** What the slot needs to know about the local seat this frame. */
 export interface RaSlotState {
   readonly refusal: RaCastRefusal | null;
@@ -399,7 +405,11 @@ export class FooterBand {
   private onEnqueue: ((t: SparkType) => void) | null = null;
   private onCancel: ((t: SparkType) => void) | null = null;
 
-  constructor(app: Application, parent: Container = app.stage) {
+  /** ⭐ S190 W-7 — the icon fetch (a seam, so the picture path is testable headless). */
+  private readonly loadIcon: (url: string) => Promise<Texture>;
+
+  constructor(app: Application, parent: Container = app.stage, deps: FooterBandDeps = {}) {
+    this.loadIcon = deps.loadIcon ?? ((url) => Assets.load<Texture>(url));
     this.container = new Container();
     this.graphics = new Graphics();
     this.container.label = 'footerBand'; // S153 P4 — see SparkRenderer for why layers are named.
@@ -942,13 +952,13 @@ export class FooterBand {
         this.raIconReady = true;
       };
       const loadPower = (): void => {
-        void Assets.load<Texture>(SKILL_ICON.power.url).then(adopt).catch(() => undefined);
+        void this.loadIcon(SKILL_ICON.power.url).then(adopt).catch(() => undefined);
       };
       try {
         if (key === 'power') {
           loadPower();
         } else {
-          void Assets.load<Texture>(SKILL_ICON.wrath.url)
+          void this.loadIcon(SKILL_ICON.wrath.url)
             .then(adopt)
             .catch(loadPower); // the WRATH picture failed: the same god, the POWER picture
         }

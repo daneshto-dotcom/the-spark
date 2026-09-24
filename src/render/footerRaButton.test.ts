@@ -12,7 +12,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { Container } from 'pixi.js';
+import { Container, Texture, TextureSource } from 'pixi.js';
 import { CANVAS_HEIGHT, FOOTER_TOP_Y, GATHERER_DEPOSIT_OFFSET_Y, PLAYER_COLORS } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
@@ -24,6 +24,7 @@ import {
   FooterBand,
   RA_ICON_COLLAPSED_SIZE,
   RA_ICON_SIZE,
+  SKILL_ICON,
   collapseTabRect,
   layoutCarryBill,
   layoutChips,
@@ -278,5 +279,131 @@ describe('S190 W-6 — the COLLAPSED slot shows its reason and its charges', () 
   it('⛔ a ready POWER-only collapsed slot draws no pips and says nothing', () => {
     const b = collapsed(world(1, true));
     expect(b.getUiPoints()).toMatchObject({ raPips: 0, raCaption: '' });
+  });
+});
+
+/*
+ * ⭐ S190 W-7 — **THE PICTURE PATH, PINNED.** It is the owner's actual request (*"the skill has to have
+ * the art of the picture"*), and headless runs have no Pixi loader, so every other test here only ever
+ * saw the sun-glyph fallback. The `loadIcon` seam (the draft panel's `loadCard` shape) drives it.
+ */
+describe('S190 W-7 — the slot shows its PICTURE once it loads, greys it when refused, and WRATH has its own', () => {
+  type IconSprite = { visible: boolean; texture: Texture; tint: number; alpha: number; x: number; y: number; width: number; height: number };
+  const iconOf = (b: FooterBand): IconSprite => (b as unknown as { raIcon: IconSprite }).raIcon;
+  const fakeIcon = (url: string): Texture =>
+    new Texture({ source: new TextureSource({ width: 128, height: 128, label: url }) });
+  /** A loader whose every fetch waits for `resolve(url)` / `reject(url)`. */
+  function deferredLoader(): {
+    load: (url: string) => Promise<Texture>;
+    asked: string[];
+    made: Map<string, Texture>;
+    resolve: (url: string) => void;
+    reject: (url: string) => void;
+  } {
+    const asked: string[] = [];
+    const made = new Map<string, Texture>();
+    const pending = new Map<string, { ok: (t: Texture) => void; no: (e: Error) => void }>();
+    return {
+      asked,
+      made,
+      load: (url) => {
+        asked.push(url);
+        return new Promise<Texture>((ok, no) => pending.set(url, { ok, no }));
+      },
+      resolve: (url) => {
+        const t = fakeIcon(url);
+        made.set(url, t);
+        pending.get(url)!.ok(t);
+      },
+      reject: (url) => pending.get(url)!.no(new Error(`404 ${url}`)),
+    };
+  }
+  const settle = async (): Promise<void> => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
+  function bandWith(load: (url: string) => Promise<Texture>): FooterBand {
+    const stage = new Container();
+    return new FooterBand({ stage } as never, stage, { loadIcon: load });
+  }
+  function wrathWorld(): World {
+    const w = world(1, true);
+    w.players.get(P0)!.draftPicks.push('hp', 'racial');
+    w.waveNumber = 11;
+    return w;
+  }
+
+  it('⭐ POWER OF RA: the glyph until the picture arrives, then the picture, inset in the square', async () => {
+    const L = deferredLoader();
+    const w = world(1, true);
+    const b = bandWith(L.load);
+    b.sync(w);
+    expect(L.asked).toEqual([SKILL_ICON.power.url]);
+    expect(iconOf(b).visible, 'not loaded yet: the sun glyph, no picture').toBe(false);
+    L.resolve(SKILL_ICON.power.url);
+    await settle();
+    b.sync(w);
+    const icon = iconOf(b);
+    const r = b.getUiPoints().ra!;
+    expect(icon.visible).toBe(true);
+    expect(icon.texture).toBe(L.made.get(SKILL_ICON.power.url));
+    expect(icon.tint, 'full colour when ready').toBe(0xffffff);
+    expect([icon.x, icon.y, icon.width, icon.height]).toEqual([r.x + 2, r.y + 2, r.w - 4, r.h - 4]);
+    expect(L.asked, 'loaded once, kept').toEqual([SKILL_ICON.power.url]);
+  });
+
+  it('⛔ refused, the picture is dimmed to grey', async () => {
+    const L = deferredLoader();
+    const w = world(1, true);
+    const b = bandWith(L.load);
+    b.sync(w);
+    L.resolve(SKILL_ICON.power.url);
+    await settle();
+    w.matchPhase = 'BUILD';
+    b.sync(w);
+    expect(iconOf(b)).toMatchObject({ visible: true, tint: 0x5a5a5a, alpha: 0.7 });
+  });
+
+  it('⭐ WRATH OF RA fetches and shows ITS OWN picture, not the POWER one', async () => {
+    const L = deferredLoader();
+    const w = wrathWorld();
+    const b = bandWith(L.load);
+    b.sync(w);
+    expect(L.asked).toEqual([SKILL_ICON.wrath.url]);
+    L.resolve(SKILL_ICON.wrath.url);
+    await settle();
+    b.sync(w);
+    expect(iconOf(b).texture).toBe(L.made.get(SKILL_ICON.wrath.url));
+  });
+
+  it('⛔ a failing WRATH picture falls back to the POWER picture — the same god', async () => {
+    const L = deferredLoader();
+    const w = wrathWorld();
+    const b = bandWith(L.load);
+    b.sync(w);
+    L.reject(SKILL_ICON.wrath.url);
+    await settle();
+    expect(L.asked).toEqual([SKILL_ICON.wrath.url, SKILL_ICON.power.url]);
+    L.resolve(SKILL_ICON.power.url);
+    await settle();
+    b.sync(w);
+    expect(iconOf(b)).toMatchObject({ visible: true, texture: L.made.get(SKILL_ICON.power.url) });
+  });
+
+  it('⛔ a picture that arrives after the skill CHANGED is dropped (POWER → WRATH mid-load)', async () => {
+    const L = deferredLoader();
+    const w = world(1, true);
+    const b = bandWith(L.load);
+    b.sync(w); // POWER requested
+    w.players.get(P0)!.draftPicks.push('hp', 'racial');
+    w.waveNumber = 11;
+    b.sync(w); // now WRATH: WRATH requested
+    L.resolve(SKILL_ICON.power.url); // the stale one lands first
+    await settle();
+    b.sync(w);
+    expect(iconOf(b).visible, 'the stale POWER picture is not shown').toBe(false);
+    L.resolve(SKILL_ICON.wrath.url);
+    await settle();
+    b.sync(w);
+    expect(iconOf(b).texture).toBe(L.made.get(SKILL_ICON.wrath.url));
   });
 });
