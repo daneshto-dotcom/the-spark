@@ -38,9 +38,9 @@ import { syncCreatureProjectiles } from './creatureProjectile.ts';
 import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 // S169 R152 — the STUN read, for the idle-pose override and the derived "seeing stars".
-import { isStunned, rageMultiplier, isCorpseEaterFeeding, type Creature } from '../state/creatures/creature.ts';
+import { isStunned, rageMultiplier, type Creature } from '../state/creatures/creature.ts';
 // S188 CORPSE EATER — the eat loop, derived per frame from the synced feed deadline.
-import { corpseEaterElapsed, corpseEaterFrame } from './corpseEaterFrames.ts';
+import { corpseEaterElapsed, corpseEaterFrame, showsCorpseEaterFeed } from './corpseEaterFrames.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
@@ -899,7 +899,8 @@ export class GoblinRenderer {
         this.loadAtlas(CORPSE_EATER_FEED_KEY, CORPSE_EATER_FEED_ATLAS_BASE);
       }
     }
-    if (stunned || !isCorpseEaterFeeding(c, world.tick)) return null;
+    void stunned; // folded into `showsCorpseEaterFeed`, which also gates on FIGHT (audit F5)
+    if (!showsCorpseEaterFeed(c, world)) return null;
     const feed = this.atlases.get(CORPSE_EATER_FEED_KEY);
     const st = feed?.manifest.states;
     if (feed === undefined || st?.feedIn === undefined || st.feedLoop === undefined || st.feedOut === undefined) {

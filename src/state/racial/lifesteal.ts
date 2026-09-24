@@ -43,6 +43,13 @@
  * - **A dead attacker heals nothing.** Under the S155 N1 deferral a lethally-struck creature still
  *   lands its committed blow; it stays dead (`ehp <= 0`) and is swept at the end of the tick.
  *
+ * ⛔⛔ S188 FIX ROUND F1 — **INSIDE THE STRIKE BATCH A HEAL IS SUMMED, NOT APPLIED.** Healing at the
+ * moment a blow landed made a melee depend on `world.creatures` iteration order (the S155 N1 class):
+ * the vampire reached first was topped up before the incoming blow and lived, the identical one a
+ * slot later died. While `world.pendingLifestealFifths` is open (the host tick's batch) the heal is
+ * accumulated there, and `applyPendingLifesteal` lands every sum — id order, capped, skipping the
+ * dead and the pending-dead — just before the deferred sweep. Outside the batch it heals at once.
+ *
  * ⛔ **L5 REPLACES L0, IT DOES NOT ADD.** *"50% life steal"* is the rate, so a seat holding both is at
  * 50, not 70 — and a seat holding L5 without L0 is at 50 too.
  *
@@ -106,7 +113,38 @@ export function applyLifesteal(world: World, attacker: Attacker, amountFifths: n
   if (a === undefined || a.ehp <= 0) return; // a dead attacker heals nothing
   const pct = lifestealPctFor(world.players.get(a.ownerPlayerId));
   if (pct === 0) return;
+  const heal = lifestealFifths(amountFifths, pct);
+  const pending = world.pendingLifestealFifths;
+  if (pending !== null) {
+    // S188 F1 — the batch is open: SUM it. No cap here — a unit at full pool that is struck later in
+    // the same batch must get the same heal whichever order the two happened in.
+    pending.set(a.id, (pending.get(a.id) ?? 0) + heal);
+    return;
+  }
   const max = creatureMaxEhp(a);
   if (a.ehp >= max) return; // never an overheal, and never LOWERS a pool that is somehow above it
-  a.ehp = Math.min(max, a.ehp + lifestealFifths(amountFifths, pct));
+  a.ehp = Math.min(max, a.ehp + heal);
+}
+
+/**
+ * ⭐ S188 F1 — land the strike batch's accumulated heals. Called by `runHostTick` immediately BEFORE
+ * `sweepDeferredDeaths`, so every blow of the tick has already landed.
+ *
+ * TOTAL ORDER by creature id (never `Map` order). Each sum is capped at the creature's own
+ * `creatureMaxEhp`. A creature that is gone, at `ehp <= 0`, or in `pendingCreatureDeaths` is NOT
+ * healed: it died this tick, and a heal must not raise it back over the line it was killed across.
+ */
+export function applyPendingLifesteal(world: World): void {
+  const pending = world.pendingLifestealFifths;
+  if (pending === null || pending.size === 0) return;
+  const dying = world.pendingCreatureDeaths;
+  const ids = [...pending.keys()].sort((x, y) => (x as number) - (y as number));
+  for (const id of ids) {
+    const c = world.creatures.get(id);
+    if (c === undefined || c.ehp <= 0 || dying?.has(id) === true) continue;
+    const max = creatureMaxEhp(c);
+    if (c.ehp >= max) continue;
+    c.ehp = Math.min(max, c.ehp + (pending.get(id) ?? 0));
+  }
+  pending.clear();
 }

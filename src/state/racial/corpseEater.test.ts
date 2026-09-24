@@ -12,7 +12,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.t
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
-import { asCreatureId, asPlayerId, type CreatureId, type PlayerId } from '../../types.ts';
+import { asCreatureId, asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../../types.ts';
 import type { Controls } from '../../input/controls.ts';
 import type { RaceId } from '../races.ts';
 import type { DraftPick } from '../draft.ts';
@@ -28,13 +28,14 @@ import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { attackFifths } from '../stats.ts';
 import { snapshot, restore } from '../save.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
-import { PHASE_DURATION_TICKS, PHYSICS_HZ } from '../../constants.ts';
+import { KRAKEN_SONAR_KNOCKBACK, KRAKEN_SONAR_STUN_TICKS, PHASE_DURATION_TICKS, PHYSICS_HZ, PHYSICS_SUBSTEPS } from '../../constants.ts';
 import {
   CORPSE_EATER_HEAL_PCT,
   CORPSE_EATER_LEASH_RADIUS,
   CORPSE_EATER_TICKS,
   CORPSE_EATER_TRIGGER_PCT,
   runCorpseEater,
+  corpseEaterOwnStepPx,
 } from './corpseEater.ts';
 import { RACIAL_PERK_BUILT, racialPerkFor } from '../racialPerks.ts';
 
@@ -405,5 +406,105 @@ describe('S188 CORPSE EATER — the wire and the wide hash', () => {
     expect(h2).not.toBe(h1);
     b.corpseEaterAnchor = { x: 1, y: 3 };
     expect(hashWorldStateFull(w)).not.toBe(h2);
+  });
+});
+
+describe('S188 CORPSE EATER — audit F1: a knocked-back boss is RE-ANCHORED, never snapped back', () => {
+  /** The Kraken's own shove and stun, applied to a feeding boss (bossSkillsKraken.ts). */
+  function sonar(b: Creature, w: World): void {
+    applyStun(b, w.tick + KRAKEN_SONAR_STUN_TICKS);
+    b.prevPos.x -= KRAKEN_SONAR_KNOCKBACK; // outward along +x, exactly the sonar's prevPos shove
+  }
+  function runScene(knock: boolean): {
+    jumps: number[]; edge: { jump: number; slide: number } | null; b: Creature; anchorAtStun: Vec2 | undefined; w: World;
+  } {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    const d = deps();
+    const st = makeHostTickState(w);
+    const tick = (): void => {
+      runHostTick(w, d, st);
+      for (const id of [...w.creatures.keys()]) if (id !== b.id) w.creatures.delete(id);
+    };
+    for (let i = 0; i < 5; i++) tick();
+    expect(isCorpseEaterFeeding(b, w.tick), 'feeding before the shove').toBe(true);
+    const anchorAtStun = b.corpseEaterAnchor === undefined ? undefined : { ...b.corpseEaterAnchor };
+    if (knock) sonar(b, w);
+    const stunEnds = b.stunnedUntilTick ?? w.tick;
+    const jumps: number[] = [];
+    let edge: { jump: number; slide: number } | null = null;
+    while (isCorpseEaterFeeding(b, w.tick + 1)) {
+      const before = { x: b.pos.x, y: b.pos.y };
+      // The most the Kraken's slide can move him this tick: his velocity now, over every substep.
+      const slide = Math.hypot(b.pos.x - b.prevPos.x, b.pos.y - b.prevPos.y) * PHYSICS_SUBSTEPS;
+      tick();
+      const jump = Math.hypot(b.pos.x - before.x, b.pos.y - before.y);
+      // ⚠ The FIRST acting tick (w.tick === stunEnds) is the one the old clamp snapped him on. Its
+      // physics still ran stunned (the slide), so it is bounded by the slide, not by his own step.
+      if (w.tick === stunEnds) edge = { jump, slide };
+      else if (w.tick > stunEnds) jumps.push(jump);
+    }
+    return { jumps, edge, b, anchorAtStun, w };
+  }
+
+  it('⭐⭐ after the stun ends he moves no more than his own speed per tick — no ~860 px snap', () => {
+    const { jumps, edge, b, anchorAtStun } = runScene(true);
+    const own = corpseEaterOwnStepPx(b);
+    expect(edge, 'the stun ended inside the window').not.toBeNull();
+    expect(edge!.jump, 'the first acting tick moves no further than the slide carried him — no snap back')
+      .toBeLessThanOrEqual(edge!.slide + own + 1e-6);
+    expect(jumps.length).toBeGreaterThan(100);
+    expect(Math.max(...jumps), `own step ${own.toFixed(2)} px/tick`).toBeLessThanOrEqual(own + 1e-6);
+    // He really was flung — the anchor moved to where he landed, far from where he first sat down.
+    const a = b.corpseEaterAnchor!;
+    expect(Math.hypot(a.x - anchorAtStun!.x, a.y - anchorAtStun!.y)).toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS * 3);
+    expect(Math.hypot(b.pos.x - a.x, b.pos.y - a.y), 'and he stays leashed to the NEW anchor')
+      .toBeLessThanOrEqual(CORPSE_EATER_LEASH_RADIUS + 1e-9);
+  });
+
+  it('⭐ his own step bound is small — the backstop cannot mistake a real shove for a shuffle', () => {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    expect(corpseEaterOwnStepPx(b)).toBeGreaterThan(0.5);
+    expect(corpseEaterOwnStepPx(b)).toBeLessThan(5);
+  });
+
+  it('control: WITHOUT a shove the anchor never moves — ordinary feeding stays inside 60 px of it', () => {
+    const { b, anchorAtStun } = runScene(false);
+    expect(b.corpseEaterAnchor).toEqual(anchorAtStun);
+    const a = b.corpseEaterAnchor!;
+    expect(Math.hypot(b.pos.x - a.x, b.pos.y - a.y)).toBeLessThanOrEqual(CORPSE_EATER_LEASH_RADIUS + 1e-9);
+  });
+});
+
+describe('S188 CORPSE EATER — audit F5: a window that straddles the FIGHT→BUILD whistle', () => {
+  it('⭐⭐ is CUT SHORT: he is recalled home, released, and bites nothing in BUILD (real runHostTick)', () => {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    const food = put(w, 't3Scarab', P0, CX + 20);
+    food.ehp = 1_000_000;
+    const d = deps();
+    const st = makeHostTickState(w);
+    // Food pinned at his feet WHEREVER he is, so any bite the sim lands in BUILD would show.
+    const tick = (): void => {
+      runHostTick(w, d, st);
+      for (const id of [...w.creatures.keys()]) if (id !== b.id && id !== food.id) w.creatures.delete(id);
+      food.pos.x = b.pos.x + 20; food.pos.y = b.pos.y; food.prevPos.x = food.pos.x; food.prevPos.y = food.pos.y;
+    };
+    for (let i = 0; i < 5; i++) tick();
+    expect(isCorpseEaterFeeding(b, w.tick)).toBe(true);
+    const sat = { ...b.corpseEaterAnchor! };
+    w.phaseEndsAtTick = w.tick + 60; // the whistle blows mid-feed
+    while (w.matchPhase === 'FIGHT') tick();
+    expect(isCorpseEaterFeeding(b, w.tick), 'the scenario is real: the window straddles the edge').toBe(true);
+    expect(Math.hypot(b.pos.x - sat.x, b.pos.y - sat.y), 'recallArmies sent him home').toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS);
+    expect(b.state, 'released').not.toBe('ATTACKING');
+    const [foodAtEdge, bossAtEdge] = [food.ehp, b.ehp];
+    const home = { x: b.pos.x, y: b.pos.y };
+    while (isCorpseEaterFeeding(b, w.tick)) tick();
+    expect(w.matchPhase, 'the window expired inside BUILD').toBe('BUILD');
+    expect(food.ehp, 'no bite in BUILD').toBe(foodAtEdge);
+    expect(b.ehp, 'no heal in BUILD').toBe(bossAtEdge);
+    expect(b.pos, 'and the leash did not drag him back to the fight').toEqual(home);
   });
 });

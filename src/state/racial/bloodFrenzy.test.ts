@@ -262,8 +262,8 @@ describe('S188 BLOOD FRENZY — ⭐ REACH through the real host tick', () => {
     for (const cfg of Object.values(CREATURE_CONFIGS)) {
       const cadence = Math.max(1, Math.round(cfg.attackCadenceTicks / WARLORD_RAGE_MULTIPLIER));
       if (cfg.attackFireTick >= cfg.attackCadenceTicks) continue; // the chewer's legacy span — never enraged
-      expect(ragedFireTick(cfg.attackFireTick, { enraged: true }), cfg.type).toBeLessThan(cadence);
-      expect(ragedFireTick(cfg.attackFireTick, { enraged: false })).toBe(cfg.attackFireTick);
+      expect(ragedFireTick(cfg.attackFireTick, { attackCycleRaged: true }), cfg.type).toBeLessThan(cadence);
+      expect(ragedFireTick(cfg.attackFireTick, { attackCycleRaged: false })).toBe(cfg.attackFireTick);
     }
   });
 });

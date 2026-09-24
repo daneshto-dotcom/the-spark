@@ -17,6 +17,20 @@
  */
 
 import { CORPSE_EATER_TICKS } from '../state/racial/corpseEater.ts';
+import { isCorpseEaterFeeding, isStunned, type Creature } from '../state/creatures/creature.ts';
+
+/**
+ * ⭐ S188 (audit F5) — **DOES THIS BOSS DRAW HIS FEED RIGHT NOW?** Feeding, not stunned (R152's idle
+ * pose wins), and ⛔ **in FIGHT**. A window that straddles the FIGHT→BUILD edge keeps counting in the
+ * sim, but `recallArmies` has already sent him home and released him and the feed runner is FIGHT-gated,
+ * so drawing the eat loop at his castle through BUILD would show a meal that is not happening.
+ */
+export function showsCorpseEaterFeed(
+  c: Pick<Creature, 'corpseEaterUntilTick' | 'stunnedUntilTick'>,
+  world: { readonly tick: number; readonly matchPhase: 'BUILD' | 'FIGHT' },
+): boolean {
+  return world.matchPhase === 'FIGHT' && isCorpseEaterFeeding(c, world.tick) && !isStunned(c, world.tick);
+}
 
 export type FeedRow = 'feedIn' | 'feedLoop' | 'feedOut';
 
