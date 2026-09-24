@@ -26,8 +26,8 @@ import {
   isUntargetableType,
   type CreatureConfig,
 } from './voltkin-config.ts';
-import { unitPoolFifths } from '../stats.ts';
-import { draftedPoolFifths, type DraftPick } from '../draft.ts';
+import { attackFifths, unitPoolFifths } from '../stats.ts';
+import { draftedAttackFifths, draftedPoolFifths, type DraftPick } from '../draft.ts';
 import { WARLORD_RAGE_MULTIPLIER } from '../../constants.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
@@ -656,6 +656,36 @@ export interface Creature {
    */
   maxEhp?: number;
   /**
+   * ⭐⭐ S188 (draft-atk) — **THIS CREATURE'S OWN PER-HIT STRIKE, IN FIFTHS, WHEN IT DIFFERS FROM ITS
+   * TYPE'S.** Absent = `attackFifths(cfg.atk, cfg.pen)`, which is every creature born to a seat that
+   * has drafted no ATK or PEN pick.
+   *
+   * ⛔ **THE BUG THIS FIELD ENDS.** S187 shipped the general track HP → DEF → ATK → PEN, and only the
+   * first half did anything: the pool picks were baked into `maxEhp` above, while
+   * `draftedAttackFifths` had NO production consumer. So the wave-11 STRONGER and wave-16 PIERCING
+   * cards promised *"Every unit you spawn from now on hits 10% harder"* and every strike site went on
+   * reading the type's config — two of the four general picks were blank cards.
+   *
+   * ⛔ **STORED AT BIRTH, NEVER RE-DERIVED FROM THE SEAT, for the reason `maxEhp` is.** *"Units already
+   * on the board keep what they were born with"* — the card's own wording. Reading the owner's picks
+   * at strike time would retroactively buff every living unit the instant its owner drafted.
+   *
+   * ⚠ **READ IT THROUGH `creatureAttackFifths`, NEVER BY RE-DERIVING FROM THE CONFIG.** A strike site
+   * that still computes `attackFifths(cfg.atk, cfg.pen)` hits for the UNBUFFED amount — the exact
+   * shape of the S187 defect. `creatureStrike.guard.test.ts` counts the remaining derivations.
+   *
+   * ⭐ A HELLSPAWN child's split is applied ON TOP of this at strike time (`hellspawnStrikeFifths`),
+   * so the field holds the gen-0 strike and a child inherits its PARENT's value (`hellspawn.ts`).
+   *
+   * ADDITIVE-OPTIONAL on the wire and in the save, emitted only when present, so an unbuffed creature
+   * serializes to the same bytes as before. Rides PROTOCOL 50 (no bump: a peer on the same build
+   * always sends it, and it is absent for every creature the pre-fix build could have produced).
+   * ⛔ SERIALIZED AND HASHED — all four sites (`CreatureHashed` + the `:ak` projection + the per-field
+   * test + the save/wire round-trip the worker INIT rides). Validated on the way in: a positive
+   * integer or dropped.
+   */
+  atkFifths?: number;
+  /**
    * S109 P2 — tick until which a seagull-pooped creature crawls at POOP_SLOW_MULTIPLIER speed
    * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
    * at expiry). Consumed by `computeSteeringAccel` (scales the steering accel while live).
@@ -854,6 +884,25 @@ export function creatureMaxEhp(c: Pick<Creature, 'type' | 'maxEhp'>): number {
   return unitPoolFifths(cfg.hp, cfg.def);
 }
 
+/**
+ * ⭐⭐ S188 (draft-atk) — **THE ONE PLACE THAT ANSWERS "HOW HARD DOES THIS CREATURE HIT?"**
+ *
+ * The strike twin of `creatureMaxEhp`: the creature's own baked strike (a drafted ATK/PEN buff) when
+ * it carries one, else its type's `attackFifths(atk, pen)`. This is the gen-0 number — a HELLSPAWN
+ * child's share is applied on top by `hellspawnStrikeFifths` at the strike site, which is where the
+ * generation lives.
+ *
+ * ⛔ **EVERY CREATURE STRIKE READS THIS.** Six arms of `applyCreatureAttack`, the Voltkin chain, the
+ * suicide and drone blasts, and CORPSE EATER's bite fallback; on the render side the character card
+ * and `fatalBlowFifths`. `creatureStrike.guard.test.ts` enumerates the direct derivations that remain
+ * and fails when a new one appears.
+ */
+export function creatureAttackFifths(c: Pick<Creature, 'type' | 'atkFifths'>): number {
+  if (c.atkFifths !== undefined) return c.atkFifths;
+  const cfg = getCreatureConfig(c.type);
+  return attackFifths(cfg.atk, cfg.pen);
+}
+
 export function makeCreature(
   config: CreatureConfig,
   args: {
@@ -890,6 +939,14 @@ export function makeCreature(
     args.draftPicks === undefined || args.draftPicks.length === 0
       ? basePool
       : draftedPoolFifths(config.hp, config.def, args.draftPicks);
+  // ⭐ S188 (draft-atk) — and the STRIKE, read from the same snapshot of the seat's picks at the same
+  // moment. S187 wired the pool half above and left this half unconsumed, so the ATK and PEN picks
+  // changed nothing. Both halves are birth properties for the same reason: "from now on".
+  const baseAtk = attackFifths(config.atk, config.pen);
+  const atk =
+    args.draftPicks === undefined || args.draftPicks.length === 0
+      ? baseAtk
+      : draftedAttackFifths(config.atk, config.pen, args.draftPicks);
   return {
     id: args.id,
     type: config.type,
@@ -921,6 +978,9 @@ export function makeCreature(
     // carries no extra field, serializes to the same bytes as before, and leaves every
     // replay-equivalence guard untouched. See the field's docblock for why deriving it is unsafe.
     ...(pool !== basePool ? { maxEhp: pool } : {}),
+    // ⭐ S188 (draft-atk) — the same rule for the strike: stored ONLY when a drafted ATK/PEN pick
+    // moved it, so an unbuffed creature serializes to exactly the bytes it did before.
+    ...(atk !== baseAtk ? { atkFifths: atk } : {}),
   };
 }
 

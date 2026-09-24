@@ -689,6 +689,14 @@ interface SerializedCreature {
    */
   readonly maxEhp?: number;
   /**
+   * ⭐ S188 (draft-atk) — this creature's OWN per-hit strike, when a drafted ATK/PEN pick made it
+   * differ from its type's. Absent = `attackFifths(cfg.atk, cfg.pen)`. See `Creature.atkFifths`: it
+   * is a BIRTH property, so it cannot be rebuilt on the far side from the seat's current picks — a
+   * unit born before the pick would be buffed retroactively. Rides the wire (the joiner's character
+   * card prints it) and the save (the worker INIT and a host-migration successor strike with it).
+   */
+  readonly atkFifths?: number;
+  /**
    * S58 (#3) — owning player. Additive-optional (pre-S58 NetSnapshots omit it;
    * `deserializeCreature` rehydrates as 0 via nullish-coalescing). Pre-S58 this
    * was DELIBERATELY omitted ("host runs FSM, client only renders") — fog-of-war
@@ -2272,6 +2280,9 @@ function serializeCreature(c: Creature): SerializedCreature {
     // ⭐ S187 — and the max itself, only when it differs from the type's. Unbuffed creatures — which
     // is nearly all of them, nearly always — stay byte-identical to every prior save.
     ...(c.maxEhp !== undefined ? { maxEhp: c.maxEhp } : {}),
+    // ⭐ S188 (draft-atk) — the baked strike, only when a drafted ATK/PEN pick moved it. Unbuffed
+    // creatures stay byte-identical to every prior save.
+    ...(c.atkFifths !== undefined ? { atkFifths: c.atkFifths } : {}),
     // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
@@ -2651,6 +2662,12 @@ function deserializeCreature(s: SerializedCreature): Creature {
       unitPoolFifths(getCreatureConfig(s.type).hp, getCreatureConfig(s.type).def),
     // ⭐ S187 — absent means "this creature's pool is its type's", the correct pre-S187 reading.
     ...(s.maxEhp !== undefined ? { maxEhp: s.maxEhp } : {}),
+    // ⭐ S188 (draft-atk) — validated, never trusted: a strike is a POSITIVE INTEGER of fifths, because
+    // `damageEntity` throws on a non-integer and a zero/negative strike would be a unit that cannot
+    // hurt anything. Anything else off the wire is dropped, which reads as the type's own strike.
+    ...(typeof s.atkFifths === 'number' && Number.isInteger(s.atkFifths) && s.atkFifths > 0
+      ? { atkFifths: s.atkFifths }
+      : {}),
     // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
     // every reader gates on `!== undefined && tick < poopyUntilTick`.

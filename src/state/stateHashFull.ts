@@ -344,7 +344,14 @@ type CreatureHashed =
    * a mirror disagreeing about either diverge in movement and damage on the same tick.
    */
   | 'corpseEaterUntilTick'
-  | 'corpseEaterAnchor';
+  | 'corpseEaterAnchor'
+  /*
+   * ⭐ S188 (draft-atk) — the creature's baked strike (a drafted ATK/PEN buff). HASHED: it is the
+   * number every strike this creature lands subtracts, so a host and a `?worker=1` mirror that
+   * disagreed about it would diverge on the very next hit. Projected as `:ak` below; its contribution
+   * test is `draftAtkReaches.test.ts`.
+   */
+  | 'atkFifths';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -623,6 +630,8 @@ export function determinismParts(world: World): string[] {
         `:hg${o(c.hellspawnGen)}`,
         // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
+        // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
+        `:ak${o(c.atkFifths)}`,
     );
   }
 
