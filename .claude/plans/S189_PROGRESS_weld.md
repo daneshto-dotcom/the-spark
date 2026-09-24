@@ -78,8 +78,16 @@ SURVIVE.
     (sm1 vs sm_ on the hand-built bonds): a per-tick transient `territory.ts:268` rewrites every tick
     and the save deliberately omits — BENIGN, cleared before the fork, documented in the test.
 
+- step 5 — stale docblocks fixed in my own recognition files (laserTurret "dies at seven", stink
+  tower "self-heals", every exact predicate marked IGNITION-ONLY, goblinKinds immortality note);
+  canon notes written (`S189_CANON_NOTES_weld.md`); GATES, each a captured `$?`:
+  · `npm run typecheck` → TC_EXIT=0
+  · `npx vitest run` → VITEST_EXIT=0 — 6026 tests / 368 files
+  · `npm run build` → BUILD_EXIT=0 — 948.4 KiB (base 944.2) = **+4.2 KiB** of the shared headroom.
+  · e2e NOT run (brief).
+
 ## IN-FLIGHT
-- step 5 — gates (typecheck / vitest / build), canon notes, report.
+- none — report delivered to the merge owner.
 
 ## NEXT
 
@@ -102,12 +110,27 @@ SURVIVE.
   NOBODY can merge a drop into a second live spawner. It was the old mitigation for exactly the
   defect fixed here, and it now blocks R185-B's own example (welding two bat towers — spawners).
   Still protective for the R136 race rings. Narrowing it to the race rings is a placement-rule change.
+- F3 `stinkTower.ts` property 1 ("it self-heals") is retired by this change — an accidental stink
+  tower you keep building onto now stays. Docblock updated; flag at playtest.
+- F4 Voltkin TV (`voltkinTowerRenderer`, `findAllVoltkinChains`) is a cinematic chain, not a live
+  tower with survival — a weld on its chain likely makes the TV art vanish (same class, unverified).
+- F5 `spawnerZoneRenderer.ts:87` centres the aura disc on `componentOf(anchor)` — it drifts toward
+  welds (cosmetic; per-bond cover alpha is correct, so weld connectors draw at alpha 1).
 - F2 `hostTick.ts:856` the lightning hub's self-raze takes `componentOf(dying)` — a hub welded into a
   lattice (leaf welds, legal since S158; hub welds, legal now) RAZES THE WHOLE WELDED STRUCTURE,
   including a welded sibling tower. Should raze `towerMembersAt(...).prims`. Pre-existing class.
 
 ## HOTSPOT HUNKS (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
-- none yet
+- NONE. No hotspot file touched. No wire field, no hash field, no worker field added.
+
+## WIRE / HASH / PROTOCOL
+- No serialized or hashed field changed. The SURVIVAL RULE is shared: it runs on the host AND the
+  worker (proven lockstep by the differential), and on whichever peer becomes host after a migration;
+  the render walk and `seatFeedTowerAt` run on every client. Two builds at the same
+  PROTOCOL_VERSION would disagree about whether a welded tower stands (after a host migration to the
+  old build it is torn down) and about its cover/centroid/FEED row. By the S140 precedent (a recipe
+  retune bumped 18→19 as "shared constants both peers compute from") this OWES A BUMP — the merge
+  owner writes it.
 
 ## NON-ZERO EXITS AND THEIR VERDICTS
 - repro run EXIT=1 (4 red) — BY DESIGN, the failing reproduction (step 1).
@@ -119,3 +142,5 @@ SURVIVE.
 - a bash heredoc append failed (unmatched quote) — RESOLVED: nothing was appended; used Edit.
 - mutation runs EXIT=1 — BY DESIGN (the mutants must go red); sources restored, `git status` clean.
 - differential first run EXIT=1 on INIT bit-exactness — BENIGN transient field (see step 4b).
+- typecheck TC_EXIT=1 after the differential landed (TS2367: `matchPhase` narrowed to 'BUILD' by the
+  setup assignment) — a REAL error in commit 59d124c (vitest does not typecheck). RESOLVED next commit.

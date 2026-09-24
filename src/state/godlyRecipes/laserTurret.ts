@@ -27,6 +27,12 @@
  * then die in front of them. That is why the retune is a copy migration, not a constant change: if
  * any "seven" survives anywhere a player can read it, it becomes a trap.
  *
+ * ⚠ S189 C2 — THE "DIES AT SEVEN" HALF IS NOW TRUE ONLY OF BUILDING ONE. `stillValid` no longer calls
+ * the exact predicate: a LIVE turret stands while its own six Spiral arms are contained, whatever is
+ * welded on (`state/towerMembers.ts`). So a seventh Spiral bonded to a live turret's hub is a weld,
+ * not a death — and stands in for an own arm if one is later cut. Ignition is unchanged: a Line of
+ * degree 7 still never BUILDS a turret, so "builds at six" holds and the copy migration still matters.
+ *
  * Strictness (mirrors pentagram.ts's component-isolation predicate): componentOf follows EVERY
  * bond, so an extra attached shape or a leaf that is also bonded elsewhere pushes the size past 7
  * / raises a leaf's degree ⇒ NO match. A single connected graph of {one degree-6 hub + six
@@ -66,6 +72,8 @@ const HUB_DEGREE = TURRET_HUB_DEGREE;
  * Read-only check: is the component anchored at `lineId` a 1-Line(deg6) + 6-Spiral star?
  * Exported so defenderLifecycle.recipeStillSatisfied (via the recipe's `stillValid`) can re-validate
  * a live turret's component each poll without re-walking the whole world.
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
+ * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
  *
  * S103 P3 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Line of bond-degree exactly 6,
  * (b) its connected component is exactly 7 primitives, (c) every non-hub member is a Spiral. Those

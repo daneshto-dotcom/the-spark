@@ -810,6 +810,7 @@ describe('⭐ S189 C2 — HOST vs WORKER: the welded towers are judged identical
       w.effects.length = 0;
     };
 
+    const phaseOf = (x: World): World['matchPhase'] => x.matchPhase;
     let seq = 0;
     let secondEdge = false;
     let sawFight = false;
@@ -821,8 +822,10 @@ describe('⭐ S189 C2 — HOST vs WORKER: the welded towers are judged identical
         intents: [],
         nowMs: f * 16,
       };
-      if (w.matchPhase === 'FIGHT') sawFight = true;
-      if (!secondEdge && w.matchPhase === 'FIGHT') {
+      // Read through a call: the setup assigned 'BUILD', and tsc would otherwise narrow the field.
+      const inFight = phaseOf(w) === 'FIGHT';
+      if (inFight) sawFight = true;
+      if (!secondEdge && inFight) {
         w.phaseEndsAtTick = w.tick + 60;
         sim.world.phaseEndsAtTick = sim.world.tick + 60;
         secondEdge = true;

@@ -42,6 +42,8 @@ const CIRCLE_LEAVES = 3; // 3 Stars (unordered {Triangle,Circle} type-set)
 /**
  * Read-only check: is the component anchored at `hubId` a Triangle hub(deg6) + 3 Spiral + 3 Circle
  * star? Exported so defenderLifecycle.recipeStillSatisfied (via `stillValid`) can re-validate each poll.
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
+ * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
  *
  * S103 P4 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Triangle of bond-degree exactly
  * 6, (b) its component is exactly 7 primitives, (c) the 6 non-hub members are exactly 3 Spirals + 3

@@ -52,8 +52,12 @@
  * That is a genuine consequence of a 4-shape recipe, not an oversight, and TWO properties keep it
  * benign rather than a bug:
  *
- *   1. **It self-heals.** The component-size gate is EXACT and `stillValid` is re-checked every
- *      `REVALIDATE_INTERVAL_TICKS` (0.5 s). Bond a fourth shape on and the tower removes itself.
+ *   1. ~~**It self-heals.**~~ ⚠ S189 C2 — **NO LONGER TRUE, AND DELIBERATELY.** This said *"bond a
+ *      fourth shape on and the tower removes itself"*. That self-heal WAS the owner's S189 bug seen
+ *      from the other side: a weld dissolving a tower. Survival is now "the recipe is still
+ *      contained" (`state/towerMembers.ts`), so an accidental stink tower you keep building onto
+ *      STAYS a stink tower. Ignition is still exact, so it is born only as a clean Square + 3 Circles.
+ *      Property 2 below is untouched, so it still cannot punish you.
  *   2. **It cannot punish you for it.** The death blast is gated in `destroyDefender` on the ANCHOR
  *      BEING GONE, so a tower that removes itself because you kept building never detonates. Without
  *      that discriminator, continuing your own build would blast your own structure — which is the
@@ -142,6 +146,8 @@ export const STINK_LEAF_TYPE = SparkType.Circle;
  * Exported so `defenderLifecycle.recipeStillSatisfied` (via the recipe's `stillValid`) can
  * re-validate a live tower each poll: a chewer eating a Circle leaf, a severed arm, or a fourth
  * shape bonded to the HUB itself all still tear it down, because all three break the star.
+ * ⚠ S189 C2 — "a fourth shape bonded to the HUB" NO LONGER tears it down: survival asks
+ * `towerStandsAt` (the recipe still CONTAINED), and this exact test is IGNITION only.
  */
 export function isStinkTowerComponent(world: World, squareId: PrimitiveId): boolean {
   return isStarAt(world, squareId, STINK_HUB_TYPE, STINK_LEAF_TYPE, STINK_TOWER_HUB_DEGREE);

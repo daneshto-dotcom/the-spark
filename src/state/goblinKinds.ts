@@ -79,6 +79,10 @@ export const GOBLIN_FEED_MAP: Readonly<Record<SparkType, CreatureType>> = {
  * ⛔ AND WITHOUT THIS BEING CALLED, THE TOWER IS IMMORTAL. `recipeStillSatisfied`'s `default:` arm
  * only checks that the anchor primitive still exists, so a tower whose four leaves were eaten would
  * keep producing goblins off a single lone Circle — with no error anywhere.
+ *
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The spawner poll and the two seat lookups below ask
+ * `towerStandsAt('goblinTower', …)` (the recipe still CONTAINED, welds ignored) — which is what
+ * keeps the tower MORTAL now; the immortality warning above transfers to that call unchanged.
  */
 export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boolean {
   // ⭐ S158 B2b — the STAR AT THE ANCHOR, not the island it sits on. The old whole-component
