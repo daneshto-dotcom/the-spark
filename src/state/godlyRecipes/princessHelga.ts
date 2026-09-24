@@ -42,8 +42,10 @@ const CIRCLE_LEAVES = 3; // 3 Stars (unordered {Triangle,Circle} type-set)
 /**
  * Read-only check: is the component anchored at `hubId` a Triangle hub(deg6) + 3 Spiral + 3 Circle
  * star? Exported so defenderLifecycle.recipeStillSatisfied (via `stillValid`) can re-validate each poll.
- * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
- * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
+ * ⚠ S189 C2 + R190-J — NO LONGER CALLED IN PRODUCTION. Survival (`stillValid`) AND ignition /
+ * re-summon (`findBuildableHelgaAnchor`) both ask `towerStandsAt` now. This exact shape test is kept
+ * as the definition of a CLEAN hall, which `weldOntoTowerS189.test.ts` stamps against (a clean hall
+ * must satisfy both) and `princessHelga.test.ts` pins.
  *
  * S103 P4 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Triangle of bond-degree exactly
  * 6, (b) its component is exactly 7 primitives, (c) the 6 non-hub members are exactly 3 Spirals + 3
@@ -73,7 +75,22 @@ export function isHelgaComponent(world: World, hubId: PrimitiveId): boolean {
   return spirals === SPIRAL_LEAVES && circles === CIRCLE_LEAVES;
 }
 
-/** Lowest-id Triangle hub anchoring a valid, NOT-already-live HELGA. Ascending id → deterministic. */
+/**
+ * Lowest-id Triangle hub anchoring a valid, NOT-already-live HELGA. Ascending id → deterministic.
+ *
+ * ⭐⭐ OWNER RULING R190-J (S189) — *"Every fight she should come back as long as the tower is still
+ * up."* Helga is the one defender that DIES while her tower stands (S158 P7), and she comes back
+ * through THIS predicate on the next BUILD. It used `isHelgaComponent` — the exact whole-component
+ * test — so once anything was welded onto her hall she was gone for good while the hall itself stood
+ * (S189 C2 made the hall survive welds; re-summon was left behind, and he ruled it wrong).
+ *
+ * So Helga's hub is found by the SURVIVAL test (`towerStandsAt`: the Triangle hub still holds its
+ * own 3 Spiral + 3 Circle arms, whatever else is welded on). ⚠ This is Helga's IGNITION too — there
+ * is no record of "this was her hall" once she has died, so first build and re-summon are one
+ * predicate. The consequence, stated: a Triangle carrying her six arms plus anything else (a ring
+ * node of a pentagram or a Triangle race ring, say) is ALSO a Helga hub. That needs six specific
+ * shapes around one Triangle, so it is a deliberate build, not a lattice accident.
+ */
 function findBuildableHelgaAnchor(world: World): PrimitiveId | null {
   const live = new Set<PrimitiveId>();
   for (const d of world.defenders.values()) live.add(d.anchorPrimitiveId);
@@ -83,7 +100,7 @@ function findBuildableHelgaAnchor(world: World): PrimitiveId | null {
     .sort((a, b) => a - b);
   for (const id of triIds) {
     if (live.has(id)) continue;
-    if (isHelgaComponent(world, id)) return id;
+    if (towerStandsAt(world, 'helga', id)) return id;
   }
   return null;
 }
@@ -112,12 +129,12 @@ export const HELGA_RECIPE: DefenderGodlyRecipe = {
   defenderKind: 'princess',
   predicate: helgaPredicate,
   /*
-   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED". `isHelgaComponent` is the IGNITION
-   * test and stays exact — but it is a WHOLE-COMPONENT test (the S158 B2b defect, never fixed for
+   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED". `isHelgaComponent` was the IGNITION
+   * test (R190-J moved ignition onto contains too) — and it is a WHOLE-COMPONENT test (the S158 B2b defect, never fixed for
    * HELGA), so as the survival test ONE shape welded onto ONE leaf tore her hall down. Survival now
    * asks only that the Triangle hub still holds its own 3 Spiral + 3 Circle arms; see
-   * `state/towerMembers.ts`. ⚠ Her re-summon after she is killed still goes through ignition, so a
-   * welded hall stands but cannot re-summon her — reported, not changed (ignition is out of scope).
+   * `state/towerMembers.ts`. ⭐ R190-J — and her RE-SUMMON after she is killed uses the same test
+   * (`findBuildableHelgaAnchor` above), so a welded hall that stands brings her back every fight.
    */
   stillValid: (world, anchorId) => towerStandsAt(world, 'helga', anchorId),
   characterSprite: '/godly/helga/helga.png', // S110 P5 — HELGA's own matted imagen art (dirndl + stein + slap)

@@ -68,6 +68,7 @@ import {
   markTowerCover,
 } from '../render/towerCover.ts';
 import { planStructureRepair } from './structureRepair.ts';
+import { damageEntity } from './damage.ts';
 import { collectSpawnerLockedPrimitiveIds } from './placePrimitive.ts';
 import { applyBuildBlueprint } from './blueprintBuild.ts';
 import { blueprintBill } from './blueprints.ts';
@@ -1123,5 +1124,132 @@ describe('⭐⭐ S189 C2 item 3 — a hub welded to a laser turret self-destruct
     for (const l of turret.leaves) expect(w.primitives.has(l.id), `turret leaf ${l.id}`).toBe(true);
     tick(w, st, PAST_TWO_POLLS);
     expect(w.defenders.size, 'and the laser turret is still a tower').toBe(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// THE SPARE RULE, THROUGH THE HOST TICK — exactly when a cut levels a tower and when a weld takes over.
+// See `S189_CANON_NOTES_weld.md` §A for the rule these two cases (and the two "cut levels" cases
+// above) pin between them.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⚖ THE SPARE RULE — a cut levels a tower UNLESS a weld completes its own recipe again', () => {
+  it('STAR: a 7th Spiral welded to the turret HUB takes over when an own Spiral arm is cut', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    tick(w, st, 2);
+    expect(w.defenders.size).toBe(1);
+    const spare = mk(w, SparkType.Spiral, 530, 330);
+    bond(w, hub, spare); // a weld of the arm type, on the hub itself, AFTER ignition
+    const arm = bondsBetween(w, hub, [leaves[0]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: arm, playerId: P1, cause: 'creature' });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'six Spiral arms on the hub again — the recipe is contained').toBe(1);
+    expect(towerMembersAt(w, 'laserTurret', hub.id)!.prims).toContain(spare.id);
+  });
+
+  it('RING: a Triangle bridging nodes 0 and 2 takes over when the pentagram edge 0–1 is cut', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const anchor = [...w.creatureSpawners.values()][0]!.anchorPrimitiveId;
+    expect(anchor).toBe(nodes[0]!.id);
+    const x = mk(w, SparkType.Triangle, 520, 290);
+    bond(w, x, nodes[0]!);
+    bond(w, x, nodes[2]!); // 0-X-2-3-4 is a second simple 5-cycle through the anchor
+    const cut = bondsBetween(w, nodes[0]!, [nodes[1]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: cut, playerId: P1, cause: 'creature' });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'a 5-cycle of Triangles still runs through the anchor').toBe(1);
+    expect(towerMembersAt(w, 'pentagram', anchor)!.prims).toContain(x.id);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// OWNER RULING R190-J — "Every fight she should come back as long as the tower is still up."
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a broken one does not', () => {
+  /** Triangle hub + alternating 3 Spiral / 3 Circle leaves — her hall, hand-built and ignited. */
+  function hall(w: World, st: HostTickState): { hub: Primitive; leaves: Primitive[] } {
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    const leaves: Primitive[] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const leaf = mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40);
+      bond(w, hub, leaf);
+      leaves.push(leaf);
+    }
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 6 });
+    tick(w, st, 2);
+    expect([...w.defenders.values()].map((d) => d.kind), 'the hall summons her').toEqual(['princess']);
+    return { hub, leaves };
+  }
+
+  /** Cross the next phase edge through the REAL host tick (so the edge sweeps run). */
+  function nextPhase(w: World, st: HostTickState): void {
+    const from = w.matchPhase;
+    w.phaseEndsAtTick = w.tick + 1;
+    tick(w, st, 3);
+    expect(w.matchPhase, `the phase must flip from ${from}`).not.toBe(from);
+  }
+
+  /** What a player does every BUILD: build something — a bonded pair far from the hall. */
+  function buildSomethingElsewhere(w: World): void {
+    placeLikeAPlayer(w, SparkType.Dot, { x: 300, y: 760 });
+    placeLikeAPlayer(w, SparkType.Dot, { x: 330, y: 760 }); // bonds to the first → BOND_FORMED
+  }
+
+  function killHelga(w: World): void {
+    const h = [...w.defenders.values()].find((d) => d.kind === 'princess')!;
+    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'she is dead').toBe(false);
+  }
+
+  it('⭐ weld a shape onto her HALL, let her die, and she re-summons for the next fight', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const { hub } = hall(w, st);
+    const weld = placeLikeAPlayer(w, SparkType.Square, { x: 520, y: 318 });
+    expect(neighbours(w, weld), 'the weld is on the HUB').toContain(hub.id);
+    expect(isHelgaComponent(w, hub.id), 'the EXACT build test would refuse this hall').toBe(false);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the welded hall stands').toBe(1);
+
+    nextPhase(w, st); // → FIGHT
+    killHelga(w);
+    tick(w, st, 5);
+    expect(w.defenders.size, 'no re-summon inside the fight she died in (S157 B6)').toBe(0);
+
+    nextPhase(w, st); // → BUILD
+    buildSomethingElsewhere(w);
+    tick(w, st, 3);
+    const back = [...w.defenders.values()].filter((d) => d.kind === 'princess');
+    expect(back.length, 'she is back for the next fight').toBe(1);
+    expect(back[0]!.anchorPrimitiveId, 'on the same hall').toBe(hub.id);
+
+    nextPhase(w, st); // → FIGHT
+    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'and she fights it').toBe(true);
+  });
+
+  it('⛔ cut one of the hall\'s OWN connectors: the hall falls and she does NOT return', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const { hub, leaves } = hall(w, st);
+    placeLikeAPlayer(w, SparkType.Square, { x: 520, y: 318 });
+    tick(w, st, PAST_TWO_POLLS);
+
+    nextPhase(w, st); // → FIGHT
+    killHelga(w);
+    const arm = bondsBetween(w, hub, [leaves[0]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: arm, playerId: P1, cause: 'creature' });
+    expect(towerStandsAt(w, 'helga', hub.id), 'her own Spiral arm is gone — the hall is down').toBe(false);
+
+    nextPhase(w, st); // → BUILD
+    buildSomethingElsewhere(w);
+    tick(w, st, 3);
+    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'no hall, no Helga').toBe(false);
   });
 });

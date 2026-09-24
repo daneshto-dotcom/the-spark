@@ -164,8 +164,53 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
   welding square, the turret hub and all 6 spirals stand, and the turret is still a tower.
 - mutant (raze back to `componentOf`) → RED; restored. `src/state` 187 files / 3113 tests EXIT=0.
 
+### RESUME NOTE — a spend-limit stop hit after item 3. On resume `git status` showed exactly two
+uncommitted files (`princessHelga.ts`, `weldOntoTowerS189.test.ts`) = the R190-J change + its tests +
+the two spare-rule reach tests. INSPECTED, coherent, already verified before the stop (typecheck 0,
+vitest 0 = 6044 / 368, mutant red) — FINISHED and committed, not reverted. Items 1-3 were already
+committed (e2df268, 71f9173, 69ee235); the resume message listing items 2-3 as open was stale.
+
+### step F4 — OWNER RULING R190-J LANDED: a welded Helga hall re-summons her every fight
+> *"Every fight she should come back as long as the tower is still up."*
+- `princessHelga.ts` `findBuildableHelgaAnchor`: `isHelgaComponent` (exact whole-component) →
+  `towerStandsAt(world, 'helga', id)`. There is no record of "this was her hall" once she dies, so
+  her first build and her re-summon are ONE predicate — Helga's ignition is now contains too.
+  Consequence stated at the function: a Triangle that carries her six arms plus anything else (a
+  pentagram / Triangle-race ring node) is also a Helga hub — six specific shapes, a deliberate build.
+- `isHelgaComponent` is no longer called in production (kept as the definition of a clean hall; the
+  tests stamp against it). Its docblock and `stillValid`'s say so.
+- tests: weld a square onto her HUB (the exact test now refuses the hall), cross BUILD→FIGHT through
+  the real host tick, kill her (`damageEntity` for her full pool), no re-summon inside that fight
+  (S157 B6), cross to BUILD, build something elsewhere (a bonded pair — ignition needs a topology
+  change), she is back on the same hub and fights the next FIGHT. Negative: cut one of the hall's OWN
+  arms in the fight she died in → the hall is down → she does not return.
+- mutant (predicate back to `isHelgaComponent`) → the re-summon test RED; restored.
+- ⚠ PRE-EXISTING GAP vs "EVERY fight", reported not changed: defender ignition only scans on a
+  BUILD-phase TOPOLOGY CHANGE (`runDefenderIgnition`: a `BOND_FORMED` or a player sever). A player who
+  builds nothing at all in a BUILD does not get her back — true of an UN-welded hall too. Closing it
+  = an edge-triggered scan (e.g. a host-local "phase changed" flag on the matcher cursor, or a scan at
+  the FIGHT→BUILD edge in `hostTick`), ~1 h + a determinism check on the worker path.
+
+### step F4b — THE SPARE RULE, pinned through the host tick (two new tests)
+- STAR: a 7th Spiral welded onto a live turret's HUB takes over when an own Spiral arm is cut → stands.
+- RING: a Triangle bridging pentagram nodes 0 and 2 takes over when edge 0–1 is cut → stands.
+- (the "cut levels it" side is pinned by: turret own-arm cut with only foreign welds → falls;
+  pentagram cut with a Circle weld → falls; race-ring cut with a same-type spur → falls.)
+
+### step F5 — item 4 VERIFIED (no code change): the Voltkin TV art does NOT vanish on a weld
+- Evidence (code): `voltkinTowerRenderer.sync` draws one TV per `findAllVoltkinChains(world)`, whose
+  `walkChain` is a type-ordered PATH search with NO degree or isolation check — the isolation /
+  degree test lives only in `voltkinPredicate` (ignition, `voltkin.ts` "S48 P4 strict chain
+  isolation"). Its cover set is `world.bonds` with both ends in the chain (`voltkinTowerRenderer`
+  ~:568-576), so a weld stays at alpha 1 (R185-A holds there too).
+- Evidence (probe, a throwaway test file, deleted, not committed): 4 Squares + 4 Triangles chain →
+  1 chain; + a Circle hand-welded on chain[3] → 1 chain, same 8 members; + a Triangle welded on
+  chain[6] → 1 chain, same 8 members; + a REAL Circle drop (3 bonds formed) → 1 chain.
+- Caveat, not a bug found: the path search iterates `Map`/`Set` order, so on an exotic lattice with
+  two valid 8-paths it could pick a different path — render-only, no sim effect.
+
 ## IN-FLIGHT
-- item 4 (verify only).
+- gates + canon notes + final report.
 
 ## NEXT
 
