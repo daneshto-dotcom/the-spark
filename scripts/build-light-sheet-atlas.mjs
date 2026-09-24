@@ -35,8 +35,12 @@
  *        estimated there (the beam enters through it and is ART);
  *      · alpha is feathered to zero over `featherPx` at the left, right and bottom edges, so whatever
  *        wash survives the subtraction (it is brighter in the middle than at the edges) fades out
- *        before the rectangle can show. The TOP edge is not feathered: the beam is cut by it, and the
- *        renderer continues the beam upward from there (`beamTop`).
+ *        before the rectangle can show. The TOP edge is feathered too on every frame that is NOT a
+ *        beam frame (RAVFX-1): frames 21-23's fire-and-smoke column is cut by the cell top exactly as a
+ *        beam is, and shipped unfeathered it read as a sawn-off box top. A BEAM frame's top is left
+ *        hard — the beam is cut by it and the renderer continues it upward from there (`beamTop`) —
+ *        and the TOP-EDGE GUARD fails the build if any other frame reaches its cell top with more
+ *        than `topEdgeMaxAlpha` in its first `topEdgeGuardRows` rows.
  * 4. ⭐ **ALPHA IS LIGHT, NOT A KEYED CUT-OUT.** A beam, a flash, fire and embers on black are LIGHT,
  *    and the hub's binary key would turn their soft falloff into an opaque brown rim. So alpha is the
  *    pixel's own brightness (`max(R,G,B) / alphaFullAt`, clamped) and the colour is un-premultiplied
@@ -132,7 +136,7 @@ WASH_ROW_FULL = float(spec.get('washRowFullAt', 12))
 def edge_profile(col):
     return np.stack([ndimage.percentile_filter(col[:, ch], PCT, size=WIN, mode='nearest') for ch in range(3)], axis=1)
 
-def process(c, ax, ay):
+def process(c, ax, ay, feather_top):
     ch, cw = c.shape[0], c.shape[1]
     Lp = edge_profile(c[:, INSET]); Rp = edge_profile(c[:, cw - 1 - INSET])
     u = (np.arange(cw) / max(1, cw - 1))[None, :, None]
@@ -179,19 +183,23 @@ def process(c, ax, ay):
     s = np.clip((POOL_MAX - alpha) / (POOL_MAX * 0.5), 0, 1)
     atten = 1 - wr * s * (1 - pool * POOL_KEEP)
     alpha = np.where(ink, alpha, alpha * atten)
-    # Feather left / right / bottom — never the top, which the beam enters through.
+    # Feather left / right / bottom always. The TOP only when this is NOT a beam frame (RAVFX-1): a beam
+    # enters through the top and the renderer continues it into the sky; anything else the cell top cuts
+    # (frames 21-23's fire-and-smoke column) would ship as a sawn-off flat top.
     yy, xx = np.mgrid[0:ch, 0:cw]
     d = np.minimum(np.minimum(xx, cw - 1 - xx), ch - 1 - yy).astype(np.float64)
+    if feather_top: d = np.minimum(d, yy.astype(np.float64))
     alpha = alpha * np.clip(d / max(1, FEATHER), 0, 1)
     alpha = np.where(alpha < FLOOR, 0, alpha)
     out = np.dstack([np.clip(rgb, 0, 255), alpha * 255]).round().astype(np.uint8)
     return out, float(wash.max())
 
 cells = []
+BEAM = set(spec['beamFrames'])
 for r, (y0, y1) in enumerate(row_spans):
     for c, (x0, x1) in enumerate(col_spans):
         ax, ay = (x1 - x0) // 2, int(ground[r]) - y0
-        rgba, washmax = process(src[y0:y1, x0:x1], ax, ay)
+        rgba, washmax = process(src[y0:y1, x0:x1], ax, ay, (r * want_c + c + 1) not in BEAM)
         cells.append({'n': r * want_c + c + 1, 'row': r, 'x0': x0, 'y0': y0, 'img': rgba,
                       'ax': ax, 'ay': ay, 'washmax': washmax})
 print('  wash removed (max estimated sum per channel): ' +
@@ -249,6 +257,20 @@ for c in kept:
     beam_top.append(c['top_out'] if c['n'] in beam_frames else None)
 print(f'  touching the cell top: {touching}; continued into the sky: {sorted(beam_frames)}')
 
+# ⛔ RAVFX-1 — THE TOP-EDGE GUARD. Every frame that is NOT continued into the sky must reach its source
+# cell's top edge with no more than a trace of alpha; otherwise the board shows a horizontal sawn-off
+# top (the defect class the owner has rejected before). The feather above is what satisfies it.
+TG_ROWS = int(spec.get('topEdgeGuardRows', 2)); TG_MAX = float(spec.get('topEdgeMaxAlpha', 40))
+tops = {}
+for c in kept:
+    if c['n'] in beam_frames: continue
+    tops[c['n']] = int(c['img'][0:TG_ROWS, :, 3].max())
+    if tops[c['n']] > TG_MAX:
+        fail(f"[light-sheet] top-edge guard: frame {c['n']} reaches its cell top at alpha {tops[c['n']]} "
+             f"(> {TG_MAX:.0f} in the first {TG_ROWS} rows): a hard flat top would ship. Is it a beam frame?")
+print(f'  top-edge guard (max alpha in the top {TG_ROWS} rows, limit {TG_MAX:.0f}): ' +
+      ' '.join(f'{n}:{v}' for n, v in tops.items() if v > 0) + ' (all others 0)')
+
 # ── 5. BLAST FOOTPRINT — sized to the column's REAL damage radius by the renderer ────────────────
 blast = spec['blastFrames']
 widths = []
@@ -285,6 +307,9 @@ manifest = {
     'frameTicks': spec['frameTicks'],
     'impactFrame': spec['impactFrame'],
     'beamTop': beam_top,
+    # Per slot, the output row the SOURCE cell's top edge landed on (a beam slot's beamTop is this
+    # same row). Lets a test find each cell's top edge without re-deriving the grid.
+    'cellTop': [c['top_out'] for c in kept],
     'blastWidthPx': blast_w,
 }
 json.dump(manifest, open(out_json, 'w', newline='\n'), indent=2)

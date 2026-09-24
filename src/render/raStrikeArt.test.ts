@@ -16,6 +16,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { inflateSync } from 'node:zlib';
 import { Texture, TextureSource, type Graphics } from 'pixi.js';
 import { drawBossAuras } from './bossAuras.ts';
 import {
@@ -41,6 +42,7 @@ import type { Creature } from '../state/creatures/creature.ts';
 
 const MANIFEST_PATH = 'public/art/ra-strike/ra-strike-anim.json';
 const ATLAS_PATH = 'public/art/ra-strike/ra-strike-atlas.png';
+const SPEC_PATH = 'assets-source/ra-strike/atlas-specs.json';
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8')) as RaStrikeManifest;
 
 const P0 = asPlayerId(0);
@@ -128,6 +130,50 @@ function pharaohBoard(until: number): World {
   return w;
 }
 
+/**
+ * The one PNG shape the intake writes — 8-bit RGBA, non-interlaced — decoded with `node:zlib`, so the
+ * unit suite (which has no pixel toolchain) can still read the SHIPPED atlas's alpha.
+ */
+function decodeRgbaPng(buf: Buffer): { w: number; h: number; px: Uint8Array } {
+  const w = buf.readUInt32BE(16);
+  const h = buf.readUInt32BE(20);
+  expect([buf[24], buf[25], buf[28]], 'bit depth 8, colour type 6 (RGBA), no interlace').toEqual([8, 6, 0]);
+  const idat: Buffer[] = [];
+  for (let off = 8; off < buf.length;) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString('latin1', off + 4, off + 8);
+    if (type === 'IDAT') idat.push(buf.subarray(off + 8, off + 8 + len));
+    off += 12 + len;
+    if (type === 'IEND') break;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const stride = w * 4;
+  const px = new Uint8Array(h * stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)]!;
+    const src = y * (stride + 1) + 1;
+    const dst = y * stride;
+    for (let x = 0; x < stride; x++) {
+      const r = raw[src + x]!;
+      const a = x >= 4 ? px[dst + x - 4]! : 0;
+      const b = y > 0 ? px[dst - stride + x]! : 0;
+      const c = x >= 4 && y > 0 ? px[dst - stride + x - 4]! : 0;
+      let v: number;
+      if (f === 0) v = r;
+      else if (f === 1) v = r + a;
+      else if (f === 2) v = r + b;
+      else if (f === 3) v = r + ((a + b) >> 1);
+      else if (f === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        v = r + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c);
+      } else throw new Error(`PNG filter ${f}`);
+      px[dst + x] = v & 0xff;
+    }
+  }
+  return { w, h, px };
+}
+
 const key = (x: number, y: number): string => `${x.toFixed(3)} ${y.toFixed(3)}`;
 
 /**
@@ -207,6 +253,46 @@ describe('S188 ra-vfx — the shipped manifest is the timeline this code plays',
     expect(manifest.beamTop).toHaveLength(manifest.sourceFrames.length);
     const cut = manifest.sourceFrames.filter((_, i) => manifest.beamTop[i] !== null);
     expect(cut).toEqual([5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  });
+
+  it('⛔ RAVFX-1 — no frame that is not continued into the sky reaches its cell top with more than a trace of alpha', () => {
+    // Sheet frames 21-23's fire-and-smoke column was cut by its source cell's top and shipped as a
+    // sawn-off flat top. The intake now feathers that edge and GUARDS it; this reads the shipped pixels.
+    const spec = JSON.parse(readFileSync(SPEC_PATH, 'utf-8')) as { topEdgeGuardRows: number; topEdgeMaxAlpha: number; featherPx: number };
+    const m = manifest as RaStrikeManifest & { cellTop: number[] };
+    expect(m.cellTop).toHaveLength(m.sourceFrames.length);
+    const { w, px } = decodeRgbaPng(readFileSync(ATLAS_PATH));
+    const rows = Object.values(m.states).sort((a, b) => a.row - b.row);
+    const cellOf = (slot: number): { x0: number; y0: number } => {
+      let s = slot;
+      for (const st of rows) {
+        if (s < st.frames) return { x0: s * m.cellW, y0: st.row * m.cellH };
+        s -= st.frames;
+      }
+      throw new Error(`slot ${slot}`);
+    };
+    const rowMaxAlpha = (slot: number, y: number): number => {
+      const { x0, y0 } = cellOf(slot);
+      let best = 0;
+      for (let x = x0; x < x0 + m.cellW; x++) best = Math.max(best, px[((y0 + y) * w + x) * 4 + 3]!);
+      return best;
+    };
+    for (let slot = 0; slot < m.sourceFrames.length; slot++) {
+      const top = m.cellTop[slot]!;
+      if (m.beamTop[slot] !== null) {
+        expect(m.beamTop[slot], `slot ${slot}: a beam is cut AT its cell top`).toBe(top);
+        continue;
+      }
+      for (let i = 0; i < spec.topEdgeGuardRows; i++) {
+        expect(rowMaxAlpha(slot, top + i), `slot ${slot} (sheet ${m.sourceFrames[slot]}), cell-top row +${i}`)
+          .toBeLessThanOrEqual(spec.topEdgeMaxAlpha);
+      }
+    }
+    // Anti-vacuity: the fire column is still THERE (faded in, not erased), and a beam's top stays hard.
+    const fire = m.sourceFrames.indexOf(21);
+    expect(rowMaxAlpha(fire, m.cellTop[fire]! + spec.featherPx)).toBeGreaterThanOrEqual(200);
+    const beam = m.sourceFrames.indexOf(5);
+    expect(rowMaxAlpha(beam, m.beamTop[beam]!)).toBeGreaterThanOrEqual(200);
   });
 
   it('⭐ sized to the real damage radius: the widest blast footprint spans the kill diameter', () => {

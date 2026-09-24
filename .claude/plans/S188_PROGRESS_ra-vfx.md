@@ -149,6 +149,39 @@ ref, merges nothing):
   calls stand unchanged. Nothing in `bossAuras.ts`'s merged `drawRaColumns` needs touching: wrath
   calls it once per charge with that charge's `untilTick`, and every frame is derived from `until`.
 
+## S190 FIX ROUND — the coordinator's audit (RAVFX-1, -8, -7, -10, -5), one commit each
+Order worked: 1 → 8 → 7 → 10 → 5. Gates + `check:atlas` after the last one. RAVFX-6 (painter's order
+across separate `drawRaColumns` calls) is NOT in this round — it becomes real only once wrath's
+per-charge calls exist; the merge owner handles it after wrath. ⭐ MERGE ORDER CHANGED: wrath relies
+on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s188/wrath`.
+
+### RAVFX-1 (MED) — DONE — the sawn-off flat tops on sheet frames 21-23 (slots 19-21)
+- Confirmed first by probing the shipped atlas: slot 19's cell-top row was alpha 241 across 73 px,
+  slot 20's 84 across 99 px, slot 21's 30-42 — three hard horizontal tops (the source cell edge).
+- Baseline: the UNCHANGED script rebuilt the committed atlas **byte-identically** (`cmp`), so every
+  pixel that moved below is this fix and nothing else.
+- `scripts/build-light-sheet-atlas.mjs`: `process(..., feather_top)` — the top edge is feathered
+  over `featherPx` for every frame NOT in `beamFrames` (beam tops stay hard: the renderer continues
+  them). ⛔ New TOP-EDGE GUARD: the build FAILS (exit 2) if any non-beam kept frame has alpha >
+  `topEdgeMaxAlpha` (40) in its first `topEdgeGuardRows` (2) source rows. Both dials are explicit in
+  `atlas-specs.json`. The manifest gains `cellTop` (per slot, the output row the source cell's top
+  landed on; a beam slot's `beamTop` equals it). The docblock's feather bullet is corrected here
+  (the rest of the intake docblock is RAVFX-10).
+- Rebuilt: pixels changed ONLY in slots 19-21 rows 2-9 (the feather ramp: slot 19 now 0/32/64/…/255
+  by row 10) and one stray alpha-8 row in slot 17 (now floored). 2,417 px total. PNG 1,719,388 →
+  1,720,130 B. Build log: `touching the cell top` is now exactly the beam frames 5-14 (21 dropped out).
+- `raStrikeArt.test.ts` re-pinned where it pins the manifest: a new test DECODES the shipped PNG
+  (`node:zlib`, 8-bit RGBA only — the unit suite has no pixel toolchain) and asserts every non-beam
+  slot's top rows ≤ the spec's limit, every beam slot's `beamTop === cellTop`, plus anti-vacuity
+  (the fire column is still ≥ 200 alpha `featherPx` rows down; a beam top is still ≥ 200). 16/16.
+- ⭐ MUTATION-TESTED: (a) the top feather disabled → the intake build exits **2** on the guard
+  ("frame 21 reaches its cell top at alpha 255"); (b) the OLD atlas put back → the new unit test RED
+  ("slot 19 … expected 241 to be ≤ 40"). Both restored, `cmp`-verified.
+- `check-atlas-scenery.mjs --no-size --dark-bg public/art/ra-strike` → exit 0 (clean).
+- Benign, named: Windows Python cannot open a `/c/...` POSIX path (FileNotFoundError on a probe
+  script) — re-run with the `C:/...` form; a `—` in a Python print showed as `�` under the console
+  code page, so the new print/fail strings are ASCII.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
