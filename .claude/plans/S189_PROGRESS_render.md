@@ -14,10 +14,10 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 | 0 progress skeleton | done | 68e7c7a |
 | C1 diagnose | done | 797709c |
 | C1 fix + tests | done — mutation-tested | 797709c |
-| C7 diagnose | done | (C7 commit) |
-| C7 fix + tests | done — mutation-tested | (C7 commit) |
-| LOW a | next | |
-| LOW b | — | |
+| C7 diagnose | done | 78eefed |
+| C7 fix + tests | done — mutation-tested | 78eefed |
+| LOW a | done — STATED, NOT FIXED (outside file boundary); characterization test | (LOW a commit) |
+| LOW b | next | |
 | gates | — | |
 
 ## C1 — DIAGNOSIS (verified against the tree)
@@ -93,8 +93,26 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - **Mutation-tested**: bare `g.arc(` restored → 4 red (both seats: "swirl where it left", "every
   frame": *"a swirl stroke is 928 px wide"*), restored → green.
 
+## LOW a — SAME-TICK HEAL INSIDE A NET FLOATER: STATED, NOT FIXED
+- Confirmed on the real path (`damageEntity` + `applyPendingLifesteal`, the pair `runHostTick` runs,
+  into the real `DamageNumbers`): a BLOOD DEBT unit that takes 12 and heals 2 in one tick prints ONE
+  red "10"; under CRIMSON TIDE (heal 6) a red "6". The true 12 and the green heal are both invisible.
+  Damage-only and heal-only are exact today.
+- WHY NOT here: `ehp` is the only synced quantity, and the heal's size depends on the healer's own
+  swing into a target the wire does not name (`trimMirrorCreature` strips `targetCreatureId`). An exact
+  split needs a host-local per-frame heal record (the `creatureKillHits` pattern): a new `World`
+  field in `worldTypes.ts` + `world.ts` factory + 3 phase resets (`gameMode.ts`, `gameState.ts`,
+  `save.ts`) + `workerSim.ts` + `stateHashFull.ts` 'acknowledged', written at `racial/lifesteal.ts:126`
+  and `:147`, `bossSkills.ts:121` (Vlad's sap), `racial/corpseEater.ts:256`; consumer in
+  `damageNumbers.ts` prints red `(prev − cur) + heal` and green `heal`. All outside this brief's file
+  boundary (and corpseEater.ts is `s189/units`' LOW territory). A joiner / worker-mode main thread
+  would still see the net number — the same host-only limit `creatureKillHits` accepts.
+- `damageNumbers.ts` is UNCHANGED on this branch (R185-D anchoring untouched).
+- Test: `src/render/s189HealInsideNetFloater.test.ts` (4) — pins the gap; goes red ON PURPOSE when the
+  channel lands (re-pin to "red 12 + green 2", never delete).
+
 ## In flight
-- LOW a
+- LOW b
 
 ## Decisions
 - C1 fix shape: remove the panel's zIndex + move one staging line, NOT a zIndex on the cruiser layer.
@@ -129,6 +147,10 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - `rm -rf src/__scratch` BLOCKED by the destructive-command guard — resolved: removed the one scratch
   file with `rm <file> && rmdir <dir>`; `git status` clean of it.
 - C7 mutation run MUT_EXIT=1 — intended (4 red, restored → green).
+- LOW a first run exit 1 (3 red, no heal seen) — resolved: fixture error, a `goblinMelee` pool is 7
+  fifths so one 12 killed both units before any heal could land (measured with a throwaway debug test,
+  since deleted). Fixture now uses `t3Warband`; 4/4 green.
+- Session was killed once by the org spend limit mid-LOW-a; resumed from this file, commits intact.
 
 ## Out-of-scope findings (REPORTED, not fixed)
 - **F1 (net / C4-adjacent)**: before this branch, the draft panel (zIndex 900 on the sortable stage)
