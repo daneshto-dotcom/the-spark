@@ -123,5 +123,44 @@ findNearestBondTarget 22.2 % self; stepPhysics 15.8 % (computeTerritorialInfluen
   hostTick.replay, save.replay, creatureProjectile, s181Regressions). tsc EXIT=0.
 - ⭐ No PROTOCOL_VERSION bump is owed: nothing serialized, nothing on the wire, no new discriminant,
   and the differential test proves the sim's outputs are byte-identical.
-## Step 4 — AFTER numbers — (pending)
+## Step 4 — AFTER numbers (same instrument, same machine, same hour)  ✅
+### wave-5 FIGHT bucket, host tick only, ms
+| pass | run | mean | p95 | max | 3-tick p95 | 3-tick max |
+|---|---|---|---|---|---|---|
+| A ≤17 creatures — BEFORE | 1 / 2 | 1.942 / 1.781 | 2.820 / 2.454 | 4.99 / 4.20 | 8.09 / 7.19 | 13.03 / 10.35 |
+| A ≤17 creatures — AFTER | 1 / 2 | **1.565 / 1.521** | **1.993 / 1.941** | 3.53 / 4.80 | **5.62 / 5.52** | 9.47 / 11.68 |
+| C 120 held — BEFORE | 1 / 2 | 6.613 / 7.058 | 9.160 / 9.942 | 14.40 / 14.45 | 26.44 / 29.01 | 40.12 / 42.07 |
+| C 120 held — AFTER | 1 / 2 | **2.483 / 2.544** | **3.010 / 3.260** | 5.55 / 10.52 | **8.80 / 9.56** | 13.73 / 19.74 |
+| C 120 — PROFILED, before → after | | 8.768 → 2.764 | 11.946 → 3.529 | 19.88 → 6.77 | 34.78 → 10.32 | 50.17 → 18.29 |
+
+- 120 creatures: mean **÷2.7**, p95 **÷3.0**; a three-tick catch-up frame at p95 is now ~9 ms of the
+  16.7 ms frame (was 26-29 ms). ≤17 creatures: ~15-20 % off the mean, ~25 % off the p95.
+- ⚠ Run 2's maxima are machine noise, not the sim: the same run shows a 12.67 ms max in **wave-5
+  BUILD**, where the creature loop does not run at all. The 3-tick MAX still reaches 13.7-19.7 ms
+  on the noisy run, so a rare frame can still exceed budget once rendering is added; the p95 cannot.
+
+### AFTER profile, pass C wave-5 FIGHT (first 2400 ticks), inclusive
+structureTargets **23.5 %** (was 67.0) · findNearestBondTarget **15.8 %** (was 63.2) ·
+spreadEnemyTarget **3.1 %** (was 41.0 self) · buildColourBucket 4.5 % · nearestBondIn 3.0 %.
+⭐ **THE NEXT HOTSPOT — named, not chased:** `stepPhysics` **40.4 %** inclusive, led by
+`computeTerritorialInfluence` (territory.ts:121) **18.0 % incl / 13.7 % self** — now the single largest
+self-time in the tick — then `solveBonds` 8.8 %. After that `pickNavUnit` 9.3 % (its
+`findNearestEnemyCreatureFrom` is O(creatures²) at 120 creatures) and `tickScoring` 7.7 %
+(`computeAllComplexities` 6.2 %).
+
+### Full-scale oracle (SPARK_C5_PERF=1: fork at WAVE 5, all 3600 FIGHT ticks) on the changed code — EXIT=0
+prefix: 50 731 host scans / 154 227 comparisons / 0 mismatches.
+window: **456 388 host scans / 2 178 123 comparisons / 0 mismatches / hashWorldStateFull identical
+all 3600 ticks** / 4 281 whole-board sweeps / 554 injected severs, 564 welds (258 mixed), 246 razes /
+79 780 scans after a mid-tick mutation in the same tick / 44 natural mid-tick bond-set changes /
+9 246 scans picked a bond welded earlier in the same tick / 0 returned a severed bond; 123 creatures,
+488 bonds at the fork, min 67, mean 269. 95.6 s.
+
+## Step 3b — the targeting finding, measured (see S190_CANON_NOTES_perf.md)
+The FFA spread's universe is the NON-strict enemy set, so it can hand an enemy-only creature a MIXED
+bond (the S162 chain) and can count the owner among its own victims. REPORTED, NOT FIXED. Throwaway
+probe (not committed), real four-seat bots match to the end of wave 5, sampled every 60 ticks:
+**0 mixed bonds in 743 + 750 samples** (default and 120-held), and 0 of 2 041 + 7 953 enemy-only scans
+returned a bond touching the scanner's own colour. ⇒ LATENT in a bots match; reachable only if some
+path (human play?) creates a cross-colour bond, which I did not measure.
 ## Step 5 — gates — (pending)
