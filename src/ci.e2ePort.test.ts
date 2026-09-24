@@ -22,6 +22,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createServer, type Server } from 'node:net';
 
 const CONFIG = 'playwright.config.ts';
 const raw = readFileSync(CONFIG, 'utf-8');
@@ -59,7 +61,7 @@ describe('S182 — the e2e dev server may not sit on a shared, fixed port', () =
     expect(code).toContain('const E2E_ORIGIN = `http://localhost:${E2E_PORT}`');
     // ⛔ BOTH SITES, or Playwright serves on one port and navigates to another.
     expect(code).toContain('baseURL: E2E_ORIGIN');
-    expect(code).toContain('command: `npm run dev -- --port ${E2E_PORT} --host`');
+    expect(code).toContain('command: `npm run dev -- --port ${E2E_PORT} --strictPort --host`');
     expect(code).toContain('url: `${E2E_ORIGIN}/?debug=1`');
   });
 
@@ -102,4 +104,112 @@ describe('S182 — the e2e dev server may not sit on a shared, fixed port', () =
     expect(code).toContain('0x01000193');
     expect(code).toContain('20000 + (h % 20000)');
   });
+});
+
+/**
+ * ⛔ S189 — **AN OCCUPIED E2E PORT MUST FAIL FAST, NOT DRIFT TO +1 WHILE PLAYWRIGHT POLLS THE OLD ONE.**
+ *
+ * `vite.config.ts` sets `strictPort: false`. A socket still bound on the worktree's port that does
+ * not answer HTTP (a hung orphan vite) is not reusable, so Playwright launches a fresh server; that
+ * server printed "Port P is in use, trying another one...", bound P+1, and Playwright polled P for
+ * the whole 60 s `timeout` and failed naming nothing. `--strictPort` on the webServer command makes
+ * vite exit 1 at once instead.
+ *
+ * ⭐ THIS IS A REACH TEST, NOT A SOURCE-TEXT ONE. It lifts the argument list out of the config's own
+ * `command:` line and runs the REAL vite with the REAL `vite.config.ts` against a port that is
+ * genuinely held — so it proves the flag is present AND that it beats the config's `strictPort:
+ * false` (a CLI flag the config silently overrode would pass a `toContain` and fail here).
+ * The occupant listens with NO host argument — the same default (`::`, dual-stack where available)
+ * vite's `--host` binds — because a `0.0.0.0` occupant does not block a `::` bind on Windows
+ * (measured S189: vite started happily on the "occupied" port).
+ */
+describe('S189 — the e2e webServer fails fast on an occupied port', () => {
+  const m = code.match(/command: `npm run dev -- ([^`]*)`/);
+
+  /** The webServer's vite arguments, exactly as the config writes them, with the port filled in. */
+  function viteArgs(port: number, dropStrict = false): string[] {
+    expect(m, 'webServer.command must stay `npm run dev -- <vite args>`').not.toBeNull();
+    const args = m![1]!.replace('${E2E_PORT}', String(port)).split(/\s+/).filter(Boolean);
+    return dropStrict ? args.filter((a) => a !== '--strictPort') : args;
+  }
+
+  function occupy(): Promise<{ srv: Server; port: number }> {
+    return new Promise((resolve, reject) => {
+      const srv = createServer(() => {});
+      srv.once('error', reject);
+      srv.listen(0, () => {
+        const a = srv.address();
+        if (a && typeof a === 'object') resolve({ srv, port: a.port });
+        else reject(new Error('no port'));
+      });
+    });
+  }
+
+  /** Runs vite until it exits, or until `stopWhen` matches its output (then kills it). */
+  function runVite(
+    args: string[],
+    stopWhen: RegExp | null,
+    limitMs: number,
+  ): Promise<{ code: number | null; out: string; ms: number; killed: boolean }> {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      // node + vite's bin directly: `npm run` would put a shell between us and the process we kill.
+      // BROWSER=none: the config has `open: true`, and a test must not open a browser tab.
+      const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', ...args], {
+        env: { ...process.env, BROWSER: 'none' },
+      });
+      let out = '';
+      let killed = false;
+      const onData = (d: Buffer): void => {
+        out += d.toString();
+        if (stopWhen && stopWhen.test(out) && !killed) {
+          killed = true;
+          child.kill();
+        }
+      };
+      child.stdout.on('data', onData);
+      child.stderr.on('data', onData);
+      const timer = setTimeout(() => {
+        killed = true;
+        child.kill();
+      }, limitMs);
+      child.on('exit', (code) => {
+        clearTimeout(timer);
+        resolve({ code, out, ms: Date.now() - t0, killed });
+      });
+    });
+  }
+
+  it('the webServer command carries --strictPort (and still binds every interface)', () => {
+    const args = viteArgs(1);
+    expect(args).toContain('--strictPort');
+    expect(args).toContain('--host');
+    expect(args.slice(0, 2)).toEqual(['--port', '1']);
+  });
+
+  it('⭐ REACH: the real vite, with the config\'s own arguments, EXITS 1 on a held port', async () => {
+    const { srv, port } = await occupy();
+    try {
+      const r = await runVite(viteArgs(port), null, 25_000);
+      expect(r.killed, `vite was still running after 25 s — it drifted instead of failing:\n${r.out}`).toBe(false);
+      expect(r.code).toBe(1);
+      expect(r.out).toContain(`Port ${port} is already in use`);
+    } finally {
+      srv.close();
+    }
+  }, 40_000);
+
+  it('NEGATIVE: without the flag the same vite DRIFTS — the config alone does not fail fast', async () => {
+    // This is why the flag is load-bearing: `vite.config.ts`'s `strictPort: false` is the behaviour
+    // the flag has to override. If the config ever becomes strict itself, this goes red and the
+    // docblock above should be re-read rather than the assertion flipped.
+    const { srv, port } = await occupy();
+    try {
+      const r = await runVite(viteArgs(port, true), /trying another one/, 25_000);
+      expect(r.out).toContain(`Port ${port} is in use, trying another one`);
+      expect(r.killed, 'we stopped it ourselves — it never exited on its own').toBe(true);
+    } finally {
+      srv.close();
+    }
+  }, 40_000);
 });
