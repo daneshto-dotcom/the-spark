@@ -80,6 +80,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatures: 'hashed',
   // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
   pendingCreatureDeaths: 'acknowledged',
+  // S188 F1 — transient one-tick lifesteal accumulator; null at every tick boundary, nothing to hash.
+  pendingLifestealFifths: 'acknowledged',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
   // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to
@@ -300,6 +302,9 @@ type CreatureHashed =
    * oracle to a latch that gates a x2 speed and cadence multiplier.
    */
   | 'enraged'
+  // S188 F3 — the ATTACKING cycle's latched rage: it sets the cycle's cadence and fire tick on both
+  // sims, so a host and a mirror disagreeing about it would disagree about when a blow lands.
+  | 'attackCycleRaged'
   /*
    * ⭐⭐ S169 (owner R152) — the STUN stamp. HASHED, and for a stronger reason than `enraged` above:
    * this field is BOTH serialized and simulated. `hashWorldStateFull` compares two SIMS (host vs
@@ -337,7 +342,14 @@ type CreatureHashed =
    * hard the survivor hits, so a host and a `?worker=1` mirror disagreeing about it diverge on the
    * next chewer death. Projected as `:hg` below; its contribution test is `racial/hellspawn.test.ts`.
    */
-  | 'hellspawnGen';
+  | 'hellspawnGen'
+  /*
+   * ⭐ S188 (CORPSE EATER) — the zombie boss's feed deadline and leash centre. HASHED: together they
+   * decide whether the fan-out drives him at all, whom he bites and where he may stand, so a host and
+   * a mirror disagreeing about either diverge in movement and damage on the same tick.
+   */
+  | 'corpseEaterUntilTick'
+  | 'corpseEaterAnchor';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -603,6 +615,7 @@ export function determinismParts(world: World): string[] {
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
         `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}` +
+        `:ar${c.attackCycleRaged === true ? 1 : 0}` + // S188 F3
         // S169 R152 — the STUN stamp. `o()` renders undefined as the absent marker, so an unstunned
         // board hashes identically to one with the field never introduced.
         `:su${o(c.stunnedUntilTick)}`,
@@ -614,6 +627,8 @@ export function determinismParts(world: World): string[] {
         `:rr${o(c.raRitualUntilTick)}`,
         // S188 demons.l5 — the HELLSPAWN generation. Absent marker for every ordinary creature.
         `:hg${o(c.hellspawnGen)}`,
+        // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
+        `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
     );
   }
 

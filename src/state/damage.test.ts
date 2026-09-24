@@ -287,11 +287,11 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
 
     // One sub-lethal bite: damage banks on the CONNECTOR, and it does not break.
     const bite = 1; // one fifth — deliberately tiny so the accumulation is observable
-    expect(damageConnector(w, bondId, bite)).toBe(false);
+    expect(damageConnector(w, bondId, bite, null)).toBe(false);
     expect(w.bonds.get(bondId)!.damageFifths).toBe(bite);
 
     // Top it up to exactly the pool — now it reports "sever me".
-    expect(damageConnector(w, bondId, capacity - bite)).toBe(true);
+    expect(damageConnector(w, bondId, capacity - bite, null)).toBe(true);
     // ⭐ AND THE POOL IS SPENT, NOT LEFT STANDING. R173-B's implementation note: *"on a sever,
     // subtract the pool rather than zeroing, so overkill carries"*. Exactly `capacity` was banked, so
     // exactly `capacity` is drained and nothing remains.
@@ -310,8 +310,8 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     const bondId = [...w.bonds.keys()][0];
     const capacity = structurePoolFifths(w.bonds.size);
     const half = Math.floor(capacity / 2);
-    expect(damageConnector(w, bondId, half)).toBe(false);
-    expect(damageConnector(w, bondId, capacity - half)).toBe(true);
+    expect(damageConnector(w, bondId, half, null)).toBe(false);
+    expect(damageConnector(w, bondId, capacity - half, null)).toBe(true);
   });
 
   /**
@@ -328,10 +328,10 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     const pool = structurePoolFifths(w.bonds.size);
 
     // Put all but one fifth of the structure's pool on a DIFFERENT strut than the one attacked.
-    expect(damageConnector(w, ids[1], pool - 1)).toBe(false);
+    expect(damageConnector(w, ids[1], pool - 1, null)).toBe(false);
     // One fifth on the targeted strut now tips the SHARED pool over, and it is the TARGETED bond
     // that reports "sever me" — R173-C: *"the first connector to be targeted is the one to fall"*.
-    expect(damageConnector(w, ids[0], 1)).toBe(true);
+    expect(damageConnector(w, ids[0], 1, null)).toBe(true);
   });
 
   /** ⭐ R173-B: overkill is CARRIED, not discarded — the collapse stays continuous. */
@@ -339,7 +339,7 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
     const { w } = chainWorld();
     const bondId = [...w.bonds.keys()][0];
     const pool = structurePoolFifths(w.bonds.size);
-    expect(damageConnector(w, bondId, pool + 7)).toBe(true);
+    expect(damageConnector(w, bondId, pool + 7, null)).toBe(true);
     // exactly `pool` was spent; the 7 fifths of overkill is still banked on the board.
     let banked = 0;
     for (const b of w.bonds.values()) banked += b.damageFifths;
@@ -348,13 +348,13 @@ describe('⭐ S151 P2 (owner R75/R76) — a tower has NO hit points; its CONNECT
 
   it('a missing bond is an idempotent no-op, not a throw', () => {
     const { w } = chainWorld();
-    expect(damageConnector(w, asBondId(99999), 5)).toBe(false);
+    expect(damageConnector(w, asBondId(99999), 5, null)).toBe(false);
   });
 
   it('rejects a fractional amount — the fifths scale must stay exact', () => {
     const { w } = chainWorld();
     const bondId = [...w.bonds.keys()][0];
-    expect(() => damageConnector(w, bondId, 1.5)).toThrow(/INTEGER/);
+    expect(() => damageConnector(w, bondId, 1.5, null)).toThrow(/INTEGER/);
   });
 });
 

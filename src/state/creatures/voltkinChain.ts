@@ -247,7 +247,8 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
         { kind: 'creature', id: attacker.id },
       );
       if (died) attacker.killCount += 1;
-    } else if (damageConnector(world, link.id, hit)) {
+    } else if (damageConnector(world, link.id, hit, { kind: 'creature', id: attacker.id })) {
+      // ⭐ S188 — named on every building link too, exactly as the creature links above are.
       toSever.push(link.id);
     }
     from = link.pos;

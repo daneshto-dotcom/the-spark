@@ -121,6 +121,33 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
 }
 
 /**
+ * ⛔⛔ S188 — **THE FIRE TICK SCALES WITH THE CADENCE, OR AN ENRAGED CREATURE NEVER HITS ANYTHING.**
+ *
+ * Rage halved `attackCadenceTicks` (60 → 30) and left `attackFireTick` at 30. The FSM leaves
+ * ATTACKING the moment `ticksInState` reaches the halved cadence, which is BEFORE `hostTick`'s fire
+ * check reads `ticksInState === attackFireTick` — so from S168 until S188 an enraged Warlord swung
+ * and never landed a single blow (measured: 0 fifths banked on a building in 360 ticks, against 54
+ * calm). BLOOD FRENZY spreads rage to a whole army, which turned that into "the perk makes every orc
+ * stop attacking" — the test `racial/bloodFrenzy.test.ts` that measures banked damage is what found it.
+ *
+ * *"attacks x2 quicker"* halves the whole swing: wind-up AND recovery. Read at the two sim sites that
+ * compare against the fire tick (the `hostTick` fire check, the FSM's `targetGoneEarly`). Floored at 1
+ * for the same reason the cadence is.
+ */
+export function ragedFireTick(fireTick: number, c: Pick<Creature, 'attackCycleRaged'>): number {
+  return Math.max(1, Math.round(fireTick / attackCycleMultiplier(c)));
+}
+
+/**
+ * ⭐ S188 (fix round F3) — the rage multiplier of the CURRENT ATTACKING CYCLE: the latch
+ * `attackCycleRaged` took on the cycle's first tick, not the live bit. Read by the cycle's cadence
+ * and fire tick (`creatureLifecycle`, `hostTick`); movement still reads the live `rageMultiplier`.
+ */
+export function attackCycleMultiplier(c: Pick<Creature, 'attackCycleRaged'>): number {
+  return c.attackCycleRaged === true ? WARLORD_RAGE_MULTIPLIER : 1;
+}
+
+/**
  * ⭐⭐ S169 (owner R152) — **IS THIS CREATURE STUNNED RIGHT NOW?** The ONE read of `stunnedUntilTick`.
  *
  * Owner: *"the player is stuck on idle and cant do anything ... it has to be consistent and coherent
@@ -203,6 +230,18 @@ export function isChannellingRa(
   tick: number,
 ): boolean {
   return c.raRitualUntilTick !== undefined && tick < c.raRitualUntilTick;
+}
+
+/**
+ * ⭐⭐ S188 (owner, CORPSE EATER) — **IS THIS BOSS FEEDING RIGHT NOW?** The ONE read of
+ * `corpseEaterUntilTick`, on the `isStunned` shape: strictly `<`, so stamping `tick + N` yields exactly
+ * N feeding ticks. Takes `tick` rather than the World so the renderer and the fan-out can both ask.
+ */
+export function isCorpseEaterFeeding(
+  c: Pick<Creature, 'corpseEaterUntilTick'>,
+  tick: number,
+): boolean {
+  return c.corpseEaterUntilTick !== undefined && tick < c.corpseEaterUntilTick;
 }
 
 /**
@@ -361,6 +400,20 @@ export type CreatureType =
   | 't3Hound'
   | 't3Scarab'
   | 't3Piranha'
+  /* ── S188 (owner, nagas level 5 — APEX PREDATOR) — THE ELITE PIRANHA ──────────────────────────
+   * *"upgrade the tier three piranha into a big one ... all the stats you take and you just triple
+   * them"* and *"two times bigger than the current piranha"*.
+   *
+   * ⛔ ITS OWN LITERAL, for the reason the `t3*` block above states in full: an undamaged creature
+   * carries no stats on the wire and the receiver rebuilds them from `CREATURE_CONFIGS` keyed by
+   * TYPE, so tripled stats are only expressible as a distinct type. SERIALIZED — a stale peer would
+   * accept the literal and find no config — so it rides the S188 PROTOCOL 49 → 50 bump.
+   *
+   * ⚠ The `t3` prefix is load-bearing, not cosmetic: `underGoblinCaps` exempts every `t3*` type from
+   * the tower cap (tier-3 is limitless) and the character sheet tiers it by the same prefix, so the
+   * elite joins the piranha's population rules for free. Emitted only by a naga seat's piranha tower
+   * once that seat holds `nagas.l5` (`racial/apexPredator.ts`). */
+  | 't3PiranhaElite'
   | 't3Bat'
   | 't3Warband'
   | 't3Souleater'
@@ -564,6 +617,20 @@ export interface Creature {
    */
   enraged?: boolean;
   /**
+   * ⭐ S188 (fix round F3) — **THE RAGE THIS ATTACKING CYCLE RUNS AT, LATCHED ON ITS FIRST TICK.**
+   *
+   * Cadence and fire tick used to be re-derived from the LIVE `enraged` bit every tick, so a rage
+   * change in the middle of a swing broke one-blow-per-cycle: rage → calm after the raged fire tick
+   * (15) fired AGAIN at the calm one (30), and calm → rage after tick 15 skipped both fire ticks and
+   * lost the blow. BLOOD FRENZY makes those transitions routine for a whole army. The FSM now latches
+   * `enraged` here when a cycle starts (`ticksInState === 1`) and the cycle's cadence and fire tick
+   * read THIS, so a mid-swing change takes effect from the next cycle.
+   *
+   * ⚠ SERIALIZED AND HASHED (a sim input on both peers), ADDITIVE-OPTIONAL: emitted only when true,
+   * so a board with nothing raging stays byte-identical. `undefined` and `false` mean the same thing.
+   */
+  attackCycleRaged?: boolean;
+  /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.
    *
@@ -732,6 +799,25 @@ export interface Creature {
    * grandchild again and hit for the full chewer strike. Additive-optional, emitted only when set.
    */
   hellspawnGen?: 1 | 2;
+  /*
+   * ⭐⭐ S188 (owner, zombies level 5 — CORPSE EATER) — **THE FEED DEADLINE: THE TICK THE ZOMBIE BOSS
+   * STOPS EATING.** *"once he reaches 20% HP, he starts eating everyone around him … for like eight
+   * seconds."* Stamped `tick + CORPSE_EATER_TICKS` by `racial/corpseEater.ts` and NEVER cleared, so
+   * `!== undefined` is also the once-per-life latch — the `raRitualUntilTick` shape exactly.
+   *
+   * ⚠ ADDITIVE-OPTIONAL and emitted only while set, like the stun and the ritual stamps above; HASHED
+   * because it decides who the boss attacks, how he moves and whether the fan-out drives him at all.
+   * It must be ON THE WIRE for the same reason those are: the eat loop is DERIVED per frame from this
+   * stamp on both peers. Read through `isCorpseEaterFeeding`, never directly.
+   */
+  corpseEaterUntilTick?: number;
+  /*
+   * ⭐ S188 — WHERE HE SAT DOWN TO EAT. *"he shouldn't be moving a lot. He moves only in a tiny radius
+   * around him."* The leash centre, stamped with the deadline above and never moved; it has to be
+   * stored because the boss's own position is exactly what the leash constrains. Same wire/hash
+   * treatment as the deadline, and meaningless once the deadline has passed.
+   */
+  corpseEaterAnchor?: Vec2;
 }
 
 /**

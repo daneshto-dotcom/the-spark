@@ -38,7 +38,8 @@ import {
   type CreatureType,
   isStunned,
   isUntargetable,
-  rageMultiplier,
+  attackCycleMultiplier,
+  ragedFireTick,
   isChannellingRa,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
@@ -47,7 +48,6 @@ import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
   GOBLIN_MAX_GLOBAL,
-  GOBLIN_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_SPAWNER,
   CHEWER_MAX_PER_VICTIM,
   RA_RITUAL_TICKS,
@@ -55,6 +55,7 @@ import {
 // S113 Batch C — a lightning-drone spawn uses its OWN cap (runtime-only call; the
 // creatureLifecycle<->droneLifecycle<->world cycle is the same runtime-safe shape as creatureAttack).
 import { underDroneCaps } from '../droneLifecycle.ts';
+import { goblinCapPerSpawner } from '../racial/hordeGrows.ts'; // S188 — THE HORDE GROWS
 import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 // S169 — the tier-9 boss exemption at the null-spawner population gate; see the note there.
 // Type-only cycle-safe: `t9BossIds` imports `CreatureType` with `import type` and nothing runtime.
@@ -422,7 +423,9 @@ export function underGoblinCaps(world: World, sourceSpawnerId: SpawnerId): boole
     if (c.sourceSpawnerId === sourceSpawnerId) perSpawner++;
   }
   if (global >= GOBLIN_MAX_GLOBAL) return false;
-  if (perSpawner >= GOBLIN_MAX_PER_SPAWNER) return false;
+  // ⭐ S188 — THE HORDE GROWS raises THIS tower's ceiling to 20 when its seat holds orcs.l5. Raised,
+  // never removed: `goblinCapPerSpawner` returns `GOBLIN_MAX_PER_SPAWNER` for everyone else.
+  if (perSpawner >= goblinCapPerSpawner(world, sourceSpawnerId)) return false;
   return true;
 }
 
@@ -1043,6 +1046,13 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //    S100 P1 — cadence/fire ticks now read from config (was VOLTKIN_ATTACK_*
   //    module consts); identical literals for Voltkin (60/30) so byte-identical.
   if (creature.state === 'ATTACKING') {
+    // ⭐ S188 F3 — LATCH THIS CYCLE'S RAGE on its first tick, so a mid-swing change waits for the next
+    // cycle (see `Creature.attackCycleRaged`). Tick 1 is the first tick after every entry into
+    // ATTACKING (entry sets 0; the counter advanced above).
+    if (creature.ticksInState === 1) {
+      if (creature.enraged === true) creature.attackCycleRaged = true;
+      else delete creature.attackCycleRaged;
+    }
     // S103 #8 (Council CHECK, Grok) — re-validate the opportunistic creature target EACH ATTACKING
     // tick. main.ts only sets it during SEEKING, so without this a creature that dies / leaves range
     // / stops being an enemy mid-windup would still be "creature-first" at fire time → the zap no-ops
@@ -1064,7 +1074,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     // at 1 tick so a future larger multiplier can never produce a zero-tick (every-frame) attack.
     const ragedCadence = Math.max(
       1,
-      Math.round(config.attackCadenceTicks / rageMultiplier(creature)),
+      Math.round(config.attackCadenceTicks / attackCycleMultiplier(creature)), // S188 F3 — the cycle's latch
     );
     const cadenceElapsed = creature.ticksInState >= ragedCadence;
     // S103 #8 — the wind-up only aborts early when BOTH possible targets are invalid. A Voltkin
@@ -1162,7 +1172,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
     const stinkCloudValid =
       enemyStinkCloudInReach(world, creature, engageRange(config)) !== null;
     const targetGoneEarly =
-      creature.ticksInState <= config.attackFireTick &&
+      creature.ticksInState <= ragedFireTick(config.attackFireTick, creature) && // S188 — the fire tick the host check uses
       !bondValid &&
       !creatureValid &&
       !primitiveValid &&

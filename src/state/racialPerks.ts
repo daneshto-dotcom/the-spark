@@ -85,12 +85,12 @@ export function perkDraftIndex(perk: RacialPerkId): number {
  */
 export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   // ── s188/racial-a ─────────────────────────────────────────────────────────────────────────────
-  'vampires.l0': false,
-  'vampires.l5': false,
-  'orcs.l0': false,
-  'orcs.l5': false,
-  'demons.l0': false,
-  'nagas.l0': false,
+  'vampires.l0': true, // S188 racial-a — BLOOD DEBT: state/racial/lifesteal.ts
+  'vampires.l5': true, // S188 racial-a — CRIMSON TIDE: state/racial/lifesteal.ts
+  'orcs.l0': true, // S188 racial-a — BLOOD FRENZY: state/racial/bloodFrenzy.ts
+  'orcs.l5': true, // S188 racial-a — THE HORDE GROWS: state/racial/hordeGrows.ts
+  'demons.l0': true, // S188 racial-a — SCORCHED GROUND: state/racial/scorchedGround.ts
+  'nagas.l0': true, // S188 racial-a — DEEP CURRENT: state/racial/deepCurrent.ts
   // ── s188/racial-b ─────────────────────────────────────────────────────────────────────────────
   'zombies.l0': true, // THE RISEN — racial/theRisen.ts
   'demons.l5': true, // HELLSPAWN — racial/hellspawn.ts
@@ -98,8 +98,8 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   // ── s188/racial-c ─────────────────────────────────────────────────────────────────────────────
   'mummies.l0': true,
   // ── s188/racial-d ─────────────────────────────────────────────────────────────────────────────
-  'zombies.l5': false,
-  'nagas.l5': false,
+  'zombies.l5': true,
+  'nagas.l5': true,
   // ── end ───────────────────────────────────────────────────────────────────────────────────────
 };
 

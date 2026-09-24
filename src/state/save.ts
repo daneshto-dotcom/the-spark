@@ -794,6 +794,8 @@ interface SerializedCreature {
    * Emitted only when true, so a world with no enraged Warlord stays byte-identical.
    */
   readonly enraged?: boolean;
+  /** S188 F3 — the ATTACKING cycle's latched rage (`Creature.attackCycleRaged`). Emitted only when true. */
+  readonly attackCycleRaged?: boolean;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -823,6 +825,14 @@ interface SerializedCreature {
    * from it. It rides the 49 → 50 bump the S188 substrate took for the racial RULES.
    */
   readonly hellspawnGen?: 1 | 2;
+  /**
+   * ⭐ S188 (CORPSE EATER, zombies level 5) — the zombie boss's feed deadline and its leash centre.
+   * Emitted only once stamped, so a board with no feeding boss is byte-identical. They ride the wire
+   * (the eat loop is derived from them per frame on both peers) and the worker mirror rebuilds from
+   * this shape, so omitting either would diverge the wide hash the moment a boss sat down to eat.
+   */
+  readonly corpseEaterUntilTick?: number;
+  readonly corpseEaterAnchor?: { x: number; y: number };
 }
 
 /**
@@ -2269,11 +2279,17 @@ function serializeCreature(c: Creature): SerializedCreature {
     // stays byte-identical to every prior save.
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
+    ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
     ...(c.raRitualUntilTick !== undefined ? { raRitualUntilTick: c.raRitualUntilTick } : {}), // S171 R142
     ...(c.hellspawnGen !== undefined ? { hellspawnGen: c.hellspawnGen } : {}), // S188 demons.l5
+    // ⭐ S188 CORPSE EATER — the feed deadline and its leash centre, emitted only once stamped.
+    ...(c.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: c.corpseEaterUntilTick } : {}),
+    ...(c.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 
@@ -2645,12 +2661,18 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // ⛔ S168 — the RAGE latch survives the round-trip. Absent means calm, which is the correct
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
+    ...(s.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142
     // ⭐ S188 demons.l5 — validated, never trusted: only 1 and 2 are generations. Anything else off the
     // wire is dropped, which reads as an ordinary chewer rather than inventing a third split.
     ...(s.hellspawnGen === 1 || s.hellspawnGen === 2 ? { hellspawnGen: s.hellspawnGen } : {}),
+    // ⭐ S188 CORPSE EATER — copied, never aliased, so a restored world cannot share a Vec2 with its payload.
+    ...(s.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: s.corpseEaterUntilTick } : {}),
+    ...(s.corpseEaterAnchor !== undefined
+      ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
+      : {}),
   };
 }
 

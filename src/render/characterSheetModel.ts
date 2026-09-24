@@ -79,6 +79,7 @@ import type { CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId, Vec2 
 import { codexCopyFor, type EmblemSpec } from './codexPresentation.ts';
 import { blueprintBill } from '../state/blueprints.ts';
 import { RACE_TOWER_UNIT, raceForTowerId } from '../state/raceTowerIds.ts';
+import { towerUnitForSeat } from '../state/racial/apexPredator.ts'; // S188 APEX PREDATOR (audit F3)
 import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
@@ -388,6 +389,8 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
   t3Hound: 'HOUND',
   t3Scarab: 'SCARAB',
   t3Piranha: 'PIRANHA',
+  // S188 APEX PREDATOR — his words: *"upgrade the tier three piranha into a big one"*.
+  t3PiranhaElite: 'ELITE PIRANHA',
   t3Bat: 'BAT',
   t3Warband: 'WARBAND',
   t3Souleater: 'SOULEATER',
@@ -720,16 +723,29 @@ export function statValueColumnPx(
  * `MONO_EM_RATIO` for every race in `ALL_RACES`, so a longer unit name turns a test red instead of
  * silently re-breaking the card.
  */
-export function feedHintFor(recipeId: string | null): string | null {
+export function feedHintFor(
+  recipeId: string | null,
+  /**
+   * ⭐ S188 (audit F3) — the SEAT's promotion of the tower's unit (APEX PREDATOR: piranha → elite for a
+   * naga seat holding `nagas.l5`). Identity by default, so every caller that has no seat keeps the
+   * race table's unit. The structure card passes the real rule, `towerUnitForSeat`, so the card and
+   * the sim cannot disagree about what the tower emits.
+   */
+  unitFor: (base: CreatureType) => CreatureType = (u) => u,
+): string | null {
   if (recipeId === null) return null;
   const race = raceForTowerId(recipeId as GodlyId);
   if (race === null) return null;
-  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[RACE_TOWER_UNIT[race]]}S`;
+  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[unitFor(RACE_TOWER_UNIT[race])]}S`;
 }
 
 const NO_BUILD_INFO = { description: null, buildEmblem: null, buildBill: null } as const;
 
-export function buildInfoFor(recipeId: string | null): {
+export function buildInfoFor(
+  recipeId: string | null,
+  /** ⭐ S188 (audit F3) — the seat's promotion of the tower's unit; see `feedHintFor`. */
+  unitFor: (base: CreatureType) => CreatureType = (u) => u,
+): {
   description: string | null;
   buildEmblem: EmblemSpec | null;
   buildBill: string | null;
@@ -748,8 +764,9 @@ export function buildInfoFor(recipeId: string | null): {
   const race = raceForTowerId(recipeId as GodlyId);
   if (race !== null) {
     const every = Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ);
-    const unit = CREATURE_NAME[RACE_TOWER_UNIT[race]];
-    description = `Spawns a ${unit.toLowerCase()} every ${every}s.`;
+    const unit = CREATURE_NAME[unitFor(RACE_TOWER_UNIT[race])].toLowerCase();
+    // S188 — "an elite piranha", not "a elite piranha". No shipped unit name starts with a vowel.
+    description = `Spawns ${/^[aeiou]/.test(unit) ? 'an' : 'a'} ${unit} every ${every}s.`;
   }
 
   let buildBill: string | null = null;
@@ -1327,7 +1344,10 @@ function structureSheet(
     stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
     stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
   }
-  const info = buildInfoFor(recipeId);
+  // ⭐ S188 (audit F3) — the tower OWNER's seat decides what it emits (APEX PREDATOR), exactly as the sim's
+  // two emit sites ask it. The card is read by any seat, so it is the owner's rule, never the viewer's.
+  const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
+  const info = buildInfoFor(recipeId, unitFor);
   const h = heightFor(
     stats.length, owned !== null, actions?.buttons ?? [], buildInfoHeight(info),
   );
@@ -1348,7 +1368,7 @@ function structureSheet(
      * six shapes each make a DIFFERENT goblin — one caption cannot state that truthfully, and a
      * wrong-but-tidy label is worse than none.
      */
-    feedHint: feedHintFor(recipeId),
+    feedHint: feedHintFor(recipeId, unitFor),
     rect: rectFor(prim.pos, h),
   };
 }

@@ -1,0 +1,25 @@
+{
+  "cellW": 320,
+  "cellH": 320,
+  "footAnchor": {
+    "x": 0.5,
+    "y": 0.9969
+  },
+  "states": {
+    "feedIn": {
+      "row": 0,
+      "frames": 12,
+      "ticksPerFrame": 5
+    },
+    "feedLoop": {
+      "row": 1,
+      "frames": 12,
+      "ticksPerFrame": 5
+    },
+    "feedOut": {
+      "row": 2,
+      "frames": 12,
+      "ticksPerFrame": 5
+    }
+  }
+}

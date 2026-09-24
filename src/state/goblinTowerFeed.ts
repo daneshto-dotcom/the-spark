@@ -66,6 +66,8 @@ import { bankCountOf, bankRemove } from './castleBank.ts';
 import { underGoblinCaps } from './creatures/creatureLifecycle.ts';
 import type { PlayerId, SpawnerId, Vec2 } from '../types.ts';
 import { dispatch } from './world.ts';
+// ⭐ S188 APEX PREDATOR — the fed unit asks the same rule the tower's free trickle does.
+import { towerUnitForSeat } from './racial/apexPredator.ts';
 import type { World } from './worldTypes.ts';
 
 export interface FeedTowerAction {
@@ -176,7 +178,10 @@ export function applyFeedTower(world: World, action: FeedTowerAction): World {
   // `SEVER_BOND` the same way, and JS being single-threaded makes the synchronous re-entry safe.
   dispatch(world, {
     type: 'SPAWN_CREATURE',
-    creatureType: outType,
+    // ⭐ S188 APEX PREDATOR — a naga seat holding `nagas.l5` is fed the ELITE piranha. The panel's
+    // `fedCreatureType` stays the pure shape→unit rule; the seat's promotion is applied here, at
+    // the one place a fed unit is born, and in `hostTick`'s trickle — see `racial/apexPredator.ts`.
+    creatureType: towerUnitForSeat(world, spawner.ownerPlayerId, outType),
     ownerPlayerId: action.playerId,
     pos,
     targetPos: walkOutTarget(pos, action.spawnerId),
