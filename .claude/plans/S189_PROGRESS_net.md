@@ -12,8 +12,9 @@ The merge owner resumes from this file if this agent is cut off.
 | 0 | progress skeleton | done | d4e9ae7 |
 | 1 | e2e webServer `--strictPort` + its test | done | 68b04a7 |
 | 2 | C6 quickmatch seat — find the per-machine bias, fix, two-seeker test in both arrival orders | done | 2bbcd20 |
-| 3a | C5 — MEASURE (instrument `src/net/c5WaveFiveMeasure.test.ts`, opt-in `SPARK_C5_MEASURE=1`) | done | (this commit) |
-| 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | next | |
+| 3a | C5 — MEASURE (instrument `src/net/c5WaveFiveMeasure.test.ts`, opt-in `SPARK_C5_MEASURE=1`) | done | b72a4c4 |
+| 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | done | (this commit) |
+| 4 | C4 — own diagnosis, reproduction BEFORE any fix | next | |
 | 4 | C4 disconnect — own diagnosis, reproduction test BEFORE any fix | pending | |
 
 ## In flight
@@ -78,6 +79,39 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   fixed-per-frame signature. Browser frame time NOT measured (needs a GPU path; Node cannot tessellate).
   Outside my boundary — REPORTED.
 
+## C5b — the snapshot backpressure (in boundary: `src/net/transport.ts`)
+
+- MECHANISM (verified against `node_modules/@trystero-p2p/core/dist/action-wire.mjs`): Trystero cuts a
+  message into 16 KiB chunks and, per chunk, awaits `bufferedamountlow` (threshold 65535, `peer.mjs:104`)
+  with a 10 s timeout (`backpressureWaitTimeoutMs`), after which it `break`s — the rest of that message is
+  ABANDONED. `NetTransport.send` fired one un-awaited send per 100 ms, so an uplink below demand grew an
+  unbounded set of concurrent sends.
+- REPRODUCTION (`src/net/snapshotBackpressure.test.ts`, REAL action-wire both ends, modelled channel):
+  fire-and-forget, 113 KiB @10 Hz — 5 Mbit/s: 196/900 whole snapshots, worst latency 47.4 s, longest
+  silence 26.0 s, channel buffer 7.0 MiB · 2 Mbit/s: 8/900, silence 67 s · 8 Mbit/s: 672/900, worst
+  latency 24.7 s, max gap 3.5 s. The pre-fix NetTransport through the same link (REACH test, 60 s @5):
+  165/600, worst 40.0 s, gap 8.3 s → RED.
+- FIX: latest-wins — ≤1 snapshot in flight per strategy + the newest waiting; control traffic ungated;
+  a waiting snapshot never goes to a handle that is no longer live (disconnect/reconnect); a rejected
+  send releases the gate; `snapshotsSkipped()` diagnostic; netStats records a snapshot where it is
+  TRANSMITTED. AFTER, same link: 320/600 delivered (= link capacity), worst latency 405 ms, max gap
+  220 ms, channel buffer ≤ 67 KiB. At 20 Mbit/s nothing is skipped (negative test, every seq arrives).
+- Mutation (gate disabled): 3 red (REACH + latest-wins + left-room); restored from a byte copy.
+- Re-pinned: `snapshotFanout.test.ts` "10 snapshots produce 20 sends" now spaces its sends (a synchronous
+  burst honestly coalesces); `netStats.test.ts` guard-site count 6 → 8 (the two transmit-time records).
+- ⭐ THE COORDINATOR'S QUESTION — can backlog → Trystero 10 s drop → starvation END in CONNECTION LOST?
+  **NO, not by itself.** The overlay needs a TRANSPORT-level loss (`main.ts:3636-3643`: `peerCount() === 0
+  || hostLost`, hostLost = host peerId absent from `peerIds()`); a backlog leaves the peer connected.
+  Starvation instead drives the MIGRATION path (`main.ts:3366-3401`): silence ≥ `HOST_STARVATION_MS` 6 s
+  marks the loss, and `RECONNECT_GRACE_MS` 15 s later the warranted client (rank 0 of
+  `computeClaimDelayMs`, `succession.ts:89`) CLAIMS THE HOST SEAT while the real host is still there —
+  which refuses the claim without partition evidence → a split-brain, not an overlay. The reproduction's
+  26 s / 67 s silences are past that 21 s trigger. So C5's backlog explains "lag" and can explain "the
+  game went wrong" (two hosts), but the CONNECTION LOST / peer-dropped overlay the owner screenshotted
+  needs a peer to leave the transport. Channel-close by Chrome's 16 MiB send cap is NOT reached by this
+  mechanism: Trystero's 10 s wait bounds the buffer to ~10 s × uplink (measured 7.0 MiB @5 Mbit/s), and an
+  uplink fast enough to exceed 16 MiB (~13 Mbit/s) carries the 9.3 Mbit/s demand with no backlog.
+
 ## Decisions
 
 - Step 1: `--strictPort` goes on the webServer COMMAND only; `vite.config.ts` keeps `strictPort: false`
@@ -111,6 +145,9 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 
 ## Wire / hash / shared-rule changes (each owes a protocol-bump verdict; branch never bumps)
 
+- C5b: NO wire change — when snapshots are sent, never what they contain. A v50 peer receiving from a
+  gated host sees only fewer snapshots (its seq gate already accepts gaps). No bump owed.
+
 - C6: the DISCOVERY beacon (`spark-qm-v{PROTO}`, NOT HELLO/LOBBY_*) gains additive-optional `ageMs`,
   `holds`. The election is a shared rule, so the question is whether a mixed pair can disagree: an ageless
   (pre-S189) beacon is judged by the code rule, which is what the old build runs toward us (it ignores the
@@ -119,6 +156,9 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   save.ts, no HELLO/LOBBY field.
 
 ## Gate exit codes (captured `$?`)
+
+- step 3b: typecheck EXIT=0; `npx vitest run src/net/` EXIT=0 (33 files passed + 1 skipped [the opt-in
+  instrument] / 535 tests + 3 skipped).
 
 - step 2: typecheck EXIT=0; `npx vitest run src/net/ src/render/lobbyStateMachine.test.ts` EXIT=0 (33 files /
   597 tests). Mutation (restore the pre-S189 code-only demote arm): EXIT=1, 5 red incl. the REACH owner's
@@ -133,6 +173,15 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   hook" and "the larger code demotes" — both false after step 2 (ageless beacons only). A comment, no test.
 
 ## Non-zero exits and their verdicts
+
+- step 3b: first typecheck EXIT=1 — TS7016 on importing Trystero's internal `action-wire.mjs` (no .d.ts,
+  not in the package `exports`). RESOLVED: typed by cast + `@ts-expect-error` at that one import.
+- step 3b: first net run EXIT=1 — `snapshotFanout` "10 → 20 sends" (a synchronous burst now coalesces BY
+  DESIGN) and `netStats` guard-site count. RESOLVED by re-pinning both (reasons above), not silencing.
+- step 3b: an 8 Mbit/s probe of the reproduction EXIT=1 — BENIGN, deliberate: at 8 Mbit/s the silence stays
+  under 6 s, so the repro's starvation assertion does not hold there; the committed repro runs at 5.
+- step 3a: `c5WaveFiveMeasure` first run showed 22.8 KiB of effects — a harness artifact (no renderer wipe),
+  RESOLVED by modelling the wipe.
 
 - step 1, first run: EXIT=1 was `grep -c` returning 1 on zero matches and short-circuiting the `&&` chain
   (vitest never ran; the tail showed an unrelated old `$TEMP/s1.log`). BENIGN — the named recurring case;

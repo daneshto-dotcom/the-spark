@@ -163,6 +163,15 @@ interface StrategyHandle {
   lastError: string | null;
   icePollTimer: ReturnType<typeof setInterval> | null;
   icePollStartMs: number;
+  /**
+   * ⭐ S189 — snapshot backpressure, per strategy: is a NETSNAPSHOT still being handed to Trystero,
+   * and the newest one waiting behind it. OPTIONAL so a handle built without them (tests inject
+   * handles directly) reads as "idle, nothing waiting". See `sendSnapshotOn`.
+   */
+  snapInFlight?: boolean;
+  snapPending?: string | null;
+  /** Snapshots superseded before they were sent — the count a starved uplink shows up as. */
+  snapSkipped?: number;
 }
 
 type JoinFn = (
@@ -664,6 +673,11 @@ export class NetTransport {
       if (handle.action === null) continue;
       if (only !== null && handle.name !== only) continue;
       dispatched++;
+      // ⭐ S189 — a snapshot goes through the backpressure gate; control traffic never does.
+      if (msg.kind === 'NETSNAPSHOT') {
+        this.sendSnapshotOn(handle, serialized);
+        continue;
+      }
       // S182 STEP 0 — per-strategy upload. `action.send()` transmits to EVERY peer in that
       // strategy's room, so the wire cost is payload × peers, not payload. In the owner's 1v1 the
       // two are equal; at 3–4 seats counting it once understated the host's upload by up to 3×,
@@ -671,15 +685,7 @@ export class NetTransport {
       if (netStats.isEnabled()) {
         netStats.recordSend(handle.name, serialized.length, handle.peers.size, performance.now());
       }
-      handle.action.send(serialized).catch((err: unknown) => {
-        // Per-strategy send failure: warn, do not escalate UI unless all
-        // strategies have failed.
-        const errMsg = `${handle.name} send: ${err instanceof Error ? err.message : String(err)}`;
-        console.warn('[net]', errMsg);
-        if (this.allStrategiesFailed()) {
-          this.emitError(errMsg);
-        }
-      });
+      handle.action.send(serialized).catch((err: unknown) => this.onSendFailed(handle, err));
     }
     // ⛔ S182 STEP 0 — THE ENVELOPE IS COUNTED **AFTER** THE LOOP, AND ONLY IF IT ACTUALLY WENT OUT.
     // Counted once per send() call, so `snap tx` reads the host's real cadence (10 Hz) rather than
@@ -691,7 +697,9 @@ export class NetTransport {
     // immediately below, which exists precisely because that happens during the startup window. An
     // instrument that reports a healthy 10 Hz tx while nothing is leaving the machine would send the
     // next session hunting on the joiner for a fault that is on the host.
-    if (netStats.isEnabled() && dispatched > 0) {
+    // ⭐ S189 — a snapshot's envelope is counted when it is actually TRANSMITTED (`transmitSnapshot`),
+    // because behind a starved uplink most of them are superseded and never leave the machine.
+    if (netStats.isEnabled() && dispatched > 0 && msg.kind !== 'NETSNAPSHOT') {
       netStats.recordSendEnvelope(msg.kind, serialized.length, performance.now());
     }
     if (dispatched === 0) {
@@ -699,6 +707,89 @@ export class NetTransport {
       // (Trystero semantics). Warn so it's surfaced in console + diagnostics.
       console.warn('[net] send dropped — no strategy ready yet, kind=', msg.kind);
     }
+  }
+
+  /**
+   * ⛔⛔ S189 (C5) — **A SNAPSHOT THE UPLINK CANNOT CARRY IS SKIPPED, NOT QUEUED.**
+   *
+   * Owner: *"it was lagging at about wave five"*. `send()` used to hand every 10 Hz snapshot to
+   * Trystero without waiting. Trystero's action-wire cuts a message into 16 KiB chunks and waits, per
+   * chunk, for the channel's `bufferedamountlow` — with a 10 s timeout, after which it ABANDONS the
+   * rest of that message. A wave-5 board is ~113 KiB, ~9.3 Mbit/s per peer (measured S189). On an
+   * uplink below that every excess tick became one more concurrent send: the backlog grew without
+   * bound, each snapshot arrived later than the last, and once a turn around the backlog passed 10 s
+   * snapshots were abandoned half-sent. Reproduced through Trystero's real action-wire
+   * (`snapshotBackpressure.test.ts`): 5 Mbit/s → 40–47 s latency and 8–10 s gaps between whole
+   * snapshots, past `HOST_STARVATION_MS`.
+   *
+   * ⭐ LATEST WINS. At most ONE snapshot in flight per strategy, and at most one waiting — the newest.
+   * A snapshot is the WHOLE world (no deltas), so a superseded one carries nothing the next does not;
+   * the client's seq gate already treats a gap as normal. On a link that keeps up nothing is ever
+   * skipped (the in-flight send finishes inside the 100 ms cadence); on one that cannot, the rate falls
+   * to what the link carries and the latency stays at one snapshot.
+   *
+   * ⚠ "In flight" is Trystero's promise: it resolves once the last chunk is handed to the channel,
+   * which its own wait keeps within ~64 KiB of the wire. Control traffic (HELLO, INTENT, LOBBY_*,
+   * MIGRATION_CLAIM …) never enters this gate — it is small, rare, and must never be dropped.
+   */
+  private sendSnapshotOn(handle: StrategyHandle, serialized: string): void {
+    if (handle.snapInFlight === true) {
+      if ((handle.snapPending ?? null) !== null) handle.snapSkipped = (handle.snapSkipped ?? 0) + 1;
+      handle.snapPending = serialized;
+      return;
+    }
+    this.transmitSnapshot(handle, serialized);
+  }
+
+  private transmitSnapshot(handle: StrategyHandle, serialized: string): void {
+    const action = handle.action;
+    if (action === null) return;
+    handle.snapInFlight = true;
+    const now = performance.now();
+    if (netStats.isEnabled()) netStats.recordSend(handle.name, serialized.length, handle.peers.size, now);
+    // Once per snapshot, however many strategies carry it (the S182 `snap tx` contract).
+    if (netStats.isEnabled() && serialized !== this.lastEnvelopeCounted) {
+      this.lastEnvelopeCounted = serialized;
+      netStats.recordSendEnvelope('NETSNAPSHOT', serialized.length, now);
+    }
+    let sent: Promise<unknown>;
+    try {
+      sent = Promise.resolve(action.send(serialized));
+    } catch (err) {
+      sent = Promise.reject(err);
+    }
+    sent
+      .catch((err: unknown) => this.onSendFailed(handle, err))
+      .finally(() => {
+        handle.snapInFlight = false;
+        const next = handle.snapPending ?? null;
+        handle.snapPending = null;
+        // Only on the handle that is still live: a disconnect or a reconnect replaces handles, and a
+        // snapshot for a room we have left must go nowhere.
+        if (next !== null && this.connected && this.strategies.get(handle.name) === handle) {
+          this.transmitSnapshot(handle, next);
+        }
+      });
+  }
+
+  /** The newest snapshot string whose envelope was counted — so a broadcast counts it once. */
+  private lastEnvelopeCounted: string | null = null;
+
+  private onSendFailed(handle: StrategyHandle, err: unknown): void {
+    // Per-strategy send failure: warn, do not escalate UI unless all
+    // strategies have failed.
+    const errMsg = `${handle.name} send: ${err instanceof Error ? err.message : String(err)}`;
+    console.warn('[net]', errMsg);
+    if (this.allStrategiesFailed()) {
+      this.emitError(errMsg);
+    }
+  }
+
+  /** ⭐ S189 — diagnostics: snapshots superseded before transmission, per strategy. */
+  snapshotsSkipped(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const h of this.strategies.values()) out[h.name] = h.snapSkipped ?? 0;
+    return out;
   }
 
   on(handler: MessageHandler): void {
