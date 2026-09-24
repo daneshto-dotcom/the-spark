@@ -3,8 +3,10 @@
 Brief: the owner's new ART for the Ra sky strike (Pharaoh ritual + POWER OF RA share `drawRaColumns`)
 and the WRATH OF RA upgrade card. MECHANICS DO NOT CHANGE.
 
-STATUS: **STOPPED ON THE COORDINATOR'S SESSION-CLOSE ORDER.** The art, the card and the renderer
-wiring are all committed and compile. The dedicated tests and the full gate run are NOT done yet.
+STATUS: **S190 — READY FOR THE MERGE OWNER (merge AFTER `s188/wrath`, train B).** Tests written,
+gates green before AND after `git merge master`, mechanics diff empty — see the S190 section. Still
+OPEN (not in the S190 brief): NEXT-SESSION item 2 (atlas-script docblock) and item 4 (browser look).
+(S188 status, superseded: stopped on the coordinator's session-close order, tests + gates not done.)
 
 ## Done (committed)
 - 15368ec — the two source images committed
@@ -118,6 +120,7 @@ Each exit read from a captured `$?`, output redirected to a file (never a pipe):
   ONE helper `castStrike(w)` — see the wrath prediction below. Typecheck 0, file 15/15.
   Re-run on the tip bc37cdb: `npx vitest run` → **VITEST_EXIT=0**, 368 files / 6011 tests.
   (Build not re-run: bc37cdb changes only a test file and this log; a7a894b's build stands.)
+  `npm run check:atlas` on the merged tree → **ATLAS_EXIT=0** (ra-strike: scenery 0 px, letterbox 0 px).
 
 ### Step 4 — DONE — mechanics unchanged
 - `git diff b5c9fc9 11ab8ac -- src/state src/net src/bots` (the branch's OWN commits) → **empty** (0 lines).
