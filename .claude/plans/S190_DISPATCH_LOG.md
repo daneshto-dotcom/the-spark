@@ -119,6 +119,18 @@ re-run alone before it is called a defect (S189: two reds were load).
   on that impact tick); the strike draws UNDER unit sprites (a mushroom cloud can sit behind units north of it).
   Not looked at on screen — do so after deploy #5.
 
+## ⛔ SPEND-LIMIT STOP (~70 min in) — and the resume
+
+The org monthly spend limit killed 11 named agents + 16 workflow jobs at once (hunt: 5 verifiers,
+coverage-history lane, critic; audits A: 2 verifiers; audits B: swarm:sim lane + 6 verifiers). Landed on
+disk before the stop (commit-every-step held): net strictPort + C6 (2bbcd20) · units C3 test + C8 (82b4040)
+· weld C2 repro + fix (4f2bc9a, + 4 uncommitted files mid-step) · render C1 + C7 (78eefed, + 1 untracked
+test) · draft-atk master merged (5391d0e, + untracked reach test). Resumed after the reset: all three
+workflows via `resumeFromRunId` (completed agents replay from cache), eight agents via SendMessage with
+their context. input-layer went straight to PHASE 2 (the audit's two lenses had landed; IL-M1 conflict
+recipe, IL-B1 vacuous e2e, IL-1/IL-B2 hover-under-draft, IL-2 RMB put-back, one doc commit; IL-3/IL-Q1 and
+IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifiers land.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
