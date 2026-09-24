@@ -48,7 +48,7 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
-import type { PlayerId } from '../types.ts';
+import { asCreatureId, type PlayerId } from '../types.ts';
 import {
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
@@ -194,11 +194,22 @@ function drawRaRitual(
  *   · fog-gated at his last position, exactly like the live ritual;
  *   · evicted once the tail has played (`RA_RITUAL_TAIL_TICKS`) or the clock runs backwards.
  * ⚠ A joiner who arrives after he is gone has nothing to remember and sees no tail — ≤ 1.8 s of VFX.
+ *
+ * ⛔ S190 (merge owner, audit RAVFX-A/-B) — **HIS ABSENCE IS THE PROOF THE FINALE LANDED; PLAYING IS NOT.**
+ * `runPharaohRitual` runs inside `hostTick`'s FIGHT gate, so a ritual whose deadline falls in BUILD lands
+ * nothing and removes no one — he stands recalled on the board, and the first version of this tail drew a
+ * column-4 explosion over his own army anyway. So the tail draws ONLY while he is gone from
+ * `world.creatures` (skipped, not evicted, while he is present — a peer whose last snapshot predates the
+ * removal catches up). And a GODLY_ABORT inside the sighting slack clears every creature WITHOUT leaving
+ * PLAYING, which would read as "gone" too — so the tail also remembers the mass-clear epoch
+ * (`World.structureWatchEpoch`, the renderer's existing mass-clear signal) and refuses any other.
+ * ⚠ And a channelling Pharaoh CAN move (recall, the retreat window) — x/y is his LAST SIGHTING.
  */
 interface RaRitualTail {
   readonly id: number;
   readonly until: number;
   readonly owner: PlayerId;
+  readonly epoch: number;
   x: number;
   y: number;
   lastSeenTick: number;
@@ -218,7 +229,7 @@ function rememberRaRitual(world: World, id: number, owner: PlayerId, pos: { x: n
   if (tails === undefined) { tails = new Map(); raRitualTails.set(world, tails); }
   const key = `${id}@${until}`;
   const t = tails.get(key);
-  if (t === undefined) tails.set(key, { id, until, owner, x: pos.x, y: pos.y, lastSeenTick: world.tick });
+  if (t === undefined) tails.set(key, { id, until, owner, epoch: world.structureWatchEpoch, x: pos.x, y: pos.y, lastSeenTick: world.tick });
   else { t.x = pos.x; t.y = pos.y; t.lastSeenTick = Math.max(t.lastSeenTick, world.tick); }
 }
 
@@ -230,6 +241,8 @@ function drawRaRitualTails(g: Graphics, world: World): void {
     if (age >= RA_RITUAL_TAIL_TICKS || world.tick < t.until - RA_RITUAL_TICKS) { tails.delete(key); continue; }
     if (age < 0) continue; // still channelling: `drawRaRitual` draws him live
     if (world.gameState !== 'PLAYING') continue;
+    if (world.structureWatchEpoch !== t.epoch) { tails.delete(key); continue; } // a mass clear: nothing landed
+    if (world.creatures.has(asCreatureId(t.id))) continue; // still standing → column 4 never landed (BUILD)
     if (t.lastSeenTick < t.until - RA_TAIL_SIGHTING_SLACK_TICKS) continue;
     if (isConcealed(t.x, t.y, t.owner)) continue;
     drawRaColumns(g, world.tick, t.until, (k) => raColumnPos(t.id, k, t.x, t.y));

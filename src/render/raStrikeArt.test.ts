@@ -515,6 +515,33 @@ describe("S188 ra-vfx — RAVFX-5: the Pharaoh's FIFTH column plays out after th
     const b = recorder(); drawBossAuras(b.g, pw);
     expect(b.ops, 'not PLAYING').toHaveLength(0);
   });
+
+  it('⛔ S190 RAVFX-A — a deadline that falls in BUILD lands nothing: he is still standing, so no finale is drawn', () => {
+    setRaStrikeArtForTests(shippedArt());
+    const pw = pharaohBoard(UNTIL); // matchPhase BUILD: hostTick never runs the ritual here
+    pw.tick = UNTIL - 1;
+    drawBossAuras(recorder().g, pw); // seen channelling on his last tick
+    pw.tick = UNTIL; // the deadline passes with no landing — the sim did NOT remove him
+    expect(pw.creatures.has(asCreatureId(PHARAOH_ID)), 'anti-vacuity: he is still on the board').toBe(true);
+    for (const dt of [0, 6, 50]) {
+      pw.tick = UNTIL + dt;
+      const r = recorder(); drawBossAuras(r.g, pw);
+      expect(r.ops, `deadline + ${dt}`).toHaveLength(0);
+    }
+  });
+
+  it('⛔ S190 RAVFX-B — a GODLY_ABORT inside the sighting slack clears him WITHOUT leaving PLAYING: no finale', () => {
+    setRaStrikeArtForTests(shippedArt());
+    const pw = pharaohBoard(UNTIL);
+    pw.tick = UNTIL - 10;
+    drawBossAuras(recorder().g, pw); // seen channelling 10 ticks before the deadline (inside the slack)
+    pw.creatures.clear(); // what applyGodlyAbort does …
+    pw.structureWatchEpoch += 1; // … together with its mass-clear epoch bump (godlyActions.ts)
+    pw.tick = UNTIL;
+    expect(pw.gameState, 'anti-vacuity: an abort does not leave PLAYING').toBe('PLAYING');
+    const r = recorder(); drawBossAuras(r.g, pw);
+    expect(r.ops).toHaveLength(0);
+  });
 });
 
 /* ── 4. THE PREFETCH (RAVFX-7) ─────────────────────────────────────────────────────────────────── */

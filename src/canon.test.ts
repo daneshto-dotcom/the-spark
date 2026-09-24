@@ -436,10 +436,18 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('| **WRATH OF RA** | mummies · 10')).toBe(true);
     expect(canonSays('| **THE SANDWORM** | mummies · 10')).toBe(true);
     expect(canonSays('level 10 for zombies, orcs, demons and nagas; levels 15 and 20 for every race')).toBe(true);
-    // The card count the canon prints: the four general cards plus one per registry perk.
+    // The card count the canon prints: the four general cards plus one per registry perk — plus any card
+    // shipped AHEAD of its perk. ⚠ S190 train A: s188/ra-vfx ships the WRATH OF RA card (`l10-mummies`)
+    // before s188/wrath (train B) registers `mummies.l10`. The same UNION allowance as
+    // draftOverlay.test.ts's AHEAD_OF_THEIR_PERK: once a perk names the card it stops counting as ahead,
+    // so this stays exact in either merge order. Delete the entry when mummies.l10 lands.
+    const AHEAD_OF_THEIR_PERK = ['l10-mummies'] as const;
+    const perkCards = new Set<string>(RACIAL_PERK_IDS.map((p) => RACIAL_PERK_COPY[p].card));
+    const ahead = AHEAD_OF_THEIR_PERK.filter((c) => !perkCards.has(c));
     const cards = readdirSync(new URL('../public/art/upgrade-cards/', import.meta.url))
       .filter((f) => f.endsWith('.webp'));
-    expect(cards).toHaveLength(GENERAL_TRACK.length + RACIAL_PERK_IDS.length);
+    for (const c of AHEAD_OF_THEIR_PERK) expect(cards, c).toContain(`${c}.webp`);
+    expect(cards).toHaveLength(GENERAL_TRACK.length + RACIAL_PERK_IDS.length + ahead.length);
     expect(canonSays(`**${cards.length}** cards in \`public/art/upgrade-cards/\``)).toBe(true);
   });
 

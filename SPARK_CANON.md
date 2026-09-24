@@ -265,7 +265,7 @@ and `isDamagePick('racial')` are false by construction, so the pick moves no poo
 number (R104).
 
 ⭐ **EVERY TILE DRAWS ITS CARD (S188).** The general tile shows `general-<axis>`; the racial tile shows
-`RACIAL_PERK_COPY[perk].card` while its perk is on offer — **16** cards in `public/art/upgrade-cards/`,
+`RACIAL_PERK_COPY[perk].card` while its perk is on offer — **17** cards in `public/art/upgrade-cards/` (the sixteen on offer, plus the WRATH OF RA card `l10-mummies`, shipped by the Ra-strike art branch in S190 AHEAD of its perk),
 fetched lazily (`upgradeCardUrl`), so a slow or missing card leaves the tile on its text title and
 never blocks the panel. ⛔ A tile showing its card draws **no overlay title** — the name is baked into
 the art and the two collided. ⛔ `drawAxisGlyph` is **deleted**, not dormant — owner: *"just a hand
