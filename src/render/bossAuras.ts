@@ -292,6 +292,11 @@ const RA_AIM_TINT = 0xffd970;
  * the strike.
  */
 function drawPowerOfRa(g: Graphics, world: World): void {
+  // ⭐ RAVFX-7 — PREFETCH: a mummies seat in the match can call POWER OF RA, so its strike art is
+  // fetched now, before the first cast, not on the strike's first frame. Once per session.
+  for (const p of world.players.values()) {
+    if (p.raceId === 'mummies') { ensureRaStrikeArt(); break; }
+  }
   if (world.matchPhase === 'FIGHT') {
     const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
     for (const [seat, p] of seats) {
@@ -303,6 +308,7 @@ function drawPowerOfRa(g: Graphics, world: World): void {
 
   const aimAt = raAimPreview();
   if (aimAt === null) return;
+  ensureRaStrikeArt(); // RAVFX-7 — a player aiming is about to cast: make sure the art is coming
   if (raCastRefusal(world, aimAt.seat) !== null) return;
   const aim = raAimPoint(aimAt.x, aimAt.y);
   if (aim === null) return;

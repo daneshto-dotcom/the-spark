@@ -191,8 +191,10 @@ export function raStrikeArt(): RaStrikeArt | null {
 }
 
 /**
- * Starts the one fetch. Called wherever a strike could soon be drawn — a Pharaoh on the board, a
- * called strike, a player aiming — so the art is usually in before the first column lands.
+ * Starts the one fetch. Called wherever a strike could soon be drawn, so the art is usually in before
+ * the first column lands — all in `bossAuras.ts`: a Pharaoh on the board (`drawRaRitual`), a mummies
+ * seat in the match and a player aiming (`drawPowerOfRa`, RAVFX-7), and a strike's own first frame
+ * (`drawRaColumns`, the last resort).
  */
 export function ensureRaStrikeArt(): void {
   if (loadStarted) return;

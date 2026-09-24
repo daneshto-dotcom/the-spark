@@ -195,6 +195,21 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
   scale, every other band abutting the one below (no gap), and the sky drawn before the sprite.
 - ⭐ MUTATION-TESTED: `under = 0` → RED ("expected 283.569 to be close to 284.998"); restored, `cmp`.
 
+### RAVFX-7 (LOW) — DONE, IMPLEMENTED (not a docblock retreat) — prefetch before the first strike
+- Confirmed: `ensureRaStrikeArt()` was called only from `drawRaRitual` (a sighted Pharaoh) and
+  `drawRaColumns` (a strike's first frame); the aim path never asked, so the docblock and this file
+  claimed a prefetch that did not exist.
+- `src/render/bossAuras.ts` `drawPowerOfRa` (render-only, my own file): `ensureRaStrikeArt()` when any
+  seat's `raceId` is `'mummies'`, and again on entering the aim branch (before the refusal check —
+  the aim preview only exists once the player has pressed the Ra button). The loader latches, so this
+  is one fetch per session. `raStrikeArt.ts`'s `ensureRaStrikeArt` docblock now names every caller.
+- Tests (3, `vi.resetModules()` + a fresh module per case, `document` and a never-answering `fetch`
+  stubbed AFTER import): a mummies seat in BUILD with no strike/Pharaoh/aim fetches the anim JSON
+  exactly once across two frames; an orc-only board with an aim set fetches; an orc-only board with
+  nothing fetches nothing and draws nothing (negative). 19/19. `npm run typecheck` exit 0.
+- ⭐ MUTATION-TESTED: the mummies-seat call removed → that test RED; the aim call removed → the aim
+  test RED. Restored, `cmp`-verified.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
@@ -203,4 +218,6 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
   cloud sits behind units standing north of it. Layering above units needs a new display layer
   (the fogHiddenLayer index hazard) or the arrowLayer path — left as is.
 - The atlas is 1,680 KB (static, outside the bundle cap; the Pharaoh's own atlas is 4.4 MB). Fetched
-  lazily on a Pharaoh on the board / a called strike / an aim.
+  lazily, once: on a Pharaoh on the board, a mummies seat in the match, a player aiming, or (last
+  resort) a strike's first frame. ⚠ S190 RAVFX-7: until then the "an aim" part of this line was
+  FALSE — only the Pharaoh and a strike's first frame asked; it is now implemented and tested.

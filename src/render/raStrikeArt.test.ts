@@ -14,7 +14,7 @@
  * file in the suite ever sees it (the unit suite has no DOM and otherwise always draws the fallback).
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
 import { Texture, TextureSource, type Graphics } from 'pixi.js';
@@ -446,5 +446,71 @@ describe('S188 ra-vfx — ⛔ no atlas (still loading, failed, or no DOM): the c
       pw.tick = tick;
       expect(() => drawBossAuras(bare, pw), `tick ${tick}`).not.toThrow();
     }
+  });
+});
+
+/* ── 4. THE PREFETCH (RAVFX-7) ─────────────────────────────────────────────────────────────────── */
+
+describe('S188 ra-vfx — RAVFX-7: the 1.68 MB strike atlas is fetched BEFORE the first strike', () => {
+  const ANIM_URL = '/art/ra-strike/ra-strike-anim.json';
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  /**
+   * FRESH copies of the render modules — the loader latches once per module instance, so every case
+   * gets its own — imported BEFORE a DOM exists, then a `document` and a `fetch` that never answers
+   * (so nothing reaches `Assets.load`).
+   */
+  async function freshAurasWithFetch() {
+    vi.resetModules();
+    const auras = await import('./bossAuras.ts');
+    const aim = await import('./raAimPreview.ts');
+    const fetchSpy = vi.fn((_url: string) => new Promise<never>(() => {}));
+    vi.stubGlobal('document', {});
+    vi.stubGlobal('fetch', fetchSpy);
+    return { drawBossAuras: auras.drawBossAuras, setRaAimPreview: aim.setRaAimPreview, fetchSpy };
+  }
+
+  /** Two orc seats: nobody can call POWER OF RA and no Pharaoh can be on the board. */
+  function orcBoard(): World {
+    const w = makeWorld(0x2b);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME', mode: '1v1', isHost: true,
+      roster: [
+        { seat: 0, color: PLAYER_COLORS[0]!, raceId: 'orcs' },
+        { seat: 1, color: PLAYER_COLORS[1]!, raceId: 'orcs' },
+      ],
+    });
+    w.creatures.clear();
+    return w;
+  }
+
+  it('⭐ a mummies seat in the match starts the fetch — no strike called, no Pharaoh, no aim — and only once', async () => {
+    const { drawBossAuras: draw, fetchSpy } = await freshAurasWithFetch();
+    const w = strikeBoard();
+    w.matchPhase = 'BUILD';
+    expect(w.players.get(P0)!.raStrike, 'anti-vacuity: nothing to draw a column from').toBeNull();
+    draw(recorder().g, w);
+    draw(recorder().g, w);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]![0]).toBe(ANIM_URL);
+  });
+
+  it('⭐ entering the aim branch starts the fetch', async () => {
+    const { drawBossAuras: draw, setRaAimPreview: aimAt, fetchSpy } = await freshAurasWithFetch();
+    const w = orcBoard(); // no mummies seat, so only the aim can be what asked
+    aimAt({ seat: P0, x: 600, y: 300 });
+    draw(recorder().g, w);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]![0]).toBe(ANIM_URL);
+  });
+
+  it('⛔ a board with no mummies seat, no Pharaoh, no strike and no aim fetches nothing', async () => {
+    const { drawBossAuras: draw, fetchSpy } = await freshAurasWithFetch();
+    const w = orcBoard();
+    const r = recorder();
+    draw(r.g, w);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(r.ops).toHaveLength(0);
   });
 });
