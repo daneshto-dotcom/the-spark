@@ -225,8 +225,8 @@ path (human play?) creates a cross-colour bond, which I did not measure.
 - ⚠ The merge owner re-counts after s189/weld (it edits placePrimitive.ts).
 - Regex self-check (node, throwaway): the widened pattern catches `=`, `??=`, `||=`, `&&=` and
   ignores `==` / `===` / `!==`; the Object.assign form is caught; the definition is excluded.
-- ⚠ Findings on the way, all resolved: (1) the Bash tool collapses `\` to `\` inside a heredoc, so
-  my Python patch wrote nine literal BACKSPACE characters (0x08) where `` was meant — caught by
+- ⚠ Findings on the way, all resolved: (1) the Bash tool collapses a doubled backslash to a single one inside a heredoc, so
+  my Python patch wrote nine literal BACKSPACE characters (0x08) where a regex word-boundary (backslash-b) was meant — caught by
   reading the file with `cat -v`, repaired with `chr(92)`, zero 0x08 left; (2) `tsc` EXIT=1 on the
   now-unused `filesMatching` (TS6133) — removed, EXIT=0; (3) the brief named the clear() sites
   "softReset, applyReturnToTitle" the other way round — verified: `applyReturnToTitle` is gameMode.ts,
