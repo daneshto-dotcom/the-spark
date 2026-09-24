@@ -56,6 +56,6 @@ typecheck 0 · vitest 0 (5701 / 347) · build 0 (925.8 KiB, cap 1000). "Fix ONLY
 | # | finding | status |
 |---|---|---|
 | 1 | SWARM-B1 — the card portrait ignored `atlasFallbackType` | ✅ `portraitTexture` falls back to the bat sheet exactly as the draw loop; 4 tests (real method, no Pixi stage); mutant (fallback removed) → 1 red, restored |
-| 2 | SW-7 — the 7.32 MiB swarm sheet pre-warmed for every vampire seat at match start | ⏳ |
+| 2 | SW-7 — the 7.32 MiB swarm sheet pre-warmed for every vampire seat at match start | ✅ out of `preloadRaceKit`; `warmPerkSheets` (from `sync`) fetches it the first frame any seat holds `vampires.l10`, once; the bat fallback covers the gap. `src/render/batSwarmSheetWarm.test.ts` (7, real `GoblinRenderer`, `loadAtlas` counted): nothing before the pick, once after, own sheet, general-at-wave-11 and other-race negatives. Mutants: preload line restored → 3 red; `sync` call removed → 2 red; restored |
 | 3 | SW-4 / SW-5 — `build-upgrade-cards.py` CARDS + MANIFEST still say `l10-vampires` is not shipped | ⏳ |
 | 4 | canon notes — R190-D ruling recorded, CRIMSON TIDE consequence, radar 10→12 noted, PROTOCOL 51 reasons | ⏳ |

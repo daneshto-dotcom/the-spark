@@ -42,6 +42,8 @@ import { isStunned, rageMultiplier, isCorpseEaterFeeding, type Creature } from '
 // S188 CORPSE EATER — the eat loop, derived per frame from the synced feed deadline.
 import { corpseEaterElapsed, corpseEaterFrame } from './corpseEaterFrames.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
+// ⭐ S190 (audit SW-7) — the pair and perk the swarm's sheet warms on (`warmPerkSheets`). A pure leaf.
+import { THE_SWARM_PERK, THE_SWARM_TO } from '../state/racial/theSwarm.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
@@ -663,8 +665,29 @@ export class GoblinRenderer {
     // ⭐ S188 APEX PREDATOR — a naga seat can field the elite from the level-5 draft on, so its sheet
     // is part of that race's kit and warms with the rest rather than popping in green mid-fight.
     if (race === 'nagas') this.ensureTypeAtlas('t3PiranhaElite');
-    // ⭐ S188 THE SWARM — likewise a vampire seat's level-10 swarm.
-    if (race === 'vampires') this.ensureTypeAtlas('t3BatSwarm');
+    /*
+     * ⛔ S190 (audit SW-7) — BUT NOT THE SWARM. Its sheet is 2400×800 RGBA (7.32 MiB decoded) and no
+     * swarm can exist before the wave-11 draft, and then only for a seat that took `vampires.l10` —
+     * so warming it here held that texture on every peer, all match, for every vampire seat. It warms
+     * on the PICK instead (`warmPerkSheets`, from `sync`), and the bat-sheet fallback
+     * (`atlasFallbackType`) covers the gap between the pick and the fetch resolving.
+     */
+  }
+
+  /**
+   * ⭐ S190 (audit SW-7) — WARM THE SWARM'S SHEET ONCE A SEAT HOLDS `vampires.l10`, and never before.
+   * Called from `sync` every frame: one Set probe once the load has started, otherwise a scan of the
+   * seats (at most four) through the same `seatHoldsPerk` the sim promotes with, so the fetch starts
+   * during the draft that grants the perk rather than at the first swarm drawn. Render-only.
+   */
+  private warmPerkSheets(world: World): void {
+    if (this.typeLoadStarted.has(THE_SWARM_TO)) return;
+    for (const pl of world.players.values()) {
+      if (seatHoldsPerk(pl, THE_SWARM_PERK)) {
+        this.ensureTypeAtlas(THE_SWARM_TO);
+        return;
+      }
+    }
   }
 
   /**
@@ -959,6 +982,8 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // ⭐ S190 (audit SW-7) — the swarm's sheet starts fetching on the seat's `vampires.l10` pick.
+    this.warmPerkSheets(world);
     /*
      * ⭐⭐ S170 P5 — BOSS GROUND AURAS FIRST, so they sit UNDER every unit drawn below. Owner:
      * *"I didn't see that they have, like, cool generated videos or effects."*
