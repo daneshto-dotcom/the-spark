@@ -132,3 +132,26 @@ branch pins what is already true on master now, so train E is only the deltas.
   count the canon prints = 4 general + one per perk, counted on disk. ⚠ It goes RED on purpose when
   swarm / wrath add an L10 perk (train E). Canon test exit 0 (56), typecheck exit 0. No canon text
   change in this step.
+- **Step 7 — final gates on the branch tip (`977f44e`).** `npm run typecheck` exit 0 · `npx vitest
+  run --maxWorkers=6` exit 0 (6013 tests / 367 files = the 5996 baseline + 17 new canon cases) ·
+  `npx vitest run src/canon.test.ts` alone exit 0 (56). Non-zero exits during the run, each ruled:
+  `git check-ignore` exit 1 (= the progress file is NOT ignored — the wanted answer); `grep -c` exit 1
+  on the mojibake scans (= zero matches — the wanted answer). ⚠ vitest rewrote
+  `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` with LF: `git diff
+  --ignore-cr-at-eol` showed NO content change (index and file both `lf`), so it was restored with
+  `git checkout` and never staged — benign, an autocrlf artifact of the snapshot writer.
+
+## STATUS — P10 phase 2 DONE for everything true on master; train-E deltas PENDING (list above)
+
+Tests that go RED ON PURPOSE at train E (each is the canon rule working — fix the canon text in the
+same commit, never the assertion alone):
+- `CANON-7 registry` — when swarm / wrath add an L10 perk (`RACIAL_PERK_IDS` grows, a card is added).
+- `CANON-3 PENDING TRAIN D` — when draft-atk gives `draftedAttackFifths` a production caller.
+- `§6 attackCycleRaged` — when the merge owner adds `attackCycleRaged` to the PROTOCOL 50 docblock.
+- the regen / castle rows — when s189/units makes regen read the upgraded ceiling.
+- `PROTOCOL_VERSION` pin (untouched, ~`canon.test.ts:153` region) and §6's version sentence (now alone
+  on its line) — the merge owner's at each bump.
+
+Not done by this branch, by scope: `CLAUDE.md`'s stale bundle-cap (1000 → 1100) and protocol (46)
+lines, `S173_NONET_STAGES.md` closure and `pdca-context.sh` (S189 PDR P10's other items — merge
+owner, LAST); the `protocol.ts` docblock gap for `attackCycleRaged` (src, not mine to edit).
