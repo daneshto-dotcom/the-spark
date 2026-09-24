@@ -209,8 +209,15 @@ committed (e2df268, 71f9173, 69ee235); the resume message listing items 2-3 as o
 - Caveat, not a bug found: the path search iterates `Map`/`Set` order, so on an exotic lattice with
   two valid 8-paths it could pick a different path — render-only, no sim effect.
 
+### step F6 — canon notes rewritten (spare rule stated exactly, final rule list, protocol) + GATES on
+the committed tree, each a captured $?:
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=6` → VITEST_EXIT=0 — 6044 tests / 368 files
+- `npm run build` → BUILD_EXIT=0 — 948.1 KiB (base 944.2) = +3.9 KiB of the shared headroom
+- e2e NOT run (brief).
+
 ## IN-FLIGHT
-- gates + canon notes + final report.
+- none — follow-up report delivered to the merge owner.
 
 ## NEXT
 
