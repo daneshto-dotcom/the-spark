@@ -14,6 +14,14 @@ l10-vampires (THE SWARM) is deliberately NOT built: level 10 has no mechanic, an
 precede its mechanic (S188 brief P2, item 8). The two -alt files are the owner's kept alternates,
 not runtime art.
 
+l10-mummies (WRATH OF RA) IS built — S188 `s188/ra-vfx`. Its mechanic (`mummies.l10`) is being
+built in the parallel branch `s188/wrath`, so on this branch the card ships one merge AHEAD of the
+perk that references it (draftOverlay.test.ts names that allowance explicitly). The master is the
+owner's raw render cropped to its dark inner panel: `l10-mummies-raw.png` (1024 x 1024, white
+margin + rounded black frame) -> box (88, 88, 936, 936) -> `l10-mummies.png` (848 x 848). The box
+starts 4 px inside the frame's inner edge so the stroke's rounded corners carry no white and no
+black arc into the crop; measured, the outer 6 px ring of the master holds 0 near-white pixels.
+
 Usage:  python scripts/build-upgrade-cards.py
 Exit:   0 every card written; 1 a source is missing or unreadable.
 """
@@ -38,6 +46,7 @@ CARDS = [
     "general-hp", "general-def", "general-atk", "general-pen",
     "l0-vampires", "l0-zombies", "l0-mummies", "l0-orcs", "l0-demons", "l0-nagas",
     "l5-vampires", "l5-zombies", "l5-mummies", "l5-orcs", "l5-demons", "l5-nagas",
+    "l10-mummies",
 ]
 
 

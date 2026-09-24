@@ -24,7 +24,7 @@
  * assertion lands here in the SAME commit.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CASTLE_ATTACK_RANGE,
@@ -55,8 +55,42 @@ import {
   WORLD_EDGE_MARGIN,
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
-import { DRAFT_WAVE_INTERVAL, isDraftWave, raceUnitPoolAfterPicks } from './state/draft.ts';
-import { CASTLE_HP_GAIN_BY_BAND } from './state/castleUpgrades.ts';
+import {
+  DRAFT_BUFF_PCT,
+  DRAFT_WAVE_INTERVAL,
+  GENERAL_TRACK,
+  draftIndexForWave,
+  generalPickForWave,
+  isDamagePick,
+  isDraftWave,
+  isPoolPick,
+  raceUnitPoolAfterPicks,
+} from './state/draft.ts';
+import {
+  CASTLE_HP_GAIN_BY_BAND,
+  CASTLE_STATS,
+  CASTLE_UPGRADE_MAX_LEVEL,
+  CASTLE_UPGRADE_PRICE,
+  applyUpgradeCastleStat,
+  castleMaxHpFor,
+  castleShotFifthsFor,
+  emptyCastleUpgrades,
+} from './state/castleUpgrades.ts';
+// S189 P10 — §3d as it is LIVE since S188: the draft's offer rules, its panel, the castle buttons.
+import { autoPickFor, pickIsOffered } from './state/draftEvent.ts';
+import {
+  RACIAL_PERKS_BY_RACE,
+  RACIAL_PERK_BUILT,
+  RACIAL_PERK_COPY,
+  RACIAL_PERK_IDS,
+  perkDraftIndex,
+  perkRace,
+  racialPerkFor,
+} from './state/racialPerks.ts';
+import { PANEL_H, PANEL_W, generalTileRect, racialTileRect } from './render/draftOverlay.ts';
+import { CASTLE_ROW_KEYS } from './render/castlePanel.ts';
+import type { World } from './state/worldTypes.ts';
+import { asPlayerId, type PlayerId } from './types.ts';
 import { DRONE_ATK, DRONE_PEN } from './constants.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -72,6 +106,79 @@ import { CREATURE_TARGETS } from './state/stats.ts';
 import { getCreatureConfig } from './state/creatures/voltkin-config.ts';
 import type { CreatureType } from './state/creatures/creature.ts';
 import type { GodlyId } from './state/godlyRecipes/types.ts';
+// S189 P10 — §3e, THE TWELVE RACIAL UPGRADES. Every number in its table is read off these.
+import {
+  CANVAS_WIDTH,
+  CHEWER_ATK,
+  CHEWER_DEF,
+  CHEWER_HP,
+  CHEWER_PEN,
+  GOBLIN_ATTACK_CADENCE_TICKS,
+  GOBLIN_ATTACK_FIRE_TICK,
+  GOBLIN_MAX_PER_SPAWNER,
+  PHYSICS_HZ,
+  RACE_UNIT_DEF,
+  RACE_UNIT_EMIT_INTERVAL_TICKS,
+  RACE_UNIT_HP,
+  RA_COLUMN_ATK,
+  RA_COLUMN_COUNT,
+  RA_COLUMN_PEN,
+  RA_COLUMN_RADIUS,
+  RA_COLUMN_TICKS,
+  T3_STATS,
+  WARLORD_RAGE_MULTIPLIER,
+  ZOMBIE_AURA_PER_MILLE,
+} from './constants.ts';
+import {
+  BLOOD_DEBT_LIFESTEAL_PCT,
+  CRIMSON_TIDE_LIFESTEAL_PCT,
+  lifestealFifths,
+  lifestealPctFor,
+} from './state/racial/lifesteal.ts';
+import { isZombieRacialType } from './state/racial/theRisen.ts';
+import {
+  CORPSE_EATER_HEAL_PCT,
+  CORPSE_EATER_LEASH_RADIUS,
+  CORPSE_EATER_TICKS,
+  CORPSE_EATER_TRIGGER_PCT,
+} from './state/racial/corpseEater.ts';
+import { RA_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { raAimPoint } from './state/racial/powerOfRaRules.ts';
+import {
+  DYNASTY_HP_PER_PHARAOH,
+  DYNASTY_LIVE_PHARAOH_SENTINEL,
+  pharaohsOwed,
+} from './state/racial/endlessDynasty.ts';
+import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
+import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
+import { SCORCHED_GROUND_PER_MILLE } from './state/racial/scorchedGround.ts';
+import { dotIntervalTicks, maxPoolFifths } from './state/damageOverTime.ts';
+import {
+  HELLSPAWN_CHILDREN,
+  HELLSPAWN_MAX_GEN,
+  HELLSPAWN_PCT_BY_GEN,
+  hellspawnChildPool,
+  hellspawnStrikeFifths,
+} from './state/racial/hellspawn.ts';
+import { APEX_PREDATOR_STAT_MUL, T3_PIRANHA_ELITE_STATS } from './state/creatures/voltkin-config.ts';
+import { PIRANHA_ELITE_SPRITE_SCALE_MUL } from './render/towerFrames.ts';
+import { ragedFireTick } from './state/creatures/creature.ts';
+// S189 P10 — CANON-2: the deploy-#2 fix rounds (F1 lifesteal batch, F3 rage latch, F4 fallen demon
+// seat, racial-d F1 re-anchor + F5 whistle cut), which the S188 text predates.
+import { PHASE_DURATION_TICKS } from './constants.ts';
+import { FIELD_COVERAGE } from './state/stateHashFull.ts';
+import { makeWorld } from './state/world.ts';
+import { applyLifesteal, applyPendingLifesteal } from './state/racial/lifesteal.ts';
+import {
+  asCreatureId,
+  attackCycleMultiplier,
+  makeCreature,
+  type Creature,
+} from './state/creatures/creature.ts';
+import { scorchedZones } from './state/racial/scorchedGround.ts';
+import { SCORCHED_ZONE_TINT, zoneBackdropTint } from './render/zoneBackgroundRenderer.ts';
+import { showsCorpseEaterFeed } from './render/corpseEaterFrames.ts';
+import { corpseEaterOwnStepPx } from './state/racial/corpseEater.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -285,8 +392,421 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // The castle band table, read off the constant rather than retyped.
     expect(CASTLE_HP_GAIN_BY_BAND).toEqual([250, 350, 450, 550, 650]);
     for (const g of CASTLE_HP_GAIN_BY_BAND) expect(canonSays(String(g))).toBe(true);
-    // ⛔ And the canon must SAY the racial buffs are unbuilt, or the next session assumes they are.
-    expect(canonSays('**NOT BUILT**')).toBe(true);
+    /*
+     * ⛔ S189 P10 (CANON-7) — THIS USED TO ASSERT `canonSays('**NOT BUILT**')`, "or the next session
+     * assumes they are built". S188 BUILT twelve of them, and the needle stayed green because a
+     * heading still said NOT BUILT — a tripwire proving only that a string existed. What is and is
+     * not built is now read off the REGISTRY, perk by perk, in the case below.
+     */
+  });
+
+  /**
+   * ⛔ S189 P10 (CANON-7) — THE RACIAL REGISTRY AND THE CANON AGREE PERK FOR PERK. Registry-driven:
+   * every perk `racialPerks.ts` knows must be a §3e row under its race and level, BUILT; §3e may hold
+   * no row the registry lacks; and every level the registry has no perk for must be named in §3d's
+   * NOT-BUILT table. A perk added (THE SWARM, WRATH OF RA) turns this RED until the canon moves it —
+   * which is exactly the commit the canon rule asks for.
+   */
+  it('⛔ §3d/§3e — what is built and what is not is read off the registry, not off a heading', () => {
+    const e = CANON.indexOf('## 3e ·');
+    const section3e = CANON.slice(e, CANON.indexOf('\n### ', e));
+    const rows = [...section3e.matchAll(/^\| \*\*([A-Z][A-Z ]+)\*\* \| ([a-z]+) · (\d+) \|/gm)];
+    const titles = RACIAL_PERK_IDS.map((p) => RACIAL_PERK_COPY[p].title);
+    expect(rows.map((r) => r[1]).sort()).toEqual([...titles].sort()); // no missing row, no extra row
+    for (const perk of RACIAL_PERK_IDS) {
+      const race = perkRace(perk);
+      const index = perkDraftIndex(perk);
+      expect(RACIAL_PERK_BUILT[perk], perk).toBe(true);
+      expect(racialPerkFor(race, index), perk).toBe(perk); // built → choosable → the deadline takes it
+      expect(canonSays(`| **${RACIAL_PERK_COPY[perk].title}** | ${race} · ${index * DRAFT_WAVE_INTERVAL} |`), perk).toBe(true);
+      // Its card is on disk — the tile the canon says it draws.
+      expect(existsSync(new URL(`../public/art/upgrade-cards/${RACIAL_PERK_COPY[perk].card}.webp`, import.meta.url)), perk)
+        .toBe(true);
+    }
+    expect(RACIAL_PERK_IDS.length).toBe(12);
+    expect(canonSays('## 3e · ⭐⭐ THE TWELVE RACIAL UPGRADES — ALL BUILT')).toBe(true);
+    // Nothing past level 5 exists on this tree — and the canon's NOT-BUILT table names every gap.
+    const races = Object.keys(RACIAL_PERKS_BY_RACE) as Array<keyof typeof RACIAL_PERKS_BY_RACE>;
+    for (const race of races) {
+      expect(RACIAL_PERKS_BY_RACE[race], race).toHaveLength(2);
+      expect(racialPerkFor(race, 2), race).toBeNull(); // level 10: COMING SOON
+    }
+    expect(canonSays('`RACIAL_PERKS_BY_RACE` holds exactly two perks per race')).toBe(true);
+    expect(canonSays('| **THE SWARM** | vampires · 10 |')).toBe(true);
+    expect(canonSays('| **WRATH OF RA** | mummies · 10')).toBe(true);
+    expect(canonSays('| **THE SANDWORM** | mummies · 10')).toBe(true);
+    expect(canonSays('level 10 for zombies, orcs, demons and nagas; levels 15 and 20 for every race')).toBe(true);
+    // The card count the canon prints: the four general cards plus one per registry perk — plus any card
+    // shipped AHEAD of its perk. ⚠ S190 train A: s188/ra-vfx ships the WRATH OF RA card (`l10-mummies`)
+    // before s188/wrath (train B) registers `mummies.l10`. The same UNION allowance as
+    // draftOverlay.test.ts's AHEAD_OF_THEIR_PERK: once a perk names the card it stops counting as ahead,
+    // so this stays exact in either merge order. Delete the entry when mummies.l10 lands.
+    const AHEAD_OF_THEIR_PERK = ['l10-mummies'] as const;
+    const perkCards = new Set<string>(RACIAL_PERK_IDS.map((p) => RACIAL_PERK_COPY[p].card));
+    const ahead = AHEAD_OF_THEIR_PERK.filter((c) => !perkCards.has(c));
+    const cards = readdirSync(new URL('../public/art/upgrade-cards/', import.meta.url))
+      .filter((f) => f.endsWith('.webp'));
+    for (const c of AHEAD_OF_THEIR_PERK) expect(cards, c).toContain(`${c}.webp`);
+    expect(cards).toHaveLength(GENERAL_TRACK.length + RACIAL_PERK_IDS.length + ahead.length);
+    expect(canonSays(`**${cards.length}** cards in \`public/art/upgrade-cards/\``)).toBe(true);
+  });
+
+  /**
+   * ⭐ S189 P10 — §3d AS IT IS LIVE SINCE S188. The S188 canon text was written on a branch and
+   * never got its assertions; these are they. Each fact is read off the function that decides it,
+   * not off a comment, so a changed offer rule turns this RED before the canon can mislead.
+   */
+  it('⭐ §3d — level 0 / level 5, the general track, and who may take what', () => {
+    expect(draftIndexForWave(1)).toBe(0);
+    expect(draftIndexForWave(6)).toBe(1);
+    expect(canonSays('(draft index 0)')).toBe(true);
+    expect(canonSays('(draft index 1)')).toBe(true);
+    expect(GENERAL_TRACK).toEqual(['hp', 'def', 'atk', 'pen']);
+    expect(generalPickForWave(21)).toBe('hp'); // the wrap — MINE, and the canon says so
+    expect(canonSays('HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE')).toBe(true);
+
+    // The offer: this wave's general axis, plus `'racial'` exactly when the race has a built perk.
+    // A minimal world — both functions read only `players.get(seat).raceId`.
+    const seat: PlayerId = asPlayerId(0);
+    const w = { players: new Map([[seat, { raceId: 'vampires', draftPicks: [] }]]) } as unknown as World;
+    expect(pickIsOffered(w, seat, 1, 'hp')).toBe(true);
+    expect(pickIsOffered(w, seat, 1, 'def')).toBe(false); // a modified client cannot take DEF at the HP draft
+    expect(pickIsOffered(w, seat, 1, 'racial')).toBe(true); // level 0
+    expect(pickIsOffered(w, seat, 6, 'racial')).toBe(true); // level 5
+    expect(pickIsOffered(w, seat, 11, 'racial')).toBe(false); // level 10+: COMING SOON
+    expect(canonSays('`pickIsOffered` admits exactly two things')).toBe(true);
+    // ⛔ His R106 reversal: the deadline takes the RACIAL whenever one is on offer, else the general.
+    expect(autoPickFor(w, seat, 1)).toBe('racial');
+    expect(autoPickFor(w, seat, 6)).toBe('racial');
+    expect(autoPickFor(w, seat, 11)).toBe(generalPickForWave(11));
+    expect(canonSays('`autoPickFor` returns `\'racial\'` whenever a perk is on offer')).toBe(true);
+    // A racial pick moves no pool and no damage number.
+    expect(isPoolPick('racial')).toBe(false);
+    expect(isDamagePick('racial')).toBe(false);
+    expect(canonSays('`isPoolPick(\'racial\')`')).toBe(true);
+  });
+
+  /**
+   * ⛔⛔ S189 P10 — CANON-3. §3d says LIVE, and the HP/DEF half is. The ATK/PEN half is recorded and
+   * applied NOWHERE: `draftedAttackFifths` has no production caller. The enumeration is MECHANICAL —
+   * every non-test source file is read — so it cannot be green over a caller it forgot to look at, and
+   * it turns RED the day `s188/draft-atk` wires the damage half. That is the moment to replace the
+   * canon's PENDING paragraph with the live rule, in the same commit.
+   */
+  it('⛔ §3d — PENDING TRAIN D: a drafted ATK/PEN pick reaches no strike on the live build', () => {
+    const root = new URL('.', import.meta.url);
+    const prod = (readdirSync(root, { recursive: true }) as string[])
+      .map((f) => f.replace(/\\/g, '/'))
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'state/draft.ts');
+    const callers = (name: string) =>
+      prod.filter((f) => readFileSync(new URL(f, root), 'utf8').includes(name)).sort();
+    expect(callers('draftedPoolFifths')).toEqual(['state/creatures/creature.ts']); // the pool half: live
+    expect(callers('draftedAttackFifths')).toEqual([]); // the damage half: NOT wired
+    expect(canonSays('PENDING TRAIN D — ON THE LIVE BUILD A DRAFTED ATK OR PEN PICK REACHES NO STRIKE')).toBe(true);
+    expect(canonSays('has **no production caller**')).toBe(true);
+    // The panel promises it anyway — which is what makes this worth a canon line.
+    const overlay = readFileSync(new URL('./render/draftOverlay.ts', import.meta.url), 'utf8');
+    expect(overlay).toContain('hits ${DRAFT_BUFF_PCT}% harder');
+    expect(canonSays(`*"hits ${DRAFT_BUFF_PCT}% harder"*`)).toBe(true);
+    // And the two drafts where the general tile is the ONLY choice are exactly the two dead ones.
+    expect([generalPickForWave(11), generalPickForWave(16)]).toEqual(['atk', 'pen']);
+    expect(canonSays('the general pick at waves 11 and')).toBe(true);
+  });
+
+  it('⭐ §3d — the draft panel geometry the canon prints is the one the renderer draws', () => {
+    expect(canonSays(`**${PANEL_W} × ${PANEL_H}**`)).toBe(true);
+    const g = generalTileRect();
+    const r = racialTileRect();
+    expect([r.w, r.h]).toEqual([g.w, g.h]); // two EQUAL tiles
+    expect(canonSays(`two tiles of **${g.w} × ${g.h}**`)).toBe(true);
+  });
+
+  /**
+   * ⭐ S189 P10 — §3d's castle buttons. S187 built the four stats in the sim and nothing dispatched
+   * them; S188 put them on the panel. The canon's numbers are read off the reducer and the panel.
+   */
+  it('⭐ §3d — the four castle buttons: order, price, cap, and what one point buys', () => {
+    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen']);
+    expect(canonSays(
+      `**HP / ATK / DEF / PEN**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
+    )).toBe(true);
+    // Four rows directly under REGEN, in HIS order.
+    const regen = CASTLE_ROW_KEYS.indexOf('castleRegen');
+    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen']);
+    expect(canonSays('**four rows under REGEN — HP, ATK, DEF, PEN**')).toBe(true);
+    expect(canonSays(`out of **${CASTLE_UPGRADE_MAX_LEVEL}** (\`CASTLE_UPGRADE_MAX_LEVEL\`)`)).toBe(true);
+    expect(canonSays(`its price **${CASTLE_UPGRADE_PRICE}**`)).toBe(true);
+    // Every disabled reason the canon names is one the panel can print.
+    const panel = readFileSync(new URL('./render/castlePanel.ts', import.meta.url), 'utf8');
+    const rows = panel.slice(panel.indexOf('const statRows = CASTLE_STAT_ROWS.map('));
+    const block = rows.slice(0, 900);
+    for (const reason of ['NOT YOURS', 'LOCKED', 'CASTLE LOST', 'MAX']) {
+      expect(block, reason).toContain(`'${reason}'`);
+      expect(canonSays(`\`${reason}\``), reason).toBe(true);
+    }
+    expect(panel).toContain('const needStat = `NEED ${CASTLE_UPGRADE_PRICE}`');
+    expect(canonSays(`\`NEED ${CASTLE_UPGRADE_PRICE}\``)).toBe(true);
+    // One ATK point, off the ladder.
+    const oneAtk = castleShotFifthsFor({ ...emptyCastleUpgrades(), atkLevel: 1 });
+    expect(oneAtk).toBe(attackFifths(CASTLE_ATK + 1, CASTLE_PEN));
+    expect(canonSays(`**${castleShotFifths()}** shot into **${oneAtk}**`)).toBe(true);
+  });
+
+  it('⛔ §3d — a bought HP point is HP the keep HAS, a fallen keep buys nothing, and absent means the ceiling', () => {
+    // Through the real reducer: a 2000-HP keep buying at wave 1 gains the band-1 250 in BOTH numbers.
+    const seat: PlayerId = asPlayerId(0);
+    const buy = (castleHp: number) => {
+      const w = {
+        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades() }]]),
+        scoreByPlayer: new Map([[seat, CASTLE_UPGRADE_PRICE]]),
+        waveNumber: 1,
+      };
+      applyUpgradeCastleStat(w, { type: 'UPGRADE_CASTLE_STAT', playerId: seat, stat: 'hp' }, () => {});
+      return w.players.get(seat)!;
+    };
+    const bought = buy(2000);
+    expect(castleMaxHpFor(bought.castleUpgrades)).toBe(CASTLE_MAX_HP + CASTLE_HP_GAIN_BY_BAND[0]!);
+    expect(bought.castleHp).toBe(2000 + CASTLE_HP_GAIN_BY_BAND[0]!);
+    expect(canonSays('**adds its band gain to the keep\'s CURRENT HP too**')).toBe(true);
+    const fallen = buy(0);
+    expect(fallen.castleHp).toBe(0); // R131 — never revives an eliminated seat
+    expect(canonSays('never on a fallen keep (R131)')).toBe(true);
+    // The wire default is the SEAT's ceiling, and the rematch resets the stats BEFORE the pool.
+    const save = readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8');
+    expect(save).toContain('?? castleMaxHpFor(castleUpgrades)');
+    expect(canonSays('reads as **that seat\'s upgraded ceiling** (`castleMaxHpFor`)')).toBe(true);
+    const mode = readFileSync(new URL('./state/gameMode.ts', import.meta.url), 'utf8');
+    const reset = mode.indexOf('player.castleUpgrades = emptyCastleUpgrades();');
+    expect(reset).toBeGreaterThan(-1);
+    expect(mode.indexOf('player.castleHp = castleMaxHpFor(player.castleUpgrades);')).toBeGreaterThan(reset);
+    expect(canonSays('**every bought stat resets**')).toBe(true);
+  });
+
+  /* ══ S189 P10 — §3e, THE TWELVE RACIAL UPGRADES: every table number off its constant ═══════ */
+
+  it('⭐ §3e — the vampires: BLOOD DEBT 20 %, CRIMSON TIDE 50 % that REPLACES it, his 20 → 4', () => {
+    expect(canonSays(`\`BLOOD_DEBT_LIFESTEAL_PCT\` = **${BLOOD_DEBT_LIFESTEAL_PCT}** %`)).toBe(true);
+    expect(canonSays(`\`CRIMSON_TIDE_LIFESTEAL_PCT\` = **${CRIMSON_TIDE_LIFESTEAL_PCT}** %`)).toBe(true);
+    // ⛔ L5 REPLACES L0 — a seat holding both is at 50, never 70; another race's racial steals nothing.
+    expect(lifestealPctFor({ raceId: 'vampires', draftPicks: ['racial', 'racial'] })).toBe(CRIMSON_TIDE_LIFESTEAL_PCT);
+    expect(lifestealPctFor({ raceId: 'vampires', draftPicks: ['racial'] })).toBe(BLOOD_DEBT_LIFESTEAL_PCT);
+    expect(lifestealPctFor({ raceId: 'zombies', draftPicks: ['racial', 'racial'] })).toBe(0);
+    expect(canonSays('REPLACES 20 — never 70')).toBe(true);
+    // His worked example, exact on the ladder, and the floor-at-one.
+    expect(lifestealFifths(20, BLOOD_DEBT_LIFESTEAL_PCT)).toBe(4);
+    expect(lifestealFifths(1, BLOOD_DEBT_LIFESTEAL_PCT)).toBe(1);
+    expect(canonSays('a **20**-fifth hit heals **4**')).toBe(true);
+  });
+
+  it('⭐ §3e — the zombies: THE RISEN raises a 1/1/1/1 soldier; CORPSE EATER’s four numbers', () => {
+    expect(unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)).toBe(6);
+    expect(canonSays('pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`')).toBe(true);
+    // "any racial characters kill … so not like Voltkin or Helga or Pencil Chewers".
+    for (const t of ['raceUnit', 't3Hound', 't9BossZombies'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(true);
+    for (const t of ['voltkin', 'chewer', 'goblinMelee'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(false);
+    expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ); // his "for like eight seconds"
+    expect(canonSays(
+      `\`CORPSE_EATER_TRIGGER_PCT\` = **${CORPSE_EATER_TRIGGER_PCT}** · \`CORPSE_EATER_TICKS\` = **${CORPSE_EATER_TICKS}**` +
+      ` · \`CORPSE_EATER_HEAL_PCT\` = **${CORPSE_EATER_HEAL_PCT}** · \`CORPSE_EATER_LEASH_RADIUS\` = **${CORPSE_EATER_LEASH_RADIUS}** px`,
+    )).toBe(true);
+    expect(canonSays(`The **${CORPSE_EATER_LEASH_RADIUS} px** leash is MINE`)).toBe(true);
+    // ⚠ The overkill-included heal is a READING, and the canon has to say so.
+    expect(canonSays('that is the S188 brief\'s reading')).toBe(true);
+  });
+
+  it('⭐ §3e — the mummies: POWER OF RA is the Pharaoh’s strike; the aim is REFUSED off the board', () => {
+    expect(RA_STRIKE_FIFTHS).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    expect(RA_COLUMN_TICKS).toBe(2 * PHYSICS_HZ); // "five columns two seconds apart"
+    expect(canonSays(
+      `\`RA_COLUMN_COUNT\` = **${RA_COLUMN_COUNT}**, one every \`RA_COLUMN_TICKS\` = **${RA_COLUMN_TICKS}**` +
+      ` · \`RA_STRIKE_FIFTHS\` = **${RA_STRIKE_FIFTHS}** over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
+    )).toBe(true);
+    expect(canonSays(`= **${RA_STRIKE_FIFTHS}** fifths a column over \`RA_COLUMN_RADIUS\` **${RA_COLUMN_RADIUS}** px`)).toBe(true);
+    // ⛔ CANON-6 — REFUSED, not clamped: every one of these is a no-op at the host.
+    expect(raAimPoint(-1, 10)).toBeNull();
+    expect(raAimPoint(CANVAS_WIDTH + 1, 10)).toBeNull();
+    expect(raAimPoint(Number.NaN, 10)).toBeNull();
+    expect(raAimPoint('5', 5)).toBeNull();
+    expect(raAimPoint(10.4, 20.6)).toEqual({ x: 10, y: 21 }); // on the board: rounded
+    expect(canonSays('The host REFUSES an aim that is off the')).toBe(true);
+    expect(canonSays('rounds the aim to integers and clamps it')).toBe(false); // the S188 wording, wrong
+    // ENDLESS DYNASTY — his 1,000; the sentinel is MINE and a PERFORMANCE bound, never a cap.
+    expect(canonSays(
+      `\`DYNASTY_HP_PER_PHARAOH\` = **${DYNASTY_HP_PER_PHARAOH}** · \`DYNASTY_LIVE_PHARAOH_SENTINEL\` = **${DYNASTY_LIVE_PHARAOH_SENTINEL}**`,
+    )).toBe(true);
+    expect(canonSays(`(**${DYNASTY_LIVE_PHARAOH_SENTINEL}** live Pharaohs a seat) is a **PERFORMANCE sentinel`)).toBe(true);
+    expect(pharaohsOwed(DYNASTY_HP_PER_PHARAOH - 1, 2 * DYNASTY_HP_PER_PHARAOH + 1)).toBe(2);
+    expect(canonSays('one hit crossing two thousands raises two')).toBe(true);
+  });
+
+  it('⭐ §3e — the orcs: BLOOD FRENZY is ownership AND type; THE HORDE GROWS raises a LOAD-BEARING ceiling', () => {
+    expect(canonSays(`\`WARLORD_RAGE_MULTIPLIER\` = **${WARLORD_RAGE_MULTIPLIER}**`)).toBe(true);
+    for (const t of ['raceUnit', 't3Warband', 't9BossOrcs'] as CreatureType[]) expect(isOrcRacialCreatureType(t), t).toBe(true);
+    // ⛔ HIS ruling: goblins never rage — any race can build a goblin tower. Nor do the direwolves (MINE).
+    const goblins = (Object.keys(CREATURE_TARGETS) as CreatureType[]).filter((t) => t.startsWith('goblin'));
+    expect(goblins.length).toBeGreaterThan(0);
+    for (const t of [...goblins, 'direwolf'] as CreatureType[]) expect(isOrcRacialCreatureType(t), t).toBe(false);
+    // The S168 defect's numbers: the cadence and the fire tick BOTH halve.
+    const raged = ragedFireTick(GOBLIN_ATTACK_FIRE_TICK, { attackCycleRaged: true });
+    expect(raged).toBeLessThan(Math.round(GOBLIN_ATTACK_CADENCE_TICKS / WARLORD_RAGE_MULTIPLIER));
+    expect(canonSays(`(${GOBLIN_ATTACK_CADENCE_TICKS} → ${Math.round(GOBLIN_ATTACK_CADENCE_TICKS / WARLORD_RAGE_MULTIPLIER)})`)).toBe(true);
+    expect(canonSays(`(${GOBLIN_ATTACK_FIRE_TICK} → **${raged}**)`)).toBe(true);
+    // THE HORDE GROWS — 10 → 20 a tower, the castle every 15 s instead of 30.
+    const every = RACE_UNIT_EMIT_INTERVAL_TICKS / HORDE_CASTLE_EMIT_SPEEDUP / PHYSICS_HZ;
+    expect(canonSays(
+      `\`HORDE_GOBLIN_MAX_PER_SPAWNER\` = **${HORDE_GOBLIN_MAX_PER_SPAWNER}** · \`HORDE_CASTLE_EMIT_SPEEDUP\` = **${HORDE_CASTLE_EMIT_SPEEDUP}** (every **${every}** s)`,
+    )).toBe(true);
+    // ⚠ CANON-4 — the ceiling is load-bearing because goblins never age out.
+    for (const t of goblins) expect(getCreatureConfig(t).persistent, t).toBe(true);
+    expect(canonSays('THE GOBLIN CEILING IS LOAD-BEARING, NOT COSMETIC')).toBe(true);
+    expect(canonSays(`**${GOBLIN_MAX_PER_SPAWNER} → ${HORDE_GOBLIN_MAX_PER_SPAWNER}**`)).toBe(true);
+  });
+
+  it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
+    expect(canonSays(`\`SCORCHED_GROUND_PER_MILLE\` = **${SCORCHED_GROUND_PER_MILLE}**`)).toBe(true);
+    expect(canonSays(`\`ZOMBIE_AURA_PER_MILLE\` **${ZOMBIE_AURA_PER_MILLE}**`)).toBe(true);
+    // Seconds to burn a whole pool at the TYPE's rate: one fifth per interval.
+    const burnS = (typePool: number, pool: number) => (dotIntervalTicks(typePool, SCORCHED_GROUND_PER_MILLE) * pool) / PHYSICS_HZ;
+    const soldier = maxPoolFifths('raceUnit');
+    expect(burnS(soldier, soldier)).toBe(50);
+    expect(burnS(maxPoolFifths('chewer'), maxPoolFifths('chewer'))).toBe(50);
+    const boss = maxPoolFifths('t9BossVampires');
+    expect(boss).toBe(260);
+    expect(burnS(boss, boss)).toBe(52); // the interval rounds — "exact" only where it divides
+    expect(Math.round(burnS(soldier, soldier + 1))).toBe(58); // a soldier drafted 6 → 7
+    expect(canonSays('burn in **50 s**, a 260-fifth boss in **52 s**')).toBe(true);
+    expect(canonSays('burns in about **58 s**')).toBe(true);
+    // HELLSPAWN — his 2, his 50 / 25, and the end of the chain.
+    expect(canonSays(
+      `\`HELLSPAWN_CHILDREN\` = **${HELLSPAWN_CHILDREN}** · \`HELLSPAWN_PCT_BY_GEN\` = ${HELLSPAWN_PCT_BY_GEN[0]} / ${HELLSPAWN_PCT_BY_GEN[1]} / ${HELLSPAWN_PCT_BY_GEN[2]}` +
+      ` · \`HELLSPAWN_MAX_GEN\` = **${HELLSPAWN_MAX_GEN}**`,
+    )).toBe(true);
+    const p0 = unitPoolFifths(CHEWER_HP, CHEWER_DEF);
+    const p1 = hellspawnChildPool(p0);
+    const p2 = hellspawnChildPool(p1);
+    const b0 = attackFifths(CHEWER_ATK, CHEWER_PEN);
+    const b1 = hellspawnStrikeFifths({ hellspawnGen: 1 }, b0);
+    const b2 = hellspawnStrikeFifths({ hellspawnGen: 2 }, b0);
+    expect(p2).toBeGreaterThanOrEqual(1); // floor-at-one: no child is born dead (Council A2)
+    expect(b2).toBeGreaterThanOrEqual(1);
+    expect(canonSays(`pool ${p0} → ${p1} → ${p2}, bite ${b0} → ${b1} → ${b2}`)).toBe(true);
+    let descendants = 0;
+    for (let g = 1; g <= HELLSPAWN_MAX_GEN; g++) descendants += HELLSPAWN_CHILDREN ** g;
+    expect(canonSays(`chewer has at most **${descendants}** descendants`)).toBe(true);
+  });
+
+  it('⭐ §3e — the nagas: APEX PREDATOR triples every STAT, which is ×3 health but ×4 bite', () => {
+    const base = T3_STATS.piranha;
+    const elite = T3_PIRANHA_ELITE_STATS;
+    expect([elite.hp, elite.def, elite.atk, elite.pen])
+      .toEqual([base.hp, base.def, base.atk, base.pen].map((s) => s * APEX_PREDATOR_STAT_MUL));
+    expect(elite.speedMul).toBe(base.speedMul); // "stats" — not its speed (MINE)
+    expect(canonSays(
+      `\`APEX_PREDATOR_STAT_MUL\` = **${APEX_PREDATOR_STAT_MUL}** → **${elite.hp} / ${elite.def} / ${elite.atk} / ${elite.pen}**` +
+      ` · \`PIRANHA_ELITE_SPRITE_SCALE_MUL\` = **${PIRANHA_ELITE_SPRITE_SCALE_MUL}**`,
+    )).toBe(true);
+    expect(canonSays(`pool **${unitPoolFifths(base.hp, base.def)} → ${unitPoolFifths(elite.hp, elite.def)}**`)).toBe(true);
+    expect(canonSays(`**${attackFifths(base.atk, base.pen)} → ${attackFifths(elite.atk, elite.pen)}**`)).toBe(true);
+  });
+
+  /* ══ S189 P10 — CANON-2: what deploy #2 changed under the same 50 ══════════════════════════ */
+
+  it('⛔ §3e — inside the strike batch a lifesteal heal is SUMMED, then landed before the sweep (F1)', () => {
+    const w = makeWorld(0x189);
+    const seat: PlayerId = asPlayerId(0);
+    w.players.set(seat, { raceId: 'vampires', draftPicks: ['racial'] } as never);
+    const unit = (id: number): Creature => {
+      const c = makeCreature(getCreatureConfig('raceUnit'), {
+        id: asCreatureId(id), ownerPlayerId: seat, pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 }, spawnedAtTick: 0,
+      });
+      c.ehp = 1;
+      w.creatures.set(c.id, c);
+      return c;
+    };
+    const alive = unit(1);
+    const dying = unit(2);
+    expect(w.pendingLifestealFifths).toBeNull(); // null at every tick boundary
+    w.pendingLifestealFifths = new Map();
+    w.pendingCreatureDeaths = new Set([dying.id]);
+    applyLifesteal(w, { kind: 'creature', id: alive.id }, 20);
+    applyLifesteal(w, { kind: 'creature', id: dying.id }, 20);
+    expect(alive.ehp).toBe(1); // summed, NOT applied mid-batch
+    applyPendingLifesteal(w);
+    expect(alive.ehp).toBe(1 + lifestealFifths(20, BLOOD_DEBT_LIFESTEAL_PCT));
+    expect(dying.ehp).toBe(1); // killed this tick → never healed back over the line
+    // Transient, so never hashed; and the host lands it BEFORE the deferred sweep.
+    expect(FIELD_COVERAGE.pendingLifestealFifths).toBe('acknowledged');
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
+    const land = host.indexOf('applyPendingLifesteal(world);');
+    expect(land).toBeGreaterThan(-1);
+    expect(host.indexOf('sweepDeferredDeaths(world, world.pendingCreatureDeaths);')).toBeGreaterThan(land);
+    expect(canonSays('INSIDE THE HOST\'S STRIKE BATCH A HEAL IS SUMMED, NOT APPLIED')).toBe(true);
+    expect(canonSays('**before the deferred death sweep**')).toBe(true);
+  });
+
+  it('⛔ §3e — a rage change mid-swing waits for the next cycle: the latch, not the live bit (F3)', () => {
+    expect(attackCycleMultiplier({ attackCycleRaged: true })).toBe(WARLORD_RAGE_MULTIPLIER);
+    expect(attackCycleMultiplier({})).toBe(1);
+    // A creature that is enraged NOW but started this cycle calm swings on the CALM fire tick.
+    const liveOnly: Pick<Creature, 'attackCycleRaged' | 'enraged'> = { enraged: true };
+    expect(ragedFireTick(GOBLIN_ATTACK_FIRE_TICK, liveOnly)).toBe(GOBLIN_ATTACK_FIRE_TICK);
+    // The latch is taken on the cycle's first tick, and it is on the wire and in the hash.
+    const fsm = readFileSync(new URL('./state/creatures/creatureLifecycle.ts', import.meta.url), 'utf8');
+    const latch = fsm.indexOf('creature.attackCycleRaged = true');
+    expect(latch).toBeGreaterThan(-1);
+    expect(fsm.slice(latch - 200, latch)).toContain('creature.ticksInState === 1');
+    const save = readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8');
+    expect(save).toContain('c.attackCycleRaged === true ? { attackCycleRaged: true }');
+    const hash = readFileSync(new URL('./state/stateHashFull.ts', import.meta.url), 'utf8');
+    expect(hash).toContain("| 'attackCycleRaged'"); // the union…
+    expect(hash).toContain(':ar${'); // …and the hand-written projection
+    expect(canonSays('**`Creature.attackCycleRaged`**')).toBe(true);
+    expect(canonSays('One blow per cycle, always.')).toBe(true);
+  });
+
+  it('⛔ §3e — a fallen demon seat’s land stops burning, and stops LOOKING like it (F4)', () => {
+    const layout = makeWorld(0x189).layout;
+    const seat: PlayerId = asPlayerId(0);
+    const zonesFor = (castleHp: number) => scorchedZones({
+      players: new Map([[seat, { raceId: 'demons', draftPicks: ['racial'], castleHp }]]),
+      layout,
+    } as unknown as World);
+    expect(zonesFor(1)).toHaveLength(1);
+    expect(zonesFor(0)).toHaveLength(0);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 1 })).toBe(SCORCHED_ZONE_TINT);
+    expect(zoneBackdropTint({ raceId: 'demons', draftPicks: ['racial'], castleHp: 0 })).toBe(0xffffff);
+    expect(canonSays('A FALLEN SEAT\'S LAND STOPS BURNING')).toBe(true);
+  });
+
+  it('⛔ §3e — CORPSE EATER: a shoved boss is re-anchored, and the whistle cuts the feed short (F1, F5)', () => {
+    // His own step, the backstop that tells a shove from a shuffle.
+    const step = corpseEaterOwnStepPx({ type: 't9BossZombies' } as Creature);
+    expect(canonSays(`about **${step.toFixed(1)}** px for the zombie boss`)).toBe(true);
+    const eater = readFileSync(new URL('./state/racial/corpseEater.ts', import.meta.url), 'utf8');
+    const feed = eater.slice(eater.indexOf('function feedStep('));
+    expect(feed.indexOf('reanchorIfDisplaced(world, boss)')).toBeGreaterThan(-1);
+    expect(feed.indexOf('reanchorIfDisplaced(world, boss)')).toBeLessThan(feed.indexOf('pickFeedTarget(world, boss)'));
+    expect(canonSays('HE IS NEVER SNAPPED BACK')).toBe(true);
+    // F5 — the window can never reach the next FIGHT, and the feed is not drawn in BUILD.
+    expect(CORPSE_EATER_TICKS).toBeLessThan(PHASE_DURATION_TICKS);
+    expect(canonSays(`(\`PHASE_DURATION_TICKS\`, **${PHASE_DURATION_TICKS}** ticks)`)).toBe(true);
+    expect(canonSays(`outlasts the window (**${CORPSE_EATER_TICKS}**)`)).toBe(true);
+    const feeding = { corpseEaterUntilTick: 100 };
+    expect(showsCorpseEaterFeed(feeding, { tick: 50, matchPhase: 'FIGHT' })).toBe(true);
+    expect(showsCorpseEaterFeed(feeding, { tick: 50, matchPhase: 'BUILD' })).toBe(false);
+  });
+
+  it('⚠ §6 — `attackCycleRaged` rides 50, and the canon records that the 50 docblock omits it', () => {
+    const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
+    const constAt = proto.indexOf('export const PROTOCOL_VERSION');
+    const doc = proto.slice(proto.lastIndexOf('/**', constAt), constAt);
+    expect(doc).toContain('BUMPED 49 -> 50'); // the right docblock
+    // ⚠ The GAP this sentence records. When the merge owner amends the docblock, this goes RED on
+    // purpose: delete the canon's "does not list" sentence in the same commit.
+    expect(doc).not.toContain('attackCycleRaged');
+    expect(canonSays('THE DOCBLOCK DOES NOT LIST: `Creature.attackCycleRaged`')).toBe(true);
+    // CANON-10 is the owner's, and the canon must say it is OPEN rather than answer it.
+    expect(canonSays('DEPLOY #1 AND DEPLOY #2 BOTH ADVERTISE 50')).toBe(true);
   });
 
   it('⛔ §9d — the four recurring questions are CLOSED, and §10 no longer lists them as open', () => {

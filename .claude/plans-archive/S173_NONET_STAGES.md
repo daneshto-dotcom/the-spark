@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — still owed, carried into the next session.**
+**STATUS: SUPERSEDED (S189) — canon §9: R182-G withdrew the 30-stage fixed-seed ladder (ranking is an AVERAGE, so random puzzles are fair); R182-H rules adaptive difficulty DEFERRED on persistent identity. Nothing here is owed. Kept for its reasoning only.**
 
 # S173 — NONET STAGES (design note only, NOTHING implemented)
 

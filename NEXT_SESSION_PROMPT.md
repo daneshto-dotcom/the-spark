@@ -1,42 +1,42 @@
 ═══════════════════════════════════════════════════════════
 SPARK — Handoff Prompt
-Generated: 2026-09-24 | Commit: 5c6615f (deploy #1, LIVE, verify-deploy 4/4)
+Generated: 2026-09-24 | Live: 15035b9 (deploy #2, verify-deploy 4/4) | PROTOCOL 50
 Working dir: C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark
 ═══════════════════════════════════════════════════════════
 
-⛔ The BOOT-READ GATE is live: Edit/Write/Agent/Workflow stay blocked until every
-required boot file is opened with the Read tool. Do the boot first.
-⛔ SPARK_CANON.md §3d is STALE — it says no racial is built. ALL TWELVE level-0/5
-racials are LIVE. The corrected canon is on branch s188/canon. PROTOCOL = 50.
+⛔ THE PLAN IS ALREADY MADE AND PRE-APPROVED — DISPATCH IT AFTER THE BOOT, DO NOT RE-PLAN.
+   → .claude/plans/2026-09-24_S189_BATCH_PDR.md (§3 = exact order, §5 = six briefs, §8 = Council)
+⛔ Boot-read gate is live: open every required boot file with Read before any Edit/Write/Agent.
 
-QUICK SUMMARY
-S188 shipped all twelve level-0/5 racial mechanics, the 16 upgrade cards and the
-castle HP/ATK/DEF/PEN buttons — six parallel worktrees, each independently
-audited, merged one at a time. Deploy #1 is live and verified. Eight branches
-are carried (pushed to origin): deploy #2's fix rounds, your footer arrow fix,
-THE SWARM, WRATH OF RA, the Ra beam sprite, the ATK/PEN draft picks, the canon.
+## QUICK SUMMARY
+S189 shipped deploy #2 (racial-a + racial-d fix rounds; S188's e2e reds were machine load)
+and planned everything else on the owner's quota order: his ten playtest corrections
+(C1-C10) + every S188 carry-forward, split into six worktrees and merge trains A-E.
 
-WHAT TO DO NEXT
-1. YOUR REPORT: "CONNECTION LOST — peer dropped" in multiplayer. First: were
-   BOTH tabs reloaded onto protocol 50? If yes, hunt it as a regression.
-2. Deploy #2: re-run e2e:gating on s188/deploy2-candidate (3 @visual reds seen
-   under load; the re-run could not start), then merge + push + verify-deploy.
-3. Audit + merge one at a time: input-layer → wrath → swarm → ra-vfx →
-   draft-atk → canon. Each branch's .claude/plans/S188_PROGRESS_<name>.md says
-   where it stopped.
-4. Confirm two numbers: APEX PREDATOR bites ×4, THE SWARM bites ×11 (ATK×(5+PEN)).
-5. SANDWORM (mummies L10 without POWER OF RA): ruled, needs your art.
+## WHAT TO DO NEXT (PDR §3)
+1. Read CI: E2E run 35972498981 (15035b9) + the CANCELLED E2E run for 5c6615f.
+2. ONE message: re-run .claude/plans/s189-workflows/s189-disconnect-hunt.js and
+   s189-branch-audits.js (both NOT DONE last session) + dispatch named Agents
+   s189-units, s189-weld, s189-render, s188-ra-vfx with their §5 briefs.
+3. Audits land → fix rounds (input-layer, wrath, swarm) + dispatch s188-draft-atk.
+4. Hunt lands → write the net DIAGNOSIS → dispatch s189-net (disconnect, lag, quickmatch).
+5. Merge trains, one branch at a time, gates between, e2e before each push, verify-deploy after:
+   A input-layer (#3, fixes the footer arrow) · B wrath→swarm (→51, #4) ·
+   C render→units→weld→ra-vfx (#5) · D draft-atk→net (#6) · E canon + docs (#7).
 
-ACTIVE PLAN → .claude/plans-archive/2026-09-24_2026-09-23_S188_BATCH_PDR.md
-STATUS: IN-PROGRESS (P8–P11 carried)
-FULL HANDOFF → HANDOFF_S188_2026-09-24.md
+## CARRY-FORWARD (all in the PDR)
+P0 net · P2 input-layer · P3 wrath · P4 swarm · P5 ra-vfx · P6 draft-atk · P7 units ·
+P8 weld · P9 render · P10 canon/docs. Owner numbers to confirm: APEX ×4, SWARM ×11.
 
-PRE-FLIGHT
- boot-snapshot.md incl. ## Muscle memory · traces ~/.claude/traces/2026-09-24/The-Spark.jsonl
- git status — clean on master · git branch — master + 8 s188/* branches (expected)
+## FULL HANDOFF → HANDOFF_S189_2026-09-24.md
 
-SESSION RULES
-⛔ Read every gate's exit code from a captured $? — never a pipe, never the wrapper
-⛔ Merge one branch at a time; typecheck + full suite after EVERY merge
-⛔ Detect a file's EOL before patching; many src files are CRLF
+## PRE-FLIGHT
+- boot-snapshot.md ## Muscle memory · traces ~/.claude/traces/2026-09-24/The-Spark.jsonl
+- git status clean on master · 10 worktrees (6 s188/*, 4 prepared s189/* with npm ci done)
+- ⚠ verify session-state.json's session_id in a SEPARATE call before trusting it
+
+## SESSION RULES
+⛔ Exit codes from a captured $? — never a pipe, never the wrapper
+⛔ Merge one branch at a time; typecheck + full vitest after EVERY merge
+⛔ Detect EOL before patching; ONE protocol bump per deploy train
 ═══════════════════════════════════════════════════════════

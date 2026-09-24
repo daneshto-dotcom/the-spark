@@ -93,11 +93,11 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1000 KiB**;
-  **852.2 KiB used, 147.8 KiB of headroom — measured S182 by running `npm run build`**, not carried
-  from a handoff). ⚠ This line said *"900 KiB; 834.1 KiB used S178 —
-  65.9 KiB of headroom"* until S182: the charter was raised 900→1000 in S180 (`CAP_KIB` at
-  `check-bundle-size.mjs:19`) and this doc never followed. **Read the constant, not this sentence** —
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1100 KiB**;
+  **948.1 KiB used, 151.9 KiB of headroom — measured S190 on the train-A tree by running `npm run build`**,
+  not carried from a handoff). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
+  raised 1000→1100 in S188 (`CAP_KIB` at `check-bundle-size.mjs:19`) and this doc never followed — the
+  SECOND time (it also lagged the S180 900→1000 raise). **Read the constant, not this sentence** —
   and when parallel branches are open, remember the headroom is SHARED between them. It is a design constraint, not a platform limit — if a real feature needs the room,
   raise the charter with a note. Do not contort code to fit it, and never let it block a live deploy.
   It also now PRINTS the static-asset payload (105.8 MiB / 171 files at S178) — reported, never gated, for the
@@ -320,8 +320,9 @@ every goblin and boss. **A tolerant default is where the next one will hide too.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**46**, unchanged S172–S173; it was 44 at S167,
-and this line still said so two sessions later) and a mismatched peer is REFUSED —
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**50** at S190's start; ⚠ this line said 46 from S173
+until S190 while the constant moved four times — **READ THE CONSTANT, not this sentence**; the canon's §6
+pins the live value in `canon.test.ts`) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no
 degraded-play path. Consequences:
 

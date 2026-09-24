@@ -31,6 +31,12 @@
  *     the bug intact — and it made the hover cursor advertise a readout as clickable, the exact
  *     lie GATE D below exists to catch. Fixed at the gate, with `isPointerOverFooterSurface`.
  *     **Three sessions, five occurrences, one shape of defect.**
+ *   · ⛔ **S188 (audit F1)** — the S187 upgrade DRAFT PANEL (zIndex 900, opaque, over the quarry
+ *     and the buildable ground either side of it) was registered in NONE of these gates. One click on
+ *     a tile made the pick AND stamped an armed tower / re-tasked a gatherer / raided underneath it.
+ *     It is a fourth surface now (`isPointerOverDraftPanel`, `isPointerOverDraftChoice`), and the
+ *     REACH is proven by `controls.draftPanel.test.ts`, which drives the real `Controls` — this file
+ *     only proves the wires exist.
  *
  * ## ⚠ A TRIPWIRE, NOT A BEHAVIOUR TEST — and deliberately so
  *
@@ -53,22 +59,73 @@ function blockFrom(anchor: string, len = 2600): string {
   return controls.slice(i, i + len);
 }
 
-describe('S182 — the three UI surfaces, and the gates that must know about all of them', () => {
+/**
+ * ⭐ S190 — the WHOLE of `updateHoverCursor`, bounded by the next member rather than a char window:
+ * its docblocks grew past the old 1800 chars, and a `not.toContain` over a window that no longer
+ * reaches the end of the function proves nothing about the part it cannot see.
+ */
+function hoverBlock(): string {
+  const start = controls.indexOf('private updateHoverCursor(): void {');
+  const end = controls.indexOf('private lastCursorStyle', start);
+  expect(start, 'updateHoverCursor moved or was renamed').toBeGreaterThan(-1);
+  expect(end, 'lastCursorStyle no longer follows updateHoverCursor').toBeGreaterThan(start);
+  return controls.slice(start, end);
+}
+
+describe('S182 / S188 — the four UI surfaces, and the gates that must know about all of them', () => {
   it('the three predicates still exist and are still asked by name', () => {
     // Anti-vacuity for every assertion below: if one is renamed, this fails first and says so.
-    for (const p of ['isPointerOverPanel', 'isPointerOverFooterChip', 'isPointerOverFooterSurface', 'isPointerOverCard']) {
+    for (const p of ['isPointerOverPanel', 'isPointerOverFooterChip', 'isPointerOverFooterSurface', 'isPointerOverCard', 'isPointerOverDraftPanel', 'isPointerOverDraftChoice']) {
       expect(controls, `${p} is the name every gate below greps for`).toContain(`private ${p}(`);
     }
   });
 
   it('GATE A — the onDown router: panel guarded, footer consumed, card consumed', () => {
-    const block = blockFrom('private onDown = (e: PointerEvent): void => {', 3200);
+    // ⚠ S188 — widened from 3200: the draft guard's docblock sits in this window now.
+    const block = blockFrom('private onDown = (e: PointerEvent): void => {', 4600);
     expect(block).toContain('if (this.isPointerOverPanel()) return;');
     // ⚠ The footer is guarded by CONSUMPTION, not by a boolean, and that is correct: only the chip
     // and strip RECTANGLES swallow a click — the empty stretches of the band stay live board.
     expect(block).toContain('this.handleFooterChipClick()');
     // The card's BUTTONS, in the slot the retired popover held (S181's precedence fix).
     expect(block).toContain('this.handleSheetActionClick()');
+  });
+
+  it('⛔⛔ GATE A — the DRAFT PANEL returns before ANYTHING under it can act (S188, audit F1)', () => {
+    /*
+     * It is drawn above the band, the card and the board (zIndex 900), so its guard must precede
+     * every handler that acts: the footer router, the Ra aim, the card's buttons, the castle click,
+     * the armed stamp and the world picks. One early return covers LMB and RMB — ⭐ S190 (IL-2): an
+     * RMB first puts back what is in hand (the Ra aim or a held tower), which acts on no ground; the
+     * raid under the plate stays swallowed. The reach is `controls.draftPanel.test.ts`.
+     */
+    // The WHOLE handler, bounded by the next one, so no anchor can fall off the end of a window.
+    const start = controls.indexOf('private onDown = (e: PointerEvent): void => {');
+    const end = controls.indexOf('private onMove = (e: PointerEvent): void => {', start);
+    expect(start, 'onDown moved or was renamed').toBeGreaterThan(-1);
+    expect(end, 'onMove no longer follows onDown').toBeGreaterThan(start);
+    const block = controls.slice(start, end);
+    const guard = block.indexOf('if (this.isPointerOverDraftPanel()) {');
+    expect(guard, 'the draft guard is in onDown').toBeGreaterThan(-1);
+    // S190 (IL-2) — the guard's body puts back what is in hand and RETURNS; it dispatches nothing.
+    const body = block.slice(guard, block.indexOf('this.handleFooterChipClick()'));
+    expect(body).toContain('      return;');
+    expect(body, 'nothing under the plate may be dispatched from the guard').not.toContain('dispatchFn');
+    expect(body).not.toContain('onBuildBlueprint');
+    for (const later of [
+      'this.handleFooterChipClick()',
+      'this.handleRaAimClick(e.button)',
+      'this.handleSheetActionClick()',
+      'this.handleCastleClick()',
+      'this.onBuildBlueprint?.(armed, centre)',
+      'this.pickGatherer()',
+      "type: 'RAID_TARGET'",
+      'this.handleSheetSelect()',
+    ]) {
+      const at = block.indexOf(later);
+      expect(at, `anchor missing from onDown: ${later}`).toBeGreaterThan(-1);
+      expect(guard, `the draft guard must come before ${later}`).toBeLessThan(at);
+    }
   });
 
   it('⛔ GATE E — the armed blueprint STAMP refuses to fire over the card (S182 fix #2)', () => {
@@ -99,11 +156,12 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
   });
 
   it('⛔ GATE B — the potato plant registers ALL THREE surfaces (S182 fix #1)', () => {
-    const block = blockFrom("meNow.carriedPotatoId !== undefined", 400);
+    const block = blockFrom("meNow.carriedPotatoId !== undefined", 700);
     expect(block).toContain('!this.isPointerOverPanel()');
     expect(block, 'the footer guard was MISSING here until S182')
       .toContain('!this.isPointerOverFooterSurface()');
     expect(block).toContain('!this.isPointerOverCard()');
+    expect(block, 'the draft guard was MISSING here until S188').toContain('!this.isPointerOverDraftPanel()');
   });
 
   it('⛔ the COMMIT predicate reaches the carry readout — end to end through the band', () => {
@@ -121,18 +179,55 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
   });
 
   it('GATE C — the PLACE_FROM_FREE commit registers all three surfaces', () => {
-    const block = blockFrom('gates.commit &&', 400);
+    const block = blockFrom('gates.commit &&', 900);
     expect(block).toContain('!this.isPointerOverPanel()');
     expect(block).toContain('!this.isPointerOverFooterSurface()');
     expect(block).toContain('!this.isPointerOverCard()');
+    expect(block, 'the draft guard was MISSING here until S188').toContain('!this.isPointerOverDraftPanel()');
   });
 
   it('GATE D — the hover cursor answers for every surface a click can hit', () => {
-    const block = blockFrom('private updateHoverCursor(): void {', 1800);
+    const block = hoverBlock();
     expect(block).toContain('this.isPointerOverFooterChip()');
     expect(block).toContain('isOverAnyAction(this.cursor.x, this.cursor.y)');
     expect(block).toContain('ownedRowAt(this.cursor.x, this.cursor.y)');
     expect(block).toContain('this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y)');
+    // ⭐ S188 — a CHOOSABLE draft tile; the CONTROL question grants the pointer.
+    expect(block).toContain('this.isPointerOverDraftChoice()');
+  });
+
+  it('⛔ GATE D — the draft SURFACE question may only SUPPRESS a pointer, never grant one (S190, IL-1)', () => {
+    /*
+     * Under the plate `onDown` swallows every click, so a card button or a footer chip hidden there
+     * must not earn a pointer or a highlight. The surface predicate is therefore asked exactly once,
+     * as the CONDITION of the choice — and the only thing it lets through is the draft's own CONTROL
+     * question. The reach half (a card button under the plate reads plain) is driven through the real
+     * `Controls` in `controls.draftPanel.test.ts`.
+     */
+    const block = hoverBlock();
+    // Counted in CODE only — the docblock above the choice names both predicates.
+    const code = block.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code.split('isPointerOverDraftPanel').length - 1, 'asked once, as the condition').toBe(1);
+    expect(block).toContain('const underDraft = this.isPointerOverDraftPanel();');
+    expect(block, 'under the plate, only a choosable tile is a control')
+      .toMatch(/const overUi = underDraft\s*\?\s*this\.isPointerOverDraftChoice\(\)\s*:/);
+    expect(code.split('isPointerOverDraftChoice').length - 1, 'and only inside that branch').toBe(1);
+    // …and the highlights ask the same question, or a hidden button still lifts under the plate.
+    expect(block).toContain('const lift = underDraft ? { x: -1, y: -1 } : this.cursor;');
+    expect(block).toContain('this.footerBand?.setHover(lift.x, lift.y);');
+    expect(block).toContain('this.characterSheet?.setHover(lift.x, lift.y);');
+  });
+
+  it('⛔ S188 — the draft predicates reach the panel, and main.ts wires it', () => {
+    expect(blockFrom('private isPointerOverDraftPanel(): boolean {', 400))
+      .toContain('this.draftPanel.isOver(this.cursor.x, this.cursor.y)');
+    expect(blockFrom('private isPointerOverDraftChoice(): boolean {', 400))
+      .toContain('this.draftPanel.isOverChoosable(this.cursor.x, this.cursor.y)');
+    const overlay = readFileSync(new URL('../render/draftOverlay.ts', import.meta.url), 'utf8');
+    expect(overlay).toContain('isOver(x: number, y: number): boolean {');
+    expect(overlay).toContain('isOverChoosable(x: number, y: number): boolean {');
+    const main = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
+    expect(main, 'without this line every guard above reads a null panel').toContain('controls.setDraftPanel(draftOverlay);');
   });
 
   it('⛔ GATE D — …and it must NOT promise a pointer where nothing is clickable', () => {
@@ -146,7 +241,7 @@ describe('S182 — the three UI surfaces, and the gates that must know about all
      * So the hover path must ask the CONTROL question and the commit gates the SURFACE one, and a
      * future "simplification" that collapses them back into one predicate fails here.
      */
-    const block = blockFrom('private updateHoverCursor(): void {', 1800);
+    const block = hoverBlock();
     expect(
       block,
       'the cursor must ask the CONTROL test — `isPointerOverFooterSurface` includes opaque readouts',
