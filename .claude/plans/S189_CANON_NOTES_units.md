@@ -54,3 +54,16 @@ not the "body-length and a half" its docblock claimed. ⚠ `BOSS_STATS_TABLE.md:
 
 Suggested assertions: `KRAKEN_SONAR_KNOCKBACK_PX === 2 * GOBLIN_ATTACK_RANGE` and `=== 70`;
 `KRAKEN_SONAR_STUN_TICKS === 120`.
+
+## LOW (b) — CASTLE REGEN IS A PERCENT OF THE SEAT'S OWN MAX (suggested for §3, beside the regen row)
+
+R128 is *"+1% hp reg"* — a percent of MAX, and since S187 max is `CASTLE_MAX_HP + hpBonus`
+(`castleMaxHpFor`). The RATE now reads that too (`castleRegenPerSecond(level, maxHp)`), not only
+the ceiling. ⚠ **BALANCE CONSEQUENCE HE DID NOT ASK FOR OUT LOUD** — the same shape as the S181
+note on the pool raise: buying castle HP now also buys regen. One wave-1 HP point (2,750) at level 1
+is **28 HP/s** (was 25); at level 5, **50** (was 45). The un-upgraded ladder is unchanged:
+**25/30/35/40/45**. Integer arithmetic (tenths of a percent, one half-up division). One argument
+(`CASTLE_MAX_HP`) reverses it if he wants the flat rate back.
+
+Suggested assertions: `castleRegenPerSecond(1, 2750) === 28`, `castleRegenPerSecond(5, 2750) === 50`,
+and the existing 25/30/35/40/45 line unchanged.

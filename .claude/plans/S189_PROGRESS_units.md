@@ -13,9 +13,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | C3 · Voltkin prefers enemy structures | done — GUARD ONLY, no production change (see C3 below) | 36e3386 |
 | C8 · Helga patrol clamped to the board | done | 82b4040 |
 | C10 · Kraken sonar short knockback + stun | done | 37929de |
-| LOW a · corpse-eater bite latch | done | (this commit) |
-| LOW b · castle regen of effective max | next | |
-| LOW c · serialized nextCreatureId | pending | |
+| LOW a · corpse-eater bite latch | done | e594e88 |
+| LOW b · castle regen of effective max | done | (this commit) |
+| LOW c · serialized nextCreatureId | next | |
 | LOW d · spawn-queue gap outside runHostTick | pending | |
 
 ## C3 — what was measured (the merge owner should read this before merging)
@@ -155,9 +155,34 @@ be greater than 1"); restored byte-identical. vitest 0 — **6013 / 370**; tsc 0
 Protocol: **no bump.** `attackCycleRaged` is already serialized and hashed (F3, deploy #2); the feed
 clock is host-only. No new field or site.
 
+## LOW (b) — castle regen is a percent of the seat's effective max
+
+**Defect:** `castleRegenTick` capped at `castleMaxHpFor(castleUpgrades)` (S187) but the RATE,
+`castleRegenPerSecond(level)`, was `CASTLE_MAX_HP × pct` — the flat 2,500. R128 is "% of max".
+
+**Fix:** `castleRegenPerSecond(level, maxHp = CASTLE_MAX_HP)`; the tick passes the seat's
+`castleMaxHpFor`. The default keeps every one-argument caller — `canon.test.ts:244`'s 25/30/35/40/45 —
+unchanged (I may not edit the canon test, so the signature had to stay compatible). The percent is
+now held in integer TENTHS (`8 + 2·L`, derived from the two constants) with one half-up division:
+at 2,500 every level was exact, but at 2,750 level 5 is 49.5 and a float product is not guaranteed
+to land on the half.
+
+⚠ **BALANCE CONSEQUENCE (flagged in the canon notes):** buying HP now buys regen too — one wave-1
+HP point at regen level 1 is 28 HP/s instead of 25; at level 5, 50 instead of 45.
+
+**Tests:** `src/state/castleRegenEffectiveMax.test.ts` (4) — arithmetic (base ladder unchanged with and
+without the argument, 2,750 → 28 / 50, whole HP across pools), REACH through the real host tick after
+the REAL purchase reducers (`UPGRADE_CASTLE_STAT` hp + `UPGRADE_CASTLE_REGEN`), a negative (an
+un-upgraded keep regains exactly 25), and the ceiling (stops exactly at its own max). ⭐
+MUTATION-TESTED (flat pool passed again → REACH red, "expected 25 to be 28"); restored byte-identical.
+vitest 0 — **6017 / 371**; tsc 0.
+
+Protocol: **no bump.** Regen runs only inside `runHostTick`; `castleHp` rides the existing field; no
+client computes a rate (the castle panel shows the level, not a number).
+
 ## In flight
 
-LOW b — castle regen as a % of the effective (upgraded) max.
+LOW c — serialize the monotonic `nextCreatureId` (save.ts hotspot).
 
 ## Decisions
 
@@ -181,6 +206,7 @@ LOW b — castle regen as a % of the effective (upgraded) max.
 - C8: host-only motion rule (Helga clamped to the board); no field, no bump.
 - C10: host-only rule (sonar impulse size); `prevPos` is off the wire; no field, no bump.
 - LOW a: host-only feed clock now reads the existing `attackCycleRaged` latch; no new field; no bump.
+- LOW b: host-only regen RATE now a percent of the seat's effective max; no new field; no bump.
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
@@ -214,3 +240,11 @@ LOW b — castle regen as a % of the effective (upgraded) max.
   EXPECTED BY DESIGN (the ladder moved) → re-pinned to the constant, see C10.
 - C10 mutation run — EXIT 1, 3 failed: EXPECTED.
 - LOW a mutation run — EXIT 1, 2 failed: EXPECTED.
+- LOW b first runs — 3 failed ("expected +0 to be 28"): INVESTIGATED AND RESOLVED — two FIXTURE
+  defects: (1) funding the seat 100,000 VP crossed the win bar, so the match went to WIN on tick 1
+  and `castleRegenTick` (PLAYING-gated) never ran — the fixture now funds exactly the purchases and
+  asserts the score is spent; (2) a `Player` reference held across a host tick is stale (the tick
+  rebuilds Player objects) — re-read after every tick. Then `expected NaN` — I imported
+  `CASTLE_UPGRADE_PRICE` from `constants.ts`; it lives in `castleUpgrades.ts` (vitest does not
+  typecheck; tsc would have caught it). Fixed.
+- LOW b mutation run — EXIT 1, 1 failed: EXPECTED.
