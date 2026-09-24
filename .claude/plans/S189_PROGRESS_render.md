@@ -307,3 +307,24 @@ They can stack on top of each other."*
 - Non-zero exit: post-merge `npm run typecheck` exit 1 — resolved: NOT the merge; two casts in my own
   R190-I test `src/state/s189HealCounter.test.ts` (TS2352, `SerializedCreature` → `Record`) that I had
   run under vitest (which does not typecheck) but not under tsc. Fixed with `as unknown as`; tsc 0.
+- **R190-H DONE** — only the Ra STRIKE draws above the unit sprites:
+  · `bossAuras.ts`: `drawBossAuras(g, world, strike = g)`; `strike` is threaded through
+    `drawRaRitual` / `drawRaRitualTails` / `drawPowerOfRa` → `drawRaColumns(g, strike, …)`. Into `strike`:
+    the owner's sprite frames (`drawRaStrikeFrame`) and the code-beam fallback shafts. Left in `g`
+    (unchanged): the telegraph shade + outline, the hitbox scorch, the Pharaoh halo, the aim preview,
+    every other aura. The default keeps every existing single-Graphics caller/test byte-identical.
+  · `goblinRenderer.ts` `sync`: `syncCreatureProjectiles(arrowLayer)` MOVED ABOVE `drawBossAuras` (it
+    opens with `arrowLayer.clear()`), then `drawBossAuras(g, world, this.arrowLayer)`. arrowLayer is
+    already ABOVE `spriteLayer`: arrowLayer order is now projectiles < strike < health bars. No new
+    display object → `fogHiddenLayer` indices and both e2e roll-calls (fog.spec, tower-art.spec) untouched.
+  · ra-vfx's two S190 finale guards (absence check, structureWatchEpoch check) are untouched.
+  · STATED EDGE: the strike is above every CREATURE sprite (creatureRenderer, chewerRenderer and
+    goblinRenderer are all built before it), but the laser turret rig, HELGA, the ramp buildings and the
+    stink tower are built LATER and still draw over it. Not asked; lifting further needs a new layer
+    after those renderers (a main.ts construction line + the e2e roll-call), so it is left for a ruling.
+  · Test `src/render/s190RaStrikeAboveUnits.test.ts` (7): real GoblinRenderer.sync with the shipped
+    manifest; strike textures in arrowLayer, none in the ground Graphics; telegraph shade + scorch stay
+    on the ground; code shafts above without art; rot boil stays on the ground; no strike → nothing
+    above; source-text guard on the creature-renderer construction order (limit stated in the file).
+  · Mutation-tested: (a) strike routed back to `g` → 3 red; (b) projectile clear moved back after the
+    auras (wipes the strike) → 3 red. Both restored.
