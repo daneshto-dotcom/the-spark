@@ -211,3 +211,23 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   · Stated plainly: the LONE-shape swap (a) cannot go red under either mutant — a bond-less shape is
     in no bucket, so no bond scan changes. The shape counter only matters in the degenerate state (b),
     which no production path produces; it is defence in depth.
+
+### PERF-2 — the guard pins OCCURRENCES per file, not files  ✅
+- `bondTargetIndex.guards.test.ts` now asserts `{file: count}` (comment-stripped), measured on THIS
+  tree: `bonds.set(` placePrimitive 3 · blueprintBuild 1 · structureRepair 1 · save 1;
+  `nextBondId++` placePrimitive 1; `nextPrimitiveId++` 1 each in blueprintBuild / placePrimitive /
+  structureRepair; `primitives.set(` 1 each in those three + save; `bonds.delete(` razePrimitives 3
+  (world.bonds + both endpoint sets); `primitives.delete(` razePrimitives 2; `bonds.clear(` and
+  `primitives.clear(` 1 each in gameMode / gameState / save; `placerColor` writers (now incl. `??=`,
+  `||=`, `&&=`) rainbowLifecycle 1; no `Object.assign` writes placerColor or placedBy; `placedBy`
+  never written; `applyTriggerRainbow` callers = world.ts 1 (definition excluded);
+  `{ type: 'TRIGGER_RAINBOW'` botController 1 · controls 1.
+- ⚠ The merge owner re-counts after s189/weld (it edits placePrimitive.ts).
+- Regex self-check (node, throwaway): the widened pattern catches `=`, `??=`, `||=`, `&&=` and
+  ignores `==` / `===` / `!==`; the Object.assign form is caught; the definition is excluded.
+- ⚠ Findings on the way, all resolved: (1) the Bash tool collapses `\` to `\` inside a heredoc, so
+  my Python patch wrote nine literal BACKSPACE characters (0x08) where `` was meant — caught by
+  reading the file with `cat -v`, repaired with `chr(92)`, zero 0x08 left; (2) `tsc` EXIT=1 on the
+  now-unused `filesMatching` (TS6133) — removed, EXIT=0; (3) the brief named the clear() sites
+  "softReset, applyReturnToTitle" the other way round — verified: `applyReturnToTitle` is gameMode.ts,
+  `softReset` is gameState.ts, the save one is `applySnapshotCore`.

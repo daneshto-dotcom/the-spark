@@ -42,34 +42,67 @@ function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
 }
 const SRC = productionSources();
-const filesMatching = (re: RegExp): string[] => SRC.filter((f) => re.test(f.text)).map((f) => f.path).sort();
+/**
+ * ⭐ S190 audit PERF-2 — OCCURRENCES PER FILE, NOT FILES. A file list stays green when a second writer
+ * lands in a file that already had one — which is exactly how a new bond birth could slip past the
+ * fingerprint's allocator argument. So every set below is pinned as `{file: count}`, measured on the
+ * s190/perf tree over comment-stripped code.
+ *
+ * ⚠ FOR THE MERGE OWNER: s189/weld edits `placePrimitive.ts` (the spawner-weld lock). Re-count after
+ * that merge; if a count moves, read the new site against the question in this file's header before
+ * updating the number.
+ */
+function countsOf(re: RegExp): Record<string, number> {
+  const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : re.flags + 'g');
+  const out: Record<string, number> = {};
+  for (const f of SRC) {
+    const n = f.text.match(g)?.length ?? 0;
+    if (n > 0) out[f.path] = n;
+  }
+  return out;
+}
+/** Plain assignment AND the logical-assignment forms (`??=`, `||=`, `&&=`), never a comparison. */
+const assignTo = (field: string): RegExp => new RegExp(String.raw`\.${field}\s*(?:\?\?|\|\||&&)?=(?!=)`);
+/** A field written through `Object.assign(target, { …field… })`. */
+const objectAssignOf = (field: string): RegExp => new RegExp(String.raw`Object\.assign\([\s\S]{0,300}?\b${field}\b`);
 
 describe('S190 C5 — the bond-target index fingerprint is exact only while these sets hold', () => {
-  it('1 · every bond id comes from makeBond, every shape id from nextPrimitiveId++', () => {
-    expect(filesMatching(/nextBondId\+\+/), 'the ONE bond-id allocator is makeBond').toEqual(['src/state/placePrimitive.ts']);
-    expect(filesMatching(/\bbonds\.set\(/), 'bond insertion sites (save.ts = load, which rewrites the counters)').toEqual([
-      'src/state/blueprintBuild.ts', 'src/state/placePrimitive.ts', 'src/state/save.ts', 'src/state/structureRepair.ts',
-    ]);
-    expect(filesMatching(/nextPrimitiveId\+\+/), 'shape-id allocators').toEqual([
-      'src/state/blueprintBuild.ts', 'src/state/placePrimitive.ts', 'src/state/structureRepair.ts',
-    ]);
-    expect(filesMatching(/\bprimitives\.set\(/), 'shape insertion sites (save.ts = load)').toEqual([
-      'src/state/blueprintBuild.ts', 'src/state/placePrimitive.ts', 'src/state/save.ts', 'src/state/structureRepair.ts',
-    ]);
+  it('1 · every bond id comes from makeBond, every shape id from nextPrimitiveId++ — counted per file', () => {
+    expect(countsOf(/nextBondId\+\+/), 'the ONE bond-id allocator is makeBond').toEqual({ 'src/state/placePrimitive.ts': 1 });
+    expect(countsOf(/\bbonds\.set\(/), 'bond insertion sites (save.ts = load, which rewrites the counters)').toEqual({
+      'src/state/blueprintBuild.ts': 1, 'src/state/placePrimitive.ts': 3, 'src/state/save.ts': 1, 'src/state/structureRepair.ts': 1,
+    });
+    expect(countsOf(/nextPrimitiveId\+\+/), 'shape-id allocators').toEqual({
+      'src/state/blueprintBuild.ts': 1, 'src/state/placePrimitive.ts': 1, 'src/state/structureRepair.ts': 1,
+    });
+    expect(countsOf(/\bprimitives\.set\(/), 'shape insertion sites (save.ts = load)').toEqual({
+      'src/state/blueprintBuild.ts': 1, 'src/state/placePrimitive.ts': 1, 'src/state/save.ts': 1, 'src/state/structureRepair.ts': 1,
+    });
   });
 
-  it('2 · bonds and shapes leave only through razePrimitives', () => {
-    expect(filesMatching(/\bbonds\.delete\(/)).toEqual(['src/state/razePrimitives.ts']);
-    expect(filesMatching(/\bprimitives\.delete\(/)).toEqual(['src/state/razePrimitives.ts']);
+  it('2 · bonds and shapes leave only through razePrimitives — and the three whole-board clears', () => {
+    // razePrimitives: world.bonds.delete + the two endpoint `prim.bonds.delete`s; two primitive deletes.
+    expect(countsOf(/\bbonds\.delete\(/)).toEqual({ 'src/state/razePrimitives.ts': 3 });
+    expect(countsOf(/\bprimitives\.delete\(/)).toEqual({ 'src/state/razePrimitives.ts': 2 });
+    // applyReturnToTitle (gameMode.ts), softReset (gameState.ts) and applySnapshotCore — the save /
+    // snapshot restore (save.ts) — empty the board wholesale. None can run inside the creature loop,
+    // and a clear drops both sizes to 0.
+    const clears = { 'src/state/gameMode.ts': 1, 'src/state/gameState.ts': 1, 'src/state/save.ts': 1 };
+    expect(countsOf(/\bbonds\.clear\(/)).toEqual(clears);
+    expect(countsOf(/\bprimitives\.clear\(/)).toEqual(clears);
   });
 
   it('3 · placerColor is rewritten only by the rainbow, from an intent; placedBy never', () => {
-    expect(filesMatching(/\.placerColor\s*=(?!=)/)).toEqual(['src/state/rainbowLifecycle.ts']);
-    // The rainbow is dispatched by a player's click or a bot's decision — never by the sim itself.
+    expect(countsOf(assignTo('placerColor')), 'placerColor writers, including ??= ||= &&=').toEqual({ 'src/state/rainbowLifecycle.ts': 1 });
+    expect(countsOf(objectAssignOf('placerColor')), 'no Object.assign writes placerColor').toEqual({});
+    expect(countsOf(assignTo('placedBy')), 'placedBy is never rewritten').toEqual({});
+    expect(countsOf(objectAssignOf('placedBy'))).toEqual({});
+    // The rainbow reducer is reached only through `dispatch` (world.ts) — the definition is excluded…
+    expect(countsOf(/(?<!function\s)\bapplyTriggerRainbow\(/), 'applyTriggerRainbow callers').toEqual({ 'src/state/world.ts': 1 });
+    // …and the action is dispatched by a player's click or a bot's decision — never by the sim itself.
     // (An object literal OPENING with the type — the action's own `readonly type:` declaration is not
     // a dispatch.)
-    expect(filesMatching(/\{\s*type:\s*'TRIGGER_RAINBOW'/)).toEqual(['src/bots/botController.ts', 'src/input/controls.ts']);
-    expect(filesMatching(/\.placedBy\s*=(?!=)/)).toEqual([]);
+    expect(countsOf(/\{\s*type:\s*'TRIGGER_RAINBOW'/)).toEqual({ 'src/bots/botController.ts': 1, 'src/input/controls.ts': 1 });
   });
 
   it('4 · the epoch is opened immediately before the creature loop and closed after it, only there', () => {
