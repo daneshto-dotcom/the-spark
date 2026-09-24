@@ -148,3 +148,11 @@ tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest
   pick; Ra aimed + RMB at 6 points -> aim cleared, nothing raided; nothing in hand -> RMB swallowed and
   LMB keeps the tower. typecheck 0; 199 green. MUTATIONS (restored, cmp 0): plain `return` -> 12 red;
   RMB falling through after the put-back -> 25 red (the raid leaks).
+- [x] STEP 5 — DOC-ONLY (IL-6 / IL-C2) + test hygiene (IL-C1): `cardStencil` note (a Graphics child,
+  counted by `isOver` harmlessly — equal to its tile); `isOver` docblock lists frames + stencils; the
+  FILLS rows for the plate and the hover plate read "decorative (not a button) — SWALLOWED by
+  DraftOverlay.isOver" (count stays 5; the `startsWith('draftHitTest')` filter untouched); the card
+  comments in controls.ts now say "above every surface except the zIndex-900 draft panel" — THREE
+  sites, not two (the `isPointerOverCard` docblock carried the same claim; grep-the-clause rule);
+  s182 describe retitled to four surfaces; `controls.draftPanel.test.ts` rig injects
+  `loadCard: () => Promise.reject(...)` (optionsFor NOT injected). typecheck 0; 252 green.

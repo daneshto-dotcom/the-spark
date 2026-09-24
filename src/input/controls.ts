@@ -747,8 +747,9 @@ export class Controls {
    * the card, on ground the player could not see. The castle panel is excluded there with the stated
    * reason *"it would be hidden beneath it"*, which applies to the card word for word.
    *
-   * ⚠ The card is drawn ABOVE everything (`main.ts` calls `characterSheet.bringToFront()`), so this
-   * is not a theoretical overlap — it is the most-covered rectangle on the screen.
+   * ⚠ The card is drawn above every surface except the zIndex-900 draft panel (`main.ts` calls
+   * `characterSheet.bringToFront()`), so this is not a theoretical overlap — it is the most-covered
+   * rectangle on the screen.
    */
   private isPointerOverCard(): boolean {
     return this.characterSheet?.isOver(this.cursor.x, this.cursor.y) ?? false;
@@ -1528,7 +1529,8 @@ export class Controls {
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
-      // drawn above everything, so a release over it would drop a potato on unseen ground.
+      // drawn above every surface except the zIndex-900 draft panel, so a release over it would drop
+      // a potato on unseen ground.
       /*
        * ⛔⛔ S182 — **THE FOOTER GUARD** WAS MISSING HERE, AND THE CODEBASE SAID IT
        * WAS PRESENT. `footerBand.isOverShapeStrip`'s own docblock enumerates the four places
@@ -1643,7 +1645,8 @@ export class Controls {
           gates.commit &&
           !this.isPointerOverPanel() &&
           !this.isPointerOverFooterSurface() &&
-          // S181 — and not over the character card, which is drawn above every other surface.
+          // S181 — and not over the character card, which is drawn above every surface except the
+          // zIndex-900 draft panel.
           !this.isPointerOverCard() &&
           // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
           // over its side margins placed on ground the plate hides; now it is a rejected placement

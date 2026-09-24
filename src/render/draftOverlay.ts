@@ -296,6 +296,10 @@ function fitWidth(t: Text, maxW: number): void {
 /**
  * The rounded-corner STENCIL a card is clipped to, so a rectangular sprite does not poke past the
  * tile's corners. A Pixi mask is never drawn as a surface — it covers nothing and swallows nothing.
+ *
+ * ⚠ S190 (IL-6) — it IS a `Graphics` child of the panel, so `DraftOverlay.isOver` (which asks every
+ * `Graphics` child) counts it. Harmlessly: each stencil equals its own tile, which the plate already
+ * covers, so it never widens the surface by a pixel.
  */
 function cardStencil(r: { x: number; y: number; w: number; h: number }): Graphics {
   return new Graphics().roundRect(r.x, r.y, r.w, r.h, CORNER).fill({ color: 0xffffff });
@@ -631,8 +635,10 @@ export class DraftOverlay {
    * word — *a surface you cannot see through must swallow the click*.
    *
    * ⭐ IT ASKS THE PIXELS, NOT A SECOND COPY OF THE GEOMETRY: every `Graphics` child the panel holds,
-   * as drawn THIS frame. That is the plate, both tiles, and the hover-detail plate that `render` draws
-   * BELOW the panel rect — the one a plate-rect-only test would have missed — and any plate added
+   * as drawn THIS frame. That is the plate, both tiles, the tile frames (strokes, inside the plate),
+   * the two card stencils (never drawn, each equal to its tile — see `cardStencil`), and the
+   * hover-detail plate that `render` draws BELOW the panel rect — the one a plate-rect-only test
+   * would have missed — and any plate added
    * later is covered the moment it is drawn, instead of the day someone remembers to register it.
    * A cleared `Graphics` answers false, so a tip that is not showing swallows nothing. The panel draws
    * in canvas coordinates, untransformed — the same assumption `draftHitTest(e.global)` makes.

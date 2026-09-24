@@ -72,7 +72,7 @@ function hoverBlock(): string {
   return controls.slice(start, end);
 }
 
-describe('S182 — the three UI surfaces, and the gates that must know about all of them', () => {
+describe('S182 / S188 — the four UI surfaces, and the gates that must know about all of them', () => {
   it('the three predicates still exist and are still asked by name', () => {
     // Anti-vacuity for every assertion below: if one is renamed, this fails first and says so.
     for (const p of ['isPointerOverPanel', 'isPointerOverFooterChip', 'isPointerOverFooterSurface', 'isPointerOverCard', 'isPointerOverDraftPanel', 'isPointerOverDraftChoice']) {

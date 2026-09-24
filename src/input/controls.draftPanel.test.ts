@@ -197,7 +197,11 @@ function rig(o: RigOpts = {}): Rig {
   const band = new FooterBand({ stage } as never, stage);
   c.setFooterBand(band);
   band.sync(w);
-  const overlay = new DraftOverlay((p) => picks.push(p));
+  // S190 (IL-C1) — no card fetch through Pixi `Assets` in a unit run: a clean, immediate refusal, so
+  // every tile keeps its text title (the panel's own fallback). The OFFER is left to production.
+  const overlay = new DraftOverlay((p) => picks.push(p), {
+    loadCard: () => Promise.reject(new Error('no card art in unit tests')),
+  });
   overlay.render(w, seat);
   expect(overlay.container.visible, 'the panel is drawn exactly when the draft is owed').toBe(o.open !== false);
   if (o.wire !== false) c.setDraftPanel(overlay);

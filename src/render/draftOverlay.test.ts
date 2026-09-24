@@ -321,11 +321,11 @@ describe('⛔ the mechanical fill enumeration (the S182 lesson)', () => {
    * a different argument shape can evade is the S182 hole again.
    */
   const FILLS: ReadonlyArray<{ what: string; hitTest: string }> = [
-    { what: 'the plate behind both tiles', hitTest: 'decorative — the plate itself is not a button' },
+    { what: 'the plate behind both tiles', hitTest: 'decorative (not a button) — SWALLOWED by DraftOverlay.isOver' },
     { what: 'the LEFT (general) tile', hitTest: "draftHitTest -> 'general'" },
     { what: 'the RIGHT (racial) tile', hitTest: "draftHitTest -> 'racial' while a perk is offered; NONE while COMING SOON" },
     { what: 'the card stencil (one call, one per tile)', hitTest: 'decorative — a Pixi mask, never drawn as a surface' },
-    { what: 'the hover detail plate', hitTest: 'decorative — drawn BELOW the panel while a choosable tile is hovered; never clickable' },
+    { what: 'the hover detail plate', hitTest: 'decorative (not a button) — drawn BELOW the panel while a choosable tile is hovered; SWALLOWED by DraftOverlay.isOver' },
   ];
 
   const src = readFileSync(join(__dirname, 'draftOverlay.ts'), 'utf8');
