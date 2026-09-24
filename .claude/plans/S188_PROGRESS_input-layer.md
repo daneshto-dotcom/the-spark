@@ -156,3 +156,13 @@ tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest
   sites, not two (the `isPointerOverCard` docblock carried the same claim; grep-the-clause rule);
   s182 describe retitled to four surfaces; `controls.draftPanel.test.ts` rig injects
   `loadCard: () => Promise.reject(...)` (optionsFor NOT injected). typecheck 0; 252 green.
+- [x] FINAL GATES on ac85a97 (merged tree): TYPECHECK_EXIT=0; VITEST_EXIT=0 (369 files / 6185 tests,
+  --maxWorkers=6); BUILD_EXIT=0, entry 945.1 KiB (cap 1100, headroom 154.9). Snapshot LF->CRLF-only
+  rewrite restored again (benign, `--ignore-cr-at-eol` diff empty). `git diff master -- src/state
+  src/net` EMPTY — nothing on the wire. `git merge-tree master HEAD` (master now 59184f7, plan files
+  only since the merge) exit 0, no conflict. e2e NOT run beyond click-to-build (merge owner's).
+
+## S190 STATUS: COMPLETE — five commits (merge, IL-B1, IL-1, IL-2, docs) on top of 3f839ed.
+Open for the owner (NOT changed, per the brief): IL-3 the 10 px seam on tiers 5/7 keeps the arrow
+live; IL-4 the pre-existing RMB raid through the footer / card plates. Reported, not fixed: the Ra
+crosshair still shows over the draft plate while aiming.
