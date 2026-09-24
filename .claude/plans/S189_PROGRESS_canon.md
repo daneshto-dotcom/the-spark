@@ -115,3 +115,11 @@ branch pins what is already true on master now, so train E is only the deltas.
   merge owner amends `protocol.ts` — delete the canon sentence then); CANON-10 recorded as OPEN, not
   decided. §6's version sentence is now ALONE on its line (702) — text byte-identical, pin untouched.
   Canon test exit 0 (54), typecheck exit 0; markers ⛔ 66→71, ⚠ 65→67, ⭐ 68.
+- **Step 5 — CANON-3: §3d states the LIVE truth about the general buff.** The table row and a new
+  ⛔⛔ PENDING TRAIN D paragraph: HP/DEF picks land at birth (`draftedPoolFifths` ← `makeCreature`);
+  ATK/PEN picks are recorded, synced and hashed but `draftedAttackFifths` has NO production caller, so
+  the panel's "hits 10% harder" is unkept and the general pick at waves 11 and 16 buys nothing. The
+  assertion is a MECHANICAL enumeration of every non-test `src/**/*.ts` (not a grep of files I
+  remember): pool half = exactly `state/creatures/creature.ts`, damage half = none. ⚠ It goes RED on
+  purpose when `s188/draft-atk` merges — replace the PENDING paragraph with the live rule then.
+  Canon test exit 0 (55), typecheck exit 0; ⛔ 71→74.

@@ -218,7 +218,7 @@ wave 6. The original spec contradicted itself on exactly this point. So "level 0
 | | |
 |---|---|
 | general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
-| the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent` |
+| the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent`. ⛔ On the live build only the HP and DEF picks land — see *PENDING TRAIN D* below |
 | deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is **559 × 270** on the spawn disc (`PANEL_W` × `PANEL_H`), two tiles of **251 × 242** |
 | racial track | ⭐ **LEVELS 0 AND 5 ARE LIVE FOR ALL SIX RACES (S188).** The tile is choosable exactly when `draftOptionsFor(wave, race).racial` names a perk — i.e. when `RACIAL_PERK_BUILT` says its mechanic exists — and it then joins the hit-test and sends `'racial'`. Levels 10+ stay the dimmed COMING SOON tile, **absent from the hit-test** |
 | a pick that was not offered | **refused** — `pickIsOffered` (S188) |
@@ -234,6 +234,15 @@ The castle-spawned unit is `1/1/1/1` (R125), so its pool is **6 fifths**. It com
 260-fifth boss gets a true 26. That is strictly better than R118's flat `+1 POINT`, which was the
 same step for a chewer and for a Kraken. **R118 is superseded.** ⭐ S188 — the same rule floors every
 racial percentage in §3e: a lifesteal heal, a split chewer's pool and its bite.
+
+⛔⛔ **PENDING TRAIN D — ON THE LIVE BUILD A DRAFTED ATK OR PEN PICK REACHES NO STRIKE.** An HP or DEF
+pick raises the pool of every unit the seat spawns after it (`draftedPoolFifths`, called at birth by
+`makeCreature`). An ATK or PEN pick is RECORDED — it is in `draftPicks`, synced and hashed — but
+`draftedAttackFifths`, the function that would apply it, has **no production caller**: every strike
+still reads its TYPE's `attackFifths(atk, pen)`. So the panel's *"hits 10% harder"* and *"cuts 10%
+deeper through armour"* are promises the sim does not yet keep, and the general pick at waves 11 and
+16 (ATK, then PEN — the only choosable tile there, and the deadline's fallback) buys nothing.
+`s188/draft-atk` wires it; until that merges, this paragraph is the truth.
 
 ⛔ **AND IT AUTO-TAKES THE RACIAL ONE AT THE DEADLINE — HIS REVERSAL OF R106, LIVE SINCE S188.** R106
 assigned the general; his S187 ruling governs: *"in the end of the build phase it just takes the

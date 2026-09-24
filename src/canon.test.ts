@@ -24,7 +24,7 @@
  * assertion lands here in the SAME commit.
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   CASTLE_ATTACK_RANGE,
@@ -56,6 +56,7 @@ import {
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
 import {
+  DRAFT_BUFF_PCT,
   DRAFT_WAVE_INTERVAL,
   GENERAL_TRACK,
   draftIndexForWave,
@@ -419,6 +420,33 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(isPoolPick('racial')).toBe(false);
     expect(isDamagePick('racial')).toBe(false);
     expect(canonSays('`isPoolPick(\'racial\')`')).toBe(true);
+  });
+
+  /**
+   * ⛔⛔ S189 P10 — CANON-3. §3d says LIVE, and the HP/DEF half is. The ATK/PEN half is recorded and
+   * applied NOWHERE: `draftedAttackFifths` has no production caller. The enumeration is MECHANICAL —
+   * every non-test source file is read — so it cannot be green over a caller it forgot to look at, and
+   * it turns RED the day `s188/draft-atk` wires the damage half. That is the moment to replace the
+   * canon's PENDING paragraph with the live rule, in the same commit.
+   */
+  it('⛔ §3d — PENDING TRAIN D: a drafted ATK/PEN pick reaches no strike on the live build', () => {
+    const root = new URL('.', import.meta.url);
+    const prod = (readdirSync(root, { recursive: true }) as string[])
+      .map((f) => f.replace(/\\/g, '/'))
+      .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'state/draft.ts');
+    const callers = (name: string) =>
+      prod.filter((f) => readFileSync(new URL(f, root), 'utf8').includes(name)).sort();
+    expect(callers('draftedPoolFifths')).toEqual(['state/creatures/creature.ts']); // the pool half: live
+    expect(callers('draftedAttackFifths')).toEqual([]); // the damage half: NOT wired
+    expect(canonSays('PENDING TRAIN D — ON THE LIVE BUILD A DRAFTED ATK OR PEN PICK REACHES NO STRIKE')).toBe(true);
+    expect(canonSays('has **no production caller**')).toBe(true);
+    // The panel promises it anyway — which is what makes this worth a canon line.
+    const overlay = readFileSync(new URL('./render/draftOverlay.ts', import.meta.url), 'utf8');
+    expect(overlay).toContain('hits ${DRAFT_BUFF_PCT}% harder');
+    expect(canonSays(`*"hits ${DRAFT_BUFF_PCT}% harder"*`)).toBe(true);
+    // And the two drafts where the general tile is the ONLY choice are exactly the two dead ones.
+    expect([generalPickForWave(11), generalPickForWave(16)]).toEqual(['atk', 'pen']);
+    expect(canonSays('the general pick at waves 11 and')).toBe(true);
   });
 
   it('⭐ §3d — the draft panel geometry the canon prints is the one the renderer draws', () => {
