@@ -165,6 +165,21 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
 - **Audits A verifiers: IL-M1 + IL-B1 both CONFIRMED** (correction forwarded: `__SPARK__` has no draft seam —
   click the general tile at derived coordinates).
 
+- **C5 MEASURED by `s189-net` (b72a4c4) — the wave-5 lag is HOST SIM CPU, O(creatures × bonds).** Real 4-seat
+  bots match to wave 5 (~250 prims / ~550 bonds): ≤17 creatures 1.3-1.9 ms/tick; the brother's 120 creatures
+  **8.22 ms mean / 12.5 p95 / 96 max**, ×3 ticks/frame → the sim cannot hold 60 Hz. Profile: `structureTargets`
+  69 % → `findNearestBondTarget` 65 % (every bond × every creature × every tick) + `spreadEnemyTarget` 42 % self.
+  Wire is also above the canon: ≈113 KiB / 9.3 Mbit/s per peer on a real board (canon 84 / 6.88 was a ~1.0
+  bonds/prim fixture). `maxEhp` = 11.2 B/buffed creature — not the lag. DraftOverlay renders only while the
+  LOCAL seat owes a pick (hidden at wave 5) → it explains the CI soak lane (seat 0 never picks), not the owner.
+  → **NEW BRANCH `s190/perf`** (worktree off master 554dbd7; `creatureAI.ts` is untouched by all ten other
+  branches — checked): a pure perf change with a byte-identical-output oracle (reference implementation +
+  per-tick `hashWorldStateFull` differential incl. mid-tick sever/creation). No bump if identity holds. Rides
+  train C (or its own deploy). This is P0's C5 fix — inside the approved batch, not a scope amendment.
+  → net continues: latest-wins snapshot BACKPRESSURE in `transport.ts` (10 Hz × 113 KiB fire-and-forget into
+  Trystero; below 9.3 Mbit/s it queues unbounded and Trystero drops after 10 s → client starvation — a candidate
+  C4 mechanism), reproduction through the real Trystero action wire first.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
