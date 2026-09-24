@@ -111,3 +111,10 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   `Texture`/`Rectangle` frame path DELETED (fallback to the POWER picture kept). New
   `src/render/skillIcons.test.ts` pins the table (power l0 310/700, wrath l10 96/752), each window
   inside its card, each icon a shipped 128 px WebP. MUTATION: pointing wrath back at the l10 card → 3 red.
+- [x] W-6 — the COLLAPSED slot now shows its pips (radius 2, inside the 20 px square — same `.fill({`
+  call site, so the S182 count stays 9 and `isOverRaButton` already covers them) and its caption
+  (refusal / AIMING / hover name) as Text LEFT of the square on its midline — no plate, no new
+  surface. `getUiPoints()` gains `raCaption` + `raPips`. Tests (`footerRaButton.test.ts` S190 W-6):
+  collapsed WRATH → 3 pips, overlay bounds inside the hit rect, 3→2 on a cast; BUILD → 'FIGHT ONLY'
+  left of the square, the ground under the words still board; POWER-only ready → no pips, no words.
+  MUTATION (restored): the two old compact early-outs → 2 red.

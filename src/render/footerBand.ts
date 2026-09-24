@@ -249,6 +249,8 @@ const RA_BUTTON_COLLAPSED_GAP = 8;
 const RA_TINT = 0xffd970;
 /** Pip radius for WRATH OF RA's charges. ⚠ MINE. */
 const RA_PIP_R = 3;
+/** ⭐ S190 W-6 — the same pips inside the 20 px compact square: three span 16 px. ⚠ MINE. */
+const RA_PIP_R_COMPACT = 2;
 
 /**
  * ⭐ S188 P11 — the picture each skill shows, each PRE-CUT from its own card by
@@ -282,7 +284,7 @@ export interface RaButtonGeom {
   readonly y: number;
   readonly w: number;
   readonly h: number;
-  /** The collapsed form: icon only, no caption, no pips. */
+  /** The collapsed form: the small square; its pips inside it, its words to its left (S190 W-6). */
   readonly compact: boolean;
 }
 
@@ -352,6 +354,9 @@ export class FooterBand {
   private raIconReady = false;
   /** What the slot showed this frame — read back by `getUiPoints` for the tests and the e2e. */
   private raSlot: RaSlotState | null = null;
+  /** ⭐ S190 W-6 — what the slot SAID this frame ('' = nothing) and how many pips it drew. */
+  private raCaption = '';
+  private raPips = 0;
   /**
    * ⭐ S187 — is the band hidden? RENDER-ONLY, never world state: it is one player's view
    * preference, it must not reach the wire, and two peers disagreeing about it is not a divergence.
@@ -436,6 +441,8 @@ export class FooterBand {
     this.carry = null;
     this.ra = null;
     this.raSlot = null;
+    this.raCaption = '';
+    this.raPips = 0;
     if (this.raLabel !== null) this.raLabel.visible = false;
     if (this.raIcon !== null) this.raIcon.visible = false;
     this.raOverlay?.clear();
@@ -874,29 +881,43 @@ export class FooterBand {
 
     const o = this.ensureRaOverlay();
     o.roundRect(x, y, side, side, 4).stroke({ width: aiming || this.hoverRa ? 3 : 2, color: edge, alpha: 0.95 });
-    if (!r.compact && s.charges > 1) {
+    if (s.charges > 1) {
       // One pip per charge, centred along the top edge: lit = still to spend this fight.
-      const gap = RA_PIP_R * 2 + 4;
+      // ⭐ S190 W-6 — in the COMPACT square too (smaller), so a collapsed WRATH seat still sees how
+      // many it has left. Inside the square, so `isOverRaButton` already covers every pip.
+      const pr = r.compact ? RA_PIP_R_COMPACT : RA_PIP_R;
+      const gap = pr * 2 + (r.compact ? 2 : 4);
       const x0 = cx - ((s.charges - 1) * gap) / 2;
       for (let i = 0; i < s.charges; i++) {
-        o.circle(x0 + i * gap, y + RA_PIP_R + 3, RA_PIP_R)
+        o.circle(x0 + i * gap, y + pr + (r.compact ? 1 : 3), pr)
           .fill({ color: i < s.left ? RA_TINT : 0x1a1d24, alpha: 0.95 })
-          .stroke({ color: 0x000000, width: 1, alpha: 0.8 });
+          .stroke({ color: 0x000000, width: r.compact ? 0.75 : 1, alpha: 0.8 });
       }
+      this.raPips = s.charges;
     }
 
-    if (r.compact) return;
     const caption = raButtonCaption(s.refusal, aiming, this.hoverRa, s.wrath ? 'WRATH OF RA' : 'POWER OF RA');
+    this.raCaption = caption;
     if (caption === '') return;
     if (this.raLabel === null) {
       this.raLabel = new Text({ text: '', style: { fontFamily: 'monospace', fontSize: 10, fill: RA_TINT } });
-      this.raLabel.anchor.set(0.5);
       this.container.addChild(this.raLabel);
     }
     this.raLabel.text = caption;
     this.raLabel.style.fill = edge;
-    // BENEATH the square: the chip row ends at y 1061 and the canvas at 1080.
-    this.raLabel.position.set(cx, r.y + r.h + 9);
+    if (r.compact) {
+      /*
+       * ⭐ S190 W-6 — COLLAPSED, the reason still shows: a refused control must say why. The compact
+       * square ends at the canvas bottom, so the words sit LEFT of it on its own midline. Text only —
+       * no plate, so no new opaque fill and nothing new to hit-test; the board under it stays board.
+       */
+      this.raLabel.anchor.set(1, 0.5);
+      this.raLabel.position.set(r.x - 6, r.y + r.h / 2);
+    } else {
+      this.raLabel.anchor.set(0.5);
+      // BENEATH the square: the chip row ends at y 1061 and the canvas at 1080.
+      this.raLabel.position.set(cx, r.y + r.h + 9);
+    }
     this.raLabel.visible = true;
   }
 
@@ -1230,6 +1251,9 @@ export class FooterBand {
     ra: RaButtonGeom | null;
     /** ⭐ S188 P11 — and what it showed: refusal, charges, charges left, WRATH or not. */
     raSlot: RaSlotState | null;
+    /** ⭐ S190 W-6 — the words it showed ('' = none) and the pips it drew, in EITHER collapse state. */
+    raCaption: string;
+    raPips: number;
   } {
     return {
       chips: [...this.chips],
@@ -1239,6 +1263,8 @@ export class FooterBand {
       queue: [...this.strip.queue],
       ra: this.ra,
       raSlot: this.raSlot,
+      raCaption: this.raCaption,
+      raPips: this.raPips,
     };
   }
 

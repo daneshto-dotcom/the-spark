@@ -218,3 +218,65 @@ describe('S188 P11 — the slot shows WRATH OF RA\'s charges', () => {
     expect(b.getUiPoints().raSlot).toMatchObject({ charges: 1, left: 1, wrath: false });
   });
 });
+
+/*
+ * ⭐ S190 W-6 — **COLLAPSED, THE SLOT STILL SAYS WHY AND STILL COUNTS.** The compact square used to
+ * return before its caption and skip its pips, so a refused slot was only a grey square and a WRATH
+ * seat with one charge left looked exactly like one with three.
+ */
+describe('S190 W-6 — the COLLAPSED slot shows its reason and its charges', () => {
+  function wrathWorld(): World {
+    const w = world(1, true);
+    w.players.get(P0)!.draftPicks.push('hp', 'racial'); // level 5 general, level 10 WRATH
+    w.waveNumber = 11;
+    return w;
+  }
+  function collapsed(w: World): FooterBand {
+    const b = band();
+    b.toggleCollapsed();
+    b.sync(w);
+    return b;
+  }
+  type Priv = { raOverlay: { getLocalBounds(): { minX: number; minY: number; maxX: number; maxY: number } }; raLabel: { visible: boolean; x: number; y: number; text: string } | null };
+
+  it('⭐ a collapsed WRATH seat draws its three pips — INSIDE the square it hit-tests', () => {
+    const w = wrathWorld();
+    const b = collapsed(w);
+    const ui = b.getUiPoints();
+    expect(ui.ra!.compact).toBe(true);
+    expect(ui.raPips).toBe(3);
+    expect(ui.raSlot).toMatchObject({ charges: 3, left: 3 });
+    // Everything on the overlay (the edge + the pips) stays within the square, give or take its stroke:
+    // no pip pokes out onto ground `isOverRaButton` would not claim.
+    const r = ui.ra!;
+    const bb = (b as unknown as Priv).raOverlay.getLocalBounds();
+    expect(bb.minX).toBeGreaterThanOrEqual(r.x - 2);
+    expect(bb.maxX).toBeLessThanOrEqual(r.x + r.w + 2);
+    expect(bb.minY).toBeGreaterThanOrEqual(r.y - 2);
+    expect(bb.maxY).toBeLessThanOrEqual(r.y + r.h + 2);
+    dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 500, y: 400 });
+    b.sync(w);
+    expect(b.getUiPoints()).toMatchObject({ raPips: 3, raSlot: { left: 2 } });
+  });
+
+  it('⭐ a refused collapsed slot SAYS why, left of the square, on its midline', () => {
+    const w = wrathWorld();
+    w.matchPhase = 'BUILD';
+    const b = collapsed(w);
+    const ui = b.getUiPoints();
+    expect(ui.raCaption).toBe('FIGHT ONLY');
+    const label = (b as unknown as Priv).raLabel!;
+    expect(label.visible).toBe(true);
+    expect(label.text).toBe('FIGHT ONLY');
+    const r = ui.ra!;
+    expect(label.x, 'to the LEFT of the square').toBeLessThan(r.x);
+    expect(label.y).toBe(r.y + r.h / 2);
+    // Text only, so it adds no surface: the ground under the words is still board.
+    expect(b.isOverBandSurface(label.x - 10, label.y)).toBe(false);
+  });
+
+  it('⛔ a ready POWER-only collapsed slot draws no pips and says nothing', () => {
+    const b = collapsed(world(1, true));
+    expect(b.getUiPoints()).toMatchObject({ raPips: 0, raCaption: '' });
+  });
+});
