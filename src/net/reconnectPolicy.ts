@@ -155,3 +155,87 @@ export function stepHostPresence(prev: HostPresence, hostPeerId: string | null, 
     presentSinceMs: present && !wasPresent ? nowMs : prev.hostPeerId === hostPeerId ? prev.presentSinceMs : 0,
   };
 }
+
+/**
+ * ⭐ S189 fix round (audit NET-5/NET-6) — the per-frame CONNECTION decision `main.ts` used to make inline:
+ * the RECONNECTING / MIGRATING / TERMINAL overlay, and whether this frame starts a reconnect attempt.
+ * `main.ts` applies the plan (overlay calls, the attempt itself); this decides it, and
+ * `connectionFrame.test.ts` drives it frame by frame. Behaviour is the S189 C4 loop exactly:
+ *   · a loss opens the grace (`RECONNECT_GRACE_MS`) and schedules the first attempt
+ *     (`RECONNECT_FIRST_RETRY_DELAY_MS`); a client retries every `RECONNECT_RETRY_MS`, past the grace too;
+ *   · the MIGRATION case (host lost, other survivors connected) never retries — tearing the transport
+ *     would drop the claim — and shows MIGRATING until the ladder's worst case (`migrationExtraMs`);
+ *   · a host never retries; peers coming back hide the overlay and end the episode.
+ */
+export type ConnectionOverlay =
+  | { readonly kind: 'hidden' }
+  | { readonly kind: 'reconnecting'; readonly secondsLeft: number }
+  | { readonly kind: 'migrating'; readonly secondsLeft: number }
+  | { readonly kind: 'terminal'; readonly cause: TerminalLossCause };
+
+export interface ConnectionFrameInput {
+  readonly nowMs: number;
+  readonly zombieDeposed: boolean;
+  /** Networked, PLAYING, with a transport, and (no peers, or the followed host gone from it). */
+  readonly peersGone: boolean;
+  readonly isHost: boolean;
+  readonly hasRoomCode: boolean;
+  /** Host lost but other survivors still connected (a warranted client): the migration's own window. */
+  readonly migrationCase: boolean;
+  readonly peerCount: number;
+  /** Episode state, carried by main.ts: the grace deadline (0 = no episode) and the next attempt time. */
+  readonly reconnectUntilMs: number;
+  readonly nextRetryMs: number;
+  /** How far past the grace the MIGRATING window runs (CLAIM_LADDER_MS × MAX_PLAYERS + 5000). */
+  readonly migrationExtraMs: number;
+}
+export interface ConnectionFramePlan {
+  readonly reconnectUntilMs: number;
+  readonly nextRetryMs: number;
+  /** Start a reconnect attempt this frame (disconnect, then join the same room again). */
+  readonly retry: boolean;
+  readonly overlay: ConnectionOverlay;
+}
+
+export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePlan {
+  if (i.zombieDeposed) {
+    return {
+      reconnectUntilMs: i.reconnectUntilMs,
+      nextRetryMs: i.nextRetryMs,
+      retry: false,
+      overlay: { kind: 'terminal', cause: 'zombieDeposed' },
+    };
+  }
+  if (!i.peersGone) {
+    return { reconnectUntilMs: 0, nextRetryMs: i.nextRetryMs, retry: false, overlay: { kind: 'hidden' } };
+  }
+  let reconnectUntilMs = i.reconnectUntilMs;
+  let nextRetryMs = i.nextRetryMs;
+  if (reconnectUntilMs === 0) {
+    reconnectUntilMs = i.nowMs + RECONNECT_GRACE_MS;
+    nextRetryMs = i.nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
+  }
+  const retry = reconnectRetryDue({
+    nowMs: i.nowMs,
+    nextRetryMs,
+    isHost: i.isHost,
+    hasRoomCode: i.hasRoomCode,
+    migrationCase: i.migrationCase,
+  });
+  if (retry) nextRetryMs = i.nowMs + RECONNECT_RETRY_MS;
+  const migrationDeadlineMs = reconnectUntilMs + i.migrationExtraMs;
+  let overlay: ConnectionOverlay;
+  if (i.nowMs < reconnectUntilMs) {
+    overlay = i.migrationCase
+      ? { kind: 'migrating', secondsLeft: (migrationDeadlineMs - i.nowMs) / 1000 }
+      : { kind: 'reconnecting', secondsLeft: (reconnectUntilMs - i.nowMs) / 1000 };
+  } else if (i.migrationCase && i.nowMs < migrationDeadlineMs) {
+    overlay = { kind: 'migrating', secondsLeft: (migrationDeadlineMs - i.nowMs) / 1000 };
+  } else {
+    overlay = {
+      kind: 'terminal',
+      cause: terminalLossCause({ zombieDeposed: false, migrationCase: i.migrationCase, peerCount: i.peerCount }),
+    };
+  }
+  return { reconnectUntilMs, nextRetryMs, retry, overlay };
+}

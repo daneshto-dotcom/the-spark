@@ -58,6 +58,21 @@ The merge owner resumes from this file if this agent is cut off.
   state + one `stepHostPresence` line per frame, the import list. Protocol: none — WHEN a peer claims is local;
   the claim message and its verification are unchanged, and D4 behaviour is back to what v50 peers expect.
 
+- **FR-6 (audit NET-5/NET-6) — the C4 main.ts wiring is now a tested function and a pinned call site.**
+  The per-frame overlay + retry decision moved out of main.ts into the pure `planConnectionFrame`
+  (`net/reconnectPolicy.ts`, behaviour-identical: S82 grace, S124 D4 peersGone split incl. the MIGRATING
+  window, S125 v2 zombie fail-safe, S189 retry past the grace); main.ts only applies the plan (overlay calls,
+  the attempt). With FR-4's `stepMigrationClaim`, both C4 decisions are unit-driven. New
+  `connectionFrame.test.ts`: frame-by-frame (16 ms) — RECONNECTING through the grace then TERMINAL with
+  retries on both sides; peers back → hidden + a fresh grace on the next loss; a host never retries; the
+  migration case never tears the mesh and shows MIGRATING to its deadline then `migrationDeadline`. And the
+  mechanical half: exactly ONE `planConnectionFrame(` and ONE `stepMigrationClaim(` in main.ts, no direct
+  `reconnectRetryDue(` or `hasSurvivorToHostFor(` left there, the reconnect happens inside
+  `if (connectionPlan.retry …)` and the claim inside `if (claimStep.claim)`. Failing first (the function did
+  not exist; main.ts had no such call) → green. Mutation: retries stop at the grace → 2 red.
+  `vitest src/net/ + src/input/` EXIT=0 (45 files / 829 + 3 skipped). Hotspot: `main.ts` overlay/retry block
+  (~60 lines of branches → one plan + an applier), 3 imports removed. Protocol: none (local UI/timing).
+
 ## Steps
 
 | # | step | state | commit |

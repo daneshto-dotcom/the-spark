@@ -68,14 +68,11 @@ import { makeNetSession, teardownNet } from './net/session.ts';
 import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './input/doubleEscapeLeave.ts';
 // ⭐ S189 (C4) — the reconnect schedule + the claim decision (see reconnectPolicy.ts).
 import {
-  reconnectRetryDue,
+  planConnectionFrame,
   stepHostPresence,
   stepMigrationClaim,
   type HostPresence,
-  RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
-  RECONNECT_RETRY_MS,
-  terminalLossCause,
   type TerminalLossCause,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
@@ -3703,83 +3700,55 @@ Network routes: ${v.detail}`;
     // world is frozen for everyone; a stale intent materializing post-takeover is worse than
     // the in-flight loss design §8 accepts. Maintained here so dispatchFn stays O(1).
     migrationPauseActive = peersGone && !world.isHost && session.warrant !== null;
-    let connectionLost = false;
-    let terminalCause: TerminalLossCause | null = null; // ⭐ S189 (E3) — for the terminal log line
-    if (zombieDeposed) {
-      // S124 P1 (D4) / S125 P1 — TERMINAL FAIL-SAFE only: a deposed host with no room code to
-      // rejoin with (can't happen for a warranted host). The ordinary deposed-host path now
-      // AUTO-REJOINS as a client (demoteToClient reestablishTransport, LOCKED §13.21 v2) and
-      // flows through the peersGone/migrationCase overlay branch below instead of this latch.
+    /*
+     * ⭐ S189 fix round (audit NET-5/6) — the overlay + retry decision is `planConnectionFrame`
+     * (net/reconnectPolicy.ts, tested frame by frame in connectionFrame.test.ts); this block only applies
+     * it. The rules it keeps (S82 grace, S124 D4 peersGone split, S125 v2 fail-safe, S189 C4 retry past
+     * the grace) are documented there:
+     *   • zombieDeposed — TERMINAL FAIL-SAFE only (a deposed host with no room code to rejoin with);
+     *   • hostLost with a SURVIVING mesh (peerCount > 0) = the MIGRATION case — never tear the transport
+     *     (it would drop the MIGRATION_CLAIM), MIGRATING until past the claim ladder's worst case;
+     *   • peerCount === 0 = OUR transport died — the reconnect cycle is the only path back.
+     */
+    const migrationCase =
+      !world.isHost &&
+      session.warrant !== null &&
+      session.netTransport !== null &&
+      session.netTransport.peerCount() > 0;
+    const connectionPlan = planConnectionFrame({
+      nowMs,
+      zombieDeposed,
+      peersGone,
+      isHost: world.isHost,
+      hasRoomCode: session.roomCode !== null,
+      migrationCase,
+      peerCount: session.netTransport?.peerCount() ?? 0,
+      reconnectUntilMs,
+      nextRetryMs: reconnectNextRetryMs,
+      migrationExtraMs: (migrationSeam?.ladderMs ?? CLAIM_LADDER_MS) * MAX_PLAYERS + 5000,
+    });
+    reconnectUntilMs = connectionPlan.reconnectUntilMs;
+    reconnectNextRetryMs = connectionPlan.nextRetryMs;
+    if (connectionPlan.retry && session.roomCode !== null) {
+      console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
+      if (session.netTransport !== null) session.netTransport.disconnect();
+      connectAsClient(clientJoinDeps, session.roomCode);
+    }
+    const overlay = connectionPlan.overlay;
+    if (overlay.kind === 'hidden') {
+      lobbyScreen.setConnectionLostVisible(false);
+    } else if (overlay.kind === 'reconnecting') {
+      lobbyScreen.setConnectionLostReconnecting(true, overlay.secondsLeft);
+      lobbyScreen.setConnectionLostVisible(true);
+    } else if (overlay.kind === 'migrating') {
+      lobbyScreen.setConnectionLostMigrating(overlay.secondsLeft);
+      lobbyScreen.setConnectionLostVisible(true);
+    } else {
       lobbyScreen.setConnectionLostReconnecting(false);
       lobbyScreen.setConnectionLostVisible(true);
-      connectionLost = true;
-      terminalCause = 'zombieDeposed';
-    } else if (peersGone) {
-      if (reconnectUntilMs === 0) {
-        reconnectUntilMs = nowMs + RECONNECT_GRACE_MS;
-        reconnectNextRetryMs = nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
-      }
-      // S124 P1 (D4) — the peersGone SPLIT (production reconciliation of the D3 seam rule):
-      //   • hostLost with a SURVIVING mesh (peerCount > 0) = the MIGRATION case — never tear
-      //     the transport (a tear would drop the MIGRATION_CLAIM broadcast/receipt) and show
-      //     the MIGRATING overlay variant; the terminal state is deferred past the claim
-      //     ladder's worst case so a deep-rank takeover isn't misreported as CONNECTION LOST.
-      //   • peerCount === 0 = OUR transport died — the S82 reconnect-cycle is the only path
-      //     back (there is no mesh left to hear a claim on), byte-identical behavior.
-      const migrationCase =
-        !world.isHost &&
-        session.warrant !== null &&
-        session.netTransport !== null &&
-        session.netTransport.peerCount() > 0;
-      const ladderMsUi = migrationSeam?.ladderMs ?? CLAIM_LADDER_MS;
-      const migrationDeadlineMs =
-        reconnectUntilMs + ladderMsUi * MAX_PLAYERS + 5000;
-      /*
-       * ⭐ S189 (C4) — the retry is no longer confined to the grace, and an attempt is left alone for a
-       * healthy join's budget (RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS, 8 s) instead of 4 s — a fresh
-       * join measured ~6.3 s, so the old cadence tore every attempt down before it could land. Past the
-       * grace the terminal overlay still shows (unchanged), with the loop still trying behind it; the
-       * `!peersGone` branch below clears the overlay the moment a peer is back.
-       */
-      if (
-        session.roomCode !== null &&
-        reconnectRetryDue({
-          nowMs,
-          nextRetryMs: reconnectNextRetryMs,
-          isHost: world.isHost,
-          hasRoomCode: true,
-          migrationCase,
-        })
-      ) {
-        reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
-        console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
-        if (session.netTransport !== null) session.netTransport.disconnect();
-        connectAsClient(clientJoinDeps, session.roomCode);
-      }
-      if (nowMs < reconnectUntilMs) {
-        if (migrationCase) {
-          lobbyScreen.setConnectionLostMigrating((migrationDeadlineMs - nowMs) / 1000);
-        } else {
-          lobbyScreen.setConnectionLostReconnecting(true, (reconnectUntilMs - nowMs) / 1000);
-        }
-        lobbyScreen.setConnectionLostVisible(true);
-      } else if (migrationCase && nowMs < migrationDeadlineMs) {
-        lobbyScreen.setConnectionLostMigrating((migrationDeadlineMs - nowMs) / 1000);
-        lobbyScreen.setConnectionLostVisible(true);
-      } else {
-        lobbyScreen.setConnectionLostReconnecting(false);
-        lobbyScreen.setConnectionLostVisible(true);
-        connectionLost = true; // terminal — drives the cinematic-abort edge below
-        terminalCause = terminalLossCause({
-          zombieDeposed: false,
-          migrationCase,
-          peerCount: session.netTransport?.peerCount() ?? 0,
-        });
-      }
-    } else {
-      reconnectUntilMs = 0;
-      lobbyScreen.setConnectionLostVisible(false);
     }
+    const connectionLost = overlay.kind === 'terminal'; // terminal — drives the cinematic-abort edge below
+    const terminalCause: TerminalLossCause | null = overlay.kind === 'terminal' ? overlay.cause : null;
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
     /*
