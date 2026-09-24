@@ -73,3 +73,7 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   · Hotspot hunks: save.ts (import line only).
   · Gates on the merge: typecheck 0; vitest 1 (2 red): `canon.test.ts` §3d/§3e registry (MERGE OWNER's,
     red by design — WRATH OF RA has no §3e row yet) and draftOverlay cards-on-disk 16→17 (W-3, next).
+- [x] W-1 / WRATH-L1-02 TEST — `draftOverlay.test.ts` "S190 W-1": the REAL DraftOverlay, no
+  `optionsFor` injected, mummies seat at wave 11: ['racial','def'] → WRATH tile live ('RA × 3', no
+  mark), click sends 'racial'; ['hp','def'] → COMING SOON, racial tap sends nothing, general sends
+  'atk'. MUTATION (by hand, restored): dropping `pl.draftPicks` from `this.optionsFor(...)` → 1 red.

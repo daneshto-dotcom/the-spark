@@ -652,6 +652,50 @@ describe('⛔ the class, with NO racial perk on offer (COMING SOON)', () => {
   });
 });
 
+/*
+ * ⭐⭐ S190 W-1 — **WRATH OF RA THROUGH THE REAL PANEL, NO SEAM INJECTED.** WRATH OF RA (mummies.l10)
+ * is the one CONDITIONAL perk: offered only to a seat holding POWER OF RA. The offer therefore needs
+ * the SEAT's picks, and the merge onto the rewritten overlay compiled perfectly well without them
+ * (`picks` is optional) — drawing COMING SOON to exactly the seat that had earned WRATH. Every other
+ * test here injects `optionsFor`, so none of them could see it. These two do not.
+ */
+describe('⭐ S190 W-1 — the level-10 WRATH OF RA tile follows the SEAT\'s picks (production offer)', () => {
+  function level10Board(picks: DraftPick[]): { w: World; seat: PlayerId } {
+    const { w, seat } = startedWorld();
+    const pl = w.players.get(seat)!;
+    pl.raceId = 'mummies';
+    // Owing its third pick at the level-10 draft (wave 11).
+    pl.draftPicks.splice(0, Infinity, ...picks);
+    w.draft = { openedAtTick: w.tick, waveNumber: 11 };
+    return { w, seat };
+  }
+
+  it('⭐ a mummies seat holding POWER OF RA gets a CHOOSABLE WRATH tile, and a click sends "racial"', () => {
+    const { w, seat } = level10Board(['racial', 'def']);
+    const picks: DraftPick[] = [];
+    const o = new DraftOverlay((p) => picks.push(p), { loadCard: recordingLoader().load });
+    o.render(w, seat);
+    expect(o.container.visible).toBe(true);
+    expect(child<Text>(o.container, 'racialLine').text).toBe(RACIAL_PERK_COPY['mummies.l10'].line);
+    expect(child<Text>(o.container, 'racialMark').visible, 'no COMING SOON mark').toBe(false);
+    tap(o, centre(racialTileRect()));
+    expect(picks).toEqual(['racial']);
+  });
+
+  it('⛔ a mummies seat that took the GENERAL at level 0 gets COMING SOON (the SANDWORM, unbuilt) — not hit-testable', () => {
+    const { w, seat } = level10Board(['hp', 'def']);
+    const picks: DraftPick[] = [];
+    const o = new DraftOverlay((p) => picks.push(p), { loadCard: recordingLoader().load });
+    o.render(w, seat);
+    expect(o.container.visible).toBe(true);
+    expect(child<Text>(o.container, 'racialLine').text).toBe('COMING SOON');
+    tap(o, centre(racialTileRect()));
+    expect(picks, 'the dead tile sends nothing').toEqual([]);
+    tap(o, centre(generalTileRect()));
+    expect(picks).toEqual(['atk']);
+  });
+});
+
 describe('when the panel is up at all', () => {
   it('is hidden once the seat has picked — seatMustStillPick, not arithmetic', () => {
     const { w, seat } = startedWorld();
