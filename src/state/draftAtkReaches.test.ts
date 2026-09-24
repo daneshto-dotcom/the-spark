@@ -19,6 +19,7 @@ import { CASTLE_ATTACK_RANGE, RACE_UNIT_ATK, RACE_UNIT_PEN, phaseDurationTicks }
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
 import { characterSheetModel } from '../render/characterSheetModel.ts';
+import { fatalBlowFifths } from '../render/damageNumbers.ts';
 import { asPlayerId, asSpawnerId, type CreatureId, type PlayerId } from '../types.ts';
 import { creatureAttackFifths, creatureMaxEhp, makeCreature, type CreatureType } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
@@ -361,5 +362,28 @@ describe('⛔ "Units already on the board keep what they were born with" — the
     }
     expect(drops.length).toBeGreaterThan(0);
     for (const d of drops) expect(d).toBe(6);
+  });
+});
+
+describe('⛔ THE KILL NUMBER — `fatalBlowFifths` credits the creature’s own blow', () => {
+  it('a drafted goblin in reach prints 13, an undrafted one 12, a HELLSPAWN child 3 (not 7)', () => {
+    const at = { x: 700, y: 700 };
+    const drafted = fightWorld(THREE_DRAFTS);
+    spawnAt(drafted, P0, 'goblinMelee', at.x + 5, at.y);
+    expect(fatalBlowFifths(drafted, at, P1)).toBe(13);
+
+    const plain = fightWorld([]);
+    spawnAt(plain, P0, 'goblinMelee', at.x + 5, at.y);
+    expect(fatalBlowFifths(plain, at, P1)).toBe(12);
+
+    const demons = fightWorld(['racial', 'racial'], 'demons');
+    const parent = spawnAt(demons, P0, 'chewer', at.x + 5, at.y);
+    demons.pendingCreatureDeaths = new Set();
+    damageEntity(demons, { kind: 'creature', id: parent }, 999, 'aura', null);
+    sweepDeferredDeaths(demons, demons.pendingCreatureDeaths);
+    demons.pendingCreatureDeaths = null;
+    drainRacialSpawnQueue(demons);
+    expect([...demons.creatures.values()].every((k) => k.hellspawnGen === 1)).toBe(true);
+    expect(fatalBlowFifths(demons, at, P1)).toBe(3);
   });
 });

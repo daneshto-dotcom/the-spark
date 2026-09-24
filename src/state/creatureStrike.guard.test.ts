@@ -80,15 +80,15 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
     file: 'render/characterSheetModel.ts',
     occurrences: 2,
     why:
-      '`statRowsFor`’s fallback "N a swing" for a caller that holds only stat points, and the tower ' +
-      'EMPLACEMENT row. ⭐ S190 P2.5: the CREATURE card now passes its own strike into `statRowsFor`.',
+      '`statRowsFor`’s fallback "N a swing" for a caller that holds only stat points (the defender ' +
+      'sheet), and the tower EMPLACEMENT row. ⭐ S190 P2.5: the CREATURE card passes its own strike in.',
   },
   {
     file: 'render/damageNumbers.ts',
-    occurrences: 2,
+    occurrences: 1,
     why:
-      '`fatalBlowFifths`’ DEFENDER arm (a defender config), and — until S190 P2.5 converts it — its ' +
-      'CREATURE arm.',
+      '`fatalBlowFifths`’ DEFENDER arm (a defender config). Its CREATURE arm reads the accessor since ' +
+      'S190 P2.5 — the guard went 2 → 1 in that commit.',
   },
 ];
 
@@ -146,6 +146,8 @@ describe('creature strike — the derivation guard', () => {
       'state/creatures/suicideBlast.ts',
       'state/droneLifecycle.ts',
       'state/racial/corpseEater.ts',
+      'render/damageNumbers.ts',
+      'render/characterSheetModel.ts',
     ]) {
       expect(count(codeOnly(read(f)), /creatureAttackFifths\(/g), `${f} reads the creature's own strike`).toBeGreaterThan(0);
     }
