@@ -163,4 +163,28 @@ probe (not committed), real four-seat bots match to the end of wave 5, sampled e
 **0 mixed bonds in 743 + 750 samples** (default and 120-held), and 0 of 2 041 + 7 953 enemy-only scans
 returned a bond touching the scanner's own colour. ⇒ LATENT in a bots match; reachable only if some
 path (human play?) creates a cross-colour bond, which I did not measure.
-## Step 5 — gates — (pending)
+## Step 5 — gates (each exit code captured to a file, never through a pipe)  ✅
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run --maxWorkers=6` → **VITEST_EXIT=0** — 369 files passed, 1 skipped (the opt-in
+  `c5HostTickMeasure.test.ts`, `describe.runIf`); 6003 tests passed, 2 skipped (its two passes).
+  The `stderr | sync.test.ts … applyErrors()` line is that test's own deliberate throw-and-count
+  diagnostic, printed on a passing test — benign.
+- `npm run build` → **BUILD_EXIT=0** — entry 945.1 KiB against the charter's 1100 KiB cap (154.9 KiB
+  headroom; the cap is 1100 in this tree, not the 1000 CLAUDE.md states). The Vite
+  `chunkSizeWarningLimit` line is the standard advisory the charter check supersedes — benign.
+- e2e NOT run, per the brief.
+- ⚠ COST FOR THE MERGE OWNER: the default-suite oracle (fork at wave 3, 600 ticks) is **18.3 s** under
+  `--maxWorkers=6` (explicit 120 s per-test timeout). The full wave-5 case runs only under
+  `SPARK_C5_PERF=1` (95.6 s).
+
+## Files touched
+- `src/state/creatures/creatureAI.ts` — the index (in the brief's boundary).
+- `src/state/hostTick.ts` — **outside the boundary, 12 lines**: 2 imports + the epoch open/close
+  around the creature loop. Minimal and necessary (see step 3).
+- `src/state/buildingTargeting.test.ts` — the S181 source guard re-derived over all four scan
+  functions (see step 3).
+- NEW: `src/state/c5HostTickMeasure.test.ts`, `src/state/c5WaveFiveBoard.fixtures.ts`,
+  `src/state/creatures/bondTargetReference.fixtures.ts`,
+  `src/state/creatures/bondTargetIndex.differential.test.ts`,
+  `src/state/creatures/bondTargetIndex.guards.test.ts`, this file, `S190_CANON_NOTES_perf.md`.
+- NOT touched: PROTOCOL_VERSION (stays 50 — no bump owed), SPARK_CANON.md, src/canon.test.ts.
