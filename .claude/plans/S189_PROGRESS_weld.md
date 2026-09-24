@@ -35,12 +35,23 @@ SURVIVE.
     lightningHub / goblinTower arms; goblinKinds `seatFeedTowerAt` + `seatGoblinTowerAt`.
   · IGNITION UNTOUCHED (every `is…Component` still exact).
 
+- step 3b — THE SAME WALK FOR THE SCREEN AND THE FUSE (landed; the coordinator reported a
+  spend-limit stop with these 4 files uncommitted — INSPECTED, they are exactly this coherent step,
+  FINISHED not reverted: typecheck 0, full vitest 0 = 6001 tests / 368 files):
+  · `structureRamp.rampMembersAt` walks `towerMembersAt` (own arms / own 5-cycle) for BOTH shapes —
+    a weld is never covered (R185-A), never moves the sprite, never prices the art.
+  · `stinkTowerCover.stinkTowerMembers` — same walk (was `hub.bonds`, which would hide a hub weld).
+  · `structureStarHealth` — `ownStarBonds`: a LIVE tower's own arms via `liveTowerRecipeAt` +
+    `towerMembersAt`; a non-tower primitive keeps the raw-bond reading (only exact ignition makes a
+    star, so that is the pre-S189 reading).
+  · `structureRamp.test.ts` RE-PINNED (not silenced): fixtures gained shape TYPES + the two World
+    maps; the "star walk on a pentagram finds TWO arms" demo inverted (walk follows the recipe → 5);
+    NEW: every RAMP_SPECS `shape` === `towerShapeFor(recipe).kind`.
+
 ## IN-FLIGHT
-- step 3b — the same walk for the renderer + star health: `structureRamp.rampMembersAt`,
-  `stinkTowerCover.stinkTowerMembers`, `structureStarHealth` (R182-B own star).
+- step 4 — the owed tests.
 
 ## NEXT
-- step 3 — fix (or STOP with cost if > an afternoon).
 - step 4 — tests owed: 2 triangles on laser turret; pentagram + extra triangle; two towers welded
   both survive (Council M3); own connector cut still levels; welded shape alpha 1 (R185-A); FIX
   refused on welded structure (R185-B); host-vs-worker hash differential over a cycle.
