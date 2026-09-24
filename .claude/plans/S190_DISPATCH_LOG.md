@@ -131,6 +131,40 @@ their context. input-layer went straight to PHASE 2 (the audit's two lenses had 
 recipe, IL-B1 vacuous e2e, IL-1/IL-B2 hover-under-draft, IL-2 RMB put-back, one doc commit; IL-3/IL-Q1 and
 IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifiers land.
 
+## Results after the resume
+
+- **P10 infra — item 1 FIXED, verified, committed (`~/.claude` 3f9d8ee).** Not a string-id bug: `lib/glue.sh:416`
+  split with `IFS=$'\t'`, and TAB is IFS-whitespace, so EMPTY fields collapsed and shifted left (SPARK
+  priorities have `title`, no `name`) → the bogus "Pin_progress" + "[GATE LOCKED]" pair, AND the gate failed
+  OPEN for a truly unapproved priority. `\x1f` separator; replay V1-V6 before/after; `bash -n` 0; LF kept;
+  hermetic hook test 11/12 → 12/12. Backup `lib/glue.sh.S190.bak`. Found-not-fixed: titles print "unknown"
+  (a `.title` jq fallback needs JSON-escaping at `pdca-context.sh:223`), `false` reads as absent (jq `//`).
+- **P10 infra — item 2 DIAGNOSED (race reproduced 5/5 in a sandbox).** The hot-path writer is
+  `router-telemetry.sh:49-118`: on EVERY tool call it rewrites the whole session-state via tmp+mv under a
+  one-shot lock — byte-identical for SPARK (no `tool_calls_this_turn` key) — and a session's unlocked write
+  landing between its read and its mv is reverted. One run took 12.8 s under today's load. Also unlocked:
+  `glue_pdr_unlock`, `glue_statusline_watchdog`. Litter: hooks killed at timeout never run their trap (73
+  empty tmp files); zombie lockdirs are never swept (1,772 reclaims logged for SPARK, 8,308 all projects).
+  → **SCOPE AMENDMENT SA-S190-2 PROPOSED (global hooks + deletions → owner):** take the counters off
+  session-state (sidecar file), guard the rare hook writers (skip byte-identical mv; compare-and-swap),
+  sessions write tmp + `os.replace`; sweep `tmp.*` > 10 min and `lockdir.zombie.*` > 1 min. Nothing deleted.
+- **P9 `s189/render` — DONE, verified (tip 1675ca2; +3-line follow-up in flight).** C1: the cursor-following
+  thing is the LOCAL CRUISER, and the cause was `draftOverlay.ts` `zIndex = 900` on a zIndex-sorted stage —
+  deleted, and the panel's staging line moved before `bringLocalToFront()`. Seam checked by the merge owner:
+  `characterSheet.bringToFront()` runs once at startup (`main.ts:1298`), so the panel stays above the card and
+  input-layer's click guard stays honest. C7: bare `g.arc()` in the S188 swirl drew a line from the previous
+  shape's end — `moveTo` per arc (the S86 hazardRing fix); no lerp change. LOW (b) elite piranha fallback.
+  LOW (a) NOT fixed (needs a sim-side heal record, outside a render boundary) — pinned by a test that goes red
+  when it lands → owner/carry-forward. Gates 0/0/0, 6028 tests, 944.4 KiB (+0.2). Wire: none.
+  Follow-up sent: the same stray-line bug at `bossAuras.ts:359/366` (Kraken sonar) + `raceMotifs.ts:100`
+  (rainbow sites skipped — archived).
+- **Merge notes from render:** `goblinRenderer.ts` fallback block conflicts with s188/swarm → resolve as
+  `type === 't3BatSwarm' ? 't3Bat' : type === 't3PiranhaElite' ? 't3Piranha' : null`, then add the swarm case
+  to render's "no other type has a fallback" test. After input-layer + render both land: fix input-layer's
+  isOver docblock ("the zIndex-900 plate") and `controls.ts:726` ("the card is drawn ABOVE everything").
+- **Audits A verifiers: IL-M1 + IL-B1 both CONFIRMED** (correction forwarded: `__SPARK__` has no draft seam —
+  click the general tile at derived coordinates).
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
