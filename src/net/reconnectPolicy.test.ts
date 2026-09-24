@@ -13,6 +13,8 @@ import {
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
   terminalLossCause,
+  stepMigrationClaim,
+  stepHostPresence,
 } from './reconnectPolicy.ts';
 import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 
@@ -100,7 +102,8 @@ describe('S189 C4 — a claim needs a survivor to host for', () => {
   it('⛔ the 1v1 lone survivor never claims — it keeps reconnecting instead', () => {
     // Its transport lost everyone: the reproduction's joiner claimed here and ended isHost:true, alone.
     expect(hasSurvivorToHostFor(new Set(), 'host-peer')).toBe(false);
-    // The host is still connected but silent (a frozen host tab): still nobody ELSE to host for.
+    // Only the host is connected: nobody ELSE to host for. ⚠ S189 fix round — `stepMigrationClaim` asks
+    // this ONLY on transport loss; a connected-but-frozen host is D4's case (the NET-4 block below).
     expect(hasSurvivorToHostFor(new Set(['host-peer']), 'host-peer')).toBe(false);
   });
 
@@ -118,5 +121,115 @@ describe('S189 E3 — the terminal line names its cause', () => {
     expect(terminalLossCause({ zombieDeposed: false, migrationCase: false, peerCount: 0 })).toBe('peerCount0');
     // A 3+-seat client that lost only the host: peers remain, but not the one it follows.
     expect(terminalLossCause({ zombieDeposed: false, migrationCase: false, peerCount: 2 })).toBe('hostLost');
+  });
+});
+
+import { HOST_STARVATION_MS, CLAIM_LADDER_MS } from './succession.ts';
+
+/**
+ * Drive `stepMigrationClaim` frame by frame (16 ms) the way main.ts does, from `fromMs` to `toMs`.
+ * `host(t)` says whether the host is on our transport at time t; `others` are the other survivors;
+ * `lastSnapshotAt(t)` is the last accepted snapshot as of t; `presentSince(t)` the host's presence stamp.
+ * Returns the time of the first claim, or null.
+ */
+function firstClaim(o: {
+  fromMs: number;
+  toMs: number;
+  host: (t: number) => boolean;
+  others?: string[];
+  lastSnapshotAt: (t: number) => number;
+  presentSince?: (t: number) => number;
+  ladderDelayMs?: number;
+}): number | null {
+  let obs = 0;
+  for (let t = o.fromMs; t <= o.toMs; t += 16) {
+    const alive = new Set([...(o.others ?? []), ...(o.host(t) ? ['host'] : [])]);
+    const r = stepMigrationClaim({
+      nowMs: t, hostPeerId: 'host', alivePeerIds: alive,
+      lastAcceptedAtMs: o.lastSnapshotAt(t), hostPresentSinceMs: o.presentSince?.(t) ?? 0,
+      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS,
+      ladderDelayMs: o.ladderDelayMs ?? 0, lossObservedAtMs: obs,
+    });
+    obs = r.lossObservedAtMs;
+    if (r.claim) return t;
+  }
+  return null;
+}
+
+describe('S189 fix round (audit NET-4) — the claim: D4 kept for a FROZEN host, gated only on TRANSPORT loss', () => {
+  const D4_DEADLINE_AFTER_LAST_SNAPSHOT = HOST_STARVATION_MS + RECONNECT_GRACE_MS; // rank 0: + 0 ladder
+
+  it('⛔ 1v1 FROZEN HOST (still connected, silent): the client TAKES OVER at the S124 D4 deadline', () => {
+    // The host tab is backgrounded: its transport stays up, its snapshots stop at t = 10 s.
+    const at = firstClaim({ fromMs: 10_000, toMs: 60_000, host: () => true, lastSnapshotAt: () => 10_000 });
+    expect(at, 'the D4 takeover of a silent-but-connected host must survive the C4 fix').not.toBeNull();
+    expect(at! - 10_000).toBeGreaterThanOrEqual(D4_DEADLINE_AFTER_LAST_SNAPSHOT);
+    expect(at! - 10_000).toBeLessThan(D4_DEADLINE_AFTER_LAST_SNAPSHOT + 32);
+  });
+
+  it('⛔ 1v1 TRANSPORT LOSS (the host is gone from our transport, nobody else): NEVER claims — it reconnects (C4)', () => {
+    const at = firstClaim({ fromMs: 10_000, toMs: 90_000, host: () => false, lastSnapshotAt: () => 10_000 });
+    expect(at).toBeNull();
+  });
+
+  it('after a transport loss, a RECONNECT that lands does not trigger an instant takeover before the first snapshot', () => {
+    // Host gone 10-25 s, back at 25 s (a late rejoin, past the grace); its first snapshot arrives at 25.4 s.
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000,
+      host: (t) => t < 10_000 || t >= 25_000,
+      lastSnapshotAt: (t) => (t >= 25_400 ? t : 10_000),
+      presentSince: (t) => (t >= 25_000 ? 25_000 : 0),
+    });
+    expect(at).toBeNull();
+  });
+
+  it('…but a host that comes back and is THEN frozen is taken over at D4, counted from its return', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 90_000,
+      host: (t) => t < 10_000 || t >= 25_000,
+      lastSnapshotAt: () => 10_000, // nothing after the return
+      presentSince: (t) => (t >= 25_000 ? 25_000 : 0),
+    });
+    expect(at).not.toBeNull();
+    expect(at! - 25_000).toBeGreaterThanOrEqual(D4_DEADLINE_AFTER_LAST_SNAPSHOT);
+  });
+
+  it('NEGATIVE — 3-seat, host lost, another survivor connected: claims at the grace + its ladder rung (D3/D4)', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < 12_000, others: ['seat-2'],
+      lastSnapshotAt: () => 11_900, ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - 12_000).toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - 12_000).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+  });
+
+  it('NEGATIVE — a seat that is not warranted-alive (ladder null) never claims', () => {
+    const at = firstClaim({ fromMs: 10_000, toMs: 60_000, host: () => true, lastSnapshotAt: () => 10_000, ladderDelayMs: undefined });
+    expect(at).not.toBeNull(); // sanity: with a rung it would
+    let obs = 0;
+    for (let t = 10_000; t < 60_000; t += 16) {
+      const r = stepMigrationClaim({
+        nowMs: t, hostPeerId: 'host', alivePeerIds: new Set(['host']), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+        starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: null, lossObservedAtMs: obs,
+      });
+      obs = r.lossObservedAtMs;
+      expect(r.claim).toBe(false);
+    }
+  });
+});
+
+describe('S189 fix round — the host-presence stamp the claim counts starvation from', () => {
+  it('stamps the moment the host (re)appears, keeps it while present, and resets for a new host', () => {
+    let h = { hostPeerId: null as string | null, present: false, presentSinceMs: 0 };
+    h = stepHostPresence(h, 'host', true, 1_000);
+    expect(h.presentSinceMs).toBe(1_000);
+    h = stepHostPresence(h, 'host', true, 5_000);
+    expect(h.presentSinceMs).toBe(1_000); // still the same appearance
+    h = stepHostPresence(h, 'host', false, 9_000);
+    h = stepHostPresence(h, 'host', true, 25_000);
+    expect(h.presentSinceMs).toBe(25_000); // back after a loss: a fresh stamp
+    h = stepHostPresence(h, 'successor', true, 30_000);
+    expect(h.presentSinceMs).toBe(30_000); // a different host (after a migration): its own stamp
   });
 });

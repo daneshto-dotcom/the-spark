@@ -66,10 +66,12 @@ import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 // ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
 import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './input/doubleEscapeLeave.ts';
-// ⭐ S189 (C4) — the reconnect schedule + the lone-survivor claim gate (see reconnectPolicy.ts).
+// ⭐ S189 (C4) — the reconnect schedule + the claim decision (see reconnectPolicy.ts).
 import {
-  hasSurvivorToHostFor,
   reconnectRetryDue,
+  stepHostPresence,
+  stepMigrationClaim,
+  type HostPresence,
   RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
@@ -2506,6 +2508,9 @@ Network routes: ${v.detail}`;
         }).__TEST_MIGRATION__
       : undefined;
   let migrationLossObservedAtMs = 0;
+  // ⭐ S189 fix round (audit NET-4) — when the followed host last (re)appeared on our transport; the
+  // claim counts starvation from it, so a reconnect that lands is not read as a starved host.
+  let hostPresence: HostPresence = { hostPeerId: null, present: false, presentSinceMs: 0 };
   let migrationClaimedEpoch = -1; // -1 = no claim fired this term (reset on demote/match end)
   // S124 P1 (D4) — successor/echo/demotion state:
   //   myClaim — the signed claim THIS peer adopted under (re-sent verbatim as the CLAIM ECHO:
@@ -3372,6 +3377,14 @@ Network routes: ${v.detail}`;
       // host's avatar ghosting forever), and an additive successor handler: fail-closed
       // INTENT stamping + lowest-seat-wins demotion + the stale-epoch CLAIM-ECHO trigger.
       // Ladder races converge via lowest-seat-wins (clientHandlers b′ + the demotion here).
+      hostPresence = stepHostPresence(
+        hostPresence,
+        session.hostPeerId,
+        session.hostPeerId !== null &&
+          session.netTransport !== null &&
+          session.netTransport.peerIds().includes(session.hostPeerId),
+        performance.now(),
+      );
       if (
         !world.isHost &&
         world.gameState === 'PLAYING' &&
@@ -3382,36 +3395,36 @@ Network routes: ${v.detail}`;
         migrationClaimedEpoch === -1
       ) {
         const nowMigMs = performance.now();
-        const starvMs = migrationSeam?.starvationMs ?? HOST_STARVATION_MS;
-        const hostGoneNow =
-          (session.hostPeerId !== null &&
-            !session.netTransport.peerIds().includes(session.hostPeerId)) ||
-          isSnapshotStarved(nowMigMs, lastAcceptedAtMs, starvMs);
-        if (!hostGoneNow) {
-          migrationLossObservedAtMs = 0;
-        } else {
-          if (migrationLossObservedAtMs === 0) migrationLossObservedAtMs = nowMigMs;
-          const graceMs = migrationSeam?.graceMs ?? RECONNECT_GRACE_MS;
-          const ladderMs = migrationSeam?.ladderMs ?? CLAIM_LADDER_MS;
-          const alivePeers = new Set(session.netTransport.peerIds());
-          const aliveSeats = computeAliveSeats(
-            session.lastRoster,
-            alivePeers,
-            world.localPlayerId as number,
-          );
-          const ladderDelayMs = computeClaimDelayMs(
+        const alivePeers = new Set(session.netTransport.peerIds());
+        const aliveSeats = computeAliveSeats(
+          session.lastRoster,
+          alivePeers,
+          world.localPlayerId as number,
+        );
+        /*
+         * ⭐ S189 — WHEN to claim is `stepMigrationClaim` (net/reconnectPolicy.ts, unit-tested frame by
+         * frame): D4 unchanged for a host that is connected but silent; on TRANSPORT loss only with a
+         * survivor to host for (a lone 1v1 client reconnects instead — C4; audit NET-4).
+         */
+        const claimStep = stepMigrationClaim({
+          nowMs: nowMigMs,
+          hostPeerId: session.hostPeerId,
+          alivePeerIds: alivePeers,
+          lastAcceptedAtMs,
+          hostPresentSinceMs: hostPresence.presentSinceMs,
+          starvationMs: migrationSeam?.starvationMs ?? HOST_STARVATION_MS,
+          graceMs: migrationSeam?.graceMs ?? RECONNECT_GRACE_MS,
+          ladderDelayMs: computeClaimDelayMs(
             session.warrant,
             aliveSeats,
             world.localPlayerId as number,
-            ladderMs,
-          );
-          if (
-            ladderDelayMs !== null &&
-            nowMigMs - migrationLossObservedAtMs >= graceMs + ladderDelayMs &&
-            // ⛔ S189 (C4) — only with a SURVIVOR to host for. A lone client that claims hosts an empty
-            // match and, being a host, stops reconnecting: the reproduction ended exactly there.
-            hasSurvivorToHostFor(alivePeers, session.hostPeerId)
-          ) {
+            migrationSeam?.ladderMs ?? CLAIM_LADDER_MS,
+          ),
+          lossObservedAtMs: migrationLossObservedAtMs,
+        });
+        migrationLossObservedAtMs = claimStep.lossObservedAtMs;
+        {
+          if (claimStep.claim) {
             {
               const newEpoch = session.currentEpoch + 1;
               migrationClaimedEpoch = newEpoch; // sync latch — fire exactly once per term

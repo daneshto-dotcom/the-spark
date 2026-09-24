@@ -38,6 +38,26 @@ The merge owner resumes from this file if this agent is cut off.
   `deploy.yml` nor `e2e.yml` sets the variable) — red before, green after (default run: 8 passed + 2
   skipped). Mutation: ungate one case → red. Protocol: none (tests only).
 
+- **FR-4 (audit NET-4) — the S124 D4 takeover of a FROZEN 1v1 host is RESTORED; the survivor gate now applies
+  ONLY on transport loss.** The first cut's `hasSurvivorToHostFor` gate blocked every 1v1 claim, including
+  D4's (host connected but silent → client takes over at starvation 6 s + grace 15 s + ladder; the thawed host
+  rejoins as a client, S125 v2) — an unapproved change to an existing mechanic. Now the WHEN of a claim is the
+  pure `stepMigrationClaim` (`net/reconnectPolicy.ts`), called from main.ts's claim block: host GONE from
+  our transport → claim only with a survivor (1v1: reconnect — the C4 fix stays); host PRESENT but starved →
+  D4 exactly as before. Plus `stepHostPresence`: starvation is counted from the later of the last snapshot
+  and the host's (re)appearance on our transport, so a reconnect that lands is not read as a starved host
+  before its first snapshot (the old code never reached that state because it had already claimed).
+  Failing test first: `stepMigrationClaim` was first written as today's logic → "1v1 FROZEN HOST takes over at
+  the D4 deadline" RED (never claimed) → fixed → GREEN; the claim lands at exactly last-snapshot + 21 s
+  (+ one frame). Also pinned: 1v1 transport loss never claims; a late reconnect does not claim before its first
+  snapshot; a host that returns and then freezes is taken over at D4 counted from its return; 3-seat host loss
+  with a survivor claims at grace + ladder; a non-warranted seat never claims. Mutations: gate on every path →
+  3 red; drop the presence stamp → 2 red. The thaw-rejoin path (host side, `onDeposed` → `demoteToClient`)
+  is untouched code. `vitest src/net/` EXIT=0 (36 / 562 + 3 skipped). Hotspot: `main.ts` claim block (the
+  hostGone/ladder arithmetic → one `stepMigrationClaim` call; the claim body untouched), a `hostPresence`
+  state + one `stepHostPresence` line per frame, the import list. Protocol: none — WHEN a peer claims is local;
+  the claim message and its verification are unchanged, and D4 behaviour is back to what v50 peers expect.
+
 ## Steps
 
 | # | step | state | commit |
