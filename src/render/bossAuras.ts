@@ -48,6 +48,7 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
+import type { PlayerId } from '../types.ts';
 import {
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
@@ -60,13 +61,14 @@ import {
   RA_RITUAL_TICKS,
 } from '../constants.ts';
 import { isStunned, isChannellingRa } from '../state/creatures/creature.ts';
-import { raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
+import { raColumnImpactTick, raColumnPos } from '../state/bossSkillsPharaohRitual.ts';
 import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview } from './raAimPreview.ts';
+import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -115,6 +117,8 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
     if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, world, bossId as number, boss);
   }
+  // ⭐ RAVFX-5 — the Pharaoh's FINALE column, played out after the host has removed him.
+  drawRaRitualTails(g, world);
   // ⭐ S188 P6 — POWER OF RA: called strikes and the local aim. Walks `world.players`, not the boss
   // loop above, so it draws on a board with no boss on it (the usual case).
   drawPowerOfRa(g, world);
@@ -152,11 +156,15 @@ function drawRaRitual(
   g: Graphics,
   world: World,
   id: number,
-  boss: { pos: { x: number; y: number }; raRitualUntilTick?: number },
+  boss: { pos: { x: number; y: number }; raRitualUntilTick?: number; ownerPlayerId: PlayerId },
 ): void {
+  // ⭐ S188 — a Pharaoh on the board is the earliest sign a strike is coming: fetch its art now, long
+  // before his ritual, so the first column lands as the owner's sprite and not as the code fallback.
+  ensureRaStrikeArt();
   const until = boss.raRitualUntilTick;
   if (until === undefined) return;
   if (!isChannellingRa(boss, world.tick)) return;
+  rememberRaRitual(world, id, boss.ownerPlayerId, boss.pos, until);
 
   // The priest himself: a rising halo while he channels, so the source of it all is legible.
   const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
@@ -167,6 +175,68 @@ function drawRaRitual(
 }
 
 /**
+ * ⭐⭐ RAVFX-5 — **THE FINALE COLUMN OUTLIVES THE PRIEST.** The fifth column lands on
+ * `raColumnImpactTick(until, 4)` = `until` itself — the tick `isChannellingRa` turns false, so
+ * `drawRaRitual` returns before drawing it, and the tick `runPharaohRitual` removes him. Nothing was
+ * left to derive the finale's flash, explosion and mushroom cloud from, so the ultimate's biggest
+ * moment never showed (with the art OR the code beam).
+ *
+ * ⚠ THIS IS THE ONE THING THE RA DRAWING REMEMBERS BETWEEN FRAMES, AND ONLY WHAT THE SIM NO LONGER
+ * SAYS: who he was, where he stood (a channelling Pharaoh cannot move, so it is where the column
+ * lands), whose he was, and his deadline. Every frame of the tail is still the pure
+ * `raStrikeFrameAt(tick, until)` through the SAME `drawRaColumns`, so a peer's tail is on the same
+ * frame as the host's. Render-only: nothing is written to the world, nothing crosses the wire.
+ *   · keyed per WORLD (a `WeakMap`), so no other world — a test fixture, a new session — ever sees it;
+ *   · drawn only for `tick ≥ until` (before that he is drawn live — never twice), only while
+ *     `gameState` is PLAYING (the sim's own gate for landing a column), and only if he was SEEN
+ *     channelling within `RA_TAIL_SIGHTING_SLACK_TICKS` of the deadline — a Pharaoh cleared away
+ *     early (a match reset, a godly abort) never had his finale land, and must not appear to;
+ *   · fog-gated at his last position, exactly like the live ritual;
+ *   · evicted once the tail has played (`RA_RITUAL_TAIL_TICKS`) or the clock runs backwards.
+ * ⚠ A joiner who arrives after he is gone has nothing to remember and sees no tail — ≤ 1.8 s of VFX.
+ */
+interface RaRitualTail {
+  readonly id: number;
+  readonly until: number;
+  readonly owner: PlayerId;
+  x: number;
+  y: number;
+  lastSeenTick: number;
+}
+const raRitualTails = new WeakMap<World, Map<string, RaRitualTail>>();
+/** Long enough for the art's whole aftermath, and for the code beam's flash when there is no art. */
+const RA_RITUAL_TAIL_TICKS = Math.max(RA_STRIKE_TAIL_TICKS, RA_FLASH_TICKS + 1);
+/**
+ * How close to the deadline he must have been seen channelling for his finale to be drawn. ⚠ MINE: a
+ * peer samples the host at 10 Hz (6 ticks), so 30 tolerates a few lost snapshots and still refuses a
+ * Pharaoh who vanished well before his last column was due.
+ */
+const RA_TAIL_SIGHTING_SLACK_TICKS = 30;
+
+function rememberRaRitual(world: World, id: number, owner: PlayerId, pos: { x: number; y: number }, until: number): void {
+  let tails = raRitualTails.get(world);
+  if (tails === undefined) { tails = new Map(); raRitualTails.set(world, tails); }
+  const key = `${id}@${until}`;
+  const t = tails.get(key);
+  if (t === undefined) tails.set(key, { id, until, owner, x: pos.x, y: pos.y, lastSeenTick: world.tick });
+  else { t.x = pos.x; t.y = pos.y; t.lastSeenTick = Math.max(t.lastSeenTick, world.tick); }
+}
+
+function drawRaRitualTails(g: Graphics, world: World): void {
+  const tails = raRitualTails.get(world);
+  if (tails === undefined || tails.size === 0) return;
+  for (const [key, t] of tails) {
+    const age = world.tick - t.until;
+    if (age >= RA_RITUAL_TAIL_TICKS || world.tick < t.until - RA_RITUAL_TICKS) { tails.delete(key); continue; }
+    if (age < 0) continue; // still channelling: `drawRaRitual` draws him live
+    if (world.gameState !== 'PLAYING') continue;
+    if (t.lastSeenTick < t.until - RA_TAIL_SIGHTING_SLACK_TICKS) continue;
+    if (isConcealed(t.x, t.y, t.owner)) continue;
+    drawRaColumns(g, world.tick, t.until, (k) => raColumnPos(t.id, k, t.x, t.y));
+  }
+}
+
+/**
  * ⭐ S188 P6 — **THE FIVE TELEGRAPHS AND COLUMNS, SHARED BY THE PHARAOH AND BY POWER OF RA.**
  *
  * Lifted VERBATIM out of `drawRaRitual` so a player's aimed strike draws through the Pharaoh's own
@@ -174,6 +244,22 @@ function drawRaRitual(
  * only WHERE the columns fall, and that is handed in as the SIM's own landing function, never
  * re-derived here: the Pharaoh passes `raColumnPos` around himself, a caster passes
  * `raStrikeColumnPos` around the aim. `until` is the same deadline shape for both.
+ *
+ * ⭐⭐ S188 `s188/ra-vfx` — **THE OWNER'S ART, ON THE SAME CLOCK.** *"it doesn't look good the way you
+ * did it with code … an instantaneous fast beam of light, you can't even see it"*. Once his sheet has
+ * loaded (`raStrikeArt()`), each column plays its own 23-frame strike — ring, beam, flash, explosion,
+ * mushroom cloud, smoke — with the slot chosen by `raStrikeFrameAt(tick, raColumnImpactTick(until,
+ * k))`: the SIM's own impact tick for that column, the one `runPharaohRitual` / `runPowerOfRa` deal
+ * damage on. So the flash is on the damage tick for the Pharaoh and for a player alike, by
+ * construction, and nothing is remembered between frames. What does NOT change with the art:
+ *   · the growing shade + outline — the owner's R171-B promise, at the EXACT kill radius — stays
+ *     under the rune ring, because the drawn ring is a perspective ellipse and the kill area is round;
+ *   · the scorch at the true kill radius for `RA_FLASH_TICKS` after impact (it states the hitbox).
+ * Only the thin code shaft is replaced. Without the art (still loading, failed, or the unit suite)
+ * this function draws exactly what it drew before S188.
+ *
+ * ⚠ SPRITES ARE DRAWN LAST, IN PAINTER'S ORDER (y, then k), so a later column's rune ring never
+ * paints over an earlier column's mushroom cloud that stands in front of it.
  */
 function drawRaColumns(
   g: Graphics,
@@ -181,16 +267,22 @@ function drawRaColumns(
   until: number,
   columnPos: (k: number) => { x: number; y: number },
 ): void {
+  ensureRaStrikeArt();
+  const art = raStrikeArt();
   const start = until - RA_RITUAL_TICKS;
   const elapsed = tick - start;
+  const sprites: Array<{ slot: number; x: number; y: number; k: number }> = [];
 
   for (let k = 0; k < RA_COLUMN_COUNT; k++) {
     const windowStart = k * RA_COLUMN_TICKS;
     const impact = (k + 1) * RA_COLUMN_TICKS;
     if (elapsed < windowStart) continue;              // not yet announced
-    if (elapsed > impact + RA_FLASH_TICKS) continue;  // done and faded
+
+    const slot = art === null ? null : raStrikeFrameAt(tick, raColumnImpactTick(until, k));
+    if (elapsed > impact + RA_FLASH_TICKS && slot === null) continue;  // done and faded
 
     const pos = columnPos(k);
+    if (slot !== null) sprites.push({ slot, x: pos.x, y: pos.y, k });
 
     if (elapsed < impact) {
       /*
@@ -202,6 +294,13 @@ function drawRaColumns(
       const r = RA_COLUMN_RADIUS * (0.18 + 0.82 * t);
       g.circle(pos.x, pos.y, r).fill({ color: RA_TELEGRAPH_TINT, alpha: 0.10 + 0.22 * t });
       g.circle(pos.x, pos.y, r).stroke({ color: RA_TELEGRAPH_TINT, width: 1.5, alpha: 0.35 + 0.5 * t });
+    } else if (art !== null) {
+      // The owner's sprite carries the beam and the blast; the code keeps only the hitbox scorch.
+      if (elapsed <= impact + RA_FLASH_TICKS) {
+        const f = 1 - (elapsed - impact) / RA_FLASH_TICKS; // 1 → 0
+        g.circle(pos.x, pos.y, RA_COLUMN_RADIUS * (1 + (1 - f) * 0.25))
+          .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
+      }
     } else {
       /*
        * THE COLUMN, FROM THE SKY. Drawn as a tall tapering shaft standing on the circle plus a
@@ -227,6 +326,10 @@ function drawRaColumns(
         .fill({ color: RA_HALO_TINT, alpha: 0.42 * f });
     }
   }
+
+  if (art === null || sprites.length === 0) return;
+  sprites.sort((a, b) => a.y - b.y || a.k - b.k);
+  for (const s of sprites) drawRaStrikeFrame(g, art, s.slot, s.x, s.y);
 }
 
 /* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to
@@ -255,6 +358,11 @@ const RA_AIM_TINT = 0xffd970;
  * the strike.
  */
 function drawPowerOfRa(g: Graphics, world: World): void {
+  // ⭐ RAVFX-7 — PREFETCH: a mummies seat in the match can call POWER OF RA, so its strike art is
+  // fetched now, before the first cast, not on the strike's first frame. Once per session.
+  for (const p of world.players.values()) {
+    if (p.raceId === 'mummies') { ensureRaStrikeArt(); break; }
+  }
   if (world.matchPhase === 'FIGHT') {
     const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
     for (const [seat, p] of seats) {
@@ -266,6 +374,7 @@ function drawPowerOfRa(g: Graphics, world: World): void {
 
   const aimAt = raAimPreview();
   if (aimAt === null) return;
+  ensureRaStrikeArt(); // RAVFX-7 — a player aiming is about to cast: make sure the art is coming
   if (raCastRefusal(world, aimAt.seat) !== null) return;
   const aim = raAimPoint(aimAt.x, aimAt.y);
   if (aim === null) return;
