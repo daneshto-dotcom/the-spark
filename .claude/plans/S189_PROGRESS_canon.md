@@ -78,3 +78,13 @@ branch pins what is already true on master now, so train E is only the deltas.
 - **Step 1 — merge `master` (`2d4391a`) into `s188/canon`.** Clean (exit 0): master had not touched
   `SPARK_CANON.md` or `src/canon.test.ts` since `2703365`, so the branch's canon text now sits on the
   deploy-#2 code. Gates are run on this merged tree in step 2, before any canon edit.
+- **Step 2 — baseline gates on the merged tree, then pin §3d's S188 text.** Baseline: typecheck
+  exit 0; `npx vitest run --maxWorkers=6` exit 0 (5996 tests / 367 files; the
+  `[net] LOBBY_PRESENCE broadcast failed` line in its log is a test's own logged path, benign — exit
+  0, zero failures); `src/canon.test.ts` alone exit 0 (39). Then four new cases, no canon text
+  change needed (every needle already matched master): level 0/5 + the general track + the offer
+  (`pickIsOffered`, `autoPickFor`, `isPoolPick`/`isDamagePick` on `'racial'`) · the panel geometry
+  (`PANEL_W × PANEL_H`, the two equal tiles) · the four castle buttons (order off `CASTLE_ROW_KEYS`,
+  price, cap, every disabled reason off `castlePanel.ts`, 40 → 48 off `castleShotFifthsFor`) · the
+  HP purchase through the real `applyUpgradeCastleStat`, the fallen-keep refusal, the wire default
+  and the rematch reset order. Canon test exit 0 (43), typecheck exit 0.

@@ -55,8 +55,32 @@ import {
   WORLD_EDGE_MARGIN,
 } from './constants.ts';
 import { PROTOCOL_VERSION } from './net/protocol.ts';
-import { DRAFT_WAVE_INTERVAL, isDraftWave, raceUnitPoolAfterPicks } from './state/draft.ts';
-import { CASTLE_HP_GAIN_BY_BAND } from './state/castleUpgrades.ts';
+import {
+  DRAFT_WAVE_INTERVAL,
+  GENERAL_TRACK,
+  draftIndexForWave,
+  generalPickForWave,
+  isDamagePick,
+  isDraftWave,
+  isPoolPick,
+  raceUnitPoolAfterPicks,
+} from './state/draft.ts';
+import {
+  CASTLE_HP_GAIN_BY_BAND,
+  CASTLE_STATS,
+  CASTLE_UPGRADE_MAX_LEVEL,
+  CASTLE_UPGRADE_PRICE,
+  applyUpgradeCastleStat,
+  castleMaxHpFor,
+  castleShotFifthsFor,
+  emptyCastleUpgrades,
+} from './state/castleUpgrades.ts';
+// S189 P10 — §3d as it is LIVE since S188: the draft's offer rules, its panel, the castle buttons.
+import { autoPickFor, pickIsOffered } from './state/draftEvent.ts';
+import { PANEL_H, PANEL_W, generalTileRect, racialTileRect } from './render/draftOverlay.ts';
+import { CASTLE_ROW_KEYS } from './render/castlePanel.ts';
+import type { World } from './state/worldTypes.ts';
+import { asPlayerId, type PlayerId } from './types.ts';
 import { DRONE_ATK, DRONE_PEN } from './constants.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -287,6 +311,110 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const g of CASTLE_HP_GAIN_BY_BAND) expect(canonSays(String(g))).toBe(true);
     // ⛔ And the canon must SAY the racial buffs are unbuilt, or the next session assumes they are.
     expect(canonSays('**NOT BUILT**')).toBe(true);
+  });
+
+  /**
+   * ⭐ S189 P10 — §3d AS IT IS LIVE SINCE S188. The S188 canon text was written on a branch and
+   * never got its assertions; these are they. Each fact is read off the function that decides it,
+   * not off a comment, so a changed offer rule turns this RED before the canon can mislead.
+   */
+  it('⭐ §3d — level 0 / level 5, the general track, and who may take what', () => {
+    expect(draftIndexForWave(1)).toBe(0);
+    expect(draftIndexForWave(6)).toBe(1);
+    expect(canonSays('(draft index 0)')).toBe(true);
+    expect(canonSays('(draft index 1)')).toBe(true);
+    expect(GENERAL_TRACK).toEqual(['hp', 'def', 'atk', 'pen']);
+    expect(generalPickForWave(21)).toBe('hp'); // the wrap — MINE, and the canon says so
+    expect(canonSays('HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE')).toBe(true);
+
+    // The offer: this wave's general axis, plus `'racial'` exactly when the race has a built perk.
+    // A minimal world — both functions read only `players.get(seat).raceId`.
+    const seat: PlayerId = asPlayerId(0);
+    const w = { players: new Map([[seat, { raceId: 'vampires', draftPicks: [] }]]) } as unknown as World;
+    expect(pickIsOffered(w, seat, 1, 'hp')).toBe(true);
+    expect(pickIsOffered(w, seat, 1, 'def')).toBe(false); // a modified client cannot take DEF at the HP draft
+    expect(pickIsOffered(w, seat, 1, 'racial')).toBe(true); // level 0
+    expect(pickIsOffered(w, seat, 6, 'racial')).toBe(true); // level 5
+    expect(pickIsOffered(w, seat, 11, 'racial')).toBe(false); // level 10+: COMING SOON
+    expect(canonSays('`pickIsOffered` admits exactly two things')).toBe(true);
+    // ⛔ His R106 reversal: the deadline takes the RACIAL whenever one is on offer, else the general.
+    expect(autoPickFor(w, seat, 1)).toBe('racial');
+    expect(autoPickFor(w, seat, 6)).toBe('racial');
+    expect(autoPickFor(w, seat, 11)).toBe(generalPickForWave(11));
+    expect(canonSays('`autoPickFor` returns `\'racial\'` whenever a perk is on offer')).toBe(true);
+    // A racial pick moves no pool and no damage number.
+    expect(isPoolPick('racial')).toBe(false);
+    expect(isDamagePick('racial')).toBe(false);
+    expect(canonSays('`isPoolPick(\'racial\')`')).toBe(true);
+  });
+
+  it('⭐ §3d — the draft panel geometry the canon prints is the one the renderer draws', () => {
+    expect(canonSays(`**${PANEL_W} × ${PANEL_H}**`)).toBe(true);
+    const g = generalTileRect();
+    const r = racialTileRect();
+    expect([r.w, r.h]).toEqual([g.w, g.h]); // two EQUAL tiles
+    expect(canonSays(`two tiles of **${g.w} × ${g.h}**`)).toBe(true);
+  });
+
+  /**
+   * ⭐ S189 P10 — §3d's castle buttons. S187 built the four stats in the sim and nothing dispatched
+   * them; S188 put them on the panel. The canon's numbers are read off the reducer and the panel.
+   */
+  it('⭐ §3d — the four castle buttons: order, price, cap, and what one point buys', () => {
+    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen']);
+    expect(canonSays(
+      `**HP / ATK / DEF / PEN**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
+    )).toBe(true);
+    // Four rows directly under REGEN, in HIS order.
+    const regen = CASTLE_ROW_KEYS.indexOf('castleRegen');
+    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen']);
+    expect(canonSays('**four rows under REGEN — HP, ATK, DEF, PEN**')).toBe(true);
+    expect(canonSays(`out of **${CASTLE_UPGRADE_MAX_LEVEL}** (\`CASTLE_UPGRADE_MAX_LEVEL\`)`)).toBe(true);
+    expect(canonSays(`its price **${CASTLE_UPGRADE_PRICE}**`)).toBe(true);
+    // Every disabled reason the canon names is one the panel can print.
+    const panel = readFileSync(new URL('./render/castlePanel.ts', import.meta.url), 'utf8');
+    const rows = panel.slice(panel.indexOf('const statRows = CASTLE_STAT_ROWS.map('));
+    const block = rows.slice(0, 900);
+    for (const reason of ['NOT YOURS', 'LOCKED', 'CASTLE LOST', 'MAX']) {
+      expect(block, reason).toContain(`'${reason}'`);
+      expect(canonSays(`\`${reason}\``), reason).toBe(true);
+    }
+    expect(panel).toContain('const needStat = `NEED ${CASTLE_UPGRADE_PRICE}`');
+    expect(canonSays(`\`NEED ${CASTLE_UPGRADE_PRICE}\``)).toBe(true);
+    // One ATK point, off the ladder.
+    const oneAtk = castleShotFifthsFor({ ...emptyCastleUpgrades(), atkLevel: 1 });
+    expect(oneAtk).toBe(attackFifths(CASTLE_ATK + 1, CASTLE_PEN));
+    expect(canonSays(`**${castleShotFifths()}** shot into **${oneAtk}**`)).toBe(true);
+  });
+
+  it('⛔ §3d — a bought HP point is HP the keep HAS, a fallen keep buys nothing, and absent means the ceiling', () => {
+    // Through the real reducer: a 2000-HP keep buying at wave 1 gains the band-1 250 in BOTH numbers.
+    const seat: PlayerId = asPlayerId(0);
+    const buy = (castleHp: number) => {
+      const w = {
+        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades() }]]),
+        scoreByPlayer: new Map([[seat, CASTLE_UPGRADE_PRICE]]),
+        waveNumber: 1,
+      };
+      applyUpgradeCastleStat(w, { type: 'UPGRADE_CASTLE_STAT', playerId: seat, stat: 'hp' }, () => {});
+      return w.players.get(seat)!;
+    };
+    const bought = buy(2000);
+    expect(castleMaxHpFor(bought.castleUpgrades)).toBe(CASTLE_MAX_HP + CASTLE_HP_GAIN_BY_BAND[0]!);
+    expect(bought.castleHp).toBe(2000 + CASTLE_HP_GAIN_BY_BAND[0]!);
+    expect(canonSays('**adds its band gain to the keep\'s CURRENT HP too**')).toBe(true);
+    const fallen = buy(0);
+    expect(fallen.castleHp).toBe(0); // R131 — never revives an eliminated seat
+    expect(canonSays('never on a fallen keep (R131)')).toBe(true);
+    // The wire default is the SEAT's ceiling, and the rematch resets the stats BEFORE the pool.
+    const save = readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8');
+    expect(save).toContain('?? castleMaxHpFor(castleUpgrades)');
+    expect(canonSays('reads as **that seat\'s upgraded ceiling** (`castleMaxHpFor`)')).toBe(true);
+    const mode = readFileSync(new URL('./state/gameMode.ts', import.meta.url), 'utf8');
+    const reset = mode.indexOf('player.castleUpgrades = emptyCastleUpgrades();');
+    expect(reset).toBeGreaterThan(-1);
+    expect(mode.indexOf('player.castleHp = castleMaxHpFor(player.castleUpgrades);')).toBeGreaterThan(reset);
+    expect(canonSays('**every bought stat resets**')).toBe(true);
   });
 
   it('⛔ §9d — the four recurring questions are CLOSED, and §10 no longer lists them as open', () => {
