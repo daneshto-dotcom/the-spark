@@ -367,3 +367,15 @@ Test: `bossSkillsKraken.test.ts` "REACH (audit U1)" — the goblin is walked in 
 must be 70 ± 10 %. ⭐ Mutation: the run BEFORE the fix is the additive form → RED
 ("expected -37.17697840468017 to be greater than 63"); after → green. vitest 0 — 6030 / 373; tsc 0.
 Protocol: host-only rule, no field → no bump.
+
+### U2-1 (LOW) — runHostTick's spawn-queue window is now proven opened AND closed — DONE (tests only)
+
+`spawnQueueBoundary.test.ts`: (a) the per-tick invariant case now also asserts the queue is EMPTY
+straight after each between-ticks raid — true only if the previous `runHostTick` closed its window;
+(b) NEW REACH: a stub `botManager.tick` dispatches a lethal `RAID_TARGET` on a demons.l5 chewer
+(bots act AFTER the post-sweep drain), and after ONE `runHostTick` both children exist and nothing is
+queued — only `endHostTickSpawnWindow`'s final drain can do that. ⭐ Mutation: deleting
+`endHostTickSpawnWindow(world);` turns both red ("straight after the raid at tick 20: expected 1 to be
++0", "nothing queued when the tick ends: expected 1 to be +0"); an early return that skips the line is
+the same mutation. Restored byte-identical. No production change (the try/finally hardening the audit
+listed as optional was NOT added — fix-only-these).

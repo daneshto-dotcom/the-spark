@@ -139,10 +139,38 @@ describe('S189 LOW (d) — the racial spawn queue never outlives the boundary a 
     for (let t = 0; t < 120; t++) {
       if (t % 20 === 0) {
         const victim = [...w.creatures.values()].find((c) => c.type === 'chewer' && c.ownerPlayerId === P0);
-        if (victim !== undefined) raid(w, victim.id);
+        if (victim !== undefined) {
+          raid(w, victim.id);
+          // ⛔ audit U2-1 — empty straight after a between-ticks raid ONLY if the previous
+          // runHostTick CLOSED its window: delete `endHostTickSpawnWindow`, or add an early return that
+          // skips it, and the window stays open, the out-of-tick drain goes silent, and this goes red.
+          expect(pendingRacialSpawns(w), `straight after the raid at tick ${w.tick}`).toBe(0);
+        }
       }
       runHostTick(w, d, s);
       expect(pendingRacialSpawns(w), `tick ${w.tick}`).toBe(0);
     }
+  });
+  it('⭐⭐ REACH (audit U2-1): a BOT raid inside runHostTick, after the post-sweep drain, is born by the FINAL drain', () => {
+    const w = fightWorld();
+    const parent = spawnAt(w, P0, 'chewer', 900, 500);
+    let raided = false;
+    // The bots act AFTER the post-sweep drain (hostTick's botManager.tick). Inside the tick the
+    // out-of-tick hook is silent, so only `endHostTickSpawnWindow`'s final drain can birth the split.
+    const bot = {
+      tick(world: World): void {
+        if (raided) return;
+        raided = true;
+        world.players.get(P1)!.raidPoints = 1;
+        dispatch(world, { type: 'RAID_TARGET', target: { kind: 'creature', id: parent }, playerId: P1 } as never);
+      },
+    };
+    const d = { ...hostDeps(), botManager: bot } as unknown as HostTickDeps;
+    const s = makeHostTickState(w);
+    runHostTick(w, d, s);
+    expect(raided, 'fixture: the bot ran').toBe(true);
+    expect(w.creatures.has(parent), 'fixture: the bot raid killed the chewer').toBe(false);
+    expect(pendingRacialSpawns(w), 'nothing queued when the tick ends').toBe(0);
+    expect(chewersOf(w), 'both HELLSPAWN children born by the end of the SAME tick').toBe(2);
   });
 });
