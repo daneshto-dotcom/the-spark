@@ -48,7 +48,34 @@
       "checkpoint_commit": "5934d3b",
       "real_context_tokens_at_close": 668848,
       "real_context_pct_at_close": 66.9,
-      "deployed": "deploy #3 (5934d3b)"
+      "deployed": "deploy #3 (5934d3b)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "isOverChoosable(x: number, y: number)"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.ts",
+          "needle": "isPointerOverDraftPanel()"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/footerBand.ts",
+          "needle": "isOverCollapseTab("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/input/controls.footerArrowLayer.test.ts",
+          "needle": "isOverCollapseTab"
+        },
+        {
+          "type": "file_contains",
+          "path": "e2e/click-to-build.spec.ts",
+          "needle": "generalTileRect"
+        }
+      ]
     },
     {
       "id": "P3",
@@ -93,7 +120,39 @@
       "checkpoint_commit": "5934d3b",
       "real_context_tokens_at_close": 668848,
       "real_context_pct_at_close": 66.9,
-      "deployed": "deploy #3 (5934d3b)"
+      "deployed": "deploy #3 (5934d3b)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/raStrikeArt.ts",
+          "needle": "export function ensureRaStrikeArt"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "if (world.creatures.has(asCreatureId(t.id))) continue;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/bossAuras.ts",
+          "needle": "world.structureWatchEpoch !== t.epoch"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raStrikeArt.test.ts",
+          "needle": "S190 RAVFX-A"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "const AHEAD_OF_THEIR_PERK = ['l10-mummies'] as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "**17** cards in `public/art/upgrade-cards/`"
+        }
+      ]
     },
     {
       "id": "P6",
