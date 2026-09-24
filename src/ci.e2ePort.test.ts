@@ -123,6 +123,13 @@ describe('S182 — the e2e dev server may not sit on a shared, fixed port', () =
  * vite's `--host` binds — because a `0.0.0.0` occupant does not block a `::` bind on Windows
  * (measured S189: vite started happily on the "occupied" port).
  */
+/**
+ * ⭐ S189 fix round (audit NET-6) — OPT-IN: `SPARK_SPAWN_VITE=1 npx vitest run src/ci.e2ePort.test.ts`.
+ * The two cases that start REAL vite dev servers never run in the default suite, which gates the
+ * live deploy. The source-level assertions around them always run.
+ */
+const SPAWN_VITE = process.env.SPARK_SPAWN_VITE === '1';
+
 describe('S189 — the e2e webServer fails fast on an occupied port', () => {
   const m = code.match(/command: `npm run dev -- ([^`]*)`/);
 
@@ -180,6 +187,17 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     });
   }
 
+  it('⛔ (audit NET-6) the default unit suite never spawns vite — the two spawning cases are opt-in', () => {
+    // The unit suite gates the live deploy (`deploy.yml` runs `npx vitest run`). A test that starts real
+    // dev servers there is slow, port-hungry and can hang a deploy on a busy runner, so the two REACH
+    // cases below run only with SPARK_SPAWN_VITE=1 — and no workflow sets it.
+    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
+    expect(self.match(/it\.runIf\(SPAWN_VITE\)\(/g)?.length).toBe(2);
+    for (const wf of ['.github/workflows/deploy.yml', '.github/workflows/e2e.yml']) {
+      expect(readFileSync(wf, 'utf-8'), wf).not.toContain('SPARK_SPAWN_VITE');
+    }
+  });
+
   it('the webServer command carries --strictPort (and still binds every interface)', () => {
     const args = viteArgs(1);
     expect(args).toContain('--strictPort');
@@ -187,7 +205,7 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     expect(args.slice(0, 2)).toEqual(['--port', '1']);
   });
 
-  it('⭐ REACH: the real vite, with the config\'s own arguments, EXITS 1 on a held port', async () => {
+  it.runIf(SPAWN_VITE)('⭐ REACH: the real vite, with the config\'s own arguments, EXITS 1 on a held port', async () => {
     const { srv, port } = await occupy();
     try {
       const r = await runVite(viteArgs(port), null, 25_000);
@@ -199,7 +217,7 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     }
   }, 40_000);
 
-  it('NEGATIVE: without the flag the same vite DRIFTS — the config alone does not fail fast', async () => {
+  it.runIf(SPAWN_VITE)('NEGATIVE: without the flag the same vite DRIFTS — the config alone does not fail fast', async () => {
     // This is why the flag is load-bearing: `vite.config.ts`'s `strictPort: false` is the behaviour
     // the flag has to override. If the config ever becomes strict itself, this goes red and the
     // docblock above should be re-read rather than the assertion flipped.

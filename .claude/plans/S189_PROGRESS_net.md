@@ -29,6 +29,15 @@ The merge owner resumes from this file if this agent is cut off.
   + audioManager` EXIT=0 (9 files / 338). Hotspot: `main.ts` Codex listener (~1570, 6 lines → the
   factory) + import. Protocol: none (local input).
 
+- **FR-7 (audit NET-6, owner-question decided conservatively) — the default unit suite never spawns vite.**
+  DECISION: env-var gate, not a move. `src/ci.e2ePort.test.ts`: the two cases that start real vite dev
+  servers are `it.runIf(SPAWN_VITE)` with `SPAWN_VITE = process.env.SPARK_SPAWN_VITE === '1'`; the
+  source-level assertions (the webServer command carries `--strictPort`) always run. Opt-in:
+  `SPARK_SPAWN_VITE=1 npx vitest run src/ci.e2ePort.test.ts` (verified EXIT=0, 10/10). Failing guard first:
+  "the default unit suite never spawns vite" (exactly two `it.runIf(SPAWN_VITE)(` cases, and neither
+  `deploy.yml` nor `e2e.yml` sets the variable) — red before, green after (default run: 8 passed + 2
+  skipped). Mutation: ungate one case → red. Protocol: none (tests only).
+
 ## Steps
 
 | # | step | state | commit |
