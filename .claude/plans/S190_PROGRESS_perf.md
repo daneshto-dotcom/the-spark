@@ -231,3 +231,9 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   now-unused `filesMatching` (TS6133) — removed, EXIT=0; (3) the brief named the clear() sites
   "softReset, applyReturnToTitle" the other way round — verified: `applyReturnToTitle` is gameMode.ts,
   `softReset` is gameState.ts, the save one is `applySnapshotCore`.
+
+### PERF-3 — the S181 guard also covers colourBucketFor and bondTargetIndexFor  ✅
+- `buildingTargeting.test.ts` smell loop now slices six functions (entry, builder, spread, scan, and
+  the two cache lookups). Mutation check: a `// recipeId` planted inside `colourBucketFor` → RED
+  (EXIT=1, "bond scan (colourBucketFor) must not filter on recipeId"); production file restored,
+  `git diff` empty.

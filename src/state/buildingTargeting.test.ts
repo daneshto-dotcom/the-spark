@@ -282,12 +282,19 @@ describe("S181 — ⛔ THE STINK TOWER HE NAMED IS REACHABLE, and nothing filter
     const builder = fnBody('function buildColourBucket(');
     const spread = fnBody('function spreadEnemyTarget(');
     const scan = fnBody('function nearestBondIn(');
+    // S190 audit PERF-3 — and the two functions that hand the entry point its bucket, so a filter slipped
+    // into the cache lookup (rather than the builder) cannot hide from this guard either.
+    const bucketFor = fnBody('function colourBucketFor(');
+    const indexFor = fnBody('function bondTargetIndexFor(');
     // The entry point scans the CLASSIFIED bucket, so the builder's filter is the one that decides…
     expect(entry).toContain('colourBucketFor(');
     // …and the one legitimate filter is ownership.
     expect(builder).toContain('isEnemyBondWithColor');
     // ⛔ and no recipe / defender / tower exclusion has crept in beside it, anywhere in the scan.
-    for (const [name, body] of [['findNearestBondTarget', entry], ['buildColourBucket', builder], ['spreadEnemyTarget', spread], ['nearestBondIn', scan]] as const) {
+    for (const [name, body] of [
+      ['findNearestBondTarget', entry], ['buildColourBucket', builder], ['spreadEnemyTarget', spread],
+      ['nearestBondIn', scan], ['colourBucketFor', bucketFor], ['bondTargetIndexFor', indexFor],
+    ] as const) {
       for (const smell of ['recipeId', 'stinkTower', 'laserTurret', 'defenders', 'isRaceTowerId']) {
         expect(body.includes(smell), `bond scan (${name}) must not filter on ${smell}`).toBe(false);
       }
