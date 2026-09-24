@@ -117,10 +117,20 @@ export const KRAKEN_SONAR_SHOVE_PER_SUBSTEP: number = (() => {
  *
  * ⚠ `prevPos` MOVES, NOT `pos` — see the file docblock: velocity here is `pos - prevPos`, so dragging
  * `prevPos` toward the Kraken hands the victim outward velocity and it SLIDES.
+ *
+ * ⛔ S189 audit U1 — **THE SHOVE REPLACES THE VICTIM'S VELOCITY; IT IS NOT ADDED TO IT.** The first cut
+ * wrote `prevPos -= u·S`, i.e. current velocity + shove. At 0.1644 px/substep (~79 px/s) the shove is
+ * slower than a walking goblin (~146 px/s), so a unit walking INTO the Kraken kept coming and ended its
+ * stun CLOSER — measured through the real host tick, a goblin closing at speed finished 37 px nearer
+ * instead of 70 px farther. The old 26 px/substep swamped any walking speed, which is why the additive
+ * form never showed. Setting `prevPos = pos − u·S` makes `KRAKEN_SONAR_SHOVE_PER_SUBSTEP`'s own premise
+ * — a stunned unit coasting from rest — true for every victim, whatever it was doing: the wave stops it
+ * and pushes it 70 px out. (The Kraken is the only production caller of `applyStun`, so nothing else
+ * changes.)
  */
 export function applySonarShove(v: Creature, ux: number, uy: number): void {
-  v.prevPos.x -= ux * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
-  v.prevPos.y -= uy * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
+  v.prevPos.x = v.pos.x - ux * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
+  v.prevPos.y = v.pos.y - uy * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
 }
 
 /**

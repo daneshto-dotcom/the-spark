@@ -350,3 +350,20 @@ is built.
   reasons unrelated to the counter (not investigated further — outside this brief) → that case was
   replaced by a direct NO-COLLISION check against every id that ever existed. Then `tsc` EXIT 1
   (`'P0' is declared but never read` in the new test) — fixed. The mutation run: EXIT 1, EXPECTED.
+
+## FIX ROUND (audit wf_642c93b4-7ea) — U1, U2-1, U2-7/U5, one commit each
+
+### U1 (MED) — the sonar shove REPLACES the victim's velocity — DONE
+
+**Confirmed through the real host tick** (the audit's figure was a recurrence, not a run): a goblin
+SEEKING into the Kraken at >100 px/s closing speed ended the stun **37.2 px CLOSER** with the additive
+shove (`prevPos -= u·S` = current velocity + 79 px/s). `applySonarShove` now sets
+`prevPos = pos − u·S`: the wave stops the victim and pushes it `KRAKEN_SONAR_KNOCKBACK_PX` out,
+whatever it was doing — the premise the derived impulse was built on. The Kraken is the only
+production caller of `applyStun` (grep: `bossSkillsKraken.ts:250`), so only the sonar changes.
+corpseEater F1 unaffected (the boss is at rest when shoved; its `≈ 70` pin still holds to 3 dp).
+Test: `bossSkillsKraken.test.ts` "REACH (audit U1)" — the goblin is walked in by the real host tick
+(Kraken held still + silent by a stun), then the Kraken is made due; end distance − start distance
+must be 70 ± 10 %. ⭐ Mutation: the run BEFORE the fix is the additive form → RED
+("expected -37.17697840468017 to be greater than 63"); after → green. vitest 0 — 6030 / 373; tsc 0.
+Protocol: host-only rule, no field → no bump.

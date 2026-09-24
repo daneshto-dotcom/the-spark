@@ -486,4 +486,52 @@ describe('S189 C10 — the sonar knocks back a LITTLE, stays on the board, and s
     expect(b.stunnedUntilTick).toBeUndefined();
     expect(b.pos).toEqual(b0); // still SPAWNING, force-free, and never shoved
   });
+
+  /*
+   * ⭐⭐ S189 audit U1 — **A UNIT WALKING INTO THE KRAKEN IS KNOCKED BACK TOO, NOT CARRIED THROUGH.**
+   *
+   * The first cut ADDED the shove to the victim's current velocity. Every test above used a victim at
+   * rest, so none could see that a unit walking toward him faster than ~79 px/s — a plain goblin walks
+   * ~146 px/s — kept coming, and ended the 2 s stun CLOSER (the audit's recurrence: −59 px for a goblin,
+   * −115 px at Voltkin speed). The shove now REPLACES the velocity, so every victim coasts the same
+   * `KRAKEN_SONAR_KNOCKBACK_PX` out. ⭐ Mutation-checked by restoring the additive form.
+   */
+  it('⭐⭐ REACH (audit U1): a goblin SEEKING at top speed INTO the Kraken ends ~70 px FARTHER away', () => {
+    const { world, bossId } = hostKrakenBoard();
+    const boss = world.creatures.get(bossId)!;
+    const d = hostDeps();
+    const s = makeHostTickState(world);
+    // Hold the Kraken still and silent while the goblin walks in (a stunned boss neither moves nor spits).
+    applyStun(boss, world.tick + 1_000_000);
+    const vid = spawnEnemy(world, 1300, 540); // marching on seat 0's keep, straight through the Kraken
+    let v = world.creatures.get(vid)!;
+    let t = 0;
+    for (; t < 2000; t++) {
+      runHostTick(world, d, s);
+      v = world.creatures.get(vid)!;
+      if (v.state === 'SEEKING' && Math.hypot(v.pos.x - boss.pos.x, v.pos.y - boss.pos.y) < 240) break;
+    }
+    expect(t, 'fixture: the goblin never reached the wave').toBeLessThan(2000);
+    // It is walking INTO him, at speed: the component of its velocity toward the Kraken, per second.
+    const toward = { x: boss.pos.x - v.pos.x, y: boss.pos.y - v.pos.y };
+    const tl = Math.hypot(toward.x, toward.y);
+    const closing = (((v.pos.x - v.prevPos.x) * toward.x + (v.pos.y - v.prevPos.y) * toward.y) / tl) * 480;
+    expect(closing, 'fixture: the goblin must be closing faster than the old break-even ~79 px/s').toBeGreaterThan(100);
+
+    // Release the Kraken and make him due on the very next tick.
+    delete boss.stunnedUntilTick;
+    while ((world.tick + 1 + (bossId as number)) % KRAKEN_SONAR_INTERVAL_TICKS !== 0) world.tick += 1;
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    runHostTick(world, d, s);
+    v = world.creatures.get(vid)!;
+    expect(v.stunnedUntilTick, 'the wave hit the goblin').toBeDefined();
+    const k = { x: boss.pos.x, y: boss.pos.y };
+    const startDist = Math.hypot(v.pos.x - k.x, v.pos.y - k.y);
+    applyStun(boss, world.tick + 1_000_000); // he may not walk up and kill what we are measuring
+    const until = v.stunnedUntilTick!;
+    while (world.tick < until - 1) runHostTick(world, d, s);
+    const endDist = Math.hypot(v.pos.x - k.x, v.pos.y - k.y);
+    expect(endDist - startDist).toBeGreaterThan(KRAKEN_SONAR_KNOCKBACK_PX * 0.9);
+    expect(endDist - startDist).toBeLessThan(KRAKEN_SONAR_KNOCKBACK_PX * 1.1);
+  });
 });
