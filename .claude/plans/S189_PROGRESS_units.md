@@ -16,8 +16,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | LOW a · corpse-eater bite latch | done | e594e88 |
 | LOW b · castle regen of effective max | done | 7c1036c |
 | LOW c · serialized nextCreatureId | done | a026902 |
-| LOW d · spawn-queue gap outside runHostTick | done | (this commit) |
-| final gates | done — tsc 0 · vitest 0 (6029 / 373) · build 0 (945.1 / 1100 KiB, +0.9 KiB) | (this commit) |
+| LOW d · spawn-queue gap outside runHostTick | done | 58fa5fc |
+| final gates | done — tsc 0 · vitest 0 (6029 / 373) · build 0 (945.1 / 1100 KiB, +0.9 KiB) | 58fa5fc |
+| BRIEF COMPLETE — report sent to the merge owner; nothing in flight | | |
 
 ## C3 — what was measured (the merge owner should read this before merging)
 
