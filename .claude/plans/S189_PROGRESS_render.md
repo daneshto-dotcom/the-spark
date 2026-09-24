@@ -17,8 +17,8 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 | C7 diagnose | done | 78eefed |
 | C7 fix + tests | done — mutation-tested | 78eefed |
 | LOW a | done — STATED, NOT FIXED (outside file boundary); characterization test | 52b0e28 |
-| LOW b | done — mutation-tested | (LOW b commit) |
-| gates | next | |
+| LOW b | done — mutation-tested | a82fb13 |
+| gates | done — typecheck 0 · vitest 0 (6028 / 371) · build 0 (944.4 / 1100 KiB) | (final commit) |
 
 ## C1 — DIAGNOSIS (verified against the tree)
 - "The spark" = his POINTER: `AvatarRenderer`'s `avatarRendererLocal` layer (S153 A1), drawn at
@@ -135,8 +135,19 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - **Mutation-tested**: removed the `?? atlases.get(fallbackType)` arm → REACH red ("expected [] to
   have a length of 1"), restored → green.
 
+## GATES (tip a82fb13, each exit from a captured `$?` written to a file)
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run` → **VITEST_EXIT=0**, 6028 tests / 371 files, all passed
+- `npm run build` → **BUILD_EXIT=0**, entry **944.4 KiB** / cap 1100 KiB, headroom 155.6 KiB
+  (base 944.2 → **+0.2 KiB** of the shared headroom)
+- e2e NOT run (per brief — the merge owner runs it on the merged tree). No dev server started.
+- **Wire / hash / shared rules: NONE changed.** `git diff --stat 15035b9 -- src/state src/net` is
+  EMPTY. No `PROTOCOL_VERSION`, canon, or `canon.test.ts` edit. No new synced field, no `GameEffect`.
+- Branch diff: `main.ts` (1 line moved), `draftOverlay.ts`, `gathererRenderer.ts`,
+  `goblinRenderer.ts`, 4 new test files, the two plan notes.
+
 ## In flight
-- gates
+- nothing — branch complete, awaiting audit + merge
 
 ## Decisions
 - C1 fix shape: remove the panel's zIndex + move one staging line, NOT a zIndex on the cruiser layer.
@@ -145,7 +156,10 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
   needed"; `zoneBackgroundRenderer.ts` "NO sortableChildren, AND ITS ABSENCE IS THE POINT").
 
 ## Numbers that are MINE (not the owner's)
-- (none)
+- No production constant was introduced or changed.
+- Test tolerances only: `SWIRL_BOX_PX = 64` (the swirl's own 2×28 px + stroke slack) and
+  `LAND_SLACK_PX = 60` (six ~6.6 px walk steps between two 10 Hz snapshots) in
+  `s189DeepCurrentNoBeam.test.ts`.
 
 ## Hotspot hunks (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts`)
 - `main.ts` ~936: the `app.stage.addChild(draftOverlay.container)` line + its one comment REMOVED from
@@ -175,6 +189,10 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
   fifths so one 12 killed both units before any heal could land (measured with a throwaway debug test,
   since deleted). Fixture now uses `t3Warband`; 4/4 green.
 - Session was killed once by the org spend limit mid-LOW-a; resumed from this file, commits intact.
+- After the full vitest run, `git status` showed
+  `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` modified — benign: vitest
+  rewrote the snapshot's line endings only (`git diff --quiet` exit 0 = no normalized content change).
+  Restored with `git checkout --`; tree clean. Pre-existing behaviour of that snapshot, not this branch.
 
 ## Out-of-scope findings (REPORTED, not fixed)
 - **F1 (net / C4-adjacent)**: before this branch, the draft panel (zIndex 900 on the sortable stage)
