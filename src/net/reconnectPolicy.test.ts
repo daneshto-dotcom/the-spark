@@ -12,6 +12,7 @@ import {
   RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
+  terminalLossCause,
 } from './reconnectPolicy.ts';
 import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 
@@ -107,5 +108,15 @@ describe('S189 C4 — a claim needs a survivor to host for', () => {
     expect(hasSurvivorToHostFor(new Set(['host-peer', 'seat-2']), 'host-peer')).toBe(true);
     expect(hasSurvivorToHostFor(new Set(['seat-2']), 'host-peer')).toBe(true);
     expect(hasSurvivorToHostFor(new Set(['seat-2']), null)).toBe(true);
+  });
+});
+
+describe('S189 E3 — the terminal line names its cause', () => {
+  it('maps each terminal branch of the overlay to one word', () => {
+    expect(terminalLossCause({ zombieDeposed: true, migrationCase: false, peerCount: 1 })).toBe('zombieDeposed');
+    expect(terminalLossCause({ zombieDeposed: false, migrationCase: true, peerCount: 1 })).toBe('migrationDeadline');
+    expect(terminalLossCause({ zombieDeposed: false, migrationCase: false, peerCount: 0 })).toBe('peerCount0');
+    // A 3+-seat client that lost only the host: peers remain, but not the one it follows.
+    expect(terminalLossCause({ zombieDeposed: false, migrationCase: false, peerCount: 2 })).toBe('hostLost');
   });
 });

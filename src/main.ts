@@ -72,6 +72,8 @@ import {
   RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
+  terminalLossCause,
+  type TerminalLossCause,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
@@ -3689,6 +3691,7 @@ Network routes: ${v.detail}`;
     // the in-flight loss design §8 accepts. Maintained here so dispatchFn stays O(1).
     migrationPauseActive = peersGone && !world.isHost && session.warrant !== null;
     let connectionLost = false;
+    let terminalCause: TerminalLossCause | null = null; // ⭐ S189 (E3) — for the terminal log line
     if (zombieDeposed) {
       // S124 P1 (D4) / S125 P1 — TERMINAL FAIL-SAFE only: a deposed host with no room code to
       // rejoin with (can't happen for a warranted host). The ordinary deposed-host path now
@@ -3697,6 +3700,7 @@ Network routes: ${v.detail}`;
       lobbyScreen.setConnectionLostReconnecting(false);
       lobbyScreen.setConnectionLostVisible(true);
       connectionLost = true;
+      terminalCause = 'zombieDeposed';
     } else if (peersGone) {
       if (reconnectUntilMs === 0) {
         reconnectUntilMs = nowMs + RECONNECT_GRACE_MS;
@@ -3753,6 +3757,11 @@ Network routes: ${v.detail}`;
         lobbyScreen.setConnectionLostReconnecting(false);
         lobbyScreen.setConnectionLostVisible(true);
         connectionLost = true; // terminal — drives the cinematic-abort edge below
+        terminalCause = terminalLossCause({
+          zombieDeposed: false,
+          migrationCase,
+          peerCount: session.netTransport?.peerCount() ?? 0,
+        });
       }
     } else {
       reconnectUntilMs = 0;
@@ -3760,6 +3769,19 @@ Network routes: ${v.detail}`;
     }
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
+    /*
+     * ⭐ S189 (C4, hunt E3) — ONE line on each edge, so a report can say what happened: the per-peer
+     * `[net] PEER DROPPED … cause=…` (transport.ts) says why the peer went; this says why the overlay
+     * gave up, and — since the loop now keeps trying past the grace — when it came back.
+     */
+    if (connectionLost && !lastConnectionLost) {
+      console.warn(
+        `[net] CONNECTION LOST (terminal) cause=${terminalCause ?? 'unknown'} isHost=${world.isHost} ` +
+          `peers=${session.netTransport?.peerCount() ?? 0}`,
+      );
+    } else if (!connectionLost && lastConnectionLost) {
+      console.warn('[net] CONNECTION RESTORED after the terminal overlay — a peer is back');
+    }
     if (connectionLost && !lastConnectionLost) {
       // S31 P0-4 — cinematicTimer cleanup REMOVED (deleted alongside the
       // setTimeout that created it). cutsceneOverlay.abort() internally

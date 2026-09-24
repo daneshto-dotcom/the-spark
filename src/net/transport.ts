@@ -234,6 +234,24 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object';
 }
 
+/**
+ * ⭐ S189 (C4, hunt E3) — WHY did a peer drop? Read from its peer connection's LAST observed state:
+ * a connection that had gone `disconnected` / `failed` / `closed` means the NETWORK died (Trystero's
+ * ICE lifecycle drops it: disconnected for 5 s, failed, closed, channel close); one still healthy when
+ * the peer vanished means the peer LEFT (a leave message — tab close, BACK TO MAIN, double-Escape).
+ * No observed state is `unknown`, never a guess.
+ */
+export type PeerDropCause = 'network-died' | 'peer-left' | 'unknown';
+const DEAD_PC_STATES = new Set(['disconnected', 'failed', 'closed']);
+const LIVE_PC_STATES = new Set(['connected', 'completed']);
+export function classifyPeerDrop(conn: string | null, ice: string | null): PeerDropCause {
+  if ((conn !== null && DEAD_PC_STATES.has(conn)) || (ice !== null && DEAD_PC_STATES.has(ice))) {
+    return 'network-died';
+  }
+  if (conn !== null && ice !== null && LIVE_PC_STATES.has(conn) && LIVE_PC_STATES.has(ice)) return 'peer-left';
+  return 'unknown';
+}
+
 export function detectProtocolMismatch(
   parsed: unknown,
 ): { mismatch: true; version: unknown } | { mismatch: false } {
@@ -257,6 +275,10 @@ export class NetTransport {
   private roomCode: string | null = null;
   /** ⭐ S189 — bumped by every connect()/disconnect(): a deferred start from an older one is void. */
   private connectGen = 0;
+  /** ⭐ S189 (E3) — each strategy×peer connection's last observed state, for the drop line. */
+  private readonly pcState = new Map<string, { conn: string; ice: string }>();
+  /** ⭐ S189 (E3) — when each peer last sent us anything (performance.now()). */
+  private readonly lastRxAtMs = new Map<string, number>();
 
   public onError: ErrorHandler | null = null;
 
@@ -325,6 +347,7 @@ export class NetTransport {
    * subsequent messages.
    */
   handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+    this.lastRxAtMs.set(peerId, performance.now()); // ⭐ S189 (E3) — for the drop line's lastRxAgoMs
     // S182 STEP 0 — count inbound bytes BEFORE the parse and before any gate, so the reading
     // includes the redundant second-strategy copy. That copy is not free on the joiner: it is a
     // full JSON.parse of a ~100 KiB payload that is then discarded on ClientSync's seq gate.
@@ -560,6 +583,7 @@ export class NetTransport {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
         handle.peers.add(peerId);
         this.stopIcePoll(handle);
+        this.watchPeerConnection(handle, peerId);
         // Dedup at transport boundary — only fire onPeerChange the first
         // time we see this peerId across all strategies.
         if (!this.peerSet.has(peerId)) {
@@ -572,6 +596,7 @@ export class NetTransport {
 
       room.onPeerLeave = (peerId) => {
         console.info(`[net] ${name} onPeerLeave: ${peerId}`);
+        this.logPeerDrop(name, peerId);
         handle.peers.delete(peerId);
         // Only fire leave when ALL strategies have lost this peer.
         const stillSeenElsewhere = Array.from(this.strategies.values()).some(
@@ -676,6 +701,46 @@ export class NetTransport {
         );
       }
     }, ICE_POLL_INTERVAL_MS);
+  }
+
+  /**
+   * ⭐ S189 (C4, hunt E3) — remember this peer connection's state from the moment it joins, so a drop
+   * can say whether the network died or the peer left. Diagnostics only: any failure here is silent.
+   */
+  private watchPeerConnection(handle: StrategyHandle, peerId: string): void {
+    try {
+      const peers = handle.room?.getPeers?.() as Record<string, RTCPeerConnection> | undefined;
+      const pc = peers?.[peerId];
+      if (pc === undefined || typeof pc.addEventListener !== 'function') return;
+      const key = `${handle.name}:${peerId}`;
+      const record = (): void => {
+        this.pcState.set(key, { conn: String(pc.connectionState), ice: String(pc.iceConnectionState) });
+      };
+      record();
+      pc.addEventListener('connectionstatechange', record);
+      pc.addEventListener('iceconnectionstatechange', record);
+    } catch {
+      /* diagnostics only */
+    }
+  }
+
+  /**
+   * ⭐ S189 (C4, hunt E3) — the ONE line a drop leaves, searchable as `[net] PEER DROPPED`. It was only
+   * `onPeerLeave: <id>`, the same whether the brother's tab closed or his network died.
+   */
+  private logPeerDrop(strategy: StrategyName, peerId: string): void {
+    const key = `${strategy}:${peerId}`;
+    const st = this.pcState.get(key) ?? null;
+    this.pcState.delete(key);
+    const rx = this.lastRxAtMs.get(peerId);
+    const lastRxAgoMs = rx === undefined ? 'never' : String(Math.round(performance.now() - rx));
+    const visibility = typeof document !== 'undefined' ? document.visibilityState : 'n/a';
+    console.warn(
+      `[net] PEER DROPPED strategy=${strategy} peer=${peerId} ` +
+        `cause=${classifyPeerDrop(st?.conn ?? null, st?.ice ?? null)} ` +
+        `conn=${st?.conn ?? 'unseen'} ice=${st?.ice ?? 'unseen'} ` +
+        `lastRxAgoMs=${lastRxAgoMs} visibility=${visibility}`,
+    );
   }
 
   private stopIcePoll(handle: StrategyHandle): void {

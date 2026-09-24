@@ -14,9 +14,9 @@ The merge owner resumes from this file if this agent is cut off.
 | 2 | C6 quickmatch seat — find the per-machine bias, fix, two-seeker test in both arrival orders | done | 2bbcd20 |
 | 3a | C5 — MEASURE (instrument `src/net/c5WaveFiveMeasure.test.ts`, opt-in `SPARK_C5_MEASURE=1`) | done | b72a4c4 |
 | 3b | C5 — the in-boundary fix the numbers name: snapshot send backpressure (latest-wins) + a reproduction through real NetTransport + real Trystero action-wire | done | 0c9acdc |
-| 4a | C4 — diagnosis + e2e REPRODUCTION (hard blip) + the auto-reconnect fix (coordinator priority 2) | done | (this commit) |
-| 4b | C4 — E3 drop-reason logging (coordinator priority 3) | next | |
-| 4c | C4 — A1 Escape-as-cancel (coordinator priority 4) — WAIT until the coordinator says train A is on master, then `git merge master` first; needs `src/input/controls.ts` | blocked | |
+| 4a | C4 — diagnosis + e2e REPRODUCTION (hard blip) + the auto-reconnect fix (coordinator priority 2) | done | 6dae206 |
+| 4b | C4 — E3 drop-reason logging (coordinator priority 3) | done | (this commit) |
+| 4c | C4 — A1 Escape-as-cancel (coordinator priority 4) — train A IS on master (5934d3b, coordinator); `git merge master` first; needs `src/input/controls.ts` | next | |
 | 4 | C4 disconnect — own diagnosis, reproduction test BEFORE any fix | pending | |
 
 ## In flight
@@ -158,6 +158,20 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   the lobby screen's overlay) and hides the "CONNECTION LOST" text and its Return-to-Title button — seen in
   the reproduction's screenshots (dark 0.88 veil, draft panel on top, no text).
 
+## C4 / E3 — the drop is now readable (step 4b)
+
+- `[net] PEER DROPPED strategy=… peer=… cause=network-died|peer-left|unknown conn=… ice=… lastRxAgoMs=…
+  visibility=…` — one line per strategy drop (`transport.ts` `logPeerDrop`), the cause read from the peer
+  connection's LAST observed state (listeners attached at `onPeerJoin`, `watchPeerConnection`): any of
+  disconnected/failed/closed → network-died; connected+connected/completed → peer-left (a leave message:
+  tab close, BACK TO MAIN, double-Escape); nothing observed → unknown. `classifyPeerDrop` is pure + exported.
+- `[net] CONNECTION LOST (terminal) cause=zombieDeposed|migrationDeadline|hostLost|peerCount0 isHost=… peers=…`
+  on the terminal edge (`main.ts`, cause from the pure `terminalLossCause`), and
+  `[net] CONNECTION RESTORED after the terminal overlay — a peer is back` on the recovery edge (reachable now
+  that the loop keeps trying past the grace).
+- Reproduced first: `peerDropLog.test.ts` RED before the change (5/5 — no such line), GREEN after; mutation
+  (drop the `logPeerDrop` call) → 3 red; restored from a byte copy.
+
 ## Decisions
 
 - Step 1: `--strictPort` goes on the webServer COMMAND only; `vite.config.ts` keeps `strictPort: false`
@@ -187,6 +201,9 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 
 ## Hotspot hunks (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts`)
 
+- `src/main.ts` (step 4b): `terminalLossCause` + `TerminalLossCause` added to the reconnectPolicy import;
+  `let terminalCause` beside `let connectionLost`; set in the zombie branch and the terminal else-branch; one
+  log block (two edges) just above the existing `if (connectionLost && !lastConnectionLost)` cinematic-abort.
 - `src/main.ts` (step 4a, net/reconnect sections only, self-contained):
   1. import block after `./net/session.ts` — `hasSurvivorToHostFor`, `reconnectRetryDue`, `RECONNECT_*`
      from `./net/reconnectPolicy.ts`;
@@ -196,6 +213,8 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
      `reconnectRetryDue(...)` — the overlay branches below it are unchanged.
 
 ## Wire / hash / shared-rule changes (each owes a protocol-bump verdict; branch never bumps)
+
+- E3 (step 4b): console lines only. No wire, no hash, no bump.
 
 - C4 (step 4a): NO wire change. Reconnect timing and the leave/join ordering are local. The claim gate
   changes only WHEN a lone peer would claim — a claim it would have broadcast to nobody. Two builds that
@@ -212,6 +231,9 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   save.ts, no HELLO/LOBBY field.
 
 ## Gate exit codes (captured `$?`)
+
+- step 4b: `peerDropLog.test.ts` PRE EXIT=1 (5 red, the reproduction) → POST EXIT=0; typecheck EXIT=0;
+  `npx vitest run src/net/` EXIT=0 (36 files / 554 + 3 skipped). Mutation EXIT=1 (3 red).
 
 - step 4a: e2e `reconnect-hard-blip.spec.ts` PRE-fix EXIT=1 (the reproduction — attempts 1450/5503/9541/
   13663 ms, no recovery in 45 s); e2e temp rejoin-latency spec EXIT=0 (fresh join 6299 ms; clean rejoins

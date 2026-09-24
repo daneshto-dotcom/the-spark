@@ -71,3 +71,16 @@ export function hasSurvivorToHostFor(
   for (const p of alivePeerIds) if (p !== lostHostPeerId) return true;
   return false;
 }
+
+/** ⭐ S189 (C4, hunt E3) — why the overlay went TERMINAL, for the one `[net] CONNECTION LOST (terminal)` line. */
+export type TerminalLossCause = 'zombieDeposed' | 'migrationDeadline' | 'hostLost' | 'peerCount0';
+
+export function terminalLossCause(i: {
+  readonly zombieDeposed: boolean;
+  readonly migrationCase: boolean;
+  readonly peerCount: number;
+}): TerminalLossCause {
+  if (i.zombieDeposed) return 'zombieDeposed';
+  if (i.migrationCase) return 'migrationDeadline';
+  return i.peerCount === 0 ? 'peerCount0' : 'hostLost';
+}
