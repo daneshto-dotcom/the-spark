@@ -1,29 +1,20 @@
 /**
- * ⚠ S189 LOW (a) — A SAME-TICK HEAL IS HIDDEN INSIDE A NET DAMAGE FLOATER. **STATED, NOT FIXED.**
+ * ⭐⭐ S189 (owner R190-I) — A HIT AND A HEAL ON THE SAME TICK PRINT AS TWO NUMBERS, IN THEIR OWN COLOURS.
  *
- * The brief: *"`damageNumbers.ts` emits on the net `ehp` delta — show both, or state why not; do not
- * change R185-D anchoring."* This file is the "state why not", made mechanical: it drives the REAL
- * strike funnel (`damageEntity`) and the REAL lifesteal batch (`applyPendingLifesteal`, exactly the
- * pair `runHostTick` runs) into the REAL `DamageNumbers` class, and pins what a player sees today.
+ * > *"It has to show -12 and +2 separately, in different colors … it shows every single hit or heal.
+ * > They can stack on top of each other … however fast you take damage or heal, that's how fast it
+ * > should show."* — owner, S189
  *
- * WHAT HAPPENS. A BLOOD DEBT unit trades goblin-sized 12s with an enemy in one tick: it takes 12 and
- * heals 2 (20 % of its own swing). `ehp` falls by 10 between two observations, so ONE red "10" is
- * printed — the true 12 and the green 2 are both invisible. Under CRIMSON TIDE (50 %) the same trade
- * prints a red "6". His S181 complaint in the mirror image: *"it says it hits 40 per shot, but it only
- * does 6 … we need to show the ACTUAL damage being taken"*.
+ * FLIPPED FROM THE PIN IT USED TO BE. Until R190-I this file pinned the gap: a BLOOD DEBT unit taking
+ * 12 and healing 2 on one tick printed ONE red "10" — the true 12 and the green 2 both invisible —
+ * because `damageNumbers.ts` diffed `ehp` alone. `Creature.healedFifths` (a monotonic heal counter,
+ * written at every heal site, riding the wire) now lets `creaturePoolChange` split the two.
  *
- * WHY IT IS NOT FIXED ON THIS BRANCH. The two halves cannot be separated from synced state: `ehp` is
- * the only thing either peer holds, and the heal's size depends on the healer's OWN swing into a
- * target the wire does not name (`trimMirrorCreature` strips `targetCreatureId`). An exact split
- * needs a host-local per-frame record written at the heal sites — the `creatureKillHits` pattern —
- * i.e. a new `World` field (worldTypes + factory + three phase resets + workerSim + stateHashFull
- * 'acknowledged') and writes in `racial/lifesteal.ts` (×2), `bossSkills.ts:121` (Vlad's sap) and
- * `racial/corpseEater.ts:256`. All of that is outside `s189/render`'s file boundary (renderers only),
- * so it is REPORTED with that shape instead (progress file, LOW a). A joiner would still see the net
- * number even then — the same host-only limit `creatureKillHits` already accepts.
- *
- * ⛔ WHEN THAT CHANNEL LANDS, THIS FILE GOES RED ON PURPOSE — re-pin it to "red 12 + green 2", never
- * delete it. The heal-only and damage-only cases below must stay green through that change.
+ * DRIVEN FOR REAL: the strike funnel (`damageEntity`) and the lifesteal batch (`applyPendingLifesteal`,
+ * the pair `runHostTick` runs) into the real `DamageNumbers`; and, for the JOINER, the real
+ * `HostSync → ClientSync.receive → interpolateInto` path into a second `DamageNumbers` on the client
+ * world. Only Pixi's `Text` is faked (Node has no canvas). Mutation-tested: dropping the counter from
+ * `creaturePoolChange` turns the split cases back into the old net red number.
  */
 import { describe, expect, it, vi } from 'vitest';
 
@@ -39,7 +30,7 @@ vi.mock('pixi.js', () => {
   return { Container, Text, TextStyle };
 });
 
-const { GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN, PLAYER_COLORS, phaseDurationTicks } = await import('../constants.ts');
+const { GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN, NET_RENDER_DELAY_MS, PLAYER_COLORS, phaseDurationTicks } = await import('../constants.ts');
 const { dispatch, makeWorld } = await import('../state/world.ts');
 const { damageEntity } = await import('../state/damage.ts');
 const { applyPendingLifesteal, lifestealFifths, BLOOD_DEBT_LIFESTEAL_PCT, CRIMSON_TIDE_LIFESTEAL_PCT } =
@@ -47,13 +38,16 @@ const { applyPendingLifesteal, lifestealFifths, BLOOD_DEBT_LIFESTEAL_PCT, CRIMSO
 const { asCreatureId, makeCreature } = await import('../state/creatures/creature.ts');
 const { getCreatureConfig } = await import('../state/creatures/voltkin-config.ts');
 const { attackFifths } = await import('../state/stats.ts');
+const { HostSync, ClientSync } = await import('../net/sync.ts');
 const { asPlayerId, asSpawnerId } = await import('../types.ts');
-const { DamageNumbers } = await import('./damageNumbers.ts');
+const { DamageNumbers, creaturePoolChange } = await import('./damageNumbers.ts');
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
 const SWING = attackFifths(GOBLIN_MELEE_ATK, GOBLIN_MELEE_PEN); // 12 — the one ladder
 const GREEN = 0x2fbf3f;
+
+type Floater = { text: string; color: 'red' | 'green' };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fight(picks: Array<'racial' | 'hp'>): { w: any; mine: any; theirs: any } {
@@ -93,64 +87,129 @@ function batch(w: any, strikes: () => void): void {
   w.pendingLifestealFifths = null;
 }
 
-/** Sync to seed the watch, act, sync again: the floaters the act produced, with their colour. */
+/** The two units trade one swing each; mine heals from its own. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function floatersFrom(w: any, act: () => void): Array<{ text: string; color: 'red' | 'green' }> {
+function trade(w: any, mine: any, theirs: any): void {
+  batch(w, () => {
+    damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
+    damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
+  });
+}
+
+function read(dn: unknown): Floater[] {
+  const live = (dn as { live: Array<{ text: { text: string; style: { o?: { fill?: number } } } }> }).live;
+  return live.map((f) => ({ text: f.text.text, color: f.text.style.o?.fill === GREEN ? 'green' : 'red' }));
+}
+
+/** HOST seat: sync to seed the watch, act, sync again — the floaters the act produced. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function hostFloaters(w: any, act: () => void): Floater[] {
   const dn = new DamageNumbers();
   dn.sync(w);
   act();
   dn.sync(w);
-  const live = (dn as unknown as { live: Array<{ text: { text: string; style: { o?: { fill?: number } } } }> }).live;
-  return live.map((f) => ({ text: f.text.text, color: f.text.style.o?.fill === GREEN ? 'green' : 'red' }));
+  return read(dn);
 }
 
-describe('⚠ S189 LOW (a) — the trade in one tick prints ONE net red number (the known, stated gap)', () => {
-  it('BLOOD DEBT: takes 12, heals 2 → a single red "10" over my unit; no "12", no green "2"', () => {
+/**
+ * JOINER seat: the host world crosses the real sync path at snapshot 1 (before) and 2 (after), and a
+ * second `DamageNumbers` watches the CLIENT world. `strip` removes the counter from the wire — a host
+ * build that never wrote it.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function joinerFloaters(w: any, act: () => void, strip = false): Floater[] {
+  const host = new HostSync();
+  const client = new ClientSync();
+  const cw = makeWorld(0);
+  cw.isHost = false;
+  cw.gameMode = '1v1';
+  cw.gameState = 'LOBBY';
+  const send = (now: number): void => {
+    const msg = host.buildSnapshotMessage(w);
+    if (strip) for (const c of msg.snapshot.creatures ?? []) delete (c as { healedFifths?: number }).healedFifths;
+    client.receive(msg, now);
+    client.interpolateInto(cw, now, NET_RENDER_DELAY_MS);
+  };
+  const dn = new DamageNumbers();
+  send(1000);
+  dn.sync(cw);
+  act();
+  w.tick += 6;
+  send(1100);
+  dn.sync(cw);
+  return read(dn);
+}
+
+describe('⭐⭐ S189 R190-I — HOST: the trade prints the hit AND the heal, each in its colour', () => {
+  it('BLOOD DEBT: red 12 and green 2 over my unit, red 12 over theirs — three numbers, not one', () => {
     const { w, mine, theirs } = fight(['racial']);
     const heal = lifestealFifths(SWING, BLOOD_DEBT_LIFESTEAL_PCT);
     expect(heal).toBe(2);
-    const out = floatersFrom(w, () => batch(w, () => {
-      damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
-      damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
-    }));
-    // The enemy's floater is its true 12; mine is the NET of 12 in and 2 back.
-    expect(out).toContainEqual({ text: String(SWING), color: 'red' });
-    expect(out).toContainEqual({ text: String(SWING - heal), color: 'red' });
-    expect(out.filter((f) => f.color === 'green')).toEqual([]);
-    expect(out).toHaveLength(2);
+    const out = hostFloaters(w, () => trade(w, mine, theirs));
+    expect(out.filter((f) => f.color === 'red').map((f) => f.text).sort()).toEqual([String(SWING), String(SWING)]);
+    expect(out.filter((f) => f.color === 'green')).toEqual([{ text: String(heal), color: 'green' }]);
+    expect(out.map((f) => f.text)).not.toContain(String(SWING - heal)); // the old net "10" is gone
   });
 
-  it('CRIMSON TIDE: the same trade prints a red "6" — half the swing he would be checking against', () => {
+  it('CRIMSON TIDE: red 12 and green 6 — no longer a red "6"', () => {
     // L5 is draft index 1; a seat with 'racial' there holds CRIMSON TIDE.
     const { w, mine, theirs } = fight(['hp', 'racial']);
     const heal = lifestealFifths(SWING, CRIMSON_TIDE_LIFESTEAL_PCT);
     expect(heal).toBe(6);
-    const out = floatersFrom(w, () => batch(w, () => {
-      damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
-      damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
-    }));
-    expect(out).toContainEqual({ text: String(SWING - heal), color: 'red' });
+    const out = hostFloaters(w, () => trade(w, mine, theirs));
+    expect(out).toContainEqual({ text: String(heal), color: 'green' });
+    expect(out.filter((f) => f.color === 'red').map((f) => f.text)).toEqual([String(SWING), String(SWING)]);
+  });
+});
+
+describe('⭐⭐ S189 R190-I — JOINER: the same two numbers, off the wire', () => {
+  it('a joiner applying 10 Hz snapshots prints red 12 + green 2 for my unit, red 12 for theirs', () => {
+    const { w, mine, theirs } = fight(['racial']);
+    const out = joinerFloaters(w, () => trade(w, mine, theirs));
+    expect(out.filter((f) => f.color === 'red').map((f) => f.text).sort()).toEqual([String(SWING), String(SWING)]);
+    expect(out.filter((f) => f.color === 'green')).toEqual([{ text: '2', color: 'green' }]);
+  });
+
+  it('⚠ STALE PEER — a host that never writes the counter: the joiner falls back to the old net number, no error', () => {
+    const { w, mine, theirs } = fight(['racial']);
+    const out = joinerFloaters(w, () => trade(w, mine, theirs), true);
+    expect(out).toContainEqual({ text: String(SWING - 2), color: 'red' });
     expect(out.filter((f) => f.color === 'green')).toEqual([]);
   });
 });
 
-describe('✅ the two cases that ARE exact today — these must stay green through any fix', () => {
+describe('✅ the single cases stay exact', () => {
   it('damage alone prints the true swing, red', () => {
     const { w, mine, theirs } = fight(['hp']);
-    const out = floatersFrom(w, () => batch(w, () => {
+    const out = hostFloaters(w, () => batch(w, () => {
       damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
     }));
     expect(out).toEqual([{ text: String(SWING), color: 'red' }]);
   });
 
-  it('a heal alone prints the true heal, green', () => {
+  it('a heal alone prints the true heal, green (and the enemy its 12, red)', () => {
     const { w, mine, theirs } = fight(['racial']);
-    // Wound it first (outside the watch), then let it land a blow and heal with nothing coming in.
     damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
-    const out = floatersFrom(w, () => batch(w, () => {
+    const out = hostFloaters(w, () => batch(w, () => {
       damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
     }));
     expect(out).toContainEqual({ text: String(lifestealFifths(SWING, BLOOD_DEBT_LIFESTEAL_PCT)), color: 'green' });
-    expect(out).toContainEqual({ text: String(SWING), color: 'red' }); // the enemy's
+    expect(out).toContainEqual({ text: String(SWING), color: 'red' });
+    expect(out).toHaveLength(2);
+  });
+});
+
+describe('creaturePoolChange — the arithmetic, and its two fallbacks', () => {
+  it('splits a 12 hit and a 2 heal', () => {
+    expect(creaturePoolChange(100, 90, 0, 2)).toEqual({ damage: 12, heal: 2 });
+  });
+  it('a heal bigger than the hit still shows both', () => {
+    expect(creaturePoolChange(100, 105, 4, 13)).toEqual({ damage: 4, heal: 9 });
+  });
+  it('a counter that went DOWN (host migration onto an older build) counts no heal — net reading', () => {
+    expect(creaturePoolChange(100, 90, 50, 0)).toEqual({ damage: 10, heal: 0 });
+  });
+  it('a rise the counter does not explain is shown as a heal, as before', () => {
+    expect(creaturePoolChange(100, 107, 0, 0)).toEqual({ damage: 0, heal: 7 });
   });
 });
