@@ -410,3 +410,6 @@ then writes over a living entity. Latent: `WORKER_DEFAULT_ON = false` (`workerFl
 here — it is not a one-line counter in the sites this branch touched (the natural fix is one line in
 `workerSim.ts` calling `rebuildAuthorityAllocators`, or LOW c's serialize shape for this counter);
 **for the merge owner.** `activeCinematicPlayerId` (also hashed, not in save.ts) did not differ here.
+
+### Fix-round gates (tip 80b8e7f): typecheck 0 · vitest 0 — 6031 / 373 · build 0 — 945.1 / 1100 KiB
+Commits: 4f229e4 (U1) · a7d53c7 (U2-1) · 80b8e7f (U2-7/U5 verdict). Nothing in flight.
