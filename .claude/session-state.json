@@ -6,7 +6,7 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-  "session_status": "S190 EXECUTING — owner approved the full batch S190; every priority dispatched in parallel",
+  "session_status": "S190 EXECUTING — deploy #3 LIVE (train A: input-layer + ra-vfx + canon), verify-deploy 4/4; trains B-E in flight",
   "protocol_version": 50,
   "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
@@ -40,9 +40,15 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/input-layer",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s188/input-layer (C9 footer arrow one layer below the tower cards + draft click-through): audited S188 x2 + S190 2-lens audit (IL-M1, IL-B1 CONFIRMED) -> phase-2 fix round (merge master, IL-B1 e2e un-vacuated, IL-1 hover-under-draft, IL-2 RMB put-back restored, docs), each fix mutation-tested; fix-round audit lane DIED at the spend limit -> checked by the merge owner by hand (merge-tree clean vs master and ra-vfx, no wire diff, agent's mutation proofs read). Train A gates on the merged tree, captured $?: typecheck 0, vitest 0 (6227/370), build 0 (948.1/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5). Deploy #3 pushed 441c832..5934d3b, verify-deploy 4/4. LOOKED at live spark-online.space: tier 4 open, click on the STINK TOWER card over the arrow ARMED the tower and the footer stayed up (C9 fixed in production).",
+      "checkpoint_commit": "5934d3b",
+      "real_context_tokens_at_close": 668848,
+      "real_context_pct_at_close": 66.9,
+      "deployed": "deploy #3 (5934d3b)"
     },
     {
       "id": "P3",
@@ -79,9 +85,15 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/ra-vfx",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s188/ra-vfx (owner's Ra strike art + WRATH card): owed tests (15, mutation-tested), master merged clean, group-C triage -> fix round RAVFX-1/-5/-7/-8/-10 -> fix-round audit found RAVFX-A (finale drawn when the deadline falls in BUILD) + RAVFX-B (godly abort inside the slack), verifier died at the limit -> verified by the merge owner on the code and FIXED on the train-A branch (absence gate + structureWatchEpoch gate, both mutation-tested). Seam fixed: canon.test.ts card count vs the ahead-of-perk l10-mummies card (union allowance, canon prints 17). Same train-A gates as P2; deploy #3 verify-deploy 4/4; live site loads with zero console errors.",
+      "checkpoint_commit": "5934d3b",
+      "real_context_tokens_at_close": 668848,
+      "real_context_pct_at_close": 66.9,
+      "deployed": "deploy #3 (5934d3b)"
     },
     {
       "id": "P6",
@@ -148,7 +160,18 @@
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P2",
+      "tag": "#s190-a-fix-for-a-guard-can-break-the-gesture-under-it",
+      "lesson": "The S188 draft-panel click guard also swallowed the right-click put-back of a held tower — a regression of a live gesture hiding inside a correct fix. Every guard that swallows input must enumerate the gestures under it, not only the one it was written for."
+    },
+    {
+      "priority": "P5",
+      "tag": "#s190-render-state-that-outlives-sim-state-needs-the-sims-proof",
+      "lesson": "The Pharaoh finale tail assumed PLAYING was the sim's landing gate; the real gate was hostTick's FIGHT block. A renderer that remembers past what the sim says must key on the sim's own evidence (his absence, the mass-clear epoch), never on a proxy."
+    }
+  ],
   "carry_forward_findings": [
     "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
     "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
@@ -163,7 +186,7 @@
   "totals": {
     "turns": 0,
     "budget_remaining": 1000000,
-    "budget_status": "GREEN"
+    "budget_status": "statusline_dead"
   },
   "auto_fill_applied": {
     "ts": "2026-09-24T13:49:20.400741Z",

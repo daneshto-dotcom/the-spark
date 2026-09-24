@@ -244,6 +244,24 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
   race + litter). Awaiting his rulings; the discriminating disconnect question is Q1 (title screen → the
   double-Escape bug; background tab → hidden-tab deposition; both in game → broken auto-reconnect).
 
+## ⭐ DEPLOY #3 LIVE — TRAIN A (input-layer + ra-vfx + canon) · 5934d3b · verify-deploy 4/4
+
+Integrated on `s190/train-a`, one branch at a time, typecheck + FULL vitest after every merge (6185 → 6208 →
+6224+1 red → fixed → 6227). The red was a SEAM: canon.test.ts counted exactly 16 cards, ra-vfx ships WRATH's
+`l10-mummies` ahead of its perk → the same UNION allowance as draftOverlay.test.ts, canon prints 17. The ra-vfx
+fix-round audit's RAVFX-A (finale drawn when the deadline falls in BUILD — the ritual only runs in hostTick's FIGHT
+gate) + RAVFX-B (godly abort inside the slack) were verified by the merge owner and FIXED on the train branch
+(absence + `structureWatchEpoch` gates, both mutation-proven). CLAUDE.md bundle (1100 / 948.1) + protocol lines.
+Gates, captured $?: typecheck 0 · vitest 0 (6227/370) · build 0 (948.1/1100) · e2e:gating 0 (70/70, machine
+quiet) · e2e:races 0 (5/5). ff master → push 441c832..5934d3b → Pages success → verify-deploy 4/4.
+⭐ LOOKED at spark-online.space: loads, zero console errors; solo match, tier 4 open, a click on the STINK TOWER
+card over the arrow ARMED the tower and the footer STAYED UP — **C9 fixed in production.** P2 + P5 COMPLETED.
+⚠ Audit lanes that died at the second limit: input-layer + canon fix-round audits (checked by hand — merge-tree,
+wire diff, mutation proofs, full gates); render lens 1 (lens 2 landed: R2-1 MED click-through → sent to render).
+Deferred to train B (touches protocol.ts anyway): `attackCycleRaged` in the 50 docblock + canon §6 tripwire; the
+pre-existing BUILD-phase Ra columns in `drawRaRitual` (no FIGHT gate — columns 0-3 of a ritual crossing into BUILD
+draw though nothing lands) → carry-forward.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
