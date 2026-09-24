@@ -198,6 +198,13 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
   structure incl. welded towers (must take only its own members; the blast itself untouched). Estimate first; stop
   and report if beyond an afternoon. Then its audit.
 
+- **P5 ra-vfx FIX ROUND DONE (tip 696dd51)** — RAVFX-1 `ab1be03` (top feather + intake guard exit 2, atlas rebuilt,
+  test decodes the shipped PNG), -8 `d9c5357`, -7 `e9bb008` (prefetch implemented), -10 `7817205`, -5 `9b98680`
+  (render-only per-world tail cache for the Pharaoh finale). Gates 0/0/0/0 (6019, 947.0 KiB, branch +2.8), mechanics
+  diff vs master EMPTY (re-checked here). Wrath now breaks TWO test lines (`raStrikeArt.test.ts:116` and `:560`).
+  → fix round under its own audit (run `wf_3bd767c8-18c`). If clean, ra-vfx rides TRAIN A with input-layer (no
+  wire change) — before wrath, as RAVFX-4 requires.
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
