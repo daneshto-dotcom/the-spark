@@ -42,7 +42,8 @@
 import { describe, expect, it } from 'vitest';
 import { PHYSICS_HZ, PLAYER_COLORS } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { applyStun, isStunned } from './creatures/creature.ts';
+import { applyStun, isStunned, creatureMaxEhp } from './creatures/creature.ts';
+import { CORPSE_EATER_TRIGGER_PCT } from './racial/corpseEater.ts';
 import { computeSteeringAccel, ZERO_ACCEL } from '../physics/creatureVerlet.ts';
 import { runWarlordRage, runWarlordDirewolves } from './bossSkillsWarlord.ts';
 import { runZombieRotAura } from './bossSkills.ts';
@@ -348,6 +349,72 @@ describe('S169 R152 — GATE 4: a stunned boss uses no skills', () => {
    * it while stunned would let a Warlord stunned below 25% emerge un-enraged. Asserted so a future
    * reader cannot "tidy" it into the gate above.
    */
+  /*
+   * ⭐⭐ S188 (audit F4) — CORPSE EATER, the zombie boss's THIRD skill (zombies level 5), joins this
+   * enumeration, and through the REAL host tick rather than its runner: it lives in the racial slot
+   * (`racial/racialTick.ts`), not in the boss-skill list above it, so a gate that only covered
+   * `hostTick`'s own list would not reach it.
+   */
+  async function corpseEaterScene(): Promise<{
+    world: World; boss: ReturnType<World['creatures']['get']> & object; food: { ehp: number }; tick: (n: number) => void;
+  }> {
+    const { runHostTick, makeHostTickState } = await import('./hostTick.ts');
+    const { Spawner, DEFAULT_SPAWNER_CONFIG } = await import('../game/spawner.ts');
+    const { mulberry32 } = await import('./rng.ts');
+    const { makeGameStateExtras } = await import('./gameState.ts');
+    const { world, id } = worldWith(T9_BOSS_TYPE.zombies);
+    world.gameState = 'PLAYING';
+    const seat = world.players.get(P0)!;
+    (seat as { raceId: string }).raceId = 'zombies';
+    seat.draftPicks.push('hp', 'racial'); // holds zombies.l5
+    const boss = world.creatures.get(id)!;
+    boss.ehp = Math.floor((creatureMaxEhp(boss) * CORPSE_EATER_TRIGGER_PCT) / 100); // on his line
+    dispatch(world, {
+      type: 'SPAWN_CREATURE', creatureType: 't3Scarab' as never, ownerPlayerId: P0,
+      pos: { x: 520, y: 500 }, targetPos: { x: 520, y: 500 },
+    });
+    const food = [...world.creatures.values()].find((k) => k.type === 't3Scarab')!;
+    food.ehp = 1_000_000; // his own unit at his feet — the only thing he could eat
+    const deps = {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)),
+      controls: { state: { kind: 'Idle' }, applyPerSubstep() {} },
+      botManager: null, gameStateExtras: makeGameStateExtras(), alivePeerIds: null, hostSeats: new Map(),
+    } as never;
+    const st = makeHostTickState(world);
+    const keep = new Set([boss.id, food.id]);
+    const tick = (n: number): void => {
+      for (let i = 0; i < n; i++) {
+        runHostTick(world, deps, st);
+        for (const k of [...world.creatures.keys()]) if (!keep.has(k)) world.creatures.delete(k);
+        food.pos.x = 520; food.pos.y = 500; food.prevPos.x = 520; food.prevPos.y = 500;
+      }
+    };
+    return { world, boss, food, tick };
+  }
+
+  it('⭐⭐ CORPSE EATER — a stunned boss on his 20 % line does not sit down to eat (real runHostTick)', async () => {
+    const { world, boss, food, tick } = await corpseEaterScene();
+    applyStun(boss, world.tick + 120);
+    tick(110);
+    expect(boss.corpseEaterUntilTick, 'no feed armed while stunned').toBeUndefined();
+    expect(food.ehp, 'and nothing bitten').toBe(1_000_000);
+    // CONTROL — the moment the stun lapses he sits down and eats, so the gate above is not vacuous.
+    tick(120);
+    expect(boss.corpseEaterUntilTick).toBeDefined();
+    expect(food.ehp).toBeLessThan(1_000_000);
+  });
+
+  it('⭐ CORPSE EATER — a boss stunned MID-FEED takes no bite and heals nothing (real runHostTick)', async () => {
+    const { world, boss, food, tick } = await corpseEaterScene();
+    tick(5);
+    expect(boss.corpseEaterUntilTick, 'feeding').toBeDefined();
+    applyStun(boss, world.tick + 10_000);
+    const [foodBefore, bossBefore] = [food.ehp, boss.ehp];
+    tick(200);
+    expect(food.ehp, 'no bite while stunned').toBe(foodBefore);
+    expect(boss.ehp, 'no heal while stunned').toBe(bossBefore);
+  });
+
   it('⚠ but RAGE still latches while stunned — a latch is not an action', () => {
     const { world, id } = worldWith(T9_BOSS_TYPE.orcs);
     const boss = world.creatures.get(id)!;

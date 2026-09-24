@@ -47,9 +47,10 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_ATK,
   CASTLE_ATTACK_RANGE,
   CASTLE_FIRE_INTERVAL_TICKS,
-  CASTLE_MAX_HP,
+  CASTLE_PEN,
   PHYSICS_HZ,
   RACE_TOWER_EMIT_INTERVAL_TICKS,
   ALL_SPARK_TYPES,
@@ -62,7 +63,9 @@ import {
   ZOMBIE_AURA_PER_MILLE,
 } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
-import { castleShotFifths } from '../state/castleGuns.ts';
+// ⭐ S188 P3 — the PURCHASED numbers, through the functions the sim reads (the base
+// `castleShotFifths()` stays in castleGuns.ts; the card no longer prints it).
+import { castleMaxHpFor, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -76,6 +79,7 @@ import type { CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId, Vec2 
 import { codexCopyFor, type EmblemSpec } from './codexPresentation.ts';
 import { blueprintBill } from '../state/blueprints.ts';
 import { RACE_TOWER_UNIT, raceForTowerId } from '../state/raceTowerIds.ts';
+import { towerUnitForSeat } from '../state/racial/apexPredator.ts'; // S188 APEX PREDATOR (audit F3)
 import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
@@ -385,6 +389,8 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
   t3Hound: 'HOUND',
   t3Scarab: 'SCARAB',
   t3Piranha: 'PIRANHA',
+  // S188 APEX PREDATOR — his words: *"upgrade the tier three piranha into a big one"*.
+  t3PiranhaElite: 'ELITE PIRANHA',
   t3Bat: 'BAT',
   t3Warband: 'WARBAND',
   t3Souleater: 'SOULEATER',
@@ -717,16 +723,29 @@ export function statValueColumnPx(
  * `MONO_EM_RATIO` for every race in `ALL_RACES`, so a longer unit name turns a test red instead of
  * silently re-breaking the card.
  */
-export function feedHintFor(recipeId: string | null): string | null {
+export function feedHintFor(
+  recipeId: string | null,
+  /**
+   * ⭐ S188 (audit F3) — the SEAT's promotion of the tower's unit (APEX PREDATOR: piranha → elite for a
+   * naga seat holding `nagas.l5`). Identity by default, so every caller that has no seat keeps the
+   * race table's unit. The structure card passes the real rule, `towerUnitForSeat`, so the card and
+   * the sim cannot disagree about what the tower emits.
+   */
+  unitFor: (base: CreatureType) => CreatureType = (u) => u,
+): string | null {
   if (recipeId === null) return null;
   const race = raceForTowerId(recipeId as GodlyId);
   if (race === null) return null;
-  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[RACE_TOWER_UNIT[race]]}S`;
+  return `FEED A SHAPE TO BUILD MORE ${CREATURE_NAME[unitFor(RACE_TOWER_UNIT[race])]}S`;
 }
 
 const NO_BUILD_INFO = { description: null, buildEmblem: null, buildBill: null } as const;
 
-export function buildInfoFor(recipeId: string | null): {
+export function buildInfoFor(
+  recipeId: string | null,
+  /** ⭐ S188 (audit F3) — the seat's promotion of the tower's unit; see `feedHintFor`. */
+  unitFor: (base: CreatureType) => CreatureType = (u) => u,
+): {
   description: string | null;
   buildEmblem: EmblemSpec | null;
   buildBill: string | null;
@@ -745,8 +764,9 @@ export function buildInfoFor(recipeId: string | null): {
   const race = raceForTowerId(recipeId as GodlyId);
   if (race !== null) {
     const every = Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ);
-    const unit = CREATURE_NAME[RACE_TOWER_UNIT[race]];
-    description = `Spawns a ${unit.toLowerCase()} every ${every}s.`;
+    const unit = CREATURE_NAME[unitFor(RACE_TOWER_UNIT[race])].toLowerCase();
+    // S188 — "an elite piranha", not "a elite piranha". No shipped unit name starts with a vowel.
+    description = `Spawns ${/^[aeiou]/.test(unit) ? 'an' : 'a'} ${unit} every ${every}s.`;
   }
 
   let buildBill: string | null = null;
@@ -1324,7 +1344,10 @@ function structureSheet(
     stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
     stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
   }
-  const info = buildInfoFor(recipeId);
+  // ⭐ S188 (audit F3) — the tower OWNER's seat decides what it emits (APEX PREDATOR), exactly as the sim's
+  // two emit sites ask it. The card is read by any seat, so it is the owner's rule, never the viewer's.
+  const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
+  const info = buildInfoFor(recipeId, unitFor);
   const h = heightFor(
     stats.length, owned !== null, actions?.buttons ?? [], buildInfoHeight(info),
   );
@@ -1345,7 +1368,7 @@ function structureSheet(
      * six shapes each make a DIFFERENT goblin — one caption cannot state that truthfully, and a
      * wrong-but-tidy label is worse than none.
      */
-    feedHint: feedHintFor(recipeId),
+    feedHint: feedHintFor(recipeId, unitFor),
     rect: rectFor(prim.pos, h),
   };
 }
@@ -1364,8 +1387,40 @@ function castleSheet(
   if (p === undefined) return null;
   const mine = target.seat === seat;
   const anchor = castleAnchor(target.seat as unknown as number, world.layout);
+  /*
+   * ⭐⭐ S188 P3 — THE CARD READS THE KEEP'S PURCHASED STATS, not the constants it was built from.
+   *
+   * ⛔ WHAT IT SAID BEFORE WAS FALSE THE MOMENT A PURCHASE LANDED. The first row was
+   * `castleShotFifths()` — the UN-upgraded 40 — and the bar's max was the flat `CASTLE_MAX_HP`, so a
+   * keep that bought ATK kept printing 40 while its gun (`castleGunsTick` reads
+   * `castleShotFifthsFor`) hit for 48, and a keep that bought HP read `2500 / 2500` over a ceiling
+   * of 2750. Every number here now comes from the SAME function the sim reads for it.
+   *
+   * ⭐ ATK / PEN / DEF IN THE UNIT CARD'S SHAPE (`statRowsFor`): offence before defence, and the shot
+   * sits on the ATK row it is derived FROM — his own correction, *"the 150 a swing is right where the
+   * attack row is"*. That is why SHOT is no longer its own row: it is this row's derived number.
+   *
+   * ⚠ NO `HP` ROW, deliberately. The castle's pool is off the ladder (canon §2), so an HP row would
+   * print 2750 against the radar's unit-scale HP axis and pin it to the rim forever. The pool is the
+   * health bar's `max`, which the card already prints as `cur / max`.
+   *
+   * ⚠ DEF's derived text is `castleUpgradePreview` of the PREVIOUS level — i.e. literally the string
+   * the panel's DEF button showed as "NEXT" before this point was bought — so the button's promise
+   * and the card's readout cannot disagree by a rounding rule written twice.
+   */
+  const u = p.castleUpgrades;
   const stats: SheetStatRow[] = [
-    { label: 'SHOT', points: castleShotFifths(), derived: 'a shot' },
+    { label: 'ATK', points: CASTLE_ATK + u.atkLevel, derived: `${castleShotFifthsFor(u)} a shot` },
+    { label: 'PEN', points: CASTLE_PEN + u.penLevel, derived: null },
+    {
+      label: 'DEF',
+      points: u.defLevel,
+      derived:
+        u.defLevel === 0
+          ? null
+          : castleUpgradePreview({ ...u, defLevel: u.defLevel - 1 }, 'def', world.waveNumber)
+              .toLowerCase(),
+    },
     { label: 'RANGE', points: CASTLE_ATTACK_RANGE, derived: 'px' },
     { label: 'RELOAD', points: Math.round(CASTLE_FIRE_INTERVAL_TICKS / PHYSICS_HZ), derived: 'seconds' },
     { label: 'REGEN', points: p.castleRegenLevel, derived: p.castleRegenLevel === 0 ? 'not bought' : 'level' },
@@ -1377,7 +1432,8 @@ function castleSheet(
     portrait: { kind: 'castleFrame', race: p.raceId ?? null },
     health: {
       cur: Math.max(0, p.castleHp),
-      max: CASTLE_MAX_HP,
+      // ⭐ S188 P3 — THIS seat's ceiling (`castleRegenTick` heals to the same number).
+      max: castleMaxHpFor(u),
       frozen: isConcealed(anchor.x, anchor.y, target.seat),
     },
     stats,

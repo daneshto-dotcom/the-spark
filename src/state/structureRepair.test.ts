@@ -411,7 +411,7 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     // Hurt a CONNECTOR without touching a single shape, and without breaking it.
     const bondId = [...w.bonds.keys()][0];
     const capacity = connectorCapacityFifths(w.bonds.size);
-    expect(damageConnector(w, bondId, Math.max(1, Math.floor(capacity / 2)))).toBe(false);
+    expect(damageConnector(w, bondId, Math.max(1, Math.floor(capacity / 2)), null)).toBe(false);
     expect(w.bonds.get(bondId)!.damageFifths).toBeGreaterThan(0);
     for (const p of w.primitives.values()) expect(p.hp).toBe(PRIMITIVE_MAX_HP);
 

@@ -1,132 +1,176 @@
 {
-  "session_id": "S188",
-  "session_kind": "owner-driven: build + wire all L0/L5 racial mechanics, the 17 cards, castle upgrade buttons; six autonomous worktrees, main session = merge owner. Pre-approved.",
-  "session_start": "2026-09-23",
-  "prior_session_archive": ".claude/session-archive/session-state_S187_2026-09-23.json",
+  "session_id": "S190",
+  "session_kind": "owner-driven: DISPATCH the S189 batch PDR (pre-approved) — research workflows + six worktree agents + merge trains A-E",
+  "session_start": "2026-09-24",
+  "prior_session_archive": ".claude/session-archive/session-state_S189_2026-09-24.json",
   "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-  "session_status": "S188 IN-PROGRESS",
+  "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+  "session_status": "S190 EXECUTING — owner approved the full batch S190; every priority dispatched in parallel",
   "protocol_version": 50,
+  "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
+  "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "council": {
-    "grok": "grok-4.20-0309-reasoning: 4 challenges, all REJECTED with code-grounded reasons",
-    "gemini": "gemini-3.1-pro-preview: 4 challenges, 3 ACCEPTED (A1,A2,A4) + 1 MODIFIED (A3)",
-    "prime_audit": "A5 accepted: spawns deferred out of the strike-batch iteration"
+    "rounds": 2,
+    "ledger": ".claude/plans/2026-09-24_S189_BATCH_PDR.md §8"
   },
   "priorities": [
     {
       "id": "P0",
-      "title": "BOOT-READ GATE: no session skips the boot / muscle-memory layer (owner mandate, ecosystem-wide)",
-      "status": "completed",
-      "priority_state": "completed",
+      "title": "s189/net: CONNECTION LOST (C4) + lag at wave 5 (C5) + quickmatch seat (C6)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "check_completed": true,
-      "checkpoint_commit": "fb3c8f3 (~/.claude) + 199f40a (Founder DNA)",
-      "check_method": "27/27 behavioural tests (boot-read-gate.test.sh) incl. 7-way concurrent Read marks, /c/ and /cygdrive spellings, resume keeps reads, owner waiver, fail-open on garbage/unknown session/home dir. Mutation-tested twice: gate always-allow -> 4 red; is_read always-true -> 13 red; restored -> 27/27. GROK-ANALYST review: concurrency lost-update ACCEPTED (marker files), silent fail-open ACCEPTED (error log + wrapper log), cygdrive ACCEPTED; relative path / HOME / timeout / subagent-cwd ruled benign with reasons. Live-proven on this session: bootstrapped manifest listed 10 reads incl. an IN-PROGRESS plan pre-flight never surfaced; all 10 opened via Read and recorded. Also fixed pre-flight trace-slug bug (spaced project names matched another project's trace)."
-    },
-    {
-      "id": "P1",
-      "title": "Racial substrate: 'racial' pick, racialPerks.ts registry, draft validation, racialTick slots, PROTOCOL 49->50",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/net",
       "status": "in_progress",
       "priority_state": "in_progress",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P2",
-      "title": "s188/cards: wire the 17 cards, racial tile live",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/input-layer: footer arrow (C9) + draft click-through - audit, fix, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/cards"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/input-layer",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P3",
-      "title": "s188/castle: castle HP/ATK/DEF/PEN upgrade buttons",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/wrath: WRATH OF RA - audit, fix, merge (train B, protocol 51)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/castle"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/wrath",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P4",
-      "title": "s188/racial-a: BLOOD DEBT, CRIMSON TIDE, BLOOD FRENZY, THE HORDE GROWS, SCORCHED GROUND, DEEP CURRENT",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/swarm: THE SWARM - audit, fix, merge (train B, protocol 51)",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-a"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/swarm",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P5",
-      "title": "s188/racial-b: THE RISEN, HELLSPAWN, ENDLESS DYNASTY",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/ra-vfx: owed tests + gates, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-b"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/ra-vfx",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P6",
-      "title": "s188/racial-c: POWER OF RA",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s188/draft-atk: finish drafted ATK/PEN + HELLSPAWN card numbers, merge",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-c"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s188/draft-atk",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P7",
-      "title": "s188/racial-d: CORPSE EATER, APEX PREDATOR",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "title": "s189/units: C3 Voltkin, C8 Helga, C10 Kraken + sim LOWs",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md",
-      "branch": "s188/racial-d"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/units",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
       "id": "P8",
-      "title": "Merge owner: audit each branch, fix, merge one at a time with gates, e2e, canon, deploy, verify-deploy",
-      "status": "pending",
-      "priority_state": "pending",
+      "title": "s189/weld: C2 welding onto a tower must not dissolve it",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-23_S188_BATCH_PDR.md"
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/weld",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+    },
+    {
+      "id": "P9",
+      "title": "s189/render: C1 spark above draft panel, C7 teleport line + render LOWs",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "branch": "s189/render",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+    },
+    {
+      "id": "P10",
+      "title": "Canon + stale CLAUDE.md lines + S173 plan closed SUPERSEDED + pdca-context.sh string ids",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     }
   ],
   "reflexion_entries_to_archive": [],
-  "carry_forward_findings": []
+  "carry_forward_findings": [
+    "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
+    "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
+    "e2e webServer: hashed port + vite strictPort:false lets an orphan vite shift the port while Playwright polls the old URL (S188 timeout) — in the net brief",
+    "S173_NONET_STAGES.md is SUPERSEDED by canon §9 R182-G/H — close it in P10",
+    "Owner numbers to confirm: APEX PREDATOR bite x4, THE SWARM bite x11",
+    "INFRA DEFECT (S189): session-state.json lost-update race — a write followed by git add in the SAME Bash call committed the OLD content three times (fe027c6, 15f5938, 8663da6 all hold S188). Suspect the tool-call counter hook (.claude/session-state.json.tmp.counter.<pid> read-modify-rename). Rebuilt S189 by hand; verify session_id in a SEPARATE call before trusting it. Hunt the writer in ~/.claude/hooks."
+  ],
+  "scope_amendments": [],
+  "budget_total": 1000000,
+  "tool_calls_session_total": 0,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-09-24T13:49:20.400741Z",
+    "fields": [
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  },
+  "owner_approval_s190_verbatim": "After a full and complete boot sequence, you already have the plan from last session. I approve the full session priority batch. And full independent agent run and work trees work on all priorities in parallel."
 }

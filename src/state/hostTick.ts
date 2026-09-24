@@ -138,12 +138,14 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
+import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
-import { isStunned } from './creatures/creature.ts';
+import { isCorpseEaterFeeding, isStunned, ragedFireTick } from './creatures/creature.ts';
 
 // Human is always seat 0 (mirrors main.ts's module const of the same name —
 // the BotManager comment documents the invariant).
@@ -1124,7 +1126,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           if (anchor !== undefined && race !== null) {
             dispatch(world, {
               type: 'SPAWN_CREATURE',
-              creatureType: RACE_TOWER_UNIT[race],
+              // ⭐ S188 APEX PREDATOR — the seat's promotion (piranha → elite for `nagas.l5`), the
+              // same rule the fed path asks; see `racial/apexPredator.ts`.
+              creatureType: towerUnitForSeat(world, sp.ownerPlayerId, RACE_TOWER_UNIT[race]),
               ownerPlayerId: sp.ownerPlayerId,
               pos: { x: anchor.pos.x, y: anchor.pos.y },
               targetPos: { x: anchor.pos.x, y: anchor.pos.y },
@@ -1421,6 +1425,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
    * retune anyone's balance numbers.
    */
   world.pendingCreatureDeaths = new Set();
+  // ⭐ S188 F1 — and the lifesteal accumulator beside it: heals made during the batch are summed, not
+  // applied, so a vampire melee cannot depend on loop order either (see `racial/lifesteal.ts`).
+  world.pendingLifestealFifths = new Map();
 
   // S25 P0 — fan-out CREATURE_TICK to every live creature. Host-only (client
   // never simulates; S28 NetSnapshot v2 mirrors host→client creature state).
@@ -1501,6 +1508,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * skip at the top of the iteration is the only shape that cannot rot as arms are added.
        */
       if (creature !== undefined && isStunned(creature, world.tick)) continue;
+      /*
+       * ⭐ S188 (CORPSE EATER, zombies level 5) — A FEEDING ZOMBIE BOSS IS NOT DRIVEN FROM HERE. For
+       * his ~8 s window `racial/corpseEater.ts` is the whole of his behaviour (target, leash, bite,
+       * heal) — letting this loop run him too would have him march and strike on top of the feed.
+       * One skip at the top, for the reason stun gate 3 gives above.
+       */
+      if (creature !== undefined && isCorpseEaterFeeding(creature, world.tick)) continue;
       /*
        * ⭐ S158 P3 (CF-S157-e) — `&& !targetsStructures` IS THE WHOLE FIX, AND HERE IS WHY IT IS A
        * CONJUNCT RATHER THAN A REORDER.
@@ -1935,7 +1949,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         afterCfg !== null &&
         (afterCfg.chewsConnectors
           ? after.ticksInState > 0 && after.ticksInState % CHEW_INTERVAL_TICKS === 0
-          : after.ticksInState === afterCfg.attackFireTick);
+          : after.ticksInState === ragedFireTick(afterCfg.attackFireTick, after)); // S188 — see ragedFireTick
       if (
         after !== undefined &&
         after.state === 'ATTACKING' &&
@@ -2101,6 +2115,12 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     runRacialPerksFight(world);
   }
 
+  // ⭐ S188 F1 — the batch's heals land HERE: after every blow of the tick, before anyone is swept, so
+  // a unit killed this tick is not healed back and a survivor's heal does not depend on loop order.
+  if (world.pendingLifestealFifths !== null) {
+    applyPendingLifesteal(world);
+    world.pendingLifestealFifths = null;
+  }
   if (world.pendingCreatureDeaths !== null) {
     sweepDeferredDeaths(world, world.pendingCreatureDeaths);
     world.pendingCreatureDeaths = null;

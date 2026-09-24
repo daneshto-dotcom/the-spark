@@ -29,9 +29,10 @@ import {
   PLAYER_COLORS,
   RAINBOW_FLYOVER_DURATION_TICKS,
   SparkType,
-  CASTLE_MAX_HP,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
+import { castleMaxHpFor } from '../state/castleUpgrades.ts';
+import type { Player } from '../game/player.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { ticksSinceCastleShot } from '../state/castleGuns.ts';
 import { findNearestEnemyCreatureFrom } from '../state/creatures/creatureAI.ts';
@@ -55,7 +56,35 @@ import {
 } from './raceMotifs.ts';
 import { BAR_LIFT } from './healthBar.ts';
 import type { GathererId, PlayerId, SparkId } from '../types.ts';
+import { seatHoldsPerk } from '../state/racialPerks.ts';
 import type { World } from '../state/world.ts';
+
+/**
+ * ⭐ S188 — DEEP CURRENT's VORTEX, DERIVED FROM THE POSITION JUMP (never a one-shot effect push).
+ *
+ * A naga gatherer holding the perk snaps from the quarry to its keep in one tick (`racial/deepCurrent.ts`).
+ * The renderer sees that as a jump no walk can make, and opens a swirl at BOTH ends. Every peer sees the
+ * same synced positions, so every peer draws it; a 10 Hz peer sees the jump in one snapshot and draws it
+ * the same way. ⚠ MINE: the threshold, lifetime and colour. The fastest walk is ~6.6 px a tick, i.e.
+ * ~40 px between two 10 Hz snapshots, and the shortest quarry-to-keep hop is ~700 px, so 200 sits well
+ * clear of both. The shelter snap at the BUILD edge is excluded by state (it lands SHELTERED).
+ */
+export const DEEP_CURRENT_JUMP_PX = 200;
+const DEEP_CURRENT_VORTEX_FRAMES = 36;
+const DEEP_CURRENT_VORTEX_COLOR = 0x3fd7ff;
+
+/** PURE — is this frame-to-frame move a DEEP CURRENT teleport, to be drawn as a vortex? */
+export function isDeepCurrentJump(
+  prev: { x: number; y: number } | undefined,
+  next: { x: number; y: number },
+  holdsPerk: boolean,
+  state: string,
+): boolean {
+  if (!holdsPerk || prev === undefined || state === 'SHELTERED') return false;
+  const dx = next.x - prev.x;
+  const dy = next.y - prev.y;
+  return dx * dx + dy * dy > DEEP_CURRENT_JUMP_PX * DEEP_CURRENT_JUMP_PX;
+}
 
 /** Ticks each primitive is held before morphing to the next (~1.2 s at 60 Hz — never per-tick). */
 const MORPH_TICKS = 72;
@@ -99,6 +128,20 @@ export function castleBarTopY(anchorY: number, hasSprite: boolean): number {
     ? anchorY + KEEP_H / 2 - CASTLE_SPRITE_PX // foot at the box's foot, rising CASTLE_SPRITE_PX
     : anchorY - KEEP_H / 2; //                   no art loaded: the box IS the building
   return artTopY - BAR_LIFT;
+}
+
+/**
+ * ⭐ S188 P3 — how full a keep is, 0..1 (negative on over-damage, as before), against **THIS seat's**
+ * ceiling. It drives BOTH the keep's HP bar (`drawKeep`) and its damage art (`castleStateForHp`).
+ *
+ * ⛔ IT DIVIDED BY THE FLAT `CASTLE_MAX_HP`. Once a keep can buy HP (S187), a 2750 keep read as
+ * 110 % — a full-width bar and intact art while it was 250 short — and a keep at 2600 / 2750 showed
+ * no damage at all. `castleMaxHpFor` is the same ceiling `castleRegenTick` heals to and the card prints.
+ *
+ * Pure and exported so the arithmetic is testable without a Pixi stage.
+ */
+export function keepHpFraction(player: Pick<Player, 'castleHp' | 'castleUpgrades'>): number {
+  return player.castleHp / castleMaxHpFor(player.castleUpgrades);
 }
 const GATHERER_RADIUS = 11;
 // S136 P0 — KEEP_W / KEEP_H were promoted to constants.ts so the click target (isPointInKeep) and
@@ -206,6 +249,9 @@ export class GathererRenderer {
   /** Drawn ON TOP of the castle sprites: the HP bar, the bank glyphs, and the shot VFX. */
   private readonly overlay: Graphics;
   private readonly castleSprites: Map<number, Sprite> = new Map();
+  /** S188 DEEP CURRENT — last drawn position per gatherer, and the open swirls. Render-local only. */
+  private readonly lastGathererPos: Map<GathererId, { x: number; y: number }> = new Map();
+  private vortices: Array<{ x: number; y: number; age: number; owner: PlayerId }> = [];
   /** Per-race atlas cache. A key present with `null` means "tried, failed — use the fallback". */
   private readonly atlases: Map<RaceId, CastleAtlas | null> = new Map();
 
@@ -363,7 +409,7 @@ export class GathererRenderer {
       // S154 AMENDMENT C — pass the castle's health so the keep can show its damage.
       // ⭐ S161 W1-B — and the RACE, so it can show whose castle it is.
       const seatN = seat as unknown as number;
-      const hpFrac = player.castleHp / CASTLE_MAX_HP;
+      const hpFrac = keepHpFraction(player); // ⭐ S188 P3 — this seat's upgraded ceiling
       liveSeats.add(seatN);
       const hasSprite = this.syncCastleSprite(
         seatN,
@@ -396,6 +442,15 @@ export class GathererRenderer {
       if (!liveSeats.has(seat)) sp.visible = false;
     }
     for (const gatherer of world.gatherers.values()) {
+      // ⭐ S188 — DEEP CURRENT: tracked BEFORE the fog cull, so a jump is seen even if one end is dark.
+      const was = this.lastGathererPos.get(gatherer.id);
+      const ownerPl = world.players.get(gatherer.ownerPlayerId);
+      const holds = ownerPl !== undefined && seatHoldsPerk(ownerPl, 'nagas.l0');
+      if (was !== undefined && isDeepCurrentJump(was, gatherer.pos, holds, gatherer.state)) {
+        this.vortices.push({ x: was.x, y: was.y, age: 0, owner: gatherer.ownerPlayerId });
+        this.vortices.push({ x: gatherer.pos.x, y: gatherer.pos.y, age: 0, owner: gatherer.ownerPlayerId });
+      }
+      this.lastGathererPos.set(gatherer.id, { x: gatherer.pos.x, y: gatherer.pos.y });
       /*
        * ⭐⭐ S170 (owner) — **FOG: THE GATHERER UNITS ARE CULLED, THE CASTLE IS NOT.**
        *
@@ -440,6 +495,25 @@ export class GathererRenderer {
         raceId,
       );
     }
+    this.drawDeepCurrentVortices(g, world);
+  }
+
+  /** S188 — the DEEP CURRENT swirls: three arcs spiralling in and fading, at each end of a teleport. */
+  private drawDeepCurrentVortices(g: Graphics, world: World): void {
+    for (const id of this.lastGathererPos.keys()) if (!world.gatherers.has(id)) this.lastGathererPos.delete(id);
+    if (this.vortices.length === 0) return;
+    for (const v of this.vortices) {
+      v.age += 1;
+      if (isConcealed(v.x, v.y, v.owner)) continue; // the fog rule the gatherer itself obeys
+      const t = v.age / DEEP_CURRENT_VORTEX_FRAMES;
+      const alpha = Math.max(0, 1 - t);
+      for (let k = 0; k < 3; k++) {
+        const r = (10 + 9 * k) * (1 - 0.6 * t);
+        const a0 = t * 9 + (k * Math.PI * 2) / 3;
+        g.arc(v.x, v.y, r, a0, a0 + Math.PI * 1.2).stroke({ width: 2.5 - k * 0.5, color: DEEP_CURRENT_VORTEX_COLOR, alpha: alpha * (0.9 - k * 0.2) });
+      }
+    }
+    this.vortices = this.vortices.filter((v) => v.age < DEEP_CURRENT_VORTEX_FRAMES);
   }
 
   /**
@@ -525,7 +599,8 @@ export class GathererRenderer {
      *
      * The HP itself is simulation state and the win gate reads it, but a castle that can be destroyed
      * and shows no sign of it is an invisible feature — which is the failure mode this whole session
-     * has been fixing. So the keep carries a bar: full width at CASTLE_MAX_HP, shrinking as it takes
+     * has been fixing. So the keep carries a bar: full width at the seat's own ceiling (S188:
+     * `keepHpFraction`, i.e. CASTLE_MAX_HP plus any bought HP), shrinking as it takes
      * damage, and it only appears ONCE DAMAGED so an untouched board looks exactly as it did.
      *
      * ⚠ RENDER-ONLY and derived from `player.castleHp`, which already rides the wire — no new field,

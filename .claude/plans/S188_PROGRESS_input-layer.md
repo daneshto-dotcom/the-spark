@@ -97,3 +97,17 @@ Branch base: 3b63c92 (tip of `s188/racial-c`, POWER OF RA).
 ## KNOWN-BROKEN
 - nothing known. RMB over the open draft panel no longer puts a held tower / Ra aim back (the panel
   swallows it, castle-panel precedent); Escape still does.
+
+## S190 — FIX AGENT (TRAIN A, deploy #3). Audit verdicts IL-M1/IL-5, IL-B1, IL-1/IL-B2, IL-2, IL-6/IL-C1/IL-C2
+Phase-1 baseline on 3f839ed (before any change): TYPECHECK_EXIT=0; VITEST_EXIT=0 (349 files / 5869
+tests, --maxWorkers=6); BUILD_EXIT=0, entry 926.4 KiB. Benign, ruled: the vitest run rewrote
+`pentagramBuildability.test.ts.snap` LF->CRLF only (`git diff --stat` empty); restored with checkout.
+`git merge-tree` exit 1 = the one expected conflict (draftOverlay.ts), not an error.
+
+- [x] STEP 1 — `git merge master` (master 2d4391a = d05b358 + one plan file). ONE conflict,
+  `src/render/draftOverlay.ts`, end of class: master's `layoutText` kept unchanged + its closing `  }`
+  (the hunk swallowed it), then this branch's input-surface block; `isOverChoosable` now reads
+  `this.container.visible && this.opts !== null && draftHitTest(x, y, this.opts) !== null` (x/y, so
+  draftOverlay.test.ts's count of two `draftHitTest(p.x, p.y, this.opts)` holds). CRLF preserved
+  (python newline=''). main.ts auto-merged. typecheck 0; draftOverlay + draftPanel + s182 guards
+  218 green (racial tile LIVE for mummies on the merged tree). Merge exit 1 = the conflict (resolved).

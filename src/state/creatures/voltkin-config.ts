@@ -868,6 +868,35 @@ export const T3_WARBAND_CONFIG: CreatureConfig = makeT3Config('t3Warband', T3_ST
 export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T3_STATS.souleater);
 
 /**
+ * ⭐⭐ S188 (owner, nagas level 5 — APEX PREDATOR) — HIS NUMBER: *"the stats will be like three times
+ * stronger than a regular piranha unit. So all the stats you take and you just triple them."*
+ */
+export const APEX_PREDATOR_STAT_MUL = 3;
+
+/**
+ * ⭐ THE ELITE PIRANHA'S STAT LINE, DERIVED FROM THE PIRANHA'S — never typed out, so a retune of
+ * `T3_STATS.piranha` retunes the elite with it and the two can never drift apart.
+ *
+ * ⛔ THE FOUR LADDER STATS ARE TRIPLED, AND ONLY THEY ARE. `speedMul` is not a stat on the ladder and
+ * he said "stats"; a creature three times faster would be a second, unasked-for change. So it swims
+ * at the piranha's speed.
+ *
+ * ⚠ REPORTED, NOT HIDDEN: on the ×5 ladder "every stat ×3" is NOT "every number ×3". The pool is
+ * `hp × (5 + def)`, and the piranha has 0 DEF, so the pool is exactly ×3 (15 → 45). Damage is
+ * `atk × (5 + pen)` and the PEN is tripled too, so a bite goes 12 → 48 — **×4**. That is the literal
+ * reading of his words and it is shipped as such; the arithmetic is what he should see.
+ */
+export const T3_PIRANHA_ELITE_STATS = {
+  hp: T3_STATS.piranha.hp * APEX_PREDATOR_STAT_MUL,
+  def: T3_STATS.piranha.def * APEX_PREDATOR_STAT_MUL,
+  atk: T3_STATS.piranha.atk * APEX_PREDATOR_STAT_MUL,
+  pen: T3_STATS.piranha.pen * APEX_PREDATOR_STAT_MUL,
+  speedMul: T3_STATS.piranha.speedMul,
+} as const;
+
+export const T3_PIRANHA_ELITE_CONFIG: CreatureConfig = makeT3Config('t3PiranhaElite', T3_PIRANHA_ELITE_STATS);
+
+/**
  * ⭐ S167 — THE SIX TIER-9 BOSSES. One factory over `T9_BOSS_STATS`, exactly as `makeT3Config` is
  * one factory over `T3_STATS`: the six differ in five numbers and agree on everything else, so six
  * hand-written configs would be six chances for one shared field to drift.
@@ -1054,6 +1083,8 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   t3Hound: T3_HOUND_CONFIG,
   t3Scarab: T3_SCARAB_CONFIG,
   t3Piranha: T3_PIRANHA_CONFIG,
+  // ⭐ S188 APEX PREDATOR — the piranha ×3, see `T3_PIRANHA_ELITE_STATS`.
+  t3PiranhaElite: T3_PIRANHA_ELITE_CONFIG,
   t3Bat: T3_BAT_CONFIG,
   t3Warband: T3_WARBAND_CONFIG,
   t3Souleater: T3_SOULEATER_CONFIG,
