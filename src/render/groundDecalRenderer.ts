@@ -30,7 +30,7 @@ import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { componentOf } from '../game/structure.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+import { ringCycleAt } from '../state/godlyRecipes/ringShape.ts';
 import { RACE_FEED_SHAPE } from '../state/races.ts';
 import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
@@ -170,7 +170,8 @@ export class GroundDecalRenderer {
      */
     const art = towerArtForRecipe(recipeId as GodlyId);
     const ring = art !== null
-      ? ringMembersAt(world, anchor.id, RACE_FEED_SHAPE[art.race],
+      // S189 C2 item 2 — the ring's OWN cycle, the same walk the sprite and the sim use.
+      ? ringCycleAt(world, anchor.id, RACE_FEED_SHAPE[art.race],
           art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE)
       : null;
     const comp = {

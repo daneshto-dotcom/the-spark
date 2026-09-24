@@ -76,6 +76,12 @@ import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { asCreatureId, asSpawnerId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
+import { ALL_RACES, RACE_FEED_SHAPE } from './races.ts';
+import { RACE_TOWER_IDS, RACE_TOWER_SIZE, RACE_TOWER_UNIT } from './raceTowerIds.ts';
+import { T9_BOSS_TYPE, T9_TOWER_IDS, T9_TOWER_SIZE } from './t9BossIds.ts';
+import { isRingAt } from './godlyRecipes/ringShape.ts';
+import { repairFeeShapeFor } from './structureRepair.ts';
+import { towerArtForRecipe, towerRingCentroid } from '../render/towerFrames.ts';
 import { makeWorkerCinematicState, tickWorkerCinematics } from './godlyMatcherCore.ts';
 import { applyTickBatch, makeWorkerSim, WorkerControls, type WorkerTickBatchMsg } from './workerSim.ts';
 import { snapshot } from './save.ts';
@@ -629,9 +635,12 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
       arms: { [SparkType.Spiral]: helgaLeaves / 2, [SparkType.Circle]: helgaLeaves / 2 },
     });
     expect(towerShapeFor('pentagram')).toEqual({ kind: 'ring', type: SparkType.Triangle, n: 5 });
-    // R136 keeps the race rings; the Voltkin is a cinematic, not a standing tower.
-    expect(towerShapeFor('t3TowerVampires')).toBeNull();
-    expect(towerShapeFor('t9TowerDemons')).toBeNull();
+    // S189 C2 item 2 — RE-PINNED: this asserted `null` while the race rings were left on R136. They
+    // are rings of their race's own shape now. The Voltkin is a cinematic, not a standing tower.
+    for (const race of ALL_RACES) {
+      expect(towerShapeFor(RACE_TOWER_IDS[race]), race).toEqual({ kind: 'ring', type: RACE_FEED_SHAPE[race], n: RACE_TOWER_SIZE });
+      expect(towerShapeFor(T9_TOWER_IDS[race]), race).toEqual({ kind: 'ring', type: RACE_FEED_SHAPE[race], n: T9_TOWER_SIZE });
+    }
     expect(towerShapeFor('voltkin')).toBeNull();
   });
 
@@ -779,6 +788,12 @@ describe('⭐ S189 C2 — HOST vs WORKER: the welded towers are judged identical
     placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 });
     placeLikeAPlayer(w, SparkType.Triangle, { x: 480, y: 282 });
     placeLikeAPlayer(w, SparkType.Circle, { x: 500, y: 620 - 42.5 - 30 });
+    // ⭐ S189 C2 item 2 — and a race tower welded with its OWN shape (the owner's bat-tower case).
+    const race0 = w.players.get(P0)!.raceId;
+    ring(w, RACE_FEED_SHAPE[race0], RACE_TOWER_SIZE, 760, 300, 34);
+    tick(w, setup, 2);
+    expect([...w.creatureSpawners.values()].map((sp) => sp.recipeId)).toContain(RACE_TOWER_IDS[race0]);
+    placeLikeAPlayer(w, RACE_FEED_SHAPE[race0], { x: 760, y: 300 + 34 + 12 });
     expect(turret.hub.bonds.size, 'the turret hub carries welds').toBeGreaterThan(TURRET_HUB_DEGREE);
     expect(componentOf(penta[0]!, w.primitives, w.bonds).primitiveIds.size).toBeGreaterThan(5);
     w.phaseEndsAtTick = w.tick + 200; // cross BUILD→FIGHT inside the compared window
@@ -855,6 +870,202 @@ describe('⭐ S189 C2 — HOST vs WORKER: the welded towers are judged identical
       expect(world.defenders.size, 'the welded turret stands on both sides').toBe(1);
       expect([...world.creatureSpawners.values()].map((sp) => sp.recipeId), 'and the welded pentagram')
         .toContain('pentagram');
+      expect([...world.creatureSpawners.values()].map((sp) => sp.recipeId), 'and the welded race tower')
+        .toContain(RACE_TOWER_IDS[race0]);
+    }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// S189 C2 item 2 — THE RACE RINGS: exact to build, contains-its-ring to survive.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** The seat's own race, read from the live player (R137: a race tower is its owner's race only). */
+function raceOf(w: World, seat: typeof P0): (typeof ALL_RACES)[number] {
+  const r = w.players.get(seat)?.raceId;
+  if (r === undefined) throw new Error('the fixture seat has no race');
+  return r;
+}
+
+/** Stamp a blueprint for `seat` through the real reducer (origin set, so FIX applies). */
+function stamp(w: World, id: GodlyId, centre: Vec2, seat = P0): void {
+  const bank = w.castleBanks.get(seat) ?? makeCastleBank();
+  for (const [type, count] of blueprintBill(id)) bank[type as number] = (bank[type as number] ?? 0) + count;
+  w.castleBanks.set(seat, bank);
+  const before = w.primitives.size;
+  applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: seat, blueprintId: id, centre });
+  expect(w.primitives.size, `the ${id} stamp at (${centre.x},${centre.y}) must land`).toBeGreaterThan(before);
+}
+
+describe('⭐⭐ S189 C2 item 2 — a tier-3 race tower SURVIVES a weld of its OWN shape', () => {
+  it('a race tower with its own shape welded on stands — and no second tower ignites', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const type = RACE_FEED_SHAPE[race];
+    const nodes = ring(w, type, RACE_TOWER_SIZE, 500, 300, 34);
+    tick(w, st, 2);
+    expect([...w.creatureSpawners.values()].map((sp) => sp.recipeId)).toEqual([RACE_TOWER_IDS[race]]);
+
+    // Outside the ring, below it — a same-type drop bonds onto the ring.
+    const weld = placeLikeAPlayer(w, type, { x: 500, y: 300 + 34 + 12 });
+    expect(neighbours(w, weld).some((id) => nodes.some((n) => n.id === id)), 'the weld is on the ring').toBe(true);
+    const anchor = [...w.creatureSpawners.values()][0]!.anchorPrimitiveId;
+    expect(isRingAt(w, anchor, type, RACE_TOWER_SIZE), 'R136 exact would have DISSOLVED it').toBe(false);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'it stands, and the weld ignites no second tower').toBe(1);
+    const own = towerMembersAt(w, RACE_TOWER_IDS[race], anchor)!;
+    expect([...own.prims].sort(byId)).toEqual(nodes.map((n) => n.id).sort(byId));
+    expect(own.prims).not.toContain(weld.id);
+  });
+
+  it('⛔ …and with one of its OWN ring connectors cut it falls', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const nodes = ring(w, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE, 500, 300, 34);
+    tick(w, st, 2);
+    placeLikeAPlayer(w, RACE_FEED_SHAPE[race], { x: 500, y: 300 + 34 + 12 });
+    const own = bondsBetween(w, nodes[0]!, [nodes[1]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: own, playerId: P1, cause: 'creature' });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size).toBe(0);
+  });
+
+  it('the building is still DRAWN on its own ring (the exact walk returned null, i.e. no sprite)', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const nodes = ring(w, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE, 500, 300, 34);
+    tick(w, st, 2);
+    placeLikeAPlayer(w, RACE_FEED_SHAPE[race], { x: 500, y: 300 + 34 + 12 });
+    tick(w, st, PAST_TWO_POLLS);
+    const anchor = [...w.creatureSpawners.values()][0]!.anchorPrimitiveId;
+    const c = towerRingCentroid(w, anchor, towerArtForRecipe(RACE_TOWER_IDS[race])!);
+    expect(c, 'a standing tower must have a centroid to draw at').not.toBeNull();
+    const own = nodes.map((n) => w.primitives.get(n.id)!);
+    expect(c!.x).toBeCloseTo(own.reduce((sum, p) => sum + p.pos.x, 0) / own.length, 9);
+    expect(c!.y).toBeCloseTo(own.reduce((sum, p) => sum + p.pos.y, 0) / own.length, 9);
+  });
+
+  it('a JOINER can weld onto their own live race tower (the S107 P4 lock is now empty)', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const p1 = w.players.get(P1)!;
+    w.players.set(P1, { ...p1, avatarPos: { x: 1400, y: 300 } });
+    const race = raceOf(w, P1);
+    const nodes: Primitive[] = [];
+    for (let i = 0; i < RACE_TOWER_SIZE; i++) {
+      const a = -Math.PI / 2 + (i / RACE_TOWER_SIZE) * Math.PI * 2;
+      nodes.push(mk(w, RACE_FEED_SHAPE[race], 1400 + Math.cos(a) * 34, 300 + Math.sin(a) * 34, P1));
+    }
+    for (let i = 0; i < RACE_TOWER_SIZE; i++) bond(w, nodes[i]!, nodes[(i + 1) % RACE_TOWER_SIZE]!);
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 1400, y: 300 }, bondCount: RACE_TOWER_SIZE });
+    tick(w, st, 2);
+    expect([...w.creatureSpawners.values()].map((sp) => sp.recipeId)).toEqual([RACE_TOWER_IDS[race]]);
+    expect(collectSpawnerLockedPrimitiveIds(w).size, 'no shipped spawner is locked any more').toBe(0);
+    const weld = placeLikeAPlayer(w, RACE_FEED_SHAPE[race], { x: 1400, y: 300 + 34 + 12 }, P1);
+    expect(neighbours(w, weld).some((id) => nodes.some((n) => n.id === id))).toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size).toBe(1);
+  });
+});
+
+describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded through several connectors (R185-B)", () => {
+  it('both stand, both emit, FIX is refused, and the welded pool is larger', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const id = RACE_TOWER_IDS[race];
+    const type = RACE_FEED_SHAPE[race];
+    stamp(w, id, { x: 450, y: 300 });
+    stamp(w, id, { x: 570, y: 300 });
+    tick(w, st, 3);
+    const towers = [...w.creatureSpawners.values()].filter((sp) => sp.recipeId === id);
+    expect(towers.length, 'two stamped towers ignite').toBe(2);
+    const a = towers[0]!.anchorPrimitiveId;
+    const b = towers[1]!.anchorPrimitiveId;
+
+    // The control, before the weld: a dent is repairable, and the pool is one tower's own.
+    const aBond = [...w.primitives.get(a)!.bonds].sort((x, y) => x - y)[0]!;
+    w.bonds.get(aBond)!.damageFifths = 5;
+    const bank = w.castleBanks.get(P0)!;
+    const fee = repairFeeShapeFor(id)! as number;
+    bank[fee] = (bank[fee] ?? 0) + 1;
+    expect(planStructureRepair(w, P0, a), 'un-welded, the dented tower is repairable').not.toBeNull();
+    const poolBefore = structurePoolFifths(componentOf(w.primitives.get(a)!, w.primitives, w.bonds).bondIds.size);
+    expect(poolBefore).toBe(structurePoolFifths(RACE_TOWER_SIZE));
+
+    // "welding it through many connectors": three drops of the ring's own shape across the gap.
+    for (const y of [286, 300, 314]) placeLikeAPlayer(w, type, { x: 510, y });
+    const comp = componentOf(w.primitives.get(a)!, w.primitives, w.bonds);
+    expect(comp.primitiveIds.has(b), 'the drops weld the two towers into ONE structure').toBe(true);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'BOTH towers stand').toBe(2);
+
+    // "a lot harder to destroy": the welded pool is the WHOLE welded structure's.
+    const poolAfter = structurePoolFifths(comp.bondIds.size);
+    expect(poolAfter, 'the welded pool is larger than two towers apart').toBeGreaterThan(poolBefore * 2);
+
+    // "they cannot be repaired either"
+    expect(planStructureRepair(w, P0, a), 'welded: no FIX').toBeNull();
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: a });
+    expect(w.bonds.get(aBond)!.damageFifths, 'the reducer refuses too').toBe(5);
+
+    // BOTH EMIT — a race tower produces on its own cadence in FIGHT, first unit on the opening tick.
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    tick(w, st, 5);
+    const unit = RACE_TOWER_UNIT[race];
+    for (const sp of towers) {
+      const made = [...w.creatures.values()].filter((c) => c.type === unit && c.sourceSpawnerId === sp.id).length;
+      expect(made, `tower ${Number(sp.id)} emits while welded`).toBeGreaterThanOrEqual(1);
+    }
+    expect(w.creatureSpawners.size).toBe(2);
+  });
+});
+
+describe('⭐ S189 C2 item 2 — a tier-9 ring welded with its own shape stands, and releases razing ONLY its nine', () => {
+  it('the weld survives the release; the boss walks out; the nine are razed', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const type = RACE_FEED_SHAPE[race];
+    const nodes = ring(w, type, T9_TOWER_SIZE, 500, 400, 64);
+    tick(w, st, 2);
+    const sp = [...w.creatureSpawners.values()].find((x) => x.recipeId === T9_TOWER_IDS[race]);
+    expect(sp, 'the nine-ring ignites').toBeDefined();
+    const weld = placeLikeAPlayer(w, type, { x: 500, y: 400 - 64 - 20 });
+    expect(neighbours(w, weld).some((id) => nodes.some((n) => n.id === id))).toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.has(sp!.id), 'the welded nine-ring stands').toBe(true);
+
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    w.creatureSpawners.get(sp!.id)!.nextSpawnTick = w.tick;
+    tick(w, st, 3);
+    expect(w.creatureSpawners.has(sp!.id), 'released, so the tower is gone').toBe(false);
+    expect([...w.creatures.values()].some((c) => c.type === T9_BOSS_TYPE[race]), 'the boss walked out').toBe(true);
+    for (const n of nodes) expect(w.primitives.has(n.id), `ring node ${n.id} is razed`).toBe(false);
+    expect(w.primitives.has(weld.id), "the weld is the player's — it is NOT razed").toBe(true);
+  });
+});
+
+describe('ARITHMETIC — IGNITION ⊆ SURVIVAL for all twelve race rings', () => {
+  it.each(ALL_RACES)('%s — a stamped tier-3 and tier-9 ring both satisfy exact ignition AND stand', (race) => {
+    const cases: readonly (readonly [GodlyId, number, Vec2])[] = [
+      [RACE_TOWER_IDS[race], RACE_TOWER_SIZE, { x: 400, y: 300 }],
+      [T9_TOWER_IDS[race], T9_TOWER_SIZE, { x: 600, y: 700 }],
+    ];
+    for (const [id, n, centre] of cases) {
+      const w = worldInBuild();
+      stamp(w, id, centre);
+      const ids = [...w.primitives.keys()].sort(byId);
+      const anchor = ids.find((x) => isRingAt(w, x, RACE_FEED_SHAPE[race], n));
+      expect(anchor, `${id} satisfies its exact ignition test`).toBeDefined();
+      expect(towerStandsAt(w, id, anchor!), `${id} stands`).toBe(true);
     }
   });
 });

@@ -123,7 +123,8 @@ import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9BossType, isT9TowerId, raceForT9TowerI
  * lives where it belongs, as the tower's spawner interval (`spawners/spawner.ts` →
  * `spawnerIntervalTicks`), which is what `world.tick >= sp.nextSpawnTick` below actually waits on.
  */
-import { ringMembersAt } from './godlyRecipes/ringShape.ts';
+// S189 C2 item 2 — the t9 release razes the ring's OWN cycle (a welded ring now stands).
+import { ringCycleAt } from './godlyRecipes/ringShape.ts';
 import { RACE_FEED_SHAPE } from './races.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
@@ -1171,7 +1172,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * nine of the race shape — a real price, which is the natural cap the design already
          * contains."*
          *
-         * ## ⛔ `ringMembersAt`, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
+         * ## ⛔ THE RING WALK, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
+         * (S189 C2 item 2: the walk is `ringCycleAt`, the ring's own nine, since a welded ring stands)
          *
          * The lightning hub's self-raze forty lines up takes
          * `componentOf(dying, …).primitiveIds`. **Copying that call here would be a bug.** R136
@@ -1251,7 +1253,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
            * was defending the defect — and is inverted by this change rather than deleted.
            */
           if (race !== null && anchor !== undefined) {
-            const ring = ringMembersAt(
+            /*
+             * ⭐ S189 C2 item 2 — `ringCycleAt`, the ring's OWN nine, whatever is welded on. A t9
+             * ring now SURVIVES a same-type weld (it used to be dissolved by it), so the exact walk
+             * would read `null` here for a standing tower and release no boss. The cycle is also
+             * exactly the set to raze: the welds are the player's, not the tower's.
+             */
+            const ring = ringCycleAt(
               world,
               sp.anchorPrimitiveId,
               RACE_FEED_SHAPE[race],

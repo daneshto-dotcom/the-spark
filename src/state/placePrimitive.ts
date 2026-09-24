@@ -693,6 +693,11 @@ export function collectSpawnerLockedPrimitiveIds(world: World): ReadonlySet<Prim
      * So a spawner whose recipe has a CONTAINS survival shape is skipped here. What is left locked is
      * any spawner still on an exact survival rule (`towerShapeFor` → `null`), which keeps the
      * original protection exactly where it is still load-bearing.
+     *
+     * ⚠ S189 C2 item 2 — SINCE THE RACE RINGS MOVED ONTO CONTAINS, NO SHIPPED SPAWNER RECIPE IS
+     * LOCKED: the set this builds is empty on every real board. The rule is kept rather than the
+     * lock deleted so a future recipe that opts out of contains-survival is protected again for
+     * free — `towerShapeFor` is exhaustive over `GodlyId`, so that opt-out has to be written down.
      */
     if (towerShapeFor(sp.recipeId) !== null) continue;
     const anchor = world.primitives.get(sp.anchorPrimitiveId);

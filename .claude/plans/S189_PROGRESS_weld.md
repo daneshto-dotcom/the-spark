@@ -125,8 +125,37 @@ afternoon ⇒ PROCEED (the stop rule is not triggered).
   live pentagrams) — the hand-minted weld is gone. Mutant (skip removed) → those 3 RED; restored.
 - runs: weld file 30/30; `src/state` + `src/bots` + `src/input` 202 files / 3280 tests EXIT=0.
 
+### step F2 — item 2 LANDED: the twelve race rings are on "exact to build, contains to survive"
+- `towerMembers.ts`: the 12 race ids are rings (derived from `blueprints.ts`); only the Voltkin
+  (a cinematic) is outside the module now.
+- survival: `spawnerLifecycle.ts` t3 + t9 arms → `towerStandsAt`; `goblinKinds.seatFeedTowerAt`
+  ring arm → `towerMembersAt(...).whole`.
+- ⚠ NEW, found while wiring it: `seatFeedTowerAt` returned the FIRST feedable spawner in `Map` order
+  in the clicked component. Harmless while two feedable towers could never share a component; after
+  items 1+2 two welded bat towers ARE one component, so the FEED row could name the wrong tower (and
+  a peer's rebuilt map could order differently). Now a TOTAL ORDER: the tower whose own members hold
+  the clicked shape, then the lowest spawner id. The panel only picks the spawner id for the intent,
+  so this was UX, not a sim divergence — fixed because the change made it reachable.
+- t9 release (`hostTick.ts` t9 arm): `ringMembersAt` → `ringCycleAt`, so a same-type-welded nine
+  still releases its boss and razes ONLY its own nine (the weld survives).
+- renderers (hunk = import + one call each): `towerRenderer.ts` `ringOf`, `towerFrames.ts`
+  `towerRingCentroid` (⚠ also touched by `s188/swarm`, disjoint hunks ~:190-217 vs mine :66/:392),
+  `groundDecalRenderer.ts`. `healthBar.ts` delegates to `towerRingCentroid` — untouched.
+- IGNITION untouched: `findRingAnchors` / `isRingAt`, and the ignition de-dup helpers
+  `findRaceTowerMembers` / `findT9TowerMembers` (they only ever see an exact ring) stay exact.
+- S107 P4 lock: now empty for every shipped spawner recipe (rule kept for a future opt-out).
+- tests (42/42 in the weld file): race tower + same-type weld stands, no second ignition; own ring
+  connector cut → falls; still DRAWN on its own ring centroid; joiner welds onto own race tower,
+  lock empty; ⭐ THE OWNER'S CASE — two stamped bat towers welded by three same-type drops: both
+  stand, both EMIT their unit in FIGHT, FIX refused (plan null + reducer no-op), welded pool >
+  2× one tower's; t9 + same-type weld stands, releases the boss, razes the nine, weld survives;
+  IGNITION ⊆ SURVIVAL for all 12 stamped race rings; the host-vs-worker differential now also
+  carries a same-type-welded race tower (alive on both sides, wide hash equal every frame).
+- mutant: ring survival back to the exact walk → 8 RED; restored.
+- gates: typecheck 0 · vitest 0 (6039 / 368).
+
 ## IN-FLIGHT
-- item 2.
+- item 3.
 
 ## NEXT
 

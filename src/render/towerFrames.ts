@@ -63,7 +63,7 @@ import type { World } from '../state/world.ts';
 import { RACE_FEED_SHAPE } from '../state/races.ts';
 import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+import { ringCycleAt } from '../state/godlyRecipes/ringShape.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** The three conditions a tower can be drawn in. Atlas ROW ORDER — see `TOWER_STATE_ROWS`. */
@@ -389,7 +389,8 @@ export function towerRingCentroid(
   world: World, anchorId: PrimitiveId, art: TowerArt,
 ): { x: number; y: number } | null {
   const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
-  const ring = ringMembersAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
+  // ⭐ S189 C2 item 2 — the ring's OWN cycle, the sim's survival walk: a welded tower stands now.
+  const ring = ringCycleAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
   if (ring === null) return null;
   let cx = 0;
   let cy = 0;

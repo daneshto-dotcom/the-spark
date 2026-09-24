@@ -29,18 +29,16 @@ import type { GodlyId } from '../godlyRecipes/types.ts';
 // three `is…Component` IGNITION predicates these arms used to call are no longer imported here.
 import { towerStandsAt } from '../towerMembers.ts';
 /*
- * S166 — the ring validator plus the two lookups the race-tower cases need.
+ * S166 — the two lookups the race-tower cases need.
  *
- * ⚠ `ringShape.ts` is a PURE leaf (types only, no `registerRecipe`), and `races.ts` /
- * `raceTowerIds.ts` are side-effect-free by contract — which is what makes them importable here.
- * `world.ts` reaches this file, so pulling in a registering module would repeat the S144 trap the
- * `goblinKinds` import two lines up exists to avoid.
+ * ⚠ `raceTowerIds.ts` / `t9BossIds.ts` are side-effect-free by contract — which is what makes them
+ * importable here. `world.ts` reaches this file, so pulling in a registering module would repeat
+ * the S144 trap the `goblinKinds` import two lines up exists to avoid. (S189 C2 item 2: the ring
+ * validator `isRingAt` is no longer imported — the race arms ask `towerStandsAt` now.)
  */
-import { isRingAt } from '../godlyRecipes/ringShape.ts';
-import { RACE_FEED_SHAPE } from '../races.ts';
-import { RACE_TOWER_SIZE, raceForTowerId } from '../raceTowerIds.ts';
+import { raceForTowerId } from '../raceTowerIds.ts';
 // S167 — the tier-9 leaf, side-effect-free by the same contract as the line above.
-import { T9_TOWER_SIZE, raceForT9TowerId } from '../t9BossIds.ts';
+import { raceForT9TowerId } from '../t9BossIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
 
@@ -113,8 +111,8 @@ export function applyRemoveSpawner(world: World, action: RemoveSpawnerAction): W
  *
  * ⚠ S189 C2 — "OR attaching an extra shape" USED TO BE THE OTHER HALF OF THIS SENTENCE, and it
  * was the owner's S189 bug report. A weld no longer un-makes a star or the pentagram: those arms
- * ask `towerStandsAt` whether the recipe is still CONTAINED. The race rings keep R136 (`isRingAt`),
- * under which a weld of the ring's OWN type still does.
+ * ask `towerStandsAt` whether the recipe is still CONTAINED — and since S189 C2 item 2 so do the
+ * twelve race rings, which until then kept R136's exact same-type-2 rule for survival as well.
  *
  * Dispatches on `spawner.recipeId` so future spawner recipes (different shapes)
  * slot in here. `pentagram` is the only registered spawner recipe in Phase 1b;
@@ -162,6 +160,11 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
      * ⚠ `isRingAt`, NOT a component check. R136: total degree is unconstrained, so a friendly shape
      * auto-bonded onto a node must NOT tear the tower down. A `componentOf` rule here would
      * re-introduce the S158 B2b defect on the cheapest structure in the game.
+     *
+     * ⭐ S189 C2 item 2 — AND NOW NOT `isRingAt` EITHER, for survival. R136's exact-2 same-type clause
+     * exists to keep IGNITION collision-free and still does there (`findRingAnchors`). As a survival
+     * test it meant a shape of the ring's OWN type welded on dissolved the tower — which is the
+     * owner's own bat-tower example (R185-B). Survival is `towerStandsAt`: the ring's own 3-cycle.
      */
     case 't3TowerVampires':
     case 't3TowerNagas':
@@ -171,7 +174,9 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     case 't3TowerDemons': {
       const race = raceForTowerId(spawner.recipeId);
       if (race === null) return false; // unreachable: the case labels ARE the six ids
-      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
+      // ⭐⭐ S189 C2 item 2 — CONTAINS, not R136's exact same-type 2: a weld of the ring's OWN type
+      // (the owner's own "weld two bat towers") no longer un-makes it. Ignition stays exact.
+      return towerStandsAt(world, spawner.recipeId, spawner.anchorPrimitiveId);
     }
     /*
      * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Six explicit labels for the same reason the tier-3 block
@@ -197,7 +202,8 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     case 't9TowerDemons': {
       const race = raceForT9TowerId(spawner.recipeId);
       if (race === null) return false; // unreachable: the case labels ARE the six ids
-      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], T9_TOWER_SIZE);
+      // ⭐⭐ S189 C2 item 2 — CONTAINS, as the tier-3 arm above. Ignition stays exact.
+      return towerStandsAt(world, spawner.recipeId, spawner.anchorPrimitiveId);
     }
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is

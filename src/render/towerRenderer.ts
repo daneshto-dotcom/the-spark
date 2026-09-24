@@ -38,7 +38,7 @@ import type { SpawnerId } from '../types.ts';
 import { RACE_FEED_SHAPE } from '../state/races.ts';
 import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
 import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+import { ringCycleAt } from '../state/godlyRecipes/ringShape.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import type { BondId, PrimitiveId } from '../types.ts';
@@ -208,7 +208,9 @@ export class TowerRenderer {
    */
   private ringOf(world: World, sp: CreatureSpawner, art: TowerArt): readonly import('../types.ts').PrimitiveId[] | null {
     const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
-    return ringMembersAt(world, sp.anchorPrimitiveId, RACE_FEED_SHAPE[art.race], n);
+    // ⭐ S189 C2 item 2 — the ring's OWN cycle (the sim's survival walk), so a welded tower that now
+    // stands is still drawn, on its own centroid, with the weld uncovered (R185-A).
+    return ringCycleAt(world, sp.anchorPrimitiveId, RACE_FEED_SHAPE[art.race], n);
   }
 
   /** Clear + place a sprite for every live race tower. No-op when there are none. */

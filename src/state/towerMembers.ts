@@ -39,11 +39,15 @@
  * `world.ts` reaches both. Importing a recipe module here would fire `registerRecipe` for the whole
  * codebase — the S144 trap `blueprints.ts` documents at length.
  *
- * ## ⛔ WHAT THIS DELIBERATELY DOES NOT COVER
+ * ## ⭐ S189 C2 item 2 — THE RACE RINGS TOO
  *
- * The twelve tier-3 / tier-9 RACE rings keep `isRingAt` (R136) for survival too: the owner ruled
- * that a stray of the ring's OWN type un-makes it, as the price of collision-freedom, and moving
- * them onto `ringCycleAt` touches five renderer files outside this branch. Reported, not changed.
+ * The twelve tier-3 / tier-9 RACE rings were first left on R136 (`isRingAt`) for survival, where a
+ * stray of the ring's OWN type un-made them. The merge owner put them in scope because that is the
+ * owner's own bat-tower case. R136's collision-freedom was always an IGNITION property, and ignition
+ * still uses `isRingAt`; survival now uses the ring's own cycle (`ringCycleAt`), and so do the three
+ * race-tower renderers, so the building, its centroid and its "does it stand" agree.
+ *
+ * The only recipe this module does not govern is the Voltkin — a cinematic, not a standing tower.
  */
 import type { SparkType } from '../constants.ts';
 import type { BondId, PrimitiveId } from '../types.ts';
@@ -130,12 +134,13 @@ export function towerShapeFor(recipeId: GodlyId): TowerShape | null {
       shape = starShapeFromBlueprint(recipeId);
       break;
     case 'pentagram':
-      shape = ringShapeFromBlueprint(recipeId);
-      break;
-    // A cinematic, not a standing tower — its chain is consumed by the cinematic.
-    case 'voltkin':
-    // ⛔ R136 governs these for survival as well as ignition (`spawnerLifecycle` → `isRingAt`). See
-    // the file docblock for why they are reported rather than moved in S189.
+    /*
+     * ⭐⭐ S189 C2 item 2 — THE TWELVE RACE RINGS ARE ON THE SAME RULE NOW. R136's exact same-type-2
+     * clause still decides IGNITION (`findRingAnchors` → `isRingAt`), which is what it exists for —
+     * keeping a chorded pentagram from igniting a tier-3 ring inside itself. As a SURVIVAL test it
+     * dissolved a live bat tower the moment a Triangle was welded on, which is the owner's own
+     * R185-B example: *"a bat tower … welding it through many connectors to another bat tower"*.
+     */
     case 't3TowerVampires':
     case 't3TowerNagas':
     case 't3TowerMummies':
@@ -148,6 +153,10 @@ export function towerShapeFor(recipeId: GodlyId): TowerShape | null {
     case 't9TowerZombies':
     case 't9TowerOrcs':
     case 't9TowerDemons':
+      shape = ringShapeFromBlueprint(recipeId);
+      break;
+    // A cinematic, not a standing tower — its chain is consumed by the cinematic.
+    case 'voltkin':
       shape = null;
       break;
     default: {
