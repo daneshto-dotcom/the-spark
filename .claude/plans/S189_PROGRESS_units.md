@@ -10,9 +10,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | step | state | commit |
 |---|---|---|
 | 0 · progress skeleton | done | 550c765 |
-| C3 · Voltkin prefers enemy structures | done — GUARD ONLY, no production change (see C3 below) | (this commit) |
-| C8 · Helga patrol clamped to the board | next | |
-| C10 · Kraken sonar short knockback + stun | pending | |
+| C3 · Voltkin prefers enemy structures | done — GUARD ONLY, no production change (see C3 below) | 36e3386 |
+| C8 · Helga patrol clamped to the board | done | (this commit) |
+| C10 · Kraken sonar short knockback + stun | next | |
 | LOW a · corpse-eater bite latch | pending | |
 | LOW b · castle regen of effective max | pending | |
 | LOW c · serialized nextCreatureId | pending | |
@@ -62,9 +62,39 @@ replacing `bestEnemyId ?? bestOwnId` with "nearest bond of either owner" turned 
 
 Protocol: C3 changes NO rule and NO wire field → owes no bump.
 
+## C8 — Helga's patrol stays on the board
+
+**Why her path bypassed the creature clamp:** `defenders/defenderMotion.ts` is a hand MIRROR of
+`creatureVerletStep` and was deliberately left unclamped — `creatureVerlet.ts`'s docblock said
+*"she is held by her HUB LEASH … so she has no path to an edge"*. S183's patrol made that false: IDLE
+walks her to a derived point up to `attackRange × PRINCESS_PATROL_RADIUS_FRAC` = 380 × 0.35 = 133 px
+from her hub in any direction, and seat 0's keep sits at x 120 (`zones.ts` ANCHORS). Measured on
+master through the real host tick with a hall stamped at the legal site nearest the touchline beside
+the keep: **616 of 1500** sampled positions off the board.
+
+**Fix (two halves, both the creature bounds `WORLD_EDGE_MARGIN` / `CANVAS_* − WORLD_EDGE_MARGIN`):**
+- `defenderVerletStep` now calls `clampIntoPlayfield(d.pos, d.prevPos)` — the same function every
+  creature uses, prevPos moved with pos (no fling). No-op on the board → byte-identical otherwise.
+- the patrol POINT is clamped (`clampPointIntoPlayfield`, new, in `defenderMotion.ts`) so she walks
+  to a reachable spot and snaps there instead of pressing the edge for the rest of the leg.
+- stale docblock in `creatureVerlet.ts` corrected (it listed Helga as a deliberately-unclamped
+  integrator).
+
+**Tests:** `src/state/defenders/helgaOnTheBoard.test.ts` (4) — REACH through the real host tick
+(real stamp + real matcher, 10 legs, 0 positions and 0 destinations off-board, she reaches the
+margin), the point-clamp arithmetic, the integrator half (pressed, never flung), and a negative
+(an open-ground hall never nears an edge and still roams). ⭐ MUTATION-TESTED three ways: both clamps
+removed = master → REACH red (616 off-board); integrator clamp removed → integrator case red;
+patrol-point clamp removed → REACH red (600 off-board destinations). Restored; content verified
+identical to the pre-mutation copy. Full suite after C8: **vitest 0 — 6005 / 369**; tsc 0.
+
+Protocol: **no bump owed.** Defender motion runs only inside `runHostTick` (host + worker, same
+build); clients render Helga from snapshots. No new field; `walkTargetPos`/`pos` values change only
+where they used to leave the board.
+
 ## In flight
 
-C8 — Helga's patrol clamp (`defenders/defenderMotion.ts`, `clampIntoPlayfield`).
+C10 — Kraken sonar (`bossSkillsKraken.ts`).
 
 ## Decisions
 
@@ -82,6 +112,7 @@ C8 — Helga's patrol clamp (`defenders/defenderMotion.ts`, `clampIntoPlayfield`
 ## Wire / hash / shared-rule changes (for the merge owner's bump decision)
 
 - C3: none.
+- C8: host-only motion rule (Helga clamped to the board); no field, no bump.
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
@@ -94,3 +125,8 @@ C8 — Helga's patrol clamp (`defenders/defenderMotion.ts`, `clampIntoPlayfield`
   sim was fine and the probe was rewritten into the committed test.
 - `voltkinEnemyFirst.test.ts` under the deliberate mutation — EXIT 1, 3 failed: EXPECTED (that is
   the mutation test); restored, EXIT 0.
+- C8 mutation via `sed -i` — no match (EXIT 0 on the unmutated run, so the "mutation" run was a
+  no-op): INVESTIGATED AND RESOLVED. git-bash `sed -i` did not match the CRLF lines AND rewrote both
+  files as LF. Mutations redone with Edit; CRLF restored byte-safely (python binary mode); content
+  diffed against the pre-mutation backups (identical) and `file` reports CRLF again.
+- helgaOnTheBoard.test.ts under the three deliberate mutations — EXIT 1 each: EXPECTED.

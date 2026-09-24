@@ -118,12 +118,13 @@ export function creatureVerletStep(
  * ⚠ PURE: no clock, no rng, no accumulator. Two sims stepping identical state produce identical
  * clamps, so this adds no divergence surface of its own.
  *
- * ⚠⚠ TWO SIBLING INTEGRATORS ARE DELIBERATELY NOT CLAMPED, AND THE REASON IS RECORDED HERE SO THE
+ * ⚠⚠ ONE SIBLING INTEGRATOR IS DELIBERATELY NOT CLAMPED, AND THE REASON IS RECORDED HERE SO THE
  * NEXT SESSION DOES NOT "FINISH THE JOB" AND BREAK SOMETHING.
- *   · `defenders/defenderMotion.ts` (Helga) writes `pos` unbounded too, but she is held by her HUB
- *     LEASH — the anti-kite gate the owner asked for after *"she effectively lasers across the
- *     map"* — so she has no path to an edge in the first place. Clamping her would be dead code
- *     today and would silently become her real bound if that leash were ever retuned.
+ *   · ⛔ S189 C8 — `defenders/defenderMotion.ts` (Helga) USED to be listed here as the second one:
+ *     *"she is held by her HUB LEASH … so she has no path to an edge in the first place."* S183's
+ *     patrol made that false — she wanders up to 133 px from her hub in any direction, and a hall
+ *     near the castle walked her off the board (owner: *"Helga moves behind the map"*). She now
+ *     calls this function from `defenderVerletStep`, and her patrol POINT is clamped to the same box.
  *   · `hunters/hunterAI.ts` is the same shape and is left alone because a clamp would be DEAD CODE
  *     today: `hunterLifecycle` spawns it at `{x: CANVAS_WIDTH / 2, y: 60}` — (960, 60), comfortably
  *     inside this margin — and its own AI keeps it on the avatar. ⛔ S178 SECOND PASS: an earlier
@@ -131,7 +132,7 @@ export function creatureVerletStep(
  *     does not, and a future session acting on that would have been acting on a false fact. What IS
  *     true is that this family has a depart-past-the-edge idiom (`SEAGULL_DEPART_MARGIN`), so
  *     clamping that integrator is a ruling rather than a tidy-up.
- * Both are latent rather than live. Named in the S178 open questions rather than guessed at.
+ * It is latent rather than live. Named in the S178 open questions rather than guessed at.
  */
 export function clampIntoPlayfield(pos: Vec2, prevPos: Vec2): void {
   const lo = WORLD_EDGE_MARGIN;
