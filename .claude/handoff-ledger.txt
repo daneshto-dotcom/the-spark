@@ -1,16 +1,16 @@
 # /handoff completion ledger
-Generated: 2026-09-24T09:36:31
+Generated: 2026-09-24T10:11:53
 Project: C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark
 
 [PASS] STEP 0      review gate ran                    gate is self-enforcing via --enforce exit code; not re-derivable here
-[PASS] STEP 1      working tree clean                 0 dirty file(s) excl. ledger/session-state
-[PASS] STEP 1.1.F  main fully pushed                  unpushed=0 (master vs origin/master)
-[PASS] STEP 1.1.C  no stale local branches            extra=none; 9 declared-preserved
-[PASS] STEP 1.1.D  no orphan worktrees                registered=9 orphans=none
-[PASS] STEP 1.5    all plans archived                 unarchived=0
+[GAP ] STEP 1      working tree clean                 1 dirty file(s) excl. ledger/session-state -> ['M .claude/preserved-branches.json']
+[GAP ] STEP 1.1.F  main fully pushed                  unpushed=2 (master vs origin/master)
+[PASS] STEP 1.1.C  no stale local branches            extra=none; 10 declared-preserved
+[PASS] STEP 1.1.D  no orphan worktrees                registered=11 orphans=none
+[GAP ] STEP 1.5    all plans archived                 unarchived=1 e.g. ['2026-09-24_S189_BATCH_PDR.md']
 [PASS] STEP 1.8    session port released              session-port.json absent
 [PASS] STEP 1.8.B  no dev server left running         none
-[PASS] STEP 2.5    model counts read                  4 tallies
+[PASS] STEP 2.5    model counts read                  11 tallies
 [PASS] STEP 2.8.A  reflexion block prepended today    today's date in log head (.claude/reflexion_log.md)
 [PASS] STEP 2.8.B  reflexion <= 50 entries            47 entries
 [PASS] STEP 2.94   session trace written today        4 trace file(s)
@@ -21,4 +21,5 @@ Project: C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\T
 [PASS] STEP 4      next-session prompt persisted      fresh=True bytes=2316 has_next_steps=True
 [PASS] STEP 5      submodules clean                   no submodules
 
-RESULT: 18/18 steps evidenced.
+RESULT: 15/18 steps evidenced.
+HANDOFF INCOMPLETE — do NOT announce it as done. Run the missing steps, then re-run this.
