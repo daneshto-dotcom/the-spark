@@ -246,3 +246,16 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   verified names (applyReturnToTitle / gameMode.ts, softReset / gameState.ts, applySnapshotCore /
   save.ts), all outside the loop, sizes drop to 0; and a pointer to the guards' per-file counts.
 - CRLF preserved (1278/1278), no control characters; tsc EXIT=0; source guards green.
+
+### PERF-5 — the oracle's activity bars are FLOORS, each with its measured value and reason  ✅
+- One table in the long case: what / actual / floor / measured (default / full) / why. Floors:
+  creatures >= 115 (123/123, set by the lever) · bonds at fork >= 100 (220/488) · min bonds >= 20
+  (137/67) · sweeps >= window (683/4281, structural) · injected severs >= 20 (88/554) · welds >= 10
+  (38/564) · mixed >= 5 (22/258) · razes >= 10 (40/246) · natural mid-tick changes >= 1 (8/44, an
+  existence claim) · scans after a mid-tick mutation >= 1000 (12 928/79 780) · a mid-tick birth picked
+  later the same tick >= 1 (160/9 246, existence). Prefix host scans >= 1000 (26 481/50 731).
+  `severedReturned === 0` stays an exact correctness assertion, not a floor.
+- The failure message prints actual, floor, the S190 measurement and the reason; the test's note tells
+  the merge owner to re-measure and LENGTHEN the window / raise FORK_WAVE rather than lower a floor, and
+  never to take an existence floor to zero.
+- Re-run: ORACLE_EXIT=0, identical counters to S190 (97 672 scans / 0 mismatches).

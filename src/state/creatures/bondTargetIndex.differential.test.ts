@@ -280,7 +280,9 @@ describe(`S190 C5 — the bond-target index is byte-identical to the scan it rep
     expect(m.world.waveNumber).toBe(FORK_WAVE);
     const prefix = { ...stats };
     expect(prefix.mismatches, `prefix mismatches:\n${firstMismatches.join('\n')}`).toBe(0);
-    expect(prefix.hostScans, 'the prefix really scanned').toBeGreaterThan(1000);
+    // Floor, not a regression bar (see the PERF-5 note on the window's floors below).
+    expect(prefix.hostScans, 'the prefix really scanned: floor 1000 (measured S190 default / full: 26 481 / 50 731)')
+      .toBeGreaterThanOrEqual(1000);
 
     /* ── the fork: identical twins, one on the reference and one on the index ── */
     topUpCreatures(m.world, CREATURES, DIFF_MIX);
@@ -327,20 +329,49 @@ describe(`S190 C5 — the bond-target index is byte-identical to the scan it rep
     expect(stats.mismatches, `window mismatches:\n${firstMismatches.join('\n')}`).toBe(0);
     expect(divergedAt, 'hashWorldStateFull diverged between the reference world and the index world').toBe(-1);
     expect(A.tick, 'the window ran to the end').toBe(end);
-    // ── anti-vacuity: the window really exercised what it claims to ──
-    expect(maxCreatures, 'the board carried the 120 creatures').toBeGreaterThanOrEqual(CREATURES - 5);
-    // 120 creatures DO take a board apart — that is the fight — so the bar is a real board at the
-    // fork and a board that never emptied, not a board that never shrank.
-    expect(bondsAtFork, 'a real wave board at the fork').toBeGreaterThan(150);
-    expect(minBonds, 'the board never emptied during the window').toBeGreaterThan(20);
-    expect(stats.sweeps, 'a whole-board sweep ran every tick').toBeGreaterThanOrEqual(WINDOW_TICKS);
-    expect(stats.injectedSevers, 'mid-tick severs injected').toBeGreaterThan(20);
-    expect(stats.injectedCreates, 'mid-tick bond creations injected').toBeGreaterThan(20);
-    expect(stats.injectedMixedCreates, 'mixed-colour creations injected').toBeGreaterThan(5);
-    expect(stats.injectedRazes, 'mid-tick primitive razes injected').toBeGreaterThan(10);
-    expect(stats.naturalMidTickMutations, 'the sim itself severed between two scans').toBeGreaterThan(0);
-    expect(stats.scansAfterMidTickMutation, 'scans ran AFTER a mid-tick mutation, in the same tick').toBeGreaterThan(1000);
-    expect(stats.createdPickedLaterSameTick, 'a bond created mid-tick was chosen by a LATER scan of the same tick').toBeGreaterThan(0);
+    /*
+     * ── ANTI-VACUITY FLOORS (S190 audit PERF-5) ──
+     *
+     * These prove the window EXERCISED what it claims to. They are NOT regression bars on the fight,
+     * and they must not turn red because a sibling branch changed the fight (bot build orders, unit
+     * stats, weld rules all move these counts). So each is a FLOOR set well under the value measured
+     * on s190/perf — "default" is this file's default run (fork at wave 3, 600 ticks), "full" is
+     * SPARK_C5_PERF=1 (fork at wave 5, 3600 ticks) — with the reason the floor is what it is.
+     *
+     * ⚠ FOR THE MERGE OWNER, who re-runs this after each merge train: if a merge takes a count under
+     * its floor, re-measure. If the drop is real, LENGTHEN the window or raise FORK_WAVE until the
+     * floor holds again, and restate the measured value here. Never delete a floor, and never lower
+     * an "at least one" floor to zero — that deletes the claim while leaving the test green.
+     */
+    const floors: ReadonlyArray<readonly [what: string, actual: number, floor: number, measured: string, why: string]> = [
+      ['the board carried the 120 creatures', maxCreatures, CREATURES - 5, '123 / 123',
+        'set by the top-up lever every 60 ticks, not by the fight'],
+      ['a real wave board at the fork (bonds)', bondsAtFork, 100, '220 / 488',
+        'a board of structures, not a handful; bots that build less after a merge can lower it'],
+      ['the board never emptied during the window (min bonds)', minBonds, 20, '137 / 67',
+        '120 creatures DO take a board apart — that is the fight — but an empty board makes every later scan vacuous'],
+      ['a whole-board sweep ran every tick', stats.sweeps, WINDOW_TICKS, '683 / 4281',
+        'structural: one sweep per tick by construction, plus one after each injection'],
+      ['mid-tick severs injected', stats.injectedSevers, 20, '88 / 554',
+        'every 13th tick at the 2nd scan, whenever a bond exists — about a quarter of the default count'],
+      ['mid-tick bond creations injected', stats.injectedCreates, 10, '38 / 564',
+        'every 7th tick at the 3rd scan, needs two unwelded enemy shapes near the scanner'],
+      ['mixed-colour creations injected', stats.injectedMixedCreates, 5, '22 / 258',
+        'every other creation, needs the scanner to own a shape'],
+      ['mid-tick primitive razes injected', stats.injectedRazes, 10, '40 / 246',
+        'every 29th tick at the 4th scan'],
+      ['the sim itself changed the bond set between two scans', stats.naturalMidTickMutations, 1, '8 / 44',
+        'an existence claim: the REAL hazard must occur at least once; the injections are the controlled proof'],
+      ['scans ran AFTER a mid-tick mutation, in the same tick', stats.scansAfterMidTickMutation, 1000, '12 928 / 79 780',
+        'the scans that would read a stale cache; under 1000 the hazard was barely exercised'],
+      ['a bond created mid-tick was chosen by a LATER scan of the same tick', stats.createdPickedLaterSameTick, 1, '160 / 9 246',
+        'an existence claim: a birth must be seen by the very next scans at least once'],
+    ];
+    for (const [what, actual, floor, measured, why] of floors) {
+      expect(actual, `${what}: ${actual} is under its floor ${floor} (measured S190 default / full: ${measured}; ${why})`)
+        .toBeGreaterThanOrEqual(floor);
+    }
+    // ⛔ Correctness, not a floor: this one stays exactly zero whatever the fight looks like.
     expect(stats.severedReturned, 'no scan ever returned a bond severed earlier in its tick').toBe(0);
   }, FULL ? 3_600_000 : 120_000);
 });
