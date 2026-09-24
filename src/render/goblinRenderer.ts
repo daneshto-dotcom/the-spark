@@ -103,6 +103,24 @@ export const PIRANHA_ELITE_ATLAS_BASE = `${t3UnitAtlasBase('nagas')}-elite`;
 export const CORPSE_EATER_FEED_ATLAS_BASE = `${t9BossAtlasBase('zombies')}-feed`;
 const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
 
+/**
+ * ⭐ S189 (LOW b) — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS THE UNIT IT WAS PROMOTED FROM.**
+ *
+ * `loadAtlas` fails silently, so an elite piranha whose own sheet is still in flight — or 404s on some
+ * peer — fell straight to `drawGoblin`'s green procedural puppet: the look the owner has reported as a
+ * regression twice. It now draws with the ordinary piranha's sheet instead, and because the sprite
+ * scale is keyed by the creature's TYPE (`creatureSpriteScaleMul('t3PiranhaElite')` = 2), that is the
+ * base piranha at his *"two times bigger"*: the right animal, visibly bigger, never green. The two
+ * sheets carry the same four rows (`idle` / `walk` / `attack` / `die`) and the same cell height and
+ * foot anchor, so nothing else changes. Pure and exported so the fallback is testable without Pixi.
+ *
+ * ⚠ MERGE NOTE — `s188/swarm` adds this SAME function (same name, same signature, same draw-loop call)
+ * for `t3BatSwarm → t3Bat`. The merged body is the union of the two arms.
+ */
+export function atlasFallbackType(type: CreatureType): CreatureType | null {
+  return type === 't3PiranhaElite' ? 't3Piranha' : null;
+}
+
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
@@ -1059,9 +1077,12 @@ export class GoblinRenderer {
       // S169 — safety net for a race-keyed sheet that appeared without a preload (a joiner whose
       // roster arrived late, a race added mid-match by the rainbow shuffle). Idempotent Set probe.
       this.ensureTypeAtlas(c.type);
+      // ⭐ S188 — a promoted unit with no resolved sheet borrows its base unit's (`atlasFallbackType`).
+      const fallbackType = atlasFallbackType(c.type);
+      if (fallbackType !== null) this.ensureTypeAtlas(fallbackType);
       const atlas = this.atlases.get(
         this.atlasKeyFor(world, c.type, c.ownerPlayerId as unknown as number),
-      );
+      ) ?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined);
       if (atlas !== undefined) {
         // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
         const lift = GOBLIN_LIFT[c.type] ?? 0;

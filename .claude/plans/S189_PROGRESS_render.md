@@ -16,9 +16,9 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 | C1 fix + tests | done — mutation-tested | 797709c |
 | C7 diagnose | done | 78eefed |
 | C7 fix + tests | done — mutation-tested | 78eefed |
-| LOW a | done — STATED, NOT FIXED (outside file boundary); characterization test | (LOW a commit) |
-| LOW b | next | |
-| gates | — | |
+| LOW a | done — STATED, NOT FIXED (outside file boundary); characterization test | 52b0e28 |
+| LOW b | done — mutation-tested | (LOW b commit) |
+| gates | next | |
 
 ## C1 — DIAGNOSIS (verified against the tree)
 - "The spark" = his POINTER: `AvatarRenderer`'s `avatarRendererLocal` layer (S153 A1), drawn at
@@ -111,8 +111,32 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - Test: `src/render/s189HealInsideNetFloater.test.ts` (4) — pins the gap; goes red ON PURPOSE when the
   channel lands (re-pin to "red 12 + green 2", never delete).
 
+## LOW b — ELITE PIRANHA FALLBACK SHEET
+- Cause: `goblinRenderer.ts` looked up `atlases.get('t3PiranhaElite')` only; `loadAtlas` swallows a
+  404, so a missing / in-flight elite sheet fell to `drawGoblin`'s green puppet.
+- Fix (goblinRenderer.ts only): `export function atlasFallbackType(type)` → `'t3Piranha'` for
+  `'t3PiranhaElite'`, else null; the draw loop ensures the fallback's sheet and uses it when the own
+  sheet is unresolved. Scale stays keyed by TYPE (`creatureSpriteScaleMul('t3PiranhaElite')` = 2) →
+  base piranha at 2×. Both shipped manifests carry idle/walk/attack/die, same cellH 200, same foot
+  anchor (elite cellW 226 vs 200 — width only). Portrait (`portraitTexture`) NOT given the fallback
+  (the swarm branch does not either; an unresolved portrait draws the plate alone, no error).
+- ⭐ MERGE-FRIENDLY ON PURPOSE: `s188/swarm` adds the same function (same name/signature) for
+  `t3BatSwarm → t3Bat` at the SAME insertion point, and an identical draw-loop hunk. My draw-loop hunk
+  is byte-identical to swarm's (including its "⭐ S188 —" comment) so git merges it cleanly; the
+  function block WILL conflict (both insert after `CORPSE_EATER_FEED_KEY`) — resolve as the union:
+  `return type === 't3BatSwarm' ? 't3Bat' : type === 't3PiranhaElite' ? 't3Piranha' : null;`, keep
+  one docblock. My negative test "every other creature type has NO fallback" must then gain the swarm
+  arm (it enumerates `CREATURE_CONFIGS`, so it goes red until updated — intended).
+- Tests (`src/render/s189EliteFallback.test.ts`, 5): REACH through the real `GoblinRenderer.sync`
+  with `fetch` + `Assets.load` stubbed and the SHIPPED manifests read off disk — elite 404 → one
+  Sprite cut from the piranha sheet at `GOBLIN_SPRITE_BASE_SCALE × 2`, zero console.error/warn.
+  Negatives: elite sheet present → its OWN sheet; plain piranha untouched (own sheet, ×1); no other
+  type has a fallback; the borrowed sheet has every row the elite's has.
+- **Mutation-tested**: removed the `?? atlases.get(fallbackType)` arm → REACH red ("expected [] to
+  have a length of 1"), restored → green.
+
 ## In flight
-- LOW b
+- gates
 
 ## Decisions
 - C1 fix shape: remove the panel's zIndex + move one staging line, NOT a zIndex on the cruiser layer.
