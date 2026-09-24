@@ -242,7 +242,7 @@ describe('what each tile shows', () => {
   });
 });
 
-describe('the cards on disk — the 16 a tile can ask for, WRATH OF RA ahead of its perk, and only those', () => {
+describe('the cards on disk — every card a tile can ask for, WRATH OF RA included, and only those', () => {
   const PUBLIC = join(__dirname, '..', '..', 'public');
   const DIR = join(PUBLIC, UPGRADE_CARD_DIR);
   /** ⚠ MINE, not the owner's — a payload sanity bound. The largest shipped card is ~87 KB. */
@@ -263,25 +263,19 @@ describe('the cards on disk — the 16 a tile can ask for, WRATH OF RA ahead of 
   ];
 
   /*
-   * ⭐ S188 `s188/ra-vfx` — A CARD THAT SHIPS ONE MERGE AHEAD OF THE PERK THAT DRAWS IT, named here
-   * rather than tolerated by a looser assertion. The owner's WRATH OF RA art (`l10-mummies`) lands on
-   * this branch; its mechanic `mummies.l10` lands in the parallel `s188/wrath`, which this branch may
-   * not touch (`racialPerks.ts`). Until both are merged the card is on disk and referenced by nothing.
-   *
-   * ⚠ The allowance is a UNION, so it is harmless in either merge order: once `mummies.l10` names
-   * `l10-mummies` the card is simply in `referenced` as well, and the shipped set is still exactly
-   * 17. Delete the entry then — a stale allowance is where a future stray would hide.
+   * ⭐ S190 (s188/wrath merge) — the `AHEAD_OF_THEIR_PERK` allowance ra-vfx carried for `l10-mummies`
+   * is GONE, as its own note asked: `mummies.l10` now names that card, so it is simply referenced.
+   * The count is DERIVED (4 general + one per racial perk) so the next level-10 perk re-pins itself.
    */
-  const AHEAD_OF_THEIR_PERK = ['l10-mummies'] as const;
-  const expectedShipped = [...new Set<string>([...referenced, ...AHEAD_OF_THEIR_PERK])];
 
   it('the URL is served from public/', () => {
     expect(upgradeCardUrl('general-hp')).toBe('/art/upgrade-cards/general-hp.webp');
   });
 
-  it('every card a tile can ask for (and every card ahead of its perk) is shipped, 2× the tile, and a sane size', () => {
-    expect(referenced).toHaveLength(16);
-    for (const card of expectedShipped) {
+  it('every card a tile can ask for is shipped, 2× the tile, and a sane size', () => {
+    expect(referenced).toHaveLength(GENERAL_PICKS.length + RACIAL_PERK_IDS.length);
+    expect(referenced, 'WRATH OF RA draws its own card').toContain('l10-mummies');
+    for (const card of referenced) {
       const path = join(DIR, `${card}.webp`);
       expect(existsSync(path), `${card}.webp is missing — run python scripts/build-upgrade-cards.py`).toBe(true);
       const size = webpSize(readFileSync(path));
@@ -292,9 +286,8 @@ describe('the cards on disk — the 16 a tile can ask for, WRATH OF RA ahead of 
 
   it('⛔ ships nothing else — no THE SWARM (vampires L10 is not built), no alternates, no strays', () => {
     const shipped = readdirSync(DIR).sort();
-    expect(shipped).toEqual(expectedShipped.map((c) => `${c}.webp`).sort());
-    // 16 a tile can ask for on this branch + WRATH OF RA. Exactly 17 after `s188/wrath` merges too.
-    expect(shipped).toHaveLength(17);
+    expect(shipped).toEqual(referenced.map((c) => `${c}.webp`).sort());
+    expect(shipped).toHaveLength(referenced.length);
     expect(shipped).not.toContain('l10-vampires.webp');
   });
 

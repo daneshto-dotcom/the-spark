@@ -67,15 +67,9 @@ describe('the registry', () => {
   });
 
   it('gives every perk a card that EXISTS in the art source folder', () => {
-    /*
-     * ⚠ S188 P11 — ONE CARD IS NAMED BEFORE ITS ART EXISTS, on purpose: the owner is generating
-     * `l10-mummies` now. A tile whose card has not loaded keeps its text title (the overlay's own
-     * rule), so a pending card costs a picture, never a broken panel. Delete the entry when it lands.
-     */
-    const PENDING_ART = new Set(['l10-mummies']);
+    // ⭐ S190 — the S188 P11 PENDING_ART skip for `l10-mummies` is gone: ra-vfx shipped the art.
     for (const perk of RACIAL_PERK_IDS) {
       const card = RACIAL_PERK_COPY[perk].card;
-      if (PENDING_ART.has(card)) continue;
       expect(existsSync(`assets-source/upgrade-cards/${card}.png`), `${perk} -> ${card}.png`).toBe(true);
     }
   });

@@ -77,3 +77,8 @@ docblock (WRATH-L1-01 / W-2), canon text/tests, botRa census note (L1-05), doc r
   `optionsFor` injected, mummies seat at wave 11: ['racial','def'] → WRATH tile live ('RA × 3', no
   mark), click sends 'racial'; ['hp','def'] → COMING SOON, racial tap sends nothing, general sends
   'atk'. MUTATION (by hand, restored): dropping `pl.draftPicks` from `this.optionsFor(...)` → 1 red.
+- [x] W-3 / WRATH-L1-03 — `draftOverlay.test.ts` cards-on-disk: ra-vfx's `AHEAD_OF_THEIR_PERK` allowance
+  + its `expectedShipped` union DELETED; the count is DERIVED (`GENERAL_PICKS.length +
+  RACIAL_PERK_IDS.length` = 17 now, 18 with swarm), shipped == referenced exactly, `l10-mummies`
+  asserted referenced. `racialPerks.test.ts`: the S188 P11 `PENDING_ART` skip deleted (the source PNG is
+  on master). Both files 68/68 green.
