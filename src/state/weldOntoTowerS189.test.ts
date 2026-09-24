@@ -45,7 +45,36 @@ import {
   type Vec2,
 } from '../types.ts';
 import type { Primitive } from '../game/primitive.ts';
-import { TURRET_HUB_DEGREE } from './godlyRecipes/laserTurret.ts';
+import { TURRET_HUB_DEGREE, isLaserTurretComponent } from './godlyRecipes/laserTurret.ts';
+import { HELGA_SIZE, isHelgaComponent } from './godlyRecipes/princessHelga.ts';
+import { STINK_HUB_TYPE, STINK_LEAF_TYPE, isStinkTowerComponent } from './godlyRecipes/stinkTower.ts';
+import { isLightningHubComponent } from './godlyRecipes/lightningHub.ts';
+import { isPentagramComponent } from './godlyRecipes/pentagram.ts';
+import { isGoblinTowerComponent } from './goblinKinds.ts';
+import { GOBLIN_TOWER_HUB_DEGREE, LIGHTNING_HUB_DEGREE, STINK_TOWER_HUB_DEGREE } from '../constants.ts';
+import { starArmsAt } from './godlyRecipes/starShape.ts';
+import { ringCycleAt } from './godlyRecipes/ringShape.ts';
+import { towerMembersAt, towerShapeFor, towerStandsAt } from './towerMembers.ts';
+import { starBankedFifths, starPoolFifths } from './structureStarHealth.ts';
+import { structurePoolFifths } from './stats.ts';
+import { rampHealthFrac, rampMembersAt, rampSpecFor, rampTargetFrame } from '../render/structureRamp.ts';
+import {
+  TOWER_COVER_DRAW_EPSILON,
+  TOWER_COVER_FADE_TICKS,
+  __resetTowerCoverForTests,
+  beginTowerCoverFrame,
+  coverAlphaForBond,
+  coverAlphaForPrim,
+  markTowerCover,
+} from '../render/towerCover.ts';
+import { planStructureRepair } from './structureRepair.ts';
+import { applyBuildBlueprint } from './blueprintBuild.ts';
+import { blueprintBill } from './blueprints.ts';
+import { makeCastleBank } from './castleBank.ts';
+import { makeCreature } from './creatures/creature.ts';
+import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
+import { asCreatureId, asSpawnerId } from '../types.ts';
+import type { GodlyId } from './godlyRecipes/types.ts';
 // Side-effect imports: the defender recipes register themselves, exactly as `main.ts` imports them.
 import './godlyRecipes/registerAll.ts';
 
@@ -73,11 +102,11 @@ function worldInBuild(seed = 0x5189): World {
   return w;
 }
 
-function mk(w: World, type: SparkType, x: number, y: number): Primitive {
-  const player = w.players.get(P0)!;
+function mk(w: World, type: SparkType, x: number, y: number, seat = P0): Primitive {
+  const player = w.players.get(seat)!;
   const id = asPrimitiveId(w.nextPrimitiveId++);
   const prim: Primitive = {
-    id, type, placerColor: player.color, placedBy: P0, createdTick: w.tick,
+    id, type, placerColor: player.color, placedBy: seat, createdTick: w.tick,
     pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: player.color,
     lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
   };
@@ -99,12 +128,13 @@ function bond(w: World, a: Primitive, b: Primitive): BondId {
 /** Hand-built star: a hub and `n` leaves on a ring of radius `r`. Pushes the ignition trigger. */
 function star(
   w: World, hubType: SparkType, leafType: SparkType, n: number, cx: number, cy: number, r = 40,
+  seat = P0,
 ): { hub: Primitive; leaves: Primitive[] } {
-  const hub = mk(w, hubType, cx, cy);
+  const hub = mk(w, hubType, cx, cy, seat);
   const leaves: Primitive[] = [];
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
-    const leaf = mk(w, leafType, cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    const leaf = mk(w, leafType, cx + Math.cos(a) * r, cy + Math.sin(a) * r, seat);
     bond(w, hub, leaf);
     leaves.push(leaf);
   }
@@ -153,20 +183,20 @@ function redundantTargets(w: World, primary: Primitive, at: Vec2): PrimitiveId[]
 
 let sparkSeq = 9000;
 /** ONE real player drop: a Free spark of `type` placed at `at`, fields exactly as `controls.ts`. */
-function placeLikeAPlayer(w: World, type: SparkType, at: Vec2): Primitive {
+function placeLikeAPlayer(w: World, type: SparkType, at: Vec2, seat = P0): Primitive {
   const spark = makeFreeSpark({
     id: asSparkId(sparkSeq++), type, pos: { x: at.x, y: at.y }, velocity: { x: 0, y: 0 },
     dt: 1 / 60, createdTick: w.tick,
   });
   dispatch(w, { type: 'SPAWN_SPARK', spark });
-  const color = w.players.get(P0)!.color;
+  const color = w.players.get(seat)!.color;
   const targetId = pickPrimitiveInRange(w, AUTO_BOND_RADIUS, at, color);
   const target = targetId !== null ? w.primitives.get(targetId) ?? null : null;
   const before = new Set(w.primitives.keys());
   dispatch(w, {
     type: 'PLACE_FROM_FREE',
     sparkId: spark.id,
-    playerId: P0,
+    playerId: seat,
     placementPos: { x: at.x, y: at.y },
     stiffnessTier: computeStiffnessTier(type, target),
     targetPrimitiveId: target?.id ?? null,
@@ -221,6 +251,28 @@ describe('⛔ S189 C2 — two triangles welded onto a LASER TURRET (the owner\'s
 
     tick(w, st, PAST_TWO_POLLS);
     expect(w.defenders.size, 'the turret must still stand after the weld').toBe(1);
+  });
+
+  it("the BROTHER's exact path — a JOINER's drop, target re-picked by the HOST — and it stands", () => {
+    // He was the joiner: `applyPlaceFromFree` ignores a remote seat's target and re-picks it on the
+    // host (`pickHostTargetPrimitive`). A defender is not in the S107 P4 spawner lock, so the host
+    // re-pick lands on the turret's hub exactly as the local path does.
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    expect(w.localPlayerId, 'the fixture must make seat 1 a REMOTE seat').not.toBe(P1);
+    const p1 = w.players.get(P1)!;
+    w.players.set(P1, { ...p1, avatarPos: { x: 1400, y: 300 } });
+    const { hub } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 1400, 300, 40, P1);
+    tick(w, st, 2);
+    expect([...w.defenders.values()].map((d) => d.ownerPlayerId)).toEqual([P1]);
+
+    const t1 = placeLikeAPlayer(w, SparkType.Triangle, { x: 1420, y: 318 }, P1);
+    const t2 = placeLikeAPlayer(w, SparkType.Triangle, { x: 1380, y: 282 }, P1);
+    expect(neighbours(w, t1)).toContain(hub.id);
+    expect(neighbours(w, t2)).toContain(hub.id);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, "the joiner's welded turret must still stand").toBe(1);
   });
 });
 
@@ -290,5 +342,399 @@ describe('⛔ S189 C2 — HELGA\'s hall is on the whole-component test too', () 
 
     tick(w, st, PAST_TWO_POLLS);
     expect(w.defenders.size, 'Helga\'s hall must still stand after the weld').toBe(1);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// THE OWED TESTS — every one through the real placement path and the real host tick unless it is
+// labelled ARITHMETIC.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+const P1 = asPlayerId(1);
+const byId = (a: PrimitiveId, b: PrimitiveId): number => a - b;
+
+/** The owner's case, built once: a live laser turret with two triangles dropped on its art. */
+function weldedTurret(): {
+  w: World; st: HostTickState; hub: Primitive; leaves: Primitive[]; welds: Primitive[];
+} {
+  const w = worldInBuild();
+  const st = makeHostTickState(w);
+  const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+  tick(w, st, 2);
+  const welds = [
+    placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 }),
+    placeLikeAPlayer(w, SparkType.Triangle, { x: 480, y: 282 }),
+  ];
+  tick(w, st, PAST_TWO_POLLS);
+  expect(w.defenders.size, 'the welded turret must be standing for this case to mean anything').toBe(1);
+  return { w, st, hub, leaves, welds };
+}
+
+/** Every bond that joins `a` to one of `others`. */
+function bondsBetween(w: World, a: Primitive, others: readonly Primitive[]): BondId[] {
+  const set = new Set(others.map((p) => p.id));
+  const out: BondId[] = [];
+  for (const bid of a.bonds) {
+    const b = w.bonds.get(bid)!;
+    if (set.has(b.aId === a.id ? b.bId : b.aId)) out.push(bid);
+  }
+  return out;
+}
+
+describe('⭐ S189 C2 — the welded turret STAYS, FIRES and KEEPS ITS SPRITE', () => {
+  it('keeps its sprite: the ramp walks its six OWN arms, the welds are not members', () => {
+    const { w, hub, leaves, welds } = weldedTurret();
+    const spec = rampSpecFor('laserTurret')!;
+    const at = rampMembersAt(w, hub.id, spec);
+    expect(at, 'the renderer must still find a building to draw').not.toBeNull();
+    expect([...at!.members].sort(byId)).toEqual([hub.id, ...leaves.map((l) => l.id)].sort(byId));
+    for (const t of welds) expect(at!.members).not.toContain(t.id);
+    expect(at!.bonds).toHaveLength(TURRET_HUB_DEGREE);
+    for (const t of welds) for (const bid of t.bonds) expect(at!.bonds).not.toContain(bid);
+
+    // The sprite stands on the star's OWN centroid — the welds do not drag it sideways.
+    const own = [hub.id, ...leaves.map((l) => l.id)].map((id) => w.primitives.get(id)!);
+    expect(at!.cx).toBeCloseTo(own.reduce((s, p) => s + p.pos.x, 0) / own.length, 9);
+    expect(at!.cy).toBeCloseTo(own.reduce((s, p) => s + p.pos.y, 0) / own.length, 9);
+
+    // Undamaged: frame 1 — NOT the crumble a "missing connector" reading would give.
+    const frac = rampHealthFrac(at!.bonds.length, at!.bankedFifths, spec);
+    expect(frac).toBe(1);
+    expect(rampTargetFrame(frac, spec)).toBe(1);
+  });
+
+  it('FIRES: in the next FIGHT its beam kills an enemy chewer', () => {
+    const { w, st } = weldedTurret();
+    w.matchPhase = 'FIGHT';
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(w.nextCreatureId++), ownerPlayerId: P1,
+      pos: { x: 560, y: 300 }, targetPos: { x: 560, y: 300 }, spawnedAtTick: w.tick,
+      sourceSpawnerId: asSpawnerId(99),
+    });
+    w.creatures.set(chewer.id, chewer);
+    const d = [...w.defenders.values()][0]!;
+    d.nextFireTick = w.tick; // skip the opening charge
+    let fired = false;
+    const d0 = deps();
+    const cursor = { lastMatcherTick: -1 };
+    for (let i = 0; i < 90 && w.creatures.has(chewer.id); i++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d0, st);
+      if (w.defenders.get(d.id)?.state === 'FIRE') fired = true;
+    }
+    expect(fired, 'the welded turret must actually reach FIRE').toBe(true);
+    expect(w.creatures.has(chewer.id), 'and its beam must kill the chewer').toBe(false);
+    expect(w.defenders.size).toBe(1);
+  });
+});
+
+describe('⭐ S189 C2 — a welded PENTAGRAM is drawn on its own five', () => {
+  it('the weld is not a member; the ring is priced over its own five connectors', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const t = placeLikeAPlayer(w, SparkType.Triangle, { x: 500, y: 300 - 42.5 - 30 });
+    tick(w, st, PAST_TWO_POLLS);
+    const sp = [...w.creatureSpawners.values()][0]!;
+    const at = rampMembersAt(w, sp.anchorPrimitiveId, rampSpecFor('pentagram')!)!;
+    expect([...at.members].sort(byId)).toEqual(nodes.map((n) => n.id).sort(byId));
+    expect(at.members).not.toContain(t.id);
+    expect(at.bonds).toHaveLength(5);
+    expect(rampHealthFrac(at.bonds.length, at.bankedFifths, rampSpecFor('pentagram')!)).toBe(1);
+  });
+});
+
+describe('⭐⭐ S189 C2 / Council M3 — TWO TOWERS WELDED TOGETHER: BOTH survive (R185-B)', () => {
+  it('a laser turret and a goblin tower welded by one square both stand', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const turret = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    const goblin = star(w, SparkType.Circle, SparkType.Circle, GOBLIN_TOWER_HUB_DEGREE, 620, 300);
+    tick(w, st, 3);
+    expect(w.defenders.size).toBe(1);
+    expect([...w.creatureSpawners.values()].map((s) => s.recipeId)).toEqual(['goblinTower']);
+
+    /*
+     * ⚠ THE DROP IS AIMED AT THE GOBLIN TOWER'S LEAF, AND THAT IS NOT INCIDENTAL. `placePrimitive`'s
+     * S107 P4 "locked ring" refuses to MERGE a placement into a live SPAWNER's component (it was the
+     * old mitigation for exactly the defect S189 fixes). So the square's PRIMARY bond goes into the
+     * spawner — allowed on the local path — and the merge sweep then reaches the turret, a DEFENDER,
+     * which is not locked. The reverse drop welds nothing; that lock is reported, not changed here.
+     */
+    const sq = placeLikeAPlayer(w, SparkType.Square, { x: 566, y: 300 });
+    expect(neighbours(w, sq)).toContain(goblin.leaves[2]!.id);
+    const comp = componentOf(turret.hub, w.primitives, w.bonds);
+    expect(comp.primitiveIds.has(goblin.hub.id), 'the square must weld the two into ONE structure').toBe(true);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret stands').toBe(1);
+    expect(w.creatureSpawners.size, 'and so does the goblin tower').toBe(1);
+  });
+
+  it('two pentagrams welded by a TRIANGLE — their own type — both stand', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const a = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const b = ring(w, SparkType.Triangle, 5, 620, 300);
+    tick(w, st, 2);
+    expect(w.creatureSpawners.size).toBe(2);
+
+    /*
+     * ⚠ PLACEMENT CANNOT MAKE THIS WELD TODAY, and the case says so rather than hiding it: the S107 P4
+     * lock refuses to merge a drop into a second live spawner, so a triangle dropped between the rings
+     * bonds to ring A only. The weld below is therefore minted directly — it is the SURVIVAL rule that
+     * is under test, and a welded pair must stand however the weld came to exist. The lock itself is
+     * reported for the merge owner (it now blocks the R185-B "weld two bat towers" play for spawners).
+     */
+    const dropped = placeLikeAPlayer(w, SparkType.Triangle, { x: 560, y: 286.9 });
+    const nd = neighbours(w, dropped);
+    expect(nd.some((id) => a.some((p) => p.id === id)), 'the drop reaches ring A').toBe(true);
+    expect(nd.some((id) => b.some((p) => p.id === id)), 'but S107 P4 refuses the merge into ring B').toBe(false);
+    const t = mk(w, SparkType.Triangle, 560, 300);
+    bond(w, t, a[1]!);
+    bond(w, t, b[4]!);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'both pentagrams stand').toBe(2);
+    for (const sp of w.creatureSpawners.values()) {
+      const own = towerMembersAt(w, 'pentagram', sp.anchorPrimitiveId)!;
+      expect(own.whole).toBe(true);
+      expect(own.prims).not.toContain(t.id);
+    }
+  });
+});
+
+describe('⛔ S189 C2 — cutting the tower\'s OWN connector still levels it (the counterplay survives)', () => {
+  it('an enemy cutting one own arm of the welded turret levels it within the poll', () => {
+    const { w, st, hub, leaves } = weldedTurret();
+    const arm = bondsBetween(w, hub, [leaves[0]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: arm, playerId: P1, cause: 'creature' });
+    expect(w.bonds.has(arm)).toBe(false);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'a broken star is a dead tower, welds or not').toBe(0);
+  });
+
+  it('…while cutting a WELD leaves it standing', () => {
+    const { w, st, hub, welds } = weldedTurret();
+    const weldBond = bondsBetween(w, hub, welds)[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: weldBond, playerId: P1, cause: 'creature' });
+    expect(w.bonds.has(weldBond)).toBe(false);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(1);
+  });
+
+  it('a pentagram whose own ring is cut falls, welded or not', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    placeLikeAPlayer(w, SparkType.Circle, { x: 500, y: 300 - 42.5 - 30 });
+    const own = bondsBetween(w, nodes[2]!, [nodes[3]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: own, playerId: P1, cause: 'creature' });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size).toBe(0);
+  });
+});
+
+describe('⭐ S189 C2 — R185-A: the welded shapes draw at FULL opacity under the sprite', () => {
+  it('own shapes fade out; the two welded triangles and their connectors stay at alpha 1', () => {
+    __resetTowerCoverForTests();
+    try {
+      const { w, hub, leaves, welds } = weldedTurret();
+      const spec = rampSpecFor('laserTurret')!;
+      const at = (t: number): World => ({ ...w, tick: t }) as World;
+      const t0 = w.tick;
+      // Three render frames: publish, publish again once the fade has run, then read.
+      for (const t of [t0, t0 + TOWER_COVER_FADE_TICKS + 5]) {
+        beginTowerCoverFrame(at(t));
+        const m = rampMembersAt(w, hub.id, spec)!;
+        markTowerCover(m.members, m.bonds, m.newestTick);
+      }
+      beginTowerCoverFrame(at(t0 + TOWER_COVER_FADE_TICKS + 6));
+
+      for (const p of [hub, ...leaves]) {
+        expect(coverAlphaForPrim(p.id), `own shape ${p.id} is hidden`).toBeLessThan(TOWER_COVER_DRAW_EPSILON);
+      }
+      for (const t of welds) {
+        expect(coverAlphaForPrim(t.id), `welded triangle ${t.id}`).toBe(1);
+        for (const bid of t.bonds) expect(coverAlphaForBond(bid), `weld connector ${bid}`).toBe(1);
+      }
+    } finally {
+      __resetTowerCoverForTests();
+    }
+  });
+});
+
+describe('⭐ S189 C2 — R185-B: welding costs repair, on purpose', () => {
+  it('FIX is offered on a dented stamped turret, and refused the moment a triangle is welded on', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('laserTurret')) bank[type as number] = (bank[type as number] ?? 0) + count;
+    bank[SparkType.Spiral as number] = (bank[SparkType.Spiral as number] ?? 0) + 1; // the R182-E flat fee
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre: { x: 500, y: 300 } });
+    tick(w, st, 3);
+    expect(w.defenders.size, 'the stamp must ignite').toBe(1);
+    const hubId = [...w.defenders.values()][0]!.anchorPrimitiveId;
+    const hub = w.primitives.get(hubId)!;
+    const arm = [...hub.bonds].sort((x, y) => x - y)[0]!;
+    w.bonds.get(arm)!.damageFifths = 10;
+
+    expect(planStructureRepair(w, P0, hubId), 'the control: un-welded, a dent is repairable').not.toBeNull();
+
+    const t = placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 });
+    expect(neighbours(w, t)).toContain(hubId);
+    expect(planStructureRepair(w, P0, hubId), 'welded: no FIX').toBeNull();
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubId });
+    expect(w.bonds.get(arm)!.damageFifths, 'the reducer refuses too').toBe(10);
+
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'unrepairable is not dead — the welded turret stands').toBe(1);
+  });
+});
+
+describe('ARITHMETIC — the survival shape, derived from the blueprint', () => {
+  it('each recipe\'s survival shape is exactly its recipe\'s own numbers', () => {
+    const starOf = (id: GodlyId): { hub: SparkType; arms: Record<number, number> } => {
+      const s = towerShapeFor(id);
+      if (s === null || s.kind !== 'star') throw new Error(`${id} is not a star`);
+      return { hub: s.hub, arms: Object.fromEntries(s.arms.map((a) => [a.leafType, a.count])) };
+    };
+    expect(starOf('laserTurret')).toEqual({ hub: SparkType.Line, arms: { [SparkType.Spiral]: TURRET_HUB_DEGREE } });
+    expect(starOf('lightningHub')).toEqual({ hub: SparkType.Dot, arms: { [SparkType.Circle]: LIGHTNING_HUB_DEGREE } });
+    expect(starOf('goblinTower')).toEqual({ hub: SparkType.Circle, arms: { [SparkType.Circle]: GOBLIN_TOWER_HUB_DEGREE } });
+    expect(starOf('stinkTower')).toEqual({ hub: STINK_HUB_TYPE, arms: { [STINK_LEAF_TYPE]: STINK_TOWER_HUB_DEGREE } });
+    const helgaLeaves = HELGA_SIZE - 1;
+    expect(starOf('helga')).toEqual({
+      hub: SparkType.Triangle,
+      arms: { [SparkType.Spiral]: helgaLeaves / 2, [SparkType.Circle]: helgaLeaves / 2 },
+    });
+    expect(towerShapeFor('pentagram')).toEqual({ kind: 'ring', type: SparkType.Triangle, n: 5 });
+    // R136 keeps the race rings; the Voltkin is a cinematic, not a standing tower.
+    expect(towerShapeFor('t3TowerVampires')).toBeNull();
+    expect(towerShapeFor('t9TowerDemons')).toBeNull();
+    expect(towerShapeFor('voltkin')).toBeNull();
+  });
+
+  const STRICT: Readonly<Record<string, (w: World, a: PrimitiveId) => boolean>> = {
+    laserTurret: isLaserTurretComponent,
+    lightningHub: isLightningHubComponent,
+    goblinTower: isGoblinTowerComponent,
+    stinkTower: isStinkTowerComponent,
+    helga: isHelgaComponent,
+    pentagram: isPentagramComponent,
+  };
+  it.each(Object.keys(STRICT))('%s — IGNITION ⊆ SURVIVAL: a freshly stamped tower stands', (id) => {
+    // A tower that ignites and then fails its own survival test would build and die in 0.5 s.
+    const w = worldInBuild();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill(id as GodlyId)) bank[type as number] = (bank[type as number] ?? 0) + count;
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: id as GodlyId, centre: { x: 500, y: 300 } });
+    const ids = [...w.primitives.keys()].sort(byId);
+    expect(ids.length).toBeGreaterThan(0);
+    const anchor = ids.find((a) => STRICT[id]!(w, a));
+    expect(anchor, `the stamp satisfies ${id}'s ignition test`).toBeDefined();
+    expect(towerStandsAt(w, id as GodlyId, anchor!)).toBe(true);
+  });
+
+  it('starArmsAt takes the LOWEST-id arms; a surplus same-type weld is not an arm until one is lost', () => {
+    const w = worldInBuild();
+    const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    const spare = mk(w, SparkType.Spiral, 530, 330);
+    const spareBond = bond(w, hub, spare); // minted AFTER the arms, so its id is higher
+    const spec = [{ leafType: SparkType.Spiral, count: TURRET_HUB_DEGREE }];
+    const armsNow = starArmsAt(w, hub.id, SparkType.Line, spec)!;
+    expect(armsNow.whole).toBe(true);
+    expect(armsNow.leaves).not.toContain(spare.id);
+    expect(armsNow.bonds).not.toContain(spareBond);
+
+    // ⚠ The ruled semantics, stated as a test: lose an original arm and the spare stands in —
+    // "as long as the existing tower, the shape is there".
+    const lost = bondsBetween(w, hub, [leaves[0]!])[0]!;
+    w.bonds.delete(lost);
+    hub.bonds.delete(lost);
+    leaves[0]!.bonds.delete(lost);
+    const armsAfter = starArmsAt(w, hub.id, SparkType.Line, spec)!;
+    expect(armsAfter.whole).toBe(true);
+    expect(armsAfter.leaves).toContain(spare.id);
+
+    // A foreign shape never stands in.
+    const w2 = worldInBuild();
+    const s2 = star(w2, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE - 1, 500, 300);
+    bond(w2, s2.hub, mk(w2, SparkType.Triangle, 530, 330));
+    const partial = starArmsAt(w2, s2.hub.id, SparkType.Line, spec)!;
+    expect(partial.whole).toBe(false);
+    expect(partial.bonds).toHaveLength(TURRET_HUB_DEGREE - 1);
+  });
+
+  it('starArmsAt is a TOTAL ORDER — insertion order into `hub.bonds` never decides', () => {
+    const w = worldInBuild();
+    const { hub } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    const spare = mk(w, SparkType.Spiral, 530, 330);
+    bond(w, hub, spare);
+    const spec = [{ leafType: SparkType.Spiral, count: TURRET_HUB_DEGREE }];
+    const forward = starArmsAt(w, hub.id, SparkType.Line, spec)!;
+    hub.bonds = new Set([...hub.bonds].reverse());
+    const reversed = starArmsAt(w, hub.id, SparkType.Line, spec)!;
+    expect(reversed.bonds).toEqual(forward.bonds);
+    expect(reversed.leaves).not.toContain(spare.id);
+  });
+
+  it('R182-B on a hub-welded lightning hub: the pool is its OWN five (50), and weld damage is not its', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const { hub } = star(w, SparkType.Dot, SparkType.Circle, LIGHTNING_HUB_DEGREE, 500, 300);
+    tick(w, st, 2);
+    expect([...w.creatureSpawners.values()].map((s) => s.recipeId)).toEqual(['lightningHub']);
+    const t = mk(w, SparkType.Triangle, 520, 318);
+    const weldBond = bond(w, hub, t);
+    w.bonds.get(weldBond)!.damageFifths = 30;
+    expect(hub.bonds.size).toBe(LIGHTNING_HUB_DEGREE + 1);
+    expect(starPoolFifths(w, hub.id)).toBe(structurePoolFifths(LIGHTNING_HUB_DEGREE));
+    expect(starPoolFifths(w, hub.id)).toBe(50);
+    expect(starBankedFifths(w, hub.id)).toBe(0);
+  });
+
+  it('ringCycleAt returns the ORIGINAL ring even when a chord weld opens a second 5-cycle', () => {
+    const w = worldInBuild();
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    // X bonded to nodes 0 and 2 makes 0-X-2-3-4-0 a second simple 5-cycle through node 0.
+    const x = mk(w, SparkType.Triangle, 520, 290);
+    bond(w, x, nodes[0]!);
+    bond(w, x, nodes[2]!);
+    const cycle = ringCycleAt(w, nodes[0]!.id, SparkType.Triangle, 5)!;
+    expect([...cycle].sort(byId)).toEqual(nodes.map((n) => n.id).sort(byId));
+    // …and with the original ring broken, the weld's cycle keeps it standing.
+    const cut = bondsBetween(w, nodes[0]!, [nodes[1]!])[0]!;
+    w.bonds.delete(cut);
+    nodes[0]!.bonds.delete(cut);
+    nodes[1]!.bonds.delete(cut);
+    const again = ringCycleAt(w, nodes[0]!.id, SparkType.Triangle, 5)!;
+    expect(again).toContain(x.id);
+    expect(again).toHaveLength(5);
+  });
+});
+
+describe('⛔ NEGATIVE — IGNITION IS UNCHANGED: exact to build, contains only to survive', () => {
+  it('a star welded BEFORE it is complete does not ignite (hysteresis, by design)', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const { hub } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    bond(w, hub, mk(w, SparkType.Triangle, 520, 318)); // a triangle on the hub before ignition
+    tick(w, st, PAST_TWO_POLLS);
+    expect(isLaserTurretComponent(w, hub.id)).toBe(false);
+    expect(w.defenders.size, 'a hub of degree 7 is not a laser turret to BUILD').toBe(0);
+  });
+
+  it('a Circle hub with FIVE Circle arms is still no goblin tower', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    star(w, SparkType.Circle, SparkType.Circle, GOBLIN_TOWER_HUB_DEGREE + 1, 500, 300);
+    tick(w, st, 3);
+    expect(w.creatureSpawners.size).toBe(0);
   });
 });
