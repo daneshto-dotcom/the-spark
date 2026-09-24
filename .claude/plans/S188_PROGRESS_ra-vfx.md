@@ -85,6 +85,21 @@ scope, left for the merge owner / a later session: NEXT-SESSION items 2 (atlas-s
   sprites are ever on screen at once — the painter test was first written for 3 and went red on
   anti-vacuity, which is how that number was found.
 
+### Step 2 — DONE — gates on the branch AS-IS (at 046791a, before the master merge)
+Each exit read from a captured `$?`, output redirected to a file (never a pipe):
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run` → **VITEST_EXIT=0** — 356 files / **5866 tests** passed, 0 failed
+- `npm run build` → **BUILD_EXIT=0** — main entry **936.5 KiB**, cap 1000 KiB, headroom 63.5 KiB
+  (this is the branch's OLD base b5c9fc9 + the branch; master's own number is measured after the merge)
+- ⭐ The branch's own bundle cost (MINE, measured with `esbuild --minify` on the module alone):
+  `raStrikeArt.ts` 2,280 B + the `bossAuras.ts` delta 476 B (3,804 → 4,280 B) ≈ **2.7 KiB** — well
+  inside the 10 KiB allowance. The 1,680 KB atlas PNG + 1.4 KB manifest are STATIC assets under
+  `public/art/ra-strike/`, fetched lazily by `ensureRaStrikeArt()` (`fetch` + `Assets.load`) on the
+  first Pharaoh drawn / strike drawn — never in the initial bundle.
+- Benign, named: git's `LF will be replaced by CRLF` warnings on `git add` (autocrlf on a new LF
+  file — the index stores LF; not a failure). Grep for `×` in the logs also matches the test TITLE
+  "IHDR = cellW×12", not a failure.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
