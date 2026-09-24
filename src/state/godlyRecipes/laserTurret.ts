@@ -50,6 +50,8 @@ import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
 // S158 B2b — the shared star test that replaced four whole-component tests.
 import { isStarAt } from './starShape.ts';
+// S189 C2 — the survival test (contains), distinct from the ignition test above (exact).
+import { towerStandsAt } from '../towerMembers.ts';
 
 /**
  * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
@@ -127,7 +129,13 @@ export const LASER_TURRET_RECIPE: DefenderGodlyRecipe = {
   id: 'laserTurret',
   defenderKind: 'turret',
   predicate: laserTurretPredicate,
-  stillValid: (world, anchorId) => isLaserTurretComponent(world, anchorId),
+  /*
+   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED", NOT "THE HUB IS STILL EXACT".
+   * `isLaserTurretComponent` is the IGNITION test and stays exact. As the survival test it was the
+   * owner's S189 report verbatim: two triangles dropped on the turret bond to the Line hub, the hub
+   * reads degree 8, and the turret vanished within half a second. See `state/towerMembers.ts`.
+   */
+  stillValid: (world, anchorId) => towerStandsAt(world, 'laserTurret', anchorId),
   // Codex gallery sprite placeholder (reuses the new matted Voltkin zap art until a turret art pass).
   characterSprite: '/godly/voltkin/anim/voltkin-zap.png',
 };

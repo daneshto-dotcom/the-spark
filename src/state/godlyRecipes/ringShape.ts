@@ -162,6 +162,92 @@ export function isRingAt(
 }
 
 /**
+ * ⭐⭐ S189 C2 — PURE — **THE RING A LIVE TOWER STILL CONTAINS, WHATEVER IS WELDED TO IT**, in walk
+ * order starting at the anchor, or `null` when no closed `n`-cycle of `type` runs through the anchor.
+ *
+ * Owner, S189: *"as long as the existing tower, the shape is there … it still has a pentagram, but
+ * you can connect to it."*
+ *
+ * `ringMembersAt` above is exact — every node on the walk has EXACTLY two same-type neighbours — and
+ * that exactness is what keeps IGNITION collision-free (R136: without it a chorded pentagram would
+ * ignite a tier-3 ring inside itself). This asks the SURVIVAL question instead: is there still a
+ * simple cycle of `n` shapes of `type` through the anchor? Extra same-type shapes welded onto the
+ * ring, and any foreign shapes at all, may be present; they are not members and do not decide.
+ *
+ * ⚠ **THE CYCLE RETURNED IS THE ORIGINAL RING WHENEVER THE ORIGINAL RING IS INTACT, AND THAT IS
+ * PROVABLE.** The search is depth-first from the anchor, stepping to neighbours in ASCENDING id
+ * (`sameTypeNeighbours` sorts), so it returns the lexicographically smallest cycle. Primitive ids
+ * are minted from the monotonic `world.nextPrimitiveId` and every ring node exists before the tower
+ * can ignite, so every shape welded on later has a HIGHER id than every ring node. At each step the
+ * original next node is therefore the smallest unvisited candidate, and the original ring is the
+ * first cycle found. Only when the original ring is broken can a cycle through a weld be returned —
+ * and then the pentagram the owner described genuinely is still there.
+ *
+ * ⚠ COST IS BOUNDED BY `degree^(n−1)`: every path is at most `n` nodes and a shape's same-type
+ * degree is capped by physical spacing. There is deliberately NO iteration cap — a cap would make a
+ * tower on a dense board vanish, which is the defect this function exists to end.
+ */
+export function ringCycleAt(
+  world: World,
+  anchorId: PrimitiveId,
+  type: SparkType,
+  n: number,
+): PrimitiveId[] | null {
+  if (n < 3) return null; // see `ringMembersAt`: a bonded pair is not a ring
+  const anchor = world.primitives.get(anchorId);
+  if (anchor === undefined) return null;
+  if (anchor.type !== type) return null;
+  const path: PrimitiveId[] = [anchorId];
+  const onPath = new Set<PrimitiveId>([anchorId]);
+  const extend = (cur: PrimitiveId): boolean => {
+    const nbrs = sameTypeNeighbours(world, cur, type);
+    if (path.length === n) return nbrs.includes(anchorId); // n ≥ 3, so this is not the arrival edge
+    for (const next of nbrs) {
+      if (onPath.has(next)) continue;
+      path.push(next);
+      onPath.add(next);
+      if (extend(next)) return true;
+      path.pop();
+      onPath.delete(next);
+    }
+    return false;
+  };
+  return extend(anchorId) ? path : null;
+}
+
+/**
+ * S189 C2 — PURE — what is LEFT of a broken ring, for the renderer's crumble only: the shapes of
+ * `type` within `n − 1` same-type hops of the anchor, ascending id. `null` when the anchor is gone.
+ *
+ * ⚠ NEVER A SURVIVAL TEST. It exists so a ring that has just lost a connector still has a centroid
+ * to crumble at during the ≤ 30 ticks before the revalidation poll removes it. It walks same-type
+ * neighbours only, so a foreign weld (the common case) never drifts the wreck.
+ */
+export function ringRemainsAt(
+  world: World,
+  anchorId: PrimitiveId,
+  type: SparkType,
+  n: number,
+): PrimitiveId[] | null {
+  const anchor = world.primitives.get(anchorId);
+  if (anchor === undefined) return null;
+  const seen = new Set<PrimitiveId>([anchorId]);
+  let frontier: PrimitiveId[] = [anchorId];
+  for (let hop = 1; hop < n && frontier.length > 0; hop++) {
+    const next: PrimitiveId[] = [];
+    for (const id of frontier) {
+      for (const nb of sameTypeNeighbours(world, id, type)) {
+        if (seen.has(nb)) continue;
+        seen.add(nb);
+        next.push(nb);
+      }
+    }
+    frontier = next;
+  }
+  return [...seen].sort((a, b) => a - b);
+}
+
+/**
  * PURE — every primitive that seeds a valid `n`-ring of `type`, ascending id.
  *
  * ⛔ THE CALLER MUST TAKE THE LOWEST, NOT THE FIRST IT FINDS. `igniteOneSpawnerRecipe` de-dups on

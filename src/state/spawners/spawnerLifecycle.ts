@@ -25,9 +25,9 @@
 
 import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
-import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
-import { isGoblinTowerComponent } from '../goblinKinds.ts';
-import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
+// ⭐ S189 C2 — the SURVIVAL test for the pentagram / lightning hub / goblin tower arms below. The
+// three `is…Component` IGNITION predicates these arms used to call are no longer imported here.
+import { towerStandsAt } from '../towerMembers.ts';
 /*
  * S166 — the ring validator plus the two lookups the race-tower cases need.
  *
@@ -108,25 +108,36 @@ export function applyRemoveSpawner(world: World, action: RemoveSpawnerAction): W
  * recipe shape-check against the CURRENT connected component of its anchor
  * primitive: the spawner survives ONLY while that component still EXACTLY matches
  * the recipe. Removing a triangle (component shrinks / a ring node drops degree)
- * OR attaching an extra shape (component grows past 5 / a non-triangle appears)
- * both make this return false → the host poll dispatches REMOVE_SPAWNER → income +
+ * makes this return false → the host poll dispatches REMOVE_SPAWNER → income +
  * swarm stop instantly. This IS the counterplay.
+ *
+ * ⚠ S189 C2 — "OR attaching an extra shape" USED TO BE THE OTHER HALF OF THIS SENTENCE, and it
+ * was the owner's S189 bug report. A weld no longer un-makes a star or the pentagram: those arms
+ * ask `towerStandsAt` whether the recipe is still CONTAINED. The race rings keep R136 (`isRingAt`),
+ * under which a weld of the ring's OWN type still does.
  *
  * Dispatches on `spawner.recipeId` so future spawner recipes (different shapes)
  * slot in here. `pentagram` is the only registered spawner recipe in Phase 1b;
- * `isPentagramComponent` already returns false when the anchor primitive is gone,
+ * `towerStandsAt` already returns false when the anchor primitive is gone,
  * so the missing-anchor case is covered without a separate `.has` guard (the host
  * poll also short-circuits on `!world.primitives.has(anchor)` first as
  * defense-in-depth).
  */
 export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): boolean {
   switch (spawner.recipeId) {
+    /*
+     * ⭐⭐ S189 C2 — THE THREE ARMS BELOW ARE SURVIVAL TESTS, AND SURVIVAL IS "THE RECIPE IS STILL
+     * CONTAINED". The `is…Component` predicates they used to call are IGNITION tests and stay exact
+     * there. As survival tests they were the owner's S189 report — *"it still has a pentagram, but
+     * you can connect to it"*: the pentagram's whole-component test died to ANY weld, and the two
+     * stars' exact hub degree died to a weld on the hub. See `state/towerMembers.ts`.
+     */
     case 'pentagram':
-      return isPentagramComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'pentagram', spawner.anchorPrimitiveId);
     // S113 Batch C — a lightningHub survives only while its Dot hub still anchors a 1-Dot(deg5)
     // + 5-Circle star (a chewer/drone eating a Circle leaf drops the size/degree -> teardown).
     case 'lightningHub':
-      return isLightningHubComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'lightningHub', spawner.anchorPrimitiveId);
     // ⭐ S151 P3 — a goblin tower survives only while its Circle hub still anchors a
     // 1-Circle(deg 4) + 4-Circle star. Without this case it would fall to `default:` below, which
     // checks ONLY that the anchor exists — so a tower whose four leaves were eaten would keep
@@ -136,7 +147,7 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     // file, and every recipe module calls `registerRecipe` at its tail — see the leaf's header for
     // the S144 trap and the ?worker=1 boot failure it caused in this very priority.
     case 'goblinTower':
-      return isGoblinTowerComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'goblinTower', spawner.anchorPrimitiveId);
     /*
      * ⭐ S166 — THE SIX TIER-3 RACE TOWERS. Without these cases all six would fall to `default:`
      * below, which checks ONLY that the anchor exists — so a tower whose other two nodes had been

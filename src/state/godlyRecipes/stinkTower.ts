@@ -91,6 +91,8 @@ import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
 import { isStarAt } from './starShape.ts';
+// S189 C2 — the survival test (contains), distinct from the ignition test (exact).
+import { towerStandsAt } from '../towerMembers.ts';
 
 /**
  * The two shape choices, named so a retune is one edit and so tests can assert the RELATIONSHIP
@@ -193,7 +195,9 @@ export const STINK_TOWER_RECIPE: DefenderGodlyRecipe = {
   id: 'stinkTower',
   defenderKind: 'stinkTower',
   predicate: stinkTowerPredicate,
-  stillValid: (world, anchorId) => isStinkTowerComponent(world, anchorId),
+  // ⭐ S189 C2 — survival is "the recipe is still CONTAINED", ignition stays exact. A shape welded
+  // onto the Square hub no longer removes the tower; see `state/towerMembers.ts`.
+  stillValid: (world, anchorId) => towerStandsAt(world, 'stinkTower', anchorId),
   // Codex gallery sprite placeholder, matching the laserTurret precedent (the in-world tower is fully
   // procedural — see render/stinkTowerRenderer.ts — so no atlas ships for this).
   characterSprite: '/godly/voltkin/anim/voltkin-zap.png',

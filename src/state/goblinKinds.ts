@@ -41,6 +41,8 @@ import type { PlayerId, PrimitiveId, SpawnerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
 // S158 B2b — the shared star test that replaced four whole-component tests.
 import { isStarAt } from './godlyRecipes/starShape.ts';
+// S189 C2 — the survival test the two seat lookups below re-validate a live tower with.
+import { towerStandsAt } from './towerMembers.ts';
 import type { CreatureType } from './creatures/creature.ts';
 
 /**
@@ -114,7 +116,7 @@ export function isGoblinTowerComponent(world: World, circleId: PrimitiveId): boo
  * eats"*). Returning a bare `SpawnerId` — which is what `seatGoblinTowerAt` below does — would
  * force the caller to look the recipe up again and invite the two lookups to disagree.
  *
- * ⚠ RE-VALIDATED PER KIND, not trusted: `isGoblinTowerComponent` for the star, `isRingAt` for the
+ * ⚠ RE-VALIDATED PER KIND, not trusted: `towerStandsAt` for the star (S189 C2), `isRingAt` for the
  * ring. Using a component check for the ring would re-introduce the S158 B2b defect that owner
  * ruling R136 exists to prevent.
  *
@@ -133,7 +135,8 @@ export function seatFeedTowerAt(
     if (sp.ownerPlayerId !== seat) continue;
     if (!comp.primitiveIds.has(sp.anchorPrimitiveId)) continue;
     if (sp.recipeId === 'goblinTower') {
-      if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
+      // ⭐ S189 C2 — the SURVIVAL test (contains), so a welded tower can still be fed.
+      if (!towerStandsAt(world, 'goblinTower', sp.anchorPrimitiveId)) continue;
       return { id: sp.id, recipeId: sp.recipeId };
     }
     const race = raceForTowerId(sp.recipeId);
@@ -158,7 +161,9 @@ export function seatGoblinTowerAt(
     if (!comp.primitiveIds.has(sp.anchorPrimitiveId)) continue;
     // Re-validated, not trusted: the host's revalidation poll can lag a leaf being eaten, and a
     // tower that no longer satisfies its recipe must not still offer to spawn from it.
-    if (!isGoblinTowerComponent(world, sp.anchorPrimitiveId)) continue;
+    // ⭐ S189 C2 — the SURVIVAL test (contains): the same rule the poll now uses, so a welded tower
+    // that the host keeps alive is not refused its FEED row here.
+    if (!towerStandsAt(world, 'goblinTower', sp.anchorPrimitiveId)) continue;
     return sp.id;
   }
   return null;

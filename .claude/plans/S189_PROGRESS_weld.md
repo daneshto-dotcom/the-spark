@@ -25,8 +25,19 @@ Why ignition must stay strict: a relaxed ignition ("≥ N leaf-type arms") would
 at every Circle in a dense Circle lattice. So the fix is HYSTERESIS: strict to BUILD, contains to
 SURVIVE.
 
+- step 3a — SURVIVAL FIX landed (4/4 repro GREEN; typecheck 0; 28 related files / 567 tests 0):
+  · `starShape.ts` `starArmsAt` — the star's OWN arms (per arm type, lowest bond ids), welds ignored.
+  · `ringShape.ts` `ringCycleAt` (lexicographically-least simple n-cycle through the anchor) +
+    `ringRemainsAt` (crumble-only remains of a broken ring).
+  · NEW leaf `src/state/towerMembers.ts` — `towerShapeFor` (EXHAUSTIVE over GodlyId, derived from
+    `blueprints.ts`), `towerMembersAt`, `towerStandsAt`, `liveTowerRecipeAt`.
+  · survival wired: laserTurret / stinkTower / helga `stillValid`; spawnerLifecycle pentagram /
+    lightningHub / goblinTower arms; goblinKinds `seatFeedTowerAt` + `seatGoblinTowerAt`.
+  · IGNITION UNTOUCHED (every `is…Component` still exact).
+
 ## IN-FLIGHT
-- step 3 — the fix.
+- step 3b — the same walk for the renderer + star health: `structureRamp.rampMembersAt`,
+  `stinkTowerCover.stinkTowerMembers`, `structureStarHealth` (R182-B own star).
 
 ## NEXT
 - step 3 — fix (or STOP with cost if > an afternoon).

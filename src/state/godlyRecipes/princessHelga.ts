@@ -27,6 +27,8 @@ import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
+// S189 C2 — the survival test (contains), distinct from the ignition test (exact).
+import { towerStandsAt } from '../towerMembers.ts';
 
 /**
  * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
@@ -107,7 +109,15 @@ export const HELGA_RECIPE: DefenderGodlyRecipe = {
   id: 'helga',
   defenderKind: 'princess',
   predicate: helgaPredicate,
-  stillValid: (world, anchorId) => isHelgaComponent(world, anchorId),
+  /*
+   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED". `isHelgaComponent` is the IGNITION
+   * test and stays exact — but it is a WHOLE-COMPONENT test (the S158 B2b defect, never fixed for
+   * HELGA), so as the survival test ONE shape welded onto ONE leaf tore her hall down. Survival now
+   * asks only that the Triangle hub still holds its own 3 Spiral + 3 Circle arms; see
+   * `state/towerMembers.ts`. ⚠ Her re-summon after she is killed still goes through ignition, so a
+   * welded hall stands but cannot re-summon her — reported, not changed (ignition is out of scope).
+   */
+  stillValid: (world, anchorId) => towerStandsAt(world, 'helga', anchorId),
   characterSprite: '/godly/helga/helga.png', // S110 P5 — HELGA's own matted imagen art (dirndl + stein + slap)
 };
 

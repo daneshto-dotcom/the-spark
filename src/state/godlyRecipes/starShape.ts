@@ -86,7 +86,7 @@
  */
 
 import type { SparkType } from '../../constants.ts';
-import type { PrimitiveId } from '../../types.ts';
+import type { BondId, PrimitiveId } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 
 /**
@@ -118,4 +118,101 @@ export function isStarAt(
     if (leaf.type !== leafType) return false;
   }
   return true;
+}
+
+/** One arm type of a star and how many of it the recipe has. */
+export interface StarArmSpec {
+  readonly leafType: SparkType;
+  readonly count: number;
+}
+
+/** The arms a LIVE star stands on — its hub's OWN connectors, never anything welded on. */
+export interface StarArms {
+  /** The leaves those arms reach, in the same order as `bonds`. */
+  readonly leaves: readonly PrimitiveId[];
+  /** The hub's own arm bonds, ascending bond id. */
+  readonly bonds: readonly BondId[];
+  /** `true` iff every arm type reached its full count — the star STANDS. */
+  readonly whole: boolean;
+}
+
+/**
+ * ⭐⭐ S189 C2 — PURE — **THE ARMS A LIVE STAR STANDS ON, WHATEVER ELSE IS WELDED TO ITS HUB.**
+ *
+ * Owner, S189: *"If you connect shapes … to existing towers, like to a laser tower, my brother
+ * connected like two triangles … it got his tower disappeared … we changed it that you can connect
+ * towers together … to get them have more HP … as long as the existing tower, the shape is there …
+ * you can connect to it."*
+ *
+ * `isStarAt` above answers IGNITION and is deliberately exact: a hub of degree N whose every arm is
+ * the leaf type. That exactness is what keeps the recipes disjoint — relax it for ignition and every
+ * Circle in a dense Circle lattice with four Circle neighbours becomes a goblin tower. But it was
+ * ALSO the survival test, and there it is the defect: MEASURED (`weldOntoTowerS189.test.ts`), a
+ * triangle dropped on a laser turret's art bonds to the HUB — it is the nearest shape, and the K=3
+ * redundancy pass adds more of the star — so the hub reads degree 8, `isStarAt` fails, and the
+ * revalidation poll deletes the turret within half a second.
+ *
+ * So SURVIVAL asks this instead: **is the recipe still CONTAINED at the hub?** For each arm type, the
+ * `count` arms of that type with the LOWEST bond ids are the star's own; any other bond on the hub —
+ * a foreign shape, or a surplus shape of an arm type — is a weld, and a weld neither helps nor hurts
+ * whether the tower stands.
+ *
+ * ⚠ **LOWEST BOND ID IS "THE ORIGINAL ARM", AND THAT IS PROVABLE RATHER THAN HOPED.** Bond ids are
+ * minted from the monotonic `world.nextBondId`, and a tower's own arms all exist before it can
+ * ignite, so every weld made after ignition has a HIGHER id than every arm it was welded next to.
+ * The pick therefore lands on the original arms whenever they are intact, and only falls through to
+ * a surplus same-type weld when an original arm has actually been lost — at which point the shape
+ * the owner described ("the shape is there") genuinely is still there, built from the weld.
+ *
+ * ⛔ **TOTAL ORDER, NEVER `Set` ORDER.** `hub.bonds` is a `Set` in insertion order; the candidates are
+ * sorted by bond id before any is taken, so every peer and the worker pick the same arms.
+ *
+ * ⚠ DISTINCT LEAVES: an arm is counted once per leaf, so a hypothetical second bond to the same leaf
+ * can never stand in for a missing one.
+ *
+ * Returns `null` when the anchor is gone or is not `hubType` — there is no star to speak of. A star
+ * with too few arms returns its PARTIAL arms with `whole: false`, because the renderer still has to
+ * draw the building crumbling during the ≤ 30 ticks before the poll removes it.
+ */
+export function starArmsAt(
+  world: World,
+  anchorId: PrimitiveId,
+  hubType: SparkType,
+  arms: readonly StarArmSpec[],
+): StarArms | null {
+  const hub = world.primitives.get(anchorId);
+  if (hub === undefined) return null;
+  if (hub.type !== hubType) return null;
+  const want = new Map<SparkType, number>();
+  for (const a of arms) want.set(a.leafType, (want.get(a.leafType) ?? 0) + a.count);
+
+  const candidates: { bondId: BondId; leafId: PrimitiveId; type: SparkType }[] = [];
+  for (const bondId of hub.bonds) {
+    const bond = world.bonds.get(bondId);
+    if (bond === undefined) continue; // a dangling bond id — the shape is mid-teardown
+    const otherId = bond.aId === anchorId ? bond.bId : bond.aId;
+    if (otherId === anchorId) continue; // a self-bond is never an arm (see `isStarAt`)
+    const leaf = world.primitives.get(otherId);
+    if (leaf === undefined) continue;
+    if (!want.has(leaf.type)) continue; // a foreign shape welded on — not an arm, not a defect
+    candidates.push({ bondId, leafId: otherId, type: leaf.type });
+  }
+  candidates.sort((x, y) => Number(x.bondId) - Number(y.bondId));
+
+  const taken = new Map<SparkType, number>();
+  const seenLeaves = new Set<PrimitiveId>();
+  const leaves: PrimitiveId[] = [];
+  const bonds: BondId[] = [];
+  for (const c of candidates) {
+    const have = taken.get(c.type) ?? 0;
+    if (have >= (want.get(c.type) ?? 0)) continue; // a surplus arm of this type is a weld
+    if (seenLeaves.has(c.leafId)) continue;
+    seenLeaves.add(c.leafId);
+    taken.set(c.type, have + 1);
+    leaves.push(c.leafId);
+    bonds.push(c.bondId);
+  }
+  let whole = true;
+  for (const [type, count] of want) if ((taken.get(type) ?? 0) < count) whole = false;
+  return { leaves, bonds, whole };
 }
