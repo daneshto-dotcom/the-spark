@@ -34,8 +34,8 @@ The independent triage agreed: FINISH THE SALVAGE (it compiles, breaks nothing, 
 
 | step | what | status |
 |---|---|---|
-| P2.0 | `git merge master` (d05b358) — clean, no conflicts; typecheck 0; reach test still 3 red | ✅ done (`c935cf8`) |
-| P2.1 | salvage fix-ups: the "no bump" docblock (DA-2), docblocks citing non-existent tests (DA-4), `git rm .tmp-probe/` (DA-8) | pending |
+| P2.0 | `git merge master` (d05b358) — clean, no conflicts; typecheck 0; reach test still 3 red | ✅ done (`5391d0e`; the progress file was amended into the merge — `c935cf8` was its pre-amend SHA) |
+| P2.1 | salvage fix-ups: the "no bump" docblock → "owes a bump, merge owner takes it" (DA-2); the contribution test is named as `draftAtkReaches.test.ts`, and `creatureStrike.guard.test.ts` is KEPT because P2.3 writes that exact file (DA-4); the HELLSPAWN field docblock no longer says damage is rebuilt from the type; `git rm .tmp-probe/cfg.ts` (DA-8); the phase-1 reach test is committed (RED BY DESIGN until P2.3/P2.5 — 3 red / 2 green) | ✅ done |
 | P2.2 | step 2 tests: hash contribution, save + wire round-trip, bogus values dropped, undrafted byte-identical, host-vs-worker | pending |
 | P2.3 | step 3: every creature strike reads `creatureAttackFifths` — creatureAttack ×6, voltkin chain, suicide ×2 (DA-5), drone, CORPSE EATER fallback + docblock (DA-9); reach tests + mechanical guard + mutation | pending |
 | P2.4 | step 4: HELLSPAWN child stamped from the PARENT's strike, never the seat's current picks (DA-3) | pending |

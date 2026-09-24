@@ -701,11 +701,16 @@ export interface Creature {
    * so the field holds the gen-0 strike and a child inherits its PARENT's value (`hellspawn.ts`).
    *
    * ADDITIVE-OPTIONAL on the wire and in the save, emitted only when present, so an unbuffed creature
-   * serializes to the same bytes as before. Rides PROTOCOL 50 (no bump: a peer on the same build
-   * always sends it, and it is absent for every creature the pre-fix build could have produced).
+   * serializes to the same bytes as before.
+   * ⛔ **IT OWES A PROTOCOL BUMP, AND THIS BRANCH DOES NOT TAKE IT.** Two builds that shake hands
+   * would disagree about a number both compute: a pre-fix peer that wins a host migration drops the
+   * field on restore and strikes UNBUFFED from then on, and a pre-fix client prints the type's strike
+   * on the card and the kill floater. The same reasoning `Creature.maxEhp` paid a bump for
+   * (`protocol.ts`). The merge owner takes ONE bump for train D (S189 PDR §3); `PROTOCOL_VERSION` is
+   * not edited here.
    * ⛔ SERIALIZED AND HASHED — all four sites (`CreatureHashed` + the `:ak` projection + the per-field
-   * test + the save/wire round-trip the worker INIT rides). Validated on the way in: a positive
-   * integer or dropped.
+   * contribution test in `draftAtkReaches.test.ts` + the save/wire round-trip the worker INIT rides).
+   * Validated on the way in: a positive integer or dropped.
    */
   atkFifths?: number;
   /**
@@ -820,8 +825,9 @@ export interface Creature {
    *
    * `1` = a child at 50 %, `2` = a grandchild at 25 %, and a generation-2 death spawns NOTHING — the
    * field is what makes the chain terminate (Council A2). It also carries the STRIKE: a child's hit is
-   * derived from its generation at strike time (`hellspawnStrikeFifths`), because a creature's damage
-   * is rebuilt from its TYPE's config and a split chewer is still a `'chewer'`. Its POOL rides the
+   * derived from its generation at strike time (`hellspawnStrikeFifths`), as a share of its gen-0
+   * strike (`creatureAttackFifths` — inherited from the PARENT, S190) — a split chewer is still a
+   * `'chewer'`, so nothing else could carry the share. Its POOL rides the
    * existing `maxEhp` (S187), so it needs no second pool field.
    *
    * ⛔ SERIALIZED AND HASHED — all four sites (`CreatureHashed` + the `:hg` projection + the per-field
