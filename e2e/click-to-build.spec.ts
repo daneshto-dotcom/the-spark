@@ -178,6 +178,53 @@ async function stinkCard(page: import('@playwright/test').Page) {
 }
 
 /**
+ * ⛔⛔ S190 (audit IL-B1) — THE PRE-WAVE-1 UPGRADE DRAFT IS OPEN WHEN EVERY MATCH HERE STARTS, AND ITS
+ * PLATE COVERS THE QUARRY. `START_GAME` opens it in every mode, solo included (`gameMode.ts`), and the
+ * panel is centred on the spawn zone. Since S188 a click on that plate belongs to the panel
+ * (`Controls.onDown`'s draft guard), so "an illegal drop" at the quarry centre was refused by the
+ * PANEL rather than by the quarry — green while testing nothing. A test that means the board under
+ * the panel resolves the draft first and asserts the panel is gone; the sibling test below keeps it
+ * open on purpose and asserts the plate swallows the stamp.
+ *
+ * The geometry is the LIVE module's (`generalTileRect`, `PANEL_*`), fetched in the page from the dev
+ * server — never transcribed, for the reason `legalSiteRightOfPanel` records. ⚠ A STRING, not a
+ * function: Playwright compiles a spec's functions before serialising them, and the source string is
+ * what reaches the page unchanged.
+ */
+type Rect = { x: number; y: number; w: number; h: number };
+async function draftGeometry(page: import('@playwright/test').Page): Promise<{ general: Rect; panel: Rect }> {
+  return (await page.evaluate(
+    "import('/src/render/draftOverlay.ts').then((m) => ({ general: m.generalTileRect(), " +
+      'panel: { x: m.PANEL_X, y: m.PANEL_Y, w: m.PANEL_W, h: m.PANEL_H } }))',
+  )) as { general: Rect; panel: Rect };
+}
+
+/** Is the draft panel drawn over this canvas point? The very predicate `Controls.onDown` asks. */
+async function overDraft(page: import('@playwright/test').Page, p: { x: number; y: number }): Promise<boolean> {
+  return page.evaluate(({ x, y }) => {
+    const c = (window as {
+      __SPARK__?: { controls?: { draftPanel?: { isOver(x: number, y: number): boolean } | null } };
+    }).__SPARK__?.controls;
+    const d = c?.draftPanel;
+    if (d === undefined || d === null) throw new Error('controls.draftPanel is not wired');
+    return d.isOver(x, y);
+  }, p);
+}
+
+async function draftOpen(page: import('@playwright/test').Page): Promise<boolean> {
+  return page.evaluate(() => (window as { __SPARK__?: { world?: { draft: unknown } } }).__SPARK__?.world?.draft !== null);
+}
+
+/** Resolve the pre-wave-1 draft the way a player does — a click on the general tile — and wait for the plate to go. */
+async function resolveDraft(page: import('@playwright/test').Page): Promise<void> {
+  const { general } = await draftGeometry(page);
+  await clickCanvas(page, general.x + general.w / 2, general.y + general.h / 2);
+  await expect.poll(() => draftOpen(page), { message: 'the general-tile click resolved the draft' }).toBe(false);
+  // Anti-vacuity: the quarry centre is board again, so what refuses a click there is the board's.
+  await expect.poll(() => overDraft(page, { x: 960, y: 540 }), { message: 'the plate is gone' }).toBe(false);
+}
+
+/**
  * A legal drop site DERIVED from the seat's own zone, not from the panel.
  *
  * Same defence as `legalSiteRightOfPanel` and for the same recorded reason — a hardcoded board
@@ -290,6 +337,10 @@ test.describe('S150 P4 — click a tower on the FOOTER, place it, keep it (solo,
 
   test('an illegal drop keeps the tower in hand and builds nothing', async ({ page }) => {
     await bootSolo(page);
+    // ⛔ S190 (IL-B1) — the draft plate covers (960,540) at boot; without this the refusal below is
+    // the PANEL's and the quarry rule is never reached. See `resolveDraft`.
+    await expect.poll(() => overDraft(page, { x: 960, y: 540 }), { message: 'the draft plate covers the quarry at boot' }).toBe(true);
+    await resolveDraft(page);
     await seedBank(page);
 
     await openTier(page, 4);
@@ -308,5 +359,40 @@ test.describe('S150 P4 — click a tower on the FOOTER, place it, keep it (solo,
     expect(after.bank).toBe(before.bank); // nothing spent
     // Still held — an illegal click must not silently cost the player their selection.
     expect((await panelPoints(page)).armed).toBe('stinkTower');
+  });
+
+  test('⛔ S190 — with the draft still OPEN, a click on its plate stamps nothing and keeps the tower in hand', async ({ page }) => {
+    await bootSolo(page);
+    await seedBank(page);
+    // The plate's LEFT margin, beside the general tile — seat 0's own ground under PITCH_2P, clear of
+    // the quarry keep-out. Derived from the live panel, never a literal.
+    const { general, panel } = await draftGeometry(page);
+    const margin = { x: panel.x + (general.x - panel.x) / 2, y: panel.y + panel.h / 2 };
+    await expect.poll(() => overDraft(page, margin), { message: 'the draft plate is drawn there (anti-vacuity)' }).toBe(true);
+
+    await openTier(page, 4);
+    const card = await stinkCard(page);
+    await clickCanvas(page, card.x + card.w / 2, card.y + card.h / 2);
+    await page.waitForTimeout(250);
+    expect((await panelPoints(page)).armed).toBe('stinkTower');
+
+    const before = await counts(page);
+    await clickCanvas(page, margin.x, margin.y);
+    await page.waitForTimeout(600);
+    const after = await counts(page);
+    expect(after.primitives, 'nothing stamped under the plate').toBe(before.primitives);
+    expect(after.bank, 'nothing spent').toBe(before.bank);
+    expect((await panelPoints(page)).armed, 'swallowed, not spent — still in hand').toBe('stinkTower');
+
+    // ⭐ AND THE SAME POINT IS BUILDABLE GROUND ONCE THE PLATE IS GONE — so it was the panel that
+    // refused it, not the ground. The general-tile click makes the pick and leaves the tower armed.
+    await resolveDraft(page);
+    expect((await panelPoints(page)).armed, 'the pick did not spend the held tower').toBe('stinkTower');
+    await clickCanvas(page, margin.x, margin.y);
+    await page.waitForTimeout(900);
+    const built = await counts(page);
+    expect(built.primitives - before.primitives, 'the stink tower stamped there').toBe(4);
+    expect(built.defenders).toContain('stinkTower');
+    expect((await panelPoints(page)).armed).toBeNull();
   });
 });

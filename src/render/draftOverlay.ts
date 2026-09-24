@@ -296,6 +296,10 @@ function fitWidth(t: Text, maxW: number): void {
 /**
  * The rounded-corner STENCIL a card is clipped to, so a rectangular sprite does not poke past the
  * tile's corners. A Pixi mask is never drawn as a surface — it covers nothing and swallows nothing.
+ *
+ * ⚠ S190 (IL-6) — it IS a `Graphics` child of the panel, so `DraftOverlay.isOver` (which asks every
+ * `Graphics` child) counts it. Harmlessly: each stencil equals its own tile, which the plate already
+ * covers, so it never widens the surface by a pixel.
  */
 function cardStencil(r: { x: number; y: number; w: number; h: number }): Graphics {
   return new Graphics().roundRect(r.x, r.y, r.w, r.h, CORNER).fill({ color: 0xffffff });
@@ -615,5 +619,45 @@ export class DraftOverlay {
       line.x = r.x + 16;
       line.y = r.y + 48;
     }
+  }
+
+  /* ── ⭐ S188 (s188/input-layer, audit F1) — THE PANEL AS AN INPUT SURFACE ─────────────────────── */
+
+  /**
+   * ⛔⛔ **DOES THE PANEL DRAW OVER THIS POINT?** The SURFACE question — what `controls.ts` asks
+   * before it lets a click, a drop or a raid reach the board.
+   *
+   * It exists because the panel was a UI surface registered in NONE of the input layer's gates. Pixi
+   * never stops the native event, and `controls.ts` listens on the raw canvas, so ONE click on a tile
+   * both sent the pick (the `pointertap` above) AND ran the board handlers under the zIndex-900 plate:
+   * it stamped an armed tower on the side-margin ground the plate hides, re-tasked a gatherer, raided
+   * on a right-click, opened a character card. The owner's S181 rule for the card applies word for
+   * word — *a surface you cannot see through must swallow the click*.
+   *
+   * ⭐ IT ASKS THE PIXELS, NOT A SECOND COPY OF THE GEOMETRY: every `Graphics` child the panel holds,
+   * as drawn THIS frame. That is the plate, both tiles, the tile frames (strokes, inside the plate),
+   * the two card stencils (never drawn, each equal to its tile — see `cardStencil`), and the
+   * hover-detail plate that `render` draws BELOW the panel rect — the one a plate-rect-only test
+   * would have missed — and any plate added
+   * later is covered the moment it is drawn, instead of the day someone remembers to register it.
+   * A cleared `Graphics` answers false, so a tip that is not showing swallows nothing. The panel draws
+   * in canvas coordinates, untransformed — the same assumption `draftHitTest(e.global)` makes.
+   */
+  isOver(x: number, y: number): boolean {
+    if (!this.container.visible) return false;
+    const p = { x, y };
+    for (const child of this.container.children) {
+      if (child instanceof Graphics && child.visible && child.containsPoint(p)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * ⭐ **WOULD A CLICK HERE MAKE A PICK?** The CONTROL question — the cursor's, which may only promise
+   * a pointer where a click does something. Narrower than `isOver` on purpose (the S182 split): the
+   * COMING SOON tile is part of the surface and is not a control.
+   */
+  isOverChoosable(x: number, y: number): boolean {
+    return this.container.visible && this.opts !== null && draftHitTest(x, y, this.opts) !== null;
   }
 }

@@ -1065,6 +1065,10 @@ async function bootstrap(): Promise<void> {
   // S152 — the popover needs the same click-guard treatment the panel and the band get, or a
   // press on SCRAP would also act on the board underneath it.
   controls.setCharacterSheet(characterSheet);
+  // ⭐ S188 (audit F1) — and the draft panel, the fourth surface. Its tile pick is its own Pixi
+  // `pointertap`, which does not stop the canvas handler, so without this a click on a tile ALSO
+  // acted on the board under the plate (a stamped tower, a re-tasked gatherer, a raid).
+  controls.setDraftPanel(draftOverlay);
   /*
    * ⭐ The portrait comes off the sprite sheet ALREADY IN MEMORY for a unit that is on screen — his
    * *"just take from the generated images that we made for them."* Injected rather than imported so
