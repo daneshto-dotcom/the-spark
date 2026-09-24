@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS**
+**STATUS: COMPLETE — awaiting the merge owner's audit (train D)**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -17,13 +17,16 @@ The merge owner resumes from this file if this agent is cut off.
 | 4a | C4 — diagnosis + e2e REPRODUCTION (hard blip) + the auto-reconnect fix (coordinator priority 2) | done | 6dae206 |
 | 4b | C4 — E3 drop-reason logging (coordinator priority 3) | done | fe9b4ac |
 | 4m | merge master (5934d3b, train A / deploy #3) into s189/net — clean, no conflicts | done | ffab016 |
-| 4c | C4 — A1 Escape-as-cancel does not arm the double-Escape leave | done | (this commit) |
-| 5 | final gates (typecheck, full vitest, build) + report | next | |
+| 4c | C4 — A1 Escape-as-cancel does not arm the double-Escape leave | done | 776f56c |
+| 5 | final gates (typecheck, full vitest, build) + report | done | (this commit) |
 | 4 | C4 disconnect — own diagnosis, reproduction test BEFORE any fix | pending | |
 
 ## In flight
 
-- nothing yet
+- nothing. OWED TO THE MERGE OWNER: the e2e lanes on the merged tree, and specifically
+  `e2e/reconnect-hard-blip.spec.ts` (@quarantine-flaky; RED pre-fix by design, expected GREEN now),
+  `e2e/reconnect.spec.ts`, `e2e/exit-match.spec.ts`, `e2e/hostmigration.spec.ts` (3-seat migration must
+  still claim — the lone-survivor gate must not have touched it).
 
 ## C6 — the per-machine bias, named (verified by hand)
 
@@ -260,6 +263,11 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   save.ts, no HELLO/LOBBY field.
 
 ## Gate exit codes (captured `$?`)
+
+- ⭐ FINAL, on the merged tree (s189/net @ 776f56c = master 5934d3b + this branch): `npm run typecheck`
+  EXIT=0 · `npx vitest run --maxWorkers=6` EXIT=0 (376 files passed + 1 skipped [the opt-in C5 instrument] /
+  6279 tests + 3 skipped) · `npm run build` EXIT=0 — main entry 951.9 KiB, cap 1100, headroom 148.1 KiB
+  (train A measured 948.1 → this branch +3.8 KiB, inside its 10 KiB budget).
 
 - step 4c: `doubleEscapeLeave.test.ts` PRE EXIT=1 (4 red: 3 = the mechanism, 1 = a test-harness listener
   reset, fixed) → POST EXIT=0; typecheck EXIT=0 (after removing the unused import: first run EXIT=1,
