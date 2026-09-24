@@ -235,3 +235,12 @@ Branch `s189/render`, base `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Comm
 - **F3 (merge note)**: `s188/input-layer` adds `DraftOverlay.isOver` whose docblock says "the
   zIndex-900 plate". After this branch that phrase is stale (text only; no conflict in hunks — its
   additions are at the end of `draftOverlay.ts`, mine are at the constructor).
+
+## R190-I (owner ruling, boundary extended) — IN FLIGHT
+- WIP commit: `Creature.healedFifths` (monotonic, additive-optional) + `noteCreatureHeal` in
+  `creatures/creature.ts`; written at `racial/lifesteal.ts` (immediate + pending), `bossSkills.ts`
+  (Vlad sap), `racial/corpseEater.ts` (bite); `save.ts` serialize/deserialize; `stateHashFull.ts`
+  union + `:hf` projection; `damageNumbers.ts` `creaturePoolChange` splits hit and heal.
+- ⚠ In this WIP commit `s189HealInsideNetFloater.test.ts` is RED ON PURPOSE (it pins the old net
+  number). NEXT: flip it to the new truth, add joiner + hash-contribution + round-trip tests,
+  mutation-test, then R190-H (merge master, Ra strike above sprites).

@@ -65,6 +65,7 @@ import {
   isCorpseEaterFeeding,
   isStunned,
   isUntargetable,
+  noteCreatureHeal,
   rageMultiplier,
   type Creature,
   type CreatureState,
@@ -253,7 +254,9 @@ function bite(world: World, boss: Creature, victimId: CreatureId): void {
   const lost = after === undefined ? attackFifths(cfg.atk, cfg.pen) : Math.max(0, before - after.ehp);
   if (lost <= 0) return; // the reducer refused (out of reach, lost the initiative roll) — no bite, no heal
   const heal = Math.floor((lost * CORPSE_EATER_HEAL_PCT) / 100);
+  const ehpBefore = boss.ehp; // S189 R190-I
   boss.ehp = Math.min(creatureMaxEhp(boss), boss.ehp + heal);
+  noteCreatureHeal(boss, ehpBefore); // S189 R190-I — the green floater
 }
 
 /** One feeding tick for one unstunned, living boss. */
