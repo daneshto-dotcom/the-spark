@@ -261,3 +261,105 @@ describe('the FOUR SITES of Creature.atkFifths — factory, save/wire, hash, wor
     for (const c of w.creatures.values()) expect('atkFifths' in c).toBe(false);
   });
 });
+
+describe('⛔ HELLSPAWN — a split chewer’s strike is a share of its PARENT’s, never the seat’s current picks', () => {
+  /** One lethal blow on `id` in runHostTick's batch order; returns the generation-`gen` children. */
+  const split = (w: World, id: CreatureId, gen: 1 | 2) => {
+    w.pendingCreatureDeaths = new Set();
+    damageEntity(w, { kind: 'creature', id }, 999, 'aura', null);
+    sweepDeferredDeaths(w, w.pendingCreatureDeaths);
+    w.pendingCreatureDeaths = null;
+    drainRacialSpawnQueue(w);
+    return [...w.creatures.values()].filter((k) => k.type === 'chewer' && k.hellspawnGen === gen);
+  };
+  /** What a chewer actually banks on an enemy connector, through the real strike reducer. */
+  const bankedOnAConnector = (w: World, chewerId: CreatureId): number => {
+    const c = w.creatures.get(chewerId)!;
+    const mk = (id: number, x: number) => {
+      const p = {
+        id: id as never, type: 0 as never, placerColor: 0, placedBy: P1, createdTick: 0, pos: { x, y: 0 },
+        prevPos: { x, y: 0 }, bonds: new Set(), ownerColor: 0, lastOwnershipChange: 0, radius: 8,
+        hp: 70, origin: null,
+      };
+      w.primitives.set(p.id, p as never);
+      return p;
+    };
+    const ps = [mk(9001, 0), mk(9002, 40), mk(9003, 80), mk(9004, 120)];
+    const bonds = [0, 1, 2].map((i) => {
+      const b = {
+        id: (9100 + i) as never, aId: ps[i]!.id, bId: ps[i + 1]!.id, a: ps[i], b: ps[i + 1],
+        restLength: 32, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0,
+      };
+      w.bonds.set(b.id, b as never);
+      ps[i]!.bonds.add(b.id);
+      ps[i + 1]!.bonds.add(b.id);
+      return b;
+    });
+    c.pos = { x: 20, y: 10 };
+    c.state = 'ATTACKING';
+    c.targetBondId = bonds[0]!.id;
+    dispatch(w, { type: 'CREATURE_ATTACK', creatureId: c.id, bondId: bonds[0]!.id, targetCreatureId: null });
+    return w.bonds.get(bonds[0]!.id)?.damageFifths ?? -1; // a 3-connector pool is 24: nothing here cuts it
+  };
+
+  it('⛔ born BEFORE the ATK pick: the children strike ⌊7 / 2⌋ = 3, not ⌊8 / 2⌋ = 4', () => {
+    const w = fightWorld(['racial', 'racial'], 'demons'); // demons.l5 held, no damage pick yet
+    const parent = spawnAt(w, P0, 'chewer', 400, 400);
+    expect(w.creatures.get(parent)!.atkFifths).toBeUndefined(); // born unbuffed: 7
+    w.players.get(P0)!.draftPicks.push('atk'); // wave 11 — "from now on"
+    const kids = split(w, parent, 1);
+    expect(kids).toHaveLength(2);
+    for (const k of kids) {
+      expect(k.atkFifths, 'the child carries its PARENT’s (absent) strike').toBeUndefined();
+      expect(creatureAttackFifths(k)).toBe(7);
+    }
+    expect(bankedOnAConnector(w, kids[0]!.id)).toBe(3);
+  });
+
+  it('born AFTER the ATK pick: the parent strikes 8, its children ⌊8 / 2⌋ = 4, its grandchildren ⌊8 / 4⌋ = 2', () => {
+    const w = fightWorld(['racial', 'racial', 'atk'], 'demons');
+    const parent = spawnAt(w, P0, 'chewer', 400, 400);
+    expect(w.creatures.get(parent)!.atkFifths).toBe(8);
+    const kids = split(w, parent, 1);
+    for (const k of kids) expect(k.atkFifths).toBe(8);
+    expect(bankedOnAConnector(w, kids[0]!.id)).toBe(4);
+    const grandkids = split(w, kids[1]!.id, 2);
+    expect(grandkids).toHaveLength(2);
+    for (const g of grandkids) expect(g.atkFifths).toBe(8);
+    expect(bankedOnAConnector(w, grandkids[0]!.id)).toBe(2);
+  });
+
+  it('negative: a parent born buffed, whose seat has since drafted AGAIN, still passes on ITS OWN 8', () => {
+    const w = fightWorld(['racial', 'racial', 'atk'], 'demons');
+    const parent = spawnAt(w, P0, 'chewer', 400, 400);
+    w.players.get(P0)!.draftPicks.push('pen'); // the seat now bakes 9 for anything newly born
+    const kids = split(w, parent, 1);
+    for (const k of kids) expect(k.atkFifths).toBe(8);
+  });
+});
+
+describe('⛔ "Units already on the board keep what they were born with" — the strike too', () => {
+  it('a unit born BEFORE the ATK pick still strikes for 6 after it, through the real host tick', () => {
+    const w = fightWorld(['hp', 'def']);
+    const at = { x: 960, y: 540 };
+    spawnAt(w, P0, 'raceUnit', at.x - 20, at.y);
+    const bag = spawnAt(w, P1, 'raceUnit', at.x + 20, at.y);
+    const b = w.creatures.get(bag)!;
+    b.maxEhp = 10_000;
+    b.ehp = 10_000;
+    b.stunnedUntilTick = w.tick + 1_000_000;
+    w.players.get(P0)!.draftPicks.push('atk'); // drafted AFTER the unit was born
+    const deps = hostDeps();
+    const state = makeHostTickState(w);
+    let prev = b.ehp;
+    const drops: number[] = [];
+    for (let i = 0; i < 900 && drops.length < 2; i++) {
+      runHostTick(w, deps, state);
+      const now = w.creatures.get(bag)!.ehp;
+      if (now < prev) drops.push(prev - now);
+      prev = now;
+    }
+    expect(drops.length).toBeGreaterThan(0);
+    for (const d of drops) expect(d).toBe(6);
+  });
+});
