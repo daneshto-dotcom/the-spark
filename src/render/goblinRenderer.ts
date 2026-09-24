@@ -691,10 +691,17 @@ export class GoblinRenderer {
    *
    * ⚠ RACE-KEYED FOR `raceUnit` ONLY, matching `ensureRaceAtlas` — every other kind is keyed by TYPE.
    * Getting that wrong is how the castle unit would silently draw another race's art.
+   *
+   * ⭐ S190 (audit SWARM-B1) — AND THE SAME FALLBACK THE DRAW LOOP USES (`atlasFallbackType`). A swarm
+   * whose own sheet has not resolved is DRAWN with the bat's sheet; without this its card showed no
+   * portrait at all while the unit it describes was visibly on the board.
    */
   portraitTexture(type: CreatureType, race: RaceId | null): Texture | null {
     const key = type === 'raceUnit' && race !== null ? `raceUnit:${race}` : type;
-    const idle = this.atlases.get(key)?.cells['idle'];
+    const fallbackType = atlasFallbackType(type);
+    const idle = (
+      this.atlases.get(key) ?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined)
+    )?.cells['idle'];
     return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
   }
 

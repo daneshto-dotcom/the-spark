@@ -45,6 +45,7 @@ import {
   ATLASES,
   BAT_SWARM_ATLAS_BASE,
   GOBLIN_KINDS,
+  GoblinRenderer,
   atlasFallbackType,
 } from '../../render/goblinRenderer.ts';
 import '../godlyRecipes/raceTower.ts';
@@ -337,5 +338,44 @@ describe('S188 THE SWARM — its OWN art, and a missing sheet degrades to the ba
     for (const t of Object.keys(CREATURE_CONFIGS) as CreatureType[]) {
       if (t !== SWARM) expect(atlasFallbackType(t), t).toBeNull();
     }
+  });
+});
+
+/**
+ * ⭐ S190 (audit SWARM-B1) — THE CARD'S PORTRAIT BORROWS THE BAT SHEET EXACTLY AS THE BOARD DOES.
+ *
+ * The draw loop already falls back to the bat's sheet (`atlasFallbackType`) while the swarm's own is in
+ * flight or 404s; `portraitTexture` read only the swarm's key, so clicking that visibly-drawn swarm
+ * opened a card with no picture. Driven through the real method on a renderer with no Pixi stage —
+ * `portraitTexture` reads only the atlas table, which is stubbed with one idle frame per sheet.
+ */
+describe('S190 SWARM-B1 — the character-sheet portrait uses the same bat fallback as the board', () => {
+  function rendererWith(sheets: Record<string, string>): GoblinRenderer {
+    const r = Object.create(GoblinRenderer.prototype) as GoblinRenderer;
+    const atlases = new Map<string, unknown>();
+    for (const [key, frame] of Object.entries(sheets)) {
+      atlases.set(key, { cells: { idle: [{ frame }, { frame: `${frame}-second` }] }, manifest: {} });
+    }
+    (r as unknown as { atlases: Map<string, unknown> }).atlases = atlases;
+    return r;
+  }
+  const frameOf = (t: unknown): string | null => (t as { frame?: string } | null)?.frame ?? null;
+
+  it('⭐⭐ a swarm whose OWN sheet has not resolved shows the bat’s idle frame 0 — the sheet it is drawn with', () => {
+    expect(frameOf(rendererWith({ t3Bat: 'bat0' }).portraitTexture(SWARM, 'vampires'))).toBe('bat0');
+  });
+
+  it('⭐ its own sheet wins the moment it resolves', () => {
+    const r = rendererWith({ t3Bat: 'bat0', t3BatSwarm: 'swarm0' });
+    expect(frameOf(r.portraitTexture(SWARM, 'vampires'))).toBe('swarm0');
+  });
+
+  it('negative: with neither sheet resolved there is no portrait — null, never a throw', () => {
+    expect(rendererWith({}).portraitTexture(SWARM, 'vampires')).toBeNull();
+  });
+
+  it('negative: nothing else borrows — not the bat from the swarm, not another tier-3 unit from the bat', () => {
+    expect(rendererWith({ t3BatSwarm: 'swarm0' }).portraitTexture('t3Bat', 'vampires')).toBeNull();
+    expect(rendererWith({ t3Bat: 'bat0' }).portraitTexture('t3Piranha', 'nagas')).toBeNull();
   });
 });

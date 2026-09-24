@@ -47,3 +47,15 @@ Base: `4b52fdd` (tip of `s188/racial-d`). Brief: the merge owner's P9 prompt (sc
   `toHaveLength(16)` (~270 — now 17), "ships nothing else — no l10 card" (~280) — all go RED by design.
 - `scripts/build-upgrade-cards.py` `CARDS` lacks `l10-vampires` (its docstring says deliberately not built).
 - master's `racialPerks.test.ts` still pins 12 perks / `racialPerkFor(race, 2)` null — this branch re-pins it.
+
+## S190 — fix round (PART A, no merge; the audit's confirmed findings, one commit each)
+
+Brief: the merge owner's S190 phase-2 message. Base `b7ce6f6`. Baseline gates on the branch as-is (captured `$?`):
+typecheck 0 · vitest 0 (5701 / 347) · build 0 (925.8 KiB, cap 1000). "Fix ONLY these."
+
+| # | finding | status |
+|---|---|---|
+| 1 | SWARM-B1 — the card portrait ignored `atlasFallbackType` | ✅ `portraitTexture` falls back to the bat sheet exactly as the draw loop; 4 tests (real method, no Pixi stage); mutant (fallback removed) → 1 red, restored |
+| 2 | SW-7 — the 7.32 MiB swarm sheet pre-warmed for every vampire seat at match start | ⏳ |
+| 3 | SW-4 / SW-5 — `build-upgrade-cards.py` CARDS + MANIFEST still say `l10-vampires` is not shipped | ⏳ |
+| 4 | canon notes — R190-D ruling recorded, CRIMSON TIDE consequence, radar 10→12 noted, PROTOCOL 51 reasons | ⏳ |
