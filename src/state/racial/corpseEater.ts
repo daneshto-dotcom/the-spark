@@ -187,9 +187,11 @@ export function corpseEaterOwnStepPx(boss: Creature): number {
 
 /**
  * ⛔ S188 FIX (audit F1) — **A BOSS SHOVED OUT OF HIS LEASH SITS BACK DOWN WHERE HE LANDED; HE IS NEVER
- * SNAPPED BACK.** The Kraken's sonar stuns AND flings (`prevPos` shove, ~26 px/substep), the stun gate
- * rightly suspends the leash for the whole slide, and the first unstunned feed tick used to clamp him
- * straight back onto the circle — a one-tick teleport of up to ~860 px, on both peers.
+ * SNAPPED BACK.** The Kraken's sonar stuns AND shoves (a `prevPos` shove — ~26 px/substep when this
+ * was written, sized since S189 C10 to `KRAKEN_SONAR_KNOCKBACK_PX` = 70 px of slide, which still
+ * clears this 60 px leash), the stun gate rightly suspends the leash for the whole slide, and the first
+ * unstunned feed tick used to clamp him straight back onto the circle — a one-tick teleport of up to
+ * ~860 px under the old shove, on both peers.
  *
  * So, when he is found OUTSIDE the leash and it was not his own doing — he was stunned on the previous
  * tick (`stunnedUntilTick === tick` is exactly the first acting tick), or the overshoot is more than his

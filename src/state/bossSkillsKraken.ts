@@ -53,17 +53,75 @@
  */
 
 import {
+  GOBLIN_ATTACK_RANGE,
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
-  KRAKEN_SONAR_KNOCKBACK,
   KRAKEN_SONAR_RANGE,
   KRAKEN_SONAR_STUN_TICKS,
+  PHYSICS_SUBSTEPS,
+  VELOCITY_DAMPING,
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { applyStun, isStunned, isUntargetable, type Creature } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
+
+/**
+ * ⭐⭐ S189 C10 (owner) — **HOW FAR THE WAVE PUSHES A UNIT: A DISTANCE, IN PIXELS.**
+ *
+ * > *"the Kraken sonar sends units flying … outside the map … it should like move them … knock them
+ * > back a little bit … and stun them"* — owner, S189
+ *
+ * Replaces `KRAKEN_SONAR_KNOCKBACK = 26`, which was a displacement applied as a per-SUBSTEP velocity
+ * and flung every victim ~11,000 px of travel into the board edge (see the retirement note in
+ * `constants.ts`).
+ *
+ * ⚠ MINE, NOT THE OWNER'S — *"a little bit"*. Two melee arms (`2 × GOBLIN_ATTACK_RANGE` = 70 px): a
+ * melee unit at the Kraken's feet is pushed clean out of its own reach and must walk back once the stun
+ * lapses, while staying well inside the wave's own 260 px reach. Overrule on sight.
+ */
+export const KRAKEN_SONAR_KNOCKBACK_PX = 2 * GOBLIN_ATTACK_RANGE;
+
+/**
+ * ⭐ S189 C10 — THE IMPULSE, DERIVED FROM THE DISTANCE: the per-substep velocity that, coasting under
+ * `VELOCITY_DAMPING` with no steering (a stunned unit — stun gate 2 returns `ZERO_ACCEL`, and
+ * `creatureDamping` does not brake a stunned unit), slides it exactly `KRAKEN_SONAR_KNOCKBACK_PX` over
+ * the `KRAKEN_SONAR_STUN_TICKS × PHYSICS_SUBSTEPS` substeps the stun lasts.
+ *
+ * A `prevPos` offset `s` moves the unit `s·δ + s·δ² + … + s·δᴺ` over N substeps, so `s = D / Σδᵏ`.
+ *
+ * ⛔ THE SUM IS BUILT BY REPEATED MULTIPLICATION, NOT `Math.pow`. Basic IEEE operations are correctly
+ * rounded on every engine; a transcendental is not guaranteed to be (the Δ7 note in `creatureVerlet`),
+ * and this figure feeds positions the host and the `?worker=1` mirror must agree on. Computed once at
+ * module load — a constant, not an accumulator in the sim.
+ *
+ * ⚠ The residual velocity when the stun lapses (δᴺ ≈ 15 % of the shove) is left to the unit's own
+ * steering, so the total push reads as "about 70 px", not a hard 70.
+ */
+export const KRAKEN_SONAR_SHOVE_PER_SUBSTEP: number = (() => {
+  const substeps = KRAKEN_SONAR_STUN_TICKS * PHYSICS_SUBSTEPS;
+  let sum = 0;
+  let f = 1;
+  for (let k = 0; k < substeps; k++) {
+    f *= VELOCITY_DAMPING;
+    sum += f;
+  }
+  return KRAKEN_SONAR_KNOCKBACK_PX / sum;
+})();
+
+/**
+ * The shove itself, along the unit vector `(ux, uy)` pointing AWAY from the Kraken. Exported so a test
+ * that stages a sonar hit (`corpseEater.test.ts`'s F1 case) applies the production shove rather than a
+ * copy of it — the copy is how the old 26 outlived its own docblock.
+ *
+ * ⚠ `prevPos` MOVES, NOT `pos` — see the file docblock: velocity here is `pos - prevPos`, so dragging
+ * `prevPos` toward the Kraken hands the victim outward velocity and it SLIDES.
+ */
+export function applySonarShove(v: Creature, ux: number, uy: number): void {
+  v.prevPos.x -= ux * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
+  v.prevPos.y -= uy * KRAKEN_SONAR_SHOVE_PER_SUBSTEP;
+}
 
 /**
  * The nearest live ENEMY of `boss`, by a total order: squared distance, then id.
@@ -186,17 +244,13 @@ export function runKrakenSonar(world: World): void {
        * the cone axis — a unit at the cone's edge is pushed outward rather than sideways, which is
        * what a wave front does.
        *
-       * ⚠ `prevPos` MOVES, NOT `pos`. See the docblock: velocity here is `pos - prevPos`, so
-       * dragging `prevPos` toward the Kraken hands the victim outward velocity and it SLIDES.
+       * ⭐ S189 C10 — SIZED TO `KRAKEN_SONAR_KNOCKBACK_PX` OF SLIDE, not the old 26 px/substep fling.
        */
       const dx = v.pos.x - boss.pos.x;
       const dy = v.pos.y - boss.pos.y;
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d === 0) continue; // exactly on the apex: no direction to push, so no shove
-      const ux = dx / d;
-      const uy = dy / d;
-      v.prevPos.x -= ux * KRAKEN_SONAR_KNOCKBACK;
-      v.prevPos.y -= uy * KRAKEN_SONAR_KNOCKBACK;
+      applySonarShove(v, dx / d, dy / d);
     }
   }
 }

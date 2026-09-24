@@ -11,9 +11,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 |---|---|---|
 | 0 · progress skeleton | done | 550c765 |
 | C3 · Voltkin prefers enemy structures | done — GUARD ONLY, no production change (see C3 below) | 36e3386 |
-| C8 · Helga patrol clamped to the board | done | (this commit) |
-| C10 · Kraken sonar short knockback + stun | next | |
-| LOW a · corpse-eater bite latch | pending | |
+| C8 · Helga patrol clamped to the board | done | 82b4040 |
+| C10 · Kraken sonar short knockback + stun | done | (this commit) |
+| LOW a · corpse-eater bite latch | next | |
 | LOW b · castle regen of effective max | pending | |
 | LOW c · serialized nextCreatureId | pending | |
 | LOW d · spawn-queue gap outside runHostTick | pending | |
@@ -92,9 +92,47 @@ Protocol: **no bump owed.** Defender motion runs only inside `runHostTick` (host
 build); clients render Helga from snapshots. No new field; `walkTargetPos`/`pos` values change only
 where they used to leave the board.
 
+## C10 — the Kraken sonar: a short knockback, held to the board, and a stun
+
+**The defect, measured:** `KRAKEN_SONAR_KNOCKBACK = 26` was applied as a `prevPos` offset, i.e. a
+velocity of 26 px PER SUBSTEP (12,480 px/s). A stunned unit coasts (stun gate 2 = `ZERO_ACCEL`,
+`creatureDamping` does not brake a stunned unit) at `VELOCITY_DAMPING` 0.998/substep for 960 substeps,
+so it travels ≈ 425.8 × the offset ≈ 11,000 px — stopped only by the board clamp. The docblock
+claimed *"roughly a body-length and a half"*: a distance used as a speed.
+
+**Fix:** `KRAKEN_SONAR_KNOCKBACK` DELETED (not re-meant, so stale readers fail to compile);
+`KRAKEN_SONAR_KNOCKBACK_PX` = `2 × GOBLIN_ATTACK_RANGE` = **70 px** (⚠ MINE) lives in
+`bossSkillsKraken.ts` (it cannot live in `constants.ts`: `GOBLIN_ATTACK_RANGE` is declared ~150 lines
+later there → TDZ); `KRAKEN_SONAR_SHOVE_PER_SUBSTEP` = D / Σ_{k=1..960} 0.998ᵏ ≈ 0.1644 px/substep,
+built by repeated multiplication at module load (no `Math.pow` on a sim-feeding value);
+`applySonarShove(v, ux, uy)` is the one shove, used by the runner and by the corpse-eater F1 test.
+The board hold is the integrator's existing `clampIntoPlayfield`. The stun already ran through
+`applyStun` (the `stunGates.test.ts` system) — unchanged, 2 s (⚠ MINE, S169's number, left alone).
+
+**Tests (bossSkillsKraken.test.ts, +4):** the arithmetic (sum × impulse = 70; real integrator coasts
+70.000000); REACH through the real host tick (a unit in the cone is stunned and slides 70 ± 10 %,
+pushed away, never off-board); AT THE EDGE (shoved at the touchline → held, ends pressed exactly at
+the margin); negative (a unit behind the Kraken, at rest, does not move at all). ⭐ MUTATION-TESTED:
+restoring the 26 px/substep impulse turned 3 red (arithmetic, REACH, corpse-eater F1); restored
+byte-identical (`cmp`).
+
+**Re-pinned, not relaxed:** `corpseEater.test.ts` F1 staged the sonar with a COPY of the old shove
+(`prevPos.x -= KRAKEN_SONAR_KNOCKBACK`) and asserted the boss was flung `> 3 × leash` (180 px). It now
+calls `applySonarShove` and asserts the anchor moved `≈ KRAKEN_SONAR_KNOCKBACK_PX` (measured
+**70.0000000000773** through the real host tick) and `> CORPSE_EATER_LEASH_RADIUS` — plus a fixture
+guard that 70 > 60, because if the shove ever drops inside the leash, F1's re-anchor becomes
+unreachable by a real Kraken. Stale "~26 px/substep" docblock in `corpseEater.ts` corrected.
+
+Full suite after C10: **vitest 0 — 6009 / 369**; tsc 0.
+
+Protocol: **no bump owed.** The sonar runs only inside `runHostTick` (host + worker, same build);
+`prevPos` is off the wire (S182) and clients render snapshot positions. No new field, no new
+discriminant. ⚠ Stale owner-facing doc for the merge owner: `BOSS_STATS_TABLE.md:57` still says
+*"knocks back 26 px"* — now 70 px of slide (not edited: outside my file boundary).
+
 ## In flight
 
-C10 — Kraken sonar (`bossSkillsKraken.ts`).
+LOW a — CORPSE EATER's bite timer reads live rage (`racial/corpseEater.ts` `feedStep`).
 
 ## Decisions
 
@@ -103,7 +141,10 @@ C10 — Kraken sonar (`bossSkillsKraken.ts`).
 
 ## Numbers that are MINE (not the owner's)
 
-(none yet)
+| constant | value | where | why |
+|---|---|---|---|
+| `KRAKEN_SONAR_KNOCKBACK_PX` | 70 px (`2 × GOBLIN_ATTACK_RANGE`) | `bossSkillsKraken.ts` | *"a little bit"* — two melee arms: out of a melee unit's reach, well inside the 260 px wave |
+| `KRAKEN_SONAR_STUN_TICKS` | 120 (2 s) | `constants.ts` | S169's number, re-confirmed and left alone; he ruled THAT it stuns, not how long |
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
@@ -113,6 +154,7 @@ C10 — Kraken sonar (`bossSkillsKraken.ts`).
 
 - C3: none.
 - C8: host-only motion rule (Helga clamped to the board); no field, no bump.
+- C10: host-only rule (sonar impulse size); `prevPos` is off the wire; no field, no bump.
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
@@ -130,3 +172,18 @@ C10 — Kraken sonar (`bossSkillsKraken.ts`).
   files as LF. Mutations redone with Edit; CRLF restored byte-safely (python binary mode); content
   diffed against the pre-mutation backups (identical) and `file` reports CRLF again.
 - helgaOnTheBoard.test.ts under the three deliberate mutations — EXIT 1 each: EXPECTED.
+- After every FULL `npx vitest run`, `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap`
+  shows as modified: RULED BENIGN — `git diff` shows NO content change; vitest's snapshot writer
+  re-serialises the CRLF working copy as LF (autocrlf). Reproduced twice; restored with
+  `git checkout --` each time, never committed. (The agent was also killed once mid-C10 by the org
+  spend limit — resumed from this file; `git status` was clean at 82b4040.)
+- C10 first inline-heredoc patch — `bash: unexpected EOF while looking for matching ''`: RESOLVED —
+  shell quoting in a long inline heredoc; the test block was written with the Write tool and applied
+  by a python script (binary mode, CRLF preserved). Nothing had been written.
+- C10 new tests, first run — 2 failed: INVESTIGATED AND RESOLVED — both FIXTURE defects: (1) the
+  run-up to the boss's due tick took up to 540 ticks and the Kraken marched off its mark → the clock
+  is now jumped to the due window; (2) the negative case put the "behind" unit NEARER than the aim
+  unit, so it stole the self-aiming axis → aim unit moved to 150 px vs 180 px.
+- corpseEater.test.ts F1 after the fix — `expected 70.0000000000773 to be greater than 180`:
+  EXPECTED BY DESIGN (the ladder moved) → re-pinned to the constant, see C10.
+- C10 mutation run — EXIT 1, 3 failed: EXPECTED.

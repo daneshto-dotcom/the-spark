@@ -36,3 +36,21 @@ edges was false from S183 on. Pinned by `helgaOnTheBoard.test.ts` (mutation-test
 
 Suggested assertion: source-text pin that `defenderMotion.ts` calls `clampIntoPlayfield(` and that
 `defenderLifecycle.ts`'s patrol point goes through `clampPointIntoPlayfield(`.
+
+## C10 — THE KRAKEN'S SONAR PUSHES 70 PX AND STUNS 2 S (suggested for the boss-skills section)
+
+> *"the Kraken sonar sends units flying … outside the map … knock them back a little bit … and stun
+> them"* — owner, S189
+
+| | value | constant | whose |
+|---|---|---|---|
+| knockback | **70 px of slide** (2 × the 35 px melee arm) | `KRAKEN_SONAR_KNOCKBACK_PX` (`state/bossSkillsKraken.ts`) | ⚠ MINE |
+| impulse | ≈ 0.1644 px/substep, derived so the stunned coast covers exactly 70 px | `KRAKEN_SONAR_SHOVE_PER_SUBSTEP` | derived |
+| stun | 2 s | `KRAKEN_SONAR_STUN_TICKS` | ⚠ MINE (S169) |
+| board | held by the creature clamp, [40,1880] × [40,1040] | `clampIntoPlayfield` | — |
+
+⛔ `KRAKEN_SONAR_KNOCKBACK = 26` is DELETED: it was a per-substep velocity (~11,000 px of travel),
+not the "body-length and a half" its docblock claimed. ⚠ `BOSS_STATS_TABLE.md:57` still says 26 px.
+
+Suggested assertions: `KRAKEN_SONAR_KNOCKBACK_PX === 2 * GOBLIN_ATTACK_RANGE` and `=== 70`;
+`KRAKEN_SONAR_STUN_TICKS === 120`.
