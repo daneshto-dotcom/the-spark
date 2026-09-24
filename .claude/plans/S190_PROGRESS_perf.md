@@ -237,3 +237,12 @@ path (human play?) creates a cross-colour bond, which I did not measure.
   the two cache lookups). Mutation check: a `// recipeId` planted inside `colourBucketFor` → RED
   (EXIT=1, "bond scan (colourBucketFor) must not filter on recipeId"); production file restored,
   `git diff` empty.
+
+### PERF-4 — docblocks (comments only; the diff has zero non-comment lines)  ✅
+- creatureAI.ts module header: "No mutation" -> "No WORLD mutation", plus a note that the bond scan
+  memoises into a module-level per-tick cache (never world state, never a different result).
+- findNearestBondTarget docblock (was :294 "Pure function"): the same caveat, one line.
+- index docblock: the three whole-board clear() sites named beside razePrimitives, with the
+  verified names (applyReturnToTitle / gameMode.ts, softReset / gameState.ts, applySnapshotCore /
+  save.ts), all outside the loop, sizes drop to 0; and a pointer to the guards' per-file counts.
+- CRLF preserved (1278/1278), no control characters; tsc EXIT=0; source guards green.

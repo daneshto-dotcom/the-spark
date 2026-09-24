@@ -1,6 +1,10 @@
 /**
  * SPARK — creature AI module (S27 P0). Pure functional helpers for target
- * selection. No mutation; no dispatch. Consumed by `applyCreatureTick`
+ * selection. No WORLD mutation; no dispatch. ⚠ S190 P0 (C5): "pure" is no longer the whole story —
+ * the bond scan memoises into a MODULE-LEVEL, per-tick cache (the bond-target index, see
+ * `openBondTargetEpoch`). It never writes world or creature state and never changes a result — the
+ * cache is reusable only inside the host tick's creature loop and is re-validated before every
+ * scan — but it IS module state, which a reader of "pure" should know. Consumed by `applyCreatureTick`
  * (creatureLifecycle.ts) and the main.ts post-CREATURE_TICK fan-out which
  * re-selects targets every CREATURE_TICK during SEEKING (Council R1 Q3
  * UNANIMOUS A — every-tick re-selection, ~80 prims × 60Hz = 4800 distance
@@ -291,8 +295,10 @@ export function findNearestEnemyPrimitiveFrom(
  * close enough to enter ATTACKING (via `isWithinAttackRange` below) or should
  * be steered toward (SEEKING continues, targetPos = bondMidpoint).
  *
- * Pure function. Does not mutate world or creature. Called every CREATURE_TICK
+ * Does not mutate world or creature. Called every CREATURE_TICK
  * during SEEKING (host-only) per Council R1 Q3 UNANIMOUS A.
+ * ⚠ S190 — no longer strictly "pure": inside the host tick's creature loop it reads, and may build,
+ * the module-level per-tick bond-target index. Same inputs, same result; only the work is shared.
  *
  * ⭐ S190 P0 (C5) — the scan now runs over the BOND-TARGET INDEX below (one classification pass per
  * tick per owner colour, instead of one per creature), with byte-identical results. Every predicate,
@@ -433,10 +439,14 @@ function spreadEnemyTarget(
  *     and the two Maps' identity — and rebuilds on any change. That is EXACT, not a heuristic,
  *     because of how ids are allocated: every bond is born through `makeBond`
  *     (`world.nextBondId++`), every shape through `world.nextPrimitiveId++`, and both leave only
- *     through `razePrimitives`. A removal lowers a size and a birth bumps a counter, so no mix of the
- *     two can leave all four numbers where they were. (Save-load writes ids directly, but it rewrites
- *     the counters too, and never runs inside the loop.) A bond BORN mid-tick is therefore picked up
- *     by the very next scan, exactly as the live scan would.
+ *     through `razePrimitives` — or wholesale, through the three `clear()` sites:
+ *     `applyReturnToTitle` (gameMode.ts), `softReset` (gameState.ts) and `applySnapshotCore`, the
+ *     save / snapshot restore (save.ts). All three run OUTSIDE the creature loop, and a clear drops
+ *     both sizes to 0 in any case. A removal lowers a size and a birth bumps a counter, so no mix of
+ *     the two can leave all four numbers where they were. (Save-load writes ids directly, but it
+ *     rewrites the counters too, and never runs inside the loop.) A bond BORN mid-tick is therefore
+ *     picked up by the very next scan, exactly as the live scan would. The site lists and their
+ *     per-file counts are pinned in `bondTargetIndex.guards.test.ts`.
  *
  * ⚠ WHAT THE FINGERPRINT DOES NOT SEE, AND WHY THAT IS SAFE: a `placerColor` rewrite — only the
  * rainbow shuffle does one, from a player or bot intent, never from inside the creature loop — and a
