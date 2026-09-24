@@ -253,7 +253,8 @@ for c in kept:
     if c['n'] in beam_frames and not cut:
         fail(f"[light-sheet] beam frame {c['n']} is not cut by its cell top — beamFrames is wrong for this sheet")
     # The CUT row itself; the renderer samples its strip RA_BEAM_STRIP_INSET (2) px below it, clear of
-    # the gutter's anti-aliasing, and starts the sky continuation exactly here so nothing is drawn twice.
+    # the gutter's anti-aliasing, starts the sky continuation here, and lets its first band reach down
+    # under the cut by that same inset so the anti-aliased cut row cannot show as a seam (RAVFX-8).
     beam_top.append(c['top_out'] if c['n'] in beam_frames else None)
 print(f'  touching the cell top: {touching}; continued into the sky: {sorted(beam_frames)}')
 

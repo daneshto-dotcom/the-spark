@@ -82,8 +82,14 @@ export const RA_BEAM_SKY_PX = 400;
 export const RA_BEAM_SKY_BANDS = 16;
 /**
  * The strip is sampled this many atlas px BELOW the cut, clear of the gutter's anti-aliased edge row
- * (the intake uses the same inset for its wash profile). The continuation still starts AT the cut, so
- * nothing on the beam is drawn twice.
+ * (the intake uses the same inset for its wash profile).
+ *
+ * ⚠ RAVFX-8 — AND THE FIRST SKY BAND REACHES DOWN UNDER THE CUT BY THE SAME INSET. The cut row itself
+ * is that anti-aliased gutter row: on slots 6-11 it ships at alpha 72-96 of 255 (MEASURED, the row
+ * max) between the opaque strip above and the opaque beam below, so a continuation that stopped AT
+ * the cut left a faint horizontal seam across the beam. Band 0 now covers the inset rows too and the
+ * sprite is composited over it, so those rows read opaque; where the sprite is already opaque
+ * nothing changes.
  */
 export const RA_BEAM_STRIP_INSET = 2;
 
@@ -232,7 +238,9 @@ export function drawRaStrikeFrame(g: Graphics, a: RaStrikeArt, slot: number, x: 
       // Full strength where it meets the sprite, thinning to nothing at the top of the sky.
       const alpha = Math.pow(1 - b / RA_BEAM_SKY_BANDS, 1.3);
       g.setFillStyle({ color: 0xffffff, alpha });
-      g.texture(strip, 0xffffff, left, cut - (b + 1) * band, w, band);
+      // Band 0 overlaps the inset rows under the cut (RAVFX-8) — the sprite is drawn over it.
+      const under = b === 0 ? RA_BEAM_STRIP_INSET * s : 0;
+      g.texture(strip, 0xffffff, left, cut - (b + 1) * band, w, band + under);
     }
   }
   g.setFillStyle({ color: 0xffffff, alpha: 1 });

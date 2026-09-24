@@ -21,6 +21,8 @@ import { Texture, TextureSource, type Graphics } from 'pixi.js';
 import { drawBossAuras } from './bossAuras.ts';
 import {
   RA_BEAM_SKY_BANDS,
+  RA_BEAM_SKY_PX,
+  RA_BEAM_STRIP_INSET,
   RA_STRIKE_FRAME_TICKS,
   RA_STRIKE_IMPACT_FRAME,
   RA_STRIKE_LEAD_TICKS,
@@ -363,7 +365,14 @@ describe('S188 ra-vfx — the Pharaoh and POWER OF RA play the same art on the s
     for (let i = 1; i < strips.length; i++) expect(strips[i]!.alpha).toBeLessThan(strips[i - 1]!.alpha);
     const frame = r.quads.find((q) => q.tex === art.frames[9])!;
     const cutY = frame.y + art.beamTop[9]! * art.scale;
-    expect(strips[0]!.y + strips[0]!.h, 'the continuation starts AT the cut').toBeCloseTo(cutY, 9);
+    // ⚠ RAVFX-8 — band 0 reaches DOWN under the cut by the strip inset, over the anti-aliased cut row
+    // (drawn first, so the sprite composites over it); every other band abuts the one below, no gap.
+    const band = RA_BEAM_SKY_PX / RA_BEAM_SKY_BANDS;
+    expect(strips[0]!.alpha, 'full strength at the join').toBe(1);
+    expect(strips[0]!.y, 'the continuation starts one band above the cut').toBeCloseTo(cutY - band, 9);
+    expect(strips[0]!.y + strips[0]!.h, 'and overlaps the inset rows under it').toBeCloseTo(cutY + RA_BEAM_STRIP_INSET * art.scale, 9);
+    for (let i = 1; i < strips.length; i++) expect(strips[i]!.y + strips[i]!.h).toBeCloseTo(strips[i - 1]!.y, 9);
+    expect(r.quads.indexOf(strips[0]!), 'the sky is drawn BEFORE the sprite').toBeLessThan(r.quads.indexOf(frame));
 
     sw.tick = impact0 + 50; // slot 16 (the mushroom cloud) and slot 2 (a ring): no beam anywhere
     r = recorder(); drawBossAuras(r.g, sw);

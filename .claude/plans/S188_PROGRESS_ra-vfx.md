@@ -182,6 +182,19 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
   script) — re-run with the `C:/...` form; a `—` in a Python print showed as `�` under the console
   code page, so the new print/fail strings are ASCII.
 
+### RAVFX-8 (LOW) — DONE — the seam at the sky-continuation join
+- Confirmed on the shipped atlas: slots 6-11's cut row (`beamTop` 11) is alpha 72-96 of 255 (row
+  max) with row 12 at 255 — the gutter's anti-aliased edge row, left translucent between the opaque
+  strip above and the opaque beam below.
+- `src/render/raStrikeArt.ts` `drawRaStrikeFrame`: band 0 of the continuation now reaches DOWN under
+  the cut by `RA_BEAM_STRIP_INSET × scale` (the two atlas rows between the cut and the strip's own
+  sample row); it is drawn before the sprite, so the sprite composites over an opaque beam there.
+  `RA_BEAM_STRIP_INSET`'s docblock and the intake's matching comment corrected (both said the
+  continuation stops AT the cut so nothing is drawn twice).
+- Test re-pinned (the join assertion): band 0 at full alpha, top = cut − band, bottom = cut + inset ×
+  scale, every other band abutting the one below (no gap), and the sky drawn before the sprite.
+- ⭐ MUTATION-TESTED: `under = 0` → RED ("expected 283.569 to be close to 284.998"); restored, `cmp`.
+
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ⚠ The Pharaoh's 5th column never shows its explosion: `runPharaohRitual` removes him on the 5th
   impact tick, so `drawRaRitual` has nothing to derive from after it (pre-existing — the old code
