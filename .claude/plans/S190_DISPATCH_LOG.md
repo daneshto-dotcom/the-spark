@@ -42,6 +42,32 @@ brief needs it and no lane covered it) and lane D now owns C5 (lag). The audits 
 names) so it runs as three groups — one limit hit costs one group (S161), and train A can start the moment
 input-layer's audit lands.
 
+## Owner approval, S190 (verbatim)
+
+> *"After a full and complete boot sequence, you already have the plan from last session. I approve the full
+> session priority batch. And full independent agent run and work trees work on all priorities in
+> parallel."*
+
+This OVERRIDES the PDR's sequencing where it held work back: Council R2 M3 ("no net dispatch before the
+hunt") and §3 Step 2/3 ("dispatch draft-atk / fix rounds after the audits"). Owner ruling over Council. What
+stays, because it protects the result rather than delaying it: an auditor still audits code it did not
+write, and nothing merges without its verified findings.
+
+## Step 1b — every remaining priority dispatched in parallel (same message)
+
+| priority | agent | phase |
+|---|---|---|
+| P0 | `s189-net` | full brief now: strictPort → C6 → C5 measure → C4 own diagnosis + reproducing test; hunt's verified findings forwarded by message; no C4 fix commit without agreement or a reproduction |
+| P6 | `s188-draft-atk` | PHASE 1 read-only (its triage is reading the branch): confirm bug + failing reach test (untracked) + strike-site table + salvage verdict → PHASE 2 on my message |
+| P2 | `s188-input-layer` fix agent | PHASE 1 read-only: baseline gates, merge-tree prediction, own independent review → PHASE 2 = merge master + fix ONLY confirmed findings |
+| P3 | `s188-wrath` fix agent | same shape |
+| P4 | `s188-swarm` fix agent | same shape (merges after wrath) |
+| P10 canon | `s188-canon` agent | PHASE 1 read-only: claim table vs master + drafted assertions → PHASE 2 merge master + text/assertions together; train-E deltas left marked |
+| P10 infra | `p10-infra` | fix `pdca-context.sh` string-id parse (backup + replay test); DIAGNOSE the session-state race (`router-telemetry.sh` et al.) — no fix |
+
+All new agents run `npx vitest run --maxWorkers=6`: ten suites share 32 cores, and a timeout-shaped red is
+re-run alone before it is called a defect (S189: two reds were load).
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
