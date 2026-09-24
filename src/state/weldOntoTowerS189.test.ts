@@ -53,7 +53,6 @@ import { isPentagramComponent } from './godlyRecipes/pentagram.ts';
 import { isGoblinTowerComponent } from './goblinKinds.ts';
 import { GOBLIN_TOWER_HUB_DEGREE, LIGHTNING_HUB_DEGREE, STINK_TOWER_HUB_DEGREE } from '../constants.ts';
 import { starArmsAt } from './godlyRecipes/starShape.ts';
-import { ringCycleAt } from './godlyRecipes/ringShape.ts';
 import { towerFootprintAt, towerMembersAt, towerShapeFor, towerStandsAt } from './towerMembers.ts';
 import { readFileSync } from 'node:fs';
 import { starBankedFifths, starPoolFifths } from './structureStarHealth.ts';
@@ -87,7 +86,7 @@ import { repairFeeShapeFor } from './structureRepair.ts';
 import { towerArtForRecipe, towerRingCentroid } from '../render/towerFrames.ts';
 import { makeWorkerCinematicState, tickWorkerCinematics } from './godlyMatcherCore.ts';
 import { applyTickBatch, makeWorkerSim, WorkerControls, type WorkerTickBatchMsg } from './workerSim.ts';
-import { snapshot } from './save.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 // Side-effect imports: the defender recipes register themselves, exactly as `main.ts` imports them.
 import './godlyRecipes/registerAll.ts';
@@ -229,6 +228,13 @@ function tick(w: World, st: HostTickState, n: number): void {
   for (let i = 0; i < n; i++) {
     runGodlyMatcherCore(w, cursor);
     runHostTick(w, d, st);
+    /*
+     * ⚠ FIX ROUND — clear the frame's effects, as the real frame loop does (the worker differential's
+     * reference rig: `world.effects.length = 0`). Without it a fixture's one BOND_FORMED stayed in
+     * `world.effects` forever, so ignition ran on EVERY tick — which made a levelled turret re-ignite
+     * in the same BUILD from its surviving shapes and hid what a cut actually does.
+     */
+    w.effects.length = 0;
   }
 }
 
@@ -669,34 +675,39 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
     expect(towerStandsAt(w, id as GodlyId, anchor!)).toBe(true);
   });
 
-  it('starArmsAt takes the LOWEST-id arms; a surplus same-type weld is not an arm until one is lost', () => {
+  /*
+   * ⛔ AUDIT W1 — RE-PINNED. This test used to pin the SPARE rule ("lose an original arm and the spare
+   * stands in"), a mechanic nobody ruled. Identity is fixed at registration now: the arms a star was
+   * BUILT with are the hub bonds below its `ownBondIdLimit`, and a weld — even of the arm type — is
+   * never one of them.
+   */
+  it('starArmsAt counts only the arms the star was BUILT with; a same-type weld never stands in', () => {
     const w = worldInBuild();
     const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    const limit = w.nextBondId; // what registration would record
     const spare = mk(w, SparkType.Spiral, 530, 330);
-    const spareBond = bond(w, hub, spare); // minted AFTER the arms, so its id is higher
+    const spareBond = bond(w, hub, spare); // minted AFTER the build: a weld
     const spec = [{ leafType: SparkType.Spiral, count: TURRET_HUB_DEGREE }];
-    const armsNow = starArmsAt(w, hub.id, SparkType.Line, spec)!;
+    const armsNow = starArmsAt(w, hub.id, SparkType.Line, spec, limit)!;
     expect(armsNow.whole).toBe(true);
     expect(armsNow.leaves).not.toContain(spare.id);
     expect(armsNow.bonds).not.toContain(spareBond);
 
-    // ⚠ The ruled semantics, stated as a test: lose an original arm and the spare stands in —
-    // "as long as the existing tower, the shape is there".
+    // Lose one of the arms it was built with: it is NOT whole, the spare notwithstanding.
     const lost = bondsBetween(w, hub, [leaves[0]!])[0]!;
     w.bonds.delete(lost);
     hub.bonds.delete(lost);
     leaves[0]!.bonds.delete(lost);
-    const armsAfter = starArmsAt(w, hub.id, SparkType.Line, spec)!;
-    expect(armsAfter.whole).toBe(true);
-    expect(armsAfter.leaves).toContain(spare.id);
+    const armsAfter = starArmsAt(w, hub.id, SparkType.Line, spec, limit)!;
+    expect(armsAfter.whole, 'a cut own arm levels it — a same-type weld never stands in').toBe(false);
+    expect(armsAfter.leaves).not.toContain(spare.id);
+    expect(armsAfter.bonds).toHaveLength(TURRET_HUB_DEGREE - 1);
 
-    // A foreign shape never stands in.
+    // With NO limit (not a live tower / a pre-S189 save): the exact reading — a 7th arm is not a star.
     const w2 = worldInBuild();
-    const s2 = star(w2, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE - 1, 500, 300);
-    bond(w2, s2.hub, mk(w2, SparkType.Triangle, 530, 330));
-    const partial = starArmsAt(w2, s2.hub.id, SparkType.Line, spec)!;
-    expect(partial.whole).toBe(false);
-    expect(partial.bonds).toHaveLength(TURRET_HUB_DEGREE - 1);
+    const s2 = star(w2, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    bond(w2, s2.hub, mk(w2, SparkType.Spiral, 530, 330));
+    expect(starArmsAt(w2, s2.hub.id, SparkType.Line, spec)!.whole).toBe(false);
   });
 
   it('starArmsAt is a TOTAL ORDER — insertion order into `hub.bonds` never decides', () => {
@@ -727,23 +738,30 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
     expect(starBankedFifths(w, hub.id)).toBe(0);
   });
 
-  it('ringCycleAt returns the ORIGINAL ring even when a chord weld opens a second 5-cycle', () => {
+  /*
+   * ⛔ AUDIT W1 / W7 — RE-PINNED. This asserted that a chord weld's second 5-cycle kept a cut
+   * pentagram standing (the spare RING) via an uncapped cycle search. The ring is walked over the
+   * connectors it was built with now — an O(n) exact walk — so a bypass never stands in.
+   */
+  it('the ring is walked over the connectors it was BUILT with; a chord-weld bypass never stands in', () => {
     const w = worldInBuild();
+    const st = makeHostTickState(w);
     const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const sp = [...w.creatureSpawners.values()][0]!;
+    expect(sp.ownBondIdLimit, 'registration records the limit').toBe(w.nextBondId);
     // X bonded to nodes 0 and 2 makes 0-X-2-3-4-0 a second simple 5-cycle through node 0.
     const x = mk(w, SparkType.Triangle, 520, 290);
     bond(w, x, nodes[0]!);
     bond(w, x, nodes[2]!);
-    const cycle = ringCycleAt(w, nodes[0]!.id, SparkType.Triangle, 5)!;
-    expect([...cycle].sort(byId)).toEqual(nodes.map((n) => n.id).sort(byId));
-    // …and with the original ring broken, the weld's cycle keeps it standing.
+    const own = towerMembersAt(w, 'pentagram', sp.anchorPrimitiveId)!;
+    expect(own.whole).toBe(true);
+    expect([...own.prims].sort(byId)).toEqual(nodes.map((n) => n.id).sort(byId));
     const cut = bondsBetween(w, nodes[0]!, [nodes[1]!])[0]!;
     w.bonds.delete(cut);
     nodes[0]!.bonds.delete(cut);
     nodes[1]!.bonds.delete(cut);
-    const again = ringCycleAt(w, nodes[0]!.id, SparkType.Triangle, 5)!;
-    expect(again).toContain(x.id);
-    expect(again).toHaveLength(5);
+    expect(towerMembersAt(w, 'pentagram', sp.anchorPrimitiveId)!.whole, 'the bypass does not save it').toBe(false);
   });
 });
 
@@ -1139,13 +1157,13 @@ describe('⭐⭐ S189 C2 item 3 — a hub welded to a laser turret self-destruct
 });
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
-// THE SPARE RULE, THROUGH THE HOST TICK — exactly when a cut levels a tower and when a weld takes over.
-// See `S189_CANON_NOTES_weld.md` §A for the rule these two cases (and the two "cut levels" cases
-// above) pin between them.
+// ⛔ AUDIT W1 — NO SPARE. Cutting one of the connectors a tower was BUILT with levels it, whatever
+// same-type shape is welded on. (These two cases pinned the reverse — a spare arm and a spare ring —
+// until the fix round; they are RE-PINNED, not deleted, so the reversal stays visible.)
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
-describe('⚖ THE SPARE RULE — a cut levels a tower UNLESS a weld completes its own recipe again', () => {
-  it('STAR: a 7th Spiral welded to the turret HUB takes over when an own Spiral arm is cut', () => {
+describe('⛔ NO SPARE — a cut own connector levels the tower even with a same-type weld in place', () => {
+  it('STAR: a 7th Spiral welded to the turret HUB does NOT save it when an own Spiral arm is cut', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
@@ -1153,14 +1171,15 @@ describe('⚖ THE SPARE RULE — a cut levels a tower UNLESS a weld completes it
     expect(w.defenders.size).toBe(1);
     const spare = mk(w, SparkType.Spiral, 530, 330);
     bond(w, hub, spare); // a weld of the arm type, on the hub itself, AFTER ignition
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the weld alone does not hurt it').toBe(1);
     const arm = bondsBetween(w, hub, [leaves[0]!])[0]!;
     dispatch(w, { type: 'SEVER_BOND', bondId: arm, playerId: P1, cause: 'creature' });
     tick(w, st, PAST_TWO_POLLS);
-    expect(w.defenders.size, 'six Spiral arms on the hub again — the recipe is contained').toBe(1);
-    expect(towerMembersAt(w, 'laserTurret', hub.id)!.prims).toContain(spare.id);
+    expect(w.defenders.size, 'it destroys the connectors that he is attacking (R185-B)').toBe(0);
   });
 
-  it('RING: a Triangle bridging nodes 0 and 2 takes over when the pentagram edge 0–1 is cut', () => {
+  it('RING: a Triangle bridging nodes 0 and 2 does NOT save the pentagram when edge 0–1 is cut', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
@@ -1170,11 +1189,31 @@ describe('⚖ THE SPARE RULE — a cut levels a tower UNLESS a weld completes it
     const x = mk(w, SparkType.Triangle, 520, 290);
     bond(w, x, nodes[0]!);
     bond(w, x, nodes[2]!); // 0-X-2-3-4 is a second simple 5-cycle through the anchor
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'the weld alone does not hurt it').toBe(1);
     const cut = bondsBetween(w, nodes[0]!, [nodes[1]!])[0]!;
     dispatch(w, { type: 'SEVER_BOND', bondId: cut, playerId: P1, cause: 'creature' });
     tick(w, st, PAST_TWO_POLLS);
-    expect(w.creatureSpawners.size, 'a 5-cycle of Triangles still runs through the anchor').toBe(1);
-    expect(towerMembersAt(w, 'pentagram', anchor)!.prims).toContain(x.id);
+    expect(w.creatureSpawners.size, 'a cut own connector levels it').toBe(0);
+  });
+
+  it('a bat tower welded with its own shape falls to one own cut, and so does a same-type-welded t9 ring', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const race = raceOf(w, P0);
+    const type = RACE_FEED_SHAPE[race];
+    const t3 = ring(w, type, RACE_TOWER_SIZE, 450, 300, 34);
+    tick(w, st, 2);
+    // Same-type welds that ALSO close a triangle with two of its nodes (a would-be spare 3-cycle).
+    const x = mk(w, type, 450, 346);
+    bond(w, x, t3[1]!);
+    bond(w, x, t3[2]!);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size).toBe(1);
+    const cut = bondsBetween(w, t3[1]!, [t3[2]!])[0]!;
+    dispatch(w, { type: 'SEVER_BOND', bondId: cut, playerId: P1, cause: 'creature' });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'n1-X-n2 is not the ring it was built with').toBe(0);
   });
 });
 
@@ -1383,5 +1422,61 @@ describe('⭐ S189 C2 audit W2-2 — the hub self-raze leaves no bond-less orpha
     expect(w.creatureSpawners.size, 'the hub self-destructed').toBe(0);
     expect(blasts).toBeGreaterThan(0);
     expect(w.primitives.has(weld.id), 'no bond-less orphan is left to "attract enemy fire" (S157 B2)').toBe(false);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W1 — the four sites of `ownBondIdLimit`: factory (registration), save, wire, hash.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W1 — `ownBondIdLimit` is recorded at registration and survives every copy', () => {
+  function worldWithTowers(): { w: World; spLimit: number; dLimit: number } {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    ring(w, SparkType.Triangle, 5, 500, 300);
+    tick(w, st, 2);
+    const spLimit = w.nextBondId;
+    star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 700, 300);
+    tick(w, st, 2);
+    const dLimit = w.nextBondId;
+    return { w, spLimit, dLimit };
+  }
+
+  it('FACTORY — the spawner and the defender carry world.nextBondId from the moment they registered', () => {
+    const { w, spLimit, dLimit } = worldWithTowers();
+    expect([...w.creatureSpawners.values()][0]!.ownBondIdLimit).toBe(spLimit);
+    expect([...w.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+  });
+
+  it('SAVE + WIRE — a disk restore AND a client snapshot apply both keep it (the client walks need it)', () => {
+    const { w, spLimit, dLimit } = worldWithTowers();
+    const disk = makeWorld(1);
+    restore(snapshot(w), disk);
+    expect([...disk.creatureSpawners.values()][0]!.ownBondIdLimit).toBe(spLimit);
+    expect([...disk.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+    const client = makeWorld(2);
+    applyNetSnapshot(netSnapshot(w), client);
+    expect([...client.creatureSpawners.values()][0]!.ownBondIdLimit, 'NOT trimmed from the wire').toBe(spLimit);
+    expect([...client.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+  });
+
+  it('HASH — changing either tower’s limit flips the wide hash (the projection carries it)', () => {
+    const { w } = worldWithTowers();
+    const before = hashWorldStateFull(w);
+    const sp = [...w.creatureSpawners.values()][0]!;
+    (sp as { ownBondIdLimit?: number | null }).ownBondIdLimit = (sp.ownBondIdLimit ?? 0) + 1;
+    const afterSpawner = hashWorldStateFull(w);
+    expect(afterSpawner, 'spawner projection').not.toBe(before);
+    const d = [...w.defenders.values()][0]!;
+    (d as { ownBondIdLimit?: number | null }).ownBondIdLimit = (d.ownBondIdLimit ?? 0) + 1;
+    expect(hashWorldStateFull(w), 'defender projection').not.toBe(afterSpawner);
+  });
+
+  it('CLIENT RENDER — on a client copy, a welded turret still covers only the six arms it was built with', () => {
+    const { w, hub, leaves } = weldedTurret();
+    const client = makeWorld(3);
+    applyNetSnapshot(netSnapshot(w), client);
+    const at = rampMembersAt(client, hub.id, rampSpecFor('laserTurret')!)!;
+    expect([...at.members].sort(byId)).toEqual([hub.id, ...leaves.map((l) => l.id)].sort(byId));
   });
 });

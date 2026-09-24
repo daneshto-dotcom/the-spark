@@ -86,6 +86,8 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
       recipeId: action.recipeId,
       pos: action.pos,
       registeredAtTick: world.tick,
+      // ⭐ S189 C2 (audit W1) — every connector it was BUILT with has an id below this.
+      ownBondIdLimit: world.nextBondId,
     }),
   );
   return world;

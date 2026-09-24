@@ -137,64 +137,69 @@ export interface StarArms {
 }
 
 /**
- * ⭐⭐ S189 C2 — PURE — **THE ARMS A LIVE STAR STANDS ON, WHATEVER ELSE IS WELDED TO ITS HUB.**
+ * ⭐⭐ S189 C2 — PURE — **THE ARMS A LIVE STAR WAS BUILT WITH, WHATEVER ELSE IS WELDED TO ITS HUB.**
  *
  * Owner, S189: *"If you connect shapes … to existing towers, like to a laser tower, my brother
- * connected like two triangles … it got his tower disappeared … we changed it that you can connect
- * towers together … to get them have more HP … as long as the existing tower, the shape is there …
- * you can connect to it."*
+ * connected like two triangles … it got his tower disappeared … as long as the existing tower, the
+ * shape is there … you can connect to it."* And R185-B: *"once the enemy does manage to destroy it,
+ * it destroys the connectors that he's attacking."*
  *
- * `isStarAt` above answers IGNITION and is deliberately exact: a hub of degree N whose every arm is
- * the leaf type. That exactness is what keeps the recipes disjoint — relax it for ignition and every
- * Circle in a dense Circle lattice with four Circle neighbours becomes a goblin tower. But it was
- * ALSO the survival test, and there it is the defect: MEASURED (`weldOntoTowerS189.test.ts`), a
- * triangle dropped on a laser turret's art bonds to the HUB — it is the nearest shape, and the K=3
- * redundancy pass adds more of the star — so the hub reads degree 8, `isStarAt` fails, and the
- * revalidation poll deletes the turret within half a second.
+ * `isStarAt` above answers IGNITION and is deliberately exact. As the SURVIVAL test it was the
+ * defect: a triangle dropped on a laser turret's art bonds to the HUB, the hub reads degree 8, and
+ * the turret vanished within half a second. Survival asks this instead: **are the connectors this
+ * star was BUILT with still there?**
  *
- * So SURVIVAL asks this instead: **is the recipe still CONTAINED at the hub?** For each arm type, the
- * `count` arms of that type with the LOWEST bond ids are the star's own; any other bond on the hub —
- * a foreign shape, or a surplus shape of an arm type — is a weld, and a weld neither helps nor hurts
- * whether the tower stands.
+ * ⛔⛔ AUDIT W1 — "BUILT WITH", NOT "LOWEST ID AT THE TIME OF ASKING". The first version took the
+ * lowest-id arms of each type, which is the original arm only while every original is intact: once
+ * one is cut, the lowest remaining same-type bond can be a WELD, which then "stood in" and kept the
+ * tower alive. Nobody ruled that — the brief and R185-B say a cut own connector levels it. So:
  *
- * ⚠ **LOWEST BOND ID IS "THE ORIGINAL ARM", AND THAT IS PROVABLE RATHER THAN HOPED.** Bond ids are
- * minted from the monotonic `world.nextBondId`, and a tower's own arms all exist before it can
- * ignite, so every weld made after ignition has a HIGHER id than every arm it was welded next to.
- * The pick therefore lands on the original arms whenever they are intact, and only falls through to
- * a surplus same-type weld when an original arm has actually been lost — at which point the shape
- * the owner described ("the shape is there") genuinely is still there, built from the weld.
+ *   `bondIdLimit` (the tower's `ownBondIdLimit` — `world.nextBondId` when it was registered) marks
+ *   the connectors it was built with: exactly the hub bonds with an id BELOW it (ignition is exact,
+ *   so at registration the hub's bonds WERE its arms). A weld has a higher id and is never counted,
+ *   of ANY type. The star stands iff all `count` arms of every type are still among them.
  *
- * ⛔ **TOTAL ORDER, NEVER `Set` ORDER.** `hub.bonds` is a `Set` in insertion order; the candidates are
- * sorted by bond id before any is taken, so every peer and the worker pick the same arms.
+ *   `bondIdLimit === null` (a pre-S189 save, a hand-built fixture, a structure that is not a live
+ *   tower): the exact pre-S189 reading — every hub bond is an arm of the right type and the degree
+ *   is exact.
  *
- * ⚠ DISTINCT LEAVES: an arm is counted once per leaf, so a hypothetical second bond to the same leaf
- * can never stand in for a missing one.
+ * ⛔ **TOTAL ORDER, NEVER `Set` ORDER.** Candidates are sorted by bond id before any is taken.
+ * ⚠ DISTINCT LEAVES: an arm is counted once per leaf.
  *
- * Returns `null` when the anchor is gone or is not `hubType` — there is no star to speak of. A star
- * with too few arms returns its PARTIAL arms with `whole: false`, because the renderer still has to
- * draw the building crumbling during the ≤ 30 ticks before the poll removes it.
+ * Returns `null` when the anchor is gone or is not `hubType`. A star missing arms returns what is
+ * LEFT with `whole: false`, because the renderer still draws it crumbling during the ≤ 30 ticks
+ * before the poll removes it.
  */
 export function starArmsAt(
   world: World,
   anchorId: PrimitiveId,
   hubType: SparkType,
   arms: readonly StarArmSpec[],
+  bondIdLimit: number | null = null,
 ): StarArms | null {
   const hub = world.primitives.get(anchorId);
   if (hub === undefined) return null;
   if (hub.type !== hubType) return null;
   const want = new Map<SparkType, number>();
-  for (const a of arms) want.set(a.leafType, (want.get(a.leafType) ?? 0) + a.count);
+  let total = 0;
+  for (const a of arms) {
+    want.set(a.leafType, (want.get(a.leafType) ?? 0) + a.count);
+    total += a.count;
+  }
 
+  let liveHubBonds = 0;
   const candidates: { bondId: BondId; leafId: PrimitiveId; type: SparkType }[] = [];
   for (const bondId of hub.bonds) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue; // a dangling bond id — the shape is mid-teardown
+    liveHubBonds++;
+    // A connector minted AFTER the tower was built is a weld — never an arm, whatever its type.
+    if (bondIdLimit !== null && Number(bondId) >= bondIdLimit) continue;
     const otherId = bond.aId === anchorId ? bond.bId : bond.aId;
     if (otherId === anchorId) continue; // a self-bond is never an arm (see `isStarAt`)
     const leaf = world.primitives.get(otherId);
     if (leaf === undefined) continue;
-    if (!want.has(leaf.type)) continue; // a foreign shape welded on — not an arm, not a defect
+    if (!want.has(leaf.type)) continue;
     candidates.push({ bondId, leafId: otherId, type: leaf.type });
   }
   candidates.sort((x, y) => Number(x.bondId) - Number(y.bondId));
@@ -205,7 +210,7 @@ export function starArmsAt(
   const bonds: BondId[] = [];
   for (const c of candidates) {
     const have = taken.get(c.type) ?? 0;
-    if (have >= (want.get(c.type) ?? 0)) continue; // a surplus arm of this type is a weld
+    if (have >= (want.get(c.type) ?? 0)) continue;
     if (seenLeaves.has(c.leafId)) continue;
     seenLeaves.add(c.leafId);
     taken.set(c.type, have + 1);
@@ -214,5 +219,7 @@ export function starArmsAt(
   }
   let whole = true;
   for (const [type, count] of want) if ((taken.get(type) ?? 0) < count) whole = false;
+  // Unknown build (no limit): the exact reading — nothing else may be bonded to the hub.
+  if (bondIdLimit === null && liveHubBonds !== total) whole = false;
   return { leaves, bonds, whole };
 }

@@ -117,16 +117,13 @@ import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.t
  * S167 — the tier-9 leaf + the ring walk, both side-effect-free, for the same hot-path reason as
  * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
  */
-import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
+import { T9_BOSS_TYPE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
 /*
  * ⭐ S170 P2 — `T9_RELEASE_DELAY_TICKS` is no longer imported HERE. It was read only by the
  * second-boss gate this priority deleted; the 5 s standing period itself is untouched and still
  * lives where it belongs, as the tower's spawner interval (`spawners/spawner.ts` →
  * `spawnerIntervalTicks`), which is what `world.tick >= sp.nextSpawnTick` below actually waits on.
  */
-// S189 C2 item 2 — the t9 release razes the ring's OWN cycle (a welded ring now stands).
-import { ringCycleAt } from './godlyRecipes/ringShape.ts';
-import { RACE_FEED_SHAPE } from './races.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -1284,17 +1281,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
            */
           if (race !== null && anchor !== undefined) {
             /*
-             * ⭐ S189 C2 item 2 — `ringCycleAt`, the ring's OWN nine, whatever is welded on. A t9
+             * ⭐ S189 C2 — the nine it was BUILT with (`towerMembersAt`, whatever is welded on). A t9
              * ring now SURVIVES a same-type weld (it used to be dissolved by it), so the exact walk
-             * would read `null` here for a standing tower and release no boss. The cycle is also
+             * would read `null` here for a standing tower and release no boss. The own nine are also
              * exactly the set to raze: the welds are the player's, not the tower's.
              */
-            const ring = ringCycleAt(
-              world,
-              sp.anchorPrimitiveId,
-              RACE_FEED_SHAPE[race],
-              T9_TOWER_SIZE,
-            );
+            const own = towerMembersAt(world, sp.recipeId, sp.anchorPrimitiveId);
+            const ring = own !== null && own.whole ? own.prims : null;
             /*
              * A `null` ring means the structure broke between the throttled re-validation poll and
              * this tick. Defense-in-depth, mirroring the deleted-anchor guard on the chewer arm

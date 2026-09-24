@@ -81,6 +81,8 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       // ⭐ S158 B2 — the recipe's OWN cadence, not the chewer's. A lightning hub seeded here at the
       // chewer's 15 s spent the first quarter of its fight silent before it emitted anything.
       nextSpawnTick: world.tick + spawnerIntervalTicks(action.recipeId),
+      // ⭐ S189 C2 (audit W1) — every connector it was BUILT with has an id below this.
+      ownBondIdLimit: world.nextBondId,
     }),
   );
   return world;

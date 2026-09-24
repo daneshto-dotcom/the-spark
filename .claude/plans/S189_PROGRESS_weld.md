@@ -253,8 +253,42 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   Dot stands (and the Dot). Mutant (flag removed on both) → both RED; restored. `src/state` 187 /
   3122 EXIT=0.
 
+### fix-round item 1 (audit W1 / W2-4b / W6 / W7) LANDED — a tower's own members are the ones it was BUILT with
+- NEW FIELD `ownBondIdLimit` on `CreatureSpawner` AND `Defender` = `world.nextBondId` at
+  registration; its own connectors are the recipe's shape among the bonds with a LOWER id. A weld
+  (any type, anywhere, minted later) is never one of them → it neither kills the tower nor stands in
+  for a cut own connector.
+- ⚠ DEVIATION FROM THE FIX-ROUND SHAPE, deliberate: the coordinator proposed `bond.createdTick <=
+  sp.ignitedAtTick` for spawners. `ignitedAtTick` is STRIPPED from the wire (`trimMirrorSpawner`) and
+  re-seeded to each client's own tick, so on every client every weld would read as "own" and be
+  HIDDEN under the sprite (R185-A broken on clients); and a weld dropped in the frame after ignition
+  shares its tick. A bond-id watermark is exact and one mechanism serves spawners and defenders alike.
+- FOUR SITES (both entities): type + factory (`spawner.ts` `makeSpawner`, `defender.ts`
+  `makeDefender`; set at `applyRegisterSpawner` / `applyRegisterDefender`); SAVE + WIRE (`save.ts`
+  serialize/deserialize for both, and `trimMirrorSpawner` KEEPS it — identity, not a clock;
+  additive-optional, absent ⇒ `null`); HASH (`stateHashFull.ts` Spawner/DefenderHashed + both
+  projections `:ob…` — the coverage contract fired `ERROR_UNCOVERED_FIELD` first); WORKER (via the save).
+- walks: `starArmsAt(…, bondIdLimit)` counts only hub bonds below the limit; `ringMembersAt(…,
+  bondIdLimit)` is the exact O(n) walk over those bonds. `towerMembersAt` reads the live tower's limit
+  via NEW `liveTowerLimit(recipe, anchor)` (keyed on the recipe too — W2-4c). No limit (not a live
+  tower / pre-S189 save) ⇒ the exact pre-S189 reading.
+- ⛔ `ringCycleAt` DELETED (W7 / W2-7): the uncapped per-frame DFS is gone; the three callers
+  (`towerRenderer.ringOf`, `towerFrames.towerRingCentroid`, the t9 release raze in `hostTick`) read
+  `towerMembersAt(...).whole`. `ringRemainsAt` (crumble only) is a BFS bounded at n−1 hops.
+- test harness: `tick()` now clears `world.effects` per frame like the real loop — a fixture's one
+  BOND_FORMED had stayed forever, so ignition ran every tick (it re-ignited a levelled turret from its
+  surviving shapes in the same BUILD and hid what a cut does).
+- tests RE-PINNED: the spare-arm and spare-ring reach tests now assert the tower FALLS; the
+  lowest-id arithmetic test → "counts only the arms it was BUILT with"; the ringCycleAt test → "a
+  chord-weld bypass never stands in". NEW: a same-type-welded bat tower falls to one own cut; the
+  four sites (registration, disk restore + client snapshot keep it, the hash sees both towers', a
+  client copy covers only the built arms). Mutants (limit filter removed; wire trim drops it) → RED.
+- ⚠ RED BY DESIGN in this commit: the R190-J re-summon test — Helga's contains-ignition on a DEAD
+  hall now reads the exact shape (no live tower ⇒ no limit). Item 2 replaces that path with the
+  dormant-record revive. Full suite otherwise 6049 / 6050.
+
 ## IN-FLIGHT
-- fix-round item 1 (strict own identity — revert the spare rules).
+- fix-round item 2 (Helga: first build exact + dormant revive at the phase edge).
 
 ## NEXT
 

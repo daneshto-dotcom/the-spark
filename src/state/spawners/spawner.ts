@@ -58,6 +58,24 @@ export interface CreatureSpawner {
   spawnedCount: number;
   /** Tick the structure ignited — anchors the post-ignition grace window. */
   readonly ignitedAtTick: number;
+  /**
+   * ⭐⭐ S189 C2 (audit W1) — **WHICH CONNECTORS THIS TOWER WAS BUILT WITH.** Every bond whose id is
+   * BELOW this was minted before the tower was registered (`world.nextBondId` at registration); its
+   * own members are the recipe's shape among those. A weld made later — of any type, anywhere — has a
+   * higher id and is never one of them, so it can neither kill the tower nor stand in for a lost own
+   * connector: cut one of the connectors it was built with and it falls (R185-B, *"it destroys the
+   * connectors that he's attacking"*).
+   *
+   * ⚠ A BOND ID, NOT A TICK. `ignitedAtTick` looks equivalent and is not: it is stripped from the wire
+   * and re-seeded to each CLIENT's own tick (so every weld would read "older" there and be hidden
+   * under the sprite), and a weld dropped in the frame right after ignition shares its tick.
+   * Bond ids are monotonic, unique, and exact.
+   *
+   * SERIALIZED (disk, worker INIT AND the wire — the client render walks need it) and HASHED.
+   * `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test then
+   * falls back to the exact shape, the pre-S189 reading.
+   */
+  readonly ownBondIdLimit?: number | null;
 }
 
 /**
@@ -138,6 +156,8 @@ export function makeSpawner(args: {
   recipeId: GodlyId;
   ignitedAtTick: number;
   nextSpawnTick: number;
+  /** S189 C2 — `world.nextBondId` at registration (see the field). Omitted ⇒ `null` (unknown). */
+  ownBondIdLimit?: number | null;
 }): CreatureSpawner {
   return {
     id: args.id,
@@ -148,5 +168,6 @@ export function makeSpawner(args: {
     lastValidatedTick: args.ignitedAtTick,
     spawnedCount: 0,
     ignitedAtTick: args.ignitedAtTick,
+    ownBondIdLimit: args.ownBondIdLimit ?? null,
   };
 }

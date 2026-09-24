@@ -59,13 +59,20 @@ import type { World } from '../worldTypes.ts';
  * list, so an unordered list would make the ring's traversal order depend on build order, and with it
  * any future tie-break layered on top.
  */
-function sameTypeNeighbours(world: World, id: PrimitiveId, type: SparkType): PrimitiveId[] {
+function sameTypeNeighbours(
+  world: World,
+  id: PrimitiveId,
+  type: SparkType,
+  /** S189 C2 — only connectors with an id BELOW this count (the ones a live tower was built with). */
+  bondIdLimit: number | null = null,
+): PrimitiveId[] {
   const p = world.primitives.get(id);
   if (p === undefined) return [];
   const out: PrimitiveId[] = [];
   for (const bondId of p.bonds) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue; // a dangling bond id — the shape is mid-teardown
+    if (bondIdLimit !== null && Number(bondId) >= bondIdLimit) continue; // a weld, not the ring
     const otherId = bond.aId === id ? bond.bId : bond.aId;
     // A self-bond would pass the type test by accident. The bond factories never make one; reading
     // it as a neighbour would be silently wrong if they ever did.
@@ -106,6 +113,13 @@ export function ringMembersAt(
   anchorId: PrimitiveId,
   type: SparkType,
   n: number,
+  /**
+   * ⭐ S189 C2 (audit W1) — a LIVE tower's `ownBondIdLimit`: walk only the connectors it was BUILT
+   * with. Ignition was exact (every node had exactly two same-type neighbours), so over those bonds
+   * the ring is the same exact walk forever — a weld of ANY type, bonded anywhere, is invisible to
+   * it, and a cut own connector breaks it. `null` = the plain exact walk (ignition, R136).
+   */
+  bondIdLimit: number | null = null,
 ): PrimitiveId[] | null {
   // A ring needs at least three nodes; n < 3 would let a single bonded pair read as a "ring" whose
   // two members are each other's only neighbour, which the walk below would happily close.
@@ -114,7 +128,7 @@ export function ringMembersAt(
   if (anchor === undefined) return null;
   if (anchor.type !== type) return null;
 
-  const first = sameTypeNeighbours(world, anchorId, type);
+  const first = sameTypeNeighbours(world, anchorId, type, bondIdLimit);
   if (first.length !== 2) return null;
 
   const seen = new Set<PrimitiveId>([anchorId]);
@@ -124,7 +138,7 @@ export function ringMembersAt(
   let cur: PrimitiveId = first[0]!;
 
   for (let step = 1; step < n; step++) {
-    const nbrs = sameTypeNeighbours(world, cur, type);
+    const nbrs = sameTypeNeighbours(world, cur, type, bondIdLimit);
     // The exact-2 clause, re-applied at EVERY node rather than only at the anchor. Checking it once
     // would accept a ring with a same-type spur hanging off a non-anchor node, and the anchor a
     // recipe picks is an implementation detail — so the predicate would depend on which node the
@@ -161,59 +175,13 @@ export function isRingAt(
   return ringMembersAt(world, anchorId, type, n) !== null;
 }
 
-/**
- * ⭐⭐ S189 C2 — PURE — **THE RING A LIVE TOWER STILL CONTAINS, WHATEVER IS WELDED TO IT**, in walk
- * order starting at the anchor, or `null` when no closed `n`-cycle of `type` runs through the anchor.
- *
- * Owner, S189: *"as long as the existing tower, the shape is there … it still has a pentagram, but
- * you can connect to it."*
- *
- * `ringMembersAt` above is exact — every node on the walk has EXACTLY two same-type neighbours — and
- * that exactness is what keeps IGNITION collision-free (R136: without it a chorded pentagram would
- * ignite a tier-3 ring inside itself). This asks the SURVIVAL question instead: is there still a
- * simple cycle of `n` shapes of `type` through the anchor? Extra same-type shapes welded onto the
- * ring, and any foreign shapes at all, may be present; they are not members and do not decide.
- *
- * ⚠ **THE CYCLE RETURNED IS THE ORIGINAL RING WHENEVER THE ORIGINAL RING IS INTACT, AND THAT IS
- * PROVABLE.** The search is depth-first from the anchor, stepping to neighbours in ASCENDING id
- * (`sameTypeNeighbours` sorts), so it returns the lexicographically smallest cycle. Primitive ids
- * are minted from the monotonic `world.nextPrimitiveId` and every ring node exists before the tower
- * can ignite, so every shape welded on later has a HIGHER id than every ring node. At each step the
- * original next node is therefore the smallest unvisited candidate, and the original ring is the
- * first cycle found. Only when the original ring is broken can a cycle through a weld be returned —
- * and then the pentagram the owner described genuinely is still there.
- *
- * ⚠ COST IS BOUNDED BY `degree^(n−1)`: every path is at most `n` nodes and a shape's same-type
- * degree is capped by physical spacing. There is deliberately NO iteration cap — a cap would make a
- * tower on a dense board vanish, which is the defect this function exists to end.
+/*
+ * ⛔ S189 C2 (audit W1 / W7) — `ringCycleAt` WAS HERE AND IS GONE. It searched for ANY simple n-cycle
+ * through the anchor, so a same-type bypass welded round a cut connector kept the ring standing (a
+ * mechanic nobody ruled), and on a broken ring inside a dense same-type lattice it was an unbounded
+ * DFS run every render frame. Survival is `ringMembersAt(…, bondIdLimit)` now: an O(n) walk over the
+ * connectors the tower was built with.
  */
-export function ringCycleAt(
-  world: World,
-  anchorId: PrimitiveId,
-  type: SparkType,
-  n: number,
-): PrimitiveId[] | null {
-  if (n < 3) return null; // see `ringMembersAt`: a bonded pair is not a ring
-  const anchor = world.primitives.get(anchorId);
-  if (anchor === undefined) return null;
-  if (anchor.type !== type) return null;
-  const path: PrimitiveId[] = [anchorId];
-  const onPath = new Set<PrimitiveId>([anchorId]);
-  const extend = (cur: PrimitiveId): boolean => {
-    const nbrs = sameTypeNeighbours(world, cur, type);
-    if (path.length === n) return nbrs.includes(anchorId); // n ≥ 3, so this is not the arrival edge
-    for (const next of nbrs) {
-      if (onPath.has(next)) continue;
-      path.push(next);
-      onPath.add(next);
-      if (extend(next)) return true;
-      path.pop();
-      onPath.delete(next);
-    }
-    return false;
-  };
-  return extend(anchorId) ? path : null;
-}
 
 /**
  * S189 C2 — PURE — what is LEFT of a broken ring, for the renderer's crumble only: the shapes of
@@ -228,6 +196,8 @@ export function ringRemainsAt(
   anchorId: PrimitiveId,
   type: SparkType,
   n: number,
+  /** S189 C2 — only the connectors the tower was built with, so a weld never drifts the wreck. */
+  bondIdLimit: number | null = null,
 ): PrimitiveId[] | null {
   const anchor = world.primitives.get(anchorId);
   if (anchor === undefined) return null;
@@ -236,7 +206,7 @@ export function ringRemainsAt(
   for (let hop = 1; hop < n && frontier.length > 0; hop++) {
     const next: PrimitiveId[] = [];
     for (const id of frontier) {
-      for (const nb of sameTypeNeighbours(world, id, type)) {
+      for (const nb of sameTypeNeighbours(world, id, type, bondIdLimit)) {
         if (seen.has(nb)) continue;
         seen.add(nb);
         next.push(nb);
