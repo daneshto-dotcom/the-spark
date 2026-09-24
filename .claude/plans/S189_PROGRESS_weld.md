@@ -239,8 +239,22 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   laser turret's footprint is its own star; MECHANICAL — neither renderer calls `componentOf(` and
   both call `towerFootprintAt(`. `src/render` suite EXIT=0.
 
+### fix-round item 5 (audit W2-2) LANDED — no bond-less orphan after a hub self-raze or a t9 release
+- `hostTick.ts`: both raze calls pass `razeOrphans = true` (`razePrimitives(world, ids, undefined,
+  true)`): a shape that LOST ITS LAST BOND in the raze goes with it — S157 B2 (owner: *"the last shape
+  stays and attracts enemy fire … WEIRD"*). A weld still bonded onward keeps that bond and stands.
+  WHAT THE ORPHANS BECOME: removed (a removal, not a kill — no damage number, `razedNotKilled`). WHY
+  THAT MATCHES CANON §2: §2's lone "built but not connected" shape (pool 5) is a shape the PLAYER
+  PLACED alone; an orphan of a destroyed structure is S157 B2's case, which the owner ruled dies with
+  the structure. `componentOf` used to cover it by accident; the own-star raze did not.
+- ⚠ applied to the t9 release too (the audit's "decide the same"): same rule, same reason.
+- tests: a Triangle dropped on a hub (bonded only to the star) is razed with it, blast still fires;
+  the t9 test RE-PINNED — a ring-only weld now goes with the nine, a weld also bonded to an outside
+  Dot stands (and the Dot). Mutant (flag removed on both) → both RED; restored. `src/state` 187 /
+  3122 EXIT=0.
+
 ## IN-FLIGHT
-- fix-round item 5 (W2-2 hub-raze orphans).
+- fix-round item 1 (strict own identity — revert the spare rules).
 
 ## NEXT
 

@@ -1031,7 +1031,7 @@ describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded thro
 });
 
 describe('⭐ S189 C2 item 2 — a tier-9 ring welded with its own shape stands, and releases razing ONLY its nine', () => {
-  it('the weld survives the release; the boss walks out; the nine are razed', () => {
+  it('the boss walks out; the nine are razed; a weld bonded onward stands, a ring-only weld goes with them', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const race = raceOf(w, P0);
@@ -1041,7 +1041,12 @@ describe('⭐ S189 C2 item 2 — a tier-9 ring welded with its own shape stands,
     const sp = [...w.creatureSpawners.values()].find((x) => x.recipeId === T9_TOWER_IDS[race]);
     expect(sp, 'the nine-ring ignites').toBeDefined();
     const weld = placeLikeAPlayer(w, type, { x: 500, y: 400 - 64 - 20 });
-    expect(neighbours(w, weld).some((id) => nodes.some((n) => n.id === id))).toBe(true);
+    expect(neighbours(w, weld).every((id) => nodes.some((n) => n.id === id)), 'this weld holds only the ring').toBe(true);
+    // A second weld that is ALSO bonded onward, to a shape outside the tower.
+    const outside = placeLikeAPlayer(w, SparkType.Dot, { x: 500, y: 540 });
+    const weld2 = placeLikeAPlayer(w, type, { x: 500, y: 484 });
+    expect(neighbours(w, weld2)).toContain(outside.id);
+    expect(neighbours(w, weld2).some((id) => nodes.some((n) => n.id === id))).toBe(true);
     tick(w, st, PAST_TWO_POLLS);
     expect(w.creatureSpawners.has(sp!.id), 'the welded nine-ring stands').toBe(true);
 
@@ -1052,7 +1057,11 @@ describe('⭐ S189 C2 item 2 — a tier-9 ring welded with its own shape stands,
     expect(w.creatureSpawners.has(sp!.id), 'released, so the tower is gone').toBe(false);
     expect([...w.creatures.values()].some((c) => c.type === T9_BOSS_TYPE[race]), 'the boss walked out').toBe(true);
     for (const n of nodes) expect(w.primitives.has(n.id), `ring node ${n.id} is razed`).toBe(false);
-    expect(w.primitives.has(weld.id), "the weld is the player's — it is NOT razed").toBe(true);
+    // ⭐ S189 C2 (audit W2-2, RE-PINNED) — S157 B2: a shape left holding nothing goes with the
+    // structure. The ring-only weld lost its last bond in the raze; the other still holds the Dot.
+    expect(w.primitives.has(weld.id), 'the ring-only weld lost its last bond and went with the nine').toBe(false);
+    expect(w.primitives.has(weld2.id), 'the weld bonded onward is the player’s and stands').toBe(true);
+    expect(w.primitives.has(outside.id)).toBe(true);
   });
 });
 
@@ -1331,5 +1340,48 @@ describe('⭐ S189 C2 audit W2-1 / W5 — aura strokes and ground zone never rid
       expect(src.includes('componentOf('), `${f} still calls componentOf`).toBe(false);
       expect(src.includes('towerFootprintAt('), `${f} must take the tower's own footprint`).toBe(true);
     }
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W2-2 — a weld bonded ONLY to a self-destructing hub's star goes with it (S157 B2).
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W2-2 — the hub self-raze leaves no bond-less orphan', () => {
+  it('a Triangle dropped on the hub (bonded to the star only) is razed with it; the blast still fires', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const hub = star(w, SparkType.Dot, SparkType.Circle, LIGHTNING_HUB_DEGREE, 500, 300);
+    tick(w, st, 2);
+    const weld = placeLikeAPlayer(w, SparkType.Triangle, { x: 518, y: 312 });
+    const own = new Set<PrimitiveId>([hub.hub.id, ...hub.leaves.map((l) => l.id)]);
+    expect(neighbours(w, weld).length).toBeGreaterThan(0);
+    expect(neighbours(w, weld).every((id) => own.has(id)), 'the weld holds nothing but the star').toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size).toBe(1);
+
+    let left = 34;
+    for (const bid of [...hub.hub.bonds].sort((x, y) => x - y)) {
+      const b = w.bonds.get(bid)!;
+      const other = b.aId === hub.hub.id ? b.bId : b.aId;
+      if (!hub.leaves.some((l) => l.id === other)) continue;
+      const take = Math.min(left, 7);
+      b.damageFifths += take;
+      left -= take;
+      if (left <= 0) break;
+    }
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    let blasts = 0;
+    const d0 = deps();
+    const cursor = { lastMatcherTick: -1 };
+    for (let i = 0; i < 4 * REVALIDATE_INTERVAL_TICKS && w.creatureSpawners.size > 0; i++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d0, st);
+      for (const e of w.effects) if (e.kind === 'BOMB_EXPLODE') blasts++;
+    }
+    expect(w.creatureSpawners.size, 'the hub self-destructed').toBe(0);
+    expect(blasts).toBeGreaterThan(0);
+    expect(w.primitives.has(weld.id), 'no bond-less orphan is left to "attract enemy fire" (S157 B2)').toBe(false);
   });
 });

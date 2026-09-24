@@ -849,8 +849,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
            * property, two consumers.
            *
            * S157 P0's two rulings move with the code unchanged: the AoE SPARES the owner's other
-           * structures, and the hub razes its OWN component explicitly so its leaves cannot survive
-           * as bond-less orphans (*"the last shape stays and attracts enemy fire"*).
+           * structures, and the hub razes its OWN star (S189 C2: not its whole component) plus
+           * anything that lost its last bond in that raze, so nothing survives as a bond-less
+           * orphan (*"the last shape stays and attracts enemy fire"*).
            */
           if (sp.recipeId === 'lightningHub') {
             const dying = world.primitives.get(sp.anchorPrimitiveId);
@@ -880,7 +881,17 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
                 ownerPlayerId: sp.ownerPlayerId,
               });
-              razePrimitives(world, selfIds);
+              /*
+               * ⭐ S189 C2 (audit W2-2) — AND ANY SHAPE LEFT HOLDING NOTHING GOES WITH IT
+               * (`razeOrphans`). Razing only the hub's own star left a hand-placed weld that was
+               * bonded to nothing BUT that star standing alone with zero bonds — S157 B2 verbatim
+               * (*"the last shape stays and attracts enemy fire"*), which `componentOf` used to
+               * cover by accident. The flag takes only a shape that LOST ITS LAST BOND in this raze:
+               * a weld still bonded onward (to a welded turret, a lattice) keeps its bond and stands.
+               * Canon §2's lone "built but not connected" shape (pool 5) is a shape the player PLACED
+               * alone; an orphan of a destroyed structure is not that, and the owner ruled it dies.
+               */
+              razePrimitives(world, selfIds, undefined, true);
             }
           }
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
@@ -1299,7 +1310,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                 pos: { x: anchor.pos.x, y: anchor.pos.y },
                 targetPos: { x: anchor.pos.x, y: anchor.pos.y },
               });
-              razePrimitives(world, ring);
+              // ⭐ S189 C2 (audit W2-2) — the same S157 B2 rule as the hub raze: a weld bonded
+              // to nothing but the nine goes with them; one bonded onward stands.
+              razePrimitives(world, ring, undefined, true);
             }
           }
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
