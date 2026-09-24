@@ -1,12 +1,12 @@
 {
-  "session_id": "S189",
-  "session_kind": "owner-driven: plan + Council + PDR + full handoff; deploy #2 shipped; execution carried to next session on a fresh account (weekly quota 96%)",
+  "session_id": "S190",
+  "session_kind": "owner-driven: DISPATCH the S189 batch PDR (pre-approved) — research workflows + six worktree agents + merge trains A-E",
   "session_start": "2026-09-24",
-  "prior_session_archive": ".claude/session-archive/session-state_S188_2026-09-24.json",
-  "phase": "CLOSE",
+  "prior_session_archive": ".claude/session-archive/session-state_S189_2026-09-24.json",
+  "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-  "session_status": "S189 CLOSING — planned + deploy #2 shipped; execution carried to next session (weekly quota at 96%)",
+  "session_status": "S190 EXECUTING — .claude/plans/2026-09-24_S189_BATCH_PDR.md §3",
   "protocol_version": 50,
   "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
@@ -27,57 +27,9 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/net",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
-    },
-    {
-      "id": "P1",
-      "title": "Deploy #2 = s188/deploy2-candidate (racial-a + racial-d fix rounds)",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-      "check_completed": true,
-      "checkpoint_commit": "15035b9",
-      "check_method": "Deploy #2 = s188/deploy2-candidate re-gated S189 in its OWN worktree (.claude/worktrees/s188-deploy2) on a quiet machine, every exit code captured to a file: e2e:gating E2E_GATING_EXIT=0 (69/69 — the three S188 @visual reds hub-ramp-art x2 / tower-art were load, all three passed), typecheck 0, vitest 0 (5996/367), build 0 (944.2/1100 KiB, headroom 155.8), e2e:races 0 (5/5). Wire diff vs live: one additive-optional field Creature.attackCycleRaged (no bump). merge-tree clean; merged --no-ff into master (15035b9), src identical to the candidate; pushed; Pages run 35972498814 success; verify-deploy first FAILED on LIVE (main checkout dist stale from S188 — investigated, not waived), rebuilt, re-ran: VERIFY_DEPLOY_EXIT=0, 4/4.",
-      "real_context_tokens_at_close": 352837,
-      "real_context_pct_at_close": 35.28,
-      "status": "completed",
-      "priority_state": "completed",
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/creature.ts",
-          "needle": "attackCycleRaged?: boolean;"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/save.ts",
-          "needle": "attackCycleRaged: true"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/worldTypes.ts",
-          "needle": "pendingLifestealFifths: Map<CreatureId, number> | null;"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-          "needle": "P1 (deploy #2) DONE"
-        },
-        {
-          "type": "file_contains",
-          "path": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-          "needle": "`verify-deploy` **4/4**"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/stateHashFull.ts",
-          "needle": "attackCycleRaged"
-        }
-      ]
     },
     {
       "id": "P2",
@@ -88,8 +40,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/input-layer",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -101,8 +53,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/wrath",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -114,8 +66,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/swarm",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -127,8 +79,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/ra-vfx",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -140,8 +92,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/draft-atk",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "pending",
+      "priority_state": "pending",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -153,8 +105,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/units",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -166,8 +118,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/weld",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -179,8 +131,8 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/render",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     },
     {
@@ -191,31 +143,12 @@
       "unlock_source": "user",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-      "status": "carry_forward",
-      "priority_state": "carry_forward",
+      "status": "pending",
+      "priority_state": "pending",
       "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
     }
   ],
-  "reflexion_entries_to_archive": [
-    {
-      "priority": "P1",
-      "tags": [
-        "verify-deploy",
-        "stale-artifact",
-        "load-vs-defect"
-      ],
-      "entry": "Two reds this session were the MEASUREMENT, not the code: S188's three @visual e2e failures were machine load (69/69 on a quiet run), and verify-deploy's LIVE failure was a stale dist/ in the checkout that had not built. Both were re-run under the right conditions instead of waived or chased as bugs. A failing check is a finding about the check first."
-    },
-    {
-      "priority": "planning",
-      "tags": [
-        "quota",
-        "handoff-as-deliverable",
-        "read-before-fanout"
-      ],
-      "entry": "A hand-read of main.ts answered the handoff's first question (can a protocol mismatch cause CONNECTION LOST? no — the overlay needs PLAYING and a mismatched HELLO never gets there) before any agent ran. Stopping 14 in-flight agents at 96% quota cost nothing because none had finished and their scripts were saved into the repo."
-    }
-  ],
+  "reflexion_entries_to_archive": [],
   "carry_forward_findings": [
     "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
     "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
@@ -226,5 +159,17 @@
   ],
   "scope_amendments": [],
   "budget_total": 1000000,
-  "tool_calls_session_total": 350
+  "tool_calls_session_total": 0,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-09-24T13:49:20.400741Z",
+    "fields": [
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }
