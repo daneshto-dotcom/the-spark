@@ -75,6 +75,10 @@ import { makeCreature } from './creatures/creature.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { asCreatureId, asSpawnerId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
+import { makeWorkerCinematicState, tickWorkerCinematics } from './godlyMatcherCore.ts';
+import { applyTickBatch, makeWorkerSim, WorkerControls, type WorkerTickBatchMsg } from './workerSim.ts';
+import { snapshot } from './save.ts';
+import { hashWorldStateFull } from './stateHashFull.ts';
 // Side-effect imports: the defender recipes register themselves, exactly as `main.ts` imports them.
 import './godlyRecipes/registerAll.ts';
 
@@ -736,5 +740,106 @@ describe('⛔ NEGATIVE — IGNITION IS UNCHANGED: exact to build, contains only 
     star(w, SparkType.Circle, SparkType.Circle, GOBLIN_TOWER_HUB_DEGREE + 1, 500, 300);
     tick(w, st, 3);
     expect(w.creatureSpawners.size).toBe(0);
+  });
+});
+
+describe('⭐ S189 C2 — HOST vs WORKER: the welded towers are judged identically across a BUILD→FIGHT→BUILD cycle', () => {
+  /*
+   * The survival rule is now a walk (`towerMembersAt`) that sorts bond ids and searches cycles in
+   * ascending id. Both the host and the `?worker=1` sim run it, and the worker adopts the world
+   * through the JSON save — so if the walk leaned on `Set` order anywhere, the two sims would keep
+   * or drop a welded tower on different ticks. This runs both, lockstep, over a full phase cycle,
+   * and compares the WIDE hash every frame.
+   */
+  it('wide hash byte-equal every frame; both welded towers alive on both sides at the end', () => {
+    const w = makeWorld(0x51890001);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'solo', isHost: true });
+    w.matchPhase = 'BUILD';
+    w.creatures.clear();
+    const setup = makeHostTickState(w);
+    const turret = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    tick(w, setup, 2);
+    const penta = ring(w, SparkType.Triangle, 5, 500, 620);
+    tick(w, setup, 2);
+    expect(w.defenders.size).toBe(1);
+    expect(w.creatureSpawners.size).toBe(1);
+    placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 });
+    placeLikeAPlayer(w, SparkType.Triangle, { x: 480, y: 282 });
+    placeLikeAPlayer(w, SparkType.Circle, { x: 500, y: 620 - 42.5 - 30 });
+    expect(turret.hub.bonds.size, 'the turret hub carries welds').toBeGreaterThan(TURRET_HUB_DEGREE);
+    expect(componentOf(penta[0]!, w.primitives, w.bonds).primitiveIds.size).toBeGreaterThan(5);
+    w.phaseEndsAtTick = w.tick + 200; // cross BUILD→FIGHT inside the compared window
+    w.effects.length = 0;
+    /*
+     * ⚠ `Bond.stiffnessMultiplier` is a PER-TICK transient: `territory.ts` resets it to 1.0 on every
+     * bond each tick and it is deliberately not serialized, so a world that has already ticked holds
+     * `1` where a freshly adopted one holds `undefined` — measured as the ONLY INIT difference here
+     * (the hand-built bonds; the just-placed ones have not ticked yet either). Both sims rewrite it on
+     * their next tick, so it is cleared before the fork rather than papered over in the comparison.
+     */
+    for (const b of w.bonds.values()) delete (b as { stiffnessMultiplier?: number }).stiffnessMultiplier;
+
+    // ── the REFERENCE (direct host path) and the BATCH (worker INIT + applyTickBatch) ──
+    const mkSpawner = (): Spawner => new Spawner(
+      DEFAULT_SPAWNER_CONFIG, mulberry32(1), mulberry32(2), mulberry32(3), mulberry32(4), mulberry32(5),
+    );
+    const refSpawner = mkSpawner();
+    const saveJson = JSON.stringify(snapshot(w, { spawnerState: mkSpawner().getState() }));
+    const sim = makeWorkerSim({
+      type: 'INIT', saveJson, hostSeats: [], localPlayerId: 0,
+      ratePerSecond: DEFAULT_SPAWNER_CONFIG.ratePerSecond,
+    });
+    expect(hashWorldStateFull(sim.world), 'INIT adoption is bit-exact').toBe(hashWorldStateFull(w));
+
+    const controls = new WorkerControls(w, P0);
+    const refState = makeHostTickState(w);
+    const refCursor = { lastMatcherTick: -1 };
+    const cinematics = makeWorkerCinematicState();
+    const extras = makeGameStateExtras();
+    const refFrame = (batch: Omit<WorkerTickBatchMsg, 'type' | 'batchSeq'>): void => {
+      for (const a of batch.intents) dispatch(w, a);
+      controls.setFrame(batch.control);
+      const d: HostTickDeps = {
+        spawner: refSpawner, controls, botManager: null, gameStateExtras: extras,
+        alivePeerIds: null, hostSeats: new Map(),
+      };
+      for (let i = 0; i < batch.ticks; i++) runHostTick(w, d, refState);
+      if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, refCursor);
+      tickWorkerCinematics(w, cinematics);
+      w.effects.length = 0;
+    };
+
+    let seq = 0;
+    let secondEdge = false;
+    let sawFight = false;
+    for (let f = 0; f < 300; f++) {
+      const batch = {
+        ticks: 1 + (f % 3),
+        control: { state: { kind: 'Idle' } as const, cursor: { x: 700, y: 400 } },
+        alivePeerIds: null,
+        intents: [],
+        nowMs: f * 16,
+      };
+      if (w.matchPhase === 'FIGHT') sawFight = true;
+      if (!secondEdge && w.matchPhase === 'FIGHT') {
+        w.phaseEndsAtTick = w.tick + 60;
+        sim.world.phaseEndsAtTick = sim.world.tick + 60;
+        secondEdge = true;
+      }
+      refFrame(batch);
+      applyTickBatch(sim, { type: 'TICK_BATCH', batchSeq: ++seq, ...batch }, { forceSnapshot: true });
+      const a = hashWorldStateFull(w);
+      const b = hashWorldStateFull(sim.world);
+      if (a !== b) throw new Error(`host and worker DIVERGED at frame ${f} (tick ${w.tick})`);
+    }
+    expect(sawFight, 'the run must cross into FIGHT').toBe(true);
+    expect(w.matchPhase, 'and back into BUILD — a full cycle').toBe('BUILD');
+    expect(sim.world.matchPhase).toBe('BUILD');
+    for (const world of [w, sim.world]) {
+      expect(world.defenders.size, 'the welded turret stands on both sides').toBe(1);
+      expect([...world.creatureSpawners.values()].map((sp) => sp.recipeId), 'and the welded pentagram')
+        .toContain('pentagram');
+    }
   });
 });

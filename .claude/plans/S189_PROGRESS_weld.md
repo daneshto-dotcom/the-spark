@@ -67,11 +67,21 @@ SURVIVE.
   · NEGATIVE: a star welded BEFORE completion never ignites (hysteresis); Circle hub + 5 Circles is
     no goblin tower.
 
+- step 4b — MUTATION-TESTED + DIFFERENTIAL:
+  · mutant 1: laserTurret `stillValid` back to `isLaserTurretComponent` → 8 RED (repro, joiner path,
+    sprite, fires, own-cut, weld-cut, R185-A, R185-B). Restored, diff empty.
+  · mutant 2: `rampMembersAt` back to the raw `anchor.bonds` walk → 3 RED (sprite, pentagram members,
+    R185-A alpha). mutant 3: `starArmsAt` sort removed → the total-order test RED. Both restored.
+  · host-vs-worker: welded turret + welded pentagram, forked through the real worker INIT (JSON
+    save) and run lockstep 300 frames across BUILD→FIGHT→BUILD — WIDE hash equal every frame, both
+    towers alive on both sides. ⚠ INIT adoption first differed ONLY on `Bond.stiffnessMultiplier`
+    (sm1 vs sm_ on the hand-built bonds): a per-tick transient `territory.ts:268` rewrites every tick
+    and the save deliberately omits — BENIGN, cleared before the fork, documented in the test.
+
 ## IN-FLIGHT
-- step 4b — mutation-tested guard + host-vs-worker hash differential over a cycle.
+- step 5 — gates (typecheck / vitest / build), canon notes, report.
 
 ## NEXT
-- step 5 — gates (typecheck / vitest / build), report.
 
 ## DECISIONS
 - HYSTERESIS: ignition exact (unchanged), survival contains. Consequence, deliberate: a star welded
@@ -100,3 +110,12 @@ SURVIVE.
 - none yet
 
 ## NON-ZERO EXITS AND THEIR VERDICTS
+- repro run EXIT=1 (4 red) — BY DESIGN, the failing reproduction (step 1).
+- structureRamp.test EXIT=1 (11 red) after the walk change — RESOLVED: fixtures were type-less and
+  lacked the two World maps; re-pinned with types (from the blueprint), not silenced.
+- a test-name quoting transform error (twice, `'` inside a '-quoted name) — RESOLVED.
+- M3 first run EXIT=1 (2 red) — RESOLVED as FINDING F1 (the S107 P4 spawner lock refuses the merge);
+  the turret+goblin drop re-aimed at the spawner leaf, the pentagram pair weld minted directly.
+- a bash heredoc append failed (unmatched quote) — RESOLVED: nothing was appended; used Edit.
+- mutation runs EXIT=1 — BY DESIGN (the mutants must go red); sources restored, `git status` clean.
+- differential first run EXIT=1 on INIT bit-exactness — BENIGN transient field (see step 4b).
