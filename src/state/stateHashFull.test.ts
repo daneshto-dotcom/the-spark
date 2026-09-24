@@ -457,6 +457,10 @@ describe('FIELD_COVERAGE — the forcing function', () => {
         // boundary and there is nothing for a snapshot, a save or either hash to observe. Listed
         // here deliberately rather than dodged, which is exactly what this test exists to force.
         'pendingCreatureDeaths',
+        // ⭐ S188 F1 — the lifesteal accumulator, on exactly the `pendingCreatureDeaths` grounds: opened
+        // beside it and drained (then nulled) immediately before the sweep, so it is null at every tick
+        // boundary. Heals it carries are applied to `ehp` — which IS hashed — before the tick ends.
+        'pendingLifestealFifths',
         /*
          * ⭐⭐ S182 (owner, reported twice) — the SWING that killed a shape / a landed stink bag /
          * Helga, plus the `amount: null` marker for a pool that was REMOVED rather than hit (an

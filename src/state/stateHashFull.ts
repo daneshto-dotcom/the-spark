@@ -80,6 +80,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatures: 'hashed',
   // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
   pendingCreatureDeaths: 'acknowledged',
+  // S188 F1 — transient one-tick lifesteal accumulator; null at every tick boundary, nothing to hash.
+  pendingLifestealFifths: 'acknowledged',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
   // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to
@@ -300,6 +302,9 @@ type CreatureHashed =
    * oracle to a latch that gates a x2 speed and cadence multiplier.
    */
   | 'enraged'
+  // S188 F3 — the ATTACKING cycle's latched rage: it sets the cycle's cadence and fire tick on both
+  // sims, so a host and a mirror disagreeing about it would disagree about when a blow lands.
+  | 'attackCycleRaged'
   /*
    * ⭐⭐ S169 (owner R152) — the STUN stamp. HASHED, and for a stronger reason than `enraged` above:
    * this field is BOTH serialized and simulated. `hashWorldStateFull` compares two SIMS (host vs
@@ -617,6 +622,7 @@ export function determinismParts(world: World): string[] {
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
         `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}` +
+        `:ar${c.attackCycleRaged === true ? 1 : 0}` + // S188 F3
         // S169 R152 — the STUN stamp. `o()` renders undefined as the absent marker, so an unstunned
         // board hashes identically to one with the field never introduced.
         `:su${o(c.stunnedUntilTick)}`,
