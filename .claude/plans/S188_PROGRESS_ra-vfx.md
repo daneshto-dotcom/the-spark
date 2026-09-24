@@ -267,6 +267,13 @@ on THIS branch to ship `l10-mummies.webp`, so `s188/ra-vfx` now merges BEFORE `s
 - `git diff master HEAD -- src/state src/net src/bots` → **empty** (0 lines)
 - ⚠ `master` has moved 6 commits since my merge (now 59184f7); its changed files and this branch's
   are disjoint (`comm -12` empty). NOT re-merged — not in the round's brief.
+- ⛔ WRATH PREDICTION RE-RUN on this tip (`git merge-tree`, read-only, wrath still c72b7ad):
+  `bossAuras.ts` still auto-merges (the RAVFX-7 / RAVFX-5 hunks are clear of wrath's); the only
+  textual conflicts remain wrath-vs-master's own `draftOverlay.ts` + `save.ts`. ⚠ The SEMANTIC break
+  is now TWO lines of `raStrikeArt.test.ts`, not one: `castStrike()` (`.raStrike!` →
+  `.raStrikes[0]!`) AND the RAVFX-7 anti-vacuity line (`.raStrike` `toBeNull()` →
+  `.raStrikes` `toHaveLength(0)`). With the merge order now ra-vfx FIRST, these become wrath's
+  merge to fix (wrath lands onto this branch's tests).
 
 ## Findings to report to the merge owner (not fixed — out of scope)
 - ~~⚠ The Pharaoh's 5th column never shows its explosion … Needs a sim/wire change to fix.~~
