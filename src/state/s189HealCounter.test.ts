@@ -140,7 +140,7 @@ describe('⭐ S189 R190-I — every heal site writes the counter, exactly what l
 
 describe('⭐ S189 R190-I — the counter on the wire', () => {
   const wireCreature = (w: World, id: Creature['id']): Record<string, unknown> =>
-    (netSnapshot(w).creatures ?? []).find((c) => (c as { id: unknown }).id === id) as Record<string, unknown>;
+    (netSnapshot(w).creatures ?? []).find((c) => (c as { id: unknown }).id === id) as unknown as Record<string, unknown>;
 
   it('absent while zero — a never-healed creature is byte-identical to every prior snapshot', () => {
     const w = board('vampires', ['racial']);
@@ -164,7 +164,7 @@ describe('⭐ S189 R190-I — the counter on the wire', () => {
     const w = board('vampires', ['racial']);
     const c = put(w, 't3Warband', P0, 500);
     const snap = netSnapshot(w);
-    const wc = (snap.creatures ?? []).find((x) => (x as { id: unknown }).id === c.id) as Record<string, unknown>;
+    const wc = (snap.creatures ?? []).find((x) => (x as { id: unknown }).id === c.id) as unknown as Record<string, unknown>;
     wc.healedFifths = -4;
     const client = makeWorld(0);
     client.isHost = false;

@@ -299,3 +299,11 @@ They can stack on top of each other."*
 ## NEXT — R190-H (ra-vfx is on master 5934d3b)
 - `git merge master`, keep ra-vfx's two S190 finale guards (absence check + structureWatchEpoch check),
   then draw ONLY the Ra strike above unit sprites, with a z-order test that states its limit.
+
+## R190-H — merge done, strike next
+- `git merge master` (5934d3b + S190 records → 1477aea) = 42647da, clean auto-merge (main.ts, bossAuras.ts,
+  draftOverlay.ts touched both sides in disjoint hunks). Draft panel still zIndex-free, staged just
+  before the cruiser lift (main.ts:1323-1324); input-layer's `controls.setDraftPanel` at :1070.
+- Non-zero exit: post-merge `npm run typecheck` exit 1 — resolved: NOT the merge; two casts in my own
+  R190-I test `src/state/s189HealCounter.test.ts` (TS2352, `SerializedCreature` → `Record`) that I had
+  run under vitest (which does not typecheck) but not under tsc. Fixed with `as unknown as`; tsc 0.
