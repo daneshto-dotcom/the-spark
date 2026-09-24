@@ -262,6 +262,71 @@ Deferred to train B (touches protocol.ts anyway): `attackCycleRaged` in the 50 d
 pre-existing BUILD-phase Ra columns in `drawRaRitual` (no FIGHT gate — columns 0-3 of a ritual crossing into BUILD
 draw though nothing lands) → carry-forward.
 
+- **P0/C5 `s190/perf` DONE (tip 11bc451)** — host tick at 120 creatures on a wave-5 board **6.6-7.1 → 2.5 ms mean**
+  (p95 9.2-9.9 → 3.0-3.3; a 3-tick frame at p95 26-29 → 9 ms). Byte-identical: per-tick oracle vs a verbatim
+  copy of the old scan + two-world `hashWorldStateFull` differential, 456 388 scans / 0 mismatches over a full
+  wave-5 FIGHT with 554 severs, 564 creations, 246 shape removals injected mid-tick. Index reused only inside a
+  window `runHostTick` opens around the creature loop, revalidated before every scan. hostTick.ts +12 lines. No
+  bump. Next hotspot: physics 40.4 % (computeTerritorialInfluence 18 %, solveBonds 8.8 %), pickNavUnit 9.3 %
+  (O(n²) enemy search), tickScoring 7.7 %. → under a 1-lens identity audit (run `wf_da0cd9c1-768`).
+  ⚠ REPORTED BUG (not fixed — changes targeting output): the chewer/drone SPREAD step (`spreadEnemyTarget`) picks
+  from a looser enemy set than the S162 rule → can hand a creature a bond with one of its OWN seat's shapes on it
+  (the "my creature destroys my own tower" chain) — a candidate cause of the owner's C3 (units could not
+  reproduce C3). → goes to s189/units with its audit findings, as a bug-fix-to-an-existing-rule (S162), not a spec
+  change.
+
+- **P0 `s189/net` DONE (tip 668952b, master 5934d3b merged in)** — C4 REPRODUCED end to end on real WebRTC
+  (`e2e/reconnect-hard-blip.spec.ts`: killed the joiner's peer connection mid-match → retries at 1.4/5.5/9.5/13.7 s
+  never recovered, both boards froze) and fixed: never re-join a room still leaving (≤2 s wait, each room left once),
+  retry 4 → 8 s, retries continue behind the terminal overlay, a client claims host only if another survivor exists
+  (⚠ behaviour change: 1v1 never self-promotes — the old path split-brained; 3+ player migration unchanged).
+  Latest-wins snapshot backpressure (5 Mbit/s: worst latency 47 s → 405 ms). E3 drop-reason logs. A1 Escape-as-
+  cancel fixed. C6: the room code is minted per PAGE LOAD (main.ts:280) — the owner's tab held the larger code;
+  beacons now carry lobby age, the first arrival keeps the room. Backlog → CONNECTION LOST on its own: NO (it
+  split-brains at ≥21 s instead). Claims no bump. Gates on the merged tree 0/0/0 (6279, 951.9 KiB). ⚠ OWED to the
+  merge owner at train D: e2e `reconnect-hard-blip`, `reconnect`, `exit-match`, `hostmigration`. → 2-lens audit
+  (run `wf_6bc5b278-12e`).
+
+- **P4 `s188/swarm` PART A DONE (tip e309ff1)** — SWARM-B1 portrait fallback, SW-7 swarm sheet warmed only on the
+  first frame a seat holds vampires.l10 (7 tests, 2 mutations), SW-4/5 card pipeline (script + MANIFEST from master
+  + l10-vampires; regen byte-identical). Canon notes: R190-D; bite 132 vs bat 12; CRIMSON TIDE heals 66/bite > the
+  60 pool. Gates 0/0/0. WAITING for wrath on master → PART B (14-perk union, one `perkDraftIndex` keeping
+  LEVELS_PER_DRAFT, four draftOverlay.test.ts reds :175/:270/:283/:624, script + MANIFEST conflicts → swarm's side).
+  A leftover scratch clone `%TEMP%/s190_swarm_probe1` (the guard refused to delete it) — scratch only.
+- **P10 infra A2 DONE (~/.claude 0fa4ed1)** — the hot-path rewrite of session-state removed from router-telemetry.sh
+  and pdca-context.sh; watchdog no longer writes; glue_pdr_unlock + pre-flight use a locked compare-and-swap
+  (`state_cas_commit`); stale-lock reclaim checks the owner stamp before/after and sweeps zombies > 60 s. Race demo
+  5/5 lost → 0/5. SPARK litter cleared: 258 tmp + 123 zombie lockdirs → 0 (bak / state-hash untouched). Other
+  projects: 869 tmp + 309 zombies COUNTED, not deleted (their zombies will self-sweep on the next reclaim there —
+  approved code; their tmp files need the owner's word). Not fixed: glue_pdr_unlock only rewrites keys AFTER
+  `"status"`, so SPARK's `unlock_source` (which precedes it) is never set by the unlock (pre-existing);
+  claude-rollback.py's backward-restore check now reads a frozen `tool_calls_session_total`; Rule 24 — no eval
+  baseline covers any hook.
+
+- **P9 `s189/render` ALL DONE (tip a5d6262, master 5934d3b merged)** — R190-I every hit and heal separate
+  (`Creature.healedFifths`, monotonic, written at the four heal sites after the cap, additive-optional on the wire
+  when > 0, full-hash only; claims no bump); R2-1 fixed (codex + CONNECTION LOST backdrops swallow clicks — confirmed
+  real by reverting); R2-4 claim corrected; R190-H the Ra strike moved into goblinRenderer's arrowLayer (above unit
+  sprites; still under Helga / turret rig / tower buildings → NEXT-SESSION owner question "above buildings too?").
+  Limit: two hits in one host tick still merge into one number (would need a per-hit wire list). Gates 0/0/0 (6292,
+  948.9 KiB). → 2-lens audit (run `wf_17627f30-0a4`) — heal counter touches lifesteal/corpseEater/bossSkills/save/
+  stateHashFull, overlapping s189/units + s188/draft-atk.
+
+- **Weld AUDIT landed (2 lenses, 5/5 MED verified CONFIRMED)** → FIX ROUND sent. ⛔ Two UNAPPROVED spec changes
+  REVERTED per the owner's standing order: W1 the spare-arm/spare-ring rule (a same-type weld stood in for a cut own
+  connector — several cuts harder to kill, against the brief + R185-B) → own members fixed AT IGNITION
+  (spawners: `bond.createdTick <= ignitedAtTick`, no field; defenders: an ignition watermark, four sites); W2 Helga's
+  FIRST build had been loosened to "contains" (a lattice Triangle could sprout a hall) → first build EXACT, and R190-J
+  implemented properly as a DORMANT Helga record revived at the phase edge while her hall's own members stand (closes
+  W4). Defects: W3 bots raid welds, W2-1/W5 aura + decal point at the welds, W2-2 hub raze orphans welds, W8 weaker
+  differential. Recorded for next session (owner question): W9/W2-6 the narrowed P4 lock makes bots weld their
+  frontier into their own towers. Protocol bump owed (rides the one bump of the combined deploy).
+- ⛔ **MERGE-OWNER DECISION (context budget, 73 % at this point): trains B/C/D ship as ONE combined deploy #4 with ONE
+  protocol bump (50 → 51, every reason in one docblock), integrated by an INTEGRATOR AGENT in its own worktree
+  (merge one branch at a time, full gates after each, protocol six-site checklist, canon rows); the merge owner keeps
+  triage, the final gates, e2e, push, verify-deploy and the live look. A branch that is not clean is left out and
+  ships in a later deploy.**
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
