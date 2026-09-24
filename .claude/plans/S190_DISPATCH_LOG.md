@@ -232,6 +232,18 @@ IL-4 are owner questions). wrath / swarm fix agents held until audits B's verifi
   Clients do not run those rules, so the exposure is a stale-tab HOST or a host-migration successor on #1. Train
   B's 50 → 51 closes the window by refusing both old builds; no separate action proposed.
 
+- **P6 draft-atk PHASE 2 DONE (tip 9026a47)** — all 12 creature strike sites read `creatureAttackFifths`, HELLSPAWN
+  inherits the parent's strike, card + fatalBlowFifths read the creature (and the S187 card HP-row bug for every
+  HP/DEF-drafted unit is fixed too), mechanical `attackFifths(` census guard, host-vs-worker differential, +499 B.
+  Gates: typecheck 0 · vitest **1** (6030/6031 — `canon.test.ts:342` source-text pin wants literal `attackFifths(` in
+  the castle arm, which now reads `creatureAttackFifths(creature)`; ruled benign-for-now by the merge owner: the
+  ladder rule holds; the re-pin `toMatch(/[aA]ttackFifths\(/)` is a MERGE-OWNER item at the train-D merge, together
+  with s188/canon's red-by-design ATK test) · build 0 (944.7). Owes the train-D bump. Under a 2-lens audit (run
+  `wf_05c696b4-44a`).
+- **OWNER QUESTIONS were put to him in plain words (S190)** — 10 questions + 2 approvals (A1 CI fix, A2 note-script
+  race + litter). Awaiting his rulings; the discriminating disconnect question is Q1 (title screen → the
+  double-Escape bug; background tab → hidden-tab deposition; both in game → broken auto-reconnect).
+
 ## Next
 
 Step 2 when audits land (triage → fix rounds → dispatch `s188-draft-atk`) · Step 3 when the hunt lands (net
