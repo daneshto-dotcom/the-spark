@@ -88,3 +88,17 @@ branch pins what is already true on master now, so train E is only the deltas.
   price, cap, every disabled reason off `castlePanel.ts`, 40 → 48 off `castleShotFifthsFor`) · the
   HP purchase through the real `applyUpgradeCastleStat`, the fallen-keep refusal, the wire default
   and the rematch reset order. Canon test exit 0 (43), typecheck exit 0.
+- **Step 3 — §3e: every table number pinned; CANON-4, CANON-6, and the 50-s imprecision.** Six new
+  cases, one per race pair, each reading its numbers off the constants (`BLOOD_DEBT_…`, `CORPSE_EATER_…`,
+  `RA_…`, `DYNASTY_…`, `WARLORD_…`, `HORDE_…`, `SCORCHED_…`, `HELLSPAWN_…`, `APEX_…`) and the rule
+  functions (`lifestealPctFor`, `isZombieRacialType`, `isOrcRacialCreatureType` over every goblin type,
+  `raAimPoint`, `pharaohsOwed`, `dotIntervalTicks`, `hellspawnChildPool`/`hellspawnStrikeFifths`,
+  `T3_PIRANHA_ELITE_STATS`). Canon text corrected: **CANON-6** Ra's aim is REFUSED off the canvas, not
+  clamped (`raAimPoint` returns null; test asserts the old wording is gone) · MINE added where a session
+  read his words — BLOOD DEBT's coverage, THE RISEN's killer set, CORPSE EATER's overkill heal (the
+  brief's reading, per `corpseEater.ts`) and its stun-proof clock, Ra's called-columns-land and the
+  `'raid'` sever sound (his to judge), DYNASTY's fallen keep, HELLSPAWN's "every chewer", the "R104"
+  label · **CANON-4** the goblin ceiling is LOAD-BEARING restored (every `goblin*` config asserted
+  `persistent`) · SCORCHED GROUND: "50 s exact for an undrafted unit" was imprecise — the interval
+  rounds (a 260-fifth boss burns in 52 s; asserted). Canon test exit 0 (49), typecheck exit 0; markers
+  byte-checked (⛔ 65→66, ⚠ 61→65, ⭐ 68, no mojibake).

@@ -222,7 +222,7 @@ wave 6. The original spec contradicted itself on exactly this point. So "level 0
 | deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is **559 × 270** on the spawn disc (`PANEL_W` × `PANEL_H`), two tiles of **251 × 242** |
 | racial track | ⭐ **LEVELS 0 AND 5 ARE LIVE FOR ALL SIX RACES (S188).** The tile is choosable exactly when `draftOptionsFor(wave, race).racial` names a perk — i.e. when `RACIAL_PERK_BUILT` says its mechanic exists — and it then joins the hit-test and sends `'racial'`. Levels 10+ stay the dimmed COMING SOON tile, **absent from the hit-test** |
 | a pick that was not offered | **refused** — `pickIsOffered` (S188) |
-| what a racial pick buffs | **no ladder stat at all** — it is a mechanic, never an axis (R104) |
+| what a racial pick buffs | **no ladder stat at all** — it is a mechanic, never an axis. ⚠ The label "R104" is a reading, MINE (S188): R104 itself is the no-overlap rule that keeps the draft off the CASTLE's numbers; `draft.ts` extends its line to the racial pick, and the type system holds it |
 
 ⛔ **THE FLOOR-AT-ONE RULE IS WHAT MAKES A PERCENTAGE POSSIBLE AT ALL**, and it is his:
 
@@ -377,16 +377,16 @@ when I play it, I'll just change it … don't argue if it's too OP"*.
 
 | perk | race · level | the rule | the numbers | MINE |
 |---|---|---|---|---|
-| **BLOOD DEBT** | vampires · 0 | every creature the seat owns heals a share of every hit it LANDS — on a creature, a connector, a lone shape, a stink bag, Helga or a castle | `BLOOD_DEBT_LIFESTEAL_PCT` = **20** % | the share is of the hit SWUNG (overkill in, castle DEF not yet applied) |
+| **BLOOD DEBT** | vampires · 0 | every creature the seat owns heals a share of every hit it LANDS — on a creature, a connector, a lone shape, a stink bag, Helga or a castle | `BLOOD_DEBT_LIFESTEAL_PCT` = **20** % | WHO heals and WHICH hits count (his words are *"every spawned unit"*; the S188 PDR §2 lists it under "my calls"); the share is of the hit SWUNG (overkill in, castle DEF not yet applied) |
 | **CRIMSON TIDE** | vampires · 5 | the lifesteal rate becomes 50 %, and it REPLACES 20 — never 70 | `CRIMSON_TIDE_LIFESTEAL_PCT` = **50** % | — |
-| **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1 | a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
-| **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses |
-| **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; a column due after the FIGHT never lands |
-| **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; the sentinel |
+| **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
+| **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
+| **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; cuts connectors too; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
+| **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
 | **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN latch, every ORC RACIAL creature it owns rages too — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
 | **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
 | **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
-| **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | ageing out is not dying; the red/black tint is a placeholder |
+| **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | "the pentagram's chewers" = every chewer the seat owns, and one alive at the pick splits too; ageing out is not dying; the red/black tint is a placeholder |
 | **DEEP CURRENT** | nagas · 0 | the gatherer's walk HOME becomes a snap onto its deposit point, shape in hand; the walk out is unchanged | `deepCurrentSnap` — no number | the snap lands one tick after the claim |
 | **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat tripled, drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **3** → **9 / 0 / 6 / 3** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
 
@@ -437,6 +437,10 @@ Warlord — only his own latch calms him — and a source is a Warlord raging by
 HORDE GROWS raising the goblin cap is not in tension with this: *"orcs and goblins do tend to work
 together"*. Orcs get MORE goblins; the goblins simply never rage.
 
+⚠ **AND THE GOBLIN CEILING IS LOAD-BEARING, NOT COSMETIC.** Every goblin is `persistent`
+(`GOBLIN_MELEE_CONFIG.persistent = true`) — it never ages out — so the per-tower ceiling is what
+bounds a goblin army at all. Raising it **10 → 20** for THE HORDE GROWS is fine; removing it is not.
+
 ⛔⛔ **AND BLOOD FRENZY FOUND AN S168 BUG: AN ENRAGED UNIT HAD LANDED NOTHING FOR TWENTY SESSIONS.**
 Rage halved `attackCadenceTicks` (60 → 30) and left `attackFireTick` at 30, so the FSM left ATTACKING
 on the very tick the fire check would have fired — a raging Warlord swung and never hit. `ragedFireTick`
@@ -462,11 +466,16 @@ gameplay cap** (Council A3, MINE): past it the Pharaoh is not born and its 1,000
 five columns two seconds apart — so a retune of his ultimate retunes this one. **Once per FIGHT** (one
 cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two differences, both MINE: it
 **spares the caster** (the Pharaoh's own columns spare nobody), and it cuts CONNECTORS as well,
-because a building dies through its connectors (§4). The host rounds the aim to integers and clamps it
-to the canvas (Council A1). The button sits in the footer, left of the tier chips, where he put it.
+because a building dies through its connectors (§4). ⛔ **The host REFUSES an aim that is off the
+canvas, non-finite or not a number** — a no-op, never a clamp to the corner, because a strike landing
+at (0, 0) would be an attack nobody aimed — and rounds an on-canvas aim to integers (`raAimPoint`,
+Council A1). The button sits in the footer, left of the tier chips, where he put it. ⚠ MINE, and his to
+judge: a cut connector is severed with `cause: 'raid'` (the one existing cause that means a PLAYER's
+attack), so a column that cuts three connectors plays the player-sever sound three times.
 
-⛔ **CORPSE EATER HEALS THE WHOLE BITE, OVERKILL INCLUDED** — *"for as much as he attacks that's as
-much as he heals"*. Inside the death deferral a lethally-bitten victim stays in the map below zero, so
+⛔ **CORPSE EATER HEALS THE WHOLE BITE, OVERKILL INCLUDED** — ⚠ MINE: that is the S188 brief's reading
+of *"for as much as he attacks that's as much as he heals"* (`corpseEater.ts` says so at `bite`), not
+a number he gave. Inside the death deferral a lethally-bitten victim stays in the map below zero, so
 the heal is the full hit, not only what the victim had left. Once per boss LIFE (the stamp is never
 cleared). The bite is his ordinary `CREATURE_ATTACK` on his ordinary swing clock, so "the same damage
 as he would by attacking" is true by construction. ⚠ The **60 px** leash is MINE.
@@ -479,9 +488,11 @@ both of the tower's emit sites (the free trickle and FEED_TOWER) ask one functio
 ⚠ **SCORCHED GROUND IS HIS 2 %, NOT THE ZOMBIE BOSS'S 2.5 %** — **20** per-mille against
 `ZOMBIE_AURA_PER_MILLE` **25**, on the aura's unchanged mechanic (one fifth a tick, the RATE carries the
 percentage). ⚠ **The rate is derived from the victim TYPE's base pool** (`maxPoolFifths(type)`), not
-from its drafted `maxEhp`, so the nominal **50 s** to burn anything to death is exact only for an
-undrafted unit: a castle soldier drafted 6 → 7 burns in about **58 s**, and a split chewer, whose pool
-is below its type's, burns faster. Recorded, not changed.
+from its drafted `maxEhp`, so the nominal **50 s** to burn anything to death holds only at the TYPE's
+pool — and exactly only where the per-fifth interval divides evenly (`dotIntervalTicks` rounds it): the
+castle soldier and a chewer burn in **50 s**, a 260-fifth boss in **52 s**. A castle soldier drafted
+6 → 7 burns in about **58 s**, and a split chewer, whose pool is below its type's, burns faster.
+Recorded, not changed.
 
 ⭐ **LIFESTEAL IS ONE CALL AT THE TWO FUNNELS.** `applyLifesteal` runs inside `damageEntity` and
 `damageConnector` (which gained a required attacker for it), so no strike path can forget it and a

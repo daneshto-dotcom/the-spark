@@ -96,6 +96,63 @@ import { CREATURE_TARGETS } from './state/stats.ts';
 import { getCreatureConfig } from './state/creatures/voltkin-config.ts';
 import type { CreatureType } from './state/creatures/creature.ts';
 import type { GodlyId } from './state/godlyRecipes/types.ts';
+// S189 P10 — §3e, THE TWELVE RACIAL UPGRADES. Every number in its table is read off these.
+import {
+  CANVAS_WIDTH,
+  CHEWER_ATK,
+  CHEWER_DEF,
+  CHEWER_HP,
+  CHEWER_PEN,
+  GOBLIN_ATTACK_CADENCE_TICKS,
+  GOBLIN_ATTACK_FIRE_TICK,
+  GOBLIN_MAX_PER_SPAWNER,
+  PHYSICS_HZ,
+  RACE_UNIT_DEF,
+  RACE_UNIT_EMIT_INTERVAL_TICKS,
+  RACE_UNIT_HP,
+  RA_COLUMN_ATK,
+  RA_COLUMN_COUNT,
+  RA_COLUMN_PEN,
+  RA_COLUMN_RADIUS,
+  RA_COLUMN_TICKS,
+  T3_STATS,
+  WARLORD_RAGE_MULTIPLIER,
+  ZOMBIE_AURA_PER_MILLE,
+} from './constants.ts';
+import {
+  BLOOD_DEBT_LIFESTEAL_PCT,
+  CRIMSON_TIDE_LIFESTEAL_PCT,
+  lifestealFifths,
+  lifestealPctFor,
+} from './state/racial/lifesteal.ts';
+import { isZombieRacialType } from './state/racial/theRisen.ts';
+import {
+  CORPSE_EATER_HEAL_PCT,
+  CORPSE_EATER_LEASH_RADIUS,
+  CORPSE_EATER_TICKS,
+  CORPSE_EATER_TRIGGER_PCT,
+} from './state/racial/corpseEater.ts';
+import { RA_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { raAimPoint } from './state/racial/powerOfRaRules.ts';
+import {
+  DYNASTY_HP_PER_PHARAOH,
+  DYNASTY_LIVE_PHARAOH_SENTINEL,
+  pharaohsOwed,
+} from './state/racial/endlessDynasty.ts';
+import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
+import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
+import { SCORCHED_GROUND_PER_MILLE } from './state/racial/scorchedGround.ts';
+import { dotIntervalTicks, maxPoolFifths } from './state/damageOverTime.ts';
+import {
+  HELLSPAWN_CHILDREN,
+  HELLSPAWN_MAX_GEN,
+  HELLSPAWN_PCT_BY_GEN,
+  hellspawnChildPool,
+  hellspawnStrikeFifths,
+} from './state/racial/hellspawn.ts';
+import { APEX_PREDATOR_STAT_MUL, T3_PIRANHA_ELITE_STATS } from './state/creatures/voltkin-config.ts';
+import { PIRANHA_ELITE_SPRITE_SCALE_MUL } from './render/towerFrames.ts';
+import { ragedFireTick } from './state/creatures/creature.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -415,6 +472,133 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(reset).toBeGreaterThan(-1);
     expect(mode.indexOf('player.castleHp = castleMaxHpFor(player.castleUpgrades);')).toBeGreaterThan(reset);
     expect(canonSays('**every bought stat resets**')).toBe(true);
+  });
+
+  /* ══ S189 P10 — §3e, THE TWELVE RACIAL UPGRADES: every table number off its constant ═══════ */
+
+  it('⭐ §3e — the vampires: BLOOD DEBT 20 %, CRIMSON TIDE 50 % that REPLACES it, his 20 → 4', () => {
+    expect(canonSays(`\`BLOOD_DEBT_LIFESTEAL_PCT\` = **${BLOOD_DEBT_LIFESTEAL_PCT}** %`)).toBe(true);
+    expect(canonSays(`\`CRIMSON_TIDE_LIFESTEAL_PCT\` = **${CRIMSON_TIDE_LIFESTEAL_PCT}** %`)).toBe(true);
+    // ⛔ L5 REPLACES L0 — a seat holding both is at 50, never 70; another race's racial steals nothing.
+    expect(lifestealPctFor({ raceId: 'vampires', draftPicks: ['racial', 'racial'] })).toBe(CRIMSON_TIDE_LIFESTEAL_PCT);
+    expect(lifestealPctFor({ raceId: 'vampires', draftPicks: ['racial'] })).toBe(BLOOD_DEBT_LIFESTEAL_PCT);
+    expect(lifestealPctFor({ raceId: 'zombies', draftPicks: ['racial', 'racial'] })).toBe(0);
+    expect(canonSays('REPLACES 20 — never 70')).toBe(true);
+    // His worked example, exact on the ladder, and the floor-at-one.
+    expect(lifestealFifths(20, BLOOD_DEBT_LIFESTEAL_PCT)).toBe(4);
+    expect(lifestealFifths(1, BLOOD_DEBT_LIFESTEAL_PCT)).toBe(1);
+    expect(canonSays('a **20**-fifth hit heals **4**')).toBe(true);
+  });
+
+  it('⭐ §3e — the zombies: THE RISEN raises a 1/1/1/1 soldier; CORPSE EATER’s four numbers', () => {
+    expect(unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)).toBe(6);
+    expect(canonSays('pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`')).toBe(true);
+    // "any racial characters kill … so not like Voltkin or Helga or Pencil Chewers".
+    for (const t of ['raceUnit', 't3Hound', 't9BossZombies'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(true);
+    for (const t of ['voltkin', 'chewer', 'goblinMelee'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(false);
+    expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ); // his "for like eight seconds"
+    expect(canonSays(
+      `\`CORPSE_EATER_TRIGGER_PCT\` = **${CORPSE_EATER_TRIGGER_PCT}** · \`CORPSE_EATER_TICKS\` = **${CORPSE_EATER_TICKS}**` +
+      ` · \`CORPSE_EATER_HEAL_PCT\` = **${CORPSE_EATER_HEAL_PCT}** · \`CORPSE_EATER_LEASH_RADIUS\` = **${CORPSE_EATER_LEASH_RADIUS}** px`,
+    )).toBe(true);
+    expect(canonSays(`The **${CORPSE_EATER_LEASH_RADIUS} px** leash is MINE`)).toBe(true);
+    // ⚠ The overkill-included heal is a READING, and the canon has to say so.
+    expect(canonSays('that is the S188 brief\'s reading')).toBe(true);
+  });
+
+  it('⭐ §3e — the mummies: POWER OF RA is the Pharaoh’s strike; the aim is REFUSED off the board', () => {
+    expect(RA_STRIKE_FIFTHS).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    expect(RA_COLUMN_TICKS).toBe(2 * PHYSICS_HZ); // "five columns two seconds apart"
+    expect(canonSays(
+      `\`RA_COLUMN_COUNT\` = **${RA_COLUMN_COUNT}**, one every \`RA_COLUMN_TICKS\` = **${RA_COLUMN_TICKS}**` +
+      ` · \`RA_STRIKE_FIFTHS\` = **${RA_STRIKE_FIFTHS}** over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
+    )).toBe(true);
+    expect(canonSays(`= **${RA_STRIKE_FIFTHS}** fifths a column over \`RA_COLUMN_RADIUS\` **${RA_COLUMN_RADIUS}** px`)).toBe(true);
+    // ⛔ CANON-6 — REFUSED, not clamped: every one of these is a no-op at the host.
+    expect(raAimPoint(-1, 10)).toBeNull();
+    expect(raAimPoint(CANVAS_WIDTH + 1, 10)).toBeNull();
+    expect(raAimPoint(Number.NaN, 10)).toBeNull();
+    expect(raAimPoint('5', 5)).toBeNull();
+    expect(raAimPoint(10.4, 20.6)).toEqual({ x: 10, y: 21 }); // on the board: rounded
+    expect(canonSays('The host REFUSES an aim that is off the')).toBe(true);
+    expect(canonSays('rounds the aim to integers and clamps it')).toBe(false); // the S188 wording, wrong
+    // ENDLESS DYNASTY — his 1,000; the sentinel is MINE and a PERFORMANCE bound, never a cap.
+    expect(canonSays(
+      `\`DYNASTY_HP_PER_PHARAOH\` = **${DYNASTY_HP_PER_PHARAOH}** · \`DYNASTY_LIVE_PHARAOH_SENTINEL\` = **${DYNASTY_LIVE_PHARAOH_SENTINEL}**`,
+    )).toBe(true);
+    expect(canonSays(`(**${DYNASTY_LIVE_PHARAOH_SENTINEL}** live Pharaohs a seat) is a **PERFORMANCE sentinel`)).toBe(true);
+    expect(pharaohsOwed(DYNASTY_HP_PER_PHARAOH - 1, 2 * DYNASTY_HP_PER_PHARAOH + 1)).toBe(2);
+    expect(canonSays('one hit crossing two thousands raises two')).toBe(true);
+  });
+
+  it('⭐ §3e — the orcs: BLOOD FRENZY is ownership AND type; THE HORDE GROWS raises a LOAD-BEARING ceiling', () => {
+    expect(canonSays(`\`WARLORD_RAGE_MULTIPLIER\` = **${WARLORD_RAGE_MULTIPLIER}**`)).toBe(true);
+    for (const t of ['raceUnit', 't3Warband', 't9BossOrcs'] as CreatureType[]) expect(isOrcRacialCreatureType(t), t).toBe(true);
+    // ⛔ HIS ruling: goblins never rage — any race can build a goblin tower. Nor do the direwolves (MINE).
+    const goblins = (Object.keys(CREATURE_TARGETS) as CreatureType[]).filter((t) => t.startsWith('goblin'));
+    expect(goblins.length).toBeGreaterThan(0);
+    for (const t of [...goblins, 'direwolf'] as CreatureType[]) expect(isOrcRacialCreatureType(t), t).toBe(false);
+    // The S168 defect's numbers: the cadence and the fire tick BOTH halve.
+    const raged = ragedFireTick(GOBLIN_ATTACK_FIRE_TICK, { attackCycleRaged: true });
+    expect(raged).toBeLessThan(Math.round(GOBLIN_ATTACK_CADENCE_TICKS / WARLORD_RAGE_MULTIPLIER));
+    expect(canonSays(`(${GOBLIN_ATTACK_CADENCE_TICKS} → ${Math.round(GOBLIN_ATTACK_CADENCE_TICKS / WARLORD_RAGE_MULTIPLIER)})`)).toBe(true);
+    expect(canonSays(`(${GOBLIN_ATTACK_FIRE_TICK} → **${raged}**)`)).toBe(true);
+    // THE HORDE GROWS — 10 → 20 a tower, the castle every 15 s instead of 30.
+    const every = RACE_UNIT_EMIT_INTERVAL_TICKS / HORDE_CASTLE_EMIT_SPEEDUP / PHYSICS_HZ;
+    expect(canonSays(
+      `\`HORDE_GOBLIN_MAX_PER_SPAWNER\` = **${HORDE_GOBLIN_MAX_PER_SPAWNER}** · \`HORDE_CASTLE_EMIT_SPEEDUP\` = **${HORDE_CASTLE_EMIT_SPEEDUP}** (every **${every}** s)`,
+    )).toBe(true);
+    // ⚠ CANON-4 — the ceiling is load-bearing because goblins never age out.
+    for (const t of goblins) expect(getCreatureConfig(t).persistent, t).toBe(true);
+    expect(canonSays('THE GOBLIN CEILING IS LOAD-BEARING, NOT COSMETIC')).toBe(true);
+    expect(canonSays(`**${GOBLIN_MAX_PER_SPAWNER} → ${HORDE_GOBLIN_MAX_PER_SPAWNER}**`)).toBe(true);
+  });
+
+  it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
+    expect(canonSays(`\`SCORCHED_GROUND_PER_MILLE\` = **${SCORCHED_GROUND_PER_MILLE}**`)).toBe(true);
+    expect(canonSays(`\`ZOMBIE_AURA_PER_MILLE\` **${ZOMBIE_AURA_PER_MILLE}**`)).toBe(true);
+    // Seconds to burn a whole pool at the TYPE's rate: one fifth per interval.
+    const burnS = (typePool: number, pool: number) => (dotIntervalTicks(typePool, SCORCHED_GROUND_PER_MILLE) * pool) / PHYSICS_HZ;
+    const soldier = maxPoolFifths('raceUnit');
+    expect(burnS(soldier, soldier)).toBe(50);
+    expect(burnS(maxPoolFifths('chewer'), maxPoolFifths('chewer'))).toBe(50);
+    const boss = maxPoolFifths('t9BossVampires');
+    expect(boss).toBe(260);
+    expect(burnS(boss, boss)).toBe(52); // the interval rounds — "exact" only where it divides
+    expect(Math.round(burnS(soldier, soldier + 1))).toBe(58); // a soldier drafted 6 → 7
+    expect(canonSays('burn in **50 s**, a 260-fifth boss in **52 s**')).toBe(true);
+    expect(canonSays('burns in about **58 s**')).toBe(true);
+    // HELLSPAWN — his 2, his 50 / 25, and the end of the chain.
+    expect(canonSays(
+      `\`HELLSPAWN_CHILDREN\` = **${HELLSPAWN_CHILDREN}** · \`HELLSPAWN_PCT_BY_GEN\` = ${HELLSPAWN_PCT_BY_GEN[0]} / ${HELLSPAWN_PCT_BY_GEN[1]} / ${HELLSPAWN_PCT_BY_GEN[2]}` +
+      ` · \`HELLSPAWN_MAX_GEN\` = **${HELLSPAWN_MAX_GEN}**`,
+    )).toBe(true);
+    const p0 = unitPoolFifths(CHEWER_HP, CHEWER_DEF);
+    const p1 = hellspawnChildPool(p0);
+    const p2 = hellspawnChildPool(p1);
+    const b0 = attackFifths(CHEWER_ATK, CHEWER_PEN);
+    const b1 = hellspawnStrikeFifths({ hellspawnGen: 1 }, b0);
+    const b2 = hellspawnStrikeFifths({ hellspawnGen: 2 }, b0);
+    expect(p2).toBeGreaterThanOrEqual(1); // floor-at-one: no child is born dead (Council A2)
+    expect(b2).toBeGreaterThanOrEqual(1);
+    expect(canonSays(`pool ${p0} → ${p1} → ${p2}, bite ${b0} → ${b1} → ${b2}`)).toBe(true);
+    let descendants = 0;
+    for (let g = 1; g <= HELLSPAWN_MAX_GEN; g++) descendants += HELLSPAWN_CHILDREN ** g;
+    expect(canonSays(`chewer has at most **${descendants}** descendants`)).toBe(true);
+  });
+
+  it('⭐ §3e — the nagas: APEX PREDATOR triples every STAT, which is ×3 health but ×4 bite', () => {
+    const base = T3_STATS.piranha;
+    const elite = T3_PIRANHA_ELITE_STATS;
+    expect([elite.hp, elite.def, elite.atk, elite.pen])
+      .toEqual([base.hp, base.def, base.atk, base.pen].map((s) => s * APEX_PREDATOR_STAT_MUL));
+    expect(elite.speedMul).toBe(base.speedMul); // "stats" — not its speed (MINE)
+    expect(canonSays(
+      `\`APEX_PREDATOR_STAT_MUL\` = **${APEX_PREDATOR_STAT_MUL}** → **${elite.hp} / ${elite.def} / ${elite.atk} / ${elite.pen}**` +
+      ` · \`PIRANHA_ELITE_SPRITE_SCALE_MUL\` = **${PIRANHA_ELITE_SPRITE_SCALE_MUL}**`,
+    )).toBe(true);
+    expect(canonSays(`pool **${unitPoolFifths(base.hp, base.def)} → ${unitPoolFifths(elite.hp, elite.def)}**`)).toBe(true);
+    expect(canonSays(`**${attackFifths(base.atk, base.pen)} → ${attackFifths(elite.atk, elite.pen)}**`)).toBe(true);
   });
 
   it('⛔ §9d — the four recurring questions are CLOSED, and §10 no longer lists them as open', () => {
