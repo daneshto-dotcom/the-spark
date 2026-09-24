@@ -75,6 +75,10 @@ import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
+// ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
+// rule that this layer must not import Pixi still holds.
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { noteRaCastSent, raAimPreview, raLocalCastRefusal, setRaAimPreview } from '../render/raAimPreview.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -96,6 +100,8 @@ export interface FooterBandLike {
    */
   isOverCollapseTab?(x: number, y: number): boolean;
   toggleCollapsed?(): boolean;
+  /** ⭐ S188 P6 — the POWER OF RA skill button. Optional for the same reason as the tab above. */
+  isOverRaButton?(x: number, y: number): boolean;
   isOverChip(x: number, y: number): boolean;
   /** S182 — `isOverChip` OR any opaque readout the band draws. See `isPointerOverFooterSurface`. */
   isOverBandSurface(x: number, y: number): boolean;
@@ -193,6 +199,19 @@ export interface CastlePanelLike {
   armExternal(id: GodlyId | null): void;
   /** S149 P6 — queue the shapes an unaffordable tower still needs (the castle SHORT-tile path). */
   requestShapesFor(world: World, id: GodlyId): void;
+}
+
+/**
+ * ⭐⭐ S188 (audit F1) — THE UPGRADE DRAFT PANEL, as the input layer sees it. Structural for the
+ * reason every surface above is: this layer must not import the renderer.
+ *
+ * Two questions, the S182 split: `isOver` is the SURFACE (everything the panel draws — the commit
+ * gates ask it) and `isOverChoosable` is the CONTROL (a tile a click would pick — the cursor asks
+ * it). The pick itself never comes through here: it is the panel's own Pixi `pointertap`.
+ */
+export interface DraftPanelLike {
+  isOver(x: number, y: number): boolean;
+  isOverChoosable(x: number, y: number): boolean;
 }
 
 /**
@@ -481,6 +500,11 @@ export class Controls {
     this.characterSheet = sheet;
   }
 
+  /** ⭐ S188 (audit F1) — main.ts injects the draft panel, like the three surfaces above. */
+  setDraftPanel(panel: DraftPanelLike): void {
+    this.draftPanel = panel;
+  }
+
   /**
    * S181 — `main.ts` injects the card's FIX / SCRAP / FEED dispatch, exactly as it already does for
    * the popover's. Same `dispatchFn` seam, so the three network paths (wire intent / postIntent /
@@ -502,6 +526,7 @@ export class Controls {
   private castlePanel: CastlePanelLike | null = null;
   private footerBand: FooterBandLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
+  private draftPanel: DraftPanelLike | null = null;
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
     | null = null;
@@ -536,14 +561,27 @@ export class Controls {
     if (!this.isPointerOverFooterChip() || this.footerBand === null) return false;
 
     /*
-     * ⭐⭐ S187 — THE COLLAPSE TAB IS TESTED FIRST, and the ordering argument is the one already
-     * written three lines below for the tower card: whatever floats ABOVE the others must be read
-     * before them, or its click falls through to whatever sits behind it. Collapsed, the tab is the
-     * ONLY control left — reading chips first would make the menu impossible to bring back.
+     * ⭐⭐ S187 — THE COLLAPSE TAB IS TESTED FIRST. Collapsed, the tab is the ONLY control left —
+     * reading chips first would make the menu impossible to bring back.
+     *
+     * ⛔ S188 (owner) — BUT IT IS NOT ON TOP OF AN OPEN MENU, and this comment used to claim it was
+     * ("whatever floats ABOVE the others must be read before them"). The expanded tab sits UNDER the
+     * tower cards: every tier's menu is drawn over it, and pressing the Lightning Hub card collapsed
+     * the footer instead of arming the hub. `footerBand.isOverCollapseTab` now answers false wherever
+     * an open card covers the tab, so a press there falls through to `cardAt` below — decided in that
+     * one predicate so this router, the cursor and the placement gates agree. See its docblock.
      */
     if (this.footerBand.isOverCollapseTab?.(this.cursor.x, this.cursor.y) === true) {
       void playUiClickSFX();
       this.footerBand.toggleCollapsed?.();
+      return true;
+    }
+
+    // ⭐ S188 P6 — THE POWER OF RA BUTTON: press to aim, press again to put it away. Beside the tab
+    // in the collapsed state and beside the chips otherwise; neither overlaps anything, so the
+    // position in this chain is readability, not a tie-break.
+    if (this.footerBand.isOverRaButton?.(this.cursor.x, this.cursor.y) === true) {
+      this.toggleRaAim();
       return true;
     }
 
@@ -563,6 +601,7 @@ export class Controls {
       // chips did not. Accept and refuse now sound different here too.
       void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
       if (this.footerBand.cardEnabled(card)) {
+        setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
         this.castlePanel?.armExternal(card);
         this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
       } else {
@@ -590,6 +629,65 @@ export class Controls {
     const complexity = this.footerBand.chipAt(this.cursor.x, this.cursor.y);
     if (complexity === null) return false;
     this.footerBand.select(complexity);
+    return true;
+  }
+
+  /**
+   * ⭐⭐ S188 P6 (owner, `mummies.l0`) — **THE POWER OF RA GESTURE.**
+   *
+   * > *"you click on it and then you have to click on the area of the map where you want it to land"*
+   *
+   * Press the button → AIMING (the five circles follow the cursor, `bossAuras.ts`). The next board
+   * click CASTS there; RMB or Escape puts it away; pressing the button again puts it away. While
+   * aiming, the aim owns the next board click exactly as a held tower does, so nothing else under
+   * the cursor (a spark, a gatherer, a card) also acts.
+   *
+   * ⛔ EVERY DECISION HERE ASKS THE REDUCER'S OWN PREDICATES — `raCastRefusal` for "may I", and
+   * `raAimPoint` for "is that a place" — so the client can never send what the host would refuse
+   * for a reason the client could have seen. The host re-checks all of it regardless.
+   * ⭐ S190 W-4 — through `raLocalCastRefusal`: the reducer's predicate, plus the casts this client
+   * has sent and not yet seen synced, so a joiner cannot spend a fourth WRATH charge it does not have.
+   */
+  private toggleRaAim(): void {
+    if (raAimPreview() !== null) {
+      setRaAimPreview(null);
+      void playUiClickSFX();
+      return;
+    }
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
+      void playUiRefusedSFX(); // a refused control says so — the button's caption names why
+      return;
+    }
+    // One gesture in hand at a time: a held tower is put back, so the next click cannot stamp it.
+    if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    setRaAimPreview({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
+    void playUiClickSFX();
+  }
+
+  /** ⭐ S188 P6 — while aiming, the board click is the cast. Returns true when it consumed the click. */
+  private handleRaAimClick(button: number): boolean {
+    if (raAimPreview() === null) return false;
+    if (button === 2) {
+      setRaAimPreview(null);
+      return true;
+    }
+    if (button !== 0) return false;
+    // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
+    // held-tower rule for the same two surfaces.
+    if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
+      setRaAimPreview(null);
+      void playUiRefusedSFX();
+      return true;
+    }
+    const aim = raAimPoint(this.cursor.x, this.cursor.y);
+    if (aim === null) return true; // off the board: keep aiming
+    // ⭐ S190 W-4 — counted BEFORE the send: the next aim's pattern is the next charge's, even on a
+    // joiner whose synced strikes have not caught up with this one yet.
+    noteRaCastSent(this.world, this.playerId);
+    this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
+    setRaAimPreview(null);
+    void playUiClickSFX();
     return true;
   }
 
@@ -654,8 +752,9 @@ export class Controls {
    * the card, on ground the player could not see. The castle panel is excluded there with the stated
    * reason *"it would be hidden beneath it"*, which applies to the card word for word.
    *
-   * ⚠ The card is drawn ABOVE everything (`main.ts` calls `characterSheet.bringToFront()`), so this
-   * is not a theoretical overlap — it is the most-covered rectangle on the screen.
+   * ⚠ The card is drawn above every surface except the zIndex-900 draft panel (`main.ts` calls
+   * `characterSheet.bringToFront()`), so this is not a theoretical overlap — it is the most-covered
+   * rectangle on the screen.
    */
   private isPointerOverCard(): boolean {
     return this.characterSheet?.isOver(this.cursor.x, this.cursor.y) ?? false;
@@ -912,6 +1011,34 @@ export class Controls {
   }
 
   /**
+   * ⛔⛔ S188 (audit F1) — **IS THE POINTER UNDER THE UPGRADE DRAFT PANEL?** The SURFACE question,
+   * asked by the `onDown` early return and both `onUp` commit gates.
+   *
+   * The S181 defect in a sixth place: the panel (zIndex 900, opaque, ~559×270 over the quarry, its
+   * side margins over buildable ground, plus the hover-detail plate below it) was registered in none
+   * of this file's gates. Pixi's `pointertap` makes the pick and does not stop the native event, so
+   * one click on a tile ALSO stamped an armed tower, re-tasked a gatherer, raided on a right-click or
+   * opened a card under the panel — and the draft is open during BUILD by design, with the board
+   * live underneath (`draftEvent.ts`), from the first tick of every match.
+   */
+  private isPointerOverDraftPanel(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.draftPanel !== null &&
+      this.draftPanel.isOver(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /** ⭐ S188 (audit F1) — the CONTROL half, for the cursor: a tile a click would pick. */
+  private isPointerOverDraftChoice(): boolean {
+    return (
+      this.world.gameState === 'PLAYING' &&
+      this.draftPanel !== null &&
+      this.draftPanel.isOverChoosable(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /**
    * S136 P0 — OWN-CASTLE CLICK (owner playtest item 2). Opens the context panel; clicking the same
    * castle again closes it. Returns true when the click was consumed.
    *
@@ -986,6 +1113,30 @@ export class Controls {
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
     // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
     if (this.isPointerOverPanel()) return;
+    /*
+     * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
+     * Ra aim, the card's buttons, the castle click, the armed stamp and every world pick. It is drawn
+     * above all of them (zIndex 900 sorts it over the band and the character card, which are
+     * zIndex 0), so nothing hidden under it may act — a card button included. ONE return covers LMB
+     * and RMB: the stamp, the gatherer / bomb / rainbow / potato / spark picks, the sheet, the raid and
+     * a Ra cast (which keeps aiming, the held-tower rule). The pick itself is the panel's own Pixi
+     * `pointertap`, which this does not touch. Mirrored in both `onUp` commit gates.
+     */
+    if (this.isPointerOverDraftPanel()) {
+      /*
+       * ⛔ S190 (audit IL-2) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND. RMB is this game's
+       * put-it-back gesture — the Ra aim (`handleRaAimClick`) and a held tower (the armed arm below)
+       * — and it acts on the HAND, not on the ground under the plate, so the plate has no reason to
+       * eat it. The RAID stays swallowed: that one does act on the board. The aim is tested first,
+       * the order `onDown` itself keeps; one gesture is in hand at a time, so at most one is set. The
+       * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
+       */
+      if (e.button === 2) {
+        if (raAimPreview() !== null) setRaAimPreview(null);
+        else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+      }
+      return;
+    }
     // ⭐ S149 P4 (R36) — THE FOOTER BAND. Same rule and the same reason as the panel guard
     // above: this handler hit-tests world objects with no notion of UI, so a chip press would
     // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —
@@ -1013,6 +1164,10 @@ export class Controls {
      * the board around the card stays live.
      */
     if (e.button === 0 && this.handleSheetActionClick()) return;
+    // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
+    // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
+    // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
+    if (this.handleRaAimClick(e.button)) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -1292,6 +1447,9 @@ export class Controls {
       this.state = { ...this.state, cursor: { ...this.cursor } };
     }
     // S53 P2 — ConnectDrag branch removed (unreachable state post-S52 P1).
+    // ⭐ S188 P6 — the Ra aim follows the cursor.
+    const aiming = raAimPreview();
+    if (aiming !== null) setRaAimPreview({ seat: aiming.seat, x: this.cursor.x, y: this.cursor.y });
     this.updateHoverCursor();
   };
 
@@ -1311,8 +1469,19 @@ export class Controls {
    * which is the failure mode a second, parallel hover hit-test would have introduced.
    */
   private updateHoverCursor(): void {
-    const overUi =
-      this.isPointerOverFooterChip() ||
+    /*
+     * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
+     * The panel is drawn above the band and the card (zIndex 900) and `onDown` swallows every click
+     * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
+     * not earn a pointer or light up — that promised a click the guard then ate. The draft SURFACE
+     * question may only SUPPRESS a pointer here, never grant one: under the plate the answer is the
+     * CONTROL question's (`isPointerOverDraftChoice`), and off it the draft has nothing to say, since
+     * every choosable tile lies inside the plate.
+     */
+    const underDraft = this.isPointerOverDraftPanel();
+    const overUi = underDraft
+      ? this.isPointerOverDraftChoice()
+      : this.isPointerOverFooterChip() ||
       // ⭐⭐ S181 — the CARD's buttons, replacing the retired popover's. Includes DISABLED ones on
       // purpose: the pointer should say "this is a control" even when the control is refusing, which
       // is what makes a greyed FIX read as deliberate rather than as dead plate.
@@ -1332,12 +1501,16 @@ export class Controls {
      * ⚠ FED FROM THE VERY PREDICATES EVALUATED DIRECTLY ABOVE, never a parallel hit test. A
      * highlight that can disagree with the click path is worse than none.
      */
-    this.footerBand?.setHover(this.cursor.x, this.cursor.y);
+    // ⛔ S190 (IL-1) — under the draft plate nothing hidden lifts either: the highlights are fed an
+    // off-canvas point, so they agree with the cursor above and with the click `onDown` swallows.
+    const lift = underDraft ? { x: -1, y: -1 } : this.cursor;
+    this.footerBand?.setHover(lift.x, lift.y);
     // ⭐⭐ S181 (owner) — *"any button that's clickable should, when you mouse over it, slightly
     // change hue. So it looks like it's popping out."* Fed from the SAME predicate evaluated three
     // lines above, never a parallel hit test — see this function's own docblock.
-    this.characterSheet?.setHover(this.cursor.x, this.cursor.y);
-    const want = overUi ? 'pointer' : '';
+    this.characterSheet?.setHover(lift.x, lift.y);
+    // ⭐ S188 P6 — a crosshair over the board while aiming Ra: the next click lands the strike.
+    const want = overUi ? 'pointer' : raAimPreview() !== null ? 'crosshair' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
     // a canvas that already moves the cursor every frame.
     if (this.lastCursorStyle !== want) {
@@ -1364,7 +1537,8 @@ export class Controls {
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
-      // drawn above everything, so a release over it would drop a potato on unseen ground.
+      // drawn above every surface except the zIndex-900 draft panel, so a release over it would drop
+      // a potato on unseen ground.
       /*
        * ⛔⛔ S182 — **THE FOOTER GUARD** WAS MISSING HERE, AND THE CODEBASE SAID IT
        * WAS PRESENT. `footerBand.isOverShapeStrip`'s own docblock enumerates the four places
@@ -1387,7 +1561,9 @@ export class Controls {
         meNow.carriedPotatoId !== undefined &&
         !this.isPointerOverPanel() &&
         !this.isPointerOverFooterSurface() &&
-        !this.isPointerOverCard()
+        !this.isPointerOverCard() &&
+        // ⛔ S188 (audit F1) — nor under the draft panel: a potato released there stays carried.
+        !this.isPointerOverDraftPanel()
       ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
@@ -1477,8 +1653,13 @@ export class Controls {
           gates.commit &&
           !this.isPointerOverPanel() &&
           !this.isPointerOverFooterSurface() &&
-          // S181 — and not over the character card, which is drawn above every other surface.
-          !this.isPointerOverCard()
+          // S181 — and not over the character card, which is drawn above every surface except the
+          // zIndex-900 draft panel.
+          !this.isPointerOverCard() &&
+          // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
+          // over its side margins placed on ground the plate hides; now it is a rejected placement
+          // (the DROP above has released the claim, so nothing is stranded).
+          !this.isPointerOverDraftPanel()
         ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
@@ -1579,6 +1760,11 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
+    if (e.key === 'Escape' && raAimPreview() !== null) {
+      setRaAimPreview(null);
+      return;
+    }
     // S144 P3 — Escape puts a held tower down. Checked BEFORE the sudoku guard's sibling checks so
     // there is always a keyboard way out of a picked-up state, even if the pointer path is confused.
     if (e.key === 'Escape' && this.castlePanel?.armedBlueprint() != null) {

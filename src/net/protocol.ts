@@ -774,8 +774,20 @@ export type { NetSnapshot };
  *      kills that rise, chewers that split, pharaohs from castle losses, a feeding boss, an elite
  *      piranha. The SHARED-CONSTANT class this list records five times over: two builds that shake
  *      hands would disagree about who survives the first exchange.
- *   3. The branch-specific wire changes (a new client intent, new serialized fields, a new
- *      `CreatureType`) are recorded here by the merge owner as each branch lands.
+ *   3. The branch-specific wire changes, recorded by the merge owner as each branch landed:
+ *      · **A NEW CLIENT INTENT, `CAST_POWER_OF_RA { playerId, x, y }`** (s188/racial-c) — in both
+ *        allowlist records; a v49 host would drop it and the mummy seat could never cast.
+ *      · **A NEW SERIALIZED `CreatureType`, `'t3PiranhaElite'`** (s188/racial-d, APEX PREDATOR) — a v49
+ *        peer has no config for it and would fall through every per-type table.
+ *      · **New optional fields**: `Creature.hellspawnGen` (s188/racial-b), `Creature.corpseEaterUntilTick`
+ *        + `corpseEaterAnchor` (s188/racial-d), `Player.dynastyHpLost` (s188/racial-b),
+ *        `Player.raStrike` (s188/racial-c). Each emitted only when set, each hashed.
+ *      · **A changed meaning, not a new field** (s188/castle): an absent `castleHp` now reads as THAT
+ *        SEAT's upgraded ceiling (`castleMaxHpFor`), not the flat `CASTLE_MAX_HP` — a v49 peer would
+ *        read a bought 2750 keep as 2500. No v49 client could buy HP, so no live board carries it.
+ *      · **A fixed rule both peers compute** (s188/racial-a): an ENRAGED creature now lands its blow
+ *        (`ragedFireTick`); since S168 rage halved the cadence and left the fire tick past the end of
+ *        the cycle, so a raging Warlord never hit. Two builds would disagree on every raging swing.
  */
 export const PROTOCOL_VERSION = 50 as const;
 
@@ -1504,6 +1516,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   CHOOSE_DRAFT: true,
   // ⭐ S187 — buy a castle stat (HP/ATK/DEF/PEN). A CLIENT INTENT, so likewise in both.
   UPGRADE_CASTLE_STAT: true,
+  // ⭐ S188 P6 — POWER OF RA: call Ra on an aimed point. A CLIENT INTENT, so it is in both records.
+  CAST_POWER_OF_RA: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1678,6 +1692,12 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ⭐ S187 — a joiner buys stats for its OWN keep. Affordability and the cap are host-decided, and
   // the WAVE is read host-side, so a client cannot buy a late-band upgrade early.
   UPGRADE_CASTLE_STAT: true,
+  // ⭐ S188 P6 — a joiner calls Ra for its OWN seat (the seat is host-stamped). The host re-resolves
+  // the perk, the phase and once-per-fight, and NORMALISES the aim (Council A1): the wire parser
+  // checks only `type`, so a NaN, a string or an off-board point arrives here and must no-op.
+  // ⛔ A row omitted HERE compiles clean, and the host would drop a joiner's cast SILENTLY while the
+  // host seat's own worked — the seat asymmetry this list keeps warning about.
+  CAST_POWER_OF_RA: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

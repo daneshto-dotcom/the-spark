@@ -29,6 +29,7 @@ import { asPlayerId } from '../types.ts';
 import { fatalBlowFifths } from './damageNumbers.ts';
 import { attackFifths } from '../state/stats.ts';
 import { castleShotFifths } from '../state/castleGuns.ts';
+import { castleShotFifthsFor } from '../state/castleUpgrades.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import { CASTLE_ATTACK_RANGE, CASTLE_MAX_HP } from '../constants.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -120,6 +121,25 @@ describe('S181 — fatalBlowFifths derives the real blow from reach', () => {
       if (got !== null) {
         expect(got).toBe(castleShotFifths());
         expect(got).toBe(40); // the shipped number he read off the card
+        return;
+      }
+      w.tick++;
+    }
+    throw new Error('seat 1 never fired in 600 ticks — castleFiresOnTick changed shape');
+  });
+
+  it('⭐ S188 P3 — a keep that BOUGHT ATK and PEN prints its UPGRADED shot, not the base 40', () => {
+    const w = board();
+    const seat1 = w.players.get(P(1))!;
+    seat1.castleUpgrades = { hpLevel: 0, hpBonus: 0, atkLevel: 1, defLevel: 0, penLevel: 2 };
+    const anchor = castleAnchor(1, w.layout);
+    for (let i = 0; i < 600; i++) {
+      const got = fatalBlowFifths(w, { x: anchor.x, y: anchor.y }, P(0));
+      if (got !== null) {
+        // the number castleGunsTick actually deals: 6 × (5 + 5) = 60
+        expect(got).toBe(castleShotFifthsFor(seat1.castleUpgrades));
+        expect(got).toBe(attackFifths(6, 5));
+        expect(got).not.toBe(castleShotFifths());
         return;
       }
       w.tick++;

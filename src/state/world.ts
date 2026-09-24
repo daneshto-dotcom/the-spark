@@ -183,6 +183,8 @@ import {
 import { submitSudokuSolve } from './sudokuEvent.ts';
 import { applyDraftChoice, type ChooseDraftAction } from './draftEvent.ts';
 import { applyUpgradeCastleStat, type UpgradeCastleStatAction } from './castleUpgrades.ts';
+import { applyCastPowerOfRa } from './racial/powerOfRa.ts';
+import type { CastPowerOfRaAction } from './racial/powerOfRaRules.ts';
 import { spendScore } from './gameMode.ts';
 export { addScore, isNetworked } from './gameMode.ts';
 
@@ -365,6 +367,9 @@ export type GameAction =
   | ChooseDraftAction
   // ⭐ S187 — CLIENT INTENT: buy a castle stat with victory points.
   | UpgradeCastleStatAction
+  // ⭐ S188 P6 — CLIENT INTENT: call Ra on a point of the board (POWER OF RA, `mummies.l0`). The
+  // first client intent that carries a free AIM point for an ability; see `racial/powerOfRa.ts`.
+  | CastPowerOfRaAction
   | SetGathererPreferenceAction
   | EnqueueGathererOrderAction
   | CancelGathererOrderAction
@@ -427,6 +432,8 @@ export function makeWorld(rngSeed: number): World {
     creatures: new Map(),
     // S155 N1 — transient; opened + swept inside runHostTick only.
     pendingCreatureDeaths: null,
+    // S188 F1 — transient; opened + drained inside runHostTick only (see worldTypes).
+    pendingLifestealFifths: null,
     nextCreatureId: 0,
     // S100 P1 (TD Phase 1a) — host-authoritative creature spawners; empty at world birth.
     creatureSpawners: new Map(),
@@ -780,7 +787,9 @@ export function dispatch(world: World, action: GameAction): World {
        * Damage still ACCUMULATES on the bond, so the cut is a matter of when, not whether.
        */
       const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
-      const shouldSever = damageConnector(world, action.target.id, connectorDamage);
+      // S188 — `null`: the raider is a player avatar, not a creature — nothing to heal, nobody to
+      // turn on (the same answer this file's two `damageEntity` raid arms give).
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
         dispatch(world, {
           type: 'SEVER_BOND',
@@ -919,6 +928,12 @@ export function dispatch(world: World, action: GameAction): World {
     case 'UPGRADE_CASTLE_STAT':
       applyUpgradeCastleStat(world, action, (seat, amount) => spendScore(world, seat, amount));
       return world;
+
+    // ⭐ S188 P6 — POWER OF RA. Same posture as the two S187 intents above: a CLIENT INTENT decided
+    // by the host, NO-OP-never-throw — the perk, the phase, once-per-fight and the aim (Council A1)
+    // are all re-resolved against the host's own world, never trusted from the client.
+    case 'CAST_POWER_OF_RA':
+      return applyCastPowerOfRa(world, action);
 
     case 'PULL_FROM_BANK':
       return applyPullFromBank(world, action);

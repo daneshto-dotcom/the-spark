@@ -87,6 +87,10 @@ export const ELIMINATION_INTENT_POLICY = {
   //    players still in it — the kingmaker problem, and the sharpest reason "out" has to mean out.
   SEVER_BOND: 'deny',
   RAID_TARGET: 'deny',
+  // ⭐ S188 P6 — POWER OF RA is an attack on the seats still playing, so it is the kingmaker case
+  // exactly: a spectator calling down five columns could decide the match between the survivors.
+  // Denied, and stricter-or-equal to the bench (which also denies), as elimination.test.ts requires.
+  CAST_POWER_OF_RA: 'deny',
   SHRINK_TERRITORY: 'deny',
   TRIGGER_BOMB: 'deny',
   TRIGGER_RAINBOW: 'deny',

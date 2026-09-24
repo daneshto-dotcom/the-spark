@@ -26,7 +26,7 @@
  * RENDER-ONLY: reads `world`, never mutates it.
  */
 
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y } from '../constants.ts';
 import { footerBandModel, structuresAtComplexity, type FooterComplexity } from './footerBandModel.ts';
 // S169 R153 — the strip states which race owns each shape, in that race's colour.
@@ -35,6 +35,15 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawBlueprintThumb } from './blueprintGlyph.ts';
 import type { World } from '../state/world.ts';
 import type { SparkType } from '../constants.ts';
+// ⭐ S188 P6 — POWER OF RA: the button reads the REDUCER's own predicate, never a second copy of it.
+import {
+  WRATH_OF_RA_PERK,
+  raChargesFor,
+  seatHasPowerOfRa,
+  type RaCastRefusal,
+} from '../state/racial/powerOfRaRules.ts';
+import { seatHoldsPerk } from '../state/racialPerks.ts';
+import { raAimPreview, raChargesLeftLocal, raLocalCastRefusal, setRaAimPreview } from './raAimPreview.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 // S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
 // computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
@@ -195,7 +204,165 @@ export function collapseTabRect(collapsed: boolean): { x: number; y: number; w: 
   };
 }
 
+/* ────────────────────────────────────────────────────────────────────────── *
+ *   ⭐⭐ S188 P6 (owner, `mummies.l0`) — THE POWER OF RA SKILL BUTTON
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * > *"it adds you a skill button … maybe to the left of the tier three tower because there's nothing
+ * > there. So maybe that will be designed for skills."* — owner, S187
+ *
+ * So it sits immediately LEFT OF THE CHIP ROW (the leftmost chip is the tier-3 tower's), a chip's gap
+ * away, on the chip row's own line — derived from THIS frame's chips, never a hardcoded x, the
+ * discipline the carry readout and the shape strip both follow. The carry readout, which also lives
+ * on this side, is laid out left of the BUTTON when the button is drawn, so the two never meet.
+ *
+ * ⚠ DRAWN ONLY FOR A SEAT THAT HOLDS THE PERK. A seat without it has no skill, and a permanently
+ * dead button would be the "dead button" R126 forbids.
+ *
+ * ⛔ AND IT SURVIVES THE S187 COLLAPSE, as a compact icon beside the tab. ⚠ MINE: the collapse exists
+ * to give the bottom band back, and a once-per-fight attack that disappeared whenever a player had
+ * asked for that ground would quietly cost them their racial. The compact icon is the tab's own
+ * height, and like the tab it is both a control (`isOverChip`) and an opaque surface
+ * (`isOverBandSurface`), in both states, so nothing is planted under it and nothing is clickable
+ * where it is not drawn.
+ *
+ * ⭐⭐ S188 P11 (owner) — **A SQUARE ICON WITH THE CARD'S PICTURE, NOT A DRAWN BUTTON.**
+ *
+ * > *"the skill has to have the art of the picture, just like a lot smaller, right? It's like a
+ * > little square. Just like … World of Warcraft? You can see your skills in like little squares on
+ * > the bottom left. That's how you should have wired it."*
+ *
+ * So the slot is a SQUARE the chip row's height, showing `SKILL_ICON_URL` — the card's picture cut
+ * below its baked title (`scripts/cut-skill-icon.py`). The state reads ON the icon: full colour and a
+ * gold edge when ready, a green edge while aiming, dimmed and grey once refused; the reason (or
+ * AIMING) is written BENEATH it; WRATH OF RA's charges are pips along its top edge. Until the texture
+ * has loaded (or if it cannot), the S188 P6 sun glyph is drawn in the same square, so the slot is
+ * never empty and never unclickable.
+ */
+export const RA_ICON_SIZE = 46;
+/** The compact icon beside the collapsed tab: the tab's own height, square. */
+export const RA_ICON_COLLAPSED_SIZE = 20;
+/** Air between the compact icon and the collapse tab. ⚠ MINE. */
+const RA_BUTTON_COLLAPSED_GAP = 8;
+/** The sun's own colour — the Pharaoh's halo, so the slot reads as the same power. ⚠ MINE. */
+const RA_TINT = 0xffd970;
+/** Pip radius for WRATH OF RA's charges. ⚠ MINE. */
+const RA_PIP_R = 3;
+/** ⭐ S190 W-6 — the same pips inside the 20 px compact square: three span 16 px. ⚠ MINE. */
+const RA_PIP_R_COMPACT = 2;
+
+/**
+ * ⭐ S188 P11 — the picture each skill shows, each PRE-CUT from its own card by
+ * `scripts/cut-skill-icon.py --preset <name>` (its `CUTS` table holds one window per card):
+ *
+ *   · POWER OF RA — `power-of-ra.webp`, from `l0-mummies` (`--top 310 --side 700`): the Eye of Ra.
+ *   · WRATH OF RA — `wrath-of-ra.webp`, from `l10-mummies` (`--top 96 --side 752`): all THREE eyes.
+ *
+ * ⛔ S190 (audit W-5) — WRATH used to be cut at RUNTIME from the whole l10 card with the l0 card's
+ * proportions, and that window sliced the three eyes down to the middle beam. A card's window is a
+ * property of its composition, so each is cut once, by eye, and shipped. If WRATH's picture fails to
+ * load it falls back to the POWER OF RA picture: the same god.
+ */
+export const SKILL_ICON = {
+  power: { url: '/art/skills/power-of-ra.webp' },
+  wrath: { url: '/art/skills/wrath-of-ra.webp' },
+} as const;
+
+/** ⭐ S190 W-7 — seams the tests use (the draft panel's `loadCard` shape). Production passes none. */
+export interface FooterBandDeps {
+  /** How a skill icon is fetched. Production: Pixi `Assets`, which caches by URL. */
+  readonly loadIcon?: (url: string) => Promise<Texture>;
+}
+
+/** What the slot needs to know about the local seat this frame. */
+export interface RaSlotState {
+  readonly refusal: RaCastRefusal | null;
+  /** Charges per fight: 1 (POWER OF RA) or 3 (WRATH OF RA). */
+  readonly charges: number;
+  /** Charges still unspent this fight. */
+  readonly left: number;
+  readonly wrath: boolean;
+}
+
+export interface RaButtonGeom {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  /** The collapsed form: the small square; its pips inside it, its words to its left (S190 W-6). */
+  readonly compact: boolean;
+}
+
+/** PURE — where the skill button sits this frame, or null when there is no chip row to sit beside. */
+export function layoutRaButton(chips: readonly FooterChipGeom[], collapsed: boolean): RaButtonGeom | null {
+  if (collapsed) {
+    const tab = collapseTabRect(true);
+    return {
+      x: tab.x - RA_BUTTON_COLLAPSED_GAP - RA_ICON_COLLAPSED_SIZE,
+      y: tab.y + tab.h - RA_ICON_COLLAPSED_SIZE,
+      w: RA_ICON_COLLAPSED_SIZE,
+      h: RA_ICON_COLLAPSED_SIZE,
+      compact: true,
+    };
+  }
+  if (chips.length === 0) return null;
+  const first = chips.reduce((a, c) => (c.x < a.x ? c : a));
+  // A square the chip row's height, centred on the chip row's own midline.
+  const y = first.y + (first.h - RA_ICON_SIZE) / 2;
+  return { x: first.x - CHIP_GAP - RA_ICON_SIZE, y, w: RA_ICON_SIZE, h: RA_ICON_SIZE, compact: false };
+}
+
+/**
+ * PURE — what is written BENEATH the icon. A refused control must say why (the castle panel's
+ * standing contract, carried into every footer control). Exhaustive on purpose: a new refusal fails
+ * `tsc` here rather than falling through a tolerant `default` to a blank caption (S182 lesson 7).
+ *
+ * ⭐ S188 P11 — a READY icon says nothing (the WoW slot: the picture is the label), except its name
+ * while hovered, so the player can learn which skill it is.
+ */
+export function raButtonCaption(
+  refusal: RaCastRefusal | null,
+  aiming: boolean,
+  hover = false,
+  name = 'POWER OF RA',
+): string {
+  if (refusal === null) return aiming ? 'AIMING' : hover ? name : '';
+  switch (refusal) {
+    case 'NOT_FIGHT':
+      return 'FIGHT ONLY';
+    case 'USED':
+      return 'USED';
+    case 'BENCHED':
+      return 'BENCHED';
+    case 'ELIMINATED':
+      return 'OUT';
+    case 'NOT_PLAYING':
+    case 'NOT_HELD':
+    case 'NO_SEAT':
+      return ''; // the button is not drawn in these states
+  }
+}
+
 export class FooterBand {
+  /**
+   * ⭐ S188 P6 — the POWER OF RA button as drawn THIS frame, or null. Stored for the reason `carry`
+   * is: the hit-test must test the very rectangle `sync` drew.
+   */
+  private ra: RaButtonGeom | null = null;
+  /** The button's caption. NOT in the pooled labels: its own object, so no reservation shifts. */
+  private raLabel: Text | null = null;
+  private hoverRa = false;
+  /** ⭐ S188 P11 — the skill's picture, its edge + pips drawn ABOVE it, and which art it holds. */
+  private raIcon: Sprite | null = null;
+  private raOverlay: Graphics | null = null;
+  private raIconKey: 'power' | 'wrath' | null = null;
+  private raIconReady = false;
+  /** What the slot showed this frame — read back by `getUiPoints` for the tests and the e2e. */
+  private raSlot: RaSlotState | null = null;
+  /** ⭐ S190 W-6 — what the slot SAID this frame ('' = nothing) and how many pips it drew. */
+  private raCaption = '';
+  private raPips = 0;
   /**
    * ⭐ S187 — is the band hidden? RENDER-ONLY, never world state: it is one player's view
    * preference, it must not reach the wire, and two peers disagreeing about it is not a divergence.
@@ -238,7 +405,11 @@ export class FooterBand {
   private onEnqueue: ((t: SparkType) => void) | null = null;
   private onCancel: ((t: SparkType) => void) | null = null;
 
-  constructor(app: Application, parent: Container = app.stage) {
+  /** ⭐ S190 W-7 — the icon fetch (a seam, so the picture path is testable headless). */
+  private readonly loadIcon: (url: string) => Promise<Texture>;
+
+  constructor(app: Application, parent: Container = app.stage, deps: FooterBandDeps = {}) {
+    this.loadIcon = deps.loadIcon ?? ((url) => Assets.load<Texture>(url));
     this.container = new Container();
     this.graphics = new Graphics();
     this.container.label = 'footerBand'; // S153 P4 — see SparkRenderer for why layers are named.
@@ -263,6 +434,7 @@ export class FooterBand {
     // would miss.
     this.hoverPalette = this.paletteAt(x, y);
     this.hoverQueue = this.queueChipAt(x, y);
+    this.hoverRa = this.isOverRaButton(x, y);
   }
 
   /** Pointer is DOWN. Drives the pressed look; cleared on release wherever it happens. */
@@ -277,6 +449,34 @@ export class FooterBand {
     this.chips = [];
     this.strip = { palette: [], queue: [] };
     this.carry = null;
+    this.ra = null;
+    this.raSlot = null;
+    this.raCaption = '';
+    this.raPips = 0;
+    if (this.raLabel !== null) this.raLabel.visible = false;
+    if (this.raIcon !== null) this.raIcon.visible = false;
+    this.raOverlay?.clear();
+
+    /*
+     * ⭐ S188 P6 — POWER OF RA: the seat's state, read ONCE through the reducer's own predicate.
+     * An aim left over from a cast that is no longer legal (the fight ended, the seat was benched)
+     * is dropped here, so the button never says AIMING over a refusal and the next board click is
+     * not swallowed by a dead gesture. The aim is this client's view state (`raAimPreview.ts`).
+     * ⭐ S190 W-4 — the refusal and the pips count this client's sent-but-not-yet-synced casts too
+     * (`raLocalCastRefusal` / `raChargesLeftLocal`), so a joiner's slot never shows a spent charge.
+     */
+    const me = world.players.get(world.localPlayerId);
+    const raHeld = seatHasPowerOfRa(me);
+    const raRefusal = raHeld ? raLocalCastRefusal(world, world.localPlayerId) : null;
+    if (raAimPreview() !== null && (!raHeld || raRefusal !== null)) setRaAimPreview(null);
+    const raSlot: RaSlotState | null = raHeld && me !== undefined
+      ? {
+          refusal: raRefusal,
+          charges: raChargesFor(me),
+          left: raChargesLeftLocal(world, world.localPlayerId),
+          wrath: seatHoldsPerk(me, WRATH_OF_RA_PERK),
+        }
+      : null;
 
     if (world.gameState !== 'PLAYING') {
       this.hideLabelsFrom(0);
@@ -294,12 +494,17 @@ export class FooterBand {
      */
     this.drawCollapseTab(g);
     if (this.collapsed) {
+      // ⭐ S188 P6 — the skill survives the collapse, as a compact sun beside the tab.
+      if (raSlot !== null) this.drawRaButton(g, layoutRaButton([], true)!, raSlot);
       this.hideLabelsFrom(0);
       return;
     }
 
     const model = footerBandModel(world);
     this.chips = layoutChips(model);
+    // ⭐ S188 P6 / P11 — the skill slot, left of the chip row (see `RA_ICON_SIZE`).
+    const raGeom = raSlot !== null ? layoutRaButton(this.chips, false) : null;
+    if (raGeom !== null && raSlot !== null) this.drawRaButton(g, raGeom, raSlot);
 
     for (let i = 0; i < this.chips.length; i++) {
       const c = this.chips[i];
@@ -436,7 +641,8 @@ export class FooterBand {
      */
     const carryBase = this.carryLabelBase();
     const carryRow = this.armed === null ? null : structureRowFor(world, this.armed);
-    const carry = carryRow === null ? null : layoutCarryBill(this.chips, carryRow.bill.length);
+    // ⭐ S188 P6 — left of the Ra button when it is drawn, so the readout never lands on it.
+    const carry = carryRow === null ? null : layoutCarryBill(this.chips, carryRow.bill.length, raGeom?.x);
     this.carry = carry;
     if (carry !== null && carryRow !== null) {
       const plateX = carry.left - CARRY_PLATE_PAD;
@@ -634,10 +840,180 @@ export class FooterBand {
       .stroke({ color: 0xe8eef8, width: 2.4, alpha: 0.95, join: 'round', cap: 'round' });
   }
 
-  /** ⭐ S187 — the tab, always live in both states. It is the only way back once collapsed. */
+  /**
+   * ⭐ S188 P6 / P11 — paint the skill SLOT and store the rectangle the hit-test will use.
+   *
+   * A square with the skill's picture (the WoW slot he asked for). Ready: full colour, gold edge.
+   * Aiming: green edge. Refused: the picture dimmed to grey, grey edge, the reason beneath — and a
+   * refused slot still hovers and still takes the click (with the refused cue), the footer's rule for
+   * a disabled control. With WRATH OF RA, one pip per charge along the top edge, lit while unspent.
+   *
+   * ⚠ LAYERS: the opaque plate is in the band's Graphics (under everything); the picture is a Sprite
+   * above it; the edge and the pips are a second Graphics above the picture, or the picture would
+   * cover them. Until the picture has loaded (or if it cannot), the S188 P6 sun glyph is drawn on the
+   * plate instead, so the slot is never blank.
+   */
+  private drawRaButton(g: Graphics, r: RaButtonGeom, s: RaSlotState): void {
+    this.ra = r;
+    this.raSlot = s;
+    const aiming = raAimPreview() !== null;
+    const enabled = s.refusal === null;
+    const edge = !enabled ? TINT_DISABLED : aiming ? TINT_SELECTED : RA_TINT;
+    const grow = this.hoverRa ? (this.pressed ? -1 : HOVER_GROW) : 0;
+    const x = r.x - grow;
+    const y = r.y - grow;
+    const side = r.w + grow * 2;
+    g.roundRect(x, y, side, side, 4).fill({ color: 0x0b0f16, alpha: 0.95 });
+
+    const icon = this.ensureRaIcon(s.wrath ? 'wrath' : 'power');
+    const cx = r.x + r.w / 2;
+    if (this.raIconReady) {
+      const inset = r.compact ? 1 : 2;
+      icon.position.set(x + inset, y + inset);
+      icon.width = side - inset * 2;
+      icon.height = side - inset * 2;
+      icon.tint = enabled ? 0xffffff : 0x5a5a5a;
+      icon.alpha = enabled ? 1 : 0.7;
+      icon.visible = true;
+    } else {
+      // The S188 P6 sun: a disc and eight rays. Ra is the sun god, and the column is his light.
+      const cy = r.y + r.h / 2;
+      const rad = r.compact ? 4 : 8;
+      g.circle(cx, cy, rad).fill({ color: edge, alpha: enabled ? 1 : 0.6 });
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        const out = rad + (r.compact ? 4 : 7);
+        g.moveTo(cx + Math.cos(a) * (rad + 2), cy + Math.sin(a) * (rad + 2))
+          .lineTo(cx + Math.cos(a) * out, cy + Math.sin(a) * out);
+      }
+      g.stroke({ color: edge, width: 1.6, alpha: enabled ? 0.95 : 0.6, cap: 'round' });
+    }
+
+    const o = this.ensureRaOverlay();
+    o.roundRect(x, y, side, side, 4).stroke({ width: aiming || this.hoverRa ? 3 : 2, color: edge, alpha: 0.95 });
+    if (s.charges > 1) {
+      // One pip per charge, centred along the top edge: lit = still to spend this fight.
+      // ⭐ S190 W-6 — in the COMPACT square too (smaller), so a collapsed WRATH seat still sees how
+      // many it has left. Inside the square, so `isOverRaButton` already covers every pip.
+      const pr = r.compact ? RA_PIP_R_COMPACT : RA_PIP_R;
+      const gap = pr * 2 + (r.compact ? 2 : 4);
+      const x0 = cx - ((s.charges - 1) * gap) / 2;
+      for (let i = 0; i < s.charges; i++) {
+        o.circle(x0 + i * gap, y + pr + (r.compact ? 1 : 3), pr)
+          .fill({ color: i < s.left ? RA_TINT : 0x1a1d24, alpha: 0.95 })
+          .stroke({ color: 0x000000, width: r.compact ? 0.75 : 1, alpha: 0.8 });
+      }
+      this.raPips = s.charges;
+    }
+
+    const caption = raButtonCaption(s.refusal, aiming, this.hoverRa, s.wrath ? 'WRATH OF RA' : 'POWER OF RA');
+    this.raCaption = caption;
+    if (caption === '') return;
+    if (this.raLabel === null) {
+      this.raLabel = new Text({ text: '', style: { fontFamily: 'monospace', fontSize: 10, fill: RA_TINT } });
+      this.container.addChild(this.raLabel);
+    }
+    this.raLabel.text = caption;
+    this.raLabel.style.fill = edge;
+    if (r.compact) {
+      /*
+       * ⭐ S190 W-6 — COLLAPSED, the reason still shows: a refused control must say why. The compact
+       * square ends at the canvas bottom, so the words sit LEFT of it on its own midline. Text only —
+       * no plate, so no new opaque fill and nothing new to hit-test; the board under it stays board.
+       */
+      this.raLabel.anchor.set(1, 0.5);
+      this.raLabel.position.set(r.x - 6, r.y + r.h / 2);
+    } else {
+      this.raLabel.anchor.set(0.5);
+      // BENEATH the square: the chip row ends at y 1061 and the canvas at 1080.
+      this.raLabel.position.set(cx, r.y + r.h + 9);
+    }
+    this.raLabel.visible = true;
+  }
+
+  /**
+   * ⭐ S188 P11 — the picture, loaded once per art and kept. WRATH OF RA's icon falls back to the
+   * POWER OF RA picture when it cannot load. A headless run has no loader; the catch leaves
+   * `raIconReady` false and the sun glyph draws instead.
+   */
+  private ensureRaIcon(key: 'power' | 'wrath'): Sprite {
+    if (this.raIcon === null) {
+      this.raIcon = new Sprite(Texture.EMPTY);
+      this.raIcon.visible = false;
+      this.container.addChild(this.raIcon);
+    }
+    if (this.raIconKey !== key) {
+      this.raIconKey = key;
+      this.raIconReady = false;
+      const sprite = this.raIcon;
+      const adopt = (t: Texture): void => {
+        if (this.raIconKey !== key) return; // superseded while loading
+        sprite.texture = t;
+        this.raIconReady = true;
+      };
+      const loadPower = (): void => {
+        void this.loadIcon(SKILL_ICON.power.url).then(adopt).catch(() => undefined);
+      };
+      try {
+        if (key === 'power') {
+          loadPower();
+        } else {
+          void this.loadIcon(SKILL_ICON.wrath.url)
+            .then(adopt)
+            .catch(loadPower); // the WRATH picture failed: the same god, the POWER picture
+        }
+      } catch {
+        // no loader (headless): the glyph fallback draws
+      }
+    }
+    return this.raIcon;
+  }
+
+  /** The edge and pips layer, above the picture. Created on first use, after the sprite. */
+  private ensureRaOverlay(): Graphics {
+    if (this.raOverlay === null) {
+      this.raOverlay = new Graphics();
+      this.container.addChild(this.raOverlay);
+    }
+    return this.raOverlay;
+  }
+
+  /**
+   * ⭐ S188 P6 — is this point over the POWER OF RA button as drawn this frame? A CONTROL, so it is
+   * folded into `isOverChip` (the cursor, the click router) and therefore into `isOverBandSurface`
+   * (the commit gates) — in BOTH collapse states, because the compact button is drawn in both.
+   */
+  isOverRaButton(x: number, y: number): boolean {
+    const r = this.ra;
+    if (r === null) return false;
+    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
+  /**
+   * ⭐ S187 — the tab, live in both states. It is the only way back once collapsed.
+   *
+   * ⛔⛔ S188 (owner) — **AND IT IS ONE LAYER BELOW ANY OPEN TOWER MENU.**
+   *
+   * > *"the arrow that takes down the footer it actually reads more important than the tower above
+   * > it … I'm clicking on number six. It brings up Lightning Hub. That's right over the down arrow.
+   * > What I would do is click on six again. It would bring down the Lightning Hub and then the down
+   * > arrow would be active. So it'd be one layer below."*
+   *
+   * The expanded tab rides the band's top edge (y 976-996) and the menu floats above the band
+   * (y 941-1003), both centred — so EVERY tier's menu is drawn over it: a one-card tier covers it
+   * whole, a two-card tier (5, 7) leaves only the 10 px seam between the cards. `sync` paints the
+   * tab first and the cards after, so the cards are on top, and the hit-test now says the same thing
+   * the pixels do: where an open card covers the tab, the point is the CARD's.
+   *
+   * ⚠ DECIDED HERE, IN THE ONE PREDICATE, rather than by reordering `handleFooterChipClick` — this
+   * is what the click router, `isOverChip` (the cursor) and `isOverBandSurface` (the placement
+   * refusal) all read, so the three cannot disagree about whose pixel it is. Only while expanded:
+   * `this.cards` is not cleared by a collapsed `sync`, and the collapsed tab sits below every card.
+   */
   isOverCollapseTab(x: number, y: number): boolean {
     const r = collapseTabRect(this.collapsed);
-    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+    if (!(x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) return false;
+    return this.collapsed || this.cardAt(x, y) === null;
   }
 
   /** ⭐ S187 — flip it. Returns the new state so the caller can play a sound or log. */
@@ -652,6 +1028,8 @@ export class FooterBand {
   }
 
   isOverChip(x: number, y: number): boolean {
+    // ⭐ S188 P6 — the Ra button, in both states (null whenever it was not drawn this frame).
+    if (this.isOverRaButton(x, y)) return true;
     // ⛔ S187 — COLLAPSED, THE ONLY CONTROL LEFT IS THE TAB. Returning the chips here would keep the
     // cursor promising `pointer` over a menu that is not drawn, and `handleFooterChipClick` would
     // open a panel from an invisible button.
@@ -693,6 +1071,7 @@ export class FooterBand {
    * the one control that brings the menu back.
    */
   isOverBandSurface(x: number, y: number): boolean {
+    if (this.isOverRaButton(x, y)) return true; // S188 P6 — opaque in both states
     if (this.collapsed) return this.isOverCollapseTab(x, y); // S187 — see the docblock above
     return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
   }
@@ -878,6 +1257,13 @@ export class FooterBand {
     /** S154 P1 — the shape strip, so an e2e can click it WITHOUT opening the castle (R80's point). */
     palette: PaletteButtonGeom[];
     queue: QueueChipGeom[];
+    /** ⭐ S188 P6 — the POWER OF RA button as drawn this frame, or null. */
+    ra: RaButtonGeom | null;
+    /** ⭐ S188 P11 — and what it showed: refusal, charges, charges left, WRATH or not. */
+    raSlot: RaSlotState | null;
+    /** ⭐ S190 W-6 — the words it showed ('' = none) and the pips it drew, in EITHER collapse state. */
+    raCaption: string;
+    raPips: number;
   } {
     return {
       chips: [...this.chips],
@@ -885,6 +1271,10 @@ export class FooterBand {
       selected: this.selected,
       palette: [...this.strip.palette],
       queue: [...this.strip.queue],
+      ra: this.ra,
+      raSlot: this.raSlot,
+      raCaption: this.raCaption,
+      raPips: this.raPips,
     };
   }
 
@@ -906,6 +1296,10 @@ export class FooterBand {
     this.chips = [];
     this.cards = [];
     this.carry = null;
+    this.ra = null;
+    if (this.raLabel !== null) this.raLabel.visible = false;
+    if (this.raIcon !== null) this.raIcon.visible = false;
+    this.raOverlay?.clear();
     this.armed = null;
     this.selected = null;
     this.hideLabelsFrom(0);
@@ -913,6 +1307,9 @@ export class FooterBand {
 
   destroy(): void {
     for (const l of this.labels) l.destroy();
+    this.raLabel?.destroy();
+    this.raIcon?.destroy();
+    this.raOverlay?.destroy();
     this.graphics.destroy();
     this.container.destroy();
   }
@@ -1000,10 +1397,12 @@ export interface CarryBillGeom {
 export function layoutCarryBill(
   chips: readonly FooterChipGeom[],
   shapeCount: number,
+  /** ⭐ S188 P6 — the x the readout must stay left of when something (the Ra button) sits there. */
+  leftOf?: number,
 ): CarryBillGeom | null {
   if (chips.length === 0 || shapeCount <= 0) return null;
   const row = glyphCountRowLayout(shapeCount, { glyphR: SHORTFALL_GLYPH_R });
-  const right = Math.min(...chips.map((c) => c.x)) - CARRY_MARGIN;
+  const right = Math.min(leftOf ?? Infinity, ...chips.map((c) => c.x)) - CARRY_MARGIN;
   const left = right - (CARRY_WORD_W + SHORTFALL_PREFIX_GAP + row.width);
   return {
     wordX: left + CARRY_WORD_W / 2,

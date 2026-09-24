@@ -53,13 +53,17 @@ import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { CreatureId } from '../types.ts';
 import { playSplatSFX, playGnawSFX } from './audioManager.ts';
+// ⭐ S188 demons.l5 — HELLSPAWN's demonic look, derived per frame from synced state.
+import {
+  DEMON_BODY, DEMON_EYE_WHITE, DEMON_INK, DEMON_INK_SOFT, DEMON_PUPIL, hellspawnScale, isDemonicSeat,
+} from './hellspawnLook.ts';
 
 // ── palette: graphite + paper, like a kid's pencil drawing ──
-const GRAPHITE = 0x2e2f36; // main outline / lead
-const GRAPHITE_SOFT = 0x4a4c55; // softer 2B shading
-const PAPER_FILL = 0xe9e7df; // off-white paper showing through the body
+const GRAPHITE_PENCIL = 0x2e2f36; // main outline / lead
+const GRAPHITE_SOFT_PENCIL = 0x4a4c55; // softer 2B shading
+const PAPER_PENCIL = 0xe9e7df; // off-white paper showing through the body
 const TOOTH_COLOR = 0xf6f4ec; // bright ivory chompers
-const EYE_COLOR = 0x1a1320; // near-black pupil
+const EYE_PENCIL = 0x1a1320; // near-black pupil
 const SHADOW_COLOR = 0x000000; // ground shadow under the hop
 
 // ── S102 #1 — green-goo splat (a chewer being popped by a raid/potato) ──
@@ -69,7 +73,7 @@ const GOO_DURATION_SEC = 0.55; // splat lifetime (expand + fade)
 const GOO_DROPLETS = 7; // radial flung droplets
 
 /** Base body radius in px (the goofy round body). */
-const BODY_R = 17;
+const BODY_R_BASE = 17;
 /** Peak height of the hop arc (px the body lifts off the ground at apex). */
 const HOP_HEIGHT = 16;
 /** Number of little scuttling legs down each side. */
@@ -260,7 +264,9 @@ export class ChewerRenderer {
       // faded to near-invisible (the tail of a DESPAWNING fade); its state/hop bookkeeping above
       // still runs, only the draw is elided. Render-only, no determinism impact.
       if (fade > 0.04) {
-        this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c, fade);
+        // ⭐ S188 — a HELLSPAWN seat's chewers are drawn demonic, and a split child smaller.
+        const demonic = c.hellspawnGen !== undefined || isDemonicSeat(world.players, c.ownerPlayerId);
+        this.drawChewer(g, c.pos.x, c.pos.y, phase, face, lean, nowSec, c, fade, demonic, hellspawnScale(c.hellspawnGen));
       }
     }
 
@@ -329,10 +335,10 @@ export class ChewerRenderer {
       const t = (nowSec - s.bornSec) / GOO_DURATION_SEC;
       if (t >= 1 || t < 0) { this.gooSplats.splice(i, 1); continue; }
       const alpha = 1 - t;
-      const spread = BODY_R * (0.6 + t * 1.5); // droplets fling outward as it bursts
+      const spread = BODY_R_BASE * (0.6 + t * 1.5); // droplets fling outward as it bursts
       // central splat blob (bright core over a dark centre)
-      g.circle(s.x, s.y, BODY_R * (0.95 - t * 0.35)).fill({ color: GOO_CORE, alpha: 0.85 * alpha });
-      g.circle(s.x, s.y, BODY_R * (0.55 - t * 0.25)).fill({ color: GOO_DARK, alpha: 0.6 * alpha });
+      g.circle(s.x, s.y, BODY_R_BASE * (0.95 - t * 0.35)).fill({ color: GOO_CORE, alpha: 0.85 * alpha });
+      g.circle(s.x, s.y, BODY_R_BASE * (0.55 - t * 0.25)).fill({ color: GOO_DARK, alpha: 0.6 * alpha });
       // radial droplets, drooping a touch as they fall
       for (let d = 0; d < GOO_DROPLETS; d++) {
         const a = (d / GOO_DROPLETS) * TAU + s.seed;
@@ -386,7 +392,16 @@ export class ChewerRenderer {
     nowSec: number,
     c: { id: CreatureId },
     fade = 1,
+    demonic = false,
+    scale = 1,
   ): void {
+    // ⭐ S188 demons.l5 — the palette and size are the only things HELLSPAWN changes about the puppet.
+    const GRAPHITE = demonic ? DEMON_INK : GRAPHITE_PENCIL;
+    const GRAPHITE_SOFT = demonic ? DEMON_INK_SOFT : GRAPHITE_SOFT_PENCIL;
+    const PAPER_FILL = demonic ? DEMON_BODY : PAPER_PENCIL;
+    const EYE_WHITE = demonic ? DEMON_EYE_WHITE : PAPER_PENCIL;
+    const EYE_COLOR = demonic ? DEMON_PUPIL : EYE_PENCIL;
+    const BODY_R = BODY_R_BASE * scale;
     // S104 P1 — `fade` (1 normally, ramps to 0 during DESPAWNING) multiplies EVERY alpha so a
     // timed-out chewer dissolves rather than popping. One shared Graphics → per-chewer alpha is
     // applied per draw-call via this helper.
@@ -531,7 +546,7 @@ export class ChewerRenderer {
         .stroke({ width: 2, color: GRAPHITE, alpha: fa(0.9) });
       // white of the eye
       g.circle(eyeX, eyeY, BODY_R * 0.34)
-        .fill({ color: PAPER_FILL, alpha: fa(1) })
+        .fill({ color: EYE_WHITE, alpha: fa(1) })
         .stroke({ width: 1.6, color: GRAPHITE, alpha: fa(0.95) });
       // pupil — looks toward the facing/target direction
       g.circle(eyeX + face * BODY_R * 0.12, eyeY + 1, BODY_R * 0.15)

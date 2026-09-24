@@ -17,6 +17,7 @@ import type { PlayerId, PotatoId, SparkId, Vec2 } from '../types.ts';
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 import type { DraftPick } from '../state/draft.ts';
 import { emptyCastleUpgrades, type CastleUpgrades } from '../state/castleUpgrades.ts';
+import type { RaStrike } from '../state/racial/powerOfRaRules.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -110,6 +111,23 @@ interface PlayerCommon {
    */
   castleUpgrades: CastleUpgrades;
   /**
+   * ⭐⭐ S188 (owner) — **ENDLESS DYNASTY'S RUNNING TOTAL: castle HP this seat has LOST since it took
+   * `mummies.l5`.** *"every time a castle loses 1,000 points, it spawns a pharaoh … from now on and
+   * until the end of the game."* Each whole 1,000 raises one Pharaoh (`racial/endlessDynasty.ts`).
+   *
+   * ⚠ CUMULATIVE AND MONOTONIC — regeneration never un-counts a loss (MINE: his words are "loses",
+   * and a regen that took the count back would let a healing keep never reach its next Pharaoh).
+   * 0 for every seat without the perk, forever.
+   *
+   * ⛔ A SIM INPUT, SO IT IS SERIALIZED AND HASHED. Only the host (and its `?worker=1` mirror) reads
+   * it, but a host migration or a worker INIT that lost it would restart the count, and a mirror that
+   * disagreed about it would raise a Pharaoh on a different tick — the class the wide hash exists to
+   * catch.
+   *
+   * REQUIRED, for the reason `castleRegenLevel` and `draftPicks` are: tsc reds the rebuilds.
+   */
+  dynastyHpLost: number;
+  /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
    * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
@@ -166,6 +184,21 @@ interface PlayerCommon {
    * connections" both come out exact, and mixed building never strands a part-payment.
    */
   raidProgress: number;
+  /**
+   * ⭐ S188 P6 (owner, `mummies.l0`) — **THIS SEAT'S CALLS TO RA THIS FIGHT.** *"once per fight, you
+   * can use the power of Ra … you get to choose where it lands."* Each entry is the whole state of
+   * one strike: its wave, the aimed point, the deadline the Pharaoh's impact-tick function reads.
+   * ⭐ S188 P11 — A LIST, because WRATH OF RA (`mummies.l10`) gives three per fight and they may be in
+   * the air at once. Never more than `WRATH_OF_RA_CHARGES`; see `RaStrike` for why the index matters.
+   *
+   * ⛔ REQUIRED, NOT OPTIONAL — the `castleRegenLevel` / `draftPicks` rule: a required field goes
+   * red at the two carry-FSM rebuilds below, and an optional one would silently forget a cast the
+   * moment the seat picked up a shape — handing it a second strike in the same fight.
+   *
+   * Serialized additive-optional (emitted only when non-empty), hashed in the `pl{seat}:` part,
+   * cleared per match in `applyStartGame`.
+   */
+  raStrikes: RaStrike[];
   /**
    * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
    * cursor doubles as the single avatar (avatarRenderer.ts reads
@@ -265,8 +298,12 @@ export function makeIdlePlayer(
     draftPicks: [],
     // ⭐ S187 — and has bought nothing for its keep.
     castleUpgrades: emptyCastleUpgrades(),
+    // ⭐ S188 — and has lost nothing toward ENDLESS DYNASTY.
+    dynastyHpLost: 0,
     raceId,
     raidProgress: 0,
+    // ⭐ S188 P6 — POWER OF RA: nothing called yet.
+    raStrikes: [],
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     territorialShrinkUntilTick: null,
   };
@@ -294,6 +331,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // up or drops a shape. That is the documented failure mode of this pair of literals.
     raidPoints: player.raidPoints,
     raidProgress: player.raidProgress,
+    // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
+    // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
+    raStrikes: player.raStrikes,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -309,6 +349,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     draftPicks: player.draftPicks,
     // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
     castleUpgrades: player.castleUpgrades,
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
+    // restart the count toward the next Pharaoh.
+    dynastyHpLost: player.dynastyHpLost,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -351,6 +394,9 @@ export function drop(player: Player): IdlePlayer {
     // up or drops a shape. That is the documented failure mode of this pair of literals.
     raidPoints: player.raidPoints,
     raidProgress: player.raidProgress,
+    // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
+    // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
+    raStrikes: player.raStrikes,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -366,6 +412,9 @@ export function drop(player: Player): IdlePlayer {
     draftPicks: player.draftPicks,
     // ⭐ S187 — the keep's purchased stats, same rule as the four fields above it.
     castleUpgrades: player.castleUpgrades,
+    // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
+    // restart the count toward the next Pharaoh.
+    dynastyHpLost: player.dynastyHpLost,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

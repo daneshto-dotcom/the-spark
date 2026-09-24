@@ -134,6 +134,8 @@ let masterGain: GainNode | null = null;
 let musicGainNode: GainNode | null = null;
 let sfxGainNode: GainNode | null = null;
 let musicSource: AudioBufferSourceNode | null = null;
+/** Set once by `shutDownAudioForDeadServer`, never cleared outside the test reset. */
+let audioShutDown = false;
 /*
  * S165 - URL-KEYED, AND HARD-CAPPED AT TWO, WHICH IS A MEMORY DECISION AND NOT A STYLE ONE.
  *
@@ -415,6 +417,7 @@ function duckMusic(durationMs: number, depth: number = 0.25): void {
 }
 
 function ensureAudio(): AudioContext | null {
+  if (audioShutDown) return null;
   if (audioContext !== null) return audioContext;
   try {
     const AudioContextCtor = window.AudioContext
@@ -548,6 +551,41 @@ export function stopMusic(): void {
     // Already ended: an AudioBufferSourceNode is single-use and stop() on a finished node throws.
   }
   musicSource = null;
+}
+
+/**
+ * ⛔ 2026-09-23 — A DEV PAGE WHOSE SERVER HAS DIED GOES SILENT, FOR GOOD.
+ *
+ * The owner heard SPARK music with no SPARK session, no SPARK tab and no browser open: he had
+ * closed every session, switched account seats and closed his browser. The source was a Claude
+ * desktop-app browser pane a finished S188 worktree session had left open on its `vite` server. That
+ * pane belongs to the app, not to a session or an account, so it outlived all of it. Killing the
+ * orphaned server was NOT enough on its own: the page had already decoded its track and played on.
+ *
+ * So the page stops itself. `close()` and not `suspend()`, because every play path resumes a
+ * suspended context (tab-blur recovery) and the next SFX would have brought the music back.
+ * `ensureAudio` then answers null, which is the no-AudioContext path every caller already handles.
+ * Nothing reopens it, and nothing needs to: Vite's client reloads the page itself if the server
+ * ever comes back, and the reload starts a fresh module.
+ *
+ * DEV ONLY. The hook below is `import.meta.hot`, which is undefined in a production build, so the
+ * live site can never reach this.
+ */
+export function shutDownAudioForDeadServer(): void {
+  audioShutDown = true;
+  const ctx = audioContext;
+  audioContext = null;
+  masterGain = null;
+  musicGainNode = null;
+  sfxGainNode = null;
+  musicSource = null;
+  nonetSource = null;
+  helgaThemeSource = null;
+  if (ctx !== null) ctx.close().catch(() => { /* already closed */ });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.on('vite:ws:disconnect', shutDownAudioForDeadServer);
 }
 
 /**
@@ -1063,6 +1101,7 @@ export function _resetAudioForTest(): void {
   musicGainNode = null;
   sfxGainNode = null;
   musicSource = null;
+  audioShutDown = false;
   /*
    * S165 - THE NEW MUSIC STATE IS RESET HERE, AND THIS FUNCTION'S OWN HISTORY IS THE WARNING.
    * It clears the HELGA singletons but has never cleared the NONET ones (`nonetBuffer`,

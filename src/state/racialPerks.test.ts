@@ -16,6 +16,7 @@ import {
   RACIAL_PERK_BUILT,
   RACIAL_PERK_COPY,
   RACIAL_PERK_IDS,
+  RACIAL_PERK_REQUIRES,
   RACIAL_PERKS_BY_RACE,
   LEVELS_PER_DRAFT,
   perkDraftIndex,
@@ -53,12 +54,14 @@ function startedWorld(): World {
 const firstSeat = (w: World): PlayerId => [...w.players.keys()][0] as PlayerId;
 
 describe('the registry', () => {
-  it('names exactly thirteen perks: every race at level 0 and level 5, and vampires at level 10', () => {
-    expect(RACIAL_PERK_IDS).toHaveLength(13);
+  it('names exactly fourteen perks: every race at level 0 and 5, and vampires + mummies at level 10', () => {
+    // ⭐ S190 MERGE — 12 + WRATH OF RA (`s188/wrath`, S188 P11) + THE SWARM (`s188/swarm`) = 14. Each
+    // branch pinned 13 against master; the union is the truth.
+    expect(RACIAL_PERK_IDS).toHaveLength(14);
     expect(new Set(RACIAL_PERK_IDS).size).toBe(RACIAL_PERK_IDS.length);
     for (const race of ALL_RACES) {
-      // S188 (`s188/swarm`) — THE SWARM is the one designed level-10 perk; every other row stops at 5.
-      const row = race === 'vampires'
+      // The two designed level-10 perks; every other row stops at 5.
+      const row = race === 'vampires' || race === 'mummies'
         ? [`${race}.l0`, `${race}.l5`, `${race}.l10`]
         : [`${race}.l0`, `${race}.l5`];
       expect(RACIAL_PERKS_BY_RACE[race]).toEqual(row);
@@ -87,6 +90,7 @@ describe('the registry', () => {
   });
 
   it('gives every perk a card that EXISTS in the art source folder', () => {
+    // ⭐ S190 — the S188 P11 PENDING_ART skip for `l10-mummies` is gone: ra-vfx shipped the art.
     for (const perk of RACIAL_PERK_IDS) {
       const card = RACIAL_PERK_COPY[perk].card;
       expect(existsSync(`assets-source/upgrade-cards/${card}.png`), `${perk} -> ${card}.png`).toBe(true);
@@ -96,9 +100,14 @@ describe('the registry', () => {
   it('offers a perk ONLY when it is built, and nothing past the end of a row (undesigned levels)', () => {
     for (const race of ALL_RACES) {
       for (const [index, perk] of RACIAL_PERKS_BY_RACE[race].entries()) {
-        expect(racialPerkFor(race, index)).toBe(RACIAL_PERK_BUILT[perk] ? perk : null);
+        // ⭐ S188 P11 — a perk with a REQUIREMENT is not offered without the seat's picks (the safe
+        // default); the conditional offer itself is pinned in `racial/wrathOfRa.test.ts`.
+        const unconditional = RACIAL_PERK_REQUIRES[perk] === undefined;
+        expect(racialPerkFor(race, index)).toBe(RACIAL_PERK_BUILT[perk] && unconditional ? perk : null);
       }
-      // Level 10 is designed for vampires only (THE SWARM); every other race is COMING SOON there.
+      // Level 10: vampires' THE SWARM is unconditional, so it IS offered with no picks; mummies' WRATH OF
+      // RA requires POWER OF RA, so with no picks it is null here (its offer is pinned in
+      // `racial/wrathOfRa.test.ts`); every other race is COMING SOON there.
       if (race !== 'vampires') expect(racialPerkFor(race, 2)).toBeNull();
       expect(racialPerkFor(race, 3)).toBeNull();
       expect(racialPerkFor(race, 9)).toBeNull();

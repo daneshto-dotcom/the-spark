@@ -1,82 +1,45 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-23 | Session: S187 | LIVE, 5/5 priorities shipped
+Generated: 2026-09-24 | Session: S189 | deploy #2 LIVE (15035b9, verify-deploy 4/4) · the PDR is READY TO DISPATCH
 
-## ⛔ READ `SPARK_CANON.md` FIRST — §3d AND §9d ARE NEW
-
-⛔⛔ **`PROTOCOL_VERSION` IS 49.** A tab opened before S187 is refused at HELLO. Both players need
-the new build. That is deliberate — `CHOOSE_DRAFT` is a new client intent a v48 host would drop.
-
-- **§3d** — the upgrade draft (schedule, his floor-at-one percentage rule, the auto-pick reversal of
-  R106) AND the castle upgrade band table. It also states, in as many words and with a test asserting
-  the sentence is present, that **no racial buff mechanic is built.**
-- **§9d** — ⛔ **FOUR QUESTIONS CLOSED FOR GOOD.** He raised his voice about these, correctly: every
-  one had already been answered and was put back on an "open" list anyway. **Do not re-open them and
-  do not put them in a handoff's needs-the-owner section.**
-
-## ⭐ THE ONE LESSON FROM S187
-
-**Before writing anything into a "needs the owner" list: grep the canon, AND re-read what he said
-THIS session.** Four items were listed as open at session close. He had answered all four — two of
-them hours earlier in the same conversation. His words: *"I don't understand why you're bringing this
-up every session."* A handoff is read once; the canon is read every time. A dismissal
-(*"that's not the problem I meant"*) is an answer, not a deferral.
-
-⚠ And a **blocked command is not a closed item**. The 280 MB orphan worktree was approved for
-deletion, refused twice by guardrails, and reported as still-open across hours. `find -delete` is not
-the blocked pattern and worked first try.
+## ⛔ READ FIRST
+- **THE PLAN IS DONE — DISPATCH IT, DO NOT RE-PLAN.** `.claude/plans/2026-09-24_S189_BATCH_PDR.md` — owner
+  pre-approved (*"I approve it and I pre-approve it"*), two Council rounds recorded (§8). §3 is the exact
+  execution order; §5 holds the six self-contained briefs; §4 the rules every brief inherits.
+- `SPARK_CANON.md` §3d is STALE (says no racial is built — all twelve L0/L5 racials ARE live). Corrected
+  text is on `s188/canon`; it lands LAST (P10), re-derived against the merged tree.
+- `PROTOCOL_VERSION` is **50**. Train B (wrath + swarm) takes it to **51** once.
+- ⚠ Verify `session-state.json`'s `session_id` in a separate call before trusting it (memory
+  `session-state-write-race`).
 
 ## Next Steps
-
-1. **PLAY IT.** The draft opens before wave 1; the footer collapse arrow is centred at the bottom of
-   the board. Both are live on spark-online.space.
-2. **Wire the 17 upgrade cards.** All ingested and passing `node scripts/check-upgrade-cards.mjs`.
-   ⛔ Read `assets-source/upgrade-cards/MANIFEST.md` first — the cards carry their own baked titles and
-   the overlay ALSO draws one, so they collide. The manifest says exactly how to resolve it, and that
-   `drawAxisGlyph` is deleted at the same time rather than left dormant.
-3. **Build the racial mechanics.** 12 are ruled and illustrated (all six at L0, all six at L5) plus
-   vampires L10. **Zero are built.** The substrate carries them; every racial tile renders COMING SOON
-   and is absent from the hit-test by construction.
-4. **The two RULED-NOT-BUILT items in §9d**: the lightning hub blast becomes 120 fifths of ladder
-   damage (his number, replacing the radial clear), and the health bar's three rules — one number
-   across board bar / damage art / character sheet, plus a bounded proportional bar WIDTH whose two
-   bounds must be MEASURED, not invented.
-5. **Levels 10–20**: 16 racial slots undesigned. Only vampires L10 exists.
+1. Boot, then read CI: E2E run `35972498981` (15035b9, in progress at handoff) and the **cancelled** E2E run for 5c6615f. Record a verdict on each.
+2. In ONE message (PDR §3 Step 1): re-run `.claude/plans/s189-workflows/s189-disconnect-hunt.js` + `s189-branch-audits.js` (both NOT DONE: stopped unfinished on the quota order, zero agents complete), and dispatch the named Agents `s189-units`, `s189-weld`, `s189-render`, `s188-ra-vfx` with their §5 briefs.
+3. When the audits land, run fix rounds for input-layer / wrath / swarm (verified findings only) and dispatch `s188-draft-atk` (§5.6).
+4. When the hunt lands, write the net DIAGNOSIS from verified findings and dispatch `s189-net` (§5.1).
+5. Merge trains A→E, one branch at a time, gates after every merge, e2e before every push, verify-deploy after: A input-layer (deploy #3, fixes the owner's footer-arrow report C9) · B wrath→swarm (51, #4) · C render→units→weld→ra-vfx (#5) · D draft-atk→net (#6) · E canon + docs (#7).
+6. Report to the owner the numbers to confirm: APEX PREDATOR bite ×4, THE SWARM bite ×11.
 
 ## Blockers
-
-- **On him:** the L10–L20 racial designs · judging THE SWARM card in game (it is very dark and may
-  read as a near-black rectangle at 251 px) · playing what shipped.
-- **Nothing is blocked on CI or infrastructure.** Remote healthy, 0 unpushed, master clean.
+- None on infrastructure. The OLD account is at 96 % of its weekly quota; the owner is moving to a fresh account seat.
+- Owner-only: SANDWORM art (next session after this one); the APEX ×4 / SWARM ×11 confirmation (non-blocking).
 
 ## Pending Backlog
-
-`S182_BACKLOG.md` and `S180_BACKLOG.md` are the older forward lists. ⚠ Verify every line before it
-reaches him — S180 found four already-done items presented as live scope, and S187 repeated that
-failure with four already-ANSWERED questions.
+Everything owed is in the PDR's §2. `S182_BACKLOG.md` / `S180_BACKLOG.md` are older forward lists — verify any line before it reaches him.
 
 ## Recent Reflexion (last 2 sessions)
-
-`.claude/reflexion_log.md` — **S187 at the top (9 entries)**, then S186 (8 entries). 43 total, under
-the 50 cap, no prune fired.
+`.claude/reflexion_log.md`: S189 at the top (3 entries: a failing check is a finding about the check first · read the code before the fan-out · a write and a commit in one call can commit the old file), then S188 (9 entries). 50 total, at the cap.
 
 ## Muscle memory (auto) [Vigil]
-
-- Traces: `C:\Users\onesh\.claude\traces\2026-09-23\The-Spark.jsonl`
+- Traces: `C:\Users\onesh\.claude\traces\2026-09-24\The-Spark.jsonl`
 - Last decisions:
-  - **When you widen the range a value can take, re-read every condition that gates on it.** The
-    serialize emit was correct for eight sessions and became a silent wire bug the moment a buffed
-    creature could exceed its config pool.
-  - **Mutation-test the guard.** Writing the round-trip test proved nothing; restoring the old
-    condition and watching 2 of 6 fail is what made it a guard.
-  - **Prove the feature REACHES the thing it buffs** — arithmetic + wire + reaches is three tests.
-  - **Open the game.** Two bugs were invisible to 5,571 passing tests: a shared `TextStyle` repainting
-    the wrong tile, and the dead tile drawing the live tile's emblem.
-  - **The forcing functions ARE the design review.** Eight tests failed on the protocol bump and each
-    demanded a real ruling, including one that differs between the two new intents.
-  - **Authoring verification bindings is not verifying; running them is.** Two of 34 were wrong.
+  - Answer the handoff's first question from the code before any agent runs (CONNECTION LOST needs PLAYING; a mismatch never gets there).
+  - A red measured on a loaded machine or against a stale artifact is re-run under the right conditions, never waived and never chased as a bug.
+  - One protocol bump per deploy train, never per branch.
+  - Preserve owner rulings over Council pressure: R185-B (welding two towers) stands; its Council challenge became a test instead.
+  - Stop in-flight agents rather than risk the handoff at a quota wall; save their scripts first.
 - CLAUDE_LOOP: **closed**
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] `SPARK_CANON.md` — read FIRST (§3d and §9d are new)
-  - [x] latest HANDOFF: `HANDOFF_S187_2026-09-23.md`
+  - [x] latest HANDOFF: `HANDOFF_S189_2026-09-24.md`
+  - [x] LOCKED_DECISIONS.md (unchanged S189)
   - [x] traces jsonl path above

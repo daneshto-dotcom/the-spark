@@ -80,6 +80,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatures: 'hashed',
   // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
   pendingCreatureDeaths: 'acknowledged',
+  // S188 F1 — transient one-tick lifesteal accumulator; null at every tick boundary, nothing to hash.
+  pendingLifestealFifths: 'acknowledged',
   creatureSpawners: 'hashed',
   defenders: 'hashed',
   // V6-1.1 — bought gatherer units. Hashed HERE (the wide oracle), deliberately NOT added to
@@ -174,6 +176,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    * field became a gate.
    *
    * PROJECTED: castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints, raidProgress.
+   * ⭐ S188 P6 / P11 — and raStrikes (POWER OF RA / WRATH OF RA), after raidProgress, in order.
    * EXCLUDED, deliberately: everything about the avatar (`kind`, `avatarPos`, the carry union) and
    * `color`, which is derived from raceId. `scoreByPlayer` stays its own hashed scalar.
    *
@@ -299,6 +302,9 @@ type CreatureHashed =
    * oracle to a latch that gates a x2 speed and cadence multiplier.
    */
   | 'enraged'
+  // S188 F3 — the ATTACKING cycle's latched rage: it sets the cycle's cadence and fire tick on both
+  // sims, so a host and a mirror disagreeing about it would disagree about when a blow lands.
+  | 'attackCycleRaged'
   /*
    * ⭐⭐ S169 (owner R152) — the STUN stamp. HASHED, and for a stronger reason than `enraged` above:
    * this field is BOTH serialized and simulated. `hashWorldStateFull` compares two SIMS (host vs
@@ -331,6 +337,12 @@ type CreatureHashed =
    * per-field contribution test.
    */
   | 'raRitualUntilTick'
+  /*
+   * ⭐ S188 (`demons.l5`) — the HELLSPAWN generation. HASHED: it decides whether a death splits and how
+   * hard the survivor hits, so a host and a `?worker=1` mirror disagreeing about it diverge on the
+   * next chewer death. Projected as `:hg` below; its contribution test is `racial/hellspawn.test.ts`.
+   */
+  | 'hellspawnGen'
   /*
    * ⭐ S188 (CORPSE EATER) — the zombie boss's feed deadline and leash centre. HASHED: together they
    * decide whether the fan-out drives him at all, whom he bites and where he may stand, so a host and
@@ -529,6 +541,10 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `pl${n(id)}:${pl.castleHp},${pl.castleRegenLevel},${pl.raceId},`
         + `${n(pl.eliminatedAtTick ?? null)},${pl.raidPoints},${pl.raidProgress}`
+        // ⭐ S188 P6 — POWER OF RA. A SIM INPUT, not a readout: the wave gates the next cast and the
+        // point + deadline decide where and when five 300-fifth columns land. Field by field, `_`
+        // when never cast, so a host and a mirror that disagree about a strike cannot hash alike.
+        + `,ra${pl.raStrikes.length === 0 ? '_' : pl.raStrikes.map((s) => `${s.wave},${s.x},${s.y},${s.untilTick}`).join(';')}`
         // ⭐ S187 — the drafted upgrades, JOINED IN PICK ORDER. Two peers holding the same
         // picks in a different sequence are a genuine divergence: the list drives a
         // leaderboard row (R113), so the order is observable state, not an implementation
@@ -539,7 +555,10 @@ export function determinismParts(world: World): string[] {
         // next exchange. Projected field by field rather than stringified, so a field added to
         // CastleUpgrades later cannot ride in unnoticed.
         + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
-        + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`,
+        + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
+        // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
+        // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
+        + `,dy${pl.dynastyHpLost}`,
     );
   }
 
@@ -596,6 +615,7 @@ export function determinismParts(world: World): string[] {
         `:ss${n(c.sourceSpawnerId)}` +
         `:ow${n(c.ownerPlayerId)}:sa${o(c.spawnedAtTick)}:da${o(c.despawnAtTick)}` +
         `:kc${o(c.killCount)}:pu${o(c.poopyUntilTick)}:rg${c.enraged === true ? 1 : 0}` +
+        `:ar${c.attackCycleRaged === true ? 1 : 0}` + // S188 F3
         // S169 R152 — the STUN stamp. `o()` renders undefined as the absent marker, so an unstunned
         // board hashes identically to one with the field never introduced.
         `:su${o(c.stunnedUntilTick)}`,
@@ -605,6 +625,8 @@ export function determinismParts(world: World): string[] {
         // S171 R142/R171-A — the Ra ritual deadline. Same `o()` absent-marker treatment, so a board
         // with no Pharaoh mid-ritual hashes identically to one where the field never existed.
         `:rr${o(c.raRitualUntilTick)}`,
+        // S188 demons.l5 — the HELLSPAWN generation. Absent marker for every ordinary creature.
+        `:hg${o(c.hellspawnGen)}`,
         // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
     );

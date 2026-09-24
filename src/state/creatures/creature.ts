@@ -121,6 +121,33 @@ export function rageMultiplier(c: Pick<Creature, 'enraged'>): number {
 }
 
 /**
+ * ⛔⛔ S188 — **THE FIRE TICK SCALES WITH THE CADENCE, OR AN ENRAGED CREATURE NEVER HITS ANYTHING.**
+ *
+ * Rage halved `attackCadenceTicks` (60 → 30) and left `attackFireTick` at 30. The FSM leaves
+ * ATTACKING the moment `ticksInState` reaches the halved cadence, which is BEFORE `hostTick`'s fire
+ * check reads `ticksInState === attackFireTick` — so from S168 until S188 an enraged Warlord swung
+ * and never landed a single blow (measured: 0 fifths banked on a building in 360 ticks, against 54
+ * calm). BLOOD FRENZY spreads rage to a whole army, which turned that into "the perk makes every orc
+ * stop attacking" — the test `racial/bloodFrenzy.test.ts` that measures banked damage is what found it.
+ *
+ * *"attacks x2 quicker"* halves the whole swing: wind-up AND recovery. Read at the two sim sites that
+ * compare against the fire tick (the `hostTick` fire check, the FSM's `targetGoneEarly`). Floored at 1
+ * for the same reason the cadence is.
+ */
+export function ragedFireTick(fireTick: number, c: Pick<Creature, 'attackCycleRaged'>): number {
+  return Math.max(1, Math.round(fireTick / attackCycleMultiplier(c)));
+}
+
+/**
+ * ⭐ S188 (fix round F3) — the rage multiplier of the CURRENT ATTACKING CYCLE: the latch
+ * `attackCycleRaged` took on the cycle's first tick, not the live bit. Read by the cycle's cadence
+ * and fire tick (`creatureLifecycle`, `hostTick`); movement still reads the live `rageMultiplier`.
+ */
+export function attackCycleMultiplier(c: Pick<Creature, 'attackCycleRaged'>): number {
+  return c.attackCycleRaged === true ? WARLORD_RAGE_MULTIPLIER : 1;
+}
+
+/**
  * ⭐⭐ S169 (owner R152) — **IS THIS CREATURE STUNNED RIGHT NOW?** The ONE read of `stunnedUntilTick`.
  *
  * Owner: *"the player is stuck on idle and cant do anything ... it has to be consistent and coherent
@@ -604,6 +631,20 @@ export interface Creature {
    */
   enraged?: boolean;
   /**
+   * ⭐ S188 (fix round F3) — **THE RAGE THIS ATTACKING CYCLE RUNS AT, LATCHED ON ITS FIRST TICK.**
+   *
+   * Cadence and fire tick used to be re-derived from the LIVE `enraged` bit every tick, so a rage
+   * change in the middle of a swing broke one-blow-per-cycle: rage → calm after the raged fire tick
+   * (15) fired AGAIN at the calm one (30), and calm → rage after tick 15 skipped both fire ticks and
+   * lost the blow. BLOOD FRENZY makes those transitions routine for a whole army. The FSM now latches
+   * `enraged` here when a cycle starts (`ticksInState === 1`) and the cycle's cadence and fire tick
+   * read THIS, so a mid-swing change takes effect from the next cycle.
+   *
+   * ⚠ SERIALIZED AND HASHED (a sim input on both peers), ADDITIVE-OPTIONAL: emitted only when true,
+   * so a board with nothing raging stays byte-identical. `undefined` and `false` mean the same thing.
+   */
+  attackCycleRaged?: boolean;
+  /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.
    *
@@ -753,6 +794,25 @@ export interface Creature {
    * Mutable; defaults undefined (no factory change).
    */
   raRitualUntilTick?: number;
+  /**
+   * ⭐⭐ S188 (owner) — **HELLSPAWN: WHICH GENERATION OF A SPLIT PENCIL CHEWER THIS IS.** Absent = an
+   * ordinary chewer (generation 0).
+   *
+   * > *"when a pencil chewer dies, it spawns two more pencil chewers with half the stats in each. So
+   * > 50% and 50% of the main one. And when those die, each one of those spawn two more with 25%
+   * > stats each."* — owner, S187 (`demons.l5`, `racial/hellspawn.ts`)
+   *
+   * `1` = a child at 50 %, `2` = a grandchild at 25 %, and a generation-2 death spawns NOTHING — the
+   * field is what makes the chain terminate (Council A2). It also carries the STRIKE: a child's hit is
+   * derived from its generation at strike time (`hellspawnStrikeFifths`), because a creature's damage
+   * is rebuilt from its TYPE's config and a split chewer is still a `'chewer'`. Its POOL rides the
+   * existing `maxEhp` (S187), so it needs no second pool field.
+   *
+   * ⛔ SERIALIZED AND HASHED — all four sites (`CreatureHashed` + the `:hg` projection + the per-field
+   * test + the save/wire round-trip the worker INIT rides). A mirror that lost it would split a
+   * grandchild again and hit for the full chewer strike. Additive-optional, emitted only when set.
+   */
+  hellspawnGen?: 1 | 2;
   /*
    * ⭐⭐ S188 (owner, zombies level 5 — CORPSE EATER) — **THE FEED DEADLINE: THE TICK THE ZOMBIE BOSS
    * STOPS EATING.** *"once he reaches 20% HP, he starts eating everyone around him … for like eight

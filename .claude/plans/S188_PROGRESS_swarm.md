@@ -63,3 +63,22 @@ typecheck 0 · vitest 0 (5701 / 347) · build 0 (925.8 KiB, cap 1000). "Fix ONLY
 **PART A gates at `4f05496` (captured `$?`):** typecheck 0 · vitest 0 (**5712 / 348**, +11 tests / +1 file over the baseline) · build 0 (**926.0 KiB**, cap 1000, headroom 74.0 — +0.2 KiB over the branch baseline). No e2e (brief).
 
 **PART B (waits for the merge owner's "wrath is on master"):** `git merge master`; racialPerks.ts / .test.ts union (14 perks, both L10 rows, one `perkDraftIndex`); master's `draftOverlay.test.ts` four reds (:175, :270 count, :283, :624); the card script (add/add) and MANIFEST (both modified) → this branch's version; `atlasFallbackType` union with s189/render if it has landed.
+
+## S190 PART B — `git merge s188/wrath` (beb7517, which carries master 5934d3b = train A)
+
+Merge owner's change of plan: merge the local wrath tip now, do not wait for master.
+
+| conflict | resolution |
+|---|---|
+| `scripts/build-upgrade-cards.py` (add/add) | OURS — wrath's blob = master 5934d3b's (`a9d6ac5`), and ours is exactly that + `l10-vampires` in CARDS + docstring. CARDS keeps `l10-mummies` AND `l10-vampires` |
+| `assets-source/upgrade-cards/MANIFEST.md` | OURS — wrath's blob = master's (`1a21511`); ours is master's + the l10-vampires edits |
+| `src/state/racialPerks.ts` | the **14-perk union**: `RACIAL_PERK_IDS` ends `'mummies.l10', 'vampires.l10'`; ONE `perkDraftIndex` (this branch's, `LEVELS_PER_DRAFT`; wrath's `lastIndexOf`/5 body is equivalent on every id and is noted, not kept). Stale "Thirteen / the one level-10 perk / only row three long / 17 slots" comments → fourteen / two / vampire + mummy rows / 16 |
+| `src/state/racialPerks.test.ts` | registry test → 14 ids, vampires AND mummies rows three long; the offer test keeps wrath's `RACIAL_PERK_REQUIRES` loop + this branch's `race !== 'vampires'` exemption on the index-2 null (mummies is null there with no picks — requirement unmet) |
+| `src/render/draftOverlay.test.ts` (no textual conflict — semantic) | the four level-10 tests re-pinned to BOTH perks: :175 real offer (vampires → THE SWARM, mummies → WRATH only with POWER OF RA, others COMING SOON); cards-on-disk count (derived, now 18) + `toContain('l10-vampires')`; "ships nothing else" now REQUIRES both l10 cards and no `-alt`; :624 production COMING SOON uses an ORC seat, plus a new production test: a vampire seat gets a choosable THE SWARM tile, fetches `l10-vampires`, click sends `'racial'` |
+| `atlasFallbackType` | untouched (s189/render is not on master) |
+
+Gates on the merged tree (captured `$?`): typecheck 0 · vitest **1** (6309 / 6311 — the 2 reds below, both `src/canon.test.ts`, merge owner's) · build 0 (**952.6 KiB**, cap 1100; wrath alone 951.6).
+
+⛔ REDS LEFT FOR THE MERGE OWNER (never edited here — canon rule):
+1. `src/canon.test.ts:415` §3d/§3e registry — wants SPARK_CANON §3e rows for all 14 titles; missing **THE SWARM** and **WRATH OF RA**.
+2. `src/canon.test.ts:476` §3d offer — `pickIsOffered(vampires seat, wave 11, 'racial')` pinned `false` ("level 10+: COMING SOON"); it is `true` now (THE SWARM). ⚠ Re-pinning it exposes **:481** next: `autoPickFor(vampires, 11)` is now `'racial'`, not `generalPickForWave(11)`. Suggested re-pin: vampires true / `'racial'`, and a race with no level-10 perk (e.g. orcs) false / general; the canon sentence "`pickIsOffered` admits exactly two things" stays true.

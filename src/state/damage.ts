@@ -49,6 +49,10 @@ import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
+import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — mummies.l5
+// ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
+// actually LANDED, so a tower swing or a blow into a channelling Pharaoh heals nothing.
+import { applyLifesteal } from './racial/lifesteal.ts';
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -191,7 +195,12 @@ export function damageEntity(
      * hit, so a high DEF cannot make a keep immune to small attackers.
      */
     const taken = castleDamageAfterDefence(amount, seat.castleUpgrades);
+    const hpBefore = seat.castleHp;
     seat.castleHp = Math.max(0, seat.castleHp - taken);
+    // ⭐ S188 — ENDLESS DYNASTY counts what the keep ACTUALLY lost: after DEF, and after the clamp, so
+    // a killing blow's overkill is not a loss. A no-op for every seat without `mummies.l5`.
+    accrueDynastyLoss(world, target.seat, hpBefore - seat.castleHp);
+    applyLifesteal(world, attacker, amount); // S188 — of the swing, before the keep's DEF
     return seat.castleHp === 0;
   }
   if (amount === 0) return false;
@@ -202,7 +211,19 @@ export function damageEntity(
       // ⭐ S155 N1 — pass the host tick's one-tick deferral set THROUGH, so a mutual melee exchange
       // resolves simultaneously instead of being decided by `creatures` iteration order. `null`
       // outside that batch ⇒ immediate deletion, exactly as before, for every other damage source.
-      const died = damageCreature(world, target.id, amount, world.pendingCreatureDeaths ?? undefined);
+      // ⭐ S188 — `damageCreature` returns only "died", so whether the blow LANDED is read off the
+      // pool: a missing victim, a corpse already awaiting the sweep, and a channelling Pharaoh
+      // (damage passes straight through him) all leave it unchanged and heal nothing (BLOOD DEBT).
+      // ⭐ S188 — and the killer's id rides along, read only at the death decision (THE RISEN).
+      const victim = world.creatures.get(target.id);
+      const before = victim?.ehp ?? 0;
+      const died = damageCreature(
+        world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
+        attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
+      );
+      if (victim !== undefined && before > 0 && victim.ehp !== before) {
+        applyLifesteal(world, attacker, amount);
+      }
       /*
        * ⭐⭐ S183 (owner R183-A…D) — **THE VICTIM TURNS ON ITS ATTACKER.** One call, at the one
        * funnel every creature hit passes through, so no strike path can implement the ruling
@@ -231,6 +252,7 @@ export function damageEntity(
        */
       if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
       prim.hp -= amount;
+      applyLifesteal(world, attacker, amount); // S188
       if (prim.hp > 0) return false;
       // ⭐⭐ S182 — THE SWING THAT KILLED IT, recorded before the remainder is lost. The renderer's
       // vanish sweep can only see what the shape had LEFT; the overkill is discarded on the line
@@ -270,6 +292,7 @@ export function damageEntity(
       const cloud = world.stinkClouds.get(target.id);
       if (cloud === undefined) return false;
       cloud.ehp -= amount;
+      applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
       if (cloud.ehp > 0) return false;
       // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
       world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
@@ -301,6 +324,7 @@ export function damageEntity(
       const d = world.defenders.get(target.id);
       if (d === undefined || d.ehp === null) return false;
       d.ehp -= amount;
+      applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
         /*
          * ⭐ S183 (owner R183-C) — **HELGA RETARGETS WHOEVER IS TARGETING HER**, and only while she
@@ -379,10 +403,21 @@ export function damageEntity(
  * connectors then it also scales down in defense and will be easier to keep beating down"* — and it
  * is surfaced on the NEXT hit rather than swept: this function re-reads capacity every call.
  *
+ * ⭐ S188 — **`attacker` IS REQUIRED, FOR THE REASON `damageEntity`'s IS.** BLOOD DEBT heals a unit
+ * for every hit it lands, and chewing a tower is what most units spend a match doing — so a
+ * lifesteal wired only into `damageEntity` would heal nothing for the commonest hit in the game.
+ * Required rather than optional so `tsc` enumerated all four call sites and each had to answer;
+ * `damageConnector.callSites.test.ts` pins the answers.
+ *
  * @returns `true` when accumulated damage has reached capacity and the caller must dispatch
  *          `SEVER_BOND`; `false` while the connector still holds (or the bond is already gone).
  */
-export function damageConnector(world: World, bondId: BondId, amountFifths: number): boolean {
+export function damageConnector(
+  world: World,
+  bondId: BondId,
+  amountFifths: number,
+  attacker: DamageAttacker,
+): boolean {
   if (!Number.isInteger(amountFifths) || amountFifths < 0) {
     throw new Error(
       `damageConnector: amount must be a non-negative INTEGER number of FIFTHS, got ${amountFifths}. ` +
@@ -394,6 +429,8 @@ export function damageConnector(world: World, bondId: BondId, amountFifths: numb
   if (amountFifths === 0) return false;
 
   bond.damageFifths += amountFifths;
+  // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
+  applyLifesteal(world, attacker, amountFifths);
 
   // The pool is a function of the component this bond is CURRENTLY part of, so it is read fresh on
   // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure

@@ -108,7 +108,9 @@ export function seatMustStillPick(world: World, seat: PlayerId, waveNumber: numb
  */
 export function autoPickFor(world: World, seat: PlayerId, waveNumber: number): DraftPick {
   const pl = world.players.get(seat);
-  if (pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber)) !== null) {
+  // ⭐ S188 P11 — the SEAT's picks, so a conditional perk (WRATH OF RA needs POWER OF RA) is taken
+  // only by a seat that is offered it.
+  if (pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber), pl.draftPicks) !== null) {
     return 'racial';
   }
   return generalPickForWave(waveNumber);
@@ -125,7 +127,7 @@ export function pickIsOffered(world: World, seat: PlayerId, waveNumber: number, 
   if (pick === generalPickForWave(waveNumber)) return true;
   if (pick !== 'racial') return false;
   const pl = world.players.get(seat);
-  return pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber)) !== null;
+  return pl !== undefined && racialPerkFor(pl.raceId, draftIndexForWave(waveNumber), pl.draftPicks) !== null;
 }
 
 /**
@@ -219,10 +221,15 @@ export function tickDraft(world: World): void {
 export function draftOptionsFor(
   waveNumber: number,
   race: RaceId,
+  /**
+   * ⭐ S188 P11 — the seat's picks so far. Needed for a CONDITIONAL perk (WRATH OF RA is offered
+   * only to a seat holding POWER OF RA); omitted, such a perk shows as COMING SOON.
+   */
+  picks?: readonly DraftPick[],
 ): { readonly general: GeneralPick; readonly racial: RacialPerkId | null } {
   return {
     general: generalPickForWave(waveNumber),
-    racial: racialPerkFor(race, draftIndexForWave(waveNumber)),
+    racial: racialPerkFor(race, draftIndexForWave(waveNumber), picks),
   };
 }
 
