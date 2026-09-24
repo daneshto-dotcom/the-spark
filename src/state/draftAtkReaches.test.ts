@@ -20,7 +20,10 @@ import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
 import { characterSheetModel } from '../render/characterSheetModel.ts';
 import { asPlayerId, asSpawnerId, type CreatureId, type PlayerId } from '../types.ts';
-import { creatureMaxEhp, type CreatureType } from './creatures/creature.ts';
+import { creatureAttackFifths, creatureMaxEhp, makeCreature, type CreatureType } from './creatures/creature.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
+import { hashWorldStateFull } from './stateHashFull.ts';
 import { sweepDeferredDeaths } from './creatures/creatureLifecycle.ts';
 import { damageEntity } from './damage.ts';
 import { draftedAttackFifths, draftedPoolFifths, type DraftPick } from './draft.ts';
@@ -165,5 +168,96 @@ describe('⛔ THE CARD — the derived numbers are the creature’s, not its typ
     expect(r.barMax).toBe(2); // … and the health bar already says so
     expect.soft(r.hp).toBe('2 pool'); // master prints the TYPE's "5 pool"
     expect.soft(r.atk).toBe('3 a swing'); // master prints the TYPE's "7 a swing"
+  });
+});
+
+describe('the FOUR SITES of Creature.atkFifths — factory, save/wire, hash, worker INIT', () => {
+  const PEN_TOO: DraftPick[] = ['hp', 'def', 'atk', 'pen']; // both damage picks: 6 → 7 → 8
+
+  it('FACTORY: baked only when a damage pick moved it; the accessor reads it, else the type', () => {
+    const cfg = getCreatureConfig('raceUnit');
+    const base = attackFifths(cfg.atk, cfg.pen);
+    const args = {
+      id: 1 as unknown as CreatureId, ownerPlayerId: P0, pos: { x: 0, y: 0 }, targetPos: { x: 0, y: 0 },
+      spawnedAtTick: 0,
+    };
+    const none = makeCreature(cfg, { ...args });
+    const empty = makeCreature(cfg, { ...args, draftPicks: [] });
+    const poolOnly = makeCreature(cfg, { ...args, draftPicks: ['hp', 'def'] });
+    const one = makeCreature(cfg, { ...args, draftPicks: THREE_DRAFTS });
+    const two = makeCreature(cfg, { ...args, draftPicks: PEN_TOO });
+    for (const c of [none, empty, poolOnly]) {
+      expect('atkFifths' in c).toBe(false);
+      expect(creatureAttackFifths(c)).toBe(base);
+    }
+    expect(one.atkFifths).toBe(draftedAttackFifths(cfg.atk, cfg.pen, THREE_DRAFTS));
+    expect(two.atkFifths).toBe(draftedAttackFifths(cfg.atk, cfg.pen, PEN_TOO));
+    expect([base, one.atkFifths, two.atkFifths]).toEqual([6, 7, 8]);
+    expect(creatureAttackFifths(two)).toBe(8);
+    // ⚠ a PEN pick and an ATK pick move the SAME number — the ladder has only two derived values
+    // (`draft.ts` isPoolPick / isDamagePick), so ['pen'] alone is 7 exactly as ['atk'] is.
+    expect(makeCreature(cfg, { ...args, draftPicks: ['pen'] }).atkFifths).toBe(7);
+  });
+
+  it('HASH (contribution): the field moves the wide oracle, and two values hash differently', () => {
+    const w = fightWorld(THREE_DRAFTS);
+    const id = spawnAt(w, P0, 'raceUnit', 400, 400);
+    const c = w.creatures.get(id)!;
+    expect(c.atkFifths).toBe(7);
+    const seven = hashWorldStateFull(w);
+    c.atkFifths = 8;
+    const eight = hashWorldStateFull(w);
+    delete c.atkFifths;
+    const absent = hashWorldStateFull(w);
+    expect(eight).not.toBe(seven);
+    expect(absent).not.toBe(seven);
+    expect(absent).not.toBe(eight);
+  });
+
+  it('SAVE: survives snapshot → restore (the worker INIT and a host-migration successor)', () => {
+    const w = fightWorld(PEN_TOO);
+    const id = spawnAt(w, P0, 'raceUnit', 400, 400);
+    const dst = makeWorld(1);
+    restore(JSON.parse(JSON.stringify(snapshot(w))), dst);
+    expect(dst.creatures.get(id)!.atkFifths).toBe(8);
+    expect(creatureAttackFifths(dst.creatures.get(id)!)).toBe(8);
+    expect(hashWorldStateFull(dst)).toBe(hashWorldStateFull(w));
+  });
+
+  it('WIRE: survives netSnapshot → applyNetSnapshot — the mirror trim does not strip it', () => {
+    const w = fightWorld(THREE_DRAFTS);
+    const id = spawnAt(w, P0, 'raceUnit', 400, 400);
+    const dst = makeWorld(1);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(w))), dst);
+    expect(dst.creatures.get(id)!.atkFifths).toBe(7);
+  });
+
+  it('WIRE: a bogus value is DROPPED, never trusted — it reads as the type’s own strike', () => {
+    for (const bogus of [0, -7, 2.5, '7', null, Number.NaN]) {
+      const w = fightWorld(THREE_DRAFTS);
+      const id = spawnAt(w, P0, 'raceUnit', 400, 400);
+      for (const which of ['net', 'save'] as const) {
+        const snap = JSON.parse(JSON.stringify(which === 'net' ? netSnapshot(w) : snapshot(w)));
+        snap.creatures.find((x: { id: number }) => x.id === (id as unknown as number)).atkFifths = bogus;
+        const dst = makeWorld(1);
+        if (which === 'net') applyNetSnapshot(snap, dst);
+        else restore(snap, dst);
+        const c = dst.creatures.get(id)!;
+        expect(c.atkFifths, `${which} ${String(bogus)}`).toBeUndefined();
+        expect(creatureAttackFifths(c)).toBe(6);
+      }
+    }
+  });
+
+  it('negative: an undrafted board carries no field — save and wire are byte-identical to before', () => {
+    const w = fightWorld([]);
+    spawnAt(w, P0, 'raceUnit', 400, 400);
+    spawnAt(w, P1, 'chewer', 500, 400);
+    // A pool-only seat too: S187's field rides, this one does not.
+    w.players.get(P1)!.draftPicks = ['hp', 'def'];
+    spawnAt(w, P1, 'raceUnit', 600, 400);
+    expect(JSON.stringify(snapshot(w))).not.toContain('atkFifths');
+    expect(JSON.stringify(netSnapshot(w))).not.toContain('atkFifths');
+    for (const c of w.creatures.values()) expect('atkFifths' in c).toBe(false);
   });
 });
