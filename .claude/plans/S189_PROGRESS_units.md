@@ -15,8 +15,9 @@ Order: C3 → C8 → C10 → LOWs, one commit each. Never push. Never touch PROT
 | C10 · Kraken sonar short knockback + stun | done | 37929de |
 | LOW a · corpse-eater bite latch | done | e594e88 |
 | LOW b · castle regen of effective max | done | 7c1036c |
-| LOW c · serialized nextCreatureId | done | (this commit) |
-| LOW d · spawn-queue gap outside runHostTick | next | |
+| LOW c · serialized nextCreatureId | done | a026902 |
+| LOW d · spawn-queue gap outside runHostTick | done | (this commit) |
+| final gates | done — tsc 0 · vitest 0 (6029 / 373) · build 0 (945.1 / 1100 KiB, +0.9 KiB) | (this commit) |
 
 ## C3 — what was measured (the merge owner should read this before merging)
 
@@ -167,7 +168,9 @@ now held in integer TENTHS (`8 + 2·L`, derived from the two constants) with one
 at 2,500 every level was exact, but at 2,750 level 5 is 49.5 and a float product is not guaranteed
 to land on the half.
 
-⚠ **BALANCE CONSEQUENCE (flagged in the canon notes):** buying HP now buys regen too — one wave-1
+⭐ **OWNER RULING R190-C (relayed by the merge owner after this commit): this IS his rule** — *"your
+regen is based on the current health … upgraded total."* Canon notes updated to cite it as his, not
+mine. Consequence: buying HP buys regen too — one wave-1
 HP point at regen level 1 is 28 HP/s instead of 25; at level 5, 50 instead of 45.
 
 **Tests:** `src/state/castleRegenEffectiveMax.test.ts` (4) — arithmetic (base ladder unchanged with and
@@ -212,9 +215,56 @@ mints; an old client ignores the key; an old successor re-derives (the old behav
 builds disagree about anything either computes. ⚠ The merge owner may still fold it into a train's
 bump docblock as a documented wire addition.
 
-## In flight
+## LOW (d) — the racial spawn queue drains at the boundary a save lands on
 
-LOW d — the racial spawn queue's out-of-tick gap (`racial/racialTick.ts`).
+**The spawn queue** is S188's `queueAfterStrike` / `drainRacialSpawnQueue` (Council A5): a
+module-level `WeakMap<World, closures>`, never serialized, documented as *"empty at every tick
+boundary by construction"*. **False for two producers:**
+- OUTSIDE `runHostTick`: the host applies a remote INTENT with `dispatch` on arrival
+  (`hostHandlers.ts` / main's `applyRemoteIntentAuthoritatively`, the worker's posted intents, and
+  the host's own local actions). A `RAID_TARGET` that kills a demons.l5 seat's chewer queues
+  HELLSPAWN's two children, which waited for the next tick's drain;
+- INSIDE `runHostTick` but AFTER its post-sweep drain: the bots act after it.
+
+A save in the gap is reachable: a NetSnapshot on a render frame that ran zero ticks (any display
+above 60 Hz), the `?worker=1` adoption INIT (`snapshot()`), a migration successor's last snapshot.
+Measured by the mutation: the save held the dead parent and **no** children (the split was lost),
+and a `restore()` of an older save into the SAME world kept the stale closure — the next tick
+spawned two phantom children of a live parent (**3** chewers where 1 stands).
+
+**Fix — "drain at the boundary", closure API unchanged** (so the unmerged S188 racial branches that
+call `queueAfterStrike(world, () => …)` keep compiling):
+- `src/state/racial/spawnQueue.ts` (NEW leaf module, type-only imports): the queue moved here,
+  plus an in-host-tick window (`beginHostTickSpawnWindow` / `endHostTickSpawnWindow` — the latter a
+  FINAL drain), a re-entrancy guard, and `drainRacialSpawnQueueOutsideHostTick`;
+- `racialTick.ts`: its queue body replaced by a re-export of the same three names; the false
+  docblock paragraph corrected; the slot lines untouched;
+- `hostTick.ts`: `beginHostTickSpawnWindow(world)` as `runHostTick`'s first line,
+  `endHostTickSpawnWindow(world)` as its last (no early returns in the function — checked);
+- `world.ts`: `dispatch` is now a thin wrapper (depth counter, `try/finally`) around the renamed
+  `dispatchReducer`; a TOP-LEVEL dispatch that returns outside a host tick drains. Inside the tick
+  the hook is silent, so the strike batch keeps A5's post-sweep ordering exactly.
+
+⚠ Semantics that moved (deterministic, same in live play and in any replay of the same actions): an
+out-of-tick RAID's HELLSPAWN children are born at the raid, not after the next tick's sweep; a bot's
+are born at the end of its own tick. In-batch spawns are unchanged.
+
+**Tests:** `src/state/racial/spawnQueueBoundary.test.ts` (5) — REACH with a save mid-gap (production
+intent path: `dispatch(RAID_TARGET)` between ticks, then `snapshot` → a fresh world holds both
+children); REACH same-world restore (no phantom split); negative (inside a window a top-level
+dispatch does NOT drain; the window end does); control (outside, FIFO, once); invariant (every real
+host tick in a raiding fight ends with 0 queued). ⭐ MUTATION-TESTED (hook dropped → 3 red:
+"expected 1 to be +0", "expected 3 to be 1", "expected [] to deeply equal [1,2]"); restored
+byte-identical.
+
+Gates: **tsc 0 · vitest 0 — 6029 / 373 · build 0 — 945.1 / 1100 KiB** (base 944.2 → +0.9 KiB).
+
+Protocol: **no bump.** Nothing new is serialized; the queue stays off the wire. The rule moved is
+host-only (only the host kills a chewer by RAID and spawns; clients never drain).
+
+⚠ **For the merge owner:** `world.ts` is not on the hotspot list but is central, and this adds a
+wrapper around `dispatch`. Any branch that edits the `export function dispatch(` line itself will
+conflict textually (the body is untouched).
 
 ## Decisions
 
@@ -247,10 +297,14 @@ No change to `stateHashFull.ts` (already hashed), `worldTypes.ts` (field exists)
 - LOW c: NEW additive-optional wire/save field `nextCreatureId?` (emitted only when the live-id
   derivation would under-state it); already in the wide hash; no bump owed (additive-optional,
   host-only minting).
+- LOW d: nothing serialized; host-only drain timing; no bump.
 
 ## Creature-birth touches (s188/draft-atk merges after this branch)
 
-(none yet)
+**None.** No edit to `makeCreature`, `makeVoltkinCreature` or `applySpawnCreature`. Nearest touches:
+`applySnapshotCore`'s counter block (LOW c, after the creature rehydrate loop) and the racial spawn
+queue's drain timing (LOW d, `spawnQueue.ts` / `dispatch` wrapper) — neither changes how a creature
+is built.
 
 ## Failed commands and their verdicts
 

@@ -138,6 +138,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
@@ -349,6 +350,9 @@ export function makeHostTickState(world: World): HostTickState {
  *     manually otherwise — byte-identical to the pre-S119 inline paths).
  */
 export function runHostTick(world: World, deps: HostTickDeps, state: HostTickState): void {
+  // ⭐ S189 (LOW d) — the racial spawn queue's window: inside it `dispatch`'s out-of-tick drain stays
+  // silent (the strike batch keeps its post-sweep order); the matching FINAL drain is the last line.
+  beginHostTickSpawnWindow(world);
   if (world.gameState === 'PLAYING') {
     stepPhysics(world, deps.spawner, deps.controls);
   } else {
@@ -2385,4 +2389,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     }
     state.invariantSnap = snapshotInvariants(world.primitives);
   }
+  // ⭐ S189 (LOW d) — nothing queued survives the tick (the bots act after the post-sweep drain), so a
+  // save between ticks can never land on queued work. See `racial/spawnQueue.ts`.
+  endHostTickSpawnWindow(world);
 }

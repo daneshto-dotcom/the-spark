@@ -55,15 +55,29 @@ not the "body-length and a half" its docblock claimed. ⚠ `BOSS_STATS_TABLE.md:
 Suggested assertions: `KRAKEN_SONAR_KNOCKBACK_PX === 2 * GOBLIN_ATTACK_RANGE` and `=== 70`;
 `KRAKEN_SONAR_STUN_TICKS === 120`.
 
-## LOW (b) — CASTLE REGEN IS A PERCENT OF THE SEAT'S OWN MAX (suggested for §3, beside the regen row)
+## LOW (b) — CASTLE REGEN IS A PERCENT OF THE SEAT'S UPGRADED MAX — ⭐ OWNER RULING R190-C
 
-R128 is *"+1% hp reg"* — a percent of MAX, and since S187 max is `CASTLE_MAX_HP + hpBonus`
-(`castleMaxHpFor`). The RATE now reads that too (`castleRegenPerSecond(level, maxHp)`), not only
-the ceiling. ⚠ **BALANCE CONSEQUENCE HE DID NOT ASK FOR OUT LOUD** — the same shape as the S181
-note on the pool raise: buying castle HP now also buys regen. One wave-1 HP point (2,750) at level 1
-is **28 HP/s** (was 25); at level 5, **50** (was 45). The un-upgraded ladder is unchanged:
-**25/30/35/40/45**. Integer arithmetic (tenths of a percent, one half-up division). One argument
-(`CASTLE_MAX_HP`) reverses it if he wants the flat rate back.
+> *"your regen is based on the current health … upgraded total."* — owner, S189/S190 (relayed by the
+> merge owner as ruling **R190-C**)
+
+⭐ **HIS RULING, NOT MINE.** Castle regen is a percent of the UPGRADED total — `CASTLE_MAX_HP + hpBonus`
+(`castleMaxHpFor`) — for the RATE as well as the ceiling (`castleRegenPerSecond(level, maxHp)`).
+R128 gave the percentages (1.0 … 1.8 % of max per level); R190-C settles that "max" is the
+upgraded pool. So buying castle HP also buys regen, by his ruling: one wave-1 HP point (2,750) at
+level 1 is **28 HP/s** (was 25); at level 5, **50** (was 45). The un-upgraded ladder is unchanged:
+**25/30/35/40/45**. Integer arithmetic (tenths of a percent, one half-up division).
+
+⚠ Stale text for the merge owner to update (not edited here — "no other change" to this branch):
+the docblock above `castleRegenPerSecond` in `src/state/castleRegen.ts` still calls this *"a balance
+consequence nobody asked for out loud"*; it should cite R190-C.
 
 Suggested assertions: `castleRegenPerSecond(1, 2750) === 28`, `castleRegenPerSecond(5, 2750) === 50`,
 and the existing 25/30/35/40/45 line unchanged.
+
+## LOW (d) — THE RACIAL SPAWN QUEUE IS EMPTY WHEREVER A SAVE CAN LAND (suggested for the racials section)
+
+S188's queue (Council A5) is born after the strike batch's sweep, as ruled. ⛔ It was NOT empty at
+every save: a RAID applied between ticks (or a bot acting after the post-sweep drain) left HELLSPAWN's
+split queued, and a save in the gap lost it. Since S189 a top-level `dispatch` outside `runHostTick`
+drains the queue on exit, and `runHostTick` ends with a final drain — in-batch ordering unchanged.
+Pinned by `spawnQueueBoundary.test.ts` (mutation-tested). No constant; no wire change.
