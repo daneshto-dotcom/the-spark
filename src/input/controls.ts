@@ -79,6 +79,14 @@ import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // rule that this layer must not import Pixi still holds.
 import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { noteRaCastSent, raAimPreview, raLocalCastRefusal, setRaAimPreview } from '../render/raAimPreview.ts';
+// ⭐ S191 — SCORCHED EARTH's aim context: Pixi-free, like Ra's, so the no-Pixi rule still holds.
+import {
+  noteScorchedEarthCastSent,
+  scorchedEarthAim,
+  scorchedEarthLocalRefusal,
+  setScorchedEarthAim,
+  zoneSeatAt,
+} from '../render/scorchedEarthAim.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -102,6 +110,8 @@ export interface FooterBandLike {
   toggleCollapsed?(): boolean;
   /** ⭐ S188 P6 — the POWER OF RA skill button. Optional for the same reason as the tab above. */
   isOverRaButton?(x: number, y: number): boolean;
+  /** ⭐ S191 — the SCORCHED EARTH skill square. Optional for the same reason as the Ra button above. */
+  isOverScorchedEarthButton?(x: number, y: number): boolean;
   isOverChip(x: number, y: number): boolean;
   /** S182 — `isOverChip` OR any opaque readout the band draws. See `isPointerOverFooterSurface`. */
   isOverBandSurface(x: number, y: number): boolean;
@@ -584,6 +594,11 @@ export class Controls {
       this.toggleRaAim();
       return true;
     }
+    // ⭐ S191 — THE SCORCHED EARTH SQUARE: the same press-to-aim / press-again-to-put-away.
+    if (this.footerBand.isOverScorchedEarthButton?.(this.cursor.x, this.cursor.y) === true) {
+      this.toggleScorchedEarthAim();
+      return true;
+    }
 
     // ⭐ S149 P5 — A TOWER CARD IS CHECKED FIRST. The open menu floats ABOVE the chips, so testing
     // chips first would let a card click fall through to the bar behind it and merely toggle the
@@ -602,6 +617,7 @@ export class Controls {
       void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
       if (this.footerBand.cardEnabled(card)) {
         setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
+        setScorchedEarthAim(null); // ⭐ S191 — and the Scorched Earth aim, for the same reason
         this.castlePanel?.armExternal(card);
         this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
       } else {
@@ -687,6 +703,65 @@ export class Controls {
     noteRaCastSent(this.world, this.playerId);
     this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
     setRaAimPreview(null);
+    void playUiClickSFX();
+    return true;
+  }
+
+  /**
+   * ⭐⭐ S191 (owner item 1b, `demons.l0`) — **THE SCORCHED EARTH GESTURE.**
+   *
+   * > *"a scorched earth ability button that you click on and then you can click on any quadrant of the
+   * > enemy there's going to be like a cool preview when you mouse over it like shows you it turning
+   * > red"* — owner, S191
+   *
+   * POWER OF RA's gesture, gate for gate: press the square → AIMING (the zone under the cursor turns
+   * red, `zoneBackgroundRenderer.ts`); the next board click scorches THAT zone; RMB or Escape puts it
+   * away; pressing the square again puts it away. Every decision asks the reducer's own predicates —
+   * `scorchedEarthCastRefusal` (via the local wrapper) for "may I", `scorchedEarthTargetZone` (via
+   * `zoneSeatAt`) for "is that a zone" — so the client never sends what the host would refuse for a
+   * reason the client could have seen. The host re-checks all of it regardless.
+   */
+  private toggleScorchedEarthAim(): void {
+    if (scorchedEarthAim() !== null) {
+      setScorchedEarthAim(null);
+      void playUiClickSFX();
+      return;
+    }
+    if (scorchedEarthLocalRefusal(this.world, this.playerId) !== null) {
+      void playUiRefusedSFX(); // a refused control says so — the square's caption names why
+      return;
+    }
+    // One gesture in hand at a time: a held tower and a Ra aim are put back.
+    if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    setRaAimPreview(null);
+    setScorchedEarthAim({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
+    void playUiClickSFX();
+  }
+
+  /** ⭐ S191 — while aiming, the board click is the cast. Returns true when it consumed the click. */
+  private handleScorchedEarthAimClick(button: number): boolean {
+    if (scorchedEarthAim() === null) return false;
+    if (button === 2) {
+      setScorchedEarthAim(null);
+      return true;
+    }
+    if (button !== 0) return false;
+    // Ground the player cannot see is not ground they aimed at: swallow and keep aiming (Ra's rule).
+    if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
+    if (scorchedEarthLocalRefusal(this.world, this.playerId) !== null) {
+      setScorchedEarthAim(null);
+      void playUiRefusedSFX();
+      return true;
+    }
+    const zoneSeat = zoneSeatAt(this.world, this.cursor.x, this.cursor.y);
+    if (zoneSeat === null) {
+      // The quarry, or a fallen seat's land: nothing the host would take. Say so and keep aiming.
+      void playUiRefusedSFX();
+      return true;
+    }
+    noteScorchedEarthCastSent(this.world, this.playerId); // BEFORE the send (Ra's S190 W-4 order)
+    this.dispatchFn({ type: 'CAST_SCORCHED_EARTH', playerId: this.playerId, zoneSeat });
+    setScorchedEarthAim(null);
     void playUiClickSFX();
     return true;
   }
@@ -1135,6 +1210,7 @@ export class Controls {
        */
       if (e.button === 2) {
         if (raAimPreview() !== null) setRaAimPreview(null);
+        else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S191 — the same put-it-back
         else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
       }
       return;
@@ -1170,6 +1246,8 @@ export class Controls {
     // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
     // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
     if (this.handleRaAimClick(e.button)) return;
+    // ⭐ S191 — an aimed SCORCHED EARTH owns the next BOARD click, in Ra's slot and for Ra's reasons.
+    if (this.handleScorchedEarthAimClick(e.button)) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -1452,6 +1530,9 @@ export class Controls {
     // ⭐ S188 P6 — the Ra aim follows the cursor.
     const aiming = raAimPreview();
     if (aiming !== null) setRaAimPreview({ seat: aiming.seat, x: this.cursor.x, y: this.cursor.y });
+    // ⭐ S191 — and so does the Scorched Earth aim (the zone under it is what turns red).
+    const scorching = scorchedEarthAim();
+    if (scorching !== null) setScorchedEarthAim({ seat: scorching.seat, x: this.cursor.x, y: this.cursor.y });
     this.updateHoverCursor();
   };
 
@@ -1512,7 +1593,9 @@ export class Controls {
     // lines above, never a parallel hit test — see this function's own docblock.
     this.characterSheet?.setHover(lift.x, lift.y);
     // ⭐ S188 P6 — a crosshair over the board while aiming Ra: the next click lands the strike.
-    const want = overUi ? 'pointer' : raAimPreview() !== null ? 'crosshair' : '';
+    // ⭐ S191 — and while aiming SCORCHED EARTH.
+    const aimingSkill = raAimPreview() !== null || scorchedEarthAim() !== null;
+    const want = overUi ? 'pointer' : aimingSkill ? 'crosshair' : '';
     // Write only on CHANGE: assigning style.cursor every pointermove is a layout-thrash source on
     // a canvas that already moves the cursor every frame.
     if (this.lastCursorStyle !== want) {
@@ -1765,6 +1848,18 @@ export class Controls {
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
     if (e.key === 'Escape' && raAimPreview() !== null) {
       setRaAimPreview(null);
+      return;
+    }
+    /*
+     * ⭐ S191 — Escape puts the SCORCHED EARTH aim away, and CONSUMES the key: the s189/net
+     * `consumeCancel` pattern (a cancel is not the first press of `main.ts`'s double-Escape leave).
+     * ⚠ MERGE NOTE: that helper is not on master yet — once s189/net lands, replace the inline guard
+     * with `consumeCancel(e)` and add this cancel to `doubleEscapeLeave.ts`'s consumer list.
+     */
+    if (e.key === 'Escape' && scorchedEarthAim() !== null) {
+      setScorchedEarthAim(null);
+      const ev = e as { preventDefault?: () => void };
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
       return;
     }
     // S144 P3 — Escape puts a held tower down. Checked BEFORE the sudoku guard's sibling checks so

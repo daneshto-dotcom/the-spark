@@ -366,7 +366,8 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     const src = readFileSync(new URL('./footerBand.ts', import.meta.url), 'utf8');
     const i = src.indexOf('isOverBandSurface(x: number, y: number): boolean {');
     expect(i, 'isOverBandSurface must exist').toBeGreaterThan(-1);
-    expect(src.slice(i, i + 300)).toContain('this.isOverCarryBill(x, y)');
+    // S191 — 300 → 420: the SCORCHED EARTH square's line joined Ra's at the top of this body.
+    expect(src.slice(i, i + 420)).toContain('this.isOverCarryBill(x, y)');
     // …and the CONTROL test must stay narrow, or the hover cursor starts lying again.
     const c = src.indexOf('isOverChip(x: number, y: number): boolean {');
     expect(c, 'isOverChip must still exist').toBeGreaterThan(-1);
@@ -398,6 +399,10 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      *   8. the POWER OF RA sun disc → `isOverRaButton` — drawn INSIDE plate 7, same rectangle
      *      (S188 P11: now only the FALLBACK while the skill's picture has not loaded)
      *   9. a WRATH OF RA charge pip → `isOverRaButton` — drawn INSIDE plate 7, same rectangle ← P11
+     *  10. the SCORCHED EARTH plate → `isOverScorchedEarthButton` (via `isOverChip` AND
+     *      `isOverBandSurface`, both collapse states)  ← S191
+     *  11. a SCORCHED EARTH charge pip → `isOverScorchedEarthButton` — INSIDE plate 10, same rectangle
+     *      (drawn only once the charges lever is above one; its flame fallback is STROKED, not filled)
      *
      * ⚠ IF THIS GOES RED, DO NOT BUMP THE NUMBER. A sixth opaque fill means a sixth surface the
      * player cannot see through, and something must hit-test it before this test is updated — that
@@ -408,9 +413,15 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     const fills = src.match(/\.fill\(\{/g) ?? [];
     expect(
       fills.length,
-      `the band now fills ${fills.length} opaque rectangles, not 9 — register the new one in ` +
+      `the band now fills ${fills.length} opaque rectangles, not 11 — register the new one in ` +
         '`isOverChip` (a control) or `isOverBandSurface` (a readout) BEFORE updating this count',
-    ).toBe(9);
+    ).toBe(11);
+    /*
+     * ⭐ S191 — 9 → 11, the rule followed: both are the SCORCHED EARTH square (its plate, and its pip,
+     * drawn inside that plate), hit-tested by `isOverScorchedEarthButton`, which `isOverChip` and
+     * `isOverBandSurface` both ask in BOTH collapse states. Behavioural proof of the rectangle, and of
+     * its compact form, is in `controls.scorchedEarth.test.ts`.
+     */
     /*
      * ⭐ S188 P6 — 6 → 8, and again the rule was followed: both new fills are the POWER OF RA
      * button (its plate, and the sun disc drawn inside that plate), hit-tested by `isOverRaButton`,
@@ -430,7 +441,7 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      * fill before any of that was written, which is exactly what it is for.
      */
     // Anti-vacuity: every hit-test that pairs with them must still be named in this file.
-    for (const fn of ['chipAt(', 'paletteAt(', 'queueChipAt(', 'cardAt(', 'isOverCarryBill(', 'isOverCollapseTab(', 'isOverRaButton(']) {
+    for (const fn of ['chipAt(', 'paletteAt(', 'queueChipAt(', 'cardAt(', 'isOverCarryBill(', 'isOverCollapseTab(', 'isOverRaButton(', 'isOverScorchedEarthButton(']) {
       expect(src, `${fn} is what makes one of those five fills clickable-or-blocking`).toContain(fn);
     }
   });

@@ -64,11 +64,26 @@ root cause, the table in the final report.
   connector → 2 red. Re-pinned: `damage.callSites` 15→17 (null 7→9), `damageConnector.callSites` 5→6,
   `creatureMaxPool.guard` SANCTIONED + scorchedGround.ts (the stink bag's pool — not a creature).
 
+- **1b-UI** — the square (`footerBand.ts`: `layoutScorchedEarthButton` = Ra's slot geometry, a
+  compact square beside the collapsed tab, `drawScorchedEarthButton`, `isOverScorchedEarthButton` in
+  BOTH `isOverChip` and `isOverBandSurface`, icon `public/art/skills/scorched-earth.webp` cut by
+  `scripts/cut-skill-icon.py --preset scorched-earth` from `l0-demons.png` top 440 side 700), the aim
+  context `src/render/scorchedEarthAim.ts` (aim, `zoneSeatAt` via the reducer's target predicate,
+  hover seat, pending-cast record with the `age < 0` guard), the gesture in `controls.ts` (press /
+  again / RMB / Escape consumed / quarry refused / BUILD refused), the backdrop `zoneTintFor` (hover
+  preview `SCORCHED_EARTH_PREVIEW_TINT` ⚠ MINE · a live cast's zone = ember · else the 1a passive).
+  Tests `src/input/controls.scorchedEarth.test.ts` (12, the real Controls + FooterBand + backdrop).
+  Mutations red, restored: square dropped from `isOverBandSurface` → collapsed test red; hover ignored →
+  preview test red; cast-zone arm removed → red. Re-pinned: `footerBand.test.ts` fills 9 → 11 (plate +
+  pip, both inside the square); `isOverBandSurface` 300-char source windows → 420 in `footerBand.test.ts`
+  and `s182UiSurfaceGuards.test.ts`. Fixed a test-only type error left in the 1b-sim commit
+  (`fp` returns a number). Suite 6520 / 0 failed, typecheck 0.
+
 ## In flight
-- 1b-UI (the footer square, aim mode, hover preview, red cast zone)
+- 1b-bots
 
 ## Next
-- 1b-bots, item 2
+- item 2
 
 ## Constants (S191)
 | constant | value | whose |
@@ -85,6 +100,10 @@ root cause, the table in the final report.
 - ⚠ Caster eliminated → his cast stops; zone owner falls after the cast → keeps burning (Council defaults).
 - ⚠ Helga is NOT burned (Council default; reported). Gatherers/avatars/castle never.
 - ⚠ A burned-out stink bag BURSTS like any killed bag (the burst spares the bag's owner, not the caster).
+- ⚠ `SCORCHED_EARTH_PREVIEW_TINT` 0xff2a2a (a deeper red than the ember). The preview and the red cast zone
+  are backdrop TINTS (the brief's "hover tint"), so with backdrops toggled OFF neither shows.
+- ⚠ Escape uses an inline `preventDefault` (s189/net's `consumeCancel` is not on master) — at merge,
+  switch to `consumeCancel(e)` and add this cancel to `doubleEscapeLeave.ts`'s consumer list.
 - ⚠ A bond is "in the zone" by its MIDPOINT (POWER OF RA's rule); a structure's phase key = its lowest
   caster-clear in-zone bond id.
 - Consequence for the owner: at 1 %/s over a 60 s FIGHT one cast takes 60 % of ONE connector's pool

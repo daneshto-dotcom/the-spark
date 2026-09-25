@@ -175,7 +175,8 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
     const band = readFileSync(new URL('../render/footerBand.ts', import.meta.url), 'utf8');
     const i = band.indexOf('isOverBandSurface(x: number, y: number): boolean {');
     expect(i, 'footerBand.isOverBandSurface must exist').toBeGreaterThan(-1);
-    expect(band.slice(i, i + 300)).toContain('this.isOverCarryBill(x, y)');
+    // S191 — 300 → 420: the SCORCHED EARTH square's line joined Ra's at the top of this body.
+    expect(band.slice(i, i + 420)).toContain('this.isOverCarryBill(x, y)');
   });
 
   it('GATE C — the PLACE_FROM_FREE commit registers all three surfaces', () => {

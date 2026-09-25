@@ -56,6 +56,10 @@ import {
 import { zoneOwner, type ZoneLayout } from '../state/zones.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
+// ⭐ S191 — SCORCHED EARTH: the live cast (the burn's own predicate) and this client's aim.
+import { scorchedEarthActiveZone } from '../state/racial/scorchedEarthRules.ts';
+import { scorchedEarthHoverSeat } from './scorchedEarthAim.ts';
+import type { PlayerId } from '../types.ts';
 
 /**
  * How strongly the backdrop shows through.
@@ -106,6 +110,35 @@ export function zoneBackdropTintNow(
 ): number {
   if (phase.gameState !== 'PLAYING' || phase.matchPhase !== 'FIGHT') return 0xffffff;
   return zoneBackdropTint(player);
+}
+
+/**
+ * ⭐ S191 (owner item 1b) — the HOVER PREVIEW while aiming SCORCHED EARTH: *"there's going to be like a
+ * cool preview when you mouse over it like shows you it turning red"*. A deeper red than the ember, so
+ * "this is where it WILL burn" never reads as "this already burns". ⚠ MINE, a placeholder look — and,
+ * like the ember, it shows only while backdrops are on (with them off the board is plain black).
+ */
+export const SCORCHED_EARTH_PREVIEW_TINT = 0xff2a2a;
+
+/**
+ * ⭐ S191 — THE TINT A SEAT'S ZONE IS PAINTED, all three reasons in one place:
+ *   1. the aiming preview — the zone under the cursor, while this client may cast (`hoverSeat`);
+ *   2. a live SCORCHED EARTH cast on this zone (`scorchedEarthActiveZone` — the SAME predicate the burn
+ *      reads, so the red is exactly the burning ground, FIGHT only, gone with the caster);
+ *   3. the passive, FIGHT only (`zoneBackdropTintNow`, S191 1a).
+ * DERIVED every frame from synced state plus this client's own aim — never from a pushed effect.
+ */
+export function zoneTintFor(world: World, seat: PlayerId, hoverSeat: PlayerId | null): number {
+  const player = world.players.get(seat);
+  if (player === undefined) return 0xffffff;
+  if (hoverSeat === seat) return SCORCHED_EARTH_PREVIEW_TINT;
+  const zone = zoneOwner(seat as unknown as number, world.layout);
+  if (zone !== null) {
+    for (const caster of world.players.values()) {
+      if (scorchedEarthActiveZone(world, caster) === zone) return SCORCHED_ZONE_TINT;
+    }
+  }
+  return zoneBackdropTintNow(player, world);
 }
 
 /**
@@ -448,6 +481,8 @@ export class ZoneBackgroundRenderer {
      */
     this.layer.visible = true;
     const layout = world.layout;
+    // ⭐ S191 — the SCORCHED EARTH hover preview, read once per frame from this client's aim.
+    const hoverSeat = scorchedEarthHoverSeat(world);
 
     for (const [playerId, player] of world.players) {
       const seat = playerId as unknown as number;
@@ -482,7 +517,8 @@ export class ZoneBackgroundRenderer {
         sp.texture = tex;
       }
 
-      sp.tint = zoneBackdropTintNow(player, world); // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only
+      // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
+      sp.tint = zoneTintFor(world, playerId, hoverSeat);
       const r = zoneRect(zone, layout);
       /*
        * COVER, not stretch. The generated aspect never matches the zone exactly — 3:4 is the

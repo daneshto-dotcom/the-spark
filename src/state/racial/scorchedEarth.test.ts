@@ -194,7 +194,7 @@ describe('S191 SCORCHED EARTH — the arithmetic, every number derived', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S191 SCORCHED EARTH — the host refuses, and every refusal is a no-op', () => {
-  const fp = (w: World): string => hashWorldStateFull(w);
+  const fp = (w: World): number => hashWorldStateFull(w);
 
   it('⭐ a legal cast on an ENEMY zone stores exactly { wave, zoneSeat }', () => {
     const w = twoSeat();
