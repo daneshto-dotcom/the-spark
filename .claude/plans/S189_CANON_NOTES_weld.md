@@ -26,10 +26,11 @@ race rings.
 2. **A LIVE tower STANDS while its own recipe is still contained** — `towerStandsAt`
    (`src/state/towerMembers.ts`, shape derived from `blueprints.ts`, exhaustive over `GodlyId`).
    A weld — any shape, any type, bonded anywhere, hub included — neither kills it nor counts toward it.
-   - **Star** (turret, hub, goblin, stink, Helga): its OWN arms are the hub bonds below its
-     `ownBondIdLimit` (`starArmsAt(…, limit)`). It stands iff all `c` arms of every type are still there.
-   - **Ring** (pentagram, t3, t9): its OWN ring is the exact walk over the bonds below its limit
-     (`ringMembersAt(…, limit)`, O(n)). It stands iff that walk still closes. (`ringCycleAt`, an
+   - **Star** (turret, hub, goblin, stink, Helga): its OWN arms are the hub bonds to the leaves in its
+     `ownPrimitiveIds` (`starArmsAt(…, own)`), whatever the bond ids. It stands iff all `c` arms of every
+     type are still there.
+   - **Ring** (pentagram, t3, t9): its OWN ring is the exact walk among its own shapes
+     (`ringMembersAt(…, own)`, O(n)). It stands iff that walk still closes. (`ringCycleAt`, an
      uncapped cycle search, is DELETED — audit W7.)
 
 **⚖ FIX ROUND (audit W1) — THERE IS NO SPARE. A CUT OWN CONNECTOR ALWAYS LEVELS THE TOWER.**
@@ -39,8 +40,11 @@ hub, a same-type bypass through a ring's anchor). Nobody ruled that; the brief a
 destroys the connectors that he's attacking"*) say the opposite, so it is REVERTED. The rule now:
 
 - **A tower's own members are the ones it was BUILT with.** Every spawner and defender records
-  `ownBondIdLimit` = `world.nextBondId` when it registered (serialized on disk, worker INIT AND the
-  wire; hashed). Its own connectors are the recipe's shape among the bonds with a LOWER id.
+  `ownPrimitiveIds` — the shapes it was built of, at registration (serialized on disk, worker INIT AND
+  the wire; hashed). Its own connectors are the bonds BETWEEN those shapes. ⭐ S191: this replaced the
+  `ownBondIdLimit` bond-id watermark before it shipped — FIX re-welds with a NEW bond id, so a repaired
+  own connector read as a weld and the tower fell (audit W-FR4); no bond can ever join two existing
+  shapes except a recipe edge, so "between two own shapes" is own by construction.
 - **Cutting (or eating) ANY one of those connectors levels the tower** — always, whatever is welded on,
   whatever its type. Pinned: `weldOntoTowerS189.test.ts` — *STAR: a 7th Spiral welded to the turret HUB
   does NOT save it*, *RING: a Triangle bridging nodes 0 and 2 does NOT save the pentagram*, *a bat tower
@@ -51,12 +55,13 @@ destroys the connectors that he's attacking"*) say the opposite, so it is REVERT
 - ⚠ **What looks like a spare but is not:** after a tower falls, the shapes left may happen to form an
   EXACT recipe again (e.g. five original Spirals + a Spiral welded on the hub = a clean 6-arm star).
   That can IGNITE a brand-new tower on the next BUILD-phase topology change — ordinary exact ignition,
-  a new tower with a new `ownBondIdLimit`, not the old one surviving.
-- **No limit (a pre-S189 save, or a structure that is not a live tower):** the exact pre-S189 reading.
+  a new tower with its own new `ownPrimitiveIds`, not the old one surviving.
+- **No own set (a pre-S189 save, or a structure that is not a live tower):** the exact pre-S189 reading.
 
 **Consequences, all deliberate and tested:**
-- welding costs repair (R185-B): FIX refused on any welded structure — unchanged, now also asserted
-  for two welded bat towers; the welded pool is the whole welded structure's (> 2× one tower's).
+- ~~welding costs repair (R185-B): FIX refused on any welded structure~~ ⭐ **AMENDED S191 (R191-A),
+  see §I**: the welded STRUCTURE (clicked on a weld) is never FIXed; each TOWER in it (clicked on the
+  tower) keeps its own FIX. The welded pool is still the whole welded structure's (> 2× one tower's).
 - welded towers keep producing: two welded bat towers BOTH emit their unit in FIGHT.
 - a star welded BEFORE it is complete never ignites (build is exact) — Helga included (audit W2
   reverted her "contains" first build).
@@ -134,8 +139,8 @@ Still true; add "— its OWN connectors. A weld on it is not part of its recipe.
 ## G · §8 / §4 — the race-tower renderers and the Voltkin
 
 - `towerRenderer.ringOf` and `towerFrames.towerRingCentroid` (and so `healthBar`, which delegates)
-  read `towerMembersAt(...).whole` — the ring the tower was BUILT with (bonds below its
-  `ownBondIdLimit`); `groundDecalRenderer` and `spawnerZoneRenderer` read `towerFootprintAt` (the same
+  read `towerMembersAt(...).whole` — the ring the tower was BUILT with (the bonds among its
+  `ownPrimitiveIds`); `groundDecalRenderer` and `spawnerZoneRenderer` read `towerFootprintAt` (the same
   own members). A same-type-welded race tower is still DRAWN, on its own ring's centroid (the old exact
   walk returned `null` for it — no sprite). (`ringCycleAt` was deleted in the fix round, audit W7.)
 - VERIFIED, no change: the Voltkin TV does NOT vanish on a weld — `findAllVoltkinChains` is a path
@@ -147,13 +152,14 @@ Still true; add "— its OWN connectors. A weld on it is not part of its recipe.
 either computes). Wire/hash hunks are in `save.ts` / `stateHashFull.ts` only; no new action, no new
 `GameEffect` kind, no new intent.
 
-**(A) `ownBondIdLimit` — a NEW FIELD on `SerializedSpawner` AND `SerializedDefender`.** Which connectors a
-tower was BUILT with (= `world.nextBondId` at `applyRegisterSpawner` / `applyRegisterDefender`).
-Emitted additive-optional (`save.ts:2387`, `:2471`), read `?? null` (`:2430`, `:2495`); it RIDES THE WIRE
-— `trimMirrorSpawner` KEEPS it (`:2405`: identity, not a clock); worker INIT + disk via the same save;
-WIDE-HASHED (`stateHashFull.ts:372/387` unions, `:663/675` `:ob` projections). Additive-optional alone
-would cost no bump, but every survival and render walk below READS it: a v51 peer ignores it and walks
-the raw hub / raw ring instead.
+**(A) `ownPrimitiveIds` — a NEW FIELD on `SerializedSpawner` AND `SerializedDefender`** (⭐ S191: it
+REPLACED `ownBondIdLimit`, which never shipped). The shapes a tower is BUILT of, ascending (recorded at
+`applyRegisterSpawner` / `applyRegisterDefender`, amended only by the R191-A tower FIX). Emitted
+additive-optional by both serializers, read `?? null` by both deserializers; it RIDES THE WIRE —
+`trimMirrorSpawner` KEEPS it (identity, not a clock); worker INIT + disk via the same save;
+WIDE-HASHED (`stateHashFull.ts` both unions, `:op<ids>` in both projections). Additive-optional alone
+would cost no bump, but every survival walk, render walk and both R191-A cards READ it: a v51 peer
+ignores it and walks the raw hub / raw ring instead.
 
 **(B) the serialized `'DORMANT'` discriminant on `DefenderState` (`defender.ts:104`).** A killed Helga is
 now KEPT as a record in this state (`ehp: null`) instead of deleted. A v51 client has no arm for it:
@@ -180,17 +186,28 @@ master's `princessRenderer` draws every princess, and `helgaCell`'s switch (no `
    (`seatFeedTowerAt`, `goblinKinds.ts:128`, a total order) and the sheet's emplacement row (skips a
    DORMANT Helga) — all read the tower's own members.
 6. **bot raids** target an enemy tower's OWN connectors (`botBrain.ts:1037` `nearestEnemySpawnerBond`).
-7. **allocator floor** — a takeover / worker repair never rebuilds `nextBondId` below a live tower's
-   `ownBondIdLimit` (`migrationClaim.ts` `rebuildAuthorityAllocators`, W-FR1).
+7. **allocator floor** — a takeover / worker repair never rebuilds `nextPrimitiveId` onto a shape a live
+   tower is built of (`migrationClaim.ts` `rebuildAuthorityAllocators`, W-FR1 — moved from `nextBondId`
+   in S191 with the identity).
 8. ⭐ S191 step 3 — **a Helga revived before the renderer saw her DORMANT prints her kill, not a heal**
    (`damageNumbers.ts` defender arm of `syncStructures`). Render-only; listed because it runs on every
    client and exists only because of (B).
 
-⚠ Round 5 (R191-A, tower vs structure FIX / SCRAP / sheets) and round 6 (R191-B, the repair job) will
-add their own wire/hash reasons; each round appends here. As of step 5 this list is complete for the
-branch as committed.
+9. ⭐ S191 R191-A — **FIX / SCRAP act on the TOWER or the STRUCTURE depending on the shape clicked**
+   (`structureRepair.reclaimScopeAt` over `towerUnit.towerUnitAt`): the same `REPAIR_STRUCTURE` /
+   `SCRAP_STRUCTURE` intent a v51 host would apply to the whole component (scrapping every tower on a
+   tower click, refusing every FIX in a weld) is scoped to one tower here. No new action and no new
+   field — the SEMANTICS of two existing intents changed, which is the S186 test's case exactly.
+10. ⭐ S191 R191-A — **a FIX on a fallen welded stamp re-registers it** (`settleTowerIdentity`) and a FIX
+   on a live one amends its `ownPrimitiveIds` — both host-side sim results a v51 host never produces.
+11. ⭐ S191 R191-A — render-side, every client: FEED is offered only by the tower that owns the
+   clicked shape (`seatFeedTowerAt`), a visible weld beats the art box on click, and the two cards
+   (`welded` on the view) — none on the wire; listed so the bump's docblock names them.
 
-### (superseded by the list above) the fix-round statement
+⚠ Round 6 (R191-B, the repair job — QUEUED) will add its own wire/hash state (the job) and append here.
+As of round 5 this list is complete for the branch as committed.
+
+### (superseded by the list above) the fix-round statement — kept for provenance; its `ownBondIdLimit` is §H-A's retired watermark
 
 THE FIX ROUND ADDED WIRE AND HASH STATE (hotspots `save.ts`, `stateHashFull.ts`, self-contained hunks):
 (A) `ownBondIdLimit` on `CreatureSpawner` and `Defender` — serialized (disk, worker INIT, and the WIRE:
@@ -203,3 +220,46 @@ ring stands, and which connectors are its own; (2) Helga's exact first build and
 self-raze and a t9 release delete, orphans included; (5) the cover set, centroid, aura, ground zone
 and FEED row of a welded tower; (6) which connector a bot raid aims at. ONE BUMP owed, every reason
 listed — the merge owner writes it (S182 lesson 6).
+
+## I · ⭐⭐ R191-A (S191) — A WELDED STRUCTURE HOLDS TOWERS. R185-B AMENDED. (suggest §7b, replacing
+## the R185-B "unrepairable" paragraph's conclusion, and a line in §8)
+
+> Owner, S191: *"a welded shape can still consist of multiple towers, okay? When you click on the tower
+> that's connected within the welded shape, you can only see the tower with its stats, but when you
+> click on the shape that's welded to it, you can see the whole structure and what it's made of … people
+> can still like go and destroy the towers themselves. Remember, by attacking the connectors of the
+> towers … it's the connector of the tower that is severed … the towers themselves should still be
+> shown as towers and be able to be repaired and … scraped … just the tower, not the whole shape … when
+> you clicking on a welded structure you can't fix it because it's … fixing what … are you fixing all
+> the towers on it no you have to fix [them] manually … you can separate those two. It's as simple as
+> that."* And on the cards: *"it should show its own HP. And then out of how much the total structure
+> has HP. And maybe … what kind of buildings are there just by … little pictures … when you click on
+> the … welded shape itself, it's new character sheet will include like all the structure[s]."*
+
+**R185-B AS AMENDED:** welding still buys pool — the pool is the whole welded structure's, and damage
+still severs the connector being attacked (R6, verified in code and through the host tick: a chewer at
+a welded turret's edge severs a TURRET connector and only the turret falls). The welded STRUCTURE as a
+whole cannot be FIXed. **Each TOWER inside it can**, from its own card.
+
+| you click | card | FIX | SCRAP | FEED |
+|---|---|---|---|---|
+| a tower (its art, or one of its own shapes) | that tower: its own connectors, shapes, pool, gun / aura / Helga, + "PART OF A WELDED STRUCTURE cur / max" + the other towers' icons | that tower only — priced by what IT lost (R13 / R182-E) | that tower's own shapes (a shape another tower is also built of stays — ⚠ MINE) | that tower only |
+| a free-form welded shape | WELDED STRUCTURE: its pool, connectors, shapes by type, every tower (icon, name, own pool; click → that tower) | **never** (plan null, reducer no-op) | the whole component, towers included | none |
+| anything not welded | unchanged | unchanged | unchanged | unchanged |
+
+- ⭐ A TOWER THAT FELL inside a weld is still a tower for FIX when it was STAMPED: its remains (shapes
+  carrying its blueprint `origin`) open its card, and its FIX restores it and re-registers it directly
+  (exact ignition can never see a welded tower). ⚠ MINE — the coordinator's R4 ("priced by what the
+  tower lost") read as including lost nodes; a hand-built tower that fell has no provenance and its
+  shapes are free-form (as un-welded hand-built rubble always was).
+- ⚠ UNCHANGED RULE, stated so it is not read as new: FIX needs blueprint provenance (S152 — it must know
+  what to restore TO). A HAND-BUILT tower (never stamped) had no FIX un-welded and has none welded; its
+  card inside a weld offers SCRAP (+ FEED) only. Only stamped towers are fixable, as before.
+- identity survives the FIX: `ownPrimitiveIds` (§A / §H-A). A connector FIX re-welds is own again; a
+  node FIX re-mints joins the live record.
+- Suggested `canon.test.ts` assertions: `planStructureRepair` on a welded free-form shape is `null`;
+  on a welded tower's hub it is `scope: 'tower'`; `planStructureScrap` on the weld has the whole
+  component; on the tower only its own shapes. `weldedTowerSheet` / `weldedStructureSheet` titles.
+- §8 limit 2 (*"one friendly hand-placed shape … makes that hub permanently unrepairable"*) is
+  SUPERSEDED: the hub's tower is repairable from its own card; only the welded structure's card has
+  no FIX.
