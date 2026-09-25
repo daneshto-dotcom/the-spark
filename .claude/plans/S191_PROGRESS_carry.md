@@ -9,9 +9,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 |---|---|---|---|
 | 0 · `npm ci` | DONE | `60c304d` | `NPM_CI_EXIT=0` (captured `$?`, log `.tmp-gates/npm-ci.log`) |
 | C-1 · worker startup `nextPulledSparkId` | DONE | `686f990` | see below |
-| C-2 · WRATH-F5 pending cast vs tick moving backwards | DONE | (this commit) | see below |
-| C-3 · SWM-6 swarm draw through the bat-sheet fallback | next | | |
-| C-4 · `drawRaRitual` FIGHT gate | todo | | |
+| C-2 · WRATH-F5 pending cast vs tick moving backwards | DONE | `3b2f460` | see below |
+| C-3 · SWM-6 swarm draw through the bat-sheet fallback | DONE | (this commit) | test-only |
+| C-4 · `drawRaRitual` FIGHT gate | next | | |
 | C-5 · hub self-destruct = 120 fifths | todo | | |
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
@@ -55,6 +55,16 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - Benign, recorded: the C-1 full-suite run rewrote `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap`
   with LF line endings — content-identical (empty diff); restored with `git checkout`, not committed.
 
+## C-3 — DONE (test-only; no source change)
+
+- `src/render/swarmBatFallback.test.ts` (5): REACH through the real `GoblinRenderer.sync` with `fetch` +
+  `Assets.load` stubbed at their seams and the SHIPPED manifests/PNG sizes read off disk. Swarm manifest
+  404s → one Sprite cut from the BAT sheet at `GOBLIN_SPRITE_BASE_SCALE × BAT_SWARM_SPRITE_SCALE_MUL`,
+  zero console errors/warnings; swarm + bat side by side each at its own type's scale. Negatives: swarm
+  sheet present → its own sheet; plain bat → bat sheet ×1; the bat sheet carries every swarm row.
+- Mutation: the draw loop's `?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined)`
+  arm (`goblinRenderer.ts` ~:1144) → `?? undefined`: 2 RED (0 sprites / 1 of 2), restored → 5/5.
+
 ## In flight
 
 Nothing.
@@ -84,4 +94,5 @@ None.
 |---|---|---|---|---|
 | baseline (before C-1) | — | — | 0 | 955.9 (978,794 B) |
 | C-1 | 0 | 0 — 6469 passed / 2 skipped, 397 files (107 s) | 0 | 955.9 (978,794 B) |
-| C-2 | 0 | running after commit | — | — |
+| C-2 | 0 | 0 — 6476 passed / 2 skipped, 399 files (128 s) | — | — |
+| C-3 | — (test-only) | batched with C-4 | — | — |
