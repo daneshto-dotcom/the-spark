@@ -73,6 +73,33 @@ The merge owner resumes from this file if this agent is cut off.
   `vitest src/net/ + src/input/` EXIT=0 (45 files / 829 + 3 skipped). Hotspot: `main.ts` overlay/retry block
   (~60 lines of branches → one plan + an applier), 3 imports removed. Protocol: none (local UI/timing).
 
+- **FR-1 (audit NET-1) — a rejoin must prove it reached the SAME match; plus a retry backstop.** The loop
+  retries past the grace and a host's room code is fixed per page load, so a client on the terminal overlay
+  could rejoin the host's NEXT lobby/match (a ghost seat there, a frozen old board here). Now: `clientHandlers`
+  classifies what the followed host sends while we are a PLAYING client (`classifyHostMessage`, after
+  `hostAuthFilter`): a snapshot whose seq restarted > `HOST_SEQ_REGRESSION_SLACK` (50) below our watermark at
+  the same epoch = `'new-match'` (not applied); LOBBY_PRESENCE = `'lobby-presence'` (flows on unchanged).
+  main.ts stamps each signal and each reconnect attempt; once per frame `hostMovedOn` returns
+  `'new-match'` at once, or `'lobby'` after `HOST_LOBBY_CONFIRM_MS` (5 s) with no snapshot accepted — but ONLY
+  while a rejoin is PENDING (an attempt fired, nothing accepted since). ⚠ LOBBY_PRESENCE alone is not a
+  verdict: the host broadcasts it on every peer join in ANY state, our own live rejoin included. On a verdict:
+  `[net] HOST MOVED ON (…)`, `leaveToTitle()`, and the title shows *"The host started a new game — this match
+  is over."* (`TitleScreen.setNotice`, cleared once the title is left). Backstop: `planConnectionFrame` stops
+  retrying `RECONNECT_GIVE_UP_MS` (180 s) after the loss began; the terminal overlay stays. All three
+  constants are MINE, flagged at the constant. Why the pending gate keeps the rest safe: a live rejoin accepts
+  a snapshot and is no longer pending; D4's frozen-but-connected host never starts an attempt (the loop only
+  retries on transport loss); a signal from before the attempt is ignored; a delayed duplicate on a second
+  strategy's channel mid-match cannot fire it. Failing first (`hostMovedOn.test.ts`, 14 tests, all RED
+  before): policy cases + backstop frame-driver + REACH through the real `connectAsClient` route (transport
+  mocked, `route` captured): restarted seq → `'new-match'` and `ClientSync.receive` NOT called; host
+  LOBBY_PRESENCE while PLAYING → `'lobby-presence'`; a stranger's → nothing; the host's next live snapshot →
+  applied, nothing raised; and a main.ts call-site guard (attempt stamped in the retry branch, one
+  `hostMovedOn(` call, `leaveToTitle()` then `setNotice(`). Mutation: drop the pending gate → 2 red (live
+  rejoin, D4 frozen host). `vitest src/net/` EXIT=0 (39 files / 594 + 3 skipped), typecheck EXIT=0. Hotspot:
+  `main.ts` +3 state lets and an `onHostSignal` sink beside `clientJoinDeps`, one per-frame block before
+  `hostLost`, one stamp line in the retry branch, one notice-clear line at the title toggle. Protocol: none —
+  no field or kind added; both signals read messages v50 already sends.
+
 ## Steps
 
 | # | step | state | commit |

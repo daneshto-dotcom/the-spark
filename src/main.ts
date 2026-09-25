@@ -74,6 +74,8 @@ import {
   type HostPresence,
   RECONNECT_GRACE_MS,
   type TerminalLossCause,
+  hostMovedOn,
+  type HostSignal,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
@@ -1825,6 +1827,15 @@ async function bootstrap(): Promise<void> {
     // the deps object is built NOW, the check only runs at claim time (TDZ-safe by deferral).
     hasPartitionEvidence: () => hasFreshPartitionEvidence(),
   });
+  /*
+   * ⭐ S189 fix round (audit NET-1) — A REJOIN MUST PROVE IT REACHED THE SAME MATCH. The reconnect loop
+   * stamps each attempt; clientHandlers reports what the followed host says; the render loop asks
+   * `hostMovedOn` (net/reconnectPolicy.ts) once per frame and, if the host has moved on to its next lobby
+   * or match, leaves to title with the notice below instead of sitting on a frozen board.
+   */
+  let lastRejoinAttemptAtMs = 0;
+  let hostLobbyPresenceAtMs = 0;
+  let hostNewMatchAtMs = 0;
   const clientJoinDeps = {
     session,
     world,
@@ -1833,6 +1844,10 @@ async function bootstrap(): Promise<void> {
     onPresence,
     // S118 P1 (host-migration D2) — the joiner identity whose pubkey + PoP rides the HELLO.
     clientIdentity,
+    onHostSignal: (signal: HostSignal): void => {
+      if (signal === 'new-match') hostNewMatchAtMs = performance.now();
+      else hostLobbyPresenceAtMs = performance.now();
+    },
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -3627,6 +3642,7 @@ Network routes: ${v.detail}`;
     const showTitle = world.gameState === 'TITLE' && !modalUp;
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
+    if (world.gameState !== 'TITLE') titleScreen.setNotice(null); // S189 NET-1: the notice is for one visit
     lobbyScreen.setVisible(showLobby);
     /*
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
@@ -3655,6 +3671,28 @@ Network routes: ${v.detail}`;
     // a frozen world and no exit. The hostPeerId latched for sender-auth doubles as
     // host-presence: latched but no longer in peerIds() → the host is gone → overlay.
     // Host-side (isHost) keeps the pure peerCount gate; no host-migration yet (#4).
+    // ⭐ S189 fix round (audit NET-1) — before the overlay reads the state: did a rejoin land in the host's
+    // NEXT lobby or match? Only a pending rejoin can answer yes (see `hostMovedOn`), so neither a live
+    // match nor D4's frozen-host takeover is touched. Stamps are per match: cleared outside one.
+    if (isNetworked(world) && !world.isHost && world.gameState === 'PLAYING' && session.clientSync !== null) {
+      const movedOn = hostMovedOn({
+        nowMs: performance.now(),
+        lastRejoinAttemptAtMs,
+        lastAcceptedAtMs: session.clientSync.lastAcceptedAt(),
+        lobbyPresenceAtMs: hostLobbyPresenceAtMs,
+        newMatchAtMs: hostNewMatchAtMs,
+      });
+      if (movedOn !== null) {
+        console.warn(`[net] HOST MOVED ON (${movedOn}) — the rejoin reached the host's next ${movedOn === 'lobby' ? 'lobby' : 'match'}, not ours; returning to title`);
+        leaveToTitle();
+        titleScreen.setNotice('The host started a new game — this match is over.');
+      }
+    }
+    if (!(isNetworked(world) && !world.isHost && world.gameState === 'PLAYING')) {
+      lastRejoinAttemptAtMs = 0;
+      hostLobbyPresenceAtMs = 0;
+      hostNewMatchAtMs = 0;
+    }
     const hostLost = !world.isHost
       && session.hostPeerId !== null
       && session.netTransport !== null
@@ -3731,6 +3769,7 @@ Network routes: ${v.detail}`;
     reconnectNextRetryMs = connectionPlan.nextRetryMs;
     if (connectionPlan.retry && session.roomCode !== null) {
       console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
+      lastRejoinAttemptAtMs = nowMs; // S189 NET-1 — a rejoin is now pending until a snapshot is accepted
       if (session.netTransport !== null) session.netTransport.disconnect();
       connectAsClient(clientJoinDeps, session.roomCode);
     }

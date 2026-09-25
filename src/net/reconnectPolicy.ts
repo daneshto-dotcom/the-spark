@@ -35,6 +35,25 @@ export const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
  * measured fresh join (~6.3 s), so every attempt but the last was torn down before it could land.
  */
 export const RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS;
+/**
+ * ⭐ S189 fix round (audit NET-1) — the BACKSTOP: the loop stops retrying this long after the loss
+ * began; the terminal overlay stays (Return to Title). ⚠ MINE, not the owner's: 3 minutes is long past
+ * any blip, sleep or relay hiccup the loop exists for, and short of a host that has plainly moved on.
+ */
+export const RECONNECT_GIVE_UP_MS = 180_000;
+/**
+ * ⭐ S189 fix round (audit NET-1) — a snapshot from the followed host whose sequence is more than this
+ * far BELOW what we already accepted, at the same epoch, came from a NEW `HostSync` (a new match; one is
+ * created per hosted room). ⚠ MINE: 50 is ~5 s of snapshots, far past any reorder. Only acted on after
+ * a rejoin (see `hostMovedOn`), so a delayed copy on a second strategy's channel mid-match cannot fire it.
+ */
+export const HOST_SEQ_REGRESSION_SLACK = 50;
+/**
+ * ⭐ S189 fix round (audit NET-1) — after a rejoin, the host said LOBBY_PRESENCE and not one snapshot has
+ * been accepted for this long: it is in a lobby, not our match. ⚠ MINE: a live host feeds a rejoiner
+ * snapshots within a frame or two (10 Hz); 5 s is margin for a host lagging under load.
+ */
+export const HOST_LOBBY_CONFIRM_MS = 5_000;
 
 export interface ReconnectRetryInput {
   readonly nowMs: number;
@@ -215,7 +234,9 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
     reconnectUntilMs = i.nowMs + RECONNECT_GRACE_MS;
     nextRetryMs = i.nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
   }
-  const retry = reconnectRetryDue({
+  // S189 NET-1 backstop: the episode began a grace before its deadline.
+  const gaveUp = i.nowMs - (reconnectUntilMs - RECONNECT_GRACE_MS) >= RECONNECT_GIVE_UP_MS;
+  const retry = !gaveUp && reconnectRetryDue({
     nowMs: i.nowMs,
     nextRetryMs,
     isHost: i.isHost,
@@ -238,4 +259,74 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
     };
   }
   return { reconnectUntilMs, nextRetryMs, retry, overlay };
+}
+
+/**
+ * ⛔ S189 fix round (audit NET-1) — A REJOIN MUST PROVE IT REACHED THE SAME MATCH.
+ *
+ * The loop retries past the grace, and a host's room code is fixed per PAGE LOAD, so a client left on
+ * the terminal overlay could rejoin the host's NEXT lobby or match: a ghost seat there, and a frozen old
+ * board here with the overlay cleared. Two local signals, no wire change:
+ *   · 'new-match' — a snapshot whose sequence restarted (see `HOST_SEQ_REGRESSION_SLACK`);
+ *   · 'lobby-presence' — LOBBY_PRESENCE from the host while we are in a match. ⚠ NOT a verdict alone:
+ *     the host broadcasts it on every peer join in ANY state, including our own legitimate rejoin to a
+ *     live match — `hostMovedOn` confirms it by the silence that follows.
+ * `clientHandlers.ts` classifies (it sees the message); `main.ts` stamps and decides once per frame.
+ */
+export type HostSignal = 'lobby-presence' | 'new-match';
+
+export interface HostMessageInput {
+  /** A client, PLAYING. */
+  readonly inMatch: boolean;
+  /** Sent by the host this client follows (`session.hostPeerId`). */
+  readonly fromFollowedHost: boolean;
+  readonly kind: string;
+  readonly snapshotSeq?: number;
+  readonly epoch?: number;
+  /** ClientSync's watermark (0 = nothing accepted, or reset by an epoch advance). */
+  readonly lastSeq: number;
+  readonly currentEpoch: number;
+}
+
+export function classifyHostMessage(i: HostMessageInput): HostSignal | null {
+  if (!i.inMatch || !i.fromFollowedHost) return null;
+  if (i.kind === 'LOBBY_PRESENCE') return 'lobby-presence';
+  if (
+    i.kind === 'NETSNAPSHOT' &&
+    i.snapshotSeq !== undefined &&
+    (i.epoch ?? 0) === i.currentEpoch &&
+    i.lastSeq > 0 &&
+    i.snapshotSeq + HOST_SEQ_REGRESSION_SLACK < i.lastSeq
+  ) {
+    return 'new-match';
+  }
+  return null;
+}
+
+export interface HostMovedOnInput {
+  readonly nowMs: number;
+  /** When the loop last started a reconnect attempt (0 = none this match). */
+  readonly lastRejoinAttemptAtMs: number;
+  /** ClientSync's last accepted snapshot (0 = none). */
+  readonly lastAcceptedAtMs: number;
+  /** When the followed host last sent each signal (0 = never). */
+  readonly lobbyPresenceAtMs: number;
+  readonly newMatchAtMs: number;
+}
+
+/**
+ * Did the rejoin land in the host's NEXT lobby or match? Only while a rejoin is PENDING — an attempt has
+ * fired and no snapshot has been accepted since. That one condition is what keeps the rest safe:
+ *   · a live-match rejoin accepts the host's next snapshot and is no longer pending;
+ *   · a host that is merely frozen while still connected (the S124 D4 case) never starts an attempt —
+ *     the loop only retries on transport loss — so this can never pre-empt D4's takeover;
+ *   · a signal from before the attempt (a mid-match LOBBY_PRESENCE on another peer's join) is ignored.
+ */
+export function hostMovedOn(i: HostMovedOnInput): 'new-match' | 'lobby' | null {
+  if (i.lastRejoinAttemptAtMs === 0 || i.lastAcceptedAtMs >= i.lastRejoinAttemptAtMs) return null;
+  if (i.newMatchAtMs > i.lastRejoinAttemptAtMs) return 'new-match';
+  if (i.lobbyPresenceAtMs > i.lastRejoinAttemptAtMs && i.nowMs - i.lobbyPresenceAtMs >= HOST_LOBBY_CONFIRM_MS) {
+    return 'lobby';
+  }
+  return null;
 }

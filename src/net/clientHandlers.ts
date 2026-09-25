@@ -30,6 +30,7 @@ import { verifyWarrant } from './successionWarrant.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import { claimAcceptDecision, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
+import { classifyHostMessage, type HostSignal } from './reconnectPolicy.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -55,6 +56,12 @@ export interface JoinAttemptDeps {
    * successor; the same key later signs a D3 MIGRATION_CLAIM. Late-bound like the host's identity.
    */
   clientIdentity: PeerIdentity;
+  /**
+   * ⭐ S189 fix round (audit NET-1) — told when the followed host says something only a host that has
+   * MOVED ON would say while we are in its match (`classifyHostMessage`). `main.ts` decides; optional so
+   * every other caller is unchanged.
+   */
+  onHostSignal?: (signal: HostSignal) => void;
 }
 
 /**
@@ -367,6 +374,24 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // Drops the five host-authored kinds unless they come from the latched host peer.
       // INTENT/HELLO are unaffected (the host side stamps INTENT playerIds itself).
       if (!hostAuthFilter(deps.session, msg, peerId)) return;
+      // ⭐ S189 fix round (audit NET-1) — did a rejoin land in the host's NEXT lobby or match? A restarted
+      // snapshot sequence is not applied (ClientSync's seq gate would drop it anyway); LOBBY_PRESENCE flows
+      // on exactly as before (nothing below acts on it outside LOBBY) — main.ts confirms it by silence.
+      if (deps.onHostSignal !== undefined) {
+        const signal = classifyHostMessage({
+          inMatch: !deps.world.isHost && deps.world.gameState === 'PLAYING',
+          fromFollowedHost: peerId === deps.session.hostPeerId,
+          kind: msg.kind,
+          snapshotSeq: msg.kind === 'NETSNAPSHOT' ? msg.snapshotSeq : undefined,
+          epoch: msg.kind === 'NETSNAPSHOT' ? msg.epoch : undefined,
+          lastSeq: deps.session.clientSync?.lastSnapshotSeq() ?? 0,
+          currentEpoch: deps.session.currentEpoch,
+        });
+        if (signal !== null) {
+          deps.onHostSignal(signal);
+          if (signal === 'new-match') return;
+        }
+      }
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
         deps.session.clientSync.receive(msg, performance.now());
       }
