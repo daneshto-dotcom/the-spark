@@ -22,7 +22,6 @@ import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts'
 import { referenceComputeAllComplexities } from './scoringReference.fixtures.ts';
 import { isFilamentCombo, lookupCombo } from '../combos.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
-import { damageEntity } from './damage.ts';
 import { makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
 import { razePrimitives } from './razePrimitives.ts';
@@ -275,8 +274,20 @@ export interface NavCheckStats {
 
 interface NavTickState { tick: number; n: number; lastFp: string; changed: boolean }
 
-/** Every this-many ticks the checker injects, identically in both twins, between two calls. */
-export interface NavInjectPlan { killEvery: number; removeEvery: number; birthEvery: number }
+/**
+ * Every this-many ticks the checker injects, identically in both twins, between two calls.
+ *
+ * ⚠ `kill` IS SUPPLIED BY THE TEST FILE, NOT WRITTEN HERE. Two import-graph guards —
+ * `damage.wired.test.ts` (no direct `damageCreature` outside the dispatcher) and
+ * `damage.callSites.test.ts` (the pinned census of `damageEntity` call sites) — treat every non-`.test.ts`
+ * file as PRODUCTION, this fixture included. A damage call belongs in the test, where both guards'
+ * contract exempts it; the first two attempts at this injection put it here and turned each guard red.
+ */
+export interface NavInjectPlan {
+  killEvery: number; removeEvery: number; birthEvery: number;
+  /** A lethal strike on `victim` by `attacker`, the way the in-loop strike path deals one. */
+  kill: (w: World, victim: CreatureId, attacker: CreatureId) => boolean;
+}
 
 export interface NavChecker {
   readonly stats: NavCheckStats;
@@ -385,11 +396,8 @@ export function makeNavChecker(real: PickNavUnitFn): NavChecker {
       let injected = false;
       if (inject !== null) {
         if (w.tick % inject.killEvery === 0 && s.n === 2 && result !== null && w.pendingCreatureDeaths !== null) {
-          // The in-loop creature strike's own call, through the damage dispatcher's front door
-          // (`creatureAttack.ts`; `damage.wired.test.ts` forbids a direct `damageCreature` outside it):
-          // lethal, and deferred to the sweep after the loop because `pendingCreatureDeaths` is open.
-          const died = damageEntity(w, { kind: 'creature', id: result }, 1_000_000, 'creature', { kind: 'creature', id: c.id });
-          if (died) { stats.injectedKills++; injected = true; }
+          // Lethal, and deferred to the sweep after the loop because `pendingCreatureDeaths` is open.
+          if (inject.kill(w, result, c.id)) { stats.injectedKills++; injected = true; }
         }
         if (w.tick % inject.removeEvery === 1 && s.n === 3 && result !== null) {
           if (removeCreature(w, result)) { stats.injectedRemovals++; injected = true; }

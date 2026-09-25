@@ -104,6 +104,7 @@ import {
   weldNearestCrossSeatPair, type Injected, type NavInjectPlan,
 } from './s191PerfOracle.fixtures.ts';
 import { referenceTickScoring } from './scoringReference.fixtures.ts';
+import { damageEntity } from './damage.ts';
 import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
 
 const FULL = process.env.SPARK_C5_PERF === '1';
@@ -130,7 +131,12 @@ H.influence = (w) => {
 
 /** Between two `pickNavUnit` calls of one tick (2nd / 3rd / 4th): a lethal deferred blow to the unit
  *  just picked, an outright removal of it, a birth beside the caller — Council S191 item 2. */
-const NAV_INJECT: NavInjectPlan = { killEvery: 7, removeEvery: 13, birthEvery: 19 };
+const NAV_INJECT: NavInjectPlan = {
+  killEvery: 7, removeEvery: 13, birthEvery: 19,
+  // The production creature strike's own call shape (`creatureAttack.ts`), through the dispatcher.
+  kill: (w, victim, attacker) =>
+    damageEntity(w, { kind: 'creature', id: victim }, 1_000_000, 'creature', { kind: 'creature', id: attacker }),
+};
 const nav = makeNavChecker((w, c, h, a, l) => H.ai.pickNavUnit(w, c, h, a, l));
 H.pickNavUnit = (w, c, held, acq, leash) => nav.call(w, c, held, acq, leash, mode === 'checked', NAV_INJECT);
 

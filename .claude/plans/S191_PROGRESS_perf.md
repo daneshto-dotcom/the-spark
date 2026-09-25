@@ -319,3 +319,46 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
   verbatim live scan returns a unit killed earlier in the loop 604 / 2 616 times (default / full), so the
   filter changes outputs (mutant N4 = RED on the real-match oracle). It is a ruling, not a perf change —
   handed to the merge owner as a question with the lever ready.
+- SECOND full suite (after the damageEntity fix): **VITEST_EXIT=1** — 3 failed / 6489 passed, all in
+  `damage.callSites.test.ts` (the pinned census of `damageEntity` call sites): same contract, `.fixtures.ts`
+  counts as production, and my fix had ADDED an unlisted call site. ⛔ Again mine. Fixed properly this
+  time: the fixture no longer calls ANY damage function — `NavInjectPlan.kill` is a callback the TEST file
+  supplies (`s191Perf.differential.test.ts`, exempt from both guards), with the production strike's call
+  shape. `grep -rln "damageEntity(\|damageCreature(" src --include=*.fixtures.ts` → none. Oracle counters
+  identical again (384 kills, 0 mismatches). Neither guard was touched.
+
+### FINAL GATES (each exit code captured to `.tmp-gates/final3-exits.txt`, never through a pipe)
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run --maxWorkers=4` → **VITEST_EXIT=0** — 403 files passed / 1 skipped (the opt-in
+  `c5HostTickMeasure`); **6492 tests passed / 2 skipped**; 149 s. The `stderr |` lines (net/sync,
+  transport, raceClaim) are those tests' deliberate throw-and-count diagnostics on PASSING tests — benign.
+  The suite again rewrote `pentagramBuildability.test.ts.snap` to LF, content identical — restored.
+- `npm run build` → **BUILD_EXIT=0** — entry **958.3 KiB** of the 1100 KiB charter (141.7 KiB headroom);
+  +2.4 KiB over the PDR's 955.9 master figure (≤ 10 KiB). The Vite `chunkSizeWarningLimit` line is the
+  standard advisory the charter supersedes — benign.
+- e2e NOT run (brief). Full-scale oracle (`SPARK_C5_PERF=1`, waves 1-5, 120 creatures) EXIT=0 at 4b8369b;
+  2e's radii arm run on the default scale (the production diff after that is test-only).
+
+### FINAL NUMBERS — interleaved A/B, same instrument, same hour, machine shared with 6 worktrees
+Base = the four production files checked out at 42cc2ee; final = HEAD (8792d83 production); run
+base/final/base/final/base/final; files restored and sha256-verified afterwards. wave-5 FIGHT, ms.
+| pass | code | mean (3 runs) | spread | p95 (mean) | max (worst) | 3-tick p95 (mean) | 3-tick max (worst) |
+|---|---|---|---|---|---|---|---|
+| A ≤17 creatures | base | 0.624 | 0.568-0.723 | 1.036 | 3.64 | 2.96 | 7.53 |
+| A | **final** | **0.358** | 0.341-0.376 | **0.577** | 1.74 | **1.69** | 3.12 |
+| C 120 held | base | 2.773 | 2.639-2.876 | 4.103 | 9.24 | 11.80 | 23.97 |
+| C | **final** | **1.892** | 1.730-2.103 | **2.756** | 7.34 | **7.92** | 18.63 |
+Mean −43 % (A) / −32 % (C); p95 −44 % / −33 %; 3-tick p95 −43 % / −33 %.
+
+### Profile shares, base (42cc2ee) → final (8792d83), V8 sampler 200 µs, wave-5 FIGHT first 2400 ticks, INCLUSIVE
+| function | A base → final | C base → final |
+|---|---|---|
+| computeTerritorialInfluence | 24.2 → 17.5 % | 17.7 → 6.8 % |
+| · computeAllPlayerRadii | 9.2 → 6.1 % | 4.1 → 2.4 % |
+| pickNavUnit | — | 9.0 → 6.8 % |
+| solveBonds | 15.8 → 12.0 % | 8.2 → 5.4 % |
+| tickScoring | 12.7 → 10.7 % | 7.3 → 5.6 % |
+| structureTargets (NOT in brief) | 9.7 → 13.7 % | 23.6 → 33.7 % |
+(Shares of a smaller tick: structureTargets' share rose because everything around it shrank.)
+
+## STOP — report sent to the merge owner.
