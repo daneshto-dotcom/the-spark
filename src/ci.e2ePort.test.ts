@@ -241,6 +241,59 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     }
   });
 
+  it('⛔ (S191 FIX-4) SPAWN_VITE is OFF by default — one module-scope const, read from the env, never written', () => {
+    /*
+     * The gate above proves every spawn sits behind `it.runIf(SPAWN_VITE)`; this proves `SPAWN_VITE` itself
+     * is false in the default suite. Exactly ONE binding of the name anywhere in the file (an inner shadow
+     * would re-gate some cases on another value), at module scope, `const`, initialised to exactly
+     * `process.env.SPARK_SPAWN_VITE === '1'`; `process.env.SPARK_SPAWN_VITE` read nowhere else; nothing in
+     * the file assigns to `process.env`; and the variable's name appears as a string only in the workflow
+     * check below (`vi.stubEnv('SPARK_SPAWN_VITE', …)` or `process.env['SPARK_SPAWN_VITE']` would not).
+     */
+    const ENV_NAME = 'SPARK_' + 'SPAWN_VITE'; // split, so this test is not itself a stray string
+    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
+    const sf = ts.createSourceFile('ci.e2ePort.test.ts', self, ts.ScriptTarget.Latest, true);
+    const bindings: ts.Node[] = [];
+    const envReads: ts.Node[] = [];
+    const envWrites: string[] = [];
+    const strayNameStrings: string[] = [];
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === 'SPAWN_VITE') {
+        const par = n.parent;
+        const declares =
+          ((ts.isVariableDeclaration(par) || ts.isParameter(par) || ts.isBindingElement(par)) && par.name === n) ||
+          ((ts.isFunctionDeclaration(par) || ts.isClassDeclaration(par)) && par.name === n);
+        if (declares) bindings.push(par);
+      }
+      if (ts.isPropertyAccessExpression(n) && n.getText(sf) === 'process.env.SPARK_SPAWN_VITE') envReads.push(n);
+      if (
+        ts.isBinaryExpression(n) &&
+        n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        n.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+        /^process\.env\b/.test(n.left.getText(sf))
+      ) {
+        envWrites.push(n.getText(sf));
+      }
+      if (ts.isStringLiteral(n) && n.text === ENV_NAME) {
+        const call = n.parent;
+        const inWorkflowCheck = ts.isCallExpression(call) && call.expression.getText(sf).endsWith('.toContain');
+        if (!inWorkflowCheck) strayNameStrings.push(call.getText(sf));
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    expect(bindings.length, 'exactly one binding named SPAWN_VITE (no shadow)').toBe(1);
+    const decl = bindings[0]!;
+    expect(ts.isVariableDeclaration(decl)).toBe(true);
+    const list = decl.parent as ts.VariableDeclarationList;
+    expect(list.flags & ts.NodeFlags.Const, 'a const').toBeTruthy();
+    expect(ts.isSourceFile(list.parent.parent), 'at module scope').toBe(true);
+    expect((decl as ts.VariableDeclaration).initializer?.getText(sf)).toBe("process.env.SPARK_SPAWN_VITE === '1'");
+    expect(envReads, 'the env var is read in that one initialiser only').toHaveLength(1);
+    expect(envWrites, 'nothing in this file writes process.env').toEqual([]);
+    expect(strayNameStrings, 'the env name as a string outside the workflow check').toEqual([]);
+  });
+
   it('the webServer command carries --strictPort (and still binds every interface)', () => {
     const args = viteArgs(1);
     expect(args).toContain('--strictPort');

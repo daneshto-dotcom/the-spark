@@ -194,8 +194,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | fd41fad |
 | 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | 50f1f6e |
 | 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | 6004e8d |
-| 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | done | (this commit) |
-| 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | pending | |
+| 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | done | 36cf105 |
+| 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | done | (this commit) |
 | 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | pending | |
 | 7 | gates + report | pending | |
 
@@ -251,6 +251,19 @@ The merge owner resumes from this file if this agent is cut off.
   repeats → no leave; a bare press + 3 repeats → no leave; press, 3 repeats, then one discrete press
   399 ms after the first → leaves exactly once. PRE-FIX 3 red (1, 2 and 2 leaves) → green. Mutation: drop
   the repeat guard → 3 red. Protocol: none (local input).
+
+- **FIX-4 (test only) — `SPAWN_VITE` is proven OFF by default.** New case in `src/ci.e2ePort.test.ts`
+  (TypeScript-compiler walk of the file): exactly ONE binding named `SPAWN_VITE` anywhere (variable,
+  parameter, binding element, function/class — so an inner shadow is caught), a module-scope `const`
+  initialised to exactly `process.env.SPARK_SPAWN_VITE === '1'`; `process.env.SPARK_SPAWN_VITE` read in that
+  initialiser only; no assignment to anything under `process.env`; the name as a string literal only as the
+  argument of the workflow check's `.toContain` (so `vi.stubEnv('SPARK_SPAWN_VITE', …)` or
+  `process.env['SPARK_SPAWN_VITE']` are caught; the test builds its own copy of the name by concatenation so
+  it is not itself a stray). Green on the file. Mutations (each run with `-t FIX-4`, so no mutated run spawns
+  vite; restored, `cmp`): `= true` → RED (initialiser) · `!== '0'` → RED (initialiser) · an inner
+  `const SPAWN_VITE = true` in the describe → RED (2 bindings) · a top-of-file
+  `process.env.SPARK_SPAWN_VITE = '1'` → RED (2 env reads; the write check would also fire). typecheck
+  EXIT=0; `vitest src/ci.e2ePort.test.ts` EXIT=0 (9 + 2 opt-in skipped).
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 
