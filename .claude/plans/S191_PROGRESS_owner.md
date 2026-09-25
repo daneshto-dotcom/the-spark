@@ -133,11 +133,18 @@ root cause, the table in the final report.
   That fizzle's owner-sparing blast used to hit enemy units chewing the hub — in `lightningHubDelivers`'
   fixture the hub now falls at t=1499 instead of 3329. Lever: let an idle drone target enemy UNITS.
 
-## In flight
-- final gates + report
+## Final gates (captured `$?`, S191)
+- `npm run typecheck` EXIT=0 · `npx vitest run --maxWorkers=4` EXIT=0 (6536 passed / 5 skipped, 403 files)
+  · `npm run build` EXIT=0 — bundle **964.4 KiB** / 1100 (headroom 135.6; +8.5 vs the PDR's 955.9).
+- Non-zero exits along the way, each resolved: 1a/1b/2 RED runs (intended); `npm run typecheck` 1 after
+  the stock patch (unused `DRONE_LIFETIME_TICKS` import — removed); the first two measurement runs
+  (harness defects: sampled the trough; the hold-open clamped the wrong score field) — fixed and re-run.
 
-## Next
-- the report
+## Commits
+72343b0 step 0 · e3f0686 1a · 8f785f2 1b-sim · ae2ec25 1b-UI · 46f763c 1b-bots · 9c1a9b6 item 2
+
+## Status
+DONE — both items; waiting for the merge owner's audit / fix rounds.
 
 ## Constants (S191)
 | constant | value | whose |
