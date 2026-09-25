@@ -24,26 +24,26 @@ import { dispatch } from './world.ts';
 import type { BondId, CreatureId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import { bondMidpoint, isEnemyBond } from './creatures/creatureAI.ts';
 import {
-  DRONE_ATK,
   PLAYER_COLORS,
   DRONE_EXPLODE_RADIUS,
   DRONE_MAX_CONNECTORS,
   DRONE_MAX_GLOBAL,
   DRONE_MAX_PER_SPAWNER,
-  DRONE_PEN,
 } from '../constants.ts';
 import { applyRadialDamage } from './damage.ts';
-import { attackFifths } from './stats.ts';
+import { creatureAttackFifths } from './creatures/creature.ts';
 
-/**
+/*
  * ⭐ S160 P5 (owner R77) — **THE DRONE'S AoE DAMAGE, WHICH IT NEVER HAD.** The last unbuilt item on
  * R77's deferred list: *"5 damage(atk) and 1 pierce in an area of effect (suicide drones)"*.
  *
- * Named rather than inlined for the reason `suicideBlast.ts` gives at its own constant:
- * `applyRadialDamage` takes a 1000-per-shape amount and a FIFTHS amount ADJACENTLY, and swapping
- * them typechecks silently.
+ * ⭐ S190 (draft-atk) — READ FROM THE DRONE, NOT FROM `DRONE_ATK` / `DRONE_PEN`. This was a module
+ * constant `attackFifths(DRONE_ATK, DRONE_PEN)`, so a drone born to a seat that drafted ATK or PEN
+ * exploded for the UNBUFFED 30. The drone's config atk/pen ARE those constants, so an undrafted drone
+ * still blasts for exactly 30 (`creatureAttackFifths` in `applyDroneExplode`). The connector arm
+ * below severs by COUNT (`DRONE_MAX_CONNECTORS`, the owner's ruling), not by damage, so it takes no
+ * strike number and is unchanged.
  */
-const DRONE_BLAST_UNIT_FIFTHS = attackFifths(DRONE_ATK, DRONE_PEN);
 
 const DRONE_EXPLODE_RADIUS_SQ = DRONE_EXPLODE_RADIUS * DRONE_EXPLODE_RADIUS;
 
@@ -79,6 +79,7 @@ export function underDroneCaps(world: World, sourceSpawnerId: SpawnerId): boolea
 export function applyDroneExplode(world: World, action: DroneExplodeAction): World {
   const drone = world.creatures.get(action.creatureId);
   if (drone === undefined) return world;
+  const blastFifths = creatureAttackFifths(drone); // ⭐ S190 — the drone's own baked strike
   const cx = drone.pos.x;
   const cy = drone.pos.y;
 
@@ -202,8 +203,8 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     cx,
     cy,
     DRONE_EXPLODE_RADIUS,
-    DRONE_BLAST_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-    DRONE_BLAST_UNIT_FIFTHS,
+    blastFifths, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
+    blastFifths,
     'creature',
     drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds
   );

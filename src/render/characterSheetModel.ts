@@ -69,7 +69,8 @@ import { castleMaxHpFor, castleShotFifthsFor, castleUpgradePreview } from '../st
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
-import { creatureMaxEhp } from '../state/creatures/creature.ts';
+import { creatureAttackFifths, creatureMaxEhp } from '../state/creatures/creature.ts';
+import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts'; // S190 — a split chewer's share
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
@@ -612,11 +613,19 @@ export function portraitPlateFor(
 export function statRowsFor(
   hp: number, def: number, atk: number, pen: number,
   kinetics?: { readonly range: number; readonly cadenceTicks: number; readonly maxAccel: number },
+  /**
+   * ⭐ S190 (draft-atk) — the SUBJECT's own derived numbers, when it has some the points cannot
+   * produce: a drafted creature's baked pool and strike, a HELLSPAWN child's share. Omitted = derive
+   * from the points, which is right for every defender and every caller holding only a config.
+   * ⛔ The owner's report: a generation-1 HELLSPAWN card read "7 a swing / 5 pool" off the TYPE while
+   * the sim dealt 3 and held 2 — the number the sim subtracts IS the number the player reads (canon).
+   */
+  own?: { readonly poolFifths: number; readonly strikeFifths: number },
 ): SheetStatRow[] {
   const rows: SheetStatRow[] = [
-    { label: 'ATK', points: atk, derived: `${attackFifths(atk, pen)} a swing` },
+    { label: 'ATK', points: atk, derived: `${own?.strikeFifths ?? attackFifths(atk, pen)} a swing` },
     { label: 'PEN', points: pen, derived: null },
-    { label: 'HP', points: hp, derived: `${unitPoolFifths(hp, def)} pool` },
+    { label: 'HP', points: hp, derived: `${own?.poolFifths ?? unitPoolFifths(hp, def)} pool` },
     { label: 'DEF', points: def, derived: null },
   ];
   /*
@@ -1195,9 +1204,12 @@ function creatureSheet(
   const max = creatureMaxEhp(c);
   const race = world.players.get(c.ownerPlayerId)?.raceId ?? null;
   const frozen = isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId);
+  // ⭐ S190 (draft-atk) — and the derived STRINGS are this creature's too: its own pool (`max`, above)
+  // and the strike it actually lands — its baked strike, HELLSPAWN's share applied, exactly the
+  // expression every arm of `applyCreatureAttack` subtracts. The four POINTS still come from `cfg`.
   const stats = statRowsFor(cfg.hp, cfg.def, cfg.atk, cfg.pen, {
     range: cfg.attackRange, cadenceTicks: cfg.attackCadenceTicks, maxAccel: cfg.maxAccel,
-  });
+  }, { poolFifths: max, strikeFifths: hellspawnStrikeFifths(c, creatureAttackFifths(c)) });
   /*
    * ⭐⭐ S181 (owner) — **THE ZOMBIE BOSS SHOWS ITS ROT.** *"Anything that has an aura, damage per
    * second, should show how much damage per second. So the zombie boss, the stink tower."*

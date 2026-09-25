@@ -58,10 +58,10 @@ import { dispatch } from '../world.ts';
 import { liveIdsOfType } from '../bossSkills.ts';
 import { T9_BOSS_TYPE, isT9BossType } from '../t9BossIds.ts';
 import { playerHoldsPerk } from '../draftEvent.ts';
-import { attackFifths } from '../stats.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import {
   attackCycleMultiplier,
+  creatureAttackFifths,
   creatureMaxEhp,
   isCorpseEaterFeeding,
   isStunned,
@@ -239,8 +239,11 @@ function maybeTrigger(world: World, boss: Creature): void {
 
 /**
  * One bite through the ordinary strike reducer, and the heal: **100 % of the bite's amount — the whole
- * `attackFifths(atk, pen)`, overkill included — capped at his max.** "Overkill included" is the brief's
- * reading of *"for as much as he attacks that's as much as he heals"*: a bite that fells a 28-fifth
+ * strike he lands, overkill included — capped at his max.** ⭐ S190 (draft-atk): "the whole strike" is
+ * HIS OWN (`creatureAttackFifths`, buffed when his seat drafted ATK/PEN), never his type's config
+ * `attackFifths(atk, pen)` — the bite rides the ordinary strike reducer, so the heal follows it.
+ * "Overkill included" is the brief's reading of *"for as much as he attacks that's as much as he
+ * heals"*: a bite that fells a 28-fifth
  * scarab still heals the full swing. A bite the reducer REFUSED (out of reach, lost the initiative
  * roll) removed nothing and heals nothing.
  */
@@ -253,8 +256,8 @@ function bite(world: World, boss: Creature, victimId: CreatureId): void {
   // Inside the deferral window a lethal bite leaves the victim in the map at ≤ 0, so the loss is the
   // whole hit, overkill included — "for as much as he attacks". A victim removed outright (outside
   // that window, i.e. only when a test calls this directly) lost the ordinary hit.
-  const cfg = getCreatureConfig(boss.type);
-  const lost = after === undefined ? attackFifths(cfg.atk, cfg.pen) : Math.max(0, before - after.ehp);
+  // ⭐ S190 — the fallback is his OWN strike: the number the reducer's creature arm strikes with.
+  const lost = after === undefined ? creatureAttackFifths(boss) : Math.max(0, before - after.ehp);
   if (lost <= 0) return; // the reducer refused (out of reach, lost the initiative roll) — no bite, no heal
   const heal = Math.floor((lost * CORPSE_EATER_HEAL_PCT) / 100);
   const ehpBefore = boss.ehp; // S189 R190-I

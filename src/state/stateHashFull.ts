@@ -356,7 +356,15 @@ type CreatureHashed =
    * disagreeing about it would print different heals, and an unhashed synced field is a blind spot.
    * Projected as `:hf` below; contribution test in `stateHashFull.test.ts`.
    */
-  | 'healedFifths';
+  | 'healedFifths'
+  /*
+   * ⭐ S188 (draft-atk) — the creature's baked strike (a drafted ATK/PEN buff). HASHED: it is the
+   * number every strike this creature lands subtracts, so a host and a `?worker=1` mirror that
+   * disagreed about it would diverge on the very next hit. Projected as `:ak` below; its contribution
+   * test is `draftAtkReaches.test.ts`. (S190 merge: both render's `healedFifths` and this field are
+   * kept, each with its own projection and its own contribution test.)
+   */
+  | 'atkFifths';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
@@ -638,6 +646,8 @@ export function determinismParts(world: World): string[] {
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
         // S189 R190-I — the heal counter. `o()` absent marker for every never-healed creature.
         `:hf${o(c.healedFifths)}`,
+        // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
+        `:ak${o(c.atkFifths)}`,
     );
   }
 

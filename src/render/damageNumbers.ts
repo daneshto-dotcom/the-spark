@@ -66,6 +66,8 @@ import { CASTLE_ATTACK_RANGE } from '../constants.ts';
 import { castleFiresOnTick } from '../state/castleGuns.ts';
 import { castleShotFifthsFor } from '../state/castleUpgrades.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
+import { creatureAttackFifths } from '../state/creatures/creature.ts';
+import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
 
@@ -252,7 +254,9 @@ export function fatalBlowFifths(
     const dx = a.pos.x - at.x;
     const dy = a.pos.y - at.y;
     if (dx * dx + dy * dy > r * r) continue;
-    best = Math.max(best, attackFifths(cfg.atk, cfg.pen));
+    // ⭐ S190 (draft-atk) — the blow THIS creature lands (its baked strike, HELLSPAWN's share applied),
+    // the expression every strike arm subtracts — not its type's. Both fields ride the wire.
+    best = Math.max(best, hellspawnStrikeFifths(a, creatureAttackFifths(a)));
   }
 
   for (const d of world.defenders.values()) {
