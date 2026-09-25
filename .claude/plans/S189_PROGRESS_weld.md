@@ -574,3 +574,27 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   weld's +6.7 — reported, not hidden).
 - ⚠ Round 6 (repair job, queued) plugs in at ONE seam: `applyRepairStructure`'s restore half becomes
   the job's on-arrival step; the plan (unit, bill) is unchanged, so this design does not corner it.
+
+### R5-1 — IDENTITY: `ownBondIdLimit` → `ownPrimitiveIds` (W-FR4's root closed)
+- four sites: `spawner.ts` / `defender.ts` field + factory (sorted copy); registration
+  (`applyRegisterSpawner` / `applyRegisterDefender`) records `action.ownPrimitiveIds ??
+  ownSetAtRegistration(...)` (NEW, `towerMembers.ts`: the EXACT shape at the anchor, else null);
+  `reviveDormantHelgas` carries it; SAVE + WIRE (`save.ts`: both Serialized types, both serializers,
+  `trimMirrorSpawner` KEEPS it, both deserializers `?? null`); HASH (`stateHashFull.ts`: both unions +
+  `:op<ids.join('.')>` in both projections); WORKER via the save.
+- walks: `starArmsAt(…, own)` — an arm = a hub bond to an OWN leaf, any id; `ringMembersAt` /
+  `ringRemainsAt` / `sameTypeNeighbours(…, own)` — only own neighbours; `liveTowerLimit` →
+  `liveTowerOwnSet`; `cycleBonds` / `bondsWhollyInside` lose the id filter (both ends are own).
+- `migrationClaim.ts` W-FR1 floor: `nextPrimitiveId` ≥ every live record's own id + 1; `nextBondId`
+  back to `max(live)+1` (bond ids carry no identity now).
+- tests RE-PINNED (not relaxed): the arm test now also re-welds the cut arm with a NEW bond id and
+  asserts it is own again (the W-FR4 case, unit level); four-sites block → `ownPrimitiveIds`
+  (factory, disk + client snapshot keep it, hash flips on either); ring test asserts the recorded set;
+  `migrationClaim.test.ts` W-FR1 → the primitive floor (highest own node razed in the window, takeover,
+  a Triangle bridging the gap gets a NEW id and does not close the ring).
+- mutants: own filter removed from `starArmsAt` → 2 RED (spare arm stands in); prim floor removed → the
+  migration test RED. Restored.
+- runs: typecheck 0; `src/state src/net src/render src/bots` 359 files / 5800 tests EXIT=0 (netWireSize
+  budgets included — the id array fits).
+- HOTSPOT HUNKS: `save.ts` (the two Serialized fields, 2 serializers, trim, 2 deserializers — field
+  rename, self-contained); `stateHashFull.ts` (2 union members, 2 projection suffixes).

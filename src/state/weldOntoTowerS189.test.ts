@@ -680,17 +680,17 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
   /*
    * ⛔ AUDIT W1 — RE-PINNED. This test used to pin the SPARE rule ("lose an original arm and the spare
    * stands in"), a mechanic nobody ruled. Identity is fixed at registration now: the arms a star was
-   * BUILT with are the hub bonds below its `ownBondIdLimit`, and a weld — even of the arm type — is
-   * never one of them.
+   * BUILT with are the hub bonds to the leaves in its `ownPrimitiveIds` (S191 — shapes, not the retired
+   * bond-id watermark), and a weld — even of the arm type — is never one of them.
    */
   it('starArmsAt counts only the arms the star was BUILT with; a same-type weld never stands in', () => {
     const w = worldInBuild();
     const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
-    const limit = w.nextBondId; // what registration would record
+    const own = new Set([hub.id, ...leaves.map((l) => l.id)]); // what registration would record
     const spare = mk(w, SparkType.Spiral, 530, 330);
     const spareBond = bond(w, hub, spare); // minted AFTER the build: a weld
     const spec = [{ leafType: SparkType.Spiral, count: TURRET_HUB_DEGREE }];
-    const armsNow = starArmsAt(w, hub.id, SparkType.Line, spec, limit)!;
+    const armsNow = starArmsAt(w, hub.id, SparkType.Line, spec, own)!;
     expect(armsNow.whole).toBe(true);
     expect(armsNow.leaves).not.toContain(spare.id);
     expect(armsNow.bonds).not.toContain(spareBond);
@@ -700,12 +700,21 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
     w.bonds.delete(lost);
     hub.bonds.delete(lost);
     leaves[0]!.bonds.delete(lost);
-    const armsAfter = starArmsAt(w, hub.id, SparkType.Line, spec, limit)!;
+    const armsAfter = starArmsAt(w, hub.id, SparkType.Line, spec, own)!;
     expect(armsAfter.whole, 'a cut own arm levels it — a same-type weld never stands in').toBe(false);
     expect(armsAfter.leaves).not.toContain(spare.id);
     expect(armsAfter.bonds).toHaveLength(TURRET_HUB_DEGREE - 1);
 
-    // With NO limit (not a live tower / a pre-S189 save): the exact reading — a 7th arm is not a star.
+    // ⭐ S191 (W-FR4) — and the SAME arm re-welded (FIX mints a NEW bond id) counts again: it is a bond
+    // between two own shapes, whatever its id.
+    const rewelded = bond(w, hub, leaves[0]!);
+    expect(Number(rewelded)).toBeGreaterThan(Number(spareBond));
+    const armsFixed = starArmsAt(w, hub.id, SparkType.Line, spec, own)!;
+    expect(armsFixed.whole, 'a re-welded own arm is own again — a watermark could not see it').toBe(true);
+    expect(armsFixed.bonds).toContain(rewelded);
+    expect(armsFixed.leaves).not.toContain(spare.id);
+
+    // With NO own set (not a live tower / a pre-S189 save): the exact reading — a 7th arm is not a star.
     const w2 = worldInBuild();
     const s2 = star(w2, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
     bond(w2, s2.hub, mk(w2, SparkType.Spiral, 530, 330));
@@ -751,7 +760,7 @@ describe('ARITHMETIC — the survival shape, derived from the blueprint', () => 
     const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
     tick(w, st, 2);
     const sp = [...w.creatureSpawners.values()][0]!;
-    expect(sp.ownBondIdLimit, 'registration records the limit').toBe(w.nextBondId);
+    expect(sp.ownPrimitiveIds, 'registration records the five shapes').toEqual(nodes.map((n) => n.id).sort(byId));
     // X bonded to nodes 0 and 2 makes 0-X-2-3-4-0 a second simple 5-cycle through node 0.
     const x = mk(w, SparkType.Triangle, 520, 290);
     bond(w, x, nodes[0]!);
@@ -1550,49 +1559,52 @@ describe('⭐ S189 C2 audit W2-2 — the hub self-raze leaves no bond-less orpha
 });
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
-// AUDIT W1 — the four sites of `ownBondIdLimit`: factory (registration), save, wire, hash.
+// AUDIT W1 / S191 — the four sites of `ownPrimitiveIds`: factory (registration), save, wire, hash.
+// (Until S191 these pinned the retired `ownBondIdLimit` watermark — see `towerMembers.ts`.)
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 
-describe('⭐ S189 C2 audit W1 — `ownBondIdLimit` is recorded at registration and survives every copy', () => {
-  function worldWithTowers(): { w: World; spLimit: number; dLimit: number } {
+describe('⭐ S189 C2 audit W1 / S191 — `ownPrimitiveIds` is recorded at registration and survives every copy', () => {
+  function worldWithTowers(): { w: World; spOwn: PrimitiveId[]; dOwn: PrimitiveId[] } {
     const w = worldInBuild();
     const st = makeHostTickState(w);
-    ring(w, SparkType.Triangle, 5, 500, 300);
+    const nodes = ring(w, SparkType.Triangle, 5, 500, 300);
     tick(w, st, 2);
-    const spLimit = w.nextBondId;
-    star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 700, 300);
+    const { hub, leaves } = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 700, 300);
     tick(w, st, 2);
-    const dLimit = w.nextBondId;
-    return { w, spLimit, dLimit };
+    return {
+      w,
+      spOwn: nodes.map((n) => n.id).sort(byId),
+      dOwn: [hub.id, ...leaves.map((l) => l.id)].sort(byId),
+    };
   }
 
-  it('FACTORY — the spawner and the defender carry world.nextBondId from the moment they registered', () => {
-    const { w, spLimit, dLimit } = worldWithTowers();
-    expect([...w.creatureSpawners.values()][0]!.ownBondIdLimit).toBe(spLimit);
-    expect([...w.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+  it('FACTORY — the spawner and the defender carry the shapes they were built of from registration', () => {
+    const { w, spOwn, dOwn } = worldWithTowers();
+    expect([...w.creatureSpawners.values()][0]!.ownPrimitiveIds).toEqual(spOwn);
+    expect([...w.defenders.values()][0]!.ownPrimitiveIds).toEqual(dOwn);
   });
 
   it('SAVE + WIRE — a disk restore AND a client snapshot apply both keep it (the client walks need it)', () => {
-    const { w, spLimit, dLimit } = worldWithTowers();
+    const { w, spOwn, dOwn } = worldWithTowers();
     const disk = makeWorld(1);
     restore(snapshot(w), disk);
-    expect([...disk.creatureSpawners.values()][0]!.ownBondIdLimit).toBe(spLimit);
-    expect([...disk.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+    expect([...disk.creatureSpawners.values()][0]!.ownPrimitiveIds).toEqual(spOwn);
+    expect([...disk.defenders.values()][0]!.ownPrimitiveIds).toEqual(dOwn);
     const client = makeWorld(2);
     applyNetSnapshot(netSnapshot(w), client);
-    expect([...client.creatureSpawners.values()][0]!.ownBondIdLimit, 'NOT trimmed from the wire').toBe(spLimit);
-    expect([...client.defenders.values()][0]!.ownBondIdLimit).toBe(dLimit);
+    expect([...client.creatureSpawners.values()][0]!.ownPrimitiveIds, 'NOT trimmed from the wire').toEqual(spOwn);
+    expect([...client.defenders.values()][0]!.ownPrimitiveIds).toEqual(dOwn);
   });
 
-  it('HASH — changing either tower’s limit flips the wide hash (the projection carries it)', () => {
+  it('HASH — changing either tower’s own set flips the wide hash (the projection carries it)', () => {
     const { w } = worldWithTowers();
     const before = hashWorldStateFull(w);
     const sp = [...w.creatureSpawners.values()][0]!;
-    (sp as { ownBondIdLimit?: number | null }).ownBondIdLimit = (sp.ownBondIdLimit ?? 0) + 1;
+    sp.ownPrimitiveIds = (sp.ownPrimitiveIds ?? []).slice(1);
     const afterSpawner = hashWorldStateFull(w);
     expect(afterSpawner, 'spawner projection').not.toBe(before);
     const d = [...w.defenders.values()][0]!;
-    (d as { ownBondIdLimit?: number | null }).ownBondIdLimit = (d.ownBondIdLimit ?? 0) + 1;
+    d.ownPrimitiveIds = (d.ownPrimitiveIds ?? []).slice(1);
     expect(hashWorldStateFull(w), 'defender projection').not.toBe(afterSpawner);
   });
 

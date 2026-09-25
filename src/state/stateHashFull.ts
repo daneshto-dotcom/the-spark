@@ -368,8 +368,8 @@ type CreatureHashed =
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds';
 // ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
 // hand-written string template with NO executable link to this union, so a field listed here but
 // absent from the template compiles clean, passes every existing test, and leaves the wide
@@ -383,8 +383,8 @@ type DefenderHashed =
   // HASHED because it decides whether she is alive, which every later tick branches on.
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
   | 'lastStrikePos' | 'bagsRemaining' | 'ehp'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -660,7 +660,7 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `cs${n(s.id)}:${n(s.ownerPlayerId)}:${n(s.anchorPrimitiveId)}:${s.recipeId}` +
         `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}` +
-        `:ob${o(s.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:op${s.ownPrimitiveIds == null ? '_' : s.ownPrimitiveIds.join('.')}`, // S189 C2 / S191 — `_` when unknown
     );
   }
 
@@ -672,7 +672,7 @@ export function determinismParts(world: World): string[] {
         `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}` +
         `:eh${o(d.ehp)}` + // S158 P7 — `_` for a tower (null), a number for a unit-class defender
-        `:ob${o(d.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:op${d.ownPrimitiveIds == null ? '_' : d.ownPrimitiveIds.join('.')}`, // S189 C2 / S191 — `_` when unknown
     );
   }
 

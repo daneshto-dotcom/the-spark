@@ -111,7 +111,7 @@ export interface RampRow {
  *   arbitrary ring node holding TWO of the five connectors. Walking `anchor.bonds` would have
  *   covered two shapes of five, priced its health against a 2-connector pool of 14 instead of the
  *   real 50, and ignored every point of damage landing on the other three arms. The walk is the
- *   ring it was BUILT with (`towerMembersAt(...).whole`, the bonds below its `ownBondIdLimit`).
+ *   ring it was BUILT with (`towerMembersAt(...).whole`, the bonds among its `ownPrimitiveIds`).
  *
  * ⚠ S189 C2 — THIS USED TO SAY THE RING WALK WAS THE ANCHOR'S CONNECTED COMPONENT, "the ring and
  * nothing else, because the predicate rejects the shape outright the moment anything is welded to
