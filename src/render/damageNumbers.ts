@@ -745,7 +745,26 @@ export class DamageNumbers {
     // DEFENDERS — turret / Helga / stink tower. `ehp` is null for kinds with no unit stats.
     for (const d of world.defenders.values()) {
       if (d.ehp === null) continue;
-      track(`d:${d.id}`, d.ehp, d.pos.x, d.pos.y, d.ownerPlayerId, false, true);
+      /*
+       * ⭐ S191 (weld census) — A RISE IN A DEFENDER'S POOL IS A NEW LIFE, NOT A HEAL. Nothing in the
+       * sim heals a defender: the ONE writer that raises `Defender.ehp` is `reviveDormantHelgas`
+       * (R190-J), which wakes the SAME record — same id, same watch key — at a phase edge. Normally
+       * this watch sees her DORMANT (`ehp` null → the key vanishes → the sweep below prints the kill)
+       * and the revive is a first sighting. But a kill and a revive inside ONE render frame on the
+       * host, or inside one 10 Hz snapshot gap on a client, never shows the DORMANT frame: the watch
+       * saw "damaged" then "full", printed a green heal of the difference and lost the kill.
+       * So a rise is swept exactly as the vanish it was (the recorded swing, else the remainder —
+       * the same peer fallback), and the new life is re-seeded as a first sighting.
+       */
+      const key = `d:${d.id}`;
+      const last = this.watchedStruct.get(key);
+      if (last !== undefined && d.ehp > last.v) {
+        this.watchedStruct.delete(key);
+        const blow = killBlow.get(key);
+        const amount = blow === null ? 0 : blow ?? last.v;
+        if (amount > 0) this.emitAt(world, last.x, last.y, Math.round(amount), 'damage', last.owner);
+      }
+      track(key, d.ehp, d.pos.x, d.pos.y, d.ownerPlayerId, false, true);
     }
 
     // LANDED STINK BAGS — his *"even on the poop bags that are dropped"*.

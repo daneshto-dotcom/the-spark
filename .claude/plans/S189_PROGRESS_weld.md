@@ -462,3 +462,37 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
   · `canon.test.ts` GREEN (62) — no pinned assertion contradicts a weld rule. The canon TEXT that the
     weld rules change (§7b R185-B wording, §8 limit 2) is carried in `S189_CANON_NOTES_weld.md`.
 - `npm run build` → BUILD_EXIT=0 — **962.4 KiB** / 1100 cap (137.6 headroom); master 955.9 ⇒ weld = **+6.5 KiB**.
+
+### step 3 — THE DORMANT SEAM CENSUS (master's code since 15035b9 × `'DORMANT'` / `ownBondIdLimit` / `towerMembersAt`)
+METHOD (mechanical): `git diff --name-only 15035b9 master -- src | grep -v test` = 54 files; in each,
+the brief's pattern over the WHOLE file (21 files hit), then over master's ADDED code lines only, then a
+wider pattern over the added lines (`defender|helga|spawner|.ehp|componentOf|towerMembers|.bonds|
+anchorPrimitiveId|ringMembers|isStarAt` and `damageEntity|radial|killable|damageConnector|severBond|
+razePrimitives|creatureSpawners|world.defenders`); every hit read in the merged tree, plus every
+production `world.defenders` reader (42 sites) re-checked for a hunk master touched. Most of master's
+new code never reads a defender or a tower's membership; the rows that do, and the brief's named ones:
+
+| # | file:line (merged tree) | reads what | DORMANT-safe? (why) | weld-safe? (why) |
+|---|---|---|---|---|
+| 1 | `defenderLifecycle.ts:362` patrol `clampPointIntoPlayfield` + `defenderMotion.ts:65` verlet clamp (s189/units C8) | Helga's IDLE patrol point, her integrator | YES — reached only from `applyDefenderTick`, which returns at `:180` for DORMANT (and `hostTick` does not fan `DEFENDER_TICK` to her); the revive sets her on her hub exactly as a first build does (`makeDefender` copies `pos`) | YES — `homePos` is her anchor; no membership |
+| 2 | `damageNumbers.ts:264` `fatalBlowFifths` defender scan (s189/render + draft-atk) | who could have struck a dying creature | YES — `:264` skips DORMANT (round 2) | n/a |
+| 3 | `damageNumbers.ts:535` creature hit/heal watch (R190-I) | `Creature.ehp` + `healedFifths` | n/a — creatures only | n/a |
+| 4 | `damageNumbers.ts:759` structure watch `d:<id>` (S182 track × R190-J same-id revive) | `Defender.ehp` | ⛔ **NO → FIXED.** A kill + revive with no sync between them (one host render frame; one 10 Hz snapshot gap on a client — a kill within ~100 ms of a phase edge) never shows the DORMANT frame: the watch saw "dented" then "full", printed a GREEN heal of the difference and dropped the kill. Now a pool RISE on a `d:` key is swept as the vanish it was (recorded swing, else the remainder — the vanish sweep's own peer fallback) and re-seeded. Nothing else raises `Defender.ehp` (grepped: the only writer is `reviveDormantHelgas`) | n/a |
+| 5 | `creatureAttack.ts:310` defender arm, `creatureAttackFifths` (draft-atk) ← `creatureAI.ts:1036` `killableDefenderInReach` | `Defender.ehp` | YES — `ehp === null` skipped at `creatureAI.ts:1036`; `damage.ts:325` returns before `applyLifesteal` | n/a |
+| 6 | `defenderLifecycle.ts:485` Helga's own strike `attackFifths(config.atk, config.pen)` | — | unreachable while DORMANT (row 1); unbuffed = SANCTIONED R190-E | n/a |
+| 7 | `powerOfRa.ts:204` Ra column unit arm `applyRadialDamage` → `damage.ts:700/748` (s188/wrath) | defender pos + `ehp` | YES — **PROVEN** (`weldDormantSeamsS191.test.ts`): a real column through `runHostTick`→`racialTick`→`runPowerOfRa` lands on a DORMANT Helga with a CONTROL unit in the same column (it loses exactly `RA_STRIKE_FIFTHS`); her record stays DORMANT/`ehp` null, no second `structureKillHits` entry, and she still revives at the edge. Mutant (`damage.ts:325` gate removed) → RED | YES — the connector arm hits every enemy bond in the radius, own or weld, each priced by `damageConnector` against its component (R185-B: *"destroys the connectors that he's attacking"*); survival is then the poll's own-member verdict |
+| 8 | `suicideBlast.ts:106`, `droneLifecycle.ts:201` radial (draft-atk `creatureAttackFifths`) | same defender arm as row 7 | YES — the same `damage.ts:325` gate row 7 proves | n/a |
+| 9 | `apexPredator.ts:47` `towerUnitForSeat` (s188/swarm) ← `hostTick.ts:1184`, `goblinTowerFeed.ts:184`, `characterSheetModel.ts:1363` | the owner seat's perks + the base type | n/a | YES — reads the spawner's OWNER only; WHICH spawner emits is the survival poll's (`towerStandsAt`), WHICH is fed is `seatFeedTowerAt` (total order, round F2); emit position = the anchor |
+| 10 | `creatureAI.ts:559` bond-target index `buildColourBucket` (s190/perf) | every bond, bucketed by `placerColor` | n/a | YES — colour buckets, no tower membership: an own connector and a weld are both targets (R185-B). Fingerprint exact: this branch's new removals go through `razePrimitives`; guards test green (step 2) |
+| 11 | `botRa.ts:76` bot Ra aim (s188/wrath) | non-own bonds + enemy creatures | YES — a DORMANT Helga is in neither list | YES — no membership read |
+| 12 | `characterSheetModel.ts:623` `statRowsFor(…, own)` (draft-atk) | creature sheet only | n/a | n/a |
+| 13 | `hellspawn.ts:118` child `sourceSpawnerId` (s188) | an id, not a spawner lookup | n/a | YES |
+- FIX (row 4): `damageNumbers.ts` defender arm of `syncStructures`. TEST
+  `src/render/damageNumbersHelgaReviveS191.test.ts` — real hall, real kill, real FIGHT→BUILD edge, no
+  sync between: prints the kill (`300`), no green; control: a sync that sees DORMANT prints the kill
+  once, nothing on the revive. MUTANT (rise branch disabled) → RED with the predicted green `12`; restored.
+- ⚠ OUT OF CENSUS, NOTED FOR ROUND 5 (not master's code, pre-existing): `characterSheetModel.ts`
+  `structureSheet` walks `componentOf(prim)` and `towerStatsIn` / `auraOwnerIn` / `ownedUnitRow` take
+  the FIRST defender in `Map` order in that component — with two welded towers the sheet shows one
+  tower's ATK / aura for the other. Round 5 (R191-A tower vs structure sheets) replaces this path.
+- runs: typecheck TC_EXIT=0; `src/render` + both weld test files — 115 files / 1956 tests EXIT=0.
