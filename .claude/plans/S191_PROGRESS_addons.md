@@ -13,7 +13,8 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
 | A-4 | A1 CI e2e lane | DONE | 811121b |
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
-| R2-1 | RAGE-1 the clock runs through BUILD | **REVERTED** (owner ruling, S191) | d2757a0 → reverted by the next commit |
+| R2-1 | RAGE-1 the clock runs through BUILD | **REVERTED** (owner ruling, S191) | d2757a0, reverted ba622eb |
+| R2-1r | RAGE-1 as RULED: pinned across a real whistle + his quote | DONE | (this commit) |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
@@ -167,6 +168,14 @@ Merge owner = the main session. This branch never merges, never pushes.
   in BUILD); the per-FIGHT pattern DERIVED from the constants over FIGHT + BUILD into the next FIGHT; nothing
   fires in BUILD. Mutation (outside-FIGHT pass removed) → 2 red; restored. typecheck 0; vitest 0 (6514).
 
+- ⛔ **RAGE-1 — OWNER RULING (S191): SKIPPED.** *"…your creatures still look to be enraged. And then it …
+  restarts the next fight. Yeah, that's fine. Who cares?"* `d2757a0` reverted by `git revert` (`ba622eb`;
+  conflicts only beside later commits — the RAGE-7 tests and the progress table kept). Then the whistle test
+  RE-PINNED to the ruled behaviour: a rage 10 s before a real whistle stays red for all 5400 BUILD ticks
+  (Warlord and frenzied soldier), no re-stamp in BUILD, a fresh stamp on the next FIGHT's first tick; plus
+  the per-FIGHT pattern derived from `FIGHT_PHASE_TICKS` / `WARLORD_RAGE_TICKS` / `WARLORD_RAGE_COOLDOWN_TICKS`
+  / `PHASE_DURATION_TICKS`. His quote and a corrected consequence sentence at `WARLORD_RAGE_COOLDOWN_TICKS`
+  (the "25 on / 25 off" wording is gone). Mutation (the latch run in BUILD, i.e. the reverted fix) → 2 red.
 - **RAGE-3 (LOW) — reproduced first** (the renderer had no row-aware choice: new test red). Fix: pure
   `animRageForRow(row, enraged, attackCycleRaged)` in `goblinRenderer.ts`; `syncSprite` gains an
   `attackCycleRaged` parameter (both call sites pass `c.attackCycleRaged === true`) and the attack row's

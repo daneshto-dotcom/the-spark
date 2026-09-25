@@ -15,6 +15,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  FIGHT_PHASE_TICKS,
+  PHASE_DURATION_TICKS,
   PHYSICS_HZ,
   PLAYER_COLORS,
   WARLORD_RAGE_COOLDOWN_TICKS,
@@ -242,6 +244,67 @@ describe('S191 — ⭐ REACH through the real host tick', () => {
     runTo(r, r.w.tick + 30);
     expect(kraken.enraged ?? false).toBe(false);
     expect(kraken.rageStartTick).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+/*
+ * ⭐ S191 round 2 (RAGE-1) — RULED BY THE OWNER, NOT BUILT, AND PINNED SO IT STAYS AS RULED. The audit
+ * found that a rage running at the whistle stays red through BUILD (the latch runs only inside the FIGHT
+ * gate) and re-fires on the next FIGHT's first tick. He keeps it: *"Yeah, that's fine. Who cares? You
+ * can't really see the creatures anyways."* (quoted in full at `WARLORD_RAGE_COOLDOWN_TICKS`). Crossing a
+ * REAL whistle — every other clock test parks the match in FIGHT.
+ */
+describe('S191 round 2 — RAGE-1 as RULED: a rage running at the whistle stays red through BUILD, then restarts', () => {
+  it('⭐ a rage started 10 s before the whistle: red through the WHOLE BUILD (Warlord and frenzied soldier), fresh on the next FIGHT’s first tick', () => {
+    const r = rig(board(['racial']));
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
+    soldier.maxEhp = 1_000_000;
+    soldier.ehp = 1_000_000;
+    boss.ehp = pctPool(boss, 40);
+    const T = r.w.tick + 1;
+    const whistle = T + 10 * PHYSICS_HZ;
+    r.w.phaseEndsAtTick = whistle;
+    expect(step(r)).toBe(T);
+    const nextFight = whistle + PHASE_DURATION_TICKS;
+    let builds = 0;
+    runTo(r, nextFight - 1, (t) => {
+      if (r.w.matchPhase === 'BUILD') builds++;
+      expect(boss.enraged, `tick ${t} (${r.w.matchPhase}): still red, as ruled`).toBe(true);
+      expect(soldier.enraged, `tick ${t}: the frenzied soldier too`).toBe(true);
+    });
+    expect(builds, 'fixture: the run crossed the whistle into a whole BUILD').toBe(PHASE_DURATION_TICKS);
+    expect(boss.rageStartTick, 'nothing re-stamped him in BUILD').toBe(T);
+    const F = step(r);
+    expect(F).toBe(nextFight);
+    expect(r.w.matchPhase).toBe('FIGHT');
+    expect(boss.rageStartTick, '"it restarts the next fight" — a fresh 25 s from its first tick').toBe(F);
+    expect(boss.enraged).toBe(true);
+  });
+
+  it('⭐ the per-FIGHT pattern as ruled, derived from the constants, across a whole FIGHT and BUILD into the next', () => {
+    const R = WARLORD_RAGE_TICKS;
+    const C = WARLORD_RAGE_COOLDOWN_TICKS;
+    const fires: number[] = []; // offsets from the FIGHT's first tick
+    for (let k = 0; k * (R + C) < FIGHT_PHASE_TICKS; k++) fires.push(k * (R + C));
+    expect(PHASE_DURATION_TICKS, 'premise: BUILD outlasts both windows').toBeGreaterThan(R + C);
+    const last = fires.at(-1)!;
+    const redAtWhistle = last + R > FIGHT_PHASE_TICKS; // a rage still running when the FIGHT ends
+    const expected = (off: number): boolean => {
+      if (off >= FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS) return true; // the next FIGHT fires afresh
+      if (off >= FIGHT_PHASE_TICKS) return redAtWhistle; // BUILD: frozen as the whistle left it
+      return fires.some((f) => off >= f && off < f + R);
+    };
+    const r = rig(board());
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    boss.ehp = pctPool(boss, 40);
+    const F = r.w.tick + 1;
+    r.w.phaseEndsAtTick = F + FIGHT_PHASE_TICKS;
+    runTo(r, F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS, (t) => {
+      expect(boss.enraged === true, `offset ${t - F} (${r.w.matchPhase})`).toBe(expected(t - F));
+    });
+    expect(boss.rageStartTick, 'the next FIGHT fired on its first tick').toBe(F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS);
   });
 });
 

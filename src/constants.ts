@@ -3201,10 +3201,21 @@ export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 tic
  *
  * ⚠ MINE — owner ruled "cooldown first" (S191) but gave no length; 25 s mirrors the rage.
  *
- * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger): nothing heals a Warlord today (the S179 note at
- * `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half — and with a 25 s rage and a
- * 25 s cooldown a hurt Warlord therefore alternates **25 s on / 25 s off** for the rest of his life (and
- * BLOOD FRENZY switches his seat's orcs on and off with him). That rhythm is this number's doing.
+ * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
+ * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
+ * latch runs only inside the FIGHT gate (`hostTick`), so in each FIGHT a hurt Warlord fires on its first
+ * tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
+ * `FIGHT_PHASE_TICKS`; a rage still running at the whistle is NOT lowered in BUILD — he (and BLOOD FRENZY's
+ * orcs) stay red through the whole BUILD — and the next FIGHT's first tick fires a fresh rage (BUILD,
+ * `PHASE_DURATION_TICKS`, outlasts both windows). A rage that ended before the whistle stays ended.
+ * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging from 50 s through the
+ * whistle and all of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a real whistle.
+ *
+ * ⭐ RULED S191 (owner, round 2 RAGE-1 — the audit's "red through BUILD" finding, and he KEEPS it):
+ * *"if the rage started … during the fight and the countdown is still down while you're in … build
+ * phase, then your creatures still look to be enraged. And then it … restarts the next fight. Yeah,
+ * that's fine. Who cares? You can't really see the creatures anyways … they're like kind of standing
+ * behind the castle or their tower."* Do not "fix" it without his word.
  *
  * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
  * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
