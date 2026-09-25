@@ -11,8 +11,8 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-1 | Warlord rage 25 s + cooldown | DONE | be61e6a |
 | A-2 | Alt toggles the footer while a tower is armed | DONE | 7f8b326 |
 | A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
-| A-4 | A1 CI e2e lane | DONE | (this commit) |
-| A-5 | magic-attack DESIGN doc | next | — |
+| A-4 | A1 CI e2e lane | DONE | 811121b |
+| A-5 | magic-attack DESIGN doc | DONE | (this commit) |
 
 ## Decisions / owner answers received mid-task
 
@@ -133,6 +133,15 @@ Merge owner = the main session. This branch never merges, never pushes.
 - Gates at A-4: typecheck 0; full vitest 0 (6511 passed / 2 skipped, 399 files).
 - ⚠ Not verified: the branch's own CI run (this branch is never pushed). The merge owner's push is the
   first real measurement of the split lanes.
+
+## A-5 — what landed
+
+- `.claude/plans/S191_MAGIC_ATTACK_DESIGN.md` — DESIGN ONLY, no code. §1 inventory of 14 non-unit strikes
+  with file:line, amount (from the constants), whether ATK/PEN picks reach it, and what defends against
+  it; §2 three options on the ONE ladder (1 LABEL ONLY · 2 MAGIC IGNORES DEF · 3 a RES stat starting = DEF);
+  §3 the R190-E draft interaction as built; §4 five plain-words questions with a recommendation each;
+  §5 what each option would touch (bump verdicts). Headline consequence: under option 2 one Ra column
+  (300) kills every tier-9 boss (HP parts 100–120).
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
