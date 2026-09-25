@@ -547,6 +547,17 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
       }
+      if (world.matchPhase === 'FIGHT') {
+        /*
+         * ⭐⭐ S189 C2 (audit W-FR2) / R190-J — *"Every fight she should come back as long as the
+         * tower is still up."* The FIGHT→BUILD revive above only catches a Helga who died in a FIGHT.
+         * One finished during BUILD (a raid can do it) would otherwise sit DORMANT through the whole
+         * next FIGHT. Any record still DORMANT at this crossing died during BUILD — a FIGHT death was
+         * already revived at the FIGHT→BUILD edge — so she wakes for this fight, and S157 B6 ("not in
+         * the fight she died in") still holds for FIGHT deaths.
+         */
+        reviveDormantHelgas(world);
+      }
     }
   }
   // ⭐ S149 P2 — pull the gatherers in 1 s before this BUILD ends (R6). Deliberately OUTSIDE the

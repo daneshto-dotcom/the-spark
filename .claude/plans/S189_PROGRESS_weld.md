@@ -359,8 +359,16 @@ the committed tree, each a captured `$?`:
   razed → rebuilt nextBondId >= L; a same-type weld on node 0 after the takeover gets id >= L and the
   ring stands. Mutant (back to max+1) → RED; restored.
 
+### W-FR2 (MED) LANDED — a Helga finished during BUILD is back for the very next FIGHT
+- `hostTick.ts` flipped block: a `matchPhase === 'FIGHT'` arm (the BUILD→FIGHT crossing) also calls
+  `reviveDormantHelgas`. Any record still DORMANT there died during BUILD (a FIGHT death was revived
+  at FIGHT→BUILD), so S157 B6 still holds for FIGHT deaths. Docblock on the function updated.
+- tests: raid-killed in BUILD → still DORMANT for the rest of BUILD → cross into FIGHT → IDLE with her
+  full pool; a FIGHT death still waits for FIGHT→BUILD. Mutant (new arm removed) → the BUILD-death
+  test RED; restored.
+
 ## IN-FLIGHT
-- W-FR2 (revive at BUILD→FIGHT for a BUILD death).
+- W-FR3 (towerStatsIn skips a DORMANT Helga) + W-FR4 doc.
 
 ## NEXT
 

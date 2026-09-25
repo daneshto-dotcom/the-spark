@@ -568,7 +568,9 @@ export function loadRephaseDefenders(world: World): void {
  *
  * > *"Every fight she should come back as long as the tower is still up."*
  *
- * Called at the FIGHT→BUILD edge, AFTER that edge's sweep has removed the record of any hall that
+ * Called at BOTH crossings (audit W-FR2): at FIGHT→BUILD for a Helga who died in the fight, and at
+ * BUILD→FIGHT for one finished during BUILD (a raid), who would otherwise miss the whole next fight.
+ * At FIGHT→BUILD it runs AFTER that edge's sweep has removed the record of any hall that
  * fell. ⭐ WHY THIS EDGE AND NOT BUILD→FIGHT: it is the timing she already had — ignition summons a
  * defender DURING BUILD (S157 B6, "only next turn"), so a living hall brought her back at the start
  * of the next BUILD whenever anyone built. Reviving on the same edge keeps her timing, gives the

@@ -1660,3 +1660,56 @@ describe('⭐ S189 C2 audit W8 — host vs worker with REVERSED bond Sets, an ow
     void penta;
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W-FR2 — a Helga finished during BUILD is back for the very next FIGHT.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W-FR2 — R190-J for a BUILD death: revived at the BUILD→FIGHT crossing', () => {
+  function hallAt(w: World, st: HostTickState): Primitive {
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      bond(w, hub, mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40));
+    }
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 6 });
+    tick(w, st, 2);
+    return hub;
+  }
+  const helga = (w: World) => [...w.defenders.values()].find((d) => d.kind === 'princess');
+  function crossPhase(w: World, st: HostTickState): void {
+    const from = w.matchPhase;
+    w.phaseEndsAtTick = w.tick + 1;
+    tick(w, st, 3);
+    expect(w.matchPhase).not.toBe(from);
+  }
+
+  it('raid-killed in BUILD -> cross into FIGHT -> she is IDLE with a full pool', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    hallAt(w, st);
+    const h = helga(w)!;
+    const full = h.ehp!;
+    // A raid finishes her during BUILD (the raid reducer's own damage path).
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, full, 'player', null)).toBe(true);
+    expect(helga(w)?.state).toBe('DORMANT');
+    tick(w, st, PAST_TWO_POLLS);
+    expect(helga(w)?.state, 'still down for the rest of BUILD').toBe('DORMANT');
+    crossPhase(w, st); // -> FIGHT
+    expect(helga(w)?.state, 'back for the fight').toBe('IDLE');
+    expect(helga(w)?.ehp, 'with her full pool').toBe(full);
+  });
+
+  it('a FIGHT death still waits for the FIGHT->BUILD edge (S157 B6: not in the fight she died in)', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    hallAt(w, st);
+    crossPhase(w, st); // -> FIGHT
+    const h = helga(w)!;
+    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(helga(w)?.state, 'down for the rest of the fight she died in').toBe('DORMANT');
+    crossPhase(w, st); // -> BUILD
+    expect(helga(w)?.state, 'back at the FIGHT->BUILD edge').toBe('IDLE');
+  });
+});
