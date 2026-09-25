@@ -295,4 +295,27 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
   own output, each site read).
   ⚠ FOR THE MERGE OWNER: s191/owner (chewer persistence) may add a spawn or removal site — re-count
   after that merge and read the new site against the guard file's header question.
-## Step 4 — final gates, numbers, report  — pending
+## Step 4 — final gates, numbers, report
+### ⚠ RESUMED once — the org spend limit stopped this agent during the first full-suite run
+- On resume `git status` was clean bar the known benign snapshot rewrite (below); `git log` = 7 commits,
+  matching this file. Nothing lost or redone.
+- FIRST full suite: **VITEST_EXIT=1** — 1 failed / 6491 passed / 2 skipped (403 files). The red:
+  `damage.wired.test.ts` "no production file calls `damageCreature` directly". ⛔ MY DEFECT, not the
+  guard's: its scan exempts only `*.test.ts`, so a `.fixtures.ts` counts as production, and my
+  `s191PerfOracle.fixtures.ts` injected its mid-loop kill with a direct `damageCreature(…)`.
+  FIXED BY CONFORMING, NOT BY WIDENING THE GUARD: the injection now calls `damageEntity(w, {kind:
+  'creature', id}, 1_000_000, 'creature', {kind:'creature', id: caller})` — the exact call shape of the
+  production creature strike (`creatureAttack.ts:199`), which defers through `pendingCreatureDeaths`
+  itself. Re-run: damage.wired + oracle + nav exact + nav guards 4 files / 17 tests EXIT=0, oracle
+  counters IDENTICAL to before (384 injected kills, 0 mismatches) — so the injection is the same event.
+- `pentagramBuildability.test.ts.snap` rewritten to LF by the suite with identical content
+  (`git diff --ignore-cr-at-eol` empty) — the benign case S190 also recorded; restored with checkout.
+- Coordinator's Council items, re-sent on resume — status: (1) territory docblocks corrected + welded
+  MIXED bonds in the differential with visited/engulfed floors — DONE in 504fe93 (+ the 2e test).
+  (3) `zoneOf`/`zoneOwner` live in `zones.ts` — noted; `zones.ts` untouched, and no exported signature in
+  territory.ts / creatureAI.ts / bonds.ts / scoring.ts changed (`git diff 42cc2ee | grep '^[-+]export '`
+  empty). (2) pickNavUnit — ids + the Map's own objects, no copied state (guard-pinned: no object is ever
+  set over an existing id); ⛔ the ehp / pending-death re-check is STILL NOT APPLIED, deliberately: the
+  verbatim live scan returns a unit killed earlier in the loop 604 / 2 616 times (default / full), so the
+  filter changes outputs (mutant N4 = RED on the real-match oracle). It is a ruling, not a perf change —
+  handed to the merge owner as a question with the lever ready.

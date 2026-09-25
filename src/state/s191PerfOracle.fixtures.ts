@@ -21,7 +21,8 @@ import { referencePickNavUnit } from './creatures/navUnitReference.fixtures.ts';
 import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
 import { referenceComputeAllComplexities } from './scoringReference.fixtures.ts';
 import { isFilamentCombo, lookupCombo } from '../combos.ts';
-import { damageCreature, removeCreature } from './creatures/creatureLifecycle.ts';
+import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { damageEntity } from './damage.ts';
 import { makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
 import { razePrimitives } from './razePrimitives.ts';
@@ -384,8 +385,11 @@ export function makeNavChecker(real: PickNavUnitFn): NavChecker {
       let injected = false;
       if (inject !== null) {
         if (w.tick % inject.killEvery === 0 && s.n === 2 && result !== null && w.pendingCreatureDeaths !== null) {
-          // The in-loop strike path's own call shape: lethal, deferred to the sweep after the loop.
-          if (damageCreature(w, result, 1_000_000, w.pendingCreatureDeaths, c.id)) { stats.injectedKills++; injected = true; }
+          // The in-loop creature strike's own call, through the damage dispatcher's front door
+          // (`creatureAttack.ts`; `damage.wired.test.ts` forbids a direct `damageCreature` outside it):
+          // lethal, and deferred to the sweep after the loop because `pendingCreatureDeaths` is open.
+          const died = damageEntity(w, { kind: 'creature', id: result }, 1_000_000, 'creature', { kind: 'creature', id: c.id });
+          if (died) { stats.injectedKills++; injected = true; }
         }
         if (w.tick % inject.removeEvery === 1 && s.n === 3 && result !== null) {
           if (removeCreature(w, result)) { stats.injectedRemovals++; injected = true; }
