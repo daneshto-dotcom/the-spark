@@ -367,8 +367,16 @@ the committed tree, each a captured `$?`:
   full pool; a FIGHT death still waits for FIGHT→BUILD. Mutant (new arm removed) → the BUILD-death
   test RED; restored.
 
+### W-FR3 (LOW) LANDED + W-FR4 DOCUMENTED
+- `characterSheetModel.ts` `towerStatsIn`: skips a DORMANT defender (state, not `ehp` — towers have
+  no pool either). Test: the hall's sheet lists ATK while she lives, not while she is DORMANT; mutant
+  (skip removed) → RED; restored.
+- W-FR4 (NOT fixed, per the brief): documented at `ownBondIdLimit` on both `CreatureSpawner` and
+  `Defender` — a connector re-made by FIX inside the ≤ 0.5 s before the poll removes a broken tower
+  counts as a weld; the tower falls and the repaired shape re-ignites later.
+
 ## IN-FLIGHT
-- W-FR3 (towerStatsIn skips a DORMANT Helga) + W-FR4 doc.
+- gates + report.
 
 ## NEXT
 

@@ -214,6 +214,12 @@ export interface Defender {
    * SERIALIZED (disk, worker INIT AND the wire — the client render walks need it) and HASHED.
    * `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test then
    * falls back to the exact shape, the pre-S189 reading.
+   *
+   * ⚠ KNOWN GAP (audit W-FR4, documented, NOT fixed): a connector RE-MADE by FIX inside the ≤ 0.5 s
+   * before the revalidation poll removes a broken tower gets a NEW id (≥ this limit), so it counts as a
+   * weld — the tower still falls at that poll, and the repaired shape re-ignites as a new tower on the
+   * next BUILD-phase topology change. Narrow (FIX is BUILD-only; breaks come from FIGHT damage or a
+   * player's own sever) and it costs a re-ignition, never a wrong survivor.
    */
   readonly ownBondIdLimit?: number | null;
 }

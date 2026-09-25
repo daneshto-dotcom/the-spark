@@ -85,6 +85,7 @@ import { T9_BOSS_TYPE, T9_TOWER_IDS, T9_TOWER_SIZE } from './t9BossIds.ts';
 import { isRingAt } from './godlyRecipes/ringShape.ts';
 import { repairFeeShapeFor } from './structureRepair.ts';
 import { towerArtForRecipe, towerRingCentroid } from '../render/towerFrames.ts';
+import { characterSheetModel } from '../render/characterSheetModel.ts';
 import { makeWorkerCinematicState, tickWorkerCinematics } from './godlyMatcherCore.ts';
 import { applyTickBatch, makeWorkerSim, WorkerControls, type WorkerTickBatchMsg } from './workerSim.ts';
 import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
@@ -1711,5 +1712,30 @@ describe('⭐ S189 C2 audit W-FR2 — R190-J for a BUILD death: revived at the B
     expect(helga(w)?.state, 'down for the rest of the fight she died in').toBe('DORMANT');
     crossPhase(w, st); // -> BUILD
     expect(helga(w)?.state, 'back at the FIGHT->BUILD edge').toBe('IDLE');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W-FR3 — the hall's sheet does not list a DORMANT Helga as its shooting emplacement.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('S189 C2 audit W-FR3 — a dormant Helga is not the hall\u2019s emplacement on the sheet', () => {
+  it('the ATK row is there while she lives and gone while she is DORMANT', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      bond(w, hub, mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40));
+    }
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 6 });
+    tick(w, st, 2);
+    const labels = (): string[] =>
+      characterSheetModel(w, P0, { kind: 'structure', primitiveId: hub.id })!.stats.map((r) => r.label);
+    expect(labels(), 'the control: alive, the hall lists her strike').toContain('ATK');
+    const h = [...w.defenders.values()][0]!;
+    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+    expect([...w.defenders.values()][0]!.state).toBe('DORMANT');
+    expect(labels(), 'dormant: no emplacement row').not.toContain('ATK');
   });
 });

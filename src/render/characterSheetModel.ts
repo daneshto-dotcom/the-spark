@@ -1550,6 +1550,8 @@ function towerStatsIn(
 ): { atk: number; pen: number; range: number } | null {
   for (const d of world.defenders.values()) {
     if (!members.has(d.anchorPrimitiveId)) continue;
+    // S189 C2 (audit W-FR3) — a DORMANT Helga shoots nothing; not `ehp`, which towers also lack.
+    if (d.state === 'DORMANT') continue;
     const cfg = getDefenderConfig(d.kind as Parameters<typeof getDefenderConfig>[0]);
     if (cfg === undefined) continue;
     return { atk: cfg.atk, pen: cfg.pen, range: cfg.attackRange };
