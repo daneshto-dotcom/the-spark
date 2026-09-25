@@ -604,9 +604,12 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
     detectComboDiscoveries(world, firstNewBondId);
   }
 
-  // ⭐ S191 R191-A — a tower FIXed inside a weld keeps (or regains) its identity. See `settleTowerIdentity`.
-  if (plan.scope === 'tower' && plan.unit !== null) {
-    settleTowerIdentity(world, action.playerId, plan.unit, plan.group.blueprintId, byNode);
+  // ⭐ S191 R191-A — a FIXed tower keeps (or, inside a weld, regains) its identity. See `settleTowerIdentity`.
+  // ⚠ IN BOTH SCOPES for a LIVE record: an UN-welded stamped tower that lost a node inside the poll
+  // window gets a re-minted shape too, and its record must adopt it or the poll levels it (the master
+  // survival test was exact, so this path used to be free).
+  if (plan.unit !== null) {
+    settleTowerIdentity(world, action.playerId, plan.unit, plan.group.blueprintId, byNode, plan.scope === 'tower');
   }
 
   return world;
@@ -621,7 +624,9 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
  *     own shapes become the restored stamp's, so a re-minted node is one of its own. Its own connectors
  *     are the bonds between those shapes, so a re-welded connector — a NEW bond id — is own already
  *     (`ownPrimitiveIds`, the audit W-FR4 hazard). It stands at the next poll, same record, same id.
- *   · **A FALLEN tower** (its record is gone): exact ignition can NEVER see it again — a welded
+ *     Applies in BOTH scopes (an un-welded tower is its whole component).
+ *   · **A FALLEN tower** (its record is gone) — TOWER scope only; an un-welded stamp is left to the
+ *     matcher exactly as before (the FIX's own `BOND_FORMED` arms it): exact ignition can NEVER see it again — a welded
  *     component is not an exact recipe — so the restored stamp is registered here, with its own shapes
  *     passed explicitly. The anchor is the one the matcher itself would pick (the hub; the lowest ring
  *     id), so if the weld is later cut away the matcher's de-dup still recognises it. The same gates the
@@ -635,15 +640,20 @@ function settleTowerIdentity(
   unit: TowerUnit,
   recipeId: GodlyId,
   byNode: ReadonlyMap<number, PrimitiveId>,
+  mayRegister: boolean,
 ): void {
   const groupIds = [...byNode.values()].filter((id) => world.primitives.has(id)).sort((a, b) => Number(a) - Number(b));
   if (unit.kind === 'live') {
     const rec = unit.ref.kind === 'spawner' ? world.creatureSpawners.get(unit.ref.id) : world.defenders.get(unit.ref.id);
-    if (rec !== undefined && world.primitives.has(rec.anchorPrimitiveId)) {
+    if (
+      rec !== undefined && rec.recipeId === recipeId &&
+      world.primitives.has(rec.anchorPrimitiveId) && groupIds.includes(rec.anchorPrimitiveId)
+    ) {
       rec.ownPrimitiveIds = groupIds;
       return;
     }
   }
+  if (!mayRegister) return;
   const shape = towerShapeFor(recipeId);
   if (shape === null) return;
   const own = new Set(groupIds);

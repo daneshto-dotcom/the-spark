@@ -680,3 +680,26 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   ⛔ BUNDLE: round 5 = **+9.4 KiB** (962.6 → 972.0); the weld branch is now **+16.1 KiB** over master
   (955.9) against the ≤ 10 KiB per-branch guidance. REPORTED, not hidden, not contorted to fit
   (128.0 KiB of charter headroom remains).
+
+### RESUME NOTE — an org spend limit stopped the session mid-R5-4 (canon notes). On resume
+`git status` showed exactly one uncommitted file, `S189_CANON_NOTES_weld.md`, = the intended R191-A
+notes edit, fully applied. INSPECTED, coherent; one wording slip fixed ("bonds below its
+ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverted.
+
+### R5-4 — canon notes + a self-audit defect found and fixed
+- `S189_CANON_NOTES_weld.md`: identity text → `ownPrimitiveIds` (§A, §G, §H-A); R185-B marked AMENDED;
+  NEW §I (the owner's words, R185-B as amended, the click → card / FIX / SCRAP / FEED table, the
+  fallen-stamp rule ⚠ MINE, the unchanged "FIX needs provenance" rule, suggested canon assertions,
+  §8 limit 2 superseded); §H reasons 9-11 (scope-inferred FIX/SCRAP semantics, FIX re-registers /
+  amends identity, the render-side FEED / click / cards).
+- ⛔ DEFECT FOUND BY SELF-AUDIT (before any auditor): R5-2 only settled identity in TOWER scope. An
+  UN-welded stamped tower that loses a NODE inside the poll window and is FIXed gets a re-minted shape
+  the record never adopted → the poll levels it. Master's survival test was exact, so on master this
+  path worked: a REGRESSION this branch would have shipped. Fix: `settleTowerIdentity` updates a LIVE
+  record in BOTH scopes (recipe + anchor-in-group checked); re-registering a FALLEN stamp stays
+  tower-scope only (un-welded stamps are left to the matcher as before). Test: "a stamped turret
+  loses a LEAF inside the poll window, FIX re-mints it: the SAME turret stands" (un-welded); mutant
+  (tower-scope-only settle) → RED ("the record adopts it"). Restored.
+- `makeBond` call sites re-enumerated to back the "own by construction" claim: `placePrimitive.ts`
+  ×3 (all bond the NEW shape), `blueprintBuild.ts` (fresh stamp nodes only), `structureRepair.ts`
+  (blueprint edges of the group). No path bonds two pre-existing shapes of different towers.

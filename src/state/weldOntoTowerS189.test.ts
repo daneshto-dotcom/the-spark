@@ -2036,3 +2036,31 @@ describe('⭐ S191 R191-A — the two identity edges of a tower FIX, and the sha
     expect(w.creatureSpawners.size, 'the lightning hub still stands on its five').toBe(1);
   });
 });
+
+describe('⭐ S191 R191-A — the identity edge on an UN-WELDED tower (the path that was free under master’s exact survival)', () => {
+  it('a stamped turret loses a LEAF inside the poll window, FIX re-mints it: the SAME turret stands', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    stamp(w, 'laserTurret', { x: 500, y: 300 });
+    tick(w, st, 3);
+    expect(w.defenders.size).toBe(1);
+    const d = [...w.defenders.values()][0]!;
+    const defenderId = d.id;
+    const hub = w.primitives.get(d.anchorPrimitiveId)!;
+    const leaf = [...hub.bonds].map((bid) => {
+      const b = w.bonds.get(bid)!;
+      return b.aId === hub.id ? b.bId : b.aId;
+    }).sort(byId)[0]!;
+    razePrimitives(w, [leaf]);
+    const plan = planStructureRepair(w, P0, hub.id)!;
+    expect(plan.scope, 'un-welded: the pre-S191 structure FIX').toBe('structure');
+    expect(plan.group.missing).toHaveLength(1);
+    fund(w, plan.cost);
+    const reminted = asPrimitiveId(w.nextPrimitiveId);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    expect(w.primitives.has(reminted), 'FIX re-minted the leaf').toBe(true);
+    expect(w.defenders.get(defenderId)!.ownPrimitiveIds, 'the record adopts it').toContain(reminted);
+    tick(w, st, PAST_TWO_POLLS);
+    expect([...w.defenders.keys()], 'the SAME turret stands').toEqual([defenderId]);
+  });
+});
