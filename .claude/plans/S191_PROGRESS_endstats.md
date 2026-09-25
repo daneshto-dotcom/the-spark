@@ -72,8 +72,16 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   host AND an identical board on a peer fed only the POSTGAME snapshot; a source-text tripwire pins that the model
   never reads the four families the teardown empties. Mutation: dropping the WIN-edge sample turns 2 tests red.
 
+- **Slice 5 — the view + wiring.** NEW `src/render/matchBoard.ts` (Pixi; scrim + plate; headline; 8-column table with
+  bar-in-cell; per-type breakdown of the hovered/your/winner row; SCORE + BUILT graphs as moveTo-started polylines;
+  trust line; CONTINUE armed after `ARM_MS`; primary button only; single-source `matchBoardLayout`). `main.ts`: import;
+  construction + staging line after the draft panel / before the cruiser lift + a ticker `render`; POSTGAME block —
+  `resetIfPostgame` waits for `isArmed`, the canvas click is ignored while `isShowing()`. `ui.ts`: the win banner is
+  WIN-only (its POSTGAME "click or press R to reset" would now be false). Tests `matchBoard.test.ts` 6/6 (+ the
+  staging guard `s189CruiserAboveDraft.test.ts` 11/11).
+
 ## In flight
-- Slice 5 — the Pixi view (`src/render/matchBoard.ts`) + `main.ts` construction/POSTGAME block + `ui.ts` banner.
+- Gates: typecheck, full vitest (`--maxWorkers=4`), build + bundle measurement; wire-size measurement.
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
@@ -85,6 +93,7 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
 - `HISTORY_WINDOW_TICKS = 2 × PHYSICS_HZ` (matchStats.ts) — how long the whole history rides the net snapshot after each sample.
 - The BUILT graph = connectors standing (`sampleBuilt`) — the lever if he wants a different line.
 - `towersFell` includes a tower its owner scrapped/extended (the sim does not record who broke a recipe).
+- `ARM_MS = 1200` (matchBoard.ts) — how long the board is up before CONTINUE / R may leave it.
 
 ## Hotspot hunks
 - `src/state/worldTypes.ts` — one import line + the `matchStats` field block (after `scoreByPlayer`).
@@ -92,3 +101,6 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   `netSnapshot()` (after the spawner strip); one apply line in `applySnapshotCore` (after `scoreByPlayer`); one line each
   in `restore()` and `applyNetSnapshot()`.
 - `src/state/stateHashFull.ts` — one import; the `matchStats: 'hashed'` entry; one `parts.push` after the scores.
+- `src/main.ts` — one import; the board's construction/staging block (3 lines + comment) between
+  `app.stage.addChild(draftOverlay.container);` and `avatarRenderer.bringLocalToFront();`; the POSTGAME block
+  (`resetIfPostgame`'s condition + the canvas click listener).

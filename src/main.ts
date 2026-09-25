@@ -160,6 +160,7 @@ import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { DraftOverlay } from './render/draftOverlay.ts';
+import { MatchBoard } from './render/matchBoard.ts'; // ⭐ S191 — the end-of-match stat board
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -1321,6 +1322,12 @@ async function bootstrap(): Promise<void> {
    * `draftOverlay.ts`). `s189CruiserAboveDraft.test.ts` pins these three lines in this order.
    */
   app.stage.addChild(draftOverlay.container);
+  // ⭐ S191 — THE END-OF-MATCH STAT BOARD: staged here, by its line and no zIndex (canon §7b) — over the HUD,
+  // the footer, the sheet and the draft panel, under the cruiser. It re-derives itself from `world` every frame
+  // and shows only in POSTGAME; its CONTINUE is the POSTGAME exit (see `resetIfPostgame`).
+  const matchBoard = new MatchBoard(() => resetIfPostgame());
+  app.stage.addChild(matchBoard.container);
+  app.ticker.add(() => matchBoard.render(world, performance.now()));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -2296,7 +2303,8 @@ Network routes: ${v.detail}`;
 
   let lastGameState: GameState = world.gameState;
   const resetIfPostgame = (): void => {
-    if (world.gameState === 'POSTGAME') {
+    // ⭐ S191 — the stat board is up: nothing leaves it until it has been readable for `ARM_MS` (CONTINUE, R).
+    if (world.gameState === 'POSTGAME' && matchBoard.isArmed(performance.now())) {
       // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
       // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
       // re-selects 1 Player to play again (cleaner than implicit replay).
@@ -2304,7 +2312,9 @@ Network routes: ${v.detail}`;
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
-  app.canvas.addEventListener('click', resetIfPostgame);
+  // ⛔ S191 — ANY canvas click in POSTGAME used to reset the match, which made a stat board unreadable. While the
+  // board is up only its own CONTINUE (Pixi `pointertap`, primary button) or R leaves; this is the fallback.
+  app.canvas.addEventListener('click', () => { if (!matchBoard.isShowing()) resetIfPostgame(); });
 
   // S18 P1 — audio: lazy-init AudioContext on first user gesture anywhere
   // (canvas or window). Browser autoplay policy requires this to be inside

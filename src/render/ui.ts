@@ -1007,7 +1007,9 @@ export class HUD {
 
 
   private drawWinState(world: World): void {
-    if (world.gameState === 'WIN' || world.gameState === 'POSTGAME') {
+    // ⭐ S191 — WIN ONLY. POSTGAME belongs to the stat board (`matchBoard.ts`), which carries this headline and
+    // owns the exit; the old "click or press R to reset" line would now be false (a click no longer resets).
+    if (world.gameState === 'WIN') {
       const winnerPid = world.lastWinnerId ?? asPlayerId(0);
       const winner = world.players.get(winnerPid);
       // S87 — a bot victory says so (rub it in / soothe accordingly).
@@ -1016,9 +1018,7 @@ export class HUD {
           ? `BOT ${winnerPid + 1} WINS`
           : `PLAYER ${winnerPid + 1} WINS`
         : 'WIN';
-      this.winText.text = world.gameState === 'WIN'
-        ? winLabel
-        : `${winLabel} — click or press R to reset`;
+      this.winText.text = winLabel;
       if (winner !== undefined) this.winText.style.fill = winner.color;
       this.winText.visible = true;
       this.winTextAlphaTarget = 1;
