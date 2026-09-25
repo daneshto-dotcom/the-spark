@@ -116,10 +116,17 @@ function castStrike(w: World): RaStrike {
   return w.players.get(P0)!.raStrikes[0]!;
 }
 
-/** A Pharaoh channelling the ritual whose deadline is `until`, alone on a board. */
+/**
+ * A Pharaoh channelling the ritual whose deadline is `until`, alone on a board — in FIGHT.
+ * ⚠ S191 C-4 re-pin: `drawRaRitual` now draws columns only where the sim can land one (PLAYING + FIGHT),
+ * and this board used to sit in `makeWorld`'s default BUILD, where no column lands. A test that means
+ * BUILD sets it (RAVFX-A below).
+ */
 function pharaohBoard(until: number): World {
   const w = makeWorld(3);
   w.gameState = 'PLAYING';
+  w.matchPhase = 'FIGHT';
+  w.phaseEndsAtTick = 1_000_000;
   w.creatures.clear();
   const boss = {
     id: asCreatureId(PHARAOH_ID), type: T9_BOSS_TYPE.mummies, ownerPlayerId: P0,
@@ -518,7 +525,8 @@ describe("S188 ra-vfx — RAVFX-5: the Pharaoh's FIFTH column plays out after th
 
   it('⛔ S190 RAVFX-A — a deadline that falls in BUILD lands nothing: he is still standing, so no finale is drawn', () => {
     setRaStrikeArtForTests(shippedArt());
-    const pw = pharaohBoard(UNTIL); // matchPhase BUILD: hostTick never runs the ritual here
+    const pw = pharaohBoard(UNTIL);
+    pw.matchPhase = 'BUILD'; // hostTick never runs the ritual here (S191 C-4: now explicit, was the default)
     pw.tick = UNTIL - 1;
     drawBossAuras(recorder().g, pw); // seen channelling on his last tick
     pw.tick = UNTIL; // the deadline passes with no landing — the sim did NOT remove him

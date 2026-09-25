@@ -179,7 +179,26 @@ function drawRaRitual(
   g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
     .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
 
+  // ⛔ S191 C-4 — the columns only while the sim can land one (`ritualColumnsCanLand`). ⚠ MINE: the halo
+  // above stays — `isChannellingRa` is still the sim's truth in BUILD (the damage guard reads it).
+  if (!ritualColumnsCanLand(world)) return;
   drawRaColumns(g, strike, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
+}
+
+/**
+ * ⛔ S191 C-4 — **THE SIM'S OWN GATE FOR A RITUAL COLUMN LANDING, READ — NOT RE-INVENTED.**
+ *
+ * `runPharaohRitual` lands a column only when `hostTick` calls it, and that is inside its ONE boss-skill
+ * gate, `matchPhase === 'FIGHT'` (S168); the runner itself returns unless `gameState === 'PLAYING'`. So a
+ * ritual that straddles FIGHT→BUILD lands nothing after the edge, and `drawRaRitual` used to keep drawing
+ * its telegraphs and beams through BUILD — promises (R171-B) the sim does not keep. Exactly those two
+ * conditions, on the CURRENT phase, and nothing predicted from `phaseEndsAtTick`: the same test
+ * `drawPowerOfRa` and `showsCorpseEaterFeed` already make. A column still telegraphing when the edge
+ * arrives therefore vanishes at the edge, as a called POWER OF RA strike's does.
+ * `raRitualFightGate.test.ts` pins the agreement tick by tick through the real host tick.
+ */
+function ritualColumnsCanLand(world: Pick<World, 'gameState' | 'matchPhase'>): boolean {
+  return world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT';
 }
 
 /**

@@ -10,9 +10,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | 0 · `npm ci` | DONE | `60c304d` | `NPM_CI_EXIT=0` (captured `$?`, log `.tmp-gates/npm-ci.log`) |
 | C-1 · worker startup `nextPulledSparkId` | DONE | `686f990` | see below |
 | C-2 · WRATH-F5 pending cast vs tick moving backwards | DONE | `3b2f460` | see below |
-| C-3 · SWM-6 swarm draw through the bat-sheet fallback | DONE | (this commit) | test-only |
-| C-4 · `drawRaRitual` FIGHT gate | next | | |
-| C-5 · hub self-destruct = 120 fifths | todo | | |
+| C-3 · SWM-6 swarm draw through the bat-sheet fallback | DONE | `d4107bc` | test-only |
+| C-4 · `drawRaRitual` FIGHT gate | DONE | (this commit) | see below |
+| C-5 · hub self-destruct = 120 fifths | next | | Council items received (explicit arms) |
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
 
@@ -64,6 +64,31 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   sheet present → its own sheet; plain bat → bat sheet ×1; the bat sheet carries every swarm row.
 - Mutation: the draw loop's `?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined)`
   arm (`goblinRenderer.ts` ~:1144) → `?? undefined`: 2 RED (0 sprites / 1 of 2), restored → 5/5.
+
+## C-4 — DONE
+
+- The sim's gate, read (not edited): `runPharaohRitual` is called only inside `hostTick`'s one
+  `matchPhase === 'FIGHT'` boss-skill gate (`hostTick.ts` ~:2094/2128) and returns unless
+  `gameState === 'PLAYING'` (`bossSkillsPharaohRitual.ts:101`).
+- Fix (`src/render/bossAuras.ts`, ritual drawing only): `drawRaRitual` draws its COLUMNS only when
+  `ritualColumnsCanLand(world)` = PLAYING && FIGHT — the current phase, nothing predicted from
+  `phaseEndsAtTick` (the `drawPowerOfRa` / `showsCorpseEaterFeed` precedent). ⚠ MINE: the priest's halo
+  still draws while `isChannellingRa` (the sim's truth in BUILD too). `rememberRaRitual` (tails) runs
+  before the gate, unchanged; the tails keep their own "he is gone" proof.
+- Tests: `src/render/raRitualFightGate.test.ts` (4) — REACH through the real `runHostTick` across the real
+  `phaseEndsAtTick` edge with the real `drawBossAuras` every tick; the sim's landings observed by a
+  `vi.mock('../state/damage.ts', { spy: true })` on `applyRadialDamage` (a pass-through `importOriginal`
+  factory did NOT intercept — an import cycle; measured, recorded in the file). Straddle: sim lands
+  exactly columns 0/1 in FIGHT, each drawn on its landing tick, nothing drawn on any BUILD tick; halo in
+  BUILD; negative (all-FIGHT: five landings, all drawn); render model alone (FIGHT / BUILD / WIN).
+- Re-pinned by design (they drew live columns on `makeWorld`'s default BUILD board):
+  `raStrikeArt.test.ts` `pharaohBoard` → FIGHT (RAVFX-A now sets BUILD explicitly),
+  `powerOfRaRender.test.ts` Pharaoh board → FIGHT. 3 tests were red before the re-pin.
+- Mutation: gate replaced by `void ritualColumnsCanLand` → 2 RED, restored → green.
+- Wire / hash / shared rule: none (render only). No bump.
+- ⚠ Consequences stated: a telegraph still growing at the FIGHT→BUILD edge vanishes AT the edge (as a
+  POWER OF RA strike's does), and a column that landed just before the edge has its code-beam aftermath
+  cut at the edge; column 4's finale tail is not gated (it draws only after the sim removed him).
 
 ## In flight
 
