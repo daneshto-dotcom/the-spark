@@ -41,7 +41,9 @@ import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
-import { attackFifths } from '../stats.ts';
+// ⭐ S190 (draft-atk) — every arm below strikes for the CREATURE's own baked strike (a drafted ATK/PEN
+// pick), never its type's: `creatureAttackFifths`. `creatureStrike.guard.test.ts` counts the derivations.
+import { creatureAttackFifths } from './creature.ts';
 // ⭐ S188 demons.l5 — a split chewer hits for its generation's share (identity for everyone else).
 import { hellspawnStrikeFifths } from '../racial/hellspawn.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
@@ -197,7 +199,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const died = damageEntity(
       world,
       { kind: 'creature', id: action.targetCreatureId },
-      hellspawnStrikeFifths(creature, attackFifths(getCreatureConfig(creature.type).atk, getCreatureConfig(creature.type).pen)),
+      hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -311,7 +313,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const killed = damageEntity(
       world,
       { kind: 'defender', id: defenderId },
-      hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
+      hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -385,6 +387,8 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * Every sibling arm already reads `attackFifths(atk, pen)`; the shape arm was the odd one out.
        * Now it is not, and a goblin prints the same 12 on a shape that it prints on a goblin. His
        * six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
+       * (⭐ S190 draft-atk: every arm now strikes with the creature's OWN ladder number,
+       * `creatureAttackFifths(creature)` — the type's `attackFifths(atk, pen)`, drafted-buffed.)
        */
       // ⭐ S183 — named, though a SHAPE has no AI to turn round: `damageEntity`'s primitive arm
       // ignores the attacker entirely. Threading the truth costs nothing and keeps every creature
@@ -392,7 +396,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       const died = damageEntity(
         world,
         { kind: 'primitive', id: prim.id },
-        hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
+        hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
       );
@@ -439,7 +443,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     const killed = damageEntity(
       world,
       { kind: 'stinkCloud', id: cloudId },
-      hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
+      hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
     );
@@ -490,7 +494,8 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * the `GOBLIN_DAMAGE_VS_PRIMITIVE` defect class: a bespoke constant on its own scale, exactly
        * what he blew up about in S177 (*"that is not consistent. And we have a system for this."*).
        * Every sibling arm in this function already reads `attackFifths(atk, pen)`; the castle arm was
-       * the odd one out, and now it is not.
+       * the odd one out, and now it is not. (⭐ S190 draft-atk: every arm, this one included, now strikes
+       * with the creature's OWN ladder number, `creatureAttackFifths(creature)` — drafted-buffed.)
        *
        * ⚠ THIS IS A LARGE BALANCE MOVE AND IT IS HIS, STATED RATHER THAN SLIPPED IN. Against
        * `CASTLE_MAX_HP` 1500: a melee goblin goes 250 swings → 125, and Vlad goes 250 → **10**. The
@@ -502,7 +507,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       damageEntity(
         world,
         { kind: 'castle', seat: castleSeat },
-        hellspawnStrikeFifths(creature, attackFifths(attackerConfig.atk, attackerConfig.pen)),
+        hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
       );
@@ -531,7 +536,6 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   //
   // Damage POOLS on the bond, so several attackers now cooperate on one connector instead of each
   // starting from scratch — and a laser and a chewer can work on the same strut.
-  const attacker = getCreatureConfig(creature.type);
   // ⭐ S177 P9 (owner) — *"only when they reach it"*. Same gate, same predicate, same reason as the
   // creature arm above: this one could also sever a connector from any distance whatsoever.
   if (!isWithinAttackRange(world, creature, action.bondId)) return world;
@@ -540,7 +544,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   const broke = damageConnector(
     world,
     action.bondId,
-    hellspawnStrikeFifths(creature, attackFifths(attacker.atk, attacker.pen)),
+    hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
     { kind: 'creature', id: creature.id },
   );
 

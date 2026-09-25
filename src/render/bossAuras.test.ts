@@ -26,6 +26,8 @@ function recorder(): { g: Graphics; ops: string[] } {
   const ops: string[] = [];
   const g = {
     circle(x: number, y: number, r: number) { ops.push(`circle ${x.toFixed(3)} ${y.toFixed(3)} ${r.toFixed(3)}`); return g; },
+    // S189 — the sonar now lifts the pen before each arc (`s189PenLiftArcs.test.ts`).
+    moveTo(x: number, y: number) { ops.push(`moveTo ${x.toFixed(3)} ${y.toFixed(3)}`); return g; },
     arc(x: number, y: number, r: number, a0: number, a1: number) { ops.push(`arc ${x.toFixed(3)} ${y.toFixed(3)} ${r.toFixed(3)} ${a0.toFixed(3)} ${a1.toFixed(3)}`); return g; },
     fill(o: { alpha: number }) { ops.push(`fill ${o.alpha.toFixed(3)}`); return g; },
     stroke(o: { alpha: number; width: number }) { ops.push(`stroke ${o.width} ${o.alpha.toFixed(3)}`); return g; },

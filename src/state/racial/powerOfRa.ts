@@ -8,8 +8,8 @@
  * The rules (who may cast, what a legal aim is) live in the leaf `powerOfRaRules.ts`, because the
  * footer button and the aiming telegraph read them too. This file is the two halves that MUTATE:
  *
- *   `applyCastPowerOfRa`  the host reducer for the `CAST_POWER_OF_RA` client intent — stamps
- *                         `Player.raStrike` and nothing else;
+ *   `applyCastPowerOfRa`  the host reducer for the `CAST_POWER_OF_RA` client intent — appends to
+ *                         `Player.raStrikes` and nothing else;
  *   `runPowerOfRa`        the `racialTick` slot — lands whichever column is due this tick.
  *
  * ## ⛔ IT IS THE PHARAOH'S STRIKE, RE-CENTRED — THE FUNCTIONS AND CONSTANTS ARE HIS, NOT COPIES
@@ -52,12 +52,13 @@
  * into here, so nothing is born mid-strike (Council A5 does not apply).
  */
 
-import { RA_COLUMN_ATK, RA_COLUMN_COUNT, RA_COLUMN_PEN, RA_COLUMN_RADIUS, RA_RITUAL_TICKS } from '../../constants.ts';
+import { MAX_PLAYERS, RA_COLUMN_ATK, RA_COLUMN_COUNT, RA_COLUMN_PEN, RA_COLUMN_RADIUS, RA_RITUAL_TICKS } from '../../constants.ts';
 import type { BondId, PlayerId } from '../../types.ts';
 import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
 import { applyRadialDamage, damageConnector } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
-import { dispatch, type World } from '../world.ts';
+import type { World } from '../world.ts';
+import { applySeverBond } from '../severBond.ts';
 import { raAimPoint, raCastRefusal, type CastPowerOfRaAction } from './powerOfRaRules.ts';
 
 /** What one column deals — to a creature, a shape and a connector alike. ONE LADDER (S177 P1). */
@@ -67,20 +68,28 @@ export const RA_STRIKE_FIFTHS = attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN);
  * ⭐ WHERE COLUMN `k` OF A SEAT'S STRIKE LANDS — the Pharaoh's `raColumnPos`, re-centred on the aim
  * and seeded by the seat (see `powerOfRaRules.ts` for why the seat and not the cast tick). The sim
  * damages through this and the renderer draws through this; there is no second copy.
+ *
+ * ⭐ S188 P11 — `charge` is the strike's index among this fight's casts (0 for POWER OF RA's only
+ * one), folded into the seed as `seat + MAX_PLAYERS × charge` so WRATH OF RA's three strikes fall in
+ * three different patterns while charge 0 keeps exactly the S188 P6 pattern. The index is known to
+ * the aiming client before the click — ⚠ S190 W-4: exactly only once its previous cast has synced,
+ * so the client adds the casts it has sent and not yet seen (`raCastsInWaveLocal`, render-side). ⚠ MINE.
  */
 export function raStrikeColumnPos(
   seat: PlayerId,
   k: number,
   aim: { readonly x: number; readonly y: number },
+  charge = 0,
 ): { x: number; y: number } {
-  return raColumnPos(seat as unknown as number, k, aim.x, aim.y);
+  return raColumnPos((seat as unknown as number) + MAX_PLAYERS * charge, k, aim.x, aim.y);
 }
 
 /**
  * ⭐⭐ THE REDUCER. Host-authoritative, NO-OP-NEVER-THROW: every refusal returns the world untouched.
  *
- *   · the seat must hold `mummies.l0`, be alive, unbenched, in a PLAYING match, in FIGHT, and not
- *     have called Ra this wave — all of it one predicate, `raCastRefusal`, the one the button reads;
+ *   · the seat must hold `mummies.l0`, be alive, unbenched, in a PLAYING match, in FIGHT, and have a
+ *     charge left this wave (1, or 3 with WRATH OF RA) — all of it one predicate, `raCastRefusal`,
+ *     the one the button reads;
  *   · the aim must be a finite point on the canvas — `raAimPoint`, the one the telegraph reads —
  *     and what is STORED is its rounded, clamped integer form (Council A1).
  *
@@ -93,12 +102,17 @@ export function applyCastPowerOfRa(world: World, action: CastPowerOfRaAction): W
   if (aim === null) return world;
   const caster = world.players.get(action.playerId);
   if (caster === undefined) return world; // unreachable past raCastRefusal; kept so tsc can see it
-  caster.raStrike = {
-    wave: world.waveNumber,
-    x: aim.x,
-    y: aim.y,
-    untilTick: world.tick + RA_RITUAL_TICKS,
-  };
+  /*
+   * ⭐ S188 P11 — APPEND, after dropping every earlier-wave strike (all long finished: five columns
+   * take 10 s and a wave's FIGHT is far longer, and a column due after the fight never lands). So the
+   * list is always one wave's casts in cast order, never more than the seat's charges, and an entry's
+   * index is its charge number. ⚠ MINE: the three strikes may overlap — a player who spends all
+   * three in one second gets three strikes at once. Refusing a cast while one was still falling
+   * would read as a broken button, and he asked for three uses, not three in a queue.
+   */
+  const kept = caster.raStrikes.filter((s) => s.wave === world.waveNumber);
+  kept.push({ wave: world.waveNumber, x: aim.x, y: aim.y, untilTick: world.tick + RA_RITUAL_TICKS });
+  caster.raStrikes = kept;
   return world;
 }
 
@@ -113,11 +127,13 @@ export function runPowerOfRa(world: World): void {
   if (world.gameState !== 'PLAYING') return;
   const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [seat, p] of seats) {
-    const strike = p.raStrike;
-    if (strike === null) continue;
-    for (let k = 0; k < RA_COLUMN_COUNT; k++) {
-      if (raColumnImpactTick(strike.untilTick, k) !== world.tick) continue;
-      landRaColumn(world, seat, raStrikeColumnPos(seat, k, strike));
+    // Seat, then charge, then column — a total order, so two overlapping WRATH strikes whose columns
+    // land on one tick resolve identically on every peer.
+    for (const [charge, strike] of p.raStrikes.entries()) {
+      for (let k = 0; k < RA_COLUMN_COUNT; k++) {
+        if (raColumnImpactTick(strike.untilTick, k) !== world.tick) continue;
+        landRaColumn(world, seat, raStrikeColumnPos(seat, k, strike, charge));
+      }
     }
   }
 }
@@ -165,8 +181,18 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
        * a protocol change this branch may not make. ⚠ MINE, and one side effect is the owner's to
        * judge: 'raid' plays the player-sever SFX (`audioManager`), so a column that cuts three
        * connectors plays it three times.
+       *
+       * ⛔ S188 audit F1 — **THE SEVER IS RESOLVED INLINE, NOT DISPATCHED.** `dispatch` runs the
+       * bench and elimination gates on any action carrying a `playerId`, and SEVER_BOND is `'deny'`
+       * in both — policies written for a player's INTENTS. A caster eaten by the hunter (or whose
+       * castle fell) between the cast and a column therefore had every connector the column broke
+       * REFUSED: the pool drained, the connector stood, the overkill banked. This sever is not the
+       * caster acting now; it is the CONSEQUENCE of damage that has already landed, the same thing
+       * the column's creature arm does to units with no gate at all. So it goes straight to the one
+       * sever reducer, `applySeverBond`, which still runs `canSeverBond` (a `'raid'` sever passes it,
+       * by its own rule) and still does the topology split and the effects in order.
        */
-      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
+      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
     }
   }
 

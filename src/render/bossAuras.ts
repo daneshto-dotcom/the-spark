@@ -66,8 +66,8 @@ import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
-import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
-import { raAimPreview } from './raAimPreview.ts';
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
 import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
@@ -101,7 +101,14 @@ const SONAR_FOAM_TINT = 0xffffff;
  * `fogHiddenLayer` would shift its indices and break `tower-art.spec.ts`'s two hardcoded probes —
  * which have already moved three times this session.
  */
-export function drawBossAuras(g: Graphics, world: World): void {
+/**
+ * ⭐⭐ S190 (owner R190-H) — `strike` is where THE RA STRIKE itself goes: the owner's sprite frames and the
+ * code-beam fallback shafts. `goblinRenderer` passes its `arrowLayer`, which sits ABOVE the unit sprite
+ * layer, so the strike draws on top of the units it lands on. Everything else — every other aura, the
+ * Ra telegraph shade and outline, the hitbox scorch, the Pharaoh's halo, the aim preview — stays in `g`,
+ * under the sprites, unchanged. Defaults to `g` so a caller that passes one Graphics draws as before.
+ */
+export function drawBossAuras(g: Graphics, world: World, strike: Graphics = g): void {
   for (const [bossId, boss] of world.creatures) {
     if (boss.ehp <= 0) continue;
     /*
@@ -115,13 +122,13 @@ export function drawBossAuras(g: Graphics, world: World): void {
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
     if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
-    if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, world, bossId as number, boss);
+    if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, strike, world, bossId as number, boss);
   }
   // ⭐ RAVFX-5 — the Pharaoh's FINALE column, played out after the host has removed him.
-  drawRaRitualTails(g, world);
+  drawRaRitualTails(g, strike, world);
   // ⭐ S188 P6 — POWER OF RA: called strikes and the local aim. Walks `world.players`, not the boss
   // loop above, so it draws on a board with no boss on it (the usual case).
-  drawPowerOfRa(g, world);
+  drawPowerOfRa(g, strike, world);
 }
 
 /* ── RA RITUAL dial. ⚠ THE LOOK IS MINE; THE MECHANIC AND THE TELEGRAPH ARE HIS (R142, R171-B). */
@@ -154,6 +161,7 @@ const RA_FLASH_TICKS = 14;
  */
 function drawRaRitual(
   g: Graphics,
+  strike: Graphics,
   world: World,
   id: number,
   boss: { pos: { x: number; y: number }; raRitualUntilTick?: number; ownerPlayerId: PlayerId },
@@ -171,7 +179,7 @@ function drawRaRitual(
   g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
     .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
 
-  drawRaColumns(g, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
+  drawRaColumns(g, strike, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
 }
 
 /**
@@ -233,7 +241,7 @@ function rememberRaRitual(world: World, id: number, owner: PlayerId, pos: { x: n
   else { t.x = pos.x; t.y = pos.y; t.lastSeenTick = Math.max(t.lastSeenTick, world.tick); }
 }
 
-function drawRaRitualTails(g: Graphics, world: World): void {
+function drawRaRitualTails(g: Graphics, strike: Graphics, world: World): void {
   const tails = raRitualTails.get(world);
   if (tails === undefined || tails.size === 0) return;
   for (const [key, t] of tails) {
@@ -245,7 +253,7 @@ function drawRaRitualTails(g: Graphics, world: World): void {
     if (world.creatures.has(asCreatureId(t.id))) continue; // still standing → column 4 never landed (BUILD)
     if (t.lastSeenTick < t.until - RA_TAIL_SIGHTING_SLACK_TICKS) continue;
     if (isConcealed(t.x, t.y, t.owner)) continue;
-    drawRaColumns(g, world.tick, t.until, (k) => raColumnPos(t.id, k, t.x, t.y));
+    drawRaColumns(g, strike, world.tick, t.until, (k) => raColumnPos(t.id, k, t.x, t.y));
   }
 }
 
@@ -276,6 +284,8 @@ function drawRaRitualTails(g: Graphics, world: World): void {
  */
 function drawRaColumns(
   g: Graphics,
+  /** ⭐ S190 R190-H — the layer ABOVE the unit sprites: the sprite frames and the code shafts go here. */
+  strike: Graphics,
   tick: number,
   until: number,
   columnPos: (k: number) => { x: number; y: number },
@@ -323,13 +333,13 @@ function drawRaColumns(
       const f = 1 - (elapsed - impact) / RA_FLASH_TICKS; // 1 → 0
       const halfW = RA_COLUMN_RADIUS * 0.42 * f;
       const top = pos.y - 520;
-      g.moveTo(pos.x - halfW, pos.y)
+      strike.moveTo(pos.x - halfW, pos.y) // ⭐ S190 R190-H — the shaft is the strike: above the units
         .lineTo(pos.x - halfW * 0.45, top)
         .lineTo(pos.x + halfW * 0.45, top)
         .lineTo(pos.x + halfW, pos.y)
         .fill({ color: RA_COLUMN_TINT, alpha: 0.55 * f });
       // A hotter core, so the shaft has depth rather than reading as a flat quad.
-      g.moveTo(pos.x - halfW * 0.35, pos.y)
+      strike.moveTo(pos.x - halfW * 0.35, pos.y)
         .lineTo(pos.x - halfW * 0.14, top)
         .lineTo(pos.x + halfW * 0.14, top)
         .lineTo(pos.x + halfW * 0.35, pos.y)
@@ -342,7 +352,7 @@ function drawRaColumns(
 
   if (art === null || sprites.length === 0) return;
   sprites.sort((a, b) => a.y - b.y || a.k - b.k);
-  for (const s of sprites) drawRaStrikeFrame(g, art, s.slot, s.x, s.y);
+  for (const s of sprites) drawRaStrikeFrame(strike, art, s.slot, s.x, s.y); // ⭐ S190 R190-H — above the units
 }
 
 /* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to
@@ -354,7 +364,7 @@ const RA_AIM_TINT = 0xffd970;
  * THE LOCAL CURSOR.**
  *
  * THE STRIKE is drawn through `drawRaColumns` — the Pharaoh's own telegraph and beam — from ONE
- * synced record (`Player.raStrike`) and `world.tick`, landing where the SIM lands it
+ * synced record per strike (`Player.raStrikes`) and `world.tick`, landing where the SIM lands it
  * (`raStrikeColumnPos`). Nothing is pushed to `world.effects`, so a joiner sees every column the
  * host lands. ⚠ Not fog-gated, deliberately: a column of sunlight from the sky is visible to
  * everyone, it gives away nothing about the CASTER's position (they aim anywhere), and the victim is
@@ -368,9 +378,11 @@ const RA_AIM_TINT = 0xffd970;
  * WILL fall if the player clicks now — `raStrikeColumnPos` on the point the REDUCER will store
  * (`raAimPoint`, the same normalisation), and only while `raCastRefusal` says the cast is legal.
  * Three calls into the sim's own rules and nothing re-derived, so the preview cannot disagree with
- * the strike.
+ * the strike. ⚠ S190 W-4 — the charge index (which seeds the pattern) and the refusal are read as
+ * synced state PLUS this client's unacknowledged casts (`raCastsInWaveLocal`), because a joiner's
+ * synced strikes trail its own casts by a round trip.
  */
-function drawPowerOfRa(g: Graphics, world: World): void {
+function drawPowerOfRa(g: Graphics, strikeLayer: Graphics, world: World): void {
   // ⭐ RAVFX-7 — PREFETCH: a mummies seat in the match can call POWER OF RA, so its strike art is
   // fetched now, before the first cast, not on the strike's first frame. Once per session.
   for (const p of world.players.values()) {
@@ -379,21 +391,27 @@ function drawPowerOfRa(g: Graphics, world: World): void {
   if (world.matchPhase === 'FIGHT') {
     const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
     for (const [seat, p] of seats) {
-      const strike = p.raStrike;
-      if (strike === null) continue;
-      drawRaColumns(g, world.tick, strike.untilTick, (k) => raStrikeColumnPos(seat, k, strike));
+      // ⭐ S190 merge (wrath × render) — wrath's per-charge loop (WRATH OF RA: up to three strikes a
+      // FIGHT, each seeded by its charge) drawn through render's R190-H `strikeLayer` (above the units).
+      for (const [charge, strike] of p.raStrikes.entries()) {
+        drawRaColumns(g, strikeLayer, world.tick, strike.untilTick, (k) => raStrikeColumnPos(seat, k, strike, charge));
+      }
     }
   }
 
   const aimAt = raAimPreview();
   if (aimAt === null) return;
   ensureRaStrikeArt(); // RAVFX-7 — a player aiming is about to cast: make sure the art is coming
-  if (raCastRefusal(world, aimAt.seat) !== null) return;
+  if (raLocalCastRefusal(world, aimAt.seat) !== null) return;
   const aim = raAimPoint(aimAt.x, aimAt.y);
   if (aim === null) return;
+  // ⭐ S188 P11 — the NEXT charge's pattern: the index the reducer will give this cast.
+  // ⭐ S190 W-4 — counting the casts this client has SENT and not yet seen synced: on a joiner the
+  // synced strikes lag a cast by a round trip, and the host indexes by what it has applied.
+  const charge = raCastsInWaveLocal(world, aimAt.seat);
   const pulse = 0.5 + 0.5 * Math.sin((world.tick / 7) % (Math.PI * 2));
   for (let k = 0; k < RA_COLUMN_COUNT; k++) {
-    const pos = raStrikeColumnPos(aimAt.seat, k, aim);
+    const pos = raStrikeColumnPos(aimAt.seat, k, aim, charge);
     g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).fill({ color: RA_AIM_TINT, alpha: 0.08 + 0.06 * pulse });
     g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).stroke({ color: RA_AIM_TINT, width: 2, alpha: 0.55 + 0.3 * pulse });
   }
@@ -474,18 +492,29 @@ function drawSonarWave(
   const front = KRAKEN_SONAR_RANGE * t;
   const fade = 1 - t;
 
+  /*
+   * ⛔ S189 — EVERY ARC LIFTS THE PEN TO ITS OWN START FIRST (`moveTo`). A bare Pixi `arc()` joins
+   * the pen's last position to its start, and after each fill/stroke the pen sits wherever the
+   * previous shape ended — stale `Point.shared` after a shape, `undefined` after an arc — so each wave
+   * was stroked with a line from elsewhere on the board into it. The C7 defect (`gathererRenderer.ts`
+   * DEEP CURRENT swirl) and the S86 P2 one (`hazardRing.ts`). `s189PenLiftArcs.test.ts` pins it.
+   */
+  const a0 = heading - half;
+  const startAt = (r: number): [number, number] => [boss.pos.x + r * Math.cos(a0), boss.pos.y + r * Math.sin(a0)];
   // Stacked arcs trailing the front: the body of the water, thinning as it passes.
   for (let k = 0; k < SONAR_ARCS; k++) {
     const r = front - k * 14;
     if (r <= 6) continue;
-    g.arc(boss.pos.x, boss.pos.y, r, heading - half, heading + half)
+    g.moveTo(...startAt(r))
+      .arc(boss.pos.x, boss.pos.y, r, heading - half, heading + half)
       .stroke({ width: 5 - k, color: SONAR_TINT, alpha: (0.5 - k * 0.1) * fade });
   }
   // ⭐ THE FOAMY LEADING EDGE, thicker and brighter than the body. It is drawn LAST and at the front
   // radius so it coincides with where the knockback is applied — the wave must look like it CARRIES
   // the units it shoves, which is the detail that makes it read as force rather than as a coloured
   // triangle.
-  g.arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
+  g.moveTo(...startAt(front))
+    .arc(boss.pos.x, boss.pos.y, front, heading - half, heading + half)
     .stroke({ width: 7, color: SONAR_FOAM_TINT, alpha: 0.75 * fade });
 }
 

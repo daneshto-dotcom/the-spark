@@ -33,7 +33,7 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned boss takes no action; see `stunGates.test.ts`.
-import { isStunned, creatureMaxEhp } from './creatures/creature.ts';
+import { isStunned, creatureMaxEhp, noteCreatureHeal } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import type { World } from './world.ts';
@@ -118,7 +118,9 @@ export function runVladLifeSap(world: World, ledger: SapLedger): void {
     if (vlad.ehp <= 0) continue;
 
     const heal = Math.floor((max * VLAD_LIFE_SAP_HEAL_PCT) / 100);
+    const before = vlad.ehp; // S189 R190-I
     vlad.ehp = Math.min(max, vlad.ehp + heal);
+    noteCreatureHeal(vlad, before); // S189 R190-I — the green floater
     ledger.set(id, spent + 1);
     /*
      * ⭐⭐ S170 P7 (owner) — STAMP THE FLASH SO EVERY PEER CAN DRAW IT, not just the host.

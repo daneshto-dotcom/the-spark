@@ -29,6 +29,10 @@
  * is therefore applied once per second as a whole number, never as a per-tick fraction accumulated
  * into a float. This project forbids float accumulators in the sim, and here there is not even a
  * rounding rule to get wrong.
+ * ⚠ S190 — BOTH HALVES OF THAT PARAGRAPH ARE HISTORY. `CASTLE_MAX_HP` has been 2500 since S181
+ * (25/30/35/40/45), and by owner ruling R190-C the rate is a percent of the seat's UPGRADED total, so a
+ * bought pool (2,750) makes a rounding rule live: tenths of a percent and one half-up division — see
+ * `castleRegenPerSecond`. Still integer HP, still once a second, still no float accumulator.
  *
  * ## ⚠ THE RATE IS PER SECOND, AND THAT WAS RULED (R130), NOT ASSUMED
  *
@@ -73,13 +77,31 @@ export interface UpgradeCastleRegenAction {
  * Clamped to `[0, CASTLE_MAX_REGEN_LEVEL]` so a malformed level can never mint HP; the reducer
  * enforces the cap too, and this is the backstop for anything that reaches a rehydrated value.
  */
-export function castleRegenPerSecond(level: number): number {
+/*
+ * ⭐⭐ S189 (LOW b) — **THE RATE IS A PERCENT OF THIS SEAT'S OWN MAX, NOT OF THE FLAT BASE.**
+ *
+ * R128 is *"+1% hp reg"* — a percent of max — and since S187 a seat's max is
+ * `castleMaxHpFor(castleUpgrades)` = `CASTLE_MAX_HP + hpBonus`. S187 moved the regen CEILING onto that
+ * (see `castleRegenTick`) and left the RATE on the flat 2,500, so a seat that bought HP healed toward
+ * its bigger pool at the rate of the smaller one. `maxHp` defaults to the base pool, so every caller
+ * that asks "what is level L worth on an un-upgraded keep" (the canon's 25/30/35/40/45) is unchanged.
+ *
+ * ⭐⭐ OWNER RULING R190-C (S190): *"your regen is based on the current health … upgraded total."* So
+ * buying HP also buys regen — +250 HP at level 1 is 28 HP/s instead of 25, and level 5 at 2,750 is 50
+ * (49.5, rounded half-up). This was flagged as "a balance consequence nobody asked for out loud" when
+ * it was built; he has since ruled it, so it is his, not a flag. Pinned by `canon.test.ts` (§3d).
+ *
+ * ⛔ INTEGER ARITHMETIC, BECAUSE A NON-2500 POOL MAKES ROUNDING LIVE. At 2,500 every level was exact.
+ * At 2,750 level 5 is 49.5 HP, and `2750 × 1.8 / 100` in floats is not guaranteed to land on the half.
+ * So the percent is held in TENTHS (`8 + 2·L`, derived from the two constants), the product is an exact
+ * integer, and the one division rounds half-up (`Math.round`) — the same result on every engine.
+ */
+export function castleRegenPerSecond(level: number, maxHp: number = CASTLE_MAX_HP): number {
   const lvl = Math.max(0, Math.min(CASTLE_MAX_REGEN_LEVEL, Math.trunc(level)));
   if (lvl === 0) return 0;
-  const pct = CASTLE_REGEN_PCT_BASE + CASTLE_REGEN_PCT_PER_LEVEL * lvl;
-  // Exact for every shipped level (see the file docblock); `round` is a guard against a future
-  // CASTLE_MAX_HP that does not divide cleanly, not a live rounding rule.
-  return Math.round((CASTLE_MAX_HP * pct) / 100);
+  const pctTenths =
+    Math.round(CASTLE_REGEN_PCT_BASE * 10) + Math.round(CASTLE_REGEN_PCT_PER_LEVEL * 10) * lvl;
+  return Math.round((Math.max(0, Math.trunc(maxHp)) * pctTenths) / 1000);
 }
 
 /**
@@ -123,7 +145,8 @@ export function castleRegenTick(world: World): void {
     // `creatureMaxEhp` exists to prevent one system down.
     const maxHp = castleMaxHpFor(p.castleUpgrades);
     if (p.castleHp >= maxHp) continue; // nothing to do, and never overheal
-    const gain = castleRegenPerSecond(p.castleRegenLevel);
+    // ⭐ S189 (LOW b) — and the RATE is a percent of the same ceiling (R128: "% of max").
+    const gain = castleRegenPerSecond(p.castleRegenLevel, maxHp);
     if (gain <= 0) continue;
     p.castleHp = Math.min(maxHp, p.castleHp + gain);
   }

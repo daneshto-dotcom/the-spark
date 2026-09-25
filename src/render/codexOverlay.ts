@@ -460,6 +460,11 @@ export class CodexOverlay {
 
     const bg = new Graphics();
     bg.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: 0x000000, alpha: 0.93 });
+    // ⛔ S189 (audit R2-1) — the backdrop SWALLOWS clicks (the exitButton / sudoku / botSetup pattern).
+    // Passive, a click on it fell through to whatever lay beneath — since C1 that includes an open
+    // DRAFT panel (no longer zIndex 900), so a click on the codex committed an unseen draft pick. The
+    // tabs, the close button and every tile are LATER children and still win the hit-test.
+    bg.eventMode = 'static';
     this.container.addChild(bg);
 
     const title = new Text({

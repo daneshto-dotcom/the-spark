@@ -39,6 +39,10 @@ export function makeConnectionLostOverlay(
 
   const overlayBg = new Graphics();
   overlayBg.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: 0x000000, alpha: 0.88 });
+  // ⛔ S189 (audit R2-1) — the backdrop SWALLOWS clicks. Passive, a click fell through to an open draft
+  // panel beneath (no longer zIndex 900 since C1) and committed a pick the player cannot see. The
+  // Return button is a LATER child and still wins the hit-test.
+  overlayBg.eventMode = 'static';
   container.addChild(overlayBg);
 
   const lostText = new Text({

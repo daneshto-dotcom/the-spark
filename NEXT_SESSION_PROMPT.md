@@ -1,42 +1,31 @@
 ═══════════════════════════════════════════════════════════
 SPARK — Handoff Prompt
-Generated: 2026-09-24 | Live: 15035b9 (deploy #2, verify-deploy 4/4) | PROTOCOL 50
+Generated: 2026-09-25 | Live: 7404a49 (deploy #4, verify-deploy 4/4) | PROTOCOL 51
 Working dir: C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark
 ═══════════════════════════════════════════════════════════
-
-⛔ THE PLAN IS ALREADY MADE AND PRE-APPROVED — DISPATCH IT AFTER THE BOOT, DO NOT RE-PLAN.
-   → .claude/plans/2026-09-24_S189_BATCH_PDR.md (§3 = exact order, §5 = six briefs, §8 = Council)
-⛔ Boot-read gate is live: open every required boot file with Read before any Edit/Write/Agent.
-
 ## QUICK SUMMARY
-S189 shipped deploy #2 (racial-a + racial-d fix rounds; S188's e2e reds were machine load)
-and planned everything else on the owner's quota order: his ten playtest corrections
-(C1-C10) + every S188 carry-forward, split into six worktrees and merge trains A-E.
-
-## WHAT TO DO NEXT (PDR §3)
-1. Read CI: E2E run 35972498981 (15035b9) + the CANCELLED E2E run for 5c6615f.
-2. ONE message: re-run .claude/plans/s189-workflows/s189-disconnect-hunt.js and
-   s189-branch-audits.js (both NOT DONE last session) + dispatch named Agents
-   s189-units, s189-weld, s189-render, s188-ra-vfx with their §5 briefs.
-3. Audits land → fix rounds (input-layer, wrath, swarm) + dispatch s188-draft-atk.
-4. Hunt lands → write the net DIAGNOSIS → dispatch s189-net (disconnect, lag, quickmatch).
-5. Merge trains, one branch at a time, gates between, e2e before each push, verify-deploy after:
-   A input-layer (#3, fixes the footer arrow) · B wrath→swarm (→51, #4) ·
-   C render→units→weld→ra-vfx (#5) · D draft-atk→net (#6) · E canon + docs (#7).
-
-## CARRY-FORWARD (all in the PDR)
-P0 net · P2 input-layer · P3 wrath · P4 swarm · P5 ra-vfx · P6 draft-atk · P7 units ·
-P8 weld · P9 render · P10 canon/docs. Owner numbers to confirm: APEX ×4, SWARM ×11.
-
-## FULL HANDOFF → HANDOFF_S189_2026-09-24.md
-
+S190 dispatched the S189 batch on parallel worktrees with independent audits and shipped two deploys: #3 (C9
+footer arrow, Ra strike art, canon) and #4 (WRATH OF RA, THE SWARM, C1/C7/render, C8/C10/units, C5 perf fix,
+drafted ATK/PEN, PROTOCOL 51). s189/weld and s189/net are audited but NOT merged.
+## WHAT TO DO NEXT (priority order)
+1. Take the owner's NEW list (written after his playtest) — read SPARK_CANON.md + .claude/plans/S190_OWNER_RULINGS.md first.
+2. Deploy #5: re-audit + merge s189/weld (18769b4, bump 51→52); fix NETFR-1 (HIGH), NETFR-2, NETFR-3 on s189/net,
+   audit, merge; e2e incl. reconnect-hard-blip/reconnect/exit-match/hostmigration; verify-deploy; LOOK at live.
+3. C4 retry tuning (S191_BACKLOG §E); then the §A owner questions in ONE plain-words batch.
+4. §B add-ons (orc rage 25 s, Alt footer toggle, magic-attack class, A1 CI fix) and §C carry-forwards.
+## ACTIVE PLAN
+→ .claude/plans/S191_BACKLOG.md (§FIRST = deploy #5) · S189 PDR marked IN-PROGRESS (net + weld carried)
+## CARRY-FORWARD
+P0 s189/net · P8 s189/weld · P10 remainder (CLAUDE.md bundle line 948.1 → measure)
+## FULL HANDOFF → HANDOFF_S190_2026-09-25.md
 ## PRE-FLIGHT
-- boot-snapshot.md ## Muscle memory · traces ~/.claude/traces/2026-09-24/The-Spark.jsonl
-- git status clean on master · 10 worktrees (6 s188/*, 4 prepared s189/* with npm ci done)
+- boot-snapshot.md ## Muscle memory · traces ~/.claude/traces/2026-09-25/The-Spark.jsonl
+- git clean on master · worktrees: only s189-net and s189-weld
 - ⚠ verify session-state.json's session_id in a SEPARATE call before trusting it
-
 ## SESSION RULES
-⛔ Exit codes from a captured $? — never a pipe, never the wrapper
-⛔ Merge one branch at a time; typecheck + full vitest after EVERY merge
-⛔ Detect EOL before patching; ONE protocol bump per deploy train
+⛔ Nothing merges without an auditor that did not write it · merge one branch at a time, gates after each
+⛔ Exit codes from a captured $? — never a pipe · one protocol bump per deploy · no unapproved spec changes
+⛔ Never re-ask an answered question (R190-A..M) · commit after EVERY step (spend limits kill agents)
+═══════════════════════════════════════════════════════════
+Paste this into your next Claude session's first message.
 ═══════════════════════════════════════════════════════════

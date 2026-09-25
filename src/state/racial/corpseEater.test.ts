@@ -28,7 +28,8 @@ import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import { attackFifths } from '../stats.ts';
 import { snapshot, restore } from '../save.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
-import { KRAKEN_SONAR_KNOCKBACK, KRAKEN_SONAR_STUN_TICKS, PHASE_DURATION_TICKS, PHYSICS_HZ, PHYSICS_SUBSTEPS } from '../../constants.ts';
+import { KRAKEN_SONAR_STUN_TICKS, PHASE_DURATION_TICKS, PHYSICS_HZ, PHYSICS_SUBSTEPS } from '../../constants.ts';
+import { KRAKEN_SONAR_KNOCKBACK_PX, applySonarShove } from '../bossSkillsKraken.ts';
 import {
   CORPSE_EATER_HEAL_PCT,
   CORPSE_EATER_LEASH_RADIUS,
@@ -413,7 +414,9 @@ describe('S188 CORPSE EATER — audit F1: a knocked-back boss is RE-ANCHORED, ne
   /** The Kraken's own shove and stun, applied to a feeding boss (bossSkillsKraken.ts). */
   function sonar(b: Creature, w: World): void {
     applyStun(b, w.tick + KRAKEN_SONAR_STUN_TICKS);
-    b.prevPos.x -= KRAKEN_SONAR_KNOCKBACK; // outward along +x, exactly the sonar's prevPos shove
+    // S189 C10 - the PRODUCTION shove (outward along +x), not a copy of it: the copy is how the old
+    // 26 px/substep fling outlived its own docblock.
+    applySonarShove(b, 1, 0);
   }
   function runScene(knock: boolean): {
     jumps: number[]; edge: { jump: number; slide: number } | null; b: Creature; anchorAtStun: Vec2 | undefined; w: World;
@@ -455,9 +458,16 @@ describe('S188 CORPSE EATER — audit F1: a knocked-back boss is RE-ANCHORED, ne
       .toBeLessThanOrEqual(edge!.slide + own + 1e-6);
     expect(jumps.length).toBeGreaterThan(100);
     expect(Math.max(...jumps), `own step ${own.toFixed(2)} px/tick`).toBeLessThanOrEqual(own + 1e-6);
-    // He really was flung — the anchor moved to where he landed, far from where he first sat down.
+    // He really was shoved OUT of his leash — the anchor moved to where he landed.
+    // ⚠ S189 C10 RE-PIN, NOT A RELAXATION: this read `> CORPSE_EATER_LEASH_RADIUS * 3` while the sonar
+    // flung ~11,000 px of travel into the board edge. The shove is now `KRAKEN_SONAR_KNOCKBACK_PX` (70)
+    // of slide, which still carries him past the 60 px leash — so F1's re-anchor is still reached, and
+    // the distance is derived from the constant so the next retune cannot half-land.
     const a = b.corpseEaterAnchor!;
-    expect(Math.hypot(a.x - anchorAtStun!.x, a.y - anchorAtStun!.y)).toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS * 3);
+    const moved = Math.hypot(a.x - anchorAtStun!.x, a.y - anchorAtStun!.y);
+    expect(KRAKEN_SONAR_KNOCKBACK_PX, 'fixture: the real shove must clear the leash, or F1 is unreachable').toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS);
+    expect(moved).toBeGreaterThan(CORPSE_EATER_LEASH_RADIUS);
+    expect(moved).toBeCloseTo(KRAKEN_SONAR_KNOCKBACK_PX, 3);
     expect(Math.hypot(b.pos.x - a.x, b.pos.y - a.y), 'and he stays leashed to the NEW anchor')
       .toBeLessThanOrEqual(CORPSE_EATER_LEASH_RADIUS + 1e-9);
   });

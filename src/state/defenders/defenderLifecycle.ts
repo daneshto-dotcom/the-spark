@@ -46,7 +46,7 @@ import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkLobTarget, stin
 import type { World } from '../worldTypes.ts';
 import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
-import { stepDefenderWalk, freezeDefender, distSq } from './defenderMotion.ts';
+import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -353,10 +353,13 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
         // a raw linear radius would leave her hovering near the hall most of the time, which is the
         // behaviour he asked to remove.
         const rad = config.attackRange * PRINCESS_PATROL_RADIUS_FRAC * Math.sqrt((h & 0xff) / 255);
-        const patrol: Vec2 = {
+        // ⭐ S189 C8 (owner) — *"Helga moves behind the map"*: the disc around a hall near the
+        // castle crosses the edge, so the point is held to the board every creature is held to.
+        // See `defenderVerletStep` for the integrator half of the same fix.
+        const patrol: Vec2 = clampPointIntoPlayfield({
           x: homePos.x + Math.cos(ang) * rad,
           y: homePos.y + Math.sin(ang) * rad,
-        };
+        });
         if (distSq(d.pos, patrol) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
           d.pos.x = patrol.x;
           d.pos.y = patrol.y;

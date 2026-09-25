@@ -2360,7 +2360,8 @@ export const CASTLE_FIRE_INTERVAL_TICKS = 240; // 4 s — NOT Q3's 45. See the r
  * > connector, a castle, or another enemy."*
  *
  * `creatureAttack.ts` now deals `attackFifths(atk, pen)` to a keep, exactly as it already did to a
- * creature, a shape, a bag and a connector. This was the LAST bespoke damage constant in the game —
+ * creature, a shape, a bag and a connector. (⭐ S190 draft-atk: the creature's OWN ladder number,
+ * `creatureAttackFifths(creature)` — drafted-buffed when its seat drafted ATK/PEN.) This was the LAST bespoke damage constant in the game —
  * the same defect class as `GOBLIN_DAMAGE_VS_PRIMITIVE`, which survived nineteen sessions on its own
  * scale and became his S177 bug report.
  *
@@ -3258,21 +3259,28 @@ export const KRAKEN_SONAR_COS_HALF_ANGLE = 0.5;
  * How long the wave holds a unit. 2 s at 60 Hz. Against `FIGHT_PHASE_TICKS` (2700 = 45 s) and the
  * ~9 s cadence below, a caught unit loses roughly a fifth of its time between waves — punishing,
  * and short of a lock.
+ *
+ * ⚠ MINE, NOT THE OWNER'S (S169's number, re-confirmed S189 and left alone): he ruled that the wave
+ * STUNS (*"knock them back a little bit … and stun them"*, S189), not for how long. It already runs
+ * through the one stun system (`applyStun`, `stunGates.test.ts`).
  */
 export const KRAKEN_SONAR_STUN_TICKS = 2 * PHYSICS_HZ;
 
-/**
- * The pushback, in pixels of instantaneous displacement applied as a Verlet impulse.
+/*
+ * ⛔ S189 C10 (owner) — `KRAKEN_SONAR_KNOCKBACK = 26` IS RETIRED, DELETED RATHER THAN RE-MEANT.
  *
- * ⚠ THIS IS AN IMPULSE, NOT A TELEPORT. It is applied by moving `prevPos` toward the Kraken, so the
- * integrator reads a velocity pointing away and the unit SLIDES out over the following ticks,
- * decaying under `VELOCITY_DAMPING`. That is why the stun gate returns `ZERO_ACCEL` rather than
- * hard-stopping: a hard stop would eat this, and the two halves of *"stuns and pushes back"* would
- * fight each other.
+ * > *"the Kraken sonar sends units flying … outside the map … knock them back a little bit … and
+ * > stun them"* — owner, S189
  *
- * 26 px of impulse against a 0.998/substep damping carries a unit roughly a body-length and a half.
+ * It was applied as a `prevPos` offset, i.e. a velocity of 26 px PER SUBSTEP (12,480 px/s). Its
+ * docblock said that *"carries a unit roughly a body-length and a half"*; at `VELOCITY_DAMPING` 0.998
+ * per substep a coasting unit actually travels ≈ 425 × the offset across a 2 s stun — about 11,000
+ * px — so every victim flew until the board edge stopped it. The number meant a DISTANCE and was used
+ * as a SPEED. Deleting the name (not re-pointing it) makes every stale reader fail to compile.
+ *
+ * The distance now lives beside its only consumer: `KRAKEN_SONAR_KNOCKBACK_PX` in
+ * `state/bossSkillsKraken.ts`, which derives the impulse from it (`KRAKEN_SONAR_SHOVE_PER_SUBSTEP`).
  */
-export const KRAKEN_SONAR_KNOCKBACK = 26;
 
 /**
  * Cadence. 9 s sits between the Archdemon's 7 s teleport and the Warlord's 15 s pack, which is the

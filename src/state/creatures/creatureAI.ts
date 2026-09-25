@@ -1,6 +1,10 @@
 /**
  * SPARK — creature AI module (S27 P0). Pure functional helpers for target
- * selection. No mutation; no dispatch. Consumed by `applyCreatureTick`
+ * selection. No WORLD mutation; no dispatch. ⚠ S190 P0 (C5): "pure" is no longer the whole story —
+ * the bond scan memoises into a MODULE-LEVEL, per-tick cache (the bond-target index, see
+ * `openBondTargetEpoch`). It never writes world or creature state and never changes a result — the
+ * cache is reusable only inside the host tick's creature loop and is re-validated before every
+ * scan — but it IS module state, which a reader of "pure" should know. Consumed by `applyCreatureTick`
  * (creatureLifecycle.ts) and the main.ts post-CREATURE_TICK fan-out which
  * re-selects targets every CREATURE_TICK during SEEKING (Council R1 Q3
  * UNANIMOUS A — every-tick re-selection, ~80 prims × 60Hz = 4800 distance
@@ -291,66 +295,26 @@ export function findNearestEnemyPrimitiveFrom(
  * close enough to enter ATTACKING (via `isWithinAttackRange` below) or should
  * be steered toward (SEEKING continues, targetPos = bondMidpoint).
  *
- * Pure function. Does not mutate world or creature. Called every CREATURE_TICK
+ * Does not mutate world or creature. Called every CREATURE_TICK
  * during SEEKING (host-only) per Council R1 Q3 UNANIMOUS A.
+ * ⚠ S190 — no longer strictly "pure": inside the host tick's creature loop it reads, and may build,
+ * the module-level per-tick bond-target index. Same inputs, same result; only the work is shared.
+ *
+ * ⭐ S190 P0 (C5) — the scan now runs over the BOND-TARGET INDEX below (one classification pass per
+ * tick per owner colour, instead of one per creature), with byte-identical results. Every predicate,
+ * the distance arithmetic and the `(distSq, bondId)` total order are unchanged; see the index's
+ * docblock for how, and `bondTargetIndex.differential.test.ts` for the proof.
  */
 export function findNearestBondTarget(
   world: World,
   creature: Creature,
   enemyOnly: boolean = false,
 ): BondId | null {
-  let bestEnemyId: BondId | null = null;
-  let bestEnemyDistSq = Infinity;
-  let bestOwnId: BondId | null = null;
-  let bestOwnDistSq = Infinity;
-
-  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — resolve the owner colour ONCE, then the
-  // per-bond test below is a pure colour compare (no Map.get per bond for the owner).
+  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — resolve the owner colour ONCE, then everything below
+  // is keyed on it. Resolved LIVE on every call, so an owner whose colour changed simply reads a
+  // different bucket.
   const ownerColor = creatureOwnerColor(world, creature);
-
-  /**
-   * ⛔ S162 POST-AUDIT — **`isEnemyBondWithColor` IS AN OR, SO A *MIXED* BOND READS AS ENEMY.**
-   *
-   * S161 fixed exactly this for the drone's SEVER loop, after the owner watched *"my own creature
-   * destroy my own tower"*: cutting a connector with one endpoint of your own colour drops your hub
-   * star's degree, breaks the recipe, and fires `STRUCTURE_SELFDESTRUCT`. But the fix was applied at
-   * the drone's sever and NOT here, so the identical chain stayed reachable through the CHEWER — it
-   * could still SELECT a mixed bond, walk to it, and chew it through.
-   *
-   * Tightening the `enemyOnly` branch closes the chewer AND the drone's target selection at one
-   * point, and is an exact AND-tightening of the same predicate rather than a second, disagreeing one.
-   *
-   * ⭐ VOLTKIN IS DELIBERATELY UNTOUCHED. It passes `enemyOnly: false`, and its ability to cut its
-   * own bonds is a documented feature (see the fallback note below), not an oversight.
-   */
-  const strictlyEnemy = (bond: { aId: PrimitiveId; bId: PrimitiveId }): boolean =>
-    world.primitives.get(bond.aId)?.placerColor !== ownerColor &&
-    world.primitives.get(bond.bId)?.placerColor !== ownerColor;
-
-  for (const [bondId, bond] of world.bonds) {
-    const mid = bondMidpoint(bond);
-    const dSq = distSq(creature.pos, mid);
-    if (isEnemyBondWithColor(world, ownerColor, bond) && (!enemyOnly || strictlyEnemy(bond))) {
-      if (
-        dSq < bestEnemyDistSq ||
-        // Tie-break: lower BondId wins (deterministic). Map iteration order in
-        // V8 is insertion order, so this guarantees consistent selection across
-        // multiple equally-close enemies regardless of insertion sequence.
-        (dSq === bestEnemyDistSq && (bestEnemyId === null || (bondId as unknown as number) < (bestEnemyId as unknown as number)))
-      ) {
-        bestEnemyDistSq = dSq;
-        bestEnemyId = bondId;
-      }
-    } else {
-      if (
-        dSq < bestOwnDistSq ||
-        (dSq === bestOwnDistSq && (bestOwnId === null || (bondId as unknown as number) < (bestOwnId as unknown as number)))
-      ) {
-        bestOwnDistSq = dSq;
-        bestOwnId = bondId;
-      }
-    }
-  }
+  const bucket = colourBucketFor(world, ownerColor);
 
   // S100 P1 (TD Phase 1a) — chewers pass `enemyOnly: true` so they NEVER fall back
   // to the own-bond target (R8: that fallback is a Voltkin feature — without this a
@@ -358,8 +322,11 @@ export function findNearestBondTarget(
   // chewer returns null and idles/SEEKs harmlessly. The Voltkin default
   // (`enemyOnly: false`) is byte-for-byte unchanged: `bestEnemyId ?? bestOwnId`.
   if (!enemyOnly) {
-    return bestEnemyId ?? bestOwnId;
+    return nearestBondIn(bucket.enemy, creature.pos) ?? nearestBondIn(bucket.own, creature.pos);
   }
+  // ⛔ S162 — the enemy-only nearest set is the STRICT one (neither endpoint the owner's colour).
+  // The reasoning lives where the set is built, in `buildColourBucket`.
+  const bestEnemyId = nearestBondIn(bucket.strict, creature.pos);
   if (bestEnemyId === null) return null;
 
   // FFA target-spread (R-design §4.3): with multiple enemy PLAYERS present, bias
@@ -367,7 +334,7 @@ export function findNearestBondTarget(
   // fans out across rivals instead of focus-firing the single geometrically-nearest
   // connector (which enables kingmaking). Deterministic — keyed on a stateless
   // mix32 hash of (creatureId, sourceSpawnerId); NO RNG stream, NO wall-clock.
-  return spreadEnemyTarget(world, creature, bestEnemyId);
+  return spreadEnemyTarget(world, creature, bucket, bestEnemyId);
 }
 
 /**
@@ -380,26 +347,25 @@ export function findNearestBondTarget(
  * players (sorted ascending for stable indexing), with the score leader given one extra
  * weighted slot so the swarm leans toward the player in front (reinforces the hunter's
  * catch-up dynamic). Pure read; no mutation, no RNG, no wall-clock.
+ *
+ * ⭐ S190 P0 (C5) — its two full passes over `world.bonds` (the victim set, then the chosen victim's
+ * nearest bond) were 41 % of the host tick on a 120-creature wave-5 board, measured. Both now read the
+ * bucket: the victim list is built there once per tick, sorted exactly as before, and the second pass
+ * visits only the chosen victim's bonds. The universe is unchanged — the NON-strict enemy set, as it
+ * always was (see the carry-forward note in `buildColourBucket`).
  */
-function spreadEnemyTarget(world: World, creature: Creature, fallbackEnemyId: BondId): BondId {
-  // S100 P1 (TD Phase 1a, Layer 4, §3.4 R7) — owner colour resolved once for both scans below.
-  const ownerColor = creatureOwnerColor(world, creature);
-
-  // Distinct enemy players that own at least one enemy bond, sorted ascending.
-  const victimSet = new Set<PlayerId>();
-  for (const bond of world.bonds.values()) {
-    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
-    const primA = world.primitives.get(bond.aId);
-    if (primA !== undefined) victimSet.add(primA.placedBy);
-  }
-  if (victimSet.size <= 1) return fallbackEnemyId; // only one victim → no spread
-
-  const victims = Array.from(victimSet).sort(
-    (a, b) => (a as unknown as number) - (b as unknown as number),
-  );
+function spreadEnemyTarget(
+  world: World,
+  creature: Creature,
+  bucket: ColourBucket,
+  fallbackEnemyId: BondId,
+): BondId {
+  // Distinct enemy players that own at least one enemy bond, sorted ascending (built once per tick).
+  const victims = bucket.victims;
+  if (victims.length <= 1) return fallbackEnemyId; // only one victim → no spread
 
   // Score leader among the candidate victims (highest scoreByPlayer; lowest-id
-  // tie-break). Given one extra weighted slot below.
+  // tie-break). Given one extra weighted slot below. Scores are read LIVE, never cached.
   let leader: PlayerId = victims[0];
   let leaderScore = -Infinity;
   for (const v of victims) {
@@ -417,23 +383,269 @@ function spreadEnemyTarget(world: World, creature: Creature, fallbackEnemyId: Bo
   const chosen: PlayerId = slot === 0 ? leader : victims[(slot - 1) % n];
 
   // Nearest enemy bond owned by the chosen victim (lowest-BondId tie-break).
-  let bestId: BondId | null = null;
-  let bestDistSq = Infinity;
+  const pool = bucket.byVictim.get(chosen);
+  const bestId = pool === undefined ? null : nearestBondIn(pool, creature.pos);
+  return bestId ?? fallbackEnemyId;
+}
+
+/* ========================================================================== *
+ *   S190 P0 (C5) — THE BOND-TARGET INDEX
+ * ========================================================================== */
+
+/**
+ * ⭐⭐ S190 P0 (C5) — **ONE CLASSIFICATION PASS PER TICK PER COLOUR, NOT ONE PER CREATURE.**
+ *
+ * Owner, S189: *"it was lagging at about wave five. I thought we fixed the lags"*.
+ *
+ * MEASURED, not guessed (`c5HostTickMeasure.test.ts`: four seats, bots, a wave-5 board of ~236 shapes
+ * and ~517 bonds, 120 creatures held): the host tick cost 6.6-7.1 ms mean and ~9.9 ms p95, so a
+ * three-tick catch-up frame took 26-29 ms at p95 — the sim alone blew the 16.7 ms frame. Two thirds
+ * of it was this scan. Every structure-attacker, every tick, walked EVERY bond THREE times (the
+ * nearest scan, then `spreadEnemyTarget`'s victim pass and victim scan), with two to four `Map.get`s
+ * and a fresh midpoint object per bond per pass. And what it recomputed — is this bond enemy for this
+ * colour, strictly or not, and whose is it — does not depend on the creature at all, only on its
+ * owner's colour.
+ *
+ * So that classification is done once per tick per owner colour and kept here; each creature's scan
+ * is then one flat pass over pre-classified arrays, reading nothing but live positions.
+ *
+ * ## ⛔ BYTE-IDENTICAL, AND HOW
+ *
+ * - **Same predicates**, applied once instead of per creature: `isEnemyBondWithColor` for the Voltkin
+ *   set and the spread's universe; the S162 AND-tightening for the enemy-only nearest set; every
+ *   other bond — degenerate ones included — in the own-bond fallback, exactly where the old `else`
+ *   put them.
+ * - **Same arithmetic.** `nearestBondIn` performs the exact operations of
+ *   `distSq(pos, bondMidpoint(bond))`, in the same order, on positions read LIVE at every scan. No
+ *   position is ever cached, so anything that moves a shape mid-tick is seen.
+ * - **Same total order.** `(distSq, bondId)`, lower id winning an exact tie. The arrays happen to be
+ *   built in `world.bonds` order, and that order decides nothing — the tie-break is explicit, exactly
+ *   as it was. The victim list is sorted numerically, exactly as it was.
+ *
+ * ## ⛔ THE HAZARD: BONDS DIE BETWEEN TWO CREATURES' SCANS
+ *
+ * The scans run INSIDE the host tick's creature loop, interleaved with CREATURE_ATTACK (a connector
+ * gives way), DRONE_EXPLODE and SUICIDE_BLAST. The bond set a later creature sees is not the one an
+ * earlier creature saw, so a cache built once and trusted would aim a creature at a bond that no
+ * longer exists. Two rules make that impossible:
+ *
+ *  1. **A cache exists only inside an EPOCH** — `openBondTargetEpoch` / `closeBondTargetEpoch`, which
+ *     `runHostTick` wraps around its creature loop and nothing else calls. Outside one (every test,
+ *     every other caller) each call builds a throwaway index from the live world, so it cannot be
+ *     stale by construction. An epoch is also keyed to its TICK, so one left open by an exception is
+ *     inert from the next tick on.
+ *  2. **Inside an epoch every scan re-validates in O(1)** against the fingerprint the index was built
+ *     at — `world.bonds.size`, `world.nextBondId`, `world.primitives.size`, `world.nextPrimitiveId`,
+ *     and the two Maps' identity — and rebuilds on any change. That is EXACT, not a heuristic,
+ *     because of how ids are allocated: every bond is born through `makeBond`
+ *     (`world.nextBondId++`), every shape through `world.nextPrimitiveId++`, and both leave only
+ *     through `razePrimitives` — or wholesale, through the three `clear()` sites:
+ *     `applyReturnToTitle` (gameMode.ts), `softReset` (gameState.ts) and `applySnapshotCore`, the
+ *     save / snapshot restore (save.ts). All three run OUTSIDE the creature loop, and a clear drops
+ *     both sizes to 0 in any case. A removal lowers a size and a birth bumps a counter, so no mix of
+ *     the two can leave all four numbers where they were. (Save-load writes ids directly, but it
+ *     rewrites the counters too, and never runs inside the loop.) A bond BORN mid-tick is therefore
+ *     picked up by the very next scan, exactly as the live scan would. The site lists and their
+ *     per-file counts are pinned in `bondTargetIndex.guards.test.ts`.
+ *
+ * ⚠ WHAT THE FINGERPRINT DOES NOT SEE, AND WHY THAT IS SAFE: a `placerColor` rewrite — only the
+ * rainbow shuffle does one, from a player or bot intent, never from inside the creature loop — and a
+ * `placedBy` rewrite, which nothing does. `bondTargetIndex.guards.test.ts` pins those writer sets and
+ * the id-allocation sites mechanically, so a new writer turns a test red instead of silently staling
+ * this cache. OWNER colours are safe to change at any time: a bucket is keyed by the colour VALUE and
+ * every call re-resolves its creature's colour live.
+ *
+ * Proven, not argued: `bondTargetIndex.differential.test.ts` compares every scan the real host tick
+ * makes against the verbatim pre-change scan (`bondTargetReference.fixtures.ts`), in place, with
+ * severs, welds and razes injected between two creatures' scans, and forks the world so a reference
+ * twin and an index twin are compared with `hashWorldStateFull` every tick.
+ */
+interface BondList {
+  readonly bonds: Bond[];
+  readonly ids: BondId[];
+}
+
+interface ColourBucket {
+  /** `isEnemyBondWithColor` — the Voltkin enemy set, and the spread's whole universe. */
+  readonly enemy: BondList;
+  /** …AND neither endpoint is the owner's colour — the `enemyOnly` nearest set (S162). */
+  readonly strict: BondList;
+  /** Everything else, degenerate bonds included — the Voltkin own-bond fallback. */
+  readonly own: BondList;
+  /** Distinct `primA.placedBy` over `enemy`, ascending — the spread's victims. */
+  readonly victims: readonly PlayerId[];
+  /** `enemy`, bucketed by `primA.placedBy` — the spread's second pass. */
+  readonly byVictim: ReadonlyMap<PlayerId, BondList>;
+}
+
+interface BondTargetIndex {
+  readonly bondsMap: World['bonds'];
+  readonly primsMap: World['primitives'];
+  readonly bondCount: number;
+  readonly nextBondId: number;
+  readonly primCount: number;
+  readonly nextPrimitiveId: number;
+  readonly byColour: Map<number, ColourBucket>;
+}
+
+let epochWorld: World | null = null;
+let epochTick = -1;
+let epochIndex: BondTargetIndex | null = null;
+
+/**
+ * S190 P0 (C5) — open the one window in which the bond-target index may be REUSED between calls.
+ * `runHostTick` calls it immediately before its creature loop, and nothing else may. See the index
+ * docblock above for why the window is exactly that loop and no wider.
+ */
+export function openBondTargetEpoch(world: World): void {
+  epochWorld = world;
+  epochTick = world.tick;
+  epochIndex = null;
+}
+
+/** S190 P0 (C5) — close it. `runHostTick` calls it immediately after its creature loop. */
+export function closeBondTargetEpoch(): void {
+  epochWorld = null;
+  epochTick = -1;
+  epochIndex = null;
+}
+
+function freshBondTargetIndex(world: World): BondTargetIndex {
+  return {
+    bondsMap: world.bonds,
+    primsMap: world.primitives,
+    bondCount: world.bonds.size,
+    nextBondId: world.nextBondId,
+    primCount: world.primitives.size,
+    nextPrimitiveId: world.nextPrimitiveId,
+    byColour: new Map(),
+  };
+}
+
+function bondTargetIndexFor(world: World): BondTargetIndex {
+  // Outside an epoch: a throwaway, built from the live world — it cannot be stale.
+  if (epochWorld !== world || epochTick !== world.tick) return freshBondTargetIndex(world);
+  const idx = epochIndex;
+  if (
+    idx !== null &&
+    idx.bondsMap === world.bonds &&
+    idx.primsMap === world.primitives &&
+    idx.bondCount === world.bonds.size &&
+    idx.nextBondId === world.nextBondId &&
+    idx.primCount === world.primitives.size &&
+    idx.nextPrimitiveId === world.nextPrimitiveId
+  ) {
+    return idx;
+  }
+  // Something was born or razed since the last scan (or this is the first scan of the loop).
+  epochIndex = freshBondTargetIndex(world);
+  return epochIndex;
+}
+
+function colourBucketFor(world: World, ownerColor: number): ColourBucket {
+  const idx = bondTargetIndexFor(world);
+  let bucket = idx.byColour.get(ownerColor);
+  if (bucket === undefined) {
+    bucket = buildColourBucket(world, ownerColor);
+    idx.byColour.set(ownerColor, bucket);
+  }
+  return bucket;
+}
+
+/**
+ * Classify every bond ONCE for one owner colour. The only filter is OWNERSHIP — no recipe, no
+ * defender, no tower test (S181, pinned by `buildingTargeting.test.ts`).
+ */
+function buildColourBucket(world: World, ownerColor: number): ColourBucket {
+  const enemy: BondList = { bonds: [], ids: [] };
+  const strict: BondList = { bonds: [], ids: [] };
+  const own: BondList = { bonds: [], ids: [] };
+  const byVictim = new Map<PlayerId, BondList>();
+
   for (const [bondId, bond] of world.bonds) {
-    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
-    const primA = world.primitives.get(bond.aId);
-    if (primA === undefined || primA.placedBy !== chosen) continue;
-    const dSq = distSq(creature.pos, bondMidpoint(bond));
+    if (!isEnemyBondWithColor(world, ownerColor, bond)) {
+      // Own, or degenerate (an endpoint missing) — the pre-change `else` branch, exactly.
+      own.bonds.push(bond);
+      own.ids.push(bondId);
+      continue;
+    }
+    enemy.bonds.push(bond);
+    enemy.ids.push(bondId);
+    // `isEnemyBondWithColor` is true only when BOTH endpoints exist, so both reads are defined here —
+    // as they always were for the pre-change `strictlyEnemy`, whose `?.` could never short-circuit.
+    const primA = world.primitives.get(bond.aId)!;
+    const primB = world.primitives.get(bond.bId)!;
+    /**
+     * ⛔ S162 POST-AUDIT — **`isEnemyBondWithColor` IS AN OR, SO A *MIXED* BOND READS AS ENEMY.**
+     *
+     * S161 fixed exactly this for the drone's SEVER loop, after the owner watched *"my own creature
+     * destroy my own tower"*: cutting a connector with one endpoint of your own colour drops your hub
+     * star's degree, breaks the recipe, and fires `STRUCTURE_SELFDESTRUCT`. But the fix was applied at
+     * the drone's sever and NOT here, so the identical chain stayed reachable through the CHEWER — it
+     * could still SELECT a mixed bond, walk to it, and chew it through.
+     *
+     * Tightening the `enemyOnly` branch closes the chewer AND the drone's target selection at one
+     * point, and is an exact AND-tightening of the same predicate rather than a second, disagreeing one.
+     *
+     * ⭐ VOLTKIN IS DELIBERATELY UNTOUCHED. It passes `enemyOnly: false`, and its ability to cut its
+     * own bonds is a documented feature (see the fallback note above), not an oversight.
+     */
+    if (primA.placerColor !== ownerColor && primB.placerColor !== ownerColor) {
+      strict.bonds.push(bond);
+      strict.ids.push(bondId);
+    }
+    /*
+     * ⚠ S190 — REPORTED, NOT CHANGED (a pure performance change may not move an output). The spread's
+     * universe is the NON-strict set, as it always was: a MIXED bond's `primA` can be the owner's own
+     * shape, so the owner can appear among its own victims, and an enemy-only creature can be handed
+     * a mixed bond by the spread even though the S162 tightening above refused it one. Whether that is
+     * wanted is a targeting ruling, carried forward in `S190_PROGRESS_perf.md`.
+     */
+    let v = byVictim.get(primA.placedBy);
+    if (v === undefined) {
+      v = { bonds: [], ids: [] };
+      byVictim.set(primA.placedBy, v);
+    }
+    v.bonds.push(bond);
+    v.ids.push(bondId);
+  }
+
+  const victims = Array.from(byVictim.keys()).sort(
+    (a, b) => (a as unknown as number) - (b as unknown as number),
+  );
+  return { enemy, strict, own, victims, byVictim };
+}
+
+/**
+ * The nearest bond of `list` to `from`, lower BondId on an exact tie; `null` when the list is empty.
+ *
+ * ⛔ THE ARITHMETIC IS `distSq(from, bondMidpoint(bond))` WRITTEN OUT — the same operations in the
+ * same order, `(a + b) * 0.5` then `from − mid`, then `dx² + dy²` — so every squared distance is
+ * bit-identical to the pre-change scan's, and so is every comparison made on it. Inlined only to
+ * drop the midpoint object the old loop allocated per bond per creature per tick.
+ */
+function nearestBondIn(list: BondList, from: Vec2): BondId | null {
+  const bonds = list.bonds;
+  const ids = list.ids;
+  const fx = from.x;
+  const fy = from.y;
+  let best = -1;
+  let bestDistSq = Infinity;
+  for (let i = 0; i < bonds.length; i++) {
+    const bond = bonds[i];
+    const dx = fx - (bond.a.pos.x + bond.b.pos.x) * 0.5;
+    const dy = fy - (bond.a.pos.y + bond.b.pos.y) * 0.5;
+    const dSq = dx * dx + dy * dy;
     if (
       dSq < bestDistSq ||
-      (dSq === bestDistSq &&
-        (bestId === null || (bondId as unknown as number) < (bestId as unknown as number)))
+      // Tie-break: lower BondId wins (deterministic), whatever order the list was built in.
+      (dSq === bestDistSq && (best === -1 || (ids[i] as unknown as number) < (ids[best] as unknown as number)))
     ) {
       bestDistSq = dSq;
-      bestId = bondId;
+      best = i;
     }
   }
-  return bestId ?? fallbackEnemyId;
+  return best === -1 ? null : ids[best];
 }
 
 /**

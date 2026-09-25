@@ -19,6 +19,7 @@
  */
 
 import { PHYSICS_HZ, PHYSICS_SUBSTEPS, VELOCITY_DAMPING } from '../../constants.ts';
+import { clampIntoPlayfield } from '../../physics/creatureVerlet.ts';
 import type { Vec2 } from '../../types.ts';
 import type { Defender } from './defender.ts';
 
@@ -41,6 +42,38 @@ function defenderVerletStep(d: Defender, dtSub: number, accel: Vec2): void {
   d.prevPos.y = py;
   d.pos.x = px + vx + ax;
   d.pos.y = py + vy + ay;
+  /*
+   * ⭐⭐ S189 C8 (owner) — **SHE STAYS ON THE BOARD, ON THE SAME EDGE EVERY CREATURE HAS.**
+   *
+   * > *"Helga moves behind the map … I built the Helga tower near the castle, and she now moves
+   * > behind when she does her little patrol … I thought that you added invisible walls around the
+   * > whole map."*
+   *
+   * He was right that the walls exist — for CREATURES. `creatureVerletStep` has clamped at
+   * `WORLD_EDGE_MARGIN` since S178, and its docblock recorded why THIS mirror was left unclamped:
+   * *"she is held by her HUB LEASH … so she has no path to an edge in the first place."* That stopped
+   * being true in S183, when her IDLE became a PATROL to a derived point up to
+   * `attackRange × PRINCESS_PATROL_RADIUS_FRAC` (133 px) from her hub in ANY direction. A hall
+   * stamped near the castle (seat 0's keep is at x 120) puts a slice of that disc past the edge, and
+   * she walked straight to it.
+   *
+   * ⛔ THE SAME FUNCTION, NOT A SECOND BOUND. `clampIntoPlayfield` is what every creature uses, and it
+   * moves `prevPos` with `pos` — the Verlet trap its own docblock names: clamping `pos` alone would
+   * manufacture a one-frame velocity of the overshoot and fling her back across her zone. It is a
+   * no-op for any position already on the board, so every on-board walk stays byte-identical.
+   */
+  clampIntoPlayfield(d.pos, d.prevPos);
+}
+
+/**
+ * ⭐ S189 C8 — a DESTINATION on the board: the same bounds `clampIntoPlayfield` holds a body to, applied
+ * to a point. Her patrol target is clamped with this so she walks to a spot she can actually reach and
+ * snaps there, instead of pressing against the edge for the rest of the leg. Pure; no-op on-board.
+ */
+export function clampPointIntoPlayfield(p: Vec2): Vec2 {
+  const out = { x: p.x, y: p.y };
+  clampIntoPlayfield(out, { x: out.x, y: out.y });
+  return out;
 }
 
 /**

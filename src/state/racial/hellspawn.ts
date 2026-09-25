@@ -24,9 +24,12 @@
  *   of the original for a grandchild, since `⌊⌊P/2⌋/2⌋ = ⌊P/4⌋`. Stored on the existing `maxEhp`.
  *   Pencil chewer: 5 → 2 → 1.
  * · STRIKE: derived from the generation AT STRIKE TIME, `hellspawnStrikeFifths` — floor-at-one of
- *   50 % / 25 % of the strike the same unit would deal at generation 0. It has to be derived: a
- *   creature's damage is rebuilt from its TYPE's config, and a split chewer is still a `'chewer'`.
- *   Pencil chewer: 7 → 3 → 1.
+ *   50 % / 25 % of the strike the same unit would deal at generation 0. It has to be derived: a split
+ *   chewer is still a `'chewer'`. Pencil chewer: 7 → 3 → 1.
+ *   ⭐ S190 (draft-atk) — "the strike at generation 0" is the PARENT's own (`creatureAttackFifths`,
+ *   baked at the original chewer's birth), stamped on each child exactly as the pool is. A child is
+ *   born through `SPAWN_CREATURE`, which bakes the seat's CURRENT picks — so without the stamp a
+ *   chewer born before an ATK pick would split into children stronger than itself. Drafted: 8 → 4 → 2.
  *
  * ## ⚠ MINE, EACH STATED AT ITS LINE
  *
@@ -105,19 +108,25 @@ export function hellspawnOnDeath(world: World, victim: Creature): void {
   if (gen >= HELLSPAWN_MAX_GEN) return; // ⛔ A2 — a generation-2 death spawns nothing
   const childGen = (gen + 1) as 1 | 2;
   const pool = hellspawnChildPool(creatureMaxEhp(victim));
+  // ⭐ S190 (draft-atk) — the PARENT's baked gen-0 strike (absent = the type's), captured now: the
+  // children are born later, after the sweep, when the victim is gone.
+  const parentAtkFifths = victim.atkFifths;
   const owner = victim.ownerPlayerId;
   const at: Vec2 = { x: victim.pos.x, y: victim.pos.y };
   // ⚠ A chewer always has a spawner in play; the castle sentinel is the fallback for one that does
   // not (a test fixture), so the children still ride the spawner path and never the null-spawner latch.
   const spawnerId: SpawnerId = victim.sourceSpawnerId ?? castleSpawnerId(owner as unknown as number);
   queueAfterStrike(world, () => {
-    for (let i = 0; i < HELLSPAWN_CHILDREN; i++) spawnHellspawnChild(world, owner, at, spawnerId, childGen, pool);
+    for (let i = 0; i < HELLSPAWN_CHILDREN; i++) {
+      spawnHellspawnChild(world, owner, at, spawnerId, childGen, pool, parentAtkFifths);
+    }
   });
 }
 
-/** One child, through the real spawn reducer, then stamped with its generation and its pool. */
+/** One child, through the real spawn reducer, then stamped with its generation, pool and strike. */
 function spawnHellspawnChild(
   world: World, owner: PlayerId, at: Vec2, spawnerId: SpawnerId, gen: 1 | 2, pool: number,
+  parentAtkFifths: number | undefined,
 ): void {
   if (world.gameState !== 'PLAYING') return;
   const id = asCreatureId(world.nextCreatureId);
@@ -135,4 +144,8 @@ function spawnHellspawnChild(
   child.hellspawnGen = gen;
   child.maxEhp = pool;
   child.ehp = pool;
+  // ⭐ S190 (draft-atk) — OVERWRITE what the spawn reducer baked from the seat's current picks: the
+  // child's gen-0 strike is its PARENT's, set or absent. `hellspawnStrikeFifths` takes the share.
+  if (parentAtkFifths === undefined) delete child.atkFifths;
+  else child.atkFifths = parentAtkFifths;
 }

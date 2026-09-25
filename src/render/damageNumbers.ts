@@ -66,6 +66,8 @@ import { CASTLE_ATTACK_RANGE } from '../constants.ts';
 import { castleFiresOnTick } from '../state/castleGuns.ts';
 import { castleShotFifthsFor } from '../state/castleUpgrades.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
+import { creatureAttackFifths } from '../state/creatures/creature.ts';
+import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
 
@@ -252,7 +254,9 @@ export function fatalBlowFifths(
     const dx = a.pos.x - at.x;
     const dy = a.pos.y - at.y;
     if (dx * dx + dy * dy > r * r) continue;
-    best = Math.max(best, attackFifths(cfg.atk, cfg.pen));
+    // ⭐ S190 (draft-atk) — the blow THIS creature lands (its baked strike, HELLSPAWN's share applied),
+    // the expression every strike arm subtracts — not its type's. Both fields ride the wire.
+    best = Math.max(best, hellspawnStrikeFifths(a, creatureAttackFifths(a)));
   }
 
   for (const d of world.defenders.values()) {
@@ -396,9 +400,47 @@ export type FloaterKind = 'damage' | 'heal';
 /** What the renderer remembers about a creature between frames. */
 interface Watched {
   ehp: number;
+  /** ⭐ S189 R190-I — `Creature.healedFifths` as last seen (absent = 0). */
+  healed: number;
   x: number;
   y: number;
   owner: PlayerId;
+}
+
+/**
+ * ⭐⭐ S189 (owner R190-I) — PURE — split one creature's change between two observations into the HIT
+ * and the HEAL, so both print.
+ *
+ * > *"It has to show -12 and +2 separately, in different colors … it shows every single hit or heal.
+ * > They can stack on top of each other."* — owner, S189
+ *
+ * `ehp` alone reads a 12 hit and a 2 heal on one tick as a 10 drop. `Creature.healedFifths` is a
+ * monotonic counter of every heal applied (after the cap), so the heal in the window is its rise and
+ * the hit is the `ehp` drop PLUS that heal. Both are exact, on the host and on a joiner (the counter
+ * rides the wire).
+ *
+ * ⚠ TWO FALLBACKS, both to the pre-S189 net reading, never to a wrong number:
+ *   · a counter that went DOWN (a host migration onto a build that never wrote it) counts no heal;
+ *   · a pool that rose by MORE than the counter says (a heal path that does not write it) shows the
+ *     excess as a heal, exactly as before.
+ *
+ * ⚠ RESOLUTION IS STILL ONE OBSERVATION: two hits that land on the same host tick (or inside one 10 Hz
+ * snapshot on a joiner) still merge into one red number, and two heals into one green one — the header
+ * of this file states that limit for damage and it is unchanged.
+ */
+export function creaturePoolChange(
+  prevEhp: number,
+  curEhp: number,
+  prevHealed: number,
+  curHealed: number,
+): { damage: number; heal: number } {
+  let heal = Math.max(0, curHealed - prevHealed);
+  let damage = prevEhp - curEhp + heal;
+  if (damage < 0) {
+    heal += -damage; // an untracked rise — shown as a heal, the old behaviour
+    damage = 0;
+  }
+  return { damage, heal };
 }
 
 export class DamageNumbers {
@@ -488,11 +530,14 @@ export class DamageNumbers {
       seen.add(c.id);
       const prev = this.watched.get(c.id);
       const owner = c.ownerPlayerId;
-      this.watched.set(c.id, { ehp: c.ehp, x: c.pos.x, y: c.pos.y, owner });
+      const healed = c.healedFifths ?? 0;
+      this.watched.set(c.id, { ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner });
       if (prev === undefined) continue; // first sighting is neither a hit nor a heal
-      const delta = prev.ehp - c.ehp;
-      if (delta > 0) this.emit(world, c.id, c.pos.x, c.pos.y, delta, 'damage', owner);
-      else if (delta < 0) this.emit(world, c.id, c.pos.x, c.pos.y, -delta, 'heal', owner);
+      // ⭐ S189 R190-I — the hit AND the heal, each in its own colour (`creaturePoolChange`). Same
+      // anchor for both (R185-D untouched); `place` stacks the second above the first.
+      const { damage, heal } = creaturePoolChange(prev.ehp, c.ehp, prev.healed, healed);
+      if (damage > 0) this.emit(world, c.id, c.pos.x, c.pos.y, damage, 'damage', owner);
+      if (heal > 0) this.emit(world, c.id, c.pos.x, c.pos.y, heal, 'heal', owner);
     }
 
     /*

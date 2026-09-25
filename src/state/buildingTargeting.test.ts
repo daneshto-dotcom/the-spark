@@ -254,20 +254,50 @@ describe("S181 — ⛔ THE STINK TOWER HE NAMED IS REACHABLE, and nothing filter
    * ⛔ THE REGRESSION THIS GUARDS is someone "fixing" a future targeting complaint by excluding a
    * recipe here. That would silently un-target one building and reproduce his report for that one
    * thing only — the hardest version of this bug to find, because 23 of 24 cases would still work.
+   *
+   * ⭐ S190 P0 (C5) — RE-DERIVED, NOT LOOSENED. The scan used to be one function, and this guard
+   * sliced a 4000-character window after `export function findNearestBondTarget` and looked for the
+   * ownership filter inside it. S190 moved the classification into a per-tick index for performance
+   * (byte-identical outputs, proven by `bondTargetIndex.differential.test.ts`): the filter now runs
+   * in `buildColourBucket`, the entry point reads the classified bucket, and the per-creature passes
+   * are `nearestBondIn` and `spreadEnemyTarget`. A window over the entry point alone would have gone
+   * on passing over a recipe filter added to the builder — a source-text guard proving a line EXISTS
+   * somewhere near, not that it is the one REACHED. So each of the four functions is now sliced
+   * exactly (to its closing brace) and every one of them is held to the same rule.
    */
   it('the bond scan rejects on ownership and NOTHING else', () => {
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const src = readFileSync('src/state/creatures/creatureAI.ts', 'utf-8');
-    const start = src.indexOf('export function findNearestBondTarget');
-    expect(start).toBeGreaterThan(-1);
-    // ⚠ NO ESCAPE IN A GENERATED STRING — a literal newline injected into a TS string
-    //   literal is what broke this file's first cut. Slice a generous window instead.
-    const body = src.slice(start, start + 4000);
-    // The one legitimate filter.
-    expect(body).toContain('isEnemyBondWithColor');
-    // ⛔ and no recipe / defender / tower exclusion has crept in beside it.
-    for (const smell of ['recipeId', 'stinkTower', 'laserTurret', 'defenders', 'isRaceTowerId']) {
-      expect(body.includes(smell), `bond scan must not filter on ${smell}`).toBe(false);
+    // ⚠ NO ESCAPE IN A GENERATED STRING — a literal newline injected into a TS string literal is what
+    //   broke this file's first cut. A top-level function ends at the first line that STARTS with a
+    //   closing brace, which a multiline regex finds without any escaped newline.
+    const fnBody = (head: string): string => {
+      const start = src.indexOf(head);
+      expect(start, `${head} not found in creatureAI.ts`).toBeGreaterThan(-1);
+      const end = src.slice(start).search(/^\}/m);
+      expect(end, `${head} has no closing brace`).toBeGreaterThan(0);
+      return src.slice(start, start + end + 1);
+    };
+    const entry = fnBody('export function findNearestBondTarget(');
+    const builder = fnBody('function buildColourBucket(');
+    const spread = fnBody('function spreadEnemyTarget(');
+    const scan = fnBody('function nearestBondIn(');
+    // S190 audit PERF-3 — and the two functions that hand the entry point its bucket, so a filter slipped
+    // into the cache lookup (rather than the builder) cannot hide from this guard either.
+    const bucketFor = fnBody('function colourBucketFor(');
+    const indexFor = fnBody('function bondTargetIndexFor(');
+    // The entry point scans the CLASSIFIED bucket, so the builder's filter is the one that decides…
+    expect(entry).toContain('colourBucketFor(');
+    // …and the one legitimate filter is ownership.
+    expect(builder).toContain('isEnemyBondWithColor');
+    // ⛔ and no recipe / defender / tower exclusion has crept in beside it, anywhere in the scan.
+    for (const [name, body] of [
+      ['findNearestBondTarget', entry], ['buildColourBucket', builder], ['spreadEnemyTarget', spread],
+      ['nearestBondIn', scan], ['colourBucketFor', bucketFor], ['bondTargetIndexFor', indexFor],
+    ] as const) {
+      for (const smell of ['recipeId', 'stinkTower', 'laserTurret', 'defenders', 'isRaceTowerId']) {
+        expect(body.includes(smell), `bond scan (${name}) must not filter on ${smell}`).toBe(false);
+      }
     }
   });
 

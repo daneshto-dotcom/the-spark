@@ -54,11 +54,11 @@ for "seven per level"; it is **four generals plus six racials per level**.
 | 15 | `l5-demons.png` | demons | HELLSPAWN | a pencil chewer's death splits it into 2 at 50 %, and those into 2 at 25 % |
 | 16 | `l5-orcs.png` | orcs | THE HORDE GROWS | goblin towers hold 20 instead of 10; the castle emits its base unit twice as fast |
 
-### Level 10 racials — one ruled, NOT built
+### Level 10 racials — built (THE SWARM in `s188/swarm`, WRATH OF RA in `s188/wrath`)
 
 | # | file | race | name | what it does |
 |---|---|---|---|---|
-| 17 | `l10-vampires.png` | vampires | THE SWARM | the tier-3 bat tower becomes a bat-swarm generator at 6× base |
+| 17 | `l10-vampires.png` | vampires | THE SWARM | the tier-3 bat tower becomes a bat-swarm generator at 6× base — ⭐ S188 `s188/swarm` builds the mechanic (`vampires.l10`) and ships the card |
 | 18 | `l10-mummies.png` | mummies | WRATH OF RA | ⭐ S188 — the card ships from `s188/ra-vfx`; the mechanic `mummies.l10` is built in `s188/wrath` |
 
 ⭐ `l10-mummies.png` is a CROP, not the owner's file as delivered. `l10-mummies-raw.png` (1024 × 1024) came with a
@@ -66,9 +66,10 @@ white outer margin and a rounded black frame; the master is its dark inner panel
 848 × 848, edge to edge with the baked WRATH OF RA title intact in the top band. The raw file stays here as the
 untouched original (`check-upgrade-cards.mjs` knows it as a raw source, not a stray).
 
-⛔ `l10-vampires.png` is **not shipped**. Level 10 has no mechanic and is out of S188's scope by the
-owner's word, and a card cannot precede its mechanic. `build-upgrade-cards.py` leaves it out, and
-`draftOverlay.test.ts` fails if `l10-vampires.webp` ever appears in `public/art/upgrade-cards/`.
+✅ `l10-vampires.png` **is shipped** (S188 `s188/swarm`, reconciled S190). The owner moved THE SWARM into
+S188 (scope amendment SA1) and its mechanic `vampires.l10` is built, so the card no longer precedes it.
+`build-upgrade-cards.py` builds it from the 784 × 756 top-anchored crop, and the rebuild is byte-identical
+to the committed `public/art/upgrade-cards/l10-vampires.webp` (sha256 `c0e6fafd…`, measured S190).
 
 ## ⛔ A CARD IS NOT A MECHANIC — THE TILE FOLLOWS `RACIAL_PERK_BUILT`, NOT THE ART
 
@@ -99,7 +100,7 @@ session re-enables by accident. `draftOverlay.test.ts` asserts it is gone.
 
 | | |
 |---|---|
-| runtime files | `public/art/upgrade-cards/<name>.webp` — the 16 cards of levels 0 and 5, plus `l10-mummies` (WRATH OF RA, S188) |
+| runtime files | `public/art/upgrade-cards/<name>.webp` — the 16 cards of levels 0 and 5, plus `l10-vampires` (THE SWARM, S188) and `l10-mummies` (WRATH OF RA, S188) |
 | built by | `python scripts/build-upgrade-cards.py` — 502 × 484 (2× the tile), cover-fit top-anchored, lossy WebP q82 |
 | loaded by | `DraftOverlay` in `src/render/draftOverlay.ts`, **lazily** through Pixi `Assets`, one card per tile, on first draw |
 | general tile | `general-<axis>` for the wave's axis |
@@ -114,9 +115,9 @@ Shipped sizes (static payload — the bundle cap does not count these; a seat fe
 | `l0-vampires` | 46.0 | `l0-zombies` | 64.9 | `l0-mummies` | 69.7 | `l0-orcs` | 76.5 |
 | `l0-demons` | 72.4 | `l0-nagas` | 76.7 | `l5-vampires` | 57.6 | `l5-zombies` | 63.0 |
 | `l5-mummies` | 86.6 | `l5-orcs` | 60.5 | `l5-demons` | 54.4 | `l5-nagas` | 43.3 |
-| `l10-mummies` | 59.1 | | | | | | |
+| `l10-vampires` | 36.0 | `l10-mummies` | 59.1 | | | | |
 
-**Total 1071.7 KB** for all seventeen (1012.7 KB for the sixteen of levels 0/5, + 59.1 KB WRATH OF RA), against ~35 MB of source PNGs that stay here as the lossless
+**Total 1107.7 KB** for all eighteen (1012.7 KB for the sixteen of levels 0/5, + 36.0 KB THE SWARM, + 59.1 KB WRATH OF RA — the build script's own total, S190), against ~35 MB of source PNGs that stay here as the lossless
 masters.
 
 ## Landed so far
@@ -124,8 +125,7 @@ masters.
 | state | files |
 |---|---|
 | ✅ generated, all pass the checker | the four generals, all six level-0 racials, all six level-5 racials, THE SWARM |
-| ✅ built and wired (S188) | the sixteen level-0/5 cards — see **WIRED** |
-| ⛔ generated, NOT wired | `l10-vampires.png` — level 10 is not built |
+| ✅ built and wired (S188) | the sixteen level-0/5 cards, and `l10-vampires` (THE SWARM) — see **WIRED** |
 | ⚠ alternates kept | `l0-demons-alt.png` — SCORCHED GROUND was generated twice. The primary is the one with more foreground rock and stronger diagonal fissures, which survives the shrink to a 251 px tile better. Swapping them is a rename. `l5-demons-alt.png` — see below. Neither is shipped. |
 
 ## ⭐ ORCS LEVEL 5 — RULED S187, the last gap at that level
@@ -137,7 +137,7 @@ the castle emits its base unit **twice as fast**.
 is true, so goblins never age out. Raising 10 → 20 is fine; removing the ceiling is not.
 
 **Levels 0 and 5 are now fully ruled for all six races.** Levels 10–20 have 16 racial slots still
-undesigned — only vampires L10 (THE SWARM) exists.
+undesigned — vampires L10 (THE SWARM) is designed and built (S188 `s188/swarm`).
 
 ## ⚠ THE FIVE GROK CARDS WERE PORTRAIT AND HAD TO BE CROPPED
 
@@ -150,6 +150,9 @@ the lower background. Verified by eye afterwards — all four keep their title a
 
 ⚠ `l10-vampires.png` (THE SWARM) is **very dark**. At 251 px it may read as a near-black rectangle.
 Look at it in-game before accepting it; a brightness lift or a re-roll may be wanted.
+✅ S188 `s188/swarm` looked at it at 251 × 242: dark, but NOT a black rectangle — the white title reads, and
+the bat silhouette and red eyes read against the wine swarm. Mean luminance 41.4, brighter than the shipped
+`l0-vampires` at 38.3 (measured S190). Shipped unaltered; the owner's eye is still the final word.
 
 ⚠ `l5-demons-alt.png` is the second HELLSPAWN. The owner picked the other one (`isESS`) and the pick
 is right for a reason worth keeping: the primary's radiating composition reads as ONE thing becoming

@@ -185,7 +185,9 @@ describe('CREATURE_CONFIGS lookup table', () => {
       'lightningDrone', 'locustCloud', 'raceUnit',
       // ⭐ S188 — and a SEVENTH time, for APEX PREDATOR's elite piranha (nagas level 5). Sorted, so it
       // lands directly after the piranha it promotes.
-      't3Bat', 't3Hound', 't3Piranha', 't3PiranhaElite', 't3Scarab', 't3Souleater', 't3Warband',
+      // ⭐ S188 — and an EIGHTH, for THE SWARM's bat swarm (vampires level 10). Sorted, so it lands
+      // directly after the bat it promotes.
+      't3Bat', 't3BatSwarm', 't3Hound', 't3Piranha', 't3PiranhaElite', 't3Scarab', 't3Souleater', 't3Warband',
       // S167 — the six tier-9 bosses. This list is HAND-MAINTAINED and it earned its keep again:
       // it is the only thing in the tree that fails when a CreatureType is added to the union and
       // to CREATURE_CONFIGS but forgotten everywhere a human has to remember.

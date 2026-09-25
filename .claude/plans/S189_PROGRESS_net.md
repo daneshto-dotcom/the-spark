@@ -1,9 +1,34 @@
-**STATUS: COMPLETE — audit fix round, all 7 items committed (FR-1..FR-7); gates 0/0/0 at 163f286. ⛔ C4 end-to-end only partly fixed — see "C4 END-TO-END" (NOT DONE, for the merge owner)**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Step 1 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
 Branch `s189/net`, based at `15035b9` (live deploy #2, PROTOCOL_VERSION 50). Commits are LOCAL, never pushed.
 The merge owner resumes from this file if this agent is cut off.
+
+## S191 (audit wf_c0da87a5-e17 → NETFR-1..6; brief S191_BRIEFS/net.md)
+
+| # | step | state | commit |
+|---|---|---|---|
+| 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | (merge commit) |
+| 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | pending | |
+| 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | pending | |
+| 4 | NETFR-6 — per-peer slot drop/rejoin test | pending | |
+| 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | pending | |
+| 6 | NETFR-5 — canon notes rewrite | pending | |
+| 7 | final gates + report | pending | |
+
+- **Step 1 — merge master.** `git merge master` was CLEAN (auto-merged `src/main.ts`, `src/input/controls.ts`;
+  no conflicts). ⭐ The old "draft panel draws OVER the connection-lost overlay" note (C4 section below) is
+  RESOLVED on the merged tree, verified by reading it: `main.ts:1336` stages `draftOverlay.container`;
+  `LobbyScreen` is constructed later (`main.ts:1937`) and its constructor calls `makeConnectionLostOverlay`,
+  which does `app.stage.addChild(container)` (`connectionLostOverlay.ts:84`) — so the CONNECTION LOST veil,
+  text and Return-to-Title button are later children and draw OVER the panel; and
+  `draftOverlay.setCoveredBy(… || lobbyScreen.isConnectionLostVisible())` (`main.ts:2063`) takes the panel
+  out of input while it is up. Gates on the merged tree (captured `$?`): typecheck **0** · `npx vitest run
+  --maxWorkers=4` **0** (404 files + 2 skipped / 6551 tests + 7 skipped) · build **0** (entry **964.0 KiB**,
+  cap 1100, headroom 136.0). Benign, recorded: vitest rewrote `pentagramBuildability.test.ts.snap` line
+  endings only (`git diff --ignore-cr-at-eol` empty) → restored. ⚠ Bundle: master is 955.9 KiB (S191 PDR §4 figure, not re-measured here), so this
+  branch costs **+8.1 KiB** of its 10 KiB budget before the S191 steps.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

@@ -85,9 +85,9 @@ the 24 in a single blow.
 |---|---|
 | Castle pool | **2500** (`CASTLE_MAX_HP`) — raised from 1500 by the owner in S181 |
 | Its gun's shot | **40** fifths — `attackFifths(5, 3)`, i.e. `CASTLE_ATK` 5 / `CASTLE_PEN` 3 |
-| Damage an attacker deals to it | **its own `attackFifths(atk, pen)`** — the same ladder as everything else |
+| Damage an attacker deals to it | **its own strike — `creatureAttackFifths(creature)`**: its type's `attackFifths(atk, pen)`, drafted-buffed when its seat drafted ATK/PEN (S190, §3d) — the same ladder as everything else, through the keep's DEF |
 | Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
-| Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level (1.0–1.8 % of the pool) |
+| Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level on an un-upgraded keep — 1.0–1.8 % of the seat's **UPGRADED** total (owner ruling R190-C, S190; §3d) |
 | Bought stats | **HP / ATK / DEF / PEN**, 100 VP a point, 10 per axis — live buttons since S188 (§3d) |
 
 ⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
@@ -113,6 +113,9 @@ longer merely punishes leakers.
 At 2500 the same percentages give 25/30/35/40/45 — a ~67 % buff that rode along. Honouring the
 percentage is honouring the ruling, but it is flagged here because it is a balance change nobody
 asked for out loud. One line in `CASTLE_REGEN_PCT_BASE` reverses it if he wants the old rates back.
+
+⭐ **S190 — AND R190-C SETTLED WHICH "MAX": THE UPGRADED TOTAL.** *"your regen is based on the current
+health … upgraded total."* A keep that bought HP regenerates a percent of its bought ceiling — §3d.
 
 **And the flat 6 is gone.** *"Why does every attacker hit the castle for a flat of six? That's not
 correct. Every attacker hits anything based on its damage output, which we know the algorithm for.
@@ -218,9 +221,12 @@ wave 6. The original spec contradicted itself on exactly this point. So "level 0
 | | |
 |---|---|
 | general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
-| the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent`. ⛔ On the live build only the HP and DEF picks land — see *PENDING TRAIN D* below |
+| the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent`. ⭐ Since S190 (deploy #4) EVERY pick lands: HP/DEF on the pool, ATK/PEN on the strike — see *THE DRAFTED STRIKE* below |
+| where the buff lives | **born into the creature**: the pool in `Creature.maxEhp` (S187), the strike in `Creature.atkFifths` (S190), each stored ONLY when a pick moved it and read through `creatureMaxEhp` / `creatureAttackFifths` — never re-derived from the type |
+| ATK vs PEN | the ladder has two derived numbers, so an ATK pick and a PEN pick move the SAME strike, exactly as HP and DEF move the same pool |
+| units already on the board | keep what they were born with — the strike too: a unit born before an ATK pick keeps its 6 (`draftAtkReaches.test.ts`, through the real host tick) |
 | deadline | the whole BUILD. It **never freezes the sim** (R106), and the panel is **559 × 270** on the spawn disc (`PANEL_W` × `PANEL_H`), two tiles of **251 × 242** |
-| racial track | ⭐ **LEVELS 0 AND 5 ARE LIVE FOR ALL SIX RACES (S188).** The tile is choosable exactly when `draftOptionsFor(wave, race).racial` names a perk — i.e. when `RACIAL_PERK_BUILT` says its mechanic exists — and it then joins the hit-test and sends `'racial'`. Levels 10+ stay the dimmed COMING SOON tile, **absent from the hit-test** |
+| racial track | ⭐ **LEVELS 0 AND 5 ARE LIVE FOR ALL SIX RACES (S188), AND LEVEL 10 FOR TWO (S190)** — THE SWARM for every vampire seat, WRATH OF RA for a mummies seat that took POWER OF RA (§3e). The tile is choosable exactly when `draftOptionsFor(wave, race, picks).racial` names a perk — i.e. when `RACIAL_PERK_BUILT` says its mechanic exists and the seat holds any perk it requires — and it then joins the hit-test and sends `'racial'`. Every other level-10 tile, and levels 15+, stay the dimmed COMING SOON tile, **absent from the hit-test** |
 | a pick that was not offered | **refused** — `pickIsOffered` (S188) |
 | what a racial pick buffs | **no ladder stat at all** — it is a mechanic, never an axis. ⚠ The label "R104" is a reading, MINE (S188): R104 itself is the no-overlap rule that keeps the draft off the CASTLE's numbers; `draft.ts` extends its line to the racial pick, and the type system holds it |
 
@@ -235,29 +241,59 @@ The castle-spawned unit is `1/1/1/1` (R125), so its pool is **6 fifths**. It com
 same step for a chewer and for a Kraken. **R118 is superseded.** ⭐ S188 — the same rule floors every
 racial percentage in §3e: a lifesteal heal, a split chewer's pool and its bite.
 
-⛔⛔ **PENDING TRAIN D — ON THE LIVE BUILD A DRAFTED ATK OR PEN PICK REACHES NO STRIKE.** An HP or DEF
-pick raises the pool of every unit the seat spawns after it (`draftedPoolFifths`, called at birth by
-`makeCreature`). An ATK or PEN pick is RECORDED — it is in `draftPicks`, synced and hashed — but
-`draftedAttackFifths`, the function that would apply it, has **no production caller**: every strike
-still reads its TYPE's `attackFifths(atk, pen)`. So the panel's *"hits 10% harder"* and *"cuts 10%
-deeper through armour"* are promises the sim does not yet keep, and the general pick at waves 11 and
-16 (ATK, then PEN — the only choosable tile there, and the deadline's fallback) buys nothing.
-`s188/draft-atk` wires it; until that merges, this paragraph is the truth.
+⭐⭐ **THE DRAFTED STRIKE — LIVE SINCE S190 (deploy #4, `s188/draft-atk`). AN ATK OR PEN PICK NOW REACHES
+EVERY CREATURE STRIKE.** An HP or DEF pick raises the pool of every unit the seat spawns after it
+(`draftedPoolFifths`, at birth in `makeCreature`); an ATK or PEN pick now raises its STRIKE the same way —
+`draftedAttackFifths`, whose ONE production caller is `makeCreature` (`state/creatures/creature.ts`),
+bakes it into `Creature.atkFifths`, and every strike reads it back through `creatureAttackFifths`: the
+six arms of the creature attack, the Voltkin chain, the suicide and drone blasts, CORPSE EATER's bite,
+the creature card and the fatal-blow floater. So the panel's *"hits 10% harder"* and *"cuts 10% deeper
+through armour"* are kept promises now, and the general pick at waves 11 and 16 (ATK, then PEN) buys
+what it says.
+
+Worked strikes — one damage pick, then two, each `applyDraftPercent(attackFifths(atk, pen), n, 10)`:
+
+| unit | ATK / PEN | type strike | 1 pick | 2 picks |
+|---|---|---:|---:|---:|
+| race unit | 1 / 1 | **6** | **7** | **8** |
+| melee goblin | 2 / 1 | **12** | **13** | — |
+| Voltkin | 3 / 6 | **33** | **36** | — |
+| suicide goblin | 4 / 0 | **20** | **22** | — |
+| lightning drone | 5 / 1 | **30** | **33** | — |
+| tier-9 boss | 10 / 10 | **150** | **165** | — |
+
+The creature card prints the creature's OWN numbers: "N a swing" is the strike it lands (a HELLSPAWN
+child's share included) and "N pool" is `creatureMaxEhp` — a generation-1 HELLSPAWN card that read
+*"7 a swing / 5 pool"* now reads *"3 a swing / 2 pool"*, and `fatalBlowFifths` credits the same number.
+
+⛔ **THE PRE-S190 TRUTH, KEPT BECAUSE IT WAS LIVE FOR THREE DEPLOYS:** from S187 until S190 the wave-11
+STRONGER and wave-16 PIERCING cards did NOTHING — `draftedAttackFifths` had no production caller.
+
+⭐⭐ **R190-E — A DRAFTED ATK PICK BUFFS PHYSICAL HITS ONLY. HIS RULING (S190).** *"The Ra column is
+considered a MAGIC attack."* So the Pharaoh's ritual column, POWER OF RA / WRATH OF RA and HELGA (a
+defender — the draft reaches neither half of a defender) are NOT buffed (`creatureStrike.guard.test.ts`
+keeps each on its SANCTIONED list). ⚠ **ONE QUESTION RECORDED FOR HIM, NOT CHANGED (audit DA-A2):**
+boss-skill SUMMONS (the Pharaoh's locusts, the Warlord's direwolves), the Voltkin's lightning and the
+suicide / drone blasts ARE buffed today — they are creatures' own hits. The lever if he says no: pass
+`draftPicks` undefined for boss-summon types in `applySpawnCreature`'s null-spawner branch (it moves
+the pool AND the strike together). A MAGIC damage class is on his list to design with him.
 
 ⛔ **AND IT AUTO-TAKES THE RACIAL ONE AT THE DEADLINE — HIS REVERSAL OF R106, LIVE SINCE S188.** R106
 assigned the general; his S187 ruling governs: *"in the end of the build phase it just takes the
 racial one automatically."* `autoPickFor` returns `'racial'` whenever a perk is on offer, so at levels
 0 and 5 a seat that does not choose gets its RACE's perk — and so does every bot, which drafts through
-the same deadline (`SPARK_RACES_SPEC` §9.5). ⚠ At levels 10+, where nothing is on offer, it still
-takes the general option: a deadline that took a non-existent option would grant nothing.
+the same deadline (`SPARK_RACES_SPEC` §9.5). ⚠ Where nothing is on offer — level 10 for zombies,
+orcs, demons, nagas and a mummies seat without POWER OF RA; every race from level 15 — it still takes
+the general option: a deadline that took a non-existent option would grant nothing.
 
 ⛔ **ONLY AN OFFERED OPTION MAY BE TAKEN (S188).** Until S188 `applyDraftChoice` pushed whatever `pick`
 the intent carried, so a modified client could take ATK at the HP draft, or stack PEN forever. It was
 latent while the panel could only send the offered general; it is not latent once a second option
 exists. `pickIsOffered` admits exactly two things: this wave's general axis, and `'racial'` when this
-seat's race has a built perk at this draft.
+seat's race has a built perk at this draft — and, for a perk with a requirement (`RACIAL_PERK_REQUIRES`:
+WRATH OF RA needs POWER OF RA), only when THIS SEAT holds it (`racialPerkFor(race, index, picks)`).
 
-⭐ **A RACIAL PICK IS ONE LITERAL FOR TWELVE PERKS.** `DraftPick = GeneralPick | 'racial'`. Which perk
+⭐ **A RACIAL PICK IS ONE LITERAL FOR FOURTEEN PERKS.** `DraftPick = GeneralPick | 'racial'`. Which perk
 it is follows from the seat's race and the pick's index, so it is never stored twice, and every
 mechanic asks one question — `seatHoldsPerk` — which checks the RACE as well as the pick: a seat of
 another race that picked its racial holds ITS OWN race's perk, never this one. ⛔ `isPoolPick('racial')`
@@ -265,12 +301,11 @@ and `isDamagePick('racial')` are false by construction, so the pick moves no poo
 number (R104).
 
 ⭐ **EVERY TILE DRAWS ITS CARD (S188).** The general tile shows `general-<axis>`; the racial tile shows
-`RACIAL_PERK_COPY[perk].card` while its perk is on offer — **17** cards in `public/art/upgrade-cards/` (the sixteen on offer, plus the WRATH OF RA card `l10-mummies`, shipped by the Ra-strike art branch in S190 AHEAD of its perk),
+`RACIAL_PERK_COPY[perk].card` while its perk is on offer — **18** cards in `public/art/upgrade-cards/` (the four general cards and one per registry perk; the WRATH OF RA card `l10-mummies` shipped AHEAD of its perk in S190 train A and is its perk's since deploy #4, so none is ahead),
 fetched lazily (`upgradeCardUrl`), so a slow or missing card leaves the tile on its text title and
 never blocks the panel. ⛔ A tile showing its card draws **no overlay title** — the name is baked into
 the art and the two collided. ⛔ `drawAxisGlyph` is **deleted**, not dormant — owner: *"just a hand
-drawn heart that looks gay"*. ⚠ `l10-vampires` is **not shipped**: level 10 has no mechanic on this
-tree.
+drawn heart that looks gay"*. ⭐ `l10-vampires` (THE SWARM) shipped with its perk in S190.
 
 ### ⭐ THE CASTLE NOW CLIMBS TOO — §3b's CONSEQUENCE IS CLOSED
 
@@ -306,7 +341,7 @@ HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MA
 | a bought HP point | **adds its band gain to the keep's CURRENT HP too**, not only to its ceiling |
 | an absent `castleHp` on the wire | reads as **that seat's upgraded ceiling** (`castleMaxHpFor`), not the flat 2500 — see §6 |
 | a rematch | **every bought stat resets** — they used to carry into the next match |
-| regen | still a percentage of the **flat base pool**, not of the bought ceiling — MINE, unchanged |
+| regen | a percentage of the seat's **UPGRADED** total — owner ruling **R190-C** (S190), built by `s189/units` |
 
 ⛔ **THE HP FIX IS HIS TABLE, READ LITERALLY.** *"Each a hundred victory points. If it's in the first
 five waves then by 250 …"* — owner, S187. He is buying 250 HP, and a keep that paid for it must HAVE
@@ -320,11 +355,14 @@ incoming damage and a ceiling above the pool it had been reset to — reachable 
 existed. The reset now comes FIRST and `castleHp` is set from the reset seat's own ceiling, so the two
 cannot drift.
 
-⚠ **REGEN IS MINE, AND LEFT ALONE ON PURPOSE.** `castleRegenPerSecond` takes the level and nothing
-else — R128's percentage of the flat `CASTLE_MAX_HP` — so a keep that bought HP still regenerates
-25–45 HP a second (§3). He has not ruled whether regen should follow bought HP, and a percentage of
-the ceiling would be a buff that rode along unasked — the S181 regen lesson in §3. One line changes it
-if he wants it.
+⭐⭐ **R190-C — REGEN IS A PERCENT OF THE UPGRADED TOTAL. HIS RULING (S190), BUILT IN DEPLOY #4.**
+*"your regen is based on the current health … upgraded total."* `castleRegenPerSecond(level, maxHp)` now
+takes the seat's own ceiling (`castleMaxHpFor`), for the RATE as well as the cap, so buying castle HP buys
+regen too: one wave-1 HP point (**2,750**) regenerates **28** HP/s at level 1 and **50** at level 5, while an
+un-upgraded keep keeps its **25–45** (§3). ⚠ A bought pool makes rounding live — 2,750 × 1.8 % is 49.5 —
+so the percent is held in tenths and the one division rounds half-up (`Math.round`), the same on every
+engine. (Until S190 this paragraph read *"REGEN IS MINE, AND LEFT ALONE ON PURPOSE"* — a percent of the
+flat pool, unruled. He has ruled it.)
 
 ### ⭐ A FUTURE DIRECTION HE WANTS ON RECORD — A RANDOMISED UPGRADE POOL (S187)
 
@@ -346,52 +384,54 @@ function. A random pool means making that function read a seeded selection inste
 seed is, never recomputed per peer. No new architecture; a different `draftOptionsFor` and two more
 integers on an event that already exists.
 
-### ⛔ WHAT IS STILL **NOT BUILT** (S188)
+### ⛔ WHAT IS STILL **NOT BUILT** (S190)
 
-All twelve level-0 and level-5 racials are built (§3e). Past them, on this tree, **nothing is**: the
-racial tile at levels 10+ is COMING SOON, and `RACIAL_PERKS_BY_RACE` holds exactly two perks per race.
+All twelve level-0 and level-5 racials are built (§3e), and since S190 (deploy #4) two level-10 ones —
+THE SWARM and WRATH OF RA, both in §3e now. Past them, on this tree, **nothing is**: every other level-10
+racial tile is COMING SOON, and `RACIAL_PERKS_BY_RACE` holds two perks per race — three for the vampires and the mummies.
 
 | | race · level | status on this tree |
 |---|---|---|
-| **THE SWARM** | vampires · 10 | designed — the vampire seat's bat tower emits a bat swarm at 6× a bat's stats, with its own atlas and the `l10-vampires` card. Being built on its own branch; **not here** |
-| **WRATH OF RA** | mummies · 10, only for a seat that took POWER OF RA | POWER OF RA three times per FIGHT, from a small square skill icon cut from the card art. Being built on its own branch; **not here** |
-| **THE SANDWORM** | mummies · 10, for a seat that did NOT take POWER OF RA | **RULED, art pending, NOT BUILT** — a tier-4 tower that spawns an underground sandworm, untargetable except when it surfaces to strike, visible only by the ground moving above it |
+| **THE SANDWORM** | mummies · 10, for a seat that did NOT take POWER OF RA | **RULED, art pending, NOT BUILT** — a tier-4 tower that spawns an underground sandworm, untargetable except when it surfaces to strike, visible only by the ground moving above it. No perk id exists: that seat's level-10 tile is COMING SOON |
 | everything else | level 10 for zombies, orcs, demons and nagas; levels 15 and 20 for every race | **undesigned** |
-
-> *"The swarm … we've already defined it. We have the even the art for the upgrade. So there's no
-> reason not to build it. Do it this session."* — owner, S188
 
 > *"At level 10, they will have the power of Ra, but times three. So you can use it three times per
 > fight phase … it's only if you've chosen Power of Ra level zero … and if the mummies did not choose
 > Power of Ra level zero then instead at level 10 they will receive … a sandworm … Just record it for
 > now and don't implement that part yet."* — owner, S188
 
-⚠ **MUMMIES LEVEL 10 IS THE FIRST RACIAL THAT FORKS ON AN EARLIER PICK.** `racialPerkFor(race,
-draftIndex)` cannot express it — it sees the race and the draft, not what the seat took at level 0 —
-so whoever builds it widens that function, and `draftOptionsFor`, `pickIsOffered` and `autoPickFor`
-follow it.
+⭐ **MUMMIES LEVEL 10 IS THE FIRST RACIAL THAT FORKS ON AN EARLIER PICK — AND S190 BUILT THE FORK.**
+`racialPerkFor(race, draftIndex, picks)` takes the SEAT's picks, and `RACIAL_PERK_REQUIRES` names the
+requirement (`'mummies.l10'` → `'mummies.l0'`); `draftOptionsFor`, `pickIsOffered` and `autoPickFor` all
+pass the seat's picks, and `seatHoldsPerk` checks the requirement too — so the day the SANDWORM ships, a
+racial pick at index 2 without POWER OF RA can never read as WRATH. Asked without picks, a perk with a
+requirement is NOT offered (the safe answer when the caller cannot say whose offer it is).
 
-⚠ **THE 6× IS HIS NUMBER, AND NO CONSTANT CARRIES IT ON THIS TREE YET.** The branch that builds THE
-SWARM lands the constant with its assertion, and moves THE SWARM out of this table in the same commit.
+⭐ **THE 6× IS HIS NUMBER, AND `THE_SWARM_STAT_MUL` CARRIES IT (S190)** — written as
+`2 × APEX_PREDATOR_STAT_MUL`, because that is what he said (*"whatever we did for the piranha, we double
+that"*). §3e.
 
-## 3e · ⭐⭐ THE TWELVE RACIAL UPGRADES — ALL BUILT (S188)
+## 3e · ⭐⭐ THE FOURTEEN RACIAL UPGRADES — ALL BUILT (S188; LEVEL 10 S190)
 
 > *"Make sure the racial mechanics work … let's do zero and five, okay? Because all of those are
 > designed and spec'd. You just need to build and wire them."* — owner, S188
 
-A seat holds a perk iff it is of that race AND its pick at that draft is `'racial'` (`seatHoldsPerk`).
-Every perk below is `RACIAL_PERK_BUILT: true`, so its tile is choosable and the deadline takes it. The
-standing rules apply to all twelve: the floor-at-one, the ONE ladder, and *"if something doesn't work
-when I play it, I'll just change it … don't argue if it's too OP"*.
+A seat holds a perk iff it is of that race AND its pick at that draft is `'racial'` (`seatHoldsPerk`) —
+and, for WRATH OF RA, it also holds POWER OF RA (`RACIAL_PERK_REQUIRES`). Every perk below is
+`RACIAL_PERK_BUILT: true`, so its tile is choosable and the deadline takes it. The standing rules apply
+to all fourteen: the floor-at-one, the ONE ladder, and *"if something doesn't work when I play it, I'll
+just change it … don't argue if it's too OP"*.
 
 | perk | race · level | the rule | the numbers | MINE |
 |---|---|---|---|---|
 | **BLOOD DEBT** | vampires · 0 | every creature the seat owns heals a share of every hit it LANDS — on a creature, a connector, a lone shape, a stink bag, Helga or a castle | `BLOOD_DEBT_LIFESTEAL_PCT` = **20** % | WHO heals and WHICH hits count (his words are *"every spawned unit"*; the S188 PDR §2 lists it under "my calls"); the share is of the hit SWUNG (overkill in, castle DEF not yet applied) |
 | **CRIMSON TIDE** | vampires · 5 | the lifesteal rate becomes 50 %, and it REPLACES 20 — never 70 | `CRIMSON_TIDE_LIFESTEAL_PCT` = **50** % | — |
+| **THE SWARM** | vampires · 10 | the seat's bat tower emits the BAT SWARM from now on — every stat ×6 from the bat (R190-D), drawn twice the size; its own atlas and the `l10-vampires` card | `THE_SWARM_STAT_MUL` = **6** → **12 / 0 / 12 / 6** · pool **10 → 60** · bite **12 → 132** · `BAT_SWARM_SPRITE_SCALE_MUL` = **2** | its speed is the bat's; the ×2 draw size |
 | **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
 | **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
 | **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; cuts connectors too; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
 | **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
+| **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each exactly POWER OF RA's strike (5 columns × **300** fifths over **70** px) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
 | **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN latch, every ORC RACIAL creature it owns rages too — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
 | **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
 | **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
@@ -428,6 +468,12 @@ when I play it, I'll just change it … don't argue if it's too OP"*.
   than having to walk all the way back."*
 - **APEX PREDATOR** — *"So all the stats you take and you just triple them"* and *"two times bigger
   than the current piranha"*.
+- **THE SWARM** (S187) — *"it upgrades the regular tier three bat tower at level 10, if we choose it, to
+  become bat swarm, to generate and create bat swarms"* and *"Whatever we did for the piranha, we double
+  that."* Then R190-D (S190): *"a bat 1/1/1/1 → 6/6/6/6"* — every stat multiplied from the base.
+- **WRATH OF RA** (S188) — *"at level 10, they will have the power of Ra, but times three. So you can use
+  it three times per fight phase, just by clicking the skill on the bottom left … It's only if you've
+  chosen Power of Ra level zero."*
 
 ### ⛔ WHAT THE S188 AUDITS ESTABLISHED — READ BEFORE TOUCHING ANY OF THEM
 
@@ -470,7 +516,13 @@ the live bit. One blow per cycle, always. The latch is serialized (only when tru
 chewer has at most **6** descendants, ever. Every child's pool and bite are floored at one, so no
 child is born dead — the one way a split could loop (Council A2). The children, like THE RISEN's
 soldier and ENDLESS DYNASTY's Pharaoh, are QUEUED and born after the death sweep, never inserted into
-`world.creatures` while the strike batch iterates it (Council A5).
+`world.creatures` while the strike batch iterates it (Council A5). ⭐ S189 (`s189/units`, LOW d): and a
+kill OUTSIDE the host tick — a RAID applied between ticks, or a bot acting after the post-sweep drain —
+drains the queue as its top-level `dispatch` returns, and `runHostTick` ends with a final drain, so those
+children are born at the raid and the queue is EMPTY wherever a save can land (`spawnQueueBoundary.test.ts`).
+⭐ S190 (`s188/draft-atk`): a split chewer's strike is a share of its PARENT's baked strike, stamped on the
+child like its pool, never the seat's current picks — unbuffed **7 → 3 → 1**, born after one damage pick
+**8 → 4 → 2**; a parent born before the pick still splits into 3s after it.
 
 ⛔ **ENDLESS DYNASTY COUNTS WHAT THE KEEP ACTUALLY LOST** — after its bought DEF and after the clamp at
 zero, so a killing blow's overkill is not a loss — from the moment the perk is taken. **Regen never
@@ -495,10 +547,13 @@ of *"for as much as he attacks that's as much as he heals"* (`corpseEater.ts` sa
 a number he gave. Inside the death deferral a lethally-bitten victim stays in the map below zero, so
 the heal is the full hit, not only what the victim had left. Once per boss LIFE (the stamp is never
 cleared). The bite is his ordinary `CREATURE_ATTACK` on his ordinary swing clock, so "the same damage
-as he would by attacking" is true by construction. ⚠ The **60 px** leash is MINE.
+as he would by attacking" is true by construction — and since S190 that bite is HIS OWN strike
+(`creatureAttackFifths`, drafted-buffed when his seat drafted ATK/PEN), never the config strike, so the
+heal follows the buff. ⚠ The **60 px** leash is MINE.
 
 ⛔ **A BOSS SHOVED OUT OF HIS LEASH SITS DOWN WHERE HE LANDS — HE IS NEVER SNAPPED BACK (deploy #2, fix
-round F1).** The Kraken's sonar stuns AND flings; the stun rightly suspends the leash for the whole
+round F1).** The Kraken's sonar stuns and shoves ~**70** px (`KRAKEN_SONAR_KNOCKBACK_PX`, §5b — it flung units
+across the map until S189); the stun rightly suspends the leash for the whole
 slide, and the first unstunned feed tick used to clamp him straight back onto the circle — a one-tick
 teleport, on both peers. Now, when he is found outside the leash through no step of his own — stunned
 on the tick before, or displaced further than his own legs carry him in a tick (`corpseEaterOwnStepPx`,
@@ -517,6 +572,30 @@ over; the once-per-life latch is spent. The renderer stops drawing the feed at t
 FLAGGED FOR HIM.** The ladder multiplies ATK by (5 + PEN), and both are tripled: pool **15 → 45**, bite
 **12 → 48**. "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
 both of the tower's emit sites (the free trickle and FEED_TOWER) ask one function, `towerUnitForSeat`.
+
+⚠ **THE SWARM: "×6 EVERY STAT" IS ×6 HEALTH BUT ×11 BITE — AND THAT IS HIS RULING, NOT A FLAG (R190-D,
+S190).** *"a bat 1/1/1/1 → 6/6/6/6"* — every stat is multiplied from the base, PEN included, so the ladder
+gives pool **10 → 60** and bite **12 → 132**: 12 × (5 + 6) against the bat's 2 × (5 + 1). One swarm bite is
+more than it costs to fell a whole 5-connector tower, every level of it (**130**). ✅ CLOSED — never re-ask. His 1/1/1/1 is
+illustrative; the bat's real line is 2 / 0 / 2 / 1 (`T3_STATS.bat`), and DEF stays 0 because 0 × 6 = 0.
+
+⚠ **A STATED CONSEQUENCE: WITH CRIMSON TIDE ONE SWARM BITE HEALS MORE THAN THE SWARM'S WHOLE POOL** —
+`lifestealFifths(132, 50)` = **66** against a pool of **60**. The heal is capped at its own max, so every
+swarm that lands a bite is topped back to full (BLOOD DEBT alone: **26**). Vampire bots take both by
+default. ⚠ And the character-sheet radar's ATK ceiling rose **10 → 12** for every unit (`RADAR_MAX_ATK` —
+the swarm's ATK is now the roster's largest; render-only, left as is on the S190 call). "From now on" is
+decided at the EMIT (`towerUnitForSeat`), so bats already alive stay bats, and a vampire seat that takes
+the GENERAL at wave 11 keeps its bats.
+
+⭐ **WRATH OF RA IS POWER OF RA THREE TIMES A FIGHT, AND NOTHING ELSE.** `WRATH_OF_RA_CHARGES` casts,
+refilled every FIGHT, each exactly POWER OF RA's strike. ⚠ MINE: the three may be in the air at once
+(refusing a cast while one falls would read as a broken button); the column pattern is seeded
+`seat + MAX_PLAYERS × charge`, so charge 0 is POWER OF RA's pattern exactly; a bot WRATH seat casts all
+three, one in the air at a time (audit F2). The skill square (46 px, left of the tier chips — *"just like
+World of Warcraft"*) shows the PRE-CUT `public/art/skills/wrath-of-ra.webp` with one pip per unspent
+charge. ⛔ **A column's connector sever is resolved inline** (`applySeverBond`), so a caster benched or
+eliminated mid-strike still breaks what the column drained (audit F1). The SANDWORM (§3d) stays RULED,
+NOT BUILT.
 
 ⚠ **SCORCHED GROUND IS HIS 2 %, NOT THE ZOMBIE BOSS'S 2.5 %** — **20** per-mille against
 `ZOMBIE_AURA_PER_MILLE` **25**, on the aura's unchanged mechanic (one fifth a tick, the RATE carries the
@@ -704,33 +783,77 @@ blocker was a footer plate and never this rule.
 
 Units: see `S180_TARGETING_TABLE.md`, which is the live working document while the owner rules on it.
 
+### 5b · ⭐ THREE UNIT RULES HE REPORTED, FIXED IN S189 (`s189/units`, deploy #4)
+
+- **THE VOLTKIN GOES FOR THE ENEMY FIRST (C3).** *"Vulcan attacks his own buildings … instead of going to
+  the right to my zone"* — owner, S189. His order: (1) an enemy UNIT inside his 180 px `attackRange`, zapped
+  where he stands; (2) the nearest ENEMY connector ANYWHERE on the board, walked to; (3) only when NO enemy
+  connector exists, his own nearest. ⛔ (3) is a FALLBACK, never a distance contest — an enemy connector
+  1100 px away beats an own one 30 px away. Pinned through the real host tick by `voltkinEnemyFirst.test.ts`
+  (mutation-tested). ⚠ (1) is what holds a Voltkin at home under a continuous raid — shipped behaviour.
+- **HELGA STAYS ON THE BOARD (C8).** *"Helga moves behind the map"* — owner, S189. Her patrol point and her
+  integrator are both clamped to the creature bound, [40, 1880] × [40, 1040] (`clampIntoPlayfield`,
+  `clampPointIntoPlayfield`); the old claim that her hub leash kept her off the edges was false from S183
+  on. `helgaOnTheBoard.test.ts`.
+- **THE KRAKEN'S SONAR SHOVES 70 PX AND STUNS 2 S (C10).** *"the Kraken sonar sends units flying … outside
+  the map … knock them back a little bit … and stun them"* — owner, S189. `KRAKEN_SONAR_KNOCKBACK_PX` =
+  **70** (2 × the 35 px melee arm — ⚠ MINE) of slide, the impulse REPLACING the victim's velocity;
+  `KRAKEN_SONAR_STUN_TICKS` = **120** (2 s, ⚠ MINE, S169). ⛔ `KRAKEN_SONAR_KNOCKBACK = 26` is DELETED: it
+  was a per-substep velocity (~11,000 px of travel), not the "body-length and a half" its docblock claimed.
+
+⚠ **A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED.** The FFA spread
+(`spreadEnemyTarget`) builds its victim list over the NON-strict enemy predicate while the enemy-only
+nearest set is strict (S162), so for a chewer / drone / structure-attacker a MIXED bond (one endpoint the
+owner's colour) can be returned by the spread — the "my own creature destroys my own tower" chain S162
+closed at the nearest-bond step. LATENT on a measured four-seat bots match (0 mixed bonds in 1,493
+samples); human play not measured. Any fix changes targeting outputs, so it needs his ruling, and the
+reference fixture (`bondTargetReference.fixtures.ts`) moves first. (`S190_CANON_NOTES_perf.md`.)
+
+⭐ **AND THE SCAN IS NOW INDEXED (S190 `s190/perf`), WITH BYTE-IDENTICAL OUTPUTS.** One classification of
+`world.bonds` per colour per tick, opened and closed around exactly the creature loop
+(`openBondTargetEpoch` / `closeBondTargetEpoch`) and re-validated before every scan; 120 creatures went
+6.6–7.1 → 2.5 ms mean. `bondTargetIndex.differential.test.ts` proves targeting and `hashWorldStateFull`
+unchanged.
+
 ---
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **50** (S188 — the racial upgrades; see the S188 entry on the const).
+`PROTOCOL_VERSION` is **51** (S190 — deploy #4; see the S190 entry on the const).
 A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
+
+⭐⭐ **WHAT RIDES 51 (S190, deploy #4)** — `PROTOCOL_VERSION`'s own docblock is the source; ONE bump for every
+branch merged on `s190/deploy4`, and each of these earns it alone: `SerializedPlayer.raStrike` (live in 50) is
+REPLACED by **`raStrikes`** (at most `WRATH_OF_RA_CHARGES`, cast order, validated and capped); WRATH OF RA's
+conditional wave-11 offer and its three casts a FIGHT seeded `seat + MAX_PLAYERS × charge`; a Ra column's
+sever no longer refused for a benched caster; the new serialized `CreatureType` **`'t3BatSwarm'`**; the
+level-10 vampire offer; and the drafted strike baked at birth into **`Creature.atkFifths`** (serialized,
+hashed `:ak`) — additive-optional in shape, but a v50 successor would strike unbuffed and a v50 client would
+print the type's strike, the S186 test. **Riding without needing it:** `Creature.healedFifths` (R190-I, the
+heal counter, hashed `:hf`), `WorldSnapshot.nextCreatureId` (emitted only when the live-id derivation would
+under-state the host's counter), and `s189/units`' host-side rules (the 70 px sonar, Helga's clamp, CORPSE
+EATER's rage latch, R190-C regen, the spawn-queue drains). `s190/perf` changed nothing on the wire.
 
 ⭐⭐ **WHAT RIDES 50 (S188)** — `PROTOCOL_VERSION`'s own docblock is the source, and every item on it
 earns the bump alone: `CHOOSE_DRAFT.pick` gains the discriminant `'racial'`; the new client intent
 **`CAST_POWER_OF_RA`**; the new serialized `CreatureType` **`'t3PiranhaElite'`**; five optional fields,
 each emitted only when set and each hashed — `Creature.hellspawnGen`, `Creature.corpseEaterUntilTick`,
-`Creature.corpseEaterAnchor`, `Player.dynastyHpLost`, `Player.raStrike`; an absent `castleHp` now
+`Creature.corpseEaterAnchor`, `Player.dynastyHpLost`, `Player.raStrike` (replaced by `raStrikes` in 51); an absent `castleHp` now
 meaning THAT seat's upgraded ceiling (a changed meaning, not a field — a v49 peer would read a bought
 keep back at the flat 2500); the enraged-blow rule (`ragedFireTick`, §3e); and the twelve racial rules
 both peers compute.
 
-⚠ **AND ONE MORE OPTIONAL FIELD RIDES 50 THAT THE DOCBLOCK DOES NOT LIST: `Creature.attackCycleRaged`**
-(deploy #2, fix round F3 — the per-cycle rage latch, §3e). It is emitted only when true and hashed (the
-`CreatureHashed` union and the `:ar` projection). Recorded here so this list is complete; amending
-`protocol.ts`'s docblock is the merge owner's.
+⚠ **AND ONE MORE OPTIONAL FIELD RODE 50: `Creature.attackCycleRaged`** (deploy #2, fix round F3 — the
+per-cycle rage latch, §3e). It is emitted only when true and hashed (the `CreatureHashed` union and the
+`:ar` projection). ⭐ The 50 docblock omitted it until S190; the deploy-#4 merge BACKFILLED it there, so the
+docblock and this list now agree.
 
-⚠ **OPEN — FOR THE OWNER, NOT DECIDED HERE (S189): DEPLOY #1 AND DEPLOY #2 BOTH ADVERTISE 50.** The
-deploy-#2 fix rounds changed four sim rules — the lifesteal batch, the per-cycle rage latch, a fallen
-demon seat's burn, the feeding boss's re-anchor — and added that field, all under the same 50, so a
-peer still holding the deploy-#1 bundle would shake hands with a deploy-#2 host.
+✅ **CLOSED — R190-B (S190): DEPLOY #1 AND DEPLOY #2 BOTH ADVERTISE 50.** The deploy-#2 fix rounds changed
+four sim rules — the lifesteal batch, the per-cycle rage latch, a fallen demon seat's burn, the feeding
+boss's re-anchor — and added that field, all under the same 50. Put to him: *"It's not a question."* Nothing
+to do — 51 refuses both old builds at HELLO.
 
 ⭐⭐ **S187 TOOK 48 → 49 FOR A NEW CLIENT INTENT, `CHOOSE_DRAFT` — AN ORDINARY BUMP, AND THE
 CONTRAST WITH ITS PREDECESSOR IS THE POINT.** The upgrade draft sends the seat's pick as a client
@@ -815,6 +938,16 @@ Already on the wire, so a client can read them for free: creature `ehp`, defende
 `hp`, `castleHp`, and **`Bond.damageFifths`**. Each is emitted **only when damaged**; absent means
 full, and both peers recompute it identically from the type. **A live enemy health readout therefore
 costs nothing.**
+
+⭐ **THREE FIELDS DEPLOY #4 ADDED TO A CREATURE OR THE SNAPSHOT, AND WHAT EACH COSTS:**
+- `Creature.atkFifths` (S190 draft-atk) — emitted only when a pick moved the strike; **+14** chars per
+  drafted race unit and **+16** per boss beside `maxEhp`'s 11, so 120 drafted creatures ≈ +1.6 KiB a snapshot,
+  ~2 % of the S182 84.0 KiB table (`netWireSize.draftAtk.test.ts`). Validated on the way in: a positive
+  integer, or dropped.
+- `Creature.healedFifths` (S189 render, R190-I) — a monotonic count of every heal applied, emitted only
+  once it is above zero. ⚠ PERMANENT: about 17–19 B a snapshot for every creature that has EVER been healed.
+- `WorldSnapshot.nextCreatureId` (S189 units) — emitted only when re-deriving from the live ids would
+  under-state the host's counter, so a successor never re-mints a dead creature's id.
 
 ⚠ **`Bond.damageFifths` WAS MISSING FROM THAT LIST UNTIL S182, AND IT IS THE MOST LOAD-BEARING ITEM
 ON IT.** A structure's whole durability lives on its connectors (R75/R173-B), so *every* building
@@ -961,7 +1094,13 @@ The mechanic works; you aim blind. One line reverses it.
 > thing that is visible."*
 
 Pixi z-order is `addChild` order, so this is decided purely by the sequence of `new XRenderer(...)`
-calls in `main.ts`. ⚠ **No renderer runs under vitest**, so z-order is invisible to every behavioural
+calls in `main.ts`. ⚠ **S189 C1 — AMONG zIndex-0 CHILDREN ONLY.** `exitButton.ts` sets
+`app.stage.sortableChildren = true`, so Pixi sorts the stage by `zIndex` every frame: the S187 draft panel
+carried `zIndex = 900` and drew over his cruiser (*"the spark should be one layer above … the mouse is under
+it"*). ⭐ The rule since: **no stage child gets a zIndex; place it by its staging line** — the exit-confirm
+root (900) is the one standing exception (`s189CruiserAboveDraft.test.ts`). And a surface staged AFTER the
+panel now draws over it: the codex and CONNECTION LOST backdrops swallow the click (R2-1), and the panel
+answers no input question while either is up (`DraftOverlay.setCoveredBy`, S190). ⚠ **No renderer runs under vitest**, so z-order is invisible to every behavioural
 test in the repo — Helga drew on top of her own hall with the whole suite green. A source-text guard
 pins the three construction sites in order, and states that limit on itself.
 
@@ -994,6 +1133,26 @@ So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVER
 TREATED AS SHIPPED:** R182-F measured that a welded hub reads **48%** on the health bar while its
 art reads **32%**. His trade depends on a welded stack reading as *tougher*; if the bar lies about
 it, the mechanic does not communicate itself. Verify the pool arithmetic before calling R185-B done.
+
+## 7c · ⭐⭐ WHAT THE RENDER BRANCH SETTLED (S189/S190, `s189/render`, deploy #4)
+
+⭐ **R190-H — THE RA STRIKE DRAWS ON TOP OF THE UNITS. HIS RULING.** *"Draw it ON TOP of units."* Only the
+strike — the owner's sprite frames, or the code-beam shafts before the art loads — goes to the goblin
+renderer's layer above its unit sprites (`drawBossAuras(g, world, this.arrowLayer)`); the telegraph shade,
+the hitbox scorch and every other aura stay on the ground. Every charge of WRATH OF RA goes the same way.
+⚠ Renderers built LATER in `main.ts` (the laser rig, HELGA, the ramp buildings, the stink tower) still draw
+over it — not asked; recorded for him.
+
+⭐ **R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY, IN THEIR OWN COLOURS, STACKING. HIS RULING.** *"it
+shows every single hit or heal … it looks sick."* A same-tick heal used to hide inside a net damage
+number. Heals are counted on the creature (`Creature.healedFifths`, written only through
+`noteCreatureHeal`), synced and hashed, so a joiner sees the green number too (§6).
+
+⛔ **EVERY PIXI PATH SEGMENT STARTS WITH `moveTo` (S189 C7).** *"a big line every time they teleport all over
+the screen"* — owner, of DEEP CURRENT. Pixi 8 `arc()` / `lineTo()` join the current pen to their start, and
+after a fill the pen sits wherever the last path ended, so a bare `arc()` on a shared Graphics draws a line
+from elsewhere on the board. Shipped twice (S86 `hazardRing.ts`, S188 the DEEP CURRENT swirl). The rule:
+`g.moveTo(start).arc(…)`, never a bare `arc()` (`s189DeepCurrentNoBeam.test.ts`, `s189PenLiftArcs.test.ts`).
 
 ## 8 · REPAIR
 

@@ -73,6 +73,8 @@ import {
   standoffTargetPos,
   enemyCastleMarchPos,
   structureTargets,
+  openBondTargetEpoch, // S190 P0 (C5) — the bond-target index's window: exactly the creature loop
+  closeBondTargetEpoch,
   isWithinAttackRange,
   killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
   enemyStinkCloudInReach, // S158 A2 — the sixth: a destructible landed bag (R77)
@@ -138,6 +140,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
@@ -349,6 +352,9 @@ export function makeHostTickState(world: World): HostTickState {
  *     manually otherwise — byte-identical to the pre-S119 inline paths).
  */
 export function runHostTick(world: World, deps: HostTickDeps, state: HostTickState): void {
+  // ⭐ S189 (LOW d) — the racial spawn queue's window: inside it `dispatch`'s out-of-tick drain stays
+  // silent (the strike batch keeps its post-sweep order); the matching FINAL drain is the last line.
+  beginHostTickSpawnWindow(world);
   if (world.gameState === 'PLAYING') {
     stepPhysics(world, deps.spawner, deps.controls);
   } else {
@@ -1473,6 +1479,15 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // already adjacent to a bond would keep chewing it without moving an inch.
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
+    /*
+     * ⭐ S190 P0 (C5) — THE BOND-TARGET INDEX LIVES FOR EXACTLY THIS LOOP. Every structure-target
+     * scan below reuses one per-colour classification of `world.bonds` instead of redoing it per
+     * creature, and re-validates it before each scan, so a bond severed (or born) by an earlier
+     * creature's strike is seen by the next scan exactly as before. Opened and closed here and
+     * nowhere else; see `openBondTargetEpoch` in creatureAI.ts for the argument, and
+     * `bondTargetIndex.differential.test.ts` for the proof that no output moved.
+     */
+    openBondTargetEpoch(world);
     for (const id of creatureIds) {
       // Step 1: AI target re-selection BEFORE the tick. Only during SEEKING —
       // SPAWNING is force-free, ATTACKING is locked to its current target for
@@ -1620,8 +1635,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          *
          * ⚠ THE STRIKE AND DAMAGE PATHS NEEDED NO CHANGE, which is how we know this is the one
          * defect: the fan-out already forwards `after.targetBondId`, `bondValid` is already an arm of
-         * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)`
-         * through `damageConnector` with no `targetsStructures` gate. `damageConnector` already banks
+         * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)` (⭐ S190:
+         * the creature's own `creatureAttackFifths`, drafted-buffed) through `damageConnector` with no
+         * `targetsStructures` gate. `damageConnector` already banks
          * structure-wide and spends overkill into the next connector (R173-A/B), so a boss's 150
          * takes the 50, then the 36, then the 24 in one blow. Everything downstream was waiting.
          */
@@ -2000,6 +2016,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // is render-identical (the CLIENT has used exactly that pattern since S31).
       }
     }
+    closeBondTargetEpoch();
   }
 
   /*
@@ -2385,4 +2402,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     }
     state.invariantSnap = snapshotInvariants(world.primitives);
   }
+  // ⭐ S189 (LOW d) — nothing queued survives the tick (the bots act after the post-sweep drain), so a
+  // save between ticks can never land on queued work. See `racial/spawnQueue.ts`.
+  endHostTickSpawnWindow(world);
 }

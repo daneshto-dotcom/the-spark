@@ -184,7 +184,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // existing seats, so without this a rematch would open with last match's strike still stored:
     // waves restart at 1, so a strike cast on wave N last match would REFUSE the cast on wave N of
     // this one, and it would hash and serialize a strike nobody cast this match.
-    player.raStrike = null;
+    player.raStrikes = [];
     /*
      * ⛔ S161 CLOSE-OUT (lane 1) — **A REMATCH STARTS WITH A STANDING CASTLE.**
      *
