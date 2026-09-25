@@ -59,8 +59,14 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
 - ⚠ Benign, recorded: vitest rewrote `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` with LF
   endings (git shows `M`, `git diff` empty after autocrlf) — restored with `git checkout --`.
 
+- **Slice 3 — R20 placings.** `matchPlacings` now implements R20's unbuilt second half (*"remaining places are then
+  ordered by score"*): the crowned seat leads the survivors, the rest by score desc, seat id settles ties; the fallen
+  keep reverse-elimination order. +3 tests in `elimination.test.ts` (50/50 with gameState). Mutation: dropping the
+  score comparator turns the R20 test red (restored). ⚠ REPORT: this is a live R20 violation the recon found in S181;
+  its only prior consumer was a `console.info` line.
+
 ## In flight
-- Slice 3 — R20 placings (winner first, survivors by score).
+- Slice 4 — the board MODEL (`src/render/matchBoardModel.ts`, pure) + its tests incl. the REACH test after a real WIN.
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.

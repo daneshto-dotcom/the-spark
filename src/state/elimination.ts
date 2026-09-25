@@ -203,11 +203,25 @@ export function markFallenSeats(world: World): PlayerId[] {
  * verdict on their match. A seat with no stamp sorts as `Infinity`, so survivors lead.
  */
 export function matchPlacings(world: World): PlayerId[] {
+  const winner = world.lastWinnerId;
+  const score = (id: PlayerId): number => world.scoreByPlayer.get(id) ?? 0;
   return [...world.players.entries()]
     .sort(([aId, a], [bId, b]) => {
       const at = a.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       const bt = b.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       if (at !== bt) return bt - at; // later elimination = better placing
+      /*
+       * ⭐ S191 — R20'S SECOND HALF, RULED AND NEVER BUILT: *"Remaining places are then ordered by score."*
+       * (`SPARK_TD_BLUEPRINT.md` R20; found unbuilt by the S181 stat-board recon.) Among the SURVIVORS the
+       * crowned seat leads — a points win can leave an offline seat alive with more banked score — and the
+       * rest go by score, highest first. The fallen keep their elimination order. Seat id still settles
+       * every tie, so this stays a TOTAL order and `Map` order decides nothing.
+       */
+      if (at === Number.POSITIVE_INFINITY) {
+        if (winner !== null && (aId === winner) !== (bId === winner)) return aId === winner ? -1 : 1;
+        const d = score(bId) - score(aId);
+        if (d !== 0) return d;
+      }
       return (aId as unknown as number) - (bId as unknown as number);
     })
     .map(([id]) => id);
