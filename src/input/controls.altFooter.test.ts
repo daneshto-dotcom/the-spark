@@ -47,9 +47,20 @@ class FakeOffscreenCanvas {
   }
 }
 
-const doc = { activeElement: null as { tagName: string } | null };
+/** ⭐ S191 R2 (INPUT-5) — the stubs RECORD what `Controls` registers, so a test can fire the real listener. */
+const winListeners = new Map<string, Array<(e: unknown) => void>>();
+const docListeners = new Map<string, Array<(e: unknown) => void>>();
+const record = (m: Map<string, Array<(e: unknown) => void>>) => (type: string, fn: (e: unknown) => void): void => {
+  m.set(type, [...(m.get(type) ?? []), fn]);
+};
+const doc = {
+  activeElement: null as { tagName: string } | null,
+  visibilityState: 'visible' as 'visible' | 'hidden',
+  addEventListener: record(docListeners),
+  removeEventListener() {},
+};
 beforeAll(() => {
-  vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {} });
+  vi.stubGlobal('window', { addEventListener: record(winListeners), removeEventListener() {} });
   vi.stubGlobal('document', doc);
   vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
   vi.stubGlobal('CanvasRenderingContext2D', FakeContext2D);
@@ -306,6 +317,52 @@ describe('⛔ S191 A-2 — what Alt must NOT do', () => {
       expect(r.band.isCollapsed(), name).toBe(false);
       expect(e.prevented, `${name}: left to the browser`).toBe(false);
     }
+  });
+
+  /*
+   * ⛔ S191 R2 (INPUT-5) — AND A CONSUMED ALT WHOSE KEYUP NEVER ARRIVES IS FORGOTTEN. Alt+Tab away (or the
+   * tab going hidden) means the release lands in another window: the latch stayed set, and the NEXT Alt
+   * keyup here — one the player meant for the browser, with nothing armed — was swallowed. Fired through
+   * the listeners `Controls` really registered (the stubs record them).
+   */
+  it.each(['window blur (Alt+Tab)', 'document hidden'] as const)(
+    '⛔ INPUT-5 — after %s, the next Alt keyup is the browser’s again',
+    (how) => {
+      winListeners.clear();
+      docListeners.clear();
+      const r = rig();
+      const { id } = findBandStamp(r);
+      r.castle.armExternal(id);
+      frame(r);
+      keyDown(r.c, key('Alt')); // consumed — its keyup goes to the other window
+      if (how === 'window blur (Alt+Tab)') {
+        const fns = winListeners.get('blur') ?? [];
+        expect(fns.length, 'Controls listens for the window losing focus').toBeGreaterThan(0);
+        for (const fn of fns) fn({});
+      } else {
+        const fns = docListeners.get('visibilitychange') ?? [];
+        expect(fns.length, 'Controls listens for the tab going hidden').toBeGreaterThan(0);
+        doc.visibilityState = 'hidden';
+        for (const fn of fns) fn({});
+        doc.visibilityState = 'visible';
+      }
+      r.castle.disarm();
+      frame(r);
+      expect(keyDown(r.c, key('Alt')).prevented, 'unarmed: the browser’s Alt').toBe(false);
+      expect(keyUp(r.c, key('Alt')).prevented, 'and its release is not swallowed by a stale latch').toBe(false);
+    },
+  );
+
+  it('INPUT-5 negative — the tab going VISIBLE does not clear a live latch', () => {
+    docListeners.clear();
+    const r = rig();
+    const { id } = findBandStamp(r);
+    r.castle.armExternal(id);
+    frame(r);
+    keyDown(r.c, key('Alt'));
+    doc.visibilityState = 'visible';
+    for (const fn of docListeners.get('visibilitychange') ?? []) fn({});
+    expect(keyUp(r.c, key('Alt')).prevented, 'the release that belongs to it is still swallowed').toBe(true);
   });
 
   it('⭐ a consumed Alt is swallowed on the KEYUP too (Windows focuses the menu bar on release) — once', () => {

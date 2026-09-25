@@ -378,6 +378,13 @@ export class Controls {
     // ⭐ S191 A-2 — Alt's KEYUP is what focuses the browser's menu bar on Windows, so a consumed Alt is
     // swallowed on the way up as well as on the way down (Council, S191 ledger).
     window.addEventListener('keyup', this.onKeyUp);
+    // ⭐ S191 R2 (INPUT-5) — a consumed Alt whose keyup lands in ANOTHER window (Alt+Tab) or while the tab
+    // is hidden never reaches `onKeyUp`; forget it, or the next Alt the player means for the browser is
+    // swallowed on its release. `document` is guarded: headless harnesses stub it bare.
+    window.addEventListener('blur', this.onAltFocusLost);
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', this.onAltVisibility);
+    }
   }
 
   /**
@@ -1915,6 +1922,16 @@ export class Controls {
     if (e.key !== 'Alt' || !this.altKeyConsumed) return;
     e.preventDefault();
     this.altKeyConsumed = false;
+  };
+
+  /** ⭐ S191 R2 (INPUT-5) — the window lost focus: a consumed Alt's release will not come here. */
+  private onAltFocusLost = (): void => {
+    this.altKeyConsumed = false;
+  };
+
+  /** ⭐ S191 R2 (INPUT-5) — the tab went hidden: the same. Going VISIBLE clears nothing. */
+  private onAltVisibility = (): void => {
+    if (document.visibilityState === 'hidden') this.altKeyConsumed = false;
   };
   // ── end S191 A-2 ────────────────────────────────────────────────────────────────────────────────
 
