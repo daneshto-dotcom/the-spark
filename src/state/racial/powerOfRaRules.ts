@@ -49,19 +49,37 @@ import type { World } from '../worldTypes.ts';
 export const POWER_OF_RA_PERK = 'mummies.l0' as const;
 
 /**
- * ⭐ ONE SEAT'S CALL TO RA — the ONLY state the mechanic keeps, carried on `Player.raStrike`.
+ * ⭐⭐ S188 P11 (owner) — **WRATH OF RA, mummies level 10: the same strike, three times a fight.**
+ *
+ * > *"at level 10, they will have the power of Ra, but times three. So you can use it three times per
+ * > fight phase, just by clicking the skill on the bottom left … you can choose where it lands … it
+ * > lands in an area, in the same area of attack, and just does those multiple beams, just like the
+ * > Pharaoh does before he dies … we already have the damage stats for it."*
+ *
+ * Offered only to a seat holding POWER OF RA (`RACIAL_PERK_REQUIRES`), so holding it always means
+ * holding both. It changes ONE number — the charges — and nothing about the strike itself.
+ */
+export const WRATH_OF_RA_PERK = 'mummies.l10' as const;
+/** His *"times three"*. POWER OF RA alone is one. */
+export const WRATH_OF_RA_CHARGES = 3;
+
+/**
+ * ⭐ ONE CALL TO RA — the ONLY state the mechanic keeps, carried in `Player.raStrikes` (S188 P11:
+ * a list, because WRATH OF RA can have three in the air at once).
  *
  * Everything else is DERIVED, exactly as the Pharaoh's ritual derives from one `raRitualUntilTick`:
  *   · which fight it was cast in     `wave`                                   (once per FIGHT)
  *   · where it was aimed             `x`, `y`  — integers, clamped (Council A1)
  *   · when each column lands         `raColumnImpactTick(untilTick, k)`
- *   · where each column lands        `raStrikeColumnPos(seat, k, strike)`
+ *   · where each column lands        `raStrikeColumnPos(seat, k, strike, i)` — `i` = its charge index
  *
  * ⛔ SO NOTHING IS COUNTED BETWEEN COLUMNS and a snapshot applied mid-strike resumes on the right
  * one — the property the Pharaoh's docblock names as the reason for its shape.
  *
- * ⚠ IT IS KEPT AFTER THE STRIKE ENDS, deliberately: `wave` is what refuses a second cast in the
- * same fight. It is replaced by the next cast and cleared by `applyStartGame`.
+ * ⚠ IT IS KEPT AFTER THE STRIKE ENDS, deliberately: `wave` is what counts the casts of this fight.
+ * A cast in a LATER fight drops every earlier-wave strike first (they are long over), so the list
+ * holds at most `WRATH_OF_RA_CHARGES` entries, all of one wave — and an entry's INDEX is its charge
+ * number, which seeds its column pattern. Cleared by `applyStartGame`.
  */
 export interface RaStrike {
   /** `world.waveNumber` when it was cast. One cast per wave = one per FIGHT (waves turn on BUILD). */
@@ -111,7 +129,8 @@ export type RaCastRefusal =
 export function raCastRefusal(world: World, playerId: PlayerId): RaCastRefusal | null {
   const p = world.players.get(playerId);
   if (p === undefined) return 'NO_SEAT';
-  if (!seatHoldsPerk(p, POWER_OF_RA_PERK)) return 'NOT_HELD';
+  const charges = raChargesFor(p);
+  if (charges === 0) return 'NOT_HELD';
   if (world.gameState !== 'PLAYING') return 'NOT_PLAYING';
   // The ONE elimination predicate (its docblock: every site asks it, so the threshold has one home).
   // `elimination.ts` imports only types at runtime, so this stays a leaf.
@@ -120,8 +139,29 @@ export function raCastRefusal(world: World, playerId: PlayerId): RaCastRefusal |
   // *"once per fight"* — and only IN a fight. BUILD is the phase whose premise is that nothing can
   // be attacked (the S168 FIGHT gate every boss skill sits behind).
   if (world.matchPhase !== 'FIGHT') return 'NOT_FIGHT';
-  if (p.raStrike !== null && p.raStrike.wave === world.waveNumber) return 'USED';
+  // ⭐ S188 P11 — one charge for POWER OF RA, three for WRATH OF RA; they refill every fight.
+  if (raCastsInWave(p, world.waveNumber) >= charges) return 'USED';
   return null;
+}
+
+/** How many calls to Ra this seat has per fight: 3 with WRATH OF RA, 1 with POWER OF RA, else 0. */
+export function raChargesFor(p: Pick<Player, 'raceId' | 'draftPicks'>): number {
+  if (seatHoldsPerk(p, WRATH_OF_RA_PERK)) return WRATH_OF_RA_CHARGES;
+  return seatHoldsPerk(p, POWER_OF_RA_PERK) ? 1 : 0;
+}
+
+/** How many of them it has already called in `wave`. */
+export function raCastsInWave(p: Pick<Player, 'raStrikes'>, wave: number): number {
+  let n = 0;
+  for (const s of p.raStrikes) if (s.wave === wave) n++;
+  return n;
+}
+
+/** Charges still to spend THIS fight — the footer's pips. 0 outside a legal cast window's count. */
+export function raChargesLeft(world: World, playerId: PlayerId): number {
+  const p = world.players.get(playerId);
+  if (p === undefined) return 0;
+  return Math.max(0, raChargesFor(p) - raCastsInWave(p, world.waveNumber));
 }
 
 /**
@@ -148,9 +188,8 @@ export function raAimPoint(x: unknown, y: unknown): { x: number; y: number } | n
 }
 
 /**
- * ⭐ THE WIRE/SAVE REHYDRATE for `Player.raStrike`. Absent → `null` (never cast, every pre-S188
- * save). Present but malformed — a non-object, a missing key, a non-integer, an off-canvas point —
- * → `null` as well: a peer cannot invent a strike, and a strike it did not send is not stored.
+ * ⭐ THE WIRE/SAVE REHYDRATE for ONE entry of `Player.raStrikes`. Malformed — a non-object, a missing
+ * key, a non-integer, an off-canvas point — → `null`: a peer cannot invent a strike.
  *
  * ⚠ Validated against the SAME `raAimPoint` the reducer uses, and required to already be integers
  * (the reducer never stores anything else), so a value this accepts is one the host could have made.
@@ -164,6 +203,22 @@ export function raStrikeFromWire(v: unknown): RaStrike | null {
   const aim = raAimPoint(x, y);
   if (aim === null || aim.x !== x || aim.y !== y) return null;
   return { wave: wave as number, x: aim.x, y: aim.y, untilTick: untilTick as number };
+}
+
+/**
+ * ⭐ S188 P11 — THE WHOLE LIST from the wire/save. Absent or not an array → `[]` (never cast, every
+ * earlier save). Malformed entries are DROPPED, and at most `WRATH_OF_RA_CHARGES` are kept — the most
+ * the reducer can ever store — so a hostile peer cannot hand a joiner an unbounded list.
+ */
+export function raStrikesFromWire(v: unknown): RaStrike[] {
+  if (!Array.isArray(v)) return [];
+  const out: RaStrike[] = [];
+  for (const e of v) {
+    const s = raStrikeFromWire(e);
+    if (s !== null) out.push(s);
+    if (out.length >= WRATH_OF_RA_CHARGES) break;
+  }
+  return out;
 }
 
 /** Convenience for the UI: does this seat hold the perk at all (i.e. should the button exist)? */

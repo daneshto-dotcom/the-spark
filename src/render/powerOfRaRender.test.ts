@@ -69,7 +69,7 @@ describe('S188 P6 — the AIM telegraph is the strike it promises', () => {
     const shown = centres(ops, RA_COLUMN_RADIUS);
 
     dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, ...raw });
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
     const landed = Array.from({ length: RA_COLUMN_COUNT }, (_, k) => at(raStrikeColumnPos(P0, k, strike)));
     // Each column is drawn twice (fill + outline) at the full kill radius.
     expect([...new Set(shown)].sort()).toEqual([...new Set(landed)].sort());
@@ -133,7 +133,7 @@ describe('S188 P6 — a called strike draws the Pharaoh\'s telegraph + column, f
   it('⭐ the growing shade, then the column from the sky, on the SIM\'s landing spot', () => {
     const w = board();
     dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-    const strike = w.players.get(P0)!.raStrike!;
+    const strike = w.players.get(P0)!.raStrikes[0]!;
     const spot0 = at(raStrikeColumnPos(P0, 0, strike));
 
     w.tick += RA_COLUMN_TICKS / 2; // column 0's telegraph is half grown

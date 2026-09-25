@@ -77,8 +77,8 @@ import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
 // rule that this layer must not import Pixi still holds.
-import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
-import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { noteRaCastSent, raAimPreview, raLocalCastRefusal, setRaAimPreview } from '../render/raAimPreview.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -645,6 +645,8 @@ export class Controls {
    * ⛔ EVERY DECISION HERE ASKS THE REDUCER'S OWN PREDICATES — `raCastRefusal` for "may I", and
    * `raAimPoint` for "is that a place" — so the client can never send what the host would refuse
    * for a reason the client could have seen. The host re-checks all of it regardless.
+   * ⭐ S190 W-4 — through `raLocalCastRefusal`: the reducer's predicate, plus the casts this client
+   * has sent and not yet seen synced, so a joiner cannot spend a fourth WRATH charge it does not have.
    */
   private toggleRaAim(): void {
     if (raAimPreview() !== null) {
@@ -652,7 +654,7 @@ export class Controls {
       void playUiClickSFX();
       return;
     }
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       void playUiRefusedSFX(); // a refused control says so — the button's caption names why
       return;
     }
@@ -673,13 +675,16 @@ export class Controls {
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
     // held-tower rule for the same two surfaces.
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       setRaAimPreview(null);
       void playUiRefusedSFX();
       return true;
     }
     const aim = raAimPoint(this.cursor.x, this.cursor.y);
     if (aim === null) return true; // off the board: keep aiming
+    // ⭐ S190 W-4 — counted BEFORE the send: the next aim's pattern is the next charge's, even on a
+    // joiner whose synced strikes have not caught up with this one yet.
+    noteRaCastSent(this.world, this.playerId);
     this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
     setRaAimPreview(null);
     void playUiClickSFX();
@@ -1138,7 +1143,6 @@ export class Controls {
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
     if (e.button === 0 && this.handleFooterChipClick()) return;
-    if (this.handleRaAimClick(e.button)) return; // ⭐ S188 P6 — an aimed Ra owns the next board click
     /*
      * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
      * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
@@ -1160,6 +1164,10 @@ export class Controls {
      * the board around the card stays live.
      */
     if (e.button === 0 && this.handleSheetActionClick()) return;
+    // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
+    // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
+    // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
+    if (this.handleRaAimClick(e.button)) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without

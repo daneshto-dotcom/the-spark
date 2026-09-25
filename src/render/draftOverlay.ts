@@ -311,8 +311,9 @@ export interface DraftOverlayDeps {
    * Where the offer comes from. Production: `draftOptionsFor`. A test injects an offered perk here,
    * because on a branch every `RACIAL_PERK_BUILT` entry may still be false — the choosable state
    * must be testable without flipping somebody else's registry.
+   * ⭐ S190 W-1 — `picks` is the seat's pick list (a CONDITIONAL perk needs it: WRATH OF RA).
    */
-  readonly optionsFor?: (waveNumber: number, race: RaceId) => DraftOptions;
+  readonly optionsFor?: (waveNumber: number, race: RaceId, picks?: readonly DraftPick[]) => DraftOptions;
   /** How a card texture is fetched. Production: Pixi `Assets`, which caches by URL. */
   readonly loadCard?: (url: string) => Promise<Texture>;
 }
@@ -343,7 +344,7 @@ export class DraftOverlay {
   private opts: DraftOptions | null = null;
   private readonly cards = new Map<string, CardState>();
   private readonly onPick: (p: DraftPick) => void;
-  private readonly optionsFor: (waveNumber: number, race: RaceId) => DraftOptions;
+  private readonly optionsFor: (waveNumber: number, race: RaceId, picks?: readonly DraftPick[]) => DraftOptions;
   private readonly loadCard: (url: string) => Promise<Texture>;
 
   constructor(onPick: (p: DraftPick) => void, deps: DraftOverlayDeps = {}) {
@@ -511,7 +512,10 @@ export class DraftOverlay {
     this.container.visible = true;
 
     const race = pl.raceId;
-    const opts = this.optionsFor(ev.waveNumber, race);
+    // ⭐ S188 P11 / S190 W-1 — the SEAT's picks, not just its race: WRATH OF RA (mummies.l10) is
+    // offered only to a seat holding POWER OF RA. Without them `racialPerkFor` answers "not offered"
+    // and the tile the seat has earned draws as COMING SOON.
+    const opts = this.optionsFor(ev.waveNumber, race, pl.draftPicks);
     this.opts = opts;
     const views = draftTileViews(opts);
 

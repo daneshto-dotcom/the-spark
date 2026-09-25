@@ -66,8 +66,8 @@ import { nearestEnemyFor } from '../state/bossSkillsKraken.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
-import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
-import { raAimPreview } from './raAimPreview.ts';
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
 import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
@@ -354,7 +354,7 @@ const RA_AIM_TINT = 0xffd970;
  * THE LOCAL CURSOR.**
  *
  * THE STRIKE is drawn through `drawRaColumns` — the Pharaoh's own telegraph and beam — from ONE
- * synced record (`Player.raStrike`) and `world.tick`, landing where the SIM lands it
+ * synced record per strike (`Player.raStrikes`) and `world.tick`, landing where the SIM lands it
  * (`raStrikeColumnPos`). Nothing is pushed to `world.effects`, so a joiner sees every column the
  * host lands. ⚠ Not fog-gated, deliberately: a column of sunlight from the sky is visible to
  * everyone, it gives away nothing about the CASTER's position (they aim anywhere), and the victim is
@@ -368,7 +368,9 @@ const RA_AIM_TINT = 0xffd970;
  * WILL fall if the player clicks now — `raStrikeColumnPos` on the point the REDUCER will store
  * (`raAimPoint`, the same normalisation), and only while `raCastRefusal` says the cast is legal.
  * Three calls into the sim's own rules and nothing re-derived, so the preview cannot disagree with
- * the strike.
+ * the strike. ⚠ S190 W-4 — the charge index (which seeds the pattern) and the refusal are read as
+ * synced state PLUS this client's unacknowledged casts (`raCastsInWaveLocal`), because a joiner's
+ * synced strikes trail its own casts by a round trip.
  */
 function drawPowerOfRa(g: Graphics, world: World): void {
   // ⭐ RAVFX-7 — PREFETCH: a mummies seat in the match can call POWER OF RA, so its strike art is
@@ -379,21 +381,25 @@ function drawPowerOfRa(g: Graphics, world: World): void {
   if (world.matchPhase === 'FIGHT') {
     const seats = [...world.players.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
     for (const [seat, p] of seats) {
-      const strike = p.raStrike;
-      if (strike === null) continue;
-      drawRaColumns(g, world.tick, strike.untilTick, (k) => raStrikeColumnPos(seat, k, strike));
+      for (const [charge, strike] of p.raStrikes.entries()) {
+        drawRaColumns(g, world.tick, strike.untilTick, (k) => raStrikeColumnPos(seat, k, strike, charge));
+      }
     }
   }
 
   const aimAt = raAimPreview();
   if (aimAt === null) return;
   ensureRaStrikeArt(); // RAVFX-7 — a player aiming is about to cast: make sure the art is coming
-  if (raCastRefusal(world, aimAt.seat) !== null) return;
+  if (raLocalCastRefusal(world, aimAt.seat) !== null) return;
   const aim = raAimPoint(aimAt.x, aimAt.y);
   if (aim === null) return;
+  // ⭐ S188 P11 — the NEXT charge's pattern: the index the reducer will give this cast.
+  // ⭐ S190 W-4 — counting the casts this client has SENT and not yet seen synced: on a joiner the
+  // synced strikes lag a cast by a round trip, and the host indexes by what it has applied.
+  const charge = raCastsInWaveLocal(world, aimAt.seat);
   const pulse = 0.5 + 0.5 * Math.sin((world.tick / 7) % (Math.PI * 2));
   for (let k = 0; k < RA_COLUMN_COUNT; k++) {
-    const pos = raStrikeColumnPos(aimAt.seat, k, aim);
+    const pos = raStrikeColumnPos(aimAt.seat, k, aim, charge);
     g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).fill({ color: RA_AIM_TINT, alpha: 0.08 + 0.06 * pulse });
     g.circle(pos.x, pos.y, RA_COLUMN_RADIUS).stroke({ color: RA_AIM_TINT, width: 2, alpha: 0.55 + 0.3 * pulse });
   }

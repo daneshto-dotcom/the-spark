@@ -46,11 +46,14 @@ export type RacialPerkId =
   | 'demons.l0'
   | 'demons.l5'
   | 'nagas.l0'
-  | 'nagas.l5';
+  | 'nagas.l5'
+  // ⭐ S188 P11 (owner) — mummies LEVEL 10, WRATH OF RA. See `RACIAL_PERK_REQUIRES`.
+  | 'mummies.l10';
 
 export const RACIAL_PERK_IDS: readonly RacialPerkId[] = [
   'vampires.l0', 'vampires.l5', 'zombies.l0', 'zombies.l5', 'mummies.l0', 'mummies.l5',
   'orcs.l0', 'orcs.l5', 'demons.l0', 'demons.l5', 'nagas.l0', 'nagas.l5',
+  'mummies.l10',
 ] as const;
 
 /**
@@ -62,7 +65,7 @@ export const RACIAL_PERK_IDS: readonly RacialPerkId[] = [
 export const RACIAL_PERKS_BY_RACE: Readonly<Record<RaceId, readonly RacialPerkId[]>> = {
   vampires: ['vampires.l0', 'vampires.l5'],
   zombies: ['zombies.l0', 'zombies.l5'],
-  mummies: ['mummies.l0', 'mummies.l5'],
+  mummies: ['mummies.l0', 'mummies.l5', 'mummies.l10'],
   orcs: ['orcs.l0', 'orcs.l5'],
   demons: ['demons.l0', 'demons.l5'],
   nagas: ['nagas.l0', 'nagas.l5'],
@@ -73,9 +76,36 @@ export function perkRace(perk: RacialPerkId): RaceId {
   return perk.slice(0, perk.indexOf('.')) as RaceId;
 }
 
+/**
+ * ⭐ S188 P11 — GENERIC: a perk's level is the number after `.l`, and a draft opens every five
+ * levels (`isDraftWave`), so the index is `level / 5` — 0, 1, 2 for l0 / l5 / l10. The S188 form
+ * (`endsWith('.l0') ? 0 : 1`) could only name two drafts and silently put every level-10 perk at 1.
+ * ⚠ `s188/swarm` makes the same change for `vampires.l10`; the two must agree at merge.
+ */
 export function perkDraftIndex(perk: RacialPerkId): number {
-  return perk.endsWith('.l0') ? 0 : 1;
+  return Number(perk.slice(perk.lastIndexOf('.l') + 2)) / 5;
 }
+
+/**
+ * ⭐⭐ S188 P11 (owner) — **A PERK OFFERED ONLY TO A SEAT THAT HOLDS ANOTHER.** The one place the
+ * racial offer depends on the SEAT rather than the race alone.
+ *
+ * > *"It's only if you've chosen Power of Ra level zero, you can upgrade it to Power of Ra level
+ * > three … if the mummies did not choose Power of Ra level zero then instead at level 10 they will
+ * > receive something else completely, which is a sandworm … Just record it for now and don't
+ * > implement that part yet."*
+ *
+ * So `mummies.l10` (WRATH OF RA) requires `mummies.l0`. A mummies seat WITHOUT it is owed the
+ * SANDWORM at that draft — ⛔ RULED, NOT BUILT, and deliberately not given an id here: until it is
+ * built that seat's racial tile is COMING SOON (`racialPerkFor` returns null), which is exactly the
+ * S187 rule for any perk whose mechanic does not exist. Recorded in the S188 canon notes.
+ *
+ * ⛔ READ BY `racialPerkFor` (the offer) AND `seatHoldsPerk` (the holding) — BOTH. Checking only the
+ * offer would let a future sandworm pick at index 2 read as holding WRATH OF RA.
+ */
+export const RACIAL_PERK_REQUIRES: Readonly<Partial<Record<RacialPerkId, RacialPerkId>>> = {
+  'mummies.l10': 'mummies.l0',
+};
 
 /**
  * ⛔ WHETHER EACH MECHANIC EXISTS. One BLOCK per S188 branch, each separated by a comment line so two
@@ -97,6 +127,8 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
   'mummies.l5': true, // ENDLESS DYNASTY — racial/endlessDynasty.ts
   // ── s188/racial-c ─────────────────────────────────────────────────────────────────────────────
   'mummies.l0': true,
+  // ── s188/wrath ────────────────────────────────────────────────────────────────────────────────
+  'mummies.l10': true,
   // ── s188/racial-d ─────────────────────────────────────────────────────────────────────────────
   'zombies.l5': true,
   'nagas.l5': true,
@@ -105,12 +137,25 @@ export const RACIAL_PERK_BUILT: Readonly<Record<RacialPerkId, boolean>> = {
 
 /**
  * The racial perk offered to `race` at `draftIndex`, or null when there is none to choose — either
- * undesigned (levels 10+) or designed but not built. Null renders as the COMING SOON tile.
+ * undesigned, designed but not built, or (S188 P11) REQUIRING a perk this seat does not hold. Null
+ * renders as the COMING SOON tile.
+ *
+ * ⚠ `picks` is the SEAT's pick list. Omitted, a perk with a requirement is NOT offered — the safe
+ * answer when the caller cannot say whose offer it is.
  */
-export function racialPerkFor(race: RaceId, draftIndex: number): RacialPerkId | null {
+export function racialPerkFor(
+  race: RaceId,
+  draftIndex: number,
+  picks?: readonly DraftPick[],
+): RacialPerkId | null {
   const perk = RACIAL_PERKS_BY_RACE[race][draftIndex];
   if (perk === undefined) return null;
-  return RACIAL_PERK_BUILT[perk] ? perk : null;
+  if (!RACIAL_PERK_BUILT[perk]) return null;
+  const req = RACIAL_PERK_REQUIRES[perk];
+  if (req !== undefined && (picks === undefined || !seatHoldsPerk({ raceId: race, draftPicks: picks }, req))) {
+    return null;
+  }
+  return perk;
 }
 
 /**
@@ -124,7 +169,12 @@ export function seatHoldsPerk(
   player: { readonly raceId: RaceId; readonly draftPicks: readonly DraftPick[] },
   perk: RacialPerkId,
 ): boolean {
-  return player.raceId === perkRace(perk) && player.draftPicks[perkDraftIndex(perk)] === 'racial';
+  if (player.raceId !== perkRace(perk)) return false;
+  if (player.draftPicks[perkDraftIndex(perk)] !== 'racial') return false;
+  // ⭐ S188 P11 — a racial pick at a conditional draft is the required perk's UPGRADE only for a
+  // seat that holds the requirement; for any other seat it is a different perk (the sandworm).
+  const req = RACIAL_PERK_REQUIRES[perk];
+  return req === undefined || seatHoldsPerk(player, req);
 }
 
 /** The player-facing words, and the card art the draft tile draws. */
@@ -207,6 +257,12 @@ export const RACIAL_PERK_COPY: Readonly<Record<RacialPerkId, RacialPerkCopy>> = 
     line: 'GATHERERS TELEPORT',
     detail: 'Your gatherers teleport home with their shape instead of walking back.',
     card: 'l0-nagas',
+  },
+  'mummies.l10': {
+    title: 'WRATH OF RA',
+    line: 'RA × 3',
+    detail: 'Your Power of Ra, three times every fight: call the sun down wherever you choose, again and again.',
+    card: 'l10-mummies',
   },
   'nagas.l5': {
     title: 'APEX PREDATOR',
