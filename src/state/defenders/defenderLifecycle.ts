@@ -47,6 +47,7 @@ import type { World } from '../worldTypes.ts';
 import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -88,6 +89,7 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
       registeredAtTick: world.tick,
     }),
   );
+  recordTowerBuilt(world, action.ownerPlayerId); // ⭐ S191 — the stat board's TOWERS
   return world;
 }
 

@@ -39,7 +39,7 @@ import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
-import { resetMatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board, per match
+import { recordTowerFell, resetMatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board, per match
 
 
 /* ────────────────────────── Action types ───────────────────────────── */
@@ -784,6 +784,13 @@ export function spendScore(world: World, playerId: PlayerId, cost: number): void
  * `SPAWNER_KILL_REWARD / enemyCount` share (float — replay-safe, host-authoritative).
  */
 export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): void {
+  /*
+   * ⭐ S191 — THE STAT BOARD'S "TOWERS FELL" FOR A SPAWNER, AND IT IS HERE BECAUSE THIS IS THE EVENT. The host
+   * poll calls this exactly once per spawner DESTRUCTION (anchor gone, recipe broken, the hub's fuse) and
+   * never on teardown or when a T9 ring is released as its boss. Counted BEFORE the FIGHT gate below: a
+   * tower that falls in BUILD still fell, it just pays no bounty.
+   */
+  recordTowerFell(world, spawner.ownerPlayerId);
   // S147 P1 (R3) — *"Points accrue during the FIGHT stage ONLY."* This is the SECOND score path in
   // the codebase (the first is tickScoring's complexity income) and it is the one that is easy to
   // miss, because it is event-driven rather than per-tick: a spawner dying during BUILD would award

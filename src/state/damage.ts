@@ -53,6 +53,8 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
 // actually LANDED, so a tower swing or a blow into a channelling Pharaoh heals nothing.
 import { applyLifesteal } from './racial/lifesteal.ts';
+// ⭐ S191 — the end-of-match stat board's two damage chokepoints + the defender removal site.
+import { recordDamage, recordKill, recordTowerFell } from './matchStats.ts';
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -133,7 +135,31 @@ export type DamageSource = 'creature' | 'defender' | 'player' | 'hazard' | 'aura
 export type DamageAttacker =
   | { readonly kind: 'creature'; readonly id: CreatureId }
   | { readonly kind: 'defender'; readonly id: DefenderId }
+  /**
+   * ⭐ S191 — **A SEAT, WITH NO ENTITY TO TURN ON.** The castle gun, a player raid, and a blast that already
+   * names its owner (`applyRadialDamage`'s `sparePlayerId`). It exists for ONE reader: the end-of-match stat
+   * board (`matchStats.ts`), which credits DEALT and KILLS to the seat that did them. ⛔ It is INERT for every
+   * rule: retaliation, lifesteal and THE RISEN all test `kind === 'creature'` explicitly, so a `'seat'`
+   * hit turns nobody, heals nobody and raises nobody — exactly what `null` did at those sites before.
+   */
+  | { readonly kind: 'seat'; readonly seat: PlayerId }
   | null;
+
+/**
+ * ⭐ S191 — which SEAT an attacker belongs to, for the stat board. A creature or tower that has already left
+ * the world (a drone that detonated, a razed tower) resolves to nobody: the hit still counts as TAKEN.
+ */
+function attackerSeat(world: World, attacker: DamageAttacker): PlayerId | null {
+  if (attacker === null) return null;
+  switch (attacker.kind) {
+    case 'creature':
+      return world.creatures.get(attacker.id)?.ownerPlayerId ?? null;
+    case 'defender':
+      return world.defenders.get(attacker.id)?.ownerPlayerId ?? null;
+    case 'seat':
+      return attacker.seat;
+  }
+}
 
 export function damageEntity(
   world: World,
@@ -200,6 +226,8 @@ export function damageEntity(
     // ⭐ S188 — ENDLESS DYNASTY counts what the keep ACTUALLY lost: after DEF, and after the clamp, so
     // a killing blow's overkill is not a loss. A no-op for every seat without `mummies.l5`.
     accrueDynastyLoss(world, target.seat, hpBefore - seat.castleHp);
+    // ⭐ S191 — the stat board, on what the keep ACTUALLY lost (after DEF, after the clamp).
+    recordDamage(world, target.seat, attackerSeat(world, attacker), hpBefore - seat.castleHp);
     applyLifesteal(world, attacker, amount); // S188 — of the swing, before the keep's DEF
     return seat.castleHp === 0;
   }
@@ -217,10 +245,21 @@ export function damageEntity(
       // ⭐ S188 — and the killer's id rides along, read only at the death decision (THE RISEN).
       const victim = world.creatures.get(target.id);
       const before = victim?.ehp ?? 0;
+      const bySeat = attackerSeat(world, attacker); // ⭐ S191 — read BEFORE the blow can remove anyone
       const died = damageCreature(
         world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
         attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
       );
+      if (victim !== undefined && before > 0) {
+        /*
+         * ⭐ S191 — THE STAT BOARD, ON WHAT THE POOL ACTUALLY LOST: never the overkill, nothing into a
+         * corpse-in-waiting (`before > 0`), nothing through a channelling Pharaoh (his pool is untouched),
+         * and his restore-to-1 counts as `before − 1`. A KILL is `died && before > 0` — exactly once per
+         * death, because a second lethal blow on a deferred corpse finds `before <= 0`.
+         */
+        recordDamage(world, victim.ownerPlayerId, bySeat, before - Math.max(0, victim.ehp));
+        if (died) recordKill(world, bySeat, victim.ownerPlayerId, victim.type);
+      }
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
         applyLifesteal(world, attacker, amount);
       }
@@ -251,6 +290,8 @@ export function damageEntity(
        * structure never reaches it and `PRIMITIVE_MAX_HP` still governs those.
        */
       if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
+      // ⭐ S191 — the stat board: what the shape's pool (after the lone-shape clamp) actually lost.
+      recordDamage(world, prim.placedBy, attackerSeat(world, attacker), Math.min(amount, Math.max(0, prim.hp)));
       prim.hp -= amount;
       applyLifesteal(world, attacker, amount); // S188
       if (prim.hp > 0) return false;
@@ -291,6 +332,8 @@ export function damageEntity(
        */
       const cloud = world.stinkClouds.get(target.id);
       if (cloud === undefined) return false;
+      // ⭐ S191 — the stat board: what the bag's pool actually lost.
+      recordDamage(world, cloud.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, cloud.ehp)));
       cloud.ehp -= amount;
       applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
       if (cloud.ehp > 0) return false;
@@ -323,6 +366,8 @@ export function damageEntity(
        */
       const d = world.defenders.get(target.id);
       if (d === undefined || d.ehp === null) return false;
+      // ⭐ S191 — the stat board: what Helga's pool actually lost (a tower returned above, took nothing).
+      recordDamage(world, d.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, d.ehp)));
       d.ehp -= amount;
       applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
@@ -358,7 +403,8 @@ export function damageEntity(
        * punishment. The re-ignition risk does not apply: ignition only runs on a topology change,
        * and killing her changes no topology.
        */
-      world.defenders.delete(target.id);
+      // ⭐ S191 — her building fell with her (the stat board's TOWERS column counts defenders).
+      if (world.defenders.delete(target.id)) recordTowerFell(world, d.ownerPlayerId);
       return true;
     }
 
@@ -431,12 +477,23 @@ export function damageConnector(
   bond.damageFifths += amountFifths;
   // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
   applyLifesteal(world, attacker, amountFifths);
+  /*
+   * ⭐ S191 — THE STAT BOARD. A connector hit BANKS IN FULL: the pool is structure-wide and overkill
+   * CARRIES into the next connector (R173-B), so nothing is clamped — except the remainder left on THIS
+   * bond when it breaks, which the caller's sever throws away (recorded at the break below). Owner is the
+   * `bond.aId → placedBy` single-owner rule.
+   */
+  const victimSeat = world.primitives.get(bond.aId)?.placedBy;
+  const bySeat = attackerSeat(world, attacker);
 
   // The pool is a function of the component this bond is CURRENTLY part of, so it is read fresh on
   // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure
   // renderer runs it every frame), so this is not a new cost pattern.
   const anchor = world.primitives.get(bond.aId) ?? world.primitives.get(bond.bId);
-  if (anchor === undefined) return true; // orphaned bond — nothing holds it up
+  if (anchor === undefined) {
+    recordDamage(world, victimSeat, bySeat, amountFifths);
+    return true; // orphaned bond — nothing holds it up
+  }
   const comp = componentOf(anchor, world.primitives, world.bonds);
   const pool = structurePoolFifths(comp.bondIds.size);
 
@@ -458,7 +515,10 @@ export function damageConnector(
    */
   let banked = 0;
   for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
-  if (banked < pool) return false;
+  if (banked < pool) {
+    recordDamage(world, victimSeat, bySeat, amountFifths); // ⭐ S191 — banked in full
+    return false;
+  }
 
   /*
    * ⛔ SPEND THE POOL, DO NOT ZERO IT — overkill carries into the next connector, which is what makes
@@ -499,6 +559,8 @@ export function damageConnector(
     .filter((id) => id !== bondId)
     .sort((x, y) => Number(x) - Number(y));
   for (const id of survivors) drain(world.bonds.get(id));
+  // ⭐ S191 — what is left on THIS bond is thrown away by the caller's sever; the rest carried or landed.
+  recordDamage(world, victimSeat, bySeat, amountFifths - Math.min(amountFifths, bond.damageFifths));
   return true;
 }
 
@@ -556,7 +618,8 @@ export function destroyDefender(world: World, d: Defender): void {
    */
   if (d.ehp !== null) world.structureKillHits.push({ key: `d:${d.id}`, amount: null });
   // 1. Out of the map first (idempotence + stop it acting on its death tick).
-  world.defenders.delete(d.id);
+  // ⭐ S191 — and the stat board's TOWERS FELL, only when this call is the one that removed it.
+  if (world.defenders.delete(d.id)) recordTowerFell(world, d.ownerPlayerId);
 
   // 2. ⭐ VERIFIED HAZARD — on the DAMAGE path the anchor MUST be razed, and this is not optional.
   //
@@ -715,9 +778,15 @@ export function applyRadialDamage(
    * turn on — and routing the blast owner through here would have a suicide bomber's detonation,
    * a stink burst and a hub self-destruct all yank every survivor's target at once. Deliberate,
    * counted by `damage.callSites.test.ts`, and the same answer for all three arms below.
+   *
+   * ⭐ S191 — …AND THE BLAST'S OWNER IS NOW NAMED AS A `'seat'`, which turns nobody (retaliation reads
+   * `'creature'` only) but lets the stat board credit the seat whose bomber, drone, bag or column it was.
+   * `sparePlayerId` IS the blast owner by this function's own contract; `null` (the Pharaoh's divine
+   * fire spares nobody) stays unattributed.
    */
+  const blastBy: DamageAttacker = sparePlayerId === null ? null : { kind: 'seat', seat: sparePlayerId };
   for (const cid of creatureVictims) {
-    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, null);
+    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, blastBy);
   }
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
@@ -732,10 +801,10 @@ export function applyRadialDamage(
    * function and swapping them typechecks, which is why the signature documents them at length.
    */
   for (const did of defenderVictims) {
-    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, null);
+    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, blastBy);
   }
   for (const pid of primVictims) {
-    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, null);
+    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, blastBy);
   }
 
   return {

@@ -100,13 +100,16 @@ describe('S188 — the damageConnector call-site census', () => {
     };
     expect(sites.every((s) => s.attacker.startsWith('{') || s.attacker === 'null')).toBe(true);
     // A creature struck the building: BLOOD DEBT heals it.
-    expect(tally((s) => s.attacker.startsWith('{'))).toEqual({
+    expect(tally((s) => s.attacker.startsWith('{') && !s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/creatures/creatureAttack.ts': 1, // the creature bond strike
       'src/state/creatures/voltkinChain.ts': 1, // every building link of the bolt
     });
     // Nobody to heal: an area blast whose bomber is deleted on the same call, a player raid, and
     // (S188 merge of racial-c) the POWER OF RA sky strike — a player's column, not a creature's blow.
-    expect(tally((s) => s.attacker === 'null')).toEqual({
+    // ⭐ S191 — each now names its SEAT for the stat board; `'seat'` heals nobody (lifesteal reads
+    // `kind === 'creature'`), so these three still heal nothing, exactly as their `null` did.
+    expect(tally((s) => s.attacker === 'null')).toEqual({});
+    expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/creatures/suicideBlast.ts': 1,
       'src/state/world.ts': 1,
       'src/state/racial/powerOfRa.ts': 1,

@@ -43,6 +43,7 @@ import { RACE_TOWER_SIZE, raceForTowerId } from '../raceTowerIds.ts';
 import { T9_TOWER_SIZE, raceForT9TowerId } from '../t9BossIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterSpawnerAction {
@@ -85,6 +86,7 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       nextSpawnTick: world.tick + spawnerIntervalTicks(action.recipeId),
     }),
   );
+  recordTowerBuilt(world, action.ownerPlayerId); // ⭐ S191 — the stat board's TOWERS
   return world;
 }
 

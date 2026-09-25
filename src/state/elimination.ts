@@ -45,6 +45,7 @@
 import type { PlayerId } from '../types.ts';
 import type { Player } from '../game/player.ts';
 import type { GameAction, World } from './world.ts';
+import { recordSeatFell } from './matchStats.ts'; // ⭐ S191
 
 type EliminationPolicy = 'allow' | 'deny';
 
@@ -185,6 +186,7 @@ export function markFallenSeats(world: World): PlayerId[] {
   for (const [id, p] of world.players) {
     if (isEliminated(p) && p.eliminatedAtTick === undefined) {
       p.eliminatedAtTick = world.tick;
+      recordSeatFell(world, id); // ⭐ S191 — the stat board's "OUT Wn" (the wave is not derivable from a tick)
       stamped.push(id);
     }
   }

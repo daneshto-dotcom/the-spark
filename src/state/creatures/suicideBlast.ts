@@ -151,7 +151,8 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
     // S188 — `null`: this is the blast's AREA arm (its unit half, `applyRadialDamage` above, names
     // nobody either), and the bomber is deleted at the bottom of this function — no one to heal.
-    if (damageConnector(world, bondId, blastFifths, null)) {
+    // ⭐ S191 — `'seat'`: the bomber's owner is credited on the stat board; it heals and turns nobody.
+    if (damageConnector(world, bondId, blastFifths, { kind: 'seat', seat: bomber.ownerPlayerId })) {
       /*
        * ⛔ S182 — **THIS WAS `cause: 'creature'`, SO AN EXPLOSION PLAYED VOLTKIN'S LIGHTNING
        * CRACKLE.** A separate producer of the same stale clause the ARC_FLASH gate carried:

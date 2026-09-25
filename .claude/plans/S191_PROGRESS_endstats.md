@@ -44,8 +44,23 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   `stateHashFull.ts` (`matchStats: 'hashed'`, `ms`/`mh` parts) + its family-test row. Tests: `matchStats.test.ts` 13/13;
   `stateHashFull.test.ts` 26/26; `save.test.ts` 44/44; typecheck exit 0.
 
+- **Slice 2 — the hooks + attribution.** `DamageAttacker` gains `{kind:'seat'}` (inert: retaliation/lifesteal/Risen test
+  `kind === 'creature'`; `lifesteal.ts`'s restated type follows). `damageEntity` records applied damage in every arm +
+  kills (`died && before > 0`); `damageConnector` banks in full minus the broken bond's thrown-away remainder; radial
+  forwards `sparePlayerId` as a seat; seats passed at `castleGuns.ts`, the 3 raid arms (`world.ts`), `suicideBlast.ts`
+  and `powerOfRa.ts` connector passes. Mints: 3 `recordUnitBuilt` in `applySpawnCreature`. Towers: register defender /
+  spawner; fell at `destroyDefender`, the Helga-killed arm, and `awardSpawnerKillReward` (the spawner destruction
+  event — ⚠ moved there from `hostTick.ts` because the frozen S119 differential D5 went red: the reference calls the
+  shared helper, not the new tick body). `markFallenSeats` stamps the wave. Wave edge: one line after
+  `waveNumber += 1`. Census tests re-pinned (4 populations). Tests: `matchStats.reach.test.ts` 8/8; worker
+  differential + seeded-stats assertion 7/7; hostTick differential/replay 18/18. ⭐ Mutation: removing the kill hook
+  turns 2 reach tests red (restored).
+- Full suite at the slice-2 midpoint: 1 red (D5, above) → fixed; re-run pending at the gates step.
+- ⚠ Benign, recorded: vitest rewrote `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` with LF
+  endings (git shows `M`, `git diff` empty after autocrlf) — restored with `git checkout --`.
+
 ## In flight
-- Slice 2 — the hooks (spawn, damage chokepoints + `DamageAttacker 'seat'`, towers, fell, wave edge).
+- Slice 3 — R20 placings (winner first, survivors by score).
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
