@@ -309,14 +309,17 @@ describe('S188 BLOOD FRENZY — ⛔ a Warlord’s OWN rage latch is untouched by
     expect(half.enraged, 'his OWN latch lowers it — no clock holds him').toBe(false);
   });
 
-  it('⛔ when the raging Warlord dies, the frenzy ends — a frenzy-raged second Warlord cannot sustain it', () => {
+  // ⭐⭐ S191 (owner) — RE-PINNED: the healthy second Warlord is NEVER raised by the first's frenzy
+  // (*"rage for himself is … warlord specific"*). The rest of the case stands: when the source dies the
+  // frenzy ends, and a second Warlord cannot sustain it.
+  it('⛔ when the raging Warlord dies, the frenzy ends — and a second Warlord was never raised by it (S191)', () => {
     const w = twoSeat();
     seatAs(w, P0, 'orcs', ['racial']);
     const source = warlord(w, P0, 250, 250, 40);
     const second = warlord(w, P0, 350, 250, 100);
     const soldier = unit(w, 'raceUnit', P0, 300, 800);
     ticks(w, 2);
-    expect(second.enraged, 'the healthy Warlord rages with the first').toBe(true);
+    expect(second.enraged, 'S191: the healthy Warlord does NOT rage with the first').toBe(false);
     expect(w.creatures.get(soldier.id)?.enraged).toBe(true);
 
     expect(second.rageStartTick, 'the frenzy never stamps a clock on him').toBeUndefined();

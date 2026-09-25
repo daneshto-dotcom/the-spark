@@ -328,18 +328,19 @@ describe('S191 round 2 — RAGE-7: two Warlords, and the source’s window is wh
     return { r, source, sibling, soldier };
   }
 
-  it('⛔ the source’s 25 s END while he is ALIVE (under half, in cooldown) → the sibling and the soldier calm at exactly T+1500', () => {
+  it('⛔ the source’s 25 s END while he is ALIVE (under half, in cooldown) → the soldier calms at exactly T+1500; the sibling never raged (S191)', () => {
     const { r, source, sibling, soldier } = twoWarlords();
     source.ehp = pctPool(source, 40);
     const T = step(r);
     expect(source.rageStartTick).toBe(T);
-    expect(sibling.enraged, 'the frenzy raised the healthy sibling').toBe(true);
+    // ⭐⭐ S191 (owner) — RE-PINNED: the frenzy never raises another Warlord ("warlord specific").
+    expect(sibling.enraged ?? false, 'S191: the frenzy does NOT raise the healthy sibling').toBe(false);
     expect(soldier.enraged).toBe(true);
     runTo(r, T + WARLORD_RAGE_TICKS + 60, (t) => {
       const on = t < T + WARLORD_RAGE_TICKS;
       expect(r.w.creatures.has(source.id), 'the source is alive throughout').toBe(true);
       expect(source.enraged === true, `tick ${t}: the source`).toBe(on);
-      expect(sibling.enraged === true, `tick ${t}: the frenzy-raised sibling`).toBe(on);
+      expect(sibling.enraged === true, `tick ${t}: the sibling is never raised (S191)`).toBe(false);
       expect(soldier.enraged === true, `tick ${t}: the soldier`).toBe(on);
       expect(sibling.rageStartTick, `tick ${t}: the sibling never gets a clock of his own`).toBeUndefined();
     });
@@ -361,15 +362,64 @@ describe('S191 round 2 — RAGE-7: two Warlords, and the source’s window is wh
       if (!r.w.creatures.has(source.id)) {
         killTick = t;
         expect(soldier.enraged === true, `tick ${t}: the soldier calms on the kill tick`).toBe(false);
-        expect(sibling.enraged === true, `tick ${t}: the sibling calms on the kill tick`).toBe(false);
       } else {
         expect(soldier.enraged, `tick ${t}: still raging while the source lives`).toBe(true);
-        expect(sibling.enraged).toBe(true);
       }
+      expect(sibling.enraged === true, `tick ${t}: the sibling is never raised (S191)`).toBe(false);
     });
     expect(killTick, 'fixture: the rot really killed him inside a tick').toBeGreaterThan(T);
     expect(killTick).toBeLessThan(T + WARLORD_RAGE_TICKS);
     expect(sibling.rageStartTick).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+/*
+ * ⭐⭐ S191 (owner, answering RAGE-2) — **A WARLORD'S FRENZY NEVER ENRAGES ANOTHER WARLORD.**
+ * *"I don't think each warlord should be able to enrage the other warlord. Yes, the warlord enrages all
+ * the orc units, but still rage for himself is … warlord specific."* BLOOD FRENZY raises the seat's orc
+ * racial units EXCEPT Warlords; a Warlord rages only by his own 25 s clock.
+ */
+describe('S191 — the owner’s rule: a Warlord rages only by his OWN clock; the frenzy never raises another', () => {
+  it('⭐⭐ A raging by his own clock, B healthy → B stays CALM, the soldier rages; B fires later → the soldier follows either source, A is unaffected by B; the goblin never', () => {
+    const r = rig(board(['racial']));
+    const A = unit(r.w, WARLORD, P0, 250, 250);
+    const B = unit(r.w, WARLORD, P0, 700, 250);
+    const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
+    const goblin = unit(r.w, 'goblinMelee', P0, 380, 800);
+    for (const c of [soldier, goblin]) { c.maxEhp = 1_000_000; c.ehp = 1_000_000; }
+    A.ehp = pctPool(A, 40);
+    const T = step(r);
+    expect(A.rageStartTick, 'A fires by his own latch').toBe(T);
+    const BT = T + 700; // B is hurt under half ~12 s into A's rage
+    let bFired = -1;
+    runTo(r, BT + WARLORD_RAGE_TICKS + 60, (t) => {
+      if (t === BT - 1) B.ehp = pctPool(B, 40); // lands on the next tick's latch
+      if (bFired < 0 && B.rageStartTick !== undefined) bFired = t;
+      const aOwn = isOwnRageActive(A, t);
+      const bOwn = isOwnRageActive(B, t);
+      expect(A.enraged === true, `tick ${t}: A is his OWN clock — B never raises him`).toBe(aOwn);
+      expect(B.enraged === true, `tick ${t}: B is his OWN clock — A never raises him`).toBe(bOwn);
+      expect(soldier.enraged === true, `tick ${t}: the soldier rages while EITHER source does`).toBe(aOwn || bOwn);
+      expect(goblin.enraged ?? false, `tick ${t}: goblins never rage`).toBe(false);
+    });
+    expect(bFired, 'B fired by his own latch, on the tick he dropped under half').toBe(BT);
+    // anti-vacuity: the window where A was calm and B raging really happened (A unaffected by B)
+    expect(T + WARLORD_RAGE_TICKS).toBeLessThan(BT + WARLORD_RAGE_TICKS);
+  });
+
+  it('⛔ a healthy Warlord beside a raging one is never raised, never stamped — for the whole rage', () => {
+    const r = rig(board(['racial']));
+    const A = unit(r.w, WARLORD, P0, 250, 250);
+    const B = unit(r.w, WARLORD, P0, 700, 250);
+    B.maxEhp = 1_000_000;
+    B.ehp = 1_000_000;
+    A.ehp = pctPool(A, 40);
+    const T = step(r);
+    runTo(r, T + WARLORD_RAGE_TICKS + 30, () => {
+      expect(B.enraged ?? false).toBe(false);
+      expect(B.rageStartTick).toBeUndefined();
+    });
   });
 });
 

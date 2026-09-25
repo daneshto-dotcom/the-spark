@@ -31,13 +31,33 @@ expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TI
 expect(canonSays('25 s on / 25 s off')).toBe(true);
 ```
 
+## S191 owner ruling (answers the audit's RAGE-2) · §3e — the frenzy never raises another Warlord
+
+**Stale sentence in §3e ("WHAT THE S188 AUDITS ESTABLISHED"):** *"Two more guards: the frenzy only ever
+SETS a Warlord — only his own latch calms him — and a source is a Warlord raging by his OWN latch …"*
+
+**Replacement:**
+
+> ⛔ **THE FRENZY NEVER TOUCHES A WARLORD (S191).** *"I don't think each warlord should be able to enrage
+> the other warlord. Yes, the warlord enrages all the orc units, but still rage for himself is … warlord
+> specific."* — owner, S191. BLOOD FRENZY raises the seat's orc racial units — the castle soldier and the
+> orc tier-3 unit — and NEVER a Warlord: a Warlord rages only by his own 25 s clock (`rageStartTick`,
+> written only by `runWarlordRage`), and when a second Warlord enters his own rage he frenzies the orc
+> units, not the first Warlord. A source is a Warlord whose own window is open.
+
+Table row (BLOOD FRENZY) "the rule" column: *"… every ORC RACIAL creature it owns rages too"* → *"… the
+seat's castle soldiers and orc tier-3 units rage too (never another Warlord — S191)"*.
+
+Assertion to land with it (`bloodFrenzy.ts` behaviour is pinned in `warlordRageClock.test.ts` and
+`bloodFrenzy.test.ts`; the canon pin is the sentence): `expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true)`.
+
 ## A-1 · §6 — the wire (for the merge owner's ONE bump docblock)
 
 - **New additive-optional field `Creature.rageStartTick`** (serialized only when stamped; restore
   validates non-negative integer). Rides `snapshot` AND `netSnapshot` (only `targetCreatureId` is
   trimmed from the mirror).
-- **Changed shared rule**: the rage latch (`runWarlordRage`) and the BLOOD FRENZY source
-  (`isFrenzySource`). ⛔ Bump verdict: **YES** — two builds that shake hands disagree about when a
+- **Changed shared rules**: the rage latch (`runWarlordRage`), the BLOOD FRENZY source
+  (`isFrenzySource`), and (S191 owner ruling) the frenzy no longer raising a Warlord. ⛔ Bump verdict: **YES** — two builds that shake hands disagree about when a
   Warlord's rage ends (an old promoted successor would calm him only on a heal above 50 %, i.e. never,
   and would read the frenzy source off his health). Additive-optional alone would cost none; the rule
   change is what earns it.

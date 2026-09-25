@@ -14,7 +14,8 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-4 | A1 CI e2e lane | DONE | 811121b |
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
 | R2-1 | RAGE-1 the clock runs through BUILD | **REVERTED** (owner ruling, S191) | d2757a0, reverted ba622eb |
-| R2-1r | RAGE-1 as RULED: pinned across a real whistle + his quote | DONE | (this commit) |
+| R2-1r | RAGE-1 as RULED: pinned across a real whistle + his quote | DONE | b62cdac |
+| R2-2x | OWNER RULE (answers RAGE-2): the frenzy never raises another Warlord | DONE | (this commit) |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
@@ -176,13 +177,22 @@ Merge owner = the main session. This branch never merges, never pushes.
   the per-FIGHT pattern derived from `FIGHT_PHASE_TICKS` / `WARLORD_RAGE_TICKS` / `WARLORD_RAGE_COOLDOWN_TICKS`
   / `PHASE_DURATION_TICKS`. His quote and a corrected consequence sentence at `WARLORD_RAGE_COOLDOWN_TICKS`
   (the "25 on / 25 off" wording is gone). Mutation (the latch run in BUILD, i.e. the reverted fix) → 2 red.
+- ⭐⭐ **OWNER RULE (S191, answers the audit's RAGE-2): a Warlord's frenzy never enrages ANOTHER Warlord.**
+  *"…rage for himself is … warlord specific."* Reproduced first (a healthy B beside raging A was raised).
+  Fix: `runBloodFrenzy` skips the Warlord type entirely (neither sets nor clears); a Warlord rages only by
+  his own clock. Tests +2 through the real host tick: A raging, B healthy → B calm, soldier raging; B hurt
+  → B fires by his own latch, the soldier follows EITHER source, A (window over, in cooldown) unaffected by
+  B, the goblin never; a healthy Warlord never raised nor stamped. Re-pinned (the ruling reverses them):
+  `bloodFrenzy.test.ts` "when the raging Warlord dies…" and both RAGE-7 cases — their sibling now stays
+  calm; the soldier/source assertions unchanged. Mutation (the frenzy sets Warlords again) → 5 red.
+  Canon notes carry the replacement §3e sentence. Rides A-1's protocol bump (a shared rule).
 - **RAGE-3 (LOW) — reproduced first** (the renderer had no row-aware choice: new test red). Fix: pure
   `animRageForRow(row, enraged, attackCycleRaged)` in `goblinRenderer.ts`; `syncSprite` gains an
   `attackCycleRaged` parameter (both call sites pass `c.attackCycleRaged === true`) and the attack row's
   `per` reads the latch; walk/idle keep the live bit. The tint still follows the live bit (unchanged).
   Test `src/render/rageAnimRow.test.ts` (4, pure + the two call sites). Mutation → 2 red; restored.
 
-- **RAGE-7 (LOW) — NOT A DEFECT, a missing test.** Both cases pass on the tree as it stands: (1) two
+- **RAGE-7 (LOW) — NOT A DEFECT, a missing test** (its sibling assertions later re-pinned by the owner rule above). Both cases pass on the tree as it stands: (1) two
   Warlords, the source's 25 s window ends while he is ALIVE under half (in cooldown) → the frenzy-raised
   sibling and the soldier calm at exactly T+1500, the sibling's `rageStartTick` stays undefined; (2) the
   source killed INSIDE a tick by an enemy zombie boss's rot aura (`ehp ≤ 0`, the deferred sweep) → both
