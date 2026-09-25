@@ -8,7 +8,8 @@ first; this file is what S190 knows is owed.
 
 - **s189/weld** (C2 + R190-J): fix round 2 audited (wf_cd96cb8a-575) → round 3 sent in S190 (W-FR1 MED: rebuildAuthorityAllocators must
   raise nextBondId to ≥ max(ownBondIdLimit) after a takeover/worker repair; W-FR2 MED: also revive a DORMANT Helga at BUILD→FIFGHT for
-  BUILD deaths — R190-J "every fight"; W-FR3 LOW: towerStatsIn skips DORMANT; W-FR4 documented only). Round 3 may already be committed on
+  BUILD deaths — R190-J "every fight"; W-FR3 LOW: towerStatsIn skips DORMANT; W-FR4 documented only). ✅ ROUND 4 LANDED at S190's close (tip 18769b4: W-FR1 allocator floor, W-FR2 BUILD-death revive, W-FR3 sheet, W-FR4 documented;
+  gates 0/0/0, 6062 tests) — it may already be committed on
   the branch — read `.claude/worktrees/s189-weld/.claude/plans/S189_PROGRESS_weld.md`, audit round 3 (1 lens), then merge. Weld OWES A
   BUMP (51 → 52): ownBondIdLimit on spawners + defenders, the 'DORMANT' defender state, survival on built-with connectors, Helga exact
   first build + dormant revive, the empty S107 P4 lock, raze sets incl. orphaned welds, welded-tower drawing/FEED, bot raids on own bonds.
