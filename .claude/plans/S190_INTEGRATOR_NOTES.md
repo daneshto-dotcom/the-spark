@@ -124,3 +124,19 @@ Written by the merge owner as audits land. The integrator agent reads THIS file 
   in 51); correct S188_CANON_NOTES_wrath.md:64-70; the project CLAUDE.md protocol line.
 - LOWs recorded, not blocking: WRATH-F5 (the W-4 pending record goes inert when a joiner snapshot moves world.tick
   backwards), SWM-6 (no test drives the swarm draw loop through the bat-sheet fallback) → carry-forward.
+
+### s189/weld FIX ROUND DONE (tip 8b2b553) — under a fix-round audit (wf_cd96cb8a-575); merge ONLY on the merge
+### owner's go (the audit may add fixes)
+- Spare rules REVERTED; own members = the recipe's bonds with id < `ownBondIdLimit` (NEW field on spawners AND
+  defenders, four sites; `ignitedAtTick` could not be used — stripped from the wire). New serialized defender state
+  `'DORMANT'` (Helga dies → dormant → revives at FIGHT→BUILD while her hall's own connectors stand; R190-J).
+- 51 docblock reasons (weld): `ownBondIdLimit` on spawners + defenders; the `'DORMANT'` defender state; survival on
+  built-with connectors; Helga exact first build + dormant revive; the empty S107 P4 lock (drops may bond onto live
+  spawners); hub self-destruct / t9 release delete own members + orphaned welds; the welded tower's drawn shapes /
+  centre / aura / ground zone / FEED button; bot raids aim at own connectors.
+- Canon (W10 / W2-5 + weld's S189_CANON_NOTES_weld.md): §7b/§8 — the no-spare rule stated exactly with its tests;
+  R185-B unchanged (welded = unrepairable); the S107 P4 lock; Helga dormant revive; perf's guard occurrence counts
+  must be RE-COUNTED after this merge (placePrimitive.ts changed).
+- Owner questions (next session, recorded in S191_BACKLOG): drops next to a spawner now always weld (bots weld their
+  frontier into own towers; a player can merge into his tower by accident → permanently unrepairable); an own-race
+  Dot ring welded through a live hub never becomes a tower (ignition duplicate check ignores recipes).
