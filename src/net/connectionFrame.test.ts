@@ -146,6 +146,16 @@ describe('S189 fix round — main.ts decides through these functions (mechanical
     expect(src, 'the old inline gate must not survive beside the step').not.toMatch(/hasSurvivorToHostFor\(/);
   });
 
+  it('⛔ S191 WIRE-3 — BOTH sites count SEATED survivors: the claim input and migrationCase', () => {
+    expect(src.match(/seatedSurvivors\(/g)?.length, 'one call per site').toBe(2);
+    const step = src.indexOf('stepMigrationClaim(');
+    expect(src.slice(step, step + 300)).toMatch(/seatedSurvivorIds: seatedSurvivors\(session\.lastRoster, alivePeers, trysteroSelfId, session\.hostPeerId\),/);
+    const mc = src.indexOf('const migrationCase =');
+    const expr = src.slice(mc, src.indexOf(';', mc));
+    expect(expr).toContain('seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0');
+    expect(expr, 'a stray must not keep migrationCase true').not.toContain('peerCount()');
+  });
+
   it('⭐ S191 NETFR-3 — the plan reads the claim clock the step wrote THIS frame (the step runs first)', () => {
     const step = src.indexOf('migrationLossObservedAtMs = claimStep.lossObservedAtMs;');
     const plan = src.indexOf('planConnectionFrame(');

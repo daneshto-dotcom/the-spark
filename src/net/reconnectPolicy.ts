@@ -89,6 +89,27 @@ export function hasSurvivorToHostFor(
   return false;
 }
 
+/**
+ * ⛔ S191 WIRE-3 (audit) — WHO COUNTS AS A SURVIVOR: an entry of the frozen Begin roster
+ * (`session.lastRoster`) that is not us, not the lost host, and is on our transport now. Any transport peer
+ * used to count, so a non-seated peer on the room (a late joiner, a viewer who typed the code) made a 1v1
+ * client claim the host seat for nobody — and, through `migrationCase`, stopped it retrying a host that
+ * was reachable. main.ts feeds this to BOTH sites: `stepMigrationClaim`'s gate and `migrationCase`.
+ */
+export function seatedSurvivors(
+  roster: readonly { readonly peerId: string }[] | null,
+  transportPeerIds: Iterable<string>,
+  selfPeerId: string,
+  lostHostPeerId: string | null,
+): Set<string> {
+  const onTransport = new Set(transportPeerIds);
+  const out = new Set<string>();
+  for (const e of roster ?? []) {
+    if (e.peerId !== selfPeerId && e.peerId !== lostHostPeerId && onTransport.has(e.peerId)) out.add(e.peerId);
+  }
+  return out;
+}
+
 /** ⭐ S189 (C4, hunt E3) — why the overlay went TERMINAL, for the one `[net] CONNECTION LOST (terminal)` line. */
 export type TerminalLossCause = 'zombieDeposed' | 'migrationDeadline' | 'hostLost' | 'peerCount0';
 
@@ -112,6 +133,8 @@ export interface MigrationClaimInput {
   readonly hostPeerId: string | null;
   /** Peers our transport currently sees. */
   readonly alivePeerIds: ReadonlySet<string>;
+  /** ⭐ S191 WIRE-3 — the SEATED survivors (`seatedSurvivors`): the only peers the transport-loss gate counts. */
+  readonly seatedSurvivorIds: ReadonlySet<string>;
   /** When the last snapshot was accepted (0 = never). */
   readonly lastAcceptedAtMs: number;
   /** When the host last (re)appeared on our transport (see `stepHostPresence`). */
@@ -156,7 +179,7 @@ export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const since = hostPresent ? Math.max(i.lastAcceptedAtMs, i.hostPresentSinceMs) : i.lastAcceptedAtMs;
   const starved = isSnapshotStarved(i.nowMs, since, i.starvationMs);
   if (!(hostLost || starved)) return { lossObservedAtMs: 0, claim: false };
-  if (hostLost && !hasSurvivorToHostFor(i.alivePeerIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
+  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
   const obs = i.lossObservedAtMs === 0 ? i.nowMs : i.lossObservedAtMs;
   if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
     return { lossObservedAtMs: obs, claim: false };

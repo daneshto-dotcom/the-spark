@@ -191,8 +191,8 @@ The merge owner resumes from this file if this agent is cut off.
 
 | # | item | state | commit |
 |---|---|---|---|
-| 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | (this commit) |
-| 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | pending | |
+| 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | fd41fad |
+| 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | (this commit) |
 | 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | pending | |
 | 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | pending | |
 | 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | pending | |
@@ -215,6 +215,21 @@ The merge owner resumes from this file if this agent is cut off.
   `vitest src/net/` EXIT=0 (39 + 1 skipped / 615 + 3 skipped), typecheck EXIT=0. Protocol: none (fewer
   duplicate messages, same fields). Recorded: `hostHandlers.ts` carries one PRE-EXISTING lone CR (`\r\r\n`
   after the constants import, present at base 5934d3b) — preserved, not touched.
+
+- **WIRE-3 — only a SEATED survivor counts.** New pure `seatedSurvivors(lastRoster, transportPeerIds,
+  selfPeerId, lostHostPeerId)` (`reconnectPolicy.ts`): Begin-roster entries that are not us, not the lost
+  host, and on our transport now. `MigrationClaimInput` gains a REQUIRED `seatedSurvivorIds`, and the
+  transport-loss gate is `hasSurvivorToHostFor(i.seatedSurvivorIds, …)` (it was `alivePeerIds`: any peer).
+  main.ts uses it at BOTH sites: the `stepMigrationClaim` input and `migrationCase` (was
+  `peerCount() > 0`, so a stray kept the migration case on and the loop never retried a reachable host).
+  Tests (5 red → green): the pure set (1v1 + stray → empty; 3-seat → the seated one; null roster → empty);
+  1v1 + a stray, host gone → NO claim (`firstClaim` gains `roster`); with only a stray `migrationCase` is
+  false and the loop RETRIES (> 3 attempts in 50 s); NEGATIVE — 3-seat with a seated survivor + a stray
+  claims at grace + rung, as before; a mechanical main.ts guard (two `seatedSurvivors(` calls, one per site;
+  `migrationCase` no longer reads `peerCount()`). Mutations: gate back on `alivePeerIds` → 1 red (the 1v1
+  stray); `migrationCase` back to `peerCount() > 0` → 1 red (the guard). `vitest src/net/` EXIT=0 (39 + 1 /
+  620 + 3), typecheck EXIT=0. Hotspot `main.ts`: the import, one input line, the `migrationCase`
+  expression. Protocol: none (local WHEN).
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

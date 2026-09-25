@@ -15,6 +15,8 @@ import {
   terminalLossCause,
   stepMigrationClaim,
   stepHostPresence,
+  seatedSurvivors,
+  planConnectionFrame,
 } from './reconnectPolicy.ts';
 import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 
@@ -142,12 +144,17 @@ function firstClaim(o: {
   lastSnapshotAt: (t: number) => number;
   presentSince?: (t: number) => number;
   ladderDelayMs?: number;
+  /** ⭐ S191 WIRE-3 — the frozen Begin roster's peer ids ('me' = this seat). Absent: every other peer is seated. */
+  roster?: string[];
 }): number | null {
   let obs = 0;
   for (let t = o.fromMs; t <= o.toMs; t += 16) {
     const alive = new Set([...(o.othersAt?.(t) ?? o.others ?? []), ...(o.host(t) ? ['host'] : [])]);
+    const seated = o.roster !== undefined
+      ? seatedSurvivors(o.roster.map((peerId, seat) => ({ seat, peerId, color: 0 })), alive, 'me', 'host')
+      : new Set([...alive].filter((p) => p !== 'host'));
     const r = stepMigrationClaim({
-      nowMs: t, hostPeerId: 'host', alivePeerIds: alive,
+      nowMs: t, hostPeerId: 'host', alivePeerIds: alive, seatedSurvivorIds: seated,
       lastAcceptedAtMs: o.lastSnapshotAt(t), hostPresentSinceMs: o.presentSince?.(t) ?? 0,
       starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS,
       ladderDelayMs: o.ladderDelayMs ?? 0, lossObservedAtMs: obs,
@@ -212,7 +219,7 @@ describe('S189 fix round (audit NET-4) — the claim: D4 kept for a FROZEN host,
     let obs = 0;
     for (let t = 10_000; t < 60_000; t += 16) {
       const r = stepMigrationClaim({
-        nowMs: t, hostPeerId: 'host', alivePeerIds: new Set(['host']), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+        nowMs: t, hostPeerId: 'host', alivePeerIds: new Set(['host']), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
         starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: null, lossObservedAtMs: obs,
       });
       obs = r.lossObservedAtMs;
@@ -277,7 +284,7 @@ describe('S191 NETFR-3 — the claim clock starts the first frame a survivor is 
 
   it('NEGATIVE — while nobody is visible the step reports NO loss episode (so nothing is banked)', () => {
     const r = stepMigrationClaim({
-      nowMs: 20_000, hostPeerId: 'host', alivePeerIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+      nowMs: 20_000, hostPeerId: 'host', alivePeerIds: new Set(), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
       starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs: 12_000,
     });
     expect(r).toEqual({ lossObservedAtMs: 0, claim: false });
@@ -305,5 +312,62 @@ describe('S191 NETFR-3 — the claim clock starts the first frame a survivor is 
     expect(at).not.toBeNull();
     expect(at! - L).toBeGreaterThanOrEqual(7_000 + RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
     expect(at! - L).toBeLessThan(29_000);
+  });
+});
+
+/**
+ * ⛔ S191 WIRE-3 (audit wf_0593f6fe-d53, LOW) — THE SURVIVOR GATE COUNTED ANY TRANSPORT PEER. A non-seated
+ * peer on the room (a late joiner, a viewer who typed the code) in a 1v1 made the client claim the host
+ * seat for nobody — and, through `migrationCase` (`peerCount() > 0`), stopped it retrying a host that was
+ * reachable. A SEATED survivor is a Begin-roster entry that is not us, not the lost host, and is on our
+ * transport now (`seatedSurvivors`); main.ts uses it at BOTH sites.
+ */
+describe('S191 WIRE-3 — only a SEATED survivor is someone to host for', () => {
+  const R1V1 = ['host', 'me'];
+  const R3 = ['host', 'me', 'seat-2'];
+  const rosterOf = (ids: string[]) => ids.map((peerId, seat) => ({ seat, peerId, color: 0 }));
+
+  it('seatedSurvivors = the frozen roster ∩ our transport, minus us and the lost host', () => {
+    expect([...seatedSurvivors(rosterOf(R1V1), ['host', 'stray'], 'me', 'host')]).toEqual([]);
+    expect([...seatedSurvivors(rosterOf(R3), ['seat-2', 'stray'], 'me', 'host')]).toEqual(['seat-2']);
+    expect([...seatedSurvivors(rosterOf(R3), ['stray'], 'me', 'host')]).toEqual([]);
+    expect([...seatedSurvivors(null, ['stray'], 'me', 'host')]).toEqual([]);
+  });
+
+  it('⛔ 1v1 + a STRAY on our transport, the host gone → NO claim', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 90_000, host: (t) => t < 10_000, others: ['stray'],
+      lastSnapshotAt: () => 10_000, ladderDelayMs: CLAIM_LADDER_MS, roster: R1V1,
+    });
+    expect(at, 'a stray is nobody to host for').toBeNull();
+  });
+
+  it('⛔ …and the loop keeps RETRYING the host: with only a stray, it is not the migration case', () => {
+    const migrationCase = seatedSurvivors(rosterOf(R1V1), ['stray'], 'me', 'host').size > 0;
+    expect(migrationCase).toBe(false);
+    let reconnectUntilMs = 0;
+    let nextRetryMs = 0;
+    let retries = 0;
+    for (let t = 10_000; t <= 60_000; t += 16) {
+      const p = planConnectionFrame({
+        nowMs: t, zombieDeposed: false, peersGone: true, isHost: false, hasRoomCode: true, migrationCase,
+        peerCount: 1, reconnectUntilMs, nextRetryMs, migrationExtraMs: 11_000, claimClockSinceMs: 0,
+      });
+      reconnectUntilMs = p.reconnectUntilMs;
+      nextRetryMs = p.nextRetryMs;
+      if (p.retry) retries++;
+    }
+    expect(retries, 'a reachable host must still be rejoined').toBeGreaterThan(3);
+  });
+
+  it('NEGATIVE — 3-seat with a SEATED survivor (and a stray) claims as before, at the grace + its rung', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < 12_000, others: ['seat-2', 'stray'],
+      lastSnapshotAt: () => 11_900, ladderDelayMs: CLAIM_LADDER_MS, roster: R3,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - 12_000).toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - 12_000).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+    expect(seatedSurvivors(rosterOf(R3), ['seat-2', 'stray'], 'me', 'host').size > 0, 'migrationCase').toBe(true);
   });
 });

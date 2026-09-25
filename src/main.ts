@@ -76,6 +76,7 @@ import {
   type TerminalLossCause,
   hostMovedOn,
   isRejoinPending,
+  seatedSurvivors,
   type HostSignal,
   connectionEdge,
 } from './net/reconnectPolicy.ts';
@@ -3441,6 +3442,8 @@ Network routes: ${v.detail}`;
           nowMs: nowMigMs,
           hostPeerId: session.hostPeerId,
           alivePeerIds: alivePeers,
+          // S191 WIRE-3 — only a SEATED survivor is someone to host for (a stray on the room is not).
+          seatedSurvivorIds: seatedSurvivors(session.lastRoster, alivePeers, trysteroSelfId, session.hostPeerId),
           lastAcceptedAtMs,
           hostPresentSinceMs: hostPresence.presentSinceMs,
           starvationMs: migrationSeam?.starvationMs ?? HOST_STARVATION_MS,
@@ -3766,11 +3769,12 @@ Network routes: ${v.detail}`;
      *     (it would drop the MIGRATION_CLAIM), MIGRATING until past the claim ladder's worst case;
      *   • peerCount === 0 = OUR transport died — the reconnect cycle is the only path back.
      */
+    // S191 WIRE-3 — a SEATED survivor, not any peer: a stray kept this true and the loop never retried the host.
     const migrationCase =
       !world.isHost &&
       session.warrant !== null &&
       session.netTransport !== null &&
-      session.netTransport.peerCount() > 0;
+      seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0;
     const connectionPlan = planConnectionFrame({
       nowMs,
       zombieDeposed,
