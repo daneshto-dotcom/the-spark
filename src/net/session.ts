@@ -171,6 +171,13 @@ export interface NetSession {
    * successor keeps the one it holds (same match). Survives an in-page reconnect; cleared on teardown.
    */
   matchId: string | null;
+  /**
+   * ⛔ S191 FIX-1 (audit WIRE-1) — a Begin is in flight (`beginMatch` set it before its first await).
+   * A second Begin while it is set returns at once: both strategies deliver LOBBY_READY and a button can be
+   * double-clicked, and `world.gameState` is still LOBBY inside the sign window, so a LOBBY gate cannot
+   * tell. Cleared in `beginMatch`'s finally and on teardown.
+   */
+  beginInFlight: boolean;
 }
 
 export function makeNetSession(): NetSession {
@@ -199,6 +206,7 @@ export function makeNetSession(): NetSession {
     // S155 P1 — joiner-only; the client connect path installs a fresh one per attempt.
     joinTrust: null,
     matchId: null,
+    beginInFlight: false,
   };
 }
 
@@ -272,5 +280,6 @@ export function teardownNet(
   session.joinTrust = null;
   // S191 — a fresh Host/Join is a new match; the old id must never prove a rejoin into it.
   session.matchId = null;
+  session.beginInFlight = false;
   triggerAudioCursorReset();
 }

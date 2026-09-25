@@ -25,6 +25,7 @@ const fake = vi.hoisted(() => ({
   route: null as null | ((msg: unknown, peerId: string) => void),
   peerChange: [] as Array<(peerId: string, kind: 'join' | 'leave') => void>,
   sent: [] as unknown[],
+  peers: ['host-peer'] as string[],
 }));
 vi.mock('./transport.ts', () => ({
   selfId: 'self-peer-id',
@@ -39,7 +40,7 @@ vi.mock('./transport.ts', () => ({
       fake.peerChange.push(h);
     }
     peerIds(): string[] {
-      return ['host-peer'];
+      return fake.peers;
     }
     send(m: unknown): void {
       fake.sent.push(m);
@@ -62,6 +63,7 @@ afterEach(() => {
   fake.route = null;
   fake.peerChange = [];
   fake.sent = [];
+  fake.peers = ['host-peer'];
   vi.restoreAllMocks();
 });
 
@@ -373,5 +375,104 @@ describe('S191 — main.ts wires the proof (mechanical)', () => {
     const phased = main.match(/broadcastQmPresence\(session, session\.netTransport, onPresence, world\.gameState\)/g) ?? [];
     expect(calls.length).toBe(phased.length);
     expect(main).toMatch(/isRejoinPending: \(\): boolean => isRejoinPending\(lastRejoinAttemptAtMs, session\.clientSync\?\.lastAcceptedAt\(\) \?\? 0\)/);
+  });
+});
+
+/**
+ * ⛔ S191 FIX-1 / WIRE-1 (audit wf_0593f6fe-d53, MED) — TWO BEGINS INSIDE THE SIGN WINDOW MINTED TWO IDS.
+ *
+ * Both strategies deliver a LOBBY_READY, so the quickmatch gate fires Begin twice; `world.gameState` is
+ * still LOBBY while `beginMatch` awaits `signWarrant`, so main.ts's LOBBY gate lets both through. #1 sent
+ * `sid.1` and started the match; #2 then minted `sid.2` — the host kept .2 while every client stored .1,
+ * and every later C4 rejoin of that LIVE match was held as 'new-match' and sent to title.
+ */
+describe('S191 FIX-1 — one Begin at a time: one START_GAME_SIGNAL, one id, the id the clients hold', () => {
+  function signingHost() {
+    const session = makeNetSession();
+    const world = makeWorld(1);
+    world.gameState = 'LOBBY';
+    const pendingSigns: Array<(sig: string) => void> = [];
+    const hostIdentity = {
+      roomCode: 'ROOMAA',
+      spkiB64: 'host-spki',
+      makeAttest: () => new Promise(() => {}),
+      sign: () => new Promise<string>((r) => pendingSigns.push(r)),
+    } as never;
+    const begin = createBeginMatchHandler({ session, world, hostIdentity });
+    fake.peers = ['peer-a'];
+    createHostStartHandler({
+      session,
+      world,
+      hostIdentity,
+      onLobbyError: () => {},
+      onPresence: () => {},
+      // main.ts's own wrapper: ignore it once the match has left LOBBY.
+      onAutoBegin: () => {
+        if (world.gameState === 'LOBBY') begin();
+      },
+      intentRateLimiter: { reset: () => {}, forget: () => {}, tryConsume: () => true } as never,
+    })();
+    session.quickmatch = true;
+    session.qmSelfReady = true;
+    for (const h of fake.peerChange) h('peer-a', 'join');
+    // peer-a proved a pubkey, so Begin signs a warrant — the await that opens the window.
+    session.peerPubkeys.set('peer-a', 'spki-a');
+    const hostRoute = fake.route!;
+    const signals = (): Array<Record<string, unknown>> =>
+      fake.sent.filter((m) => (m as { kind: string }).kind === 'START_GAME_SIGNAL') as Array<Record<string, unknown>>;
+    const resolveSigns = async (): Promise<void> => {
+      while (pendingSigns.length > 0) pendingSigns.shift()!('sig');
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    };
+    return { session, world, begin, hostRoute, signals, resolveSigns };
+  }
+
+  it('⛔ two LOBBY_READY copies (both strategies) inside the sign window → ONE signal, ONE id; the client holds the host’s id and a later rejoin is applied', async () => {
+    const h = signingHost();
+    h.hostRoute({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
+    h.hostRoute({ kind: 'LOBBY_READY', ready: true }, 'peer-a'); // the second strategy's copy
+    await h.resolveSigns();
+    expect(h.signals(), 'exactly one Begin reaches the wire').toHaveLength(1);
+    const wireId = h.signals()[0]!.matchId as string;
+    expect(h.session.matchId, 'the host keeps the id it sent').toBe(wireId);
+
+    // The client stores what the wire carried …
+    const client = makeNetSession();
+    const cw = makeWorld(1);
+    cw.gameState = 'LOBBY';
+    client.hostVerifiedPeerId = HOST;
+    connectAsClient(
+      {
+        session: client, world: cw, controls: { setPlayerId: () => {} } as never, onLobbyError: () => {}, onPresence: () => {},
+        clientIdentity: { spkiB64: 'spki', sign: () => Promise.resolve('pop') } as never,
+      },
+      'ROOMAA',
+    );
+    fake.route!({ ...h.signals()[0]!, roster: ROSTER }, HOST);
+    expect(client.matchId).toBe(h.session.matchId);
+
+    // … and a later C4 rejoin of that live match is RELEASED by the host's snapshots, not sent to title.
+    const r = rejoinHarness({ ourMatchId: client.matchId });
+    r.at(10_000);
+    r.host(snap(501, h.session.matchId!));
+    expect(r.signals).toEqual([]);
+    expect(r.receive).toHaveBeenCalledTimes(1);
+  });
+
+  it('⛔ a double-clicked manual Begin (no LOBBY gate on the button) inside the sign window → one signal, one id', async () => {
+    const h = signingHost();
+    h.begin();
+    h.begin();
+    await h.resolveSigns();
+    expect(h.signals()).toHaveLength(1);
+    expect(h.session.matchId).toBe(h.signals()[0]!.matchId);
+    expect(h.session.beginInFlight, 'the latch is released once the Begin settles').toBe(false);
+  });
+
+  it('the in-flight latch dies with the session (teardownNet)', () => {
+    const s = makeNetSession();
+    s.beginInFlight = true;
+    teardownNet(s, makeWorld(1), { setPlayerId: () => {} } as never, asPlayerId(0));
+    expect(s.beginInFlight).toBe(false);
   });
 });

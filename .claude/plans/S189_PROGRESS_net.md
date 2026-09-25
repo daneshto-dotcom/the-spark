@@ -1,4 +1,4 @@
-**STATUS: COMPLETE — S191 round, steps 1-7 committed; gates 0/0/0 (6577 tests, 965.2 KiB). Awaiting the independent audit; step 8 (C4 retry tuning) only on the merge owner's message.**
+**STATUS: IN-PROGRESS — S191 FIX ROUND (audit wf_0593f6fe-d53, 6 items). Step 8 (C4 tuning) only on a later message.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -186,6 +186,35 @@ The merge owner resumes from this file if this agent is cut off.
   total vs master's 955.9 = **+9.3 KiB**, inside the 10 KiB budget). Benign, recorded: vitest rewrote
   `pentagramBuildability.test.ts.snap` line endings only (`git diff --ignore-cr-at-eol` empty) → restored.
   No e2e run (brief: step 8 only). STOPPED for the audit.
+
+## S191 FIX ROUND (audit wf_0593f6fe-d53, by message from the merge owner — fix ONLY these, one commit each)
+
+| # | item | state | commit |
+|---|---|---|---|
+| 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | (this commit) |
+| 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | pending | |
+| 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | pending | |
+| 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | pending | |
+| 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | pending | |
+| 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | pending | |
+| 7 | gates + report | pending | |
+
+- **FIX-1 / WIRE-1.** Mechanism (audit, confirmed): both strategies deliver LOBBY_READY, so the quickmatch
+  gate fires Begin twice; `world.gameState` is still LOBBY while `beginMatch` awaits `signWarrant`, so
+  main.ts's LOBBY gate lets both through — #1 sent `.1` and started the match, #2 minted `.2` and the host
+  kept it while the clients held `.1` → every later C4 rejoin of that LIVE match was held as 'new-match'.
+  Fix: `NetSession.beginInFlight` (new; `makeNetSession` false; `teardownNet` false) — `beginMatch` returns
+  at once if set, sets it synchronously before its first await, clears it in `finally`; the id is minted and
+  stored on the session BEFORE the await and START_GAME_SIGNAL carries the STORED value (omitted if a
+  teardown nulled it mid-sign). A side effect, intended: the second Begin no longer re-dispatches
+  START_GAME either. Tests (`sameMatchProof.test.ts`, through the real `createHostStartHandler` +
+  `createBeginMatchHandler`, a controllable `sign`): two LOBBY_READY copies inside the sign window → exactly
+  ONE START_GAME_SIGNAL, host id == wire id == the id a real `connectAsClient` stores, and a later rejoin's
+  same-id snapshot is applied; a double-clicked manual Begin (no LOBBY gate) → one signal; teardown clears
+  the latch. PRE-FIX 3 red (two signals) → green. Mutation: drop the `if (beginInFlight) return` → 2 red.
+  `vitest src/net/` EXIT=0 (39 + 1 skipped / 615 + 3 skipped), typecheck EXIT=0. Protocol: none (fewer
+  duplicate messages, same fields). Recorded: `hostHandlers.ts` carries one PRE-EXISTING lone CR (`\r\r\n`
+  after the constants import, present at base 5934d3b) — preserved, not touched.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

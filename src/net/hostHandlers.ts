@@ -500,7 +500,12 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
 }
 
 async function beginMatch(deps: BeginMatchDeps): Promise<void> {
-  {
+  // ⛔ S191 FIX-1 (audit WIRE-1) — ONE Begin at a time. Two inside the `await signWarrant` window each
+  // minted an id: #1 sent `.1` to the clients, #2 left the host holding `.2`, and every later rejoin of
+  // that live match was held as 'new-match'. Synchronous, before the first await (see `beginInFlight`).
+  if (deps.session.beginInFlight) return;
+  deps.session.beginInFlight = true;
+  try {
     // Host triggers START_GAME. The first snapshot will carry gameState=
     // 'PLAYING' to the clients. S39 P1: also broadcast a dedicated
     // START_GAME_SIGNAL envelope BEFORE the local dispatch so peers' lobby-exit
@@ -550,6 +555,9 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // authority (never its own successor) and is excluded. Unproven seats are OMITTED (mixed-build
     // tolerance — GEMINI FIX 2: strictly less harm than excluding them from the match). No proven peer
     // → no warrant (nothing to authorize; the additive field is simply absent, Begin unchanged).
+    // ⭐ S191 — this match's id, minted and stored BEFORE the await (FIX-1), so the signal below and the
+    // first snapshot both read the one stored value (see mintMatchId).
+    deps.session.matchId = mintMatchId();
     deps.session.warrant = null;
     const warrantSeats: WarrantSeat[] = [];
     for (const e of roster) {
@@ -577,9 +585,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         );
       }
     }
-    // ⭐ S191 — this match's id, set before the signal and the first snapshot can go out (see mintMatchId).
-    const matchId = mintMatchId();
-    deps.session.matchId = matchId;
+    const matchId = deps.session.matchId;
     if (transport !== null) {
       // S82 P4(a) — Begin carries the attestation too: a client whose HELLO was lost
       // can still verify + latch from the buffered Begin signal itself.
@@ -593,7 +599,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         roster,
         ...(attest !== null ? { hostAttest: attest } : {}),
         ...(warrant !== null ? { warrant } : {}),
-        matchId,
+        ...(matchId !== null ? { matchId } : {}),
       });
     }
     dispatch(deps.world, {
@@ -605,5 +611,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       // clientHandlers the single likeliest place for the whole feature to half-land.
       roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId })),
     });
+  } finally {
+    deps.session.beginInFlight = false;
   }
 }
