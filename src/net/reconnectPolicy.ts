@@ -255,7 +255,8 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
   });
   if (retry) nextRetryMs = i.nowMs + RECONNECT_RETRY_MS;
   // S191 NETFR-3 — the window covers the claim ladder counted from the claim clock, if that began later.
-  const migrationDeadlineMs = Math.max(reconnectUntilMs, i.claimClockSinceMs + RECONNECT_GRACE_MS) + i.migrationExtraMs;
+  const anchorMs = i.claimClockSinceMs > 0 ? Math.max(reconnectUntilMs, i.claimClockSinceMs + RECONNECT_GRACE_MS) : reconnectUntilMs;
+  const migrationDeadlineMs = anchorMs + i.migrationExtraMs;
   let overlay: ConnectionOverlay;
   if (i.nowMs < reconnectUntilMs) {
     overlay = i.migrationCase

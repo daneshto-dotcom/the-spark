@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-6 done.**
+**STATUS: COMPLETE — S191 round, steps 1-7 committed; gates 0/0/0 (6577 tests, 965.2 KiB). Awaiting the independent audit; step 8 (C4 retry tuning) only on the merge owner's message.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -14,8 +14,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | a08ad56 |
 | 4 | NETFR-6 — per-peer slot drop/rejoin test | done | b01a228 |
 | 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | done | f62af49 |
-| 6 | NETFR-5 — canon notes rewrite | done | (this commit) |
-| 7 | final gates + report | pending | |
+| 6 | NETFR-5 — canon notes rewrite | done | 854c319 |
+| 7 | final gates + report | done | (this commit) |
 
 - **Step 1 — merge master.** `git merge master` was CLEAN (auto-merged `src/main.ts`, `src/input/controls.ts`;
   no conflicts). ⭐ The old "draft panel draws OVER the connection-lost overlay" note (C4 section below) is
@@ -176,6 +176,16 @@ The merge owner resumes from this file if this agent is cut off.
   branch that is MINE (9 rows, `HOST_LOBBY_CONFIRM_MS` shown deleted) vs the inherited ones. This file's
   reversed "Hunt B-2 … in a 1v1 the client no longer claims" is STRUCK in place with the correction, and the
   C4 fault-3 line now says "on TRANSPORT loss only".
+
+- **Step 7 — FINAL GATES (s189/net, tip after this commit; exit codes captured directly).** One pre-gate
+  self-audit edit: `planConnectionFrame`'s anchor made explicit for a clock of 0 (`claimClockSinceMs > 0 ? … :
+  reconnectUntilMs`) — the old form was correct only because `reconnectUntilMs ≥ RECONNECT_GRACE_MS` always
+  holds; frame tests re-run EXIT=0 (47). Then: `npm run typecheck` **0** · `npx vitest run --maxWorkers=4`
+  **0** (**405 files passed + 2 skipped / 6577 tests passed + 7 skipped**) · `npm run build` **0** — main entry
+  **965.2 KiB**, cap 1100, headroom 134.8 (S191 steps cost **+1.2 KiB** over the merged tree's 964.0; branch
+  total vs master's 955.9 = **+9.3 KiB**, inside the 10 KiB budget). Benign, recorded: vitest rewrote
+  `pentagramBuildability.test.ts.snap` line endings only (`git diff --ignore-cr-at-eol` empty) → restored.
+  No e2e run (brief: step 8 only). STOPPED for the audit.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 
