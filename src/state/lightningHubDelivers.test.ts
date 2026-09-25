@@ -192,7 +192,18 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
       // health would be the retired emit-counted burst coming back, and this is what catches it.
       expect(fracAtDeath, 'the hub must die from DAMAGE, not from an emit count').not.toBeNull();
       expect(fracAtDeath!).toBeLessThan(STAR_SELFDESTRUCT_BELOW_FRAC);
-      expect(selfDestructedAt, 'and not until deep into the fight').toBeGreaterThan(FIGHT_PHASE_TICKS / 2);
+      /*
+       * ⛔ S191 (owner) — RE-PINNED, AND THE MOVE IS A REAL BEHAVIOUR CHANGE, MEASURED. This said "not
+       * until deep into the fight" (> half of it): the hub fell at t=3329. With drones as STOCK it falls
+       * at t=1499, and the reason is the old fuse: a drone with nothing to home on used to fizzle AT the
+       * hub every 8 s, and that blast (owner-sparing, `applyRadialDamage`) kept hitting the enemy unit
+       * chewing the hub. Now an idle drone waits at home, so the chewer works undisturbed. Reported to
+       * the owner. The claim kept is the one this test exists for — it died of DAMAGE, not of its own
+       * production — plus that it lived long enough to fill its stock.
+       */
+      expect(selfDestructedAt, 'and not before it had filled its stock').toBeGreaterThan(
+        DRONE_EMIT_INTERVAL_TICKS * DRONE_MAX_PER_SPAWNER,
+      );
     }
 
     /*
@@ -259,10 +270,13 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
      * that is what makes the claim checkable — if a future retune ever makes `peak === cap`, the cap
      * has become load-bearing and the docblock on `DRONE_MAX_PER_SPAWNER` needs rewriting.
      */
-    expect(
-      peak,
-      'the cap is documented as inert slack — peak must sit strictly below it, or that doc is wrong',
-    ).toBeLessThan(DRONE_MAX_PER_SPAWNER);
+    /*
+     * ⛔ S191 (owner) — THE "INERT SLACK" CLAIM IS RETIRED. It rested on the 8 s fuse (occupancy at a
+     * due slot was `ceil(480/300) − 1` = 1). Drones are STOCK now, so a hub with nothing to hit HOLDS its
+     * full ceiling — `s191TowerStock.test.ts` pins peak === cap on an idle hub. In THIS fixture the enemy
+     * unit that chews the hub also kills drones, so the peak here is a fixture fact, not a rule; only
+     * the ceiling (asserted above) is.
+     */
   });
 
   it('⭐ a hub carried through BUILD is never more than ITS OWN cadence from firing', () => {
@@ -338,7 +352,9 @@ describe('S158 B2b — THE OWNER\u2019S ACTUAL BOARD: a hub with a neighbour att
     // S159 P9 — was `.toBe(STRUCTURE_SELFDESTRUCT_DRONE_COUNT)`. The claim is unchanged in substance
     // (a neighbouring shape must not silently kill the tower); only its arithmetic moved, because the
     // hub is a factory now rather than a three-shot burst.
-    expect(everSeen, 'a neighbouring shape must not silently kill the tower').toBeGreaterThan(
+    // ⛔ S191 — `>` → `>=`: drones are STOCK now, so with nothing to hit the hub fills its ceiling and
+    // HOLDS it; reaching the ceiling is the proof it was not silently removed by its neighbour.
+    expect(everSeen, 'a neighbouring shape must not silently kill the tower').toBeGreaterThanOrEqual(
       DRONE_MAX_PER_SPAWNER,
     );
   });

@@ -86,11 +86,58 @@ root cause, the table in the final report.
   unheld/BUILD, once per FIGHT across the real clock, determinism). Mutations red, restored: controller
   call removed → 5 red; lowest-score target → 2 red. Suite 6527 / 0 failed, typecheck 0.
 
+- **item 2** — tower units are STOCK. Diagnosis (reproduced red through the real host tick,
+  `s191TowerStock.test.ts`): spawners are dormant outside FIGHT (S157 P0) so chewers/drones are born in
+  FIGHT; `recallArmies` sends them home at the whistle; the fan-out is FIGHT-gated so nothing ticks them
+  through BUILD; on the FIRST FIGHT tick (1) `applyCreatureTick` step 1 `world.tick >= despawnAtTick`
+  (`creatureLifecycle.ts:~751`) deletes every chewer whose S104 P1 3000-tick ABSOLUTE lifetime ran out at
+  home, and (2) `hostTick` Step 1.5 `world.tick >= despawnAtTick - 1` (`hostTick.ts:~1896`) detonates every
+  drone whose 8 s ABSOLUTE fuse ran out at home. Fix = the tier-3/castle lifecycle: `persistent: true` +
+  `GOBLIN_LIFETIME_TICKS` for `CHEWER_CONFIG` and `LIGHTNING_DRONE_CONFIG` (`voltkin-config.ts`); no new
+  ceiling; `DRONE_LIFETIME_TICKS` retired unread. Tests: `s191TowerStock.test.ts` (8, REACH: chewers alive
+  at the bell after a whole BUILD; a hub holding its 3 holds + releases them; production continues;
+  the hub ceiling holds; HELLSPAWN children persist + go home to the pentagram; a fallen pentagram's
+  chewers go home to the castle and live), `s191TowerStock.differential.test.ts` (host vs worker, TWO
+  waves). Mutations (red, restored): chewer back to persistent:false/3000 → 5 red; drone back to
+  persistent:false/480 → 3 red. Re-pinned (old lifecycle, by design): `save.replay` churn gate → stock
+  gate over the same window; `towerDefense` chewer DESPAWNING → never fades; `voltkin-config` lock;
+  `hellspawn` "ages out" → never ages out; `lightningHubDelivers` ×2 (see behaviour change below) and its
+  "cap is inert slack" assertion retired. Measurement `s191StockMeasure.test.ts` (opt-in).
+
+### Item 2 — every tower-produced unit, and its fate at the phase edges
+| unit | produced by | persistent / lifetime (before → after) | FIGHT→BUILD | BUILD→FIGHT | what removed it at the edge | affected |
+|---|---|---|---|---|---|---|
+| chewer | pentagram (15 s, FIGHT only, caps OFF) | false/3000 abs → **true/match** | recalled to pentagram | resumes | step-1 auto-delete on the 1st FIGHT tick | **YES → fixed** |
+| HELLSPAWN child | a dying chewer | follows chewer | recalled to parent's pentagram | resumes | same as chewer | **YES → fixed** |
+| lightningDrone | lightning hub (5 s, FIGHT only, ≤3/hub, ≤12 global) | false/480 abs → **true/match** | recalled to hub | resumes | Step 1.5 fuse detonation on the 1st FIGHT tick | **YES → fixed** |
+| goblins ×6 (incl. suicide, bat) | goblin tower (FED) | true/60 min | recalled | resumes | none (suicide goblin's Step 1.5 fuse = 60 min — latent only) | no |
+| t3 units ×6 + SWARM + elite piranha | tier-3 tower | true/match | recalled | resumes | none | no — reference |
+| raceUnit (incl. THE RISEN) | castle | true/match | recalled | resumes | none | no — reference |
+| t9 bosses (incl. DYNASTY Pharaoh) | tier-9 tower (one-shot) | true/match | recalled | resumes | none | no |
+| Helga | hall (a DEFENDER) | — | removed only if her recipe broke (S157 B6) | re-summoned | by design | no |
+| Voltkin | its godly structure | false/20 s `'fight'` clock | recalled | resumes | dies at the next bell if its 20 s ran out | same class — S155 ruling, NOT changed, flagged |
+| direwolf / locust | boss skills | false/own lifetimes | recalled | resumes | can expire across a BUILD | skill summons, NOT changed, flagged |
+
+### Item 2 — measured, bots match (C5 fixture, 4 seats, seat 0 idle), BEFORE → AFTER
+- NATURAL: bots never build a pentagram or a hub — 0 chewers / 0 drones all match, both builds; the
+  match ends at wave 7 (a score win). Snapshot 105.3 KiB / host 0.81→0.92 ms mean at wave 7 (noise).
+- SEEDED (every bot seat given a pentagram + hub at wave 1): razed by wave 3 in both; peak 2 chewers.
+- STRESS (towers re-stamped each BUILD, no win, no keep falls) to wave 15: stock on the bell BEFORE = 0
+  every wave from 2 on; AFTER = 1–3 on some bells (w3, w9, w10, w14); peak chewers per FIGHT 1–5 →
+  1–6; wave-15 snapshot 194.1 → 158.9 KiB; wave-15 host tick 1.99 / 3.04 → 1.44 / 2.05 ms mean / p95
+  (a different trajectory, not a saving — the enemy kills the stock). No runaway in bots play.
+- ⚠ The worst case is arithmetic, not bots: a pentagram nobody kills now adds **4 chewers per FIGHT**
+  (60 s / 15 s) forever — **60 by wave 15**, per pentagram. That growth is the owner's call (lever:
+  `CHEWER_MAX_PER_SPAWNER`, or a finite lifetime on the `'fight'` clock).
+- ⚠ BEHAVIOUR CHANGE, measured: a drone with nothing to home on no longer fizzles at its hub every 8 s.
+  That fizzle's owner-sparing blast used to hit enemy units chewing the hub — in `lightningHubDelivers`'
+  fixture the hub now falls at t=1499 instead of 3329. Lever: let an idle drone target enemy UNITS.
+
 ## In flight
-- item 2 (systemic stock fix — chewers, drones, all tower units)
+- final gates + report
 
 ## Next
-- final gates + report
+- the report
 
 ## Constants (S191)
 | constant | value | whose |
