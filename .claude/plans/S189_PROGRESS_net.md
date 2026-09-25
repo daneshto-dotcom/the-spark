@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-5 done.**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-6 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -13,8 +13,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | 27531dd |
 | 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | a08ad56 |
 | 4 | NETFR-6 — per-peer slot drop/rejoin test | done | b01a228 |
-| 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | done | (this commit) |
-| 6 | NETFR-5 — canon notes rewrite | pending | |
+| 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | done | f62af49 |
+| 6 | NETFR-5 — canon notes rewrite | done | (this commit) |
 | 7 | final gates + report | pending | |
 
 - **Step 1 — merge master.** `git merge master` was CLEAN (auto-merged `src/main.ts`, `src/input/controls.ts`;
@@ -166,6 +166,16 @@ The merge owner resumes from this file if this agent is cut off.
     BACKSPACE byte inside `/^it\b/` (the guard would have matched nothing). Caught by reading the bytes;
     fixed; every changed file then scanned for control bytes (all clean) and for mixed line endings (none).
   - Gates: `npx vitest run src/ci.e2ePort.test.ts` EXIT=0 (8 + 2 opt-in skipped); typecheck EXIT=0.
+
+- **Step 6 — NETFR-5: `S189_CANON_NOTES_net.md` rewritten.** The reconnect section now states the rules the
+  code runs: TWO LOSSES, TWO RULES — D4 takes over a silent-but-connected host in ANY seat count (1v1
+  included; the S189 "a 1v1 survivor never claims" line was the reversed first cut); the survivor gate
+  applies ONLY on transport loss, and since S191 its clock starts when a survivor is visible without the
+  host; retries continue past the grace and stop `RECONNECT_GIVE_UP_MS` (180 s) after the loss. Added: the
+  S191 per-match-id wire table, the per-peer gate + NETFR-6 lifecycle, and a table of EVERY constant on this
+  branch that is MINE (9 rows, `HOST_LOBBY_CONFIRM_MS` shown deleted) vs the inherited ones. This file's
+  reversed "Hunt B-2 … in a 1v1 the client no longer claims" is STRUCK in place with the correction, and the
+  C4 fault-3 line now says "on TRANSPORT loss only".
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 
@@ -440,13 +450,18 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
      "3-6 s" per reconnect.spec's own comment). -> `RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS` (8 s), and the
      loop no longer stops at the grace (terminal overlay unchanged; it clears itself when a peer returns).
   3. The lone 1v1 client claimed the host seat at 15 s with NO peer to host for, and a host never
-     reconnects -> both sides stuck. -> the claim requires `hasSurvivorToHostFor(alivePeers, hostPeerId)`
+     reconnects -> both sides stuck. -> on TRANSPORT loss only (FR-4 narrowed it; S191 NETFR-3 moved the
+     clock start), the claim requires `hasSurvivorToHostFor(alivePeers, hostPeerId)`
      (the rule `main.ts`'s own overlay-split comment already stated: "peerCount === 0 = OUR transport
      died — the S82 reconnect-cycle is the only path back").
 - Falls out for free: hunt A3 (a DEPOSED host re-joining its own dying room -> ghost peer) — the same
-  `disconnect(); connectAsClient()` pattern at `main.ts:2586-2587`, now fixed by (1). Hunt B-2 (a 2p host
+  `disconnect(); connectAsClient()` pattern at `main.ts:2586-2587`, now fixed by (1). ~~Hunt B-2 (a 2p host
   frozen >= 21 s gets deposed): in a 1v1 the client no longer claims (the host is the only alive peer) ->
-  the board pauses until the host returns. 3+-seat migration unchanged (a survivor exists).
+  the board pauses until the host returns.~~ ⛔ STRUCK (S191 NETFR-5) — REVERSED by FR-4 (audit NET-4, S190):
+  that "falls out" was an UNAPPROVED change to D4, and it was undone. A frozen-but-CONNECTED host is taken
+  over by D4 at starvation 6 s + grace 15 s + the ladder rung in ANY seat count, 1v1 included (S124 design;
+  the thawed host rejoins as a client, S125 v2). The survivor gate (`hasSurvivorToHostFor`) applies ONLY when
+  the host has left OUR TRANSPORT. 3+-seat migration unchanged (a survivor exists).
 - ⚠ The post-fix e2e (`e2e/reconnect-hard-blip.spec.ts`, @quarantine-flaky) was NOT re-run by me — my two
   targeted e2e runs were the rejoin-latency measurement (temporary spec, deleted) and the pre-fix
   reproduction. It is OWED to the merge owner: expected GREEN post-fix (one attempt at ~1 s, landing ~7 s).
@@ -509,6 +524,8 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
   a fixed tie band G (a permanent stalemate at |D| ≈ G).
 
 ## Numbers that are MINE (not the owner's)
+
+- ⭐ S191 — the complete list (net constants S189 + S191) is the table in `S189_CANON_NOTES_net.md`.
 
 - `QM_AGE_MARGIN_MS = 500` (quickmatch.ts) — safety margin on every age estimate (clock-rate drift ~1e-4,
   floor). Proof needs only ≥ 0. Width of the near-tie band the code decides.
