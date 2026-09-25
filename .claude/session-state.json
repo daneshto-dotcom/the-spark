@@ -127,12 +127,27 @@
     "Owner numbers to confirm: APEX PREDATOR bite x4, THE SWARM bite x11",
     "INFRA DEFECT (S189): session-state.json lost-update race — a write followed by git add in the SAME Bash call committed the OLD content three times (fe027c6, 15f5938, 8663da6 all hold S188). Suspect the tool-call counter hook (.claude/session-state.json.tmp.counter.<pid> read-modify-rename). Rebuilt S189 by hand; verify session_id in a SEPARATE call before trusting it. Hunt the writer in ~/.claude/hooks."
   ],
-  "scope_amendments": [],
+  "scope_amendments": [
+    {
+      "id": "A1",
+      "ruling": "R191-A welded structures + sheets",
+      "branch": "s189/weld",
+      "round": 5
+    },
+    {
+      "id": "A2",
+      "ruling": "R191-B FIX by gatherer delivery",
+      "branch": "s189/weld",
+      "round": 6
+    }
+  ],
   "boot_findings": [
     "CI E2E for 7404a49 (run 36088405562) concluded SUCCESS - the \"red since S187\" note is stale; 5934d3b E2E cancelled, 15035b9 E2E failure (both pre-deploy-4).",
     "master src == 7404a49 src (diff empty); worktrees s189-weld 18769b4 (162 behind master) and s189-net 2a75496 (103 behind), both clean.",
     "statusline dead (SESSION-PDCA WARN) - cost counter undercounts; known since S190."
   ],
   "owner_approval_s191_verbatim": "I approve full session priority batch as described!",
-  "deliberation_note": "P0/P8/P10 inherit the S189 Council (2 rounds). P11-P15: Council dispatched IN PARALLEL with DO (Rule 0 deviation, recorded in the PDR sec.9); accepted challenges forwarded to branch agents."
+  "deliberation_note": "P0/P8/P10 inherit the S189 Council (2 rounds). P11-P15: Council dispatched IN PARALLEL with DO (Rule 0 deviation, recorded in the PDR sec.9); accepted challenges forwarded to branch agents.",
+  "owner_approval_s191_run_verbatim": "i APPROVE full run!",
+  "owner_standing_order_s191": "do make sure you deploy everything after it lands, right? Commit. Merge. Push. Deploy. (owner leaving for the day; tests in the evening)"
 }
