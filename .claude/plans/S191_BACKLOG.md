@@ -4,6 +4,26 @@
 `SPARK_CANON.md`. The owner also has a NEW list of things to implement, written after his playtest — take his list
 first; this file is what S190 knows is owed.
 
+## ⛔ FIRST — DEPLOY #5: land `s189/weld` and `s189/net` (both audited, NOT merged in S190; deploy #4 = 7404a49 is live at PROTOCOL 51)
+
+- **s189/weld** (C2 + R190-J): fix round 2 audited (wf_cd96cb8a-575) → round 3 sent in S190 (W-FR1 MED: rebuildAuthorityAllocators must
+  raise nextBondId to ≥ max(ownBondIdLimit) after a takeover/worker repair; W-FR2 MED: also revive a DORMANT Helga at BUILD→FIFGHT for
+  BUILD deaths — R190-J "every fight"; W-FR3 LOW: towerStatsIn skips DORMANT; W-FR4 documented only). Round 3 may already be committed on
+  the branch — read `.claude/worktrees/s189-weld/.claude/plans/S189_PROGRESS_weld.md`, audit round 3 (1 lens), then merge. Weld OWES A
+  BUMP (51 → 52): ownBondIdLimit on spawners + defenders, the 'DORMANT' defender state, survival on built-with connectors, Helga exact
+  first build + dormant revive, the empty S107 P4 lock, raze sets incl. orphaned welds, welded-tower drawing/FEED, bot raids on own bonds.
+  Integrator notes (weld section, merge chores, perf guard RE-COUNT after it): `.claude/plans/S190_INTEGRATOR_NOTES.md`.
+- **s189/net** (C4/C5-transport/C6/A1): fix round (668952b..2a75496) audited (wf_c0da87a5-e17) → **NOT shippable as is**:
+  NETFR-1 HIGH — FR-1's "host moved on → lobby" verdict sends a player to TITLE in a LIVE match when a rejoin lands on a host whose tab is
+  HIDDEN (rAF paused, signalling alive; LOBBY_PRESENCE is broadcast on join in any state); NETFR-2 MED — the seq-regression "new match"
+  test adopts a stranger's match when the new seq has passed the old watermark; NETFR-3 MED — stepMigrationClaim banks loss time during
+  OUR own transport loss, so a partial reconnect (a non-host peer first) claims the host seat and stops reconnecting. Fix shape for 1+2:
+  a per-match id / host phase on LOBBY_PRESENCE (additive-optional; check parseNetMessage tolerates it) and give the verdict only on a
+  positive "different match / LOBBY" signal, never on silence; for 3: return lossObservedAtMs 0 while the host is lost AND no survivor is
+  visible. Everything else in net (per-peer backpressure, reconnect-not-into-a-dying-room, D4 1v1 restored, Escape consumers, drop-reason
+  logs, strictPort, C6 lobby-age seat rule) was audited clean. OWED e2e before its push: reconnect-hard-blip, reconnect, exit-match,
+  hostmigration. Then the C4 retry tuning in §E.
+
 ## A · Owner questions — put to him in plain words, ONE batch, each with a recommendation (none block anything)
 
 1. **C3 Voltkin "attacks his own buildings"** — the targeting code is correct (verified twice). Most likely: the

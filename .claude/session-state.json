@@ -6,8 +6,8 @@
   "phase": "DO",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-  "session_status": "S190 EXECUTING — deploy #3 LIVE (train A: input-layer + ra-vfx + canon), verify-deploy 4/4; trains B-E in flight",
-  "protocol_version": 50,
+  "session_status": "S190 — deploy #4 LIVE (7404a49, verify-deploy 4/4); weld + net -> deploy #5",
+  "protocol_version": 51,
   "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
   "pdr_approved": true,
@@ -86,9 +86,42 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/wrath",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s188/wrath: WRATH OF RA (3 casts/FIGHT for a seat holding mummies.l0), square icon pre-cut from its card, bots cast Ra, raStrike->raStrikes. 2-lens audit (all CONFIRMED) -> phase-2 fix round (W-1 seat-aware offer, W-3, W-4 joiner preview, L1-06, W-5, W-6, W-7) -> fix-round audit: no MED defect. Deploy #4 (7404a49) integrated on s190/deploy4 one branch at a time with typecheck + full vitest after every merge; gates on the integrated tree captured $?: typecheck 0, vitest 0 (6464/397), build 0 (955.9/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5); PROTOCOL 50->51 (one bump, every reason in one docblock); canon re-pinned from the constants; verify-deploy 4/4 (after rebuilding the main checkout's stale dist); live site looked at: loads, zero console errors, cruiser above the draft panel.",
+      "checkpoint_commit": "7404a49",
+      "deployed": "deploy #4 (7404a49)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 51"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/racialPerks.ts",
+          "needle": "'mummies.l10'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "raStrikes"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raAimPreview.ts",
+          "needle": "pending"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "WRATH OF RA"
+        }
+      ],
+      "real_context_tokens_at_close": 860000,
+      "real_context_pct_at_close": 86.0
     },
     {
       "id": "P4",
@@ -99,9 +132,37 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/swarm",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s188/swarm: THE SWARM (vampires.l10, every stat x6 per R190-D). 2-lens audit -> part A (portrait fallback, lazy 7.3 MiB sheet, card pipeline) -> part B merged wrath (14-perk union) -> fix-round audit: no MED defect. Deploy #4 (7404a49) integrated on s190/deploy4 one branch at a time with typecheck + full vitest after every merge; gates on the integrated tree captured $?: typecheck 0, vitest 0 (6464/397), build 0 (955.9/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5); PROTOCOL 50->51 (one bump, every reason in one docblock); canon re-pinned from the constants; verify-deploy 4/4 (after rebuilding the main checkout's stale dist); live site looked at: loads, zero console errors, cruiser above the draft panel.",
+      "checkpoint_commit": "7404a49",
+      "deployed": "deploy #4 (7404a49)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/racialPerks.ts",
+          "needle": "'vampires.l10'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "t3BatSwarm"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/build-upgrade-cards.py",
+          "needle": "l10-vampires"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "THE SWARM"
+        }
+      ],
+      "real_context_tokens_at_close": 860000,
+      "real_context_pct_at_close": 86.0
     },
     {
       "id": "P5",
@@ -143,14 +204,14 @@
           "needle": "S190 RAVFX-A"
         },
         {
-          "type": "file_contains",
+          "type": "file_lacks",
           "path": "src/canon.test.ts",
-          "needle": "const AHEAD_OF_THEIR_PERK = ['l10-mummies'] as const;"
+          "needle": "const AHEAD_OF_THEIR_PERK"
         },
         {
           "type": "file_contains",
           "path": "SPARK_CANON.md",
-          "needle": "**17** cards in `public/art/upgrade-cards/`"
+          "needle": "**18** cards in `public/art/upgrade-cards/`"
         }
       ]
     },
@@ -163,9 +224,32 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s188/draft-atk",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s188/draft-atk: a drafted ATK/PEN pick now reaches every creature strike (12 sites), HELLSPAWN inherits the parent's strike, card + fatalBlow read the creature; its phase 1 and its triage confirmed the bug independently; 2-lens audit: no defect on branch. Deploy #4 (7404a49) integrated on s190/deploy4 one branch at a time with typecheck + full vitest after every merge; gates on the integrated tree captured $?: typecheck 0, vitest 0 (6464/397), build 0 (955.9/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5); PROTOCOL 50->51 (one bump, every reason in one docblock); canon re-pinned from the constants; verify-deploy 4/4 (after rebuilding the main checkout's stale dist); live site looked at: loads, zero console errors, cruiser above the draft panel.",
+      "checkpoint_commit": "7404a49",
+      "deployed": "deploy #4 (7404a49)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "export function creatureAttackFifths"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "atkFifths"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/creatureStrike.guard.test.ts",
+          "needle": "R190-E"
+        }
+      ],
+      "real_context_tokens_at_close": 860000,
+      "real_context_pct_at_close": 86.0
     },
     {
       "id": "P7",
@@ -176,9 +260,32 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/units",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s189/units: C8 Helga on the board, C10 Kraken 70 px shove + stun (audit U1: velocity REPLACED, reach test with a walking victim), LOWs a-d (rage latch, R190-C regen, nextCreatureId serialized, spawn-queue window); C3 not reproduced (targeting verified twice) -> owner question in S191_BACKLOG. Deploy #4 (7404a49) integrated on s190/deploy4 one branch at a time with typecheck + full vitest after every merge; gates on the integrated tree captured $?: typecheck 0, vitest 0 (6464/397), build 0 (955.9/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5); PROTOCOL 50->51 (one bump, every reason in one docblock); canon re-pinned from the constants; verify-deploy 4/4 (after rebuilding the main checkout's stale dist); live site looked at: loads, zero console errors, cruiser above the draft panel.",
+      "checkpoint_commit": "7404a49",
+      "deployed": "deploy #4 (7404a49)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsKraken.ts",
+          "needle": "KRAKEN_SONAR_KNOCKBACK_PX"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "nextCreatureId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/racial/spawnQueue.ts",
+          "needle": "endHostTickSpawnWindow"
+        }
+      ],
+      "real_context_tokens_at_close": 860000,
+      "real_context_pct_at_close": 86.0
     },
     {
       "id": "P8",
@@ -202,9 +309,32 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
       "branch": "s189/render",
-      "status": "in_progress",
-      "priority_state": "in_progress",
-      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3"
+      "status": "completed",
+      "priority_state": "completed",
+      "note": "brief: .claude/plans/2026-09-24_S189_BATCH_PDR.md §5; execution order §3",
+      "check_completed": true,
+      "check_method": "s189/render: C1 cruiser above the draft panel (zIndex 900 removed), C7 teleport beam (moveTo) + Kraken rings + naga crest, elite fallback, R190-I separate hit/heal numbers (healedFifths), R190-H Ra strike above units, R2-1 click-through fixed; 2 audits: no MED defect on branch; integrator added L1-5 (setCoveredBy). Deploy #4 (7404a49) integrated on s190/deploy4 one branch at a time with typecheck + full vitest after every merge; gates on the integrated tree captured $?: typecheck 0, vitest 0 (6464/397), build 0 (955.9/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5); PROTOCOL 50->51 (one bump, every reason in one docblock); canon re-pinned from the constants; verify-deploy 4/4 (after rebuilding the main checkout's stale dist); live site looked at: loads, zero console errors, cruiser above the draft panel.",
+      "checkpoint_commit": "7404a49",
+      "deployed": "deploy #4 (7404a49)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/creatures/creature.ts",
+          "needle": "healedFifths"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/draftOverlay.ts",
+          "needle": "setCoveredBy"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/s190RaStrikeAboveUnits.test.ts",
+          "needle": "raStrikes"
+        }
+      ],
+      "real_context_tokens_at_close": 860000,
+      "real_context_pct_at_close": 86.0
     },
     {
       "id": "P10",
@@ -229,6 +359,31 @@
       "priority": "P5",
       "tag": "#s190-render-state-that-outlives-sim-state-needs-the-sims-proof",
       "lesson": "The Pharaoh finale tail assumed PLAYING was the sim's landing gate; the real gate was hostTick's FIGHT block. A renderer that remembers past what the sim says must key on the sim's own evidence (his absence, the mass-clear epoch), never on a proxy."
+    },
+    {
+      "priority": "P3",
+      "tag": "#s190-a-merge-resolution-that-compiles-can-drop-an-argument",
+      "lesson": "Wrath's draftOverlay conflict had exactly one resolution that compiled — and it silently dropped the seat's picks (an optional parameter). tsc cannot see a missing optional argument; only a test through the real panel with nothing injected can."
+    },
+    {
+      "priority": "P4",
+      "tag": "#s190-a-red-by-design-tripwire-is-a-chain-not-a-line",
+      "lesson": "The canon registry test failed on its FIRST expect; fixing that exposed nine more behind it. Count the whole chain before calling a canon fix 'one row'."
+    },
+    {
+      "priority": "P6",
+      "tag": "#s190-two-independent-confirmations-before-a-big-change",
+      "lesson": "draft-atk's own phase 1 and its triage audit confirmed the dead ATK/PEN picks separately before a line changed across 12 strike sites — the cheapest insurance on a wide change."
+    },
+    {
+      "priority": "P7",
+      "tag": "#s190-a-test-at-rest-hides-a-velocity-bug",
+      "lesson": "All four sonar tests used a victim standing still, so an additive shove looked right; a walking unit slid INTO the Kraken. Test the physics with the motion the game actually has."
+    },
+    {
+      "priority": "P9",
+      "tag": "#s190-removing-a-zindex-changes-who-gets-the-click",
+      "lesson": "Deleting the draft panel's zIndex fixed C1 and silently let passive overlays above it pass clicks through to hidden draft tiles. A z-order change is an input change."
     }
   ],
   "carry_forward_findings": [
