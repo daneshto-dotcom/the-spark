@@ -140,7 +140,6 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
-import { runBloodFrenzy } from './racial/bloodFrenzy.ts'; // S191 round 2 (RAGE-1) — the outside-FIGHT pass below
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -2131,17 +2130,6 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // POWER OF RA columns, CORPSE EATER, …). Beside the boss skills and inside the same FIGHT gate
     // for the same reasons; `racial/racialTick.ts` holds one slot per mechanic.
     runRacialPerksFight(world);
-  } else if (world.gameState === 'PLAYING') {
-    /*
-     * ⛔⛔ S191 round 2 (RAGE-1) — **THE RAGE CLOCK RUNS OUTSIDE FIGHT TOO.** ⚠ MINE — the owner said
-     * "25 seconds"; the clock is world time, it runs through BUILD. The latch's FIRE branch refuses
-     * outside FIGHT (`runWarlordRage`), so this only lets a rage that started in FIGHT END on time —
-     * and lets BLOOD FRENZY's orcs follow their source down with it (the frenzy's own rule, which can
-     * only raise a unit while a source's window is open, i.e. at most `WARLORD_RAGE_TICKS` into BUILD).
-     * Without it every rage at the whistle stayed red for the whole BUILD.
-     */
-    runWarlordRage(world);
-    runBloodFrenzy(world);
   }
 
   // ⭐ S188 F1 — the batch's heals land HERE: after every blow of the tick, before anyone is swept, so

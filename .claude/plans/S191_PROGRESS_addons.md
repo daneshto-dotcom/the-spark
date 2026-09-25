@@ -13,14 +13,14 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
 | A-4 | A1 CI e2e lane | DONE | 811121b |
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
-| R2-1 | RAGE-1 the clock runs through BUILD | DONE | d2757a0 |
+| R2-1 | RAGE-1 the clock runs through BUILD | **REVERTED** (owner ruling, S191) | d2757a0 → reverted by the next commit |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
 | R2-4 | INPUT-1 + INPUT-3 modals and HUD controls cover the board | DONE | de5dedd |
 | R2-5 | INPUT-4 castle-panel RMB put-back | DONE | 90732c4 |
 | R2-6 | INPUT-5 Alt latch reset on blur / hidden | DONE | 7ea99a5 |
-| R2-7 | INPUT-6 widened right-click guard + repo-wide scan | DONE | (this commit) |
+| R2-7 | INPUT-6 widened right-click guard + repo-wide scan | DONE | 08363cc |
 | R2-9 | DOCS · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task

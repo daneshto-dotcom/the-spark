@@ -3201,15 +3201,10 @@ export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 tic
  *
  * ⚠ MINE — owner ruled "cooldown first" (S191) but gave no length; 25 s mirrors the rage.
  *
- * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
- * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. He
- * can FIRE only in FIGHT, and the clock runs on through BUILD (RAGE-1). So in every FIGHT a hurt Warlord
- * fires on its first tick, then again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` for as long
- * as that falls inside `FIGHT_PHASE_TICKS`; the last rage runs on past the whistle until its own
- * `WARLORD_RAGE_TICKS` are spent, and BUILD (`PHASE_DURATION_TICKS`) outlasts both windows, so the next
- * FIGHT starts the same pattern afresh. BLOOD FRENZY switches his seat's orcs on and off with him.
- * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging 50–60 s and on 15 s
- * into BUILD. `warlordRageClock.test.ts` derives the same pattern from the constants.
+ * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger): nothing heals a Warlord today (the S179 note at
+ * `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half — and with a 25 s rage and a
+ * 25 s cooldown a hurt Warlord therefore alternates **25 s on / 25 s off** for the rest of his life (and
+ * BLOOD FRENZY switches his seat's orcs on and off with him). That rhythm is this number's doing.
  *
  * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
  * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
