@@ -149,5 +149,7 @@
   "owner_approval_s191_verbatim": "I approve full session priority batch as described!",
   "deliberation_note": "P0/P8/P10 inherit the S189 Council (2 rounds). P11-P15: Council dispatched IN PARALLEL with DO (Rule 0 deviation, recorded in the PDR sec.9); accepted challenges forwarded to branch agents.",
   "owner_approval_s191_run_verbatim": "i APPROVE full run!",
-  "owner_standing_order_s191": "do make sure you deploy everything after it lands, right? Commit. Merge. Push. Deploy. (owner leaving for the day; tests in the evening)"
+  "owner_standing_order_s191": "do make sure you deploy everything after it lands, right? Commit. Merge. Push. Deploy. (owner leaving for the day; tests in the evening)",
+  "owner_handoff_preapproval_s191_verbatim": "once you think you're there, just run through the handoff too … we will run a full and complete session handoff, making sure to run all the steps of the handoff. I will pre-approve it",
+  "owner_close_out_order_s191": "before we close off, I would like you to also give me a summary of everything that has actually landed and was done. Or maybe some things you think we should still look at next session to just make sure it landed as it should … What are the next priorities moving forward?"
 }
