@@ -32,11 +32,16 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
 - `~/.claude/projects/<spark>/memory/` — **zero hits** (grep exit 1 = no match; benign, verdict recorded).
 - `Founder DNA/BRAIN/` — **no stat-board research**. Only unrelated "endgame"/"red alert" words (estate governance, parking plan). `data_collection/PC_DEEP_SCAN.json:237` lists *Command and Conquer Generals* installed — context for his taste, not research.
 
+- **Step 2 — the spec**: `.claude/plans/S191_ENDGAME_STATS_SPEC.md` (98 lines), written from the record + his words after
+  re-verifying the recon against the CURRENT tree. Deltas vs the S179-S181 record: attacker attribution now EXISTS
+  (`DamageAttacker`, S183 retaliation / S188 lifesteal) so DEALT is no longer an 18-site refactor; the Council item (S191)
+  on history-through-migration is answered in §3 with a stated deviation (no new NetMessage).
+
 ## In flight
-- Merge-owner REDIRECT received: skip web research; write a SHORT spec from the record + his words; then IMPLEMENT v1 in slices without waiting (he considers it designed).
+- Slice 1 — `src/state/matchStats.ts` + the World field + factory/resets + save/hash.
 
 ## Next
-- Re-verify the recon against the CURRENT tree (it is 10+ sessions stale: PROTOCOL 46→51, castle 1500→2500, attacker attribution may have moved with retaliation §9b), write `.claude/plans/S191_ENDGAME_STATS_SPEC.md` (≤ 120 lines), commit; then slices.
+- Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
 
 ## Decisions
 - Branch taken: **2a (implement)**, on the merge owner's redirect — the research + a v1 proposal exist; his S191 words answer the one open question (B2 "what goes on it").
