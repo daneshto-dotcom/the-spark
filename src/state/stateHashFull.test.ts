@@ -29,6 +29,7 @@ import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { makeSpawner } from './spawners/spawner.ts';
 import { makeDefender } from './defenders/defender.ts';
 import { makeGatherer } from './gatherers/gatherer.ts';
+import { recordUnitBuilt } from './matchStats.ts'; // ⭐ S191
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import {
@@ -563,6 +564,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     w.fouledPrimitives.add(asPrimitiveId(3));
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
+    // ⭐ S191 — a stat-board counter, so the family contributes its `ms` part here too.
+    recordUnitBuilt(w, P0, 'chewer');
     addPrimBondSpark(w);
 
     const parts = determinismParts(w);
@@ -588,6 +591,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['fouledPrimitives', /^fo:\d/],
       ['discoveredCombos', /^dc:./],
       ['godlyFiredThisMatch', /^gf:./],
+      // ⭐ S191 — the stat board's running totals (the history's `mh` part is pinned in matchStats.test.ts).
+      ['matchStats', /^ms\d+:/],
     ];
     for (const [family, re] of EXPECTED) {
       expect(FIELD_COVERAGE[family as keyof typeof FIELD_COVERAGE], `${family} must be hashed`).toBe(

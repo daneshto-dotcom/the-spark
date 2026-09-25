@@ -39,6 +39,7 @@ import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
+import { resetMatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board, per match
 
 
 /* ────────────────────────── Action types ───────────────────────────── */
@@ -247,6 +248,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
   world.waveNumber = 1; // S157 B8 — every match opens on wave 1
+  resetMatchStats(world); // ⭐ S191 — the stat board counts THIS match (applyStartGame keeps the seats)
   /*
    * ⭐⭐ S187 — EVERY SEAT STARTS A MATCH HAVING DRAFTED NOTHING, and the pre-wave-1 draft opens
    * here, at the one TITLE/LOBBY->PLAYING edge every entry path takes (solo, bots, host 1v1, joiner).
@@ -470,6 +472,7 @@ export function applyReturnToTitle(world: World): World {
   world.nextBondId = 0;
   world.scoreProgress = 0;
   world.scoreByPlayer.clear();
+  resetMatchStats(world); // ⭐ S191 — the stat board, with the score it sits beside
   // S31 P0-2 — clear Phase-2 godly/creature cinematic state. Mirrors the
   // GODLY_ABORT cascade (world.ts:407-418) but applied on title-return path
   // instead of peer-drop path. Without these clears, an active Voltkin

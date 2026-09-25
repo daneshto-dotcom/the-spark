@@ -187,6 +187,7 @@ import { applyCastPowerOfRa } from './racial/powerOfRa.ts';
 import type { CastPowerOfRaAction } from './racial/powerOfRaRules.ts';
 import { spendScore } from './gameMode.ts';
 import { drainRacialSpawnQueueOutsideHostTick } from './racial/spawnQueue.ts';
+import { makeMatchStats, recordWaveSample } from './matchStats.ts'; // ⭐ S191 — the stat board
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -423,6 +424,7 @@ export function makeWorld(rngSeed: number): World {
     structureWatchEpoch: 0, // S182 — bumped on a mass clear so the renderer drops its watch
     scoreProgress: 0,
     scoreByPlayer: new Map(),
+    matchStats: makeMatchStats(), // ⭐ S191 — the end-of-match stat board (see matchStats.ts)
     cinematicsEnabled: true,
     gameMode: 'solo',
     isHost: true,
@@ -617,6 +619,10 @@ function dispatchReducer(world: World, action: GameAction): World {
     case 'WIN_TRIGGER':
       world.gameState = 'WIN';
       world.lastWinnerId = action.winnerId;
+      // ⭐ S191 — THE STAT BOARD'S LAST GRAPH POINT, TAKEN BEFORE A SINGLE LINE OF TEARDOWN BELOW. Both win
+      // paths (castle, score) reach this one reducer, so neither can skip it. HOST-ONLY: a client reaches
+      // this arm from ENDGAME and must not invent a sample the host's snapshot will carry anyway.
+      if (world.isHost) recordWaveSample(world, world.waveNumber);
       // S72 P2 — tear the hunter down on the PLAYING->WIN edge so it never lingers
       // on the win screen + no player carries a bench into POSTGAME / the next match.
       teardownHunters(world);

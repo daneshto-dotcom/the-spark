@@ -37,8 +37,15 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   (`DamageAttacker`, S183 retaliation / S188 lifesteal) so DEALT is no longer an 18-site refactor; the Council item (S191)
   on history-through-migration is answered in §3 with a stated deviation (no new NetMessage).
 
+- **Slice 1 — the recorder + its four sites.** NEW `src/state/matchStats.ts` (types, writers, `sampleBuilt`, wave sample,
+  serialize / net trim / apply / hash parts). `World.matchStats` (worldTypes), factory (`makeWorld`), resets
+  (`applyStartGame`, `applyReturnToTitle`, `softReset`), final sample in `WIN_TRIGGER` before teardown (host-only),
+  `save.ts` (field, emit, net trim, core seats, restore=full history, applyNetSnapshot=keep-or-replace),
+  `stateHashFull.ts` (`matchStats: 'hashed'`, `ms`/`mh` parts) + its family-test row. Tests: `matchStats.test.ts` 13/13;
+  `stateHashFull.test.ts` 26/26; `save.test.ts` 44/44; typecheck exit 0.
+
 ## In flight
-- Slice 1 — `src/state/matchStats.ts` + the World field + factory/resets + save/hash.
+- Slice 2 — the hooks (spawn, damage chokepoints + `DamageAttacker 'seat'`, towers, fell, wave edge).
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
@@ -47,7 +54,13 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
 - Branch taken: **2a (implement)**, on the merge owner's redirect — the research + a v1 proposal exist; his S191 words answer the one open question (B2 "what goes on it").
 
 ## Numbers that are MINE
-- _none yet_
+- `HISTORY_WINDOW_TICKS = 2 × PHYSICS_HZ` (matchStats.ts) — how long the whole history rides the net snapshot after each sample.
+- The BUILT graph = connectors standing (`sampleBuilt`) — the lever if he wants a different line.
+- `towersFell` includes a tower its owner scrapped/extended (the sim does not record who broke a recipe).
 
 ## Hotspot hunks
-- _none yet_
+- `src/state/worldTypes.ts` — one import line + the `matchStats` field block (after `scoreByPlayer`).
+- `src/state/save.ts` — one import; `WorldSnapshot.matchStats?` block; one emit line in `snapshot()`; one trim line in
+  `netSnapshot()` (after the spawner strip); one apply line in `applySnapshotCore` (after `scoreByPlayer`); one line each
+  in `restore()` and `applyNetSnapshot()`.
+- `src/state/stateHashFull.ts` — one import; the `matchStats: 'hashed'` entry; one `parts.push` after the scores.
