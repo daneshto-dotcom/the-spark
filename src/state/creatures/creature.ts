@@ -832,6 +832,42 @@ export interface Creature {
    * treatment as the deadline, and meaningless once the deadline has passed.
    */
   corpseEaterAnchor?: Vec2;
+  /*
+   * ⭐⭐ S189 (owner R190-I) — **EVERY HEAL THIS CREATURE HAS EVER RECEIVED, SUMMED. A MONOTONIC
+   * COUNTER, NEVER RESET.**
+   *
+   * > *"It has to show -12 and +2 separately, in different colors … it shows every single hit or
+   * > heal. They can stack on top of each other … however fast you take damage or heal, that's how
+   * > fast it should show."* — owner, S189
+   *
+   * `ehp` alone cannot say that: a unit struck for 12 and healed 2 on one tick changes `ehp` by 10.
+   * The damage floater (`render/damageNumbers.ts`) diffs THIS counter alongside `ehp` — the heal in a
+   * window is `healed − healed'`, and the hit is the `ehp` drop PLUS that heal — so both numbers are
+   * exact, on the host AND on a joiner, because the counter rides the wire.
+   *
+   * Written ONLY through `noteCreatureHeal`, at the four heal sites (BLOOD DEBT / CRIMSON TIDE ×2,
+   * Vlad's LIFE SAP, CORPSE EATER), with the heal actually APPLIED (after the max cap), so the
+   * arithmetic above is exact. Nothing in the SIM reads it.
+   *
+   * ⚠ ADDITIVE-OPTIONAL — absent = 0, emitted only once > 0, so an unhealed creature stays
+   * byte-identical and this costs no `PROTOCOL_VERSION` bump: a stale peer ignores it (the
+   * deserializer copies named fields only) and draws the old net number; nothing it SIMULATES reads
+   * it. HASHED in the wide oracle (`:hf`) for the `sapFlashUntilTick` reason — an unhashed serialized
+   * field is a blind spot — and deliberately NOT in the narrow production hash.
+   *
+   * Mutable; defaults undefined (no factory change).
+   */
+  healedFifths?: number;
+}
+
+/**
+ * ⭐ S189 (owner R190-I) — record a heal that has JUST been applied to `c.ehp`, for the green floater.
+ * Call immediately after the write, passing `ehp` as it was before it: the counter grows by exactly
+ * what the pool gained, so a capped heal counts only what landed.
+ */
+export function noteCreatureHeal(c: Creature, ehpBefore: number): void {
+  const applied = c.ehp - ehpBefore;
+  if (applied > 0) c.healedFifths = (c.healedFifths ?? 0) + applied;
 }
 
 /**

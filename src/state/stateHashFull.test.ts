@@ -261,6 +261,18 @@ describe('hashWorldStateFull — SENSITIVITY to the families S133 made visible',
     expect(hashWorldStateFull(w), 'the projection must carry the life-sap stamp').not.toBe(wideBefore);
   });
 
+  // ⭐ S189 (owner R190-I) — the HEAL counter behind the green floater: in the union AND the `:hf`
+  // projection, so a host and its worker mirror that counted heals differently cannot both stay green.
+  it('⭐ healedFifths — the HEAL counter — flips the wide hash, and each value is distinct', () => {
+    const w = worldWithEntities();
+    const wideBefore = hashWorldStateFull(w);
+    w.creatures.get(asCreatureId(1))!.healedFifths = 2;
+    const two = hashWorldStateFull(w);
+    expect(two, 'the projection must carry the heal counter').not.toBe(wideBefore);
+    w.creatures.get(asCreatureId(1))!.healedFifths = 3;
+    expect(hashWorldStateFull(w)).not.toBe(two);
+  });
+
   /**
    * ⭐⭐ S171 (owner R142/R171-A) — **`raRitualUntilTick` — THE RA RITUAL STAMP — MUST CONTRIBUTE.**
    *

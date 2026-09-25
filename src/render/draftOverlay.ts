@@ -353,7 +353,24 @@ export class DraftOverlay {
     this.loadCard = deps.loadCard ?? ((url) => Assets.load<Texture>(url));
     this.container.visible = false;
     this.container.eventMode = 'static';
-    this.container.zIndex = 900;
+    /*
+     * ⛔⛔ S189 C1 (owner) — **NO `zIndex` ON THIS CONTAINER. ITS PLACE IS ITS STAGING LINE IN
+     * `main.ts`, AND A zIndex IS WHAT PUT HIS POINTER UNDER THE PANEL.**
+     *
+     * > *"the spark should be one layer above … it gets highlighted when you mouse over it, but the
+     * > mouse is under it"* — owner, S189
+     *
+     * S187 shipped `zIndex = 900` here. `exitButton.ts` sets `app.stage.sortableChildren = true`, and
+     * Pixi then sorts the stage by zIndex every frame — so a 900 lifted this panel above EVERY
+     * zIndex-0 sibling no matter where it was added, including the local cruiser that
+     * `avatarRenderer.bringLocalToFront()` stages LAST precisely so nothing covers it (S153 A1). The
+     * hover highlight worked; the thing he steers with was drawn underneath the plate.
+     *
+     * With no zIndex the panel obeys child order like the rest of the HUD (canon §7b R183-G), and
+     * `main.ts` stages it after the footer and the character sheet (so it still covers those) and
+     * immediately BEFORE the cruiser lift (so the cruiser covers it). `s189CruiserAboveDraft.test.ts`
+     * sorts a real stage built in that order and goes red if a zIndex comes back.
+     */
 
     const h1 = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 22, fill: INK });
     /*

@@ -932,8 +932,7 @@ async function bootstrap(): Promise<void> {
    * how to play it"*), so it must never be occluded by a sprite or dimmed by fog.
    */
   app.stage.addChild(damageNumbers.layer);
-  // ⭐ S187 — above the numbers and the board: it is a modal choice, and nothing may occlude it.
-  app.stage.addChild(draftOverlay.container);
+  // ⛔ S189 C1 — the draft panel's staging line MOVED to just before `bringLocalToFront()` below.
   // S81 P5 — the persistent top HUD row, staged ABOVE the fog (created back at bootstrap top;
   // see the comment there). Relative order preserved: beta, ⚙ (after beta — S18 P1
   // child-add-order note), ⚙. The HUD/stats classes below add their containers after these,
@@ -1314,6 +1313,14 @@ async function bootstrap(): Promise<void> {
    * over UI chrome, and the owner's carve-out was for the cruiser they steer, not for scenery. So
    * that lift is REVERTED rather than left as a harmless extra.
    */
+  /*
+   * ⭐ S187 — the draft panel: above the numbers, the board, the HUD, the footer and the character
+   * sheet (it is a modal choice, and none of those may occlude it) — and ⛔ S189 C1 (owner) BELOW his
+   * cruiser: *"the spark should be one layer above … the mouse is under it"*. Staged here, between
+   * the two lifts, because child order is the whole mechanism (the panel carries no zIndex — see
+   * `draftOverlay.ts`). `s189CruiserAboveDraft.test.ts` pins these three lines in this order.
+   */
+  app.stage.addChild(draftOverlay.container);
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay

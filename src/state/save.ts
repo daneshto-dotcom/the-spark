@@ -834,6 +834,13 @@ interface SerializedCreature {
    */
   readonly corpseEaterUntilTick?: number;
   readonly corpseEaterAnchor?: { x: number; y: number };
+  /**
+   * ⭐ S189 (owner R190-I) — the creature's monotonic HEAL counter (`Creature.healedFifths`). Emitted only
+   * once > 0, so an unhealed creature is byte-identical; it rides the wire so a JOINER splits "-12 +2"
+   * exactly as the host does, and the worker mirror rebuilds from this shape. Additive-optional: a stale
+   * peer ignores it and nothing any sim computes reads it — no protocol bump.
+   */
+  readonly healedFifths?: number;
 }
 
 /**
@@ -2291,6 +2298,8 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
       : {}),
+    // ⭐ S189 R190-I — the heal counter, only once a heal has landed.
+    ...(c.healedFifths !== undefined && c.healedFifths > 0 ? { healedFifths: c.healedFifths } : {}),
   };
 }
 
@@ -2674,6 +2683,8 @@ function deserializeCreature(s: SerializedCreature): Creature {
     ...(s.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
       : {}),
+    // ⭐ S189 R190-I — validated, never trusted: a positive integer or nothing (absent reads as 0).
+    ...(Number.isInteger(s.healedFifths) && (s.healedFifths as number) > 0 ? { healedFifths: s.healedFifths } : {}),
   };
 }
 

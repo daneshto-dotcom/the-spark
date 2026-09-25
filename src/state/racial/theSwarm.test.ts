@@ -334,9 +334,12 @@ describe('S188 THE SWARM — its OWN art, and a missing sheet degrades to the ba
   it('⭐ a swarm whose sheet has not resolved draws with the BAT’s sheet — never the green puppet', () => {
     expect(atlasFallbackType(SWARM)).toBe('t3Bat');
     expect(ATLASES[atlasFallbackType(SWARM)!]).toBeTypeOf('string');
-    // Nothing else borrows a sheet — every other type keeps its pre-S188 behaviour.
+    // Nothing else borrows a sheet — every other type keeps its pre-S188 behaviour. ⭐ S190 merge (swarm ×
+    // render): except the ELITE PIRANHA, which s189/render gave the same fallback (`t3PiranhaElite →
+    // t3Piranha`). Still EXCLUSIVE: a third borrower turns this red.
+    expect(atlasFallbackType('t3PiranhaElite')).toBe('t3Piranha');
     for (const t of Object.keys(CREATURE_CONFIGS) as CreatureType[]) {
-      if (t !== SWARM) expect(atlasFallbackType(t), t).toBeNull();
+      if (t !== SWARM && t !== 't3PiranhaElite') expect(atlasFallbackType(t), t).toBeNull();
     }
   });
 });

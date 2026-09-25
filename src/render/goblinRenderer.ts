@@ -114,16 +114,24 @@ const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
 export const BAT_SWARM_ATLAS_BASE = `${t3UnitAtlasBase('vampires')}-swarm`;
 
 /**
- * ⭐ S188 — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS THE UNIT IT WAS PROMOTED FROM.**
+ * ⭐ S188 (s188/swarm) + S189 (s189/render LOW b) — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS
+ * THE UNIT IT WAS PROMOTED FROM.**
  *
- * `loadAtlas` fails silently, and until now a type with no resolved sheet fell straight to
- * `drawGoblin`'s green procedural puppet — the look the owner has reported as a regression twice. A
- * bat swarm whose sheet is still in flight (or 404s on some peer) instead draws with the ordinary
- * bat's sheet, at the swarm's own scale: the right animal, visibly bigger, never green.
- * Pure and exported so the fallback is testable without Pixi.
+ * `loadAtlas` fails silently, and until then a type with no resolved sheet fell straight to
+ * `drawGoblin`'s green procedural puppet — the look the owner has reported as a regression twice. Two
+ * promoted units now borrow their base unit's sheet while their own is still in flight (or 404s on some
+ * peer), at their own scale, because the sprite scale is keyed by the creature's TYPE:
+ *   · a bat swarm (THE SWARM, `vampires.l10`) draws with the ordinary bat's sheet, at
+ *     `BAT_SWARM_SPRITE_SCALE_MUL`;
+ *   · an elite piranha (APEX PREDATOR, `nagas.l5`) draws with the ordinary piranha's sheet, at
+ *     `creatureSpriteScaleMul('t3PiranhaElite')` = 2 — his *"two times bigger"*. The two sheets carry the
+ *     same four rows (`idle` / `walk` / `attack` / `die`) and the same cell height and foot anchor.
+ * The right animal, visibly bigger, never green. Pure and exported so the fallback is testable without
+ * Pixi. ⭐ S190 merge (swarm × render): the body is the UNION of the two branches' arms, and both
+ * exclusivity tests (`theSwarm.test.ts`, `s189EliteFallback.test.ts`) are re-pinned to the union.
  */
 export function atlasFallbackType(type: CreatureType): CreatureType | null {
-  return type === 't3BatSwarm' ? 't3Bat' : null;
+  return type === 't3BatSwarm' ? 't3Bat' : type === 't3PiranhaElite' ? 't3Piranha' : null;
 }
 
 export const ATLASES: Partial<Record<CreatureType, string>> = {
@@ -999,16 +1007,25 @@ export class GoblinRenderer {
      * gated on `GOBLIN_KINDS` and on an atlas being READY. An aura that waited for its boss's sheet
      * to decode would flicker on for the first seconds of every fight.
      */
-    drawBossAuras(g, world);
+    /*
+     * ⭐⭐ S190 (owner R190-H) — **THE RA STRIKE DRAWS ON TOP OF THE UNITS; EVERY OTHER AURA STAYS UNDER.**
+     * `drawBossAuras` routes ONLY the strike (the owner's sprite frames, or the code-beam shafts) into
+     * `arrowLayer`, which sits ABOVE `spriteLayer`; the ground auras, the telegraph shade and the scorch
+     * stay in `g`, under every sprite. So the projectile sync — which OPENS WITH `arrowLayer.clear()` —
+     * moved up to run FIRST: drawn after it, the strike survives the frame. No new display object, so
+     * `fogHiddenLayer`'s child indices (the e2e probes) are untouched.
+     */
+    // R84 — derived from synced FSM state every frame, never from a one-shot effect push
+    // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
+    syncCreatureProjectiles(this.arrowLayer, world);
+    drawBossAuras(g, world, this.arrowLayer);
     /*
      * ⭐ S171 (owner R142/R171-I) — the Pharaoh's locust clouds, into this SAME Graphics for the same
      * reason as the auras above: a new child of `fogHiddenLayer` shifts its indices. Drawn after the
      * auras so a swarm passing over a rot aura sits on top of it, and still beneath the sprite layer.
      */
     drawLocustClouds(g, world);
-    // R84 — derived from synced FSM state every frame, never from a one-shot effect push
-    // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
-    syncCreatureProjectiles(this.arrowLayer, world);
+    // (The projectile sync that stood here moved ABOVE `drawBossAuras` — S190 R190-H, see there.)
     /*
      * ⭐ S171 (owner R171-E) — health bars, into the ARROW LAYER and strictly AFTER the projectile
      * sync. Two reasons, both load-bearing:
