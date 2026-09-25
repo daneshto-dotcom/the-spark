@@ -3174,8 +3174,42 @@ export const WARLORD_RAGE_MULTIPLIER = 2;
  * the clear condition is unreachable in play TODAY. It is implemented anyway, because the ruling is
  * about what should happen when it is reachable, and a rule that exists only in a comment is the
  * class of thing S167 shipped a whole session on.
+ *
+ * ⛔⛔ S191 — **RETIRED IN PLACE, UNREAD BY THE SIM.** The owner replaced R151's exit with a CLOCK
+ * (`WARLORD_RAGE_TICKS` below): once his own latch fires he rages for 25 s *regardless of healing*,
+ * so no health reading calms him any more. Kept exported, with its history, so the R151/S179 record
+ * above stays readable; `bossSkillsWarlord.ts` no longer imports it.
  */
 export const WARLORD_RAGE_CLEAR_PCT = 50;
+
+/**
+ * ⭐⭐ S191 (owner) — **THE RAGE LASTS 25 SECONDS.** *"let's do it like 25 seconds"* (S190, recorded
+ * for S191 in `S190_OWNER_RULINGS.md`).
+ *
+ * Once a Warlord's OWN latch fires (strictly below `WARLORD_RAGE_TRIGGER_PCT` of his own max) he rages
+ * for exactly this many ticks, **regardless of healing** — the clock replaces R151's "until IF healed
+ * above 50 %" exit. Measured in `world.tick` from `Creature.rageStartTick`: raging on ticks
+ * `start … start + WARLORD_RAGE_TICKS − 1`, calm from `start + WARLORD_RAGE_TICKS`.
+ */
+export const WARLORD_RAGE_SECONDS = 25;
+export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s @ 60 Hz
+
+/**
+ * ⭐ S191 (owner) — **"COOLDOWN FIRST".** Asked what happens when the 25 s end and he is still under
+ * half, he ruled a cooldown before any re-trigger: calm for this many ticks after the rage ends, during
+ * which his latch cannot fire whatever his health; after it, below the line → he rages again at once.
+ *
+ * ⚠ MINE — owner ruled "cooldown first" (S191) but gave no length; 25 s mirrors the rage.
+ *
+ * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger): nothing heals a Warlord today (the S179 note at
+ * `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half — and with a 25 s rage and a
+ * 25 s cooldown a hurt Warlord therefore alternates **25 s on / 25 s off** for the rest of his life (and
+ * BLOOD FRENZY switches his seat's orcs on and off with him). That rhythm is this number's doing.
+ *
+ * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
+ * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
+ */
+export const WARLORD_RAGE_COOLDOWN_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s
 
 /*
  * ⭐⭐ S168 (owner R150) — **THE ARCHDEMON.**

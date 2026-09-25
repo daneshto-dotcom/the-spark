@@ -15,13 +15,12 @@ import {
   DIREWOLF_MAX_PER_OWNER,
   DIREWOLF_SUMMON_COUNT,
   DIREWOLF_SUMMON_INTERVAL_TICKS,
-  WARLORD_RAGE_CLEAR_PCT,
   WARLORD_RAGE_TRIGGER_PCT,
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned boss summons nothing. RAGE is exempt (a latch, not an action).
-import { isStunned, creatureMaxEhp } from './creatures/creature.ts';
+import { isStunned, creatureMaxEhp, isOwnRageActive, isRageCoolingDown } from './creatures/creature.ts';
 import { dispatch, type World } from './world.ts';
 
 /**
@@ -44,6 +43,17 @@ import { dispatch, type World } from './world.ts';
  *
  * ⚠ Nothing heals the Warlord today (Vlad's sap heals only Vlad), so the exit is unreachable in
  * play. Implemented regardless: the ruling is about what happens when it IS reachable.
+ *
+ * ## ⭐⭐ S191 (owner) — THE EXIT IS NOW A CLOCK, NOT A HEAL
+ *
+ * *"let's do it like 25 seconds"*: once his own latch fires he rages for `WARLORD_RAGE_TICKS` **regardless
+ * of healing**, then — *"cooldown first"* — he is calm for `WARLORD_RAGE_COOLDOWN_TICKS` whatever his
+ * health, then below the line fires a new rage at once. Everything above about R151's heal exit is
+ * history: `WARLORD_RAGE_CLEAR_PCT` is retired in place and no longer read here. Both windows derive
+ * from ONE stamp, `Creature.rageStartTick`, written only here.
+ *
+ * ⚠ FIGHT-GATED like every boss skill (`hostTick`), so a rage still running at the whistle is judged
+ * again on the first FIGHT tick (BUILD outlasts both windows, so by then he is free to fire).
  */
 export function runWarlordRage(world: World): void {
   if (world.gameState !== 'PLAYING') return;
@@ -53,12 +63,23 @@ export function runWarlordRage(world: World): void {
     if (boss.ehp <= 0) continue; // a corpse neither rages nor calms
     const max = creatureMaxEhp(boss); // ⭐ S187 — his own max; the rage threshold is a fraction of it
 
-    if (boss.enraged === true) {
-      // R151 — the ONLY way out short of dying, and it is strictly ABOVE the line.
-      if (boss.ehp * 100 > max * WARLORD_RAGE_CLEAR_PCT) boss.enraged = false;
+    // ⭐⭐ S191 (owner) — THE 25-SECOND CLOCK. Inside his own window he rages whatever his health:
+    // *"let's do it like 25 seconds"* replaced R151's heal-above-50 exit.
+    if (isOwnRageActive(boss, world.tick)) {
+      boss.enraged = true;
       continue;
     }
-    if (boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) boss.enraged = true;
+    // ⭐ S191 (owner, *"cooldown first"*) — after the window, a cooldown in which he cannot fire again;
+    // after THAT, strictly below the line (S179: *"the literall meaning of below 50"*) fires a new one.
+    if (!isRageCoolingDown(boss, world.tick) && boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) {
+      boss.rageStartTick = world.tick;
+      boss.enraged = true;
+      continue;
+    }
+    // His own latch does not hold him. ⚠ This also lowers a bit BLOOD FRENZY set on him (a healthy
+    // second Warlord) — the frenzy runs after this in the same tick and re-sets it while its source
+    // still rages, so "only his own latch calms him" holds exactly as before S191.
+    boss.enraged = false;
   }
 }
 

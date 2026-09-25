@@ -33,15 +33,14 @@
  *
  *  1. **The frenzy NEVER CLEARS a Warlord.** It may SET one (a healthy second Warlord rages with the
  *     first), but when the frenzy ends only `runWarlordRage` calms him — which it does on its own on
- *     the next tick if he is above the line. A frenzy clear that swept every orc racial type would
+ *     the next tick if his own clock does not hold him (S191). A frenzy clear that swept every orc racial type would
  *     have calmed a Warlord whose OWN latch holds him furious.
  *  2. **A frenzy-raged Warlord is never a SOURCE of the frenzy**, or two Warlords would keep each other
- *     raging forever once the real one died. So a source is read off his HEALTH, not off the shared
- *     bit alone: `enraged` AND strictly below `WARLORD_RAGE_TRIGGER_PCT` of his own max. ⚠ That equals
- *     his own latch because an orc Warlord's pool never rises — nothing an orc seat owns heals him
- *     (BLOOD DEBT is the vampires' perk, and R137 race-gates the tier-9 tower, so a vampire seat
- *     never owns a Warlord). If an orc healer is ever added, this line is the one to revisit,
- *     beside the note `constants.ts` already carries at `WARLORD_RAGE_TRIGGER_PCT`.
+ *     raging forever once the real one died. ⭐ S191: so a source is read off HIS OWN 25-SECOND CLOCK
+ *     (`Creature.rageStartTick`, stamped only by his latch), not off the shared bit alone. Until S191
+ *     it was read off his health (`enraged` AND below `WARLORD_RAGE_TRIGGER_PCT`), which equalled his
+ *     latch only while nothing could heal him; the clock makes the rage outlast a heal, so the health
+ *     reading would have dropped his orcs while he still raged.
  *
  * ⚠ ORDER: this runs in `racial/racialTick.ts`'s FIGHT slot, AFTER `runWarlordRage` in the same tick,
  * so the latch has already spoken for this tick's health when the frenzy reads it; units it enrages
@@ -50,11 +49,10 @@
  * order decides nothing.
  */
 
-import { WARLORD_RAGE_TRIGGER_PCT } from '../../constants.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
 import { RACE_TOWER_UNIT } from '../raceTowerIds.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
-import { creatureMaxEhp, type Creature, type CreatureType } from '../creatures/creature.ts';
+import { isOwnRageActive, type Creature, type CreatureType } from '../creatures/creature.ts';
 import type { World } from '../worldTypes.ts';
 import type { PlayerId } from '../../types.ts';
 
@@ -66,11 +64,20 @@ export function isOrcRacialCreatureType(type: CreatureType): boolean {
 /**
  * Is this Warlord raging BY HIS OWN LATCH — i.e. can he start the frenzy? See the module docblock,
  * point 2: the shared bit alone would let a frenzy-raged Warlord sustain the frenzy.
+ *
+ * ⭐⭐ S191 (owner) — READ OFF HIS OWN 25-SECOND CLOCK, NOT OFF HIS HEALTH. The rage now lasts 25 s
+ * *regardless of healing*, so a Warlord healed back over the line mid-rage is still raging by his own
+ * latch — and his orcs must rage with him. `Creature.rageStartTick` is stamped ONLY by
+ * `runWarlordRage`, never by the frenzy, so point 2 holds by construction: a frenzy-raged Warlord has
+ * no live window of his own and is not a source. (Pre-S191 this read `ehp < 50 %`, which was equal to
+ * his own latch only while no heal could move him.) ⛔ Council (S191 ledger, accepted): it means "his
+ * own 25 s window is open" and NOTHING else — not the HP test, and not the bare `enraged` bit, which the
+ * frenzy itself writes.
  */
-export function isFrenzySource(c: Creature): boolean {
+export function isFrenzySource(c: Creature, tick: number): boolean {
   if (c.type !== T9_BOSS_TYPE.orcs) return false;
-  if (c.ehp <= 0 || c.enraged !== true) return false;
-  return c.ehp * 100 < creatureMaxEhp(c) * WARLORD_RAGE_TRIGGER_PCT;
+  if (c.ehp <= 0) return false;
+  return isOwnRageActive(c, tick);
 }
 
 /** One FIGHT tick of BLOOD FRENZY, for every orc seat that holds it. */
@@ -81,7 +88,7 @@ export function runBloodFrenzy(world: World): void {
 
   const raging = new Set<PlayerId>();
   for (const c of world.creatures.values()) {
-    if (holders.has(c.ownerPlayerId) && isFrenzySource(c)) raging.add(c.ownerPlayerId);
+    if (holders.has(c.ownerPlayerId) && isFrenzySource(c, world.tick)) raging.add(c.ownerPlayerId);
   }
 
   for (const c of world.creatures.values()) {
