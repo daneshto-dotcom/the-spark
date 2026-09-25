@@ -228,7 +228,7 @@ Merge owner = the main session. This branch never merges, never pushes.
   Repo-wide scan of non-test `src/**/*.ts` for contextmenu|rightdown|rightclick|rightup|auxclick: exactly
   ONE hit, the canvas `contextmenu` suppressor, pinned. Mutation (an untagged `e.buttons & 2` in `onMove`)
   → red; restored. ⚠ A Python escape mangled the new regexes on first write (backspace chars / split
-  literals); caught by the transform error, rewritten, verified ``-free.
+  literals); caught by the transform error, rewritten, verified backspace-free.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
