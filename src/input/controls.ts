@@ -100,6 +100,8 @@ export interface FooterBandLike {
    */
   isOverCollapseTab?(x: number, y: number): boolean;
   toggleCollapsed?(): boolean;
+  /** ⭐ S191 A-2 — Alt with a tower in hand: the SAME collapse, remembering Alt lowered it. */
+  altToggleCollapsed?(): boolean;
   /** ⭐ S188 P6 — the POWER OF RA skill button. Optional for the same reason as the tab above. */
   isOverRaButton?(x: number, y: number): boolean;
   isOverChip(x: number, y: number): boolean;
@@ -373,6 +375,9 @@ export class Controls {
     // gameplay per blueprint requires no turn-flip input.
     // S49 P1 (Sym F) — Q key → SHRINK_TERRITORY disruption (1v1 only).
     window.addEventListener('keydown', this.onKeyDown);
+    // ⭐ S191 A-2 — Alt's KEYUP is what focuses the browser's menu bar on Windows, so a consumed Alt is
+    // swallowed on the way up as well as on the way down (Council, S191 ledger).
+    window.addEventListener('keyup', this.onKeyUp);
   }
 
   /**
@@ -1762,6 +1767,8 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // ⭐⭐ S191 A-2 (owner, R190 add-on) — Alt drops / raises the footer while a tower is in hand.
+    if (this.handleAltFooterKey(e)) return;
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
     if (e.key === 'Escape' && raAimPreview() !== null) {
       setRaAimPreview(null);
@@ -1795,6 +1802,40 @@ export class Controls {
 
   // S42 — onKeyDown SPACE → END_TURN handler DELETED. See constructor
   // comment. Real-time 1v1 has no turn-flip input.
+
+  // ── ⭐⭐ S191 A-2 (owner, R190 add-on) — ALT TOGGLES THE FOOTER WHILE A TOWER IS ARMED ───────────────
+  /**
+   * *"hold/press Alt to drop the footer so you can place where it was, Alt again to raise it."*
+   *
+   * The toggle is the band's own S187 collapse (`altToggleCollapsed` → `toggleCollapsed`), so the
+   * armed-stamp arm below — which asks `isPointerOverFooterSurface` — stops refusing the ground the
+   * plates covered the moment the band is down. The band raises itself when the tower leaves the hand
+   * (`FooterBand.setArmed`, polled each frame). ⛔ Not a toggle for anything else: with nothing armed
+   * Alt does NOTHING here — not even `preventDefault` — so the browser's own Alt is untouched.
+   * Ignored (Council): an auto-repeat (a held Alt toggles once), Ctrl+Alt / Meta+Alt (AltGr and OS
+   * chords), and a focused text field (the same INPUT / TEXTAREA guard `decideKeyShrink` uses).
+   */
+  private altKeyConsumed = false;
+
+  private handleAltFooterKey(e: KeyboardEvent): boolean {
+    if (e.key !== 'Alt') return false;
+    if (e.repeat || e.ctrlKey || e.metaKey) return false;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return false;
+    if (this.castlePanel?.armedBlueprint() == null) return false;
+    if (this.footerBand?.altToggleCollapsed === undefined) return false;
+    e.preventDefault();
+    this.footerBand.altToggleCollapsed();
+    this.altKeyConsumed = true;
+    return true;
+  }
+
+  private onKeyUp = (e: KeyboardEvent): void => {
+    if (e.key !== 'Alt' || !this.altKeyConsumed) return;
+    e.preventDefault();
+    this.altKeyConsumed = false;
+  };
+  // ── end S191 A-2 ────────────────────────────────────────────────────────────────────────────────
 
   private acquirePointerCapture(e: PointerEvent): void {
     try {

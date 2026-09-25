@@ -8,9 +8,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | step | what | state | commit |
 |---|---|---|---|
 | 0 | `npm ci` (NPM_CI_EXIT=0) + this skeleton | DONE | 3fb5733 |
-| A-1 | Warlord rage 25 s + cooldown | DONE | (this commit) |
-| A-2 | Alt toggles the footer while a tower is armed | next | — |
-| A-3 | R190-G opaque panels swallow right-clicks | — | — |
+| A-1 | Warlord rage 25 s + cooldown | DONE | be61e6a |
+| A-2 | Alt toggles the footer while a tower is armed | DONE | (this commit) |
+| A-3 | R190-G opaque panels swallow right-clicks | next | — |
 | A-4 | A1 CI e2e lane | — | — |
 | A-5 | magic-attack DESIGN doc | — | — |
 
@@ -52,6 +52,29 @@ Merge owner = the main session. This branch never merges, never pushes.
   fixture-only follow-up; the clock file re-run 13/13 after it.
 - **Protocol verdict: BUMP** (rule change + new field) — see `S191_CANON_NOTES_addons.md` §6.
 
+## A-2 — what landed
+
+- `render/footerBand.ts`: `toggleCollapsed` also clears `altLowered` (one line); a self-contained block
+  after `isCollapsed()` — `private altLowered`, `altToggleCollapsed()` (calls `toggleCollapsed`, then
+  records that Alt lowered it), `isAltLowered()`; `setArmed(null)` (polled every frame by `main.ts:4067`)
+  raises the band only if Alt lowered it. No new fill — the guard stays at **9**.
+- `input/controls.ts`: `FooterBandLike.altToggleCollapsed?`; a `keyup` listener in the constructor; one
+  line at the top of `onKeyDown`; a self-contained block after it (`altKeyConsumed`, `handleAltFooterKey`,
+  `onKeyUp`). Alt acts only with a tower armed; ignores `e.repeat`, Ctrl/Meta, focused INPUT/TEXTAREA;
+  `preventDefault` on the consumed keydown AND its keyup; unarmed Alt is untouched (no preventDefault).
+- No change was needed in any placement guard: every consumer (`isPointerOverFooterChip`,
+  `isPointerOverFooterSurface` at the armed-stamp arm and both PLACE commit gates) routes through the
+  band's own predicates, which S187 already taught the collapse. The REACH test proves it at the stamp.
+- Tests: new `src/input/controls.altFooter.test.ts` (9), real `Controls` + real `FooterBand`: armed + Alt
+  → a stamp under the CARRY READOUT plate and (separately) under a TIER CHIP — both derived from live
+  geometry, e.g. `t3TowerVampires` at (568, 1018) — is accepted; Alt again → refused; place / Escape / RMB
+  raise the band Alt lowered; unarmed Alt → nothing (no preventDefault); a tab-lowered band is never
+  raised by a disarm; repeat / Ctrl / Meta / focused field ignored; keyup swallowed once; edge rule intact.
+- Mutations: MA1 (Alt hook removed) → 5 red; MA2 (provenance ignored in `setArmed`) → 2 red. Restored.
+- Gates at A-2: typecheck 0; full vitest 0 (6487 passed / 2 skipped, 398 files).
+- Wire/hash: NONE (render-only view state). No protocol change.
+- ⚠ Suspect: Alt is acted on at KEYDOWN (as briefed), so Alt+Tab with a tower in hand also drops the band.
+
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
 - `save.ts` — 3 self-contained lines/blocks: `SerializedCreature.rageStartTick?` (after
@@ -62,11 +85,17 @@ Merge owner = the main session. This branch never merges, never pushes.
 
 ## footerBand.ts / controls.ts hunks (s191/owner edits the same files)
 
-_none yet_
+- `footerBand.ts` A-2: (1) one line in `toggleCollapsed`; (2) the block `// ── ⭐⭐ S191 A-2 … // ── end
+  S191 A-2` right after `isCollapsed()`; (3) two comment lines + one `if` inside `setArmed`.
+- `controls.ts` A-2: (1) `altToggleCollapsed?(): boolean;` in `FooterBandLike` after `toggleCollapsed?`;
+  (2) the `keyup` listener after the `keydown` one in the constructor; (3) the first line of
+  `onKeyDown`; (4) the block `// ── ⭐⭐ S191 A-2 … // ── end S191 A-2` after the S42 comment below
+  `onKeyDown`.
 
 ## Numbers that are MINE
 
 - `WARLORD_RAGE_COOLDOWN_TICKS` = 1500 (25 s) — the LENGTH only; "cooldown first" is his.
+- A-2: raise the band on disarm / place when Alt lowered it (the brief's default; he asked for the toggle).
 
 ## What I suspect / questions (not built)
 

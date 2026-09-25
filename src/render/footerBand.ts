@@ -1019,6 +1019,7 @@ export class FooterBand {
   /** ⭐ S187 — flip it. Returns the new state so the caller can play a sound or log. */
   toggleCollapsed(): boolean {
     this.collapsed = !this.collapsed;
+    this.altLowered = false; // ⭐ S191 A-2 — any flip but Alt's own forgets who lowered it (see below)
     return this.collapsed;
   }
 
@@ -1026,6 +1027,37 @@ export class FooterBand {
   isCollapsed(): boolean {
     return this.collapsed;
   }
+
+  // ── ⭐⭐ S191 A-2 (owner, R190 add-on) — ALT DROPS THE FOOTER WHILE A TOWER IS IN HAND ─────────────
+  /**
+   * *"hold/press Alt to drop the footer so you can place where it was, Alt again to raise it."*
+   *
+   * ⛔ THE SAME COLLAPSE, NEVER A SECOND ONE (Council, S191 ledger): this goes through
+   * `toggleCollapsed`, so every gate the S187 collapse already releases — `isOverChip` (the cursor and
+   * the click router), `isOverBandSurface` (the armed-stamp arm and the PLACE commit gates) — releases
+   * for Alt too, and the tab still brings it back. S187's lesson holds by construction: there is no
+   * way to hide the menu while its plates still refuse the placement under them.
+   *
+   * The ONE thing added is PROVENANCE. `altLowered` remembers that Alt — not the tab — put the band
+   * down, and `setArmed(null)` (polled every frame from `main.ts`, so no disarm path can be missed)
+   * raises it again once the tower is placed or put back. Any other flip clears it, so a band the
+   * player lowered with the tab is never raised behind his back.
+   * ⚠ MINE: raise on disarm / place — the brief's default; he asked for the toggle, not the return.
+   */
+  private altLowered = false;
+
+  /** Alt pressed with a tower in hand (the caller checks that). Returns the new collapsed state. */
+  altToggleCollapsed(): boolean {
+    const down = this.toggleCollapsed();
+    this.altLowered = down;
+    return down;
+  }
+
+  /** For the tests: did Alt put the band down? */
+  isAltLowered(): boolean {
+    return this.altLowered;
+  }
+  // ── end S191 A-2 ────────────────────────────────────────────────────────────────────────────────
 
   isOverChip(x: number, y: number): boolean {
     // ⭐ S188 P6 — the Ra button, in both states (null whenever it was not drawn this frame).
@@ -1229,6 +1261,9 @@ export class FooterBand {
   /** main.ts mirrors the armed tower here so the open card can show it as held. */
   setArmed(id: GodlyId | null): void {
     this.armed = id;
+    // ⭐ S191 A-2 — the tower left the hand (placed, Escape, right-click, a state exit): if ALT lowered
+    // the band for it, raise it. Here because this is polled every frame (see `altToggleCollapsed`).
+    if (id === null && this.altLowered && this.collapsed) this.toggleCollapsed();
   }
 
   /** The complexity under this point, or null. */
