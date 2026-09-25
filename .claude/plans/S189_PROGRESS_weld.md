@@ -349,8 +349,18 @@ the committed tree, each a captured `$?`:
 - HOTSPOT HUNKS this round: `save.ts` (SerializedSpawner/Defender field, serialize/trim/deserialize
   ×2), `stateHashFull.ts` (two union members + two projection suffixes). No refactor.
 
+## ROUND 4 (audit wf_cd96cb8a-575) — W-FR1..3 fix, W-FR4 document only
+
+### W-FR1 (MED) LANDED — a takeover / worker repair never rewinds nextBondId below a tower's limit
+- `migrationClaim.ts` `rebuildAuthorityAllocators`: `nextBondId = max(max(live bond)+1, every live
+  spawner's and defender's ownBondIdLimit)`. Both call sites in `main.ts` (takeover ~:3442, worker
+  repair ~:3073) already assign `allocs.nextBondId` — no hotspot edit needed.
+- test (`migrationClaim.test.ts`): pentagram registered at L with bond L-1 minted elsewhere and then
+  razed → rebuilt nextBondId >= L; a same-type weld on node 0 after the takeover gets id >= L and the
+  ring stands. Mutant (back to max+1) → RED; restored.
+
 ## IN-FLIGHT
-- none — fix-round report delivered.
+- W-FR2 (revive at BUILD→FIGHT for a BUILD death).
 
 ## NEXT
 
