@@ -20,11 +20,32 @@
  * receive the result (deleted prims/bonds + BOMB_EXPLODE burst) in the next NetSnapshot.
  */
 
-import { POTATO_BLAST_RADIUS, POTATO_CARRIER_BENCH_TICKS, POTATO_HOLD_DETONATE_TICKS } from '../constants.ts';
-import { asPotatoId, type CreatureId, type PlayerId, type PotatoId, type PrimitiveId, type Vec2 } from '../types.ts';
+import {
+  DRONE_ATK,
+  DRONE_PEN,
+  POTATO_BLAST_RADIUS,
+  POTATO_CARRIER_BENCH_TICKS,
+  POTATO_HOLD_DETONATE_TICKS,
+} from '../constants.ts';
+import {
+  asPotatoId,
+  type BondId,
+  type CreatureId,
+  type DefenderId,
+  type PlayerId,
+  type PotatoId,
+  type PrimitiveId,
+  type StinkCloudId,
+  type Vec2,
+} from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
 import { razePrimitives } from './razePrimitives.ts';
+// ⭐ S191 C-5 — the hub's blast is ladder damage through the ordinary funnels, and its connector
+// sever goes straight to the one sever reducer (see `applyHubLadderBlast`).
+import { damageConnector, damageEntity, type DamageTarget } from './damage.ts';
+import { applySeverBond } from './severBond.ts';
+import { attackFifths } from './stats.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
@@ -58,20 +79,40 @@ export interface DissipatePotatoAction {
   readonly type: 'DISSIPATE_POTATO';
   readonly potatoId: PotatoId;
 }
-/** S113 Batch C — the lightningHub structure self-destruct (host-internal; main.ts emit poll). */
-export interface StructureSelfDestructAction {
-  readonly type: 'STRUCTURE_SELFDESTRUCT';
-  readonly pos: Vec2;
-  readonly radius: number;
-  /**
-   * ⭐ S157 P0 (owner) — the seat whose structure is detonating, so the blast can spare it.
-   *
-   * OPTIONAL, because this is a HOST-INTERNAL action (`protocol.ts` records it as never a client
-   * intent) and an omitted owner means "spare nobody" — the pre-S157 behaviour, kept so the one
-   * other dispatcher and every existing test stay exactly as they were.
-   */
-  readonly ownerPlayerId?: PlayerId;
-}
+/**
+ * S113 Batch C — the lightningHub structure self-destruct (host-internal; `hostTick`'s spawner poll).
+ *
+ * ⭐⭐ S191 C-5 — **TWO BLASTS SHARE THIS ACTION, AND ONLY ONE OF THEM WAS RULED.** `blast` says which,
+ * and it is REQUIRED so `tsc` makes every dispatcher choose (an optional flag defaulting to either
+ * would be the tolerant default this repo keeps being bitten by):
+ *   · `'ladder'` — the LIGHTNING HUB (canon §9d item 2, R182-C): 120 fifths to every enemy entity in
+ *     radius (`applyHubLadderBlast`). It always has an owner, so the variant REQUIRES one;
+ *   · `'raze'` — the ZOMBIE BOSS's R138 death blast (*"hurting everything"*), which borrowed this
+ *     action in S168. Nobody has ruled that it stops deleting, so it is byte-identical to before.
+ */
+export type StructureSelfDestructAction =
+  | {
+      readonly type: 'STRUCTURE_SELFDESTRUCT';
+      readonly blast: 'ladder';
+      readonly pos: Vec2;
+      readonly radius: number;
+      /** ⭐ S157 P0 (owner) — the seat whose hub is detonating. Spared, always. */
+      readonly ownerPlayerId: PlayerId;
+    }
+  | {
+      readonly type: 'STRUCTURE_SELFDESTRUCT';
+      readonly blast: 'raze';
+      readonly pos: Vec2;
+      readonly radius: number;
+      /**
+       * ⭐ S157 P0 (owner) — the seat whose structure is detonating, so the blast can spare it.
+       *
+       * OPTIONAL, because this is a HOST-INTERNAL action (`protocol.ts` records it as never a client
+       * intent) and an omitted owner means "spare nobody" — the pre-S157 behaviour, which is what the
+       * zombie boss's blast passes.
+       */
+      readonly ownerPlayerId?: PlayerId;
+    };
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
 export function applySpawnPotato(world: World, action: SpawnPotatoAction): World {
@@ -364,17 +405,117 @@ export function applyRadialClear(
 }
 
 /**
- * S113 Batch C — the lightningHub STRUCTURE self-destruct: after the hub has produced its 3 drones,
- * on the next cadence slot it blows up in a LARGE owner-AGNOSTIC "lightning storm" at the anchor
- * (owner spec: "destroying EVERYTHING in its radius"). A BOMB_EXPLODE burst + the shared radial
- * clear with `() => true` (every creature in radius dies too — matching the potato precedent that
- * already clears creatures). Position-based; host-internal (main.ts dispatches it, then immediately
- * REMOVE_SPAWNER so it fires exactly once).
+ * ⭐⭐ S191 C-5 — **THE LIGHTNING HUB'S BLAST IS A NUMBER ON THE LADDER** (canon §9d item 2, R182-C).
+ *
+ * > *"four times a drone's damage"* — owner, S182 (the AMOUNT)
+ * > *"The lightning hub self-destruct will have to rework then. It can't destroy everything around
+ * > it, but there should be a certain damage output."* — owner, S187 (the raze is killed)
+ *
+ * `4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = 4 × 30 = **120 fifths**. The 4 is his; the ATK/PEN are
+ * the drone config's own constants, so a retune of the drone retunes this.
+ *
+ * ⚠ HIS RULING'S CONSEQUENCE, STATED SO NOBODY READS IT LATER AS A REGRESSION: **120 does not kill a
+ * tier-9 boss** (pools 260–462), where the raze deleted one where it stood. Nor Helga (156).
+ * ⚠ MINE — **PER CONNECTOR**: every enemy connector whose midpoint is inside takes its own 120, so a
+ * 5-connector tower wholly inside takes 600 and still falls. Once-per-structure (120 to the whole
+ * building) is the other reading, and it is the owner's call.
+ * ⚠ MINE — the UNBUFFED drone: a seat that drafted ATK/PEN has drones that hit harder (S190
+ * `creatureAttackFifths`), and its hub's blast stays 120, because his words price it off "a drone".
+ */
+export const STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE = 4;
+export const STRUCTURE_SELFDESTRUCT_FIFTHS = STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN);
+
+/**
+ * ⭐⭐ S191 C-5 — the hub's blast, arm by arm. Every victim is COLLECTED (sorted by id) before anything
+ * is mutated — `applyRadialDamage`'s iteration discipline — and then damaged in a fixed family order:
+ * creatures → Helga → lone shapes → stink bags → connectors. Each arm is enemy-only by the S157 P0 rule.
+ *
+ *   · **creatures** — 120 each, through `damageEntity` (a channelling Pharaoh takes nothing, as always);
+ *   · **Helga** — the one defender with a pool (`ehp !== null`); a TOWER has none and dies through its
+ *     connectors (R75), so it is not collected;
+ *   · **lone built shapes** — `bonds.size === 0` AT COLLECTION: a shape inside a structure has NO arm
+ *     (canon §4, *"you kill a building through its connectors"*). This is why the blast cannot be
+ *     `applyRadialDamage` at 120: its shape arm hits every shape in radius, and 120 > a shape's 70, so
+ *     every enemy building inside would still be razed — the raze he ruled out (S191 Council);
+ *   · **stink bags** — an explicit `world.stinkClouds` arm (the radial helper never visits them). ⚠ A
+ *     bag the blast pops still BURSTS, and a burst spares the BAG's owner, not the killer — so it can
+ *     hurt the hub owner's own things beside it. That is the bag's existing rule, not a new one;
+ *   · **connectors** — the suicide goblin's arm: the bond's MIDPOINT inside, NEITHER endpoint the
+ *     owner's (a mixed bond is spared), `damageConnector(120, null)` — no creature attacker, so no
+ *     lifesteal — and, when it gives way, severed with cause `'drone'`: an EXISTING cause (no bump for
+ *     the value), and the honest one for *"a suicide drone building"* (R182-A). ⚠ MINE. The sever goes
+ *     straight to `applySeverBond`, not through `dispatch`, for POWER OF RA's audit-F1 reason:
+ *     `dispatch`'s bench and elimination gates would REFUSE the sever if the owner were benched or out,
+ *     leaving a connector standing after its pool was spent. `canSeverBond` still runs.
+ *
+ * ⛔ THE CASTLE IS NOT AN ARM. On every shipped board no enemy keep can be inside 240 px of a hub built
+ * on its owner's ground (`hubSelfDestructLadder.test.ts` measures it); a board that changes that needs
+ * his ruling first.
+ */
+function applyHubLadderBlast(world: World, cx: number, cy: number, radius: number, owner: PlayerId): void {
+  const r2 = radius * radius;
+  const inR = (x: number, y: number): boolean => {
+    const dx = x - cx;
+    const dy = y - cy;
+    return dx * dx + dy * dy <= r2;
+  };
+  const byId = (a: unknown, b: unknown): number => (a as number) - (b as number);
+
+  // ── collect first, mutate second ──
+  const creatures: CreatureId[] = [];
+  for (const [id, c] of world.creatures) if (c.ownerPlayerId !== owner && inR(c.pos.x, c.pos.y)) creatures.push(id);
+  creatures.sort(byId);
+  const helgas: DefenderId[] = [];
+  for (const [id, d] of world.defenders) {
+    if (d.ehp !== null && d.ownerPlayerId !== owner && inR(d.pos.x, d.pos.y)) helgas.push(id);
+  }
+  helgas.sort(byId);
+  const loneShapes: PrimitiveId[] = [];
+  for (const [id, p] of world.primitives) {
+    if (p.bonds.size === 0 && p.placedBy !== owner && inR(p.pos.x, p.pos.y)) loneShapes.push(id);
+  }
+  loneShapes.sort(byId);
+  const bags: StinkCloudId[] = [];
+  for (const [id, s] of world.stinkClouds) if (s.ownerPlayerId !== owner && inR(s.pos.x, s.pos.y)) bags.push(id);
+  bags.sort(byId);
+  const connectors: BondId[] = [];
+  for (const [id, b] of world.bonds) {
+    if (world.primitives.get(b.aId)?.placedBy === owner || world.primitives.get(b.bId)?.placedBy === owner) continue;
+    if (inR((b.a.pos.x + b.b.pos.x) / 2, (b.a.pos.y + b.b.pos.y) / 2)) connectors.push(id);
+  }
+  connectors.sort(byId);
+
+  // ── apply ── (one `damageEntity` site, `null` attacker: a blast names nobody — S183)
+  const targets: DamageTarget[] = [
+    ...creatures.map((id): DamageTarget => ({ kind: 'creature', id })),
+    ...helgas.map((id): DamageTarget => ({ kind: 'defender', id })),
+    ...loneShapes.map((id): DamageTarget => ({ kind: 'primitive', id })),
+    ...bags.map((id): DamageTarget => ({ kind: 'stinkCloud', id })),
+  ];
+  for (const t of targets) damageEntity(world, t, STRUCTURE_SELFDESTRUCT_FIFTHS, 'hazard', null);
+  for (const bondId of connectors) {
+    if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
+    if (damageConnector(world, bondId, STRUCTURE_SELFDESTRUCT_FIFTHS, null)) {
+      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: owner, cause: 'drone' });
+    }
+  }
+}
+
+/**
+ * S113 Batch C — the lightningHub STRUCTURE self-destruct: a BOMB_EXPLODE burst at the anchor, then
+ * the blast. ⭐ S191 C-5 — the hub's blast is now `'ladder'` (above); `'raze'` is the zombie boss's
+ * R138 death blast, which still deletes everything in its radius through the shared radial clear
+ * (the S113 body, below, unchanged). Position-based; host-internal (`hostTick` dispatches it on the
+ * destruction branch, then REMOVE_SPAWNER, so it fires exactly once).
  */
 export function applyStructureSelfDestruct(world: World, action: StructureSelfDestructAction): World {
   const cx = action.pos.x;
   const cy = action.pos.y;
   world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: { x: cx, y: cy }, radius: action.radius });
+  if (action.blast === 'ladder') {
+    applyHubLadderBlast(world, cx, cy, action.radius, action.ownerPlayerId);
+    return world;
+  }
   /*
    * ⭐ S157 P0 (owner) — **THE BLAST NO LONGER EATS ITS OWN BASE.**
    *

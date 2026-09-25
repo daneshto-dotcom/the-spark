@@ -1378,44 +1378,44 @@ already fixed with the band step-up.** He examined the empty-quarry finding and 
 problem. That is an answer, not a deferral. ⛔ Do not ask again whether to stop the FIGHT-phase reap.
 
 
-### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**.
-
+### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**. ✅ **BUILT S191** (`s191/carry` C-5).
 
 > *"The lightning hub self-destruct will have to rework then. It can't destroy everything around it,
-
 > but there should be a certain damage output."* — owner, S187
 
-
 That is the second half of R182-C and it completes it. He ruled the AMOUNT in S182 —
-
 *"four times a drone's damage"* — and the only reason it sat open is that the blast turned out to be
-
-an instant-kill raze rather than a number, which he had not known. **He has now killed the raze. So
-
-his number stands and the item is finished:**
-
+an instant-kill raze rather than a number, which he had not known. **He killed the raze, so his
+number stands, and it is now the code:**
 
 ```
-
-4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
-
+STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
 ```
 
+⭐ **BUILT, AND `canon.test.ts` PINS BOTH THE NUMBER AND THE ARM.** The hub dispatches
+`STRUCTURE_SELFDESTRUCT` with `blast: 'ladder'`, and `applyHubLadderBlast` (`potatoLifecycle.ts`) —
+which never calls `applyRadialClear` — deals **120 once to every ENEMY entity inside
+`STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
+creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
+inside (`damageConnector`, no creature attacker → no lifesteal; severed with the EXISTING cause
+`'drone'`, so no new discriminant). A shape INSIDE a structure has no arm — a building dies through
+its connectors (§4). ⚠ **The S157 P0 owner-exemption is UNTOUCHED** — the blast still spares the hub
+owner's own shapes, units, bags and Helga, and a connector with either end his. *"He will also bring
+down some of his own connectors"* from S182 is NOT current behaviour and must not be reintroduced on
+the strength of this ruling. ⛔ **The castle is not an arm**: on both shipped boards no enemy keep can
+stand within 240 px of a hub built on its owner's ground (`hubSelfDestructLadder.test.ts` measures
+it over every buildable point); a board that changes that needs his ruling first.
 
-⚠ **RULED, NOT YET BUILT — and that distinction is why this file has tests.** The DECISION is final and must never be re-asked. The CODE still calls `applyRadialClear`, and `canon.test.ts` asserts that it does, so this page cannot drift ahead of the tree. The work owed: `applyStructureSelfDestruct` (`potatoLifecycle.ts`) stops calling `applyRadialClear` and deals **120**
+⚠ 120 will not kill a tier-9 boss (pools 260–462), nor Helga (**156**), where the raze deleted them
+where they stood. That is the consequence of his own ruling, stated so nobody reads it later as a
+regression. ⚠ **MINE, flagged at the constant:** it is PER CONNECTOR — a 5-connector tower wholly
+inside takes 120 on each of its five and falls; once-per-structure (120 to the whole building) is
+the other reading and is his call. And it is the UNBUFFED drone: a seat that drafted ATK/PEN still
+blasts 120.
 
-to every enemy entity inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) instead. ⚠ **The S157 P0
-
-owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes and units. He has
-
-never reversed that, and *"he will also bring down some of his own connectors"* from S182 is NOT
-
-current behaviour and must not be reintroduced on the strength of this ruling.
-
-
-⚠ 120 will not kill a tier-9 boss (pools 260–462) where the raze deleted one outright. That is the
-
-consequence of his own ruling, stated so nobody reads it later as a regression.
+⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
+(380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is
+REQUIRED, so no dispatcher can fall into either blast by omission.
 
 
 ### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
@@ -1516,28 +1516,19 @@ failure he named: *"I don't understand why you're bringing this up every session
 
 *(Both of S180's castle questions were answered — see §3.)*
 
-### ✅ R182-C — the lightning hub's self-destruct DAMAGE. **ANSWERED S187 → §9d. 120 fifths.**
+### ✅ R182-C — the lightning hub's self-destruct DAMAGE. **ANSWERED S187 → §9d. 120 fifths. BUILT S191.**
 
 He ruled *"four times a drone's damage"* = 4 × `attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = **120
-fifths** — **believing the blast had no number. It has something else entirely.**
+fifths** — **believing the blast had no number. It had something else entirely:**
+`applyStructureSelfDestruct` called `applyRadialClear` and **deleted** every enemy creature and shape
+inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) outright — an instant-kill radius, not a number on the
+ladder. The two questions this entry used to carry are both answered: (1) the raze is gone (S187,
+*"it can't destroy everything around it"*), and (2) the blast does NOT damage the hub owner's own
+connectors — S157 P0 stands.
 
-`applyStructureSelfDestruct` calls `applyRadialClear`: it **deletes** every enemy creature and shape
-inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) outright. That is an instant-kill radius, not a number
-on the ladder, and the difference is not cosmetic — **120 fifths would not kill a tier-9 boss** (pools
-260–462) where today's blast deletes one where it stands.
-
-⚠ **And it already spares the owner.** S157 P0, on his own ruling (*"lightning hubs blow up own
-structures or nearby friendlies … they shouldnt be able to hit friendlies in friendly territory"*),
-made the blast exempt the owner's shapes and units. So his later *"he will also bring down some of his
-own connectors"* is **not current behaviour**, and making it so would **reverse S157**.
-
-**TWO ANSWERS NEEDED:**
-1. 120 fifths of ladder damage replacing the instant-kill raze — or keep the raze?
-2. Should the blast damage the hub owner's own connectors, reversing S157 P0?
-
-S182 built the ramp, the threshold and the repair fee and **left `applyStructureSelfDestruct`
-byte-identical**, deliberately. `canon.test.ts` asserts it is still the radial clear, so this cannot be
-quietly half-answered.
+⭐ **S191 built it** (`s191/carry` C-5): see §9d item 2 for the arms and the stated consequences.
+`canon.test.ts` now asserts the BUILT rule — the ladder arm never reaches the raze and deals
+`STRUCTURE_SELFDESTRUCT_FIFTHS` (120) — where it used to assert that the code was still the radial clear.
 
 ### ✅ R182-F — the health bar vs the damage art. **ANSWERED S187 → §9d. The bar follows the star.**
 

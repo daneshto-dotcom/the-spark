@@ -95,6 +95,9 @@ import { CASTLE_ROW_KEYS } from './render/castlePanel.ts';
 import type { World } from './state/worldTypes.ts';
 import { asPlayerId, type PlayerId } from './types.ts';
 import { DRONE_ATK, DRONE_PEN } from './constants.ts';
+// S191 C-5 — R182-C built: the hub's blast is 120 fifths; Helga's pool is the stated consequence.
+import { PRINCESS_DEF, PRINCESS_HP } from './constants.ts';
+import { STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
@@ -1149,27 +1152,38 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   /**
-   * ⛔⛔ THE OPEN QUESTION, AND THE ASSERTION THAT KEEPS IT OPEN. §9's own rule is that an open item
-   * gets a test so a later session cannot quietly tidy it away. R182-C is the blast's DAMAGE: the
-   * owner ruled 120 fifths believing it was undefined, and it is in fact an instant-kill radial
-   * clear. Until he answers, the blast must stay exactly as S157 left it.
+   * ⭐⭐ S191 C-5 — R182-C IS BUILT, AND THIS IS THE ASSERTION THAT USED TO KEEP IT OPEN, INVERTED.
+   *
+   * Until S191 this pinned that `applyStructureSelfDestruct` was still the radial clear, so the canon
+   * could not claim a rule the tree did not have. The tree has it now: the hub's blast is 120 fifths on
+   * the ladder. The pin keeps its teeth in the other direction — the number is derived from its
+   * constants, the hub's arm must never reach the raze, the S157 P0 exemption must stay, and the hub
+   * must dispatch the ladder while the zombie boss's R138 blast (not this ruling) keeps the raze.
+   * The behaviour, through the real host tick, is `state/hubSelfDestructLadder.test.ts`.
    */
-  it('§9d RULED R182-C at 120 fifths — but the CODE is still the radial clear, and says so', () => {
-    /*
-     * ⭐ S187 — the premise of this test moved, its teeth did not. The QUESTION is closed (the owner
-     * killed the raze and his "four times a drone" number stands), but the CODE is unchanged, so the
-     * canon says RULED-NOT-YET-BUILT and this asserts BOTH halves. A canon that claimed behaviour the
-     * tree does not have would be the exact rot this file exists to prevent, pointing the other way.
-     */
+  it("§9d R182-C BUILT at 120 fifths — the hub's blast is ladder damage, never the radial clear", () => {
     expect(canonSays('R182-C')).toBe(true);
-    expect(canonSays('RULED, NOT YET BUILT')).toBe(true);
+    expect(canonSays('BUILT S191')).toBe(true);
+    expect(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE).toBe(4); // his "four times a drone's damage"
+    expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN));
+    expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(120);
+    expect(canonSays('4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths')).toBe(true);
+    // The stated consequences, each off its constant: no tier-9 boss and not Helga falls to one blast.
+    expect(unitPoolFifths(PRINCESS_HP, PRINCESS_DEF)).toBe(156);
+    expect(canonSays('nor Helga (**156**)')).toBe(true);
     const lifecycle = readFileSync(new URL('./state/potatoLifecycle.ts', import.meta.url), 'utf8');
-    const arm = lifecycle.slice(lifecycle.indexOf('export function applyStructureSelfDestruct'));
-    const body = arm.slice(0, 1200);
-    expect(body).toContain('applyRadialClear'); // still the raze…
-    expect(body).not.toContain('attackFifths'); // …and NOT quietly converted to ladder damage
-    // And S157 P0's owner-exemption is still the thing that spares his own base.
-    expect(body).toContain('ownerPlayerId');
+    const arm = lifecycle.slice(
+      lifecycle.indexOf('function applyHubLadderBlast'),
+      lifecycle.indexOf('export function applyStructureSelfDestruct'),
+    );
+    expect(arm.length, 'anti-vacuity: the arm was found').toBeGreaterThan(500);
+    expect(arm).not.toContain('applyRadialClear('); // never the raze…
+    expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
+    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS');
+    expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
+    expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
+    expect(host.match(/blast: 'raze'/g)?.length, 'and only the zombie boss keeps the raze').toBe(1);
   });
 
   /**

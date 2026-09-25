@@ -11,8 +11,8 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | C-1 · worker startup `nextPulledSparkId` | DONE | `686f990` | see below |
 | C-2 · WRATH-F5 pending cast vs tick moving backwards | DONE | `3b2f460` | see below |
 | C-3 · SWM-6 swarm draw through the bat-sheet fallback | DONE | `d4107bc` | test-only |
-| C-4 · `drawRaRitual` FIGHT gate | DONE | (this commit) | see below |
-| C-5 · hub self-destruct = 120 fifths | next | | Council items received (explicit arms) |
+| C-4 · `drawRaRitual` FIGHT gate | DONE | `0c1d040` | see below |
+| C-5 · hub self-destruct = 120 fifths | DONE | (this commit) | Council items applied (explicit arms) |
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
 
@@ -90,9 +90,50 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   POWER OF RA strike's does), and a column that landed just before the edge has its code-beam aftermath
   cut at the edge; column 4's finale tail is not gated (it draws only after the sim removed him).
 
+## C-5 — DONE
+
+- `src/state/potatoLifecycle.ts`: `StructureSelfDestructAction` is a union with a REQUIRED `blast:
+  'ladder' | 'raze'` (ladder REQUIRES `ownerPlayerId`). The hub dispatches `'ladder'`; the ZOMBIE BOSS's
+  R138 death blast (the only other dispatcher, same action since S168, 380 px, no owner) dispatches
+  `'raze'` — byte-identical, because the ruling names the hub only. `applyHubLadderBlast`: collect-then-
+  mutate, sorted ids, enemy-only (S157 P0), families creatures → Helga (`ehp !== null`) → lone shapes
+  (`bonds.size === 0` at collection) → stink bags → connectors (midpoint inside, neither end the owner's,
+  `damageConnector(120, null)`, sever via `applySeverBond` inline with cause `'drone'` — the Ra audit-F1
+  reason: `dispatch`'s bench/elimination gates would refuse it). No arm for shapes inside a structure;
+  no castle arm. NOT built on `applyRadialDamage` (Council).
+- Constants: `STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE` = 4 (owner's), `STRUCTURE_SELFDESTRUCT_FIFTHS` =
+  4 × `attackFifths(DRONE_ATK, DRONE_PEN)` = 120 (derived). ⚠ MINE at the constant: per connector (a
+  5-connector tower inside takes 600 and falls); unbuffed drone. Stated: no tier-9 boss (260–462) and
+  not Helga (156) fall to one blast.
+- `src/state/hostTick.ts`: two one-line hunks (`blast: 'ladder'` at the hub site ~:864, `blast: 'raze'`
+  at the zombie site ~:2389). The hub's own raze set (`selfIds` / `razePrimitives`) untouched.
+- Tests `src/state/hubSelfDestructLadder.test.ts` (9): REACH through the real host tick (real hub,
+  banked below a third, fused + blown by the real poll in FIGHT, bystanders stunned, drones parked):
+  chewer dies, a Kraken loses exactly 120, the enemy connector inside is felled by a recorded 120 hit
+  with cause `'drone'`, the one outside stands, a shape inside a structure keeps 70, the castle keeps
+  its HP, the owner's unit / lone shape / connector untouched. Arms: Helga −120 (stands at 36), a
+  tower takes nothing, 5-connector tower inside falls (5 × 120), a mixed bond spared, just-outside
+  negatives, the owner's bag/chewer spared, keep at ground zero untouched, castle geometry on both
+  boards (> 240 px), insertion-order determinism, and `'raze'` still deletes a boss.
+- Re-pinned by design: `damage.callSites` 15→16 / null 7→8 (+`potatoLifecycle.ts`),
+  `damageConnector.callSites` 5→6 (+`potatoLifecycle.ts` null), `creatureStrike.guard` (SANCTIONED +1
+  and ONE named exemption from the retired-`DRONE_ATK` ban for the hub's price line), dispatch sites in
+  `spawnerPhaseGate` (2 → `'ladder'`, anti-vacuity → `'raze'`), `lightningDrone` (`'raze'`),
+  `hostTick.differential` frozen reference (`'raze'`).
+- Canon: §9d item 2 → BUILT S191; §10 R182-C → BUILT; `canon.test.ts` pin inverted to the built rule
+  (constant = 4 × attackFifths(DRONE_ATK, DRONE_PEN) = 120; 156 Helga; arm never calls
+  `applyRadialClear(` / `applyRadialDamage(`; exemption present; exactly one `'ladder'` and one
+  `'raze'` dispatch). §7's stale paragraph + the §2 overkill discrepancy → `S191_CANON_NOTES_carry.md`.
+- Mutations: (1) ladder branch → raze: 4 RED; (2) creature arm's owner filter dropped: 3 RED (incl.
+  `spawnerPhaseGate`). Restored → green.
+- ⭐ MEASURED, pre-existing: a single connector hit's overkill is DISCARDED at the sever (120 on a
+  5-connector star → survivors 0), contradicting canon §2. Pinned in the C-5 REACH test with a ⚠ note.
+- Protocol verdict: the action is host-internal (not on the wire), no serialized/hashed field changed —
+  but it is a RULE a successor computes, so it OWES the deploy's bump (Council).
+
 ## In flight
 
-Nothing.
+Nothing — C-1..C-5 done; C-6 / C-7 wait for the merge owner.
 
 ## Decisions / numbers that are MINE
 
@@ -120,4 +161,5 @@ None.
 | baseline (before C-1) | — | — | 0 | 955.9 (978,794 B) |
 | C-1 | 0 | 0 — 6469 passed / 2 skipped, 397 files (107 s) | 0 | 955.9 (978,794 B) |
 | C-2 | 0 | 0 — 6476 passed / 2 skipped, 399 files (128 s) | — | — |
-| C-3 | — (test-only) | batched with C-4 | — | — |
+| C-3 + C-4 | 0 | 0 — 6485 passed / 2 skipped, 401 files (133 s) | — | — |
+| C-5 | 0 | 0 — 6494 passed / 2 skipped, 402 files (130 s) | 0 | 957.2 (980,125 B; +1,331 B vs baseline) · worker chunk 225,586 B |

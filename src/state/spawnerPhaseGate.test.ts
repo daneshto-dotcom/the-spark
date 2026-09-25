@@ -346,6 +346,7 @@ describe('S157 P0 — the self-destruct spares its owner', () => {
     const { world, mine, theirs } = blastFixture();
     applyStructureSelfDestruct(world, {
       type: 'STRUCTURE_SELFDESTRUCT',
+      blast: 'ladder', // S191 C-5 — the hub's real path; S157 P0's exemption must hold on it
       pos: { x: 700, y: 300 },
       radius: STRUCTURE_SELFDESTRUCT_RADIUS,
       ownerPlayerId: P0,
@@ -358,6 +359,7 @@ describe('S157 P0 — the self-destruct spares its owner', () => {
     const { world } = blastFixture();
     applyStructureSelfDestruct(world, {
       type: 'STRUCTURE_SELFDESTRUCT',
+      blast: 'ladder', // S191 C-5 — the hub's real path; S157 P0's exemption must hold on it
       pos: { x: 700, y: 300 },
       radius: STRUCTURE_SELFDESTRUCT_RADIUS,
       ownerPlayerId: P0,
@@ -370,8 +372,11 @@ describe('S157 P0 — the self-destruct spares its owner', () => {
   it('⛔ ANTI-VACUITY — with no owner supplied it still razes EVERYTHING (the potato path)', () => {
     // Proves the two tests above are the owner filter working, not the blast failing to reach.
     const { world, mine, theirs } = blastFixture();
+    // S191 C-5 — the ownerless RAZE (the zombie boss's R138 blast). The two tests above now run the hub's
+    // `'ladder'` blast, whose reach they prove themselves (the enemy shape and units are destroyed).
     applyStructureSelfDestruct(world, {
       type: 'STRUCTURE_SELFDESTRUCT',
+      blast: 'raze',
       pos: { x: 700, y: 300 },
       radius: STRUCTURE_SELFDESTRUCT_RADIUS,
     });

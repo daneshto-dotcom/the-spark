@@ -862,6 +862,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
               const selfIds = [...componentOf(dying, world.primitives, world.bonds).primitiveIds];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
+                blast: 'ladder', // ⭐ S191 C-5 — 120 fifths, not the raze (canon §9d item 2)
                 pos: { x: dying.pos.x, y: dying.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
                 ownerPlayerId: sp.ownerPlayerId,
@@ -2386,6 +2387,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
         dispatch(world, {
           type: 'STRUCTURE_SELFDESTRUCT',
+          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
           pos: { x: boss.x, y: boss.y },
           radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
           // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
