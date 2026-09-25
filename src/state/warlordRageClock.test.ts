@@ -323,6 +323,71 @@ describe('S191 round 2 — ⛔ RAGE-1: the clock is world time, and it runs thro
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+/*
+ * ⭐ S191 round 2 (RAGE-7) — THE COUNCIL-REQUIRED CASES: TWO WARLORDS. The frenzy raises a healthy
+ * sibling Warlord while the source rages; the source's WINDOW (not his life) is what ends it, and the
+ * sibling never gets a clock of his own. And when the source dies INSIDE a tick — through `ehp <= 0`
+ * and the deferred sweep, not a test deleting him — the frenzy ends on that very tick.
+ */
+describe('S191 round 2 — RAGE-7: two Warlords, and the source’s window is what ends the frenzy', () => {
+  function twoWarlords(): { r: Rig; source: Creature; sibling: Creature; soldier: Creature } {
+    const r = rig(board(['racial']));
+    const source = unit(r.w, WARLORD, P0, 250, 250);
+    const sibling = unit(r.w, WARLORD, P0, 700, 250);
+    sibling.maxEhp = 1_000_000; // healthy for the whole run: his own latch never fires
+    sibling.ehp = 1_000_000;
+    const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
+    soldier.maxEhp = 1_000_000;
+    soldier.ehp = 1_000_000;
+    return { r, source, sibling, soldier };
+  }
+
+  it('⛔ the source’s 25 s END while he is ALIVE (under half, in cooldown) → the sibling and the soldier calm at exactly T+1500', () => {
+    const { r, source, sibling, soldier } = twoWarlords();
+    source.ehp = pctPool(source, 40);
+    const T = step(r);
+    expect(source.rageStartTick).toBe(T);
+    expect(sibling.enraged, 'the frenzy raised the healthy sibling').toBe(true);
+    expect(soldier.enraged).toBe(true);
+    runTo(r, T + WARLORD_RAGE_TICKS + 60, (t) => {
+      const on = t < T + WARLORD_RAGE_TICKS;
+      expect(r.w.creatures.has(source.id), 'the source is alive throughout').toBe(true);
+      expect(source.enraged === true, `tick ${t}: the source`).toBe(on);
+      expect(sibling.enraged === true, `tick ${t}: the frenzy-raised sibling`).toBe(on);
+      expect(soldier.enraged === true, `tick ${t}: the soldier`).toBe(on);
+      expect(sibling.rageStartTick, `tick ${t}: the sibling never gets a clock of his own`).toBeUndefined();
+    });
+    expect(isRageCoolingDown(source, r.w.tick), 'the source is in his cooldown, still under half').toBe(true);
+    expect(source.ehp * 2).toBeLessThan(creatureMaxEhp(source));
+  });
+
+  it('⛔ the source KILLED inside a tick (an enemy rot aura, ehp ≤ 0, the deferred sweep) → the frenzy ends on that tick', () => {
+    const { r, source, sibling, soldier } = twoWarlords();
+    source.ehp = 3; // under half; three rot ticks from death
+    const zombie = unit(r.w, 't9BossZombies', P1, 260, 250);
+    delete zombie.stunnedUntilTick; // a stunned boss casts no aura (R152)
+    const T = step(r);
+    expect(source.rageStartTick, 'he fired before the rot took him').toBe(T);
+    expect(soldier.enraged).toBe(true);
+    let killTick = -1;
+    runTo(r, T + 400, (t) => {
+      if (killTick >= 0) return;
+      if (!r.w.creatures.has(source.id)) {
+        killTick = t;
+        expect(soldier.enraged === true, `tick ${t}: the soldier calms on the kill tick`).toBe(false);
+        expect(sibling.enraged === true, `tick ${t}: the sibling calms on the kill tick`).toBe(false);
+      } else {
+        expect(soldier.enraged, `tick ${t}: still raging while the source lives`).toBe(true);
+        expect(sibling.enraged).toBe(true);
+      }
+    });
+    expect(killTick, 'fixture: the rot really killed him inside a tick').toBeGreaterThan(T);
+    expect(killTick).toBeLessThan(T + WARLORD_RAGE_TICKS);
+    expect(sibling.rageStartTick).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S191 — `rageStartTick` is a four-sites field', () => {
   function stamped(): { w: World; boss: Creature } {
     const w = board();

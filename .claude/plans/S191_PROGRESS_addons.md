@@ -14,8 +14,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-4 | A1 CI e2e lane | DONE | 811121b |
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
 | R2-1 | RAGE-1 the clock runs through BUILD | DONE | d2757a0 |
-| R2-2 | RAGE-3 attack row reads the cycle latch | DONE | (this commit) |
-| R2-3..9 | RAGE-7 · INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
+| R2-3 | RAGE-7 the two-Warlord tests | DONE | (this commit) |
+| R2-4..9 | INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -166,6 +167,15 @@ Merge owner = the main session. This branch never merges, never pushes.
   `attackCycleRaged` parameter (both call sites pass `c.attackCycleRaged === true`) and the attack row's
   `per` reads the latch; walk/idle keep the live bit. The tint still follows the live bit (unchanged).
   Test `src/render/rageAnimRow.test.ts` (4, pure + the two call sites). Mutation → 2 red; restored.
+
+- **RAGE-7 (LOW) — NOT A DEFECT, a missing test.** Both cases pass on the tree as it stands: (1) two
+  Warlords, the source's 25 s window ends while he is ALIVE under half (in cooldown) → the frenzy-raised
+  sibling and the soldier calm at exactly T+1500, the sibling's `rageStartTick` stays undefined; (2) the
+  source killed INSIDE a tick by an enemy zombie boss's rot aura (`ehp ≤ 0`, the deferred sweep) → both
+  calm on the kill tick. ⚠ A bare-bit source mutation did NOT go red — measured: `runWarlordRage` lowers
+  every Warlord without a live clock BEFORE the frenzy reads the bits, so two Warlords cannot keep each
+  other raging in this order. Mutations that do bite: the frenzy stamping a clock on a Warlord it raises →
+  2 red; a dying source (`ehp ≤ 0`) still counting → 1 red. Restored (cmp).
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
