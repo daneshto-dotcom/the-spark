@@ -275,40 +275,10 @@ export function damageEntity(
       return true;
     }
 
-    case 'stinkCloud': {
-      /*
-       * ⭐ S158 A2 — shoot the bag, wear the burst.
-       *
-       * ⚠ THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER. Every area effect in this game spares
-       * the side that created it, and a bag is no different just because someone else set it off —
-       * otherwise a player could clear their own minefield by shooting it and be hurt for it. The
-       * unit that popped it eats the blast precisely because it is standing there.
-       *
-       * ⛔ REMOVED BEFORE THE BURST, which is the opposite of the suicide goblin's order and is
-       * deliberate: `applyRadialDamage` walks `world.stinkClouds`? It does not — but a burst that
-       * killed a NEIGHBOURING bag would re-enter this arm while this one is still in the map, and
-       * removing first makes that chain terminate. A bag cannot detonate itself twice.
-       */
-      const cloud = world.stinkClouds.get(target.id);
-      if (cloud === undefined) return false;
-      cloud.ehp -= amount;
-      applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
-      if (cloud.ehp > 0) return false;
-      // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
-      world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
-      const at = { x: cloud.pos.x, y: cloud.pos.y };
-      const owner = cloud.ownerPlayerId;
-      const radius = cloud.radius;
-      world.stinkClouds.delete(target.id);
-      world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
-      applyRadialDamage(
-        world, at.x, at.y, radius,
-        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
-        'hazard', owner,
-      );
-      return true;
-    }
+    case 'stinkCloud':
+      // ⭐ S191 BLAST-1 — the arm is `damageStinkCloud` below, so the hub blast can pass one more
+      // seat for the burst to spare. Every other caller spares only the bag's owner, as before.
+      return damageStinkCloud(world, target.id, amount, attacker, null);
 
     case 'defender': {
       /*
@@ -363,6 +333,62 @@ export function damageEntity(
     }
 
   }
+}
+
+/**
+ * ⭐ S158 A2 — a LANDED STINK BAG takes a hit, and bursts when it reaches zero. The body of
+ * `damageEntity`'s `'stinkCloud'` arm, lifted out verbatim so one caller can add a spared seat.
+ *
+ * ⚠ MINE — S191 BLAST-1: `burstAlsoSpares`. A bag the LIGHTNING HUB's blast pops bursts without hitting
+ * the HUB OWNER either — otherwise the blast the owner ruled "spares his base" (S157 P0) reaches up to
+ * 90 px past its own 240 through an enemy bag. `null` everywhere else: an ordinary pop spares only the
+ * bag's owner (S158 A2). The owner has not ruled this; it is on the question list.
+ *
+ * The amount must be a validated non-negative integer (`damageEntity`'s guard, or the hub planner).
+ */
+export function damageStinkCloud(
+  world: World,
+  id: StinkCloudId,
+  amount: number,
+  attacker: DamageAttacker,
+  burstAlsoSpares: PlayerId | null,
+): boolean {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error(`damageStinkCloud: amount must be a non-negative INTEGER, got ${amount}.`);
+  }
+  if (amount === 0) return false;
+  /*
+   * ⭐ S158 A2 — shoot the bag, wear the burst.
+   *
+   * ⚠ THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER. Every area effect in this game spares
+   * the side that created it, and a bag is no different just because someone else set it off —
+   * otherwise a player could clear their own minefield by shooting it and be hurt for it. The
+   * unit that popped it eats the blast precisely because it is standing there.
+   *
+   * ⛔ REMOVED BEFORE THE BURST, which is the opposite of the suicide goblin's order and is
+   * deliberate: `applyRadialDamage` walks `world.stinkClouds`? It does not — but a burst that
+   * killed a NEIGHBOURING bag would re-enter this arm while this one is still in the map, and
+   * removing first makes that chain terminate. A bag cannot detonate itself twice.
+   */
+  const cloud = world.stinkClouds.get(id);
+  if (cloud === undefined) return false;
+  cloud.ehp -= amount;
+  applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
+  if (cloud.ehp > 0) return false;
+  // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
+  world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
+  const at = { x: cloud.pos.x, y: cloud.pos.y };
+  const owner = cloud.ownerPlayerId;
+  const radius = cloud.radius;
+  world.stinkClouds.delete(id);
+  world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
+  applyRadialDamage(
+    world, at.x, at.y, radius,
+    attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
+    attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    'hazard', owner, burstAlsoSpares,
+  );
+  return true;
 }
 
 /**
@@ -667,8 +693,16 @@ export function applyRadialDamage(
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /**
+   * ⭐ S191 BLAST-1 — ONE MORE seat to spare, for the one blast that has two owners to respect (a bag
+   * the lightning hub popped: the bag's owner AND the hub's — `damageStinkCloud`). Optional, `null` for
+   * every other caller, so each of them is byte-identical.
+   */
+  alsoSparePlayerId: PlayerId | null = null,
 ): RadialDamageResult {
   const r2 = radius * radius;
+  const spared = (seat: PlayerId): boolean =>
+    (sparePlayerId !== null && seat === sparePlayerId) || (alsoSparePlayerId !== null && seat === alsoSparePlayerId);
   const inRange = (x: number, y: number): boolean => {
     const dx = x - cx;
     const dy = y - cy;
@@ -678,21 +712,21 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    if (sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) continue;
+    if (spared(c.ownerPlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if (sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) continue;
+    if (spared(dd.ownerPlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
   }
   defenderVictims.sort((a, b) => (a as number) - (b as number));
 
   const primVictims: PrimitiveId[] = [];
   for (const [pid, p] of world.primitives) {
-    if (sparePlayerId !== null && p.placedBy === sparePlayerId) continue;
+    if (spared(p.placedBy)) continue;
     if (inRange(p.pos.x, p.pos.y)) primVictims.push(pid);
   }
   primVictims.sort((a, b) => (a as number) - (b as number));

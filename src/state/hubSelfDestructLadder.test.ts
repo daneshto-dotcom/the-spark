@@ -27,6 +27,9 @@ import {
   PRIMITIVE_MAX_HP,
   PRINCESS_DEF,
   PRINCESS_HP,
+  STINK_BAG_ATK,
+  STINK_BAG_PEN,
+  STINK_BAG_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   SparkType,
 } from '../constants.ts';
@@ -52,6 +55,7 @@ import { castleAnchor } from './gatherers/gatherer.ts';
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { applyStructureSelfDestruct, planHubBlast } from './potatoLifecycle.ts';
+import { damageEntity } from './damage.ts';
 import { mulberry32 } from './rng.ts';
 import { restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
@@ -117,8 +121,8 @@ function spawn(w: World, type: string, owner: PlayerId, x: number, y: number): C
   return newest!;
 }
 
-function bag(w: World, owner: PlayerId, x: number, y: number) {
-  const b = makeStinkCloud({ id: asStinkCloudId(w.nextStinkCloudId++), pos: { x, y }, ownerPlayerId: owner, landedAtTick: w.tick, radius: 30 });
+function bag(w: World, owner: PlayerId, x: number, y: number, radius = 30) {
+  const b = makeStinkCloud({ id: asStinkCloudId(w.nextStinkCloudId++), pos: { x, y }, ownerPlayerId: owner, landedAtTick: w.tick, radius });
   w.stinkClouds.set(b.id, b);
   return b;
 }
@@ -516,6 +520,54 @@ describe('⭐⭐ S191 (owner) — the blast is 120 IN TOTAL, split across every 
     // Re-derived independently: the 119 nearest connectors by (squared distance, id).
     const nearest = [...bonds].sort((x, y) => midD2(w, x) - midD2(w, y) || Number(x) - Number(y)).slice(0, 119);
     expect(new Set(hit)).toEqual(new Set(nearest));
+  });
+});
+
+/* ─────────── 2c · BLAST-1 — A BAG THE HUB POPS BURSTS WITHOUT HITTING THE HUB OWNER (⚠ MINE) ─────────── */
+
+describe('⚠ MINE (S191 BLAST-1) — a bag the hub blast pops still bursts, and that burst spares the HUB OWNER too', () => {
+  it('⭐ REACH: an enemy bag at 230 px pops; the owner\'s boss and lone shape 300 px out, inside its 90 px burst, take nothing on the blast tick', () => {
+    const { w, hub, d, st } = hubBoard();
+    const enemyBag = bag(w, P1, 830, 400, STINK_BAG_RADIUS); // 230 px: inside the blast; the real 90 px bag
+    const ownBoss = spawn(w, T9_BOSS_TYPE.nagas, P0, 900, 400); // 300 px from the hub, 70 from the bag
+    const ownLone = prim(w, P0, SparkType.Triangle, 880, 440); // 283 px from the hub, 64 from the bag
+    expect((900 - HUB_AT.x) ** 2, 'fixture: the owner\'s boss is OUTSIDE the hub blast').toBeGreaterThan(STRUCTURE_SELFDESTRUCT_RADIUS ** 2);
+    bankOnStar(w, hub, 34);
+    let blew = false;
+    for (let t = 0; t < 200 && !blew; t++) {
+      w.effects.length = 0;
+      const bossBefore = w.creatures.get(ownBoss)!.ehp;
+      const loneBefore = w.primitives.get(ownLone.id)?.hp;
+      runHostTick(w, d, st);
+      blew = w.effects.some((e) => e.kind === 'BOMB_EXPLODE' && e.radius === STRUCTURE_SELFDESTRUCT_RADIUS);
+      if (!blew) continue;
+      expect(w.stinkClouds.has(enemyBag.id), 'anti-vacuity: the blast popped the bag').toBe(false);
+      expect(w.effects.some((e) => e.kind === 'BOMB_EXPLODE' && e.radius === STINK_BAG_RADIUS), 'and it burst').toBe(true);
+      // The popped bag is gone before the cloud-aura loop runs, so any change on THIS tick is the burst.
+      expect(w.creatures.get(ownBoss)?.ehp, 'pre-fix: the burst took 6 from the hub owner\'s boss').toBe(bossBefore);
+      expect(w.primitives.get(ownLone.id)?.hp, 'pre-fix: the burst killed the hub owner\'s lone shape').toBe(loneBefore);
+    }
+    expect(blew, 'anti-vacuity: the real poll blew the hub').toBe(true);
+  });
+
+  it('negative — the burst still hurts a THIRD seat, and a bag popped by anything else still hurts the hub owner', () => {
+    const P2 = asPlayerId(2);
+    const w = board();
+    w.players.set(P2, makeIdlePlayer(P2, PLAYER_COLORS[2]!));
+    const enemyBag = bag(w, P1, 830, 400, STINK_BAG_RADIUS);
+    const third = spawn(w, T9_BOSS_TYPE.nagas, P2, 900, 380); // outside the hub blast, inside the burst
+    const thirdPool = w.creatures.get(third)!.ehp;
+    hubBlast(w);
+    expect(w.stinkClouds.has(enemyBag.id)).toBe(false);
+    expect(thirdPool - w.creatures.get(third)!.ehp, 'the burst is the bag\'s own 1 ATK / 1 PEN').toBe(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+
+    // The same bag popped by an ordinary blow: the hub owner is NOT spared — the S158 A2 rule stands.
+    const w2 = board();
+    const bag2 = bag(w2, P1, 830, 400, STINK_BAG_RADIUS);
+    const ownBoss = spawn(w2, T9_BOSS_TYPE.nagas, P0, 900, 400);
+    const ownPool = w2.creatures.get(ownBoss)!.ehp;
+    damageEntity(w2, { kind: 'stinkCloud', id: bag2.id }, 5, 'creature', null);
+    expect(ownPool - w2.creatures.get(ownBoss)!.ehp).toBe(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
   });
 });
 

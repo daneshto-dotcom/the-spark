@@ -1418,6 +1418,9 @@ the constant:** who gets the remainder — the order is nearest first (squared d
 (creature · Helga · shape · bag · connector), then id; past 120 targets the nearest 120 take one fifth
 each and the rest nothing (a fifth is the smallest unit the ladder has). And it is the UNBUFFED drone:
 a seat that drafted ATK/PEN still blasts 120.
+⚠ **MINE (S191 BLAST-1):** a bag the blast pops still BURSTS, and that burst spares the HUB OWNER as
+well as the bag's owner (`damageStinkCloud`) — otherwise S157 P0's exemption would leak 90 px past the
+blast through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner only).
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
 (380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is

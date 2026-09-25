@@ -43,7 +43,7 @@ import { removeCreature } from './creatures/creatureLifecycle.ts';
 import { razePrimitives } from './razePrimitives.ts';
 // ⭐ S191 C-5 — the hub's blast is ladder damage through the ordinary funnels, and its connector
 // sever goes straight to the one sever reducer (see `applyHubLadderBlast`).
-import { damageConnector, damageEntity, type DamageTarget } from './damage.ts';
+import { damageConnector, damageEntity, damageStinkCloud, type DamageTarget } from './damage.ts';
 import { applySeverBond } from './severBond.ts';
 import { attackFifths } from './stats.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
@@ -516,8 +516,9 @@ export function planHubBlast(world: World, cx: number, cy: number, radius: numbe
  *     goes straight to `applySeverBond`, not through `dispatch`, for POWER OF RA's audit-F1 reason:
  *     `dispatch`'s bench and elimination gates would REFUSE the sever if the owner were benched or out,
  *     leaving a connector standing after its pool was spent. `canSeverBond` still runs.
- *   · ⚠ A bag the blast pops still BURSTS, and a burst spares the BAG's owner, not the killer — so it
- *     can hurt the hub owner's own things beside it. That is the bag's existing rule, not a new one.
+ *   · a bag share goes through `damageStinkCloud`: a bag the blast pops still BURSTS, and ⚠ MINE (S191
+ *     BLAST-1) that burst spares the HUB OWNER as well as the bag's owner — otherwise the blast would
+ *     reach his own things up to 90 px past its 240 through an enemy bag, which S157 P0 rules out.
  *
  * ⛔ THE CASTLE IS NOT AN ARM. On every shipped board no enemy keep can be inside 240 px of a hub built
  * on its owner's ground (`hubSelfDestructLadder.test.ts` measures it); a board that changes that needs
@@ -534,12 +535,17 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
       }
       continue;
     }
+    if (t.kind === 'stinkCloud') {
+      // ⚠ MINE — S191 BLAST-1: the bag's burst spares the HUB OWNER too (see `damageStinkCloud`).
+      damageStinkCloud(world, t.id as unknown as StinkCloudId, t.amount, null, owner);
+      continue;
+    }
     damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', null);
   }
 }
 
-/** The `DamageTarget` for a non-connector share. */
-function hubBlastTarget(kind: Exclude<HubBlastKind, 'connector'>, id: number): DamageTarget {
+/** The `DamageTarget` for a share that is neither a connector nor a bag. */
+function hubBlastTarget(kind: Exclude<HubBlastKind, 'connector' | 'stinkCloud'>, id: number): DamageTarget {
   switch (kind) {
     case 'creature':
       return { kind, id: id as unknown as CreatureId };
@@ -547,8 +553,6 @@ function hubBlastTarget(kind: Exclude<HubBlastKind, 'connector'>, id: number): D
       return { kind, id: id as unknown as DefenderId };
     case 'primitive':
       return { kind, id: id as unknown as PrimitiveId };
-    case 'stinkCloud':
-      return { kind, id: id as unknown as StinkCloudId };
   }
 }
 

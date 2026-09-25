@@ -17,9 +17,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
 | **ROUND 2** | | | merge owner's message: A · B · C · D · C-6 · C-8 · C-9 |
 | R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | `082ecd2` | see below |
-| R2-B · test honesty (GATES-3, BLAST-8) | DONE | (this commit) | test-only |
-| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | next | | |
-| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | todo | | |
+| R2-B · test honesty (GATES-3, BLAST-8) | DONE | `6b19634` | test-only |
+| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | (this commit) | see below |
+| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | next | | |
 | C-6 · spreadEnemyTarget strict predicate | RELEASED, todo | | |
 | C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
 | C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
@@ -168,6 +168,21 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   and every shape's bond Set re-inserted in reverse (anti-vacuity: C's first creature differs). Pre-blast
   all three hash equal; post-blast all three equal and differ from pre; the tied 50 px bosses split 18/17
   by id. Mutation: the plan's sort removed → RED ("C = A after the blast"). Restored.
+
+## R2-C — DONE (BLAST-1 default, ⚠ MINE)
+
+- `damage.ts` (shared — two self-contained hunks): the `'stinkCloud'` arm of `damageEntity` is lifted
+  verbatim into exported `damageStinkCloud(world, id, amount, attacker, burstAlsoSpares)` (the arm calls it
+  with `null`); `applyRadialDamage` gains an OPTIONAL 9th param `alsoSparePlayerId = null` (every other
+  caller byte-identical). The hub blast pops bags through `damageStinkCloud(…, owner)`, so the burst spares
+  the hub owner too. An ordinary pop keeps S158 A2 (spares the bag's owner only).
+- Tests: REACH through the real host tick — enemy bag (real 90 px radius) 230 px from the hub pops; the
+  owner's boss (300 px, 70 from the bag) and lone shape (283 px, 64 from the bag) are unchanged ACROSS the
+  blast tick (the popped bag is deleted before the aura loop, so the tick isolates the burst). Pre-fix: the
+  boss lost 6. Negative: a third seat's boss still takes 6 from that burst; a bag popped by an ordinary
+  blow still hurts the hub owner (6).
+- Mutation: the hub passes `null` → RED (402 vs 408). Restored. Canon §9d item 2: one MINE sentence.
+- Wire/hash: none; a rule both peers compute → rides the same deploy bump as C-5.
 
 ## In flight
 
