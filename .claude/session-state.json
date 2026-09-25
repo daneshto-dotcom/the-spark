@@ -3,10 +3,10 @@
   "session_kind": "owner-driven: DISPATCH the S189 batch PDR (pre-approved) — research workflows + six worktree agents + merge trains A-E",
   "session_start": "2026-09-24",
   "prior_session_archive": ".claude/session-archive/session-state_S189_2026-09-24.json",
-  "phase": "DO",
+  "phase": "CLOSE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-09-24_S189_BATCH_PDR.md",
-  "session_status": "S190 — deploy #4 LIVE (7404a49, verify-deploy 4/4); weld + net -> deploy #5",
+  "session_status": "S190 CLOSED — deploys #3 (5934d3b) + #4 (7404a49, PROTOCOL 51) live, verify-deploy 4/4; 7 priorities completed; P0 net + P8 weld carried → .claude/plans/S191_BACKLOG.md; handoff HANDOFF_S190_2026-09-25.md",
   "protocol_version": 51,
   "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
   "owner_approval_handoff_verbatim": "You know what? ... Send the plan for review to the council ... record it as a PDR, and then run a full and complete handoff. And then next session, you already have the plan ready to be deployed ... I approve it and I pre-approve it.",
@@ -384,6 +384,11 @@
       "priority": "P9",
       "tag": "#s190-removing-a-zindex-changes-who-gets-the-click",
       "lesson": "Deleting the draft panel's zIndex fixed C1 and silently let passive overlays above it pass clicks through to hidden draft tiles. A z-order change is an input change."
+    },
+    {
+      "priority": "SESSION",
+      "tag": "#s190-commit-every-step-is-what-makes-a-spend-limit-cheap",
+      "lesson": "The org spend limit killed every in-flight agent THREE times; each time the loss was one step per branch, because every brief said commit after every step and every workflow journals per agent. Parallelism is only as safe as its smallest unit of saved progress."
     }
   ],
   "carry_forward_findings": [

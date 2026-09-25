@@ -1,45 +1,51 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-09-24 | Session: S189 | deploy #2 LIVE (15035b9, verify-deploy 4/4) · the PDR is READY TO DISPATCH
+Generated: 2026-09-25 | Session: S190 | deploy #4 LIVE (7404a49, PROTOCOL 51, verify-deploy 4/4) · deploy #3 5934d3b before it
 
 ## ⛔ READ FIRST
-- **THE PLAN IS DONE — DISPATCH IT, DO NOT RE-PLAN.** `.claude/plans/2026-09-24_S189_BATCH_PDR.md` — owner
-  pre-approved (*"I approve it and I pre-approve it"*), two Council rounds recorded (§8). §3 is the exact
-  execution order; §5 holds the six self-contained briefs; §4 the rules every brief inherits.
-- `SPARK_CANON.md` §3d is STALE (says no racial is built — all twelve L0/L5 racials ARE live). Corrected
-  text is on `s188/canon`; it lands LAST (P10), re-derived against the merged tree.
-- `PROTOCOL_VERSION` is **50**. Train B (wrath + swarm) takes it to **51** once.
-- ⚠ Verify `session-state.json`'s `session_id` in a separate call before trusting it (memory
-  `session-state-write-race`).
+- **The owner has a NEW list of things to implement** (written after his morning playtest) — take it first, then
+  `.claude/plans/S191_BACKLOG.md` (deploy #5 = weld + net is its top section).
+- **Never re-ask an answered question**: `.claude/plans/S190_OWNER_RULINGS.md` (R190-A..M) and `SPARK_CANON.md`.
+- `PROTOCOL_VERSION` is **51**. Weld owes 52 (new saved fields + a rule every peer computes).
+- ⚠ Verify `session-state.json`'s `session_id` in a SEPARATE call before trusting it (memory `session-state-write-race`;
+  the hook-side race itself is FIXED in ~/.claude 0fa4ed1).
 
 ## Next Steps
-1. Boot, then read CI: E2E run `35972498981` (15035b9, in progress at handoff) and the **cancelled** E2E run for 5c6615f. Record a verdict on each.
-2. In ONE message (PDR §3 Step 1): re-run `.claude/plans/s189-workflows/s189-disconnect-hunt.js` + `s189-branch-audits.js` (both NOT DONE: stopped unfinished on the quota order, zero agents complete), and dispatch the named Agents `s189-units`, `s189-weld`, `s189-render`, `s188-ra-vfx` with their §5 briefs.
-3. When the audits land, run fix rounds for input-layer / wrath / swarm (verified findings only) and dispatch `s188-draft-atk` (§5.6).
-4. When the hunt lands, write the net DIAGNOSIS from verified findings and dispatch `s189-net` (§5.1).
-5. Merge trains A→E, one branch at a time, gates after every merge, e2e before every push, verify-deploy after: A input-layer (deploy #3, fixes the owner's footer-arrow report C9) · B wrath→swarm (51, #4) · C render→units→weld→ra-vfx (#5) · D draft-atk→net (#6) · E canon + docs (#7).
-6. Report to the owner the numbers to confirm: APEX PREDATOR bite ×4, THE SWARM bite ×11.
+1. Owner's new list (ask him for it if not pasted) — plan it after reading the canon and the rulings file.
+2. Deploy #5: `s189/weld` (round 4 at 18769b4 — one-lens re-audit, then merge; bump 51→52 with the reason list in
+   S191_BACKLOG) and `s189/net` (NOT shippable: NETFR-1 HIGH send-to-title in a live match, NETFR-2, NETFR-3 — fix
+   shapes in S191_BACKLOG §FIRST; then e2e reconnect-hard-blip, reconnect, exit-match, hostmigration).
+3. C4 retry tuning (S191_BACKLOG §E — Trystero answeringTtlMs 23 333 ms; 6/7 recoveries, 4 after the grace).
+4. Owner questions §A (C3 Voltkin raiders, ATK on summons, castle hit/heal numbers, Ra above buildings, overlay over
+   draft, spawner-weld lock) — one plain-words batch, each with a recommendation.
+5. Add-ons §B (orc rage 25 s, Alt footer toggle, magic-attack class, A1 CI fix) and carry-forwards §C.
 
 ## Blockers
-- None on infrastructure. The OLD account is at 96 % of its weekly quota; the owner is moving to a fresh account seat.
-- Owner-only: SANDWORM art (next session after this one); the APEX ×4 / SWARM ×11 confirmation (non-blocking).
+- None technical. Owner-only: his new list; the §A questions (none block work); C6 needs a two-machine check.
 
 ## Pending Backlog
-Everything owed is in the PDR's §2. `S182_BACKLOG.md` / `S180_BACKLOG.md` are older forward lists — verify any line before it reaches him.
+Everything owed is in `.claude/plans/S191_BACKLOG.md` (§FIRST, §A-§E). Older forward lists (S182/S180 backlogs) — verify
+any line before it reaches him.
 
 ## Recent Reflexion (last 2 sessions)
-`.claude/reflexion_log.md`: S189 at the top (3 entries: a failing check is a finding about the check first · read the code before the fan-out · a write and a commit in one call can commit the old file), then S188 (9 entries). 50 total, at the cap.
+`.claude/reflexion_log.md`: S190 at the top (8 entries: a guard can break the gesture under it · render state that
+outlives the sim needs the sim's proof · a merge resolution that compiles can drop an argument · a red-by-design
+tripwire is a chain · two independent confirmations before a wide change · a test at rest hides a velocity bug ·
+removing a zIndex changes who gets the click · commit-every-step makes a spend limit cheap), then S189 (3 entries).
+50 total, at the cap.
 
 ## Muscle memory (auto) [Vigil]
-- Traces: `C:\Users\onesh\.claude\traces\2026-09-24\The-Spark.jsonl`
+- Traces: `C:\Users\onesh\.claude\traces\2026-09-25\The-Spark.jsonl`
 - Last decisions:
-  - Answer the handoff's first question from the code before any agent runs (CONNECTION LOST needs PLAYING; a mismatch never gets there).
-  - A red measured on a loaded machine or against a stale artifact is re-run under the right conditions, never waived and never chased as a bug.
-  - One protocol bump per deploy train, never per branch.
-  - Preserve owner rulings over Council pressure: R185-B (welding two towers) stands; its Council challenge became a test instead.
-  - Stop in-flight agents rather than risk the handoff at a quota wall; save their scripts first.
+  - Nothing merges without an auditor that did not write it — every S190 fix round audited, and audits found real
+    defects in green branches again (weld spare rule, net send-to-title, the sonar velocity bug).
+  - Unapproved spec changes are REVERTED, not debated (the owner's standing S190 order).
+  - Near the context limit, delegate merge MECHANICS to an integrator reading an on-disk notes file; keep triage,
+    e2e, push and the live look.
+  - Hold an audited-red branch rather than ship it; one protocol bump per deploy.
+  - Commit after every step — three spend-limit wipeouts cost one step per branch each.
 - CLAUDE_LOOP: **closed**
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] latest HANDOFF: `HANDOFF_S189_2026-09-24.md`
-  - [x] LOCKED_DECISIONS.md (unchanged S189)
+  - [x] latest HANDOFF: `HANDOFF_S190_2026-09-25.md`
+  - [x] LOCKED_DECISIONS.md (unchanged S190)
   - [x] traces jsonl path above
