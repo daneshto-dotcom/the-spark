@@ -18,7 +18,7 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | **ROUND 2** | | | merge owner's message: A · B · C · D · C-6 · C-8 · C-9 |
 | R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | `082ecd2` | see below |
 | R2-B · test honesty (GATES-3, BLAST-8) | DONE | `6b19634` | test-only |
-| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | (this commit) | see below |
+| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | `7706688` + follow-up (this commit) | see below |
 | R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | next | | |
 | C-6 · spreadEnemyTarget strict predicate | RELEASED, todo | | |
 | C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
@@ -183,6 +183,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   blow still hurts the hub owner (6).
 - Mutation: the hub passes `null` → RED (402 vs 408). Restored. Canon §9d item 2: one MINE sentence.
 - Wire/hash: none; a rule both peers compute → rides the same deploy bump as C-5.
+- ⛔ FOLLOW-UP (found by R2-D's full-suite gate, not by the R2-C run): the `spared(...)` helper hid the
+  creature/defender owner filter from `untargetableCallSites.test.ts` (its census matches `ownerPlayerId … ===`),
+  which then reported `damage.ts`' area scan as gone. The two filters are written out again; census green.
 
 ## In flight
 

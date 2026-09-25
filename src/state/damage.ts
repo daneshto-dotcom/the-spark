@@ -712,14 +712,16 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    if (spared(c.ownerPlayerId)) continue;
+    // ⚠ S191 — written out (not `spared(...)`) so `untargetableCallSites.test.ts` still SEES this area
+    // scan's owner filter: its census matches `ownerPlayerId … ===` and a helper call hid it.
+    if ((sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && c.ownerPlayerId === alsoSparePlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if (spared(dd.ownerPlayerId)) continue;
+    if ((sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && dd.ownerPlayerId === alsoSparePlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
   }
   defenderVictims.sort((a, b) => (a as number) - (b as number));
