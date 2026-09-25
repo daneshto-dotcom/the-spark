@@ -23,12 +23,20 @@ root cause, the table in the final report.
 
 ## Done
 - Step 0 — `npm ci` EXIT=0. Progress skeleton.
+- **1a** — the ember tint is FIGHT-only (and PLAYING-only, following the burn's own gate).
+  `zoneBackdropTintNow(player, phase)` wraps the phase-free `zoneBackdropTint(player)` (kept, because
+  `canon.test.ts` — which this branch may not edit — calls it with one argument). The renderer's `sync`
+  calls the wrapper. Checked: the BURN itself was already FIGHT-only (`runRacialPerksFight` sits inside
+  `hostTick`'s `matchPhase === 'FIGHT'` block, ~:2094/:2132) — nothing else changed.
+  Tests `src/render/s191ScorchedTintFightOnly.test.ts` (REACH: the real host tick across BUILD→FIGHT and
+  FIGHT→BUILD, the REAL `ZoneBackgroundRenderer.sync`, sprite tint read back). Mutation: renderer back on
+  `zoneBackdropTint(player)` → 2 red; restored.
 
 ## In flight
-- 1a (tint FIGHT-only)
+- 1b-sim (the CAST_SCORCHED_EARTH intent + the scorch)
 
 ## Next
-- 1b-sim, 1b-UI, 1b-bots, item 2
+- 1b-UI, 1b-bots, item 2
 
 ## Decisions / numbers that are MINE
 _none yet_
