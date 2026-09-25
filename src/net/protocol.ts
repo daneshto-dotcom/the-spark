@@ -852,7 +852,36 @@ export type { NetSnapshot };
  * ⚠ AND IT CLOSES OWNER RULING R190-B: deploys #1 and #2 both advertised 50 while deploy #2 changed four
  * sim rules under it (*"It's not a question"*). 51 refuses both old builds at HELLO.
  */
-export const PROTOCOL_VERSION = 51 as const;
+/**
+ * ⭐⭐ S191 — **BUMPED 51 -> 52: DEPLOY #5 — `s189/weld` (at c7436a2, before its round 5) + `s189/net`.**
+ * ONE bump for both branches (S182 lesson 6 — both reason lists are kept here). Each item below earns it
+ * alone (the S186 test: two builds that shake hands would disagree about something either computes):
+ *   WELD (C2 — welding onto a tower must not dissolve it; `.claude/plans/S189_CANON_NOTES_weld.md` §H):
+ *   1. `ownBondIdLimit` — a NEW additive-optional field on SerializedSpawner AND SerializedDefender (the
+ *      connectors a tower was BUILT with); rides the wire (KEPT by `trimMirrorSpawner`), wide-hashed
+ *      (`:ob`). Every survival and render walk reads it; a v51 peer walks the raw hub / ring instead.
+ *   2. the serialized `'DORMANT'` value on `DefenderState` — a killed Helga is KEPT as a record; a v51
+ *      client's `helgaCell` has no arm for it and throws in `princessRenderer.syncSprite`.
+ *   3. shared rules: "exact to build, contains to survive" (built-with survival for every tower recipe);
+ *      Helga's exact first build + her dormant revive at BOTH phase edges (R190-J); the S107 P4 auto-bond
+ *      lock is empty (a drop may weld onto a live spawner); a hub self-raze / t9 release razes only its
+ *      OWN members plus orphaned welds; the render walks (cover, centroid, aura, ground zone, star
+ *      health, FEED row); bot raids aim at a tower's OWN connectors; the takeover allocator floor.
+ *   NET (C4 disconnect / C5 lag / C6 seat — `.claude/plans/S189_CANON_NOTES_net.md`):
+ *   4. the per-match id — additive-optional `START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` +
+ *      `matchId`, `NETSNAPSHOT.matchId` (envelope only, never saved or hashed; ~35 B a snapshot); a
+ *      pending rejoin HOLDS snapshots until the host proves the same match (NETFR-1/2). A malformed
+ *      value rejects the whole message (the file's posture).
+ *   5. C6 — the quickmatch discovery beacon gains additive-optional `ageMs` / `holds` and the ELDER keeps
+ *      the room (the seat that was in the lobby first stays player one); the bump renames the
+ *      `spark-qm-v{PROTO}` room, so v51 and v52 seekers never meet.
+ *   Local only, riding without needing it: C4's reconnect ordering (leave once, wait for a same-code
+ *   leave, 8 s retry past the grace, 180 s give-up), the survivor gate on SEATED survivors, the begin
+ *   latch, C5's per-peer latest-wins snapshot backpressure, the Escape consumers.
+ *   ⚠ NOT on 52: weld round 5 (R191-A) and the net FIX-3 kept claim clock (reverted on master) — both
+ *   audited red in S191 and carried.
+ */
+export const PROTOCOL_VERSION = 52 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1164,6 +1193,11 @@ export interface HelloMsg {
    * without needing it: `Creature.healedFifths`, `WorldSnapshot.nextCreatureId`, units' host-side rule
    * changes. Full reasons on the const's JSDoc.)
    *
+   * S191: 51->52 (DEPLOY #5 — `s189/weld` at c7436a2 + `s189/net`: `ownBondIdLimit` on spawners and
+   * defenders, the serialized `'DORMANT'` Helga state, the built-with survival rule and its render walks;
+   * the per-match id on START_GAME_SIGNAL / LOBBY_PRESENCE / NETSNAPSHOT and the C6 beacon election.
+   * Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1201,7 +1235,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 51;
+  readonly protoVersion: 52;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
