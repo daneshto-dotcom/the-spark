@@ -66,11 +66,9 @@ import { dispatch } from '../world.ts';
 import type { World } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import type { Creature } from './creature.ts';
-import { isUntargetable } from './creature.ts';
+import { creatureAttackFifths, isUntargetable } from './creature.ts';
 import { bondMidpoint, distSq, isEnemyBond } from './creatureAI.ts';
-import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity } from '../damage.ts';
-import { attackFifths } from '../stats.ts';
 import { VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_JUMP_DIVISOR, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
 
 /** One link in the bolt: what it is, which entity, and where the arc is drawn to. */
@@ -199,8 +197,9 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
   const links = voltkinChainFrom(world, attacker, seed);
   if (links.length === 0) return 0;
 
-  const cfg = getCreatureConfig(attacker.type);
-  const baseHit = attackFifths(cfg.atk, cfg.pen);
+  // ⭐ S190 (draft-atk) — the Voltkin's OWN baked strike (a drafted ATK/PEN pick), never its type's:
+  // a Voltkin summoned by a drafted seat chains from the buffed number, halved per jump as before.
+  const baseHit = creatureAttackFifths(attacker);
   const toSever: BondId[] = [];
 
   let from = seed.pos;

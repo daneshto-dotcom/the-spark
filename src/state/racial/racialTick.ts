@@ -27,10 +27,12 @@
  * So an event-born creature is QUEUED here and born after the sweep, in the order it was queued
  * (which is the deterministic order of the events that queued it).
  *
- * The queue is keyed by `World` in a module-level `WeakMap`, not a `World` field: it is empty at
- * every tick boundary by construction (drained the same tick it is filled), so it never needs to be
- * serialized, hashed or carried to a joiner — and a `World` field would owe `FIELD_COVERAGE` an
- * entry for state that can never be observed between ticks.
+ * The queue is keyed by `World` in a module-level `WeakMap`, not a `World` field, so it is never
+ * serialized, hashed or carried to a joiner. ⛔ S189 (LOW d): that is only safe because it is EMPTY
+ * wherever a save can land, and until S189 it was not — work queued OUTSIDE the strike batch (a remote
+ * RAID applied between ticks, a bot acting after the post-sweep drain) waited for the next tick and
+ * was lost to any save in the gap. It now drains at that boundary; the queue and the full argument
+ * live in `spawnQueue.ts`, re-exported below so every import of it from here is unchanged.
  */
 
 import type { World } from '../worldTypes.ts';
@@ -66,34 +68,6 @@ export function runRacialPerksFight(world: World): void {
   void world;
 }
 
-const queues = new WeakMap<World, Array<() => void>>();
-
-/**
- * Queue work — in practice a `dispatch(world, { type: 'SPAWN_CREATURE', … })` — to run after this
- * tick's death sweep. Call it from inside the strike batch instead of spawning directly.
- */
-export function queueAfterStrike(world: World, fn: () => void): void {
-  let q = queues.get(world);
-  if (q === undefined) {
-    q = [];
-    queues.set(world, q);
-  }
-  q.push(fn);
-}
-
-/**
- * Run and clear everything queued this tick, FIFO. Work queued BY a drained job (a HELLSPAWN child
- * that dies on its birth tick, say) lands in a fresh queue and waits for the next tick, so a chain
- * reaction can never recurse inside one drain.
- */
-export function drainRacialSpawnQueue(world: World): void {
-  const q = queues.get(world);
-  if (q === undefined || q.length === 0) return;
-  queues.set(world, []);
-  for (const fn of q) fn();
-}
-
-/** Test seam: how many jobs are waiting. Never read by the sim. */
-export function pendingRacialSpawns(world: World): number {
-  return queues.get(world)?.length ?? 0;
-}
+// ⭐ S189 (LOW d) — the queue moved to a leaf module so `world.ts` can drain it at the out-of-tick
+// boundary without an import cycle. Same names, same behaviour inside the strike batch.
+export { drainRacialSpawnQueue, pendingRacialSpawns, queueAfterStrike } from './spawnQueue.ts';

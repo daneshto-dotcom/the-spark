@@ -77,8 +77,8 @@ import { rampAnchorAtPoint } from '../render/structureRamp.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
 // rule that this layer must not import Pixi still holds.
-import { raAimPoint, raCastRefusal } from '../state/racial/powerOfRaRules.ts';
-import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
+import { noteRaCastSent, raAimPreview, raLocalCastRefusal, setRaAimPreview } from '../render/raAimPreview.ts';
 
 /**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
@@ -645,6 +645,8 @@ export class Controls {
    * ⛔ EVERY DECISION HERE ASKS THE REDUCER'S OWN PREDICATES — `raCastRefusal` for "may I", and
    * `raAimPoint` for "is that a place" — so the client can never send what the host would refuse
    * for a reason the client could have seen. The host re-checks all of it regardless.
+   * ⭐ S190 W-4 — through `raLocalCastRefusal`: the reducer's predicate, plus the casts this client
+   * has sent and not yet seen synced, so a joiner cannot spend a fourth WRATH charge it does not have.
    */
   private toggleRaAim(): void {
     if (raAimPreview() !== null) {
@@ -652,7 +654,7 @@ export class Controls {
       void playUiClickSFX();
       return;
     }
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       void playUiRefusedSFX(); // a refused control says so — the button's caption names why
       return;
     }
@@ -673,13 +675,16 @@ export class Controls {
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
     // held-tower rule for the same two surfaces.
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
-    if (raCastRefusal(this.world, this.playerId) !== null) {
+    if (raLocalCastRefusal(this.world, this.playerId) !== null) {
       setRaAimPreview(null);
       void playUiRefusedSFX();
       return true;
     }
     const aim = raAimPoint(this.cursor.x, this.cursor.y);
     if (aim === null) return true; // off the board: keep aiming
+    // ⭐ S190 W-4 — counted BEFORE the send: the next aim's pattern is the next charge's, even on a
+    // joiner whose synced strikes have not caught up with this one yet.
+    noteRaCastSent(this.world, this.playerId);
     this.dispatchFn({ type: 'CAST_POWER_OF_RA', playerId: this.playerId, x: aim.x, y: aim.y });
     setRaAimPreview(null);
     void playUiClickSFX();
@@ -747,7 +752,8 @@ export class Controls {
    * the card, on ground the player could not see. The castle panel is excluded there with the stated
    * reason *"it would be hidden beneath it"*, which applies to the card word for word.
    *
-   * ⚠ The card is drawn above every surface except the zIndex-900 draft panel (`main.ts` calls
+   * ⚠ The card is drawn above every surface except the draft panel (staged after it — child order,
+   * no zIndex since S189 C1; `main.ts` calls
    * `characterSheet.bringToFront()`), so this is not a theoretical overlap — it is the most-covered
    * rectangle on the screen.
    */
@@ -1009,7 +1015,8 @@ export class Controls {
    * ⛔⛔ S188 (audit F1) — **IS THE POINTER UNDER THE UPGRADE DRAFT PANEL?** The SURFACE question,
    * asked by the `onDown` early return and both `onUp` commit gates.
    *
-   * The S181 defect in a sixth place: the panel (zIndex 900, opaque, ~559×270 over the quarry, its
+   * The S181 defect in a sixth place: the panel (opaque — zIndex 900 then, child order since S189 C1 —
+   * ~559×270 over the quarry, its
    * side margins over buildable ground, plus the hover-detail plate below it) was registered in none
    * of this file's gates. Pixi's `pointertap` makes the pick and does not stop the native event, so
    * one click on a tile ALSO stamped an armed tower, re-tasked a gatherer, raided on a right-click or
@@ -1111,8 +1118,8 @@ export class Controls {
     /*
      * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
      * Ra aim, the card's buttons, the castle click, the armed stamp and every world pick. It is drawn
-     * above all of them (zIndex 900 sorts it over the band and the character card, which are
-     * zIndex 0), so nothing hidden under it may act — a card button included. ONE return covers LMB
+     * above all of them (`main.ts` stages it after the band and the character card — child order, no
+     * zIndex since S189 C1), so nothing hidden under it may act — a card button included. ONE return covers LMB
      * and RMB: the stamp, the gatherer / bomb / rainbow / potato / spark picks, the sheet, the raid and
      * a Ra cast (which keeps aiming, the held-tower rule). The pick itself is the panel's own Pixi
      * `pointertap`, which this does not touch. Mirrored in both `onUp` commit gates.
@@ -1138,7 +1145,6 @@ export class Controls {
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
     if (e.button === 0 && this.handleFooterChipClick()) return;
-    if (this.handleRaAimClick(e.button)) return; // ⭐ S188 P6 — an aimed Ra owns the next board click
     /*
      * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
      * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
@@ -1160,6 +1166,10 @@ export class Controls {
      * the board around the card stays live.
      */
     if (e.button === 0 && this.handleSheetActionClick()) return;
+    // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
+    // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
+    // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
+    if (this.handleRaAimClick(e.button)) return;
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
     if (e.button === 0 && this.handleCastleClick()) return;
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
@@ -1463,7 +1473,7 @@ export class Controls {
   private updateHoverCursor(): void {
     /*
      * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
-     * The panel is drawn above the band and the card (zIndex 900) and `onDown` swallows every click
+     * The panel is drawn above the band and the card (staged after them, S189 C1) and `onDown` swallows every click
      * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
      * not earn a pointer or light up — that promised a click the guard then ate. The draft SURFACE
      * question may only SUPPRESS a pointer here, never grant one: under the plate the answer is the
@@ -1529,7 +1539,7 @@ export class Controls {
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
-      // drawn above every surface except the zIndex-900 draft panel, so a release over it would drop
+      // drawn above every surface except the draft panel (staged later, S189 C1), so a release over it would drop
       // a potato on unseen ground.
       /*
        * ⛔⛔ S182 — **THE FOOTER GUARD** WAS MISSING HERE, AND THE CODEBASE SAID IT
@@ -1646,7 +1656,7 @@ export class Controls {
           !this.isPointerOverPanel() &&
           !this.isPointerOverFooterSurface() &&
           // S181 — and not over the character card, which is drawn above every surface except the
-          // zIndex-900 draft panel.
+          // draft panel (staged later, S189 C1).
           !this.isPointerOverCard() &&
           // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
           // over its side margins placed on ground the plate hides; now it is a rejected placement

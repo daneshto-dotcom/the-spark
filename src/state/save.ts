@@ -69,7 +69,7 @@ import type { Creature, CreatureState, CreatureType } from './creatures/creature
 import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
 import { castleMaxHpFor, emptyCastleUpgrades, type CastleUpgrades } from './castleUpgrades.ts';
-import { raStrikeFromWire } from './racial/powerOfRaRules.ts';
+import { raStrikesFromWire } from './racial/powerOfRaRules.ts';
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -161,6 +161,25 @@ export interface WorldSnapshot {
    * field; applySnapshotCore handles `undefined` via nullish-coalescing (Δ3).
    */
   creatures?: SerializedCreature[];
+  /**
+   * ⭐ S189 (LOW c, Council M2) — **THE CREATURE-ID COUNTER, MONOTONIC ACROSS A SAVE.**
+   *
+   * `applySnapshotCore` used to re-derive `world.nextCreatureId` as `max(LIVE id) + 1`, so every id a
+   * creature had held and died with above the highest survivor was minted AGAIN after a save/restore,
+   * a `?worker=1` adoption (its INIT is a save) or a host migration (the successor applies the last
+   * NetSnapshot). An id is a creature's identity everywhere it is keyed — renderer death-watchers,
+   * retaliation and strike targets, attributions — so a reused id can inherit a dead creature's
+   * references.
+   *
+   * ⚠ ADDITIVE-OPTIONAL, AND EMITTED ONLY WHEN THE RE-DERIVATION WOULD BE WRONG (the counter is ahead
+   * of `max(live id) + 1`), so a board where no creature died above the highest survivor — and every
+   * pre-S189 save — stays byte-identical. The reader takes `max(this, re-derived)`, so an absent field
+   * (an old save or an old host) degrades to exactly the old derivation, and a value below a live id
+   * can never be adopted. It rides the NetSnapshot on purpose (unlike `nextPrimitiveId`): a
+   * migration successor is a CLIENT until it is promoted, and the last snapshot it applied is the only
+   * place it can learn the counter. The wide hash already covers the field (`stateHashFull`).
+   */
+  nextCreatureId?: number;
   /**
    * S71 P1 — host-authoritative bombs for the 1v1 client mirror + host save/load.
    * Additive-optional (creature precedent; NO schemaVersion bump). Emitted only
@@ -527,12 +546,13 @@ interface SerializedPlayer {
   eliminatedAtTick?: number;
   raidProgress?: number;
   /**
-   * ⭐ S188 P6 — POWER OF RA (`mummies.l0`): this seat's last call to Ra — the wave, the aimed point
-   * and the deadline (`RaStrike`). Additive-optional and emitted only once a seat has cast, so a
-   * board where nobody called Ra stays byte-identical. Validated on the way in (`raStrikeFromWire`):
-   * it crosses a trust boundary and a malformed one must read as "never cast", not as a strike.
+   * ⭐ S188 P6 / P11 — POWER OF RA / WRATH OF RA: this seat's calls to Ra this fight, each the wave,
+   * the aimed point and the deadline (`RaStrike`), in cast order (the index seeds the pattern).
+   * Additive-optional and emitted only once a seat has cast, so a board where nobody called Ra stays
+   * byte-identical. Validated on the way in (`raStrikesFromWire`): malformed entries are dropped and
+   * at most three are kept, because it crosses a trust boundary.
    */
-  raStrike?: { readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number };
+  raStrikes?: ReadonlyArray<{ readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number }>;
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
    * undefined (pre-S72-P3 byte-compat).
@@ -689,6 +709,14 @@ interface SerializedCreature {
    */
   readonly maxEhp?: number;
   /**
+   * ⭐ S188 (draft-atk) — this creature's OWN per-hit strike, when a drafted ATK/PEN pick made it
+   * differ from its type's. Absent = `attackFifths(cfg.atk, cfg.pen)`. See `Creature.atkFifths`: it
+   * is a BIRTH property, so it cannot be rebuilt on the far side from the seat's current picks — a
+   * unit born before the pick would be buffed retroactively. Rides the wire (the joiner's character
+   * card prints it) and the save (the worker INIT and a host-migration successor strike with it).
+   */
+  readonly atkFifths?: number;
+  /**
    * S58 (#3) — owning player. Additive-optional (pre-S58 NetSnapshots omit it;
    * `deserializeCreature` rehydrates as 0 via nullish-coalescing). Pre-S58 this
    * was DELIBERATELY omitted ("host runs FSM, client only renders") — fog-of-war
@@ -833,6 +861,13 @@ interface SerializedCreature {
    */
   readonly corpseEaterUntilTick?: number;
   readonly corpseEaterAnchor?: { x: number; y: number };
+  /**
+   * ⭐ S189 (owner R190-I) — the creature's monotonic HEAL counter (`Creature.healedFifths`). Emitted only
+   * once > 0, so an unhealed creature is byte-identical; it rides the wire so a JOINER splits "-12 +2"
+   * exactly as the host does, and the worker mirror rebuilds from this shape. Additive-optional: a stale
+   * peer ignores it and nothing any sim computes reads it — no protocol bump.
+   */
+  readonly healedFifths?: number;
 }
 
 /**
@@ -1074,6 +1109,17 @@ interface SerializedStinkCloud {
   readonly ehp: number;
 }
 
+/**
+ * ⭐ S189 (LOW c) — what `applySnapshotCore` re-derives for `nextCreatureId` from LIVE ids alone:
+ * `max(id) + 1`, or 0 with no creature. `snapshot()` emits the real counter only when it is ahead of
+ * this. Pure; exported for the test.
+ */
+export function rederivedNextCreatureId(ids: Iterable<CreatureId>): number {
+  let maxId = -1;
+  for (const id of ids) if ((id as number) > maxId) maxId = id as number;
+  return maxId + 1;
+}
+
 export function snapshot(
   world: World,
   // S82 P2 — host-only extras injected by the SAVE call site. The Spawner is not part of
@@ -1116,6 +1162,11 @@ export function snapshot(
     creatures: world.creatures.size > 0
       ? [...world.creatures.values()].map(serializeCreature)
       : undefined,
+    // ⭐ S189 (LOW c) — the counter, only when `max(live id) + 1` would under-state it. See the field.
+    nextCreatureId:
+      world.nextCreatureId > rederivedNextCreatureId(world.creatures.keys())
+        ? world.nextCreatureId
+        : undefined,
     // S71 P1 — emit bombs only when present so pre-S71 saves stay byte-identical
     // (the field stays undefined and JSON.stringify drops it).
     bombs: world.bombs.size > 0
@@ -1594,6 +1645,16 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
     }
     if (maxId >= 0) world.nextCreatureId = maxId + 1;
   }
+  // ⭐ S189 (LOW c, Council M2) — the SERIALIZED counter wins when it is ahead of the re-derivation,
+  // so a dead creature's id is never minted again. `max`, never a blind overwrite: an absent field (old
+  // save / old host) keeps the derivation above, and a value at or below a live id is ignored.
+  if (
+    typeof snap.nextCreatureId === 'number' &&
+    Number.isInteger(snap.nextCreatureId) &&
+    snap.nextCreatureId > world.nextCreatureId
+  ) {
+    world.nextCreatureId = snap.nextCreatureId;
+  }
 
   // S71 P1 — bombs: clear + rehydrate (mirror of the creature pattern). Reset the
   // mint counter past the max loaded id so a host save-load with a live bomb does
@@ -1962,7 +2023,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       raidProgress: p.raidProgress ?? 0,
       // ⭐ S188 P6 — READ FROM THE WIRE, validated. Absent = never cast (every pre-S188 save). A
       // literal `null` here would forget every seat's cast on every client frame and let it cast twice.
-      raStrike: raStrikeFromWire(p.raStrike),
+      raStrikes: raStrikesFromWire(p.raStrikes),
       // ⭐ S161 P2 — READ FROM THE WIRE, and note there is no `?? 0`: `undefined` is the MEANING
       // here ("this seat is still in the match"), not a missing value to be defaulted. Coercing it
       // to 0 would mark every living player as having been eliminated on tick zero.
@@ -2180,7 +2241,7 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // ⭐ S188 P6 — emitted only once the seat has called Ra. Copied, never aliased.
-    ...(p.raStrike !== null ? { raStrike: { ...p.raStrike } } : {}),
+    ...(p.raStrikes.length > 0 ? { raStrikes: p.raStrikes.map((s) => ({ ...s })) } : {}),
     // S161 P2 — emit the elimination stamp only once a seat is actually out, so a live board stays
     // byte-identical to v39. `save.test.ts` asserts that byte-identity.
     ...(p.eliminatedAtTick !== undefined ? { eliminatedAtTick: p.eliminatedAtTick } : {}),
@@ -2274,6 +2335,9 @@ function serializeCreature(c: Creature): SerializedCreature {
     // ⭐ S187 — and the max itself, only when it differs from the type's. Unbuffed creatures — which
     // is nearly all of them, nearly always — stay byte-identical to every prior save.
     ...(c.maxEhp !== undefined ? { maxEhp: c.maxEhp } : {}),
+    // ⭐ S188 (draft-atk) — the baked strike, only when a drafted ATK/PEN pick moved it. Unbuffed
+    // creatures stay byte-identical to every prior save.
+    ...(c.atkFifths !== undefined ? { atkFifths: c.atkFifths } : {}),
     // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
@@ -2290,6 +2354,8 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
       : {}),
+    // ⭐ S189 R190-I — the heal counter, only once a heal has landed.
+    ...(c.healedFifths !== undefined && c.healedFifths > 0 ? { healedFifths: c.healedFifths } : {}),
   };
 }
 
@@ -2654,6 +2720,12 @@ function deserializeCreature(s: SerializedCreature): Creature {
       unitPoolFifths(getCreatureConfig(s.type).hp, getCreatureConfig(s.type).def),
     // ⭐ S187 — absent means "this creature's pool is its type's", the correct pre-S187 reading.
     ...(s.maxEhp !== undefined ? { maxEhp: s.maxEhp } : {}),
+    // ⭐ S188 (draft-atk) — validated, never trusted: a strike is a POSITIVE INTEGER of fifths, because
+    // `damageEntity` throws on a non-integer and a zero/negative strike would be a unit that cannot
+    // hurt anything. Anything else off the wire is dropped, which reads as the type's own strike.
+    ...(typeof s.atkFifths === 'number' && Number.isInteger(s.atkFifths) && s.atkFifths > 0
+      ? { atkFifths: s.atkFifths }
+      : {}),
     // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because
     // every reader gates on `!== undefined && tick < poopyUntilTick`.
@@ -2673,6 +2745,8 @@ function deserializeCreature(s: SerializedCreature): Creature {
     ...(s.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
       : {}),
+    // ⭐ S189 R190-I — validated, never trusted: a positive integer or nothing (absent reads as 0).
+    ...(Number.isInteger(s.healedFifths) && (s.healedFifths as number) > 0 ? { healedFifths: s.healedFifths } : {}),
   };
 }
 

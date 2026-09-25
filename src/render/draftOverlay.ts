@@ -311,8 +311,9 @@ export interface DraftOverlayDeps {
    * Where the offer comes from. Production: `draftOptionsFor`. A test injects an offered perk here,
    * because on a branch every `RACIAL_PERK_BUILT` entry may still be false — the choosable state
    * must be testable without flipping somebody else's registry.
+   * ⭐ S190 W-1 — `picks` is the seat's pick list (a CONDITIONAL perk needs it: WRATH OF RA).
    */
-  readonly optionsFor?: (waveNumber: number, race: RaceId) => DraftOptions;
+  readonly optionsFor?: (waveNumber: number, race: RaceId, picks?: readonly DraftPick[]) => DraftOptions;
   /** How a card texture is fetched. Production: Pixi `Assets`, which caches by URL. */
   readonly loadCard?: (url: string) => Promise<Texture>;
 }
@@ -343,8 +344,17 @@ export class DraftOverlay {
   private opts: DraftOptions | null = null;
   private readonly cards = new Map<string, CardState>();
   private readonly onPick: (p: DraftPick) => void;
-  private readonly optionsFor: (waveNumber: number, race: RaceId) => DraftOptions;
+  private readonly optionsFor: (waveNumber: number, race: RaceId, picks?: readonly DraftPick[]) => DraftOptions;
   private readonly loadCard: (url: string) => Promise<Texture>;
+  /**
+   * ⭐ S190 (render audit L1-5) — **IS A LATER-STAGED MODAL COVERING THE PANEL?** Since S189 C1 the
+   * panel carries no zIndex, so every surface `main.ts` stages AFTER it — the codex (G+C) and the
+   * lobby's CONNECTION LOST / RECONNECTING / MIGRATING overlay — draws over it, and their backdrops
+   * swallow the click (R2-1). The two input questions below must then answer false as well, or the
+   * cursor promises a pick the backdrop eats. Injected by `main.ts` (`setCoveredBy`); the default is
+   * never covered, so every other caller is unchanged.
+   */
+  private coveredBy: () => boolean = () => false;
 
   constructor(onPick: (p: DraftPick) => void, deps: DraftOverlayDeps = {}) {
     this.onPick = onPick;
@@ -352,7 +362,24 @@ export class DraftOverlay {
     this.loadCard = deps.loadCard ?? ((url) => Assets.load<Texture>(url));
     this.container.visible = false;
     this.container.eventMode = 'static';
-    this.container.zIndex = 900;
+    /*
+     * ⛔⛔ S189 C1 (owner) — **NO `zIndex` ON THIS CONTAINER. ITS PLACE IS ITS STAGING LINE IN
+     * `main.ts`, AND A zIndex IS WHAT PUT HIS POINTER UNDER THE PANEL.**
+     *
+     * > *"the spark should be one layer above … it gets highlighted when you mouse over it, but the
+     * > mouse is under it"* — owner, S189
+     *
+     * S187 shipped `zIndex = 900` here. `exitButton.ts` sets `app.stage.sortableChildren = true`, and
+     * Pixi then sorts the stage by zIndex every frame — so a 900 lifted this panel above EVERY
+     * zIndex-0 sibling no matter where it was added, including the local cruiser that
+     * `avatarRenderer.bringLocalToFront()` stages LAST precisely so nothing covers it (S153 A1). The
+     * hover highlight worked; the thing he steers with was drawn underneath the plate.
+     *
+     * With no zIndex the panel obeys child order like the rest of the HUD (canon §7b R183-G), and
+     * `main.ts` stages it after the footer and the character sheet (so it still covers those) and
+     * immediately BEFORE the cruiser lift (so the cruiser covers it). `s189CruiserAboveDraft.test.ts`
+     * sorts a real stage built in that order and goes red if a zIndex comes back.
+     */
 
     const h1 = new TextStyle({ fontFamily: ['Kanit', 'Impact', 'sans-serif'], fontWeight: '900', fontStyle: 'italic', fontSize: 22, fill: INK });
     /*
@@ -511,7 +538,10 @@ export class DraftOverlay {
     this.container.visible = true;
 
     const race = pl.raceId;
-    const opts = this.optionsFor(ev.waveNumber, race);
+    // ⭐ S188 P11 / S190 W-1 — the SEAT's picks, not just its race: WRATH OF RA (mummies.l10) is
+    // offered only to a seat holding POWER OF RA. Without them `racialPerkFor` answers "not offered"
+    // and the tile the seat has earned draws as COMING SOON.
+    const opts = this.optionsFor(ev.waveNumber, race, pl.draftPicks);
     this.opts = opts;
     const views = draftTileViews(opts);
 
@@ -629,7 +659,8 @@ export class DraftOverlay {
    *
    * It exists because the panel was a UI surface registered in NONE of the input layer's gates. Pixi
    * never stops the native event, and `controls.ts` listens on the raw canvas, so ONE click on a tile
-   * both sent the pick (the `pointertap` above) AND ran the board handlers under the zIndex-900 plate:
+   * both sent the pick (the `pointertap` above) AND ran the board handlers under the plate (zIndex 900
+   * then; placed by its staging line in `main.ts` since S189 C1):
    * it stamped an armed tower on the side-margin ground the plate hides, re-tasked a gatherer, raided
    * on a right-click, opened a character card. The owner's S181 rule for the card applies word for
    * word — *a surface you cannot see through must swallow the click*.
@@ -644,7 +675,7 @@ export class DraftOverlay {
    * in canvas coordinates, untransformed — the same assumption `draftHitTest(e.global)` makes.
    */
   isOver(x: number, y: number): boolean {
-    if (!this.container.visible) return false;
+    if (!this.container.visible || this.coveredBy()) return false; // S190 L1-5 — a modal is on top
     const p = { x, y };
     for (const child of this.container.children) {
       if (child instanceof Graphics && child.visible && child.containsPoint(p)) return true;
@@ -658,6 +689,11 @@ export class DraftOverlay {
    * COMING SOON tile is part of the surface and is not a control.
    */
   isOverChoosable(x: number, y: number): boolean {
-    return this.container.visible && this.opts !== null && draftHitTest(x, y, this.opts) !== null;
+    return this.container.visible && !this.coveredBy() && this.opts !== null && draftHitTest(x, y, this.opts) !== null;
+  }
+
+  /** ⭐ S190 (render audit L1-5) — `main.ts` names the modals staged over the panel. See `coveredBy`. */
+  setCoveredBy(covered: () => boolean): void {
+    this.coveredBy = covered;
   }
 }

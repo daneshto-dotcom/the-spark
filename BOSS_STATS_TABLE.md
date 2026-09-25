@@ -54,7 +54,7 @@ Reading it: the raw ladder is fairly tight — most pairings are 3–5 strikes. 
 | **Warlord** | **Direwolves** (R149) | Up to **3 per warlord**, stats 3/3/3/3. | ✅ |
 | **Archdemon** | **Taken to hell** (R150) | Any enemy within **170 px** that drops below **5% health** is dragged under and killed outright. | ✅ |
 | **Archdemon** | **Teleport** (R150) | Every **7 s** he blinks to a target, preferring the **loneliest** enemy (fewest friends within 260 px). | ✅ |
-| **Kraken** | **Sonar wave** (R139) | A **60° cone**, range **260 px**, every **9 s**: **stuns for 2 s** and knocks back **26 px**. | ✅ |
+| **Kraken** | **Sonar wave** (R139) | A **60° cone**, range **260 px**, every **9 s**: **stuns for 2 s** and shoves **70 px** (`KRAKEN_SONAR_KNOCKBACK_PX` = 2 × the 35 px melee arm; ⚠ this said 26 px until S189 C10 — a per-substep velocity that flung units ~11,000 px, off the map). | ✅ |
 | **Pharaoh** | **Locust clouds** (R142) | **2 clouds** every **30 s**, 15 s lifetime, each **10 ATK / 10 PEN = 150 damage**, 1.35× speed. | ✅ |
 | **Pharaoh** | **Ra ritual** (R142/R171) | At death he becomes **unkillable**, calls down **5 columns** at **15 ATK / 15 PEN = 300 each**, then dies. | ✅ |
 | **Whopper** | **Rot aura** | **2.5% of max per pulse** to everything within **170 px**. | ✅ |

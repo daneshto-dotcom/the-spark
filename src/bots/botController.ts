@@ -53,6 +53,7 @@ import type { GameAction, World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
+import { botRaAction } from './botRa.ts';
 import type { BotDifficulty } from './botTypes.ts';
 
 
@@ -166,6 +167,14 @@ export class BotController {
       this.vel = 0;
       return;
     }
+
+    /*
+     * ⭐ S188 audit F2 — CALL RA, if this seat holds it and a strike is worth it. A castle command
+     * like PULL: no travel, no FSM state, dispatched through the same `send` as every other intent.
+     * Pure over synced state (`botRa.ts`), so the host's bots and the worker's cast identically.
+     */
+    const ra = botRaAction(world, this.seat);
+    if (ra !== null) send(ra);
 
     // ── per-tick state validation (Council F1 fix: invalidate stale targets
     //    the tick they die, not on the next think) ─────────────────────────

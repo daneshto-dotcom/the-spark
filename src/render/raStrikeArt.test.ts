@@ -108,12 +108,12 @@ function strikeBoard(): World {
 
 /**
  * Seat 0 calls POWER OF RA at (700, 400); returns the synced strike record the renderer reads.
- * ⚠ MERGE NOTE: the ONE line that reads the player's strike field. `s188/wrath` turns
- * `Player.raStrike` into `Player.raStrikes[]` — after that merge this becomes `.raStrikes[0]!`.
+ * ⭐ S190 (s188/wrath merge) — `Player.raStrike` became `Player.raStrikes[]`; this is the first
+ * (charge 0) strike, the one POWER OF RA alone can call.
  */
 function castStrike(w: World): RaStrike {
   dispatch(w, { type: 'CAST_POWER_OF_RA', playerId: P0, x: 700, y: 400 });
-  return w.players.get(P0)!.raStrike!;
+  return w.players.get(P0)!.raStrikes[0]!;
 }
 
 /** A Pharaoh channelling the ritual whose deadline is `until`, alone on a board. */
@@ -584,7 +584,7 @@ describe('S188 ra-vfx — RAVFX-7: the 1.68 MB strike atlas is fetched BEFORE th
     const { drawBossAuras: draw, fetchSpy } = await freshAurasWithFetch();
     const w = strikeBoard();
     w.matchPhase = 'BUILD';
-    expect(w.players.get(P0)!.raStrike, 'anti-vacuity: nothing to draw a column from').toBeNull();
+    expect(w.players.get(P0)!.raStrikes, 'anti-vacuity: nothing to draw a column from').toEqual([]);
     draw(recorder().g, w);
     draw(recorder().g, w);
     expect(fetchSpy).toHaveBeenCalledTimes(1);

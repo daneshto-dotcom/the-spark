@@ -897,6 +897,39 @@ export const T3_PIRANHA_ELITE_STATS = {
 export const T3_PIRANHA_ELITE_CONFIG: CreatureConfig = makeT3Config('t3PiranhaElite', T3_PIRANHA_ELITE_STATS);
 
 /**
+ * ⭐⭐ S188 (owner, vampires level 10 — THE SWARM) — HIS NUMBER, AND HIS DERIVATION: *"the bat stats
+ * would be … whatever we did for the piranha … this has to be double that … Whatever we did for the
+ * piranha, we double that."*
+ *
+ * ⛔ WRITTEN AS `2 × APEX_PREDATOR_STAT_MUL`, NOT AS A LITERAL 6, because that IS what he said: the
+ * swarm is defined RELATIVE to the piranha's upgrade. Today that is ×6 (`theSwarm.test.ts` pins 6).
+ */
+export const THE_SWARM_STAT_MUL = 2 * APEX_PREDATOR_STAT_MUL;
+
+/**
+ * ⭐ THE BAT SWARM'S STAT LINE, DERIVED FROM THE BAT'S — the elite piranha's shape exactly: the four
+ * ladder stats ×`THE_SWARM_STAT_MUL`, and ONLY those (`speedMul` is not a ladder stat, and a swarm six
+ * times faster would be a second, unasked-for change). Never typed out, so a retune of
+ * `T3_STATS.bat` retunes the swarm with it.
+ *
+ * ⚠ REPORTED, NOT HIDDEN — on the ×5 ladder "every stat ×6" is NOT "every number ×6". The bat is
+ * 2 / 0 / 2 / 1, so the swarm is 12 / 0 / 12 / 6: the pool is `hp × (5 + def)` with DEF 0, so exactly
+ * ×6 (10 → 60); the bite is `atk × (5 + pen)` with PEN multiplied too, so 12 → 132 — **×11**. One
+ * bite is more than a whole 5-connector tower level (130, `structurePoolFifths`). It is the literal
+ * reading of his words, shipped as such (*"don't argue if it's too OP"*); the arithmetic is what he
+ * should see before he plays it.
+ */
+export const T3_BAT_SWARM_STATS = {
+  hp: T3_STATS.bat.hp * THE_SWARM_STAT_MUL,
+  def: T3_STATS.bat.def * THE_SWARM_STAT_MUL,
+  atk: T3_STATS.bat.atk * THE_SWARM_STAT_MUL,
+  pen: T3_STATS.bat.pen * THE_SWARM_STAT_MUL,
+  speedMul: T3_STATS.bat.speedMul,
+} as const;
+
+export const T3_BAT_SWARM_CONFIG: CreatureConfig = makeT3Config('t3BatSwarm', T3_BAT_SWARM_STATS);
+
+/**
  * ⭐ S167 — THE SIX TIER-9 BOSSES. One factory over `T9_BOSS_STATS`, exactly as `makeT3Config` is
  * one factory over `T3_STATS`: the six differ in five numbers and agree on everything else, so six
  * hand-written configs would be six chances for one shared field to drift.
@@ -1086,6 +1119,8 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   // ⭐ S188 APEX PREDATOR — the piranha ×3, see `T3_PIRANHA_ELITE_STATS`.
   t3PiranhaElite: T3_PIRANHA_ELITE_CONFIG,
   t3Bat: T3_BAT_CONFIG,
+  // ⭐ S188 THE SWARM — the bat ×6, see `T3_BAT_SWARM_STATS`.
+  t3BatSwarm: T3_BAT_SWARM_CONFIG,
   t3Warband: T3_WARBAND_CONFIG,
   t3Souleater: T3_SOULEATER_CONFIG,
   // S167 — the six bosses. tsc forces these: the table is a full `Record<CreatureType, …>`, and it

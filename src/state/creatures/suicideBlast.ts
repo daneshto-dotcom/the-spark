@@ -46,26 +46,24 @@
  * `PROTOCOL_VERSION` bump**: `SUICIDE_BLAST` is host-internal, exactly like `DRONE_EXPLODE`.
  */
 
-import {
-  GOBLIN_SUICIDE_ATK,
-  GOBLIN_SUICIDE_PEN,
-  GOBLIN_SUICIDE_BLAST_RADIUS,
-} from '../../constants.ts';
+import { GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
 import type { BondId, CreatureId } from '../../types.ts';
 import { applyRadialDamage, damageConnector } from '../damage.ts';
-import { attackFifths } from '../stats.ts';
+import { creatureAttackFifths } from './creature.ts';
 import { dispatch, type World } from '../world.ts';
 
-/**
- * The unit half of the blast, on the stat ladder. Named rather than inlined so the two damage scales
- * cannot be confused at the call site. ⛔ S178: this said `applyRadialDamage` *"takes a
- * 1000-per-shape amount"* — it does not, and has not since S177 P1 put shapes on the ×5 ladder at
- * `PRIMITIVE_MAX_HP` 70. BOTH of its amounts are fifths; the two parameters stay separate only so a
- * future effect MAY hit shapes and units differently, not because they are different units.
- * The historical wording: `applyRadialDamage` took a 1000-per-shape amount and a
- * fifths amount ADJACENTLY, and swapping them typechecks silently.
+/*
+ * ⭐ S190 (draft-atk) — THE BLAST IS THE BOMBER'S OWN STRIKE, READ ONCE PER DETONATION.
+ *
+ * This was a module constant, `attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN)`, plus a second
+ * copy of the same derivation in the connector arm — so a suicide goblin born to a seat that drafted
+ * ATK or PEN blew up for the UNBUFFED 20. The config's atk/pen ARE those two constants, so for an
+ * undrafted bomber `creatureAttackFifths` returns exactly 20 and nothing changes; a drafted one now
+ * blasts for its baked number. ONE value feeds all three targets (units, shapes, connectors), as the
+ * owner's S158 ruling says (*"4atk against units + 4 atk against structures/structur connectors"*).
+ * Both `applyRadialDamage` amounts are fifths (S177 P1); they stay separate parameters only so a
+ * future effect MAY hit shapes and units differently.
  */
-const SUICIDE_BLAST_UNIT_FIFTHS = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
 
 /** Action shape — exported so world.ts can compose GameAction. Host-internal (NOT a client INTENT). */
 export interface SuicideBlastAction {
@@ -91,6 +89,7 @@ export interface SuicideBlastAction {
 export function applySuicideBlast(world: World, action: SuicideBlastAction): World {
   const bomber = world.creatures.get(action.creatureId);
   if (bomber === undefined) return world;
+  const blastFifths = creatureAttackFifths(bomber); // ⭐ S190 — see the S190 note under this file's imports
   const cx = bomber.pos.x;
   const cy = bomber.pos.y;
 
@@ -109,8 +108,8 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     cx,
     cy,
     GOBLIN_SUICIDE_BLAST_RADIUS,
-    SUICIDE_BLAST_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-    SUICIDE_BLAST_UNIT_FIFTHS,
+    blastFifths, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
+    blastFifths,
     'creature',
     bomber.ownerPlayerId,
   );
@@ -134,7 +133,6 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
    * Collected before mutating, and enemy-only by the same `placedBy` rule the raid arm uses: a bond
    * has no owner field, so ownership is read off the primitives it joins.
    */
-  const blastFifths = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
   const r2 = GOBLIN_SUICIDE_BLAST_RADIUS * GOBLIN_SUICIDE_BLAST_RADIUS;
   const hitBonds: BondId[] = [];
   for (const [bondId, bond] of world.bonds) {
