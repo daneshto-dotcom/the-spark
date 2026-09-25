@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-2 done.**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-3 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -10,8 +10,8 @@ The merge owner resumes from this file if this agent is cut off.
 | # | step | state | commit |
 |---|---|---|---|
 | 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | 7fe65d4 |
-| 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | (this commit) |
-| 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | pending | |
+| 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | 27531dd |
+| 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | (this commit) |
 | 4 | NETFR-6 — per-peer slot drop/rejoin test | pending | |
 | 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | pending | |
 | 6 | NETFR-5 — canon notes rewrite | pending | |
@@ -95,6 +95,42 @@ The merge owner resumes from this file if this agent is cut off.
   - Hotspot `main.ts` hunks (net/session sections only): `isRejoinPending` import; `hostLobbyPresenceAtMs` →
     `hostLobbyAtMs` (3 lines); `clientJoinDeps.isRejoinPending` (1 line + comment); `hostMovedOn` call (2 fields);
     2 `broadcastQmPresence` calls + `world.gameState`; 3 snapshot-builder calls + `session.matchId`.
+
+- **Step 3 — NETFR-3: the claim clock starts the first frame a survivor is visible WITHOUT the host.**
+  `stepMigrationClaim` (`reconnectPolicy.ts`): `hostLost && !hasSurvivorToHostFor(...)` now returns
+  `{ lossObservedAtMs: 0, claim: false }` BEFORE the banking line (it used to bank from the first frame of OUR
+  OWN transport loss and test the survivor only at claim time). Consequence, intended: a 3-seat host death
+  whose survivors blink out and back restarts the clock when they return (it was kept before).
+  (a) `planConnectionFrame` gains a REQUIRED input `claimClockSinceMs` (main.ts passes
+  `migrationLossObservedAtMs`, which the claim block wrote earlier in the SAME frame — pinned: the step's
+  assignment precedes the one `planConnectionFrame(` call). The MIGRATING deadline is now
+  `max(reconnectUntilMs, claimClockSinceMs + RECONNECT_GRACE_MS) + migrationExtraMs` — so it is NEVER shorter
+  than before and only runs longer when the claim clock began after the loss (anchoring purely on the claim
+  clock would have SHORTENED the window in a starve-then-drop case by up to the 6 s starvation lead; I chose
+  max so no existing case moves). Without (a) the NETFR-3 timeline showed MIGRATING → TERMINAL at 36 s →
+  hidden when the claim landed at 41.5 s.
+  - Tests (failing first: 5 red → green): `reconnectPolicy.test.ts` `firstClaim` gained `othersAt(t)`:
+    host absent from 10 s, B absent until 25 s then present, host back at 27 s → **null**; host never back →
+    claim at **25 s + grace + ladder** (±1 frame); no survivor → the step reports no episode; ⚠ RESIDUAL
+    (below). `connectionFrame.test.ts`: the NETFR-3 timeline stays MIGRATING from 25 s through the claim at
+    41.5 s, never retries, and ends `migrationDeadline` at 25 + 15 + 11 s; NEGATIVE: a claim clock that
+    started with or before the loss leaves the window exactly as it was; + the mechanical same-frame guard.
+    Mutations (restored, `cmp`): M3a bank-then-gate (the S189 order) → 4 red · M3b deadline anchored on the
+    loss only → 1 red.
+  - ⚠ **THE L+22 s WINDOW: the minimal fix NARROWS it, it does not close it.** Constructed and PINNED as a
+    test (`⚠ RESIDUAL (owner question)`): our loss at L; B's leg is an ordinary fresh join (~6.3–7 s,
+    measured S189) → visible at ~L+7 s; H's leg sits behind Trystero's 23.3 s answering TTL (S189 traces:
+    landing ~L+26–29 s). The clock starts at L+7, so the claim fires at **L+7+15+rung ≈ L+22–23.5 s**, before
+    H is back — the same lone-host outcome (B rejects, H refuses, we stop reconnecting). The fix closes only
+    the case where B's leg is itself late (≥ ~L+11 s with H by ~L+27). ALSO: from B's arrival
+    `migrationCase` is true, so the loop stops retrying; H's leg then lands only if the in-flight attempt's
+    handshake completes on its own. The verifier's stronger shape (a seat whose loss began with its own
+    transport empty never claims, keeps reconnecting, accepts B's claim as 'advance') closes it, and changes
+    C4/D4 → owner question, NOT built.
+  - Gates: typecheck **0** · `npx vitest run --maxWorkers=4 src/net/ src/input/` **0** (47 + 1 skipped /
+    878 + 3 skipped) · build **0** (965.1 KiB, +0.06 KiB). Hotspot `main.ts`: one line in the
+    `planConnectionFrame({…})` input. Protocol: none (WHEN a peer claims is local; the claim and its
+    verification are unchanged).
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

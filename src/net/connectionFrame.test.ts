@@ -29,6 +29,8 @@ function run(o: {
   isHost?: boolean;
   migrationCase?: (t: number) => boolean;
   peerCount?: number;
+  /** ⭐ S191 — `stepMigrationClaim`'s claim clock as main.ts carries it (0 = not running). */
+  claimSince?: (t: number) => number;
 }): Array<{ t: number; plan: ConnectionFramePlan }> {
   const out: Array<{ t: number; plan: ConnectionFramePlan }> = [];
   let reconnectUntilMs = 0;
@@ -45,6 +47,7 @@ function run(o: {
       reconnectUntilMs,
       nextRetryMs,
       migrationExtraMs: MIGRATION_EXTRA_MS,
+      claimClockSinceMs: o.claimSince?.(t) ?? 0,
     };
     const plan = planConnectionFrame(input);
     reconnectUntilMs = plan.reconnectUntilMs;
@@ -87,6 +90,40 @@ describe('S189 fix round — planConnectionFrame, frame by frame', () => {
     const end = frames.find((f) => f.t >= lossAt + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS + 100)!.plan.overlay;
     expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline' });
   });
+
+  /*
+   * ⭐ S191 NETFR-3 (a) — the MIGRATING window is anchored on the CLAIM CLOCK when that starts later than the
+   * loss. After our own transport loss the claim clock now starts only when a survivor is visible without
+   * the host (B's leg lands at 25 s), so a window anchored on the loss (10 s → 25 + 11 = 36 s) went TERMINAL
+   * at 36 s and then flipped to hidden when the claim landed at 41.5 s. Anchored on the claim clock it
+   * stays MIGRATING through the claim.
+   */
+  it('⛔ NETFR-3 — B lands at 25 s after our loss at 10 s: MIGRATING (never terminal) right through the claim at 25 + grace + rung', () => {
+    const B = 25_000;
+    const frames = run({
+      toMs: 60_000,
+      lost: (t) => t >= 10_000,
+      migrationCase: (t) => t >= B,
+      peerCount: 1,
+      claimSince: (t) => (t >= B ? B : 0),
+    });
+    const claimAt = B + RECONNECT_GRACE_MS + 1500; // rung 1
+    const between = frames.filter((f) => f.t >= B && f.t <= claimAt + 100);
+    expect(between.length).toBeGreaterThan(0);
+    for (const f of between) expect(f.plan.overlay.kind, `frame at ${f.t} ms`).toBe('migrating');
+    expect(frames.some((f) => f.plan.retry && f.t >= B)).toBe(false); // still never tears the mesh down
+    const end = frames.find((f) => f.t >= B + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS + 100)!.plan.overlay;
+    expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline' });
+  });
+
+  it('NEGATIVE — a claim clock that started WITH the loss (or earlier) leaves the window exactly as it was', () => {
+    for (const since of [5_000, 3_000]) {
+      const frames = run({ toMs: 60_000, lost: (t) => t >= 5_000, migrationCase: () => true, peerCount: 2, claimSince: (t) => (t >= since ? since : 0) });
+      const lossAt = frames.find((f) => f.t >= 5_000)!.t;
+      expect(frames.find((f) => f.t >= lossAt + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS - 100)!.plan.overlay.kind).toBe('migrating');
+      expect(frames.find((f) => f.t >= lossAt + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS + 100)!.plan.overlay.kind).toBe('terminal');
+    }
+  });
 });
 
 describe('S189 fix round — main.ts decides through these functions (mechanical)', () => {
@@ -107,6 +144,14 @@ describe('S189 fix round — main.ts decides through these functions (mechanical
     expect(src.match(/stepMigrationClaim\(/g)?.length).toBe(1);
     expect(src).toContain('if (claimStep.claim)');
     expect(src, 'the old inline gate must not survive beside the step').not.toMatch(/hasSurvivorToHostFor\(/);
+  });
+
+  it('⭐ S191 NETFR-3 — the plan reads the claim clock the step wrote THIS frame (the step runs first)', () => {
+    const step = src.indexOf('migrationLossObservedAtMs = claimStep.lossObservedAtMs;');
+    const plan = src.indexOf('planConnectionFrame(');
+    expect(step).toBeGreaterThan(-1);
+    expect(plan, 'the claim step must run before the connection plan in the frame').toBeGreaterThan(step);
+    expect(src.slice(plan, plan + 900)).toMatch(/claimClockSinceMs: migrationLossObservedAtMs,/);
   });
 });
 

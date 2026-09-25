@@ -137,13 +137,15 @@ function firstClaim(o: {
   toMs: number;
   host: (t: number) => boolean;
   others?: string[];
+  /** ⭐ S191 — survivors that come and go (overrides `others`). */
+  othersAt?: (t: number) => string[];
   lastSnapshotAt: (t: number) => number;
   presentSince?: (t: number) => number;
   ladderDelayMs?: number;
 }): number | null {
   let obs = 0;
   for (let t = o.fromMs; t <= o.toMs; t += 16) {
-    const alive = new Set([...(o.others ?? []), ...(o.host(t) ? ['host'] : [])]);
+    const alive = new Set([...(o.othersAt?.(t) ?? o.others ?? []), ...(o.host(t) ? ['host'] : [])]);
     const r = stepMigrationClaim({
       nowMs: t, hostPeerId: 'host', alivePeerIds: alive,
       lastAcceptedAtMs: o.lastSnapshotAt(t), hostPresentSinceMs: o.presentSince?.(t) ?? 0,
@@ -231,5 +233,77 @@ describe('S189 fix round — the host-presence stamp the claim counts starvation
     expect(h.presentSinceMs).toBe(25_000); // back after a loss: a fresh stamp
     h = stepHostPresence(h, 'successor', true, 30_000);
     expect(h.presentSinceMs).toBe(30_000); // a different host (after a migration): its own stamp
+  });
+});
+
+/**
+ * ⛔ S191 NETFR-3 (MED) — A PARTIAL RECONNECT CLAIMED THE HOST SEAT.
+ *
+ * Our OWN transport dies in a 3-seat match (host H + another client B). While nobody is visible the
+ * survivor gate blocks the claim — but the claim clock was BANKED from the first frame of the loss. The
+ * reconnect then lands B's leg before H's (Trystero holds a same-selfId answer ~23.3 s, measured S189), so
+ * on the first frame B is visible without H the banked clock is already past grace + rung and we claim AT
+ * ONCE. B rejects it (B sees a healthy H), H refuses it (no partition evidence), and this seat is a lone
+ * host that stops reconnecting (hosts never retry). The minimal fix: no survivor visible → no clock.
+ */
+describe('S191 NETFR-3 — the claim clock starts the first frame a survivor is visible WITHOUT the host', () => {
+  const B_LANDS = 25_000;
+  const survivorsAt = (t: number): string[] => (t >= B_LANDS ? ['seat-2'] : []);
+
+  it('⛔ host absent from 10 s, B absent until 25 s then present, host back at 27 s → NO claim', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 90_000,
+      host: (t) => t < 10_000 || t >= 27_000,
+      othersAt: survivorsAt,
+      lastSnapshotAt: (t) => (t >= 27_400 ? t : 10_000),
+      presentSince: (t) => (t >= 27_000 ? 27_000 : 0),
+      ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at, 'a claim here makes this seat a lone host that B and H both ignore').toBeNull();
+  });
+
+  it('host never back → claims at 25 s + grace + ladder (a real host death is still migrated)', () => {
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 90_000,
+      host: (t) => t < 10_000,
+      othersAt: survivorsAt,
+      lastSnapshotAt: () => 10_000,
+      ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - B_LANDS).toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - B_LANDS).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+  });
+
+  it('NEGATIVE — while nobody is visible the step reports NO loss episode (so nothing is banked)', () => {
+    const r = stepMigrationClaim({
+      nowMs: 20_000, hostPeerId: 'host', alivePeerIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs: 12_000,
+    });
+    expect(r).toEqual({ lossObservedAtMs: 0, claim: false });
+  });
+
+  /**
+   * ⚠ RESIDUAL — AN OWNER QUESTION, NOT BUILT (S191 brief). The minimal fix narrows the window, it does
+   * not close it: B's leg is an ordinary fresh join (~6.3–7 s, measured S189) while H's can sit behind
+   * Trystero's 23.3 s answering TTL (landing ~L+26–29 s in the S189 traces). Then the clock starts at
+   * ~L+7 s and the claim fires at ~L+22 s + rung, BEFORE H is back — the same lone-host outcome. The
+   * verifier's stronger shape (a seat whose loss began with its OWN transport empty never claims, keeps
+   * reconnecting, and accepts B's claim as 'advance') would close it, and changes C4/D4 behaviour. This
+   * test pins the residual so a decision either way turns something red rather than passing silently.
+   */
+  it('⚠ RESIDUAL (owner question): B lands at L+7 s, H is held to L+29 s → the minimal fix still claims at ~L+22 s + rung', () => {
+    const L = 10_000;
+    const at = firstClaim({
+      fromMs: L, toMs: 90_000,
+      host: (t) => t < L || t >= L + 29_000,
+      othersAt: (t) => (t >= L + 7_000 ? ['seat-2'] : []),
+      lastSnapshotAt: (t) => (t >= L + 29_400 ? t : L),
+      presentSince: (t) => (t >= L + 29_000 ? L + 29_000 : 0),
+      ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - L).toBeGreaterThanOrEqual(7_000 + RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - L).toBeLessThan(29_000);
   });
 });

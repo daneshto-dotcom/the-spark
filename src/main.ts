@@ -3782,6 +3782,7 @@ Network routes: ${v.detail}`;
       reconnectUntilMs,
       nextRetryMs: reconnectNextRetryMs,
       migrationExtraMs: (migrationSeam?.ladderMs ?? CLAIM_LADDER_MS) * MAX_PLAYERS + 5000,
+      claimClockSinceMs: migrationLossObservedAtMs, // S191 NETFR-3 — the claim block above ran this frame
     });
     reconnectUntilMs = connectionPlan.reconnectUntilMs;
     reconnectNextRetryMs = connectionPlan.nextRetryMs;

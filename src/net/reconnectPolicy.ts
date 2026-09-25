@@ -139,6 +139,16 @@ export interface MigrationClaimStep {
  * Starvation is counted from the LATER of the last accepted snapshot and the host's (re)appearance on
  * our transport (`hostPresentSinceMs`): a reconnect that lands after a transport loss must not be read as
  * a starved host in the instant before its first snapshot arrives.
+ *
+ * ⛔ S191 (audit NETFR-3) — AND ON TRANSPORT LOSS THE CLOCK STARTS ONLY ONCE A SURVIVOR IS VISIBLE. The
+ * S189 cut banked `lossObservedAtMs` from the first frame of OUR OWN transport loss (nobody visible) and
+ * checked the survivor only at claim time. A reconnect that landed another client's leg before the host's
+ * (Trystero holds a same-selfId answer ~23.3 s) then found the banked clock already past grace + rung and
+ * claimed on that very frame — a claim that client rejects (it sees a healthy host) and the host refuses
+ * (no partition evidence), leaving this seat a lone host that stops reconnecting. Now "host gone, nobody
+ * else here" is no episode at all: the grace is counted from the first frame a survivor is visible without
+ * the host. (`planConnectionFrame` anchors its MIGRATING window on the same clock — `claimClockSinceMs`.)
+ * ⚠ It narrows the window, it does not close it — see the RESIDUAL test in `reconnectPolicy.test.ts`.
  */
 export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const hostPresent = i.hostPeerId !== null && i.alivePeerIds.has(i.hostPeerId);
@@ -146,11 +156,9 @@ export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const since = hostPresent ? Math.max(i.lastAcceptedAtMs, i.hostPresentSinceMs) : i.lastAcceptedAtMs;
   const starved = isSnapshotStarved(i.nowMs, since, i.starvationMs);
   if (!(hostLost || starved)) return { lossObservedAtMs: 0, claim: false };
+  if (hostLost && !hasSurvivorToHostFor(i.alivePeerIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
   const obs = i.lossObservedAtMs === 0 ? i.nowMs : i.lossObservedAtMs;
   if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
-    return { lossObservedAtMs: obs, claim: false };
-  }
-  if (hostLost && !hasSurvivorToHostFor(i.alivePeerIds, i.hostPeerId)) {
     return { lossObservedAtMs: obs, claim: false };
   }
   return { lossObservedAtMs: obs, claim: true };
@@ -203,6 +211,12 @@ export interface ConnectionFrameInput {
   readonly nextRetryMs: number;
   /** How far past the grace the MIGRATING window runs (CLAIM_LADDER_MS × MAX_PLAYERS + 5000). */
   readonly migrationExtraMs: number;
+  /**
+   * ⭐ S191 (NETFR-3) — when `stepMigrationClaim`'s claim clock started (its `lossObservedAtMs`; 0 = not
+   * running). After our own transport loss it starts only when a survivor is visible without the host, so
+   * it can be LATER than the loss; the MIGRATING window then runs from it instead (never shorter).
+   */
+  readonly claimClockSinceMs: number;
 }
 export interface ConnectionFramePlan {
   readonly reconnectUntilMs: number;
@@ -240,7 +254,8 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
     migrationCase: i.migrationCase,
   });
   if (retry) nextRetryMs = i.nowMs + RECONNECT_RETRY_MS;
-  const migrationDeadlineMs = reconnectUntilMs + i.migrationExtraMs;
+  // S191 NETFR-3 — the window covers the claim ladder counted from the claim clock, if that began later.
+  const migrationDeadlineMs = Math.max(reconnectUntilMs, i.claimClockSinceMs + RECONNECT_GRACE_MS) + i.migrationExtraMs;
   let overlay: ConnectionOverlay;
   if (i.nowMs < reconnectUntilMs) {
     overlay = i.migrationCase

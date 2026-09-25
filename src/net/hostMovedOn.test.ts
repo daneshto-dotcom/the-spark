@@ -106,7 +106,7 @@ describe('S189 NET-1 — the retry backstop', () => {
     for (let t = 1_000; t <= 1_000 + RECONNECT_GIVE_UP_MS + 60_000; t += 50) {
       const p = planConnectionFrame({
         nowMs: t, zombieDeposed: false, peersGone: true, isHost: false, hasRoomCode: true, migrationCase: false,
-        peerCount: 0, reconnectUntilMs, nextRetryMs, migrationExtraMs: 11_000,
+        peerCount: 0, reconnectUntilMs, nextRetryMs, migrationExtraMs: 11_000, claimClockSinceMs: 0,
       });
       reconnectUntilMs = p.reconnectUntilMs;
       nextRetryMs = p.nextRetryMs;
