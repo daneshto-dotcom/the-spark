@@ -227,6 +227,52 @@ describe('S189 fix round (audit NET-3) — the real handlers use the tested func
     expect(src.match(/closeSettingsOnEscape\(e, hide\)/g)?.length).toBe(2);
     expect(src.match(/'Escape'/g)?.length, 'only inside closeSettingsOnEscape').toBe(1);
   });
+  /*
+   * ⛔ S191 SEAM-4 — EVERY Escape branch in `Controls.onKeyDown` must CONSUME the press before it returns,
+   * or that cancel becomes the first press of "leave the match" (S189 A1). Mechanical: the body of
+   * `onKeyDown` (comments stripped) is sliced by brace matching; each `e.key === 'Escape'` branch's block
+   * must call `consumeCancel(e)` before its `return`, and the branch count is PINNED — a new Escape cancel
+   * (the s191/owner Scorched Earth aim, at merge) turns this red until it is wired and the pin is raised.
+   */
+  it('⛔ SEAM-4 — every Escape branch in Controls.onKeyDown calls consumeCancel(e) before it returns (pinned: 2)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = strip(readFileSync(new URL('./controls.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
+    const head = 'private onKeyDown = (e: KeyboardEvent): void => {';
+    const start = src.indexOf(head);
+    expect(start, 'Controls.onKeyDown must stay an arrow property with this signature').toBeGreaterThan(-1);
+    /** The index just past the `}` that closes the `{` at `open`. */
+    const closeOf = (open: number): number => {
+      let depth = 0;
+      for (let i = open; i < src.length; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}' && --depth === 0) return i + 1;
+      }
+      throw new Error('unbalanced braces');
+    };
+    const bodyOpen = start + head.length - 1;
+    const body = src.slice(bodyOpen, closeOf(bodyOpen));
+    const branches: string[] = [];
+    for (let at = body.indexOf("e.key === 'Escape'"); at !== -1; at = body.indexOf("e.key === 'Escape'", at + 1)) {
+      const open = body.indexOf('{', at);
+      let depth = 0;
+      let end = open;
+      for (; end < body.length; end++) {
+        if (body[end] === '{') depth++;
+        else if (body[end] === '}' && --depth === 0) break;
+      }
+      branches.push(body.slice(open, end + 1));
+    }
+    expect(branches.length, 'the Escape branches in onKeyDown (raise the pin only with a consumeCancel)').toBe(2);
+    for (const [i, block] of branches.entries()) {
+      const consumed = block.indexOf('consumeCancel(e)');
+      const ret = block.indexOf('return');
+      expect(consumed, `Escape branch #${i + 1} must call consumeCancel(e)`).toBeGreaterThan(-1);
+      expect(ret, `Escape branch #${i + 1} returns`).toBeGreaterThan(-1);
+      expect(consumed, `Escape branch #${i + 1}: consumeCancel(e) BEFORE the return`).toBeLessThan(ret);
+    }
+    expect(body.match(/consumeCancel\(e\)/g)?.length, 'one consumeCancel per Escape branch').toBe(branches.length);
+  });
+
   it('main.ts closes the Codex through makeOverlayEscapeClose and leaves through makeDoubleEscapeLeave', async () => {
     const { readFileSync } = await import('node:fs');
     const src = strip(readFileSync(new URL('../main.ts', import.meta.url), 'utf8'));

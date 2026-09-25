@@ -195,8 +195,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | 50f1f6e |
 | 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | 6004e8d |
 | 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | done | 36cf105 |
-| 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | done | (this commit) |
-| 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | pending | |
+| 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | done | fe7fec1 |
+| 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | done | (this commit) |
 | 7 | gates + report | pending | |
 
 - **FIX-1 / WIRE-1.** Mechanism (audit, confirmed): both strategies deliver LOBBY_READY, so the quickmatch
@@ -264,6 +264,16 @@ The merge owner resumes from this file if this agent is cut off.
   `const SPAWN_VITE = true` in the describe → RED (2 bindings) · a top-of-file
   `process.env.SPARK_SPAWN_VITE = '1'` → RED (2 env reads; the write check would also fire). typecheck
   EXIT=0; `vitest src/ci.e2ePort.test.ts` EXIT=0 (9 + 2 opt-in skipped).
+
+- **SEAM-4 (test only) — every Escape branch in `Controls.onKeyDown` consumes the press.** New case in
+  `doubleEscapeLeave.test.ts`: `controls.ts` comments stripped, `onKeyDown`'s body sliced by brace matching
+  from its exact signature; each `e.key === 'Escape'` branch's block must call `consumeCancel(e)` BEFORE its
+  `return`; the branch count is PINNED at **2** (Ra aim, held tower), and the total `consumeCancel(e)` in the
+  body must equal it. The s191/owner Scorched Earth aim cancel turns it red at merge until it is wired AND
+  the pin is raised. Green on the file. Mutations (restored, `cmp`): drop the Ra-aim `consumeCancel` → RED
+  (branch #1); a THIRD Escape branch that returns without consuming → RED (3 ≠ 2); `consumeCancel` moved
+  after the tower branch's `return` → RED (branch #2 order). `vitest src/input/doubleEscapeLeave.test.ts`
+  EXIT=0 (13).
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 
