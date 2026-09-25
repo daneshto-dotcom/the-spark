@@ -375,8 +375,12 @@ the committed tree, each a captured `$?`:
   `Defender` — a connector re-made by FIX inside the ≤ 0.5 s before the poll removes a broken tower
   counts as a weld; the tower falls and the repaired shape re-ignites later.
 
+### round-4 gates (committed tree, captured `$?`): typecheck TC_EXIT=0 · `npx vitest run --maxWorkers=6`
+VITEST_EXIT=0 (6062 / 368) · build BUILD_EXIT=0 (950.7 KiB, +6.5 KiB of the shared headroom). No
+hotspot file touched this round; no protocol edit (the weld bump reasons are unchanged).
+
 ## IN-FLIGHT
-- gates + report.
+- none — round-4 report delivered.
 
 ## NEXT
 
