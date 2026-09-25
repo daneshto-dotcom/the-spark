@@ -243,6 +243,42 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
   (C incl): structureTargets 31.9 % (not in brief) · territory 10.6 % (radii 5.9 %) · pickNavUnit 6.8 % ·
   tickScoring 5.9 % · solveBonds 5.5 %.
 
+### 2e · territory, the rest of it — `computeAllPlayerComplexities` over a dense union-find  ✅
+- Why: after 2a-2d the territory pass was still the top in-brief item on the ordinary board (A incl
+  22.6 %), and more than half of it was `computeAllPlayerRadii` (12.4 %) — the S118 union-find over two
+  id-keyed Maps, rebuilt every tick. Same file as 2a, same hotspot (the brief's first bullet).
+- `src/state/territory.ts` (CRLF kept, 545/545): `computeAllPlayerComplexities` numbers the prims once
+  (one Map id → dense index), keeps parents in an `Int32Array`, unions AND counts same-colour bonds in one
+  bond pass, then counts prims + distinct roots per colour. Only the COUNT of components per colour is
+  read, and a partition is independent of union order / root identity — identical counts, identical final
+  expression, result keyed in `world.players` order. `computeComponentRoots` (exported, min-id-root
+  contract, S118 partition test) is UNCHANGED, now off the per-tick path (docblock says so).
+- Microbenchmark first (throwaway): A board **46.0 → 21.6 µs**, C board **68.2 → 28.3 µs** per call,
+  bit-identical on both.
+- Tests: `state/territoryComplexity.differential.test.ts` (NEW — mixed bonds joining two seats into one
+  component, dangling / self / duplicate bonds, ids out of order with gaps, a colour no seat holds, a
+  400-shape chain, the shrink debuff, 400 random 4-seat boards with ~30 % cross-colour bonds;
+  complexities + radii + the two single-player wrappers, `Object.is`, insertion order); the TERRITORY arm
+  of the oracle now also compares the radius map in place every call (27 000 / 0 mismatches default).
+- MUTATION CHECKS (restored sha256-identical): R1 no union → RED · R2 count mixed bonds as same-colour →
+  RED · R3 union only same-colour bonds → RED on the new test (first attempt: needle matched twice — the
+  same three lines exist in `computeComponentRoots` — NO verdict, re-run with a unique needle) ·
+  ⚠ FINDING: R3 stays **GREEN on the S118 `territory.differential.test.ts`** — its random worlds hold only
+  same-colour bonds (the Sym-D premise the Council item corrected), so it cannot see a union that ignores
+  welds. The new test can. (Reported; S118's test left as is — not mine.)
+
+#### AFTER 2e (cumulative 2a-2e), wave-5 FIGHT, ms — machine shared
+| pass | run | mean | p95 | max | 3-tick p95 | 3-tick max |
+|---|---|---|---|---|---|---|
+| A | 1 / 2 / prof | 0.357 / 0.325 / 0.426 | 0.574 / 0.490 / 0.705 | 1.68 / 1.74 / 1.85 | 1.71 / 1.41 / 2.01 | 3.13 / 2.87 / 3.50 |
+| C | 1 / 2 / prof | 1.717 / 1.664 / 2.138 | 2.155 / 2.026 / 2.965 | 3.75 / 4.45 / 5.40 | 6.33 / 5.90 / 8.57 | 9.09 / 10.98 / 13.72 |
+- Profile: computeAllPlayerRadii A 12.4 → **6.1 %**, C 5.9 → **2.4 %**; territory incl A 22.6 → 17.5 %.
+- Rank now (A incl): territory 17.5 % · structureTargets 13.7 % (not in brief) · solveBonds 12.0 % ·
+  tickScoring 10.7 % · applyKeystoneAnchor 8.4 % (not in brief). (C incl): structureTargets **33.7 %**
+  (not in brief) · pickNavUnit 6.8 % · territory 6.8 % · tickScoring 5.6 % · solveBonds 5.4 %.
+  Every in-brief item has had its pass; what is left is either out of the brief or needs a new
+  invariant (see "what I would do next" in the report) → STOP optimising, go to the gates.
+
 ## Step 3 — cache-invariant guards
 - 2a (territory grid): NO cache — the grid is built and dropped inside each call. Nothing to stale.
 - 2b (nav index): `creatures/navUnitIndex.guards.test.ts`, comment-stripped production code, per-file

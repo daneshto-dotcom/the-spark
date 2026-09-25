@@ -55,6 +55,10 @@ import type { World } from './world.ts';
  * equals the old per-player component count (byte-identical — see the differential test). Dangling bonds (an endpoint primitive missing) are skipped, matching componentOf's
  * `primitives.get(otherId) === undefined` skip. Exported so the differential test can assert the
  * partition is bit-exact against a componentOf-derived reference (Council S118 Q3 gate).
+ *
+ * ⚠ S191 — NO LONGER ON THE PER-TICK PATH. `computeAllPlayerComplexities` now labels components with its
+ * own dense union-find (it needs only the COUNT per colour, not these min-id roots); this function and
+ * its canonical-root contract are unchanged and still exported for the S118 partition test.
  */
 export function computeComponentRoots(world: World): Map<number, number> {
   const parent = new Map<number, number>();
@@ -99,33 +103,81 @@ export function computeComponentRoots(world: World): Map<number, number> {
  * color's prims. A player with no primitives maps to 0 (territory inactive), matching the old early-out.
  */
 export function computeAllPlayerComplexities(world: World): Map<PlayerId, number> {
-  const roots = computeComponentRoots(world);
-  const primCountByColor = new Map<number, number>();
-  const rootsByColor = new Map<number, Set<number>>();
+  /*
+   * ⭐ S191 (`s191/perf`, owner C5) — THE SAME THREE COUNTS, WITHOUT THE PER-TICK MAPS. This runs every
+   * tick (via `computeAllPlayerRadii`, from the influence pass) and was 5-12 % of a wave-5 host tick
+   * AFTER the anchor grid (V8 profile, `S191_PROGRESS_perf.md`): `computeComponentRoots` built two
+   * id-keyed Maps and path-compressed through them, then this pass re-read both. It now labels the
+   * components with a union-find over a DENSE index (one pass over `world.primitives` numbers them, an
+   * `Int32Array` holds the parents) and takes the same-colour bond count in the same bond pass.
+   *
+   * ⛔ IDENTICAL BY CONSTRUCTION (proven against the verbatim pass, `territoryReference.fixtures.ts`, by
+   * `territoryComplexity.differential.test.ts` and the TERRITORY arm of `s191Perf.differential.test.ts`):
+   *  · the partition is the connected components of the graph whose edges are the bonds with BOTH
+   *    endpoints present — the same edge set `computeComponentRoots` unions (dangling bonds skipped);
+   *    a partition does not depend on union order or on which member is the root, and only the NUMBER
+   *    of distinct components among a colour's prims is read, never a root's identity;
+   *  · primCount and the same-colour bondCount are the same integer counts over the same filters
+   *    (a bond counts when both endpoints exist and share a colour);
+   *  · the final expression below is untouched, fed the same integers → the same double; the result is
+   *    keyed in `world.players` order, as before.
+   * `computeComponentRoots` itself is unchanged and still exported (the S118 partition test and the
+   * min-id-root contract are its own); this pass simply no longer needs its labels.
+   */
+  const n = world.primitives.size;
+  const indexOf = new Map<number, number>();
+  const colourOf: number[] = new Array<number>(n);
+  const parent = new Int32Array(n);
+  let next = 0;
+  for (const [id, prim] of world.primitives) {
+    indexOf.set(id as number, next);
+    colourOf[next] = prim.placerColor;
+    parent[next] = next;
+    next++;
+  }
+  const find = (x: number): number => {
+    let r = x;
+    while (parent[r] !== r) r = parent[r]!;
+    while (parent[x] !== r) {
+      const up = parent[x]!;
+      parent[x] = r;
+      x = up;
+    }
+    return r;
+  };
+
   const bondCountByColor = new Map<number, number>();
+  // One bond pass: union the components AND bucket the same-color bondCount by color (dangling /
+  // cross-color bonds skipped for the count — parity with the old myPrimIds.has(aId) && myPrimIds.has(bId)
+  // check, which failed for missing / off-color; dangling bonds skipped for the union, as before).
+  for (const bond of world.bonds.values()) {
+    const a = indexOf.get(bond.aId as number);
+    if (a === undefined) continue;
+    const b = indexOf.get(bond.bId as number);
+    if (b === undefined) continue;
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) {
+      if (ra < rb) parent[rb] = ra;
+      else parent[ra] = rb;
+    }
+    const c = colourOf[a]!;
+    if (c !== colourOf[b]) continue;
+    bondCountByColor.set(c, (bondCountByColor.get(c) ?? 0) + 1);
+  }
 
   // One prim pass: bucket primCount + distinct component roots by placerColor.
-  for (const [id, prim] of world.primitives) {
-    const c = prim.placerColor;
+  const primCountByColor = new Map<number, number>();
+  const rootsByColor = new Map<number, Set<number>>();
+  for (let k = 0; k < n; k++) {
+    const c = colourOf[k]!;
     primCountByColor.set(c, (primCountByColor.get(c) ?? 0) + 1);
     let s = rootsByColor.get(c);
     if (s === undefined) {
       s = new Set<number>();
       rootsByColor.set(c, s);
     }
-    s.add(roots.get(id as number)!);
-  }
-
-  // One bond pass: bucket same-color bondCount by color (dangling / cross-color bonds skipped — parity
-  // with the old myPrimIds.has(aId) && myPrimIds.has(bId) check, which failed for missing / off-color).
-  for (const bond of world.bonds.values()) {
-    const pa = world.primitives.get(bond.aId);
-    if (pa === undefined) continue;
-    const pb = world.primitives.get(bond.bId);
-    if (pb === undefined) continue;
-    if (pa.placerColor !== pb.placerColor) continue;
-    const c = pa.placerColor;
-    bondCountByColor.set(c, (bondCountByColor.get(c) ?? 0) + 1);
+    s.add(find(k));
   }
 
   const result = new Map<PlayerId, number>();

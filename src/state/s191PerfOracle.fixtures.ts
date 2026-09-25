@@ -11,7 +11,7 @@
  */
 import { makeBond } from './placePrimitive.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
-import { referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
+import { referenceComputeAllPlayerRadii, referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
 import {
   GOBLIN_UNIT_ACQUIRE_RADIUS, GOBLIN_UNIT_LEASH_RADIUS, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType,
   TERRITORY_ENGULF_STIFFNESS,
@@ -36,6 +36,8 @@ export interface TerritoryCheckStats {
   /** Council S191 item 1 — bonds with both endpoints present and two DIFFERENT colours, counted per
    *  checked call; and how many of those the reference engulfed (only a THIRD seat can). */
   mixedVisited: number; mixedEngulfed: number;
+  /** S191 2e — the radius map (`computeAllPlayerRadii`, fed by the dense union-find) compared per call. */
+  radiiCompared: number; radiiMismatches: number;
 }
 
 export interface TerritoryChecker {
@@ -47,10 +49,13 @@ export interface TerritoryChecker {
   check(w: World): void;
 }
 
-export function makeTerritoryChecker(real: (w: World) => void): TerritoryChecker {
+export function makeTerritoryChecker(
+  real: (w: World) => void,
+  realRadii?: (w: World) => Map<PlayerId, number>,
+): TerritoryChecker {
   const stats: TerritoryCheckStats = {
     calls: 0, bondsCompared: 0, mismatches: 0, engulfed: 0, callsWithEngulf: 0, maxEngulfedInOneCall: 0,
-    mixedVisited: 0, mixedEngulfed: 0,
+    mixedVisited: 0, mixedEngulfed: 0, radiiCompared: 0, radiiMismatches: 0,
   };
   const firstMismatches: string[] = [];
   return {
@@ -61,6 +66,17 @@ export function makeTerritoryChecker(real: (w: World) => void): TerritoryChecker
       firstMismatches.length = 0;
     },
     check(w: World): void {
+      if (realRadii !== undefined) {
+        const got = [...realRadii(w)];
+        const exp = [...referenceComputeAllPlayerRadii(w)];
+        stats.radiiCompared++;
+        const same = got.length === exp.length && exp.every(([k, v], i) => got[i]![0] === k && Object.is(got[i]![1], v));
+        if (!same) {
+          stats.radiiMismatches++;
+          stats.mismatches++;
+          if (firstMismatches.length < 8) firstMismatches.push(`tick ${w.tick} radii: real=${JSON.stringify(got)} reference=${JSON.stringify(exp)}`);
+        }
+      }
       const bonds = [...w.bonds.values()];
       const pre = bonds.map((b) => b.stiffnessMultiplier);
       referenceComputeTerritorialInfluence(w);

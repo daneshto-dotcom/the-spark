@@ -9,8 +9,9 @@
  *     every call the REAL host tick makes runs the VERBATIM pre-change reference beside the real code
  *     on the same world at the same instant (`s191PerfOracle.fixtures.ts`), and every disagreement is
  *     counted. Arms, one per change:
- *       · TERRITORY — `computeTerritorialInfluence` (the anchor grid): every bond's
- *         `stiffnessMultiplier`, `Object.is`, against `territoryReference.fixtures.ts`.
+ *       · TERRITORY — `computeTerritorialInfluence` (the anchor grid) and the radius map it reads
+ *         (`computeAllPlayerRadii`, fed by the S191 2e dense union-find): every bond's
+ *         `stiffnessMultiplier` and every radius, `Object.is`, against `territoryReference.fixtures.ts`.
  *       · NAV UNIT — `pickNavUnit` (the per-tick enemy index): every host call, plus every live
  *         creature's re-acquire once per tick and again after each injection, against
  *         `navUnitReference.fixtures.ts`. Between two calls of one tick it also injects a lethal
@@ -118,7 +119,10 @@ const INJECTION_LIFETIME = 600;
 type Mode = 'reference' | 'checked';
 let mode: Mode = 'checked';
 
-const territory = makeTerritoryChecker((w) => H.territory.computeTerritorialInfluence(w));
+const territory = makeTerritoryChecker(
+  (w) => H.territory.computeTerritorialInfluence(w),
+  (w) => H.territory.computeAllPlayerRadii(w),
+);
 H.influence = (w) => {
   if (mode === 'reference') referenceComputeTerritorialInfluence(w);
   else territory.check(w);
@@ -242,6 +246,8 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
         'one every 97 ticks once two seats have shapes'],
       ['territory: a welded MIXED-colour bond was visited (Council S191 item 1)', ts.mixedVisited, 1, '123 788 / 212 400',
         'an existence claim the Council asked for: the per-bond skip must meet a mixed bond on a real board'],
+      ['territory: the radius map compared in place every call (S191 2e)', ts.radiiCompared, end, '27 000 / 45 000',
+        'structural: once per influence call'],
       ['territory: a MIXED bond was engulfed by a THIRD seat', ts.mixedEngulfed, 1, '87 260 / 161 075',
         'an existence claim: the either-endpoint skip exercised on its engulfing side too'],
       ['nav: host-tick pickNavUnit calls', ns.calls, 1000, '228 350 / 579 376', 'every SEEKING structure-attacker, every FIGHT tick'],
