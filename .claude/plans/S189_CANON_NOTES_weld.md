@@ -141,7 +141,56 @@ Still true; add "— its OWN connectors. A weld on it is not part of its recipe.
 - VERIFIED, no change: the Voltkin TV does NOT vanish on a weld — `findAllVoltkinChains` is a path
   search with no isolation check (that lives only in ignition, `voltkinPredicate`).
 
-## H · PROTOCOL — restated once, with the final rule list
+## H · PROTOCOL — THE FINAL LIST FOR 52 (S191, measured on the merged tree; copy into the 52 docblock)
+
+**Verdict: 51 → 52 owed** (the S186 test — two builds that shake hands would disagree about what
+either computes). Wire/hash hunks are in `save.ts` / `stateHashFull.ts` only; no new action, no new
+`GameEffect` kind, no new intent.
+
+**(A) `ownBondIdLimit` — a NEW FIELD on `SerializedSpawner` AND `SerializedDefender`.** Which connectors a
+tower was BUILT with (= `world.nextBondId` at `applyRegisterSpawner` / `applyRegisterDefender`).
+Emitted additive-optional (`save.ts:2387`, `:2471`), read `?? null` (`:2430`, `:2495`); it RIDES THE WIRE
+— `trimMirrorSpawner` KEEPS it (`:2405`: identity, not a clock); worker INIT + disk via the same save;
+WIDE-HASHED (`stateHashFull.ts:372/387` unions, `:663/675` `:ob` projections). Additive-optional alone
+would cost no bump, but every survival and render walk below READS it: a v51 peer ignores it and walks
+the raw hub / raw ring instead.
+
+**(B) the serialized `'DORMANT'` discriminant on `DefenderState` (`defender.ts:104`).** A killed Helga is
+now KEPT as a record in this state (`ehp: null`) instead of deleted. A v51 client has no arm for it:
+master's `princessRenderer` draws every princess, and `helgaCell`'s switch (no `default`) returns
+`undefined` for `'DORMANT'` → `atlas.cells[undefined.state]` → **TypeError in `syncSprite` every frame**
+(verified against master's `helgaFrame.ts`). A new discriminant on a serialized field = a bump, by rule.
+
+**(C) SHARED RULES — each runs on whichever peer is host (and after a migration), or on every client:**
+1. **built-with survival** — a live tower stands while the connectors it was BUILT with stand
+   (`towerStandsAt` / `towerMembersAt`, `starArmsAt(…, limit)`, `ringMembersAt(…, limit)`), for the
+   turret, lightning hub, goblin tower, stink tower, Helga's hall, pentagram and all 12 race rings. A
+   v51 host tears a welded tower down on the next poll; a weld never stands in for a cut own connector.
+2. **Helga** — her FIRST build is exact (`isHelgaComponent`); a kill leaves her DORMANT; she revives from
+   the factory at BOTH phase edges (`hostTick.ts:482` FIGHT→BUILD for a FIGHT death, `:565` BUILD→FIGHT
+   for a BUILD death)
+   while her hall's own members stand; the FIGHT→BUILD sweep removes the record of a hall that fell.
+3. **the S107 P4 auto-bond lock is empty** (`placePrimitive.ts:679`) — a drop may auto-bond onto a live
+   spawner (host re-pick, merge candidates, merge sweep); a v51 host refuses the same drop.
+4. **orphan raze** — a lightning hub's self-destruct razes only its OWN star, and a t9 release only its
+   own nine, each also taking a weld left holding no bond (`hostTick.ts:916`, `:1333`, `razeOrphans`).
+5. **the render walks** — the ramp cover set / sprite centroid / art price (`rampMembersAt`), the stink
+   tower cover, the race-tower ring + centroid (`towerMembersAt(...).whole`), the spawner aura + ground
+   zone (`towerFootprintAt`), the star's own health (`structureStarHealth.ownStarBonds`), the FEED row
+   (`seatFeedTowerAt`, `goblinKinds.ts:128`, a total order) and the sheet's emplacement row (skips a
+   DORMANT Helga) — all read the tower's own members.
+6. **bot raids** target an enemy tower's OWN connectors (`botBrain.ts:1037` `nearestEnemySpawnerBond`).
+7. **allocator floor** — a takeover / worker repair never rebuilds `nextBondId` below a live tower's
+   `ownBondIdLimit` (`migrationClaim.ts` `rebuildAuthorityAllocators`, W-FR1).
+8. ⭐ S191 step 3 — **a Helga revived before the renderer saw her DORMANT prints her kill, not a heal**
+   (`damageNumbers.ts` defender arm of `syncStructures`). Render-only; listed because it runs on every
+   client and exists only because of (B).
+
+⚠ Round 5 (R191-A, tower vs structure FIX / SCRAP / sheets) and round 6 (R191-B, the repair job) will
+add their own wire/hash reasons; each round appends here. As of step 5 this list is complete for the
+branch as committed.
+
+### (superseded by the list above) the fix-round statement
 
 THE FIX ROUND ADDED WIRE AND HASH STATE (hotspots `save.ts`, `stateHashFull.ts`, self-contained hunks):
 (A) `ownBondIdLimit` on `CreatureSpawner` and `Defender` — serialized (disk, worker INIT, and the WIRE:

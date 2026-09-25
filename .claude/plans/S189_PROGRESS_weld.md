@@ -516,3 +516,9 @@ new code never reads a defender or a tower's membership; the rows that do, and t
 - two stale CODE comments in my own files named the deleted `ringCycleAt`: `structureRamp.ts:114`,
   `hostTick.ts:1228` → `towerMembersAt(...).whole`. Comment-only; the 19 test files that read either
   file's source text: 488 tests EXIT=0.
+
+### step 5 — the protocol reasons for 52, final list → `S189_CANON_NOTES_weld.md` §H
+- (A) `ownBondIdLimit` on SerializedSpawner + SerializedDefender (wire-kept, wide-hashed); (B) the
+  serialized `'DORMANT'` discriminant — VERIFIED against master's `helgaFrame.ts`: its switch has no
+  default, so a v51 client's `syncSprite` hits `undefined.state` (TypeError) every frame; (C) 8 shared
+  rules incl. the step-3 damage-number rule. Each with its file:line in the merged tree.
