@@ -15,6 +15,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  FIGHT_PHASE_TICKS,
+  PHASE_DURATION_TICKS,
   PHYSICS_HZ,
   PLAYER_COLORS,
   WARLORD_RAGE_COOLDOWN_TICKS,
@@ -242,6 +244,81 @@ describe('S191 — ⭐ REACH through the real host tick', () => {
     runTo(r, r.w.tick + 30);
     expect(kraken.enraged ?? false).toBe(false);
     expect(kraken.rageStartTick).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+/*
+ * ⛔⛔ S191 round 2 (RAGE-1) — ACROSS A REAL WHISTLE. Every clock test above parks the match in FIGHT
+ * (`phaseEndsAtTick = tick + 1_000_000`), so none of them could see what the auditor measured: the
+ * clock runs on `world.tick` through BUILD, but the latch ran only inside the FIGHT gate — so a rage
+ * running at the whistle stayed red for the whole BUILD and re-fired a fresh 25 s on the first FIGHT
+ * tick. These cross the FIGHT → BUILD edge for real.
+ */
+describe('S191 round 2 — ⛔ RAGE-1: the clock is world time, and it runs through BUILD', () => {
+  it('⛔⛔ a rage started 10 s before the whistle ENDS 15 s into BUILD — the Warlord and his frenzied soldier', () => {
+    const r = rig(board(['racial']));
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
+    soldier.maxEhp = 1_000_000;
+    soldier.ehp = 1_000_000;
+    boss.ehp = pctPool(boss, 40);
+    const T = r.w.tick + 1;
+    r.w.phaseEndsAtTick = T + 10 * PHYSICS_HZ; // the whistle, 10 s after he fires
+    expect(step(r)).toBe(T);
+    expect(boss.rageStartTick, 'he fired in FIGHT').toBe(T);
+    expect(soldier.enraged, 'and the frenzy took the soldier').toBe(true);
+
+    const seen: Array<{ t: number; phase: string; boss: boolean; soldier: boolean }> = [];
+    runTo(r, T + WARLORD_RAGE_TICKS + 120, (t) =>
+      seen.push({ t, phase: r.w.matchPhase, boss: boss.enraged === true, soldier: soldier.enraged === true }),
+    );
+    const firstBuild = seen.find((s) => s.phase === 'BUILD');
+    expect(firstBuild?.t, 'fixture: a REAL whistle fell inside the window').toBe(T + 10 * PHYSICS_HZ);
+    for (const s of seen) {
+      const his = s.t < T + WARLORD_RAGE_TICKS;
+      expect(s.boss, `tick ${s.t} (${s.phase}): the Warlord follows his 25 s clock`).toBe(his);
+      expect(s.soldier, `tick ${s.t} (${s.phase}): the frenzied soldier follows him`).toBe(his);
+    }
+    expect(seen.at(-1)!.phase, 'still BUILD: the bit was lowered in BUILD, not by the next FIGHT').toBe('BUILD');
+    expect(boss.rageStartTick, 'nothing fires in BUILD — the stamp is still his FIGHT one').toBe(T);
+  });
+
+  it('⭐ THE PER-FIGHT PATTERN, derived from the constants: hurt from the whistle, over a whole FIGHT and BUILD into the next FIGHT', () => {
+    const R = WARLORD_RAGE_TICKS;
+    const C = WARLORD_RAGE_COOLDOWN_TICKS;
+    const fires: number[] = []; // offsets from the FIGHT's first tick
+    for (let k = 0; k * (R + C) < FIGHT_PHASE_TICKS; k++) fires.push(k * (R + C));
+    fires.push(FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS); // …and the NEXT FIGHT's first tick fires afresh
+    expect(PHASE_DURATION_TICKS, 'fixture premise: BUILD outlasts both windows').toBeGreaterThan(R + C);
+    const r = rig(board());
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    boss.ehp = pctPool(boss, 40);
+    const F = r.w.tick + 1;
+    r.w.phaseEndsAtTick = F + FIGHT_PHASE_TICKS; // a real whistle after one whole FIGHT
+    const expected = (off: number): boolean => fires.some((f) => off >= f && off < f + R);
+    runTo(r, F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS, (t) => {
+      expect(boss.enraged === true, `offset ${t - F} (${r.w.matchPhase})`).toBe(expected(t - F));
+    });
+    expect(r.w.matchPhase, 'fixture: the run ended at the next FIGHT').toBe('FIGHT');
+    expect(boss.enraged, 'the next FIGHT fires on its first tick').toBe(true);
+    expect(boss.rageStartTick).toBe(F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS);
+  });
+
+  it('⛔ nothing FIRES in BUILD: a Warlord hurt under half during BUILD waits for the FIGHT to rage', () => {
+    const r = rig(board());
+    r.w.matchPhase = 'BUILD';
+    r.w.phaseEndsAtTick = r.w.tick + 300;
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    boss.ehp = pctPool(boss, 40);
+    runTo(r, r.w.tick + 299, () => {
+      expect(boss.enraged, 'BUILD: the boss skills (and the fire) are FIGHT-only').toBe(false);
+    });
+    expect(boss.rageStartTick).toBeUndefined();
+    const F = step(r);
+    expect(r.w.matchPhase).toBe('FIGHT');
+    expect(boss.rageStartTick, 'the first FIGHT tick fires').toBe(F);
+    expect(boss.enraged).toBe(true);
   });
 });
 

@@ -12,7 +12,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-2 | Alt toggles the footer while a tower is armed | DONE | 7f8b326 |
 | A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
 | A-4 | A1 CI e2e lane | DONE | 811121b |
-| A-5 | magic-attack DESIGN doc | DONE | (this commit) |
+| A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
+| R2-1 | RAGE-1 the clock runs through BUILD | DONE | (this commit) |
+| R2-2..9 | RAGE-3 · RAGE-7 · INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -142,6 +144,21 @@ Merge owner = the main session. This branch never merges, never pushes.
   §3 the R190-E draft interaction as built; §4 five plain-words questions with a recommendation each;
   §5 what each option would touch (bump verdicts). Headline consequence: under option 2 one Ra column
   (300) kills every tier-9 boss (HP parts 100–120).
+
+## ROUND 2 (audit wf_8262665a-fa9) — fix ONLY the listed items
+
+- **RAGE-1 (HIGH) — reproduced first:** a Warlord firing 10 s before a REAL whistle was still red at
+  tick T+1500 in BUILD (`warlordRageClock.test.ts`, "RAGE-1"). Fix (merge-owner decision, flagged
+  `⚠ MINE` at `runWarlordRage` and in `hostTick`): the latch's FIRE branch alone requires `matchPhase ===
+  'FIGHT'`; `hostTick` gains one `else if (gameState === 'PLAYING')` block after the FIGHT block that runs
+  `runWarlordRage` + `runBloodFrenzy` (the frenzy's own rule, so frenzied orcs — and a frenzy-raised
+  sibling Warlord — follow their source down; it can raise a unit only while a source's window is open,
+  i.e. at most `WARLORD_RAGE_TICKS` into BUILD). ⚠ I used the frenzy's full rule rather than a clear-only
+  pass so a sibling Warlord and the soldiers calm on the same tick. Consequence sentence at
+  `WARLORD_RAGE_COOLDOWN_TICKS` rewritten from `FIGHT_PHASE_TICKS` / `WARLORD_RAGE_TICKS` /
+  `WARLORD_RAGE_COOLDOWN_TICKS`. Tests (+3): the whistle case (Warlord + soldier lowered at exactly T+1500,
+  in BUILD); the per-FIGHT pattern DERIVED from the constants over FIGHT + BUILD into the next FIGHT; nothing
+  fires in BUILD. Mutation (outside-FIGHT pass removed) → 2 red; restored. typecheck 0; vitest 0 (6514).
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 

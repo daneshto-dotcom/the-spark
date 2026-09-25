@@ -52,8 +52,13 @@ import { dispatch, type World } from './world.ts';
  * history: `WARLORD_RAGE_CLEAR_PCT` is retired in place and no longer read here. Both windows derive
  * from ONE stamp, `Creature.rageStartTick`, written only here.
  *
- * ⚠ FIGHT-GATED like every boss skill (`hostTick`), so a rage still running at the whistle is judged
- * again on the first FIGHT tick (BUILD outlasts both windows, so by then he is free to fire).
+ * ⛔⛔ S191 round 2 (RAGE-1) — **THE CLOCK RUNS THROUGH BUILD; ONLY THE FIRE NEEDS FIGHT.** ⚠ MINE — the
+ * owner said "25 seconds"; the clock is world time, it runs through BUILD. This used to be called only
+ * inside `hostTick`'s FIGHT gate, so a rage running at the whistle was never lowered: the Warlord (and
+ * his frenzied orcs) stayed red through the whole BUILD and re-fired a fresh 25 s on the first FIGHT
+ * tick — ~125 s of unbroken red at every edge, the cooldown spent unseen. Now `hostTick` calls this on
+ * every PLAYING tick; the in-window and lowering branches run always, and the FIRE branch alone asks
+ * `matchPhase === 'FIGHT'`, so no rage STARTS in BUILD.
  */
 export function runWarlordRage(world: World): void {
   if (world.gameState !== 'PLAYING') return;
@@ -71,7 +76,13 @@ export function runWarlordRage(world: World): void {
     }
     // ⭐ S191 (owner, *"cooldown first"*) — after the window, a cooldown in which he cannot fire again;
     // after THAT, strictly below the line (S179: *"the literall meaning of below 50"*) fires a new one.
-    if (!isRageCoolingDown(boss, world.tick) && boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) {
+    // ⛔ S191 round 2 (RAGE-1) — and ONLY IN FIGHT. This is the one branch that is an ACTION (the boss
+    // skills are FIGHT-only, S168); the two around it are the CLOCK, which runs every PLAYING tick.
+    if (
+      world.matchPhase === 'FIGHT' &&
+      !isRageCoolingDown(boss, world.tick) &&
+      boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT
+    ) {
       boss.rageStartTick = world.tick;
       boss.enraged = true;
       continue;
