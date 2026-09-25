@@ -386,13 +386,19 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
 
 ## DECISIONS
 - HYSTERESIS: ignition exact (unchanged), survival contains. Consequence, deliberate: a star welded
-  BEFORE it is complete never ignites (unchanged behaviour), and HELGA's re-summon after she is
-  killed goes through ignition, so a WELDED hall stands but cannot re-summon her (reported).
-- "OWN" ARM = lowest bond id per arm type (provable: welds post-date ignition). A surplus same-type
+  BEFORE it is complete never ignites (unchanged behaviour). ~~and HELGA's re-summon after she is
+  killed goes through ignition, so a WELDED hall stands but cannot re-summon her (reported).~~
+  ⛔ STRUCK S191 (W-FR5) — superseded by R190-J: her record goes DORMANT and revives at both phase
+  edges while the hall's OWN members stand (fix-round item 2, W-FR2).
+- ~~"OWN" ARM = lowest bond id per arm type (provable: welds post-date ignition). A surplus same-type
   weld stands in for a LOST own arm ("the shape is there"). So a turret with a 7th spiral welded to
   its hub survives the loss of one spiral — the S140 "builds at six, dies at seven" trap is gone for
-  a LIVE turret; ignition still requires exactly six.
-- Race rings (t3/t9) keep R136 for survival — owner ruling + 5 renderer files outside my boundary.
+  a LIVE turret; ignition still requires exactly six.~~
+  ⛔ STRUCK S191 (W-FR5) — THERE IS NO SPARE (audit W1): own = the recipe's shape among the bonds with
+  an id below the tower's `ownBondIdLimit`; any own cut levels it, a weld never stands in.
+- ~~Race rings (t3/t9) keep R136 for survival — owner ruling + 5 renderer files outside my boundary.~~
+  ⛔ STRUCK S191 (W-FR5) — superseded by follow-up item 2: the twelve race rings are on the same
+  built-with survival rule (three renderer files, not five).
 
 ## NUMBERS THAT ARE MINE
 - none. No constant introduced; every count is derived from `blueprints.ts`.
@@ -420,7 +426,10 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
   DefenderState needs no hotspot hunk — state is serialized/hashed as a string already.)
 
 ## WIRE / HASH / PROTOCOL
-- No serialized or hashed field changed. The SURVIVAL RULE is shared: it runs on the host AND the
+- ~~No serialized or hashed field changed.~~ ⛔ STRUCK S191 (W-FR5) — FALSE since fix-round item 1/2:
+  `ownBondIdLimit` (SerializedSpawner + SerializedDefender, kept by `trimMirrorSpawner`, wide-hashed)
+  and the serialized `'DORMANT'` discriminant; the final list is `S189_CANON_NOTES_weld.md` §H.
+  The SURVIVAL RULE is shared: it runs on the host AND the
   worker (proven lockstep by the differential), and on whichever peer becomes host after a migration;
   the render walk and `seatFeedTowerAt` run on every client. Two builds at the same
   PROTOCOL_VERSION would disagree about whether a welded tower stands (after a host migration to the
@@ -496,3 +505,14 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   the FIRST defender in `Map` order in that component — with two welded towers the sheet shows one
   tower's ATK / aura for the other. Round 5 (R191-A tower vs structure sheets) replaces this path.
 - runs: typecheck TC_EXIT=0; `src/render` + both weld test files — 115 files / 1956 tests EXIT=0.
+
+### step 4 — W-FR5 doc chores (my files only)
+- this file: the three stale DECISIONS lines (Helga re-summon through ignition, the spare arm, race
+  rings on R136) and the "No serialized or hashed field changed" WIRE line STRUCK through with the
+  ruling/round that superseded each (kept visible, not deleted, so the audit trail reads).
+- `S189_CANON_NOTES_weld.md` §B + §G: `ringCycleAt` → `towerMembersAt(...).whole` (+ `towerFootprintAt`
+  for the ground zone / aura); §E: the `blueprintGroupOf` reason is WRONG now, not just dated — the
+  suggested replacement text, and the note that round 5 (R191-A) rewrites that docblock with its change.
+- two stale CODE comments in my own files named the deleted `ringCycleAt`: `structureRamp.ts:114`,
+  `hostTick.ts:1228` → `towerMembersAt(...).whole`. Comment-only; the 19 test files that read either
+  file's source text: 488 tests EXIT=0.

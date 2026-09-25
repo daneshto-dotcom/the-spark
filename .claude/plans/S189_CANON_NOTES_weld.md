@@ -86,7 +86,7 @@ Spirals (and the other four stars incl. Helga 3+3); `towerShapeFor('pentagram')`
 
 ## B · §7b R185-A — the "exclusions are correct as written" sentence is now PARTLY STALE
 
-It names `ringBondsOf` (`towerRenderer.ts:79`, race towers — unchanged, still correct; its ring now comes from `ringCycleAt`) and "the star
+It names `ringBondsOf` (`towerRenderer.ts:79`, race towers — unchanged, still correct; its ring now comes from `towerMembersAt(...).whole` — the ring it was BUILT with, via `ringOf`) and "the star
 walk (`structureRamp.ts:509`)". The star walk USED to be `anchor.bonds`, correct only because a weld
 on the hub killed the tower. It is now `towerMembersAt` for BOTH ramp shapes (`rampMembersAt`), and
 `stinkTowerCover.stinkTowerMembers` likewise — so a welded shape is never covered, never moves the
@@ -118,6 +118,14 @@ component pool **204** fifths vs the star's **66**. At banked 34: **bar 83 %, ar
 `structureRepair.ts` `blueprintGroupOf`: *"a tower that then still would not ignite (every recipe gate
 counts component size EXACTLY)"* — survival no longer counts component size. The refusal itself
 (R185-B, welded = unrepairable) is unchanged and asserted in `weldOntoTowerS189.test.ts`.
+⭐ S191 (W-FR5) — the reason the docblock gives is now WRONG, not merely dated: a LIVE welded tower
+does not need to re-ignite, it STANDS on its own members (`towerStandsAt`), so restoring its blueprint
+inside the weld would not "leave a tower that would not ignite". The true reason for the refusal is the
+owner's trade (R185-B: *"they cannot be repaired either, because it's like a full shape now"*). Suggested
+text for §8 limit 2 and the docblock: *"refused because a hand-placed shape is welded on — R185-B, a
+welded structure is unrepairable by design; SCRAP stays available."* ⚠ Round 5 (R191-A, S191) AMENDS
+R185-B — the welded STRUCTURE stays unfixable but each tower inside it can be fixed — so this docblock
+is rewritten with that change, in the same commit, not separately.
 
 ## F · §4 table — "A tower … dies by recipe-break when its connectors go"
 
@@ -125,9 +133,11 @@ Still true; add "— its OWN connectors. A weld on it is not part of its recipe.
 
 ## G · §8 / §4 — the race-tower renderers and the Voltkin
 
-- `towerRenderer.ringOf`, `towerFrames.towerRingCentroid` (and so `healthBar`, which delegates) and
-  `groundDecalRenderer` walk `ringCycleAt`: a same-type-welded race tower is still DRAWN, on its own
-  ring's centroid (the exact walk returned `null` for it — no sprite).
+- `towerRenderer.ringOf` and `towerFrames.towerRingCentroid` (and so `healthBar`, which delegates)
+  read `towerMembersAt(...).whole` — the ring the tower was BUILT with (bonds below its
+  `ownBondIdLimit`); `groundDecalRenderer` and `spawnerZoneRenderer` read `towerFootprintAt` (the same
+  own members). A same-type-welded race tower is still DRAWN, on its own ring's centroid (the old exact
+  walk returned `null` for it — no sprite). (`ringCycleAt` was deleted in the fix round, audit W7.)
 - VERIFIED, no change: the Voltkin TV does NOT vanish on a weld — `findAllVoltkinChains` is a path
   search with no isolation check (that lives only in ignition, `voltkinPredicate`).
 

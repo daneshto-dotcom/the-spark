@@ -1225,7 +1225,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * contains."*
          *
          * ## ⛔ THE RING WALK, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
-         * (S189 C2 item 2: the walk is `ringCycleAt`, the ring's own nine, since a welded ring stands)
+         * (S189 C2: the walk is `towerMembersAt(...).whole`, the nine it was BUILT with, since a welded ring stands)
          *
          * The lightning hub's self-raze forty lines up takes
          * `componentOf(dying, …).primitiveIds`. **Copying that call here would be a bug.** R136
