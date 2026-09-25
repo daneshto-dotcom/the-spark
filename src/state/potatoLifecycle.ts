@@ -340,8 +340,9 @@ export function potatoClearsType(type: CreatureType): boolean {
  * self-destruct shares it WITHOUT a second copy. The CALLER emits its own burst effect
  * (BOMB_EXPLODE) BEFORE calling this, preserving the original effect order (burst, then per-victim
  * SEVER_ERASE). `creatureKill` selects which creatures the blast despawns: the potato passes
- * `c => c.sourceSpawnerId !== null` (chewers + drones — its original filter); the structure
- * self-destruct passes `() => true` (owner: "destroying EVERYTHING in its radius").
+ * `c => c.sourceSpawnerId !== null` (chewers + drones — its original filter); the `blast: 'raze'`
+ * self-destruct (since S191 only the zombie boss's R138 blast — the lightning hub's is `'ladder'`,
+ * 120 fifths in total) passes an owner filter, or `() => true` when it has no owner.
  *
  * Order (unchanged from S72): creature-kill (SORTED CreatureId) -> collect prim victims (SQUARED
  * dist, SORTED PrimitiveId) -> early-return if none -> SEVER_ERASE per victim + collect incident

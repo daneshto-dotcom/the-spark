@@ -97,6 +97,14 @@ import { asPlayerId, type PlayerId } from './types.ts';
 import { DRONE_ATK, DRONE_PEN } from './constants.ts';
 // S191 C-5 — R182-C built: the hub's blast is 120 fifths; Helga's pool is the stated consequence.
 import { PRINCESS_DEF, PRINCESS_HP } from './constants.ts';
+// S191 R2-D — the hub blast's radii and pool range, and the constructed overkill case (canon §2).
+import { PLAYER_COLORS, STRUCTURE_SELFDESTRUCT_RADIUS, T9_ZOMBIE_DEATH_BLAST_RADIUS } from './constants.ts';
+import { T9_BOSS_TYPE } from './state/t9BossIds.ts';
+import { bossMaxPoolFifths } from './state/bossSkills.ts';
+import { damageConnector } from './state/damage.ts';
+import { makeIdlePlayer } from './game/player.ts';
+import { dispatch } from './state/world.ts';
+import { asBondId, asPrimitiveId, type BondId } from './types.ts';
 import { STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -1314,5 +1322,106 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE')).toBe(true);
     expect(canonSays('it just looks epic')).toBe(true);
     expect(canonSays('DO NOT SUPPRESS AND DO NOT RE-ANCHOR')).toBe(true);
+  });
+});
+
+/* ────────────────────── S191 R2-D — the hub blast's numbers, §7, the SEVER table, and §2's overkill ────────────────────── */
+
+describe('S191 R2-D — canon truth the audit found drifting', () => {
+  it('⭐ GATES-4 — the two blast radii and the tier-9 pool range the hub paragraph quotes, off their constants', () => {
+    expect(STRUCTURE_SELFDESTRUCT_RADIUS).toBe(240);
+    expect(canonSays('`STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)')).toBe(true);
+    expect(T9_ZOMBIE_DEATH_BLAST_RADIUS).toBe(380);
+    expect(canonSays('(380 px, no owner')).toBe(true);
+    const pools = Object.values(T9_BOSS_TYPE).map((t) => bossMaxPoolFifths(t));
+    expect(pools).toHaveLength(6);
+    expect(Math.min(...pools)).toBe(260);
+    expect(Math.max(...pools)).toBe(462);
+    expect(canonSays('pools 260–462')).toBe(true);
+    // The blast's LARGEST single share is the whole 120 (one target alone), and even that fells no boss.
+    expect(Math.min(...pools)).toBeGreaterThan(STRUCTURE_SELFDESTRUCT_FIFTHS);
+  });
+
+  it('⛔ BLAST-6 / GATES-2 — §7 no longer calls the blast "unchanged … not built"', () => {
+    expect(canonSays('THE BLAST ITSELF IS UNCHANGED')).toBe(false);
+    expect(canonSays('THE BLAST IS 120 FIFTHS IN TOTAL NOW')).toBe(true);
+  });
+
+  it('⭐ GATES-2 — §9d item 4\'s SEVER table names EVERY production file that severs a bond (mechanical)', () => {
+    // Every production object literal `{ type: 'SEVER_BOND', bondId … }` — the dispatch and the direct
+    // `applySeverBond` calls alike. A new producer turns this red until the table names it.
+    const root = new URL('.', import.meta.url);
+    const producers: string[] = [];
+    const walk = (dir: URL, rel: string): void => {
+      for (const name of readdirSync(dir, { withFileTypes: true })) {
+        if (name.isDirectory()) {
+          if (name.name !== 'dev') walk(new URL(`${name.name}/`, dir), `${rel}${name.name}/`);
+        } else if (name.name.endsWith('.ts') && !name.name.includes('.test.')) {
+          const code = readFileSync(new URL(name.name, dir), 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+          if (/type:\s*'SEVER_BOND',\s*bondId/.test(code)) producers.push(`${rel}${name.name}`);
+        }
+      }
+    };
+    walk(root, '');
+    producers.sort();
+    expect(producers).toEqual([
+      'physics/physicsLoop.ts',
+      'state/bombLifecycle.ts',
+      'state/creatures/creatureAttack.ts',
+      'state/creatures/suicideBlast.ts',
+      'state/creatures/voltkinChain.ts',
+      'state/droneLifecycle.ts',
+      'state/potatoLifecycle.ts',
+      'state/racial/powerOfRa.ts',
+      'state/world.ts',
+    ]);
+    const table = CANON.slice(CANON.indexOf('### 4 · `SEVER_BOND`'), CANON.indexOf('## 10 · '));
+    for (const f of producers) {
+      const base = f.slice(f.lastIndexOf('/') + 1);
+      expect(table.includes(`${base}\``), `the SEVER table names ${base}`).toBe(true);
+    }
+    expect(canonSays('reached six ways')).toBe(false);
+    // The charge-paid player sever has had no producer since R78 (a right-click is a RAID).
+    expect(table.includes('DEFENSIVE_SEVER_CHARGE_COST')).toBe(false);
+  });
+
+  it('⛔ GATES-1 — §2 says what the tree does: ONE hit fells at most ONE connector (constructed, not asserted)', () => {
+    // A 5-connector star, one 150 hit through the real `damageConnector`, then the real SEVER_BOND.
+    const w = makeWorld(0x191d);
+    w.players.clear();
+    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]!));
+    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
+    w.gameState = 'PLAYING';
+    const mk = (id: number, x: number, y: number) => {
+      const p = {
+        id: asPrimitiveId(id), type: SparkType.Dot, placerColor: PLAYER_COLORS[0]!, placedBy: asPlayerId(0),
+        createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set<BondId>(), ownerColor: PLAYER_COLORS[0]!,
+        lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+      };
+      w.primitives.set(p.id, p as never);
+      return p;
+    };
+    const hub = mk(1, 500, 400);
+    const ids: BondId[] = [];
+    for (let i = 0; i < 5; i++) {
+      const leaf = mk(2 + i, 500 + 40 * Math.cos(i), 400 + 40 * Math.sin(i));
+      const id = asBondId(10 + i);
+      w.bonds.set(id, { id, aId: hub.id, bId: leaf.id, a: hub, b: leaf, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 } as never);
+      hub.bonds.add(id);
+      leaf.bonds.add(id);
+      ids.push(id);
+    }
+    expect(structurePoolFifths(5)).toBe(50);
+    expect(damageConnector(w, ids[0]!, 150, null), 'the 150 reaches the pool').toBe(true);
+    dispatch(w, { type: 'SEVER_BOND', bondId: ids[0]!, playerId: asPlayerId(1), cause: 'unit' });
+    expect(w.bonds.size, 'ONE connector fell, not three').toBe(4);
+    let banked = 0;
+    for (const b of w.bonds.values()) banked += b.damageFifths;
+    expect(banked, 'and the other 100 went with the struck bond').toBe(0);
+    // The canon says exactly this, and no longer says the opposite.
+    expect(canonSays('one hit fells at most ONE connector')).toBe(true);
+    expect(canonSays('150 takes the 50, then the 36')).toBe(false);
   });
 });

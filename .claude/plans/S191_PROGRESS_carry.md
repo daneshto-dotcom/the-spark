@@ -19,8 +19,8 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | `082ecd2` | see below |
 | R2-B · test honesty (GATES-3, BLAST-8) | DONE | `6b19634` | test-only |
 | R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | `7706688` + follow-up (this commit) | see below |
-| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | next | | |
-| C-6 · spreadEnemyTarget strict predicate | RELEASED, todo | | |
+| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | DONE | (this commit) | see below |
+| C-6 · spreadEnemyTarget strict predicate | RELEASED, next | | |
 | C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
 | C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
 
@@ -186,6 +186,27 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - ⛔ FOLLOW-UP (found by R2-D's full-suite gate, not by the R2-C run): the `spared(...)` helper hid the
   creature/defender owner filter from `untargetableCallSites.test.ts` (its census matches `ownerPlayerId … ===`),
   which then reported `damage.ts`' area scan as gone. The two filters are written out again; census green.
+
+## R2-D — DONE (canon + comments; NO code change)
+
+- Pins first (`canon.test.ts`, new describe `S191 R2-D`, 4 tests): 3 were RED against the old text.
+  · GATES-4: `STRUCTURE_SELFDESTRUCT_RADIUS` 240 and `T9_ZOMBIE_DEATH_BLAST_RADIUS` 380 each pinned with
+    its canon phrase; the six `bossMaxPoolFifths` → min 260 / max 462 = canon's "pools 260–462"; min > 120.
+  · BLAST-6/GATES-2: negative `canonSays('THE BLAST ITSELF IS UNCHANGED')` + the new §7 sentence.
+  · GATES-2: MECHANICAL — every production `{ type: 'SEVER_BOND', bondId … }` enumerated (9 files, pinned),
+    each named in the §9d item 4 table; "reached six ways" and `DEFENSIVE_SEVER_CHARGE_COST` gone from it.
+  · GATES-1: constructed — 5-connector star, 150 via `damageConnector`, real `SEVER_BOND` → bonds 5→4,
+    survivors bank 0; canon says "one hit fells at most ONE connector" and no longer "150 takes the 50, then the 36".
+- Canon: §2 lines 66-69 rewritten to the tree + ⚠ owner question (R173-B vs R191-A); §7's stale paragraph
+  → the canon-notes §1 text; §9d item 4 table rebuilt from the tree (11 rows: unit / chewer / Voltkin
+  strike + chain `'creature'` / suicide / drone / hub `'drone'` / raid / Ra `'raid'` / physics / bomb ARCHIVED;
+  the charge-paid player row dropped — no producer since R78).
+- Comments fixed: `damage.ts` ~:490 (spend ≠ carry), `hostTick.ts` ~:1641 (one connector per hit); the
+  four stale hub-blast comments — `constants.ts` `STRUCTURE_SELFDESTRUCT_RADIUS` inline ("owner-AGNOSTIC"),
+  `constants.ts` ~:2790 zombie note (OPTIONAL owner → `blast: 'raze'`), `potatoLifecycle.ts` `applyRadialClear`
+  docblock ("structure self-destruct passes () => true"), `damage.ts` "Why this is NOT applyRadialClear" point 2.
+- Mutation: §7 stale sentence restored + the hub table row removed → 2 RED; restored → green.
+- Full suite 0: 6504 passed / 2 skipped, 402 files.
 
 ## In flight
 

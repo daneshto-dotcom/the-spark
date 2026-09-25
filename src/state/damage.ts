@@ -487,8 +487,12 @@ export function damageConnector(
   if (banked < pool) return false;
 
   /*
-   * ⛔ SPEND THE POOL, DO NOT ZERO IT — overkill carries into the next connector, which is what makes
-   * the accelerating collapse he describes continuous rather than lossy.
+   * ⛔ SPEND THE POOL, DO NOT ZERO IT — damage banked on the OTHER connectors by earlier hits keeps
+   * whatever this pool does not take. ⚠ S191 GATES-1 — but the BREAKING hit's own overkill is NOT carried:
+   * it sits on the struck bond (drained first, below), and the caller's `SEVER_BOND` then deletes that
+   * bond with it, so one hit fells at most ONE connector (canon §2; `canon.test.ts` constructs it). This
+   * line used to say the overkill carried into the next connector. Whether it should is an OWNER
+   * QUESTION (R173-B vs R191-A's "connector-specific") — the code is unchanged until he rules.
    *
    * ⚠ TOTAL ORDER, NEVER `Map` ORDER. The bond the attacker TARGETED is drained first (R173-C: *"the
    * damage lands on whatever bond the attacker targeted ... the first connector to be targeted is the
@@ -642,9 +646,10 @@ export interface RadialDamageResult {
  *     through it would one-shot a full-health 1000-hp shape, making `Primitive.hp` — the entire
  *     point of the S138 damage substrate — invisible to the newest damage source in the game.
  *  2. **Its predicate filters CREATURES ONLY.** The `creatureKill` callback gates the creature loop;
- *     the primitive loop takes no predicate at all, which is why the lightningHub self-destruct
- *     passes `() => true` and razes friendly shapes by design. A bag that flattens the thrower's own
- *     tower is not a mechanic, it is a bug.
+ *     the primitive loop took no predicate at all until S157 P0 gave it one (`primKill`). (⚠ S191: the
+ *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; only the
+ *     zombie boss's R138 raze does.) A bag that flattens the thrower's own tower is not a mechanic, it
+ *     is a bug.
  *  3. **It never consults `world.defenders`.** A blast that cannot hurt a tower cannot be counterplay
  *     to towers.
  *

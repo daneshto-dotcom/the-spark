@@ -4,7 +4,7 @@
 brief. Everything below is canon text the merge owner should apply or rule on; none of it is in the
 branch's `SPARK_CANON.md`.
 
-## 1 · §7 is now stale about the blast (C-5) — REPLACE, same commit as the merge
+## 1 · §7 is now stale about the blast (C-5) — ✅ APPLIED in R2-D (merge owner's round 2)
 
 `SPARK_CANON.md` §7 (~line 1024), the paragraph beginning *"⛔ THE BLAST ITSELF IS UNCHANGED AND IS AN
 OPEN QUESTION."*, still says the hub calls `applyRadialClear` and *"Not built. See §10."* That is false
@@ -14,7 +14,7 @@ on this branch. Proposed replacement (no new number, so no new assertion):
 > `STRUCTURE_SELFDESTRUCT_FIFTHS` (120) to every enemy entity inside `STRUCTURE_SELFDESTRUCT_RADIUS` —
 > not the raze, and S157 P0 still spares the owner. See §9d item 2.
 
-## 2 · §2's overkill sentence is not what the tree does (MEASURED, pre-existing)
+## 2 · §2's overkill sentence is not what the tree does (MEASURED, pre-existing) — ✅ canon REWRITTEN to the tree in R2-D; the rule itself is an OWNER QUESTION (code unchanged)
 
 §2: *"Damage banks structure-wide, and overkill spends into the next connector rather than being
 wasted — so a boss's 150 takes the 50, then the 36, then the 24 in a single blow."* (also stated in

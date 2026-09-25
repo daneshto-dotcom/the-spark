@@ -64,9 +64,15 @@ Its HP and DEF are both its connector count: `pool(n) = n × (5 + n)`.
 | pool | 50 | 36 | 24 | 14 | 6 |
 
 That full pool is the cost of **ONE** connector; the survivors re-form at the lower count, so
-felling a 5-connector tower costs **130**. Damage banks **structure-wide**, and overkill **spends
-into the next connector** rather than being wasted — so a boss's 150 takes the 50, then the 36, then
-the 24 in a single blow.
+felling a 5-connector tower costs **130**. Damage banks **structure-wide** — a hit anywhere on the
+structure counts toward the next connector — but **one hit fells at most ONE connector**:
+`damageConnector` drains the STRUCK bond first, and the sever then deletes that bond together with
+whatever it still holds. So a boss's 150 on a 5-connector tower takes the 50 and the other 100 is
+gone; the survivors bank nothing (`canon.test.ts` constructs it through the real `SEVER_BOND`).
+⚠ **S191 — AN OWNER QUESTION, NOT A DEFECT TO FIX UNASKED.** This paragraph used to say the overkill
+carried on into the next connector, reading R173-B's *"subtract the pool rather than zeroing, so
+overkill carries"*; the tree has never done that, and his S191 R191-A (*damage stays
+connector-specific*) reads the other way. The code is unchanged until he rules.
 
 ### Shapes
 
@@ -1021,11 +1027,9 @@ melee-goblin swings instead of 5 and **5** chewer bites instead of 8 — about 4
 exactly the swarm its own drones counter. One-shot attackers are unchanged. The counterweight is that
 it also **detonates** 40 % sooner.
 
-⛔ **THE BLAST ITSELF IS UNCHANGED AND IS AN OPEN QUESTION.** `applyStructureSelfDestruct` still calls
-`applyRadialClear` — it **deletes** every enemy creature and shape within `STRUCTURE_SELFDESTRUCT_RADIUS`
-outright rather than dealing ladder damage, and (per S157 P0) it **spares the owner's own** shapes and
-units. R182-C would replace the raze with 120 fifths, which would not kill a tier-9 boss where today's
-blast deletes one. **Not built. See §10.**
+⭐ **THE BLAST IS 120 FIFTHS IN TOTAL NOW (R182-C, BUILT S191).** The hub's blast is ladder damage —
+`STRUCTURE_SELFDESTRUCT_FIFTHS` (120) split across every enemy entity inside
+`STRUCTURE_SELFDESTRUCT_RADIUS` — not the raze, and S157 P0 still spares the owner. See §9d item 2.
 
 ---
 
@@ -1478,24 +1482,25 @@ A **bond** is the wire between two shapes. It is not drawn as an object you can 
 
 two shapes with a line between them, and the "field" is the invisible band along that line. Severing
 
-is what CUTS that wire, and there is exactly one action for it — `SEVER_BOND` — reached six ways:
-
+is what CUTS that wire, and there is exactly one action for it — `SEVER_BOND`. ⭐ **S191: this table is
+built from the tree, and `canon.test.ts` pins it MECHANICALLY** — it enumerates every production
+`{ type: 'SEVER_BOND', bondId … }` and fails until the table names the file. (It said "six ways" until
+S191, three of its causes were wrong, the charge-paid player cut had had no producer since R78 made a
+right-click a raid, and the drone, the raid, POWER OF RA and the hub were missing.)
 
 | who severs | cause | file |
-
 |---|---|---|
-
-| a creature chewing a connector | `'unit'` | `creatures/creatureAttack.ts` |
-
-| a suicide bomber's blast | `'unit'` | `creatures/suicideBlast.ts` |
-
-| a Voltkin's lightning chain | `'unit'` | `creatures/voltkinChain.ts` |
-
-| a bomb | `'bomb'` | `bombLifecycle.ts` |
-
-| the physics solver, when a wire is stretched past breaking | — | `physics/physicsLoop.ts` |
-
-| a player spending charges to cut an enemy wire | — | `disruptionManager.ts` (`DEFENSIVE_SEVER_CHARGE_COST` 2) |
+| a unit cutting a connector — goblins, race and tier-3 units, bosses | `'unit'` | `creatures/creatureAttack.ts` |
+| a pencil chewer's final bite | `'chewer'` | `creatures/creatureAttack.ts` |
+| a Voltkin's strike | `'creature'` | `creatures/creatureAttack.ts` |
+| a Voltkin's lightning chain | `'creature'` | `creatures/voltkinChain.ts` |
+| a suicide goblin's blast | `'unit'` | `creatures/suicideBlast.ts` |
+| a lightning drone's detonation | `'drone'` | `droneLifecycle.ts` |
+| ⭐ the lightning hub's self-destruct (S191) | `'drone'` | `potatoLifecycle.ts` |
+| a player's RAID (right-click) reaching the connector's pool | `'raid'` | `world.ts` |
+| a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/powerOfRa.ts` |
+| the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
+| a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
 
 ⛔ **THE PART THAT MATTERS AND KEEPS BEING MISSED:** a tower has no health of its own. It dies when its
