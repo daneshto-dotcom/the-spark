@@ -272,7 +272,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // The auto-begin check also covers a peer LEAVING (if the leaver was the
       // last unready player, the remaining all-ready ≥2 start) — idempotent +
       // LOBBY-gated in main.ts.
-      broadcastQmPresence(deps.session, transport, deps.onPresence);
+      broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
       maybeQmAutoBegin(deps.session, deps.onAutoBegin);
     });
     transport.on((msg, peerId) => {
@@ -389,7 +389,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // outside a quickmatch room (friends lobbies keep the manual Begin).
       if (msg.kind === 'LOBBY_READY' && deps.session.quickmatch) {
         deps.session.qmReadyPeers.set(peerId, msg.ready);
-        broadcastQmPresence(deps.session, transport, deps.onPresence);
+        broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
         maybeQmAutoBegin(deps.session, deps.onAutoBegin);
       }
       /*
@@ -409,7 +409,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         if (raceIsFree(deps.session, msg.raceId, peerId)) {
           deps.session.raceByPeer.set(peerId, msg.raceId);
         }
-        broadcastQmPresence(deps.session, transport, deps.onPresence);
+        broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
       }
       // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
       // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
@@ -466,6 +466,20 @@ export function raceIsFree(session: NetSession, raceId: RaceId, claimant: string
   }
 
   return true;
+}
+
+/**
+ * ⭐ S191 (NETFR-1/2) — THE PER-MATCH ID, minted at Begin: `selfId` (Trystero's per-page-load peer id,
+ * already the host's seat-0 identity in every roster) + `.` + a counter of Begins on THIS page load. A
+ * room code is fixed per page load and a HostSync restarts per host start, so neither can tell this
+ * host's next match from the last one; this can. ⛔ Not `Math.random`, not a wall clock — nothing about
+ * it needs to be unguessable (it is compared, never trusted for authority: the host latch and the
+ * crypto attest still gate every host-authored message), only distinct per match.
+ */
+let matchesBegunThisPageLoad = 0;
+export function mintMatchId(): string {
+  matchesBegunThisPageLoad++;
+  return `${selfId}.${matchesBegunThisPageLoad}`;
 }
 
 export interface BeginMatchDeps {
@@ -563,6 +577,9 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         );
       }
     }
+    // ⭐ S191 — this match's id, set before the signal and the first snapshot can go out (see mintMatchId).
+    const matchId = mintMatchId();
+    deps.session.matchId = matchId;
     if (transport !== null) {
       // S82 P4(a) — Begin carries the attestation too: a client whose HELLO was lost
       // can still verify + latch from the buffered Begin signal itself.
@@ -576,6 +593,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         roster,
         ...(attest !== null ? { hostAttest: attest } : {}),
         ...(warrant !== null ? { warrant } : {}),
+        matchId,
       });
     }
     dispatch(deps.world, {

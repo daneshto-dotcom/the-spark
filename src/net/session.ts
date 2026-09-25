@@ -164,6 +164,13 @@ export interface NetSession {
    * because its patience budget should start over, while the durable trust latch survives).
    */
   joinTrust: import('./joinDiagnosis.ts').JoinTrustState | null;
+  /**
+   * ⭐ S191 (NETFR-1/2) — the id of the match this session is in. HOST: minted at Begin
+   * (`mintMatchId`) and stamped on every NETSNAPSHOT + LOBBY_PRESENCE. CLIENT: read off the
+   * START_GAME_SIGNAL; a pending rejoin must see it again before a snapshot is applied. A migration
+   * successor keeps the one it holds (same match). Survives an in-page reconnect; cleared on teardown.
+   */
+  matchId: string | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -191,6 +198,7 @@ export function makeNetSession(): NetSession {
     latchedClaimSeat: null,
     // S155 P1 — joiner-only; the client connect path installs a fresh one per attempt.
     joinTrust: null,
+    matchId: null,
   };
 }
 
@@ -262,5 +270,7 @@ export function teardownNet(
   // means a Back-then-rejoin starts with full patience and no inherited failure text, which is the
   // whole point of the "press Back to retry" advice the stall message gives.
   session.joinTrust = null;
+  // S191 — a fresh Host/Join is a new match; the old id must never prove a rejoin into it.
+  session.matchId = null;
   triggerAudioCursorReset();
 }

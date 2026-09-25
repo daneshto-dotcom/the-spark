@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Step 1 done.**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-2 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -9,8 +9,8 @@ The merge owner resumes from this file if this agent is cut off.
 
 | # | step | state | commit |
 |---|---|---|---|
-| 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | (merge commit) |
-| 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | pending | |
+| 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | 7fe65d4 |
+| 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | (this commit) |
 | 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | pending | |
 | 4 | NETFR-6 — per-peer slot drop/rejoin test | pending | |
 | 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | pending | |
@@ -29,6 +29,72 @@ The merge owner resumes from this file if this agent is cut off.
   cap 1100, headroom 136.0). Benign, recorded: vitest rewrote `pentagramBuildability.test.ts.snap` line
   endings only (`git diff --ignore-cr-at-eol` empty) → restored. ⚠ Bundle: master is 955.9 KiB (S191 PDR §4 figure, not re-measured here), so this
   branch costs **+8.1 KiB** of its 10 KiB budget before the S191 steps.
+
+- **Step 2 — NETFR-1 + NETFR-2: a positive same-match proof.** Design:
+  - HOST mints a per-match id at Begin: `mintMatchId()` (`hostHandlers.ts`) = `` `${selfId}.${n}` ``, `n` a
+    module-level count of Begins on this page load (no `Math.random`, no clock — pinned by a spy). Stored as
+    `NetSession.matchId` (new field; `makeNetSession` null; `teardownNet` clears it; an in-page reconnect keeps
+    it; a migration successor keeps the one it holds, so its snapshots carry the same match's id).
+  - The CLIENT stores it off START_GAME_SIGNAL (the `gameState === 'LOBBY'` Begin block, beside `lastRoster`).
+  - `classifyHostMessage` (`reconnectPolicy.ts`) now decides from the id + phase: presence phase LOBBY →
+    `'lobby'`; presence phase MATCH with an id that is not ours → `'new-match'`; presence with no phase, or
+    phase MATCH + our id / no id → nothing. NETSNAPSHOT: **the HOLD** — while `isRejoinPending` (new, pure:
+    attempt fired and nothing accepted since) and BOTH sides hold an id, the id decides and only OUR id reaches
+    `ClientSync.receive` (`clientHandlers` returns on `'new-match'`); otherwise the S189 seq-regression
+    fallback exactly as before. `HostSignal` is now `'lobby' | 'new-match'` (was `'lobby-presence'`).
+  - `hostMovedOn` is immediate on a proven signal (no silence window); `HOST_LOBBY_CONFIRM_MS` (5 s, MINE)
+    is DELETED — a verdict from silence is what NETFR-1 was. `nowMs` dropped from its input,
+    `lobbyPresenceAtMs` → `lobbyAtMs`. Docblock rewritten (the false "can never pre-empt D4" line).
+  - ⚠ DEVIATION FROM THE BRIEF'S WORDING, cosmetic: presence in phase MATCH with a DIFFERENT id raises
+    `'new-match'`, not `'lobby'` (the brief grouped it with LOBBY). Same consequence (leaveToTitle + the same
+    notice); only the `[net] HOST MOVED ON (…)` log word differs, and "next match" is what it is.
+  - ⚠ Scope kept to the brief: the hold applies ONLY while a rejoin is pending; outside one a snapshot is
+    applied exactly as today (a different-id snapshot on a live, un-interrupted connection is not reachable:
+    a host's id changes only at a Begin, and a host can only Begin from LOBBY, which it reaches only through
+    `teardownNet`, which drops our transport and so starts an attempt).
+  - The verifiers' no-wire alternative (a PLAYING host sends one snapshot on a peer join) was NOT built. My
+    view for the report: it would fix NETFR-1 only for a VISIBLE host — a hidden host's rAF is exactly what
+    is paused — so it does not replace the phase; it cannot prove NETFR-2 at all (a snapshot proves nothing
+    about WHICH match). The id is the better shape.
+  - **WIRE (all additive-optional; validated in `parseNetMessage`, present-but-malformed rejects the whole
+    message, the file's existing posture):**
+    · `START_GAME_SIGNAL.matchId?: string` — non-empty, ≤ `MATCH_ID_MAX_LEN` (64, MINE: parse hygiene);
+    · `LOBBY_PRESENCE.phase?: 'LOBBY' | 'MATCH'` — exactly one of the two literals (always sent now,
+      `hostPhaseOf(world.gameState)`: LOBBY/TITLE → LOBBY, PLAYING/WIN/POSTGAME → MATCH);
+    · `LOBBY_PRESENCE.matchId?: string` — same bound; sent when the host holds one;
+    · `NETSNAPSHOT.matchId?: string` — same bound; envelope-only like `epoch` (never enters NetSnapshot /
+      save / hash). ~22 B per snapshot (0.02 % of a 113 KiB wave-5 snapshot).
+    Tolerance checked FIRST: the pre-change parser already kept unknown keys (`return obj as …`, no key
+    allowlist; `isValidRoster` reads only `roster`) — the "absent or well-formed" test was GREEN pre-fix.
+    Bump verdict: no bump owed BY ITSELF (additive-optional; an id-less peer falls back to today's seq check
+    and never produces a lobby verdict; no hash, no sim rule). It rides deploy #5's 52 — the merge owner
+    lists the four fields in the 52 docblock.
+  - `broadcastQmPresence` gained a REQUIRED 4th parameter `gameState` (so no caller can forget the phase —
+    tsc forced all 5 production sites: hostHandlers ×3, main.ts ×2) — and 8 test call sites in
+    `raceClaim.test.ts` pass `'LOBBY'`. `HostSync.buildSnapshotMessage/wrapSnapshot` gained an optional 3rd
+    `matchId` (tests call them bare); main.ts's 3 call sites pass `session.matchId`, pinned MECHANICALLY
+    (every code-line builder call in main.ts carries it; comment lines excluded).
+  - Tests: `src/net/sameMatchProof.test.ts` (17) — PRE-FIX 13 red / 4 green → POST 17 green. Hidden host
+    (presence phase MATCH at 10 s, a phase-less presence at 20 s, per-100 ms frames to 30 s, then a same-id
+    seq-501 snapshot → no verdict throughout, applied); phase LOBBY → `'lobby'` at once; phase MATCH + other
+    id → `'new-match'`; NETFR-2 (pending, watermark 500, seq 900 other id → `'new-match'`, `receive` NOT
+    called, watermark still 500); same id seq 901 → applied, pending ends; absent fields → seq fallback (900
+    applies, 3 is new-match) and our-id-null falls back; D4 negative (no attempt → nothing held/raised);
+    host REACH through the real `createHostStartHandler` onPeerChange: a PLAYING host's presence says MATCH +
+    id; Begin mints/stores/sends; presence phase from gameState; both builders; client stores + teardown
+    clears; wire validation both ways; two mechanical main.ts guards. `hostMovedOn.test.ts` re-pinned to the
+    new API (+1 REACH: phase-MATCH/phase-less presence raises nothing). Mutations (byte-copy restore, `cmp`
+    verified): M1a remove the id-decides hold branch → 1 red (NETFR-2) · M1b clientHandlers applies a
+    new-match snapshot → 2 red · M2 ignore the phase (any presence = lobby) → 3 red (NETFR-1 hidden host).
+  - Gates: typecheck **0** · `npx vitest run --maxWorkers=4 src/net/ src/input/ src/render/lobbyStateMachine.test.ts`
+    **0** (48 files + 1 skipped / 940 + 3 skipped) · build **0** (entry **965.1 KiB**, +1.1 KiB for this step;
+    branch **+9.2 KiB** of 10). First typecheck EXIT=1 — tests only (the old API in hostMovedOn.test.ts,
+    `raceClaim.test.ts` 3-arg calls): RESOLVED by the re-pins above. First green run EXIT=1 — my mechanical
+    guard counted a COMMENT naming `buildSnapshotMessage(` (`main.ts:2877`): RESOLVED (comment lines excluded).
+    A bash heredoc failed to parse (exit 2, nothing ran) — BENIGN, re-run through a script file.
+  - Hotspot `main.ts` hunks (net/session sections only): `isRejoinPending` import; `hostLobbyPresenceAtMs` →
+    `hostLobbyAtMs` (3 lines); `clientJoinDeps.isRejoinPending` (1 line + comment); `hostMovedOn` call (2 fields);
+    2 `broadcastQmPresence` calls + `world.gameState`; 3 snapshot-builder calls + `session.matchId`.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

@@ -6,13 +6,14 @@
  * rejoin the host's NEXT lobby or match: a ghost seat in the new quickmatch (auto-begin never fires)
  * while its own overlay cleared to a frozen old board.
  *
- * The two signals, neither of which needs a wire change:
- *   · NEW MATCH — the host's snapshots restart their sequence (a new `HostSync` per hosted room) far
- *     below what this client already accepted, at the same epoch. A migration successor jumps UP
- *     (`MIGRATION_SEQ_JUMP`), never down.
- *   · NEW LOBBY — after a rejoin, the host sends LOBBY_PRESENCE and no snapshot follows within
- *     `HOST_LOBBY_CONFIRM_MS`. ⚠ LOBBY_PRESENCE ALONE IS NOT ENOUGH: the host broadcasts it on every
- *     peer join, in a live match too — including this client's own legitimate rejoin.
+ * The two signals:
+ *   · NEW MATCH — ⭐ S191: an id that is not ours (`sameMatchProof.test.ts` pins the id cases). With no id
+ *     on a side, the S189 fallback: the host's snapshots restart their sequence (a new `HostSync` per
+ *     hosted room) far below what this client already accepted, at the same epoch. A migration successor
+ *     jumps UP (`MIGRATION_SEQ_JUMP`), never down.
+ *   · NEW LOBBY — ⭐ S191: LOBBY_PRESENCE in phase LOBBY, at once. ⛔ The S189 cut read "presence, then no
+ *     snapshot for 5 s" as a lobby, and a HIDDEN live host does exactly that (NETFR-1): presence alone,
+ *     or presence in phase MATCH, is now never a verdict.
  * Both are acted on only while a rejoin is PENDING (an attempt fired, nothing accepted since).
  * And a backstop: the loop gives up `RECONNECT_GIVE_UP_MS` after the loss began.
  */
@@ -44,7 +45,6 @@ import {
   classifyHostMessage,
   hostMovedOn,
   planConnectionFrame,
-  HOST_LOBBY_CONFIRM_MS,
   HOST_SEQ_REGRESSION_SLACK,
   RECONNECT_GIVE_UP_MS,
   RECONNECT_GRACE_MS,
@@ -56,9 +56,11 @@ afterEach(() => {
 });
 
 describe('S189 NET-1 — classifyHostMessage', () => {
-  const base = { inMatch: true, fromFollowedHost: true, lastSeq: 500, currentEpoch: 0 };
-  it('LOBBY_PRESENCE from the followed host while in a match is a lobby signal', () => {
-    expect(classifyHostMessage({ ...base, kind: 'LOBBY_PRESENCE' })).toBe('lobby-presence');
+  const base = { inMatch: true, fromFollowedHost: true, lastSeq: 500, currentEpoch: 0, rejoinPending: false, ourMatchId: null };
+  it('⭐ S191 — LOBBY_PRESENCE in phase LOBBY is the lobby signal; with no phase, or phase MATCH, it is none', () => {
+    expect(classifyHostMessage({ ...base, kind: 'LOBBY_PRESENCE', hostPhase: 'LOBBY' })).toBe('lobby');
+    expect(classifyHostMessage({ ...base, kind: 'LOBBY_PRESENCE' })).toBeNull();
+    expect(classifyHostMessage({ ...base, kind: 'LOBBY_PRESENCE', hostPhase: 'MATCH' })).toBeNull();
   });
   it('a snapshot whose sequence restarted far below what we accepted, same epoch, is a NEW MATCH', () => {
     expect(classifyHostMessage({ ...base, kind: 'NETSNAPSHOT', snapshotSeq: 3, epoch: 0 })).toBe('new-match');
@@ -67,32 +69,31 @@ describe('S189 NET-1 — classifyHostMessage', () => {
     expect(classifyHostMessage({ ...base, kind: 'NETSNAPSHOT', snapshotSeq: 500 - HOST_SEQ_REGRESSION_SLACK, epoch: 0 })).toBeNull();
     expect(classifyHostMessage({ ...base, kind: 'NETSNAPSHOT', snapshotSeq: 900, epoch: 0 })).toBeNull();
     expect(classifyHostMessage({ ...base, kind: 'NETSNAPSHOT', snapshotSeq: 3, epoch: 1 })).toBeNull();
-    expect(classifyHostMessage({ ...base, fromFollowedHost: false, kind: 'LOBBY_PRESENCE' })).toBeNull();
-    expect(classifyHostMessage({ ...base, inMatch: false, kind: 'LOBBY_PRESENCE' })).toBeNull();
+    expect(classifyHostMessage({ ...base, fromFollowedHost: false, kind: 'LOBBY_PRESENCE', hostPhase: 'LOBBY' })).toBeNull();
+    expect(classifyHostMessage({ ...base, inMatch: false, kind: 'LOBBY_PRESENCE', hostPhase: 'LOBBY' })).toBeNull();
     expect(classifyHostMessage({ ...base, lastSeq: 0, kind: 'NETSNAPSHOT', snapshotSeq: 1, epoch: 0 })).toBeNull();
   });
 });
 
 describe('S189 NET-1 — hostMovedOn (the per-frame verdict)', () => {
   // A transport loss at ~4 s, a rejoin attempt at 8 s, the join lands and the host answers at 10 s.
-  const rejoin = { lastRejoinAttemptAtMs: 8_000, lastAcceptedAtMs: 4_000, lobbyPresenceAtMs: 0, newMatchAtMs: 0 };
-  it('⛔ after a rejoin, LOBBY_PRESENCE then silence for HOST_LOBBY_CONFIRM_MS → the host moved on to a lobby', () => {
-    expect(hostMovedOn({ ...rejoin, lobbyPresenceAtMs: 10_000, nowMs: 10_000 + HOST_LOBBY_CONFIRM_MS })).toBe('lobby');
+  const rejoin = { lastRejoinAttemptAtMs: 8_000, lastAcceptedAtMs: 4_000, lobbyAtMs: 0, newMatchAtMs: 0 };
+  it('⛔ after a rejoin, a proven lobby (presence in phase LOBBY) → the host moved on to a lobby, at once', () => {
+    expect(hostMovedOn({ ...rejoin, lobbyAtMs: 10_000 })).toBe('lobby');
   });
-  it('⛔ after a rejoin, a restarted snapshot sequence → the host moved on to a new match, at once', () => {
-    expect(hostMovedOn({ ...rejoin, newMatchAtMs: 10_050, nowMs: 10_060 })).toBe('new-match');
+  it('⛔ after a rejoin, a new-match signal → the host moved on to a new match, at once', () => {
+    expect(hostMovedOn({ ...rejoin, newMatchAtMs: 10_050 })).toBe('new-match');
   });
   it('NEGATIVE — a live-match rejoin: a snapshot is accepted after the attempt → not moved on', () => {
-    expect(hostMovedOn({ ...rejoin, lobbyPresenceAtMs: 10_000, lastAcceptedAtMs: 10_300, nowMs: 60_000 })).toBeNull();
+    expect(hostMovedOn({ ...rejoin, lobbyAtMs: 10_000, lastAcceptedAtMs: 10_300 })).toBeNull();
   });
   it('NEGATIVE — no rejoin attempt (a host frozen while still connected — D4’s case): never', () => {
-    expect(hostMovedOn({ ...rejoin, lastRejoinAttemptAtMs: 0, lobbyPresenceAtMs: 10_000, nowMs: 60_000 })).toBeNull();
+    expect(hostMovedOn({ ...rejoin, lastRejoinAttemptAtMs: 0, lobbyAtMs: 10_000 })).toBeNull();
     // …nor a stale attempt from an earlier, recovered episode (snapshots were accepted after it).
-    expect(hostMovedOn({ ...rejoin, lastRejoinAttemptAtMs: 2_000, lobbyPresenceAtMs: 10_000, newMatchAtMs: 10_000, nowMs: 60_000 })).toBeNull();
+    expect(hostMovedOn({ ...rejoin, lastRejoinAttemptAtMs: 2_000, lobbyAtMs: 10_000, newMatchAtMs: 10_000 })).toBeNull();
   });
-  it('NEGATIVE — inside the confirm window it waits; a signal from BEFORE the attempt is ignored', () => {
-    expect(hostMovedOn({ ...rejoin, lobbyPresenceAtMs: 10_000, nowMs: 10_000 + HOST_LOBBY_CONFIRM_MS - 1 })).toBeNull();
-    expect(hostMovedOn({ ...rejoin, lobbyPresenceAtMs: 7_000, newMatchAtMs: 7_500, nowMs: 60_000 })).toBeNull();
+  it('NEGATIVE — a signal from BEFORE the attempt is ignored', () => {
+    expect(hostMovedOn({ ...rejoin, lobbyAtMs: 7_000, newMatchAtMs: 7_500 })).toBeNull();
   });
 });
 
@@ -148,15 +149,22 @@ describe('S189 NET-1 — REACH through the real connectAsClient route', () => {
     expect(receive).not.toHaveBeenCalled();
   });
 
-  it('⛔ LOBBY_PRESENCE from the host while PLAYING → the client is told (main.ts confirms it by the silence)', () => {
+  it('⛔ LOBBY_PRESENCE in phase LOBBY from the host while PLAYING → the client is told', () => {
     const { signals } = rejoined();
+    fake.route!({ kind: 'LOBBY_PRESENCE', roster: [], phase: 'LOBBY' }, 'host');
+    expect(signals).toEqual(['lobby']);
+  });
+
+  it('⛔ S191 NETFR-1 — presence in phase MATCH (a live host, hidden or not), or with no phase, raises NO signal', () => {
+    const { signals } = rejoined();
+    fake.route!({ kind: 'LOBBY_PRESENCE', roster: [], phase: 'MATCH' }, 'host');
     fake.route!({ kind: 'LOBBY_PRESENCE', roster: [] }, 'host');
-    expect(signals).toEqual(['lobby-presence']);
+    expect(signals).toEqual([]);
   });
 
   it('NEGATIVE — the same messages from a peer that is NOT the followed host change nothing', () => {
     const { signals } = rejoined();
-    fake.route!({ kind: 'LOBBY_PRESENCE', roster: [] }, 'stranger');
+    fake.route!({ kind: 'LOBBY_PRESENCE', roster: [], phase: 'LOBBY' }, 'stranger');
     expect(signals).toEqual([]);
   });
 

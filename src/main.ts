@@ -75,6 +75,7 @@ import {
   RECONNECT_GRACE_MS,
   type TerminalLossCause,
   hostMovedOn,
+  isRejoinPending,
   type HostSignal,
   connectionEdge,
 } from './net/reconnectPolicy.ts';
@@ -1842,7 +1843,7 @@ async function bootstrap(): Promise<void> {
    * or match, leaves to title with the notice below instead of sitting on a frozen board.
    */
   let lastRejoinAttemptAtMs = 0;
-  let hostLobbyPresenceAtMs = 0;
+  let hostLobbyAtMs = 0;
   let hostNewMatchAtMs = 0;
   const clientJoinDeps = {
     session,
@@ -1854,8 +1855,10 @@ async function bootstrap(): Promise<void> {
     clientIdentity,
     onHostSignal: (signal: HostSignal): void => {
       if (signal === 'new-match') hostNewMatchAtMs = performance.now();
-      else hostLobbyPresenceAtMs = performance.now();
+      else hostLobbyAtMs = performance.now();
     },
+    // ⭐ S191 (NETFR-1/2) — while a rejoin is pending, clientHandlers releases only OUR match's snapshots.
+    isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -1895,7 +1898,7 @@ async function bootstrap(): Promise<void> {
   const onToggleReady = (ready: boolean): void => {
     session.qmSelfReady = ready;
     if (world.isHost && session.netTransport !== null) {
-      broadcastQmPresence(session, session.netTransport, onPresence);
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
       maybeQmAutoBegin(session, onAutoBegin);
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'LOBBY_READY', ready });
@@ -1928,7 +1931,7 @@ async function bootstrap(): Promise<void> {
       // ⚠ `onToggleReady` directly above KEEPS its guard deliberately: readiness only means
       // something to peers in a room, so there is nothing local to show, whereas seeing your own
       // race change is the entire point of the menu.
-      broadcastQmPresence(session, session.netTransport, onPresence);
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_RACE', raceId });
     }
@@ -3209,7 +3212,7 @@ Network routes: ${v.detail}`;
               nowMsW - lastSnapshotSentMs >= 80
             ) {
               session.netTransport.send(
-                session.hostSync.wrapSnapshot(result.snapshot, session.currentEpoch),
+                session.hostSync.wrapSnapshot(result.snapshot, session.currentEpoch, session.matchId),
               );
               lastSnapshotSentMs = nowMsW;
               session.lastSnapshotTick = world.tick;
@@ -3277,7 +3280,7 @@ Network routes: ${v.detail}`;
           // S119 P2 — instrumented twin of the production send in the else-branch:
           // same calls, same order, split only to mark the build/send boundary.
           performance.mark('spark-snap-build-start');
-          const snapMsg = session.hostSync.buildSnapshotMessage(world, session.currentEpoch);
+          const snapMsg = session.hostSync.buildSnapshotMessage(world, session.currentEpoch, session.matchId);
           performance.mark('spark-snap-build-end');
           session.netTransport.send(snapMsg);
           performance.mark('spark-snap-send-end');
@@ -3309,7 +3312,7 @@ Network routes: ${v.detail}`;
             // Voided marks (see above) — skip this sample; the send already went out.
           }
         } else {
-          session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch));
+          session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch, session.matchId));
         }
         session.lastSnapshotTick = world.tick;
         lastSnapshotSentMs = nowMs;
@@ -3692,10 +3695,9 @@ Network routes: ${v.detail}`;
     // match nor D4's frozen-host takeover is touched. Stamps are per match: cleared outside one.
     if (isNetworked(world) && !world.isHost && world.gameState === 'PLAYING' && session.clientSync !== null) {
       const movedOn = hostMovedOn({
-        nowMs: performance.now(),
         lastRejoinAttemptAtMs,
         lastAcceptedAtMs: session.clientSync.lastAcceptedAt(),
-        lobbyPresenceAtMs: hostLobbyPresenceAtMs,
+        lobbyAtMs: hostLobbyAtMs,
         newMatchAtMs: hostNewMatchAtMs,
       });
       if (movedOn !== null) {
@@ -3706,7 +3708,7 @@ Network routes: ${v.detail}`;
     }
     if (!(isNetworked(world) && !world.isHost && world.gameState === 'PLAYING')) {
       lastRejoinAttemptAtMs = 0;
-      hostLobbyPresenceAtMs = 0;
+      hostLobbyAtMs = 0;
       hostNewMatchAtMs = 0;
     }
     const hostLost = !world.isHost

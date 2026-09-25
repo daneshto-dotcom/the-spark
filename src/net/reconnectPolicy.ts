@@ -24,6 +24,7 @@
  */
 import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 import { isSnapshotStarved } from './succession.ts';
+import type { HostPhase } from './protocol.ts';
 
 /** The RECONNECTING window before the terminal overlay (unchanged, S82). Also the migration grace. */
 export const RECONNECT_GRACE_MS = 15_000;
@@ -46,14 +47,9 @@ export const RECONNECT_GIVE_UP_MS = 180_000;
  * far BELOW what we already accepted, at the same epoch, came from a NEW `HostSync` (a new match; one is
  * created per hosted room). ⚠ MINE: 50 is ~5 s of snapshots, far past any reorder. Only acted on after
  * a rejoin (see `hostMovedOn`), so a delayed copy on a second strategy's channel mid-match cannot fire it.
+ * ⭐ S191 — now only the FALLBACK when a side carries no match id (`classifyHostMessage`).
  */
 export const HOST_SEQ_REGRESSION_SLACK = 50;
-/**
- * ⭐ S189 fix round (audit NET-1) — after a rejoin, the host said LOBBY_PRESENCE and not one snapshot has
- * been accepted for this long: it is in a lobby, not our match. ⚠ MINE: a live host feeds a rejoiner
- * snapshots within a frame or two (10 Hz); 5 s is margin for a host lagging under load.
- */
-export const HOST_LOBBY_CONFIRM_MS = 5_000;
 
 export interface ReconnectRetryInput {
   readonly nowMs: number;
@@ -283,14 +279,26 @@ export function connectionEdge(i: {
  *
  * The loop retries past the grace, and a host's room code is fixed per PAGE LOAD, so a client left on
  * the terminal overlay could rejoin the host's NEXT lobby or match: a ghost seat there, and a frozen old
- * board here with the overlay cleared. Two local signals, no wire change:
- *   · 'new-match' — a snapshot whose sequence restarted (see `HOST_SEQ_REGRESSION_SLACK`);
- *   · 'lobby-presence' — LOBBY_PRESENCE from the host while we are in a match. ⚠ NOT a verdict alone:
- *     the host broadcasts it on every peer join in ANY state, including our own legitimate rejoin to a
- *     live match — `hostMovedOn` confirms it by the silence that follows.
+ * board here with the overlay cleared.
+ *
+ * ⛔ S191 (audit NETFR-1/2) — AND THE PROOF MUST BE POSITIVE. S189 inferred both verdicts from absence,
+ * and each inference had a reachable counter-case:
+ *   · "LOBBY_PRESENCE, then no snapshot for 5 s" = a lobby. But a host whose tab is HIDDEN pauses its
+ *     snapshots (they are sent from rAF) while Trystero's event-driven signalling still answers our join
+ *     with presence — so a live match was read as a lobby and the player sent to title (NETFR-1);
+ *   · "the seq restarted" = a new match. But a host's next match whose seq has already passed our old
+ *     watermark sailed through, and we rendered a stranger's match from our old seat (NETFR-2).
+ * Now the host mints a per-match id at Begin (`mintMatchId`) and says it on START_GAME_SIGNAL, on
+ * LOBBY_PRESENCE together with its phase (`HostPhase`, from its `world.gameState`), and on NETSNAPSHOT:
+ *   · 'lobby'     — LOBBY_PRESENCE in phase LOBBY: the host is in a lobby, at once;
+ *   · 'new-match' — an id that is not ours (presence in phase MATCH, or — while a rejoin is PENDING — a
+ *                   snapshot); the snapshot is not applied. Fallback when either side has no id: the S189
+ *                   seq-regression test (`HOST_SEQ_REGRESSION_SLACK`);
+ *   · nothing     — our id, or no phase/id at all: an absent field is never a lobby verdict (a frozen or
+ *                   hidden host is left to D4's takeover or to its own thaw).
  * `clientHandlers.ts` classifies (it sees the message); `main.ts` stamps and decides once per frame.
  */
-export type HostSignal = 'lobby-presence' | 'new-match';
+export type HostSignal = 'lobby' | 'new-match';
 
 export interface HostMessageInput {
   /** A client, PLAYING. */
@@ -303,14 +311,28 @@ export interface HostMessageInput {
   /** ClientSync's watermark (0 = nothing accepted, or reset by an epoch advance). */
   readonly lastSeq: number;
   readonly currentEpoch: number;
+  /** ⭐ S191 — `isRejoinPending`: only then must a snapshot prove its match before it is applied. */
+  readonly rejoinPending: boolean;
+  /** ⭐ S191 — the match id this client holds (`NetSession.matchId`), or null. */
+  readonly ourMatchId: string | null;
+  /** ⭐ S191 — the message's `matchId` (NETSNAPSHOT / LOBBY_PRESENCE), if it carries one. */
+  readonly matchId?: string;
+  /** ⭐ S191 — LOBBY_PRESENCE's `phase`, if it carries one. */
+  readonly hostPhase?: HostPhase;
 }
 
+/** A classified snapshot of 'new-match' is NOT applied (`clientHandlers.ts` returns before `receive`). */
 export function classifyHostMessage(i: HostMessageInput): HostSignal | null {
   if (!i.inMatch || !i.fromFollowedHost) return null;
-  if (i.kind === 'LOBBY_PRESENCE') return 'lobby-presence';
+  const otherMatch = i.matchId !== undefined && i.ourMatchId !== null && i.matchId !== i.ourMatchId;
+  if (i.kind === 'LOBBY_PRESENCE') {
+    if (i.hostPhase === 'LOBBY') return 'lobby';
+    return i.hostPhase === 'MATCH' && otherMatch ? 'new-match' : null;
+  }
+  if (i.kind !== 'NETSNAPSHOT' || i.snapshotSeq === undefined) return null;
+  // The HOLD: while a rejoin is pending, an id on both sides decides — and only ours is released.
+  if (i.rejoinPending && i.matchId !== undefined && i.ourMatchId !== null) return otherMatch ? 'new-match' : null;
   if (
-    i.kind === 'NETSNAPSHOT' &&
-    i.snapshotSeq !== undefined &&
     (i.epoch ?? 0) === i.currentEpoch &&
     i.lastSeq > 0 &&
     i.snapshotSeq + HOST_SEQ_REGRESSION_SLACK < i.lastSeq
@@ -320,30 +342,34 @@ export function classifyHostMessage(i: HostMessageInput): HostSignal | null {
   return null;
 }
 
+/** A rejoin is PENDING from the moment the loop fires an attempt until a snapshot is accepted. */
+export function isRejoinPending(lastRejoinAttemptAtMs: number, lastAcceptedAtMs: number): boolean {
+  return lastRejoinAttemptAtMs !== 0 && lastAcceptedAtMs < lastRejoinAttemptAtMs;
+}
+
 export interface HostMovedOnInput {
-  readonly nowMs: number;
   /** When the loop last started a reconnect attempt (0 = none this match). */
   readonly lastRejoinAttemptAtMs: number;
   /** ClientSync's last accepted snapshot (0 = none). */
   readonly lastAcceptedAtMs: number;
   /** When the followed host last sent each signal (0 = never). */
-  readonly lobbyPresenceAtMs: number;
+  readonly lobbyAtMs: number;
   readonly newMatchAtMs: number;
 }
 
 /**
- * Did the rejoin land in the host's NEXT lobby or match? Only while a rejoin is PENDING — an attempt has
- * fired and no snapshot has been accepted since. That one condition is what keeps the rest safe:
- *   · a live-match rejoin accepts the host's next snapshot and is no longer pending;
- *   · a host that is merely frozen while still connected (the S124 D4 case) never starts an attempt —
- *     the loop only retries on transport loss — so this can never pre-empt D4's takeover;
- *   · a signal from before the attempt (a mid-match LOBBY_PRESENCE on another peer's join) is ignored.
+ * Did the rejoin land in the host's NEXT lobby or match? Only while a rejoin is PENDING, and only on a
+ * signal received after the attempt fired (a mid-match presence on another peer's join is older).
+ * ⛔ S191 — the S189 docblock here said a frozen-but-connected host "never starts an attempt … so this
+ * can never pre-empt D4's takeover". FALSE after a transport loss + rejoin: the rejoin can land on a host
+ * that is hidden or frozen — D4's own case, with a rejoin pending. What keeps D4 whole now is that such a
+ * host proves nothing either way: its presence says MATCH with our id (or carries no phase at all), so no
+ * signal is raised, the snapshots it does not send are simply awaited, and D4 (starvation counted from
+ * the host's reappearance, `stepMigrationClaim`) or its thaw decides — never a verdict from silence.
  */
 export function hostMovedOn(i: HostMovedOnInput): 'new-match' | 'lobby' | null {
-  if (i.lastRejoinAttemptAtMs === 0 || i.lastAcceptedAtMs >= i.lastRejoinAttemptAtMs) return null;
+  if (!isRejoinPending(i.lastRejoinAttemptAtMs, i.lastAcceptedAtMs)) return null;
   if (i.newMatchAtMs > i.lastRejoinAttemptAtMs) return 'new-match';
-  if (i.lobbyPresenceAtMs > i.lastRejoinAttemptAtMs && i.nowMs - i.lobbyPresenceAtMs >= HOST_LOBBY_CONFIRM_MS) {
-    return 'lobby';
-  }
+  if (i.lobbyAtMs > i.lastRejoinAttemptAtMs) return 'lobby';
   return null;
 }

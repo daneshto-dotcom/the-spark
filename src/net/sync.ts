@@ -50,13 +50,15 @@ export class HostSync {
    * host's term — the ONLY value in D2) is OMITTED, keeping the wire byte-identical to pre-D2; a
    * receiver treats absent as 0. Envelope-only: netSnapshot(world) is untouched, so save.replay holds.
    */
-  buildSnapshotMessage(world: World, epoch = 0): NetSnapshotMsg {
+  buildSnapshotMessage(world: World, epoch = 0, matchId: string | null = null): NetSnapshotMsg {
     this.snapshotSeq++;
     return {
       kind: 'NETSNAPSHOT',
       snapshotSeq: this.snapshotSeq,
       snapshot: netSnapshot(world),
       ...(epoch > 0 ? { epoch } : {}),
+      // ⭐ S191 (NETFR-2) — the host's match id (`NetSession.matchId`), envelope-only like `epoch`.
+      ...(matchId !== null ? { matchId } : {}),
     };
   }
 
@@ -66,13 +68,14 @@ export class HostSync {
    * direct-path builder; the two share the seq counter so a mid-match mode fallback can
    * never regress a joiner's seq gate.
    */
-  wrapSnapshot(snapshot: NetSnapshot, epoch = 0): NetSnapshotMsg {
+  wrapSnapshot(snapshot: NetSnapshot, epoch = 0, matchId: string | null = null): NetSnapshotMsg {
     this.snapshotSeq++;
     return {
       kind: 'NETSNAPSHOT',
       snapshotSeq: this.snapshotSeq,
       snapshot,
       ...(epoch > 0 ? { epoch } : {}),
+      ...(matchId !== null ? { matchId } : {}),
     };
   }
 
