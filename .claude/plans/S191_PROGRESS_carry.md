@@ -8,9 +8,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | step | status | commit | notes |
 |---|---|---|---|
 | 0 · `npm ci` | DONE | `60c304d` | `NPM_CI_EXIT=0` (captured `$?`, log `.tmp-gates/npm-ci.log`) |
-| C-1 · worker startup `nextPulledSparkId` | DONE | (this commit) | see below |
-| C-2 · WRATH-F5 pending cast vs tick moving backwards | next | | |
-| C-3 · SWM-6 swarm draw through the bat-sheet fallback | todo | | |
+| C-1 · worker startup `nextPulledSparkId` | DONE | `686f990` | see below |
+| C-2 · WRATH-F5 pending cast vs tick moving backwards | DONE | (this commit) | see below |
+| C-3 · SWM-6 swarm draw through the bat-sheet fallback | next | | |
 | C-4 · `drawRaRitual` FIGHT gate | todo | | |
 | C-5 · hub self-destruct = 120 fifths | todo | | |
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
@@ -32,6 +32,28 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - Import-graph change: `workerSim.ts` value-imports `../net/migrationClaim.ts` — the worker graph's only
   `net/` value import. Worker chunk 222,208 → 224,465 B (+2,257 B). Entry chunk 978,794 B unchanged.
 - Wire / hash / shared rule: none. `nextPulledSparkId` stays unserialized and off the wire → no bump.
+
+## C-2 — DONE
+
+- Record: `src/render/raAimPreview.ts` `PendingRaCasts` / `livePending` (view state, not wire, not hashed).
+- Mechanism (measured in code): a joiner runs `world.tick++` every fixed step (`main.ts` client branch
+  ~:2815) and each snapshot sets `world.tick = snap.tick` (`save.ts:1600`), so a clock that ran ahead steps
+  BACK on apply — right after a send. `livePending` read `age < 0` as dead → the W-4 bug again; and it
+  only IGNORED expired records, so a later step back revived a refused cast.
+- Fix: new pure module `src/render/pendingRecordClock.ts` — `pendingRecordAnchor(nowTick, atTick, timeout)`
+  (reusable per the Council note: s191/owner's Scorched Earth cast may use it). Backward → re-anchor at
+  the adopted tick; older than the window → `null`, and `livePending` DROPS the record. Wave and catch-up
+  checks unchanged (still non-destructive).
+- Tests: `src/input/controls.raPendingTickBack.test.ts` (4) — REACH through real `Controls` + `FooterBand`
+  pips + `drawBossAuras` aim + real `netSnapshot`→`applyNetSnapshot` moving the clock back; re-anchored
+  record still expires; expired record stays dead after a step back; negative (forward-only unchanged).
+  `src/render/pendingRecordClock.test.ts` (3) — arithmetic.
+- Mutations: (1) backward → `null` in the rule: 4 RED; (2) drop removed in `livePending`: the resurrection
+  test RED. Both restored → green.
+- Wire / hash / shared rule: none (client view state). No bump. No new constant (window = the existing
+  `RA_PENDING_TIMEOUT_TICKS`, MINE since S190). `footerBand.ts` NOT touched.
+- Benign, recorded: the C-1 full-suite run rewrote `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap`
+  with LF line endings — content-identical (empty diff); restored with `git checkout`, not committed.
 
 ## In flight
 
@@ -61,4 +83,5 @@ None.
 | after | typecheck | vitest (full) | build | entry KiB |
 |---|---|---|---|---|
 | baseline (before C-1) | — | — | 0 | 955.9 (978,794 B) |
-| C-1 | 0 | running after commit | 0 | 955.9 (978,794 B) |
+| C-1 | 0 | 0 — 6469 passed / 2 skipped, 397 files (107 s) | 0 | 955.9 (978,794 B) |
+| C-2 | 0 | running after commit | — | — |
