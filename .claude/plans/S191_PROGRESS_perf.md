@@ -202,6 +202,47 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
   (C incl): structureTargets 32.4 % (not in brief) · territory 9.4 % (radii 5.1 %) · tickScoring 8.7 % ·
   pickNavUnit 5.9 % · solveBonds 5.1 %.
 
+### 2d · `tickScoring` → `computeAllComplexities` — the combo answers memoised per call  ✅
+- `src/state/scoring.ts` (CRLF kept, 409/409): "is this pair magic?" (`lookupCombo(a,b).isMagical`) and
+  "is it a Filament?" (`isFilamentCombo(a,b)`) answered by the SAME functions the first time a type pair
+  appears in a call, then from a 6×6 `Int8Array` for the rest of that call. No combo logic duplicated;
+  a type that is not an integer 0..5 bypasses the memo (so an invalid type still throws, from the same
+  bond); every loop, skip, count and `Map` insertion order unchanged; the memo dies with the call.
+- Microbenchmark first (throwaway, not committed; real wave-5 boards, 8 repeats after warm-up):
+  A board (171 prims / 356 bonds) **129.9 → 51.6 µs** per call; C board (236 / 517) **174.1 → 67.6 µs**;
+  both bit-identical INCLUDING the result Map's insertion order.
+- Tests (NEW): `state/scoringReference.fixtures.ts` (computeAllComplexities + tickScoring + the two weights
+  VERBATIM; each segment an exact substring of `git show 42cc2ee:src/state/scoring.ts` — ⚠ my first
+  extraction walked tickScoring's docblock back into `applyLeaderDecay` (tsc caught the duplicate), redone
+  from the signature line); `state/scoringMemo.differential.test.ts` (all 36 ordered pairs × owners ×
+  mixed-owner bonds, Filaments both orders with 0-5 magic neighbours (keystone cap), fouling on a Filament
+  end / a neighbour end / an unrelated id, degenerate bond, spawners, empty board, an INVALID type after a
+  valid pair sharing its would-be slot, 300 random boards; entries compared in insertion order); the
+  SCORING arm of `s191Perf.differential.test.ts` (in place every tickScoring call; twin A scores with the
+  verbatim `tickScoring`).
+- Oracle — ALL arms, EXIT=0: default (waves 1-3) scoring 10 800 calls / **0 mismatches** (magic + Filament
+  on every board); full (waves 1-5) 18 000 / **0**; nav 579 376 / 0; solver 348 472 calls, 71.8 M bonds / 0;
+  territory 45 000 / 0; `hashWorldStateFull` identical all 45 000 ticks; 99.8 s. ⚠ `withFouled` is 0 in a
+  bots match (the seagull hazard that fouls shapes is off) — the fouled branch is proven by the exact cases.
+- MUTATION CHECKS (restored sha256-identical): C1 slot ignores b → RED · C2 one memo for both questions →
+  RED · C3 keystone neighbours asked "Filament?" → RED (so the keystone branch IS exercised) · C4 invalid
+  type folded onto a valid slot (`% 6`) → first GREEN: the only invalid bond was the first user of its
+  slot, so the memo still called `lookupCombo` and threw. Case strengthened (a valid Square→Square bond
+  first) → RED.
+
+#### AFTER 2d (cumulative 2a-2d), wave-5 FIGHT, ms — machine shared
+| pass | run | mean | p95 | max | 3-tick p95 | 3-tick max |
+|---|---|---|---|---|---|---|
+| A | 1 / 2 / prof | 0.375 / 0.371 / 0.425 | 0.587 / 0.594 / 0.672 | 1.59 / 1.86 / 1.83 | 1.68 / 1.69 / 1.91 | 2.81 / 3.31 / 3.29 |
+| C | 1 / 2 / prof | 1.836 / 1.775 / 1.946 | 2.406 / 2.184 / 2.450 | 7.32 / 4.53 / 5.09 | 7.02 / 6.38 / 7.01 | 15.85 / 12.47 / 15.06 |
+- Profile: tickScoring A 16.0 → **10.5 %**, C 8.7 → **5.9 %**. `lookupCombo` is still 4.6 % (A) — from
+  `applyKeystoneAnchor` / `anchorStabilize` / `isAnchorCombo`, outside this brief (REPORTED: a numeric 6×6
+  table inside `combos.ts` would serve every caller).
+- New rank (A incl): territory 22.6 % (`computeAllPlayerRadii` **12.4 %**) · structureTargets 11.7 % ·
+  solveBonds 10.6 % · tickScoring 10.5 % · applyKeystoneAnchor 8.0 % (not in brief).
+  (C incl): structureTargets 31.9 % (not in brief) · territory 10.6 % (radii 5.9 %) · pickNavUnit 6.8 % ·
+  tickScoring 5.9 % · solveBonds 5.5 %.
+
 ## Step 3 — cache-invariant guards
 - 2a (territory grid): NO cache — the grid is built and dropped inside each call. Nothing to stale.
 - 2b (nav index): `creatures/navUnitIndex.guards.test.ts`, comment-stripped production code, per-file

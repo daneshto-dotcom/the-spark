@@ -19,6 +19,9 @@
  *       · SOLVER — `solveBonds` (tier tables hoisted): every substep call, verbatim solver first from
  *         the same positions (`solveBondsReference.fixtures.ts`), every endpoint `pos` `Object.is` and
  *         the broken list compared.
+ *       · SCORING — `computeAllComplexities` (combo answers memoised per call): every `tickScoring` call,
+ *         the real map against the verbatim one (`scoringReference.fixtures.ts`), entries in insertion
+ *         order; twin A scores with the verbatim `tickScoring`.
  *  2. **THE WORLDS DO NOT DIVERGE, ACROSS WAVES.** Two identical four-seat bots matches run in lockstep
  *     from tick 0 — twin A on EVERY reference, twin B on EVERY real change with the in-place checks —
  *     through whole waves (BUILD + FIGHT, creatures held in the last FIGHT), `hashWorldStateFull`
@@ -34,8 +37,8 @@
  *
  * ## SCALE, AND ITS COST
  *
- * Default: waves 1–3 (27 000 ticks per twin, 40 creatures in wave 3's FIGHT) — 23.5 s of test time on the shared
- * S191 machine (waves 1–5: 84.5 s), ~40 % of it the wide hash of two worlds every tick. `SPARK_C5_PERF=1`: waves 1–5 with
+ * Default: waves 1–3 (27 000 ticks per twin, 40 creatures in wave 3's FIGHT) — ~28-30 s of test time on the shared
+ * S191 machine (waves 1–5: ~100 s), ~40 % of it the wide hash of two worlds every tick. `SPARK_C5_PERF=1`: waves 1–5 with
  * 120 creatures, the board the owner reported. Same code, one parameter. Results in
  * `S191_PROGRESS_perf.md`.
  */
@@ -50,6 +53,7 @@ import type { Bond } from '../physics/bonds.ts';
 type RealTerritory = typeof import('./territory.ts');
 type RealAI = typeof import('./creatures/creatureAI.ts');
 type RealBonds = typeof import('../physics/bonds.ts');
+type RealScoring = typeof import('./scoring.ts');
 type NavFn = (w: World, c: Creature, held: CreatureId | null, acq: number, leash: number) => CreatureId | null;
 
 const H = vi.hoisted(() => ({
@@ -59,12 +63,20 @@ const H = vi.hoisted(() => ({
   pickNavUnit: null as unknown as NavFn,
   bonds: null as unknown as RealBonds,
   solve: null as unknown as (bonds: readonly Bond[]) => BondId[],
+  scoring: null as unknown as RealScoring,
+  tickScoring: null as unknown as (w: World) => void,
 }));
 
 vi.mock('./territory.ts', async (importOriginal) => {
   const real = await importOriginal<RealTerritory>();
   H.territory = real;
   return { ...real, computeTerritorialInfluence: (w: World) => H.influence(w) };
+});
+
+vi.mock('./scoring.ts', async (importOriginal) => {
+  const real = await importOriginal<RealScoring>();
+  H.scoring = real;
+  return { ...real, tickScoring: (w: World) => H.tickScoring(w) };
 });
 
 vi.mock('../physics/bonds.ts', async (importOriginal) => {
@@ -87,9 +99,10 @@ import { hashWorldStateFull } from './stateHashFull.ts';
 import { referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
 import { startC5Match, topUpCreatures, WAVE_TICKS } from './c5WaveFiveBoard.fixtures.ts';
 import {
-  makeNavChecker, makeSolverChecker, makeTerritoryChecker, plantIntruder, removeInjected, weldNearestCrossSeatPair,
-  type Injected, type NavInjectPlan,
+  makeNavChecker, makeScoringChecker, makeSolverChecker, makeTerritoryChecker, plantIntruder, removeInjected,
+  weldNearestCrossSeatPair, type Injected, type NavInjectPlan,
 } from './s191PerfOracle.fixtures.ts';
+import { referenceTickScoring } from './scoringReference.fixtures.ts';
 import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
 
 const FULL = process.env.SPARK_C5_PERF === '1';
@@ -120,11 +133,19 @@ H.pickNavUnit = (w, c, held, acq, leash) => nav.call(w, c, held, acq, leash, mod
 const solver = makeSolverChecker((bonds) => H.bonds.solveBonds(bonds));
 H.solve = (bonds) => (mode === 'reference' ? referenceSolveBonds(bonds) : solver.check(bonds));
 
+const scoring = makeScoringChecker((w) => H.scoring.computeAllComplexities(w));
+H.tickScoring = (w) => {
+  if (mode === 'reference') { referenceTickScoring(w); return; }
+  scoring.check(w); // in place, before the real pass accrues from the same board
+  H.scoring.tickScoring(w);
+};
+
 describe(`S191 perf — every s191/perf change is byte-identical to the code it replaced (waves 1–${WAVES}, hash every tick)`, () => {
   it(`in-place agreement on every call, and a reference world and a changed world hash identically every tick for ${WAVES} waves`, async () => {
     territory.reset();
     nav.reset();
     solver.reset();
+    scoring.reset();
     const A = startC5Match(true); // twin A: every REFERENCE
     const B = startC5Match(true); // twin B: every real change, every call also checked in place
     expect(hashWorldStateFull(A.world), 'the twins start identical').toBe(hashWorldStateFull(B.world));
@@ -187,13 +208,16 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
     const ts = territory.stats;
     const ns = nav.stats;
     const ss = solver.stats;
+    const sc = scoring.stats;
     console.log(`[S191 perf oracle] waves 1-${WAVES}: nav ${JSON.stringify(ns)}`);
     console.log(`[S191 perf oracle] waves 1-${WAVES}: solver ${JSON.stringify(ss)}`);
+    console.log(`[S191 perf oracle] waves 1-${WAVES}: scoring ${JSON.stringify(sc)}`);
     console.log(`[S191 perf oracle] waves 1-${WAVES}: territory ${JSON.stringify(ts)}; welds=${welds} intruders=${intruders} (mixed ${mixedIntruders}) ticks=${ticks} maxBonds=${maxBonds} meanBonds=${(bondTicks / Math.max(1, ticks)).toFixed(0)} maxCreatures=${maxCreatures} reached wave ${A.world.waveNumber} ${A.world.matchPhase}; wall ${((performance.now() - t0) / 1000).toFixed(1)} s of which hashing ${(hashMs / 1000).toFixed(1)} s`);
 
     expect(ts.mismatches, `territory in-place mismatches:\n${territory.firstMismatches.join('\n')}`).toBe(0);
     expect(ns.mismatches, `nav-unit in-place mismatches:\n${nav.firstMismatches.join('\n')}`).toBe(0);
     expect(ss.mismatches, `solver in-place mismatches:\n${solver.firstMismatches.join('\n')}`).toBe(0);
+    expect(sc.mismatches, `scoring in-place mismatches:\n${scoring.firstMismatches.join('\n')}`).toBe(0);
     expect(divergedAt, 'hashWorldStateFull diverged between the reference world and the changed world').toBe(-1);
     expect(A.world.tick, 'the run reached the end of its last wave').toBe(end);
     /*
@@ -220,22 +244,25 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
         'an existence claim the Council asked for: the per-bond skip must meet a mixed bond on a real board'],
       ['territory: a MIXED bond was engulfed by a THIRD seat', ts.mixedEngulfed, 1, '87 260 / 161 075',
         'an existence claim: the either-endpoint skip exercised on its engulfing side too'],
-      ['nav: host-tick pickNavUnit calls', ns.calls, 1000, '228 350 / FULL', 'every SEEKING structure-attacker, every FIGHT tick'],
-      ['nav: comparisons (calls + sweeps)', ns.compared, 10_000, '336 464 / FULL', 'a whole-population sweep per tick and after every injection'],
-      ['nav: a unit was found', ns.nonNull, 100, '47 598 / FULL', 'a re-acquire that always returns null proves nothing'],
-      ['nav: injected lethal blows between two calls (Council S191 item 2)', ns.injectedKills, 20, '384 / FULL', 'every 7th FIGHT tick with 2+ calls and a pick'],
-      ['nav: injected removals between two calls', ns.injectedRemovals, 10, '230 / FULL', 'every 13th FIGHT tick with 3+ calls and a pick'],
-      ['nav: injected births between two calls', ns.injectedBirths, 10, '736 / FULL', 'every 19th FIGHT tick with 4+ calls'],
-      ['nav: calls AFTER a mid-loop creature-set change, same tick', ns.callsAfterMidLoopChange, 100, '16 468 / FULL', 'the calls that would read a stale index'],
-      ['nav: a held lock the creature did not set itself (a retaliation turn) (Council S191 item 2)', ns.heldElsewhere, 1, '104 / FULL', 'an existence claim: the retaliation hold is exercised'],
-      ['nav: and that hold was kept', ns.heldElsewhereKept, 1, '104 / FULL', 'an existence claim: the hold branch returned it'],
-      ['solver: calls (8 substeps per tick with bonds)', ss.calls, 100_000, 'MEASURE', 'structural: the substep loop'],
-      ['solver: bonds solved', ss.bondsSolved, 1_000_000, 'MEASURE', 'a real board, every substep'],
-      ['solver: bonds solved SAGGED (multiplier != 1)', ss.sagged, 10_000, 'MEASURE', 'the territory / anchor path — the intruders make it real'],
-      ['solver: bonds broken by strain', ss.broken, 1, 'MEASURE', 'an existence claim: the break branch runs in the real match'],
-      ['solver: LOW-tier bonds solved', ss.low, 1000, 'MEASURE', 'every tier branch exercised'],
-      ['solver: MID-tier bonds solved', ss.mid, 1000, 'MEASURE', 'every tier branch exercised'],
-      ['solver: HIGH-tier bonds solved', ss.high, 1000, 'MEASURE', 'every tier branch exercised'],
+      ['nav: host-tick pickNavUnit calls', ns.calls, 1000, '228 350 / 579 376', 'every SEEKING structure-attacker, every FIGHT tick'],
+      ['nav: comparisons (calls + sweeps)', ns.compared, 10_000, '336 464 / 901 061', 'a whole-population sweep per tick and after every injection'],
+      ['nav: a unit was found', ns.nonNull, 100, '47 598 / 135 866', 'a re-acquire that always returns null proves nothing'],
+      ['nav: injected lethal blows between two calls (Council S191 item 2)', ns.injectedKills, 20, '384 / 624', 'every 7th FIGHT tick with 2+ calls and a pick'],
+      ['nav: injected removals between two calls', ns.injectedRemovals, 10, '230 / 380', 'every 13th FIGHT tick with 3+ calls and a pick'],
+      ['nav: injected births between two calls', ns.injectedBirths, 10, '736 / 1 146', 'every 19th FIGHT tick with 4+ calls'],
+      ['nav: calls AFTER a mid-loop creature-set change, same tick', ns.callsAfterMidLoopChange, 100, '16 468 / 51 392', 'the calls that would read a stale index'],
+      ['nav: a held lock the creature did not set itself (a retaliation turn) (Council S191 item 2)', ns.heldElsewhere, 1, '104 / 220', 'an existence claim: the retaliation hold is exercised'],
+      ['nav: and that hold was kept', ns.heldElsewhereKept, 1, '104 / 220', 'an existence claim: the hold branch returned it'],
+      ['solver: calls (8 substeps per tick with bonds)', ss.calls, 100_000, '204 472 / 348 472', 'structural: the substep loop'],
+      ['solver: bonds solved', ss.bondsSolved, 1_000_000, '19 471 513 / 71 798 337', 'a real board, every substep'],
+      ['solver: bonds solved SAGGED (multiplier != 1)', ss.sagged, 10_000, '7 285 382 / 31 589 227', 'the territory / anchor path — the intruders make it real'],
+      ['solver: bonds broken by strain', ss.broken, 1, '4 / 43', 'an existence claim: the break branch runs in the real match'],
+      ['solver: LOW-tier bonds solved', ss.low, 1000, '2 070 592 / 5 977 624', 'every tier branch exercised'],
+      ['solver: MID-tier bonds solved', ss.mid, 1000, '14 482 152 / 48 990 587', 'every tier branch exercised'],
+      ['solver: HIGH-tier bonds solved', ss.high, 1000, '2 918 769 / 16 830 126', 'every tier branch exercised'],
+      ['scoring: checked calls (FIGHT ticks)', sc.calls, 1000, '10 800 / 18 000', 'tickScoring accrues in FIGHT only'],
+      ['scoring: calls on a board with a MAGIC bond', sc.withMagic, 100, '10 800 / 18 000', 'the magic memo branch'],
+      ['scoring: calls on a board with a FILAMENT', sc.withFilament, 1, '10 800 / 18 000', 'an existence claim: the Filament + keystone branch'],
     ];
     /*
      * ⚠ MEASURED, NOT ASSERTED: `naturalMidLoopChanges` — the sim changing the creature set between two
@@ -244,7 +271,9 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
      * structure-attackers' picks. The index's rebuild path is therefore exercised by the INJECTED
      * kills / removals / births above (`callsAfterMidLoopChange`), which is why those are floors.
      * `pendingDeathReturned` (the live scan handing back a unit killed earlier the same loop — kept by
-     * the index, see `EnemyCreatureIndex`) is printed for the same reason: a count, not a claim.
+     * the index, see `EnemyCreatureIndex`) is printed for the same reason: a count, not a claim. And
+     * scoring's `withFouled` is 0 in a bots match (the seagull hazard that fouls shapes is switched off),
+     * so the fouled branch is proven only by `scoringMemo.differential.test.ts`.
      */
     for (const [what, actual, floor, measured, why] of floors) {
       expect(actual, `${what}: ${actual} is under its floor ${floor} (measured S191 default / full: ${measured}; ${why})`)

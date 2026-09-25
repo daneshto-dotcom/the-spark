@@ -3,7 +3,7 @@
  * changes. ⛔ Never imported by production code (`.fixtures.ts`, the `c5WaveFiveBoard.fixtures.ts`
  * convention).
  *
- * Holds the IN-PLACE comparators (one per changed hotspot: territory, nav unit, solver — each runs the verbatim pre-change reference
+ * Holds the IN-PLACE comparators (one per changed hotspot: territory, nav unit, solver, scoring — each runs the verbatim pre-change reference
  * and the real code on the same world at the same instant and counts every disagreement) and the
  * board INJECTIONS the long twin run applies identically to both twins. Shared by the fast exact-case
  * files and the long multi-wave twin oracle (`s191Perf.differential.test.ts`), so the comparator the
@@ -16,9 +16,11 @@ import {
   GOBLIN_UNIT_ACQUIRE_RADIUS, GOBLIN_UNIT_LEASH_RADIUS, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType,
   TERRITORY_ENGULF_STIFFNESS,
 } from '../constants.ts';
-import { asBondId, asCreatureId, asPlayerId, asPrimitiveId, type BondId, type CreatureId, type PrimitiveId } from '../types.ts';
+import { asBondId, asCreatureId, asPlayerId, asPrimitiveId, type BondId, type CreatureId, type PlayerId, type PrimitiveId } from '../types.ts';
 import { referencePickNavUnit } from './creatures/navUnitReference.fixtures.ts';
 import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
+import { referenceComputeAllComplexities } from './scoringReference.fixtures.ts';
+import { isFilamentCombo, lookupCombo } from '../combos.ts';
 import { damageCreature, removeCreature } from './creatures/creatureLifecycle.ts';
 import { makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
@@ -448,6 +450,62 @@ export function makeSolverChecker(real: (bonds: readonly Bond[]) => BondId[]): S
         }
       }
       return got;
+    },
+  };
+}
+
+/* ───────────────────────────── scoring: the in-place comparator ───────────────────────────── */
+
+export interface ScoringCheckStats {
+  calls: number; mismatches: number;
+  /** Calls whose board carried a magic bond / a Filament / a fouled shape — the memo's branches. */
+  withMagic: number; withFilament: number; withFouled: number;
+}
+
+export interface ScoringChecker {
+  readonly stats: ScoringCheckStats;
+  readonly firstMismatches: string[];
+  reset(): void;
+  /** The real `computeAllComplexities` against the verbatim one on the world as it is NOW: every
+   *  entry, in insertion order, key `===` and value `Object.is`. Both are pure reads. */
+  check(w: World): void;
+}
+
+export function makeScoringChecker(real: (w: World) => Map<PlayerId, number>): ScoringChecker {
+  const stats: ScoringCheckStats = { calls: 0, mismatches: 0, withMagic: 0, withFilament: 0, withFouled: 0 };
+  const firstMismatches: string[] = [];
+  return {
+    stats,
+    firstMismatches,
+    reset(): void {
+      for (const k of Object.keys(stats) as Array<keyof ScoringCheckStats>) stats[k] = 0;
+      firstMismatches.length = 0;
+    },
+    check(w: World): void {
+      const got = [...real(w)];
+      const exp = [...referenceComputeAllComplexities(w)];
+      stats.calls++;
+      let same = got.length === exp.length;
+      for (let i = 0; same && i < exp.length; i++) {
+        if (got[i]![0] !== exp[i]![0] || !Object.is(got[i]![1], exp[i]![1])) same = false;
+      }
+      if (!same) {
+        stats.mismatches++;
+        if (firstMismatches.length < 8) firstMismatches.push(`tick ${w.tick}: real=${JSON.stringify(got)} reference=${JSON.stringify(exp)}`);
+      }
+      let magic = false;
+      let filament = false;
+      for (const b of w.bonds.values()) {
+        const pa = w.primitives.get(b.aId);
+        const pb = w.primitives.get(b.bId);
+        if (pa === undefined || pb === undefined) continue;
+        if (lookupCombo(pa.type, pb.type).isMagical) magic = true;
+        if (isFilamentCombo(pa.type, pb.type)) filament = true;
+        if (magic && filament) break;
+      }
+      if (magic) stats.withMagic++;
+      if (filament) stats.withFilament++;
+      if (w.fouledPrimitives.size > 0) stats.withFouled++;
     },
   };
 }
