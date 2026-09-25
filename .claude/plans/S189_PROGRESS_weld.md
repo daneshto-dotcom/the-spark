@@ -522,3 +522,10 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   serialized `'DORMANT'` discriminant — VERIFIED against master's `helgaFrame.ts`: its switch has no
   default, so a v51 client's `syncSprite` hits `undefined.state` (TypeError) every frame; (C) 8 shared
   rules incl. the step-3 damage-number rule. Each with its file:line in the merged tree.
+
+### step 6 — FINAL GATES on the committed tree (4ff87c6, `git status` clean), each a captured `$?`
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=4` → VITEST_EXIT=0 — **6533 passed + 2 skipped / 399 files + 1 skipped** (400)
+- `npm run build` → BUILD_EXIT=0 — **962.6 KiB** / 1100 (137.4 headroom); master 955.9 ⇒ weld **+6.7 KiB**
+- e2e NOT run (brief). Steps 1-6 DONE. Per the merge owner's message, round 5 (R191-A) follows
+  instead of stopping; round 6 (R191-B) is QUEUED until "round 6 go".
