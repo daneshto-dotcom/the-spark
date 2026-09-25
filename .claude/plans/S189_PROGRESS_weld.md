@@ -325,8 +325,22 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   `towerStandsAt` → the leaf-in-lattice negative RED. Restored. Full suite 6056 / 368 EXIT=0 before
   the last negative was added.
 
+### fix-round item 6 (audit W8) LANDED — a differential that can see Set order and does cut
+- NEW shared `hostWorkerRig(w)` in the weld test file (real worker INIT, lockstep batches, WIDE hash
+  compared every frame; clears the per-tick `stiffnessMultiplier` transient before the fork).
+- NEW test: welded turret (hub weld) + welded pentagram + same-type-welded race tower forked to the
+  worker; EVERY `Primitive.bonds` Set on the WORKER copy is REVERSED after INIT (the JSON save
+  rebuilds them in the same order, so the old differential could not see an order dependence; the
+  wide hash projects bonds sorted, so any divergence is a real one); inside the window, in FIGHT, an
+  OWN turret arm and a pentagram WELD are severed on both sims. Wide hash equal every frame; on both
+  sides the turret is gone and the pentagram + race tower stand.
+- the death → dormant → revive differential landed with item 2.
+- ⚠ honest limit: with identity fixed at registration no survival walk has an order-dependent
+  VERDICT any more (member order only affects render lists), so this probe guards the sim as a whole
+  rather than a specific walk; the reversed-Set unit test still pins `starArmsAt`'s sort.
+
 ## IN-FLIGHT
-- fix-round item 6 (W8 stronger differential).
+- gates + canon notes + report.
 
 ## NEXT
 

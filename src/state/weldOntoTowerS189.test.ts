@@ -1603,3 +1603,60 @@ describe('⭐ S189 C2 audit W1 — `ownBondIdLimit` is recorded at registration 
     expect([...at.members].sort(byId)).toEqual([hub.id, ...leaves.map((l) => l.id)].sort(byId));
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// AUDIT W8 — a host-vs-worker differential that CAN see a Set-order dependence and DOES cut.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+describe('⭐ S189 C2 audit W8 — host vs worker with REVERSED bond Sets, an own cut and a weld cut inside the window', () => {
+  it('wide hash equal every frame; the cut turret falls on both, the weld-cut pentagram and the bat tower stand', () => {
+    const w = makeWorld(0x51890003);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'solo', isHost: true });
+    w.matchPhase = 'BUILD';
+    w.creatures.clear();
+    const setup = makeHostTickState(w);
+    const turret = star(w, SparkType.Line, SparkType.Spiral, TURRET_HUB_DEGREE, 500, 300);
+    tick(w, setup, 2);
+    const penta = ring(w, SparkType.Triangle, 5, 500, 620);
+    tick(w, setup, 2);
+    const race0 = w.players.get(P0)!.raceId;
+    ring(w, RACE_FEED_SHAPE[race0], RACE_TOWER_SIZE, 760, 300, 34);
+    tick(w, setup, 2);
+    placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 }); // hub weld on the turret
+    const pWeld = placeLikeAPlayer(w, SparkType.Circle, { x: 500, y: 620 - 42.5 - 30 }); // pentagram weld
+    placeLikeAPlayer(w, RACE_FEED_SHAPE[race0], { x: 760, y: 300 + 34 + 12 }); // same-type race weld
+    tick(w, setup, 2);
+    expect(w.defenders.size).toBe(1);
+    expect(w.creatureSpawners.size).toBe(2);
+    w.phaseEndsAtTick = w.tick + 40;
+
+    const rig = hostWorkerRig(w);
+    // ⭐ THE SET-ORDER PROBE: the JSON save rebuilds every `Primitive.bonds` Set in the SAME order, so
+    // an order-leaning walk would hash equal anyway. Reverse every Set on the WORKER copy only; the
+    // wide hash projects bonds sorted, so any divergence below is a real order dependence.
+    for (const p of rig.worker.primitives.values()) p.bonds = new Set([...p.bonds].reverse());
+
+    const ownArm = bondsBetween(w, turret.hub, [turret.leaves[0]!])[0]!;
+    const weldBond = [...pWeld.bonds][0]!;
+    let cut = false;
+    for (let f = 0; f < 160; f++) {
+      if (!cut && (w.matchPhase as string) === 'FIGHT') {
+        for (const world of [w, rig.worker]) {
+          dispatch(world, { type: 'SEVER_BOND', bondId: ownArm, playerId: P1, cause: 'creature' });
+          dispatch(world, { type: 'SEVER_BOND', bondId: weldBond, playerId: P1, cause: 'creature' });
+        }
+        cut = true;
+      }
+      rig.step(f);
+    }
+    expect(cut, 'the cuts landed inside the compared window').toBe(true);
+    for (const world of [w, rig.worker]) {
+      expect(world.defenders.size, 'the turret whose own arm was cut is gone').toBe(0);
+      const recipes = [...world.creatureSpawners.values()].map((sp) => sp.recipeId).sort();
+      expect(recipes, 'the pentagram (weld cut) and the same-type-welded bat tower stand')
+        .toEqual(['pentagram', RACE_TOWER_IDS[race0]].sort());
+    }
+    void penta;
+  });
+});
