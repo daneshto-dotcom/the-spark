@@ -61,6 +61,7 @@ import { playerHoldsPerk } from '../draftEvent.ts';
 import { attackFifths } from '../stats.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import {
+  attackCycleMultiplier,
   creatureMaxEhp,
   isCorpseEaterFeeding,
   isStunned,
@@ -188,9 +189,11 @@ export function corpseEaterOwnStepPx(boss: Creature): number {
 
 /**
  * ⛔ S188 FIX (audit F1) — **A BOSS SHOVED OUT OF HIS LEASH SITS BACK DOWN WHERE HE LANDED; HE IS NEVER
- * SNAPPED BACK.** The Kraken's sonar stuns AND flings (`prevPos` shove, ~26 px/substep), the stun gate
- * rightly suspends the leash for the whole slide, and the first unstunned feed tick used to clamp him
- * straight back onto the circle — a one-tick teleport of up to ~860 px, on both peers.
+ * SNAPPED BACK.** The Kraken's sonar stuns AND shoves (a `prevPos` shove — ~26 px/substep when this
+ * was written, sized since S189 C10 to `KRAKEN_SONAR_KNOCKBACK_PX` = 70 px of slide, which still
+ * clears this 60 px leash), the stun gate rightly suspends the leash for the whole slide, and the first
+ * unstunned feed tick used to clamp him straight back onto the circle — a one-tick teleport of up to
+ * ~860 px under the old shove, on both peers.
  *
  * So, when he is found OUTSIDE the leash and it was not his own doing — he was stunned on the previous
  * tick (`stunnedUntilTick === tick` is exactly the first acting tick), or the overshoot is more than his
@@ -282,14 +285,36 @@ function feedStep(world: World, boss: Creature): void {
      * reach. A creature that walks through his arm is bitten on the same schedule it would be by his
      * ordinary attack — no earlier, no later.
      */
-    const cadence = Math.max(1, Math.round(cfg.attackCadenceTicks / rageMultiplier(boss)));
-    const fire = Math.min(cfg.attackFireTick, cadence - 1);
+    /*
+     * ⭐ S189 (LOW a) — **THE SWING RUNS ON THE RAGE LATCHED WHEN IT STARTED, NOT THE LIVE BIT.**
+     *
+     * This read `rageMultiplier(boss)` — the LIVE `enraged` bit — every tick, which is exactly the
+     * defect deploy #2's F3 closed in the FSM (`Creature.attackCycleRaged`): a flip calm → raged after
+     * the calm fire tick wrapped the counter onto the raged clock and bit again half a cycle early,
+     * and raged → calm right after a raged bite re-armed the calm fire tick on the very next tick — a
+     * second bite in one swing. So the cycle's cadence reads the SAME latch the FSM uses, taken on the
+     * cycle's first tick (`ticksInState === 0` here, where the FSM's is 1, because this clock starts at
+     * 0 on engaging); movement still reads the live bit, as it does for every creature.
+     *
+     * ⚠ LATENT IN PRODUCTION TODAY: the only writers of `enraged` are the Warlord's own latch and BLOOD
+     * FRENZY, and both are orc-typed, so no zombie boss is enraged by anything that ships. Latched
+     * anyway, because the day a rage source reaches him this clock must not be the one that forgot.
+     * The latch field is already serialized and hashed (F3), so this adds no wire or hash site.
+     */
+    const cycleCadence = (): number =>
+      Math.max(1, Math.round(cfg.attackCadenceTicks / attackCycleMultiplier(boss)));
     if (boss.state !== 'ATTACKING' || boss.targetCreatureId !== victim.id) {
       boss.state = 'ATTACKING';
       boss.ticksInState = 0;
     } else {
-      boss.ticksInState = (boss.ticksInState + 1) % cadence;
+      boss.ticksInState = (boss.ticksInState + 1) % cycleCadence(); // the ENDING cycle's own clock
     }
+    if (boss.ticksInState === 0) {
+      // A cycle starts: latch its rage, exactly as `creatureLifecycle` does for the FSM's swing.
+      if (boss.enraged === true) boss.attackCycleRaged = true;
+      else delete boss.attackCycleRaged;
+    }
+    const fire = Math.min(cfg.attackFireTick, cycleCadence() - 1);
     boss.targetCreatureId = victim.id;
     if (boss.ticksInState === fire) bite(world, boss, victim.id);
   } else {
