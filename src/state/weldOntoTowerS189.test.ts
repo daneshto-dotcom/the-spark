@@ -67,7 +67,9 @@ import {
   coverAlphaForPrim,
   markTowerCover,
 } from '../render/towerCover.ts';
-import { planStructureRepair } from './structureRepair.ts';
+import { planStructureRepair, planStructureScrap } from './structureRepair.ts';
+import { towerUnitAt } from './towerUnit.ts';
+import { razePrimitives } from './razePrimitives.ts';
 import { damageEntity } from './damage.ts';
 import { nearestEnemySpawnerBond } from '../bots/botBrain.ts';
 import { collectSpawnerLockedPrimitiveIds } from './placePrimitive.ts';
@@ -600,8 +602,14 @@ describe('⭐ S189 C2 — R185-A: the welded shapes draw at FULL opacity under t
   });
 });
 
-describe('⭐ S189 C2 — R185-B: welding costs repair, on purpose', () => {
-  it('FIX is offered on a dented stamped turret, and refused the moment a triangle is welded on', () => {
+/*
+ * ⭐ S191 R191-A — R185-B AMENDED, SO THIS IS RE-PINNED, NOT DELETED. It asserted "one weld makes the
+ * whole structure unrepairable". The owner's S191 ruling keeps that for the welded STRUCTURE (a click on
+ * the weld) and gives each TOWER in it its own FIX (a click on the tower): *"you can only … fix the tower
+ * that's a part of the shape … when you clicking on a welded structure you can't fix it."*
+ */
+describe('⭐ S189 C2 / S191 R191-A — welding costs STRUCTURE repair; each tower keeps its own FIX', () => {
+  it('a dented welded turret: FIX from the WELD is refused, FIX from the TOWER repairs only the tower', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const bank = makeCastleBank();
@@ -620,12 +628,24 @@ describe('⭐ S189 C2 — R185-B: welding costs repair, on purpose', () => {
 
     const t = placeLikeAPlayer(w, SparkType.Triangle, { x: 520, y: 318 });
     expect(neighbours(w, t)).toContain(hubId);
-    expect(planStructureRepair(w, P0, hubId), 'welded: no FIX').toBeNull();
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubId });
+    const weldBond = [...t.bonds].sort((x, y) => x - y)[0]!;
+    w.bonds.get(weldBond)!.damageFifths = 7;
+    // R5 — the WELD's card: no FIX, and the reducer refuses.
+    expect(planStructureRepair(w, P0, t.id), 'welded structure: no FIX').toBeNull();
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: t.id });
     expect(w.bonds.get(arm)!.damageFifths, 'the reducer refuses too').toBe(10);
+    // R4 — the TOWER's card: its own FIX, priced by what IT lost (a dent = the R182-E flat fee).
+    const plan = planStructureRepair(w, P0, hubId)!;
+    expect(plan.scope).toBe('tower');
+    expect(plan.cost).toEqual([repairFeeShapeFor('laserTurret')]);
+    expect(plan.memberIds).not.toContain(t.id);
+    const defenderId = [...w.defenders.keys()][0]!;
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubId });
+    expect(w.bonds.get(arm)!.damageFifths, 'its own arm is healed').toBe(0);
+    expect(w.bonds.get(weldBond)!.damageFifths, 'the weld is not the tower — untouched').toBe(7);
 
     tick(w, st, PAST_TWO_POLLS);
-    expect(w.defenders.size, 'unrepairable is not dead — the welded turret stands').toBe(1);
+    expect([...w.defenders.keys()], 'the SAME turret stands').toEqual([defenderId]);
   });
 });
 
@@ -1005,7 +1025,7 @@ describe('⭐⭐ S189 C2 item 2 — a tier-3 race tower SURVIVES a weld of its O
 });
 
 describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded through several connectors (R185-B)", () => {
-  it('both stand, both emit, FIX is refused, and the welded pool is larger', () => {
+  it('both stand, both emit, FIX is refused on the WELD (each tower keeps its own — R191-A), and the welded pool is larger', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const race = raceOf(w, P0);
@@ -1030,7 +1050,7 @@ describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded thro
     expect(poolBefore).toBe(structurePoolFifths(RACE_TOWER_SIZE));
 
     // "welding it through many connectors": three drops of the ring's own shape across the gap.
-    for (const y of [286, 300, 314]) placeLikeAPlayer(w, type, { x: 510, y });
+    const drops = [286, 300, 314].map((y) => placeLikeAPlayer(w, type, { x: 510, y }));
     const comp = componentOf(w.primitives.get(a)!, w.primitives, w.bonds);
     expect(comp.primitiveIds.has(b), 'the drops weld the two towers into ONE structure').toBe(true);
 
@@ -1041,10 +1061,17 @@ describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded thro
     const poolAfter = structurePoolFifths(comp.bondIds.size);
     expect(poolAfter, 'the welded pool is larger than two towers apart').toBeGreaterThan(poolBefore * 2);
 
-    // "they cannot be repaired either"
-    expect(planStructureRepair(w, P0, a), 'welded: no FIX').toBeNull();
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: a });
+    // "they cannot be repaired either" — the welded STRUCTURE, from a weld (R185-B as amended, R191-A)
+    expect(planStructureRepair(w, P0, drops[1]!.id), 'welded structure: no FIX').toBeNull();
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: drops[1]!.id });
     expect(w.bonds.get(aBond)!.damageFifths, 'the reducer refuses too').toBe(5);
+    // …but tower A, from its own card, repairs itself and nothing else (R191-A R4).
+    const bOwnDent = [...w.primitives.get(b)!.bonds].sort((x, y) => x - y)[0]!;
+    w.bonds.get(bOwnDent)!.damageFifths = 3;
+    expect(planStructureRepair(w, P0, a)!.scope).toBe('tower');
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: a });
+    expect(w.bonds.get(aBond)!.damageFifths, 'tower A is healed').toBe(0);
+    expect(w.bonds.get(bOwnDent)!.damageFifths, 'tower B is not A').toBe(3);
 
     // BOTH EMIT — a race tower produces on its own cadence in FIGHT, first unit on the opening tick.
     w.matchPhase = 'FIGHT';
@@ -1749,5 +1776,263 @@ describe('S189 C2 audit W-FR3 — a dormant Helga is not the hall\u2019s emplace
     damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
     expect([...w.defenders.values()][0]!.state).toBe('DORMANT');
     expect(labels(), 'dormant: no emplacement row').not.toContain('ATK');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ S191 R191-A — A WELDED STRUCTURE HOLDS TOWERS; EACH TOWER IS FIXED AND SCRAPPED ON ITS OWN.
+// Owner: *"you can only scrape the tower that's a part of the shape or only fix the tower that's a part
+// of the shape … when you clicking on a welded structure you can't fix it … you can separate those two."*
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** Remove one bond from `w` exactly as a sever does to the topology (both endpoints' sets). */
+function cutBond(w: World, bid: BondId): void {
+  const b = w.bonds.get(bid)!;
+  w.bonds.delete(bid);
+  w.primitives.get(b.aId)?.bonds.delete(bid);
+  w.primitives.get(b.bId)?.bonds.delete(bid);
+}
+
+/** Top up `seat`'s bank with one of each shape type in `types`. */
+function fund(w: World, types: readonly SparkType[], seat = P0): void {
+  const bank = w.castleBanks.get(seat) ?? makeCastleBank();
+  for (const t of types) bank[t as number] = (bank[t as number] ?? 0) + 1;
+  w.castleBanks.set(seat, bank);
+}
+
+/**
+ * A STAMPED laser turret and a STAMPED goblin tower, welded into one structure by one Square dropped
+ * between them through the real placement path — two towers and one free-form shape.
+ */
+function stampedPair(): {
+  w: World; st: HostTickState; turretHub: PrimitiveId; goblinHub: PrimitiveId; weld: Primitive;
+  turretArmAwayFromWeld: BondId;
+} {
+  const w = worldInBuild();
+  const st = makeHostTickState(w);
+  stamp(w, 'laserTurret', { x: 500, y: 300 });
+  stamp(w, 'goblinTower', { x: 640, y: 300 });
+  tick(w, st, 3);
+  expect(w.defenders.size, 'the turret stamp ignites').toBe(1);
+  expect([...w.creatureSpawners.values()].map((s) => s.recipeId)).toEqual(['goblinTower']);
+  const turretHub = [...w.defenders.values()][0]!.anchorPrimitiveId;
+  const goblinHub = [...w.creatureSpawners.values()][0]!.anchorPrimitiveId;
+  const weld = placeLikeAPlayer(w, SparkType.Square, { x: 570, y: 300 });
+  const comp = componentOf(w.primitives.get(turretHub)!, w.primitives, w.bonds);
+  expect(comp.primitiveIds.has(goblinHub), 'the Square welds the two towers into ONE structure').toBe(true);
+  tick(w, st, PAST_TWO_POLLS);
+  expect(w.defenders.size).toBe(1);
+  expect(w.creatureSpawners.size).toBe(1);
+  // An own turret arm whose leaf the weld does not touch (the far side), so cutting it isolates nothing.
+  const hub = w.primitives.get(turretHub)!;
+  const weldNbrs = new Set(neighbours(w, weld));
+  const arm = [...hub.bonds]
+    .map((bid) => {
+      const b = w.bonds.get(bid)!;
+      return { bid, leaf: b.aId === turretHub ? b.bId : b.aId };
+    })
+    .filter((x) => !weldNbrs.has(x.leaf) && x.leaf !== weld.id)
+    .sort((x, y) => w.primitives.get(x.leaf)!.pos.x - w.primitives.get(y.leaf)!.pos.x || x.bid - y.bid)[0]!.bid;
+  return { w, st, turretHub, goblinHub, weld, turretArmAwayFromWeld: arm };
+}
+
+describe('⭐⭐ S191 R191-A — FIX / SCRAP on a tower inside a welded structure (R4), and on the weld (R5)', () => {
+  it('R4 — the audit W-FR4 window: an own arm cut, then the TOWER’s FIX re-welds it (a NEW bond id) and the SAME turret stands', () => {
+    const { w, st, turretHub, turretArmAwayFromWeld } = stampedPair();
+    const defenderId = [...w.defenders.keys()][0]!;
+    cutBond(w, turretArmAwayFromWeld);
+    const plan = planStructureRepair(w, P0, turretHub)!;
+    expect(plan.scope, 'the tower, not the structure').toBe('tower');
+    expect(plan.missingBondCount).toBe(1);
+    fund(w, plan.cost);
+    const bondsBefore = w.nextBondId;
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    expect(w.nextBondId, 'the arm was re-welded with a NEW bond id').toBe(bondsBefore + 1);
+    tick(w, st, PAST_TWO_POLLS);
+    expect([...w.defenders.keys()], 'the SAME turret stands after the poll').toEqual([defenderId]);
+    expect(w.creatureSpawners.size, 'the goblin tower stands').toBe(1);
+  });
+
+  it('…control: the same cut WITHOUT a FIX levels the turret at the poll (the counterplay stands)', () => {
+    const { w, st, turretArmAwayFromWeld } = stampedPair();
+    cutBond(w, turretArmAwayFromWeld);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret fell').toBe(0);
+    expect(w.creatureSpawners.size, 'the goblin tower did not').toBe(1);
+  });
+
+  it('R4 — a FALLEN welded turret: FIX from its remains restores it, it is registered again, and it stands', () => {
+    const { w, st, turretHub, weld, turretArmAwayFromWeld } = stampedPair();
+    const cut = w.bonds.get(turretArmAwayFromWeld)!;
+    const orphanLeaf = cut.aId === turretHub ? cut.bId : cut.aId;
+    cutBond(w, turretArmAwayFromWeld);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'fallen').toBe(0);
+    const unit = towerUnitAt(w, turretHub)!;
+    expect(unit.kind, 'its remains are still a tower — a stamp').toBe('stamp');
+    const plan = planStructureRepair(w, P0, turretHub)!;
+    expect(plan.scope).toBe('tower');
+    fund(w, plan.cost);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    expect(w.defenders.size, 're-registered by the FIX — exact ignition can never see a welded tower').toBe(1);
+    const d = [...w.defenders.values()][0]!;
+    expect(d.anchorPrimitiveId).toBe(turretHub);
+    /*
+     * Its own shapes: the six still standing in the stamp + the leaf FIX re-minted for the one the cut
+     * cut off (that leaf lies loose now, exactly as an un-welded FIX leaves it). Never the weld.
+     */
+    const own = d.ownPrimitiveIds!;
+    expect(own).toHaveLength(TURRET_HUB_DEGREE + 1);
+    for (const m of unit.members) expect(own).toContain(m);
+    expect(own).not.toContain(weld.id);
+    expect(own).not.toContain(orphanLeaf);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'and it STANDS at the poll').toBe(1);
+    expect(w.creatureSpawners.size).toBe(1);
+  });
+
+  it('R4 — tower SCRAP takes the tower alone: the weld and the other tower stay; the refund is its own shapes', () => {
+    const { w, st, turretHub, goblinHub, weld } = stampedPair();
+    const plan = planStructureScrap(w, P0, turretHub)!;
+    expect(plan.scope).toBe('tower');
+    const turretShapes = towerUnitAt(w, turretHub)!.members;
+    expect([...plan.memberIds]).toEqual([...turretShapes]);
+    expect(plan.memberIds).not.toContain(weld.id);
+    const bank = w.castleBanks.get(P0)!;
+    const spiralsBefore = bank[SparkType.Spiral as number] ?? 0;
+    dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    for (const id of turretShapes) expect(w.primitives.has(id), 'the turret is gone').toBe(false);
+    expect(w.primitives.has(weld.id), 'the weld stays').toBe(true);
+    expect(w.primitives.has(goblinHub), 'the other tower stays').toBe(true);
+    expect(bank[SparkType.Spiral as number] ?? 0, 'refunded its own six spirals').toBe(spiralsBefore + TURRET_HUB_DEGREE);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(0);
+    expect(w.creatureSpawners.size, 'the goblin tower stands').toBe(1);
+  });
+
+  it('R5 — structure SCRAP from the WELD takes everything, towers included', () => {
+    const { w, st, turretHub, goblinHub, weld } = stampedPair();
+    const comp = [...componentOf(weld, w.primitives, w.bonds).primitiveIds];
+    const plan = planStructureScrap(w, P0, weld.id)!;
+    expect(plan.scope).toBe('structure');
+    expect([...plan.memberIds].sort(byId)).toEqual([...comp].sort(byId));
+    dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: weld.id });
+    for (const id of comp) expect(w.primitives.has(id)).toBe(false);
+    expect(w.primitives.has(turretHub) || w.primitives.has(goblinHub)).toBe(false);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(0);
+    expect(w.creatureSpawners.size).toBe(0);
+  });
+
+  it('R5 — structure FIX from the WELD is refused: no plan, and the reducer changes nothing', () => {
+    const { w, turretHub, weld } = stampedPair();
+    const arm = [...w.primitives.get(turretHub)!.bonds].sort((x, y) => x - y)[0]!;
+    w.bonds.get(arm)!.damageFifths = 9;
+    fund(w, [SparkType.Spiral, SparkType.Circle, SparkType.Square]);
+    expect(planStructureRepair(w, P0, weld.id)).toBeNull();
+    const before = hashWorldStateFull(w);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: weld.id });
+    expect(hashWorldStateFull(w), 'a refused intent is a no-op').toBe(before);
+  });
+
+  it('R6 — damage stays connector-specific: a chewer at the turret’s edge severs a TURRET connector; only the turret falls', () => {
+    const { w, st, turretHub, goblinHub } = stampedPair();
+    const turretArms = new Set(towerMembersAt(w, 'laserTurret', turretHub)!.bonds);
+    const goblinArms = new Set(towerMembersAt(w, 'goblinTower', goblinHub)!.bonds);
+    const compBonds = [...componentOf(w.primitives.get(turretHub)!, w.primitives, w.bonds).bondIds];
+    expect(compBonds.some((b) => !turretArms.has(b) && !goblinArms.has(b)), 'the structure has weld connectors too').toBe(true);
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    // Hold the defenders off the attacker so the only thing that happens is the chewing.
+    for (const d of w.defenders.values()) d.nextFireTick = w.tick + 10_000_000;
+    for (const sp of w.creatureSpawners.values()) sp.nextSpawnTick = w.tick + 10_000_000;
+    const leftmost = [...towerMembersAt(w, 'laserTurret', turretHub)!.prims]
+      .map((id) => w.primitives.get(id)!).sort((a, b) => a.pos.x - b.pos.x)[0]!;
+    const at = { x: leftmost.pos.x - 30, y: leftmost.pos.y };
+    const chewer = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(w.nextCreatureId++), ownerPlayerId: P1,
+      pos: { ...at }, targetPos: { ...at }, spawnedAtTick: w.tick, sourceSpawnerId: asSpawnerId(99),
+    });
+    chewer.ehp = 1_000_000; // survives whatever else is on the board
+    w.creatures.set(chewer.id, chewer);
+    const pool = structurePoolFifths(compBonds.length);
+    let severed: BondId | null = null;
+    for (let i = 0; i < 6000 && severed === null; i++) {
+      const before = [...w.bonds.keys()];
+      tick(w, st, 1);
+      severed = before.find((b) => !w.bonds.has(b)) ?? null;
+    }
+    expect(severed, `the chewer must break a connector (structure pool ${pool})`).not.toBeNull();
+    expect(turretArms.has(severed!), 'the connector that severed is the TURRET’s — the one it attacked').toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret fell').toBe(0);
+    expect(w.creatureSpawners.size, 'the goblin tower did not').toBe(1);
+  });
+
+  it('HOST vs WORKER — cut → the tower’s FIX → it stands: wide hash equal every frame', () => {
+    const { w, turretHub, turretArmAwayFromWeld } = stampedPair();
+    fund(w, [SparkType.Spiral, SparkType.Spiral]);
+    w.phaseEndsAtTick = w.tick + 100_000; // the whole window in BUILD (FIX is BUILD-only, R19)
+    // ⚠ a castle unit spawned during setup does not survive the save round trip bit-exactly
+    // (`Creature.spawnedAtTick` — pre-existing, reported); units born inside the window are compared.
+    w.creatures.clear();
+    const rig = hostWorkerRig(w);
+    const defenderId = [...w.defenders.keys()][0]!;
+    for (let f = 0; f < 90; f++) {
+      if (f === 5) for (const world of [w, rig.worker]) cutBond(world, turretArmAwayFromWeld);
+      if (f === 6) {
+        for (const world of [w, rig.worker]) dispatch(world, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+      }
+      rig.step(f);
+    }
+    for (const world of [w, rig.worker]) {
+      expect([...world.defenders.keys()], 'the same turret stands on both sides').toEqual([defenderId]);
+      expect(world.creatureSpawners.size).toBe(1);
+    }
+  });
+});
+
+describe('⭐ S191 R191-A — the two identity edges of a tower FIX, and the shared-shape SCRAP rule', () => {
+  it('R4 — a LEAF razed inside the poll window: the tower’s FIX re-mints it, the record adopts the new shape, the SAME turret stands', () => {
+    const { w, st, turretHub, turretArmAwayFromWeld } = stampedPair();
+    const defenderId = [...w.defenders.keys()][0]!;
+    const b = w.bonds.get(turretArmAwayFromWeld)!;
+    const leaf = b.aId === turretHub ? b.bId : b.aId;
+    razePrimitives(w, [leaf]);
+    const plan = planStructureRepair(w, P0, turretHub)!;
+    expect(plan.scope).toBe('tower');
+    expect(plan.group.missing, 'one node lost').toHaveLength(1);
+    fund(w, plan.cost);
+    const firstNew = w.nextPrimitiveId;
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    const d = w.defenders.get(defenderId)!;
+    expect(d.ownPrimitiveIds, 'the re-minted leaf is one of its own now').toContain(firstNew);
+    expect(d.ownPrimitiveIds).not.toContain(leaf);
+    tick(w, st, PAST_TWO_POLLS);
+    expect([...w.defenders.keys()], 'the SAME turret stands').toEqual([defenderId]);
+  });
+
+  it('R4 — tower SCRAP leaves a shape ANOTHER tower is also built of (⚠ MINE): the neighbour stands', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    // A lightning hub and a stink tower SHARING one Circle leaf (`starShape.ts` — a real overlap).
+    const dot = star(w, SparkType.Dot, SparkType.Circle, LIGHTNING_HUB_DEGREE, 500, 300);
+    const shared = dot.leaves.find((l) => l.pos.x > 530 && Math.abs(l.pos.y - 300) < 1)!;
+    const sq = mk(w, STINK_HUB_TYPE, shared.pos.x + 40, 300);
+    bond(w, sq, shared);
+    const own = [mk(w, STINK_LEAF_TYPE, sq.pos.x + 20, 265), mk(w, STINK_LEAF_TYPE, sq.pos.x + 20, 335)];
+    for (const c of own) bond(w, sq, c);
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: sq.pos.x, y: 300 }, bondCount: 3 });
+    tick(w, st, 2);
+    expect([...w.creatureSpawners.values()].map((s) => s.recipeId)).toEqual(['lightningHub']);
+    expect([...w.defenders.values()].map((d) => d.kind)).toEqual(['stinkTower']);
+    const plan = planStructureScrap(w, P0, sq.id)!;
+    expect(plan.scope).toBe('tower');
+    expect([...plan.memberIds].sort(byId)).toEqual([sq.id, ...own.map((c) => c.id)].sort(byId));
+    dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: sq.id });
+    expect(w.primitives.has(shared.id), 'the shared Circle stays').toBe(true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the stink tower is scrapped').toBe(0);
+    expect(w.creatureSpawners.size, 'the lightning hub still stands on its five').toBe(1);
   });
 });

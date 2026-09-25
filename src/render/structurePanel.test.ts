@@ -130,12 +130,27 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
     expect(fix.caption).toBe('NEED 1 MORE');
   });
 
+  /*
+   * ⭐ S191 R191-A — RE-PINNED. A stamp with one hand-placed (origin-null) member IS a welded structure:
+   * the six stamped shapes are a tower's remains and the seventh is a weld. Before R191-A any origin-null
+   * member refused FIX for the whole thing; now the FREE-FORM shape's card is the structure's (SCRAP
+   * only — R191-A R5), and the stamped shapes' card is the tower's, with its own FIX.
+   */
   it('freeform rubble offers SCRAP ONLY — no greyed FIX lying about what the game can do', () => {
+    const w = setup();
+    const freeform = nodeId(w, 3);
+    w.primitives.get(freeform)!.origin = null;
+    const view = structureActionModel(w, P0, freeform)!;
+    expect(view.buttons.map((b) => b.kind)).toEqual(['SCRAP']);
+    expect(view.title).toBe('STRUCTURE');
+  });
+
+  it('⭐ S191 R191-A — …while a STAMPED shape of that welded structure offers its tower’s own FIX', () => {
     const w = setup();
     w.primitives.get(nodeId(w, 3))!.origin = null;
     const view = structureActionModel(w, P0, nodeId(w, 0))!;
-    expect(view.buttons.map((b) => b.kind)).toEqual(['SCRAP']);
-    expect(view.title).toBe('STRUCTURE');
+    expect(view.buttons.map((b) => b.kind)).toEqual(['FIX', 'SCRAP']);
+    expect(view.title, 'the tower is named').not.toBe('STRUCTURE');
   });
 
   it('R19: no popover at all during the FIGHT stage', () => {

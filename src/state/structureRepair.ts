@@ -71,6 +71,15 @@ import { razePrimitives } from './razePrimitives.ts';
 import { zoneOf, zoneOwner } from './zones.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
+import { getDefenderRecipe } from './godlyRecipes/index.ts';
+import { starArmsAt } from './godlyRecipes/starShape.ts';
+import { ringMembersAt } from './godlyRecipes/ringShape.ts';
+import { applyRegisterDefender } from './defenders/defenderLifecycle.ts';
+import { applyRegisterSpawner } from './spawners/spawnerLifecycle.ts';
+import { raceForTowerId } from './raceTowerIds.ts';
+import { raceForT9TowerId } from './t9BossIds.ts';
+import { towerShapeFor } from './towerMembers.ts';
+import { sharedWithOtherTowers, towerUnitAt, weldedAt, type TowerUnit } from './towerUnit.ts';
 import type { BondId, PlayerId, PrimitiveId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -183,6 +192,51 @@ export function seatStructureAt(
   return ids;
 }
 
+/**
+ * ⭐⭐ S191 (owner R191-A) — WHAT A FIX / SCRAP ON THIS SHAPE ACTS ON. R185-B AMENDED.
+ *
+ * > *"you can only scrape the tower that's a part of the shape or only fix the tower that's a part of
+ * > the shape … when you clicking on a welded structure you can't fix it because it's … fixing what …
+ * > are you fixing all the towers on it no you have to fix [them] manually … you can separate those
+ * > two. It's as simple as that."*
+ *
+ * The SAME clicked shape the card was opened on decides, through the one read model the card uses
+ * (`towerUnit.ts`), so there is no new action and no new field on the wire:
+ *
+ *   · NOT WELDED — `'structure'`, the whole component. EXACTLY the pre-S191 behaviour: a lone tower's
+ *     component IS the tower.
+ *   · WELDED, the shape belongs to a TOWER (a live tower's own shape, or a stamped tower's remains) —
+ *     `'tower'`, that tower's own shapes only. FIX repairs it; SCRAP takes it alone.
+ *   · WELDED, a free-form shape — `'structure'`, the whole component: SCRAP takes everything, towers
+ *     included; FIX is refused (`planStructureRepair`).
+ *
+ * Same WHEN/WHERE gate and the same ownership check as `seatStructureAt` — over the WHOLE component
+ * in both scopes, deliberately: S152's rule is that someone else's shape welded in makes the structure
+ * untouchable, and a tower-scope action must not become the way round it. Ascending ids, for the
+ * reason that function gives.
+ */
+export interface ReclaimScope {
+  readonly scope: 'tower' | 'structure';
+  readonly memberIds: readonly PrimitiveId[];
+  readonly unit: TowerUnit | null;
+  readonly welded: boolean;
+}
+
+export function reclaimScopeAt(world: World, seat: PlayerId, primitiveId: PrimitiveId): ReclaimScope | null {
+  const seed = world.primitives.get(primitiveId);
+  if (seed === undefined) return null;
+  if (!canReclaimNow(world, seed.pos, seat)) return null;
+  const comp = [...componentOf(seed, world.primitives, world.bonds).primitiveIds].sort((a, b) => Number(a) - Number(b));
+  for (const id of comp) {
+    const p = world.primitives.get(id);
+    if (p === undefined || p.placedBy !== seat) return null;
+  }
+  const unit = towerUnitAt(world, primitiveId);
+  const welded = weldedAt(world, primitiveId, unit);
+  const tower = welded && unit !== null;
+  return { scope: tower ? 'tower' : 'structure', memberIds: tower ? [...unit.members] : comp, unit, welded };
+}
+
 /** A structure recognised as ONE blueprint stamp, plus the node slots that are now empty. */
 export interface BlueprintGroup {
   readonly blueprintId: GodlyId;
@@ -196,11 +250,12 @@ export interface BlueprintGroup {
  * PURE — read `memberIds` as a single blueprint stamp, or null when they are not one.
  *
  * Refuses, deliberately and in all four cases:
- *   • **any member with `origin === null`** — a hand-placed shape is welded on. The component is no
- *     longer the blueprint, so restoring it to the blueprint would leave that shape orphaned in the
- *     middle of a tower that then still would not ignite (every recipe gate counts component size
- *     EXACTLY). SCRAP has no such problem and stays available, which is the honest split: you can
- *     always tear it down, you just cannot ask the game to guess what you meant to build.
+ *   • **any member with `origin === null`** — a hand-placed shape is among the members, so they are
+ *     not one blueprint stamp and there is nothing to restore them TO. ⭐ S191 R191-A: a WELDED
+ *     structure is no longer read as one group at all — `reclaimScopeAt` hands this function the ONE
+ *     tower that was clicked (its own shapes), so each tower in a weld is fixed on its own, and a click
+ *     on a free-form weld is refused before it gets here (R185-B as amended: the weld as a whole is
+ *     unfixable, each tower in it is not). SCRAP needs no provenance and stays available.
  *   • **two different `blueprintId`s** — two stamps bonded into one component.
  *   • **a repeated `nodeIndex`** — the same, for two stamps of the SAME blueprint. This is the case
  *     a naive multiset count would silently accept and then repair into a chimera.
@@ -305,6 +360,10 @@ export interface RepairPlan {
   readonly damagedCount: number;
   /** Blueprint bonds that no longer exist between two SURVIVING members (strain breaks, severs). */
   readonly missingBondCount: number;
+  /** S191 R191-A — `'tower'` = one tower inside a welded structure; `'structure'` = the pre-S191 FIX. */
+  readonly scope: 'tower' | 'structure';
+  /** S191 — the tower being repaired, for `'tower'` scope (a live record, or a fallen stamp). */
+  readonly unit: TowerUnit | null;
 }
 
 /**
@@ -321,8 +380,13 @@ export function planStructureRepair(
   seat: PlayerId,
   primitiveId: PrimitiveId,
 ): RepairPlan | null {
-  const memberIds = seatStructureAt(world, seat, primitiveId);
-  if (memberIds === null) return null;
+  // ⭐ S191 R191-A — the tower's own shapes inside a weld, else the whole component (pre-S191).
+  const sc = reclaimScopeAt(world, seat, primitiveId);
+  if (sc === null) return null;
+  // ⛔ R191-A — a WELDED structure clicked on a free-form shape is never FIXed: *"are you fixing all the
+  // towers on it — no, you have to fix them manually."* Each tower is fixed from its own card.
+  if (sc.welded && sc.scope === 'structure') return null;
+  const memberIds = sc.memberIds;
   const group = blueprintGroupOf(world, memberIds);
   if (group === null) return null;
 
@@ -374,7 +438,7 @@ export function planStructureRepair(
   // is the correct "you can afford nothing, and nothing is what this costs".
   const payments = planPaymentForTypes(world, seat, cost);
 
-  return { memberIds, group, cost, payments, damagedCount, missingBondCount };
+  return { memberIds, group, cost, payments, damagedCount, missingBondCount, scope: sc.scope, unit: sc.unit };
 }
 
 /** What a SCRAP would tear down, and what it would hand back. */
@@ -382,6 +446,8 @@ export interface ScrapPlan {
   readonly memberIds: readonly PrimitiveId[];
   /** One entry per SURVIVING member, in `memberIds` order. This IS R21 — there is no second list. */
   readonly refund: readonly SparkType[];
+  /** S191 R191-A — `'tower'` = one tower's own shapes inside a weld; `'structure'` = the component. */
+  readonly scope: 'tower' | 'structure';
 }
 
 /**
@@ -399,15 +465,27 @@ export function planStructureScrap(
   seat: PlayerId,
   primitiveId: PrimitiveId,
 ): ScrapPlan | null {
-  const memberIds = seatStructureAt(world, seat, primitiveId);
-  if (memberIds === null) return null;
+  // ⭐ S191 R191-A — the tower alone inside a weld (its welds and the other towers stay), else the
+  // whole component, towers included (a free-form click on a weld, and every un-welded structure).
+  const sc = reclaimScopeAt(world, seat, primitiveId);
+  if (sc === null) return null;
+  let memberIds = sc.memberIds;
+  if (sc.scope === 'tower' && sc.unit !== null) {
+    /*
+     * ⚠ MINE — a shape ANOTHER live tower is also built of (a shared leaf, `starShape.ts`) stays: *"the
+     * welds and the other towers stay"*. Taking it would level the neighbour for a scrap of this one.
+     */
+    const shared = new Set(sharedWithOtherTowers(world, sc.unit));
+    memberIds = memberIds.filter((id) => !shared.has(id));
+    if (memberIds.length === 0) return null;
+  }
   const refund: SparkType[] = [];
   for (const id of memberIds) {
     const p = world.primitives.get(id);
     if (p === undefined) return null; // fail closed rather than refund a shape that is not there
     refund.push(p.type);
   }
-  return { memberIds, refund };
+  return { memberIds, refund, scope: sc.scope };
 }
 
 /* ══ REDUCERS ═════════════════════════════════════════════════════════════════════════════════ */
@@ -526,7 +604,77 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
     detectComboDiscoveries(world, firstNewBondId);
   }
 
+  // ⭐ S191 R191-A — a tower FIXed inside a weld keeps (or regains) its identity. See `settleTowerIdentity`.
+  if (plan.scope === 'tower' && plan.unit !== null) {
+    settleTowerIdentity(world, action.playerId, plan.unit, plan.group.blueprintId, byNode);
+  }
+
   return world;
+}
+
+/**
+ * ⭐⭐ S191 R191-A — **THE TOWER A FIX RESTORED INSIDE A WELD STANDS AGAIN.**
+ *
+ * Two cases, and neither may be left to the recipe matcher:
+ *
+ *   · **A LIVE tower** (dented, or broken inside the ≤ 0.5 s before the poll removes it): its record's
+ *     own shapes become the restored stamp's, so a re-minted node is one of its own. Its own connectors
+ *     are the bonds between those shapes, so a re-welded connector — a NEW bond id — is own already
+ *     (`ownPrimitiveIds`, the audit W-FR4 hazard). It stands at the next poll, same record, same id.
+ *   · **A FALLEN tower** (its record is gone): exact ignition can NEVER see it again — a welded
+ *     component is not an exact recipe — so the restored stamp is registered here, with its own shapes
+ *     passed explicitly. The anchor is the one the matcher itself would pick (the hub; the lowest ring
+ *     id), so if the weld is later cut away the matcher's de-dup still recognises it. The same gates the
+ *     matcher applies: the restored shapes must stand as the recipe on their own; no live tower of the
+ *     recipe already anchored among them; a race tower only for its own race (R137); a defender only
+ *     in BUILD (S157 B6 — FIX is BUILD-only anyway, R19).
+ */
+function settleTowerIdentity(
+  world: World,
+  seat: PlayerId,
+  unit: TowerUnit,
+  recipeId: GodlyId,
+  byNode: ReadonlyMap<number, PrimitiveId>,
+): void {
+  const groupIds = [...byNode.values()].filter((id) => world.primitives.has(id)).sort((a, b) => Number(a) - Number(b));
+  if (unit.kind === 'live') {
+    const rec = unit.ref.kind === 'spawner' ? world.creatureSpawners.get(unit.ref.id) : world.defenders.get(unit.ref.id);
+    if (rec !== undefined && world.primitives.has(rec.anchorPrimitiveId)) {
+      rec.ownPrimitiveIds = groupIds;
+      return;
+    }
+  }
+  const shape = towerShapeFor(recipeId);
+  if (shape === null) return;
+  const own = new Set(groupIds);
+  let anchorId: PrimitiveId | undefined;
+  if (shape.kind === 'star') {
+    anchorId = byNode.get(0);
+    if (anchorId === undefined || starArmsAt(world, anchorId, shape.hub, shape.arms, own)?.whole !== true) return;
+  } else {
+    anchorId = groupIds[0];
+    if (anchorId === undefined || ringMembersAt(world, anchorId, shape.type, shape.n, own) === null) return;
+  }
+  for (const sp of world.creatureSpawners.values()) if (own.has(sp.anchorPrimitiveId)) return;
+  for (const d of world.defenders.values()) if (own.has(d.anchorPrimitiveId)) return;
+  const race = raceForTowerId(recipeId) ?? raceForT9TowerId(recipeId);
+  if (race !== null && world.players.get(seat)?.raceId !== race) return;
+  const anchor = world.primitives.get(anchorId)!;
+  const defenderRecipe = getDefenderRecipe(recipeId);
+  if (defenderRecipe !== undefined) {
+    if (world.matchPhase !== 'BUILD') return;
+    applyRegisterDefender(world, {
+      type: 'REGISTER_DEFENDER',
+      defenderKind: defenderRecipe.defenderKind,
+      ownerPlayerId: seat,
+      anchorPrimitiveId: anchorId,
+      recipeId,
+      pos: { x: anchor.pos.x, y: anchor.pos.y },
+      ownPrimitiveIds: groupIds,
+    });
+    return;
+  }
+  applyRegisterSpawner(world, { type: 'REGISTER_SPAWNER', ownerPlayerId: seat, anchorPrimitiveId: anchorId, recipeId, ownPrimitiveIds: groupIds });
 }
 
 /**

@@ -598,3 +598,45 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   budgets included — the id array fits).
 - HOTSPOT HUNKS: `save.ts` (the two Serialized fields, 2 serializers, trim, 2 deserializers — field
   rename, self-contained); `stateHashFull.ts` (2 union members, 2 projection suffixes).
+
+### R5-2 — the tower unit + scope-inferred FIX / SCRAP (R4, R5) + R6 verified
+- NEW `src/state/towerUnit.ts` (side-effect-free): `towerUnitAt` (live tower by own shapes — spawners by
+  id then defenders by id — else the STAMP GROUP of a stamped shape, else null), `stampGroupAt`,
+  `structureTowersAt`, `weldedAt`, `recipeConnectorCount`, `towerOwnHealth`, `structureHealth`,
+  `structureComposition`, `sharedWithOtherTowers`.
+- `structureRepair.ts`: NEW `reclaimScopeAt` (WHEN/WHERE + ownership over the WHOLE component in both
+  scopes — S152's foreign-shape rule is not bypassable by tower scope); `planStructureRepair` /
+  `planStructureScrap` take their members from it and carry `scope` (+ `unit`); a welded free-form
+  click → FIX null (R5); tower SCRAP drops shapes another live tower is built of (⚠ MINE);
+  `applyRepairStructure` → NEW `settleTowerIdentity`: a LIVE record adopts the restored stamp's shapes
+  (a re-minted node joins), a FALLEN welded stamp is registered directly (`applyRegisterDefender` /
+  `applyRegisterSpawner` with explicit `ownPrimitiveIds`; anchor = hub / lowest ring id — the matcher's
+  own pick; gates: stands as its recipe on its own shapes, no live tower of it anchored there, race
+  tower only for its race, defender only in BUILD). The stale `blueprintGroupOf` reason rewritten (§E).
+- UN-WELDED structures: byte-identical path (the component IS the tower). Every pre-existing
+  repair / panel test green except the ones that pinned R185-B's old "one weld = unfixable" — RE-PINNED:
+  `weldOntoTowerS189` (dented welded turret: weld-click refused, tower-click heals only its own arm, the
+  weld's damage untouched, SAME defender stands; two bat towers: weld-click refused, tower A's FIX heals
+  A only), `structurePanel.test` (the free-form member of a stamp → SCRAP only; a stamped member of that
+  welded structure → the tower's FIX — new case).
+- NEW tests (weld file, 12): W-FR4 window (cut arm → tower FIX re-welds, NEW bond id, SAME turret after
+  two polls) + control (no FIX → falls); FALLEN welded turret → FIX from its remains re-registers it
+  (own set = 6 survivors + the re-minted leaf, never the weld or the cut-off loose leaf) → stands;
+  tower SCRAP (weld + goblin tower stay, refund = its own 6 spirals); structure SCRAP from the weld
+  (everything); structure FIX from the weld (plan null, wide hash unchanged); R6; host-vs-worker over
+  cut → tower FIX → stand (wide hash equal every frame); leaf RAZED in the window → FIX re-mints, the
+  record adopts it, SAME turret stands; shared-leaf SCRAP (lightning hub + stink tower sharing a Circle:
+  the Circle stays, the hub stands).
+- ⭐ R6 VERIFIED, NO CODE CHANGE: `damageConnector` banks on the attacked bond against the COMPONENT's
+  pool and returns "sever" for THAT bond (targeted bond drained first). REACH test through the real host
+  tick: a P1 chewer at the welded turret's far edge (structure pool 204) severs a TURRET connector; the
+  turret falls, the goblin tower stands.
+- mutants (all RED, restored — `mutants.py` in the scratchpad): M1 scope always 'structure' → 8 RED ·
+  M2 fallen stamp not re-registered → 1 · M3 live record keeps the dead id → 1 · M4 shared shape
+  scrapped → 1 · M5 structure SCRAP = the clicked shape only → 1. R5's FIX refusal is enforced twice
+  (explicit welded check + `blueprintGroupOf`'s origin-null refusal — a free-form shape has no origin by
+  definition), so its explicit line is redundant by construction; not mutation-distinguishable.
+- ⚠ FOUND, NOT MINE (reported): a castle unit spawned before a save round trip comes back with a
+  different `Creature.spawnedAtTick` (host `sa1`, worker `sa0`) — the worker INIT wide hash differs.
+  The differential clears setup creatures; units born inside the window compare equal.
+- gates: typecheck 0 · FULL vitest 0 = 6544 + 2 skipped / 399 + 1 skipped files.
