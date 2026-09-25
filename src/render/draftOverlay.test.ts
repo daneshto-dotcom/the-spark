@@ -172,14 +172,25 @@ describe('the hit-test — the racial tile answers ONLY while a perk is on offer
     expect(pickForTile(null, LIVE)).toBeNull();
   });
 
-  it('⛔ the REAL offer: at level 10 every race is COMING SOON, whatever the registry says', () => {
-    // RACIAL_PERKS_BY_RACE has two rows per race (L0, L5); wave 11 is draft index 2. This holds on
-    // every branch and after every merge, so it pins the dead state through `draftOptionsFor` itself.
+  it('⛔ the REAL offer at level 10: THE SWARM for vampires, WRATH OF RA only with POWER OF RA, COMING SOON for the rest', () => {
+    // ⭐ S190 MERGE (train B) — this pinned "every race is COMING SOON at level 10" until the two
+    // level-10 perks landed together: vampires' THE SWARM (unconditional) and mummies' WRATH OF RA
+    // (offered only to a seat holding POWER OF RA). Wave 11 is draft index 2; pinned through
+    // `draftOptionsFor` itself, so the tile and the hit-test cannot drift from the registry.
+    const r = racialTileRect();
     for (const race of ALL_RACES) {
       const opts = draftOptionsFor(11, race);
-      expect(opts.racial).toBeNull();
-      const r = racialTileRect();
-      expect(draftHitTest(r.x + r.w / 2, r.y + r.h / 2, opts)).toBeNull();
+      const want = race === 'vampires' ? 'vampires.l10' : null;
+      expect(opts.racial, race).toBe(want);
+      expect(draftHitTest(r.x + r.w / 2, r.y + r.h / 2, opts), race).toBe(want === null ? null : 'racial');
+    }
+    // WRATH OF RA follows the SEAT: offered with POWER OF RA held, COMING SOON (the unbuilt SANDWORM) without.
+    expect(draftOptionsFor(11, 'mummies', ['racial', 'def']).racial).toBe('mummies.l10');
+    expect(draftOptionsFor(11, 'mummies', ['hp', 'def']).racial).toBeNull();
+    // ⛔ and no pick history gives a level-10 perk to a race that has none.
+    for (const race of ALL_RACES) {
+      if (race === 'vampires' || race === 'mummies') continue;
+      expect(draftOptionsFor(11, race, ['racial', 'racial']).racial, race).toBeNull();
     }
   });
 
@@ -242,7 +253,7 @@ describe('what each tile shows', () => {
   });
 });
 
-describe('the cards on disk — every card a tile can ask for, WRATH OF RA included, and only those', () => {
+describe('the cards on disk — every card a tile can ask for, both level-10 cards included, and only those', () => {
   const PUBLIC = join(__dirname, '..', '..', 'public');
   const DIR = join(PUBLIC, UPGRADE_CARD_DIR);
   /** ⚠ MINE, not the owner's — a payload sanity bound. The largest shipped card is ~87 KB. */
@@ -275,6 +286,8 @@ describe('the cards on disk — every card a tile can ask for, WRATH OF RA inclu
   it('every card a tile can ask for is shipped, 2× the tile, and a sane size', () => {
     expect(referenced).toHaveLength(GENERAL_PICKS.length + RACIAL_PERK_IDS.length);
     expect(referenced, 'WRATH OF RA draws its own card').toContain('l10-mummies');
+    // ⭐ S190 MERGE (train B) — and THE SWARM draws its own: 4 general + 14 racial = 18.
+    expect(referenced, 'THE SWARM draws its own card').toContain('l10-vampires');
     for (const card of referenced) {
       const path = join(DIR, `${card}.webp`);
       expect(existsSync(path), `${card}.webp is missing — run python scripts/build-upgrade-cards.py`).toBe(true);
@@ -284,11 +297,15 @@ describe('the cards on disk — every card a tile can ask for, WRATH OF RA inclu
     }
   });
 
-  it('⛔ ships nothing else — no THE SWARM (vampires L10 is not built), no alternates, no strays', () => {
+  it('⛔ ships nothing else — no alternates, no strays; both level-10 cards ship because both perks are built', () => {
+    // ⭐ S190 MERGE (train B) — this asserted `l10-vampires.webp` was ABSENT while THE SWARM was unbuilt.
+    // `vampires.l10` is built now, so its card is referenced — and therefore must ship.
     const shipped = readdirSync(DIR).sort();
     expect(shipped).toEqual(referenced.map((c) => `${c}.webp`).sort());
     expect(shipped).toHaveLength(referenced.length);
-    expect(shipped).not.toContain('l10-vampires.webp');
+    expect(shipped).toContain('l10-vampires.webp');
+    expect(shipped).toContain('l10-mummies.webp');
+    expect(shipped.filter((f) => f.includes('-alt')), 'the kept alternates are never runtime art').toEqual([]);
   });
 
   it('one card per (race, level) — no two perks share art', () => {
@@ -631,17 +648,43 @@ describe('⛔ the class, with NO racial perk on offer (COMING SOON)', () => {
 
   it('⭐ through the PRODUCTION offer too: a level-10 draft is COMING SOON with no seam injected', () => {
     const { w, seat } = startedWorld();
+    // ⭐ S190 MERGE (train B) — an ORC seat: vampires (THE SWARM) and mummies (WRATH OF RA) have a
+    // level-10 perk now, so the COMING SOON case needs a race that has none. (This used the default
+    // seat, a vampire, which is now offered THE SWARM — pinned by the test below.)
+    const pl = w.players.get(seat)!;
+    pl.raceId = 'orcs';
     // Put the seat at the level-10 draft (wave 11), owing its third pick.
-    w.players.get(seat)!.draftPicks.splice(0, Infinity, 'hp', 'def');
+    pl.draftPicks.splice(0, Infinity, 'hp', 'def');
     w.draft = { openedAtTick: w.tick, waveNumber: 11 };
     const picks: DraftPick[] = [];
     const o = new DraftOverlay((p) => picks.push(p), { loadCard: recordingLoader().load });
     o.render(w, seat);
     expect(o.container.visible).toBe(true);
+    expect(child<Text>(o.container, 'racialLine').text).toBe('COMING SOON');
     tap(o, centre(racialTileRect()));
     expect(picks).toEqual([]);
     tap(o, centre(generalTileRect()));
     expect(picks).toEqual(['atk']);
+  });
+
+  it('⭐⭐ and a VAMPIRE seat at the level-10 draft gets a CHOOSABLE THE SWARM tile, its own card, and a click sends "racial"', async () => {
+    const { w, seat } = startedWorld();
+    const pl = w.players.get(seat)!;
+    pl.raceId = 'vampires';
+    // Any picks at levels 0 and 5 — THE SWARM has no requirement.
+    pl.draftPicks.splice(0, Infinity, 'hp', 'def');
+    w.draft = { openedAtTick: w.tick, waveNumber: 11 };
+    const picks: DraftPick[] = [];
+    const loader = recordingLoader();
+    const o = new DraftOverlay((p) => picks.push(p), { loadCard: loader.load });
+    o.render(w, seat);
+    await settle();
+    expect(o.container.visible).toBe(true);
+    expect(child<Text>(o.container, 'racialLine').text).toBe(RACIAL_PERK_COPY['vampires.l10'].line);
+    expect(child<Text>(o.container, 'racialMark').visible, 'no COMING SOON mark').toBe(false);
+    expect(loader.asked).toContain(upgradeCardUrl('l10-vampires'));
+    tap(o, centre(racialTileRect()));
+    expect(picks).toEqual(['racial']);
   });
 });
 

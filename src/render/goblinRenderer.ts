@@ -42,6 +42,8 @@ import { isStunned, rageMultiplier, type Creature } from '../state/creatures/cre
 // S188 CORPSE EATER — the eat loop, derived per frame from the synced feed deadline.
 import { corpseEaterElapsed, corpseEaterFrame, showsCorpseEaterFeed } from './corpseEaterFrames.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
+// ⭐ S190 (audit SW-7) — the pair and perk the swarm's sheet warms on (`warmPerkSheets`). A pure leaf.
+import { THE_SWARM_PERK, THE_SWARM_TO } from '../state/racial/theSwarm.ts';
 import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { drawStunStars } from './stunStars.ts';
@@ -103,6 +105,27 @@ export const PIRANHA_ELITE_ATLAS_BASE = `${t3UnitAtlasBase('nagas')}-elite`;
 export const CORPSE_EATER_FEED_ATLAS_BASE = `${t9BossAtlasBase('zombies')}-feed`;
 const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
 
+/**
+ * ⭐ S188 THE SWARM — the bat swarm's OWN sheet (fly / attack / die), packed from the owner's bat-swarm
+ * sheets by `scripts/build-scattered-sheet-atlas.mjs` (`assets-source/race-tier3-units/bat-swarm/
+ * atlas-spec.json`), its body fitted to the shipped bat's body height so `BAT_SWARM_SPRITE_SCALE_MUL`
+ * is the size ratio. `theSwarm.test.ts` asserts both files exist.
+ */
+export const BAT_SWARM_ATLAS_BASE = `${t3UnitAtlasBase('vampires')}-swarm`;
+
+/**
+ * ⭐ S188 — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS THE UNIT IT WAS PROMOTED FROM.**
+ *
+ * `loadAtlas` fails silently, and until now a type with no resolved sheet fell straight to
+ * `drawGoblin`'s green procedural puppet — the look the owner has reported as a regression twice. A
+ * bat swarm whose sheet is still in flight (or 404s on some peer) instead draws with the ordinary
+ * bat's sheet, at the swarm's own scale: the right animal, visibly bigger, never green.
+ * Pure and exported so the fallback is testable without Pixi.
+ */
+export function atlasFallbackType(type: CreatureType): CreatureType | null {
+  return type === 't3BatSwarm' ? 't3Bat' : null;
+}
+
 export const ATLASES: Partial<Record<CreatureType, string>> = {
   goblinMelee: '/godly/goblin-melee/anim/goblin-melee',
   goblinArcher: '/godly/goblin-archer/anim/goblin-archer',
@@ -135,6 +158,9 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    * race and the creature (`t3-vampires-bat`) and a hand-typed path that 404s is silent too.
    */
   t3Bat: t3UnitAtlasBase('vampires'),
+  // ⭐ S188 THE SWARM — the bat swarm. See `BAT_SWARM_ATLAS_BASE` for which sheet, and
+  // `atlasFallbackType` for what it draws until that sheet resolves.
+  t3BatSwarm: BAT_SWARM_ATLAS_BASE,
   t3Piranha: t3UnitAtlasBase('nagas'),
   // ⭐ S188 APEX PREDATOR — the elite piranha. See `PIRANHA_ELITE_ATLAS_BASE` for which sheet.
   t3PiranhaElite: PIRANHA_ELITE_ATLAS_BASE,
@@ -375,6 +401,8 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   't3Bat', 't3Piranha', 't3Scarab', 't3Hound', 't3Warband', 't3Souleater',
   // ⭐ S188 APEX PREDATOR — absent from this Set the elite would fight, kill and die INVISIBLE.
   't3PiranhaElite',
+  // ⭐ S188 THE SWARM — and the bat swarm, for the same reason.
+  't3BatSwarm',
   /*
    * ⛔ S167 — THE SIX BOSSES, AND THIS SET FAILS DIFFERENTLY FROM `ATLASES` ABOVE. A type missing
    * from `ATLASES` draws the green puppet; a type missing from HERE draws NOTHING AT ALL — the boss
@@ -637,6 +665,29 @@ export class GoblinRenderer {
     // ⭐ S188 APEX PREDATOR — a naga seat can field the elite from the level-5 draft on, so its sheet
     // is part of that race's kit and warms with the rest rather than popping in green mid-fight.
     if (race === 'nagas') this.ensureTypeAtlas('t3PiranhaElite');
+    /*
+     * ⛔ S190 (audit SW-7) — BUT NOT THE SWARM. Its sheet is 2400×800 RGBA (7.32 MiB decoded) and no
+     * swarm can exist before the wave-11 draft, and then only for a seat that took `vampires.l10` —
+     * so warming it here held that texture on every peer, all match, for every vampire seat. It warms
+     * on the PICK instead (`warmPerkSheets`, from `sync`), and the bat-sheet fallback
+     * (`atlasFallbackType`) covers the gap between the pick and the fetch resolving.
+     */
+  }
+
+  /**
+   * ⭐ S190 (audit SW-7) — WARM THE SWARM'S SHEET ONCE A SEAT HOLDS `vampires.l10`, and never before.
+   * Called from `sync` every frame: one Set probe once the load has started, otherwise a scan of the
+   * seats (at most four) through the same `seatHoldsPerk` the sim promotes with, so the fetch starts
+   * during the draft that grants the perk rather than at the first swarm drawn. Render-only.
+   */
+  private warmPerkSheets(world: World): void {
+    if (this.typeLoadStarted.has(THE_SWARM_TO)) return;
+    for (const pl of world.players.values()) {
+      if (seatHoldsPerk(pl, THE_SWARM_PERK)) {
+        this.ensureTypeAtlas(THE_SWARM_TO);
+        return;
+      }
+    }
   }
 
   /**
@@ -663,10 +714,17 @@ export class GoblinRenderer {
    *
    * ⚠ RACE-KEYED FOR `raceUnit` ONLY, matching `ensureRaceAtlas` — every other kind is keyed by TYPE.
    * Getting that wrong is how the castle unit would silently draw another race's art.
+   *
+   * ⭐ S190 (audit SWARM-B1) — AND THE SAME FALLBACK THE DRAW LOOP USES (`atlasFallbackType`). A swarm
+   * whose own sheet has not resolved is DRAWN with the bat's sheet; without this its card showed no
+   * portrait at all while the unit it describes was visibly on the board.
    */
   portraitTexture(type: CreatureType, race: RaceId | null): Texture | null {
     const key = type === 'raceUnit' && race !== null ? `raceUnit:${race}` : type;
-    const idle = this.atlases.get(key)?.cells['idle'];
+    const fallbackType = atlasFallbackType(type);
+    const idle = (
+      this.atlases.get(key) ?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined)
+    )?.cells['idle'];
     return idle === undefined || idle.length === 0 ? null : (idle[0] ?? null);
   }
 
@@ -925,6 +983,8 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // ⭐ S190 (audit SW-7) — the swarm's sheet starts fetching on the seat's `vampires.l10` pick.
+    this.warmPerkSheets(world);
     /*
      * ⭐⭐ S170 P5 — BOSS GROUND AURAS FIRST, so they sit UNDER every unit drawn below. Owner:
      * *"I didn't see that they have, like, cool generated videos or effects."*
@@ -1059,9 +1119,12 @@ export class GoblinRenderer {
       // S169 — safety net for a race-keyed sheet that appeared without a preload (a joiner whose
       // roster arrived late, a race added mid-match by the rainbow shuffle). Idempotent Set probe.
       this.ensureTypeAtlas(c.type);
+      // ⭐ S188 — a promoted unit with no resolved sheet borrows its base unit's (`atlasFallbackType`).
+      const fallbackType = atlasFallbackType(c.type);
+      if (fallbackType !== null) this.ensureTypeAtlas(fallbackType);
       const atlas = this.atlases.get(
         this.atlasKeyFor(world, c.type, c.ownerPlayerId as unknown as number),
-      );
+      ) ?? (fallbackType !== null ? this.atlases.get(fallbackType) : undefined);
       if (atlas !== undefined) {
         // S152 P3 — the flyer's picture rides above its position; see GOBLIN_LIFT.
         const lift = GOBLIN_LIFT[c.type] ?? 0;

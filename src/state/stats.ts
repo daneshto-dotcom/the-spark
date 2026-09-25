@@ -438,6 +438,8 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   // S188 APEX PREDATOR — the elite piranha fights exactly as the piranha does, bigger.
   t3PiranhaElite: BOTH,
   t3Bat: BOTH,
+  // S188 THE SWARM — the bat swarm fights exactly as the bat does, ×6.
+  t3BatSwarm: BOTH,
   t3Warband: BOTH,
   t3Souleater: BOTH,
   /*
@@ -545,6 +547,7 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   t3Piranha: 'both',
   t3PiranhaElite: 'both', // S188 — the piranha's role, tripled stats
   t3Bat: 'both',
+  t3BatSwarm: 'both', // S188 — the bat's role, ×6 stats
   t3Warband: 'both',
   t3Souleater: 'both',
   /*

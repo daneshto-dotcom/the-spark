@@ -415,6 +415,20 @@ export type CreatureType =
    * once that seat holds `nagas.l5` (`racial/apexPredator.ts`). */
   | 't3PiranhaElite'
   | 't3Bat'
+  /* ── S188 (owner, vampires level 10 — THE SWARM) — THE BAT SWARM ──────────────────────────────
+   * *"it upgrades the regular tier three bat tower at level 10, if we choose it, to become bat
+   * swarm, to generate and create bat swarms"* and, on the stats, *"whatever we did for the piranha,
+   * we double that"* — the piranha's ×3 doubled, so ×6 on every stat of `t3Bat`.
+   *
+   * ⛔ ITS OWN LITERAL for exactly the elite piranha's reason above: an undamaged creature carries no
+   * stats on the wire, so ×6 stats are only expressible as a distinct TYPE. SERIALIZED — a stale peer
+   * would accept the literal and find no config — so it rides the S188 PROTOCOL 49 → 50 bump.
+   *
+   * ⚠ The `t3` prefix is load-bearing (tier-3 is cap-limitless in `underGoblinCaps`; the character
+   * sheet tiers it T3), so the swarm joins the bat's population rules for free. Emitted only by a
+   * vampire seat's bat tower once that seat holds `vampires.l10` (`racial/theSwarm.ts`, through the
+   * one promotion rule `towerUnitForSeat` in `racial/apexPredator.ts`). */
+  | 't3BatSwarm'
   | 't3Warband'
   | 't3Souleater'
   /* ── S167 — THE SIX TIER-9 BOSSES (`RACE_ZONES_AND_BOSS_TOWERS.md` §B) ────────────────────
