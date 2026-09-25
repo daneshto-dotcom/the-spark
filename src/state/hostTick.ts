@@ -73,6 +73,8 @@ import {
   standoffTargetPos,
   enemyCastleMarchPos,
   structureTargets,
+  openBondTargetEpoch, // S190 P0 (C5) — the bond-target index's window: exactly the creature loop
+  closeBondTargetEpoch,
   isWithinAttackRange,
   killableDefenderInReach, // S158 P7 — the fifth strike clause (CF-S157-c)
   enemyStinkCloudInReach, // S158 A2 — the sixth: a destructible landed bag (R77)
@@ -1477,6 +1479,15 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // already adjacent to a bond would keep chewing it without moving an inch.
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
+    /*
+     * ⭐ S190 P0 (C5) — THE BOND-TARGET INDEX LIVES FOR EXACTLY THIS LOOP. Every structure-target
+     * scan below reuses one per-colour classification of `world.bonds` instead of redoing it per
+     * creature, and re-validates it before each scan, so a bond severed (or born) by an earlier
+     * creature's strike is seen by the next scan exactly as before. Opened and closed here and
+     * nowhere else; see `openBondTargetEpoch` in creatureAI.ts for the argument, and
+     * `bondTargetIndex.differential.test.ts` for the proof that no output moved.
+     */
+    openBondTargetEpoch(world);
     for (const id of creatureIds) {
       // Step 1: AI target re-selection BEFORE the tick. Only during SEEKING —
       // SPAWNING is force-free, ATTACKING is locked to its current target for
@@ -2004,6 +2015,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // is render-identical (the CLIENT has used exactly that pattern since S31).
       }
     }
+    closeBondTargetEpoch();
   }
 
   /*
