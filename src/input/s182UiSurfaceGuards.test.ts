@@ -31,7 +31,7 @@
  *     the bug intact — and it made the hover cursor advertise a readout as clickable, the exact
  *     lie GATE D below exists to catch. Fixed at the gate, with `isPointerOverFooterSurface`.
  *     **Three sessions, five occurrences, one shape of defect.**
- *   · ⛔ **S188 (audit F1)** — the S187 upgrade DRAFT PANEL (zIndex 900, opaque, over the quarry
+ *   · ⛔ **S188 (audit F1)** — the S187 upgrade DRAFT PANEL (opaque; zIndex 900 then, child order since S189 C1; over the quarry
  *     and the buildable ground either side of it) was registered in NONE of these gates. One click on
  *     a tile made the pick AND stamped an armed tower / re-tasked a gatherer / raided underneath it.
  *     It is a fourth surface now (`isPointerOverDraftPanel`, `isPointerOverDraftChoice`), and the
@@ -93,7 +93,7 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
 
   it('⛔⛔ GATE A — the DRAFT PANEL returns before ANYTHING under it can act (S188, audit F1)', () => {
     /*
-     * It is drawn above the band, the card and the board (zIndex 900), so its guard must precede
+     * It is drawn above the band, the card and the board (by its staging line since S189 C1), so its guard must precede
      * every handler that acts: the footer router, the Ra aim, the card's buttons, the castle click,
      * the armed stamp and the world picks. One early return covers LMB and RMB — ⭐ S190 (IL-2): an
      * RMB first puts back what is in hand (the Ra aim or a held tower), which acts on no ground; the

@@ -752,7 +752,8 @@ export class Controls {
    * the card, on ground the player could not see. The castle panel is excluded there with the stated
    * reason *"it would be hidden beneath it"*, which applies to the card word for word.
    *
-   * ⚠ The card is drawn above every surface except the zIndex-900 draft panel (`main.ts` calls
+   * ⚠ The card is drawn above every surface except the draft panel (staged after it — child order,
+   * no zIndex since S189 C1; `main.ts` calls
    * `characterSheet.bringToFront()`), so this is not a theoretical overlap — it is the most-covered
    * rectangle on the screen.
    */
@@ -1014,7 +1015,8 @@ export class Controls {
    * ⛔⛔ S188 (audit F1) — **IS THE POINTER UNDER THE UPGRADE DRAFT PANEL?** The SURFACE question,
    * asked by the `onDown` early return and both `onUp` commit gates.
    *
-   * The S181 defect in a sixth place: the panel (zIndex 900, opaque, ~559×270 over the quarry, its
+   * The S181 defect in a sixth place: the panel (opaque — zIndex 900 then, child order since S189 C1 —
+   * ~559×270 over the quarry, its
    * side margins over buildable ground, plus the hover-detail plate below it) was registered in none
    * of this file's gates. Pixi's `pointertap` makes the pick and does not stop the native event, so
    * one click on a tile ALSO stamped an armed tower, re-tasked a gatherer, raided on a right-click or
@@ -1116,8 +1118,8 @@ export class Controls {
     /*
      * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
      * Ra aim, the card's buttons, the castle click, the armed stamp and every world pick. It is drawn
-     * above all of them (zIndex 900 sorts it over the band and the character card, which are
-     * zIndex 0), so nothing hidden under it may act — a card button included. ONE return covers LMB
+     * above all of them (`main.ts` stages it after the band and the character card — child order, no
+     * zIndex since S189 C1), so nothing hidden under it may act — a card button included. ONE return covers LMB
      * and RMB: the stamp, the gatherer / bomb / rainbow / potato / spark picks, the sheet, the raid and
      * a Ra cast (which keeps aiming, the held-tower rule). The pick itself is the panel's own Pixi
      * `pointertap`, which this does not touch. Mirrored in both `onUp` commit gates.
@@ -1471,7 +1473,7 @@ export class Controls {
   private updateHoverCursor(): void {
     /*
      * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
-     * The panel is drawn above the band and the card (zIndex 900) and `onDown` swallows every click
+     * The panel is drawn above the band and the card (staged after them, S189 C1) and `onDown` swallows every click
      * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
      * not earn a pointer or light up — that promised a click the guard then ate. The draft SURFACE
      * question may only SUPPRESS a pointer here, never grant one: under the plate the answer is the
@@ -1537,7 +1539,7 @@ export class Controls {
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
       // cannot strand state.
       // S181 — `&& !this.isPointerOverCard()` for the reason that predicate records: the card is
-      // drawn above every surface except the zIndex-900 draft panel, so a release over it would drop
+      // drawn above every surface except the draft panel (staged later, S189 C1), so a release over it would drop
       // a potato on unseen ground.
       /*
        * ⛔⛔ S182 — **THE FOOTER GUARD** WAS MISSING HERE, AND THE CODEBASE SAID IT
@@ -1654,7 +1656,7 @@ export class Controls {
           !this.isPointerOverPanel() &&
           !this.isPointerOverFooterSurface() &&
           // S181 — and not over the character card, which is drawn above every surface except the
-          // zIndex-900 draft panel.
+          // draft panel (staged later, S189 C1).
           !this.isPointerOverCard() &&
           // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
           // over its side margins placed on ground the plate hides; now it is a rejected placement

@@ -590,6 +590,11 @@ export class LobbyScreen {
     this.connectionLostHandle.setVisible(visible);
   }
 
+  /** ⭐ S190 (render audit L1-5) — is the CONNECTION LOST / RECONNECTING / MIGRATING overlay up? */
+  isConnectionLostVisible(): boolean {
+    return this.connectionLostHandle.container.visible;
+  }
+
   /** S82 P4(b) — flip the overlay between RECONNECTING (grace) and terminal LOST. */
   setConnectionLostReconnecting(reconnecting: boolean, secondsLeft?: number): void {
     this.connectionLostHandle.setReconnecting(reconnecting, secondsLeft);

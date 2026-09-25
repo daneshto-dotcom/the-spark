@@ -2034,6 +2034,14 @@ Network routes: ${v.detail}`;
   });
 
   /*
+   * ⭐ S190 (render audit L1-5) — the codex and the CONNECTION LOST overlay are staged AFTER the draft
+   * panel, so since S189 C1 (no zIndex) they draw over it and their backdrops take the click (R2-1).
+   * While either is up the panel is no input surface: no pointer promised, no commit gate claimed.
+   * Wired here, after `lobbyScreen` exists, so the thunk can never read it in its dead zone.
+   */
+  draftOverlay.setCoveredBy(() => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible());
+
+  /*
    * ⭐ S155 P2 — THE BACK TO MAIN BUTTON. Owner: *"back to main doesnt work from multiplayer and from
    * some windows... doesnt pop out or show thaty it is clickable like other buttons... need to make
    * it interractive and obvious."*

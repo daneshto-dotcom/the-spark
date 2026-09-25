@@ -346,6 +346,15 @@ export class DraftOverlay {
   private readonly onPick: (p: DraftPick) => void;
   private readonly optionsFor: (waveNumber: number, race: RaceId, picks?: readonly DraftPick[]) => DraftOptions;
   private readonly loadCard: (url: string) => Promise<Texture>;
+  /**
+   * ⭐ S190 (render audit L1-5) — **IS A LATER-STAGED MODAL COVERING THE PANEL?** Since S189 C1 the
+   * panel carries no zIndex, so every surface `main.ts` stages AFTER it — the codex (G+C) and the
+   * lobby's CONNECTION LOST / RECONNECTING / MIGRATING overlay — draws over it, and their backdrops
+   * swallow the click (R2-1). The two input questions below must then answer false as well, or the
+   * cursor promises a pick the backdrop eats. Injected by `main.ts` (`setCoveredBy`); the default is
+   * never covered, so every other caller is unchanged.
+   */
+  private coveredBy: () => boolean = () => false;
 
   constructor(onPick: (p: DraftPick) => void, deps: DraftOverlayDeps = {}) {
     this.onPick = onPick;
@@ -650,7 +659,8 @@ export class DraftOverlay {
    *
    * It exists because the panel was a UI surface registered in NONE of the input layer's gates. Pixi
    * never stops the native event, and `controls.ts` listens on the raw canvas, so ONE click on a tile
-   * both sent the pick (the `pointertap` above) AND ran the board handlers under the zIndex-900 plate:
+   * both sent the pick (the `pointertap` above) AND ran the board handlers under the plate (zIndex 900
+   * then; placed by its staging line in `main.ts` since S189 C1):
    * it stamped an armed tower on the side-margin ground the plate hides, re-tasked a gatherer, raided
    * on a right-click, opened a character card. The owner's S181 rule for the card applies word for
    * word — *a surface you cannot see through must swallow the click*.
@@ -665,7 +675,7 @@ export class DraftOverlay {
    * in canvas coordinates, untransformed — the same assumption `draftHitTest(e.global)` makes.
    */
   isOver(x: number, y: number): boolean {
-    if (!this.container.visible) return false;
+    if (!this.container.visible || this.coveredBy()) return false; // S190 L1-5 — a modal is on top
     const p = { x, y };
     for (const child of this.container.children) {
       if (child instanceof Graphics && child.visible && child.containsPoint(p)) return true;
@@ -679,6 +689,11 @@ export class DraftOverlay {
    * COMING SOON tile is part of the surface and is not a control.
    */
   isOverChoosable(x: number, y: number): boolean {
-    return this.container.visible && this.opts !== null && draftHitTest(x, y, this.opts) !== null;
+    return this.container.visible && !this.coveredBy() && this.opts !== null && draftHitTest(x, y, this.opts) !== null;
+  }
+
+  /** ⭐ S190 (render audit L1-5) — `main.ts` names the modals staged over the panel. See `coveredBy`. */
+  setCoveredBy(covered: () => boolean): void {
+    this.coveredBy = covered;
   }
 }

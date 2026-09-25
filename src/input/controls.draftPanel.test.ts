@@ -1,7 +1,7 @@
 /**
  * SPARK — S188 (audit F1) — **A CLICK ON THE DRAFT PANEL IS THE PANEL'S, AND NOTHING UNDER IT ACTS.**
  *
- * The S187 upgrade panel is a zIndex-900 opaque plate over the quarry whose side margins lie over
+ * The S187 upgrade panel is an opaque plate (zIndex 900 until S189 C1, child order since) over the quarry whose side margins lie over
  * buildable ground. Its pick is its own Pixi `pointertap`; `controls.ts` listens on the raw canvas,
  * and Pixi never stops the native event — so before this fix ONE click on a tile ALSO stamped an
  * armed tower, re-tasked a gatherer, raided, opened a card, planted a dropped spark or potato, or
@@ -21,6 +21,7 @@
  */
 
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 vi.mock('../render/audioManager.ts', () => ({
   playUiClickSFX: vi.fn(async () => {}),
@@ -535,6 +536,32 @@ describe('⭐ the cursor promises a pointer exactly where a click picks', () => 
     const r = rig({ open: false });
     move(r.c, centre(G));
     expect(r.canvas.style.cursor).toBe('');
+  });
+});
+
+describe('⛔ S190 (render audit L1-5) — a modal staged OVER the panel (codex, CONNECTION LOST): the cursor promises nothing', () => {
+  it('panel + codex open → no pointer over a live tile; the modal closed again → pointer', () => {
+    /*
+     * Since S189 C1 the panel has no zIndex, so the codex and the CONNECTION LOST overlay — staged later
+     * in main.ts — draw over it and their static backdrops take the click (R2-1). The cursor used to ask
+     * the panel anyway and promised a pick the backdrop then ate. `main.ts` injects the predicate; this
+     * drives the real Controls cursor through it, and pins that main.ts names BOTH modals.
+     */
+    const r = rig();
+    let modalUp = true;
+    r.overlay.setCoveredBy(() => modalUp);
+    const g = centre(G);
+    move(r.c, g);
+    expect(r.canvas.style.cursor, 'covered: the backdrop eats the click, so no pointer').toBe('');
+    expect(r.overlay.isOver(g.x, g.y), 'and the panel is no input surface while covered').toBe(false);
+    expect(r.overlay.isOverChoosable(g.x, g.y)).toBe(false);
+    modalUp = false;
+    move(r.c, g);
+    expect(r.canvas.style.cursor, 'uncovered: the live tile is a control again').toBe('pointer');
+    const main = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
+    expect(main).toContain(
+      'draftOverlay.setCoveredBy(() => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible());',
+    );
   });
 });
 
