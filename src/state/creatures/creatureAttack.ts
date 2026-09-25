@@ -387,6 +387,8 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * Every sibling arm already reads `attackFifths(atk, pen)`; the shape arm was the odd one out.
        * Now it is not, and a goblin prints the same 12 on a shape that it prints on a goblin. His
        * six-swing ruling survives because `PRIMITIVE_MAX_HP` is 70 — see its docblock.
+       * (⭐ S190 draft-atk: every arm now strikes with the creature's OWN ladder number,
+       * `creatureAttackFifths(creature)` — the type's `attackFifths(atk, pen)`, drafted-buffed.)
        */
       // ⭐ S183 — named, though a SHAPE has no AI to turn round: `damageEntity`'s primitive arm
       // ignores the attacker entirely. Threading the truth costs nothing and keeps every creature
@@ -492,7 +494,8 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
        * the `GOBLIN_DAMAGE_VS_PRIMITIVE` defect class: a bespoke constant on its own scale, exactly
        * what he blew up about in S177 (*"that is not consistent. And we have a system for this."*).
        * Every sibling arm in this function already reads `attackFifths(atk, pen)`; the castle arm was
-       * the odd one out, and now it is not.
+       * the odd one out, and now it is not. (⭐ S190 draft-atk: every arm, this one included, now strikes
+       * with the creature's OWN ladder number, `creatureAttackFifths(creature)` — drafted-buffed.)
        *
        * ⚠ THIS IS A LARGE BALANCE MOVE AND IT IS HIS, STATED RATHER THAN SLIPPED IN. Against
        * `CASTLE_MAX_HP` 1500: a melee goblin goes 250 swings → 125, and Vlad goes 250 → **10**. The

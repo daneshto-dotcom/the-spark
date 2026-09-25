@@ -1635,8 +1635,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          *
          * ⚠ THE STRIKE AND DAMAGE PATHS NEEDED NO CHANGE, which is how we know this is the one
          * defect: the fan-out already forwards `after.targetBondId`, `bondValid` is already an arm of
-         * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)`
-         * through `damageConnector` with no `targetsStructures` gate. `damageConnector` already banks
+         * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)` (⭐ S190:
+         * the creature's own `creatureAttackFifths`, drafted-buffed) through `damageConnector` with no
+         * `targetsStructures` gate. `damageConnector` already banks
          * structure-wide and spends overkill into the next connector (R173-A/B), so a boss's 150
          * takes the 50, then the 36, then the 24 in one blow. Everything downstream was waiting.
          */

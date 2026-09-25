@@ -45,8 +45,8 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
     occurrences: 1,
     why:
       'A DEFENDER’s strike (Helga, the laser turret). The draft reaches neither a defender’s pool nor ' +
-      'its strike — S187 wired the pool half to creatures only. ⚠ OPEN OWNER QUESTION (S190 Q2): does ' +
-      'an ATK pick buff Helga? Not built.',
+      'its strike — S187 wired the pool half to creatures only. ⭐ RULED by the owner, S190: ' +
+      'R190-E ("No — a drafted ATK pick buffs physical hits only; the Ra column is MAGIC") — Helga is not buffed.',
   },
   {
     file: 'state/defenders/stinkTower.ts',
@@ -69,7 +69,7 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
     occurrences: 2,
     why:
       'The Pharaoh boss’s ritual COLUMN — a SKILL with its own stat line (`RA_COLUMN_ATK/PEN`), not the ' +
-      'boss’s own strike. ⚠ OPEN OWNER QUESTION (S190 Q1): does an ATK pick buff a boss skill? Not built.',
+      'boss’s own strike. ⭐ RULED by the owner, S190: R190-E ("No — a drafted ATK pick buffs physical hits only; the Ra column is MAGIC") — a boss skill is not buffed.',
   },
   {
     file: 'render/characterSheetRadar.ts',

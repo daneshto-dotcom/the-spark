@@ -61,13 +61,18 @@ expect(RACIAL_PERK_REQUIRES['mummies.l10']).toBe('mummies.l0');
 expect(WRATH_OF_RA_CHARGES).toBe(3);
 ```
 
-## For the PROTOCOL 50 docblock (the merge owner writes it)
+## For the PROTOCOL 51 docblock (the merge owner writes it)
 
-- `SerializedPlayer.raStrike?` (racial-c) is **replaced** by `SerializedPlayer.raStrikes?: RaStrike[]`
+⚠ CORRECTED S190 (deploy #4 integrator): this section was headed "PROTOCOL 50" and said *"Neither shipped,
+so one field in 50"*. That was wrong by the time it merged — `raStrike` SHIPPED in 50 (deploy #2 is live on
+it), so replacing it is a wire change a v50 peer cannot read, and it rides **51** with the rest of train B.
+
+- `SerializedPlayer.raStrike?` (racial-c, live in 50) is **replaced** by `SerializedPlayer.raStrikes?: RaStrike[]`
   (at most 3, cast order, emitted only when non-empty, entries validated and capped on rehydrate).
-  Wide hash: `,ra_` or `,ra<w>,<x>,<y>,<until>;…` in cast order. Neither shipped, so one field in 50.
+  Wide hash: `,ra_` or `,ra<w>,<x>,<y>,<until>;…` in cast order. A v50 peer reads no `raStrike` and drops
+  `raStrikes` — so it sees no strike at all.
 - `CHOOSE_DRAFT.pick = 'racial'` now also means WRATH OF RA at draft index 2 for a seat holding
-  `mummies.l0` — a new sim rule both peers compute (the offer and the charges), inside the same 50.
+  `mummies.l0` — a new sim rule both peers compute (the offer and the charges), inside the same 51.
 - No new intent, no new discriminant.
 
 ## Audit fixes applied on this branch (from the racial-c audit)

@@ -2360,7 +2360,8 @@ export const CASTLE_FIRE_INTERVAL_TICKS = 240; // 4 s — NOT Q3's 45. See the r
  * > connector, a castle, or another enemy."*
  *
  * `creatureAttack.ts` now deals `attackFifths(atk, pen)` to a keep, exactly as it already did to a
- * creature, a shape, a bag and a connector. This was the LAST bespoke damage constant in the game —
+ * creature, a shape, a bag and a connector. (⭐ S190 draft-atk: the creature's OWN ladder number,
+ * `creatureAttackFifths(creature)` — drafted-buffed when its seat drafted ATK/PEN.) This was the LAST bespoke damage constant in the game —
  * the same defect class as `GOBLIN_DAMAGE_VS_PRIMITIVE`, which survived nineteen sessions on its own
  * scale and became his S177 bug report.
  *
