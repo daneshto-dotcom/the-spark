@@ -15,8 +15,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
 | R2-1 | RAGE-1 the clock runs through BUILD | DONE | d2757a0 |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
-| R2-3 | RAGE-7 the two-Warlord tests | DONE | (this commit) |
-| R2-4..9 | INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
+| R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | (this commit) — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
+| R2-4..7,9 | INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -176,6 +177,13 @@ Merge owner = the main session. This branch never merges, never pushes.
   every Warlord without a live clock BEFORE the frenzy reads the bits, so two Warlords cannot keep each
   other raging in this order. Mutations that do bite: the frenzy stamping a clock on a Warlord it raises →
   2 red; a dying source (`ehp ≤ 0`) still counting → 1 red. Restored (cmp).
+
+- **INPUT-7 (LOW) — reproduced:** measured at HEAD, GATE E's needle sat at 4179 of its 4200 window and
+  GATE A's at 4445 of 4600 (CRLF); INPUT-1's one new `onDown` line then turned GATE A red with nothing
+  wrong. Fix (test only): `onDownBody()` (the `onDown…onMove` slice, `hoverBlock`'s shape) for GATE A and
+  `armedArm()` (from `const armed` to the handler's end) for both GATE E cases; every assertion unchanged.
+  Mutation (the armed arm's footer-surface return removed) → GATE E red; a 1.2 KB comment padded into
+  `onDown` → still green. Committed before INPUT-1 for that reason.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
