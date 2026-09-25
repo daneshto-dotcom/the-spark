@@ -1325,6 +1325,28 @@ export interface NetSnapshotMsg {
    * migrated host watches INCOMING stale-epoch snapshots to fire its claim echo (zombie demotion).
    */
   readonly epoch?: number;
+  /**
+   * ⭐ S191 (NETFR-2) — the match this snapshot belongs to (`StartGameMsg.matchId`). Envelope-only like
+   * `epoch`: never enters NetSnapshot/save/hash. While a rejoin is PENDING the client applies a snapshot
+   * only if this is ITS match id (`classifyHostMessage`). Additive-optional; absent = the S189 seq check.
+   */
+  readonly matchId?: string;
+}
+
+/**
+ * ⭐ S191 (NETFR-1) — where the HOST is, stamped on LOBBY_PRESENCE from its `world.gameState` at send time
+ * (`broadcastQmPresence`). The host broadcasts presence on every peer join in ANY state, so presence
+ * alone cannot tell a lobby from a live match whose tab is hidden (rAF paused, no snapshots) — this can.
+ */
+export type HostPhase = 'LOBBY' | 'MATCH';
+
+/**
+ * ⭐ S191 — a match id is `selfId` + `.` + a per-page-load counter (`mintMatchId`, hostHandlers.ts): ~22
+ * characters. ⚠ MINE: 64 is a parse-hygiene bound (well over the real length), not a format.
+ */
+export const MATCH_ID_MAX_LEN = 64;
+function isValidMatchId(v: unknown): boolean {
+  return typeof v === 'string' && v.length > 0 && v.length <= MATCH_ID_MAX_LEN;
 }
 
 /**
@@ -1391,6 +1413,12 @@ export interface StartGameMsg {
    * match proceeds). Seats without a proven pubkey are OMITTED (mixed-build tolerance, GROK R1 fix).
    */
   readonly warrant?: SuccessionWarrant;
+  /**
+   * ⭐ S191 (NETFR-1/2) — the id the host minted for THIS match at Begin. The client keeps it in the
+   * session (`NetSession.matchId`, cleared by `teardownNet`) as the thing a rejoin must be shown again.
+   * Additive-optional.
+   */
+  readonly matchId?: string;
 }
 
 /**
@@ -1412,6 +1440,10 @@ export interface StartGameMsg {
 interface LobbyPresenceMsg {
   readonly kind: 'LOBBY_PRESENCE';
   readonly roster: readonly RosterEntry[];
+  /** ⭐ S191 (NETFR-1) — the host's phase at send time. Additive-optional; absent = no lobby verdict. */
+  readonly phase?: HostPhase;
+  /** ⭐ S191 (NETFR-1) — the host's current match id, when it has one. Additive-optional. */
+  readonly matchId?: string;
 }
 
 /**
@@ -1942,6 +1974,8 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // S118 P1 (host-migration D2) — optional envelope epoch: absent is fine (legacy/original-term =
       // treated as 0); present but non-number rejects (fail-closed, same posture as the other optionals).
       if (obj.epoch !== undefined && typeof obj.epoch !== 'number') return null;
+      // ⭐ S191 — optional match id: absent is fine; present but not a bounded string rejects (fail-closed).
+      if (obj.matchId !== undefined && !isValidMatchId(obj.matchId)) return null;
       return obj as unknown as NetSnapshotMsg;
     }
     case 'START_GAME_SIGNAL': {
@@ -1957,6 +1991,8 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // S118 P1 (host-migration D2) — optional succession warrant: absent is fine (legacy/mixed-build
       // Begin); present but malformed rejects the whole message (fail-closed). Crypto verify runs later.
       if (obj.warrant !== undefined && !isValidWarrant(obj.warrant)) return null;
+      // ⭐ S191 — optional match id, same fail-closed posture.
+      if (obj.matchId !== undefined && !isValidMatchId(obj.matchId)) return null;
       return obj as unknown as StartGameMsg;
     }
     case 'LOBBY_PRESENCE': {
@@ -1965,6 +2001,9 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // stale-build peer that predates this kind falls through to `default` →
       // null (graceful degradation — the no-version-bump path, Council Fork B).
       if (!isValidRoster(obj.roster)) return null;
+      // ⭐ S191 — optional host phase (one of the two literals) and match id; malformed rejects.
+      if (obj.phase !== undefined && obj.phase !== 'LOBBY' && obj.phase !== 'MATCH') return null;
+      if (obj.matchId !== undefined && !isValidMatchId(obj.matchId)) return null;
       return obj as unknown as LobbyPresenceMsg;
     }
     case 'LOBBY_READY': {

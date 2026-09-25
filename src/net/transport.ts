@@ -62,6 +62,26 @@ import {
 } from './iceConfig.ts';
 
 export { classifyJoinError };
+
+/**
+ * ⭐ S189 (C4) — a leave() in flight, per room code, shared by every NetTransport on the page (the
+ * reconnect loop makes a NEW transport for the same code). See the note in `connect()`.
+ */
+const pendingLeaves = new Map<string, Promise<unknown>>();
+/**
+ * The longest a connect() waits for that leave. MINE, not the owner's: a normal leave settles in
+ * ~100 ms (one leave message + Trystero's 99 ms sleep); the cap only matters for a leave message
+ * queued behind a congested channel, and it must not hold a rejoin hostage.
+ */
+export const PENDING_LEAVE_CAP_MS = 2_000;
+/**
+ * ⛔ S189 (C4) — every room this page has called `leave()` on. A room must be left ONCE: a second
+ * `leave()` runs Trystero's `onSelfLeave` again, which deletes the registry entry and Nostr topic
+ * subscriptions KEYED BY ROOM ID — i.e. the NEWER room's, if one has joined that code since
+ * (verified S189 against nostr 0.25.2 by the disconnect hunt, finding A2). And a room that is still
+ * leaving must never be adopted by a new join.
+ */
+const leavingRooms = new WeakSet<object>();
 // S62 — re-export Trystero's local peer id so net handlers can self-identify in
 // the broadcast roster (each client matches its own seat by peerId === selfId).
 // selfId is a stable per-page-load constant, identical across all strategies.
@@ -163,6 +183,14 @@ interface StrategyHandle {
   lastError: string | null;
   icePollTimer: ReturnType<typeof setInterval> | null;
   icePollStartMs: number;
+  /**
+   * ⭐ S189 — snapshot backpressure, PER PEER on this strategy: is a NETSNAPSHOT still being handed to
+   * Trystero for that peer, and the newest one waiting behind it. OPTIONAL so a handle built without
+   * it (tests inject handles directly) reads as "idle, nothing waiting". See `sendSnapshotOn`.
+   */
+  snapSlots?: Map<string, { inFlight: boolean; pending: string | null }>;
+  /** Snapshots superseded before they were sent, summed over peers — how a starved uplink shows up. */
+  snapSkipped?: number;
 }
 
 type JoinFn = (
@@ -205,6 +233,24 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object';
 }
 
+/**
+ * ⭐ S189 (C4, hunt E3) — WHY did a peer drop? Read from its peer connection's LAST observed state:
+ * a connection that had gone `disconnected` / `failed` / `closed` means the NETWORK died (Trystero's
+ * ICE lifecycle drops it: disconnected for 5 s, failed, closed, channel close); one still healthy when
+ * the peer vanished means the peer LEFT (a leave message — tab close, BACK TO MAIN, double-Escape).
+ * No observed state is `unknown`, never a guess.
+ */
+export type PeerDropCause = 'network-died' | 'peer-left' | 'unknown';
+const DEAD_PC_STATES = new Set(['disconnected', 'failed', 'closed']);
+const LIVE_PC_STATES = new Set(['connected', 'completed']);
+export function classifyPeerDrop(conn: string | null, ice: string | null): PeerDropCause {
+  if ((conn !== null && DEAD_PC_STATES.has(conn)) || (ice !== null && DEAD_PC_STATES.has(ice))) {
+    return 'network-died';
+  }
+  if (conn !== null && ice !== null && LIVE_PC_STATES.has(conn) && LIVE_PC_STATES.has(ice)) return 'peer-left';
+  return 'unknown';
+}
+
 export function detectProtocolMismatch(
   parsed: unknown,
 ): { mismatch: true; version: unknown } | { mismatch: false } {
@@ -224,6 +270,14 @@ export class NetTransport {
   private lastSeq = 0;
   private lastKind: string | null = null;
   private connected = false;
+  /** ⭐ S189 — the room this transport joined, so `disconnect()` can register its leave. */
+  private roomCode: string | null = null;
+  /** ⭐ S189 — bumped by every connect()/disconnect(): a deferred start from an older one is void. */
+  private connectGen = 0;
+  /** ⭐ S189 (E3) — each strategy×peer connection's last observed state, for the drop line. */
+  private readonly pcState = new Map<string, { conn: string; ice: string }>();
+  /** ⭐ S189 (E3) — when each peer last sent us anything (performance.now()). */
+  private readonly lastRxAtMs = new Map<string, number>();
 
   public onError: ErrorHandler | null = null;
 
@@ -292,6 +346,7 @@ export class NetTransport {
    * subsequent messages.
    */
   handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+    this.lastRxAtMs.set(peerId, performance.now()); // ⭐ S189 (E3) — for the drop line's lastRxAgoMs
     // S182 STEP 0 — count inbound bytes BEFORE the parse and before any gate, so the reading
     // includes the redundant second-strategy copy. That copy is not free on the joiner: it is a
     // full JSON.parse of a ~100 KiB payload that is then discarded on ClientSync's seq gate.
@@ -349,6 +404,8 @@ export class NetTransport {
       throw new Error('NetTransport already connected; call disconnect() first');
     }
     this.connected = true;
+    this.roomCode = roomCode;
+    const gen = ++this.connectGen;
     console.info(
       `[net] connect: roomCode=${roomCode} appId=${APP_ID} ice=${ICE_SERVERS.length} ` +
         `strategies=[${Object.entries(STRATEGY_FLAGS)
@@ -356,7 +413,39 @@ export class NetTransport {
           .map(([n]) => n)
           .join(',')}]`,
     );
+    /*
+     * ⛔⛔ S189 (C4) — **NEVER JOIN A ROOM THAT IS STILL LEAVING.**
+     *
+     * Trystero's `joinRoom` returns the room ALREADY registered under that id (`strategy.mjs`:
+     * `if (occupiedRooms[appId]?.[roomId]) return occupiedRooms[appId][roomId]`), and a room stays
+     * registered until its async `leave()` finishes — `await leaveAction.send("")`, a 99 ms sleep,
+     * THEN `onSelfLeave` unregisters it (`room.mjs`). `disconnect()` fires `leave()` without waiting,
+     * and the reconnect loop and the migration rejoin both call `disconnect()` then `connect()` on the
+     * SAME code back to back — so the new transport bound itself to the dying room and could never
+     * see a peer. Reproduced over real WebRTC (`e2e/reconnect-hard-blip.spec.ts`).
+     *
+     * So a connect to a code with a leave in flight waits for that leave (capped — a leave queued
+     * behind a congested channel must not hold the rejoin hostage), then starts. `connected` is true
+     * throughout, so `send()` in that window takes the ordinary startup path: no strategy yet, dropped
+     * with a warn — the same as the first ~100 ms of any join.
+     */
+    const pending = pendingLeaves.get(roomCode);
+    if (pending !== undefined) {
+      console.info(`[net] connect: waiting for the previous leave of ${roomCode} to finish`);
+      void Promise.race([pending, new Promise((r) => setTimeout(r, PENDING_LEAVE_CAP_MS))]).then(() => {
+        if (this.connected && this.connectGen === gen) this.startAllStrategies(roomCode);
+      });
+      return;
+    }
+    this.startAllStrategies(roomCode);
+  }
 
+  /** The body of `connect()` — every enabled strategy joins `roomCode`. */
+  private startAllStrategies(roomCode: string): void {
+    // ⚠ S189 — the chunk-load callbacks below check the GENERATION, not just `connected`: a
+    // disconnect()+connect() inside one chunk load (the reconnect loop does exactly that) made the
+    // OLD callback see `connected === true` and start a second, orphaned torrent room.
+    const gen = this.connectGen;
     // Nostr — primary, always-on, eager static import.
     if (STRATEGY_FLAGS.nostr) {
       this.startStrategy(
@@ -372,7 +461,7 @@ export class NetTransport {
     if (STRATEGY_FLAGS.torrent) {
       void import('@trystero-p2p/torrent')
         .then((mod) => {
-          if (!this.connected) return;
+          if (!this.connected || this.connectGen !== gen) return;
           this.startStrategy(
             'torrent',
             roomCode,
@@ -393,7 +482,7 @@ export class NetTransport {
     if (STRATEGY_FLAGS.mqtt) {
       void import('@trystero-p2p/mqtt')
         .then((mod) => {
-          if (!this.connected) return;
+          if (!this.connected || this.connectGen !== gen) return;
           this.startStrategy(
             'mqtt',
             roomCode,
@@ -472,6 +561,12 @@ export class NetTransport {
         },
       );
 
+      // ⛔ S189 (C4) — Trystero hands back a room still registered under this id. If that room is one
+      // we are LEAVING (the leave outlived PENDING_LEAVE_CAP_MS), adopting it binds this transport to a
+      // room that is about to go deaf. Refuse; the reconnect loop's next attempt joins a fresh one.
+      if (leavingRooms.has(room)) {
+        throw new Error('the room is still leaving — refusing to adopt it (S189)');
+      }
       handle.room = room;
       handle.state = 'ready';
 
@@ -487,6 +582,7 @@ export class NetTransport {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
         handle.peers.add(peerId);
         this.stopIcePoll(handle);
+        this.watchPeerConnection(handle, peerId);
         // Dedup at transport boundary — only fire onPeerChange the first
         // time we see this peerId across all strategies.
         if (!this.peerSet.has(peerId)) {
@@ -499,7 +595,9 @@ export class NetTransport {
 
       room.onPeerLeave = (peerId) => {
         console.info(`[net] ${name} onPeerLeave: ${peerId}`);
+        this.logPeerDrop(name, peerId);
         handle.peers.delete(peerId);
+        handle.snapSlots?.delete(peerId); // ⭐ S189 — its snapshot slot goes with it
         // Only fire leave when ALL strategies have lost this peer.
         const stillSeenElsewhere = Array.from(this.strategies.values()).some(
           (s) => s.peers.has(peerId),
@@ -605,6 +703,46 @@ export class NetTransport {
     }, ICE_POLL_INTERVAL_MS);
   }
 
+  /**
+   * ⭐ S189 (C4, hunt E3) — remember this peer connection's state from the moment it joins, so a drop
+   * can say whether the network died or the peer left. Diagnostics only: any failure here is silent.
+   */
+  private watchPeerConnection(handle: StrategyHandle, peerId: string): void {
+    try {
+      const peers = handle.room?.getPeers?.() as Record<string, RTCPeerConnection> | undefined;
+      const pc = peers?.[peerId];
+      if (pc === undefined || typeof pc.addEventListener !== 'function') return;
+      const key = `${handle.name}:${peerId}`;
+      const record = (): void => {
+        this.pcState.set(key, { conn: String(pc.connectionState), ice: String(pc.iceConnectionState) });
+      };
+      record();
+      pc.addEventListener('connectionstatechange', record);
+      pc.addEventListener('iceconnectionstatechange', record);
+    } catch {
+      /* diagnostics only */
+    }
+  }
+
+  /**
+   * ⭐ S189 (C4, hunt E3) — the ONE line a drop leaves, searchable as `[net] PEER DROPPED`. It was only
+   * `onPeerLeave: <id>`, the same whether the brother's tab closed or his network died.
+   */
+  private logPeerDrop(strategy: StrategyName, peerId: string): void {
+    const key = `${strategy}:${peerId}`;
+    const st = this.pcState.get(key) ?? null;
+    this.pcState.delete(key);
+    const rx = this.lastRxAtMs.get(peerId);
+    const lastRxAgoMs = rx === undefined ? 'never' : String(Math.round(performance.now() - rx));
+    const visibility = typeof document !== 'undefined' ? document.visibilityState : 'n/a';
+    console.warn(
+      `[net] PEER DROPPED strategy=${strategy} peer=${peerId} ` +
+        `cause=${classifyPeerDrop(st?.conn ?? null, st?.ice ?? null)} ` +
+        `conn=${st?.conn ?? 'unseen'} ice=${st?.ice ?? 'unseen'} ` +
+        `lastRxAgoMs=${lastRxAgoMs} visibility=${visibility}`,
+    );
+  }
+
   private stopIcePoll(handle: StrategyHandle): void {
     if (handle.icePollTimer !== null) {
       clearInterval(handle.icePollTimer);
@@ -664,6 +802,11 @@ export class NetTransport {
       if (handle.action === null) continue;
       if (only !== null && handle.name !== only) continue;
       dispatched++;
+      // ⭐ S189 — a snapshot goes through the backpressure gate; control traffic never does.
+      if (msg.kind === 'NETSNAPSHOT') {
+        this.sendSnapshotOn(handle, serialized);
+        continue;
+      }
       // S182 STEP 0 — per-strategy upload. `action.send()` transmits to EVERY peer in that
       // strategy's room, so the wire cost is payload × peers, not payload. In the owner's 1v1 the
       // two are equal; at 3–4 seats counting it once understated the host's upload by up to 3×,
@@ -671,15 +814,7 @@ export class NetTransport {
       if (netStats.isEnabled()) {
         netStats.recordSend(handle.name, serialized.length, handle.peers.size, performance.now());
       }
-      handle.action.send(serialized).catch((err: unknown) => {
-        // Per-strategy send failure: warn, do not escalate UI unless all
-        // strategies have failed.
-        const errMsg = `${handle.name} send: ${err instanceof Error ? err.message : String(err)}`;
-        console.warn('[net]', errMsg);
-        if (this.allStrategiesFailed()) {
-          this.emitError(errMsg);
-        }
-      });
+      handle.action.send(serialized).catch((err: unknown) => this.onSendFailed(handle, err));
     }
     // ⛔ S182 STEP 0 — THE ENVELOPE IS COUNTED **AFTER** THE LOOP, AND ONLY IF IT ACTUALLY WENT OUT.
     // Counted once per send() call, so `snap tx` reads the host's real cadence (10 Hz) rather than
@@ -691,7 +826,9 @@ export class NetTransport {
     // immediately below, which exists precisely because that happens during the startup window. An
     // instrument that reports a healthy 10 Hz tx while nothing is leaving the machine would send the
     // next session hunting on the joiner for a fault that is on the host.
-    if (netStats.isEnabled() && dispatched > 0) {
+    // ⭐ S189 — a snapshot's envelope is counted when it is actually TRANSMITTED (`transmitSnapshot`),
+    // because behind a starved uplink most of them are superseded and never leave the machine.
+    if (netStats.isEnabled() && dispatched > 0 && msg.kind !== 'NETSNAPSHOT') {
       netStats.recordSendEnvelope(msg.kind, serialized.length, performance.now());
     }
     if (dispatched === 0) {
@@ -699,6 +836,108 @@ export class NetTransport {
       // (Trystero semantics). Warn so it's surfaced in console + diagnostics.
       console.warn('[net] send dropped — no strategy ready yet, kind=', msg.kind);
     }
+  }
+
+  /**
+   * ⛔⛔ S189 (C5) — **A SNAPSHOT THE UPLINK CANNOT CARRY IS SKIPPED, NOT QUEUED.**
+   *
+   * Owner: *"it was lagging at about wave five"*. `send()` used to hand every 10 Hz snapshot to
+   * Trystero without waiting. Trystero's action-wire cuts a message into 16 KiB chunks and waits, per
+   * chunk, for the channel's `bufferedamountlow` — with a 10 s timeout, after which it ABANDONS the
+   * rest of that message. A wave-5 board is ~113 KiB, ~9.3 Mbit/s per peer (measured S189). On an
+   * uplink below that every excess tick became one more concurrent send: the backlog grew without
+   * bound, each snapshot arrived later than the last, and once a turn around the backlog passed 10 s
+   * snapshots were abandoned half-sent. Reproduced through Trystero's real action-wire
+   * (`snapshotBackpressure.test.ts`): 5 Mbit/s → 40–47 s latency and 8–10 s gaps between whole
+   * snapshots, past `HOST_STARVATION_MS`.
+   *
+   * ⭐ LATEST WINS. At most ONE snapshot in flight per PEER, and at most one waiting — the newest.
+   * A snapshot is the WHOLE world (no deltas), so a superseded one carries nothing the next does not;
+   * the client's seq gate already treats a gap as normal. On a link that keeps up nothing is ever
+   * skipped (the in-flight send finishes inside the 100 ms cadence); on one that cannot, the rate falls
+   * to what the link carries and the latency stays at one snapshot.
+   *
+   * ⚠ "In flight" is Trystero's promise: it resolves once the last chunk is handed to the channel,
+   * which its own wait keeps within ~64 KiB of the wire. Control traffic (HELLO, INTENT, LOBBY_*,
+   * MIGRATION_CLAIM …) never enters this gate — it is small, rare, and must never be dropped.
+   *
+   * ⛔ S189 fix round (audit NET-2) — PER PEER, NOT PER STRATEGY. Trystero's `action.send` to several
+   * targets resolves only when EVERY target has drained, and a dying channel stays 'open' for ~5-10 s
+   * (ICE disconnected + Trystero's 5 s close delay). Gated per strategy, one slow or dying client set
+   * the snapshot rate for every client in a 3-4 seat match — reproduced: a healthy peer beside a stalled
+   * one received 3 of 100 snapshots. Each peer now has its own slot and its own targeted send
+   * (`{ target: peerId }`, Trystero 0.25). Wire cost is unchanged: Trystero already sent per peer.
+   */
+  private sendSnapshotOn(handle: StrategyHandle, serialized: string): void {
+    for (const peerId of handle.peers) {
+      const slots = (handle.snapSlots ??= new Map());
+      let slot = slots.get(peerId);
+      if (slot === undefined) slots.set(peerId, (slot = { inFlight: false, pending: null }));
+      if (slot.inFlight) {
+        if (slot.pending !== null) handle.snapSkipped = (handle.snapSkipped ?? 0) + 1;
+        slot.pending = serialized;
+        continue;
+      }
+      this.transmitSnapshot(handle, peerId, serialized);
+    }
+  }
+
+  private transmitSnapshot(handle: StrategyHandle, peerId: string, serialized: string): void {
+    const action = handle.action;
+    const slot = handle.snapSlots?.get(peerId);
+    if (action === null || slot === undefined) return;
+    slot.inFlight = true;
+    const now = performance.now();
+    if (netStats.isEnabled()) netStats.recordSend(handle.name, serialized.length, 1, now);
+    // Once per snapshot, however many strategies carry it (the S182 `snap tx` contract).
+    if (netStats.isEnabled() && serialized !== this.lastEnvelopeCounted) {
+      this.lastEnvelopeCounted = serialized;
+      netStats.recordSendEnvelope('NETSNAPSHOT', serialized.length, now);
+    }
+    let sent: Promise<unknown>;
+    try {
+      sent = Promise.resolve(action.send(serialized, { target: peerId }));
+    } catch (err) {
+      sent = Promise.reject(err);
+    }
+    sent
+      .catch((err: unknown) => this.onSendFailed(handle, err))
+      .finally(() => {
+        slot.inFlight = false;
+        const next = slot.pending;
+        slot.pending = null;
+        // Only on the handle that is still live, to a peer still in it: a disconnect or a reconnect
+        // replaces handles, a departed peer's slot is dropped — and a snapshot for either goes nowhere.
+        if (
+          next !== null &&
+          this.connected &&
+          this.strategies.get(handle.name) === handle &&
+          handle.peers.has(peerId) &&
+          handle.snapSlots?.get(peerId) === slot
+        ) {
+          this.transmitSnapshot(handle, peerId, next);
+        }
+      });
+  }
+
+  /** The newest snapshot string whose envelope was counted — so a broadcast counts it once. */
+  private lastEnvelopeCounted: string | null = null;
+
+  private onSendFailed(handle: StrategyHandle, err: unknown): void {
+    // Per-strategy send failure: warn, do not escalate UI unless all
+    // strategies have failed.
+    const errMsg = `${handle.name} send: ${err instanceof Error ? err.message : String(err)}`;
+    console.warn('[net]', errMsg);
+    if (this.allStrategiesFailed()) {
+      this.emitError(errMsg);
+    }
+  }
+
+  /** ⭐ S189 — diagnostics: snapshots superseded before transmission, per strategy. */
+  snapshotsSkipped(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const h of this.strategies.values()) out[h.name] = h.snapSkipped ?? 0;
+    return out;
   }
 
   on(handler: MessageHandler): void {
@@ -770,17 +1009,39 @@ export class NetTransport {
   }
 
   disconnect(): void {
+    const leaves: Promise<unknown>[] = [];
     for (const handle of this.strategies.values()) {
       this.stopIcePoll(handle);
-      if (handle.room !== null) {
+      if (handle.room !== null && !leavingRooms.has(handle.room)) {
+        leavingRooms.add(handle.room);
         console.info(`[net] disconnect strategy=${handle.name}`);
         // leave() returns a Promise in 0.25; fire-and-forget (await would
         // delay the next connect() unnecessarily; teardown is best-effort).
-        void handle.room.leave().catch((err: unknown) => {
-          console.warn('[net] leave failed:', handle.name, err);
-        });
+        // ⭐ S189 — still not awaited HERE, but REGISTERED, so a connect() to the same code waits
+        // for it instead of binding to the dying room (see the note in `connect()`).
+        let left: Promise<unknown>;
+        try {
+          left = Promise.resolve(handle.room.leave());
+        } catch (err) {
+          left = Promise.reject(err);
+        }
+        leaves.push(
+          left.catch((err: unknown) => {
+            console.warn('[net] leave failed:', handle.name, err);
+          }),
+        );
       }
     }
+    if (this.roomCode !== null && leaves.length > 0) {
+      const code = this.roomCode;
+      const settled = Promise.all(leaves);
+      pendingLeaves.set(code, settled);
+      void settled.then(() => {
+        if (pendingLeaves.get(code) === settled) pendingLeaves.delete(code);
+      });
+    }
+    this.roomCode = null;
+    this.connectGen++;
     this.strategies.clear();
     this.peerSet.clear();
     // S53 P1 — clear protocol-mismatch latch on disconnect. Lifetime of the

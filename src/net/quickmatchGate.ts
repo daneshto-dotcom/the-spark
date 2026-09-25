@@ -12,9 +12,10 @@
  */
 
 import { buildLobbyRoster, reconcileLobbySeats } from './lobbyRoster.ts';
-import type { RosterEntry } from './protocol.ts';
+import type { HostPhase, RosterEntry } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { selfId, type NetTransport } from './transport.ts';
+import type { GameState } from '../state/worldTypes.ts';
 
 /**
  * Host-side START GATE. True iff worth auto-beginning: ≥2 players present, the
@@ -67,11 +68,17 @@ export function qmReadyCount(roster: readonly RosterEntry[]): { ready: number; t
  * friends lobby (session.quickmatch=false) it produces the exact base roster
  * the pre-S87 onPeerChange did (byte-identical), so only quickmatch rooms
  * carry the `ready` field.
+ *
+ * ⭐ S191 (NETFR-1) — `gameState` is REQUIRED so no caller can forget it: the beacon now says where the
+ * host IS (`hostPhaseOf`) and which match it is in (`session.matchId`), because it is sent on every peer
+ * join in ANY state and a rejoining client must be able to tell a lobby from a live match whose tab is
+ * hidden. The local repaint is unchanged.
  */
 export function broadcastQmPresence(
   session: NetSession,
   transport: NetTransport | null,
   onPresence: (roster: readonly RosterEntry[]) => void,
+  gameState: GameState,
 ): void {
   // ⭐ S162 P1 — **THE TRANSPORT MAY LEGITIMATELY BE NULL, AND THE REPAINT STILL HAS TO HAPPEN.**
   //
@@ -172,12 +179,22 @@ export function broadcastQmPresence(
   }
   if (transport !== null) {
     try {
-      transport.send({ kind: 'LOBBY_PRESENCE', roster });
+      transport.send({
+        kind: 'LOBBY_PRESENCE',
+        roster,
+        phase: hostPhaseOf(gameState),
+        ...(session.matchId !== null ? { matchId: session.matchId } : {}),
+      });
     } catch (err) {
       // Disconnected mid-cycle is the ordinary case here; the local rack is already correct.
       console.warn('[net] LOBBY_PRESENCE broadcast failed — local rack already repainted', err);
     }
   }
+}
+
+/** ⭐ S191 (NETFR-1) — a host is in its LOBBY until Begin; PLAYING, WIN and POSTGAME are all its MATCH. */
+export function hostPhaseOf(gameState: GameState): HostPhase {
+  return gameState === 'LOBBY' || gameState === 'TITLE' ? 'LOBBY' : 'MATCH';
 }
 
 /** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */
