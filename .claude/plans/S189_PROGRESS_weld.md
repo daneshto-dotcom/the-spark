@@ -339,8 +339,18 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   VERDICT any more (member order only affects render lists), so this probe guards the sim as a whole
   rather than a specific walk; the reversed-Set unit test still pins `starArmsAt`'s sort.
 
+### fix-round close — canon notes rewritten (no spare; the built-with rule; Helga's exact build + dormant
+revive; owner questions W9/W2-6 carried; the protocol reasons incl. the NEW wire/hash state) + GATES on
+the committed tree, each a captured `$?`:
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=6` → VITEST_EXIT=0 — 6058 tests / 368 files
+- `npm run build` → BUILD_EXIT=0 — 950.4 KiB (base 944.2) = +6.2 KiB of the shared headroom
+- e2e NOT run (brief).
+- HOTSPOT HUNKS this round: `save.ts` (SerializedSpawner/Defender field, serialize/trim/deserialize
+  ×2), `stateHashFull.ts` (two union members + two projection suffixes). No refactor.
+
 ## IN-FLIGHT
-- gates + canon notes + report.
+- none — fix-round report delivered.
 
 ## NEXT
 
@@ -372,7 +382,12 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
 - F2 `hostTick.ts:856` hub self-raze took the whole welded structure — FIXED in follow-up item 3.
 
 ## HOTSPOT HUNKS (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
-- NONE. No hotspot file touched. No wire field, no hash field, no worker field added.
+- rounds 1-2: none.
+- FIX ROUND (audit W1): `save.ts` — `ownBondIdLimit` on SerializedSpawner + SerializedDefender,
+  emitted additive-optional by serializeSpawner/serializeDefender, KEPT by trimMirrorSpawner, read
+  `?? null` by deserializeSpawner/deserializeDefender. `stateHashFull.ts` — `'ownBondIdLimit'` in
+  SpawnerHashed + DefenderHashed, `:ob…` suffix on both projections. (W2: the new 'DORMANT'
+  DefenderState needs no hotspot hunk — state is serialized/hashed as a string already.)
 
 ## WIRE / HASH / PROTOCOL
 - No serialized or hashed field changed. The SURVIVAL RULE is shared: it runs on the host AND the

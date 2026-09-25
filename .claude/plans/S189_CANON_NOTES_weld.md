@@ -16,64 +16,68 @@ text, and the constant/function an assertion should pin.
 lightning hub, goblin tower, stink tower, Helga's hall, the pentagram, and all twelve tier-3 / tier-9
 race rings.
 
-1. **BUILDING a tower is exact** — unchanged: `isLaserTurretComponent`, `isLightningHubComponent`,
-   `isGoblinTowerComponent`, `isStinkTowerComponent`, `isPentagramComponent`, and R136's `isRingAt`
-   for the race rings (via `findRingAnchors`). That exactness keeps the recipes disjoint.
-   ⚠ **One exception, by ruling R190-J: Helga.** Her build predicate is the survival test below,
-   because she dies while her hall stands and comes back through that predicate — there is no record
-   of "this was her hall", so first build and re-summon are one test.
+1. **BUILDING a tower is exact** — unchanged, Helga included: `isLaserTurretComponent`,
+   `isLightningHubComponent`, `isGoblinTowerComponent`, `isStinkTowerComponent`, `isHelgaComponent`,
+   `isPentagramComponent`, and R136's `isRingAt` for the race rings (via `findRingAnchors`).
+   ⭐ **Helga's RE-SUMMON (R190-J) is not a build:** when she dies her defender record stays DORMANT
+   (no pool; untargetable, not drawn, not ticking; her HALL keeps its art and identity) and she
+   revives at the FIGHT→BUILD edge while the hall's own members stand — welded or not, no bond needed.
+   If the hall falls, that edge's sweep removes the record and she never returns.
 2. **A LIVE tower STANDS while its own recipe is still contained** — `towerStandsAt`
    (`src/state/towerMembers.ts`, shape derived from `blueprints.ts`, exhaustive over `GodlyId`).
    A weld — any shape, any type, bonded anywhere, hub included — neither kills it nor counts toward it.
-   - **Star** (turret, hub, goblin, stink, Helga): its OWN arms are, for each arm type T that the
-     recipe needs `c` of, the `c` lowest-bond-id hub bonds reaching DISTINCT neighbours of type T
-     (`starArmsAt`). It stands iff the hub still has at least `c` distinct T-neighbours for every T.
-   - **Ring** (pentagram, t3, t9): its OWN ring is the lexicographically-least simple `n`-cycle of the
-     ring's shape THROUGH ITS ANCHOR (`ringCycleAt`). It stands iff such a cycle exists.
-   - Lowest-id = the ORIGINAL members while they are intact — provable, because every weld is minted
-     after ignition and ids are monotonic.
+   - **Star** (turret, hub, goblin, stink, Helga): its OWN arms are the hub bonds below its
+     `ownBondIdLimit` (`starArmsAt(…, limit)`). It stands iff all `c` arms of every type are still there.
+   - **Ring** (pentagram, t3, t9): its OWN ring is the exact walk over the bonds below its limit
+     (`ringMembersAt(…, limit)`, O(n)). It stands iff that walk still closes. (`ringCycleAt`, an
+     uncapped cycle search, is DELETED — audit W7.)
 
-**⚖ EXACTLY WHEN A CUT LEVELS THE TOWER, AND WHEN A SPARE TAKES OVER** (a "cut" = one of the tower's
-OWN connectors severed, or one of its own shapes destroyed):
-- **STAR — a cut LEVELS it unless the hub carried a SURPLUS shape of the SAME arm type, bonded
-  DIRECTLY TO THE HUB.** Before the cut the hub had exactly `c` T-arms → after it, `c − 1` → it falls.
-  Before the cut it had `c + k` (k ≥ 1 same-type welds on the hub itself) → after it, still ≥ `c` → the
-  lowest-id surplus becomes an own arm and it stands. A weld of any OTHER type, or any weld on a LEAF,
-  never stands in.
-  - pinned "levels": `weldOntoTowerS189.test.ts` — *an enemy cutting one own arm of the welded turret
-    levels it within the poll* (the welds are Triangles — foreign to a Spiral turret).
-  - pinned "spare takes over": *STAR: a 7th Spiral welded to the turret HUB takes over when an own
-    Spiral arm is cut* (host tick) and *starArmsAt takes the LOWEST-id arms; a surplus same-type weld
-    is not an arm until one is lost* (arithmetic).
-- **RING — a cut LEVELS it unless welds of the ring's OWN shape complete ANOTHER simple `n`-cycle
-  THROUGH THE ANCHOR.** A same-type spur, or a same-type triangle that does not include the anchor,
-  does not count; neither does anything of another type.
-  - pinned "levels": *a pentagram whose own ring is cut falls, welded or not* (a Circle weld) and
-    *…and with one of its OWN ring connectors cut it falls* (a race ring with a same-type spur).
-  - pinned "spare takes over": *RING: a Triangle bridging nodes 0 and 2 takes over when the pentagram
-    edge 0–1 is cut* (host tick) and *ringCycleAt returns the ORIGINAL ring even when a chord weld
-    opens a second 5-cycle* (arithmetic).
-- **Cutting a WELD never levels a tower** — *…while cutting a WELD leaves it standing*.
-- ⭐ So *"cutting one of the tower's OWN connectors still levels it"* is exact for a tower with no
-  same-type weld on its hub (star) / no same-type bypass through its anchor (ring) — every tower as
-  built, and every tower welded only with foreign shapes. The spare exists only when the player welded
-  the tower's own shape onto the exact spot that rebuilds the recipe, and then the recipe genuinely is
-  there again (*"as long as the existing tower, the shape is there"*).
+**⚖ FIX ROUND (audit W1) — THERE IS NO SPARE. A CUT OWN CONNECTOR ALWAYS LEVELS THE TOWER.**
+
+The first version let a same-type weld "stand in" for a cut own connector (a spare arm on a star's
+hub, a same-type bypass through a ring's anchor). Nobody ruled that; the brief and R185-B (*"it
+destroys the connectors that he's attacking"*) say the opposite, so it is REVERTED. The rule now:
+
+- **A tower's own members are the ones it was BUILT with.** Every spawner and defender records
+  `ownBondIdLimit` = `world.nextBondId` when it registered (serialized on disk, worker INIT AND the
+  wire; hashed). Its own connectors are the recipe's shape among the bonds with a LOWER id.
+- **Cutting (or eating) ANY one of those connectors levels the tower** — always, whatever is welded on,
+  whatever its type. Pinned: `weldOntoTowerS189.test.ts` — *STAR: a 7th Spiral welded to the turret HUB
+  does NOT save it*, *RING: a Triangle bridging nodes 0 and 2 does NOT save the pentagram*, *a bat tower
+  welded with its own shape falls to one own cut*, *an enemy cutting one own arm of the welded turret
+  levels it*, *a pentagram whose own ring is cut falls*.
+- **Cutting a WELD never levels a tower.** Pinned: *…while cutting a WELD leaves it standing*, and the
+  W8 differential (a pentagram weld cut inside the window; it stands on host and worker).
+- ⚠ **What looks like a spare but is not:** after a tower falls, the shapes left may happen to form an
+  EXACT recipe again (e.g. five original Spirals + a Spiral welded on the hub = a clean 6-arm star).
+  That can IGNITE a brand-new tower on the next BUILD-phase topology change — ordinary exact ignition,
+  a new tower with a new `ownBondIdLimit`, not the old one surviving.
+- **No limit (a pre-S189 save, or a structure that is not a live tower):** the exact pre-S189 reading.
 
 **Consequences, all deliberate and tested:**
 - welding costs repair (R185-B): FIX refused on any welded structure — unchanged, now also asserted
   for two welded bat towers; the welded pool is the whole welded structure's (> 2× one tower's).
 - welded towers keep producing: two welded bat towers BOTH emit their unit in FIGHT.
-- a star welded BEFORE it is complete never ignites (build is exact) — except Helga (R190-J).
-- the S140 "dies at seven" trap is gone for a LIVE turret (a 7th Spiral on the hub is a spare).
+- a star welded BEFORE it is complete never ignites (build is exact) — Helga included (audit W2
+  reverted her "contains" first build).
+- a 7th Spiral welded on a live turret's hub is a harmless weld; losing an own Spiral still levels it.
 - an accidental stink tower you keep building onto no longer "self-heals" away.
 - the S107 P4 auto-bond lock (`placePrimitive.ts`) now locks only a spawner still on an exact survival
   rule — none ships — so a JOINER can weld onto any live spawner and one drop can merge two of them.
 - a lightning hub's self-raze deletes only its OWN star (`towerMembersAt`), never what is welded to it
   (R182-B: *"the neighbouring shapes are protecting it"*). Its blast is unchanged.
 - a t9 ring's release razes only its own nine; a same-type weld survives the release.
-- a welded Helga hall brings her back every BUILD after she dies (R190-J) — ⚠ ignition still needs a
-  BUILD-phase topology change, true of an un-welded hall too (reported; see the progress file).
+- a welded Helga hall brings her back at every FIGHT→BUILD edge after she dies (R190-J, dormant
+  record, no bond needed); while she is dormant the hall shows a STRUCTURE bar (a pool-less defender).
+- the spawner aura and the ground zone are drawn over the tower's own members (audit W2-1/W5); bot
+  raids aim at its own connectors (W3); a hub self-raze and a t9 release also take a weld left holding
+  nothing (S157 B2, audit W2-2).
+
+⚠ OWNER QUESTION carried (audit W9 / W2-6, NOT changed this round): with the S107 P4 lock empty,
+every drop next to a spawner becomes a weld — bots weld their frontier into their own towers, and a
+human building beside his tower merges into it by accident (unrepairable for good under R185-B). And
+an own-race Dot 3-ring welded through a live lightning hub stays inert (the ignition de-dup has no
+recipe compare). Both need his call.
 
 Suggested `canon.test.ts` assertions: `towerShapeFor('laserTurret')` = Line hub + `TURRET_HUB_DEGREE`
 Spirals (and the other four stars incl. Helga 3+3); `towerShapeFor('pentagram')` = Triangle ring of 5;
@@ -129,11 +133,14 @@ Still true; add "— its OWN connectors. A weld on it is not part of its recipe.
 
 ## H · PROTOCOL — restated once, with the final rule list
 
-No serialized or hashed field changed (no hotspot file touched). But every rule below is computed by
-whichever peer is HOST (so after a migration to an older build it would be applied differently), and
-the render walks + the feed lookup run on every client. Two builds that shake hands at the same
-`PROTOCOL_VERSION` would disagree about: (1) whether a welded star / pentagram / race ring stands;
-(2) whether Helga ignites / re-summons on a welded hall; (3) whether a drop may auto-bond onto a live
-spawner (the S107 P4 lock); (4) which members a hub self-raze and a t9 release delete; (5) the cover
-set, centroid and FEED row of a welded tower. By the S140 precedent (a recipe retune bumped 18→19 as
-"shared constants both peers compute from") this OWES ONE BUMP — the merge owner writes it.
+THE FIX ROUND ADDED WIRE AND HASH STATE (hotspots `save.ts`, `stateHashFull.ts`, self-contained hunks):
+(A) `ownBondIdLimit` on `CreatureSpawner` and `Defender` — serialized (disk, worker INIT, and the WIRE:
+`trimMirrorSpawner` keeps it), hashed in both projections, additive-optional; (B) a new serialized
+`DefenderState` value `'DORMANT'` — a stale peer holds a state it has no arm for. Plus the shared-rule
+reasons: every rule below runs on whichever peer is HOST and the render walks run on every client, so
+two builds at one `PROTOCOL_VERSION` would disagree about (1) whether a welded star / pentagram / race
+ring stands, and which connectors are its own; (2) Helga's exact first build and her dormant revive;
+(3) whether a drop may auto-bond onto a live spawner (the S107 P4 lock); (4) which members a hub
+self-raze and a t9 release delete, orphans included; (5) the cover set, centroid, aura, ground zone
+and FEED row of a welded tower; (6) which connector a bot raid aims at. ONE BUMP owed, every reason
+listed — the merge owner writes it (S182 lesson 6).
