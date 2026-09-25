@@ -29,8 +29,9 @@
  *
  * ## ⛔ A WARLORD'S OWN RAGE LATCH IS NEVER TOUCHED BY THE FRENZY — and there are TWO ways to break it
  *
- * `runWarlordRage` latches a Warlord's own rage on his health (R149/R151/S179). The frenzy shares the
- * `enraged` bit with it, so:
+ * `runWarlordRage` latches a Warlord's own rage (R149/R151/S179 fired it on his health and cleared it on a
+ * heal; ⛔ S191 SUPERSEDED that exit — he fires below half and his rage ends on a 25 s CLOCK,
+ * `WARLORD_RAGE_TICKS`, not on a heal). The frenzy shares the `enraged` bit with it, so:
  *
  *  1. **The frenzy NEVER TOUCHES a Warlord.** ⭐⭐ S191 (owner): *"I don't think each warlord should be
  *     able to enrage the other warlord. Yes, the warlord enrages all the orc units, but still rage for

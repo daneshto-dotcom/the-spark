@@ -15,7 +15,7 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
 | R2-1 | RAGE-1 the clock runs through BUILD | **REVERTED** (owner ruling, S191) | d2757a0, reverted ba622eb |
 | R2-1r | RAGE-1 as RULED: pinned across a real whistle + his quote | DONE | b62cdac |
-| R2-2x | OWNER RULE (answers RAGE-2): the frenzy never raises another Warlord | DONE | (this commit) |
+| R2-2x | OWNER RULE (answers RAGE-2): the frenzy never raises another Warlord | DONE | 8861146 |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
@@ -23,7 +23,7 @@ Merge owner = the main session. This branch never merges, never pushes.
 | R2-5 | INPUT-4 castle-panel RMB put-back | DONE | 90732c4 |
 | R2-6 | INPUT-5 Alt latch reset on blur / hidden | DONE | 7ea99a5 |
 | R2-7 | INPUT-6 widened right-click guard + repo-wide scan | DONE | 08363cc |
-| R2-9 | DOCS · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-9 | DOCS — RAGE-6 superseded passages + RAGE-5 canon-notes paragraph | DONE | (this commit) |
 
 ## Decisions / owner answers received mid-task
 
@@ -186,6 +186,11 @@ Merge owner = the main session. This branch never merges, never pushes.
   `bloodFrenzy.test.ts` "when the raging Warlord dies…" and both RAGE-7 cases — their sibling now stays
   calm; the soldier/source assertions unchanged. Mutation (the frenzy sets Warlords again) → 5 red.
   Canon notes carry the replacement §3e sentence. Rides A-1's protocol bump (a shared rule).
+- **DOCS (RAGE-6, RAGE-5):** superseded notes added (no text deleted) at `constants.ts` (the S179 zero-width
+  band paragraph at `WARLORD_RAGE_TRIGGER_PCT`: the calm half is history, the trigger half stands),
+  `hostTick.ts` (the stun-exemption's R151 threshold wording; the exemption still holds), `bloodFrenzy.ts`
+  (the "latches on his health" line). Canon notes §3e paragraph rewritten to the pattern that ships under
+  his RAGE-1 ruling; the "25 s on / 25 s off" pin is gone from the notes and the constant.
 - **RAGE-3 (LOW) — reproduced first** (the renderer had no row-aware choice: new test red). Fix: pure
   `animRageForRow(row, enraged, attackCycleRaged)` in `goblinRenderer.ts`; `syncSprite` gains an
   `attackCycleRaged` parameter (both call sites pass `c.attackCycleRaged === true`) and the attack row's

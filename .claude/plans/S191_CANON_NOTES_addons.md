@@ -9,26 +9,32 @@
   25 s window** (`isOwnRageActive`, off `Creature.rageStartTick`), NOT his health and NOT the bare
   `enraged` bit. The frenzy still only ever SETS a Warlord; only his own latch lowers the bit.
 
-**Proposed canon text (a new sub-paragraph in §3e, beside BLOOD FRENZY):**
+**Proposed canon text (a new sub-paragraph in §3e, beside BLOOD FRENZY) — ⭐ rewritten S191 round 2 to
+the pattern that actually ships (RAGE-5), and to his RAGE-1 ruling:**
 
 > ⭐⭐ **THE WARLORD'S RAGE LASTS 25 SECONDS, THEN "COOLDOWN FIRST" (S191).** *"let's do it like 25
 > seconds"* — once his own latch fires (strictly below `WARLORD_RAGE_TRIGGER_PCT` **50** % of his own
-> max) he rages for `WARLORD_RAGE_TICKS` = **1500** ticks (25 s) **regardless of healing** — R151's
-> heal-above-50 exit is retired (`WARLORD_RAGE_CLEAR_PCT` is kept, unread). Then, *"cooldown first"*: he
-> is calm for `WARLORD_RAGE_COOLDOWN_TICKS` = **1500** ticks whatever his health (⚠ MINE — he gave no
-> length; 25 s mirrors the rage), and after it, below the line, he rages again at once. Both windows
-> derive from ONE stamp, `Creature.rageStartTick`, written only by `runWarlordRage` — serialized,
-> hashed, on the wire. ⚠ Stated consequence: nothing heals a Warlord today, so a hurt Warlord
-> alternates **25 s on / 25 s off**, and his seat's frenzied orcs with him. Goblins never rage.
+> max, in FIGHT) he rages for `WARLORD_RAGE_TICKS` = **1500** ticks **regardless of healing** — R151's
+> heal-above-50 exit is retired (`WARLORD_RAGE_CLEAR_PCT` is kept, unread). Then, *"cooldown first"*: he is
+> calm for `WARLORD_RAGE_COOLDOWN_TICKS` = **1500** ticks whatever his health (⚠ MINE — he gave no length;
+> 25 s mirrors the rage), and after it, below the line, he rages again at once. Both windows derive from
+> ONE stamp, `Creature.rageStartTick`, written only by `runWarlordRage` — serialized, hashed, on the wire.
+> ⭐ **THE PATTERN, RULED (S191):** the latch runs only in FIGHT, so a rage still running at the whistle
+> stays red through the whole BUILD and the next FIGHT's first tick fires afresh — *"Yeah, that's fine.
+> Who cares? You can't really see the creatures anyways."* A hurt Warlord therefore rages from each
+> FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` inside
+> `FIGHT_PHASE_TICKS` (today: 0–25 s, then from 50 s through the whistle and all of BUILD). Goblins never
+> rage; another Warlord is never raised by his frenzy (below).
 
-**Assertions to land with it in `canon.test.ts`** (derive, never hard-code):
+**Assertions to land with it in `canon.test.ts`** (derive, never hard-code — no "25 s on / 25 s off" pin;
+that sentence was wrong and is gone from the constant too):
 
 ```ts
 expect(WARLORD_RAGE_TICKS).toBe(25 * PHYSICS_HZ);
 expect(WARLORD_RAGE_COOLDOWN_TICKS).toBe(WARLORD_RAGE_TICKS); // ⚠ MINE until he names a length
 expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
 expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
-expect(canonSays('25 s on / 25 s off')).toBe(true);
+expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
 ```
 
 ## S191 owner ruling (answers the audit's RAGE-2) · §3e — the frenzy never raises another Warlord

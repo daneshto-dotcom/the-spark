@@ -3149,6 +3149,11 @@ export const RA_COLUMN_SPREAD = 150;
  * stays (49 > 50 is false); at 51% a calm one stays calm and an enraged one CALMS; at exactly 50%
  * NEITHER branch fires, so he keeps whatever state he is in. That is his "below 50" exactly.
  *
+ * ⛔ S191 — **SUPERSEDED: THE CALM HALF OF THIS PARAGRAPH IS HISTORY.** The rage now ends on a 25 s
+ * CLOCK (`WARLORD_RAGE_TICKS`), not on a heal above 50 %, so no health reading calms him and there is no
+ * band, zero-width or otherwise. The TRIGGER half stands: strictly below 50 % fires his latch (in FIGHT,
+ * outside his cooldown). The flicker note below is moot for the same reason.
+ *
  * ⚠ AND THE FLICKER THE OLD BAND GUARDED AGAINST IS UNREACHABLE TODAY. Flicker needs hp to CROSS
  * the line repeatedly, i.e. a heal. Every `.ehp =` write in the sim that RAISES a pool is gated to
  * another race — Vlad's sap heals only Vlad (`bossSkills.ts:119`) and the Ra restore only the
