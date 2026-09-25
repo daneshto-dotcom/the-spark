@@ -16,9 +16,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
 | **ROUND 2** | | | merge owner's message: A · B · C · D · C-6 · C-8 · C-9 |
-| R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | (this commit) | see below |
-| R2-B · test honesty (GATES-3, BLAST-8) | next | | |
-| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | todo | | |
+| R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | `082ecd2` | see below |
+| R2-B · test honesty (GATES-3, BLAST-8) | DONE | (this commit) | test-only |
+| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | next | | |
 | R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | todo | | |
 | C-6 · spreadEnemyTarget strict predicate | RELEASED, todo | | |
 | C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
@@ -154,6 +154,20 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - Mutation: remainder dropped (`extra = 0`) → 3 RED, restored.
 - Canon §9d item 2 rewritten (quote, total split, MINE order/n>120; per-connector MINE removed);
   `canon.test.ts` pin slices from `planHubBlast` and asserts the division + the quote.
+
+## R2-B — DONE (test-only)
+
+- GATES-3 REPRODUCED: `helga()` / `bag()` return the stored object `damageEntity` mutates, so
+  `expect(get(id).ehp).toBe(obj.ehp)` compared a value with itself. With the Helga owner filter dropped the
+  test went red only via the ENEMY Helga's changed share (the own-Helga line could not fail). Fixed: the
+  number is captured before the blast (own Helga also pinned to `unitPoolFifths(PRINCESS_HP, PRINCESS_DEF)`
+  = 156) and checked first. Mutations: Helga owner filter dropped → RED on "the owner's Helga is spared"
+  (96 vs 156); bag owner filter dropped → RED on "the owner's bag is spared". Restored.
+- BLAST-8 REPRODUCED (`hashWorldStateFull(a)` vs itself). Replaced by a differential: A;
+  B = restore(snapshot(A)); C = the same save with creatures / defenders / primitives / bonds / stinkClouds
+  and every shape's bond Set re-inserted in reverse (anti-vacuity: C's first creature differs). Pre-blast
+  all three hash equal; post-blast all three equal and differ from pre; the tied 50 px bosses split 18/17
+  by id. Mutation: the plan's sort removed → RED ("C = A after the blast"). Restored.
 
 ## In flight
 

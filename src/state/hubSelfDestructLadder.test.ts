@@ -25,6 +25,8 @@ import {
   LIGHTNING_HUB_DEGREE,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
+  PRINCESS_DEF,
+  PRINCESS_HP,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   SparkType,
 } from '../constants.ts';
@@ -51,8 +53,9 @@ import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { applyStructureSelfDestruct, planHubBlast } from './potatoLifecycle.ts';
 import { mulberry32 } from './rng.ts';
+import { restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
-import { attackFifths } from './stats.ts';
+import { attackFifths, unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { canBuildAt } from './zones.ts';
@@ -280,9 +283,14 @@ describe('S191 C-5 — every arm, exactly', () => {
     w.defenders.set(turret.id, turret);
     const helgaPool = enemyHelga.ehp!;
     expect(helgaPool, 'anti-vacuity: she survives one blast').toBeGreaterThan(BLAST);
+    // ⛔ S191 GATES-3 — the NUMBER, captured before the blast and pinned to the ladder. This compared
+    // `ownHelga.ehp` with itself (the helper returns the very object `damageEntity` mutates), so it
+    // could not fail. Checked FIRST, so it is the assertion a dropped owner filter trips.
+    const ownPool = ownHelga.ehp!;
+    expect(ownPool).toBe(unitPoolFifths(PRINCESS_HP, PRINCESS_DEF));
     hubBlast(w);
+    expect(w.defenders.get(ownHelga.id)?.ehp, "the owner's Helga is spared").toBe(ownPool);
     expect(w.defenders.get(enemyHelga.id)?.ehp, 'pre-fix: the raze took her anchor, not her pool').toBe(helgaPool - BLAST);
-    expect(w.defenders.get(ownHelga.id)?.ehp).toBe(ownHelga.ehp);
     expect(w.defenders.get(turret.id)?.ehp, 'a tower dies through its connectors, and this one is outside').toBeNull();
     expect(w.primitives.get(turretAnchor.id)?.hp, 'its anchor is a shape in a structure: no arm').toBe(PRIMITIVE_MAX_HP);
   });
@@ -317,11 +325,12 @@ describe('S191 C-5 — every arm, exactly', () => {
     const farEnemy = spawn(w, 'chewer', P1, HUB_AT.x + out, HUB_AT.y);
     const farShape = prim(w, P1, SparkType.Triangle, HUB_AT.x - out, HUB_AT.y);
     const ownBag = bag(w, P0, 650, 450);
+    const ownBagPool = ownBag.ehp; // ⛔ S191 GATES-3 — the number, not the live object
     const ownChewer = spawn(w, 'chewer', P0, 620, 400);
     hubBlast(w);
     expect(w.creatures.has(farEnemy)).toBe(true);
     expect(w.primitives.has(farShape.id)).toBe(true);
-    expect(w.stinkClouds.get(ownBag.id)?.ehp).toBe(ownBag.ehp);
+    expect(w.stinkClouds.get(ownBag.id)?.ehp, "the owner's bag is spared").toBe(ownBagPool);
     expect(w.creatures.has(ownChewer)).toBe(true);
   });
 
@@ -354,32 +363,67 @@ describe('S191 C-5 — every arm, exactly', () => {
     }
   });
 
-  it('determinism — the same board inserted in a different Map order ends in the same world', () => {
-    const build = (reverse: boolean): World => {
-      const w = board();
-      const add: Array<() => void> = [
-        () => { spawn(w, 'chewer', P1, 700, 420); },
-        () => { spawn(w, 'goblinMelee', P1, 560, 330); },
-        () => { bag(w, P1, 520, 460); },
-        () => { prim(w, P1, SparkType.Triangle, 640, 300); },
-        () => { link(w, prim(w, P1, SparkType.Line, 760, 380), prim(w, P1, SparkType.Line, 800, 380)); },
-      ];
-      for (const f of reverse ? [...add].reverse() : add) f();
+  it('⛔ determinism (BLAST-8) — the board, its save round-trip, and its Maps reversed all blast to one wide hash', () => {
+    /*
+     * ⛔ S191 BLAST-8 — this compared `hashWorldStateFull(a)` with ITSELF, which cannot fail. Now a real
+     * differential: A; B = restore(snapshot(A)) (what a successor or a `?worker=1` INIT holds); C = the
+     * same save with every Map this blast reads, and every shape's bond Set, re-inserted in REVERSE (same
+     * ids) — so Map iteration order is the ONLY difference. Seven targets, so the 120 splits 17 × 7 + 1
+     * and WHO gets the remainder is visible in the hash (creature pools and bond banks are hashed); two
+     * bosses tie on distance, so only the id tie-break separates them.
+     */
+    const a = board();
+    const bossA = spawn(a, T9_BOSS_TYPE.nagas, P1, 550, 400); // 50 px — the nearest
+    const bossB = spawn(a, T9_BOSS_TYPE.orcs, P1, 650, 400); // 50 px — a tie with the first
+    helga(a, P1, 600, 250); // 150 px; her anchor's connector midpoint is (800, 250): outside
+    prim(a, P1, SparkType.Triangle, 640, 470); // a lone shape, 80.6 px
+    const c1 = prim(a, P1, SparkType.Line, 560, 330);
+    const c2 = prim(a, P1, SparkType.Line, 600, 330);
+    const c3 = prim(a, P1, SparkType.Line, 640, 330);
+    const c4 = prim(a, P1, SparkType.Line, 680, 330);
+    link(a, c1, c2);
+    link(a, c2, c3);
+    link(a, c3, c4); // three connectors inside, pool 24: the 17s fell some of them
+    spawn(a, 'goblinMelee', P0, 620, 420); // the owner's — spared in all three
+    expect(planHubBlast(a, HUB_AT.x, HUB_AT.y, STRUCTURE_SELFDESTRUCT_RADIUS, P0), 'fixture: seven targets').toHaveLength(7);
+
+    const fromSave = (): World => {
+      const w = makeWorld(1);
+      restore(JSON.parse(JSON.stringify(snapshot(a))), w);
       return w;
     };
-    const a = build(false);
-    const b = build(true);
-    hubBlast(a);
-    hubBlast(b);
-    // Ids differ by insertion order, so compare what survived by kind and pool, not by id.
-    const shape = (w: World) => ({
-      creatures: [...w.creatures.values()].map((c) => `${c.type}:${c.ehp}`).sort(),
-      prims: w.primitives.size,
-      bonds: w.bonds.size,
-      bags: w.stinkClouds.size,
-    });
-    expect(shape(b)).toEqual(shape(a));
-    expect(hashWorldStateFull(a)).toBe(hashWorldStateFull(a)); // stable under re-hash
+    const b = fromSave();
+    const c = fromSave();
+    const reverse = <K, V>(m: Map<K, V>): void => {
+      const entries = [...m.entries()].reverse();
+      m.clear();
+      for (const [k, v] of entries) m.set(k, v);
+    };
+    reverse(c.creatures);
+    reverse(c.defenders);
+    reverse(c.primitives);
+    reverse(c.bonds);
+    reverse(c.stinkClouds);
+    for (const p of c.primitives.values()) {
+      const ids = [...p.bonds].reverse();
+      p.bonds.clear();
+      for (const id of ids) p.bonds.add(id);
+    }
+    expect([...c.creatures.keys()][0], 'anti-vacuity: C really iterates in the other order').not.toBe([...a.creatures.keys()][0]);
+    const before = hashWorldStateFull(a);
+    expect(hashWorldStateFull(b), 'the save round-trip is exact before the blast').toBe(before);
+    expect(hashWorldStateFull(c), 'and so is the reversed copy').toBe(before);
+
+    const bossPool = a.creatures.get(bossA)!.ehp;
+    const bossBPool = a.creatures.get(bossB)!.ehp;
+    for (const w of [a, b, c]) hubBlast(w);
+    const after = hashWorldStateFull(a);
+    expect(after, 'anti-vacuity: the blast changed the world').not.toBe(before);
+    expect(hashWorldStateFull(b), 'B = A after the blast').toBe(after);
+    expect(hashWorldStateFull(c), 'C = A after the blast').toBe(after);
+    // And the remainder went where the order says: the lower-id boss of the tied pair.
+    expect(bossPool - a.creatures.get(bossA)!.ehp).toBe(18);
+    expect(bossBPool - a.creatures.get(bossB)!.ehp).toBe(17);
   });
 });
 
