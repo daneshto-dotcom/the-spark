@@ -672,7 +672,7 @@ export class Controls {
   /** ⭐ S188 P6 — while aiming, the board click is the cast. Returns true when it consumed the click. */
   private handleRaAimClick(button: number): boolean {
     if (raAimPreview() === null) return false;
-    if (button === 2) {
+    if (button === 2) { // R190-G: HAND (puts the aim away)
       setRaAimPreview(null);
       return true;
     }
@@ -731,6 +731,24 @@ export class Controls {
       this.world.gameState === 'PLAYING' &&
       this.footerBand !== null &&
       this.footerBand.isOverBandSurface(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /**
+   * ⭐ S191 A-3 (R190-G) — **IS THE POINTER OVER ANY OPAQUE SURFACE THE LEFT CLICK'S GATES REFUSE?**
+   * The four the `onUp` PLACE commit gates list — the castle panel, the draft panel, the character
+   * card and the footer band's opaque plates — as ONE question, so the right-click raid cannot ask a
+   * different set than the left click does. The castle and draft panels are also caught earlier in
+   * `onDown`; asking them again here costs nothing and keeps the set whole if that order ever moves.
+   * Collapsed, the band's surface is only its tab and the Ra square (S187), so the ground it gave
+   * back is raidable again — the same ground a left click may build on.
+   */
+  private isPointerOverAnyOpaqueSurface(): boolean {
+    return (
+      this.isPointerOverPanel() ||
+      this.isPointerOverDraftPanel() ||
+      this.isPointerOverCard() ||
+      this.isPointerOverFooterSurface()
     );
   }
 
@@ -1138,7 +1156,7 @@ export class Controls {
        * the order `onDown` itself keeps; one gesture is in hand at a time, so at most one is set. The
        * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
        */
-      if (e.button === 2) {
+      if (e.button === 2) { // R190-G: HAND (the S190 IL-2 put-back)
         if (raAimPreview() !== null) setRaAimPreview(null);
         else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
       }
@@ -1183,7 +1201,7 @@ export class Controls {
     // in onKeyDown) puts it back instead.
     const armed = this.castlePanel?.armedBlueprint() ?? null;
     if (armed !== null) {
-      if (e.button === 2) {
+      if (e.button === 2) { // R190-G: HAND
         this.castlePanel?.disarm();
         return;
       }
@@ -1367,7 +1385,19 @@ export class Controls {
        * avatar to be free in order to be READ.
        */
       if (this.handleSheetSelect()) return;
-    } else if (e.button === 2) {
+    } else if (e.button === 2) { // R190-G: BOARD (gated below)
+      /*
+       * ⛔⛔ S191 A-3 (owner, R190-G) — **AN OPAQUE PANEL SWALLOWS A RIGHT-CLICK TOO.** *"Yeah, we'll
+       * keep seven as is for your recommendation"* — read as: do the recommendation, so a right-click
+       * on a footer card, the unit card or any opaque panel does NOTHING to the board under it (⚠ the
+       * reading was flagged to him; reverse on his word). Until S191 this arm asked no surface at all:
+       * the castle panel (top of `onDown`) and the draft panel (S190 IL-2) swallowed the raid, but a
+       * right-click on the footer's plates or on the character card raided the unit under them —
+       * ground the player cannot see. It now asks the SAME four surfaces the left click's gates ask,
+       * through one predicate. The put-backs above act on the HAND, not the ground, and stay live
+       * everywhere (the IL-2 rule). R190-F is untouched: the arrow in the seam is a LEFT click.
+       */
+      if (this.isPointerOverAnyOpaqueSurface()) return;
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
       // Pre-S53 this branch ALSO entered ConnectDrag when player.kind was
       // 'Carrying' — but post-S52 P1 atomic LMB-up, no public path reaches

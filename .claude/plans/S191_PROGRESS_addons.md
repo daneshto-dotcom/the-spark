@@ -9,9 +9,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 |---|---|---|---|
 | 0 | `npm ci` (NPM_CI_EXIT=0) + this skeleton | DONE | 3fb5733 |
 | A-1 | Warlord rage 25 s + cooldown | DONE | be61e6a |
-| A-2 | Alt toggles the footer while a tower is armed | DONE | (this commit) |
-| A-3 | R190-G opaque panels swallow right-clicks | next | — |
-| A-4 | A1 CI e2e lane | — | — |
+| A-2 | Alt toggles the footer while a tower is armed | DONE | 7f8b326 |
+| A-3 | R190-G opaque panels swallow right-clicks | DONE | (this commit) |
+| A-4 | A1 CI e2e lane | next | — |
 | A-5 | magic-attack DESIGN doc | — | — |
 
 ## Decisions / owner answers received mid-task
@@ -75,6 +75,30 @@ Merge owner = the main session. This branch never merges, never pushes.
 - Wire/hash: NONE (render-only view state). No protocol change.
 - ⚠ Suspect: Alt is acted on at KEYDOWN (as briefed), so Alt+Tab with a tower in hand also drops the band.
 
+## A-3 — what landed
+
+- `input/controls.ts`: new `isPointerOverAnyOpaqueSurface()` (castle panel ∥ draft panel ∥ character card ∥
+  footer band surface — the four the LMB commit gates ask) right after `isPointerOverFooterSurface`;
+  the RMB RAID branch returns on it BEFORE any pick. Each of the four `button === 2` sites carries a
+  tag: three `R190-G: HAND` (Ra-aim put-away, the draft-plate put-back, the held-tower put-back — S190
+  IL-2: they act on the hand, so they stay live over every surface) and one `R190-G: BOARD (gated
+  below)`. R190-F untouched (the seam arrow is a LEFT press).
+- Tests: new `src/input/controls.rightClickSurfaces.test.ts` (23). REACH via real `Controls.onDown` +
+  real `FooterBand`: an enemy UNIT and an enemy CONNECTOR under a tier chip, an open tower card, the
+  collapse tab, the character card, the castle panel, the draft panel → no RAID_TARGET; bare board →
+  raided (both arms, the negative control); collapsed band → the ground is raidable again, the collapsed
+  tab still swallows; RMB over the footer still puts the held tower back; LMB on the tab still collapses.
+  MECHANICAL: exactly 4 `button === 2` sites, each tagged HAND/BOARD, 3 HAND + 1 BOARD; the BOARD guard
+  precedes the first pick; all 3 `RAID_TARGET` dispatches lie after it; the predicate names all four
+  surfaces; the one `contextmenu` listener only preventDefaults.
+- Mutation MR1 (guard removed) → 10 red; restored.
+- Gates at A-3: typecheck 0; full vitest 0 (6510 passed / 2 skipped, 399 files).
+- Wire/hash: NONE. No protocol change.
+- ⚠ The first run went red in `s182UiSurfaceGuards.test.ts` GATE E: it slices a FIXED 4200-char window
+  from `const armed = …` and my tag lengthened the held-tower RMB line; shortened the tags instead of
+  widening their window. `onBuildBlueprint` now sits at **4141** chars on a CRLF checkout (4125 before,
+  4083 on LF/CI) — **59 chars of headroom locally**. s191/owner's aim mode in `onDown` can false-red it.
+
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
 - `save.ts` — 3 self-contained lines/blocks: `SerializedCreature.rageStartTick?` (after
@@ -91,6 +115,10 @@ Merge owner = the main session. This branch never merges, never pushes.
   (2) the `keyup` listener after the `keydown` one in the constructor; (3) the first line of
   `onKeyDown`; (4) the block `// ── ⭐⭐ S191 A-2 … // ── end S191 A-2` after the S42 comment below
   `onKeyDown`.
+- `controls.ts` A-3: (1) the four `button === 2` lines gained a trailing `// R190-G: …` tag (lines
+  ~675, ~1159, ~1204, ~1388); (2) the block `isPointerOverAnyOpaqueSurface()` after
+  `isPointerOverFooterSurface()`; (3) a comment block + `if (this.isPointerOverAnyOpaqueSurface())
+  return;` at the top of the RMB raid branch.
 
 ## Numbers that are MINE
 
@@ -98,6 +126,15 @@ Merge owner = the main session. This branch never merges, never pushes.
 - A-2: raise the band on disarm / place when Alt lowered it (the brief's default; he asked for the toggle).
 
 ## What I suspect / questions (not built)
+
+- ⛔ **FOUND (A-3 enumeration), NOT FIXED — out of the brief's surface set:** the CODEX (G+C, openable
+  mid-match, backdrop alpha 0.93), CONNECTION LOST (alpha 0.88, shown while still PLAYING — R190-A) and
+  the EXIT-CONFIRM modal (alpha 0.72) swallow only PIXI hits (`eventMode = 'static'`). `Controls` listens
+  on the raw canvas, so BOTH buttons still act on the board under them — a held tower stamps, a spark
+  is grabbed, a right-click raids. None of the LMB gates know them either. Fix shape (one predicate,
+  both buttons): inject a `setCoveredBy(() => codex visible || connection-lost visible ||
+  exitButton.isConfirmOpen())` into `Controls` beside `draftOverlay.setCoveredBy` (`main.ts:2042`) and
+  return at the top of `onDown`/`onUp` while covered. Needs main.ts (hotspot) — the merge owner's call.
 
 - The rage latch is FIGHT-gated (S168 post-audit), so a Warlord raging at the whistle keeps the red bit
   through BUILD and is re-judged on the first FIGHT tick (both windows long over by then). Pre-existing
