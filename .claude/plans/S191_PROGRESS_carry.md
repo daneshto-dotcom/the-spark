@@ -20,9 +20,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | R2-B · test honesty (GATES-3, BLAST-8) | DONE | `6b19634` | test-only |
 | R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | `7706688` + follow-up (this commit) | see below |
 | R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | DONE | `2e8189e` | ⚠ GATES-1 part SUPERSEDED by the owner's S191 overkill ruling → R2-E |
-| C-6 · spreadEnemyTarget strict predicate | DONE | (this commit) | see below |
-| R2-E · overkill CARRIES (owner S191) + BLAST-1 is his ruling | next | | reverses R2-D's §2 rewrite |
-| C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
+| C-6 · spreadEnemyTarget strict predicate | DONE | `5412c46` | see below |
+| R2-E · overkill CARRIES (owner S191) + BLAST-1 is his ruling | DONE | (this commit) | reverses R2-D's §2 rewrite |
+| C-8 · R190-I castle hit / heal numbers | RELEASED, next | | |
 | C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
 
 ## C-1 — DONE
@@ -223,6 +223,36 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - Mutation: the pre-fix `creatureAI.ts` restored → 2 RED. Restored.
 - Full suite 0: 6507 passed / 2 skipped, 403 files. Canon §5b replacement text → canon notes §5 (not my grant).
 - Wire/hash: none; a TARGETING rule both peers compute (who a creature walks to) → rides the deploy bump.
+
+## R2-E — DONE (owner S191: *"I do want the overkill to carry forward … however many connectors the hit does"*)
+
+- ⚠ THE NUMBERS I WAS GIVEN DO NOT MATCH THE LADDER: "a 150 fells 3 (50, 36, 24) and banks 40" — but 40
+  covers the next pool (2 connectors = 14), so by his rule the 150 fells ALL FIVE (50+36+24+14+6 = 130) and
+  the last 20 has nothing to land on. Built to the rule; canon §2 now says so; a 100 is the "fells some,
+  banks the rest" example (50, 36 → 14 banked on three).
+- `damage.ts`: new exported `severWithCarry(world, bondId, sever)` — severs the struck bond (R173-C), then
+  re-applies the overkill left on it (post-drain) to the next survivor through `damageConnector(…, null)`
+  while it covers the re-formed pool; the rest banks. ⚠ MINE: the next survivor = nearest the struck
+  bond's midpoint (d²), then lowest id, among the struck structure's bonds as they stood before the first
+  sever. Carried hits name no attacker (lifesteal paid once on the whole hit). A refused sever stops it.
+  `damageConnector` itself is unchanged (the Voltkin chain still prices every link before severing).
+- Production callers, every one now severs through `severWithCarry`: creature strike (`creatureAttack.ts`),
+  Voltkin chain (`voltkinChain.ts` phase 3), suicide blast (`suicideBlast.ts`), hub blast
+  (`potatoLifecycle.ts`), POWER/WRATH OF RA (`powerOfRa.ts`), player raid (`world.ts`; clamp 3 → carry ≤ 2,
+  only ever banks). NOT connector paths: drone (severs by COUNT), physics, bombs (archived), scorch (creatures only).
+- Tests `src/state/connectorCarry.test.ts` (9): ladder; 150 → 5 felled, breaks [150,100,64,40,26]; 100 → 2
+  felled, 14 banked; exact 50 → 1, 0 banked; 12 → nothing; the order (d², id incl. a tie); a refused sever
+  stops it; REACH: a real swarm bite (132) through `applyCreatureAttack` fells a REAL hub's five, the next
+  poll tears the hub down, `rampFrameForHealth(0, 24)` = 24 (R182-D); host vs `?worker=1` wide hash equal
+  every tick for 400 ticks while a swarm fells a tower (anti-vacuity: one tick felled > 1).
+- Re-pinned by design: C-5 REACH (the 10 left after e12 now fells e23, outside the radius — replaces the
+  "measured 0"); `damageConnector.callSites` 6 → 7 (+`damage.ts` null — the carry); canon §2 + its pin
+  (R2-D's "one connector" pin inverted: both examples constructed through the real path).
+- BLAST-1 is HIS ruling now (*"Stink bags should not be able to hit your own units or your own … buildings,
+  no matter what, they're resistant"*): quoted at `damageStinkCloud`, the hub blast, the test and canon §9d item 2.
+- Mutation: carry dropped (break after the struck sever) → RED in all three files. Restored.
+- Full suite 0: 6516 passed / 2 skipped, 404 files.
+- Wire/hash: no field; a RULE both peers compute (how many connectors a hit fells) → OWES the deploy bump.
 
 ## In flight
 

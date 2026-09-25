@@ -64,15 +64,24 @@ Its HP and DEF are both its connector count: `pool(n) = n × (5 + n)`.
 | pool | 50 | 36 | 24 | 14 | 6 |
 
 That full pool is the cost of **ONE** connector; the survivors re-form at the lower count, so
-felling a 5-connector tower costs **130**. Damage banks **structure-wide** — a hit anywhere on the
-structure counts toward the next connector — but **one hit fells at most ONE connector**:
-`damageConnector` drains the STRUCK bond first, and the sever then deletes that bond together with
-whatever it still holds. So a boss's 150 on a 5-connector tower takes the 50 and the other 100 is
-gone; the survivors bank nothing (`canon.test.ts` constructs it through the real `SEVER_BOND`).
-⚠ **S191 — AN OWNER QUESTION, NOT A DEFECT TO FIX UNASKED.** This paragraph used to say the overkill
-carried on into the next connector, reading R173-B's *"subtract the pool rather than zeroing, so
-overkill carries"*; the tree has never done that, and his S191 R191-A (*damage stays
-connector-specific*) reads the other way. The code is unchanged until he rules.
+felling a 5-connector tower costs **130**. Damage banks **structure-wide**, and overkill **spends
+into the next connector** rather than being wasted: the struck connector falls first, and what is
+left walks on — to the survivor nearest where the hit landed (⚠ MINE, the order: squared distance,
+then the lowest bond id) — felling each connector while it covers that connector's pool at the
+re-formed count, and banking the rest on the structure. So a boss's 150 on a fresh 5-connector tower
+takes the 50, then the 36, then the 24, the 14 and the 6 — **the whole tower, 130, in a single blow**
+— and the last 20 has nothing left to land on; a 100 takes the 50 and the 36 and banks 14 on the three
+that stand.
+
+> *"I do want the overkill to carry forward because there's only a few like enemies that can actually
+> do that … one hit, boom, done. For now, it destroys … however many connectors the hit does … If it
+> looks too OP, then later we will change that."* — owner, S191
+
+⭐ **BUILT S191** (`severWithCarry`, on every connector-damage path: creature strikes, the Voltkin
+chain, the suicide blast, the hub blast, Ra columns and raids); `canon.test.ts` constructs both
+examples through the real `damageConnector` and `SEVER_BOND`. ⚠ Until S191 this sentence stopped the
+150 at the 24 and the tree carried nothing at all (the remainder was deleted with the struck bond);
+the ladder continues to the 14 and the 6, and so does the code.
 
 ### Shapes
 
@@ -1422,9 +1431,9 @@ the constant:** who gets the remainder — the order is nearest first (squared d
 (creature · Helga · shape · bag · connector), then id; past 120 targets the nearest 120 take one fifth
 each and the rest nothing (a fifth is the smallest unit the ladder has). And it is the UNBUFFED drone:
 a seat that drafted ATK/PEN still blasts 120.
-⚠ **MINE (S191 BLAST-1):** a bag the blast pops still BURSTS, and that burst spares the HUB OWNER as
-well as the bag's owner (`damageStinkCloud`) — otherwise S157 P0's exemption would leak 90 px past the
-blast through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner only).
+⭐ **HIS RULING (S191, BLAST-1):** a bag the blast pops still BURSTS, and that burst spares the HUB
+OWNER as well as the bag's owner (`damageStinkCloud`) — *"Stink bags should not be able to hit your own units or your own … buildings, no matter what, they're resistant"* — owner, S191. Without it S157 P0's exemption leaked 90 px past the blast
+through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner).
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
 (380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is

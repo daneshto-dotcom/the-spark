@@ -101,7 +101,7 @@ import { PRINCESS_DEF, PRINCESS_HP } from './constants.ts';
 import { PLAYER_COLORS, STRUCTURE_SELFDESTRUCT_RADIUS, T9_ZOMBIE_DEATH_BLAST_RADIUS } from './constants.ts';
 import { T9_BOSS_TYPE } from './state/t9BossIds.ts';
 import { bossMaxPoolFifths } from './state/bossSkills.ts';
-import { damageConnector } from './state/damage.ts';
+import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
@@ -1387,41 +1387,57 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(table.includes('DEFENSIVE_SEVER_CHARGE_COST')).toBe(false);
   });
 
-  it('⛔ GATES-1 — §2 says what the tree does: ONE hit fells at most ONE connector (constructed, not asserted)', () => {
-    // A 5-connector star, one 150 hit through the real `damageConnector`, then the real SEVER_BOND.
-    const w = makeWorld(0x191d);
-    w.players.clear();
-    w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]!));
-    w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
-    w.gameState = 'PLAYING';
-    const mk = (id: number, x: number, y: number) => {
-      const p = {
-        id: asPrimitiveId(id), type: SparkType.Dot, placerColor: PLAYER_COLORS[0]!, placedBy: asPlayerId(0),
-        createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set<BondId>(), ownerColor: PLAYER_COLORS[0]!,
-        lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+  it('⭐ S191 (owner) — §2: the overkill CARRIES — a 150 fells the whole 5-connector tower (constructed, not asserted)', () => {
+    // A fresh 5-connector star; one hit through the real `damageConnector`, severed through the real
+    // `severWithCarry` + SEVER_BOND path every connector-damage caller uses.
+    const build = () => {
+      const w = makeWorld(0x191d);
+      w.players.clear();
+      w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]!));
+      w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
+      w.gameState = 'PLAYING';
+      const mk = (id: number, x: number, y: number) => {
+        const p = {
+          id: asPrimitiveId(id), type: SparkType.Dot, placerColor: PLAYER_COLORS[0]!, placedBy: asPlayerId(0),
+          createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set<BondId>(), ownerColor: PLAYER_COLORS[0]!,
+          lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+        };
+        w.primitives.set(p.id, p as never);
+        return p;
       };
-      w.primitives.set(p.id, p as never);
-      return p;
+      const hub = mk(1, 500, 400);
+      const ids: BondId[] = [];
+      for (let i = 0; i < 5; i++) {
+        const leaf = mk(2 + i, 500 + 40 * Math.cos(i), 400 + 40 * Math.sin(i));
+        const id = asBondId(10 + i);
+        w.bonds.set(id, { id, aId: hub.id, bId: leaf.id, a: hub, b: leaf, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 } as never);
+        hub.bonds.add(id);
+        leaf.bonds.add(id);
+        ids.push(id);
+      }
+      return { w, ids };
     };
-    const hub = mk(1, 500, 400);
-    const ids: BondId[] = [];
-    for (let i = 0; i < 5; i++) {
-      const leaf = mk(2 + i, 500 + 40 * Math.cos(i), 400 + 40 * Math.sin(i));
-      const id = asBondId(10 + i);
-      w.bonds.set(id, { id, aId: hub.id, bId: leaf.id, a: hub, b: leaf, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 } as never);
-      hub.bonds.add(id);
-      leaf.bonds.add(id);
-      ids.push(id);
-    }
-    expect(structurePoolFifths(5)).toBe(50);
-    expect(damageConnector(w, ids[0]!, 150, null), 'the 150 reaches the pool').toBe(true);
-    dispatch(w, { type: 'SEVER_BOND', bondId: ids[0]!, playerId: asPlayerId(1), cause: 'unit' });
-    expect(w.bonds.size, 'ONE connector fell, not three').toBe(4);
-    let banked = 0;
-    for (const b of w.bonds.values()) banked += b.damageFifths;
-    expect(banked, 'and the other 100 went with the struck bond').toBe(0);
-    // The canon says exactly this, and no longer says the opposite.
-    expect(canonSays('one hit fells at most ONE connector')).toBe(true);
-    expect(canonSays('150 takes the 50, then the 36')).toBe(false);
+    const hit = (amount: number) => {
+      const { w, ids } = build();
+      expect(damageConnector(w, ids[0]!, amount, null)).toBe(true);
+      const felled = severWithCarry(w, ids[0]!, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: asPlayerId(1), cause: 'unit' }));
+      let banked = 0;
+      for (const b of w.bonds.values()) banked += b.damageFifths;
+      return { felled, standing: w.bonds.size, banked, breaks: w.connectorBreakHits.map((h) => h.amount) };
+    };
+    expect([5, 4, 3, 2, 1].map(structurePoolFifths)).toEqual([50, 36, 24, 14, 6]);
+    // 150: 50, 36, 24, 14, 6 — all five (130); 20 has nothing to land on.
+    expect(hit(150)).toEqual({ felled: 5, standing: 0, banked: 0, breaks: [150, 100, 64, 40, 26] });
+    expect(canonSays('takes the 50, then the 36, then the 24, the 14 and the 6')).toBe(true);
+    expect(canonSays('the last 20 has nothing left to land on')).toBe(true);
+    // 100: 50, 36 — two fall; 14 banks on the three that stand.
+    expect(hit(100)).toEqual({ felled: 2, standing: 3, banked: 14, breaks: [100, 50] });
+    expect(canonSays('a 100 takes the 50 and the 36 and banks 14 on the three')).toBe(true);
+    expect(canonSays('So 120 damage points in total.')).toBe(true); // (the hub's split rides on this carry)
+    expect(canonSays('one hit fells at most ONE connector')).toBe(false);
+    expect(canonSays('I do want the overkill to carry forward')).toBe(true);
+    // ⭐ S191 (owner) — BLAST-1 is his ruling now, quoted in §9d item 2.
+    expect(canonSays('HIS RULING (S191, BLAST-1)')).toBe(true);
+    expect(canonSays("they're resistant")).toBe(true);
   });
 });

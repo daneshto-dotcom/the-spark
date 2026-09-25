@@ -89,7 +89,9 @@ describe('S188 — the damageConnector call-site census', () => {
   const sites = collect();
 
   it('finds every production call site (and not zero — a vacuous parser would pass everything)', () => {
-    expect(sites.length).toBe(6); // S191 C-5 +1: the lightning hub's ladder blast (a null site)
+    // S191 C-5 +1: the lightning hub's ladder blast (a null site). S191 (owner) +1: the overkill
+    // CARRY in `damage.ts` (`severWithCarry`) — a null site, the lifesteal was paid on the whole hit.
+    expect(sites.length).toBe(7);
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -113,6 +115,9 @@ describe('S188 — the damageConnector call-site census', () => {
       // ⭐ S191 C-5 — the lightning hub's self-destruct, 120 to each enemy connector in radius: a blast,
       // and the hub is a building being razed on the same tick — no creature to heal.
       'src/state/potatoLifecycle.ts': 1,
+      // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on to the next connector; BLOOD DEBT
+      // was already paid on all of it by the caller's own `damageConnector`, so it heals nobody again.
+      'src/state/damage.ts': 1,
     });
   });
 });

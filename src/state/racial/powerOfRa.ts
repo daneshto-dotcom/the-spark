@@ -55,7 +55,7 @@
 import { MAX_PLAYERS, RA_COLUMN_ATK, RA_COLUMN_COUNT, RA_COLUMN_PEN, RA_COLUMN_RADIUS, RA_RITUAL_TICKS } from '../../constants.ts';
 import type { BondId, PlayerId } from '../../types.ts';
 import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
-import { applyRadialDamage, damageConnector } from '../damage.ts';
+import { applyRadialDamage, damageConnector, severWithCarry } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import type { World } from '../world.ts';
 import { applySeverBond } from '../severBond.ts';
@@ -192,7 +192,8 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
        * sever reducer, `applySeverBond`, which still runs `canSeverBond` (a `'raid'` sever passes it,
        * by its own rule) and still does the topology split and the effects in order.
        */
-      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
+      // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }));
     }
   }
 

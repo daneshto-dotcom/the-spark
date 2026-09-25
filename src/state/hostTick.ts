@@ -1639,9 +1639,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)` (⭐ S190:
          * the creature's own `creatureAttackFifths`, drafted-buffed) through `damageConnector` with no
          * `targetsStructures` gate. `damageConnector` already banks
-         * structure-wide (R173-A/B). ⚠ S191 GATES-1: one hit fells at most ONE connector — a boss's 150
-         * takes the 50 and the rest is deleted with the struck bond (canon §2); this line used to say it
-         * took the 50, the 36 and the 24. Everything downstream was waiting.
+         * structure-wide (R173-A/B), and since S191 the overkill CARRIES (`severWithCarry`, owner S191), so
+         * a boss's 150 takes the 50, the 36, the 24, the 14 and the 6 in one blow (canon §2). Everything
+         * downstream was waiting.
          */
         const st = structureTargets(world, creature);
         creature.targetPrimitiveId = st.primitiveId;

@@ -235,14 +235,15 @@ describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT
     const severs = w.effects.filter((e) => e.kind === 'BOND_SEVERED');
     expect(severs.length, 'anti-vacuity: the blast severed something').toBeGreaterThan(0);
     expect(severs.every((e) => e.kind === 'BOND_SEVERED' && e.cause === 'drone'), 'an EXISTING cause, never a new one').toBe(true);
-    expect(w.bonds.has(e23), 'the connector outside stands').toBe(true);
     /*
-     * ⚠ MEASURED, AND NOT WHAT CANON §2 USED TO SAY: the chain's pool was 14 and the hit was 24, yet the
-     * survivor holds NOTHING. `damageConnector` drains the STRUCK bond first, so the 10 of overkill sits
-     * on the bond the sever then deletes. Pre-existing (every connector strike in the game does it) and
-     * reported by S191 C-5, not fixed here — flip this when `damageConnector` carries it.
+     * ⭐ S191 (owner) — THE OVERKILL CARRIES (canon §2), and it replaces what this test used to pin (the
+     * 10 of overkill deleted with the struck bond). The chain's pool is 14 (2 connectors); its share, 24,
+     * fells e12 and leaves 10; the survivor re-forms at ONE connector (pool 6), so the 10 fells e23 too —
+     * though e23 is OUTSIDE the blast: the carry walks the structure, not the radius — and the last 4
+     * has nothing to land on.
      */
-    expect(w.bonds.get(e23)!.damageFifths).toBe(0);
+    expect(w.bonds.has(e23), 'the carry fells the connector outside the radius').toBe(false);
+    expect(w.connectorBreakHits, 'with the 10 the first sever left').toContainEqual({ bondId: e23, amount: 10 });
     expect(w.primitives.get(s1.id)?.hp, 'a shape INSIDE a structure has no arm').toBe(PRIMITIVE_MAX_HP);
     expect(w.bonds.get(s12)?.damageFifths, 'and its connector outside took nothing').toBe(0);
     expect(w.players.get(P1)!.castleHp, 'the castle is not an arm').toBe(enemyCastle);
@@ -525,7 +526,7 @@ describe('⭐⭐ S191 (owner) — the blast is 120 IN TOTAL, split across every 
 
 /* ─────────── 2c · BLAST-1 — A BAG THE HUB POPS BURSTS WITHOUT HITTING THE HUB OWNER (⚠ MINE) ─────────── */
 
-describe('⚠ MINE (S191 BLAST-1) — a bag the hub blast pops still bursts, and that burst spares the HUB OWNER too', () => {
+describe('⭐ S191 (owner) — BLAST-1: a bag the hub blast pops still bursts, and that burst spares the HUB OWNER too', () => {
   it('⭐ REACH: an enemy bag at 230 px pops; the owner\'s boss and lone shape 300 px out, inside its 90 px burst, take nothing on the blast tick', () => {
     const { w, hub, d, st } = hubBoard();
     const enemyBag = bag(w, P1, 830, 400, STINK_BAG_RADIUS); // 230 px: inside the blast; the real 90 px bag

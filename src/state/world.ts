@@ -64,7 +64,7 @@ import {
   type DespawnCreatureAction,
   type SpawnCreatureAction,
 } from './creatures/creatureLifecycle.ts';
-import { damageConnector, damageEntity } from './damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from './damage.ts';
 import {
   applyCreatureAttack,
   type CreatureAttackAction,
@@ -816,9 +816,11 @@ function dispatchReducer(world: World, action: GameAction): World {
       // turn on (the same answer this file's two `damageEntity` raid arms give).
       const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
-        dispatch(world, {
+        // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2). A raid's
+        // hit is clamped to RAID_CONNECTOR_MAX_FIFTHS, so its carry is at most 2 and only ever banks.
+        severWithCarry(world, action.target.id, (id) => dispatch(world, {
           type: 'SEVER_BOND',
-          bondId: action.target.id,
+          bondId: id,
           playerId: action.playerId,
           // ⛔ 'raid', NOT 'player'. A 'player' sever is a PURCHASE gated on disruption charges;
           // this one was already paid for with a raid point and is a CONSEQUENCE of damage
@@ -826,7 +828,7 @@ function dispatchReducer(world: World, action: GameAction): World {
           // for want of a currency the raider never needed — found by raid.test.ts, which is
           // exactly why that test builds real topology instead of stubbing a bond.
           cause: 'raid',
-        });
+        }));
       }
       world.effects.push({
         kind: 'RAIDED',
