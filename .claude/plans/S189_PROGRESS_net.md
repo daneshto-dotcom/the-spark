@@ -192,8 +192,8 @@ The merge owner resumes from this file if this agent is cut off.
 | # | item | state | commit |
 |---|---|---|---|
 | 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | fd41fad |
-| 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | (this commit) |
-| 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | pending | |
+| 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | 50f1f6e |
+| 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | (this commit) |
 | 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | pending | |
 | 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | pending | |
 | 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | pending | |
@@ -230,6 +230,18 @@ The merge owner resumes from this file if this agent is cut off.
   stray); `migrationCase` back to `peerCount() > 0` → 1 red (the guard). `vitest src/net/` EXIT=0 (39 + 1 /
   620 + 3), typecheck EXIT=0. Hotspot `main.ts`: the import, one input line, the `migrationCase`
   expression. Protocol: none (local WHEN).
+
+- **FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one.** The NETFR-3 line
+  returned `lossObservedAtMs: 0` whenever no seated survivor was visible, so a REAL 3+-seat host death
+  restarted its grace on every survivor blink (measured by the new test: a one-frame blink at L+10 s moved
+  the claim from L+16.5 s to L+26.5 s). Now it returns `{ lossObservedAtMs: i.lossObservedAtMs, claim: false }`
+  — 0 stays 0 (NETFR-3 intact: the "B at 25 s, host back at 27 s → no claim" case and the RESIDUAL stay
+  green), a running clock is kept. Tests (3 red → green): the step keeps 12 000 and starts nothing from 0;
+  host dies at L with B connected, B blinks for ONE frame at L+10 s → claim at L + grace + rung (±1 frame);
+  a claim that falls due DURING a 2.5 s blink fires on the first frame B is back. The old NETFR-3 NEGATIVE
+  ("reports no loss episode" from 12 000) is RE-PINNED to FIX-3's rule, not deleted. Mutation: back to
+  `lossObservedAtMs: 0` → 3 red. `vitest src/net/` EXIT=0 (39 + 1 / 622 + 3). Canon notes' survivor-gate
+  paragraph amended for WIRE-3 + FIX-3 (my own notes, one paragraph). Protocol: none.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

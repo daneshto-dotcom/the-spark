@@ -282,12 +282,44 @@ describe('S191 NETFR-3 — the claim clock starts the first frame a survivor is 
     expect(at! - B_LANDS).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
   });
 
-  it('NEGATIVE — while nobody is visible the step reports NO loss episode (so nothing is banked)', () => {
-    const r = stepMigrationClaim({
-      nowMs: 20_000, hostPeerId: 'host', alivePeerIds: new Set(), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
-      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs: 12_000,
+  it('NEGATIVE — while no seated survivor is visible no clock STARTS; ⭐ S191 FIX-3 — a RUNNING one is KEPT, never reset', () => {
+    const step = (lossObservedAtMs: number) => stepMigrationClaim({
+      nowMs: 40_000, hostPeerId: 'host', alivePeerIds: new Set(), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs,
     });
-    expect(r).toEqual({ lossObservedAtMs: 0, claim: false });
+    expect(step(0)).toEqual({ lossObservedAtMs: 0, claim: false });
+    // Past grace + rung, and still no claim — there is nobody to host for — but the clock is not thrown away.
+    expect(step(12_000)).toEqual({ lossObservedAtMs: 12_000, claim: false });
+  });
+
+  /*
+   * ⛔ S191 FIX-3 (audit, adopted as the minimal shape by the merge owner) — the NETFR-3 line RESET the
+   * clock whenever the visible survivors blinked out, so a REAL 3+-seat host death recovered at least
+   * (fresh join + grace + rung) later per blink. Never START a clock without a seated survivor; KEEP one.
+   */
+  it('⛔ FIX-3 — host dies at L with B connected, B blinks out for ONE frame at L+10 s → the claim still fires at L + grace + rung', () => {
+    const L = 12_000;
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < L,
+      othersAt: (t) => (t >= L + 10_000 && t < L + 10_016 ? [] : ['seat-2']),
+      lastSnapshotAt: () => L - 100, ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - L, 'a blink must not restart the grace').toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - L).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+  });
+
+  it('…and a claim that falls due DURING a blink waits for a seated survivor, then fires on its first frame back', () => {
+    const L = 12_000;
+    const due = L + RECONNECT_GRACE_MS + CLAIM_LADDER_MS;
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < L,
+      othersAt: (t) => (t >= due - 500 && t < due + 2_000 ? [] : ['seat-2']),
+      lastSnapshotAt: () => L - 100, ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at!).toBeGreaterThanOrEqual(due + 2_000);
+    expect(at!).toBeLessThan(due + 2_000 + 32);
   });
 
   /**
