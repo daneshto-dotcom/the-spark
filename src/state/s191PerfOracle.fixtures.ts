@@ -3,7 +3,7 @@
  * changes. ⛔ Never imported by production code (`.fixtures.ts`, the `c5WaveFiveBoard.fixtures.ts`
  * convention).
  *
- * Holds the IN-PLACE comparators (one per changed hotspot — each runs the verbatim pre-change reference
+ * Holds the IN-PLACE comparators (one per changed hotspot: territory, nav unit — each runs the verbatim pre-change reference
  * and the real code on the same world at the same instant and counts every disagreement) and the
  * board INJECTIONS the long twin run applies identically to both twins. Shared by the fast exact-case
  * files and the long multi-wave twin oracle (`s191Perf.differential.test.ts`), so the comparator the
@@ -12,8 +12,15 @@
 import { makeBond } from './placePrimitive.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, TERRITORY_ENGULF_STIFFNESS } from '../constants.ts';
-import { asBondId, asPlayerId, asPrimitiveId, type BondId, type PrimitiveId } from '../types.ts';
+import {
+  GOBLIN_UNIT_ACQUIRE_RADIUS, GOBLIN_UNIT_LEASH_RADIUS, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType,
+  TERRITORY_ENGULF_STIFFNESS,
+} from '../constants.ts';
+import { asBondId, asCreatureId, asPlayerId, asPrimitiveId, type BondId, type CreatureId, type PrimitiveId } from '../types.ts';
+import { referencePickNavUnit } from './creatures/navUnitReference.fixtures.ts';
+import { damageCreature, removeCreature } from './creatures/creatureLifecycle.ts';
+import { makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
+import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { Bond, PhysicsBody } from '../physics/bonds.ts';
@@ -223,4 +230,160 @@ export function removeInjected(w: World, inj: Injected): void {
     inj.bonds.filter((id) => w.bonds.has(id)),
     true,
   );
+}
+
+/* ───────────────────────────── nav unit: the in-place comparator ───────────────────────────── */
+
+export type PickNavUnitFn = (
+  w: World, c: Creature, held: CreatureId | null, acquireRadiusSq: number, leashRadiusSq: number,
+) => CreatureId | null;
+
+export interface NavCheckStats {
+  /** Host-tick calls of `pickNavUnit`, and comparisons (host calls + every sweep entry). */
+  calls: number; compared: number; mismatches: number; sweeps: number;
+  /** Results: a unit found at all; the reference returned a unit KILLED earlier in the same loop
+   *  (`pendingCreatureDeaths`) — see `EnemyCreatureIndex` for why that is kept. */
+  nonNull: number; pendingDeathReturned: number;
+  /** Holds: calls with a held lock; kept; a lock this creature's previous pick did NOT set (a
+   *  retaliation turn, `retaliation.ts`) and how often that hold was kept. */
+  held: number; heldKept: number; heldElsewhere: number; heldElsewhereKept: number;
+  /** Mid-loop churn between two calls of the same tick: injected kills / removals / births, the sim's
+   *  own changes to the creature set, and the calls that ran AFTER any of those in the same tick. */
+  injectedKills: number; injectedRemovals: number; injectedBirths: number;
+  naturalMidLoopChanges: number; callsAfterMidLoopChange: number;
+}
+
+interface NavTickState { tick: number; n: number; lastFp: string; changed: boolean }
+
+/** Every this-many ticks the checker injects, identically in both twins, between two calls. */
+export interface NavInjectPlan { killEvery: number; removeEvery: number; birthEvery: number }
+
+export interface NavChecker {
+  readonly stats: NavCheckStats;
+  readonly firstMismatches: string[];
+  reset(): void;
+  /** One host-tick call. `checked`: run the real function AND the reference on the world as it is
+   *  now, compare, return the real answer; otherwise return the reference's. Injections follow in
+   *  both modes, so two identical twins stay identical. */
+  call(w: World, c: Creature, held: CreatureId | null, acq: number, leash: number, checked: boolean, inject: NavInjectPlan | null): CreatureId | null;
+  /** Every live creature's re-acquire (held = null), real against reference. */
+  sweep(w: World): void;
+}
+
+const navFp = (w: World): string => `${w.creatures.size}/${w.nextCreatureId}`;
+
+/** A creature born mid-loop the way every creature is born: `world.nextCreatureId++`, then `set`. */
+export function birthCreature(w: World, seat: number, x: number, y: number, type: CreatureType = 'goblinMelee'): CreatureId {
+  const id = asCreatureId(w.nextCreatureId++);
+  const c = makeCreature(CREATURE_CONFIGS[type], {
+    id,
+    ownerPlayerId: asPlayerId(seat),
+    pos: { x, y },
+    targetPos: { x: 960, y: 540 },
+    spawnedAtTick: w.tick,
+    clock: w,
+    draftPicks: w.players.get(asPlayerId(seat))?.draftPicks,
+  });
+  w.creatures.set(id, c);
+  return id;
+}
+
+export function makeNavChecker(real: PickNavUnitFn): NavChecker {
+  const stats: NavCheckStats = {
+    calls: 0, compared: 0, mismatches: 0, sweeps: 0, nonNull: 0, pendingDeathReturned: 0,
+    held: 0, heldKept: 0, heldElsewhere: 0, heldElsewhereKept: 0,
+    injectedKills: 0, injectedRemovals: 0, injectedBirths: 0, naturalMidLoopChanges: 0, callsAfterMidLoopChange: 0,
+  };
+  const firstMismatches: string[] = [];
+  const perTick = new WeakMap<World, NavTickState>();
+  const lastPick = new WeakMap<World, Map<number, CreatureId | null>>();
+
+  const mismatch = (w: World, c: Creature, what: string, r: unknown, f: unknown): void => {
+    stats.mismatches++;
+    if (firstMismatches.length < 8) {
+      firstMismatches.push(`tick ${w.tick} creature ${c.id as unknown as number} (${c.type}) ${what}: index=${JSON.stringify(r)} reference=${JSON.stringify(f)}`);
+    }
+  };
+  const acq = GOBLIN_UNIT_ACQUIRE_RADIUS * GOBLIN_UNIT_ACQUIRE_RADIUS;
+  const leash = GOBLIN_UNIT_LEASH_RADIUS * GOBLIN_UNIT_LEASH_RADIUS;
+  const sweep = (w: World): void => {
+    for (const c of w.creatures.values()) {
+      const r = real(w, c, null, acq, leash);
+      const f = referencePickNavUnit(w, c, null, acq, leash);
+      stats.compared++;
+      if (r !== f) mismatch(w, c, 'sweep re-acquire', r, f);
+    }
+    stats.sweeps++;
+  };
+
+  return {
+    stats,
+    firstMismatches,
+    reset(): void {
+      for (const k of Object.keys(stats) as Array<keyof NavCheckStats>) stats[k] = 0;
+      firstMismatches.length = 0;
+    },
+    sweep,
+    call(w, c, held, a, l, checked, inject): CreatureId | null {
+      let s = perTick.get(w);
+      if (s === undefined || s.tick !== w.tick) {
+        s = { tick: w.tick, n: 0, lastFp: navFp(w), changed: false };
+        perTick.set(w, s);
+        if (checked) sweep(w);
+      }
+      s.n++;
+      stats.calls++;
+      const now = navFp(w);
+      if (s.n > 1 && now !== s.lastFp) { stats.naturalMidLoopChanges++; s.changed = true; }
+      if (s.changed) stats.callsAfterMidLoopChange++;
+
+      const f = referencePickNavUnit(w, c, held, a, l);
+      let result = f;
+      if (checked) {
+        const r = real(w, c, held, a, l);
+        stats.compared++;
+        if (r !== f) mismatch(w, c, `pickNavUnit(held=${String(held)})`, r, f);
+        result = r;
+      }
+      if (f !== null) {
+        stats.nonNull++;
+        if (w.pendingCreatureDeaths?.has(f) === true) stats.pendingDeathReturned++;
+      }
+      let last = lastPick.get(w);
+      if (last === undefined) lastPick.set(w, (last = new Map()));
+      if (held !== null) {
+        stats.held++;
+        if (result === held) stats.heldKept++;
+        const prev = last.get(c.id as unknown as number);
+        if (prev !== held) {
+          stats.heldElsewhere++;
+          if (result === held) stats.heldElsewhereKept++;
+        }
+      }
+      last.set(c.id as unknown as number, result);
+
+      let injected = false;
+      if (inject !== null) {
+        if (w.tick % inject.killEvery === 0 && s.n === 2 && result !== null && w.pendingCreatureDeaths !== null) {
+          // The in-loop strike path's own call shape: lethal, deferred to the sweep after the loop.
+          if (damageCreature(w, result, 1_000_000, w.pendingCreatureDeaths, c.id)) { stats.injectedKills++; injected = true; }
+        }
+        if (w.tick % inject.removeEvery === 1 && s.n === 3 && result !== null) {
+          if (removeCreature(w, result)) { stats.injectedRemovals++; injected = true; }
+        }
+        if (w.tick % inject.birthEvery === 2 && s.n === 4) {
+          const enemySeat = ((c.ownerPlayerId as unknown as number) + 1) % 4;
+          birthCreature(w, enemySeat, c.pos.x + 25, c.pos.y);
+          stats.injectedBirths++;
+          injected = true;
+        }
+      }
+      if (injected) {
+        s.changed = true;
+        if (checked) sweep(w); // the change landed between this call and the next: prove it is seen at once
+      }
+      s.lastFp = navFp(w);
+      return result;
+    },
+  };
 }

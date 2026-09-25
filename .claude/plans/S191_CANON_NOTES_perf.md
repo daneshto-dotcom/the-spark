@@ -28,3 +28,19 @@ ticks, 0 bonds engulfed. Seats build inside their own zones, so no enemy connect
 (~60–140 px) of another seat's shapes. The pass still costs a share of every tick (13.6–15 % before this
 branch, ~3–7 % self after) to compute "no" for every bond. Whether the mechanic should be retired, kept
 dormant, or made reachable is his call; this branch changes none of it.
+
+## Suggested canon text for the nav-unit index (beside the S190 bond index in §5b)
+⭐ **THE UNIT RE-ACQUIRE IS INDEXED TOO (S191 `s191/perf`), WITH BYTE-IDENTICAL OUTPUTS.** Inside the same
+creature-loop epoch, `pickNavUnit` re-acquires from a per-seat list of the enemy creatures instead of the
+whole Map; membership re-validated before every call, everything else read live. The rule is unchanged:
+nearest enemy unit within 220 px (`GOBLIN_UNIT_ACQUIRE_RADIUS`) by squared distance, lower id on a tie,
+held while it stays inside 300 px (`GOBLIN_UNIT_LEASH_RADIUS`) and targetable.
+
+## ⚠ A SECOND FINDING FOR THE OWNER — REPORTED, NOT ACTED ON (Council S191 item 2)
+**A unit killed earlier in the same tick can still be picked as a chase target.** Under the S155 N1
+deferral a creature reduced to 0 ehp stays in the Map until the sweep after the creature loop, and the
+nav-unit search has never checked `ehp` or `pendingCreatureDeaths`. Measured on the real four-seat bots
+match: the live scan returned such a unit 604 times (waves 1–3) and 2 616 times (waves 1–5, 120
+creatures). This branch keeps that behaviour exactly (a filter would change outputs). Whether a dying
+unit should stop being a target is a ruling; if he wants it, the reference fixture
+(`navUnitReference.fixtures.ts`) changes FIRST, then the index.

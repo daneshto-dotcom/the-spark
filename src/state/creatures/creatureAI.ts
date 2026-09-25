@@ -47,9 +47,9 @@ import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveI
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
-import { isUntargetable } from './creature.ts';
+import { isChannellingRa, isUntargetable } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { getCreatureConfig } from './voltkin-config.ts';
+import { getCreatureConfig, isUntargetableType } from './voltkin-config.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -501,6 +501,7 @@ export function openBondTargetEpoch(world: World): void {
   epochWorld = world;
   epochTick = world.tick;
   epochIndex = null;
+  epochEnemyIndex = null; // S191 — the nav-unit index shares this window (see `EnemyCreatureIndex`)
 }
 
 /** S190 P0 (C5) — close it. `runHostTick` calls it immediately after its creature loop. */
@@ -508,6 +509,7 @@ export function closeBondTargetEpoch(): void {
   epochWorld = null;
   epochTick = -1;
   epochIndex = null;
+  epochEnemyIndex = null;
 }
 
 function freshBondTargetIndex(world: World): BondTargetIndex {
@@ -846,13 +848,152 @@ export function pickNavUnit(
     }
   }
   // No lock, or the quarry died / broke the leash → re-acquire inside the tighter radius.
-  return findNearestEnemyCreatureFrom(
+  // ⭐ S191 — through the per-tick enemy index when the host tick's creature loop is running (the
+  // S190 epoch), else the live scan. Same answer either way — see `EnemyCreatureIndex`.
+  return findNearestEnemyCreatureIndexed(
     world,
     creature.pos,
     creature.ownerPlayerId,
     acquireRadiusSq,
     creature.id,
   );
+}
+
+/**
+ * ⭐ S191 (`s191/perf`, owner C5: *"it was lagging at about wave five"*) — THE NAV-UNIT ENEMY INDEX.
+ *
+ * `pickNavUnit`'s re-acquire was the next hotspot after S190's bond index (9.0-9.6 % of a wave-5 host
+ * tick with 120 creatures, V8 profile — `S191_PROGRESS_perf.md`): every structure-attacker, every
+ * tick, walked the WHOLE `world.creatures` Map — its own seat's units included — to find one enemy.
+ * Inside the creature loop it now walks a flat list, built once per seat per tick, of exactly the
+ * creatures that seat can target by OWNER.
+ *
+ * ## ⛔ WHAT IS CACHED, AND WHAT IS NOT (Council S191 item 2)
+ *
+ * Cached: WHICH creatures are enemies of a seat — the live creature OBJECTS the Map holds and their
+ * Map keys — and the one half of untargetability that cannot change, `isUntargetableType(c.type)`
+ * (`Creature.type` is `readonly`, `CREATURE_CONFIGS` is `Readonly` and never written; both pinned by
+ * the guards). Nothing else. Every value that can change inside the loop is read LIVE at the call,
+ * from the object, exactly as `findNearestEnemyCreatureFrom` reads it: its position (never copied),
+ * the other half of untargetability (`isChannellingRa(c, tick)` — the Ra ritual is stamped mid-loop by
+ * a lethal blow; `typeFlag || channelling` is `isUntargetable` exactly), the range gate, and the
+ * `(distSq, id)` total order, lower id winning an exact tie. The result is the lexicographic minimum of
+ * `(distSq, id)` over the eligible set, so the list's order decides nothing (a NaN distance is never
+ * selected, in either version).
+ *
+ * ⚠ AND WHAT IS DELIBERATELY *NOT* FILTERED: a creature killed earlier in the same loop. Under the
+ * S155 N1 deferral it stays in `world.creatures` (with `ehp <= 0`, in `pendingCreatureDeaths`) until
+ * the sweep after the loop, and the live scan has ALWAYS been able to return it. Filtering it here
+ * would change which unit a goblin chases — an output. The index therefore keeps it, exactly as the
+ * live scan does. (Whether it SHOULD be targetable is a behaviour question, reported, not built.)
+ *
+ * ## WHY THE CACHE CANNOT GO STALE
+ *
+ *  1. **It lives only inside the S190 epoch** (`openBondTargetEpoch` … `closeBondTargetEpoch`, opened
+ *     immediately around `runHostTick`'s creature loop and keyed to its tick). Outside it this is the
+ *     live scan, verbatim — every other caller of the enemy search is untouched.
+ *  2. **Membership is re-validated before EVERY call** against an exact O(1) fingerprint:
+ *     `world.creatures` identity, its size, and `world.nextCreatureId`. Exact because every creature
+ *     is born through `world.nextCreatureId++` (creatureLifecycle.ts, three sites) and leaves only
+ *     through `world.creatures.delete` (four sites) or a `clear()` (title-return, godly abort,
+ *     snapshot restore — all outside the loop, and a clear drops the size to 0): a removal lowers the
+ *     size and a birth bumps the counter, so no mix of the two leaves both where they were. The only
+ *     `set` of an EXISTING id is the snapshot restore, after its `clear()`. A creature born or
+ *     removed mid-loop is therefore seen by the very next call, exactly as the live scan sees it.
+ *  3. **Ownership cannot change**: `Creature.ownerPlayerId` is `readonly` and never written.
+ * The writer sites and counts are pinned in `navUnitIndex.guards.test.ts`, so a new one turns a test
+ * red instead of silently staling this. Proven, not argued: `s191Perf.differential.test.ts` compares
+ * every `pickNavUnit` call the real host tick makes against the verbatim pre-change function
+ * (`navUnitReference.fixtures.ts`), in place, with kills, removals and births injected between two
+ * calls, and runs a reference twin beside an index twin with `hashWorldStateFull` every tick.
+ */
+interface EnemyList {
+  /** Map keys, in `world.creatures` order (which decides nothing — the tie-break is explicit). */
+  readonly ids: CreatureId[];
+  /** The live objects under those keys. Read live at every call; nothing is copied out of them. */
+  readonly creatures: Creature[];
+  /** `isUntargetableType(creatures[i].type)` — static for a creature's whole life (see above). */
+  readonly untargetableType: boolean[];
+}
+
+interface EnemyCreatureIndex {
+  readonly creaturesMap: World['creatures'];
+  readonly count: number;
+  readonly nextCreatureId: number;
+  readonly bySeat: Map<PlayerId, EnemyList>;
+}
+
+let epochEnemyIndex: EnemyCreatureIndex | null = null;
+
+function enemyListFor(world: World, seat: PlayerId): EnemyList {
+  let idx = epochEnemyIndex;
+  if (
+    idx === null ||
+    idx.creaturesMap !== world.creatures ||
+    idx.count !== world.creatures.size ||
+    idx.nextCreatureId !== world.nextCreatureId
+  ) {
+    // First call of the loop, or a creature was born / removed since the last call: rebuild.
+    idx = { creaturesMap: world.creatures, count: world.creatures.size, nextCreatureId: world.nextCreatureId, bySeat: new Map() };
+    epochEnemyIndex = idx;
+  }
+  let list = idx.bySeat.get(seat);
+  if (list === undefined) {
+    const ids: CreatureId[] = [];
+    const creatures: Creature[] = [];
+    const untargetableType: boolean[] = [];
+    for (const [id, c] of world.creatures) {
+      if (c.ownerPlayerId === seat) continue; // enemy-only — the live scan's owner filter, hoisted
+      ids.push(id);
+      creatures.push(c);
+      untargetableType.push(isUntargetableType(c.type));
+    }
+    list = { ids, creatures, untargetableType };
+    idx.bySeat.set(seat, list);
+  }
+  return list;
+}
+
+/**
+ * S191 — `findNearestEnemyCreatureFrom`, answered from the epoch's enemy list when the epoch is open
+ * for this world and tick; otherwise it IS `findNearestEnemyCreatureFrom`. Same filters, same
+ * arithmetic (`distSq`), same `(distSq, id)` rule — see `EnemyCreatureIndex`.
+ */
+function findNearestEnemyCreatureIndexed(
+  world: World,
+  fromPos: Vec2,
+  ownerPlayerId: PlayerId,
+  maxRangeSq: number,
+  excludeId: CreatureId,
+): CreatureId | null {
+  if (epochWorld !== world || epochTick !== world.tick) {
+    return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId);
+  }
+  const list = enemyListFor(world, ownerPlayerId);
+  const ids = list.ids;
+  const creatures = list.creatures;
+  const untargetableType = list.untargetableType;
+  const tick = world.tick;
+  let bestId: CreatureId | null = null;
+  let bestDistSq = Infinity;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i]!;
+    if (id === excludeId) continue;
+    const c = creatures[i]!;
+    // = isUntargetable(c, tick): the static TYPE half, precomputed; the ritual half LIVE (stamped mid-loop).
+    if (untargetableType[i] || isChannellingRa(c, tick)) continue;
+    const dSq = distSq(fromPos, c.pos); // live position, never a copy
+    if (dSq > maxRangeSq) continue; // range gate
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (id as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = id;
+    }
+  }
+  return bestId;
 }
 
 /**

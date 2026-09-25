@@ -104,5 +104,84 @@ What is left of it is `computeAllPlayerRadii` (C 5.0 % / A 9.4 %: union-find ove
 New rank (C incl): structureTargets 26.6 % (S190 index + `findNearestEnemyPrimitiveFrom` 8.6 % self — NOT
 in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 % · territory 8.3 %.
 (A incl): territory 18.2 % · solveBonds 17.9 % · tickScoring 14.6 %.
+
+### 2b · `pickNavUnit` — the per-seat enemy index  ✅
+- `src/state/creatures/creatureAI.ts` (CRLF kept): `pickNavUnit`'s re-acquire goes through
+  `findNearestEnemyCreatureIndexed` — inside the S190 epoch it walks a flat per-seat list of the live
+  creature OBJECTS that seat can target by owner (+ their Map keys + the static `isUntargetableType`
+  flag); outside the epoch it IS `findNearestEnemyCreatureFrom`. `openBondTargetEpoch` /
+  `closeBondTargetEpoch` also reset this index (so hostTick.ts is NOT touched). Fingerprint before every
+  call: `world.creatures` identity, size, `nextCreatureId` → rebuild on change. Read LIVE: position,
+  `isChannellingRa` (the Ra ritual is stamped mid-loop by a lethal blow), range gate, `(distSq, id)`.
+  Result = lexicographic min of (distSq, id) → list order decides nothing. No exported signature
+  changed; `findNearestEnemyCreatureFrom` (castle guns, defenders, renderer, Voltkin) untouched.
+- ⭐ Council S191 item 2 (coordinator) — addressed, with ONE CLAUSE DELIBERATELY NOT APPLIED:
+  · "cache creature IDS only": the cache holds the Map keys and the live objects the Map holds
+    (never a copied position or ehp); no object is ever replaced under an existing key (guard 1).
+  · "build where positions are final": positions are not cached at all, so the question never arises.
+  · "re-check ehp > 0 and not-pending-death when reading from the cache": ⛔ **NOT APPLIED — it would
+    change outputs.** Measured: the LIVE scan (verbatim reference) returns a unit killed earlier in the
+    same loop (deferral: still in the Map, `ehp <= 0`, in `pendingCreatureDeaths`) **604 times** in the
+    default oracle run and **2 616 times** in the full run. The index keeps it, exactly as the live scan
+    does; mutant N4 (the Council's filter) turns BOTH the exact cases and the real-match oracle RED.
+    Whether a dying unit SHOULD stay targetable is a behaviour question for the owner — REPORTED.
+  · "differential must include kills mid-tick and a retaliation hold": injected between two calls of
+    one tick — a lethal DEFERRED blow to the unit just picked (every 7th tick), an outright removal
+    (13th), a birth beside the caller (19th); a whole-population sweep per tick + after each injection;
+    holds the creature did not set itself (retaliation turns) counted.
+- Tests (NEW): `creatures/navUnitReference.fixtures.ts` (pickNavUnit + findNearestEnemyCreatureFrom +
+  distSq VERBATIM — each block checked to be an exact substring of `git show 42cc2ee:…/creatureAI.ts`);
+  the nav comparator + `birthCreature` in `s191PerfOracle.fixtures.ts`; the NAV arm in
+  `s191Perf.differential.test.ts`; `creatures/navUnitIndex.differential.test.ts` (exact: tie inserted
+  high-id-first, range exactly at 220 px and 1e-9 beyond, locust cloud, ritual stamped / ended AFTER
+  the build, deferred kill still returned, removal, birth, removal+birth of equal size, moved units,
+  NaN, every kind of held lock, epoch left open across a tick / opened on another world, 200 random
+  boards with churn); `creatures/navUnitIndex.guards.test.ts` (step 3 — below).
+- Oracle (twin A reference / twin B index, hash every tick) — EXIT=0 both:
+  | run | host calls | comparisons | mismatches | found | pending-death returned | holds (kept) | retaliation holds (kept) | kills / removals / births injected | calls after a mid-loop change |
+  |---|---|---|---|---|---|---|---|---|---|
+  | default waves 1-3 | 228 350 | 336 464 | **0** | 47 598 | 604 | 44 806 (42 948) | 104 (104) | 384 / 230 / 736 | 16 468 |
+  | full waves 1-5, 120 cr. | 579 376 | 901 061 | **0** | 135 866 | 2 616 | 129 824 (124 578) | 220 (220) | 624 / 380 / 1 146 | 51 392 |
+  Territory arm unchanged: 0 mismatches; hashes identical all 27 000 / 45 000 ticks.
+  ⚠ The sim ITSELF never changed the creature set between two nav calls (0, both runs — deaths are
+  deferred, nothing spawns between two picks); the rebuild path is exercised by the injections.
+- MUTATION CHECKS (all RED on the exact cases; restored sha256-identical): N1 drop the `nextCreatureId`
+  conjunct · N2 drop the size conjunct · N3 drop the ritual half · N4 the Council's ehp/pending filter
+  (also RED on the real-match oracle) · N5 `>=` range gate (first try: needle matched twice → NO
+  verdict, re-run with a unique needle → RED) · N6 drop the id tie-break · N7 drop the type half.
+- Suites: navUnitIndex ×2, s191Perf, bondTargetIndex ×2, buildingTargeting, creatureAI — EXIT=0.
+
+#### AFTER 2b (cumulative with 2a), wave-5 FIGHT, ms — machine shared
+| pass | run | mean | p95 | max | 3-tick p95 | 3-tick max |
+|---|---|---|---|---|---|---|
+| A | 1 / 2 / prof | 0.529 / 0.507 / 0.626 | 0.779 / 0.774 / 0.976 | 1.75 / 2.40 / 2.28 | 2.27 / 2.27 / 2.82 | 3.31 / 3.76 / 4.70 |
+| C | 1 / 2 / prof | 2.252 / 2.270 / 2.645 | 3.262 / 3.104 / 4.102 | 5.46 / 8.68 / 7.58 | 9.38 / 8.96 / 11.93 | 14.77 / 21.48 / 19.71 |
+- Profile C: pickNavUnit incl 9.6 → **6.2 %** (a first version with `isUntargetable` called per enemy
+  gave only 8.5 %: the string-keyed config lookup per enemy was the cost, not the Map walk — hence the
+  precomputed type flag). The host-tick MEAN did not move beyond this machine's noise (C 2.20 → 2.26,
+  ±0.1 run to run): ~3 % of a 2.2 ms tick is ~70 µs. ⚠ What is left is the O(creatures²) DISTANCE loop
+  itself; cutting it needs a spatial grid, which needs "no creature moves inside the creature loop" —
+  TRUE today (every writer — physics, recallArmies, sonar [prevPos only], Archdemon teleport,
+  corpse-eater leash — runs outside it) but a new invariant; NOT built (beyond the brief's shape),
+  REPORTED as the next lever.
+- New rank (C incl): structureTargets 28.6 % (not in brief) · solveBonds 9.9 % · tickScoring 9.1 % ·
+  territory 8.9 % (radii 5.1 %) · pickNavUnit 6.2 %.
+
+## Step 3 — cache-invariant guards
+- 2a (territory grid): NO cache — the grid is built and dropped inside each call. Nothing to stale.
+- 2b (nav index): `creatures/navUnitIndex.guards.test.ts`, comment-stripped production code, per-file
+  COUNTS: `nextCreatureId++` creatureLifecycle 3 · `creatures.set(` creatureLifecycle 3 + save 1 ·
+  `creatures.delete(` creatureLifecycle 2 + suicideBlast 1 + droneLifecycle 1 · `creatures.clear(`
+  gameMode / godlyActions / save 1 each · `world.creatures =` none · `nextCreatureId =` gameMode 1 +
+  save 3 · `ownerPlayerId` writes (incl. ??= ||= &&=, Object.assign) none · `pickNavUnit(` callers:
+  hostTick 1 · `findNearestEnemyCreatureIndexed(` creatureAI 2 (def + call) · both epoch functions
+  reset `epochEnemyIndex` · the three fingerprint conjuncts present · the live fallback + the split
+  untargetable check present · ⭐ `isUntargetable`'s body is EXACTLY `isUntargetableType(c.type) ||
+  isChannellingRa(c, tick)` (a third condition would silently bypass the index) · `untargetable`
+  never assigned · `CREATURE_CONFIGS` never written · `.type =` only in render (audio nodes 17+1,
+  DOM inputs 1+3 — my first count said 10: a hand grep truncated by `head`; corrected from the test's
+  own output, each site read).
+  ⚠ FOR THE MERGE OWNER: s191/owner (chewer persistence) may add a spawn or removal site — re-count
+  after that merge and read the new site against the guard file's header question.
 ## Step 3 — cache-invariant guards  — pending
 ## Step 4 — final gates, numbers, report  — pending

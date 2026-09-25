@@ -11,6 +11,11 @@
  *     counted. Arms, one per change:
  *       · TERRITORY — `computeTerritorialInfluence` (the anchor grid): every bond's
  *         `stiffnessMultiplier`, `Object.is`, against `territoryReference.fixtures.ts`.
+ *       · NAV UNIT — `pickNavUnit` (the per-tick enemy index): every host call, plus every live
+ *         creature's re-acquire once per tick and again after each injection, against
+ *         `navUnitReference.fixtures.ts`. Between two calls of one tick it also injects a lethal
+ *         DEFERRED blow to the unit just picked, an outright removal, and a birth beside the caller
+ *         (Council S191 item 2), and counts holds the creature did not set itself (retaliation).
  *  2. **THE WORLDS DO NOT DIVERGE, ACROSS WAVES.** Two identical four-seat bots matches run in lockstep
  *     from tick 0 — twin A on EVERY reference, twin B on EVERY real change with the in-place checks —
  *     through whole waves (BUILD + FIGHT, creatures held in the last FIGHT), `hashWorldStateFull`
@@ -35,11 +40,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import type { World } from './world.ts';
 
+import type { Creature } from './creatures/creature.ts';
+import type { CreatureId } from '../types.ts';
+
 type RealTerritory = typeof import('./territory.ts');
+type RealAI = typeof import('./creatures/creatureAI.ts');
+type NavFn = (w: World, c: Creature, held: CreatureId | null, acq: number, leash: number) => CreatureId | null;
 
 const H = vi.hoisted(() => ({
   territory: null as unknown as RealTerritory,
   influence: null as unknown as (w: World) => void,
+  ai: null as unknown as RealAI,
+  pickNavUnit: null as unknown as NavFn,
 }));
 
 vi.mock('./territory.ts', async (importOriginal) => {
@@ -48,12 +60,22 @@ vi.mock('./territory.ts', async (importOriginal) => {
   return { ...real, computeTerritorialInfluence: (w: World) => H.influence(w) };
 });
 
+vi.mock('./creatures/creatureAI.ts', async (importOriginal) => {
+  const real = await importOriginal<RealAI>();
+  H.ai = real;
+  return {
+    ...real,
+    pickNavUnit: (w: World, c: Creature, held: CreatureId | null, acq: number, leash: number) => H.pickNavUnit(w, c, held, acq, leash),
+  };
+});
+
 import { runHostTick } from './hostTick.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
 import { startC5Match, topUpCreatures, WAVE_TICKS } from './c5WaveFiveBoard.fixtures.ts';
 import {
-  makeTerritoryChecker, plantIntruder, removeInjected, weldNearestCrossSeatPair, type Injected,
+  makeNavChecker, makeTerritoryChecker, plantIntruder, removeInjected, weldNearestCrossSeatPair,
+  type Injected, type NavInjectPlan,
 } from './s191PerfOracle.fixtures.ts';
 
 const FULL = process.env.SPARK_C5_PERF === '1';
@@ -75,9 +97,16 @@ H.influence = (w) => {
   else territory.check(w);
 };
 
+/** Between two `pickNavUnit` calls of one tick (2nd / 3rd / 4th): a lethal deferred blow to the unit
+ *  just picked, an outright removal of it, a birth beside the caller — Council S191 item 2. */
+const NAV_INJECT: NavInjectPlan = { killEvery: 7, removeEvery: 13, birthEvery: 19 };
+const nav = makeNavChecker((w, c, h, a, l) => H.ai.pickNavUnit(w, c, h, a, l));
+H.pickNavUnit = (w, c, held, acq, leash) => nav.call(w, c, held, acq, leash, mode === 'checked', NAV_INJECT);
+
 describe(`S191 perf — every s191/perf change is byte-identical to the code it replaced (waves 1–${WAVES}, hash every tick)`, () => {
   it(`in-place agreement on every call, and a reference world and a changed world hash identically every tick for ${WAVES} waves`, async () => {
     territory.reset();
+    nav.reset();
     const A = startC5Match(true); // twin A: every REFERENCE
     const B = startC5Match(true); // twin B: every real change, every call also checked in place
     expect(hashWorldStateFull(A.world), 'the twins start identical').toBe(hashWorldStateFull(B.world));
@@ -138,9 +167,12 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
     mode = 'checked';
     const ticks = B.world.tick;
     const ts = territory.stats;
+    const ns = nav.stats;
+    console.log(`[S191 perf oracle] waves 1-${WAVES}: nav ${JSON.stringify(ns)}`);
     console.log(`[S191 perf oracle] waves 1-${WAVES}: territory ${JSON.stringify(ts)}; welds=${welds} intruders=${intruders} (mixed ${mixedIntruders}) ticks=${ticks} maxBonds=${maxBonds} meanBonds=${(bondTicks / Math.max(1, ticks)).toFixed(0)} maxCreatures=${maxCreatures} reached wave ${A.world.waveNumber} ${A.world.matchPhase}; wall ${((performance.now() - t0) / 1000).toFixed(1)} s of which hashing ${(hashMs / 1000).toFixed(1)} s`);
 
     expect(ts.mismatches, `territory in-place mismatches:\n${territory.firstMismatches.join('\n')}`).toBe(0);
+    expect(ns.mismatches, `nav-unit in-place mismatches:\n${nav.firstMismatches.join('\n')}`).toBe(0);
     expect(divergedAt, 'hashWorldStateFull diverged between the reference world and the changed world').toBe(-1);
     expect(A.world.tick, 'the run reached the end of its last wave').toBe(end);
     /*
@@ -167,7 +199,25 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
         'an existence claim the Council asked for: the per-bond skip must meet a mixed bond on a real board'],
       ['territory: a MIXED bond was engulfed by a THIRD seat', ts.mixedEngulfed, 1, '87 260 / 161 075',
         'an existence claim: the either-endpoint skip exercised on its engulfing side too'],
+      ['nav: host-tick pickNavUnit calls', ns.calls, 1000, '228 350 / FULL', 'every SEEKING structure-attacker, every FIGHT tick'],
+      ['nav: comparisons (calls + sweeps)', ns.compared, 10_000, '336 464 / FULL', 'a whole-population sweep per tick and after every injection'],
+      ['nav: a unit was found', ns.nonNull, 100, '47 598 / FULL', 'a re-acquire that always returns null proves nothing'],
+      ['nav: injected lethal blows between two calls (Council S191 item 2)', ns.injectedKills, 20, '384 / FULL', 'every 7th FIGHT tick with 2+ calls and a pick'],
+      ['nav: injected removals between two calls', ns.injectedRemovals, 10, '230 / FULL', 'every 13th FIGHT tick with 3+ calls and a pick'],
+      ['nav: injected births between two calls', ns.injectedBirths, 10, '736 / FULL', 'every 19th FIGHT tick with 4+ calls'],
+      ['nav: calls AFTER a mid-loop creature-set change, same tick', ns.callsAfterMidLoopChange, 100, '16 468 / FULL', 'the calls that would read a stale index'],
+      ['nav: a held lock the creature did not set itself (a retaliation turn) (Council S191 item 2)', ns.heldElsewhere, 1, '104 / FULL', 'an existence claim: the retaliation hold is exercised'],
+      ['nav: and that hold was kept', ns.heldElsewhereKept, 1, '104 / FULL', 'an existence claim: the hold branch returned it'],
     ];
+    /*
+     * ⚠ MEASURED, NOT ASSERTED: `naturalMidLoopChanges` — the sim changing the creature set between two
+     * `pickNavUnit` calls of one tick by itself — was 0 on the default run: deaths inside the loop are
+     * DEFERRED (S155 N1), so the Map's size does not move, and nothing in the loop spawns between two
+     * structure-attackers' picks. The index's rebuild path is therefore exercised by the INJECTED
+     * kills / removals / births above (`callsAfterMidLoopChange`), which is why those are floors.
+     * `pendingDeathReturned` (the live scan handing back a unit killed earlier the same loop — kept by
+     * the index, see `EnemyCreatureIndex`) is printed for the same reason: a count, not a claim.
+     */
     for (const [what, actual, floor, measured, why] of floors) {
       expect(actual, `${what}: ${actual} is under its floor ${floor} (measured S191 default / full: ${measured}; ${why})`)
         .toBeGreaterThanOrEqual(floor);
