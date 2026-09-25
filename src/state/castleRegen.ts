@@ -29,6 +29,10 @@
  * is therefore applied once per second as a whole number, never as a per-tick fraction accumulated
  * into a float. This project forbids float accumulators in the sim, and here there is not even a
  * rounding rule to get wrong.
+ * ⚠ S190 — BOTH HALVES OF THAT PARAGRAPH ARE HISTORY. `CASTLE_MAX_HP` has been 2500 since S181
+ * (25/30/35/40/45), and by owner ruling R190-C the rate is a percent of the seat's UPGRADED total, so a
+ * bought pool (2,750) makes a rounding rule live: tenths of a percent and one half-up division — see
+ * `castleRegenPerSecond`. Still integer HP, still once a second, still no float accumulator.
  *
  * ## ⚠ THE RATE IS PER SECOND, AND THAT WAS RULED (R130), NOT ASSUMED
  *
@@ -82,9 +86,10 @@ export interface UpgradeCastleRegenAction {
  * its bigger pool at the rate of the smaller one. `maxHp` defaults to the base pool, so every caller
  * that asks "what is level L worth on an un-upgraded keep" (the canon's 25/30/35/40/45) is unchanged.
  *
- * ⚠ A BALANCE CONSEQUENCE NOBODY ASKED FOR OUT LOUD, flagged exactly as S181 flagged the pool raise:
- * buying HP now also buys regen — +250 HP at level 1 is 28 HP/s instead of 25. Honouring the percent
- * is honouring the ruling; one argument (pass `CASTLE_MAX_HP`) reverses it.
+ * ⭐⭐ OWNER RULING R190-C (S190): *"your regen is based on the current health … upgraded total."* So
+ * buying HP also buys regen — +250 HP at level 1 is 28 HP/s instead of 25, and level 5 at 2,750 is 50
+ * (49.5, rounded half-up). This was flagged as "a balance consequence nobody asked for out loud" when
+ * it was built; he has since ruled it, so it is his, not a flag. Pinned by `canon.test.ts` (§3d).
  *
  * ⛔ INTEGER ARITHMETIC, BECAUSE A NON-2500 POOL MAKES ROUNDING LIVE. At 2,500 every level was exact.
  * At 2,750 level 5 is 49.5 HP, and `2750 × 1.8 / 100` in floats is not guaranteed to land on the half.

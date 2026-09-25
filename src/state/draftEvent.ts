@@ -102,8 +102,8 @@ export function seatMustStillPick(world: World, seat: PlayerId, waveNumber: numb
  * which is strictly worse than the rule it implements.
  *
  * ⭐ S188 — **THE REVERSAL IS NOW LIVE.** With the level-0 and level-5 perks built, a seat that does
- * not choose at those drafts gets its RACE's perk; at levels 10+ (undesigned) it still gets the
- * general. Bots draft through this same deadline, so a bot takes its racial by default — the
+ * not choose at those drafts gets its RACE's perk; where nothing is on offer (S190: every level 10
+ * except THE SWARM and a POWER OF RA seat's WRATH OF RA; every level 15+) it still gets the general. Bots draft through this same deadline, so a bot takes its racial by default — the
  * `SPARK_RACES_SPEC` §9.5 ruling that a bot picks its race option.
  */
 export function autoPickFor(world: World, seat: PlayerId, waveNumber: number): DraftPick {
@@ -121,7 +121,8 @@ export function autoPickFor(world: World, seat: PlayerId, waveNumber: number): D
  * `pick` the intent carried, so a modified client could take ATK at the HP draft, or stack PEN
  * forever. That was latent while the panel could only send the offered general; it is not latent
  * once a second option exists. The offer is exactly two things: this wave's general axis, and
- * `'racial'` when this seat's race has a built perk at this draft.
+ * `'racial'` when this seat's race has a built perk at this draft (and, for a perk with a requirement,
+ * when this seat holds it — S188 P11 / S190).
  */
 export function pickIsOffered(world: World, seat: PlayerId, waveNumber: number, pick: DraftPick): boolean {
   if (pick === generalPickForWave(waveNumber)) return true;
@@ -215,8 +216,9 @@ export function tickDraft(world: World): void {
 /**
  * The two options a seat is shown. The renderer reads this; it is not stored.
  *
- * `racial: null` renders as the non-choosable COMING SOON tile he asked for — the answer for every
- * race at levels 10+, and for any level-0/5 perk whose mechanic is not built (`RACIAL_PERK_BUILT`).
+ * `racial: null` renders as the non-choosable COMING SOON tile he asked for — the answer at every level
+ * with no built perk for this seat (S190: level 10 is live only for THE SWARM and, with POWER OF RA,
+ * WRATH OF RA), and for any perk whose mechanic is not built (`RACIAL_PERK_BUILT`).
  */
 export function draftOptionsFor(
   waveNumber: number,

@@ -824,8 +824,8 @@ export type { NetSnapshot };
  *      it (bots included), and `towerUnitForSeat` promotes a holder's `t3Bat` emits to `t3BatSwarm`.
  *   6. **A NEW SERIALIZED + HASHED FIELD CARRYING A NUMBER BOTH PEERS COMPUTE** (s188/draft-atk) —
  *      `Creature.atkFifths?`: a drafted ATK/PEN pick is now BAKED into every creature's strike at birth
- *      (`draftedAttackFifths` in `makeCreature`, read back through `creatureAttackFifths` by every strike
- *      arm, the creature card and the fatal-blow floater). Additive-optional in shape, and it still owes
+ *      (in `makeCreature`, read back through `creatureAttackFifths` by every strike arm, the creature
+ *      card and the fatal-blow floater). Additive-optional in shape, and it still owes
  *      the bump: a v50 successor promoted by host migration drops the field on restore and strikes
  *      UNBUFFED from then on, and a v50 client prints the type's strike on the card and the kill number —
  *      two builds that shake hands would disagree about a number both compute (the S186 test). The same
