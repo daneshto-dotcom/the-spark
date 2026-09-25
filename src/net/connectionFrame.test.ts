@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  connectionEdge,
   planConnectionFrame,
   RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
@@ -106,5 +107,32 @@ describe('S189 fix round — main.ts decides through these functions (mechanical
     expect(src.match(/stepMigrationClaim\(/g)?.length).toBe(1);
     expect(src).toContain('if (claimStep.claim)');
     expect(src, 'the old inline gate must not survive beside the step').not.toMatch(/hasSurvivorToHostFor\(/);
+  });
+});
+
+describe('S189 fix round (audit NET-5) — the overlay edge says what actually happened', () => {
+  const src = readFileSync(new URL('../main.ts', import.meta.url), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  it('terminal → hidden while still in the networked match = RESTORED (a peer is back)', () => {
+    expect(connectionEdge({ wasLost: true, isLost: false, stillInMatch: true })).toBe('restored');
+  });
+  it('⛔ terminal → hidden because the player pressed Return to Title = DISMISSED, never "restored"', () => {
+    expect(connectionEdge({ wasLost: true, isLost: false, stillInMatch: false })).toBe('dismissed');
+  });
+  it('the LOST edge, and NEGATIVE — no edge, no line', () => {
+    expect(connectionEdge({ wasLost: false, isLost: true, stillInMatch: true })).toBe('lost');
+    expect(connectionEdge({ wasLost: true, isLost: true, stillInMatch: true })).toBeNull();
+    expect(connectionEdge({ wasLost: false, isLost: false, stillInMatch: false })).toBeNull();
+  });
+  it('main.ts logs through it: RESTORED only on the restored edge, a dismissal has its own line', () => {
+    expect(src.match(/connectionEdge\(/g)?.length).toBe(1);
+    const restored = src.indexOf("CONNECTION RESTORED after the terminal overlay");
+    expect(restored).toBeGreaterThan(-1);
+    expect(src.slice(Math.max(0, restored - 120), restored)).toContain("edge === 'restored'");
+    expect(src).toContain('[net] terminal overlay dismissed');
+    // The one-line stillInMatch input is the networked-PLAYING-with-a-transport test, not peer presence.
+    expect(src).toMatch(/stillInMatch:\s*isNetworked\(world\)\s*&&\s*world\.gameState === 'PLAYING'\s*&&\s*session\.netTransport !== null/);
   });
 });

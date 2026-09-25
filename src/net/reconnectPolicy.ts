@@ -262,6 +262,23 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
 }
 
 /**
+ * ⭐ S189 fix round (audit NET-5) — which edge of the terminal overlay this frame is, for the E3 log lines.
+ * The overlay also hides when the player LEAVES (Return to Title tears the session down, so nothing is
+ * "gone" any more); that is a dismissal, and the first cut logged it as `CONNECTION RESTORED`.
+ * `stillInMatch` = networked, PLAYING, with a transport.
+ */
+export type ConnectionEdge = 'lost' | 'restored' | 'dismissed';
+export function connectionEdge(i: {
+  readonly wasLost: boolean;
+  readonly isLost: boolean;
+  readonly stillInMatch: boolean;
+}): ConnectionEdge | null {
+  if (i.isLost && !i.wasLost) return 'lost';
+  if (!i.isLost && i.wasLost) return i.stillInMatch ? 'restored' : 'dismissed';
+  return null;
+}
+
+/**
  * ⛔ S189 fix round (audit NET-1) — A REJOIN MUST PROVE IT REACHED THE SAME MATCH.
  *
  * The loop retries past the grace, and a host's room code is fixed per PAGE LOAD, so a client left on

@@ -100,6 +100,16 @@ The merge owner resumes from this file if this agent is cut off.
   `hostLost`, one stamp line in the retry branch, one notice-clear line at the title toggle. Protocol: none —
   no field or kind added; both signals read messages v50 already sends.
 
+- **FR-5 (audit NET-5, LOW) — Return to Title no longer logs "CONNECTION RESTORED".** The overlay also hides
+  when the player LEAVES (the session is torn down, so nothing is "gone"); the first cut logged that as a
+  restore. Now the edge is the pure `connectionEdge({wasLost, isLost, stillInMatch})` (`reconnectPolicy.ts`):
+  `'restored'` only while still networked + PLAYING + with a transport, otherwise `'dismissed'` →
+  `[net] terminal overlay dismissed — left the match (return to title)`. The cinematic-abort edge is untouched.
+  Failing first (4 tests in `connectionFrame.test.ts`, incl. a main.ts guard: one `connectionEdge(` call, the
+  RESTORED line under `edge === 'restored'`, the dismissal line present, `stillInMatch` is the
+  networked-PLAYING-transport test) → green. Mutation: always `'restored'` → red. Hotspot: `main.ts` E3 log
+  block (2 branches → 3) + import. Protocol: none (a log line).
+
 ## Steps
 
 | # | step | state | commit |

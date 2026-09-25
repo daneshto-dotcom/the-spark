@@ -76,6 +76,7 @@ import {
   type TerminalLossCause,
   hostMovedOn,
   type HostSignal,
+  connectionEdge,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
@@ -3795,13 +3796,21 @@ Network routes: ${v.detail}`;
      * `[net] PEER DROPPED … cause=…` (transport.ts) says why the peer went; this says why the overlay
      * gave up, and — since the loop now keeps trying past the grace — when it came back.
      */
-    if (connectionLost && !lastConnectionLost) {
+    // S189 fix round (audit NET-5) — the overlay also hides when the player LEAVES; say which.
+    const edge = connectionEdge({
+      wasLost: lastConnectionLost,
+      isLost: connectionLost,
+      stillInMatch: isNetworked(world) && world.gameState === 'PLAYING' && session.netTransport !== null,
+    });
+    if (edge === 'lost') {
       console.warn(
         `[net] CONNECTION LOST (terminal) cause=${terminalCause ?? 'unknown'} isHost=${world.isHost} ` +
           `peers=${session.netTransport?.peerCount() ?? 0}`,
       );
-    } else if (!connectionLost && lastConnectionLost) {
+    } else if (edge === 'restored') {
       console.warn('[net] CONNECTION RESTORED after the terminal overlay — a peer is back');
+    } else if (edge === 'dismissed') {
+      console.warn('[net] terminal overlay dismissed — left the match (return to title)');
     }
     if (connectionLost && !lastConnectionLost) {
       // S31 P0-4 — cinematicTimer cleanup REMOVED (deleted alongside the
