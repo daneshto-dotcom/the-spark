@@ -379,7 +379,7 @@ the committed tree, each a captured `$?`:
 VITEST_EXIT=0 (6062 / 368) · build BUILD_EXIT=0 (950.7 KiB, +6.5 KiB of the shared headroom). No
 hotspot file touched this round; no protocol edit (the weld bump reasons are unchanged).
 
-## IN-FLIGHT
+## IN-FLIGHT (superseded — see the S191 section's own IN-FLIGHT at the end)
 - none — round-4 report delivered.
 
 ## NEXT
@@ -703,3 +703,15 @@ ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverte
 - `makeBond` call sites re-enumerated to back the "own by construction" claim: `placePrimitive.ts`
   ×3 (all bond the NEW shape), `blueprintBuild.ts` (fresh stamp nodes only), `structureRepair.ts`
   (blueprint edges of the group). No path bonds two pre-existing shapes of different towers.
+
+### ROUND 5 FINAL GATES (committed tree 39083cc, `git status` clean), each a captured `$?`
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=4` → VITEST_EXIT=0 — **6550 passed + 2 skipped / 401 files + 1 skipped**
+- `npm run build` → BUILD_EXIT=0 — **972.1 KiB** / 1100 (127.9 headroom) — weld branch **+16.2 KiB** over
+  master 955.9 (round 5 = +9.5) ⚠ over the ≤ 10 KiB guidance, reported.
+- e2e NOT run. Round 6 (R191-B) QUEUED — not started; the owner's S191 refinement (no shape available
+  → gatherers keep gathering, a job waits for availability; a repair in flight at FIGHT waits in the
+  castle with the shape and lands after the next BUILD starts) is recorded for when it is released.
+
+## IN-FLIGHT
+- none — round 5 report delivered. Round 6 waits for "round 6 go".
