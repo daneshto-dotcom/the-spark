@@ -105,10 +105,11 @@ function rig(): Rig {
 }
 
 /** One key press, dispatched to every keydown listener in registration order, as ONE event. */
-function press(r: Rig, key: string, afterMs = 300): void {
+function press(r: Rig, key: string, afterMs = 300, repeat = false): void {
   r.clock.t += afterMs;
   const e = {
     key,
+    repeat, // ⭐ S191 SEAM-2 — `KeyboardEvent.repeat`: true on the OS auto-repeat keydowns of a HELD key
     defaultPrevented: false,
     preventDefault() {
       this.defaultPrevented = true;
@@ -181,6 +182,38 @@ describe('S189 A1 — a cancel is not the first press of "leave the match"', () 
     press(b, 'Escape');
     press(b, 'Escape', TITLE_EXIT_CONFIRM_MS + 1);
     expect(b.leaves).toBe(0);
+  });
+});
+
+/**
+ * ⛔ S191 SEAM-2 (audit wf_0593f6fe-d53, LOW) — HOLDING Escape LEFT THE MATCH. The OS auto-repeats a held
+ * key (~30 keydowns a second, `repeat: true`), and the handler counted the first repeat as the second press.
+ * A repeat is not a press: it is ignored, and it does not touch the chord.
+ */
+const REPEAT_MS = 33;
+describe('S191 SEAM-2 — an auto-repeat keydown is not a second press', () => {
+  it('⛔ REACH: put the Ra aim away with Escape and keep HOLDING it (3 repeats) — the match is NOT abandoned', () => {
+    const r = rig();
+    setRaAimPreview({ seat: P0, x: 500, y: 500 });
+    press(r, 'Escape'); // the cancel
+    for (let i = 0; i < 3; i++) press(r, 'Escape', REPEAT_MS, true);
+    expect(raAimPreview()).toBeNull();
+    expect(r.leaves, 'a held cancel must not leave').toBe(0);
+  });
+
+  it('⛔ REACH: one bare Escape, HELD (3 repeats) — the match is NOT abandoned', () => {
+    const r = rig();
+    press(r, 'Escape');
+    for (let i = 0; i < 3; i++) press(r, 'Escape', REPEAT_MS, true);
+    expect(r.leaves).toBe(0);
+  });
+
+  it('NEGATIVE: press, hold (repeats), release, then ONE discrete press inside the window → leaves once', () => {
+    const r = rig();
+    press(r, 'Escape');
+    for (let i = 0; i < 3; i++) press(r, 'Escape', REPEAT_MS, true);
+    press(r, 'Escape', 300); // 399 ms after the first press, inside TITLE_EXIT_CONFIRM_MS
+    expect(r.leaves).toBe(1);
   });
 });
 

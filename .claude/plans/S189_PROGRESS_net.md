@@ -193,8 +193,8 @@ The merge owner resumes from this file if this agent is cut off.
 |---|---|---|---|
 | 1 | FIX-1 / WIRE-1 (MED) — one Begin at a time; mint + store the id before the await | done | fd41fad |
 | 2 | WIRE-3 (LOW) — "seated survivor" at both sites (claim input + `migrationCase`) | done | 50f1f6e |
-| 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | (this commit) |
-| 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | pending | |
+| 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | 6004e8d |
+| 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | done | (this commit) |
 | 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | pending | |
 | 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | pending | |
 | 7 | gates + report | pending | |
@@ -242,6 +242,15 @@ The merge owner resumes from this file if this agent is cut off.
   ("reports no loss episode" from 12 000) is RE-PINNED to FIX-3's rule, not deleted. Mutation: back to
   `lossObservedAtMs: 0` → 3 red. `vitest src/net/` EXIT=0 (39 + 1 / 622 + 3). Canon notes' survivor-gate
   paragraph amended for WIRE-3 + FIX-3 (my own notes, one paragraph). Protocol: none.
+
+- **SEAM-2 — holding Escape no longer leaves the match.** `DoubleEscapeKey` gains `repeat?: boolean`
+  (`KeyboardEvent.repeat`); `makeDoubleEscapeLeave` returns on `e.repeat === true` right after the key
+  check, without touching `lastEscapeAtMs`. main.ts registers the handler on `window` keydown unchanged, so
+  the browser's own event carries the flag. Tests (`doubleEscapeLeave.test.ts`, through the real `Controls`
+  in main.ts's listener order; `press` gains a `repeat` flag, repeats 33 ms apart): Ra aim cancel + 3
+  repeats → no leave; a bare press + 3 repeats → no leave; press, 3 repeats, then one discrete press
+  399 ms after the first → leaves exactly once. PRE-FIX 3 red (1, 2 and 2 leaves) → green. Mutation: drop
+  the repeat guard → 3 red. Protocol: none (local input).
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

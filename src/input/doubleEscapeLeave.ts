@@ -27,6 +27,8 @@ export interface DoubleEscapeKey {
   readonly key: string;
   /** True when an earlier listener consumed this press (a cancel). */
   readonly defaultPrevented?: boolean;
+  /** ⭐ S191 SEAM-2 — `KeyboardEvent.repeat`: an OS auto-repeat keydown of a HELD key, not a press. */
+  readonly repeat?: boolean;
 }
 
 export interface DoubleEscapeDeps {
@@ -46,6 +48,7 @@ export function makeDoubleEscapeLeave(deps: DoubleEscapeDeps): (e: DoubleEscapeK
   let lastEscapeAtMs: number | null = null;
   return (e) => {
     if (e.key !== 'Escape') return;
+    if (e.repeat === true) return; // ⛔ S191 SEAM-2 — holding Escape is ONE press; the chord is untouched
     if (!deps.isPlaying()) return;
     // ⭐ S189 A1 — consumed as a cancel by an earlier listener: not a leave press, and the chord resets.
     if (e.defaultPrevented === true) {
