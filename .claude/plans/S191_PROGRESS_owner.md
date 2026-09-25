@@ -79,11 +79,18 @@ root cause, the table in the final report.
   and `s182UiSurfaceGuards.test.ts`. Fixed a test-only type error left in the 1b-sim commit
   (`fp` returns a number). Suite 6520 / 0 failed, typecheck 0.
 
+- **1b-bots** — `src/bots/botScorchedEarth.ts` (`botScorchTarget`: the highest-scoring LEGAL enemy, ties
+  to the lower seat; `botScorchedEarthAction`: at its first look each FIGHT, phase-spread by seat,
+  `BOT_SCORCH_EVAL_EVERY_TICKS` 30 ⚠ MINE) + one call in `botController.ts` after the Ra call. Tests
+  `botScorchedEarth.test.ts` (7, the real BotManager through `runHostTick`: target, tie, fallen enemy,
+  unheld/BUILD, once per FIGHT across the real clock, determinism). Mutations red, restored: controller
+  call removed → 5 red; lowest-score target → 2 red. Suite 6527 / 0 failed, typecheck 0.
+
 ## In flight
-- 1b-bots
+- item 2 (systemic stock fix — chewers, drones, all tower units)
 
 ## Next
-- item 2
+- final gates + report
 
 ## Constants (S191)
 | constant | value | whose |
@@ -104,6 +111,7 @@ root cause, the table in the final report.
   are backdrop TINTS (the brief's "hover tint"), so with backdrops toggled OFF neither shows.
 - ⚠ Escape uses an inline `preventDefault` (s189/net's `consumeCancel` is not on master) — at merge,
   switch to `consumeCancel(e)` and add this cancel to `doubleEscapeLeave.ts`'s consumer list.
+- ⚠ Bot: scorches the highest-scoring enemy's zone at its first look each FIGHT; never its own zone.
 - ⚠ A bond is "in the zone" by its MIDPOINT (POWER OF RA's rule); a structure's phase key = its lowest
   caster-clear in-zone bond id.
 - Consequence for the owner: at 1 %/s over a 60 s FIGHT one cast takes 60 % of ONE connector's pool
