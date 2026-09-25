@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — audit fix round (7 items)**
+**STATUS: COMPLETE — audit fix round, all 7 items committed (FR-1..FR-7); gates 0/0/0 at 163f286. ⛔ C4 end-to-end only partly fixed — see "C4 END-TO-END" (NOT DONE, for the merge owner)**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -109,6 +109,31 @@ The merge owner resumes from this file if this agent is cut off.
   RESTORED line under `edge === 'restored'`, the dismissal line present, `stillInMatch` is the
   networked-PLAYING-transport test) → green. Mutation: always `'restored'` → red. Hotspot: `main.ts` E3 log
   block (2 branches → 3) + import. Protocol: none (a log line).
+
+- **FIX-ROUND GATES (tip 163f286, exit codes captured directly):** `npm run typecheck` **0** ·
+  `npx vitest run --maxWorkers=6` **0** (378 files passed + 1 skipped / 6314 tests + 5 skipped) · `npm run build`
+  **0** (entry 956.2 KiB, cap 1100, headroom 143.8). Benign, recorded: the vitest run rewrote
+  `pentagramBuildability.test.ts.snap` line endings only (`git diff --ignore-cr-at-eol` empty) → restored.
+
+- ⛔ **C4 END-TO-END, NOW MEASURED — AND IT IS ONLY PARTLY FIXED. NOT DONE; for the merge owner.** The post-fix
+  `e2e/reconnect-hard-blip.spec.ts` (owed since step 4a) was run on the final tree, 7 times (spec ×4 + a
+  temporary diagnostic copy ×3, deleted): recovered at **7.2 s, 10.0 s** (inside the 15 s grace) · **21.0, 29.1,
+  29.2, 30.7 s** (after it — the terminal overlay shows, then clears itself) · **1 run not within 45 s** (six
+  attempts). Spec EXIT=1 on 5 of 7 (it asserts inside-the-grace). Pre-fix: never recovered, and the joiner claimed
+  the host seat. What HELD in every run: the joiner stayed a client (no lone claim — C4 fault 3, FR-4), it was
+  never sent to title (FR-1's pending gate), the loop kept trying past the grace (fault 2).
+  **Diagnosis (evidence, not a fix):** the host drops the dead peer at once (`PEER DROPPED … cause=peer-left`
+  at +0.2 s in every traced run), so it is NOT a stale host peer. The late landings match Trystero's own signalling
+  TTLs in `@trystero-p2p/core/dist/signal-handler.mjs` — `answeringTtlMs` / `offerPostAnswerTtlMs` = **23,333 ms**,
+  `disconnectedPeerGraceMs` = 7,533 ms. Traced: attempt 1 at +1.70 s (its offer relayed ~+2.4 s) → host
+  `[net] nostr failed` (Trystero join timeout) at **+25.76 s** = 2.4 + 23.33 → the next attempt landed 3 s later
+  (+29.3 s). So when the first rejoin's handshake does not complete, the host sits in that peer's answering state
+  for ~23 s and later attempts from the same selfId cannot land until it expires; and a first-attempt handshake
+  measured ~8 s once, right at `RECONNECT_RETRY_MS` (8 s) — one retry tore down a join in its last millisecond
+  (+9.753 handshake / +9.754 retry). Why the first attempt's handshake sometimes stalls is NOT established.
+  Candidate directions (each is a change to C4 behaviour → merge owner / owner call, not done here): don't tear
+  down an attempt with a handshake in flight; pace retries against Trystero's 23.3 s TTL after the first; a
+  rejoin that reuses the live shared peer. The spec stays @quarantine-flaky (non-gating); deploy is not blocked.
 
 ## Steps
 
