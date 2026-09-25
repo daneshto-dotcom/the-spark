@@ -529,3 +529,48 @@ new code never reads a defender or a tower's membership; the rows that do, and t
 - `npm run build` → BUILD_EXIT=0 — **962.6 KiB** / 1100 (137.4 headroom); master 955.9 ⇒ weld **+6.7 KiB**
 - e2e NOT run (brief). Steps 1-6 DONE. Per the merge owner's message, round 5 (R191-A) follows
   instead of stopping; round 6 (R191-B) is QUEUED until "round 6 go".
+
+## ROUND 5 — R191-A, the owner's welded-structure rules (R185-B amended)
+
+### R5-0 — THE DESIGN (written before any code)
+- ⛔ IDENTITY — **a tower's own members are its own PRIMITIVES, and its own connectors are the bonds
+  between them.** Every spawner/defender records `ownPrimitiveIds` (ascending, anchor included) at
+  registration — the exact shape at the anchor (ignition is exact: a star = hub + every hub neighbour,
+  a ring = the exact walk) — REPLACING `ownBondIdLimit`. Star: stands iff the hub + every own leaf
+  stand, types match the recipe, and each own leaf still has a bond to the hub (ANY id). Ring: stands
+  iff the n own nodes stand and the bonds among them close one n-cycle. WHY PRIMITIVES, NOT BONDS: a
+  bond id changes on every re-weld (FIX mints a new one — W-FR4), a primitive id changes only when a
+  NODE is re-minted, which FIX does itself and records in the same reducer; and no bond can ever join
+  two EXISTING shapes except a recipe edge (placement bonds only the NEW shape; FIX re-welds only
+  blueprint edges), so "a bond between two own shapes" is own by construction, whatever its id. A weld
+  can never be an own primitive. Four sites (factory, save + `trimMirrorSpawner` keeps it, wide hash,
+  worker via the save); absent ⇒ the exact pre-S189 reading. The W-FR1 floor moves from `nextBondId`
+  to `nextPrimitiveId` (a razed own shape's id must not be re-issued while its record lives).
+- THE TOWER UNIT (one read model, `towerUnitAt(world, prim)`, used by the reducers AND the sheet):
+  the live tower whose own members hold `prim` (lowest spawner id, then lowest defender id), else —
+  for a stamped shape (`origin`) — its STAMP GROUP (the shapes of the same blueprint reachable through
+  bonds between stamped shapes: a fallen stamped tower), else `null` (a free-form shape).
+  WELDED ⇔ the component holds shapes outside that unit (or, for a free-form click, holds any tower).
+- REDUCERS — no new action, no new field: `REPAIR_STRUCTURE` / `SCRAP_STRUCTURE` infer the scope from
+  the clicked shape, the same way the sheet does. UN-WELDED: byte-identical to today. WELDED + tower
+  shape: FIX = that unit only (bill = what IT lost, R13 / R182-E; heal its own shapes + own connectors;
+  a live record's own set gains the re-minted ids; a FALLEN welded stamp is re-registered directly —
+  exact ignition can never see a welded tower — with anchor = hub / lowest ring id, the matcher's own
+  rule, so the matcher's de-dup still holds later). SCRAP = that unit's own shapes only (a shape
+  another live tower also owns stays — ⚠ MINE). WELDED + free-form shape: SCRAP = the whole component
+  (towers included); FIX refused (plan null + reducer no-op).
+- SHEETS (render model): tower-in-weld → that tower's card (own CONNECTORS/SHAPES/pool, own
+  ATK/aura/Helga/FEED) + a WELDED strip "part of a welded structure cur / max" + small icons of the
+  OTHER towers (clickable); free-form in a weld → WELDED STRUCTURE card: its pool, shape counts by type,
+  connector count, every tower (icon, name, own pool/max; live by spawner id then defender id, then
+  fallen stamps by lowest id), each row clickable (re-uses `ownedRowAt`'s path, no controls change). A
+  visible (non-own) shape under the cursor now beats the tower art box, so a weld on the art is
+  clickable. ONE function per number (`towerOwnHealth`, `structureHealth`), no second derivation.
+- COST, file by file (estimate): spawner.ts/defender.ts + both lifecycles (~40) · towerMembers.ts +
+  starShape.ts + ringShape.ts (~110) · save.ts + stateHashFull.ts hotspot hunks (~20) ·
+  migrationClaim.ts (~10) · NEW state/towerUnit.ts (~150) · structureRepair.ts (~120) ·
+  characterSheetModel.ts (~160) · characterSheet.ts (~110) · structurePanel.ts FEED gate (~5) ·
+  controls.ts click order (~15) · tests (~700). ~1 working day; bundle est. +3–5 KiB (⚠ on top of
+  weld's +6.7 — reported, not hidden).
+- ⚠ Round 6 (repair job, queued) plugs in at ONE seam: `applyRepairStructure`'s restore half becomes
+  the job's on-arrival step; the plan (unit, bill) is unchanged, so this design does not corner it.
