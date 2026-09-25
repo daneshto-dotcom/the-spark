@@ -781,7 +781,11 @@ export type { NetSnapshot };
  *        peer has no config for it and would fall through every per-type table.
  *      · **New optional fields**: `Creature.hellspawnGen` (s188/racial-b), `Creature.corpseEaterUntilTick`
  *        + `corpseEaterAnchor` (s188/racial-d), `Player.dynastyHpLost` (s188/racial-b),
- *        `Player.raStrike` (s188/racial-c). Each emitted only when set, each hashed.
+ *        `Player.raStrike` (s188/racial-c — ⚠ REPLACED by `raStrikes` in 51, S190: see below). Each
+ *        emitted only when set, each hashed.
+ *      · ⚠ BACKFILLED S190 — **`Creature.attackCycleRaged`** (deploy #2, fix round F3: the per-cycle rage
+ *        latch, `attackCycleMultiplier`). Emitted only when true, hashed (`CreatureHashed` + `:ar`). It
+ *        shipped under 50 and this list omitted it until the deploy-#4 merge; canon §6 recorded the gap.
  *      · **A changed meaning, not a new field** (s188/castle): an absent `castleHp` now reads as THAT
  *        SEAT's upgraded ceiling (`castleMaxHpFor`), not the flat `CASTLE_MAX_HP` — a v49 peer would
  *        read a bought 2750 keep as 2500. No v49 client could buy HP, so no live board carries it.
@@ -789,7 +793,66 @@ export type { NetSnapshot };
  *        (`ragedFireTick`); since S168 rage halved the cadence and left the fire tick past the end of
  *        the cycle, so a raging Warlord never hit. Two builds would disagree on every raging swing.
  */
-export const PROTOCOL_VERSION = 50 as const;
+/**
+ * ⭐⭐ S190 — **BUMPED 50 -> 51: DEPLOY #4 — TRAIN B (WRATH OF RA, THE SWARM) AND TRAIN D (THE DRAFTED
+ * STRIKE), ONE BUMP FOR EVERY BRANCH MERGED ON `s190/deploy4`.** Taken ONCE by the merge owner, so no
+ * two branches could each earn "the same" 51 for different reasons and drop one docblock (S182 lesson
+ * 6). The 50 docblock above is KEPT: everything it lists still rides. Session label: S190 shipped it;
+ * the branches carry `s188/*` / `s189/*` names for the sessions that started them. Every reason below is
+ * sufficient on its own:
+ *
+ *   1. **A SHIPPED WIRE FIELD REPLACED** (s188/wrath) — `SerializedPlayer.raStrike` (live in 50 since
+ *      deploy #2) is REPLACED by `SerializedPlayer.raStrikes?: RaStrike[]`: at most `WRATH_OF_RA_CHARGES`
+ *      (3), in cast order, emitted only when non-empty, every entry validated and the list capped on
+ *      rehydrate (`raStrikeFromWire`). A v50 peer reads no `raStrike` and drops `raStrikes`, so it sees
+ *      no strike at all — no telegraph, no columns — and a v50 successor restores none.
+ *   2. **A CHANGED SHARED RULE — WRATH OF RA** (s188/wrath, `mummies.l10`) — `CHOOSE_DRAFT.pick =
+ *      'racial'` at draft index 2 (wave 11) is now OFFERED and ACCEPTED (`pickIsOffered`) for a mummies
+ *      seat holding `mummies.l0` (`RACIAL_PERK_REQUIRES`), and the deadline takes it (`autoPickFor`); that
+ *      seat then casts THREE strikes a FIGHT, each column pattern seeded by `seat + MAX_PLAYERS × charge`
+ *      (charge 0 is POWER OF RA's own). A v50 host refuses the pick; a v50 peer allows one cast and
+ *      computes the charge-0 pattern for every strike.
+ *   3. **A FIXED RULE** (s188/wrath, audit F1) — a Ra column's connector sever is resolved inline
+ *      (`applySeverBond`), so it is no longer refused for a caster benched or eliminated mid-strike. Two
+ *      builds would disagree about which connectors a column breaks.
+ *   4. **A NEW SERIALIZED `CreatureType`, `'t3BatSwarm'`** (s188/swarm, THE SWARM) — it rides
+ *      `Creature.type` in net snapshots, saves and the worker INIT; `deserializeCreature` copies `type`
+ *      with no whitelist, so a v50 peer accepts it, finds no `CREATURE_CONFIGS` entry and throws in
+ *      `creatureMaxEhp` → `getCreatureConfig`.
+ *   5. **A CHANGED SHARED RULE — THE LEVEL-10 VAMPIRE OFFER** (s188/swarm) — `racialPerkFor('vampires',
+ *      2)` is now `'vampires.l10'`: the racial pick is offered and accepted at wave 11, the deadline takes
+ *      it (bots included), and `towerUnitForSeat` promotes a holder's `t3Bat` emits to `t3BatSwarm`.
+ *   6. **A NEW SERIALIZED + HASHED FIELD CARRYING A NUMBER BOTH PEERS COMPUTE** (s188/draft-atk) —
+ *      `Creature.atkFifths?`: a drafted ATK/PEN pick is now BAKED into every creature's strike at birth
+ *      (`draftedAttackFifths` in `makeCreature`, read back through `creatureAttackFifths` by every strike
+ *      arm, the creature card and the fatal-blow floater). Additive-optional in shape, and it still owes
+ *      the bump: a v50 successor promoted by host migration drops the field on restore and strikes
+ *      UNBUFFED from then on, and a v50 client prints the type's strike on the card and the kill number —
+ *      two builds that shake hands would disagree about a number both compute (the S186 test). The same
+ *      reason `maxEhp` paid part of 48->49. Hashed as `:ak`.
+ *
+ * ⭐ WHAT ALSO RIDES 51 WITHOUT NEEDING IT — recorded so this is the complete wire and rule history:
+ *   · `Creature.healedFifths?` (s189/render, owner R190-I) — additive-optional, SERIALIZED (a monotonic
+ *     count of every heal applied, emitted only once > 0) and HASHED (`:hf`). Presentational: no sim reads
+ *     it, and a stale peer ignores the key and prints the old net floater. ⚠ Its cost is permanent: about
+ *     17–19 B per snapshot for every creature that has ever been healed.
+ *   · `WorldSnapshot.nextCreatureId?` (s189/units, LOW c) — additive-optional, emitted only when the
+ *     live-id derivation would under-state the host's counter; already in the wide hash. Only the host
+ *     mints; an old successor re-derives, which was the old behaviour.
+ *   · host-side rule changes (s189/units): the Kraken sonar shoves 70 px and REPLACES the victim's
+ *     velocity (`KRAKEN_SONAR_KNOCKBACK_PX`); Helga's patrol is held to the board (`clampIntoPlayfield`);
+ *     CORPSE EATER's bite clock latches rage per cycle; castle regen is a percent of the seat's UPGRADED
+ *     max (owner R190-C, `castleRegenPerSecond(level, maxHp)`); the racial spawn queue drains at every
+ *     boundary a save can land on. Each runs only inside `runHostTick` (the host and its same-bundle
+ *     worker) and owed nothing alone — a v50 host-migration successor would run the old rule, and 51 now
+ *     refuses that pairing outright.
+ *   · s190/perf — the per-tick bond-target index. Targeting outputs and `hashWorldStateFull` are
+ *     byte-identical (`bondTargetIndex.differential.test.ts`); no wire or rule change.
+ *
+ * ⚠ AND IT CLOSES OWNER RULING R190-B: deploys #1 and #2 both advertised 50 while deploy #2 changed four
+ * sim rules under it (*"It's not a question"*). 51 refuses both old builds at HELLO.
+ */
+export const PROTOCOL_VERSION = 51 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1092,6 +1155,15 @@ export interface HelloMsg {
    * rules both peers compute. Taken ONCE in the shared substrate for six parallel branches; the new
    * intent, fields and creature type each branch adds are recorded on the const's JSDoc.)
    *
+   * S190: 50->51 (DEPLOY #4 — train B + train D, ONE bump for every branch merged on `s190/deploy4`:
+   * `SerializedPlayer.raStrike` REPLACED by `raStrikes` (≤ 3, cast order, validated + capped) — a
+   * shipped field a v50 peer cannot read; WRATH OF RA's conditional wave-11 offer and three casts a
+   * FIGHT seeded by `seat + MAX_PLAYERS × charge`; a Ra column's sever no longer refused for a benched
+   * caster; the new serialized `CreatureType` `'t3BatSwarm'` and the level-10 vampire offer; the
+   * drafted ATK/PEN strike baked at birth into the new serialized + hashed `Creature.atkFifths`. Riding
+   * without needing it: `Creature.healedFifths`, `WorldSnapshot.nextCreatureId`, units' host-side rule
+   * changes. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1129,7 +1201,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 50;
+  readonly protoVersion: 51;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

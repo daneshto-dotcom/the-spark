@@ -21,7 +21,7 @@
  * ## ⛔ A TRUE LEAF — `save.ts` IMPORTS IT
  *
  * Constants, types, the perk registry and the bench predicate, nothing else. `save.ts` rehydrates
- * `Player.raStrike` through `raStrikeFromWire` below, and a save module that reached the damage code
+ * `Player.raStrikes` (renamed from `raStrike` in protocol 51, S190) through `raStrikeFromWire` below, and a save module that reached the damage code
  * through an import chain is a module-evaluation cycle waiting to happen. The landing-spot function
  * (`raStrikeColumnPos`) therefore lives in `powerOfRa.ts`, beside the reducer.
  *

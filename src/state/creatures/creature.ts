@@ -422,7 +422,8 @@ export type CreatureType =
    *
    * ⛔ ITS OWN LITERAL for exactly the elite piranha's reason above: an undamaged creature carries no
    * stats on the wire, so ×6 stats are only expressible as a distinct TYPE. SERIALIZED — a stale peer
-   * would accept the literal and find no config — so it rides the S188 PROTOCOL 49 → 50 bump.
+   * would accept the literal and find no config — so it rides the S190 PROTOCOL 50 → 51 bump (deploy
+   * #4). ⚠ This line said "the S188 49 → 50 bump" until the merge: 50 was already live without it.
    *
    * ⚠ The `t3` prefix is load-bearing (tier-3 is cap-limitless in `underGoblinCaps`; the character
    * sheet tiers it T3), so the swarm joins the bat's population rules for free. Emitted only by a
