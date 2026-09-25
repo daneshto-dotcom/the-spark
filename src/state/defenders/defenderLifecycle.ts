@@ -177,6 +177,7 @@ function targetValid(world: World, d: Defender, config: DefenderConfig): boolean
 export function applyDefenderTick(world: World, action: DefenderTickAction): World {
   const d = world.defenders.get(action.defenderId);
   if (d === undefined) return world;
+  if (d.state === 'DORMANT') return world; // S189 R190-J — Helga is dead; her hall waits for the edge
   const config = getDefenderConfig(d.kind);
   // The defender's HOME = its (verlet-mobile) anchor primitive's current pos. If the anchor is gone,
   // hold the last pos — the host re-validation poll will REMOVE_DEFENDER on its next throttle slot.
@@ -563,6 +564,45 @@ export function loadRephaseDefenders(world: World): void {
 }
 
 /**
+ * ⭐⭐ S189 C2 / OWNER RULING R190-J — WAKE EVERY DORMANT HELGA WHOSE HALL STILL STANDS.
+ *
+ * > *"Every fight she should come back as long as the tower is still up."*
+ *
+ * Called at the FIGHT→BUILD edge, AFTER that edge's sweep has removed the record of any hall that
+ * fell. ⭐ WHY THIS EDGE AND NOT BUILD→FIGHT: it is the timing she already had — ignition summons a
+ * defender DURING BUILD (S157 B6, "only next turn"), so a living hall brought her back at the start
+ * of the next BUILD whenever anyone built. Reviving on the same edge keeps her timing, gives the
+ * player the whole BUILD to see she is back, and drops the need for a bond to form.
+ *
+ * She wakes as a fresh summon does: full pool off the ladder, at home on her hub, IDLE, the opening
+ * charge scheduled from now. Iterates in ascending id — no `Map` order decides anything here.
+ */
+export function reviveDormantHelgas(world: World): void {
+  const ids = [...world.defenders.keys()].sort((a, b) => Number(a) - Number(b));
+  for (const id of ids) {
+    const d = world.defenders.get(id)!;
+    if (d.state !== 'DORMANT') continue;
+    if (!world.primitives.has(d.anchorPrimitiveId) || !recipeStillSatisfied(world, d)) continue;
+    const home = world.primitives.get(d.anchorPrimitiveId)!.pos;
+    // The pool and the opening charge come from the FACTORY, exactly as a fresh summon's do — one
+    // derivation, so a revived Helga cannot drift from a newly built one.
+    const fresh = makeDefender({
+      id: d.id, kind: d.kind, ownerPlayerId: d.ownerPlayerId, anchorPrimitiveId: d.anchorPrimitiveId,
+      recipeId: d.recipeId, pos: home, registeredAtTick: world.tick, ownBondIdLimit: d.ownBondIdLimit,
+    });
+    d.state = fresh.state;
+    d.ticksInState = fresh.ticksInState;
+    d.ehp = fresh.ehp;
+    d.pos = fresh.pos;
+    d.prevPos = fresh.prevPos;
+    d.walkTargetPos = fresh.walkTargetPos;
+    d.targetCreatureId = fresh.targetCreatureId;
+    d.lastStrikePos = fresh.lastStrikePos;
+    d.nextFireTick = fresh.nextFireTick;
+  }
+}
+
+/**
  * Teardown — clear all defender state. Wired into all FOUR teardown sites (world.ts WIN_TRIGGER,
  * gameMode.ts START_GAME + RETURN_TO_TITLE, godlyActions.ts applyGodlyAbort) so a defender never
  * persists onto the win screen or into the next match. `nextDefenderId` reset so a fresh match
@@ -609,6 +649,7 @@ export function teardownDefenders(world: World): void {
  */
 export function standDownDefenders(world: World): void {
   for (const d of world.defenders.values()) {
+    if (d.state === 'DORMANT') continue; // S189 R190-J — only `reviveDormantHelgas` wakes her
     d.targetCreatureId = null;
     d.state = 'IDLE';
     d.ticksInState = 0;

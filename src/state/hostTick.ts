@@ -98,6 +98,7 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
+  reviveDormantHelgas, // S189 R190-J — wake a dead Helga at the FIGHT→BUILD edge while her hall stands
 } from './defenders/defenderLifecycle.ts';
 // S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -466,6 +467,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
           }
         }
+        /*
+         * ⭐⭐ S189 C2 / R190-J — *"Every fight she should come back as long as the tower is still
+         * up."* The sweep above has just removed the record of any hall that fell; every DORMANT
+         * Helga left is on a hall whose own members stand, welded or not, and she wakes now — no
+         * bond needs to form. See `reviveDormantHelgas` for why this edge.
+         */
+        reviveDormantHelgas(world);
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
         /*
@@ -1407,6 +1415,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
       // WEAPON, not the entity's bookkeeping.
       if (world.matchPhase !== 'FIGHT') continue;
+      if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga does nothing until the edge
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
   }

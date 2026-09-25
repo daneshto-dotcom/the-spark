@@ -75,6 +75,7 @@ import { applyBuildBlueprint } from './blueprintBuild.ts';
 import { blueprintBill } from './blueprints.ts';
 import { makeCastleBank } from './castleBank.ts';
 import { makeCreature } from './creatures/creature.ts';
+import { makeDefender } from './defenders/defender.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { asCreatureId, asSpawnerId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
@@ -1246,19 +1247,19 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
     expect(w.matchPhase, `the phase must flip from ${from}`).not.toBe(from);
   }
 
-  /** What a player does every BUILD: build something — a bonded pair far from the hall. */
-  function buildSomethingElsewhere(w: World): void {
-    placeLikeAPlayer(w, SparkType.Dot, { x: 300, y: 760 });
-    placeLikeAPlayer(w, SparkType.Dot, { x: 330, y: 760 }); // bonds to the first → BOND_FORMED
+  function helgaOf(w: World) {
+    return [...w.defenders.values()].find((d) => d.kind === 'princess');
   }
 
   function killHelga(w: World): void {
-    const h = [...w.defenders.values()].find((d) => d.kind === 'princess')!;
-    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
-    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'she is dead').toBe(false);
+    const h = helgaOf(w)!;
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null), 'the blow kills').toBe(true);
+    const after = helgaOf(w)!;
+    expect(after.state, 'she is dead — DORMANT, her hall keeps its record').toBe('DORMANT');
+    expect(after.ehp, 'no pool: nothing can target, raid or damage her').toBeNull();
   }
 
-  it('⭐ weld a shape onto her HALL, let her die, and she re-summons for the next fight', () => {
+  it('⭐ weld onto her HALL, let her die: the next fight she is back with NO bond formed during BUILD', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const { hub } = hall(w, st);
@@ -1266,25 +1267,29 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
     expect(neighbours(w, weld), 'the weld is on the HUB').toContain(hub.id);
     expect(isHelgaComponent(w, hub.id), 'the EXACT build test would refuse this hall').toBe(false);
     tick(w, st, PAST_TWO_POLLS);
-    expect(w.defenders.size, 'the welded hall stands').toBe(1);
+    expect(helgaOf(w)?.state, 'the welded hall stands, she is alive').not.toBe('DORMANT');
 
     nextPhase(w, st); // → FIGHT
     killHelga(w);
-    tick(w, st, 5);
-    expect(w.defenders.size, 'no re-summon inside the fight she died in (S157 B6)').toBe(0);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(helgaOf(w)?.state, 'she stays down for the rest of the fight she died in (S157 B6)').toBe('DORMANT');
 
-    nextPhase(w, st); // → BUILD
-    buildSomethingElsewhere(w);
-    tick(w, st, 3);
-    const back = [...w.defenders.values()].filter((d) => d.kind === 'princess');
-    expect(back.length, 'she is back for the next fight').toBe(1);
-    expect(back[0]!.anchorPrimitiveId, 'on the same hall').toBe(hub.id);
+    const bondsBefore = w.nextBondId;
+    nextPhase(w, st); // → BUILD — nobody builds anything
+    expect(w.nextBondId, 'no bond was formed').toBe(bondsBefore);
+    const back = helgaOf(w)!;
+    expect(back.state, 'she is back at the edge').toBe('IDLE');
+    expect(back.ehp, 'with her full pool').toBe(makeDefender({
+      id: back.id, kind: 'princess', ownerPlayerId: back.ownerPlayerId, anchorPrimitiveId: hub.id,
+      recipeId: 'helga', pos: back.pos, registeredAtTick: 0,
+    }).ehp);
+    expect(back.anchorPrimitiveId, 'on the same hall').toBe(hub.id);
 
     nextPhase(w, st); // → FIGHT
-    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'and she fights it').toBe(true);
+    expect(helgaOf(w)?.state, 'and she fights it').not.toBe('DORMANT');
   });
 
-  it('⛔ cut one of the hall\'s OWN connectors: the hall falls and she does NOT return', () => {
+  it('⛔ cut one of the hall\'s OWN connectors: the hall falls, the dormant record goes, she never returns', () => {
     const w = worldInBuild();
     const st = makeHostTickState(w);
     const { hub, leaves } = hall(w, st);
@@ -1298,11 +1303,129 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
     expect(towerStandsAt(w, 'helga', hub.id), 'her own Spiral arm is gone — the hall is down').toBe(false);
 
     nextPhase(w, st); // → BUILD
-    buildSomethingElsewhere(w);
+    expect(helgaOf(w), 'the edge sweep removed the dormant record').toBeUndefined();
+    // Even with building going on, the broken hall summons nobody (build is exact).
+    placeLikeAPlayer(w, SparkType.Dot, { x: 300, y: 760 });
+    placeLikeAPlayer(w, SparkType.Dot, { x: 330, y: 760 });
     tick(w, st, 3);
-    expect([...w.defenders.values()].some((d) => d.kind === 'princess'), 'no hall, no Helga').toBe(false);
+    nextPhase(w, st); // → FIGHT
+    nextPhase(w, st); // → BUILD
+    expect(helgaOf(w), 'no hall, no Helga — ever').toBeUndefined();
+  });
+
+  it('⛔ a lattice Triangle with 3 Spirals + 3 Circles AND other bonds does NOT ignite a new Helga', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      bond(w, hub, mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40));
+    }
+    bond(w, hub, mk(w, SparkType.Square, 470, 340)); // one more shape on the hub: part of a lattice
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 7 });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'her first build is EXACT — an isolated component of her seven').toBe(0);
+  });
+
+  it('⛔ …nor does one whose HUB is exact but whose LEAF is bonded into the lattice (component ≠ 7)', () => {
+    // The discriminating case: the hub carries exactly her six arms, so only the whole-component
+    // test (`isHelgaComponent`) refuses it. A "contains" first build would summon her here.
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    const leaves: Primitive[] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const leaf = mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40);
+      bond(w, hub, leaf);
+      leaves.push(leaf);
+    }
+    bond(w, leaves[0]!, mk(w, SparkType.Square, 580, 300)); // the lattice goes on past a leaf
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 7 });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'no Helga hall nobody built').toBe(0);
+  });
+
+  it('HOST vs WORKER — a death → dormant → revive cycle hashes identically every frame', () => {
+    const w = makeWorld(0x51890002);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'solo', isHost: true });
+    w.matchPhase = 'BUILD';
+    w.creatures.clear();
+    const setup = makeHostTickState(w);
+    hall(w, setup);
+    placeLikeAPlayer(w, SparkType.Square, { x: 520, y: 318 });
+    tick(w, setup, 2);
+    w.phaseEndsAtTick = w.tick + 30;
+    const rig = hostWorkerRig(w);
+    let killed = false;
+    let revived = false;
+    for (let f = 0; f < 120; f++) {
+      if (!killed && (w.matchPhase as string) === 'FIGHT') {
+        // The same kill on both sims, at the same tick.
+        for (const world of [w, rig.worker]) {
+          const h = [...world.defenders.values()].find((d) => d.kind === 'princess')!;
+          damageEntity(world, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+        }
+        killed = true;
+        w.phaseEndsAtTick = w.tick + 20;
+        rig.worker.phaseEndsAtTick = rig.worker.tick + 20;
+      }
+      rig.step(f);
+      if (killed && (w.matchPhase as string) === 'BUILD' && helgaOf(w)?.state === 'IDLE') revived = true;
+    }
+    expect(killed, 'the kill happened inside the window').toBe(true);
+    expect(revived, 'and the revive did').toBe(true);
+    expect(helgaOf(rig.worker)?.state, 'on the worker too').toBe('IDLE');
   });
 });
+
+/**
+ * A lockstep host-vs-worker rig: the worker adopts `w` through the real INIT (JSON save) and both
+ * advance by the same batches. `step` throws on the first frame whose WIDE hash differs.
+ */
+function hostWorkerRig(w: World): { worker: World; step: (f: number) => void } {
+  for (const b of w.bonds.values()) delete (b as { stiffnessMultiplier?: number }).stiffnessMultiplier; // per-tick transient
+  w.effects.length = 0;
+  const mkSpawner = (): Spawner => new Spawner(
+    DEFAULT_SPAWNER_CONFIG, mulberry32(1), mulberry32(2), mulberry32(3), mulberry32(4), mulberry32(5),
+  );
+  const refSpawner = mkSpawner();
+  const sim = makeWorkerSim({
+    type: 'INIT', saveJson: JSON.stringify(snapshot(w, { spawnerState: mkSpawner().getState() })),
+    hostSeats: [], localPlayerId: 0, ratePerSecond: DEFAULT_SPAWNER_CONFIG.ratePerSecond,
+  });
+  expect(hashWorldStateFull(sim.world), 'INIT adoption is bit-exact').toBe(hashWorldStateFull(w));
+  const controls = new WorkerControls(w, P0);
+  const refState = makeHostTickState(w);
+  const refCursor = { lastMatcherTick: -1 };
+  const cinematics = makeWorkerCinematicState();
+  const extras = makeGameStateExtras();
+  let seq = 0;
+  return {
+    worker: sim.world,
+    step: (f: number) => {
+      const batch = {
+        ticks: 1 + (f % 3),
+        control: { state: { kind: 'Idle' } as const, cursor: { x: 700, y: 400 } },
+        alivePeerIds: null, intents: [], nowMs: f * 16,
+      };
+      controls.setFrame(batch.control);
+      const d: HostTickDeps = {
+        spawner: refSpawner, controls, botManager: null, gameStateExtras: extras,
+        alivePeerIds: null, hostSeats: new Map(),
+      };
+      for (let i = 0; i < batch.ticks; i++) runHostTick(w, d, refState);
+      if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, refCursor);
+      tickWorkerCinematics(w, cinematics);
+      w.effects.length = 0;
+      applyTickBatch(sim, { type: 'TICK_BATCH', batchSeq: ++seq, ...batch }, { forceSnapshot: true });
+      const a = hashWorldStateFull(w);
+      const b = hashWorldStateFull(sim.world);
+      if (a !== b) throw new Error(`host and worker DIVERGED at frame ${f} (tick ${w.tick})`);
+    },
+  };
+}
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // AUDIT W3 — a bot's raid aims at the tower's OWN connectors, never at a weld.

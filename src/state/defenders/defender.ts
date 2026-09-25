@@ -84,7 +84,24 @@ export type DefenderKind = 'turret' | 'princess' | 'stinkTower';
 // S110 P4 (Batch B) — 'WALK' added for HELGA's walk-to-target locomotion (princess-only; the turret
 // has moveAccel 0 + meleeRange == attackRange so it never enters WALK → its FSM stays byte-identical).
 // A SERIALIZED state literal a stale peer can't parse ⇒ PROTOCOL_VERSION 12→13.
-export type DefenderState = 'IDLE' | 'WALK' | 'WINDUP' | 'FIRE' | 'RECOVER';
+/*
+ * ⭐⭐ S189 C2 / OWNER RULING R190-J — 'DORMANT': HELGA IS DEAD, HER HALL STANDS.
+ *
+ * > *"Every fight she should come back as long as the tower is still up."*
+ *
+ * She is the one defender that dies while her tower stands. Deleting her record on death threw away
+ * the only thing that said "this is her hall", so she could come back only through IGNITION — which is
+ * exact (an isolated 7-shape component) and needs a BUILD-phase bond to fire. A welded hall therefore
+ * never brought her back, and an un-welded one did only if someone happened to build.
+ *
+ * So her record stays, DORMANT: `ehp` is `null` (no pool — every unit-facing consumer already skips a
+ * pool-less defender: targeting, raids, damage, her bar, her sheet), she does not tick, is not drawn,
+ * and does not engage the Helga theme. The HALL keeps its identity (`anchorPrimitiveId`,
+ * `ownBondIdLimit`) and its art. At the FIGHT→BUILD edge (`hostTick`) she REVIVES if the hall's own
+ * members still stand, welded or not, with no bond formation needed; the same edge's sweep removes
+ * the record if the hall fell. A SERIALIZED state literal ⇒ rides the S189 protocol bump.
+ */
+export type DefenderState = 'IDLE' | 'WALK' | 'WINDUP' | 'FIRE' | 'RECOVER' | 'DORMANT';
 
 export interface Defender {
   readonly id: DefenderId;

@@ -287,8 +287,46 @@ ORDER TAKEN: the small independent items first (3, 4, 5), then item 1 (strict id
   hall now reads the exact shape (no live tower ⇒ no limit). Item 2 replaces that path with the
   dormant-record revive. Full suite otherwise 6049 / 6050.
 
+### fix-round item 2 (audit W2 / W4, owner ruling R190-J) LANDED — Helga's first build is EXACT again; her hall keeps a DORMANT record and she revives at the phase edge
+- `princessHelga.ts` `findBuildableHelgaAnchor` → `isHelgaComponent` (an isolated component of her
+  seven). Docblocks rewritten (first build exact; re-summon is the dormant revive).
+- NEW `DefenderState` value `'DORMANT'` (`defender.ts`, serialized — rides the bump; no receive
+  whitelist exists, grepped). On her kill (`damage.ts` defender arm) the record is KEPT: state
+  DORMANT, `ehp = null`, targets/strike/walk cleared. `ehp = null` takes her out of every
+  unit-facing path at once (creature targeting `killableDefenderInReach`, raid pick + raid reducer,
+  `damageEntity`, her health bar, her sheet + owned-unit row) — all already gate on a pool.
+- consumers that read STATE, each handled: `applyDefenderTick` returns early; `hostTick` does not fan
+  `DEFENDER_TICK` to her; `standDownDefenders` skips her; `princessRenderer` does not draw her;
+  `audioManager` does not hold the Helga theme on for her; `damageNumbers`' "who could have struck"
+  scan skips her; `helgaFrame` / `helgaPose` (exhaustive switches — tsc forced them) get an explicit arm.
+- NEW `defenderLifecycle.reviveDormantHelgas(world)`, called in `hostTick` at the FIGHT→BUILD edge
+  right AFTER that edge's princess sweep (which removes the record of a hall that fell) and BEFORE
+  `standDownDefenders`: every DORMANT Helga whose hall's own members stand is rebuilt from the FACTORY
+  (full pool, home on her hub, IDLE, opening charge from now) — ascending id, no Map order.
+  WHY FIGHT→BUILD: it is the timing she already had (defender ignition runs DURING BUILD, S157 B6
+  "only next turn"), so a living hall used to bring her back early in BUILD whenever anyone built;
+  the same edge keeps that timing, shows the player she is back for the whole BUILD, and needs no bond.
+- side effect, visible and intended: while she is dormant her HALL keeps its ramp art (the record
+  still anchors it) — before, her death removed the record, the hall played its destruction ghost and
+  its shapes reappeared although it stood. ⚠ And `healthBar`'s structure pass treats a pool-less
+  defender as a tower, so a dormant Helga's HALL shows a structure bar until she revives.
+- tests (R190-J block): welded hall (the exact test refuses it), she dies in FIGHT → DORMANT with no
+  pool for the rest of that fight → cross to BUILD with NO bond formed (asserted on `nextBondId`) →
+  she is IDLE with her full factory pool on the same hub → the next FIGHT she fights. Own arm cut
+  after her death → the edge sweep removes the record → she never returns, even with building going
+  on and another full cycle. Two lattice negatives: a hub with an extra bond, and (the discriminating
+  one) an exact hub whose LEAF is bonded into a lattice → no Helga. HOST vs WORKER over a death →
+  dormant → revive cycle: wide hash equal every frame, revived on both sides.
+- existing tests RE-PINNED (they asserted deletion): `helgaKillable` "this arm REMOVES her",
+  `raidHitsAnything` "the last one finishes her", `damageTruthS182` "HELGA killed by a swing" — each
+  now asserts DORMANT + no pool. `creatureMaxPool.guard` flagged a direct pool derivation in the
+  first revive draft → the revive now takes the pool from `makeDefender` (the sanctioned site).
+- mutants: revive call removed → the revive test + the host/worker test RED; first build back on
+  `towerStandsAt` → the leaf-in-lattice negative RED. Restored. Full suite 6056 / 368 EXIT=0 before
+  the last negative was added.
+
 ## IN-FLIGHT
-- fix-round item 2 (Helga: first build exact + dormant revive at the phase edge).
+- fix-round item 6 (W8 stronger differential).
 
 ## NEXT
 

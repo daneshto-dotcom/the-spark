@@ -257,6 +257,7 @@ export function fatalBlowFifths(
 
   for (const d of world.defenders.values()) {
     if (d.ownerPlayerId === victimOwner) continue;
+    if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga strikes nothing
     const cfg = getDefenderConfig(d.kind);
     const r = cfg.attackRange + FATAL_REACH_SLACK;
     const dx = d.pos.x - at.x;
