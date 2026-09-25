@@ -18,6 +18,7 @@ import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 import type { DraftPick } from '../state/draft.ts';
 import { emptyCastleUpgrades, type CastleUpgrades } from '../state/castleUpgrades.ts';
 import type { RaStrike } from '../state/racial/powerOfRaRules.ts';
+import type { ScorchedEarthCast } from '../state/racial/scorchedEarthRules.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -200,6 +201,20 @@ interface PlayerCommon {
    */
   raStrikes: RaStrike[];
   /**
+   * ⭐ S191 (owner item 1b, `demons.l0`) — **THIS SEAT'S SCORCHED EARTH CAST, or `null`.** *"you can
+   * click on any quadrant of the enemy … you will be resistant. Everybody else will … receive damage
+   * over time."* The wave it was cast in and the seat whose zone burns (`ScorchedEarthCast`); the burn
+   * and the red backdrop are DERIVED from it every tick / frame, never pushed as an effect.
+   *
+   * ⛔ REQUIRED, NOT OPTIONAL — the `raStrikes` rule directly above: a required field goes red at the
+   * two carry-FSM rebuilds below, and an optional one would silently forget the cast the moment the
+   * seat picked up a shape, handing it a second scorch in the same fight.
+   *
+   * Serialized additive-optional (emitted only when set), hashed in the `pl{seat}:` part, cleared at the
+   * FIGHT→BUILD edge and per match in `applyStartGame`.
+   */
+  scorchedEarth: ScorchedEarthCast | null;
+  /**
    * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
    * cursor doubles as the single avatar (avatarRenderer.ts reads
    * controls.cursor). In 1v1 networked play, each Player has their OWN
@@ -304,6 +319,8 @@ export function makeIdlePlayer(
     raidProgress: 0,
     // ⭐ S188 P6 — POWER OF RA: nothing called yet.
     raStrikes: [],
+    // ⭐ S191 — SCORCHED EARTH: nothing scorched yet.
+    scorchedEarth: null,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     territorialShrinkUntilTick: null,
   };
@@ -334,6 +351,8 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
     raStrikes: player.raStrikes,
+    // ⭐ S191 — SCORCHED EARTH, the `raStrikes` rule: omitted, a pickup mid-fight would re-arm the cast.
+    scorchedEarth: player.scorchedEarth,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -397,6 +416,8 @@ export function drop(player: Player): IdlePlayer {
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
     raStrikes: player.raStrikes,
+    // ⭐ S191 — SCORCHED EARTH, the `raStrikes` rule: omitted, a pickup mid-fight would re-arm the cast.
+    scorchedEarth: player.scorchedEarth,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a

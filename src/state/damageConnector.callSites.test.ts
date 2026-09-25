@@ -89,7 +89,7 @@ describe('S188 — the damageConnector call-site census', () => {
   const sites = collect();
 
   it('finds every production call site (and not zero — a vacuous parser would pass everything)', () => {
-    expect(sites.length).toBe(5);
+    expect(sites.length).toBe(6); // ⭐ S191 +1 — SCORCHED EARTH's structure arm
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -110,6 +110,8 @@ describe('S188 — the damageConnector call-site census', () => {
       'src/state/creatures/suicideBlast.ts': 1,
       'src/state/world.ts': 1,
       'src/state/racial/powerOfRa.ts': 1,
+      // ⭐ S191 — SCORCHED EARTH burning a structure: burning ground heals nobody (BLOOD DEBT).
+      'src/state/racial/scorchedGround.ts': 1,
     });
   });
 });

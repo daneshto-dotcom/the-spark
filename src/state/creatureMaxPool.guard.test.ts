@@ -105,6 +105,13 @@ const SANCTIONED: ReadonlyArray<{
       '`draftedPoolFifths` and `raceUnitPoolAfterPicks` compose the base pool in order to BUFF it. ' +
       'These are the sites that produce the stored max, not sites that bypass it.',
   },
+  {
+    file: 'state/racial/scorchedGround.ts',
+    occurrences: 1,
+    why:
+      '⭐ S191 — SCORCHED EARTH derives a landed STINK BAG’s pool (`STINK_BAG_HP` / `STINK_BAG_DEF`, the ' +
+      'numbers `makeStinkCloud` uses) to time its burn. A bag is not a creature and has no drafted max.',
+  },
 ];
 
 /** Strip block comments, line comments and template/string literals before counting CODE. */

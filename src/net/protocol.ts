@@ -1590,6 +1590,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   UPGRADE_CASTLE_STAT: true,
   // ⭐ S188 P6 — POWER OF RA: call Ra on an aimed point. A CLIENT INTENT, so it is in both records.
   CAST_POWER_OF_RA: true,
+  // ⭐ S191 — SCORCHED EARTH: scorch a seat's zone for this FIGHT. A CLIENT INTENT, so in both records.
+  CAST_SCORCHED_EARTH: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — PULL_FROM_BANK is also a CLIENT INTENT (see below).
   PULL_FROM_BANK: true,
@@ -1770,6 +1772,11 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // ⛔ A row omitted HERE compiles clean, and the host would drop a joiner's cast SILENTLY while the
   // host seat's own worked — the seat asymmetry this list keeps warning about.
   CAST_POWER_OF_RA: true,
+  // ⭐ S191 — a joiner scorches a zone for its OWN seat (host-stamped). The host re-resolves the perk,
+  // the phase, once-per-fight and the TARGET SEAT (`scorchedEarthTargetZone`): the wire parser checks
+  // only `type`, so a string, a float or a seat not at the table arrives here and must no-op. ⛔ The
+  // same warning as the row above: omitted HERE, a joiner's cast is dropped silently.
+  CAST_SCORCHED_EARTH: true,
   SET_GATHERER_PREFERENCE: true,
   // S136 P1 (V6-1.3) — a joiner pulls from THEIR OWN castle bank to build. The host applies it
   // against its own authoritative bank, so a client acting on a stale index simply no-ops rather

@@ -21,6 +21,25 @@ STOCK (survive BUILD at home, released at FIGHT, production continues up to the 
 consumed-by-own-action is fine; (d) tests per affected type, wide hash over two waves, mutation per
 root cause, the table in the final report.
 
+## Council items ACCEPTED by the merge owner (message, S191)
+- Structures burn as ONE unit: interval = `SCORCHED_STRUCTURE_RATE_DIV ×
+  dotIntervalTicks(structurePoolFifths(current n), unit rate)` (half the rate = twice the interval),
+  re-derived when the structure re-forms; phase = tick + the lowest bond id clear of the caster; one
+  fifth to that bond, NO attacker; sever via SEVER_BOND reducer with the EXISTING `'raid'` cause. A
+  welded component with no caster-clear bond does not burn. Stink bags: an explicit `world.stinkClouds`
+  arm.
+- Stacking: each source (passive own zone, aimed cast) on its OWN clock; own-zone cast doubles creatures.
+- ⚠ MINE defaults: caster eliminated → his cast stops; zone owner falls after the cast → keeps burning;
+  Helga, gatherers, avatars never burn (Helga reported).
+- Keying: charges + zone record on `waveNumber`, cleared at BUILD.
+- UI: the square has the collapsed compact form (like Ra's), in BOTH hit-tests; the footer fill guard
+  pins NINE opaque fills today — re-pin with the added fill + hit-test (s191/addons also edits it).
+- CHEWERS: `persistent: true`, NO new ceiling (caps OFF, S157 `constants.ts:~1586`). HELLSPAWN
+  children persist and return home too. A fallen pentagram's chewers do what tier-3 units do. Measure
+  a bots match to wave 15 (chewers/seat, snapshot bytes, host tick mean/p95) before + after — REPORT.
+  Same systemic rule for drones etc.
+- If the cast needs "world.tick moved backwards on a joiner" protection, say so (s191-carry C-2).
+
 ## Done
 - Step 0 — `npm ci` EXIT=0. Progress skeleton.
 - **1a** — the ember tint is FIGHT-only (and PLAYING-only, following the burn's own gate).
@@ -32,14 +51,51 @@ root cause, the table in the final report.
   FIGHT→BUILD, the REAL `ZoneBackgroundRenderer.sync`, sprite tint read back). Mutation: renderer back on
   `zoneBackdropTint(player)` → 2 red; restored.
 
+- **1b-sim** — `CAST_SCORCHED_EARTH { playerId, zoneSeat }` (a SEAT, never a point). Rules leaf
+  `src/state/racial/scorchedEarthRules.ts` (`scorchedEarthCastRefusal`, `scorchedEarthTargetZone`,
+  `scorchedEarthActiveZone`, `scorchedEarthFromWire`); reducer + burn in `scorchedGround.ts`
+  (`applyCastScorchedEarth`, `clearScorchedEarthAtBuild`, `runScorchedGround` = passive byte-identical,
+  then each live cast on its own clock: creatures · structures (one clock per component, lowest
+  caster-clear bond, `damageConnector(…, 1, null)`, sever via `applySeverBond` cause `'raid'`) · lone
+  shapes · stink bags). New field `Player.scorchedEarth: {wave, zoneSeat} | null` — four sites.
+  Tests: `scorchedEarth.test.ts` (39) + `scorchedEarth.differential.test.ts` (host vs worker, cast as
+  a real intent). Mutations (all red, restored): M1 cast spares nobody → resistance red; M2 cast
+  REPLACES the passive → double red; M3 `SCORCHED_STRUCTURE_RATE_DIV` 1 → 3 red; M4 one clock per
+  connector → 2 red. Re-pinned: `damage.callSites` 15→17 (null 7→9), `damageConnector.callSites` 5→6,
+  `creatureMaxPool.guard` SANCTIONED + scorchedGround.ts (the stink bag's pool — not a creature).
+
 ## In flight
-- 1b-sim (the CAST_SCORCHED_EARTH intent + the scorch)
+- 1b-UI (the footer square, aim mode, hover preview, red cast zone)
 
 ## Next
-- 1b-UI, 1b-bots, item 2
+- 1b-bots, item 2
+
+## Constants (S191)
+| constant | value | whose |
+|---|---|---|
+| `SCORCHED_EARTH_CHARGES` | 1 a FIGHT, lasts to the FIGHT's end | HIS (answer 1) |
+| `SCORCHED_EARTH_CAST_PER_MILLE` | = `SCORCHED_GROUND_PER_MILLE` (20) | HIS ("the same amount"), derived |
+| `SCORCHED_STRUCTURE_RATE_DIV` | 2 (structures at half = twice the interval) | HIS (answer 4) |
+| `SCORCHED_EARTH_OWN_ZONE_MUL` | (20 + 20) / 20 = 2, derived, not read by the burn | HIS ("double") |
+| structure intervals (ticks/fifth) | 5-conn 120 · 4 166 · 3 250 · 2 428 · 1 1000 · lone/bag 1200 | derived |
 
 ## Decisions / numbers that are MINE
-_none yet_
+- ⚠ The sever cause for a burned-through connector is `'raid'` (POWER OF RA's precedent: plays the
+  player-sever SFX, toast "<SEAT> BROKE YOUR BOND").
+- ⚠ Caster eliminated → his cast stops; zone owner falls after the cast → keeps burning (Council defaults).
+- ⚠ Helga is NOT burned (Council default; reported). Gatherers/avatars/castle never.
+- ⚠ A burned-out stink bag BURSTS like any killed bag (the burst spares the bag's owner, not the caster).
+- ⚠ A bond is "in the zone" by its MIDPOINT (POWER OF RA's rule); a structure's phase key = its lowest
+  caster-clear in-zone bond id.
+- Consequence for the owner: at 1 %/s over a 60 s FIGHT one cast takes 60 % of ONE connector's pool
+  off each enemy structure in the zone — no building falls to one cast alone; any creature standing in
+  the zone for 50 s dies. A stink bag lives 5 s and burns once per 20 s — the bag arm almost never lands.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
-_none yet_
+- `save.ts`: import `scorchedEarthFromWire`; `SerializedPlayer.scorchedEarth?`; rehydrate line; emit
+  line (only when set). Self-contained.
+- `stateHashFull.ts`: players docblock line + `,se{wave},{seat}` / `,se_` right after `,ra…`.
+- (not hotspots, listed anyway) `hostTick.ts`: 1 import + `clearScorchedEarthAtBuild(world)` in the
+  FIGHT→BUILD edge block before `recallArmies`. `game/player.ts` field + factory + both carry-FSM
+  rebuilds; `gameMode.ts` reset in `applyStartGame`; `world.ts` union + case; `benchGate.ts` +
+  `elimination.ts` `'deny'` rows; ⚠ `src/net/protocol.ts` — the TWO intent-allowlist rows only.

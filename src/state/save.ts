@@ -70,6 +70,7 @@ import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
 import { castleMaxHpFor, emptyCastleUpgrades, type CastleUpgrades } from './castleUpgrades.ts';
 import { raStrikesFromWire } from './racial/powerOfRaRules.ts';
+import { scorchedEarthFromWire } from './racial/scorchedEarthRules.ts'; // ⭐ S191 — a leaf
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -553,6 +554,13 @@ interface SerializedPlayer {
    * at most three are kept, because it crosses a trust boundary.
    */
   raStrikes?: ReadonlyArray<{ readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number }>;
+  /**
+   * ⭐ S191 — SCORCHED EARTH (`demons.l0`'s aimed skill): this seat's cast, the wave and the seat whose
+   * zone burns. Additive-optional and emitted only once cast, so a board where nobody scorched stays
+   * byte-identical. Validated on the way in (`scorchedEarthFromWire`) because it crosses a trust
+   * boundary; a malformed record rehydrates as `null` (never cast).
+   */
+  scorchedEarth?: { readonly wave: number; readonly zoneSeat: number };
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
    * undefined (pre-S72-P3 byte-compat).
@@ -2024,6 +2032,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // ⭐ S188 P6 — READ FROM THE WIRE, validated. Absent = never cast (every pre-S188 save). A
       // literal `null` here would forget every seat's cast on every client frame and let it cast twice.
       raStrikes: raStrikesFromWire(p.raStrikes),
+      // ⭐ S191 — READ FROM THE WIRE, validated. Absent = never cast. A literal `null` here would forget
+      // the cast on every client frame and re-light the square mid-fight.
+      scorchedEarth: scorchedEarthFromWire(p.scorchedEarth),
       // ⭐ S161 P2 — READ FROM THE WIRE, and note there is no `?? 0`: `undefined` is the MEANING
       // here ("this seat is still in the match"), not a missing value to be defaulted. Coercing it
       // to 0 would mark every living player as having been eliminated on tick zero.
@@ -2242,6 +2253,10 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // ⭐ S188 P6 — emitted only once the seat has called Ra. Copied, never aliased.
     ...(p.raStrikes.length > 0 ? { raStrikes: p.raStrikes.map((s) => ({ ...s })) } : {}),
+    // ⭐ S191 — SCORCHED EARTH, emitted only once cast. Copied, never aliased.
+    ...(p.scorchedEarth !== null
+      ? { scorchedEarth: { wave: p.scorchedEarth.wave, zoneSeat: p.scorchedEarth.zoneSeat as unknown as number } }
+      : {}),
     // S161 P2 — emit the elimination stamp only once a seat is actually out, so a live board stays
     // byte-identical to v39. `save.test.ts` asserts that byte-identity.
     ...(p.eliminatedAtTick !== undefined ? { eliminatedAtTick: p.eliminatedAtTick } : {}),

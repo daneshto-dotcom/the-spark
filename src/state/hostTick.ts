@@ -140,6 +140,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -543,6 +544,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           d.bagsRemaining = getDefenderConfig(d.kind).bags;
         }
         releaseShelteredGatherers(world);
+        // ⭐ S191 — the FIGHT is over, so is every SCORCHED EARTH cast (the owner: it lasts until that
+        // FIGHT ends). The wave key already made it inert; this keeps the wire and the hash clean.
+        clearScorchedEarthAtBuild(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
       }
