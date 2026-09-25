@@ -33,3 +33,5 @@ Dispatched 2026-09-25 from master `42cc2ee`. Fix rounds go to the SAME agent by 
   · C-9 — R190-H extended: the Ra strike draws above buildings too; the art's ground rune ring (slots 0–3) back ON THE GROUND (canon §7c says only the strike goes up).
 - §A2 drafted ATK on summons → folded into s191-addons A-5 magic-attack design doc.
 - §A5 CONNECTION LOST overlay covering an open draft panel → decided correct (you cannot pick while disconnected); not asked.
+- OWNER R191-A (welded structures: tower-level FIX/SCRAP + sheets, structure SCRAP-all, no structure FIX; R185-B amended) → s189-weld ROUND 5, right after its steps 1-6, before the audit. PDR scope amendment A1.
+- OWNER R191-B (FIX = a gatherer job delivering the shapes from the castle) → s189-weld ROUND 6, QUEUED until "round 6 go" after weld is on master (deploy #6). PDR scope amendment A2.
