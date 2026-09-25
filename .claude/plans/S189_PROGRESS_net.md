@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 FIX ROUND (audit wf_0593f6fe-d53, 6 items). Step 8 (C4 tuning) only on a later message.**
+**STATUS: COMPLETE — S191 FIX ROUND (audit wf_0593f6fe-d53): all 6 items committed; gates 0/0/0 (6592 tests, 965.6 KiB). Awaiting re-audit; step 8 (C4 tuning) only on a later message.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -196,8 +196,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 3 | FIX-3 — never START a claim clock without a seated survivor, but KEEP a running one | done | 6004e8d |
 | 4 | SEAM-2 (LOW) — an OS auto-repeat Escape is not a second press | done | 36cf105 |
 | 5 | FIX-4 (test) — prove SPAWN_VITE is OFF by default | done | fe7fec1 |
-| 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | done | (this commit) |
-| 7 | gates + report | pending | |
+| 6 | SEAM-4 (test) — every Escape branch in `Controls.onKeyDown` consumes the event | done | 68b4532 |
+| 7 | gates + report | done | (this commit) |
 
 - **FIX-1 / WIRE-1.** Mechanism (audit, confirmed): both strategies deliver LOBBY_READY, so the quickmatch
   gate fires Begin twice; `world.gameState` is still LOBBY while `beginMatch` awaits `signWarrant`, so
@@ -274,6 +274,16 @@ The merge owner resumes from this file if this agent is cut off.
   (branch #1); a THIRD Escape branch that returns without consuming → RED (3 ≠ 2); `consumeCancel` moved
   after the tower branch's `return` → RED (branch #2 order). `vitest src/input/doubleEscapeLeave.test.ts`
   EXIT=0 (13).
+
+- **FIX-ROUND GATES (tip after this commit; exit codes captured directly):** every changed file scanned for
+  control bytes (none) · `npm run typecheck` **0** · `npx vitest run --maxWorkers=4` **0** (**405 files passed
+  + 2 skipped / 6592 tests passed + 7 skipped**; +15 tests over 3f5ab8f) · `npm run build` **0** — main entry
+  **965.6 KiB** (+0.4 over 3f5ab8f), cap 1100, headroom 134.4; branch vs master's 955.9 = **+9.7 KiB**, inside
+  the 10 KiB budget with 0.3 to spare. Benign, recorded: vitest rewrote `pentagramBuildability.test.ts.snap`
+  line endings only (`git diff --ignore-cr-at-eol` empty) → restored. NOT in this round (by the merge
+  owner's word, recorded for the owner): FIX-2 (3+-seat survivors never 'pending' when a departed host
+  re-hosts the same room code) and SEAM-1 (the terminal overlay text while retrying continues — with step 8).
+  Step 8 NOT started. STOPPED for the re-audit.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 
