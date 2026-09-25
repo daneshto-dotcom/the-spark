@@ -171,8 +171,6 @@ export interface MigrationClaimStep {
  * (no partition evidence), leaving this seat a lone host that stops reconnecting. Now "host gone, nobody
  * else here" is no episode at all: the grace is counted from the first frame a survivor is visible without
  * the host. (`planConnectionFrame` anchors its MIGRATING window on the same clock — `claimClockSinceMs`.)
- * ⭐ S191 FIX-3 — "no episode" means no clock is STARTED; a clock ALREADY running (a real host death with
- * survivors) is KEPT through a frame where they blink out, or each blink cost a whole fresh grace + rung.
  * ⚠ It narrows the window, it does not close it — see the RESIDUAL test in `reconnectPolicy.test.ts`.
  */
 export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
@@ -181,8 +179,7 @@ export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const since = hostPresent ? Math.max(i.lastAcceptedAtMs, i.hostPresentSinceMs) : i.lastAcceptedAtMs;
   const starved = isSnapshotStarved(i.nowMs, since, i.starvationMs);
   if (!(hostLost || starved)) return { lossObservedAtMs: 0, claim: false };
-  // S191 FIX-3 — no seated survivor: never START a clock, but KEEP a running one (a blink must not restart it).
-  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) return { lossObservedAtMs: i.lossObservedAtMs, claim: false };
+  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
   const obs = i.lossObservedAtMs === 0 ? i.nowMs : i.lossObservedAtMs;
   if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
     return { lossObservedAtMs: obs, claim: false };

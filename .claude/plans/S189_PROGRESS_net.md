@@ -737,3 +737,6 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 - step 1, first run: EXIT=1 was `grep -c` returning 1 on zero matches and short-circuiting the `&&` chain
   (vitest never ran; the tail showed an unrelated old `$TEMP/s1.log`). BENIGN — the named recurring case;
   logs now go to the session scratchpad and nothing is chained behind `grep -c`.
+
+## S191 MERGE OWNER — FIX-3 REVERTED ON MASTER (deploy #5)
+The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes NETFR-3 in the usual real-drop order (starvation first, then our own transport loss). Reverted 6004e8d on master; NETFR-3 minimal shape is live (known cost: a survivor blink during a real 3+ seat host death restarts the claim clock). Carried to S192 with ROUND-1/ROUND-2/ROUND-3.

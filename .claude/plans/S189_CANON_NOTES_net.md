@@ -95,13 +95,11 @@ message, the file's standing posture):
   accepted snapshot and the host's (re)appearance on our transport) → the warranted client claims at
   starvation + `RECONNECT_GRACE_MS` + its ladder rung (`CLAIM_LADDER_MS` 1500 × rank); the thawed host
   rejoins as a client (S125 v2). ⛔ The S189 first cut blocked this for a 1v1 — reversed in S190 (FR-4).
-- ⭐ **The survivor gate applies ONLY when the host has left OUR TRANSPORT.** Then a claim needs a SEATED
-  survivor (S191 WIRE-3, `seatedSurvivors`: a Begin-roster entry that is not us, not the lost host, and on our
-  transport — a stray who typed the code does not count, here or in `migrationCase`); a 1v1 client never
-  claims — it reconnects. ⭐ S191 (NETFR-3 + FIX-3): no claim clock STARTS until a seated survivor is visible
-  without the host, so a reconnect that lands another client's leg before the host's is not an instant claim;
-  a clock that is already running (a real host death) is KEPT through a frame where the survivors blink
-  out. The MIGRATING overlay window runs from that clock when it began later
+- ⭐ **The survivor gate applies ONLY when the host has left OUR TRANSPORT.** Then a claim needs a survivor
+  other than the host (`hasSurvivorToHostFor`); a 1v1 client never claims — it reconnects. ⭐ S191
+  (NETFR-3): the claim clock itself starts only on the first frame a survivor is visible WITHOUT the host
+  ("host gone, nobody else here" is no episode), so a reconnect that lands another client's leg before the
+  host's is not an instant claim. The MIGRATING overlay window runs from that clock when it began later
   than the loss (`planConnectionFrame`, `claimClockSinceMs`; never shorter than before).
   ⚠ OPEN — owner question, not built: this narrows, does not close, the case where the other client's leg
   lands promptly (~L+7 s) and the host's is held by Trystero's 23.3 s answering TTL (~L+26–29 s) — the
