@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-4 done.**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-5 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -12,8 +12,8 @@ The merge owner resumes from this file if this agent is cut off.
 | 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | 7fe65d4 |
 | 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | 27531dd |
 | 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | a08ad56 |
-| 4 | NETFR-6 — per-peer slot drop/rejoin test | done | (this commit) |
-| 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | pending | |
+| 4 | NETFR-6 — per-peer slot drop/rejoin test | done | b01a228 |
+| 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | done | (this commit) |
 | 6 | NETFR-5 — canon notes rewrite | pending | |
 | 7 | final gates + report | pending | |
 
@@ -150,6 +150,22 @@ The merge owner resumes from this file if this agent is cut off.
     No test can separate them. Recorded, not counted; the guard is harmless defence in depth (merge owner:
     keep or drop — not touched here).
   - Gate: `npx vitest run src/net/snapshotBackpressure.test.ts -t NETFR-6` EXIT=0. Protocol: none.
+
+- **Step 5 — NETFR-4 (test only): the "default suite never spawns vite" guard is MECHANICAL.** The count
+  (`it.runIf(SPAWN_VITE)(` == 2) is replaced in `src/ci.e2ePort.test.ts` by a TypeScript-compiler walk of the
+  file itself (`ts.createSourceFile`): EVERY `runVite(` call site's nearest enclosing test case must be
+  `it.runIf(SPAWN_VITE)` (found by walking parents to the nearest `it…(` call); `runVite` may be referenced
+  only as a callee or its own declaration (no alias escapes the gate); `spawn(` may be called only inside
+  `runVite`; ≥ 2 call sites must be found (the walk cannot pass vacuously). The workflow check is unchanged
+  and `.github/workflows/*` is untouched. `typescript` is already a devDependency; first test in the repo to
+  use its API.
+  - Mutations (restored, `cmp`): **M4a** ungate the NEGATIVE REACH case (`it.runIf(SPAWN_VITE)(` → `it(`) →
+    RED (`runVite( at line 269 … expected 'it'`); **M4b** add a THIRD spawning case outside the gate — the
+    exact hole the count could not see (the count stays 2) → RED (`expected 'it.skip'`).
+  - ⚠ Non-zero exit, resolved: the patch went through a bash heredoc that collapsed `\\b` to a literal
+    BACKSPACE byte inside `/^it\b/` (the guard would have matched nothing). Caught by reading the bytes;
+    fixed; every changed file then scanned for control bytes (all clean) and for mixed line endings (none).
+  - Gates: `npx vitest run src/ci.e2ePort.test.ts` EXIT=0 (8 + 2 opt-in skipped); typecheck EXIT=0.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

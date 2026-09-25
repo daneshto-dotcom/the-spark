@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
+import ts from 'typescript';
 
 const CONFIG = 'playwright.config.ts';
 const raw = readFileSync(CONFIG, 'utf-8');
@@ -191,8 +192,50 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     // The unit suite gates the live deploy (`deploy.yml` runs `npx vitest run`). A test that starts real
     // dev servers there is slow, port-hungry and can hang a deploy on a busy runner, so the two REACH
     // cases below run only with SPARK_SPAWN_VITE=1 — and no workflow sets it.
+    /*
+     * ⭐ S191 (audit NETFR-4) — MECHANICAL, not a count. The first cut asserted "exactly two
+     * `it.runIf(SPAWN_VITE)(`", which a THIRD, ungated `runVite(` case passes. This parses the file with
+     * the TypeScript compiler and requires, for EVERY `runVite(` call site, that the nearest enclosing
+     * test case is `it.runIf(SPAWN_VITE)`; that `spawn(` is called nowhere but inside `runVite`; and that
+     * `runVite` is never referenced except as the callee of a call (no alias can smuggle it out).
+     */
     const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
-    expect(self.match(/it\.runIf\(SPAWN_VITE\)\(/g)?.length).toBe(2);
+    const sf = ts.createSourceFile('ci.e2ePort.test.ts', self, ts.ScriptTarget.Latest, true);
+    const lineOf = (n: ts.Node): number => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+    /** The callee text of the nearest enclosing `it…(title, fn)` call, or null outside any test case. */
+    const enclosingCase = (n: ts.Node): string | null => {
+      for (let p = n.parent; p !== undefined; p = p.parent) {
+        if (ts.isCallExpression(p) && /^it\b/.test(p.expression.getText(sf))) return p.expression.getText(sf);
+      }
+      return null;
+    };
+    const insideRunVite = (n: ts.Node): boolean => {
+      for (let p = n.parent; p !== undefined; p = p.parent) {
+        if (ts.isFunctionDeclaration(p) && p.name?.text === 'runVite') return true;
+      }
+      return false;
+    };
+    const runViteCalls: Array<{ line: number; gate: string | null }> = [];
+    const strayRefs: number[] = [];
+    const straySpawns: number[] = [];
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === 'runVite') {
+        const par = n.parent;
+        const isDecl = ts.isFunctionDeclaration(par) && par.name === n;
+        const isCallee = ts.isCallExpression(par) && par.expression === n;
+        if (isCallee) runViteCalls.push({ line: lineOf(n), gate: enclosingCase(par) });
+        else if (!isDecl) strayRefs.push(lineOf(n));
+      }
+      if (ts.isCallExpression(n) && n.expression.getText(sf) === 'spawn' && !insideRunVite(n)) straySpawns.push(lineOf(n));
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    expect(runViteCalls.length, 'the walk must find the REACH cases it guards').toBeGreaterThanOrEqual(2);
+    for (const c of runViteCalls) {
+      expect(c.gate, `runVite( at line ${c.line} must sit inside an it.runIf(SPAWN_VITE) case`).toBe('it.runIf(SPAWN_VITE)');
+    }
+    expect(strayRefs, 'runVite referenced other than as a call (an alias escapes the gate)').toEqual([]);
+    expect(straySpawns, 'spawn( outside runVite').toEqual([]);
     for (const wf of ['.github/workflows/deploy.yml', '.github/workflows/e2e.yml']) {
       expect(readFileSync(wf, 'utf-8'), wf).not.toContain('SPARK_SPAWN_VITE');
     }
