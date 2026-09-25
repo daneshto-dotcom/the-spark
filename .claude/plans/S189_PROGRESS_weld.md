@@ -449,3 +449,16 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
   resolutions to list. `package.json` changed one npm script only; `package-lock.json` untouched ⇒ the
   worktree's existing `node_modules` is valid (no reinstall).
 - (a `grep -c package-lock` exit 1 = zero matches — BENIGN, it is the "no lockfile change" verdict.)
+
+### step 2 — gates on the MERGED tree (cdb5c75), each a captured `$?`
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=4` → VITEST_EXIT=0 — **6530 passed + 2 skipped / 397 files + 1 skipped**
+  (398). No seam red at all, so nothing to re-pin:
+  · `bondTargetIndex.guards.test.ts` (s190/perf) GREEN — no pinned per-file count moved
+    (`placePrimitive.ts` still 3 `bonds.set(` / 1 `nextBondId++` / 1 `nextPrimitiveId++`; the
+    `.clear()` trio unchanged). The cache invariant it guards still holds on this branch: every weld
+    bond is born through `makeBond`, and every removal this branch added (the own-star hub raze, the
+    t9 own-ring raze, the orphan sweep) goes through `razePrimitives` — sizes drop, the fingerprint sees it.
+  · `canon.test.ts` GREEN (62) — no pinned assertion contradicts a weld rule. The canon TEXT that the
+    weld rules change (§7b R185-B wording, §8 limit 2) is carried in `S189_CANON_NOTES_weld.md`.
+- `npm run build` → BUILD_EXIT=0 — **962.4 KiB** / 1100 cap (137.6 headroom); master 955.9 ⇒ weld = **+6.5 KiB**.
