@@ -19,8 +19,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | `082ecd2` | see below |
 | R2-B · test honesty (GATES-3, BLAST-8) | DONE | `6b19634` | test-only |
 | R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | `7706688` + follow-up (this commit) | see below |
-| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | DONE | (this commit) | see below |
-| C-6 · spreadEnemyTarget strict predicate | RELEASED, next | | |
+| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | DONE | `2e8189e` | ⚠ GATES-1 part SUPERSEDED by the owner's S191 overkill ruling → R2-E |
+| C-6 · spreadEnemyTarget strict predicate | DONE | (this commit) | see below |
+| R2-E · overkill CARRIES (owner S191) + BLAST-1 is his ruling | next | | reverses R2-D's §2 rewrite |
 | C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
 | C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
 
@@ -207,6 +208,21 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   docblock ("structure self-destruct passes () => true"), `damage.ts` "Why this is NOT applyRadialClear" point 2.
 - Mutation: §7 stale sentence restored + the hub table row removed → 2 RED; restored → green.
 - Full suite 0: 6504 passed / 2 skipped, 402 files.
+
+## C-6 — DONE (merge owner's go)
+
+- Reference FIRST (`bondTargetReference.fixtures.ts`): `referenceSpreadEnemyTarget` builds victims and scans the
+  chosen victim over the STRICT predicate → `bondTargetIndex.differential.test.ts` went RED (3) against the
+  unchanged index (e.g. index bond 92 vs reference 29). Then the index (`creatureAI.ts` `buildColourBucket`):
+  the `byVictim` block moved INSIDE the strict branch → differential green again.
+- Tests `src/state/creatures/spreadStrict.test.ts` (3): REACH — 3-seat bots board, seat 0's structure welded
+  twice to seat 1's (one weld keyed to seat 1 as `primA`, one to seat 0), a seat-2 structure far off; 40 seat-0
+  chewers through 240 real host ticks: pre-fix 30 of them targeted a weld; post-fix none, both welds stand.
+  Scan: every chewer gets a strict bond, index == reference, and some are spread to seat 2 (anti-vacuity).
+  Negative: a Voltkin (`enemyOnly: false`) still picks a weld.
+- Mutation: the pre-fix `creatureAI.ts` restored → 2 RED. Restored.
+- Full suite 0: 6507 passed / 2 skipped, 403 files. Canon §5b replacement text → canon notes §5 (not my grant).
+- Wire/hash: none; a TARGETING rule both peers compute (who a creature walks to) → rides the deploy bump.
 
 ## In flight
 

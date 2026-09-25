@@ -51,3 +51,16 @@ merge owner. Fix shape: hash-skip zero tallies, or delete the map entry at zero.
   such arm: a stale comment, not touched).
 - C-5 · the zombie boss's R138 blast (same action) is **left a raze** — the ruling names the hub only.
 - C-4 · the Pharaoh's **halo** still draws while he channels in BUILD; only the columns are gated.
+
+## 5 · §5b's targeting finding is FIXED (C-6) — REPLACE (outside this branch's canon grant)
+
+`SPARK_CANON.md` §5b, the paragraph *"⚠ A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED."*,
+is stale on this branch. Proposed replacement (no new number):
+
+> ⭐ **THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6, merge owner's go).** `spreadEnemyTarget`
+> builds its victims, and scans the chosen victim's bonds, over the S162 STRICT enemy set (neither
+> endpoint the creature's own seat's colour) — so a chewer / drone / structure-attacker can no longer be
+> handed a MIXED bond (a weld of its own structure). The reference fixture moved first;
+> `spreadStrict.test.ts` drives 40 chewers through the real host tick beside a welded mixed structure
+> (30 of them targeted a weld before the fix). The Voltkin (`enemyOnly: false`) is unchanged.
+
