@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-3 done.**
+**STATUS: IN-PROGRESS — S191 round (brief `.claude/plans/S191_BRIEFS/net.md`, steps 1-7). Steps 1-4 done.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -11,8 +11,8 @@ The merge owner resumes from this file if this agent is cut off.
 |---|---|---|---|
 | 1 | merge master (42cc2ee, src = deploy #4) into s189/net | done | 7fe65d4 |
 | 2 | NETFR-1 + NETFR-2 — per-match id + host phase, snapshot hold while a rejoin is pending | done | 27531dd |
-| 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | (this commit) |
-| 4 | NETFR-6 — per-peer slot drop/rejoin test | pending | |
+| 3 | NETFR-3 — claim clock starts when a survivor is visible without the host | done | a08ad56 |
+| 4 | NETFR-6 — per-peer slot drop/rejoin test | done | (this commit) |
 | 5 | NETFR-4 — mechanical `runVite(` ⊂ `it.runIf(SPAWN_VITE)` guard | pending | |
 | 6 | NETFR-5 — canon notes rewrite | pending | |
 | 7 | final gates + report | pending | |
@@ -131,6 +131,25 @@ The merge owner resumes from this file if this agent is cut off.
     878 + 3 skipped) · build **0** (965.1 KiB, +0.06 KiB). Hotspot `main.ts`: one line in the
     `planConnectionFrame({…})` input. Protocol: none (WHEN a peer claims is local; the claim and its
     verification are unchanged).
+
+- **Step 4 — NETFR-6 (test only): the per-peer slot's lifecycle.** `snapshotBackpressure.test.ts` gains
+  `gatedRoom(peers)` — the REAL `startStrategy` wiring handed a fake room, so `room.onPeerLeave/onPeerJoin`
+  are the transport's own handlers; each targeted send is a promise settled per peer. One case, two peers:
+  1 → both in flight, 2 waits; peer-0 settles and gets 2 (sibling unaffected); peer-1 LEAVES with 1 in
+  flight, its dead send settles → peer-1 received only [1] (its waiting 2 never went out); peer-1 REJOINS →
+  snapshot 3 goes at once, on a slot that is not the dead one; then a FAST rejoin (leave + join while 3
+  still hangs on the dead channel, 4 waiting) → 5 goes at once, and when the dead send settles the stale 4
+  never follows it. Green on the shipped code (no source change).
+  - Mutations (byte-copy restore, `cmp`): **M-A** delete `handle.snapSlots?.delete(peerId)` (onPeerLeave) →
+    **RED** — at the fresh-slot identity check, and with that assertion removed, BEHAVIOURALLY too
+    (`expected [1, 3] to equal [1, 3, 5]`: the rejoined peer's snapshot queued behind the dead send).
+    **M-B** drop `handle.peers.has(peerId) &&` from the `finally` → **GREEN — an EQUIVALENT mutant**, proven,
+    not assumed: the only `handle.peers.delete` (`transport.ts:599`) sits in the same synchronous handler as
+    the slot delete (`:600`), and the only slot writer (`:875`) creates a slot only for a peer in
+    `handle.peers` — so `handle.snapSlots?.get(peerId) === slot` already implies `handle.peers.has(peerId)`.
+    No test can separate them. Recorded, not counted; the guard is harmless defence in depth (merge owner:
+    keep or drop — not touched here).
+  - Gate: `npx vitest run src/net/snapshotBackpressure.test.ts -t NETFR-6` EXIT=0. Protocol: none.
 
 ## FIX ROUND (audit wf_6bc5b278, S190)
 

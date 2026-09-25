@@ -372,6 +372,56 @@ const snap = (seq: number): NetMessage =>
   ({ kind: 'NETSNAPSHOT', snapshotSeq: seq, snapshot: { tick: seq } }) as unknown as NetMessage;
 const seqOf = (s: string): number => (JSON.parse(s) as { snapshotSeq: number }).snapshotSeq;
 
+/**
+ * ⭐ S191 NETFR-6 — the gate with a REAL room wiring: `startStrategy` (the production path) is handed a
+ * fake room, so `room.onPeerJoin` / `room.onPeerLeave` are the transport's own handlers. Each targeted
+ * send returns a promise the test settles per peer, oldest first.
+ */
+function gatedRoom(peers: string[]): {
+  t: NetTransport;
+  room: { onPeerJoin: (id: string) => void; onPeerLeave: (id: string) => void };
+  sentTo: (peer: string) => number[];
+  settleFor: (peer: string) => void;
+  slotOf: (peer: string) => unknown;
+} {
+  const t = new NetTransport();
+  const priv = t as unknown as {
+    connected: boolean;
+    strategies: Map<string, { snapSlots?: Map<string, unknown> }>;
+    startStrategy: (name: string, code: string, joinFn: () => unknown, relays: string[], sockets: null) => void;
+  };
+  priv.connected = true;
+  const sent: Array<{ to: string; seq: number }> = [];
+  const open: Array<{ to: string; resolve: () => void }> = [];
+  const room = {
+    onPeerJoin: (_id: string): void => {},
+    onPeerLeave: (_id: string): void => {},
+    getPeers: () => ({}),
+    leave: () => Promise.resolve(),
+    makeAction: () => ({
+      onMessage: null,
+      send: (d: string, opts?: { target?: string }) => {
+        const to = opts?.target ?? '*';
+        sent.push({ to, seq: seqOf(d) });
+        return new Promise<void>((resolve) => open.push({ to, resolve }));
+      },
+    }),
+  };
+  priv.startStrategy('nostr', 'ROOMBP', () => room, [], null);
+  for (const p of peers) room.onPeerJoin(p);
+  return {
+    t,
+    room,
+    sentTo: (peer) => sent.filter((x) => x.to === peer).map((x) => x.seq),
+    settleFor: (peer) => {
+      const i = open.findIndex((x) => x.to === peer);
+      if (i >= 0) open.splice(i, 1)[0]!.resolve();
+    },
+    slotOf: (peer) => priv.strategies.get('nostr')?.snapSlots?.get(peer),
+  };
+}
+const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
 describe('S189 C5 — the gate itself', () => {
   it('LATEST WINS: behind an in-flight snapshot only the NEWEST waits; the rest are counted as skipped', async () => {
     const { t, sent, settle } = gated();
@@ -421,5 +471,44 @@ describe('S189 C5 — the gate itself', () => {
     t.send(snap(3));
     await new Promise((r) => setTimeout(r, 0));
     expect(sent).toEqual([1, 2, 3]);
+  });
+
+  /*
+   * ⛔ S191 NETFR-6 (audit, test only) — the per-peer slot's LIFECYCLE, through the transport's own
+   * onPeerLeave/onPeerJoin. Two things must hold for a peer that leaves with a snapshot in flight:
+   * its WAITING snapshot is never transmitted (it would go to a departed peer — or, after a fast rejoin,
+   * be a stale frame on the new connection), and when it rejoins its next snapshot goes AT ONCE on a
+   * FRESH slot — not queued behind the dead channel's send, which can hang ~10 s (Trystero's wait).
+   */
+  it('⛔ NETFR-6 — a peer that leaves with a snapshot in flight: its waiting one never goes out; on rejoin the next goes at once, on a fresh slot', async () => {
+    const g = gatedRoom(['peer-0', 'peer-1']);
+    g.t.send(snap(1)); // → both peers, both in flight
+    g.t.send(snap(2)); // waits behind 1 on both
+    g.settleFor('peer-0');
+    await tick();
+    expect(g.sentTo('peer-0'), 'the healthy sibling is unaffected').toEqual([1, 2]);
+
+    // The brief's order: peer-1 leaves while 1 is in flight; then its dead send settles.
+    const deadSlot = g.slotOf('peer-1');
+    expect(deadSlot).toBeDefined();
+    g.room.onPeerLeave('peer-1');
+    g.settleFor('peer-1');
+    await tick();
+    expect(g.sentTo('peer-1'), 'the waiting snapshot must never go to a departed peer').toEqual([1]);
+    g.room.onPeerJoin('peer-1');
+    g.t.send(snap(3));
+    expect(g.sentTo('peer-1'), 'the rejoined peer gets the next snapshot AT ONCE').toEqual([1, 3]);
+    expect(g.slotOf('peer-1'), 'on a FRESH slot').not.toBe(deadSlot);
+
+    // A FAST rejoin: peer-1 leaves and is back while its send of 3 still hangs on the dead channel.
+    g.t.send(snap(4)); // waits behind 3 on peer-1
+    g.room.onPeerLeave('peer-1');
+    g.room.onPeerJoin('peer-1');
+    g.t.send(snap(5));
+    expect(g.sentTo('peer-1'), 'not queued behind the dead channel').toEqual([1, 3, 5]);
+    g.settleFor('peer-1'); // the dead channel's send of 3 finally settles
+    await tick();
+    expect(g.sentTo('peer-1'), 'the stale waiting 4 never follows it out').toEqual([1, 3, 5]);
+    g.t.disconnect();
   });
 });
