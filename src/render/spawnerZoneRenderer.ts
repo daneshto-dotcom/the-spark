@@ -18,10 +18,9 @@
  * Determinism / clocks: the breathing/expanding rings are keyed off `world.tick`
  * (render-only, pauses with the sim exactly like bombRenderer's pulse) PLUS a
  * `performance.now()` shimmer so the aura animates fluidly even on the 10 Hz
- * client mirror. RENDER-ONLY — reads `world`, never mutates it. The anchor
- * component is recomputed each frame via `componentOf` (the same on-demand BFS
- * the sim's re-validation uses); at the Phase-1 cap (a handful of spawners over
- * ~5-prim pentagrams) this is negligible.
+ * client mirror. RENDER-ONLY — reads `world`, never mutates it. The tower's OWN
+ * members are recomputed each frame via `towerFootprintAt` (S189 C2 — the same walk
+ * the sim's re-validation uses; it was `componentOf` until welds became survivable).
  *
  * Owner colour tints the aura so each player's spawn zone reads as theirs.
  *
@@ -34,7 +33,8 @@
  */
 
 import { Application, Container, Graphics } from 'pixi.js';
-import { componentOf } from '../game/structure.ts';
+// S189 C2 (audit W2-1) — the tower's OWN members (the sim's walk), not its connected component.
+import { towerFootprintAt } from '../state/towerMembers.ts';
 import { isConcealed } from './concealment.ts';
 import {
   TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim,
@@ -84,14 +84,22 @@ export class SpawnerZoneRenderer {
        * connectors."* This aura IS the spawn he means, so it is culled with everything else.
        */
       if (isConcealed(anchor.pos.x, anchor.pos.y, anchor.placedBy)) continue;
-      const comp = componentOf(anchor, world.primitives, world.bonds);
+      /*
+       * ⭐ S189 C2 (audit W2-1) — THE TOWER'S OWN MEMBERS, NOT ITS COMPONENT. With welds allowed,
+       * the component includes shapes that are not the tower; walking it drew the charged strokes
+       * ONLY over the welds (the own bonds are covered) — i.e. exactly over the connectors whose cut
+       * does NOT kill the zone — and twice for two welded towers. `towerFootprintAt` is the sim's
+       * own walk (component only for a recipe with no survival shape).
+       */
+      const comp = towerFootprintAt(world, sp.recipeId, sp.anchorPrimitiveId);
+      if (comp === null) continue;
 
-      // Centroid + radius of the anchor component (the zone's footprint).
+      // Centroid + radius of the tower's own footprint.
       let cx = 0;
       let cy = 0;
       let n = 0;
       const prims: Primitive[] = [];
-      for (const pid of comp.primitiveIds) {
+      for (const pid of comp.prims) {
         const p = world.primitives.get(pid);
         if (p === undefined) continue;
         prims.push(p);
@@ -170,7 +178,7 @@ export class SpawnerZoneRenderer {
       // read as charged/living — and the player can see EXACTLY which bonds to
       // cut to kill the zone.
       const bondAlpha = 0.4 + shimmer * 0.45;
-      for (const bid of comp.bondIds) {
+      for (const bid of comp.bonds) {
         const bond = world.bonds.get(bid);
         if (bond === undefined) continue;
         /*

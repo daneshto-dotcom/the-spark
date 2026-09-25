@@ -73,6 +73,10 @@ export function helgaCell(
         return { state: 'walk', frame: loopIndex(worldTick + phase, cfg.walkTicksPerFrame, cfg.walkFrames) };
       }
       return { state: 'idle', frame: loopIndex(worldTick + phase, cfg.idleTicksPerFrame, cfg.idleFrames) };
+    // S189 R190-J — a DORMANT Helga is never drawn (`princessRenderer` skips her); explicit so the
+    // switch stays exhaustive rather than growing a tolerant default.
+    case 'DORMANT':
+      return { state: 'idle', frame: 0 };
     case 'WALK':
       return { state: 'walk', frame: loopIndex(worldTick + phase, cfg.walkTicksPerFrame, cfg.walkFrames) };
     case 'WINDUP':

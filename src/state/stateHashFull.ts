@@ -367,7 +367,9 @@ type CreatureHashed =
   | 'atkFifths';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
-  | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick';
+  | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
+  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
+  | 'ownBondIdLimit';
 // ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
 // hand-written string template with NO executable link to this union, so a field listed here but
 // absent from the template compiles clean, passes every existing test, and leaves the wide
@@ -380,7 +382,9 @@ type DefenderHashed =
   // a real pool in fifths and can be killed; a tower carries `null` and is as immune as ever.
   // HASHED because it decides whether she is alive, which every later tick branches on.
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
-  | 'lastStrikePos' | 'bagsRemaining' | 'ehp';
+  | 'lastStrikePos' | 'bagsRemaining' | 'ehp'
+  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
+  | 'ownBondIdLimit';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -655,7 +659,8 @@ export function determinismParts(world: World): string[] {
   for (const s of spawners) {
     parts.push(
       `cs${n(s.id)}:${n(s.ownerPlayerId)}:${n(s.anchorPrimitiveId)}:${s.recipeId}` +
-        `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}`,
+        `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}` +
+        `:ob${o(s.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
     );
   }
 
@@ -666,7 +671,8 @@ export function determinismParts(world: World): string[] {
         `:${d.pos.x},${d.pos.y}:${v2(d.prevPos)}:${v2(d.walkTargetPos)}` +
         `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}` +
-        `:eh${o(d.ehp)}`, // S158 P7 — `_` for a tower (null), a number for a unit-class defender
+        `:eh${o(d.ehp)}` + // S158 P7 — `_` for a tower (null), a number for a unit-class defender
+        `:ob${o(d.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
     );
   }
 

@@ -27,6 +27,8 @@ import type { World } from '../worldTypes.ts';
 import type { PlayerId, PrimitiveId } from '../../types.ts';
 import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
+// S189 C2 — the survival test (contains), distinct from the ignition test (exact).
+import { towerStandsAt } from '../towerMembers.ts';
 
 /**
  * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
@@ -40,6 +42,10 @@ const CIRCLE_LEAVES = 3; // 3 Stars (unordered {Triangle,Circle} type-set)
 /**
  * Read-only check: is the component anchored at `hubId` a Triangle hub(deg6) + 3 Spiral + 3 Circle
  * star? Exported so defenderLifecycle.recipeStillSatisfied (via `stillValid`) can re-validate each poll.
+ * ⚠ S189 C2 — this is her FIRST BUILD test and nothing else: exact, an isolated component of her
+ * seven (audit W2 reverted a "contains" first build that let a lattice Triangle sprout a hall).
+ * Survival (`stillValid`) asks `towerStandsAt`; her RE-SUMMON after death is the DORMANT record's
+ * revive at the FIGHT→BUILD edge (`defenderLifecycle.reviveDormantHelgas`, owner ruling R190-J).
  *
  * S103 P4 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Triangle of bond-degree exactly
  * 6, (b) its component is exactly 7 primitives, (c) the 6 non-hub members are exactly 3 Spirals + 3
@@ -69,7 +75,18 @@ export function isHelgaComponent(world: World, hubId: PrimitiveId): boolean {
   return spirals === SPIRAL_LEAVES && circles === CIRCLE_LEAVES;
 }
 
-/** Lowest-id Triangle hub anchoring a valid, NOT-already-live HELGA. Ascending id → deterministic. */
+/**
+ * Lowest-id Triangle hub anchoring a valid, NOT-already-live HELGA. Ascending id → deterministic.
+ *
+ * ⭐⭐ S189 C2 (audit W2) — FIRST BUILD IS EXACT AGAIN (`isHelgaComponent`). A first pass moved it onto
+ * the "contains" survival test to serve owner ruling R190-J (*"Every fight she should come back as
+ * long as the tower is still up"*), and that let any lattice Triangle with 3 Spiral + 3 Circle
+ * neighbours sprout a hall nobody built. R190-J ruled only RE-SUMMON, and re-summon no longer comes
+ * through here: when she dies her record stays DORMANT (her hall's identity) and she revives at the
+ * FIGHT→BUILD edge while the hall's own members stand, welded or not, with no bond needed
+ * (`defenderLifecycle.reviveDormantHelgas`). While she is dormant her anchor is live, so this scan
+ * skips it and can never summon a second Helga onto the same hall.
+ */
 function findBuildableHelgaAnchor(world: World): PrimitiveId | null {
   const live = new Set<PrimitiveId>();
   for (const d of world.defenders.values()) live.add(d.anchorPrimitiveId);
@@ -107,7 +124,15 @@ export const HELGA_RECIPE: DefenderGodlyRecipe = {
   id: 'helga',
   defenderKind: 'princess',
   predicate: helgaPredicate,
-  stillValid: (world, anchorId) => isHelgaComponent(world, anchorId),
+  /*
+   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED". `isHelgaComponent` was the IGNITION
+   * test (and is again — audit W2) — and it is a WHOLE-COMPONENT test (the S158 B2b defect, never fixed for
+   * HELGA), so as the survival test ONE shape welded onto ONE leaf tore her hall down. Survival now
+   * asks only that the Triangle hub still holds its own 3 Spiral + 3 Circle arms; see
+   * `state/towerMembers.ts`. ⭐ R190-J — and her RE-SUMMON after she is killed reads the same test on
+   * her DORMANT record (`reviveDormantHelgas`), so a welded hall that stands brings her back every fight.
+   */
+  stillValid: (world, anchorId) => towerStandsAt(world, 'helga', anchorId),
   characterSprite: '/godly/helga/helga.png', // S110 P5 — HELGA's own matted imagen art (dirndl + stein + slap)
 };
 

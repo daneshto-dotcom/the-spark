@@ -22,8 +22,11 @@ import {
 } from './migrationClaim.ts';
 import { parseNetMessage, type MigrationClaimMsg, type RosterEntry } from './protocol.ts';
 import type { SuccessionWarrant } from './successionWarrant.ts';
-import { dispatch, makeWorld } from '../state/world.ts';
-import { asPlayerId } from '../types.ts';
+import { dispatch, makeWorld, type World } from '../state/world.ts';
+import { asBondId, asPlayerId, asPrimitiveId, type BondId } from '../types.ts';
+import type { Primitive } from '../game/primitive.ts';
+import { PRIMITIVE_MAX_HP } from '../constants.ts';
+import { towerStandsAt } from '../state/towerMembers.ts';
 
 function bytesEq(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -237,5 +240,65 @@ describe('S122 P2 — MIGRATION_CLAIM wire-shape gate', () => {
     const { sigB64: _s, ...noSig } = ok;
     void _s;
     expect(parseNetMessage(noSig)).toBeNull();
+  });
+});
+
+/*
+ * ⛔ S189 C2 (audit W-FR1) — a takeover / worker repair must never rewind `nextBondId` below a live
+ * tower's `ownBondIdLimit`, or the next weld is read as a connector the tower was BUILT with.
+ */
+describe('S189 C2 W-FR1 — the rebuilt nextBondId respects every live tower\u2019s ownBondIdLimit', () => {
+  const P0 = asPlayerId(0);
+  function mk(w: World, type: SparkType, x: number, y: number): Primitive {
+    const color = w.players.get(P0)!.color;
+    const id = asPrimitiveId(w.nextPrimitiveId++);
+    const p: Primitive = {
+      id, type, placerColor: color, placedBy: P0, createdTick: w.tick, pos: { x, y }, prevPos: { x, y },
+      bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP,
+      origin: null,
+    };
+    w.primitives.set(id, p);
+    return p;
+  }
+  function bond(w: World, a: Primitive, b: Primitive): BondId {
+    const bid = asBondId(w.nextBondId++);
+    w.bonds.set(bid, { id: bid, aId: a.id, bId: b.id, a, b, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick });
+    a.bonds.add(bid);
+    b.bonds.add(bid);
+    return bid;
+  }
+
+  it('a tower registered at L, bond L-1 razed, takeover -> nextBondId >= L; a post-takeover weld does not break the ring', () => {
+    const world = makeWorld(11);
+    world.gameState = 'TITLE';
+    dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
+    const nodes = Array.from({ length: 5 }, (_, i) => {
+      const a = -Math.PI / 2 + (i / 5) * Math.PI * 2;
+      return mk(world, SparkType.Triangle, 500 + Math.cos(a) * 42.5, 300 + Math.sin(a) * 42.5);
+    });
+    for (let i = 0; i < 5; i++) bond(world, nodes[i]!, nodes[(i + 1) % 5]!);
+    // One more bond minted before the tower registers, elsewhere — it will be razed later.
+    const x1 = mk(world, SparkType.Dot, 900, 900);
+    const x2 = mk(world, SparkType.Dot, 930, 900);
+    const doomed = bond(world, x1, x2);
+    dispatch(world, { type: 'REGISTER_SPAWNER', ownerPlayerId: P0, anchorPrimitiveId: nodes[0]!.id, recipeId: 'pentagram' });
+    const L = world.nextBondId;
+    const sp = [...world.creatureSpawners.values()][0]!;
+    expect(sp.ownBondIdLimit).toBe(L);
+    expect(doomed).toBe(L - 1);
+    // Bond L-1 is razed (cut, eaten) before the takeover.
+    world.bonds.delete(doomed);
+    x1.bonds.delete(doomed);
+    x2.bonds.delete(doomed);
+
+    const allocs = rebuildAuthorityAllocators(world);
+    expect(allocs.nextBondId, 'max(live)+1 alone would be L-1').toBeGreaterThanOrEqual(L);
+    world.nextBondId = allocs.nextBondId;
+
+    // A same-type weld after the takeover gets an id >= L: a weld, not a built-with connector.
+    const weld = mk(world, SparkType.Triangle, 500, 230);
+    const weldBond = bond(world, weld, nodes[0]!);
+    expect(weldBond).toBeGreaterThanOrEqual(L);
+    expect(towerStandsAt(world, 'pentagram', nodes[0]!.id), 'the welded ring stands').toBe(true);
   });
 });

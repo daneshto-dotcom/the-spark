@@ -852,6 +852,7 @@ export function updateHelgaTheme(world: HelgaThemeWorldView): void {
   let engagedRaw = false;
   for (const d of world.defenders.values()) {
     if (d.kind !== 'princess') continue;
+    if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga must not hold her theme on
     if (d.state !== 'IDLE' || d.targetCreatureId !== null) { engagedRaw = true; break; }
   }
   if (engagedRaw) lastHelgaEngagedTick = world.tick;
