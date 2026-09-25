@@ -15,6 +15,14 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | C-5 · hub self-destruct = 120 fifths | DONE | (this commit) | Council items applied (explicit arms) |
 | C-6 · `spreadEnemyTarget` strict predicate | GATED (merge owner "C-6 go") | | |
 | C-7 · health bar on the star, bounded width | GATED (after weld on master) | | |
+| **ROUND 2** | | | merge owner's message: A · B · C · D · C-6 · C-8 · C-9 |
+| R2-A · blast = 120 IN TOTAL, split (owner S191) | DONE | (this commit) | see below |
+| R2-B · test honesty (GATES-3, BLAST-8) | next | | |
+| R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | todo | | |
+| R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | todo | | |
+| C-6 · spreadEnemyTarget strict predicate | RELEASED, todo | | |
+| C-8 · R190-I castle hit / heal numbers | RELEASED, todo | | |
+| C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
 
 ## C-1 — DONE
 
@@ -130,6 +138,22 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
   5-connector star → survivors 0), contradicting canon §2. Pinned in the C-5 REACH test with a ⚠ note.
 - Protocol verdict: the action is host-internal (not on the wire), no serialized/hashed field changed —
   but it is a RULE a successor computes, so it OWES the deploy's bump (Council).
+
+## R2-A — DONE (owner S191: *"hub blast hit 120 divided by everything that's around it. So 120 damage points in total."*)
+
+- `potatoLifecycle.ts`: new pure exported `planHubBlast(world, cx, cy, radius, owner)` → ordered shares;
+  `applyHubLadderBlast` executes it. Targets unchanged (enemy creatures, Helga, lone shapes, bags, each
+  connector one entity; no structure-shape arm; S157 P0). Share `floor(120 / n)`, the first `120 mod n`
+  +1; n > 120 → the first 120 get 1, the rest 0 (same formula). Order: squared distance, then kind
+  (creature · defender · primitive · stinkCloud · connector), then id. ⚠ MINE: the order + kind ranks,
+  the n > 120 rule. Applied in plan order (a pop/sever earlier in the order can change a later target).
+- Tests (`hubSelfDestructLadder.test.ts`, 13): 1 target → 120; 7 targets → [18,17,17,17,17,17] + boss 17 =
+  120; tie order by kind then id (7 at 100 px) → [18,17×6]; 200 targets → boss 1, 119 connectors 1, 80
+  connectors 0, the 1s re-derived as the nearest by (d², id). REACH re-pinned: 5 targets → boss loses 24,
+  e12 felled by a 24. 5-connector tower inside: breaks [24,24,24], 2 stand (was all 5 at 120 each).
+- Mutation: remainder dropped (`extra = 0`) → 3 RED, restored.
+- Canon §9d item 2 rewritten (quote, total split, MINE order/n>120; per-connector MINE removed);
+  `canon.test.ts` pin slices from `planHubBlast` and asserts the division + the quote.
 
 ## In flight
 

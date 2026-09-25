@@ -49,7 +49,7 @@ import { makeGameStateExtras } from './gameState.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
-import { applyStructureSelfDestruct } from './potatoLifecycle.ts';
+import { applyStructureSelfDestruct, planHubBlast } from './potatoLifecycle.ts';
 import { mulberry32 } from './rng.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { attackFifths } from './stats.ts';
@@ -171,8 +171,8 @@ function bankOnStar(w: World, hub: Primitive, fifths: number): void {
   }
 }
 
-describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT and deals 120, not a raze', () => {
-  it('chewer dies · boss loses exactly 120 · enemy connector felled · shapes in a structure untouched · the owner untouched', () => {
+describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT and deals 120 IN TOTAL, not a raze', () => {
+  it('five enemy targets share 120 (24 each): chewer dies · boss loses 24 · connector felled · structure shapes untouched · owner untouched', () => {
     expect(BLAST).toBe(120);
     const { w, hub, d, st } = hubBoard();
 
@@ -217,18 +217,21 @@ describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT
     expect(w.creatures.has(chewer), 'a chewer (pool 5) dies').toBe(false);
     expect(bossMaxPoolFifths(T9_BOSS_TYPE.nagas), 'anti-vacuity: a tier-9 pool is above 120').toBeGreaterThan(BLAST);
     expect(w.creatures.has(boss), 'pre-fix: the raze DELETED him').toBe(true);
-    expect(bossBefore - w.creatures.get(boss)!.ehp, 'the boss loses exactly 120').toBe(BLAST);
+    // ⭐ S191 (owner): "120 divided by everything that's around it". Five enemy targets are inside —
+    // chewer, boss, lone shape, bag, one connector — so each takes 120 / 5 = 24. (A sixth target
+    // appearing inside would move this number, which is what keeps the count honest.)
+    expect(bossBefore - w.creatures.get(boss)!.ehp, 'the boss loses only his share').toBe(BLAST / 5);
     expect(w.primitives.has(loneEnemy.id), 'a lone built shape (5) dies').toBe(false);
     expect(w.stinkClouds.has(enemyBag.id), 'a stink bag (5) dies').toBe(false);
     expect(w.bonds.has(e12), 'the connector inside is felled').toBe(false);
-    expect(w.connectorBreakHits, 'and the hit that felled it was 120').toContainEqual({ bondId: e12, amount: BLAST });
+    expect(w.connectorBreakHits, 'and the hit that felled it was its 24').toContainEqual({ bondId: e12, amount: BLAST / 5 });
     const severs = w.effects.filter((e) => e.kind === 'BOND_SEVERED');
     expect(severs.length, 'anti-vacuity: the blast severed something').toBeGreaterThan(0);
     expect(severs.every((e) => e.kind === 'BOND_SEVERED' && e.cause === 'drone'), 'an EXISTING cause, never a new one').toBe(true);
     expect(w.bonds.has(e23), 'the connector outside stands').toBe(true);
     /*
-     * ⚠ MEASURED, AND NOT WHAT CANON §2 SAYS: the chain's pool was 14 and the hit was 120, yet the
-     * survivor holds NOTHING. `damageConnector` drains the STRUCK bond first, so the 106 of overkill sits
+     * ⚠ MEASURED, AND NOT WHAT CANON §2 USED TO SAY: the chain's pool was 14 and the hit was 24, yet the
+     * survivor holds NOTHING. `damageConnector` drains the STRUCK bond first, so the 10 of overkill sits
      * on the bond the sever then deletes. Pre-existing (every connector strike in the game does it) and
      * reported by S191 C-5, not fixed here — flip this when `damageConnector` carries it.
      */
@@ -284,7 +287,7 @@ describe('S191 C-5 — every arm, exactly', () => {
     expect(w.primitives.get(turretAnchor.id)?.hp, 'its anchor is a shape in a structure: no arm').toBe(PRIMITIVE_MAX_HP);
   });
 
-  it('⚠ MINE — PER CONNECTOR: a 5-connector tower wholly inside takes 120 on each of its five and falls', () => {
+  it('a 5-connector tower wholly inside SHARES the 120 (24 a connector); its structure-wide pool decides how many fall', () => {
     const w = board();
     const hub = prim(w, P1, SparkType.Dot, 700, 400);
     const bonds: BondId[] = [];
@@ -293,8 +296,10 @@ describe('S191 C-5 — every arm, exactly', () => {
       bonds.push(link(w, hub, prim(w, P1, SparkType.Square, 700 + Math.cos(a) * 40, 400 + Math.sin(a) * 40)));
     }
     hubBlast(w);
-    for (const b of bonds) expect(w.bonds.has(b)).toBe(false);
-    expect(w.connectorBreakHits.map((h) => h.amount)).toEqual(bonds.map(() => BLAST));
+    // 24 + 24 bank 48 < 50; the third 24 fells one (pool 50), the fourth another (36), the fifth a third
+    // (24). Pre-split each took its own 120 and all five fell.
+    expect(w.connectorBreakHits.map((h) => h.amount)).toEqual([24, 24, 24]);
+    expect(bonds.filter((b) => w.bonds.has(b)).length, 'two connectors still stand').toBe(2);
   });
 
   it('a MIXED connector (one end the owner\'s) is spared — neither endpoint may be his', () => {
@@ -375,6 +380,98 @@ describe('S191 C-5 — every arm, exactly', () => {
     });
     expect(shape(b)).toEqual(shape(a));
     expect(hashWorldStateFull(a)).toBe(hashWorldStateFull(a)); // stable under re-hash
+  });
+});
+
+/* ──────────────────── 2b · THE SPLIT — "120 DAMAGE POINTS IN TOTAL" (owner, S191) ──────────────────── */
+
+/** Where a bond's midpoint is, squared, from the hub — the connector's position in the split order. */
+function midD2(w: World, id: BondId): number {
+  const b = w.bonds.get(id)!;
+  const mx = (b.a.pos.x + b.b.pos.x) / 2 - HUB_AT.x;
+  const my = (b.a.pos.y + b.b.pos.y) / 2 - HUB_AT.y;
+  return mx * mx + my * my;
+}
+
+describe('⭐⭐ S191 (owner) — the blast is 120 IN TOTAL, split across every enemy entity it reaches', () => {
+  it('ONE target takes the whole 120', () => {
+    const w = board();
+    const boss = spawn(w, T9_BOSS_TYPE.nagas, P1, 650, 400);
+    const before = w.creatures.get(boss)!.ehp;
+    expect(planHubBlast(w, HUB_AT.x, HUB_AT.y, STRUCTURE_SELFDESTRUCT_RADIUS, P0).map((e) => e.amount)).toEqual([BLAST]);
+    hubBlast(w);
+    expect(before - w.creatures.get(boss)!.ehp).toBe(BLAST);
+  });
+
+  it('SEVEN targets: 17 each, the one-point remainder to the NEAREST, exactly 120 in total — and the boss among them loses only his 17', () => {
+    const w = board();
+    // A chain of 11 enemy shapes: its first six connectors' midpoints are inside (45…195 px), the other
+    // four outside, so the structure-wide pool (10 connectors = 150) is never reached and each bond's
+    // bank IS its share. The shapes are inside a structure: no arm.
+    const shapes: Primitive[] = [];
+    for (let k = 0; k <= 6; k++) shapes.push(prim(w, P1, SparkType.Line, 630 + 30 * k, 400));
+    for (const x of [1100, 1130, 1160, 1190]) shapes.push(prim(w, P1, SparkType.Line, x, 400));
+    const chain: BondId[] = [];
+    for (let k = 0; k + 1 < shapes.length; k++) chain.push(link(w, shapes[k]!, shapes[k + 1]!));
+    const inside = chain.slice(0, 6);
+    for (const b of chain.slice(6)) expect(midD2(w, b), 'fixture: outside').toBeGreaterThan(STRUCTURE_SELFDESTRUCT_RADIUS ** 2);
+    const boss = spawn(w, T9_BOSS_TYPE.nagas, P1, 600, 450); // 50 px: between the 45 and the 75 connector
+    const before = w.creatures.get(boss)!.ehp;
+
+    hubBlast(w);
+    const banked = inside.map((b) => w.bonds.get(b)!.damageFifths);
+    const bossLost = before - w.creatures.get(boss)!.ehp;
+    expect(banked, 'the nearest (45 px) takes the remainder').toEqual([18, 17, 17, 17, 17, 17]);
+    expect(bossLost, 'the boss loses only his share').toBe(17);
+    expect(banked.reduce((a, b) => a + b, 0) + bossLost, 'exactly 120 in total').toBe(BLAST);
+    for (const b of chain.slice(6)) expect(w.bonds.get(b)!.damageFifths).toBe(0);
+  });
+
+  it('the order is TOTAL: nearest, then kind (creature · Helga · shape · bag · connector), then id', () => {
+    const w = board();
+    // Seven targets all exactly 100 px from the hub, so only kind and id decide the order.
+    const b1 = spawn(w, T9_BOSS_TYPE.nagas, P1, 500, 400);
+    const b2 = spawn(w, T9_BOSS_TYPE.orcs, P1, 600, 500);
+    const h = helga(w, P1, 700, 400); // her anchor's connector is 300 px out
+    const s1 = prim(w, P1, SparkType.Triangle, 600, 300);
+    const s2 = prim(w, P1, SparkType.Triangle, 660, 480);
+    const g = bag(w, P1, 540, 320);
+    const c = link(w, prim(w, P1, SparkType.Line, 640, 320), prim(w, P1, SparkType.Line, 720, 360)); // midpoint (680, 340)
+    const plan = planHubBlast(w, HUB_AT.x, HUB_AT.y, STRUCTURE_SELFDESTRUCT_RADIUS, P0);
+    expect(plan.map((e) => `${e.kind}:${e.id}`)).toEqual([
+      `creature:${b1}`, `creature:${b2}`, `defender:${h.id}`, `primitive:${s1.id}`, `primitive:${s2.id}`,
+      `stinkCloud:${g.id}`, `connector:${c}`,
+    ]);
+    expect(plan.map((e) => e.amount)).toEqual([18, 17, 17, 17, 17, 17, 17]);
+  });
+
+  it('⚠ MINE — 200 targets (more than 120): the nearest 120 take ONE each, the other 80 nothing; the boss among them loses 1', () => {
+    const w = board();
+    // A 10 × 11 grid of enemy shapes, 20 px apart, all inside: 199 connectors, pool 199 × 204 — never reached.
+    const grid: Primitive[][] = [];
+    for (let r = 0; r < 10; r++) {
+      grid.push([]);
+      for (let c = 0; c < 11; c++) grid[r]!.push(prim(w, P1, SparkType.Dot, 500 + 20 * c, 310 + 20 * r));
+    }
+    const bonds: BondId[] = [];
+    for (let r = 0; r < 10; r++) {
+      for (let c = 0; c < 11; c++) {
+        if (c + 1 < 11) bonds.push(link(w, grid[r]![c]!, grid[r]![c + 1]!));
+        if (r + 1 < 10) bonds.push(link(w, grid[r]![c]!, grid[r + 1]![c]!));
+      }
+    }
+    expect(bonds.length).toBe(199);
+    const boss = spawn(w, T9_BOSS_TYPE.nagas, P1, HUB_AT.x, HUB_AT.y); // 0 px: first in the order
+    const before = w.creatures.get(boss)!.ehp;
+    expect(planHubBlast(w, HUB_AT.x, HUB_AT.y, STRUCTURE_SELFDESTRUCT_RADIUS, P0)).toHaveLength(200);
+    hubBlast(w);
+    expect(before - w.creatures.get(boss)!.ehp).toBe(1);
+    const hit = bonds.filter((b) => w.bonds.get(b)!.damageFifths === 1);
+    expect(hit.length, 'the other 119 ones').toBe(119);
+    expect(bonds.filter((b) => w.bonds.get(b)!.damageFifths === 0).length).toBe(80);
+    // Re-derived independently: the 119 nearest connectors by (squared distance, id).
+    const nearest = [...bonds].sort((x, y) => midD2(w, x) - midD2(w, y) || Number(x) - Number(y)).slice(0, 119);
+    expect(new Set(hit)).toEqual(new Set(nearest));
   });
 });
 

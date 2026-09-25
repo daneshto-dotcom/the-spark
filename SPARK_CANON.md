@@ -1378,40 +1378,46 @@ already fixed with the band step-up.** He examined the empty-quarry finding and 
 problem. That is an answer, not a deferral. ⛔ Do not ask again whether to stop the FIGHT-phase reap.
 
 
-### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**. ✅ **BUILT S191** (`s191/carry` C-5).
+### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**, in total. ✅ **BUILT S191** (`s191/carry` C-5).
 
 > *"The lightning hub self-destruct will have to rework then. It can't destroy everything around it,
 > but there should be a certain damage output."* — owner, S187
 
+> *"hub blast hit 120 divided by everything that's around it. So 120 damage points in total."*
+> — owner, S191
+
 That is the second half of R182-C and it completes it. He ruled the AMOUNT in S182 —
 *"four times a drone's damage"* — and the only reason it sat open is that the blast turned out to be
 an instant-kill raze rather than a number, which he had not known. **He killed the raze, so his
-number stands, and it is now the code:**
+number stands, and it is now the code — as ONE total that everything around the hub shares:**
 
 ```
 STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
 ```
 
 ⭐ **BUILT, AND `canon.test.ts` PINS BOTH THE NUMBER AND THE ARM.** The hub dispatches
-`STRUCTURE_SELFDESTRUCT` with `blast: 'ladder'`, and `applyHubLadderBlast` (`potatoLifecycle.ts`) —
-which never calls `applyRadialClear` — deals **120 once to every ENEMY entity inside
-`STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
+`STRUCTURE_SELFDESTRUCT` with `blast: 'ladder'`, and `planHubBlast` / `applyHubLadderBlast`
+(`potatoLifecycle.ts`) — which never call `applyRadialClear` — split **120 across every ENEMY entity
+inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
 creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
-inside (`damageConnector`, no creature attacker → no lifesteal; severed with the EXISTING cause
-`'drone'`, so no new discriminant). A shape INSIDE a structure has no arm — a building dies through
-its connectors (§4). ⚠ **The S157 P0 owner-exemption is UNTOUCHED** — the blast still spares the hub
-owner's own shapes, units, bags and Helga, and a connector with either end his. *"He will also bring
-down some of his own connectors"* from S182 is NOT current behaviour and must not be reintroduced on
-the strength of this ruling. ⛔ **The castle is not an arm**: on both shipped boards no enemy keep can
-stand within 240 px of a hub built on its owner's ground (`hubSelfDestructLadder.test.ts` measures
-it over every buildable point); a board that changes that needs his ruling first.
+inside — **each connector is one entity** (`damageConnector`, no creature attacker → no lifesteal;
+severed with the EXISTING cause `'drone'`, so no new discriminant). n targets each take
+`floor(120 / n)`, and the first `120 mod n` take one more, so the shares always sum to exactly 120. A
+shape INSIDE a structure has no arm — a building dies through its connectors (§4). ⚠ **The S157 P0
+owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes, units, bags and
+Helga, and a connector with either end his. *"He will also bring down some of his own connectors"*
+from S182 is NOT current behaviour and must not be reintroduced on the strength of this ruling. ⛔ **The
+castle is not an arm**: on both shipped boards no enemy keep can stand within 240 px of a hub built on
+its owner's ground (`hubSelfDestructLadder.test.ts` measures it over every buildable point); a board
+that changes that needs his ruling first.
 
-⚠ 120 will not kill a tier-9 boss (pools 260–462), nor Helga (**156**), where the raze deleted them
-where they stood. That is the consequence of his own ruling, stated so nobody reads it later as a
-regression. ⚠ **MINE, flagged at the constant:** it is PER CONNECTOR — a 5-connector tower wholly
-inside takes 120 on each of its five and falls; once-per-structure (120 to the whole building) is
-the other reading and is his call. And it is the UNBUFFED drone: a seat that drafted ATK/PEN still
-blasts 120.
+⚠ Even alone in the radius, 120 will not kill a tier-9 boss (pools 260–462), nor Helga (**156**),
+where the raze deleted them where they stood — and with company each takes less. That is the
+consequence of his own ruling, stated so nobody reads it later as a regression. ⚠ **MINE, flagged at
+the constant:** who gets the remainder — the order is nearest first (squared distance), then kind
+(creature · Helga · shape · bag · connector), then id; past 120 targets the nearest 120 take one fifth
+each and the rest nothing (a fifth is the smallest unit the ladder has). And it is the UNBUFFED drone:
+a seat that drafted ATK/PEN still blasts 120.
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
 (380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is

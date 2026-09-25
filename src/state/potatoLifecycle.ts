@@ -405,99 +405,150 @@ export function applyRadialClear(
 }
 
 /**
- * ⭐⭐ S191 C-5 — **THE LIGHTNING HUB'S BLAST IS A NUMBER ON THE LADDER** (canon §9d item 2, R182-C).
+ * ⭐⭐ S191 C-5 — **THE LIGHTNING HUB'S BLAST IS A NUMBER ON THE LADDER** (canon §9d item 2, R182-C) —
+ * and, since the owner's S191 answer, **ONE number in total**.
  *
  * > *"four times a drone's damage"* — owner, S182 (the AMOUNT)
  * > *"The lightning hub self-destruct will have to rework then. It can't destroy everything around
  * > it, but there should be a certain damage output."* — owner, S187 (the raze is killed)
+ * > *"hub blast hit 120 divided by everything that's around it. So 120 damage points in total."*
+ * > — owner, S191 (the SPLIT)
  *
- * `4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = 4 × 30 = **120 fifths**. The 4 is his; the ATK/PEN are
- * the drone config's own constants, so a retune of the drone retunes this.
+ * `4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = 4 × 30 = **120 fifths, in total**, shared by every enemy
+ * entity the blast reaches (`planHubBlast`). The 4 is his; the ATK/PEN are the drone config's own
+ * constants, so a retune of the drone retunes this.
  *
- * ⚠ HIS RULING'S CONSEQUENCE, STATED SO NOBODY READS IT LATER AS A REGRESSION: **120 does not kill a
- * tier-9 boss** (pools 260–462), where the raze deleted one where it stood. Nor Helga (156).
- * ⚠ MINE — **PER CONNECTOR**: every enemy connector whose midpoint is inside takes its own 120, so a
- * 5-connector tower wholly inside takes 600 and still falls. Once-per-structure (120 to the whole
- * building) is the other reading, and it is the owner's call.
+ * ⚠ HIS RULING'S CONSEQUENCE, STATED SO NOBODY READS IT LATER AS A REGRESSION: even ALONE in the
+ * radius, **120 does not kill a tier-9 boss** (pools 260–462), where the raze deleted one where it
+ * stood. Nor Helga (156). With company, each takes less.
  * ⚠ MINE — the UNBUFFED drone: a seat that drafted ATK/PEN has drones that hit harder (S190
  * `creatureAttackFifths`), and its hub's blast stays 120, because his words price it off "a drone".
  */
 export const STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE = 4;
 export const STRUCTURE_SELFDESTRUCT_FIFTHS = STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN);
 
+/** One entity the hub's blast reaches. A connector is one entity (owner, S191). */
+export type HubBlastKind = 'creature' | 'defender' | 'primitive' | 'stinkCloud' | 'connector';
+export interface HubBlastShare {
+  readonly kind: HubBlastKind;
+  readonly id: number;
+  /** Squared distance from the blast centre — to the bond's MIDPOINT for a connector. */
+  readonly d2: number;
+  /** Its share of `STRUCTURE_SELFDESTRUCT_FIFTHS`, in fifths. May be 0 (more than 120 targets). */
+  readonly amount: number;
+}
+
 /**
- * ⭐⭐ S191 C-5 — the hub's blast, arm by arm. Every victim is COLLECTED (sorted by id) before anything
- * is mutated — `applyRadialDamage`'s iteration discipline — and then damaged in a fixed family order:
- * creatures → Helga → lone shapes → stink bags → connectors. Each arm is enemy-only by the S157 P0 rule.
+ * ⚠ MINE — the tie-break between two targets at the SAME distance. The owner ruled the total and the
+ * division, not who gets the remainder; units first, then the buildings' parts, is the order the
+ * blast's arms were already written in.
+ */
+const HUB_BLAST_KIND_RANK: Readonly<Record<HubBlastKind, number>> = {
+  creature: 0,
+  defender: 1,
+  primitive: 2,
+  stinkCloud: 3,
+  connector: 4,
+};
+
+/**
+ * ⭐⭐ S191 — **WHO THE HUB'S BLAST REACHES, IN WHAT ORDER, AND FOR HOW MUCH.** Pure: reads the world,
+ * mutates nothing. `applyHubLadderBlast` executes it.
  *
- *   · **creatures** — 120 each, through `damageEntity` (a channelling Pharaoh takes nothing, as always);
+ * WHO — every ENEMY entity inside the radius (the S157 P0 owner exemption on every arm):
+ *   · **creatures** (a channelling Pharaoh still takes nothing — `damageCreature`'s own guard);
  *   · **Helga** — the one defender with a pool (`ehp !== null`); a TOWER has none and dies through its
- *     connectors (R75), so it is not collected;
- *   · **lone built shapes** — `bonds.size === 0` AT COLLECTION: a shape inside a structure has NO arm
- *     (canon §4, *"you kill a building through its connectors"*). This is why the blast cannot be
- *     `applyRadialDamage` at 120: its shape arm hits every shape in radius, and 120 > a shape's 70, so
- *     every enemy building inside would still be razed — the raze he ruled out (S191 Council);
- *   · **stink bags** — an explicit `world.stinkClouds` arm (the radial helper never visits them). ⚠ A
- *     bag the blast pops still BURSTS, and a burst spares the BAG's owner, not the killer — so it can
- *     hurt the hub owner's own things beside it. That is the bag's existing rule, not a new one;
- *   · **connectors** — the suicide goblin's arm: the bond's MIDPOINT inside, NEITHER endpoint the
- *     owner's (a mixed bond is spared), `damageConnector(120, null)` — no creature attacker, so no
- *     lifesteal — and, when it gives way, severed with cause `'drone'`: an EXISTING cause (no bump for
- *     the value), and the honest one for *"a suicide drone building"* (R182-A). ⚠ MINE. The sever goes
- *     straight to `applySeverBond`, not through `dispatch`, for POWER OF RA's audit-F1 reason:
+ *     connectors (R75), so it is not a target;
+ *   · **lone built shapes** — `bonds.size === 0`: a shape INSIDE a structure is not a target at all
+ *     (canon §4, *"you kill a building through its connectors"*). This is why the blast is not
+ *     `applyRadialDamage`: its shape arm hits every shape in radius, and 120 > a shape's 70, so every
+ *     enemy building inside would still be razed — the raze he ruled out (S191 Council);
+ *   · **stink bags** — `world.stinkClouds` (the radial helper never visits them);
+ *   · **connectors** — each one entity: the bond's MIDPOINT inside, NEITHER endpoint the owner's (a mixed
+ *     bond is spared — the suicide goblin's arm).
+ *
+ * ORDER — a TOTAL order: squared distance (nearest first), then kind (`HUB_BLAST_KIND_RANK`), then id.
+ * ⚠ MINE, the order itself: he ruled the division, not who gets the remainder.
+ *
+ * HOW MUCH — n targets share 120: each takes `floor(120 / n)` and the first `120 mod n` in the order
+ * take one more, so the shares always sum to EXACTLY 120. ⚠ MINE — more than 120 targets: the same
+ * formula gives the first 120 one fifth each and the rest nothing (a fifth is the ladder's smallest
+ * unit; nothing smaller can be dealt).
+ */
+export function planHubBlast(world: World, cx: number, cy: number, radius: number, owner: PlayerId): HubBlastShare[] {
+  const r2 = radius * radius;
+  const found: Array<{ kind: HubBlastKind; id: number; d2: number }> = [];
+  const at = (kind: HubBlastKind, id: number, x: number, y: number): void => {
+    const dx = x - cx;
+    const dy = y - cy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2) found.push({ kind, id, d2 });
+  };
+  for (const [id, c] of world.creatures) if (c.ownerPlayerId !== owner) at('creature', id as number, c.pos.x, c.pos.y);
+  for (const [id, d] of world.defenders) {
+    if (d.ehp !== null && d.ownerPlayerId !== owner) at('defender', id as number, d.pos.x, d.pos.y);
+  }
+  for (const [id, p] of world.primitives) {
+    if (p.bonds.size === 0 && p.placedBy !== owner) at('primitive', id as number, p.pos.x, p.pos.y);
+  }
+  for (const [id, s] of world.stinkClouds) if (s.ownerPlayerId !== owner) at('stinkCloud', id as number, s.pos.x, s.pos.y);
+  for (const [id, b] of world.bonds) {
+    if (world.primitives.get(b.aId)?.placedBy === owner || world.primitives.get(b.bId)?.placedBy === owner) continue;
+    at('connector', id as number, (b.a.pos.x + b.b.pos.x) / 2, (b.a.pos.y + b.b.pos.y) / 2);
+  }
+  found.sort((a, b) => a.d2 - b.d2 || HUB_BLAST_KIND_RANK[a.kind] - HUB_BLAST_KIND_RANK[b.kind] || a.id - b.id);
+  const n = found.length;
+  if (n === 0) return [];
+  const share = Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n);
+  const extra = STRUCTURE_SELFDESTRUCT_FIFTHS % n;
+  return found.map((t, i) => ({ ...t, amount: share + (i < extra ? 1 : 0) }));
+}
+
+/**
+ * ⭐⭐ S191 C-5 — the hub's blast, executed in `planHubBlast`'s order (every target planned BEFORE
+ * anything is mutated — `applyRadialDamage`'s collect-then-mutate discipline).
+ *
+ *   · every non-connector share goes through `damageEntity` with a `null` attacker (a blast names
+ *     nobody — S183);
+ *   · a connector share goes through `damageConnector(share, null)` — no creature attacker, so no
+ *     lifesteal — and, when it gives way, is severed with cause `'drone'`: an EXISTING cause (no bump
+ *     for the value), and the honest one for *"a suicide drone building"* (R182-A). ⚠ MINE. The sever
+ *     goes straight to `applySeverBond`, not through `dispatch`, for POWER OF RA's audit-F1 reason:
  *     `dispatch`'s bench and elimination gates would REFUSE the sever if the owner were benched or out,
  *     leaving a connector standing after its pool was spent. `canSeverBond` still runs.
+ *   · ⚠ A bag the blast pops still BURSTS, and a burst spares the BAG's owner, not the killer — so it
+ *     can hurt the hub owner's own things beside it. That is the bag's existing rule, not a new one.
  *
  * ⛔ THE CASTLE IS NOT AN ARM. On every shipped board no enemy keep can be inside 240 px of a hub built
  * on its owner's ground (`hubSelfDestructLadder.test.ts` measures it); a board that changes that needs
  * his ruling first.
  */
 function applyHubLadderBlast(world: World, cx: number, cy: number, radius: number, owner: PlayerId): void {
-  const r2 = radius * radius;
-  const inR = (x: number, y: number): boolean => {
-    const dx = x - cx;
-    const dy = y - cy;
-    return dx * dx + dy * dy <= r2;
-  };
-  const byId = (a: unknown, b: unknown): number => (a as number) - (b as number);
-
-  // ── collect first, mutate second ──
-  const creatures: CreatureId[] = [];
-  for (const [id, c] of world.creatures) if (c.ownerPlayerId !== owner && inR(c.pos.x, c.pos.y)) creatures.push(id);
-  creatures.sort(byId);
-  const helgas: DefenderId[] = [];
-  for (const [id, d] of world.defenders) {
-    if (d.ehp !== null && d.ownerPlayerId !== owner && inR(d.pos.x, d.pos.y)) helgas.push(id);
-  }
-  helgas.sort(byId);
-  const loneShapes: PrimitiveId[] = [];
-  for (const [id, p] of world.primitives) {
-    if (p.bonds.size === 0 && p.placedBy !== owner && inR(p.pos.x, p.pos.y)) loneShapes.push(id);
-  }
-  loneShapes.sort(byId);
-  const bags: StinkCloudId[] = [];
-  for (const [id, s] of world.stinkClouds) if (s.ownerPlayerId !== owner && inR(s.pos.x, s.pos.y)) bags.push(id);
-  bags.sort(byId);
-  const connectors: BondId[] = [];
-  for (const [id, b] of world.bonds) {
-    if (world.primitives.get(b.aId)?.placedBy === owner || world.primitives.get(b.bId)?.placedBy === owner) continue;
-    if (inR((b.a.pos.x + b.b.pos.x) / 2, (b.a.pos.y + b.b.pos.y) / 2)) connectors.push(id);
-  }
-  connectors.sort(byId);
-
-  // ── apply ── (one `damageEntity` site, `null` attacker: a blast names nobody — S183)
-  const targets: DamageTarget[] = [
-    ...creatures.map((id): DamageTarget => ({ kind: 'creature', id })),
-    ...helgas.map((id): DamageTarget => ({ kind: 'defender', id })),
-    ...loneShapes.map((id): DamageTarget => ({ kind: 'primitive', id })),
-    ...bags.map((id): DamageTarget => ({ kind: 'stinkCloud', id })),
-  ];
-  for (const t of targets) damageEntity(world, t, STRUCTURE_SELFDESTRUCT_FIFTHS, 'hazard', null);
-  for (const bondId of connectors) {
-    if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
-    if (damageConnector(world, bondId, STRUCTURE_SELFDESTRUCT_FIFTHS, null)) {
-      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: owner, cause: 'drone' });
+  for (const t of planHubBlast(world, cx, cy, radius, owner)) {
+    if (t.amount === 0) continue;
+    if (t.kind === 'connector') {
+      const bondId = t.id as unknown as BondId;
+      if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
+      if (damageConnector(world, bondId, t.amount, null)) {
+        applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: owner, cause: 'drone' });
+      }
+      continue;
     }
+    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', null);
+  }
+}
+
+/** The `DamageTarget` for a non-connector share. */
+function hubBlastTarget(kind: Exclude<HubBlastKind, 'connector'>, id: number): DamageTarget {
+  switch (kind) {
+    case 'creature':
+      return { kind, id: id as unknown as CreatureId };
+    case 'defender':
+      return { kind, id: id as unknown as DefenderId };
+    case 'primitive':
+      return { kind, id: id as unknown as PrimitiveId };
+    case 'stinkCloud':
+      return { kind, id: id as unknown as StinkCloudId };
   }
 }
 

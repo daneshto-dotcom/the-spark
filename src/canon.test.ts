@@ -1164,6 +1164,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it("§9d R182-C BUILT at 120 fifths — the hub's blast is ladder damage, never the radial clear", () => {
     expect(canonSays('R182-C')).toBe(true);
     expect(canonSays('BUILT S191')).toBe(true);
+    // ⭐ S191 (owner) — ONE total, shared: the quote, and the division the planner does.
+    expect(canonSays('So 120 damage points in total.')).toBe(true);
+    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(true);
     expect(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE).toBe(4); // his "four times a drone's damage"
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN));
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(120);
@@ -1172,14 +1175,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(unitPoolFifths(PRINCESS_HP, PRINCESS_DEF)).toBe(156);
     expect(canonSays('nor Helga (**156**)')).toBe(true);
     const lifecycle = readFileSync(new URL('./state/potatoLifecycle.ts', import.meta.url), 'utf8');
+    // ⭐ S191 (owner) — the planner is the arm now: it picks the targets and the shares.
     const arm = lifecycle.slice(
-      lifecycle.indexOf('function applyHubLadderBlast'),
+      lifecycle.indexOf('export function planHubBlast'),
       lifecycle.indexOf('export function applyStructureSelfDestruct'),
     );
     expect(arm.length, 'anti-vacuity: the arm was found').toBeGreaterThan(500);
     expect(arm).not.toContain('applyRadialClear('); // never the raze…
     expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
-    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS');
+    expect(arm).toContain('Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n)');
+    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS % n');
     expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
