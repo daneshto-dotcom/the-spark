@@ -16,6 +16,9 @@
  *         `navUnitReference.fixtures.ts`. Between two calls of one tick it also injects a lethal
  *         DEFERRED blow to the unit just picked, an outright removal, and a birth beside the caller
  *         (Council S191 item 2), and counts holds the creature did not set itself (retaliation).
+ *       · SOLVER — `solveBonds` (tier tables hoisted): every substep call, verbatim solver first from
+ *         the same positions (`solveBondsReference.fixtures.ts`), every endpoint `pos` `Object.is` and
+ *         the broken list compared.
  *  2. **THE WORLDS DO NOT DIVERGE, ACROSS WAVES.** Two identical four-seat bots matches run in lockstep
  *     from tick 0 — twin A on EVERY reference, twin B on EVERY real change with the in-place checks —
  *     through whole waves (BUILD + FIGHT, creatures held in the last FIGHT), `hashWorldStateFull`
@@ -41,10 +44,12 @@ import { performance } from 'node:perf_hooks';
 import type { World } from './world.ts';
 
 import type { Creature } from './creatures/creature.ts';
-import type { CreatureId } from '../types.ts';
+import type { BondId, CreatureId } from '../types.ts';
+import type { Bond } from '../physics/bonds.ts';
 
 type RealTerritory = typeof import('./territory.ts');
 type RealAI = typeof import('./creatures/creatureAI.ts');
+type RealBonds = typeof import('../physics/bonds.ts');
 type NavFn = (w: World, c: Creature, held: CreatureId | null, acq: number, leash: number) => CreatureId | null;
 
 const H = vi.hoisted(() => ({
@@ -52,12 +57,20 @@ const H = vi.hoisted(() => ({
   influence: null as unknown as (w: World) => void,
   ai: null as unknown as RealAI,
   pickNavUnit: null as unknown as NavFn,
+  bonds: null as unknown as RealBonds,
+  solve: null as unknown as (bonds: readonly Bond[]) => BondId[],
 }));
 
 vi.mock('./territory.ts', async (importOriginal) => {
   const real = await importOriginal<RealTerritory>();
   H.territory = real;
   return { ...real, computeTerritorialInfluence: (w: World) => H.influence(w) };
+});
+
+vi.mock('../physics/bonds.ts', async (importOriginal) => {
+  const real = await importOriginal<RealBonds>();
+  H.bonds = real;
+  return { ...real, solveBonds: (bonds: readonly Bond[]) => H.solve(bonds) };
 });
 
 vi.mock('./creatures/creatureAI.ts', async (importOriginal) => {
@@ -74,9 +87,10 @@ import { hashWorldStateFull } from './stateHashFull.ts';
 import { referenceComputeTerritorialInfluence } from './territoryReference.fixtures.ts';
 import { startC5Match, topUpCreatures, WAVE_TICKS } from './c5WaveFiveBoard.fixtures.ts';
 import {
-  makeNavChecker, makeTerritoryChecker, plantIntruder, removeInjected, weldNearestCrossSeatPair,
+  makeNavChecker, makeSolverChecker, makeTerritoryChecker, plantIntruder, removeInjected, weldNearestCrossSeatPair,
   type Injected, type NavInjectPlan,
 } from './s191PerfOracle.fixtures.ts';
+import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
 
 const FULL = process.env.SPARK_C5_PERF === '1';
 const WAVES = FULL ? 5 : 3;
@@ -103,10 +117,14 @@ const NAV_INJECT: NavInjectPlan = { killEvery: 7, removeEvery: 13, birthEvery: 1
 const nav = makeNavChecker((w, c, h, a, l) => H.ai.pickNavUnit(w, c, h, a, l));
 H.pickNavUnit = (w, c, held, acq, leash) => nav.call(w, c, held, acq, leash, mode === 'checked', NAV_INJECT);
 
+const solver = makeSolverChecker((bonds) => H.bonds.solveBonds(bonds));
+H.solve = (bonds) => (mode === 'reference' ? referenceSolveBonds(bonds) : solver.check(bonds));
+
 describe(`S191 perf — every s191/perf change is byte-identical to the code it replaced (waves 1–${WAVES}, hash every tick)`, () => {
   it(`in-place agreement on every call, and a reference world and a changed world hash identically every tick for ${WAVES} waves`, async () => {
     territory.reset();
     nav.reset();
+    solver.reset();
     const A = startC5Match(true); // twin A: every REFERENCE
     const B = startC5Match(true); // twin B: every real change, every call also checked in place
     expect(hashWorldStateFull(A.world), 'the twins start identical').toBe(hashWorldStateFull(B.world));
@@ -168,11 +186,14 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
     const ticks = B.world.tick;
     const ts = territory.stats;
     const ns = nav.stats;
+    const ss = solver.stats;
     console.log(`[S191 perf oracle] waves 1-${WAVES}: nav ${JSON.stringify(ns)}`);
+    console.log(`[S191 perf oracle] waves 1-${WAVES}: solver ${JSON.stringify(ss)}`);
     console.log(`[S191 perf oracle] waves 1-${WAVES}: territory ${JSON.stringify(ts)}; welds=${welds} intruders=${intruders} (mixed ${mixedIntruders}) ticks=${ticks} maxBonds=${maxBonds} meanBonds=${(bondTicks / Math.max(1, ticks)).toFixed(0)} maxCreatures=${maxCreatures} reached wave ${A.world.waveNumber} ${A.world.matchPhase}; wall ${((performance.now() - t0) / 1000).toFixed(1)} s of which hashing ${(hashMs / 1000).toFixed(1)} s`);
 
     expect(ts.mismatches, `territory in-place mismatches:\n${territory.firstMismatches.join('\n')}`).toBe(0);
     expect(ns.mismatches, `nav-unit in-place mismatches:\n${nav.firstMismatches.join('\n')}`).toBe(0);
+    expect(ss.mismatches, `solver in-place mismatches:\n${solver.firstMismatches.join('\n')}`).toBe(0);
     expect(divergedAt, 'hashWorldStateFull diverged between the reference world and the changed world').toBe(-1);
     expect(A.world.tick, 'the run reached the end of its last wave').toBe(end);
     /*
@@ -208,6 +229,13 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
       ['nav: calls AFTER a mid-loop creature-set change, same tick', ns.callsAfterMidLoopChange, 100, '16 468 / FULL', 'the calls that would read a stale index'],
       ['nav: a held lock the creature did not set itself (a retaliation turn) (Council S191 item 2)', ns.heldElsewhere, 1, '104 / FULL', 'an existence claim: the retaliation hold is exercised'],
       ['nav: and that hold was kept', ns.heldElsewhereKept, 1, '104 / FULL', 'an existence claim: the hold branch returned it'],
+      ['solver: calls (8 substeps per tick with bonds)', ss.calls, 100_000, 'MEASURE', 'structural: the substep loop'],
+      ['solver: bonds solved', ss.bondsSolved, 1_000_000, 'MEASURE', 'a real board, every substep'],
+      ['solver: bonds solved SAGGED (multiplier != 1)', ss.sagged, 10_000, 'MEASURE', 'the territory / anchor path — the intruders make it real'],
+      ['solver: bonds broken by strain', ss.broken, 1, 'MEASURE', 'an existence claim: the break branch runs in the real match'],
+      ['solver: LOW-tier bonds solved', ss.low, 1000, 'MEASURE', 'every tier branch exercised'],
+      ['solver: MID-tier bonds solved', ss.mid, 1000, 'MEASURE', 'every tier branch exercised'],
+      ['solver: HIGH-tier bonds solved', ss.high, 1000, 'MEASURE', 'every tier branch exercised'],
     ];
     /*
      * ⚠ MEASURED, NOT ASSERTED: `naturalMidLoopChanges` — the sim changing the creature set between two

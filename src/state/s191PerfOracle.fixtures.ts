@@ -3,7 +3,7 @@
  * changes. ⛔ Never imported by production code (`.fixtures.ts`, the `c5WaveFiveBoard.fixtures.ts`
  * convention).
  *
- * Holds the IN-PLACE comparators (one per changed hotspot: territory, nav unit — each runs the verbatim pre-change reference
+ * Holds the IN-PLACE comparators (one per changed hotspot: territory, nav unit, solver — each runs the verbatim pre-change reference
  * and the real code on the same world at the same instant and counts every disagreement) and the
  * board INJECTIONS the long twin run applies identically to both twins. Shared by the fast exact-case
  * files and the long multi-wave twin oracle (`s191Perf.differential.test.ts`), so the comparator the
@@ -18,6 +18,7 @@ import {
 } from '../constants.ts';
 import { asBondId, asCreatureId, asPlayerId, asPrimitiveId, type BondId, type CreatureId, type PrimitiveId } from '../types.ts';
 import { referencePickNavUnit } from './creatures/navUnitReference.fixtures.ts';
+import { referenceSolveBonds } from '../physics/solveBondsReference.fixtures.ts';
 import { damageCreature, removeCreature } from './creatures/creatureLifecycle.ts';
 import { makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
@@ -384,6 +385,69 @@ export function makeNavChecker(real: PickNavUnitFn): NavChecker {
       }
       s.lastFp = navFp(w);
       return result;
+    },
+  };
+}
+
+/* ───────────────────────────── solver: the in-place comparator ───────────────────────────── */
+
+export interface SolverCheckStats {
+  calls: number; bondsSolved: number; mismatches: number; broken: number;
+  /** Bonds solved with a territory / anchor multiplier ≠ 1 — the sag path the hoist must not skew. */
+  sagged: number; low: number; mid: number; high: number;
+}
+
+export interface SolverChecker {
+  readonly stats: SolverCheckStats;
+  readonly firstMismatches: string[];
+  reset(): void;
+  /** Verbatim solver from the positions as they are NOW, restore, the real solver from the same
+   *  positions; every endpoint `pos` `Object.is` and the broken list compared. Leaves the real result. */
+  check(bonds: readonly Bond[]): BondId[];
+}
+
+export function makeSolverChecker(real: (bonds: readonly Bond[]) => BondId[]): SolverChecker {
+  const stats: SolverCheckStats = { calls: 0, bondsSolved: 0, mismatches: 0, broken: 0, sagged: 0, low: 0, mid: 0, high: 0 };
+  const firstMismatches: string[] = [];
+  return {
+    stats,
+    firstMismatches,
+    reset(): void {
+      for (const k of Object.keys(stats) as Array<keyof SolverCheckStats>) stats[k] = 0;
+      firstMismatches.length = 0;
+    },
+    check(bonds: readonly Bond[]): BondId[] {
+      const bodies: Array<{ x: number; y: number }> = [];
+      const seen = new Set<object>();
+      for (const b of bonds) {
+        for (const p of [b.a.pos, b.b.pos]) if (!seen.has(p)) { seen.add(p); bodies.push(p); }
+      }
+      const pre = bodies.map((p) => [p.x, p.y] as const);
+      const expectedBroken = referenceSolveBonds(bonds);
+      const expected = bodies.map((p) => [p.x, p.y] as const);
+      for (let i = 0; i < bodies.length; i++) { bodies[i]!.x = pre[i]![0]; bodies[i]!.y = pre[i]![1]; }
+      const got = real(bonds);
+      stats.calls++;
+      stats.bondsSolved += bonds.length;
+      stats.broken += got.length;
+      for (const b of bonds) {
+        if ((b.stiffnessMultiplier ?? 1.0) !== 1.0) stats.sagged++;
+        if (b.stiffnessTier === 'LOW') stats.low++; else if (b.stiffnessTier === 'MID') stats.mid++; else stats.high++;
+      }
+      const note = (what: string): void => {
+        stats.mismatches++;
+        if (firstMismatches.length < 8) firstMismatches.push(what);
+      };
+      if (got.length !== expectedBroken.length || got.some((id, i) => id !== expectedBroken[i])) {
+        note(`broken list: real=${JSON.stringify(got)} reference=${JSON.stringify(expectedBroken)}`);
+      }
+      for (let i = 0; i < bodies.length; i++) {
+        const p = bodies[i]!;
+        if (!Object.is(p.x, expected[i]![0]) || !Object.is(p.y, expected[i]![1])) {
+          note(`body ${i}: real=(${p.x}, ${p.y}) reference=(${expected[i]![0]}, ${expected[i]![1]})`);
+        }
+      }
+      return got;
     },
   };
 }

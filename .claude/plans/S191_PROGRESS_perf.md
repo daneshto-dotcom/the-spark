@@ -167,6 +167,41 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
 - New rank (C incl): structureTargets 28.6 % (not in brief) · solveBonds 9.9 % · tickScoring 9.1 % ·
   territory 8.9 % (radii 5.1 %) · pickNavUnit 6.2 %.
 
+### 2c · `solveBonds` — tier tables read once per call  ✅
+- `src/physics/bonds.ts` (CRLF kept, 150/150): the six tier-table entries read ONCE per call and chosen
+  by comparing the tier (an unknown tier still reads the table — NaN flows exactly as before); each
+  endpoint's `pos` object read once per bond. Same expressions, same doubles, same order, same
+  Gauss-Seidel bond order. Signature unchanged; physicsLoop.ts untouched; no state.
+- ⭐ Measured first, before editing, with a throwaway microbenchmark (a real wave-5 board, 517 bonds ×
+  8 substeps, 8 repeats after warm-up; not committed): **244.5 → 100.0 µs per tick** (spread 232-263 →
+  95-120), bit-identical on that board. The string-keyed table loads were most of each iteration.
+- Tests (NEW): `physics/solveBondsReference.fixtures.ts` (verbatim, 0 diff lines vs 42cc2ee bar the two
+  names); `physics/solveBonds.differential.test.ts` — every tier × {undefined, 1.0, 0.3, 0.7, 0.06, 1.5}
+  multiplier × {ordinary, < EPSILON, broken, 1.2× pull, hard compression → clamp, near HIGH's break},
+  unknown tier, self-bond (aliased `pos`), chains / rings / the same pair twice (16 substeps), the tables
+  RETUNED between calls, 400 random networks; every body `Object.is` after every substep + broken lists.
+  The SOLVER arm of `s191Perf.differential.test.ts`: default run **204 472 calls, 19 471 513 bonds solved,
+  0 mismatches**, 7 285 382 sagged, 4 broken, LOW 2.07 M / MID 14.48 M / HIGH 2.92 M; hashes identical.
+- MUTATION CHECKS (restored sha256-identical): S1 LOW break ratio for MID → RED · S2 MID stiffness for LOW →
+  RED · S3 drop `?? 1.0` → RED · S4 `(e/d)*(s*0.5)` → GREEN, and CORRECTLY: ×0.5 is exact in binary, so
+  that re-association cannot change a bit (an equivalent mutant) · S4b `((e*s)/d)*0.5`, a real
+  re-association → RED · S5 unknown tier defaulted to HIGH → RED · S6 tables frozen at module load → RED
+  (the retune case).
+- ⚠ Process note: the 2c commit (224fc8e) first went in WITHOUT this file (an Edit on a heading that
+  matched twice failed silently next to the `git add`); caught at once and amended into the same commit.
+
+#### AFTER 2c (cumulative 2a+2b+2c), wave-5 FIGHT, ms — machine shared
+| pass | run | mean | p95 | max | 3-tick p95 | 3-tick max |
+|---|---|---|---|---|---|---|
+| A | 1 / 2 / prof | 0.463 / 0.464 / 0.521 | 0.721 / 0.758 / 0.841 | 2.71 / 1.84 / 2.98 | 2.09 / 2.21 / 2.42 | 4.54 / 4.70 / 4.78 |
+| C | 1 / 2 / prof | 2.207 / 2.409 / 2.420 | 3.354 / 3.947 / 3.778 | 6.07 / 11.85 / 6.53 | 9.66 / 11.39 / 10.97 | 15.16 / 21.69 / 16.58 |
+- Profile: solveBonds A 17.9 → **8.9 %**, C 9.9 → **5.1 %**. Pass A mean 0.62 (base) → **0.46 ms**.
+  Pass C run 2 is a noisy run (max 11.85 ms); C's mean sits at ~2.2-2.4 vs base 2.57-3.13.
+- New rank (A incl): territory 22.7 % (of it `computeAllPlayerRadii` 12.9 %) · tickScoring 16.0 %
+  (`computeAllComplexities` 13.3 %, `lookupCombo` 8.6 %) · structureTargets 11.2 % · solveBonds 8.9 %.
+  (C incl): structureTargets 32.4 % (not in brief) · territory 9.4 % (radii 5.1 %) · tickScoring 8.7 % ·
+  pickNavUnit 5.9 % · solveBonds 5.1 %.
+
 ## Step 3 — cache-invariant guards
 - 2a (territory grid): NO cache — the grid is built and dropped inside each call. Nothing to stale.
 - 2b (nav index): `creatures/navUnitIndex.guards.test.ts`, comment-stripped production code, per-file
@@ -183,5 +218,4 @@ in this brief) · **pickNavUnit 9.6 %** · solveBonds 9.4 % · tickScoring 8.6 %
   own output, each site read).
   ⚠ FOR THE MERGE OWNER: s191/owner (chewer persistence) may add a spawn or removal site — re-count
   after that merge and read the new site against the guard file's header question.
-## Step 3 — cache-invariant guards  — pending
 ## Step 4 — final gates, numbers, report  — pending
