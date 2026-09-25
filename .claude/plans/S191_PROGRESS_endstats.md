@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 worktree agent `s191-endstats` (branch `s191/endstats`). Merge owner = the main session.**
+**STATUS: COMPLETED (v1 built, awaiting the merge owner's audit) — S191 worktree agent `s191-endstats` (branch `s191/endstats`).**
 
 # S191 PROGRESS — `s191/endstats` (owner item 3: end-of-game stats)
 
@@ -90,11 +90,16 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   sites, test added. Wire MEASURED (`matchStats.wire.test.ts`, 4 seats × 8 types × 30 waves): totals 1,527 B /
   snapshot; with history 6,765 B (~20 snapshots a wave).
 
+- **Final gates** on `2939336` (captured `$?`, never the wrapper): `npm run typecheck` **0** · `npx vitest run
+  --maxWorkers=4` **0** (401 files passed / 1 skipped; 6506 tests passed / 2 skipped) · `npm run build` **0** — entry
+  **961.2 KiB (984,286 B), +5.4 KiB** over base `42cc2ee` (978,794 B); headroom 138.8 KiB; lazy `matchBoard-*.js` 7.91 kB.
+  No e2e (brief). ⚠ NOT DONE: no LIVE LOOK at the board — the browser pane serves the main checkout, not this worktree.
+
 ## In flight
-- Final gates on the finished tree + the report.
+- _nothing_ — report sent to the merge owner.
 
 ## Next
-- Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
+- The merge owner's audit; fix only what it sends back.
 
 ## Decisions
 - Branch taken: **2a (implement)**, on the merge owner's redirect — the research + a v1 proposal exist; his S191 words answer the one open question (B2 "what goes on it").
