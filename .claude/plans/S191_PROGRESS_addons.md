@@ -17,8 +17,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
-| R2-4 | INPUT-1 + INPUT-3 modals and HUD controls cover the board | DONE | (this commit) |
-| R2-5..7,9 | INPUT-4 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-4 | INPUT-1 + INPUT-3 modals and HUD controls cover the board | DONE | de5dedd |
+| R2-5 | INPUT-4 castle-panel RMB put-back | DONE | (this commit) |
+| R2-6,7,9 | INPUT-5 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -204,6 +205,13 @@ Merge owner = the main session. This branch never merges, never pushes.
   under the codex; a source-text pin that `main.ts` builds the cover with the tested five terms, after the
   exit button exists. Mutations: `onDown` return → 15 red; the release gate → 1 red; the hover → 1 red.
   typecheck 0; vitest 0 (6551).
+
+- **INPUT-4 (LOW) — reproduced** (tower and aim both stayed in hand). Fix: one line before the castle-panel
+  guard in `onDown` — `if (e.button === 2 && this.isPointerOverPanel())` puts the aim away, else disarms —
+  tagged `R190-G: HAND`; the guard `if (this.isPointerOverPanel()) return;` stays literal (GATE A pins it).
+  The mechanical right-click guard went red on the new site as designed; re-pinned 4 → 5 sites, HAND 3 → 4.
+  The "everywhere" wording fixed (not under a modal). Tests +3 (tower put back + no raid; aim put away; LMB
+  over the panel still acts on nothing). Mutation (no disarm) → 1 red; restored.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 

@@ -35,6 +35,7 @@ import type { Primitive } from '../game/primitive.ts';
 import type { GameAction } from '../state/world.ts';
 import { Controls, type CastlePanelLike, type CharacterSheetLike, type DraftPanelLike } from './controls.ts';
 import { FooterBand, collapseTabRect } from '../render/footerBand.ts';
+import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
 
 class FakeContext2D {
   font = '10px sans-serif';
@@ -259,7 +260,7 @@ describe('⛔⛔ S191 A-3 — REACH: a right-click on an opaque surface raids NO
     expect(raids(r2), 'the collapsed tab is still opaque').toEqual([]);
   });
 
-  it('⭐ the put-backs are the HAND, not the ground — they still work over every surface (the S190 IL-2 rule)', () => {
+  it('⭐ the put-backs are the HAND, not the ground — they work over every opaque surface (the S190 IL-2 rule; not under a modal, where nothing acts)', () => {
     const r = rig();
     const chip = mid(r.band.getUiPoints().chips[0]!);
     enemyAt(r, chip);
@@ -267,6 +268,50 @@ describe('⛔⛔ S191 A-3 — REACH: a right-click on an opaque surface raids NO
     rightClick(r, chip);
     expect(r.castle.armed, 'a right-click over the footer puts the held tower back').toBeNull();
     expect(raids(r), 'and raids nothing').toEqual([]);
+  });
+
+  /*
+   * ⛔ S191 R2 (INPUT-4) — AND OVER THE OPEN CASTLE PANEL TOO. The panel guard at the top of `onDown`
+   * returned for every button, so a right-click over it put back neither a held tower nor the Ra aim,
+   * while this file said "everywhere". Mirrors the S190 IL-2 put-back on the draft plate: the HAND is
+   * put back, the ground under the panel is never raided.
+   */
+  it('⛔ INPUT-4 — a right-click over the open CASTLE PANEL puts the held tower back, and raids nothing', () => {
+    const r = rig();
+    r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
+    const p = { x: 700, y: 400 };
+    enemyAt(r, p);
+    r.castle.armed = 't3TowerVampires' as GodlyId;
+    rightClick(r, p);
+    expect(r.castle.armed, 'the held tower is put back').toBeNull();
+    expect(raids(r), 'and nothing under the panel is raided').toEqual([]);
+  });
+
+  it('⛔ INPUT-4 — a right-click over the open CASTLE PANEL puts the Ra aim away (the aim first, the IL-2 order)', () => {
+    const r = rig();
+    r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
+    const p = { x: 700, y: 400 };
+    enemyAt(r, p);
+    setRaAimPreview({ seat: P0, x: p.x, y: p.y });
+    try {
+      rightClick(r, p);
+      expect(raAimPreview(), 'the aim is put away').toBeNull();
+      expect(raids(r)).toEqual([]);
+    } finally {
+      setRaAimPreview(null);
+    }
+  });
+
+  it('INPUT-4 negative — a LEFT click over the castle panel still acts on nothing under it', () => {
+    const r = rig();
+    r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
+    const p = { x: 700, y: 400 };
+    enemyAt(r, p);
+    r.castle.armed = 't3TowerVampires' as GodlyId;
+    down(r.c, p, 0);
+    up(r.c, p, 0);
+    expect(r.castle.armed, 'a left click over the panel keeps the tower in hand').toBe('t3TowerVampires');
+    expect(r.sent).toEqual([]);
   });
 
   it('R190-F is untouched — a LEFT press on the arrow still collapses the band', () => {
@@ -285,17 +330,21 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
     .map((text, i) => ({ text, line: i + 1 }))
     .filter(({ text }) => /\bbutton\s*[!=]==\s*2\b/.test(text) && !/^\s*(\*|\/\/)/.test(text));
 
-  it('there are exactly FOUR right-click sites today — a fifth must be classified before this is updated', () => {
+  // ⭐ S191 R2 (INPUT-4) — 4 → 5: the castle-panel put-back, classified HAND before this was bumped.
+  it('there are exactly FIVE right-click sites today — a sixth must be classified before this is updated', () => {
     expect(
       sites.map((s) => s.line).length,
       `found ${sites.length}: ${sites.map((s) => `:${s.line}`).join(' ')} — tag the new one "R190-G: HAND" or ` +
         '"R190-G: BOARD" (and gate a BOARD one on isPointerOverAnyOpaqueSurface) BEFORE bumping this',
-    ).toBe(4);
+    ).toBe(5);
   });
 
   it('every site says whether it acts on the HAND or on the BOARD', () => {
     for (const s of sites) expect(s.text, `controls.ts:${s.line}`).toMatch(/R190-G: (HAND|BOARD)\b/);
-    expect(sites.filter((s) => /R190-G: HAND/.test(s.text)), 'the aim, the draft-plate and the held-tower put-backs').toHaveLength(3);
+    expect(
+      sites.filter((s) => /R190-G: HAND/.test(s.text)),
+      'the aim, the castle-panel, the draft-plate and the held-tower put-backs',
+    ).toHaveLength(4);
   });
 
   it('every BOARD site asks the opaque-surface question BEFORE it picks anything', () => {

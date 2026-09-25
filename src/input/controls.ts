@@ -1161,6 +1161,12 @@ export class Controls {
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
     // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
+    // ⛔ S191 R2 (INPUT-4) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND, exactly as on the draft
+    // plate below (S190 IL-2): it acts on the HAND, not on the ground under the panel. The aim first.
+    if (e.button === 2 && this.isPointerOverPanel()) { // R190-G: HAND (the IL-2 put-back, castle panel)
+      if (raAimPreview() !== null) setRaAimPreview(null);
+      else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    }
     if (this.isPointerOverPanel()) return;
     /*
      * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
@@ -1418,8 +1424,9 @@ export class Controls {
        * the castle panel (top of `onDown`) and the draft panel (S190 IL-2) swallowed the raid, but a
        * right-click on the footer's plates or on the character card raided the unit under them —
        * ground the player cannot see. It now asks the SAME four surfaces the left click's gates ask,
-       * through one predicate. The put-backs above act on the HAND, not the ground, and stay live
-       * everywhere (the IL-2 rule). R190-F is untouched: the arrow in the seam is a LEFT click.
+       * through one predicate. The put-backs above act on the HAND, not the ground, and stay live over
+       * every opaque panel (the IL-2 rule; the castle panel since S191 R2 INPUT-4) — only under a modal
+       * does nothing act. R190-F is untouched: the arrow in the seam is a LEFT click.
        */
       if (this.isPointerOverAnyOpaqueSurface()) return;
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
