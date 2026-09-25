@@ -10,9 +10,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | 0 | `npm ci` (NPM_CI_EXIT=0) + this skeleton | DONE | 3fb5733 |
 | A-1 | Warlord rage 25 s + cooldown | DONE | be61e6a |
 | A-2 | Alt toggles the footer while a tower is armed | DONE | 7f8b326 |
-| A-3 | R190-G opaque panels swallow right-clicks | DONE | (this commit) |
-| A-4 | A1 CI e2e lane | next | — |
-| A-5 | magic-attack DESIGN doc | — | — |
+| A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
+| A-4 | A1 CI e2e lane | DONE | (this commit) |
+| A-5 | magic-attack DESIGN doc | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -98,6 +98,41 @@ Merge owner = the main session. This branch never merges, never pushes.
   from `const armed = …` and my tag lengthened the held-tower RMB line; shortened the tags instead of
   widening their window. `onBuildBlueprint` now sits at **4141** chars on a CRLF checkout (4125 before,
   4083 on LF/CI) — **59 chars of headroom locally**. s191/owner's aim mode in `onDown` can false-red it.
+
+## A-4 — what landed
+
+- **CI verdict recorded BEFORE any change (`gh run list`, 2026-09-25):** the E2E run for deploy #4
+  (36088405562) concluded **success**, and so did its gating `e2e` job (70 passed, 8.8 m) — but it is the
+  ONLY green gating `e2e` in the last five master runs: 36059057491 **cancelled** (Checkout hung 9m23s, the
+  tests got ~9 of 18 min), 35972498981 / 35905288147 / 35831620160 **failure** — each ran the 720 s
+  Playwright cap out ("2 failed · 11 did not run"), and the failing specs are `hunter.spec.ts:68` and
+  `worker.spec.ts:21`, both dying in `pullFromBank` on `waitForWorld timeout (30000ms): a gatherer banks a
+  shape` at tick **521** / **723** (a gatherer still hauling). (`nplayer`'s `hpBonus` pageerror in 35831620160
+  was a real S187 product bug, since fixed.) Verdict: **STILL FLAKY — green once, by margin, not fixed.**
+  (`e2e-soak` / `e2e-quarantine` stay red and are non-gating by design.)
+- `e2e/helpers.ts`: `pullFromBank(page, budgetTicks = PULL_FROM_BANK_BUDGET_TICKS (1800 = 30 s of SIM),
+  wallCapMs = 240_000)` — the economy wait is `waitForWorldWithinTicks`; the porch wait after the click
+  stays wall-clock at its old 30 s (named constant). Both callers stop passing a (drag) wall budget.
+- `e2e/worker-bots.spec.ts`: describe title tagged ` @worker-bots`.
+- `package.json`: `@worker-bots` added to `e2e:gating`'s `--grep-invert`; new `e2e:worker-bots` script.
+- `.github/workflows/e2e.yml`: new GATING job `e2e-worker-bots` (timeout-minutes 12, `env:
+  PW_GLOBAL_TIMEOUT_MIN: 9`, no continue-on-error); `timeout-minutes: 3` on EVERY job's Checkout (9 jobs);
+  header lane list + checkout note. YAML parses (python yaml).
+- `src/ci.e2eLanes.test.ts` re-pinned (nothing relaxed): `@worker-bots` → OWN_JOB → `e2e-worker-bots` /
+  `e2e:worker-bots`; NEW: every OWN_JOB job sets `PW_GLOBAL_TIMEOUT_MIN` strictly below its
+  `timeout-minutes`; NEW: every job's Checkout carries `timeout-minutes` ≤ 3.
+- Mutations: the UNCHANGED guard went red on the new tag (3 red) before its re-pin; MC1 (worker-bots
+  PW 9 → 12) red; MC2 (one Checkout unbounded) red; restored (cmp).
+- **Local e2e, this worktree, port 20442 = FNV-1a of this path (free before; the log shows this run
+  STARTING `vite --port 20442`):** `npm run e2e:worker-bots` → 1 passed (45.7 s), EXIT 0;
+  `hunter.spec.ts` + `worker.spec.ts` → first run **2 failed** on MY defect (`ReferenceError: timeoutMs is not
+  defined` — `pullFromBank` reused the removed parameter in its porch wait; `e2e/` is outside `tsc -b`),
+  fixed, re-run → **2 passed (47.5 s), EXIT 0**. `--list`: gating lane 70 → 69 tests (18 → 17 files), the
+  new lane exactly 1. Ad-hoc `tsc` over the changed e2e files: one error, pre-existing and identical on the
+  baseline (unused `isPlayerPickable`, TS6133) — benign.
+- Gates at A-4: typecheck 0; full vitest 0 (6511 passed / 2 skipped, 399 files).
+- ⚠ Not verified: the branch's own CI run (this branch is never pushed). The merge owner's push is the
+  first real measurement of the split lanes.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
