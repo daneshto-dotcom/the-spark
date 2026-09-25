@@ -16,8 +16,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | R2-1 | RAGE-1 the clock runs through BUILD | DONE | d2757a0 |
 | R2-2 | RAGE-3 attack row reads the cycle latch | DONE | 5cab86b |
 | R2-3 | RAGE-7 the two-Warlord tests | DONE | 48dab3d |
-| R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | (this commit) — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
-| R2-4..7,9 | INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
+| R2-4 | INPUT-1 + INPUT-3 modals and HUD controls cover the board | DONE | (this commit) |
+| R2-5..7,9 | INPUT-4 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -185,6 +186,25 @@ Merge owner = the main session. This branch never merges, never pushes.
   Mutation (the armed arm's footer-surface return removed) → GATE E red; a 1.2 KB comment padded into
   `onDown` → still green. Committed before INPUT-1 for that reason.
 
+- **INPUT-1 + INPUT-3 (MED) — the defect I reported, reproduced by restoring it** (the covered runs go red,
+  15 of them, with the `onDown` return removed). `Controls.setModalCover((x, y) => …)`; `onDown` returns
+  right after `updateCursor` / `setPressed` for EVERY button while covered; `onUp` does NOT return — the
+  potato plant and the `PLACE_FROM_FREE` commit gain `!isPointerUnderModal()`, so a drag begun before the
+  modal still DROP_SPARKs, releases the capture and goes Idle; folded into `isPointerOverAnyOpaqueSurface`;
+  the hover returns early with a plain cursor and no highlight (kept OUTSIDE GATE D's pinned lines).
+  `main.ts`: ONE statement after `const exitButton = …` — the codex ‖ CONNECTION LOST (closes SEAM-3) ‖
+  the exit confirm ‖ (PLAYING and the BACK TO MAIN rect) ‖ the settings-gear rect — plus two import-line
+  extensions. `ui.ts`: `settingsGearRect()` exported and used by `hudSurfaces` (one source for both). The
+  settings PANEL is a DOM overlay (the canvas never sees its clicks), so only the gear glyph is registered.
+  Tests `controls.modalCover.test.ts` (31): six scenarios (stamp, spark grab, gatherer re-task, enemy card,
+  RMB raid, potato plant) × three modals → nothing, each with a bare-board negative that acts; the drag
+  begun before the codex ends DROP_SPARK / released / Idle with no placement (control: it places); BACK TO
+  MAIN and the gear swallow every scenario (anti-vacuity: uncovered, the same point is live board); the
+  auditor's case — a voltkin armed builds under BACK TO MAIN uncovered, nothing covered; the cursor plain
+  under the codex; a source-text pin that `main.ts` builds the cover with the tested five terms, after the
+  exit button exists. Mutations: `onDown` return → 15 red; the release gate → 1 red; the hover → 1 red.
+  typecheck 0; vitest 0 (6551).
+
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
 - `save.ts` — 3 self-contained lines/blocks: `SerializedCreature.rageStartTick?` (after
@@ -194,6 +214,14 @@ Merge owner = the main session. This branch never merges, never pushes.
   `:rs${o(c.rageStartTick)}` projection element (after `:ak`).
 
 ## footerBand.ts / controls.ts hunks (s191/owner edits the same files)
+
+- ⚠ **`main.ts` (hotspot), ROUND 2 INPUT-1:** one `controls.setModalCover(…)` statement (+ a comment line)
+  right after `const exitButton = makeExitButton(app, leaveToTitle);`, and the `pointInRect` /
+  `exitButtonRect` / `settingsGearRect` names added to three existing import lines.
+- `controls.ts` ROUND 2: `setModalCover` + `modalCover` field (after `setDraftPanel` / `draftPanel`);
+  `isPointerUnderModal` (before `isPointerOverAnyOpaqueSurface`, which now asks it first); one `return`
+  line after `setPressed(true)` in `onDown`; one condition in each `onUp` commit gate; the early-return
+  block at the top of `updateHoverCursor`; `pointInRect` export before `distToSegment`.
 
 - `footerBand.ts` A-2: (1) one line in `toggleCollapsed`; (2) the block `// ── ⭐⭐ S191 A-2 … // ── end
   S191 A-2` right after `isCollapsed()`; (3) two comment lines + one `if` inside `setArmed`.

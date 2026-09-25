@@ -511,6 +511,19 @@ export class Controls {
   }
 
   /**
+   * ⛔⛔ S191 round 2 (INPUT-1 / INPUT-3) — **WHAT COVERS THE BOARD FROM ABOVE: THE MODALS AND THE HUD
+   * CONTROLS.** The codex, CONNECTION LOST and the exit-confirm backdrops swallow only PIXI events
+   * (`eventMode = 'static'`); this handler listens on the raw canvas, so until S191 both buttons acted on
+   * the board under them — a held tower stamped, a spark was grabbed, a right-click raided (and, under
+   * the CONNECTION LOST veil, the host's own clicks kept acting — the net audit's SEAM-3). The BACK TO
+   * MAIN button and the settings gear are Pixi controls on the same canvas: a click on BACK TO MAIN with
+   * a voltkin armed built it under the button. `main.ts` injects ONE predicate over a canvas point.
+   */
+  setModalCover(cover: (x: number, y: number) => boolean): void {
+    this.modalCover = cover;
+  }
+
+  /**
    * S181 — `main.ts` injects the card's FIX / SCRAP / FEED dispatch, exactly as it already does for
    * the popover's. Same `dispatchFn` seam, so the three network paths (wire intent / postIntent /
    * direct) keep working with no second code path.
@@ -532,6 +545,7 @@ export class Controls {
   private footerBand: FooterBandLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
   private draftPanel: DraftPanelLike | null = null;
+  private modalCover: ((x: number, y: number) => boolean) | null = null; // S191 R2 INPUT-1 — see `setModalCover`
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
     | null = null;
@@ -734,6 +748,11 @@ export class Controls {
     );
   }
 
+  /** ⭐ S191 R2 (INPUT-1 / INPUT-3) — is the pointer under a modal or a HUD control? See `setModalCover`. */
+  private isPointerUnderModal(): boolean {
+    return this.modalCover !== null && this.modalCover(this.cursor.x, this.cursor.y);
+  }
+
   /**
    * ⭐ S191 A-3 (R190-G) — **IS THE POINTER OVER ANY OPAQUE SURFACE THE LEFT CLICK'S GATES REFUSE?**
    * The four the `onUp` PLACE commit gates list — the castle panel, the draft panel, the character
@@ -745,6 +764,7 @@ export class Controls {
    */
   private isPointerOverAnyOpaqueSurface(): boolean {
     return (
+      this.isPointerUnderModal() || // S191 R2 INPUT-1 — the modals and the HUD controls, first
       this.isPointerOverPanel() ||
       this.isPointerOverDraftPanel() ||
       this.isPointerOverCard() ||
@@ -1132,6 +1152,10 @@ export class Controls {
     // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
     // acts on the click is the frame that shows it being taken.
     this.footerBand?.setPressed(true);
+    // ⛔⛔ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL NOTHING ON THE BOARD ACTS, for EVERY
+    // button: the modal's own Pixi hit (its buttons, its backdrop) is the whole of the click. `onUp`
+    // does NOT return like this — a drag begun before the modal must still end (see its two gates).
+    if (this.isPointerUnderModal()) return;
     // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
     // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
@@ -1507,6 +1531,21 @@ export class Controls {
    */
   private updateHoverCursor(): void {
     /*
+     * ⭐ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL THE BOARD'S CURSOR IS PLAIN and
+     * nothing of ours lights up: the surface above owns the pointer (Pixi sets its own `cursor` on the
+     * HUD buttons), and `onDown` acts on nothing here. Returned BEFORE the draft logic below, whose
+     * lines `s182UiSurfaceGuards.test.ts` GATE D pins verbatim.
+     */
+    if (this.isPointerUnderModal()) {
+      this.footerBand?.setHover(-1, -1);
+      this.characterSheet?.setHover(-1, -1);
+      if (this.lastCursorStyle !== '') {
+        this.canvasEl.style.cursor = '';
+        this.lastCursorStyle = '';
+      }
+      return;
+    }
+    /*
      * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
      * The panel is drawn above the band and the card (staged after them, S189 C1) and `onDown` swallows every click
      * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
@@ -1600,7 +1639,9 @@ export class Controls {
         !this.isPointerOverFooterSurface() &&
         !this.isPointerOverCard() &&
         // ⛔ S188 (audit F1) — nor under the draft panel: a potato released there stays carried.
-        !this.isPointerOverDraftPanel()
+        !this.isPointerOverDraftPanel() &&
+        // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control: it stays carried, fully reversible.
+        !this.isPointerUnderModal()
       ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
@@ -1696,7 +1737,10 @@ export class Controls {
           // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
           // over its side margins placed on ground the plate hides; now it is a rejected placement
           // (the DROP above has released the claim, so nothing is stranded).
-          !this.isPointerOverDraftPanel()
+          !this.isPointerOverDraftPanel() &&
+          // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control. A REJECT, never an early return:
+          // the DROP above has run, the capture is released and the state goes Idle below (S52 / S58).
+          !this.isPointerUnderModal()
         ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
@@ -2186,6 +2230,11 @@ export class Controls {
   }
 }
 
+
+/** ⭐ S191 R2 (INPUT-3) — PURE: is (x, y) inside a canvas rect? For `main.ts`'s `setModalCover` predicate. */
+export function pointInRect(x: number, y: number, r: { x: number; y: number; w: number; h: number }): boolean {
+  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
 
 // S55 P3 — exported for controls.test.ts (pure geometry; used by pickBond to
 // hit-test the cursor against a bond segment). Point-to-segment distance with
