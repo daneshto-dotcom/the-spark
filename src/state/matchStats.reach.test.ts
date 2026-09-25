@@ -201,6 +201,17 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     expect(stats(w, P1)!.towersFell).toBe(2);
   });
 
+  it('⚠ HELGA is a unit her hall re-summons, not a tower: her summon and her death leave TOWERS alone', () => {
+    const w = fightWorld();
+    dispatch(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(79), recipeId: 'helga', pos: { x: 600, y: 600 } } as never);
+    const helga = [...w.defenders.values()].find((d) => d.kind === 'princess')!;
+    expect(stats(w, P1)?.towersBuilt ?? 0).toBe(0);
+    damageEntity(w, { kind: 'defender', id: helga.id }, 10_000, 'creature', { kind: 'seat', seat: P0 });
+    expect(w.defenders.has(helga.id), 'fixture: she died').toBe(false);
+    expect(stats(w, P1)!.towersFell).toBe(0);
+    expect(stats(w, P0)!.dealtFifths, 'her pool, as applied').toBeGreaterThan(0);
+  });
+
   it('⛔ a SEAT attacker is INERT for every rule: the world outside the stat board is identical to a null hit', () => {
     const run = (by: DamageAttacker): string[] => {
       const w = fightWorld();

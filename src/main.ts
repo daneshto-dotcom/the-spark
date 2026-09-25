@@ -160,7 +160,7 @@ import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { DraftOverlay } from './render/draftOverlay.ts';
-import { MatchBoard } from './render/matchBoard.ts'; // ⭐ S191 — the end-of-match stat board
+import { MatchBoardHost } from './render/matchBoardHost.ts'; // ⭐ S191 — the stat board (its view is a lazy chunk)
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -1325,7 +1325,7 @@ async function bootstrap(): Promise<void> {
   // ⭐ S191 — THE END-OF-MATCH STAT BOARD: staged here, by its line and no zIndex (canon §7b) — over the HUD,
   // the footer, the sheet and the draft panel, under the cruiser. It re-derives itself from `world` every frame
   // and shows only in POSTGAME; its CONTINUE is the POSTGAME exit (see `resetIfPostgame`).
-  const matchBoard = new MatchBoard(() => resetIfPostgame());
+  const matchBoard = new MatchBoardHost(() => resetIfPostgame());
   app.stage.addChild(matchBoard.container);
   app.ticker.add(() => matchBoard.render(world, performance.now()));
   avatarRenderer.bringLocalToFront();

@@ -89,7 +89,12 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
       registeredAtTick: world.tick,
     }),
   );
-  recordTowerBuilt(world, action.ownerPlayerId); // ⭐ S191 — the stat board's TOWERS
+  /*
+   * ⭐ S191 — the stat board's TOWERS. ⚠ MINE: HELGA (`'princess'`) is not counted — she is a unit with a pool
+   * that her hall re-summons every BUILD after she dies, so counting her would score one hall as a new tower
+   * (and a fallen one) every wave. Turrets and stink towers count; spawners count at their own register.
+   */
+  if (action.defenderKind !== 'princess') recordTowerBuilt(world, action.ownerPlayerId);
   return world;
 }
 

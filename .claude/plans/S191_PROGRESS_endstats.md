@@ -80,8 +80,18 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   WIN-only (its POSTGAME "click or press R to reset" would now be false). Tests `matchBoard.test.ts` 6/6 (+ the
   staging guard `s189CruiserAboveDraft.test.ts` 11/11).
 
+- **Slice 6 — bundle, Helga, measurements.** Gates on the slice-5 tree: typecheck 0, vitest 0 (6502 passed / 2
+  skipped), build 0 — but the entry chunk measured **+12.4 KiB** (base `42cc2ee` 955.9 KiB → 968.3; measured by
+  checking the base `src` out, `vite build` + `check-bundle-size`, and restoring) — OVER the 10 KiB budget. Fixed the
+  codebase's way: the view + model are a LAZY chunk behind NEW `src/render/matchBoardHost.ts` (fetched when a match
+  starts; answers "no board" until it arrives). Entry now **961.2 KiB = +5.3 KiB**; lazy `matchBoard-*.js` 7.91 kB /
+  3.53 kB gzip. Guard: `main.ts` must not import `matchBoard.ts`/`matchBoardModel.ts` statically. Self-audit found
+  HELGA counted as a tower (she re-summons every BUILD → one hall = a new tower + a fall per wave): excluded at both
+  sites, test added. Wire MEASURED (`matchStats.wire.test.ts`, 4 seats × 8 types × 30 waves): totals 1,527 B /
+  snapshot; with history 6,765 B (~20 snapshots a wave).
+
 ## In flight
-- Gates: typecheck, full vitest (`--maxWorkers=4`), build + bundle measurement; wire-size measurement.
+- Final gates on the finished tree + the report.
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
@@ -94,6 +104,7 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
 - The BUILT graph = connectors standing (`sampleBuilt`) — the lever if he wants a different line.
 - `towersFell` includes a tower its owner scrapped/extended (the sim does not record who broke a recipe).
 - `ARM_MS = 1200` (matchBoard.ts) — how long the board is up before CONTINUE / R may leave it.
+- HELGA is not a tower on the board (register + destroy sites skip `'princess'`).
 
 ## Hotspot hunks
 - `src/state/worldTypes.ts` — one import line + the `matchStats` field block (after `scoreByPlayer`).

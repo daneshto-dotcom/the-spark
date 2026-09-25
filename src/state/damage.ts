@@ -403,8 +403,9 @@ export function damageEntity(
        * punishment. The re-ignition risk does not apply: ignition only runs on a topology change,
        * and killing her changes no topology.
        */
-      // ⭐ S191 — her building fell with her (the stat board's TOWERS column counts defenders).
-      if (world.defenders.delete(target.id)) recordTowerFell(world, d.ownerPlayerId);
+      // ⭐ S191 — NOT a tower fall on the stat board: this arm is only ever HELGA (the one defender with a pool),
+      // a unit her hall re-summons next BUILD — the register site in `defenderLifecycle.ts` skips her too.
+      world.defenders.delete(target.id);
       return true;
     }
 
@@ -618,8 +619,8 @@ export function destroyDefender(world: World, d: Defender): void {
    */
   if (d.ehp !== null) world.structureKillHits.push({ key: `d:${d.id}`, amount: null });
   // 1. Out of the map first (idempotence + stop it acting on its death tick).
-  // ⭐ S191 — and the stat board's TOWERS FELL, only when this call is the one that removed it.
-  if (world.defenders.delete(d.id)) recordTowerFell(world, d.ownerPlayerId);
+  // ⭐ S191 — and the stat board's TOWERS FELL, only when this call is the one that removed it (never Helga).
+  if (world.defenders.delete(d.id) && d.kind !== 'princess') recordTowerFell(world, d.ownerPlayerId);
 
   // 2. ⭐ VERIFIED HAZARD — on the DAMAGE path the anchor MUST be razed, and this is not optional.
   //

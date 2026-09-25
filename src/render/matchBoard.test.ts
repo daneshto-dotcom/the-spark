@@ -12,6 +12,7 @@ import { asPlayerId } from '../types.ts';
 import { recordUnitBuilt, recordWaveSample } from '../state/matchStats.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { ARM_MS, MatchBoard, matchBoardLayout } from './matchBoard.ts';
+import { MatchBoardHost } from './matchBoardHost.ts';
 
 const P0 = asPlayerId(0);
 
@@ -92,6 +93,31 @@ describe('S191 MatchBoard — the graphs draw clean polylines', () => {
       expect(prims).toHaveLength(1);
       expect(prims[0]!.shape.points!.length).toBe(2 * w.matchStats.history.length);
     }
+  });
+});
+
+describe('S191 MatchBoardHost — the eager shim; the board is a lazy chunk', () => {
+  it('answers as "no board" until the chunk arrives, fetches only once a match runs, then delegates', async () => {
+    const host = new MatchBoardHost(() => {});
+    const w = postgame();
+    w.gameState = 'TITLE';
+    host.render(w, 0);
+    expect([host.isShowing(), host.isArmed(0), host.container.children.length]).toEqual([false, true, 0]);
+    w.gameState = 'PLAYING';
+    host.render(w, 0); // starts the fetch
+    await host.load(); // the same import resolves; the guard makes one board, not two
+    expect(host.container.children).toHaveLength(1);
+    w.gameState = 'POSTGAME';
+    host.render(w, 100);
+    expect(host.isShowing()).toBe(true);
+    expect(host.isArmed(100 + ARM_MS - 1)).toBe(false);
+  });
+
+  it('⛔ main.ts never imports the board statically — that is what keeps its ~8 KiB off the entry chunk', () => {
+    const main = readFileSync('src/main.ts', 'utf8');
+    expect(main).not.toMatch(/from '\.\/render\/matchBoard\.ts'/);
+    expect(main).not.toMatch(/from '\.\/render\/matchBoardModel\.ts'/);
+    expect(main).toContain("from './render/matchBoardHost.ts'");
   });
 });
 

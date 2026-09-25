@@ -55,9 +55,10 @@ story), and bonds survive the WIN teardown. Lever: `sampleBuilt` in `matchStats.
   (`s191/owner` is rewriting that file — it can pass `{kind:'seat'}` later, one token).
 - **Kill = exactly once**: `died && before > 0` (a second lethal blow on a deferred corpse is not a kill; the channelling
   Pharaoh's restore-to-1 is not a death).
-- **Towers.** built = `applyRegisterDefender` / `applyRegisterSpawner` minting an id. fell = `destroyDefender`, the
-  Helga-killed arm, `applyRemoveSpawner` (a real id only). ⚠ MINE: the sim never records WHO broke a recipe, so "fell"
-  includes a tower its owner scrapped or extended; teardown (`.clear()`) never counts.
+- **Towers.** built = `applyRegisterDefender` / `applyRegisterSpawner` minting an id. fell = `destroyDefender` and
+  `awardSpawnerKillReward` (the spawner poll's one destruction event — never teardown, never a T9 ring released as
+  its boss). ⚠ MINE: HELGA is not a tower (a unit her hall re-summons every BUILD); and the sim never records WHO
+  broke a recipe, so "fell" includes a tower its owner scrapped or extended. Teardown (`.clear()`) never counts.
 - **Host-only by construction**: every site is a host reducer; a client's copy is overwritten by each snapshot.
   Integers only; no `Math.random`, no clock; per-type records are written and hashed in sorted key order.
 
@@ -70,7 +71,9 @@ story), and bonds survive the WIN teardown. Lever: `sampleBuilt` in `matchStats.
 - **Wire.** `WorldSnapshot.matchStats` is ADDITIVE-OPTIONAL: absent while every counter is zero (opening snapshots stay
   byte-identical). `seats` (running totals, ~150 B/seat) rides every snapshot — that IS "the current wave's counters".
   `history` rides **only** (a) in the `HISTORY_WINDOW_TICKS` (2 s) after each sample, (b) through WIN/POSTGAME, (c) in the
-  full local `snapshot()` (disk save, worker INIT, takeover). Measured cost goes in the progress file.
+  full local `snapshot()` (disk save, worker INIT, takeover). **Measured** (`matchStats.wire.test.ts`, 4 seats × 8
+  types × 30 waves, a heavy late match): running totals **1,527 B** per snapshot (~1.8 % of the S182 84 KiB table);
+  with the history **6,765 B**, for ~20 snapshots per wave ≈ **0.7 KiB/s** averaged.
 - **Receiver.** `seats` replace; `history`, when present, is the WHOLE history and replaces; absent ⇒ keep what you hold.
 - **Why not the Council's once-per-edge MESSAGE** (deviation, stated): a one-shot message lost once is a hole forever
   and needs a new `NetMessage` kind plus a request path; riding ~20 snapshots per wave costs ≈0.3 KiB/s, needs no
@@ -88,7 +91,9 @@ story), and bonds survive the WIN teardown. Lever: `sampleBuilt` in `matchStats.
   the board's own **CONTINUE** button (primary button only, armed 1.2 s after the board appears) or **R** leaves.
 - HUD `drawWinState` stops drawing its POSTGAME line (the board carries the winner headline instead).
 - Staged by its construction line right after `characterSheet.bringToFront()` — no zIndex (canon §7b).
-- Bundle ≤ 10 KiB of the shared headroom; Pixi Graphics polylines, no chart library.
+- Bundle ≤ 10 KiB of the shared headroom; Pixi Graphics polylines, no chart library. **Measured:** eager, the branch
+  was +12.4 KiB (base 955.9 → 968.3 KiB) — over. The view + model are now a LAZY chunk (`matchBoard-*.js`, 7.9 kB /
+  3.5 kB gzip) fetched when a match starts, behind an eager shim (`matchBoardHost.ts`): entry **961.2 KiB, +5.3 KiB**.
 
 ## 5 · Build plan — file by file (hours)
 | file | change | h |
