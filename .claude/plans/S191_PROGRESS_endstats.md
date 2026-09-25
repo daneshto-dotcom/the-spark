@@ -65,8 +65,15 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   score comparator turns the R20 test red (restored). ⚠ REPORT: this is a live R20 violation the recon found in S181;
   its only prior consumer was a `console.info` line.
 
+- **Slice 4 — the board MODEL.** NEW `src/render/matchBoardModel.ts` (pure; POSTGAME-only; rows by `matchPlacings`,
+  seat labels `P n`/`BOT n`, OUT + wave, per-type lines, SCORE + BUILT graph series, `noStats` for an older host).
+  Tests `matchBoardModel.test.ts` 8/8 — ⛔ the REACH case plays a real match (castle-gun kill, a tower, a wave edge)
+  through `runHostTick`, wins through `tickGameState` INCLUDING the 2 s dwell, and asserts a non-empty board on the
+  host AND an identical board on a peer fed only the POSTGAME snapshot; a source-text tripwire pins that the model
+  never reads the four families the teardown empties. Mutation: dropping the WIN-edge sample turns 2 tests red.
+
 ## In flight
-- Slice 4 — the board MODEL (`src/render/matchBoardModel.ts`, pure) + its tests incl. the REACH test after a real WIN.
+- Slice 5 — the Pixi view (`src/render/matchBoard.ts`) + `main.ts` construction/POSTGAME block + `ui.ts` banner.
 
 ## Next
 - Slice 2 hooks + attribution · Slice 3 R20 placings · Slice 4 board model · Slice 5 view + main.ts/ui.ts · gates.
