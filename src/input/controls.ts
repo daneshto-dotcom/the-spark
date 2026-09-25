@@ -691,13 +691,13 @@ export class Controls {
   }
 
   /** ⭐ S188 P6 — while aiming, the board click is the cast. Returns true when it consumed the click. */
-  private handleRaAimClick(button: number): boolean {
+  private handleRaAimClick(button: number): boolean { // R190-G: ROUTE
     if (raAimPreview() === null) return false;
     if (button === 2) { // R190-G: HAND (puts the aim away)
       setRaAimPreview(null);
       return true;
     }
-    if (button !== 0) return false;
+    if (button !== 0) return false; // R190-G: LMB
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
     // held-tower rule for the same two surfaces.
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
@@ -1204,7 +1204,7 @@ export class Controls {
     // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
-    if (e.button === 0 && this.handleFooterChipClick()) return;
+    if (e.button === 0 && this.handleFooterChipClick()) return; // R190-G: LMB
     /*
      * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
      * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
@@ -1225,13 +1225,13 @@ export class Controls {
      * otherwise ALSO grab a spark or sever a bond underneath the button. Buttons only — the rest of
      * the board around the card stays live.
      */
-    if (e.button === 0 && this.handleSheetActionClick()) return;
+    if (e.button === 0 && this.handleSheetActionClick()) return; // R190-G: LMB
     // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
     // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
     // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
-    if (this.handleRaAimClick(e.button)) return;
+    if (this.handleRaAimClick(e.button)) return; // R190-G: ROUTE
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
-    if (e.button === 0 && this.handleCastleClick()) return;
+    if (e.button === 0 && this.handleCastleClick()) return; // R190-G: LMB
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
     // it, placing a tower would ALSO grab the spark under the cursor / sever a bond / pop a creature,
     // which is the identical failure the castle-panel guard above exists to prevent. RMB (or Escape,
@@ -1242,7 +1242,7 @@ export class Controls {
         this.castlePanel?.disarm();
         return;
       }
-      if (e.button === 0) {
+      if (e.button === 0) { // R190-G: LMB
         /*
          * ⛔⛔ S182 — **NEVER STAMP A TOWER ON GROUND THE CARD IS COVERING.** This is the S181
          * defect in a FOURTH place, found by enumerating the UI-surface guards rather than by a
@@ -1301,7 +1301,7 @@ export class Controls {
         return;
       }
     }
-    if (e.button === 0) {
+    if (e.button === 0) { // R190-G: LMB
       // LMB
       const player = this.world.players.get(this.playerId);
       if (player?.kind === 'Idle' && player.carriedPotatoId === undefined) {
@@ -1621,7 +1621,7 @@ export class Controls {
     this.footerBand?.setPressed(false);
     // S72 P3 — place a carried potato on LMB-up (the carry is world state, not an
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
-    if (e.button === 0) {
+    if (e.button === 0) { // R190-G: LMB
       const meNow = this.world.players.get(this.playerId);
       // S136 P0 — do not PLANT a potato under the castle panel (it would be hidden beneath it).
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
@@ -1666,7 +1666,7 @@ export class Controls {
         return;
       }
     }
-    if (e.button === 0 && this.state.kind === 'AttractDrag') {
+    if (e.button === 0 && this.state.kind === 'AttractDrag') { // R190-G: LMB
       const spark = this.world.freeSparks.get(this.state.sparkId);
       // S58 (#2) — accept the spark whether still Free (solo / pre-host-confirm)
       // or Carried by me (the LMB-down claim landed). A spark grabbed by the

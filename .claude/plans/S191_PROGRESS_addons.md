@@ -19,8 +19,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | R2-8 | INPUT-7 S182 GATE A/E windows bounded by the handler | DONE | c2c7f5c — landed BEFORE INPUT-1, whose `onDown` line reddened GATE A's fixed window |
 | R2-4 | INPUT-1 + INPUT-3 modals and HUD controls cover the board | DONE | de5dedd |
 | R2-5 | INPUT-4 castle-panel RMB put-back | DONE | 90732c4 |
-| R2-6 | INPUT-5 Alt latch reset on blur / hidden | DONE | (this commit) |
-| R2-7,9 | INPUT-6 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-6 | INPUT-5 Alt latch reset on blur / hidden | DONE | 7ea99a5 |
+| R2-7 | INPUT-6 widened right-click guard + repo-wide scan | DONE | (this commit) |
+| R2-9 | DOCS · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -220,6 +221,14 @@ Merge owner = the main session. This branch never merges, never pushes.
   harness stubs). The keydown toggle is unchanged. Tests +3 in `controls.altFooter.test.ts`, fired through
   the listeners `Controls` really registered (the stubs now record them): blur, hidden, and the negative
   (going visible clears nothing). Mutation (blur no-op) → 1 red; restored.
+
+- **INPUT-6 (LOW) — the widened guard went red first** (10 untagged `button` code tokens). Every code line
+  with a `button`/`buttons` token in `controls.ts` now carries `R190-G: HAND | BOARD | LMB | ROUTE` (8
+  LMB, 2 ROUTE added; the 5 right-click sites keep HAND/BOARD; a right-click line may never be LMB/ROUTE).
+  Repo-wide scan of non-test `src/**/*.ts` for contextmenu|rightdown|rightclick|rightup|auxclick: exactly
+  ONE hit, the canvas `contextmenu` suppressor, pinned. Mutation (an untagged `e.buttons & 2` in `onMove`)
+  → red; restored. ⚠ A Python escape mangled the new regexes on first write (backspace chars / split
+  literals); caught by the transform error, rewritten, verified ``-free.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 

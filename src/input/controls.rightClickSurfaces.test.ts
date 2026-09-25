@@ -379,6 +379,48 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
     }
   });
 
+  /*
+   * ⭐ S191 R2 (INPUT-6) — WIDENED: not only `button === 2`. EVERY code token `button` / `buttons` in this
+   * file sits on a line that says what it is — HAND or BOARD for a right-click, LMB for a left-click path
+   * (those are the S182 surface gates' business), ROUTE where the button is merely passed on. So a
+   * `buttons & 2` (a held-button check), a `button === 1`, or a helper taking a button cannot slip in
+   * untagged — the hole the `=== 2` regex alone left open.
+   */
+  it('⭐ INPUT-6 — every `button` / `buttons` code token in controls.ts sits on a TAGGED line', () => {
+    const tagged = /R190-G: (HAND|BOARD|LMB|ROUTE)\b/;
+    const code = (l: string): string =>
+      l.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, '""').replace(/\/\/.*$/, '');
+    const tokens = lines
+      .map((text, i) => ({ text, line: i + 1 }))
+      .filter(({ text }) => !/^\s*(\*|\/\/|\/\*)/.test(text) && /\bbuttons?\b/.test(code(text)));
+    expect(tokens.length, 'anti-vacuity: the scan found the button handling').toBeGreaterThan(sites.length);
+    const untagged = tokens.filter((t) => !tagged.test(t.text)).map((t) => `:${t.line} ${t.text.trim()}`);
+    expect(untagged, 'tag each: R190-G: HAND | BOARD | LMB | ROUTE').toEqual([]);
+    // …and a right-click line is never tagged LMB or ROUTE.
+    for (const s of sites) expect(s.text, `controls.ts:${s.line}`).not.toMatch(/R190-G: (LMB|ROUTE)\b/);
+  });
+
+  it('⭐ INPUT-6 — repo-wide: the ONE right-click event listener in non-test src is today’s contextmenu suppressor', () => {
+    const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    const root = join(process.cwd(), 'src');
+    const hits: string[] = [];
+    const walk = (dir: string): void => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f);
+        if (statSync(p).isDirectory()) { walk(p); continue; }
+        if (!/\.ts$/.test(f) || /\.test\.ts$/.test(f)) continue;
+        const text = readFileSync(p, 'utf8').split('\r\n').join('\n').split('\n');
+        text.forEach((l, i) => {
+          if (/contextmenu|rightdown|rightclick|rightup|auxclick/i.test(l)) hits.push(`${p.slice(root.length + 1).replace(/\\/g, '/')}:${i + 1} ${l.trim()}`);
+        });
+      }
+    };
+    walk(root);
+    expect(hits.length, `found: ${hits.join(' | ')}`).toBe(1);
+    expect(hits[0]).toMatch(/^input\/controls\.ts:\d+ canvas\.addEventListener\('contextmenu', \(e\) => e\.preventDefault\(\)\);$/);
+  });
+
   it('the canvas `contextmenu` listener only suppresses the browser menu — it acts on nothing', () => {
     const listeners = src.match(/addEventListener\('contextmenu'[^\n]*/g) ?? [];
     expect(listeners).toEqual(["addEventListener('contextmenu', (e) => e.preventDefault());"]);
