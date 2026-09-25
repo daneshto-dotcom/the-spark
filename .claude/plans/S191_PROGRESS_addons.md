@@ -13,8 +13,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 | A-3 | R190-G opaque panels swallow right-clicks | DONE | 7fcf0f7 |
 | A-4 | A1 CI e2e lane | DONE | 811121b |
 | A-5 | magic-attack DESIGN doc | DONE | ea6cef4 |
-| R2-1 | RAGE-1 the clock runs through BUILD | DONE | (this commit) |
-| R2-2..9 | RAGE-3 · RAGE-7 · INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
+| R2-1 | RAGE-1 the clock runs through BUILD | DONE | d2757a0 |
+| R2-2 | RAGE-3 attack row reads the cycle latch | DONE | (this commit) |
+| R2-3..9 | RAGE-7 · INPUT-1/3 · INPUT-4 · INPUT-5 · INPUT-6 · INPUT-7 · DOCS | next | — |
 
 ## Decisions / owner answers received mid-task
 
@@ -159,6 +160,12 @@ Merge owner = the main session. This branch never merges, never pushes.
   `WARLORD_RAGE_COOLDOWN_TICKS`. Tests (+3): the whistle case (Warlord + soldier lowered at exactly T+1500,
   in BUILD); the per-FIGHT pattern DERIVED from the constants over FIGHT + BUILD into the next FIGHT; nothing
   fires in BUILD. Mutation (outside-FIGHT pass removed) → 2 red; restored. typecheck 0; vitest 0 (6514).
+
+- **RAGE-3 (LOW) — reproduced first** (the renderer had no row-aware choice: new test red). Fix: pure
+  `animRageForRow(row, enraged, attackCycleRaged)` in `goblinRenderer.ts`; `syncSprite` gains an
+  `attackCycleRaged` parameter (both call sites pass `c.attackCycleRaged === true`) and the attack row's
+  `per` reads the latch; walk/idle keep the live bit. The tint still follows the live bit (unchanged).
+  Test `src/render/rageAnimRow.test.ts` (4, pure + the two call sites). Mutation → 2 red; restored.
 
 ## Hotspot hunks (save.ts / stateHashFull.ts / worldTypes.ts / main.ts)
 
