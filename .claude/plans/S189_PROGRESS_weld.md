@@ -640,3 +640,43 @@ new code never reads a defender or a tower's membership; the rows that do, and t
   different `Creature.spawnedAtTick` (host `sa1`, worker `sa0`) — the worker INIT wide hash differs.
   The differential clears setup creatures; units born inside the window compare equal.
 - gates: typecheck 0 · FULL vitest 0 = 6544 + 2 skipped / 399 + 1 skipped files.
+
+### R5-3 — the two cards (R2, R3 + the addendum) and the click
+- MODEL (`characterSheetModel.ts`): `CharacterSheetView.welded?: SheetWelded | null` (absent on every
+  other card). `structureSheet` branches through the SAME read model as the reducers: tower-in-weld →
+  NEW `weldedTowerSheet` (its own CONNECTORS / SHAPES, `health` = `towerOwnHealth`, its own aura /
+  spawn / ATK via the shared `towerRowsFor`, its own Helga row, its own FIX / SCRAP / FEED, subtitle
+  `… · WELDED`, `welded = {role:'tower', structure: structureHealth(comp), towers: the OTHER towers}`);
+  free-form weld → NEW `weldedStructureSheet` (title WELDED STRUCTURE, `health` = the structure pool,
+  CONNECTORS / SHAPES + one row per shape type, SCRAP only, `welded = {role:'structure', towers: ALL}`).
+  Rows: `weldedRowFor` (codex name, portrait, own pool, `down` for a fallen stamp) — ordered spawners
+  by id, then defenders by id, then fallen stamps. `weldedBlockHeight` feeds `heightFor`.
+  ⚠ MINE: `WELD_STRIP_H` 50, `WELD_ICON_PX` 22, `WELD_ROW_H` 26, `WELD_MAX_ROWS` 6 (then "+N MORE").
+- `towerRowsFor` (NEW) — the aura / spawn / emplacement rows, ONE copy for the plain card and the
+  welded-tower card. (The first cut duplicated the emplacement `attackFifths` — `creatureStrike.guard`
+  went RED on the count, correctly; de-duplicated rather than re-pinned. `auraStats.test`'s literal
+  tripwire RE-PINNED to the helper's call AND the plain card's call into it.)
+- RENDERER (`characterSheet.ts`): `drawWelded` after the owned row — tower role: "PART OF A WELDED
+  STRUCTURE", `cur / max`, a bar, a row of the other towers' portrait icons (a small Sprite pool,
+  texture from the card's own `portraitSource`, two letters if the atlas has not loaded); structure
+  role: "TOWERS IN IT · n" + one row per tower (icon, name, own `cur / max` or DOWN). Every icon / row
+  is recorded as drawn and `ownedRowAt` returns its target — the existing re-aim path, so NO controls
+  change was needed for the rows. `getUiPoints().welded` added for the e2e seam.
+- FEED (`goblinKinds.seatFeedTowerAt`): only the tower whose OWN shapes hold the clicked shape — the
+  "else lowest spawner id" fallback put a welded goblin tower's FEED on the turret's and the weld's
+  cards (mutant S3 shows exactly that: 8 buttons on the turret card). Un-welded: unchanged.
+- CLICK (`controls.ts`): a shape under the cursor that is NOT a live tower's own (a weld, loose
+  rubble) now wins over the tower art box — a weld sits ON the art at full opacity (R185-A) and the box
+  swallowed its click.
+- TESTS: `src/render/weldedSheetsR191A.test.ts` (4): each tower card = own pool + total + the other
+  tower, a dent on one moves its own pool and the total, never the other's; the weld card = pool,
+  composition, both towers in order with own pools, SCRAP only, a row opens that tower; a standalone
+  tower has no welded block; REACH through the real `Controls.onDown`: the Triangle ON the turret art
+  opens the structure card, the art opens the tower card. `src/render/weldedSheetRows.test.ts` (1): the
+  real `CharacterSheet.sync` draws 2 rows inside the card rect and `ownedRowAt` on a row → that tower.
+- mutants (RED, restored): S1 weld-first click off → the weld click opens the tower · S2 welded branch
+  off → 2 RED · S3 FEED fallback back → 2 RED · S4 row hit-test off → RED.
+- gates: typecheck 0 · FULL vitest 0 = 6549 + 2 skipped / 401 + 1 skipped · build 0 — **972.0 KiB**.
+  ⛔ BUNDLE: round 5 = **+9.4 KiB** (962.6 → 972.0); the weld branch is now **+16.1 KiB** over master
+  (955.9) against the ≤ 10 KiB per-branch guidance. REPORTED, not hidden, not contorted to fit
+  (128.0 KiB of charter headroom remains).

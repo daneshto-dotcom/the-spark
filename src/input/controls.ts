@@ -74,6 +74,7 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
 import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
 import { rampAnchorAtPoint } from '../render/structureRamp.ts';
+import { towerUnitAt } from '../state/towerUnit.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
 // rule that this layer must not import Pixi still holds.
@@ -946,14 +947,6 @@ export class Controls {
      * cannot repair. Its box is measured from all twelve idle cells and is ASYMMETRIC, because the
      * art straddles its anchor rather than standing on it.
      */
-    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
-      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
-      ?? stinkTowerAt(this.world, this.cursor.x, this.cursor.y);
-    if (towerHit !== null) {
-      this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
-      return true;
-    }
-
     let bestPrim: PrimitiveId | null = null;
     let bestPrimD2 = Infinity;
     for (const prim of this.world.primitives.values()) {
@@ -964,6 +957,24 @@ export class Controls {
       if (d2 > r * r || d2 >= bestPrimD2) continue;
       bestPrimD2 = d2;
       bestPrim = prim.id;
+    }
+    /*
+     * ⭐ S191 R191-A — A VISIBLE WELD ON THE ART IS CLICKED, NOT THE TOWER UNDER IT. *"when you click on
+     * the shape that's welded to it, you can see the whole structure."* A live tower's OWN shapes are
+     * faded to nothing under its art (R183-E), which is why the art box is tried first; a weld is drawn
+     * at full opacity (R185-A) and sits ON the art, so the box would swallow the one click that opens
+     * the structure's card. A shape under the cursor that is not a live tower's own therefore wins.
+     */
+    if (bestPrim !== null && towerUnitAt(this.world, bestPrim)?.kind !== 'live') {
+      this.characterSheet.select({ kind: 'structure', primitiveId: bestPrim });
+      return true;
+    }
+    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? stinkTowerAt(this.world, this.cursor.x, this.cursor.y);
+    if (towerHit !== null) {
+      this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
+      return true;
     }
     if (bestPrim !== null) {
       this.characterSheet.select({ kind: 'structure', primitiveId: bestPrim });

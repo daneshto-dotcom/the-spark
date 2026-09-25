@@ -45,6 +45,12 @@ import {
   type CharacterSheetView,
   type PortraitSpec,
   type SheetTarget,
+  type SheetWelded,
+  WELD_HEAD_H,
+  WELD_ICON_PX,
+  WELD_MAX_ROWS,
+  WELD_ROW_H,
+  WELD_STRIP_H,
 } from './characterSheetModel.ts';
 
 const PAD = 12;
@@ -199,6 +205,10 @@ export class CharacterSheet {
   private portraitPainter: PortraitPainter = () => false;
   /** Where the owned-unit row was drawn this frame, so a click on it can open that unit's own card. */
   private ownedHit: { x: number; y: number; w: number; h: number } | null = null;
+  /** ⭐ S191 R191-A — the welded block's tower icons / rows AS DRAWN, each re-aiming the card at a tower. */
+  private weldHits: { x: number; y: number; w: number; h: number; target: SheetTarget }[] = [];
+  /** S191 — a small pool of portrait sprites for those icons (the card owns one big portrait only). */
+  private readonly weldIcons: Sprite[] = [];
   /**
    * ⭐ S181 — the action buttons AS DRAWN this frame, and the only thing a click is tested against.
    *
@@ -272,6 +282,10 @@ export class CharacterSheet {
 
   /** The owned-unit row's target if (x, y) is on it — his *"you can either click on that"*. */
   ownedRowAt(x: number, y: number): SheetTarget | null {
+    // ⭐ S191 R191-A — a welded structure's towers are rows that re-aim the card too (same click path).
+    for (const r of this.weldHits) {
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r.target;
+    }
     const h = this.ownedHit;
     const owned = this.view?.owned ?? null;
     if (h === null || owned === null) return null;
@@ -517,6 +531,10 @@ export class CharacterSheet {
     } else {
       this.ownedHit = null;
     }
+
+    // ── ⭐ S191 R191-A — the welded structure this card is part of, or is ─────────────────────────
+    this.weldHits = [];
+    if (v.welded != null) sy = this.drawWelded(v.welded, x, sy, w, accent);
 
     /*
      * ⭐⭐ S181 (owner) — **THE DESCRIPTION, IN THE EMPTY SPACE HE POINTED AT.**
@@ -791,7 +809,86 @@ export class CharacterSheet {
     return t;
   }
 
+  /**
+   * ⭐⭐ S191 R191-A — **THE WELDED BLOCK.** A tower's card: *"its own HP. And then out of how much the
+   * total structure has HP … what kind of buildings are there just by little pictures"* — the strip
+   * with the structure's pool and a row of the OTHER towers' pictures. The weld's card: *"all the
+   * structures that are in that whole structure"* — one row per tower, its picture, name and own pool.
+   * Every icon and row is clickable and opens that tower's card (`ownedRowAt`). The numbers are the
+   * model's (`towerOwnHealth` / `structureHealth`); nothing here derives one. Returns the next `sy`.
+   */
+  private drawWelded(wv: SheetWelded, x: number, sy: number, w: number, accent: number): number {
+    const inner = w - PAD * 2;
+    const hot = (rx: number, ry: number, rw: number, rh: number): boolean => {
+      const h = this.hover;
+      return h !== null && h.x >= rx && h.x <= rx + rw && h.y >= ry && h.y <= ry + rh;
+    };
+    const s = wv.structure;
+    if (wv.role === 'tower') {
+      const top = sy + 2;
+      this.text('PART OF A WELDED STRUCTURE', x + PAD, top, 9, DIM);
+      this.textRight(`${s.cur} / ${s.max}`, x + w - PAD, top - 1, 11, INK);
+      const frac = s.max <= 0 ? 0 : Math.max(0, Math.min(1, s.cur / s.max));
+      this.g.roundRect(x + PAD, top + 14, inner, 5, 2).fill({ color: 0x1b2938 });
+      if (frac > 0) this.g.roundRect(x + PAD, top + 14, Math.max(2, inner * frac), 5, 2).fill({ color: barColor(s.cur, s.max, false) });
+      const iy = top + 24;
+      const per = WELD_ICON_PX + 4;
+      const fit = Math.max(0, Math.floor(inner / per));
+      wv.towers.slice(0, fit).forEach((t, i) => {
+        const ix = x + PAD + i * per;
+        const lit = hot(ix, iy, WELD_ICON_PX, WELD_ICON_PX);
+        this.g.roundRect(ix, iy, WELD_ICON_PX, WELD_ICON_PX, 4)
+          .fill({ color: lit ? 0x1b2c3c : 0x101a26 })
+          .stroke({ color: lit ? accent : t.down ? HP_LOW : EDGE, width: lit ? 1.5 : 1 });
+        this.drawIcon(i, t.portrait, t.name, ix, iy, WELD_ICON_PX);
+        this.weldHits.push({ x: ix, y: iy, w: WELD_ICON_PX, h: WELD_ICON_PX, target: t.target });
+      });
+      if (wv.towers.length > fit) this.textRight(`+${wv.towers.length - fit}`, x + w - PAD, iy + 5, 10, DIM);
+      return sy + WELD_STRIP_H;
+    }
+    this.text(`TOWERS IN IT · ${wv.towers.length}`, x + PAD, sy + 2, 9, DIM);
+    let ry = sy + WELD_HEAD_H;
+    wv.towers.slice(0, WELD_MAX_ROWS).forEach((t, i) => {
+      const rh = WELD_ROW_H - 4;
+      const lit = hot(x + PAD, ry, inner, rh);
+      this.g.roundRect(x + PAD, ry, inner, rh, 5)
+        .fill({ color: lit ? 0x1b2c3c : 0x14212e })
+        .stroke({ color: lit ? accent : EDGE, width: lit ? 1.5 : 1 });
+      this.drawIcon(i, t.portrait, t.name, x + PAD + 2, ry + 2, rh - 4);
+      this.text(t.name, x + PAD + rh + 4, ry + 5, 11, INK);
+      this.textRight(t.down ? 'DOWN' : `${t.health.cur} / ${t.health.max}`, x + w - PAD - 6, ry + 5, 10, t.down ? HP_LOW : DIM);
+      this.weldHits.push({ x: x + PAD, y: ry, w: inner, h: rh, target: t.target });
+      ry += WELD_ROW_H;
+    });
+    if (wv.towers.length > WELD_MAX_ROWS) {
+      this.text(`+${wv.towers.length - WELD_MAX_ROWS} MORE`, x + PAD, ry, 10, DIM);
+      ry += 14;
+    }
+    return ry + 4;
+  }
+
+  /** A tower's picture at `px` square — its shipped portrait texture, else two letters of its name. */
+  private drawIcon(i: number, spec: PortraitSpec, name: string, x: number, y: number, px: number): void {
+    const tex = this.portraitSource(spec);
+    if (tex === null) {
+      this.textCentred(name.slice(0, 2), x + px / 2, y + px / 2 - 6, 10, DIM);
+      return;
+    }
+    let sp = this.weldIcons[i];
+    if (sp === undefined) {
+      sp = new Sprite();
+      this.weldIcons.push(sp);
+      this.container.addChild(sp);
+    }
+    sp.texture = tex;
+    const scale = Math.min((px - 2) / tex.width, (px - 2) / tex.height);
+    sp.scale.set(scale);
+    sp.position.set(x + (px - tex.width * scale) / 2, y + (px - tex.height * scale) / 2);
+    sp.visible = true;
+  }
+
   private reset(): void {
+    for (const sp of this.weldIcons) sp.visible = false;
     this.g.clear();
     this.emblem.clear();
     this.glyphs.clear();
@@ -816,6 +913,12 @@ export class CharacterSheet {
     health: { cur: number; max: number; frozen: boolean } | null;
     stats: { label: string; points: number; derived: string | null }[];
     owned: string | null;
+    /** S191 R191-A — the welded block, for the e2e seam. */
+    welded: {
+      role: 'tower' | 'structure';
+      structure: { cur: number; max: number };
+      towers: { name: string; cur: number; max: number; down: boolean }[];
+    } | null;
     hasActions: boolean;
     /**
      * ⭐⭐ S181 — THE ACTION BUTTONS' LIVE GEOMETRY, and it is not decoration: it is the e2e seam the
@@ -839,6 +942,11 @@ export class CharacterSheet {
       health: this.view === null ? null : { ...this.view.health },
       stats: (this.view?.stats ?? []).map((r) => ({ ...r })),
       owned: this.view?.owned?.name ?? null,
+      welded: this.view?.welded == null ? null : {
+        role: this.view.welded.role,
+        structure: { ...this.view.welded.structure },
+        towers: this.view.welded.towers.map((t) => ({ name: t.name, cur: t.health.cur, max: t.health.max, down: t.down })),
+      },
       hasActions: this.view?.actions != null,
       actions: this.slots.map((b) => ({ ...b })),
     };
