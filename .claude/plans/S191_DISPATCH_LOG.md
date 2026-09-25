@@ -35,3 +35,5 @@ Dispatched 2026-09-25 from master `42cc2ee`. Fix rounds go to the SAME agent by 
 - §A5 CONNECTION LOST overlay covering an open draft panel → decided correct (you cannot pick while disconnected); not asked.
 - OWNER R191-A (welded structures: tower-level FIX/SCRAP + sheets, structure SCRAP-all, no structure FIX; R185-B amended) → s189-weld ROUND 5, right after its steps 1-6, before the audit. PDR scope amendment A1.
 - OWNER R191-B (FIX = a gatherer job delivering the shapes from the castle) → s189-weld ROUND 6, QUEUED until "round 6 go" after weld is on master (deploy #6). PDR scope amendment A2.
+- OWNER refined R191-B (multi-gatherer tasks, nearest source that HOLDS the type — quarry vs castle, queued jobs, FIX ALL) → s189-weld round 6 (still queued).
+- OWNER corrected: the end-game research EXISTS as the S179 "END-OF-MATCH STAT BOARD" (HANDOFF_S179 :105, S180_BACKLOG :131, S182_BACKLOG :27/:59/:70). s191-endstats REDIRECTED: short spec from the record + his words, then IMPLEMENT v1 without waiting (units built/killed per type, graphs comparing players; WIN_TRIGGER teardown trap; POSTGAME click-reset hazard).
