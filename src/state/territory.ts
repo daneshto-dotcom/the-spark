@@ -35,6 +35,7 @@ import {
   TERRITORY_ENGULF_STIFFNESS,
   TERRITORY_RADIUS_SCALE,
 } from '../constants.ts';
+import type { Bond } from '../physics/bonds.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -45,9 +46,13 @@ import type { World } from './world.ts';
  *
  * Replaces the pre-F1b per-player `componentOf` BFS (rebuilt from scratch for every unvisited primitive,
  * inside computePlayerComplexity, itself called per-player per-tick — O(P·prims·BFS)/tick on the host).
- * Sym-D guarantees every bond is same-color, so each component is single-color; counting distinct roots
- * among a color's prims therefore equals the old per-player component count (byte-identical — see the
- * differential test). Dangling bonds (an endpoint primitive missing) are skipped, matching componentOf's
+ * ⚠ S191 CORRECTION: this said "Sym-D guarantees every bond is same-color, so each component is
+ * single-color". Cross-colour bonds are NOT impossible (a weld bonds two seats' shapes; `makeBond` checks
+ * no colour; `structureRepair.ts` already handles "someone else's shape welded into this component"), so
+ * a component CAN span colours. The equality still holds, for a different reason: `componentOf` follows
+ * every bond whatever its colour, exactly as this union-find unions every bond, so both count "components
+ * holding at least one of this colour's prims" — counting distinct roots among a color's prims therefore
+ * equals the old per-player component count (byte-identical — see the differential test). Dangling bonds (an endpoint primitive missing) are skipped, matching componentOf's
  * `primitives.get(otherId) === undefined` skip. Exported so the differential test can assert the
  * partition is bit-exact against a componentOf-derived reference (Council S118 Q3 gate).
  */
@@ -259,8 +264,38 @@ export function isInsideEnemyTerritory(
  * call before any degradation is applied. This ensures no stale state leaks
  * across ticks even if territory changes (e.g., shrink debuff expires).
  *
- * Note: Sym D invariant guarantees all bonds are same-color (no cross-color
- * bonds exist), so "bond belongs to enemy" ≡ both endpoints have enemy color.
+ * ⚠ S191 CORRECTION (Council S191 ledger) — CROSS-COLOUR BONDS DO EXIST. This note said "Sym D
+ * invariant guarantees all bonds are same-color (no cross-color bonds exist), so 'bond belongs to
+ * enemy' ≡ both endpoints have enemy color". False: a weld bonds two seats' shapes, and `makeBond`
+ * checks no colour. What decides is the per-bond skip in Phase 2, and it is kept EXACTLY as it was: for
+ * player P a bond is skipped when EITHER endpoint is P's colour, so a mixed X/Y bond is never engulfed
+ * by X's or by Y's territory — only by a third seat's whose radius reaches it. A bond with an endpoint
+ * missing from `world.primitives` is skipped for everyone. `territoryGrid.differential.test.ts` injects
+ * welded mixed bonds into a real match and asserts they were visited.
+ *
+ * ⭐ S191 (`s191/perf`, owner C5: *"it was lagging at about wave five"*) — THE ANCHOR GRID. This pass
+ * was the largest SELF time in a wave-5 host tick (13.6 % with 120 creatures, 15.0 % on the ordinary
+ * board — V8 profile, `S191_PROGRESS_perf.md`), and all of it was the inner loop: every player × every
+ * enemy bond × EVERY one of that player's primitives, per tick — almost all of it for bonds on the far
+ * side of the board. Each player's anchors are now bucketed once per call (`buildAnchorGrid`) into
+ * cells of side R + 1, and an endpoint is tested only against its own cell and the eight around it.
+ *
+ * ⛔ THE RESULT IS IDENTICAL BY CONSTRUCTION, NOT BY TOLERANCE (`territoryGrid.differential.test.ts`
+ * proves it against the verbatim pre-change pass, `territoryReference.fixtures.ts`):
+ *  · the output per bond is a BOOLEAN — "some anchor lies strictly within R of either endpoint" — so
+ *    which anchor answers, and in what order, cannot matter (the old `break` was an early exit, never
+ *    a tie-break). Players, bonds and the already-degraded skip run in the same order as before;
+ *  · every anchor that IS tested is tested with the same arithmetic, op for op, on the same doubles
+ *    (`ex - px`, squared, summed, `< R2`);
+ *  · no anchor that could pass is skipped. If `dx*dx + dy*dy < R2` holds in doubles then |ex − px| < R
+ *    exactly (rounding is monotone and R, R² are the very values compared), so the two cell indices
+ *    differ by at most one: the 1 px of slack in the cell side is a gap of 1/(R+1) in cell units,
+ *    against a division rounding of < 5e-10/(R+1) while |coord| ≤ 1e6;
+ *  · outside that envelope — a non-finite or > 1e6 coordinate, or a grid wider than
+ *    ANCHOR_GRID_MAX_CELLS — the old exhaustive test runs instead, so the argument above is never
+ *    relied on where it does not hold.
+ * Nothing persists between calls: the grid is built and dropped inside this function, so there is no
+ * cache to go stale and no new state.
  */
 export function computeTerritorialInfluence(world: World): void {
   // Phase 1: reset all bonds to nominal stiffness.
@@ -273,52 +308,186 @@ export function computeTerritorialInfluence(world: World): void {
   // removing the per-player O(prims·BFS) re-walk on the host every tick.
   const radii = computeAllPlayerRadii(world);
 
+  // S191 — the Council C8 colour lookups, done ONCE per call instead of once per player per bond:
+  // the bonds whose endpoints both exist (the only ones Phase 2 can degrade), in `world.bonds` order,
+  // with their endpoints' colours. Nothing inside this function writes a colour or a Map.
+  let candidates: Bond[] | null = null;
+  const colourA: number[] = [];
+  const colourB: number[] = [];
+
   // Phase 2: for each player's territory, degrade enemy bonds inside it.
   for (const [playerId, player] of world.players) {
     const R = radii.get(playerId) ?? 0;
     if (R <= 0) continue;
     const R2 = R * R;
 
-    // Pre-collect this player's primitive positions once (Council C2).
-    const anchorPositions: Array<{ x: number; y: number }> = [];
-    for (const prim of world.primitives.values()) {
-      if (prim.placerColor === player.color) {
-        anchorPositions.push({ x: prim.pos.x, y: prim.pos.y });
+    // Pre-collect this player's primitive positions once (Council C2) — into the S191 grid.
+    const grid = buildAnchorGrid(world, player.color, R);
+    if (grid === null) continue;
+
+    if (candidates === null) {
+      candidates = [];
+      for (const bond of world.bonds.values()) {
+        // Enemy-color filter (Council C8) needs both endpoints' colours from world.primitives.
+        const primA = world.primitives.get(bond.aId);
+        const primB = world.primitives.get(bond.bId);
+        if (primA === undefined || primB === undefined) continue;
+        candidates.push(bond);
+        colourA.push(primA.placerColor);
+        colourB.push(primB.placerColor);
       }
     }
-    if (anchorPositions.length === 0) continue;
 
     // Check each bond: degrade if it belongs to an enemy AND any endpoint
     // is inside this player's territorial radius.
-    for (const bond of world.bonds.values()) {
+    for (let i = 0; i < candidates.length; i++) {
+      const bond = candidates[i]!;
       // Already maximally degraded — skip (handles overlap of two territories).
       if ((bond.stiffnessMultiplier ?? 1.0) <= TERRITORY_ENGULF_STIFFNESS) continue;
-
-      // Enemy-color filter (Council C8): both endpoints must have enemy color.
-      // Fetching prim color from world.primitives for color check only.
-      const primA = world.primitives.get(bond.aId);
-      const primB = world.primitives.get(bond.bId);
-      if (primA === undefined || primB === undefined) continue;
       // Skip own bonds (both endpoints share this player's color).
-      if (primA.placerColor === player.color || primB.placerColor === player.color) continue;
+      if (colourA[i] === player.color || colourB[i] === player.color) continue;
 
       // Check if endpoint A or B is inside this player's territory.
-      let inside = false;
-      const ax = bond.a.pos.x;
-      const ay = bond.a.pos.y;
-      const bx = bond.b.pos.x;
-      const by = bond.b.pos.y;
-      for (const anchor of anchorPositions) {
-        const dax = ax - anchor.x;
-        const day = ay - anchor.y;
-        if (dax * dax + day * day < R2) { inside = true; break; }
-        const dbx = bx - anchor.x;
-        const dby = by - anchor.y;
-        if (dbx * dbx + dby * dby < R2) { inside = true; break; }
-      }
-      if (inside) {
+      if (
+        anchorWithin(grid, bond.a.pos.x, bond.a.pos.y, R2) ||
+        anchorWithin(grid, bond.b.pos.x, bond.b.pos.y, R2)
+      ) {
         bond.stiffnessMultiplier = TERRITORY_ENGULF_STIFFNESS;
       }
     }
   }
+}
+
+/**
+ * S191 — the grid's envelope. Inside ±ANCHOR_GRID_COORD_LIMIT the cell-index argument in
+ * `computeTerritorialInfluence`'s docblock holds with ~9 orders of magnitude to spare; outside it (or
+ * for NaN / ±Infinity, which fail every comparison) a point is tested exhaustively. The board is
+ * 1920 × 1080, so a real match never leaves the envelope.
+ */
+const ANCHOR_GRID_COORD_LIMIT = 1e6;
+/** S191 — above this many cells the grid is not built and the exhaustive test runs (a sanity cap, not
+ *  a tuning knob: the full board at the smallest radius the formula allows is ~2 000 cells). */
+const ANCHOR_GRID_MAX_CELLS = 65_536;
+
+/** S191 — one player's anchors for one call. Positions are COPIED doubles (as `anchorPositions` was). */
+interface AnchorGrid {
+  /** Every anchor as [x0, y0, x1, y1, …], in `world.primitives` order — the exhaustive fallback. */
+  readonly all: number[];
+  /** Anchors outside the envelope as [x, y, …] — always tested exhaustively when the grid is used. */
+  readonly loose: number[];
+  /** `null` ⇒ no grid (nothing in the envelope, or too many cells): every query is exhaustive. */
+  readonly start: Int32Array | null;
+  /** Grid anchors as [x, y, …], bucketed by cell; cell c spans items[start[c] .. start[c+1]). */
+  readonly items: Float64Array;
+  readonly cell: number;
+  readonly minCx: number;
+  readonly minCy: number;
+  readonly cols: number;
+  readonly rows: number;
+}
+
+const inAnchorEnvelope = (x: number, y: number): boolean =>
+  x >= -ANCHOR_GRID_COORD_LIMIT && x <= ANCHOR_GRID_COORD_LIMIT &&
+  y >= -ANCHOR_GRID_COORD_LIMIT && y <= ANCHOR_GRID_COORD_LIMIT;
+
+/** S191 — bucket `color`'s primitives into cells of side R + 1. `null` when the colour has none. */
+function buildAnchorGrid(world: World, color: number, R: number): AnchorGrid | null {
+  const all: number[] = [];
+  for (const prim of world.primitives.values()) {
+    if (prim.placerColor === color) all.push(prim.pos.x, prim.pos.y);
+  }
+  if (all.length === 0) return null;
+
+  const cell = R + 1;
+  const loose: number[] = [];
+  const cxs: number[] = [];
+  const cys: number[] = [];
+  let minCx = Infinity;
+  let maxCx = -Infinity;
+  let minCy = Infinity;
+  let maxCy = -Infinity;
+  for (let k = 0; k < all.length; k += 2) {
+    const x = all[k]!;
+    const y = all[k + 1]!;
+    if (!inAnchorEnvelope(x, y)) {
+      loose.push(x, y);
+      cxs.push(NaN);
+      cys.push(NaN);
+      continue;
+    }
+    const cx = Math.floor(x / cell);
+    const cy = Math.floor(y / cell);
+    cxs.push(cx);
+    cys.push(cy);
+    if (cx < minCx) minCx = cx;
+    if (cx > maxCx) maxCx = cx;
+    if (cy < minCy) minCy = cy;
+    if (cy > maxCy) maxCy = cy;
+  }
+  const gridded = all.length / 2 - loose.length / 2;
+  const cols = gridded > 0 ? maxCx - minCx + 1 : 0;
+  const rows = gridded > 0 ? maxCy - minCy + 1 : 0;
+  if (gridded === 0 || cols * rows > ANCHOR_GRID_MAX_CELLS) {
+    return { all, loose, start: null, items: new Float64Array(0), cell, minCx: 0, minCy: 0, cols: 0, rows: 0 };
+  }
+
+  // Counting sort by cell: start[c + 1] counts, prefix-summed into offsets (in doubles, ×2 for x,y).
+  const cells = cols * rows;
+  const start = new Int32Array(cells + 1);
+  for (let a = 0; a < cxs.length; a++) {
+    const cx = cxs[a]!;
+    if (cx !== cx) continue; // NaN ⇒ loose
+    const c = (cys[a]! - minCy) * cols + (cx - minCx) + 1;
+    start[c] = start[c]! + 2;
+  }
+  for (let c = 0; c < cells; c++) start[c + 1] = start[c + 1]! + start[c]!;
+  const fill = start.slice(0, cells);
+  const items = new Float64Array(gridded * 2);
+  for (let a = 0; a < cxs.length; a++) {
+    const cx = cxs[a]!;
+    if (cx !== cx) continue;
+    const c = (cys[a]! - minCy) * cols + (cx - minCx);
+    const at = fill[c]!;
+    items[at] = all[2 * a]!;
+    items[at + 1] = all[2 * a + 1]!;
+    fill[c] = at + 2;
+  }
+  return { all, loose, start, items, cell, minCx, minCy, cols, rows };
+}
+
+/** S191 — the pre-grid test, verbatim in its arithmetic, over a flat [x, y, …] list. */
+function anyAnchorWithin(list: ArrayLike<number>, ex: number, ey: number, R2: number): boolean {
+  for (let k = 0; k < list.length; k += 2) {
+    const dx = ex - list[k]!;
+    const dy = ey - list[k + 1]!;
+    if (dx * dx + dy * dy < R2) return true;
+  }
+  return false;
+}
+
+/** S191 — is some anchor strictly within R (R2 = R·R) of (ex, ey)? Same answer as `anyAnchorWithin`
+ *  over `grid.all`, by the argument in `computeTerritorialInfluence`'s docblock. */
+function anchorWithin(grid: AnchorGrid, ex: number, ey: number, R2: number): boolean {
+  const start = grid.start;
+  if (start === null || !inAnchorEnvelope(ex, ey)) return anyAnchorWithin(grid.all, ex, ey, R2);
+  if (grid.loose.length > 0 && anyAnchorWithin(grid.loose, ex, ey, R2)) return true;
+  const cx = Math.floor(ex / grid.cell) - grid.minCx;
+  const cy = Math.floor(ey / grid.cell) - grid.minCy;
+  const x0 = cx > 0 ? cx - 1 : 0;
+  const x1 = cx < grid.cols - 1 ? cx + 1 : grid.cols - 1;
+  const y0 = cy > 0 ? cy - 1 : 0;
+  const y1 = cy < grid.rows - 1 ? cy + 1 : grid.rows - 1;
+  const items = grid.items;
+  for (let gy = y0; gy <= y1; gy++) {
+    const row = gy * grid.cols;
+    for (let gx = x0; gx <= x1; gx++) {
+      const end = start[row + gx + 1]!;
+      for (let k = start[row + gx]!; k < end; k += 2) {
+        const dx = ex - items[k]!;
+        const dy = ey - items[k + 1]!;
+        if (dx * dx + dy * dy < R2) return true;
+      }
+    }
+  }
+  return false;
 }

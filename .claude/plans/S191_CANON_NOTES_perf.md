@@ -1,0 +1,30 @@
+# S191 — s191/perf canon notes (for the merge owner; this branch does NOT edit SPARK_CANON.md)
+
+## No canon number moved
+s191/perf is a pure performance change. No stat, pool, damage, cadence, range, radius or protocol value
+is touched; `src/canon.test.ts` and `SPARK_CANON.md` are untouched. `PROTOCOL_VERSION` is untouched and
+no bump is owed: nothing serialized or on the wire changed, and no rule a client computes changed —
+`s191Perf.differential.test.ts` proves the sim's outputs and `hashWorldStateFull` byte-identical to
+master 42cc2ee across waves 1–5.
+
+## Suggested canon text (§5b's last paragraph is the S190 precedent)
+⭐ **THE TERRITORY PASS IS GRIDDED (S191 `s191/perf`), WITH BYTE-IDENTICAL OUTPUTS.** Each seat's shapes are
+bucketed once per tick into cells of side R + 1, and an enemy bond's endpoints are tested only against the
+nine cells around them; outside a ±1e6 envelope the old exhaustive test runs. The rule itself is unchanged:
+a bond is engulfed (stiffness × 0.3) when some shape of seat P lies strictly within P's radius of either
+endpoint and NEITHER endpoint is P's colour. `s191Perf.differential.test.ts` + `territoryGrid.differential.test.ts`.
+
+## Facts this branch relied on (all unchanged)
+- Territory radius: R = 60 + 12·log2(complexity + 1), complexity = prims + 0.5·same-colour bonds +
+  0.1·components; halved under the shrink debuff; 0 with no shapes.
+- ⚠ CORRECTED DOCBLOCK (Council S191 item 1): cross-colour bonds are NOT impossible (a weld bonds two
+  seats' shapes; `makeBond` checks no colour). For seat P the influence pass skips a bond when EITHER
+  endpoint is P's colour, so a mixed X/Y bond is engulfable only by a THIRD seat. Unchanged behaviour;
+  the old comment claimed the case could not arise.
+
+## ⚠ A FINDING FOR THE OWNER — REPORTED, NOT ACTED ON
+**On a plain four-seat bots match the territorial engulf never fires.** Measured: waves 1–3, 27 000 host
+ticks, 0 bonds engulfed. Seats build inside their own zones, so no enemy connector is ever within R
+(~60–140 px) of another seat's shapes. The pass still costs a share of every tick (13.6–15 % before this
+branch, ~3–7 % self after) to compute "no" for every bond. Whether the mechanic should be retired, kept
+dormant, or made reachable is his call; this branch changes none of it.
