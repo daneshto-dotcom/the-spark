@@ -21,9 +21,9 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 | R2-C · bag burst from a hub blast spares the hub owner (BLAST-1, MINE) | DONE | `7706688` + follow-up (this commit) | see below |
 | R2-D · canon truth + pins (GATES-4, BLAST-6/GATES-2, GATES-1) | DONE | `2e8189e` | ⚠ GATES-1 part SUPERSEDED by the owner's S191 overkill ruling → R2-E |
 | C-6 · spreadEnemyTarget strict predicate | DONE | `5412c46` | see below |
-| R2-E · overkill CARRIES (owner S191) + BLAST-1 is his ruling | DONE | (this commit) | reverses R2-D's §2 rewrite |
-| C-8 · R190-I castle hit / heal numbers | RELEASED, next | | |
-| C-9 · R190-H Ra above buildings, ring on the ground | RELEASED, todo | | |
+| R2-E · overkill CARRIES (owner S191) + BLAST-1 is his ruling | DONE | `97d8f1f` | reverses R2-D's §2 rewrite |
+| C-8 · R190-I castle hit / heal numbers | IN-FLIGHT — failing tests only, parked | (this commit) | see RESUME |
+| C-9 · R190-H Ra above buildings, ring on the ground | NOT STARTED | | |
 
 ## C-1 — DONE
 
@@ -254,9 +254,30 @@ Branch base: `42cc2ee` (master plan commit on top of `5f22e1d`; src = deploy #4,
 - Full suite 0: 6516 passed / 2 skipped, 404 files.
 - Wire/hash: no field; a RULE both peers compute (how many connectors a hit fells) → OWES the deploy bump.
 
-## In flight
+## ⛔ RESUME HERE (session closed at the weekly limit, S191)
 
-Nothing — C-1..C-5 done; C-6 / C-7 wait for the merge owner.
+- **DONE (committed):** C-1…C-5, R2-A (split), R2-B (test honesty), R2-C + follow-up (BLAST-1), R2-D (canon;
+  its §2 part superseded by R2-E), C-6 (strict spread), R2-E (overkill carries + BLAST-1 his ruling).
+  Last full suite: 0 — 6516 passed / 2 skipped, 404 files (after R2-E). typecheck 0.
+- **IN-FLIGHT — C-8 (R190-I on the castle).** Only the FAILING TESTS exist, parked OUTSIDE `src` so the branch
+  stays green: `.claude/plans/S191_C8_pending/castleHitHealSplit.test.ts.txt` → `src/render/castleHitHealSplit.test.ts`
+  and `castleHealCounter.test.ts.txt` → `src/state/castleHealCounter.test.ts`. Measured RED pre-fix: the keep
+  hit 40 + regen 25 in one window prints one red "15" (host AND joiner); the counter tests red on `undefined`.
+  Plan (the `dynastyHpLost` precedent exactly): `Player.castleHealedHp: number` REQUIRED (`game/player.ts`:
+  type + `makeIdlePlayer` 0 + the `pickup`/`drop` rebuilds); write it at the two rise sites (`castleRegen.ts`
+  ~:151 regen, `castleUpgrades.ts` ~:264 HP purchase — widen its `players` param type) as `+= hp - before`;
+  `save.ts` SerializedPlayer `castleHealedHp?` (emit > 0; rehydrate `Math.max(0, Math.trunc(Number(…)))||0`,
+  as `dynastyHpLost` at ~:2016/:2238); `stateHashFull.ts` append `,ch${pl.castleHealedHp}` to the `pl` part +
+  the FIELD_COVERAGE note + a mutation row in `stateHashFull.test.ts` (count 6→7); `damageNumbers.ts` castle
+  loop (~:761) → split with `creaturePoolChange(prev.v, hp, prev.healed, healed)` (add `healed?` to the
+  watched-struct entry). Mutation: drop the regen write → the split test red. Wire: additive-optional,
+  presentational (the `healedFifths` precedent) — no bump of its own; rides the deploy's.
+- **NEXT:** C-8 as above → C-9 (R190-H extended: Ra strike above Helga / turret rig / ramp art, the art's
+  ground rune ring slots 0–3 back under units; staging lines only, no zIndex; a source-text guard stating
+  its limit) → final gates (typecheck, vitest --maxWorkers=4, build) → report. C-7 still waits for weld.
+- **Owner-question flags for the merge owner:** R2-E's example numbers (a 150 fells ALL FIVE by the ladder,
+  not 3 + 40 banked); canon §5b + §7-adjacent texts in canon notes §5; protocol: C-5 blast, R2-A split,
+  R2-C burst, C-6 targeting, R2-E carry are all rules both peers compute → they owe the deploy's bump.
 
 ## Decisions / numbers that are MINE
 
