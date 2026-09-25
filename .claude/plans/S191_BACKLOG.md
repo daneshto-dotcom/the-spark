@@ -62,3 +62,11 @@ C1 cruiser above the draft panel · C2 weld onto a laser turret / two bat towers
 now reconnects (and logs `[net] PEER DROPPED … cause=…`) · C5 wave-5 smoothness · C6 the first in the quickmatch
 lobby stays P1 (needs two machines) · C7 no teleport beam · C8 Helga stays on the board · C10 Kraken shoves ~70 px
 and stuns · the separate red/green hit/heal numbers · WRATH OF RA (3 casts, square icon) · THE SWARM at wave 11.
+
+## E · C4 — measured after S190's reconnect fix (carry-forward, HIGH value)
+`e2e/reconnect-hard-blip.spec.ts` × 7 on s189/net: recovered 6/7 — 2 inside the 15 s grace (7.2 s, 10.0 s), 4 AFTER
+it (21-31 s: the terminal screen shows, then clears itself), 1 not within 45 s. The joiner always stayed a client and
+kept retrying. Suspected: Trystero `answeringTtlMs` 23 333 ms (`@trystero-p2p/core/dist/signal-handler.mjs`) — the
+host timed out the first attempt at offer+23.3 s and the next got through 3 s later; the 8 s retry once cut a join off
+in its final millisecond. Fix shapes (both change C4 timing → test with the spec, 20+ runs): do not tear down an
+attempt whose handshake is in progress; space retries around the 23 s TTL. The spec is tagged quarantine-flaky.
