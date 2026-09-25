@@ -29,6 +29,13 @@
  *    height `check-atlas-scenery.mjs` measures, so the new sheet is sized the way the guard will judge it.
  * 6. Packs 12-per-row (or whatever the state lists), writes `<name>-atlas.png` + `<name>-anim.json`.
  *
+ * ⭐ S188 (THE SWARM) — two OPT-IN per-source keys, both absent from the two earlier specs, which
+ * rebuild BYTE-IDENTICAL with them in place (verified by sha256 against the shipped files):
+ *    · `inpaintLines: { x: [...], y: [...], halfWidth }` — a grid the generator baked into the pixels
+ *      is re-drawn from the pixels either side of it before anything else runs (bat-swarm die-v2);
+ *    · `scaleMul` — a sheet drawn at a different zoom than its siblings is corrected by this factor on
+ *      top of the one fitted scale, so the one-scale rule still holds for the CREATURE, not the canvas.
+ *
  * ⚠ FRAME INDICES IN THE SPEC ARE 1-BASED READING ORDER, the numbering the owner's prompts use.
  *
  * Usage:  node scripts/build-scattered-sheet-atlas.mjs <spec.json>
@@ -87,9 +94,36 @@ def body_height(rgba):
     ys, _ = np.nonzero(lab == int(np.argmax(sz)) + 1)
     return int(ys.max() - ys.min() + 1)
 
+def inpaint_lines(a, ip):
+    # S188 THE SWARM — a grid the generator BAKED INTO the pixels (sheet-die-v2: a 2 px grey line at
+    # every 256 px, alpha ~39/20). Each listed line's strip is re-drawn as a linear blend of the two
+    # pixels just outside it, in PREMULTIPLIED space, so a bat crossing the line keeps its body and
+    # the grey vanishes. Opt-in per source; absent = the pixels are untouched.
+    hw = int(ip.get('halfWidth', 1))
+    f = a.astype(np.float64)
+    f[:, :, :3] *= f[:, :, 3:4] / 255.0
+    for axis, key in ((1, 'x'), (0, 'y')):
+        for c in ip.get(key, []):
+            lo, hi = c - hw - 1, c + hw + 1
+            A = f[:, lo] if axis == 1 else f[lo, :]
+            B = f[:, hi] if axis == 1 else f[hi, :]
+            for k in range(c - hw, c + hw + 1):
+                t = (k - lo) / (hi - lo)
+                if axis == 1: f[:, k] = A * (1 - t) + B * t
+                else: f[k, :] = A * (1 - t) + B * t
+    al = f[:, :, 3:4]
+    f[:, :, :3] = np.where(al > 0, f[:, :, :3] * 255.0 / np.maximum(al, 1e-9), 0)
+    return np.clip(f.round(), 0, 255).astype(np.uint8)
+
 frames_by_source = {}
+# S188 THE SWARM — per-source size correction (default 1 = the previous behaviour, bit for bit). For a
+# sheet the generator drew at a different zoom than its siblings, measured on a feature whose size
+# does not change with pose; see the swarm's atlas-spec.json for the measurement.
+mul_by_source = {s['id']: float(s.get('scaleMul', 1.0)) for s in spec['sources']}
 for src in spec['sources']:
     a = np.array(Image.open(src['path']).convert('RGBA'))
+    if src.get('inpaintLines'):
+        a = inpaint_lines(a, src['inpaintLines'])
     raw = a[:, :, 3].astype(np.int32)
     al = np.where(raw <= FLOOR, 0, np.where(raw >= CEIL, 255, raw)).astype(np.uint8)
     a = np.dstack([a[:, :, :3], al])
@@ -166,15 +200,15 @@ for src in spec['sources']:
     print(f"  {src['id']}: {len(frames)} frames from {src['path']}")
 
 # ── ONE scale, from the reference frames' median body height ─────────────────────────────────────
-refs = [frames_by_source[r['source']][i - 1] for r in spec['fitReference'] for i in r['frames']]
-med = float(np.median([body_height(fr[0]) for fr in refs]))
+refs = [(frames_by_source[r['source']][i - 1], mul_by_source[r['source']]) for r in spec['fitReference'] for i in r['frames']]
+med = float(np.median([body_height(fr[0]) * m for fr, m in refs]))
 scale = spec['fitBodyHeightPx'] / med
 print(f"  scale {scale:.4f}  (reference median body {med:.0f}px -> {spec['fitBodyHeightPx']}px)")
 
-used = [(st, frames_by_source[st['source']][i - 1]) for st in spec['states'] for i in st['frames']]
-# Extents about the alignment point, in SOURCE px, over every frame that ships.
-left = max(ax for _, (c, ax, ay) in used); right = max(c.shape[1] - ax for _, (c, ax, ay) in used)
-up = max(ay for _, (c, ax, ay) in used); down = max(c.shape[0] - ay for _, (c, ax, ay) in used)
+used = [(mul_by_source[st['source']], frames_by_source[st['source']][i - 1]) for st in spec['states'] for i in st['frames']]
+# Extents about the alignment point, in (mul-corrected) SOURCE px, over every frame that ships.
+left = max(ax * m for m, (c, ax, ay) in used); right = max((c.shape[1] - ax) * m for m, (c, ax, ay) in used)
+up = max(ay * m for m, (c, ax, ay) in used); down = max((c.shape[0] - ay) * m for m, (c, ax, ay) in used)
 chh = int(spec['cellH'])
 if spec['align'] == 'centroid':
     # Alignment point at the horizontal centre; the union's lowest pixel sits on the bottom row.
@@ -195,12 +229,13 @@ else:
 cols_out = max(len(st['frames']) for st in spec['states'])
 sheet = Image.new('RGBA', (cw * cols_out, chh * len(spec['states'])), (0, 0, 0, 0))
 for r, st in enumerate(spec['states']):
+    s = scale * mul_by_source[st['source']]
     for k, i in enumerate(st['frames']):
         crop, ax, ay = frames_by_source[st['source']][i - 1]
         im = Image.fromarray(crop).resize(
-            (max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale))), Image.LANCZOS)
-        px = k * cw + round(cw / 2 - ax * scale)
-        py = r * chh + round(anchor_y - ay * scale)
+            (max(1, round(crop.shape[1] * s)), max(1, round(crop.shape[0] * s))), Image.LANCZOS)
+        px = k * cw + round(cw / 2 - ax * s)
+        py = r * chh + round(anchor_y - ay * s)
         sheet.alpha_composite(im, (px, py))
 sheet.save(out_png, optimize=True)
 manifest = {

@@ -510,7 +510,28 @@ export class GathererRenderer {
       for (let k = 0; k < 3; k++) {
         const r = (10 + 9 * k) * (1 - 0.6 * t);
         const a0 = t * 9 + (k * Math.PI * 2) / 3;
-        g.arc(v.x, v.y, r, a0, a0 + Math.PI * 1.2).stroke({ width: 2.5 - k * 0.5, color: DEEP_CURRENT_VORTEX_COLOR, alpha: alpha * (0.9 - k * 0.2) });
+        /*
+         * ⛔⛔ S189 C7 (owner) — **LIFT THE PEN TO THE ARC'S OWN START FIRST. THIS LINE IS THE FIX.**
+         *
+         * > *"there's like a line … a big line every time they teleport all over the screen … without
+         * > that weird like laser beam"* — owner, S189
+         *
+         * Pixi v8 follows canvas path semantics: `arc()` draws a connecting LINE from the current pen
+         * position to the arc's start, and after every `fill`/`stroke` the context re-seats the pen at
+         * `getLastPoint()` of the path it just finished. Measured on Pixi 8.19: after a `circle().fill()`
+         * (the gatherers drawn just above) that point is whatever `Point.shared` last held — (0,0) on a
+         * fresh page, i.e. screen top-left — and after an `arc` it is `(undefined, undefined)`. So the
+         * first swirl of every teleport was stroked as a line from somewhere else on the board, for all
+         * 36 frames the swirl lives. It is the identical defect `hazardRing.ts` fixed in S86 P2
+         * (*"a stray line from screen top-left to every ringed hazard"*), repeated here in S188.
+         *
+         * `moveTo` starts each arc as its own subpath, so nothing joins it to anything.
+         * `s189DeepCurrentNoBeam.test.ts` strokes the real renderer through a real teleport, on the
+         * host and on a 10 Hz client, and asserts no segment spans the jump.
+         */
+        g.moveTo(v.x + r * Math.cos(a0), v.y + r * Math.sin(a0))
+          .arc(v.x, v.y, r, a0, a0 + Math.PI * 1.2)
+          .stroke({ width: 2.5 - k * 0.5, color: DEEP_CURRENT_VORTEX_COLOR, alpha: alpha * (0.9 - k * 0.2) });
       }
     }
     this.vortices = this.vortices.filter((v) => v.age < DEEP_CURRENT_VORTEX_FRAMES);

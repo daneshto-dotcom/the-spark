@@ -10,9 +10,19 @@ COVER-FIT, TOP-ANCHORED. Every card has its NAME baked into the top band (MANIFE
 crop is spent on the bottom edge and never on the lettering. A square source loses ~3.6 % of its
 height off the bottom; a 784 x 756 source is already the tile's ratio and loses nothing.
 
-l10-vampires (THE SWARM) is deliberately NOT built: level 10 has no mechanic, and a card cannot
-precede its mechanic (S188 brief P2, item 8). The two -alt files are the owner's kept alternates,
-not runtime art.
+l10-vampires (THE SWARM) IS built — S188 `s188/swarm` built its mechanic (`vampires.l10`), so the
+card no longer precedes it (the S188 brief P2 item 8 rule still holds; it is now satisfied). Its
+source is the 784 x 756 top-anchored crop of the Grok render (MANIFEST.md), and this script rebuilds
+the committed l10-vampires.webp byte-identical (sha256 c0e6fafd..., measured S190). The two -alt
+files are the owner's kept alternates, not runtime art.
+
+l10-mummies (WRATH OF RA) IS built — S188 `s188/ra-vfx`. Its mechanic (`mummies.l10`) is being
+built in the parallel branch `s188/wrath`, so on this branch the card ships one merge AHEAD of the
+perk that references it (draftOverlay.test.ts names that allowance explicitly). The master is the
+owner's raw render cropped to its dark inner panel: `l10-mummies-raw.png` (1024 x 1024, white
+margin + rounded black frame) -> box (88, 88, 936, 936) -> `l10-mummies.png` (848 x 848). The box
+starts 4 px inside the frame's inner edge so the stroke's rounded corners carry no white and no
+black arc into the crop; measured, the outer 6 px ring of the master holds 0 near-white pixels.
 
 Usage:  python scripts/build-upgrade-cards.py
 Exit:   0 every card written; 1 a source is missing or unreadable.
@@ -38,6 +48,7 @@ CARDS = [
     "general-hp", "general-def", "general-atk", "general-pen",
     "l0-vampires", "l0-zombies", "l0-mummies", "l0-orcs", "l0-demons", "l0-nagas",
     "l5-vampires", "l5-zombies", "l5-mummies", "l5-orcs", "l5-demons", "l5-nagas",
+    "l10-vampires", "l10-mummies",
 ]
 
 

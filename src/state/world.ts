@@ -186,6 +186,7 @@ import { applyUpgradeCastleStat, type UpgradeCastleStatAction } from './castleUp
 import { applyCastPowerOfRa } from './racial/powerOfRa.ts';
 import type { CastPowerOfRaAction } from './racial/powerOfRaRules.ts';
 import { spendScore } from './gameMode.ts';
+import { drainRacialSpawnQueueOutsideHostTick } from './racial/spawnQueue.ts';
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -505,7 +506,31 @@ export function makeWorld(rngSeed: number): World {
   return w;
 }
 
+/**
+ * ⭐ S189 (LOW d) — how many `dispatch` calls are on the stack. Module-level is correct: the sim is
+ * single-threaded, and a Worker has its own module instance.
+ */
+let dispatchDepth = 0;
+
+/**
+ * The one reducer entry. ⭐ S189 (LOW d) — when a TOP-LEVEL dispatch returns OUTSIDE a host tick (a
+ * remote intent the host applies on arrival, a local action, the worker applying a posted intent), any
+ * racial spawn its effects queued is born now, as part of the action — so no save between ticks can
+ * land on queued work. Inside `runHostTick` the hook is silent and the strike batch's post-sweep drain
+ * keeps its order. See `racial/spawnQueue.ts`. `finally`, so a reducer that throws (a mispredicted
+ * optimistic apply) still leaves the depth balanced.
+ */
 export function dispatch(world: World, action: GameAction): World {
+  dispatchDepth++;
+  try {
+    return dispatchReducer(world, action);
+  } finally {
+    dispatchDepth--;
+    if (dispatchDepth === 0) drainRacialSpawnQueueOutsideHostTick(world);
+  }
+}
+
+function dispatchReducer(world: World, action: GameAction): World {
   // S86 P3 — central bench gate (Council CONCEDED→GROK: ONE choke point, not
   // per-verb enumeration). A benched (eaten) actor's acquisitive/structural
   // intents are rejected HERE, before any case body, covering local input,

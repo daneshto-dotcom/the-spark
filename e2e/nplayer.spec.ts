@@ -211,7 +211,7 @@ test.describe('S63 / S147 R41 - FULL-TABLE render: MAX_PLAYERS seated + avatars/
       /*
        * ⛔ S188 — CLONE THE FACTORY-BUILT SEAT 0, never hand-roll a Player. This fixture used to seat six
        * object literals carrying only the S63 fields, so every field added since (S187 `castleUpgrades`,
-       * `draftPicks`, S188 `dynastyHpLost`, `raStrike`, …) was `undefined` on seats 1–5. It stayed green
+       * `draftPicks`, S188 `dynastyHpLost`, `raStrike` — `raStrikes` since S190's protocol 51 —, …) was `undefined` on seats 1–5. It stayed green
        * only until a per-frame reader touched one: S188's keep bar reads `castleUpgrades` and the render
        * loop threw "reading 'hpBonus'" every frame. Production never builds a Player this way (the type
        * makes those fields REQUIRED and every construction site goes through `makeIdlePlayer`), so the

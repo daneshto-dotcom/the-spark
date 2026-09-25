@@ -59,7 +59,7 @@
  */
 
 import { seatHoldsPerk } from '../racialPerks.ts';
-import { creatureMaxEhp } from '../creatures/creature.ts';
+import { creatureMaxEhp, noteCreatureHeal } from '../creatures/creature.ts';
 import type { DraftPick } from '../draft.ts';
 import type { RaceId } from '../races.ts';
 import type { World } from '../worldTypes.ts';
@@ -123,7 +123,9 @@ export function applyLifesteal(world: World, attacker: Attacker, amountFifths: n
   }
   const max = creatureMaxEhp(a);
   if (a.ehp >= max) return; // never an overheal, and never LOWERS a pool that is somehow above it
+  const before = a.ehp; // S189 R190-I
   a.ehp = Math.min(max, a.ehp + heal);
+  noteCreatureHeal(a, before); // S189 R190-I — the green floater
 }
 
 /**
@@ -144,7 +146,9 @@ export function applyPendingLifesteal(world: World): void {
     if (c === undefined || c.ehp <= 0 || dying?.has(id) === true) continue;
     const max = creatureMaxEhp(c);
     if (c.ehp >= max) continue;
+    const before = c.ehp; // S189 R190-I
     c.ehp = Math.min(max, c.ehp + (pending.get(id) ?? 0));
+    noteCreatureHeal(c, before); // S189 R190-I — the green floater
   }
   pending.clear();
 }

@@ -87,7 +87,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 50; // S188 — 49 → 50: the racial upgrades ('racial' on CHOOSE_DRAFT.pick + twelve new sim rules both peers compute). S187 — 48 → 49: the upgrade draft adds the CHOOSE_DRAFT client intent, so a v48 host would drop a v49 joiner's pick and that seat could never draft. Independently: a drafted upgrade changes a unit's pool, carried by the new Creature.maxEhp a v48 peer does not know about. (S186 — 47 → 48: the win bar, spawn rate and free-spark cap became functions of world.waveNumber.)
+const LOCAL_PROTO_V = 51; // S190 — 50 → 51: deploy #4 (raStrike → raStrikes for WRATH OF RA, the t3BatSwarm type for THE SWARM, two changed wave-11 offers, the drafted strike baked into Creature.atkFifths). S188 — 49 → 50: the racial upgrades ('racial' on CHOOSE_DRAFT.pick + twelve new sim rules both peers compute). S187 — 48 → 49: the upgrade draft adds the CHOOSE_DRAFT client intent, so a v48 host would drop a v49 joiner's pick and that seat could never draft. Independently: a drafted upgrade changes a unit's pool, carried by the new Creature.maxEhp a v48 peer does not know about. (S186 — 47 → 48: the win bar, spawn rate and free-spark cap became functions of world.waveNumber.)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**

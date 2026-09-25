@@ -58,13 +58,15 @@ import { dispatch } from '../world.ts';
 import { liveIdsOfType } from '../bossSkills.ts';
 import { T9_BOSS_TYPE, isT9BossType } from '../t9BossIds.ts';
 import { playerHoldsPerk } from '../draftEvent.ts';
-import { attackFifths } from '../stats.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
 import {
+  attackCycleMultiplier,
+  creatureAttackFifths,
   creatureMaxEhp,
   isCorpseEaterFeeding,
   isStunned,
   isUntargetable,
+  noteCreatureHeal,
   rageMultiplier,
   type Creature,
   type CreatureState,
@@ -187,9 +189,11 @@ export function corpseEaterOwnStepPx(boss: Creature): number {
 
 /**
  * ⛔ S188 FIX (audit F1) — **A BOSS SHOVED OUT OF HIS LEASH SITS BACK DOWN WHERE HE LANDED; HE IS NEVER
- * SNAPPED BACK.** The Kraken's sonar stuns AND flings (`prevPos` shove, ~26 px/substep), the stun gate
- * rightly suspends the leash for the whole slide, and the first unstunned feed tick used to clamp him
- * straight back onto the circle — a one-tick teleport of up to ~860 px, on both peers.
+ * SNAPPED BACK.** The Kraken's sonar stuns AND shoves (a `prevPos` shove — ~26 px/substep when this
+ * was written, sized since S189 C10 to `KRAKEN_SONAR_KNOCKBACK_PX` = 70 px of slide, which still
+ * clears this 60 px leash), the stun gate rightly suspends the leash for the whole slide, and the first
+ * unstunned feed tick used to clamp him straight back onto the circle — a one-tick teleport of up to
+ * ~860 px under the old shove, on both peers.
  *
  * So, when he is found OUTSIDE the leash and it was not his own doing — he was stunned on the previous
  * tick (`stunnedUntilTick === tick` is exactly the first acting tick), or the overshoot is more than his
@@ -235,8 +239,11 @@ function maybeTrigger(world: World, boss: Creature): void {
 
 /**
  * One bite through the ordinary strike reducer, and the heal: **100 % of the bite's amount — the whole
- * `attackFifths(atk, pen)`, overkill included — capped at his max.** "Overkill included" is the brief's
- * reading of *"for as much as he attacks that's as much as he heals"*: a bite that fells a 28-fifth
+ * strike he lands, overkill included — capped at his max.** ⭐ S190 (draft-atk): "the whole strike" is
+ * HIS OWN (`creatureAttackFifths`, buffed when his seat drafted ATK/PEN), never his type's config
+ * `attackFifths(atk, pen)` — the bite rides the ordinary strike reducer, so the heal follows it.
+ * "Overkill included" is the brief's reading of *"for as much as he attacks that's as much as he
+ * heals"*: a bite that fells a 28-fifth
  * scarab still heals the full swing. A bite the reducer REFUSED (out of reach, lost the initiative
  * roll) removed nothing and heals nothing.
  */
@@ -249,11 +256,13 @@ function bite(world: World, boss: Creature, victimId: CreatureId): void {
   // Inside the deferral window a lethal bite leaves the victim in the map at ≤ 0, so the loss is the
   // whole hit, overkill included — "for as much as he attacks". A victim removed outright (outside
   // that window, i.e. only when a test calls this directly) lost the ordinary hit.
-  const cfg = getCreatureConfig(boss.type);
-  const lost = after === undefined ? attackFifths(cfg.atk, cfg.pen) : Math.max(0, before - after.ehp);
+  // ⭐ S190 — the fallback is his OWN strike: the number the reducer's creature arm strikes with.
+  const lost = after === undefined ? creatureAttackFifths(boss) : Math.max(0, before - after.ehp);
   if (lost <= 0) return; // the reducer refused (out of reach, lost the initiative roll) — no bite, no heal
   const heal = Math.floor((lost * CORPSE_EATER_HEAL_PCT) / 100);
+  const ehpBefore = boss.ehp; // S189 R190-I
   boss.ehp = Math.min(creatureMaxEhp(boss), boss.ehp + heal);
+  noteCreatureHeal(boss, ehpBefore); // S189 R190-I — the green floater
 }
 
 /** One feeding tick for one unstunned, living boss. */
@@ -279,14 +288,36 @@ function feedStep(world: World, boss: Creature): void {
      * reach. A creature that walks through his arm is bitten on the same schedule it would be by his
      * ordinary attack — no earlier, no later.
      */
-    const cadence = Math.max(1, Math.round(cfg.attackCadenceTicks / rageMultiplier(boss)));
-    const fire = Math.min(cfg.attackFireTick, cadence - 1);
+    /*
+     * ⭐ S189 (LOW a) — **THE SWING RUNS ON THE RAGE LATCHED WHEN IT STARTED, NOT THE LIVE BIT.**
+     *
+     * This read `rageMultiplier(boss)` — the LIVE `enraged` bit — every tick, which is exactly the
+     * defect deploy #2's F3 closed in the FSM (`Creature.attackCycleRaged`): a flip calm → raged after
+     * the calm fire tick wrapped the counter onto the raged clock and bit again half a cycle early,
+     * and raged → calm right after a raged bite re-armed the calm fire tick on the very next tick — a
+     * second bite in one swing. So the cycle's cadence reads the SAME latch the FSM uses, taken on the
+     * cycle's first tick (`ticksInState === 0` here, where the FSM's is 1, because this clock starts at
+     * 0 on engaging); movement still reads the live bit, as it does for every creature.
+     *
+     * ⚠ LATENT IN PRODUCTION TODAY: the only writers of `enraged` are the Warlord's own latch and BLOOD
+     * FRENZY, and both are orc-typed, so no zombie boss is enraged by anything that ships. Latched
+     * anyway, because the day a rage source reaches him this clock must not be the one that forgot.
+     * The latch field is already serialized and hashed (F3), so this adds no wire or hash site.
+     */
+    const cycleCadence = (): number =>
+      Math.max(1, Math.round(cfg.attackCadenceTicks / attackCycleMultiplier(boss)));
     if (boss.state !== 'ATTACKING' || boss.targetCreatureId !== victim.id) {
       boss.state = 'ATTACKING';
       boss.ticksInState = 0;
     } else {
-      boss.ticksInState = (boss.ticksInState + 1) % cadence;
+      boss.ticksInState = (boss.ticksInState + 1) % cycleCadence(); // the ENDING cycle's own clock
     }
+    if (boss.ticksInState === 0) {
+      // A cycle starts: latch its rage, exactly as `creatureLifecycle` does for the FSM's swing.
+      if (boss.enraged === true) boss.attackCycleRaged = true;
+      else delete boss.attackCycleRaged;
+    }
+    const fire = Math.min(cfg.attackFireTick, cycleCadence() - 1);
     boss.targetCreatureId = victim.id;
     if (boss.ticksInState === fire) bite(world, boss, victim.id);
   } else {

@@ -440,3 +440,12 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
 - differential first run EXIT=1 on INIT bit-exactness — BENIGN transient field (see step 4b).
 - typecheck TC_EXIT=1 after the differential landed (TS2367: `matchPhase` narrowed to 'BUILD' by the
   setup assignment) — a REAL error in commit 59d124c (vitest does not typecheck). RESOLVED next commit.
+
+## S191 (brief `.claude/plans/S191_BRIEFS/weld.md`, deploy #5 part 1)
+
+### step 1 — master (deploy #4 7404a49 + bookkeeping, tip 42cc2ee) MERGED into weld
+- `git merge --no-ff master` — 163 master commits in, 196 files; auto-merged the four files both sides
+  touched (`defenderLifecycle.ts`, `hostTick.ts`, `save.ts`, `stateHashFull.ts`); ZERO conflicts, so no
+  resolutions to list. `package.json` changed one npm script only; `package-lock.json` untouched ⇒ the
+  worktree's existing `node_modules` is valid (no reinstall).
+- (a `grep -c package-lock` exit 1 = zero matches — BENIGN, it is the "no lockfile change" verdict.)

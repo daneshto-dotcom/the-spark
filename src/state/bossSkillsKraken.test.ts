@@ -14,14 +14,32 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  CANVAS_HEIGHT,
+  CANVAS_WIDTH,
+  GOBLIN_ATTACK_RANGE,
   KRAKEN_SONAR_COS_HALF_ANGLE,
   KRAKEN_SONAR_INTERVAL_TICKS,
   KRAKEN_SONAR_RANGE,
   KRAKEN_SONAR_STUN_TICKS,
+  PHYSICS_SUBSTEPS,
   PLAYER_COLORS,
+  VELOCITY_DAMPING,
+  WORLD_EDGE_MARGIN,
 } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
-import { inCone, nearestEnemyFor, runKrakenSonar } from './bossSkillsKraken.ts';
+import {
+  KRAKEN_SONAR_KNOCKBACK_PX,
+  KRAKEN_SONAR_SHOVE_PER_SUBSTEP,
+  applySonarShove,
+  inCone,
+  nearestEnemyFor,
+  runKrakenSonar,
+} from './bossSkillsKraken.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
+import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
+import { mulberry32 } from './rng.ts';
+import { makeGameStateExtras } from './gameState.ts';
+import type { Controls } from '../input/controls.ts';
 import { applyStun, isStunned } from './creatures/creature.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -292,5 +310,228 @@ describe('S169 R139 — stun and knockback COMPOSE (the reason gate 2 coasts)', 
     fireOnce(world, bossId);
     const v = world.creatures.get(victim)!;
     expect(computeSteeringAccel(v, world.tick)).toBe(ZERO_ACCEL);
+  });
+});
+
+/*
+ * ⭐⭐ S189 C10 (owner) — **A SHORT KNOCKBACK, HELD TO THE BOARD, AND A STUN.**
+ *
+ * > *"the Kraken sonar sends units flying … outside the map … it should like move them … knock them
+ * > back a little bit … and stun them"* — owner, S189
+ *
+ * The old `KRAKEN_SONAR_KNOCKBACK = 26` was a displacement used as a per-SUBSTEP velocity: a coasting
+ * stunned unit travelled ≈ 425× it (~11,000 px) and stopped only at the board edge. The shove is now
+ * DERIVED from a distance (`KRAKEN_SONAR_KNOCKBACK_PX`, 70 px — MINE) so the stunned coast covers
+ * exactly that. ⭐ MUTATION-TESTED: restoring the 26 px/substep impulse turns the host-tick case red.
+ */
+describe('S189 C10 — the sonar knocks back a LITTLE, stays on the board, and stuns', () => {
+  it('the arithmetic: the impulse coasts exactly KRAKEN_SONAR_KNOCKBACK_PX over the stun', () => {
+    expect(KRAKEN_SONAR_KNOCKBACK_PX).toBe(2 * GOBLIN_ATTACK_RANGE);
+    const n = KRAKEN_SONAR_STUN_TICKS * PHYSICS_SUBSTEPS;
+    let sum = 0;
+    let f = 1;
+    for (let k = 0; k < n; k++) {
+      f *= VELOCITY_DAMPING;
+      sum += f;
+    }
+    expect(KRAKEN_SONAR_SHOVE_PER_SUBSTEP * sum).toBeCloseTo(KRAKEN_SONAR_KNOCKBACK_PX, 9);
+    // And a unit really moves that far under the real integrator with the stun gate's ZERO_ACCEL.
+    const { world } = krakenWorld();
+    const v = world.creatures.get(spawnEnemy(world, 900, 500))!;
+    v.prevPos.x = v.pos.x;
+    v.prevPos.y = v.pos.y; // at rest
+    const x0 = v.pos.x;
+    applySonarShove(v, 1, 0);
+    for (let k = 0; k < n; k++) creatureVerletStep(v, 1 / 480, ZERO_ACCEL);
+    expect(v.pos.x - x0).toBeCloseTo(KRAKEN_SONAR_KNOCKBACK_PX, 6);
+    // ⛔ the regression, in one number: the old shove was over a hundred times this one.
+    expect(26 / KRAKEN_SONAR_SHOVE_PER_SUBSTEP).toBeGreaterThan(100);
+  });
+
+  /** A 1v1 through START_GAME so the real host tick has a layout, with the Kraken for seat 0. */
+  function hostKrakenBoard(): { world: World; bossId: CreatureId } {
+    const world = makeWorld(0xc10);
+    world.gameState = 'TITLE';
+    dispatch(world, {
+      type: 'START_GAME',
+      mode: '1v1',
+      isHost: true,
+      roster: [
+        { seat: 0, color: PLAYER_COLORS[0] },
+        { seat: 1, color: PLAYER_COLORS[1] },
+      ],
+    } as never);
+    world.gameState = 'PLAYING';
+    world.isHost = true;
+    world.matchPhase = 'FIGHT';
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    world.creatures.clear();
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: T9_BOSS_TYPE.nagas as never,
+      ownerPlayerId: P0,
+      pos: { x: 700, y: 540 },
+      targetPos: { x: 700, y: 540 },
+    });
+    const boss = [...world.creatures.values()].find((c) => c.type === T9_BOSS_TYPE.nagas)!;
+    return { world, bossId: boss.id };
+  }
+
+  const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
+  function hostDeps(): HostTickDeps {
+    return {
+      spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)),
+      controls: stubControls,
+      botManager: null,
+      gameStateExtras: makeGameStateExtras(),
+      alivePeerIds: null,
+      hostSeats: new Map(),
+    } as unknown as HostTickDeps;
+  }
+
+  const onBoard = (p: { x: number; y: number }): boolean =>
+    p.x >= WORLD_EDGE_MARGIN &&
+    p.x <= CANVAS_WIDTH - WORLD_EDGE_MARGIN &&
+    p.y >= WORLD_EDGE_MARGIN &&
+    p.y <= CANVAS_HEIGHT - WORLD_EDGE_MARGIN;
+
+  /**
+   * Put the boss `lead` ticks from being due by moving the CLOCK, not by running up to it: a run-up can
+   * take a whole 540-tick interval, and the Kraken marches off its mark in the meantime.
+   */
+  function runUntilDueIn(world: World, bossId: CreatureId, lead: number, d: HostTickDeps, s: ReturnType<typeof makeHostTickState>): void {
+    while ((world.tick + lead + (bossId as number)) % KRAKEN_SONAR_INTERVAL_TICKS !== 0) world.tick += 1;
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    void d;
+    void s;
+  }
+
+  /**
+   * The REAL host tick: a victim is dropped in (at rest, SPAWNING = force-free) 10 ticks before the
+   * Kraken is due, the wave hits it, then the loop runs through the whole stun. The Kraken is held by a
+   * stun of its own AFTER it has spat, so it cannot walk up and kill the unit being measured.
+   */
+  function waveThroughHostTick(victimAt: { x: number; y: number }, bossX = 700): {
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+    offBoard: number;
+    stunned: boolean;
+  } {
+    const { world, bossId } = hostKrakenBoard();
+    const boss = world.creatures.get(bossId)!;
+    boss.pos.x = bossX;
+    boss.prevPos.x = bossX;
+    const d = hostDeps();
+    const s = makeHostTickState(world);
+    runUntilDueIn(world, bossId, 10, d, s);
+    const vid = spawnEnemy(world, victimAt.x, victimAt.y);
+    let start: { x: number; y: number } | null = null;
+    let stunned = false;
+    for (let t = 0; t < 20 && start === null; t++) {
+      runHostTick(world, d, s);
+      const v = world.creatures.get(vid)!;
+      if (v.stunnedUntilTick !== undefined) {
+        start = { x: v.pos.x, y: v.pos.y };
+        stunned = isStunned(v, world.tick);
+        applyStun(world.creatures.get(bossId)!, world.tick + 10_000);
+      }
+    }
+    if (start === null) throw new Error('fixture: the wave never reached the victim');
+    const v = world.creatures.get(vid)!;
+    const until = v.stunnedUntilTick!;
+    let offBoard = 0;
+    while (world.tick < until) {
+      runHostTick(world, d, s);
+      if (!onBoard(v.pos)) offBoard += 1;
+    }
+    return { start, end: { x: v.pos.x, y: v.pos.y }, offBoard, stunned };
+  }
+
+  it('⭐⭐ REACH, THROUGH THE REAL HOST TICK: a unit in the cone is stunned and slides ~70 px, not across the map', () => {
+    const r = waveThroughHostTick({ x: 900, y: 540 }); // 200 px in front of the Kraken
+    expect(r.stunned).toBe(true);
+    const moved = Math.hypot(r.end.x - r.start.x, r.end.y - r.start.y);
+    expect(moved).toBeGreaterThan(KRAKEN_SONAR_KNOCKBACK_PX * 0.9);
+    expect(moved).toBeLessThan(KRAKEN_SONAR_KNOCKBACK_PX * 1.1);
+    expect(r.end.x, 'pushed AWAY from the Kraken').toBeGreaterThan(r.start.x);
+    expect(r.offBoard).toBe(0);
+  });
+
+  it('⭐ AT THE EDGE: a unit shoved toward the touchline is held on the board, pressed at the margin', () => {
+    const hiX = CANVAS_WIDTH - WORLD_EDGE_MARGIN;
+    const r = waveThroughHostTick({ x: hiX - 30, y: 540 }, 1690); // 30 px from the margin, dead ahead
+    expect(r.stunned).toBe(true);
+    expect(r.offBoard).toBe(0);
+    // It reached the margin: the clamp was exercised, not merely present.
+    expect(r.end.x).toBe(hiX);
+  });
+
+  it('negative — a unit BEHIND the Kraken, at rest, does not move at all through the wave', () => {
+    const { world, bossId } = hostKrakenBoard();
+    const d = hostDeps();
+    const s = makeHostTickState(world);
+    runUntilDueIn(world, bossId, 10, d, s);
+    // ⚠ The aim unit must be the NEARER one, or the cone self-aims at the other (see the S169 note
+    // above on the 'several enemies' case): 150 px ahead vs 180 px behind.
+    const aim = spawnEnemy(world, 850, 540); // in front: sets the axis
+    const behind = spawnEnemy(world, 520, 540); // directly opposite, inside the range
+    const b0 = { ...world.creatures.get(behind)!.pos };
+    let fired = false;
+    for (let t = 0; t < 20 && !fired; t++) {
+      runHostTick(world, d, s);
+      fired = world.creatures.get(aim)!.stunnedUntilTick !== undefined;
+    }
+    expect(fired).toBe(true);
+    const b = world.creatures.get(behind)!;
+    expect(b.stunnedUntilTick).toBeUndefined();
+    expect(b.pos).toEqual(b0); // still SPAWNING, force-free, and never shoved
+  });
+
+  /*
+   * ⭐⭐ S189 audit U1 — **A UNIT WALKING INTO THE KRAKEN IS KNOCKED BACK TOO, NOT CARRIED THROUGH.**
+   *
+   * The first cut ADDED the shove to the victim's current velocity. Every test above used a victim at
+   * rest, so none could see that a unit walking toward him faster than ~79 px/s — a plain goblin walks
+   * ~146 px/s — kept coming, and ended the 2 s stun CLOSER (the audit's recurrence: −59 px for a goblin,
+   * −115 px at Voltkin speed). The shove now REPLACES the velocity, so every victim coasts the same
+   * `KRAKEN_SONAR_KNOCKBACK_PX` out. ⭐ Mutation-checked by restoring the additive form.
+   */
+  it('⭐⭐ REACH (audit U1): a goblin SEEKING at top speed INTO the Kraken ends ~70 px FARTHER away', () => {
+    const { world, bossId } = hostKrakenBoard();
+    const boss = world.creatures.get(bossId)!;
+    const d = hostDeps();
+    const s = makeHostTickState(world);
+    // Hold the Kraken still and silent while the goblin walks in (a stunned boss neither moves nor spits).
+    applyStun(boss, world.tick + 1_000_000);
+    const vid = spawnEnemy(world, 1300, 540); // marching on seat 0's keep, straight through the Kraken
+    let v = world.creatures.get(vid)!;
+    let t = 0;
+    for (; t < 2000; t++) {
+      runHostTick(world, d, s);
+      v = world.creatures.get(vid)!;
+      if (v.state === 'SEEKING' && Math.hypot(v.pos.x - boss.pos.x, v.pos.y - boss.pos.y) < 240) break;
+    }
+    expect(t, 'fixture: the goblin never reached the wave').toBeLessThan(2000);
+    // It is walking INTO him, at speed: the component of its velocity toward the Kraken, per second.
+    const toward = { x: boss.pos.x - v.pos.x, y: boss.pos.y - v.pos.y };
+    const tl = Math.hypot(toward.x, toward.y);
+    const closing = (((v.pos.x - v.prevPos.x) * toward.x + (v.pos.y - v.prevPos.y) * toward.y) / tl) * 480;
+    expect(closing, 'fixture: the goblin must be closing faster than the old break-even ~79 px/s').toBeGreaterThan(100);
+
+    // Release the Kraken and make him due on the very next tick.
+    delete boss.stunnedUntilTick;
+    while ((world.tick + 1 + (bossId as number)) % KRAKEN_SONAR_INTERVAL_TICKS !== 0) world.tick += 1;
+    world.phaseEndsAtTick = world.tick + 1_000_000;
+    runHostTick(world, d, s);
+    v = world.creatures.get(vid)!;
+    expect(v.stunnedUntilTick, 'the wave hit the goblin').toBeDefined();
+    const k = { x: boss.pos.x, y: boss.pos.y };
+    const startDist = Math.hypot(v.pos.x - k.x, v.pos.y - k.y);
+    applyStun(boss, world.tick + 1_000_000); // he may not walk up and kill what we are measuring
+    const until = v.stunnedUntilTick!;
+    while (world.tick < until - 1) runHostTick(world, d, s);
+    const endDist = Math.hypot(v.pos.x - k.x, v.pos.y - k.y);
+    expect(endDist - startDist).toBeGreaterThan(KRAKEN_SONAR_KNOCKBACK_PX * 0.9);
+    expect(endDist - startDist).toBeLessThan(KRAKEN_SONAR_KNOCKBACK_PX * 1.1);
   });
 });
