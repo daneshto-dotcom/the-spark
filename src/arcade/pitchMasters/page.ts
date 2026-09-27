@@ -38,12 +38,16 @@ function el<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
 }
 
+// Both are no-ops once the loading screen is gone: the engine's preloader can still report progress
+// on a later animation frame.
 function setStatus(text: string): void {
-  el('pm-status').textContent = text;
+  const s = document.getElementById('pm-status');
+  if (s !== null) s.textContent = text;
 }
 
 function setProgress(frac: number | null): void {
-  const bar = el('pm-bar-fill');
+  const bar = document.getElementById('pm-bar-fill');
+  if (bar === null) return;
   if (frac === null) {
     bar.classList.add('pm-indeterminate');
     bar.style.width = '35%';
@@ -55,7 +59,7 @@ function setProgress(frac: number | null): void {
 
 function fail(msg: string): void {
   setStatus(msg);
-  el('pm-loading').classList.add('pm-failed');
+  document.getElementById('pm-loading')?.classList.add('pm-failed');
   console.error(`[pitch-masters] ${msg}`);
 }
 
