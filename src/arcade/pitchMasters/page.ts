@@ -83,6 +83,74 @@ function gameArgs(p: URLSearchParams): string[] {
   return args.length > 0 ? ['--', ...args] : [];
 }
 
+/**
+ * The match theme on the web. Godot 4.3's web build plays audio as pre-decoded "samples" and never
+ * turned the 3:34 MP3 into one (measured live: Music.gd said "playing", every SFX reached Web Audio as a
+ * buffer, the theme never did), so the page plays it with the browser's own audio element.
+ * `src/autoload/Music.gd` drives it through JavaScriptBridge: play(from) / fade(ms) / stop() /
+ * setVolume(0..1, the Music x Master bus volumes) / position() / playing(). Desktop keeps Godot's player.
+ */
+function installPitchMusic(src: string): void {
+  const audio = new Audio();
+  audio.src = src;
+  audio.loop = true;
+  audio.preload = 'auto';
+  let base = 0.5;
+  let fade = 1;
+  let fadeTimer: number | undefined;
+  const apply = (): void => {
+    audio.volume = Math.min(1, Math.max(0, base * fade));
+  };
+  const stopFade = (): void => {
+    if (fadeTimer !== undefined) window.clearInterval(fadeTimer);
+    fadeTimer = undefined;
+  };
+  (window as unknown as Record<string, unknown>).PitchMusic = {
+    play(from: number): boolean {
+      stopFade();
+      fade = 1;
+      apply();
+      try {
+        audio.currentTime = Math.max(0, Number(from) || 0);
+      } catch {
+        // not seekable yet; it starts from 0:00
+      }
+      void audio.play().catch((e: unknown) => console.warn('[music] the browser blocked play()', e));
+      return true;
+    },
+    fade(ms: number): void {
+      stopFade();
+      const steps = Math.max(1, Math.round((Number(ms) || 1000) / 50));
+      let i = 0;
+      fadeTimer = window.setInterval(() => {
+        i += 1;
+        fade = Math.max(0, 1 - i / steps);
+        apply();
+        if (i >= steps) {
+          stopFade();
+          audio.pause();
+          fade = 1;
+          apply();
+        }
+      }, 50);
+    },
+    stop(): void {
+      stopFade();
+      audio.pause();
+    },
+    setVolume(v: number): void {
+      base = Math.min(1, Math.max(0, Number(v) || 0));
+      apply();
+    },
+    position(): number {
+      return audio.currentTime;
+    },
+    playing(): boolean {
+      return !audio.paused;
+    },
+  };
+}
+
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -96,6 +164,7 @@ function loadScript(src: string): Promise<void> {
 async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const net = installPitchNet();
+  installPitchMusic(`${GAME_DIR}music.mp3`);
   el('pm-back').addEventListener('click', (e) => {
     e.preventDefault();
     net.goArcade();
