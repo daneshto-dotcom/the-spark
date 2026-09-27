@@ -1,0 +1,122 @@
+/**
+ * PITCH MASTERS (arcade) — `window.PitchNet`, the bridge the Godot web build talks to through
+ * `JavaScriptBridge` (Pitch Masters `src/net/WebBridge.gd` + `TrysteroPeer.gd`).
+ *
+ * Source of truth: the Pitch Masters repo, `web/spark/src/arcade/pitchMasters/` (copied here by
+ * `tools/build_web.py`). The pairing rules live in `matchmaker.ts`; this file only plugs them into
+ * Trystero with SPARK's own relays and ICE/TURN servers, imported read-only from `net/iceConfig.ts`
+ * so this page inherits the TURN relay that SPARK's CI build injects. Separate room names
+ * (`pitchmasters-*`), so it never meets a SPARK lobby.
+ *
+ * Contract (strings only: JavaScriptBridge passes strings reliably, binary travels as base64):
+ *   quickMatch()                  search for a stranger (1v1)
+ *   friendHost() -> string        host a private game, returns the code the friend types
+ *   friendJoin(code)              join a friend's game
+ *   cancel()                      leave everything, back to idle
+ *   status() -> string            JSON {state: idle|seeking|connecting|matched|closed|error,
+ *                                       role: host|client|'', mode: quick|friend|'', code, detail, elapsed}
+ *   send(b64, reliable) -> bool   one packet to the partner (every packet rides the ordered,
+ *                                 reliable data channel; `reliable` is accepted for the contract)
+ *   poll() -> string              JSON array of base64 packets received since the last poll, in order
+ *   goArcade()                    back to the SPARK arcade
+ *   setBuild(id)                  the game build id; only identical builds are paired
+ */
+
+import { joinRoom, selfId } from '@trystero-p2p/nostr';
+import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
+import { Matchmaker, type Channel, type RoomHandlers, type RoomLike } from './matchmaker.ts';
+
+export interface PitchNetApi {
+  quickMatch(): void;
+  friendHost(): string;
+  friendJoin(code: string): void;
+  cancel(): void;
+  status(): string;
+  send(b64: string, reliable?: boolean): boolean;
+  poll(): string;
+  goArcade(): void;
+  setBuild(id: string): void;
+  readonly selfId: string;
+}
+
+declare global {
+  interface Window {
+    PitchNet?: PitchNetApi;
+  }
+}
+
+const TICK_MS = 250;
+const ARCADE_URL = '/';
+
+function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
+  const room = joinRoom(
+    {
+      appId: APP_ID,
+      relayConfig: { urls: NOSTR_RELAYS, redundancy: NOSTR_RELAYS.length },
+      rtcConfig: { iceServers: ICE_SERVERS, iceTransportPolicy: 'all' },
+      trickleIce: true,
+    },
+    roomId,
+    {
+      handshakeTimeoutMs: HANDSHAKE_TIMEOUT_MS,
+      onJoinError: (e) => console.warn('[pitchnet] join error', e.error),
+    },
+  );
+  const ctl = room.makeAction<string>('ctl');
+  const pk = room.makeAction<string>('pk');
+  ctl.onMessage = (data, ctx) => h.onMessage('ctl', String(data), ctx.peerId);
+  pk.onMessage = (data, ctx) => h.onMessage('pk', String(data), ctx.peerId);
+  room.onPeerJoin = (peer) => h.onPeerJoin(peer);
+  room.onPeerLeave = (peer) => h.onPeerLeave(peer);
+  const actions: Record<Channel, typeof ctl> = { ctl, pk };
+  return {
+    send: (channel, data, to) => {
+      void actions[channel].send(data, to === undefined ? undefined : { target: to }).catch(() => undefined);
+    },
+    leave: () => {
+      void room.leave().catch(() => undefined);
+    },
+  };
+}
+
+/** Installs `window.PitchNet` once and starts its timer. */
+export function installPitchNet(): PitchNetApi {
+  if (window.PitchNet !== undefined) return window.PitchNet;
+  const debug = new URLSearchParams(location.search).has('netdebug');
+  const mm = new Matchmaker({
+    selfId,
+    join: trysteroRoom,
+    now: () => performance.now(),
+    wallNow: () => Date.now(),
+    random: () => {
+      const b = new Uint32Array(1);
+      crypto.getRandomValues(b);
+      return b[0] / 4294967296;
+    },
+    log: (msg) => {
+      if (debug) console.log(`[pitchnet] ${msg}`);
+    },
+  });
+  setInterval(() => mm.tick(), TICK_MS);
+  // A closing tab says goodbye, so the opponent is told at once instead of after the silence limit.
+  addEventListener('pagehide', () => mm.cancel());
+  const api: PitchNetApi = {
+    selfId,
+    quickMatch: () => mm.quickMatch(),
+    friendHost: () => mm.friendHost(),
+    friendJoin: (code) => mm.friendJoin(String(code)),
+    cancel: () => mm.cancel(),
+    status: () => JSON.stringify(mm.status()),
+    send: (b64) => mm.send(String(b64)),
+    poll: () => JSON.stringify(mm.poll()),
+    goArcade: () => {
+      mm.cancel();
+      location.href = ARCADE_URL;
+    },
+    setBuild: (id) => {
+      mm.build = String(id);
+    },
+  };
+  window.PitchNet = api;
+  return api;
+}

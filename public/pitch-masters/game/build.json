@@ -1,0 +1,30 @@
+{
+ "commit": "c6281ba644c348ea76dc003a103090a520a2620b",
+ "label": "c6281ba644",
+ "dirty": false,
+ "debug": false,
+ "built_at": "2026-09-27T12:30:56Z",
+ "godot": "4.3.stable",
+ "config": {
+  "args": [],
+  "canvasResizePolicy": 2,
+  "ensureCrossOriginIsolationHeaders": false,
+  "executable": "index",
+  "experimentalVK": false,
+  "fileSizes": {
+   "index.pck": 201392,
+   "index.wasm": 35376909
+  },
+  "focusCanvas": true,
+  "gdextensionLibs": []
+ },
+ "files": {
+  "index.apple-touch-icon.png": 10259,
+  "index.audio.worklet.js": 7298,
+  "index.icon.png": 4372,
+  "index.js": 331495,
+  "index.pck": 201392,
+  "index.png": 21443,
+  "index.wasm": 35376909
+ }
+}

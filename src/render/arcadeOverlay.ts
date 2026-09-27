@@ -39,6 +39,11 @@ export interface ArcadeGame {
   readonly name: string;
   readonly blurb: string;
   readonly tint: number;
+  /**
+   * A game that lives on its own page (PITCH MASTERS, a separate Godot build at `/pitch-masters/`).
+   * Launching it navigates there instead of calling `onSelect`, so `main.ts` needs no branch for it.
+   */
+  readonly href?: string;
 }
 
 /**
@@ -53,7 +58,19 @@ export const ARCADE_GAMES: readonly ArcadeGame[] = [
     blurb: 'the six-colour logic trial — fill every row, column and box',
     tint: 0x9b7bff,
   },
+  {
+    id: 'pitch-masters',
+    name: 'PITCH MASTERS',
+    blurb: 'real-time soccer card battler — quick match online',
+    tint: 0xf2bf26,
+    href: '/pitch-masters/',
+  },
 ];
+
+/** PURE — the page an arcade id launches, or null when the game runs inside SPARK (NONET). */
+export function arcadeHref(id: string, games: readonly ArcadeGame[] = ARCADE_GAMES): string | null {
+  return games.find((g) => g.id === id)?.href ?? null;
+}
 
 const ROW_W = 560;
 const ROW_H = 78;
@@ -137,6 +154,14 @@ export class ArcadeOverlay {
     this.container.visible = false;
     this.container.eventMode = 'static';
     this.container.hitArea = { contains: (x: number, y: number) => x >= 0 && x <= CANVAS_WIDTH && y >= 0 && y <= CANVAS_HEIGHT };
+    // A game with its own page (PITCH MASTERS) launches by navigating there; everything else goes
+    // to the caller as before.
+    const caller = onSelect;
+    onSelect = (id: string) => {
+      const href = arcadeHref(id);
+      if (href !== null) window.location.assign(href);
+      else caller(id);
+    };
     this.onSelect = onSelect;
     this.container.on('pointertap', (e: { global: { x: number; y: number } }) => {
       if (!this.open) return;
