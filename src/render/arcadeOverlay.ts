@@ -154,13 +154,19 @@ export class ArcadeOverlay {
     this.container.visible = false;
     this.container.eventMode = 'static';
     this.container.hitArea = { contains: (x: number, y: number) => x >= 0 && x <= CANVAS_WIDTH && y >= 0 && y <= CANVAS_HEIGHT };
-    // A game with its own page (PITCH MASTERS) launches by navigating there; everything else goes
-    // to the caller as before.
+    // A game with its own page (PITCH MASTERS) opens in a new tab, so a slow machine busy loading
+    // the game never takes the arcade down with it; a blocked popup falls back to navigating there.
+    // Everything else goes to the caller as before.
     const caller = onSelect;
     onSelect = (id: string) => {
       const href = arcadeHref(id);
-      if (href !== null) window.location.assign(href);
-      else caller(id);
+      if (href === null) {
+        caller(id);
+        return;
+      }
+      const tab = window.open(href, '_blank');
+      if (tab !== null) tab.opener = null;
+      else window.location.assign(href);
     };
     this.onSelect = onSelect;
     this.container.on('pointertap', (e: { global: { x: number; y: number } }) => {
