@@ -240,7 +240,13 @@ async function boot(): Promise<void> {
   try {
     await engine.startGame({
       onProgress: (current: number, total: number) => {
-        if (current > 0 && total > 0) {
+        if (current > 0 && total > 0 && current >= total) {
+          // PM-S3 web-perf: downloaded. What follows (engine start, script compile) holds the page's main
+          // thread for seconds on a slow machine, so switch to the sliding bar: a CSS transform animation
+          // runs on the compositor and keeps moving while the page is busy (a frozen "43 / 43 MB" looked hung).
+          setProgress(null);
+          setStatus('Starting the game… this can take a little while on slower computers');
+        } else if (current > 0 && total > 0) {
           setProgress(current / total);
           setStatus(`Loading… ${Math.round((current / 1048576) * 10) / 10} / ${Math.round((total / 1048576) * 10) / 10} MB`);
         } else {

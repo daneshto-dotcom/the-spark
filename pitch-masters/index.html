@@ -76,6 +76,7 @@
         transition: width 0.2s;
       }
       #pm-bar-fill.pm-indeterminate {
+        will-change: transform; /* compositor animation: keeps sliding while the game holds the main thread */
         animation: pm-slide 1.1s ease-in-out infinite;
       }
       @keyframes pm-slide {
