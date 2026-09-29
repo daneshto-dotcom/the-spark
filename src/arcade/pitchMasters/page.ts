@@ -19,6 +19,7 @@ interface BuildInfo {
   readonly commit: string;
   readonly label: string;
   readonly config: Record<string, unknown> & { fileSizes?: Record<string, number>; executable?: string };
+  readonly files?: Record<string, number>;
 }
 
 interface GodotEngine {
@@ -93,12 +94,30 @@ function gameArgs(p: URLSearchParams): string[] {
  * buffer, the theme never did), so the page plays it with the browser's own audio element.
  * `src/autoload/Music.gd` drives it through JavaScriptBridge: play(from) / fade(ms) / stop() /
  * setVolume(0..1, the Music x Master bus volumes) / position() / playing(). Desktop keeps Godot's player.
+ *
+ * PM-S3: more tracks, one audio element each: `stadium` (the match theme, as before) and the tracks
+ * build_web.py ships as `music_<id>.mp3` next to the game (`home` = the menus, `beach` = the beach
+ * map). Those are listed in build.json (setTracks) and are never part of the .pck. Their element is
+ * created, and the file fetched, only when Music.gd first asks for the track (setTrack), i.e. once
+ * the menu is up, so they never add to the boot download. has(id) tells Music.gd which exist; a
+ * missing one makes it fall back (silent menus, the stadium theme on the beach).
  */
-function installPitchMusic(src: string): void {
-  const audio = new Audio();
-  audio.src = src;
-  audio.loop = true;
-  audio.preload = 'auto';
+interface PitchMusicHandle {
+  setTracks(files: string[]): void;
+}
+
+function installPitchMusic(src: string): PitchMusicHandle {
+  const make = (url: string): HTMLAudioElement => {
+    const a = new Audio();
+    a.src = url;
+    a.loop = true;
+    a.preload = 'auto';
+    return a;
+  };
+  const urls: Record<string, string> = {};
+  const tracks: Record<string, HTMLAudioElement> = { stadium: make(src) };
+  let current = 'stadium';
+  let audio = tracks.stadium;
   let base = 0.5;
   let fade = 1;
   let fadeTimer: number | undefined;
@@ -152,6 +171,38 @@ function installPitchMusic(src: string): void {
     playing(): boolean {
       return !audio.paused;
     },
+    has(id: string): boolean {
+      return id === 'stadium' || id in urls;
+    },
+    track(): string {
+      return current;
+    },
+    // Switch the element play/position/fade act on. A new track's element (and its download) starts here.
+    setTrack(id: string): boolean {
+      const name = String(id);
+      if (name !== 'stadium' && !(name in urls)) return false;
+      if (name === current) return true;
+      stopFade();
+      audio.pause();
+      fade = 1;
+      let a = tracks[name];
+      if (a === undefined) {
+        a = make(urls[name]);
+        tracks[name] = a;
+      }
+      audio = a;
+      current = name;
+      apply();
+      return true;
+    },
+  };
+  return {
+    setTracks(files: string[]): void {
+      for (const f of files) {
+        const m = /^music_([a-z0-9_]+)\.mp3$/.exec(f);
+        if (m !== null) urls[m[1]] = `${GAME_DIR}${f}`;
+      }
+    },
   };
 }
 
@@ -168,7 +219,7 @@ function loadScript(src: string): Promise<void> {
 async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const net = installPitchNet();
-  installPitchMusic(`${GAME_DIR}music.mp3`);
+  const music = installPitchMusic(`${GAME_DIR}music.mp3`);
   // PM-S2 online2: a hidden tab keeps an online match running (?nokeepalive=1 shows the old freeze).
   if (params.get('nokeepalive') !== '1') {
     installKeepAlive(
@@ -197,6 +248,7 @@ async function boot(): Promise<void> {
     return;
   }
   net.setBuild(build.commit);
+  music.setTracks(Object.keys(build.files ?? {})); // PM-S3: music_<id>.mp3 tracks (lazy)
   el('pm-build').textContent = `build ${build.label}`;
 
   if (params.get('nogame') === '1') {
