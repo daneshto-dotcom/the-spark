@@ -29,7 +29,10 @@
  * ## In the match room
  * Both send `hi {role, v, build}`; each binds the first complementary peer (a quick-match pair binds
  * only the peer it paired with). Packets are base64 strings on the `pk` channel; a 1 s heartbeat and a
- * 10 s silence limit catch a partner whose tab died without saying `bye`.
+ * 30 s silence limit catch a partner whose tab died without saying `bye`. The limit is generous on
+ * purpose: loading the match (3D stadium, crowd, federation art, shader warm-up) blocks the page's
+ * main thread, timers included, for several seconds on a slow or busy machine (7-9 s measured on a
+ * desktop GPU under load), and a 10 s limit dropped real games right at kick-off.
  */
 
 export const PM_PROTO = 1;
@@ -45,7 +48,7 @@ export const NO_ANSWER_COOLDOWN_MS = 8000;
 export const MATCH_ROOM_TIMEOUT_MS = 25000;
 export const FRIEND_JOIN_TIMEOUT_MS = 45000;
 export const HEARTBEAT_MS = 1000;
-export const SILENCE_MS = 10000;
+export const SILENCE_MS = 30000;
 /** How long a room we leave stays open so the last message (confirm, bye) is still delivered. */
 export const LINGER_MS = 1500;
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
