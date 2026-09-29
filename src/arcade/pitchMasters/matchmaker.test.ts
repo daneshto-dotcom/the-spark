@@ -24,7 +24,20 @@ class Bus {
   wall = 1_000_000;
   private readonly rooms = new Map<string, Map<string, RoomHandlers>>();
   private queue: (() => void)[] = [];
+  /** Frozen tabs: what is sent to them waits here, in order, until release(). */
+  private readonly held = new Map<string, (() => void)[]>();
   readonly joins: string[] = [];
+
+  /** A frozen tab (its main thread blocked): nothing reaches `peer` until release(peer). */
+  hold(peer: string): void {
+    if (!this.held.has(peer)) this.held.set(peer, []);
+  }
+
+  release(peer: string): void {
+    const q = this.held.get(peer) ?? [];
+    this.held.delete(peer);
+    this.queue.push(...q);
+  }
 
   join(roomId: string, peer: string, h: RoomHandlers): { send: (c: Channel, d: string, to?: string) => void; leave: () => void } {
     this.joins.push(`${peer}:${roomId}`);
@@ -47,9 +60,12 @@ class Bus {
       send: (c, d, to) => {
         for (const [other, oh] of r) {
           if (other === peer || (to !== undefined && to !== other)) continue;
-          this.queue.push(() => {
+          const deliver = (): void => {
             if (r.get(other) === oh && r.get(peer) === h) oh.onMessage(c, d, peer);
-          });
+          };
+          const frozen = this.held.get(other);
+          if (frozen !== undefined) frozen.push(deliver);
+          else this.queue.push(deliver);
         }
       },
       leave: () => {
@@ -323,5 +339,133 @@ describe('play a friend', () => {
     run(bus, [h, f], 2000);
     expect(f.status().state).toBe('error');
     expect(f.status().detail).toContain('reload');
+  });
+});
+
+describe('PM-S2 online2: blips, round trip, visibility, head count', () => {
+  function pair(bus: Bus): [Matchmaker, Matchmaker] {
+    const a = player(bus, 'peerA');
+    const b = player(bus, 'peerB');
+    a.quickMatch();
+    run(bus, [a], 500);
+    b.quickMatch();
+    run(bus, [a, b], 6000);
+    expect(a.status().state).toBe('matched');
+    expect(b.status().state).toBe('matched');
+    return [a, b];
+  }
+
+  it('a 6 s blip (drop off the room, rejoin) keeps the match and loses nothing, in order', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    for (let i = 0; i < 3; i++) a.send(`pre${i}`);
+    bus.flush();
+    expect(b.poll()).toEqual(['pre0', 'pre1', 'pre2']);
+    expect(b.blip(6000)).toBe(true);
+    const got: string[] = [];
+    let wasStalled = false;
+    for (let t = 0; t < 6000; t += 250) {
+      a.send(`mid${t}`);
+      b.send(`back${t}`);
+      run(bus, [a, b], 250);
+      got.push(...b.poll());
+      wasStalled ||= a.status().stalled;
+      expect(a.status().state).toBe('matched');
+      expect(b.status().state).toBe('matched');
+    }
+    expect(wasStalled).toBe(true);
+    run(bus, [a, b], 3000);
+    got.push(...b.poll());
+    expect(got).toEqual(Array.from({ length: 24 }, (_, i) => `mid${i * 250}`));
+    expect(a.poll()).toEqual(Array.from({ length: 24 }, (_, i) => `back${i * 250}`));
+    expect(a.status().stalled).toBe(false);
+    expect(b.status().stalled).toBe(false);
+    // Traffic keeps flowing after the resume, with no duplicates.
+    a.send('after');
+    bus.flush();
+    expect(b.poll()).toEqual(['after']);
+  });
+
+  it('a partner who drops and never comes back ends the match after the grace', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    b.blip(1_000_000);
+    run(bus, [a, b], 10_000);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: true });
+    run(bus, [a, b], SILENCE_MS);
+    expect(a.status().state).toBe('closed');
+  });
+
+  it('a page frozen by a long game load does not drop a partner who had just stalled itself', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    run(bus, [a, b], 2000);
+    const step = (): void => {
+      bus.now += 250;
+      bus.wall += 250;
+    };
+    // B's page freezes for 10 s (A hears nothing), then A's page freezes for 25 s while B is back.
+    bus.hold('peerB');
+    for (let t = 0; t < 9000; t += 250) {
+      step();
+      a.tick();
+      bus.flush();
+    }
+    bus.hold('peerA'); // A freezes at 9 s
+    for (let t = 0; t < 1000; t += 250) step();
+    bus.release('peerB'); // B wakes at 10 s and reads what A said meanwhile
+    b.tick();
+    bus.flush();
+    for (let t = 0; t < 24_000; t += 250) {
+      step();
+      b.tick();
+      bus.flush();
+    }
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: true }); // B: A silent 24 s, inside the grace
+    // A wakes at 34 s: it last heard B 32 s ago, but for 25 s of that it was frozen itself.
+    a.tick();
+    expect(a.status().state).toBe('matched');
+    bus.release('peerA');
+    bus.flush();
+    run(bus, [a, b], 2000);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: false });
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: false });
+    a.send('still here');
+    bus.flush();
+    expect(b.poll()).toEqual(['still here']);
+  });
+
+  it('measures a round trip, and reports the partner hiding its tab', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    run(bus, [a, b], 2000);
+    expect(a.status().rtt).toBeGreaterThanOrEqual(0);
+    b.setHidden(true);
+    bus.flush();
+    expect(a.status().partnerHidden).toBe(true);
+    b.setHidden(false);
+    bus.flush();
+    expect(a.status().partnerHidden).toBe(false);
+  });
+
+  it('quick match counts the players searching in this build (us included)', () => {
+    const bus = new Bus();
+    const a = player(bus, 'peerA', 'x');
+    const b = player(bus, 'peerB', 'y'); // other build: never pairs, not counted
+    a.quickMatch();
+    b.quickMatch();
+    run(bus, [a, b], 2000);
+    expect(a.status().seekers).toBe(1);
+    const c = player(bus, 'peerC', 'x');
+    c.quickMatch();
+    bus.flush(); // c hears a's hello
+    bus.now += 250;
+    c.tick(); // counts, then proposes to a (not delivered yet)
+    expect(c.status().seekers).toBe(2);
+    run(bus, [a, b, c], 3000);
+    expect(a.status().state).toBe('matched');
+    expect(a.status().seekers).toBe(0); // out of the queue
+    a.cancel();
+    expect(a.status().seekers).toBe(0);
   });
 });

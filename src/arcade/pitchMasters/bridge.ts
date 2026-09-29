@@ -20,6 +20,10 @@
  *   poll() -> string              JSON array of base64 packets received since the last poll, in order
  *   goArcade()                    back to the SPARK arcade
  *   setBuild(id)                  the game build id; only identical builds are paired
+ * PM-S2 online2: status() also carries rtt (ms, -1 unknown), stalled, stalledFor (s), partnerHidden,
+ * seekers (quick match head count incl. us). `blip(ms)` (only with ?netdebug=1) drops off the match room
+ * for ms and rejoins: the reconnect test. `setHidden(bool)` is called by the page's keep-alive when the tab
+ * goes to the background (the partner's status shows partnerHidden).
  */
 
 import { joinRoom, selfId } from '@trystero-p2p/nostr';
@@ -36,6 +40,8 @@ export interface PitchNetApi {
   poll(): string;
   goArcade(): void;
   setBuild(id: string): void;
+  blip?(ms: number): boolean;
+  setHidden?(hidden: boolean): void;
   readonly selfId: string;
 }
 
@@ -117,6 +123,9 @@ export function installPitchNet(): PitchNetApi {
       mm.build = String(id);
     },
   };
+  if (debug) api.blip = (ms) => mm.blip(Number(ms) || 0);
+  // PM-S2 online2: the page (keepAlive.ts) says when this tab is in the background; the partner is told.
+  api.setHidden = (hidden) => mm.setHidden(Boolean(hidden));
   window.PitchNet = api;
   return api;
 }

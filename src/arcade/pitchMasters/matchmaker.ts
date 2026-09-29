@@ -28,11 +28,23 @@
  *
  * ## In the match room
  * Both send `hi {role, v, build}`; each binds the first complementary peer (a quick-match pair binds
- * only the peer it paired with). Packets are base64 strings on the `pk` channel; a 1 s heartbeat and a
- * 30 s silence limit catch a partner whose tab died without saying `bye`. The limit is generous on
- * purpose: loading the match (3D stadium, crowd, federation art, shader warm-up) blocks the page's
- * main thread, timers included, for several seconds on a slow or busy machine (7-9 s measured on a
- * desktop GPU under load), and a 10 s limit dropped real games right at kick-off.
+ * only the peer it paired with). Packets are base64 strings on the `pk` channel.
+ *
+ * ## Surviving a network blip (PM-S2 online2)
+ * A `bye` (cancel, closed tab) ends the match at once. Anything else is treated as a blip first:
+ *   - every packet carries a sequence number (`<seq>:<b64>`) and stays in an outbox until the partner
+ *     acknowledges it (the 1 s `ping` carries `ack`, the last in-order seq received);
+ *   - the receiver delivers strictly in order, drops duplicates, and answers a gap with `nack`;
+ *   - when WebRTC drops the partner (Trystero closes a peer after 5 s of ICE `disconnected`), we keep the
+ *     match room: the same peer id rejoins on the next announce, both re-send `hi {ack}`, and each side
+ *     re-sends what the other has not acknowledged. The game sees one late burst and nothing lost.
+ *   - `stalled` (status) is true after 3 s of silence or while the partner is gone; only after
+ *     SILENCE_MS (30 s) without a word is the match `closed` (time this page itself was frozen, e.g. by a
+ *     long synchronous game load, does not count: SELF_FREEZE_MS). Loading a match (3D stadium, crowd,
+ *     federation art, shader warm-up) blocks the main thread, timers included: 7-9 s measured on a desktop
+ *     GPU under load, and a 10 s limit dropped real games right at kick-off.
+ * The heartbeat also measures the round trip (`ping {ts}` -> `pong {ts}`, status `rtt` in ms) and tells
+ * the partner whether this tab is hidden (`h`), so the other side can say so.
  */
 
 export const PM_PROTO = 1;
@@ -48,7 +60,23 @@ export const NO_ANSWER_COOLDOWN_MS = 8000;
 export const MATCH_ROOM_TIMEOUT_MS = 25000;
 export const FRIEND_JOIN_TIMEOUT_MS = 45000;
 export const HEARTBEAT_MS = 1000;
+/**
+ * Reconnect grace: a partner silent this long (no bye) is gone. PM-S2 online2: was 10 s. 30 s because a
+ * page is ALSO silent while its own main thread is blocked (Godot loads a match scene synchronously: seconds
+ * on a weak laptop, 20 s+ on the loaded test machine), and a closed tab says `bye` on pagehide anyway.
+ */
 export const SILENCE_MS = 30000;
+/**
+ * The page's own timer went this long without firing: this page was frozen (a long synchronous game load).
+ * The partner's silence during our own freeze is not theirs, so it is not counted (a hidden tab's timers
+ * still fire about once a second while WebRTC is open, well under this).
+ */
+export const SELF_FREEZE_MS = 3000;
+/** Silence after which the status says `stalled` (the game shows "reconnecting"). */
+export const STALL_MS = 3000;
+/** Packets kept for re-sending until acknowledged (20 Hz snapshots: ~200 s worth). */
+export const OUTBOX_MAX = 4000;
+export const NACK_EVERY_MS = 500;
 /** How long a room we leave stays open so the last message (confirm, bye) is still delivered. */
 export const LINGER_MS = 1500;
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -93,6 +121,16 @@ export interface PitchNetStatus {
   detail: string;
   /** Seconds since the search started. */
   elapsed: number;
+  /** Round trip to the partner in ms (smoothed), -1 until measured. */
+  rtt: number;
+  /** Matched, but the partner is silent or reconnecting. */
+  stalled: boolean;
+  /** Seconds since the partner was last heard (while stalled), else 0. */
+  stalledFor: number;
+  /** The partner's tab is in the background. */
+  partnerHidden: boolean;
+  /** Quick match: players searching right now in this build, including us (0 when not searching). */
+  seekers: number;
 }
 
 interface Seeker {
@@ -156,9 +194,24 @@ export class Matchmaker {
   private partner: string | null = null;
   private readonly hiSent = new Set<string>();
   private lastHeard = 0;
+  /** When tick() last ran (self-freeze detection). */
+  private lastTickAt = -1;
   private lastPing = 0;
   private inbox: string[] = [];
   private epoch = 0;
+  // PM-S2 online2: reliable resume, round trip, visibility, discovery head count
+  private roomId = '';
+  private roomHandlers: RoomHandlers | null = null;
+  private partnerPresent = false;
+  private sendSeq = 0;
+  private recvSeq = 0;
+  private outbox: { seq: number; data: string }[] = [];
+  private lastNack = -Infinity;
+  private rtt = -1;
+  private selfHidden = false;
+  private partnerHidden = false;
+  private seekerCount = 0;
+  private blipUntil = 0;
 
   constructor(private readonly deps: MatchmakerDeps) {}
 
@@ -212,19 +265,55 @@ export class Matchmaker {
 
   status(): PitchNetStatus {
     const running = this.state !== 'idle';
+    const now = this.deps.now();
+    const matched = this.state === 'matched';
+    const stalled = matched && (!this.partnerPresent || now - this.lastHeard > STALL_MS);
     return {
       state: this.state,
       role: this.role,
       mode: this.mode,
       code: this.code,
       detail: this.detail,
-      elapsed: running ? Math.max(0, (this.deps.now() - this.startedAt) / 1000) : 0,
+      elapsed: running ? Math.max(0, (now - this.startedAt) / 1000) : 0,
+      rtt: matched ? Math.round(this.rtt) : -1,
+      stalled,
+      stalledFor: stalled ? Math.max(0, (now - this.lastHeard) / 1000) : 0,
+      partnerHidden: matched && this.partnerHidden,
+      seekers: this.disco !== null ? this.seekerCount : 0,
     };
   }
 
+  /** Queue one packet for the partner; it is re-sent after a blip until acknowledged. */
   send(b64: string): boolean {
     if (this.state !== 'matched' || this.room === null || this.partner === null) return false;
-    this.room.send('pk', b64, this.partner);
+    const seq = ++this.sendSeq;
+    this.outbox.push({ seq, data: b64 });
+    if (this.outbox.length > OUTBOX_MAX) this.outbox.shift();
+    if (this.partnerPresent) this.room.send('pk', `${seq}:${b64}`, this.partner);
+    return true;
+  }
+
+  /** The page tells us when its tab is hidden / shown; the partner is told at once. */
+  setHidden(hidden: boolean): void {
+    if (this.selfHidden === hidden) return;
+    this.selfHidden = hidden;
+    if (this.state === 'matched' && this.partner !== null && this.partnerPresent) {
+      this.room?.send('ctl', JSON.stringify({ t: 'vis', h: hidden }), this.partner);
+    }
+  }
+
+  /**
+   * Test hook (the page exposes it only with ?netdebug=1): drop off the match room for `ms`, with no
+   * `bye`, then rejoin it: a real transport-level disconnect + reconnect with the same peer id.
+   */
+  blip(ms: number): boolean {
+    if (this.state !== 'matched' || this.room === null || this.roomHandlers === null) return false;
+    this.log(`blip: off the room for ${ms} ms`);
+    this.room.leave();
+    this.room = { send: () => undefined, leave: () => undefined };
+    this.partnerPresent = false;
+    this.hiSent.clear();
+    this.blipUntil = this.deps.now() + Math.max(0, ms);
     return true;
   }
 
@@ -237,12 +326,26 @@ export class Matchmaker {
   /** Drive timers. The page calls this every 250 ms. */
   tick(): void {
     const now = this.deps.now();
+    const gap = this.lastTickAt < 0 ? 0 : now - this.lastTickAt;
+    this.lastTickAt = now;
+    if (gap > SELF_FREEZE_MS && this.state === 'matched') {
+      // We were frozen ourselves: whatever the partner said meanwhile is still queued behind this tick.
+      this.lastHeard = Math.min(now, this.lastHeard + gap);
+      this.log(`this page was frozen for ${(gap / 1000).toFixed(1)} s: not counted against the partner`);
+    }
     if (this.lingering.length > 0) {
       const due = this.lingering.filter((l) => now >= l.at);
       this.lingering = this.lingering.filter((l) => now < l.at);
       for (const l of due) l.room.leave();
     }
     if (this.disco !== null) this.tickDiscovery(now);
+    if (this.blipUntil > 0 && now >= this.blipUntil) {
+      this.blipUntil = 0;
+      if (this.room !== null && this.roomHandlers !== null) {
+        this.log('blip over: rejoining the match room');
+        this.room = this.deps.join(this.roomId, this.roomHandlers);
+      }
+    }
     if (this.room !== null) this.tickRoom(now);
   }
 
@@ -353,6 +456,9 @@ export class Matchmaker {
       this.lastHello = now;
       this.hello();
     }
+    let same = 0;
+    for (const s of this.seekers.values()) if (s.build === this.build) same++;
+    this.seekerCount = same + 1;
     if (this.phase.k !== 'free') return;
     const me = { id: this.deps.selfId, since: this.since };
     let best: { id: string; since: number } | null = null;
@@ -390,20 +496,43 @@ export class Matchmaker {
     this.partner = null;
     this.hiSent.clear();
     this.roomDeadline = deadline;
+    this.partnerPresent = false;
+    this.sendSeq = 0;
+    this.recvSeq = 0;
+    this.outbox = [];
+    this.lastNack = -Infinity;
+    this.rtt = -1;
+    this.partnerHidden = false;
+    this.blipUntil = 0;
     const epoch = ++this.epoch;
-    this.room = this.deps.join(roomId, {
+    const handlers: RoomHandlers = {
       onMessage: (ch, data, from) => {
         if (epoch === this.epoch) this.onRoom(ch, data, from);
       },
       onPeerJoin: (peer) => {
         if (epoch !== this.epoch) return;
         if (this.partner === null) this.sayHi(peer);
-        else if (peer !== this.partner && this.role === 'host') this.room?.send('ctl', JSON.stringify({ t: 'full' }), peer);
+        else if (peer === this.partner) {
+          // The partner is back after a blip: shake hands again, then both re-send what is unacked.
+          this.hiSent.delete(peer);
+          this.sayHi(peer);
+        } else if (this.role === 'host') this.room?.send('ctl', JSON.stringify({ t: 'full' }), peer);
       },
       onPeerLeave: (peer) => {
-        if (epoch === this.epoch && peer === this.partner) this.lost('Your opponent left the match.');
+        if (epoch !== this.epoch || peer !== this.partner) return;
+        if (this.state === 'matched') {
+          // Not a bye: maybe a blip. Keep the room and wait for the same peer (SILENCE_MS grace).
+          this.partnerPresent = false;
+          this.hiSent.delete(peer);
+          this.log('partner dropped: waiting for a reconnect');
+        } else {
+          this.lost('Your opponent left the match.');
+        }
       },
-    });
+    };
+    this.roomId = roomId;
+    this.roomHandlers = handlers;
+    this.room = this.deps.join(roomId, handlers);
   }
 
   private leaveMatchRoom(sayBye: boolean): void {
@@ -418,19 +547,49 @@ export class Matchmaker {
     this.partner = null;
     this.expect = null;
     this.hiSent.clear();
+    this.roomHandlers = null;
+    this.partnerPresent = false;
+    this.outbox = [];
+    this.blipUntil = 0;
   }
 
   private sayHi(peer: string): void {
     if (this.room === null || this.hiSent.has(peer)) return;
     this.hiSent.add(peer);
-    this.room.send('ctl', JSON.stringify({ t: 'hi', v: PM_PROTO, build: this.build, role: this.role }), peer);
+    this.room.send('ctl', JSON.stringify({ t: 'hi', v: PM_PROTO, build: this.build, role: this.role, ack: this.recvSeq }), peer);
+  }
+
+  /** The partner has everything up to `ack`: forget it. */
+  private trim(ack: unknown): void {
+    if (typeof ack !== 'number') return;
+    while (this.outbox.length > 0 && this.outbox[0].seq <= ack) this.outbox.shift();
+  }
+
+  private resend(): void {
+    if (this.room === null || this.partner === null || !this.partnerPresent) return;
+    for (const e of this.outbox) this.room.send('pk', `${e.seq}:${e.data}`, this.partner);
+    if (this.outbox.length > 0) this.log(`re-sent ${this.outbox.length} unacked packets`);
   }
 
   private onRoom(ch: Channel, data: string, from: string): void {
     if (this.room === null) return;
     if (from === this.partner) this.lastHeard = this.deps.now();
     if (ch === 'pk') {
-      if (from === this.partner && this.state === 'matched') this.inbox.push(data);
+      if (from !== this.partner || this.state !== 'matched') return;
+      const cut = data.indexOf(':');
+      const seq = Number(data.slice(0, cut));
+      if (cut <= 0 || !Number.isInteger(seq)) return;
+      if (seq === this.recvSeq + 1) {
+        this.recvSeq = seq;
+        this.inbox.push(data.slice(cut + 1));
+      } else if (seq > this.recvSeq + 1) {
+        // A gap: something was lost on the way. Ask for everything after what we have.
+        const now = this.deps.now();
+        if (now - this.lastNack >= NACK_EVERY_MS) {
+          this.lastNack = now;
+          this.room.send('ctl', JSON.stringify({ t: 'nack', ack: this.recvSeq }), from);
+        }
+      }
       return;
     }
     const m = parse(data);
@@ -439,7 +598,17 @@ export class Matchmaker {
       case 'hi': {
         const theirs = m.role === 'host' || m.role === 'client' ? m.role : '';
         if (this.partner !== null) {
-          if (from !== this.partner && this.role === 'host') this.room.send('ctl', JSON.stringify({ t: 'full' }), from);
+          if (from === this.partner) {
+            // Resume after a blip.
+            const back = !this.partnerPresent;
+            this.partnerPresent = true;
+            this.sayHi(from);
+            this.trim(m.ack);
+            this.resend();
+            if (back) this.log('partner back: resumed');
+            return;
+          }
+          if (this.role === 'host') this.room.send('ctl', JSON.stringify({ t: 'full' }), from);
           return;
         }
         if (theirs === '' || theirs === this.role) return;
@@ -451,6 +620,7 @@ export class Matchmaker {
           return;
         }
         this.partner = from;
+        this.partnerPresent = true;
         this.lastHeard = this.deps.now();
         this.lastPing = 0;
         this.sayHi(from);
@@ -465,6 +635,27 @@ export class Matchmaker {
         return;
       case 'bye':
         if (from === this.partner) this.lost('Your opponent left the match.');
+        return;
+      case 'ping':
+        if (from !== this.partner) return;
+        this.partnerPresent = true;
+        this.trim(m.ack);
+        this.partnerHidden = m.h === true;
+        this.room.send('ctl', JSON.stringify({ t: 'pong', ts: m.ts }), from);
+        return;
+      case 'pong': {
+        if (from !== this.partner || typeof m.ts !== 'number') return;
+        const v = Math.max(0, this.deps.now() - m.ts);
+        this.rtt = this.rtt < 0 ? v : this.rtt * 0.7 + v * 0.3;
+        return;
+      }
+      case 'nack':
+        if (from !== this.partner) return;
+        this.trim(m.ack);
+        this.resend();
+        return;
+      case 'vis':
+        if (from === this.partner) this.partnerHidden = m.h === true;
         return;
     }
   }
@@ -483,7 +674,7 @@ export class Matchmaker {
     }
     if (now - this.lastPing >= HEARTBEAT_MS) {
       this.lastPing = now;
-      this.room?.send('ctl', JSON.stringify({ t: 'ping' }), this.partner);
+      this.room?.send('ctl', JSON.stringify({ t: 'ping', ack: this.recvSeq, ts: now, h: this.selfHidden }), this.partner);
     }
     if (now - this.lastHeard > SILENCE_MS) this.lost('Connection to your opponent was lost.');
   }

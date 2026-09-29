@@ -9,9 +9,11 @@
  * URL flags (tests / debugging), passed to the game after `--`:
  *   ?netlog=1  ?autoplay=1  ?quickmatch=1  ?host=1 (friend host)  ?join=CODE  ?seed=N  ?timescale=X
  *   ?nogame=1  bridge only, no engine (the two-context bridge harness)   ?netdebug=1  bridge logs
+ *   ?name=X    player name shown to the opponent   ?nokeepalive=1  a hidden tab freezes the game again
  */
 
 import { installPitchNet } from './bridge.ts';
+import { installKeepAlive } from './keepAlive.ts';
 
 interface BuildInfo {
   readonly commit: string;
@@ -78,6 +80,8 @@ function gameArgs(p: URLSearchParams): string[] {
   if (seed !== null && /^\d{1,9}$/.test(seed)) args.push(`--seed=${seed}`);
   const ts = p.get('timescale');
   if (ts !== null && /^\d{1,2}(\.\d{1,3})?$/.test(ts)) args.push(`--timescale=${ts}`);
+  const name = p.get('name');
+  if (name !== null && /^[A-Za-z0-9 _-]{1,16}$/.test(name)) args.push(`--name=${name}`);
   const fg = p.get('forcegoal');
   if (fg !== null && /^\d{1,3}(\.\d)?$/.test(fg)) args.push(`--force-goal=${fg}`);
   return args.length > 0 ? ['--', ...args] : [];
@@ -165,6 +169,19 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const net = installPitchNet();
   installPitchMusic(`${GAME_DIR}music.mp3`);
+  // PM-S2 online2: a hidden tab keeps an online match running (?nokeepalive=1 shows the old freeze).
+  if (params.get('nokeepalive') !== '1') {
+    installKeepAlive(
+      () => {
+        try {
+          return (JSON.parse(net.status()) as { state?: string }).state === 'matched';
+        } catch {
+          return false;
+        }
+      },
+      (bg) => net.setHidden?.(bg),
+    );
+  }
   el('pm-back').addEventListener('click', (e) => {
     e.preventDefault();
     net.goArcade();
