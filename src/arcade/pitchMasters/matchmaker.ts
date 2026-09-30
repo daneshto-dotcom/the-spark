@@ -47,7 +47,8 @@
  * the partner whether this tab is hidden (`h`), so the other side can say so.
  */
 
-export const PM_PROTO = 1;
+/** PM-S4: 2 (three-sided rooms). A build of another version is refused cleanly, as before. */
+export const PM_PROTO = 2;
 export const DISCOVERY_ROOM = `pitchmasters-qm-v${PM_PROTO}`;
 export const FRIEND_ROOM_PREFIX = 'pitchmasters-f-';
 export const MATCH_ROOM_PREFIX = 'pitchmasters-m-';
@@ -124,6 +125,13 @@ export interface MatchmakerDeps {
   /** [0, 1) */
   readonly random: () => number;
   readonly log?: (msg: string) => void;
+  /** PM-S4 qm3 (`lobby3.ts`): pair in this discovery room instead of DISCOVERY_ROOM. */
+  readonly discoveryRoom?: string;
+  /**
+   * PM-S4 qm3: a formed pair is offered here first; `true` = taken (we leave discovery and stay idle instead of
+   * entering the match room). Absent = today's behaviour.
+   */
+  readonly onPaired?: (room: string, role: 'host' | 'client', partner: string) => boolean;
 }
 
 export interface PitchNetStatus {
@@ -231,6 +239,11 @@ export class Matchmaker {
   rejoins = 0;
 
   constructor(private readonly deps: MatchmakerDeps) {}
+
+  /** PM-S4 qm3: in the middle of a propose / accept handshake (a lobby must not steal us from it). */
+  get pairing(): boolean {
+    return this.phase.k !== 'free';
+  }
 
   // ── the window.PitchNet surface ──────────────────────────────────────────────
 
@@ -378,7 +391,7 @@ export class Matchmaker {
     this.role = '';
     const epoch = ++this.epoch;
     this.set('seeking', 'Searching for an opponent…');
-    this.disco = this.deps.join(DISCOVERY_ROOM, {
+    this.disco = this.deps.join(this.deps.discoveryRoom ?? DISCOVERY_ROOM, {
       onMessage: (ch, data, from) => {
         if (epoch === this.epoch && ch === 'ctl') this.onDisco(data, from);
       },
@@ -500,6 +513,10 @@ export class Matchmaker {
   private paired(room: string, role: 'host' | 'client', partner: string): void {
     this.log(`paired as ${role} with ${partner.slice(0, 6)} in ${room}`);
     this.leaveDiscovery();
+    if (this.deps.onPaired?.(room, role, partner) === true) {
+      this.set('idle', '');
+      return;
+    }
     this.enterMatchRoom(room, role, partner, this.deps.now() + MATCH_ROOM_TIMEOUT_MS);
     this.set('connecting', 'Opponent found, connecting…');
   }

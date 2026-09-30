@@ -20,6 +20,13 @@
  *   poll() -> string              JSON array of base64 packets received since the last poll, in order
  *   goArcade()                    back to the SPARK arcade
  *   setBuild(id)                  the game build id; only identical builds are paired
+ * PM-S4 three-sided (`lobby3.ts`, a separate class: the 1v1 matchmaker is untouched):
+ *   friendHost3() -> string       host a three-sided room (6-letter code; friendJoin(code) routes by length)
+ *   quickMatch3()                 three-sided quick match (pairs, then a 20 s open lobby for a third seeker)
+ *   lock()                        host: the match starts, the room takes nobody else
+ *   send(b64, reliable, to)       host: `to` = the client's Godot peer id (2 / 3), 0 = every client
+ *   poll()                        in a three-sided room each packet is `<from peer id>:<b64>`
+ *   status()                      in a three-sided room also {seats: 3, slot, partners[], lobby, startIn}
  * PM-S2 online2: status() also carries rtt (ms, -1 unknown), stalled, stalledFor (s), partnerHidden,
  * seekers (quick match head count incl. us). `blip(ms)` (only with ?netdebug=1) drops off the match room
  * for ms and rejoins: the reconnect test. `setHidden(bool)` is called by the page's keep-alive when the tab
@@ -28,7 +35,8 @@
 
 import { joinRoom, selfId } from '@trystero-p2p/nostr';
 import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
-import { Matchmaker, type Channel, type RoomHandlers, type RoomLike } from './matchmaker.ts';
+import { Lobby3, isThreeCode } from './lobby3.ts';
+import { Matchmaker, type Channel, type MatchmakerDeps, type RoomHandlers, type RoomLike } from './matchmaker.ts';
 
 export interface PitchNetApi {
   quickMatch(): void;
@@ -36,12 +44,15 @@ export interface PitchNetApi {
   friendJoin(code: string): void;
   cancel(): void;
   status(): string;
-  send(b64: string, reliable?: boolean): boolean;
+  send(b64: string, reliable?: boolean, to?: number): boolean;
   poll(): string;
   goArcade(): void;
   setBuild(id: string): void;
   blip?(ms: number): boolean;
   setHidden?(hidden: boolean): void;
+  friendHost3(): string;
+  quickMatch3(): void;
+  lock(): void;
   readonly selfId: string;
 }
 
@@ -105,7 +116,7 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
 export function installPitchNet(): PitchNetApi {
   if (window.PitchNet !== undefined) return window.PitchNet;
   const debug = new URLSearchParams(location.search).has('netdebug');
-  const mm = new Matchmaker({
+  const deps: MatchmakerDeps = {
     selfId,
     join: trysteroRoom,
     now: () => performance.now(),
@@ -118,30 +129,71 @@ export function installPitchNet(): PitchNetApi {
     log: (msg) => {
       if (debug) console.log(`[pitchnet] ${msg}`);
     },
-  });
-  setInterval(() => mm.tick(), TICK_MS);
+  };
+  const mm = new Matchmaker(deps);
+  // PM-S4: the three-sided room. Exactly one of the two is active; starting one cancels the other.
+  const m3 = new Lobby3(deps);
+  const three = (): boolean => m3.active();
+  setInterval(() => {
+    mm.tick();
+    m3.tick();
+  }, TICK_MS);
   // A closing tab says goodbye, so the opponent is told at once instead of after the silence limit.
-  addEventListener('pagehide', () => mm.cancel());
+  addEventListener('pagehide', () => {
+    mm.cancel();
+    m3.cancel();
+  });
   const api: PitchNetApi = {
     selfId,
-    quickMatch: () => mm.quickMatch(),
-    friendHost: () => mm.friendHost(),
-    friendJoin: (code) => mm.friendJoin(String(code)),
-    cancel: () => mm.cancel(),
-    status: () => JSON.stringify(mm.status()),
-    send: (b64) => mm.send(String(b64)),
-    poll: () => JSON.stringify(mm.poll()),
+    quickMatch: () => {
+      m3.cancel();
+      mm.quickMatch();
+    },
+    friendHost: () => {
+      m3.cancel();
+      return mm.friendHost();
+    },
+    friendJoin: (code) => {
+      if (isThreeCode(String(code))) {
+        mm.cancel();
+        m3.friendJoin(String(code));
+      } else {
+        m3.cancel();
+        mm.friendJoin(String(code));
+      }
+    },
+    cancel: () => {
+      mm.cancel();
+      m3.cancel();
+    },
+    status: () => JSON.stringify(three() ? m3.status() : mm.status()),
+    send: (b64, _reliable, to) => (three() ? m3.send(String(b64), Number(to) || 0) : mm.send(String(b64))),
+    poll: () => JSON.stringify(three() ? m3.poll() : mm.poll()),
     goArcade: () => {
       mm.cancel();
+      m3.cancel();
       location.href = ARCADE_URL;
     },
     setBuild: (id) => {
       mm.build = String(id);
+      m3.build = String(id);
     },
+    friendHost3: () => {
+      mm.cancel();
+      return m3.friendHost();
+    },
+    quickMatch3: () => {
+      mm.cancel();
+      m3.quickMatch();
+    },
+    lock: () => m3.lock(),
   };
-  if (debug) api.blip = (ms) => mm.blip(Number(ms) || 0);
+  if (debug) api.blip = (ms) => (three() ? m3.blip(Number(ms) || 0) : mm.blip(Number(ms) || 0));
   // PM-S2 online2: the page (keepAlive.ts) says when this tab is in the background; the partner is told.
-  api.setHidden = (hidden) => mm.setHidden(Boolean(hidden));
+  api.setHidden = (hidden) => {
+    mm.setHidden(Boolean(hidden));
+    m3.setHidden(Boolean(hidden));
+  };
   window.PitchNet = api;
   return api;
 }
