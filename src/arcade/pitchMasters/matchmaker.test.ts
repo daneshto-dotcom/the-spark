@@ -13,7 +13,6 @@ import {
   Matchmaker,
   MATCH_ROOM_TIMEOUT_MS,
   parseFriendCode,
-  REJOIN_FIRST_MS,
   SILENCE_MS,
   type Channel,
   type RoomHandlers,
@@ -28,12 +27,6 @@ class Bus {
   /** Frozen tabs: what is sent to them waits here, in order, until release(). */
   private readonly held = new Map<string, (() => void)[]>();
   readonly joins: string[] = [];
-  /** Failed signaling: the next N joins of a peer never see (or get seen by) anyone. */
-  private readonly deafJoins = new Map<string, number>();
-
-  deaf(peer: string, joins = 1): void {
-    this.deafJoins.set(peer, joins);
-  }
 
   /** A frozen tab (its main thread blocked): nothing reaches `peer` until release(peer). */
   hold(peer: string): void {
@@ -54,12 +47,6 @@ class Bus {
       this.rooms.set(roomId, room);
     }
     const r = room;
-    const deafLeft = this.deafJoins.get(peer) ?? 0;
-    if (deafLeft > 0) {
-      // In the room for nobody: no join events, nothing delivered either way, and its leave is silent.
-      this.deafJoins.set(peer, deafLeft - 1);
-      return { send: () => undefined, leave: () => undefined };
-    }
     for (const [other, oh] of r) {
       this.queue.push(() => {
         if (r.get(other) === oh && r.get(peer) === h) {
@@ -397,43 +384,6 @@ describe('PM-S2 online2: blips, round trip, visibility, head count', () => {
     a.send('after');
     bus.flush();
     expect(b.poll()).toEqual(['after']);
-  });
-
-  it('PM-S3: a rejoin whose signaling fails is retried: the match resumes, nothing lost, in order', () => {
-    const bus = new Bus();
-    const [a, b] = pair(bus);
-    bus.deaf('peerB', 1); // the rejoin right after the blip reaches no one (dead relays)
-    expect(b.blip(3000)).toBe(true);
-    const got: string[] = [];
-    let aStalled = false;
-    let bStalled = false;
-    for (let t = 0; t < 20_000; t += 250) {
-      if (t < 8000) a.send(`m${t}`);
-      run(bus, [a, b], 250);
-      got.push(...b.poll());
-      aStalled ||= a.status().stalled;
-      bStalled ||= b.status().stalled;
-    }
-    // Both sides said "stalled" (the game's reconnecting note) instead of a silent 'matched'...
-    expect(aStalled).toBe(true);
-    expect(bStalled).toBe(true);
-    // ...then a retry rejoin (fresh signaling) brought the partner back well inside the 30 s grace.
-    expect(a.status()).toMatchObject({ state: 'matched', stalled: false });
-    expect(b.status()).toMatchObject({ state: 'matched', stalled: false });
-    expect(got).toEqual(Array.from({ length: 32 }, (_, i) => `m${i * 250}`));
-  });
-
-  it('PM-S3: a partner present but mute (dead channel, no leave event) is treated as dropped and rejoined', () => {
-    const bus = new Bus();
-    const [a, b] = pair(bus);
-    // b's page vanishes from the room with no leave event and comes back on its own later: a keeps retrying.
-    const room = bus.joins.filter((j) => j.startsWith('peerB:pitchmasters-m-')).pop()!.slice('peerB:'.length);
-    bus.vanish(room, 'peerB');
-    void b;
-    run(bus, [a], 14_000); // mute for 8 s = dropped, then the first retry 4 s later
-    expect(a.status()).toMatchObject({ state: 'matched', stalled: true });
-    expect(a.rejoins).toBeGreaterThan(0);
-    expect(REJOIN_FIRST_MS).toBeLessThan(SILENCE_MS);
   });
 
   it('a partner who drops and never comes back ends the match after the grace', () => {

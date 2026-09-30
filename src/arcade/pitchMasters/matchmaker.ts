@@ -74,17 +74,6 @@ export const SILENCE_MS = 30000;
 export const SELF_FREEZE_MS = 3000;
 /** Silence after which the status says `stalled` (the game shows "reconnecting"). */
 export const STALL_MS = 3000;
-/**
- * PM-S3: a rejoin can fail silently. With flaky Nostr relays (live harness: a relay answering 301 to every
- * handshake, another 524) the re-signaling after a blip sometimes never completes: both sides stayed
- * `matched` + stalled and the match froze until the 30 s grace closed it. So while the partner is gone we
- * leave and rejoin the match room again (fresh signaling on every relay), first after REJOIN_FIRST_MS, then
- * backing off x1.6 up to REJOIN_MAX_MS, until the partner is back or SILENCE_MS ends it. A partner who is
- * "present" but silent for REJOIN_SILENT_MS (a dead data channel with no leave event) counts as gone.
- */
-export const REJOIN_FIRST_MS = 4000;
-export const REJOIN_MAX_MS = 12000;
-export const REJOIN_SILENT_MS = 8000;
 /** Packets kept for re-sending until acknowledged (20 Hz snapshots: ~200 s worth). */
 export const OUTBOX_MAX = 4000;
 export const NACK_EVERY_MS = 500;
@@ -223,11 +212,6 @@ export class Matchmaker {
   private partnerHidden = false;
   private seekerCount = 0;
   private blipUntil = 0;
-  /** When to leave + rejoin the match room while the partner is gone (0 = not scheduled). */
-  private rejoinAt = 0;
-  private rejoinDelay = REJOIN_FIRST_MS;
-  /** Rejoins made since the partner was last present (status + tests). */
-  rejoins = 0;
 
   constructor(private readonly deps: MatchmakerDeps) {}
 
@@ -360,7 +344,6 @@ export class Matchmaker {
       if (this.room !== null && this.roomHandlers !== null) {
         this.log('blip over: rejoining the match room');
         this.room = this.deps.join(this.roomId, this.roomHandlers);
-        this.scheduleRejoin(now);
       }
     }
     if (this.room !== null) this.tickRoom(now);
@@ -521,7 +504,6 @@ export class Matchmaker {
     this.rtt = -1;
     this.partnerHidden = false;
     this.blipUntil = 0;
-    this.resetRejoin();
     const epoch = ++this.epoch;
     const handlers: RoomHandlers = {
       onMessage: (ch, data, from) => {
@@ -543,7 +525,6 @@ export class Matchmaker {
           this.partnerPresent = false;
           this.hiSent.delete(peer);
           this.log('partner dropped: waiting for a reconnect');
-          this.scheduleRejoin(this.deps.now());
         } else {
           this.lost('Your opponent left the match.');
         }
@@ -570,35 +551,6 @@ export class Matchmaker {
     this.partnerPresent = false;
     this.outbox = [];
     this.blipUntil = 0;
-    this.resetRejoin();
-  }
-
-  private resetRejoin(): void {
-    this.rejoinAt = 0;
-    this.rejoinDelay = REJOIN_FIRST_MS;
-    this.rejoins = 0;
-  }
-
-  private scheduleRejoin(now: number): void {
-    if (this.rejoinAt === 0) this.rejoinAt = now + this.rejoinDelay;
-  }
-
-  /** The partner is gone (or mute): rejoin the match room with fresh signaling, backing off. */
-  private tickRejoin(now: number): void {
-    if (this.state !== 'matched' || this.partner === null || this.blipUntil > 0 || this.roomHandlers === null) return;
-    if (this.partnerPresent && now - this.lastHeard > REJOIN_SILENT_MS) {
-      this.partnerPresent = false;
-      this.hiSent.delete(this.partner);
-      this.log(`partner silent for ${((now - this.lastHeard) / 1000).toFixed(1)} s: treating as dropped`);
-      this.scheduleRejoin(now);
-    }
-    if (this.partnerPresent || this.rejoinAt === 0 || now < this.rejoinAt) return;
-    this.rejoins++;
-    this.log(`partner still gone: rejoining the match room (try ${this.rejoins})`);
-    this.room?.leave();
-    this.room = this.deps.join(this.roomId, this.roomHandlers);
-    this.rejoinDelay = Math.min(REJOIN_MAX_MS, Math.round(this.rejoinDelay * 1.6));
-    this.rejoinAt = now + this.rejoinDelay;
   }
 
   private sayHi(peer: string): void {
@@ -654,7 +606,6 @@ export class Matchmaker {
             this.trim(m.ack);
             this.resend();
             if (back) this.log('partner back: resumed');
-            this.resetRejoin();
             return;
           }
           if (this.role === 'host') this.room.send('ctl', JSON.stringify({ t: 'full' }), from);
@@ -688,7 +639,6 @@ export class Matchmaker {
       case 'ping':
         if (from !== this.partner) return;
         this.partnerPresent = true;
-        if (this.rejoinAt !== 0) this.resetRejoin();
         this.trim(m.ack);
         this.partnerHidden = m.h === true;
         this.room.send('ctl', JSON.stringify({ t: 'pong', ts: m.ts }), from);
@@ -722,7 +672,6 @@ export class Matchmaker {
       }
       return;
     }
-    this.tickRejoin(now);
     if (now - this.lastPing >= HEARTBEAT_MS) {
       this.lastPing = now;
       this.room?.send('ctl', JSON.stringify({ t: 'ping', ack: this.recvSeq, ts: now, h: this.selfHidden }), this.partner);
