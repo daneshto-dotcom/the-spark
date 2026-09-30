@@ -72,6 +72,17 @@ export function arcadeHref(id: string, games: readonly ArcadeGame[] = ARCADE_GAM
   return games.find((g) => g.id === id)?.href ?? null;
 }
 
+/** A tap reaches onSelect twice (the button's own click AND the board's pointertap fallback). */
+export const LAUNCH_GUARD_MS = 1000;
+
+/**
+ * PURE — may a page game launch now? PM-S3 live audit: one tap opened PITCH MASTERS in TWO tabs (two full
+ * engine boots at once, the worst case for a small laptop). A repeat within LAUNCH_GUARD_MS is ignored.
+ */
+export function launchAllowed(lastLaunchMs: number, nowMs: number): boolean {
+  return nowMs - lastLaunchMs >= LAUNCH_GUARD_MS;
+}
+
 const ROW_W = 560;
 const ROW_H = 78;
 const ROW_GAP = 18;
@@ -158,12 +169,16 @@ export class ArcadeOverlay {
     // the game never takes the arcade down with it; a blocked popup falls back to navigating there.
     // Everything else goes to the caller as before.
     const caller = onSelect;
+    let lastLaunch = -Infinity;
     onSelect = (id: string) => {
       const href = arcadeHref(id);
       if (href === null) {
         caller(id);
         return;
       }
+      const now = performance.now();
+      if (!launchAllowed(lastLaunch, now)) return;
+      lastLaunch = now;
       const tab = window.open(href, '_blank');
       if (tab !== null) tab.opener = null;
       else window.location.assign(href);

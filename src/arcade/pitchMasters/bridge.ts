@@ -58,8 +58,15 @@ const TICK_MS = 250;
  * handshake with HTTP 301 in the live harness runs of 2026-09-29/30 (93 of 96 failed relay connections;
  * `relay.primal.net` gave 3 transient 524s and stays). A dead relay costs a reconnect loop per room and gets
  * no signaling through, so the page leaves it out. SPARK's own list (`net/iceConfig.ts`) is not touched.
+ * PM-S3 live audit: `offchain.pub` ("not in our web of trust", 346 refusals) and `nostr-pub.wellorder.net`
+ * ("spam not permitted", 287) reject every event we publish, so they carry no signaling either; 4 of
+ * SPARK's 7 relays remain (nos.lol, purplerelay.com, nostr.mom, relay.primal.net).
  */
-export const DEAD_RELAYS: readonly string[] = ['wss://relay.mostr.pub'];
+export const DEAD_RELAYS: readonly string[] = [
+  'wss://relay.mostr.pub',
+  'wss://offchain.pub',
+  'wss://nostr-pub.wellorder.net',
+];
 export const PM_RELAYS: readonly string[] = NOSTR_RELAYS.filter((u) => !DEAD_RELAYS.includes(u));
 const ARCADE_URL = '/';
 
