@@ -74,6 +74,19 @@ export const SILENCE_MS = 30000;
 export const SELF_FREEZE_MS = 3000;
 /** Silence after which the status says `stalled` (the game shows "reconnecting"). */
 export const STALL_MS = 3000;
+/**
+ * PM-S3: a rejoin can fail silently. With flaky Nostr relays (live harness: a relay answering 301 to every
+ * handshake, another 524) the re-signaling after a blip sometimes never completes: both sides stayed
+ * `matched` + stalled until the 30 s grace closed the match. So the CLIENT, while the host is gone, leaves and
+ * rejoins the match room once more (fresh signaling on every relay) REJOIN_FIRST_MS after its last join, then
+ * every REJOIN_NEXT_MS, until the host's `hi` / `ping` or the grace.
+ * Only the client, and only after a long wait: a first version (d1cc5c2) let BOTH sides retry after 4 s. A
+ * WebRTC re-negotiation through the relays takes longer than that, so each side kept tearing down the
+ * handshake the other had just started and the match never recovered, even on healthy relays (live harness,
+ * 3 tests, reproduced locally). The host is the anchor: it never leaves the room.
+ */
+export const REJOIN_FIRST_MS = 12000;
+export const REJOIN_NEXT_MS = 9000;
 /** Packets kept for re-sending until acknowledged (20 Hz snapshots: ~200 s worth). */
 export const OUTBOX_MAX = 4000;
 export const NACK_EVERY_MS = 500;
@@ -212,6 +225,10 @@ export class Matchmaker {
   private partnerHidden = false;
   private seekerCount = 0;
   private blipUntil = 0;
+  /** Client only: when to leave + rejoin the match room while the host is gone (0 = not scheduled). */
+  private rejoinAt = 0;
+  /** Rejoins made since the partner was last present (status + tests). */
+  rejoins = 0;
 
   constructor(private readonly deps: MatchmakerDeps) {}
 
@@ -344,6 +361,7 @@ export class Matchmaker {
       if (this.room !== null && this.roomHandlers !== null) {
         this.log('blip over: rejoining the match room');
         this.room = this.deps.join(this.roomId, this.roomHandlers);
+        this.scheduleRejoin(now);
       }
     }
     if (this.room !== null) this.tickRoom(now);
@@ -504,6 +522,7 @@ export class Matchmaker {
     this.rtt = -1;
     this.partnerHidden = false;
     this.blipUntil = 0;
+    this.resetRejoin();
     const epoch = ++this.epoch;
     const handlers: RoomHandlers = {
       onMessage: (ch, data, from) => {
@@ -525,6 +544,7 @@ export class Matchmaker {
           this.partnerPresent = false;
           this.hiSent.delete(peer);
           this.log('partner dropped: waiting for a reconnect');
+          this.scheduleRejoin(this.deps.now());
         } else {
           this.lost('Your opponent left the match.');
         }
@@ -551,6 +571,28 @@ export class Matchmaker {
     this.partnerPresent = false;
     this.outbox = [];
     this.blipUntil = 0;
+    this.resetRejoin();
+  }
+
+  private resetRejoin(): void {
+    this.rejoinAt = 0;
+    this.rejoins = 0;
+  }
+
+  /** Client only: (re)start the wait for the host after our own (re)join or the host dropping. */
+  private scheduleRejoin(now: number): void {
+    if (this.role === 'client') this.rejoinAt = now + REJOIN_FIRST_MS;
+  }
+
+  /** The host is still gone long after our (re)join: rejoin the match room with fresh signaling. */
+  private tickRejoin(now: number): void {
+    if (this.role !== 'client' || this.state !== 'matched' || this.partner === null || this.blipUntil > 0
+      || this.roomHandlers === null || this.partnerPresent || this.rejoinAt === 0 || now < this.rejoinAt) return;
+    this.rejoins++;
+    this.log(`host still gone ${((now - this.lastHeard) / 1000).toFixed(0)} s: rejoining the match room (try ${this.rejoins})`);
+    this.room?.leave();
+    this.room = this.deps.join(this.roomId, this.roomHandlers);
+    this.rejoinAt = now + REJOIN_NEXT_MS;
   }
 
   private sayHi(peer: string): void {
@@ -606,6 +648,7 @@ export class Matchmaker {
             this.trim(m.ack);
             this.resend();
             if (back) this.log('partner back: resumed');
+            this.resetRejoin();
             return;
           }
           if (this.role === 'host') this.room.send('ctl', JSON.stringify({ t: 'full' }), from);
@@ -639,6 +682,7 @@ export class Matchmaker {
       case 'ping':
         if (from !== this.partner) return;
         this.partnerPresent = true;
+        if (this.rejoinAt !== 0) this.resetRejoin();
         this.trim(m.ack);
         this.partnerHidden = m.h === true;
         this.room.send('ctl', JSON.stringify({ t: 'pong', ts: m.ts }), from);
@@ -672,6 +716,7 @@ export class Matchmaker {
       }
       return;
     }
+    this.tickRejoin(now);
     if (now - this.lastPing >= HEARTBEAT_MS) {
       this.lastPing = now;
       this.room?.send('ctl', JSON.stringify({ t: 'ping', ack: this.recvSeq, ts: now, h: this.selfHidden }), this.partner);
