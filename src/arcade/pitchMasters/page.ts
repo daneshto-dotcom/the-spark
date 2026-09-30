@@ -10,6 +10,8 @@
  *   ?netlog=1  ?autoplay=1  ?quickmatch=1  ?host=1 (friend host)  ?join=CODE  ?seed=N  ?timescale=X
  *   ?nogame=1  bridge only, no engine (the two-context bridge harness)   ?netdebug=1  bridge logs
  *   ?name=X    player name shown to the opponent   ?nokeepalive=1  a hidden tab freezes the game again
+ *   ?three=1   PM-S4 three-sided (with ?host=1: a three-sided friends room; with ?quickmatch=1: qm3)
+ *   ?threewait=S  the three-sided host starts with AI in the empty seats after S s (tests)
  */
 
 import { installPitchNet } from './bridge.ts';
@@ -75,6 +77,9 @@ function gameArgs(p: URLSearchParams): string[] {
   flag('autoplay', '--autoplay');
   flag('quickmatch', '--quickmatch');
   flag('host', '--friend-host');
+  flag('three', '--three'); // PM-S4
+  const tw = p.get('threewait');
+  if (tw !== null && /^\d{1,3}$/.test(tw)) args.push(`--three-wait=${tw}`);
   const join = p.get('join');
   if (join !== null && /^[A-Za-z0-9]{4,8}$/.test(join)) args.push(`--friend-join=${join}`);
   const seed = p.get('seed');
