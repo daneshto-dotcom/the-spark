@@ -52,13 +52,22 @@ declare global {
 }
 
 const TICK_MS = 250;
+
+/**
+ * PM-S3: relays from SPARK's pinned list that are dead for us. `relay.mostr.pub` answered EVERY WebSocket
+ * handshake with HTTP 301 in the live harness runs of 2026-09-29/30 (93 of 96 failed relay connections;
+ * `relay.primal.net` gave 3 transient 524s and stays). A dead relay costs a reconnect loop per room and gets
+ * no signaling through, so the page leaves it out. SPARK's own list (`net/iceConfig.ts`) is not touched.
+ */
+export const DEAD_RELAYS: readonly string[] = ['wss://relay.mostr.pub'];
+export const PM_RELAYS: readonly string[] = NOSTR_RELAYS.filter((u) => !DEAD_RELAYS.includes(u));
 const ARCADE_URL = '/';
 
 function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
   const room = joinRoom(
     {
       appId: APP_ID,
-      relayConfig: { urls: NOSTR_RELAYS, redundancy: NOSTR_RELAYS.length },
+      relayConfig: { urls: [...PM_RELAYS], redundancy: PM_RELAYS.length },
       rtcConfig: { iceServers: ICE_SERVERS, iceTransportPolicy: 'all' },
       trickleIce: true,
     },

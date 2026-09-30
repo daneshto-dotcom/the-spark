@@ -1,9 +1,9 @@
 {
- "commit": "13587df8a069fef8b0d1db97d6097e064744bd34",
- "label": "13587df8a0",
+ "commit": "92f702a0531dd9e818a6e39a40a3f00ca32c9ae9",
+ "label": "92f702a053",
  "dirty": false,
  "debug": false,
- "built_at": "2026-09-29T23:47:03Z",
+ "built_at": "2026-09-30T00:08:23Z",
  "godot": "4.3.stable",
  "config": {
   "args": [],
@@ -12,7 +12,7 @@
   "executable": "index",
   "experimentalVK": false,
   "fileSizes": {
-   "index.pck": 5323520,
+   "index.pck": 5328320,
    "index.wasm": 35376909
   },
   "focusCanvas": true,
@@ -22,8 +22,8 @@
   "index.apple-touch-icon.png": 10259,
   "index.audio.worklet.js": 7298,
   "index.icon.png": 4372,
-  "index.js": 331495,
-  "index.pck": 5323520,
+  "index.js": 331441,
+  "index.pck": 5328320,
   "index.png": 21443,
   "index.wasm": 35376909,
   "music.mp3": 4822404,
