@@ -816,13 +816,14 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
   `KRAKEN_SONAR_STUN_TICKS` = **120** (2 s, ⚠ MINE, S169). ⛔ `KRAKEN_SONAR_KNOCKBACK = 26` is DELETED: it
   was a per-substep velocity (~11,000 px of travel), not the "body-length and a half" its docblock claimed.
 
-⚠ **A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED.** The FFA spread
-(`spreadEnemyTarget`) builds its victim list over the NON-strict enemy predicate while the enemy-only
-nearest set is strict (S162), so for a chewer / drone / structure-attacker a MIXED bond (one endpoint the
-owner's colour) can be returned by the spread — the "my own creature destroys my own tower" chain S162
-closed at the nearest-bond step. LATENT on a measured four-seat bots match (0 mixed bonds in 1,493
-samples); human play not measured. Any fix changes targeting outputs, so it needs his ruling, and the
-reference fixture (`bondTargetReference.fixtures.ts`) moves first. (`S190_CANON_NOTES_perf.md`.)
+⭐ **THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6, merge owner's go).** `spreadEnemyTarget`
+builds its victims, and scans the chosen victim's bonds, over the S162 STRICT enemy set (neither endpoint
+the creature's own seat's colour) — so a chewer / drone / structure-attacker can no longer be handed a
+MIXED bond (a weld of its own structure), the "my own creature destroys my own tower" chain S162 closed at
+the nearest-bond step. Found by the S190 perf audit (`S190_CANON_NOTES_perf.md`). The reference fixture
+(`bondTargetReference.fixtures.ts`) moved first; `spreadStrict.test.ts` drives 40 chewers through the real
+host tick beside a welded mixed structure (30 of them targeted a weld before the fix). The Voltkin
+(`enemyOnly: false`) is unchanged. A targeting rule both peers compute — it rides the deploy's bump.
 
 ⭐ **AND THE SCAN IS NOW INDEXED (S190 `s190/perf`), WITH BYTE-IDENTICAL OUTPUTS.** One classification of
 `world.bonds` per colour per tick, opened and closed around exactly the creature loop

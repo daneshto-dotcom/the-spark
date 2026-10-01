@@ -871,6 +871,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`\`KRAKEN_SONAR_STUN_TICKS\` = **${KRAKEN_SONAR_STUN_TICKS}**`)).toBe(true);
     expect(canonSays(`shoves ~**${KRAKEN_SONAR_KNOCKBACK_PX}** px (\`KRAKEN_SONAR_KNOCKBACK_PX\``)).toBe(true);
     expect(canonSays('The Kraken\'s sonar stuns AND flings')).toBe(false); // the S188 wording, wrong since C10
+    // ⭐ S191 C-6 — the S190 targeting finding is FIXED; the "NOT FIXED" paragraph must not come back.
+    expect(canonSays('THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6')).toBe(true);
+    expect(canonSays('REPORTED BY THE S190 PERF AUDIT, NOT FIXED')).toBe(false);
     // Helga's bound is the creature bound — both the integrator and the patrol point.
     const motion = readFileSync(new URL('./state/defenders/defenderMotion.ts', import.meta.url), 'utf8');
     const life = readFileSync(new URL('./state/defenders/defenderLifecycle.ts', import.meta.url), 'utf8');

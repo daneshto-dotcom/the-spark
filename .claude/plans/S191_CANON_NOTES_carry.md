@@ -52,7 +52,7 @@ merge owner. Fix shape: hash-skip zero tallies, or delete the map entry at zero.
 - C-5 · the zombie boss's R138 blast (same action) is **left a raze** — the ruling names the hub only.
 - C-4 · the Pharaoh's **halo** still draws while he channels in BUILD; only the columns are gated.
 
-## 5 · §5b's targeting finding is FIXED (C-6) — REPLACE (outside this branch's canon grant)
+## 5 · §5b's targeting finding is FIXED (C-6) — ✅ APPLIED S192 (the merge owner granted the canon edit to this branch)
 
 `SPARK_CANON.md` §5b, the paragraph *"⚠ A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED."*,
 is stale on this branch. Proposed replacement (no new number):

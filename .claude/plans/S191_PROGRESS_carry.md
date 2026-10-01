@@ -399,3 +399,10 @@ None.
   the four constants + their canon numbers + `structureBarWidth` endpoints, R185-B sentences.
 - Wire/hash/rule: none (render only). No bump.
 - Full suite 0: 6784 passed / 7 skipped, 424 files. typecheck 0.
+
+## Canon §5b — DONE
+
+- The S190 "⚠ A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED." paragraph → the C-6 text drafted in
+  `S191_CANON_NOTES_carry.md` §5 (no new number; + "rides the deploy's bump"). Notes §5 marked APPLIED.
+- Pin (`canon.test.ts` §5b): the new sentence present, the "NOT FIXED" sentence absent. Mutation: the stale sentence
+  re-appended → 1 RED; restored → 66/66.
