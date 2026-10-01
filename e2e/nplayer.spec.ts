@@ -24,7 +24,7 @@
  * LOGIC coverage. unit(N=6) + this deterministic render proof + the 4-peer real
  * netcode test cover the same ground reliably. (Battle Ledger DP1.)
  */
-import { test, expect, type BrowserContext } from '@playwright/test';
+import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import {
   canvasToCss,
   hostNewRoom,
@@ -51,8 +51,19 @@ const PLAYER_COLORS = [0xff3b6b, 0x3bd7ff, 0xffe23b, 0x44ff5e, 0xff8c1a, 0xd73bf
 const SEAT_CAP = 4; // mirror of src/constants.ts MAX_PLAYERS
 const NETWORKED_COLORS = PLAYER_COLORS.slice(0, SEAT_CAP);
 
-/** Seam injection mirror of smoke.spec.ts: fog off (swiftshader perf) + fast spawn + low win. */
-async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Promise<void> {
+/**
+ * Seam injection mirror of smoke.spec.ts: fog off (swiftshader perf) + fast spawn + a win bar the match
+ * cannot reach by itself.
+ *
+ * ⛔ S192 — THE WIN SCORE WAS 3, AND EVERY SEAT STARTS WITH `STARTING_VICTORY_POINTS` = 100
+ * (`src/constants.ts`). So the 4-player match hit WIN on its first tick and the host was in POSTGAME
+ * before `peer 0 PLAYING + 4 players` could be observed — the failure `e2e-quarantine` printed in every
+ * run sampled 2026-08-11 → 2026-10-01. The bar is now far above any natural score, and the FFA win is
+ * still forced by injection below (×1000 the bar, above the largest `WIN_SCORE_BANDS` multiplier of 20).
+ */
+const NPLAYER_WIN_SCORE = 1_000_000;
+const NPLAYER_INJECTED_SCORE = NPLAYER_WIN_SCORE * 1000;
+async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = NPLAYER_WIN_SCORE): Promise<void> {
   await ctx.addInitScript(() => {
     (window as { __FOG_DISABLE__?: boolean }).__FOG_DISABLE__ = true;
   });
@@ -64,17 +75,39 @@ async function prepCtx(ctx: BrowserContext, spawnRate = 1.5, winScore = 3): Prom
   }, winScore);
 }
 
-// @quarantine-flaky — S65 P3: this 4-peer real-WebRTC test is a recurring CI
-// timeout flake (90s under CI network load). e2e.yml runs it in a NON-GATING
-// lane via `--grep "@quarantine-flaky"`; the gating lane excludes it via
-// `--grep-invert`. Explicit opt-in: a test is quarantined ONLY if it carries
-// this tag, so new tests gate by default. Do NOT remove the tag without
-// flake-hardening (deterministic transport is rejected — see playwright.config C9).
-test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win @quarantine-flaky', () => {
+/** This page's Trystero peer id — the SAME module instance the game imported (same dev-server URL). */
+async function readSelfId(page: Page): Promise<string> {
+  return await page.evaluate(async () => {
+    const p = '/src/net/transport.ts';
+    return ((await import(/* @vite-ignore */ p)) as { selfId: string }).selfId;
+  });
+}
+
+/*
+ * ⛔⛔ S192 T1 — OUT OF @quarantine-flaky, AND WHY IT CAN NOW GATE.
+ *
+ * This was quarantined as a "CI timeout flake" (S65). It was red for TWO reasons, and the second hid
+ * the first:
+ *   1. the match ended at once (the win-score rot above) — every run, even when all 4 connected;
+ *   2. ⭐ THE OWNER'S "THE 4TH PLAYER CAN'T CONNECT". Trystero 0.25 pre-builds pooled offers when a
+ *      page joins; one older than 57.3 s is restarted by rolling back its never-answered offer, which
+ *      strips the data channel (a 105-byte offer). Which side of a pair offers is `selfId < peerId`.
+ *      Here the 4th joined at ~+54–64 s, right on the edge, so about half the runs had a dead pair.
+ *      Fixed by `src/net/poolSafePeerConnection.ts`.
+ *
+ * The coin flips are now REMOVED rather than waited out, so this is red without the fix EVERY time:
+ *   · staleness is forced: `Date.now` on the 3 pages already in the room is shifted +60 s, and
+ *     Trystero's age test is `Date.now() - peer.created > offerTtl` (`strategy.mjs:99`);
+ *   · the 4th joiner's peer id is forced to sort ABOVE all three (Math.random is pinned high only while
+ *     modules evaluate, which is when Trystero mints `selfId`), so all three are its OFFERERS, all with
+ *     stale pooled offers. The precondition is asserted, not assumed.
+ * Without the fix the 4th reaches nobody; with it, the full 4-way mesh forms.
+ */
+test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win, late 4th joiner (S192 T1)', () => {
   test('host + 3 joiners get distinct seats {0..3} incl green@seat3, all PLAYING, one wins', async ({
     browser,
   }) => {
-    test.setTimeout(90_000); // +1 peer over the proven 3-peer test → extra headroom
+    test.setTimeout(150_000);
     const ctxs = await Promise.all([
       browser.newContext(),
       browser.newContext(),
@@ -83,15 +116,47 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
     ]);
     try {
       for (const c of ctxs) await prepCtx(c);
+      // The 4th joiner: Math.random pinned to its top value until the page's modules have run, so
+      // Trystero's `selfId = genId(20)` is "zzzz…" — above any id the other three can hold.
+      await ctxs[3].addInitScript(() => {
+        const real = Math.random;
+        Math.random = () => 0.99999;
+        document.addEventListener('DOMContentLoaded', () => {
+          Math.random = real;
+        });
+      });
       const pages = await Promise.all(ctxs.map((c) => c.newPage()));
       const [hostPage, ...joinerPages] = pages;
+      const early = [hostPage, joinerPages[0], joinerPages[1]];
+      const late = joinerPages[2];
 
-      // Host opens ONE room; all 3 joiners enter the same code.
+      // Host opens ONE room; the first two joiners enter, and the 3-way mesh forms normally.
       const code = await hostNewRoom(hostPage);
-      for (const jp of joinerPages) await joinRoom(jp, code);
+      for (const jp of joinerPages.slice(0, 2)) await joinRoom(jp, code);
+      for (const [i, p] of early.entries()) {
+        await waitForWorld(p, (w) => w.peerCount >= 2, `early peer ${i} sees the other two`, 60_000);
+      }
 
-      // Host sees all 3 joiners connected.
-      await waitForWorld(hostPage, (w) => w.peerCount >= 3, 'host sees 3 joiners connected', 60_000);
+      // Force every pooled offer on the three in-room pages past Trystero's 57.3 s TTL.
+      for (const p of early) {
+        await p.evaluate(() => {
+          const real = Date.now.bind(Date);
+          Date.now = () => real() + 60_000;
+        });
+      }
+
+      // The late 4th joiner, whose id sorts above all three ⇒ all three must OFFER to it.
+      await joinRoom(late, code);
+      const earlyIds = await Promise.all(early.map((p) => readSelfId(p)));
+      const lateId = await readSelfId(late);
+      for (const id of earlyIds) {
+        expect(id < lateId, `precondition: late id ${lateId} must sort above in-room id ${id}`).toBe(true);
+      }
+
+      // ⭐ THE FULL 4-WAY MESH — every page reaches the other three (the S192 T1 assertion).
+      for (const [i, p] of pages.entries()) {
+        await waitForWorld(p, (w) => w.peerCount === 3, `peer ${i} has the full mesh (3 peers)`, 60_000);
+      }
 
       // Host begins → all 4 seated from the authoritative ordered roster.
       const beginBtn = await canvasToCss(hostPage, CANVAS_WIDTH / 2, 814);
@@ -132,22 +197,24 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
       await hostPage.screenshot({ path: 'test-results/s63-4player-hud.png' });
 
       // FFA scoring → one winner. Host places 3 non-bonding anchors, then the host score is
-      // INJECTED over the win threshold (S78/S79 idiom, mirrors hunter.spec). Pre-S79 this
-      // waited for NATURAL income to cross 3 — but the S78 income cut (0.15→0.05) made
-      // complexity-3 accrual ~20s sim against the 20s wall timeout, so the wait was a
-      // coin-flip-at-best (deterministic local fail). This test covers the FFA WIN PIPELINE
-      // (win fires + ENDGAME propagates to all joiners), not the income rate (unit-tested in
-      // scoring.test.ts), so injection is the correct decoupling.
+      // INJECTED over the win threshold (S78/S79 idiom, mirrors hunter.spec). This test covers the
+      // FFA WIN PIPELINE (win fires + ENDGAME propagates to all joiners), not the income rate
+      // (unit-tested in scoring.test.ts), so injection is the correct decoupling.
       await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host', 20_000);
       await dragSparkTo(hostPage, 300, 400);
       await dragSparkTo(hostPage, 300, 600);
       await dragSparkTo(hostPage, 300, 800);
-      await hostPage.evaluate(() => {
+      await hostPage.evaluate((score) => {
         const w = (window as unknown as { __SPARK__: { world: { scoreByPlayer: Map<number, number> } } })
           .__SPARK__.world;
-        w.scoreByPlayer.set(0, 999); // >> __TEST_WIN_SCORE__ (3) → WIN on the next tick
-      });
-      await waitForWorld(hostPage, (w) => w.gameState === 'WIN', 'host reaches FFA WIN', 20_000);
+        w.scoreByPlayer.set(0, score); // >> the win bar at any wave → WIN on the next tick
+      }, NPLAYER_INJECTED_SCORE);
+      await waitForWorld(
+        hostPage,
+        (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
+        'host reaches FFA WIN',
+        20_000,
+      );
 
       // All 3 joiners see the game end.
       for (const [i, page] of joinerPages.entries()) {
