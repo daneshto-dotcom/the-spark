@@ -305,7 +305,10 @@ test.describe('S57 Fog of War — client-side render mask', () => {
                     //       The haze draws the TRUE damage radius, so the edge is readable; it is
                     //       also the load-failure fallback for the atlas, exactly as the goblins'
                     //       procedural puppet is for theirs.
-      '_Container', //  24 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
+      '_Container', //  24 — stinkCloudRenderer.smoke.container (S193 V16) — the cloud's soft smoke
+                    //       puffs (an `FxLayer` of its own). ABOVE the fog with its haze for the same
+                    //       ambush reason, and under the bag so the art stays legible.
+      '_Container', //  25 — stinkCloudRenderer.spriteLayer (S158 P6) ⭐ NEW — the S157 bag atlas,
                     //       which shipped a session ago with ZERO references anywhere in src/.
                     //       Above its own haze, for the same reason the goblin sprites sit above
                     //       their puppet: the fallback must never overdraw the real art.

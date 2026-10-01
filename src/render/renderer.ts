@@ -17,6 +17,9 @@ import type { Spark } from '../game/spark.ts';
 import type { SparkId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './shapes.ts';
+import { FxLayer } from './fx/fxLayer.ts';
+import { fxActive } from './fx/fxState.ts';
+import { sparkGlowFx } from './fx/sparkFx.ts';
 
 /**
  * Free shapes render in neutral off-white. Slightly cool/silver to read
@@ -43,6 +46,12 @@ export class SparkRenderer {
   private readonly container: Container;
   private readonly spriteBySpark: Map<SparkId, Sprite> = new Map();
   private readonly textures: ShapeTextures;
+  /**
+   * ⭐ S193 (V25) — one soft glow BEHIND each drawn spark. The container's FIRST child, so every spark
+   * sprite (added later, on first sight) draws over it. Fed only for sparks that pass the fog cull
+   * below, so a concealed spark has no glow either.
+   */
+  private readonly glow: FxLayer;
 
   /**
    * S153 P4 (owner R81) — *"spark should be one layer above those options as it is the cruiser"*.
@@ -82,6 +91,8 @@ export class SparkRenderer {
     // problem and solves it with hand-maintained comments. A label costs nothing and is readable
     // from any probe.
     this.container.label = 'sparkRenderer';
+    this.glow = new FxLayer('sparkGlow');
+    this.container.addChild(this.glow.container);
     parent.addChild(this.container);
   }
 
@@ -96,6 +107,9 @@ export class SparkRenderer {
    */
   sync(freeSparks: readonly Spark[], world?: World): void {
     const present = new Set<SparkId>();
+    const glow = world !== undefined && fxActive();
+    const tick = world?.tick ?? 0;
+    this.glow.begin();
     for (let i = 0; i < freeSparks.length; i++) {
       const s = freeSparks[i];
       /*
@@ -159,7 +173,9 @@ export class SparkRenderer {
       if (world !== undefined && s.poopyUntilTick !== undefined && world.tick < s.poopyUntilTick) {
         sprite.tint = POOPY_SPARK_TINT;
       }
+      if (glow) sparkGlowFx(this.glow, s.id as unknown as number, tick, s.pos.x, s.pos.y, sprite.tint as number, s.state.kind === 'Carried');
     }
+    this.glow.end();
 
     if (this.spriteBySpark.size > present.size) {
       for (const [id, sprite] of this.spriteBySpark) {
