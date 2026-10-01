@@ -55,6 +55,7 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 import { applyLifesteal } from './racial/lifesteal.ts';
 // ⭐ S191 — the end-of-match stat board's two damage chokepoints + the defender removal site.
 import { recordDamage, recordKill, recordTowerFell } from './matchStats.ts';
+import { statCreditOf } from './statCredit.ts'; // ⭐ S193 — the stat board's credit (folds into KillCredit)
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -154,17 +155,11 @@ export type SeatAttacker = Extract<DamageAttacker, { readonly kind: 'seat' }>;
 /**
  * ⭐ S191 — which SEAT an attacker belongs to, for the stat board. A creature or tower that has already left
  * the world (a drone that detonated, a razed tower) resolves to nobody: the hit still counts as TAKEN.
+ * ⭐ S193 — read through `statCredit.ts`, the thin adapter that folds into s192/zombies' `KillCredit` (the
+ * ONE attribution seam — see that file's FOLD list).
  */
 function attackerSeat(world: World, attacker: DamageAttacker): PlayerId | null {
-  if (attacker === null) return null;
-  switch (attacker.kind) {
-    case 'creature':
-      return world.creatures.get(attacker.id)?.ownerPlayerId ?? null;
-    case 'defender':
-      return world.defenders.get(attacker.id)?.ownerPlayerId ?? null;
-    case 'seat':
-      return attacker.seat;
-  }
+  return statCreditOf(world, attacker)?.seat ?? null;
 }
 
 export function damageEntity(

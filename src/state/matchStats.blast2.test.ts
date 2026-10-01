@@ -52,6 +52,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState }
 import { mulberry32 } from './rng.ts';
 import { raSplitShares, raStrikeColumnPos, RA_PERK_STRIKE_FIFTHS } from './racial/powerOfRa.ts';
 import { SCORCHED_GROUND_PER_MILLE } from './racial/scorchedGround.ts';
+import { statCreditOf } from './statCredit.ts';
 import { attackFifths, structurePoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -420,5 +421,21 @@ describe('⭐ S193 BLAST-2 — the raid (the real reducer) and the overkill CARR
     expect(w.bonds.get(bc)?.damageFifths, 'fixture: the carry landed').toBe(2);
     expect(dealt(w, P0), 'all 3 of the raid\'s fifths are the raider\'s — 1 at the break, 2 by the carry').toBe(3);
     expect(taken(w, P1)).toBe(3);
+  });
+});
+
+/* ───────────────────────────────── 5 · THE ADAPTER (`statCredit.ts`) ───────────────────────────────── */
+
+describe('⭐ S193 — statCreditOf: the stat board\'s credit, shaped as KillCredit widened', () => {
+  it('a live creature → its seat AND type; a seat → its seat, no type; null / a creature already gone → nobody', () => {
+    const w = makeWorld(0x193c);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.creatures.clear();
+    const id = spawn(w, 'chewer', P1, 500, 500);
+    expect(statCreditOf(w, { kind: 'creature', id })).toEqual({ seat: P1, type: 'chewer' });
+    expect(statCreditOf(w, { kind: 'seat', seat: P0 })).toEqual({ seat: P0, type: null });
+    expect(statCreditOf(w, null)).toBeNull();
+    w.creatures.delete(id);
+    expect(statCreditOf(w, { kind: 'creature', id }), 'a dealer gone before the blow credits nobody').toBeNull();
   });
 });
