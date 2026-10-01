@@ -87,25 +87,52 @@ const EPSILON = 1e-6;
  * landlords combo behavior in Session 3).
  *
  * Mutates body positions in place.
+ *
+ * ⭐ S191 (`s191/perf`, owner C5: *"it was lagging at about wave five"*) — SAME SOLVER, TWO LOADS HOISTED.
+ * This runs 8× per tick over every bond (8.2-15.8 % of a wave-5 host tick, V8 profile), and most of
+ * each iteration was two STRING-KEYED lookups into the tier tables (`STRAIN_BREAK_BY_TIER[tier]`,
+ * `STIFFNESS_BY_TIER[tier]`). The three entries of each table are now read ONCE per call — nothing
+ * inside the call can write a table — and chosen by comparing the tier; an unknown tier still reads the
+ * table exactly as before. Each endpoint's `pos` object is read once per bond instead of three times
+ * (nothing in the loop reassigns `.pos`; a bond whose two ends share one `pos` is still summed on the
+ * one object, net zero, exactly as before). Every arithmetic expression is the same expression on the
+ * same doubles in the same order, and the bonds are solved in the same (Gauss-Seidel) order: the
+ * outputs are identical by construction — proven against the verbatim solver
+ * (`solveBondsReference.fixtures.ts`) by `solveBonds.differential.test.ts` and, inside the real host
+ * tick, by the SOLVER arm of `s191Perf.differential.test.ts`. Measured on a real wave-5 board (517
+ * bonds × 8 substeps): 244 → 100 µs per tick.
  */
 export function solveBonds(bonds: readonly Bond[]): BondId[] {
   if (bonds.length === 0) return [];
   const broken: BondId[] = [];
+  const stiffLow = STIFFNESS_BY_TIER.LOW;
+  const stiffMid = STIFFNESS_BY_TIER.MID;
+  const stiffHigh = STIFFNESS_BY_TIER.HIGH;
+  const breakLow = STRAIN_BREAK_BY_TIER.LOW;
+  const breakMid = STRAIN_BREAK_BY_TIER.MID;
+  const breakHigh = STRAIN_BREAK_BY_TIER.HIGH;
   for (let i = 0; i < bonds.length; i++) {
     const bond = bonds[i];
-    const dx = bond.b.pos.x - bond.a.pos.x;
-    const dy = bond.b.pos.y - bond.a.pos.y;
+    const aPos = bond.a.pos;
+    const bPos = bond.b.pos;
+    const dx = bPos.x - aPos.x;
+    const dy = bPos.y - aPos.y;
     const distSq = dx * dx + dy * dy;
     if (distSq < EPSILON) continue;
     const dist = Math.sqrt(distSq);
 
-    if (dist > bond.restLength * STRAIN_BREAK_BY_TIER[bond.stiffnessTier]) {
+    const tier = bond.stiffnessTier;
+    const breakRatio =
+      tier === 'MID' ? breakMid : tier === 'LOW' ? breakLow : tier === 'HIGH' ? breakHigh : STRAIN_BREAK_BY_TIER[tier];
+    if (dist > bond.restLength * breakRatio) {
       broken.push(bond.id);
       continue;
     }
 
     const error = dist - bond.restLength;
-    const stiffness = STIFFNESS_BY_TIER[bond.stiffnessTier] * (bond.stiffnessMultiplier ?? 1.0);
+    const tierStiffness =
+      tier === 'MID' ? stiffMid : tier === 'LOW' ? stiffLow : tier === 'HIGH' ? stiffHigh : STIFFNESS_BY_TIER[tier];
+    const stiffness = tierStiffness * (bond.stiffnessMultiplier ?? 1.0);
     let correction = (error / dist) * stiffness * 0.5;
     const maxCorrectionMagnitude = POSITION_CORRECTION_CLAMP_RATIO * bond.restLength;
     const moveMagnitude = Math.abs(correction * dist);
@@ -114,10 +141,10 @@ export function solveBonds(bonds: readonly Bond[]): BondId[] {
     }
     const cx = dx * correction;
     const cy = dy * correction;
-    bond.a.pos.x += cx;
-    bond.a.pos.y += cy;
-    bond.b.pos.x -= cx;
-    bond.b.pos.y -= cy;
+    aPos.x += cx;
+    aPos.y += cy;
+    bPos.x -= cx;
+    bPos.y -= cy;
   }
   return broken;
 }
