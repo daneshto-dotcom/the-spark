@@ -122,7 +122,8 @@ describe('S183 — the damageEntity call-site census', () => {
     // hub's ladder blast (a null site — a blast names nobody). S191/S192 +1: the Ra column's split share (null).
     // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
     // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
-    expect(sites.length).toBe(20);
+    // ⭐ S192 (zombies) +1: the zombie death blast (null attacker, explicit KillCredit).
+    expect(sites.length).toBe(21);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -137,7 +138,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(named.length + nulled.length).toBe(sites.length);
 
     expect(named.length).toBe(8);
-    expect(nulled.length).toBe(12); // S191 C-5 +1 — the hub's blast; S191 +1 — the Ra column's split share; ⭐ S191 +2 — SCORCHED EARTH's shape + bag arms; ⭐ S192 +1 — its Helga arm
+    expect(nulled.length).toBe(13); // ⭐ S192 (zombies) +1 — the zombie death blast; S191 C-5 +1 — the hub's blast; S191 +1 — the Ra column's split share; ⭐ S191 +2 — SCORCHED EARTH's shape + bag arms; ⭐ S192 +1 — its Helga arm
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -165,6 +166,7 @@ describe('S183 — the damageEntity call-site census', () => {
       // S188 — burning ground: nobody to turn on or heal. ⭐ S191: the creature arm (the passive and
       // every cast share it), a LONE shape and a landed STINK BAG; ⭐ S192: + the Helga arm.
       'src/state/racial/scorchedGround.ts': 4,
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — a dead boss: nobody to turn on; credited for THE RISEN
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });
   });

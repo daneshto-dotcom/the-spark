@@ -486,6 +486,12 @@ describe('FIELD_COVERAGE — the forcing function', () => {
          * disagreeing about it produce identical sim state. It is not a sim input and never becomes
          * one — a peer has no record at all and falls back to the remainder.
          */
+        /*
+         * ⭐ S192 (owner T11) — the repair heal record. The `structureKillHits` grounds exactly: a
+         * per-frame presentational record of a repair already applied, wiped by its consumer, read
+         * back by nothing in the sim; a peer has none and prints only the shape refills.
+         */
+        'structureHealHits',
         'structureKillHits',
         /*
          * ⭐ S182 — the mass-clear cue. A RENDERER signal, not a sim value: `DamageNumbers` keeps

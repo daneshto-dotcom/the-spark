@@ -44,7 +44,6 @@ import {
   phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  T9_ZOMBIE_DEATH_BLAST_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -100,6 +99,8 @@ import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
   reviveDormantHelgas, // S189 R190-J — wake a dead Helga at the FIGHT→BUILD edge while her hall stands
+  stepPrincessPatrol, // S192 T5 — her BUILD-stage patrol (motion only)
+  defenderHomePos,
 } from './defenders/defenderLifecycle.ts';
 // S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -144,6 +145,7 @@ import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
+import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -200,7 +202,8 @@ export interface HostTickState {
    * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
-  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
+  // ⭐ S192 T2 — `owner` too: the death blast credits his seat's kills after he is gone.
+  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number; owner: PlayerId }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
   /**
@@ -1434,7 +1437,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // player severed their own bonds, or is mid-rebuild) must still be REMOVED, or a dead tower
       // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
       // WEAPON, not the entity's bookkeeping.
-      if (world.matchPhase !== 'FIGHT') continue;
+      //
+      // ⭐⭐ S192 T5 (owner) — *"Helga is not patrolling during … the build stage … She should always
+      // like walk around her tower patrolling."* Dormancy suspends the weapon, NOT HER LEGS: in BUILD
+      // a living Helga takes one patrol step and nothing else — no acquire, no fire clock, no aura,
+      // and she stays IDLE with a null target, so her music does not start (see `stepPrincessPatrol`).
+      // `standDownDefenders` leaves every non-DORMANT defender IDLE at the FIGHT→BUILD edge, so the
+      // IDLE gate is every living Helga in practice; DORMANT (R190-J) stays exactly where she fell.
+      if (world.matchPhase !== 'FIGHT') {
+        if (d.kind === 'princess' && d.state === 'IDLE') {
+          const home = defenderHomePos(world, d);
+          if (home !== null) stepPrincessPatrol(world, d, home);
+        }
+        continue;
+      }
       if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga does nothing until the edge
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
@@ -2432,10 +2448,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     if (world.gameState !== 'PLAYING') {
       previous.clear();
     } else {
-      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number }[] = [];
+      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number; owner: PlayerId }[] = [];
       for (const [id, boss] of previous) {
         if (world.creatures.has(id)) continue;
-        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y });
+        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y, owner: boss.owner });
       }
       /*
        * ⚠ S168 POST-AUDIT — TOTAL ORDER. The scan above is a membership test and does not care about
@@ -2459,19 +2475,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       previous.clear();
       for (const c of world.creatures.values()) {
         if (isT9BossType(c.type)) {
-          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
+          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId });
         }
       }
 
       for (const boss of deaths) {
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
-        dispatch(world, {
-          type: 'STRUCTURE_SELFDESTRUCT',
-          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
-          pos: { x: boss.x, y: boss.y },
-          radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
-          // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
-        });
+        /*
+         * ⭐⭐ S192 (owner T2 + T3) — NO LONGER A RAZE. *"a total damage pool that is split … closer to the
+         * explosion will give you more damage and further is less"* and *"every zombie that kills …
+         * through an explosion … creates a regular zombie"*. One pool (⚠ AWAITING OWNER), split by
+         * distance over everything in `T9_ZOMBIE_DEATH_BLAST_RADIUS`, owner-agnostic as R138 ruled,
+         * every kill credited to his seat — see `racial/zombieDeathBlast.ts`.
+         */
+        applyZombieDeathBlast(world, { x: boss.x, y: boss.y }, boss.owner);
       }
     }
   }

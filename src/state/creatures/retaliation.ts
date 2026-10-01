@@ -104,7 +104,7 @@
 import type { CreatureId, DefenderId, Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
 import type { Creature, CreatureType } from './creature.ts';
-import { isStunned, isUntargetable } from './creature.ts';
+import { isLiveCreatureTarget, isStunned, isUntargetable } from './creature.ts';
 import { distSq, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import type { Defender } from '../defenders/defender.ts';
 import { getDefenderConfig } from '../defenders/defender.ts';
@@ -171,7 +171,6 @@ function isHomingMissile(type: CreatureType): boolean {
  */
 function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature['ownerPlayerId']): boolean {
   if (c.ownerPlayerId === victimOwner) return false;
-  if (isUntargetable(c, world.tick)) return false;
   /*
    * ⛔ AND IT MUST NOT BE A CORPSE-IN-WAITING — the S155 N1 deferral's other edge. A creature that
    * took a lethal blow earlier in this same batch is still in `world.creatures` until the
@@ -185,9 +184,9 @@ function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature
    * therefore defence in depth against a future caller that leaves a zero-pool creature in the
    * map, not the other half of a pair. It was previously described as "the immediate arm".
    */
-  if (c.ehp <= 0) return false;
-  if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
-  return true;
+  // ⭐ S192 T13 — these two lines (plus the untargetable gate) are now the shared liveness predicate,
+  // `isLiveCreatureTarget` — the same rule, written once.
+  return isLiveCreatureTarget(world, c);
 }
 
 /**
