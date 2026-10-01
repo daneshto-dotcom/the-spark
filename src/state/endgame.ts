@@ -50,7 +50,7 @@ export function monstersPerSeatForWave(wave: number): number {
 
 /**
  * ⭐ HIS PACE (S193): *"one comes and then once he's out of the circle the next comes"*. Release `j`
- * (0-based) of a monster fight is due `floor(j × EMERGE / N)` ticks after the fight began, `N` = the
+ * (0-based) of a monster fight is due `ceil(j × EMERGE / N)` ticks after the fight began, `N` = the
  * living seats: lane `j mod N` gets one pants every `MONSTER_EMERGE_TICKS`, and the lanes are
  * staggered so the board never sees two born on one tick (unless N > EMERGE, which no board reaches).
  * So the number due by `elapsed` ticks is `floor(elapsed × N / EMERGE) + 1`, capped at the wave's
