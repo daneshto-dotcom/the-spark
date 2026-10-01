@@ -45,6 +45,7 @@ import { razePrimitives } from './razePrimitives.ts';
 // sever goes straight to the one sever reducer (see `applyHubLadderBlast`).
 import { damageConnector, damageEntity, damageStinkCloud, severWithCarry, type DamageTarget } from './damage.ts';
 import { applySeverBond } from './severBond.ts';
+import { BLAST_KIND_WEIGHT_DEFAULT, blastSplitWeight, splitBlastPool } from './blastFalloff.ts'; // ⭐ S193 R193-B4
 import { attackFifths } from './stats.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
@@ -428,6 +429,14 @@ export function applyRadialClear(
 export const STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE = 4;
 export const STRUCTURE_SELFDESTRUCT_FIFTHS = STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN);
 
+/**
+ * ⚠ MINE (S193) — the hub blast's creature:connector weight in its distance split. The owner ruled 2:1
+ * for the ZOMBIE boss's blast only (R193-B2); this blast keeps 1:1 (`BLAST_KIND_WEIGHT_DEFAULT`) until he
+ * says otherwise. Every non-connector target (a unit, Helga, a lone shape, a bag) takes this weight.
+ * THE ONE LEVER.
+ */
+export const HUB_BLAST_CREATURE_WEIGHT = BLAST_KIND_WEIGHT_DEFAULT;
+
 /** One entity the hub's blast reaches. A connector is one entity (owner, S191). */
 export type HubBlastKind = 'creature' | 'defender' | 'primitive' | 'stinkCloud' | 'connector';
 export interface HubBlastShare {
@@ -471,10 +480,11 @@ const HUB_BLAST_KIND_RANK: Readonly<Record<HubBlastKind, number>> = {
  * ORDER — a TOTAL order: squared distance (nearest first), then kind (`HUB_BLAST_KIND_RANK`), then id.
  * ⚠ MINE, the order itself: he ruled the division, not who gets the remainder.
  *
- * HOW MUCH — n targets share 120: each takes `floor(120 / n)` and the first `120 mod n` in the order
- * take one more, so the shares always sum to EXACTLY 120. ⚠ MINE — more than 120 targets: the same
- * formula gives the first 120 one fifth each and the rest nothing (a fifth is the ladder's smallest
- * unit; nothing smaller can be dealt).
+ * HOW MUCH — ⭐ S193 (owner R193-B4, *"closer = more, for every blast"*): n targets share 120 BY
+ * DISTANCE — each takes `floor(120 × w / Σw)` with `w = max(1, floor(R − d))` (× `HUB_BLAST_CREATURE_WEIGHT`,
+ * 1, for a non-connector), and the leftover fifths go one apiece in the order, so the shares always sum
+ * to EXACTLY 120 (`splitBlastPool`). Until S193 it was the equal `floor(120 / n)`. ⚠ MINE — a far target
+ * among many may take 0 (a fifth is the ladder's smallest unit).
  */
 export function planHubBlast(world: World, cx: number, cy: number, radius: number, owner: PlayerId): HubBlastShare[] {
   const r2 = radius * radius;
@@ -498,11 +508,14 @@ export function planHubBlast(world: World, cx: number, cy: number, radius: numbe
     at('connector', id as number, (b.a.pos.x + b.b.pos.x) / 2, (b.a.pos.y + b.b.pos.y) / 2);
   }
   found.sort((a, b) => a.d2 - b.d2 || HUB_BLAST_KIND_RANK[a.kind] - HUB_BLAST_KIND_RANK[b.kind] || a.id - b.id);
-  const n = found.length;
-  if (n === 0) return [];
-  const share = Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n);
-  const extra = STRUCTURE_SELFDESTRUCT_FIFTHS % n;
-  return found.map((t, i) => ({ ...t, amount: share + (i < extra ? 1 : 0) }));
+  if (found.length === 0) return [];
+  // ⭐ S193 (owner R193-B4) — *"whoever is closer … gets damaged more … for every blast"*: the 120 is
+  // shared by DISTANCE now (`blastFalloff.ts`), each target weighted `kind × max(1, floor(R − d))`.
+  const shares = splitBlastPool(
+    STRUCTURE_SELFDESTRUCT_FIFTHS,
+    found.map((t) => blastSplitWeight(t.d2, radius, t.kind === 'connector' ? 1 : HUB_BLAST_CREATURE_WEIGHT)),
+  );
+  return found.map((t, i) => ({ ...t, amount: shares[i]! }));
 }
 
 /**

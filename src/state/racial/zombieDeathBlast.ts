@@ -18,21 +18,20 @@
  * through the two funnels (`damageEntity`, `damageConnector`), so every victim reaches the death decision
  * and THE RISEN sees each kill with the credit captured when he died.
  *
- * ## The split (MINE — the shape is his, the numbers wait on him)
+ * ## The split (⭐ S193: the pool, the 2:1 and "not his own side" are HIS — R193-B1..B3; the curve is MINE)
  *
- *   · the pool is `T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` (⚠ AWAITING OWNER — 3 of his own bites, 312);
- *   · each target's weight is LINEAR in distance: `w = max(1, floor(R − d))`, `d = Math.sqrt(d²)` (IEEE
- *     correctly rounded, so deterministic — never `Math.hypot`) — his *"closer more damage, further
- *     less"*, full at his feet and almost nothing at the edge;
- *   · shares are integers that sum to EXACTLY the pool: everyone gets the floor of 1, the rest is shared
- *     `floor(rest × w / Σw)`, and the leftover fifths go one each nearest-first. With more targets than
- *     fifths, the nearest `pool` targets get 1 each;
+  *   · the pool is `T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` = 312 (⭐ RULED R193-B1 — 3 of his own bites);
+ *   · each target's weight is `kind × max(1, floor(R − d))` (`blastFalloff.ts`, the ONE falloff every
+ *     blast uses — R193-B4): kind 2 for a creature or Helga, 1 for a structure, lone shape or bag
+ *     (⭐ RULED R193-B2); `d = Math.sqrt(d²)` (IEEE correctly rounded — never `Math.hypot`);
+ *   · shares are `floor(312 × w / Σw)`, the leftover fifths one each nearest-first, summing to EXACTLY
+ *     312 (`splitBlastPool`). A far target among very many may take 0;
  *   · the total order is squared distance, then kind, then id (the S191 tune Ra convention).
  *
  * ## Who is a target
  *
- * Every creature with pool left (any owner — R138 *"hurting everything"*, T3 *"anyone who's in the
- * vicinity"*, ⚠ AWAITING OWNER), Helga, a lone built shape, a landed stink bag, and a STRUCTURE as ONE
+ * Every ENEMY creature with pool left (⭐ R193-B3 *"It does not hit his own side"* — superseding R138's
+ * *"hurting everything"*), enemy Helga, a lone built shape, a landed stink bag, and a STRUCTURE as ONE
  * target: its share lands on its connector nearest the centre (tune's Ra rule). The castle is not a
  * target. A corpse-in-waiting and a Pharaoh between realities take nothing, so they take no share.
  *
@@ -42,22 +41,24 @@
  */
 
 import { T9_ZOMBIE_DEATH_BLAST_RADIUS } from '../../constants.ts';
-import type { BondId, PlayerId } from '../../types.ts';
+import type { BondId, PlayerId, StinkCloudId } from '../../types.ts';
 import { componentOf } from '../../game/structure.ts';
 import { isChannellingRa } from '../creatures/creature.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
-import { damageConnector, damageEntity, severWithCarry, type DamageTarget } from '../damage.ts';
+import { damageConnector, damageEntity, damageStinkCloud, severWithCarry, type DamageTarget } from '../damage.ts';
+import { blastSplitWeight, splitBlastPool } from '../blastFalloff.ts'; // ⭐ S193 R193-B4 — the ONE falloff
+import { applySeverBond } from '../severBond.ts';
 import { attackFifths } from '../stats.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
-import { dispatch, type World } from '../world.ts';
+import type { World } from '../world.ts';
+
 import type { KillCredit } from './killCredit.ts';
 
 /**
- * ⚠⚠ AWAITING OWNER (T3 — *"we need to define the exact damage"*). The number is NOT his. It is the
- * research's recommendation: **three of his own bites**, `3 × attackFifths(8, 8)` = **312** — below his
- * own 360 pool, so the explosion is never worth more than killing him. Read off his TYPE's base strike,
- * not a drafted one (the carry hub precedent, *"priced off a drone"*). His alternatives: 2 bites (208)
- * or 4 (416). THE ONE LEVER: change this line.
+ * ⭐⭐ RULED (owner R193-B1, S193): *"312 blast pool, but split over, you know, everyone who's around."*
+ * **Three of his own bites**, `3 × attackFifths(8, 8)` = **312** — the S192 research number, now HIS.
+ * Below his own 360 pool, so the explosion is never worth more than killing him. Read off his TYPE's base
+ * strike, not a drafted one (the carry hub precedent, *"priced off a drone"*).
  */
 export const T9_ZOMBIE_DEATH_BLAST_BITES = 3;
 export const T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS =
@@ -65,10 +66,28 @@ export const T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS =
   attackFifths(getCreatureConfig(T9_BOSS_TYPE.zombies).atk, getCreatureConfig(T9_BOSS_TYPE.zombies).pen);
 
 /**
- * ⚠ AWAITING OWNER — whether HIS OWN side still takes a share. `true` keeps today's R138 *"hurting
- * everything"*; his own units never raise zombies either way (THE RISEN is enemy-only).
+ * ⭐⭐ RULED (owner R193-B3, S193): *"It does not hit his own side"* — it SUPERSEDES R138's *"hurting
+ * everything"* (S168) and the S192 MINE default for this blast. His units, Helga, structures, lone shapes
+ * and bags are spared, and a bag of another seat's that the blast pops bursts without hitting his side
+ * either (the hub's BLAST-1 rule, `damageStinkCloud`'s `burstAlsoSpares`). Pinned `false`; not a lever.
  */
-export const T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE = true;
+export const T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE = false;
+
+/**
+ * ⭐⭐ RULED (owner R193-B2, S193): *"creatures get twice as much damage as towers do from that blast."*
+ * In the distance split a creature (any unit, a boss) and Helga weigh **2**; a structure (one target),
+ * a lone shape and a stink bag weigh **1**. The kind weight multiplies the distance weight
+ * (`blastSplitWeight`), so at the same distance a creature takes twice a tower's share.
+ */
+export const T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT = 2;
+export const T9_ZOMBIE_DEATH_BLAST_STRUCTURE_WEIGHT = 1;
+
+/** The kind weight of one target — 2 for a creature or Helga, 1 for a structure, lone shape or bag. */
+export function zombieBlastKindWeight(kind: ZombieBlastTarget['kind']): number {
+  return kind === 'creature' || kind === 'defender'
+    ? T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT
+    : T9_ZOMBIE_DEATH_BLAST_STRUCTURE_WEIGHT;
+}
 
 /** One thing the blast can hit, with its squared distance from the centre. */
 export type ZombieBlastTarget =
@@ -84,32 +103,6 @@ export type ZombieBlastTarget =
 const KIND_RANK: Readonly<Record<ZombieBlastTarget['kind'], number>> = {
   structure: 0, creature: 1, defender: 2, primitive: 3, stinkCloud: 4,
 };
-
-/**
- * ⭐ PURE — the linear falloff weight for a target `d2` from the centre of a blast of radius `r`:
- * `max(1, floor(r − √d²))`. 380 at his feet, 1 at the edge.
- */
-export function zombieBlastWeight(d2: number, r = T9_ZOMBIE_DEATH_BLAST_RADIUS): number {
-  return Math.max(1, Math.floor(r - Math.sqrt(d2)));
-}
-
-/**
- * ⭐⭐ PURE — split `pool` fifths over targets whose weights are given IN THE TOTAL ORDER (nearest first).
- * Integers, each ≥ 1 while there are fewer targets than fifths, summing to EXACTLY `pool`.
- */
-export function zombieBlastShares(pool: number, weights: readonly number[]): number[] {
-  const n = weights.length;
-  if (n === 0 || pool <= 0) return [];
-  if (n >= pool) return weights.map((_, i) => (i < pool ? 1 : 0));
-  const rest = pool - n;
-  let sumW = 0;
-  for (const w of weights) sumW += w;
-  const out = weights.map((w) => 1 + Math.floor((rest * w) / sumW));
-  let left = pool;
-  for (const s of out) left -= s;
-  for (let i = 0; left > 0; i++, left--) out[i % n]! += 1; // nearest-first; left < n always
-  return out;
-}
 
 /**
  * ⭐ PURE (reads the world, writes nothing) — everything the blast at `at` catches, in the total order.
@@ -200,7 +193,11 @@ export function planZombieDeathBlast(
   owner: PlayerId,
 ): { target: ZombieBlastTarget; share: number }[] {
   const targets = zombieBlastTargets(world, at, T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE ? null : owner);
-  const shares = zombieBlastShares(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS, targets.map((t) => zombieBlastWeight(t.d2)));
+  // ⭐ S193 R193-B1/B2/B4 — the shared falloff: `kind × max(1, floor(R − d))`, then `floor(pool × w / Σw)`.
+  const shares = splitBlastPool(
+    T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS,
+    targets.map((t) => blastSplitWeight(t.d2, T9_ZOMBIE_DEATH_BLAST_RADIUS, zombieBlastKindWeight(t.kind))),
+  );
   return targets.map((target, i) => ({ target, share: shares[i] ?? 0 }));
 }
 
@@ -227,11 +224,19 @@ export function applyZombieDeathBlast(world: World, at: { x: number; y: number }
     if (damageConnector(world, t.bondId, share, null)) {
       // ⭐ S193 merge — `severWithCarry` (owner S191, canon §2): the struck connector falls and the overkill
       // carries on through the SAME structure, like every other connector-damage caller (CARRY-2 census).
-      severWithCarry(world, t.bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'unit' }));
+      // ⭐ S193 — straight to `applySeverBond`, not `dispatch`: POWER OF RA's audit-F1 reason (the hub does
+      // the same) — `dispatch`'s bench / elimination gates would REFUSE a sever in an eliminated seat's
+      // name and leave a connector standing on a spent pool. `canSeverBond` still runs.
+      severWithCarry(world, t.bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'unit' }));
     }
   }
   for (const { target: t, share } of plan) {
     if (t.kind === 'structure' || share === 0) continue;
+    if (t.kind === 'stinkCloud') {
+      // ⭐ S193 R193-B3 — a bag he pops bursts without hitting HIS side either (the hub's BLAST-1 rule).
+      damageStinkCloud(world, t.id as unknown as StinkCloudId, share, null, owner);
+      continue;
+    }
     damageEntity(world, t.target, share, 'creature', null, credit);
   }
 }

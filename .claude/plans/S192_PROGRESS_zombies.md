@@ -1,3 +1,6 @@
+# S193 ROUND 2 (R193-B blasts) — IN PROGRESS
+- WIP: `src/state/blastFalloff.ts` (shared falloff); applyRadialDamage gains required `falloff`; hub split by distance; zombie blast 2:1, spares own side. NEXT: re-pin zombie REACH tests (own side now spared, chains must be ENEMY), run suite, re-pin hub/suicide/drone/stink tests, census test, canon + canon.test, gates.
+
 # S193 ROUND 1 — FINAL REPORT (merge master into `s192/zombies`)
 
 - **Merge SHA `c717e52`** (master `71abc27` into branch tip `9e995f3`; 213 commits). `npm install` run after the merge

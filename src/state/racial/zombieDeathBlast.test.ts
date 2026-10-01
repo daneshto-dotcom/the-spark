@@ -29,12 +29,14 @@ import { snapshot, restore } from '../save.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import {
   T9_ZOMBIE_DEATH_BLAST_BITES,
+  T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT,
   T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE,
   T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS,
+  T9_ZOMBIE_DEATH_BLAST_STRUCTURE_WEIGHT,
   planZombieDeathBlast,
-  zombieBlastShares,
-  zombieBlastWeight,
+  zombieBlastKindWeight,
 } from './zombieDeathBlast.ts';
+import { blastSplitWeight, splitBlastPool } from '../blastFalloff.ts';
 import { THE_RISEN_ANY_SEAT_UNIT } from './theRisen.ts';
 import { makeBond } from '../placePrimitive.ts';
 import { lookupCombo } from '../../combos.ts';
@@ -99,8 +101,8 @@ function killBossAndBlast(w: World, boss: Creature, before?: (w: World) => void)
   runHostTick(w, d, st);
 }
 
-describe('S192 T3 — the pool and the split (pure arithmetic)', () => {
-  it('⚠ AWAITING OWNER: the pool is 3 of his own bites = 312, radius 380 kept; both levers flagged', () => {
+describe('S193 R193-B1..B4 — the pool and the split (pure arithmetic)', () => {
+  it('⭐⭐ RULED: the pool is 3 of his own bites = 312, NOT his own side, creatures weigh 2 : towers 1', () => {
     const cfg = getCreatureConfig(BOSS);
     expect(T9_ZOMBIE_DEATH_BLAST_BITES).toBe(3);
     expect(POOL).toBe(3 * attackFifths(cfg.atk, cfg.pen));
@@ -108,38 +110,49 @@ describe('S192 T3 — the pool and the split (pure arithmetic)', () => {
     expect(POOL, 'never worth more than killing him').toBeLessThan(creatureMaxEhp(makeCreature(cfg, {
       id: asCreatureId(1), ownerPlayerId: P0, pos: AT, targetPos: AT, spawnedAtTick: 0, sourceSpawnerId: null,
     })));
-    expect(T9_ZOMBIE_DEATH_BLAST_RADIUS).toBe(380);
-    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(true);
+    expect(T9_ZOMBIE_DEATH_BLAST_RADIUS, '⚠ MINE since S168 — not re-ruled').toBe(380);
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE, 'R193-B3').toBe(false);
+    expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT, 'R193-B2').toBe(2);
+    expect(T9_ZOMBIE_DEATH_BLAST_STRUCTURE_WEIGHT).toBe(1);
+    expect(zombieBlastKindWeight('creature')).toBe(2);
+    expect(zombieBlastKindWeight('defender'), 'Helga is a unit').toBe(2);
+    expect(zombieBlastKindWeight('structure')).toBe(1);
+    expect(zombieBlastKindWeight('primitive')).toBe(1);
+    expect(zombieBlastKindWeight('stinkCloud')).toBe(1);
     expect(THE_RISEN_ANY_SEAT_UNIT, 'Reading A until he answers').toBe(false);
   });
 
-  it('⭐ linear falloff: 380 at his feet, 1 at the edge', () => {
-    expect(zombieBlastWeight(0)).toBe(380);
-    expect(zombieBlastWeight(190 * 190)).toBe(190);
-    expect(zombieBlastWeight(380 * 380)).toBe(1);
-    expect(zombieBlastWeight(379.5 * 379.5)).toBe(1);
+  it('⭐ linear distance weight (the shared falloff): 380 at his feet, 1 at the edge, × the kind', () => {
+    const R = T9_ZOMBIE_DEATH_BLAST_RADIUS;
+    expect(blastSplitWeight(0, R)).toBe(380);
+    expect(blastSplitWeight(190 * 190, R)).toBe(190);
+    expect(blastSplitWeight(380 * 380, R)).toBe(1);
+    expect(blastSplitWeight(379.5 * 379.5, R)).toBe(1);
+    expect(blastSplitWeight(190 * 190, R, 2)).toBe(380);
   });
 
-  it('⭐⭐ the research worked table: 3 victims at 50 / 190 / 330 px take 180 / 104 / 28', () => {
-    const w = [50, 190, 330].map((d) => zombieBlastWeight(d * d));
-    expect(zombieBlastShares(POOL, w)).toEqual([180, 104, 28]);
+  it('⭐⭐ worked: 3 creatures at 50 / 190 / 330 px take 181 / 104 / 27 (weights 660 / 380 / 100)', () => {
+    const w = [50, 190, 330].map((d) => blastSplitWeight(d * d, T9_ZOMBIE_DEATH_BLAST_RADIUS, 2));
+    expect(w).toEqual([660, 380, 100]);
+    // floor(312·660/1140)=180, floor(312·380/1140)=104, floor(312·100/1140)=27 → 311; the 1 left goes nearest-first
+    expect(splitBlastPool(POOL, w)).toEqual([181, 104, 27]);
   });
 
-  it('⭐⭐ shares always sum to EXACTLY the pool, ≥ 1 each, never rising with distance', () => {
-    for (const n of [1, 2, 3, 7, 10, 20, 50, 311, 312]) {
-      const weights = Array.from({ length: n }, (_, i) => zombieBlastWeight(((i * 379) / Math.max(1, n - 1)) ** 2));
-      const s = zombieBlastShares(POOL, weights);
+  it('⭐⭐ R193-B2: at the SAME distance a creature takes twice a tower — 208 vs 104', () => {
+    const d2 = 100 * 100;
+    const w = [blastSplitWeight(d2, 380, zombieBlastKindWeight('creature')), blastSplitWeight(d2, 380, zombieBlastKindWeight('structure'))];
+    expect(splitBlastPool(POOL, w)).toEqual([208, 104]);
+  });
+
+  it('⭐⭐ shares always sum to EXACTLY the pool and never rise with distance', () => {
+    for (const n of [1, 2, 3, 7, 10, 20, 50, 311, 312, 400]) {
+      const weights = Array.from({ length: n }, (_, i) => blastSplitWeight(((i * 379) / Math.max(1, n - 1)) ** 2, 380, 2));
+      const s = splitBlastPool(POOL, weights);
       expect(s.reduce((a, x) => a + x, 0), `n=${n}`).toBe(POOL);
-      expect(s.every((x) => x >= 1), `n=${n}`).toBe(true);
-      for (let i = 1; i < n; i++) expect(s[i]!, `n=${n} i=${i}`).toBeLessThanOrEqual(s[i - 1]!);
+      expect(s.every((x) => Number.isInteger(x) && x >= 0), `n=${n}`).toBe(true);
+      for (let i = 1; i < n; i++) expect(s[i]!, `n=${n} i=${i}`).toBeLessThanOrEqual(s[i - 1]! + 1);
     }
-    expect(zombieBlastShares(POOL, [380]), 'a lone victim takes the whole pool').toEqual([POOL]);
-  });
-
-  it('more targets than fifths: the nearest 312 take 1 each, the rest nothing', () => {
-    const s = zombieBlastShares(POOL, Array.from({ length: 400 }, () => 5));
-    expect(s.slice(0, POOL).every((x) => x === 1)).toBe(true);
-    expect(s.slice(POOL).every((x) => x === 0)).toBe(true);
+    expect(splitBlastPool(POOL, [380]), 'a lone victim takes the whole pool').toEqual([POOL]);
   });
 });
 
