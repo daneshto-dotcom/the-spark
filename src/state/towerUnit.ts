@@ -103,7 +103,11 @@ function unitOfLive(world: World, t: LiveTower): TowerUnit {
  * "DOWN" turret, and its FIX built a whole new turret around it). FIX then re-welds that leaf instead
  * of minting a new one, priced as the connector it lost (R182-E).
  *
- * ⚠ Only when a node index REPEATS (two stamps of one blueprint welded into one structure) does it fall
+ * ⛔ S192 re-audit X2 — and only when every candidate sits in its node slot of ONE fitted stamp
+ * (`fitsOneStamp`, ⚠ MINE tolerance): distinct node indices alone admitted two welded turrets with
+ * complementary losses as one.
+ *
+ * ⚠ When a node index REPEATS, or the fit fails (two stamps of one blueprint welded together), it falls
  * back to the stamped-bond walk: every shape of the same blueprint reachable through bonds whose OTHER
  * end is also stamped with it. Sound because a bond only ever joins the shape being placed to shapes
  * already there and FIX re-welds only its own blueprint's edges, so two stamps are never bonded
@@ -123,7 +127,7 @@ export function stampGroupAt(world: World, primId: PrimitiveId): PrimitiveId[] |
     return q !== undefined && q.origin !== null && q.origin.blueprintId === bp && q.placedBy === seed.placedBy && !owned.has(id);
   }).sort((a, b) => a - b);
   const nodes = new Set(candidates.map((id) => world.primitives.get(id)!.origin!.nodeIndex));
-  if (candidates.includes(primId) && nodes.size === candidates.length) return candidates;
+  if (candidates.includes(primId) && nodes.size === candidates.length && fitsOneStamp(world, bp, candidates)) return candidates;
   const seen = new Set<PrimitiveId>([primId]);
   const queue: PrimitiveId[] = [primId];
   while (queue.length > 0) {
@@ -145,6 +149,62 @@ export function stampGroupAt(world: World, primId: PrimitiveId): PrimitiveId[] |
     }
   }
   return [...seen].sort((a, b) => a - b);
+}
+
+/**
+ * ⚠ MINE (S192 re-audit X2) — how far a shape may sit from its node slot and still be read as part of
+ * ONE stamp, as a fraction of the blueprint's smallest node-to-node spacing: half the spacing, so a
+ * shape is never nearer another node's slot than its own. Distinct node indices alone do not identify
+ * a single stamp — two welded turrets of one seat with complementary losses passed it, and the FIX
+ * re-welded B's leaf to A's hub with a 124 px bond and registered a turret built from two stamps.
+ */
+export const STAMP_SLOT_TOLERANCE_FRAC = 0.5;
+
+/**
+ * PURE — do `ids` (distinct node indices of blueprint `bp`) sit where ONE stamp of it would put them?
+ * The closed-form 2-D Procrustes fit `structureRepair.fitBlueprintFrame` uses (rotation about the
+ * matched centroids; sums in ascending node order for host/worker bit-equality — duplicated here
+ * because `structureRepair.ts` imports this file), then every shape within the tolerance of its slot.
+ */
+function fitsOneStamp(world: World, bp: GodlyId, ids: readonly PrimitiveId[]): boolean {
+  const blueprint = blueprintFor(bp);
+  if (blueprint === undefined) return false;
+  const pts = ids
+    .map((id) => {
+      const p = world.primitives.get(id)!;
+      const node = blueprint.nodes[p.origin!.nodeIndex];
+      return node === undefined ? null : { i: p.origin!.nodeIndex, px: p.pos.x, py: p.pos.y, qx: node.dx, qy: node.dy };
+    });
+  if (pts.some((q) => q === null)) return false;
+  const ps = (pts as { i: number; px: number; py: number; qx: number; qy: number }[]).sort((a, b) => a.i - b.i);
+  if (ps.length < 2) return true;
+  let minSpacing = Infinity;
+  const ns = blueprint.nodes;
+  for (let a = 0; a < ns.length; a++) {
+    for (let b = a + 1; b < ns.length; b++) {
+      const d = Math.hypot(ns[a]!.dx - ns[b]!.dx, ns[a]!.dy - ns[b]!.dy);
+      if (d > 0 && d < minSpacing) minSpacing = d;
+    }
+  }
+  if (!Number.isFinite(minSpacing)) return true;
+  let sx = 0, sy = 0, sqx = 0, sqy = 0;
+  for (const q of ps) { sx += q.px; sy += q.py; sqx += q.qx; sqy += q.qy; }
+  const n = ps.length;
+  const cx = sx / n, cy = sy / n, qx = sqx / n, qy = sqy / n;
+  let num = 0, den = 0;
+  for (const q of ps) {
+    const ax = q.qx - qx, ay = q.qy - qy, bx = q.px - cx, by = q.py - cy;
+    num += ax * by - ay * bx;
+    den += ax * bx + ay * by;
+  }
+  const th = Math.atan2(num, den), cos = Math.cos(th), sin = Math.sin(th);
+  const tol = STAMP_SLOT_TOLERANCE_FRAC * minSpacing;
+  for (const q of ps) {
+    const ax = q.qx - qx, ay = q.qy - qy;
+    const wx = cx + cos * ax - sin * ay, wy = cy + sin * ax + cos * ay;
+    if (Math.hypot(q.px - wx, q.py - wy) > tol) return false;
+  }
+  return true;
 }
 
 /**
