@@ -36,3 +36,5 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
   for `curl http://localhost:22006/?debug=1` = 200.
 - EXACT NEXT STEP: run `npx playwright test e2e/poolSafePc.spec.ts` (exit code to a file), fix until green,
   commit; then the nplayer.spec.ts repair as described in STATUS above.
+
+3. Browser canary e2e/poolSafePc.spec.ts GREEN on port 22006 (own vite, PID 77416): raw restart 105 B no m=application; POOL_SAFE_PC 458 B, m=application, ufrag changed, data channel opened over loopback. 1 passed (5.2s), exit 0.
