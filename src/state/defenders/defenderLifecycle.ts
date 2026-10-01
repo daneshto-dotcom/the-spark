@@ -283,6 +283,18 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
   switch (d.state) {
     case 'IDLE': {
       if (world.tick >= d.nextFireTick) {
+        /*
+         * ⛔ S192 — AN EMPTY MAGAZINE THROWS NOTHING. *"when the magazine is empty the throw simply does
+         * not happen"* (the targeted-lob note below) was not true: neither lob path asked, and
+         * `stinkThrowBag` splashes and drops a cloud whatever the count. So a spent tower stays IDLE
+         * exactly as an idle tower with nothing in range does — no target, no WINDUP, the same
+         * re-acquire clock. Its aura and taunt (above the FSM) are untouched; the BUILD edge reloads it.
+         */
+        if (d.kind === 'stinkTower' && stinkIsDepleted(d)) {
+          d.targetCreatureId = null;
+          d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
+          break;
+        }
         // Acquire the nearest enemy within the LEASH measured from HOME (the hub) — so HELGA engages
         // enemies near her hub and is bounded to that area (anti-kite). A turret's homePos == d.pos
         // (pinned) so this is byte-identical to the pre-S110 d.pos acquisition for turrets.
@@ -447,6 +459,14 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
          * the untargeted throw the owner asked for. `lastStrikePos` was already chosen when it armed.
          */
         if (victim === undefined && d.kind === 'stinkTower' && d.lastStrikePos !== null) {
+          // ⛔ S192 — and never throw from an empty magazine (see the IDLE guard): idle instead.
+          if (stinkIsDepleted(d)) {
+            d.state = 'IDLE';
+            d.ticksInState = 0;
+            d.targetCreatureId = null;
+            d.nextFireTick = world.tick + DEFENDER_REACQUIRE_TICKS;
+            break;
+          }
           stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
           d.state = 'FIRE';
           d.ticksInState = 0;
@@ -462,7 +482,8 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
             // above, before the FSM). Note the splash is what makes it a structure-breaker: unlike the
             // turret beam it damages primitives, so it can chew an enemy build rather than only its
             // units.
-            stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
+            // ⛔ S192 — an empty magazine throws nothing; the strike below is skipped for a stink tower.
+            if (!stinkIsDepleted(d)) stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
           } else {
             // S139 P1 — through the dispatcher (identical behaviour; the creature arm delegates to
             // `damageCreature`), so the turret beam / HELGA slap now carry a `'defender'` source.
