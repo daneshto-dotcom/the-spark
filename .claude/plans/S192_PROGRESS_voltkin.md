@@ -51,5 +51,8 @@ worker), and the next BUILD **3 healthy TVs → 0 Voltkins** (both). Matches the
 - BUILD=0 — main entry 977.7 KiB, cap 1100, headroom 122.3 KiB (master delta: see step 2)
 
 ## STATUS
-- DONE: step 1 (commit below).
-- NEXT: build master 663c4c9's tree for the KiB delta; final report.
+- DONE: step 1 — commit f0cfe1a (all three items + tests + canon notes; gates green).
+- PAUSED (owner order, usage limit). Nothing in flight; tree clean.
+- EXACT NEXT STEP: measure the KiB delta — `git checkout 663c4c9 -- src && npm run build` (record
+  KiB), then `git checkout HEAD -- src` (and confirm `git status` clean); then send the final report
+  (SubagentHandback). Bump verdict to report: BUMP OWED (changed shared rule, host-migration successor).
