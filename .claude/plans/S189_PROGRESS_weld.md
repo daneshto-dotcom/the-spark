@@ -772,3 +772,12 @@ ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverte
   within tolerance, else bond walk), mutant, commit; 3) L1 save.ts validate+sort ownPrimitiveIds +
   test; 4) notes §H rewritten for the NEW bump (after 53); 5) gates typecheck / vitest --maxWorkers=3 /
   build, exit codes to files.
+- ⏸ PAUSED (owner order, usage limit). DONE: X1 FIXED 5a54ed4 (unitClickShape for a stamp = lowest
+  member no live tower owns; test red→green). NEXT STEP EXACTLY: append
+  `.claude/plans/S192_reaudit_X2_test_block.ts.txt` to `src/state/weldOntoTowerS189.test.ts` (run it:
+  RED, unit members [0,1,2,3,4,6,12]); then in `towerUnit.ts stampGroupAt` whole-component mode accept
+  the candidates only if every one fits its node slot under a Procrustes fit (`fitBlueprintFrame` /
+  `frameToWorld` live privately in structureRepair.ts — towerUnit must not import structureRepair
+  (cycle) → export a pure fit from a small shared module or duplicate it in towerUnit with a pinned
+  tolerance ⚠ MINE), else fall back to the bond walk; mutant; commit. Then L1, notes §H, gates.
+  Nothing running in the background.
