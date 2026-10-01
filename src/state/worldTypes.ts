@@ -240,6 +240,21 @@ export interface World {
    */
   structureKillHits: { key: string; amount: number | null }[];
   /**
+   * ⭐⭐ S192 (owner T11) — **A REPAIRED STRUCTURE SHOWS ONE GREEN NUMBER: WHAT THE REPAIR RESTORED.**
+   * *"when a tower heals or anything … every healing should show … just like damage is shown on every
+   * hit."* A repair clears every connector's banked damage and refills every surviving shape, and the
+   * renderer could not see the connector half at all: a connector is a RISING pool (`Bond.damageFifths`)
+   * and a fall in it is deliberately never printed — a sever or re-form lowers banks too, and flipping
+   * that test would print fake heals on severs. So `applyRepairStructure` pushes ONE record: the total
+   * restored (banks cleared + shape HP refilled) at the structure's frame centre. `keys` are the shape
+   * watch keys the repair refilled, so the renderer re-seeds them instead of ALSO printing each one.
+   *
+   * Per-FRAME, the `structureKillHits` contract exactly: written on the host, wiped by the consumer and
+   * at the five sites (three phase resets, the consumer, the worker frame boundary), never serialized,
+   * never hashed. ⚠ A JOINER has no record, so on a peer only the shape refills print — a stated limit.
+   */
+  structureHealHits: { x: number; y: number; owner: PlayerId; amount: number; keys: string[] }[];
+  /**
    * ⭐⭐ S182 — **THE MASS-CLEAR CUE, and without it a new match opens in a shower of phantom
    * damage numbers.**
    *
@@ -669,6 +684,8 @@ export interface World {
       placeTargetMissing: number;
       actorBenched: number;
       actorEliminated: number;
+      /** ⭐ S192 — intent refused by the endgame BUILD LOCK (wave ≥ 27). */
+      endgameBuildLocked: number;
     };
     /**
      * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected
@@ -751,6 +768,21 @@ export interface World {
    * mirror all agree; a disagreement here would desync the SPAWN RATE, not just a HUD number.
    */
   waveNumber: number;
+  /**
+   * ⭐ S192 (endgame) — how many endgame monsters THIS FIGHT has released (`endgameMonsters.ts`).
+   * Reset to 0 on every BUILD→FIGHT edge; only waves 27–31 ever move it. A COUNTER rather than a
+   * pure function of the tick so a NONET freeze that skips ticks catches up instead of losing
+   * monsters. Serialized (omitted at 0) and hashed (`mw`).
+   */
+  monsterWaveSpawned: number;
+  /**
+   * ⭐ S193 (endgame) — the tick THIS monster FIGHT began, or 0 outside one. Written at the BUILD→FIGHT
+   * edge of waves 27–31 (the deadline tick the edge crossed, so a NONET multi-flip stamps the same
+   * value), cleared at FIGHT→BUILD. It is the spawner's clock: the deadline cannot be, because a monster
+   * fight HOLDS its deadline while pants are still to come out (`MONSTER_HOLD_LEAD_TICKS`). Serialized
+   * (omitted at 0) and hashed (`mf`).
+   */
+  monsterFightStartTick: number;
   /**
    * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
    * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old

@@ -70,8 +70,17 @@ export interface RadarPoint {
  * and draw a collapsed dot. The `|| 1` floor makes an empty roster draw an empty web instead of a
  * wrong one — cheap insurance against a future refactor that builds this table lazily.
  */
+/**
+ * ⭐ S193 — THE MEGA PANTS IS OFF THE RADAR'S SCALE, deliberately. It is the final fight's clock-breaker
+ * (HP 500 / ATK 60, *"basically unbeatable"*), and letting it set the ceilings would shrink every other
+ * unit's web to a dot. Its own sheet simply reads at the rim. Every other type still sets the scale.
+ */
+const RADAR_OFF_SCALE: ReadonlySet<string> = new Set(['megaPants']);
+const onScaleConfigs = (): readonly unknown[] =>
+  Object.values(CREATURE_CONFIGS).filter((c) => !RADAR_OFF_SCALE.has((c as unknown as { type: string }).type));
+
 function creatureMax(key: 'hp' | 'def' | 'atk' | 'pen' | 'maxAccel' | 'attackCadenceTicks'): number {
-  const vals = Object.values(CREATURE_CONFIGS)
+  const vals = onScaleConfigs()
     .map((c) => (c as unknown as Record<string, number>)[key])
     .filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
   return Math.max(1, ...vals);
@@ -86,7 +95,7 @@ function defenderMax(key: 'atk' | 'pen' | 'attackRange'): number {
 
 /** The single biggest hit any creature in the game lands, in fifths — the ceiling for `SHOT`. */
 function maxHitFifths(): number {
-  const vals = Object.values(CREATURE_CONFIGS).map(
+  const vals = onScaleConfigs().map(
     (c) => attackFifths((c as unknown as Record<string, number>).atk ?? 0,
                         (c as unknown as Record<string, number>).pen ?? 0));
   return Math.max(1, ...vals);

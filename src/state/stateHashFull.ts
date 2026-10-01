@@ -134,6 +134,12 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   rainbowSwitchTick: 'hashed',
   sudokuFiredThisMatch: 'hashed',
   waveNumber: 'hashed', // S157 B8 — drives the spawn rate, so a divergence is a real desync
+  // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the release schedule (one
+  // lane per seat, `monstersDueBy`) and the countdown, so a host and a mirror disagreeing about it
+  // would release a different wave.
+  monsterWaveSpawned: 'hashed',
+  // ⭐ S193 (endgame) — the monster fight's start tick: the spawner's and the mega pants' clock.
+  monsterFightStartTick: 'hashed',
   activeCinematicPlayerId: 'hashed',
   // Allocator cursors — two sims that allocated different id counts have diverged
   // even when the surviving entities happen to match.
@@ -201,6 +207,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatureKillHits: 'acknowledged', // S181 — presentational per-frame record, never sim input
   /* ⭐ S182 — identical contract to the four entries above: per-frame, host-local, never on the wire. */
   structureKillHits: 'acknowledged',
+  /* ⭐ S192 T11 — the repair heal record: per-frame, host-local, never on the wire, never sim input. */
+  structureHealHits: 'acknowledged',
   /* ⭐ S182 — a renderer cue for mass clears. Host-local, never on the wire, never a sim input. */
   structureWatchEpoch: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
@@ -356,6 +364,12 @@ type CreatureHashed =
   | 'corpseEaterUntilTick'
   | 'corpseEaterAnchor'
   /*
+   * ⭐ S192 (owner T12) — the CORPSE EATER heal bank. HASHED: it decides the boss's pool for the next
+   * cycle, so a host and a `?worker=1` mirror disagreeing about it diverge on the next pulse. Projected
+   * as `:cb` below; its contribution test is `racial/corpseEaterHeal.test.ts`.
+   */
+  | 'corpseEaterHealBank'
+  /*
    * ⭐ S189 (owner R190-I) — the monotonic HEAL counter behind the green floater. Presentational (no sim
    * reads it) but SERIALIZED, so HASHED for the `sapFlashUntilTick` reason: a host and its worker mirror
    * disagreeing about it would print different heals, and an unhashed synced field is a blind spot.
@@ -369,7 +383,10 @@ type CreatureHashed =
    * test is `draftAtkReaches.test.ts`. (S190 merge: both render's `healedFifths` and this field are
    * kept, each with its own projection and its own contribution test.)
    */
-  | 'atkFifths';
+  | 'atkFifths'
+  // ⭐ S192 (endgame) — the seat an endgame monster was sent at. It decides whom the monster hunts on
+  // both sims. Projected as `:ms` below; contribution test in `endgame.test.ts`.
+  | 'monsterSeat';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
@@ -519,6 +536,8 @@ export function determinismParts(world: World): string[] {
     `rw${o(world.rainbowSwitchTick)}`,
     `sf${o(world.sudokuFiredThisMatch)}`,
     `wv${world.waveNumber}`,
+    `mw${world.monsterWaveSpawned}`, // S192 — the endgame spawn counter
+    `mf${world.monsterFightStartTick}`, // S193 — the endgame fight's start tick
     `ac${n(world.activeCinematicPlayerId)}`,
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
@@ -659,12 +678,16 @@ export function determinismParts(world: World): string[] {
         `:hg${o(c.hellspawnGen)}`,
         // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
+        // S192 T12 — the banked feed heal: owed / last-pulse tick, `_` while nothing is owed.
+        `:cb${c.corpseEaterHealBank === undefined ? '_' : `${c.corpseEaterHealBank.fifths}/${c.corpseEaterHealBank.untilTick}`}`,
         // S189 R190-I — the heal counter. `o()` absent marker for every never-healed creature.
         `:hf${o(c.healedFifths)}`,
         // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
         `:ak${o(c.atkFifths)}`,
         // S191 — the Warlord's rage clock. Absent marker for every creature that never raged by its own latch.
         `:rs${o(c.rageStartTick)}`,
+        // S192 — the endgame monster's assigned seat. Absent marker for every other creature.
+        `:ms${n(c.monsterSeat)}`,
     );
   }
 

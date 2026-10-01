@@ -32,6 +32,8 @@
  */
 
 import type { Graphics } from 'pixi.js';
+import type { FxSink } from './fx/emitter.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
 
 /* ── The dial. ⚠ EVERY NUMBER HERE IS MINE, NOT THE OWNER'S: he asked for "a cool stunned 'seeing
  * stars' effect above the stunned creatures heads" and gave no geometry. Sized so three stars clear
@@ -69,17 +71,56 @@ export function drawStunStars(
   alpha: number,
   scaleMul = 1,
 ): void {
-  const lift = STUN_STAR_LIFT * scaleMul;
-  const rx = STUN_STAR_RX * scaleMul;
-  const ry = STUN_STAR_RY * scaleMul;
   const r = STUN_STAR_R * scaleMul;
+  // ⭐ S193 (V15) — the rebuilt stars (`stunStarsFx` below) on the same orbit; `?fx=legacy` keeps the flat stars.
+  if (fxActive()) { stunStarsFx(fxTop(), x, y, tick, id, alpha, scaleMul); return; }
   for (let k = 0; k < STUN_STAR_COUNT; k++) {
-    // Phase: a slow orbit, offset per star and per creature so nothing marches in step.
-    const t = (tick * STUN_STAR_SPEED + k * (628 / STUN_STAR_COUNT) + id * 37) % 628;
-    const a = t / 100; // ~radians, integer-derived
-    const sx = x + Math.cos(a) * rx;
-    const sy = y - lift + Math.sin(a) * ry;
+    const { sx, sy } = stunStarPos(k, x, y, tick, id, scaleMul);
     // A four-point twinkle rather than a filled dot: reads as a star at 3 px and needs no texture.
     g.star(sx, sy, 4, r, 0, 0).fill({ color: STUN_STAR_TINT, alpha: 0.9 * alpha });
+  }
+}
+
+/** Star `k`'s place on the orbit — ONE formula, shared by the legacy drawing and the rebuilt one. PURE. */
+export function stunStarPos(k: number, x: number, y: number, tick: number, id: number, scaleMul = 1): { sx: number; sy: number } {
+  // Phase: a slow orbit, offset per star and per creature so nothing marches in step.
+  const t = (tick * STUN_STAR_SPEED + k * (628 / STUN_STAR_COUNT) + id * 37) % 628;
+  const a = t / 100; // ~radians, integer-derived
+  return { sx: x + Math.cos(a) * STUN_STAR_RX * scaleMul, sy: y - STUN_STAR_LIFT * scaleMul + Math.sin(a) * STUN_STAR_RY * scaleMul };
+}
+
+/**
+ * ⚠ MINE (S193, measured on the 2x screenshots in `SPARK_Visuals_Pilot/visuals-2`): with today's atlases
+ * `STUN_STAR_LIFT` puts the ring at the CHEST of a goblin (~70 % of its 45 px height) and at the belly of the
+ * zombie boss — and the legacy stars, drawn in the renderer's Graphics UNDER the sprites, are hidden behind
+ * the art there. The rebuilt stars draw OVER the sprite, so they are lifted this much more (× scaleMul)
+ * to sit above the head where `bossAuras.ts`' rule says a state effect belongs. Legacy is untouched.
+ */
+export const STUN_STARS_FX_HEAD_CLEAR = 22;
+
+/** Sprites per rebuilt star: a soft halo, two crossed glints and a hot centre. */
+export const STUN_STARS_FX_PER_STAR = 4;
+
+/**
+ * ⭐ S193 `s193/visuals-boss` (V15) — **THE STARS AS LIGHT.** Same three stars on the same orbit
+ * (`stunStarPos`), now additive sprites on the bloomed TOP layer: a soft halo, a four-point glint made of
+ * two crossed stretched hot-cores that slowly spin, and a white centre. Each TWINKLES — its brightness
+ * and size breathe on its own phase from `(tick, k, id)`, so a stunned crowd shimmers instead of
+ * blinking in step. ⚠ The numbers are MINE (the owner asked only for "cool" and "consistent").
+ * PURE: no Pixi, no clock, no `Math.random` — the sink is handed in.
+ */
+export function stunStarsFx(top: FxSink, x: number, y: number, tick: number, id: number, alpha: number, scaleMul = 1): void {
+  if (alpha <= 0) return;
+  const r = STUN_STAR_R * scaleMul;
+  for (let k = 0; k < STUN_STAR_COUNT; k++) {
+    const { sx, sy: sy0 } = stunStarPos(k, x, y, tick, id, scaleMul);
+    const sy = sy0 - STUN_STARS_FX_HEAD_CLEAR * scaleMul;
+    const tw = 0.5 + 0.5 * Math.sin(((tick * 23 + k * 211 + id * 97) % 628) / 100);
+    const spin = (((tick * 3 + k * 120 + id * 53) % 360) * Math.PI) / 180;
+    const len = r * (4.6 + 1.6 * tw);
+    top.emit('soft', sx, sy, r * 7, r * 7, 0, (0.28 + 0.22 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 1.1, spin, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 1.1, spin + Math.PI / 2, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, r * 2, r * 2, 0, (0.7 + 0.3 * tw) * alpha, 0xffffff, 'add');
   }
 }

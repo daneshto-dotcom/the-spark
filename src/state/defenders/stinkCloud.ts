@@ -125,7 +125,7 @@ export function stinkCloudTick(world: World, c: StinkCloud, radialDamage: Radial
   radialDamage(
     world, c.pos.x, c.pos.y, c.radius,
     STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
-    'aura', c.ownerPlayerId,
+    'aura', c.ownerPlayerId, 'flat', // S193 — the lingering cloud is damage over time, not a blast (its landing hit is)
   );
   return true;
 }

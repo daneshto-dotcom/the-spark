@@ -14,6 +14,7 @@
  * Fixture style mirrors spawnerLifecycle.test.ts (hand-built primitives + bonds).
  */
 
+import { blastHitAtDistance } from './blastFalloff.ts'; // S193 R193-B4
 import { describe, it, expect } from 'vitest';
 import { dispatch, makeWorld, type World } from './world.ts';
 import {
@@ -477,7 +478,9 @@ describe('S160 P5 — the drone finally spends its 5 atk / 1 pen in an area of e
     // ⭐ RE-POINTED S177 P1 — one ladder. 30 of 70, so three drones still fell a shape, exactly as
     // 418 of 1000 did. The relationship survived the rescale; only the obscure number went away.
     expect(hit, 'one blast is 30 of 70, so the shape survives it').toBeDefined();
-    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - attackFifths(DRONE_ATK, DRONE_PEN));
+    // ⭐ S193 (owner R193-B4) — the shape is 30 px from the drone: the 30 scaled by distance.
+    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - blastHitAtDistance(attackFifths(DRONE_ATK, DRONE_PEN), 30 * 30, DRONE_EXPLODE_RADIUS));
+    expect(blastHitAtDistance(attackFifths(DRONE_ATK, DRONE_PEN), 30 * 30, DRONE_EXPLODE_RADIUS)).toBe(25);
     expect(Math.ceil(PRIMITIVE_MAX_HP / attackFifths(DRONE_ATK, DRONE_PEN))).toBe(3);
   });
 

@@ -182,10 +182,15 @@ describe('CREATURE_CONFIGS lookup table', () => {
     expect(keys).toEqual([
       'chewer',
       'direwolf',
+      // ⭐ S192 — and a NINTH, for the endgame pants (owner A3). Sorted, so it lands after the direwolf.
+      'endgameMonster',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
       // S171 R142 — the Pharaoh's locust cloud. The list is `.sort()`ed, so it lands here between
       // 'lightningDrone' and 'raceUnit', not beside the direwolf it is a sibling summon to.
-      'lightningDrone', 'locustCloud', 'raceUnit',
+      'lightningDrone', 'locustCloud',
+      // ⭐ S193 — and the MEGA PANTS (owner Q2). Sorted: after 'locustCloud', before 'raceUnit'.
+      'megaPants',
+      'raceUnit',
       // ⭐ S188 — and a SEVENTH time, for APEX PREDATOR's elite piranha (nagas level 5). Sorted, so it
       // lands directly after the piranha it promotes.
       // ⭐ S188 — and an EIGHTH, for THE SWARM's bat swarm (vampires level 10). Sorted, so it lands

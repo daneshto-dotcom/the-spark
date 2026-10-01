@@ -127,7 +127,7 @@ and after, gates after every commit, no protocol bump.
 Measured with the dev seam `__SPARK__.fx.bench(n)`: it spawns n creatures in FIGHT, then times
 `app.renderer.render` plus the renderer syncs over 300 frames in headless Chromium. Numbers are in
 `S192_PROGRESS_visuals.md`. Rule: no more than +1.0 ms average frame time on HIGH at 120 creatures with every new
-effect live, and no measurable cost on LOW. If bloom breaks the budget, HIGH stays opt-in.
+effect live, and ≤ +1.0 ms on LOW too (⚠ S193 audit L1: LOW is not free — about +0.5 ms on the worst-case board, which is CPU sprite count, not filters). If bloom breaks the budget, HIGH stays opt-in.
 
 ## 7 · Asset licences
 

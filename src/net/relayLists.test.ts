@@ -45,9 +45,29 @@ function listFromProbe(name: string): string[] {
  * A host that died once will die again, so re-adding one needs a deliberate argument, not a
  * copy-paste from an old README.
  */
-const MEASURED_DEAD = ['wss://tracker.btorrent.xyz', 'wss://tracker.files.fm:7073/announce'];
+const MEASURED_DEAD = [
+  'wss://tracker.btorrent.xyz',
+  'wss://tracker.files.fm:7073/announce',
+  // S193 — HTTP 301 on every handshake (probe-relays 2026-10-01, every CI page's console).
+  'wss://relay.mostr.pub',
+];
+
+/**
+ * S193 — relays that OPEN a socket but REJECT every event we publish (their own NOTICE, in every CI e2e trace
+ * of 2026-10-01 and in the Pitch Masters live audit). A handshake probe cannot see this, which is how S44 pinned
+ * them; so they get their own list, and the same "never re-add" rule.
+ */
+const MEASURED_WRITE_REJECTING = ['wss://offchain.pub', 'wss://nostr-pub.wellorder.net'];
 
 describe('S159 P5 — relay list hygiene', () => {
+  it('never re-adds a relay measured write-rejecting (S193)', () => {
+    for (const r of MEASURED_WRITE_REJECTING) {
+      expect(NOSTR_RELAYS, `${r} rejects every event we publish — do not pin it`).not.toContain(r);
+    }
+    // ⛔ and the list never drops below the point where one more loss leaves a single relay.
+    expect(NOSTR_RELAYS.length).toBeGreaterThanOrEqual(3);
+  });
+
   it('never re-adds a tracker measured dead', () => {
     for (const dead of MEASURED_DEAD) {
       expect(TORRENT_TRACKERS, `${dead} was measured DEAD — do not pin it`).not.toContain(dead);
@@ -78,6 +98,7 @@ describe('S159 P5 — relay list hygiene', () => {
 
   it('the probe re-checks the hosts we removed, so a future session sees they stayed dead', () => {
     expect(listFromProbe('KNOWN_DEAD')).toEqual(MEASURED_DEAD);
+    expect(listFromProbe('KNOWN_WRITE_REJECTING')).toEqual(MEASURED_WRITE_REJECTING);
   });
 
   it('the probe performs a WebSocket handshake, not an HTTPS GET', () => {
