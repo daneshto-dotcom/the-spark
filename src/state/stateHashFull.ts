@@ -209,6 +209,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatureKillHits: 'acknowledged', // S181 — presentational per-frame record, never sim input
   /* ⭐ S182 — identical contract to the four entries above: per-frame, host-local, never on the wire. */
   structureKillHits: 'acknowledged',
+  /* ⭐ S192 T11 — the repair heal record: per-frame, host-local, never on the wire, never sim input. */
+  structureHealHits: 'acknowledged',
   /* ⭐ S182 — a renderer cue for mass clears. Host-local, never on the wire, never a sim input. */
   structureWatchEpoch: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
@@ -363,6 +365,12 @@ type CreatureHashed =
    */
   | 'corpseEaterUntilTick'
   | 'corpseEaterAnchor'
+  /*
+   * ⭐ S192 (owner T12) — the CORPSE EATER heal bank. HASHED: it decides the boss's pool for the next
+   * cycle, so a host and a `?worker=1` mirror disagreeing about it diverge on the next pulse. Projected
+   * as `:cb` below; its contribution test is `racial/corpseEaterHeal.test.ts`.
+   */
+  | 'corpseEaterHealBank'
   /*
    * ⭐ S189 (owner R190-I) — the monotonic HEAL counter behind the green floater. Presentational (no sim
    * reads it) but SERIALIZED, so HASHED for the `sapFlashUntilTick` reason: a host and its worker mirror
@@ -668,6 +676,8 @@ export function determinismParts(world: World): string[] {
         `:hg${o(c.hellspawnGen)}`,
         // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
+        // S192 T12 — the banked feed heal: owed / last-pulse tick, `_` while nothing is owed.
+        `:cb${c.corpseEaterHealBank === undefined ? '_' : `${c.corpseEaterHealBank.fifths}/${c.corpseEaterHealBank.untilTick}`}`,
         // S189 R190-I — the heal counter. `o()` absent marker for every never-healed creature.
         `:hf${o(c.healedFifths)}`,
         // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.

@@ -37,7 +37,7 @@ import {
   type CreatureId,
   type CreatureType,
   isStunned,
-  isUntargetable,
+  isLiveCreatureTarget,
   attackCycleMultiplier,
   ragedFireTick,
   isChannellingRa,
@@ -63,6 +63,7 @@ import { isT9BossType, T9_BOSS_TYPE } from '../t9BossIds.ts';
 // ⭐ S188 — the racial mechanics' one death hook (THE RISEN, HELLSPAWN). See `damageCreature`.
 import { onCreatureDeathDecided } from '../racial/racialDeaths.ts';
 import { recordUnitBuilt } from '../matchStats.ts'; // ⭐ S191 — the stat board's UNITS, at each of the three mints
+import type { KillCredit } from '../racial/killCredit.ts'; // S192 T2
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -546,11 +547,12 @@ export function damageCreature(
    */
   deferDelete?: Set<CreatureId>,
   /**
-   * ⭐ S188 — WHICH CREATURE DEALT THE BLOW, when a creature did (`damageEntity` forwards its
-   * `DamageAttacker` here). Read ONLY at the death decision below, by the racial mechanics that
-   * care who killed whom (THE RISEN). Omitted / `null` = nobody to credit, and changes nothing.
+   * ⭐ S188 — WHO DEALT THE BLOW. ⭐ S192 (T2): no longer a creature id re-read at the death decision but
+   * the resolved `KillCredit` (seat + type, `racial/killCredit.ts`), captured by `damageEntity` at the
+   * blow — so a kill whose dealer is already gone (the zombie boss's death blast) is still credited.
+   * Read ONLY at the death decision below, by THE RISEN. Omitted / `null` = nobody to credit.
    */
-  killerId?: CreatureId | null,
+  credit?: KillCredit,
 ): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
@@ -645,7 +647,7 @@ export function damageCreature(
      * hook does is QUEUED and happens after the sweep — `racial/racialTick.ts`, Council A5.
      */
     if (deferDelete === undefined || !deferDelete.has(creatureId)) {
-      onCreatureDeathDecided(world, c, killerId ?? null);
+      onCreatureDeathDecided(world, c, credit ?? null);
     }
     if (deferDelete !== undefined) {
       // Still "dead" to the caller (kill counts, effects, return value) — only the REMOVAL waits, so
@@ -925,7 +927,8 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       if (victim === undefined) return false;
       // ⭐ S179 — untargetable is re-checked on RETENTION, not only at acquisition. See the note at
       // `creatureAI.pickNavUnit`'s hold branch for the frozen-army symptom this ends.
-      if (isUntargetable(victim, world.tick)) return false;
+      // ⭐ S192 T13 — and not a corpse-in-waiting: never ENTER ATTACKING on a body.
+      if (!isLiveCreatureTarget(world, victim)) return false;
       const reach = engageRange(config); // S154 P2 — see the note on the structure arm above
       return distSq(creature.pos, victim.pos) <= reach * reach;
     })();
@@ -1070,7 +1073,9 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
         victim.ownerPlayerId !== creature.ownerPlayerId &&
         // ⭐ S179 — and this is the arm that actually UNFREEZES the unit: clearing the commit sends
         // it back to SEEKING, where `computeSteeringAccel` moves it again instead of ZERO_ACCEL.
-        !isUntargetable(victim, world.tick) &&
+        // ⭐ S192 T13 (owner) — *"my spawn were attacking him, even though it was already dead"*: a
+        // victim killed earlier this tick by someone else drops the commit too (the liveness predicate).
+        isLiveCreatureTarget(world, victim) &&
         distSq(creature.pos, victim.pos) <= range * range;
       if (!stillValid) creature.targetCreatureId = null;
     }
@@ -1099,7 +1104,8 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       creature.targetCreatureId !== null
       && world.creatures.has(creature.targetCreatureId)
       // ⭐ S179 — the wind-up must abort too, or the strike lands on a target that cannot be hit.
-      && !isUntargetable(world.creatures.get(creature.targetCreatureId)!, world.tick)
+      // ⭐ S192 T13 — the wind-up aborts on a corpse-in-waiting too (the liveness predicate).
+      && isLiveCreatureTarget(world, world.creatures.get(creature.targetCreatureId)!)
       && isWithinAttackRangeOfCreature(world, creature, creature.targetCreatureId);
     // ⭐ S139 P2 — THE THIRD ARM, and the whole reason a real-physics test was mandatory.
     //

@@ -122,7 +122,8 @@ describe('S183 — the damageEntity call-site census', () => {
     // hub's ladder blast (a null site — a blast names nobody). S191/S192 +1: the Ra column's split share (null).
     // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
     // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
-    expect(sites.length).toBe(20);
+    // ⭐ S192 (zombies) +1: the zombie death blast (null attacker, explicit KillCredit).
+    expect(sites.length).toBe(21);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -143,9 +144,10 @@ describe('S183 — the damageEntity call-site census', () => {
 
     expect(named.length).toBe(8);
     // ⭐ S191 — seven S183 `null`s became: 3 seats (castle gun, 2 raid arms), 3 forwarded (the radial
-    // helper). ⭐ S193 BLAST-2 — and master's six area sweeps name their seat too (the hub blast, the Ra
-    // column's split share, SCORCHED EARTH's four arms). NO `null` IS LEFT: every hit has a seat to credit.
-    expect(seated.length).toBe(9);
+    // helper). ⭐ S193 BLAST-2 — and every area sweep names its seat too (the hub blast, the Ra column's
+    // split share, SCORCHED EARTH's four arms, the zombie boss's death blast — which also passes his
+    // explicit KillCredit). NO `null` IS LEFT: every hit has a seat to credit.
+    expect(seated.length).toBe(10);
     expect(forwarded.length).toBe(3);
     expect(nulled.length).toBe(0);
   });
@@ -176,6 +178,7 @@ describe('S183 — the damageEntity call-site census', () => {
       // ⭐ S193 BLAST-2 — burning ground: the perk's seat (passive) or the caster. The creature arm, the Helga
       // arm, a LONE shape and a landed STINK BAG. Still nobody to turn on or heal.
       'src/state/racial/scorchedGround.ts': 4,
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — a dead boss: nobody to turn on; credited for THE RISEN
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });
     // ⭐ S191 — applyRadialDamage forwards its blast owner (`sparePlayerId`) as a seat; a splash still

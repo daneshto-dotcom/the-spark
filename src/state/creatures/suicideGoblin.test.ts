@@ -15,6 +15,7 @@
  * drone's branch rather than reordering it.
  */
 
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -30,7 +31,9 @@ import type { Bond } from '../../physics/bonds.ts';
 import type { Controls } from '../../input/controls.ts';
 import type { Creature } from './creature.ts';
 import {
+  DRONE_ATK,
   DRONE_EXPLODE_RADIUS,
+  DRONE_PEN,
   GOBLIN_SUICIDE_ATK,
   GOBLIN_SUICIDE_BLAST_RADIUS,
   GOBLIN_SUICIDE_PEN,
@@ -217,10 +220,14 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
      * and the six is the number he actually ruled. See `PRIMITIVE_MAX_HP`'s docblock.
      */
     const expected = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
-    for (const p of [near, alsoNear]) {
-      expect(w.primitives.get(p.id)!.hp).toBe(PRIMITIVE_MAX_HP - expected);
-    }
-    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'FOUR blasts fell a shape now').toBe(4);
+    // ⭐ S193 (owner R193-B4) — closer = more: each shape takes the full number SCALED by its distance
+    // (`blastHitAtDistance`): 20 px → 17, 60 px → 11 of the 20 at point-blank.
+    const at = (dx: number, dy: number): number => blastHitAtDistance(expected, dx * dx + dy * dy, GOBLIN_SUICIDE_BLAST_RADIUS);
+    expect([at(20, 0), at(0, 60)]).toEqual([17, 11]);
+    expect(w.primitives.get(near.id)!.hp).toBe(PRIMITIVE_MAX_HP - at(20, 0));
+    expect(w.primitives.get(alsoNear.id)!.hp).toBe(PRIMITIVE_MAX_HP - at(0, 60));
+    expect(w.primitives.get(near.id)!.hp, 'the nearer shape is hurt more').toBeLessThan(w.primitives.get(alsoNear.id)!.hp);
+    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'FOUR point-blank blasts fell a shape').toBe(4);
   });
 
   it('⭐ and CUTS ENEMY CONNECTORS in radius — the third target in the same ruling', () => {
@@ -265,7 +272,8 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
     // `ehp` is REMAINING EFFECTIVE HIT POINTS IN FIFTHS (S151 P2). This is the assertion the old
     // code could not satisfy at all: `applyDroneExplode` touches `world.bonds` and nothing else, so
     // no creature anywhere ever lost a point to a terrorist goblin.
-    expect(after!.ehp).toBe(ehpBefore - SUICIDE_BLAST_FIFTHS);
+    // ⭐ S193 R193-B4 — 20 px out of 70: the full number scaled by distance (`blastHitAtDistance`).
+    expect(after!.ehp).toBe(ehpBefore - blastHitAtDistance(SUICIDE_BLAST_FIFTHS, 20 * 20, GOBLIN_SUICIDE_BLAST_RADIUS));
   });
 
   it('never harms its OWN side — shapes or units', () => {
@@ -299,6 +307,60 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
     const hpAfterOne = w.primitives.get(victim.id)!.hp;
     applySuicideBlast(w, { type: 'SUICIDE_BLAST', creatureId: bomber.id }); // second dispatch
     expect(w.primitives.get(victim.id)!.hp).toBe(hpAfterOne); // no double-hit
+  });
+});
+
+describe('⭐⭐ S193 (owner R193-B4) — REACH through the real host tick: closer to the blast = more damage', () => {
+  /** Run the host tick until a BOMB_EXPLODE of `radius` is emitted; return where it went off. */
+  function runToBlast(w: World, radius: number, maxTicks = 400): { x: number; y: number } {
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let t = 0; t < maxTicks; t++) {
+      w.effects.length = 0;
+      runHostTick(w, d, st);
+      const e = w.effects.find((x) => x.kind === 'BOMB_EXPLODE' && x.radius === radius);
+      if (e !== undefined && e.kind === 'BOMB_EXPLODE') return { x: e.pos.x, y: e.pos.y };
+    }
+    throw new Error('anti-vacuity: the blast never went off');
+  }
+  const d2 = (a: { x: number; y: number }, b: { x: number; y: number }): number => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+
+  /*
+   * The victims are LONE enemy shapes: they hold still (a bonded fixture drew the bomber onto its
+   * connector instead), and a lone shape dies to anything (`LONE_PRIMITIVE_POOL_FIFTHS`), so the blow
+   * that killed it is recorded with its amount in `structureKillHits` — the number the blast dealt.
+   */
+  const killHit = (w: World, p: Primitive): number | undefined =>
+    w.structureKillHits.find((h) => h.key === `p:${p.id}`)?.amount ?? undefined;
+
+  it('⭐ the SUICIDE GOBLIN: the shape it walked up to takes exactly its distance-scaled hit, not the flat 20', () => {
+    const w = make1v1();
+    spawn(w, 'goblinSuicide', 0, 500, 500);
+    const target = addPrimAt(w, 1, 620, 500);
+    const pos = { ...target.pos };
+    const at = runToBlast(w, GOBLIN_SUICIDE_BLAST_RADIUS);
+    const full = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
+    const dd = d2(pos, at);
+    // It detonates at its reach, so the shape sits near the rim: the hit is near the 50 % floor.
+    expect(dd, 'fixture: inside the blast').toBeLessThanOrEqual(GOBLIN_SUICIDE_BLAST_RADIUS ** 2);
+    expect(dd, 'fixture: not at the centre').toBeGreaterThan(0);
+    expect(killHit(w, target)).toBe(blastHitAtDistance(full, dd, GOBLIN_SUICIDE_BLAST_RADIUS));
+    expect(killHit(w, target)!, 'closer = more: a rim hit is less than point-blank').toBeLessThan(full);
+  });
+
+  it('⭐ the LIGHTNING DRONE: an enemy shape near its connector takes exactly the distance-scaled 30', () => {
+    const w = make1v1();
+    spawn(w, 'lightningDrone', 0, 500, 500);
+    addBondAt(w, 1, 560, 500);
+    const near = addPrimAt(w, 1, 575, 560);
+    const pos = { ...near.pos };
+    const at = runToBlast(w, DRONE_EXPLODE_RADIUS);
+    const full = attackFifths(DRONE_ATK, DRONE_PEN);
+    const dd = d2(pos, at);
+    expect(dd, 'fixture: inside the drone blast').toBeLessThanOrEqual(DRONE_EXPLODE_RADIUS ** 2);
+    expect(dd, 'fixture: not at the centre').toBeGreaterThan(0);
+    expect(killHit(w, near)).toBe(blastHitAtDistance(full, dd, DRONE_EXPLODE_RADIUS));
+    expect(killHit(w, near)!).toBeLessThan(full);
   });
 });
 

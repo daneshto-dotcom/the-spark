@@ -15,6 +15,8 @@
  * of, rather than inferred from a death. `creatureStrike.guard.test.ts` is the mechanical half: it
  * counts the config derivations left in the tree, so a new arm cannot quietly re-derive.
  */
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
+import { DRONE_EXPLODE_RADIUS, GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, PRIMITIVE_MAX_HP, STINK_BAG_RADIUS, SparkType } from '../../constants.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
@@ -247,8 +249,16 @@ describe('⛔ …and the three strikes that live outside it', () => {
     };
     const d = draftedStrike('goblinSuicide');
     const t = typeStrike('goblinSuicide');
-    expect(run(ATK)).toEqual({ unit: d, shape: d, connector: d });
-    expect(run([])).toEqual({ unit: t, shape: t, connector: t });
+    // ⭐ S193 (owner R193-B4) — each arm is the bomber's own number SCALED by its distance: the bag
+    // 10 px off, the shape √3400 px, the connector's midpoint 30 px (`blastHitAtDistance`).
+    const at = (full: number) => ({
+      unit: blastHitAtDistance(full, 100, GOBLIN_SUICIDE_BLAST_RADIUS),
+      shape: blastHitAtDistance(full, 3400, GOBLIN_SUICIDE_BLAST_RADIUS),
+      connector: blastHitAtDistance(full, 900, GOBLIN_SUICIDE_BLAST_RADIUS),
+    });
+    expect(run(ATK)).toEqual(at(d));
+    expect(run([])).toEqual(at(t));
+    expect(at(d).unit, 'the drafted strike still lands harder').toBeGreaterThan(at(t).unit);
   });
 
   it('the LIGHTNING DRONE’s blast', () => {
@@ -259,7 +269,12 @@ describe('⛔ …and the three strikes that live outside it', () => {
       dispatch(w, { type: 'DRONE_EXPLODE', creatureId: drone.id });
       return DEEP - bag.ehp;
     });
-    expect(r).toEqual({ drafted: draftedStrike('lightningDrone'), plain: typeStrike('lightningDrone') });
+    // ⭐ S193 R193-B4 — the bag is 20 px from the drone: its own strike scaled by distance.
+    expect(r).toEqual({
+      drafted: blastHitAtDistance(draftedStrike('lightningDrone'), 400, DRONE_EXPLODE_RADIUS),
+      plain: blastHitAtDistance(typeStrike('lightningDrone'), 400, DRONE_EXPLODE_RADIUS),
+    });
+    expect(r.drafted).toBeGreaterThan(r.plain);
   });
 });
 
@@ -312,14 +327,18 @@ describe('⛔ the heals that are a share of the strike follow the BUFFED strike'
       w.creatures.set(food.id, food);
       const before = boss.ehp;
       // corpseEater.test.ts's slot harness: one feed call per emulated strike batch, clock advancing.
-      for (let i = 0; i <= getCreatureConfig(BOSS).attackFireTick; i++) {
+      const slot = (): void => {
         w.pendingCreatureDeaths = new Set();
         runCorpseEater(w);
         for (const id of w.pendingCreatureDeaths) w.creatures.delete(id);
         w.pendingCreatureDeaths = null;
         w.tick++;
-      }
-      return { bite: DEEP - food.ehp, healed: boss.ehp - before };
+      };
+      for (let i = 0; i <= getCreatureConfig(BOSS).attackFireTick; i++) slot();
+      const bite = DEEP - food.ehp;
+      // ⭐ S192 T12 — the heal lands over the next cycle in six pulses; measured once they have all paid.
+      for (let i = 0; i < getCreatureConfig(BOSS).attackCadenceTicks; i++) slot();
+      return { bite, healed: boss.ehp - before };
     };
     const drafted = run(['hp', 'racial', 'atk']);
     expect(drafted.bite, 'one bite, his OWN drafted strike').toBe(draftedStrike(BOSS));

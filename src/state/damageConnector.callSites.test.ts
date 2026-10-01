@@ -92,7 +92,8 @@ describe('S188 — the damageConnector call-site census', () => {
     // S191 C-5 +1: the lightning hub's ladder blast (a null site). S191 (owner) +1: the overkill
     // CARRY in `damage.ts` (`severWithCarry`) — a null site, the lifesteal was paid on the whole hit.
     // ⭐ S191 +1 — SCORCHED EARTH's structure arm (null).
-    expect(sites.length).toBe(8);
+    // ⭐ S192 (zombies) +1: the zombie boss's death blast (a null site — he is dead).
+    expect(sites.length).toBe(9);
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -118,6 +119,7 @@ describe('S188 — the damageConnector call-site census', () => {
       'src/state/potatoLifecycle.ts': 1,
       'src/state/racial/raColumn.ts': 1, // the caster, or the Pharaoh's seat (S192: his column cuts connectors too)
       'src/state/racial/scorchedGround.ts': 1, // SCORCHED EARTH burning a structure: the caster
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — the dead boss's SEAT (S193); heals nobody
     });
     // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on, crediting the caller's seat (`carryBy`).
     expect(tally((s) => s.attacker === 'carryBy')).toEqual({ 'src/state/damage.ts': 1 });
@@ -137,6 +139,7 @@ describe('S188 — the damageConnector call-site census', () => {
       'src/state/racial/raColumn.ts': 1,
       'src/state/racial/scorchedGround.ts': 1,
       'src/state/world.ts': 1,
+      'src/state/racial/zombieDeathBlast.ts': 1,
     });
     expect(carries.every((s) => s.attacker.includes("kind: 'seat'"))).toBe(true);
     // ⚠ And none was dropped by the 4-argument filter: every call TOKEN in production is one of the above.

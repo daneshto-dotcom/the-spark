@@ -51,8 +51,12 @@ import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
 import { raSplitShares, raStrikeColumnPos, RA_PERK_STRIKE_FIFTHS } from './racial/powerOfRa.ts';
+import { planHubBlast, type HubBlastShare } from './potatoLifecycle.ts';
+import { planZombieDeathBlast } from './racial/zombieDeathBlast.ts';
+import { pendingRacialSpawns } from './racial/spawnQueue.ts';
+import { damageEntity } from './damage.ts';
 import { SCORCHED_GROUND_PER_MILLE } from './racial/scorchedGround.ts';
-import { statCreditOf } from './statCredit.ts';
+import { killCreditOf } from './racial/killCredit.ts';
 import { attackFifths, structurePoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -140,22 +144,26 @@ describe('⭐ S193 BLAST-2 — the lightning hub\'s ladder blast credits the hub
     return { w, hub, d, st };
   }
 
-  function blow(w: World, hub: Primitive, d: HostTickDeps, st: HostTickState): void {
+  /** Blows the hub through the real poll; returns the split `planHubBlast` gave on the tick it blew. */
+  function blow(w: World, hub: Primitive, d: HostTickDeps, st: HostTickState): HubBlastShare[] {
     // Bank 34 of the star's 50 (below a third — R182-A), without a sever. Not recorded: the
     // fixture's own damage is nobody's, and the measurement is a delta anyway.
     const ids = [...hub.bonds].sort((a, b) => Number(a) - Number(b));
     let left = 34;
     for (const id of ids) { const take = Math.min(left, 9); w.bonds.get(id)!.damageFifths += take; left -= take; }
     let blew = false;
+    let plan: HubBlastShare[] = [];
     for (let t = 0; t < 200 && !blew; t++) {
       w.effects.length = 0;
+      plan = planHubBlast(w, hub.pos.x, hub.pos.y, STRUCTURE_SELFDESTRUCT_RADIUS, P0);
       runHostTick(w, d, st);
       blew = w.effects.some((e) => e.kind === 'BOMB_EXPLODE' && e.radius === STRUCTURE_SELFDESTRUCT_RADIUS);
     }
     expect(blew, 'anti-vacuity: the real poll fused and blew the hub').toBe(true);
+    return plan;
   }
 
-  it('five enemy targets share 120: the hub owner is credited EXACTLY what they lost — carry included', () => {
+  it('five enemy targets share 120 by distance: the hub owner is credited EXACTLY what they lost — carry included', () => {
     const { w, hub, d, st } = hubBoard();
     const chewer = spawn(w, 'chewer', P1, 720, 400);
     const boss = spawn(w, T9_BOSS_TYPE.nagas, P1, 600, 560);
@@ -172,20 +180,31 @@ describe('⭐ S193 BLAST-2 — the lightning hub\'s ladder blast credits the hub
     const d0 = dealt(w, P0);
     const t1 = taken(w, P1);
 
-    blow(w, hub, d, st);
+    const bossPool = w.creatures.get(boss)!.ehp;
 
-    expect(w.creatures.has(chewer)).toBe(false);
-    expect(w.bonds.has(e12) || w.bonds.has(e23), 'both connectors fell (e23 by the carry)').toBe(false);
+    const plan = blow(w, hub, d, st);
+
     /*
-     * The arithmetic, target by target (120 / 5 = 24 each):
-     *   chewer   min(24, its pool)                     = chewerPool (it dies)
-     *   boss     24 (his pool is far above it)         = 24
-     *   shape    min(24, 5)                            = 5
-     *   bag      min(24, 5)                            = 5   (its burst spares BOTH seats — damageStinkCloud)
-     *   e12      pool 14: 24 − the 10 it leaves         = 14
-     *   e23      the CARRY: pool 6 of those 10 — the 4 left has nothing to land on = 6
+     * ⭐ S193 (master R193-B4) — the 120 is split by DISTANCE (`blastFalloff.ts`), not 24 each, so the
+     * arithmetic is derived from the split the sim used, target by target, as APPLIED:
+     *   creature   min(share, its pool)      · lone shape / bag   min(share, 5)
+     *   e12        pool 14: min(share, 14), and anything past 14 CARRIES to e23 (pool 6 once e12 is
+     *              gone): min(share − 14, 6) — what is left after that has nothing to land on.
+     * A bag's burst spares BOTH seats (`damageStinkCloud`'s hub-owner spare), so it adds nothing.
      */
-    const expected = chewerPool + 24 + 5 + 5 + structurePoolFifths(2) + structurePoolFifths(1);
+    expect(plan.map((t) => t.kind).sort(), 'the five planned targets').toEqual(['connector', 'creature', 'creature', 'primitive', 'stinkCloud']);
+    expect(plan.reduce((a, t) => a + t.amount, 0), 'the split sums to 120').toBe(120);
+    let expected = 0;
+    for (const t of plan) {
+      if (t.kind === 'creature') expected += Math.min(t.amount, t.id === (chewer as number) ? chewerPool : bossPool);
+      else if (t.kind === 'primitive' || t.kind === 'stinkCloud') expected += Math.min(t.amount, 5);
+      else if (t.kind === 'connector') {
+        expect(t.id).toBe(e12 as unknown as number);
+        expected += Math.min(t.amount, structurePoolFifths(2));
+        if (t.amount >= structurePoolFifths(2)) expected += Math.min(t.amount - structurePoolFifths(2), structurePoolFifths(1));
+      }
+    }
+    expect(w.creatures.has(chewer)).toBe(false);
     expect(dealt(w, P0) - d0, 'the hub OWNER\'s DEALT').toBe(expected);
     expect(taken(w, P1) - t1, 'conservation: exactly what seat 1 lost').toBe(expected);
     expect(kills(w, P0, 'chewer'), 'and the kill is his').toBe(1);
@@ -424,18 +443,118 @@ describe('⭐ S193 BLAST-2 — the raid (the real reducer) and the overkill CARR
   });
 });
 
-/* ───────────────────────────────── 5 · THE ADAPTER (`statCredit.ts`) ───────────────────────────────── */
+/* ───────────────────────────────── 6 · MASTER'S S193 BLASTS — the zombie boss's 312, the falloff ───────────────────────────────── */
 
-describe('⭐ S193 — statCreditOf: the stat board\'s credit, shaped as KillCredit widened', () => {
+describe('⭐ S193 — the zombie boss\'s death blast and a falloff blast credit the BLASTING seat (real host tick)', () => {
+  it('the zombie death blast (312 split by distance): his seat is credited EXACTLY what the enemies lost, and every kill', () => {
+    const w = makeWorld(0x5192);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'BUILD'; // creatures dormant: nothing walks between the plan and the blast
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    w.draft = null;
+    w.creatures.clear();
+    const AT = { x: 960, y: 540 };
+    const put = (type: CreatureType, owner: PlayerId, x: number, y: number): CreatureId => {
+      const id = asCreatureId(w.nextCreatureId++);
+      const c = makeCreature(getCreatureConfig(type), {
+        id, ownerPlayerId: owner, pos: { x, y }, targetPos: { x, y }, spawnedAtTick: w.tick, sourceSpawnerId: null,
+      });
+      c.state = 'SEEKING';
+      w.creatures.set(id, c);
+      return id;
+    };
+    const boss = put(T9_BOSS_TYPE.zombies, P0, AT.x, AT.y);
+    const enemies: CreatureId[] = [];
+    for (let i = 0; i < 8; i++) {
+      const a = (i * 2 * Math.PI) / 8;
+      enemies.push(put('goblinMelee', P1, Math.round(AT.x + (40 + i * 35) * Math.cos(a)), Math.round(AT.y + (40 + i * 35) * Math.sin(a))));
+    }
+    put('t9BossOrcs', P1, AT.x + 20, AT.y - 10); // survives a share — a non-lethal hit is DEALT too
+    const d = deps(7);
+    const st = makeHostTickState(w);
+    runHostTick(w, d, st); // on the roster
+    w.pendingCreatureDeaths = null;
+    damageEntity(w, { kind: 'creature', id: boss }, 100_000, 'player', null); // he dies to nobody
+    let plan: ReturnType<typeof planZombieDeathBlast> = [];
+    const pools = new Map<number, number>();
+    plan = planZombieDeathBlast(w, AT, P0);
+    for (const c of w.creatures.values()) pools.set(c.id as unknown as number, c.ehp);
+    const d0 = dealt(w, P0);
+    const t1 = taken(w, P1);
+    runHostTick(w, d, st); // the roster compare fires the blast
+
+    expect(plan.length, 'fixture: every enemy is a target').toBe(9);
+    expect(plan.reduce((a, p) => a + p.share, 0)).toBe(312);
+    let expected = 0;
+    for (const { target, share } of plan) expected += Math.min(share, pools.get(target.id)!);
+    expect(dealt(w, P0) - d0, 'his SEAT\'s DEALT — a dead dealer still counts').toBe(expected);
+    expect(taken(w, P1) - t1, 'conservation').toBe(expected);
+    const killed = enemies.filter((e) => !w.creatures.has(e)).length;
+    expect(killed, 'fixture: the blast killed goblins').toBeGreaterThan(0);
+    expect(kills(w, P0, 'goblinMelee'), 'every kill is his seat\'s').toBe(killed);
+  });
+
+  it('a SUICIDE GOBLIN (the shared falloff): the bomber\'s seat is credited what its blast took, through the real tick', () => {
+    const w = makeWorld(0x5158);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    w.creatures.clear();
+    const bomber = spawn(w, 'goblinSuicide', P0, 500, 500);
+    w.creatures.get(bomber)!.stunnedUntilTick = 0; // un-stunned: the real FSM decides when it blows
+    const target = prim(w, P1, SparkType.Square, 560, 500);
+    const v = spawn(w, 'voltkin', P1, 540, 520); // stunned, ~45 px out — inside the 70 px blast
+    const vPool = w.creatures.get(v)!.ehp;
+    const hpBefore = target.hp;
+    const d = deps(1);
+    const st = makeHostTickState(w);
+    for (let t = 0; t < 400 && w.creatures.has(bomber); t++) runHostTick(w, d, st);
+    expect(w.creatures.has(bomber), 'fixture: it detonated').toBe(false);
+    const shapeLost = Math.min(hpBefore, 5) - Math.max(0, w.primitives.get(target.id)?.hp ?? 0);
+    const unitLost = vPool - (w.creatures.get(v)?.ehp ?? 0);
+    expect(unitLost, 'fixture: the blast reached the unit').toBeGreaterThan(0);
+    expect(dealt(w, P0), 'the BOMBER\'s seat').toBe(taken(w, P1));
+    expect(taken(w, P1), 'what seat 1 lost').toBe(shapeLost + unitLost);
+  });
+});
+
+/* ───────────────────────────────── 5 · THE ONE SEAM (`racial/killCredit.ts`) ───────────────────────────────── */
+
+describe('⭐ S193 — killCreditOf: the stat board\'s credit, shaped as KillCredit widened', () => {
   it('a live creature → its seat AND type; a seat → its seat, no type; null / a creature already gone → nobody', () => {
     const w = makeWorld(0x193c);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
     w.creatures.clear();
     const id = spawn(w, 'chewer', P1, 500, 500);
-    expect(statCreditOf(w, { kind: 'creature', id })).toEqual({ seat: P1, type: 'chewer' });
-    expect(statCreditOf(w, { kind: 'seat', seat: P0 })).toEqual({ seat: P0, type: null });
-    expect(statCreditOf(w, null)).toBeNull();
+    expect(killCreditOf(w, { kind: 'creature', id })).toEqual({ seat: P1, type: 'chewer' });
+    expect(killCreditOf(w, { kind: 'seat', seat: P0 })).toEqual({ seat: P0, type: null });
+    expect(killCreditOf(w, null)).toBeNull();
     w.creatures.delete(id);
-    expect(statCreditOf(w, { kind: 'creature', id }), 'a dealer gone before the blow credits nobody').toBeNull();
+    expect(killCreditOf(w, { kind: 'creature', id }), 'a dealer gone before the blow credits nobody').toBeNull();
+  });
+
+  it('⛔ THE RISEN stays Reading A: a SEAT kill by a zombie seat raises NOBODY; the same kill by his race unit raises one', () => {
+    const setup = (): { w: World; victim: CreatureId } => {
+      const w = makeWorld(0x193d);
+      dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+      w.creatures.clear();
+      const pl = w.players.get(P0)!;
+      (pl as { raceId: string }).raceId = 'zombies';
+      pl.draftPicks.splice(0, pl.draftPicks.length, 'racial'); // zombies.l0 — THE RISEN
+      return { w, victim: spawn(w, 'goblinMelee', P1, 500, 500) };
+    };
+    // A seat (castle gun / raid / Ra / scorch / hub): the board credits it, THE RISEN does not.
+    const a = setup();
+    damageEntity(a.w, { kind: 'creature', id: a.victim }, 100_000, 'player', { kind: 'seat', seat: P0 });
+    expect(a.w.creatures.has(a.victim)).toBe(false);
+    expect(kills(a.w, P0, 'goblinMelee'), 'the board credits the seat').toBe(1);
+    expect(pendingRacialSpawns(a.w), 'a typeless credit raises nobody').toBe(0);
+    // Positive control — the identical kill by his RACE UNIT raises one (the hook is live in this fixture).
+    const b = setup();
+    const unit = spawn(b.w, 'raceUnit', P0, 520, 500);
+    damageEntity(b.w, { kind: 'creature', id: b.victim }, 100_000, 'creature', { kind: 'creature', id: unit });
+    expect(pendingRacialSpawns(b.w)).toBe(1);
   });
 });

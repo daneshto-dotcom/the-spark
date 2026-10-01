@@ -9,7 +9,8 @@
  * it (the live scan), after each kind of change the cache has to survive:
  *   · an exact distance tie inserted high-id-first; the range boundary exactly at the acquire radius;
  *   · an untargetable TYPE (locust cloud), and the Ra ritual stamped on a unit AFTER the index was built;
- *   · a unit killed under the deferral (still in the Map — the live scan returns it, so must the index);
+ *   · a unit killed under the deferral (still in the Map — ⭐ S192 T13: NEITHER side may return it now);
+ *   · a unit in `DESPAWNING` — still a target on both sides (no fade clause, by ruling);
  *   · a removal, a birth, and a removal + birth that leaves the Map's size unchanged;
  *   · a unit MOVED after the index was built, and one at NaN;
  *   · the epoch left open across a tick, and opened on a different world;
@@ -124,8 +125,10 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
     });
   });
 
-  it('a unit killed under the deferral is STILL returned (as the live scan always has); removals and births are seen at once', () => {
+  it('⭐ S192 T13 — a unit killed under the deferral is NEVER returned, by either side; removals and births are seen at once', () => {
+    let corpseWasNearest = 0;
     let pendingReturned = 0;
+    let heldCorpseKept = 0;
     bothWays(brawl, (w, check) => {
       w.pendingCreatureDeaths = new Set();
       const seat0 = [...w.creatures.values()].find((c) => c.ownerPlayerId === asPlayerId(0))!;
@@ -134,7 +137,13 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
       expect(pick).not.toBeNull();
       expect(damageCreature(w, pick, 1_000_000, w.pendingCreatureDeaths), 'lethal, deferred').toBe(true);
       expect(w.creatures.has(pick), 'still in the Map until the sweep').toBe(true);
-      if (pickNavUnit(w, seat0, null, ACQ, LEASH) === pick) pendingReturned++;
+      // Anti-vacuity: the corpse IS still the geometrically nearest enemy — the old rule returned it.
+      corpseWasNearest++;
+      const after = pickNavUnit(w, seat0, null, ACQ, LEASH);
+      if (after === pick) pendingReturned++;
+      expect(after === null || w.pendingCreatureDeaths.has(after) === false, 'never a corpse').toBe(true);
+      // And a lock ON the corpse is dropped, not held (the hold branch).
+      if (pickNavUnit(w, seat0, pick, ACQ, LEASH) === pick) heldCorpseKept++;
       check('after a deferred kill');
       expect(removeCreature(w, pick)).toBe(true);
       check('after a removal (size drops)');
@@ -149,7 +158,82 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
       check('after a removal + birth of equal count');
       w.pendingCreatureDeaths = null;
     });
-    expect(pendingReturned, 'the dying unit was returned in BOTH modes').toBe(2);
+    expect(corpseWasNearest, 'the corpse case ran in BOTH modes').toBe(2);
+    expect(pendingReturned, 'the dying unit was returned').toBe(0);
+    expect(heldCorpseKept, 'a lock on the dying unit was held').toBe(0);
+  });
+
+  it('⭐ S192 — a unit in DESPAWNING is still picked by both sides, acquire and hold (no fade clause, by ruling)', () => {
+    bothWays(brawl, (w, check) => {
+      const seat0 = [...w.creatures.values()].find((c) => c.ownerPlayerId === asPlayerId(0))!;
+      const pick = referencePickNavUnit(w, seat0, null, ACQ, LEASH)!;
+      expect(pick).not.toBeNull();
+      w.creatures.get(pick)!.state = 'DESPAWNING';
+      check('after the nearest enemy entered DESPAWNING');
+      expect(pickNavUnit(w, seat0, null, ACQ, LEASH)).toBe(pick);
+      expect(pickNavUnit(w, seat0, pick, ACQ, LEASH)).toBe(pick);
+    });
+  });
+
+  it('⭐ S192 T6 — one chaser, one drone or chewer, at every distance band: index and live scan agree with the reference', () => {
+    // ONE quarry per board, so the give-up rule — not a nearer candidate — decides every answer.
+    const chasers: CreatureType[] = ['goblinMelee', 'goblinShield', 'goblinArcher', 't3Bat', 't9BossOrcs', 't9BossNagas'];
+    let compared = 0;
+    let nulls = 0;
+    let found = 0;
+    for (const type of chasers) {
+      for (const quarry of ['lightningDrone', 'chewer'] as CreatureType[]) {
+        // Every distance band × the three refinement arms: abroad (seat 1's quadrant) or at home
+        // (seat 0's), and pathless / flying past the chaser / flying away (the intercept arm).
+        for (const dx of [30, 60, 120, 210]) for (const [cx, cy] of [[1300, 200], [500, 200]] as const) for (const tx of [null, 300, 1880]) {
+          const t = bothWays(() => {
+            const w = board();
+            insertAs(w, asCreatureId(w.nextCreatureId++), 0, cx, cy, type);
+            const qid = asCreatureId(w.nextCreatureId++);
+            insertAs(w, qid, 1, cx + dx, cy + 20, quarry);
+            if (tx !== null) w.creatures.get(qid)!.targetPos = { x: tx, y: cy + 20 };
+            return w;
+          }, (_w, check) => check(`${type} at ${cx},${cy} vs ${quarry} at +${dx} heading ${String(tx)}`));
+          compared += t.compared;
+          found += t.nonNull;
+          nulls += t.compared - t.nonNull;
+        }
+      }
+    }
+    // Anti-vacuity both ways: the rule both kept and dropped quarries across the bands.
+    expect(compared).toBeGreaterThan(2000);
+    expect(found, 'some quarries were chased').toBeGreaterThan(20);
+    expect(nulls, 'some quarries were let go').toBeGreaterThan(20);
+  });
+
+  it('⭐ S193 audit — a chaser ABROAD by the border, the quarry in ITS home zone: index, live scan and reference agree', () => {
+    // The case the first oracle never built: real and reference had to agree on "home" with the chaser
+    // abroad and the quarry at home. Under the old quarry-only test both sides engaged it; now both drop
+    // it beyond reach + slack. A real-side-only change of the home arm turns this red.
+    const chasers: CreatureType[] = ['goblinMelee', 't3Bat', 't9BossOrcs'];
+    let compared = 0;
+    let found = 0;
+    let nulls = 0;
+    for (const type of chasers) {
+      for (const quarry of ['lightningDrone', 'chewer'] as CreatureType[]) {
+        for (const dx of [30, 88, 150, 202]) for (const tx of [null, 40, 1880]) {
+          const t = bothWays(() => {
+            const w = board();
+            insertAs(w, asCreatureId(w.nextCreatureId++), 0, 1000, 200, type); // seat 1's ground, 40 px past the border
+            const qid = asCreatureId(w.nextCreatureId++);
+            insertAs(w, qid, 1, 1000 - dx, 220, quarry); // seat 0's ground for dx > 40
+            if (tx !== null) w.creatures.get(qid)!.targetPos = { x: tx, y: 220 };
+            return w;
+          }, (_w, check) => check(`${type} abroad at 1000,200 vs ${quarry} at -${dx} heading ${String(tx)}`));
+          compared += t.compared;
+          found += t.nonNull;
+          nulls += t.compared - t.nonNull;
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(500);
+    expect(found, 'some were kept (inside reach, a catchable chewer, an intercept)').toBeGreaterThan(10);
+    expect(nulls, 'some were let go').toBeGreaterThan(10);
   });
 
   it('a unit moved after the index was built, a unit at NaN, and held locks of every kind', () => {
@@ -206,7 +290,8 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
           else if (k < 0.4) removeCreature(w, c.id);
           else if (k < 0.6) birthCreature(w, Math.floor(rnd() * 4), c.pos.x + (rnd() - 0.5) * 60, c.pos.y + (rnd() - 0.5) * 60);
           else if (k < 0.75) { c.pos.x += (rnd() - 0.5) * 400; c.pos.y += (rnd() - 0.5) * 400; }
-          else if (k < 0.9) c.raRitualUntilTick = w.tick + 1 + Math.floor(rnd() * 3);
+          else if (k < 0.85) c.raRitualUntilTick = w.tick + 1 + Math.floor(rnd() * 3);
+          else if (k < 0.9) c.state = 'DESPAWNING'; // S192 — state churn; no predicate reads it
           else { removeCreature(w, c.id); birthCreature(w, Math.floor(rnd() * 4), c.pos.x, c.pos.y); }
         }
       } finally { closeBondTargetEpoch(); }
