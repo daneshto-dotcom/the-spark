@@ -1499,7 +1499,7 @@ of the building art. Reported as "damage numbers print over blank ground". He li
 raised between his S175 *"you gotta see damage everywhere"* and R183-E *"you don't have to see the
 connectors"* — S175 wins for the floating number, R183-E still governs the connector's own alpha.
 
-## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187)
+## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187) — and a fifth (S193)
 
 
 > *"Resolve all of this now. Do what needs to be done. Don't bring this up again."* — owner, S187
@@ -1554,8 +1554,11 @@ STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 
 inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
 creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
 inside — **each connector is one entity** (`damageConnector`, no creature attacker → no lifesteal;
-severed with the EXISTING cause `'drone'`, so no new discriminant). n targets each take
-`floor(120 / n)`, and the first `120 mod n` take one more, so the shares always sum to exactly 120. A
+severed with the EXISTING cause `'drone'`, so no new discriminant). ⭐ **S193 (owner R193-B4) — BY
+DISTANCE:** each target takes `floor(120 × w / Σw)` with `w = max(1, floor(240 − d))` (the shared falloff,
+§9d item 5), and the leftover fifths go one apiece nearest-first, so the shares always sum to exactly
+120. (Until S193: an equal split, 120 over n.) The hub's creature:connector weight is 1:1 — ⚠ MINE
+(`HUB_BLAST_CREATURE_WEIGHT`); he ruled 2:1 only for the zombie boss. A
 shape INSIDE a structure has no arm — a building dies through its connectors (§4). ⚠ **The S157 P0
 owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes, units, bags and
 Helga, and a connector with either end his. *"He will also bring down some of his own connectors"*
@@ -1577,11 +1580,23 @@ through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spar
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
 (380 px, no owner, *"hurting everything"*). ⭐ **S192 (owner T3): it no longer razes and no longer
-uses this action** — `applyZombieDeathBlast` (`racial/zombieDeathBlast.ts`) splits ONE pool by distance over
-everything in range (pool 312, radius 380, own side hit — all three ⚠ AWAITING OWNER). The `blast: 'raze'`
-variant has no production dispatcher now. `blast` stays REQUIRED, so no dispatcher can fall into either blast
-by omission.
+uses this action** — `applyZombieDeathBlast` (`racial/zombieDeathBlast.ts`) splits ONE pool by distance.
+⭐⭐ **S193 — HIS RULINGS R193-B1..B3:**
+> *"312 blast pool, but split over, you know, everyone who's around."* · *"creatures get twice as much
+> damage as towers do from that blast."* · *"It does not hit his own side"* — owner, S193
 
+- the pool is **312** (`T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` = 3 × `attackFifths(8, 8)`) — HIS now;
+- each target weighs `kind × max(1, floor(380 − d))`: **kind 2** for a creature or Helga, **1** for a
+  structure (still ONE target, its share on its nearest connector), a lone shape or a bag
+  (`T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT`); shares `floor(312 × w / Σw)`, the leftover nearest-first,
+  summing to exactly 312. Worked: a goblin and a one-connector tower both 100 px out take **208 / 104**;
+- **it does NOT hit his own side** (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE` = false) — his units, Helga,
+  structures, lone shapes and bags are spared, and a bag it pops bursts without hitting his side either.
+  This SUPERSEDES R138's *"hurting everything"* for this blast;
+- the radius stays 380 px (⚠ MINE since S168, not re-ruled); the overkill carries (`severWithCarry`).
+
+The `blast: 'raze'` variant has no production dispatcher now. `blast` stays REQUIRED, so no dispatcher
+can fall into either blast by omission.
 
 ### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
 
@@ -1679,6 +1694,32 @@ an unknown cause falls through `severToastRenderer`'s switch and goes silent, wh
 
 
 ---
+
+
+### 5 · ⭐⭐ CLOSER = MORE DAMAGE — FOR EVERY BLAST (owner R193-B4, S193)
+
+> *"whoever is closer to him, to the actual blast, gets damaged more … And that's obviously for every
+> blast … the poop bag or the stink tower blast. Similarly, right?"* — owner, S193
+
+ONE falloff, `state/blastFalloff.ts`, and every production blast reads it (`blastFalloff.census.test.ts`
+fails on a blast producer that does not):
+
+| blast | kind | rule |
+|---|---|---|
+| zombie boss death blast (`racial/zombieDeathBlast.ts`) | split pool 312 | weight `kind × max(1, floor(R − d))`, kind 2 : 1 (ruled) |
+| lightning hub self-destruct (`potatoLifecycle.ts`) | split pool 120 | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE) |
+| suicide goblin (`creatures/suicideBlast.ts`) — units, shapes AND connectors | full hit | `blastHitAtDistance` |
+| lightning drone (`droneLifecycle.ts`) — units and shapes | full hit | `blastHitAtDistance` |
+| stink bag throw + landed bag's burst (`defenders/stinkTower.ts`, `damage.ts`) | full hit | `blastHitAtDistance` |
+| stink tower death blast (`defenders/stinkTower.ts`) | full hit | `blastHitAtDistance` |
+
+A **full-hit** blast deals its full ladder number at the centre and falls linearly to
+`BLAST_EDGE_FLOOR_PERCENT` = **50 %** of it at the rim (⚠ MINE — the curve and the 50 are mine; he ruled
+only the direction), floored, never below 1 on a real hit. Worked: the suicide goblin's 20 is 17 at 20 px
+and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. Not blasts, so flat: the
+stink tower's aura and a landed bag's lingering cloud (1 fifth a second — damage over time), SCORCHED
+ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is an open question). The drone's
+connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.
 
 
 ## 10 · ⛔ OPEN — needs the owner, do not guess

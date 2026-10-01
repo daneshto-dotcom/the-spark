@@ -24,6 +24,8 @@
  * assertion lands here in the SAME commit.
  */
 
+import { BLAST_EDGE_FLOOR_PERCENT, blastHitAtDistance, blastSplitWeight, splitBlastPool } from './state/blastFalloff.ts'; // S193
+import { T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT, T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE, T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS } from './state/racial/zombieDeathBlast.ts'; // S193
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -105,7 +107,7 @@ import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
-import { STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
+import { HUB_BLAST_CREATURE_WEIGHT, STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
@@ -1318,7 +1320,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('BUILT S191')).toBe(true);
     // ⭐ S191 (owner) — ONE total, shared: the quote, and the division the planner does.
     expect(canonSays('So 120 damage points in total.')).toBe(true);
-    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(true);
+    // ⭐ S193 (owner R193-B4) — the 120 is shared BY DISTANCE now, not equally.
+    expect(canonSays('each target takes `floor(120 × w / Σw)` with `w = max(1, floor(240 − d))`')).toBe(true);
+    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(false);
     expect(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE).toBe(4); // his "four times a drone's damage"
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN));
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(120);
@@ -1335,8 +1339,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(arm.length, 'anti-vacuity: the arm was found').toBeGreaterThan(500);
     expect(arm).not.toContain('applyRadialClear('); // never the raze…
     expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
-    expect(arm).toContain('Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n)');
-    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS % n');
+    expect(arm).toContain('splitBlastPool(');
+    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS,');
+    expect(arm).toContain('blastSplitWeight(t.d2, radius,');
+    expect(HUB_BLAST_CREATURE_WEIGHT, 'MINE — 1:1 until he rules otherwise').toBe(1);
     expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
@@ -1489,6 +1495,22 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('pools 260–462')).toBe(true);
     // The blast's LARGEST single share is the whole 120 (one target alone), and even that fells no boss.
     expect(Math.min(...pools)).toBeGreaterThan(STRUCTURE_SELFDESTRUCT_FIFTHS);
+  });
+
+  it('⭐⭐ S193 R193-B1..B4 — the zombie blast is his (312, 2 : 1, not his side) and every blast falls off', () => {
+    expect(canonSays('312 blast pool, but split over, you know, everyone who')).toBe(true);
+    expect(canonSays('creatures get twice as much')).toBe(true);
+    expect(canonSays('It does not hit his own side')).toBe(true);
+    expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
+    expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT).toBe(2);
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
+    expect(canonSays('take **208 / 104**')).toBe(true);
+    expect(splitBlastPool(312, [blastSplitWeight(100 * 100, 380, 2), blastSplitWeight(100 * 100, 380, 1)])).toEqual([208, 104]);
+    expect(canonSays('`BLAST_EDGE_FLOOR_PERCENT` = **50 %**')).toBe(true);
+    expect(BLAST_EDGE_FLOOR_PERCENT).toBe(50);
+    expect(canonSays("the suicide goblin's 20 is 17 at 20 px")).toBe(true);
+    expect(blastHitAtDistance(20, 20 * 20, 70)).toBe(17);
+    expect(blastHitAtDistance(20, 60 * 60, 70)).toBe(11);
   });
 
   it('⛔ BLAST-6 / GATES-2 — §7 no longer calls the blast "unchanged … not built"', () => {
