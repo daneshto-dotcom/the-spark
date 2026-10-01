@@ -101,7 +101,7 @@
     },
     {
       "id": "P8",
-      "title": "lobby-ci: CI e2e-lobby nplayer 4-seat red 4/5 — research + fix",
+      "title": "lobby-ci: CI e2e-lobby nplayer 4-seat red 4/5 \u2014 research + fix",
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
       "branch": "s193/lobby-ci",
@@ -132,5 +132,14 @@
   ],
   "scope_amendments": [],
   "budget_total": null,
-  "totals": {}
+  "totals": {
+    "budget_remaining": null
+  },
+  "auto_fill_applied": {
+    "ts": "2026-10-01T18:48:18.995702Z",
+    "fields": [
+      "totals.budget_remaining"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
 }
