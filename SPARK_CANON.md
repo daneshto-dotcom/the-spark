@@ -870,7 +870,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **53** (S192 — deploy #7; see the S192 entry on the const).
+`PROTOCOL_VERSION` is **54** (S192 — deploy #8; see the S192 entries on the const).
+
+⭐⭐ **WHAT RIDES 54 (S192, deploy #8)** — `s191/carry`: the lightning hub's self-destruct as 120 ladder fifths split in a total order (owner spared), the popped-bag spare, the strict FFA spread, and OVERKILL CARRYING into the next connector — only into connectors the struck connector's owner placed. Riding along: the castle's separate heal number (`castleHealedHp`), the bar on the tower's own star, the Ra strike above buildings.
 
 ⭐⭐ **WHAT RIDES 53 (S192, deploy #7)** — `s191/addons`: the new optional `Creature.rageStartTick` (serialized, on the wire, wide-hashed `:rs`), the Warlord's 25 s rage latch then a 25 s cooldown (the owner's), and the BLOOD FRENZY source as his own open window — the frenzy never sets or clears a Warlord. Local only: Alt toggles the footer like the arrow, R190-G right-click swallowing, the modal cover + its close-click latch.
 

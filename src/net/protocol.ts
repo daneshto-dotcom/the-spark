@@ -898,7 +898,20 @@ export type { NetSnapshot };
  *   S192); the opaque panels and modals swallow right-clicks (R190-G); `Controls.setModalCover` + the
  *   paired-press latch (S192 A-1); the attack row's frame cadence reads the cycle latch (render only).
  */
-export const PROTOCOL_VERSION = 53 as const;
+/**
+ * ⭐⭐ S192 — **BUMPED 53 -> 54: DEPLOY #8 — `s191/carry`.** No new required field; every item is a CHANGED SHARED
+ * RULE both peers (host, successor, worker mirror) compute — the S186 test:
+ *   1. C-5 + R2-A — the lightning hub's self-destruct is LADDER damage (`applyHubLadderBlast`), 120 fifths IN
+ *      TOTAL split across everything around it in a total order (squared distance, kind, id), the owner spared
+ *      (S157 P0); no longer the instant-kill raze (the zombie boss keeps `blast:'raze'`, a host-internal field).
+ *   2. R2-C — a stink bag the hub blast pops bursts without hitting the hub owner's things.
+ *   3. C-6 — the FFA spread (`spreadEnemyTarget`) uses the strict S162 predicate (targeting outputs move).
+ *   4. R2-E + CARRY-1 — OVERKILL CARRIES into the next connector (`severWithCarry`), owner ruling S191, and only
+ *      into connectors placed by the STRUCK connector's owner.
+ *   Riding without needing it: C-8 `Player.castleHealedHp` (additive-optional, wide hash only), C-7 the bar on
+ *   the tower's own star, C-9 the Ra strike above buildings, C-1..C-4.
+ */
+export const PROTOCOL_VERSION = 54 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1219,6 +1232,9 @@ export interface HelloMsg {
    * 25 s cooldown, the BLOOD FRENZY source = his own open window and never a Warlord. Full reasons on
    * the const's JSDoc.)
    *
+   * S192: 53->54 (DEPLOY #8 — `s191/carry`: the hub blast as 120 ladder fifths split, the popped-bag spare,
+   * the strict FFA spread, overkill carrying owner-filtered. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1256,7 +1272,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 53;
+  readonly protoVersion: 54;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
