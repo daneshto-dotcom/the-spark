@@ -13,7 +13,8 @@
  * test by hashing both).
  */
 
-import { PLAYER_COLORS } from '../constants.ts';
+import { ALL_SPARK_TYPES, PLAYER_COLORS } from '../constants.ts';
+import { bankAdd } from '../state/castleBank.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
 import { makeGameStateExtras } from '../state/gameState.ts';
@@ -27,6 +28,7 @@ import { asPlayerId } from '../types.ts';
 import { BotController } from './botController.ts';
 import { BotManager } from './botManager.ts';
 import { DEFENCE_ROLES, towerRoleOf } from './botPersonality.ts';
+import { isRaceTowerId } from '../state/raceTowerIds.ts';
 import {
   resolvePersonality,
   type BotDifficulty,
@@ -239,4 +241,78 @@ export function runFrameMatchWithManager(
     w.effects.length = 0;
   }
   return hashWorldStateFull(w);
+}
+
+export interface LockResult {
+  /** `endgameBuildLocked` rejects during the locked window. */
+  readonly lockRejects: number;
+  /** FEED_TOWER sends that landed during the locked window. */
+  readonly feedsLanded: number;
+  /** Seats that owned a feedable spawner when the lock fell. */
+  readonly seatsWithTower: number;
+}
+
+/**
+ * ⭐ S193 audit HIGH — the ENDGAME BUILD LOCK on the real frame lifecycle: `preSeconds` of normal play,
+ * then `waveNumber` forced to 27 (`BUILD_LOCK_FROM_WAVE`) for `lockSeconds`. The auditor's repro
+ * (`.tmp-audit/zzAuditLock.test.ts`), made a shared fixture.
+ */
+export function runLockMatch(
+  tier: BotDifficulty,
+  personality: BotPersonalityChoice,
+  preSeconds: number,
+  lockSeconds: number,
+  lockWave: number,
+  /**
+   * Bank one shape of every type per bot seat as the lock falls. The quarry is nearly dry by then on a
+   * four-bot board (measured: 3 free sparks, gatherers SEEKING), so without this the window measures the
+   * empty quarry (canon §9d: not a defect) instead of whether the bot FEEDS what it holds.
+   */
+  seedBank = true,
+): LockResult {
+  const w = startMatch();
+  let locked = false;
+  let feedsLanded = 0;
+  const controllers = BOT_SEATS.map((s, i) => {
+    const rng = mulberry32(((SIG_BOT_SEED ^ ((i + 1) * 0xb07b07)) >>> 0) || 1);
+    return new BotController(asPlayerId(s), tier, rng, BOT_SEATS.length + 1,
+      resolvePersonality(personality, SIG_BOT_SEED, i + 1));
+  });
+  const send = (a: GameAction): void => {
+    if (a.type === 'FEED_TOWER' && locked) {
+      const before = w.creatures.size;
+      dispatch(w, a);
+      if (w.creatures.size > before) feedsLanded++;
+      return;
+    }
+    dispatch(w, a);
+  };
+  const d = makeDeps({ tick(world: World): void { for (const c of controllers) c.tick(world, send); } });
+  const st = makeHostTickState(w);
+  const cursor: GodlyMatcherCursor = { lastMatcherTick: -1 };
+  const step = (): void => {
+    runHostTick(w, d, st);
+    if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, cursor);
+    w.effects.length = 0;
+  };
+  for (let t = 0; t < 60 * preSeconds; t++) step();
+  // The lock falls at the START of a BUILD phase, as it does in play (*"in the build phase of 27"*):
+  // gatherers shelter during FIGHT, so a lock window that opens mid-FIGHT measures no income at all.
+  while (w.matchPhase === 'BUILD') step();
+  while (w.matchPhase !== 'BUILD') step();
+  let seatsWithTower = 0;
+  for (const s of BOT_SEATS) {
+    for (const sp of w.creatureSpawners.values()) {
+      if ((sp.ownerPlayerId as unknown as number) === s && (sp.recipeId === 'goblinTower' || isRaceTowerId(sp.recipeId))) {
+        seatsWithTower++;
+        break;
+      }
+    }
+  }
+  w.waveNumber = lockWave;
+  locked = true;
+  if (seedBank) for (const s of BOT_SEATS) for (const t of ALL_SPARK_TYPES) bankAdd(w.castleBanks, asPlayerId(s), t);
+  const rej0 = w.diagnostics.rejectReasons.endgameBuildLocked;
+  for (let t = 0; t < 60 * lockSeconds; t++) step();
+  return { lockRejects: w.diagnostics.rejectReasons.endgameBuildLocked - rej0, feedsLanded, seatsWithTower };
 }

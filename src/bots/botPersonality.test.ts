@@ -47,6 +47,7 @@ import {
 } from './botPersonality.ts';
 import {
   runFrameMatchWithManager,
+  runLockMatch,
   runManagerMatch,
   runSignatureMatch,
   type MatchSignature,
@@ -400,4 +401,49 @@ describe('S193 — the lobby pick REACHES both bot managers', () => {
     const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
     expect(overlay).toMatch(/this\.personalities\.slice\(0, this\.botCount\)/);
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placing and FEEDS', () => {
+  /*
+   * Live on deploy #20 before this fix, and on pure master for BALANCED: from BUILD of wave 27 every bot
+   * stood still re-sending a refused PLACE_PRIMITIVE each tick (~9.8k `endgameBuildLocked` rejects per
+   * 60 s across three bots, auditor's repro) and never fed, although the owner allowed it — *"they can
+   * build more goblins"*. 200 s of play, then the lock falls at the start of a BUILD phase (wave forced
+   * to 27) with one shape of each type banked per bot, 80 s locked.
+   *
+   * MEASURED after the fix, every cell: 0 lock rejects. Feeds ≥ seats owning a feedable tower in every
+   * cell (e.g. HARD FORTRESS 19 over 3 seats, IMBA SABOTEUR 15 over 2, MID FORTRESS 0 over 0 — a stink
+   * tower eats nothing).
+   */
+  // One `it` per cell: a single synchronous test running five matches starves vitest's RPC heartbeat
+  // ("Timeout calling onTaskUpdate", measured) even though every assertion passes.
+  for (const tier of ['MID', 'HARD', 'IMBA'] as const) {
+    for (const p of BOT_PERSONALITIES) {
+      it(`${tier} ${p}: zero refused builds, and every seat with a feedable tower feeds`, () => {
+        const r = runLockMatch(tier, p, 200, 80, 27);
+        expect(r.lockRejects, 'lock rejects').toBe(0);
+        expect(r.feedsLanded, `feeds (${r.seatsWithTower} seats with a tower)`).toBeGreaterThanOrEqual(r.seatsWithTower);
+      }, 60_000);
+    }
+  }
+  it('anti-vacuity: the cells as a whole own feedable towers and fed', () => {
+    let towers = 0;
+    let feeds = 0;
+    for (const p of ['WARMONGER', 'BALANCED'] as const) {
+      const r = runLockMatch('IMBA', p, 200, 80, 27);
+      towers += r.seatsWithTower;
+      feeds += r.feedsLanded;
+    }
+    expect(towers).toBeGreaterThan(0);
+    expect(feeds).toBeGreaterThan(towers);
+  }, 60_000);
+
+  it('⚠ NEGATIVE: one wave BEFORE the lock (26) nothing changes — the bot still builds', () => {
+    // Wave 26 is a normal BUILD: placements are not refused, so the lock counter stays 0 trivially, and
+    // the HARD BALANCED bot (feed: never) does NOT feed — the "everyone feeds" rule is the lock's only.
+    const r = runLockMatch('HARD', 'BALANCED', 200, 40, 26);
+    expect(r.lockRejects).toBe(0);
+    expect(r.feedsLanded).toBe(0);
+  }, 60_000);
 });
