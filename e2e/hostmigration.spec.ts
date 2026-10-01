@@ -21,14 +21,9 @@
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { canvasToCss, hostNewRoom, joinRoom, lobbyUiPoints, waitForWorld } from './helpers';
+import { installFrameClock, waitForTickAdvance } from './tickClock';
 
 const SEAM = { starvationMs: 1500, graceMs: 1500 };
-
-async function readTick(page: Page): Promise<number> {
-  return await page.evaluate(
-    () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
-  );
-}
 
 test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => {
   test('kill host → seat-1 claims + adopts authority → survivor re-latches at epoch 1', async ({
@@ -91,6 +86,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
       const j2Seat = await seatOf(j2);
       const successorPage = j1Seat < j2Seat ? j1 : j2;
       const survivorPage = j1Seat < j2Seat ? j2 : j1;
+      await installFrameClock(successorPage);
 
       // ── KILL THE HOST ──────────────────────────────────────────────────
       await hostCtx.close();
@@ -111,14 +107,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
 
       // The successor SIMULATES: PLAYING + tick advances.
       await waitForWorld(successorPage, (w) => w.gameState === 'PLAYING', 'successor PLAYING', 10_000);
-      const sT0 = await readTick(successorPage);
-      await successorPage.waitForFunction(
-        (prev) =>
-          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
-          prev + 60,
-        sT0,
-        { timeout: 15_000 },
-      );
+      await waitForTickAdvance(successorPage, successorPage, 60, 'successor simulates (+60 ticks)', false);
 
       // ── The survivor re-latches + resumes: epoch 1 + snapshots advance its mirror ──
       await survivorPage.waitForFunction(
@@ -128,14 +117,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
         { timeout: 45_000 },
       );
       await waitForWorld(survivorPage, (w) => w.gameState === 'PLAYING', 'survivor PLAYING', 15_000);
-      const vT0 = await readTick(survivorPage);
-      await survivorPage.waitForFunction(
-        (prev) =>
-          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
-          prev + 30,
-        vT0,
-        { timeout: 20_000 },
-      );
+      await waitForTickAdvance(survivorPage, successorPage, 30, 'survivor mirror advances (+30 ticks)', true);
 
       expect(await seatOf(successorPage)).toBe(Math.min(j1Seat, j2Seat));
     } finally {
@@ -196,6 +178,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
       const j2Seat = await seatOf(j2);
       const successorPage = j1Seat < j2Seat ? j1 : j2;
       const survivorPage = j1Seat < j2Seat ? j2 : j1;
+      await installFrameClock(successorPage);
 
       // ── KILL THE HOST — production detection + the real 15s grace now run ──
       await hostCtx.close();
@@ -213,14 +196,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
         { timeout: 10_000 },
       );
       // It SIMULATES under the new term…
-      const sT0 = await readTick(successorPage);
-      await successorPage.waitForFunction(
-        (prev) =>
-          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
-          prev + 60,
-        sT0,
-        { timeout: 15_000 },
-      );
+      await waitForTickAdvance(successorPage, successorPage, 60, 'successor simulates (+60 ticks)', false);
       // …and the survivor follows it at epoch 1 with an advancing mirror.
       await survivorPage.waitForFunction(
         () =>
@@ -229,14 +205,7 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
         { timeout: 60_000 },
       );
       await waitForWorld(survivorPage, (w) => w.gameState === 'PLAYING', 'survivor PLAYING', 15_000);
-      const vT0 = await readTick(survivorPage);
-      await survivorPage.waitForFunction(
-        (prev) =>
-          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
-          prev + 30,
-        vT0,
-        { timeout: 20_000 },
-      );
+      await waitForTickAdvance(survivorPage, successorPage, 30, 'survivor mirror advances (+30 ticks)', true);
     } finally {
       await j1Ctx.close();
       await j2Ctx.close();
@@ -322,14 +291,16 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
         { timeout: 30_000 },
       );
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'ex-host PLAYING as client', 20_000);
-      const exHostT0 = await readTick(hostPage);
-      await hostPage.waitForFunction(
-        (prev) =>
-          (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick >
-          prev + 30,
-        exHostT0,
-        { timeout: 25_000 },
-      );
+      // The successor (lowest surviving seat) runs the sim now; its frames are the clock.
+      const seatOf3 = async (p: Page): Promise<number> =>
+        await p.evaluate(
+          () =>
+            (window as unknown as { __SPARK__: { world: { localPlayerId: number } } }).__SPARK__
+              .world.localPlayerId as number,
+        );
+      const successor3 = (await seatOf3(j1)) < (await seatOf3(j2)) ? j1 : j2;
+      await installFrameClock(successor3);
+      await waitForTickAdvance(hostPage, successor3, 30, 'ex-host mirror advances (+30 ticks)', true);
     } finally {
       await hostCtx.close().catch(() => undefined);
       await j1Ctx.close();

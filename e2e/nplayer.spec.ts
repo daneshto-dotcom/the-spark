@@ -110,11 +110,37 @@ async function readSelfId(page: Page): Promise<string> {
  *     stale pooled offers. The precondition is asserted, not assumed.
  * Without the fix the 4th reaches nobody; with it, the full 4-way mesh forms.
  */
+/*
+ * ⛔ S193 — THE WHOLE-TEST BUDGET WAS 150 s, AND CI NEEDS ~285 s. THAT, NOT THE MESH, IS WHAT WENT RED.
+ *
+ * `e2e-lobby` failed on 4 of 5 master pushes after deploy #11. Read from the uploaded traces and
+ * error-context snapshots of all 12 attempts (runs 36882836513, 36877965841, 36875812341,
+ * 36871399300; the 5th, 36873674352, was a 3-min `actions/checkout` timeout, no test ran):
+ *   · 11 of 12 died on `Test timeout of 150000ms exceeded` — no assertion failed;
+ *   · ⭐ 4 of those 11 had ALREADY FORMED THE FULL 4-WAY MESH with forced-stale offers (the T1 assertion,
+ *     passed) and the host was in PLAYING or WIN with 4 seats when the cap fired;
+ *   · the other 7 were still DRIVING THE JOIN UI: with three live canvases on SwiftShader a joiner's
+ *     navigate → click → fill → Enter took 40–75 s (a single `fill` of 6 characters took 10–16 s);
+ *   · 1 of 12 (36882836513 retry #1) failed `early peer 0 sees the other two` — one ICE pair that
+ *     exchanged SDP and never connected. The same "after exchanging SDP" failure hits FRESH pairs on
+ *     the torrent strategy in these same traces, so it is the relay/ICE flake class, which is what
+ *     the lane's 2 retries are for.
+ * Slowest measured critical path: 147 s to the 3-way mesh (36875812341), plus 75–135 s for the 4th
+ * join → 4-way mesh → Begin → PLAYING → WIN measured on the attempts that got there ⇒ ~282 s.
+ *
+ * ⛔ ONLY THE TOTAL MOVES. Every per-step wait and every assertion below is unchanged — relaxing one
+ * of those would delete the gate while leaving it green. The total was simply smaller than the
+ * runner's measured speed, so a passing mesh could not finish passing. `src/ci.e2eLanes.test.ts`
+ * pins this budget against the measured floor AND the lane's own `PW_GLOBAL_TIMEOUT_MIN` (3 attempts
+ * of it must fit), so neither can drift back under the other.
+ */
+const LATE_JOINER_BUDGET_MS = 330_000;
+
 test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win - S192 late 4th joiner @quarantine-flaky', () => {
   test('host + 3 joiners get distinct seats {0..3} incl green@seat3, all PLAYING, one wins', async ({
     browser,
   }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(LATE_JOINER_BUDGET_MS);
     const ctxs = await Promise.all([
       browser.newContext(),
       browser.newContext(),
