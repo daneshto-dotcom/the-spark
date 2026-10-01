@@ -272,3 +272,18 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
 
 ## Status
 DONE — S192 fix round; waiting for the merge owner's re-audit.
+
+## S192 round 2 — mergeable onto master a3433eb (PROTOCOL 55), coordinator's 8 items, one commit each
+1. 75b5197 merge — conflicts: controls.ts (both kept, scorch call tagged `R190-G: ROUTE`), damage.callSites
+   (20 sites / 12 null / scorchedGround 4; master's potatoLifecycle + raColumn rows kept), damageConnector.callSites
+   (8 sites; null = raColumn, potatoLifecycle, damage.ts + scorchedGround 1; powerOfRa row dropped).
+2. 42e1577 OWN-1 — scorch structure sever through `severWithCarry`; carry census 7→8 (`scorchedGround.ts#0`).
+3. 9439857 OWN-2 — INPUT-4 castle-panel RMB also puts the scorch aim away; REACH (mutation → red).
+4. 880aae0 OWN-3 — handler tagged ROUTE/HAND/LMB; rightClickSurfaces 5→6 sites, HAND 4→5 (named).
+5. 35c7d2c OWN-4 — canon §9d SEVER row + GATES-2 producer.
+6. fea23f4 canon — §3e SCORCHED EARTH paragraph + pins (CHARGES 1, CAST_PER_MILLE 20 = passive, RATE_DIV 2);
+   SCORCHED GROUND row + scorchedGround.ts docblocks now say the passive burns Helga (L2).
+7. 1ba65b3 L1 R192-T1 replaces the "friend" quote (rules docblock + resistance test); L3 `pendingRecordAnchor`.
+8. 5e89b02 CANON_NOTES §6 — finished 55→56 docblock. PROTOCOL_VERSION untouched (55).
+Gates (captured `$?`): typecheck 0 · vitest 0 (7073 passed / 10 skipped, 454 files + 3 skipped) · build 0,
+bundle 995.4 KiB / 1100 (headroom 104.6).
