@@ -28,6 +28,7 @@ import { makeCastleBank } from '../state/castleBank.ts';
 import { runSpawnerIgnition } from '../state/godlyMatcherCore.ts';
 import { isAutoFed } from '../state/spawners/spawner.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { RACE_TOWER_IDS } from '../state/raceTowerIds.ts';
 import { CharacterSheet } from '../render/characterSheet.ts';
 import { Controls, type CastlePanelLike } from './controls.ts';
 import '../state/godlyRecipes/registerAll.ts';
@@ -242,5 +243,73 @@ describe('⭐ S193 T4 — the wires exist (source tripwire, paired with the REAC
   it('the card draws the lit toggle off the slot it hit-tests', () => {
     expect(sheet).toContain('if (feed && b.autoFeed === true) {');
     expect(sheet).toContain('autoFeedAt(x: number, y: number)');
+  });
+});
+
+describe('⭐ S193 round 2 — the refused cue, and the pending overlay cannot go stale', () => {
+  it('⭐ a right-click on a RACE tower chip (not a toggle) plays the REFUSED cue and toggles nothing', async () => {
+    const audio = await import('../render/audioManager.ts');
+    const refused = vi.mocked(audio.playUiRefusedSFX);
+    const r = rig();
+    // A tier-3 race tower of P0's own race, stamped from the bank like the goblin tower.
+    const race = r.w.players.get(P0)!.raceId;
+    const id = RACE_TOWER_IDS[race] as GodlyId;
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill(id)) bank[type as number] = (bank[type as number] ?? 0) + count;
+    r.w.castleBanks.set(P0, bank);
+    r.w.matchPhase = 'BUILD';
+    applyBuildBlueprint(r.w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: id, centre: { x: 440, y: 520 } });
+    runSpawnerIgnition(r.w);
+    r.w.matchPhase = 'FIGHT';
+    const sp = [...r.w.creatureSpawners.values()].find((s) => s.recipeId === id);
+    expect(sp, 'fixture: the race tower ignited').toBeDefined();
+    r.sheet.select({ kind: 'structure', primitiveId: sp!.anchorPrimitiveId });
+    r.sheet.sync(r.w, P0);
+    const chips = r.sheet.getUiPoints().actions.filter((b) => b.kind === 'FEED');
+    expect(chips.length, 'fixture: one race chip').toBe(1);
+    expect(chips[0]!.autoFeed, 'not toggleable').toBeUndefined();
+    refused.mockClear();
+    press(r, centre(chips[0]!), 2);
+    expect(refused).toHaveBeenCalledTimes(1);
+    expect(toggles(r)).toEqual([]);
+  });
+
+  it('a right-click on bare card plate (no control) plays NO refused cue', async () => {
+    const audio = await import('../render/audioManager.ts');
+    const refused = vi.mocked(audio.playUiRefusedSFX);
+    const r = rig();
+    const rect = r.sheet.rect()!;
+    refused.mockClear();
+    press(r, { x: rect.x + 8, y: rect.y + 8 }, 2);
+    expect(refused).not.toHaveBeenCalled();
+    expect(toggles(r)).toEqual([]);
+  });
+
+  it('⛔ an EXPIRED pending toggle stops steering: past the window, a click reads the synced bit again', () => {
+    const r = rig();
+    r.apply = false;
+    const p = centre(chip(r, SparkType.Square));
+    press(r, p, 2); // pending ON, never confirmed
+    r.w.tick += 61; // past AUTO_FEED_PENDING_TICKS
+    r.sheet.sync(r.w, P0);
+    press(r, p, 2);
+    expect(toggles(r).map((a) => a.on), 'the refused/lost toggle no longer inverts the next click').toEqual([true, true]);
+  });
+
+  it('⛔ a pending toggle whose deadline is too far ahead (the clock moved backwards) is dropped', () => {
+    const r = rig();
+    r.apply = false;
+    const p = centre(chip(r, SparkType.Square));
+    r.w.tick += 500;
+    press(r, p, 2);
+    r.w.tick -= 400; // a restore / a new match on a lower clock
+    r.sheet.sync(r.w, P0);
+    press(r, p, 2);
+    expect(toggles(r).map((a) => a.on)).toEqual([true, true]);
+  });
+
+  it('main.ts clears the pending overlay on the title return', () => {
+    const main = readFileSync(new URL('../main.ts', import.meta.url), 'utf8');
+    expect(main).toMatch(/characterSheet\.clear\(\);[\s\S]{0,200}controls\.clearAutoFeedPending\(\);/);
   });
 });
