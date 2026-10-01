@@ -45,6 +45,7 @@ import {
   PHYSICS_HZ,
   STINK_AURA_CADENCE_TICKS,
   STINK_AURA_UNIT_FIFTHS,
+  LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   SparkType,
   GOBLIN_SHIELD_ATK,
@@ -533,6 +534,43 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     // in it until it expired on its own timer.
     expect(gone, 'a unit must be able to clear the ground it needs to walk over').toBe(true);
     expect(w.tick, 'and it must be a KILL, not the bag timing out').toBeLessThan(STINK_CLOUD_LIFETIME_TICKS);
+  });
+});
+
+describe('⭐⭐ S193 (owner R193-B4) — "the poop bag … similarly": the burst falls off with distance', () => {
+  it('⭐ REACH: a goblin pops an enemy bag through the real host tick; a lone shape 60 px out takes the scaled 4, not the flat 6', () => {
+    const w = make1v1();
+    const c = landCloud(w, P0); // P0's bag at (500, 500)
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 505, y: 500 }, targetPos: { x: 505, y: 500 }, sourceSpawnerId: null,
+    });
+    // A lone P1 shape 60 px from the bag: its pool is LONE_PRIMITIVE_POOL_FIFTHS (5), so the FLAT 6 would
+    // kill it and the scaled hit does not.
+    const player = w.players.get(P1)!;
+    const id = asPrimitiveId(w.nextPrimitiveId++);
+    w.primitives.set(id, {
+      id, type: SparkType.Square, placerColor: player.color, placedBy: P1, createdTick: w.tick,
+      pos: { x: 560, y: 500 }, prevPos: { x: 560, y: 500 }, bonds: new Set(), ownerColor: player.color,
+      lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+    });
+    const full = attackFifths(STINK_BAG_ATK, STINK_BAG_PEN);
+    const scaled = blastHitAtDistance(full, 60 * 60, STINK_BAG_RADIUS);
+    expect([full, scaled], 'arithmetic: 6 at the centre, 4 at 60 of 90 px').toEqual([6, 4]);
+    expect(scaled).toBeLessThan(LONE_PRIMITIVE_POOL_FIFTHS);
+    expect(full, 'the flat hit would have killed it').toBeGreaterThanOrEqual(LONE_PRIMITIVE_POOL_FIFTHS);
+    const d = deps();
+    const st = makeHostTickState(w);
+    let gone = false;
+    for (let t = 0; t < STINK_CLOUD_LIFETIME_TICKS - 40 && !gone; t++) {
+      runHostTick(w, d, st);
+      gone = !w.stinkClouds.has(c.id);
+    }
+    expect(gone, 'anti-vacuity: the goblin popped the bag').toBe(true);
+    // The bag's own 1-fifth aura beat lands first (5 → 4), so the burst is the KILLING blow — and the
+    // blow that killed it is recorded with its amount: the scaled 4, where the flat burst was 6.
+    expect(w.primitives.has(id), 'aura 1 + burst 4 = its 5').toBe(false);
+    expect(w.structureKillHits.find((h) => h.key === `p:${id}`)?.amount, 'the shape took the distance-scaled burst').toBe(scaled);
   });
 });
 
