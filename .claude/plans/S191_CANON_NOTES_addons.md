@@ -7,7 +7,7 @@
 - The BLOOD FRENZY guard paragraph (under "WHAT THE S188 AUDITS ESTABLISHED"): *"a source is a Warlord
   raging by his OWN latch (below `WARLORD_RAGE_TRIGGER_PCT` of his pool)"* — the source is now **his own
   25 s window** (`isOwnRageActive`, off `Creature.rageStartTick`), NOT his health and NOT the bare
-  `enraged` bit. The frenzy still only ever SETS a Warlord; only his own latch lowers the bit.
+  `enraged` bit. (Superseded by the S191 owner ruling below: the frenzy no longer touches a Warlord at all; only his own latch sets or lowers his bit.)
 
 **Proposed canon text (a new sub-paragraph in §3e, beside BLOOD FRENZY) — ⭐ rewritten S191 round 2 to
 the pattern that actually ships (RAGE-5), and to his RAGE-1 ruling:**
