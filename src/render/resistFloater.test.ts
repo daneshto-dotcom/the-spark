@@ -32,14 +32,15 @@ const { makeGameStateExtras } = await import('../state/gameState.ts');
 const { asPlayerId, asSpawnerId } = await import('../types.ts');
 const { magicBeatResistedAt } = await import('../state/magicResistCue.ts');
 const { dotDueThisTick } = await import('../state/damageOverTime.ts');
-const { SCORCHED_GROUND_PER_MILLE } = await import('../state/racial/scorchedGround.ts');
+const { SCORCHED_EARTH_CAST_PER_MILLE, SCORCHED_GROUND_PER_MILLE, scorchedEarthZones, scorchedZones } = await import('../state/racial/scorchedGround.ts');
+const { zoneOf } = await import('../state/zones.ts');
 const { DamageNumbers, RESIST_TEXT, RESIST_MIN_GAP_TICKS } = await import('./damageNumbers.ts');
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
 const DEEP = 100_000;
 
-function scorchedWorld() {
+function scorchedWorld(archAt: { x: number; y: number } = { x: 600, y: 200 }) {
   const w = makeWorld(0x192f);
   w.gameState = 'TITLE';
   dispatch(w, {
@@ -62,7 +63,7 @@ function scorchedWorld() {
     w.creatures.set(c.id, c);
     return c;
   };
-  const arch = held('t9BossDemons', 600, 200); // DEF 8, MRES 14 — some beats land 0
+  const arch = held('t9BossDemons', archAt.x, archAt.y); // DEF 8, MRES 14 — some beats land 0
   const ctl = held('voltkin', 600, 420); // global: MRES = DEF — never swallowed
   const deps = {
     spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)), controls: { state: { kind: 'Idle' }, applyPerSubstep() {} },
@@ -95,6 +96,41 @@ describe('S192 RESIST — the cue is TRUE on exactly the ticks the sim swallowed
     expect(resisted).toBe(due - (DEEP - arch.ehp));
     expect(resisted, 'MRES 14 > DEF 8 swallows some beats').toBeGreaterThan(0);
     expect(ctlResisted).toBe(0);
+  });
+});
+
+/*
+ * ⭐ S193 (audit MED) — SCORCHED EARTH, the aimed CAST. The demon seat (P0) casts on the ORC seat's land
+ * (P1), and the Archdemon (owned by P1) stands there: the passive (P0's own land only) never reaches him,
+ * so every beat he takes is a CAST beat. Before S193 the cue mirrored only the passive and this was 0.
+ */
+describe('S193 RESIST — SCORCHED EARTH cast beats swallowed by MRES are cued too', () => {
+  it('a cast on P1 land: resisted ticks = cast due beats − fifths lost, > 0; the passive never reaches him', () => {
+    const IN_P1_LAND = { x: 1320, y: 200 };
+    const { w, arch, deps, st } = scorchedWorld(IN_P1_LAND);
+    const keep = new Set([...w.creatures.keys()]);
+    dispatch(w, { type: 'CAST_SCORCHED_EARTH', playerId: P0, zoneSeat: P1 } as never);
+    const zone = zoneOf(arch.pos, w.layout);
+    expect(scorchedEarthZones(w), 'fixture: the cast is live on his zone').toEqual([{ caster: P0, zone }]);
+    expect(scorchedZones(w).some((z) => z.zone === zone), 'fixture: no passive on his zone').toBe(false);
+    let due = 0;
+    let resisted = 0;
+    for (let i = 0; i < 1200; i++) {
+      const before = arch.ehp;
+      runHostTick(w, deps, st);
+      for (const id of [...w.creatures.keys()]) if (!keep.has(id)) w.creatures.delete(id); // only the scorch touches him
+      const t = w.tick;
+      const isDue = scorchedEarthZones(w).length > 0
+        && dotDueThisTick(t, arch.id as unknown as number, arch.type, SCORCHED_EARTH_CAST_PER_MILLE);
+      if (isDue) due++;
+      const cue = magicBeatResistedAt(w, arch, t);
+      if (cue) resisted++;
+      expect(cue && !(isDue && arch.ehp === before), `tick ${t}: cue without a swallowed cast beat`).toBe(false);
+    }
+    expect(due, 'the cast ran').toBeGreaterThan(20);
+    expect(DEEP - arch.ehp, 'the cast burned him').toBeGreaterThan(0);
+    expect(resisted, 'every swallowed cast beat is cued, and only those').toBe(due - (DEEP - arch.ehp));
+    expect(resisted, 'MRES 14 > DEF 8 swallows some cast beats').toBeGreaterThan(0);
   });
 });
 

@@ -5,7 +5,7 @@
  * > we need to predefine … how it would look like."* — owner, S192
  *
  * Only a one-fifth magic DoT beat can land 0 (a single magic hit is floored at 1 — `magicHitFifths`), so
- * the cue is about the four DoT sources: the zombie boss ROT, SCORCHED GROUND, the STINK TOWER aura and the
+ * the cue is about the DoT sources: the zombie boss ROT, SCORCHED GROUND (passive) and SCORCHED EARTH (cast), the STINK TOWER aura and the
  * landed-bag stink cloud. This module answers one question: **did a magic DoT beat land 0 on creature `c`
  * on tick `t`?** — so the renderer can print a RESIST floater (`render/damageNumbers.ts`).
  *
@@ -26,7 +26,8 @@ import { isStunned } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { dotDueThisTick } from './damageOverTime.ts';
 import { dotBeat, landedFifths, magicDot, mresFor } from './magicResist.ts';
-import { SCORCHED_GROUND_PER_MILLE, scorchedZones } from './racial/scorchedGround.ts';
+import { SCORCHED_EARTH_CAST_PER_MILLE, SCORCHED_GROUND_PER_MILLE, scorchedEarthZones, scorchedZones } from './racial/scorchedGround.ts';
+import { isScorchImmune } from './racial/scorchedEarthRules.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import type { World } from './worldTypes.ts';
 import { zoneOf } from './zones.ts';
@@ -58,11 +59,21 @@ export function magicBeatResistedAt(world: World, c: Creature, tick: number): bo
   }
   if (world.matchPhase !== 'FIGHT') return false;
 
-  // 2 · SCORCHED GROUND (`racial/scorchedGround.ts`)
+  // 2 · SCORCHED GROUND, the passive (`racial/scorchedGround.ts` burnCreatures). The spare rule is the
+  // sim's ONE predicate (`isScorchImmune`), never a copy, so a change to who is spared flows here too.
   if (dotDueThisTick(tick, id, c.type, SCORCHED_GROUND_PER_MILLE)) {
     for (const { seat, zone } of scorchedZones(world)) {
-      if (c.ownerPlayerId === seat || zoneOf(c.pos, world.layout) !== zone) continue;
+      if (isScorchImmune(c.ownerPlayerId, seat) || zoneOf(c.pos, world.layout) !== zone) continue;
       if (zero(dotBeat(tick, id, c.type, SCORCHED_GROUND_PER_MILLE))) return true;
+    }
+  }
+  // 2b · ⭐ S193 (audit MED) — SCORCHED EARTH, the aimed CASTS (same file, `scorchedEarthZones`): each on
+  // its own clock at `SCORCHED_EARTH_CAST_PER_MILLE`, the caster spared. Until S193 only the passive was
+  // mirrored, so a cast beat the victim's MRES swallowed never printed RESIST (R192-M12).
+  if (dotDueThisTick(tick, id, c.type, SCORCHED_EARTH_CAST_PER_MILLE)) {
+    for (const { caster, zone } of scorchedEarthZones(world)) {
+      if (isScorchImmune(c.ownerPlayerId, caster) || zoneOf(c.pos, world.layout) !== zone) continue;
+      if (zero(dotBeat(tick, id, c.type, SCORCHED_EARTH_CAST_PER_MILLE))) return true;
     }
   }
 
