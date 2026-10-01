@@ -1,3 +1,14 @@
+# ⭐ S193 FIX ROUND (after the clean audit) — `s192/magic`
+
+- **merge**: 9dc1bf6 = `git merge master` at 29e1257, no conflicts. `npm install` run (lockfile unchanged).
+- **1 · MED (R192-M12)** 5fbd9ec — `state/magicResistCue.ts` now also walks `scorchedEarthZones(world)` at `SCORCHED_EARTH_CAST_PER_MILLE` with the same `zero(dotBeat(…))` test. The passive AND the cast loops both call `isScorchImmune` (the ONE predicate, so teams' sameTeam change flows through). REACH: a new `resistFloater.test.ts` case, where a demon cast on P1 land with the Archdemon there gives cued ticks == swallowed cast beats (> 0) over 1200 real host ticks. Mutation: removing the cast loop's return → red (reverted).
+- **2 · LOW** 98aaa3c — the bypass census adds `/\.ehp\s*=\s*[^;]*\.ehp\s*-/` and `/castleHp\s*-=/` (both 0 today). Each was mutation-checked by adding one such line → red (reverted).
+- **3 · docs** 98aaa3c — `damage.ts` castle-MRES comment (it is now its own bought axis, R192-M9); `magicResist.ts` now cites `state/magicResistCue.ts` + `render/damageNumbers.ts`; `callSites.test.ts` now cites `magicResist.reach.test.ts`.
+- **4 · canon** 214169f (text) + 09515b8 (pins) + 0df8dab (duplicate-import fix) — new **SPARK_CANON.md §2b MAGIC RESISTANCE**: the rule and formula, the worked case (Archdemon DEF 8 / MRES 14, magic 300 → 205), the DoT beat rule, the magic/physical table (Ra per share, Voltkin zap MINE), the MRES table (structures n, shapes/bags 0, globals/Helga = DEF, races 4·4·3·2·1·0, bosses 6+2×level), the castle axis (0 start, 100 VP, max 10, DEF does not raise it), and the RESIST cue. Every number is pinned in `canon.test.ts` (5 tests). Mutation: zombies level 0→1 → red (reverted). ⚠ The text and its pins landed one commit apart (WIP save), not in a single commit.
+- **Gates** (tip 0df8dab): typecheck **0** · vitest `--maxWorkers=3` **0** (476 files passed / 4 skipped; 7292 tests passed / 11 skipped) · build **0**, entry **1039.4 KiB** (+0.1 over last round), headroom 60.6 KiB. My first typecheck after the canon pins was RED (duplicate `emptyCastleUpgrades` / `PHYSICS_HZ` imports); fixed in 0df8dab, then re-run green.
+- **Bump verdict**: BUMP (unchanged; the cue is derived, not on the wire).
+- **NEXT STEP (waiting on the coordinator)**: once zombies lands on master, `git merge master`. Keep `cls` required and put `falloff: RadialFalloff` AFTER it; move `CLASS_ARG.radial` to follow; re-apply `cls` forwarding by hand in damage.ts's three forwarded arms; tag the zombie DEATH BLAST `'physical'`; re-pin the census; then run the gates.
+
 # ⭐ S193 ROUND REPORT — `s192/magic` (latest first)
 
 - **tip**: the commit that carries this file (after 609f3d2) · **merge**: b3aafd7 = `git merge master` at 71abc27 (master had moved one bookkeeping commit past 8693fdd).
