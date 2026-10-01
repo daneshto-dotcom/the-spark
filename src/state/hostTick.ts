@@ -112,6 +112,8 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+// ⭐ S193 (owner T4) — the goblin tower's auto-build runner.
+import { runGoblinAutoFeed } from './goblinAutoFeed.ts';
 import { dispatchVoltkinSpawn, resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — re-summon + the one Voltkin mint
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
@@ -1391,6 +1393,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       }
     }
   }
+
+  /*
+   * ⭐⭐ S193 (owner T4) — THE AUTO-BUILD TOGGLES. AFTER the spawner poll, so a tower that broke this
+   * tick is already gone. Both phases (a manual FEED is not phase-gated either). It dispatches
+   * FEED_TOWER as the tower's owner, so every gate a click passes applies — see `goblinAutoFeed.ts`.
+   */
+  runGoblinAutoFeed(world);
 
   // S103 P2 — DEFENDER poll (host-only), mirroring the spawner poll above. Each tick:
   //   (a) revalidate (throttled per-defender by a deterministic phase slot): anchor gone OR the

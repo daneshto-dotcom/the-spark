@@ -80,7 +80,7 @@ import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 // S158 P6 — landed stink bags ride the snapshot; the factory keeps rehydration total.
 import { makeStinkCloud, type StinkCloud } from './defenders/stinkCloud.ts';
-import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
+import { AUTO_FEED_ALL_MASK, AUTO_FEED_SHAPE_COUNT, makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
 import {
   makeDefender,
   type Defender,
@@ -959,6 +959,9 @@ interface SerializedSpawner {
    * Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
    */
   readonly ownBondIdLimit?: number;
+  /** ⭐ S193 (T4) — the auto-build toggles + round-robin cursor. RIDE THE WIRE; emitted only when ≠ 0. */
+  readonly autoFeedMask?: number;
+  readonly autoFeedCursor?: number;
 }
 
 /**
@@ -2420,6 +2423,9 @@ function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
     ignitedAtTick: sp.ignitedAtTick,
     // S189 C2 — identity, emitted when known (additive-optional).
     ...(sp.ownBondIdLimit != null ? { ownBondIdLimit: sp.ownBondIdLimit } : {}),
+    // ⭐ S193 (T4) — emitted only when set, so every untoggled tower stays byte-identical.
+    ...(sp.autoFeedMask ? { autoFeedMask: sp.autoFeedMask } : {}),
+    ...(sp.autoFeedCursor ? { autoFeedCursor: sp.autoFeedCursor } : {}),
   };
 }
 
@@ -2438,6 +2444,10 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
     recipeId: s.recipeId,
     // ⭐ S189 C2 — KEPT on the wire: it is identity, not a clock (see SerializedSpawner).
     ...(s.ownBondIdLimit !== undefined ? { ownBondIdLimit: s.ownBondIdLimit } : {}),
+    // ⭐ S193 (T4) — KEPT on the wire: the client draws the lit toggle off the mask, and the cursor
+    // rides with it so a promoted host keeps the round-robin (Council G1).
+    ...(s.autoFeedMask !== undefined ? { autoFeedMask: s.autoFeedMask } : {}),
+    ...(s.autoFeedCursor !== undefined ? { autoFeedCursor: s.autoFeedCursor } : {}),
   };
 }
 
@@ -2468,6 +2478,13 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
   // Restore them when the payload carried them, so an authority handoff is lossless.
   if (s.lastValidatedTick !== undefined) sp.lastValidatedTick = s.lastValidatedTick;
   if (s.spawnedCount !== undefined) sp.spawnedCount = s.spawnedCount;
+  // ⭐ S193 (T4) — sanitised, never trusted: six bits and a cursor in 0..5, so a malformed peer
+  // payload cannot mint a seventh shape or an out-of-range cursor.
+  if (s.autoFeedMask !== undefined) sp.autoFeedMask = (s.autoFeedMask | 0) & AUTO_FEED_ALL_MASK;
+  if (s.autoFeedCursor !== undefined) {
+    const c = s.autoFeedCursor | 0;
+    sp.autoFeedCursor = c >= 0 && c < AUTO_FEED_SHAPE_COUNT ? c : 0;
+  }
   return sp;
 }
 
