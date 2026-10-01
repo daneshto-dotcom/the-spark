@@ -28,7 +28,7 @@ import { RA_COLUMN_RADIUS, RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLU
 import type { BondId, PlayerId } from '../../types.ts';
 import { componentOf } from '../../game/structure.ts';
 import { isChannellingRa } from '../creatures/creature.ts';
-import { damageConnector, damageEntity, type DamageTarget } from '../damage.ts';
+import { damageConnector, damageEntity, severWithCarry, type DamageTarget } from '../damage.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
 import { attackFifths } from '../stats.ts';
 import { applySeverBond } from '../severBond.ts';
@@ -234,7 +234,8 @@ export function landRaColumn(world: World, src: RaColumnSource, at: { x: number;
        * ⛔ S188 audit F1 — RESOLVED INLINE, not dispatched, so a caster benched or eliminated
        * mid-strike (or a Pharaoh's seat) still breaks what the column drained.
        */
-      applySeverBond(world, { type: 'SEVER_BOND', bondId: t.bondId, playerId: src.owner, cause: src.severCause });
+      // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls and the overkill carries on (canon §2).
+      severWithCarry(world, t.bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: src.owner, cause: src.severCause }));
     }
   }
   for (let i = 0; i < targets.length; i++) {

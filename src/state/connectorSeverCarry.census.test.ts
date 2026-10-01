@@ -82,7 +82,7 @@ describe('⛔ S192 CARRY-2 — every damageConnector site severs through severWi
       'src/state/creatures/voltkinChain.ts#0',
       'src/state/damage.ts#0',
       'src/state/potatoLifecycle.ts#0',
-      'src/state/racial/powerOfRa.ts#0',
+      'src/state/racial/raColumn.ts#0',
       'src/state/world.ts#0',
     ]);
   });
