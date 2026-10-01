@@ -28,9 +28,9 @@ import { verifyWarrant } from './successionWarrant.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4) — claim verification; the D3 exact-successor
 // gate (computeAliveSeats/computeSuccessorSeat) was retired by the D4 claim ladder + b′.
 import { verifyMigrationClaim } from './migrationClaim.ts';
-import { claimAcceptDecision, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
+import { claimAcceptDecision, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
-import { classifyHostMessage, type HostSignal } from './reconnectPolicy.ts';
+import { classifyHostMessage, observesHostLoss, type HostSignal } from './reconnectPolicy.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -519,9 +519,15 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
           const alivePeers = new Set(transport.peerIds());
           const starvMs = seam?.starvationMs ?? HOST_STARVATION_MS;
           const lastAccepted = clientSync.lastAcceptedAt();
-          const hostGone =
-            (sess.hostPeerId !== null && !alivePeers.has(sess.hostPeerId)) ||
-            (lastAccepted > 0 && isSnapshotStarved(performance.now(), lastAccepted, starvMs));
+          // S192 FIX-2 — or the host proved it left our match (it re-hosted the room in a lobby).
+          const hostGone = observesHostLoss({
+            hostPeerId: sess.hostPeerId,
+            alivePeerIds: alivePeers,
+            hostDepartedPeerId: sess.hostDepartedPeerId,
+            lastAcceptedAtMs: lastAccepted,
+            nowMs: performance.now(),
+            starvationMs: starvMs,
+          });
           const decision = claimAcceptDecision(
             msg.epoch, msg.seat, sess.currentEpoch, sess.latchedClaimSeat, hostGone,
           );

@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1, ROUND-2, ROUND-3, SEAM-1. Next: FIX-2.**
+**STATUS: IN PROGRESS — S192 step A done (merge, ROUND-1, ROUND-2, ROUND-3, SEAM-1, FIX-2(a)); next: step-A gates, then step 8 (C4 tuning).**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -807,3 +807,44 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   countdown "retrying automatically (Ns)" still counts to 0; the terminal line that follows now says it is
   still reconnecting, so the two read consistently. ⚠ Overlay wording is MINE (the auditor's suggestion,
   verbatim). Gates: typecheck **0**, net + overlay tests **0** (42 files / 645). Protocol: none.
+
+- **Step 6 — FIX-2 (owner ruling): a host that quits is replaced by the next in line, even when he re-hosts
+  the same room.** The audit case reproduced as a pure drive FIRST (`hostDeparted.test.ts` "BEFORE"): H quits
+  at 20 s, his re-hosted LOBBY transport lands on our room at 28 s → the claim clock RESETS and the next in
+  line only takes over through D4 starvation counted from H's return (≥ 49 s), with no overlay meanwhile.
+  Shape (the auditor's "feed it into the claim as host lost, not into a title verdict"):
+  · `NetSession.hostDepartedPeerId` (new; null in `makeNetSession`, cleared by `teardownNet` and outside
+    PLAYING in main.ts). main.ts's `onHostSignal` latches it to the followed host on 'lobby' / 'new-match'
+    (`classifyHostMessage` — a LOBBY_PRESENCE in phase LOBBY, or a presence/snapshot of another match), with
+    one `[net] HOST LEFT THE MATCH (…)` line. NETFR-1 untouched: a hidden live host says MATCH + our id → no
+    signal → no latch.
+  · `matchPeerIds(ids, departed)` (pure) = the transport's peers minus a departed followed host. main.ts reads
+    host presence through it at EVERY frame site: the presence stamp, the claim's `alivePeers`, `hostLost`,
+    `peersGone` (`matchPeers.length === 0 || hostLost`), `migrationCase`'s peers, the plan's `peerCount`.
+  · `observesHostLoss` (pure) replaces clientHandlers' inline `hostGone` for MIGRATION_CLAIM acceptance: gone /
+    starved as before, OR departed (a latch for a host we no longer follow proves nothing) — so B accepts A's
+    claim while H's lobby sits fed-looking on the transport.
+  · the moved-on verdict (pending rejoin) sends to title ONLY when nobody seated is left to wait with
+    (`isMigrationCase` over `matchPeers`); with a seated survivor the migration takes it (owner ruling).
+  Tests: `src/net/hostDeparted.test.ts` (12): PRE-FIX the file red (11 — the helpers do not exist) → POST 12
+  green: rank 0 claims at proof + grace, rank 1 one rung later, a proof landing before H's transport keeps the
+  quit-time clock, acceptance with/without the latch, pending + survivor → no title / 1v1 → title, and
+  mechanical guards on every main.ts site + clientHandlers + teardown. `migrationCaseRoster.test.ts`'s count
+  re-pinned 1 → 2 (the moved-on verdict is the second `isMigrationCase(` site). Mutations (byte-copy restore,
+  `cmp`): `matchPeerIds` returns every id → 4 red · drop the departed clause from `observesHostLoss` → 1 red.
+  First typecheck EXIT=1: `isSnapshotStarved` unused in clientHandlers after the swap → import dropped.
+  ⚠ MINE (timing): the frames between H's transport landing and his presence arriving see a returned,
+  not-yet-starved host, so the clock resets there (the NET-4 rule) and restarts at the proof → the claim is
+  at PROOF + grace + rung. Skipping the grace on a positive proof would be faster — NOT built (unruled).
+  ⚠ **The ruling's second clause ("if the same player rejoins … he's like player three") is NOT built — an
+  owner question with the measured facts:** (1) a host that QUIT cannot rejoin the successor's match at all
+  today: the successor never runs the host HELLO path (its handler stack is the client's + the additive
+  successor handler: NETSNAPSHOT/MIGRATION_CLAIM/INTENT only), and a fresh join is never seated (late joiners
+  are strays); (2) a host that FROZE and thawed (S125 v2) rejoins as a client and re-binds to his OLD seat 0
+  (the successor's `hostSeats` is the full frozen roster) — same castle, same "P1" banner (`raceBanners.ts`
+  labels `P${seat + 1}`) — but he is never in the succession line again (seat 0 is never warranted). So "not
+  player one" already holds for HOSTING order; it does not hold for the seat/label, and he can never host
+  again. Making him a literal new lower seat needs mid-match seating on the successor (HELLO handling, a new
+  player/castle) and a line ordered by join order instead of seat number (warrant re-issue or host-key claim
+  verification, and reconciliation by line position instead of lowest-seat-wins) — wire + sim, a bump.
+  Gates: typecheck **0**, `vitest src/net/ + overlay` **0** (42 files / 652). Protocol: see the bump verdict.

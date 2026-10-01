@@ -78,6 +78,7 @@ import {
   isRejoinPending,
   seatedSurvivors,
   isMigrationCase,
+  matchPeerIds,
   type HostSignal,
   connectionEdge,
 } from './net/reconnectPolicy.ts';
@@ -1858,6 +1859,12 @@ async function bootstrap(): Promise<void> {
     onHostSignal: (signal: HostSignal): void => {
       if (signal === 'new-match') hostNewMatchAtMs = performance.now();
       else hostLobbyAtMs = performance.now();
+      // ⭐ S192 FIX-2 — the followed host proved it left our match: it is not here for this match any more
+      // (claim, overlay, claim acceptance — `matchPeerIds`), so the next in line takes over.
+      if (session.hostDepartedPeerId !== session.hostPeerId) {
+        session.hostDepartedPeerId = session.hostPeerId;
+        console.warn(`[net] HOST LEFT THE MATCH (${signal}) — treating the host as lost; the next in line takes over`);
+      }
     },
     // ⭐ S191 (NETFR-1/2) — while a rejoin is pending, clientHandlers releases only OUR match's snapshots.
     isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
@@ -3418,7 +3425,7 @@ Network routes: ${v.detail}`;
         session.hostPeerId,
         session.hostPeerId !== null &&
           session.netTransport !== null &&
-          session.netTransport.peerIds().includes(session.hostPeerId),
+          matchPeerIds(session.netTransport.peerIds(), session.hostDepartedPeerId).includes(session.hostPeerId),
         performance.now(),
       );
       if (
@@ -3431,7 +3438,7 @@ Network routes: ${v.detail}`;
         migrationClaimedEpoch === -1
       ) {
         const nowMigMs = performance.now();
-        const alivePeers = new Set(session.netTransport.peerIds());
+        const alivePeers = new Set(matchPeerIds(session.netTransport.peerIds(), session.hostDepartedPeerId)); // S192 FIX-2
         const aliveSeats = computeAliveSeats(
           session.lastRoster,
           alivePeers,
@@ -3702,6 +3709,8 @@ Network routes: ${v.detail}`;
     // ⭐ S189 fix round (audit NET-1) — before the overlay reads the state: did a rejoin land in the host's
     // NEXT lobby or match? Only a pending rejoin can answer yes (see `hostMovedOn`), so neither a live
     // match nor D4's frozen-host takeover is touched. Stamps are per match: cleared outside one.
+    // ⭐ S192 FIX-2 — the peers as this match sees them (a host that proved it left is not here).
+    const matchPeers = matchPeerIds(session.netTransport?.peerIds() ?? [], session.hostDepartedPeerId);
     if (isNetworked(world) && !world.isHost && world.gameState === 'PLAYING' && session.clientSync !== null) {
       const movedOn = hostMovedOn({
         lastRejoinAttemptAtMs,
@@ -3709,7 +3718,17 @@ Network routes: ${v.detail}`;
         lobbyAtMs: hostLobbyAtMs,
         newMatchAtMs: hostNewMatchAtMs,
       });
-      if (movedOn !== null) {
+      // S192 FIX-2 — with someone seated to wait with, the next in line takes over (owner ruling): only a
+      // seat with nobody left (a 1v1) is sent to title.
+      const movedOnHasSuccessor = isMigrationCase({
+        isHost: world.isHost,
+        hasWarrant: session.warrant !== null,
+        roster: session.lastRoster,
+        transportPeerIds: session.netTransport === null ? null : matchPeers,
+        selfPeerId: trysteroSelfId,
+        hostPeerId: session.hostPeerId,
+      });
+      if (movedOn !== null && !movedOnHasSuccessor) {
         console.warn(`[net] HOST MOVED ON (${movedOn}) — the rejoin reached the host's next ${movedOn === 'lobby' ? 'lobby' : 'match'}, not ours; returning to title`);
         leaveToTitle();
         titleScreen.setNotice('The host started a new game — this match is over.');
@@ -3719,15 +3738,16 @@ Network routes: ${v.detail}`;
       lastRejoinAttemptAtMs = 0;
       hostLobbyAtMs = 0;
       hostNewMatchAtMs = 0;
+      session.hostDepartedPeerId = null; // S192 FIX-2 — the latch dies with the match
     }
     const hostLost = !world.isHost
       && session.hostPeerId !== null
       && session.netTransport !== null
-      && !session.netTransport.peerIds().includes(session.hostPeerId);
+      && !matchPeers.includes(session.hostPeerId);
     const peersGone = isNetworked(world)
       && world.gameState === 'PLAYING'
       && session.netTransport !== null
-      && (session.netTransport.peerCount() === 0 || hostLost);
+      && (matchPeers.length === 0 || hostLost);
     // S82 P4(b) — AUTO-RECONNECT grace (amends LOCKED §13.7 "no reconnect", user-
     // authorized). On loss, a RECONNECT_GRACE_MS window opens: the CLIENT periodically
     // tears the dead transport and re-runs the join path with the same room code —
@@ -3781,7 +3801,7 @@ Network routes: ${v.detail}`;
       isHost: world.isHost,
       hasWarrant: session.warrant !== null,
       roster: session.lastRoster,
-      transportPeerIds: session.netTransport?.peerIds() ?? null,
+      transportPeerIds: session.netTransport === null ? null : matchPeers, // S192 FIX-2
       selfPeerId: trysteroSelfId,
       hostPeerId: session.hostPeerId,
     });
@@ -3792,7 +3812,7 @@ Network routes: ${v.detail}`;
       isHost: world.isHost,
       hasRoomCode: session.roomCode !== null,
       migrationCase,
-      peerCount: session.netTransport?.peerCount() ?? 0,
+      peerCount: matchPeers.length, // S192 FIX-2 — a departed host is not a peer of this match
       reconnectUntilMs,
       nextRetryMs: reconnectNextRetryMs,
       migrationExtraMs: (migrationSeam?.ladderMs ?? CLAIM_LADDER_MS) * MAX_PLAYERS + 5000,

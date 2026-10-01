@@ -56,7 +56,8 @@ describe('S192 ROUND-2 — the migration case for a seat with no Begin roster', 
       .replace(/\r\n/g, '\n')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/(^|[^:])\/\/.*$/gm, '$1');
-    expect(src.match(/isMigrationCase\(/g)?.length).toBe(1);
+    // Two sites: the frame's migrationCase, and (S192 FIX-2) the moved-on verdict's "is anyone left to wait with".
+    expect(src.match(/isMigrationCase\(/g)?.length).toBe(2);
     expect(src).toMatch(/const migrationCase = isMigrationCase\(\{[^}]*roster: session\.lastRoster,/);
   });
 });

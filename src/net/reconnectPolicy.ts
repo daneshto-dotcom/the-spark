@@ -134,6 +134,34 @@ export function isMigrationCase(i: {
   return seatedSurvivors(i.roster, i.transportPeerIds, i.selfPeerId, i.hostPeerId).size > 0;
 }
 
+/**
+ * ⭐ S192 FIX-2 — the transport's peers as THIS MATCH sees them: a followed host that proved it left our
+ * match (`NetSession.hostDepartedPeerId`, latched from a 'lobby' / 'new-match' host signal) is not here,
+ * even while his re-hosted lobby sits on the same room. Owner ruling (S191 PDR §0): *"if a host quits,
+ * then the next player who … was in line becomes the hosts"*. main.ts reads host presence through this.
+ */
+export function matchPeerIds(transportPeerIds: readonly string[], departedHostPeerId: string | null): string[] {
+  return departedHostPeerId === null ? [...transportPeerIds] : transportPeerIds.filter((p) => p !== departedHostPeerId);
+}
+
+/**
+ * ⭐ S192 FIX-2 — does this survivor observe the loss of the host it follows (the gate a forward-epoch
+ * MIGRATION_CLAIM needs, `claimAcceptDecision`)? Gone from our transport, starved of snapshots — or (new)
+ * proved to have left our match. A latch for a host we no longer follow proves nothing.
+ */
+export function observesHostLoss(i: {
+  readonly hostPeerId: string | null;
+  readonly alivePeerIds: ReadonlySet<string>;
+  readonly hostDepartedPeerId: string | null;
+  readonly lastAcceptedAtMs: number;
+  readonly nowMs: number;
+  readonly starvationMs: number;
+}): boolean {
+  if (i.hostPeerId !== null && !i.alivePeerIds.has(i.hostPeerId)) return true;
+  if (i.hostPeerId !== null && i.hostDepartedPeerId === i.hostPeerId) return true;
+  return i.lastAcceptedAtMs > 0 && isSnapshotStarved(i.nowMs, i.lastAcceptedAtMs, i.starvationMs);
+}
+
 /** ⭐ S189 (C4, hunt E3) — why the overlay went TERMINAL, for the one `[net] CONNECTION LOST (terminal)` line. */
 export type TerminalLossCause = 'zombieDeposed' | 'migrationDeadline' | 'hostLost' | 'peerCount0';
 
