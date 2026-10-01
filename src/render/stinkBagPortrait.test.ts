@@ -60,6 +60,8 @@ function rendererWithCountedLoad(): { r: StinkCloudRenderer; loads: () => number
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fluent: any = new Proxy({}, { get: () => (): any => fluent });
   any.haze = fluent;
+  // S193 (V16) — the cloud's smoke layer, bracketed around every sync; a no-op sink here.
+  any.smoke = { begin(): void {}, end(): void {}, emit(): void {} };
   any.sprites = new Map();
   any.frames = null;
   any.manifest = null;
