@@ -78,7 +78,7 @@ const E2E_ORIGIN = `http://localhost:${E2E_PORT}`;
 // overrun instead: it exits non-zero, flushes reporters, and writes the report — so an
 // overrun reports honestly as a failure WITH artifacts. e2e.yml holds the invariant
 // globalTimeout < timeout-minutes for every lane (gating 12<18 · races 15<20 · worker-bots 9<12 ·
-// soak 44<50 · protocol 9<12 · lobby 9<12 · quarantine 17<20); `src/ci.e2eLanes.test.ts` pins it per OWN_JOB lane.
+// soak 44<50 · protocol 9<12 · lobby 22<32 (S193) · quarantine 17<20); `src/ci.e2eLanes.test.ts` pins it per OWN_JOB lane.
 //
 // The finite-and-positive guard is deliberate: a typo'd or empty env var degrades to
 // "no global timeout" (previous behaviour) rather than Number('') === 0 or NaN

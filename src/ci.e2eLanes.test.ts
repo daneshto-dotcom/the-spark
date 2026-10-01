@@ -308,4 +308,56 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     expect(block).toContain('run: npm run e2e:lobby');
     expect(block.includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
   });
+
+  /*
+   * ⛔ S193 — THE BUDGET, PINNED AGAINST WHAT CI MEASURED. The test's own cap was 150 s; on CI it fired
+   * in 11 of 12 attempts, 4 of them AFTER the 4-way mesh had formed (traces of runs 36882836513,
+   * 36877965841, 36875812341, 36871399300 — `LATE_JOINER_BUDGET_MS` in nplayer.spec.ts has the table).
+   * A gate whose time limit is below the runner's measured speed cannot pass even when the code is
+   * right, so it trains everyone to ignore it. Three numbers have to agree, and each can drift alone:
+   *   1. the test budget ≥ the slowest measured critical path (147 s to the 3-mesh + 135 s after = 282 s);
+   *   2. the lane's PW_GLOBAL_TIMEOUT_MIN holds every attempt of it (retries 2 ⇒ 3) + the other four lobby
+   *      tests at the 60 s config default, or the retries that exist for the relay flake never run;
+   *   3. the runner sits ≥ 8 min above Playwright: setup (checkout + npm ci + browser install) took
+   *      7.5 min in run 36882836513, and a runner kill is `cancelled`, not `failure` (S126).
+   */
+  it('S193 - the late-joiner budget fits CI, and the e2e-lobby lane fits three attempts of it', () => {
+    const MEASURED_CI_CRITICAL_PATH_MS = 282_000;
+    const LANE_RETRIES = 2; // playwright.config.ts: `process.env.CI ? 2 : 0`, and e2e-lobby sets no PW_RETRIES
+    const OTHER_LOBBY_TESTS = 4; // S46 Baseline + 2 x S155 join-stall + S155 exit-from-multiplayer
+    const DEFAULT_TEST_TIMEOUT_MS = 60_000;
+    const SETUP_HEADROOM_MIN = 8;
+    const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
+    const b = /\nconst LATE_JOINER_BUDGET_MS = ([\d_]+);/.exec(spec);
+    expect(b, 'LATE_JOINER_BUDGET_MS is missing from nplayer.spec.ts').not.toBeNull();
+    const budget = Number((b as RegExpExecArray)[1]!.replace(/_/g, ''));
+    // The constant must be what the late-joiner test actually USES, not a number sitting beside it.
+    const lateAt = spec.indexOf("late 4th joiner @quarantine-flaky', () => {");
+    expect(lateAt, 'late-joiner describe not found').toBeGreaterThan(-1);
+    const lateBody = spec.slice(lateAt);
+    const firstTimeout = /test\.setTimeout\(([^)]+)\)/.exec(lateBody);
+    expect(firstTimeout?.[1], 'the late-joiner test must call test.setTimeout(LATE_JOINER_BUDGET_MS)').toBe(
+      'LATE_JOINER_BUDGET_MS',
+    );
+    expect(budget, 'the budget is below the slowest CI critical path measured in S193').toBeGreaterThanOrEqual(
+      MEASURED_CI_CRITICAL_PATH_MS,
+    );
+
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    expect(pkg.scripts['e2e:lobby'], 'e2e:lobby must not override retries').not.toMatch(/--retries/);
+    const yml = norm(readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8'));
+    const rest = yml.slice(yml.indexOf('\n  e2e-lobby:\n') + 1);
+    const end = rest.search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
+    const block = end === -1 ? rest : rest.slice(0, end);
+    expect(block, 'e2e-lobby must not override retries').not.toContain('PW_RETRIES');
+    const cap = Number((/\n {4}timeout-minutes:\s*(\d+)/.exec(block) as RegExpExecArray)[1]);
+    const pw = Number((/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block) as RegExpExecArray)[1]);
+    const laneNeedMs = (LANE_RETRIES + 1) * budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS;
+    expect(pw * 60_000, `e2e-lobby PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${laneNeedMs} ms`).toBeGreaterThanOrEqual(
+      laneNeedMs,
+    );
+    expect(cap - pw, `e2e-lobby: runner ${cap} min must sit >= ${SETUP_HEADROOM_MIN} min above Playwright ${pw}`).toBeGreaterThanOrEqual(
+      SETUP_HEADROOM_MIN,
+    );
+  });
 });
