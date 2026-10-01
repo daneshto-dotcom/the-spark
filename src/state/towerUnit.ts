@@ -304,11 +304,21 @@ export function sharedWithOtherTowers(world: World, unit: TowerUnit): PrimitiveI
  * reducers) lands on THIS tower. Its anchor is not enough: a shape two live towers share resolves to
  * the first in the total order (lowest spawner id), so a turret whose hub a mummies Line ring runs
  * through opened, scrapped and fixed the RING from its own art and its own row. Its lowest own shape no
- * other live tower is built of; the anchor only when every one of them is shared. A fallen stamp: its
- * lowest shape (stamp groups are disjoint). No wire change: the card's target is still one shape id.
+ * other live tower is built of; the anchor only when every one of them is shared. No wire change: the
+ * card's target is still one shape id.
+ *
+ * ⛔ S192 re-audit X1 — A FALLEN STAMP TOO. Its group is NOT disjoint from live towers: `stampGroupAt`
+ * excludes only a live tower of the SAME recipe, so a fallen turret's hub can be a live mummies ring's
+ * anchor (W2-4), and `towerUnitAt(hub)` answers the ring. Its lowest member no live tower owns, else
+ * its lowest member.
  */
 export function unitClickShape(world: World, unit: TowerUnit): PrimitiveId {
-  if (unit.kind !== 'live') return unit.members[0]!;
+  if (unit.kind !== 'live') {
+    const owned = new Set<PrimitiveId>();
+    for (const t of liveTowers(world)) for (const m of liveMembers(world, t)) owned.add(m);
+    for (const m of unit.members) if (!owned.has(m)) return m;
+    return unit.members[0]!;
+  }
   const shared = new Set(sharedWithOtherTowers(world, unit));
   for (const m of unit.members) if (!shared.has(m)) return m;
   return unit.anchorId;
