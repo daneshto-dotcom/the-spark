@@ -46,7 +46,9 @@ import {
   KEEP_H,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
-import { fixAllTargets, seatGathererCount } from '../state/repairJobs.ts'; // ⭐ S193 R192-W1
+import {
+  fixAllTargets, REPAIR_JOBS_MAX_PER_SEAT, seatGathererCount, seatJobCount,
+} from '../state/repairJobs.ts'; // ⭐ S193 R192-W1
 // S166 — R95's race filter. From the side-effect-free leaf: this module must not fire
 // `registerRecipe` as an import side effect (see `raceTowerIds.ts`).
 import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
@@ -801,9 +803,11 @@ export function castleControlsModel(
           ? 'BUILD ONLY'
           : seatGathererCount(world, world.localPlayerId) === 0
             ? 'NO GATHERERS'
-            : fixable === 0
-              ? 'NOTHING TO FIX'
-              : '';
+            : seatJobCount(world, world.localPlayerId) >= REPAIR_JOBS_MAX_PER_SEAT
+              ? 'QUEUE FULL' // ⛔ S193 audit LOW — the reducer's bound, said on the row
+              : fixable === 0
+                ? 'NOTHING TO FIX'
+                : '';
   const fixAllRow = {
     key: 'fixAll' as const,
     label: fixReason === '' ? `FIX ALL  ${fixable}` : `FIX ALL  ${fixReason}`,

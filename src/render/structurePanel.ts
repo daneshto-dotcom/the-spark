@@ -48,7 +48,9 @@ import { T3_SHORT_NAME, raceForTowerId } from '../state/raceTowerIds.ts';
 import { componentOf } from '../game/structure.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { planStructureRepair, planStructureScrap } from '../state/structureRepair.ts';
-import { planNeedsWork, repairJobCovering, seatGathererCount } from '../state/repairJobs.ts'; // S193 R191-B
+import {
+  planNeedsWork, repairJobCovering, REPAIR_JOBS_MAX_PER_SEAT, seatGathererCount, seatJobCount,
+} from '../state/repairJobs.ts'; // S193 R191-B
 import type { PlayerId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import type { World } from '../state/world.ts';
 
@@ -250,18 +252,22 @@ export function structureActionModel(
      */
     const queued = repairJobCovering(world, seat, repair.memberIds) !== null;
     const noGatherer = seatGathererCount(world, seat) === 0;
+    // ⛔ S193 audit LOW — the reducer's queue bound, said on the button rather than a silent refusal.
+    const full = seatJobCount(world, seat) >= REPAIR_JOBS_MAX_PER_SEAT;
     const caption = queued
       ? 'QUEUED'
       : idle
         ? 'NOTHING TO FIX'
         : noGatherer
           ? 'NO GATHERERS'
-          : `COSTS ${repair.cost.length}`;
+          : full
+            ? 'QUEUE FULL'
+            : `COSTS ${repair.cost.length}`;
     buttons.push({
       kind: 'FIX',
       label: 'FIX',
       caption,
-      enabled: !queued && !idle && !noGatherer,
+      enabled: !queued && !idle && !noGatherer && !full,
       x: left,
       y: top,
       w: BTN_W,

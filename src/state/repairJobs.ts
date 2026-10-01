@@ -137,7 +137,15 @@ function enqueue(world: World, seat: PlayerId, targetId: PrimitiveId, plan: Repa
   });
 }
 
-function seatJobCount(world: World, seat: PlayerId): number {
+/**
+ * ⚠ MINE — how often (ticks) a queued job re-plans its tower while it waits: a quarter second. MEASURED
+ * (S193, 32 waiting jobs with no source, `tickRepairJobs` alone, 600 ticks × 3 runs): every tick
+ * 0.61–1.13 ms/tick → spread over 15: 0.05–0.07 ms/tick. Deterministic: the phase is `(world.tick + job.id)`.
+ */
+export const REPAIR_JOB_REPLAN_TICKS = 15;
+
+/** PURE — how many jobs `seat` has queued (the `REPAIR_JOBS_MAX_PER_SEAT` bound reads this). */
+export function seatJobCount(world: World, seat: PlayerId): number {
   let n = 0;
   for (const j of world.repairJobs) if (j.seat === seat) n++;
   return n;
@@ -188,16 +196,25 @@ export function fixAllTargets(world: World, seat: PlayerId): FixAllTarget[] {
     .map((p) => p.id)
     .sort((a, b) => a - b);
   const out: Array<FixAllTarget & { d2: number; key: number }> = [];
+  const planned = new Set<PrimitiveId>();
   for (const id of ids) {
-    if (covered.has(id)) continue;
+    if (covered.has(id) || planned.has(id)) continue;
     const plan = planStructureRepair(world, seat, id);
     if (plan === null) continue;
-    let overlaps = false;
-    for (const m of plan.memberIds) {
-      if (covered.has(m)) overlaps = true;
-      covered.add(m);
+    /*
+     * ⛔ S193 audit LOW — only a tower that WILL be queued claims its shapes. A whole tower used to claim
+     * them too, so a damaged neighbour sharing one of them (a shared leaf, the W2-4 ring through a hub)
+     * read as "overlapping" and was never queued. A whole tower's shapes are only marked as already
+     * planned, so they are not planned again.
+     */
+    if (!planNeedsWork(plan)) {
+      for (const m of plan.memberIds) planned.add(m);
+      continue;
     }
-    if (overlaps || !planNeedsWork(plan)) continue;
+    let overlaps = false;
+    for (const m of plan.memberIds) if (covered.has(m)) overlaps = true;
+    if (overlaps) continue;
+    for (const m of plan.memberIds) covered.add(m);
     const anchorId = plan.unit?.kind === 'live' ? plan.unit.anchorId : plan.memberIds[0]!;
     const at = world.primitives.get(anchorId) ?? world.primitives.get(id)!;
     out.push({ targetId: id, plan, d2: distSq(at.pos, castle), key: Math.min(...plan.memberIds) });
@@ -370,10 +387,19 @@ export function tickRepairJobs(world: World): void {
 
   for (const job of [...world.repairJobs]) {
     const owner = world.players.get(job.seat);
-    if (owner === undefined) { cancelJob(world, job); continue; }
+    // ⛔ S193 audit LOW — an ELIMINATED seat's jobs end: its gatherers have stopped for good (R127), so a
+    // job could never finish, and `canReclaimNow` has no elimination clause to refuse it for us.
+    if (owner === undefined || isEliminated(owner)) { cancelJob(world, job); continue; }
     const target = repairJobTarget(world, job);
     if (target === null) { cancelJob(world, job); continue; }
     if (!build) continue;
+    /*
+     * ⭐ S193 audit LOW (perf) — the FULL re-plan is PHASE-SPREAD by job id: each job re-plans once every
+     * `REPAIR_JOB_REPLAN_TICKS` ticks, never all of them on the same tick. "Its shapes are gone" (above)
+     * is still checked every tick; a job about to FINISH re-plans at the finish below regardless, so the
+     * spread only delays noticing that a still-standing tower stopped needing (or allowing) its FIX.
+     */
+    if ((world.tick + job.id) % REPAIR_JOB_REPLAN_TICKS !== 0) continue;
     const plan = planStructureRepair(world, job.seat, target);
     if (plan === null || !planNeedsWork(plan)) cancelJob(world, job);
   }
