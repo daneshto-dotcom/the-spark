@@ -1,0 +1,223 @@
+/**
+ * SPARK — ⭐⭐ S192 (owner, A3): **THE ENDGAME MONSTER WAVES** — the spawner, the targeting arm and
+ * the end-of-fight sweep. Pure policy lives in `endgame.ts`.
+ *
+ * > *"there are going to be monsters coming from the spawn zone where … usually the shapes come out
+ * > of, right? The primitives. And they attack each player … let's say at wave 27, you're gonna have
+ * > like 10 of those monsters come out … for each of those two players. So 20 in total, and they will
+ * > go … target their first … enemy who they're supposed to attack. And if he's already destroyed,
+ * > then they go to the other enemies."*
+ *
+ * HOST-ONLY: called from `runHostTick` (host and `?worker=1` mirror alike), never by a client.
+ *
+ * ## Determinism
+ * No RNG and no wall clock. Birth position is `spreadTargetPos` of the quarry centre keyed by the id
+ * the monster is about to receive; the assigned seat is round-robin over `livingSeats` (id order); every
+ * scan below is a total order — squared distance, then id. The spawn counter is synced world state
+ * (`monsterWaveSpawned`), so a NONET freeze that skips ticks catches up rather than losing monsters.
+ */
+
+import {
+  FIGHT_PHASE_TICKS,
+  GOBLIN_SPREAD_RADIUS,
+  GOBLIN_UNIT_ACQUIRE_RADIUS,
+  GOBLIN_UNIT_LEASH_RADIUS,
+  MONSTER_OWNER_SEAT,
+  MONSTER_SPAWN_RING_PX,
+  SPAWNER_CENTER_X,
+  SPAWNER_CENTER_Y,
+} from '../constants.ts';
+import { asCreatureId, asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
+import { dispatch, type World } from './world.ts';
+import { livingSeats } from './elimination.ts';
+import { monsterPulseTicks, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
+import { isUntargetable, type Creature } from './creatures/creature.ts';
+import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
+import { castleAnchor } from './gatherers/gatherer.ts';
+
+/** The owner of every endgame monster — a sentinel that is never a seat. See `MONSTER_OWNER_SEAT`. */
+export const MONSTER_OWNER_ID: PlayerId = asPlayerId(MONSTER_OWNER_SEAT);
+
+/**
+ * ⚠ MINE — how often a monster re-scans for a BUILDING (bond / lone shape), phase-spread by id. A
+ * full scan of the victim's structures for up to 300 monsters every tick is the S190 perf hazard again;
+ * a committed target that is still valid is kept between scans, and an invalid one re-scans at once.
+ */
+export const MONSTER_BUILDING_RESCAN_TICKS = 15;
+
+/** Where monster `nextId` is born: a deterministic ring around the quarry centre (canon §3c). */
+export function monsterBirthPos(nextId: number): Vec2 {
+  return spreadTargetPos({ x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y }, asCreatureId(nextId), MONSTER_SPAWN_RING_PX);
+}
+
+/**
+ * Release this tick's due monsters. Pulse `p` (0-based) is due at `fightStart + p × pulseTicks`, and
+ * each pulse releases one monster per LIVING seat, in seat order — so every seat's share grows at the
+ * same rate (*"10 … for each of those two players"*).
+ */
+export function tickEndgameSpawner(world: World): void {
+  if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return;
+  const perSeat = monstersPerSeatForWave(world.waveNumber);
+  if (perSeat === 0) return;
+  const living = livingSeats(world);
+  if (living.length === 0) return;
+  const elapsed = world.tick - (world.phaseEndsAtTick - FIGHT_PHASE_TICKS);
+  if (elapsed < 0) return;
+  const pulses = Math.min(perSeat, Math.floor(elapsed / monsterPulseTicks(perSeat)) + 1);
+  const due = Math.min(perSeat * living.length, pulses * living.length);
+  while (world.monsterWaveSpawned < due) {
+    const k = world.monsterWaveSpawned;
+    const seat = living[k % living.length]!;
+    const a = castleAnchor(seat as unknown as number, world.layout);
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'endgameMonster',
+      ownerPlayerId: MONSTER_OWNER_ID,
+      pos: monsterBirthPos(world.nextCreatureId),
+      targetPos: { x: a.x, y: a.y },
+      sourceSpawnerId: null,
+      monsterSeat: seat,
+    });
+    // Counted whether or not the reducer accepted it, so a refusal can never spin this loop.
+    world.monsterWaveSpawned = k + 1;
+  }
+}
+
+/**
+ * ⚠ MINE (spec Q3) — at the FIGHT→BUILD edge every surviving monster leaves the board, so each
+ * monster wave starts fresh from the centre and none stands frozen in a player's base through BUILD
+ * (the creature fan-out is FIGHT-gated). Ascending id order; idempotent.
+ */
+export function removeEndgameMonsters(world: World): void {
+  const ids: CreatureId[] = [];
+  for (const c of world.creatures.values()) if (c.type === 'endgameMonster') ids.push(c.id);
+  ids.sort((x, y) => (x as unknown as number) - (y as unknown as number));
+  for (const id of ids) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: id });
+}
+
+function victimColor(world: World, seat: PlayerId): number | null {
+  return world.players.get(seat)?.color ?? null;
+}
+
+/** Nearest creature OWNED BY `seat` within `r2`, holding `held` inside the wider leash. */
+function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | null {
+  const held = c.targetCreatureId;
+  if (held !== null) {
+    const q = world.creatures.get(held);
+    if (
+      q !== undefined &&
+      q.ownerPlayerId === seat &&
+      !isUntargetable(q, world.tick) &&
+      distSq(c.pos, q.pos) <= GOBLIN_UNIT_LEASH_RADIUS * GOBLIN_UNIT_LEASH_RADIUS
+    ) {
+      return held;
+    }
+  }
+  const r2 = GOBLIN_UNIT_ACQUIRE_RADIUS * GOBLIN_UNIT_ACQUIRE_RADIUS;
+  let best: CreatureId | null = null;
+  let bestD = Infinity;
+  for (const [id, q] of world.creatures) {
+    if (q.ownerPlayerId !== seat || isUntargetable(q, world.tick)) continue;
+    const d = distSq(c.pos, q.pos);
+    if (d > r2) continue;
+    if (d < bestD || (d === bestD && best !== null && (id as unknown as number) < (best as unknown as number))) {
+      bestD = d;
+      best = id;
+    }
+  }
+  return best;
+}
+
+function isVictimBond(world: World, color: number, bondId: BondId): boolean {
+  const b = world.bonds.get(bondId);
+  if (b === undefined) return false;
+  const pa = world.primitives.get(b.aId);
+  const pb = world.primitives.get(b.bId);
+  return pa !== undefined && pb !== undefined && pa.placerColor === color && pb.placerColor === color;
+}
+
+function isVictimLoneShape(world: World, color: number, primId: PrimitiveId): boolean {
+  const p = world.primitives.get(primId);
+  return p !== undefined && p.placerColor === color && p.bonds.size === 0 && p.hp > 0;
+}
+
+/**
+ * The victim's nearest BUILDING: a lone shape or a connector (STRICT — both endpoints the victim's
+ * colour), whichever is nearer — `structureTargets`' rule, restricted to one seat. Exactly one of the
+ * two is returned, for the reason `structureTargets` gives. Total order: distSq, then id.
+ */
+function victimBuilding(
+  world: World,
+  c: Creature,
+  color: number,
+): { primitiveId: PrimitiveId | null; bondId: BondId | null } {
+  let bestPrim: PrimitiveId | null = null;
+  let dPrim = Infinity;
+  for (const [id, p] of world.primitives) {
+    if (p.placerColor !== color || p.bonds.size > 0 || p.hp <= 0) continue;
+    const d = distSq(c.pos, p.pos);
+    if (d < dPrim || (d === dPrim && bestPrim !== null && (id as unknown as number) < (bestPrim as unknown as number))) {
+      dPrim = d;
+      bestPrim = id;
+    }
+  }
+  let bestBond: BondId | null = null;
+  let dBond = Infinity;
+  for (const [id, b] of world.bonds) {
+    if (!isVictimBond(world, color, id)) continue;
+    const d = distSq(c.pos, bondMidpoint(b));
+    if (d < dBond || (d === dBond && bestBond !== null && (id as unknown as number) < (bestBond as unknown as number))) {
+      dBond = d;
+      bestBond = id;
+    }
+  }
+  if (bestPrim === null && bestBond === null) return { primitiveId: null, bondId: null };
+  return dBond < dPrim ? { primitiveId: null, bondId: bestBond } : { primitiveId: bestPrim, bondId: null };
+}
+
+/**
+ * ⭐ THE MONSTER'S TARGET LADDER — its own fan-out arm, every SEEKING tick, AHEAD of the shipped
+ * structure-attacker arm (which would aim it at EVERY seat, since it belongs to none):
+ *   1. a unit of its victim seat inside the acquire radius (held inside the leash);
+ *   2. else that seat's nearest building — through its connectors, like every unit (canon §4);
+ *   3. else that seat's castle — the strike then lands through `enemyCastleInReach`.
+ * The strike itself needs nothing new: the fan-out fire step and `applyCreatureAttack` already serve a
+ * `targetsStructures` creature's unit / connector / shape / castle targets, on the ladder.
+ */
+export function runEndgameMonsterTargeting(world: World, c: Creature): void {
+  const seat = monsterVictimSeat(world, c);
+  const color = seat === null ? null : victimColor(world, seat);
+  if (seat === null || color === null) {
+    c.targetCreatureId = null;
+    c.targetBondId = null;
+    c.targetPrimitiveId = null;
+    return;
+  }
+  const unit = victimUnit(world, c, seat);
+  c.targetCreatureId = unit;
+
+  const keepBond = c.targetBondId !== null && isVictimBond(world, color, c.targetBondId);
+  const keepPrim = c.targetPrimitiveId !== null && isVictimLoneShape(world, color, c.targetPrimitiveId);
+  const rescanSlot = (world.tick + (c.id as unknown as number)) % MONSTER_BUILDING_RESCAN_TICKS === 0;
+  if (rescanSlot || (!keepBond && !keepPrim)) {
+    const b = victimBuilding(world, c, color);
+    c.targetPrimitiveId = b.primitiveId;
+    c.targetBondId = b.bondId;
+  } else if (!keepBond) {
+    c.targetBondId = null;
+  } else if (!keepPrim) {
+    c.targetPrimitiveId = null;
+  }
+
+  let steer: Vec2 | null = null;
+  if (unit !== null) steer = world.creatures.get(unit)?.pos ?? null;
+  if (steer === null && c.targetPrimitiveId !== null) steer = world.primitives.get(c.targetPrimitiveId)?.pos ?? null;
+  if (steer === null && c.targetBondId !== null) {
+    const b = world.bonds.get(c.targetBondId);
+    if (b !== undefined) steer = bondMidpoint(b);
+  }
+  if (steer === null) steer = castleAnchor(seat as unknown as number, world.layout);
+  const spread = spreadTargetPos(steer, c.id, GOBLIN_SPREAD_RADIUS);
+  c.targetPos.x = spread.x;
+  c.targetPos.y = spread.y;
+}

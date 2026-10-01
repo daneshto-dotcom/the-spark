@@ -179,6 +179,8 @@ describe('CREATURE_CONFIGS lookup table', () => {
     expect(keys).toEqual([
       'chewer',
       'direwolf',
+      // ⭐ S192 — and a NINTH, for the endgame pants (owner A3). Sorted, so it lands after the direwolf.
+      'endgameMonster',
       'goblinArcher', 'goblinBat', 'goblinHound', 'goblinMelee', 'goblinShield', 'goblinSuicide',
       // S171 R142 — the Pharaoh's locust cloud. The list is `.sort()`ed, so it lands here between
       // 'lightningDrone' and 'raceUnit', not beside the direwolf it is a sibling summon to.

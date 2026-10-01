@@ -141,6 +141,8 @@ import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
+// ⭐ S192 (owner, A3) — the endgame monster waves.
+import { removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
@@ -436,6 +438,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * is exactly why nothing caught it. Both crossings are covered here.
        */
       bankCarriedSparksAtPhaseEdge(world);
+      /*
+       * ⭐ S192 (endgame) — every crossing restarts the monster count, and the fight's survivors leave
+       * the board at its end (⚠ MINE, spec Q3). Removed BEFORE `recallArmies` below, which would
+       * otherwise look for a home a monster does not have.
+       */
+      world.monsterWaveSpawned = 0;
+      if (world.matchPhase === 'BUILD') removeEndgameMonsters(world);
       if (world.matchPhase === 'BUILD') {
         /*
          * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
@@ -1530,6 +1539,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // ⛔ WHY THE WHOLE BLOCK AND NOT A MOVEMENT CLAMP. A clamp would freeze them in place but leave
   // Step 1's target re-selection and Step 3's CREATURE_ATTACK dispatch running, so a creature
   // already adjacent to a bond would keep chewing it without moving an inch.
+  /*
+   * ⭐ S192 (owner, A3) — THE MONSTER WAVES POUR OUT OF THE QUARRY, BEFORE THE FAN-OUT, the position
+   * every spawner poll in this tick already uses: a monster born here is in SPAWNING (force-free) for
+   * its first `spawnTicks`, so it joins the loop below without acting on its birth tick. Gated inside
+   * (PLAYING + FIGHT + waves 27–31), so this call site holds no policy.
+   */
+  tickEndgameSpawner(world);
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
     /*
@@ -1627,6 +1643,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = mid.y;
           }
         }
+      } else if (creature !== undefined && creature.state === 'SEEKING' && creature.type === 'endgameMonster') {
+        /*
+         * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER HUNTS ONE SEAT. *"those monsters generate and attack
+         * a certain enemy."* Placed AHEAD of the structure-attacker arm because a monster belongs to no
+         * seat, so that arm's owner-colour scans would aim it at EVERY player's buildings. Its strike
+         * still runs through the shipped fire step below, unchanged.
+         */
+        runEndgameMonsterTargeting(world, creature);
       } else if (
         creature !== undefined &&
         creature.state === 'SEEKING' &&

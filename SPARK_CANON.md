@@ -715,6 +715,25 @@ flung debris. Measured, pinned and reported rather than taken.
 
 ---
 
+## 3f · ⭐⭐ THE ENDGAME — THE LAST DRAFT, THE BUILD LOCK, THE PANTS (S192, `s192/endgame`)
+
+> *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30, and 31,
+> the next five waves, is going to be basically instant death."* — owner, S192 (A3)
+
+| | |
+|---|---|
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing |
+| monsters per LIVING seat | **27 → 10 · 28 → 25 · 29 → 35 ⚠ MINE · 30 → 50 · 31 → 75 ⚠ MINE** (`MONSTER_WAVE_PER_SEAT`) |
+| the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⚠ MINE) |
+| owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy |
+| retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| after wave 31 | ⚠ MINE: at the wave-32 edge the living seat with the most points wins |
+
+Spec + the owner question batch: `.claude/plans/S192_ENDGAME_SPEC.md`. Pinned by `canon.test.ts` and `state/endgame.test.ts`.
+
+---
+
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
 | | attackable? |

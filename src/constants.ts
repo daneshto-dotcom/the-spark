@@ -4114,3 +4114,53 @@ export const ARROW_FLIGHT_TICKS = 12;
  * other reason a few seconds earlier cannot combine with a later one to abandon a game.
  */
 export const TITLE_EXIT_CONFIRM_MS = 1600;
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐⭐ S192 (owner, scope amendment A3) — THE ENDGAME: the last draft, the build lock, the pants.
+ *  Spec: `.claude/plans/S192_ENDGAME_SPEC.md`. Owner, verbatim in `S192_OWNER_ENDGAME_SPEC.md`:
+ *  *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30,
+ *  and 31, the next five waves, is going to be basically instant death."*
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** HIS: *"after the fight of level 25, it's going to be the last upgrade"* — the wave-26 draft. */
+export const LAST_DRAFT_WAVE = 26;
+/**
+ * HIS: *"in the build phase of 27 … you can't build anything new anymore. You can fix existing
+ * structures"*. `waveNumber` increments on ENTRY INTO BUILD, so `>= 27` starts in BUILD of 27.
+ */
+export const BUILD_LOCK_FROM_WAVE = 27;
+/** The first and last monster FIGHTS — *"the next five waves"*, 27 through 31. */
+export const MONSTER_FIRST_WAVE = 27;
+export const MONSTER_FINAL_WAVE = 31;
+/**
+ * Monsters per LIVING player, by wave. 27 → 10, 28 → 25 and 30 → 50 are HIS (*"10 of those monsters
+ * … for each of those two players"*, *"25 of those monsters"*, *"twice the amount … 50 monsters
+ * each"*). ⚠ 29 → 35 and 31 → 75 are MINE: he gave no number for either.
+ */
+export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
+  27: 10,
+  28: 25,
+  29: 35, // ⚠ MINE
+  30: 50,
+  31: 75, // ⚠ MINE
+};
+/**
+ * ⚠ MINE — the pants monster ON THE LADDER: pool `unitPoolFifths(10, 5)` = 100, strike
+ * `attackFifths(5, 3)` = 40 (the castle gun's own shot). One-shots every unit below a Voltkin, dies to
+ * three castle shots or one tier-9 boss swing. "Instant death" comes from the COUNT, not a multiplier.
+ */
+export const ENDGAME_MONSTER_STATS = { hp: 10, def: 5, atk: 5, pen: 3 } as const;
+/** ⚠ MINE — slower than a melee goblin (0.85), so defenders get time to meet the wave. */
+export const ENDGAME_MONSTER_SPEED_MUL = 0.75;
+/**
+ * The owner of every monster: a SENTINEL that is not a seat (seats are `0..MAX_PLAYERS-1`). Every
+ * enemy predicate in the sim is `owner !== me`, so every seat's towers, castle gun and units treat a
+ * monster as an enemy with no further wiring. ⚠ It is never in `world.players`.
+ */
+export const MONSTER_OWNER_SEAT = 255;
+/** ⚠ MINE — a wave pours out over its first 20 s of FIGHT, one monster per living seat per pulse. */
+export const MONSTER_SPAWN_WINDOW_TICKS = 20 * PHYSICS_HZ;
+/** ⚠ MINE — the fastest pulse (75 each → 16 ticks; this only floors a hypothetical larger count). */
+export const MONSTER_MIN_PULSE_TICKS = 6;
+/** ⚠ MINE — radius of the deterministic birth ring around the quarry centre. */
+export const MONSTER_SPAWN_RING_PX = 60;

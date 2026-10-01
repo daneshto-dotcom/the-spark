@@ -287,6 +287,8 @@ export interface WorldSnapshot {
   };
   /** S157 B8 — the wave counter. Optional so a pre-S157 save restores to wave 1. */
   waveNumber?: number;
+  /** ⭐ S192 — the endgame monster spawn counter, omitted at 0 (every fight before wave 27). */
+  monsterWaveSpawned?: number;
   /**
    * S97 P5 — per-type godly once-per-match guard (SORTED GodlyId[]). Additive-optional (emitted
    * only when non-empty); a new host (host-migration) / save-load won't re-fire an already-used
@@ -831,6 +833,8 @@ interface SerializedCreature {
    * dropped stamp ends the rage early on one sim — or lets it re-fire inside the cooldown.
    */
   readonly rageStartTick?: number;
+  /** ⭐ S192 — the endgame monster's assigned seat. Additive-optional, emitted only when set. */
+  readonly monsterSeat?: number;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -1239,6 +1243,8 @@ export function snapshot(
         : { openedAtTick: world.draft.openedAtTick, waveNumber: world.draft.waveNumber },
     // S157 B8 — omitted on wave 1 so an opening snapshot stays byte-identical to pre-S157.
     waveNumber: world.waveNumber > 1 ? world.waveNumber : undefined,
+    // ⭐ S192 — omitted at 0, so every pre-endgame snapshot stays byte-identical.
+    monsterWaveSpawned: world.monsterWaveSpawned > 0 ? world.monsterWaveSpawned : undefined,
     // S97 P5 — emit the per-type godly guard only when non-empty (sorted ⇒ byte-stable, like discoveredCombos).
     godlyFiredThisMatch:
       world.godlyFiredThisMatch.size > 0 ? [...world.godlyFiredThisMatch].sort() : undefined,
@@ -1769,6 +1775,11 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       ? null
       : { openedAtTick: snap.draft.openedAtTick, waveNumber: snap.draft.waveNumber };
   world.waveNumber = snap.waveNumber ?? 1; // S157 B8
+  // ⭐ S192 — validated, never trusted: a non-negative integer, else 0.
+  world.monsterWaveSpawned =
+    typeof snap.monsterWaveSpawned === 'number' && Number.isInteger(snap.monsterWaveSpawned) && snap.monsterWaveSpawned >= 0
+      ? snap.monsterWaveSpawned
+      : 0;
   world.godlyFiredThisMatch = new Set((snap.godlyFiredThisMatch ?? []) as GodlyId[]); // S97 P5
 
   // S77 P3 — seagulls + poops: clear + rehydrate (mirror of the hunter/potato pattern). Reset
@@ -2361,6 +2372,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
     ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
     ...(c.rageStartTick !== undefined ? { rageStartTick: c.rageStartTick } : {}), // S191 — the 25 s rage clock
+    ...(c.monsterSeat !== undefined ? { monsterSeat: c.monsterSeat } : {}), // S192 — the endgame monster's seat
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
@@ -2763,6 +2775,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // off the wire is dropped, which reads as "never raged" (his latch re-fires below the line).
     ...(typeof s.rageStartTick === 'number' && Number.isInteger(s.rageStartTick) && s.rageStartTick >= 0
       ? { rageStartTick: s.rageStartTick }
+      : {}),
+    // ⭐ S192 — validated, never trusted: a non-negative integer seat id, else dropped (the monster
+    // then hunts through the derived fallback, `monsterVictimSeat`).
+    ...(typeof s.monsterSeat === 'number' && Number.isInteger(s.monsterSeat) && s.monsterSeat >= 0
+      ? { monsterSeat: asPlayerId(s.monsterSeat) }
       : {}),
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7

@@ -20,6 +20,7 @@ import {
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
+import { isBuildLocked, monstersPerSeatForWave } from '../state/endgame.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
@@ -87,6 +88,20 @@ export function formatPhaseBanner(
   const ss = secs % 60;
   const clock = `${phase}  ${mm}:${String(ss).padStart(2, '0')}`;
   return waveNumber === undefined ? clock : `WAVE ${waveNumber}   ${clock}`;
+}
+
+/**
+ * ⭐ S192 (owner, A3) — THE ENDGAME CUE, appended to the phase banner. Derived from synced state only
+ * (`matchPhase`, `waveNumber`), never from a pushed effect, so a joiner and a promoted client read
+ * the same line. Empty before the lock. Pure + exported for test.
+ *   · BUILD from wave 27: `⛔ FIX ONLY · NEXT 10 PANTS EACH` (the next fight is THIS wave's);
+ *   · FIGHT on waves 27–31: `MONSTER WAVE · 10 PANTS EACH`.
+ */
+export function formatEndgameCue(phase: MatchPhase, waveNumber: number): string {
+  if (!isBuildLocked({ waveNumber })) return '';
+  const each = monstersPerSeatForWave(waveNumber);
+  if (phase === 'BUILD') return each > 0 ? `⛔ FIX ONLY · NEXT ${each} PANTS EACH` : '⛔ FIX ONLY';
+  return each > 0 ? `MONSTER WAVE · ${each} PANTS EACH` : '';
 }
 
 /**
@@ -973,11 +988,10 @@ export class HUD {
       this.lastSeenPhase = null;
       return;
     }
-    this.phaseBannerText.text = formatPhaseBanner(
-      world.matchPhase,
-      world.phaseEndsAtTick - world.tick,
-      world.waveNumber,
-    );
+    const cue = formatEndgameCue(world.matchPhase, world.waveNumber); // ⭐ S192
+    this.phaseBannerText.text =
+      formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick, world.waveNumber) +
+      (cue === '' ? '' : `   ${cue}`);
     this.phaseBannerText.style.fill = world.matchPhase === 'FIGHT' ? 0xffb347 : 0xcfe8ff;
     this.phaseBannerText.visible = true;
 

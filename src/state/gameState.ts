@@ -13,7 +13,7 @@
  * by elapsed-tick dwell (so a "WIN" banner shows briefly before save).
  */
 
-import { PHYSICS_HZ, winScoreForWave } from '../constants.ts';
+import { MONSTER_FINAL_WAVE, PHYSICS_HZ, winScoreForWave } from '../constants.ts';
 import { computeComplexity } from './scoring.ts';
 import { teardownBombs } from './bombLifecycle.ts';
 import { teardownHunters } from './hunters/hunterLifecycle.ts';
@@ -166,6 +166,30 @@ export function tickGameState(
         );
         // Same exit the score gate uses — one WIN path, so the dwell timer, the banner and every
         // downstream watcher behave identically however the match was won.
+        dispatch(world, { type: 'WIN_TRIGGER', winnerId });
+        extras.winEnteredTick = world.tick;
+        return world.gameState;
+      }
+
+      /*
+       * ⭐ S192 (owner, A3) — **THE MATCH ENDS AFTER WAVE 31.** *"If they haven't won by points or by
+       * … instant death, then they should."* ⚠ MINE (spec Q2): if two or more seats survive the last
+       * monster wave, the wave counter reaching 32 (the BUILD edge after wave 31's FIGHT, `hostTick`)
+       * crowns the LIVING seat with the most banked score, lowest seat on a tie — the same skip and
+       * the same total order as the score gate below. One WIN path, so the banner and dwell behave as
+       * for every other win. Derived from `waveNumber` on every peer, so it needs no new field.
+       */
+      if (world.waveNumber > MONSTER_FINAL_WAVE) {
+        let winnerId: PlayerId = living.length > 0 ? living[0]! : primaryPlayerId;
+        let best = -Infinity;
+        for (const pid of living) {
+          const s = world.scoreByPlayer.get(pid) ?? 0;
+          if (s > best) {
+            best = s;
+            winnerId = pid;
+          }
+        }
+        console.info(`[SPARK] WIN-BY-ENDGAME tick=${world.tick} wave=${world.waveNumber} winner=P${(winnerId as number) + 1}`);
         dispatch(world, { type: 'WIN_TRIGGER', winnerId });
         extras.winEnteredTick = world.tick;
         return world.gameState;

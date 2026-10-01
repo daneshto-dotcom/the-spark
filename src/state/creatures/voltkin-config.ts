@@ -45,6 +45,8 @@ import {
   T3_STATS,
   DIREWOLF_LIFETIME_TICKS,
   DIREWOLF_STATS,
+  ENDGAME_MONSTER_STATS,
+  ENDGAME_MONSTER_SPEED_MUL,
   T9_BOSS_STATS,
   LOCUST_CLOUD_STATS,
   LOCUST_CLOUD_SPEED_MUL,
@@ -1086,7 +1088,21 @@ export const LOCUST_CLOUD_CONFIG: CreatureConfig = {
   holdsRange: false,
 };
 
+/**
+ * ⭐⭐ S192 (owner, A3) — **THE ENDGAME MONSTER** (*"this silly looking pair of pants"*). A melee
+ * structure-attacker on the shared unit factory (goblin cadence, range and fire tick), at its own
+ * ladder stats (`ENDGAME_MONSTER_STATS`, ⚠ MINE: pool 100, strike 40). `targetsStructures: true` so
+ * the shipped strike arms (unit / connector / lone shape / castle-in-reach) all serve it; its TARGET
+ * SELECTION is its own fan-out arm in `hostTick` (`endgameMonsterTargets`), restricted to the seat it
+ * was sent at. Persistent: survivors are removed at the end of the fight (`removeEndgameMonsters`).
+ */
+export const ENDGAME_MONSTER_CONFIG: CreatureConfig = makeT3Config('endgameMonster', {
+  ...ENDGAME_MONSTER_STATS,
+  speedMul: ENDGAME_MONSTER_SPEED_MUL,
+});
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
+  endgameMonster: ENDGAME_MONSTER_CONFIG,
   direwolf: DIREWOLF_CONFIG,
   locustCloud: LOCUST_CLOUD_CONFIG,
   voltkin: VOLTKIN_CONFIG,

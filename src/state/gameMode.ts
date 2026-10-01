@@ -247,6 +247,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
   world.waveNumber = 1; // S157 B8 — every match opens on wave 1
+  world.monsterWaveSpawned = 0; // ⭐ S192 — and no endgame monster has been released
   /*
    * ⭐⭐ S187 — EVERY SEAT STARTS A MATCH HAVING DRAFTED NOTHING, and the pre-wave-1 draft opens
    * here, at the one TITLE/LOBBY->PLAYING edge every entry path takes (solo, bots, host 1v1, joiner).

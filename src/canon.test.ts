@@ -1327,3 +1327,29 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('DO NOT SUPPRESS AND DO NOT RE-ANCHOR')).toBe(true);
   });
 });
+
+/**
+ * ⭐⭐ S192 — §3f, THE ENDGAME. Every number in the table is read back from its constant here, so a
+ * retune turns this red instead of leaving the canon stale. Own imports, so this block cannot collide
+ * with a sibling branch's edit of the import list above.
+ */
+import * as endgameConstants from './constants.ts';
+import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
+import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
+
+describe('S192 §3f — the endgame table is the constants', () => {
+  it('the last draft, the lock and the five wave counts', () => {
+    expect(endgameConstants.LAST_DRAFT_WAVE).toBe(26);
+    expect(canonSays('**wave 26** (`LAST_DRAFT_WAVE`)')).toBe(true);
+    expect(endgameConstants.BUILD_LOCK_FROM_WAVE).toBe(27);
+    expect(canonSays('from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`)')).toBe(true);
+    const w = endgameConstants.MONSTER_WAVE_PER_SEAT;
+    expect(canonSays(`**27 → ${w[27]} · 28 → ${w[28]} · 29 → ${w[29]} ⚠ MINE · 30 → ${w[30]} · 31 → ${w[31]} ⚠ MINE**`)).toBe(true);
+  });
+
+  it('the pants: its stat line, pool and strike', () => {
+    const c = ENDGAME_CONFIGS.endgameMonster;
+    expect(canonSays(`HP ${c.hp} / DEF ${c.def} / ATK ${c.atk} / PEN ${c.pen} → pool **${egPool(c.hp, c.def)}**, strike **${egAtk(c.atk, c.pen)}**`)).toBe(true);
+    expect(canonSays(`\`MONSTER_OWNER_SEAT\` (${endgameConstants.MONSTER_OWNER_SEAT})`)).toBe(true);
+  });
+});
