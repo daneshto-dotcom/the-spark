@@ -168,6 +168,69 @@ function targetValid(world: World, d: Defender, config: DefenderConfig): boolean
 }
 
 /**
+ * ⭐⭐ S192 T5 (owner) — **HELGA'S PATROL, ONE STEP. Factored out of the FSM's IDLE arm so the BUILD
+ * stage walks her too.**
+ *
+ * > *"Helga is not patrolling during … the build stage. She just stands behind her tower … She should
+ * > always like walk around her tower patrolling."*
+ *
+ * The S183 patrol lived inside `applyDefenderTick`, and the host never dispatches `DEFENDER_TICK`
+ * outside FIGHT (S149 R4, *"your towers can fight during build stage"* — correct for the WEAPON). So in
+ * BUILD her legs were switched off with her slap, and she stood on her hub (`reviveDormantHelgas` puts
+ * her there) for the whole 90 s, under her hall's art. Measured S192: 0.00 px in 900 BUILD ticks.
+ *
+ * ⛔ **MOTION ONLY.** No acquisition, no `nextFireTick`, no aura, no retaliation, no state change — she
+ * stays `IDLE` with a null target. That is what keeps `updateHelgaTheme` (`audioManager.ts`: engaged ⇔
+ * `state !== 'IDLE' || targetCreatureId !== null`) from playing her music all BUILD. Putting the BUILD
+ * walk in `WALK` would have been the obvious shape, and would have started her theme every build stage.
+ *
+ * ⛔ **THE PATROL POINT IS DERIVED, NEVER STORED.** `leg` buckets `world.tick`, and `mix32` turns
+ * (her id, leg) into an angle and a radius — so every peer computes the same wander from synced state
+ * alone, with no `Math.random`, no wall clock, and no new field on a hashed entity. Storing a
+ * destination would have cost the four sites (factory + serialize + hash + worker) for a cosmetic walk.
+ *
+ * ⚠ SHE STILL SNAPS AND FREEZES ON ARRIVAL, which is what gives the "moving from area to another"
+ * rhythm rather than a continuous glide — she reaches a spot, waits out the rest of the leg, then heads
+ * somewhere new. `freezeDefender` also keeps her physically still so her own drift cannot carry her out
+ * of her zone between legs.
+ */
+export function stepPrincessPatrol(world: World, d: Defender, homePos: Vec2): void {
+  const config = getDefenderConfig(d.kind);
+  const leg = Math.floor(world.tick / PRINCESS_PATROL_LEG_TICKS);
+  const h = mix32(Number(d.id), leg);
+  const ang = ((h >>> 8) / 0x01000000) * Math.PI * 2;
+  // ⚠ sqrt, so points are spread EVENLY over the disc rather than clustering at the centre — a raw
+  // linear radius would leave her hovering near the hall most of the time, which is the behaviour he
+  // asked to remove.
+  const rad = config.attackRange * PRINCESS_PATROL_RADIUS_FRAC * Math.sqrt((h & 0xff) / 255);
+  // ⭐ S189 C8 (owner) — *"Helga moves behind the map"*: the disc around a hall near the castle
+  // crosses the edge, so the point is held to the board every creature is held to. See
+  // `defenderVerletStep` for the integrator half of the same fix.
+  const patrol: Vec2 = clampPointIntoPlayfield({
+    x: homePos.x + Math.cos(ang) * rad,
+    y: homePos.y + Math.sin(ang) * rad,
+  });
+  if (distSq(d.pos, patrol) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
+    d.pos.x = patrol.x;
+    d.pos.y = patrol.y;
+    d.walkTargetPos = null;
+    freezeDefender(d);
+  } else {
+    d.walkTargetPos = { x: patrol.x, y: patrol.y };
+    stepDefenderWalk(d, patrol, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
+  }
+}
+
+/**
+ * S192 T5 — a defender's HOME, read exactly as `applyDefenderTick` reads it: its anchor's current
+ * position. `null` when the anchor is gone (the revalidation poll removes the defender on its slot).
+ */
+export function defenderHomePos(world: World, d: Defender): Vec2 | null {
+  const anchor = world.primitives.get(d.anchorPrimitiveId);
+  return anchor !== undefined ? { x: anchor.pos.x, y: anchor.pos.y } : null;
+}
+
+/**
  * Host-only: advance ONE defender's FSM. The strike DEALS DAMAGE at FIRE entry via the unified
  * `damageCreature` path (chewer dies in 1, Voltkin in 2 → the render death-watchers pop goo /
  * lightning-cloud). The FIRE state is then held DEFENDER_FIRE_HOLD_TICKS so the 1v1 client
@@ -334,45 +397,10 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
        * > weird … to random places within the radius that she's in, just moving from area to another
        * > until she acquires a target."*
        *
-       * This used to drift her to `homePos` and snap-pin her there. That was invisible while her
-       * hub was a bare shape; the moment her hall got art in S183 it parked her squarely behind it.
-       *
-       * ⛔ **THE PATROL POINT IS DERIVED, NEVER STORED.** `leg` buckets `world.tick`, and `mix32`
-       * turns (her id, leg) into an angle and a radius — so every peer computes the same wander from
-       * synced state alone, with no `Math.random`, no wall clock, and no new field on a hashed
-       * entity. Storing a destination would have cost the four sites (factory + serialize + hash +
-       * worker) for a purely cosmetic walk.
-       *
-       * ⚠ SHE STILL SNAPS AND FREEZES ON ARRIVAL, which is what gives the "moving from area to
-       * another" rhythm rather than a continuous glide — she reaches a spot, waits out the rest of
-       * the leg, then heads somewhere new. `freezeDefender` also keeps her physically still so her
-       * own drift cannot carry her out of her zone between legs.
+       * S192 T5 — the step itself now lives in `stepPrincessPatrol`, which the host ALSO calls in
+       * BUILD (where this FSM is never dispatched). One function, so FIGHT and BUILD cannot drift.
        */
-      if (d.kind === 'princess' && d.state === 'IDLE') {
-        const leg = Math.floor(world.tick / PRINCESS_PATROL_LEG_TICKS);
-        const h = mix32(Number(d.id), leg);
-        const ang = ((h >>> 8) / 0x01000000) * Math.PI * 2;
-        // ⚠ sqrt, so points are spread EVENLY over the disc rather than clustering at the centre —
-        // a raw linear radius would leave her hovering near the hall most of the time, which is the
-        // behaviour he asked to remove.
-        const rad = config.attackRange * PRINCESS_PATROL_RADIUS_FRAC * Math.sqrt((h & 0xff) / 255);
-        // ⭐ S189 C8 (owner) — *"Helga moves behind the map"*: the disc around a hall near the
-        // castle crosses the edge, so the point is held to the board every creature is held to.
-        // See `defenderVerletStep` for the integrator half of the same fix.
-        const patrol: Vec2 = clampPointIntoPlayfield({
-          x: homePos.x + Math.cos(ang) * rad,
-          y: homePos.y + Math.sin(ang) * rad,
-        });
-        if (distSq(d.pos, patrol) <= PRINCESS_HOME_EPSILON * PRINCESS_HOME_EPSILON) {
-          d.pos.x = patrol.x;
-          d.pos.y = patrol.y;
-          d.walkTargetPos = null;
-          freezeDefender(d);
-        } else {
-          d.walkTargetPos = { x: patrol.x, y: patrol.y };
-          stepDefenderWalk(d, patrol, config.moveAccel, PRINCESS_ARRIVE_RADIUS);
-        }
-      }
+      if (d.kind === 'princess' && d.state === 'IDLE') stepPrincessPatrol(world, d, homePos);
       break;
     }
     case 'WALK': {
