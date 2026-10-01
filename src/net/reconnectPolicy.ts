@@ -264,7 +264,17 @@ export type ConnectionOverlay =
   | { readonly kind: 'hidden' }
   | { readonly kind: 'reconnecting'; readonly secondsLeft: number }
   | { readonly kind: 'migrating'; readonly secondsLeft: number }
-  | { readonly kind: 'terminal'; readonly cause: TerminalLossCause };
+  | {
+      readonly kind: 'terminal';
+      readonly cause: TerminalLossCause;
+      /**
+       * ⭐ S192 SEAM-1 — a CLIENT whose loop is still retrying behind the overlay (until `RECONNECT_GIVE_UP_MS`).
+       * The help line must not say "return to title to retry": Return to Title ENDS the retry.
+       */
+      readonly retrying: boolean;
+      /** ⭐ S192 SEAM-1 — a HOST still inside the give-up window: its clients may still be retrying back to it. */
+      readonly waitingForPeers: boolean;
+    };
 
 export interface ConnectionFrameInput {
   readonly nowMs: number;
@@ -302,7 +312,7 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
       reconnectUntilMs: i.reconnectUntilMs,
       nextRetryMs: i.nextRetryMs,
       retry: false,
-      overlay: { kind: 'terminal', cause: 'zombieDeposed' },
+      overlay: { kind: 'terminal', cause: 'zombieDeposed', retrying: false, waitingForPeers: false },
     };
   }
   if (!i.peersGone) {
@@ -338,6 +348,9 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
     overlay = {
       kind: 'terminal',
       cause: terminalLossCause({ zombieDeposed: false, migrationCase: i.migrationCase, peerCount: i.peerCount }),
+      // S192 SEAM-1 — the same predicate `reconnectRetryDue` gates on, minus the per-attempt time.
+      retrying: !gaveUp && !i.isHost && i.hasRoomCode && !i.migrationCase,
+      waitingForPeers: !gaveUp && i.isHost,
     };
   }
   return { reconnectUntilMs, nextRetryMs, retry, overlay };

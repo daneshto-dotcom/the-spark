@@ -3816,7 +3816,7 @@ Network routes: ${v.detail}`;
       lobbyScreen.setConnectionLostMigrating(overlay.secondsLeft);
       lobbyScreen.setConnectionLostVisible(true);
     } else {
-      lobbyScreen.setConnectionLostReconnecting(false);
+      lobbyScreen.setConnectionLostTerminal(overlay.retrying, overlay.waitingForPeers); // S192 SEAM-1
       lobbyScreen.setConnectionLostVisible(true);
     }
     const connectionLost = overlay.kind === 'terminal'; // terminal — drives the cinematic-abort edge below
