@@ -71,3 +71,5 @@ worker), and the next BUILD **3 healthy TVs → 0 Voltkins** (both). Matches the
 - 4. Canon §5b T16 bullet + `canon.test.ts` §5b T16 case (VOLTKINS_PER_TV, the iff-ignite rule, the
   shared isolation/owner calls, the edge after recallArmies) → this commit.
 
+- Gates after the round (tree 0ff078f4): TYPECHECK=0, VITEST=0 (455 files passed, 3 skipped),
+  BUILD=0 — 997.1 KiB (−0.7 KiB vs the merged c45bac7 tree at 997.8). DONE; report sent.
