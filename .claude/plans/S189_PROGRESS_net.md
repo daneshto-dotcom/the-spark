@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 audit fix round: merge, A1, L1 done; owner notes recorded; final gates running.**
+**STATUS: COMPLETE — S192 audit fix round (merge, A1 HIGH, L1; B1/L2/L3 owner notes): gates 0/0/0 (7189 tests, 1002.8 KiB), net e2e 17/17, e2e:lobby 5/5. Nothing in flight.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -952,3 +952,10 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
     reconnecting and accepts B's claim) closes this too — the same owner question as before.
   · **L2, L3** — named by the coordinator as owner notes; their text was not in my brief. The merge owner
     holds the audit wording and should paste it here.
+
+- **Step 3 — gates on 8b9475e (captured `$?`):** typecheck **0** · `npx vitest run --maxWorkers=3` **0** (464 files
+  + 4 skipped / 7189 + 11 skipped) · build **0**, entry **1002.8 KiB** (cap 1100, headroom 97.2 — master has moved
+  a lot since the last round; this round's own code is small) · net e2e (reconnect, reconnect-hard-blip,
+  exit-match, hostmigration) **0 — 17/17** (hard blip 6.4 s, one attempt) · `npm run e2e:lobby` **0 — 5/5**. Dev
+  server verified mine: the port-21241 listener's command line is this worktree's `node_modules\…\vite.js`.
+- **DONE — nothing in flight.** b5e8957 merge · f5cbbbd A1 · 8b9475e L1 + owner notes · (this) gates.
