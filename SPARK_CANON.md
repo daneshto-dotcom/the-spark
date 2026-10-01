@@ -794,6 +794,33 @@ flung debris. Measured, pinned and reported rather than taken.
 
 ---
 
+## 3f · ⭐⭐ THE ENDGAME — THE LAST DRAFT, THE BUILD LOCK, THE PANTS (S192, `s192/endgame`)
+
+> *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30, and 31,
+> the next five waves, is going to be basically instant death."* — owner, S192 (A3)
+
+| | |
+|---|---|
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
+| the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
+| monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
+| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. ⚠ MINE as a tick rule: one LANE per living seat, born on the quarry rim facing its keep, **one every 45 ticks** per lane (`MONSTER_EMERGE_TICKS`), lanes staggered |
+| the countdown | ⭐ S193 HIS: *"how many are left to come out"* — `PANTS LEFT TO COME OUT: N` on the top banner (`monstersLeftToComeOut`, derived) |
+| the hold | ⚠ MINE: waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
+| the final fight | ⭐ S193 HIS: wave 31 **never ends on the clock while two or more seats live** — a keep-standing or score win ends it |
+| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*), ⚠ MINE numbers: walks out **240 s** into the final fight (`MEGA_PANTS_AFTER_TICKS`), HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
+| the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
+| owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
+| retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| the music | ⭐ S193 HIS (R193-M): the FIGHT of waves **27 / 29 / 31 → song 1, 28 / 30 → song 2** (`PANTS_MUSIC_SRC`, `pantsMusicForWave`); the endless final fight keeps 31's. ⚠ MINE: FIGHT only, and it overrides the race-music toggle |
+| leftovers | ⭐ S193 HIS: *"they vanish when this wave ends"*; no points for pants kills |
+| the end | ⭐ S193 HIS: last keep standing wins; a wipe from wave 27 on → **the top score wins**; a solo board ends at the wave-32 edge, top score |
+
+Spec: `.claude/plans/S192_ENDGAME_SPEC.md`; his answers: `.claude/plans/S193_OWNER_ENDGAME_ANSWERS.md`. Pinned by `canon.test.ts`, `state/endgame.test.ts` and `state/endgameS193.test.ts`.
+
+---
+
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
 | | attackable? |
@@ -952,11 +979,47 @@ host tick beside a welded mixed structure (30 of them targeted a weld before the
 6.6–7.1 → 2.5 ms mean. `bondTargetIndex.differential.test.ts` proves targeting and `hashWorldStateFull`
 unchanged.
 
+### 5c · ⭐⭐ WHO A UNIT GOES AFTER — THREE S192 RULES (`s192/units-ai`)
+
+- **HELGA PATROLS IN BUILD TOO (T5).** *"Helga is not patrolling during … the build stage. She just stands
+  behind her tower"* — owner, S192. `stepPrincessPatrol` runs from her FSM's IDLE arm (FIGHT) and from the
+  host's defender poll in BUILD. BUILD is MOTION ONLY: no acquire, no fire clock, no aura, no state change —
+  she stays IDLE with no target, so her theme does not play all build stage. DORMANT (R190-J) does not move.
+  `helgaBuildPatrol.test.ts`.
+- **NOBODY TARGETS THE DEAD (T13).** *"my spawn were attacking him, even though it was already dead … they
+  went back to the castle that's already destroyed"* — owner, S192. ONE predicate, `isLiveCreatureTarget` =
+  a live pool · not a corpse-in-waiting (`pendingCreatureDeaths`) · targetable — at every pick AND every hold
+  (`liveTargetSites.guards.test.ts` enumerates them). The march never goes to a fallen keep
+  (`enemyCastleMarchPos` skips `castleHp <= 0`). ⛔ **SUPERSEDED: the S191 perf report that the nav-unit index
+  deliberately did NOT filter a unit killed earlier in the same tick ("a behaviour question, reported, not
+  built", `S191_PROGRESS_perf.md`).** He ruled it a bug; the index now reads the predicate live and the perf
+  oracle asserts `pendingDeathReturned === 0`. Two rulings bound it: **a fading unit stays a target**
+  (R192-U2, *"Units are either destroyed or respawned"* — there is no DESPAWNING clause), and **a fallen
+  tower's leftover shapes stay targetable until destroyed** (R192-U1, *"just as it is today"*).
+- **CHASE A DRONE SMARTLY — NEVER ACROSS THE MAP (T6).** *"I didn't say ignore drones or pencil chewers all
+  the time. It just has to be smart"* — owner, S192. A FAST NON-COMBATANT — cannot strike a unit
+  (`isNonCombatantType`: lightning drone, pencil chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` = **1.25**
+  × the chaser (`maxAccel`) — is engaged when ANY of: (1) within the chaser's reach +
+  `CHASE_GIVEUP_SLACK_PX` = **20** px; (2) the chaser AND the quarry both stand in the chaser's OWN zone
+  (*"you're still in your zone"*); (3) the chaser can cut its path off before it arrives. Otherwise it is
+  neither acquired nor held, so it cannot be re-taken until one of the three holds again — no ping-pong, no
+  memory. Both numbers ⚠ MINE. A unit that can strike back is never skipped (R184-A untouched); turrets,
+  stink towers, castle guns and Helga (*"that's the whole point of Helga"*) are unchanged. Measured, a
+  scripted drone flying past a unit 40 px inside enemy ground, 400 ticks: melee goblin −57.0 % of its advance
+  before → **−6.6 %**; orc boss −57.8 % → **−7.3 %** (S192's −37.6 % / −38.2 % was before the S193 audit added
+  "the chaser too" to (2)). `chaseGiveUp.test.ts`, mutation-tested.
+
 ---
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **56** (S192 — deploy #12; see the S192 entries on the const).
+`PROTOCOL_VERSION` is **59** (S193 — deploy #20; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
+
+⭐⭐ **WHAT RIDES 58 (S193, deploy #18)** — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank.
+
+⭐⭐ **WHAT RIDES 57 (S193, deploy #17)** — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules.
 
 ⭐⭐ **WHAT RIDES 56 (S192, deploy #12)** — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist).
 
@@ -1499,7 +1562,7 @@ of the building art. Reported as "damage numbers print over blank ground". He li
 raised between his S175 *"you gotta see damage everywhere"* and R183-E *"you don't have to see the
 connectors"* — S175 wins for the floating number, R183-E still governs the connector's own alpha.
 
-## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187)
+## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187) — and a fifth (S193)
 
 
 > *"Resolve all of this now. Do what needs to be done. Don't bring this up again."* — owner, S187
@@ -1554,8 +1617,11 @@ STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 
 inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
 creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
 inside — **each connector is one entity** (`damageConnector`, no creature attacker → no lifesteal;
-severed with the EXISTING cause `'drone'`, so no new discriminant). n targets each take
-`floor(120 / n)`, and the first `120 mod n` take one more, so the shares always sum to exactly 120. A
+severed with the EXISTING cause `'drone'`, so no new discriminant). ⭐ **S193 (owner R193-B4) — BY
+DISTANCE:** each target takes `floor(120 × w / Σw)` with `w = max(1, floor(240 − d))` (the shared falloff,
+§9d item 5), and the leftover fifths go one apiece nearest-first, so the shares always sum to exactly
+120. (Until S193: an equal split, 120 over n.) The hub's creature:connector weight is 1:1 — ⚠ MINE
+(`HUB_BLAST_CREATURE_WEIGHT`); he ruled 2:1 only for the zombie boss. A
 shape INSIDE a structure has no arm — a building dies through its connectors (§4). ⚠ **The S157 P0
 owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes, units, bags and
 Helga, and a connector with either end his. *"He will also bring down some of his own connectors"*
@@ -1576,9 +1642,24 @@ OWNER as well as the bag's owner (`damageStinkCloud`) — *"Stink bags should no
 through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner).
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
-(380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is
-REQUIRED, so no dispatcher can fall into either blast by omission.
+(380 px, no owner, *"hurting everything"*). ⭐ **S192 (owner T3): it no longer razes and no longer
+uses this action** — `applyZombieDeathBlast` (`racial/zombieDeathBlast.ts`) splits ONE pool by distance.
+⭐⭐ **S193 — HIS RULINGS R193-B1..B3:**
+> *"312 blast pool, but split over, you know, everyone who's around."* · *"creatures get twice as much
+> damage as towers do from that blast."* · *"It does not hit his own side"* — owner, S193
 
+- the pool is **312** (`T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` = 3 × `attackFifths(8, 8)`) — HIS now;
+- each target weighs `kind × max(1, floor(380 − d))`: **kind 2** for a creature or Helga, **1** for a
+  structure (still ONE target, its share on its nearest connector), a lone shape or a bag
+  (`T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT`); shares `floor(312 × w / Σw)`, the leftover nearest-first,
+  summing to exactly 312. Worked: a goblin and a one-connector tower both 100 px out take **208 / 104**;
+- **it does NOT hit his own side** (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE` = false) — his units, Helga,
+  structures, lone shapes and bags are spared, and a bag it pops bursts without hitting his side either.
+  This SUPERSEDES R138's *"hurting everything"* for this blast;
+- the radius stays 380 px (⚠ MINE since S168, not re-ruled); the overkill carries (`severWithCarry`).
+
+The `blast: 'raze'` variant has no production dispatcher now. `blast` stays REQUIRED, so no dispatcher
+can fall into either blast by omission.
 
 ### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
 
@@ -1656,6 +1737,7 @@ right-click a raid, and the drone, the raid, POWER OF RA and the hub were missin
 | a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/raColumn.ts` |
 | ⭐ the Pharaoh boss's Ra column (S192 — the perk's column, sparing nobody) | `'unit'` | `racial/raColumn.ts` |
 | ⭐ SCORCHED EARTH burning through a structure's pool (S191) | `'raid'` | `racial/scorchedGround.ts` |
+| ⭐ the zombie boss's death blast reaching a structure's pool (S192 T3) | `'unit'` | `racial/zombieDeathBlast.ts` |
 | the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
 | a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
@@ -1675,6 +1757,32 @@ an unknown cause falls through `severToastRenderer`'s switch and goes silent, wh
 
 
 ---
+
+
+### 5 · ⭐⭐ CLOSER = MORE DAMAGE — FOR EVERY BLAST (owner R193-B4, S193)
+
+> *"whoever is closer to him, to the actual blast, gets damaged more … And that's obviously for every
+> blast … the poop bag or the stink tower blast. Similarly, right?"* — owner, S193
+
+ONE falloff, `state/blastFalloff.ts`, and every production blast reads it (`blastFalloff.census.test.ts`
+fails on a blast producer that does not):
+
+| blast | kind | rule |
+|---|---|---|
+| zombie boss death blast (`racial/zombieDeathBlast.ts`) | split pool 312 | weight `kind × max(1, floor(R − d))`, kind 2 : 1 (ruled) |
+| lightning hub self-destruct (`potatoLifecycle.ts`) | split pool 120 | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE) |
+| suicide goblin (`creatures/suicideBlast.ts`) — units, shapes AND connectors | full hit | `blastHitAtDistance` |
+| lightning drone (`droneLifecycle.ts`) — units and shapes | full hit | `blastHitAtDistance` |
+| stink bag throw + landed bag's burst (`defenders/stinkTower.ts`, `damage.ts`) | full hit | `blastHitAtDistance` |
+| stink tower death blast (`defenders/stinkTower.ts`) | full hit | `blastHitAtDistance` |
+
+A **full-hit** blast deals its full ladder number at the centre and falls linearly to
+`BLAST_EDGE_FLOOR_PERCENT` = **50 %** of it at the rim (⚠ MINE — the curve and the 50 are mine; he ruled
+only the direction), floored, never below 1 on a real hit. Worked: the suicide goblin's 20 is 17 at 20 px
+and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. Not blasts, so flat: the
+stink tower's aura and a landed bag's lingering cloud (1 fifth a second — damage over time), SCORCHED
+ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is an open question). The drone's
+connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.
 
 
 ## 10 · ⛔ OPEN — needs the owner, do not guess

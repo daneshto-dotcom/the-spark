@@ -1029,6 +1029,20 @@ function stopHelgaTheme(resumeBase: boolean): void {
 }
 
 /**
+ * The raw "is any Helga engaged?" predicate the theme resolver debounces. Pure, so the sim side can
+ * pin it: S192 T5 walks her in BUILD and relies on this staying FALSE through that walk — she patrols
+ * in `IDLE` with a null target precisely so her theme does not play all build stage.
+ */
+export function isHelgaEngagedRaw(world: HelgaThemeWorldView): boolean {
+  for (const d of world.defenders.values()) {
+    if (d.kind !== 'princess') continue;
+    if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga must not hold her theme on
+    if (d.state !== 'IDLE' || d.targetCreatureId !== null) return true;
+  }
+  return false;
+}
+
+/**
  * S112 — per-frame situational-music resolver. Called from the render loop with the current world.
  * Idempotent + edge-driven (starts/stops only on change). No-op before the first user gesture.
  */
@@ -1038,12 +1052,7 @@ export function updateHelgaTheme(world: HelgaThemeWorldView): void {
     if (helgaThemeActive) stopHelgaTheme(false);
     return;
   }
-  let engagedRaw = false;
-  for (const d of world.defenders.values()) {
-    if (d.kind !== 'princess') continue;
-    if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga must not hold her theme on
-    if (d.state !== 'IDLE' || d.targetCreatureId !== null) { engagedRaw = true; break; }
-  }
+  const engagedRaw = isHelgaEngagedRaw(world);
   if (engagedRaw) lastHelgaEngagedTick = world.tick;
   const engaged = engagedRaw
     || (lastHelgaEngagedTick >= 0 && world.tick - lastHelgaEngagedTick < HELGA_DISENGAGE_DEBOUNCE_TICKS);
@@ -1864,6 +1873,17 @@ const HELGA_SLAP_URL = '/godly/helga/audio/helga-slap.ogg';
  */
 export async function playSlapSFX(pos?: Vec2): Promise<void> {
   if (await playOneShot(HELGA_SLAP_URL, pos)) duckMusic(600); // S192 audit A1 — no voice, no duck
+}
+
+/**
+ * ⭐ S192 (owner, A3) — THE PANTS: his own generated *"how they sound when they attack"* clip, converted
+ * from his mp3 (`assets-source/endgame-monster/`). ⭐ S193 (owner): it is the pants' ATTACK sound, like
+ * Helga's slap — played by `goblinRenderer` on each swing (`pantsSoundDue`), derived from synced state
+ * and THROTTLED there (wave 31 is 250 a seat).
+ */
+export const PANTS_SFX_URL = '/audio/endgame/pants-attack.ogg';
+export async function playPantsSFX(pos?: Vec2): Promise<void> {
+  await playOneShot(PANTS_SFX_URL, pos);
 }
 
 /**

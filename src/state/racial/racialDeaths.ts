@@ -16,17 +16,17 @@
  */
 
 import type { Creature } from '../creatures/creature.ts';
-import type { CreatureId } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
+import type { KillCredit } from './killCredit.ts';
 import { riseOnKill } from './theRisen.ts';
 import { hellspawnOnDeath } from './hellspawn.ts';
 
 export function onCreatureDeathDecided(
   world: World,
   victim: Creature,
-  killerId: CreatureId | null,
+  credit: KillCredit, // ⭐ S192 T2 — resolved at the blow, so a dead dealer still counts
 ): void {
   // ORDER IS FIXED AND DETERMINISTIC (both queue, FIFO): the killer's zombie, then the victim's split.
-  riseOnKill(world, victim, killerId); // zombies.l0 — THE RISEN
+  riseOnKill(world, victim, credit); // zombies.l0 — THE RISEN
   hellspawnOnDeath(world, victim); // demons.l5 — HELLSPAWN
 }

@@ -39,6 +39,8 @@ import type { Bond } from '../../physics/bonds.ts';
 import {
   ARMY_RETREAT_LEAD_TICKS,
   CANVAS_HEIGHT,
+  CHASE_GIVEUP_SLACK_PX,
+  CHASE_GIVEUP_SPEED_RATIO,
   CANVAS_WIDTH,
   PLAYER_COLORS,
   WORLD_EDGE_MARGIN,
@@ -47,9 +49,11 @@ import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveI
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
-import { isChannellingRa, isUntargetable } from './creature.ts';
+import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { getCreatureConfig, isUntargetableType } from './voltkin-config.ts';
+import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
+import { zoneOf, zoneOwner } from '../zones.ts';
+import { monsterVictimSeat } from '../endgame.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -745,7 +749,11 @@ export function findNearestEnemyCreatureFrom(
   ownerPlayerId: PlayerId,
   maxRangeSq: number = Infinity,
   excludeId?: CreatureId,
+  chaser?: Creature,
 ): CreatureId | null {
+  // S192 T6 — only `pickNavUnit` passes a chaser. Every other caller (castle guns, defenders, the
+  // Voltkin's in-reach zap) shoots and never chases, so for them this stays exactly the T13 scan.
+  const chase = chaser === undefined ? null : chaseLimitsOf(world, chaser);
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
@@ -771,10 +779,16 @@ export function findNearestEnemyCreatureFrom(
      * Kraken's own sonar cone — still reach it, because "cannot be targeted" is a statement about
      * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
      * by anything at all. `untargetableGates.test.ts` pins both halves.
+     *
+     * ⭐⭐ S192 T13 (owner) — and now NOT DEAD either: *"my spawn were attacking him, even though it
+     * was already dead"*. `isLiveCreatureTarget` = live pool, not a corpse-in-waiting, AND not
+     * untargetable — so the castle guns, every defender and the Voltkin's opportunism
+     * stop picking bodies by the same construction that made them stop picking locust clouds.
      */
-    if (isUntargetable(c, world.tick)) continue;
+    if (!isLiveCreatureTarget(world, c)) continue;
     const dSq = distSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
+    if (chase !== null && cannotCatch(chase, c, dSq)) continue; // S192 T6
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -845,8 +859,16 @@ export function pickNavUnit(
       // untargetable, every unit already locked on him renewed that lock here, and because
       // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
       // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
-      !isUntargetable(quarry, world.tick) &&
-      distSq(creature.pos, quarry.pos) <= leashRadiusSq
+      // ⭐⭐ S192 T13 (owner) — AND A CORPSE IS NOT HELD. A quarry killed earlier in this tick stays
+      // in the Map until the sweep; renewing the lock here walked the unit onto a body. The same
+      // predicate as every pick (`isLiveCreatureTarget`), so acquire and hold cannot disagree.
+      isLiveCreatureTarget(world, quarry) &&
+      distSq(creature.pos, quarry.pos) <= leashRadiusSq &&
+      // ⭐⭐ S192 T6 (owner) — AND LET GO OF WHAT YOU CANNOT CATCH. *"they ignore it if it's like way
+      // too quick for them to actually catch up"*. A non-combatant faster than you and out of your
+      // reach is dropped here, so the unit turns back to its push instead of chasing a drone across
+      // the board (measured S192: one passing drone cost a melee goblin 40 % of its advance).
+      !cannotCatch(chaseLimitsOf(world, creature), quarry, distSq(creature.pos, quarry.pos))
     ) {
       return held;
     }
@@ -859,8 +881,111 @@ export function pickNavUnit(
     creature.pos,
     creature.ownerPlayerId,
     acquireRadiusSq,
-    creature.id,
+    creature,
   );
+}
+
+/** S192 T6 — what `cannotCatch` needs to know about the chaser, read once per scan. */
+interface ChaseLimits {
+  readonly pos: Vec2;
+  /** `maxAccel` — the speed proxy (terminal speed ∝ maxAccel; only RATIOS are compared). */
+  readonly speed: number;
+  readonly giveUpAboveAccel: number;
+  readonly reach: number;
+  readonly reachSq: number;
+  /** The chaser's OWN seat zone (`zoneOwner`), or `null` if the seat owns no ground. */
+  readonly homeZone: number | null;
+  readonly layout: World['layout'];
+}
+
+function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
+  const cfg = getCreatureConfig(chaser.type);
+  const reach = engageRange(cfg) + CHASE_GIVEUP_SLACK_PX;
+  return {
+    pos: chaser.pos,
+    speed: cfg.maxAccel,
+    giveUpAboveAccel: cfg.maxAccel * CHASE_GIVEUP_SPEED_RATIO,
+    reach,
+    reachSq: reach * reach,
+    homeZone: zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout),
+    layout: world.layout,
+  };
+}
+
+/**
+ * ⭐ S192 T6 (owner, refinement) — **CAN THE CHASER CUT THE QUARRY OFF BEFORE IT ARRIVES?**
+ *
+ * > *"if you can acquire the drone or a pencil chewer before he reaches his target … then you
+ * > shouldn't ignore them"*
+ *
+ * The quarry is flying a straight line from its `pos` to its `targetPos` (the drone arm re-aims that
+ * point at its connector every tick; a chewer's is its bond). P = the point of that segment nearest
+ * the chaser. Feasible when the chaser can close to within its reach of P no later than the quarry
+ * gets there: `max(0, |C−P| − reach) / v_chaser ≤ |A−P| / v_quarry`, cross-multiplied so nothing is
+ * divided. ⚠ An approximation, stated: a straight path at cruise speed, no braking — the sim's own
+ * steering is not simulated forward. A quarry with no path (`targetPos` on itself) has nothing to
+ * cut off, so this is false and only reach/zone can engage it. Pure arithmetic on synced state, so
+ * the host, a worker and a successor all agree.
+ */
+function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: number): boolean {
+  const ax = quarry.pos.x;
+  const ay = quarry.pos.y;
+  const vx = quarry.targetPos.x - ax;
+  const vy = quarry.targetPos.y - ay;
+  const len2 = vx * vx + vy * vy;
+  if (!(len2 >= 1)) return false; // no path to cut (also rejects NaN)
+  let t = ((limits.pos.x - ax) * vx + (limits.pos.y - ay) * vy) / len2;
+  if (t < 0) t = 0;
+  else if (t > 1) t = 1;
+  const px = ax + t * vx;
+  const py = ay + t * vy;
+  const quarryTravel = t * Math.sqrt(len2);
+  const cdx = limits.pos.x - px;
+  const cdy = limits.pos.y - py;
+  const chaserTravel = Math.max(0, Math.sqrt(cdx * cdx + cdy * cdy) - limits.reach);
+  return chaserTravel * quarrySpeed <= quarryTravel * limits.speed;
+}
+
+/**
+ * ⭐⭐ S192 T6 (owner) — **SMART, NOT "ALWAYS IGNORE".**
+ *
+ * > *"I didn't say ignore drones or pencil chewers all the time. It just has to be smart … if you can
+ * > acquire the drone or a pencil chewer before he reaches his target, or if … the target is not too
+ * > far from you, so you're still in your zone, then you shouldn't ignore them … I already destroyed
+ * > his army, so I'm approaching to attack his buildings. But then one of his buildings produces a
+ * > drone … my creatures are changing a target to his drone, and they're basically chasing down till
+ * > the middle of the map … a never-ending cycle."* — owner, S192 refinement
+ *
+ * True (= skip it, at acquire AND at hold) only for a FAST NON-COMBATANT — cannot strike a unit
+ * (`isNonCombatantType`: drone, chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (⚠
+ * MINE) — when NONE of his three engage conditions holds:
+ *   1. it is within the chaser's reach + `CHASE_GIVEUP_SLACK_PX` (⚠ MINE) — *"if it's around them"*;
+ *   2. the chaser AND the quarry both stand inside the chaser's OWN seat zone — defending home, *"you're
+ *      still in your zone"* (S193 audit: the chaser's own position too, not only the quarry's);
+ *   3. an intercept is feasible (`interceptFeasible`) — *"before he reaches his target"*.
+ * Outside all three it is outside your zone, faster than you, and you cannot get ahead of it: the
+ * chase cannot close, so it is dropped and the unit's march / structure target resumes.
+ *
+ * ⭐ NO PING-PONG, AND NO MEMORY. The same predicate gates acquire and hold, so a dropped quarry cannot
+ * be re-acquired until it re-enters one of the three — which is the "never re-acquire that same fast
+ * quarry" rule with no new field, no history, and the `(distSq, id)` total order untouched (this only
+ * removes candidates). A quarry that CAN strike is never skipped, so R184-A is untouched.
+ */
+function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolean {
+  if (dSq <= limits.reachSq) return false; // 1 — *"maybe they target it if it's around them"*
+  if (!isNonCombatantType(quarry.type)) return false; // it can hit back — R184-A
+  const quarrySpeed = getCreatureConfig(quarry.type).maxAccel;
+  if (quarrySpeed <= limits.giveUpAboveAccel) return false; // catchable: chase as before
+  // 2 — home. ⭐ S193 audit: BOTH the quarry AND the chaser must stand in the chaser's own zone (*"you're
+  // still in your zone"* = the unit's own position). Testing the quarry alone let a unit abroad near the
+  // border re-acquire a drone crossing into its home zone at 88–202 px and turn back (2–4 pickups a drone).
+  if (
+    limits.homeZone !== null &&
+    zoneOf(limits.pos, limits.layout) === limits.homeZone &&
+    zoneOf(quarry.pos, limits.layout) === limits.homeZone
+  ) return false;
+  if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off
+  return true;
 }
 
 /**
@@ -885,11 +1010,15 @@ export function pickNavUnit(
  * `(distSq, id)` over the eligible set, so the list's order decides nothing (a NaN distance is never
  * selected, in either version).
  *
- * ⚠ AND WHAT IS DELIBERATELY *NOT* FILTERED: a creature killed earlier in the same loop. Under the
- * S155 N1 deferral it stays in `world.creatures` (with `ehp <= 0`, in `pendingCreatureDeaths`) until
- * the sweep after the loop, and the live scan has ALWAYS been able to return it. Filtering it here
- * would change which unit a goblin chases — an output. The index therefore keeps it, exactly as the
- * live scan does. (Whether it SHOULD be targetable is a behaviour question, reported, not built.)
+ * ⭐ S192 T13 — A CREATURE KILLED EARLIER IN THE SAME LOOP IS NOW SKIPPED, LIVE. Under the S155 N1
+ * deferral it stays in `world.creatures` (with `ehp <= 0`, in `pendingCreatureDeaths`) until the sweep
+ * after the loop. S191 kept it — byte-identical to the live scan, and the question was reported. The
+ * owner then ruled it a bug (*"my spawn were attacking him, even though it was already dead"*), so the
+ * live scan and this index both apply `isLiveCreatureTarget` at the call. ⛔ It is read LIVE, never
+ * cached into the per-seat list: `ehp` and `pendingCreatureDeaths` change between two calls of one
+ * tick, and the list stays membership-only, so the fingerprint argument below is untouched. The
+ * reference moved first (`navUnitReference.fixtures.ts`), and the differential still proves the two
+ * agree on every call.
  *
  * ## WHY THE CACHE CANNOT GO STALE
  *
@@ -968,26 +1097,29 @@ function findNearestEnemyCreatureIndexed(
   fromPos: Vec2,
   ownerPlayerId: PlayerId,
   maxRangeSq: number,
-  excludeId: CreatureId,
+  chaser: Creature,
 ): CreatureId | null {
+  const excludeId = chaser.id;
   if (epochWorld !== world || epochTick !== world.tick) {
-    return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId);
+    return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId, chaser);
   }
+  const chase = chaseLimitsOf(world, chaser); // S192 T6 — chaser-relative, so read here, never cached in the list
   const list = enemyListFor(world, ownerPlayerId);
   const ids = list.ids;
   const creatures = list.creatures;
   const untargetableType = list.untargetableType;
-  const tick = world.tick;
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]!;
     if (id === excludeId) continue;
     const c = creatures[i]!;
-    // = isUntargetable(c, tick): the static TYPE half, precomputed; the ritual half LIVE (stamped mid-loop).
-    if (untargetableType[i] || isChannellingRa(c, tick)) continue;
+    // The static TYPE half of untargetability, precomputed, short-circuits first; everything that can
+    // change mid-loop — the Ra ritual, a lethal deferred blow (S192 T13) — is read LIVE.
+    if (untargetableType[i] || !isLiveCreatureTarget(world, c)) continue;
     const dSq = distSq(fromPos, c.pos); // live position, never a copy
     if (dSq > maxRangeSq) continue; // range gate
+    if (cannotCatch(chase, c, dSq)) continue; // S192 T6 — static config + this dSq, read live
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -1141,9 +1273,18 @@ export function enemyCastleInReach(world: World, creature: Creature, reach: numb
    * ⚠ "not helga" needs no clause here: Helga is a DEFENDER, not a creature, and never reaches this
    * function at all.
    */
+  /*
+   * ⭐ S193 (audit) — A PANTS STRIKES ONLY ITS VICTIM'S KEEP. It belongs to no seat, so "not my seat"
+   * admitted EVERY keep it walked past, and the lowest seat in reach won — the engage, abort and
+   * strike sites all read this one function. Its victim is `monsterVictimSeat` (derived, synced).
+   */
+  const isPants = creature.type === 'endgameMonster' || creature.type === 'megaPants';
+  const onlySeat = isPants ? monsterVictimSeat(world, creature) : null;
+  if (isPants && onlySeat === null) return null;
   let best: PlayerId | null = null;
   for (const seat of world.players.keys()) {
     if (seat === creature.ownerPlayerId) continue;
+    if (isPants && seat !== onlySeat) continue;
     const victim = world.players.get(seat);
     if (victim === undefined || victim.castleHp <= 0) continue;
     const a = castleAnchor(seat as unknown as number, world.layout);
@@ -1401,7 +1542,7 @@ export function engageRange(config: { attackRange: number; holdsRange: boolean }
  * decision about whether the game is still won on points at all, which is the owner's call and its
  * own session (owner ruling D2).
  *
- * Returns `null` in the one case that has no answer: no live enemy seat.
+ * Returns `null` in the one case that has no answer: no live enemy seat (S192: no enemy keep standing).
  */
 export function enemyCastleMarchPos(world: World, creature: Creature): Vec2 | null {
   let best: Vec2 | null = null;
@@ -1409,6 +1550,17 @@ export function enemyCastleMarchPos(world: World, creature: Creature): Vec2 | nu
   let bestSeat = Infinity;
   for (const seat of world.players.keys()) {
     if (seat === creature.ownerPlayerId) continue;
+    /*
+     * ⭐⭐ S192 T13 (owner) — **NEVER MARCH ON A FALLEN KEEP.** *"an enemy castle was destroyed, and
+     * instead of my … creatures going and attacking other towers or another's castle, they went back
+     * to the castle that's already destroyed."* This loop had no `castleHp` test at all, while
+     * `enemyCastleInReach` refuses to strike a fallen keep — so a unit walked to the ruin and milled
+     * there forever (measured: 26 px from the fallen keep after 1200 ticks, the live keep untouched).
+     * Same test as `enemyCastleInReach` and `isEliminated`, so march, engage and strike agree. With no
+     * live enemy keep left this returns `null` and the caller keeps its current destination.
+     */
+    const victim = world.players.get(seat);
+    if (victim === undefined || victim.castleHp <= 0) continue;
     const anchor = castleAnchor(seat as unknown as number, world.layout);
     const d = distSq(creature.pos, anchor);
     const seatN = seat as unknown as number;

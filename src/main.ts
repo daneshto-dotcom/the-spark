@@ -161,7 +161,7 @@ import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
 import { makeFxLab } from './dev/fxLab.ts';
-import { resolveMusicTrack } from './render/raceMusic.ts';
+import { resolveMatchMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 // S182 STEP 0 — net bandwidth + snapshot-arrival counters, armed from the URL (see the call site).
@@ -2533,7 +2533,7 @@ Network routes: ${v.detail}`;
    * command line instead of from the screen he is already looking at.
    *
    * ⚠ BOTH STRIPS, NOT ONLY THE ONE HE SCREENSHOTTED. He was hosting, so he saw the orange host
-   * line; the joiner gets a grey `sync 0/0 seq=… [nostr:7/7]` one row up. Same class, same screen,
+   * line; the joiner gets a grey `sync 0/0 seq=… [nostr:4/4]` one row up. Same class, same screen,
    * and fixing only the half in the screenshot is how the other half survives to be reported again.
    */
   const lobbyDiagnostics = netStatsRequested(window.location.search);
@@ -2970,9 +2970,11 @@ Network routes: ${v.detail}`;
          * `resolveMusicTrack` takes the nullable race precisely so "not known yet" has an honest
          * answer (the original track) instead of a guess.
          */
-        setMusicTrack(resolveMusicTrack(
+        setMusicTrack(resolveMatchMusicTrack(
           world.players.get(world.localPlayerId)?.raceId ?? null,
           isRaceMusicEnabled(),
+          world.waveNumber, // ⭐ S193 R193-M — a pants round plays its own song
+          world.matchPhase,
         ));
         void playMusic();
         // S95 P0 — preload the NONET overlay chunk at match start so the trial appears INSTANTLY
@@ -3981,7 +3983,7 @@ Network routes: ${v.detail}`;
         const td = session.netTransport.getDiagnostics();
         const errs = session.clientSync !== null ? session.clientSync.applyErrors() : 0;
         // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
-        // Shows e.g. "nostr:6/7" = 6 of 7 relays connected. Failed strategies
+        // Shows e.g. "nostr:3/4" = 3 of 4 relays connected. Failed strategies
         // shown as "torrent:fail". Disabled strategies omitted from the strip.
         const strategySummary = formatStrategySummary(td.strategies);
         lobbyScreen.updateDiagnostics(
@@ -4195,9 +4197,13 @@ Network routes: ${v.detail}`;
      * note above), so polling there would set the wrong track for everyone.
      */
     if (world.gameState === 'PLAYING') {
-      setMusicTrack(resolveMusicTrack(
+      // ⭐ S193 (owner, R193-M) — and a pants round swaps to its song on the same poll, from synced
+      // state (`waveNumber`, `matchPhase`), so a joiner hears the round the host is in.
+      setMusicTrack(resolveMatchMusicTrack(
         world.players.get(world.localPlayerId)?.raceId ?? null,
         isRaceMusicEnabled(),
+        world.waveNumber,
+        world.matchPhase,
       ));
     }
 

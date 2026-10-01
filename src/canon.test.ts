@@ -24,6 +24,8 @@
  * assertion lands here in the SAME commit.
  */
 
+import { BLAST_EDGE_FLOOR_PERCENT, blastHitAtDistance, blastSplitWeight, splitBlastPool } from './state/blastFalloff.ts'; // S193
+import { T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT, T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE, T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS } from './state/racial/zombieDeathBlast.ts'; // S193
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -47,6 +49,8 @@ import {
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   PRINCESS_SLAP_RANGE,
+  CHASE_GIVEUP_SLACK_PX,
+  CHASE_GIVEUP_SPEED_RATIO,
   SparkType,
   STINK_BAG_DEF,
   STINK_BAG_HP,
@@ -105,7 +109,7 @@ import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
-import { STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
+import { HUB_BLAST_CREATURE_WEIGHT, STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
@@ -297,7 +301,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(56);
+    expect(PROTOCOL_VERSION).toBe(59);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1104,7 +1108,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 55 -> 56');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 58 -> 59');
+    expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 55 -> 56')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 54 -> 55')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 53 -> 54')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 52 -> 53')).toBeLessThan(constAt);
@@ -1318,7 +1325,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('BUILT S191')).toBe(true);
     // ⭐ S191 (owner) — ONE total, shared: the quote, and the division the planner does.
     expect(canonSays('So 120 damage points in total.')).toBe(true);
-    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(true);
+    // ⭐ S193 (owner R193-B4) — the 120 is shared BY DISTANCE now, not equally.
+    expect(canonSays('each target takes `floor(120 × w / Σw)` with `w = max(1, floor(240 − d))`')).toBe(true);
+    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(false);
     expect(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE).toBe(4); // his "four times a drone's damage"
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN));
     expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(120);
@@ -1335,12 +1344,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(arm.length, 'anti-vacuity: the arm was found').toBeGreaterThan(500);
     expect(arm).not.toContain('applyRadialClear('); // never the raze…
     expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
-    expect(arm).toContain('Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n)');
-    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS % n');
+    expect(arm).toContain('splitBlastPool(');
+    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS,');
+    expect(arm).toContain('blastSplitWeight(t.d2, radius,');
+    expect(HUB_BLAST_CREATURE_WEIGHT, 'MINE — 1:1 until he rules otherwise').toBe(1);
     expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
-    expect(host.match(/blast: 'raze'/g)?.length, 'and only the zombie boss keeps the raze').toBe(1);
+    // ⭐ S192 (owner T3) — the zombie boss no longer razes: his blast is its own split pool, not this action.
+    expect(host.match(/blast: 'raze'/g), 'nobody dispatches the raze from the host tick now').toBeNull();
+    expect(host.match(/applyZombieDeathBlast\(world,/g)?.length, 'the zombie boss blasts through his own arm').toBe(1);
   });
 
   /**
@@ -1472,6 +1485,47 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 });
 
+/**
+ * ⭐⭐ S192 — §3f, THE ENDGAME. Every number in the table is read back from its constant here, so a
+ * retune turns this red instead of leaving the canon stale. Own imports, so this block cannot collide
+ * with a sibling branch's edit of the import list above.
+ */
+import * as endgameConstants from './constants.ts';
+import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
+import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
+import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
+
+describe('S192 §3f — the endgame table is the constants', () => {
+  it('the last draft, the lock and the five wave counts', () => {
+    expect(endgameConstants.LAST_DRAFT_WAVE).toBe(26);
+    expect(canonSays('**wave 26** (`LAST_DRAFT_WAVE`)')).toBe(true);
+    expect(endgameConstants.BUILD_LOCK_FROM_WAVE).toBe(27);
+    expect(canonSays('from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`)')).toBe(true);
+    const w = endgameConstants.MONSTER_WAVE_PER_SEAT;
+    expect(canonSays(`**27 → ${w[27]} · 28 → ${w[28]} · 29 → ${w[29]} · 30 → ${w[30]} · 31 → ${w[31]}**`)).toBe(true);
+    expect([w[27], w[28], w[29], w[30], w[31]]).toEqual([10, 25, 50, 100, 250]); // ⭐ S193 — all his
+  });
+
+  it('⭐ S193 — the pace, the hold, the final fight and the mega pants', () => {
+    expect(canonSays(`**one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks** per lane (\`MONSTER_EMERGE_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
+    const m = ENDGAME_CONFIGS.megaPants;
+    expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
+    expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);
+    // ⭐ S193 R193-M — his song alternation, read back off the resolver.
+    const song = (w: number): number => PANTS_MUSIC_SRC.indexOf(pantsMusicForWave(w, 'FIGHT') as (typeof PANTS_MUSIC_SRC)[number]) + 1;
+    expect([27, 28, 29, 30, 31].map(song)).toEqual([1, 2, 1, 2, 1]);
+    expect(canonSays('waves **27 / 29 / 31 → song 1, 28 / 30 → song 2**')).toBe(true);
+  });
+
+  it('the pants: its stat line, pool and strike', () => {
+    const c = ENDGAME_CONFIGS.endgameMonster;
+    expect(canonSays(`HP ${c.hp} / DEF ${c.def} / ATK ${c.atk} / PEN ${c.pen} → pool **${egPool(c.hp, c.def)}**, strike **${egAtk(c.atk, c.pen)}**`)).toBe(true);
+    expect(canonSays(`\`MONSTER_OWNER_SEAT\` (${endgameConstants.MONSTER_OWNER_SEAT})`)).toBe(true);
+  });
+});
+
 /* ────────────────────── S191 R2-D — the hub blast's numbers, §7, the SEVER table, and §2's overkill ────────────────────── */
 
 describe('S191 R2-D — canon truth the audit found drifting', () => {
@@ -1487,6 +1541,22 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('pools 260–462')).toBe(true);
     // The blast's LARGEST single share is the whole 120 (one target alone), and even that fells no boss.
     expect(Math.min(...pools)).toBeGreaterThan(STRUCTURE_SELFDESTRUCT_FIFTHS);
+  });
+
+  it('⭐⭐ S193 R193-B1..B4 — the zombie blast is his (312, 2 : 1, not his side) and every blast falls off', () => {
+    expect(canonSays('312 blast pool, but split over, you know, everyone who')).toBe(true);
+    expect(canonSays('creatures get twice as much')).toBe(true);
+    expect(canonSays('It does not hit his own side')).toBe(true);
+    expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
+    expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT).toBe(2);
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
+    expect(canonSays('take **208 / 104**')).toBe(true);
+    expect(splitBlastPool(312, [blastSplitWeight(100 * 100, 380, 2), blastSplitWeight(100 * 100, 380, 1)])).toEqual([208, 104]);
+    expect(canonSays('`BLAST_EDGE_FLOOR_PERCENT` = **50 %**')).toBe(true);
+    expect(BLAST_EDGE_FLOOR_PERCENT).toBe(50);
+    expect(canonSays("the suicide goblin's 20 is 17 at 20 px")).toBe(true);
+    expect(blastHitAtDistance(20, 20 * 20, 70)).toBe(17);
+    expect(blastHitAtDistance(20, 60 * 60, 70)).toBe(11);
   });
 
   it('⛔ BLAST-6 / GATES-2 — §7 no longer calls the blast "unchanged … not built"', () => {
@@ -1523,6 +1593,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
       'state/potatoLifecycle.ts',
       'state/racial/raColumn.ts',
       'state/racial/scorchedGround.ts',
+      'state/racial/zombieDeathBlast.ts', // ⭐ S192 T3
       'state/world.ts',
     ]);
     const table = CANON.slice(CANON.indexOf('### 4 · `SEVER_BOND`'), CANON.indexOf('## 10 · '));
@@ -1590,5 +1661,27 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     // ⭐ S191 (owner) — BLAST-1 is his ruling now, quoted in §9d item 2.
     expect(canonSays('HIS RULING (S191, BLAST-1)')).toBe(true);
     expect(canonSays("they're resistant")).toBe(true);
+  });
+});
+
+describe('S192 units-ai — §5c is pinned to its constants', () => {
+  it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+    expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
+    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1.25**')).toBe(true);
+    expect(canonSays('`CHASE_GIVEUP_SLACK_PX` = **20** px')).toBe(true);
+    // The drone outruns every chaser at 1.25 (fastest t3Bat 168 × 1.25 = 210 < 240); the chewer does not
+    // outrun the melee goblin (120 ≤ 119 × 1.25) — the two arithmetic facts the canon's reading rests on.
+    expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+  });
+
+  it('⛔ T13 — the S191 "dead units deliberately not filtered" report is marked superseded, and the two rulings are recorded', () => {
+    const flat = CANON.replace(/\r?\n\s*/g, ' ');
+    expect(canonSays('SUPERSEDED: the S191 perf report that the nav-unit index')).toBe(true);
+    expect(flat.includes('**a fading unit stays a target**')).toBe(true);
+    expect(flat.includes("**a fallen tower's leftover shapes stay targetable until destroyed**")).toBe(true);
+    expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
   });
 });

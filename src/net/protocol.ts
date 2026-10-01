@@ -958,7 +958,48 @@ export type { NetSnapshot };
  *      successor MINTS new chewers with a 3000-tick life and new drones with a 480-tick absolute fuse, so its
  *      stock dies at the next FIGHT edge while a v56 build keeps it.
  */
-export const PROTOCOL_VERSION = 56 as const;
+/**
+ * ⭐⭐ S193 — **BUMPED 56 -> 57: `s192/units-ai` — THREE TARGETING RULES THE HOST TICK COMPUTES.** No field,
+ * no wire change, no new discriminant — the bump is for the RULE (the S186 test; S192's C-6 at 54 is the
+ * precedent): a host-migration successor runs `runHostTick`, so a v56 and a v57 build that shook hands would
+ * pick different targets from the same state.
+ *   1. T13 — NEVER ATTACK THE DEAD (owner S192: "my spawn were attacking him, even though it was already
+ *      dead … went back to the castle that's already destroyed"): one predicate `isLiveCreatureTarget` at
+ *      every target-picking site, and a fallen keep is never marched on (nearest live keep, then lowest seat).
+ *   2. T6 — DON'T CHASE WHAT YOU CAN'T CATCH, SMARTLY (R192-U4): a fast drone/chewer is engaged when in reach,
+ *      when BOTH it and the chaser are in the chaser's home zone, or when interceptable; never across the map
+ *      (`CHASE_GIVEUP_SPEED_RATIO` 1.25, `CHASE_GIVEUP_SLACK_PX` 20 — ⚠ MINE).
+ *   3. T5 — HELGA PATROLS IN BUILD TOO (owner S192: "She should always like walk around her tower patrolling").
+ */
+/**
+ * ⭐⭐ S193 — **BUMPED 57 -> 58: `s192/zombies` — THE BLASTS, THE RISEN, THE FEED.** Each reason is enough alone
+ * (the S186 test — a v57 and a v58 build that shook hands would compute different worlds from the same state):
+ *   1. EVERY BLAST FALLS OFF WITH DISTANCE (owner R193-B4: "The closer you are to the blast side, the more damage
+ *      you take"): `state/blastFalloff.ts` — split-pool blasts weight their split by kind × max(1, R − d); full-hit
+ *      blasts scale 100 % at the centre → `BLAST_EDGE_FLOOR_PERCENT` 50 at the rim (⚠ MINE), floored at 1;
+ *      `applyRadialDamage` takes a REQUIRED `falloff`. The hub's 120 is now distance-split.
+ *   2. THE ZOMBIE BOSS'S DEATH BLAST IS A 312 POOL, NOT A RAZE (R193-B1..B3): split over everyone around, creatures
+ *      twice a structure's share, his OWN SIDE SPARED (supersedes R138's "hurting everything" for this blast),
+ *      connectors cut through `severWithCarry`. A v57 host or successor razes everything in 380 px.
+ *   3. THE RISEN FROM EVERY ZOMBIE KILL (owner T2): the `KillCredit` seam credits blast and ability kills too.
+ *   4. CORPSE EATER FEED (T12): the feed bite skips the initiative coin; the heal is paid as 6 pulses × 10 ticks
+ *      from the new serialized, hashed, on-wire `Creature.corpseEaterHealBank` — a v57 successor drops it.
+ */
+/**
+ * ⭐⭐ S193 — **BUMPED 58 -> 59: `s192/endgame` — THE PANTS (waves 27–31, the owner's endgame spec + his nine answers).**
+ * Each reason is enough alone (the S186 test):
+ *   1. TWO NEW SERIALIZED `CreatureType`s — `endgameMonster` (the pants: HP 10 / DEF 5 / ATK 5 / PEN 3, pool 100,
+ *      hit 40) and `megaPants` (⚠ MINE: HP 500 / DEF 20 / ATK 60 / PEN 20). A v58 peer has no config for either.
+ *   2. THE BUILD LOCK — from the BUILD of wave 27 a `dispatch` gate refuses every build intent (FIX, FEED_TOWER and
+ *      the scorch cast allowed; PULL refused) and the quarry spawns no shapes. A v58 joiner would predict builds
+ *      the host refuses; a v58 successor would let them through.
+ *   3. THREE ADDITIVE WIRE FIELDS — `Creature.monsterSeat`, `monsterWaveSpawned`, `monsterFightStartTick`.
+ *   4. RULES EVERY HOST RUNS — the trickle (10/25/50/100/250 per LIVING player, one released at a time, at most
+ *      `MONSTER_MAX_LIVE_PER_SEAT` 30 alive per seat — ⚠ MINE, sized from the measured snapshot), the wave-31 fight
+ *      that never ends on the clock while 2+ live, the mega pants past 240 s (⚠ MINE), pants seeing only their
+ *      victim's keep, the spawner bounty off on waves 27–31 (⚠ MINE), the last draft at wave 26.
+ */
+export const PROTOCOL_VERSION = 59 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1286,6 +1327,12 @@ export interface HelloMsg {
    *
    * S192: 55->56 (DEPLOY #12 — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist). Full reasons on the const's JSDoc.)
    *
+   * S193: 56->57 (DEPLOY #17 — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules. Full reasons on the const's JSDoc.)
+   *
+   * S193: 57->58 (DEPLOY #18 — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank. Full reasons on the const's JSDoc.)
+   *
+   * S193: 58->59 (DEPLOY #20 — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1323,7 +1370,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 56;
+  readonly protoVersion: 59;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

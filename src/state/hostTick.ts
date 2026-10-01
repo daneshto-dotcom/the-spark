@@ -42,9 +42,9 @@ import {
   PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
   phaseDurationTicks,
+  MONSTER_HOLD_LEAD_TICKS, // ⭐ S193 — the monster fight hold
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  T9_ZOMBIE_DEATH_BLAST_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -100,6 +100,8 @@ import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
   reviveDormantHelgas, // S189 R190-J — wake a dead Helga at the FIGHT→BUILD edge while her hall stands
+  stepPrincessPatrol, // S192 T5 — her BUILD-stage patrol (motion only)
+  defenderHomePos,
 } from './defenders/defenderLifecycle.ts';
 // S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -142,7 +144,11 @@ import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
+// ⭐ S192 (owner, A3) — the endgame monster waves.
+import { isPantsType, removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
+import { isMonsterFightHeld, isMonsterWave } from './endgame.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
+import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -199,7 +205,8 @@ export interface HostTickState {
    * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
-  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
+  // ⭐ S192 T2 — `owner` too: the death blast credits his seat's kills after he is gone.
+  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number; owner: PlayerId }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
   /**
@@ -408,9 +415,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   tickDraft(world);
 
   if (world.gameState === 'PLAYING') {
+    /*
+     * ⭐⭐ S193 (owner, Q2 + ⚠ MINE) — A MONSTER FIGHT CAN HOLD ITS DEADLINE. *"If two players are still
+     * alive, then the clock doesn't end. It doesn't go into the next build phase."* (wave 31, his) — and
+     * waves 27–30 hold while pants are still to come out (mine; `MONSTER_HOLD_LEAD_TICKS`). The deadline
+     * is kept that lead AHEAD of the clock rather than frozen, so every phase-end window (the army's
+     * run-home, the gatherers' shelter, the bots' Ra timing) stays closed while held and fires
+     * normally once the hold lets go. Policy: `isMonsterFightHeld` (pure, synced state).
+     */
+    if (isMonsterFightHeld(world) && world.phaseEndsAtTick < world.tick + MONSTER_HOLD_LEAD_TICKS) {
+      world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    }
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
+      const edgeTick = world.phaseEndsAtTick;
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
+      // ⭐ S193 — the monster fight's own clock (`monsterFightStartTick`): stamped with the deadline
+      // tick the edge crossed (so a NONET multi-flip stamps the same value), cleared on leaving FIGHT.
+      world.monsterFightStartTick =
+        world.matchPhase === 'FIGHT' && isMonsterWave(world.waveNumber) ? edgeTick : 0;
       // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
       // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
       // above, so reading it here is already the new phase — which is exactly what is wanted.
@@ -437,6 +460,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * is exactly why nothing caught it. Both crossings are covered here.
        */
       bankCarriedSparksAtPhaseEdge(world);
+      /*
+       * ⭐ S192 (endgame) — every crossing restarts the monster count, and the fight's survivors leave
+       * the board at its end — ⭐ HIS ruling (S193 Q3): *"they vanish when this wave ends"*. Removed BEFORE `recallArmies` below, which would
+       * otherwise look for a home a monster does not have.
+       */
+      world.monsterWaveSpawned = 0;
+      if (world.matchPhase === 'BUILD') removeEndgameMonsters(world);
       if (world.matchPhase === 'BUILD') {
         /*
          * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
@@ -1433,7 +1463,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // player severed their own bonds, or is mid-rebuild) must still be REMOVED, or a dead tower
       // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
       // WEAPON, not the entity's bookkeeping.
-      if (world.matchPhase !== 'FIGHT') continue;
+      //
+      // ⭐⭐ S192 T5 (owner) — *"Helga is not patrolling during … the build stage … She should always
+      // like walk around her tower patrolling."* Dormancy suspends the weapon, NOT HER LEGS: in BUILD
+      // a living Helga takes one patrol step and nothing else — no acquire, no fire clock, no aura,
+      // and she stays IDLE with a null target, so her music does not start (see `stepPrincessPatrol`).
+      // `standDownDefenders` leaves every non-DORMANT defender IDLE at the FIGHT→BUILD edge, so the
+      // IDLE gate is every living Helga in practice; DORMANT (R190-J) stays exactly where she fell.
+      if (world.matchPhase !== 'FIGHT') {
+        if (d.kind === 'princess' && d.state === 'IDLE') {
+          const home = defenderHomePos(world, d);
+          if (home !== null) stepPrincessPatrol(world, d, home);
+        }
+        continue;
+      }
       if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga does nothing until the edge
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
@@ -1532,6 +1575,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // ⛔ WHY THE WHOLE BLOCK AND NOT A MOVEMENT CLAMP. A clamp would freeze them in place but leave
   // Step 1's target re-selection and Step 3's CREATURE_ATTACK dispatch running, so a creature
   // already adjacent to a bond would keep chewing it without moving an inch.
+  /*
+   * ⭐ S192 (owner, A3) — THE MONSTER WAVES POUR OUT OF THE QUARRY, BEFORE THE FAN-OUT, the position
+   * every spawner poll in this tick already uses: a monster born here is in SPAWNING (force-free) for
+   * its first `spawnTicks`, so it joins the loop below without acting on its birth tick. Gated inside
+   * (PLAYING + FIGHT + waves 27–31), so this call site holds no policy.
+   */
+  tickEndgameSpawner(world);
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
     /*
@@ -1645,6 +1695,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = at.y;
           }
         }
+      } else if (creature !== undefined && creature.state === 'SEEKING' && isPantsType(creature.type)) {
+        /*
+         * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER HUNTS ONE SEAT. *"those monsters generate and attack
+         * a certain enemy."* Placed AHEAD of the structure-attacker arm because a monster belongs to no
+         * seat, so that arm's owner-colour scans would aim it at EVERY player's buildings. Its strike
+         * still runs through the shipped fire step below, unchanged.
+         */
+        runEndgameMonsterTargeting(world, creature);
       } else if (
         creature !== undefined &&
         creature.state === 'SEEKING' &&
@@ -2428,10 +2486,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     if (world.gameState !== 'PLAYING') {
       previous.clear();
     } else {
-      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number }[] = [];
+      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number; owner: PlayerId }[] = [];
       for (const [id, boss] of previous) {
         if (world.creatures.has(id)) continue;
-        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y });
+        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y, owner: boss.owner });
       }
       /*
        * ⚠ S168 POST-AUDIT — TOTAL ORDER. The scan above is a membership test and does not care about
@@ -2455,19 +2513,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       previous.clear();
       for (const c of world.creatures.values()) {
         if (isT9BossType(c.type)) {
-          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
+          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId });
         }
       }
 
       for (const boss of deaths) {
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
-        dispatch(world, {
-          type: 'STRUCTURE_SELFDESTRUCT',
-          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
-          pos: { x: boss.x, y: boss.y },
-          radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
-          // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
-        });
+        /*
+         * ⭐⭐ S192 (owner T2 + T3) — NO LONGER A RAZE. *"a total damage pool that is split … closer to the
+         * explosion will give you more damage and further is less"* and *"every zombie that kills …
+         * through an explosion … creates a regular zombie"*. One pool (⚠ AWAITING OWNER), split by
+         * distance over everything in `T9_ZOMBIE_DEATH_BLAST_RADIUS`, owner-agnostic as R138 ruled,
+         * every kill credited to his seat — see `racial/zombieDeathBlast.ts`.
+         */
+        applyZombieDeathBlast(world, { x: boss.x, y: boss.y }, boss.owner);
       }
     }
   }

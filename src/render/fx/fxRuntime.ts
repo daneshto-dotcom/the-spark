@@ -23,11 +23,11 @@
  * ⛔ RENDER-ONLY. Nothing here reads or writes sim state; the layouts read synced fields and ticks.
  */
 
-import { Container, type Rectangle } from 'pixi.js';
+import { Container, DisplacementFilter, Sprite, Texture, type Rectangle } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import { ShockwaveFilter } from 'pixi-filters/shockwave';
-import type { FxShockSink } from './emitter.ts';
-import { fxLegacy, setFxHooks, setFxLegacyFlag } from './fxState.ts';
+import type { FxDisplaceSink, FxShockSink } from './emitter.ts';
+import { fxLegacy, setFxDisplaceHook, setFxHooks, setFxLegacyFlag } from './fxState.ts';
 import { FxLayer } from './fxLayer.ts';
 
 /** Ticks per second of the sim clock every layout ages against. */
@@ -36,6 +36,10 @@ const TICK_HZ = 60;
 export const FX_MAX_SHOCKWAVES = 3;
 
 interface ShockReq { x: number; y: number; age: number; radius: number; amplitude: number }
+/** S193 (V10) — at most this many directional ripples at once (two Krakens firing on one frame). */
+export const FX_MAX_DISPLACE = 2;
+interface DisplaceReq { x: number; y: number; radius: number; rot: number; strength: number }
+interface DisplaceSlot { sprite: Sprite; filter: DisplacementFilter }
 
 interface Installed {
   ground: FxLayer;
@@ -47,6 +51,10 @@ interface Installed {
   shockPool: ShockwaveFilter[];
   shockReqs: ShockReq[];
   shockApplied: number;
+  /** S193 (V10) — the directional ripples: this frame's requests, the pooled filters, the applied list's shape. */
+  displaceReqs: DisplaceReq[];
+  displacePool: DisplaceSlot[];
+  groundFilterKey: number;
 }
 
 let installed: Installed | null = null;
@@ -93,8 +101,12 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
   // ⛔ AND PADDING: the blurred glow spreads past the layer's bounds, and with no padding it was CLIPPED
   // there — a hard-edged rectangle around every bright effect. 48 px covers the blur's reach.
   bloom.padding = 48;
-  installed = { ground, top, shade, groundArt: opts.groundArt, screen: opts.screen, bloom, shockPool: [], shockReqs: [], shockApplied: 0 };
+  installed = {
+    ground, top, shade, groundArt: opts.groundArt, screen: opts.screen, bloom, shockPool: [], shockReqs: [], shockApplied: 0,
+    displaceReqs: [], displacePool: [], groundFilterKey: 0,
+  };
   setFxHooks({ top, shade, ground, shock: shockSink });
+  setFxDisplaceHook(displaceSink);
   setFxLegacyFlag(readLegacyFromUrl());
   setFxHighQualityRuntime(opts.highQuality);
 }
@@ -129,6 +141,7 @@ export function fxBeginFrame(): void {
   inst.top.begin();
   inst.shade.begin();
   inst.shockReqs.length = 0;
+  inst.displaceReqs.length = 0;
 }
 
 export function fxEndFrame(): void {
@@ -165,13 +178,108 @@ function applyShocks(inst: Installed, forceOff: boolean): void {
     f.amplitude = r.amplitude * scale;
     f.time = r.age / TICK_HZ;
   }
-  if (reqs.length !== inst.shockApplied) {
+  // ⭐ S193 (V10) — the directional ripples share the ground art's filter list with the shockwaves.
+  const dreqs = forceOff ? [] : inst.displaceReqs;
+  placeDisplaceSlots(inst, dreqs);
+  const key = reqs.length * (FX_MAX_DISPLACE + 1) + dreqs.length;
+  if (key !== inst.groundFilterKey) {
     // ⚠ The filter frame is pinned to the SCREEN, so a ripple's centre is a plain global point
     // (without it the frame would be the art's bounds and every centre would need re-basing).
-    inst.groundArt.filterArea = reqs.length === 0 ? undefined : inst.screen;
-    inst.groundArt.filters = reqs.length === 0 ? null : inst.shockPool.slice(0, reqs.length);
-    inst.shockApplied = reqs.length;
+    const list = [...inst.shockPool.slice(0, reqs.length), ...inst.displacePool.slice(0, dreqs.length).map((d) => d.filter)];
+    inst.groundArt.filterArea = list.length === 0 ? undefined : inst.screen;
+    inst.groundArt.filters = list.length === 0 ? null : list;
+    inst.groundFilterKey = key;
   }
+  inst.shockApplied = reqs.length;
+}
+
+/* ── S193 `s193/visuals-boss` (V10) — THE DIRECTIONAL RIPPLE (one `DisplacementFilter` per request, HIGH only).
+ *
+ * The map is generated once at runtime (no asset): a 128 px canvas whose red/green channels push each
+ * pixel RADIALLY, one full sine across a band at 60-100 % of its radius (crest at 80 %), only inside a
+ * ±60° wedge facing +x with a soft angular edge. Its border is neutral grey (128,128 = no shove), so the
+ * clamp-to-edge sampling outside the sprite moves nothing. ⚠ The wedge is the Kraken sonar's cone
+ * (`KRAKEN_SONAR_COS_HALF_ANGLE` 0.5 → ±60°); a later user wanting another angle adds a map.
+ * The map sprite lives in the GROUND fx layer's container (board space) and is never drawn (the filter
+ * clears `renderable` itself) — only its transform is read. It is not a child of `groundLayer` or
+ * `fogHiddenLayer`, so the `fog.spec.ts` roll call does not move.
+ */
+const DISPLACE_MAP_PX = 128;
+/** Where the crest sits, as a fraction of the map's radius. */
+export const FX_DISPLACE_CREST = 0.8;
+let displaceMap: Texture | null = null;
+
+function displaceMapTexture(): Texture {
+  if (displaceMap !== null) return displaceMap;
+  const n = DISPLACE_MAP_PX;
+  const c = document.createElement('canvas');
+  c.width = n;
+  c.height = n;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(n, n);
+  const r0 = n / 2;
+  const half = Math.PI / 3;
+  for (let py = 0; py < n; py++) {
+    for (let px = 0; px < n; px++) {
+      const dx = (px + 0.5 - r0) / r0;
+      const dy = (py + 0.5 - r0) / r0;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const th = Math.atan2(dy, dx);
+      let d = 0;
+      if (r > 0.6 && r < 1) {
+        const u = (r - 0.6) / 0.4;
+        const ang = Math.min(1, Math.max(0, (half - Math.abs(th)) / 0.3));
+        d = Math.sin(u * Math.PI * 2) * Math.sin(u * Math.PI) * ang * ang;
+      }
+      const i = (py * n + px) * 4;
+      img.data[i] = Math.round(128 + 127 * d * Math.cos(th));
+      img.data[i + 1] = Math.round(128 + 127 * d * Math.sin(th));
+      img.data[i + 2] = 128;
+      img.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  displaceMap = Texture.from(c);
+  return displaceMap;
+}
+
+function placeDisplaceSlots(inst: Installed, reqs: readonly DisplaceReq[]): void {
+  while (inst.displacePool.length < reqs.length) {
+    const sprite = new Sprite(displaceMapTexture());
+    sprite.anchor.set(0.5);
+    sprite.eventMode = 'none';
+    inst.ground.container.addChild(sprite);
+    const filter = new DisplacementFilter({ sprite, scale: 0 });
+    inst.displacePool.push({ sprite, filter });
+  }
+  const scale = inst.groundArt.worldTransform.a || 1;
+  for (let i = 0; i < reqs.length; i++) {
+    const r = reqs[i]!;
+    const slot = inst.displacePool[i]!;
+    const size = (2 * r.radius) / FX_DISPLACE_CREST;
+    slot.sprite.position.set(r.x, r.y);
+    slot.sprite.width = size;
+    slot.sprite.height = size;
+    slot.sprite.rotation = r.rot;
+    // (map − 0.5) peaks at 0.5, so the filter scale is twice the wanted shove, in screen px.
+    slot.filter.scale.x = 2 * r.strength * scale;
+    slot.filter.scale.y = 2 * r.strength * scale;
+  }
+}
+
+const displaceSink: FxDisplaceSink = {
+  ripple(x, y, radius, rot, strength) {
+    const inst = installed;
+    if (inst === null || fxLegacy() || !highQuality) return;
+    if (radius <= 1 || strength <= 0) return;
+    if (inst.displaceReqs.length >= FX_MAX_DISPLACE) return;
+    inst.displaceReqs.push({ x, y, radius, rot, strength });
+  },
+};
+
+/** DEV probe (S193): the directional ripples applied last frame. */
+export function fxDisplaceCount(): number {
+  return installed === null ? 0 : installed.groundFilterKey % (FX_MAX_DISPLACE + 1);
 }
 
 /** Hide everything (title return). */
@@ -181,6 +289,7 @@ export function fxClear(): void {
   installed.top.clear();
   installed.shade.clear();
   installed.shockReqs.length = 0;
+  installed.displaceReqs.length = 0;
   applyShocks(installed, true);
 }
 

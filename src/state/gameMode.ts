@@ -28,6 +28,8 @@ import {
   SPAWNER_KILL_REWARD,
   SPAWNER_RADIUS,
   STARTING_VICTORY_POINTS,
+  MONSTER_FINAL_WAVE,
+  MONSTER_FIRST_WAVE,
 } from '../constants.ts';
 import { makeIdlePlayer, type Player } from '../game/player.ts';
 import { defaultRaceForSeat, type RaceId } from './races.ts';
@@ -253,6 +255,8 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.sudoku = null;
   world.sudokuFiredThisMatch = false;
   world.waveNumber = 1; // S157 B8 — every match opens on wave 1
+  world.monsterWaveSpawned = 0; // ⭐ S192 — and no endgame monster has been released
+  world.monsterFightStartTick = 0; // ⭐ S193 — and no monster fight is running
   /*
    * ⭐⭐ S187 — EVERY SEAT STARTS A MATCH HAVING DRAFTED NOTHING, and the pre-wave-1 draft opens
    * here, at the one TITLE/LOBBY->PLAYING edge every entry path takes (solo, bots, host 1v1, joiner).
@@ -468,6 +472,7 @@ export function applyReturnToTitle(world: World): World {
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
+  world.structureHealHits.length = 0; // ⭐ S192 T11 — same, for the repair heal record
   // ⭐ S182 — a mass clear is not a massacre: tell the renderer to drop its structure watch,
   // or its vanish sweep prints a full-pool number for every shape, bag and Helga on the board.
   world.structureWatchEpoch += 1;
@@ -798,6 +803,14 @@ export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): 
   // gate is behaviour-neutral anyway — from S149 nothing can attack during BUILD (R5), so a bounty in
   // BUILD cannot arise; it matters only in the S147 interim where towers are still always-on.
   if (world.matchPhase !== 'FIGHT') return;
+  /*
+   * ⭐ S193 (audit) — NO BOUNTY ON A PANTS WAVE. His ruling: *"there's no points for those kills, you
+   * just need to survive."* ⚠ MINE, THE SHAPE OF IT: this bounty never named a killer — it is split
+   * over every living enemy of the owner, whoever razed the tower — so it cannot tell a pants raze from
+   * a rival's without new per-structure attribution. On waves 27–31 the pants do the razing, so the
+   * whole bounty is off for those fights; every other score path is untouched.
+   */
+  if (world.waveNumber >= MONSTER_FIRST_WAVE && world.waveNumber <= MONSTER_FINAL_WAVE) return;
   const enemies: PlayerId[] = [];
   for (const player of world.players.values()) {
     // ⛔ S162 POST-AUDIT — A FALLEN SEAT IS NOT A RAIDER. The only filter here was "not the owner",

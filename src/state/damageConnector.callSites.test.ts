@@ -92,7 +92,8 @@ describe('S188 — the damageConnector call-site census', () => {
     // S191 C-5 +1: the lightning hub's ladder blast (a null site). S191 (owner) +1: the overkill
     // CARRY in `damage.ts` (`severWithCarry`) — a null site, the lifesteal was paid on the whole hit.
     // ⭐ S191 +1 — SCORCHED EARTH's structure arm (null).
-    expect(sites.length).toBe(8);
+    // ⭐ S192 (zombies) +1: the zombie boss's death blast (a null site — he is dead).
+    expect(sites.length).toBe(9);
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -121,6 +122,7 @@ describe('S188 — the damageConnector call-site census', () => {
       'src/state/damage.ts': 1,
       // ⭐ S191 — SCORCHED EARTH burning a structure: burning ground heals nobody (BLOOD DEBT).
       'src/state/racial/scorchedGround.ts': 1,
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — a dead boss heals nobody
     });
   });
 });

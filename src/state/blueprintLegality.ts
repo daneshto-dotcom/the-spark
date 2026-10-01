@@ -51,6 +51,7 @@ import {
 } from '../constants.ts';
 import { FOOTPRINT_MARGIN, blueprintExtent, blueprintPositions } from './blueprints.ts';
 import { canBuildAt, castleKeepOutHitsBox, type Box } from './zones.ts';
+import { isBuildLocked } from './endgame.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
@@ -88,7 +89,7 @@ const EDGE_PAD = 0;
  * (`castlePanel.ts`: *"A DISABLED CONTROL MUST SAY WHY"*), and a silently-red ghost is the same
  * defect in a different costume.
  */
-export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'CASTLE' | 'ENEMY GROUND' | 'BLOCKED' | 'FIGHT';
+export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'CASTLE' | 'ENEMY GROUND' | 'BLOCKED' | 'FIGHT' | 'LOCKED';
 
 /**
  * ⭐ S182 — PURE — the blueprint's footprint as a world-space box, centred at `centre`.
@@ -148,6 +149,11 @@ export function stampRefusalAt(
   //    the real reason is "the fight has started" would be a lie on your own territory. So the two
   //    halves of legality are asked separately HERE and composed everywhere else.
   if (world.matchPhase !== 'BUILD') return 'FIGHT';
+
+  // 0b. ⭐ S193 (endgame merge) — FROM BUILD OF WAVE 27 NOTHING NEW IS BUILT. `dispatch`'s lock gate
+  //     refuses BUILD_BLUEPRINT outright; asked HERE as well so the ghost says LOCKED instead of
+  //     tinting green over a click the reducer will drop, and the bots stop proposing stamps.
+  if (isBuildLocked(world)) return 'LOCKED';
 
   // 1. The whole footprint must be on canvas — a partially off-screen tower is unclickable and
   //    un-defendable, and the arena edge is not a legal build site in any TD.

@@ -237,6 +237,43 @@ export function isUntargetable(
 }
 
 /**
+ * ⭐⭐ S192 T13 (owner) — **IS THIS CREATURE A LIVE TARGET? THE ONE LIVENESS PREDICATE FOR EVERY PICK
+ * AND EVERY HOLD.**
+ *
+ * > *"creatures attacking a dead enemy … my spawn were attacking him, even though it was already
+ * > dead"* — owner, S192. He ruled the S191 perf question with it: a pick that returns a unit killed
+ * > earlier in the same tick IS a bug.
+ *
+ * Three conditions, all required:
+ *   1. `ehp > 0` — defence in depth (the immediate arm of `damageCreature` deletes; see 2);
+ *   2. not in `pendingCreatureDeaths` — **the corpse-in-waiting.** Under the S155 N1 deferral a unit
+ *      killed earlier in the strike batch stays in `world.creatures` until the sweep after the loop;
+ *      every scan used to be able to return it, and perf measured that 604 / 2 616 times (waves 1–3 /
+ *      1–5). The chaser then entered ATTACKING on a body and lost a cadence;
+ *   3. not `isUntargetable` — the S169/S171 rule (locust cloud by type, the Pharaoh mid-ritual).
+ *
+ * ⛔ **NO "FADING OUT" CONDITION, BY RULING.** The first S192 cut also refused a `DESPAWNING` creature
+ * (the last 60 ticks of a TTL type — Voltkin, direwolf, chewer, locust cloud). The owner does not
+ * recognise that as a state: *"Units are either destroyed or respawned."* It was removed; a unit in
+ * its last second is exactly as targetable as it was before S192.
+ *
+ * ⛔ NOT FOR AREA EFFECTS. This is a statement about SELECTION, like `isUntargetable` before it. A
+ * radial blast, an aura or a sonar cone sweeps a region; whether a corpse-in-waiting is in that region
+ * is a different question with its own guards. The sites that must use this are enumerated
+ * mechanically by `liveTargetSites.guards.test.ts`.
+ *
+ * Pure: `pendingCreatureDeaths` is host-tick scratch, identical in host and worker sims.
+ */
+export function isLiveCreatureTarget(
+  world: { readonly tick: number; readonly pendingCreatureDeaths: ReadonlySet<CreatureId> | null },
+  c: Pick<Creature, 'id' | 'type' | 'raRitualUntilTick' | 'ehp'>,
+): boolean {
+  if (c.ehp <= 0) return false;
+  if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
+  return !isUntargetable(c, world.tick);
+}
+
+/**
  * ⭐⭐ S171 (owner R142, R171-A) — **IS THIS CREATURE CHANNELLING THE RA RITUAL RIGHT NOW?**
  * The ONE read of `raRitualUntilTick`, on exactly the `isStunned` shape.
  *
@@ -375,6 +412,16 @@ export type CreatureType =
    * ⚠ A SUMMON, like the direwolf: `sourceSpawnerId: null`, no CreatureSpawner mints it — which is
    * exactly what puts it in front of the one-live-per-(owner,type) latch it must be exempt from. */
   | 'locustCloud'
+  /* ── S192 (owner, A3) — THE ENDGAME MONSTER ("this silly looking pair of pants") ─────────────────
+   * Spawned from the quarry centre in waves 27–31, owned by `MONSTER_OWNER_SEAT` (no seat), each one
+   * assigned a target seat (`monsterSeat`). Keyed by ROLE, not by art, so re-skinning it costs no
+   * protocol bump. ⛔ SERIALIZED, so it earns a PROTOCOL_VERSION bump on the grounds every new
+   * literal has (`deserializeCreature` has no type whitelist). */
+  | 'endgameMonster'
+  /* ── S193 (owner, Q2) — THE MEGA PANTS: *"a huge boss that just comes and destroys everything"*, the
+   * final fight's clock-breaker. One at a time, owned by `MONSTER_OWNER_SEAT`, no assigned seat.
+   * ⛔ SERIALIZED — a new literal, so it rides the same bump. */
+  | 'megaPants'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'
@@ -687,6 +734,15 @@ export interface Creature {
    */
   rageStartTick?: number;
   /**
+   * ⭐⭐ S192 (owner, A3) — **THE SEAT THIS ENDGAME MONSTER WAS SENT AT.** *"those monsters generate
+   * and attack a certain enemy"*. Written ONCE at birth (round-robin over the living seats); the
+   * retarget when that seat is eliminated is DERIVED (`monsterVictimSeat`), never re-written, so both
+   * sims agree without a second write. Absent for every other creature.
+   *
+   * ⚠ SERIALIZED, ON THE WIRE (a promoted successor runs the AI) AND HASHED (`:ms`), ADDITIVE-OPTIONAL.
+   */
+  monsterSeat?: PlayerId;
+  /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.
    *
@@ -910,6 +966,19 @@ export interface Creature {
    * treatment as the deadline, and meaningless once the deadline has passed.
    */
   corpseEaterAnchor?: Vec2;
+  /*
+   * ⭐⭐ S192 (owner T12, CORPSE EATER) — **THE FEED HEAL STILL OWED, AND WHEN ITS LAST PULSE LANDS.**
+   * *"It should show that he's healing over time … every tick of healing should show above him."*
+   * Each landed feed bite banks its heal here (`bankCorpseEaterHeal`), and `payCorpseEaterHealPulse`
+   * pays it in six pulses ten ticks apart ending at `untilTick`, each through `noteCreatureHeal`.
+   *
+   * ⚠ SIM STATE, NOT PRESENTATION: it decides his pool for the next 60 ticks, so a save, a snapshot,
+   * a host-migration successor and the `?worker=1` mirror must all carry it — FOUR SITES: defaults
+   * undefined (no factory change), serialized (`save.ts`, both directions, only while set), HASHED in
+   * the wide oracle (`:cb`), and the worker rebuilds from that same serializer. Emitted only while
+   * set, so a board with no feeding boss is byte-identical. Read only through `corpseEater.ts`.
+   */
+  corpseEaterHealBank?: { fifths: number; untilTick: number };
   /*
    * ⭐⭐ S189 (owner R190-I) — **EVERY HEAL THIS CREATURE HAS EVER RECEIVED, SUMMED. A MONOTONIC
    * COUNTER, NEVER RESET.**
