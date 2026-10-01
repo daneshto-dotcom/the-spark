@@ -589,13 +589,16 @@ export function severWithCarry(world: World, bondId: BondId, sever: (bondId: Bon
   const ox = (struck.a.pos.x + struck.b.pos.x) / 2;
   const oy = (struck.a.pos.y + struck.b.pos.y) / 2;
   const anchor = world.primitives.get(struck.aId) ?? world.primitives.get(struck.bId);
-  const owner = struck.a.placedBy; // ⛔ S192 CARRY-1 — the carry never leaves the struck bond's owner
+  // ⛔ S192 CARRY-1 — the carry never leaves the struck bond's owner (read off the SHAPES: `Bond.a/b` are
+  // typed as physics bodies, so `placedBy` comes from `world.primitives`).
+  const placer = (id: PrimitiveId): PlayerId | undefined => world.primitives.get(id)?.placedBy;
+  const owner = placer(struck.aId);
   const candidates = anchor === undefined
     ? []
     : [...componentOf(anchor, world.primitives, world.bonds).bondIds].filter((id) => {
       if (id === bondId) return false;
       const b = world.bonds.get(id);
-      return b !== undefined && b.a.placedBy === owner && b.b.placedBy === owner;
+      return b !== undefined && owner !== undefined && placer(b.aId) === owner && placer(b.bId) === owner;
     });
 
   let current = bondId;

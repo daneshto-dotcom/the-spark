@@ -466,3 +466,14 @@ None.
   not credited. Left as is; for the merge owner / endstats.
 - Verified in code: `voltkinChain.ts:268` does `killCount += 1` per struck link, ignoring `severWithCarry`'s returned
   count; and a later `toSever` link already felled by an earlier link's carry hits the `continue` (~:259) uncredited.
+
+### ⛔ CARRY-1 follow-up — a TYPE ERROR I committed (`1cc7177`), found by this round's final typecheck
+- `Bond.a`/`b` are typed `PhysicsBody` (no `placedBy`); vitest passed because at runtime they ARE the primitives,
+  but `npm run typecheck` → TS2339 ×3 and `npm run build` → 1. I ran no typecheck before that commit. Fixed: the
+  owner is read off `world.primitives` (`placer(id)`); canon pin moved to the new text. Mutation re-run on the new
+  line: 4 RED, restored.
+
+### FIX-ROUND GATES (captured `$?` → `.tmp-gates/*-fr.exit`)
+- typecheck 0 · vitest 0 — 6922 passed / 7 skipped, 438 files (+2 skipped) · build 0 — entry **983.0 KiB**
+  (1,006,590 B), headroom 117.0 KiB.
+- Bump: CARRY-1 is a rule both peers compute (who the carry can fell) → rides the merge owner's 53 → 54 with R2-E.

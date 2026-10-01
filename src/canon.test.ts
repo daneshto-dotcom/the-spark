@@ -1459,7 +1459,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
   it('⭐ S191 (owner) — §2: the overkill CARRIES — a 150 fells the whole 5-connector tower (constructed, not asserted)', () => {
     // ⛔ S192 CARRY-1 — the carry stays on the struck bond's owner; the canon says so and the filter exists.
     expect(canonSays("THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER (S192, audit CARRY-1).")).toBe(true);
-    expect(readFileSync(new URL('./state/damage.ts', import.meta.url), 'utf8')).toContain('b.a.placedBy === owner && b.b.placedBy === owner');
+    expect(readFileSync(new URL('./state/damage.ts', import.meta.url), 'utf8')).toContain('placer(b.aId) === owner && placer(b.bId) === owner');
     // A fresh 5-connector star; one hit through the real `damageConnector`, severed through the real
     // `severWithCarry` + SEVER_BOND path every connector-damage caller uses.
     const build = () => {
