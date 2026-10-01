@@ -361,3 +361,58 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     );
   });
 });
+
+/** The `  <job>:` block of e2e.yml, up to the next 2-space-indented line (a job key or the next job's comment). */
+function jobBlock(job: string): string {
+  const yml = readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const at = yml.indexOf(`\n  ${job}:\n`);
+  expect(at, `job ${job} not found in e2e.yml`).toBeGreaterThan(-1);
+  const rest = yml.slice(at + 1);
+  const end = rest.slice(1).search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
+  return end === -1 ? rest : rest.slice(0, end + 1);
+}
+function laneMinutes(job: string): { cap: number; pw: number } {
+  const block = jobBlock(job);
+  return {
+    cap: Number((/\n {4}timeout-minutes:\s*(\d+)/.exec(block) as RegExpExecArray)[1]),
+    pw: Number((/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block) as RegExpExecArray)[1]),
+  };
+}
+
+/*
+ * ⛔ S193 — THE WORKER-BOTS WALL BACKSTOPS ARE DERIVED FROM THEIR OWN TICK BUDGETS. CI run 36867560496
+ * failed `WALL BACKSTOP BOUND FIRST — 1104/1800 ticks in 180.3s (≈6.12 ticks/s)`: one 180 s backstop,
+ * sized for the 1200-tick growth wait, was reused for the 1800-tick first-build wait. The game was never
+ * given its runway and the run emailed the owner as a failure. This pins, mechanically:
+ *   · EVERY `waitForWorldWithinTicks` call in the spec passes `X_BUDGET_TICKS, wallCapFor(X_BUDGET_TICKS)` —
+ *     the same X twice, so a backstop cannot be borrowed from another budget again;
+ *   · the slowest rate it assumes is no faster than the 6 ticks/s measured;
+ *   · the test budget is derived (not a literal), and the lane holds it with ≥ 8 min of runner headroom.
+ */
+describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop derived from its own budget', () => {
+  it('every waitForWorldWithinTicks pairs X_BUDGET_TICKS with wallCapFor(X_BUDGET_TICKS); lane fits the derived budget', () => {
+    const spec = readFileSync(join(ROOT, 'e2e/worker-bots.spec.ts'), 'utf8').replace(/\r\n/g, '\n');
+    const calls = [...spec.matchAll(/await waitForWorldWithinTicks\(([\s\S]*?)\n\s*\);/g)].map((m) => m[1]!);
+    expect(calls.length, 'expected the first-build and growth waits').toBe(2);
+    for (const c of calls) {
+      const m = /([A-Z_]+_BUDGET_TICKS),\s*wallCapFor\(([A-Z_]+_BUDGET_TICKS)\),?\s*$/.exec(c);
+      expect(m, `a waitForWorldWithinTicks call does not end in X_BUDGET_TICKS, wallCapFor(X_BUDGET_TICKS):\n${c}`).not.toBeNull();
+      expect((m as RegExpExecArray)[2], 'backstop borrowed from another budget').toBe((m as RegExpExecArray)[1]);
+    }
+    const rate = /\nconst SLOWEST_CI_TICKS_PER_S = (\d+);/.exec(spec);
+    expect(rate, 'SLOWEST_CI_TICKS_PER_S missing').not.toBeNull();
+    expect(Number((rate as RegExpExecArray)[1]), 'assumed rate is faster than the 6.12 ticks/s CI measured').toBeLessThanOrEqual(6);
+    const ticks = (name: string): number =>
+      Number((new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec) as RegExpExecArray)[1]!.replace(/_/g, ''));
+    const rateN = Number((rate as RegExpExecArray)[1]);
+    const setup = ticks('SETUP_WAITS_MS');
+    const budgetMs =
+      setup + Math.ceil((ticks('FIRST_BUILD_BUDGET_TICKS') / rateN) * 1000) + Math.ceil((ticks('GROWTH_BUDGET_TICKS') / rateN) * 1000);
+    expect(spec, 'the test must use the derived budget').toContain('test.setTimeout(WORKER_BOTS_TEST_BUDGET_MS);');
+    const { cap, pw } = laneMinutes('e2e-worker-bots');
+    // retries are 0 on this spec (`describe.configure({ retries: 0 })`), so ONE attempt must fit.
+    expect(spec).toContain('test.describe.configure({ retries: 0 });');
+    expect(pw * 60_000, `e2e-worker-bots PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold the ${budgetMs} ms test`).toBeGreaterThanOrEqual(budgetMs);
+    expect(cap - pw, `e2e-worker-bots: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
