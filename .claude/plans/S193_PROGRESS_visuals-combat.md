@@ -1,5 +1,13 @@
 # S193 · `s193/visuals-combat` (visuals-4) · progress
 
+## ROUND 2 (merge-owner ruling on MINE #1) — supersedes the numbers below where they differ
+- V08 now KEEPS the shipped 0.5 -> 2.0 -> 1.0 pop in fx mode too (owner's R185-D praise). Only the big-hit ±2 px shake (60 fifths, MINE) and the 3 heal sparkle motes remain on top. `floaterPopScale` and its constants are deleted. **Owner question, NOT built: the S192 plan's softer 0.6 -> 1.15 -> 1 pop.**
+- Tests: `floaterFxReach.test.ts` pins the shipped curve frame for frame in fx mode (mutation: forcing scale 1 in the fx branch -> red); new reach case for the big-hit shake vs. small hit. Pure pop test removed.
+- Fix commit `93248142`; merge of master `b72e7790` (deploy #20, PROTOCOL 59, includes visuals-2) = `781a8393`, clean, no conflicts; npm install 0.
+- Gates on merged tree: typecheck 0 · vitest 0 (488 files passed / 4 skipped; 7473 passed / 11 skipped) · build 0, entry 1070.5 KiB (cap 1250) · e2e:gating 0 (71/71) on own port 34243.
+- V08 screenshots re-shot with the shipped pop (Desktop visuals-4/v08-*).
+- Bump verdict unchanged: NONE.
+
 ## FINAL REPORT
 - **Branch tip**: the commit carrying this report (`git log -1 s193/visuals-combat`). Merge of master (`ff109025`+) = `5c405dbd`.
 - **Merge conflict (1, source)**: `src/render/damageNumbers.ts` `place()` — master's S192 T12 heal drift 0 (straight-up heal column) kept, plus this branch's V08 fields (`amount`, `heal`, `seed`). No other conflicts.
