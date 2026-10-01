@@ -111,7 +111,10 @@ magic landed = floor(A × (5 + DEF) / (5 + MRES))     never below 1 on a real hi
 ```
 
 The HP cancels. **At MRES = DEF it is `A` exactly** — so every unit whose MRES equals its DEF plays exactly as it did
-before magic existed (`magicResist.differential.test.ts` proves it over two full bots waves, every tick).
+before magic existed. `magicResist.differential.test.ts` proves it on a four-seat bots match: an all-physical twin and an
+MRES = DEF twin hash identical on EVERY tick for two whole waves (or the whole match, if it ends sooner), with a floor PER
+SOURCE — the Ra column, the Voltkin chain, the zombie ROT, SCORCHED GROUND, a SCORCHED EARTH cast (units, Helga, connectors),
+the stink aura and the stink cloud each have to reach the rescale. It proves the plumbing, not the table.
 The damage number looks the same; magic is not a colour (R192-M4).
 
 **WORKED CASE — the Archdemon, DEF 8 / MRES 14: a magic 300 lands 205** (`floor(300 × 13 / 19)`). A physical 300
@@ -127,7 +130,7 @@ magic, I accept that"*.
 | MAGIC | PHYSICAL — *"Physical, anything else"* |
 |---|---|
 | the **Ra column** — POWER OF RA, every WRATH OF RA charge, the bot cast, AND the Pharaoh boss's ritual (one `landRaColumn`). ⭐ **PER SHARE**: the column's pool is split first, then EACH share is defended by its own target's MRES | every swing, shot and bite |
-| the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, a stink bag bursting, the stink tower's death blast and bag splash |
+| the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, the **zombie boss death blast**, a stink bag bursting, the stink tower's death blast and bag splash |
 | **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
 | the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
 | the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
