@@ -183,3 +183,4 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
 - S193 FIX ROUND WIP: fix 1 (chaser-at-home clause) + Math.hypot→sqrt applied in creatureAI.ts and the reference. NEXT: tests for fix 2 (differential abroad/home case + REACH no-pickup), then docs (fix 3), guards (fix 4), gates.
 - S193 FIX WIP: fix 1 + fix 2 tests done & mutation-tested (5 red, both mutants). Advance table now −6.6 % / −7.3 %. NEXT: fix 3 docs (canon notes rewrite, SPARK_CANON §5, canon.test pins), fix 4 guards, gates.
 - S193 FIX WIP: fix 4 done (arcade excluded in both walks, message → isLiveCreatureTarget, hypot→sqrt). NEXT: fix 3 docs, then perf oracle + gates.
+- S193 FIX WIP: fix 3 done (canon notes rewritten, SPARK_CANON §5c + canon.test pins, mutation 20→25 px red). NEXT: full gates (typecheck, vitest, build) + final report.

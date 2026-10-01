@@ -47,6 +47,8 @@ import {
   LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   PRINCESS_SLAP_RANGE,
+  CHASE_GIVEUP_SLACK_PX,
+  CHASE_GIVEUP_SPEED_RATIO,
   SparkType,
   STINK_BAG_DEF,
   STINK_BAG_HP,
@@ -1590,5 +1592,27 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     // ⭐ S191 (owner) — BLAST-1 is his ruling now, quoted in §9d item 2.
     expect(canonSays('HIS RULING (S191, BLAST-1)')).toBe(true);
     expect(canonSays("they're resistant")).toBe(true);
+  });
+});
+
+describe('S192 units-ai — §5c is pinned to its constants', () => {
+  it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+    expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
+    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1.25**')).toBe(true);
+    expect(canonSays('`CHASE_GIVEUP_SLACK_PX` = **20** px')).toBe(true);
+    // The drone outruns every chaser at 1.25 (fastest t3Bat 168 × 1.25 = 210 < 240); the chewer does not
+    // outrun the melee goblin (120 ≤ 119 × 1.25) — the two arithmetic facts the canon's reading rests on.
+    expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+  });
+
+  it('⛔ T13 — the S191 "dead units deliberately not filtered" report is marked superseded, and the two rulings are recorded', () => {
+    const flat = CANON.replace(/\r?\n\s*/g, ' ');
+    expect(canonSays('SUPERSEDED: the S191 perf report that the nav-unit index')).toBe(true);
+    expect(flat.includes('**a fading unit stays a target**')).toBe(true);
+    expect(flat.includes("**a fallen tower's leftover shapes stay targetable until destroyed**")).toBe(true);
+    expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
   });
 });

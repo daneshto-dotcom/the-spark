@@ -4129,7 +4129,8 @@ export const GOBLIN_UNIT_LEASH_RADIUS = 300;
  * than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (`maxAccel` IS the speed: terminal speed ∝ maxAccel,
  * measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119) — is engaged when ANY of:
  *   (1) it is within the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` (*"if it's around them"*);
- *   (2) it is inside the chaser's OWN zone (*"you're still in your zone"*);
+ *   (2) the chaser AND the quarry both stand inside the chaser's OWN zone (*"you're still in your zone"*;
+ *       S193 audit — the chaser's own position too, not only the quarry's);
  *   (3) the chaser can cut its path off before it reaches its target (*"before he reaches his target"*);
  * and is neither acquired nor held otherwise (`cannotCatch`, `creatureAI.ts`). A unit that can strike
  * back is never skipped — so R184-A (the melee boss chasing an archer it cannot catch, ruled S184) is
