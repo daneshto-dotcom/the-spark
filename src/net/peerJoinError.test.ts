@@ -7,6 +7,8 @@
  * See `NetTransport.onPeerJoinError`.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { NetTransport } from './transport.ts';
 import { formatStrategySummary } from './strategySummary.ts';
 
@@ -16,6 +18,7 @@ type Priv = {
   strategies: Map<string, Record<string, unknown>>;
   onPeerJoinError(handle: Record<string, unknown>, d: { error: string; peerId: string }): void;
   markStrategyFailed(name: string, errMsg: string): void;
+  clearPeerJoinFailures(peerId: string): void;
 };
 
 const SDP_FAIL = 'could not connect to peer X after exchanging SDP; check that your TURN server URLs';
@@ -94,6 +97,30 @@ describe('S192 T1 — a per-peer join error is not a strategy failure', () => {
     expect(errors).toEqual([]);
     priv.markStrategyFailed('torrent', 'chunk load failed: boom');
     expect(errors).toHaveLength(1);
+  });
+
+  /*
+   * S192 audit L1 — a recorded per-peer failure must not outlive the peer actually connecting. Before,
+   * `peerJoinFailures` only grew while a handle lived: an old nostr failure for a peer that later
+   * connected (and later dropped) let ONE fresh torrent failure for it read as "unreachable
+   * everywhere", and the strip's ✗N never came down.
+   */
+  it('L1: a peer that connects has its recorded failures cleared on every strategy', () => {
+    const { t, priv, errors } = rig();
+    fail(priv, 'nostr', 'peerA');
+    priv.clearPeerJoinFailures('peerA'); // what onPeerJoin now does, on any strategy
+    expect(t.getDiagnostics().strategies.find((s) => s.name === 'nostr')?.peerJoinFailures).toBe(0);
+    // It later drops, and ONE fresh failure on torrent must not escalate on the stale nostr entry.
+    fail(priv, 'torrent', 'peerA');
+    expect(errors).toEqual([]);
+  });
+
+  it('L1: onPeerJoin calls the clear, on the transport-wide peer id', () => {
+    const src = readFileSync(join(process.cwd(), 'src/net/transport.ts'), 'utf8').replace(/\r\n/g, '\n');
+    const join0 = src.indexOf('room.onPeerJoin = (peerId) => {');
+    const leave0 = src.indexOf('room.onPeerLeave = (peerId) => {', join0);
+    expect(join0).toBeGreaterThan(-1);
+    expect(src.slice(join0, leave0)).toContain('this.clearPeerJoinFailures(peerId);');
   });
 
   it('F1: a strategy failing outright with NO recorded per-peer failure stays quiet (others live)', () => {

@@ -64,3 +64,4 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
    (comment quotes the owner) and pins the 2 SPARK sites.
 
 8. Audit F1 (MED): markStrategyFailed now re-asks peerUnreachableEverywhere for every recorded per-peer failure (nostr per-peer fail, then torrent fails outright => 1 red error; old code emitted here). Reproduced RED (1 failed/7), fixed GREEN 7/7, mutant (disable the new check) RED.
+9. Audit L1 (LOW): clearPeerJoinFailures(peerId) on every strategy when the peer joins (onPeerJoin, any strategy). Reproduced RED (2 failed/9), GREEN 9/9, mutant (no-op clear) RED.

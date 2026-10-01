@@ -581,6 +581,8 @@ export class NetTransport {
       room.onPeerJoin = (peerId) => {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
         handle.peers.add(peerId);
+        // S192 audit L1 — it connected, so every recorded failure for it is history.
+        this.clearPeerJoinFailures(peerId);
         this.stopIcePoll(handle);
         this.watchPeerConnection(handle, peerId);
         // Dedup at transport boundary — only fire onPeerChange the first
@@ -699,6 +701,16 @@ export class NetTransport {
     } else {
       console.warn('[net]', handle.name, `peer ${details.peerId} failed here but is reachable elsewhere — UI quiet`);
     }
+  }
+
+  /**
+   * ⭐ S192 audit L1 — forget `peerId`'s recorded join failures on EVERY strategy once it connects on
+   * any of them. Without this the sets only grew while a handle lived: a stale nostr failure for a peer
+   * that later connected (then dropped) let one fresh torrent failure read as "unreachable everywhere",
+   * and the strip's ✗N count never came down.
+   */
+  private clearPeerJoinFailures(peerId: string): void {
+    for (const h of this.strategies.values()) h.peerJoinFailures?.delete(peerId);
   }
 
   /** True iff `peerId` is not connected and has a recorded join failure on every non-failed strategy. */
