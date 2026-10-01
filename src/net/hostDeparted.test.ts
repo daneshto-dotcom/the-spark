@@ -133,10 +133,11 @@ describe('S192 FIX-2 — main.ts and clientHandlers wire the latch (mechanical)'
   const main = strip('../main.ts');
   const ch = strip('./clientHandlers.ts');
 
-  it('a host signal latches the followed host as departed', () => {
-    const at = main.indexOf('onHostSignal: (signal: HostSignal): void => {');
-    expect(at).toBeGreaterThan(-1);
-    expect(main.slice(at, at + 400)).toContain('session.hostDepartedPeerId = session.hostPeerId;');
+  // ⛔ S192 audit A1 — the latch moved from main.ts's onHostSignal (every signal) into clientHandlers, gated
+  // by departureProofOf + shouldLatchDeparture (departureLatch.test.ts drives it through the real route).
+  it('a departure proof latches the followed host as departed (clientHandlers, gated)', () => {
+    expect(ch).toMatch(/departureProofOf\(hostMsg\) &&[\s\S]{0,200}shouldLatchDeparture\(/);
+    expect(ch).toContain('deps.session.hostDepartedPeerId = deps.session.hostPeerId;');
   });
 
   it('every host-presence read in the frame goes through matchPeerIds (claim, presence stamp, hostLost, migrationCase)', () => {

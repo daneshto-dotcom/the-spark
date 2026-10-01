@@ -1859,6 +1859,8 @@ async function bootstrap(): Promise<void> {
    * or match, leaves to title with the notice below instead of sitting on a frozen board.
    */
   let lastRejoinAttemptAtMs = 0;
+  // ⛔ S192 audit A1 — the followed host whose ABSENCE from our transport was seen during this match (null = none).
+  let hostAbsentSeenFor: string | null = null;
   let hostLobbyAtMs = 0;
   let hostNewMatchAtMs = 0;
   const clientJoinDeps = {
@@ -1872,15 +1874,13 @@ async function bootstrap(): Promise<void> {
     onHostSignal: (signal: HostSignal): void => {
       if (signal === 'new-match') hostNewMatchAtMs = performance.now();
       else hostLobbyAtMs = performance.now();
-      // ⭐ S192 FIX-2 — the followed host proved it left our match: it is not here for this match any more
-      // (claim, overlay, claim acceptance — `matchPeerIds`), so the next in line takes over.
-      if (session.hostDepartedPeerId !== session.hostPeerId) {
-        session.hostDepartedPeerId = session.hostPeerId;
-        console.warn(`[net] HOST LEFT THE MATCH (${signal}) — treating the host as lost; the next in line takes over`);
-      }
+      // ⛔ S192 audit A1 — the FIX-2 departure latch is NOT taken here any more (every signal latched, and a
+      // stale pre-Begin beacon or the seq fallback deposed a live host); clientHandlers takes it, gated.
     },
     // ⭐ S191 (NETFR-1/2) — while a rejoin is pending, clientHandlers releases only OUR match's snapshots.
     isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
+    // ⛔ S192 audit A1 — a departure proof latches only from a host seen absent this match (or a pending rejoin).
+    hostAbsentThisMatch: (): boolean => hostAbsentSeenFor !== null && hostAbsentSeenFor === session.hostPeerId,
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -3756,6 +3756,13 @@ Network routes: ${v.detail}`;
       hostLobbyAtMs = 0;
       hostNewMatchAtMs = 0;
       session.hostDepartedPeerId = null; // S192 FIX-2 — the latch dies with the match
+      hostAbsentSeenFor = null; // S192 A1 — and so does the absence record
+    } else if (
+      session.hostPeerId !== null &&
+      session.netTransport !== null &&
+      !session.netTransport.peerIds().includes(session.hostPeerId)
+    ) {
+      hostAbsentSeenFor = session.hostPeerId; // S192 A1 — the RAW transport, not matchPeers
     }
     const hostLost = !world.isHost
       && session.hostPeerId !== null

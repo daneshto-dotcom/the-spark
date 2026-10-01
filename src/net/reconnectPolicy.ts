@@ -463,6 +463,30 @@ export interface HostMessageInput {
   readonly hostPhase?: HostPhase;
 }
 
+/**
+ * ⛔ S192 audit A1 (HIGH) — is this message a PROOF that the followed host left our match? A presence in
+ * phase LOBBY, or a presence / snapshot that carries a DIFFERENT match id. NEVER the seq-regression fallback
+ * (`classifyHostMessage`'s 'new-match' with our own id or none): it fires mid-match on a live host.
+ * A proof is still not enough to latch — see `shouldLatchDeparture`.
+ */
+export function departureProofOf(i: HostMessageInput): boolean {
+  if (!i.inMatch || !i.fromFollowedHost) return false;
+  if (i.kind !== 'LOBBY_PRESENCE' && i.kind !== 'NETSNAPSHOT') return false;
+  if (i.kind === 'LOBBY_PRESENCE' && i.hostPhase === 'LOBBY') return true;
+  return i.matchId !== undefined && i.ourMatchId !== null && i.matchId !== i.ourMatchId;
+}
+
+/**
+ * ⛔ S192 audit A1 (HIGH) — may a departure proof LATCH the host as departed (`NetSession.hostDepartedPeerId`)?
+ * Only when it cannot be a stale copy: nostr and torrent each deliver every control message with no dedup,
+ * so the pre-Begin phase-LOBBY beacon can land on the slower strategy AFTER START_GAME_SIGNAL. It is
+ * trusted only from a host that was seen ABSENT from our transport during this match (it re-appeared: the
+ * FIX-2 case of H re-hosting the room), or while our own rejoin is pending (we re-met it).
+ */
+export function shouldLatchDeparture(i: { readonly rejoinPending: boolean; readonly hostAbsentThisMatch: boolean }): boolean {
+  return i.rejoinPending || i.hostAbsentThisMatch;
+}
+
 /** A classified snapshot of 'new-match' is NOT applied (`clientHandlers.ts` returns before `receive`). */
 export function classifyHostMessage(i: HostMessageInput): HostSignal | null {
   if (!i.inMatch || !i.fromFollowedHost) return null;

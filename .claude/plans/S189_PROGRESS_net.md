@@ -1,4 +1,4 @@
-**STATUS: COMPLETE — S192 round (ROUND-1..3, SEAM-1, FIX-2(a), C4 step 8): gates 0/0/0 (6740 tests, 974.6 KiB), net e2e 17/17. Nothing in flight; awaiting re-audit. NEXT (only on message): owner answers to the FIX-2 second clause / C4 host re-arm.**
+**STATUS: IN PROGRESS — S192 audit fix round: merge + A1 done; next L1, owner notes B1/L2/L3, gates.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -908,3 +908,31 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   (3) NETFR-3 stronger shape vs the residual L+22 s window (unchanged, still pinned). (4) C4: ~1/3 of hard blips
   still sit in Trystero's 23.3 s stuck-handshake window — only a library change or a HOST-side transport re-arm
   (free in a 1v1 with no peers left) could shorten it.
+
+## S192 audit fix round (FIX FIRST — A1 HIGH, L1; B1/L2/L3 owner notes)
+
+- **Step 0 — `git merge master` (ada2caa):** merge commit b5e8957, no conflicts. Benign: the pentagram snapshot
+  line-ending rewrite → restored.
+- **Step 1 — A1 (HIGH): FIX-2 could depose a LIVE host.** Reproduced first with the auditor's throwaway
+  `zzAudit.test.ts`, copied in, run, deleted: on the pre-fix tree a phase-LOBBY presence classifies `'lobby'`
+  mid-match with NO rejoin pending, the seq fallback classifies `'new-match'` on our own id, and with the latch
+  that main.ts took on EVERY signal a 1v1 tore its live transport down at 2.0 / 37.0 / 72.0 / 107.0 / 142.0 /
+  177.0 s and a 3-seat rank 0 claimed a fed, present host at +15 s (25 008 ms).
+  Fix (the auditor's shape): the latch moved out of main.ts's `onHostSignal` into clientHandlers and needs BOTH
+  · `departureProofOf` (pure, new): a presence in phase LOBBY, or a presence / snapshot with a DIFFERENT match
+    id — never the seq-regression fallback, never outside a match or from another sender;
+  · `shouldLatchDeparture` (pure, new): a rejoin is pending, OR this host was seen ABSENT from our transport
+    during this match (`JoinAttemptDeps.hostAbsentThisMatch`; main.ts records `hostAbsentSeenFor` from the
+    RAW transport each frame while a networked client is PLAYING, keyed by host id, cleared outside PLAYING) —
+    i.e. the message comes from a host that RE-APPEARED, the real FIX-2 case of H re-hosting.
+  Chosen over "`hostPresence.presentSinceMs` after Begin" because the presence message can arrive before the
+  next rAF frame re-stamps `presentSinceMs` (Trystero's join event and the beacon land within ms), which would
+  drop the genuine proof; the absence was always observed in an EARLIER frame.
+  Tests: new `src/net/departureLatch.test.ts` through the REAL `connectAsClient` route — beacon at Begin + 5 ms
+  with the host present → no latch; seq regression on our id (and id-less) → no latch even when pending + absent;
+  genuine FIX-2 (absent this match, then LOBBY) → latch; pending rejoin into the lobby → latch; other-match
+  presence → latch; our own MATCH presence → never; plus both pure halves and mechanical main.ts guards.
+  Mutations (byte-copy restore, `cmp`): `shouldLatchDeparture` always true → 2 red (incl. the Begin+5 ms case);
+  `departureProofOf` accepts any snapshot → 2 red (incl. the seq case); drop the absence clause → 3 red (incl.
+  the genuine case). `hostDeparted.test.ts`'s "a host signal latches" guard re-pinned to the clientHandlers site.
+  Gates: typecheck **0**, `vitest src/net/` **0**. Protocol: none (local).
