@@ -8,7 +8,7 @@ Not the merge owner: never push, never touch master, never edit PROTOCOL_VERSION
 2. carry CF-1 (Voltkin mixed-weld carry) — DONE (BUMP: sim rule — a stale migrated host would still carry)
 3. carry CF-2 (census 'later in same function' false-pass) — DONE (test-only, no bump)
 4. net R-2 (hidden tab never samples host absence) — DONE (client-local, no bump)
-5. audio A3 (iOS 'interrupted') — todo
+5. audio A3 (iOS 'interrupted') — DONE (render-only, no bump)
 6. lobby4 L2 (dynamic-import tripwire hole) — todo
 
 ## Log
@@ -17,4 +17,5 @@ Not the merge owner: never push, never touch master, never edit PROTOCOL_VERSION
 - item 2 DONE: severWithCarry — a struck mixed weld has no carry candidates (canon §2 sentence added). connectorCarryWeld.test.ts (3, REACH via applyVoltkinChain); mutant (drop `|| mixedWeld`) RED 2/7. src/state + canon 3635 pass.
 - item 3 DONE: census parses each call's true path (4 taught shapes; anything else = not carried). All 9 real sites still carried. Synthetic fixtures incl. the dispatchReducer two-arm false pass; mutant (old rest-of-function window) RED 1/4.
 - item 4 DONE: clientHandlers onPeerChange('leave') -> deps.onPeerLeft; main.ts records hostAbsentSeenFor via pure hostAbsentOnLeave (same conditions as the frame sampler). departureLatch.test.ts +4 (REACH via connectAsClient + fake transport, no frame; negative other-peer leave; pure table; main.ts wiring guard). Mutant (leave never forwarded) RED 1/15. tc 0, src/net 690 pass.
-- NEXT: item 5 audio A3 — find AudioContext resume on gesture/visibility; treat 'interrupted' like 'suspended'.
+- item 5 DONE: contextNeedsResume (suspended|interrupted) used by resumeIfSuspended + ensureSfxBus; new resumeAudioOnGesture wired in main.ts on every pointerdown/keydown/touchend (not once) + visibilitychange→visible. audioInterrupted.test.ts (7). Mutants: suspended-only RED 5/7, once:true RED 1/7. src/render 2057 pass.
+- NEXT: item 6 lobby4 L2 — trysteroPolyfill.test.ts: classify every joinRoom token + every imported alias use + pin dynamic imports.

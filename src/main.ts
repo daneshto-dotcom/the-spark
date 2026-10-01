@@ -148,7 +148,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -2410,6 +2410,12 @@ Network routes: ${v.detail}`;
   const initAudioOnGesture = (): void => { initAudio(); };
   window.addEventListener('pointerdown', initAudioOnGesture, { once: true });
   window.addEventListener('keydown', initAudioOnGesture, { once: true });
+  // ⭐ S193 (audio A3) — and on EVERY later gesture / return to the tab, resume a context iOS parked in
+  // 'interrupted' (or any browser left 'suspended'). Not `once`: an interruption can happen any time.
+  for (const kind of ['pointerdown', 'keydown', 'touchend'] as const) {
+    window.addEventListener(kind, resumeAudioOnGesture, { passive: true });
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudioOnGesture(); });
 
   // S95 P0 — stale-deploy / transient chunk recovery. Every code-split dynamic import() (NONET
   // overlay, codex, bots, debug, quickmatch…) fetches a hashed chunk at runtime. When a fresh
