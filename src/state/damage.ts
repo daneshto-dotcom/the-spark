@@ -53,6 +53,7 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
 // actually LANDED, so a tower swing or a blow into a channelling Pharaoh heals nothing.
 import { applyLifesteal } from './racial/lifesteal.ts';
+import { creatureKillCredit, type KillCredit } from './racial/killCredit.ts'; // ⭐ S192 T2
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -141,6 +142,14 @@ export function damageEntity(
   amount: number,
   source: DamageSource,
   attacker: DamageAttacker,
+  /**
+   * ⭐ S192 (owner T2) — WHO GETS THE KILL, when it is not the live attacker. Omitted = derived from a
+   * creature `attacker` at this blow (`creatureKillCredit`), which is every ordinary strike. Passed
+   * explicitly ONLY by a blast whose dealer is gone — the zombie boss's death blast credits
+   * `{ seat: his owner, type: zombie boss }` with a `null` attacker, so nobody retaliates against or
+   * heals from a dead boss, and THE RISEN still raises. Read only at the death decision.
+   */
+  credit?: KillCredit,
 ): boolean {
   void source; // attribution only for now — see DamageSource
   /*
@@ -219,7 +228,10 @@ export function damageEntity(
       const before = victim?.ehp ?? 0;
       const died = damageCreature(
         world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
-        attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
+        // ⭐ S192 T2 — the credit resolved NOW, while the dealer is still readable.
+        credit !== undefined
+          ? credit
+          : attacker !== null && attacker.kind === 'creature' ? creatureKillCredit(world, attacker.id) : null,
       );
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
         applyLifesteal(world, attacker, amount);
