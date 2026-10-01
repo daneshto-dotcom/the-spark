@@ -291,3 +291,24 @@ describe('S193 audit 5 — "no points": no spawner bounty on a pants wave', () =
 });
 
 void MONSTER_HOLD_LEAD_TICKS;
+
+describe('S193 merge — the pants obey master\'s S192 T13 liveness rule', () => {
+  it('a corpse-in-waiting (pool spent) of its victim seat is not acquired; a live one is', async () => {
+    const { runEndgameMonsterTargeting } = await import('./endgameMonsters.ts');
+    const w = board(2);
+    toFightEdge(w, 27);
+    runHostTick(w, deps(), makeHostTickState(w));
+    const m = pants(w)[0]!;
+    m.monsterSeat = P1;
+    m.state = 'SEEKING';
+    const victim = { ...m, id: (9_999 as unknown) as Creature['id'], type: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: m.pos.x + 20, y: m.pos.y }, prevPos: { x: m.pos.x + 20, y: m.pos.y }, monsterSeat: undefined } as Creature;
+    w.creatures.set(victim.id, victim);
+    victim.ehp = 0;
+    runEndgameMonsterTargeting(w, m);
+    expect(m.targetCreatureId).toBe(null);
+    victim.ehp = 50;
+    runEndgameMonsterTargeting(w, m);
+    expect(m.targetCreatureId).toBe(victim.id);
+  });
+});

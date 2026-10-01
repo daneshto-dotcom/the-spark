@@ -31,7 +31,7 @@ import { asPlayerId, type BondId, type CreatureId, type PlayerId, type Primitive
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
 import { megaPantsDue, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
-import { isUntargetable, type Creature } from './creatures/creature.ts';
+import { isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 
@@ -155,7 +155,7 @@ function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | nul
     if (
       q !== undefined &&
       q.ownerPlayerId === seat &&
-      !isUntargetable(q, world.tick) &&
+      isLiveCreatureTarget(world, q) && // ⭐ S193 merge — master's S192 T13 liveness rule (no corpse-in-waiting)
       distSq(c.pos, q.pos) <= GOBLIN_UNIT_LEASH_RADIUS * GOBLIN_UNIT_LEASH_RADIUS
     ) {
       return held;
@@ -165,7 +165,7 @@ function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | nul
   let best: CreatureId | null = null;
   let bestD = Infinity;
   for (const [id, q] of world.creatures) {
-    if (q.ownerPlayerId !== seat || isUntargetable(q, world.tick)) continue;
+    if (q.ownerPlayerId !== seat || !isLiveCreatureTarget(world, q)) continue;
     const d = distSq(c.pos, q.pos);
     if (d > r2) continue;
     if (d < bestD || (d === bestD && best !== null && (id as unknown as number) < (best as unknown as number))) {
