@@ -1,3 +1,19 @@
+# ⭐ S193 ZOMBIES MERGE — `s192/magic` (latest; ready for the light re-audit)
+
+- **merge**: 465bc37 = `git merge master` at e693dac (zombies 7ecc53e + PROTOCOL 58). `npm install` exit 0, lockfile unchanged.
+- **Conflicts (12)**, all resolved by KEEPING BOTH:
+  - Source:
+    - `damage.ts`: imports; `damageEntity(…, attacker, cls, credit?)`; the creature arm passes `landed` plus master's kill credit; the bag burst passes `'physical', 'distance'`; the three radial arms take master's per-victim `amountOf` falloff hit AND forward `cls` by hand.
+    - `suicideBlast.ts`, `droneLifecycle.ts`, `stinkTower.ts` (RadialDamageFn = `cls` then `falloff`; death blast and bag `'physical','distance'`; aura `magicDot(…)`, `'flat'`), `stinkCloud.ts` (`magicDot(…)`, `'flat'`).
+  - Tests: `canon.test.ts` (both describe blocks); `untargetableCallSites.test.ts` (both verdicts); 5 radial test files (`'physical', 'distance'`); `hubSelfDestructLadder.test.ts` (master's falloff expectation + `'physical'`).
+- **Signature**: `applyRadialDamage(…, sparePlayerId, cls, falloff, alsoSparePlayerId = null)`. `cls` is still slot 8, so `CLASS_ARG.radial` = 8 is unchanged. A swapped order would classify `'distance'` as OTHER → red.
+- **Tags**: `racial/zombieDeathBlast.ts` connector + entity arms `'physical'` (R192-M3); its bag share goes through `damageStinkCloud` (no class; bag MRES = DEF). The only blastFalloff paths are inside the funnels plus the suicide connector arm, all `'physical'`. Two master test files were given `'physical'` (`zombieDeathBlast.test.ts`, `repairHealNumber.test.ts`).
+- **Census**: 37 sites (21 + 9 + 7; physical 16) + the bypass census now includes the death blast's bag share. Mutation: death blast `'physical'`→`'magic'` → 2 red (reverted).
+- **Differential**: A == B every tick for 16229 ticks (the bots WIN inside wave 2; ≥ one wave); B 97 magic hits (was 919, still > 20), 5644 DoT beats; C diverges at 5437.
+- **Gates**: typecheck **0** · vitest `--maxWorkers=3` **0** (485 files passed / 4 skipped; 7382 tests passed / 11 skipped) · build **0**, entry **1045.4 KiB**, headroom **54.6 KiB** (the script now WARNS below ~55 KiB: raise the charter, merge owner's call). My share is still ≈ +4.4 KiB; master was not rebuilt here.
+- **Bump verdict**: BUMP **58 → 59** (MRES rule both peers compute + the new `'mres'` CastleStat discriminant). PROTOCOL_VERSION (58) not edited.
+- **NOT DONE**: nothing. e2e not run (not asked).
+
 # ⭐ S193 FIX ROUND (after the clean audit) — `s192/magic`
 
 - **merge**: 9dc1bf6 = `git merge master` at 29e1257, no conflicts. `npm install` run (lockfile unchanged).
