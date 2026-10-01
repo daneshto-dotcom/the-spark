@@ -464,3 +464,5 @@ None.
 - The audit's Voltkin `killCount` under-count: connectors felled by the CARRY in the Voltkin chain are severed
   through `severWithCarry` but the chain's kill tally counts only the struck link, so a carry-felled connector is
   not credited. Left as is; for the merge owner / endstats.
+- Verified in code: `voltkinChain.ts:268` does `killCount += 1` per struck link, ignoring `severWithCarry`'s returned
+  count; and a later `toSever` link already felled by an earlier link's carry hits the `continue` (~:259) uncredited.
