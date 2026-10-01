@@ -1624,6 +1624,25 @@ describe('⭐ S189 C2 audit W1 / S191 — `ownPrimitiveIds` is recorded at regis
     expect([...client.defenders.values()][0]!.ownPrimitiveIds).toEqual(dOwn);
   });
 
+  it('⛔ S192 MIGRATION — a PROTOCOL-52 payload (`ownBondIdLimit`, no `ownPrimitiveIds`) restores as UNKNOWN (null), never a guess', () => {
+    const { w } = worldWithTowers();
+    const snap = JSON.parse(JSON.stringify(snapshot(w))) as Record<string, unknown>;
+    let rewritten = 0;
+    const v52 = (o: unknown): void => {
+      if (Array.isArray(o)) { o.forEach(v52); return; }
+      if (o === null || typeof o !== 'object') return;
+      const r = o as Record<string, unknown>;
+      if ('ownPrimitiveIds' in r) { delete r.ownPrimitiveIds; r.ownBondIdLimit = 3; rewritten++; }
+      for (const v of Object.values(r)) v52(v);
+    };
+    v52(snap);
+    expect(rewritten, 'fixture: both towers carried the field').toBe(2);
+    const disk = makeWorld(3);
+    restore(snap as never, disk);
+    expect([...disk.creatureSpawners.values()][0]!.ownPrimitiveIds ?? null).toBeNull();
+    expect([...disk.defenders.values()][0]!.ownPrimitiveIds ?? null).toBeNull();
+  });
+
   it('HASH — changing either tower’s own set flips the wide hash (the projection carries it)', () => {
     const { w } = worldWithTowers();
     const before = hashWorldStateFull(w);

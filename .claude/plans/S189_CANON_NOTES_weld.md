@@ -42,7 +42,7 @@ destroys the connectors that he's attacking"*) say the opposite, so it is REVERT
 - **A tower's own members are the ones it was BUILT with.** Every spawner and defender records
   `ownPrimitiveIds` — the shapes it was built of, at registration (serialized on disk, worker INIT AND
   the wire; hashed). Its own connectors are the bonds BETWEEN those shapes. ⭐ S191: this replaced the
-  `ownBondIdLimit` bond-id watermark before it shipped — FIX re-welds with a NEW bond id, so a repaired
+  `ownBondIdLimit` bond-id watermark (⚠ which shipped at 52 in deploy #5) — FIX re-welds with a NEW bond id, so a repaired
   own connector read as a weld and the tower fell (audit W-FR4); no bond can ever join two existing
   shapes except a recipe edge, so "between two own shapes" is own by construction.
 - **Cutting (or eating) ANY one of those connectors levels the tower** — always, whatever is welded on,
@@ -156,7 +156,7 @@ either computes). Wire/hash hunks are in `save.ts` / `stateHashFull.ts` only; no
 `GameEffect` kind, no new intent.
 
 **(A) `ownPrimitiveIds` — a NEW FIELD on `SerializedSpawner` AND `SerializedDefender`** (⭐ S191: it
-REPLACED `ownBondIdLimit`, which never shipped). The shapes a tower is BUILT of, ascending (recorded at
+REPLACED `ownBondIdLimit`, which ⚠ DID ship — deploy #5, PROTOCOL 52 — so this replacement is a wire change of its own, see §H-S192). The shapes a tower is BUILT of, ascending (recorded at
 `applyRegisterSpawner` / `applyRegisterDefender`; amended by a FIX (either scope) that re-mints a node,
 or re-registered by a tower FIX — S192). Emitted
 additive-optional by both serializers, read `?? null` by both deserializers; it RIDES THE WIRE —

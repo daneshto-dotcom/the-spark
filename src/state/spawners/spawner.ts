@@ -66,7 +66,7 @@ export interface CreatureSpawner {
    * neither kill the tower nor stand in for a lost own connector: cut one of the connectors it was built
    * with and it falls (R185-B, *"it destroys the connectors that he's attacking"*).
    *
-   * ⭐ S191 — PRIMITIVES, NOT A BOND-ID WATERMARK (`ownBondIdLimit`, retired before it shipped). FIX
+   * ⭐ S191 — PRIMITIVES, NOT A BOND-ID WATERMARK (`ownBondIdLimit`, which SHIPPED on the wire at PROTOCOL 52 in deploy #5 and is replaced here — the merge owner's bump retires it). FIX
    * re-welds a connector with a NEW bond id, so a watermark read a repaired own connector as a weld and
    * the tower fell (audit W-FR4). No bond can ever join two EXISTING shapes except a recipe edge
    * (placement bonds only the shape being placed; FIX re-welds only blueprint edges), so "a bond between

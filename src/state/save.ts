@@ -2427,7 +2427,13 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
     recipeId: s.recipeId,
     ignitedAtTick: s.ignitedAtTick ?? tick,
     nextSpawnTick: s.nextSpawnTick ?? tick + SPAWN_INTERVAL_TICKS,
-    ownPrimitiveIds: s.ownPrimitiveIds ?? null, // S189 C2 — absent ⇒ unknown, never a guess
+    /*
+     * S189 C2 — absent ⇒ unknown, never a guess. ⛔ S192 — a PROTOCOL-52 payload's `ownBondIdLimit` (the
+     * shipped bond-id watermark this field replaced) is DELIBERATELY NOT READ: there is no world here to
+     * walk it against, and no production path can deliver one once the bump refuses v52 peers (disk
+     * restore is the DEV-only `restoreWorld`). It degrades to `null` = the exact pre-S189 reading.
+     */
+    ownPrimitiveIds: s.ownPrimitiveIds ?? null,
   });
   // `makeSpawner` seeds these two from ignitedAtTick / 0 (the fresh-ignition contract).
   // Restore them when the payload carried them, so an authority handoff is lossless.
@@ -2492,7 +2498,7 @@ function deserializeDefender(s: SerializedDefender): Defender {
     recipeId: s.recipeId,
     pos: s.pos,
     registeredAtTick: 0,
-    ownPrimitiveIds: s.ownPrimitiveIds ?? null, // S189 C2 — absent ⇒ unknown, never a guess
+    ownPrimitiveIds: s.ownPrimitiveIds ?? null, // S189 C2 — absent ⇒ unknown; a v52 `ownBondIdLimit` is NOT read (see deserializeSpawner)
   });
   d.state = s.state;
   d.ticksInState = s.ticksInState;
