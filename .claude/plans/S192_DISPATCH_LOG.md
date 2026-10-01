@@ -91,3 +91,4 @@ OWNER NOTE (S192): APEX = nagas L5, SWARM = vampires L10 — he will test and ma
 - ✅ DEPLOY #11 LIVE f1d24b9 (lobby4, no bump) — gates all 0 incl. e2e:lobby 5/5, verify-deploy 4/4. OWNER round 2 done (6618860) → MERGED + PROTOCOL 55→56 (bump.py regex fixed for one-line HelloMsg entries) → deploy #12 gates running. AUDIT voltkin FIX FIRST M1 (re-summon census lacks S48 isolation) → merge-owner decision: re-summon iff it would ignite; fix round sent (M1, L1 owner tie, L4 one mint path, canon §5b). AUDIT audio (a3185f04a334677b3) running.
 - ✅ DEPLOY #12 LIVE 1e9d1da (owner, PROTOCOL 56) — gates all 0, verify-deploy.
 - ✅ DEPLOY #12 LIVE 1e9d1da (owner, 56) verify 4/4. VOLTKIN fix round DONE (3e36912) → MERGED → deploy #13 (no bump). AUDIT audio CLEAN + A1 MED (once-only voices lost when oneShot pool full) → audio fix round sent (A1, A2, A6, nagas row).
+- ✅ DEPLOY #13 LIVE f6ae104 (voltkin) verify 4/4. AUDIO fix round DONE (68c3e30) → MERGED → deploy #14 gates running.
