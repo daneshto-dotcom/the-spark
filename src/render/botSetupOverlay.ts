@@ -24,6 +24,7 @@ import {
   BOT_DIFFICULTY_COLORS,
   BOT_PERSONALITY_CHOICES,
   BOT_PERSONALITY_COLORS,
+  BOT_PERSONALITY_LOCKED_TAGLINE,
   BOT_PERSONALITY_TAGLINES,
   type BotDifficulty,
   type BotPersonalityChoice,
@@ -417,7 +418,7 @@ export class BotSetupOverlay {
         personaText.text = locked ? 'BALANCED' : pick;
         personaText.style.fill = col;
         personaBtn.cursor = locked ? 'default' : 'pointer';
-        tagline.text = locked ? 'personality unlocks at MID' : BOT_PERSONALITY_TAGLINES[pick];
+        tagline.text = locked ? BOT_PERSONALITY_LOCKED_TAGLINE : BOT_PERSONALITY_TAGLINES[pick];
       };
       personaBtn.eventMode = 'static';
       personaBtn.on('pointertap', () => {

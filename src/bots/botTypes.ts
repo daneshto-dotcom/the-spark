@@ -57,9 +57,20 @@ export const BOT_PERSONALITY_TAGLINES: Record<BotPersonalityChoice, string> = {
   WARMONGER: 'army first, feeds units',
   FORTRESS: 'defence first, saves long',
   TYCOON: 'cheap towers, builds fast',
-  SABOTEUR: 'eats connectors, hits the leader',
+  SABOTEUR: 'eats links, hits leader', // audit LOW-2: was 32 chars and ran under the race chip
   RANDOM: 'one of the five, per match',
 };
+
+/** What a NOOB row's tagline reads (its chip is locked to BALANCED). UI-only. */
+export const BOT_PERSONALITY_LOCKED_TAGLINE = 'personality unlocks at MID';
+
+/**
+ * ⭐ S193 audit LOW-2 — the longest tagline that clears the race chip, by arithmetic: the tagline starts
+ * at row x = −PANEL_W/2 + 64 = −366 (PANEL_W 860), the race chip's left edge is RACE_X − 92 = −162
+ * (RACE_X = PANEL_W/2 − 500), so 204 px are free; less an 8 px gap, 196 px. 12 px monospace advances
+ * ≤ 0.6 em = 7.2 px a glyph, so 196 / 7.2 = 27 characters. `botPersonality.test.ts` pins every tagline.
+ */
+export const BOT_TAGLINE_MAX_CHARS = 27;
 
 /**
  * ⭐ PURE — resolve a lobby choice for bot `seat` in the match seeded `matchSeed`.

@@ -8,7 +8,7 @@ different."* Research: `S193_BOTS_RESEARCH.md`. Owner-facing version: `S193_BOTS
 ## 0 · The two rules that shape everything
 
 1. **Difficulty = how WELL. Personality = WHAT and WHEN.** (C&C 3, AoM, SC2 all split it this way.) A
-   personality **never grants a capability its tier lacks** and never touches a tier's skill knobs (speed, think
+   personality **never grants a capability its tier lacks** and never touches a tier's skill knobs — with ONE named exception, TYCOON's loose-build tempo (`buildCooldownTicks` × 0.8, rounded to whole ticks; audit LOW-1) (speed, think
    cadence, aim, scouting, gatherer investment, first-tower rush). It only re-orders and re-weights inside what the
    tier can already do. So an IMBA Warmonger and a HARD Warmonger play the same STYLE with a different repertoire —
    exactly the owner's "imba offensive will be different from hard offensive".
@@ -168,3 +168,19 @@ produces in those tests. Measured: 0 feeds in all 15 cells until the harness ran
 
 - **Q-E** IMBA Warmonger/Tycoon want more separation (e.g. Warmonger: never repeat the goblin tower before the
   race tower; Tycoon: cheaper repeat). Tune next session, or leave? *Built: the table above.*
+
+## 10 · Audit fix round (S193, after deploy #20 merge)
+
+- **HIGH (live on master, fixed here):** under the endgame build lock (BUILD of wave 27 on) every bot stood still
+  re-sending a refused `PLACE_PRIMITIVE` each tick (~9.8k `endgameBuildLocked` rejects / 60 s / 3 bots) and never
+  fed. Now: `chooseGoal` skips TOWER and the whole loose-BUILD block when `isBuildLocked`; the controller DROPs a
+  shape it is carrying and goes IDLE; `chooseFeed` reserves nothing and runs for every personality under the
+  lock. Measured, 15 cells (MID/HARD/IMBA × 5): 0 lock rejects, feeds ≥ seats with a feedable tower everywhere.
+- **MED-1:** absolute identity pins replaced by a differential (bare tier config vs explicit BALANCED, 4 cells).
+- **MED-2:** endgame owner-predicate census, `botBrain.ts` 12 → 13 (`chooseFeed`'s own-spawner list; a pants owns none).
+- **LOW-1:** §0 names the TYCOON tempo exception. **LOW-2:** Saboteur tagline "eats links, hits leader"; every
+  tagline ≤ 27 chars by arithmetic (196 px free / 7.2 px a glyph), pinned.
+- **Q-F (MINE):** under the lock, and as `leftovers`, a bot also feeds its RACE tower (its own shape), not only
+  the goblin tower — and under the lock EVERY personality feeds, including `feed: never`. *Recommendation: keep.*
+- **Teams seam (for later, not built):** `leaderTargetSeat` must skip `sameTeam` seats once teams land, and the
+  lobby needs a 4-chip re-layout (a team chip at x ≈ −120 collides with the race chip [−162, 22]).

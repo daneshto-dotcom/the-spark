@@ -58,6 +58,9 @@ import {
   BOT_DIFFICULTIES,
   BOT_PERSONALITIES,
   BOT_PERSONALITY_CHOICES,
+  BOT_PERSONALITY_LOCKED_TAGLINE,
+  BOT_PERSONALITY_TAGLINES,
+  BOT_TAGLINE_MAX_CHARS,
   resolvePersonality,
   type BotDifficulty,
   type BotPersonality,
@@ -469,4 +472,25 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
     expect(r.lockRejects).toBe(0);
     expect(r.feedsLanded).toBe(0);
   }, 60_000);
+});
+
+describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => {
+  it('no tagline is longer than BOT_TAGLINE_MAX_CHARS (27 = 196 px / 7.2 px a glyph)', () => {
+    // The arithmetic, re-derived from the overlay's layout so a re-layout that moves the chips is caught
+    // by re-reading this line: (RACE_X − 92) − (−PANEL_W/2 + 64) − 8 with PANEL_W 860, RACE_X 430 − 500.
+    const free = (860 / 2 - 500 - 92) - (-860 / 2 + 64) - 8;
+    expect(free).toBe(196);
+    expect(Math.floor(free / (0.6 * 12))).toBe(BOT_TAGLINE_MAX_CHARS);
+    for (const t of [...Object.values(BOT_PERSONALITY_TAGLINES), BOT_PERSONALITY_LOCKED_TAGLINE]) {
+      expect(t.length, t).toBeLessThanOrEqual(BOT_TAGLINE_MAX_CHARS);
+    }
+  });
+
+  it('the overlay still lays the chips out where the arithmetic assumes', () => {
+    const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
+    expect(overlay).toMatch(/const PANEL_W = 860;/);
+    expect(overlay).toMatch(/const RACE_X = PANEL_W \/ 2 - 500;/);
+    expect(overlay).toMatch(/roundRect\(-92, -18, 184, 36, 6\)/);
+    expect(overlay).toMatch(/tagline\.position\.set\(-PANEL_W \/ 2 \+ 64,/);
+  });
 });

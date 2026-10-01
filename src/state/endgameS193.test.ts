@@ -437,7 +437,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/structureRepair.ts': { n: 1, verdict: 'FIX: a seat\'s own shapes only' },
     'src/state/vision.ts': { n: 2, verdict: 'a seat\'s own sight sources — a pants grants none' },
     'src/state/world.ts': { n: 2, verdict: 'RAID: target owner !== raider → a pants is raidable' },
-    'src/bots/botBrain.ts': { n: 12, verdict: 'a bot\'s own shapes/gatherers — seats only' },
+    'src/bots/botBrain.ts': { n: 13, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none' },
     'src/bots/botController.ts': { n: 1, verdict: 'a bot\'s own shapes' },
     'src/bots/botRa.ts': { n: 3, verdict: 'Ra aim: everything not the bot\'s → a pants is a target' },
   };
