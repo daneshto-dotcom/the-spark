@@ -18,7 +18,7 @@ describe('⛔ castle upgrades do not carry into a rematch', () => {
     applyStartGame(w, { type: 'START_GAME' } as never);
     const seat = [...w.players.keys()][0] as PlayerId;
     const pl = w.players.get(seat)!;
-    pl.castleUpgrades = { hpLevel: 10, hpBonus: 4500, atkLevel: 10, defLevel: 10, penLevel: 10 };
+    pl.castleUpgrades = { hpLevel: 10, hpBonus: 4500, atkLevel: 10, defLevel: 10, penLevel: 10, mresLevel: 10 };
     pl.castleHp = castleMaxHpFor(pl.castleUpgrades);
     expect(castleShotFifthsFor(pl.castleUpgrades)).toBeGreaterThan(castleShotFifthsFor(emptyCastleUpgrades()));
 

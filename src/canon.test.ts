@@ -620,15 +620,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
    * ⭐ S189 P10 — §3d's castle buttons. S187 built the four stats in the sim and nothing dispatched
    * them; S188 put them on the panel. The canon's numbers are read off the reducer and the panel.
    */
-  it('⭐ §3d — the four castle buttons: order, price, cap, and what one point buys', () => {
-    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen']);
+  it('⭐ §3d — the five castle buttons: order, price, cap, and what one point buys', () => {
+    // ⭐ S192 — MRES is his fifth axis (*"either defense or resistance"*), after PEN.
+    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen', 'mres']);
     expect(canonSays(
-      `**HP / ATK / DEF / PEN**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
+      `**HP / ATK / DEF / PEN / MRES**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
     )).toBe(true);
-    // Four rows directly under REGEN, in HIS order.
+    // Five rows directly under REGEN, in HIS order.
     const regen = CASTLE_ROW_KEYS.indexOf('castleRegen');
-    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen']);
-    expect(canonSays('**four rows under REGEN — HP, ATK, DEF, PEN**')).toBe(true);
+    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres']);
+    expect(canonSays('**five rows under REGEN — HP, ATK, DEF, PEN, MRES**')).toBe(true);
     expect(canonSays(`out of **${CASTLE_UPGRADE_MAX_LEVEL}** (\`CASTLE_UPGRADE_MAX_LEVEL\`)`)).toBe(true);
     expect(canonSays(`its price **${CASTLE_UPGRADE_PRICE}**`)).toBe(true);
     // Every disabled reason the canon names is one the panel can print.

@@ -511,6 +511,8 @@ interface SerializedPlayer {
     readonly atkLevel: number;
     readonly defLevel: number;
     readonly penLevel: number;
+    /** ⭐ S192 — bought MAGIC RESISTANCE; emitted only when > 0, so every pre-S192 save loads unchanged. */
+    readonly mresLevel?: number;
   };
   /**
    * ⭐ S188 — ENDLESS DYNASTY's running castle-HP loss (`Player.dynastyHpLost`). Additive-optional and
@@ -1988,6 +1990,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
             atkLevel: Math.max(0, Math.trunc(p.castleUpgrades.atkLevel)),
             defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
             penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
+            mresLevel: Math.max(0, Math.trunc(p.castleUpgrades.mresLevel ?? 0)),
           };
     const base = {
       id: p.id,
@@ -2239,8 +2242,13 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.castleUpgrades.hpLevel > 0 ||
     p.castleUpgrades.atkLevel > 0 ||
     p.castleUpgrades.defLevel > 0 ||
-    p.castleUpgrades.penLevel > 0
-      ? { castleUpgrades: { ...p.castleUpgrades } }
+    p.castleUpgrades.penLevel > 0 ||
+    p.castleUpgrades.mresLevel > 0
+      ? {
+          // ⭐ S192 — `mresLevel` only when bought, so a keep that bought only the S187 axes
+          // serializes byte-for-byte as it did before S192.
+          castleUpgrades: (({ mresLevel, ...rest }) => (mresLevel > 0 ? { ...rest, mresLevel } : rest))(p.castleUpgrades),
+        }
       : {}),
     // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
     // the perk held, so every other seat stays byte-identical to a v49 snapshot.

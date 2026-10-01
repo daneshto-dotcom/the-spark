@@ -14,7 +14,7 @@ import type { CreatureType } from './creatures/creature.ts';
 import { RACE_TOWER_UNIT } from './raceTowerIds.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import type { RaceId } from './races.ts';
-import { castleDamageAfterDefence, emptyCastleUpgrades } from './castleUpgrades.ts';
+import { castleDamageAfterDefence, castleMagicDamageAfterResist, emptyCastleUpgrades } from './castleUpgrades.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
 import { getDefenderConfig } from './defenders/defender.ts';
 import { RA_COLUMN_ATK, RA_COLUMN_PEN } from '../constants.ts';
@@ -100,12 +100,18 @@ describe('S192 MRES — every non-unit target resists magic exactly as it resist
     }
   });
 
-  it('the CASTLE: MRES level = its bought DEF level — the magic formula IS the DEF formula', () => {
+  it('⭐ HIS CASTLE (S192): starts with MRES = its starting DEF (0), then MRES and DEF are bought APART', () => {
+    expect(castleMresLevel(emptyCastleUpgrades())).toBe(emptyCastleUpgrades().defLevel);
     for (let lvl = 0; lvl <= 10; lvl++) {
-      const u = { ...emptyCastleUpgrades(), defLevel: lvl };
+      // a bought DEF point never raises MRES …
+      expect(castleMresLevel({ ...emptyCastleUpgrades(), defLevel: lvl })).toBe(0);
+      // … and a bought MRES point raises only MRES.
+      const u = { ...emptyCastleUpgrades(), mresLevel: lvl };
       expect(castleMresLevel(u)).toBe(lvl);
       for (const a of [1, 12, 40, 150, 300]) {
-        expect(magicHitFifths(a, 0, castleMresLevel(u))).toBe(castleDamageAfterDefence(a, u));
+        // the magic formula IS the DEF formula with MRES in DEF's place
+        expect(castleMagicDamageAfterResist(a, u)).toBe(castleDamageAfterDefence(a, { ...emptyCastleUpgrades(), defLevel: lvl }));
+        expect(magicHitFifths(a, 0, castleMresLevel(u))).toBe(castleMagicDamageAfterResist(a, u));
       }
     }
   });

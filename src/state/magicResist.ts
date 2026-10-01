@@ -32,7 +32,7 @@
 import type { CreatureType } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { RaceId } from './races.ts';
-import type { CastleUpgrades } from './castleUpgrades.ts';
+import { castleMresLevelOf, type CastleUpgrades } from './castleUpgrades.ts';
 import { dotIntervalTicks, maxPoolFifths } from './damageOverTime.ts';
 
 /**
@@ -186,9 +186,12 @@ export function structureMres(connectors: number): number {
   return connectors;
 }
 
-/** ⚠ MINE (spec Q2) — the keep's MRES level is its bought DEF level, the towers' rule. */
+/**
+ * ⭐ HIS (S192, spec Q2) — the keep's MRES level: its STARTING MRES = its starting DEF, then its OWN bought
+ * axis (`castleUpgrades.ts`, `'mres'`). A bought DEF point no longer raises it.
+ */
 export function castleMresLevel(u: CastleUpgrades): number {
-  return u.defLevel;
+  return castleMresLevelOf(u);
 }
 
 /** ⭐ HIS (S192 Q-G, *"Get magic resistance equal to their [DEF]"*) — a defender with a pool (Helga)

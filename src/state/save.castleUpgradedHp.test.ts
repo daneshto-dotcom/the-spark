@@ -28,7 +28,7 @@ function host(p0Hp: number, p1Hp: number = CASTLE_MAX_HP): World {
   dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
   w.gameState = 'PLAYING';
   const a = w.players.get(P0)!;
-  a.castleUpgrades = { hpLevel: 1, hpBonus: 250, atkLevel: 0, defLevel: 0, penLevel: 0 };
+  a.castleUpgrades = { hpLevel: 1, hpBonus: 250, atkLevel: 0, defLevel: 0, penLevel: 0, mresLevel: 0 };
   a.castleHp = p0Hp;
   w.players.get(P1)!.castleHp = p1Hp;
   return w;

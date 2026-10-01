@@ -113,7 +113,7 @@ describe('purchased HP and ATK reach their own consumers', () => {
   it('raises this seat’s shot', () => {
     const { w, seat } = fundedWorld(CASTLE_UPGRADE_PRICE * 2);
     const before = castleShotFifthsFor(
-      w.players.get(seat)?.castleUpgrades ?? { hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0 },
+      w.players.get(seat)?.castleUpgrades ?? { hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0, mresLevel: 0 },
     );
     buy(w, seat, 'atk');
     buy(w, seat, 'pen');

@@ -88,7 +88,7 @@ the 24 in a single blow.
 | Damage an attacker deals to it | **its own strike — `creatureAttackFifths(creature)`**: its type's `attackFifths(atk, pen)`, drafted-buffed when its seat drafted ATK/PEN (S190, §3d) — the same ladder as everything else, through the keep's DEF |
 | Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
 | Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level on an un-upgraded keep — 1.0–1.8 % of the seat's **UPGRADED** total (owner ruling R190-C, S190; §3d) |
-| Bought stats | **HP / ATK / DEF / PEN**, 100 VP a point, 10 per axis — live buttons since S188 (§3d) |
+| Bought stats | **HP / ATK / DEF / PEN / MRES**, 100 VP a point, 10 per axis — live buttons since S188 (§3d); MRES (magic resistance) added S192 by his ruling: *"either defense or resistance"* — the keep starts with MRES = its starting DEF, then each axis is bought apart |
 
 ⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
 
@@ -329,7 +329,7 @@ clamp is MINE, like the win bar's.
 ### ⭐⭐ S188 — AND NOW HE CAN PRESS THEM: THE FOUR CASTLE BUTTONS ARE LIVE
 
 S187 built all four in the sim and nothing dispatched `UPGRADE_CASTLE_STAT` — his *"we just have
-regen"* was exactly right. The castle panel now carries **four rows under REGEN — HP, ATK, DEF, PEN** —
+regen"* was exactly right. The castle panel now carries **five rows under REGEN — HP, ATK, DEF, PEN, MRES** (MRES since S192) —
 each printing its level out of **10** (`CASTLE_UPGRADE_MAX_LEVEL`), its price **100**
 (`CASTLE_UPGRADE_PRICE`), and on a second line what the NEXT point buys (`castleUpgradePreview` — for
 HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MAX` · `LOCKED` ·
