@@ -28,3 +28,11 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
   Prove RED (stash the rtcPolyfill lines) and GREEN; then drop @quarantine-flaky from that describe and
   pin it in `src/ci.e2eLanes.test.ts`. Then gates: typecheck, vitest --maxWorkers=3, build, e2e:gating.
 - e2e port: hashed from this worktree's cwd (playwright.config.ts e2ePort); compute with node before running.
+
+## PAUSED (owner order, usage limit) — resume point
+- Tip after this commit = the wip commit below. `e2e/poolSafePc.spec.ts` is WRITTEN BUT NEVER RUN.
+- Vite pre-start for this worktree: port **22006** (hashed). Was started then killed for the pause (exit of
+  the background vite = taskkill, benign). Restart: `npx vite --port 22006 --strictPort --host`, wait
+  for `curl http://localhost:22006/?debug=1` = 200.
+- EXACT NEXT STEP: run `npx playwright test e2e/poolSafePc.spec.ts` (exit code to a file), fix until green,
+  commit; then the nplayer.spec.ts repair as described in STATUS above.
