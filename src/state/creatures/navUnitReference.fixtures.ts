@@ -1,0 +1,151 @@
+/**
+ * SPARK — S191 P12 (`s191/perf`) — THE REFERENCE NAV-UNIT PICK. TEST-ONLY. ⛔ Never imported by
+ * production code (the `.fixtures.ts` convention).
+ *
+ * ## What this is
+ *
+ * A VERBATIM copy of `pickNavUnit` and the two functions it reads — `findNearestEnemyCreatureFrom`
+ * and `distSq` — exactly as they shipped at master 42cc2ee (live deploy #4), taken from
+ * `creatureAI.ts` before s191/perf routed `pickNavUnit`'s re-acquire through a per-tick enemy index.
+ * The ONLY edit is that every name gains a `reference` prefix (importing `creatureAI.ts` from here
+ * would be circular when a test `vi.mock`s that module and routes it through this file). Checked
+ * mechanically when this file was written: the bodies below diff to zero lines against
+ * `git show 42cc2ee:src/state/creatures/creatureAI.ts` bar the prefix.
+ *
+ * ## Why it exists
+ *
+ * s191/perf is a PURE performance change: outputs must be byte-identical. `s191Perf.differential.test.ts`
+ * routes every host-tick call of `pickNavUnit` through a wrapper that runs THIS beside the real
+ * function on the same world at the same instant, and runs a world on this reference beside a world on
+ * the index with `hashWorldStateFull` compared every tick.
+ *
+ * ## ⚠ IF YOU CHANGE NAV-UNIT *BEHAVIOUR* (e.g. stop targeting a unit killed earlier in the tick)
+ *
+ * Change THIS FILE FIRST — it is the readable specification — then make `creatureAI.ts` agree.
+ */
+import type { CreatureId, PlayerId, Vec2 } from '../../types.ts';
+import type { World } from '../world.ts';
+import type { Creature } from './creature.ts';
+import { isUntargetable } from './creature.ts';
+
+/**
+ * Squared distance between two Vec2 points. Avoids sqrt for hot-path compare.
+ */
+export function referenceDistSq(a: Vec2, b: Vec2): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy;
+}
+
+/**
+ * S103 #8 — the GENERIC nearest-enemy-creature scan, the inverse of `findNearestBondTarget`
+ * for the creature population. Returns the `CreatureId` of the nearest LIVE creature owned by
+ * a DIFFERENT player than `ownerPlayerId`, within `maxRangeSq` (squared px) of `fromPos`, or
+ * `null` if none. This is the ONE shared helper (Council MF7) used by:
+ *   - Voltkin (#8) — opportunistic zap of a chewer that wanders within its attackRange;
+ *   - the laser turret (P3) + HELGA (P4) — both `Defender`s pick their slap/beam victim with it.
+ * That is why it takes a bare `(pos, ownerPlayerId, range)` rather than a `Creature` — a defender
+ * is not a creature but targets the same population from the same rule.
+ *
+ * Determinism (replay + 1v1 host-authority): pure read, no `Math.random` / wall-clock; squared
+ * distances (no sqrt); **lowest-`CreatureId` tie-break** on equal distance (V8 Map iteration is
+ * insertion order, so the explicit id compare guarantees a stable pick regardless of insert order).
+ * `excludeId` lets a creature-caller skip itself (a defender passes `undefined`).
+ */
+export function referenceFindNearestEnemyCreatureFrom(
+  world: World,
+  fromPos: Vec2,
+  ownerPlayerId: PlayerId,
+  maxRangeSq: number = Infinity,
+  excludeId?: CreatureId,
+): CreatureId | null {
+  let bestId: CreatureId | null = null;
+  let bestDistSq = Infinity;
+  for (const [id, c] of world.creatures) {
+    if (id === excludeId) continue;
+    if (c.ownerPlayerId === ownerPlayerId) continue; // enemy-only
+    /*
+     * ⭐⭐ S169 (owner R142, and R121) — **CANNOT BE TARGETED, ENFORCED AT THE CHOKEPOINT.**
+     *
+     * Owner on the Pharaoh's locusts: *"locusts attack with 10 atk and 10 pen and they cannot be
+     * targeted."* R121 wants the same for the submerged naga.
+     *
+     * ⭐ THIS ONE LINE COVERS EVERY CREATURE-TARGETING PATH IN THE GAME, which is the happy finding
+     * of the enumeration: creature-vs-creature acquisition (`findNearestEnemyCreature` and the
+     * standoff wrapper), the CASTLE GUNS (`castleGuns.ts`), every generic DEFENDER — laser turret,
+     * Helga, the stink tower (`defenderLifecycle.ts`) — and the gatherer renderer's preview of the
+     * castle gun all funnel through this function. So untargetability is inherited BY CONSTRUCTION
+     * rather than by each future acquisition path remembering, which is exactly what the R142 design
+     * note asked for.
+     *
+     * ⚠ AND IT IS DELIBERATELY *NOT* IMMUNITY. This gate makes a unit impossible to SELECT as a
+     * target; it does not make it impossible to HURT. Area effects that sweep a region rather than
+     * pick a victim — the potato's radial clear, the hub's self-destruct, the zombie rot aura, the
+     * Kraken's own sonar cone — still reach it, because "cannot be targeted" is a statement about
+     * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
+     * by anything at all. `untargetableGates.test.ts` pins both halves.
+     */
+    if (isUntargetable(c, world.tick)) continue;
+    const dSq = referenceDistSq(fromPos, c.pos);
+    if (dSq > maxRangeSq) continue; // range gate
+    if (
+      dSq < bestDistSq ||
+      (dSq === bestDistSq &&
+        (bestId === null || (id as unknown as number) < (bestId as unknown as number)))
+    ) {
+      bestDistSq = dSq;
+      bestId = id;
+    }
+  }
+  return bestId;
+}
+
+/**
+ * R83 — pick the enemy UNIT a structure-attacker should navigate toward, with hysteresis.
+ *
+ * ⭐ THE HYSTERESIS NEEDS NO NEW FIELD, AND THAT IS THE WHOLE REASON THIS SHAPE WAS CHOSEN.
+ * `held` is the value `creature.targetCreatureId` still carries from LAST tick — the field is
+ * already declared, already serialized, already hashed and already cleared on every FSM
+ * transition. Enumerating the chain for a genuinely new creature field first (the
+ * `targetPrimitiveId` precedent) measured FOURTEEN files and ~45 sites, plus a hashed-state
+ * question. Reusing the field that already persists costs zero of that.
+ *
+ * Returns the unit to chase, or `null` to fall through to the structure target.
+ */
+export function referencePickNavUnit(
+  world: World,
+  creature: Creature,
+  held: CreatureId | null,
+  acquireRadiusSq: number,
+  leashRadiusSq: number,
+): CreatureId | null {
+  // Hold an existing lock while the quarry stays inside the (wider) leash. This is the branch
+  // that kills the 60 Hz pirouette — see GOBLIN_UNIT_LEASH_RADIUS for why the radii differ.
+  if (held !== null) {
+    const quarry = world.creatures.get(held);
+    if (
+      quarry !== undefined &&
+      quarry.ownerPlayerId !== creature.ownerPlayerId &&
+      // ⭐⭐ S179 (owner) — **RETENTION MUST RE-CHECK UNTARGETABILITY, NOT ONLY ACQUISITION.**
+      // The defender half of this was fixed in S171 (`defenderLifecycle.ts`, "without this line
+      // every turret already locked onto him keeps firing into a creature that is between
+      // realities"); the CREATURE half never was, and `creature.ts` asserts the rule is universal.
+      // Consequence the owner approved fixing: a Pharaoh entering his 10 s Ra ritual becomes
+      // untargetable, every unit already locked on him renewed that lock here, and because
+      // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
+      // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
+      !isUntargetable(quarry, world.tick) &&
+      referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq
+    ) {
+      return held;
+    }
+  }
+  // No lock, or the quarry died / broke the leash → re-acquire inside the tighter radius.
+  return referenceFindNearestEnemyCreatureFrom(
+    world,
+    creature.pos,
+    creature.ownerPlayerId,
+    acquireRadiusSq,
+    creature.id,
+  );
+}

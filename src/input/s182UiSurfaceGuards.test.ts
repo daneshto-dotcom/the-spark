@@ -64,6 +64,28 @@ function blockFrom(anchor: string, len = 2600): string {
  * its docblocks grew past the old 1800 chars, and a `not.toContain` over a window that no longer
  * reaches the end of the function proves nothing about the part it cannot see.
  */
+/**
+ * ⭐ S191 R2 (INPUT-7) — the WHOLE `onDown` handler, bounded by the next one (`onMove`), the way
+ * `hoverBlock` bounds the cursor code. GATE A and GATE E used fixed 4600 / 4200-character windows that
+ * had 155 / 21 characters of CRLF headroom left: one more docblock line in `onDown` (s191/owner's aim
+ * mode) turned them red with nothing wrong. A handler boundary cannot fall short of its own arms.
+ */
+function onDownBody(): string {
+  const start = controls.indexOf('private onDown = (e: PointerEvent): void => {');
+  const end = controls.indexOf('private onMove = (e: PointerEvent): void => {', start);
+  expect(start, 'onDown moved or was renamed').toBeGreaterThan(-1);
+  expect(end, 'onMove no longer follows onDown').toBeGreaterThan(start);
+  return controls.slice(start, end);
+}
+
+/** ⭐ S191 R2 (INPUT-7) — the held-tower ARM of `onDown`, from its `const armed` to the handler's end. */
+function armedArm(): string {
+  const body = onDownBody();
+  const i = body.indexOf('const armed = this.castlePanel?.armedBlueprint() ?? null;');
+  expect(i, 'the armed-stamp arm moved or was renamed').toBeGreaterThan(-1);
+  return body.slice(i);
+}
+
 function hoverBlock(): string {
   const start = controls.indexOf('private updateHoverCursor(): void {');
   const end = controls.indexOf('private lastCursorStyle', start);
@@ -82,7 +104,8 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
 
   it('GATE A — the onDown router: panel guarded, footer consumed, card consumed', () => {
     // ⚠ S188 — widened from 3200: the draft guard's docblock sits in this window now.
-    const block = blockFrom('private onDown = (e: PointerEvent): void => {', 4600);
+    // ⭐ S191 R2 (INPUT-7) — and now bounded by the handler itself, not by a character count.
+    const block = onDownBody();
     expect(block).toContain('if (this.isPointerOverPanel()) return;');
     // ⚠ The footer is guarded by CONSUMPTION, not by a boolean, and that is correct: only the chip
     // and strip RECTANGLES swallow a click — the empty stretches of the band stay live board.
@@ -134,7 +157,7 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
      * BODY is not consumed until `handleSheetSelect`, far below this arm. So every non-button pixel
      * of the card was live board for a held tower.
      */
-    const block = blockFrom('const armed = this.castlePanel?.armedBlueprint() ?? null;', 4200);
+    const block = armedArm(); // ⭐ S191 R2 (INPUT-7) — the arm to the handler's end, not a 4200-char window
     expect(block).toContain('if (this.isPointerOverCard()) return;');
     // …and it must come BEFORE the commit, not after it.
     expect(block.indexOf('if (this.isPointerOverCard()) return;'))
@@ -149,7 +172,7 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
      * is opaque and is not a control, so the click fell through to here and stamped a tower under
      * it. Widening `isOverChip` did not change that; the guard has to be asked HERE.
      */
-    const block = blockFrom('const armed = this.castlePanel?.armedBlueprint() ?? null;', 4200);
+    const block = armedArm(); // ⭐ S191 R2 (INPUT-7) — the arm to the handler's end, not a 4200-char window
     expect(block).toContain('if (this.isPointerOverFooterSurface()) return;');
     expect(block.indexOf('if (this.isPointerOverFooterSurface()) return;'))
       .toBeLessThan(block.indexOf('this.onBuildBlueprint?.(armed, centre)'));
@@ -175,7 +198,8 @@ describe('S182 / S188 — the four UI surfaces, and the gates that must know abo
     const band = readFileSync(new URL('../render/footerBand.ts', import.meta.url), 'utf8');
     const i = band.indexOf('isOverBandSurface(x: number, y: number): boolean {');
     expect(i, 'footerBand.isOverBandSurface must exist').toBeGreaterThan(-1);
-    expect(band.slice(i, i + 300)).toContain('this.isOverCarryBill(x, y)');
+    // S191 — 300 → 420: the SCORCHED EARTH square's line joined Ra's at the top of this body.
+    expect(band.slice(i, i + 420)).toContain('this.isOverCarryBill(x, y)');
   });
 
   it('GATE C — the PLACE_FROM_FREE commit registers all three surfaces', () => {

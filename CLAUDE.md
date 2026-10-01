@@ -94,7 +94,7 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
 - The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1100 KiB**;
-  **948.1 KiB used, 151.9 KiB of headroom — measured S190 on the train-A tree by running `npm run build`**,
+  **975.2 KiB used, 124.8 KiB of headroom — measured S192 on the deploy-#6 tree by running `npm run build`**,
   not carried from a handoff). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
   raised 1000→1100 in S188 (`CAP_KIB` at `check-bundle-size.mjs:19`) and this doc never followed — the
   SECOND time (it also lagged the S180 900→1000 raise). **Read the constant, not this sentence** —
@@ -151,9 +151,9 @@ therefore **no conversion anywhere**: the number the sim subtracts IS the number
   sessions while the code ran `n − 1` and banked damage per-bond.)
 - **A SHAPE IS ON IT TOO** — `PRIMITIVE_MAX_HP` is **70 fifths** (14 HP / 0 DEF), not the old 1000.
   His "six goblin swings fell a shape" is what fixes 14: `attackFifths(2,1)` = 12, and 6 × 12 ≥ 70.
-- **THE CASTLE IS THE ONE DELIBERATE EXCEPTION** (`CASTLE_MAX_HP` 1500). He has never raised it, 6
-  into 1500 never read as absurd, and folding it in would retune every castle relationship for no
-  complaint. Stated at `damageNumbers.ts`, not silently tolerated.
+- **THE CASTLE IS THE ONE DELIBERATE EXCEPTION** (`CASTLE_MAX_HP` **2500** — he raised it from 1500 in S181 to
+  match the win score; canon §3). Its POOL stays off the ladder; its damage taken and dealt are on it.
+  Stated at `damageNumbers.ts`, not silently tolerated. ⚠ This line said 1500 until S192 — read the constant.
 
 ⛔ **BEFORE INVENTING A DAMAGE OR HP NUMBER, ASK WHAT ITS HP/DEF OR ATK/PEN IS.** A bespoke constant
 on its own scale is the defect this section exists to prevent — `GOBLIN_DAMAGE_VS_PRIMITIVE` (a flat
@@ -320,7 +320,7 @@ every goblin and boss. **A tolerant default is where the next one will hide too.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**52** since S191's deploy #5 — 51 at S191's start; ⚠
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**56** since S192's deploy #12 — 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
 this line said 46 from S173 until S190 while the constant moved four times — **READ THE CONSTANT, not this
 sentence**; the canon's §6 pins the live value in `canon.test.ts`) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no

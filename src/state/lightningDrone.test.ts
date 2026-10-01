@@ -310,7 +310,9 @@ describe('applyStructureSelfDestruct', () => {
     // A prim OUTSIDE the radius survives.
     world.primitives.set(asPrimitiveId(9), makePrim(9, STRUCTURE_SELFDESTRUCT_RADIUS + 100, 0, SparkType.Triangle, OWNER_COLOR));
 
-    dispatch(world, { type: 'STRUCTURE_SELFDESTRUCT', pos: { x: 0, y: 0 }, radius: STRUCTURE_SELFDESTRUCT_RADIUS });
+    // S191 C-5 — the owner-agnostic clear is now the `'raze'` variant (the zombie boss's R138 blast); the
+    // hub's own blast is `'ladder'` (`hubSelfDestructLadder.test.ts`).
+    dispatch(world, { type: 'STRUCTURE_SELFDESTRUCT', blast: 'raze', pos: { x: 0, y: 0 }, radius: STRUCTURE_SELFDESTRUCT_RADIUS });
 
     expect(world.primitives.has(asPrimitiveId(0))).toBe(false); // own prim wiped (agnostic)
     expect(world.primitives.has(asPrimitiveId(1))).toBe(false);

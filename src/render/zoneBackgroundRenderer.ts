@@ -56,6 +56,10 @@ import {
 import { zoneOwner, type ZoneLayout } from '../state/zones.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
+// ⭐ S191 — SCORCHED EARTH: the live cast (the burn's own predicate) and this client's aim.
+import { scorchedEarthActiveZone } from '../state/racial/scorchedEarthRules.ts';
+import { scorchedEarthHoverSeat } from './scorchedEarthAim.ts';
+import type { PlayerId } from '../types.ts';
 
 /**
  * How strongly the backdrop shows through.
@@ -81,11 +85,60 @@ export const SCORCHED_ZONE_TINT = 0xff6a3a;
 /**
  * PURE — the backdrop tint for a seat: ember while it holds SCORCHED GROUND and its castle stands,
  * untinted otherwise (S188 F4 — a fallen seat's land has stopped burning, so it must stop LOOKING it).
+ *
+ * ⚠ S191 — the PHASE-FREE half: which land burns in a fight. The renderer never calls this directly;
+ * it calls `zoneBackdropTintNow`, which adds the FIGHT gate (S191 1a).
  */
 export function zoneBackdropTint(
   player: Parameters<typeof seatHoldsPerk>[0] & { readonly castleHp: number },
 ): number {
   return player.castleHp > 0 && seatHoldsPerk(player, 'demons.l0') ? SCORCHED_ZONE_TINT : 0xffffff;
+}
+
+/**
+ * ⭐ S191 1a (owner) — **THE TINT THE RENDERER PAINTS: ONLY WHILE THE LAND BURNS — FIGHT, in a PLAYING
+ * match.** *"it kind of turns your whole … side of the screen into red, which sucks because they want
+ * to see the original art … switched on only during fight."* The burn runs in `runRacialPerksFight`,
+ * inside `hostTick`'s FIGHT gate and behind its own `gameState === 'PLAYING'` return, so the look takes
+ * the same two tests: BUILD (and a decided match) shows the original backdrop. `matchPhase` and
+ * `gameState` are both synced, so every peer flips on the same snapshot
+ * (`s191ScorchedTintFightOnly.test.ts` drives the real host tick and the real `sync` across both edges).
+ */
+export function zoneBackdropTintNow(
+  player: Parameters<typeof zoneBackdropTint>[0],
+  phase: { readonly matchPhase: World['matchPhase']; readonly gameState: World['gameState'] },
+): number {
+  if (phase.gameState !== 'PLAYING' || phase.matchPhase !== 'FIGHT') return 0xffffff;
+  return zoneBackdropTint(player);
+}
+
+/**
+ * ⭐ S191 (owner item 1b) — the HOVER PREVIEW while aiming SCORCHED EARTH: *"there's going to be like a
+ * cool preview when you mouse over it like shows you it turning red"*. A deeper red than the ember, so
+ * "this is where it WILL burn" never reads as "this already burns". ⚠ MINE, a placeholder look — and,
+ * like the ember, it shows only while backdrops are on (with them off the board is plain black).
+ */
+export const SCORCHED_EARTH_PREVIEW_TINT = 0xff2a2a;
+
+/**
+ * ⭐ S191 — THE TINT A SEAT'S ZONE IS PAINTED, all three reasons in one place:
+ *   1. the aiming preview — the zone under the cursor, while this client may cast (`hoverSeat`);
+ *   2. a live SCORCHED EARTH cast on this zone (`scorchedEarthActiveZone` — the SAME predicate the burn
+ *      reads, so the red is exactly the burning ground, FIGHT only, gone with the caster);
+ *   3. the passive, FIGHT only (`zoneBackdropTintNow`, S191 1a).
+ * DERIVED every frame from synced state plus this client's own aim — never from a pushed effect.
+ */
+export function zoneTintFor(world: World, seat: PlayerId, hoverSeat: PlayerId | null): number {
+  const player = world.players.get(seat);
+  if (player === undefined) return 0xffffff;
+  if (hoverSeat === seat) return SCORCHED_EARTH_PREVIEW_TINT;
+  const zone = zoneOwner(seat as unknown as number, world.layout);
+  if (zone !== null) {
+    for (const caster of world.players.values()) {
+      if (scorchedEarthActiveZone(world, caster) === zone) return SCORCHED_ZONE_TINT;
+    }
+  }
+  return zoneBackdropTintNow(player, world);
 }
 
 /**
@@ -428,6 +481,8 @@ export class ZoneBackgroundRenderer {
      */
     this.layer.visible = true;
     const layout = world.layout;
+    // ⭐ S191 — the SCORCHED EARTH hover preview, read once per frame from this client's aim.
+    const hoverSeat = scorchedEarthHoverSeat(world);
 
     for (const [playerId, player] of world.players) {
       const seat = playerId as unknown as number;
@@ -462,7 +517,8 @@ export class ZoneBackgroundRenderer {
         sp.texture = tex;
       }
 
-      sp.tint = zoneBackdropTint(player); // S188 — SCORCHED GROUND, derived each frame
+      // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
+      sp.tint = zoneTintFor(world, playerId, hoverSeat);
       const r = zoneRect(zone, layout);
       /*
        * COVER, not stretch. The generated aspect never matches the zone exactly — 3:4 is the

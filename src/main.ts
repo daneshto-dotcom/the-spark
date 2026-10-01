@@ -57,7 +57,7 @@ import { installProbeHarness } from './dev/probeHarness.ts';
 import type { BotManager } from './bots/botManager.ts';
 import type { BotDifficulty } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
-import { Controls, type ControlsDispatchFn } from './input/controls.ts';
+import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
 // referenced directly from main.ts after lobby-callback extraction (Battle
 // Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
@@ -113,7 +113,7 @@ import {
 } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
 // ⭐ S155 P2 — the in-match BACK TO MAIN button + its confirm modal.
-import { makeExitButton } from './render/exitButton.ts';
+import { exitButtonRect, makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
 import {
@@ -147,7 +147,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -168,7 +168,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen, settingsGearRect } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -870,6 +870,19 @@ async function bootstrap(): Promise<void> {
   const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
   const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐⭐ S191 C-9 (owner R190-H, extended) — THE RA STRIKE, ABOVE EVERY BUILDING. Pixi z-order is
+   * `addChild` order, so this Graphics is staged HERE, after the last renderer that parents itself to
+   * `fogHiddenLayer`: the strike (the owner's frames from the beam's drop on, or the code shafts) now
+   * draws over the laser rig, the Voltkin TV, Helga, the ramp buildings and the stink tower, and stays
+   * under the fog's mask. The rune ring it is announced with stays on the ground (`bossAuras.ts`).
+   * ⚠ It must stay the LAST child: `e2e/fog.spec.ts` roll-calls it as index 19, and appending is what
+   * keeps `tower-art.spec.ts`'s hardcoded indices 6 and 11 where they are.
+   */
+  const raStrikeLayer = new Graphics();
+  raStrikeLayer.eventMode = 'none';
+  fogHiddenLayer.addChild(raStrikeLayer);
+  goblinRenderer.setRaStrikeLayer(raStrikeLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -2088,6 +2101,8 @@ Network routes: ${v.detail}`;
    * saw nothing happen, i.e. exactly this player. See exitButton.ts.
    */
   const exitButton = makeExitButton(app, leaveToTitle);
+  // ⛔ S191 R2 (INPUT-1 / INPUT-3) — the modals and the HUD controls cover the board; see `Controls.setModalCover`.
+  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
 
   // ⛔ S168 (owner: "also remove this line from the bottom left LMB drag spark blah blah blah").
   // THE CONTROLS HELP LINE IS GONE. It ran along the bottom-left for the whole match — 581 px of
@@ -2123,6 +2138,8 @@ Network routes: ${v.detail}`;
     (globalThis as { __SPARK__?: unknown }).__SPARK__ = {
       get world() { return world; },
       get controls() { return controls; },
+      // S192 T15 — audio probe: rmsLog / silentWindows / events / seekMusic / stress / setVoiceCap.
+      audio: getAudioDebugApi(),
       get netTransport(): NetTransport | null { return session.netTransport; },
       get lobbyScreen() { return lobbyScreen; },
       // S155 P2 — exit-button + confirm-modal geometry and state, so the e2e clicks real targets
@@ -3887,6 +3904,8 @@ Network routes: ${v.detail}`;
         cutsceneOverlay,
         vignette,
         controls,
+        // S192 T16 — false on the worker-mode MIRROR, which never runs runHostTick.
+        simRunsHere: !workerSimActive(),
       };
       // S122 P1 — in worker mode the matcher core runs INSIDE the worker (once per batch —
       // the cadence contract); running the wrapper here too would double-trigger against the
