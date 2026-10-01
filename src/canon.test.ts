@@ -1593,3 +1593,77 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays("they're resistant")).toBe(true);
   });
 });
+
+// ── ⭐⭐ S193 — §2b MAGIC RESISTANCE, every number bound to its constant ─────────────────────────
+import {
+  CREATURE_MRES, RACE_MRES_LEVEL, bossMres, defenderMres, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
+} from './state/magicResist.ts';
+import {
+  CASTLE_BASE_MRES_LEVEL, CASTLE_UPGRADE_MAX_LEVEL as MRES_CASTLE_MAX, CASTLE_UPGRADE_PRICE as MRES_CASTLE_PRICE,
+  castleMagicDamageAfterResist, castleMresLevelOf, emptyCastleUpgrades, withCastlePurchase,
+} from './state/castleUpgrades.ts';
+import { RESIST_MIN_GAP_TICKS, RESIST_TEXT } from './render/damageNumbers.ts';
+import { PHYSICS_HZ } from './constants.ts';
+
+describe('§2b MAGIC RESISTANCE is bound to the code', () => {
+  it('the rule and the worked case: the Archdemon DEF 8 / MRES 14 — magic 300 lands 205', () => {
+    const arch = getCreatureConfig('t9BossDemons');
+    expect(arch.def).toBe(8);
+    expect(mresFor('t9BossDemons', null)).toBe(14);
+    expect(magicHitFifths(300, 8, 14)).toBe(205);
+    expect(Math.floor((300 * 13) / 19)).toBe(205);
+    expect(canonSays('a magic 300 lands 205')).toBe(true);
+    expect(canonSays('floor(A × (5 + DEF) / (5 + MRES))')).toBe(true);
+    // MRES = DEF is the identity; the floor never drops a real hit to 0; a DoT beat may land 0.
+    for (const a of [1, 12, 35, 300]) for (const d of [0, 3, 8]) expect(magicHitFifths(a, d, d)).toBe(a);
+    expect(magicHitFifths(1, 0, 20)).toBe(1);
+    const beats = Array.from({ length: 19 }, (_, b) => magicDotFifths(1, 8, 14, b));
+    expect(beats.reduce((s, x) => s + x, 0)).toBe(13);
+    expect(beats.includes(0)).toBe(true);
+    expect(canonSays('some beats land 0')).toBe(true);
+  });
+
+  it('the class table: Voltkin zap magic (MINE), every other unit strike physical', () => {
+    for (const t of Object.keys(CREATURE_MRES) as CreatureType[]) {
+      expect(strikeClassFor(t)).toBe(t === 'voltkin' ? 'magic' : 'physical');
+    }
+    expect(canonSays('⚠ MINE: its first zap too')).toBe(true);
+    expect(canonSays('EACH share is defended by its own target')).toBe(true);
+  });
+
+  it('who has how much: structures n, globals/Helga = DEF, races 4·4·3·2·1·0, bosses 6 + 2 × level', () => {
+    for (const n of [1, 2, 3, 4, 5]) expect(structureMres(n)).toBe(n);
+    expect(defenderMres({ def: 3 })).toBe(3);
+    for (const t of ['goblinMelee', 'voltkin', 'chewer', 'lightningDrone', 'direwolf', 'locustCloud'] as CreatureType[]) {
+      expect(CREATURE_MRES[t]).toBe('def');
+      expect(mresFor(t, null)).toBe(getCreatureConfig(t).def);
+    }
+    expect(RACE_MRES_LEVEL).toEqual({ demons: 4, mummies: 4, vampires: 3, nagas: 2, orcs: 1, zombies: 0 });
+    expect(canonSays('demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0**')).toBe(true);
+    expect(mresFor('raceUnit', 'nagas')).toBe(2);
+    expect(bossMres('demons')).toBe(14);
+    expect(bossMres('mummies')).toBe(14);
+    expect(bossMres('zombies')).toBe(6);
+    expect(canonSays('**6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6**')).toBe(true);
+  });
+
+  it('the castle MRES axis: starts 0, its own row, 100 VP, max 10; a DEF buy does not raise it', () => {
+    expect(CASTLE_BASE_MRES_LEVEL).toBe(0);
+    expect(MRES_CASTLE_PRICE).toBe(100);
+    expect(MRES_CASTLE_MAX).toBe(10);
+    const u0 = emptyCastleUpgrades();
+    expect(castleMresLevelOf(u0)).toBe(0);
+    expect(castleMresLevelOf(withCastlePurchase(u0, 'def', 1))).toBe(0);
+    const u1 = withCastlePurchase(u0, 'mres', 1);
+    expect(castleMresLevelOf(u1)).toBe(1);
+    expect(castleMagicDamageAfterResist(60, u1)).toBe(Math.floor((60 * 5) / 6));
+    expect(canonSays('the keep starts at MRES **0**')).toBe(true);
+    expect(canonSays('**100 VP** a point, **10** max')).toBe(true);
+  });
+
+  it('the RESIST cue: the word, at most once a second', () => {
+    expect(RESIST_TEXT).toBe('RESIST');
+    expect(RESIST_MIN_GAP_TICKS).toBe(PHYSICS_HZ);
+    expect(canonSays('a grey **"RESIST"** floats over the unit — at most **once a second**')).toBe(true);
+  });
+});
