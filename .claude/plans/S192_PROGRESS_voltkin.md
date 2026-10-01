@@ -50,9 +50,12 @@ worker), and the next BUILD **3 healthy TVs → 0 Voltkins** (both). Matches the
 - VITEST=0 — 420 files passed, 2 skipped (422)
 - BUILD=0 — main entry 977.7 KiB, cap 1100, headroom 122.3 KiB (master delta: see step 2)
 
+## Step 2 — bundle delta (measured)
+- Base 663c4c9 built in this worktree: BASEBUILD=0, main entry 975.2 KiB (998,623 B).
+- This branch: 977.7 KiB (1,001,144 B) → **+2.5 KiB (2,521 B)**, within the 10 KiB budget.
+  (Local master ccfe497 also reads 975.2 per CLAUDE.md; the delta stands against either.)
+
 ## STATUS
-- DONE: step 1 — commit f0cfe1a (all three items + tests + canon notes; gates green).
-- PAUSED (owner order, usage limit). Nothing in flight; tree clean.
-- EXACT NEXT STEP: measure the KiB delta — `git checkout 663c4c9 -- src && npm run build` (record
-  KiB), then `git checkout HEAD -- src` (and confirm `git status` clean); then send the final report
-  (SubagentHandback). Bump verdict to report: BUMP OWED (changed shared rule, host-migration successor).
+- DONE: step 1 f0cfe1a (fixes + tests + canon notes), step 2 (this commit). Final report sent.
+- Bump verdict: BUMP OWED (a changed shared rule: a v52 successor promoted by host migration would
+  not re-summon). PROTOCOL_VERSION not edited.
