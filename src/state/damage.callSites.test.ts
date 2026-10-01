@@ -118,7 +118,7 @@ describe('S183 — the damageEntity call-site census', () => {
   it('finds every production call site and no comment quotation', () => {
     // ⚠ Both halves: a parser that matched nothing, or one that swallowed the two docblock
     // quotations in `damage.ts`, would silently pass every assertion below.
-    expect(sites.length).toBe(15); // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity)
+    expect(sites.length).toBe(16); // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity); S192 +1: the zombie death blast
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -133,7 +133,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(named.length + nulled.length).toBe(sites.length);
 
     expect(named.length).toBe(8);
-    expect(nulled.length).toBe(7);
+    expect(nulled.length).toBe(8); // S192 +1: the zombie death blast — null attacker, explicit KillCredit
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -157,6 +157,7 @@ describe('S183 — the damageEntity call-site census', () => {
       'src/state/castleGuns.ts': 1, // a KEEP is not an entity
       'src/state/damage.ts': 3, // applyRadialDamage — a splash names nobody
       'src/state/racial/scorchedGround.ts': 1, // S188 — burning ground: nobody to turn on or heal
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — a dead boss: nobody to turn on; credited for THE RISEN
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });
   });
