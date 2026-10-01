@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magic Damage — Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0d17; --bg2:#10142a; --card:#161b33; --card2:#1c2240; --line:#2a3156;
+  --text:#e8eaf5; --muted:#9aa3c7; --faint:#6b7399;
+  --gold:#f2c14e; --gold-soft:rgba(242,193,78,.14);
+  --phys:#f0a04b; --phys-soft:rgba(240,160,75,.15);
+  --magic:#b48cff; --magic-soft:rgba(180,140,255,.16);
+  --o1:#4cc9c0; --o1-soft:rgba(76,201,192,.14);
+  --o2:#ff6b6b; --o2-soft:rgba(255,107,107,.14);
+  --o3:#b48cff; --o3-soft:rgba(180,140,255,.16);
+  --ok:#5ad38c; --ok-soft:rgba(90,211,140,.14);
+  --bad:#ff6b6b;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --glow:radial-gradient(1200px 500px at 10% -10%,rgba(180,140,255,.18),transparent 60%),radial-gradient(900px 400px at 100% 0%,rgba(242,193,78,.10),transparent 60%);
+}
+:root[data-theme="light"]{
+  --bg:#f6f4ee; --bg2:#efece3; --card:#ffffff; --card2:#f8f6f0; --line:#ddd8ca;
+  --text:#1d1f2b; --muted:#555b73; --faint:#80869c;
+  --gold:#a8740a; --gold-soft:rgba(168,116,10,.10);
+  --phys:#b4600f; --phys-soft:rgba(180,96,15,.10);
+  --magic:#6a3fd1; --magic-soft:rgba(106,63,209,.10);
+  --o1:#11867e; --o1-soft:rgba(17,134,126,.10);
+  --o2:#c92f2f; --o2-soft:rgba(201,47,47,.09);
+  --o3:#6a3fd1; --o3-soft:rgba(106,63,209,.10);
+  --ok:#1f8a4c; --ok-soft:rgba(31,138,76,.10);
+  --bad:#c92f2f;
+  --shadow:0 6px 20px rgba(40,30,10,.08);
+  --glow:none;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f6f4ee; --bg2:#efece3; --card:#ffffff; --card2:#f8f6f0; --line:#ddd8ca;
+    --text:#1d1f2b; --muted:#555b73; --faint:#80869c;
+    --gold:#a8740a; --gold-soft:rgba(168,116,10,.10);
+    --phys:#b4600f; --phys-soft:rgba(180,96,15,.10);
+    --magic:#6a3fd1; --magic-soft:rgba(106,63,209,.10);
+    --o1:#11867e; --o1-soft:rgba(17,134,126,.10);
+    --o2:#c92f2f; --o2-soft:rgba(201,47,47,.09);
+    --o3:#6a3fd1; --o3-soft:rgba(106,63,209,.10);
+    --ok:#1f8a4c; --ok-soft:rgba(31,138,76,.10);
+    --bad:#c92f2f;
+    --shadow:0 6px 20px rgba(40,30,10,.08);
+    --glow:none;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);background-image:var(--glow);background-attachment:fixed;color:var(--text);
+  font:16px/1.6 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden}
+h1,h2,h3{font-family:Cinzel,Georgia,serif;letter-spacing:.02em;line-height:1.25}
+h1{font-size:clamp(28px,5vw,46px);margin:.2em 0 .25em}
+h2{font-size:clamp(22px,3.2vw,30px);margin:0 0 .6em;display:flex;align-items:center;gap:.5em}
+h2 .num{font-family:Inter,sans-serif;font-size:.55em;font-weight:700;color:var(--bg);background:var(--gold);border-radius:8px;padding:.15em .5em}
+h3{font-size:19px;margin:1.4em 0 .5em}
+p{margin:.5em 0 .9em}
+a{color:var(--gold)}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:.9em}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:230px minmax(0,1fr);gap:32px}
+/* TOC */
+nav.toc{position:sticky;top:20px;align-self:start;margin-top:28px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
+nav.toc .tt{font-family:Cinzel,serif;font-weight:700;color:var(--gold);font-size:14px;margin-bottom:8px;letter-spacing:.08em}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:8px;font-size:14px;border-left:3px solid transparent}
+nav.toc a:hover{color:var(--text);background:var(--card2)}
+nav.toc a.on{color:var(--text);background:var(--gold-soft);border-left-color:var(--gold)}
+.themebtn{margin-top:12px;width:100%;background:var(--card2);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:7px;font:500 13px Inter,sans-serif;cursor:pointer}
+.themebtn:hover{color:var(--text)}
+main{min-width:0;padding:28px 0 80px}
+section{margin:0 0 56px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow)}
+.card + .card{margin-top:16px}
+/* hero */
+.hero{position:relative;overflow:hidden;padding:28px 26px}
+.hero:before{content:"";position:absolute;inset:-40% -10% auto auto;width:420px;height:420px;background:radial-gradient(circle,var(--magic-soft),transparent 65%);pointer-events:none}
+.kicker{font:700 12px Inter,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--magic)}
+.status{display:inline-flex;gap:8px;align-items:center;background:var(--gold-soft);color:var(--gold);border:1px solid var(--gold);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600;margin:6px 0 14px}
+.lede{font-size:18px;color:var(--text);max-width:62ch}
+.quote{border-left:4px solid var(--magic);background:var(--magic-soft);padding:12px 16px;border-radius:0 12px 12px 0;margin:14px 0;font-style:italic}
+.quote .who{display:block;font-style:normal;color:var(--muted);font-size:13px;margin-top:4px}
+.decide{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:16px}
+.decide a{display:block;text-decoration:none;color:var(--text);background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;transition:transform .15s,border-color .15s}
+.decide a:hover{transform:translateY(-2px);border-color:var(--gold)}
+.decide b{color:var(--gold);font-size:13px;letter-spacing:.06em}
+.decide span{display:block;font-weight:600;margin-top:2px}
+.decide small{color:var(--muted)}
+/* formula */
+.formula{display:grid;gap:10px;margin:14px 0}
+.fx{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-family:"JetBrains Mono",monospace;font-size:15px;overflow-x:auto}
+.fx b{color:var(--gold)}
+.fx .c{color:var(--faint)}
+.callout{border-radius:12px;padding:14px 16px;margin:14px 0;border:1px solid}
+.callout.warn{background:var(--o2-soft);border-color:var(--o2)}
+.callout.info{background:var(--o1-soft);border-color:var(--o1)}
+.callout.gold{background:var(--gold-soft);border-color:var(--gold)}
+.callout .h{font-weight:700;margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+/* options */
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.opt{border-radius:16px;padding:20px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);border-top:5px solid var(--c);display:flex;flex-direction:column}
+.opt.o1{--c:var(--o1);--cs:var(--o1-soft)} .opt.o2{--c:var(--o2);--cs:var(--o2-soft)} .opt.o3{--c:var(--o3);--cs:var(--o3-soft)}
+.opt .badge{align-self:flex-start;background:var(--cs);color:var(--c);border:1px solid var(--c);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;letter-spacing:.05em}
+.opt h3{margin:.6em 0 .3em;color:var(--c);font-size:20px}
+.opt .one{font-weight:600}
+.opt dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px}
+.opt dt{color:var(--muted)}
+.opt dd{margin:0}
+.opt .verdict{margin-top:auto;padding-top:14px;font-size:14px;font-weight:600;color:var(--c)}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;letter-spacing:.03em;white-space:nowrap}
+.pill.phys{background:var(--phys-soft);color:var(--phys);border:1px solid var(--phys)}
+.pill.magic{background:var(--magic-soft);color:var(--magic);border:1px solid var(--magic)}
+.pill.na{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+.pill.yes{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+.pill.no{background:var(--card2);color:var(--muted);border:1px solid var(--line)}
+.pill.dead{background:var(--o2-soft);color:var(--bad);border:1px solid var(--bad)}
+.pill.alive{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card);margin:12px 0;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:640px}
+th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--card2);color:var(--muted);font-weight:600;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase;position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--card2)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td .big{font-weight:700;font-size:16px;color:var(--gold)}
+td .f{display:block;color:var(--faint);font-family:"JetBrains Mono",monospace;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:13px;color:var(--muted);margin:6px 0}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+/* charts */
+.chart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 16px 10px;margin:14px 0;box-shadow:var(--shadow)}
+.chart .ct{font-weight:700;margin-bottom:2px}
+.chart .cs{color:var(--muted);font-size:13.5px;margin-bottom:8px}
+.chart svg{width:100%;height:auto;display:block}
+.chart svg text{font-family:Inter,sans-serif}
+/* tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
+.tile{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px}
+.tile .v{font-size:28px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .l{font-size:13px;color:var(--muted)}
+.tile .f{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--faint);margin-top:4px}
+/* questions */
+.q{border-left:5px solid var(--gold)}
+.q .qh{display:flex;gap:12px;align-items:baseline}
+.q .qn{font-family:Cinzel,serif;font-weight:700;color:var(--gold);font-size:22px}
+.q .qt{font-weight:700;font-size:18px}
+.rec{background:var(--ok-soft);border:1px solid var(--ok);border-radius:12px;padding:12px 14px;margin-top:10px}
+.rec .h{color:var(--ok);font-weight:700;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase}
+ul.tight{margin:.3em 0 .8em;padding-left:1.2em}
+ul.tight li{margin:.25em 0}
+.cmp{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cmp .opt ul{padding-left:1.1em;margin:.4em 0;font-size:14.5px}
+.cmp .opt li{margin:.3em 0}
+.dev{font-size:13.5px;color:var(--muted)}
+.dev h3{color:var(--muted)}
+.dev table{font-size:13px}
+footer{color:var(--faint);font-size:13px;text-align:center;padding:20px}
+@media (max-width:1100px){
+  .opts,.cmp{grid-template-columns:1fr}
+}
+@media (max-width:900px){
+  .wrap{display:block}
+  nav.toc{position:sticky;top:0;z-index:20;margin:0 -16px;border-radius:0;border-left:none;border-right:none;padding:8px 12px;display:flex;align-items:center;gap:8px}
+  nav.toc .tt,.themebtn{display:none}
+  nav.toc ol{display:flex;gap:4px;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+  nav.toc ol::-webkit-scrollbar{display:none}
+  nav.toc a{border-left:none;border-bottom:3px solid transparent;border-radius:6px;padding:6px 10px;font-size:13px}
+  nav.toc a.on{border-bottom-color:var(--gold)}
+  main{padding-top:18px}
+  .card{padding:16px}
+  .hero{padding:20px 16px}
+  .chart{overflow-x:auto}
+  .chart svg{min-width:560px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <div class="tt">CONTENTS</div>
+  <ol>
+    <li><a href="#top">Overview</a></li>
+    <li><a href="#problem">1 · The problem</a></li>
+    <li><a href="#options">2 · Three options</a></li>
+    <li><a href="#attackers">3 · Attackers</a></li>
+    <li><a href="#victims">4 · Victims</a></li>
+    <li><a href="#examples">5 · Worked examples</a></li>
+    <li><a href="#consequences">6 · Consequences</a></li>
+    <li><a href="#questions">7 · Your questions</a></li>
+    <li><a href="#dev">For the developer</a></li>
+  </ol>
+  <button class="themebtn" id="themeBtn" type="button">Switch light / dark</button>
+</nav>
+
+<main>
+<!-- ============ OVERVIEW ============ -->
+<section id="top">
+  <div class="card hero">
+    <div class="kicker">SPARK · design paper · S191</div>
+    <h1>Magic Damage</h1>
+    <div class="status">&#9888; Design only — nothing here is built. Your R190-E ruling holds until you rule on this.</div>
+    <p class="lede">You said the Ra column is a <b>magic</b> attack, that auras may be too, and that magic could be <i>"a whole different spectrum"</i>. This page lists every strike in the game, shows three ways magic could work on the one stat ladder, and works the numbers through so you can see what each option does before you pick.</p>
+    <div class="quote">"The Ra column is considered a MAGIC attack." · auras "may be too" · "a whole different spectrum"<span class="who">— you, S190 (ruling R190-E and the add-ons list)</span></div>
+    <h3 style="margin-top:18px">What you need to decide — five questions</h3>
+    <div class="decide">
+      <a href="#q1"><b>Q1</b><span>Which attacks are magic?</span><small>Rec: skills and auras</small></a>
+      <a href="#q2"><b>Q2</b><span>What does magic do differently?</span><small>Rec: Option 3 (a RES stat), or Option 1 for now</small></a>
+      <a href="#q3"><b>Q3</b><span>What makes magic stronger?</span><small>Rec: nothing new yet</small></a>
+      <a href="#q4"><b>Q4</b><span>Drone, Voltkin, suicide goblin?</span><small>Rec: physical, as built</small></a>
+      <a href="#q5"><b>Q5</b><span>Does magic go through the keep's DEF?</span><small>Rec: follow Q2</small></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROBLEM ============ -->
+<section id="problem">
+  <h2><span class="num">1</span> The problem</h2>
+  <div class="card">
+    <p><b>Your ruling R190-E:</b> a drafted ATK pick buffs <b>physical melee and ranged hits only</b> — not boss skills, not Helga. That ruling already treats some hits as "not physical", but the game has no word for them and no rule for how they are defended. Before anything is built, the word needs a meaning.</p>
+    <p>Every number on this page comes from the one stat ladder — none is a bespoke number:</p>
+    <div class="formula">
+      <div class="fx"><b>pool</b>&nbsp;&nbsp; = HP &times; (1 + 0.2 &times; DEF) &times; 5 = <b>HP &times; (5 + DEF)</b> <span class="c">&nbsp;fifths</span></div>
+      <div class="fx"><b>damage</b> = ATK &times; (1 + 0.2 &times; PEN) &times; 5 = <b>ATK &times; (5 + PEN)</b> <span class="c">fifths</span></div>
+      <div class="fx"><b>structure</b> pool = n &times; (5 + n) <span class="c">&nbsp;— n connectors is both its HP and its DEF</span></div>
+    </div>
+  </div>
+
+  <h3>Two things the inventory shows that matter for the design</h3>
+  <div class="grid2">
+    <div class="card">
+      <div class="kicker" style="color:var(--gold)">Finding 1</div>
+      <h3 style="margin-top:.3em">There are already two DEF models</h3>
+      <p>A <b>unit's</b> DEF sits inside its pool (HP &times; (5 + DEF)). It never reduces a hit — it only makes the health bar longer.</p>
+      <p>The <b>keep's bought DEF</b> works the other way: it divides each hit by (5 + DEF) / 5.</p>
+      <p style="color:var(--muted)">They are the <b>same ladder multiplier</b>, applied at a different end.</p>
+    </div>
+    <div class="card">
+      <div class="kicker" style="color:var(--gold)">Finding 2</div>
+      <h3 style="margin-top:.3em">Today an HP pick and a DEF pick are the same pick — and so are ATK and PEN</h3>
+      <p>A draft pick adds <b>+10 %</b> (compounded per pick) to the whole <b>pool</b> (HP/DEF picks) or the whole <b>strike</b> (ATK/PEN picks). It never moves the DEF or PEN stat itself.</p>
+      <p style="color:var(--muted)">So any magic rule that treats DEF or PEN specially inherits this: until a DEF pick actually raises DEF, "magic ignores DEF" cannot tell an HP-drafted unit from a DEF-drafted one.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OPTIONS ============ -->
+<section id="options">
+  <h2><span class="num">2</span> Three things "magic" could mean</h2>
+  <p style="color:var(--muted)">All three stay on the one ladder. None adds a bespoke number. Under <b>every</b> option, <b>no ATK/PEN pick ever buffs magic</b> (R190-E).</p>
+  <div class="opts">
+    <div class="opt o1">
+      <span class="badge">OPTION 1</span>
+      <h3>A label, nothing else</h3>
+      <p class="one">What the game does today, made explicit.</p>
+      <p>Every strike is marked <span class="pill phys">physical</span> or <span class="pill magic">magic</span>. The only rule: ATK/PEN picks never buff magic. Magic is defended exactly like physical.</p>
+      <dl>
+        <dt>Balance</dt><dd>Zero change</dd>
+        <dt>New stat</dt><dd>None</dd>
+        <dt>Cost</dt><dd>Smallest — a tag on every strike, plus a test that every strike names its class</dd>
+        <dt>Multiplayer</dt><dd>No version bump</dd>
+      </dl>
+      <div class="verdict">The hook the other two options hang from.</div>
+    </div>
+    <div class="opt o2">
+      <span class="badge">OPTION 2</span>
+      <h3>Magic ignores DEF</h3>
+      <p class="one">A magic hit lands as if the target's DEF were 0.</p>
+      <p>Against a unit, the hit is scaled up by (5 + DEF) / 5 (rounded down, never below 1). Against a building, its DEF (= connector count) likewise. Against the keep, its bought DEF does not reduce it.</p>
+      <dl>
+        <dt>Balance</dt><dd><b style="color:var(--o2)">Huge</b> — see below</dd>
+        <dt>New stat</dt><dd>None</dd>
+        <dt>Cost</dt><dd>Medium — Option 1 plus the scaling rule; re-pin every Ra / aura test that counts kills</dd>
+        <dt>Multiplayer</dt><dd>Version bump</dd>
+      </dl>
+      <div class="callout warn" style="margin-bottom:0"><div class="h">&#9888; One Ra column would kill every tier-9 boss.</div>Every boss's HP part (HP &times; 5) is 100–120, all under the column's 300. <a href="#ex-ra">See the chart.</a></div>
+      <div class="verdict">Recommendation: say no, as it stands.</div>
+    </div>
+    <div class="opt o3">
+      <span class="badge">OPTION 3 · RECOMMENDED</span>
+      <h3>A magic resist stat — RES</h3>
+      <p class="one">A fifth stat on the same ladder.</p>
+      <p>Physical hits are defended by DEF (as now), magic hits by <b>RES</b>. Still one health bar: the magic hit is scaled by (5 + DEF) / (5 + RES), rounded down, min 1.</p>
+      <p><b>RES starts equal to DEF</b> for every unit, tower and keep, so the factor is 1 and day one plays exactly like today. From then on DEF and RES are separate levers.</p>
+      <dl>
+        <dt>Balance</dt><dd>Zero on day one</dd>
+        <dt>New stat</dt><dd>RES</dd>
+        <dt>Cost</dt><dd>Largest — a stat on every unit, a draft choice, a character-card row, a keep RES purchase</dd>
+        <dt>Multiplayer</dt><dd>Version bump if RES can ever be drafted per unit</dd>
+      </dl>
+      <div class="verdict">The only option that gives the draft a new, real choice.</div>
+    </div>
+  </div>
+  <div class="callout info"><div class="h">How the three relate</div>
+    Option 3's factor is (5 + DEF) / (5 + RES). Set RES = DEF and you get Option 1 (factor 1). Set RES = 0 and you get Option 2 (factor (5 + DEF) / 5). <b>Option 3 is a dial between the other two</b>, set per unit.
+  </div>
+</section>
+
+<!-- ============ ATTACKERS ============ -->
+<section id="attackers">
+  <h2><span class="num">3</span> The attackers — every strike that isn't an ordinary unit swing</h2>
+  <p style="color:var(--muted)">"Drafted?" = do the seat's ATK/PEN draft picks reach it (+10 % compounded per pick, baked into the unit when it is born). The last column is the <b>recommended</b> class from <a href="#q1">Q1</a> — not decided yet.</p>
+  <div class="legend"><span><i style="background:var(--magic)"></i>magic (recommended)</span><span><i style="background:var(--phys)"></i>physical (recommended)</span></div>
+  <div class="tbl"><table>
+    <thead><tr><th>#</th><th>Strike</th><th class="n">Amount today</th><th>Drafted ATK/PEN?</th><th>What defends against it</th><th>Class (rec.)</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><b>Pharaoh's Ra columns</b> (his ritual)<br><small style="color:var(--muted)">5 columns, radius 70; spares nobody</small></td><td class="n"><span class="big">300</span><span class="f">15 &times; (5 + 15)</span></td><td><span class="pill no">no</span></td><td>Victim's pool (DEF is inside it); shapes: 70</td><td><span class="pill magic">magic</span></td></tr>
+      <tr><td>2</td><td><b>POWER OF RA / WRATH OF RA</b> (mummies L0 / L10)<br><small style="color:var(--muted)">spares the caster; cuts connectors</small></td><td class="n"><span class="big">300</span><span class="f">same as the column</span></td><td><span class="pill no">no</span></td><td>Victim's pool; a connector's structure pool n &times; (5 + n)</td><td><span class="pill magic">magic</span></td></tr>
+      <tr><td>3</td><td><b>Zombie boss rot aura</b></td><td class="n"><span class="big">2.5 %/s</span><span class="f">of the victim type's pool</span></td><td><span class="pill no">no</span></td><td>Nothing — a % of the pool, so ~40 s to death whatever the stats</td><td><span class="pill magic">magic</span></td></tr>
+      <tr><td>4</td><td><b>SCORCHED GROUND</b> (demons L0)</td><td class="n"><span class="big">2 %/s</span><span class="f">of the victim type's pool</span></td><td><span class="pill no">no</span></td><td>Nothing — ~50 s to death whatever the stats</td><td><span class="pill magic">magic</span></td></tr>
+      <tr><td>5</td><td><b>Stink tower aura</b> (area)</td><td class="n"><span class="big">1</span><span class="f">per pulse</span></td><td><span class="pill no">no</span></td><td>Victim's pool</td><td><span class="pill magic">magic</span></td></tr>
+      <tr><td>6</td><td><b>Stink bag splash</b> / landed-bag burst<br><b>Stink tower death blast</b></td><td class="n"><span class="big">6</span><span class="f">1 &times; (5 + 1)</span><span class="big">9</span><span class="f">1 &times; (5 + 4)</span></td><td><span class="pill no">no</span></td><td>Victim's pool; shapes</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>7</td><td><b>Castle gun</b></td><td class="n"><span class="big">40</span><span class="f">unbought: 5 &times; (5 + 3)</span><span class="f">bought: (5 + ATK lvl) &times; (8 + PEN lvl)</span></td><td><span class="pill no">no</span> — the keep's own bought ATK/PEN</td><td>Victim's pool</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>8</td><td><b>Laser turret beam</b> · <b>Helga's slap</b></td><td class="n">its own ATK/PEN<span class="f">Helga: 4 &times; (5 + 4) = 36</span></td><td><span class="pill no">no</span> (R190-E: Helga)</td><td>Victim's pool</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>9</td><td><b>Suicide goblin blast</b> (area + connectors)</td><td class="n">the unit's own strike</td><td><span class="pill yes">yes</span> (S190)</td><td>Victim's pool; shapes</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>10</td><td><b>Lightning drone explosion</b></td><td class="n"><span class="big">30</span><span class="f">unbuffed: 5 &times; (5 + 1)</span></td><td><span class="pill yes">yes</span> (S190)</td><td>Victim's pool; shapes</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>11</td><td><b>Voltkin chain lightning</b></td><td class="n">the Voltkin's strike,<br>shared down the jumps</td><td><span class="pill yes">yes</span></td><td>Victim's pool; connectors</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>12</td><td><b>Lightning hub self-destruct</b></td><td class="n">today a raze<span class="big">120</span><span class="f">ruled: 4 &times; the drone's 30</span></td><td><span class="pill na">n/a</span></td><td>— (being built on another branch)</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>13</td><td><b>A player's RAID</b> (right-click)</td><td class="n"><span class="big">10</span><span class="f">2 &times; (5 + 0)</span><span class="f">a connector takes at most 3</span></td><td><span class="pill no">no</span></td><td>Victim's pool</td><td><span class="pill phys">physical</span></td></tr>
+      <tr><td>14</td><td><b>The keep, when hit</b> (by anything)</td><td class="n">—</td><td>—</td><td><b>Bought DEF as a per-hit cut:</b><br>hit &times; 5 / (5 + DEF level), rounded down, min 1</td><td><span class="pill na">victim</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="chart" id="chart-strikes">
+    <div class="ct">How big is each strike? (fifths per hit, unbuffed)</div>
+    <div class="cs">The Ra column is in a class of its own — 7.5&times; the castle gun.</div>
+    <svg id="svgStrikes" role="img" aria-label="Bar chart of strike sizes"></svg>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Not damage — listed so nobody looks for them</h3>
+    <ul class="tight">
+      <li><b>Archdemon's "taken to hell"</b> — an execute below 10 % (a removal, not a hit).</li>
+      <li><b>Kraken's sonar</b> — a stun and a shove.</li>
+      <li><b>Vlad's sap</b> — a self-heal.</li>
+      <li><b>Summons</b> — direwolves, the locust cloud, THE RISEN's soldier, ENDLESS DYNASTY's Pharaoh, HELLSPAWN's chewers — are creatures. Their hits are ordinary unit strikes, drafted at birth like every unit's. The Corpse Eater's bite is his own drafted strike.</li>
+      <li><b>Potato, bombs, seagulls, rainbows</b> — archived; not in the game.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ VICTIMS ============ -->
+<section id="victims">
+  <h2><span class="num">4</span> The victims — what the hits land on</h2>
+  <h3>Tier-9 bosses</h3>
+  <p style="color:var(--muted)"><b>Pool</b> is what a hit must chew through today. <b>HP part</b> (HP &times; 5) is what is left of it if DEF is ignored — the number that matters under Option 2.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Boss</th><th>Race</th><th class="n">HP</th><th class="n">DEF</th><th class="n">Pool today</th><th class="n">HP part</th></tr></thead>
+    <tbody id="bossRows"></tbody>
+  </table></div>
+
+  <h3>Tier-3 units mentioned in the design</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Unit</th><th>Race</th><th class="n">HP</th><th class="n">DEF</th><th class="n">Pool today</th><th class="n">HP part</th></tr></thead>
+    <tbody>
+      <tr><td><b>Scarab</b></td><td>mummies</td><td class="n">4</td><td class="n">2</td><td class="n"><span class="big">28</span><span class="f">4 &times; (5 + 2)</span></td><td class="n">20<span class="f">4 &times; 5</span></td></tr>
+      <tr><td><b>Warband</b></td><td>orcs</td><td class="n">4</td><td class="n">1</td><td class="n"><span class="big">24</span><span class="f">4 &times; (5 + 1)</span></td><td class="n">20<span class="f">4 &times; 5</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="grid2">
+    <div>
+      <h3>Buildings — one connector's pool</h3>
+      <div class="tbl"><table style="min-width:0">
+        <thead><tr><th>Connectors (n)</th><th class="n">5</th><th class="n">4</th><th class="n">3</th><th class="n">2</th><th class="n">1</th></tr></thead>
+        <tbody><tr><td>Pool n &times; (5 + n)</td><td class="n">50</td><td class="n">36</td><td class="n">24</td><td class="n">14</td><td class="n">6</td></tr></tbody>
+      </table></div>
+      <p style="font-size:14px;color:var(--muted)">That pool is the cost of <b>one</b> connector; the survivors re-form at the lower count. Felling a full 5-connector tower costs <b>130</b> (50 + 36 + 24 + 14 + 6), and overkill spends into the next connector.</p>
+    </div>
+    <div>
+      <h3>Shapes and the keep</h3>
+      <ul class="tight">
+        <li><b>A shape inside a structure</b> is not targetable, but area damage uses its <b>70</b> (14 HP / 0 DEF).</li>
+        <li><b>A lone built shape</b> or a <b>stink bag</b>: pool <b>5</b> (1 HP / 0 DEF) — anything one-hits it.</li>
+        <li><b>The keep</b> is the one deliberate exception to the ladder. Its bought DEF cuts every hit: hit &times; 5 / (5 + DEF level).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EXAMPLES ============ -->
+<section id="examples">
+  <h2><span class="num">5</span> Worked examples</h2>
+
+  <h3 id="ex-ra">One Ra column (300) against every tier-9 boss</h3>
+  <div class="chart">
+    <div class="ct">Today vs Option 2 — does one column kill?</div>
+    <div class="cs">Dashed line = the column's 300. A bar that stops left of the line dies to one column.</div>
+    <div class="legend"><span><i style="background:var(--o1)"></i>Pool today (Option 1, and Option 3 on day one)</span><span><i style="background:var(--o2)"></i>What's left to chew under Option 2 (HP part)</span></div>
+    <svg id="svgBoss" role="img" aria-label="Boss pools against one Ra column"></svg>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>Boss</th><th class="n">Pool</th><th>Today: one column?</th><th class="n">Left after one</th><th class="n">Columns to kill today</th><th>Option 2: one column?</th><th class="n">Option 2 hit</th></tr></thead>
+    <tbody id="raRows"></tbody>
+  </table></div>
+  <p style="font-size:13.5px;color:var(--faint)">"Left after one" = pool &minus; 300. "Columns to kill" = pool / 300, rounded up — assuming the boss stands under each column. "Option 2 hit" = 300 &times; (5 + DEF) / 5, rounded down; it is the same test as HP part &lt; 300.</p>
+  <div class="callout warn"><div class="h">What that means in a match</div>
+    Today one column kills only the two 260-pool bosses (Vlad, Archdemon) and leaves the Kraken (408), Pharaoh (462), zombie boss (360) and Warlord (374) standing. Under Option 2, <b>the Pharaoh's own ritual would one-shot enemy bosses</b>, and <b>WRATH OF RA would do it three times a fight</b>. The tier-3 scarab (28) and warband (24) are dead to a column either way.
+  </div>
+
+  <h3>One Ra column against a building</h3>
+  <div class="tiles">
+    <div class="tile"><div class="v">300</div><div class="l">one column</div><div class="f">15 &times; (5 + 15)</div></div>
+    <div class="tile"><div class="v">130</div><div class="l">to fell a full 5-connector tower</div><div class="f">50 + 36 + 24 + 14 + 6</div></div>
+    <div class="tile"><div class="v">2.3&times;</div><div class="l">column vs a whole tower</div><div class="f">300 / 130</div></div>
+  </div>
+  <p style="color:var(--muted)">POWER OF RA and WRATH OF RA cut connectors. On the ladder a single column already carries more than a whole 5-connector tower costs, so Option 2 changes nothing visible here.</p>
+
+  <h3>One Ra column against the keep</h3>
+  <p style="color:var(--muted)">The keep's bought DEF cuts each hit: 300 &times; 5 / (5 + DEF level), rounded down. Example levels, to show the shape of the rule:</p>
+  <div class="tbl"><table style="min-width:520px">
+    <thead><tr><th>Keep's bought DEF level</th><th class="n">0</th><th class="n">1</th><th class="n">2</th><th class="n">3</th></tr></thead>
+    <tbody>
+      <tr><td>Today / Option 1</td><td class="n">300</td><td class="n">250<span class="f">1500/6</span></td><td class="n">214<span class="f">1500/7</span></td><td class="n">187<span class="f">1500/8</span></td></tr>
+      <tr><td>Option 2 (DEF ignored)</td><td class="n">300</td><td class="n">300</td><td class="n">300</td><td class="n">300</td></tr>
+      <tr><td>Option 3, keep RES = its DEF</td><td class="n">300</td><td class="n">250</td><td class="n">214</td><td class="n">187</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>The two auras — time to death</h3>
+  <div class="tiles">
+    <div class="tile"><div class="v">~40 s</div><div class="l">Zombie boss rot aura</div><div class="f">100 % / 2.5 % per s</div></div>
+    <div class="tile"><div class="v">~50 s</div><div class="l">SCORCHED GROUND</div><div class="f">100 % / 2 % per s</div></div>
+  </div>
+  <p style="color:var(--muted)">Both take a percentage of the victim type's pool, so DEF does nothing against them under any option. The 50 s is nominal: SCORCHED GROUND burns a castle soldier or a chewer in 50 s, a 260-pool boss in 52 s, and a drafted castle soldier (pool 6 &rarr; 7) in about 58 s, because the rate is set by the type's base pool.</p>
+</section>
+
+<!-- ============ CONSEQUENCES ============ -->
+<section id="consequences">
+  <h2><span class="num">6</span> What each option does — side by side</h2>
+  <div class="cmp">
+    <div class="opt o1">
+      <span class="badge">OPTION 1 · LABEL</span>
+      <h3>In play</h3>
+      <ul><li>Nothing changes. Every fight plays as today.</li><li>The words are right: the game knows which hits are magic.</li><li>R190-E keeps doing what it does.</li></ul>
+      <h3>To build</h3>
+      <ul><li>A tag on every strike in the attackers table.</li><li>One test that fails if a strike has no tag.</li><li>No multiplayer version bump.</li></ul>
+    </div>
+    <div class="opt o2">
+      <span class="badge">OPTION 2 · IGNORE DEF</span>
+      <h3>In play</h3>
+      <ul><li><b>One Ra column kills every tier-9 boss.</b></li><li>The Pharaoh's ritual one-shots enemy bosses; WRATH three times a fight.</li><li>High-DEF units (the Pharaoh at 16, the Kraken and Warlord at 12) lose most of their toughness to magic.</li><li>The keep's bought DEF stops nothing magic.</li></ul>
+      <h3>To build</h3>
+      <ul><li>Everything in Option 1, plus the scaling rule on units, buildings and the keep.</li><li>Every Ra / aura test that counts kills re-pinned.</li><li>Multiplayer version bump.</li></ul>
+    </div>
+    <div class="opt o3">
+      <span class="badge">OPTION 3 · RES STAT</span>
+      <h3>In play</h3>
+      <ul><li>Day one: identical to today (RES = DEF, factor 1). No boss becomes one-shot.</li><li>After that: a DEF pick for physical, a RES pick for magic.</li><li>Races can lean one way — tough against swords, soft against spells, or the reverse.</li></ul>
+      <h3>To build</h3>
+      <ul><li>Option 2's rule with RES in place of 0.</li><li>A RES value on every unit and tower (default = DEF).</li><li>A keep RES purchase, a draft choice, a character-card row.</li><li>A version bump if RES can ever differ per unit (a drafted RES).</li></ul>
+    </div>
+  </div>
+  <div class="callout gold"><div class="h">The draft, under every option (R190-E)</div>
+    As built, an ATK/PEN pick reaches every <b>unit</b> strike — melee, ranged, and the three unit "explosions" (suicide goblin, drone, Voltkin chain; drafted since S190). It reaches <b>no</b> skill, aura, tower, keep or raid. That stays true under all three options: <b>no ATK/PEN pick ever buffs magic.</b> What would buff magic is <a href="#q3">Q3</a>.
+  </div>
+</section>
+
+<!-- ============ QUESTIONS ============ -->
+<section id="questions">
+  <h2><span class="num">7</span> Questions for you</h2>
+
+  <div class="card q" id="q1">
+    <div class="qh"><span class="qn">Q1</span><span class="qt">Which attacks are magic?</span></div>
+    <div class="rec"><div class="h">Recommendation</div>
+      <p style="margin:.4em 0"><span class="pill magic">magic</span> = a <b>skill or an aura</b>: the Ra columns (the Pharaoh's, and POWER / WRATH OF RA), the zombie boss's rot, SCORCHED GROUND, the stink tower's aura.</p>
+      <p style="margin:.4em 0"><span class="pill phys">physical</span> = <b>anything a unit, a tower, the keep or a player swings, shoots or blows up</b>: melee, arrows, the castle gun, the laser, Helga, the stink bags, the suicide goblin, the drone, the Voltkin, a raid.</p>
+    </div>
+  </div>
+
+  <div class="card q" id="q2">
+    <div class="qh"><span class="qn">Q2</span><span class="qt">What should magic do differently?</span></div>
+    <div class="rec"><div class="h">Recommendation</div>
+      <p style="margin:.4em 0"><b>Option 3 (a RES stat that starts equal to DEF)</b> if you want it to be "a whole different spectrum" — it changes nothing on day one and opens a new draft choice.</p>
+      <p style="margin:.4em 0"><b>Say no to Option 2</b> as it stands: one Ra column would kill every boss in the game.</p>
+      <p style="margin:.4em 0">If you only want the words right for now, <b>Option 1</b> costs nothing and is what R190-E already does.</p>
+    </div>
+  </div>
+
+  <div class="card q" id="q3">
+    <div class="qh"><span class="qn">Q3</span><span class="qt">What makes magic stronger, if not an ATK pick?</span></div>
+    <div class="rec"><div class="h">Recommendation</div>
+      <p style="margin:.4em 0"><b>Nothing new yet.</b> WRATH OF RA already triples POWER OF RA's casts. A "spell power" draft pick can come once the Q1 list is settled and you have played with it. Under Option 3, the matching defence pick — RES — would come first.</p>
+    </div>
+  </div>
+
+  <div class="card q" id="q4">
+    <div class="qh"><span class="qn">Q4</span><span class="qt">The three lightning / explosion units — drone, Voltkin chain lightning, suicide goblin — physical or magic?</span></div>
+    <div class="rec"><div class="h">Recommendation</div>
+      <p style="margin:.4em 0"><b>Physical, as built.</b> They are a unit's own attack, and your S190 draft-ATK ruling already buffs them; calling them magic would take that buff back. Same answer for the lightning hub's self-destruct — ruled at 4 &times; a drone, so it follows the drone.</p>
+    </div>
+  </div>
+
+  <div class="card q" id="q5">
+    <div class="qh"><span class="qn">Q5</span><span class="qt">Should magic go through the keep's bought DEF?</span></div>
+    <div class="rec"><div class="h">Recommendation</div>
+      <p style="margin:.4em 0"><b>Follow Q2.</b> Option 1: the keep's DEF stops magic like anything else (today's rule). Option 3: the keep gets a RES that starts at its bought DEF, and a separate button to buy more.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEV ============ -->
+<section id="dev" class="dev">
+  <h2 style="color:var(--muted)"><span class="num" style="background:var(--faint)">&#9881;</span> For the developer</h2>
+  <div class="card">
+    <p>Source: <code>.claude/plans/S191_MAGIC_ATTACK_DESIGN.md</code> on branch <code>s191/addons</code> (from master <code>42cc2ee</code>). Ladder: <code>unitPoolFifths</code>, <code>attackFifths</code>, <code>structurePoolFifths</code>. Draft: <code>draftedAttackFifths</code>, <code>DRAFT_BUFF_PCT</code> 10, <code>draft.ts:152-158</code>. Boss stats: <code>T9_BOSS_STATS</code>; tier-3: <code>T3_STATS</code>.</p>
+    <h3>Strike sites (line numbers on <code>s191/addons</code>)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>#</th><th>Site</th><th>Constants</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>bossSkillsPharaohRitual.ts:144</code> &rarr; <code>applyRadialDamage</code></td><td><code>RA_COLUMN_ATK</code> 15, <code>RA_COLUMN_PEN</code> 15, <code>RA_COLUMN_RADIUS</code> 70</td></tr>
+        <tr><td>2</td><td><code>racial/powerOfRa.ts:204</code> (area), <code>:175</code> (connector cut)</td><td><code>RA_STRIKE_FIFTHS</code>, <code>RA_COLUMN_COUNT</code> 5, <code>RA_COLUMN_TICKS</code> 120, <code>WRATH_OF_RA_CHARGES</code> 3</td></tr>
+        <tr><td>3</td><td><code>bossSkills.ts:215</code></td><td><code>dotIntervalTicks</code>, <code>ZOMBIE_AURA_PER_MILLE</code> 25</td></tr>
+        <tr><td>4</td><td><code>racial/scorchedGround.ts:78</code></td><td><code>SCORCHED_GROUND_PER_MILLE</code> 20</td></tr>
+        <tr><td>5</td><td><code>defenders/stinkTower.ts:315</code></td><td><code>STINK_AURA_UNIT_FIFTHS</code> 1</td></tr>
+        <tr><td>6</td><td><code>stinkTower.ts:249</code>, <code>damage.ts:304</code>, <code>stinkTower.ts:174</code></td><td><code>STINK_BAG_ATK</code>/<code>PEN</code> 1/1; <code>STINK_DEATH_BLAST_ATK</code>/<code>PEN</code> 1/4</td></tr>
+        <tr><td>7</td><td><code>castleGuns.ts:137</code> <code>castleShotFifthsFor</code></td><td><code>CASTLE_ATK</code> 5, <code>CASTLE_PEN</code> 3</td></tr>
+        <tr><td>8</td><td><code>defenders/defenderLifecycle.ts:479</code></td><td><code>config.atk</code>/<code>pen</code>; <code>PRINCESS_ATK</code>/<code>PEN</code> 4/4</td></tr>
+        <tr><td>9</td><td><code>creatures/suicideBlast.ts:106</code>, <code>:154</code></td><td><code>creatureAttackFifths(bomber)</code></td></tr>
+        <tr><td>10</td><td><code>droneLifecycle.ts:201</code></td><td><code>DRONE_ATK</code> 5, <code>DRONE_PEN</code> 1</td></tr>
+        <tr><td>11</td><td><code>creatures/voltkinChain.ts:241</code> / <code>:249</code></td><td><code>chainJumpFifths</code></td></tr>
+        <tr><td>12</td><td><code>potatoLifecycle.ts:374</code> <code>applyStructureSelfDestruct</code></td><td>ruled 120 fifths (canon &sect;9d), on <code>s191/carry</code></td></tr>
+        <tr><td>13</td><td><code>world.ts:722</code> (+ <code>:749</code>/<code>:775</code>/<code>:817</code>)</td><td><code>RAID_ATK</code> 2, <code>RAID_PEN</code> 0, <code>RAID_CONNECTOR_MAX_FIFTHS</code> 3</td></tr>
+        <tr><td>14</td><td><code>damage.ts:197</code> &rarr; <code>castleUpgrades.ts:183</code></td><td><code>floor(hit &times; 5 / (5 + defLevel))</code>, min 1</td></tr>
+      </tbody>
+    </table></div>
+    <p>Not-damage sites: <code>bossSkillsArchdemon.ts:48</code> (execute), <code>bossSkillsKraken.ts:211</code> (sonar), <code>bossSkills.ts:87</code> (sap); summon strikes via <code>creatureAttack.ts</code>.</p>
+    <h3>Build sizing (not a plan)</h3>
+    <ul class="tight">
+      <li><b>Option 1:</b> a <code>DamageClass</code> beside <code>DamageSource</code> (<code>damage.ts:115</code>), one argument at every caller above, a call-sites test (the S183 <code>damage.callSites.test.ts</code> pattern over every <code>damageEntity</code> / <code>damageConnector</code> / <code>applyRadialDamage</code> caller). No wire, no hash, no protocol bump.</li>
+      <li><b>Option 2:</b> Option 1 + the scale factor inside <code>damageEntity</code> / <code>damageConnector</code> and the keep's arm; a shared rule both peers compute &rarr; protocol bump; re-pin every Ra / aura kill-count test.</li>
+      <li><b>Option 3:</b> Option 2's factor with <code>RES</code> in place of 0 + a <code>res</code> stat on every creature config (default = <code>def</code>), the keep's RES purchase, a draft axis, the character-card row. A drafted RES is a per-creature wide field (factory + serialize + hash + worker) &rarr; protocol bump.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>SPARK · Magic Damage — Design · built from S191_MAGIC_ATTACK_DESIGN.md · every number from a constant or the ladder</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  // ---- theme toggle ----
+  var root=document.documentElement, btn=document.getElementById('themeBtn');
+  try{var s=localStorage.getItem('spark-magic-theme'); if(s) root.setAttribute('data-theme',s);}catch(e){}
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){cur=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}
+    var nx=cur==='light'?'dark':'light'; root.setAttribute('data-theme',nx);
+    try{localStorage.setItem('spark-magic-theme',nx);}catch(e){}
+  });
+
+  // ---- data (T9_BOSS_STATS) ----
+  var RA=300;
+  var bosses=[
+    {name:'Vlad',race:'vampires',hp:20,def:8},
+    {name:'Kraken',race:'nagas',hp:24,def:12},
+    {name:'Pharaoh',race:'mummies',hp:22,def:16},
+    {name:'Zombie boss',race:'zombies',hp:24,def:10},
+    {name:'Warlord',race:'orcs',hp:22,def:12},
+    {name:'Archdemon',race:'demons',hp:20,def:8}
+  ];
+  bosses.forEach(function(b){b.pool=b.hp*(5+b.def); b.hpPart=b.hp*5; b.o2=Math.floor(RA*(5+b.def)/5);});
+
+  var br=document.getElementById('bossRows'), rr=document.getElementById('raRows');
+  bosses.forEach(function(b){
+    br.insertAdjacentHTML('beforeend','<tr><td><b>'+b.name+'</b></td><td>'+b.race+'</td><td class="n">'+b.hp+'</td><td class="n">'+b.def+'</td><td class="n"><span class="big">'+b.pool+'</span><span class="f">'+b.hp+' &times; (5 + '+b.def+')</span></td><td class="n">'+b.hpPart+'<span class="f">'+b.hp+' &times; 5</span></td></tr>');
+    var dies=b.pool<=RA, left=Math.max(0,b.pool-RA), n=Math.ceil(b.pool/RA);
+    rr.insertAdjacentHTML('beforeend','<tr><td><b>'+b.name+'</b></td><td class="n">'+b.pool+'</td><td>'+(dies?'<span class="pill dead">dies</span>':'<span class="pill alive">survives</span>')+'</td><td class="n">'+(dies?'—':left)+'</td><td class="n">'+n+'</td><td><span class="pill dead">dies</span></td><td class="n">'+b.o2+'<span class="f">300 &times; '+(5+b.def)+' / 5</span></td></tr>');
+  });
+
+  // ---- svg helpers ----
+  var NS='http://www.w3.org/2000/svg';
+  function el(t,a,txt){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e;}
+
+  // Boss chart: grouped horizontal bars
+  (function(){
+    var svg=document.getElementById('svgBoss'), W=720, L=110, R=60, rowH=46, top=24, max=500;
+    var H=top+bosses.length*rowH+24;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    var x=function(v){return L+(W-L-R)*v/max;};
+    [0,100,200,300,400,500].forEach(function(t){
+      svg.appendChild(el('line',{x1:x(t),x2:x(t),y1:top-6,y2:H-20,stroke:'var(--line)','stroke-width':1}));
+      svg.appendChild(el('text',{x:x(t),y:H-6,'text-anchor':'middle','font-size':11,fill:'var(--faint)'},t));
+    });
+    bosses.forEach(function(b,i){
+      var y=top+i*rowH;
+      svg.appendChild(el('text',{x:L-10,y:y+20,'text-anchor':'end','font-size':13,'font-weight':600,fill:'var(--text)'},b.name));
+      svg.appendChild(el('rect',{x:L,y:y+2,width:x(b.pool)-L,height:16,rx:3,fill:'var(--o1)'}));
+      svg.appendChild(el('text',{x:x(b.pool)+6,y:y+15,'font-size':12,'font-weight':700,fill:'var(--text)'},b.pool+(b.pool<=RA?'  dies':'')));
+      svg.appendChild(el('rect',{x:L,y:y+21,width:x(b.hpPart)-L,height:16,rx:3,fill:'var(--o2)'}));
+      svg.appendChild(el('text',{x:x(b.hpPart)+6,y:y+34,'font-size':12,'font-weight':700,fill:'var(--bad)'},b.hpPart+'  dies'));
+    });
+    svg.appendChild(el('line',{x1:x(RA),x2:x(RA),y1:top-14,y2:H-20,stroke:'var(--gold)','stroke-width':2.5,'stroke-dasharray':'6 4'}));
+    svg.appendChild(el('text',{x:x(RA)+6,y:top-6,'font-size':12,'font-weight':700,fill:'var(--gold)'},'one Ra column = 300'));
+  })();
+
+  // Strike sizes chart
+  (function(){
+    var data=[
+      {n:'Ra column',v:300,c:'var(--magic)',f:'15×(5+15)'},
+      {n:'Hub self-destruct (ruled)',v:120,c:'var(--phys)',f:'4×30'},
+      {n:'Castle gun (unbought)',v:40,c:'var(--phys)',f:'5×(5+3)'},
+      {n:'Helga slap',v:36,c:'var(--phys)',f:'4×(5+4)'},
+      {n:'Lightning drone',v:30,c:'var(--phys)',f:'5×(5+1)'},
+      {n:'Raid',v:10,c:'var(--phys)',f:'2×(5+0)'},
+      {n:'Stink death blast',v:9,c:'var(--phys)',f:'1×(5+4)'},
+      {n:'Stink bag',v:6,c:'var(--phys)',f:'1×(5+1)'},
+      {n:'Stink aura (per pulse)',v:1,c:'var(--magic)',f:'flat 1'}
+    ];
+    var svg=document.getElementById('svgStrikes'), W=720, L=180, R=110, rowH=28, top=8, max=300;
+    var H=top+data.length*rowH+8;
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    var x=function(v){return L+(W-L-R)*v/max;};
+    data.forEach(function(d,i){
+      var y=top+i*rowH;
+      svg.appendChild(el('text',{x:L-10,y:y+15,'text-anchor':'end','font-size':12.5,fill:'var(--text)'},d.n));
+      svg.appendChild(el('rect',{x:L,y:y+3,width:Math.max(2,x(d.v)-L),height:16,rx:3,fill:d.c}));
+      var t=el('text',{x:Math.max(L+2,x(d.v))+6,y:y+15,'font-size':12,'font-weight':700,fill:'var(--text)'},String(d.v));
+      svg.appendChild(t);
+      svg.appendChild(el('text',{x:Math.max(L+2,x(d.v))+6+(String(d.v).length*8)+6,y:y+15,'font-size':11,fill:'var(--faint)'},d.f));
+    });
+  })();
+
+  // ---- TOC active highlight ----
+  var links=[].slice.call(document.querySelectorAll('nav.toc a'));
+  var map={}; links.forEach(function(a){map[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ links.forEach(function(a){a.classList.remove('on');}); var a=map[e.target.id]; if(a){a.classList.add('on'); var ol=a.closest('ol'); if(ol&&ol.scrollWidth>ol.clientWidth){ol.scrollLeft=a.parentNode.offsetLeft-ol.clientWidth/2+a.offsetWidth/2;}} } });
+    },{rootMargin:'-30% 0px -60% 0px'});
+    Object.keys(map).forEach(function(id){var s=document.getElementById(id); if(s) io.observe(s);});
+  }
+})();
+</script>
+</body>
+</html>
