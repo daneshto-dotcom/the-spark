@@ -70,6 +70,36 @@ callers, every `loop = true`, the 11 SFX functions and their admit-before-node o
 `trackSourceNode` per creation line), `audioSimBoundary.test.ts` (5). Mutation-checked: dropping the
 `loopEnd` line and the clave admit turned 4 cases red.
 
+## Step 5 — H2 measured on a REAL fight (opt-in `audioWaveStress.measure.test.ts`)
+
+`SPARK_AUDIO_STRESS=1 npx vitest run src/render/audioWaveStress.measure.test.ts` — the c5 four-seat bots
+match on the real host tick, every FIGHT from wave 5 held at 120 creatures, every tick's effects fed to the
+real `drainAudioEffects` on the fake bus, plus the four render watchers modelled (turret/Helga FIRE edge,
+chewer/Voltkin/drone death; fog ignored = upper bound). Cap OFF and cap ON on two identical worlds.
+
+⚠ **This fixed-seed match ends in a WIN at tick 61 753 (wave 7). It never reaches wave 8**, so waves 5–7
+are the stand-in. (First attempt targeted wave 8 and measured nothing — recorded, not hidden.)
+
+| | cap OFF | cap ON |
+|---|---:|---|
+| ticks measured (wave 5 BUILD → match end) | 25 754 | 25 754 |
+| worst single tick, audible SFX requested | **3** | 3 |
+| peak source nodes in a 0.45 s window | **6** | 6 |
+| peak live voices (ledger) | — | 2 |
+| voices dropped | 0 | 0 |
+| render-watcher SFX events | 0 | 0 |
+| final `hashWorldState` | 3255040322 | 3255040322 (identical: the sim never reads audio) |
+
+Kinds on that board: goblinArcher, goblinHound, goblinMelee, goblinShield, raceUnit — **no defenders, no
+Voltkin, no chewer, no drone**, so the render-watcher SFX (laser/slap/splat/zap) are NOT exercised by it.
+
+**Verdict on H2: NOT supported on this board.** A 120-creature bots fight asks for ≤ 3 SFX per tick — four
+orders of magnitude from overload. The cap stays as a cheap safeguard (a blueprint stamp, a Voltkin
+chain, or a turret wall can still burst; the one-tick synthetic burst above is 1 000 → 20 nodes), but
+**H1 (the measured seam gaps) is the fix for T15**. A board with towers/Helga/Voltkins was not measured
+here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next playtest settles it.
+
 ## Log
 - step 1 (7178461) — `src/render/musicLoop.ts` (pure loop-region math) + `musicLoop.test.ts` (14 cases) + this table.
-- steps 2–4 — loop wiring + voice cap + DEV probe + guards (this commit).
+- steps 2–4 (8f58406) — loop wiring + voice cap + DEV probe + guards.
+- step 5 — real-fight H2 measurement (opt-in test) + verdict (this commit).
