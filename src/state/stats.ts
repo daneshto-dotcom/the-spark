@@ -545,7 +545,7 @@ export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   t3Hound: 'both',
   t3Scarab: 'both',
   t3Piranha: 'both',
-  t3PiranhaElite: 'both', // S188 — the piranha's role, ×APEX_PREDATOR_STAT_MUL stats (9 since S192)
+  t3PiranhaElite: 'both', // S188 — the piranha's role, ×APEX_PREDATOR_STAT_MUL stats (6 since S192)
   t3Bat: 'both',
   t3BatSwarm: 'both', // S188 — the bat's role, ×6 stats
   t3Warband: 'both',

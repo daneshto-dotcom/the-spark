@@ -437,7 +437,7 @@ just change it … don't argue if it's too OP"*.
 | **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
 | **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | "the pentagram's chewers" = every chewer the seat owns, and one alive at the pick splits too; ageing out is not dying; the red/black tint is a placeholder |
 | **DEEP CURRENT** | nagas · 0 | the gatherer's walk HOME becomes a snap onto its deposit point, shape in hand; the walk out is unchanged | `deepCurrentSnap` — no number | the snap lands one tick after the claim |
-| **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat ×9 (S192; tripled S188–S191), drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **9** → **27 / 0 / 18 / 9** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
+| **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat ×6, like the bat swarm (S192; tripled S188–S191), drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **6** → **18 / 0 / 12 / 6** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
 
 **His words, one per perk** (S187, verbatim — the S188 PDR §2 holds them in full):
 
@@ -470,7 +470,8 @@ just change it … don't argue if it's too OP"*.
   than having to walk all the way back."*
 - **APEX PREDATOR** — *"So all the stats you take and you just triple them"* and *"two times bigger
   than the current piranha"*. Then S192: *"the Piranha, when it's upgraded … the Nagas get the Piranha
-  upgrade, it should be stronger … I think it should be times nine."*
+  upgrade, it should be stronger … I think it should be times nine."* — and, shown the ×9 arithmetic, he
+  chose **×6, like the bat swarm**.
 - **THE SWARM** (S187) — *"it upgrades the regular tier three bat tower at level 10, if we choose it, to
   become bat swarm, to generate and create bat swarms"* and *"Whatever we did for the piranha, we double
   that."* Then R190-D (S190): *"a bat 1/1/1/1 → 6/6/6/6"* — every stat multiplied from the base.
@@ -584,12 +585,13 @@ outlasts the window (**480**), so it can never reach the next FIGHT. Nothing is 
 over; the once-per-life latch is spent. The renderer stops drawing the feed at the edge
 (`showsCorpseEaterFeed`).
 
-⚠ **APEX PREDATOR: "×9 EVERY STAT" IS ×9 HEALTH BUT ×21 BITE — HIS NUMBER (S192), THE LADDER'S
-ARITHMETIC (R190-D).** The ladder multiplies ATK by (5 + PEN), and both are ×9: pool **15 → 135**, bite
-**12 → 252** — 18 × (5 + 9) against the piranha's 2 × (5 + 1). One elite bite is more than a whole
-5-connector tower, every level of it. Its HP 27 and ATK 18 sit OFF the 1..12 point ladder by his ruling;
-`statsLadder.test.ts` gives the elite its own lane, pinned to exactly piranha × `APEX_PREDATOR_STAT_MUL`.
-(S188–S191 it was ×3: pool 45, bite 48.) "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
+⚠ **APEX PREDATOR: "×6 EVERY STAT" IS ×6 HEALTH BUT ×11 BITE — HIS CHOICE (S192, "like the bat
+swarm"), THE LADDER'S ARITHMETIC (R190-D).** The ladder multiplies ATK by (5 + PEN), and both are ×6:
+pool **15 → 90**, bite **12 → 132** — 12 × (5 + 6) against the piranha's 2 × (5 + 1), the swarm's bite exactly.
+One elite bite is more than a whole 5-connector tower, every level of it. Its HP 18 sits OFF the 1..12
+point ladder by his ruling; `statsLadder.test.ts` gives the elite its own lane, pinned to exactly piranha ×
+`APEX_PREDATOR_STAT_MUL`. ⛔ Equal to THE SWARM's 6 by ruling, not by coupling — both are literals. (S188–S191
+it was ×3: pool 45, bite 48; ×9 was proposed in S192 and not chosen.) "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
 both of the tower's emit sites (the free trickle and FEED_TOWER) ask one function, `towerUnitForSeat`.
 
 ⚠ **THE SWARM: "×6 EVERY STAT" IS ×6 HEALTH BUT ×11 BITE — AND THAT IS HIS RULING, NOT A FLAG (R190-D,
@@ -598,15 +600,15 @@ gives pool **10 → 60** and bite **12 → 132**: 12 × (5 + 6) against the bat'
 more than it costs to fell a whole 5-connector tower, every level of it (**130**). ✅ CLOSED — never re-ask. His 1/1/1/1 is
 illustrative; the bat's real line is 2 / 0 / 2 / 1 (`T3_STATS.bat`), and DEF stays 0 because 0 × 6 = 0.
 ⛔ Since S192 `THE_SWARM_STAT_MUL` is a LITERAL 6, decoupled from `APEX_PREDATOR_STAT_MUL`: left as
-`2 × APEX` the owner's ×9 piranha would have silently made the swarm ×18.
+`2 × APEX` the owner's ×6 piranha would have silently made the swarm ×12.
 
 ⚠ **A STATED CONSEQUENCE: WITH CRIMSON TIDE ONE SWARM BITE HEALS MORE THAN THE SWARM'S WHOLE POOL** —
 `lifestealFifths(132, 50)` = **66** against a pool of **60**. The heal is capped at its own max, so every
 swarm that lands a bite is topped back to full (BLOOD DEBT alone: **26**). Vampire bots take both by
 default. ⚠ And the character-sheet radar's ATK ceiling rose **10 → 12** for every unit (`RADAR_MAX_ATK` —
-the swarm's ATK was then the roster's largest; render-only, left as is on the S190 call), and rose again
-**12 → 18** with the ×9 elite piranha (S192) — whose HP 27, PEN 9 and bite 252 also become the radar's
-HP / PEN / SHOT ceilings, so every other unit's radar draws smaller. Render-only, reported, not changed. "From now on" is
+the swarm's ATK was then the roster's largest; render-only, left as is on the S190 call). The ×6 elite
+piranha (S192) ties it — ATK **12**, PEN 6, bite 132 — and moves NO radar ceiling (HP 18 is under the
+bosses' 24; the SHOT ceiling stays Vlad's 150). "From now on" is
 decided at the EMIT (`towerUnitForSeat`), so bats already alive stay bats, and a vampire seat that takes
 the GENERAL at wave 11 keeps its bats.
 

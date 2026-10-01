@@ -120,9 +120,9 @@ const BOSS_TYPES: ReadonlySet<string> = new Set(
 const isBoss = (type: CreatureType): boolean => BOSS_TYPES.has(type);
 
 /*
- * ⭐ S192 (owner) — THE ELITE PIRANHA GETS ITS OWN, DERIVED LANE. *"I think it should be times nine."*
+ * ⭐ S192 (owner) — THE ELITE PIRANHA GETS ITS OWN, DERIVED LANE. He chose ×6 ("like the bat swarm").
  * APEX PREDATOR multiplies every piranha stat by `APEX_PREDATOR_STAT_MUL` (R190-D, from the base), so
- * at ×9 its HP 27 and ATK 18 sit off the 1..12 point ladder by HIS ruling, not by drift. Same pattern
+ * at ×6 its HP 18 sits off the 1..12 point ladder by HIS ruling, not by drift (ATK 12 is on it). Same pattern
  * as S172's boss lane: rather than raise the shared ceiling (retiring the guard for every other unit),
  * the elite is held to something STRICTER — exactly the piranha × the multiplier, stat for stat.
  */

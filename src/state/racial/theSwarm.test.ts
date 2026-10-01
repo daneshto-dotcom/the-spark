@@ -101,11 +101,14 @@ describe('S188 THE SWARM — the stat line is the bat ×6, derived', () => {
     expect(THE_SWARM_STAT_MUL).toBe(6);
     /*
      * S192 re-pin — was `toBe(2 * APEX_PREDATOR_STAT_MUL)` ("whatever we did for the piranha, we double
-     * that", S188). The owner then made APEX PREDATOR ×9 while R190-D keeps the swarm at 6, so the two
+     * that", S188). The owner then made APEX PREDATOR ×6 while R190-D keeps the swarm at 6, so the two
      * MUST no longer move together: a derived swarm would have silently become ×18.
      */
-    expect(APEX_PREDATOR_STAT_MUL).toBe(9);
-    expect(THE_SWARM_STAT_MUL).not.toBe(2 * APEX_PREDATOR_STAT_MUL);
+    expect(APEX_PREDATOR_STAT_MUL).toBe(6); // equal BY RULING (S192 "like the bat swarm")…
+    // …not by coupling: both are written as LITERALS, so retuning one can never move the other.
+    const src = readFileSync(new URL('../creatures/voltkin-config.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/export const THE_SWARM_STAT_MUL = 6;/);
+    expect(src).toMatch(/export const APEX_PREDATOR_STAT_MUL = 6;/);
   });
 
   it('⭐⭐ HP / DEF / ATK / PEN are each exactly 6× the bat’s — read off its config, never literals', () => {

@@ -151,3 +151,4 @@ IN FLIGHT (NOT applied yet):
      count unchanged? recount), untargetableCallSites key → raColumn.ts, canon rows + pins, CANON_NOTES §6 reason.
   4. Tests: arithmetic; REACH boss column 35 split; WRATH seat cast 75 split + its Pharaoh 75; non-WRATH 35;
      negative; mutation; host-vs-worker wide hash. Gates. Commit each step.
+- ROUND 3 step A DONE: APEX ×6 applied (script + theSwarm literal-source guard; canon §3e + pins). Mutations: APEX written as 2*3 → theSwarm red; APEX 9 → 4 red. NEXT: Ra 35/75 (raColumn.ts).

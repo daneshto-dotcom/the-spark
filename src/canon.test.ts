@@ -797,8 +797,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`chewer has at most **${descendants}** descendants`)).toBe(true);
   });
 
-  it('⭐ §3e — the nagas: APEX PREDATOR is every STAT ×9 (S192), which is ×9 health but ×21 bite', () => {
-    expect(APEX_PREDATOR_STAT_MUL).toBe(9); // his "I think it should be times nine"
+  it('⭐ §3e — the nagas: APEX PREDATOR is every STAT ×6 (S192, "like the bat swarm"), which is ×6 health but ×11 bite', () => {
+    expect(APEX_PREDATOR_STAT_MUL).toBe(6); // his S192 choice
     const base = T3_STATS.piranha;
     const elite = T3_PIRANHA_ELITE_STATS;
     expect([elite.hp, elite.def, elite.atk, elite.pen])
@@ -853,10 +853,11 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(tide).toBeGreaterThan(pool);
     expect(canonSays(`\`lifestealFifths(${bite}, ${CRIMSON_TIDE_LIFESTEAL_PCT})\` = **${tide}** against a pool of **${pool}**`)).toBe(true);
     expect(canonSays(`BLOOD DEBT alone: **${lifestealFifths(bite, BLOOD_DEBT_LIFESTEAL_PCT)}**`)).toBe(true);
-    // The radar's ATK ceiling: the swarm's ATK in S190, the ×9 elite piranha's since S192 — noted, left as is.
-    expect(RADAR_MAX_ATK).toBe(Math.max(swarm.atk, T3_PIRANHA_ELITE_STATS.atk));
-    expect(canonSays(`ATK ceiling rose **10 → ${swarm.atk}**`)).toBe(true);
-    expect(canonSays(`**${swarm.atk} → ${RADAR_MAX_ATK}** with the ×9 elite piranha (S192)`)).toBe(true);
+    // The radar's ATK ceiling is the swarm's ATK, and the ×6 elite piranha (S192) only ties it.
+    expect(RADAR_MAX_ATK).toBe(swarm.atk);
+    expect(T3_PIRANHA_ELITE_STATS.atk).toBe(swarm.atk);
+    expect(canonSays(`ATK ceiling rose **10 → ${RADAR_MAX_ATK}**`)).toBe(true);
+    expect(canonSays(`ties it — ATK **${T3_PIRANHA_ELITE_STATS.atk}**`)).toBe(true);
   });
 
   /* ══ S190 deploy #4 — §5b, three unit rules he reported (s189/units) ══════════════════════════ */

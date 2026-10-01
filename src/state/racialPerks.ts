@@ -299,7 +299,7 @@ export const RACIAL_PERK_COPY: Readonly<Record<RacialPerkId, RacialPerkCopy>> = 
   'nagas.l5': {
     title: 'APEX PREDATOR',
     line: 'ELITE PIRANHA',
-    detail: 'Your piranha tower spawns the elite piranha from now on: twice the size, nine times the stats.',
+    detail: 'Your piranha tower spawns the elite piranha from now on: twice the size, six times the stats.',
     card: 'l5-nagas',
   },
 };

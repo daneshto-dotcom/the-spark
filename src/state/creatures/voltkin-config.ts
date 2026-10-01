@@ -871,23 +871,27 @@ export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T
  * ⭐⭐ S188 (owner, nagas level 5 — APEX PREDATOR) — HIS NUMBER: *"the stats will be like three times
  * stronger than a regular piranha unit. So all the stats you take and you just triple them."*
  *
- * ⭐⭐ S192 (owner) — **×3 → ×9.** *"the Piranha, when it's upgraded … the Nagas get the Piranha upgrade,
- * it should be stronger … I think it should be times nine."* Still every stat from the base (R190-D).
+ * ⭐⭐ S192 (owner) — **×3 → ×6, "LIKE THE BAT SWARM".** He first said *"the Piranha, when it's upgraded
+ * … the Nagas get the Piranha upgrade, it should be stronger … I think it should be times nine"*, then,
+ * shown what ×9 does on the ladder (bite 252, ×21), CHOSE ×6 — the same multiplier as THE SWARM — from the
+ * options he was given. Still every stat from the base (R190-D). ⛔ Equal to `THE_SWARM_STAT_MUL` BY
+ * RULING, NOT BY COUPLING: each is its own literal, so a future retune of one never moves the other.
  */
-export const APEX_PREDATOR_STAT_MUL = 9;
+export const APEX_PREDATOR_STAT_MUL = 6;
 
 /**
  * ⭐ THE ELITE PIRANHA'S STAT LINE, DERIVED FROM THE PIRANHA'S — never typed out, so a retune of
  * `T3_STATS.piranha` retunes the elite with it and the two can never drift apart.
  *
- * ⛔ THE FOUR LADDER STATS ARE MULTIPLIED (×9 since S192; tripled S188–S191), AND ONLY THEY ARE. `speedMul` is not a stat on the ladder and
+ * ⛔ THE FOUR LADDER STATS ARE MULTIPLIED (×6 since S192; tripled S188–S191), AND ONLY THEY ARE. `speedMul` is not a stat on the ladder and
  * he said "stats"; a creature three times faster would be a second, unasked-for change. So it swims
  * at the piranha's speed.
  *
  * ⚠ REPORTED, NOT HIDDEN: on the ×5 ladder "every stat ×3" is NOT "every number ×3". The pool is
- * `hp × (5 + def)`, and the piranha (3/0/2/1) has 0 DEF, so the pool is exactly ×9 (15 → 135). Damage
- * is `atk × (5 + pen)` and the PEN is ×9 too, so a bite goes 12 → 18 × 14 = 252 — **×21** (at S188's
- * ×3 it was 45 and 48, ×4). One elite bite is more than a whole 5-connector tower level (130). That is
+ * `hp × (5 + def)`, and the piranha (3/0/2/1) has 0 DEF, so the pool is exactly ×6 (15 → 90). Damage
+ * is `atk × (5 + pen)` and the PEN is ×6 too, so a bite goes 12 → 12 × 11 = 132 — **×11**, the swarm's
+ * exact bite (at S188's ×3 it was 45 and 48, ×4). One elite bite is more than a whole 5-connector tower
+ * level (130). That is
  * the literal reading of his words (R190-D: the bite multiple is whatever the ladder gives) and it is
  * shipped as such; the arithmetic is what he should see.
  */
@@ -907,9 +911,10 @@ export const T3_PIRANHA_ELITE_CONFIG: CreatureConfig = makeT3Config('t3PiranhaEl
  * piranha, we double that."*
  *
  * ⛔⛔ S192 — **DECOUPLED: A LITERAL 6.** Until S192 this read `2 × APEX_PREDATOR_STAT_MUL`, the
- * derivation above. The owner then raised APEX PREDATOR to ×9 (S192) while his R190-D ruling fixes the
- * swarm at six: *"a bat 1/1/1/1 → 6/6/6/6"*. Left derived, his piranha retune would have silently made
- * the swarm ×18. `theSwarm.test.ts` pins 6 and pins that the two no longer move together.
+ * derivation above. The owner then retuned APEX PREDATOR (S192: ×9 proposed, ×6 chosen) while his R190-D
+ * ruling fixes the swarm at six: *"a bat 1/1/1/1 → 6/6/6/6"*. Left derived, ×6 would have made the swarm
+ * ×12. The two are now EQUAL (6 and 6) by two rulings, not by a formula; `theSwarm.test.ts` pins 6 and
+ * pins that this constant is written as a literal.
  */
 export const THE_SWARM_STAT_MUL = 6;
 
@@ -1123,7 +1128,7 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   t3Hound: T3_HOUND_CONFIG,
   t3Scarab: T3_SCARAB_CONFIG,
   t3Piranha: T3_PIRANHA_CONFIG,
-  // ⭐ S188 APEX PREDATOR — the piranha ×APEX_PREDATOR_STAT_MUL (9 since S192), see `T3_PIRANHA_ELITE_STATS`.
+  // ⭐ S188 APEX PREDATOR — the piranha ×APEX_PREDATOR_STAT_MUL (6 since S192), see `T3_PIRANHA_ELITE_STATS`.
   t3PiranhaElite: T3_PIRANHA_ELITE_CONFIG,
   t3Bat: T3_BAT_CONFIG,
   // ⭐ S188 THE SWARM — the bat ×6, see `T3_BAT_SWARM_STATS`.

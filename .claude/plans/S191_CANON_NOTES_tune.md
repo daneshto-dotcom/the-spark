@@ -135,8 +135,19 @@ hands would disagree about something either computes, on the host or on a succes
  *      a `CASTLE_PORCH_KEEP_OUT_RADIUS` 34 disc per porch slot. Placement is a hashed REDUCER: a v52 host
  *      refuses a placement in the 61..121 ring that a v53 client's ghost shows as legal (and vice versa
  *      around the porch) — a divergence, not a cosmetic disagreement.
- *   3. APEX PREDATOR (S192, owner: "I think it should be times nine") — `APEX_PREDATOR_STAT_MUL` 3 -> 9
- *      (elite piranha 27 / 0 / 18 / 9: pool 135, bite 252). `THE_SWARM_STAT_MUL` DECOUPLED to a literal 6
+ *   3. APEX PREDATOR (S192, owner chose ×6 "like the bat swarm") — `APEX_PREDATOR_STAT_MUL` 3 -> 6
+ *      (elite piranha 18 / 0 / 12 / 6: pool 90, bite 132). `THE_SWARM_STAT_MUL` DECOUPLED to a literal 6
  *      (R190-D), numerically unchanged. A v52 sim emits a 45-pool elite with a 48 bite.
  */
 ```
+
+## ITEM 3 — SUPERSEDED (S192): the owner CHOSE ×6, "like the bat swarm"
+
+Everything above about ×9 is history. Live: `APEX_PREDATOR_STAT_MUL` = **6** → elite piranha **18 / 0 / 12 / 6**,
+pool **15 → 90**, bite **12 → 132** (×11, the swarm's bite exactly). `THE_SWARM_STAT_MUL` stays a separate
+literal 6 — equal by ruling, not coupling (`theSwarm.test.ts` pins both as literals in the source). Radar:
+no ceiling moves (ATK ties the swarm's 12; HP 18 < bosses' 24; SHOT stays Vlad's 150). Copy: "six times the
+stats". `statsLadder.test` keeps the elite's derived lane (HP 18 is off 1..12). Applied to SPARK_CANON §3e
+and canon.test in the S192 round-3 commit.
+§6 reason 3 now reads: APEX PREDATOR 3 -> 6 (elite 18 / 0 / 12 / 6: pool 90, bite 132); a v52 sim emits a
+45-pool elite with a 48 bite.
