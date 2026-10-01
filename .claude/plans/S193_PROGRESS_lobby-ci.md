@@ -1,7 +1,16 @@
 # S193 PROGRESS — lobby-ci (`s193/lobby-ci`)
 
 ## ⭐ WIDENED (coordinator, R193-CI): every failing e2e job in the last 20 master runs + relay rotation
-NEXT STEP: worker-bots wall-cap fix (in progress), then soak, quarantine (hostmigration x2, exit-match), relays.
+NEXT STEP: hostmigration local repro running (successor tick frozen after migration?), then quarantine-lane dedupe, relays.
+- worker-bots: FIXED ac0137b2 (derived backstops; lane 11/20; 5/5 mutations red; local e2e:worker-bots exit 0, 52 s).
+- e2e-soak worker-heap (continue-on-error, never emails): 2 modes. (1) 34 s fails in 7 runs before 521f23a = the same
+  30 s gatherer WALL wait, fixed by 811121ba. (2) after it: MAIN post-GC Δ 11.46 MB (4689 ticks) and 10.80 MB (5202) > 10 MB,
+  vs 8 passes Δ -0.36..8.47 MB. Non-monotone in window length (10233 ticks -> 6.71 MB) and the worker isolate is flat
+  (<1.1 MB) => not a linear per-tick leak; instrument noise at the macro ceiling. NOT relaxed, NOT fixed: verdict
+  INCONCLUSIVE-noise, recommend a heap-snapshot diff session before touching the 10 MB ceiling.
+- e2e-quarantine (continue-on-error): never FINISHES — every run hits its 1020 s cap with 1-17 tests 'did not run'.
+  hostmigration test 34 (36884780286, 36844358659) and test 148 (36840314291) die at the SAME step: successor has
+  isHost=true + epoch 1, then its tick does not advance +60 in 15 s. Other hostmigration failures = 'host sees j2' (3-mesh slow, budget).
 
 ### Triage of last 20 master runs (gh run list --workflow e2e.yml --branch master -L 20)
 Run conclusion = failure (the emails) ONLY via gating jobs: e2e-lobby (fixed above), e2e (gating), e2e-worker-bots.
