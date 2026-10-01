@@ -56,3 +56,25 @@ that razed every shape inside a structure is GONE — that is what made one colu
 - `canon.test.ts` §3e WRATH test (~:814): the `canonSays` string follows the WRATH row above.
 - `RA_STRIKE_FIFTHS` survives as a `@deprecated` alias of `RA_PERK_STRIKE_FIFTHS` only so canon.test
   still compiles; delete it once canon.test reads the new name.
+
+## ITEM 2 — the castle no-build radius, halved (121 → 61), porch kept clear
+
+Owner (S191): *"the no build zone near castle is like way too ridiculous. It needs to be halved. Okay,
+like the radius where you can't build around the castle."*
+
+SPARK_CANON.md has NO row for the castle keep-out today (grep: no `CASTLE_NO_BUILD_RADIUS`, no 121), and
+canon.test.ts pins nothing about it — so nothing goes red. Suggested new §4b (placement) row, if the merge
+owner wants it canonised:
+
+| **CASTLE KEEP-OUT** | every castle, every seat | nobody builds within `CASTLE_NO_BUILD_RADIUS` = **61** px of a castle anchor (S182's 121, halved — his), NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`, ⚠ MINE) of any of its 4 porch slots | one rule, `zones.castleKeepOutHitsBox`: point placement (`canBuildAt`) and stamps (`stampRefusalAt` → `CASTLE`), host, client ghost and bots alike. The keep box and the unit-emit ring (46 px) stay inside it; the sprite's roof (67 px) and corners (82 px) do NOT any more |
+
+Assertions to add with it: `CASTLE_NO_BUILD_RADIUS === 61`, `CASTLE_PORCH_KEEP_OUT_RADIUS === 2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS`.
+
+Consumers (all route through `castleKeepOutHitsBox`; none changed): `canBuildAt` → `canBuildNow` →
+`placePrimitive`, `placeFromFree` (host); `dragPreview` + `controls.ts` release gate (client);
+`botBrain.isLegalBuildPos` (bot loose shapes); `stampRefusalAt` → `blueprintBuild` (host),
+`blueprintGhost` + `controls.canStampAt` (client), `botBrain.chooseTowerPlan` + `botController` (bots).
+`structureRepair.canReclaimNow` deliberately does not read it. No renderer draws the zone.
+⚠ Bots plant towers at `TOWER_SITE_OFFSET` 210 px from their anchor regardless, so the halving does not
+move bot tower sites; VOLTKIN's horizontal angles stay refused (210 − 152 = 58 < 61). Bot LOOSE shapes do use
+the freed ring (`isLegalBuildPos`, tested).
