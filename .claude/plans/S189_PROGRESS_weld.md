@@ -1,5 +1,42 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
+## ⭐⭐⭐ S193 AUDIT FIX ROUND — FINAL REPORT (read this first)
+- **tip**: see `git log` (code tip 91a1181; docs commits on top). **Merges** (all 0 conflicts):
+  110c17a (master 58 — zombies + lobby-ci), the endgame merge (59), and the latest master b72e779
+  (visuals-2) — master is fully merged at report time. `npm install` after each.
+- **gates** on the final merged tree, each `$?` in `.tmp-gates/{TC7,VT7,BUILD7,E2E7}.exit`:
+  typecheck **0** · `vitest --maxWorkers=3` **0** = **7515 passed + 11 skipped / 489 files + 4 skipped** ·
+  build **0** — entry **1082.3 KiB** / 1250 (167.7 headroom; master alone was not built here — the
+  auditor measured weld at ≈ +20 KiB over master) · `npm run e2e:gating` on this worktree's own port
+  **0** = **71 passed** (7.6 min).
+- **bump verdict: BUMP** (59 → 60 or later; the merge owner's number) — notes §H reasons 1-9: the
+  `ownPrimitiveIds` field replacement and the R191-A rules (round 5), and round 6's `REPAIR_STRUCTURE`
+  meaning change, the new `FIX_ALL` intent, and the new serialized + wide-hashed `World.repairJobs` /
+  `nextRepairJobId` / `Gatherer.repairTask`. The fix round adds no wire change.
+- **fixed this round:** (1) e2e castle-panel row literal → EIGHT rows, `fixAll` first; (2) zombies T11
+  seam — `repairHealNumber` instant cases re-pinned + a JOB REACH test that prints the one green number;
+  (3) endgame seam — `FIX_ALL: 'allow'` under the wave-27 lock, docblock corrected, the lock's FIX test
+  re-pinned to the job (bank-sourced); plus a seam the audit could not see before the endgame merge:
+  `endgameS193.test.ts`'s owner-predicate enumeration gains weld's seat-only sites with verdicts;
+  (4) an eliminated seat's jobs cancel and refund; (5) `QUEUE FULL` on the card FIX and the FIX ALL row;
+  (6) `fixAllTargets` claims shapes only for towers it queues (defensive — no reachable board shows the
+  difference; recorded below); (7) the job re-plan is phase-spread by id (`REPAIR_JOB_REPLAN_TICKS` 15,
+  MINE), measured 0.61–1.13 → 0.05–0.07 ms/tick at 32 waiting jobs; (8) canon §8 / §3d / §7b / §9d / §6
+  rewritten on this branch with canon.test pins (32, 15, fixAll first, the new phrases), the two stale
+  docblocks, canon notes §H reasons 7-9.
+- **mutants:** F1 eliminated-not-cancelled · F2 card ignores the bound · F3 row ignores the bound ·
+  F4 re-plan every tick · F5 job restore no-op — all RED, restored (plus round 6's M1-M9).
+- **MINE / owner questions (unchanged from round 6, plus one):** `REPAIR_JOB_REPLAN_TICKS` 15 (a waiting
+  job notices "nothing left to fix" within a quarter second) — rec: keep. Round 6's list stands: mid-haul
+  finishes first · no gatherer → no FIX · porch not a source · castle wins a tie · 32 jobs a seat · FIX ALL
+  top row · DEEP CURRENT not on repair trips · no carried-shape art.
+- **merge seams:** the canon is rewritten ON THIS BRANCH (§3d, §6, §7b, §8, §9d) — merge it as-is, do not
+  re-apply the digest's suggestions on top. `endgameS193.test.ts` SITES gained three weld entries.
+  Any branch counting owner predicates in `structureRepair.ts` sees 2 now (round 5's `reclaimScopeAt`).
+- **NOT DONE:** item 6 has no REACH case that distinguishes it (stamps never bond to existing shapes;
+  hand-built shared-leaf towers carry no provenance and are never FIX candidates) — kept as a defensive
+  fix with a whole-tower negative test, not mutation-tested. Carried-shape art; DEEP CURRENT on trips.
+
 ## ⭐⭐ S193 ROUND 6 FINAL REPORT (R191-B FIX-by-gatherer + R192-W1 castle FIX ALL) — read this first
 - **tip**: see `git log` (code tip 054896f; this report is the docs commit on top) · **merge** 4aaf81a
   (master 62b83e0, plan-file commits only) — **0 conflicts**.
