@@ -452,8 +452,11 @@ describe('⛔ GUARD — the runner feeds through FEED_TOWER, never around it', (
   /*
    * ⚠ MUTATION-TESTED (S193): replacing the runner's `dispatch(world, { type: 'FEED_TOWER', … })` with a
    * direct `applyFeedTower(world, …)` call turned the BENCH case above RED (a benched seat's goblins
-   * were built), and this source guard red too. Both halves matter: the source guard names the line,
-   * the bench case proves the gates are REACHED through it.
+   * were built), and this source guard red too.
+   * ⚠ S193 ROUND 2 — the runner now SKIPS benched / eliminated seats itself (forensic counters), so the
+   * bench case no longer catches that mutation; THIS guard does, alone. It still matters: the endgame
+   * build lock (`s192/endgame`) is a `dispatch`-level gate with no runner-side copy, and only a feed
+   * that goes through `dispatch` will meet it.
    */
   const src = readFileSync(new URL('./goblinAutoFeed.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const body = src
