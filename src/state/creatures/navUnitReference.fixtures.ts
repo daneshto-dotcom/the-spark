@@ -62,7 +62,8 @@ export function referenceCannotCatch(world: World, chaser: Creature, quarry: Cre
   if (!(qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO)) return false;
   // S192 refinement — at home it is engaged.
   const home = zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout);
-  if (home !== null && zoneOf(quarry.pos, world.layout) === home) return false;
+  // S193 audit — the CHASER must be at home too ("you're still in your zone" = the unit's own zone).
+  if (home !== null && zoneOf(chaser.pos, world.layout) === home && zoneOf(quarry.pos, world.layout) === home) return false;
   // S192 refinement — and when it can be cut off before it reaches its target.
   const vx = quarry.targetPos.x - quarry.pos.x;
   const vy = quarry.targetPos.y - quarry.pos.y;
@@ -72,7 +73,9 @@ export function referenceCannotCatch(world: World, chaser: Creature, quarry: Cre
     const px = quarry.pos.x + t * vx;
     const py = quarry.pos.y + t * vy;
     const quarryTravel = t * Math.sqrt(len2);
-    const chaserTravel = Math.max(0, Math.hypot(chaser.pos.x - px, chaser.pos.y - py) - reach);
+    const cdx = chaser.pos.x - px;
+    const cdy = chaser.pos.y - py;
+    const chaserTravel = Math.max(0, Math.sqrt(cdx * cdx + cdy * cdy) - reach);
     if (chaserTravel * qc.maxAccel <= quarryTravel * cc.maxAccel) return false;
   }
   return true;

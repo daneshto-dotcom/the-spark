@@ -180,3 +180,4 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
   54 counted for C-6 (*"a CHANGED SHARED RULE both peers (host, successor, worker mirror) compute"*). ⚠ S190's 51
   docblock recorded s189/units' host-side rules as "owed nothing alone"; the two precedents disagree, and the later
   (54, C-6) governs. No field, no wire change, no new discriminant.
+- S193 FIX ROUND WIP: fix 1 (chaser-at-home clause) + Math.hypot→sqrt applied in creatureAI.ts and the reference. NEXT: tests for fix 2 (differential abroad/home case + REACH no-pickup), then docs (fix 3), guards (fix 4), gates.

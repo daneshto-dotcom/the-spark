@@ -939,7 +939,9 @@ function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: n
   const px = ax + t * vx;
   const py = ay + t * vy;
   const quarryTravel = t * Math.sqrt(len2);
-  const chaserTravel = Math.max(0, Math.hypot(limits.pos.x - px, limits.pos.y - py) - limits.reach);
+  const cdx = limits.pos.x - px;
+  const cdy = limits.pos.y - py;
+  const chaserTravel = Math.max(0, Math.sqrt(cdx * cdx + cdy * cdy) - limits.reach);
   return chaserTravel * quarrySpeed <= quarryTravel * limits.speed;
 }
 
@@ -972,7 +974,14 @@ function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolea
   if (!isNonCombatantType(quarry.type)) return false; // it can hit back — R184-A
   const quarrySpeed = getCreatureConfig(quarry.type).maxAccel;
   if (quarrySpeed <= limits.giveUpAboveAccel) return false; // catchable: chase as before
-  if (limits.homeZone !== null && zoneOf(quarry.pos, limits.layout) === limits.homeZone) return false; // 2 — home
+  // 2 — home. ⭐ S193 audit: BOTH the quarry AND the chaser must stand in the chaser's own zone (*"you're
+  // still in your zone"* = the unit's own position). Testing the quarry alone let a unit abroad near the
+  // border re-acquire a drone crossing into its home zone at 88–202 px and turn back (2–4 pickups a drone).
+  if (
+    limits.homeZone !== null &&
+    zoneOf(limits.pos, limits.layout) === limits.homeZone &&
+    zoneOf(quarry.pos, limits.layout) === limits.homeZone
+  ) return false;
   if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off
   return true;
 }
