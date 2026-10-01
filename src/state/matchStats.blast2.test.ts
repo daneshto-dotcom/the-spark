@@ -205,6 +205,11 @@ describe('⭐ S193 BLAST-2 — the lightning hub\'s ladder blast credits the hub
       }
     }
     expect(w.creatures.has(chewer)).toBe(false);
+    const e12Share = plan.find((t) => t.kind === 'connector')!.amount;
+    expect(w.bonds.has(e12), 'the planned connector falls iff its share covers pool 14').toBe(e12Share < structurePoolFifths(2));
+    if (plan.some((t) => t.kind === 'connector' && t.amount >= structurePoolFifths(2) + structurePoolFifths(1))) {
+      expect(w.bonds.has(e23), 'and the carry felled the one outside the radius').toBe(false);
+    }
     expect(dealt(w, P0) - d0, 'the hub OWNER\'s DEALT').toBe(expected);
     expect(taken(w, P1) - t1, 'conservation: exactly what seat 1 lost').toBe(expected);
     expect(kills(w, P0, 'chewer'), 'and the kill is his').toBe(1);
