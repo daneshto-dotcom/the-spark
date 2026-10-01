@@ -123,8 +123,16 @@ describe('S191 perf — the nav-unit enemy index fingerprint is exact only while
     // The indexed search falls back to the live scan outside the epoch, and reads untargetability live.
     const q = bodyOf(ai, 'findNearestEnemyCreatureIndexed');
     expect(q).toContain('epochWorld !== world || epochTick !== world.tick');
-    expect(q).toContain('return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId)');
-    expect(q, 'the static half precomputed, the ritual half live').toContain('untargetableType[i] || isChannellingRa(c, tick)');
+    // S192 T6 — the fallback now carries the chaser, so the give-up rule holds outside the epoch too.
+    expect(q).toContain('return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId, chaser)');
+    expect(q, 'S192 T6 — the chaser-relative rule is read live in the loop').toContain('if (cannotCatch(chase, c, dSq)) continue;');
+    // ⭐ S192 T13 — the static TYPE half precomputed; EVERYTHING ELSE LIVE through the one liveness
+    // predicate: the ritual half (inside `isUntargetable`), a lethal deferred blow, the fade.
+    expect(q, 'the static half precomputed, the rest live').toContain('untargetableType[i] || !isLiveCreatureTarget(world, c)');
+    const live = bodyOf('src/state/creatures/creature.ts', 'isLiveCreatureTarget').replace(/\s+/g, ' ');
+    expect(live, 'the ritual half is still read live, inside the predicate').toContain('return !isUntargetable(c, world.tick); }');
+    expect(live).toContain('if (c.ehp <= 0) return false;');
+    expect(live).toContain("world.pendingCreatureDeaths?.has(c.id) === true");
   });
 
   it('6 · isUntargetable is EXACTLY type || ritual — the split the index relies on — and neither half can change under it', () => {
