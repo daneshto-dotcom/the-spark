@@ -60,3 +60,12 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
   full gates; canon notes; final commit.
 - EXACT NEXT STEP: `npx vitest run src/state/creatures/chaseGiveUp.test.ts src/state/s191Perf.differential.test.ts
   src/state/creatures/navUnitIndex.differential.test.ts` and fix the reference fixture.
+- PAUSED (owner order, usage limit). First run of `chaseGiveUp.test.ts` (T6 code applied) = 2 red, both FIXTURE defects:
+  (1) arithmetic case: 200 px is INSIDE goblinArcher's reach (218 = engageRange + 20) → use 300 px or drop the archer row;
+  (2) REACH case: the no-drone goblinMelee dies before 600 ticks (dx NaN — the enemy keep's gun one-shots it at the end of
+  the march); the orc boss arm measured no drone 676 px vs one drone 936 px (the drone arm going FURTHER means the
+  fixture is not the research repro — the drone likely draws/clears something). Rebuild the repro: shorter run (~400
+  ticks) or start further from the keep, and confirm the drone actually crosses the unit's path.
+- EXACT NEXT STEP on resume: fix those two fixtures, then measure BEFORE (mutant: `if (limits !== null) return false;`
+  as first line of `cannotCatch`) vs AFTER; then update `navUnitReference.fixtures.ts` with the rule longhand and run
+  `src/state/s191Perf.differential.test.ts` + `navUnitIndex.differential.test.ts`; then full gates.
