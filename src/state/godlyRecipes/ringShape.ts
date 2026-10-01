@@ -59,13 +59,20 @@ import type { World } from '../worldTypes.ts';
  * list, so an unordered list would make the ring's traversal order depend on build order, and with it
  * any future tie-break layered on top.
  */
-function sameTypeNeighbours(world: World, id: PrimitiveId, type: SparkType): PrimitiveId[] {
+function sameTypeNeighbours(
+  world: World,
+  id: PrimitiveId,
+  type: SparkType,
+  /** S189 C2 — only connectors with an id BELOW this count (the ones a live tower was built with). */
+  bondIdLimit: number | null = null,
+): PrimitiveId[] {
   const p = world.primitives.get(id);
   if (p === undefined) return [];
   const out: PrimitiveId[] = [];
   for (const bondId of p.bonds) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue; // a dangling bond id — the shape is mid-teardown
+    if (bondIdLimit !== null && Number(bondId) >= bondIdLimit) continue; // a weld, not the ring
     const otherId = bond.aId === id ? bond.bId : bond.aId;
     // A self-bond would pass the type test by accident. The bond factories never make one; reading
     // it as a neighbour would be silently wrong if they ever did.
@@ -106,6 +113,13 @@ export function ringMembersAt(
   anchorId: PrimitiveId,
   type: SparkType,
   n: number,
+  /**
+   * ⭐ S189 C2 (audit W1) — a LIVE tower's `ownBondIdLimit`: walk only the connectors it was BUILT
+   * with. Ignition was exact (every node had exactly two same-type neighbours), so over those bonds
+   * the ring is the same exact walk forever — a weld of ANY type, bonded anywhere, is invisible to
+   * it, and a cut own connector breaks it. `null` = the plain exact walk (ignition, R136).
+   */
+  bondIdLimit: number | null = null,
 ): PrimitiveId[] | null {
   // A ring needs at least three nodes; n < 3 would let a single bonded pair read as a "ring" whose
   // two members are each other's only neighbour, which the walk below would happily close.
@@ -114,7 +128,7 @@ export function ringMembersAt(
   if (anchor === undefined) return null;
   if (anchor.type !== type) return null;
 
-  const first = sameTypeNeighbours(world, anchorId, type);
+  const first = sameTypeNeighbours(world, anchorId, type, bondIdLimit);
   if (first.length !== 2) return null;
 
   const seen = new Set<PrimitiveId>([anchorId]);
@@ -124,7 +138,7 @@ export function ringMembersAt(
   let cur: PrimitiveId = first[0]!;
 
   for (let step = 1; step < n; step++) {
-    const nbrs = sameTypeNeighbours(world, cur, type);
+    const nbrs = sameTypeNeighbours(world, cur, type, bondIdLimit);
     // The exact-2 clause, re-applied at EVERY node rather than only at the anchor. Checking it once
     // would accept a ring with a same-type spur hanging off a non-anchor node, and the anchor a
     // recipe picks is an implementation detail — so the predicate would depend on which node the
@@ -159,6 +173,48 @@ export function isRingAt(
   n: number,
 ): boolean {
   return ringMembersAt(world, anchorId, type, n) !== null;
+}
+
+/*
+ * ⛔ S189 C2 (audit W1 / W7) — `ringCycleAt` WAS HERE AND IS GONE. It searched for ANY simple n-cycle
+ * through the anchor, so a same-type bypass welded round a cut connector kept the ring standing (a
+ * mechanic nobody ruled), and on a broken ring inside a dense same-type lattice it was an unbounded
+ * DFS run every render frame. Survival is `ringMembersAt(…, bondIdLimit)` now: an O(n) walk over the
+ * connectors the tower was built with.
+ */
+
+/**
+ * S189 C2 — PURE — what is LEFT of a broken ring, for the renderer's crumble only: the shapes of
+ * `type` within `n − 1` same-type hops of the anchor, ascending id. `null` when the anchor is gone.
+ *
+ * ⚠ NEVER A SURVIVAL TEST. It exists so a ring that has just lost a connector still has a centroid
+ * to crumble at during the ≤ 30 ticks before the revalidation poll removes it. It walks same-type
+ * neighbours only, so a foreign weld (the common case) never drifts the wreck.
+ */
+export function ringRemainsAt(
+  world: World,
+  anchorId: PrimitiveId,
+  type: SparkType,
+  n: number,
+  /** S189 C2 — only the connectors the tower was built with, so a weld never drifts the wreck. */
+  bondIdLimit: number | null = null,
+): PrimitiveId[] | null {
+  const anchor = world.primitives.get(anchorId);
+  if (anchor === undefined) return null;
+  const seen = new Set<PrimitiveId>([anchorId]);
+  let frontier: PrimitiveId[] = [anchorId];
+  for (let hop = 1; hop < n && frontier.length > 0; hop++) {
+    const next: PrimitiveId[] = [];
+    for (const id of frontier) {
+      for (const nb of sameTypeNeighbours(world, id, type, bondIdLimit)) {
+        if (seen.has(nb)) continue;
+        seen.add(nb);
+        next.push(nb);
+      }
+    }
+    frontier = next;
+  }
+  return [...seen].sort((a, b) => a - b);
 }
 
 /**

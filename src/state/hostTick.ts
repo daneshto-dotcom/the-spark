@@ -87,7 +87,8 @@ import { stinkCloudTick, sweepExpiredStinkClouds } from './defenders/stinkCloud.
 import { applyRadialDamage } from './damage.ts';
 import { bankCarriedSparksAtPhaseEdge } from './sparkLifecycle.ts';
 // S157 P0 — the lightning hub razes its OWN component on self-destruct; see the emit branch.
-import { componentOf } from '../game/structure.ts';
+// S189 C2 item 3 — the lightning hub's self-raze takes its OWN members (was `componentOf`).
+import { towerMembersAt } from './towerMembers.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { runVladLifeSap, runZombieRotAura, type SapLedger } from './bossSkills.ts';
 import { runWarlordDirewolves, runWarlordRage } from './bossSkillsWarlord.ts';
@@ -99,6 +100,7 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
+  reviveDormantHelgas, // S189 R190-J — wake a dead Helga at the FIGHT→BUILD edge while her hall stands
 } from './defenders/defenderLifecycle.ts';
 // S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -118,15 +120,13 @@ import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.t
  * S167 — the tier-9 leaf + the ring walk, both side-effect-free, for the same hot-path reason as
  * the line above. `ringShape.ts` is types-only and calls no `registerRecipe`.
  */
-import { T9_BOSS_TYPE, T9_TOWER_SIZE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
+import { T9_BOSS_TYPE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9BossIds.ts';
 /*
  * ⭐ S170 P2 — `T9_RELEASE_DELAY_TICKS` is no longer imported HERE. It was read only by the
  * second-boss gate this priority deleted; the 5 s standing period itself is untouched and still
  * lives where it belongs, as the tower's spawner interval (`spawners/spawner.ts` →
  * `spawnerIntervalTicks`), which is what `world.tick >= sp.nextSpawnTick` below actually waits on.
  */
-import { ringMembersAt } from './godlyRecipes/ringShape.ts';
-import { RACE_FEED_SHAPE } from './races.ts';
 // S158 B2 — ONE definition of a recipe's emit cadence, shared with the registration seed.
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -474,6 +474,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             dispatch(world, { type: 'REMOVE_DEFENDER', defenderId });
           }
         }
+        /*
+         * ⭐⭐ S189 C2 / R190-J — *"Every fight she should come back as long as the tower is still
+         * up."* The sweep above has just removed the record of any hall that fell; every DORMANT
+         * Helga left is on a hall whose own members stand, welded or not, and she wakes now — no
+         * bond needs to form. See `reviveDormantHelgas` for why this edge.
+         */
+        reviveDormantHelgas(world);
         // Walls up, guns cold, doors open.
         standDownDefenders(world);
         /*
@@ -549,6 +556,17 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         clearScorchedEarthAtBuild(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
+      }
+      if (world.matchPhase === 'FIGHT') {
+        /*
+         * ⭐⭐ S189 C2 (audit W-FR2) / R190-J — *"Every fight she should come back as long as the
+         * tower is still up."* The FIGHT→BUILD revive above only catches a Helga who died in a FIGHT.
+         * One finished during BUILD (a raid can do it) would otherwise sit DORMANT through the whole
+         * next FIGHT. Any record still DORMANT at this crossing died during BUILD — a FIGHT death was
+         * already revived at the FIGHT→BUILD edge — so she wakes for this fight, and S157 B6 ("not in
+         * the fight she died in") still holds for FIGHT deaths.
+         */
+        reviveDormantHelgas(world);
       }
     }
   }
@@ -857,20 +875,49 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
            * property, two consumers.
            *
            * S157 P0's two rulings move with the code unchanged: the AoE SPARES the owner's other
-           * structures, and the hub razes its OWN component explicitly so its leaves cannot survive
-           * as bond-less orphans (*"the last shape stays and attracts enemy fire"*).
+           * structures, and the hub razes its OWN star (S189 C2: not its whole component) plus
+           * anything that lost its last bond in that raze, so nothing survives as a bond-less
+           * orphan (*"the last shape stays and attracts enemy fire"*).
            */
           if (sp.recipeId === 'lightningHub') {
             const dying = world.primitives.get(sp.anchorPrimitiveId);
             if (dying !== undefined) {
-              const selfIds = [...componentOf(dying, world.primitives, world.bonds).primitiveIds];
+              /*
+               * ⭐⭐ S189 C2 item 3 — THE HUB RAZES ITS OWN STAR, NOT EVERYTHING WELDED TO IT.
+               *
+               * This was `componentOf(dying)`: correct while nothing could be welded to a live hub,
+               * and since S158 (leaf welds) and S189 (hub welds) it deleted the WHOLE welded
+               * structure — a laser turret welded to the hub, its shapes, a lattice — when the hub
+               * went. R182-B says the opposite in the owner's words: *"the neighbouring shapes are
+               * protecting it then, and it's fine"* — they are the player's, not the hub's.
+               *
+               * So the set is the hub's OWN members (`towerMembersAt`: the Dot + its own Circle
+               * arms, the same walk that decided it stood and that its fuse read). S157 P0's reason
+               * for razing at all survives intact — the hub's own leaves cannot linger as bond-less
+               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT` →
+               * `applyStructureSelfDestruct` → `applyRadialClear`, its owner exemption, and the
+               * ruled-not-built 120 fifths of R182-C) is untouched.
+               */
+              const selfIds = [
+                ...(towerMembersAt(world, 'lightningHub', sp.anchorPrimitiveId)?.prims ?? [dying.id]),
+              ];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
                 pos: { x: dying.pos.x, y: dying.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
                 ownerPlayerId: sp.ownerPlayerId,
               });
-              razePrimitives(world, selfIds);
+              /*
+               * ⭐ S189 C2 (audit W2-2) — AND ANY SHAPE LEFT HOLDING NOTHING GOES WITH IT
+               * (`razeOrphans`). Razing only the hub's own star left a hand-placed weld that was
+               * bonded to nothing BUT that star standing alone with zero bonds — S157 B2 verbatim
+               * (*"the last shape stays and attracts enemy fire"*), which `componentOf` used to
+               * cover by accident. The flag takes only a shape that LOST ITS LAST BOND in this raze:
+               * a weld still bonded onward (to a welded turret, a lattice) keeps its bond and stands.
+               * Canon §2's lone "built but not connected" shape (pool 5) is a shape the player PLACED
+               * alone; an orphan of a destroyed structure is not that, and the owner ruled it dies.
+               */
+              razePrimitives(world, selfIds, undefined, true);
             }
           }
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
@@ -1181,7 +1228,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * nine of the race shape — a real price, which is the natural cap the design already
          * contains."*
          *
-         * ## ⛔ `ringMembersAt`, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
+         * ## ⛔ THE RING WALK, NOT `componentOf` — AND THE ONE SHIPPED SELF-RAZE GETS THIS WRONG
+         * (S189 C2: the walk is `towerMembersAt(...).whole`, the nine it was BUILT with, since a welded ring stands)
          *
          * The lightning hub's self-raze forty lines up takes
          * `componentOf(dying, …).primitiveIds`. **Copying that call here would be a bug.** R136
@@ -1261,12 +1309,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
            * was defending the defect — and is inverted by this change rather than deleted.
            */
           if (race !== null && anchor !== undefined) {
-            const ring = ringMembersAt(
-              world,
-              sp.anchorPrimitiveId,
-              RACE_FEED_SHAPE[race],
-              T9_TOWER_SIZE,
-            );
+            /*
+             * ⭐ S189 C2 — the nine it was BUILT with (`towerMembersAt`, whatever is welded on). A t9
+             * ring now SURVIVES a same-type weld (it used to be dissolved by it), so the exact walk
+             * would read `null` here for a standing tower and release no boss. The own nine are also
+             * exactly the set to raze: the welds are the player's, not the tower's.
+             */
+            const own = towerMembersAt(world, sp.recipeId, sp.anchorPrimitiveId);
+            const ring = own !== null && own.whole ? own.prims : null;
             /*
              * A `null` ring means the structure broke between the throttled re-validation poll and
              * this tick. Defense-in-depth, mirroring the deleted-anchor guard on the chewer arm
@@ -1282,7 +1332,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                 pos: { x: anchor.pos.x, y: anchor.pos.y },
                 targetPos: { x: anchor.pos.x, y: anchor.pos.y },
               });
-              razePrimitives(world, ring);
+              // ⭐ S189 C2 (audit W2-2) — the same S157 B2 rule as the hub raze: a weld bonded
+              // to nothing but the nine goes with them; one bonded onward stands.
+              razePrimitives(world, ring, undefined, true);
             }
           }
           dispatch(world, { type: 'REMOVE_SPAWNER', spawnerId });
@@ -1384,6 +1436,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
       // WEAPON, not the entity's bookkeeping.
       if (world.matchPhase !== 'FIGHT') continue;
+      if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga does nothing until the edge
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }
   }

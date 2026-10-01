@@ -89,6 +89,17 @@ import {
 } from '../render/scorchedEarthAim.ts';
 
 /**
+ * ⛔ S189 (C4, disconnect-hunt finding A1) — mark an Escape that CANCELLED something (a held tower, the
+ * Ra aim) as consumed, so `main.ts`'s double-Escape "leave the match" handler — which runs next on the
+ * same event — does not count it as its first press. Before this, a cancel plus one more Escape inside
+ * `TITLE_EXIT_CONFIRM_MS` abandoned the match and the other player got CONNECTION LOST
+ * (`input/doubleEscapeLeave.ts`). Tolerates a hand-built event without `preventDefault` (unit harnesses).
+ */
+function consumeCancel(e: { preventDefault?: () => void }): void {
+  if (typeof e.preventDefault === 'function') e.preventDefault();
+}
+
+/**
  * S136 P0 — the narrow view of `CastlePanel` that the input layer needs.
  *
  * Declared as an interface rather than importing the class so `controls.ts` keeps no dependency on
@@ -1848,6 +1859,7 @@ export class Controls {
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
     if (e.key === 'Escape' && raAimPreview() !== null) {
       setRaAimPreview(null);
+      consumeCancel(e); // ⛔ S189 A1 — a cancel, so NOT the first press of the double-Escape leave
       return;
     }
     /*
@@ -1866,6 +1878,7 @@ export class Controls {
     // there is always a keyboard way out of a picked-up state, even if the pointer path is confused.
     if (e.key === 'Escape' && this.castlePanel?.armedBlueprint() != null) {
       this.castlePanel.disarm();
+      consumeCancel(e); // ⛔ S189 A1 — see consumeCancel
       return;
     }
     // S93 — the NONET overlay owns the keyboard during a trial (digits 1–6).

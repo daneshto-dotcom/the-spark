@@ -200,6 +200,22 @@ export function rebuildAuthorityAllocators(world: World): {
   for (const id of world.primitives.keys()) if ((id as number) > maxPrim) maxPrim = id as number;
   let maxBond = 0;
   for (const id of world.bonds.keys()) if ((id as number) > maxBond) maxBond = id as number;
+  /*
+   * ⛔ S189 C2 (audit W-FR1) — AND NEVER BELOW A LIVE TOWER'S `ownBondIdLimit`. A tower's own
+   * connectors are the recipe's bonds with an id BELOW that limit (`towerMembers.ts`), which holds only
+   * while every bond minted after its registration gets an id at or above it. `max(live bond)+1` can
+   * land under the limit — the highest bonds minted before the tower registered may since have been
+   * cut or razed — and the next weld would then count as a connector the tower was BUILT with: a ring
+   * reads a third same-type neighbour and is removed (C2 back), a star gains a spare arm. The limit
+   * rides the wire, so a promoted successor or a repaired mirror has it.
+   */
+  let minNextBond = maxBond + 1;
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.ownBondIdLimit != null && sp.ownBondIdLimit > minNextBond) minNextBond = sp.ownBondIdLimit;
+  }
+  for (const d of world.defenders.values()) {
+    if (d.ownBondIdLimit != null && d.ownBondIdLimit > minNextBond) minNextBond = d.ownBondIdLimit;
+  }
   let maxSpark = 0;
   for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;
   // ✅ S146 P2 — THE BANK SCAN IS GONE BECAUSE THE HAZARD IS GONE, not because it was re-judged safe.
@@ -218,7 +234,7 @@ export function rebuildAuthorityAllocators(world: World): {
   for (const id of world.freeSparks.keys()) if ((id as number) < minSpark) minSpark = id as number;
   return {
     nextPrimitiveId: maxPrim + 1,
-    nextBondId: maxBond + 1,
+    nextBondId: minNextBond,
     maxSparkId: maxSpark,
     nextPulledSparkId: minSpark - 1,
     reseed: (roomCode, takeoverTick) => (fnv1a32(roomCode) ^ takeoverTick) >>> 0,

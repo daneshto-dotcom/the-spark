@@ -84,7 +84,24 @@ export type DefenderKind = 'turret' | 'princess' | 'stinkTower';
 // S110 P4 (Batch B) — 'WALK' added for HELGA's walk-to-target locomotion (princess-only; the turret
 // has moveAccel 0 + meleeRange == attackRange so it never enters WALK → its FSM stays byte-identical).
 // A SERIALIZED state literal a stale peer can't parse ⇒ PROTOCOL_VERSION 12→13.
-export type DefenderState = 'IDLE' | 'WALK' | 'WINDUP' | 'FIRE' | 'RECOVER';
+/*
+ * ⭐⭐ S189 C2 / OWNER RULING R190-J — 'DORMANT': HELGA IS DEAD, HER HALL STANDS.
+ *
+ * > *"Every fight she should come back as long as the tower is still up."*
+ *
+ * She is the one defender that dies while her tower stands. Deleting her record on death threw away
+ * the only thing that said "this is her hall", so she could come back only through IGNITION — which is
+ * exact (an isolated 7-shape component) and needs a BUILD-phase bond to fire. A welded hall therefore
+ * never brought her back, and an un-welded one did only if someone happened to build.
+ *
+ * So her record stays, DORMANT: `ehp` is `null` (no pool — every unit-facing consumer already skips a
+ * pool-less defender: targeting, raids, damage, her bar, her sheet), she does not tick, is not drawn,
+ * and does not engage the Helga theme. The HALL keeps its identity (`anchorPrimitiveId`,
+ * `ownBondIdLimit`) and its art. At the FIGHT→BUILD edge (`hostTick`) she REVIVES if the hall's own
+ * members still stand, welded or not, with no bond formation needed; the same edge's sweep removes
+ * the record if the hall fell. A SERIALIZED state literal ⇒ rides the S189 protocol bump.
+ */
+export type DefenderState = 'IDLE' | 'WALK' | 'WINDUP' | 'FIRE' | 'RECOVER' | 'DORMANT';
 
 export interface Defender {
   readonly id: DefenderId;
@@ -181,6 +198,30 @@ export interface Defender {
    * Cleared back to null on return to IDLE so it only rides the wire during FIRE/RECOVER.
    */
   lastStrikePos: Vec2 | null;
+  /**
+   * ⭐⭐ S189 C2 (audit W1) — **WHICH CONNECTORS THIS TOWER WAS BUILT WITH.** Every bond whose id is
+   * BELOW this was minted before the tower was registered (`world.nextBondId` at registration); its
+   * own members are the recipe's shape among those. A weld made later — of any type, anywhere — has a
+   * higher id and is never one of them, so it can neither kill the tower nor stand in for a lost own
+   * connector: cut one of the connectors it was built with and it falls (R185-B, *"it destroys the
+   * connectors that he's attacking"*).
+   *
+   * ⚠ A BOND ID, NOT A TICK. `ignitedAtTick` looks equivalent and is not: it is stripped from the wire
+   * and re-seeded to each CLIENT's own tick (so every weld would read "older" there and be hidden
+   * under the sprite), and a weld dropped in the frame right after ignition shares its tick.
+   * Bond ids are monotonic, unique, and exact.
+   *
+   * SERIALIZED (disk, worker INIT AND the wire — the client render walks need it) and HASHED.
+   * `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test then
+   * falls back to the exact shape, the pre-S189 reading.
+   *
+   * ⚠ KNOWN GAP (audit W-FR4, documented, NOT fixed): a connector RE-MADE by FIX inside the ≤ 0.5 s
+   * before the revalidation poll removes a broken tower gets a NEW id (≥ this limit), so it counts as a
+   * weld — the tower still falls at that poll, and the repaired shape re-ignites as a new tower on the
+   * next BUILD-phase topology change. Narrow (FIX is BUILD-only; breaks come from FIGHT damage or a
+   * player's own sever) and it costs a re-ignition, never a wrong survivor.
+   */
+  readonly ownBondIdLimit?: number | null;
 }
 
 /** Per-kind FSM + combat tuning. One entry per DefenderKind (compile-time exhaustive). */
@@ -349,6 +390,8 @@ export function makeDefender(args: {
   recipeId: GodlyId;
   pos: Vec2;
   registeredAtTick: number;
+  /** S189 C2 — `world.nextBondId` at registration (see the field). Omitted ⇒ `null` (unknown). */
+  ownBondIdLimit?: number | null;
 }): Defender {
   const config = getDefenderConfig(args.kind);
   return {
@@ -369,5 +412,6 @@ export function makeDefender(args: {
     nextFireTick: args.registeredAtTick + config.fireIntervalTicks,
     targetCreatureId: null,
     lastStrikePos: null,
+    ownBondIdLimit: args.ownBondIdLimit ?? null,
   };
 }

@@ -200,6 +200,10 @@ describe('S87 P4 — rosterWithReady + qmReadyCount', () => {
  * The defect, the repro and the fix are all unchanged; the certainty was the error. The assertion
  * below is now the honest relationship between the REAL constants rather than a tautology over two
  * literals this file declared itself.
+ *
+ * ⭐ S189 — the race is unchanged, but what the DEMOTE ARM decides is not: beacons now carry a lobby
+ * age and the ELDER keeps the room (`quickmatchSeniority.test.ts`). The ageless beacons below still
+ * take the code rule — that is the pre-S189-build fallback, and it is what they pin.
  */
 describe('S182 — the promote clock races the discovery handshake, and often wins', () => {
   /**

@@ -105,6 +105,9 @@ export function helgaPose(
   switch (effective) {
     case 'IDLE':
       return base;
+    // S189 R190-J — a DORMANT Helga is never drawn (`princessRenderer` skips her); explicit arm.
+    case 'DORMANT':
+      return base;
 
     case 'WALK': {
       // S110 P4 (Batch B) — marching to the target: a determined forward lean + a brisk walking BOB
