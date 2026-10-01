@@ -86,3 +86,21 @@ writes it). No wire field, no hash field changes.
 ## Hotspot hunks
 
 None (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts` untouched).
+
+---
+# S192 RESUME (worktree agent `s191-tune`, merge owner = main session)
+
+- `git merge master` (e4d52dc) → merge commit `97785a2`, **no conflicts**. Typecheck after merge: TC0=0.
+- ITEM 1 draft applied (`2061675`), TC1=0. Re-pinned: `powerOfRa.test.ts` (perk constant 35; five columns →
+  35 to a lone enemy; connector test 35 ≥ pool 6, building still gone via the sever's topology split;
+  16-connector bank = 35), `wrathOfRa.test.ts` (each charge's column 35), `damage.callSites.test.ts`
+  (16 sites, 8 null, + powerOfRa.ts), `untargetableCallSites.test.ts` (NOT_ACQUISITION += powerOfRa.ts, AREA).
+- New `src/state/racial/powerOfRaSplit.test.ts` (12 tests): arithmetic; REACH via runHostTick (hub banks 35
+  once on one connector and stands; hub+creature 18/17; order flips remainder; two structures 18/17; caster
+  spared and uncounted; lone shape + bag one target each); measured 7 columns to fell a 5-hub (no carry);
+  Pharaoh boss NEGATIVE 300 to each of two victims; host-vs-worker wide hash through all five columns.
+- Mutations (all RED, restored by cmp): M1 every target full 35 → 4 red; M2 perk reads 15/15 → 8 red;
+  M3 per-connector targets → 5 red.
+- canon.test.ts §3e POWER OF RA + WRATH stay RED by design → `.claude/plans/S191_CANON_NOTES_tune.md`.
+- NEXT: ITEM 2 (castle radius 61 + porch-slot discs), then ITEM 3 (APEX_PREDATOR_STAT_MUL 3 → 9, THE_SWARM
+  decoupled to a literal 6), gates.

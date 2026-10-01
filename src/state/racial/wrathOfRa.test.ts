@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, RA_COLUMN_ATK, RA_COLUMN_COUNT, RA_COLUMN_PEN, RA_COLUMN_TICKS } from '../../constants.ts';
+import { PLAYER_COLORS, RA_COLUMN_COUNT, RA_COLUMN_TICKS } from '../../constants.ts';
 import { asPlayerId, asSpawnerId, type CreatureId, type PlayerId } from '../../types.ts';
 import type { Controls } from '../../input/controls.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
@@ -23,14 +23,13 @@ import { dispatch, makeWorld, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
-import { attackFifths } from '../stats.ts';
 import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
 import { draftIndexForWave, generalPickForWave, type DraftPick } from '../draft.ts';
 import { autoPickFor, draftOptionsFor, openDraftIfDue, pickIsOffered, playerHoldsPerk, tickDraft, DRAFT_DEADLINE_TICKS } from '../draftEvent.ts';
 import { RACIAL_PERK_BUILT, RACIAL_PERK_REQUIRES, perkDraftIndex, racialPerkFor, seatHoldsPerk } from '../racialPerks.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import { restore, snapshot } from '../save.ts';
-import { raStrikeColumnPos } from './powerOfRa.ts';
+import { raStrikeColumnPos, RA_PERK_STRIKE_FIFTHS } from './powerOfRa.ts';
 import {
   WRATH_OF_RA_CHARGES,
   raCastRefusal,
@@ -195,7 +194,7 @@ describe('S188 P11 — THREE CHARGES a fight', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 P11 — ⭐⭐ REACH: three OVERLAPPING strikes, through the real host tick', () => {
-  it('each strike\'s every column lands 300 on an enemy standing on ITS spot', () => {
+  it('each strike\'s every column lands its whole 35 on a lone enemy standing on ITS spot', () => {
     const w = world(WRATH);
     const d = deps();
     const s = makeHostTickState(w);
@@ -229,7 +228,7 @@ describe('S188 P11 — ⭐⭐ REACH: three OVERLAPPING strikes, through the real
       expect(w.tick).toBe(impact);
       victims.forEach((id, charge) => {
         expect(before[charge]! - w.creatures.get(id)!.ehp, `strike ${charge} column ${k}`)
-          .toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+          .toBe(RA_PERK_STRIKE_FIFTHS); // S191 re-pin — was attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN) = 300
       });
     }
     void RA_COLUMN_TICKS;
