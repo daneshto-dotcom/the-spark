@@ -13,7 +13,7 @@
  *      pinned to what was MEASURED (the numbers are in the comments), never to what was hoped.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 import { PLAYER_COLORS, SparkType } from '../constants.ts';
@@ -67,6 +67,16 @@ import {
 } from './botTypes.ts';
 
 const BOT = asPlayerId(1);
+
+/*
+ * ⚠ YIELD A MACROTASK AFTER EVERY TEST. Each match here is a few seconds of pure synchronous sim, and
+ * vitest runs consecutive tests without returning to the event loop — so the worker could not service
+ * its own `onTaskUpdate` RPC replies, and after ~60 s of back-to-back matches the run failed with an
+ * unhandled "Timeout calling onTaskUpdate" while every test was green (measured: 55/55 passed, exit 1).
+ */
+afterEach(async () => {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+});
 
 function botsWorld(): World {
   const w = makeWorld(0xb07);
