@@ -70,3 +70,7 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - endstats round 2 DONE (tip af824a8; merged zombies, BLAST-2 folded into KillCredit — killCreditOf, type widened to CreatureType|null, riseOnKill guards type===null; statCredit.ts deleted; 14 blast2 REACH with DEALT==TAKEN; gates 0/0/0 1046.5 (+5.8); NO bump). → audit queue.
 - AUDIT QUEUE: visuals-2 → bots → visuals-3 → endstats → teams (after its round) → carry-fwd.
 - AUDIT weld (a0439edd3e4db53a4) FIX FIRST: MED castle-panel.spec 7-row literal (gating e2e red); MED seam repairHealNumber.test vs zombies T11; MED seam endgame lock policy needs FIX_ALL 'allow'; LOW jobs of eliminated seats never end, QUEUE FULL UI, fixAllTargets covered set, re-plan every tick; canon chores. Round 6 sim clean (no double-charge, mutant red). Merged-P58 +20.2 KiB. → weld fix round sent.
+- AUDIT goblin-autobuild (aa38fa682e961ed81) CLEAN; MED design gap: one connector loss → REMOVE_SPAWNER wipes the toggles (verified probe) → merge-owner decision: remember per (seat, anchor), MINE; LOWs refused cue, pending map clear, benched counters, in-hand helper drift; canon T4. → fix round sent.
+- ✅ DEPLOY #19 LIVE ba1062b (lobby-ci, no bump) — verify-deploy 4/4.
+- ENDGAME MERGED + SITES seam (zombieDeathBlast.ts n:6) + PROTOCOL 58→59 → deploy #20 gates running.
+- AUDIT bots (a29dbd5e67518b5cf) dispatched; autobuild fix round sent (toggle memory per seat+anchor, MINE).

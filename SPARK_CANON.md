@@ -1013,7 +1013,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **58** (S193 — deploy #18; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **59** (S193 — deploy #20; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
 
 ⭐⭐ **WHAT RIDES 58 (S193, deploy #18)** — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank.
 

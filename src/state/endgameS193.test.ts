@@ -411,6 +411,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/bossSkillsKraken.ts': { n: 2, verdict: 'skip OWN → hit' },
     'src/state/bossSkillsPharaoh.ts': { n: 1, verdict: 'counts the boss\'s OWN locusts — a pants never counts' },
     'src/state/bossSkillsWarlord.ts': { n: 1, verdict: 'counts the boss\'s OWN wolves — a pants never counts' },
+    'src/state/racial/zombieDeathBlast.ts': { n: 6, verdict: 'spares the dead boss seat only (R193-B3) → a pants is hit, as a creature at weight 2' },
     'src/state/creatures/creatureAI.ts': { n: 8, verdict: 'enemy-only scans skip OWN → a pants is a target (castle gun: findNearestEnemyCreatureFrom)' },
     'src/state/creatures/creatureLifecycle.ts': { n: 3, verdict: 'summon latch (pants exempt) + kill credit to a different owner' },
     'src/state/creatures/retaliation.ts': { n: 1, verdict: 'skip OWN → a seat retaliates on a pants' },
