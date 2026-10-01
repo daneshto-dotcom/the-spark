@@ -86,6 +86,11 @@ the ladder continues to the 14 and the 6, and so does the code.
 whose BOTH ends were placed by the struck bond's owner — never across a weld onto what is welded on, so a
 strike on an enemy bond cannot fell the striker's own connectors (S162) and the hub blast's leftover cannot
 fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
+⛔ **AND A STRUCK WELD CARRIES NOTHING (S193, audit CF-1).** The owner above is read off the struck bond's
+`aId`, and on a weld (mixed ends) which end that is is an accident of placement order — a Voltkin's bolt on
+a weld whose `aId` was his own seat carried into his OWN connectors. The weld still falls; its overkill has
+no single owner to stay on, so it lands nowhere (⚠ MINE: a third seat striking a weld between two others
+carries into neither side either). `connectorCarryWeld.test.ts`.
 
 ### Shapes
 
