@@ -572,6 +572,14 @@ export function damageConnector(
  * caller's own `damageConnector`, and a second heal on the carry would count the same damage twice.
  * If the sever is REFUSED (the connector still stands), nothing carries.
  *
+ * ⛔⛔ S192 (audit CARRY-1) — **THE CARRY STAYS ON THE STRUCK CONNECTOR'S OWNER.** Candidates are only the
+ * structure's bonds whose BOTH ends were placed by the struck bond's owner (`struck.a.placedBy`). Without
+ * this the carry walked straight through a weld into whatever was welded on, undoing every caller's own
+ * filter: a seat-0 boss's 150 on a seat-1 bond felled seat 0's OWN connectors across the weld (the S162
+ * "my own creature destroys my own tower" chain), and the hub blast's leftover felled the hub OWNER's
+ * connectors that `planHubBlast` spares (S157 P0). A weld (mixed ends) is never a carry target either.
+ * When no same-owner connector is left, the remainder has nothing to land on.
+ *
  * @returns how many connectors fell (0 when the struck one did not).
  */
 export function severWithCarry(world: World, bondId: BondId, sever: (bondId: BondId) => void): number {
@@ -581,9 +589,14 @@ export function severWithCarry(world: World, bondId: BondId, sever: (bondId: Bon
   const ox = (struck.a.pos.x + struck.b.pos.x) / 2;
   const oy = (struck.a.pos.y + struck.b.pos.y) / 2;
   const anchor = world.primitives.get(struck.aId) ?? world.primitives.get(struck.bId);
+  const owner = struck.a.placedBy; // ⛔ S192 CARRY-1 — the carry never leaves the struck bond's owner
   const candidates = anchor === undefined
     ? []
-    : [...componentOf(anchor, world.primitives, world.bonds).bondIds].filter((id) => id !== bondId);
+    : [...componentOf(anchor, world.primitives, world.bonds).bondIds].filter((id) => {
+      if (id === bondId) return false;
+      const b = world.bonds.get(id);
+      return b !== undefined && b.a.placedBy === owner && b.b.placedBy === owner;
+    });
 
   let current = bondId;
   let felled = 0;

@@ -428,3 +428,22 @@ None.
 - Docblock line for the merge owner: "S191 carry — the lightning hub's self-destruct is 120 fifths of ladder damage
   split across its targets (R182-C), its bag bursts spare the owner, the FFA spread is strict (S162), and a
   connector hit's overkill carries into the next connector (owner S191)."
+
+## S192 FIX ROUND (independent audit) — merge master + CARRY-1/2/4, CARRY-3 recorded
+
+- `git merge master` (55b0da7: PROTOCOL 53, s191/perf + s191/addons) → `226fae7`, 0 conflicts. Gates: typecheck 0 ·
+  vitest 0 (6915 passed / 7 skipped, 436 files).
+
+### CARRY-1 (MED) — DONE
+- REPRODUCED first with the auditor's scratch test (P1 A–B · weld B–C · P0 C–D–E): a seat-0 150 strike on A–B felled
+  ALL FOUR bonds (seat 0's own C–D, D–E included); the ladder blast (owner P0) likewise.
+- Fix `damage.ts` `severWithCarry`: candidates = bonds of the struck structure whose BOTH ends were placed by
+  `struck.a.placedBy`. A weld (mixed) is never a carry target; nothing same-owner left → the remainder has nothing
+  to land on.
+- Tests `src/state/connectorCarryOwner.test.ts` (4): the strike and the blast on the auditor's board (owner bonds
+  and the weld stand), plus positives with a same-owner tail B–G (the carry still fells it). ⚠ Measured on the way:
+  a tail on A (the auditor's natural variant) is RAZED by the sever itself as an orphan fragment, so it can't test
+  the carry — the tail sits on B, which stays attached through the weld.
+- Mutation: filter dropped → 4 RED; restored → green (+ connectorCarry / hubSelfDestructLadder 28/28).
+- Canon §2: "THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER" + pin (sentence + the filter text).
+- Wire: a rule both peers compute — it rides the same bump as R2-E (53 → 54, merge owner's).

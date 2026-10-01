@@ -82,6 +82,10 @@ chain, the suicide blast, the hub blast, Ra columns and raids); `canon.test.ts` 
 examples through the real `damageConnector` and `SEVER_BOND`. ⚠ Until S191 this sentence stopped the
 150 at the 24 and the tree carried nothing at all (the remainder was deleted with the struck bond);
 the ladder continues to the 14 and the 6, and so does the code.
+⛔ **THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER (S192, audit CARRY-1).** It only lands on bonds
+whose BOTH ends were placed by the struck bond's owner — never across a weld onto what is welded on, so a
+strike on an enemy bond cannot fell the striker's own connectors (S162) and the hub blast's leftover cannot
+fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 
 ### Shapes
 
