@@ -12,6 +12,7 @@ import {
   CREATURE_CONFIGS,
   VOLTKIN_CONFIG,
   CHEWER_CONFIG,
+  RACE_UNIT_CONFIG,
   getCreatureConfig,
   type CreatureConfig,
 } from './voltkin-config.ts';
@@ -117,9 +118,11 @@ describe('CHEWER_CONFIG (TD swarm creature)', () => {
     expect(CHEWER_CONFIG.type).toBe('chewer');
   });
 
-  it('S104 P1 — is FINITE (persistent:false + a real lifetime) so the swarm churns and the spawner keeps producing', () => {
-    expect(CHEWER_CONFIG.persistent).toBe(false); // was true (sentinel-lifetime, never despawned → spawner stuck at the cap)
-    expect(CHEWER_CONFIG.lifetimeTicks).toBe(3000); // 50s @ 60Hz; > seek+travel+5-chew sever (300t) so it completes severs
+  // ⛔ S191 (owner) — RE-PINNED: the S104 P1 finite churn was the owner's S191 bug (the whole stock aged
+  // out at home during BUILD). Tower STOCK now: the tier-3 / castle lifecycle, persistent + match-length.
+  it('S191 — is STOCK (persistent + match-length), the tier-3 / castle lifecycle', () => {
+    expect(CHEWER_CONFIG.persistent).toBe(true);
+    expect(CHEWER_CONFIG.lifetimeTicks).toBe(RACE_UNIT_CONFIG.lifetimeTicks);
   });
 
   it('gnaws connectors, hops at ~0.6× speed, maxAccel = 200 × hopSpeedMul', () => {

@@ -36,6 +36,7 @@ import type { GameAction } from '../state/world.ts';
 import { Controls, type CastlePanelLike, type CharacterSheetLike, type DraftPanelLike } from './controls.ts';
 import { FooterBand, collapseTabRect } from '../render/footerBand.ts';
 import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { scorchedEarthAim, setScorchedEarthAim } from '../render/scorchedEarthAim.ts';
 
 class FakeContext2D {
   font = '10px sans-serif';
@@ -302,6 +303,22 @@ describe('⛔⛔ S191 A-3 — REACH: a right-click on an opaque surface raids NO
     }
   });
 
+  it('⛔ S192 OWN-2 — a right-click over the open CASTLE PANEL puts the SCORCHED EARTH aim away, and raids nothing', () => {
+    const r = rig();
+    r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
+    const p = { x: 700, y: 400 };
+    enemyAt(r, p);
+    setScorchedEarthAim({ seat: P0, x: p.x, y: p.y });
+    try {
+      rightClick(r, p);
+      expect(scorchedEarthAim(), 'the scorch aim is put away').toBeNull();
+      expect(raids(r)).toEqual([]);
+      expect(r.sent.filter((a) => a.type === 'CAST_SCORCHED_EARTH'), 'and nothing is cast').toEqual([]);
+    } finally {
+      setScorchedEarthAim(null);
+    }
+  });
+
   it('INPUT-4 negative — a LEFT click over the castle panel still acts on nothing under it', () => {
     const r = rig();
     r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
@@ -331,20 +348,21 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
     .filter(({ text }) => /\bbutton\s*[!=]==\s*2\b/.test(text) && !/^\s*(\*|\/\/)/.test(text));
 
   // ⭐ S191 R2 (INPUT-4) — 4 → 5: the castle-panel put-back, classified HAND before this was bumped.
-  it('there are exactly FIVE right-click sites today — a sixth must be classified before this is updated', () => {
+  // ⭐ S192 (s191/owner, OWN-3) — 5 → 6: the SCORCHED EARTH aim's put-back (`handleScorchedEarthAimClick`), HAND.
+  it('there are exactly SIX right-click sites today — a seventh must be classified before this is updated', () => {
     expect(
       sites.map((s) => s.line).length,
       `found ${sites.length}: ${sites.map((s) => `:${s.line}`).join(' ')} — tag the new one "R190-G: HAND" or ` +
         '"R190-G: BOARD" (and gate a BOARD one on isPointerOverAnyOpaqueSurface) BEFORE bumping this',
-    ).toBe(5);
+    ).toBe(6);
   });
 
   it('every site says whether it acts on the HAND or on the BOARD', () => {
     for (const s of sites) expect(s.text, `controls.ts:${s.line}`).toMatch(/R190-G: (HAND|BOARD)\b/);
     expect(
       sites.filter((s) => /R190-G: HAND/.test(s.text)),
-      'the aim, the castle-panel, the draft-plate and the held-tower put-backs',
-    ).toHaveLength(4);
+      'the Ra aim, the SCORCHED EARTH aim, the castle-panel, the draft-plate and the held-tower put-backs',
+    ).toHaveLength(5);
   });
 
   it('every BOARD site asks the opaque-surface question BEFORE it picks anything', () => {

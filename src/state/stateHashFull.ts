@@ -177,6 +177,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    *
    * PROJECTED: castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints, raidProgress.
    * ⭐ S188 P6 / P11 — and raStrikes (POWER OF RA / WRATH OF RA), after raidProgress, in order.
+   * ⭐ S191 — and scorchedEarth (SCORCHED EARTH's cast: wave + zone seat), right after raStrikes.
    * EXCLUDED, deliberately: everything about the avatar (`kind`, `avatarPos`, the carry union) and
    * `color`, which is derived from raceId. `scoreByPlayer` stays its own hashed scalar.
    *
@@ -568,6 +569,9 @@ export function determinismParts(world: World): string[] {
         // point + deadline decide where and when five 300-fifth columns land. Field by field, `_`
         // when never cast, so a host and a mirror that disagree about a strike cannot hash alike.
         + `,ra${pl.raStrikes.length === 0 ? '_' : pl.raStrikes.map((s) => `${s.wave},${s.x},${s.y},${s.untilTick}`).join(';')}`
+        // ⭐ S191 — SCORCHED EARTH. A SIM INPUT: the wave gates the next cast and the zone seat decides
+        // which ground burns every creature and structure but the caster's. `_` when never cast.
+        + `,se${pl.scorchedEarth === null ? '_' : `${pl.scorchedEarth.wave},${n(pl.scorchedEarth.zoneSeat)}`}`
         // ⭐ S187 — the drafted upgrades, JOINED IN PICK ORDER. Two peers holding the same
         // picks in a different sequence are a genuine divergence: the list drives a
         // leaderboard row (R113), so the order is observable state, not an implementation

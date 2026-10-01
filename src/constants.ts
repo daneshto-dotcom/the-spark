@@ -1561,6 +1561,10 @@ export const SPAWN_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — chewer emit cadence
  * simply its `atk`.
  */
 export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its damage is the chewer's atk)
+// ⛔ S191 (owner) — SUPERSEDED: the chewer is tower STOCK again (`persistent: true`, match-length — the
+// tier-3 rule). The finite lifetime below is what aged the whole stock out at home during BUILD
+// (*"when fight starts, they all died"*); with the caps OFF (S157 B8b) nothing needs a slot freed.
+// The S104 text is kept for its history:
 // S104 P1 — the REAL "constantly produce more every ~15s" fix is the chewer's now-FINITE lifetime
 // (voltkin-config.ts: persistent:false + lifetimeTicks), NOT a big cap raise. Once a chewer ages
 // out and despawns, the spawner's cadence refills the slot — so the population CHURNS instead of
@@ -1601,6 +1605,8 @@ export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its
  * caller passed a `victimPlayerId`, and the one production caller never did — so the "3" the owner
  * remembered was `CHEWER_MAX_PER_SPAWNER = 4` minus the fact that the real steady state is
  * `lifetimeTicks / SPAWN_INTERVAL_TICKS` ≈ 3.3. The lifetime, not the cap, is what a tower settles at;
+ * ⛔ S191 — and the lifetime is gone too (tower STOCK): with no cap and no lifetime a pentagram's horde
+ * only grows while it stands and nobody kills it — measured and reported to the owner, not capped.
  * removing the cap means it never STOPS, and removes the shared global ceiling that was starving
  * goblins (see GOBLIN_MAX_GLOBAL).
  */
@@ -2743,7 +2749,15 @@ export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — 9 emit
  * pattern this file keeps finding (`CONNECTOR_HP`, the `DEFENDER_HP` sentinel, the R72 targeting
  * matrix). Its VALUE survives, with its provenance, as the live-population cap below.
  */
-export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t = 8s fly-time FUSE (explodes on expiry if it never arrived)
+/*
+ * ⛔ S191 (owner) — RETIRED, UNREAD. The drone is tower STOCK now (`persistent: true`, match-length, the
+ * tier-3 rule — `voltkin-config.ts`): this ABSOLUTE fuse kept running while a recalled drone waited at
+ * home through BUILD and detonated the whole stock on the first FIGHT tick (*"Boom, they disappeared,
+ * and it started producing them from zero"*). Kept only so the history below still reads; nothing
+ * imports it. ⚠ And the two S160 docblocks around it that call `DRONE_MAX_PER_SPAWNER` "inert slack"
+ * describe the fuse era: with stock, a hub with nothing to hit HOLDS its 3 — the cap is load-bearing.
+ */
+export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t — RETIRED S191, see above
 export const DRONE_EXPLODE_RADIUS = 110; // px — small targeted blast (== the drone's arrival/attack range)
 export const DRONE_MAX_CONNECTORS = 3; // <=3 ENEMY bonds severed per drone (owner: "3 connectors per lightning")
 export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN population, NOT shared with chewers)

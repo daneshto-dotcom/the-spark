@@ -91,7 +91,8 @@ describe('S188 — the damageConnector call-site census', () => {
   it('finds every production call site (and not zero — a vacuous parser would pass everything)', () => {
     // S191 C-5 +1: the lightning hub's ladder blast (a null site). S191 (owner) +1: the overkill
     // CARRY in `damage.ts` (`severWithCarry`) — a null site, the lifesteal was paid on the whole hit.
-    expect(sites.length).toBe(7);
+    // ⭐ S191 +1 — SCORCHED EARTH's structure arm (null).
+    expect(sites.length).toBe(8);
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -118,6 +119,8 @@ describe('S188 — the damageConnector call-site census', () => {
       // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on to the next connector; BLOOD DEBT
       // was already paid on all of it by the caller's own `damageConnector`, so it heals nobody again.
       'src/state/damage.ts': 1,
+      // ⭐ S191 — SCORCHED EARTH burning a structure: burning ground heals nobody (BLOOD DEBT).
+      'src/state/racial/scorchedGround.ts': 1,
     });
   });
 });

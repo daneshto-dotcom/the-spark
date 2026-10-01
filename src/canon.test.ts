@@ -170,7 +170,12 @@ import {
 } from './state/racial/endlessDynasty.ts';
 import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
 import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
-import { SCORCHED_GROUND_PER_MILLE } from './state/racial/scorchedGround.ts';
+import {
+  SCORCHED_EARTH_CAST_PER_MILLE,
+  SCORCHED_GROUND_PER_MILLE,
+  SCORCHED_STRUCTURE_RATE_DIV,
+} from './state/racial/scorchedGround.ts';
+import { SCORCHED_EARTH_CHARGES } from './state/racial/scorchedEarthRules.ts';
 import { dotIntervalTicks, maxPoolFifths } from './state/damageOverTime.ts';
 import {
   HELLSPAWN_CHILDREN,
@@ -830,6 +835,19 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('ALT TOGGLES THE FOOTER EXACTLY AS THE ARROW DOES')).toBe(true);
   });
 
+  it('⭐ §3e — S191: SCORCHED EARTH — once a FIGHT, the passive’s rate on units, HALF on structures (his numbers)', () => {
+    expect(SCORCHED_EARTH_CHARGES, 'HIS: once per FIGHT').toBe(1);
+    expect(SCORCHED_EARTH_CAST_PER_MILLE, '“the same … amount” — derived from the passive').toBe(SCORCHED_GROUND_PER_MILLE);
+    expect(SCORCHED_STRUCTURE_RATE_DIV, 'HIS: structures take half').toBe(2);
+    expect(canonSays(`**\`SCORCHED_EARTH_CHARGES\` = **${SCORCHED_EARTH_CHARGES}** a FIGHT**`)).toBe(true);
+    expect(canonSays(`**\`SCORCHED_EARTH_CAST_PER_MILLE\` = **${SCORCHED_EARTH_CAST_PER_MILLE}****`)).toBe(true);
+    expect(canonSays(`\`SCORCHED_STRUCTURE_RATE_DIV\` = **${SCORCHED_STRUCTURE_RATE_DIV}** × the unit interval`)).toBe(true);
+    expect(canonSays('and an enemy HELGA (S192: *"Helga is NOT immune"*)')).toBe(true);
+    expect(canonSays('units only (creatures and Helga), never structures')).toBe(true);
+    expect(canonSays('the quarry never burns; creatures only |')).toBe(false); // the S188 row, superseded by his Helga answer
+    expect(canonSays('`isScorchImmune(owner, spared)`, the ONE site')).toBe(true);
+  });
+
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
     expect(canonSays(`\`SCORCHED_GROUND_PER_MILLE\` = **${SCORCHED_GROUND_PER_MILLE}**`)).toBe(true);
     expect(canonSays(`\`ZOMBIE_AURA_PER_MILLE\` **${ZOMBIE_AURA_PER_MILLE}**`)).toBe(true);
@@ -1483,6 +1501,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
       'state/droneLifecycle.ts',
       'state/potatoLifecycle.ts',
       'state/racial/raColumn.ts',
+      'state/racial/scorchedGround.ts',
       'state/world.ts',
     ]);
     const table = CANON.slice(CANON.indexOf('### 4 · `SEVER_BOND`'), CANON.indexOf('## 10 · '));
