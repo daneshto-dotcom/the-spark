@@ -35,3 +35,5 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - AUDIT slot free while zombies/weld/lobby-ci build → AUDIT magic now (a4064b410f6b45efa); its merge seam re-checked after zombies lands.
 - P5 endgame music round DONE (tip a169c9a; pants-music-1/2.ogg +3.84 MiB, gained to −13.7 LUFS, loop gaps 0.000 s; resolveMatchMusicTrack 27/29/31 song 1, 28/30 song 2, final fight holds 31's; FIGHT-only + overrides race toggle MINE; gates 0/0/0 1044.2 KiB; bump 57 stands). Waits for audit.
 - NEW s193/visuals-racial visuals-3 dispatched (keeps 8 working).
+- AUDIT magic (a4064b410f6b45efa): CLEAN, BUMP. MED SCORCHED EARTH 0-beats show no RESIST (magicResistCue walks only the passive); LOW bypass census misses 2 shapes; 3 stale doc refs; canon owes an MRES section. HIGH merge seam with zombies: both claim applyRadialDamage arg slot 8 (cls vs falloff). → magic fix-only round sent; LANDING ORDER: units-ai → zombies → magic → lobby-ci → endgame → weld (after r6) → endstats → teams.
+- AUDIT endgame (a81012e47bdf4623f) running.
