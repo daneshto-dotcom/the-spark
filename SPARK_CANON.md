@@ -920,6 +920,22 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
   **70** (2 × the 35 px melee arm — ⚠ MINE) of slide, the impulse REPLACING the victim's velocity;
   `KRAKEN_SONAR_STUN_TICKS` = **120** (2 s, ⚠ MINE, S169). ⛔ `KRAKEN_SONAR_KNOCKBACK = 26` is DELETED: it
   was a per-substep velocity (~11,000 px of travel), not the "body-length and a half" its docblock claimed.
+- **⭐ T16 — EVERY TV GIVES ITS VOLTKIN BACK, EVERY WAVE (S192, `s192/voltkin`).** *"I had five TVs, full
+  health, but no new Voltkins each new wave phase. I had to … rebuild the Voltkin tower"* — owner, S192.
+  At the **FIGHT→BUILD** edge (Helga's R190-J edge, ⚠ MINE), every standing TV with no Voltkin of its own
+  gets one at its centre: `VOLTKINS_PER_TV` = **1** (⚠ MINE). `resummonVoltkins` (`voltkinTv.ts`), one call
+  in `hostTick` after `recallArmies`. Live Voltkins and summons already on their way are bound to their own
+  seat's TVs, nearest first, over a total order, so no TV is summoned for twice. ⛔ **A TV RE-SUMMONS IFF IT
+  WOULD IGNITE NOW** (merge-owner ruling, S192 audit): the census and the ignition predicate share ONE
+  isolation test, `isIsolatedVoltkinChain` — S48's *"if you accidentally connect anything else to the
+  structure it shouldn't go off"*. ⚠ So a TV with an extra shape welded on stops re-summoning, as it would
+  not ignite (unlike Helga, whose hall survives a weld). And ONE owner rule, `voltkinTvOwner`: majority
+  colour, **lowest seat on a tie**, for ignition and the wave alike. A fallen or broken TV summons nothing.
+  The same branch fixed the two defects that ate TVs at ignition — the matcher ignored every TV closed while
+  another Voltkin was emerging, and a queued same-seat emerge latched the slot for the match.
+  `voltkinResummon.test.ts`, both sims, mutation-tested. ⚠ Still true: worker mode (`?worker=1`) emerges in
+  4.8 s where direct takes 900 ms (late, never lost); two TVs closed in the SAME frame — the second waits
+  for the next FIGHT→BUILD.
 
 ⭐ **THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6, merge owner's go).** `spreadEnemyTarget`
 builds its victims, and scans the chosen victim's bonds, over the S162 STRICT enemy set (neither endpoint

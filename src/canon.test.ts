@@ -213,6 +213,8 @@ import { GOBLIN_ATTACK_RANGE, KRAKEN_SONAR_STUN_TICKS, RACE_UNIT_ATK, RACE_UNIT_
 import { KRAKEN_SONAR_KNOCKBACK_PX } from './state/bossSkillsKraken.ts';
 import { RADAR_MAX_ATK } from './render/characterSheetRadar.ts';
 import { RA_STRIKE_GROUND_SLOTS } from './render/raStrikeArt.ts';
+// S192 T16 — the per-wave Voltkin re-summon (canon §5b).
+import { VOLTKINS_PER_TV } from './state/voltkinTv.ts';
 import {
   STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
 } from './render/structureBarHealth.ts';
@@ -963,6 +965,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(life).toContain('clampPointIntoPlayfield(');
     expect(canonSays(`[${WORLD_EDGE_MARGIN}, ${CANVAS_WIDTH - WORLD_EDGE_MARGIN}] × [${WORLD_EDGE_MARGIN}, ${CANVAS_HEIGHT - WORLD_EDGE_MARGIN}]`)).toBe(true);
     expect(canonSays('drains the queue as its top-level `dispatch` returns')).toBe(true);
+  });
+
+  /* ══ S192 T16 — §5b, every TV gives its Voltkin back, every wave (s192/voltkin) ══════════════════ */
+
+  it('⭐ §5b T16 — one Voltkin per TV at FIGHT→BUILD; the census and ignition share isolation and owner', () => {
+    expect(VOLTKINS_PER_TV).toBe(1);
+    expect(canonSays(`\`VOLTKINS_PER_TV\` = **${VOLTKINS_PER_TV}** (⚠ MINE)`)).toBe(true);
+    expect(canonSays('A TV RE-SUMMONS IFF IT')).toBe(true);
+    expect(canonSays('**lowest seat on a tie**')).toBe(true);
+    const tv = readFileSync(new URL('./state/voltkinTv.ts', import.meta.url), 'utf8');
+    const recipe = readFileSync(new URL('./state/godlyRecipes/voltkin.ts', import.meta.url), 'utf8');
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    // ONE isolation test and ONE owner rule, called by both sides.
+    expect(tv).toContain('if (!isIsolatedVoltkinChain(world, chain)) continue;');
+    expect(recipe).toContain('if (!isIsolatedVoltkinChain(world, chain)) {');
+    expect(recipe).toContain('const triggererId = voltkinTvOwner(world, chain);');
+    // The edge call sits after the recall (which would teleport a fresh Voltkin to the castle).
+    expect(host).toMatch(/recallArmies\(world\);\n(?:\s*\/\/[^\n]*\n)*\s*resummonVoltkins\(world\);/);
   });
 
   /* ══ S190 deploy #4 — §7b/§7c, what the render branch settled ════════════════════════════════ */

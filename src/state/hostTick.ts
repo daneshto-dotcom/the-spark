@@ -59,7 +59,6 @@ import {
   type InvariantSnapshot,
 } from '../game/invariants.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
-import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
 import {
   bondMidpoint,
@@ -113,6 +112,7 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+import { dispatchVoltkinSpawn, resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — re-summon + the one Voltkin mint
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
 import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
@@ -556,6 +556,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         clearScorchedEarthAtBuild(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
+        // ⭐ S192 T16 — and every standing TV without a Voltkin gets one back (R190-J's rule, for the
+        // TV). AFTER the recall, which would teleport a just-minted Voltkin to the castle.
+        resummonVoltkins(world);
       }
       if (world.matchPhase === 'FIGHT') {
         /*
@@ -712,14 +715,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   ) {
     const { event } = world.pendingCreatureSpawn;
     world.pendingCreatureSpawn = null;
-    const spawnTargetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
-    dispatch(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'voltkin',
-      ownerPlayerId: event.triggererPlayerId,
-      pos: { x: event.targetPos.x, y: event.targetPos.y },
-      targetPos: spawnTargetPos,
-    });
+    // ⭐ S192 audit L4 — ONE mint path: the same helper the per-wave re-summon and the early mint use.
+    dispatchVoltkinSpawn(world, event.triggererPlayerId, event.targetPos);
   }
 
   // S71 P1 — bomb dissipation poll (host-only, tick-deterministic). An
