@@ -621,3 +621,24 @@ describe('S193 — the clock readout tells the truth', () => {
     expect(isClockFrozenForDisplay(fin), 'the final fight has no clock from its first tick').toBe(true);
   });
 });
+
+describe('S193 — a CLIENT reads the same countdown, banner and clock from the 10 Hz wire', () => {
+  it('netSnapshot → applyNetSnapshot carries monsterFightStartTick and monsterWaveSpawned', async () => {
+    const { netSnapshot, applyNetSnapshot } = await import('./save.ts');
+    const { isClockFrozenForDisplay } = await import('./endgame.ts');
+    const host = board(2);
+    toFightEdge(host, 31);
+    unkillable(host);
+    const d = deps();
+    const st = makeHostTickState(host);
+    for (let t = 0; t < 120; t++) runHostTick(host, d, st);
+    const client = board(2);
+    client.isHost = false;
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), client);
+    expect(client.monsterFightStartTick).toBe(host.monsterFightStartTick);
+    expect(monstersLeftToComeOut(client)).toBe(monstersLeftToComeOut(host));
+    expect(pantsBannerText(client)).toBe(pantsBannerText(host));
+    expect(isClockFrozenForDisplay(client)).toBe(isClockFrozenForDisplay(host));
+    expect(monstersLeftToComeOut(client)).toBeGreaterThan(0);
+  });
+});
