@@ -335,6 +335,24 @@ describe('S183 — the cover CONSUME sites, counted and pinned', () => {
   });
 
   /**
+   * ⛔ S192 audit V-1 — THE REBUILT AURA (`fx/auraFx.ts`) IS A SEVENTH DRAW, AND IT MUST FADE TOO. It
+   * draws through sprites, not `alpha:` literals, so the count above cannot see it. This counts every
+   * `auraFx(` call in the renderer and requires its LAST argument to be the anchor's cover alpha, then
+   * requires every emit inside `auraFx.ts` to multiply its alpha by that `cover` parameter.
+   */
+  it('⛔ S192 — every rebuilt-aura call passes the cover alpha, and every one of its sprites is scaled by it', () => {
+    const src = codeOf('spawnerZoneRenderer.ts');
+    const calls = [...src.matchAll(/\bauraFx\(([^;]*)\);/g)].map((m) => m[1]!.trim());
+    expect(calls, 'exactly one auraFx call').toHaveLength(1);
+    for (const c of calls) expect(c, `auraFx without the cover alpha: ${c}`).toMatch(/coverAlphaForPrim\(anchor\.id\)\s*$/);
+    const fx = codeOf('fx/auraFx.ts');
+    const emits = [...fx.matchAll(/\.emit\(([^;]*)\);/g)].map((m) => m[1]!.split(',').map((x) => x.trim()));
+    // pool (wide) · pool (inner) · ember
+    expect(emits, 'the aura draws three sprites').toHaveLength(3);
+    for (const args of emits) expect(args[6], `un-covered aura alpha: ${args[6]}`).toMatch(/\*\s*cover$/);
+  });
+
+  /**
    * ⛔ S183 — the retired `DAMAGED_BOND_MIN_ALPHA` pin, which un-hid a connector the instant it
    * took a point of damage. The owner ruled it out (*"It does not come back when the building
    * starts dying"*); a one-line revert would silently restore the behaviour he corrected.

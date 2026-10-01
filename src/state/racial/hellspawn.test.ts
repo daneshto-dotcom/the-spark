@@ -246,14 +246,16 @@ describe('HELLSPAWN — negatives: nobody else splits', () => {
     noSplit(fightWorld(), P0, 'raceUnit');
     noSplit(fightWorld(), P0, 't3Souleater');
   });
-  it('⚠ MINE — a chewer that AGES OUT is not killed and does not split', () => {
+  // ⛔ S191 (owner) — RE-PINNED. "Ageing out is not dying" still holds, and is now moot: a chewer is tower
+  // STOCK (persistent), so at its despawn tick nothing happens at all — it is ALIVE, and nothing split.
+  it('⚠ MINE — a chewer never ages out now (S191 stock), so its despawn tick neither kills nor splits it', () => {
     const w = fightWorld();
     const id = spawnAt(w, P0, 'chewer', 900, 500);
     w.tick = w.creatures.get(id)!.despawnAtTick;
     dispatch(w, { type: 'CREATURE_TICK', creatureId: id });
     drainRacialSpawnQueue(w);
-    expect(w.creatures.has(id)).toBe(false);
-    expect(chewersOf(w)).toHaveLength(0);
+    expect(w.creatures.has(id)).toBe(true);
+    expect(chewersOf(w)).toHaveLength(1);
   });
 });
 

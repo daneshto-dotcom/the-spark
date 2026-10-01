@@ -21,7 +21,7 @@
  * on a line ending: use `[\r\n]`, or match a single token.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createServer, type Server } from 'node:net';
 import ts from 'typescript';
@@ -236,27 +236,32 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
     }
     expect(strayRefs, 'runVite referenced other than as a call (an alias escapes the gate)').toEqual([]);
     expect(straySpawns, 'spawn( outside runVite').toEqual([]);
-    for (const wf of ['.github/workflows/deploy.yml', '.github/workflows/e2e.yml']) {
+    for (const wf of readdirSync('.github/workflows').map((f) => `.github/workflows/${f}`)) { // S192 ROUND-3 — every workflow
       expect(readFileSync(wf, 'utf-8'), wf).not.toContain('SPARK_SPAWN_VITE');
     }
   });
 
-  it('⛔ (S191 FIX-4) SPAWN_VITE is OFF by default — one module-scope const, read from the env, never written', () => {
-    /*
-     * The gate above proves every spawn sits behind `it.runIf(SPAWN_VITE)`; this proves `SPAWN_VITE` itself
-     * is false in the default suite. Exactly ONE binding of the name anywhere in the file (an inner shadow
-     * would re-gate some cases on another value), at module scope, `const`, initialised to exactly
-     * `process.env.SPARK_SPAWN_VITE === '1'`; `process.env.SPARK_SPAWN_VITE` read nowhere else; nothing in
-     * the file assigns to `process.env`; and the variable's name appears as a string only in the workflow
-     * check below (`vi.stubEnv('SPARK_SPAWN_VITE', …)` or `process.env['SPARK_SPAWN_VITE']` would not).
-     */
-    const ENV_NAME = 'SPARK_' + 'SPAWN_VITE'; // split, so this test is not itself a stray string
-    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
-    const sf = ts.createSourceFile('ci.e2ePort.test.ts', self, ts.ScriptTarget.Latest, true);
+  /*
+   * The gate above proves every spawn sits behind `it.runIf(SPAWN_VITE)`; this proves `SPAWN_VITE` itself
+   * is false in the default suite. Exactly ONE binding of the name anywhere in the file (an inner shadow
+   * would re-gate some cases on another value), at module scope, `const`, initialised to exactly
+   * `process.env.SPARK_SPAWN_VITE === '1'`; `process.env.SPARK_SPAWN_VITE` read nowhere else; nothing in
+   * the file assigns to `process.env`; and the variable's name appears as a string only in the workflow
+   * check below (`vi.stubEnv('SPARK_SPAWN_VITE', …)` or `process.env['SPARK_SPAWN_VITE']` would not).
+   *
+   * ⛔ S192 ROUND-3 (audit wf_de15cae4-4a8) — and the S191 walk had holes the auditor turned on in the
+   * default suite with the case still GREEN: `Object.assign(process.env, {…})`, `Reflect.set(process.env,
+   * 'SPARK_' + 'SPAWN_VITE', '1')` (no assignment operator, no literal), and ``vi.stubEnv(`SPARK_SPAWN_VITE`,
+   * '1')`` (a template, not a StringLiteral). Now ANY call that is handed `process.env`, ANY `stubEnv(` call,
+   * and ANY template text naming the variable is a violation. The check is a function of the source text so
+   * each of those mutations is pinned RED below, on a mutated copy of this very file.
+   */
+  const ENV_NAME = 'SPARK_' + 'SPAWN_VITE'; // split, so this test is not itself a stray string
+  const spawnGateViolations = (text: string): string[] => {
+    const sf = ts.createSourceFile('ci.e2ePort.test.ts', text, ts.ScriptTarget.Latest, true);
     const bindings: ts.Node[] = [];
-    const envReads: ts.Node[] = [];
-    const envWrites: string[] = [];
-    const strayNameStrings: string[] = [];
+    const out: string[] = [];
+    let envReads = 0;
     const visit = (n: ts.Node): void => {
       if (ts.isIdentifier(n) && n.text === 'SPAWN_VITE') {
         const par = n.parent;
@@ -265,33 +270,79 @@ describe('S189 — the e2e webServer fails fast on an occupied port', () => {
           ((ts.isFunctionDeclaration(par) || ts.isClassDeclaration(par)) && par.name === n);
         if (declares) bindings.push(par);
       }
-      if (ts.isPropertyAccessExpression(n) && n.getText(sf) === 'process.env.SPARK_SPAWN_VITE') envReads.push(n);
+      if (ts.isPropertyAccessExpression(n) && n.getText(sf) === 'process.env.SPARK_SPAWN_VITE') envReads++;
       if (
         ts.isBinaryExpression(n) &&
         n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
         n.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
         /^process\.env\b/.test(n.left.getText(sf))
       ) {
-        envWrites.push(n.getText(sf));
+        out.push(`env write: ${n.getText(sf)}`);
+      }
+      if (ts.isDeleteExpression(n) && /^process\.env\b/.test(n.expression.getText(sf))) out.push(`env delete: ${n.getText(sf)}`);
+      if (ts.isCallExpression(n)) {
+        // S192 ROUND-3 — Object.assign / Reflect.set / Object.defineProperty / anything handed process.env.
+        if (n.arguments.some((a) => /^process\.env\b/.test(a.getText(sf)))) out.push(`process.env passed to: ${n.getText(sf)}`);
+        if (/(^|\.)stubEnv$/.test(n.expression.getText(sf))) out.push(`stubEnv: ${n.getText(sf)}`);
+      }
+      if ((ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateExpression(n)) && n.getText(sf).includes(ENV_NAME)) {
+        out.push(`template names the env var: ${n.getText(sf)}`);
       }
       if (ts.isStringLiteral(n) && n.text === ENV_NAME) {
         const call = n.parent;
         const inWorkflowCheck = ts.isCallExpression(call) && call.expression.getText(sf).endsWith('.toContain');
-        if (!inWorkflowCheck) strayNameStrings.push(call.getText(sf));
+        if (!inWorkflowCheck) out.push(`stray name string: ${call.getText(sf)}`);
       }
       ts.forEachChild(n, visit);
     };
     visit(sf);
-    expect(bindings.length, 'exactly one binding named SPAWN_VITE (no shadow)').toBe(1);
+    if (bindings.length !== 1) return [...out, `bindings named SPAWN_VITE: ${bindings.length} (want exactly 1, no shadow)`];
     const decl = bindings[0]!;
-    expect(ts.isVariableDeclaration(decl)).toBe(true);
+    if (!ts.isVariableDeclaration(decl)) return [...out, 'SPAWN_VITE is not a variable'];
     const list = decl.parent as ts.VariableDeclarationList;
-    expect(list.flags & ts.NodeFlags.Const, 'a const').toBeTruthy();
-    expect(ts.isSourceFile(list.parent.parent), 'at module scope').toBe(true);
-    expect((decl as ts.VariableDeclaration).initializer?.getText(sf)).toBe("process.env.SPARK_SPAWN_VITE === '1'");
-    expect(envReads, 'the env var is read in that one initialiser only').toHaveLength(1);
-    expect(envWrites, 'nothing in this file writes process.env').toEqual([]);
-    expect(strayNameStrings, 'the env name as a string outside the workflow check').toEqual([]);
+    if (!(list.flags & ts.NodeFlags.Const)) out.push('SPAWN_VITE is not a const');
+    if (!ts.isSourceFile(list.parent.parent)) out.push('SPAWN_VITE is not at module scope');
+    if (decl.initializer?.getText(sf) !== "process.env.SPARK_SPAWN_VITE === '1'") out.push(`initialiser: ${decl.initializer?.getText(sf)}`);
+    if (envReads !== 1) out.push(`the env var read ${envReads}× (want the one initialiser)`);
+    return out;
+  };
+
+  it('⛔ (S191 FIX-4) SPAWN_VITE is OFF by default — one module-scope const, read from the env, never written', () => {
+    expect(spawnGateViolations(readFileSync('src/ci.e2ePort.test.ts', 'utf-8'))).toEqual([]);
+  });
+
+  it('⛔ (S192 ROUND-3) every way the auditor turned SPAWN_VITE on is RED (mutated copies of this file)', () => {
+    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8').replace(/\r\n/g, '\n');
+    const declLine = 'const SPAWN_VITE = process.env.' + ENV_NAME + " === '1';"; // built, so it occurs once in the file
+    expect(self.split(declLine)).toHaveLength(2);
+    const N = 'SPARK_' + 'SPAWN_VITE';
+    const above = (stmt: string) => self.replace(declLine, `${stmt}\n${declLine}`);
+    const mutants: Record<string, string> = {
+      'initialiser = true': self.replace(declLine, 'const SPAWN_VITE = true;'),
+      'top-of-file assignment': above(`process.env.${N} = '1';`),
+      'Object.assign(process.env, …)': above(`Object.assign(process.env, { ${N}: '1' });`),
+      'vi.stubEnv(`…`)': above(`vi.stubEnv(\`${N}\`, '1');`),
+      "Reflect.set(process.env, 'SPARK_' + …)": above(`Reflect.set(process.env, 'SPARK_' + 'SPAWN_VITE', '1');`),
+      "vi.stubEnv('SPARK_' + …)": above(`vi.stubEnv('SPARK_' + 'SPAWN_VITE', '1');`),
+      'Object.defineProperty(process.env, …)': above(`Object.defineProperty(process.env, 'SPARK_' + 'SPAWN_VITE', { value: '1' });`),
+      'delete process.env…': above(`delete process.env.${N};`),
+      'let, not const': self.replace(declLine, declLine.replace('const ', 'let ')),
+    };
+    for (const [name, text] of Object.entries(mutants)) {
+      expect(text, `${name}: the mutation applied`).not.toBe(self);
+      expect(spawnGateViolations(text).length, `${name} must turn the guard red`).toBeGreaterThan(0);
+    }
+  });
+
+  it('⛔ (S192 ROUND-3) nothing OUTSIDE this file sets it: every workflow, package.json, the vite + playwright configs', () => {
+    const files = [
+      ...readdirSync('.github/workflows').map((f) => `.github/workflows/${f}`),
+      'package.json',
+      'vite.config.ts',
+      'playwright.config.ts',
+    ];
+    expect(files.length).toBeGreaterThanOrEqual(5);
+    for (const f of files) expect(readFileSync(f, 'utf-8'), f).not.toContain(ENV_NAME);
   });
 
   it('the webServer command carries --strictPort (and still binds every interface)', () => {

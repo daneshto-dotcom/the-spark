@@ -44,6 +44,19 @@ import {
 } from '../state/racial/powerOfRaRules.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 import { raAimPreview, raChargesLeftLocal, raLocalCastRefusal, setRaAimPreview } from './raAimPreview.ts';
+// ⭐ S191 — SCORCHED EARTH: the square reads the REDUCER's own predicate too, never a second copy.
+import {
+  SCORCHED_EARTH_CHARGES,
+  seatHasScorchedEarth,
+  type ScorchedEarthRefusal,
+} from '../state/racial/scorchedEarthRules.ts';
+import {
+  scorchedEarthAim,
+  scorchedEarthChargesLeftLocal,
+  scorchedEarthLocalRefusal,
+  setScorchedEarthAim,
+} from './scorchedEarthAim.ts';
+import { SCORCHED_ZONE_TINT } from './zoneBackgroundRenderer.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 // S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
 // computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
@@ -267,6 +280,8 @@ const RA_PIP_R_COMPACT = 2;
 export const SKILL_ICON = {
   power: { url: '/art/skills/power-of-ra.webp' },
   wrath: { url: '/art/skills/wrath-of-ra.webp' },
+  // ⭐ S191 — SCORCHED EARTH, pre-cut from `l0-demons` (`--preset scorched-earth`): the burning ground.
+  scorched: { url: '/art/skills/scorched-earth.webp' },
 } as const;
 
 /** ⭐ S190 W-7 — seams the tests use (the draft panel's `loadCard` shape). Production passes none. */
@@ -311,6 +326,40 @@ export function layoutRaButton(chips: readonly FooterChipGeom[], collapsed: bool
   // A square the chip row's height, centred on the chip row's own midline.
   const y = first.y + (first.h - RA_ICON_SIZE) / 2;
   return { x: first.x - CHIP_GAP - RA_ICON_SIZE, y, w: RA_ICON_SIZE, h: RA_ICON_SIZE, compact: false };
+}
+
+/* ────────────────────────────────────────────────────────────────────────── *
+ *   ⭐⭐ S191 (owner item 1b, `demons.l0`) — THE SCORCHED EARTH SKILL SQUARE
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * > *"on the bottom left same where the wrath of ra ability lies there's going to be … a scorched earth
+ * > ability button"* — owner, S191
+ *
+ * So it takes the Ra slot's own geometry — same size, same place, same compact form beside the collapsed
+ * tab (`layoutRaButton`) — because a seat is ONE race and the two perks belong to two races, so a seat
+ * never holds both. Should one ever hold both, this square steps one slot further LEFT of the Ra square
+ * rather than drawing over it (`beside`). Its state reads on the icon exactly as Ra's does.
+ */
+export interface ScorchedEarthSlotState {
+  readonly refusal: ScorchedEarthRefusal | null;
+  /** Casts per fight (`SCORCHED_EARTH_CHARGES`, his: one). Pips are drawn only when there is more than one. */
+  readonly charges: number;
+  readonly left: number;
+}
+
+/** PURE — where the Scorched Earth square sits this frame, or null when there is no row to sit beside. */
+export function layoutScorchedEarthButton(
+  chips: readonly FooterChipGeom[],
+  collapsed: boolean,
+  /** The Ra square drawn THIS frame, if any — the square then steps one slot left of it. */
+  beside: RaButtonGeom | null = null,
+): RaButtonGeom | null {
+  const base = layoutRaButton(chips, collapsed);
+  if (base === null) return null;
+  if (beside === null) return base;
+  const gap = collapsed ? RA_BUTTON_COLLAPSED_GAP : CHIP_GAP;
+  return { ...base, x: beside.x - gap - base.w };
 }
 
 /**
@@ -363,6 +412,20 @@ export class FooterBand {
   /** ⭐ S190 W-6 — what the slot SAID this frame ('' = nothing) and how many pips it drew. */
   private raCaption = '';
   private raPips = 0;
+  /**
+   * ⭐ S191 — the SCORCHED EARTH square as drawn THIS frame (null when not drawn), and its own caption,
+   * picture and edge layer. Its own objects, never the Ra slot's, so neither square can repaint the
+   * other's state.
+   */
+  private se: RaButtonGeom | null = null;
+  private seSlot: ScorchedEarthSlotState | null = null;
+  private seLabel: Text | null = null;
+  private seIcon: Sprite | null = null;
+  private seOverlay: Graphics | null = null;
+  private seIconRequested = false;
+  private seIconReady = false;
+  private seCaption = '';
+  private hoverSe = false;
   /**
    * ⭐ S187 — is the band hidden? RENDER-ONLY, never world state: it is one player's view
    * preference, it must not reach the wire, and two peers disagreeing about it is not a divergence.
@@ -435,6 +498,7 @@ export class FooterBand {
     this.hoverPalette = this.paletteAt(x, y);
     this.hoverQueue = this.queueChipAt(x, y);
     this.hoverRa = this.isOverRaButton(x, y);
+    this.hoverSe = this.isOverScorchedEarthButton(x, y); // ⭐ S191 — SCORCHED EARTH
   }
 
   /** Pointer is DOWN. Drives the pressed look; cleared on release wherever it happens. */
@@ -456,6 +520,13 @@ export class FooterBand {
     if (this.raLabel !== null) this.raLabel.visible = false;
     if (this.raIcon !== null) this.raIcon.visible = false;
     this.raOverlay?.clear();
+    // ⭐ S191 — SCORCHED EARTH, the same per-frame reset: a square not drawn this frame hit-tests nothing.
+    this.se = null;
+    this.seSlot = null;
+    this.seCaption = '';
+    if (this.seLabel !== null) this.seLabel.visible = false;
+    if (this.seIcon !== null) this.seIcon.visible = false;
+    this.seOverlay?.clear();
 
     /*
      * ⭐ S188 P6 — POWER OF RA: the seat's state, read ONCE through the reducer's own predicate.
@@ -477,6 +548,17 @@ export class FooterBand {
           wrath: seatHoldsPerk(me, WRATH_OF_RA_PERK),
         }
       : null;
+    // ⭐ S191 — SCORCHED EARTH: the same read, the same stale-aim drop (a refused aim is put away).
+    const seHeld = seatHasScorchedEarth(me);
+    const seRefusal = seHeld ? scorchedEarthLocalRefusal(world, world.localPlayerId) : null;
+    if (scorchedEarthAim() !== null && (!seHeld || seRefusal !== null)) setScorchedEarthAim(null);
+    const seSlot: ScorchedEarthSlotState | null = seHeld
+      ? {
+          refusal: seRefusal,
+          charges: SCORCHED_EARTH_CHARGES,
+          left: scorchedEarthChargesLeftLocal(world, world.localPlayerId),
+        }
+      : null;
 
     if (world.gameState !== 'PLAYING') {
       this.hideLabelsFrom(0);
@@ -496,6 +578,8 @@ export class FooterBand {
     if (this.collapsed) {
       // ⭐ S188 P6 — the skill survives the collapse, as a compact sun beside the tab.
       if (raSlot !== null) this.drawRaButton(g, layoutRaButton([], true)!, raSlot);
+      // ⭐ S191 — and SCORCHED EARTH survives it too, as the same compact square beside the tab.
+      if (seSlot !== null) this.drawScorchedEarthButton(g, layoutScorchedEarthButton([], true, this.ra)!, seSlot);
       this.hideLabelsFrom(0);
       return;
     }
@@ -505,6 +589,9 @@ export class FooterBand {
     // ⭐ S188 P6 / P11 — the skill slot, left of the chip row (see `RA_ICON_SIZE`).
     const raGeom = raSlot !== null ? layoutRaButton(this.chips, false) : null;
     if (raGeom !== null && raSlot !== null) this.drawRaButton(g, raGeom, raSlot);
+    // ⭐ S191 — the SCORCHED EARTH square, in the same slot (a demons seat never holds Ra).
+    const seGeom = seSlot !== null ? layoutScorchedEarthButton(this.chips, false, raGeom) : null;
+    if (seGeom !== null && seSlot !== null) this.drawScorchedEarthButton(g, seGeom, seSlot);
 
     for (let i = 0; i < this.chips.length; i++) {
       const c = this.chips[i];
@@ -642,7 +729,9 @@ export class FooterBand {
     const carryBase = this.carryLabelBase();
     const carryRow = this.armed === null ? null : structureRowFor(world, this.armed);
     // ⭐ S188 P6 — left of the Ra button when it is drawn, so the readout never lands on it.
-    const carry = carryRow === null ? null : layoutCarryBill(this.chips, carryRow.bill.length, raGeom?.x);
+    // ⭐ S191 — …and left of the Scorched Earth square, whichever skill square is leftmost.
+    const skillLeft = Math.min(raGeom?.x ?? Infinity, seGeom?.x ?? Infinity);
+    const carry = carryRow === null ? null : layoutCarryBill(this.chips, carryRow.bill.length, skillLeft);
     this.carry = carry;
     if (carry !== null && carryRow !== null) {
       const plateX = carry.left - CARRY_PLATE_PAD;
@@ -978,6 +1067,126 @@ export class FooterBand {
     return this.raOverlay;
   }
 
+  /* ─────────── ⭐ S191 — the SCORCHED EARTH square: Ra's slot pattern, its own objects ─────────── */
+
+  /**
+   * ⭐ S191 — paint the SCORCHED EARTH square and store the rectangle its hit-test uses. The Ra slot's
+   * pattern exactly: an opaque plate, the skill's picture above it, the edge (and pips, when there is
+   * more than one charge) on an overlay above the picture, the state on the icon and the reason beneath.
+   * Ready = ember edge; aiming = green edge; refused = the picture greyed, the reason written. Until the
+   * picture loads a flame glyph is STROKED on the plate (strokes only — no new opaque fill), so the slot
+   * is never blank and never unclickable.
+   */
+  private drawScorchedEarthButton(g: Graphics, r: RaButtonGeom, s: ScorchedEarthSlotState): void {
+    this.se = r;
+    this.seSlot = s;
+    const aiming = scorchedEarthAim() !== null;
+    const enabled = s.refusal === null;
+    const edge = !enabled ? TINT_DISABLED : aiming ? TINT_SELECTED : SCORCHED_ZONE_TINT;
+    const grow = this.hoverSe ? (this.pressed ? -1 : HOVER_GROW) : 0;
+    const x = r.x - grow;
+    const y = r.y - grow;
+    const side = r.w + grow * 2;
+    g.roundRect(x, y, side, side, 4).fill({ color: 0x0b0f16, alpha: 0.95 });
+
+    const icon = this.ensureScorchedEarthIcon();
+    const cx = r.x + r.w / 2;
+    if (this.seIconReady) {
+      const inset = r.compact ? 1 : 2;
+      icon.position.set(x + inset, y + inset);
+      icon.width = side - inset * 2;
+      icon.height = side - inset * 2;
+      icon.tint = enabled ? 0xffffff : 0x5a5a5a;
+      icon.alpha = enabled ? 1 : 0.7;
+      icon.visible = true;
+    } else {
+      // A three-tongued flame, stroked: burning ground.
+      const cy = r.y + r.h / 2;
+      const k = r.compact ? 0.4 : 1;
+      for (const dx of [-7, 0, 7]) {
+        const h = dx === 0 ? 14 : 9;
+        g.moveTo(cx + dx * k - 4 * k, cy + 8 * k)
+          .lineTo(cx + dx * k, cy + (8 - h * 1.4) * k)
+          .lineTo(cx + dx * k + 4 * k, cy + 8 * k);
+      }
+      g.stroke({ color: edge, width: 1.6, alpha: enabled ? 0.95 : 0.6, cap: 'round', join: 'round' });
+    }
+
+    const o = this.ensureScorchedEarthOverlay();
+    o.roundRect(x, y, side, side, 4).stroke({ width: aiming || this.hoverSe ? 3 : 2, color: edge, alpha: 0.95 });
+    if (s.charges > 1) {
+      // Ra's pips, for the day the charges lever is raised (inside the square, so the hit-test covers them).
+      const pr = r.compact ? RA_PIP_R_COMPACT : RA_PIP_R;
+      const gap = pr * 2 + (r.compact ? 2 : 4);
+      const x0 = cx - ((s.charges - 1) * gap) / 2;
+      for (let i = 0; i < s.charges; i++) {
+        o.circle(x0 + i * gap, y + pr + (r.compact ? 1 : 3), pr)
+          .fill({ color: i < s.left ? SCORCHED_ZONE_TINT : 0x1a1d24, alpha: 0.95 })
+          .stroke({ color: 0x000000, width: r.compact ? 0.75 : 1, alpha: 0.8 });
+      }
+    }
+
+    // The same caption rules as Ra's (a refused control says why): the two refusal unions are one set.
+    const caption = raButtonCaption(s.refusal, aiming, this.hoverSe, 'SCORCHED EARTH');
+    this.seCaption = caption;
+    if (caption === '') return;
+    if (this.seLabel === null) {
+      this.seLabel = new Text({ text: '', style: { fontFamily: 'monospace', fontSize: 10, fill: SCORCHED_ZONE_TINT } });
+      this.container.addChild(this.seLabel);
+    }
+    this.seLabel.text = caption;
+    this.seLabel.style.fill = edge;
+    if (r.compact) {
+      this.seLabel.anchor.set(1, 0.5);
+      this.seLabel.position.set(r.x - 6, r.y + r.h / 2);
+    } else {
+      this.seLabel.anchor.set(0.5);
+      this.seLabel.position.set(cx, r.y + r.h + 9);
+    }
+    this.seLabel.visible = true;
+  }
+
+  /** ⭐ S191 — the picture, requested once and kept. Headless (no loader), the flame glyph draws. */
+  private ensureScorchedEarthIcon(): Sprite {
+    if (this.seIcon === null) {
+      this.seIcon = new Sprite(Texture.EMPTY);
+      this.seIcon.visible = false;
+      this.container.addChild(this.seIcon);
+    }
+    if (!this.seIconRequested) {
+      this.seIconRequested = true;
+      const sprite = this.seIcon;
+      try {
+        void this.loadIcon(SKILL_ICON.scorched.url)
+          .then((t) => { sprite.texture = t; this.seIconReady = true; })
+          .catch(() => undefined);
+      } catch {
+        // no loader (headless): the glyph fallback draws
+      }
+    }
+    return this.seIcon;
+  }
+
+  /** ⭐ S191 — the edge (and pips) layer, above the picture. Created on first use, after the sprite. */
+  private ensureScorchedEarthOverlay(): Graphics {
+    if (this.seOverlay === null) {
+      this.seOverlay = new Graphics();
+      this.container.addChild(this.seOverlay);
+    }
+    return this.seOverlay;
+  }
+
+  /**
+   * ⭐ S191 — is this point over the SCORCHED EARTH square as drawn this frame? A CONTROL, so it is folded
+   * into `isOverChip` (the cursor, the click router) AND `isOverBandSurface` (the commit gates), in BOTH
+   * collapse states — exactly as `isOverRaButton` is.
+   */
+  isOverScorchedEarthButton(x: number, y: number): boolean {
+    const r = this.se;
+    if (r === null) return false;
+    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
   /**
    * ⭐ S188 P6 — is this point over the POWER OF RA button as drawn this frame? A CONTROL, so it is
    * folded into `isOverChip` (the cursor, the click router) and therefore into `isOverBandSurface`
@@ -1027,9 +1236,13 @@ export class FooterBand {
     return this.collapsed;
   }
 
+  // ⭐ S191 A-2 / S192 owner ruling — Alt calls `toggleCollapsed` exactly as the arrow does (`controls.ts`
+  // `handleAltFooterKey`); there is no Alt-only state and nothing re-raises the band on a disarm.
+
   isOverChip(x: number, y: number): boolean {
     // ⭐ S188 P6 — the Ra button, in both states (null whenever it was not drawn this frame).
     if (this.isOverRaButton(x, y)) return true;
+    if (this.isOverScorchedEarthButton(x, y)) return true; // ⭐ S191 — the same, for SCORCHED EARTH
     // ⛔ S187 — COLLAPSED, THE ONLY CONTROL LEFT IS THE TAB. Returning the chips here would keep the
     // cursor promising `pointer` over a menu that is not drawn, and `handleFooterChipClick` would
     // open a panel from an invisible button.
@@ -1072,6 +1285,7 @@ export class FooterBand {
    */
   isOverBandSurface(x: number, y: number): boolean {
     if (this.isOverRaButton(x, y)) return true; // S188 P6 — opaque in both states
+    if (this.isOverScorchedEarthButton(x, y)) return true; // ⭐ S191 — SCORCHED EARTH, likewise
     if (this.collapsed) return this.isOverCollapseTab(x, y); // S187 — see the docblock above
     return this.isOverChip(x, y) || this.isOverCarryBill(x, y);
   }
@@ -1264,6 +1478,10 @@ export class FooterBand {
     /** ⭐ S190 W-6 — the words it showed ('' = none) and the pips it drew, in EITHER collapse state. */
     raCaption: string;
     raPips: number;
+    /** ⭐ S191 — the SCORCHED EARTH square as drawn this frame (or null), what it showed and said. */
+    scorchedEarth: RaButtonGeom | null;
+    scorchedEarthSlot: ScorchedEarthSlotState | null;
+    scorchedEarthCaption: string;
   } {
     return {
       chips: [...this.chips],
@@ -1275,6 +1493,9 @@ export class FooterBand {
       raSlot: this.raSlot,
       raCaption: this.raCaption,
       raPips: this.raPips,
+      scorchedEarth: this.se,
+      scorchedEarthSlot: this.seSlot,
+      scorchedEarthCaption: this.seCaption,
     };
   }
 
@@ -1300,6 +1521,10 @@ export class FooterBand {
     if (this.raLabel !== null) this.raLabel.visible = false;
     if (this.raIcon !== null) this.raIcon.visible = false;
     this.raOverlay?.clear();
+    this.se = null; // ⭐ S191 — SCORCHED EARTH
+    if (this.seLabel !== null) this.seLabel.visible = false;
+    if (this.seIcon !== null) this.seIcon.visible = false;
+    this.seOverlay?.clear();
     this.armed = null;
     this.selected = null;
     this.hideLabelsFrom(0);
@@ -1310,6 +1535,9 @@ export class FooterBand {
     this.raLabel?.destroy();
     this.raIcon?.destroy();
     this.raOverlay?.destroy();
+    this.seLabel?.destroy(); // ⭐ S191 — SCORCHED EARTH
+    this.seIcon?.destroy();
+    this.seOverlay?.destroy();
     this.graphics.destroy();
     this.container.destroy();
   }

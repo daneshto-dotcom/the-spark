@@ -15,6 +15,7 @@ import { Controls } from './controls.ts';
 import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './doubleEscapeLeave.ts';
 import { closeSettingsOnEscape } from '../render/settingsOverlay.ts';
 import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { scorchedEarthAim, setScorchedEarthAim } from '../render/scorchedEarthAim.ts';
 
 const P0 = asPlayerId(0);
 type Listener = (e: unknown) => void;
@@ -32,6 +33,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   setRaAimPreview(null);
+  setScorchedEarthAim(null);
   vi.unstubAllGlobals();
 });
 
@@ -137,6 +139,15 @@ describe('S189 A1 — a cancel is not the first press of "leave the match"', () 
     expect(r.leaves).toBe(0);
   });
 
+  it('⛔ REACH (S192 UIGATES-3): put the SCORCHED EARTH aim away with Escape, press Escape again — NOT abandoned', () => {
+    const r = rig();
+    setScorchedEarthAim({ seat: P0, x: 500, y: 500 });
+    press(r, 'Escape');
+    expect(scorchedEarthAim()).toBeNull();
+    press(r, 'Escape');
+    expect(r.leaves, 'putting the scorch aim away must not be the first press of a leave').toBe(0);
+  });
+
   it('two cancels in a row never leave either — each resets the chord', () => {
     const r = rig();
     r.armed = { id: 'laserTurret' };
@@ -234,7 +245,7 @@ describe('S189 fix round (audit NET-3) — the real handlers use the tested func
    * must call `consumeCancel(e)` before its `return`, and the branch count is PINNED — a new Escape cancel
    * (the s191/owner Scorched Earth aim, at merge) turns this red until it is wired and the pin is raised.
    */
-  it('⛔ SEAM-4 — every Escape branch in Controls.onKeyDown calls consumeCancel(e) before it returns (pinned: 2)', async () => {
+  it('⛔ SEAM-4 — every Escape branch in Controls.onKeyDown calls consumeCancel(e) before it returns (pinned: 3)', async () => {
     const { readFileSync } = await import('node:fs');
     const src = strip(readFileSync(new URL('./controls.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
     const head = 'private onKeyDown = (e: KeyboardEvent): void => {';
@@ -262,7 +273,7 @@ describe('S189 fix round (audit NET-3) — the real handlers use the tested func
       }
       branches.push(body.slice(open, end + 1));
     }
-    expect(branches.length, 'the Escape branches in onKeyDown (raise the pin only with a consumeCancel)').toBe(2);
+    expect(branches.length, 'the Escape branches in onKeyDown — Ra aim, SCORCHED EARTH aim (S191), held tower (raise the pin only with a consumeCancel)').toBe(3);
     for (const [i, block] of branches.entries()) {
       const consumed = block.indexOf('consumeCancel(e)');
       const ret = block.indexOf('return');

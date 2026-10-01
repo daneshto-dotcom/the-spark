@@ -100,23 +100,53 @@ export function collectSites(): Site[] {
 
 const key = (s: Site): string => `${s.file} ${s.funnel} ${s.cls}`;
 
+/**
+ * ⭐ S193 — THE BYPASS CENSUS. The class census above only sees damage that goes THROUGH a funnel. A
+ * new site that subtracts from a pool directly (or calls the creature / bag primitive under the funnel)
+ * would dodge MRES silently, so every such line in production is counted here, file by file.
+ */
+export function collectBypasses(): Record<string, number> {
+  const pats: ReadonlyArray<readonly [string, RegExp]> = [
+    ['ehp-=', /\.ehp\s*-=/g],
+    ['castleHp', /castleHp\s*=\s*Math\.max\(0,/g],
+    ['hp-=', /\.hp\s*-=/g],
+    ['damageFifths+=', /damageFifths\s*\+=/g],
+    ['damageCreature(', /(?<!function\s)\bdamageCreature\(/g],
+    ['damageStinkCloud(', /(?<!function\s)\bdamageStinkCloud\(/g],
+  ];
+  const out: Record<string, number> = {};
+  for (const file of productionSources(join(ROOT, 'src'))) {
+    const rel = file.slice(ROOT.length + 1).replace(/\\/g, '/');
+    if (rel.startsWith('src/arcade/')) continue; // Pitch Masters is off-limits (owner, S192)
+    const src = stripComments(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
+    for (const [name, re] of pats) {
+      const n = [...src.matchAll(re)].length;
+      if (n > 0) out[`${rel} ${name}`] = n;
+    }
+  }
+  return out;
+}
+
 describe('S192 — the attack-class census of every production damage call', () => {
   const sites = collectSites();
 
-  it('finds all 29 sites (15 + 5 + 9) and every one names a class this file recognises', () => {
-    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(15);
-    expect(sites.filter((s) => s.funnel === 'damageConnector').length).toBe(5);
-    expect(sites.filter((s) => s.funnel === 'radial').length).toBe(9);
+  // ⭐ S193 (merge of master) — 29 → 35: the shared Ra column (`raColumn.ts`, perk AND Pharaoh boss) replaced
+  // `powerOfRa.ts`'s and the ritual's own calls; SCORCHED EARTH's five arms; the hub ladder blast; the
+  // connector overkill carry (`severWithCarry`).
+  it('finds all 35 sites (20 + 8 + 7) and every one names a class this file recognises', () => {
+    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(20);
+    expect(sites.filter((s) => s.funnel === 'damageConnector').length).toBe(8);
+    expect(sites.filter((s) => s.funnel === 'radial').length).toBe(7);
     expect(sites.filter((s) => s.cls === 'OTHER'), 'an unrecognised class argument — decide and pin it').toEqual([]);
   });
 
   it('pins the populations: magic, DoT-magic, per-unit, forwarded, physical', () => {
     const count = (c: Cls): number => sites.filter((s) => s.cls === c).length;
-    expect(count('magic')).toBe(5);
-    expect(count('magicDot')).toBe(4);
+    expect(count('magic')).toBe(6);
+    expect(count('magicDot')).toBe(6);
     expect(count('strikeClassFor')).toBe(6);
     expect(count('forwarded')).toBe(3);
-    expect(count('physical')).toBe(11);
+    expect(count('physical')).toBe(14);
   });
 
   it('pins WHICH site answers WHAT — his list, file by file', () => {
@@ -124,13 +154,18 @@ describe('S192 — the attack-class census of every production damage call', () 
     for (const s of sites) tally[key(s)] = (tally[key(s)] ?? 0) + 1;
     expect(tally).toEqual({
       // ── MAGIC (R192-M2) ──
-      'src/state/racial/powerOfRa.ts damageConnector magic': 1, // POWER / WRATH OF RA — connector cut
-      'src/state/racial/powerOfRa.ts radial magic': 1, // POWER / WRATH OF RA — area
-      'src/state/bossSkillsPharaohRitual.ts radial magic': 1, // the Pharaoh's Ra column (R190-E)
+      // the ONE Ra column (S191/S192 `landRaColumn`): POWER / WRATH OF RA, the bot cast AND the Pharaoh boss's
+      // ritual (R190-E). Magic PER SHARE — each split share is rescaled by its own target (`magicResist.raShare.test.ts`).
+      'src/state/racial/raColumn.ts damageConnector magic': 1, // a structure's share
+      'src/state/racial/raColumn.ts damageEntity magic': 1, // a creature / Helga / shape / bag share
       'src/state/creatures/voltkinChain.ts damageEntity magic': 1, // chain — creature hop
       'src/state/creatures/voltkinChain.ts damageConnector magic': 1, // chain — connector hop
       'src/state/bossSkills.ts damageEntity magicDot': 1, // zombie boss ROT
-      'src/state/racial/scorchedGround.ts damageEntity magicDot': 1, // SCORCHED GROUND
+      // SCORCHED GROUND (passive) + SCORCHED EARTH (the cast): creatures and Helga are DoT beats; the
+      // structure arm is a DoT beat too; a lone shape and a landed bag (MRES = DEF = 0) a plain magic fifth.
+      'src/state/racial/scorchedGround.ts damageEntity magicDot': 2, // creatures · Helga
+      'src/state/racial/scorchedGround.ts damageConnector magicDot': 1, // structures
+      'src/state/racial/scorchedGround.ts damageEntity magic': 2, // lone shapes · stink bags
       'src/state/defenders/stinkTower.ts radial magicDot': 1, // STINK TOWER aura
       'src/state/defenders/stinkCloud.ts radial magicDot': 1, // the landed-bag cloud (HIS, S192 Q-C)
       // ── A UNIT'S OWN STRIKE: physical, the Voltkin's zap magic (⚠ MINE, Q-V) ──
@@ -147,7 +182,25 @@ describe('S192 — the attack-class census of every production damage call', () 
       'src/state/creatures/suicideBlast.ts damageConnector physical': 1,
       'src/state/droneLifecycle.ts radial physical': 1,
       'src/state/damage.ts radial physical': 1, // a landed bag bursting
+      'src/state/damage.ts damageConnector physical': 1, // the overkill carry — already-landed damage, never re-rescaled
+      'src/state/potatoLifecycle.ts damageConnector physical': 1, // the hub self-destruct LADDER blast (S191 C-5)
+      'src/state/potatoLifecycle.ts damageEntity physical': 1, // ditto, its unit / shape shares
       'src/state/defenders/stinkTower.ts radial physical': 2, // death blast · bag splash
+    });
+  });
+
+  // ⭐ S193 — the funnels are the only places a pool is written; a new direct write dodges MRES.
+  it('pins every direct pool write and every call under a funnel — a new one must route through a funnel', () => {
+    expect(collectBypasses()).toEqual({
+      'src/state/damage.ts castleHp': 1, // the castle arm — MRES applied just above it
+      'src/state/damage.ts damageCreature(': 1, // the creature arm, after `landedFifths`
+      'src/state/damage.ts ehp-=': 2, // Helga arm (after `landedFifths`) · a landed bag (`damageStinkCloud`)
+      'src/state/damage.ts hp-=': 1, // a shape (MRES = DEF = 0)
+      'src/state/damage.ts damageFifths+=': 1, // `damageConnector`, after `landedFifths`
+      'src/state/damage.ts damageStinkCloud(': 1, // `damageEntity`'s bag arm
+      'src/state/creatures/creatureLifecycle.ts ehp-=': 1, // `damageCreature` itself
+      // the hub ladder blast's bag share: physical (R192-M3), and a bag has MRES = DEF = 0 anyway
+      'src/state/potatoLifecycle.ts damageStinkCloud(': 1,
     });
   });
 });

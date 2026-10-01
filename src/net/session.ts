@@ -178,6 +178,15 @@ export interface NetSession {
    * tell. Cleared in `beginMatch`'s finally and on teardown.
    */
   beginInFlight: boolean;
+  /**
+   * ⭐ S192 FIX-2 (owner ruling: "if a host quits, then the next player who … was in line becomes the
+   * hosts") — the followed host that PROVED it left our match (a LOBBY_PRESENCE in phase LOBBY, or a
+   * presence / snapshot of another match — `classifyHostMessage`). While it equals `hostPeerId` that host
+   * is not "here" for this match (`matchPeerIds`): the claim, the overlay and the claim acceptance treat
+   * it as lost, so the next in line takes over even when he re-hosts the same room on our transport.
+   * CLIENT only; cleared outside PLAYING (main.ts) and on teardown.
+   */
+  hostDepartedPeerId: string | null;
 }
 
 export function makeNetSession(): NetSession {
@@ -207,6 +216,7 @@ export function makeNetSession(): NetSession {
     joinTrust: null,
     matchId: null,
     beginInFlight: false,
+    hostDepartedPeerId: null,
   };
 }
 
@@ -281,5 +291,6 @@ export function teardownNet(
   // S191 — a fresh Host/Join is a new match; the old id must never prove a rejoin into it.
   session.matchId = null;
   session.beginInFlight = false;
+  session.hostDepartedPeerId = null; // S192 FIX-2
   triggerAudioCursorReset();
 }

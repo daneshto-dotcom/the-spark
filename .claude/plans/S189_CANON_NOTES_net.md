@@ -106,7 +106,7 @@ message, the file's standing posture):
   claim then fires at ~L+22 s + rung (pinned as the RESIDUAL test in `reconnectPolicy.test.ts`).
 - **The client's reconnect loop** (`planConnectionFrame`): on a transport loss it opens the grace
   (`RECONNECT_GRACE_MS` 15 000, S82) and tries at `RECONNECT_FIRST_RETRY_DELAY_MS` (1 000, S82), then every
-  **`RECONNECT_RETRY_MS` = `JOIN_STALL_WARN_MS` = 8 000** (was 4 000, below a measured 6.3 s fresh join).
+  **`RECONNECT_RETRY_MS` = 35 000** (S192 C4 step 8, MEASURED — was 8 000 = `JOIN_STALL_WARN_MS` in S189, 4 000 before that): a teardown inside Trystero's 23.3 s answering/post-answer TTL can only restart it; left alone the first attempt recovers in-room (hard-blip e2e: 8 s cadence 2/9 inside the grace, 35 s cadence 10/10 recovered, 7/10 inside).
   It keeps trying PAST the grace, behind the terminal overlay (which clears itself when a peer returns),
   and **stops `RECONNECT_GIVE_UP_MS` (180 000) after the loss began** — the overlay stays (Return to Title).
   A host never retries; the MIGRATION case (host gone, survivors connected) never tears the mesh down.
@@ -115,14 +115,14 @@ message, the file's standing posture):
   Trystero's `joinRoom` returns the room still registered under that id.
 - A rejoin must PROVE it reached the same match (S189 FR-1, made positive in S191 — see the §6 block above).
 - Suggested assertions: pin `RECONNECT_GRACE_MS`, `RECONNECT_FIRST_RETRY_DELAY_MS`, `RECONNECT_RETRY_MS`,
-  `RECONNECT_GIVE_UP_MS` to `reconnectPolicy.ts`, and `RECONNECT_RETRY_MS > 6300` (the measured fresh join)
+  `RECONNECT_GIVE_UP_MS` to `reconnectPolicy.ts`, and `RECONNECT_RETRY_MS ≥ 23333 + 5333 + 6300` (S192: Trystero TTL + announce + fresh join)
   — `reconnectPolicy.test.ts` already asserts the latter.
 
 ## EVERY CONSTANT ON THIS BRANCH THAT IS MINE, NOT THE OWNER'S (each says so at the constant)
 
 | constant | value | file | why this number |
 |---|---:|---|---|
-| `RECONNECT_RETRY_MS` | 8 000 (= `JOIN_STALL_WARN_MS`) | `net/reconnectPolicy.ts` | the repo's own healthy-join budget; > a measured 6.3 s fresh join |
+| `RECONNECT_RETRY_MS` | 35 000 (S192; was 8 000) | `net/reconnectPolicy.ts` | ⚠ MINE: Trystero TTL 23 333 + announce 5 333 + fresh join 6 300, rounded up; pinned against the library constants in `reconnectPolicy.test.ts` |
 | `RECONNECT_GIVE_UP_MS` | 180 000 | `net/reconnectPolicy.ts` | long past any blip/sleep/relay hiccup, short of a host that has moved on |
 | `HOST_SEQ_REGRESSION_SLACK` | 50 | `net/reconnectPolicy.ts` | ~5 s of snapshots, far past any reorder; now only the id-less FALLBACK |
 | ~~`HOST_LOBBY_CONFIRM_MS`~~ | ~~5 000~~ | — | **DELETED S191** — a verdict from silence was NETFR-1 |

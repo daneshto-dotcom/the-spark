@@ -53,6 +53,7 @@
 import { joinRoom as joinNostr, selfId } from '@trystero-p2p/nostr';
 import type { MessageAction } from '@trystero-p2p/core';
 import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from './iceConfig.ts';
+import { POOL_SAFE_PC } from './poolSafePeerConnection.ts';
 import { MAX_PLAYERS, NET_ROOM_CODE_LENGTH } from '../constants.ts';
 import { parseRoomCode, PROTOCOL_VERSION } from './protocol.ts';
 
@@ -359,6 +360,10 @@ const TRYSTERO_DEPS: QmDiscoveryDeps = {
         appId: APP_ID,
         relayConfig: { urls: NOSTR_RELAYS, redundancy: NOSTR_RELAYS.length },
         rtcConfig: { iceServers: ICE_SERVERS, iceTransportPolicy: 'all' },
+        // ⛔ S192 T1 — REQUIRED HERE, not only in transport.ts: the nostr strategy's offer pool is
+        // built by the FIRST joinRoom on the page and closes over THAT config, and in Quick Match
+        // that is this discovery room. See `poolSafePeerConnection.ts`.
+        rtcPolyfill: POOL_SAFE_PC,
         trickleIce: true,
       },
       QM_DISCOVERY_ROOM,

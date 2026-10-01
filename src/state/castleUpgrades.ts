@@ -273,7 +273,7 @@ export interface UpgradeCastleStatAction {
  * could buy a 650-point upgrade on wave 1. The host decides when "now" is.
  */
 export function applyUpgradeCastleStat(world: {
-  players: Map<PlayerId, { castleHp: number; castleUpgrades: CastleUpgrades }>;
+  players: Map<PlayerId, { castleHp: number; castleUpgrades: CastleUpgrades; castleHealedHp: number }>;
   scoreByPlayer: Map<PlayerId, number>;
   waveNumber: number;
 }, action: UpgradeCastleStatAction, spend: (seat: PlayerId, amount: number) => void): void {
@@ -304,6 +304,9 @@ export function applyUpgradeCastleStat(world: {
    */
   const gained = buyer.castleUpgrades.hpBonus - before.hpBonus;
   if (gained > 0) {
+    const hpBefore = buyer.castleHp;
     buyer.castleHp = Math.min(castleMaxHpFor(buyer.castleUpgrades), buyer.castleHp + gained);
+    // ⭐ S191 C-8 (R190-I) — the purchase HEALED, so it counts like regen does (what was gained).
+    buyer.castleHealedHp += buyer.castleHp - hpBefore;
   }
 }

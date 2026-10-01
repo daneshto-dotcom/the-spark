@@ -95,6 +95,17 @@ import { CASTLE_ROW_KEYS } from './render/castlePanel.ts';
 import type { World } from './state/worldTypes.ts';
 import { asPlayerId, type PlayerId } from './types.ts';
 import { DRONE_ATK, DRONE_PEN } from './constants.ts';
+// S191 C-5 — R182-C built: the hub's blast is 120 fifths; Helga's pool is the stated consequence.
+import { PRINCESS_DEF, PRINCESS_HP } from './constants.ts';
+// S191 R2-D — the hub blast's radii and pool range, and the constructed overkill case (canon §2).
+import { PLAYER_COLORS, STRUCTURE_SELFDESTRUCT_RADIUS, T9_ZOMBIE_DEATH_BLAST_RADIUS } from './constants.ts';
+import { T9_BOSS_TYPE } from './state/t9BossIds.ts';
+import { bossMaxPoolFifths } from './state/bossSkills.ts';
+import { damageConnector, severWithCarry } from './state/damage.ts';
+import { makeIdlePlayer } from './game/player.ts';
+import { dispatch } from './state/world.ts';
+import { asBondId, asPrimitiveId, type BondId } from './types.ts';
+import { STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
@@ -132,6 +143,8 @@ import {
   WARLORD_RAGE_MULTIPLIER,
   ZOMBIE_AURA_PER_MILLE,
 } from './constants.ts';
+// S191 / S192 — §3e the Warlord's 25 s rage clock and its cooldown (his number, S192).
+import { FIGHT_PHASE_TICKS, WARLORD_RAGE_COOLDOWN_TICKS, WARLORD_RAGE_TICKS, WARLORD_RAGE_TRIGGER_PCT } from './constants.ts';
 import {
   BLOOD_DEBT_LIFESTEAL_PCT,
   CRIMSON_TIDE_LIFESTEAL_PCT,
@@ -145,8 +158,11 @@ import {
   CORPSE_EATER_TICKS,
   CORPSE_EATER_TRIGGER_PCT,
 } from './state/racial/corpseEater.ts';
-import { RA_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
+import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
+import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS } from './constants.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
   DYNASTY_LIVE_PHARAOH_SENTINEL,
@@ -154,7 +170,12 @@ import {
 } from './state/racial/endlessDynasty.ts';
 import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
 import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
-import { SCORCHED_GROUND_PER_MILLE } from './state/racial/scorchedGround.ts';
+import {
+  SCORCHED_EARTH_CAST_PER_MILLE,
+  SCORCHED_GROUND_PER_MILLE,
+  SCORCHED_STRUCTURE_RATE_DIV,
+} from './state/racial/scorchedGround.ts';
+import { SCORCHED_EARTH_CHARGES } from './state/racial/scorchedEarthRules.ts';
 import { dotIntervalTicks, maxPoolFifths } from './state/damageOverTime.ts';
 import {
   HELLSPAWN_CHILDREN,
@@ -191,6 +212,12 @@ import { corpseEaterOwnStepPx } from './state/racial/corpseEater.ts';
 import { GOBLIN_ATTACK_RANGE, KRAKEN_SONAR_STUN_TICKS, RACE_UNIT_ATK, RACE_UNIT_PEN } from './constants.ts';
 import { KRAKEN_SONAR_KNOCKBACK_PX } from './state/bossSkillsKraken.ts';
 import { RADAR_MAX_ATK } from './render/characterSheetRadar.ts';
+import { RA_STRIKE_GROUND_SLOTS } from './render/raStrikeArt.ts';
+// S192 T16 — the per-wave Voltkin re-summon (canon §5b).
+import { VOLTKINS_PER_TV } from './state/voltkinTv.ts';
+import {
+  STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
+} from './render/structureBarHealth.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -270,7 +297,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(52);
+    expect(PROTOCOL_VERSION).toBe(56);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -318,6 +345,19 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // Derived, so a retune of either constant moves the canon with it.
     expect(CANVAS_HEIGHT - WORLD_EDGE_MARGIN + 35).toBe(1075);
     expect(canonSays('**1075**')).toBe(true);
+  });
+
+  it('⭐ §4b — S191: the castle keep-out is HALVED (61) and every porch slot keeps a 34 px disc', () => {
+    expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
+    expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
+    expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`\`CASTLE_PORCH_KEEP_OUT_RADIUS\` = **${CASTLE_PORCH_KEEP_OUT_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`any of that castle's **${CASTLE_PORCH_SLOTS}** porch slots`)).toBe(true);
+    // The rule is REAL, not prose: a porch slot is refused although it is outside the halved disc.
+    const a = zoneCastleAnchor(0, 'PITCH_2P');
+    const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
+    expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
   });
 
   it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {
@@ -653,7 +693,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const seat: PlayerId = asPlayerId(0);
     const buy = (castleHp: number) => {
       const w = {
-        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades() }]]),
+        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades(), castleHealedHp: 0 }]]),
         scoreByPlayer: new Map([[seat, CASTLE_UPGRADE_PRICE]]),
         waveNumber: 1,
       };
@@ -710,14 +750,29 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('that is the S188 brief\'s reading')).toBe(true);
   });
 
-  it('⭐ §3e — the mummies: POWER OF RA is the Pharaoh’s strike; the aim is REFUSED off the board', () => {
-    expect(RA_STRIKE_FIFTHS).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+  it('⭐ §3e — the mummies: POWER OF RA is 35 a column, SPLIT (S191) — not the Pharaoh’s 300; the aim is REFUSED off the board', () => {
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(attackFifths(RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN));
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(35); // his "we can do it 35 per hit"
+    expect(RA_PERK_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    // ⭐ S192 — the Pharaoh boss's column is this column: 35, or 75 for a WRATH OF RA owner; 300 is retired.
+    expect(RA_WRATH_STRIKE_FIFTHS).toBe(attackFifths(RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN));
+    expect(RA_WRATH_STRIKE_FIFTHS).toBe(75); // his "up to 75"
+    expect(RA_WRATH_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    expect(canonSays('THE PHARAOH BOSS\'S COLUMN IS THIS COLUMN')).toBe(true);
+    // S192 — the hub-falls-on number is MEASURED by `powerOfRaSplit.test.ts` ("falls on the FIFTH column");
+    // the canon must carry the same number, so a carry or pool retune that moves one moves the other.
+    expect(canonSays('**5th** column that lands on it (measured S192')).toBe(true);
+    expect(readFileSync(new URL('./state/racial/powerOfRaSplit.test.ts', import.meta.url), 'utf8')).toMatch(/expect\(columns\)\.toBe\(5\);/);
+    expect(canonSays(`**${RA_PERK_STRIKE_FIFTHS}**, or **${RA_WRATH_STRIKE_FIFTHS}**`)).toBe(true);
+    expect(canonSays(`\`attackFifths(RA_WRATH_COLUMN_ATK ${RA_WRATH_COLUMN_ATK}, RA_WRATH_COLUMN_PEN ${RA_WRATH_COLUMN_PEN})\``)).toBe(true);
+    expect(canonSays(`(**${RA_WRATH_STRIKE_FIFTHS}** — \`RA_WRATH_STRIKE_FIFTHS\` — once the seat holds WRATH OF RA)`)).toBe(true);
     expect(RA_COLUMN_TICKS).toBe(2 * PHYSICS_HZ); // "five columns two seconds apart"
     expect(canonSays(
       `\`RA_COLUMN_COUNT\` = **${RA_COLUMN_COUNT}**, one every \`RA_COLUMN_TICKS\` = **${RA_COLUMN_TICKS}**` +
-      ` · \`RA_STRIKE_FIFTHS\` = **${RA_STRIKE_FIFTHS}** over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
+      ` · \`RA_PERK_STRIKE_FIFTHS\` = **${RA_PERK_STRIKE_FIFTHS}** a column IN TOTAL, split, over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
     )).toBe(true);
-    expect(canonSays(`= **${RA_STRIKE_FIFTHS}** fifths a column over \`RA_COLUMN_RADIUS\` **${RA_COLUMN_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`RA_PERK_COLUMN_PEN ${RA_PERK_COLUMN_PEN})\` = **${RA_PERK_STRIKE_FIFTHS}** fifths a column IN TOTAL, split by \`raSplitShares\``)).toBe(true);
+    expect(canonSays(`\`attackFifths(RA_PERK_COLUMN_ATK ${RA_PERK_COLUMN_ATK},`)).toBe(true);
     // ⛔ CANON-6 — REFUSED, not clamped: every one of these is a no-op at the host.
     expect(raAimPoint(-1, 10)).toBeNull();
     expect(raAimPoint(CANVAS_WIDTH + 1, 10)).toBeNull();
@@ -758,6 +813,44 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`**${GOBLIN_MAX_PER_SPAWNER} → ${HORDE_GOBLIN_MAX_PER_SPAWNER}**`)).toBe(true);
   });
 
+  it('⭐ §3e — S191/S192: the Warlord rages 25 s by his OWN clock, then a 25 s cooldown (his); the frenzy never touches a Warlord', () => {
+    expect(WARLORD_RAGE_TICKS).toBe(25 * PHYSICS_HZ);
+    expect(WARLORD_RAGE_COOLDOWN_TICKS, 'HIS (S192): "Rage cooldown 25 seconds"').toBe(25 * PHYSICS_HZ);
+    expect(canonSays(`\`WARLORD_RAGE_TRIGGER_PCT\` = **${WARLORD_RAGE_TRIGGER_PCT}** %`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
+    expect(canonSays("Rage cooldown 25 seconds, that's fine.")).toBe(true);
+    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
+    // The per-FIGHT pattern, DERIVED (never a literal "25 on / 25 off"): one fire at 0, the next after
+    // rage + cooldown, and that second rage still running at the whistle.
+    const cycle = WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
+    expect(cycle).toBeLessThan(FIGHT_PHASE_TICKS);
+    expect(cycle + WARLORD_RAGE_TICKS).toBeGreaterThan(FIGHT_PHASE_TICKS);
+    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s through the whistle`)).toBe(true);
+    expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true);
+    expect(canonSays('(never another Warlord — S191)')).toBe(true);
+    // ⛔ The retired S188 sentence must not come back.
+    expect(canonSays('the frenzy only ever SETS a')).toBe(false);
+    expect(canonSays('raging by his OWN latch (below')).toBe(false);
+  });
+
+  it('⭐ §4b — S192: Alt IS the collapse arrow, armed or not', () => {
+    expect(canonSays('ALT TOGGLES THE FOOTER EXACTLY AS THE ARROW DOES')).toBe(true);
+  });
+
+  it('⭐ §3e — S191: SCORCHED EARTH — once a FIGHT, the passive’s rate on units, HALF on structures (his numbers)', () => {
+    expect(SCORCHED_EARTH_CHARGES, 'HIS: once per FIGHT').toBe(1);
+    expect(SCORCHED_EARTH_CAST_PER_MILLE, '“the same … amount” — derived from the passive').toBe(SCORCHED_GROUND_PER_MILLE);
+    expect(SCORCHED_STRUCTURE_RATE_DIV, 'HIS: structures take half').toBe(2);
+    expect(canonSays(`**\`SCORCHED_EARTH_CHARGES\` = **${SCORCHED_EARTH_CHARGES}** a FIGHT**`)).toBe(true);
+    expect(canonSays(`**\`SCORCHED_EARTH_CAST_PER_MILLE\` = **${SCORCHED_EARTH_CAST_PER_MILLE}****`)).toBe(true);
+    expect(canonSays(`\`SCORCHED_STRUCTURE_RATE_DIV\` = **${SCORCHED_STRUCTURE_RATE_DIV}** × the unit interval`)).toBe(true);
+    expect(canonSays('and an enemy HELGA (S192: *"Helga is NOT immune"*)')).toBe(true);
+    expect(canonSays('units only (creatures and Helga), never structures')).toBe(true);
+    expect(canonSays('the quarry never burns; creatures only |')).toBe(false); // the S188 row, superseded by his Helga answer
+    expect(canonSays('`isScorchImmune(owner, spared)`, the ONE site')).toBe(true);
+  });
+
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
     expect(canonSays(`\`SCORCHED_GROUND_PER_MILLE\` = **${SCORCHED_GROUND_PER_MILLE}**`)).toBe(true);
     expect(canonSays(`\`ZOMBIE_AURA_PER_MILLE\` **${ZOMBIE_AURA_PER_MILLE}**`)).toBe(true);
@@ -791,7 +884,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`chewer has at most **${descendants}** descendants`)).toBe(true);
   });
 
-  it('⭐ §3e — the nagas: APEX PREDATOR triples every STAT, which is ×3 health but ×4 bite', () => {
+  it('⭐ §3e — the nagas: APEX PREDATOR is every STAT ×6 (S192, "like the bat swarm"), which is ×6 health but ×11 bite', () => {
+    expect(APEX_PREDATOR_STAT_MUL).toBe(6); // his S192 choice
     const base = T3_STATS.piranha;
     const elite = T3_PIRANHA_ELITE_STATS;
     expect([elite.hp, elite.def, elite.atk, elite.pen])
@@ -812,7 +906,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(perkDraftIndex('mummies.l10')).toBe(2);
     expect(RACIAL_PERK_REQUIRES['mummies.l10']).toBe('mummies.l0');
     expect(WRATH_OF_RA_CHARGES).toBe(3); // his "times three"
-    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each exactly POWER OF RA's strike (${RA_COLUMN_COUNT} columns × **${RA_STRIKE_FIFTHS}** fifths over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
+    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each POWER OF RA's strike at the WRATH number (${RA_COLUMN_COUNT} columns × **${RA_WRATH_STRIKE_FIFTHS}** fifths, split, over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
     expect(existsSync(new URL('../public/art/skills/wrath-of-ra.webp', import.meta.url))).toBe(true);
     expect(canonSays('`public/art/skills/wrath-of-ra.webp`')).toBe(true);
     expect(canonSays('WRATH OF RA IS POWER OF RA THREE TIMES A FIGHT, AND NOTHING ELSE')).toBe(true);
@@ -822,7 +916,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it('⭐ §3e — THE SWARM: every stat ×6 from the bat (R190-D), ×11 bite, and a CRIMSON TIDE heal above its pool', () => {
     const bat = T3_STATS.bat;
     const swarm = T3_BAT_SWARM_STATS;
-    expect(THE_SWARM_STAT_MUL).toBe(2 * APEX_PREDATOR_STAT_MUL); // "whatever we did for the piranha, we double that"
+    // S192 — DECOUPLED: R190-D's literal 6, no longer `2 × APEX_PREDATOR_STAT_MUL` (that would now be 18).
+    expect(THE_SWARM_STAT_MUL).toBe(6);
+    expect(THE_SWARM_STAT_MUL).not.toBe(2 * APEX_PREDATOR_STAT_MUL);
+    expect(canonSays('`THE_SWARM_STAT_MUL` is a LITERAL 6, decoupled from `APEX_PREDATOR_STAT_MUL`')).toBe(true);
     expect([swarm.hp, swarm.def, swarm.atk, swarm.pen]).toEqual([bat.hp, bat.def, bat.atk, bat.pen].map((x) => x * THE_SWARM_STAT_MUL));
     const live = getCreatureConfig('t3BatSwarm');
     expect([live.hp, live.def, live.atk, live.pen]).toEqual([swarm.hp, swarm.def, swarm.atk, swarm.pen]);
@@ -843,9 +940,11 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(tide).toBeGreaterThan(pool);
     expect(canonSays(`\`lifestealFifths(${bite}, ${CRIMSON_TIDE_LIFESTEAL_PCT})\` = **${tide}** against a pool of **${pool}**`)).toBe(true);
     expect(canonSays(`BLOOD DEBT alone: **${lifestealFifths(bite, BLOOD_DEBT_LIFESTEAL_PCT)}**`)).toBe(true);
-    // The radar's ATK ceiling is the swarm's ATK now — noted, left as is.
+    // The radar's ATK ceiling is the swarm's ATK, and the ×6 elite piranha (S192) only ties it.
     expect(RADAR_MAX_ATK).toBe(swarm.atk);
+    expect(T3_PIRANHA_ELITE_STATS.atk).toBe(swarm.atk);
     expect(canonSays(`ATK ceiling rose **10 → ${RADAR_MAX_ATK}**`)).toBe(true);
+    expect(canonSays(`ties it — ATK **${T3_PIRANHA_ELITE_STATS.atk}**`)).toBe(true);
   });
 
   /* ══ S190 deploy #4 — §5b, three unit rules he reported (s189/units) ══════════════════════════ */
@@ -857,6 +956,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`\`KRAKEN_SONAR_STUN_TICKS\` = **${KRAKEN_SONAR_STUN_TICKS}**`)).toBe(true);
     expect(canonSays(`shoves ~**${KRAKEN_SONAR_KNOCKBACK_PX}** px (\`KRAKEN_SONAR_KNOCKBACK_PX\``)).toBe(true);
     expect(canonSays('The Kraken\'s sonar stuns AND flings')).toBe(false); // the S188 wording, wrong since C10
+    // ⭐ S191 C-6 — the S190 targeting finding is FIXED; the "NOT FIXED" paragraph must not come back.
+    expect(canonSays('THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6')).toBe(true);
+    expect(canonSays('REPORTED BY THE S190 PERF AUDIT, NOT FIXED')).toBe(false);
     // Helga's bound is the creature bound — both the integrator and the patrol point.
     const motion = readFileSync(new URL('./state/defenders/defenderMotion.ts', import.meta.url), 'utf8');
     const life = readFileSync(new URL('./state/defenders/defenderLifecycle.ts', import.meta.url), 'utf8');
@@ -866,14 +968,47 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('drains the queue as its top-level `dispatch` returns')).toBe(true);
   });
 
+  /* ══ S192 T16 — §5b, every TV gives its Voltkin back, every wave (s192/voltkin) ══════════════════ */
+
+  it('⭐ §5b T16 — one Voltkin per TV at FIGHT→BUILD; the census and ignition share isolation and owner', () => {
+    expect(VOLTKINS_PER_TV).toBe(1);
+    expect(canonSays(`\`VOLTKINS_PER_TV\` = **${VOLTKINS_PER_TV}** (⚠ MINE)`)).toBe(true);
+    expect(canonSays('A TV RE-SUMMONS IFF IT')).toBe(true);
+    expect(canonSays('**lowest seat on a tie**')).toBe(true);
+    const tv = readFileSync(new URL('./state/voltkinTv.ts', import.meta.url), 'utf8');
+    const recipe = readFileSync(new URL('./state/godlyRecipes/voltkin.ts', import.meta.url), 'utf8');
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    // ONE isolation test and ONE owner rule, called by both sides.
+    expect(tv).toContain('if (!isIsolatedVoltkinChain(world, chain)) continue;');
+    expect(recipe).toContain('if (!isIsolatedVoltkinChain(world, chain)) {');
+    expect(recipe).toContain('const triggererId = voltkinTvOwner(world, chain);');
+    // The edge call sits after the recall (which would teleport a fresh Voltkin to the castle).
+    expect(host).toMatch(/recallArmies\(world\);\n(?:\s*\/\/[^\n]*\n)*\s*resummonVoltkins\(world\);/);
+  });
+
   /* ══ S190 deploy #4 — §7b/§7c, what the render branch settled ════════════════════════════════ */
 
   it('⭐ §7c — R190-H: the Ra strike above the units; R190-I: every hit and heal separately; the pen-lift rule', () => {
     const goblin = readFileSync(new URL('./render/goblinRenderer.ts', import.meta.url), 'utf8');
-    expect(goblin).toContain('drawBossAuras(g, world, this.arrowLayer)');
+    // ⭐ S191 C-9 — the strike's layer is main.ts's raStrikeLayer (arrowLayer only when none is handed in).
+    expect(goblin).toContain('drawBossAuras(g, world, this.raStrikeLayer ?? this.arrowLayer)');
+    expect(readFileSync(new URL('./main.ts', import.meta.url), 'utf8')).toContain('goblinRenderer.setRaStrikeLayer(raStrikeLayer)');
+    expect(RA_STRIKE_GROUND_SLOTS).toBe(4);
+    expect(canonSays('**AND ABOVE THE BUILDINGS, WITH ITS RUNE RING ON THE GROUND (S191 C-9).**')).toBe(true);
+    expect(canonSays("The art's first **4** slots")).toBe(true);
     expect(canonSays('R190-H — THE RA STRIKE DRAWS ON TOP OF THE UNITS')).toBe(true);
     expect(canonSays('*"Draw it ON TOP of units."*')).toBe(true);
     expect(canonSays('R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY')).toBe(true);
+    // ⭐ S191 C-8 — and on the castle: the counter is written at exactly the two HP-rise sites, rides the
+    // wire only above zero, is wide-hashed, and the castle watch splits through `creaturePoolChange`.
+    expect(canonSays('**AND ON THE CASTLE (S191 C-8):** `Player.castleHealedHp` counts every point a keep heals')).toBe(true);
+    const healWrites = ['./state/castleRegen.ts', './state/castleUpgrades.ts'].map((f) =>
+      (readFileSync(new URL(f, import.meta.url), 'utf8').match(/\.castleHealedHp \+=/g) ?? []).length);
+    expect(healWrites).toEqual([1, 1]);
+    expect(readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8')).toContain('{ castleHealedHp: p.castleHealedHp }');
+    expect(readFileSync(new URL('./state/stateHashFull.ts', import.meta.url), 'utf8')).toContain(',ch${pl.castleHealedHp}');
+    expect(readFileSync(new URL('./render/damageNumbers.ts', import.meta.url), 'utf8'))
+      .toContain('creaturePoolChange(prev.v, p.castleHp, prev.healed ?? 0, healed)');
     expect(canonSays('EVERY PIXI PATH SEGMENT STARTS WITH `moveTo`')).toBe(true);
     expect(canonSays('no stage child gets a zIndex; place it by its staging line')).toBe(true);
   });
@@ -968,8 +1103,13 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it('⚠ §6 — `attackCycleRaged` rode 50, and since S190 the 50 docblock lists it (backfilled)', () => {
     const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
-    // ⭐ S190 — re-pointed: the docblock NEAREST the const is 51's now; the 50 docblock is KEPT above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 51 -> 52');
+    // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
+    // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 55 -> 56');
+    expect(proto.indexOf('BUMPED 54 -> 55')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 53 -> 54')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 52 -> 53')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 51 -> 52')).toBeLessThan(constAt);
     const at50 = proto.indexOf('BUMPED 49 -> 50');
     expect(at50).toBeGreaterThan(-1);
     expect(at50).toBeLessThan(constAt);
@@ -1035,6 +1175,20 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('the damage art follows that same health')).toBe(true);
     // ⛔ And the two bounds are explicitly NOT ruled — they must be measured, not invented.
     expect(canonSays('THE TWO BOUNDS ARE NOT RULED')).toBe(true);
+    // ⭐ S191 C-7 — BUILT, and every measured bound in the canon is the constant's value.
+    expect(canonSays('⭐ **BUILT S191 (`s191/carry` C-7).**')).toBe(true);
+    expect(canonSays('RULED, NOT YET BUILT** — the decisions are final, the code is owed')).toBe(false);
+    expect(STRUCTURE_BAR_POOL_MIN).toBe(6);
+    expect(STRUCTURE_BAR_MIN_W).toBe(9);
+    expect(STRUCTURE_BAR_POOL_MAX).toBe(126);
+    expect(STRUCTURE_BAR_MAX_W).toBe(150);
+    expect(canonSays(`pool **${STRUCTURE_BAR_POOL_MIN}**`)).toBe(true);
+    expect(canonSays(`→ **${STRUCTURE_BAR_MIN_W} px**`)).toBe(true);
+    expect(canonSays(`pool **${STRUCTURE_BAR_POOL_MAX}**`)).toBe(true);
+    expect(canonSays(`→ **${STRUCTURE_BAR_MAX_W} px**`)).toBe(true);
+    expect(structureBarWidth(STRUCTURE_BAR_POOL_MIN)).toBe(STRUCTURE_BAR_MIN_W);
+    expect(structureBarWidth(STRUCTURE_BAR_POOL_MAX)).toBe(STRUCTURE_BAR_MAX_W);
+    expect(canonSays('star and `structureRamp.test.ts` now asserts the AGREEMENT')).toBe(true);
     expect(canonSays('so it is never "owed" again')).toBe(true);
     // ⛔ And the two that used to sit in §10 must be marked ANSWERED there, not merely moved.
     expect(canonSays('§9d')).toBe(true);
@@ -1151,27 +1305,43 @@ describe('SPARK_CANON.md is bound to the code', () => {
   });
 
   /**
-   * ⛔⛔ THE OPEN QUESTION, AND THE ASSERTION THAT KEEPS IT OPEN. §9's own rule is that an open item
-   * gets a test so a later session cannot quietly tidy it away. R182-C is the blast's DAMAGE: the
-   * owner ruled 120 fifths believing it was undefined, and it is in fact an instant-kill radial
-   * clear. Until he answers, the blast must stay exactly as S157 left it.
+   * ⭐⭐ S191 C-5 — R182-C IS BUILT, AND THIS IS THE ASSERTION THAT USED TO KEEP IT OPEN, INVERTED.
+   *
+   * Until S191 this pinned that `applyStructureSelfDestruct` was still the radial clear, so the canon
+   * could not claim a rule the tree did not have. The tree has it now: the hub's blast is 120 fifths on
+   * the ladder. The pin keeps its teeth in the other direction — the number is derived from its
+   * constants, the hub's arm must never reach the raze, the S157 P0 exemption must stay, and the hub
+   * must dispatch the ladder while the zombie boss's R138 blast (not this ruling) keeps the raze.
+   * The behaviour, through the real host tick, is `state/hubSelfDestructLadder.test.ts`.
    */
-  it('§9d RULED R182-C at 120 fifths — but the CODE is still the radial clear, and says so', () => {
-    /*
-     * ⭐ S187 — the premise of this test moved, its teeth did not. The QUESTION is closed (the owner
-     * killed the raze and his "four times a drone" number stands), but the CODE is unchanged, so the
-     * canon says RULED-NOT-YET-BUILT and this asserts BOTH halves. A canon that claimed behaviour the
-     * tree does not have would be the exact rot this file exists to prevent, pointing the other way.
-     */
+  it("§9d R182-C BUILT at 120 fifths — the hub's blast is ladder damage, never the radial clear", () => {
     expect(canonSays('R182-C')).toBe(true);
-    expect(canonSays('RULED, NOT YET BUILT')).toBe(true);
+    expect(canonSays('BUILT S191')).toBe(true);
+    // ⭐ S191 (owner) — ONE total, shared: the quote, and the division the planner does.
+    expect(canonSays('So 120 damage points in total.')).toBe(true);
+    expect(canonSays('`floor(120 / n)`, and the first `120 mod n` take one more')).toBe(true);
+    expect(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE).toBe(4); // his "four times a drone's damage"
+    expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE * attackFifths(DRONE_ATK, DRONE_PEN));
+    expect(STRUCTURE_SELFDESTRUCT_FIFTHS).toBe(120);
+    expect(canonSays('4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths')).toBe(true);
+    // The stated consequences, each off its constant: no tier-9 boss and not Helga falls to one blast.
+    expect(unitPoolFifths(PRINCESS_HP, PRINCESS_DEF)).toBe(156);
+    expect(canonSays('nor Helga (**156**)')).toBe(true);
     const lifecycle = readFileSync(new URL('./state/potatoLifecycle.ts', import.meta.url), 'utf8');
-    const arm = lifecycle.slice(lifecycle.indexOf('export function applyStructureSelfDestruct'));
-    const body = arm.slice(0, 1200);
-    expect(body).toContain('applyRadialClear'); // still the raze…
-    expect(body).not.toContain('attackFifths'); // …and NOT quietly converted to ladder damage
-    // And S157 P0's owner-exemption is still the thing that spares his own base.
-    expect(body).toContain('ownerPlayerId');
+    // ⭐ S191 (owner) — the planner is the arm now: it picks the targets and the shares.
+    const arm = lifecycle.slice(
+      lifecycle.indexOf('export function planHubBlast'),
+      lifecycle.indexOf('export function applyStructureSelfDestruct'),
+    );
+    expect(arm.length, 'anti-vacuity: the arm was found').toBeGreaterThan(500);
+    expect(arm).not.toContain('applyRadialClear('); // never the raze…
+    expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
+    expect(arm).toContain('Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n)');
+    expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS % n');
+    expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
+    const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
+    expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
+    expect(host.match(/blast: 'raze'/g)?.length, 'and only the zombie boss keeps the raze').toBe(1);
   });
 
   /**
@@ -1279,6 +1449,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('ONE THING REMAINS UNVERIFIED AND MUST NOT BE')).toBe(true);
     expect(canonSays('**48%**')).toBe(true);
     expect(canonSays('**32%**')).toBe(true);
+    // ⭐ S191 C-7 — the bar follows the star now; the R185-B consequence is recorded, not hidden.
+    expect(canonSays('both read **32%** now')).toBe(true);
+    expect(canonSays('on the bar it now does not.')).toBe(true);
   });
 
   /**
@@ -1297,5 +1470,126 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE')).toBe(true);
     expect(canonSays('it just looks epic')).toBe(true);
     expect(canonSays('DO NOT SUPPRESS AND DO NOT RE-ANCHOR')).toBe(true);
+  });
+});
+
+/* ────────────────────── S191 R2-D — the hub blast's numbers, §7, the SEVER table, and §2's overkill ────────────────────── */
+
+describe('S191 R2-D — canon truth the audit found drifting', () => {
+  it('⭐ GATES-4 — the two blast radii and the tier-9 pool range the hub paragraph quotes, off their constants', () => {
+    expect(STRUCTURE_SELFDESTRUCT_RADIUS).toBe(240);
+    expect(canonSays('`STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)')).toBe(true);
+    expect(T9_ZOMBIE_DEATH_BLAST_RADIUS).toBe(380);
+    expect(canonSays('(380 px, no owner')).toBe(true);
+    const pools = Object.values(T9_BOSS_TYPE).map((t) => bossMaxPoolFifths(t));
+    expect(pools).toHaveLength(6);
+    expect(Math.min(...pools)).toBe(260);
+    expect(Math.max(...pools)).toBe(462);
+    expect(canonSays('pools 260–462')).toBe(true);
+    // The blast's LARGEST single share is the whole 120 (one target alone), and even that fells no boss.
+    expect(Math.min(...pools)).toBeGreaterThan(STRUCTURE_SELFDESTRUCT_FIFTHS);
+  });
+
+  it('⛔ BLAST-6 / GATES-2 — §7 no longer calls the blast "unchanged … not built"', () => {
+    expect(canonSays('THE BLAST ITSELF IS UNCHANGED')).toBe(false);
+    expect(canonSays('THE BLAST IS 120 FIFTHS IN TOTAL NOW')).toBe(true);
+  });
+
+  it('⭐ GATES-2 — §9d item 4\'s SEVER table names EVERY production file that severs a bond (mechanical)', () => {
+    // Every production object literal `{ type: 'SEVER_BOND', bondId … }` — the dispatch and the direct
+    // `applySeverBond` calls alike. A new producer turns this red until the table names it.
+    const root = new URL('.', import.meta.url);
+    const producers: string[] = [];
+    const walk = (dir: URL, rel: string): void => {
+      for (const name of readdirSync(dir, { withFileTypes: true })) {
+        if (name.isDirectory()) {
+          if (name.name !== 'dev') walk(new URL(`${name.name}/`, dir), `${rel}${name.name}/`);
+        } else if (name.name.endsWith('.ts') && !name.name.includes('.test.')) {
+          const code = readFileSync(new URL(name.name, dir), 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+          if (/type:\s*'SEVER_BOND',\s*bondId/.test(code)) producers.push(`${rel}${name.name}`);
+        }
+      }
+    };
+    walk(root, '');
+    producers.sort();
+    expect(producers).toEqual([
+      'physics/physicsLoop.ts',
+      'state/bombLifecycle.ts',
+      'state/creatures/creatureAttack.ts',
+      'state/creatures/suicideBlast.ts',
+      'state/creatures/voltkinChain.ts',
+      'state/droneLifecycle.ts',
+      'state/potatoLifecycle.ts',
+      'state/racial/raColumn.ts',
+      'state/racial/scorchedGround.ts',
+      'state/world.ts',
+    ]);
+    const table = CANON.slice(CANON.indexOf('### 4 · `SEVER_BOND`'), CANON.indexOf('## 10 · '));
+    for (const f of producers) {
+      const base = f.slice(f.lastIndexOf('/') + 1);
+      expect(table.includes(`${base}\``), `the SEVER table names ${base}`).toBe(true);
+    }
+    expect(canonSays('reached six ways')).toBe(false);
+    // The charge-paid player sever has had no producer since R78 (a right-click is a RAID).
+    expect(table.includes('DEFENSIVE_SEVER_CHARGE_COST')).toBe(false);
+  });
+
+  it('⭐ S191 (owner) — §2: the overkill CARRIES — a 150 fells the whole 5-connector tower (constructed, not asserted)', () => {
+    // ⛔ S192 CARRY-1 — the carry stays on the struck bond's owner; the canon says so and the filter exists.
+    expect(canonSays("THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER (S192, audit CARRY-1).")).toBe(true);
+    expect(readFileSync(new URL('./state/damage.ts', import.meta.url), 'utf8')).toContain('placer(b.aId) === owner && placer(b.bId) === owner');
+    // A fresh 5-connector star; one hit through the real `damageConnector`, severed through the real
+    // `severWithCarry` + SEVER_BOND path every connector-damage caller uses.
+    const build = () => {
+      const w = makeWorld(0x191d);
+      w.players.clear();
+      w.players.set(asPlayerId(0), makeIdlePlayer(asPlayerId(0), PLAYER_COLORS[0]!));
+      w.players.set(asPlayerId(1), makeIdlePlayer(asPlayerId(1), PLAYER_COLORS[1]!));
+      w.gameState = 'PLAYING';
+      const mk = (id: number, x: number, y: number) => {
+        const p = {
+          id: asPrimitiveId(id), type: SparkType.Dot, placerColor: PLAYER_COLORS[0]!, placedBy: asPlayerId(0),
+          createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set<BondId>(), ownerColor: PLAYER_COLORS[0]!,
+          lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+        };
+        w.primitives.set(p.id, p as never);
+        return p;
+      };
+      const hub = mk(1, 500, 400);
+      const ids: BondId[] = [];
+      for (let i = 0; i < 5; i++) {
+        const leaf = mk(2 + i, 500 + 40 * Math.cos(i), 400 + 40 * Math.sin(i));
+        const id = asBondId(10 + i);
+        w.bonds.set(id, { id, aId: hub.id, bId: leaf.id, a: hub, b: leaf, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 } as never);
+        hub.bonds.add(id);
+        leaf.bonds.add(id);
+        ids.push(id);
+      }
+      return { w, ids };
+    };
+    const hit = (amount: number) => {
+      const { w, ids } = build();
+      expect(damageConnector(w, ids[0]!, amount, null, 'physical')).toBe(true);
+      const felled = severWithCarry(w, ids[0]!, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: asPlayerId(1), cause: 'unit' }));
+      let banked = 0;
+      for (const b of w.bonds.values()) banked += b.damageFifths;
+      return { felled, standing: w.bonds.size, banked, breaks: w.connectorBreakHits.map((h) => h.amount) };
+    };
+    expect([5, 4, 3, 2, 1].map(structurePoolFifths)).toEqual([50, 36, 24, 14, 6]);
+    // 150: 50, 36, 24, 14, 6 — all five (130); 20 has nothing to land on.
+    expect(hit(150)).toEqual({ felled: 5, standing: 0, banked: 0, breaks: [150, 100, 64, 40, 26] });
+    expect(canonSays('takes the 50, then the 36, then the 24, the 14 and the 6')).toBe(true);
+    expect(canonSays('the last 20 has nothing left to land on')).toBe(true);
+    // 100: 50, 36 — two fall; 14 banks on the three that stand.
+    expect(hit(100)).toEqual({ felled: 2, standing: 3, banked: 14, breaks: [100, 50] });
+    expect(canonSays('a 100 takes the 50 and the 36 and banks 14 on the three')).toBe(true);
+    expect(canonSays('So 120 damage points in total.')).toBe(true); // (the hub's split rides on this carry)
+    expect(canonSays('one hit fells at most ONE connector')).toBe(false);
+    expect(canonSays('I do want the overkill to carry forward')).toBe(true);
+    // ⭐ S191 (owner) — BLAST-1 is his ruling now, quoted in §9d item 2.
+    expect(canonSays('HIS RULING (S191, BLAST-1)')).toBe(true);
+    expect(canonSays("they're resistant")).toBe(true);
   });
 });

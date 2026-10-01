@@ -36,10 +36,7 @@
  */
 
 import {
-  RA_COLUMN_ATK,
   RA_COLUMN_COUNT,
-  RA_COLUMN_PEN,
-  RA_COLUMN_RADIUS,
   RA_COLUMN_SPREAD,
   RA_COLUMN_TICKS,
   RA_RITUAL_TICKS,
@@ -48,8 +45,7 @@ import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { isChannellingRa } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
-import { applyRadialDamage } from './damage.ts';
-import { attackFifths } from './stats.ts';
+import { landRaColumn } from './racial/raColumn.ts';
 import type { World } from './world.ts';
 
 /**
@@ -136,22 +132,19 @@ export function runPharaohRitual(world: World): void {
       const pos = raColumnPos(bossId as unknown as number, k, boss.pos.x, boss.pos.y);
     /*
      * *"kills everything in that circle that it lands on."* — EVERYTHING, so no player is spared.
-     * `sparePlayerId: null` is the same posture the zombie death blast takes, and it is his ruling
-     * rather than my choice: a column of divine fire does not check whose banner you carry.
+     * `spare: null` is the same posture the zombie death blast takes, and it is his ruling rather than
+     * my choice: a column of divine fire does not check whose banner you carry. ⭐ S192 — UNCHANGED.
      *
-     * `attackFifths(15,15)` = 300 fifths, which is more than double the largest pool in the game.
+     * ⭐⭐ S192 (owner) — **NOT 300 ANY MORE: THE PERK'S COLUMN, ON THE PERK'S PATH.** *"the [Ra] column,
+     * Pharaoh boss should not keep … his 300. That's ridiculous. He goes down to 35 per column, just like
+     * a regular column attack … And also Pharaoh's become 75 … If the player chose that ability."* So his
+     * column is `landRaColumn` — `raColumnPoolFor(world, boss.ownerPlayerId)` (35, or 75 when his seat
+     * holds WRATH OF RA) IN TOTAL, split, one target per structure. Until S192 it was
+     * `applyRadialDamage(…, attackFifths(15, 15) = 300, …)` on every unit AND every shape in the circle.
+     * ⚠ And it now cuts CONNECTORS, as the perk's does (his never did — it razed shapes instead); the
+     * sever is credited to his seat with `cause: 'unit'` (⚠ MINE, `RaColumnSource.severCause`).
      */
-      applyRadialDamage(
-        world,
-        pos.x,
-        pos.y,
-        RA_COLUMN_RADIUS,
-        attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-        attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN),
-        'aura',
-        null,
-        'magic', // ⭐ S192 — R190-E *"The Ra column is considered a MAGIC attack"*; R192-M2
-      );
+      landRaColumn(world, { spare: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);
     }
 
     /*
