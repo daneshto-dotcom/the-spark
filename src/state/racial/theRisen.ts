@@ -42,6 +42,7 @@
 import type { Creature, CreatureType } from '../creatures/creature.ts';
 import type { CreatureId } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import { RACE_TOWER_UNIT } from '../raceTowerIds.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
@@ -62,7 +63,7 @@ export function riseOnKill(world: World, victim: Creature, killerId: CreatureId 
   if (killerId === null) return;
   const killer = world.creatures.get(killerId);
   if (killer === undefined) return;
-  if (killer.ownerPlayerId === victim.ownerPlayerId) return; // an ENEMY kill only
+  if (sameTeam(world, killer.ownerPlayerId, victim.ownerPlayerId)) return; // an ENEMY kill only (S192: enemy TEAM)
   if (!isZombieRacialType(killer.type)) return;
   const seat = world.players.get(killer.ownerPlayerId);
   if (seat === undefined || !seatHoldsPerk(seat, 'zombies.l0')) return;

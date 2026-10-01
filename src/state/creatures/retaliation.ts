@@ -103,6 +103,7 @@
 
 import type { CreatureId, DefenderId, Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import type { Creature, CreatureType } from './creature.ts';
 import { isStunned, isUntargetable } from './creature.ts';
 import { distSq, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
@@ -170,7 +171,7 @@ function isHomingMissile(type: CreatureType): boolean {
  * would freeze an army solid.
  */
 function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature['ownerPlayerId']): boolean {
-  if (c.ownerPlayerId === victimOwner) return false;
+  if (sameTeam(world, c.ownerPlayerId, victimOwner)) return false; // S192 — never turn on a teammate
   if (isUntargetable(c, world.tick)) return false;
   /*
    * ⛔ AND IT MUST NOT BE A CORPSE-IN-WAITING — the S155 N1 deferral's other edge. A creature that

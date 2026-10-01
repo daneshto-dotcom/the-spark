@@ -26,6 +26,7 @@ import { teardownGatherers } from './gatherers/gathererLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
+import { sameTeam } from './teams.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
@@ -153,12 +154,19 @@ export function tickGameState(
       //
       // So a genuine wipe is now named explicitly, and "everyone alive has left" ends nothing.
       const wipe = living.length === 0;
-      if (fallenCount > 0 && (soloBoard || wipe || contenders.length === 1)) {
+      // ⭐⭐ S192 (spec Q1) — LAST TEAM STANDING. The match ends when every contender is on ONE side; in a
+      // free-for-all that is exactly `contenders.length === 1` (nobody else is anybody's teammate).
+      const oneSideLeft =
+        contenders.length >= 1 && contenders.every((id) => sameTeam(world, id, contenders[0]!));
+      if (fallenCount > 0 && (soloBoard || wipe || oneSideLeft)) {
         // With ≥2 seats the winner is the ONE seat still alive. A true zero-survivor board and solo
         // both fall back to the primary — the pre-S162 behaviour, now reachable only by the cases
         // that genuinely reached it before.
         const winnerId: PlayerId =
-          !soloBoard && contenders.length === 1 ? contenders[0]! : primaryPlayerId;
+          !soloBoard && oneSideLeft
+            // The winning side's LOWEST living seat names it (total order, never `Map` order). FFA: the one.
+            ? contenders.reduce((lo, id) => ((id as number) < (lo as number) ? id : lo), contenders[0]!)
+            : primaryPlayerId;
         console.info(
           `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
             `placings=${matchPlacings(world).map((id) => `P${(id as number) + 1}`).join('>')} | ` +

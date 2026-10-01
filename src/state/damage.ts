@@ -48,6 +48,7 @@ import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
+import { sameTeam } from './teams.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
 import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — mummies.l5
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
@@ -680,8 +681,19 @@ export function applyRadialDamage(
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /**
+   * ⭐ S192 (owner R192-T1, spec Q5 — ⚠ MINE) — for the blasts that spare NOBODY by ruling (the Pharaoh's
+   * ultimate, the zombie boss's R138 death blast): the seat whose TEAMMATES are still spared. The seat
+   * itself is NOT — *"kills everything"* stays true of its own side, and *"teammates never take damage"*
+   * stays true of its friends. `null` (every pre-S192 caller) and a free-for-all are byte-identical.
+   */
+  alliesOf: PlayerId | null = null,
 ): RadialDamageResult {
   const r2 = radius * radius;
+  // ⭐ S192 — `sparePlayerId` spares that seat's whole TEAM (FFA: exactly that seat, as before).
+  const spared = (owner: PlayerId | undefined): boolean =>
+    (sparePlayerId !== null && sameTeam(world, owner, sparePlayerId)) ||
+    (alliesOf !== null && owner !== alliesOf && sameTeam(world, owner, alliesOf));
   const inRange = (x: number, y: number): boolean => {
     const dx = x - cx;
     const dy = y - cy;
@@ -691,21 +703,21 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    if (sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) continue;
+    if (spared(c.ownerPlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if (sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) continue;
+    if (spared(dd.ownerPlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
   }
   defenderVictims.sort((a, b) => (a as number) - (b as number));
 
   const primVictims: PrimitiveId[] = [];
   for (const [pid, p] of world.primitives) {
-    if (sparePlayerId !== null && p.placedBy === sparePlayerId) continue;
+    if (spared(p.placedBy)) continue;
     if (inRange(p.pos.x, p.pos.y)) primVictims.push(pid);
   }
   primVictims.sort((a, b) => (a as number) - (b as number));

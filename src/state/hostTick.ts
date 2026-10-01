@@ -198,7 +198,7 @@ export interface HostTickState {
    * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
-  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
+  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number; owner: PlayerId }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
   /**
@@ -2404,10 +2404,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     if (world.gameState !== 'PLAYING') {
       previous.clear();
     } else {
-      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number }[] = [];
+      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number; owner: PlayerId }[] = [];
       for (const [id, boss] of previous) {
         if (world.creatures.has(id)) continue;
-        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y });
+        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y, owner: boss.owner });
       }
       /*
        * ⚠ S168 POST-AUDIT — TOTAL ORDER. The scan above is a membership test and does not care about
@@ -2431,7 +2431,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       previous.clear();
       for (const c of world.creatures.values()) {
         if (isT9BossType(c.type)) {
-          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
+          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId });
         }
       }
 
@@ -2442,6 +2442,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           pos: { x: boss.x, y: boss.y },
           radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
           // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
+          // ⭐ S192 (spec Q5, ⚠ MINE) — except his seat's TEAMMATES (R192-T1); his own side still burns.
+          alliesOf: boss.owner,
         });
       }
     }

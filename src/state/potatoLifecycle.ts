@@ -28,6 +28,7 @@ import { razePrimitives } from './razePrimitives.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
+import { sameTeam } from './teams.ts';
 
 const POTATO_BLAST_RADIUS_SQ = POTATO_BLAST_RADIUS * POTATO_BLAST_RADIUS;
 
@@ -71,6 +72,11 @@ export interface StructureSelfDestructAction {
    * other dispatcher and every existing test stay exactly as they were.
    */
   readonly ownerPlayerId?: PlayerId;
+  /**
+   * ⭐ S192 (spec Q5, ⚠ MINE) — for an OWNER-AGNOSTIC blast (the zombie boss's R138 death blast): the seat
+   * whose TEAMMATES are spared while the seat itself still is not. Absent = the pre-S192 behaviour.
+   */
+  readonly alliesOf?: PlayerId;
 }
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
@@ -388,13 +394,18 @@ export function applyStructureSelfDestruct(world: World, action: StructureSelfDe
    * any pre-S157 caller), the behaviour is byte-identical to before.
    */
   const owner = action.ownerPlayerId;
+  const allies = action.alliesOf;
+  // ⭐ S192 — the owner's whole TEAM is spared; `alliesOf` spares a seat's teammates but not the seat.
+  const takes = (o: PlayerId | undefined): boolean =>
+    (owner === undefined || !sameTeam(world, o, owner)) &&
+    (allies === undefined || o === allies || !sameTeam(world, o, allies));
   return applyRadialClear(
     world,
     cx,
     cy,
     action.radius * action.radius,
-    (c) => owner === undefined || c.ownerPlayerId !== owner,
-    (p) => owner === undefined || p.placedBy !== owner,
+    (c) => takes(c.ownerPlayerId),
+    (p) => takes(p.placedBy),
   );
 }
 

@@ -44,6 +44,7 @@ import { applyRadialDamage, damageEntity, destroyDefender } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import { stinkAggroTargets, stinkAuraTick, stinkIsDepleted, stinkLobTarget, stinkThrowBag } from './stinkTower.ts';
 import type { World } from '../worldTypes.ts';
+import { isEnemySeat, sameTeam } from '../teams.ts';
 import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
@@ -144,7 +145,7 @@ function targetValid(world: World, d: Defender, config: DefenderConfig): boolean
   if (d.targetCreatureId === null) return false;
   const victim = world.creatures.get(d.targetCreatureId);
   if (victim === undefined) return false;
-  if (victim.ownerPlayerId === d.ownerPlayerId) return false; // (shouldn't happen — defense-in-depth)
+  if (sameTeam(world, victim.ownerPlayerId, d.ownerPlayerId)) return false; // (shouldn't happen — defense-in-depth; S192: by team)
   /*
    * ⭐⭐ S171 (owner R142/R171-A) — **RETENTION, AND THIS IS THE CASE THE SPEC PREDICTED IN WRITING.**
    *
@@ -381,7 +382,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
       // leash is anchored to the hub, NOT her current pos, so she can't be walk-chased across the map.
       const victim = d.targetCreatureId !== null ? world.creatures.get(d.targetCreatureId) : undefined;
       const leashOk = victim !== undefined
-        && victim.ownerPlayerId !== d.ownerPlayerId
+        && isEnemySeat(world, victim.ownerPlayerId, d.ownerPlayerId)
         && distSq(victim.pos, homePos) <= config.attackRange * config.attackRange;
       if (!leashOk) {
         d.state = 'IDLE';

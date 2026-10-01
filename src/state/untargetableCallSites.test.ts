@@ -138,7 +138,11 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
      * reporting a clean board because it could not SEE the file, which is the same failure
      * shape as the S171 atlas checker. A short cast-like span now counts too.
      */
-    const filtersOwner = /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src);
+    const filtersOwner =
+      /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) ||
+      // ⭐ S192 — the team predicate IS an owner filter: `sameTeam(world, c.ownerPlayerId, x)` must keep a
+      // file in the census, or converting a scan to teams would silently drop it out (the S172 blind spot).
+      /(sameTeam|isEnemySeat)\([^;\n]{0,40}ownerPlayerId/.test(src);
     return iterates && filtersOwner;
   });
 

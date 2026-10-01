@@ -42,6 +42,7 @@ import { damageEntity } from '../damage.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import type { CreatureId, PlayerId } from '../../types.ts';
 
 /** ⭐ OWNER, S187 — *"two percent of their total HP per second"*, per-mille so it is an integer. */
@@ -67,7 +68,8 @@ export function runScorchedGround(world: World): void {
   for (const { seat, zone } of zones) {
     const victims: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
-      if (c.ownerPlayerId === seat) continue; // "anyone who goes into THEIR lands" — enemies only
+      // ⭐ S192 (owner R192-T1, supersedes T7) — a demon TEAMMATE's land does not burn you.
+      if (sameTeam(world, c.ownerPlayerId, seat)) continue; // "anyone who goes into THEIR lands" — enemies only
       if (c.ehp <= 0) continue; // already dead this tick, awaiting the sweep
       if (zoneOf(c.pos, world.layout) !== zone) continue;
       if (!dotDueThisTick(world.tick, id as number, c.type, SCORCHED_GROUND_PER_MILLE)) continue;

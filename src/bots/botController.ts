@@ -50,6 +50,7 @@ import { ALL_SPARK_TYPES } from '../constants.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
 import type { GameAction, World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
@@ -623,7 +624,7 @@ export class BotController {
 function nearestEnemyPrimPos(world: World, seat: PlayerId, from: Vec2): Vec2 | null {
   let best: { x: number; y: number; d: number } | null = null;
   for (const prim of world.primitives.values()) {
-    if (prim.placedBy === seat) continue;
+    if (sameTeam(world, prim.placedBy, seat)) continue; // S192 — nor a teammate's
     const dx = prim.pos.x - from.x;
     const dy = prim.pos.y - from.y;
     const d = dx * dx + dy * dy;

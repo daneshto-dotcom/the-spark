@@ -58,6 +58,7 @@ import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
 import { applyRadialDamage, damageConnector } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import type { World } from '../world.ts';
+import { sameTeam } from '../teams.ts';
 import { applySeverBond } from '../severBond.ts';
 import { raAimPoint, raCastRefusal, type CastPowerOfRaAction } from './powerOfRaRules.ts';
 
@@ -160,7 +161,7 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
   for (const [bondId, bond] of world.bonds) {
     const aOwner = world.primitives.get(bond.aId)?.placedBy;
     const bOwner = world.primitives.get(bond.bId)?.placedBy;
-    if (aOwner === caster || bOwner === caster) continue;
+    if (sameTeam(world, aOwner, caster) || sameTeam(world, bOwner, caster)) continue; // S192 — spares the caster's team
     const mx = (bond.a.pos.x + bond.b.pos.x) / 2;
     const my = (bond.a.pos.y + bond.b.pos.y) / 2;
     const dx = mx - at.x;

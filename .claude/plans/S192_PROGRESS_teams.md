@@ -9,4 +9,16 @@ Base: master `663c4c9`. Merge owner: the main session. This branch never pushes 
 - Owner questions Q1–Q8 with recommendations; bump verdict YES (52→53) owed at merge.
 
 ## STEP 2 — BUILD v1
-(pending)
+DONE (WIP commit, see git log):
+- `src/state/teams.ts` — sameTeam / isEnemySeat / sameTeamColor / teamOf / normalizeTeams / teamsPlayable / arrangeTeamSeats.
+- `World.teams?` (worldTypes) · hash part `tm…` only when set + FIELD_COVERAGE · `WorldSnapshot.teams?` serialize/apply (`readTeams`)
+  · `applyStartGame` stamps from `roster[].team` · RETURN_TO_TITLE clears.
+- Sites converted: all of spec A (sim, incl. alliesOf for Pharaoh ritual + zombie death blast), B (bots), C (raid picker), D render
+  (walls `wallSeparatesSides`, projectile, damage numbers, character-sheet ALLY labels, TEAM N WINS banner).
+- untargetable census regex extended to see `sameTeam(...ownerPlayerId` forms.
+IN FLIGHT: first full vitest = 4 failing tests (typecheck 0):
+  canon.test.ts §9d radial-clear source text · raidHitsAnything.test.ts picker source text ·
+  stateHashFull.test.ts FIELD_COVERAGE contribution (teams needs a contribution case) · untargetable census verdict rot (re-run after regex fix).
+NEXT: fix those 4 (re-pin source-text guards to the new form) → re-run vitest → commit → guard test teams.sites.test.ts (mutation-tested)
+  → FFA differential (hashWorldStateFull, 4-seat bots) → REACH tests (units, towers, castle gun, area blasts, raids) → lobby UI
+  (bot overlay team chips + multiplayer CLAIM_TEAM/roster.team + arrangeTeamSeats at Begin) → build gate.

@@ -150,6 +150,8 @@ export function runPharaohRitual(world: World): void {
         attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN),
         'aura',
         null,
+        // ⭐ S192 (spec Q5, ⚠ MINE) — "kills everything", except his seat's TEAMMATES (R192-T1).
+        boss.ownerPlayerId,
       );
     }
 

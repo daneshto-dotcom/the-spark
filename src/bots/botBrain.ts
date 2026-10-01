@@ -55,6 +55,7 @@ import {
 // S189 C2 (audit W3) — a raid aims at the tower's OWN connectors, never at a weld.
 import { towerMembersAt } from '../state/towerMembers.ts';
 import type { World } from '../state/world.ts';
+import { isEnemySeat, sameTeam } from '../state/teams.ts';
 import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import type { BotConfig } from './botConfig.ts';
 
@@ -930,7 +931,7 @@ export function ladderTargetSeat(world: World, seat: PlayerId): PlayerId | null 
   let below: PlayerId | null = null;
   let belowScore = -Infinity;
   for (const player of world.players.values()) {
-    if (player.id === seat) continue;
+    if (sameTeam(world, player.id, seat)) continue; // S192 — the raid ladder climbs ENEMIES only
     const score = world.scoreByPlayer.get(player.id) ?? 0;
     if (score > myScore) {
       // Closest ABOVE: keep the smallest, first-seen wins a tie (players Map order).
@@ -974,7 +975,7 @@ const SCOUT_DWELL_TICKS = 900; // 15 s at 60 Hz — long enough to actually arri
 export function scoutPoint(world: World, seat: PlayerId): Vec2 | null {
   const enemies: PlayerId[] = [];
   for (const player of world.players.values()) {
-    if (player.id !== seat) enemies.push(player.id);
+    if (isEnemySeat(world, player.id, seat)) enemies.push(player.id); // S192 — never scout a teammate
   }
   if (enemies.length === 0) return null;
   const which = Math.floor(world.tick / SCOUT_DWELL_TICKS) % enemies.length;
@@ -1001,7 +1002,7 @@ export function nearestEnemyBond(
     const a = world.primitives.get(bond.aId);
     const b = world.primitives.get(bond.bId);
     if (a === undefined || b === undefined) continue;
-    if (a.placedBy === seat || b.placedBy === seat) continue;
+    if (sameTeam(world, a.placedBy, seat) || sameTeam(world, b.placedBy, seat)) continue; // S192 — nor a teammate's
     // S156 P1 — the raid ladder narrows the field to ONE enemy's connectors. Endpoints always
     // share an owner (cross-colour bonds cannot form), so testing `aId` is testing the bond.
     if (targetSeat != null && a.placedBy !== targetSeat) continue;
@@ -1045,7 +1046,7 @@ export function nearestEnemySpawnerBond(
 ): { bondId: BondId; mid: Vec2 } | null {
   let best: { bondId: BondId; mid: Vec2; d: number } | null = null;
   for (const sp of world.creatureSpawners.values()) {
-    if (sp.ownerPlayerId === seat) continue; // only raid ENEMY spawners
+    if (sameTeam(world, sp.ownerPlayerId, seat)) continue; // only raid ENEMY spawners (S192: by team)
     // S156 P1 — the raid ladder narrows the field to ONE enemy's spawners.
     if (targetSeat != null && sp.ownerPlayerId !== targetSeat) continue;
     const anchor = world.primitives.get(sp.anchorPrimitiveId);
@@ -1111,7 +1112,7 @@ export function nearestEnemyPrim(
 ): { pos: Vec2 } | null {
   let best: { pos: Vec2; d: number } | null = null;
   for (const prim of world.primitives.values()) {
-    if (prim.placedBy === seat) continue;
+    if (sameTeam(world, prim.placedBy, seat)) continue; // S192 — nor a teammate's
     // S155 P7 — concealed enemies are not candidates. Nearest VISIBLE, not nearest.
     if (vision != null && !isPointVisible(vision, prim.pos.x, prim.pos.y)) continue;
     const dx = prim.pos.x - from.x;

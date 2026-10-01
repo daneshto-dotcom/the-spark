@@ -66,6 +66,7 @@ import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { applyStun, isStunned, isUntargetable, type Creature } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
+import { sameTeam } from './teams.ts';
 
 /**
  * ⭐⭐ S189 C10 (owner) — **HOW FAR THE WAVE PUSHES A UNIT: A DISTANCE, IN PIXELS.**
@@ -148,7 +149,7 @@ export function nearestEnemyFor(
   let best: Creature | null = null;
   let bestSq = Infinity;
   for (const c of world.creatures.values()) {
-    if (c.ownerPlayerId === boss.ownerPlayerId) continue; // never our own units
+    if (sameTeam(world, c.ownerPlayerId, boss.ownerPlayerId)) continue; // never our own units (S192: nor a teammate's)
     if (c.ehp <= 0) continue;
     if (c.id === boss.id) continue;
     /*
@@ -236,7 +237,7 @@ export function runKrakenSonar(world: World): void {
      */
     const victims: CreatureId[] = [];
     for (const c of world.creatures.values()) {
-      if (c.ownerPlayerId === boss.ownerPlayerId) continue; // ⭐ enemies only — never his own escort
+      if (sameTeam(world, c.ownerPlayerId, boss.ownerPlayerId)) continue; // ⭐ enemies only — never his own escort (S192: nor a teammate)
       if (c.ehp <= 0) continue;
       if (c.id === bossId) continue;
       if (!inCone(boss.pos, axis, c.pos, KRAKEN_SONAR_COS_HALF_ANGLE, rangeSq)) continue;
