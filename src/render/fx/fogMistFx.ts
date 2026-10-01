@@ -34,8 +34,8 @@ export const FOG_MIST_PEAK = 40;
 export const FOG_MIST_D1 = 120;
 /** Fraction of edge points that carry a puff (a fixed per-point hash, so the choice never flickers). */
 export const FOG_MIST_KEEP = 0.55;
-const MIST_TINT = 0x5a6478;
-const MIST_ALPHA = 0.16;
+const MIST_TINT = 0x8090a8;
+const MIST_ALPHA = 0.26;
 
 export interface MistSource { readonly x: number; readonly y: number; readonly radius: number }
 export interface MistRect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }

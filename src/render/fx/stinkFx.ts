@@ -41,7 +41,7 @@ export function stinkPuffAt(seed: number, k: number, age: number, radius: number
   const speed = (0.004 + 0.004 * fxHash(seed, k, 3)) * dir; // radians a tick: one turn in ~13-26 s
   const a = fxHash(seed, k, 1) * Math.PI * 2 + age * speed;
   const breath = 0.5 + 0.5 * Math.sin(age * 0.03 + fxHash(seed, k, 4) * 6.283);
-  const size = radius * (0.5 + 0.22 * fxHash(seed, k, 5) + 0.08 * breath);
+  const size = radius * (0.72 + 0.2 * fxHash(seed, k, 5) + 0.1 * breath);
   const maxD = Math.max(0, radius - 0.42 * size);
   const d = maxD * (0.2 + 0.8 * fxHash(seed, k, 2));
   // The board is seen at a slant: the patch is an ellipse on the ground, flattened to 0.8.
@@ -57,7 +57,7 @@ export function stinkCloudFx(sink: FxSink, cloudId: number, landedAtTick: number
   for (let k = 0; k < STINK_FX_PUFFS; k++) {
     const p = stinkPuffAt(seed, k, age, radius);
     const tint = mixColor(k % 3 === 0 ? GREEN_C : GREEN_A, GREEN_B, fxHash(seed, k, 6));
-    sink.emit('smoke', x + p.dx * grow, y + p.dy * grow, p.size * grow, p.size * grow * 0.85, p.rot, 0.55 * fade, tint, 'normal');
+    sink.emit('smoke', x + p.dx * grow, y + p.dy * grow, p.size * grow, p.size * grow * 0.85, p.rot, 0.42 * fade, tint, 'normal');
   }
   // Rising wisps, born inside the inner half of the patch.
   forEachLive(age, STINK_FX_WISP_PERIOD, STINK_FX_WISP_LIFE, 1, cloudId, (b, k, t) => {
