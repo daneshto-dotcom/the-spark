@@ -126,3 +126,8 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
   drone/chewer × 4 distances × home/abroad × pathless/past/away, epoch and live.
 - HELGA (*"she should go at … passing by drones"*): untouched — the rule is `pickNavUnit`'s only; pinned: a Helga with a
   drone 300 px from her hall, flying past, takes it (`WALK`).
+
+### R3 — fallen tower's leftover shapes: NO CHANGE, pinned (*"stay … a target … until they're completely destroyed. Just as it is today."*)
+- There was no pin. `deadTargets.test.ts` now stamps a real seat-1 stink tower, removes its defender record (what a recipe
+  break does), and asserts its connectors remain on the board and `structureTargets` still hands a nearby enemy unit a
+  target.

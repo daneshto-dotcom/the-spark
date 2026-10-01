@@ -30,7 +30,13 @@
 import { describe, expect, it } from 'vitest';
 import { FIGHT_PHASE_TICKS, PLAYER_COLORS } from '../../constants.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { enemyCastleMarchPos, findNearestEnemyCreatureFrom, pickNavUnit } from './creatureAI.ts';
+import { enemyCastleMarchPos, findNearestEnemyCreatureFrom, pickNavUnit, structureTargets } from './creatureAI.ts';
+import { applyBuildBlueprint } from '../blueprintBuild.ts';
+import { stampRefusalAt } from '../blueprintLegality.ts';
+import { runGodlyMatcherCore } from '../godlyMatcherCore.ts';
+import { blueprintBill } from '../blueprints.ts';
+import { makeCastleBank } from '../castleBank.ts';
+import '../godlyRecipes/registerAll.ts';
 import { isLiveCreatureTarget, makeCreature, type Creature, type CreatureType } from './creature.ts';
 import { CREATURE_CONFIGS } from './voltkin-config.ts';
 import { damageCreature } from './creatureLifecycle.ts';
@@ -252,5 +258,31 @@ describe('S192 T13 — every pick skips a corpse-in-waiting', () => {
     dispatch(w, { type: 'CREATURE_TICK', creatureId: me.id } as never);
     expect(me.targetCreatureId, 'the commit on a corpse was dropped').not.toBe(victim.id);
     void FIGHT_PHASE_TICKS;
+  });
+});
+
+describe('S192 T13 — a FALLEN TOWER — its leftover shapes stay a target (owner: "just as it is today")', () => {
+  it('its record gone, its shapes and connectors are still what a nearby enemy unit attacks', () => {
+    const w = board(2);
+    w.matchPhase = 'BUILD';
+    let site: Vec2 | null = null;
+    for (let x = 1300; x <= 1600 && site === null; x += 10) if (stampRefusalAt(w, { x, y: 300 }, P1, 'stinkTower' as never) === null) site = { x, y: 300 };
+    expect(site).not.toBeNull();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('stinkTower' as never)) bank[type as number] = (bank[type as number] ?? 0) + count;
+    w.castleBanks.set(P1, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P1, blueprintId: 'stinkTower', centre: site! } as never);
+    w.tick += 1;
+    runGodlyMatcherCore(w, { lastMatcherTick: 0 });
+    const tower = [...w.defenders.values()].find((x) => x.kind === 'stinkTower');
+    expect(tower, 'fixture: the tower ignited').toBeDefined();
+    // The tower FALLS: its defender record goes (what a recipe break does); its shapes and connectors stay.
+    dispatch(w, { type: 'REMOVE_DEFENDER', defenderId: tower!.id } as never);
+    expect(w.defenders.size).toBe(0);
+    expect(w.bonds.size, 'the leftover connectors are still on the board').toBeGreaterThan(0);
+    w.matchPhase = 'FIGHT';
+    const g = put(w, 0, { x: site!.x - 80, y: site!.y });
+    const t = structureTargets(w, g);
+    expect(t.bondId !== null || t.primitiveId !== null, 'a leftover is still a target').toBe(true);
   });
 });
