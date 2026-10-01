@@ -28,5 +28,48 @@ Scan cost on the real PCM: 0.1–24 ms per track, once per decode (only the sile
 ⚠ **mummies 39.4–42.4 s is IN THE COMPOSITION.** Reported, not edited — the owner's ear decides whether
 it is intentional. A loop region cannot reach it and the code does not try.
 
+⚠ **nagas**: coordinator note — `s192/nagas-song` replaces `public/audio/races/nagas.ogg` at the same
+path (the old one ends abruptly). This branch does NOT touch that asset. The loop region is DERIVED at
+runtime from whatever PCM decodes, so the new track needs no code change; re-measure it after that merge
+(`__SPARK__.audio.inspect().musicLoopRegion`, or the scratch ffmpeg method above).
+
+## Step 2–4 — the fixes (one commit: they share `audioManager.ts`)
+
+**H1 seams, fixed in code, assets untouched.** `startMusicLoop(ctx, buffer, dest, offset?)` in
+`audioManager.ts` is now the ONLY place a looping music source is built. It sets `loopStart`/`loopEnd`
+from `computeLoopRegion(buffer)` (cached per buffer in a WeakMap) and starts at `loopStart`, so a silent
+HEAD is skipped on the first lap too. Callers: `playMusic`, `enterNonetRealm`, `startHelgaTheme`, plus
+the DEV `seekMusic`. A buffer without PCM (fake / broken decode) loops whole, as before.
+
+**H2 voice cap.** `sfxVoices.ts` — a pure ledger of voice end-times in `AudioContext.currentTime`.
+Every node-building SFX function (11 of them) calls `admitVoice(kind, durationS)` first and returns
+when refused. ⚠ MINE: global **32** voices; per kind clave 4 · fart 4 · charge 4 · boom 4 · gnaw 3
+(= chewerRenderer's MAX_GNAW_VOICES) · splat 4 · zap 4 · laser 4 · oneShot 6 · ui 3. Refused = skipped,
+never queued. Every oscillator/buffer source is also counted live (start → `onended`).
+Measured on the fake bus: 200 each of BOND_FORMED + BOND_SEVERED(raid) + BOMB_EXPLODE + CREATURE_CHARGE
+in ONE tick built **1 000 source nodes** with the cap off and **20** with it on (16 voices).
+NONET's own juice synth (`nonetJuice.ts`) is the one pinned uncapped exception (the board is frozen).
+
+**H3** — `contextStateChanges` counts every AudioContext `statechange` (always on; DEV also timestamps).
+
+**Debug seams (DEV only, `import.meta.env.DEV`)** — `__SPARK__.audio`:
+`rmsLog()` (100 ms master-bus dBFS + ctx state + `ctxRatio` = ctx-clock advance ÷ wall-clock advance,
+60 s ring), `silentWindows(db=-50)`, `events()` (state changes, loop starts + region, seeks),
+`seekMusic(s)`, `stress(n, kind)`, `setVoiceCap(on)`, `inspect()`. The `?debug=1` overlay gains four
+lines: music loop region (trimmed/started), sfx voices live/peak/dropped, source nodes live/peak, ctx changes.
+
+**Determinism / protocol.** Client-only. `audioSimBoundary.test.ts` walks the runtime import graph from
+`state/world.ts`, `state/hostTick.ts`, `state/workerSim.ts`, `simWorker.ts` and fails if any of
+audioManager / musicLoop / sfxVoices / raceMusic is reachable (positive control: `main.ts` reaches it).
+No wire, hash, effect or action change → **NO PROTOCOL BUMP** (PROTOCOL_VERSION untouched).
+
+Tests: `musicLoop.test.ts` (14), `sfxVoices.test.ts` (8), `audioSeamlessAndCap.test.ts` (8, REACH
+through the real entry points on `audioFakeContext.fixtures.ts`), `audioLoopSites.test.ts` (9, the
+MECHANICAL guard — counts every `createBufferSource()` by enclosing function, pins `startMusicLoop`'s
+callers, every `loop = true`, the 11 SFX functions and their admit-before-node order, and one
+`trackSourceNode` per creation line), `audioSimBoundary.test.ts` (5). Mutation-checked: dropping the
+`loopEnd` line and the clave admit turned 4 cases red.
+
 ## Log
-- step 1 — `src/render/musicLoop.ts` (pure loop-region math) + `musicLoop.test.ts` (14 cases) + this table.
+- step 1 (7178461) — `src/render/musicLoop.ts` (pure loop-region math) + `musicLoop.test.ts` (14 cases) + this table.
+- steps 2–4 — loop wiring + voice cap + DEV probe + guards (this commit).
