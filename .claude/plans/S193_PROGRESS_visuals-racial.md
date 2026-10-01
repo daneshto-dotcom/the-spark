@@ -6,4 +6,5 @@ Not the merge owner. Batch: V11 V12 V14 V18 V19 V21 V22 V26 (S192_VISUALS_PLAN.m
 
 ## NEXT STEP
 - [x] worktree + npm install (exit 0)
-- [ ] study the 8 sources, then build `src/render/fx/perkFx.ts` item by item
+- [x] studied sources; `fx/perkFx.ts` layouts written (all 7 sprite layouts)
+- [ ] NEXT: wire goblinRenderer (V11 lifesteal walk, V14 rage, V18 feed, V21 elite), then chewer V22, gatherer V19, zone V12+V26
