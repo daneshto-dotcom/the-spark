@@ -70,6 +70,21 @@ import { creatureAttackFifths } from '../state/creatures/creature.ts';
 import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
+// ⭐ S192 — the RESIST cue: did a magic DoT beat land 0 on this creature, this tick? (derived, see module)
+import { magicBeatResistedAt } from '../state/magicResistCue.ts';
+import { PHYSICS_HZ } from '../constants.ts';
+
+/**
+ * ⭐ S192 (owner) — *"A very magic resistant unit … can be totally resistant to very low level magic, I
+ * accept that, but we need to predefine … how it would look like."* ⚠ MINE, all three, for him to change
+ * after seeing it: the WORD, the GREY, and the RATE (at most one per unit per second, so a DoT that keeps
+ * being swallowed reads as a steady "resisting", not a spray).
+ */
+export const RESIST_TEXT = 'RESIST';
+export const RESIST_FILL = 0xb4b4b4;
+export const RESIST_MIN_GAP_TICKS = PHYSICS_HZ;
+/** The longest tick window one frame scans (a joiner's tick jumps ~6 between snapshots). */
+const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -395,8 +410,8 @@ export function damageAnchor(
 export const DAMAGE_TOWARD_ATTACKER = TOWARD_ATTACKER;
 export const DAMAGE_LIFT_PX = LIFT_PX;
 
-/** Damage is red, healing is green. Both carry the white outline. */
-export type FloaterKind = 'damage' | 'heal';
+/** Damage is red, healing is green. Both carry the white outline. ⭐ S192 — a swallowed magic beat is a grey RESIST. */
+export type FloaterKind = 'damage' | 'heal' | 'resist';
 
 /** What the renderer remembers about a creature between frames. */
 interface Watched {
@@ -516,6 +531,19 @@ export class DamageNumbers {
     stroke: { color: 0xffffff, width: 3, join: 'round' },
   });
 
+  /** ⭐ S192 — the RESIST cue (⚠ MINE look): same face and motion, smaller and grey, a word not a number. */
+  private readonly resistStyle = new TextStyle({
+    fontFamily: [DAMAGE_FONT_FAMILY, 'Impact', 'sans-serif'],
+    fontWeight: '900',
+    fontStyle: 'italic',
+    fontSize: 14,
+    fill: RESIST_FILL,
+    stroke: { color: 0x202020, width: 3, join: 'round' },
+  });
+  /** ⭐ S192 — the last tick each creature showed RESIST (the once-a-second limit), and the last tick scanned. */
+  private readonly lastResist = new Map<CreatureId, number>();
+  private resistScannedTo: number | null = null;
+
   /**
    * Called once per rendered frame. Reads `world`; never writes to it.
    *
@@ -617,8 +645,33 @@ export class DamageNumbers {
      */
     world.creatureKillHits.length = 0;
 
+    this.syncResist(world);
     this.syncStructures(world);
     this.advance();
+  }
+
+  /**
+   * ⭐ S192 — RESIST: for every tick since the last frame, ask the sim's own rule whether a magic DoT
+   * beat landed 0 on each creature (`magicBeatResistedAt`, a pure read of synced state), and print one
+   * grey RESIST at most once per unit per second. Derived on every peer alike — nothing rides the wire.
+   */
+  private syncResist(world: World): void {
+    const now = world.tick;
+    const from = this.resistScannedTo === null || this.resistScannedTo > now
+      ? now
+      : Math.max(this.resistScannedTo + 1, now - RESIST_SCAN_MAX_TICKS + 1);
+    this.resistScannedTo = now;
+    for (const id of this.lastResist.keys()) if (!world.creatures.has(id)) this.lastResist.delete(id);
+    for (const c of world.creatures.values()) {
+      const last = this.lastResist.get(c.id);
+      if (last !== undefined && now - last < RESIST_MIN_GAP_TICKS) continue;
+      for (let t = from; t <= now; t++) {
+        if (!magicBeatResistedAt(world, c, t)) continue;
+        this.lastResist.set(c.id, now);
+        this.place(damageAnchor(world, c.id, c.pos.x, c.pos.y, c.ownerPlayerId), 0, 'resist');
+        break;
+      }
+    }
   }
 
   /**
@@ -848,8 +901,8 @@ export class DamageNumbers {
     }
 
     const t = this.pool.pop() ?? new Text({ text: '', style: this.damageStyle });
-    t.style = kind === 'heal' ? this.healStyle : this.damageStyle;
-    t.text = String(amount);
+    t.style = kind === 'heal' ? this.healStyle : kind === 'resist' ? this.resistStyle : this.damageStyle;
+    t.text = kind === 'resist' ? RESIST_TEXT : String(amount);
     t.anchor.set(0.5);
     t.visible = true;
     this.flip = -this.flip;
