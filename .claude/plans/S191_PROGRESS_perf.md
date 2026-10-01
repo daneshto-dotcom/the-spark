@@ -403,3 +403,30 @@ Mean −43 % (A) / −32 % (C); p95 −44 % / −33 %; 3-tick p95 −43 % / −3
   ignores b (2d) → RED. Every RED is an assertion failure (no transform/syntax error); every restore
   sha256-identical; `git status` clean afterwards.
 - VERDICT: **byte-identical on the merged tree. No divergence, nothing to fix.**
+
+## S192 step 3 — gates on the merged tree + the wave-5 host tick re-measured  ✅
+Exit codes from `$?` into `.tmp-gates/s192-exits.txt`:
+- `npm run typecheck` → **TYPECHECK_EXIT=0**
+- `npx vitest run --maxWorkers=3` → **VITEST_EXIT=0** — 419 files passed / 2 skipped (421); **6734 tests passed /
+  7 skipped**; 284.7 s. No timeout reds, so no single-file re-runs were needed. The suite again rewrote
+  `pentagramBuildability.test.ts.snap` to LF with identical content (`git diff --ignore-cr-at-eol` empty) — the
+  known benign case; restored with checkout.
+- `npm run build` → **BUILD_EXIT=0** — entry **975.2 KiB** / 1100 (124.8 KiB headroom); master is 972.7 → this
+  branch adds **+2.5 KiB** (≤ 10 KiB rule).
+- Protocol: no wire/serialized/hashed field, action or effect touched (4 production files, all sim-internal
+  helpers with unchanged exported signatures) → **no bump needed**; `PROTOCOL_VERSION` still 52, not edited.
+
+### Wave-5 host tick, merged tree — interleaved base/final ×3, same instrument, same hour
+Base = master's versions of the four production files (`git show master:<f>`) dropped into the merged tree;
+final = this branch. Order base/final/base/final/base/final; files restored afterwards, `sha256sum -c`
+**SHA_RESTORE=0**. All six runs EXIT=0, every run reached tick 45 000 (wave 6 BUILD); boards A 171/356,
+C 236/517/123 creatures — the same boards as S191.
+⚠ **The machine is far more loaded than in S191** (8 worktrees running gates at once): absolute times are
+~2-4× S191's. Only the same-hour paired comparison means anything; every final run beat its paired base.
+| pass | code | mean per run | mean of 3 | p95 (mean) | 3-tick p95 (mean) |
+|---|---|---|---|---|---|
+| A default | base | 3.263 / 1.329 / 1.932 | 2.175 | 5.224 | 22.32 |
+| A default | **final** | 1.440 / 0.795 / 0.905 | **1.047** | **2.371** | **7.24** |
+| C 120 held | base | 10.323 / 6.498 / 7.566 | 8.129 | 18.507 | 47.49 |
+| C 120 held | **final** | 5.804 / 4.353 / 5.668 | **5.275** | **11.150** | **29.42** |
+Mean −52 % (A) / −35 % (C); p95 −55 % / −40 % — consistent with S191's −43 % / −32 % given the noise.
