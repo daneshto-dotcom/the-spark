@@ -79,7 +79,7 @@ import { makeCastleBank } from './castleBank.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { makeDefender } from './defenders/defender.ts';
 import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
-import { asCreatureId, asSpawnerId } from '../types.ts';
+import { asCreatureId, asDefenderId, asSpawnerId } from '../types.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import { ALL_RACES, RACE_FEED_SHAPE } from './races.ts';
 import { RACE_TOWER_IDS, RACE_TOWER_SIZE, RACE_TOWER_UNIT } from './raceTowerIds.ts';
@@ -2062,5 +2062,83 @@ describe('⭐ S191 R191-A — the identity edge on an UN-WELDED tower (the path 
     expect(w.defenders.get(defenderId)!.ownPrimitiveIds, 'the record adopts it').toContain(reminted);
     tick(w, st, PAST_TWO_POLLS);
     expect([...w.defenders.keys()], 'the SAME turret stands').toEqual([defenderId]);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐ S192 — ROUND-5 AUDIT FIXES (S191_AUDIT_DIGEST "s189/weld ROUND 5"). Each case reproduces the
+// audit's board through the REAL placement path and fails on the round-5 tip.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Audit W2-4 / IDENTITY-1 / IDENTITY-2 — a mummies seat stamps a laser turret, then drops two Lines on
+ * its Line hub. The drops plus the hub are an exact Line 3-ring, so a Scarab tower ignites ANCHORED AT
+ * THE TURRET'S HUB (lowest id), while the turret still stands on its six own arms.
+ */
+function turretWithScarabOnItsHub(): {
+  w: World; st: HostTickState; hubId: PrimitiveId; turretId: number; turretOwn: PrimitiveId[]; lines: Primitive[];
+} {
+  const w = worldInBuild();
+  const p = w.players.get(P0)!;
+  w.players.set(P0, { ...p, raceId: 'mummies' } as typeof p);
+  const st = makeHostTickState(w);
+  stamp(w, 'laserTurret', { x: 500, y: 300 });
+  tick(w, st, 3);
+  expect(w.defenders.size, 'the turret stamp ignites').toBe(1);
+  const d0 = [...w.defenders.values()][0]!;
+  const hub = w.primitives.get(d0.anchorPrimitiveId)!;
+  const lines = [-Math.PI / 3, (-2 * Math.PI) / 3].map((a) =>
+    placeLikeAPlayer(w, SparkType.Line, { x: hub.pos.x + 20 * Math.cos(a), y: hub.pos.y + 20 * Math.sin(a) }));
+  tick(w, st, PAST_TWO_POLLS);
+  const sps = [...w.creatureSpawners.values()];
+  expect(sps.map((s) => s.recipeId), 'the Scarab ring ignites through the hub').toEqual(['t3TowerMummies']);
+  expect(sps[0]!.anchorPrimitiveId, 'anchored AT the turret hub (W2-4)').toBe(hub.id);
+  expect(w.defenders.size, 'the welded turret still stands').toBe(1);
+  return { w, st, hubId: hub.id, turretId: d0.id as number, turretOwn: [...d0.ownPrimitiveIds!], lines };
+}
+
+describe('⭐ S192 IDENTITY-1 — a paid FIX on a fallen welded tower always brings it back (or is never offered)', () => {
+  it('the W2-4 board: the turret falls, FIX from a Spiral re-registers it, and it stands beside the Scarab ring', () => {
+    const { w, st, hubId, turretOwn } = turretWithScarabOnItsHub();
+    const leaf = turretOwn.filter((id) => id !== hubId)[0]!;
+    razePrimitives(w, [leaf], undefined, true, true); // killed through the damage path's raze shape
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret fell').toBe(0);
+    expect(w.creatureSpawners.size, 'the ring stands').toBe(1);
+    const spiral = turretOwn.filter((id) => id !== hubId && w.primitives.has(id)).sort(byId)[0]!;
+    const plan = planStructureRepair(w, P0, spiral)!;
+    expect(plan, 'FIX is offered on the fallen turret').not.toBeNull();
+    expect(plan.scope).toBe('tower');
+    fund(w, plan.cost);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
+    expect([...w.defenders.values()].map((d) => [d.recipeId, d.anchorPrimitiveId]), 'paid for ⇒ registered')
+      .toEqual([['laserTurret', hubId]]);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'and it STANDS at the poll').toBe(1);
+    expect([...w.creatureSpawners.values()].map((s) => s.recipeId), 'the ring is untouched').toEqual(['t3TowerMummies']);
+  });
+
+  it('⛔ "cannot half-spend": when registration WOULD be refused, no FIX is planned and the bank is untouched', () => {
+    const { w, st, hubId, turretOwn } = turretWithScarabOnItsHub();
+    const leaf = turretOwn.filter((id) => id !== hubId)[0]!;
+    razePrimitives(w, [leaf], undefined, true, true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(0);
+    // A DEFENDER record already anchored at the hub (contract fixture): `applyRegisterDefender` de-dups on
+    // the anchor, so a FIX would consume and register nothing — it must not be offered at all.
+    const hub = w.primitives.get(hubId)!;
+    const blocker = makeDefender({
+      id: asDefenderId(w.nextDefenderId++), kind: 'stinkTower', ownerPlayerId: P0, anchorPrimitiveId: hubId,
+      recipeId: 'stinkTower', pos: { ...hub.pos }, registeredAtTick: w.tick, ownPrimitiveIds: [hubId],
+    });
+    w.defenders.set(blocker.id, blocker);
+    const spiral = turretOwn.filter((id) => id !== hubId && w.primitives.has(id)).sort(byId)[0]!;
+    // Its OWN-set is just the hub, so the spiral is the fallen stamp's (not the blocker's) shape.
+    expect(towerUnitAt(w, spiral)?.kind).toBe('stamp');
+    expect(planStructureRepair(w, P0, spiral), 'no FIX that cannot finish').toBeNull();
+    fund(w, [SparkType.Spiral]);
+    const bank = JSON.stringify(w.castleBanks.get(P0));
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
+    expect(JSON.stringify(w.castleBanks.get(P0)), 'nothing spent').toBe(bank);
   });
 });

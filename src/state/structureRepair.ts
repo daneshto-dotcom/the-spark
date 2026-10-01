@@ -389,6 +389,9 @@ export function planStructureRepair(
   const memberIds = sc.memberIds;
   const group = blueprintGroupOf(world, memberIds);
   if (group === null) return null;
+  // ⛔ S192 (audit IDENTITY-1) — a FALLEN tower's FIX must be able to stand it up again (it re-registers
+  // it, `settleTowerIdentity`); one that cannot is never offered, so the reducer never charges for it.
+  if (sc.scope === 'tower' && sc.unit?.kind === 'stamp' && !fallenTowerFixCanRegister(world, seat, group)) return null;
 
   const bp = blueprintFor(group.blueprintId);
 
@@ -630,9 +633,10 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
  *     component is not an exact recipe — so the restored stamp is registered here, with its own shapes
  *     passed explicitly. The anchor is the one the matcher itself would pick (the hub; the lowest ring
  *     id), so if the weld is later cut away the matcher's de-dup still recognises it. The same gates the
- *     matcher applies: the restored shapes must stand as the recipe on their own; no live tower of the
- *     recipe already anchored among them; a race tower only for its own race (R137); a defender only
- *     in BUILD (S157 B6 — FIX is BUILD-only anyway, R19).
+ *     matcher applies: the restored shapes must stand as the recipe on their own, and
+ *     `fallenTowerRegistrationRefused` (S192: per collection, as the register reducers de-dup; a race
+ *     tower only for its own race, R137; a defender only in BUILD, S157 B6). `planStructureRepair`
+ *     asks the same gate first, so a FIX this step would not finish is never offered or charged.
  */
 function settleTowerIdentity(
   world: World,
@@ -665,14 +669,10 @@ function settleTowerIdentity(
     anchorId = groupIds[0];
     if (anchorId === undefined || ringMembersAt(world, anchorId, shape.type, shape.n, own) === null) return;
   }
-  for (const sp of world.creatureSpawners.values()) if (own.has(sp.anchorPrimitiveId)) return;
-  for (const d of world.defenders.values()) if (own.has(d.anchorPrimitiveId)) return;
-  const race = raceForTowerId(recipeId) ?? raceForT9TowerId(recipeId);
-  if (race !== null && world.players.get(seat)?.raceId !== race) return;
+  if (fallenTowerRegistrationRefused(world, seat, recipeId, anchorId, own)) return;
   const anchor = world.primitives.get(anchorId)!;
   const defenderRecipe = getDefenderRecipe(recipeId);
   if (defenderRecipe !== undefined) {
-    if (world.matchPhase !== 'BUILD') return;
     applyRegisterDefender(world, {
       type: 'REGISTER_DEFENDER',
       defenderKind: defenderRecipe.defenderKind,
@@ -685,6 +685,59 @@ function settleTowerIdentity(
     return;
   }
   applyRegisterSpawner(world, { type: 'REGISTER_SPAWNER', ownerPlayerId: seat, anchorPrimitiveId: anchorId, recipeId, ownPrimitiveIds: groupIds });
+}
+
+/**
+ * ⭐ S192 (audit IDENTITY-1) — PURE: would registering a RESTORED fallen tower at `anchorId` be refused?
+ * The ONE gate both `planStructureRepair` (so a FIX that cannot finish is never offered, and the reducer
+ * never consumes for it — the "cannot half-spend" contract above) and `settleTowerIdentity` read.
+ *
+ * ⛔ PER COLLECTION, the way the register reducers themselves de-dup — NOT "any tower anchored among its
+ * shapes". Round 5 refused whenever ANY live record (either collection, any recipe) was anchored on one of
+ * the restored shapes; on the W2-4 board (a mummies Line ring through a laser turret's Line hub) the
+ * ring's anchor IS the hub, so the turret's FIX was charged and never re-registered. A record of the
+ * OTHER collection anchored there blocks nothing: spawner and defender maps and de-dups are separate.
+ *
+ *   · the reducer's own de-dup — a record of THIS collection already anchored at `anchorId`
+ *     (`applyRegisterDefender` / `applyRegisterSpawner` would silently register nothing);
+ *   · a duplicate — a record of the SAME recipe in this collection anchored among `own`;
+ *   · a race tower only for its own race (R137); a defender only in BUILD (S157 B6).
+ *
+ * `anchorId` is `undefined` when the anchor is a node the FIX is about to re-mint: a fresh id, which no
+ * record can be anchored at.
+ */
+function fallenTowerRegistrationRefused(
+  world: World,
+  seat: PlayerId,
+  recipeId: GodlyId,
+  anchorId: PrimitiveId | undefined,
+  own: ReadonlySet<PrimitiveId>,
+): boolean {
+  const race = raceForTowerId(recipeId) ?? raceForT9TowerId(recipeId);
+  if (race !== null && world.players.get(seat)?.raceId !== race) return true;
+  const isDefender = getDefenderRecipe(recipeId) !== undefined;
+  if (isDefender && world.matchPhase !== 'BUILD') return true;
+  const records = isDefender ? [...world.defenders.values()] : [...world.creatureSpawners.values()];
+  for (const r of records) {
+    if (r.anchorPrimitiveId === anchorId) return true;
+    if (r.recipeId === recipeId && own.has(r.anchorPrimitiveId)) return true;
+  }
+  return false;
+}
+
+/**
+ * ⭐ S192 (audit IDENTITY-1) — PURE: will a tower-scope FIX of this FALLEN stamp be able to register it?
+ * Predicts `settleTowerIdentity`'s anchor (a star's hub = node 0; a ring's lowest id — a re-minted node's
+ * id is fresh and higher, so the lowest SURVIVING member) and asks the shared gate. The geometric check
+ * stays in the settle step as its backstop: a FIX re-welds exactly the blueprint's edges, so the
+ * restored group stands as the recipe by construction.
+ */
+function fallenTowerFixCanRegister(world: World, seat: PlayerId, group: BlueprintGroup): boolean {
+  const shape = towerShapeFor(group.blueprintId);
+  if (shape === null) return false;
+  const survivors = [...group.byNode.values()].filter((id) => world.primitives.has(id)).sort((a, b) => Number(a) - Number(b));
+  const anchorId = shape.kind === 'star' ? group.byNode.get(0) : survivors[0];
+  return !fallenTowerRegistrationRefused(world, seat, group.blueprintId, anchorId, new Set(survivors));
 }
 
 /**
