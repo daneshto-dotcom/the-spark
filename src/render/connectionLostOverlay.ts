@@ -29,6 +29,12 @@ export interface ConnectionLostOverlayHandle {
    * countdown is the worst-case claim-ladder deadline). Same modal, same bail-out button.
    */
   setMigrating(secondsLeft?: number): void;
+  /**
+   * ⭐ S192 SEAM-1 — the terminal CONNECTION LOST state, with a help line that says what is still happening:
+   * a client still retrying, a host still waiting for its peers, or (neither) the old "return to title to
+   * retry", which is then true. Replaces `setReconnecting(false)` at the main.ts terminal site.
+   */
+  setTerminal(retrying: boolean, waitingForPeers: boolean): void;
 }
 
 export function makeConnectionLostOverlay(
@@ -102,6 +108,18 @@ export function makeConnectionLostOverlay(
         lostText.style.fill = 0xff3b6b;
         lostHelp.text = 'peer dropped — return to title to retry';
       }
+    },
+    setTerminal(retrying: boolean, waitingForPeers: boolean): void {
+      if (lostText.text !== 'CONNECTION LOST') {
+        lostText.text = 'CONNECTION LOST';
+        lostText.style.fill = 0xff3b6b;
+      }
+      const help = retrying
+        ? 'still reconnecting — or return to title'
+        : waitingForPeers
+          ? 'waiting for the other player to reconnect — or return to title'
+          : 'peer dropped — return to title to retry';
+      if (lostHelp.text !== help) lostHelp.text = help;
     },
     setMigrating(secondsLeft?: number): void {
       const secs = secondsLeft !== undefined ? ` (${Math.max(0, Math.ceil(secondsLeft))}s)` : '';

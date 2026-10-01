@@ -1561,6 +1561,10 @@ export const SPAWN_INTERVAL_TICKS = 900; // 15 s @ 60 Hz — chewer emit cadence
  * simply its `atk`.
  */
 export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its damage is the chewer's atk)
+// ⛔ S191 (owner) — SUPERSEDED: the chewer is tower STOCK again (`persistent: true`, match-length — the
+// tier-3 rule). The finite lifetime below is what aged the whole stock out at home during BUILD
+// (*"when fight starts, they all died"*); with the caps OFF (S157 B8b) nothing needs a slot freed.
+// The S104 text is kept for its history:
 // S104 P1 — the REAL "constantly produce more every ~15s" fix is the chewer's now-FINITE lifetime
 // (voltkin-config.ts: persistent:false + lifetimeTicks), NOT a big cap raise. Once a chewer ages
 // out and despawns, the spawner's cadence refills the slot — so the population CHURNS instead of
@@ -1601,6 +1605,8 @@ export const CHEW_INTERVAL_TICKS = 60; // 1 s per bite — the gnaw CADENCE (its
  * caller passed a `victimPlayerId`, and the one production caller never did — so the "3" the owner
  * remembered was `CHEWER_MAX_PER_SPAWNER = 4` minus the fact that the real steady state is
  * `lifetimeTicks / SPAWN_INTERVAL_TICKS` ≈ 3.3. The lifetime, not the cap, is what a tower settles at;
+ * ⛔ S191 — and the lifetime is gone too (tower STOCK): with no cap and no lifetime a pentagram's horde
+ * only grows while it stands and nobody kills it — measured and reported to the owner, not capped.
  * removing the cap means it never STOPS, and removes the shared global ceiling that was starving
  * goblins (see GOBLIN_MAX_GLOBAL).
  */
@@ -2743,7 +2749,15 @@ export const DRONE_EMIT_INTERVAL_TICKS = 5 * PHYSICS_HZ; // 300t = 5s — 9 emit
  * pattern this file keeps finding (`CONNECTOR_HP`, the `DEFENDER_HP` sentinel, the R72 targeting
  * matrix). Its VALUE survives, with its provenance, as the live-population cap below.
  */
-export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t = 8s fly-time FUSE (explodes on expiry if it never arrived)
+/*
+ * ⛔ S191 (owner) — RETIRED, UNREAD. The drone is tower STOCK now (`persistent: true`, match-length, the
+ * tier-3 rule — `voltkin-config.ts`): this ABSOLUTE fuse kept running while a recalled drone waited at
+ * home through BUILD and detonated the whole stock on the first FIGHT tick (*"Boom, they disappeared,
+ * and it started producing them from zero"*). Kept only so the history below still reads; nothing
+ * imports it. ⚠ And the two S160 docblocks around it that call `DRONE_MAX_PER_SPAWNER` "inert slack"
+ * describe the fuse era: with stock, a hub with nothing to hit HOLDS its 3 — the cap is load-bearing.
+ */
+export const DRONE_LIFETIME_TICKS = 8 * PHYSICS_HZ; // 480t — RETIRED S191, see above
 export const DRONE_EXPLODE_RADIUS = 110; // px — small targeted blast (== the drone's arrival/attack range)
 export const DRONE_MAX_CONNECTORS = 3; // <=3 ENEMY bonds severed per drone (owner: "3 connectors per lightning")
 export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN population, NOT shared with chewers)
@@ -2779,7 +2793,7 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  * is left standing; it is the *strong* direction that was wrong, which is why the error survived.
  */
 export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
-export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's blast radius. ⚠ S191: NOT owner-agnostic (S157 P0 spares the owner) and NOT a raze — 120 fifths in total, split (`planHubBlast`)
 
 /*
  * ⭐⭐ S168 P7 (owner R138) — **THE ZOMBIE BOSS EXPLODES WHEN HE DIES.**
@@ -2787,10 +2801,11 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC
  * Owner: *"when he dies he explodes in a huge radius hurting everything radius"*.
  *
  * ⭐ "HURTING EVERYTHING" PICKS THE MECHANIC FOR FREE, and that is why this skill costs almost
- * nothing to build. `applyStructureSelfDestruct` takes an OPTIONAL `ownerPlayerId` that SPARES the
- * owner's own units and shapes (S157 P0, added after he reported hubs eating their own base).
- * *Everything* is unambiguous, so the boss passes NO owner — which is the pre-S157, owner-agnostic
- * default that reducer already had. No new action, no new `GameEffect` kind (it reuses
+ * nothing to build. `applyStructureSelfDestruct`'s `blast: 'raze'` variant takes an OPTIONAL
+ * `ownerPlayerId` that SPARES the owner's own units and shapes (S157 P0, added after he reported hubs
+ * eating their own base). *Everything* is unambiguous, so the boss passes NO owner — the pre-S157,
+ * owner-agnostic raze. ⚠ S191: the HUB's own blast is the other variant now (`blast: 'ladder'`, 120
+ * fifths in total); `blast` is required, so neither can be reached by omission. No new action, no new `GameEffect` kind (it reuses
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
@@ -3102,7 +3117,13 @@ export const RA_COLUMN_TICKS = 2 * PHYSICS_HZ;
  */
 export const RA_RITUAL_TICKS = RA_COLUMN_COUNT * RA_COLUMN_TICKS;
 
-/** R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers. */
+/**
+ * R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers — ⛔ RETIRED FROM THE SIM IN S192, kept so
+ * the history stays legible: *"the [Ra] column, Pharaoh boss should not keep … his 300. That's
+ * ridiculous. He goes down to 35 per column, just like a regular column attack."* The boss's ritual now
+ * lands through `racial/raColumn.ts` (`raColumnPoolFor`: 35, or 75 for a WRATH OF RA seat). Nothing in
+ * the sim reads these two; `canon.test.ts` pins that 300 is no longer any column's number.
+ */
 export const RA_COLUMN_ATK = 15;
 export const RA_COLUMN_PEN = 15;
 
@@ -3128,6 +3149,49 @@ export const RA_COLUMN_RADIUS = 70;
  * for zero new fields. It also reads correctly: Ra brings the sun down AROUND his priest.
  */
 export const RA_COLUMN_SPREAD = 150;
+
+/**
+ * ⭐⭐ S191 (owner) — **POWER OF RA / WRATH OF RA: THE PLAYER'S COLUMN, AND IT IS NO LONGER THE
+ * PHARAOH'S.** Until S191 the perk dealt `attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = 300 a column
+ * to EVERY connector in its circle, and a 5-connector tower's whole ladder is 130.
+ *
+ * > *"The Wrath of Ra, or whatever the power of Ra. Is way too strong, dude. It destroys like a full
+ * > fucking tower. Within one hit … it shouldn't be like more than 50 or even less each beam."*
+ *
+ * > *"each column that it does 30 damage it split right so if it hits a tower and an enemy at the same
+ * > time then it split amongst those two … it's not like 30 to each thing in the vicinity. No, it's 30
+ * > split so if there's like two enemies it's split amongst them … we can do it 35 per hit."*
+ *
+ * So **35 fifths a column, IN TOTAL, split** across everything it hits (`powerOfRa.ts` —
+ * `raSplitShares`, and a structure is ONE target). His number, exactly, on the one ladder:
+ * `attackFifths(5, 2)` = 5 × (5 + 2) = **35**.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 35 = ATK × (5 + PEN) has three integer answers: 7/0, 5/2 and 1/30.
+ * 5/2 is the one nearest the Pharaoh's own balanced 15/15 profile this skill was cut from — it keeps
+ * a piercing character (PEN > 0) without resting the whole number on a 30-point secondary stat.
+ * Lever: change the pair; `RA_PERK_STRIKE_FIFTHS` and every test derive from it.
+ *
+ * ⭐⭐ S192 (owner) — **AND THE PHARAOH BOSS IS THIS COLUMN TOO.** *"Pharaoh boss should not keep …
+ * his 300. That's ridiculous. He goes down to 35 per column, just like a regular column attack."* His
+ * ritual (`bossSkillsPharaohRitual.ts`) lands through the same `racial/raColumn.ts` `landRaColumn`,
+ * and his number comes from the same `raColumnPoolFor` — 35, or 75 when his OWNER seat holds WRATH OF
+ * RA (`RA_WRATH_COLUMN_*` below). `RA_COLUMN_ATK` / `RA_COLUMN_PEN` (300) are retired from the sim.
+ * (S191 briefly kept him at 300; that sentence is superseded.)
+ */
+export const RA_PERK_COLUMN_ATK = 5;
+export const RA_PERK_COLUMN_PEN = 2;
+
+/**
+ * ⭐⭐ S192 (owner) — **WRATH OF RA RAISES EVERY COLUMN OF ITS SEAT TO 75**, the seat's Pharaoh included:
+ * *"once we have Ra's Wrath at … level 10, once we have that ability, then each column goes … up to 75.
+ * And also Pharaoh's become 75. Okay? If the player chose that ability."* Still IN TOTAL, split.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 75 = ATK × (5 + PEN) has four integer answers: 15/0, 5/10, 3/20, 1/70.
+ * 5/10 keeps the perk column's ATK (5) and raises only the piercing (2 → 10), so WRATH reads as the same
+ * sunlight burning hotter. Lever: change the pair; `RA_WRATH_STRIKE_FIFTHS` and every test derive from it.
+ */
+export const RA_WRATH_COLUMN_ATK = 5;
+export const RA_WRATH_COLUMN_PEN = 10;
 
 /*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and

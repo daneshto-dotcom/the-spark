@@ -263,6 +263,11 @@ export function createDebugOverlay(): DebugOverlayHandle {
       `musicSource:    ${audio.musicSourceActive ? 'PLAYING' : 'stopped'}`,
       `clave calls:    total=${audio.claveCallsTotal}  synthed=${audio.claveCallsSynthed}`,
       `fart  calls:    total=${audio.fartCallsTotal}  synthed=${audio.fartCallsSynthed}`,
+      // S192 T15 — loop region (H1), voice cap + live nodes (H2), context state changes (H3).
+      `music loop:     ${audio.musicLoopRegion === null ? 'WHOLE buffer' : `${audio.musicLoopRegion.loopStart.toFixed(2)}–${audio.musicLoopRegion.loopEnd.toFixed(2)} s`}  (trimmed ${audio.musicLoopsTrimmed}/${audio.musicLoopsStarted})`,
+      `sfx voices:     live=${audio.sfxVoices.live} peak=${audio.sfxVoices.peakLive} dropped=${audio.sfxVoices.droppedGlobal}+${Object.values(audio.sfxVoices.droppedByKind).reduce((a, b) => a + (b ?? 0), 0)}`,
+      `source nodes:   live=${audio.liveSourceNodes} peak=${audio.peakLiveSourceNodes}`,
+      `ctx changes:    ${audio.contextStateChanges}`,
       ``,
       `=== LOCALSTORAGE ===`,
       audioStorageLine(audio),

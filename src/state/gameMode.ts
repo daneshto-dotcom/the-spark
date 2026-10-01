@@ -185,6 +185,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // waves restart at 1, so a strike cast on wave N last match would REFUSE the cast on wave N of
     // this one, and it would hash and serialize a strike nobody cast this match.
     player.raStrikes = [];
+    // ⭐ S191 — and SCORCHED EARTH, for the same reason: waves restart at 1, so last match's wave-N cast
+    // would refuse this match's wave-N cast and hash a scorch nobody made.
+    player.scorchedEarth = null;
     /*
      * ⛔ S161 CLOSE-OUT (lane 1) — **A REMATCH STARTS WITH A STANDING CASTLE.**
      *
@@ -213,6 +216,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // kept last match's running loss would raise its first Pharaoh early (and the perk resets anyway,
     // because `draftPicks` is cleared below).
     player.dynastyHpLost = 0;
+    // ⭐ S191 C-8 — the keep's heal counter is per match too (presentational; a rematch's full keep
+    // is a fresh first sighting for `damageNumbers.ts` either way).
+    player.castleHealedHp = 0;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter

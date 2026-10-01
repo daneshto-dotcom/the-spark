@@ -86,7 +86,8 @@ const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
 };
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
-const NOT_A_LANE_TAG = new Set(['@param', '@playwright', '@typescript-eslint', '@seat', '@returns', '@see']);
+// S192 — `@vite-ignore` is the magic comment on a dev-server dynamic import (`e2e/poolSafePc.spec.ts`).
+const NOT_A_LANE_TAG = new Set(['@param', '@playwright', '@typescript-eslint', '@seat', '@returns', '@see', '@vite-ignore']);
 
 function invertList(): string[] {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
@@ -269,5 +270,42 @@ describe('e2e lane composition is a decision, not an accident', () => {
     expect(bare.length, 'one Checkout per job').toBe(jobs.length);
     expect(bounded.length, 'every Checkout step carries a timeout-minutes').toBe(bare.length);
     for (const c of bounded) expect(Number((/timeout-minutes: (\d+)/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
+  });
+});
+
+/*
+ * ⭐ S192 T1 — THE 4-PLAYER LATE-JOINER MESH IS GATING, AND THIS PINS HOW.
+ *
+ * It keeps `@quarantine-flaky` (so it stays out of the SHARED lane's budget — 1–2 min locally, 3–5×
+ * that on CI) and gates through `e2e:lobby` on the `e2e-lobby` job, the S155 precedent. Both halves of
+ * that are text, so both are pinned: if the title is edited or the grep loses it, the owner's
+ * "the 4th player can't connect" regression would silently go back to the non-gating lane it was red
+ * in, unnoticed, from 2026-08-11 to S192.
+ */
+describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  it('e2e:lobby greps the nplayer late-4th-joiner describe, and e2e-lobby carries no continue-on-error', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    const m = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:lobby'] ?? '');
+    expect(m, 'could not parse --grep out of e2e:lobby').not.toBeNull();
+    const grep = new RegExp((m as RegExpExecArray)[1]);
+    const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
+    const titles = [...spec.matchAll(/test\.describe\('([^']+)'/g)].map((x) => x[1]!);
+    const lateJoiner = titles.filter((t) => t.includes('late 4th joiner'));
+    expect(lateJoiner, 'the S192 late-4th-joiner describe is missing from nplayer.spec.ts').toHaveLength(1);
+    expect(grep.test(lateJoiner[0]!), `e2e:lobby's grep does not select: ${lateJoiner[0]}`).toBe(true);
+    // The forced-staleness core of the test is still there (otherwise it is a coin flip again).
+    expect(spec).toContain('Date.now = () => real() + 60_000;');
+    expect(spec).toContain("peer ${i} has the full mesh (3 peers)");
+    const yml = norm(readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8'));
+    const start = yml.indexOf('\n  e2e-lobby:\n');
+    expect(start).toBeGreaterThan(-1);
+    const rest = yml.slice(start + 1);
+    // The job ends at the next 2-space-indented line — a job key OR the comment block above the next
+    // job (which talks about the quarantine lane's continue-on-error and must not be read as this one's).
+    const end = rest.search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
+    const block = end === -1 ? rest : rest.slice(0, end);
+    expect(block).toContain('run: npm run e2e:lobby');
+    expect(block.includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
   });
 });

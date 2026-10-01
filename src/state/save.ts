@@ -70,6 +70,7 @@ import { creatureMaxEhp } from './creatures/creature.ts';
 import { DRAFT_PICKS, type DraftPick } from './draft.ts';
 import { castleMaxHpFor, emptyCastleUpgrades, type CastleUpgrades } from './castleUpgrades.ts';
 import { raStrikesFromWire } from './racial/powerOfRaRules.ts';
+import { scorchedEarthFromWire } from './racial/scorchedEarthRules.ts'; // ⭐ S191 — a leaf
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
@@ -521,6 +522,13 @@ interface SerializedPlayer {
    */
   dynastyHpLost?: number;
   /**
+   * ⭐ S191 C-8 (owner R190-I) — the keep's heal counter (`Player.castleHealedHp`). Additive-optional,
+   * emitted only when > 0, so an unhealed keep is byte-identical to a pre-C-8 snapshot. PRESENTATIONAL
+   * (the `Creature.healedFifths` precedent): a joiner splits a hit from a heal with it; no sim reads it,
+   * so a stale peer that never sends it prints the old net number and nothing diverges.
+   */
+  castleHealedHp?: number;
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -555,6 +563,13 @@ interface SerializedPlayer {
    * at most three are kept, because it crosses a trust boundary.
    */
   raStrikes?: ReadonlyArray<{ readonly wave: number; readonly x: number; readonly y: number; readonly untilTick: number }>;
+  /**
+   * ⭐ S191 — SCORCHED EARTH (`demons.l0`'s aimed skill): this seat's cast, the wave and the seat whose
+   * zone burns. Additive-optional and emitted only once cast, so a board where nobody scorched stays
+   * byte-identical. Validated on the way in (`scorchedEarthFromWire`) because it crosses a trust
+   * boundary; a malformed record rehydrates as `null` (never cast).
+   */
+  scorchedEarth?: { readonly wave: number; readonly zoneSeat: number };
   /**
    * S72 P3 — carried potato id. Additive-optional; emitted only when set. Rehydrates
    * undefined (pre-S72-P3 byte-compat).
@@ -2041,6 +2056,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // seat's count toward its next Pharaoh on every snapshot apply and every host migration).
       // Coerced and floored because it crosses a trust boundary and feeds the spawn arithmetic.
       dynastyHpLost: Math.max(0, Math.trunc(Number(p.dynastyHpLost ?? 0)) || 0),
+      // ⭐ S191 C-8 — READ FROM THE WIRE (a literal 0 here would make every snapshot apply look like the
+      // counter fell, and the joiner would print every heal as part of a net). Coerced: trust boundary.
+      castleHealedHp: Math.max(0, Math.trunc(Number(p.castleHealedHp ?? 0)) || 0),
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2051,6 +2069,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // ⭐ S188 P6 — READ FROM THE WIRE, validated. Absent = never cast (every pre-S188 save). A
       // literal `null` here would forget every seat's cast on every client frame and let it cast twice.
       raStrikes: raStrikesFromWire(p.raStrikes),
+      // ⭐ S191 — READ FROM THE WIRE, validated. Absent = never cast. A literal `null` here would forget
+      // the cast on every client frame and re-light the square mid-fight.
+      scorchedEarth: scorchedEarthFromWire(p.scorchedEarth),
       // ⭐ S161 P2 — READ FROM THE WIRE, and note there is no `?? 0`: `undefined` is the MEANING
       // here ("this seat is still in the match"), not a missing value to be defaulted. Coercing it
       // to 0 would mark every living player as having been eliminated on tick zero.
@@ -2263,12 +2284,18 @@ function serializePlayer(p: Player): SerializedPlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
     // the perk held, so every other seat stays byte-identical to a v49 snapshot.
     ...(p.dynastyHpLost > 0 ? { dynastyHpLost: p.dynastyHpLost } : {}),
+    // ⭐ S191 C-8 — the keep's heal counter, emitted only once it has healed (byte-identity otherwise).
+    ...(p.castleHealedHp > 0 ? { castleHealedHp: p.castleHealedHp } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
     ...(p.raidProgress > 0 ? { raidProgress: p.raidProgress } : {}),
     // ⭐ S188 P6 — emitted only once the seat has called Ra. Copied, never aliased.
     ...(p.raStrikes.length > 0 ? { raStrikes: p.raStrikes.map((s) => ({ ...s })) } : {}),
+    // ⭐ S191 — SCORCHED EARTH, emitted only once cast. Copied, never aliased.
+    ...(p.scorchedEarth !== null
+      ? { scorchedEarth: { wave: p.scorchedEarth.wave, zoneSeat: p.scorchedEarth.zoneSeat as unknown as number } }
+      : {}),
     // S161 P2 — emit the elimination stamp only once a seat is actually out, so a live board stays
     // byte-identical to v39. `save.test.ts` asserts that byte-identity.
     ...(p.eliminatedAtTick !== undefined ? { eliminatedAtTick: p.eliminatedAtTick } : {}),

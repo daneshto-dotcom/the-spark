@@ -88,7 +88,7 @@ describe('S189 fix round — planConnectionFrame, frame by frame', () => {
     const lossAt = frames.find((f) => f.t >= 5_000)!.t;
     expect(frames.find((f) => f.t >= lossAt + RECONNECT_GRACE_MS + 1_000)!.plan.overlay.kind).toBe('migrating');
     const end = frames.find((f) => f.t >= lossAt + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS + 100)!.plan.overlay;
-    expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline' });
+    expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline', retrying: false, waitingForPeers: false });
   });
 
   /*
@@ -113,7 +113,7 @@ describe('S189 fix round — planConnectionFrame, frame by frame', () => {
     for (const f of between) expect(f.plan.overlay.kind, `frame at ${f.t} ms`).toBe('migrating');
     expect(frames.some((f) => f.plan.retry && f.t >= B)).toBe(false); // still never tears the mesh down
     const end = frames.find((f) => f.t >= B + RECONNECT_GRACE_MS + MIGRATION_EXTRA_MS + 100)!.plan.overlay;
-    expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline' });
+    expect(end).toEqual({ kind: 'terminal', cause: 'migrationDeadline', retrying: false, waitingForPeers: false });
   });
 
   it('NEGATIVE — a claim clock that started WITH the loss (or earlier) leaves the window exactly as it was', () => {
@@ -147,12 +147,15 @@ describe('S189 fix round — main.ts decides through these functions (mechanical
   });
 
   it('⛔ S191 WIRE-3 — BOTH sites count SEATED survivors: the claim input and migrationCase', () => {
-    expect(src.match(/seatedSurvivors\(/g)?.length, 'one call per site').toBe(2);
+    // S192 ROUND-2 — the migrationCase site now goes through `isMigrationCase` (which calls seatedSurvivors
+    // whenever a roster exists; migrationCaseRoster.test.ts pins both branches), so main.ts has ONE direct call.
+    expect(src.match(/seatedSurvivors\(/g)?.length, 'the claim input calls it directly').toBe(1);
     const step = src.indexOf('stepMigrationClaim(');
     expect(src.slice(step, step + 300)).toMatch(/seatedSurvivorIds: seatedSurvivors\(session\.lastRoster, alivePeers, trysteroSelfId, session\.hostPeerId\),/);
     const mc = src.indexOf('const migrationCase =');
     const expr = src.slice(mc, src.indexOf(';', mc));
-    expect(expr).toContain('seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0');
+    expect(expr).toContain('isMigrationCase({');
+    expect(expr).toContain('roster: session.lastRoster,');
     expect(expr, 'a stray must not keep migrationCase true').not.toContain('peerCount()');
   });
 
@@ -189,5 +192,50 @@ describe('S189 fix round (audit NET-5) — the overlay edge says what actually h
     expect(src).toContain('[net] terminal overlay dismissed');
     // The one-line stillInMatch input is the networked-PLAYING-with-a-transport test, not peer presence.
     expect(src).toMatch(/stillInMatch:\s*isNetworked\(world\)\s*&&\s*world\.gameState === 'PLAYING'\s*&&\s*session\.netTransport !== null/);
+  });
+});
+
+/*
+ * ⛔ S192 SEAM-1 (audit wf_0593f6fe-d53, MED) — THE TERMINAL OVERLAY SAID "return to title to retry" WHILE THE
+ * C4 LOOP KEPT RETRYING BEHIND IT FOR 180 s. A player who did what the screen said pressed Return to Title,
+ * which tears the session down and ends the retry — and 4 of 7 measured hard-blip recoveries landed AFTER the
+ * terminal overlay showed (21.0 / 29.1 / 29.2 / 30.7 s). The terminal plan now says whether this seat is still
+ * retrying (a client) or still waiting for its peers to come back (a host), and the overlay picks its line.
+ */
+describe('S192 SEAM-1 — the terminal plan says whether the loop is still working', () => {
+  const GIVE_UP_MS = 180_000;
+  it('⛔ a client past the grace: terminal, retrying=true until the give-up, then false', () => {
+    const frames = run({ toMs: 5_000 + GIVE_UP_MS + 2_000, lost: (t) => t >= 5_000 });
+    const lossAt = frames.find((f) => f.t >= 5_000)!.t;
+    const at = (d: number) => frames.find((f) => f.t >= lossAt + d)!.plan.overlay;
+    expect(at(RECONNECT_GRACE_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: true, waitingForPeers: false });
+    expect(at(GIVE_UP_MS - 100)).toMatchObject({ kind: 'terminal', retrying: true });
+    expect(at(GIVE_UP_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: false });
+    // The flag agrees with the loop: no retry fires once it says false.
+    expect(frames.some((f) => f.t >= lossAt + GIVE_UP_MS + 100 && f.plan.retry)).toBe(false);
+  });
+
+  it('⛔ a host: terminal, waitingForPeers=true until the give-up (its clients are still retrying), then false', () => {
+    const frames = run({ toMs: 5_000 + GIVE_UP_MS + 2_000, lost: (t) => t >= 5_000, isHost: true });
+    const lossAt = frames.find((f) => f.t >= 5_000)!.t;
+    const at = (d: number) => frames.find((f) => f.t >= lossAt + d)!.plan.overlay;
+    expect(at(RECONNECT_GRACE_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: true });
+    expect(at(GIVE_UP_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: false });
+  });
+
+  it('NEGATIVE — the migration deadline and a zombie-deposed seat are terminal with neither flag (nothing is retrying)', () => {
+    const frames = run({ toMs: 60_000, lost: (t) => t >= 5_000, migrationCase: () => true, peerCount: 2 });
+    expect(frames[frames.length - 1]!.plan.overlay).toEqual({ kind: 'terminal', cause: 'migrationDeadline', retrying: false, waitingForPeers: false });
+    const z = planConnectionFrame({
+      nowMs: 10_000, zombieDeposed: true, peersGone: true, isHost: false, hasRoomCode: false, migrationCase: false,
+      peerCount: 0, reconnectUntilMs: 0, nextRetryMs: 0, migrationExtraMs: MIGRATION_EXTRA_MS, claimClockSinceMs: 0,
+    });
+    expect(z.overlay).toEqual({ kind: 'terminal', cause: 'zombieDeposed', retrying: false, waitingForPeers: false });
+  });
+
+  it('main.ts hands the terminal plan to the overlay (not the old setReconnecting(false) path)', () => {
+    const src = readFileSync(new URL('../main.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    expect(src).toContain('lobbyScreen.setConnectionLostTerminal(overlay.retrying, overlay.waitingForPeers);');
+    expect(src).not.toContain('setConnectionLostReconnecting(false)');
   });
 });

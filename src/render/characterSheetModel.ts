@@ -73,7 +73,7 @@ import { creatureAttackFifths, creatureMaxEhp } from '../state/creatures/creatur
 import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts'; // S190 — a split chewer's share
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { RACE_COLORS, type RaceId } from '../state/races.ts';
-import { attackFifths, structurePoolFifths, unitPoolFifths } from '../state/stats.ts';
+import { attackFifths, unitPoolFifths } from '../state/stats.ts';
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId, Vec2 } from '../types.ts';
@@ -85,6 +85,7 @@ import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
+import { structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** What the sheet is pointed at. An id, NEVER an object — see the note on `characterSheetModel`. */
@@ -1297,9 +1298,14 @@ function structureSheet(
    * damage STRUCTURE-WIDE, so "what is left of this building" is the pool minus everything standing
    * on it. That is the same arithmetic the sim subtracts; there is no second scale here.
    */
-  const pool = structurePoolFifths(comp.bondIds.size);
-  let banked = 0;
-  for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
+  /*
+   * ⭐⭐ S191 C-7 (canon §9d item 3, rule 1) — *"the health bar on the tower sheet when you click on it
+   * has to follow the actual health of the tower."* A shape that belongs to a live tower reads that
+   * tower's OWN STAR — the pool the board bar and the damage art read (`structureHealthAt`); a freeform
+   * lattice reads its component, as it always did. The CONNECTORS row reads the same count.
+   */
+  const health = structureHealthAt(world, target.primitiveId)!;
+  const pool = health.max;
 
   const owner = prim.placedBy;
   const mine = owner === seat;
@@ -1321,7 +1327,7 @@ function structureSheet(
    * shipped config rather than restated.
    */
   const stats: SheetStatRow[] = [
-    { label: 'CONNECTORS', points: comp.bondIds.size, derived: `${pool} pool` },
+    { label: 'CONNECTORS', points: health.connectors, derived: `${pool} pool` },
     { label: 'SHAPES', points: comp.primitiveIds.size, derived: null },
   ];
   /*
@@ -1372,7 +1378,7 @@ function structureSheet(
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
     subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
     portrait: portraitForStructure(recipeId),
-    health: { cur: Math.max(0, pool - banked), max: pool, frozen },
+    health: { cur: health.cur, max: pool, frozen },
     stats,
     owned,
     actions,
