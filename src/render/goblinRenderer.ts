@@ -126,11 +126,13 @@ export const ENDGAME_MONSTER_TINT = 0xffffff;
 export const PANTS_SFX_MIN_GAP_MS = 220;
 
 /**
- * PURE — does this frame owe a pants sound? On a monster's FIRST sighting (it emerges) and on each
- * ENTRY into ATTACKING (its swing), derived from the synced state the renderer last saw.
+ * PURE — does this frame owe a pants sound? ⭐ S193 (owner): his mp3 is *the pants' ATTACK sound
+ * effect* — wired like Helga's slap, on each ENTRY into ATTACKING (its swing), derived from the synced
+ * state the renderer last saw. No longer on emergence: one pants every 45 ticks per lane would make the
+ * attack sound a constant drone with nothing being hit.
  */
 export function pantsSoundDue(prevState: string | undefined, state: string): boolean {
-  return prevState === undefined || (state === 'ATTACKING' && prevState !== 'ATTACKING');
+  return state === 'ATTACKING' && prevState !== 'ATTACKING';
 }
 
 /**
@@ -1147,7 +1149,7 @@ export class GoblinRenderer {
           ? ENDGAME_MONSTER_TINT // ⭐ S192 — no seat, no seat wash
           : owner?.color ?? PLAYER_COLORS[c.ownerPlayerId as unknown as number] ?? PLAYER_COLORS[0]!;
       if (c.type === 'endgameMonster' || c.type === 'megaPants') {
-        // ⭐ S192 — his sound, on emergence and on the swing; one at a time board-wide.
+        // ⭐ S192 — his ATTACK sound (S193), on the swing like Helga's slap; one at a time board-wide.
         const due = pantsSoundDue(this.pantsState.get(c.id), c.state);
         this.pantsState.set(c.id, c.state);
         const nowMs = performance.now();

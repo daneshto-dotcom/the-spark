@@ -599,3 +599,25 @@ describe('S193 merge — the lock against master\'s gates', () => {
     expect(w.diagnostics.rejectReasons.endgameBuildLocked).toBe(locked0 + 1);
   });
 });
+
+describe('S193 — the clock readout tells the truth', () => {
+  it('a wave-30 fight counts its 60 s normally, and says PANTS STILL COMING only once the deadline is held', async () => {
+    const { isClockFrozenForDisplay } = await import('./endgame.ts');
+    const world = board(2);
+    toFightEdge(world, 30);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    expect(isMonsterFightHeld(world)).toBe(true);
+    expect(isClockFrozenForDisplay(world), 'early in the fight the 60 s count is true').toBe(false);
+    world.phaseEndsAtTick = world.tick + 1;
+    runHostTick(world, d, st);
+    expect(isClockFrozenForDisplay(world)).toBe(true);
+    expect(formatHeldClock(30)).toBe('WAVE 30   FIGHT  PANTS STILL COMING');
+    const fin = board(2);
+    toFightEdge(fin, 31);
+    runHostTick(fin, deps(), makeHostTickState(fin));
+    expect(isClockFrozenForDisplay(fin), 'the final fight has no clock from its first tick').toBe(true);
+  });
+});

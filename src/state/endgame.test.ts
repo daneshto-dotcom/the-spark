@@ -466,8 +466,9 @@ describe('S192 — the art, the sound and the HUD cue', () => {
     expect(existsSync(join(process.cwd(), 'public', 'audio', 'endgame', 'pants-attack.ogg'))).toBe(true);
   });
 
-  it('the sound is owed on emergence and on each swing, never on every frame', () => {
-    expect(pantsSoundDue(undefined, 'SPAWNING')).toBe(true);
+  it('⭐ S193 (his): the sound is the ATTACK — owed on each swing, never on emergence nor every frame', () => {
+    expect(pantsSoundDue(undefined, 'SPAWNING')).toBe(false);
+    expect(pantsSoundDue(undefined, 'ATTACKING')).toBe(true);
     expect(pantsSoundDue('SEEKING', 'ATTACKING')).toBe(true);
     expect(pantsSoundDue('ATTACKING', 'ATTACKING')).toBe(false);
     expect(pantsSoundDue('SPAWNING', 'SEEKING')).toBe(false);

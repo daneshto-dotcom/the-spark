@@ -20,7 +20,7 @@ import {
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { isBuildLocked, isMonsterFightHeld, isMonsterWave, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
+import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
 import { MEGA_PANTS_AFTER_TICKS, MONSTER_FINAL_WAVE } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
@@ -1074,7 +1074,7 @@ export class HUD {
     }
     const cue = formatEndgameCue(world.matchPhase, world.waveNumber, monstersLeftToComeOut(world)); // ⭐ S192/S193
     this.phaseBannerText.text =
-      (isMonsterFightHeld(world)
+      (isClockFrozenForDisplay(world)
         ? formatHeldClock(world.waveNumber) // ⭐ S193 — a held deadline would read a frozen 0:10
         : formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick, world.waveNumber)) +
       (cue === '' ? '' : `   ${cue}`);

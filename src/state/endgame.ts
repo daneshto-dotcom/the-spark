@@ -22,6 +22,7 @@ import {
   BUILD_LOCK_FROM_WAVE,
   MEGA_PANTS_AFTER_TICKS,
   MONSTER_EMERGE_TICKS,
+  MONSTER_HOLD_LEAD_TICKS,
   MONSTER_FINAL_WAVE,
   MONSTER_FIRST_WAVE,
   MONSTER_WAVE_PER_SEAT,
@@ -90,6 +91,17 @@ export function isMonsterFightHeld(world: World): boolean {
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return false;
   if (world.waveNumber === MONSTER_FINAL_WAVE && livingSeats(world).length >= 2) return true;
   return monstersLeftToComeOut(world) > 0;
+}
+
+/**
+ * ⭐ S193 — IS THE CLOCK READOUT LYING RIGHT NOW? The HUD's question, not the host's: the final fight
+ * with two seats alive has no clock at all (his); a held wave 27–30 fight only stops counting once its
+ * deadline has been pushed (the last `MONSTER_HOLD_LEAD_TICKS`) — before that the 60 s count is true.
+ */
+export function isClockFrozenForDisplay(world: World): boolean {
+  if (!isMonsterFightHeld(world)) return false;
+  if (world.waveNumber === MONSTER_FINAL_WAVE && livingSeats(world).length >= 2) return true;
+  return world.phaseEndsAtTick - world.tick <= MONSTER_HOLD_LEAD_TICKS;
 }
 
 /**
