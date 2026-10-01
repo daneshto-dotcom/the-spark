@@ -11,8 +11,8 @@ import {
   Spawner,
 } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
-import { phaseDurationTicks, winScoreForWave } from '../constants.ts';
-import { asPlayerId, asPrimitiveId, asSpawnerId, type CreatureId, type PlayerId } from '../types.ts';
+import { PRIMITIVE_MAX_HP, SparkType, phaseDurationTicks, winScoreForWave } from '../constants.ts';
+import { asBondId, asPlayerId, asPrimitiveId, asSpawnerId, type CreatureId, type PlayerId } from '../types.ts';
 import { damageConnector, damageEntity, type DamageAttacker } from './damage.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
@@ -20,6 +20,9 @@ import { castleAnchor } from './gatherers/gatherer.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { recordUnitBuilt } from './matchStats.ts';
 import { mulberry32 } from './rng.ts';
+import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
+import type { Primitive } from '../game/primitive.ts';
+import './godlyRecipes/registerAll.ts';
 import { applyNetSnapshot, netSnapshot } from './save.ts';
 import { determinismParts } from './stateHashFull.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -207,7 +210,10 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     const helga = [...w.defenders.values()].find((d) => d.kind === 'princess')!;
     expect(stats(w, P1)?.towersBuilt ?? 0).toBe(0);
     damageEntity(w, { kind: 'defender', id: helga.id }, 10_000, 'creature', { kind: 'seat', seat: P0 });
-    expect(w.defenders.has(helga.id), 'fixture: she died').toBe(false);
+    // ⭐ S192 (merge with weld, R190-J) — she goes DORMANT, her record is KEPT for the edge revive.
+    expect(w.defenders.get(helga.id)?.state, 'fixture: she died').toBe('DORMANT');
+    expect(w.defenders.get(helga.id)?.ehp).toBeNull();
+    expect(stats(w, P1)?.towersBuilt ?? 0).toBe(0);
     expect(stats(w, P1)!.towersFell).toBe(0);
     expect(stats(w, P0)!.dealtFifths, 'her pool, as applied').toBeGreaterThan(0);
   });
@@ -221,5 +227,69 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
       return determinismParts(w).filter((p) => !/^m[sh]\d+:/.test(p));
     };
     expect(run({ kind: 'seat', seat: P0 })).toEqual(run(null));
+  });
+});
+
+describe('⭐ S192 — the DORMANT Helga (weld R190-J) through the REAL matcher and phase edges', () => {
+  function mk(w: World, type: SparkType, x: number, y: number): Primitive {
+    const player = w.players.get(P0)!;
+    const id = asPrimitiveId(w.nextPrimitiveId++);
+    const prim: Primitive = {
+      id, type, placerColor: player.color, placedBy: P0, createdTick: w.tick,
+      pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: player.color,
+      lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+    };
+    w.primitives.set(id, prim);
+    return prim;
+  }
+  function bond(w: World, a: Primitive, b: Primitive): void {
+    const bid = asBondId(w.nextBondId++);
+    w.bonds.set(bid, { id: bid, aId: a.id, bId: b.id, a, b, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick });
+    a.bonds.add(bid);
+    b.bonds.add(bid);
+  }
+  function tick(w: World, st: ReturnType<typeof makeHostTickState>, n: number): void {
+    const d = hostDeps();
+    const cursor = { lastMatcherTick: -1 };
+    for (let i = 0; i < n; i++) {
+      runGodlyMatcherCore(w, cursor);
+      runHostTick(w, d, st);
+      w.effects.length = 0;
+    }
+  }
+  function crossPhase(w: World, st: ReturnType<typeof makeHostTickState>): void {
+    const from = w.matchPhase;
+    w.phaseEndsAtTick = w.tick + 1;
+    tick(w, st, 3);
+    expect(w.matchPhase, `the phase must flip from ${from}`).not.toBe(from);
+  }
+
+  it('killed by a seat, revived by the edge: never a tower built, never a tower fell, never a unit kill', () => {
+    const w = makeWorld(0x5192);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'BUILD';
+    w.creatures.clear();
+    const st = makeHostTickState(w);
+    // Her hall (the weldDormantSeamsS191 fixture): Triangle hub + alternating Spiral/Circle leaves.
+    const hub = mk(w, SparkType.Triangle, 500, 300);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      bond(w, hub, mk(w, i % 2 === 0 ? SparkType.Spiral : SparkType.Circle, 500 + Math.cos(a) * 40, 300 + Math.sin(a) * 40));
+    }
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: 500, y: 300 }, bondCount: 6 });
+    tick(w, st, 2);
+    const helga = () => [...w.defenders.values()].find((d) => d.kind === 'princess');
+    expect(helga(), 'fixture: her hall ignites').toBeDefined();
+    crossPhase(w, st); // → FIGHT
+    const h = helga()!;
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', { kind: 'seat', seat: P1 })).toBe(true);
+    expect(helga()?.state).toBe('DORMANT');
+    expect(stats(w, P1)!.dealtFifths, 'the damage she took is credited').toBeGreaterThan(0);
+    crossPhase(w, st); // → BUILD: the edge revives her
+    expect(helga()?.state, 'her hall stood, so the edge revives her').toBe('IDLE');
+    expect(stats(w, P0)?.towersBuilt ?? 0, 'neither the summon nor the revive is a tower').toBe(0);
+    expect(stats(w, P0)?.towersFell ?? 0, 'her death is not a tower fall').toBe(0);
+    expect([...(stats(w, P1)?.kills.values() ?? [])].reduce((a, b) => a + b, 0), 'nor a unit kill').toBe(0);
   });
 });

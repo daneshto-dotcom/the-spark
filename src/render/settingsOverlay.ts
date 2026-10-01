@@ -36,6 +36,21 @@ import {
 } from './audioManager.ts';
 import { isZoneBackgroundEnabled, setZoneBackgroundEnabled } from './displayPrefs.ts';
 
+/**
+ * ⭐ S189 fix round (audit NET-3) — the settings panel's Escape: close it. Used by BOTH of its Escape
+ * listeners (the panel root and the document), which run before `main.ts`'s window-level double-Escape
+ * "leave the match" handler — so the press must be marked consumed.
+ */
+export function closeSettingsOnEscape(
+  e: { key: string; preventDefault?: () => void },
+  hide: () => void,
+): boolean {
+  if (e.key !== 'Escape') return false;
+  hide();
+  if (typeof e.preventDefault === 'function') e.preventDefault(); // consumed: not a leave press
+  return true;
+}
+
 export interface SettingsOverlayHandle {
   show(): void;
   hide(): void;
@@ -171,10 +186,7 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   // Stop keydown propagation inside the overlay (PRIME-AUDIT #3): typing
   // into a focused slider should not trigger the canvas 'M' mute handler.
   root.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      hide();
-      return;
-    }
+    if (closeSettingsOnEscape(e, hide)) return;
     e.stopPropagation();
   });
 
@@ -200,9 +212,7 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
       }
     };
     escHandler = (e) => {
-      if (e.key === 'Escape') {
-        hide();
-      }
+      closeSettingsOnEscape(e, hide);
     };
     // mousedown not click — click can fire after the open-trigger's tap, and
     // would immediately re-close. mousedown is more reliable here.

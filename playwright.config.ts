@@ -167,7 +167,17 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `npm run dev -- --port ${E2E_PORT} --host`,
+    /*
+     * ⛔ S189 — `--strictPort`, BECAUSE `vite.config.ts` SAYS `strictPort: false` AND THAT DRIFTS.
+     * A socket still bound on E2E_PORT that does not answer HTTP (a hung or half-dead orphan vite)
+     * is not reusable, so Playwright starts a new server — which, without this flag, prints
+     * "Port P is in use, trying another one..." and binds P+1, while Playwright polls `url` on P
+     * for the full `timeout` and then fails with nothing naming the cause. Measured S189: with the
+     * flag vite exits 1 in ~0.9 s with "Port P is already in use". The CLI flag overrides the
+     * config (the config value stays for `npm run dev`, where drifting is a convenience).
+     * `src/ci.e2ePort.test.ts` spawns the real vite with this exact argument list to prove it.
+     */
+    command: `npm run dev -- --port ${E2E_PORT} --strictPort --host`,
     url: `${E2E_ORIGIN}/?debug=1`,
     // Safe now that the port is this worktree's alone — see `e2ePort`.
     reuseExistingServer: !process.env.CI,

@@ -38,6 +38,8 @@ import type { Bond } from '../physics/bonds.ts';
 import { asBondId, asPrimitiveId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { isNetworked, requirePlayer, type World } from './world.ts';
 import { canBuildNow } from './buildLegality.ts';
+// S189 C2 — which spawners still need the S107 P4 lock (only those a weld would kill).
+import { towerShapeFor } from './towerMembers.ts';
 import { detectComboDiscoveries } from './comboDiscovery.ts';
 
 /** Action payload for PLACE_PRIMITIVE — exported so world.ts can compose GameAction. */
@@ -677,6 +679,27 @@ export function collectHostMergeCandidates(
 export function collectSpawnerLockedPrimitiveIds(world: World): ReadonlySet<PrimitiveId> {
   const locked = new Set<PrimitiveId>();
   for (const sp of world.creatureSpawners.values()) {
+    /*
+     * ⭐⭐ S189 C2 — ONLY A TOWER THAT A WELD WOULD KILL IS LOCKED.
+     *
+     * This lock existed because a weld dissolved the tower: survival was EXACT, so an auto-bond that
+     * raised a node's degree tore the spawner down on the next poll. S189 made survival "the recipe
+     * is still CONTAINED" (`state/towerMembers.ts`) — and for such a tower the lock is not a
+     * protection any more, it is a REFUSAL: a joiner's drop (host re-pick) could never bond onto a
+     * live spawner at all, and nobody's drop could merge into one, so the owner's own R185-B play —
+     * *"a bat tower … welding it through many connectors to another bat tower … a lot harder to
+     * destroy"* — was impossible for exactly the towers he named.
+     *
+     * So a spawner whose recipe has a CONTAINS survival shape is skipped here. What is left locked is
+     * any spawner still on an exact survival rule (`towerShapeFor` → `null`), which keeps the
+     * original protection exactly where it is still load-bearing.
+     *
+     * ⚠ S189 C2 item 2 — SINCE THE RACE RINGS MOVED ONTO CONTAINS, NO SHIPPED SPAWNER RECIPE IS
+     * LOCKED: the set this builds is empty on every real board. The rule is kept rather than the
+     * lock deleted so a future recipe that opts out of contains-survival is protected again for
+     * free — `towerShapeFor` is exhaustive over `GodlyId`, so that opt-out has to be written down.
+     */
+    if (towerShapeFor(sp.recipeId) !== null) continue;
     const anchor = world.primitives.get(sp.anchorPrimitiveId);
     if (anchor === undefined) continue;
     for (const id of componentOf(anchor, world.primitives, world.bonds).primitiveIds) {

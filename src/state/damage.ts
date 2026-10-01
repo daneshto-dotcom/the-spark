@@ -404,8 +404,23 @@ export function damageEntity(
        * and killing her changes no topology.
        */
       // ⭐ S191 — NOT a tower fall on the stat board: this arm is only ever HELGA (the one defender with a pool),
-      // a unit her hall re-summons next BUILD — the register site in `defenderLifecycle.ts` skips her too.
-      world.defenders.delete(target.id);
+      // a unit her hall re-summons. Her record goes DORMANT below (R190-J) and `reviveDormantHelgas` wakes it at
+      // the next phase edge; the register site in `defenderLifecycle.ts` skips her, so the revive is never a
+      // tower built either. Only the damage she took is on the board (`recordDamage` above); her fall is not a kill.
+      /*
+       * ⭐⭐ S189 C2 / R190-J — SHE GOES DORMANT, SHE IS NOT DELETED. *"Every fight she should come
+       * back as long as the tower is still up."* Her record keeps the hall's identity; `hostTick`
+       * revives her at the FIGHT→BUILD edge if its own members still stand, or removes the record
+       * there if the hall fell. `ehp = null` is what takes her out of every unit-facing path at once
+       * (targeting, raids, damage, her bar, her sheet), exactly as a pool-less tower is.
+       */
+      d.state = 'DORMANT';
+      d.ticksInState = 0;
+      d.ehp = null;
+      d.targetCreatureId = null;
+      d.lastStrikePos = null;
+      d.walkTargetPos = null;
+      d.prevPos = { x: d.pos.x, y: d.pos.y };
       return true;
     }
 

@@ -272,7 +272,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // The auto-begin check also covers a peer LEAVING (if the leaver was the
       // last unready player, the remaining all-ready ≥2 start) — idempotent +
       // LOBBY-gated in main.ts.
-      broadcastQmPresence(deps.session, transport, deps.onPresence);
+      broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
       maybeQmAutoBegin(deps.session, deps.onAutoBegin);
     });
     transport.on((msg, peerId) => {
@@ -389,7 +389,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // outside a quickmatch room (friends lobbies keep the manual Begin).
       if (msg.kind === 'LOBBY_READY' && deps.session.quickmatch) {
         deps.session.qmReadyPeers.set(peerId, msg.ready);
-        broadcastQmPresence(deps.session, transport, deps.onPresence);
+        broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
         maybeQmAutoBegin(deps.session, deps.onAutoBegin);
       }
       /*
@@ -409,7 +409,7 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         if (raceIsFree(deps.session, msg.raceId, peerId)) {
           deps.session.raceByPeer.set(peerId, msg.raceId);
         }
-        broadcastQmPresence(deps.session, transport, deps.onPresence);
+        broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
       }
       // S22 P3 — clients never send GODLY_TRIGGER (host-only authority,
       // Battle Ledger row 9). Defensive: drop GODLY_TRIGGER from clients silently.
@@ -468,6 +468,20 @@ export function raceIsFree(session: NetSession, raceId: RaceId, claimant: string
   return true;
 }
 
+/**
+ * ⭐ S191 (NETFR-1/2) — THE PER-MATCH ID, minted at Begin: `selfId` (Trystero's per-page-load peer id,
+ * already the host's seat-0 identity in every roster) + `.` + a counter of Begins on THIS page load. A
+ * room code is fixed per page load and a HostSync restarts per host start, so neither can tell this
+ * host's next match from the last one; this can. ⛔ Not `Math.random`, not a wall clock — nothing about
+ * it needs to be unguessable (it is compared, never trusted for authority: the host latch and the
+ * crypto attest still gate every host-authored message), only distinct per match.
+ */
+let matchesBegunThisPageLoad = 0;
+export function mintMatchId(): string {
+  matchesBegunThisPageLoad++;
+  return `${selfId}.${matchesBegunThisPageLoad}`;
+}
+
 export interface BeginMatchDeps {
   session: NetSession;
   world: World;
@@ -486,7 +500,12 @@ export function createBeginMatchHandler(deps: BeginMatchDeps): () => void {
 }
 
 async function beginMatch(deps: BeginMatchDeps): Promise<void> {
-  {
+  // ⛔ S191 FIX-1 (audit WIRE-1) — ONE Begin at a time. Two inside the `await signWarrant` window each
+  // minted an id: #1 sent `.1` to the clients, #2 left the host holding `.2`, and every later rejoin of
+  // that live match was held as 'new-match'. Synchronous, before the first await (see `beginInFlight`).
+  if (deps.session.beginInFlight) return;
+  deps.session.beginInFlight = true;
+  try {
     // Host triggers START_GAME. The first snapshot will carry gameState=
     // 'PLAYING' to the clients. S39 P1: also broadcast a dedicated
     // START_GAME_SIGNAL envelope BEFORE the local dispatch so peers' lobby-exit
@@ -536,6 +555,9 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // authority (never its own successor) and is excluded. Unproven seats are OMITTED (mixed-build
     // tolerance — GEMINI FIX 2: strictly less harm than excluding them from the match). No proven peer
     // → no warrant (nothing to authorize; the additive field is simply absent, Begin unchanged).
+    // ⭐ S191 — this match's id, minted and stored BEFORE the await (FIX-1), so the signal below and the
+    // first snapshot both read the one stored value (see mintMatchId).
+    deps.session.matchId = mintMatchId();
     deps.session.warrant = null;
     const warrantSeats: WarrantSeat[] = [];
     for (const e of roster) {
@@ -563,6 +585,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         );
       }
     }
+    const matchId = deps.session.matchId;
     if (transport !== null) {
       // S82 P4(a) — Begin carries the attestation too: a client whose HELLO was lost
       // can still verify + latch from the buffered Begin signal itself.
@@ -576,6 +599,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
         roster,
         ...(attest !== null ? { hostAttest: attest } : {}),
         ...(warrant !== null ? { warrant } : {}),
+        ...(matchId !== null ? { matchId } : {}),
       });
     }
     dispatch(deps.world, {
@@ -587,5 +611,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       // clientHandlers the single likeliest place for the whole feature to half-land.
       roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId })),
     });
+  } finally {
+    deps.session.beginInFlight = false;
   }
 }

@@ -60,10 +60,10 @@ import {
 import type { CreatureType } from '../state/creatures/creature.ts';
 // ⭐ S178 — for `towerRingCentroid` / `towerAnchorAtPoint`; see the block at the end of this file.
 import type { World } from '../state/world.ts';
-import { RACE_FEED_SHAPE } from '../state/races.ts';
-import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
-import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
+// S189 C2 — the ring a live race tower was BUILT with comes from the sim's own walk.
+import { RACE_TOWER_IDS } from '../state/raceTowerIds.ts';
+import { T9_TOWER_IDS } from '../state/t9BossIds.ts';
+import { towerMembersAt } from '../state/towerMembers.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 
 /** The three conditions a tower can be drawn in. Atlas ROW ORDER — see `TOWER_STATE_ROWS`. */
@@ -402,8 +402,11 @@ export function destroyAtlasBase(race: RaceId, tier: 3 | 9): string {
 export function towerRingCentroid(
   world: World, anchorId: PrimitiveId, art: TowerArt,
 ): { x: number; y: number } | null {
-  const n = art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE;
-  const ring = ringMembersAt(world, anchorId, RACE_FEED_SHAPE[art.race], n);
+  // ⭐ S189 C2 — the ring it was BUILT with (the sim's survival walk, `towerMembersAt`): a welded
+  // tower stands now and is centred on its own ring; a broken one reads null, as before.
+  const recipeId = art.tier === 9 ? T9_TOWER_IDS[art.race] : RACE_TOWER_IDS[art.race];
+  const own = towerMembersAt(world, recipeId, anchorId);
+  const ring = own !== null && own.whole ? own.prims : null;
   if (ring === null) return null;
   let cx = 0;
   let cy = 0;

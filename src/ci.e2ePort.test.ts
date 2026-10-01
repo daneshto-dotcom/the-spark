@@ -22,6 +22,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createServer, type Server } from 'node:net';
+import ts from 'typescript';
 
 const CONFIG = 'playwright.config.ts';
 const raw = readFileSync(CONFIG, 'utf-8');
@@ -59,7 +62,7 @@ describe('S182 — the e2e dev server may not sit on a shared, fixed port', () =
     expect(code).toContain('const E2E_ORIGIN = `http://localhost:${E2E_PORT}`');
     // ⛔ BOTH SITES, or Playwright serves on one port and navigates to another.
     expect(code).toContain('baseURL: E2E_ORIGIN');
-    expect(code).toContain('command: `npm run dev -- --port ${E2E_PORT} --host`');
+    expect(code).toContain('command: `npm run dev -- --port ${E2E_PORT} --strictPort --host`');
     expect(code).toContain('url: `${E2E_ORIGIN}/?debug=1`');
   });
 
@@ -102,4 +105,225 @@ describe('S182 — the e2e dev server may not sit on a shared, fixed port', () =
     expect(code).toContain('0x01000193');
     expect(code).toContain('20000 + (h % 20000)');
   });
+});
+
+/**
+ * ⛔ S189 — **AN OCCUPIED E2E PORT MUST FAIL FAST, NOT DRIFT TO +1 WHILE PLAYWRIGHT POLLS THE OLD ONE.**
+ *
+ * `vite.config.ts` sets `strictPort: false`. A socket still bound on the worktree's port that does
+ * not answer HTTP (a hung orphan vite) is not reusable, so Playwright launches a fresh server; that
+ * server printed "Port P is in use, trying another one...", bound P+1, and Playwright polled P for
+ * the whole 60 s `timeout` and failed naming nothing. `--strictPort` on the webServer command makes
+ * vite exit 1 at once instead.
+ *
+ * ⭐ THIS IS A REACH TEST, NOT A SOURCE-TEXT ONE. It lifts the argument list out of the config's own
+ * `command:` line and runs the REAL vite with the REAL `vite.config.ts` against a port that is
+ * genuinely held — so it proves the flag is present AND that it beats the config's `strictPort:
+ * false` (a CLI flag the config silently overrode would pass a `toContain` and fail here).
+ * The occupant listens with NO host argument — the same default (`::`, dual-stack where available)
+ * vite's `--host` binds — because a `0.0.0.0` occupant does not block a `::` bind on Windows
+ * (measured S189: vite started happily on the "occupied" port).
+ */
+/**
+ * ⭐ S189 fix round (audit NET-6) — OPT-IN: `SPARK_SPAWN_VITE=1 npx vitest run src/ci.e2ePort.test.ts`.
+ * The two cases that start REAL vite dev servers never run in the default suite, which gates the
+ * live deploy. The source-level assertions around them always run.
+ */
+const SPAWN_VITE = process.env.SPARK_SPAWN_VITE === '1';
+
+describe('S189 — the e2e webServer fails fast on an occupied port', () => {
+  const m = code.match(/command: `npm run dev -- ([^`]*)`/);
+
+  /** The webServer's vite arguments, exactly as the config writes them, with the port filled in. */
+  function viteArgs(port: number, dropStrict = false): string[] {
+    expect(m, 'webServer.command must stay `npm run dev -- <vite args>`').not.toBeNull();
+    const args = m![1]!.replace('${E2E_PORT}', String(port)).split(/\s+/).filter(Boolean);
+    return dropStrict ? args.filter((a) => a !== '--strictPort') : args;
+  }
+
+  function occupy(): Promise<{ srv: Server; port: number }> {
+    return new Promise((resolve, reject) => {
+      const srv = createServer(() => {});
+      srv.once('error', reject);
+      srv.listen(0, () => {
+        const a = srv.address();
+        if (a && typeof a === 'object') resolve({ srv, port: a.port });
+        else reject(new Error('no port'));
+      });
+    });
+  }
+
+  /** Runs vite until it exits, or until `stopWhen` matches its output (then kills it). */
+  function runVite(
+    args: string[],
+    stopWhen: RegExp | null,
+    limitMs: number,
+  ): Promise<{ code: number | null; out: string; ms: number; killed: boolean }> {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      // node + vite's bin directly: `npm run` would put a shell between us and the process we kill.
+      // BROWSER=none: the config has `open: true`, and a test must not open a browser tab.
+      const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', ...args], {
+        env: { ...process.env, BROWSER: 'none' },
+      });
+      let out = '';
+      let killed = false;
+      const onData = (d: Buffer): void => {
+        out += d.toString();
+        if (stopWhen && stopWhen.test(out) && !killed) {
+          killed = true;
+          child.kill();
+        }
+      };
+      child.stdout.on('data', onData);
+      child.stderr.on('data', onData);
+      const timer = setTimeout(() => {
+        killed = true;
+        child.kill();
+      }, limitMs);
+      child.on('exit', (code) => {
+        clearTimeout(timer);
+        resolve({ code, out, ms: Date.now() - t0, killed });
+      });
+    });
+  }
+
+  it('⛔ (audit NET-6) the default unit suite never spawns vite — the two spawning cases are opt-in', () => {
+    // The unit suite gates the live deploy (`deploy.yml` runs `npx vitest run`). A test that starts real
+    // dev servers there is slow, port-hungry and can hang a deploy on a busy runner, so the two REACH
+    // cases below run only with SPARK_SPAWN_VITE=1 — and no workflow sets it.
+    /*
+     * ⭐ S191 (audit NETFR-4) — MECHANICAL, not a count. The first cut asserted "exactly two
+     * `it.runIf(SPAWN_VITE)(`", which a THIRD, ungated `runVite(` case passes. This parses the file with
+     * the TypeScript compiler and requires, for EVERY `runVite(` call site, that the nearest enclosing
+     * test case is `it.runIf(SPAWN_VITE)`; that `spawn(` is called nowhere but inside `runVite`; and that
+     * `runVite` is never referenced except as the callee of a call (no alias can smuggle it out).
+     */
+    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
+    const sf = ts.createSourceFile('ci.e2ePort.test.ts', self, ts.ScriptTarget.Latest, true);
+    const lineOf = (n: ts.Node): number => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+    /** The callee text of the nearest enclosing `it…(title, fn)` call, or null outside any test case. */
+    const enclosingCase = (n: ts.Node): string | null => {
+      for (let p = n.parent; p !== undefined; p = p.parent) {
+        if (ts.isCallExpression(p) && /^it\b/.test(p.expression.getText(sf))) return p.expression.getText(sf);
+      }
+      return null;
+    };
+    const insideRunVite = (n: ts.Node): boolean => {
+      for (let p = n.parent; p !== undefined; p = p.parent) {
+        if (ts.isFunctionDeclaration(p) && p.name?.text === 'runVite') return true;
+      }
+      return false;
+    };
+    const runViteCalls: Array<{ line: number; gate: string | null }> = [];
+    const strayRefs: number[] = [];
+    const straySpawns: number[] = [];
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === 'runVite') {
+        const par = n.parent;
+        const isDecl = ts.isFunctionDeclaration(par) && par.name === n;
+        const isCallee = ts.isCallExpression(par) && par.expression === n;
+        if (isCallee) runViteCalls.push({ line: lineOf(n), gate: enclosingCase(par) });
+        else if (!isDecl) strayRefs.push(lineOf(n));
+      }
+      if (ts.isCallExpression(n) && n.expression.getText(sf) === 'spawn' && !insideRunVite(n)) straySpawns.push(lineOf(n));
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    expect(runViteCalls.length, 'the walk must find the REACH cases it guards').toBeGreaterThanOrEqual(2);
+    for (const c of runViteCalls) {
+      expect(c.gate, `runVite( at line ${c.line} must sit inside an it.runIf(SPAWN_VITE) case`).toBe('it.runIf(SPAWN_VITE)');
+    }
+    expect(strayRefs, 'runVite referenced other than as a call (an alias escapes the gate)').toEqual([]);
+    expect(straySpawns, 'spawn( outside runVite').toEqual([]);
+    for (const wf of ['.github/workflows/deploy.yml', '.github/workflows/e2e.yml']) {
+      expect(readFileSync(wf, 'utf-8'), wf).not.toContain('SPARK_SPAWN_VITE');
+    }
+  });
+
+  it('⛔ (S191 FIX-4) SPAWN_VITE is OFF by default — one module-scope const, read from the env, never written', () => {
+    /*
+     * The gate above proves every spawn sits behind `it.runIf(SPAWN_VITE)`; this proves `SPAWN_VITE` itself
+     * is false in the default suite. Exactly ONE binding of the name anywhere in the file (an inner shadow
+     * would re-gate some cases on another value), at module scope, `const`, initialised to exactly
+     * `process.env.SPARK_SPAWN_VITE === '1'`; `process.env.SPARK_SPAWN_VITE` read nowhere else; nothing in
+     * the file assigns to `process.env`; and the variable's name appears as a string only in the workflow
+     * check below (`vi.stubEnv('SPARK_SPAWN_VITE', …)` or `process.env['SPARK_SPAWN_VITE']` would not).
+     */
+    const ENV_NAME = 'SPARK_' + 'SPAWN_VITE'; // split, so this test is not itself a stray string
+    const self = readFileSync('src/ci.e2ePort.test.ts', 'utf-8');
+    const sf = ts.createSourceFile('ci.e2ePort.test.ts', self, ts.ScriptTarget.Latest, true);
+    const bindings: ts.Node[] = [];
+    const envReads: ts.Node[] = [];
+    const envWrites: string[] = [];
+    const strayNameStrings: string[] = [];
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === 'SPAWN_VITE') {
+        const par = n.parent;
+        const declares =
+          ((ts.isVariableDeclaration(par) || ts.isParameter(par) || ts.isBindingElement(par)) && par.name === n) ||
+          ((ts.isFunctionDeclaration(par) || ts.isClassDeclaration(par)) && par.name === n);
+        if (declares) bindings.push(par);
+      }
+      if (ts.isPropertyAccessExpression(n) && n.getText(sf) === 'process.env.SPARK_SPAWN_VITE') envReads.push(n);
+      if (
+        ts.isBinaryExpression(n) &&
+        n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+        n.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+        /^process\.env\b/.test(n.left.getText(sf))
+      ) {
+        envWrites.push(n.getText(sf));
+      }
+      if (ts.isStringLiteral(n) && n.text === ENV_NAME) {
+        const call = n.parent;
+        const inWorkflowCheck = ts.isCallExpression(call) && call.expression.getText(sf).endsWith('.toContain');
+        if (!inWorkflowCheck) strayNameStrings.push(call.getText(sf));
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+    expect(bindings.length, 'exactly one binding named SPAWN_VITE (no shadow)').toBe(1);
+    const decl = bindings[0]!;
+    expect(ts.isVariableDeclaration(decl)).toBe(true);
+    const list = decl.parent as ts.VariableDeclarationList;
+    expect(list.flags & ts.NodeFlags.Const, 'a const').toBeTruthy();
+    expect(ts.isSourceFile(list.parent.parent), 'at module scope').toBe(true);
+    expect((decl as ts.VariableDeclaration).initializer?.getText(sf)).toBe("process.env.SPARK_SPAWN_VITE === '1'");
+    expect(envReads, 'the env var is read in that one initialiser only').toHaveLength(1);
+    expect(envWrites, 'nothing in this file writes process.env').toEqual([]);
+    expect(strayNameStrings, 'the env name as a string outside the workflow check').toEqual([]);
+  });
+
+  it('the webServer command carries --strictPort (and still binds every interface)', () => {
+    const args = viteArgs(1);
+    expect(args).toContain('--strictPort');
+    expect(args).toContain('--host');
+    expect(args.slice(0, 2)).toEqual(['--port', '1']);
+  });
+
+  it.runIf(SPAWN_VITE)('⭐ REACH: the real vite, with the config\'s own arguments, EXITS 1 on a held port', async () => {
+    const { srv, port } = await occupy();
+    try {
+      const r = await runVite(viteArgs(port), null, 25_000);
+      expect(r.killed, `vite was still running after 25 s — it drifted instead of failing:\n${r.out}`).toBe(false);
+      expect(r.code).toBe(1);
+      expect(r.out).toContain(`Port ${port} is already in use`);
+    } finally {
+      srv.close();
+    }
+  }, 40_000);
+
+  it.runIf(SPAWN_VITE)('NEGATIVE: without the flag the same vite DRIFTS — the config alone does not fail fast', async () => {
+    // This is why the flag is load-bearing: `vite.config.ts`'s `strictPort: false` is the behaviour
+    // the flag has to override. If the config ever becomes strict itself, this goes red and the
+    // docblock above should be re-read rather than the assertion flipped.
+    const { srv, port } = await occupy();
+    try {
+      const r = await runVite(viteArgs(port, true), /trying another one/, 25_000);
+      expect(r.out).toContain(`Port ${port} is in use, trying another one`);
+      expect(r.killed, 'we stopped it ourselves — it never exited on its own').toBe(true);
+    } finally {
+      srv.close();
+    }
+  }, 40_000);
 });

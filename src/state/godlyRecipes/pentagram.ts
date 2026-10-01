@@ -53,6 +53,8 @@ const RING_DEGREE = 2;
  * Read-only check: is the connected component of `anchor` EXACTLY a 5-triangle
  * closed ring? Exported so spawnerLifecycle.recipeStillSatisfied can re-validate
  * the CURRENT component of a live spawner's anchor without re-walking every prim.
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
+ * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
  */
 export function isPentagramComponent(world: World, anchorId: PrimitiveId): boolean {
   const anchor = world.primitives.get(anchorId);
