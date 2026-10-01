@@ -4001,6 +4001,33 @@ export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;
 export const GOBLIN_UNIT_LEASH_RADIUS = 300;
 
 /**
+ * ⭐⭐ S192 T6 (owner) — **DON'T CHASE WHAT YOU CAN'T CATCH.**
+ *
+ * > *"there's like a … electric drone … flies across. Then they turn around to chase him … he explodes …
+ * > they turn back … another drone flies through and they turn around … going back and forth, not doing
+ * > anything … sure, maybe they target it if it's around them, but if it's like gets too far away or if
+ * > it's quicker than them, they just turn around and … keep attacking … they ignore it if it's like way
+ * > too quick for them to actually catch up."* — owner, S192
+ *
+ * A unit does not acquire, and drops, a quarry when ALL THREE hold (`cannotCatch`, `creatureAI.ts`):
+ *   (a) the quarry cannot strike a unit (`isNonCombatantType`: the lightning drone, the pencil chewer);
+ *   (b) the quarry is faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (`maxAccel` IS the speed:
+ *       terminal speed ∝ maxAccel, measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119);
+ *   (c) the quarry is farther than the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX`.
+ * His *"maybe they target it if it's around them"* is (c): a drone that flies THROUGH your reach is
+ * still hit. A unit that can strike back is never skipped — so R184-A (the melee boss chasing an archer
+ * it cannot catch, ruled S184) is untouched by construction, not by exception.
+ *
+ * ⚠ BOTH NUMBERS ARE MINE (S192), not his. 1.25: the drone (240) clears it against every chaser
+ * (fastest t3Bat 168 × 1.25 = 210); the chewer (120) clears it only against the shield goblin and the
+ * naga boss, so every other unit still chases a chewer (120 ≤ 119 × 1.25). 20 px: a body length of
+ * slack so a quarry grazing the edge of reach is not dropped and re-acquired every tick.
+ */
+export const CHASE_GIVEUP_SPEED_RATIO = 1.25;
+/** ⚠ MINE (S192 T6) — see `CHASE_GIVEUP_SPEED_RATIO`. */
+export const CHASE_GIVEUP_SLACK_PX = 20;
+
+/**
  * ⭐ S159 P1 (owner R77) — **HOW CLOSE A LANDED STINK BAG HAS TO BE TO PULL A UNIT ONTO IT.**
  *
  * R77's deferred list, verbatim: *"destructible stink bags as entities with aggro and on-destroy

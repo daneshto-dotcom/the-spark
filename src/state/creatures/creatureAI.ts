@@ -39,6 +39,8 @@ import type { Bond } from '../../physics/bonds.ts';
 import {
   ARMY_RETREAT_LEAD_TICKS,
   CANVAS_HEIGHT,
+  CHASE_GIVEUP_SLACK_PX,
+  CHASE_GIVEUP_SPEED_RATIO,
   CANVAS_WIDTH,
   PLAYER_COLORS,
   WORLD_EDGE_MARGIN,
@@ -49,7 +51,7 @@ import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { getCreatureConfig, isUntargetableType } from './voltkin-config.ts';
+import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -741,7 +743,11 @@ export function findNearestEnemyCreatureFrom(
   ownerPlayerId: PlayerId,
   maxRangeSq: number = Infinity,
   excludeId?: CreatureId,
+  chaser?: Creature,
 ): CreatureId | null {
+  // S192 T6 — only `pickNavUnit` passes a chaser. Every other caller (castle guns, defenders, the
+  // Voltkin's in-reach zap) shoots and never chases, so for them this stays exactly the T13 scan.
+  const chase = chaser === undefined ? null : chaseLimitsOf(chaser);
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
@@ -776,6 +782,7 @@ export function findNearestEnemyCreatureFrom(
     if (!isLiveCreatureTarget(world, c)) continue;
     const dSq = distSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
+    if (chase !== null && cannotCatch(chase, c, dSq)) continue; // S192 T6
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -850,7 +857,12 @@ export function pickNavUnit(
       // in the Map until the sweep; renewing the lock here walked the unit onto a body. The same
       // predicate as every pick (`isLiveCreatureTarget`), so acquire and hold cannot disagree.
       isLiveCreatureTarget(world, quarry) &&
-      distSq(creature.pos, quarry.pos) <= leashRadiusSq
+      distSq(creature.pos, quarry.pos) <= leashRadiusSq &&
+      // ⭐⭐ S192 T6 (owner) — AND LET GO OF WHAT YOU CANNOT CATCH. *"they ignore it if it's like way
+      // too quick for them to actually catch up"*. A non-combatant faster than you and out of your
+      // reach is dropped here, so the unit turns back to its push instead of chasing a drone across
+      // the board (measured S192: one passing drone cost a melee goblin 40 % of its advance).
+      !cannotCatch(chaseLimitsOf(creature), quarry, distSq(creature.pos, quarry.pos))
     ) {
       return held;
     }
@@ -863,8 +875,35 @@ export function pickNavUnit(
     creature.pos,
     creature.ownerPlayerId,
     acquireRadiusSq,
-    creature.id,
+    creature,
   );
+}
+
+/** S192 T6 — a chaser's two numbers for `cannotCatch`, read once per scan. */
+interface ChaseLimits {
+  readonly giveUpAboveAccel: number;
+  readonly reachSq: number;
+}
+
+function chaseLimitsOf(chaser: Creature): ChaseLimits {
+  const cfg = getCreatureConfig(chaser.type);
+  const reach = engageRange(cfg) + CHASE_GIVEUP_SLACK_PX;
+  return { giveUpAboveAccel: cfg.maxAccel * CHASE_GIVEUP_SPEED_RATIO, reachSq: reach * reach };
+}
+
+/**
+ * ⭐⭐ S192 T6 (owner) — **"they ignore it if it's like way too quick for them to actually catch up."**
+ *
+ * True when the quarry cannot strike a unit, is faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser,
+ * AND sits beyond the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` — see those constants (both ⚠
+ * MINE). A quarry that CAN strike is never skipped, so R184-A (a melee unit turning on an archer it can
+ * never catch) is untouched. Pure static config plus the squared distance already computed: no field,
+ * no history, and the `(distSq, id)` total order is untouched (it only removes candidates).
+ */
+function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolean {
+  if (dSq <= limits.reachSq) return false; // inside your reach: hit it (*"maybe they target it if it's around them"*)
+  if (!isNonCombatantType(quarry.type)) return false; // it can hit back — R184-A
+  return getCreatureConfig(quarry.type).maxAccel > limits.giveUpAboveAccel;
 }
 
 /**
@@ -976,11 +1015,13 @@ function findNearestEnemyCreatureIndexed(
   fromPos: Vec2,
   ownerPlayerId: PlayerId,
   maxRangeSq: number,
-  excludeId: CreatureId,
+  chaser: Creature,
 ): CreatureId | null {
+  const excludeId = chaser.id;
   if (epochWorld !== world || epochTick !== world.tick) {
-    return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId);
+    return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId, chaser);
   }
+  const chase = chaseLimitsOf(chaser); // S192 T6 — chaser-relative, so read here, never cached in the list
   const list = enemyListFor(world, ownerPlayerId);
   const ids = list.ids;
   const creatures = list.creatures;
@@ -996,6 +1037,7 @@ function findNearestEnemyCreatureIndexed(
     if (untargetableType[i] || !isLiveCreatureTarget(world, c)) continue;
     const dSq = distSq(fromPos, c.pos); // live position, never a copy
     if (dSq > maxRangeSq) continue; // range gate
+    if (cannotCatch(chase, c, dSq)) continue; // S192 T6 — static config + this dSq, read live
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&

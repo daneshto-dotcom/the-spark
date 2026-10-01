@@ -49,3 +49,14 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
 - Gates: typecheck 0 · vitest 0 (422 files / 6754 tests passed, 7 skipped) · build 0, **975.5 KiB**.
 - Bump: **NO** — targeting is host-only; clients render synced state; `tickGameState` untouched. A successor/worker mirror
   runs the same code (pure predicate on host-tick scratch), so it agrees.
+
+## T6 — don't chase what you can't catch — IN FLIGHT (WIP commit)
+- DONE (code, compiles): `CHASE_GIVEUP_SPEED_RATIO` 1.25 / `CHASE_GIVEUP_SLACK_PX` 20 (⚠ MINE, `constants.ts`);
+  `isNonCombatantType` (`voltkin-config.ts`: chewer + `selfExplode && !targetsStructures`); `cannotCatch` +
+  `chaseLimitsOf` in `creatureAI.ts`, applied in the `pickNavUnit` hold, the indexed acquire, and the chokepoint ONLY when
+  a `chaser` is passed (only `pickNavUnit` passes one — castle guns/defenders unchanged). Test `chaseGiveUp.test.ts` written.
+- NOT YET: run `chaseGiveUp.test.ts`; update `navUnitReference.fixtures.ts` with the rule LONGHAND (else the perf
+  differential mismatches); measure before/after (stash the creatureAI hunk to get BEFORE); mutation `cannotCatch → false`;
+  full gates; canon notes; final commit.
+- EXACT NEXT STEP: `npx vitest run src/state/creatures/chaseGiveUp.test.ts src/state/s191Perf.differential.test.ts
+  src/state/creatures/navUnitIndex.differential.test.ts` and fix the reference fixture.
