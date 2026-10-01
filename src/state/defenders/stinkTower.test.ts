@@ -15,6 +15,7 @@
  *    that a full-health primitive SURVIVES a blast is what proves the new bridge is not it.
  */
 
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
@@ -207,7 +208,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const theirs = bonded(w, P1, 305, 300);
     applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0, 'distance');
     expect(mine.hp).toBe(PRIMITIVE_MAX_HP); // untouched
-    expect(theirs.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);
+    expect(theirs.hp).toBe(PRIMITIVE_MAX_HP - blastHitAtDistance(STINK_BAG_DAMAGE, 5 * 5, 200)); // ⭐ S193 R193-B4 — 5 px off
   });
 
   it('respects the radius (a shape outside is untouched)', () => {

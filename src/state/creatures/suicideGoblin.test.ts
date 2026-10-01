@@ -15,6 +15,7 @@
  * drone's branch rather than reordering it.
  */
 
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -217,10 +218,14 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
      * and the six is the number he actually ruled. See `PRIMITIVE_MAX_HP`'s docblock.
      */
     const expected = attackFifths(GOBLIN_SUICIDE_ATK, GOBLIN_SUICIDE_PEN);
-    for (const p of [near, alsoNear]) {
-      expect(w.primitives.get(p.id)!.hp).toBe(PRIMITIVE_MAX_HP - expected);
-    }
-    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'FOUR blasts fell a shape now').toBe(4);
+    // ⭐ S193 (owner R193-B4) — closer = more: each shape takes the full number SCALED by its distance
+    // (`blastHitAtDistance`): 20 px → 17, 60 px → 11 of the 20 at point-blank.
+    const at = (dx: number, dy: number): number => blastHitAtDistance(expected, dx * dx + dy * dy, GOBLIN_SUICIDE_BLAST_RADIUS);
+    expect([at(20, 0), at(0, 60)]).toEqual([17, 11]);
+    expect(w.primitives.get(near.id)!.hp).toBe(PRIMITIVE_MAX_HP - at(20, 0));
+    expect(w.primitives.get(alsoNear.id)!.hp).toBe(PRIMITIVE_MAX_HP - at(0, 60));
+    expect(w.primitives.get(near.id)!.hp, 'the nearer shape is hurt more').toBeLessThan(w.primitives.get(alsoNear.id)!.hp);
+    expect(Math.ceil(PRIMITIVE_MAX_HP / expected), 'FOUR point-blank blasts fell a shape').toBe(4);
   });
 
   it('⭐ and CUTS ENEMY CONNECTORS in radius — the third target in the same ruling', () => {
@@ -265,7 +270,8 @@ describe('S158 P3 — the blast itself: stats that finally apply to something', 
     // `ehp` is REMAINING EFFECTIVE HIT POINTS IN FIFTHS (S151 P2). This is the assertion the old
     // code could not satisfy at all: `applyDroneExplode` touches `world.bonds` and nothing else, so
     // no creature anywhere ever lost a point to a terrorist goblin.
-    expect(after!.ehp).toBe(ehpBefore - SUICIDE_BLAST_FIFTHS);
+    // ⭐ S193 R193-B4 — 20 px out of 70: the full number scaled by distance (`blastHitAtDistance`).
+    expect(after!.ehp).toBe(ehpBefore - blastHitAtDistance(SUICIDE_BLAST_FIFTHS, 20 * 20, GOBLIN_SUICIDE_BLAST_RADIUS));
   });
 
   it('never harms its OWN side — shapes or units', () => {

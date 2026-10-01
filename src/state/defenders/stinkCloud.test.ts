@@ -19,6 +19,7 @@
  *    reason was that no bag is ever thrown. The test below is the direct carrier it never had.
  */
 
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -419,7 +420,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     expect(
       w.creatures.get(victim.id)!.ehp,
       'the unit standing in it eats the burst',
-    ).toBe(before - attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+    ).toBe(before - blastHitAtDistance(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), 20 * 20, STINK_BAG_RADIUS)); // ⭐ S193 R193-B4 — 20 px off
   });
 
   it('⭐ the burst spares the BAG’S OWNER, not the killer — you cannot safely clear your own', () => {
