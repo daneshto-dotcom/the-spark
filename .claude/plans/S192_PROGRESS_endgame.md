@@ -1,4 +1,14 @@
-# S193 ROUND 2 (R193-M, pants music) — DONE. Next step: none (stop; audit queue 5th).
+# S193 ROUND 3 (audit fix-only) — DONE. Next step: none (stop; audit queue 5th).
+
+- merge master (s192/units-ai in) → `0c204f8a`, clean · `npm install` 0. `.tmp-audit/` left alone, never committed.
+- 1 MED cap: `MONSTER_MAX_LIVE_PER_SEAT` = 30 (⚠ MINE) + `MONSTER_MAX_RELEASES_PER_TICK` = 1 (⚠ MINE). Arithmetic: ~163 B / pants on `netSnapshot` (measured (83 903 − 18 533) B / (507 − 105)); budget ≤ ~20 KB of pants per 4-seat snapshot → 120 → 30/seat. Measured after: 4 seats, w31, keeps holding, 6000 ticks → peak **120** live, max snapshot **21 451 B** (was 945 / 176 108 B), ≈ 640 KB/s host upload to 3 peers at 10 Hz (was ~5 MB/s); 0.52 ms/tick.
+- 2 worker sig: `'held'` token for `phaseEndsAtTick` while `isMonsterFightHeld`. 3 per-seat countdown `monstersLeftForSeat` → HUD `YOUR PANTS LEFT: 9  (all 19)` (total small = ⚠ MINE). 4 pants strike only their victim's keep (`enemyCastleInReach`). 5 no spawner bounty on waves 27–31 (⚠ MINE shape: the bounty never names a killer, so the whole pants wave is off). 6 dropped-queue flag at `MONSTER_WAVE_PER_SEAT`. 7 doc chores done.
+- Merge seam fixed: master's T13 guard (`liveTargetSites.guards.test.ts`) flagged my 2 bare `isUntargetable(` picks → `isLiveCreatureTarget`, pinned + corpse test.
+- Mutations (each restored): cap off · sig token off · victim-keep off · bounty gate off · per-seat HUD off → each red.
+- Gates: typecheck 0 · vitest 0 (7363 passed / 11 skipped, 478 files) · build 0 — 1046.1 KiB (+1.9 over round 2, incl. the master merge), headroom 53.9 · check:atlas 0.
+- Bump: **57 → 58** (master is 57 after units-ai). Seam: `isMonsterFightHeld` / `megaPantsDue` / `monsterVictimSeat` / `monstersLeftForSeat` count living SEATS — teams re-checks them.
+
+# S193 ROUND 2 (R193-M, pants music) — DONE.
 
 - merge master → `471e6ed5` (clean, plans only) · `npm install` 0.
 - assets: `public/audio/endgame/pants-music-1.ogg` (2,088,746 B, 211.60 s) + `pants-music-2.ogg` (1,934,982 B, 196.40 s) = **+3.84 MiB** (reported, never gated). Race-track format: Vorbis 80k, 48 kHz stereo, 360² Theora art. Loudness −15.6/−15.8 LUFS encoded (~2 LU under siblings' −13.7 mean, outside the 1.5 LU band) → +1.9/+2.1 dB → **−13.7 / −13.7 LUFS**, true peak −1.8 dBFS. Originals in Downloads untouched.
