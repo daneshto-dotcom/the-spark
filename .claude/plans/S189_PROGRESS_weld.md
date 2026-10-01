@@ -968,3 +968,33 @@ repair in flight at FIGHT waits in the castle and lands next BUILD) + R192-W1 (c
   the off-the-haul-cycle guard and the exact cancel refund were added; (5) gates chained after a red test
   → typecheck and build RED on an unused binding (TS6133) — fixed; all three re-run separately → 0/0/0;
   (6) a bash heredoc with nested quotes failed to parse (exit 2) — nothing ran; rewritten as files.
+
+## S193 AUDIT FIX ROUND (verdict FIX FIRST; auditor notes in `.tmp-audit/`, untouched)
+- step 0 — merges: 110c17a (master 58: zombies + lobby-ci), 059e…/`merge 59` (endgame), then b72e779
+  (visuals-2) — all textually clean; `npm install` after each.
+- 1 MED e2e literal (0f70ac6): `e2e/castle-panel.spec.ts` — EIGHT rows, `fixAll` first.
+- 2 MED zombies T11 seam (f320c4f): `repairHealNumber.test.ts` instant cases → `applyRepairStructure`;
+  NEW REACH: a JOB finished through the host tick prints ONE green 12, nothing at the click.
+- 3 endgame seam (059e21c): `ENDGAME_LOCK_INTENT_POLICY.FIX_ALL = 'allow'`; docblock corrected (FIX is
+  a gatherer job; bank-only once the quarry stops at wave 27); the lock's FIX test re-pinned to the job
+  through the real host tick (the shape came from the BANK).
+- 4-7 LOWs (b7ab615 + tests c20a5ef): eliminated seat → jobs cancel (refund); `QUEUE FULL` on the card
+  and the FIX ALL row; `fixAllTargets` claims shapes only for towers it queues (⚠ not
+  mutation-distinguishable: no reachable board has two STAMPED towers sharing a shape — stamps never bond
+  to existing shapes, and hand-built shared-leaf towers have no provenance, so they are never FIX
+  candidates; kept as a defensive fix, plus a "a whole tower is neither queued nor blocks" test);
+  re-plan phase-spread by job id, `REPAIR_JOB_REPLAN_TICKS` 15 (MINE) — MEASURED with a temporary
+  probe (32 waiting jobs, `tickRepairJobs` alone, 600 ticks × 3): 0.61–1.13 → 0.05–0.07 ms/tick.
+  Mutants F1-F5 RED, restored.
+- 8 canon/doc (cd66ad0, 33a2964, 9d7f36a): SPARK_CANON §8 R191-B paragraph (replaces NEED 1 MORE),
+  §3d FIX ALL row, §7b R185-B amended by R191-A (pinned needles kept), §9d one pricing, §6 what rides the
+  weld merge; canon.test pins 32 / 15 / fixAll-first / the new phrases; stale docblocks in
+  `structurePanel.ts` and `characterSheetModel.ts`; canon notes §H reasons 7-9.
+- merge seam found after the endgame merge (91a1181): `endgameS193.test.ts`'s owner-predicate
+  enumeration — weld's seat-only sites added with verdicts (repairJobs 3, structureRepair 2, towerUnit 2).
+- failed commands and verdicts: the endgame FIX re-pin first read only MY gatherer — the seat starts with
+  its own two and the lowest free id took the task (test fixed to read any of the seat's gatherers);
+  a python heredoc escape mismatch twice (no edit landed; redone with the Edit tool); the eliminated
+  test through the host tick was confounded by the 1v1 match END clearing the queue (that test now calls
+  the pass directly — documented at the test); the phase assertion was off by one (the host tick
+  advances `tick` before the pass) — corrected.
