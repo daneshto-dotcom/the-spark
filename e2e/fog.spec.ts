@@ -456,7 +456,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       .toEqual([
         '_Container', // 0 — zoneBackgroundRenderer.layer (S165 / R137) — the per-race zone art. It
                       //     forces addChildAt(..., 0), so within the ground it is under the walls.
-        '_Graphics',  // 1 — groundDecalRenderer (S185) — the per-race ground stain under every
+        '_Container', // 1 — groundDecalRenderer.root (S185; a Container since S193 V24: stain sprites + motif Graphics) — the per-race ground stain under every
                       //     built structure. Owner: *"it kinda looks like it's sticking out like
                       //     a sore thumb."* ⭐ A DELIBERATE THIRD ENTRY: ground marks ARE ground
                       //     by any reading of this test's own sentence, and it sits UNDER the

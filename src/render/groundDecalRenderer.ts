@@ -25,7 +25,7 @@
  * dislikes the coupling, the two are one constant apart.
  */
 
-import { Application, Container, Graphics } from 'pixi.js';
+import { AlphaFilter, Application, Container, Graphics, Sprite } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -34,6 +34,11 @@ import { towerFootprintAt } from '../state/towerMembers.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
+import { fxActive } from './fx/fxState.ts';
+import { fxHighQuality } from './fx/fxRuntime.ts';
+import { GROUND_STAIN_TEX_H, GROUND_STAIN_TEX_W, groundStainPick } from './fx/groundStainFx.ts';
+import { groundStainTexture } from './groundStainTextures.ts';
+import type { RaceId } from '../state/races.ts';
 
 /**
  * ⭐⭐ S185 — **ONE ALPHA, APPLIED TO THE WHOLE LAYER.** Owner: *"if they're overlapping each other
@@ -86,18 +91,60 @@ const ZONE_SPREAD = 2.1;
 const ZONE_SINK = -0.52;
 
 export class GroundDecalRenderer {
+  /**
+   * ⭐ S193 (V24) — ONE groundLayer child (`fog.spec.ts` index 1, now a Container), holding, in draw
+   * order: the noise-textured STAIN sprites (the body of each mark) and the Graphics (the race
+   * motifs; the whole S185 drawing on `?fx=legacy` / LOW).
+   */
+  private readonly root: Container;
+  private readonly stains: Container;
+  private readonly stainPool: Sprite[] = [];
+  private stainsUsed = 0;
   private readonly graphics: Graphics;
+  /**
+   * ⛔⛔ S193 — **THE ONE FADE, MADE REAL.** The S185 ruling is *"they're not increasing in opacity …
+   * it's not like the more zones, the more colour it has"*. A Container's (or a Graphics') `alpha`
+   * in Pixi v8 is multiplied into each child's draw, so two overlapping soft stains at 0.34 each still
+   * SUM where they overlap. An `AlphaFilter` composites the whole layer first and fades it once —
+   * which is what the S185 comment intended. HIGH quality only (the substrate's rule: LOW runs no
+   * filter pass), and LOW / legacy keep the S185 drawing exactly.
+   */
+  private readonly fade = new AlphaFilter({ alpha: GROUND_DECAL_ALPHA });
+  private textured = false;
 
   constructor(app: Application, parent: Container = app.stage) {
+    this.root = new Container();
+    this.root.label = 'groundDecal';
+    this.root.eventMode = 'none';
+    this.stains = new Container();
+    this.stains.eventMode = 'none';
     this.graphics = new Graphics();
-    parent.addChild(this.graphics);
+    this.root.addChild(this.stains);
+    this.root.addChild(this.graphics);
+    parent.addChild(this.root);
   }
 
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    this.stainsUsed = 0;
+    this.textured = fxActive() && fxHighQuality();
     // the single fade that makes overlapping zones blend instead of darken
-    g.alpha = GROUND_DECAL_ALPHA;
+    if (this.textured) {
+      g.alpha = 1;
+      if (this.root.filters === null || this.root.filters === undefined || (this.root.filters as unknown[]).length === 0) this.root.filters = [this.fade];
+    } else {
+      g.alpha = GROUND_DECAL_ALPHA;
+      if (this.root.filters !== null && this.root.filters !== undefined && (this.root.filters as unknown[]).length > 0) this.root.filters = null;
+    }
+    try {
+      this.syncMarks(world);
+    } finally {
+      for (let i = this.stainsUsed; i < this.stainPool.length; i++) this.stainPool[i]!.visible = false;
+    }
+  }
+
+  private syncMarks(world: World): void {
     if (world.gameState !== 'PLAYING') return;
 
     for (const sp of world.creatureSpawners.values()) {
@@ -209,17 +256,40 @@ export class GroundDecalRenderer {
     const hw = hullHW * ZONE_SPREAD;
     const hh = hw * 0.62;
 
+    if (this.textured) this.stain(race, id, cx, feetY, hw, hh * 0.34);
     drawRaceGround(
       this.graphics as unknown as GroundTarget,
       race, id, cx, feetY, hw, hh, world.tick,
+      { skipBase: this.textured },
     );
+  }
+
+  /** One stain sprite covering the S185 ellipse (half-extents `rx`, `ry`), at alpha 1. */
+  private stain(race: RaceId, id: number, cx: number, cy: number, rx: number, ry: number): void {
+    const pick = groundStainPick(id);
+    let sp = this.stainPool[this.stainsUsed];
+    if (sp === undefined) {
+      sp = new Sprite();
+      sp.anchor.set(0.5);
+      sp.eventMode = 'none';
+      this.stainPool.push(sp);
+      this.stains.addChild(sp);
+    }
+    this.stainsUsed++;
+    const tex = groundStainTexture(race, pick.variant);
+    if (sp.texture !== tex) sp.texture = tex;
+    sp.visible = true;
+    sp.position.set(cx, cy);
+    // Set from the texture size directly (a `width` setter keeps the old sign, and the pool is reused).
+    sp.scale.set(((pick.flip ? -1 : 1) * rx * 2) / GROUND_STAIN_TEX_W, (ry * 2) / GROUND_STAIN_TEX_H);
   }
 
   clear(): void {
     this.graphics.clear();
+    for (const sp of this.stainPool) sp.visible = false;
   }
 
   destroy(): void {
-    this.graphics.destroy();
+    this.root.destroy({ children: true });
   }
 }
