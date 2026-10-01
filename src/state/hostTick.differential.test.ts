@@ -188,6 +188,7 @@ function referenceHostTick(world: World, ref: RefCtx): void {
             if (anchor !== undefined) {
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
+                blast: 'raze', // S191 C-5 — this frozen S113 reference predates the ladder blast
                 pos: { x: anchor.pos.x, y: anchor.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
               });

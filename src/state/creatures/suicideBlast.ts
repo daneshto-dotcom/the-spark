@@ -48,7 +48,7 @@
 
 import { GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
 import type { BondId, CreatureId } from '../../types.ts';
-import { applyRadialDamage, damageConnector } from '../damage.ts';
+import { applyRadialDamage, damageConnector, severWithCarry } from '../damage.ts';
 import { creatureAttackFifths } from './creature.ts';
 import { dispatch, type World } from '../world.ts';
 
@@ -179,7 +179,8 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
        * Attribution and the auth bypass are unchanged — `severActor` and `disruptionManager` treat
        * `'unit'` exactly as they treat `'bomb'`.
        */
-      dispatch(world, { type: 'SEVER_BOND', bondId, playerId: bomber.ownerPlayerId, cause: 'unit' });
+      // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+      severWithCarry(world, bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: bomber.ownerPlayerId, cause: 'unit' }));
     }
   }
 

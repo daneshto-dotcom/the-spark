@@ -630,8 +630,16 @@ describe('Replay determinism — S100 P1 chewer + spawner coverage (HARD GATE)',
   // PAST its lifetime (no enemy bonds → chewers just age out): assert (a) both seeds byte-identical
   // through the DESPAWNING→auto-delete path, (b) the swarm fully drains (the despawn path ran), and
   // (c) the live count actually dropped across the run (churn, not a no-op).
-  it('S104 P1 — a chewer swarm drains to empty by its finite lifetime (deterministic churn)', () => {
-    const LIFE = getCreatureConfig('chewer').lifetimeTicks; // 3000
+  /*
+   * ⛔ S191 (owner) — RE-PINNED: THE SWARM NO LONGER DRAINS. *"pencil chewers die before the [fight]
+   * starts … they should be continuously producing them"* — a chewer is tower STOCK now
+   * (`persistent: true`, the tier-3 rule), and the S104 churn this gate proved WAS the bug. Same window
+   * (past the OLD 3000-tick lifetime, so the gate still exercises the despawn gate the churn rode),
+   * same two seeds, the property flipped: byte-identical, and nobody ages out.
+   */
+  it('S191 — a chewer swarm run past its OLD lifetime does NOT drain: it is stock now (deterministic)', () => {
+    const LIFE = 3000; // the retired S104 P1 lifetime — the window the churn used to fire in
+    expect(getCreatureConfig('chewer').persistent, 'the rule under test').toBe(true);
     const drain = (seed: number): { json: string; finalCount: number; maxLive: number } => {
       const w = makeWorld(seed);
       for (let i = 0; i < 4; i++) {
@@ -653,10 +661,9 @@ describe('Replay determinism — S100 P1 chewer + spawner coverage (HARD GATE)',
     const SEED = 0x5104a;
     const a = drain(SEED);
     const b = drain(SEED);
-    expect(a.json).toBe(b.json); // byte-identical through the new despawn path
-    expect(a.maxLive).toBeGreaterThan(0); // the swarm existed
-    expect(a.finalCount).toBe(0); // … and fully aged out (despawn path actually ran)
-    expect(a.finalCount).toBeLessThan(a.maxLive); // count dropped across the run (churn proven)
+    expect(a.json).toBe(b.json); // byte-identical across the old despawn window
+    expect(a.maxLive).toBe(4); // the swarm existed
+    expect(a.finalCount, 'S191 — nobody aged out').toBe(4);
   });
 });
 

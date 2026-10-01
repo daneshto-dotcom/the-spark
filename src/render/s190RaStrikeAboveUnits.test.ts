@@ -17,9 +17,12 @@
  * uses — not the pixels on screen. Where the goblin renderer sits among the OTHER renderers is decided
  * by `main.ts` construction order, which vitest never runs: the source-text guard at the end proves the
  * two other creature renderers are constructed EARLIER (so their sprites are under the strike too); it
- * proves the lines EXIST in that order, not that they are reached. ⚠ And the renderers constructed LATER
- * — the laser turret's rig, HELGA, the ramp buildings, the stink tower — still draw over the strike.
- * Not asked; a one-line move if he wants it over those as well.
+ * proves the lines EXIST in that order, not that they are reached. ⭐ S191 C-9 — the renderers constructed
+ * LATER (the laser rig, HELGA, the ramp buildings, the stink tower) no longer draw over it: in the game the
+ * strike goes to `main.ts`'s `raStrikeLayer`, see `raStrikeAboveBuildings.test.ts`. This file mounts the
+ * renderer ALONE (no strike layer set), so it exercises the `arrowLayer` fallback — the same instructions.
+ * ⭐ S191 C-9 — and the rune-ring-only slots 0-3 now draw on the GROUND, so the first case below samples
+ * the beam's drop (slot 4+), not the ring.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -141,10 +144,12 @@ describe('⭐⭐ S190 R190-H — the owner\'s strike art lands in the layer ABOV
     expect(parent.children.indexOf(sprites)).toBeLessThan(parent.children.indexOf(above));
   });
 
-  it('REACH — mid-telegraph: the strike frames are in the ABOVE layer, the telegraph shade stays on the GROUND', () => {
+  it('REACH — the beam dropping: the strike frames are in the ABOVE layer, the telegraph shade stays on the GROUND', () => {
     setRaStrikeArtForTests(shippedArt());
     const w = struck();
-    w.tick += Math.floor(RA_COLUMN_TICKS / 2); // column 0's rune ring is swelling; its shade is growing
+    // ⭐ S191 C-9 re-pin: was RA_COLUMN_TICKS / 2 — the rune ring alone, which C-9 sends to the ground. 40
+    // ticks before the impact the beam is falling (slot 5) and the shade is still growing.
+    w.tick += RA_COLUMN_TICKS - 40;
     const { r, ground, above } = mount();
     r.sync(w);
     expect(textures(above), 'the strike sprite frames draw above the units').toBeGreaterThan(0);
@@ -189,7 +194,10 @@ describe('⭐⭐ S190 R190-H — the owner\'s strike art lands in the layer ABOV
     expect(one.above).toBeGreaterThan(0);
     // Cast on the same tick, the two strikes are in the same phase: exactly twice the frames, all above.
     expect(two.above, 'the second charge draws through the strike layer').toBe(2 * one.above);
-    expect(two.ground, 'and none of either strike under the units').toBe(0);
+    // ⭐ S191 C-9 re-pin (was 0): at this tick each strike's column 1 has just been announced — its rune
+    // ring is on the GROUND, one frame per strike; everything else of both strikes is above.
+    expect(one.ground, 'the ring of column 1, on the ground').toBe(1);
+    expect(two.ground, 'one ring per strike, under the units').toBe(2);
   });
 });
 
