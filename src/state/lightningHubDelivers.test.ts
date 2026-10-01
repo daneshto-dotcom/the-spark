@@ -194,14 +194,16 @@ describe('S158 B2 — the hub delivers inside ONE fight', () => {
       expect(fracAtDeath!).toBeLessThan(STAR_SELFDESTRUCT_BELOW_FRAC);
       /*
        * ⛔ S191 (owner) — RE-PINNED, AND THE MOVE IS A REAL BEHAVIOUR CHANGE, MEASURED. This said "not
-       * until deep into the fight" (> half of it): the hub fell at t=3329. With drones as STOCK it falls
+       * until deep into the fight" (> half of it): the hub fell at t=3359 (audit-measured on master, S192). With drones as STOCK it falls
        * at t=1499, and the reason is the old fuse: a drone with nothing to home on used to fizzle AT the
        * hub every 8 s, and that blast (owner-sparing, `applyRadialDamage`) kept hitting the enemy unit
        * chewing the hub. Now an idle drone waits at home, so the chewer works undisturbed. Reported to
        * the owner. The claim kept is the one this test exists for — it died of DAMAGE, not of its own
-       * production — plus that it lived long enough to fill its stock.
+       * production — plus that it lived at least DRONE_MAX_PER_SPAWNER emit slots (S192 STOCK-4: this
+       * fixture never fills its stock — the sibling test prints a peak of 2 — so the label says what the
+       * bound proves). The bound waits on the owner's STOCK-1 ruling (the idle-drone fizzle).
        */
-      expect(selfDestructedAt, 'and not before it had filled its stock').toBeGreaterThan(
+      expect(selfDestructedAt, 'lived at least DRONE_MAX_PER_SPAWNER emit slots (900 t)').toBeGreaterThan(
         DRONE_EMIT_INTERVAL_TICKS * DRONE_MAX_PER_SPAWNER,
       );
     }

@@ -1621,6 +1621,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // S113 Batch C — a lightning-DRONE is a homing missile: every-tick enemy-only
         // re-selection (NOT the chewer throttle/stickiness — it never commits/chews). It then
         // DETONATES in Step 1.5 below the moment it is in blast range (or its fuse expires).
+        const hadTarget = creature.targetBondId !== null; // ⭐ S192 STOCK-2 — read BEFORE re-selecting
         const nextTarget = findNearestBondTarget(world, creature, true);
         creature.targetBondId = nextTarget;
         if (nextTarget !== null) {
@@ -1629,6 +1630,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             const mid = bondMidpoint(targetBond);
             creature.targetPos.x = mid.x;
             creature.targetPos.y = mid.y;
+          }
+        } else if (hadTarget) {
+          /*
+           * ⭐ S192 (audit STOCK-2) — A DRONE THAT LOSES ITS TARGET MID-FLIGHT GOES HOME TO ITS HUB.
+           * Since S191 a drone is STOCK (persistent, no fuse): with no target it used to keep its stale
+           * `targetPos` and hover in enemy ground for the rest of the FIGHT, in reach of guns and
+           * defenders. Only on the had-target → no-target TRANSITION, so a drone that never acquired
+           * one (idle at its hub) is byte-identical. The S165 recall spread, never `home` verbatim, or
+           * the stock re-stacks on one pixel.
+           */
+          const home = ownHomePos(world, creature);
+          if (home !== null) {
+            const at = spreadTargetPos(home, creature.id, RECALL_SPREAD);
+            creature.targetPos.x = at.x;
+            creature.targetPos.y = at.y;
           }
         }
       } else if (
@@ -1987,7 +2003,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const inRange =
             droneCandidate.targetBondId !== null &&
             isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
-          if (inRange || fuseExpiring) {
+          // ⭐ S192 (audit STOCK-5) — a PERSISTENT drone is stock: it has no fuse (its deadline is the
+          // match-length lifetime, and fusing out at home 60 minutes in is the S191 bug, pushed out).
+          if (inRange || (fuseExpiring && !bomberCfg.persistent)) {
             dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
             continue;
           }

@@ -52,6 +52,7 @@ import { stampRefusalAt } from './blueprintLegality.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { damageEntity } from './damage.ts';
 import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
+import { ownHomePos } from './creatures/creatureAI.ts';
 import type { Controls } from '../input/controls.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
@@ -149,10 +150,10 @@ function acrossBuild(r: Rig): void {
 }
 
 /** A 16-connector seat-1 chain (pool 16 × 21 = 336 fifths — many minutes of chewing). */
-function chewPost(w: World, at: { x: number; y: number }): void {
+function chewPost(w: World, at: { x: number; y: number }, connectors = 16): void {
   const player = w.players.get(P1)!;
   const prims: Primitive[] = [];
-  for (let i = 0; i < 17; i++) {
+  for (let i = 0; i < connectors + 1; i++) {
     const id = asPrimitiveId(w.nextPrimitiveId++);
     const x = at.x + i * 22;
     const p: Primitive = {
@@ -163,7 +164,7 @@ function chewPost(w: World, at: { x: number; y: number }): void {
     w.primitives.set(id, p);
     prims.push(p);
   }
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < connectors; i++) {
     const a = prims[i]!;
     const b = prims[i + 1]!;
     const id = w.nextBondId++ as unknown as BondId;
@@ -290,3 +291,51 @@ describe('S191 item 2 — the ONE mechanism: every tower unit is on the tier-3 /
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S192 fix round — the drone stock findings (STOCK-2 / STOCK-3 / STOCK-5)', () => {
+  it('⛔ STOCK-3 (AUDIT-D1) — drones recalled with their OLD fuse still live are alive at the next FIGHT start (master: 2 → 0)', () => {
+    const r = rig('hub', DRONE_EMIT_INTERVAL_TICKS * 2 + 60); // two emits, then the whistle — no idle-hold needed
+    const hub = r.spawners.get('lightningHub');
+    r.step(DRONE_EMIT_INTERVAL_TICKS * 2 + 30);
+    const before = of(r.w, hub, 'lightningDrone').map((c) => c.id);
+    expect(before.length, 'anti-vacuity: the hub produced drones in FIGHT').toBeGreaterThanOrEqual(1);
+    acrossBuild(r);
+    expect(of(r.w, hub, 'lightningDrone').map((c) => c.id), 'every drone that went home is alive at the bell')
+      .toEqual(expect.arrayContaining(before));
+  });
+
+  it('⛔ STOCK-2 — a drone whose target is used up mid-flight goes back to its HUB, it does not hover in enemy ground', () => {
+    const r = rig('hub', 1_000_000);
+    const hub = r.spawners.get('lightningHub')!;
+    r.step(PHASE_DURATION_TICKS - 30); // the hub fills its ceiling with idle stock
+    const stock = of(r.w, hub, 'lightningDrone').map((c) => c.id);
+    expect(stock.length).toBe(DRONE_MAX_PER_SPAWNER);
+    const bondsBefore = r.w.bonds.size;
+    chewPost(r.w, { x: 1500, y: 300 }, 1); // ONE enemy connector: the first blast uses it up
+    let guard = 0;
+    while (r.w.bonds.size > bondsBefore && guard++ < 2_000) r.step(1);
+    expect(r.w.bonds.size, 'fixture: the target was used up').toBe(bondsBefore);
+    const survivors = stock.filter((id) => r.w.creatures.has(id));
+    expect(survivors.length, 'anti-vacuity: some stock outlived the target').toBeGreaterThanOrEqual(1);
+    r.step(900); // long enough to fly home across the board
+    for (const id of survivors) {
+      const c = r.w.creatures.get(id);
+      expect(c, `drone ${id} still alive (stock is kept)`).toBeDefined();
+      const home = ownHomePos(r.w, c!)!;
+      expect(Math.hypot(c!.pos.x - home.x, c!.pos.y - home.y), `drone ${id} went home to its hub`).toBeLessThanOrEqual(120);
+    }
+  });
+
+  it('⛔ STOCK-5 — a held stock drone whose 60-minute deadline arrives does NOT fuse out at home (persistent ⇒ no fuse)', () => {
+    const r = rig('hub', 1_000_000);
+    const hub = r.spawners.get('lightningHub')!;
+    r.step(PHASE_DURATION_TICKS - 30);
+    const stock = of(r.w, hub, 'lightningDrone');
+    expect(stock.length).toBe(DRONE_MAX_PER_SPAWNER);
+    for (const c of stock) c.despawnAtTick = r.w.tick + 1; // as if held 60 minutes of match time
+    r.step(3);
+    for (const c of stock) expect(r.w.creatures.has(c.id), `drone ${c.id} kept`).toBe(true);
+  });
+});
+

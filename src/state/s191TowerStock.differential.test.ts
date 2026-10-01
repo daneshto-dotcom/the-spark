@@ -132,6 +132,9 @@ describe('S191 item 2 — host vs ?worker=1 over TWO waves, tower stock carried 
     let phaseStart = refWorld.tick;
     /** Per FIGHT start: the tower units alive on the bell (the stock that crossed the BUILD). */
     const stockAtBell: number[] = [];
+    /** ⭐ S192 STOCK-3 — the DRONES alone: a chewer's old 3000-tick lifetime outlives this short window, so
+     *  only the drone count can tell the S191 rule from master's (480-tick fuse) here. */
+    const dronesAtBell: number[] = [];
     let frames = 0;
     for (let f = 0; f < 6000 && phases.length < 6; f++) {
       // Short phases, forced identically on both (the worlds are byte-identical here — the loop throws
@@ -163,6 +166,7 @@ describe('S191 item 2 — host vs ?worker=1 over TWO waves, tower stock carried 
         phaseStart = refWorld.tick;
         if (refWorld.matchPhase === 'FIGHT') {
           stockAtBell.push([...refWorld.creatures.values()].filter((c) => c.type === 'chewer' || c.type === 'lightningDrone').length);
+          dronesAtBell.push([...refWorld.creatures.values()].filter((c) => c.type === 'lightningDrone').length);
         }
       }
     }
@@ -172,5 +176,6 @@ describe('S191 item 2 — host vs ?worker=1 over TWO waves, tower stock carried 
     // ⛔ ANTI-VACUITY — the first bell has no stock yet; the SECOND bell must carry what crossed the BUILD.
     expect(stockAtBell.length).toBeGreaterThanOrEqual(2);
     expect(stockAtBell[1], 'tower units alive on the second bell (they crossed a whole BUILD)').toBeGreaterThan(0);
+    expect(dronesAtBell[1], 'DRONES alive on the second bell (master: 0 — red there)').toBeGreaterThan(0);
   });
 });

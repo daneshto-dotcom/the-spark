@@ -215,3 +215,27 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   (each reverted): old `isEliminated` stop → own-zone REACH red; Helga arm dropped from the cast → Helga REACH red.
 - Re-pinned: `damage.callSites` 17→18 sites, null 9→10, scorchedGround null 3→4; `creatureMaxPool.guard`
   scorchedGround occurrences 1→2 (Helga's pool, a defender's).
+
+## S192 coordinator message (owner re-statement after playtest) — `isScorchImmune`
+- ONE resistance predicate `isScorchImmune(owner, spared)` in `scorchedEarthRules.ts` (spared seat only;
+  no teams) — every burn arm in `scorchedGround.ts` calls it (creatures, Helga, connector ×2 endpoints,
+  lone shape, stink bag = 6 calls). Tests `scorchedEarthResistance.test.ts` (4): predicate; REACH a
+  "friend" (seat 2) in the caster's OWN doubled zone burns ×2 while the caster's unit beside him loses 0;
+  REACH an enemy-zone cast hits seats 1 AND 3, not 0; MECHANICAL — 6 calls, no inline seat compare.
+  Mutation (predicate → false) → 3 red; restored. Commit ba77314.
+
+## S192 step 3 — digest findings (verified on the merged tree, reproduce-first)
+- **STOCK-2 FIXED** — reproduced red: the surviving drone hovered **1214.8 px** from its hub (audit: 1215).
+  `hostTick` drone selection: `hadTarget` read before re-selecting; on had→none, `targetPos` = the S165
+  recall spread around `ownHomePos`. Idle-at-hub path byte-identical (hostTick.differential green).
+- **STOCK-5 FIXED** — reproduced red (a held drone at its deadline fused out). Drone arm of Step 1.5:
+  `inRange || (fuseExpiring && !bomberCfg.persistent)`; the suicide-goblin arm untouched (pre-existing latent).
+- **STOCK-3 FIXED** — AUDIT-D1 REACH case added (2 emits, no idle-hold); the differential now pins
+  `dronesAtBell[1] > 0` separately (chewers outlive that window under the old 3000-tick rule, so the old
+  combined count was green on master). Mutation (drone config back to master's persistent:false/480) →
+  the D1 case red AND the differential red (`expected 0 to be greater than 0`); restored.
+- Mutations for STOCK-2 / STOCK-5 (each fix disabled) → exactly its test red; restored.
+- **STOCK-4 FIXED (label + number)** — the bound's message now says what it proves (≥ 900 t); the stale
+  t=3329 in MY S191 comment → 3359 (the audit's master measurement, not re-measured here). The S182
+  comments at :169/:229 predate the branch → left for the merge owner. The bound itself awaits STOCK-1.
+- voltkin-config.ts drone docblock corrected to agree (STOCK-2 return-home, STOCK-5 gate, STOCK-1 levers).

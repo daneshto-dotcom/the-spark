@@ -558,13 +558,16 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
    * It also meant a hub could never HOLD stock at all: with nothing to home on, each drone fused out
    * 8 s after its birth.
    *
-   * ⭐ THE FIX IS THE TIER-3 RULE, and it keeps the Step 1.5 code untouched: `persistent: true` and a
+   * ⭐ THE FIX IS THE TIER-3 RULE: `persistent: true` and a
    * match-length lifetime — the suicide goblin's shape exactly (`selfExplode` + match-length). A drone
    * now leaves the board only by being USED (it detonates on an enemy connector) or by being shot down,
    * and the hub's existing ceiling (`DRONE_MAX_PER_SPAWNER` 3, `DRONE_MAX_GLOBAL` 12) bounds its stock.
    * ⚠ MINE, and his to judge: a drone with nothing to hit no longer fizzles after 8 s; it hovers at its
-   * hub (stock) until an enemy connector exists. Lever: restore a per-SORTIE fuse (needs a new
-   * serialized field), not the absolute one — the absolute one is the bug.
+   * hub (stock) until an enemy connector exists — and ⭐ S192 (audit STOCK-2) a drone whose target is
+   * used up mid-flight flies BACK to its hub (`hostTick` drone selection), it does not hover in enemy
+   * ground. ⭐ S192 (audit STOCK-5): Step 1.5's fuse is gated `!persistent` for the drone arm, so stock
+   * never fuses out at home when the match-length deadline arrives. Levers for the fizzle (STOCK-1, the
+   * owner's): re-arm `despawnAtTick` at the bell (no new field), or let an idle drone target units.
    */
   lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what keeps it alive (S191)
   spawnTicks: 30, // fast materialize (like a chewer) — it's a swarm-ish unit
