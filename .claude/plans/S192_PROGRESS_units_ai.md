@@ -131,3 +131,9 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
 - There was no pin. `deadTargets.test.ts` now stamps a real seat-1 stink tower, removes its defender record (what a recipe
   break does), and asserts its connectors remain on the board and `structureTargets` still hands a nearby enemy unit a
   target.
+
+### Refinement gates
+- typecheck 0 · vitest 0 (423 files / 6768 tests passed, 7 skipped) · build 0, **976.3 KiB** (+1.1 over master 975.2).
+  Perf differential + nav differentials + guards green inside the run.
+- Bump: still **NO** for every item (host-only targeting; `zoneOf`/`targetPos`/`pos` are synced state, so a successor or
+  worker mirror computes the same answer).
