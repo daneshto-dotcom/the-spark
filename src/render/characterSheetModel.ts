@@ -87,9 +87,9 @@ import { structureActionModel, type StructureActionView } from './structurePanel
 import { towerArtForRecipe } from './towerFrames.ts';
 import { structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
-import { towerMembersAt } from '../state/towerMembers.ts';
 import {
-  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerUnitAt, unitClickShape, weldedAt,
+  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerOwnPoolAt, towerUnitAt, unitClickShape,
+  weldedAt,
   type StructureTowers, type TowerUnit,
 } from '../state/towerUnit.ts';
 
@@ -1507,7 +1507,7 @@ function weldedTowerSheet(
   const members = new Set(unit.members);
   const pool = towerOwnHealth(world, unit);
   const ownBonds = unit.kind === 'live'
-    ? (towerMembersAt(world, unit.recipeId, unit.anchorId)?.bonds.length ?? 0)
+    ? (towerOwnPoolAt(world, unit.recipeId, unit.anchorId)?.connectors ?? 0) // S193 SEAM-C7 — the pool's own walk
     : [...st.bondIds].filter((id) => {
         const b = world.bonds.get(id);
         return b !== undefined && members.has(b.aId) && members.has(b.bId);

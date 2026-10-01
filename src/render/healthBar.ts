@@ -65,7 +65,7 @@ import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul, towerArtForRecipe, towerRingCentroid, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { labelStructureComponents } from './structureComponents.ts';
-import { liveBarTowers, structureBarWidth, towerOwnHealth } from './structureBarHealth.ts'; // ⭐ S191 C-7
+import { liveBarTowers, liveBarTowersByAnchor, structureBarWidth, towerOwnHealth } from './structureBarHealth.ts'; // ⭐ S191 C-7
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { creatureMaxEhp } from '../state/creatures/creature.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
@@ -376,6 +376,8 @@ function drawStructureBars(g: Graphics, world: World): void {
    * lattice and keeps its component bar. See `structureBarHealth.ts`.
    */
   const towers = liveBarTowers(world);
+  // ⭐ S193 SEAM-C7 — every tower at an anchor, not only the first (two recipes can share one — W2-4).
+  const towersAt = liveBarTowersByAnchor(world);
 
   for (const comp of labelStructureComponents(world.primitives, world.bonds)) {
     const n = comp.bondIds.length;
@@ -389,8 +391,8 @@ function drawStructureBars(g: Graphics, world: World): void {
      */
     const anchors = comp.primitiveIds.filter((id) => towers.has(id)).sort((a, b) => (a as number) - (b as number));
     let drewTower = false;
-    for (const anchorId of anchors) {
-      const tower = towers.get(anchorId)!;
+    for (const tower of anchors.flatMap((id) => towersAt.get(id) ?? [])) {
+      const anchorId = tower.anchorId;
       const own = towerOwnHealth(world, tower.recipeId, anchorId);
       if (own === null) continue;
       const artRecipe = tower.spawner ? tower.recipeId : null;

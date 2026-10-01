@@ -316,11 +316,43 @@ export interface PoolRead {
 export function towerOwnHealth(world: World, unit: TowerUnit): PoolRead {
   const max = structurePoolFifths(recipeConnectorCount(unit.recipeId));
   if (unit.kind !== 'live') return { cur: 0, max };
-  const own = towerMembersAt(world, unit.recipeId, unit.anchorId);
-  if (own === null || !own.whole) return { cur: 0, max };
+  const own = towerOwnPoolAt(world, unit.recipeId, unit.anchorId);
+  return own === null ? { cur: 0, max } : { cur: own.cur, max: own.max };
+}
+
+/** `towerOwnPoolAt`'s read: the pool, plus the walk it was priced on (the bar positions itself on `prims`). */
+export interface OwnPoolRead extends PoolRead {
+  /** Fifths banked on the tower's OWN connectors — never a weld's. */
+  readonly banked: number;
+  /** Own connectors still standing (fewer than the recipe's ⇔ `whole` is false). */
+  readonly connectors: number;
+  readonly prims: readonly PrimitiveId[];
+  readonly whole: boolean;
+}
+
+/**
+ * ⭐⭐ S193 SEAM-C7 — PURE — **THE ONE PRICING OF A LIVE TOWER'S OWN POOL**, for every surface that shows
+ * it: the board bar (`structureBarHealth.towerOwnHealth` → `healthBar.ts`), both character-sheet cards
+ * (`structureHealthAt` for a lone tower, `towerOwnHealth` above for a tower in a weld) and — by the same
+ * arithmetic over the same walk — the ramp art (`rampHealthFrac` over `rampMembersAt`, asserted equal in
+ * `structureBarHealthWeldSeam.test.ts`). ONE walk (`towerMembersAt`: the shapes the tower was BUILT with,
+ * `ownPrimitiveIds`, and the bonds among them — a weld is never one), ONE price:
+ *   · `max` = the RECIPE's pool (`structurePoolFifths(recipeConnectorCount)`) — a tower is built with a
+ *     fixed connector count, so its bar's width never shrinks with a cut arm;
+ *   · `cur` = `max − banked` while `whole`; **0** once an own connector is gone (the crumble rule, owner
+ *     S183 — zero health and the first snapped connector are one event; `rampHealthFrac` reads 0 there).
+ * ⚠ Carry's first cut priced the bar `structurePoolFifths(own connectors left)` — inside the ≤ 0.5 s poll
+ * window after a cut that read a healthy pool(n−1) bar over a crumbling sprite. `null` when the walk has
+ * nothing (anchor gone, a recipe `towerMembersAt` does not govern).
+ */
+export function towerOwnPoolAt(world: World, recipeId: GodlyId, anchorId: PrimitiveId): OwnPoolRead | null {
+  const own = towerMembersAt(world, recipeId, anchorId);
+  if (own === null) return null;
+  const max = structurePoolFifths(recipeConnectorCount(recipeId));
   let banked = 0;
   for (const id of own.bonds) banked += world.bonds.get(id)?.damageFifths ?? 0;
-  return { cur: Math.max(0, max - banked), max };
+  const cur = own.whole ? Math.max(0, max - banked) : 0;
+  return { cur, max, banked, connectors: own.bonds.length, prims: own.prims, whole: own.whole };
 }
 
 /**

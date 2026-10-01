@@ -41,7 +41,7 @@
  */
 import { T9_TOWER_SPRITE_PX } from './towerFrames.ts';
 import { structurePoolFifths } from '../state/stats.ts';
-import { towerMembersAt } from '../state/towerMembers.ts';
+import { towerOwnPoolAt, towerUnitAt } from '../state/towerUnit.ts';
 import { componentOf } from '../game/structure.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/worldTypes.ts';
@@ -91,6 +91,27 @@ export function liveBarTowers(world: World): Map<PrimitiveId, BarTower> {
   return out;
 }
 
+/**
+ * ⭐ S193 SEAM-C7 — PURE — EVERY live tower, grouped by the shape it stands on, each group in the same
+ * total order (spawners by id, then defenders by id). `liveBarTowers` keeps only the FIRST per anchor,
+ * and exact ignition does not keep anchors disjoint across recipes (weld audit W2-4: a mummies Line
+ * ring anchored at a laser turret's Line hub) — so the bar loop reads THIS, and the turret keeps its
+ * own bar beside the ring's instead of losing it to the lower id.
+ */
+export function liveBarTowersByAnchor(world: World): Map<PrimitiveId, BarTower[]> {
+  const out = new Map<PrimitiveId, BarTower[]>();
+  const add = (t: BarTower): void => {
+    const list = out.get(t.anchorId);
+    if (list === undefined) out.set(t.anchorId, [t]);
+    else list.push(t);
+  };
+  const spawners = [...world.creatureSpawners.values()].sort((a, b) => Number(a.id) - Number(b.id));
+  for (const sp of spawners) add({ anchorId: sp.anchorPrimitiveId, recipeId: sp.recipeId, ownerPlayerId: sp.ownerPlayerId, spawner: true });
+  const defenders = [...world.defenders.values()].sort((a, b) => Number(a.id) - Number(b.id));
+  for (const d of defenders) add({ anchorId: d.anchorPrimitiveId, recipeId: d.recipeId, ownerPlayerId: d.ownerPlayerId, spawner: false });
+  return out;
+}
+
 /** A tower's own-star health: its pool, the damage on its own connectors, and the shapes it covers. */
 export interface OwnStarHealth {
   readonly max: number;
@@ -103,30 +124,37 @@ export interface OwnStarHealth {
  * PURE — the tower `recipeId` at `anchorId` read on its OWN members (Rule 1). `null` when the walk has
  * nothing (anchor gone, a recipe `towerMembersAt` does not govern, no connector left) — the caller
  * then falls back to the component, so a standing structure never loses its bar.
+ *
+ * ⭐⭐ S193 SEAM-C7 (weld × carry) — **ONE PRICING, NOT TWO.** This was a second copy of the own-pool sum
+ * beside `towerUnit.towerOwnHealth` (the welded-tower card), and the two disagreed inside the poll window
+ * after a cut arm: this read `structurePoolFifths(own connectors LEFT)` − banked — a healthy-looking bar
+ * over a crumbling sprite — while the card and the art read 0. Both now come from `towerOwnPoolAt`: the
+ * recipe's pool, 0 once an own connector is gone (the crumble rule), the walk `ownPrimitiveIds` defines.
  */
 export function towerOwnHealth(world: World, recipeId: GodlyId, anchorId: PrimitiveId): OwnStarHealth | null {
-  const own = towerMembersAt(world, recipeId, anchorId);
-  if (own === null || own.bonds.length === 0) return null;
-  let banked = 0;
-  for (const id of own.bonds) banked += world.bonds.get(id)?.damageFifths ?? 0;
-  return { max: structurePoolFifths(own.bonds.length), banked, connectors: own.bonds.length, prims: own.prims };
+  const own = towerOwnPoolAt(world, recipeId, anchorId);
+  if (own === null || own.connectors === 0) return null;
+  return { max: own.max, banked: own.max - own.cur, connectors: own.connectors, prims: own.prims };
 }
 
 /**
- * PURE — the health the CHARACTER SHEET shows for the structure `primitiveId` belongs to: the own star
- * of the lowest-anchored live tower whose members include it, else its whole component. `null` when
- * the shape is gone.
+ * PURE — the health the CHARACTER SHEET shows for the structure `primitiveId` belongs to: the own pool
+ * of the tower the shape is part of, else its whole component. `null` when the shape is gone.
+ *
+ * ⭐ S193 SEAM-C7 — "the tower the shape is part of" is `towerUnitAt`, the SAME resolution the FIX / SCRAP
+ * reducers, the button model and the welded cards use (by `ownPrimitiveIds`; lowest spawner id, then
+ * lowest defender id). Carry's first cut scanned `liveBarTowers` by lowest ANCHOR id instead — a second
+ * answer to "whose shape is this?" that could name a different tower for a shared shape.
  */
 export function structureHealthAt(
   world: World, primitiveId: PrimitiveId,
 ): { cur: number; max: number; connectors: number } | null {
   const prim = world.primitives.get(primitiveId);
   if (prim === undefined) return null;
-  const towers = [...liveBarTowers(world).values()].sort((a, b) => Number(a.anchorId) - Number(b.anchorId));
-  for (const t of towers) {
-    const own = towerOwnHealth(world, t.recipeId, t.anchorId);
-    if (own === null || !own.prims.includes(primitiveId)) continue;
-    return { cur: Math.max(0, own.max - own.banked), max: own.max, connectors: own.connectors };
+  const unit = towerUnitAt(world, primitiveId);
+  if (unit !== null && unit.kind === 'live') {
+    const own = towerOwnPoolAt(world, unit.recipeId, unit.anchorId);
+    if (own !== null && own.connectors > 0) return { cur: own.cur, max: own.max, connectors: own.connectors };
   }
   const comp = componentOf(prim, world.primitives, world.bonds);
   const max = structurePoolFifths(comp.bondIds.size);
