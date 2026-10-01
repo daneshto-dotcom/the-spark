@@ -81,6 +81,7 @@ import {
   matchPeerIds,
   type HostSignal,
   connectionEdge,
+  hostAbsentOnLeave,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
@@ -1898,6 +1899,16 @@ async function bootstrap(): Promise<void> {
     isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
     // ⛔ S192 audit A1 — a departure proof latches only from a host seen absent this match (or a pending rejoin).
     hostAbsentThisMatch: (): boolean => hostAbsentSeenFor !== null && hostAbsentSeenFor === session.hostPeerId,
+    // ⭐ S193 (net R-2) — a hidden tab runs no render loop, so the per-frame sampler below never saw the host
+    // go; the transport's LEAVE fires anyway and records the same fact, under the same conditions.
+    onPeerLeft: (peerId: string): void => {
+      if (hostAbsentOnLeave({
+        peerId,
+        hostPeerId: session.hostPeerId,
+        isHost: world.isHost,
+        playing: isNetworked(world) && world.gameState === 'PLAYING',
+      })) hostAbsentSeenFor = peerId;
+    },
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
