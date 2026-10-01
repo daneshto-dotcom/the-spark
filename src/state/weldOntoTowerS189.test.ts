@@ -1643,6 +1643,30 @@ describe('⭐ S189 C2 audit W1 / S191 — `ownPrimitiveIds` is recorded at regis
     expect([...disk.defenders.values()][0]!.ownPrimitiveIds ?? null).toBeNull();
   });
 
+  it('⛔ S192 re-audit L1 — a restored own set is VALIDATED and SORTED (the wide hash joins in array order)', () => {
+    const { w, spOwn, dOwn } = worldWithTowers();
+    const snap = JSON.parse(JSON.stringify(snapshot(w))) as Record<string, unknown>;
+    let n = 0;
+    const edit = (o: unknown): void => {
+      if (Array.isArray(o)) { o.forEach(edit); return; }
+      if (o === null || typeof o !== 'object') return;
+      const r = o as Record<string, unknown>;
+      if (Array.isArray(r.ownPrimitiveIds)) {
+        r.ownPrimitiveIds = n++ === 0 ? [...(r.ownPrimitiveIds as number[])].reverse() : [1, -2, 'x', 3.5];
+      }
+      for (const v of Object.values(r)) edit(v);
+    };
+    edit(snap);
+    expect(n, 'fixture: both towers carried the field').toBe(2);
+    const disk = makeWorld(4);
+    restore(snap as never, disk);
+    const recs = [...[...disk.creatureSpawners.values()].map((s) => s.ownPrimitiveIds ?? null), ...[...disk.defenders.values()].map((d) => d.ownPrimitiveIds ?? null)];
+    const sorted = recs.find((r) => r !== null)!;
+    expect(sorted, 'an unsorted payload restores ascending').toEqual([...sorted].sort((a, b) => a - b));
+    expect([spOwn, dOwn]).toContainEqual(sorted);
+    expect(recs.filter((r) => r === null), 'a malformed payload restores as UNKNOWN').toHaveLength(1);
+  });
+
   it('HASH — changing either tower’s own set flips the wide hash (the projection carries it)', () => {
     const { w } = worldWithTowers();
     const before = hashWorldStateFull(w);

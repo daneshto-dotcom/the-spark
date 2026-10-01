@@ -2419,6 +2419,18 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
  * silently reset `spawnedCount` — a live self-destruct cap, not telemetry — every time a
  * migration-promoted host adopted the sim worker mid-match.
  */
+/**
+ * ⛔ S192 re-audit L1 — a tower's own set as RESTORED: an array of non-negative integer ids, ascending
+ * (the wide hash joins it in array order, so an unsorted payload would hash differently from the sim
+ * that wrote it). Anything else — absent, not an array, a non-integer or negative entry — is UNKNOWN
+ * (`null`), the exact pre-S189 reading, never a partial guess.
+ */
+function restoredOwnIds(v: unknown): PrimitiveId[] | null {
+  if (!Array.isArray(v)) return null;
+  for (const id of v) if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return null;
+  return (v as PrimitiveId[]).slice().sort((a, b) => a - b);
+}
+
 function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner {
   const sp = makeSpawner({
     id: s.id,
@@ -2433,7 +2445,7 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
      * walk it against, and no production path can deliver one once the bump refuses v52 peers (disk
      * restore is the DEV-only `restoreWorld`). It degrades to `null` = the exact pre-S189 reading.
      */
-    ownPrimitiveIds: s.ownPrimitiveIds ?? null,
+    ownPrimitiveIds: restoredOwnIds(s.ownPrimitiveIds),
   });
   // `makeSpawner` seeds these two from ignitedAtTick / 0 (the fresh-ignition contract).
   // Restore them when the payload carried them, so an authority handoff is lossless.
@@ -2498,7 +2510,7 @@ function deserializeDefender(s: SerializedDefender): Defender {
     recipeId: s.recipeId,
     pos: s.pos,
     registeredAtTick: 0,
-    ownPrimitiveIds: s.ownPrimitiveIds ?? null, // S189 C2 — absent ⇒ unknown; a v52 `ownBondIdLimit` is NOT read (see deserializeSpawner)
+    ownPrimitiveIds: restoredOwnIds(s.ownPrimitiveIds), // S189 C2 — absent ⇒ unknown; a v52 `ownBondIdLimit` is NOT read (see deserializeSpawner)
   });
   d.state = s.state;
   d.ticksInState = s.ticksInState;
