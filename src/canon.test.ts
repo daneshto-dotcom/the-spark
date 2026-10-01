@@ -1619,3 +1619,18 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
   });
 });
+
+describe('S193 teams — §5d is pinned to its constants', () => {
+  it('⭐ TEAM_COUNT, the two-sides rule, the hint wording, and every ruling is named', async () => {
+    const { TEAM_COUNT, normalizeTeams } = await import('./state/teams.ts');
+    const { TEAMS_UNPLAYABLE_HINT } = await import('./render/teamChip.ts');
+    expect(TEAM_COUNT).toBe(4);
+    expect(canonSays(`\`TEAM_COUNT\` = **${TEAM_COUNT}** teams`)).toBe(true);
+    expect(canonSays(`*"${TEAMS_UNPLAYABLE_HINT.slice(0, 32)}`)).toBe(true);
+    expect(normalizeTeams([0, 0, 0, 0], 4), 'one team → the sim falls back to the free-for-all').toBeUndefined();
+    for (const r of ['R192-T1', 'R192-T2', 'R192-T3', 'R192-T4']) expect(canonSays(`**${r} —`), r).toBe(true);
+    expect(canonSays('**last TEAM standing**')).toBe(true);
+    expect(canonSays('**TEAM N WINS**')).toBe(true);
+    expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
+  });
+});

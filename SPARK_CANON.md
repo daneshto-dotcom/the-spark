@@ -984,6 +984,45 @@ unchanged.
 
 ---
 
+## 5d · ⭐⭐ TEAMS — RED ALERT STYLE, TEAMS 1–4 (S192, `s192/teams`)
+
+**The rulings (owner, S192 — `S192_OWNER_RULINGS_teams_magic.md`):**
+- **R192-T1 — teammates never damage each other**: units, towers, and zone effects (*"a demon teammate's
+  zone does not burn you"*). It SUPERSEDES T7's *"he still gets hit"*: a teammate does not take your
+  Scorched Earth / SCORCHED GROUND.
+- **R192-T2 — no wall between teammates' zones** (*"one continuous zone"*). `wallSeparatesSides`.
+- **R192-T3 — v1: you cannot build in a teammate's zone.** v2 (leaning, NOT built): one buildable half per
+  team with an adaptive combined backdrop.
+- **R192-T4 — a team pick in BOTH lobbies**, `TEAM_COUNT` = **4** teams. The multiplayer lobby's chip sends
+  `CLAIM_TEAM`; the host answers with the presence beacon (no local optimism).
+
+**How it is built:** ONE predicate, `state/teams.ts` — `sameTeam` / `isEnemySeat` / `sameTeamColor`. Every
+"is this an ENEMY?" decision asks it; every "is this MINE?" decision stays seat equality.
+`teams.sites.test.ts` pins both kinds per file (field AND seat-variable comparisons) and
+`teams.reach*.test.ts` drive each damage site through the host tick with a teammate and an enemy.
+`world.teams` is stamped once by the HOST at START_GAME and rides the snapshot; a joiner, the worker and a
+successor read it, never compute it. **A free-for-all is byte-identical**: with no shared team
+`world.teams` is undefined and `sameTeam(a, b)` is `a === b` (`teams.ffaDifferential.test.ts`, 90
+checkpoints against master).
+
+**The win rule:** the match ends when every contender left is on ONE side (**last TEAM standing**); the
+winning side's LOWEST living seat names it, and the banner reads **TEAM N WINS**. The points race is
+per-seat, unchanged — the first seat to the bar wins for its team.
+
+**⚠ MINE (built as defaults, the owner has not ruled — each is one line to flip):**
+- A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
+  least two sides"*), and the sim falls back to the free-for-all.
+- **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
+- The two **"hurts everything" blasts** — the Pharaoh's columns and the zombie boss's death blast — still
+  hit their OWN seat but spare its TEAMMATES.
+- CORPSE EATER never eats a teammate's unit; THE RISEN raises only from enemy-TEAM kills.
+- The overkill CARRY stays on the struck connector's OWNER (narrower than a team).
+- A human may cast Scorched Earth on a teammate's zone (only enemies standing there burn).
+- A bot never aims its Scorched Earth at a teammate's zone.
+- A teammate's fallen castle: today's elimination, unchanged (that seat spectates; its zone stays
+  unbuildable).
+- **NOT built:** shared vision between teammates (Q8 — recommended yes), the v2 merged half (T3).
+
 ## 6 · THE WIRE
 
 `PROTOCOL_VERSION` is **57** (S193 — deploy #17; see the S193 entries on the const).

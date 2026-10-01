@@ -1535,7 +1535,7 @@ export interface RosterEntry {
    * ⭐ S192 (owner R192-T4) — THE SEAT'S TEAM (0..3 = the lobby's TEAM 1..4), resolved by the host.
    * Absent = no team (its own side); a roster with no team at all is the free-for-all, byte-identical.
    * Validated in `isValidRoster` (an integer 0..3 or the whole message is rejected). ⛔ Part of the
-   * PROTOCOL bump owed at merge — `world.teams` is a rule both peers compute (teams spec §d).
+   * PROTOCOL bump owed at merge (57 → 58 against deploy #17) — `world.teams` is a rule both peers compute (teams spec §d).
    */
   readonly team?: number;
 }

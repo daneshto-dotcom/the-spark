@@ -167,7 +167,7 @@ inline comparison turns it red until someone classifies it.
 | `WorldSnapshot.teams?` | `save.ts` serialize/apply — so NETSNAPSHOT, the worker INIT and host migration all carry it | emitted only when set |
 | hash | `stateHashFull.ts` — `FIELD_COVERAGE.teams: 'hashed'`, projection part `tm…` only when set | FFA hash byte-identical |
 
-**BUMP VERDICT: YES (52 → 53), owed by the merge.** `sameTeam` is a rule BOTH peers compute: the client runs
+**BUMP VERDICT: YES — now 57 → 58 (S193: master moved to 57 with deploy #17; it read 52 → 53 at the S192 base), owed by the merge.** `sameTeam` is a rule BOTH peers compute: the client runs
 `tickGameState` (last-TEAM-standing), the `?worker=1` mirror runs every targeting site, and a v52 successor promoted by host
 migration would drop `teams` and switch friendly fire back on. Two builds advertising 52 would shake hands and disagree —
 the S186 test. `PROTOCOL_VERSION` is NOT edited on this branch.
