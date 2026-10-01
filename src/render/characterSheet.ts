@@ -210,6 +210,12 @@ export class CharacterSheet {
   /** S191 — a small pool of portrait sprites for those icons (the card owns one big portrait only). */
   private readonly weldIcons: Sprite[] = [];
   /**
+   * ⭐ S192 (audit SHEETS-5) — and a pool of small Graphics for the icons that have NO texture (every
+   * emblem-portrait tower: laser turret, goblin tower, lightning hub, pentagram, Helga's hall). Each is
+   * its own surface because `drawEmblem` ADDS CHILDREN; `reset()` destroys them, like `this.emblem`'s.
+   */
+  private readonly weldEmblems: Graphics[] = [];
+  /**
    * ⭐ S181 — the action buttons AS DRAWN this frame, and the only thing a click is tested against.
    *
    * ⛔ RECORDED FROM THE DRAW, NOT RE-LAID-OUT AT CLICK TIME. `castlePanel.rowsTop`'s docblock
@@ -867,10 +873,40 @@ export class CharacterSheet {
     return ry + 4;
   }
 
-  /** A tower's picture at `px` square — its shipped portrait texture, else two letters of its name. */
+  /**
+   * A tower's picture at `px` square — the SAME chain the card's own portrait falls down: its texture,
+   * else the painter, else its codex emblem; two letters only for a spec with none of them.
+   *
+   * ⛔ S192 (audit SHEETS-5) — round 5 went straight from "no texture" to two letters, and every
+   * emblem-portrait tower HAS no texture by design (`main.ts`), so the owner's *"little pictures"* read
+   * 'GO' / 'LA' for the five most common towers, permanently.
+   */
   private drawIcon(i: number, spec: PortraitSpec, name: string, x: number, y: number, px: number): void {
     const tex = this.portraitSource(spec);
     if (tex === null) {
+      let g = this.weldEmblems[i];
+      if (g === undefined) {
+        g = new Graphics();
+        this.weldEmblems.push(g);
+        this.container.addChild(g);
+      }
+      g.position.set(x + px / 2, y + px / 2);
+      g.scale.set(PROCEDURAL_PORTRAIT_SCALE * (px / PORTRAIT));
+      g.visible = true;
+      if (this.portraitPainter(spec, g, 0, 0)) return;
+      const plate = portraitPlateFor(
+        spec,
+        false,
+        (id) => codexCopyFor(id).emblem !== undefined,
+        (id) => codexCopyFor(id).name,
+      );
+      const em = plate.kind === 'emblem' ? codexCopyFor(plate.recipeId).emblem : undefined;
+      if (em !== undefined) {
+        g.scale.set(0.55 * (px / PORTRAIT)); // the card portrait's emblem scale, at icon size
+        drawEmblem(g, em);
+        return;
+      }
+      g.visible = false;
       this.textCentred(name.slice(0, 2), x + px / 2, y + px / 2 - 6, 10, DIM);
       return;
     }
@@ -889,9 +925,6 @@ export class CharacterSheet {
 
   private reset(): void {
     for (const sp of this.weldIcons) sp.visible = false;
-    // ⛔ S192 (audit SHEETS-2) — a closed card's tower rows must stop answering `ownedRowAt`, or the next
-    // click where a row WAS opens that tower instead of what is actually there. `draw()` re-records them.
-    this.weldHits = [];
     this.g.clear();
     this.emblem.clear();
     this.glyphs.clear();
@@ -907,6 +940,15 @@ export class CharacterSheet {
     this.portrait.visible = false;
     for (const t of this.labels) t.visible = false;
     this.used = 0;
+    // ⭐ S192 (audit SHEETS-5) — the welded strip's emblem icons, destroyed like `this.emblem`'s children.
+    for (const g of this.weldEmblems) {
+      g.clear();
+      for (const c of g.removeChildren()) c.destroy({ children: true });
+      g.visible = false;
+    }
+    // ⛔ S192 (audit SHEETS-2) — a closed card's tower rows must stop answering `ownedRowAt`, or the next
+    // click where a row WAS opens that tower instead of what is actually there. `draw()` re-records them.
+    this.weldHits = [];
   }
 
   getUiPoints(): {

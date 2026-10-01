@@ -206,3 +206,25 @@ describe('⛔ S192 SHEETS-2 — a CLOSED welded card leaves no click targets beh
     expect(sheet.selection(), 'the click opens what is actually there').toEqual({ kind: 'creature', id: gob.id });
   });
 });
+
+describe('⭐ S192 SHEETS-5 — the "little pictures" of the other towers are pictures, not two letters', () => {
+  it('a turret welded to a goblin tower: the turret card\'s strip draws the goblin tower\'s EMBLEM (no texture exists for it)', () => {
+    const { w } = weldedBoard();
+    const turretHub = [...w.defenders.values()][0].anchorPrimitiveId;
+    const sheet = new CharacterSheet({ stage: { addChild() {} } } as any);
+    sheet.select({ kind: 'structure', primitiveId: turretHub });
+    sheet.sync(w, P0);
+    const ui = sheet.getUiPoints();
+    expect(ui.welded?.role).toBe('tower');
+    expect(ui.welded!.towers.map((t) => t.name)).toEqual([codexCopyFor('goblinTower').name]);
+    const emblems = (sheet as unknown as { weldEmblems?: { visible: boolean; children: unknown[] }[] }).weldEmblems ?? [];
+    expect(emblems.filter((g) => g.visible && g.children.length > 0), 'one drawn emblem for the goblin tower').toHaveLength(1);
+    const labels = (sheet as unknown as { labels: { visible: boolean; text: string }[] }).labels;
+    const two = codexCopyFor('goblinTower').name.slice(0, 2);
+    expect(labels.filter((t) => t.visible && t.text === two), `no '${two}' stand-in`).toHaveLength(0);
+    // Closing the card leaves no emblem behind (the pool is reset like the card's own emblem).
+    sheet.select(null);
+    sheet.sync(w, P0);
+    expect(emblems.filter((g) => g.visible)).toHaveLength(0);
+  });
+});
