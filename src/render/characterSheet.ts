@@ -842,6 +842,8 @@ export class CharacterSheet {
      */
     actions: {
       kind: string; sparkType?: number; label: string; caption: string; enabled: boolean;
+      /** ⭐ S193 (T4) — a goblin-tower chip's auto-build toggle (the e2e seam reads the lit state here). */
+      autoFeed?: boolean;
       x: number; y: number; w: number; h: number;
     }[];
   } {
