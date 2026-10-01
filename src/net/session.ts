@@ -113,6 +113,13 @@ export interface NetSession {
   raceByPeer: Map<string, RaceId>;
   /** The HOST's own claim (it has no peerId entry in `lobbySeats` — it is always seat 0). */
   selfRace: RaceId | null;
+  /**
+   * ⭐ S192 (owner R192-T4) — each JOINER's team pick (0..3), by TRANSPORT peerId (the `raceByPeer`
+   * posture). Absent = no team. Host-only; the answer rides LOBBY_PRESENCE.
+   */
+  teamByPeer: Map<string, number>;
+  /** ⭐ S192 — the HOST's own team pick (seat 0). `null` = no team. */
+  selfTeam: number | null;
   /** S87 P4 — this peer's own readiness (host: gates auto-Begin; client: mirrors the last sent LOBBY_READY). */
   qmSelfReady: boolean;
   /**
@@ -196,6 +203,8 @@ export function makeNetSession(): NetSession {
     qmReadyPeers: new Map(),
     raceByPeer: new Map(),
     selfRace: null,
+    teamByPeer: new Map(),
+    selfTeam: null,
     qmSelfReady: false,
     // S118 P1 (host-migration D2) — succession detection state (dormant until a peer proves a pubkey).
     peerPubkeys: new Map(),
@@ -251,6 +260,8 @@ export function teardownNet(
   // open the next lobby already wearing whatever it picked in the last one.
   session.raceByPeer.clear();
   session.selfRace = null;
+  session.teamByPeer.clear();
+  session.selfTeam = null;
   // S79 P4 — clear the latched host identity so a rejoin re-latches fresh (a new room may
   // have a different host; a stale latch would drop ALL of the new host's messages).
   session.hostPeerId = null;

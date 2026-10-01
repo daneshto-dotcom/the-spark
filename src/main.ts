@@ -275,7 +275,7 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
-import { arrangeTeamSeats, permuteSeats } from './state/teams.ts';
+import { arrangeTeamSeats, permuteSeats, teamsPlayable } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1763,6 +1763,7 @@ async function bootstrap(): Promise<void> {
         isYou: e.peerId === selfId,
         ready: e.ready,
         raceId: e.raceId,
+        team: e.team, // ⭐ S192 — the team chip
       })),
     );
   };
@@ -1779,6 +1780,9 @@ async function bootstrap(): Promise<void> {
   // reseed — its local START_GAME path stays untouched).
   const baseBeginMatch = createBeginMatchHandler({ session, world, hostIdentity });
   const onBeginMatch = (): void => {
+    // ⭐ S192 (teams spec Q2) — a match needs two SIDES. With every seat on one team, Begin does nothing.
+    const picks = [session.selfTeam ?? undefined, ...[...session.lobbySeats.keys()].map((p) => session.teamByPeer.get(p))];
+    if (!teamsPlayable(picks, picks.length)) return;
     reseedForNewMatch();
     baseBeginMatch();
   };
@@ -1949,8 +1953,23 @@ async function bootstrap(): Promise<void> {
     }
   };
 
+  /*
+   * ⭐ S192 (owner R192-T4) — A TEAM PICK FROM THE SEAT CHIP. `onPickRace`'s twin: the host writes its own
+   * session and rebroadcasts (teams are not exclusive, so there is nothing to refuse), a joiner sends
+   * `CLAIM_TEAM` and waits for the presence beacon.
+   */
+  const onPickTeam = (team: number | null): void => {
+    if (world.isHost) {
+      session.selfTeam = team;
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
+    } else if (session.netTransport !== null) {
+      session.netTransport.send({ kind: 'CLAIM_TEAM', team });
+    }
+  };
+
   lobbyScreen = new LobbyScreen(app, {
     onPickRace,
+    onPickTeam,
     // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
     // the flag so a deliberate friends room never inherits quickmatch gating.
     onHostStart: () => {

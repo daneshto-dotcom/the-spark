@@ -31,6 +31,7 @@ import {
 } from './lobbyStateMachine.ts';
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
+import { nextTeamPick } from '../state/teams.ts';
 // ⭐ S173 B1 — the seat-partitioned lobby backdrop (owner: the lobby showed only player one's).
 import { makeLobbyBackdrop, type LobbyBackdropHandle } from './lobbyBackdrop.ts';
 
@@ -101,6 +102,11 @@ export interface LobbyScreenCallbacks {
    * is the same Council Fork C boundary the presence digest is kept out of this file for.
    */
   onPickRace(raceId: RaceId): void;
+  /**
+   * ⭐ S192 (owner R192-T4) — this player picked a TEAM (0..3) or none (`null`) on its seat's chip. Same
+   * split as `onPickRace`: the host applies it to its session, a joiner sends `CLAIM_TEAM`.
+   */
+  onPickTeam(team: number | null): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -287,7 +293,14 @@ export class LobbyScreen {
      * has to check identity. It reads the taken-set off the CURRENT view rather than off any cached
      * copy, because a race can be claimed by somebody else between two opens.
      */
-    this.seatRack = makeSeatRack(() => this.openRacePicker());
+    this.seatRack = makeSeatRack(
+      () => this.openRacePicker(),
+      // ⭐ S192 — cycle YOUR team: — → T1 → … → T4 → —. No local optimism: the chip repaints from presence.
+      () => {
+        const mine = lobbyView(this.state).seats.find((s) => s.isYou && s.occupied);
+        callbacks.onPickTeam(nextTeamPick(mine?.team) ?? null);
+      },
+    );
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
     this.racePicker = makeRacePicker((raceId) => callbacks.onPickRace(raceId));

@@ -161,7 +161,8 @@ function rostersEqual(
       a[i].color !== b[i].color ||
       a[i].isYou !== b[i].isYou ||
       a[i].ready !== b[i].ready || // S87 P4 — re-render on a readiness change
-      a[i].raceId !== b[i].raceId // S163 P6 — re-render on a RACE change, not via its colour
+      a[i].raceId !== b[i].raceId || // S163 P6 — re-render on a RACE change, not via its colour
+      a[i].team !== b[i].team // ⭐ S192 — and on a TEAM change
     ) {
       return false;
     }
@@ -361,6 +362,8 @@ export interface SeatPresence {
    * that to `defaultRaceForSeat` rather than leaving the tile blank.
    */
   readonly raceId?: RaceId;
+  /** ⭐ S192 (R192-T4) — the seat's team pick (0..3), carried from `RosterEntry.team`. Absent = no team. */
+  readonly team?: number;
 }
 
 /**
@@ -391,6 +394,8 @@ export interface SeatView {
    * touches the picker.
    */
   readonly raceId?: RaceId;
+  /** ⭐ S192 (R192-T4) — the seat's team (0..3), or undefined = no team. Drives the seat's team chip. */
+  readonly team?: number;
 }
 
 export interface LobbyView extends LobbyState {
@@ -465,6 +470,7 @@ export function lobbyView(state: LobbyState): LobbyView {
         ready: entry !== undefined ? entry.ready : undefined,
         // ⭐ S161 P6 — absent on the wire means "never chose", which IS this seat's default race.
         raceId: entry !== undefined ? (entry.raceId ?? defaultRaceForSeat(i)) : undefined,
+        team: entry !== undefined ? entry.team : undefined,
       });
     }
     // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).

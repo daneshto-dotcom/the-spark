@@ -39,6 +39,7 @@
 import { MAX_PLAYERS } from '../constants.ts';
 import type { RosterEntry } from './protocol.ts';
 import { ALL_RACES, RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
+import { arrangeTeamSeats } from '../state/teams.ts';
 
 // Host is always seat 0; remote peers occupy seats 1..MAX_PLAYERS-1.
 const FIRST_REMOTE_SEAT = 1;
@@ -130,6 +131,38 @@ function rosterEntryFor(peerId: string, seat: number, claimed: RaceId | undefine
  * seat)]` IS `PLAYER_COLORS[seat]` by construction — `races.test.ts` pins the two palettes as equal
  * — so the colour a seat gets does not move until a peer actually claims a race.
  */
+/**
+ * ⭐ S192 (owner R192-T4) — stamp each entry's TEAM from the host's picks, by peerId (so a pick survives
+ * the dense-seat compaction exactly as a race claim does). An entry with no pick gets NO key, so a
+ * lobby where nobody picked a team is byte-identical to pre-S192.
+ */
+export function withTeams(
+  roster: readonly RosterEntry[],
+  teamByPeer: ReadonlyMap<string, number>,
+  selfTeam: number | null,
+  selfId: string,
+): RosterEntry[] {
+  return roster.map((e) => {
+    const t = e.peerId === selfId ? selfTeam : teamByPeer.get(e.peerId);
+    return t === null || t === undefined ? e : { ...e, team: t };
+  });
+}
+
+/**
+ * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE: re-seat a dense MATCH roster by
+ * `arrangeTeamSeats`. Seat 0 (the host) never moves. A moved entry keeps the race (and so the colour)
+ * it showed in the lobby — its seat default would otherwise change with the seat — so `raceId` is made
+ * explicit for it. No shared team ⇒ the identity ⇒ the roster is returned unchanged.
+ */
+export function arrangeRosterForTeams(roster: readonly RosterEntry[]): RosterEntry[] {
+  const order = arrangeTeamSeats(roster.map((e) => e.team));
+  if (order.every((old, i) => old === i)) return [...roster];
+  return order.map((old, seat) => {
+    const e = roster[old]!;
+    return { ...e, seat, raceId: e.raceId ?? defaultRaceForSeat(e.seat) };
+  });
+}
+
 export function buildLobbyRoster(
   seatByPeer: ReadonlyMap<string, number>,
   selfId: string,
