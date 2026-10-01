@@ -7,7 +7,7 @@
  * tower's target for a point on its row. Pixi is stubbed (no canvas under vitest); the drawing calls
  * are recorded, not rendered.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('pixi.js', () => {
   class Chain {
@@ -83,8 +83,8 @@ function stamp(w: any, id: string, centre: { x: number; y: number }): void {
   applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: id as any, centre });
 }
 
-describe('⭐ S191 R191-A — the welded block is drawn as clickable rows', () => {
-  it('the WELD card lists both towers; a point on a row re-aims the card at that tower', () => {
+/** The two-tower weld (a stamped turret + a stamped goblin tower, one hand-placed Square between). */
+function weldedBoard(): { w: any; st: any; sqId: any } {
     const w: any = makeWorld(0x5191c);
     dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
     w.gameState = 'PLAYING';
@@ -113,6 +113,12 @@ describe('⭐ S191 R191-A — the welded block is drawn as clickable rows', () =
     }
     tick(w, st, 62);
     expect(w.defenders.size + w.creatureSpawners.size).toBe(2);
+    return { w, st, sqId };
+}
+
+describe('⭐ S191 R191-A — the welded block is drawn as clickable rows', () => {
+  it('the WELD card lists both towers; a point on a row re-aims the card at that tower', () => {
+    const { w, sqId } = weldedBoard();
 
     const sheet = new CharacterSheet({ stage: { addChild() {} } } as any);
     sheet.select({ kind: 'structure', primitiveId: sqId });
@@ -130,5 +136,73 @@ describe('⭐ S191 R191-A — the welded block is drawn as clickable rows', () =
     // Inside the card: every row lies within the card the model sized for it (nothing clipped).
     const rect = sheet.rect()!;
     for (const row of rows) expect(row.y + row.h).toBeLessThanOrEqual(rect.y + rect.h);
+  });
+});
+
+type Row = { x: number; y: number; w: number; h: number; target: any };
+const rowsOf = (sheet: any): Row[] => (sheet as { weldHits: Row[] }).weldHits;
+
+describe('⛔ S192 SHEETS-2 — a CLOSED welded card leaves no click targets behind', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const openWeldCard = (): { w: any; sheet: any; sqId: any; centre: { x: number; y: number } } => {
+    const { w, sqId } = weldedBoard();
+    const sheet = new CharacterSheet({ stage: { addChild() {} } } as any);
+    sheet.select({ kind: 'structure', primitiveId: sqId });
+    sheet.sync(w, P0);
+    const r = rowsOf(sheet)[1]!;
+    const centre = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    expect(sheet.ownedRowAt(centre.x, centre.y), 'fixture: the open card has a row there').not.toBeNull();
+    return { w, sheet, sqId, centre };
+  };
+
+  it('closed by a click on empty ground (select(null) + sync): no row answers', () => {
+    const { w, sheet, centre } = openWeldCard();
+    sheet.select(null);
+    sheet.sync(w, P0);
+    expect(sheet.ownedRowAt(centre.x, centre.y)).toBeNull();
+  });
+
+  it('closed by SCRAPping the weld (its target is gone) + sync: no row answers', () => {
+    const { w, sheet, sqId, centre } = openWeldCard();
+    dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: sqId });
+    sheet.sync(w, P0);
+    expect(sheet.selection(), 'the card closed itself').toBeNull();
+    expect(sheet.ownedRowAt(centre.x, centre.y)).toBeNull();
+  });
+
+  it('closed by clear(): no row answers', () => {
+    const { sheet, centre } = openWeldCard();
+    sheet.clear();
+    expect(sheet.ownedRowAt(centre.x, centre.y)).toBeNull();
+  });
+
+  it('REACH — through the real Controls: a goblin standing where the row of a CLOSED card was opens the GOBLIN', async () => {
+    vi.stubGlobal('window', { addEventListener() {}, removeEventListener() {} });
+    const { Controls } = await import('../input/controls.ts');
+    const { makeCreature } = await import('../state/creatures/creature.ts');
+    const { CHEWER_CONFIG } = await import('../state/creatures/voltkin-config.ts');
+    const { asCreatureId, asSpawnerId } = await import('../types.ts');
+    const { w, sheet, centre } = openWeldCard();
+    sheet.select(null);
+    sheet.sync(w, P0);
+    const gob = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(w.nextCreatureId++), ownerPlayerId: asPlayerId(1),
+      pos: { ...centre }, targetPos: { ...centre }, spawnedAtTick: w.tick, sourceSpawnerId: asSpawnerId(99),
+    });
+    w.creatures.set(gob.id, gob);
+    const canvas = {
+      addEventListener() {}, setPointerCapture() {}, releasePointerCapture() {}, style: { cursor: '' },
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 1920, height: 1080, right: 1920, bottom: 1080, x: 0, y: 0 }),
+    };
+    const c = new Controls({ canvas } as never, w, P0, (a: any) => dispatch(w, a));
+    c.setCastlePanel({
+      isOpen: () => false, toggle() {}, close() {}, isOverPanel: () => false, armedBlueprint: () => null,
+      disarm() {}, armExternal() {}, requestShapesFor() {},
+    } as any);
+    c.setCharacterSheet(sheet);
+    type Ptr = { button: number; clientX: number; clientY: number; pointerId: number };
+    (c as unknown as { onDown(e: Ptr): void }).onDown({ button: 0, clientX: centre.x, clientY: centre.y, pointerId: 1 });
+    (c as unknown as { onUp(e: Ptr): void }).onUp({ button: 0, clientX: centre.x, clientY: centre.y, pointerId: 1 });
+    expect(sheet.selection(), 'the click opens what is actually there').toEqual({ kind: 'creature', id: gob.id });
   });
 });

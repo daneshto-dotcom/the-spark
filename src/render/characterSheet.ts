@@ -889,6 +889,9 @@ export class CharacterSheet {
 
   private reset(): void {
     for (const sp of this.weldIcons) sp.visible = false;
+    // ⛔ S192 (audit SHEETS-2) — a closed card's tower rows must stop answering `ownedRowAt`, or the next
+    // click where a row WAS opens that tower instead of what is actually there. `draw()` re-records them.
+    this.weldHits = [];
     this.g.clear();
     this.emblem.clear();
     this.glyphs.clear();
