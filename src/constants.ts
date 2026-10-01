@@ -3129,6 +3129,35 @@ export const RA_COLUMN_RADIUS = 70;
  */
 export const RA_COLUMN_SPREAD = 150;
 
+/**
+ * ⭐⭐ S191 (owner) — **POWER OF RA / WRATH OF RA: THE PLAYER'S COLUMN, AND IT IS NO LONGER THE
+ * PHARAOH'S.** Until S191 the perk dealt `attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = 300 a column
+ * to EVERY connector in its circle, and a 5-connector tower's whole ladder is 130.
+ *
+ * > *"The Wrath of Ra, or whatever the power of Ra. Is way too strong, dude. It destroys like a full
+ * > fucking tower. Within one hit … it shouldn't be like more than 50 or even less each beam."*
+ *
+ * > *"each column that it does 30 damage it split right so if it hits a tower and an enemy at the same
+ * > time then it split amongst those two … it's not like 30 to each thing in the vicinity. No, it's 30
+ * > split so if there's like two enemies it's split amongst them … we can do it 35 per hit."*
+ *
+ * So **35 fifths a column, IN TOTAL, split** across everything it hits (`powerOfRa.ts` —
+ * `raSplitShares`, and a structure is ONE target). His number, exactly, on the one ladder:
+ * `attackFifths(5, 2)` = 5 × (5 + 2) = **35**.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 35 = ATK × (5 + PEN) has three integer answers: 7/0, 5/2 and 1/30.
+ * 5/2 is the one nearest the Pharaoh's own balanced 15/15 profile this skill was cut from — it keeps
+ * a piercing character (PEN > 0) without resting the whole number on a 30-point secondary stat.
+ * Lever: change the pair; `RA_PERK_STRIKE_FIFTHS` and every test derive from it.
+ *
+ * ⛔ **THE PHARAOH BOSS IS NOT RETUNED.** His ritual (`bossSkillsPharaohRitual.ts`) still reads
+ * `RA_COLUMN_ATK` / `RA_COLUMN_PEN` above, 300 a column, unsplit — the owner complained about the
+ * PLAYER's Ra. The two used to share one number ("a retune of his ultimate retunes this one"); they
+ * now share only the landing pattern, the timing and the radius.
+ */
+export const RA_PERK_COLUMN_ATK = 5;
+export const RA_PERK_COLUMN_PEN = 2;
+
 /*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
  * moves x2 quicker for the rest of his lifetime."*
