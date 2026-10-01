@@ -14,8 +14,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import { PLAYER_COLORS, SparkType } from '../constants.ts';
+import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
+import { mulberry32 } from '../state/rng.ts';
+import { snapshot } from '../state/save.ts';
+import { makeWorkerSim } from '../state/workerSim.ts';
 import { bankAdd, bankCountOf } from '../state/castleBank.ts';
 import { blueprintBill } from '../state/blueprints.ts';
 import { runGodlyMatcherCore } from '../state/godlyMatcherCore.ts';
@@ -338,4 +343,61 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     // ⚠ NEGATIVE: no IMBA personality's defence-ratio signature is accidentally Fortress's.
     expect(meanDef(sig('IMBA', 'WARMONGER'))).toBeLessThan(meanDef(fort));
   }, 180_000);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S193 — the lobby pick REACHES both bot managers', () => {
+  it('the worker INIT forwards botPersonalities to its BotManager factory (REACH)', () => {
+    const w = botsWorld();
+    const seen: unknown[] = [];
+    makeWorkerSim(
+      {
+        type: 'INIT',
+        saveJson: JSON.stringify(snapshot(w, { spawnerState: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)).getState() })),
+        hostSeats: [],
+        localPlayerId: 0,
+        botDifficulties: ['HARD', 'IMBA'],
+        botMatchSeed: 0x5eed,
+        botPersonalities: ['SABOTEUR', 'RANDOM'],
+      },
+      (d, seed, p) => {
+        seen.push([d, seed, p]);
+        return new BotManager(d, seed, p);
+      },
+    );
+    expect(seen).toEqual([[['HARD', 'IMBA'], 0x5eed, ['SABOTEUR', 'RANDOM']]]);
+    // ⚠ NEGATIVE: an INIT without the field builds BALANCED bots (the pre-S193 message still works).
+    const seen2: unknown[] = [];
+    makeWorkerSim(
+      {
+        type: 'INIT',
+        saveJson: JSON.stringify(snapshot(w, { spawnerState: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(1)).getState() })),
+        hostSeats: [],
+        localPlayerId: 0,
+        botDifficulties: ['HARD'],
+        botMatchSeed: 1,
+      },
+      (d, seed, p) => {
+        seen2.push(p);
+        return new BotManager(d, seed, p);
+      },
+    );
+    expect(seen2).toEqual([[]]);
+  });
+
+  /*
+   * Source-text guards for the two main-thread sites no unit test can construct (Pixi + the lobby).
+   * ⚠ A guard proves a line EXISTS, not that it is REACHED — the worker REACH test above and the
+   * BotManager tests are the reach half; these only stop a refactor silently dropping the argument.
+   */
+  it('main.ts passes the lobby personalities to BOTH managers; simWorker forwards them', () => {
+    const main = readFileSync('src/main.ts', 'utf-8');
+    expect(main).toMatch(/onStart: \(difficulties, races, personalities\) =>/);
+    expect(main).toMatch(/new mod\.BotManager\(difficulties, matchSeed, personalities\)/);
+    expect(main).toMatch(/botPersonalities: workerBotInit\.personalities/);
+    const worker = readFileSync('src/simWorker.ts', 'utf-8');
+    expect(worker).toMatch(/new BotManager\(difficulties, matchSeed, personalities\)/);
+    const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
+    expect(overlay).toMatch(/this\.personalities\.slice\(0, this\.botCount\)/);
+  });
 });
