@@ -453,7 +453,7 @@ just change it … don't argue if it's too OP"*.
 | **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each POWER OF RA's strike at the WRATH number (5 columns × **75** fifths, split, over **70** px) — and the seat's POWER OF RA cast and its Pharaoh bosses' columns are **75** too (S192) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
 | **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN 25 s clock, the seat's castle soldiers and orc tier-3 units rage too (never another Warlord — S191) — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
 | **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
-| **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
+| **SCORCHED GROUND** | demons · 0 | every ENEMY creature — and an enemy HELGA (S192: *"Helga is NOT immune"*) — inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick; the aimed half is SCORCHED EARTH (below) | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; units only (creatures and Helga), never structures |
 | **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | "the pentagram's chewers" = every chewer the seat owns, and one alive at the pick splits too; ageing out is not dying; the red/black tint is a placeholder |
 | **DEEP CURRENT** | nagas · 0 | the gatherer's walk HOME becomes a snap onto its deposit point, shape in hand; the walk out is unchanged | `deepCurrentSnap` — no number | the snap lands one tick after the claim |
 | **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat ×6, like the bat swarm (S192; tripled S188–S191), drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **6** → **18 / 0 / 12 / 6** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
@@ -684,6 +684,33 @@ Recorded, not changed.
 `castleHp <= 0` — the guard every castle-derived effect uses (the gun, regen, the race-unit emitter) —
 so an eliminated demon seat's perk does not go on damaging the board after it is out, and the ember
 tint (`zoneBackdropTint`) follows the same test.
+
+⭐⭐ **SCORCHED EARTH — THE AIMED HALF OF SCORCHED GROUND (S191, `racial/scorchedEarthRules.ts` +
+`racial/scorchedGround.ts`).** *"click on any quadrant of the enemy … you will be resistant. Everybody else
+will … receive damage over time. And your enemy too, and his structures and everything … with the same …
+amount of … health lost per … second … you can place it on your own as well. And then you would have double
+scorched earth."* — owner, S191. A seat holding SCORCHED GROUND also holds the skill (the footer square, Ra's
+slot). His answers, each HIS:
+- **`SCORCHED_EARTH_CHARGES` = **1** a FIGHT**, and it burns until that FIGHT ends — `CAST_SCORCHED_EARTH
+  { zoneSeat }` names a SEAT (its zone), never a point; the record (`Player.scorchedEarth`) is keyed on the
+  wave and cleared at the BUILD edge.
+- Units (creatures and Helga) burn at **`SCORCHED_EARTH_CAST_PER_MILLE` = **20**** — the passive's own rate,
+  derived, never a second literal.
+- **Structures at HALF** — *"enemy structures will take half the damage that units take"*:
+  `SCORCHED_STRUCTURE_RATE_DIV` = **2** × the unit interval for the structure's CURRENT pool. A structure
+  burns as ONE (one clock per component, one fifth on its lowest connector clear of the caster), and a full
+  pool severs through `severWithCarry` with the existing `'raid'` cause. Lone built shapes and landed stink
+  bags burn at the same half rate.
+- **Own zone = double**: the passive and the cast are separate clocks, so outsiders' units there burn ×2.
+- **Not burned:** the castle (HIS), gatherers and avatars (§4), a DORMANT Helga (a record, not a unit).
+- **Resistance is the CASTER'S SEAT only** — `isScorchImmune(owner, spared)`, the ONE site; R192-T1
+  (*teammates never damage each other … a demon teammate's zone does not burn you*) changes that function
+  and nothing else when teams are built.
+- **A fallen caster:** his cast on an ENEMY zone stops; his OWN zone keeps burning (HIS, S191). ⚠ MINE: the
+  zone's owner falling after the cast leaves it burning.
+- ⚠ Consequence, measured: one cast banks 60 % of one connector of a 5-connector tower per FIGHT, and burn
+  damage stays banked until FIXed — an unrepaired structure loses its first connector in the second
+  consecutive scorched FIGHT.
 
 ⭐ **LIFESTEAL IS ONE CALL AT THE TWO FUNNELS.** `applyLifesteal` runs inside `damageEntity` and
 `damageConnector` (which gained a required attacker for it), so no strike path can forget it and a

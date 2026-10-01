@@ -19,8 +19,9 @@
  *
  * ## THE CALLS THAT ARE MINE
  *
- *  · **Enemy CREATURES only.** Not the seat's own units, not gatherers (canon §4: nothing can touch
- *    them), not Helga, not structures.
+ *  · **Enemy UNITS only — creatures and (⭐ S192, owner: *"Helga is NOT immune"*) an enemy HELGA.** Not
+ *    the seat's own units, not gatherers (canon §4: nothing can touch them), not structures. (S188
+ *    excluded Helga as MINE; his later answer replaced that.)
  *  · **FIGHT only** — it runs in `racialTick.ts`'s FIGHT slot beside the boss auras, for the reason
  *    that slot is gated: nothing may be attacked during BUILD (R5).
  *  · ⛔ S188 fix round F4 — **A FALLEN CASTLE'S LAND STOPS BURNING.** `castleHp <= 0` is the guard
@@ -73,8 +74,10 @@
  * cannot stand in his zone (*"enemies cant build buildings in your zone"*), so the double is a
  * creature double.
  *
- * ⭐ **THE PASSIVE IS BYTE-IDENTICAL.** It runs first, zone by zone in seat order, exactly as S188 did;
- * the casts follow in caster-seat order. A board where nobody has cast behaves exactly as before.
+ * ⭐ **THE PASSIVE'S CREATURE ARM IS BYTE-IDENTICAL.** It runs first, zone by zone in seat order, exactly
+ * as S188 did, then its HELGA arm (⭐ S192 — the passive's one change: an enemy Helga standing in a demon
+ * seat's land burns too, at the same 2 %); the casts follow in caster-seat order. A board with no Helga
+ * in a scorched zone and no cast behaves exactly as before.
  */
 
 import { LONE_PRIMITIVE_POOL_FIFTHS, STINK_BAG_DEF, STINK_BAG_HP } from '../../constants.ts';
