@@ -147,12 +147,15 @@ describe('S189 fix round — main.ts decides through these functions (mechanical
   });
 
   it('⛔ S191 WIRE-3 — BOTH sites count SEATED survivors: the claim input and migrationCase', () => {
-    expect(src.match(/seatedSurvivors\(/g)?.length, 'one call per site').toBe(2);
+    // S192 ROUND-2 — the migrationCase site now goes through `isMigrationCase` (which calls seatedSurvivors
+    // whenever a roster exists; migrationCaseRoster.test.ts pins both branches), so main.ts has ONE direct call.
+    expect(src.match(/seatedSurvivors\(/g)?.length, 'the claim input calls it directly').toBe(1);
     const step = src.indexOf('stepMigrationClaim(');
     expect(src.slice(step, step + 300)).toMatch(/seatedSurvivorIds: seatedSurvivors\(session\.lastRoster, alivePeers, trysteroSelfId, session\.hostPeerId\),/);
     const mc = src.indexOf('const migrationCase =');
     const expr = src.slice(mc, src.indexOf(';', mc));
-    expect(expr).toContain('seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0');
+    expect(expr).toContain('isMigrationCase({');
+    expect(expr).toContain('roster: session.lastRoster,');
     expect(expr, 'a stray must not keep migrationCase true').not.toContain('peerCount()');
   });
 

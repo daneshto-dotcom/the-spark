@@ -77,6 +77,7 @@ import {
   hostMovedOn,
   isRejoinPending,
   seatedSurvivors,
+  isMigrationCase,
   type HostSignal,
   connectionEdge,
 } from './net/reconnectPolicy.ts';
@@ -3775,11 +3776,15 @@ Network routes: ${v.detail}`;
      *   • peerCount === 0 = OUR transport died — the reconnect cycle is the only path back.
      */
     // S191 WIRE-3 — a SEATED survivor, not any peer: a stray kept this true and the loop never retried the host.
-    const migrationCase =
-      !world.isHost &&
-      session.warrant !== null &&
-      session.netTransport !== null &&
-      seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0;
+    // S192 ROUND-2 — …except a seat with NO Begin roster (a deposed ex-host rejoined as a client): any peer.
+    const migrationCase = isMigrationCase({
+      isHost: world.isHost,
+      hasWarrant: session.warrant !== null,
+      roster: session.lastRoster,
+      transportPeerIds: session.netTransport?.peerIds() ?? null,
+      selfPeerId: trysteroSelfId,
+      hostPeerId: session.hostPeerId,
+    });
     const connectionPlan = planConnectionFrame({
       nowMs,
       zombieDeposed,

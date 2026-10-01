@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1.**
+**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1, ROUND-2.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -766,3 +766,15 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   then saw the host leave with B visible keeps flag=false, so a later B blink still restarts it (upgrading
   the flag there would re-open ROUND-1 whenever the two legs leave a few frames apart). Gates: typecheck **0**,
   `npx vitest run src/net/` **0** (39 files / 626). Protocol: none (local timing only).
+
+- **Step 3 — ROUND-2 (LOW): migrationCase for a seat with no Begin roster.** The auditor's option (a), as a
+  pure `isMigrationCase` (`reconnectPolicy.ts`): host / no warrant / no transport → false; NO roster → any
+  transport peer (the S125 v2 rule — a deposed ex-host rejoined as a client); a roster → a SEATED survivor
+  (WIRE-3 kept). main.ts's `const migrationCase =` now calls it (one site). New `migrationCaseRoster.test.ts`
+  (6): PRE-FIX (the roster-null branch returning the old `false`) 2 red / 4 green → POST 6 green — incl. a
+  frame-by-frame REACH: the ex-host with its successor lost and C connected fires NO retry in 40 s (the
+  auditor's probe saw disconnect+rejoin every 8 s) + a mechanical main.ts guard. `connectionFrame.test.ts`'s
+  WIRE-3 "BOTH sites" guard re-pinned (it went red BY DESIGN: `seatedSurvivors(` is now called directly once
+  in main.ts, the second site goes through `isMigrationCase`). The claim gate is untouched (it already needs
+  `lastRoster !== null`), so the ex-host still never claims. Gates: typecheck **0**, `vitest src/net/` **0**
+  (40 files / 632). Protocol: none.

@@ -110,6 +110,30 @@ export function seatedSurvivors(
   return out;
 }
 
+/**
+ * ⭐ S192 ROUND-2 (audit wf_de15cae4-4a8) — the MIGRATION case, extracted from main.ts so a test can reach it:
+ * a warranted client whose followed host is lost while someone it should wait with is still connected —
+ * the loop then never tears its transport down (that would drop the coming MIGRATION_CLAIM).
+ *   · with a Begin roster: a SEATED survivor (S191 WIRE-3 — a stray on the room is nobody to wait with);
+ *   · with NO roster: any transport peer (the S125 v2 rule). Every deposed original host that rejoined as a
+ *     client is such a seat — `lastRoster` is written only from a START_GAME_SIGNAL received in LOBBY — and
+ *     WIRE-3 made it tear its live mesh down every 8 s when its successor was lost, instead of waiting for
+ *     the next claim. It cannot claim itself (the claim block needs a roster), so this changes only the wait.
+ */
+export function isMigrationCase(i: {
+  readonly isHost: boolean;
+  readonly hasWarrant: boolean;
+  readonly roster: readonly { readonly peerId: string }[] | null;
+  /** null = no transport. */
+  readonly transportPeerIds: readonly string[] | null;
+  readonly selfPeerId: string;
+  readonly hostPeerId: string | null;
+}): boolean {
+  if (i.isHost || !i.hasWarrant || i.transportPeerIds === null) return false;
+  if (i.roster === null) return i.transportPeerIds.length > 0;
+  return seatedSurvivors(i.roster, i.transportPeerIds, i.selfPeerId, i.hostPeerId).size > 0;
+}
+
 /** ⭐ S189 (C4, hunt E3) — why the overlay went TERMINAL, for the one `[net] CONNECTION LOST (terminal)` line. */
 export type TerminalLossCause = 'zombieDeposed' | 'migrationDeadline' | 'hostLost' | 'peerCount0';
 
