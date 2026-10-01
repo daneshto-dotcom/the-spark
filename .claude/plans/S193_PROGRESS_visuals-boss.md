@@ -7,4 +7,5 @@ Batch: V09 Ra columns/telegraph/halo, V10 Kraken sonar, V15 stun stars, V17 locu
 - step 0: worktree created from master a638565b (no merge needed, branched from it), npm install exit 0.
 - step 1: V09 raFx + V10 sonarFx (+ additive substrate: FxDisplaceSink, fxDisplace, DisplacementFilter in fxRuntime) + V15 stun stars + V17 locust wired; tc 0.
 - step 2: `src/render/fx/bossFx.test.ts` 23 tests (pure arithmetic + REACH through drawBossAuras/drawStunStars/drawLocustClouds + legacy negatives); mutation-checked red x6 (sonar radius, telegraph curve, Ra wiring pos, sonar wiring, stun branch, locust branch).
-- NEXT: screenshot harness .tmp-gates/fx (Playwright, own port), shots to Desktop/SPARK_Visuals_Pilot/visuals-2, then bench.
+- step 3: screenshots (Desktop/SPARK_Visuals_Pilot/visuals-2, 11 captioned before|after(|LOW) pairs + index.html); bench x3 rounds (paired HIGH delta median +0.80 ms, LOW +0.68).
+- NEXT: full gates (typecheck, vitest --maxWorkers=3, build KiB, e2e:gating on port 27442), then final report.
