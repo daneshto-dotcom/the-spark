@@ -68,9 +68,11 @@ import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
-import { fxActive, fxGround, fxShock, fxTop } from './fx/fxState.ts';
+import { fxActive, fxDisplace, fxGround, fxShock, fxTop, fxTopShade } from './fx/fxState.ts';
 import { sapFx } from './fx/sapFx.ts';
 import { rotFx } from './fx/rotFx.ts';
+import { raBeamFx, raColumnSeed, raHaloFx, raTelegraphFx } from './fx/raFx.ts';
+import { sonarFx } from './fx/sonarFx.ts';
 import { RA_STRIKE_GROUND_SLOTS, RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
@@ -185,9 +187,14 @@ function drawRaRitual(
   rememberRaRitual(world, id, boss.ownerPlayerId, boss.pos, until);
 
   // The priest himself: a rising halo while he channels, so the source of it all is legible.
-  const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
-  g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
-    .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
+  // ⭐ S193 (V09) — rebuilt as a soft additive disc with six orbiting suns (`fx/raFx.ts`); legacy below.
+  if (fxActive()) {
+    raHaloFx(fxGround(), fxTop(), id, boss.pos.x, boss.pos.y, world.tick);
+  } else {
+    const pulse = 0.5 + 0.5 * Math.sin((world.tick / 9) % (Math.PI * 2));
+    g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
+      .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
+  }
 
   // ⛔ S191 C-4 — the columns only while the sim can land one (`ritualColumnsCanLand`). ⚠ MINE: the halo
   // above stays — `isChannellingRa` is still the sim's truth in BUILD (the damage guard reads it).
@@ -335,6 +342,17 @@ function drawRaColumns(
 
     const pos = columnPos(k);
     if (slot !== null) sprites.push({ slot, x: pos.x, y: pos.y, k });
+    /*
+     * ⭐ S193 (V09) — LIGHT AND SAND AROUND THE OWNER'S ART (`fx/raFx.ts`), on the SIM's own impact tick.
+     * Added, never instead: the shade + outline below stay the exact hitbox, and the art still carries
+     * the beam. `?fx=legacy` (and the unit suite, where nothing is installed) draws only what it did.
+     */
+    if (fxActive()) {
+      const impactTick = raColumnImpactTick(until, k);
+      const seed = raColumnSeed(impactTick, pos.x, pos.y);
+      raTelegraphFx(fxGround(), seed, pos.x, pos.y, tick, start + windowStart, impactTick, RA_COLUMN_RADIUS);
+      raBeamFx(fxTop(), fxTopShade(), seed, pos.x, pos.y, tick, impactTick, art !== null, RA_COLUMN_RADIUS);
+    }
 
     if (elapsed < impact) {
       /*
@@ -525,6 +543,14 @@ function drawSonarWave(
   // KRAKEN_SONAR_COS_HALF_ANGLE is the cosine of the half-angle the SIM tests, so the drawn cone is
   // the real hitbox rather than an artistic guess at it.
   const half = Math.acos(KRAKEN_SONAR_COS_HALF_ANGLE);
+
+  // ⭐ S193 (V10) — the rebuilt water crescent (`fx/sonarFx.ts`): the SAME derived fire tick, axis and cone.
+  // `?fx=legacy` (and the unit suite) keeps the stroked arcs below.
+  if (fxActive()) {
+    sonarFx(fxTop(), fxGround(), fxDisplace(), id, boss.pos.x, boss.pos.y, heading, half, sinceFire,
+      SONAR_VISIBLE_TICKS, KRAKEN_SONAR_RANGE, world.tick);
+    return;
+  }
 
   const t = sinceFire / SONAR_VISIBLE_TICKS; // 0 → 1 as the wave crosses the cone
   const front = KRAKEN_SONAR_RANGE * t;

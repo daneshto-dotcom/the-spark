@@ -26,6 +26,7 @@ import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_CONNECTOR_MAX_FIFTH
 import { attackFifths } from './stats.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isEliminated, isEliminationDeniedIntent } from './elimination.ts';
+import { isBuildLocked, isEndgameLockDeniedIntent } from './endgame.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
@@ -491,6 +492,7 @@ export function makeWorld(rngSeed: number): World {
         placeTargetMissing: 0,
         actorBenched: 0,
         actorEliminated: 0,
+        endgameBuildLocked: 0,
       },
       territoryBlockRejects: 0,
       intentThrottled: 0,
@@ -504,6 +506,8 @@ export function makeWorld(rngSeed: number): World {
     draft: null,
     sudokuFiredThisMatch: false,
     waveNumber: 1, // S157 B8 — the opening BUILD is wave 1
+    monsterWaveSpawned: 0, // ⭐ S192 — no endgame monster released yet
+    monsterFightStartTick: 0, // ⭐ S193 — no monster fight running
     // S97 P5 — per-type godly guard: no godly type fired yet this match.
     godlyFiredThisMatch: new Set(),
   };
@@ -581,6 +585,17 @@ function dispatchReducer(world: World, action: GameAction): World {
       world.diagnostics.rejectReasons.actorEliminated++;
       return world;
     }
+  }
+  /*
+   * ⭐⭐ S192 (owner, A3) — THE ENDGAME BUILD LOCK, the bench and elimination gates' third twin.
+   * *"in the build phase of 27 … you can't build anything new anymore. You can fix existing
+   * structures."* ONE choke point for local input, optimistic joiner prediction and remote intents, on
+   * a pure function of the synced wave counter. Policy + the deny list: `endgame.ts`.
+   */
+  if (isEndgameLockDeniedIntent(action.type) && isBuildLocked(world)) {
+    world.diagnostics.raceRejects++;
+    world.diagnostics.rejectReasons.endgameBuildLocked++;
+    return world;
   }
   switch (action.type) {
     case 'SPAWN_SPARK':

@@ -303,7 +303,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(58);
+    expect(PROTOCOL_VERSION).toBe(59);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1110,7 +1110,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 57 -> 58');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 58 -> 59');
+    expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 55 -> 56')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 54 -> 55')).toBeLessThan(constAt);
@@ -1483,6 +1484,47 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('R185-D — THE CONNECTOR DAMAGE NUMBERS ARE GOOD AS THEY ARE')).toBe(true);
     expect(canonSays('it just looks epic')).toBe(true);
     expect(canonSays('DO NOT SUPPRESS AND DO NOT RE-ANCHOR')).toBe(true);
+  });
+});
+
+/**
+ * ⭐⭐ S192 — §3f, THE ENDGAME. Every number in the table is read back from its constant here, so a
+ * retune turns this red instead of leaving the canon stale. Own imports, so this block cannot collide
+ * with a sibling branch's edit of the import list above.
+ */
+import * as endgameConstants from './constants.ts';
+import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
+import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
+import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
+
+describe('S192 §3f — the endgame table is the constants', () => {
+  it('the last draft, the lock and the five wave counts', () => {
+    expect(endgameConstants.LAST_DRAFT_WAVE).toBe(26);
+    expect(canonSays('**wave 26** (`LAST_DRAFT_WAVE`)')).toBe(true);
+    expect(endgameConstants.BUILD_LOCK_FROM_WAVE).toBe(27);
+    expect(canonSays('from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`)')).toBe(true);
+    const w = endgameConstants.MONSTER_WAVE_PER_SEAT;
+    expect(canonSays(`**27 → ${w[27]} · 28 → ${w[28]} · 29 → ${w[29]} · 30 → ${w[30]} · 31 → ${w[31]}**`)).toBe(true);
+    expect([w[27], w[28], w[29], w[30], w[31]]).toEqual([10, 25, 50, 100, 250]); // ⭐ S193 — all his
+  });
+
+  it('⭐ S193 — the pace, the hold, the final fight and the mega pants', () => {
+    expect(canonSays(`**one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks** per lane (\`MONSTER_EMERGE_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
+    const m = ENDGAME_CONFIGS.megaPants;
+    expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
+    expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);
+    // ⭐ S193 R193-M — his song alternation, read back off the resolver.
+    const song = (w: number): number => PANTS_MUSIC_SRC.indexOf(pantsMusicForWave(w, 'FIGHT') as (typeof PANTS_MUSIC_SRC)[number]) + 1;
+    expect([27, 28, 29, 30, 31].map(song)).toEqual([1, 2, 1, 2, 1]);
+    expect(canonSays('waves **27 / 29 / 31 → song 1, 28 / 30 → song 2**')).toBe(true);
+  });
+
+  it('the pants: its stat line, pool and strike', () => {
+    const c = ENDGAME_CONFIGS.endgameMonster;
+    expect(canonSays(`HP ${c.hp} / DEF ${c.def} / ATK ${c.atk} / PEN ${c.pen} → pool **${egPool(c.hp, c.def)}**, strike **${egAtk(c.atk, c.pen)}**`)).toBe(true);
+    expect(canonSays(`\`MONSTER_OWNER_SEAT\` (${endgameConstants.MONSTER_OWNER_SEAT})`)).toBe(true);
   });
 });
 
