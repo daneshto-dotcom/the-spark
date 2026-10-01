@@ -16,3 +16,4 @@ agent by `SendMessage` (to = the agent id below). Audits: ONE at a time, single 
 
 ## Log
 - boot: master == origin/master f66b8eb, clean; 8 worktrees clean at their S191 tips; infra alerts OUT (owner).
+- P2 addons REPORTED (tip a81a813, merge 48edd8a, no conflicts; typecheck 0 · vitest 0 6802 passed · e2eLanes 6/6 · build 0 975.3 KiB): every digest finding fixed/ruled except INPUT-2 (only real once s191/owner merges: re-pin right-click sites 5→6, HAND 4→5, tag handleScorchedEarthAimClick). BUMP (rageStartTick + rage/frenzy rules). Chore: canon §3e text from S191_CANON_NOTES_addons.md. Owner Qs: Alt on keydown vs lone-Alt release; 25 s cooldown MINE; magic-attack doc to him. → AUDIT agent ac1964089193c0ca7 (single, independent).
