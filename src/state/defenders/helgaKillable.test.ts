@@ -118,7 +118,12 @@ describe('S158 P7 — damage', () => {
     expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL - 1, 'creature', null)).toBe(false);
     expect(w.defenders.get(h.id)!.ehp).toBe(1);
     expect(damageEntity(w, { kind: 'defender', id: h.id }, 1, 'creature', null)).toBe(true);
-    expect(w.defenders.has(h.id), 'and this arm REMOVES her — it honours the contract in full').toBe(false);
+    // ⚠ S189 R190-J — RE-PINNED. This arm used to DELETE her. The owner ruled she comes back every
+    // fight while her hall stands, so the record stays as her hall's identity: DORMANT, with no pool
+    // (so nothing can target, raid or damage her) until the FIGHT→BUILD edge revives her.
+    const after = w.defenders.get(h.id);
+    expect(after?.state, 'and this arm finishes her — DORMANT, not deleted').toBe('DORMANT');
+    expect(after?.ehp ?? null).toBeNull();
   });
 
   it('⛔ a TOWER takes NOTHING and reports no kill, however hard it is hit', () => {

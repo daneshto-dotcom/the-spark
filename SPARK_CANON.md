@@ -834,7 +834,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **51** (S190 — deploy #4; see the S190 entry on the const).
+`PROTOCOL_VERSION` is **52** (S191 — deploy #5; see the S191 entry on the const).
+
+⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185).
 A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.

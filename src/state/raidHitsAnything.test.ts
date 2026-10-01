@@ -116,7 +116,10 @@ describe('S158 A3 — a raid hits HELGA, at exactly the published rate', () => {
     for (let i = 0; i < needed - 1; i++) raidDefender(w, h.id);
     expect(w.defenders.has(h.id), 'one short is not enough').toBe(true);
     raidDefender(w, h.id);
-    expect(w.defenders.has(h.id), 'the last one finishes her').toBe(false);
+    // ⚠ S189 R190-J — RE-PINNED: she is finished as a UNIT (no pool, DORMANT) while her record keeps
+    // her hall's identity so she can come back next fight. It used to be deleted outright.
+    expect(w.defenders.get(h.id)?.state, 'the last one finishes her').toBe('DORMANT');
+    expect(w.defenders.get(h.id)?.ehp ?? null).toBeNull();
   });
 
   it('emits a RAIDED cloud in the RAIDER’s colour, flagged killed on the blow that lands it', () => {

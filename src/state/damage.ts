@@ -328,7 +328,20 @@ export function damageEntity(
        * punishment. The re-ignition risk does not apply: ignition only runs on a topology change,
        * and killing her changes no topology.
        */
-      world.defenders.delete(target.id);
+      /*
+       * ⭐⭐ S189 C2 / R190-J — SHE GOES DORMANT, SHE IS NOT DELETED. *"Every fight she should come
+       * back as long as the tower is still up."* Her record keeps the hall's identity; `hostTick`
+       * revives her at the FIGHT→BUILD edge if its own members still stand, or removes the record
+       * there if the hall fell. `ehp = null` is what takes her out of every unit-facing path at once
+       * (targeting, raids, damage, her bar, her sheet), exactly as a pool-less tower is.
+       */
+      d.state = 'DORMANT';
+      d.ticksInState = 0;
+      d.ehp = null;
+      d.targetCreatureId = null;
+      d.lastStrikePos = null;
+      d.walkTargetPos = null;
+      d.prevPos = { x: d.pos.x, y: d.pos.y };
       return true;
     }
 

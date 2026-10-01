@@ -184,7 +184,8 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
       damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null);
     });
 
-    expect(w.defenders.has(d.id)).toBe(false);
+    // ⚠ S189 R190-J — RE-PINNED: killed means DORMANT (no pool), not deleted; the floater is the same.
+    expect(w.defenders.get(d.id)?.state).toBe('DORMANT');
     expect(out).toContain(String(GOBLIN_SWING));
     expect(out).not.toContain('5');
   });

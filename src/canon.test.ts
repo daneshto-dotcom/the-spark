@@ -281,7 +281,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(51);
+    expect(PROTOCOL_VERSION).toBe(52);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -979,7 +979,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is 51's now; the 50 docblock is KEPT above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 50 -> 51');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 51 -> 52');
     const at50 = proto.indexOf('BUMPED 49 -> 50');
     expect(at50).toBeGreaterThan(-1);
     expect(at50).toBeLessThan(constAt);
@@ -1002,8 +1002,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
    */
   it('⭐ §6 — WHAT RIDES 51: every reason on the S190 docblock, and each new field really rides and is hashed', () => {
     const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
-    const constAt = proto.indexOf('export const PROTOCOL_VERSION');
-    const doc51 = proto.slice(proto.lastIndexOf('/**', constAt), constAt);
+    // ⭐ S191 — 52 put its own docblock nearest the const; the 51 block is found by its own marker.
+    const at51 = proto.indexOf('BUMPED 50 -> 51');
+    const doc51 = proto.slice(proto.lastIndexOf('/**', at51), proto.indexOf('*/', at51));
     for (const n of ['`SerializedPlayer.raStrike`', '`SerializedPlayer.raStrikes?', "`'t3BatSwarm'`", '`Creature.atkFifths?`',
       '`Creature.healedFifths?`', '`WorldSnapshot.nextCreatureId?`', 'R190-B', 'WRATH OF RA', 'THE LEVEL-10 VAMPIRE OFFER']) {
       expect(doc51, n).toContain(n);

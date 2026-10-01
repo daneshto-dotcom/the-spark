@@ -29,11 +29,8 @@ import { Application, Container, Graphics } from 'pixi.js';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
-import { componentOf } from '../game/structure.ts';
-import { ringMembersAt } from '../state/godlyRecipes/ringShape.ts';
-import { RACE_FEED_SHAPE } from '../state/races.ts';
-import { RACE_TOWER_SIZE } from '../state/raceTowerIds.ts';
-import { T9_TOWER_SIZE } from '../state/t9BossIds.ts';
+// S189 C2 (audit W2-1 / W5) — every tower's zone is measured over its OWN members.
+import { towerFootprintAt } from '../state/towerMembers.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
@@ -169,13 +166,16 @@ export class GroundDecalRenderer {
      * only reason the horizontal offset is gone rather than cancelled by a magic number.
      */
     const art = towerArtForRecipe(recipeId as GodlyId);
-    const ring = art !== null
-      ? ringMembersAt(world, anchor.id, RACE_FEED_SHAPE[art.race],
-          art.tier === 9 ? T9_TOWER_SIZE : RACE_TOWER_SIZE)
-      : null;
-    const comp = {
-      primitiveIds: (ring ?? componentOf(anchor, world.primitives, world.bonds).primitiveIds),
-    };
+    /*
+     * ⭐ S189 C2 (audit W2-1 / W5) — THE TOWER'S OWN MEMBERS FOR EVERY RECIPE, not only the race
+     * rings. The non-race towers (turret, pentagram, goblin, hub, Helga, stink) fell back to the
+     * whole COMPONENT, so a welded one centred its zone on the lattice and stood its feet under the
+     * lowest welded shape — the S185 drift, back for exactly the towers that can now carry welds.
+     * `towerFootprintAt` is the sim's own walk (for a race ring, its own cycle).
+     */
+    const footprint = towerFootprintAt(world, recipeId as GodlyId, anchor.id);
+    if (footprint === null) return;
+    const comp = { primitiveIds: footprint.prims };
     let sx = 0, sy = 0, n = 0;
     let maxY = -Infinity, minX = Infinity, maxX = -Infinity;
     for (const pid of comp.primitiveIds) {
