@@ -165,6 +165,8 @@ export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
   t9BossZombies: { boss: 'zombies' },
   t9BossOrcs: { boss: 'orcs' },
   t9BossDemons: { boss: 'demons' },
+  endgameMonster: 'def', // ⚠ MINE (S193 endgame merge) — MRES = its own DEF, like every global unit
+  megaPants: 'def', // ⚠ MINE (S193 endgame merge) — MRES = its own DEF
 };
 
 /**

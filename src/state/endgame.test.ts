@@ -324,7 +324,7 @@ describe('S192 — THE BUILD LOCK (spec §4)', () => {
     applyBuildBlueprint(world, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre });
     const full = world.primitives.size;
     const leaf = [...world.primitives.values()].find((p) => p.origin?.nodeIndex === 3)!;
-    expect(damageEntity(world, { kind: 'primitive', id: leaf.id }, PRIMITIVE_MAX_HP, 'creature', null)).toBe(true);
+    expect(damageEntity(world, { kind: 'primitive', id: leaf.id }, PRIMITIVE_MAX_HP, 'creature', null, 'physical')).toBe(true);
     expect(world.primitives.size).toBe(full - 1);
     world.waveNumber = 27; // the lock is on
     const member = [...world.primitives.values()].find((p) => p.origin?.blueprintId === 'laserTurret')!;

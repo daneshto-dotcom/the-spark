@@ -126,7 +126,7 @@ describe('S192 MRES — every non-unit target resists magic exactly as it resist
 describe('S192 MRES — the table (every value ⚠ MINE until he rules)', () => {
   it('covers every creature type the game has (the Record is exhaustive — this guards the count)', () => {
     expect(Object.keys(CREATURE_MRES).sort()).toEqual([...ALL_TYPES].sort());
-    expect(ALL_TYPES.length).toBe(26);
+    expect(ALL_TYPES.length).toBe(28);
     for (const t of ALL_TYPES) for (const r of [...RACES, null]) {
       const m = mresFor(t, r);
       expect(Number.isInteger(m) && m >= 0, `${t} ${r}`).toBe(true);
