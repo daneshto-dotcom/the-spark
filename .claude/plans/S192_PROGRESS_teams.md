@@ -1,6 +1,32 @@
-# S193 ROUND 2 — IN PROGRESS
-- merge 031c9e37 (master 656b106, 5 conflicts per audit) · FFA golden re-recorded on 656b106 (= auditor a684ce5), merged tree identical.
-- NEXT: F1 Begin dim (lobby view teamsPlayable) → F2 QM auto-begin re-arm → F3 census doc → F4 REACH pairs → docs (bump 57→58, canon TEAMS) → gates.
+# S193 ROUND 2 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
+
+- Merge **031c9e37** = `git merge master` @ **656b106** (deploy #17, units-ai, PROTOCOL 57). 5 conflicts, resolved per the
+  audit: archdemon + kraken (sameTeam kept, `c.ehp <= 0` dropped — master's isLiveCreatureTarget), retaliation (sameTeam
+  kept, isUntargetable dropped — inside isLiveCreatureTarget), defenderLifecycle (isEnemySeat AND isLiveCreatureTarget),
+  creatureAI enemyCastleMarchPos (sameTeam AND the fallen-keep castleHp test). `npm install` 0.
+- ⚠ master has moved AGAIN since (deploy #18 + s192/endgame merge, 5be7e13) — NOT merged this round; the next merge owes
+  a re-record of the FFA golden.
+- FFA: golden re-recorded on 656b106; identical to the auditor's a684ce5 series; merged tree 90/90 identical (exit 0).
+- F1: multiplayer Begin dims (alpha 0.4, MINE) with the bot lobby's hint (shared TEAMS_UNPLAYABLE_HINT) when every seat is
+  on one team — `lobbyView.teamsPlayable` + pure `beginButtonPaint`; unit test + mutation red; e2e REACH reads the live
+  alpha/hint and presses Begin (stays LOBBY).
+- F2: CLAIM_TEAM (and the host's own pick) call `maybeQmAutoBegin`; `sessionTeamsPlayable` is the one predicate Begin and
+  auto-begin read; onAutoBegin now refuses BEFORE stopQuickmatch (a one-team room stayed undiscoverable otherwise). REACH
+  through the real host route; mutation red.
+- F3: census docblock names the aliased-operand hole; REACH tests are the backstop.
+- F4: teams.reachSites.test.ts — teammate/enemy pair via the host tick for stink tower, Helga, Voltkin chain, suicide blast,
+  drone blast, zombie rot (12 tests). Mutations: radial spare → 3 red; chain, rot → red; Helga red only with all three of
+  her guards reverted (defense in depth).
+- Docs: canon §5d TEAMS (R192-T1..T4, win rule, every MINE) + canon.test pin (TEAM_COUNT 4); bump text 57→58 in protocol.ts
+  docblock and the spec. Canon ~707 already fixed in round 1.
+- Gates: typecheck 0 · vitest 0 (7355 passed / 11 skipped, 482 files) · build 0, entry 1041.7 KiB vs base 656b106 1035.9
+  (+5.9), headroom 58.3 (the checker now WARNS under 60). e2e teams-lobby: 2/2 exit 0 (1.1 m, 1.3 m).
+- Bump: YES 57 → 58 — a pre-teams peer ignores world.teams / RosterEntry.team and computes every enemy decision differently.
+- MINE: Begin dim alpha 0.4 · Pharaoh column / zombie R138 blast spare teammates, hit own seat · CARRY-1 owner-only ·
+  scorch on a teammate's zone allowed · teammates side by side.
+- Seams: s192/zombies spares the zombie boss's own side (R193-B3) — when it lands, extend that spare to teammates through
+  sameTeam (`alliesOf` on the 'raze' self-destruct today spares teammates only). Plus round 1's seams.
+- NOT DONE: protocol bump (merge owner); e2e lane promotion (merge owner); merge of master 5be7e13 (arrived mid-round).
 
 # S193 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
 
