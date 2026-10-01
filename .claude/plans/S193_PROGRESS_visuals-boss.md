@@ -5,4 +5,5 @@ Batch: V09 Ra columns/telegraph/halo, V10 Kraken sonar, V15 stun stars, V17 locu
 
 ## Log
 - step 0: worktree created from master a638565b (no merge needed, branched from it), npm install exit 0.
-- NEXT: read fx substrate + bossAuras/stunStars/locustCloud, rebuild screenshot harness (.tmp-gates/fx, pilot's is gone).
+- step 1: V09 raFx + V10 sonarFx (+ additive substrate: FxDisplaceSink, fxDisplace, DisplacementFilter in fxRuntime) + V15 stun stars + V17 locust wired; tc 0.
+- NEXT: unit tests (pure + REACH through drawBossAuras with recording sinks), then screenshot harness.

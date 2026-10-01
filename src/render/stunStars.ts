@@ -32,6 +32,8 @@
  */
 
 import type { Graphics } from 'pixi.js';
+import type { FxSink } from './fx/emitter.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
 
 /* ── The dial. ⚠ EVERY NUMBER HERE IS MINE, NOT THE OWNER'S: he asked for "a cool stunned 'seeing
  * stars' effect above the stunned creatures heads" and gave no geometry. Sized so three stars clear
@@ -69,17 +71,46 @@ export function drawStunStars(
   alpha: number,
   scaleMul = 1,
 ): void {
-  const lift = STUN_STAR_LIFT * scaleMul;
-  const rx = STUN_STAR_RX * scaleMul;
-  const ry = STUN_STAR_RY * scaleMul;
   const r = STUN_STAR_R * scaleMul;
+  // ⭐ S193 (V15) — the rebuilt stars (`stunStarsFx` below) on the same orbit; `?fx=legacy` keeps the flat stars.
+  if (fxActive()) { stunStarsFx(fxTop(), x, y, tick, id, alpha, scaleMul); return; }
   for (let k = 0; k < STUN_STAR_COUNT; k++) {
-    // Phase: a slow orbit, offset per star and per creature so nothing marches in step.
-    const t = (tick * STUN_STAR_SPEED + k * (628 / STUN_STAR_COUNT) + id * 37) % 628;
-    const a = t / 100; // ~radians, integer-derived
-    const sx = x + Math.cos(a) * rx;
-    const sy = y - lift + Math.sin(a) * ry;
+    const { sx, sy } = stunStarPos(k, x, y, tick, id, scaleMul);
     // A four-point twinkle rather than a filled dot: reads as a star at 3 px and needs no texture.
     g.star(sx, sy, 4, r, 0, 0).fill({ color: STUN_STAR_TINT, alpha: 0.9 * alpha });
+  }
+}
+
+/** Star `k`'s place on the orbit — ONE formula, shared by the legacy drawing and the rebuilt one. PURE. */
+export function stunStarPos(k: number, x: number, y: number, tick: number, id: number, scaleMul = 1): { sx: number; sy: number } {
+  // Phase: a slow orbit, offset per star and per creature so nothing marches in step.
+  const t = (tick * STUN_STAR_SPEED + k * (628 / STUN_STAR_COUNT) + id * 37) % 628;
+  const a = t / 100; // ~radians, integer-derived
+  return { sx: x + Math.cos(a) * STUN_STAR_RX * scaleMul, sy: y - STUN_STAR_LIFT * scaleMul + Math.sin(a) * STUN_STAR_RY * scaleMul };
+}
+
+/** Sprites per rebuilt star: a soft halo, two crossed glints and a hot centre. */
+export const STUN_STARS_FX_PER_STAR = 4;
+
+/**
+ * ⭐ S193 `s193/visuals-boss` (V15) — **THE STARS AS LIGHT.** Same three stars on the same orbit
+ * (`stunStarPos`), now additive sprites on the bloomed TOP layer: a soft halo, a four-point glint made of
+ * two crossed stretched hot-cores that slowly spin, and a white centre. Each TWINKLES — its brightness
+ * and size breathe on its own phase from `(tick, k, id)`, so a stunned crowd shimmers instead of
+ * blinking in step. ⚠ The numbers are MINE (the owner asked only for "cool" and "consistent").
+ * PURE: no Pixi, no clock, no `Math.random` — the sink is handed in.
+ */
+export function stunStarsFx(top: FxSink, x: number, y: number, tick: number, id: number, alpha: number, scaleMul = 1): void {
+  if (alpha <= 0) return;
+  const r = STUN_STAR_R * scaleMul;
+  for (let k = 0; k < STUN_STAR_COUNT; k++) {
+    const { sx, sy } = stunStarPos(k, x, y, tick, id, scaleMul);
+    const tw = 0.5 + 0.5 * Math.sin(((tick * 23 + k * 211 + id * 97) % 628) / 100);
+    const spin = (((tick * 3 + k * 120 + id * 53) % 360) * Math.PI) / 180;
+    const len = r * (3.6 + 1.4 * tw);
+    top.emit('soft', sx, sy, r * 5.5, r * 5.5, 0, (0.28 + 0.22 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 0.9, spin, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 0.9, spin + Math.PI / 2, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, r * 1.6, r * 1.6, 0, (0.7 + 0.3 * tw) * alpha, 0xffffff, 'add');
   }
 }
