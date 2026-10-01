@@ -172,7 +172,7 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
     if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
     // S188 merge — `null` attacker: a sky strike has no creature to heal (BLOOD DEBT), the same answer
     // the raid and the suicide blast give (`damageConnector.callSites.test.ts`).
-    if (damageConnector(world, bondId, RA_STRIKE_FIFTHS, null)) {
+    if (damageConnector(world, bondId, RA_STRIKE_FIFTHS, null, 'magic')) { // ⭐ S192 — R192-M2
       /*
        * ⚠ `cause: 'raid'` — the one existing cause that honestly means "a PLAYER's attack reached
        * this connector's capacity": it bypasses the disruption-charge gate (the cast was the price),
@@ -201,5 +201,5 @@ function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number
    * arms, same `'aura'` source, and `null` for the attacker inside the helper (a column of light is
    * not somebody a unit can turn on). `sparePlayerId: caster` is the one change — see the file header.
    */
-  applyRadialDamage(world, at.x, at.y, RA_COLUMN_RADIUS, RA_STRIKE_FIFTHS, RA_STRIKE_FIFTHS, 'aura', caster);
+  applyRadialDamage(world, at.x, at.y, RA_COLUMN_RADIUS, RA_STRIKE_FIFTHS, RA_STRIKE_FIFTHS, 'aura', caster, 'magic'); // ⭐ S192 — R192-M2
 }

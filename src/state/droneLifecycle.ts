@@ -207,6 +207,7 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     blastFifths,
     'creature',
     drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds
+    'physical', // S192 — it BLOWS UP (R192-M3); not on his magic list
   );
 
   const arcStart: Vec2 = { x: cx, y: cy };

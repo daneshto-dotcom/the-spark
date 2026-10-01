@@ -485,6 +485,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
               attackFifths(config.atk, config.pen),
               'defender',
               { kind: 'defender', id: d.id },
+              'physical', // S192 — a beam and a slap are physical (R192-M3)
             );
           }
         }

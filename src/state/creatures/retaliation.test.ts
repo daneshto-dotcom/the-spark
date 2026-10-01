@@ -106,7 +106,7 @@ function hit(world: World, victim: Creature, attacker: Creature): void {
   damageEntity(world, { kind: 'creature', id: victim.id }, SWING, 'creature', {
     kind: 'creature',
     id: attacker.id,
-  });
+  }, 'physical');
 }
 
 /**
@@ -149,7 +149,7 @@ function hitReturning(world: World, victim: Creature, attacker: Creature): boole
   return damageEntity(world, { kind: 'creature', id: victim.id }, SWING, 'creature', {
     kind: 'creature',
     id: attacker.id,
-  });
+  }, 'physical');
 }
 
 describe('S183 R183-B — the pencil chewer NEVER retaliates', () => {
@@ -641,7 +641,7 @@ describe('S183 — the guards that had no test', () => {
     damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
       kind: 'creature',
       id: puncher.id,
-    });
+    }, 'physical');
 
     expect(helga.targetCreatureId).toBe(puncher.id);
   });
@@ -710,7 +710,7 @@ describe('S184 — the audit fixes', () => {
     damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
       kind: 'creature',
       id: archer.id,
-    });
+    }, 'physical');
 
     // ⛔ Taking the archer would make her WALK arm reject it NEXT tick and stand her down —
     // `state = 'IDLE'`, target nulled, `nextFireTick` pushed out. The write would cost her the
@@ -734,7 +734,7 @@ describe('S184 — the audit fixes', () => {
     damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
       kind: 'creature',
       id: archer.id,
-    });
+    }, 'physical');
 
     expect(helga.targetCreatureId).toBe(archer.id);
   });
@@ -816,7 +816,7 @@ describe('S183 — a SPLASH cannot make you turn round', () => {
     const w = setupWorld();
     const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
     addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
-    const res = applyRadialDamage(w, 0, 0, 200, 1, SWING, 'hazard', P1);
+    const res = applyRadialDamage(w, 0, 0, 200, 1, SWING, 'hazard', P1, 'physical');
     expect(res.creaturesHit).toBe(1);
     expect(victim.targetCreatureId).toBeNull();
   });
@@ -839,7 +839,7 @@ describe('S183 R183-C — HELGA retaliates, and can never be aimed at a tower', 
     damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
       kind: 'creature',
       id: puncher.id,
-    });
+    }, 'physical');
 
     expect(helga.targetCreatureId).toBe(puncher.id);
     // ⛔ R183-C's constraint, structurally: whatever she ends up holding resolves in
@@ -863,7 +863,7 @@ describe('S183 R183-C — HELGA retaliates, and can never be aimed at a tower', 
     const killed = damageEntity(w, { kind: 'defender', id: tower.id }, SWING, 'creature', {
       kind: 'creature',
       id: puncher.id,
-    });
+    }, 'physical');
 
     expect(killed).toBe(false);
     expect(tower.ehp).toBeNull();
@@ -886,7 +886,7 @@ describe('S183 R183-C — HELGA retaliates, and can never be aimed at a tower', 
     damageEntity(w, { kind: 'defender', id: helga.id }, SWING, 'creature', {
       kind: 'creature',
       id: puncher.id,
-    });
+    }, 'physical');
 
     expect(helga.targetCreatureId).toBe(original.id);
   });

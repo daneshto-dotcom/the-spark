@@ -48,6 +48,8 @@ import { creatureAttackFifths } from './creature.ts';
 import { hellspawnStrikeFifths } from '../racial/hellspawn.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
 import { applyVoltkinChain } from './voltkinChain.ts';
+// ⭐ S192 — every arm below strikes with its unit's own class: physical, the Voltkin's zap magic (Q-V).
+import { strikeClassFor } from '../magicResist.ts';
 import { mix32 } from '../rng.ts';
 
 /**
@@ -202,6 +204,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (died) creature.killCount += 1;
     /*
@@ -316,6 +319,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -399,6 +403,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
+        strikeClassFor(creature.type),
       );
       if (died) {
         creature.killCount += 1;
@@ -446,6 +451,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -510,6 +516,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
+        strikeClassFor(creature.type),
       );
     }
     return world;
@@ -546,6 +553,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     action.bondId,
     hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
     { kind: 'creature', id: creature.id },
+    strikeClassFor(creature.type),
   );
 
   /*

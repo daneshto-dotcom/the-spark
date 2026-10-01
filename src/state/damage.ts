@@ -53,6 +53,14 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
 // actually LANDED, so a tower swing or a blow into a channelling Pharaoh heals nothing.
 import { applyLifesteal } from './racial/lifesteal.ts';
+// ⭐ S192 (owner R192-M1..M7) — MAGIC RESISTANCE. Every funnel below takes a REQUIRED `cls`.
+import {
+  castleMresLevel, defenderMres, isMagicClass, landedFifths, magicHitFifths, mresFor, structureMres,
+  type DamageClass,
+} from './magicResist.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import { getDefenderConfig } from './defenders/defender.ts';
+export type { DamageClass } from './magicResist.ts';
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -141,6 +149,12 @@ export function damageEntity(
   amount: number,
   source: DamageSource,
   attacker: DamageAttacker,
+  /**
+   * ⭐⭐ S192 (R192-M1..M3) — PHYSICAL or MAGIC. REQUIRED, for the reason `attacker` is: `tsc`
+   * enumerates every site. A magic hit is rescaled by the victim's `(5+DEF)/(5+MRES)` below; a physical
+   * one is untouched. `amount` stays the SWING (lifesteal heals the swing, as it does before a keep's DEF).
+   */
+  cls: DamageClass,
 ): boolean {
   void source; // attribution only for now — see DamageSource
   /*
@@ -194,7 +208,11 @@ export function damageEntity(
      * can hit a keep. `castleDamageAfterDefence` floors the reduction and never returns 0 on a real
      * hit, so a high DEF cannot make a keep immune to small attackers.
      */
-    const taken = castleDamageAfterDefence(amount, seat.castleUpgrades);
+    // ⭐ S192 — a MAGIC hit is defended by the keep's MRES level instead of its DEF level, by the
+    // same formula (`floor(A·5/(5+level))`, min 1). `castleMresLevel` = its DEF level (⚠ MINE, spec Q2).
+    const taken = isMagicClass(cls)
+      ? magicHitFifths(amount, 0, castleMresLevel(seat.castleUpgrades))
+      : castleDamageAfterDefence(amount, seat.castleUpgrades);
     const hpBefore = seat.castleHp;
     seat.castleHp = Math.max(0, seat.castleHp - taken);
     // ⭐ S188 — ENDLESS DYNASTY counts what the keep ACTUALLY lost: after DEF, and after the clamp, so
@@ -217,8 +235,19 @@ export function damageEntity(
       // ⭐ S188 — and the killer's id rides along, read only at the death decision (THE RISEN).
       const victim = world.creatures.get(target.id);
       const before = victim?.ehp ?? 0;
+      // ⭐ S192 — what the hit LANDS on this victim's one bar: the swing for physical, the swing ×
+      // (5+DEF)/(5+MRES) for magic (a DoT tick spread over its beats). See `magicResist.ts`.
+      let landed = amount;
+      if (victim !== undefined && isMagicClass(cls)) {
+        const owner = world.players.get(victim.ownerPlayerId);
+        landed = landedFifths(
+          amount, cls, getCreatureConfig(victim.type).def,
+          mresFor(victim.type, owner?.raceId ?? null), target.id as unknown as number,
+        );
+        if (landed === 0) return false; // a skipped DoT beat — nothing landed, nothing heals
+      }
       const died = damageCreature(
-        world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
+        world, target.id, landed, world.pendingCreatureDeaths ?? undefined,
         attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
       );
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
@@ -245,6 +274,8 @@ export function damageEntity(
     case 'primitive': {
       const prim = world.primitives.get(target.id);
       if (prim === undefined) return false;
+      // ⭐ S192 — a shape is 14 HP / 0 DEF (a lone shape 1 / 0) and resists magic with MRES 0 = its DEF,
+      // so a magic hit lands unchanged. Nothing to rescale; the class is carried, not read.
       /*
        * ⭐⭐⭐ S179 (owner) — **A SHAPE WITH NO CONNECTORS IS WORTH FIVE.** See
        * `LONE_PRIMITIVE_POOL_FIFTHS`. Gated on the LIVE connector count, so a shape inside any
@@ -306,6 +337,7 @@ export function damageEntity(
         attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
         attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
         'hazard', owner,
+        'physical', // S192 — a bag BLOWS UP (R192-M3)
       );
       return true;
     }
@@ -323,7 +355,13 @@ export function damageEntity(
        */
       const d = world.defenders.get(target.id);
       if (d === undefined || d.ehp === null) return false;
-      d.ehp -= amount;
+      // ⭐ S192 — Helga resists magic with her own DEF (⚠ MINE, spec Q-G), so a magic hit lands as-is today.
+      const unit = getDefenderConfig(d.kind).unitStats;
+      const landed = unit === null || !isMagicClass(cls)
+        ? amount
+        : landedFifths(amount, cls, unit.def, defenderMres(unit), target.id as unknown as number);
+      if (landed === 0) return false;
+      d.ehp -= landed;
       applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
         /*
@@ -430,6 +468,8 @@ export function damageConnector(
   bondId: BondId,
   amountFifths: number,
   attacker: DamageAttacker,
+  /** ⭐ S192 — REQUIRED, as on `damageEntity`. A structure's MRES is its connector count (R192-M5). */
+  cls: DamageClass,
 ): boolean {
   if (!Number.isInteger(amountFifths) || amountFifths < 0) {
     throw new Error(
@@ -441,16 +481,25 @@ export function damageConnector(
   if (bond === undefined) return false;
   if (amountFifths === 0) return false;
 
-  bond.damageFifths += amountFifths;
-  // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
-  applyLifesteal(world, attacker, amountFifths);
-
   // The pool is a function of the component this bond is CURRENTLY part of, so it is read fresh on
   // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure
   // renderer runs it every frame), so this is not a new cost pattern.
+  // ⭐ S192 — read BEFORE the damage is banked (it reads topology only, never `damageFifths`), because a
+  // magic hit is rescaled by the structure's own DEF/MRES — both its connector count `n` (R192-M5), so
+  // the factor is exactly 1 and every connector takes today's number.
   const anchor = world.primitives.get(bond.aId) ?? world.primitives.get(bond.bId);
-  if (anchor === undefined) return true; // orphaned bond — nothing holds it up
-  const comp = componentOf(anchor, world.primitives, world.bonds);
+  const comp = anchor === undefined ? null : componentOf(anchor, world.primitives, world.bonds);
+  const n = comp === null ? 0 : comp.bondIds.size;
+  const landed = isMagicClass(cls)
+    ? landedFifths(amountFifths, cls, n, structureMres(n), bondId as unknown as number)
+    : amountFifths;
+  if (landed === 0) return false;
+
+  bond.damageFifths += landed;
+  // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
+  applyLifesteal(world, attacker, amountFifths);
+
+  if (comp === null) return true; // orphaned bond — nothing holds it up
   const pool = structurePoolFifths(comp.bondIds.size);
 
   /*
@@ -498,7 +547,7 @@ export function damageConnector(
    * actually broke a connector was invisible. Measured: 12, nothing, 12, nothing. Recorded here, at
    * the only place that knows both the hit and that it landed the finishing blow.
    */
-  world.connectorBreakHits.push({ bondId, amount: amountFifths });
+  world.connectorBreakHits.push({ bondId, amount: landed });
 
   let toSpend = pool;
   const drain = (b: { damageFifths: number } | undefined): void => {
@@ -680,6 +729,8 @@ export function applyRadialDamage(
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /** ⭐ S192 — REQUIRED: one blast, one class, forwarded to all three arms. */
+  cls: DamageClass,
 ): RadialDamageResult {
   const r2 = radius * radius;
   const inRange = (x: number, y: number): boolean => {
@@ -730,7 +781,7 @@ export function applyRadialDamage(
    * counted by `damage.callSites.test.ts`, and the same answer for all three arms below.
    */
   for (const cid of creatureVictims) {
-    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, null);
+    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, null, cls);
   }
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
@@ -745,10 +796,10 @@ export function applyRadialDamage(
    * function and swapping them typechecks, which is why the signature documents them at length.
    */
   for (const did of defenderVictims) {
-    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, null);
+    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, null, cls);
   }
   for (const pid of primVictims) {
-    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, null);
+    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, null, cls);
   }
 
   return {

@@ -39,6 +39,7 @@
 
 import { dotDueThisTick } from '../damageOverTime.ts';
 import { damageEntity } from '../damage.ts';
+import { dotBeat, magicDot } from '../magicResist.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
 import type { World } from '../worldTypes.ts';
@@ -75,6 +76,11 @@ export function runScorchedGround(world: World): void {
     }
     // Total order before mutating: damage can remove a creature, so the scan finishes first.
     victims.sort((a, b) => (a as number) - (b as number));
-    for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura', null);
+    // ⭐ S192 (R192-M2) — SCORCHED GROUND is MAGIC, a DoT tick rescaled over the victim's own beats.
+    for (const id of victims) {
+      const c = world.creatures.get(id);
+      const beat = c === undefined ? 0 : dotBeat(world.tick, id as number, c.type, SCORCHED_GROUND_PER_MILLE);
+      damageEntity(world, { kind: 'creature', id }, 1, 'aura', null, magicDot(beat));
+    }
   }
 }

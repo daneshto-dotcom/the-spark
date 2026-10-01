@@ -73,7 +73,7 @@ function spawnAt(w: World, owner: PlayerId, type: CreatureType, x: number, y: nu
 function killAll(w: World, ids: readonly CreatureId[], blowsEach = 1): void {
   w.pendingCreatureDeaths = new Set();
   for (const id of ids) {
-    for (let b = 0; b < blowsEach; b++) damageEntity(w, { kind: 'creature', id }, 999, 'aura', null);
+    for (let b = 0; b < blowsEach; b++) damageEntity(w, { kind: 'creature', id }, 999, 'aura', null, 'physical');
   }
   sweepDeferredDeaths(w, w.pendingCreatureDeaths);
   w.pendingCreatureDeaths = null;
@@ -173,7 +173,7 @@ describe('HELLSPAWN — one death, two children, and the chain ENDS (Council A2)
     const w = fightWorld();
     const parent = spawnAt(w, P0, 'chewer', 900, 500);
     w.pendingCreatureDeaths = new Set();
-    damageEntity(w, { kind: 'creature', id: parent }, 999, 'aura', null);
+    damageEntity(w, { kind: 'creature', id: parent }, 999, 'aura', null, 'physical');
     expect(chewersOf(w)).toHaveLength(1); // the corpse-in-waiting, nothing new
     expect(pendingRacialSpawns(w)).toBe(1);
     sweepDeferredDeaths(w, w.pendingCreatureDeaths);

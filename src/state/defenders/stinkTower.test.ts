@@ -196,7 +196,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const victim = bonded(w, P1, 300, 300);
     // ⭐ S177 P1 — ONE LADDER: the shape arm is now the unit arm, so the splash is UNIT_SPLASH on
     // both. A full-health shape (70) still survives a 6-fifth bag, which is what this test asserts.
-    applyRadialDamage(w, 300, 300, 200, UNIT_SPLASH, UNIT_SPLASH, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 200, UNIT_SPLASH, UNIT_SPLASH, 'hazard', P0, 'physical');
     expect(w.primitives.has(victim.id)).toBe(true);
     expect(victim.hp).toBe(PRIMITIVE_MAX_HP - UNIT_SPLASH);
   });
@@ -205,7 +205,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const mine = bonded(w, P0, 300, 300);
     const theirs = bonded(w, P1, 305, 300);
-    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0, 'physical');
     expect(mine.hp).toBe(PRIMITIVE_MAX_HP); // untouched
     expect(theirs.hp).toBe(PRIMITIVE_MAX_HP - STINK_BAG_DAMAGE);
   });
@@ -214,7 +214,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const near = addPrim(w, P1, 300, 300);
     const far = addPrim(w, P1, 900, 900);
-    applyRadialDamage(w, 300, 300, 100, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
+    applyRadialDamage(w, 300, 300, 100, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0, 'physical');
     expect(near.hp).toBeLessThan(PRIMITIVE_MAX_HP);
     expect(far.hp).toBe(PRIMITIVE_MAX_HP);
   });
@@ -223,7 +223,7 @@ describe('S141 P1 — applyRadialDamage is NOT applyRadialClear', () => {
     const w = setup();
     const victim = addPrim(w, P1, 300, 300);
     const hits = Math.ceil(PRIMITIVE_MAX_HP / STINK_BAG_DAMAGE);
-    for (let i = 0; i < hits; i++) applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0);
+    for (let i = 0; i < hits; i++) applyRadialDamage(w, 300, 300, 200, STINK_BAG_DAMAGE, UNIT_SPLASH, 'hazard', P0, 'physical');
     expect(w.primitives.has(victim.id)).toBe(false);
   });
 });

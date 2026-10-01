@@ -79,8 +79,8 @@ describe('⛔ purchased DEFENCE reaches the damage path', () => {
     for (let i = 0; i < 5; i++) buy(armed.w, armed.seat, 'def');
     expect(armed.w.players.get(armed.seat)?.castleUpgrades.defLevel).toBe(5);
 
-    damageEntity(plain.w, { kind: 'castle', seat: plain.seat } as never, 100, 'defender', null);
-    damageEntity(armed.w, { kind: 'castle', seat: armed.seat } as never, 100, 'defender', null);
+    damageEntity(plain.w, { kind: 'castle', seat: plain.seat } as never, 100, 'defender', null, 'physical');
+    damageEntity(armed.w, { kind: 'castle', seat: armed.seat } as never, 100, 'defender', null, 'physical');
 
     const plainLost = CASTLE_MAX_HP - (plain.w.players.get(plain.seat)?.castleHp ?? 0);
     const armedLost = CASTLE_MAX_HP - (armed.w.players.get(armed.seat)?.castleHp ?? 0);
@@ -95,7 +95,7 @@ describe('⛔ purchased DEFENCE reaches the damage path', () => {
     const pl = w.players.get(seat);
     if (pl === undefined) throw new Error('fixture: seat missing');
     for (let i = 0; i < 4000 && pl.castleHp > 0; i++) {
-      damageEntity(w, { kind: 'castle', seat } as never, 40, 'defender', null);
+      damageEntity(w, { kind: 'castle', seat } as never, 40, 'defender', null, 'physical');
     }
     expect(pl.castleHp).toBe(0);
   });

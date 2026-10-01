@@ -150,6 +150,7 @@ export function runPharaohRitual(world: World): void {
         attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN),
         'aura',
         null,
+        'magic', // ⭐ S192 — R190-E *"The Ra column is considered a MAGIC attack"*; R192-M2
       );
     }
 

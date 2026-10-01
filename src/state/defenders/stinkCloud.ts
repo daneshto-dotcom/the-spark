@@ -50,6 +50,7 @@ import type { PlayerId, StinkCloudId, Vec2 } from '../../types.ts';
 import { unitPoolFifths } from '../stats.ts';
 import type { World } from '../worldTypes.ts';
 import type { RadialDamageFn } from './stinkTower.ts';
+import { magicDot } from '../magicResist.ts';
 
 /**
  * A landed bag, stinking.
@@ -126,6 +127,8 @@ export function stinkCloudTick(world: World, c: StinkCloud, radialDamage: Radial
     world, c.pos.x, c.pos.y, c.radius,
     STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
     'aura', c.ownerPlayerId,
+    // ⭐ S192 — ⚠ MINE (spec Q-C): the cloud is the aura's own smell, so it is MAGIC like the aura.
+    magicDot(Math.floor(world.tick / STINK_AURA_CADENCE_TICKS)),
   );
   return true;
 }
