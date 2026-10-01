@@ -36,6 +36,7 @@ import type { GameAction } from '../state/world.ts';
 import { Controls, type CastlePanelLike, type CharacterSheetLike, type DraftPanelLike } from './controls.ts';
 import { FooterBand, collapseTabRect } from '../render/footerBand.ts';
 import { raAimPreview, setRaAimPreview } from '../render/raAimPreview.ts';
+import { scorchedEarthAim, setScorchedEarthAim } from '../render/scorchedEarthAim.ts';
 
 class FakeContext2D {
   font = '10px sans-serif';
@@ -299,6 +300,22 @@ describe('⛔⛔ S191 A-3 — REACH: a right-click on an opaque surface raids NO
       expect(raids(r)).toEqual([]);
     } finally {
       setRaAimPreview(null);
+    }
+  });
+
+  it('⛔ S192 OWN-2 — a right-click over the open CASTLE PANEL puts the SCORCHED EARTH aim away, and raids nothing', () => {
+    const r = rig();
+    r.castle.panel = { x: 600, y: 300, w: 320, h: 260 };
+    const p = { x: 700, y: 400 };
+    enemyAt(r, p);
+    setScorchedEarthAim({ seat: P0, x: p.x, y: p.y });
+    try {
+      rightClick(r, p);
+      expect(scorchedEarthAim(), 'the scorch aim is put away').toBeNull();
+      expect(raids(r)).toEqual([]);
+      expect(r.sent.filter((a) => a.type === 'CAST_SCORCHED_EARTH'), 'and nothing is cast').toEqual([]);
+    } finally {
+      setScorchedEarthAim(null);
     }
   });
 

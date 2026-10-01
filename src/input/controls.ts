@@ -1262,6 +1262,7 @@ export class Controls {
     // plate below (S190 IL-2): it acts on the HAND, not on the ground under the panel. The aim first.
     if (e.button === 2 && this.isPointerOverPanel()) { // R190-G: HAND (the IL-2 put-back, castle panel)
       if (raAimPreview() !== null) setRaAimPreview(null);
+      else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S192 OWN-2 — the scorch aim, same rule
       else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
     }
     if (this.isPointerOverPanel()) return;
