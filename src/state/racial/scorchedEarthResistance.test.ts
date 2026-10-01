@@ -1,14 +1,15 @@
 /**
  * SPARK — S192 — **RESISTANCE BELONGS TO THE CASTER'S SEAT ONLY, behind ONE predicate.**
  *
- * > *"only you are resistant when you're a demon to your own scorched earth … if you have a friend with
- * > you, he still gets hit … you should be able to double your Scorched Earth … click on yours again"*
- * > — owner, S192 (re-stated after the playtest)
+ * > *"only you are resistant when you're a demon to your own scorched earth … you should be able to double
+ * > your Scorched Earth … click on yours again"* — owner, S192 (re-stated after the playtest)
  *
- * Teams do not exist; every seat that is not the spared one burns. `isScorchImmune` is the single site a
- * later teams branch changes — pinned mechanically here (every burn arm calls it; none compares seats
- * inline) and by REACH through the real host tick (a "friend" in the caster's own doubled zone burns ×2
- * while the caster's own unit beside him loses nothing).
+ * ⭐ R192-T1 (owner, S192): teammates never damage each other — units, towers, and zone effects (a demon
+ * teammate's zone does not burn you). Teams do not exist YET, so today every seat that is not the spared
+ * one burns; `isScorchImmune` is the single site the teams branch changes — pinned mechanically here (every
+ * burn arm calls it; none compares seats inline) and by REACH through the real host tick (ANOTHER SEAT in
+ * the caster's own doubled zone burns ×2 while the caster's own unit beside him loses nothing). The teams
+ * branch re-pins the REACH case to "a teammate is spared".
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -78,18 +79,18 @@ describe('S192 — isScorchImmune: the caster’s seat, and nobody else', () => 
     expect(isScorchImmune(undefined, P0)).toBe(false);
   });
 
-  it('⭐⭐ REACH: a “friend” in the caster’s OWN doubled zone burns ×2; the caster’s own unit beside him loses nothing', () => {
+  it('⭐⭐ REACH: another seat (no teams yet — R192-T1 lands with teams) in the caster’s OWN doubled zone burns ×2; the caster’s own unit loses nothing', () => {
     const { w, keep } = fourSeatFight();
     const at = { x: 400, y: 300 };
     expect(zoneOf(at, w.layout)).toBe(zoneOwner(0, w.layout));
-    const friend = held(w, keep, asPlayerId(2), at);
+    const other = held(w, keep, asPlayerId(2), at);
     const mine = held(w, keep, P0, { x: at.x + 30, y: at.y });
-    const full = friend.ehp;
+    const full = other.ehp;
     const mineFull = mine.ehp;
     dispatch(w, { type: 'CAST_SCORCHED_EARTH', playerId: P0, zoneSeat: P0 }); // "click on yours again"
     const n = 4;
     step(w, keep, dotIntervalTicks(maxPoolFifths('t3Warband'), SCORCHED_GROUND_PER_MILLE) * n);
-    expect(full - w.creatures.get(friend.id)!.ehp, 'the friend still gets hit — passive + cast').toBe(n * SCORCHED_EARTH_OWN_ZONE_MUL);
+    expect(full - w.creatures.get(other.id)!.ehp, 'any other seat burns today — passive + cast').toBe(n * SCORCHED_EARTH_OWN_ZONE_MUL);
     expect(w.creatures.get(mine.id)!.ehp, 'only the caster is resistant').toBe(mineFull);
   });
 

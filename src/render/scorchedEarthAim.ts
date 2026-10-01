@@ -17,6 +17,7 @@
  * zone the click will send, and the quarry (nobody's) or a fallen seat's land never lights at all.
  */
 
+import { pendingRecordAnchor } from './pendingRecordClock.ts';
 import type { PlayerId } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
 import { zoneOf, zoneOwner } from '../state/zones.ts';
@@ -91,9 +92,8 @@ export function scorchedEarthHoverSeat(world: World): PlayerId | null {
  * monotonic on a joiner** — each snapshot sets `world.tick = snap.tick`, so a clock that ran ahead steps
  * BACK right after the send. A step back below the send tick RE-ANCHORS the record at the adopted tick
  * (its window restarts; every other check still re-validates it); older than the timeout it EXPIRES and
- * is DROPPED, so a later step back can never revive a refused cast. Same rule as carry's
- * `pendingRecordAnchor` (`render/pendingRecordClock.ts`), inlined until that branch lands — the merge
- * owner swaps this for the shared helper then.
+ * is DROPPED, so a later step back can never revive a refused cast. The ONE rule for such records:
+ * `pendingRecordAnchor` (`render/pendingRecordClock.ts`), shared with POWER OF RA.
  */
 interface PendingScorch {
   readonly world: World;
@@ -108,7 +108,7 @@ function livePending(world: World, seat: PlayerId): PendingScorch | null {
   const q0 = pending;
   if (q0 === null || q0.world !== world || q0.seat !== seat) return null;
   // ⛔ S192 UIGATES-4 — re-anchor on a step back; DROP once expired (never merely hide it).
-  const atTick = world.tick < q0.atTick ? world.tick : world.tick - q0.atTick > RA_PENDING_TIMEOUT_TICKS ? null : q0.atTick;
+  const atTick = pendingRecordAnchor(world.tick, q0.atTick, RA_PENDING_TIMEOUT_TICKS);
   if (atTick === null) {
     pending = null;
     return null;
