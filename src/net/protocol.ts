@@ -911,7 +911,30 @@ export type { NetSnapshot };
  *   Riding without needing it: C-8 `Player.castleHealedHp` (additive-optional, wide hash only), C-7 the bar on
  *   the tower's own star, C-9 the Ra strike above buildings, C-1..C-4.
  */
-export const PROTOCOL_VERSION = 54 as const;
+/**
+ * ⭐⭐ S192 — **BUMPED 54 -> 55: `s191/tune` — four owner retunes, all shared rules, no wire change.**
+ * Each item earns it alone (the S186 test — a v54 and a v55 build that shook hands would compute
+ * different worlds from the same intents; `.claude/plans/S191_CANON_NOTES_tune.md`):
+ *   1. POWER OF RA / WRATH OF RA (S191, owner: "we can do it 35 per hit") — a Ra column deals its pool
+ *      IN TOTAL, split by `raSplitShares` over `raColumnTargets` (a structure is ONE target, its share on
+ *      the connector nearest the centre, severed through `severWithCarry`; stink bags are now reached;
+ *      shapes inside a structure are no longer razed). A v54 host or successor lands 300 on every
+ *      connector and razes the shapes — towers that stand on v55 fall.
+ *   2. THE CASTLE KEEP-OUT (S191, owner: "It needs to be halved") — `CASTLE_NO_BUILD_RADIUS` 121 -> 61 plus
+ *      a `CASTLE_PORCH_KEEP_OUT_RADIUS` 34 disc per porch slot. Placement is a hashed REDUCER: a v54 host
+ *      refuses a placement in the 61..121 ring that a v55 client's ghost shows as legal (and vice versa
+ *      around the porch) — a divergence, not a cosmetic disagreement.
+ *   3. APEX PREDATOR (S192, owner chose ×6 "like the bat swarm") — `APEX_PREDATOR_STAT_MUL` 3 -> 6
+ *      (elite piranha 18 / 0 / 12 / 6: pool 90, bite 132). `THE_SWARM_STAT_MUL` DECOUPLED to a literal 6
+ *      (R190-D), numerically unchanged. A v54 sim emits a 45-pool elite with a 48 bite.
+ *   4. THE PHARAOH BOSS'S Ra COLUMN + WRATH OF RA AT 75 (S192, owner: "He goes down to 35 per column, just
+ *      like a regular column attack … And also Pharaoh's become 75 … If the player chose that ability") —
+ *      his ritual lands through the perk's `landRaColumn` (one target per structure, connectors cut with
+ *      `cause: 'unit'`, nobody spared); `raColumnPoolFor` = 35, or 75 when the column's OWNER seat holds
+ *      WRATH OF RA — which also raises that seat's POWER OF RA cast, its three WRATH charges and its bot
+ *      cast to 75. A v54 host or successor lands 300 on every unit and shape in his circle.
+ */
+export const PROTOCOL_VERSION = 55 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1235,6 +1258,8 @@ export interface HelloMsg {
    * S192: 53->54 (DEPLOY #8 — `s191/carry`: the hub blast as 120 ladder fifths split, the popped-bag spare,
    * the strict FFA spread, overkill carrying owner-filtered. Full reasons on the const's JSDoc.)
    *
+   * S192: 54->55 (DEPLOY #9 — s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1272,7 +1297,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 54;
+  readonly protoVersion: 55;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

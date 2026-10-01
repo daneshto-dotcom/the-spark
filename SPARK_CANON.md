@@ -913,7 +913,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **54** (S192 — deploy #8; see the S192 entries on the const).
+`PROTOCOL_VERSION` is **55** (S192 — deploy #9; see the S192 entries on the const).
+
+⭐⭐ **WHAT RIDES 55 (S192, deploy #9)** — s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6.
 
 ⭐⭐ **WHAT RIDES 54 (S192, deploy #8)** — `s191/carry`: the lightning hub's self-destruct as 120 ladder fifths split in a total order (owner spared), the popped-bag spare, the strict FFA spread, and OVERKILL CARRYING into the next connector — only into connectors the struck connector's owner placed. Riding along: the castle's separate heal number (`castleHealedHp`), the bar on the tower's own star, the Ra strike above buildings.
 
