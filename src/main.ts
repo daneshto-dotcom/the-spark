@@ -1031,6 +1031,11 @@ async function bootstrap(): Promise<void> {
   castlePanel.setCastleStatHandler((stat) => {
     dispatchFn({ type: 'UPGRADE_CASTLE_STAT', playerId: world.localPlayerId, stat });
   });
+  // ⭐ S193 R192-W1 — the castle's FIX ALL: queue a gatherer FIX job for every own tower that needs one.
+  // Same dispatchFn seam (all three transport paths); NOT predicted — the host owns the queue.
+  castlePanel.setFixAllHandler(() => {
+    dispatchFn({ type: 'FIX_ALL', playerId: world.localPlayerId });
+  });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
   castlePanel.setPullHandler((sparkType) => {

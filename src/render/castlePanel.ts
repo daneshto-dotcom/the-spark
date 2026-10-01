@@ -46,6 +46,7 @@ import {
   KEEP_H,
 } from '../constants.ts';
 import { bankOf } from '../state/castleBank.ts';
+import { fixAllTargets, seatGathererCount } from '../state/repairJobs.ts'; // ⭐ S193 R192-W1
 // S166 — R95's race filter. From the side-effect-free leaf: this module must not fire
 // `registerRecipe` as an import side effect (see `raceTowerIds.ts`).
 import { RACE_TOWER_IDS, isRaceTowerId } from '../state/raceTowerIds.ts';
@@ -640,6 +641,8 @@ export interface PanelControl {
 export const CASTLE_ROW_KEYS = [
   'buyGatherer', 'upgradeSpeed', 'castleRegen',
   'castleHp', 'castleAtk', 'castleDef', 'castlePen',
+  // ⭐ S193 R192-W1 — *"a button on your castle saying fix all"*. Drawn and hit-tested by the row loop.
+  'fixAll',
 ] as const;
 
 /** One control row's key. The union `activate` switches over exhaustively. */
@@ -777,6 +780,35 @@ export function castleControlsModel(
     };
   });
 
+  /*
+   * ⭐⭐ S193 R192-W1 — FIX ALL. *"there should be a button on your castle saying fix all. And then it
+   * just gives a mass command to all the gatherers to first go and fix all the existing towers before
+   * … continuing to gather."* The number is how many towers it would queue — `fixAllTargets`, the
+   * reducer's own list, never a second count. Blockers in the reducer's order: not your keep, the input
+   * lock, a fallen castle (eliminated — `elimination.ts` denies it too), FIX is BUILD-only (R19), no
+   * gatherer to carry anything (⚠ MINE), nothing to fix.
+   */
+  const fixable = notMine || locked || world.matchPhase !== 'BUILD' ? 0 : fixAllTargets(world, world.localPlayerId).length;
+  const fixReason = notMine
+    ? 'NOT YOURS'
+    : locked
+      ? 'LOCKED'
+      : me.castleHp <= 0
+        ? 'CASTLE LOST'
+        : world.matchPhase !== 'BUILD'
+          ? 'BUILD ONLY'
+          : seatGathererCount(world, world.localPlayerId) === 0
+            ? 'NO GATHERERS'
+            : fixable === 0
+              ? 'NOTHING TO FIX'
+              : '';
+  const fixAllRow = {
+    key: 'fixAll' as const,
+    label: fixReason === '' ? `FIX ALL  ${fixable}` : `FIX ALL  ${fixReason}`,
+    enabled: fixReason === '',
+    reason: fixReason,
+  };
+
   return [
     {
       key: 'buyGatherer',
@@ -805,6 +837,7 @@ export function castleControlsModel(
       reason: regenReason,
     },
     ...statRows,
+    fixAllRow,
   ];
 }
 
@@ -982,6 +1015,8 @@ export class CastlePanel {
   private onCastleRegen: (() => void) | null = null;
   /** S188 P3 — the four castle-stat rows' one dispatch, injected by main.ts. */
   private onCastleStat: ((stat: CastleStat) => void) | null = null;
+  /** ⭐ S193 R192-W1 — main.ts injects the FIX_ALL dispatch for the local seat. */
+  private onFixAll: (() => void) | null = null;
   /** S181 — when set, the panel docks flush beneath the character card instead of beside the keep. */
   private dock: { x: number; y: number; w: number; h: number } | null = null;
   /** Latched per frame from `castleControlsModel`, so a pointertap cannot fire a disabled row. */
@@ -1161,6 +1196,11 @@ export class CastlePanel {
     this.onCastleStat = fn;
   }
 
+  /** ⭐ S193 R192-W1 — main.ts injects the FIX_ALL dispatch for the local seat. */
+  setFixAllHandler(fn: () => void): void {
+    this.onFixAll = fn;
+  }
+
   /**
    * S144 P2 — pick up (or put down) a tower.
    *
@@ -1307,6 +1347,8 @@ export class CastlePanel {
         return this.onUpgradeSpeed;
       case 'castleRegen':
         return this.onCastleRegen;
+      case 'fixAll':
+        return this.onFixAll;
       case 'castleHp':
       case 'castleAtk':
       case 'castleDef':

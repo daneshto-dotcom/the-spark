@@ -37,7 +37,6 @@
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, type SparkType } from '../constants.ts';
 import { codexCopyFor } from './codexPresentation.ts';
-import { availableShapeCounts } from '../state/blueprintBuild.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 // ⛔ FROM THE SIDE-EFFECT-FREE LEAF, never from `godlyRecipes/goblinTower.ts` — that module calls
 // `registerRecipe` at its tail, and the documented S144 trap is that a value import of a recipe
@@ -49,6 +48,7 @@ import { T3_SHORT_NAME, raceForTowerId } from '../state/raceTowerIds.ts';
 import { componentOf } from '../game/structure.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { planStructureRepair, planStructureScrap } from '../state/structureRepair.ts';
+import { planNeedsWork, repairJobCovering, seatGathererCount } from '../state/repairJobs.ts'; // S193 R191-B
 import type { PlayerId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import type { World } from '../state/world.ts';
 
@@ -238,25 +238,30 @@ export function structureActionModel(
   if (top < EDGE_MARGIN + 18) top = Math.min(CANVAS_HEIGHT - BTN_H - EDGE_MARGIN, minY + LIFT);
 
   if (repair !== null) {
-    const lost = repair.group.missing.length;
-    const affordable = repair.payments !== null;
     // Nothing missing, nothing damaged, no bond broken — the tower is whole. The reducer refuses
     // this case (an empty repair would arm the ignition sweep for free), so the button must too.
-    const idle = lost === 0 && repair.damagedCount === 0 && repair.missingBondCount === 0;
-    // ⭐ S182 (owner R182-E) — PRICED OFF THE BILL, NOT OFF THE LOST-NODE COUNT. A structure that
-    // lost nothing but is hurt now costs ONE shape ("whether it's one HP or fifty HP"), so
-    // `repair.cost` and `lost` have stopped being the same number and only the bill can be shown.
-    // 'REPAIR FREE' is gone with the free repair it described.
-    const caption = !affordable
-      ? `NEED ${shortfallFor(world, seat, repair.cost)} MORE`
+    const idle = !planNeedsWork(repair);
+    /*
+     * ⭐⭐ S193 R191-B — FIX QUEUES A GATHERER JOB, so the button no longer asks whether the BANK covers
+     * the bill: *"no shape → keep gathering, fetch when one appears"* — the quarry is a source too. It
+     * reads exactly what `applyQueueRepair` refuses on: nothing to fix, a job already covering this
+     * tower (QUEUED — one job per tower), no gatherer to carry it (⚠ MINE). Still priced off the bill
+     * (R13 / R182-E: one shape flat for a dent).
+     */
+    const queued = repairJobCovering(world, seat, repair.memberIds) !== null;
+    const noGatherer = seatGathererCount(world, seat) === 0;
+    const caption = queued
+      ? 'QUEUED'
       : idle
         ? 'NOTHING TO FIX'
-        : `COSTS ${repair.cost.length}`;
+        : noGatherer
+          ? 'NO GATHERERS'
+          : `COSTS ${repair.cost.length}`;
     buttons.push({
       kind: 'FIX',
       label: 'FIX',
       caption,
-      enabled: affordable && !idle,
+      enabled: !queued && !idle && !noGatherer,
       x: left,
       y: top,
       w: BTN_W,
@@ -359,23 +364,6 @@ export function structureActionModel(
     buttons,
     ...(feed !== null ? { feedSpawnerId: feed.spawnerId } : {}),
   };
-}
-
-/**
- * PURE — how many shapes short the seat is of `cost`.
- *
- * ⚠ EXPLANATORY ONLY. Whether the repair is affordable is decided by `planStructureRepair`'s call
- * into `planPaymentForTypes` — the reducer's own search — and this count never gets a vote. That is
- * the `castleStructuresModel` rule verbatim: `availableShapeCounts` explains a shortfall, it never
- * decides one, because a lookalike count comparison is how a panel and a reducer start disagreeing.
- */
-function shortfallFor(world: World, seat: PlayerId, cost: readonly SparkType[]): number {
-  const have = availableShapeCounts(world, seat);
-  const need = new Map<SparkType, number>();
-  for (const t of cost) need.set(t, (need.get(t) ?? 0) + 1);
-  let short = 0;
-  for (const [type, n] of need) short += Math.max(0, n - (have.get(type) ?? 0));
-  return short;
 }
 
 /**
