@@ -596,7 +596,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
      * PROTOCOL_VERSION 46 -> 47 — earned, not assumed; see the union in `effects.ts`.
      */
     cause: creature.type === 'voltkin' ? 'creature' : isChewer ? 'chewer' : 'unit',
-  }));
+  }), { kind: 'seat', seat: creature.ownerPlayerId }); // ⭐ S193 — the carry's stat-board credit (heals nobody)
 
   // Emit ARC_FLASH only if the bond actually severed.
   if (!world.bonds.has(action.bondId)) {

@@ -843,7 +843,7 @@ function dispatchReducer(world: World, action: GameAction): World {
           // for want of a currency the raider never needed — found by raid.test.ts, which is
           // exactly why that test builds real topology instead of stubbing a bond.
           cause: 'raid',
-        }));
+        }), { kind: 'seat', seat: action.playerId }); // ⭐ S193 — the carry's stat-board credit
       }
       world.effects.push({
         kind: 'RAIDED',

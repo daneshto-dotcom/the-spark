@@ -146,6 +146,12 @@ export type DamageAttacker =
   | null;
 
 /**
+ * ⭐ S193 BLAST-2 — the one attacker an AREA sweep or a CARRY may name: a seat, never an entity. Typed
+ * narrowly so `severWithCarry` cannot be handed a creature (its carried hits would heal BLOOD DEBT twice).
+ */
+export type SeatAttacker = Extract<DamageAttacker, { readonly kind: 'seat' }>;
+
+/**
  * ⭐ S191 — which SEAT an attacker belongs to, for the stat board. A creature or tower that has already left
  * the world (a drone that detonated, a razed tower) resolves to nobody: the hit still counts as TAKEN.
  */
@@ -633,8 +639,11 @@ export function damageConnector(
  * midpoint is NEAREST the struck bond's midpoint, by squared distance, then the lowest bond id — the
  * damage spreads outward from where it landed. `connectorCarry.test.ts` pins it.
  *
- * The carried hits name NO attacker: the lifesteal (BLOOD DEBT) was paid once on the whole hit by the
+ * The carried hits name NO ENTITY: the lifesteal (BLOOD DEBT) was paid once on the whole hit by the
  * caller's own `damageConnector`, and a second heal on the carry would count the same damage twice.
+ * ⭐ S193 BLAST-2 — they DO name the striking SEAT (`carryBy`; every production caller answers — census): a
+ * `'seat'` attacker heals and turns nobody, and without it every fifth the carry felled was TAKEN on the
+ * stat board with no dealer (a boss's 150 credited only its first connector). `null` = nobody to credit.
  * If the sever is REFUSED (the connector still stands), nothing carries.
  *
  * ⛔⛔ S192 (audit CARRY-1) — **THE CARRY STAYS ON THE STRUCK CONNECTOR'S OWNER.** Candidates are only the
@@ -647,7 +656,14 @@ export function damageConnector(
  *
  * @returns how many connectors fell (0 when the struck one did not).
  */
-export function severWithCarry(world: World, bondId: BondId, sever: (bondId: BondId) => void): number {
+export function severWithCarry(
+  world: World,
+  bondId: BondId,
+  sever: (bondId: BondId) => void,
+  /** ⚠ Optional only so the unit tests' 3-argument calls still compile; `damageConnector.callSites.test.ts`
+   *  pins that every PRODUCTION call passes a seat. */
+  carryBy: SeatAttacker | null = null,
+): number {
   const struck = world.bonds.get(bondId);
   if (struck === undefined) return 0;
   // Captured BEFORE the first sever: a sever can split the structure and raze an orphaned shape.
@@ -690,7 +706,7 @@ export function severWithCarry(world: World, bondId: BondId, sever: (bondId: Bon
       }
     }
     if (next === null) break; // the whole structure is down; the rest has nothing to land on
-    if (!damageConnector(world, next, leftover, null)) break; // banked on the structure
+    if (!damageConnector(world, next, leftover, carryBy)) break; // banked on the structure
     current = next;
   }
   return felled;

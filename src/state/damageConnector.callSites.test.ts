@@ -67,19 +67,19 @@ interface Site {
   readonly attacker: string;
 }
 
-function collect(): Site[] {
+function collect(token = 'damageConnector(', argIndex = 3): Site[] {
   const sites: Site[] = [];
   for (const file of productionSources(join(ROOT, 'src'))) {
     const src = stripComments(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
     let from = 0;
     for (;;) {
-      const at = src.indexOf('damageConnector(', from);
+      const at = src.indexOf(token, from);
       if (at === -1) break;
       from = at + 1;
       if (/function\s+$/.test(src.slice(Math.max(0, at - 20), at))) continue; // the declaration
       const args = callArgs(src, at);
-      if (args.length < 4) continue;
-      sites.push({ file: file.slice(ROOT.length + 1).replace(/\\/g, '/'), attacker: args[3]! });
+      if (args.length < argIndex + 1) continue;
+      sites.push({ file: file.slice(ROOT.length + 1).replace(/\\/g, '/'), attacker: args[argIndex]! });
     }
   }
   return sites;
@@ -101,29 +101,50 @@ describe('S188 — the damageConnector call-site census', () => {
       for (const s of sites.filter(pred)) out[s.file] = (out[s.file] ?? 0) + 1;
       return out;
     };
-    expect(sites.every((s) => s.attacker.startsWith('{') || s.attacker === 'null')).toBe(true);
+    // ⭐ S193 BLAST-2 — a third shape: the carry FORWARDS its caller's seat (`carryBy`, typed `SeatAttacker`).
+    expect(sites.every((s) => s.attacker.startsWith('{') || s.attacker === 'null' || s.attacker === 'carryBy')).toBe(true);
     // A creature struck the building: BLOOD DEBT heals it.
     expect(tally((s) => s.attacker.startsWith('{') && !s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/creatures/creatureAttack.ts': 1, // the creature bond strike
       'src/state/creatures/voltkinChain.ts': 1, // every building link of the bolt
     });
-    // Nobody to heal: an area blast whose bomber is deleted on the same call, a player raid, and
-    // (S188 merge of racial-c) the POWER OF RA sky strike — a player's column, not a creature's blow.
-    // ⭐ S191 — each now names its SEAT for the stat board; `'seat'` heals nobody (lifesteal reads
-    // `kind === 'creature'`), so these three still heal nothing, exactly as their `null` did.
-    expect(tally((s) => s.attacker === 'null')).toEqual({
-      // ⭐ S191 C-5 — the lightning hub's self-destruct, 120 to each enemy connector in radius.
-      'src/state/potatoLifecycle.ts': 1,
-      // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on to the next connector; BLOOD DEBT
-      // was already paid on all of it by the caller's own `damageConnector`, so it heals nobody again.
-      'src/state/damage.ts': 1,
-      'src/state/racial/raColumn.ts': 1, // S192 — the column moved here; the Pharaoh boss's column now cuts connectors too
-      // ⭐ S191 — SCORCHED EARTH burning a structure: burning ground heals nobody (BLOOD DEBT).
-      'src/state/racial/scorchedGround.ts': 1,
-    });
+    // ⭐ S193 BLAST-2 — NO `null` IS LEFT. Every hit with no creature to heal names the SEAT that caused it, for
+    // the stat board; `'seat'` heals nobody (lifesteal reads `kind === 'creature'`), exactly as `null` did.
+    expect(tally((s) => s.attacker === 'null')).toEqual({});
     expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
+      'src/state/creatures/suicideBlast.ts': 1, // the bomber's owner
+      'src/state/world.ts': 1, // the raider
+      // ⭐ S191 C-5 — the lightning hub's self-destruct, 120 split across what it reaches: the hub's OWNER.
+      'src/state/potatoLifecycle.ts': 1,
+      'src/state/racial/raColumn.ts': 1, // the caster, or the Pharaoh's seat (S192: his column cuts connectors too)
+      'src/state/racial/scorchedGround.ts': 1, // SCORCHED EARTH burning a structure: the caster
+    });
+    // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on, crediting the caller's seat (`carryBy`).
+    expect(tally((s) => s.attacker === 'carryBy')).toEqual({ 'src/state/damage.ts': 1 });
+  });
+
+  it('⭐ S193 BLAST-2 — every PRODUCTION severWithCarry names the seat its carry is credited to', () => {
+    // `carryBy` is optional only for the unit tests' sake, so `tsc` cannot enumerate these: this does.
+    // A source-text guard proves the argument EXISTS; `matchStats.blast2.test.ts` proves the credit LANDS.
+    const carries = collect('severWithCarry(', 3);
+    const tally: Record<string, number> = {};
+    for (const s of carries) tally[s.file] = (tally[s.file] ?? 0) + 1;
+    expect(tally).toEqual({
+      'src/state/creatures/creatureAttack.ts': 1,
       'src/state/creatures/suicideBlast.ts': 1,
+      'src/state/creatures/voltkinChain.ts': 1,
+      'src/state/potatoLifecycle.ts': 1,
+      'src/state/racial/raColumn.ts': 1,
+      'src/state/racial/scorchedGround.ts': 1,
       'src/state/world.ts': 1,
     });
+    expect(carries.every((s) => s.attacker.includes("kind: 'seat'"))).toBe(true);
+    // ⚠ And none was dropped by the 4-argument filter: every call TOKEN in production is one of the above.
+    let tokens = 0;
+    for (const file of productionSources(join(ROOT, 'src'))) {
+      const src = stripComments(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
+      tokens += src.split('severWithCarry(').length - 1;
+    }
+    expect(tokens).toBe(carries.length + 1); // + the declaration
   });
 });

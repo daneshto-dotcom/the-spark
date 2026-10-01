@@ -509,9 +509,9 @@ export function planHubBlast(world: World, cx: number, cy: number, radius: numbe
  * ⭐⭐ S191 C-5 — the hub's blast, executed in `planHubBlast`'s order (every target planned BEFORE
  * anything is mutated — `applyRadialDamage`'s collect-then-mutate discipline).
  *
- *   · every non-connector share goes through `damageEntity` with a `null` attacker (a blast names
- *     nobody — S183);
- *   · a connector share goes through `damageConnector(share, null)` — no creature attacker, so no
+ *   · every non-connector share goes through `damageEntity` naming the hub OWNER's SEAT (⭐ S193 BLAST-2
+ *     — the stat board's credit; a seat is still no ENTITY, so nobody retaliates — S183);
+ *   · a connector share goes through `damageConnector(share, seat)` — no creature attacker, so no
  *     lifesteal — and, when it gives way, is severed with cause `'drone'`: an EXISTING cause (no bump
  *     for the value), and the honest one for *"a suicide drone building"* (R182-A). ⚠ MINE. The sever
  *     goes straight to `applySeverBond`, not through `dispatch`, for POWER OF RA's audit-F1 reason:
@@ -530,18 +530,20 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
     if (t.kind === 'connector') {
       const bondId = t.id as unknown as BondId;
       if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
-      if (damageConnector(world, bondId, t.amount, null)) {
+      // ⭐ S193 BLAST-2 — `'seat'`: the hub's OWNER is credited on the stat board (DEALT / KILLS); a seat
+      // heals nobody (BLOOD DEBT reads creatures) and turns nobody (retaliation reads creatures).
+      if (damageConnector(world, bondId, t.amount, { kind: 'seat', seat: owner })) {
         // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
-        severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'drone' }));
+        severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'drone' }), { kind: 'seat', seat: owner });
       }
       continue;
     }
     if (t.kind === 'stinkCloud') {
       // ⭐ S191 (owner) — the bag's burst spares the HUB OWNER too, his "they're resistant" (`damageStinkCloud`).
-      damageStinkCloud(world, t.id as unknown as StinkCloudId, t.amount, null, owner);
+      damageStinkCloud(world, t.id as unknown as StinkCloudId, t.amount, { kind: 'seat', seat: owner }, owner);
       continue;
     }
-    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', null);
+    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', { kind: 'seat', seat: owner }); // ⭐ S193 BLAST-2
   }
 }
 

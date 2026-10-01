@@ -181,7 +181,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
        * `'unit'` exactly as they treat `'bomb'`.
        */
       // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
-      severWithCarry(world, bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: bomber.ownerPlayerId, cause: 'unit' }));
+      severWithCarry(world, bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: bomber.ownerPlayerId, cause: 'unit' }), { kind: 'seat', seat: bomber.ownerPlayerId });
     }
   }
 

@@ -216,7 +216,8 @@ function burnCreatures(world: World, spared: PlayerId, zone: number, perMille: n
   }
   // Total order before mutating: damage can remove a creature, so the scan finishes first.
   victims.sort((a, b) => (a as number) - (b as number));
-  for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura', null);
+  // ⭐ S193 BLAST-2 — the burning ground's OWNER (the perk's seat / the caster) is credited on the stat board.
+  for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura', { kind: 'seat', seat: spared });
 }
 
 /**
@@ -240,7 +241,7 @@ function burnHelgas(world: World, spared: PlayerId, zone: number, perMille: numb
     victims.push(id);
   }
   victims.sort((a, b) => (a as unknown as number) - (b as unknown as number));
-  for (const id of victims) damageEntity(world, { kind: 'defender', id }, 1, 'aura', null);
+  for (const id of victims) damageEntity(world, { kind: 'defender', id }, 1, 'aura', { kind: 'seat', seat: spared }); // ⭐ S193 BLAST-2
 }
 
 /**
@@ -286,13 +287,13 @@ function burnStructures(world: World, caster: PlayerId, zone: number): void {
   for (const bondId of due) {
     if (!world.bonds.has(bondId)) continue;
     // `null` attacker: burning ground heals nobody (BLOOD DEBT) — `damageConnector.callSites.test.ts`.
-    if (damageConnector(world, bondId, 1, null)) {
+    if (damageConnector(world, bondId, 1, { kind: 'seat', seat: caster })) { // ⭐ S193 BLAST-2 — a seat heals nobody
       // ⛔ INLINE, NOT DISPATCHED — POWER OF RA's audit F1: the sever is the CONSEQUENCE of damage that
       // has landed, not the caster acting now, so a benched caster must not have it refused. `'raid'`
       // is the existing cause for a player's attack reaching a connector's capacity (⚠ MINE, Ra's).
       // ⭐ S192 (audit OWN-1) — through `severWithCarry`, like every `damageConnector` site (the S191 overkill
       // CARRY ruling; `connectorSeverCarry.census.test.ts`).
-      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }));
+      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }), { kind: 'seat', seat: caster });
     }
   }
 }
@@ -310,7 +311,7 @@ function burnLoneShapes(world: World, caster: PlayerId, zone: number): void {
     due.push(id);
   }
   due.sort((a, b) => (a as unknown as number) - (b as unknown as number));
-  for (const id of due) damageEntity(world, { kind: 'primitive', id }, 1, 'aura', null);
+  for (const id of due) damageEntity(world, { kind: 'primitive', id }, 1, 'aura', { kind: 'seat', seat: caster }); // ⭐ S193 BLAST-2
 }
 
 /**
@@ -330,6 +331,6 @@ function burnStinkBags(world: World, caster: PlayerId, zone: number): void {
   }
   due.sort((a, b) => (a as unknown as number) - (b as unknown as number));
   for (const id of due) {
-    if (world.stinkClouds.has(id)) damageEntity(world, { kind: 'stinkCloud', id }, 1, 'aura', null);
+    if (world.stinkClouds.has(id)) damageEntity(world, { kind: 'stinkCloud', id }, 1, 'aura', { kind: 'seat', seat: caster }); // ⭐ S193 BLAST-2
   }
 }
