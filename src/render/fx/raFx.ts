@@ -69,7 +69,7 @@ export function raTelegraphFx(
   if (tick < windowStart || tick >= impact) return;
   const t = (tick - windowStart) / Math.max(1, impact - windowStart);
   const r = raTelegraphRadius(radius, t);
-  ground.emit('soft', x, y, r * 2.5, r * 2.5, 0, 0.1 + 0.24 * t, TELEGRAPH_GLOW, 'add');
+  ground.emit('soft', x, y, r * 2.1, r * 2.1, 0, 0.06 + 0.16 * t, TELEGRAPH_GLOW, 'add');
   const ring = (2 * r) / 0.82; // the ring texture peaks at 82 % of its half-size
   ground.emit('ring', x, y, ring, ring, 0, 0.18 + 0.42 * t, TELEGRAPH_GLOW, 'add');
   forEachLive(tick, RA_FX_MOTE_PERIOD, RA_FX_MOTE_LIFE, 1, seed & 0xff, (birth, k, u) => {
@@ -79,10 +79,10 @@ export function raTelegraphFx(
     const dir = fxHash(seed, birth, k + 3) < 0.5 ? -1 : 1;
     const a = h1 * Math.PI * 2 + dir * u * 2.4;
     const d = radius * (1.15 + 0.3 * h2) * Math.pow(1 - u, 1.3);
-    const size = 4 + 4 * h2;
+    const size = 5 + 4 * h2;
     const tangent = a + dir * (Math.PI / 2);
     ground.emit('soft', x + Math.cos(a) * d, y + Math.sin(a) * d, size * 2.2, size, tangent,
-      envelope(u, 0.2) * (0.45 + 0.55 * t), mixColor(SAND, SAND_HOT, u), 'add');
+      envelope(u, 0.2) * (0.6 + 0.4 * t), mixColor(SAND, SAND_HOT, 0.4 + 0.6 * u), 'add');
   });
 }
 
@@ -109,7 +109,7 @@ export function raBeamFx(
     const w = radius * 0.9;
     top.emit('soft', x, y - BEAM_H / 2, w * 2.2, BEAM_H * 1.1, 0, Math.min(1, 0.3 * g), BEAM_GLOW, 'add');
     top.emit('soft', x, y - BEAM_H / 2, w * 0.7, BEAM_H, 0, Math.min(1, 0.3 * g), 0xffffff, 'add');
-    top.emit('soft', x, y, radius * 3, radius * 1.4, 0, Math.min(1, 0.4 * g), BEAM_GLOW, 'add');
+    top.emit('soft', x, y, radius * 2.2, radius * 1.0, 0, Math.min(1, 0.3 * g), BEAM_GLOW, 'add');
   }
   if (rel >= 0 && rel < 6) {
     const f = rel / 6;

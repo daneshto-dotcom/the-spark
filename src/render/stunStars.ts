@@ -89,6 +89,15 @@ export function stunStarPos(k: number, x: number, y: number, tick: number, id: n
   return { sx: x + Math.cos(a) * STUN_STAR_RX * scaleMul, sy: y - STUN_STAR_LIFT * scaleMul + Math.sin(a) * STUN_STAR_RY * scaleMul };
 }
 
+/**
+ * ⚠ MINE (S193, measured on the 2x screenshots in `SPARK_Visuals_Pilot/visuals-2`): with today's atlases
+ * `STUN_STAR_LIFT` puts the ring at the CHEST of a goblin (~70 % of its 45 px height) and at the belly of the
+ * zombie boss — and the legacy stars, drawn in the renderer's Graphics UNDER the sprites, are hidden behind
+ * the art there. The rebuilt stars draw OVER the sprite, so they are lifted this much more (× scaleMul)
+ * to sit above the head where `bossAuras.ts`' rule says a state effect belongs. Legacy is untouched.
+ */
+export const STUN_STARS_FX_HEAD_CLEAR = 22;
+
 /** Sprites per rebuilt star: a soft halo, two crossed glints and a hot centre. */
 export const STUN_STARS_FX_PER_STAR = 4;
 
@@ -104,13 +113,14 @@ export function stunStarsFx(top: FxSink, x: number, y: number, tick: number, id:
   if (alpha <= 0) return;
   const r = STUN_STAR_R * scaleMul;
   for (let k = 0; k < STUN_STAR_COUNT; k++) {
-    const { sx, sy } = stunStarPos(k, x, y, tick, id, scaleMul);
+    const { sx, sy: sy0 } = stunStarPos(k, x, y, tick, id, scaleMul);
+    const sy = sy0 - STUN_STARS_FX_HEAD_CLEAR * scaleMul;
     const tw = 0.5 + 0.5 * Math.sin(((tick * 23 + k * 211 + id * 97) % 628) / 100);
     const spin = (((tick * 3 + k * 120 + id * 53) % 360) * Math.PI) / 180;
-    const len = r * (3.6 + 1.4 * tw);
-    top.emit('soft', sx, sy, r * 5.5, r * 5.5, 0, (0.28 + 0.22 * tw) * alpha, STUN_STAR_TINT, 'add');
-    top.emit('core', sx, sy, len, r * 0.9, spin, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
-    top.emit('core', sx, sy, len, r * 0.9, spin + Math.PI / 2, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
-    top.emit('core', sx, sy, r * 1.6, r * 1.6, 0, (0.7 + 0.3 * tw) * alpha, 0xffffff, 'add');
+    const len = r * (4.6 + 1.6 * tw);
+    top.emit('soft', sx, sy, r * 7, r * 7, 0, (0.28 + 0.22 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 1.1, spin, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, len, r * 1.1, spin + Math.PI / 2, (0.75 + 0.25 * tw) * alpha, STUN_STAR_TINT, 'add');
+    top.emit('core', sx, sy, r * 2, r * 2, 0, (0.7 + 0.3 * tw) * alpha, 0xffffff, 'add');
   }
 }

@@ -24,7 +24,7 @@ import { dispatch, makeWorld, type World } from '../../state/world.ts';
 import { asCreatureId, asPlayerId } from '../../types.ts';
 import { drawBossAuras } from '../bossAuras.ts';
 import { drawLocustClouds, locustCloudFx, locustMote, LOCUST_FX_SPRITES } from '../locustCloud.ts';
-import { drawStunStars, stunStarPos, stunStarsFx, STUN_STARS_FX_PER_STAR } from '../stunStars.ts';
+import { drawStunStars, stunStarPos, stunStarsFx, STUN_STARS_FX_HEAD_CLEAR, STUN_STARS_FX_PER_STAR } from '../stunStars.ts';
 import { NULL_SHOCK, recordingSink, type FxDisplaceSink, type FxEmitRecord } from './emitter.ts';
 import { setFxDisplaceHook, setFxHooks, setFxLegacyFlag } from './fxState.ts';
 import {
@@ -339,7 +339,7 @@ describe('V10 Kraken sonar — REACH through the real drawBossAuras', () => {
 
 // ───────────────────────────────────────────────────────── V15 — stun stars
 describe('V15 stun stars', () => {
-  it('ARITHMETIC — the rebuilt stars sit exactly where the legacy stars do (one shared orbit formula)', () => {
+  it('ARITHMETIC — the rebuilt stars ride the legacy orbit (one shared formula), lifted HEAD_CLEAR × scale above it', () => {
     for (const scale of [1, 3]) {
       const g = gfx();
       drawStunStars(g.g, 100, 200, 37, 4, 1, scale);
@@ -348,8 +348,8 @@ describe('V15 stun stars', () => {
       stunStarsFx(top, 100, 200, 37, 4, 1, scale);
       expect(top.out.length).toBe(3 * STUN_STARS_FX_PER_STAR);
       const centres = top.out.filter((e) => e.tint === 0xffffff);
-      expect(centres.map((e) => [e.x, e.y])).toEqual(g.stars.map((s) => [s.x, s.y]));
-      expect(centres.map((e) => [e.x, e.y])).toEqual([0, 1, 2].map((k) => { const p = stunStarPos(k, 100, 200, 37, 4, scale); return [p.sx, p.sy]; }));
+      expect(centres.map((e) => [e.x, e.y])).toEqual(g.stars.map((s) => [s.x, s.y - STUN_STARS_FX_HEAD_CLEAR * scale]));
+      expect(centres.map((e) => [e.x, e.y])).toEqual([0, 1, 2].map((k) => { const p = stunStarPos(k, 100, 200, 37, 4, scale); return [p.sx, p.sy - STUN_STARS_FX_HEAD_CLEAR * scale]; }));
     }
   });
 
