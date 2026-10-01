@@ -934,7 +934,31 @@ export type { NetSnapshot };
  *      WRATH OF RA — which also raises that seat's POWER OF RA cast, its three WRATH charges and its bot
  *      cast to 75. A v54 host or successor lands 300 on every unit and shape in his circle.
  */
-export const PROTOCOL_VERSION = 55 as const;
+/**
+ * ⭐⭐ S192 — **BUMPED 55 -> 56: `s191/owner` — SCORCHED EARTH + TOWER UNITS ARE STOCK.** Four reasons, each
+ * enough alone (the S186 test — a v55 and a v56 build that shook hands would compute different worlds from
+ * the same intents; `.claude/plans/S191_CANON_NOTES_owner.md`):
+ *   1. A NEW CLIENT INTENT DISCRIMINANT — `CAST_SCORCHED_EARTH { playerId, zoneSeat }` (S191, owner: "click on
+ *      any quadrant of the enemy"), in both allowlist records, bench + elimination policy `'deny'`. A v55 host
+ *      or host-migration successor drops a v56 joiner's cast silently: the square shows USED, nothing burns.
+ *   2. A NEW SERIALIZED FIELD — `Player.scorchedEarth { wave, zoneSeat } | null` (additive-optional, emitted
+ *      only when non-null, rehydrated through `scorchedEarthFromWire`; in the wide `stateHashFull` `,se…`,
+ *      NOT the narrow production hash). A v55 successor's `applySnapshotCore` forgets a live cast and would
+ *      let the caster cast a second time in the same FIGHT.
+ *   3. NEW BURN RULES BOTH SIMS COMPUTE — the cast burns every unit (creatures AND Helga — owner S191: "Helga
+ *      is NOT immune", at the units' 2 %; the PASSIVE now burns an enemy Helga too) at
+ *      `SCORCHED_EARTH_CAST_PER_MILLE` 20, and structures (one clock per component, its current pool, severed
+ *      `'raid'` through `severWithCarry`), lone shapes and landed stink bags at HALF
+ *      (`SCORCHED_STRUCTURE_RATE_DIV` 2); resistance is `isScorchImmune` (the caster's seat); the castle is
+ *      never burned; the record clears at the BUILD edge; a fallen caster's ENEMY-zone cast stops while his
+ *      OWN-zone cast burns on; the bot demon casts once a FIGHT. A v55 sim runs none of it.
+ *   4. THE STOCK RULE (S191, owner: "If you have some drone stock, you should be able to use them the next
+ *      fight") — chewers, HELLSPAWN children and lightning drones are `persistent` with a match-length
+ *      lifetime; a drone that loses its target flies home; a persistent drone has no fuse. A v55 host or
+ *      successor MINTS new chewers with a 3000-tick life and new drones with a 480-tick absolute fuse, so its
+ *      stock dies at the next FIGHT edge while a v56 build keeps it.
+ */
+export const PROTOCOL_VERSION = 56 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1260,6 +1284,8 @@ export interface HelloMsg {
    *
    * S192: 54->55 (DEPLOY #9 — s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6. Full reasons on the const's JSDoc.)
    *
+   * S192: 55->56 (DEPLOY #12 — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist). Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1297,7 +1323,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 55;
+  readonly protoVersion: 56;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

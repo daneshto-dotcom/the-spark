@@ -940,7 +940,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **55** (S192 — deploy #9; see the S192 entries on the const).
+`PROTOCOL_VERSION` is **56** (S192 — deploy #12; see the S192 entries on the const).
+
+⭐⭐ **WHAT RIDES 56 (S192, deploy #12)** — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist).
 
 ⭐⭐ **WHAT RIDES 55 (S192, deploy #9)** — s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6.
 

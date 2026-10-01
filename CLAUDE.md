@@ -320,7 +320,7 @@ every goblin and boss. **A tolerant default is where the next one will hide too.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**55** since S192's deploy #9 — 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**56** since S192's deploy #12 — 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
 this line said 46 from S173 until S190 while the constant moved four times — **READ THE CONSTANT, not this
 sentence**; the canon's §6 pins the live value in `canon.test.ts`) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no
