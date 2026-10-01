@@ -185,6 +185,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // waves restart at 1, so a strike cast on wave N last match would REFUSE the cast on wave N of
     // this one, and it would hash and serialize a strike nobody cast this match.
     player.raStrikes = [];
+    // ⭐ S191 — and SCORCHED EARTH, for the same reason: waves restart at 1, so last match's wave-N cast
+    // would refuse this match's wave-N cast and hash a scorch nobody made.
+    player.scorchedEarth = null;
     /*
      * ⛔ S161 CLOSE-OUT (lane 1) — **A REMATCH STARTS WITH A STANDING CASTLE.**
      *

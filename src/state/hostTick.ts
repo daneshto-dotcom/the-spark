@@ -59,7 +59,6 @@ import {
   type InvariantSnapshot,
 } from '../game/invariants.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
-import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
 import {
   bondMidpoint,
@@ -113,6 +112,7 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+import { dispatchVoltkinSpawn, resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — re-summon + the one Voltkin mint
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
 import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
@@ -140,6 +140,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -550,8 +551,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           d.bagsRemaining = getDefenderConfig(d.kind).bags;
         }
         releaseShelteredGatherers(world);
+        // ⭐ S191 — the FIGHT is over, so is every SCORCHED EARTH cast (the owner: it lasts until that
+        // FIGHT ends). The wave key already made it inert; this keeps the wire and the hash clean.
+        clearScorchedEarthAtBuild(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
+        // ⭐ S192 T16 — and every standing TV without a Voltkin gets one back (R190-J's rule, for the
+        // TV). AFTER the recall, which would teleport a just-minted Voltkin to the castle.
+        resummonVoltkins(world);
       }
       if (world.matchPhase === 'FIGHT') {
         /*
@@ -708,14 +715,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   ) {
     const { event } = world.pendingCreatureSpawn;
     world.pendingCreatureSpawn = null;
-    const spawnTargetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
-    dispatch(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'voltkin',
-      ownerPlayerId: event.triggererPlayerId,
-      pos: { x: event.targetPos.x, y: event.targetPos.y },
-      targetPos: spawnTargetPos,
-    });
+    // ⭐ S192 audit L4 — ONE mint path: the same helper the per-wave re-summon and the early mint use.
+    dispatchVoltkinSpawn(world, event.triggererPlayerId, event.targetPos);
   }
 
   // S71 P1 — bomb dissipation poll (host-only, tick-deterministic). An
@@ -1618,6 +1619,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // S113 Batch C — a lightning-DRONE is a homing missile: every-tick enemy-only
         // re-selection (NOT the chewer throttle/stickiness — it never commits/chews). It then
         // DETONATES in Step 1.5 below the moment it is in blast range (or its fuse expires).
+        const hadTarget = creature.targetBondId !== null; // ⭐ S192 STOCK-2 — read BEFORE re-selecting
         const nextTarget = findNearestBondTarget(world, creature, true);
         creature.targetBondId = nextTarget;
         if (nextTarget !== null) {
@@ -1626,6 +1628,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             const mid = bondMidpoint(targetBond);
             creature.targetPos.x = mid.x;
             creature.targetPos.y = mid.y;
+          }
+        } else if (hadTarget) {
+          /*
+           * ⭐ S192 (audit STOCK-2) — A DRONE THAT LOSES ITS TARGET MID-FLIGHT GOES HOME TO ITS HUB.
+           * Since S191 a drone is STOCK (persistent, no fuse): with no target it used to keep its stale
+           * `targetPos` and hover in enemy ground for the rest of the FIGHT, in reach of guns and
+           * defenders. Only on the had-target → no-target TRANSITION, so a drone that never acquired
+           * one (idle at its hub) is byte-identical. The S165 recall spread, never `home` verbatim, or
+           * the stock re-stacks on one pixel.
+           */
+          const home = ownHomePos(world, creature);
+          if (home !== null) {
+            const at = spreadTargetPos(home, creature.id, RECALL_SPREAD);
+            creature.targetPos.x = at.x;
+            creature.targetPos.y = at.y;
           }
         }
       } else if (
@@ -1985,7 +2002,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const inRange =
             droneCandidate.targetBondId !== null &&
             isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
-          if (inRange || fuseExpiring) {
+          // ⭐ S192 (audit STOCK-5) — a PERSISTENT drone is stock: it has no fuse (its deadline is the
+          // match-length lifetime, and fusing out at home 60 minutes in is the S191 bug, pushed out).
+          if (inRange || (fuseExpiring && !bomberCfg.persistent)) {
             dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
             continue;
           }

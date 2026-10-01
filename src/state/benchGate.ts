@@ -106,6 +106,12 @@ export const BENCH_INTENT_POLICY = {
    * lifts before the fight ends.
    */
   CAST_POWER_OF_RA: 'deny',
+  /**
+   * ⭐ S191 — **DENY. SCORCHED EARTH IS AN ATTACK**, POWER OF RA's class exactly: it burns units and
+   * structures. Nothing is spent by the refusal — the once-per-fight cast stays unused until the bench
+   * lifts (a cast already made keeps burning: the burn is the consequence, not the seat acting).
+   */
+  CAST_SCORCHED_EARTH: 'deny',
   // V6-1.2 — re-tasking an EXISTING unit costs nothing and gains nothing; it is the economic
   // equivalent of moving your cursor. Allowed while benched, like UPDATE_AVATAR_POS: the bench is
   // meant to stop you ACQUIRING, not to freeze standing orders you already paid for.

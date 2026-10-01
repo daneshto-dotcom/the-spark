@@ -63,7 +63,6 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
   { file: 'state/castleGuns.ts', occurrences: 1, why: 'The castle gun. The castle has its own ATK/PEN upgrade track.' },
   { file: 'state/castleUpgrades.ts', occurrences: 3, why: 'The castle upgrade track: current shot and the two next-level previews.' },
   { file: 'state/world.ts', occurrences: 1, why: 'The PLAYER raid (`RAID_ATK`, `RAID_PEN`) — a seat’s click, not a creature.' },
-  { file: 'state/racial/powerOfRa.ts', occurrences: 1, why: 'POWER OF RA — a seat perk’s sky strike, not a creature.' },
   {
     file: 'state/potatoLifecycle.ts',
     occurrences: 1,
@@ -74,11 +73,12 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
       'the constant (canon §9d item 2).',
   },
   {
-    file: 'state/bossSkillsPharaohRitual.ts',
+    file: 'state/racial/raColumn.ts',
     occurrences: 2,
     why:
-      'The Pharaoh boss’s ritual COLUMN — a SKILL with its own stat line (`RA_COLUMN_ATK/PEN`), not the ' +
-      'boss’s own strike. ⭐ RULED by the owner, S190: R190-E ("No — a drafted ATK pick buffs physical hits only; the Ra column is MAGIC") — a boss skill is not buffed.',
+      'S192 — THE Ra column, for the seat perk AND the Pharaoh boss’s ritual (35, or 75 with WRATH OF RA: ' +
+      '`RA_PERK_COLUMN_*` and `RA_WRATH_COLUMN_*`). A SKILL with its own stat line, not a creature’s strike. ' +
+      '⭐ RULED by the owner, S190: R190-E ("No — a drafted ATK pick buffs physical hits only; the Ra column is MAGIC") — not buffed.',
   },
   {
     file: 'render/characterSheetRadar.ts',
