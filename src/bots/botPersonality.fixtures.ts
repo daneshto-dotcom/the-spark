@@ -250,6 +250,8 @@ export interface LockResult {
   readonly feedsLanded: number;
   /** Seats that owned a feedable spawner when the lock fell. */
   readonly seatsWithTower: number;
+  /** Is any bot still holding a shape when the window ends? (It can never place it.) */
+  readonly carryingAtEnd: boolean;
 }
 
 /**
@@ -269,6 +271,12 @@ export function runLockMatch(
    * empty quarry (canon §9d: not a defect) instead of whether the bot FEEDS what it holds.
    */
   seedBank = true,
+  /**
+   * `'buildStart'`: the lock falls as a BUILD phase opens (the realistic case). `'midHaul'`: it falls
+   * on the first tick a bot is CARRYING a shape — the controller's drop arm, which the brain-side skip
+   * alone never exercises because a locked bot no longer picks anything up.
+   */
+  lockWhen: 'buildStart' | 'midHaul' = 'buildStart',
 ): LockResult {
   const w = startMatch();
   let locked = false;
@@ -298,8 +306,14 @@ export function runLockMatch(
   for (let t = 0; t < 60 * preSeconds; t++) step();
   // The lock falls at the START of a BUILD phase, as it does in play (*"in the build phase of 27"*):
   // gatherers shelter during FIGHT, so a lock window that opens mid-FIGHT measures no income at all.
-  while (w.matchPhase === 'BUILD') step();
-  while (w.matchPhase !== 'BUILD') step();
+  const anyCarrying = (): boolean =>
+    BOT_SEATS.some((s) => w.players.get(asPlayerId(s))?.kind === 'Carrying');
+  if (lockWhen === 'midHaul') {
+    while (!anyCarrying()) step();
+  } else {
+    while (w.matchPhase === 'BUILD') step();
+    while (w.matchPhase !== 'BUILD') step();
+  }
   let seatsWithTower = 0;
   for (const s of BOT_SEATS) {
     for (const sp of w.creatureSpawners.values()) {
@@ -314,5 +328,10 @@ export function runLockMatch(
   if (seedBank) for (const s of BOT_SEATS) for (const t of ALL_SPARK_TYPES) bankAdd(w.castleBanks, asPlayerId(s), t);
   const rej0 = w.diagnostics.rejectReasons.endgameBuildLocked;
   for (let t = 0; t < 60 * lockSeconds; t++) step();
-  return { lockRejects: w.diagnostics.rejectReasons.endgameBuildLocked - rej0, feedsLanded, seatsWithTower };
+  return {
+    lockRejects: w.diagnostics.rejectReasons.endgameBuildLocked - rej0,
+    feedsLanded,
+    seatsWithTower,
+    carryingAtEnd: anyCarrying(),
+  };
 }

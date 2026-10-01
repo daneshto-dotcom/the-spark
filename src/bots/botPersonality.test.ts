@@ -439,6 +439,16 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
     expect(feeds).toBeGreaterThan(towers);
   }, 60_000);
 
+  it('a bot CARRYING a shape when the lock falls drops it instead of re-sending PLACE every tick', () => {
+    // Measured with the controller's drop arm disabled (mutation): the brain-side skip alone does NOT
+    // catch this — the HAUL arm keeps re-sending the refused placement. With it: 0 rejects, hands empty.
+    for (const tier of ['MID', 'HARD', 'IMBA'] as const) {
+      const r = runLockMatch(tier, 'BALANCED', 30, 10, 27, false, 'midHaul');
+      expect(r.lockRejects, `${tier} rejects`).toBe(0);
+      expect(r.carryingAtEnd, `${tier} still carrying`).toBe(false);
+    }
+  }, 60_000);
+
   it('⚠ NEGATIVE: one wave BEFORE the lock (26) nothing changes — the bot still builds', () => {
     // Wave 26 is a normal BUILD: placements are not refused, so the lock counter stays 0 trivially, and
     // the HARD BALANCED bot (feed: never) does NOT feed — the "everyone feeds" rule is the lock's only.
