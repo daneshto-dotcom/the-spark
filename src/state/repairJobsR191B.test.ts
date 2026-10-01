@@ -222,6 +222,25 @@ describe('⭐⭐ S193 R191-B — FIX queues a gatherer job; the shape is CARRIED
     }
   });
 
+  it('⛔ a task holder is OFF the haul cycle: walking a FIX shape, he never claims a quarry spark', () => {
+    const { w, st, hub, leaf } = board();
+    breakTurret(w, st, leaf);
+    const g = hire(w, door(w));
+    w.castleBanks.get(P0)![SparkType.Spiral as number] = 1;
+    quarrySpark(w, SparkType.Square); // bait for the haul cycle
+    fix(w, hub);
+    tick(w, st, 1);
+    expect(g.repairTask).not.toBeNull();
+    let seen = 0;
+    while (g.repairTask !== null && seen < 2000) {
+      tick(w, st, 1);
+      seen++;
+      expect(g.targetSparkId, `tick ${seen}: no haul target while on the job`).toBeNull();
+      expect(g.carriedSparkId, `tick ${seen}: no haul cargo while on the job`).toBeNull();
+    }
+    expect(seen).toBeGreaterThan(1);
+  });
+
   it('N shapes = N tasks: a two-shape bill is split across two gatherers at once', () => {
     const { w, st, hub, leaf } = board();
     const d = [...w.defenders.values()][0]!;
@@ -304,15 +323,13 @@ describe('⭐⭐ S193 R191-B — FIX queues a gatherer job; the shape is CARRIED
     fix(w, hub);
     tickUntil(w, st, () => g.repairTask?.carrying === true);
     expect(spirals(w)).toBe(0);
-    const refund = w.primitives.size; // the scrap refunds the standing shapes too
-    void refund;
-    const before = spirals(w);
+    const standing = [...planStructureRepair(w, P0, hub)!.memberIds].filter((id) => w.primitives.get(id)!.type === SparkType.Spiral).length;
     dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: hub });
+    expect(spirals(w), 'fixture: SCRAP refunded the standing Spirals').toBe(standing);
     tick(w, st, 1);
     expect(w.repairJobs).toHaveLength(0);
     expect(g.repairTask).toBeNull();
-    // The scrap returned the turret's own standing Spirals (4) and the cancel returned the one in hand.
-    expect(spirals(w) - before, 'the shape in hand came home').toBeGreaterThanOrEqual(1 + 4);
+    expect(spirals(w), 'and the cancel brought the one in hand home — exactly one more').toBe(standing + 1);
   });
 
   it('the bill is RE-PLANNED on arrival: a tower that lost another shape on the way grows its bill, never fixes short', () => {
