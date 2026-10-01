@@ -1,3 +1,7 @@
+# S193 ROUND 2 — IN PROGRESS
+- merge 031c9e37 (master 656b106, 5 conflicts per audit) · FFA golden re-recorded on 656b106 (= auditor a684ce5), merged tree identical.
+- NEXT: F1 Begin dim (lobby view teamsPlayable) → F2 QM auto-begin re-arm → F3 census doc → F4 REACH pairs → docs (bump 57→58, canon TEAMS) → gates.
+
 # S193 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
 
 - Merge 8e3eed69 = `git merge master` @ 71abc27. 6 source conflicts: bossSkillsPharaohRitual (master landRaColumn + new
