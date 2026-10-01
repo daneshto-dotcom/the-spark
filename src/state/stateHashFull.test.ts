@@ -71,6 +71,9 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   // EXPECTED below — that list enumerates only the families that own a per-element projection
   // LOOP, which is the thing the sibling test guards against silently deleting.
   'draft',
+  // ⭐ S192 — WHO IS ON WHOSE SIDE. A world scalar (a seat → team list, or undefined for the FFA),
+  // projected as the `tm` part ONLY when set; its own contribution test is below.
+  'teams',
   // S158 P6 — the landed-stink-bag allocator cursor (a scalar, like every other nextXId above).
   'nextStinkCloudId',
   // V6-1.1 — the gatherer allocator cursor (a scalar, like every other nextXId above).
@@ -605,6 +608,21 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       .map(([k]) => k)
       .sort();
     expect(hashedFamilies).toEqual(EXPECTED.map(([f]) => f).sort());
+  });
+
+  it('⭐ S192 — `teams` CONTRIBUTES when set, and an FFA world (undefined) adds NO part', () => {
+    const w = worldWithEntities();
+    const ffa = determinismParts(w);
+    expect(ffa.some((p) => p.startsWith('tm'))).toBe(false);
+    const h0 = hashWorldStateFull(w);
+    w.teams = [0, 0, 1, 1];
+    expect(determinismParts(w)).toContain('tm0,0,1,1');
+    const h1 = hashWorldStateFull(w);
+    expect(h1).not.toBe(h0);
+    w.teams = [0, 1, 0, 1];
+    expect(hashWorldStateFull(w)).not.toBe(h1);
+    w.teams = undefined;
+    expect(hashWorldStateFull(w)).toBe(h0);
   });
 
   it('world SCALARS marked hashed are sensitive — rngSeed above all (CHECK F8)', () => {

@@ -142,7 +142,8 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
       /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) ||
       // ⭐ S192 — the team predicate IS an owner filter: `sameTeam(world, c.ownerPlayerId, x)` must keep a
       // file in the census, or converting a scan to teams would silently drop it out (the S172 blind spot).
-      /(sameTeam|isEnemySeat)\([^;\n]{0,40}ownerPlayerId/.test(src);
+      // `spared` (damage.ts) and `blastTakes` (potatoLifecycle.ts) are the two area-blast wrappers over it.
+      /(sameTeam|isEnemySeat|spared|blastTakes)\([^;\n]{0,40}ownerPlayerId/.test(src);
     return iterates && filtersOwner;
   });
 

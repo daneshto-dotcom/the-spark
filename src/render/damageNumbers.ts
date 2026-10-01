@@ -373,6 +373,7 @@ export function damageAnchor(
    * so a CAST written between the field and the operator makes a real scan INVISIBLE to the
    * guard. This file did exactly that for one commit in S172 and dropped out of the census
    * while still scanning enemies every frame. Keep the branded type and no cast.
+   * ⭐ S192 — now `sameTeam(world, o.ownerPlayerId, mine)`; the census regex recognises that form too.
    */
   for (const o of world.creatures.values()) {
     if (o.id === victim || sameTeam(world, o.ownerPlayerId, mine)) continue;
