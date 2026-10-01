@@ -89,6 +89,18 @@ tr:last-child td{border-bottom:0}
 <div class="q"><b>C ·</b> Two Saboteurs both hit the leader (a pile-on). OK? <i>Built: yes.</i></div>
 <div class="q"><b>D ·</b> The names, and my numbers: save 15/20/45 s of each minute, Tycoon builds 20% faster, IMBA adapts in the last 15 s of BUILD.</div>
 
+<h2>Measured (v1, 5 sim-minutes, 3 bots of each kind)</h2>
+<div class="scroll"><table>
+<tr><th>HARD</th><th>what it built first</th><th>units it fed</th><th>signature</th></tr>
+<tr style="--c:var(--bal)"><td class="name">Balanced</td><td>race tower ×3</td><td>0</td><td>today's bot (hash-identical)</td></tr>
+<tr style="--c:var(--war)"><td class="name">Warmonger</td><td>goblin tower on 2 of 3</td><td><b>25</b></td><td>zero defence towers, first paid unit inside the first build phase</td></tr>
+<tr style="--c:var(--for)"><td class="name">Fortress</td><td>stink tower on 2 of 3</td><td>0</td><td>highest defence share (0.44)</td></tr>
+<tr style="--c:var(--tyc)"><td class="name">Tycoon</td><td>race tower</td><td>0</td><td>54 loose shapes vs Balanced's 34</td></tr>
+<tr style="--c:var(--sab)"><td class="name">Saboteur</td><td><b>pentagram on 3 of 3</b></td><td>2</td><td>chewers first, raids the leader</td></tr>
+</table></div>
+<p class="sub" style="margin-top:8px">IMBA: every personality opens with the goblin tower (your rule). Fortress is the only one to field a laser turret; Saboteur adds a pentagram. Warmonger and Tycoon look alike at IMBA in five minutes — that is tuning for next session (question E).</p>
+<div class="q"><b>E ·</b> IMBA Warmonger and Tycoon need more separation. Tune next session? <i>Built: v1 numbers.</i></div>
+
 <h2>Safe by construction</h2>
 <div class="rule">
  <div class="box"><b>No protocol bump</b>Bots run only on the host. The only new thing a bot does — feed a tower — is the same button a player presses.</div>

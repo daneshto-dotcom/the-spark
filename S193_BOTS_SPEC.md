@@ -132,3 +132,39 @@ places fewer loose shapes and SCORES less — a real balance cost, measured in t
 - **Q-B** Warmonger/Saboteur raid at the SAME rate as everyone (your Q2). Do you want an aggressive personality to raid more? *Recommendation: no — keep Q2; aggression = units + target.*
 - **Q-C** Several Saboteurs all raid the leader (dogpile). OK, or should only one at a time? *Built: all may.*
 - **Q-D** the names (Balanced / Warmonger / Fortress / Tycoon / Saboteur) and the numbers (hold 900/1200/2700, tempo 0.8, IMBA adapt window 15 s). *Built as listed.*
+
+## 9 · v1 BUILT — what was measured (`src/bots/botPersonality.test.ts`, 21 tests)
+
+Four-seat bots match (3 bots of one personality, idle human), 300 sim-seconds, real frame lifecycle
+(`runHostTick` → `runGodlyMatcherCore` → effects wipe), seed 0xb07/0xbeef. Per seat: stamps in order · units fed · defence ratio.
+
+| HARD | seat 1 | seat 2 | seat 3 |
+|---|---|---|---|
+| BALANCED | race>stink>goblin · 0 · .33 | race>stink>race · 0 · .33 | race>stink · 0 · .50 |
+| WARMONGER | **goblin**>race · **15** · 0 | **goblin**>race · **6** · 0 | race>goblin · **4** · 0 |
+| FORTRESS | race>stink>goblin · 0 · .33 | **stink**>race>**stink** · 0 · **.67** | **stink**>race>race · 0 · .33 |
+| TYCOON | race>stink>goblin · 0 · loose **20** | race>stink · loose **19** | race · loose **15** (BALANCED: 14/10/10) |
+| SABOTEUR | **pentagram**>race>stink | **pentagram**>race | **pentagram**>race |
+
+| IMBA | seat 1 | seat 2 | seat 3 |
+|---|---|---|---|
+| BALANCED | goblin>race>stink · 3 | goblin>race · 7 | race×3 · 0 |
+| WARMONGER | goblin>goblin>race · 9 | goblin>stink · 1 | race×2 · 0 |
+| FORTRESS | goblin>stink>**laser** · .67 | goblin>stink>stink · .67 | race×3 |
+| TYCOON | goblin>goblin>race · 6 | goblin>stink · 1 | race |
+| SABOTEUR | goblin>**pentagram** · 13 | goblin · 7 | race · 7 |
+
+**Honest reading.** HARD shows five clearly different bots. IMBA's styles are weaker above the goblin floor in a
+5-minute window: Fortress is unmistakable (the only laser turret, defence 0.67), Saboteur reaches the pentagram,
+but Warmonger and Tycoon read alike, and Warmonger's `eager` feeding fed FEWER units than Saboteur's `leftovers`
+(it spends its shapes on a second goblin tower instead). Seat 3 opens on its race tower at every IMBA personality
+through the S154 "a seat with nothing standing takes what it can get" escape. These are tuning (⚠ MINE) — the
+mechanism is in and measured; the IMBA numbers want a second pass (Q-E).
+
+**Found on the way (merge-owner note).** Towers IGNITE only in `runGodlyMatcherCore`, which `main.ts`
+(`godlyOrchestration`) and the worker run AFTER `runHostTick`. Every bot harness that calls only `runHostTick`
+(e.g. `firstTowerSpeed.test.ts`) stamps towers that NEVER become spawners — nothing can be fed and no tower ever
+produces in those tests. Measured: 0 feeds in all 15 cells until the harness ran the matcher.
+
+- **Q-E** IMBA Warmonger/Tycoon want more separation (e.g. Warmonger: never repeat the goblin tower before the
+  race tower; Tycoon: cheaper repeat). Tune next session, or leave? *Built: the table above.*
