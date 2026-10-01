@@ -252,3 +252,23 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   scorchedGround.ts's ownership filter from the census regex, so the file's AREA exemption looked unused.
   A REAL finding of my refactor (the census must keep SEEING the enemy scan): the census now also
   recognises `isScorchImmune(<x>.ownerPlayerId` as an owner filter. FIXED; without it → red (observed).
+
+## S192 final gates (captured `$?`, tree e47f5b0)
+- `npm run typecheck` EXIT=0 · `npx vitest run --maxWorkers=3` EXIT=0 — **6795 passed / 10 skipped, 422 files
+  (+3 skipped)**, no timeout reds · `npm run build` EXIT=0 — bundle **981.9 KiB** / 1100 (headroom 118.1;
+  +9.2 vs master's 972.7 — inside the ≤10 KiB share).
+
+## S192 verdicts — every DEFECT/SEAM/WIRE row of the digest section
+| finding | verdict |
+|---|---|
+| UIGATES-3 | FIXED (consumeCancel, SEAM-4 2→3, REACH) |
+| UIGATES-4 | FIXED (inline re-anchor/drop; swap to carry's `pendingRecordAnchor` when carry lands) |
+| STOCK-2 / STOCK-3 / STOCK-5 | FIXED (reproduced red first; mutation-tested) |
+| STOCK-4 | FIXED label + my stale number; bound awaits STOCK-1 |
+| SCORCH-2 / UIGATES-5 | NOT REPRODUCIBLE — s191/endstats is not on master; merge-owner step at that merge (4 scorch sites now: creature, HELGA (new), lone shape, bag + 1 connector — all `null`) |
+| UIGATES-1 / UIGATES-2 | NOT REPRODUCIBLE — s191/addons not on master (no R190-G guard, no INPUT-4 block); merge-owner/next-merge items |
+| UIGATES-6 | NOT REPRODUCIBLE — s191/carry's GATES-2 canon test not on master; canon row + list entry owed at that merge |
+| SCORCH-3 / UIGATES-13 | WIRE — bump owed at the deploy (verdict in the final report); PROTOCOL_VERSION untouched (52 from master) |
+
+## Status
+DONE — S192 fix round; waiting for the merge owner's re-audit.
