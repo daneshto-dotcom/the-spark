@@ -1699,6 +1699,8 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
     }
     expect(canonSays('⚠ MINE: its first zap too')).toBe(true);
     expect(canonSays('EACH share is defended by its own target')).toBe(true);
+    expect(canonSays('the **zombie boss death blast**')).toBe(true); // ⭐ S193 — physical (R192-M3), `zombieDeathBlast.ts`
+    expect(canonSays('with a floor PER')).toBe(true); // the differential's per-source floors
   });
 
   it('who has how much: structures n, globals/Helga = DEF, races 4·4·3·2·1·0, bosses 6 + 2 × level', () => {

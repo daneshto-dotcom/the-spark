@@ -158,7 +158,7 @@ function placeBoard(w: World): void {
   w.defenders.set(st.id, st);
   const hAt = { x: sx, y: home.y + (home.y < 540 ? 120 : -120) };
   const hHub = star(w, target, SparkType.Triangle, [SparkType.Spiral, SparkType.Circle, SparkType.Spiral, SparkType.Circle, SparkType.Spiral, SparkType.Circle], hAt);
-  const helga = makeDefender({ id: asDefenderId(w.nextDefenderId++), kind: 'princess', ownerPlayerId: target, anchorPrimitiveId: hHub.id, recipeId: 'princessHelga', pos: hAt, registeredAtTick: 0 });
+  const helga = makeDefender({ id: asDefenderId(w.nextDefenderId++), kind: 'princess', ownerPlayerId: target, anchorPrimitiveId: hHub.id, recipeId: 'helga', pos: hAt, registeredAtTick: 0 });
   w.defenders.set(helga.id, helga);
 }
 
