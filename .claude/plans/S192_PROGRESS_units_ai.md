@@ -1,6 +1,17 @@
 # S192 PROGRESS — `s192/units-ai` (T5 + T13 + T6)
 
-## ⭐ S193 ROUND — merge master + re-verify (FINAL REPORT, see bottom section "S193 ROUND")
+## ⭐ S193 FIX ROUND — FINAL REPORT (audit FIX FIRST → fixed)
+- Merge `58ec1b6` (master, plan files only, no conflicts). `npm install` run (rules now say so) → exit 0.
+- Fix 1: T6 home arm requires `zoneOf(chaser.pos) === homeZone` as well as the quarry (real + reference). Fix 2:
+  oracle case chaser-abroad/quarry-home + unit test + 3 border REACH tests; mutant (real-only, and real+reference) → 5 red.
+  Advance table now −6.6 % / −7.3 % (was −37.6 / −38.2). Fix 3: canon notes rewritten; SPARK_CANON §5c + canon.test
+  pins (mutant 20→25 px red). Fix 4: both guards skip `src/arcade`; census message → `isLiveCreatureTarget`;
+  `Math.hypot` → `Math.sqrt` (real + reference); perf oracle nav stats byte-identical to the pre-fix run (237 272
+  calls, 0 mismatches, corpseAvoided 1160).
+- Gates: typecheck 0 · vitest 0 (474 files / 7281 tests passed, 11 skipped) · build 0, entry **1035.9 KiB** (+1.0 vs
+  master's 1034.9; headroom 64.1). Bump: YES (successor class, as C-6). NOT DONE: e2e.
+
+## ⭐ S193 ROUND — merge master + re-verify (see bottom section "S193 ROUND")
 
 Branch `s192/units-ai`, from master 663c4c9 (fast-forwarded to 2ab7910, docs only). Merge owner = main session.
 Every exit code below was captured from `$?` into a file, never through a pipe.
