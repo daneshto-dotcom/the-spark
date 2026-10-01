@@ -1,5 +1,66 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
+## ⭐⭐ S193 ROUND 6 FINAL REPORT (R191-B FIX-by-gatherer + R192-W1 castle FIX ALL) — read this first
+- **tip**: see `git log` (code tip 054896f; this report is the docs commit on top) · **merge** 4aaf81a
+  (master 62b83e0, plan-file commits only) — **0 conflicts**.
+- **gates** (tree 054896f, captured `$?` in `.tmp-gates/{TC6,VT6,BUILD6}.exit`): typecheck **0** ·
+  `vitest --maxWorkers=3` **0** = **7307 passed + 11 skipped / 474 files + 4 skipped** · build **0** —
+  entry **1054.9 KiB** / 1100 (45.1 headroom) — round 6 = **+7.0 KiB** (1047.9 → 1054.9).
+- **bump verdict: BUMP** (the branch already earns one; round 6 adds reasons): (1) new client intent
+  `FIX_ALL` (both allowlists, bench + elimination deny); (2) `REPAIR_STRUCTURE` CHANGED MEANING — a v56
+  host restores on the spot, this one queues a job: two builds that shake hands disagree about what the
+  same intent does; (3) new required serialized + wide-hashed state: `World.repairJobs`,
+  `World.nextRepairJobId`, `Gatherer.repairTask` (disk save + net snapshot; `structuralSignature`).
+- **what landed** (`src/state/repairJobs.ts`, `src/state/repairJobTypes.ts`): FIX queues a job (the
+  plan's bill — R13 lost shapes / R182-E one flat; R19 BUILD only; R191-A per tower in a weld; one job
+  per tower). FIX ALL queues every own tower that needs one, in (squared distance from the castle,
+  lowest shape id) order. Each shape = one task. A free gatherer (SEEKING, empty-handed, by id) takes
+  the first open shape of the first job a source can supply, from the NEARER of the castle bank (net of
+  reservations; a tie goes to the castle) and the nearest quarry spark (d², id). Bank debited ON
+  ARRIVAL; a quarry spark is lifted on pickup; the shape is carried to the tower. When the whole bill is
+  delivered the tower is RE-PLANNED: covered → restored (`restoreFromDelivered` = the instant FIX's
+  restore half, nothing consumed twice), surplus → bank; short → the shortfall becomes new open shapes.
+  Tower gone / scrapped / no FIX left → cancel, refund EVERYTHING (delivered + in hand). No source → the
+  shape waits and the gatherer keeps gathering. The shelter keeps a shape IN HAND through the FIGHT (it
+  lands next BUILD) and reopens one not yet picked up. Task holders are off the haul cycle.
+  UI: the card's FIX reads QUEUED / NOTHING TO FIX / NO GATHERERS / COSTS n (the bank no longer gates
+  it); the castle's FIX ALL row (top row) `FIX ALL  n` with NOT YOURS / LOCKED / CASTLE LOST /
+  BUILD ONLY / NO GATHERERS / NOTHING TO FIX; main.ts `setFixAllHandler` → `FIX_ALL` (not predicted).
+- **tests**: `src/state/repairJobsR191B.test.ts` (20) + `src/render/fixAllCastleR192W1.test.ts` (5) —
+  REACH through the real host tick (matcher in PRODUCTION order: host tick → matcher → wipe), the real
+  `CastlePanel` row pressed through its hit-tested Graphics child, the card's FIX through the real
+  `Controls.onDown`. Negatives: R19 FIGHT refusal, no gatherer, one job per tower, a disabled row
+  dispatches nothing, a second FIX ALL queues nothing. Four sites: disk save + wire snapshot round-trip
+  and an heir that finishes the job; two identical runs hash equal every frame for 600 ticks.
+  **Mutants M1-M9 all RED, restored** (source ignores distance · shelter drops a shape in hand · haul
+  cycle runs over a task · restore without coverage · FIX restores on the spot · cancel keeps a shape in
+  hand · bank debited at assignment · FIX ALL unordered · no one-job-per-tower).
+  RE-PINNED (not relaxed): 17 weld tests that dispatched `REPAIR_STRUCTURE` for an instant restore now
+  call `applyRepairStructure` (the restore they test); `structurePanel.test` affordability cases → the
+  job semantics; `stateHashFull.test` families += `repairJobs` (+ the `nextRepairJobId` scalar);
+  `castleStatButtons` fill enumeration text (count unchanged: the row loop draws FIX ALL).
+- **MINE / owner questions (one line each, with a recommendation):**
+  · a gatherer mid-HAUL finishes his delivery before taking a FIX shape — rec: keep (no shape dropped).
+  · a seat with NO gatherer cannot queue a FIX (button: NO GATHERERS) — rec: keep; or an instant FIX
+    from the bank as the fallback if he prefers.
+  · porch shapes are not a FIX source (castle bank + quarry only — his two) — rec: keep.
+  · surplus delivered shapes go to the bank when the bill shrank; a bill that grew on the way adds new
+    open shapes — rec: keep.
+  · FIX ALL is the castle's TOP row (canon §3d pins the four stat rows directly under REGEN) — rec: keep.
+  · the per-seat job bound `REPAIR_JOBS_MAX_PER_SEAT` = 32 — rec: keep.
+  · the castle wins a distance tie with the quarry — rec: keep (a bank shape cannot be taken from you).
+  · DEEP CURRENT (nagas) snap is not applied to repair trips — rec: ask; one line to add.
+  · the carried repair shape has NO art on the gatherer (the cargo is a type, not an entity) — rec: a
+    small glyph on the carrier, for a visuals branch.
+- **merge seams:** SPARK_CANON.md FIX text (≈ :1344-1352, "FIX now reads `NEED 1 MORE`" on an empty
+  bank) is now false — FIX queues a gatherer job; the canon needs the R191-B paragraph and the FIX ALL
+  row (canon §3d's castle buttons gain a row above BUY GATHERER). `bots/` never FIX. `hostTick.ts`
+  gained one call (`tickRepairJobs`) before the gatherer fan-out; `gathererLifecycle.ts` exports
+  `isHarvestable` / `stepToward`; `castlePanel.ts` `CASTLE_ROW_KEYS` gained `fixAll` FIRST (any branch
+  indexing castle rows by number shifts by one). Perf watch: each BUILD tick re-plans every queued job
+  (≤ 32 per seat), and the open castle panel plans every own tower per sync.
+- **NOT DONE:** e2e not run; no carried-shape art; DEEP CURRENT on repair trips.
+
 ## ⭐ S193 FINAL REPORT (merge master + SEAM-C7) — read this first
 - **tip** `8430a334` (code tip f1cff75) · **merge** 6e9b57e (master 71abc27) — **textually clean, 0 conflicts**
   (auto-merged: controls.ts, characterSheetModel.ts, save.ts, stateHashFull.ts). Merged tree before any
@@ -883,3 +944,27 @@ repair in flight at FIGHT waits in the castle and lands next BUILD) + R192-W1 (c
   (new required serialized state + action semantics). Castle panel: FIX ALL button (+ hit-test pairing,
   the S182 fill-count rule). Estimate ~1.5–2 days; bundle +4–6 KiB against 52 KiB headroom — flag.
 - open (MINE defaults to report): carry capacity (as today, multi-trip); one job per tower; FIX ALL order.
+
+## S193 ROUND 6 — R191-B + R192-W1 (coordinator "round 6 go")
+- step 0 — `git merge master` (62b83e0, five plan files) → 4aaf81a, 0 conflicts.
+- step 1 — types + four sites (e49b10d): `repairJobTypes.ts`; `World.repairJobs` / `nextRepairJobId`,
+  `Gatherer.repairTask`; factory, save (disk + wire; validated restore), wide hash (+ unions), worker
+  `structuralSignature`, every teardown site.
+- step 2 — `repairJobs.ts` + plumbing (d560402): queue / FIX ALL / per-tick check-move-finish-assign;
+  the `FIX_ALL` intent (world union + dispatch, both protocol allowlists, bench + elimination deny);
+  `applyRepairStructure` split into consume + `restorePlannedRepair`; `restoreFromDelivered`; the shelter
+  keeps a shape in hand; the haul cycle skips task holders; `tickRepairJobs` before the fan-out.
+- step 3 — UI (6425bd5, 6e508b2): the FIX button reads the queue; the castle FIX ALL row first; main.ts.
+- step 4 — tests (cba6759, 1f8e376, 006eafe, f10f21c, 054896f) + mutants M1-M9 RED.
+- failed commands and their verdicts: (1) the first suite run RED ×5 — `canon.test` §3d (FIX ALL
+  appended under the stat rows → moved to the TOP row, canon untouched), the hash family list
+  (re-pinned: a forcing function), 3 panel affordability cases (re-pinned to the job semantics);
+  (2) the first REACH draft RED ×7 — the test helper ran the matcher BEFORE the host tick, so a restore
+  inside the tick never armed ignition (production runs host tick → matcher → wipe; the helper now does
+  too), and a full-world hash diff after a disk `restore` (bond ids re-keyed by `restore` — pre-existing,
+  not this branch) → replaced by field-level + job/gatherer-part equality, an heir that finishes the job
+  and a two-run determinism differential; (3) the goblin tower's fee unfunded → the job correctly WAITED
+  (no source) — the test now funds `repairFeeShapeFor`; (4) mutants M3 / M6 survived the first draft →
+  the off-the-haul-cycle guard and the exact cancel refund were added; (5) gates chained after a red test
+  → typecheck and build RED on an unused binding (TS6133) — fixed; all three re-run separately → 0/0/0;
+  (6) a bash heredoc with nested quotes failed to parse (exit 2) — nothing ran; rewritten as files.
