@@ -416,3 +416,25 @@ describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop der
     expect(cap - pw, `e2e-worker-bots: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
   });
 });
+
+/*
+ * ⛔ S193 — A TEST THAT GATES IN e2e-lobby DOES NOT ALSO RUN IN THE QUARANTINE LANE. The quarantine lane
+ * (`continue-on-error`, 17-min cap) never FINISHED in any of the last 20 master runs: every one hit
+ * "Timed out waiting 1020s" with 1–17 tests "did not run". Four of the tests eating its budget were the
+ * lobby lane's own — they carry `@quarantine-flaky` (to stay out of the shared lane) and so ran TWICE, and
+ * the S192 late-4th-joiner alone is now worth up to 3 × 330 s. exit-match's two quarantine reds sat beside
+ * green runs of the very same test in e2e-lobby. They keep their coverage (gating, in e2e-lobby); the
+ * quarantine lane gets its budget back for the specs that only it runs.
+ */
+describe('S193 - the quarantine lane does not re-run what e2e-lobby gates', () => {
+  it('e2e:quarantine grep-inverts exactly the e2e:lobby grep', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    const lobby = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:lobby'] ?? '');
+    const q = pkg.scripts['e2e:quarantine'] ?? '';
+    const inv = /--grep-invert\s+"([^"]+)"/.exec(q);
+    expect(lobby, 'e2e:lobby grep').not.toBeNull();
+    expect(q).toContain('--grep @quarantine-flaky');
+    expect(inv, 'e2e:quarantine must grep-invert the lobby-gated titles').not.toBeNull();
+    expect((inv as RegExpExecArray)[1]).toBe((lobby as RegExpExecArray)[1]);
+  });
+});
