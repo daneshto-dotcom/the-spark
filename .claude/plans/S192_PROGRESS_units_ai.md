@@ -1,5 +1,7 @@
 # S192 PROGRESS — `s192/units-ai` (T5 + T13 + T6)
 
+## ⭐ S193 ROUND — merge master + re-verify (FINAL REPORT, see bottom section "S193 ROUND")
+
 Branch `s192/units-ai`, from master 663c4c9 (fast-forwarded to 2ab7910, docs only). Merge owner = main session.
 Every exit code below was captured from `$?` into a file, never through a pipe.
 
@@ -137,3 +139,44 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
   Perf differential + nav differentials + guards green inside the run.
 - Bump: still **NO** for every item (host-only targeting; `zoneOf`/`targetPos`/`pos` are synced state, so a successor or
   worker mirror computes the same answer).
+
+## S193 ROUND — `git merge master` + re-verify (no new feature code)
+- Pre-merge tip **a710689**. `git merge master` (master = **71abc27**, 210 commits; brief said 8693fdd — master had
+  moved by one bookkeeping commit) → merge commit **3bce29c**. **ZERO textual conflicts** — git auto-merged
+  `constants.ts`, `audioManager.ts`, `creature.ts`, `creatureAI.ts`, `navUnitIndex.guards.test.ts`.
+- Semantic seams checked by hand (master's hunks in my files): `creatureAI.ts` = C-6 strict spread (bond buckets,
+  disjoint from pickNavUnit/chokepoint/march); `creature.ts` = Warlord rage helpers + `rageStartTick` (disjoint);
+  `voltkinChain.ts` = `severWithCarry` in the sever loop (disjoint from my hop gate); `audioManager.ts` = T15 loop /
+  voice cap (disjoint from `isHelgaEngagedRaw`); `navUnitIndex.guards` = fxLab allocator row (disjoint).
+  New creature scans master added (`raColumn`, `scorchedGround`, `bloodFrenzy`, `bossSkillsWarlord`, `potatoLifecycle`,
+  `voltkinTv`) are AREA / count / aura scans, not victim picks — none needs `isLiveCreatureTarget` (`liveTargetSites`
+  + `untargetableCallSites` guards green on the merged tree). `isNonCombatantType` still = chewer + lightningDrone
+  (pinned). Master's stock rule (drones persist, fly HOME when their target is used) makes drones cross armies more
+  often; T6's predicate is path-generic (`targetPos`), REACH green.
+- REACH re-run through the merged host tick: `chaseGiveUp` 12 · `deadTargets` 12 · `helgaBuildPatrol` 5 ·
+  `liveTargetSites.guards` 3 · `navUnitIndex.differential` 8 · `navUnitIndex.guards` 6 · `untargetableCallSites` 5 ·
+  `s191Perf.differential` 1 → exit 0, 52/52.
+- Perf oracle: master did NOT move `navUnitReference.fixtures.ts` / `s191PerfOracle.fixtures.ts` /
+  `s191Perf.differential.test.ts` (0 commits). Merged run: nav mismatches **0**, `pendingDeathReturned` **0**, every
+  tick hash-identical; `corpseAvoided` **1160** (was 746 — master's gameplay changed the board), floor 100 unchanged;
+  only the `CORPSE_MEASURED` note string updated. Byte-identity is still claimed ONLY reference-vs-changed inside the
+  oracle (the reference carries T6/T13 longhand) — never vs pre-T13 master, whose outputs T13/T6 deliberately move.
+- Gates (exit codes from files): typecheck **0** · vitest `--maxWorkers=3` **0** (474 files passed / 4 skipped;
+  7274 tests passed / 11 skipped) · build **1** — ⚠ RULED AN ENVIRONMENT ARTEFACT, NOT THE BRANCH: entry 1157.9 KiB.
+  Cause: master added `pixi-filters` 6.1.5; this worktree's `node_modules` predates it, so Node/Vite resolve it from
+  the MAIN checkout's `node_modules`, and its `import 'pixi.js'` then binds the main checkout's pixi — a SECOND pixi
+  copy in the bundle. Proven: the same tree built with `resolve.dedupe: ['pixi.js']` (scratch config
+  `.tmp-gates/vite.dedupe.config.ts`, exit 0) = **1 060 694 B = 1035.8 KiB** vs master's live deploy-run build
+  **1 059 708 B = 1034.9 KiB** → this branch costs **+1.0 KiB**. Fix = `npm install` in this worktree (the lockfile
+  pin is already on master); NOT run here (no-new-package rule — left to the merge owner). CI clean checkout is unaffected.
+- BUMP VERDICT, re-checked honestly — **REVISED: YES, earns one (or rides the train's).** My earlier "NO … a
+  successor/worker mirror runs the same code" was wrong for a MIXED-BUILD successor. S186 test: a client computes none
+  of T5/T6/T13 except one cosmetic — `gathererRenderer.drawCastleShot` calls `findNearestEnemyCreatureFrom` (T13's
+  chokepoint); it differs only on an `ehp ≤ 0` creature, which no snapshot carries (the deferred-death sweep runs
+  before the tick returns; `pendingCreatureDeaths` is null on a client), so the client outputs agree. The worker
+  mirror is same-bundle. But a **host-migration successor runs `runHostTick`**: a pre-T13 build promoted from a
+  post-T13 host (both advertising 56) computes different targets from the same state (chases drones across the map
+  again, marches on a fallen keep, takes corpses, Helga stops patrolling in BUILD). That is exactly the class S192's
+  54 counted for C-6 (*"a CHANGED SHARED RULE both peers (host, successor, worker mirror) compute"*). ⚠ S190's 51
+  docblock recorded s189/units' host-side rules as "owed nothing alone"; the two precedents disagree, and the later
+  (54, C-6) governs. No field, no wire change, no new discriminant.

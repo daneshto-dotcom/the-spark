@@ -113,7 +113,7 @@ const WAVES = FULL ? 5 : 3;
 const CREATURES = FULL ? 120 : 40;
 /** S192 T13 — `corpseAvoided` floor and its measurement (default / full). */
 const CORPSE_FLOOR = 100;
-const CORPSE_MEASURED = '746 (S192 default run) / full not re-run';
+const CORPSE_MEASURED = '746 (S192 default run; 1 160 on the S193 merged tree) / full not re-run';
 /** Every this-many ticks both twins get the same cross-seat weld / intruder before their tick. */
 const WELD_EVERY = 97;
 const INTRUDE_EVERY = 131;
