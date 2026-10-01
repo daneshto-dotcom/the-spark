@@ -12,7 +12,13 @@ Branch `s192/magic`, from master 663c4c9. Merge owner: the main session. Never p
 | 2d | DIFFERENTIAL — `magicResist.differential.test.ts`: 18000 ticks (2 waves) A(all-physical) vs B(MRES=DEF) hashWorldStateFull identical EVERY tick; B ran 1344 magic hits + 24 DoT ticks; C (shipped table) diverged at tick 5491 | 665ed12 | |
 | GATES | tip 665ed12: typecheck **0**; `npx vitest run --maxWorkers=3` **0** (423 files passed / 2 skipped, 6764 tests passed / 7 skipped); `npm run build` **0**, 977.4 KiB (master 975.2 → +2.2 KiB; headroom 122.6) | (this commit) | DONE — final report sent |
 
-## Finding (not mine to fix — for the merge owner)
+| STINK | the "empty magazine still throws" fix (77415ba) REVERTED (3ba5ff0): it contradicts owner ruling S161 P3 (BUG-2) *"continuously throw out poop bags throughout the fight stage"*, pinned by `stinkReload.test.ts` (2 red). Only the stale comment at `defenderLifecycle.ts` (targeted lob, "when the magazine is empty the throw simply does not happen") is wrong — merge owner's | 3ba5ff0 | finding WITHDRAWN |
+| R1/3/4 | rulings at their constants: buildings raise DEF+MRES together; globals MRES = DEF (HIS); stink cloud magic (HIS); zero beat accepted (HIS) | 3b31a47 | |
+| R2 | castle MRES axis: `'mres'` CastleStat (new discriminant), `mresLevel` four sites, starting MRES = starting DEF (0), DEF no longer raises MRES, magic into keep floor(A·5/(5+mres)) min 1, panel row + card row, canon §3/§3d re-pinned; `castleMres.test.ts` (reducer, funnel, host-tick Voltkin REACH 33→16, wire/hash/reset; mutation → 3 red) | 31d54b2 | bots never buy castle stats |
+| R5 | RESIST floater: `state/magicResistCue.ts` (derived, no wire) + DamageNumbers grey 'RESIST' ≤ 1/unit/s (⚠ MINE look); `resistFloater.test.ts` (cue == swallowed beats through runHostTick; mutation → red) | 37af44f, 8257080 | |
+| SPEC | MD + HTML + Desktop copy updated with the rulings | 381cc24 | |
+| GATES | tip 8257080: typecheck 0; vitest 0 (425 files / 6779 tests passed, 7 skipped); build 0, 979.6 KiB (+4.4 over master 975.2) | (this commit) | |
+## Finding — ⛔ WITHDRAWN (it is owner ruling S161 P3; see the STINK row)
 A DEPLETED stink tower (`bagsRemaining` 0) still lobs bags: `stinkThrowBag` decrements only when > 0 but always
 splashes and leaves a cloud. `src/state/defenders/stinkTower.ts:243` (`if (d.bagsRemaining > 0) d.bagsRemaining--;` then unconditional splash + cloud); its two callers `src/state/defenders/defenderLifecycle.ts:450` (blind lob) and `:465` (targeted) check no magazine, although the comment at :459 says *"when the magazine is empty the throw simply does not happen"*. Seen in the REACH test (about one physical 6-fifth splash every 4 s from a spent tower). NOT fixed here.
 
