@@ -1,7 +1,11 @@
 /**
- * SPARK — S191 A-2 (owner, R190 add-on) — **ALT DROPS THE FOOTER WHILE A TOWER IS ARMED, ALT AGAIN RAISES IT.**
+ * SPARK — S191 A-2 (owner, R190 add-on) — **ALT DROPS THE FOOTER, ALT AGAIN RAISES IT.**
  *
  * > *"hold/press Alt to drop the footer so you can place where it was, Alt again to raise it."*
+ *
+ * ⭐⭐ S192 OWNER RULING — Alt is the collapse ARROW, armed or not: *"it should take the footer down just
+ * like as if you click the arrow … it doesn't matter you have a tower, you hold a tower, you're dragging
+ * it … or not … it's independent."* So nothing re-raises the band on a disarm, and unarmed Alt toggles.
  *
  * Driven through the REAL `Controls` (its `onKeyDown` / `onKeyUp` / `onDown`) and the REAL `FooterBand`
  * after a real `sync`, so the plate that refuses the stamp is the plate that was drawn. The stamp point
@@ -21,8 +25,9 @@ vi.mock('../render/audioManager.ts', () => ({
 }));
 
 import { Container } from 'pixi.js';
-import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS } from '../constants.ts';
-import { asPlayerId, type Vec2 } from '../types.ts';
+import { ALL_SPARK_TYPES, CANVAS_HEIGHT, CANVAS_WIDTH, FOOTER_TOP_Y, PLAYER_COLORS, SparkType } from '../constants.ts';
+import { asPlayerId, asSparkId, type Vec2 } from '../types.ts';
+import { makeFreeSpark } from '../game/spark.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { bankAdd } from '../state/castleBank.ts';
 import { canStampAt } from '../state/blueprintLegality.ts';
@@ -225,12 +230,10 @@ describe('⭐⭐ S191 A-2 — REACH: Alt with a tower in hand gives back the gro
     expect(r.built, 'band down: the SAME pixel builds').toEqual([{ id, at }]);
     expect(r.castle.armed, 'one pick = one tower').toBeNull();
     frame(r);
-    expect(r.band.isCollapsed(), '⚠ MINE: placing the tower raises the band Alt lowered').toBe(false);
+    expect(r.band.isCollapsed(), 'S192: placing the tower leaves the band where Alt put it (as the arrow would)').toBe(true);
 
-    // Alt again → refused: lower, raise, and the stamp is swallowed again.
+    // Alt again → refused: raise it, and the stamp is swallowed again.
     r.castle.armExternal(id);
-    frame(r);
-    keyDown(r.c, key('Alt'));
     frame(r);
     expect(r.band.isCollapsed()).toBe(true);
     keyDown(r.c, key('Alt'));
@@ -241,7 +244,7 @@ describe('⭐⭐ S191 A-2 — REACH: Alt with a tower in hand gives back the gro
     expect(r.castle.armed).toBe(id);
   });
 
-  it('⭐ putting the tower BACK (Escape, right-click) raises the band Alt lowered', () => {
+  it('⭐ S192 — putting the tower BACK (Escape, right-click) leaves the band DOWN, as the arrow would', () => {
     for (const putBack of ['escape', 'rmb'] as const) {
       const r = rig();
       const { id, at } = findBandStamp(r);
@@ -254,49 +257,64 @@ describe('⭐⭐ S191 A-2 — REACH: Alt with a tower in hand gives back the gro
       else down(r.c, at, 2);
       expect(r.castle.armed, `${putBack} put it back`).toBeNull();
       frame(r);
-      expect(r.band.isCollapsed(), `${putBack}: the band comes back up`).toBe(false);
+      expect(r.band.isCollapsed(), `${putBack}: nothing raises it behind his back`).toBe(true);
       expect(r.built).toHaveLength(0);
     }
   });
 });
 
-describe('⛔ S191 A-2 — what Alt must NOT do', () => {
-  it('⛔ unarmed Alt → NOTHING: the band stays up and the browser keeps its own Alt', () => {
+describe('⭐⭐ S192 owner ruling — Alt is the collapse ARROW, independent of the hand', () => {
+  it('⭐ unarmed Alt drops the band and Alt again raises it — swallowed both ways, like any consumed Alt', () => {
     const r = rig();
+    expect(r.castle.armed).toBeNull();
     const e = keyDown(r.c, key('Alt'));
     frame(r);
-    expect(r.band.isCollapsed()).toBe(false);
-    expect(e.prevented, 'not even preventDefault').toBe(false);
-    expect(keyUp(r.c, key('Alt')).prevented, 'nor on the way up').toBe(false);
-  });
-
-  it('⛔ a band lowered with the TAB is never raised by a disarm — only Alt\'s own drop is undone', () => {
-    const r = rig();
-    const { id, at } = findBandStamp(r);
-    r.castle.armExternal(id);
-    frame(r);
-    r.band.toggleCollapsed(); // the tab's own action
-    frame(r);
-    expect(r.band.isAltLowered()).toBe(false);
-    down(r.c, at);
-    expect(r.built, 'the tab-lowered band releases the ground too (S187)').toHaveLength(1);
-    frame(r);
-    expect(r.band.isCollapsed(), 'he lowered it himself, so it stays down').toBe(true);
-  });
-
-  it('⛔ Alt lowered, then the TAB raised and lowered it again → the disarm leaves it down', () => {
-    const r = rig();
-    const { id } = findBandStamp(r);
-    r.castle.armExternal(id);
-    frame(r);
+    expect(r.band.isCollapsed(), 'nothing in hand: it still drops').toBe(true);
+    expect(e.prevented, 'the browser must not take it to its menu bar').toBe(true);
+    expect(keyUp(r.c, key('Alt')).prevented, 'nor on the way up').toBe(true);
     keyDown(r.c, key('Alt'));
-    r.band.toggleCollapsed(); // tab up
-    r.band.toggleCollapsed(); // tab down
-    r.castle.disarm();
     frame(r);
-    expect(r.band.isCollapsed(), 'the last hand on it was the tab').toBe(true);
+    expect(r.band.isCollapsed(), 'Alt again raises it').toBe(false);
   });
 
+  it('⭐ while DRAGGING a spark, Alt drops the band too', () => {
+    const r = rig();
+    const at = { x: 600, y: 500 };
+    const s = makeFreeSpark({ id: asSparkId(8901), type: SparkType.Square, pos: { ...at }, velocity: { x: 0, y: 0 }, dt: 1, createdTick: r.w.tick });
+    r.w.freeSparks.set(s.id, s);
+    down(r.c, at);
+    expect(r.c.state.kind, 'fixture: the grab landed').toBe('AttractDrag');
+    keyDown(r.c, key('Alt'));
+    frame(r);
+    expect(r.band.isCollapsed()).toBe(true);
+  });
+
+  it('⭐ Alt and the arrow are ONE toggle: Alt down → arrow up; arrow down → Alt up', () => {
+    const r = rig();
+    keyDown(r.c, key('Alt'));
+    expect(r.band.isCollapsed()).toBe(true);
+    r.band.toggleCollapsed(); // the arrow's own action
+    expect(r.band.isCollapsed()).toBe(false);
+    r.band.toggleCollapsed();
+    keyDown(r.c, key('Alt'));
+    expect(r.band.isCollapsed()).toBe(false);
+  });
+
+  it('⛔ where the arrow cannot be pressed, Alt does nothing: outside PLAYING, or during the NONET trial', () => {
+    const title = rig();
+    title.w.gameState = 'TITLE';
+    const e1 = keyDown(title.c, key('Alt'));
+    expect(title.band.isCollapsed(), 'TITLE').toBe(false);
+    expect(e1.prevented, 'TITLE: the browser keeps its Alt').toBe(false);
+    const nonet = rig();
+    nonet.w.sudoku = {} as never;
+    const e2 = keyDown(nonet.c, key('Alt'));
+    expect(nonet.band.isCollapsed(), 'NONET').toBe(false);
+    expect(e2.prevented, 'NONET: the browser keeps its Alt').toBe(false);
+  });
+});
+
+describe('⛔ S191 A-2 — what Alt must NOT do', () => {
   it('⛔ an auto-repeat, Ctrl+Alt, Meta+Alt and a focused text field are ignored', () => {
     const cases: Array<[string, Partial<KeyEv>, { tagName: string } | null]> = [
       ['auto-repeat', { repeat: true }, null],
@@ -346,10 +364,7 @@ describe('⛔ S191 A-2 — what Alt must NOT do', () => {
         for (const fn of fns) fn({});
         doc.visibilityState = 'visible';
       }
-      r.castle.disarm();
-      frame(r);
-      expect(keyDown(r.c, key('Alt')).prevented, 'unarmed: the browser’s Alt').toBe(false);
-      expect(keyUp(r.c, key('Alt')).prevented, 'and its release is not swallowed by a stale latch').toBe(false);
+      expect(keyUp(r.c, key('Alt')).prevented, 'the next Alt release is not swallowed by a stale latch').toBe(false);
     },
   );
 

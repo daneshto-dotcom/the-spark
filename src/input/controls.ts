@@ -111,8 +111,6 @@ export interface FooterBandLike {
    */
   isOverCollapseTab?(x: number, y: number): boolean;
   toggleCollapsed?(): boolean;
-  /** ⭐ S191 A-2 — Alt with a tower in hand: the SAME collapse, remembering Alt lowered it. */
-  altToggleCollapsed?(): boolean;
   /** ⭐ S188 P6 — the POWER OF RA skill button. Optional for the same reason as the tab above. */
   isOverRaButton?(x: number, y: number): boolean;
   isOverChip(x: number, y: number): boolean;
@@ -1877,7 +1875,7 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
-    // ⭐⭐ S191 A-2 (owner, R190 add-on) — Alt drops / raises the footer while a tower is in hand.
+    // ⭐⭐ S191 A-2 / S192 owner ruling — Alt drops / raises the footer, exactly as the collapse arrow does.
     if (this.handleAltFooterKey(e)) return;
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
     if (e.key === 'Escape' && raAimPreview() !== null) {
@@ -1915,17 +1913,19 @@ export class Controls {
   // S42 — onKeyDown SPACE → END_TURN handler DELETED. See constructor
   // comment. Real-time 1v1 has no turn-flip input.
 
-  // ── ⭐⭐ S191 A-2 (owner, R190 add-on) — ALT TOGGLES THE FOOTER WHILE A TOWER IS ARMED ───────────────
+  // ── ⭐⭐ S191 A-2 (owner, R190 add-on; S192 ruling) — ALT TOGGLES THE FOOTER, ARMED OR NOT ──────────────
   /**
-   * *"hold/press Alt to drop the footer so you can place where it was, Alt again to raise it."*
+   * ⭐⭐ OWNER, S192 (supersedes the armed-only S191 build): *"whenever you click alt on the … keyboard, it
+   * should take the footer down just like as if you click the arrow … it doesn't matter you have a tower,
+   * you hold a tower, you're dragging it … or not, it just takes it down … it's independent."*
    *
-   * The toggle is the band's own S187 collapse (`altToggleCollapsed` → `toggleCollapsed`), so the
-   * armed-stamp arm below — which asks `isPointerOverFooterSurface` — stops refusing the ground the
-   * plates covered the moment the band is down. The band raises itself when the tower leaves the hand
-   * (`FooterBand.setArmed`, polled each frame). ⛔ Not a toggle for anything else: with nothing armed
-   * Alt does NOTHING here — not even `preventDefault` — so the browser's own Alt is untouched.
-   * Ignored (Council): an auto-repeat (a held Alt toggles once), Ctrl+Alt / Meta+Alt (AltGr and OS
-   * chords), and a focused text field (the same INPUT / TEXTAREA guard `decideKeyShrink` uses).
+   * So Alt IS the collapse arrow: the same `toggleCollapsed` and the same click sound as
+   * `handleFooterChipClick`'s tab arm, under the same conditions the arrow can be pressed at all — in
+   * PLAYING (the band exists) and not while the NONET trial owns input (`isInputLocked`). Nothing raises
+   * the band behind his back any more: it stays where Alt or the arrow last put it, as the arrow's does.
+   * Because every placement gate asks the band's own predicates (S187), a lowered band gives back the
+   * ground under it for every gesture. Ignored (Council, S191): an auto-repeat (a held Alt toggles once),
+   * Ctrl+Alt / Meta+Alt (AltGr and OS chords), and a focused text field (the `decideKeyShrink` guard).
    */
   private altKeyConsumed = false;
 
@@ -1934,10 +1934,11 @@ export class Controls {
     if (e.repeat || e.ctrlKey || e.metaKey) return false;
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return false;
-    if (this.castlePanel?.armedBlueprint() == null) return false;
-    if (this.footerBand?.altToggleCollapsed === undefined) return false;
+    if (this.world.gameState !== 'PLAYING' || this.isInputLocked()) return false; // where the arrow can be pressed
+    if (this.footerBand?.toggleCollapsed === undefined) return false;
     e.preventDefault();
-    this.footerBand.altToggleCollapsed();
+    void playUiClickSFX(); // the arrow's own sound
+    this.footerBand.toggleCollapsed();
     this.altKeyConsumed = true;
     return true;
   }

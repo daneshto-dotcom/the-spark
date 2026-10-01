@@ -337,3 +337,12 @@ Merge owner = the main session. This branch never merges, never pushes.
   the control plants; the latch lasts one release; a spark drag pressed under the modal → DROP_SPARK only, Idle.
   Mutations: latch never set → 18 red; potato gate ignores it → 2 red; PLACE_FROM_FREE gate ignores it → 1 red.
   Restored (cmp). `src/input` 346/346.
+- **2 · OWNER RULING — Alt ALWAYS toggles the footer, exactly as the arrow.** `handleAltFooterKey`: the armed-only
+  condition is gone; Alt acts where the arrow can be pressed (`gameState === 'PLAYING'` and not `isInputLocked()`,
+  ⚠ my reading of "as if you click the arrow" — the arrow only exists in PLAYING and the NONET lock blocks its
+  click), calls the band's own `toggleCollapsed()` and plays the arrow's `playUiClickSFX`. Removed: `FooterBand`'s
+  `altLowered` / `altToggleCollapsed` / `isAltLowered`, the `setArmed(null)` re-raise, `FooterBandLike.altToggleCollapsed`.
+  Kept: repeat / Ctrl / Meta / focused field guards, the keyup swallow, the blur / hidden latch reset. Tests
+  (`controls.altFooter.test.ts`, 13): placing / Escape / RMB leave the band DOWN; unarmed Alt toggles both ways and is
+  swallowed; Alt mid spark-drag drops it; Alt and the arrow are one toggle; outside PLAYING / under NONET → nothing.
+  Mutations: armed-only restored → 3 red; PLAYING/lock guard removed → 1 red. `src/input` + `src/render` 2242/2242.
