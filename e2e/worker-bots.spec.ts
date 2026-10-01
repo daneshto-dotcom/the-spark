@@ -77,9 +77,9 @@ const GROWTH_WALL_CAP_MS = 180_000;
  */
 test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke @worker-bots', () => {
   // S143 P2 — NO RETRIES ON THIS SPEC (the S127 `PW_RETRIES: 0` precedent). A tick-budgeted
-  // failure reproduces identically, so retries buy nothing but wall-clock — and this lane's
-  // PW_GLOBAL_TIMEOUT_MIN is 12 min for ~35 tests, which 3 attempts at this budget would eat
-  // whole. The three attempts burned on every previous red produced three identical logs.
+  // failure reproduces identically, so retries buy nothing but wall-clock — and since S191 A-4 this
+  // spec is its own `e2e-worker-bots` lane with PW_GLOBAL_TIMEOUT_MIN 9 min, which 3 attempts at a
+  // 360 s budget would overrun. The three attempts burned on every previous red produced three identical logs.
   test.describe.configure({ retries: 0 });
 
   test('bots match adopts the worker: bots place through the worker, 0 hash mismatches', async ({

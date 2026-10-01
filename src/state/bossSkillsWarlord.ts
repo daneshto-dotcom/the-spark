@@ -76,9 +76,9 @@ export function runWarlordRage(world: World): void {
       boss.enraged = true;
       continue;
     }
-    // His own latch does not hold him. ⚠ This also lowers a bit BLOOD FRENZY set on him (a healthy
-    // second Warlord) — the frenzy runs after this in the same tick and re-sets it while its source
-    // still rages, so "only his own latch calms him" holds exactly as before S191.
+    // His own latch does not hold him: lower the bit. ⭐ S191 owner rule — BLOOD FRENZY never sets (nor
+    // clears) a Warlord any more (`runBloodFrenzy` skips the type), so nothing re-raises it this tick:
+    // a Warlord rages only by his own clock.
     boss.enraged = false;
   }
 }

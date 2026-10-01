@@ -350,3 +350,8 @@ Merge owner = the main session. This branch never merges, never pushes.
 - **3 · OWNER RULING — the 25 s cooldown is HIS.** `constants.ts` `WARLORD_RAGE_COOLDOWN_TICKS`: the `⚠ MINE` line
   replaced by his quote (*"Rage cooldown 25 seconds, that's fine. Per warlord."*) + "per Warlord" stated; the same
   wording in `warlordRageClock.test.ts` (header, describe title, assertion message). No value changed. 19/19.
+- **4 · comments (L-1/L-2/L-3), no behaviour.** `bossSkillsWarlord.ts` lowering-branch comment: the frenzy no longer
+  re-sets a Warlord. `creature.ts` `isOwnRageActive`: restore validates a non-negative integer only, it does NOT
+  refuse a future stamp. `playwright.config.ts`: the invariant list now names all seven lanes (12<18 · 15<20 · 9<12 ·
+  44<50 · 9<12 · 9<12 · 17<20, read from `e2e.yml`). `e2e/worker-bots.spec.ts`: its own lane, 9 min, not "12 min for
+  ~35 tests". `ci.e2eLanes` + rage + racial 324/324.

@@ -150,8 +150,9 @@ export function attackCycleMultiplier(c: Pick<Creature, 'attackCycleRaged'>): nu
 /**
  * ⭐⭐ S191 (owner) — **IS THIS WARLORD RAGING BY HIS OWN 25-SECOND LATCH RIGHT NOW?** The one read of
  * `rageStartTick`'s first window. Strictly `<`, so a stamp at `T` rages on exactly `WARLORD_RAGE_TICKS`
- * ticks (`T … T + 1499`). A stamp in the future (never written by the sim; refused on restore) is not
- * active. Takes `tick`, not the World, like `isStunned`.
+ * ticks (`T … T + 1499`). A stamp in the future (never written by the sim) is not active. ⚠ Restore
+ * (`save.ts`) validates only a non-negative INTEGER — it does NOT refuse a future stamp; this read is
+ * what makes one harmless. Takes `tick`, not the World, like `isStunned`.
  */
 export function isOwnRageActive(c: Pick<Creature, 'rageStartTick'>, tick: number): boolean {
   if (c.rageStartTick === undefined) return false;
