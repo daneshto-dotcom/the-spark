@@ -98,6 +98,10 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // their gatherers to different sparks and diverge within a tick. This is exactly the class the
   // wide oracle exists to catch, so it must contribute.
   gathererOrders: 'hashed',
+  // ⭐ S193 R191-B — the FIX queue and its id counter. Both drive which gatherer fetches what and which
+  // tower is restored when, so two sims that disagree here diverge within a tick.
+  repairJobs: 'hashed',
+  nextRepairJobId: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -410,7 +414,7 @@ type StinkCloudHashed =
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
 type GathererHashed =
   | 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick' | 'state' | 'targetSparkId'
-  | 'carriedSparkId' | 'speedLevel' | 'preferredType';
+  | 'carriedSparkId' | 'speedLevel' | 'preferredType' | 'repairTask';
 
 /**
  * S141 P3 — THE CASTLE-BANK PROJECTION GUARD.
@@ -694,7 +698,9 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}` +
         `:${g.state}:tg${n(g.targetSparkId)}:cy${n(g.carriedSparkId)}:sl${g.speedLevel}` +
-        `:pf${o(g.preferredType)}`,
+        `:pf${o(g.preferredType)}` +
+        // S193 R191-B — `_` when idle, else job.type.source.spark.carrying
+        `:rt${g.repairTask === null ? '_' : `${g.repairTask.jobId}.${o(g.repairTask.type)}.${g.repairTask.source}.${n(g.repairTask.sparkId)}.${g.repairTask.carrying ? 1 : 0}`}`,
     );
   }
 
@@ -721,6 +727,15 @@ export function determinismParts(world: World): string[] {
   for (const seat of orderSeats) {
     const q = world.gathererOrders.get(seat) ?? [];
     parts.push(`go${n(seat)}:${q.map((t) => o(t)).join('.')}`);
+  }
+
+  // ⭐ S193 R191-B — the FIX queue, in queue order (the ORDER is the priority), and its counter.
+  parts.push(`rjn${world.nextRepairJobId}`);
+  for (const j of world.repairJobs) {
+    parts.push(
+      `rj${j.id}:${n(j.seat)}:m${j.memberIds.join('.')}:nd${j.need.map((t) => o(t)).join('.')}` +
+        `:dl${j.delivered.map((t) => o(t)).join('.')}`,
+    );
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

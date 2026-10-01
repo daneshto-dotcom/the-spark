@@ -129,6 +129,7 @@ export function applyGodlyAbort(world: World): World {
   // S136 P1 — and the castle banks, on the same inline rationale as the line above.
   world.castleBanks.clear();
   world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
+  world.repairJobs = []; world.nextRepairJobId = 0; // S193 R191-B — the FIX queue goes with them
   // S158 P6 — and the landed stink bags, on the same inline rationale as every line above: a cloud
   // outliving the tower that threw it would keep damaging a board nobody is playing on any more.
   world.stinkClouds.clear();

@@ -29,6 +29,7 @@ import type { CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
+import type { RepairJob } from './repairJobTypes.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
@@ -477,6 +478,14 @@ export interface World {
    * economy — a queue is an instruction to units that no longer exist.
    */
   gathererOrders: Map<PlayerId, SparkType[]>;
+  /**
+   * ⭐ S193 R191-B / R192-W1 — the FIX queue: every seat's repair jobs, in enqueue order (FIX clicks and
+   * FIX ALL). Host-authoritative, serialized, wide-hashed; cleared with the gatherer economy. See
+   * `repairJobs.ts`.
+   */
+  repairJobs: RepairJob[];
+  /** S193 — monotonic repair-job id counter (serialized: a re-derived one would re-issue ids). */
+  nextRepairJobId: number;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

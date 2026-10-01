@@ -452,6 +452,8 @@ export function makeWorld(rngSeed: number): World {
     // S136 P1 (V6-1.3) — per-seat castle bank; seats are populated lazily on first deposit.
     castleBanks: new Map(),
     gathererOrders: new Map(), // S141 P2 (V6-1.4) — the per-player ordered build queue
+    repairJobs: [], // S193 R191-B — the FIX queue (gatherer jobs)
+    nextRepairJobId: 0,
     nextGathererId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),

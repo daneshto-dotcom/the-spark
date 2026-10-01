@@ -750,4 +750,7 @@ export function teardownGatherers(world: World): void {
   // S141 P2 — the order queues tear down with the units they instruct. A queue that outlived its
   // gatherers would be a standing instruction to nobody, and would leak across matches.
   world.gathererOrders.clear();
+  // S193 R191-B — and the FIX queue: a job is an instruction to the same units.
+  world.repairJobs = [];
+  world.nextRepairJobId = 0;
 }

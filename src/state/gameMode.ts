@@ -291,6 +291,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S136 P1 — and its castle bank. A fresh match must never inherit last match's stored shapes.
   world.castleBanks.clear();
   world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
+  world.repairJobs = []; world.nextRepairJobId = 0; // S193 R191-B — the FIX queue goes with them
   // S34 P2-21 defensive clear (see JSDoc above).
   world.pendingCreatureSpawn = null;
   // S87 — bot-seat identity is per-match: rebuild from the action (empty for
@@ -545,6 +546,7 @@ export function applyReturnToTitle(world: World): World {
   // S136 P1 — and its castle bank, or a title-return would carry stored shapes into the next match.
   world.castleBanks.clear();
   world.gathererOrders.clear(); // S141 P2 — the order queues tear down with the gatherer economy
+  world.repairJobs = []; world.nextRepairJobId = 0; // S193 R191-B — the FIX queue goes with them
   world.activeCinematicPlayerId = null;
   world.currentCinematicEvent = null;
   world.pendingCinematics.length = 0;

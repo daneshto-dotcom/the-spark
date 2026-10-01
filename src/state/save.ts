@@ -74,6 +74,7 @@ import { scorchedEarthFromWire } from './racial/scorchedEarthRules.ts'; // ⭐ S
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
+import type { RepairJob, RepairTask } from './repairJobTypes.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
@@ -231,6 +232,13 @@ export interface WorldSnapshot {
    * would evaporate at a host migration with no entity left behind to notice.
    */
   gathererOrders?: Array<{ seat: PlayerId; types: SparkType[] }>;
+  /**
+   * ⭐ S193 R191-B — the FIX queue and its counter. Additive-optional (omitted while empty / zero), so an
+   * idle board round-trips byte-identically; MUST round-trip so a successor keeps the jobs the seat's
+   * gatherers are already working (their `repairTask`s name these ids).
+   */
+  repairJobs?: Array<{ id: number; seat: PlayerId; memberIds: PrimitiveId[]; need: SparkType[]; delivered: SparkType[] }>;
+  nextRepairJobId?: number;
   /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
    * when true so a host save/load mid-game does not re-spawn a second hunter on
@@ -1066,6 +1074,8 @@ interface SerializedGatherer {
   readonly carriedSparkId?: SparkId | null;
   readonly speedLevel?: number;
   readonly preferredType?: SparkType | null;
+  /** S193 R191-B — the FIX shape it is fetching / carrying (absent ⇒ none). */
+  readonly repairTask?: RepairTask | null;
 }
 
 /**
@@ -1215,6 +1225,11 @@ export function snapshot(
     // S136 P1 (V6-1.3) — the castle banks (omitted entirely when every bank is empty).
     castleBanks: serializeCastleBanks(world),
     gathererOrders: serializeGathererOrders(world),
+    // S193 R191-B — copies, never aliases of live world state.
+    repairJobs: world.repairJobs.length > 0
+      ? world.repairJobs.map((j) => ({ id: j.id, seat: j.seat, memberIds: [...j.memberIds], need: [...j.need], delivered: [...j.delivered] }))
+      : undefined,
+    nextRepairJobId: world.nextRepairJobId > 0 ? world.nextRepairJobId : undefined,
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
     // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
@@ -1928,6 +1943,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if (entry.types.length > 0) world.gathererOrders.set(entry.seat, [...entry.types]);
     }
   }
+  // ⭐ S193 R191-B — the FIX queue: same clear-then-rehydrate contract (a missing field = no jobs).
+  world.repairJobs = restoredRepairJobs(snap.repairJobs);
+  world.nextRepairJobId = Number.isInteger(snap.nextRepairJobId) && (snap.nextRepairJobId as number) >= 0
+    ? (snap.nextRepairJobId as number)
+    : 0;
+  for (const j of world.repairJobs) if (j.id >= world.nextRepairJobId) world.nextRepairJobId = j.id + 1;
 
   for (const p of snap.primitives) {
     const stubSpark = makeFreeSpark({
@@ -2895,6 +2916,7 @@ function serializeGatherer(g: Gatherer): SerializedGatherer {
     carriedSparkId: g.carriedSparkId,
     speedLevel: g.speedLevel,
     preferredType: g.preferredType,
+    repairTask: g.repairTask === null ? undefined : { ...g.repairTask },
   };
 }
 
@@ -2909,7 +2931,31 @@ function deserializeGatherer(s: SerializedGatherer): Gatherer {
     carriedSparkId: s.carriedSparkId ?? null,
     speedLevel: s.speedLevel ?? 0,
     preferredType: s.preferredType ?? null,
+    repairTask: restoredRepairTask(s.repairTask),
   };
+}
+
+/** S193 R191-B — a restored task, or null when absent or malformed (fail closed: the unit re-seeks). */
+function restoredRepairTask(v: RepairTask | null | undefined): RepairTask | null {
+  if (v == null || !Number.isInteger(v.jobId) || !Number.isInteger(v.type)) return null;
+  if (v.source !== 'bank' && v.source !== 'quarry') return null;
+  return { jobId: v.jobId, type: v.type, source: v.source, sparkId: v.sparkId ?? null, carrying: v.carrying === true };
+}
+
+/** S193 R191-B — restored jobs: well-formed entries only, ids ascending as they were queued. */
+function restoredRepairJobs(v: WorldSnapshot['repairJobs']): RepairJob[] {
+  if (v === undefined) return [];
+  const ints = (a: unknown): number[] => (Array.isArray(a) ? a.filter((x) => Number.isInteger(x) && x >= 0) : []);
+  const out: RepairJob[] = [];
+  for (const j of v) {
+    if (!Number.isInteger(j.id)) continue;
+    out.push({
+      id: j.id, seat: j.seat,
+      memberIds: (ints(j.memberIds) as PrimitiveId[]).sort((a, b) => a - b),
+      need: ints(j.need) as SparkType[], delivered: ints(j.delivered) as SparkType[],
+    });
+  }
+  return out;
 }
 
 function deserializeHunter(s: SerializedHunter): Hunter {
