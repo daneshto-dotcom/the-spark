@@ -98,6 +98,70 @@ fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 
 ---
 
+## 2b · ⭐⭐ MAGIC RESISTANCE (MRES) — ONE MORE STAT ON THE SAME LADDER (S192, `s192/magic`)
+
+> *"magic resistance, which is basically on the same ladder as defense levels. One magic resistant level is 1.2,
+> two … 1.4, these 1.6, etc."* · *"nothing makes magic stronger, it's just different."* — owner, S192 (R192-M1, M4)
+
+**THE RULE.** DEF is folded into the POOL (§2), so against magic the one bar must behave as if it were
+`HP × (5 + MRES)` long. A magic hit of `A` fifths therefore lands as
+
+```
+magic landed = floor(A × (5 + DEF) / (5 + MRES))     never below 1 on a real hit     `magicHitFifths`
+```
+
+The HP cancels. **At MRES = DEF it is `A` exactly** — so every unit whose MRES equals its DEF plays exactly as it did
+before magic existed (`magicResist.differential.test.ts` proves it over two full bots waves, every tick).
+The damage number looks the same; magic is not a colour (R192-M4).
+
+**WORKED CASE — the Archdemon, DEF 8 / MRES 14: a magic 300 lands 205** (`floor(300 × 13 / 19)`). A physical 300
+lands 300. A soldier with MRES = DEF takes a magic 300 as 300.
+
+**A one-fifth DoT beat cannot use that floor** (it would always land 1), so a magic DoT is spread over the victim's own
+beats: `floor((b+1)·r) − floor(b·r)` with `r = (5+DEF)/(5+MRES)` (`magicDotFifths`). Exact on average, 1 on every beat
+at MRES = DEF, and **some beats land 0** when MRES > DEF — HIS (R192-M12): *"can be totally resistant to very low level
+magic, I accept that"*.
+
+### What is magic, and what is physical (R192-M2 / M3)
+
+| MAGIC | PHYSICAL — *"Physical, anything else"* |
+|---|---|
+| the **Ra column** — POWER OF RA, every WRATH OF RA charge, the bot cast, AND the Pharaoh boss's ritual (one `landRaColumn`). ⭐ **PER SHARE**: the column's pool is split first, then EACH share is defended by its own target's MRES | every swing, shot and bite |
+| the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, a stink bag bursting, the stink tower's death blast and bag splash |
+| **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
+| the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
+| the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
+
+`magicResist.callSites.test.ts` pins every production damage call and its class, file by file, plus every direct pool write.
+
+### Who has how much MRES (R192-M5 / M6 / M10)
+
+| | MRES | |
+|---|---|---|
+| a **STRUCTURE** of `n` connectors | **`n`** = its DEF | HIS: *"towers will inherently have the same magic resistance as their regular defense"* — so magic lands on a tower exactly as physical |
+| a **shape**, a **stink bag** | **0** = DEF | |
+| a **GLOBAL** unit (goblins, chewer, Voltkin, drone, direwolf, locusts) and **Helga** | **= its own DEF** | HIS (R192-M10) |
+| a **race's** tier-3 unit, and the **castle soldier** by its owner's race | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
+
+⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
+against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+
+### The castle's MRES axis (R192-M9)
+
+*"whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward there
+should be … its own upgrades"* — the keep starts at MRES **0** (its starting DEF) and **MRES is its own bought row**:
+**100 VP** a point, **10** max, like every axis (§3). A bought DEF point no longer raises MRES. A magic hit on the keep lands
+`floor(A × 5 / (5 + MRES level))`, never below 1.
+
+### The RESIST cue (R192-M12, ⚠ MINE look)
+
+When a magic DoT beat lands 0, a grey **"RESIST"** floats over the unit — at most **once a second** per unit, never over a unit
+whose MRES = DEF. DERIVED from synced state every frame (`state/magicResistCue.ts` → `render/damageNumbers.ts`); nothing
+rides the wire for it. It covers the ROT, SCORCHED GROUND, SCORCHED EARTH casts, the stink aura and the stink cloud.
+
+---
+
 ## 3 · THE CASTLE
 
 | | |
