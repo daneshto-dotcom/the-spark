@@ -1,7 +1,7 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
 ## ⭐ S193 FINAL REPORT (merge master + SEAM-C7) — read this first
-- **tip** `<TIP>` (code tip f1cff75) · **merge** 6e9b57e (master 71abc27) — **textually clean, 0 conflicts**
+- **tip** `8430a334` (code tip f1cff75) · **merge** 6e9b57e (master 71abc27) — **textually clean, 0 conflicts**
   (auto-merged: controls.ts, characterSheetModel.ts, save.ts, stateHashFull.ts). Merged tree before any
   edit: TC 0 · vitest 0 (7277 + 11 skipped / 472 + 4 skipped files).
 - **gates** (tree f1cff75, after `npm install`, captured `$?` in `.tmp-gates/{TC,VT,BUILD}.exit`):
