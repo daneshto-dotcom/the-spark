@@ -114,30 +114,37 @@ decided at the EMIT (`towerUnitForSeat`). (S188–S191 it was ×3: 45 / 48.)
 `racialPerks.ts` `nagas.l5.detail`: "three times the stats" → "nine times the stats". ⚠ The `l5-nagas` CARD ART
 (`public/art/upgrade-cards/l5-nagas.webp`) was inspected: title and art only, no printed multiplier — nothing to regenerate.
 
-## §6 — PROTOCOL BUMP DOCBLOCK (for the merge owner to paste above `PROTOCOL_VERSION` in `src/net/protocol.ts`)
+## §6 — PROTOCOL BUMP DOCBLOCK — FINAL, ONE BUMP 54 → 55 (for the merge owner to paste above `PROTOCOL_VERSION`)
 
-The number (52 → N) is the merge owner's: if another S192 branch bumps in the same deploy, merge the
-reason lists under ONE bump (S182 lesson 6). No wire field, no hashed field and no serialized
-discriminant changed on this branch — every reason is a SHARED RULE (the S186 test: two builds that shake
-hands would disagree about something either computes, on the host or on a successor after migration).
+Supersedes every earlier §6 draft in this file (the 52 → 53 text, and the separate "§6 reason 4" block in
+ITEM 4 below). Master is at 54 since the s191/carry merge; this branch does NOT edit `PROTOCOL_VERSION`.
+No wire field, no hashed field and no serialized discriminant changed on this branch — every reason is a
+SHARED RULE (the S186 test: two builds that shake hands would disagree about something either computes, on
+the host or on a successor after migration).
 
 ```ts
 /**
- * ⭐⭐ S192 — **BUMPED 52 -> 53: `s191/tune` — three owner retunes, all shared rules, no wire change.**
- * Each item earns it alone (the S186 test — a v52 and a v53 build that shook hands would compute
+ * ⭐⭐ S192 — **BUMPED 54 -> 55: `s191/tune` — four owner retunes, all shared rules, no wire change.**
+ * Each item earns it alone (the S186 test — a v54 and a v55 build that shook hands would compute
  * different worlds from the same intents; `.claude/plans/S191_CANON_NOTES_tune.md`):
- *   1. POWER OF RA / WRATH OF RA (S191, owner: "we can do it 35 per hit") — a perk column deals
- *      `RA_PERK_STRIKE_FIFTHS` 35 IN TOTAL, split by `raSplitShares` over `raColumnTargets` (a structure is
- *      ONE target; stink bags are now reached; shapes inside a structure are no longer razed). A v52 host
- *      or successor lands 300 on every connector and razes the shapes — towers that stand on v53 fall.
- *      The Pharaoh BOSS ritual is unchanged (300, unsplit).
+ *   1. POWER OF RA / WRATH OF RA (S191, owner: "we can do it 35 per hit") — a Ra column deals its pool
+ *      IN TOTAL, split by `raSplitShares` over `raColumnTargets` (a structure is ONE target, its share on
+ *      the connector nearest the centre, severed through `severWithCarry`; stink bags are now reached;
+ *      shapes inside a structure are no longer razed). A v54 host or successor lands 300 on every
+ *      connector and razes the shapes — towers that stand on v55 fall.
  *   2. THE CASTLE KEEP-OUT (S191, owner: "It needs to be halved") — `CASTLE_NO_BUILD_RADIUS` 121 -> 61 plus
- *      a `CASTLE_PORCH_KEEP_OUT_RADIUS` 34 disc per porch slot. Placement is a hashed REDUCER: a v52 host
- *      refuses a placement in the 61..121 ring that a v53 client's ghost shows as legal (and vice versa
+ *      a `CASTLE_PORCH_KEEP_OUT_RADIUS` 34 disc per porch slot. Placement is a hashed REDUCER: a v54 host
+ *      refuses a placement in the 61..121 ring that a v55 client's ghost shows as legal (and vice versa
  *      around the porch) — a divergence, not a cosmetic disagreement.
  *   3. APEX PREDATOR (S192, owner chose ×6 "like the bat swarm") — `APEX_PREDATOR_STAT_MUL` 3 -> 6
  *      (elite piranha 18 / 0 / 12 / 6: pool 90, bite 132). `THE_SWARM_STAT_MUL` DECOUPLED to a literal 6
- *      (R190-D), numerically unchanged. A v52 sim emits a 45-pool elite with a 48 bite.
+ *      (R190-D), numerically unchanged. A v54 sim emits a 45-pool elite with a 48 bite.
+ *   4. THE PHARAOH BOSS'S Ra COLUMN + WRATH OF RA AT 75 (S192, owner: "He goes down to 35 per column, just
+ *      like a regular column attack … And also Pharaoh's become 75 … If the player chose that ability") —
+ *      his ritual lands through the perk's `landRaColumn` (one target per structure, connectors cut with
+ *      `cause: 'unit'`, nobody spared); `raColumnPoolFor` = 35, or 75 when the column's OWNER seat holds
+ *      WRATH OF RA — which also raises that seat's POWER OF RA cast, its three WRATH charges and its bot
+ *      cast to 75. A v54 host or successor lands 300 on every unit and shape in his circle.
  */
 ```
 
@@ -149,7 +156,7 @@ literal 6 — equal by ruling, not coupling (`theSwarm.test.ts` pins both as lit
 no ceiling moves (ATK ties the swarm's 12; HP 18 < bosses' 24; SHOT stays Vlad's 150). Copy: "six times the
 stats". `statsLadder.test` keeps the elite's derived lane (HP 18 is off 1..12). Applied to SPARK_CANON §3e
 and canon.test in the S192 round-3 commit.
-§6 reason 3 now reads: APEX PREDATOR 3 -> 6 (elite 18 / 0 / 12 / 6: pool 90, bite 132); a v52 sim emits a
+§6 reason 3 (folded into the final 54 → 55 docblock above) read: APEX PREDATOR 3 -> 6 (elite 18 / 0 / 12 / 6: pool 90, bite 132); a v52 sim emits a
 45-pool elite with a 48 bite.
 
 ## ITEM 4 (S192 round 3) — the Pharaoh BOSS column = the perk column; WRATH OF RA → 75 for the seat
@@ -168,7 +175,7 @@ target per structure, and it now CUTS CONNECTORS (sever credited to his seat, `c
 used to raze every shape in the circle. `RA_COLUMN_ATK/PEN` (15/15 = 300) are retired from the sim, kept documented.
 Applied to SPARK_CANON §3e (POWER OF RA row, WRATH row, the POWER OF RA paragraph) and canon.test in the round-3 commit.
 
-### §6 reason 4 (add to the docblock above)
+### §6 reason 4 — FOLDED into the final 54 → 55 docblock above (kept for history)
 ```
  *   4. THE PHARAOH BOSS'S Ra COLUMN (S192, owner: "He goes down to 35 per column, just like a regular
  *      column attack … And also Pharaoh's become 75 … If the player chose that ability") — his ritual
