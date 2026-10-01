@@ -80,7 +80,7 @@
 import { LONE_PRIMITIVE_POOL_FIFTHS, STINK_BAG_DEF, STINK_BAG_HP } from '../../constants.ts';
 import { componentOf } from '../../game/structure.ts';
 import { dotDueThisTick, dotIntervalTicks } from '../damageOverTime.ts';
-import { damageConnector, damageEntity } from '../damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from '../damage.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
 import { applySeverBond } from '../severBond.ts';
 import { structurePoolFifths, unitPoolFifths } from '../stats.ts';
@@ -287,7 +287,9 @@ function burnStructures(world: World, caster: PlayerId, zone: number): void {
       // ⛔ INLINE, NOT DISPATCHED — POWER OF RA's audit F1: the sever is the CONSEQUENCE of damage that
       // has landed, not the caster acting now, so a benched caster must not have it refused. `'raid'`
       // is the existing cause for a player's attack reaching a connector's capacity (⚠ MINE, Ra's).
-      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
+      // ⭐ S192 (audit OWN-1) — through `severWithCarry`, like every `damageConnector` site (the S191 overkill
+      // CARRY ruling; `connectorSeverCarry.census.test.ts`).
+      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }));
     }
   }
 }
