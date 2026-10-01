@@ -29,8 +29,10 @@
  * connector in the circle — so one column deleted a 5-connector tower (whole ladder 130) several times
  * over. Now a column deals `RA_PERK_STRIKE_FIFTHS` (**35**, `attackFifths(RA_PERK_COLUMN_ATK,
  * RA_PERK_COLUMN_PEN)`) **in total**, split across the targets it catches (`raSplitShares`), and a
- * STRUCTURE is ONE target however many of its connectors the circle covers (`raColumnTargets`). The
- * Pharaoh boss keeps his 300, unsplit — his ritual never came through this file.
+ * STRUCTURE is ONE target however many of its connectors the circle covers (`raColumnTargets`).
+ * ⭐⭐ S192 — the Pharaoh boss is no longer 300 either: his ritual lands through the same column
+ * (`raColumn.ts`), and every column's number is `raColumnPoolFor` — 35, or 75 for a seat holding WRATH
+ * OF RA (*"And also Pharaoh's become 75 … If the player chose that ability"*).
  *
  * ## ⚠ TWO DELIBERATE DIFFERENCES FROM HIS, AND BOTH ARE MINE
  *

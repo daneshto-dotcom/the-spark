@@ -3157,10 +3157,12 @@ export const RA_COLUMN_SPREAD = 150;
  * a piercing character (PEN > 0) without resting the whole number on a 30-point secondary stat.
  * Lever: change the pair; `RA_PERK_STRIKE_FIFTHS` and every test derive from it.
  *
- * ⛔ **THE PHARAOH BOSS IS NOT RETUNED.** His ritual (`bossSkillsPharaohRitual.ts`) still reads
- * `RA_COLUMN_ATK` / `RA_COLUMN_PEN` above, 300 a column, unsplit — the owner complained about the
- * PLAYER's Ra. The two used to share one number ("a retune of his ultimate retunes this one"); they
- * now share only the landing pattern, the timing and the radius.
+ * ⭐⭐ S192 (owner) — **AND THE PHARAOH BOSS IS THIS COLUMN TOO.** *"Pharaoh boss should not keep …
+ * his 300. That's ridiculous. He goes down to 35 per column, just like a regular column attack."* His
+ * ritual (`bossSkillsPharaohRitual.ts`) lands through the same `racial/raColumn.ts` `landRaColumn`,
+ * and his number comes from the same `raColumnPoolFor` — 35, or 75 when his OWNER seat holds WRATH OF
+ * RA (`RA_WRATH_COLUMN_*` below). `RA_COLUMN_ATK` / `RA_COLUMN_PEN` (300) are retired from the sim.
+ * (S191 briefly kept him at 300; that sentence is superseded.)
  */
 export const RA_PERK_COLUMN_ATK = 5;
 export const RA_PERK_COLUMN_PEN = 2;

@@ -161,6 +161,8 @@ import {
 import { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
 import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
+import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
+import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS } from './constants.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
   DYNASTY_LIVE_PHARAOH_SENTINEL,
@@ -336,6 +338,19 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // Derived, so a retune of either constant moves the canon with it.
     expect(CANVAS_HEIGHT - WORLD_EDGE_MARGIN + 35).toBe(1075);
     expect(canonSays('**1075**')).toBe(true);
+  });
+
+  it('⭐ §4b — S191: the castle keep-out is HALVED (61) and every porch slot keeps a 34 px disc', () => {
+    expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
+    expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
+    expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`\`CASTLE_PORCH_KEEP_OUT_RADIUS\` = **${CASTLE_PORCH_KEEP_OUT_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`any of that castle's **${CASTLE_PORCH_SLOTS}** porch slots`)).toBe(true);
+    // The rule is REAL, not prose: a porch slot is refused although it is outside the halved disc.
+    const a = zoneCastleAnchor(0, 'PITCH_2P');
+    const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
+    expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
   });
 
   it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {
@@ -736,6 +751,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(RA_WRATH_STRIKE_FIFTHS).toBe(75); // his "up to 75"
     expect(RA_WRATH_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
     expect(canonSays('THE PHARAOH BOSS\'S COLUMN IS THIS COLUMN')).toBe(true);
+    // S192 — the hub-falls-on number is MEASURED by `powerOfRaSplit.test.ts` ("falls on the FIFTH column");
+    // the canon must carry the same number, so a carry or pool retune that moves one moves the other.
+    expect(canonSays('**5th** column that lands on it (measured S192')).toBe(true);
+    expect(readFileSync(new URL('./state/racial/powerOfRaSplit.test.ts', import.meta.url), 'utf8')).toMatch(/expect\(columns\)\.toBe\(5\);/);
     expect(canonSays(`**${RA_PERK_STRIKE_FIFTHS}**, or **${RA_WRATH_STRIKE_FIFTHS}**`)).toBe(true);
     expect(canonSays(`\`attackFifths(RA_WRATH_COLUMN_ATK ${RA_WRATH_COLUMN_ATK}, RA_WRATH_COLUMN_PEN ${RA_WRATH_COLUMN_PEN})\``)).toBe(true);
     expect(canonSays(`(**${RA_WRATH_STRIKE_FIFTHS}** — \`RA_WRATH_STRIKE_FIFTHS\` — once the seat holds WRATH OF RA)`)).toBe(true);

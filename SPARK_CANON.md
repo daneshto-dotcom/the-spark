@@ -588,7 +588,8 @@ Pharaoh take no share; a structure whose shapes but no connector midpoints are i
 target (shapes inside a structure are not targetable). The old area arm that razed every shape inside a
 structure is GONE — that is what let one column level a tower — and the column now reaches stink bags,
 which it never did. Measured: a fresh 5-connector tower stands after one column and falls on the
-**7th** column that lands on it (no overkill carry). ⭐⭐ **S192 — THE PHARAOH BOSS'S COLUMN IS THIS COLUMN.**
+**5th** column that lands on it (measured S192 with s191/carry's overkill carry — the column's sever goes
+through `severWithCarry`; it was the 7th before carry). ⭐⭐ **S192 — THE PHARAOH BOSS'S COLUMN IS THIS COLUMN.**
 *"the [Ra] column, Pharaoh boss should not keep … his 300. That's ridiculous. He goes down to 35 per column,
 just like a regular column attack. And once we have Ra's Wrath at … level 10 … each column goes … up to 75.
 And also Pharaoh's become 75. Okay? If the player chose that ability."* His ritual lands through the same
@@ -850,6 +851,16 @@ held key's auto-repeat, Ctrl/Meta chords (AltGr), a focused text field (`control
 rule at all — it can already be hand-placed anywhere in that band today. Only a stamped TOWER is
 refused. If what he was doing in the playtest was dropping shapes rather than stamping a tower, the
 blocker was a footer plate and never this rule.
+
+**3 · ⭐⭐ The castle keep-out — HALVED (S191).** *"the no build zone near castle is like way too
+ridiculous. It needs to be halved. Okay, like the radius where you can't build around the castle."*
+Nobody builds within `CASTLE_NO_BUILD_RADIUS` = **61** px of ANY castle anchor (S182's 121, halved and
+rounded up — his), NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`,
+⚠ MINE) of any of that castle's **4** porch slots — the halved disc no longer reaches the porch, and a tower
+on a slot would have every pulled shape minted into it. ONE rule, `zones.castleKeepOutHitsBox`: a single
+shape (`canBuildAt`) and a stamp (`stampRefusalAt` → `CASTLE`), on the host, the client ghost and the bots
+alike. Still inside it: the keep box and the unit-emit ring (46 px). ⚠ No longer inside it: the castle
+sprite's roof (67 px) and corners (82 px) — a consequence of his halving, reported, not "fixed".
 
 ---
 
