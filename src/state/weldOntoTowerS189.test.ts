@@ -2177,3 +2177,30 @@ describe('⭐ S192 IDENTITY-5 — "welded" is MEMBERSHIP (a shape outside the to
     expect(view?.welded?.role, 'the card reads it as a tower in a weld').toBe('tower');
   });
 });
+
+describe('⭐ S192 IDENTITY-4 — "the other towers" strip compares tower IDENTITY, not (lowest shape, recipe)', () => {
+  it('two goblin towers chained hub-to-leaf share their LOWEST shape: each card lists exactly the other one', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    // G: hub c1 with four Circle leaves; G2: hub = G's leaf l1, with three more Circles (plus c1).
+    const c1 = mk(w, SparkType.Circle, 400, 300);
+    const l1 = mk(w, SparkType.Circle, 450, 300);
+    const gLeaves = [l1, mk(w, SparkType.Circle, 400, 250), mk(w, SparkType.Circle, 400, 350), mk(w, SparkType.Circle, 350, 300)];
+    for (const l of gLeaves) bond(w, c1, l);
+    const g2Leaves = [mk(w, SparkType.Circle, 500, 300), mk(w, SparkType.Circle, 480, 260), mk(w, SparkType.Circle, 480, 340)];
+    for (const c of g2Leaves) bond(w, l1, c);
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { ...l1.pos }, bondCount: 7 });
+    tick(w, st, PAST_TWO_POLLS);
+    const sps = [...w.creatureSpawners.values()].sort((a, b) => a.id - b.id);
+    expect(sps.map((s) => [s.recipeId, s.anchorPrimitiveId])).toEqual([['goblinTower', c1.id], ['goblinTower', l1.id]]);
+    expect(sps[0]!.ownPrimitiveIds![0], 'fixture: both own sets start at c1').toBe(sps[1]!.ownPrimitiveIds![0]);
+    const gPrivate = gLeaves[2]!; // a leaf only G is built of
+    const g2Private = g2Leaves[1]!; // a leaf only G2 is built of
+    const cardG = characterSheetModel(w, P0, { kind: 'structure', primitiveId: gPrivate.id })!;
+    const cardG2 = characterSheetModel(w, P0, { kind: 'structure', primitiveId: g2Private.id })!;
+    expect(cardG.welded?.role).toBe('tower');
+    expect(cardG2.welded?.role).toBe('tower');
+    expect(cardG.welded!.towers, 'G lists G2').toHaveLength(1);
+    expect(cardG2.welded!.towers, 'G2 lists G').toHaveLength(1);
+  });
+});

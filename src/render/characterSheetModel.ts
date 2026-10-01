@@ -1470,7 +1470,18 @@ function weldedRowFor(world: World, u: TowerUnit): SheetWeldedTower {
   };
 }
 
-const sameUnit = (a: TowerUnit, b: TowerUnit): boolean => a.members[0] === b.members[0] && a.recipeId === b.recipeId;
+/**
+ * ⛔ S192 (audit IDENTITY-4) — IDENTITY, not a proxy. Two live towers are one only if they are the same
+ * RECORD (two same-recipe towers chained hub-to-leaf share their lowest shape — `starShape.ts`); two
+ * fallen stamps only if they are the same shapes (stamp groups are disjoint); a live tower is never a stamp.
+ */
+const sameUnit = (a: TowerUnit, b: TowerUnit): boolean => {
+  if (a.kind === 'live' && b.kind === 'live') return a.ref.kind === b.ref.kind && a.ref.id === b.ref.id;
+  if (a.kind === 'stamp' && b.kind === 'stamp') {
+    return a.members.length === b.members.length && a.members.every((m, i) => m === b.members[i]);
+  }
+  return false;
+};
 
 /**
  * ⭐⭐ S191 R191-A — **A TOWER INSIDE A WELD: THAT TOWER'S CARD.** *"When you click on the tower
