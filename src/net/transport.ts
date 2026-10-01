@@ -163,6 +163,8 @@ interface StrategyDiagnostic {
   readonly peerCount: number;
   readonly relays: ReadonlyArray<RelayDiagnostic>;
   readonly lastError: string | null;
+  /** ⭐ S192 T1 — distinct peers whose link failed on this strategy (per-peer, not a strategy failure). */
+  readonly peerJoinFailures?: number;
 }
 
 export interface NetDiagnostics {
@@ -182,6 +184,12 @@ interface StrategyHandle {
   relayUrls: string[];
   getSockets: (() => unknown) | null;
   lastError: string | null;
+  /**
+   * ⭐ S192 T1 — peers whose connection failed ON THIS STRATEGY (Trystero `onJoinError`, a per-peer
+   * report). OPTIONAL so test-injected handles read as "none". Deliberately NOT `state`: see
+   * `onPeerJoinError`.
+   */
+  peerJoinFailures?: Set<string>;
   icePollTimer: ReturnType<typeof setInterval> | null;
   icePollStartMs: number;
   /**
@@ -544,20 +552,7 @@ export class NetTransport {
         roomCode,
         {
           handshakeTimeoutMs: HANDSHAKE_TIMEOUT_MS,
-          onJoinError: (details) => {
-            const errMsg = `[${name}] ${classifyJoinError(details.error)}`;
-            console.error('[net] onJoinError:', name, details);
-            handle.lastError = details.error;
-            handle.state = 'failed';
-            // Only escalate to UI if ALL strategies have failed; otherwise a
-            // single-strategy decay is invisible to the user (multi-broadcast
-            // continues on the survivors).
-            if (this.allStrategiesFailed()) {
-              this.emitError(errMsg);
-            } else {
-              console.warn('[net]', name, 'failed but others active — UI quiet');
-            }
-          },
+          onJoinError: (details) => this.onPeerJoinError(handle, details),
           onPeerHandshake: async (peerId, _send, _receive, isInitiator) => {
             console.info(
               `[net] ${name} onPeerHandshake peer=${peerId} isInitiator=${isInitiator}`,
@@ -665,6 +660,41 @@ export class NetTransport {
     if (this.allStrategiesFailed()) {
       this.emitError(`[${name}] ${errMsg}`);
     }
+  }
+
+  /**
+   * ⛔ S192 T1 — Trystero's `onJoinError` is a PER-PEER report, never a strategy failure.
+   *
+   * Every call site in `@trystero-p2p/core` (`signal-handler.mjs` SDP-exchange failure and the two
+   * decrypt failures, `strategy.mjs` `onHandshakeError`) carries a `peerId` and is about ONE pair.
+   * This used to set `handle.state = 'failed'` for the whole strategy, permanently: one dead pair on
+   * nostr and one on torrent — even two DIFFERENT non-host peers — tripped `allStrategiesFailed()`
+   * and latched the sticky red lobby error while the host link was fine, and the diagnostics strip
+   * read `nostr:fail` for a strategy still carrying every other peer.
+   *
+   * Now `state` means what it says (the join threw / the chunk failed to load, `markStrategyFailed`),
+   * and a per-peer failure is recorded per peer. The UI is told only when THAT peer is unreachable on
+   * every live strategy and is not connected through any of them — the honest version of the old
+   * "all strategies failed" escalation, scoped to the peer it is actually about.
+   */
+  private onPeerJoinError(handle: StrategyHandle, details: { error: string; peerId: string }): void {
+    console.error('[net] onJoinError:', handle.name, details);
+    handle.lastError = details.error;
+    (handle.peerJoinFailures ??= new Set()).add(details.peerId);
+    if (this.peerUnreachableEverywhere(details.peerId)) {
+      this.emitError(`[${handle.name}] ${classifyJoinError(details.error)}`);
+    } else {
+      console.warn('[net]', handle.name, `peer ${details.peerId} failed here but is reachable elsewhere — UI quiet`);
+    }
+  }
+
+  /** True iff `peerId` is not connected and has a recorded join failure on every non-failed strategy. */
+  private peerUnreachableEverywhere(peerId: string): boolean {
+    if (this.peerSet.has(peerId)) return false;
+    const enabled = (Object.keys(STRATEGY_FLAGS) as StrategyName[]).filter((n) => STRATEGY_FLAGS[n]);
+    const live = enabled.map((n) => this.strategies.get(n)).filter((h) => h === undefined || h.state !== 'failed');
+    // A strategy that has not started yet may still reach the peer — stay quiet until it reports.
+    return live.every((h) => h !== undefined && h.peerJoinFailures?.has(peerId) === true);
   }
 
   private allStrategiesFailed(): boolean {
@@ -1002,6 +1032,7 @@ export class NetTransport {
         peerCount: handle.peers.size,
         relays,
         lastError: handle.lastError,
+        peerJoinFailures: handle.peerJoinFailures?.size ?? 0,
       };
     });
     return {

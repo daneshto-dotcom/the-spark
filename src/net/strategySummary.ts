@@ -12,6 +12,8 @@
  *   - "torrent:fail" — strategy failed
  *   - "nostr:…"      — strategy still starting
  *   - "nostr:✓"      — ready with no relay list (e.g. torrent)
+ *   - "nostr:6/7✗1"  — S192: ready, but the link to 1 peer failed on it (a per-peer failure, which
+ *                      no longer marks the whole strategy `fail` — see transport.ts `onPeerJoinError`)
  * Disabled strategies are omitted from the strip; entries are space-joined.
  *
  * The param is typed as the indexed-access `NetDiagnostics['strategies']` so
@@ -30,7 +32,8 @@ export function formatStrategySummary(
       if (s.state === 'starting') return `${s.name}:…`;
       const ok = s.relays.filter((r) => r.connected).length;
       const total = s.relays.length;
-      return total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`;
+      const peerFail = (s.peerJoinFailures ?? 0) > 0 ? `✗${s.peerJoinFailures}` : '';
+      return (total > 0 ? `${s.name}:${ok}/${total}` : `${s.name}:✓`) + peerFail;
     })
     .join(' ');
 }
