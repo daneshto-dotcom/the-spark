@@ -41,6 +41,14 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
   },
   { file: 'state/stats.ts', occurrences: 1, why: 'The DEFINITION of `attackFifths`.' },
   {
+    file: 'state/racial/zombieDeathBlast.ts',
+    occurrences: 1,
+    why:
+      'S192 T3 — the death blast POOL is priced off the zombie boss TYPE base strike (3 bites, AWAITING ' +
+      'OWNER), deliberately not a drafted one: the boss is dead, and a pool that moved with his seat picks ' +
+      'would make the number a function of the draft (the carry hub precedent, *"priced off a drone"*).',
+  },
+  {
     file: 'state/defenders/defenderLifecycle.ts',
     occurrences: 1,
     why:
