@@ -447,3 +447,10 @@ None.
 - Mutation: filter dropped → 4 RED; restored → green (+ connectorCarry / hubSelfDestructLadder 28/28).
 - Canon §2: "THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER" + pin (sentence + the filter text).
 - Wire: a rule both peers compute — it rides the same bump as R2-E (53 → 54, merge owner's).
+
+### CARRY-2 (LOW) — DONE
+- `src/state/connectorSeverCarry.census.test.ts` (3): walks every production source (comment-stripped, CRLF-normalised);
+  each `damageConnector(` site needs a `severWithCarry(` later in the SAME top-level function, or an `EXEMPT` entry
+  with its reason. Pins the 7 sites (creatureAttack, suicideBlast, voltkinChain, damage.ts [the carry — EXEMPT],
+  potatoLifecycle, powerOfRa, world.ts); rejects stale/redundant exemptions. A new site fails until it carries or is named.
+- Mutation: suicideBlast's carry → a bare `SEVER_BOND` dispatch → RED naming `suicideBlast.ts#0`; restored.
