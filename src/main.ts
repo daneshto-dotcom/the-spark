@@ -868,6 +868,19 @@ async function bootstrap(): Promise<void> {
   const structureRampRenderer = new StructureRampRenderer(app, fogHiddenLayer);
   // S141 P1 — the Stink Tower. aboveFogLayer, like every other structure with cross-player reach.
   const stinkTowerRenderer = new StinkTowerRenderer(app, fogHiddenLayer);
+  /*
+   * ⭐⭐ S191 C-9 (owner R190-H, extended) — THE RA STRIKE, ABOVE EVERY BUILDING. Pixi z-order is
+   * `addChild` order, so this Graphics is staged HERE, after the last renderer that parents itself to
+   * `fogHiddenLayer`: the strike (the owner's frames from the beam's drop on, or the code shafts) now
+   * draws over the laser rig, the Voltkin TV, Helga, the ramp buildings and the stink tower, and stays
+   * under the fog's mask. The rune ring it is announced with stays on the ground (`bossAuras.ts`).
+   * ⚠ It must stay the LAST child: `e2e/fog.spec.ts` roll-calls it as index 19, and appending is what
+   * keeps `tower-art.spec.ts`'s hardcoded indices 6 and 11 where they are.
+   */
+  const raStrikeLayer = new Graphics();
+  raStrikeLayer.eventMode = 'none';
+  fogHiddenLayer.addChild(raStrikeLayer);
+  goblinRenderer.setRaStrikeLayer(raStrikeLayer);
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);

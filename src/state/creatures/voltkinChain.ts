@@ -68,7 +68,7 @@ import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import type { Creature } from './creature.ts';
 import { creatureAttackFifths, isUntargetable } from './creature.ts';
 import { bondMidpoint, distSq, isEnemyBond } from './creatureAI.ts';
-import { damageConnector, damageEntity } from '../damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from '../damage.ts';
 import { VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_JUMP_DIVISOR, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
 
 /** One link in the bolt: what it is, which entity, and where the arc is drawn to. */
@@ -258,12 +258,13 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
   // that is not merely tidier. A bond a previous sever's cascade already removed is skipped.
   for (const bondId of toSever) {
     if (!world.bonds.has(bondId)) continue;
-    dispatch(world, {
+    // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+    severWithCarry(world, bondId, (id) => dispatch(world, {
       type: 'SEVER_BOND',
-      bondId,
+      bondId: id,
       playerId: attacker.ownerPlayerId,
       cause: 'creature', // a Voltkin's lightning, never a chewer's gnaw — the chain is its alone
-    });
+    }));
     if (!world.bonds.has(bondId)) attacker.killCount += 1;
   }
   return links.length;

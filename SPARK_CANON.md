@@ -65,8 +65,27 @@ Its HP and DEF are both its connector count: `pool(n) = n × (5 + n)`.
 
 That full pool is the cost of **ONE** connector; the survivors re-form at the lower count, so
 felling a 5-connector tower costs **130**. Damage banks **structure-wide**, and overkill **spends
-into the next connector** rather than being wasted — so a boss's 150 takes the 50, then the 36, then
-the 24 in a single blow.
+into the next connector** rather than being wasted: the struck connector falls first, and what is
+left walks on — to the survivor nearest where the hit landed (⚠ MINE, the order: squared distance,
+then the lowest bond id) — felling each connector while it covers that connector's pool at the
+re-formed count, and banking the rest on the structure. So a boss's 150 on a fresh 5-connector tower
+takes the 50, then the 36, then the 24, the 14 and the 6 — **the whole tower, 130, in a single blow**
+— and the last 20 has nothing left to land on; a 100 takes the 50 and the 36 and banks 14 on the three
+that stand.
+
+> *"I do want the overkill to carry forward because there's only a few like enemies that can actually
+> do that … one hit, boom, done. For now, it destroys … however many connectors the hit does … If it
+> looks too OP, then later we will change that."* — owner, S191
+
+⭐ **BUILT S191** (`severWithCarry`, on every connector-damage path: creature strikes, the Voltkin
+chain, the suicide blast, the hub blast, Ra columns and raids); `canon.test.ts` constructs both
+examples through the real `damageConnector` and `SEVER_BOND`. ⚠ Until S191 this sentence stopped the
+150 at the 24 and the tree carried nothing at all (the remainder was deleted with the struck bond);
+the ladder continues to the 14 and the 6, and so does the code.
+⛔ **THE CARRY NEVER LEAVES THE STRUCK CONNECTOR'S OWNER (S192, audit CARRY-1).** It only lands on bonds
+whose BOTH ends were placed by the struck bond's owner — never across a weld onto what is welded on, so a
+strike on an enemy bond cannot fell the striker's own connectors (S162) and the hub blast's leftover cannot
+fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 
 ### Shapes
 
@@ -832,13 +851,14 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
   `KRAKEN_SONAR_STUN_TICKS` = **120** (2 s, ⚠ MINE, S169). ⛔ `KRAKEN_SONAR_KNOCKBACK = 26` is DELETED: it
   was a per-substep velocity (~11,000 px of travel), not the "body-length and a half" its docblock claimed.
 
-⚠ **A TARGETING FINDING — REPORTED BY THE S190 PERF AUDIT, NOT FIXED.** The FFA spread
-(`spreadEnemyTarget`) builds its victim list over the NON-strict enemy predicate while the enemy-only
-nearest set is strict (S162), so for a chewer / drone / structure-attacker a MIXED bond (one endpoint the
-owner's colour) can be returned by the spread — the "my own creature destroys my own tower" chain S162
-closed at the nearest-bond step. LATENT on a measured four-seat bots match (0 mixed bonds in 1,493
-samples); human play not measured. Any fix changes targeting outputs, so it needs his ruling, and the
-reference fixture (`bondTargetReference.fixtures.ts`) moves first. (`S190_CANON_NOTES_perf.md`.)
+⭐ **THE FFA SPREAD IS ON THE STRICT PREDICATE (S191 C-6, merge owner's go).** `spreadEnemyTarget`
+builds its victims, and scans the chosen victim's bonds, over the S162 STRICT enemy set (neither endpoint
+the creature's own seat's colour) — so a chewer / drone / structure-attacker can no longer be handed a
+MIXED bond (a weld of its own structure), the "my own creature destroys my own tower" chain S162 closed at
+the nearest-bond step. Found by the S190 perf audit (`S190_CANON_NOTES_perf.md`). The reference fixture
+(`bondTargetReference.fixtures.ts`) moved first; `spreadStrict.test.ts` drives 40 chewers through the real
+host tick beside a welded mixed structure (30 of them targeted a weld before the fix). The Voltkin
+(`enemyOnly: false`) is unchanged. A targeting rule both peers compute — it rides the deploy's bump.
 
 ⭐ **AND THE SCAN IS NOW INDEXED (S190 `s190/perf`), WITH BYTE-IDENTICAL OUTPUTS.** One classification of
 `world.bonds` per colour per tick, opened and closed around exactly the creature loop
@@ -1056,11 +1076,9 @@ melee-goblin swings instead of 5 and **5** chewer bites instead of 8 — about 4
 exactly the swarm its own drones counter. One-shot attackers are unchanged. The counterweight is that
 it also **detonates** 40 % sooner.
 
-⛔ **THE BLAST ITSELF IS UNCHANGED AND IS AN OPEN QUESTION.** `applyStructureSelfDestruct` still calls
-`applyRadialClear` — it **deletes** every enemy creature and shape within `STRUCTURE_SELFDESTRUCT_RADIUS`
-outright rather than dealing ladder damage, and (per S157 P0) it **spares the owner's own** shapes and
-units. R182-C would replace the raze with 120 fifths, which would not kill a tier-9 boss where today's
-blast deletes one. **Not built. See §10.**
+⭐ **THE BLAST IS 120 FIFTHS IN TOTAL NOW (R182-C, BUILT S191).** The hub's blast is ladder damage —
+`STRUCTURE_SELFDESTRUCT_FIFTHS` (120) split across every enemy entity inside
+`STRUCTURE_SELFDESTRUCT_RADIUS` — not the raze, and S157 P0 still spares the owner. See §9d item 2.
 
 ---
 
@@ -1165,9 +1183,11 @@ mechanic and kept it:
 > he's attacking. So I guess that's just a way of looking at it. That makes sense."* — owner, S185
 
 So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
-TREATED AS SHIPPED:** R182-F measured that a welded hub reads **48%** on the health bar while its
-art reads **32%**. His trade depends on a welded stack reading as *tougher*; if the bar lies about
-it, the mechanic does not communicate itself. Verify the pool arithmetic before calling R185-B done.
+TREATED AS SHIPPED:** R182-F measured that a welded hub read **48%** on the health bar while its
+art read **32%**. S191 C-7 made the bar follow the star (§9d item 3), so both read **32%** now — but
+that means the bar shows a welded tower's OWN pool, not the bigger component pool that makes the
+weld tougher. His trade depends on a welded stack reading as *tougher*; on the bar it now does not.
+That is an owner question, not a defect to fix unasked.
 
 ## 7c · ⭐⭐ WHAT THE RENDER BRANCH SETTLED (S189/S190, `s189/render`, deploy #4)
 
@@ -1175,13 +1195,19 @@ it, the mechanic does not communicate itself. Verify the pool arithmetic before 
 strike — the owner's sprite frames, or the code-beam shafts before the art loads — goes to the goblin
 renderer's layer above its unit sprites (`drawBossAuras(g, world, this.arrowLayer)`); the telegraph shade,
 the hitbox scorch and every other aura stay on the ground. Every charge of WRATH OF RA goes the same way.
-⚠ Renderers built LATER in `main.ts` (the laser rig, HELGA, the ramp buildings, the stink tower) still draw
-over it — not asked; recorded for him.
+**AND ABOVE THE BUILDINGS, WITH ITS RUNE RING ON THE GROUND (S191 C-9).** The strike goes to `raStrikeLayer`,
+the LAST child `main.ts` stages on `fogHiddenLayer`, so it draws over the laser rig, the Voltkin TV, HELGA, the
+ramp buildings and the stink tower and is still masked by the fog. The art's first **4** slots
+(`RA_STRIKE_GROUND_SLOTS` — the rune ring alone, before the beam drops) draw on the GROUND, under the units.
 
 ⭐ **R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY, IN THEIR OWN COLOURS, STACKING. HIS RULING.** *"it
 shows every single hit or heal … it looks sick."* A same-tick heal used to hide inside a net damage
 number. Heals are counted on the creature (`Creature.healedFifths`, written only through
 `noteCreatureHeal`), synced and hashed, so a joiner sees the green number too (§6).
+**AND ON THE CASTLE (S191 C-8):** `Player.castleHealedHp` counts every point a keep heals — regen and an HP
+purchase, the only two places its HP rises — so a keep hit and regenerating in one window prints a red AND a
+green number, not the net. Presentational (no sim reads it), emitted only above zero, wide-hashed; a stale
+host that never writes it prints the old net number, never a wrong one.
 
 ⛔ **EVERY PIXI PATH SEGMENT STARTS WITH `moveTo` (S189 C7).** *"a big line every time they teleport all over
 the screen"* — owner, of DEEP CURRENT. Pixi 8 `arc()` / `lineTo()` join the current pen to their start, and
@@ -1413,44 +1439,53 @@ already fixed with the band step-up.** He examined the empty-quarry finding and 
 problem. That is an answer, not a deferral. ⛔ Do not ask again whether to stop the FIGHT-phase reap.
 
 
-### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**.
-
+### 2 · THE LIGHTNING HUB SELF-DESTRUCT — CLOSED at **120 fifths**, in total. ✅ **BUILT S191** (`s191/carry` C-5).
 
 > *"The lightning hub self-destruct will have to rework then. It can't destroy everything around it,
-
 > but there should be a certain damage output."* — owner, S187
 
+> *"hub blast hit 120 divided by everything that's around it. So 120 damage points in total."*
+> — owner, S191
 
 That is the second half of R182-C and it completes it. He ruled the AMOUNT in S182 —
-
 *"four times a drone's damage"* — and the only reason it sat open is that the blast turned out to be
-
-an instant-kill raze rather than a number, which he had not known. **He has now killed the raze. So
-
-his number stands and the item is finished:**
-
+an instant-kill raze rather than a number, which he had not known. **He killed the raze, so his
+number stands, and it is now the code — as ONE total that everything around the hub shares:**
 
 ```
-
-4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
-
+STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 × 30 = 120 fifths
 ```
 
+⭐ **BUILT, AND `canon.test.ts` PINS BOTH THE NUMBER AND THE ARM.** The hub dispatches
+`STRUCTURE_SELFDESTRUCT` with `blast: 'ladder'`, and `planHubBlast` / `applyHubLadderBlast`
+(`potatoLifecycle.ts`) — which never call `applyRadialClear` — split **120 across every ENEMY entity
+inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
+creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
+inside — **each connector is one entity** (`damageConnector`, no creature attacker → no lifesteal;
+severed with the EXISTING cause `'drone'`, so no new discriminant). n targets each take
+`floor(120 / n)`, and the first `120 mod n` take one more, so the shares always sum to exactly 120. A
+shape INSIDE a structure has no arm — a building dies through its connectors (§4). ⚠ **The S157 P0
+owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes, units, bags and
+Helga, and a connector with either end his. *"He will also bring down some of his own connectors"*
+from S182 is NOT current behaviour and must not be reintroduced on the strength of this ruling. ⛔ **The
+castle is not an arm**: on both shipped boards no enemy keep can stand within 240 px of a hub built on
+its owner's ground (`hubSelfDestructLadder.test.ts` measures it over every buildable point); a board
+that changes that needs his ruling first.
 
-⚠ **RULED, NOT YET BUILT — and that distinction is why this file has tests.** The DECISION is final and must never be re-asked. The CODE still calls `applyRadialClear`, and `canon.test.ts` asserts that it does, so this page cannot drift ahead of the tree. The work owed: `applyStructureSelfDestruct` (`potatoLifecycle.ts`) stops calling `applyRadialClear` and deals **120**
+⚠ Even alone in the radius, 120 will not kill a tier-9 boss (pools 260–462), nor Helga (**156**),
+where the raze deleted them where they stood — and with company each takes less. That is the
+consequence of his own ruling, stated so nobody reads it later as a regression. ⚠ **MINE, flagged at
+the constant:** who gets the remainder — the order is nearest first (squared distance), then kind
+(creature · Helga · shape · bag · connector), then id; past 120 targets the nearest 120 take one fifth
+each and the rest nothing (a fifth is the smallest unit the ladder has). And it is the UNBUFFED drone:
+a seat that drafted ATK/PEN still blasts 120.
+⭐ **HIS RULING (S191, BLAST-1):** a bag the blast pops still BURSTS, and that burst spares the HUB
+OWNER as well as the bag's owner (`damageStinkCloud`) — *"Stink bags should not be able to hit your own units or your own … buildings, no matter what, they're resistant"* — owner, S191. Without it S157 P0's exemption leaked 90 px past the blast
+through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner).
 
-to every enemy entity inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) instead. ⚠ **The S157 P0
-
-owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes and units. He has
-
-never reversed that, and *"he will also bring down some of his own connectors"* from S182 is NOT
-
-current behaviour and must not be reintroduced on the strength of this ruling.
-
-
-⚠ 120 will not kill a tier-9 boss (pools 260–462) where the raze deleted one outright. That is the
-
-consequence of his own ruling, stated so nobody reads it later as a regression.
+⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
+(380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is
+REQUIRED, so no dispatcher can fall into either blast by omission.
 
 
 ### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
@@ -1476,7 +1511,8 @@ arbitrarily large pools, and a bar that scales 1:1 with the pool would run off t
 bar has a **minimum width**, a **maximum width**, and scales between them with the pool — his
 *"a millimetre bigger every thousand HP"*. ⚠ **THE TWO BOUNDS ARE NOT RULED** — he said *"we have
 to see what's the maximum and what's the minimum"*. They must be MEASURED off the real roster (the
-smallest lone shape at 5 fifths against the largest realistic welded component) and flagged as MINE
+smallest lone shape at 5 fifths against the largest realistic welded component — ⚠ measured S191: a lone shape
+has no structure bar, so the floor is ONE connector, 6 fifths) and flagged as MINE
 at the constant, not invented.
 
 **RULE 3 — the damage art follows that same health**, so the frame a player sees and the bar they
@@ -1487,14 +1523,19 @@ He already ruled the principle in S182: **the STAR is what counts.** S182 did no
 
 only because it changes the bar for every structure in the game, which that branch judged too big a
 
-change to take unasked. ⚠ **RULED, NOT YET BUILT** — the decisions are final, the code is owed, and it is now THREE
-surfaces plus a width scale rather than one denominator swap. The work: **`healthBar.ts` switches to the same denominator the
+change to take unasked.
 
-damage art uses — `structurePoolFifths(component.bonds.size)` over the tower's OWN star — so the two
-
-agree by construction rather than by coincidence.** `structureRamp.test.ts`'s divergence assertion
-
-inverts to an AGREEMENT assertion in the same commit.
+⭐ **BUILT S191 (`s191/carry` C-7).** `render/structureBarHealth.ts` is the one reading: a live tower's OWN members
+(`towerMembersAt`, the walk the fuse and the ramp share), priced `structurePoolFifths(own connectors)` minus the
+damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
+character sheet (health and the CONNECTORS row) and the hub's ramp art now read it — the welded hub of R182-F reads
+**32 %** on all three. `structureRamp.test.ts`'s divergence case is an AGREEMENT case now. The width
+(`structureBarWidth`) is linear between bounds MEASURED off the roster and ⚠ MINE at the constants: pool **6**
+(one connector — a lone shape has no structure bar) → **9 px** (the creature floor), pool **126** (the tier-9 ring,
+the largest tower on the roster) → **150 px** (the widest building art); a bigger welded lattice pins at 150.
+⚠ Consequences, stated: a tower welded into a lattice can read EMPTY before any connector snaps (the sever is still
+priced on the component), the welds' extra pool shows on no bar, and the race towers' crack FRAMES still read their
+shapes' HP (`towerHpFrac`), a separate damage channel — not changed, an owner question.
 
 
 ### 4 · `SEVER_BOND` — CLOSED, and written down here so it is never "owed" again.
@@ -1504,24 +1545,25 @@ A **bond** is the wire between two shapes. It is not drawn as an object you can 
 
 two shapes with a line between them, and the "field" is the invisible band along that line. Severing
 
-is what CUTS that wire, and there is exactly one action for it — `SEVER_BOND` — reached six ways:
-
+is what CUTS that wire, and there is exactly one action for it — `SEVER_BOND`. ⭐ **S191: this table is
+built from the tree, and `canon.test.ts` pins it MECHANICALLY** — it enumerates every production
+`{ type: 'SEVER_BOND', bondId … }` and fails until the table names the file. (It said "six ways" until
+S191, three of its causes were wrong, the charge-paid player cut had had no producer since R78 made a
+right-click a raid, and the drone, the raid, POWER OF RA and the hub were missing.)
 
 | who severs | cause | file |
-
 |---|---|---|
-
-| a creature chewing a connector | `'unit'` | `creatures/creatureAttack.ts` |
-
-| a suicide bomber's blast | `'unit'` | `creatures/suicideBlast.ts` |
-
-| a Voltkin's lightning chain | `'unit'` | `creatures/voltkinChain.ts` |
-
-| a bomb | `'bomb'` | `bombLifecycle.ts` |
-
-| the physics solver, when a wire is stretched past breaking | — | `physics/physicsLoop.ts` |
-
-| a player spending charges to cut an enemy wire | — | `disruptionManager.ts` (`DEFENSIVE_SEVER_CHARGE_COST` 2) |
+| a unit cutting a connector — goblins, race and tier-3 units, bosses | `'unit'` | `creatures/creatureAttack.ts` |
+| a pencil chewer's final bite | `'chewer'` | `creatures/creatureAttack.ts` |
+| a Voltkin's strike | `'creature'` | `creatures/creatureAttack.ts` |
+| a Voltkin's lightning chain | `'creature'` | `creatures/voltkinChain.ts` |
+| a suicide goblin's blast | `'unit'` | `creatures/suicideBlast.ts` |
+| a lightning drone's detonation | `'drone'` | `droneLifecycle.ts` |
+| ⭐ the lightning hub's self-destruct (S191) | `'drone'` | `potatoLifecycle.ts` |
+| a player's RAID (right-click) reaching the connector's pool | `'raid'` | `world.ts` |
+| a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/powerOfRa.ts` |
+| the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
+| a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
 
 ⛔ **THE PART THAT MATTERS AND KEEPS BEING MISSED:** a tower has no health of its own. It dies when its
@@ -1551,28 +1593,19 @@ failure he named: *"I don't understand why you're bringing this up every session
 
 *(Both of S180's castle questions were answered — see §3.)*
 
-### ✅ R182-C — the lightning hub's self-destruct DAMAGE. **ANSWERED S187 → §9d. 120 fifths.**
+### ✅ R182-C — the lightning hub's self-destruct DAMAGE. **ANSWERED S187 → §9d. 120 fifths. BUILT S191.**
 
 He ruled *"four times a drone's damage"* = 4 × `attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = **120
-fifths** — **believing the blast had no number. It has something else entirely.**
+fifths** — **believing the blast had no number. It had something else entirely:**
+`applyStructureSelfDestruct` called `applyRadialClear` and **deleted** every enemy creature and shape
+inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) outright — an instant-kill radius, not a number on the
+ladder. The two questions this entry used to carry are both answered: (1) the raze is gone (S187,
+*"it can't destroy everything around it"*), and (2) the blast does NOT damage the hub owner's own
+connectors — S157 P0 stands.
 
-`applyStructureSelfDestruct` calls `applyRadialClear`: it **deletes** every enemy creature and shape
-inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px) outright. That is an instant-kill radius, not a number
-on the ladder, and the difference is not cosmetic — **120 fifths would not kill a tier-9 boss** (pools
-260–462) where today's blast deletes one where it stands.
-
-⚠ **And it already spares the owner.** S157 P0, on his own ruling (*"lightning hubs blow up own
-structures or nearby friendlies … they shouldnt be able to hit friendlies in friendly territory"*),
-made the blast exempt the owner's shapes and units. So his later *"he will also bring down some of his
-own connectors"* is **not current behaviour**, and making it so would **reverse S157**.
-
-**TWO ANSWERS NEEDED:**
-1. 120 fifths of ladder damage replacing the instant-kill raze — or keep the raze?
-2. Should the blast damage the hub owner's own connectors, reversing S157 P0?
-
-S182 built the ramp, the threshold and the repair fee and **left `applyStructureSelfDestruct`
-byte-identical**, deliberately. `canon.test.ts` asserts it is still the radial clear, so this cannot be
-quietly half-answered.
+⭐ **S191 built it** (`s191/carry` C-5): see §9d item 2 for the arms and the stated consequences.
+`canon.test.ts` now asserts the BUILT rule — the ladder arm never reaches the raze and deals
+`STRUCTURE_SELFDESTRUCT_FIFTHS` (120) — where it used to assert that the code was still the radial clear.
 
 ### ✅ R182-F — the health bar vs the damage art. **ANSWERED S187 → §9d. The bar follows the star.**
 
@@ -1589,8 +1622,8 @@ opens when something is welded on — which is the case R182-B was written for.
 
 ⭐ **The owner ruled the STAR is what counts, so the BAR is the thing that should follow.** That was
 not done in S182 because it changes the bar for **every** structure in the game, not just the hub,
-and that is a bigger ruling than this branch was given. `structureRamp.test.ts` asserts the
-divergence so it stays a measured fact rather than a sentence someone can delete.
+and that is a bigger ruling than this branch was given. ⭐ **BUILT S191 (C-7, §9d item 3):** the bar follows the
+star and `structureRamp.test.ts` now asserts the AGREEMENT.
 
 ⚠ **The S182 brief asserted these would "agree for free". That was wrong, and the wrong claim was in
 the tree as a test comment until this entry replaced it.**

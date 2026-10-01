@@ -563,6 +563,22 @@ export class GoblinRenderer {
   setDefenderSpriteBox(fn: (id: DefenderId) => { w: number; h: number } | null): void {
     this.defenderSpriteBox = fn;
   }
+
+  /**
+   * ⭐⭐ S191 C-9 (owner R190-H, extended) — THE RA STRIKE DRAWS ABOVE THE BUILDINGS TOO.
+   *
+   * `arrowLayer` is above this renderer's units, but every renderer `main.ts` constructs LATER — the
+   * laser turret's rig, the Voltkin TV, HELGA, the ramp buildings, the stink tower — drew over the
+   * strike. `main.ts` stages one Graphics as the LAST child of `fogHiddenLayer` (so it is above all of
+   * them, still under the fog's mask, and no earlier child index moves) and hands it here. Only the
+   * strike goes in it; unset (a unit test mounting this renderer alone) it falls back to `arrowLayer`.
+   * Cleared by this renderer every frame, because only this renderer draws into it.
+   */
+  private raStrikeLayer: Graphics | null = null;
+
+  setRaStrikeLayer(layer: Graphics): void {
+    this.raStrikeLayer = layer;
+  }
   /**
    * The atlas key each live creature is drawing from, so a CORPSE can find its own `die` row after
    * the creature is gone from `world.creatures` and its type is no longer knowable.
@@ -1004,6 +1020,7 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    this.raStrikeLayer?.clear(); // ⭐ S191 C-9 — this renderer is the strike layer's only writer
     // ⭐ S190 (audit SW-7) — the swarm's sheet starts fetching on the seat's `vampires.l10` pick.
     this.warmPerkSheets(world);
     /*
@@ -1031,7 +1048,7 @@ export class GoblinRenderer {
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);
-    drawBossAuras(g, world, this.arrowLayer);
+    drawBossAuras(g, world, this.raStrikeLayer ?? this.arrowLayer); // ⭐ S191 C-9 — above the buildings
     /*
      * ⭐ S171 (owner R142/R171-I) — the Pharaoh's locust clouds, into this SAME Graphics for the same
      * reason as the auras above: a new child of `fogHiddenLayer` shifts its indices. Drawn after the
@@ -1414,6 +1431,7 @@ export class GoblinRenderer {
   clear(): void {
     this.graphics.clear();
     this.arrowLayer.clear();
+    this.raStrikeLayer?.clear();
     this.lastSeenPos.clear();
     this.facing.clear();
     for (const sp of this.sprites.values()) sp.destroy();

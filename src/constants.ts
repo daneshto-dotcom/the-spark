@@ -2779,7 +2779,7 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  * is left standing; it is the *strong* direction that was wrong, which is why the error survived.
  */
 export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
-export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's blast radius. ⚠ S191: NOT owner-agnostic (S157 P0 spares the owner) and NOT a raze — 120 fifths in total, split (`planHubBlast`)
 
 /*
  * ⭐⭐ S168 P7 (owner R138) — **THE ZOMBIE BOSS EXPLODES WHEN HE DIES.**
@@ -2787,10 +2787,11 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC
  * Owner: *"when he dies he explodes in a huge radius hurting everything radius"*.
  *
  * ⭐ "HURTING EVERYTHING" PICKS THE MECHANIC FOR FREE, and that is why this skill costs almost
- * nothing to build. `applyStructureSelfDestruct` takes an OPTIONAL `ownerPlayerId` that SPARES the
- * owner's own units and shapes (S157 P0, added after he reported hubs eating their own base).
- * *Everything* is unambiguous, so the boss passes NO owner — which is the pre-S157, owner-agnostic
- * default that reducer already had. No new action, no new `GameEffect` kind (it reuses
+ * nothing to build. `applyStructureSelfDestruct`'s `blast: 'raze'` variant takes an OPTIONAL
+ * `ownerPlayerId` that SPARES the owner's own units and shapes (S157 P0, added after he reported hubs
+ * eating their own base). *Everything* is unambiguous, so the boss passes NO owner — the pre-S157,
+ * owner-agnostic raze. ⚠ S191: the HUB's own blast is the other variant now (`blast: 'ladder'`, 120
+ * fifths in total); `blast` is required, so neither can be reached by omission. No new action, no new `GameEffect` kind (it reuses
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *

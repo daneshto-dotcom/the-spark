@@ -205,36 +205,32 @@ describe('⭐⭐ the threshold and the frame boundary are ONE test', () => {
     expect(rampCell(12, HUB)).toEqual({ state: 'damage', col: 11 });
   });
 
-  it('⛔ BUT THE HEALTH BAR AND THE ART DISAGREE ON A WELDED HUB — measured, and it is not free', () => {
+  it('⭐ S191 C-7 — THE HEALTH BAR AND THE ART AGREE ON A WELDED HUB (this case asserted the divergence until C-7)', () => {
     /*
-     * ⛔⛔ THE CLAIM THIS REPLACES WAS FALSE. The S182 brief, and the first version of the comment
-     * above, said the bar and the art "agree for free" because they share `TOWER_DAMAGED_BELOW`.
-     * They share the THRESHOLD; they do not share the DENOMINATOR, and that is what decides.
-     *
-     *   `healthBar.ts:421` reads `structureDefenceFifths(n)` over the whole COMPONENT.
-     *   The ramp reads `structurePoolFifths(hub.bonds.size)` over the hub's OWN STAR (R182-B).
-     *
-     * For a STANDALONE hub those are the same five connectors and the two do agree. Weld ONE
-     * friendly shape onto one leaf and the component becomes six:
+     * ⭐⭐ INVERTED IN THE SAME COMMIT THAT BUILT THE FIX (canon §9d item 3, R182-F). Until S191 C-7 this
+     * case pinned the measured DISAGREEMENT: the bar read `structureDefenceFifths(n)` over the whole
+     * COMPONENT while the ramp read the hub's OWN STAR, so one friendly shape welded onto a leaf made
      *
      *   banked 34  ->  bar 34/66 = 48 % remaining (green-amber, "it is fine")
      *              ->  art 34/50 = 32 % remaining (frame 17, the death run, and it detonates)
      *
-     * ⭐ THE OWNER RULED STAR-SCOPED, SO THE **BAR** IS THE ONE THAT SHOULD FOLLOW — but that is a
-     * change to every structure's bar, not to the hub, so it is NOT made here. It is recorded in
-     * `SPARK_CANON.md` §9 as an open question for him. This case exists so the disagreement is a
-     * measured, asserted fact rather than a sentence someone can quietly delete.
+     * The owner ruled the STAR counts and the bar follows (S187: *"the bar needs to follow the art or the
+     * art needs to follow the bar"*). `healthBar.ts` now reads `towerOwnHealth` — `towerMembersAt`, the
+     * walk the ramp and the fuse share — so both say 32 %. The REACH proof through the real
+     * `drawHealthBars`, the real sheet and a real welded hub is `structureBarHealth.test.ts`; this keeps
+     * the arithmetic beside the ramp it governs.
      */
     const banked = 34;
-    const starPool = structurePoolFifths(5); // the hub's own five arms
-    const weldedComponentPool = structurePoolFifths(6); // + one hand-placed neighbour
+    const starPool = structurePoolFifths(5); // the hub's own five arms — what BOTH read now
+    const weldedComponentPool = structurePoolFifths(6); // what the bar USED to read
     const artFrac = 1 - banked / starPool;
-    const barFrac = 1 - banked / weldedComponentPool;
+    const barFrac = 1 - banked / starPool;
 
-    expect(artFrac).toBeLessThan(STAR_SELFDESTRUCT_BELOW_FRAC); // the art says: dead
-    expect(barFrac).toBeGreaterThan(TOWER_DAMAGED_BELOW * 0.9); // the bar says: nearly half full
-    expect(rampFrameForHealth(artFrac, HUB.frames)).toBeGreaterThanOrEqual(rampDeathFirstFrame(HUB)!);
-    expect(rampFrameForHealth(barFrac, HUB.frames)).toBeLessThan(rampDeathFirstFrame(HUB)!);
+    expect(barFrac).toBe(artFrac);
+    expect(rampFrameForHealth(barFrac, HUB.frames)).toBe(rampFrameForHealth(artFrac, HUB.frames));
+    expect(rampFrameForHealth(barFrac, HUB.frames)).toBeGreaterThanOrEqual(rampDeathFirstFrame(HUB)!);
+    // The old reading is what disagreed: a bar that is nearly half full over a building in its death run.
+    expect(rampFrameForHealth(1 - banked / weldedComponentPool, HUB.frames)).toBeLessThan(rampDeathFirstFrame(HUB)!);
   });
 
   it('a spec that does not self-destruct has no death run', () => {

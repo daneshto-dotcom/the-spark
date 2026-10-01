@@ -128,6 +128,23 @@ interface PlayerCommon {
    */
   dynastyHpLost: number;
   /**
+   * ⭐ S191 C-8 (owner R190-I, on the CASTLE) — EVERY POINT THIS KEEP HAS HEALED THIS MATCH.
+   *
+   * > *"Show every hit and every heal separately, in different colours, stacking"* — owner, R190-I
+   *
+   * The castle twin of `Creature.healedFifths`: a monotonic count, raised by exactly what the keep
+   * GAINED (after the cap) at the two places its HP rises — regen (`castleRegenTick`) and an HP
+   * purchase (`applyUpgradeCastleStat`). `damageNumbers.ts` splits a window's change into the hit and
+   * the heal with it (`creaturePoolChange`), so a besieged, regenerating keep prints both.
+   *
+   * PRESENTATIONAL: nothing any sim computes reads it. It is serialized (additive-optional, emitted
+   * only when > 0) so a joiner's numbers are exact, and hashed by the WIDE oracle so a host and its
+   * `?worker=1` mirror cannot disagree about it unseen. Reset to 0 at match start (`gameMode.ts`).
+   *
+   * REQUIRED, for the reason `dynastyHpLost` is: tsc reds the carry-FSM rebuilds below.
+   */
+  castleHealedHp: number;
+  /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
    * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
@@ -300,6 +317,8 @@ export function makeIdlePlayer(
     castleUpgrades: emptyCastleUpgrades(),
     // ⭐ S188 — and has lost nothing toward ENDLESS DYNASTY.
     dynastyHpLost: 0,
+    // ⭐ S191 C-8 — and has healed nothing (R190-I's castle heal counter).
+    castleHealedHp: 0,
     raceId,
     raidProgress: 0,
     // ⭐ S188 P6 — POWER OF RA: nothing called yet.
@@ -352,6 +371,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
     // restart the count toward the next Pharaoh.
     dynastyHpLost: player.dynastyHpLost,
+    // ⭐ S191 C-8 — the keep's heal counter, same rule: omitted here, every pickup would reset it
+    // and the next frame would print the whole match's healing as one phantom green number.
+    castleHealedHp: player.castleHealedHp,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -415,6 +437,9 @@ export function drop(player: Player): IdlePlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
     // restart the count toward the next Pharaoh.
     dynastyHpLost: player.dynastyHpLost,
+    // ⭐ S191 C-8 — the keep's heal counter, same rule: omitted here, every pickup would reset it
+    // and the next frame would print the whole match's healing as one phantom green number.
+    castleHealedHp: player.castleHealedHp,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

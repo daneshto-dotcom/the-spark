@@ -890,15 +890,16 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                * So the set is the hub's OWN members (`towerMembersAt`: the Dot + its own Circle
                * arms, the same walk that decided it stood and that its fuse read). S157 P0's reason
                * for razing at all survives intact — the hub's own leaves cannot linger as bond-less
-               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT` →
-               * `applyStructureSelfDestruct` → `applyRadialClear`, its owner exemption, and the
-               * ruled-not-built 120 fifths of R182-C) is untouched.
+               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT`, ladder
+               * arm → `applyHubLadderBlast`, 120 fifths IN TOTAL split across its
+               * targets, S157 P0 owner exemption — S191 C-5 / R2-A, R182-C) is a separate rule.
                */
               const selfIds = [
                 ...(towerMembersAt(world, 'lightningHub', sp.anchorPrimitiveId)?.prims ?? [dying.id]),
               ];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
+                blast: 'ladder', // ⭐ S191 C-5 — 120 fifths, not the raze (canon §9d item 2)
                 pos: { x: dying.pos.x, y: dying.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
                 ownerPlayerId: sp.ownerPlayerId,
@@ -1691,8 +1692,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)` (⭐ S190:
          * the creature's own `creatureAttackFifths`, drafted-buffed) through `damageConnector` with no
          * `targetsStructures` gate. `damageConnector` already banks
-         * structure-wide and spends overkill into the next connector (R173-A/B), so a boss's 150
-         * takes the 50, then the 36, then the 24 in one blow. Everything downstream was waiting.
+         * structure-wide (R173-A/B), and since S191 the overkill CARRIES (`severWithCarry`, owner S191), so
+         * a boss's 150 takes the 50, the 36, the 24, the 14 and the 6 in one blow (canon §2). Everything
+         * downstream was waiting.
          */
         const st = structureTargets(world, creature);
         creature.targetPrimitiveId = st.primitiveId;
@@ -2442,6 +2444,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
         dispatch(world, {
           type: 'STRUCTURE_SELFDESTRUCT',
+          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
           pos: { x: boss.x, y: boss.y },
           radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
           // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.

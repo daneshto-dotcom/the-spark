@@ -148,7 +148,11 @@ export function castleRegenTick(world: World): void {
     // ⭐ S189 (LOW b) — and the RATE is a percent of the same ceiling (R128: "% of max").
     const gain = castleRegenPerSecond(p.castleRegenLevel, maxHp);
     if (gain <= 0) continue;
+    const before = p.castleHp;
     p.castleHp = Math.min(maxHp, p.castleHp + gain);
+    // ⭐ S191 C-8 (R190-I) — count what the keep GAINED (after the cap), so `damageNumbers.ts` can
+    // print a hit and this regen in one window as two numbers. Presentational; no sim reads it.
+    p.castleHealedHp += p.castleHp - before;
   }
 }
 
