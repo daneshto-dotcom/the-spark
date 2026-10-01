@@ -41,7 +41,11 @@
  */
 
 import { dispatch, type World } from './world.ts';
-import { findAllVoltkinChainsCanonical } from './godlyRecipes/voltkinChainWalk.ts';
+import {
+  findAllVoltkinChainsCanonical,
+  isIsolatedVoltkinChain,
+  voltkinTvOwner,
+} from './godlyRecipes/voltkinChainWalk.ts';
 import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import type { PlayerId, PrimitiveId } from '../types.ts';
 
@@ -61,33 +65,21 @@ export interface StandingVoltkinTv {
   readonly owner: PlayerId;
 }
 
-/**
- * The seat a TV belongs to: the player whose colour is on the most of its members, lowest seat id on
- * a tie. With NO member matching any live player's colour (the S23 P3 colour-drift case the ignition
- * predicate also guards), the lowest-id player — the predicate's own fallback, made total.
+/*
+ * ⭐ S192 audit L1 — the owner rule now lives in the leaf `voltkinChainWalk.ts` and the ignition
+ * predicate calls the same function, so ignition and the census can never give a TV to different
+ * seats. Re-exported here for the existing callers.
  */
-export function voltkinTvOwner(world: World, members: readonly PrimitiveId[]): PlayerId | null {
-  const players = [...world.players.values()].sort((a, b) => Number(a.id) - Number(b.id));
-  if (players.length === 0) return null;
-  let best: PlayerId | null = null;
-  let bestCount = 0;
-  for (const p of players) {
-    let n = 0;
-    for (const id of members) {
-      if (world.primitives.get(id)?.placerColor === p.color) n += 1;
-    }
-    if (n > bestCount) {
-      best = p.id;
-      bestCount = n;
-    }
-  }
-  return best ?? players[0]!.id;
-}
+export { voltkinTvOwner };
 
 /** Every TV standing on the board, in the canonical order. */
 export function standingVoltkinTvs(world: World): StandingVoltkinTv[] {
   const out: StandingVoltkinTv[] = [];
   for (const chain of findAllVoltkinChainsCanonical(world)) {
+    // ⛔ S192 audit M1 — a TV re-summons IFF it would ignite now: the same S48 isolation test the
+    // ignition predicate runs (`isIsolatedVoltkinChain`, one copy). A welded or blobbed chain is
+    // drawn by the renderer but summons nothing, exactly as it would not ignite.
+    if (!isIsolatedVoltkinChain(world, chain)) continue;
     const members = [...chain].sort((a, b) => Number(a) - Number(b));
     let sumX = 0;
     let sumY = 0;

@@ -25,7 +25,7 @@ import { mulberry32 } from './rng.ts';
 import { makeGameStateExtras } from './gameState.ts';
 import type { Controls } from '../input/controls.ts';
 import { stampRefusalAt } from './blueprintLegality.ts';
-import { blueprintBill } from './blueprints.ts';
+import { ALL_BLUEPRINT_IDS, blueprintBill } from './blueprints.ts';
 import { makeCastleBank } from './castleBank.ts';
 import { cinematicMsToTicks } from './creatures/creature.ts';
 import {
@@ -36,7 +36,7 @@ import {
 } from './godlyOrchestration.ts';
 import { applyTickBatch, makeWorkerSim } from './workerSim.ts';
 import { snapshot } from './save.ts';
-import { findAllVoltkinChains } from './godlyRecipes/voltkin.ts';
+import { findAllVoltkinChains, voltkinPredicate } from './godlyRecipes/voltkin.ts';
 import { findAllVoltkinChainsCanonical } from './godlyRecipes/voltkinChainWalk.ts';
 import {
   dispatchVoltkinSpawn,
@@ -495,5 +495,97 @@ describe('S192 T16 — the one mint action', () => {
       type: c.type, owner: c.ownerPlayerId, spawnedAtTick: c.spawnedAtTick, targetPos: c.targetPos,
     });
     expect(pick(fromHelper)).toEqual(pick(fromPoll));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+/*
+ * ⭐ S192 audit M1 / L1 (merge-owner decision): A TV RE-SUMMONS IFF IT WOULD IGNITE NOW, AND FOR THE
+ * SAME SEAT. Owner, S48: *"if you accidentally connect anything else to the structure it shouldn't go
+ * off"*. The census and the ignition predicate share ONE isolation test and ONE owner rule; these
+ * boards are the auditor's A1 / A2 / A3 / A4.
+ */
+describe('S192 audit — the census counts exactly what ignition accepts', () => {
+  function chain8(w: World, owners: PlayerId[], y: number): Primitive[] {
+    const types = [SparkType.Square, SparkType.Square, SparkType.Square, SparkType.Square,
+      SparkType.Triangle, SparkType.Triangle, SparkType.Triangle, SparkType.Triangle];
+    const prims = types.map((t, i) => addShape(w, owners[i]!, t, 200 + i * 30, y));
+    for (let i = 0; i < 7; i++) connect(w, prims[i]!, prims[i + 1]!);
+    return prims;
+  }
+  /** How many canonical chains the ignition predicate would fire for, each tested at its own members. */
+  function ignitionAccepted(w: World): number {
+    let n = 0;
+    for (const c of findAllVoltkinChainsCanonical(w)) {
+      const key = [...c].map(Number).sort((a, b) => a - b).join(',');
+      const fires = c.some((id) => {
+        const r = voltkinPredicate(w, w.primitives.get(id)!.pos);
+        return r !== null && [...r.targetComponentPrimitiveIds].map(Number).sort((a, b) => a - b).join(',') === key;
+      });
+      if (fires) n += 1;
+    }
+    return n;
+  }
+
+  it('A1 — an extra square on the end: ignition refuses, so the census counts 0 and nothing summons', () => {
+    const w = twoSeat();
+    const prims = chain8(w, Array(8).fill(P0), 300);
+    connect(w, addShape(w, P0, SparkType.Square, 170, 300), prims[0]!);
+    expect(voltkinPredicate(w, prims[0]!.pos)).toBeNull();
+    expect(standingVoltkinTvs(w).length).toBe(0);
+    expect(standingVoltkinTvs(w).length).toBe(ignitionAccepted(w));
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1;
+    crossEdge(w);
+    expect(liveVoltkins(w)).toBe(0);
+  });
+
+  it('A4 — a 12-shape blob (two triangle tails on one square spine) is not two TVs; it is none', () => {
+    const w = twoSeat();
+    const sq = [0, 1, 2, 3].map((i) => addShape(w, P0, SparkType.Square, 300 + i * 30, 500));
+    for (let i = 0; i < 3; i++) connect(w, sq[i]!, sq[i + 1]!);
+    const ta = [0, 1, 2, 3].map((i) => addShape(w, P0, SparkType.Triangle, 420 + i * 30, 500));
+    connect(w, sq[3]!, ta[0]!);
+    for (let i = 0; i < 3; i++) connect(w, ta[i]!, ta[i + 1]!);
+    const tb = [0, 1, 2, 3].map((i) => addShape(w, P0, SparkType.Triangle, 270 - i * 30, 500));
+    connect(w, sq[0]!, tb[0]!);
+    for (let i = 0; i < 3; i++) connect(w, tb[i]!, tb[i + 1]!);
+    expect(findAllVoltkinChainsCanonical(w).length, 'fixture: the walk sees two 8-paths').toBe(2);
+    expect(standingVoltkinTvs(w).length).toBe(0);
+    expect(standingVoltkinTvs(w).length).toBe(ignitionAccepted(w));
+  });
+
+  it('A2 — every blueprint stamped alone: census count == ignition-accepted count (the TV is 1)', () => {
+    for (const id of ALL_BLUEPRINT_IDS) {
+      const w = twoSeat();
+      const bank = makeCastleBank();
+      for (const [t, n] of blueprintBill(id)) bank[t as number] = (bank[t as number] ?? 0) + n * 2;
+      w.castleBanks.set(P0, bank);
+      let site: { x: number; y: number } | null = null;
+      for (let x = 150; x <= 900 && site === null; x += 30) {
+        for (let y = 150; y <= 950 && site === null; y += 30) {
+          if (stampRefusalAt(w, { x, y }, P0, id) === null) site = { x, y };
+        }
+      }
+      if (site === null) continue;
+      dispatch(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: id, centre: site } as never);
+      expect(standingVoltkinTvs(w).length, id).toBe(ignitionAccepted(w));
+      if (id === 'voltkin') expect(standingVoltkinTvs(w).length).toBe(1);
+    }
+  });
+
+  it('A3 / L1 — a 4/4 tie: ignition and census both give it to the LOWEST seat', () => {
+    const w = twoSeat();
+    const prims = chain8(w, [P1, P1, P1, P1, P0, P0, P0, P0], 300);
+    const pred = voltkinPredicate(w, prims[0]!.pos);
+    expect(pred).not.toBeNull();
+    expect(pred!.triggererPlayerId).toBe(P0);
+    expect(standingVoltkinTvs(w)[0]!.owner).toBe(P0);
+    // …so the ignition Voltkin, still alive at the edge, holds its TV: no second one for anybody.
+    dispatchVoltkinSpawn(w, pred!.triggererPlayerId, pred!.targetPos);
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1;
+    crossEdge(w);
+    expect(liveVoltkins(w)).toBe(1);
   });
 });
