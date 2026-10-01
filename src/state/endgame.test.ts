@@ -41,7 +41,9 @@ import { MONSTER_OWNER_ID, removeEndgameMonsters, runEndgameMonsterTargeting } f
 import { CLIENT_INTENT_TYPES } from '../net/protocol.ts';
 import { isDraftWave } from './draft.ts';
 import { canBuildNow } from './buildLegality.ts';
-import { castleAnchor } from './gatherers/gatherer.ts';
+import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
+import { asGathererId } from '../types.ts';
+import { GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { restore, snapshot } from './save.ts';
 import { formatEndgameCue } from '../render/ui.ts';
@@ -261,6 +263,7 @@ describe('S192 — THE BUILD LOCK (spec §4)', () => {
     const denied = Object.entries(ENDGAME_LOCK_INTENT_POLICY).filter(([, v]) => v === 'deny').map(([k]) => k).sort();
     expect(denied).toEqual(['BUILD_BLUEPRINT', 'PLACE_FROM_FREE', 'PLACE_PRIMITIVE', 'PULL_FROM_BANK']);
     expect(isEndgameLockDeniedIntent('REPAIR_STRUCTURE')).toBe(false); // HIS — FIX stays
+    expect(isEndgameLockDeniedIntent('FIX_ALL')).toBe(false); // S193 R192-W1 — FIX ALL is FIX
     expect(isEndgameLockDeniedIntent('FEED_TOWER')).toBe(false); // HIS — "build more goblins"
   });
 
@@ -328,7 +331,28 @@ describe('S192 — THE BUILD LOCK (spec §4)', () => {
     expect(world.primitives.size).toBe(full - 1);
     world.waveNumber = 27; // the lock is on
     const member = [...world.primitives.values()].find((p) => p.origin?.blueprintId === 'laserTurret')!;
+    /*
+     * ⭐ S193 R191-B — RE-PINNED: FIX is a gatherer JOB now. The lock must not refuse it (the intent
+     * QUEUES), and the gatherer finishes it through the real host tick. From wave 27 the quarry spawns
+     * nothing, so the shape comes out of the castle bank.
+     */
+    const a = castleAnchor(0, world.layout);
+    const gid = asGathererId(world.nextGathererId++);
+    world.gatherers.set(gid, makeGatherer({ id: gid, ownerPlayerId: P0, pos: { x: a.x, y: a.y + GATHERER_DEPOSIT_OFFSET_Y }, spawnedAtTick: world.tick }));
+    world.phaseEndsAtTick = world.tick + 1_000_000;
     dispatch(world, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: member.id as PrimitiveId });
+    expect(world.diagnostics.rejectReasons.endgameBuildLocked).toBe(0);
+    expect(world.repairJobs, 'the FIX queued under the lock').toHaveLength(1);
+    const d = deps();
+    const st = makeHostTickState(world);
+    let sawSource: string | null = null;
+    for (let t = 0; t < 4000 && world.repairJobs.length > 0; t++) {
+      runHostTick(world, d, st);
+      // Any of the seat's gatherers may take it (the seat starts with its own; the lowest free id wins).
+      for (const g of world.gatherers.values()) if (g.ownerPlayerId === P0) sawSource ??= g.repairTask?.source ?? null;
+    }
+    expect(world.repairJobs, 'the gatherer finished it').toHaveLength(0);
+    expect(sawSource, 'the castle bank, not the (silent) quarry').toBe('bank');
     expect(world.primitives.size).toBe(full);
     expect(world.diagnostics.rejectReasons.endgameBuildLocked).toBe(0);
   });
