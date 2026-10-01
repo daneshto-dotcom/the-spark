@@ -118,7 +118,9 @@ describe('S183 — the damageEntity call-site census', () => {
   it('finds every production call site and no comment quotation', () => {
     // ⚠ Both halves: a parser that matched nothing, or one that swallowed the two docblock
     // quotations in `damage.ts`, would silently pass every assertion below.
-    expect(sites.length).toBe(16); // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity); S191 +1: the Ra perk column's split share (null)
+    // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity). S191 C-5 +1: the lightning
+    // hub's ladder blast (a null site — a blast names nobody). S191/S192 +1: the Ra column's split share (null).
+    expect(sites.length).toBe(17);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -133,7 +135,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(named.length + nulled.length).toBe(sites.length);
 
     expect(named.length).toBe(8);
-    expect(nulled.length).toBe(8); // S191 +1 — POWER OF RA's split no longer rides applyRadialDamage
+    expect(nulled.length).toBe(9); // S191 C-5 +1 — the hub's blast; S191 +1 — the Ra column's split share
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -156,6 +158,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(tally((s) => s.attacker === 'null')).toEqual({
       'src/state/castleGuns.ts': 1, // a KEEP is not an entity
       'src/state/damage.ts': 3, // applyRadialDamage — a splash names nobody
+      'src/state/potatoLifecycle.ts': 1, // S191 C-5 — the lightning hub's 120-fifth blast, a splash too
       'src/state/racial/raColumn.ts': 1, // S191/S192 — a Ra column's split share (perk AND Pharaoh boss): a column of light is nobody to turn on
       'src/state/racial/scorchedGround.ts': 1, // S188 — burning ground: nobody to turn on or heal
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling

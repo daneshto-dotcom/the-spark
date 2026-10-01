@@ -213,6 +213,9 @@ export function applyStartGame(world: World, action: StartGameAction): World {
     // kept last match's running loss would raise its first Pharaoh early (and the perk resets anyway,
     // because `draftPicks` is cleared below).
     player.dynastyHpLost = 0;
+    // ⭐ S191 C-8 — the keep's heal counter is per match too (presentational; a rematch's full keep
+    // is a fresh first sighting for `damageNumbers.ts` either way).
+    player.castleHealedHp = 0;
   }
   // S72 P2 (Triumvirate CHECK) — clear any lingering hunter at match start so the
   // once-per-game flag + Map can never bleed across matches (invariant: no hunter

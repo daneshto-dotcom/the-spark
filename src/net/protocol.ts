@@ -881,7 +881,37 @@ export type { NetSnapshot };
  *   ⚠ NOT on 52: weld round 5 (R191-A) and the net FIX-3 kept claim clock (reverted on master) — both
  *   audited red in S191 and carried.
  */
-export const PROTOCOL_VERSION = 52 as const;
+/**
+ * ⭐⭐ S192 — **BUMPED 52 -> 53: `s191/addons` — THE WARLORD'S 25 s RAGE CLOCK.** Each item earns it alone
+ * (the S186 test: two builds that shake hands would disagree about something either computes):
+ *   1. `Creature.rageStartTick?` — a NEW additive-optional field, the ONE stamp both rage windows derive
+ *      from; written only by `runWarlordRage`; SERIALIZED (only when stamped; restore takes a non-negative
+ *      integer, nothing else), rides `snapshot` AND `netSnapshot` (`trimMirrorCreature` keeps it), and is
+ *      wide-hashed (`:rs`). A v52 successor promoted by host migration drops it and loses every clock.
+ *   2. a CHANGED SHARED RULE — the latch: once fired (strictly below `WARLORD_RAGE_TRIGGER_PCT`, in FIGHT)
+ *      he rages `WARLORD_RAGE_TICKS` (1500) REGARDLESS OF HEALING, then is calm `WARLORD_RAGE_COOLDOWN_TICKS`
+ *      (1500, the owner's, S192) whatever his health — R151's heal-above-50 exit is retired. A v52 peer
+ *      would calm him only on a heal above half, i.e. never.
+ *   3. a CHANGED SHARED RULE — the BLOOD FRENZY source (`isFrenzySource`) is a Warlord whose OWN window is
+ *      open, not his health; and (owner, S191) the frenzy NEVER sets or clears a Warlord.
+ *   Local only, riding without needing it: Alt toggles the footer exactly as the collapse arrow (owner,
+ *   S192); the opaque panels and modals swallow right-clicks (R190-G); `Controls.setModalCover` + the
+ *   paired-press latch (S192 A-1); the attack row's frame cadence reads the cycle latch (render only).
+ */
+/**
+ * ⭐⭐ S192 — **BUMPED 53 -> 54: DEPLOY #8 — `s191/carry`.** No new required field; every item is a CHANGED SHARED
+ * RULE both peers (host, successor, worker mirror) compute — the S186 test:
+ *   1. C-5 + R2-A — the lightning hub's self-destruct is LADDER damage (`applyHubLadderBlast`), 120 fifths IN
+ *      TOTAL split across everything around it in a total order (squared distance, kind, id), the owner spared
+ *      (S157 P0); no longer the instant-kill raze (the zombie boss keeps `blast:'raze'`, a host-internal field).
+ *   2. R2-C — a stink bag the hub blast pops bursts without hitting the hub owner's things.
+ *   3. C-6 — the FFA spread (`spreadEnemyTarget`) uses the strict S162 predicate (targeting outputs move).
+ *   4. R2-E + CARRY-1 — OVERKILL CARRIES into the next connector (`severWithCarry`), owner ruling S191, and only
+ *      into connectors placed by the STRUCK connector's owner.
+ *   Riding without needing it: C-8 `Player.castleHealedHp` (additive-optional, wide hash only), C-7 the bar on
+ *   the tower's own star, C-9 the Ra strike above buildings, C-1..C-4.
+ */
+export const PROTOCOL_VERSION = 54 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1198,6 +1228,13 @@ export interface HelloMsg {
    * the per-match id on START_GAME_SIGNAL / LOBBY_PRESENCE / NETSNAPSHOT and the C6 beacon election.
    * Full reasons on the const's JSDoc.)
    *
+   * S192: 52->53 (DEPLOY #7 — `s191/addons`: `Creature.rageStartTick`, the Warlord's 25 s rage latch +
+   * 25 s cooldown, the BLOOD FRENZY source = his own open window and never a Warlord. Full reasons on
+   * the const's JSDoc.)
+   *
+   * S192: 53->54 (DEPLOY #8 — `s191/carry`: the hub blast as 120 ladder fifths split, the popped-bag spare,
+   * the strict FFA spread, overkill carrying owner-filtered. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1235,7 +1272,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 52;
+  readonly protoVersion: 54;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

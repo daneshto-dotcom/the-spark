@@ -64,6 +64,15 @@ const SANCTIONED: ReadonlyArray<{ file: string; occurrences: number; why: string
   { file: 'state/castleUpgrades.ts', occurrences: 3, why: 'The castle upgrade track: current shot and the two next-level previews.' },
   { file: 'state/world.ts', occurrences: 1, why: 'The PLAYER raid (`RAID_ATK`, `RAID_PEN`) — a seat’s click, not a creature.' },
   {
+    file: 'state/potatoLifecycle.ts',
+    occurrences: 1,
+    why:
+      '⭐ S191 C-5 — the LIGHTNING HUB’s self-destruct, `STRUCTURE_SELFDESTRUCT_FIFTHS`: a STRUCTURE’s blast ' +
+      'the owner PRICED as "four times a drone’s damage" (R182-C), so it names the drone’s base line on ' +
+      'purpose. Not a creature’s strike — no creature swings it. ⚠ Unbuffed by the draft: MINE, flagged at ' +
+      'the constant (canon §9d item 2).',
+  },
+  {
     file: 'state/racial/raColumn.ts',
     occurrences: 2,
     why:
@@ -152,8 +161,14 @@ describe('creature strike — the derivation guard', () => {
       expect(count(codeOnly(read(f)), /creatureAttackFifths\(/g), `${f} reads the creature's own strike`).toBeGreaterThan(0);
     }
     // The two blast constants the S190 fix retired must not come back as a strike.
+    // ⭐ S191 C-5 — ONE declaration is exempt, by name: the hub's R182-C price (see SANCTIONED). Any other
+    // `attackFifths(DRONE_ATK` — including a second one in that same file — still fails.
+    const HUB_PRICE =
+      /export const STRUCTURE_SELFDESTRUCT_FIFTHS = STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE \* attackFifths\(DRONE_ATK, DRONE_PEN\);/;
+    expect(codeOnly(read('state/potatoLifecycle.ts')), 'anti-vacuity: the exempt line exists').toMatch(HUB_PRICE);
     for (const f of productionFiles()) {
-      expect(codeOnly(read(f)), f).not.toMatch(/attackFifths\(\s*(GOBLIN_SUICIDE_ATK|DRONE_ATK)\b/);
+      const src = f === 'state/potatoLifecycle.ts' ? codeOnly(read(f)).replace(HUB_PRICE, '') : codeOnly(read(f));
+      expect(src, f).not.toMatch(/attackFifths\(\s*(GOBLIN_SUICIDE_ATK|DRONE_ATK)\b/);
     }
   });
 });

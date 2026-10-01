@@ -384,6 +384,16 @@ export class Controls {
     // gameplay per blueprint requires no turn-flip input.
     // S49 P1 (Sym F) — Q key → SHRINK_TERRITORY disruption (1v1 only).
     window.addEventListener('keydown', this.onKeyDown);
+    // ⭐ S191 A-2 — Alt's KEYUP is what focuses the browser's menu bar on Windows, so a consumed Alt is
+    // swallowed on the way up as well as on the way down (Council, S191 ledger).
+    window.addEventListener('keyup', this.onKeyUp);
+    // ⭐ S191 R2 (INPUT-5) — a consumed Alt whose keyup lands in ANOTHER window (Alt+Tab) or while the tab
+    // is hidden never reaches `onKeyUp`; forget it, or the next Alt the player means for the browser is
+    // swallowed on its release. `document` is guarded: headless harnesses stub it bare.
+    window.addEventListener('blur', this.onAltFocusLost);
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', this.onAltVisibility);
+    }
   }
 
   /**
@@ -517,6 +527,19 @@ export class Controls {
   }
 
   /**
+   * ⛔⛔ S191 round 2 (INPUT-1 / INPUT-3) — **WHAT COVERS THE BOARD FROM ABOVE: THE MODALS AND THE HUD
+   * CONTROLS.** The codex, CONNECTION LOST and the exit-confirm backdrops swallow only PIXI events
+   * (`eventMode = 'static'`); this handler listens on the raw canvas, so until S191 both buttons acted on
+   * the board under them — a held tower stamped, a spark was grabbed, a right-click raided (and, under
+   * the CONNECTION LOST veil, the host's own clicks kept acting — the net audit's SEAM-3). The BACK TO
+   * MAIN button and the settings gear are Pixi controls on the same canvas: a click on BACK TO MAIN with
+   * a voltkin armed built it under the button. `main.ts` injects ONE predicate over a canvas point.
+   */
+  setModalCover(cover: (x: number, y: number) => boolean): void {
+    this.modalCover = cover;
+  }
+
+  /**
    * S181 — `main.ts` injects the card's FIX / SCRAP / FEED dispatch, exactly as it already does for
    * the popover's. Same `dispatchFn` seam, so the three network paths (wire intent / postIntent /
    * direct) keep working with no second code path.
@@ -538,6 +561,9 @@ export class Controls {
   private footerBand: FooterBandLike | null = null;
   private characterSheet: CharacterSheetLike | null = null;
   private draftPanel: DraftPanelLike | null = null;
+  private modalCover: ((x: number, y: number) => boolean) | null = null; // S191 R2 INPUT-1 — see `setModalCover`
+  /** ⛔ S192 A-1 — was the PRESS that this release pairs with under a modal? Latched in `onDown`, read + cleared in `onUp`. */
+  private downUnderModal = false;
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
     | null = null;
@@ -676,13 +702,13 @@ export class Controls {
   }
 
   /** ⭐ S188 P6 — while aiming, the board click is the cast. Returns true when it consumed the click. */
-  private handleRaAimClick(button: number): boolean {
+  private handleRaAimClick(button: number): boolean { // R190-G: ROUTE
     if (raAimPreview() === null) return false;
-    if (button === 2) {
+    if (button === 2) { // R190-G: HAND (puts the aim away)
       setRaAimPreview(null);
       return true;
     }
-    if (button !== 0) return false;
+    if (button !== 0) return false; // R190-G: LMB
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming, the
     // held-tower rule for the same two surfaces.
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
@@ -737,6 +763,30 @@ export class Controls {
       this.world.gameState === 'PLAYING' &&
       this.footerBand !== null &&
       this.footerBand.isOverBandSurface(this.cursor.x, this.cursor.y)
+    );
+  }
+
+  /** ⭐ S191 R2 (INPUT-1 / INPUT-3) — is the pointer under a modal or a HUD control? See `setModalCover`. */
+  private isPointerUnderModal(): boolean {
+    return this.modalCover !== null && this.modalCover(this.cursor.x, this.cursor.y);
+  }
+
+  /**
+   * ⭐ S191 A-3 (R190-G) — **IS THE POINTER OVER ANY OPAQUE SURFACE THE LEFT CLICK'S GATES REFUSE?**
+   * The four the `onUp` PLACE commit gates list — the castle panel, the draft panel, the character
+   * card and the footer band's opaque plates — as ONE question, so the right-click raid cannot ask a
+   * different set than the left click does. The castle and draft panels are also caught earlier in
+   * `onDown`; asking them again here costs nothing and keeps the set whole if that order ever moves.
+   * Collapsed, the band's surface is only its tab and the Ra square (S187), so the ground it gave
+   * back is raidable again — the same ground a left click may build on.
+   */
+  private isPointerOverAnyOpaqueSurface(): boolean {
+    return (
+      this.isPointerUnderModal() || // S191 R2 INPUT-1 — the modals and the HUD controls, first
+      this.isPointerOverPanel() ||
+      this.isPointerOverDraftPanel() ||
+      this.isPointerOverCard() ||
+      this.isPointerOverFooterSurface()
     );
   }
 
@@ -1120,11 +1170,25 @@ export class Controls {
     // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
     // acts on the click is the frame that shows it being taken.
     this.footerBand?.setPressed(true);
+    // ⛔⛔ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL NOTHING ON THE BOARD ACTS, for EVERY
+    // button: the modal's own Pixi hit (its buttons, its backdrop) is the whole of the click. `onUp`
+    // does NOT return like this — a drag begun before the modal must still end (see its two gates).
+    // ⛔ S192 A-1 — LATCH IT: Pixi closes a modal on `pointertap`, which it fires from a CAPTURE-phase
+    // `pointerup` on globalThis BEFORE this bubble-phase window `onUp` runs. So the release of a click that
+    // CLOSES a modal ("Keep playing") sees no modal; the paired-down latch is what refuses its commit.
+    this.downUnderModal = this.isPointerUnderModal();
+    if (this.downUnderModal) return;
     // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
     // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
     // click. Without this early-return, clicking BUY GATHERER would ALSO grab a spark / sever a bond
     // / pop a creature under the cursor. Mirrored in `onUp` so a placement cannot commit onto it.
+    // ⛔ S191 R2 (INPUT-4) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND, exactly as on the draft
+    // plate below (S190 IL-2): it acts on the HAND, not on the ground under the panel. The aim first.
+    if (e.button === 2 && this.isPointerOverPanel()) { // R190-G: HAND (the IL-2 put-back, castle panel)
+      if (raAimPreview() !== null) setRaAimPreview(null);
+      else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    }
     if (this.isPointerOverPanel()) return;
     /*
      * ⛔⛔ S188 (audit F1) — THE DRAFT PANEL, SAME RULE, AND IT MUST SIT HERE: above the footer, the
@@ -1144,7 +1208,7 @@ export class Controls {
        * the order `onDown` itself keeps; one gesture is in hand at a time, so at most one is set. The
        * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
        */
-      if (e.button === 2) {
+      if (e.button === 2) { // R190-G: HAND (the S190 IL-2 put-back)
         if (raAimPreview() !== null) setRaAimPreview(null);
         else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
       }
@@ -1155,7 +1219,7 @@ export class Controls {
     // otherwise ALSO grab a spark or sever a bond underneath it. Only CHIPS consume the click —
     // the empty stretches of the band stay live board, which is the lesson that got the
     // original 1920-wide footer plate deleted in S136 P0.
-    if (e.button === 0 && this.handleFooterChipClick()) return;
+    if (e.button === 0 && this.handleFooterChipClick()) return; // R190-G: LMB
     /*
      * ⭐⭐⭐ S181 (owner) — **THE CARD'S FIX / SCRAP / FEED TAKES THE POPOVER'S SLOT.** This single
      * line is the whole of his bug report, and it is a PRECEDENCE bug, not a drawing one:
@@ -1176,24 +1240,24 @@ export class Controls {
      * otherwise ALSO grab a spark or sever a bond underneath the button. Buttons only — the rest of
      * the board around the card stays live.
      */
-    if (e.button === 0 && this.handleSheetActionClick()) return;
+    if (e.button === 0 && this.handleSheetActionClick()) return; // R190-G: LMB
     // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
     // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
     // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
-    if (this.handleRaAimClick(e.button)) return;
+    if (this.handleRaAimClick(e.button)) return; // R190-G: ROUTE
     // S136 P0 — then the castle itself: clicking your own keep opens/closes its control panel.
-    if (e.button === 0 && this.handleCastleClick()) return;
+    if (e.button === 0 && this.handleCastleClick()) return; // R190-G: LMB
     // S144 P3 — A HELD TOWER OWNS THE NEXT CLICK. This must sit above every world hit-test: without
     // it, placing a tower would ALSO grab the spark under the cursor / sever a bond / pop a creature,
     // which is the identical failure the castle-panel guard above exists to prevent. RMB (or Escape,
     // in onKeyDown) puts it back instead.
     const armed = this.castlePanel?.armedBlueprint() ?? null;
     if (armed !== null) {
-      if (e.button === 2) {
+      if (e.button === 2) { // R190-G: HAND
         this.castlePanel?.disarm();
         return;
       }
-      if (e.button === 0) {
+      if (e.button === 0) { // R190-G: LMB
         /*
          * ⛔⛔ S182 — **NEVER STAMP A TOWER ON GROUND THE CARD IS COVERING.** This is the S181
          * defect in a FOURTH place, found by enumerating the UI-surface guards rather than by a
@@ -1252,7 +1316,7 @@ export class Controls {
         return;
       }
     }
-    if (e.button === 0) {
+    if (e.button === 0) { // R190-G: LMB
       // LMB
       const player = this.world.players.get(this.playerId);
       if (player?.kind === 'Idle' && player.carriedPotatoId === undefined) {
@@ -1373,7 +1437,20 @@ export class Controls {
        * avatar to be free in order to be READ.
        */
       if (this.handleSheetSelect()) return;
-    } else if (e.button === 2) {
+    } else if (e.button === 2) { // R190-G: BOARD (gated below)
+      /*
+       * ⛔⛔ S191 A-3 (owner, R190-G) — **AN OPAQUE PANEL SWALLOWS A RIGHT-CLICK TOO.** *"Yeah, we'll
+       * keep seven as is for your recommendation"* — read as: do the recommendation, so a right-click
+       * on a footer card, the unit card or any opaque panel does NOTHING to the board under it (⚠ the
+       * reading was flagged to him; reverse on his word). Until S191 this arm asked no surface at all:
+       * the castle panel (top of `onDown`) and the draft panel (S190 IL-2) swallowed the raid, but a
+       * right-click on the footer's plates or on the character card raided the unit under them —
+       * ground the player cannot see. It now asks the SAME four surfaces the left click's gates ask,
+       * through one predicate. The put-backs above act on the HAND, not the ground, and stay live over
+       * every opaque panel (the IL-2 rule; the castle panel since S191 R2 INPUT-4) — only under a modal
+       * does nothing act. R190-F is untouched: the arrow in the seam is a LEFT click.
+       */
+      if (this.isPointerOverAnyOpaqueSurface()) return;
       // RMB-down on a bond → SEVER_BOND (player-cause). S53 P2: simplified.
       // Pre-S53 this branch ALSO entered ConnectDrag when player.kind was
       // 'Carrying' — but post-S52 P1 atomic LMB-up, no public path reaches
@@ -1483,6 +1560,21 @@ export class Controls {
    */
   private updateHoverCursor(): void {
     /*
+     * ⭐ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL THE BOARD'S CURSOR IS PLAIN and
+     * nothing of ours lights up: the surface above owns the pointer (Pixi sets its own `cursor` on the
+     * HUD buttons), and `onDown` acts on nothing here. Returned BEFORE the draft logic below, whose
+     * lines `s182UiSurfaceGuards.test.ts` GATE D pins verbatim.
+     */
+    if (this.isPointerUnderModal()) {
+      this.footerBand?.setHover(-1, -1);
+      this.characterSheet?.setHover(-1, -1);
+      if (this.lastCursorStyle !== '') {
+        this.canvasEl.style.cursor = '';
+        this.lastCursorStyle = '';
+      }
+      return;
+    }
+    /*
      * ⛔ S190 (audit IL-1 / IL-B2) — UNDER THE DRAFT PLATE, ONLY THE DRAFT'S OWN TILES ARE CONTROLS.
      * The panel is drawn above the band and the card (staged after them, S189 C1) and `onDown` swallows every click
      * on it, so a card button, an owned-unit row, a footer chip or a castle row hidden UNDER it must
@@ -1542,9 +1634,12 @@ export class Controls {
     // release off the board still arrives — otherwise dragging off a pressed chip would leave it
     // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
     this.footerBand?.setPressed(false);
+    // ⛔ S192 A-1 — a release whose PRESS was under a modal commits nothing (read once, cleared at once).
+    const downUnderModal = this.downUnderModal;
+    this.downUnderModal = false;
     // S72 P3 — place a carried potato on LMB-up (the carry is world state, not an
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
-    if (e.button === 0) {
+    if (e.button === 0) { // R190-G: LMB
       const meNow = this.world.players.get(this.playerId);
       // S136 P0 — do not PLANT a potato under the castle panel (it would be hidden beneath it).
       // The potato simply stays carried, which is fully reversible — unlike onDown, blocking here
@@ -1576,7 +1671,10 @@ export class Controls {
         !this.isPointerOverFooterSurface() &&
         !this.isPointerOverCard() &&
         // ⛔ S188 (audit F1) — nor under the draft panel: a potato released there stays carried.
-        !this.isPointerOverDraftPanel()
+        !this.isPointerOverDraftPanel() &&
+        // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control: it stays carried, fully reversible.
+        !this.isPointerUnderModal() &&
+        !downUnderModal // ⛔ S192 A-1 — nor when its press was (the click that closed the modal)
       ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
@@ -1587,7 +1685,7 @@ export class Controls {
         return;
       }
     }
-    if (e.button === 0 && this.state.kind === 'AttractDrag') {
+    if (e.button === 0 && this.state.kind === 'AttractDrag') { // R190-G: LMB
       const spark = this.world.freeSparks.get(this.state.sparkId);
       // S58 (#2) — accept the spark whether still Free (solo / pre-host-confirm)
       // or Carried by me (the LMB-down claim landed). A spark grabbed by the
@@ -1672,7 +1770,11 @@ export class Controls {
           // ⛔ S188 (audit F1) — nor under the draft panel. A spark dragged off the board and released
           // over its side margins placed on ground the plate hides; now it is a rejected placement
           // (the DROP above has released the claim, so nothing is stranded).
-          !this.isPointerOverDraftPanel()
+          !this.isPointerOverDraftPanel() &&
+          // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control. A REJECT, never an early return:
+          // the DROP above has run, the capture is released and the state goes Idle below (S52 / S58).
+          !this.isPointerUnderModal() &&
+          !downUnderModal // ⛔ S192 A-1 — nor when its press was; still a REJECT, never an early return
         ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
@@ -1773,6 +1875,8 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // ⭐⭐ S191 A-2 / S192 owner ruling — Alt drops / raises the footer, exactly as the collapse arrow does.
+    if (this.handleAltFooterKey(e)) return;
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
     if (e.key === 'Escape' && raAimPreview() !== null) {
       setRaAimPreview(null);
@@ -1808,6 +1912,53 @@ export class Controls {
 
   // S42 — onKeyDown SPACE → END_TURN handler DELETED. See constructor
   // comment. Real-time 1v1 has no turn-flip input.
+
+  // ── ⭐⭐ S191 A-2 (owner, R190 add-on; S192 ruling) — ALT TOGGLES THE FOOTER, ARMED OR NOT ──────────────
+  /**
+   * ⭐⭐ OWNER, S192 (supersedes the armed-only S191 build): *"whenever you click alt on the … keyboard, it
+   * should take the footer down just like as if you click the arrow … it doesn't matter you have a tower,
+   * you hold a tower, you're dragging it … or not, it just takes it down … it's independent."*
+   *
+   * So Alt IS the collapse arrow: the same `toggleCollapsed` and the same click sound as
+   * `handleFooterChipClick`'s tab arm, under the same conditions the arrow can be pressed at all — in
+   * PLAYING (the band exists) and not while the NONET trial owns input (`isInputLocked`). Nothing raises
+   * the band behind his back any more: it stays where Alt or the arrow last put it, as the arrow's does.
+   * Because every placement gate asks the band's own predicates (S187), a lowered band gives back the
+   * ground under it for every gesture. Ignored (Council, S191): an auto-repeat (a held Alt toggles once),
+   * Ctrl+Alt / Meta+Alt (AltGr and OS chords), and a focused text field (the `decideKeyShrink` guard).
+   */
+  private altKeyConsumed = false;
+
+  private handleAltFooterKey(e: KeyboardEvent): boolean {
+    if (e.key !== 'Alt') return false;
+    if (e.repeat || e.ctrlKey || e.metaKey) return false;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return false;
+    if (this.world.gameState !== 'PLAYING' || this.isInputLocked()) return false; // where the arrow can be pressed
+    if (this.footerBand?.toggleCollapsed === undefined) return false;
+    e.preventDefault();
+    void playUiClickSFX(); // the arrow's own sound
+    this.footerBand.toggleCollapsed();
+    this.altKeyConsumed = true;
+    return true;
+  }
+
+  private onKeyUp = (e: KeyboardEvent): void => {
+    if (e.key !== 'Alt' || !this.altKeyConsumed) return;
+    e.preventDefault();
+    this.altKeyConsumed = false;
+  };
+
+  /** ⭐ S191 R2 (INPUT-5) — the window lost focus: a consumed Alt's release will not come here. */
+  private onAltFocusLost = (): void => {
+    this.altKeyConsumed = false;
+  };
+
+  /** ⭐ S191 R2 (INPUT-5) — the tab went hidden: the same. Going VISIBLE clears nothing. */
+  private onAltVisibility = (): void => {
+    if (document.visibilityState === 'hidden') this.altKeyConsumed = false;
+  };
+  // ── end S191 A-2 ────────────────────────────────────────────────────────────────────────────────
 
   private acquirePointerCapture(e: PointerEvent): void {
     try {
@@ -2128,6 +2279,11 @@ export class Controls {
   }
 }
 
+
+/** ⭐ S191 R2 (INPUT-3) — PURE: is (x, y) inside a canvas rect? For `main.ts`'s `setModalCover` predicate. */
+export function pointInRect(x: number, y: number, r: { x: number; y: number; w: number; h: number }): boolean {
+  return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
 
 // S55 P3 — exported for controls.test.ts (pure geometry; used by pickBond to
 // hit-test the cursor against a bond segment). Point-to-segment distance with

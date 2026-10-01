@@ -519,6 +519,13 @@ interface SerializedPlayer {
    */
   dynastyHpLost?: number;
   /**
+   * ⭐ S191 C-8 (owner R190-I) — the keep's heal counter (`Player.castleHealedHp`). Additive-optional,
+   * emitted only when > 0, so an unhealed keep is byte-identical to a pre-C-8 snapshot. PRESENTATIONAL
+   * (the `Creature.healedFifths` precedent): a joiner splits a hit from a heal with it; no sim reads it,
+   * so a stale peer that never sends it prints the old net number and nothing diverges.
+   */
+  castleHealedHp?: number;
+  /**
    * ⭐ W1-A (S160) — the seat's RACE. Additive-optional and emitted ONLY when it is not this seat's
    * default (`defaultRaceForSeat`), so a board where nobody chose stays **byte-identical** to a
    * pre-W1-A snapshot — the `castleHp` / `carriedPotatoId` precedent above.
@@ -824,6 +831,13 @@ interface SerializedCreature {
   readonly enraged?: boolean;
   /** S188 F3 — the ATTACKING cycle's latched rage (`Creature.attackCycleRaged`). Emitted only when true. */
   readonly attackCycleRaged?: boolean;
+  /**
+   * ⭐⭐ S191 (owner, 25 s rage + "cooldown first") — `Creature.rageStartTick`, the one stamp both rage
+   * windows derive from. Emitted only when stamped. ⛔ It MUST ride the save for the reason the
+   * `enraged` note above gives: the worker and a promoted successor restore rather than recompute, so a
+   * dropped stamp ends the rage early on one sim — or lets it re-fire inside the cooldown.
+   */
+  readonly rageStartTick?: number;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -2023,6 +2037,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       // seat's count toward its next Pharaoh on every snapshot apply and every host migration).
       // Coerced and floored because it crosses a trust boundary and feeds the spawn arithmetic.
       dynastyHpLost: Math.max(0, Math.trunc(Number(p.dynastyHpLost ?? 0)) || 0),
+      // ⭐ S191 C-8 — READ FROM THE WIRE (a literal 0 here would make every snapshot apply look like the
+      // counter fell, and the joiner would print every heal as part of a net). Coerced: trust boundary.
+      castleHealedHp: Math.max(0, Math.trunc(Number(p.castleHealedHp ?? 0)) || 0),
       // ⛔ W1-A (S160) — `isRaceId` FIRST. This value crosses a trust boundary as a bare string, and
       // an unvalidated assignment puts a non-race into `RACE_COLORS[...]` and paints `undefined`.
       // ⛔ And the fallback is DERIVED, never a literal: `applySnapshotCore` runs on EVERY
@@ -2245,6 +2262,8 @@ function serializePlayer(p: Player): SerializedPlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
     // the perk held, so every other seat stays byte-identical to a v49 snapshot.
     ...(p.dynastyHpLost > 0 ? { dynastyHpLost: p.dynastyHpLost } : {}),
+    // ⭐ S191 C-8 — the keep's heal counter, emitted only once it has healed (byte-identity otherwise).
+    ...(p.castleHealedHp > 0 ? { castleHealedHp: p.castleHealedHp } : {}),
     // ⭐ W1-A (S160) — emit the race only when it is NOT this seat's default, so an all-default board
     // serializes byte-for-byte as it did before W1-A. `save.test.ts` asserts that byte-identity.
     ...(p.raceId !== defaultRaceForSeat(p.id as unknown as number) ? { raceId: p.raceId } : {}),
@@ -2353,6 +2372,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
     ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
+    ...(c.rageStartTick !== undefined ? { rageStartTick: c.rageStartTick } : {}), // S191 — the 25 s rage clock
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
@@ -2751,6 +2771,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
     ...(s.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
+    // ⭐ S191 — the rage clock, validated, never trusted: a tick is a non-negative integer. Anything else
+    // off the wire is dropped, which reads as "never raged" (his latch re-fires below the line).
+    ...(typeof s.rageStartTick === 'number' && Number.isInteger(s.rageStartTick) && s.rageStartTick >= 0
+      ? { rageStartTick: s.rageStartTick }
+      : {}),
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142

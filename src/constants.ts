@@ -2779,7 +2779,7 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  * is left standing; it is the *strong* direction that was wrong, which is why the error survived.
  */
 export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
-export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's blast radius. ⚠ S191: NOT owner-agnostic (S157 P0 spares the owner) and NOT a raze — 120 fifths in total, split (`planHubBlast`)
 
 /*
  * ⭐⭐ S168 P7 (owner R138) — **THE ZOMBIE BOSS EXPLODES WHEN HE DIES.**
@@ -2787,10 +2787,11 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC
  * Owner: *"when he dies he explodes in a huge radius hurting everything radius"*.
  *
  * ⭐ "HURTING EVERYTHING" PICKS THE MECHANIC FOR FREE, and that is why this skill costs almost
- * nothing to build. `applyStructureSelfDestruct` takes an OPTIONAL `ownerPlayerId` that SPARES the
- * owner's own units and shapes (S157 P0, added after he reported hubs eating their own base).
- * *Everything* is unambiguous, so the boss passes NO owner — which is the pre-S157, owner-agnostic
- * default that reducer already had. No new action, no new `GameEffect` kind (it reuses
+ * nothing to build. `applyStructureSelfDestruct`'s `blast: 'raze'` variant takes an OPTIONAL
+ * `ownerPlayerId` that SPARES the owner's own units and shapes (S157 P0, added after he reported hubs
+ * eating their own base). *Everything* is unambiguous, so the boss passes NO owner — the pre-S157,
+ * owner-agnostic raze. ⚠ S191: the HUB's own blast is the other variant now (`blast: 'ladder'`, 120
+ * fifths in total); `blast` is required, so neither can be reached by omission. No new action, no new `GameEffect` kind (it reuses
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
@@ -3196,6 +3197,11 @@ export const RA_WRATH_COLUMN_PEN = 10;
  * stays (49 > 50 is false); at 51% a calm one stays calm and an enraged one CALMS; at exactly 50%
  * NEITHER branch fires, so he keeps whatever state he is in. That is his "below 50" exactly.
  *
+ * ⛔ S191 — **SUPERSEDED: THE CALM HALF OF THIS PARAGRAPH IS HISTORY.** The rage now ends on a 25 s
+ * CLOCK (`WARLORD_RAGE_TICKS`), not on a heal above 50 %, so no health reading calms him and there is no
+ * band, zero-width or otherwise. The TRIGGER half stands: strictly below 50 % fires his latch (in FIGHT,
+ * outside his cooldown). The flicker note below is moot for the same reason.
+ *
  * ⚠ AND THE FLICKER THE OLD BAND GUARDED AGAINST IS UNREACHABLE TODAY. Flicker needs hp to CROSS
  * the line repeatedly, i.e. a heal. Every `.ehp =` write in the sim that RAISES a pool is gated to
  * another race — Vlad's sap heals only Vlad (`bossSkills.ts:119`) and the Ra restore only the
@@ -3221,8 +3227,54 @@ export const WARLORD_RAGE_MULTIPLIER = 2;
  * the clear condition is unreachable in play TODAY. It is implemented anyway, because the ruling is
  * about what should happen when it is reachable, and a rule that exists only in a comment is the
  * class of thing S167 shipped a whole session on.
+ *
+ * ⛔⛔ S191 — **RETIRED IN PLACE, UNREAD BY THE SIM.** The owner replaced R151's exit with a CLOCK
+ * (`WARLORD_RAGE_TICKS` below): once his own latch fires he rages for 25 s *regardless of healing*,
+ * so no health reading calms him any more. Kept exported, with its history, so the R151/S179 record
+ * above stays readable; `bossSkillsWarlord.ts` no longer imports it.
  */
 export const WARLORD_RAGE_CLEAR_PCT = 50;
+
+/**
+ * ⭐⭐ S191 (owner) — **THE RAGE LASTS 25 SECONDS.** *"let's do it like 25 seconds"* (S190, recorded
+ * for S191 in `S190_OWNER_RULINGS.md`).
+ *
+ * Once a Warlord's OWN latch fires (strictly below `WARLORD_RAGE_TRIGGER_PCT` of his own max) he rages
+ * for exactly this many ticks, **regardless of healing** — the clock replaces R151's "until IF healed
+ * above 50 %" exit. Measured in `world.tick` from `Creature.rageStartTick`: raging on ticks
+ * `start … start + WARLORD_RAGE_TICKS − 1`, calm from `start + WARLORD_RAGE_TICKS`.
+ */
+export const WARLORD_RAGE_SECONDS = 25;
+export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s @ 60 Hz
+
+/**
+ * ⭐ S191 (owner) — **"COOLDOWN FIRST".** Asked what happens when the 25 s end and he is still under
+ * half, he ruled a cooldown before any re-trigger: calm for this many ticks after the rage ends, during
+ * which his latch cannot fire whatever his health; after it, below the line → he rages again at once.
+ *
+ * ⭐ THE LENGTH IS HIS (S192): *"Rage cooldown 25 seconds, that's fine. Per warlord."* — 25 s, and it is
+ * per Warlord (each one's own `rageStartTick`; the frenzy never touches a Warlord, S191).
+ *
+ * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
+ * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
+ * latch runs only inside the FIGHT gate (`hostTick`), so in each FIGHT a hurt Warlord fires on its first
+ * tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
+ * `FIGHT_PHASE_TICKS`; a rage still running at the whistle is NOT lowered in BUILD — he (and BLOOD FRENZY's
+ * orcs) stay red through the whole BUILD — and the next FIGHT's first tick fires a fresh rage (BUILD,
+ * `PHASE_DURATION_TICKS`, outlasts both windows). A rage that ended before the whistle stays ended.
+ * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging from 50 s through the
+ * whistle and all of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a real whistle.
+ *
+ * ⭐ RULED S191 (owner, round 2 RAGE-1 — the audit's "red through BUILD" finding, and he KEEPS it):
+ * *"if the rage started … during the fight and the countdown is still down while you're in … build
+ * phase, then your creatures still look to be enraged. And then it … restarts the next fight. Yeah,
+ * that's fine. Who cares? You can't really see the creatures anyways … they're like kind of standing
+ * behind the castle or their tower."* Do not "fix" it without his word.
+ *
+ * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
+ * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
+ */
+export const WARLORD_RAGE_COOLDOWN_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s
 
 /*
  * ⭐⭐ S168 (owner R150) — **THE ARCHDEMON.**
