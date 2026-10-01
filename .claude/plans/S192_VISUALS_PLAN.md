@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS: S192 `s192/visuals`. Pilot (V01-V03) plus the next three (V04, V05, V06) are built on this branch. Every other item is QUEUED in batches visuals-2 to visuals-5 (section 5).**
+**STATUS: IN-PROGRESS: S192 `s192/visuals` built V01-V06 (the substrate, the 2-item pilot and the next 3), awaiting merge plus the owner's LOOK. Every other item is QUEUED in batches visuals-2 to visuals-5 (section 5).**
 
 # S192 · SPARK VISUAL UPGRADE · the rework list
 
@@ -122,7 +122,7 @@ and after, gates after every commit, no protocol bump.
    same commit. This branch adds `fxTopLayer` as the LAST child of `fogHiddenLayer` (index 20), so indices 6 and 11
    (`tower-art.spec.ts`) do not move.
 
-## 6 · Performance contract
+## 6 · Performance contract (measured: see `S192_PROGRESS_visuals.md`. After V01-V06, +0.15 to +0.4 ms CPU a frame, frame rate unchanged)
 
 Measured with the dev seam `__SPARK__.fx.bench(n)`: it spawns n creatures in FIGHT, then times
 `app.renderer.render` plus the renderer syncs over 300 frames in headless Chromium. Numbers are in
