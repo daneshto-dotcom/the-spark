@@ -229,14 +229,17 @@ jobs:
   # green worker-bots was starving the specs queued behind it. Split out on the `@races` precedent: its
   # own runner and timeout, still gating. `@worker-bots` is inverted out of `e2e:gating`, and
   # `src/ci.e2eLanes.test.ts` pins the tag → job → script mapping.
+  # ⛔ S193 — 9/12 → 11/20. The spec's wall backstops are now derived from its tick budgets at the slowest
+  # CI rate measured (6 ticks/s, run 36867560496), so its test budget is 590 s (no retries): 11 min holds it,
+  # and the runner keeps ≥ 8 min above Playwright for checkout + npm ci + browser install (7.5 min measured).
   e2e-worker-bots:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       # ⛔ Below timeout-minutes, set HERE (Council, S191): Playwright must end an overrun and flush its
       # report. If the runner's cap fires first the job concludes `cancelled` — no failure, no email, no
       # artifacts — which is the silent non-signal this file documents three times over.
-      PW_GLOBAL_TIMEOUT_MIN: 9
+      PW_GLOBAL_TIMEOUT_MIN: 11
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -512,13 +515,20 @@ jobs:
   # "the 4th player can't connect" bug, reproduced deterministically; it gates HERE for the reasons
   # above. It costs 1.1–2.0 min locally and CI is 3–5× slower, so this lane's budget went 12→20 /
   # 9→16 (Playwright stays strictly below the runner, per the standing rule).
+  #
+  # ⛔ S193 — AND THAT WAS STILL TOO SMALL: the test's own 150 s cap fired in 11 of 12 CI attempts,
+  # 4 of them AFTER the 4-way mesh had formed (see `LATE_JOINER_BUDGET_MS` in nplayer.spec.ts for the
+  # traces). The test is now 330 s, so the lane must hold 3 attempts of it (990 s) + the other four
+  # lobby tests (≤ 60 s each) = 20.5 min ⇒ 22. And the runner keeps ≥ 8 min ABOVE Playwright for
+  # checkout + npm ci + browser install, which took 7.5 min in run 36882836513 — at 16/20 a full-length
+  # Playwright run would have been SIGKILLed into `cancelled`, the S126 trap. `ci.e2eLanes.test.ts` pins both.
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 32
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 16
+      PW_GLOBAL_TIMEOUT_MIN: 22
     steps:
       - name: Checkout
         uses: actions/checkout@v6

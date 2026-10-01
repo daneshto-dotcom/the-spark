@@ -53,6 +53,7 @@ import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
+import { monsterVictimSeat } from '../endgame.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -1272,9 +1273,18 @@ export function enemyCastleInReach(world: World, creature: Creature, reach: numb
    * ⚠ "not helga" needs no clause here: Helga is a DEFENDER, not a creature, and never reaches this
    * function at all.
    */
+  /*
+   * ⭐ S193 (audit) — A PANTS STRIKES ONLY ITS VICTIM'S KEEP. It belongs to no seat, so "not my seat"
+   * admitted EVERY keep it walked past, and the lowest seat in reach won — the engage, abort and
+   * strike sites all read this one function. Its victim is `monsterVictimSeat` (derived, synced).
+   */
+  const isPants = creature.type === 'endgameMonster' || creature.type === 'megaPants';
+  const onlySeat = isPants ? monsterVictimSeat(world, creature) : null;
+  if (isPants && onlySeat === null) return null;
   let best: PlayerId | null = null;
   for (const seat of world.players.keys()) {
     if (seat === creature.ownerPlayerId) continue;
+    if (isPants && seat !== onlySeat) continue;
     const victim = world.players.get(seat);
     if (victim === undefined || victim.castleHp <= 0) continue;
     const a = castleAnchor(seat as unknown as number, world.layout);

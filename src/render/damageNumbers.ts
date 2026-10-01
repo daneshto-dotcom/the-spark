@@ -403,6 +403,18 @@ export function damageAnchor(
   };
 }
 
+/**
+ * ⭐⭐ S192 (owner T12) — **A HEAL IS DRAWN STRAIGHT ABOVE THE UNIT THAT WAS HEALED.** *"every tick of
+ * healing should show above him."* No lean toward the nearest enemy (that is R185-D's rule for a HIT,
+ * which says who RECEIVED the blow; a heal has no attacker to point at) and no sideways fling — only the
+ * lift, so a run of pulses stacks in one column over his head. Applies to EVERY heal (lifesteal, LIFE
+ * SAP, CORPSE EATER, repairs, castle regen). ⚠ Heal placement was never separately ruled; this is his
+ * T12 sentence read for all heals, MINE where it widens past the zombie boss. Pure, render-only.
+ */
+export function healAnchor(vx: number, vy: number): { x: number; y: number } {
+  return { x: vx, y: vy - LIFT_PX };
+}
+
 /** Exported for the tests that pin the owner's placement ruling. */
 export const DAMAGE_TOWARD_ATTACKER = TOWARD_ATTACKER;
 export const DAMAGE_LIFT_PX = LIFT_PX;
@@ -721,6 +733,17 @@ export class DamageNumbers {
       this.emitAt(world, (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2, hit.amount, 'damage', a.placedBy);
     }
     world.connectorBreakHits.length = 0;
+    /*
+     * ⭐⭐ S192 (owner T11) — **A REPAIR PRINTS ONE GREEN NUMBER: EVERYTHING IT RESTORED.** The connector
+     * half is invisible to the diff below by design (a rising pool's fall is never printed — a sever
+     * lowers banks too), so `applyRepairStructure` records the total. The shapes it refilled are
+     * re-seeded as first sightings, or each would ALSO print its own green number on top of the total.
+     */
+    for (const h of world.structureHealHits) {
+      for (const key of h.keys) this.watchedStruct.delete(key);
+      this.emitAt(world, h.x, h.y, h.amount, 'heal', h.owner);
+    }
+    world.structureHealHits.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
@@ -846,7 +869,7 @@ export class DamageNumbers {
     world: World, x: number, y: number, amount: number, kind: FloaterKind, owner: PlayerId,
   ): void {
     if (amount <= 0) return;
-    this.place(damageAnchor(world, null, x, y, owner), amount, kind);
+    this.place(kind === 'heal' ? healAnchor(x, y) : damageAnchor(world, null, x, y, owner), amount, kind);
   }
 
   private emit(
@@ -859,7 +882,8 @@ export class DamageNumbers {
     owner: PlayerId,
   ): void {
     if (amount <= 0) return;
-    this.place(damageAnchor(world, victim, vx, vy, owner), amount, kind);
+    // ⭐ S192 T12 — a heal sits straight above the healed unit (`healAnchor`); a hit keeps R185-D.
+    this.place(kind === 'heal' ? healAnchor(vx, vy) : damageAnchor(world, victim, vx, vy, owner), amount, kind);
   }
 
   /**
@@ -882,9 +906,11 @@ export class DamageNumbers {
     t.anchor.set(0.5);
     t.visible = true;
     this.flip = -this.flip;
+    // ⭐ S192 T12 — a heal rises straight up (no fling), so his pulses read as one column above him.
+    const drift = kind === 'heal' ? 0 : this.flip * DRIFT_PX;
     this.live.push({
-      text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift: this.flip * DRIFT_PX,
-      amount, heal: kind === 'heal', seed: floaterSeed(x, y, amount),
+      text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift,
+      amount, heal: kind === 'heal', seed: floaterSeed(x, y, amount), // S193 (V08)
     });
     this.layer.addChild(t);
     if (this.live.length > MAX_LIVE) this.retire(0);

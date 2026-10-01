@@ -303,7 +303,8 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
  * live and made this guard a lie by omission.
  */
 describe('S182 — the new array is wiped at all FIVE sites, and so are its three siblings', () => {
-  const ARRAYS = ['razedNotKilled', 'connectorBreakHits', 'creatureKillHits', 'structureKillHits'];
+  // ⭐ S192 T11 — `structureHealHits` joins them: the same contract, the same five sites.
+  const ARRAYS = ['razedNotKilled', 'connectorBreakHits', 'creatureKillHits', 'structureKillHits', 'structureHealHits'];
 
   /**
    * ⛔ S182 — **THIS GUARD WAS FILE-SCOPED AND COULD NOT SEE FUNCTIONS.** `src.includes(...)` is

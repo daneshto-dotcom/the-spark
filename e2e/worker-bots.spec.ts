@@ -62,15 +62,31 @@ const GROWTH_BUDGET_TICKS = 1_200;
 const FIRST_BUILD_BUDGET_TICKS = 1_800;
 
 /**
- * Wall backstop for a DEAD page, not a throughput budget. 1200 ticks needs ~109 s at the ~11
- * ticks/s measured on the CI runner, so 180 s clears it with margin. If this ever binds first the
- * helper says so explicitly rather than blaming the game.
+ * Wall backstop for a DEAD page, not a throughput budget. If it binds first the helper says so
+ * explicitly rather than blaming the game.
+ *
+ * ⛔ S193 — ONE BACKSTOP WAS SERVING TWO BUDGETS, AND IT WAS SIZED FOR THE SMALLER. This was a single
+ * `GROWTH_WALL_CAP_MS = 180_000`, sized for the 1200-tick GROWTH wait at the ~11 ticks/s the runner
+ * usually manages (~109 s), and then "reused unchanged" for the 1800-tick FIRST-build wait — which
+ * needs ~164 s at that same rate, i.e. 16 s of margin. CI run 36867560496 ran the runner at
+ * 6.12 ticks/s: `WALL BACKSTOP BOUND FIRST — the sim only advanced 1104/1800 ticks in 180.3s`. The
+ * game was never given its budget; the lane went red and emailed the owner anyway.
+ *
+ * Each wait's backstop is now DERIVED from its own tick budget at the slowest rate measured on CI,
+ * so a slow runner can no longer pre-empt the tick budget, and a budget change carries its backstop
+ * with it. ⚠ The TICK budgets are unchanged — they are the game's runway and are never raised to make
+ * this pass. `src/ci.e2eLanes.test.ts` pins every `waitForWorldWithinTicks` call to `wallCapFor(itsOwnBudget)`.
  */
-const GROWTH_WALL_CAP_MS = 180_000;
+const SLOWEST_CI_TICKS_PER_S = 6; // measured 6.12 in run 36867560496 (S193); usual ~11
+const wallCapFor = (ticks: number): number => Math.ceil((ticks / SLOWEST_CI_TICKS_PER_S) * 1000);
+/** Match start + VS-BOTS overlay + worker adoption waits before the first tick-budgeted wait (20+20+20+30 s caps). */
+const SETUP_WAITS_MS = 90_000;
+const WORKER_BOTS_TEST_BUDGET_MS =
+  SETUP_WAITS_MS + wallCapFor(FIRST_BUILD_BUDGET_TICKS) + wallCapFor(GROWTH_BUDGET_TICKS); // 90 + 300 + 200 s
 
 /*
  * ⭐ S191 A-4 (A1, R190-L) — ` @worker-bots`: THIS SPEC RUNS ON ITS OWN GATING JOB (`e2e-worker-bots`),
- * inverted OUT of the shared `e2e:gating` lane — the `@races` precedent (S165). It is one 360 s test
+ * inverted OUT of the shared `e2e:gating` lane — the `@races` precedent (S165). It is one long test (590 s budget since S193; ~3 min typical)
  * with no retries, i.e. up to HALF of the shared lane's 720 s Playwright cap on its own, and every red
  * run of that lane since S187 ran out of cap with specs unexecuted. Still GATING (no continue-on-error);
  * `src/ci.e2eLanes.test.ts` pins the mapping.
@@ -78,14 +94,14 @@ const GROWTH_WALL_CAP_MS = 180_000;
 test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke @worker-bots', () => {
   // S143 P2 — NO RETRIES ON THIS SPEC (the S127 `PW_RETRIES: 0` precedent). A tick-budgeted
   // failure reproduces identically, so retries buy nothing but wall-clock — and since S191 A-4 this
-  // spec is its own `e2e-worker-bots` lane with PW_GLOBAL_TIMEOUT_MIN 9 min, which 3 attempts at a
-  // 360 s budget would overrun. The three attempts burned on every previous red produced three identical logs.
+  // spec is its own `e2e-worker-bots` lane with PW_GLOBAL_TIMEOUT_MIN 11 min (S193), which 3 attempts at a
+  // 590 s budget would overrun. The three attempts burned on every previous red produced three identical logs.
   test.describe.configure({ retries: 0 });
 
   test('bots match adopts the worker: bots place through the worker, 0 hash mismatches', async ({
     page,
   }) => {
-    test.setTimeout(360_000);
+    test.setTimeout(WORKER_BOTS_TEST_BUDGET_MS);
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(String(err)));
     const consoleErrors: string[] = [];
@@ -143,14 +159,14 @@ test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke @worker-bots', () 
     // places nothing in this spec, so ANY primitive is bot-authored AND proves a
     // structural snapshot applied (primitives never ride the positions payload).
     // ⭐ S154 P5 (CF-S152-a) — TICK-BUDGETED, not wall-clocked. See FIRST_BUILD_BUDGET_TICKS.
-    // `GROWTH_WALL_CAP_MS` is reused unchanged as the DEAD-PAGE backstop: if it binds first the
-    // helper says so explicitly rather than blaming the game.
+    // Its DEAD-PAGE backstop is derived from its own budget (S193, see `wallCapFor`): if it binds
+    // first the helper says so explicitly rather than blaming the game.
     await waitForWorldWithinTicks(
       page,
       (w) => w.primitives.length >= 1,
       'first bot-authored primitive on the mirror',
       FIRST_BUILD_BUDGET_TICKS,
-      GROWTH_WALL_CAP_MS,
+      wallCapFor(FIRST_BUILD_BUDGET_TICKS),
     );
     // ⛔ S143 P2 — SAMPLE THE HIGHEST PRIMITIVE ID, NOT THE LIVE COUNT.
     // `primitives.length` is NOT monotonic: `razePrimitives` deletes entries and MID bots sever
@@ -170,7 +186,7 @@ test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke @worker-bots', () 
       (w) => w.maxPrimitiveId > sampleA,
       `bot placements continue (maxPrimitiveId ${sampleA} → >${sampleA})`,
       GROWTH_BUDGET_TICKS,
-      GROWTH_WALL_CAP_MS,
+      wallCapFor(GROWTH_BUDGET_TICKS),
     );
 
     // Every primitive is bot-authored (placedBy !== human seat 0).

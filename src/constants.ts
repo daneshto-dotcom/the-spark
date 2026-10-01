@@ -2809,6 +2809,12 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's 
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
+ * ⛔⛔ SUPERSEDED (the mechanic, not this radius): S192 T3 made it a split ladder pool
+ * (`racial/zombieDeathBlast.ts`, no longer this action), and the owner ruled S193 (R193-B1..B3):
+ * *"312 blast pool, but split over … everyone who's around"*, creatures take twice a tower, and
+ * *"It does not hit his own side"* — which replaces R138's "hurting everything" for this blast. Only
+ * the RADIUS below survives from S168, and it is still MINE.
+ *
  * ⚠ THE NUMBER IS MINE, NOT HIS. He said "huge" and did not give a figure. 380 px is set against
  * the only comparable already on the board — the lightning hub's 240 px "lightning storm" — because
  * a tier-9 boss detonating must read as decisively bigger than a tier-6 structure doing it. It is
@@ -4208,3 +4214,117 @@ export const ARROW_FLIGHT_TICKS = 12;
  * other reason a few seconds earlier cannot combine with a later one to abandon a game.
  */
 export const TITLE_EXIT_CONFIRM_MS = 1600;
+
+/* ────────────────────────────────────────────────────────────────────────────────────────────── *
+ *  ⭐⭐ S192 (owner, scope amendment A3) — THE ENDGAME: the last draft, the build lock, the pants.
+ *  Spec: `.claude/plans/S192_ENDGAME_SPEC.md`. Owner, verbatim in `S192_OWNER_ENDGAME_SPEC.md`:
+ *  *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30,
+ *  and 31, the next five waves, is going to be basically instant death."*
+ * ────────────────────────────────────────────────────────────────────────────────────────────── */
+
+/** HIS: *"after the fight of level 25, it's going to be the last upgrade"* — the wave-26 draft. */
+export const LAST_DRAFT_WAVE = 26;
+/**
+ * HIS: *"in the build phase of 27 … you can't build anything new anymore. You can fix existing
+ * structures"*. `waveNumber` increments on ENTRY INTO BUILD, so `>= 27` starts in BUILD of 27.
+ */
+export const BUILD_LOCK_FROM_WAVE = 27;
+/** The first and last monster FIGHTS — *"the next five waves"*, 27 through 31. */
+export const MONSTER_FIRST_WAVE = 27;
+export const MONSTER_FINAL_WAVE = 31;
+/**
+ * Monsters per LIVING player, by wave — ⭐ ALL FIVE ARE HIS (S193, `S193_OWNER_ENDGAME_ANSWERS.md` Q1):
+ * *"it should be 10, 25, 50, 100, and 250. That way, nobody can really beat 250 at wave 31."*
+ * (Replaces the S192 build's 10/25/35/50/75, whose 29 and 31 were mine.)
+ * ⚠ MINE (S193 audit, kept as is): WHEN A SEAT FALLS, ITS UN-EMERGED PANTS ARE DROPPED — the wave's total
+ * becomes this count × the LIVING seats (`monsterWaveTotal`); its pants already out retarget to the survivors.
+ */
+export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
+  27: 10,
+  28: 25,
+  29: 50,
+  30: 100,
+  31: 250,
+};
+/**
+ * ⭐ HIS PACE (S193, Q1+Q8): *"one comes and then once he's out of the circle the next comes and then
+ * the next comes and there's a countdown of how many are coming how many are left"* — never a chunk.
+ *
+ * ⚠ MINE — "OUT OF THE CIRCLE", MADE A TICK RULE. Each living seat has its own LANE: its pants are born
+ * on the quarry rim facing that seat's keep, one every `MONSTER_EMERGE_TICKS`, and the lanes are
+ * STAGGERED (lane k releases `k × EMERGE / N` ticks after lane 0), so the board sees one pants at a
+ * time and each lane's previous pants has left the circle before its next is born. 45 ticks = the
+ * 30-tick SPAWNING rise + ~15 ticks to walk the 20 px from the birth point past the rim (measured S193:
+ * a pants born 60 px in took 111–163 ticks to clear the 125 px circle; born 20 px inside the rim it
+ * clears in ~45). A tick rule, not a position test, so a pants shoved back into the circle cannot
+ * stall a lane for the rest of the wave.
+ */
+export const MONSTER_EMERGE_TICKS = 45;
+/**
+ * ⚠ MINE (S193 audit, MED perf) — AT MOST 30 LIVE PANTS PER SEAT. His reason for the trickle was LAG
+ * (*"Because we're gonna be lagging"*), and with no cap a 4-seat wave 31 whose keeps hold reached 945
+ * live pants: `netSnapshot` 176 KB, ~5 MB/s of host upload at 10 Hz × 3 peers (the S193 audit probe).
+ *
+ * SIZED FROM A MEASURED BUDGET (S193, real `runHostTick`, 4 seats, wave 31): a pants costs **~163 B**
+ * of `netSnapshot` JSON ((83 903 − 18 533) B / (507 − 105) pants). Budget ⚠ MINE: the pants' share of
+ * a 4-seat snapshot ≤ ~20 KB → 120 pants → 30 a seat: 120 × 163 ≈ 19.6 KB, ≈ 590 KB/s of host upload
+ * to 3 peers (was ~5 MB/s); 6 seats → 180 × 163 ≈ 29 KB. A seat's lane WAITS while that seat has 30
+ * alive — *"once he's out of the circle the next comes"* — and the countdown still counts what is
+ * left to come out. 30 still one-shots every unit below a Voltkin, 30 times over.
+ */
+export const MONSTER_MAX_LIVE_PER_SEAT = 30;
+/**
+ * ⚠ MINE (S193) — never more than one pants born on a tick. The normal pace is N / 45 a tick (< 1 for
+ * any board), so this only bites when a capped lane frees up after waiting: the backlog then comes out
+ * one a tick, never as a chunk.
+ */
+export const MONSTER_MAX_RELEASES_PER_TICK = 1;
+/** ⚠ MINE — the birth point's distance from the quarry centre: 20 px inside the 125 px rim. */
+export const MONSTER_BIRTH_RADIUS_PX = 105;
+/**
+ * ⚠ MINE — WHILE PANTS ARE STILL TO COME OUT, THE FIGHT DOES NOT END. His counts at his pace do not fit
+ * a 60 s fight from wave 29 on (100 each × 45 ticks = 75 s at wave 30), and he gave both. So on waves
+ * 27–30 the deadline is held `MONSTER_HOLD_LEAD_TICKS` ahead of the clock until the last pants is out,
+ * then counts those 10 s down normally — which also keeps every phase-end WINDOW (the army's 3 s
+ * run-home, the gatherers' 1 s shelter, the bots' Ra timing) firing exactly as on any other fight.
+ */
+export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
+/**
+ * ⭐ HIS (S193, Q2): *"If two players are still alive, then the clock doesn't end. It doesn't go into
+ * the next build phase … it keeps going until you reach your score … Either your score or you destroy
+ * the other player's castle … if … the timer … passes a certain amount, we will make … a huge boss that
+ * just comes and destroys everything … the boss is gonna be basically unbeatable, but it's all about
+ * surviving longer."*
+ *
+ * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. His 250 each
+ * take 250 × 45 = 11 250 ticks (3:07.5) to come out, so the boss arrives ~50 s after the last pants.
+ */
+export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
+/**
+ * ⚠ MINE — THE MEGA PANTS, ON THE LADDER: HP 500 / DEF 20 → pool `unitPoolFifths(500, 20)` = 500 × 5 × 5
+ * = **12 500** (125 regular pants; 312 castle-gun shots of 40). ATK 60 / PEN 20 → strike
+ * `attackFifths(60, 20)` = 60 × 5 × 5 = **1 500**: a 2500 keep falls in two blows, a 5-connector tower's
+ * whole 130 ladder (and the next tower's) in one through the carry. "Basically unbeatable", his word —
+ * beatable in principle, and if it IS felled another one walks out (`megaPantsDue`).
+ */
+export const MEGA_PANTS_STATS = { hp: 500, def: 20, atk: 60, pen: 20 } as const;
+/** ⚠ MINE — the pants' own pace (0.75 of a goblin): it is not in a hurry. */
+export const MEGA_PANTS_SPEED_MUL = 0.75;
+/**
+ * ⭐ HIS NOW (S193, Q9 + Q4): the pants monster ON THE LADDER — pool `unitPoolFifths(10, 5)` = 100,
+ * strike `attackFifths(5, 3)` = 40 (the castle gun's own shot). *"stats for pants … fine"*, and twice
+ * *"They hit for 40, that's fine."* One-shots every unit below a Voltkin, dies to three castle shots or
+ * one tier-9 boss swing. "Instant death" comes from the COUNT, not a multiplier.
+ * ⚠ FLAG (one line, Q9): he once listed *"attack 5 penetration 5"* — PEN 5 would be a 50 hit; built 40.
+ */
+export const ENDGAME_MONSTER_STATS = { hp: 10, def: 5, atk: 5, pen: 3 } as const;
+/** ⚠ MINE — slower than a melee goblin (0.85), so defenders get time to meet the wave. */
+export const ENDGAME_MONSTER_SPEED_MUL = 0.75;
+/**
+ * The owner of every monster: a SENTINEL that is not a seat (seats are `0..MAX_PLAYERS-1`). Every
+ * enemy predicate in the sim is `owner !== me`, so every seat's towers, castle gun and units treat a
+ * monster as an enemy with no further wiring. ⚠ It is never in `world.players`.
+ */
+export const MONSTER_OWNER_SEAT = 255;
+// (S193 — the S192 pulse window `MONSTER_SPAWN_WINDOW_TICKS` / `MONSTER_MIN_PULSE_TICKS` / `MONSTER_SPAWN_RING_PX`
+// is retired: his pace is one pants at a time out of the circle — `MONSTER_EMERGE_TICKS` above.)

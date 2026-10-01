@@ -32,11 +32,8 @@
 // asserted equal by `src/net/relayLists.test.ts` so they cannot drift silently.
 const NOSTR_RELAYS = [
   'wss://nos.lol',
-  'wss://relay.mostr.pub',
   'wss://purplerelay.com',
   'wss://nostr.mom',
-  'wss://offchain.pub',
-  'wss://nostr-pub.wellorder.net',
   'wss://relay.primal.net',
 ];
 
@@ -49,6 +46,16 @@ const TORRENT_TRACKERS = [
 const KNOWN_DEAD = [
   'wss://tracker.btorrent.xyz',
   'wss://tracker.files.fm:7073/announce',
+  'wss://relay.mostr.pub',
+];
+
+/**
+ * S193 — removed because they REJECT every event we publish (their NOTICE says so), not because the socket
+ * fails. A handshake probe will show them OPEN; that is expected and is NOT a reason to re-add them.
+ */
+const KNOWN_WRITE_REJECTING = [
+  'wss://offchain.pub',
+  'wss://nostr-pub.wellorder.net',
 ];
 
 function probe(wssUrl, timeoutMs = 8000) {
@@ -93,6 +100,10 @@ async function main() {
   console.log('\n--- Previously removed, re-checked (expected DEAD) ---');
   const dead = await Promise.all(KNOWN_DEAD.map((u) => probe(u)));
   for (const r of dead) console.log(fmt(r));
+
+  console.log('\n--- Removed S193 for REJECTING WRITES (a handshake may still OPEN — that is expected) ---');
+  const rejecting = await Promise.all(KNOWN_WRITE_REJECTING.map((u) => probe(u)));
+  for (const r of rejecting) console.log(fmt(r));
 
   const live = [...nostr, ...torrent].filter((r) => r.ok).length;
   const total = nostr.length + torrent.length;

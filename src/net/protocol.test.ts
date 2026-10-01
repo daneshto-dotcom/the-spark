@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 57 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 59 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -112,7 +112,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // ⭐ S192 — 54 → 55: deploy #9 — s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6.
     // ⭐ S192 — 55 → 56: deploy #12 — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist).
     // ⭐ S193 — 56 → 57: deploy #17 — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules.
-    expect(PROTOCOL_VERSION).toBe(57);
+    // ⭐ S193 — 57 → 58: deploy #18 — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank.
+    // ⭐ S193 — 58 → 59: deploy #20 — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
+    expect(PROTOCOL_VERSION).toBe(59);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {
