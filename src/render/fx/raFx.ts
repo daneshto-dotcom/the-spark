@@ -79,7 +79,7 @@ export function raTelegraphFx(
     const dir = fxHash(seed, birth, k + 3) < 0.5 ? -1 : 1;
     const a = h1 * Math.PI * 2 + dir * u * 2.4;
     const d = radius * (1.15 + 0.3 * h2) * Math.pow(1 - u, 1.3);
-    const size = 3 + 3 * h2;
+    const size = 4 + 4 * h2;
     const tangent = a + dir * (Math.PI / 2);
     ground.emit('soft', x + Math.cos(a) * d, y + Math.sin(a) * d, size * 2.2, size, tangent,
       envelope(u, 0.2) * (0.45 + 0.55 * t), mixColor(SAND, SAND_HOT, u), 'add');
@@ -113,7 +113,7 @@ export function raBeamFx(
   }
   if (rel >= 0 && rel < 6) {
     const f = rel / 6;
-    top.emit('core', x, y, radius * 3.2 * (1 + f), radius * 1.8 * (1 + f), 0, 1 - f, 0xffffff, 'add');
+    top.emit('core', x, y, radius * 2.2 * (1 + 0.5 * f), radius * 1.1 * (1 + 0.5 * f), 0, 0.85 * (1 - f), 0xffffff, 'add');
   }
   if (rel < 0 || rel >= RA_FX_DUST_LIFE) return;
   // THE DUST BURST — sandy puffs rolling out to (and a little past) the kill radius, rising as they go.
@@ -155,7 +155,7 @@ export function raHaloFx(ground: FxSink, top: FxSink, id: number, x: number, y: 
     const sy = y + Math.sin(a) * r * 0.45;
     // sin(a) < 0 is the far half of the orbit: behind him, under his sprite.
     const sink = Math.sin(a) < 0 ? ground : top;
-    sink.emit('soft', sx, sy, 22, 22, 0, 0.35 + 0.25 * pulse, HALO, 'add');
-    sink.emit('core', sx, sy, 10, 10, 0, 0.8 + 0.2 * pulse, SUN, 'add');
+    sink.emit('soft', sx, sy, 30, 30, 0, 0.45 + 0.25 * pulse, HALO, 'add');
+    sink.emit('core', sx, sy, 14, 14, 0, 0.85 + 0.15 * pulse, SUN, 'add');
   }
 }

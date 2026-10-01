@@ -198,7 +198,7 @@ describe('V09 Ra — REACH through the real drawBossAuras', () => {
     const g = gfx();
     drawBossAuras(g.g, w);
     expect(rec.ground.some((e) => e.tex === 'ring'), 'the telegraph ring').toBe(true);
-    expect([...rec.ground, ...rec.top].filter((e) => e.tex === 'core' && e.w === 10).length, 'the six suns').toBe(RA_FX_HALO_SUNS);
+    expect([...rec.ground, ...rec.top].filter((e) => e.tex === 'core' && e.w === 14).length, 'the six suns').toBe(RA_FX_HALO_SUNS);
     // ⛔ THE PROMISE: the shade is still drawn at the sim's growing radius, at the sim's landing point.
     const t = 60 / RA_COLUMN_TICKS;
     expect(g.circles.some((r) => Math.abs(r - RA_COLUMN_RADIUS * (0.18 + 0.82 * t)) < 1e-9)).toBe(true);
@@ -284,7 +284,7 @@ describe('V10 Kraken sonar — the layout', () => {
   it('spray droplets are thrown AHEAD of the front', () => {
     const since = 14;
     const front = KRAKEN_SONAR_RANGE * (since / 24);
-    const drops = run(since).top.filter((e) => e.tex === 'core' && e.w === 4);
+    const drops = run(since).top.filter((e) => e.tex === 'core' && e.w === 6);
     expect(drops.length).toBeGreaterThan(5);
     expect(drops.some((d) => Math.hypot(d.x - 500, d.y - 500) > front + 5)).toBe(true);
   });

@@ -25,9 +25,9 @@ const WATER = 0x8fdcff;
 const WATER_DEEP = 0x3f9fd8;
 const FOAM = 0xffffff;
 
-export const SONAR_FX_BODY_BANDS = 2;
-export const SONAR_FX_BODY_SPRITES = 12;
-export const SONAR_FX_FOAM = 20;
+export const SONAR_FX_BODY_BANDS = 3;
+export const SONAR_FX_BODY_SPRITES = 14;
+export const SONAR_FX_FOAM = 24;
 export const SONAR_FX_SPRAY_LIFE = 10;
 export const SONAR_FX_SPRAY_PER_TICK = 2;
 /** The ripple's peak shove in board px, at the moment of firing (it fades with the wave). */
@@ -62,14 +62,14 @@ export function sonarFx(
 
   // BODY — the water behind the front, thinning as it passes.
   for (let j = 0; j < SONAR_FX_BODY_BANDS; j++) {
-    const r = front - 12 - j * 16;
+    const r = front - 10 - j * 15;
     if (r <= 8) continue;
     const n = SONAR_FX_BODY_SPRITES;
     const seg = (span * r) / n;
     for (let i = 0; i < n; i++) {
       const th = a0 + ((i + 0.5) / n) * span;
-      ground.emit('soft', bx + Math.cos(th) * r, by + Math.sin(th) * r, seg * 1.9, 14 - j * 4, th + Math.PI / 2,
-        (0.42 - j * 0.14) * fade * taper(i, n), j === 0 ? WATER : WATER_DEEP, 'add');
+      ground.emit('soft', bx + Math.cos(th) * r, by + Math.sin(th) * r, seg * 1.9, 26 - j * 6, th + Math.PI / 2,
+        (0.8 - j * 0.22) * fade * taper(i, n), j === 0 ? WATER : WATER_DEEP, 'add');
     }
   }
 
@@ -81,9 +81,9 @@ export function sonarFx(
     const fx = bx + Math.cos(th) * r;
     const fy = by + Math.sin(th) * r;
     const tp = taper(i, SONAR_FX_FOAM);
-    const size = 9 + 6 * fxHash(seed, i, 2);
-    top.emit('soft', fx, fy, size * 1.8, size, th + Math.PI / 2, 0.7 * fade * tp, FOAM, 'add');
-    if ((i & 1) === 0) top.emit('core', fx, fy, 5, 5, 0, 0.9 * fade * tp, FOAM, 'add');
+    const size = 13 + 9 * fxHash(seed, i, 2);
+    top.emit('soft', fx, fy, size * 1.9, size, th + Math.PI / 2, 0.95 * fade * tp, FOAM, 'add');
+    if ((i & 1) === 0) top.emit('core', fx, fy, 7, 7, 0, fade * tp, FOAM, 'add');
   }
 
   // SPRAY — droplets born on the front at their birth tick, thrown forward faster than it travels.
@@ -96,7 +96,7 @@ export function sonarFx(
     const d = speed * age + u * speed * SONAR_FX_SPRAY_LIFE * (1.2 + 0.6 * fxHash(seed, birth, k + 11));
     const hop = Math.sin(u * Math.PI) * (8 + 10 * fxHash(seed, birth, k + 12));
     const birthFade = 1 - age / visibleTicks;
-    top.emit('core', bx + Math.cos(th) * d, by + Math.sin(th) * d - hop, 4, 4, 0,
+    top.emit('core', bx + Math.cos(th) * d, by + Math.sin(th) * d - hop, 6, 6, 0,
       envelope(u, 0.15) * birthFade, k === 0 ? FOAM : WATER, 'add');
   });
 
