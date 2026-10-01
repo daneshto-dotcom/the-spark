@@ -286,8 +286,9 @@ Merge owner = the main session. This branch never merges, never pushes.
 
 ## Numbers that are MINE
 
-- `WARLORD_RAGE_COOLDOWN_TICKS` = 1500 (25 s) — the LENGTH only; "cooldown first" is his.
-- A-2: raise the band on disarm / place when Alt lowered it (the brief's default; he asked for the toggle).
+- ~~`WARLORD_RAGE_COOLDOWN_TICKS` = 1500 (25 s) — the LENGTH only~~ → HIS since S192 ("Rage cooldown 25 seconds, that's fine. Per warlord.").
+- ~~A-2: raise the band on disarm / place when Alt lowered it~~ → REMOVED by his S192 ruling (Alt = the arrow).
+- S192 item 2: Alt acts only where the arrow can be pressed (PLAYING, not under the NONET lock) — my reading.
 
 ## What I suspect / questions (not built)
 
@@ -346,3 +347,6 @@ Merge owner = the main session. This branch never merges, never pushes.
   (`controls.altFooter.test.ts`, 13): placing / Escape / RMB leave the band DOWN; unarmed Alt toggles both ways and is
   swallowed; Alt mid spark-drag drops it; Alt and the arrow are one toggle; outside PLAYING / under NONET → nothing.
   Mutations: armed-only restored → 3 red; PLAYING/lock guard removed → 1 red. `src/input` + `src/render` 2242/2242.
+- **3 · OWNER RULING — the 25 s cooldown is HIS.** `constants.ts` `WARLORD_RAGE_COOLDOWN_TICKS`: the `⚠ MINE` line
+  replaced by his quote (*"Rage cooldown 25 seconds, that's fine. Per warlord."*) + "per Warlord" stated; the same
+  wording in `warlordRageClock.test.ts` (header, describe title, assertion message). No value changed. 19/19.

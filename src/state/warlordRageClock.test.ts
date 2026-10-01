@@ -2,7 +2,7 @@
  * SPARK — S191 (owner) — THE WARLORD'S RAGE LASTS 25 SECONDS, THEN "COOLDOWN FIRST".
  *
  * > *"let's do it like 25 seconds"* (S190, recorded for S191) — and, asked what happens when the 25 s
- * > end with him still under half: **"cooldown first"** (S191; no length given → 25 s, ⚠ MINE).
+ * > end with him still under half: **"cooldown first"** (S191); its length is his too (S192): *"Rage cooldown 25 seconds, that's fine. Per warlord."*
  *
  * The rule: strictly below `WARLORD_RAGE_TRIGGER_PCT` of his own max, his OWN latch fires and stamps
  * `Creature.rageStartTick`; he rages for `WARLORD_RAGE_TICKS` REGARDLESS OF HEALING; then he is calm for
@@ -108,11 +108,11 @@ function runTo(r: Rig, until: number, each?: (tick: number) => void): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S191 — the numbers: 25 s of rage, then a 25 s cooldown (⚠ MINE), both off ONE stamp', () => {
+describe('S191 — the numbers: 25 s of rage, then a 25 s cooldown (his, S192), both off ONE stamp', () => {
   it('25 s at 60 Hz, derived; the cooldown mirrors it', () => {
     expect(WARLORD_RAGE_TICKS).toBe(25 * PHYSICS_HZ);
     expect(WARLORD_RAGE_TICKS).toBe(1500);
-    expect(WARLORD_RAGE_COOLDOWN_TICKS, '⚠ MINE — "cooldown first", no length given; 25 s mirrors the rage').toBe(WARLORD_RAGE_TICKS);
+    expect(WARLORD_RAGE_COOLDOWN_TICKS, `owner, S192: "Rage cooldown 25 seconds, that's fine. Per warlord."`).toBe(WARLORD_RAGE_TICKS);
   });
 
   it('the two windows are back to back, strictly `<`, and a stamp in the future is neither', () => {

@@ -3204,7 +3204,8 @@ export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 tic
  * half, he ruled a cooldown before any re-trigger: calm for this many ticks after the rage ends, during
  * which his latch cannot fire whatever his health; after it, below the line → he rages again at once.
  *
- * ⚠ MINE — owner ruled "cooldown first" (S191) but gave no length; 25 s mirrors the rage.
+ * ⭐ THE LENGTH IS HIS (S192): *"Rage cooldown 25 seconds, that's fine. Per warlord."* — 25 s, and it is
+ * per Warlord (each one's own `rageStartTick`; the frenzy never touches a Warlord, S191).
  *
  * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
  * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
