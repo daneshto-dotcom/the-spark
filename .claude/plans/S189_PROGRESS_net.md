@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 step A done (merge, ROUND-1, ROUND-2, ROUND-3, SEAM-1, FIX-2(a)); next: step-A gates, then step 8 (C4 tuning).**
+**STATUS: IN PROGRESS — S192 step A COMPLETE (gates 0/0/0, net e2e 16/17 — the 1 = the known C4 hard-blip timing); now step 8 (C4 retry tuning).**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -848,3 +848,15 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   player/castle) and a line ordered by join order instead of seat number (warrant re-issue or host-key claim
   verification, and reconciliation by line position instead of lowest-seat-wins) — wire + sim, a bump.
   Gates: typecheck **0**, `vitest src/net/ + overlay` **0** (42 files / 652). Protocol: see the bump verdict.
+
+- **Step 7 — step-A gates (tip a2fa46c), captured `$?`:** typecheck **0** · `npx vitest run --maxWorkers=3`
+  **0** (415 files + 2 skipped / 6739 tests + 7 skipped) · build **0**, entry **974.6 KiB** (cap 1100, headroom
+  125.4; master 972.7 → this branch's S192 work **+1.9 KiB**). Benign: the pentagram snapshot line-ending
+  rewrite → restored. **Net e2e** (`npx playwright test e2e/reconnect.spec.ts e2e/reconnect-hard-blip.spec.ts
+  e2e/exit-match.spec.ts e2e/hostmigration.spec.ts --workers=1`) on THIS worktree's hashed port **21241** —
+  verified mine while running: the listener's command line is
+  `…\.claude\worktrees\s189-net\node_modules\…\vite.js --port 21241 --strictPort --host`. Exit **1**:
+  **16 passed, 1 failed** — the failure is `reconnect-hard-blip` "inside the grace" (attempts at 1630 / 9806 /
+  17958 ms, recovered at **21 840 ms**, grace 15 000): the KNOWN C4 timing item that step 8 exists for
+  (S191 measured 6/7 recovered, only 2 inside the grace), not a regression — the match came back. All four
+  hostmigration cases (D3, D4 production, v2 frozen-then-thawed host) and both exit-match cases green.
