@@ -22,7 +22,7 @@
  * the un-unit-testable GPU half; it is verified live in the preview.
  */
 
-import { Application, Container, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
+import { Application, Container, Rectangle, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -274,6 +274,12 @@ export class FogRenderer {
     this.container.visible = false;
     this.container.addChild(this.fogSprite);
     this.mist = new FxLayer('fogMist');
+    /*
+     * ⛔ PINNED BOUNDS. Edge puffs overhang the board by up to ~80 px, and without this the stage's
+     * bounds grow past 1920×1080 — every `renderer.extract.pixels(app.stage)` probe then maps board
+     * points to the wrong pixel (fog.spec's ghost test read 0 at the ghost). The board is the frame.
+     */
+    this.mist.container.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     this.container.addChild(this.mist.container);
     app.stage.addChild(this.container);
 

@@ -11,7 +11,8 @@
  * which assumes a single shared texture.
  */
 
-import { Application, Container, Graphics, Sprite } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { isConcealed } from './concealment.ts';
 import type { Spark } from '../game/spark.ts';
 import type { SparkId } from '../types.ts';
@@ -92,6 +93,9 @@ export class SparkRenderer {
     // from any probe.
     this.container.label = 'sparkRenderer';
     this.glow = new FxLayer('sparkGlow');
+    // Pinned to the board, so a glow overhanging the edge never grows the stage's bounds (S193: the
+    // fog-mist overhang did exactly that and broke every `extract.pixels(app.stage)` probe).
+    this.glow.container.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     this.container.addChild(this.glow.container);
     parent.addChild(this.container);
   }

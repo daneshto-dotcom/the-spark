@@ -84,5 +84,7 @@ describe('V27 — fog-edge mist', () => {
     expect(src).toMatch(/computeMistField\(this\.mistField, sources, ownZone === null \? null : zoneRect\(ownZone, world\.layout\), VISION_FADE_PX\)/);
     expect(src.indexOf('this.container.addChild(this.fogSprite);')).toBeLessThan(src.indexOf('this.container.addChild(this.mist.container);'));
     expect(src).toMatch(/fogMistFx\(this\.mist, this\.mistField, world\.tick, this\.alpha\)/);
+    // ⛔ pinned bounds: without it the edge puffs grew the stage and broke fog.spec's pixel probes
+    expect(src).toMatch(/this\.mist\.container\.boundsArea = new Rectangle\(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT\)/);
   });
 });

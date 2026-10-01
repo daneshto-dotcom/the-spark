@@ -26,6 +26,7 @@
  */
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import {
   stinkCloudProgress,
   type StinkCloud,
@@ -80,6 +81,8 @@ export class StinkCloudRenderer {
     this.haze = new Graphics();
     parent.addChild(this.haze);
     this.smoke = new FxLayer('stinkCloudSmoke');
+    // Pinned to the board (see `renderer.ts` glow): an edge cloud's smoke must not grow the stage bounds.
+    this.smoke.container.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     parent.addChild(this.smoke.container);
     this.spriteLayer = new Container();
     parent.addChild(this.spriteLayer);
