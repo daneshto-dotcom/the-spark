@@ -26,6 +26,12 @@ export const GROUND_STAIN_VARIANTS = 2;
 /** The baked texture size (2:1, the ground ellipse's box). */
 export const GROUND_STAIN_TEX_W = 128;
 export const GROUND_STAIN_TEX_H = 64;
+/**
+ * The sprite is drawn this much larger than the S185 ellipse so that its HALF-alpha contour sits on
+ * the S185 rim: the soft edge straddles the owner-tuned boundary instead of eating into it (pass-2
+ * screenshots measured the stain ~15 % narrower than the flat mark at scale 1). MINE.
+ */
+export const GROUND_STAIN_SCALE = 1.12;
 /** No texel is darker than this fraction of the race colour (the S185 near-black rule). */
 export const GROUND_STAIN_MIN_SHADE = 0.2;
 

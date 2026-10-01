@@ -36,7 +36,7 @@ import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
 import { fxActive } from './fx/fxState.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
-import { GROUND_STAIN_TEX_H, GROUND_STAIN_TEX_W, groundStainPick } from './fx/groundStainFx.ts';
+import { GROUND_STAIN_SCALE, GROUND_STAIN_TEX_H, GROUND_STAIN_TEX_W, groundStainPick } from './fx/groundStainFx.ts';
 import { groundStainTexture } from './groundStainTextures.ts';
 import type { RaceId } from '../state/races.ts';
 
@@ -281,7 +281,7 @@ export class GroundDecalRenderer {
     sp.visible = true;
     sp.position.set(cx, cy);
     // Set from the texture size directly (a `width` setter keeps the old sign, and the pool is reused).
-    sp.scale.set(((pick.flip ? -1 : 1) * rx * 2) / GROUND_STAIN_TEX_W, (ry * 2) / GROUND_STAIN_TEX_H);
+    sp.scale.set(((pick.flip ? -1 : 1) * rx * 2 * GROUND_STAIN_SCALE) / GROUND_STAIN_TEX_W, (ry * 2 * GROUND_STAIN_SCALE) / GROUND_STAIN_TEX_H);
   }
 
   clear(): void {
