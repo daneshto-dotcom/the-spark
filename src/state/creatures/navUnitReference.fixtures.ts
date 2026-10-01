@@ -22,11 +22,36 @@
  * ## ⚠ IF YOU CHANGE NAV-UNIT *BEHAVIOUR* (e.g. stop targeting a unit killed earlier in the tick)
  *
  * Change THIS FILE FIRST — it is the readable specification — then make `creatureAI.ts` agree.
+ *
+ * ## ⭐ S192 T13 — THE FIRST BEHAVIOUR CHANGE, AND IT LANDED HERE FIRST
+ *
+ * Owner: *"my spawn were attacking him, even though it was already dead"* — he ruled that a pick
+ * returning a unit killed earlier in the same tick IS a bug. The acquire scan and the hold now both
+ * skip a creature that is not a live target: `ehp <= 0`, in `pendingCreatureDeaths` (the S155 N1
+ * corpse-in-waiting), `DESPAWNING` (⚠ MINE — fading out of old age), or untargetable.
+ *
+ * ⛔ WRITTEN OUT LONGHAND (`referenceIsLiveTarget`), NOT IMPORTED. Production reads the shared
+ * `isLiveCreatureTarget` from `creature.ts`; if this file imported it too, a wrong edit to that
+ * predicate would move both sides at once and the differential would stay green over it. The
+ * longhand copy is what keeps the oracle independent. `isUntargetable` stays imported, as before:
+ * it is the S169/S171 rule this file has always shared, and T13 did not change it.
  */
 import type { CreatureId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { isUntargetable } from './creature.ts';
+
+/**
+ * S192 T13 — the liveness rule, longhand (see the file docblock for why it is not imported):
+ * a live pool, not a corpse-in-waiting, not fading out, and selectable.
+ */
+export function referenceIsLiveTarget(world: World, c: Creature): boolean {
+  if (c.ehp <= 0) return false;
+  if (world.pendingCreatureDeaths !== null && world.pendingCreatureDeaths.has(c.id)) return false;
+  if (c.state === 'DESPAWNING') return false;
+  if (isUntargetable(c, world.tick)) return false;
+  return true;
+}
 
 /**
  * Squared distance between two Vec2 points. Avoids sqrt for hot-path compare.
@@ -84,8 +109,10 @@ export function referenceFindNearestEnemyCreatureFrom(
      * Kraken's own sonar cone — still reach it, because "cannot be targeted" is a statement about
      * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
      * by anything at all. `untargetableGates.test.ts` pins both halves.
+     *
+     * S192 T13 — and not dead: the liveness rule, longhand.
      */
-    if (isUntargetable(c, world.tick)) continue;
+    if (!referenceIsLiveTarget(world, c)) continue;
     const dSq = referenceDistSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
     if (
@@ -134,7 +161,8 @@ export function referencePickNavUnit(
       // untargetable, every unit already locked on him renewed that lock here, and because
       // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
       // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
-      !isUntargetable(quarry, world.tick) &&
+      // S192 T13 — a corpse-in-waiting (or a fading unit) is not held either.
+      referenceIsLiveTarget(world, quarry) &&
       referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq
     ) {
       return held;

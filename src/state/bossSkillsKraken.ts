@@ -63,7 +63,7 @@ import {
 } from '../constants.ts';
 import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
-import { applyStun, isStunned, isUntargetable, type Creature } from './creatures/creature.ts';
+import { applyStun, isStunned, isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -149,7 +149,6 @@ export function nearestEnemyFor(
   let bestSq = Infinity;
   for (const c of world.creatures.values()) {
     if (c.ownerPlayerId === boss.ownerPlayerId) continue; // never our own units
-    if (c.ehp <= 0) continue;
     if (c.id === boss.id) continue;
     /*
      * ⭐ S171 (owner R142/R171-A) — CANNOT BE TARGETED, and the distinction here is exact.
@@ -158,8 +157,11 @@ export function nearestEnemyFor(
      * statement about ACQUISITION, not invulnerability, and the cone is an area sweep. What is
      * refused is using one as the AIM POINT: a locust cloud must not be able to swing the whole
      * wave's axis, and a Pharaoh mid-ritual is not in the world to be aimed at.
+     *
+     * ⭐ S192 T13 — the AIM is a pick, so it takes the one liveness predicate (which subsumes the
+     * old `ehp <= 0` line): a corpse-in-waiting or a fading unit does not swing the cone either.
      */
-    if (isUntargetable(c, world.tick)) continue;
+    if (!isLiveCreatureTarget(world, c)) continue;
     const dx = c.pos.x - boss.pos.x;
     const dy = c.pos.y - boss.pos.y;
     const dSq = dx * dx + dy * dy;

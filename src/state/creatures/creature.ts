@@ -213,6 +213,42 @@ export function isUntargetable(
 }
 
 /**
+ * ⭐⭐ S192 T13 (owner) — **IS THIS CREATURE A LIVE TARGET? THE ONE LIVENESS PREDICATE FOR EVERY PICK
+ * AND EVERY HOLD.**
+ *
+ * > *"creatures attacking a dead enemy … my spawn were attacking him, even though it was already
+ * > dead"* — owner, S192. He ruled the S191 perf question with it: a pick that returns a unit killed
+ * > earlier in the same tick IS a bug.
+ *
+ * Four conditions, all required:
+ *   1. `ehp > 0` — defence in depth (the immediate arm of `damageCreature` deletes; see 2);
+ *   2. not in `pendingCreatureDeaths` — **the corpse-in-waiting.** Under the S155 N1 deferral a unit
+ *      killed earlier in the strike batch stays in `world.creatures` until the sweep after the loop;
+ *      every scan used to be able to return it, and perf measured that 604 / 2 616 times (waves 1–3 /
+ *      1–5). The chaser then entered ATTACKING on a body and lost a cadence;
+ *   3. not `DESPAWNING` — ⚠ **MINE (S192), not his.** A creature fading out of old age (the Voltkin's
+ *      last 60 ticks) reads on screen as dead. The research flagged it as owner question 4; it is built
+ *      as the default because "attacking a dead enemy" is what it looks like. Revert = drop this line;
+ *   4. not `isUntargetable` — the S169/S171 rule (locust cloud by type, the Pharaoh mid-ritual).
+ *
+ * ⛔ NOT FOR AREA EFFECTS. This is a statement about SELECTION, like `isUntargetable` before it. A
+ * radial blast, an aura or a sonar cone sweeps a region; whether a corpse-in-waiting is in that region
+ * is a different question with its own guards. The sites that must use this are enumerated
+ * mechanically by `liveTargetSites.guards.test.ts`.
+ *
+ * Pure: `pendingCreatureDeaths` is host-tick scratch, identical in host and worker sims.
+ */
+export function isLiveCreatureTarget(
+  world: { readonly tick: number; readonly pendingCreatureDeaths: ReadonlySet<CreatureId> | null },
+  c: Pick<Creature, 'id' | 'type' | 'raRitualUntilTick' | 'ehp' | 'state'>,
+): boolean {
+  if (c.ehp <= 0) return false;
+  if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
+  if (c.state === 'DESPAWNING') return false; // ⚠ MINE (S192) — see the docblock
+  return !isUntargetable(c, world.tick);
+}
+
+/**
  * ⭐⭐ S171 (owner R142, R171-A) — **IS THIS CREATURE CHANNELLING THE RA RITUAL RIGHT NOW?**
  * The ONE read of `raRitualUntilTick`, on exactly the `isStunned` shape.
  *

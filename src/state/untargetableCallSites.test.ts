@@ -160,7 +160,11 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
       // took the gate in P2A, so a file that acquires THROUGH it inherits the refusal exactly as one
       // routing through the chokepoint does. Listing it here rather than granting the Pharaoh a
       // verdict is the honest fix: the file genuinely is guarded, just by a different guarded helper.
-      src.includes('nearestEnemyFor');
+      src.includes('nearestEnemyFor') ||
+      // ⭐ S192 T13 — the liveness predicate CONTAINS the gate (`!isUntargetable(c, world.tick)` is
+      // its last line, pinned by `navUnitIndex.guards.test.ts` and `liveTargetSites.guards.test.ts`),
+      // so a file that picks through it is guarded exactly as one calling the gate directly.
+      src.includes('isLiveCreatureTarget');
       if (guarded) continue;
       const r = rel(f);
       if (r in NOT_ACQUISITION) continue;
