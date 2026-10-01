@@ -1,5 +1,25 @@
-# S193 ROUND 2 (R193-B blasts) — IN PROGRESS
-- WIP: `src/state/blastFalloff.ts` (shared falloff); applyRadialDamage gains required `falloff`; hub split by distance; zombie blast 2:1, spares own side. NEXT: re-pin zombie REACH tests (own side now spared, chains must be ENEMY), run suite, re-pin hub/suicide/drone/stink tests, census test, canon + canon.test, gates.
+# S193 ROUND 2 — R193-B BLASTS — FINAL REPORT (DONE; awaiting independent audit)
+
+- **Merge**: `8772664` (master plan-file commits only, no conflicts). Commits: `23c4193` `…` → `e031de6` (code) + this doc.
+- **Built**: `src/state/blastFalloff.ts` — ONE falloff. Split pools: `blastSplitWeight = kind × max(1, floor(R − d))`,
+  `splitBlastPool = floor(pool × w / Σw)` + remainder in the caller's total order, sums exactly. Full hits:
+  `blastHitAtDistance` = linear 100 % → `BLAST_EDGE_FLOOR_PERCENT` (50, ⚠ MINE) at the rim, floor 1.
+  - zombie blast: 312 (RULED), creature/Helga ×2 vs structure/lone shape/bag ×1 (RULED), own side spared (RULED,
+    `HITS_OWN_SIDE=false`), a bag it pops bursts sparing his side too (`damageStinkCloud(…, owner)`), sever now via
+    `applySeverBond` (audit-F1 reason, like hub/Ra) through `severWithCarry`.
+  - hub: 120 split by distance, `HUB_BLAST_CREATURE_WEIGHT = 1` (⚠ MINE lever).
+  - `applyRadialDamage` gains REQUIRED `falloff: 'distance' | 'flat'`: suicide, drone, bag throw, bag burst, stink tower
+    death blast = 'distance'; stink aura + lingering cloud = 'flat' (DoT, census-allowlisted). Suicide connector arm scaled.
+- **Tests**: arithmetic (blastFalloff.census.test.ts, zombieDeathBlast.test.ts, canon.test); REACH through runHostTick:
+  zombie (2:1 + own side spared), hub (34/29/21/18/18 + carry), suicide goblin, drone, bag burst; census of every radial
+  call + every BOMB_EXPLODE producer. 6 mutations all RED. Re-pinned (derived from the helper): suicideGoblin,
+  draftStrikeArms, lightningDrone, stinkCloud, stinkTower, hubSelfDestructLadder (5), bossDeathExplosion (inverted: R193-B3).
+- **Gates**: typecheck 0 · vitest 0 (475 files / 4 skipped; 7289 passed / 11 skipped) · build 0, entry 1039.5 KiB
+  (+4.8 vs master 1034.7), headroom 60.5.
+- **Bump: YES** — every blast's damage is a rule both peers (successor / worker) compute.
+- **MINE**: 50 % edge floor + linear curve · hub 1:1 weight · radius 380 · Ra column NOT treated as a blast (open question)
+  · the drone's connector severs stay unconditional (his count ruling).
+- NEXT: nothing — wait for the audit.
 
 # S193 ROUND 1 — FINAL REPORT (merge master into `s192/zombies`)
 
