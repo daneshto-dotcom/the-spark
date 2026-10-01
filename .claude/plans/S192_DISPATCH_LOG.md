@@ -39,3 +39,26 @@ agent by `SendMessage` (to = the agent id below). Audits: ONE at a time, single 
 - P2 addons MERGED into master (re-audit CLEAN) + PROTOCOL 52→53 (docblock from CANON_NOTES §6, canon §6 + pins, protocol.test) + CLAUDE.md bundle/protocol/castle-2500 lines → deploy #7 gate chain running (gates/d7-addons).
 - TUNE round 2 DONE (tip 1c9a0a6; canon §3e applied + pins; gates 0/0/0 6730; 974.5 KiB; BUMP text in CANON_NOTES §6). Radar ceilings rise with the ×9 elite (display only, recorded). AUDIT QUEUE (one at a time, after weld): carry → tune → owner.
 - ⚠ OWN DEFECT: the 52→53 bump missed 3 of protocol.ts's SIX listed sites (HelloMsg chain, protoVersion literal, LOCAL_PROTO_V) — caught by s192/nagas-song's gates, NOT pushed; fixed + re-gating. Lesson: read the checklist at protocol.ts:1238 before bumping.
+
+## ⏸ PAUSED 2026-10-01 (owner: wait for the 5-hour limit reset rather than spend credits) — RESUME PLAN
+Every branch is committed; each agent's progress file holds its EXACT next step. Resume each by SendMessage to its agent id
+(or, if ids are gone in a new session, a fresh agent with its brief + its progress file).
+| branch | agent | tip | state / next step |
+|---|---|---|---|
+| s189/net | ae06968bf33c16f60 | 85d5b52 | DONE (ROUND-1/2/3, SEAM-1, FIX-2 half, C4 35 s; gates 0; no bump) → needs AUDIT, then merge |
+| s191/endstats | a5ad4ac233ab11c37 | d407dbf | DONE → audit; merge LAST; BLAST-2 after carry+owner |
+| s191/owner | a9da6cfee1b1bd103 | 642e339 | DONE → audit (after carry); INPUT-2 re-pin at its merge |
+| s191/carry | a26d964d59096668d | 99543ca | DONE → AUDIT (was running, STOPPED for the pause — re-run from scratch) |
+| s191/tune | a7e84f9e5eb7936f2 | ≥1c9a0a6 | round 3 in flight at pause (Pharaoh boss 35 split; Wrath seat 75 split; APEX ×6 per owner) — read its progress file |
+| s189/weld | a2611137462d48c12 | 4baf16a | X1 fixed; NEXT: X2 (parked test .claude/plans/S192_reaudit_X2_test_block.ts.txt in its worktree), L1, §H notes, gates |
+| s192/zombies | a43a67b01d400334f | 1d2c035 | T12 + T11 done; NEXT: T2/T3 zombieDeathBlast.ts (312 AWAITING OWNER) |
+| s192/units-ai | a0f4922a16a9ec1b8 | 916436b | T5 + T13 done; NEXT: fix 2 chaseGiveUp fixtures, then T6 measure + gates |
+| s192/voltkin | a9e7fe2b0603ea391 | 933d06a | DONE (A + B + overwrite + re-summon); NEXT: KiB delta + final report → audit |
+| s192/audio | ad3ef04e3f0c72f3c | babc463 | DONE; NEXT: full vitest, final report → audit |
+| s192/lobby4 | a2313b87e578543ba | b26d202 | fix + tripwires done; NEXT: run e2e/poolSafePc.spec.ts, repair nplayer.spec, gates |
+| s192/magic | a1170780e232bb275 | 665ed12 | substrate + REACH + differential done; NEXT: full gates + report; lands after tune/owner/carry/zombies |
+| s192/teams | a834f525473d4cafb | 2a6a224 | spec + substrate; NEXT: 2 red tests (raidHitsAnything:203 re-pin, stateHashFull FIELD_COVERAGE teams), then guard/differential/REACH/lobby UI |
+| s192/nagas-song | a964a8d152bc18b5b | 7b65e66 | DONE (asset swap, no code) → merge as a small deploy |
+LANDING ORDER after resume: verify deploy #7 if not done → carry (audit) → tune → owner → nagas-song → voltkin → audio → lobby4 → net → zombies → units-ai → weld → magic → endstats → teams.
+OWNER QUESTIONS OWED (one batch): T3 zombie blast pool (312 rec) / own side hit / 380 px; RISEN reading A; CORPSE EATER eats buildings?; fallen-tower leftover shapes; magic Q1–Q9 (Desktop/SPARK_Magic_Resistance_Spec.html); teams spec Qs (Desktop/SPARK_Teams_Spec.html); net FIX-2 second clause (ex-host as new lower seat = mid-match seating, a bump); weld SHEETS-6 / minority-rubble / W-FR7; carry C-7 welded bar now reads own star (vs R185-B "tougher"); stink tower throws with 0 bags (magic agent found — a defect).
+OWNER NOTE (S192): APEX = nagas L5, SWARM = vampires L10 — he will test and may raise the swarm's HP for fairness; no change until he reports.
