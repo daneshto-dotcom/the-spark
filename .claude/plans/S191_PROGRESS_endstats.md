@@ -1,4 +1,4 @@
-**STATUS: COMPLETED (v1 built, awaiting the merge owner's audit) — S191 worktree agent `s191-endstats` (branch `s191/endstats`).**
+**STATUS: S192 — MERGED WITH MASTER (deploy #5), gates green; BLAST-2 waits on carry/owner — S191 worktree agent `s191-endstats` (branch `s191/endstats`).**
 
 # S191 PROGRESS — `s191/endstats` (owner item 3: end-of-game stats)
 
@@ -94,6 +94,40 @@ Brief: `.claude/plans/S191_BRIEFS/endstats.md`. Rules: `.claude/plans/2026-09-25
   --maxWorkers=4` **0** (401 files passed / 1 skipped; 6506 tests passed / 2 skipped) · `npm run build` **0** — entry
   **961.2 KiB (984,286 B), +5.4 KiB** over base `42cc2ee` (978,794 B); headroom 138.8 KiB; lazy `matchBoard-*.js` 7.91 kB.
   No e2e (brief). ⚠ NOT DONE: no LIVE LOOK at the board — the browser pane serves the main checkout, not this worktree.
+
+
+## S192 — merge master + self-audit (agent `s191-endstats`, branch tip below)
+- `git merge master` (base 42cc2ee → master e4d52dc, 123 commits): ONE conflict, `src/state/damage.ts` Helga kill arm.
+  Took master's DORMANT body (R190-J), dropped endstats' `world.defenders.delete`, rewrote the S191 comment
+  (her damage is on the board; her fall is neither a kill nor a tower fall). Merge commit `513a160`.
+  defenderLifecycle.ts merged textually clean (both imports kept). No plan/state/handoff conflicts arose.
+- SEAMGATES-1 applied: `matchStats.reach.test.ts` Helga case re-pinned to `state === 'DORMANT'` + `ehp === null`;
+  NEW case through the REAL matcher + two phase edges (hall ignites → FIGHT → killed by a seat → BUILD revives
+  her IDLE): towersBuilt 0, towersFell 0, no unit kill, damage credited. 10/10.
+- Recorder vs master's new events, by enumeration (grep of every defenders/spawners create/delete + record* site):
+  · DORMANT Helga — excluded (register skips 'princess'; `destroyDefender` skips 'princess'; `reviveDormantHelgas`
+    mutates in place, never registers). CONFIRMED + tested.
+  · orphan raze (`razePrimitives(..., true)` in hostTick hub/T9 arms) — deletes primitives only; reaches the board
+    via `sampleBuilt` (connectors standing) — no counter to double. The tower's fall is still the one
+    `awardSpawnerKillReward` edge. OK.
+  · C2 survival rule (`towerStandsAt`) — changes WHEN a recipe breaks, not the destruction path; fall recorded at
+    the same two sites. OK.
+  · per-match reset — `resetMatchStats` at applyStartGame, applyReturnToTitle, softReset; a client gets START_GAME
+    from START_GAME_SIGNAL; POSTGAME exits to TITLE (teardownNet), so no in-session rematch carries history.
+    The net-keep rule (history absent ⇒ keep) cannot show a stale board because WIN_TRIGGER always samples on
+    the host and history always rides in WIN/POSTGAME. Verdict: no defect.
+- Four-sites self-audit: factory (`makeWorld`) · serialize (snapshot/restore/netSnapshot trim/applyNetSnapshot) ·
+  hash (`stateHashFull` ms/mh) · worker (restore on INIT; mirror fed by worker netSnapshot; gameState is in the
+  structural signature so WIN/POSTGAME force a snapshot; differential seeded-stats assertion green). No gap.
+- Click hazards re-read: canvas click ignored while the board shows; CONTINUE/R refused for ARM_MS; a CONTINUE tap
+  followed by the DOM click finds TITLE and no-ops; if the lazy chunk failed the old click-reset still works.
+  ⚠ Stale comments (merge-owner chore, not code): `main.ts` ~:2961 "canvas click → resetIfPostgame" and ~:3683
+  "POSTGAME returns on a click".
+- Gates on the merged tree (captured `$?`): typecheck **0** · vitest --maxWorkers=3 **0** (417 files / 2 skipped;
+  6749 passed / 7 skipped) · build **0** — entry **978.1 KiB** (1,001,571 B; master 972.7 → **+5.4 KiB**),
+  headroom 121.9 KiB; lazy `matchBoard-*.js` 7.91 kB (3.54 kB gzip).
+- PROTOCOL bump verdict: **none owed by this branch.** `WorldSnapshot.matchStats?` is additive-optional and inert
+  (no reducer reads it); `{kind:'seat'}` DamageAttacker is never serialized (call-arg only).
 
 ## In flight
 - _nothing_ — report sent to the merge owner.
