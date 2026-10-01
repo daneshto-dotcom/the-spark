@@ -59,6 +59,8 @@ export interface TitleButtonCenters {
 export class TitleScreen {
   readonly container: Container;
   private visible = false;
+  /** ⭐ S189 fix round (audit NET-1) — one line under the subtitle saying why we are back here. */
+  private readonly notice: Text;
 
   constructor(app: Application, callbacks: TitleScreenCallbacks) {
     this.container = new Container();
@@ -89,6 +91,20 @@ export class TitleScreen {
     subtitle.anchor.set(0.5);
     subtitle.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 80);
     this.container.addChild(subtitle);
+
+    this.notice = new Text({
+      text: '',
+      style: new TextStyle({
+        fontFamily: 'monospace',
+        fontSize: 18,
+        fill: 0xffcc66,
+        letterSpacing: 1,
+      }),
+    });
+    this.notice.anchor.set(0.5);
+    this.notice.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+    this.notice.visible = false;
+    this.container.addChild(this.notice);
 
     const btnSolo = this.makeButton(
       '1 Player',
@@ -212,6 +228,20 @@ export class TitleScreen {
 
   isVisible(): boolean {
     return this.visible;
+  }
+
+  /** ⭐ S189 fix round (audit NET-1) — show (or clear, with null) the one-line notice. */
+  setNotice(text: string | null): void {
+    if (text === null) {
+      this.notice.visible = false;
+      return;
+    }
+    this.notice.text = text;
+    this.notice.visible = true;
+  }
+
+  noticeText(): string | null {
+    return this.notice.visible ? this.notice.text : null;
   }
 
   private makeButton(

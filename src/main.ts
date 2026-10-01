@@ -47,7 +47,6 @@ import {
   type SparkType,
   // S145 P2 — how much room the build-grid click must make before the ordered shapes can land, and
   // the ceiling on how much of the bank one click may decant.
-  TITLE_EXIT_CONFIRM_MS,
 } from './constants.ts';
 // S87 — VS-BOTS mode. BOTH the setup overlay AND the BotManager are LAZY
 // chunks (the overlay alone pushed the index chunk over the 550 kB charter —
@@ -65,6 +64,22 @@ import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls
 import { selfId, type NetTransport } from './net/transport.ts';
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
+// ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
+import { makeDoubleEscapeLeave, makeOverlayEscapeClose } from './input/doubleEscapeLeave.ts';
+// ⭐ S189 (C4) — the reconnect schedule + the claim decision (see reconnectPolicy.ts).
+import {
+  planConnectionFrame,
+  stepHostPresence,
+  stepMigrationClaim,
+  type HostPresence,
+  RECONNECT_GRACE_MS,
+  type TerminalLossCause,
+  hostMovedOn,
+  isRejoinPending,
+  seatedSurvivors,
+  type HostSignal,
+  connectionEdge,
+} from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
 import {
@@ -1569,12 +1584,15 @@ async function bootstrap(): Promise<void> {
   // only the on-screen CLOSE button). Guarded on the codex being visible so this never swallows an
   // Escape meant for another overlay; returns immediately after closing so it can't double-handle
   // (settingsOverlay owns its own Escape on its DOM root — mirror of botSetupOverlay.ts / settingsOverlay.ts).
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && codexOverlay !== null && codexOverlay.isVisible()) {
-      codexOverlay.setVisible(false);
-      return;
-    }
-  });
+  // ⭐ S189 fix round (audit NET-3) — via `makeOverlayEscapeClose`, which marks the press consumed so
+  // closing the Codex is not the first press of the double-Escape leave registered below.
+  window.addEventListener(
+    'keydown',
+    makeOverlayEscapeClose(
+      () => codexOverlay !== null && codexOverlay.isVisible(),
+      () => codexOverlay?.setVisible(false),
+    ),
+  );
 
   /*
    * ⭐ S153 A2 — LEAVE A MATCH IN PROGRESS. Owner: *"i dont want to have to restart the page to go
@@ -1601,38 +1619,30 @@ async function bootstrap(): Promise<void> {
    * swallow an Escape meant for the codex, the bot setup, the settings panel, the arcade, or a
    * blueprint disarm.
    */
-  let lastEscapeAtMs: number | null = null;
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (world.gameState !== 'PLAYING') return;
-    if (chordBlocked()) return; // typing a name / NONET / a cinematic is running
-    if (codexOverlay !== null && codexOverlay.isVisible()) return;
-    if (castlePanel.armedBlueprint() !== null) return; // the disarm press owns this Escape
-    /*
-     * ⭐ S155 P2 — Escape CANCELS the leave modal rather than leaving.
-     *
-     * Ordered above the double-press logic on purpose. With the confirm up, Escape is unambiguously
-     * "back out of this dialog" — every other overlay in the game already answers Escape that way —
-     * and letting the gesture fall through to the second-press branch would mean a player who opened
-     * the dialog and hit Escape to dismiss it got ejected from the match instead. That is the same
-     * class of accident the modal itself was chosen to prevent (Council C6).
-     */
-    if (exitButton.isConfirmOpen()) {
-      exitButton.closeConfirm();
-      lastEscapeAtMs = null; // and it does NOT count as the first press of a new double-tap
-      return;
-    }
-    const nowMs = performance.now();
-    if (lastEscapeAtMs !== null && nowMs - lastEscapeAtMs < TITLE_EXIT_CONFIRM_MS) {
-      lastEscapeAtMs = null;
-      // S155 P2 — the shared thunk (was an inline teardown+dispatch copy). Behaviour is identical:
-      // leaveToTitle additionally calls stopQuickmatch(), which this path was silently MISSING — a
-      // double-Escape out of a quickmatch match left the discovery running.
-      leaveToTitle();
-      return;
-    }
-    lastEscapeAtMs = nowMs;
-  });
+  /*
+   * ⭐ S155 P2 — Escape with the leave-confirm open CANCELS it rather than leaving (every other overlay
+   * answers Escape that way; falling through to the second press would eject a player who opened the
+   * dialog and hit Escape to dismiss it — Council C6). Kept in `makeDoubleEscapeLeave`.
+   *
+   * ⛔ S189 A1 — the handler body moved to `input/doubleEscapeLeave.ts` so the REAL handler can be tested
+   * behind the real `Controls`, in this registration order. It now also ignores an Escape that
+   * `Controls` consumed as a CANCEL (a held tower, the Ra aim) — before, that press counted as the first
+   * of the pair, and one more Escape abandoned the match (the other player: CONNECTION LOST).
+   */
+  window.addEventListener(
+    'keydown',
+    makeDoubleEscapeLeave({
+      isPlaying: () => world.gameState === 'PLAYING',
+      chordBlocked: () => chordBlocked(), // typing a name / NONET / a cinematic is running
+      codexOpen: () => codexOverlay !== null && codexOverlay.isVisible(),
+      towerArmed: () => castlePanel.armedBlueprint() !== null, // the disarm press owns this Escape
+      confirmOpen: () => exitButton.isConfirmOpen(),
+      closeConfirm: () => exitButton.closeConfirm(),
+      // S155 P2 — the shared thunk: teardown + RETURN_TO_TITLE + stopQuickmatch.
+      leave: () => leaveToTitle(),
+      now: () => performance.now(),
+    }),
+  );
 
   // ===== S87 — VS-BOTS: lazy overlay + lazy manager =====
   // The manager exists ONLY during a bots match (armed on START MATCH, dropped
@@ -1827,6 +1837,15 @@ async function bootstrap(): Promise<void> {
     // the deps object is built NOW, the check only runs at claim time (TDZ-safe by deferral).
     hasPartitionEvidence: () => hasFreshPartitionEvidence(),
   });
+  /*
+   * ⭐ S189 fix round (audit NET-1) — A REJOIN MUST PROVE IT REACHED THE SAME MATCH. The reconnect loop
+   * stamps each attempt; clientHandlers reports what the followed host says; the render loop asks
+   * `hostMovedOn` (net/reconnectPolicy.ts) once per frame and, if the host has moved on to its next lobby
+   * or match, leaves to title with the notice below instead of sitting on a frozen board.
+   */
+  let lastRejoinAttemptAtMs = 0;
+  let hostLobbyAtMs = 0;
+  let hostNewMatchAtMs = 0;
   const clientJoinDeps = {
     session,
     world,
@@ -1835,6 +1854,12 @@ async function bootstrap(): Promise<void> {
     onPresence,
     // S118 P1 (host-migration D2) — the joiner identity whose pubkey + PoP rides the HELLO.
     clientIdentity,
+    onHostSignal: (signal: HostSignal): void => {
+      if (signal === 'new-match') hostNewMatchAtMs = performance.now();
+      else hostLobbyAtMs = performance.now();
+    },
+    // ⭐ S191 (NETFR-1/2) — while a rejoin is pending, clientHandlers releases only OUR match's snapshots.
+    isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -1874,7 +1899,7 @@ async function bootstrap(): Promise<void> {
   const onToggleReady = (ready: boolean): void => {
     session.qmSelfReady = ready;
     if (world.isHost && session.netTransport !== null) {
-      broadcastQmPresence(session, session.netTransport, onPresence);
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
       maybeQmAutoBegin(session, onAutoBegin);
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'LOBBY_READY', ready });
@@ -1907,7 +1932,7 @@ async function bootstrap(): Promise<void> {
       // ⚠ `onToggleReady` directly above KEEPS its guard deliberately: readiness only means
       // something to peers in a room, so there is nothing local to show, whereas seeing your own
       // race change is the entire point of the menu.
-      broadcastQmPresence(session, session.netTransport, onPresence);
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_RACE', raceId });
     }
@@ -2478,9 +2503,8 @@ Network routes: ${v.detail}`;
   // (the common case) recovers almost immediately; subsequent retries pace at RETRY_MS.
   let reconnectUntilMs = 0;
   let reconnectNextRetryMs = 0;
-  const RECONNECT_GRACE_MS = 15_000;
-  const RECONNECT_RETRY_MS = 4_000;
-  const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
+  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (was 4 s, now JOIN_STALL_WARN_MS = 8 s)
+  // and RECONNECT_FIRST_RETRY_DELAY_MS (1 s) moved to `net/reconnectPolicy.ts`, imported above.
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. The host
   // triggers via the same post-drain ARC_FLASH scan since S119 (its twin cursor below);
   // client peer must mirror that feedback or 1v1 plays as visually & kinesthe-
@@ -2518,6 +2542,9 @@ Network routes: ${v.detail}`;
         }).__TEST_MIGRATION__
       : undefined;
   let migrationLossObservedAtMs = 0;
+  // ⭐ S189 fix round (audit NET-4) — when the followed host last (re)appeared on our transport; the
+  // claim counts starvation from it, so a reconnect that lands is not read as a starved host.
+  let hostPresence: HostPresence = { hostPeerId: null, present: false, presentSinceMs: 0 };
   let migrationClaimedEpoch = -1; // -1 = no claim fired this term (reset on demote/match end)
   // S124 P1 (D4) — successor/echo/demotion state:
   //   myClaim — the signed claim THIS peer adopted under (re-sent verbatim as the CLAIM ECHO:
@@ -3188,7 +3215,7 @@ Network routes: ${v.detail}`;
               nowMsW - lastSnapshotSentMs >= 80
             ) {
               session.netTransport.send(
-                session.hostSync.wrapSnapshot(result.snapshot, session.currentEpoch),
+                session.hostSync.wrapSnapshot(result.snapshot, session.currentEpoch, session.matchId),
               );
               lastSnapshotSentMs = nowMsW;
               session.lastSnapshotTick = world.tick;
@@ -3256,7 +3283,7 @@ Network routes: ${v.detail}`;
           // S119 P2 — instrumented twin of the production send in the else-branch:
           // same calls, same order, split only to mark the build/send boundary.
           performance.mark('spark-snap-build-start');
-          const snapMsg = session.hostSync.buildSnapshotMessage(world, session.currentEpoch);
+          const snapMsg = session.hostSync.buildSnapshotMessage(world, session.currentEpoch, session.matchId);
           performance.mark('spark-snap-build-end');
           session.netTransport.send(snapMsg);
           performance.mark('spark-snap-send-end');
@@ -3288,7 +3315,7 @@ Network routes: ${v.detail}`;
             // Voided marks (see above) — skip this sample; the send already went out.
           }
         } else {
-          session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch));
+          session.netTransport.send(session.hostSync.buildSnapshotMessage(world, session.currentEpoch, session.matchId));
         }
         session.lastSnapshotTick = world.tick;
         lastSnapshotSentMs = nowMs;
@@ -3384,6 +3411,14 @@ Network routes: ${v.detail}`;
       // host's avatar ghosting forever), and an additive successor handler: fail-closed
       // INTENT stamping + lowest-seat-wins demotion + the stale-epoch CLAIM-ECHO trigger.
       // Ladder races converge via lowest-seat-wins (clientHandlers b′ + the demotion here).
+      hostPresence = stepHostPresence(
+        hostPresence,
+        session.hostPeerId,
+        session.hostPeerId !== null &&
+          session.netTransport !== null &&
+          session.netTransport.peerIds().includes(session.hostPeerId),
+        performance.now(),
+      );
       if (
         !world.isHost &&
         world.gameState === 'PLAYING' &&
@@ -3394,33 +3429,38 @@ Network routes: ${v.detail}`;
         migrationClaimedEpoch === -1
       ) {
         const nowMigMs = performance.now();
-        const starvMs = migrationSeam?.starvationMs ?? HOST_STARVATION_MS;
-        const hostGoneNow =
-          (session.hostPeerId !== null &&
-            !session.netTransport.peerIds().includes(session.hostPeerId)) ||
-          isSnapshotStarved(nowMigMs, lastAcceptedAtMs, starvMs);
-        if (!hostGoneNow) {
-          migrationLossObservedAtMs = 0;
-        } else {
-          if (migrationLossObservedAtMs === 0) migrationLossObservedAtMs = nowMigMs;
-          const graceMs = migrationSeam?.graceMs ?? RECONNECT_GRACE_MS;
-          const ladderMs = migrationSeam?.ladderMs ?? CLAIM_LADDER_MS;
-          const alivePeers = new Set(session.netTransport.peerIds());
-          const aliveSeats = computeAliveSeats(
-            session.lastRoster,
-            alivePeers,
-            world.localPlayerId as number,
-          );
-          const ladderDelayMs = computeClaimDelayMs(
+        const alivePeers = new Set(session.netTransport.peerIds());
+        const aliveSeats = computeAliveSeats(
+          session.lastRoster,
+          alivePeers,
+          world.localPlayerId as number,
+        );
+        /*
+         * ⭐ S189 — WHEN to claim is `stepMigrationClaim` (net/reconnectPolicy.ts, unit-tested frame by
+         * frame): D4 unchanged for a host that is connected but silent; on TRANSPORT loss only with a
+         * survivor to host for (a lone 1v1 client reconnects instead — C4; audit NET-4).
+         */
+        const claimStep = stepMigrationClaim({
+          nowMs: nowMigMs,
+          hostPeerId: session.hostPeerId,
+          alivePeerIds: alivePeers,
+          // S191 WIRE-3 — only a SEATED survivor is someone to host for (a stray on the room is not).
+          seatedSurvivorIds: seatedSurvivors(session.lastRoster, alivePeers, trysteroSelfId, session.hostPeerId),
+          lastAcceptedAtMs,
+          hostPresentSinceMs: hostPresence.presentSinceMs,
+          starvationMs: migrationSeam?.starvationMs ?? HOST_STARVATION_MS,
+          graceMs: migrationSeam?.graceMs ?? RECONNECT_GRACE_MS,
+          ladderDelayMs: computeClaimDelayMs(
             session.warrant,
             aliveSeats,
             world.localPlayerId as number,
-            ladderMs,
-          );
-          if (
-            ladderDelayMs !== null &&
-            nowMigMs - migrationLossObservedAtMs >= graceMs + ladderDelayMs
-          ) {
+            migrationSeam?.ladderMs ?? CLAIM_LADDER_MS,
+          ),
+          lossObservedAtMs: migrationLossObservedAtMs,
+        });
+        migrationLossObservedAtMs = claimStep.lossObservedAtMs;
+        {
+          if (claimStep.claim) {
             {
               const newEpoch = session.currentEpoch + 1;
               migrationClaimedEpoch = newEpoch; // sync latch — fire exactly once per term
@@ -3626,6 +3666,7 @@ Network routes: ${v.detail}`;
     const showTitle = world.gameState === 'TITLE' && !modalUp;
     const showLobby = world.gameState === 'LOBBY';
     if (titleScreen.isVisible() !== showTitle) titleScreen.setVisible(showTitle);
+    if (world.gameState !== 'TITLE') titleScreen.setNotice(null); // S189 NET-1: the notice is for one visit
     lobbyScreen.setVisible(showLobby);
     /*
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
@@ -3654,6 +3695,27 @@ Network routes: ${v.detail}`;
     // a frozen world and no exit. The hostPeerId latched for sender-auth doubles as
     // host-presence: latched but no longer in peerIds() → the host is gone → overlay.
     // Host-side (isHost) keeps the pure peerCount gate; no host-migration yet (#4).
+    // ⭐ S189 fix round (audit NET-1) — before the overlay reads the state: did a rejoin land in the host's
+    // NEXT lobby or match? Only a pending rejoin can answer yes (see `hostMovedOn`), so neither a live
+    // match nor D4's frozen-host takeover is touched. Stamps are per match: cleared outside one.
+    if (isNetworked(world) && !world.isHost && world.gameState === 'PLAYING' && session.clientSync !== null) {
+      const movedOn = hostMovedOn({
+        lastRejoinAttemptAtMs,
+        lastAcceptedAtMs: session.clientSync.lastAcceptedAt(),
+        lobbyAtMs: hostLobbyAtMs,
+        newMatchAtMs: hostNewMatchAtMs,
+      });
+      if (movedOn !== null) {
+        console.warn(`[net] HOST MOVED ON (${movedOn}) — the rejoin reached the host's next ${movedOn === 'lobby' ? 'lobby' : 'match'}, not ours; returning to title`);
+        leaveToTitle();
+        titleScreen.setNotice('The host started a new game — this match is over.');
+      }
+    }
+    if (!(isNetworked(world) && !world.isHost && world.gameState === 'PLAYING')) {
+      lastRejoinAttemptAtMs = 0;
+      hostLobbyAtMs = 0;
+      hostNewMatchAtMs = 0;
+    }
     const hostLost = !world.isHost
       && session.hostPeerId !== null
       && session.netTransport !== null
@@ -3699,62 +3761,81 @@ Network routes: ${v.detail}`;
     // world is frozen for everyone; a stale intent materializing post-takeover is worse than
     // the in-flight loss design §8 accepts. Maintained here so dispatchFn stays O(1).
     migrationPauseActive = peersGone && !world.isHost && session.warrant !== null;
-    let connectionLost = false;
-    if (zombieDeposed) {
-      // S124 P1 (D4) / S125 P1 — TERMINAL FAIL-SAFE only: a deposed host with no room code to
-      // rejoin with (can't happen for a warranted host). The ordinary deposed-host path now
-      // AUTO-REJOINS as a client (demoteToClient reestablishTransport, LOCKED §13.21 v2) and
-      // flows through the peersGone/migrationCase overlay branch below instead of this latch.
+    /*
+     * ⭐ S189 fix round (audit NET-5/6) — the overlay + retry decision is `planConnectionFrame`
+     * (net/reconnectPolicy.ts, tested frame by frame in connectionFrame.test.ts); this block only applies
+     * it. The rules it keeps (S82 grace, S124 D4 peersGone split, S125 v2 fail-safe, S189 C4 retry past
+     * the grace) are documented there:
+     *   • zombieDeposed — TERMINAL FAIL-SAFE only (a deposed host with no room code to rejoin with);
+     *   • hostLost with a SURVIVING mesh (peerCount > 0) = the MIGRATION case — never tear the transport
+     *     (it would drop the MIGRATION_CLAIM), MIGRATING until past the claim ladder's worst case;
+     *   • peerCount === 0 = OUR transport died — the reconnect cycle is the only path back.
+     */
+    // S191 WIRE-3 — a SEATED survivor, not any peer: a stray kept this true and the loop never retried the host.
+    const migrationCase =
+      !world.isHost &&
+      session.warrant !== null &&
+      session.netTransport !== null &&
+      seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0;
+    const connectionPlan = planConnectionFrame({
+      nowMs,
+      zombieDeposed,
+      peersGone,
+      isHost: world.isHost,
+      hasRoomCode: session.roomCode !== null,
+      migrationCase,
+      peerCount: session.netTransport?.peerCount() ?? 0,
+      reconnectUntilMs,
+      nextRetryMs: reconnectNextRetryMs,
+      migrationExtraMs: (migrationSeam?.ladderMs ?? CLAIM_LADDER_MS) * MAX_PLAYERS + 5000,
+      claimClockSinceMs: migrationLossObservedAtMs, // S191 NETFR-3 — the claim block above ran this frame
+    });
+    reconnectUntilMs = connectionPlan.reconnectUntilMs;
+    reconnectNextRetryMs = connectionPlan.nextRetryMs;
+    if (connectionPlan.retry && session.roomCode !== null) {
+      console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
+      lastRejoinAttemptAtMs = nowMs; // S189 NET-1 — a rejoin is now pending until a snapshot is accepted
+      if (session.netTransport !== null) session.netTransport.disconnect();
+      connectAsClient(clientJoinDeps, session.roomCode);
+    }
+    const overlay = connectionPlan.overlay;
+    if (overlay.kind === 'hidden') {
+      lobbyScreen.setConnectionLostVisible(false);
+    } else if (overlay.kind === 'reconnecting') {
+      lobbyScreen.setConnectionLostReconnecting(true, overlay.secondsLeft);
+      lobbyScreen.setConnectionLostVisible(true);
+    } else if (overlay.kind === 'migrating') {
+      lobbyScreen.setConnectionLostMigrating(overlay.secondsLeft);
+      lobbyScreen.setConnectionLostVisible(true);
+    } else {
       lobbyScreen.setConnectionLostReconnecting(false);
       lobbyScreen.setConnectionLostVisible(true);
-      connectionLost = true;
-    } else if (peersGone) {
-      if (reconnectUntilMs === 0) {
-        reconnectUntilMs = nowMs + RECONNECT_GRACE_MS;
-        reconnectNextRetryMs = nowMs + RECONNECT_FIRST_RETRY_DELAY_MS;
-      }
-      // S124 P1 (D4) — the peersGone SPLIT (production reconciliation of the D3 seam rule):
-      //   • hostLost with a SURVIVING mesh (peerCount > 0) = the MIGRATION case — never tear
-      //     the transport (a tear would drop the MIGRATION_CLAIM broadcast/receipt) and show
-      //     the MIGRATING overlay variant; the terminal state is deferred past the claim
-      //     ladder's worst case so a deep-rank takeover isn't misreported as CONNECTION LOST.
-      //   • peerCount === 0 = OUR transport died — the S82 reconnect-cycle is the only path
-      //     back (there is no mesh left to hear a claim on), byte-identical behavior.
-      const migrationCase =
-        !world.isHost &&
-        session.warrant !== null &&
-        session.netTransport !== null &&
-        session.netTransport.peerCount() > 0;
-      const ladderMsUi = migrationSeam?.ladderMs ?? CLAIM_LADDER_MS;
-      const migrationDeadlineMs =
-        reconnectUntilMs + ladderMsUi * MAX_PLAYERS + 5000;
-      if (nowMs < reconnectUntilMs) {
-        if (!world.isHost && session.roomCode !== null && nowMs >= reconnectNextRetryMs && !migrationCase) {
-          reconnectNextRetryMs = nowMs + RECONNECT_RETRY_MS;
-          console.warn('[net] reconnect attempt — rejoining room', session.roomCode);
-          if (session.netTransport !== null) session.netTransport.disconnect();
-          connectAsClient(clientJoinDeps, session.roomCode);
-        }
-        if (migrationCase) {
-          lobbyScreen.setConnectionLostMigrating((migrationDeadlineMs - nowMs) / 1000);
-        } else {
-          lobbyScreen.setConnectionLostReconnecting(true, (reconnectUntilMs - nowMs) / 1000);
-        }
-        lobbyScreen.setConnectionLostVisible(true);
-      } else if (migrationCase && nowMs < migrationDeadlineMs) {
-        lobbyScreen.setConnectionLostMigrating((migrationDeadlineMs - nowMs) / 1000);
-        lobbyScreen.setConnectionLostVisible(true);
-      } else {
-        lobbyScreen.setConnectionLostReconnecting(false);
-        lobbyScreen.setConnectionLostVisible(true);
-        connectionLost = true; // terminal — drives the cinematic-abort edge below
-      }
-    } else {
-      reconnectUntilMs = 0;
-      lobbyScreen.setConnectionLostVisible(false);
     }
+    const connectionLost = overlay.kind === 'terminal'; // terminal — drives the cinematic-abort edge below
+    const terminalCause: TerminalLossCause | null = overlay.kind === 'terminal' ? overlay.cause : null;
     // S22 P3 — PRIME-AUDIT Δ3: on peer-drop, abort any active cinematic
     // and drain the godly queue cleanly. Transition-edge gated.
+    /*
+     * ⭐ S189 (C4, hunt E3) — ONE line on each edge, so a report can say what happened: the per-peer
+     * `[net] PEER DROPPED … cause=…` (transport.ts) says why the peer went; this says why the overlay
+     * gave up, and — since the loop now keeps trying past the grace — when it came back.
+     */
+    // S189 fix round (audit NET-5) — the overlay also hides when the player LEAVES; say which.
+    const edge = connectionEdge({
+      wasLost: lastConnectionLost,
+      isLost: connectionLost,
+      stillInMatch: isNetworked(world) && world.gameState === 'PLAYING' && session.netTransport !== null,
+    });
+    if (edge === 'lost') {
+      console.warn(
+        `[net] CONNECTION LOST (terminal) cause=${terminalCause ?? 'unknown'} isHost=${world.isHost} ` +
+          `peers=${session.netTransport?.peerCount() ?? 0}`,
+      );
+    } else if (edge === 'restored') {
+      console.warn('[net] CONNECTION RESTORED after the terminal overlay — a peer is back');
+    } else if (edge === 'dismissed') {
+      console.warn('[net] terminal overlay dismissed — left the match (return to title)');
+    }
     if (connectionLost && !lastConnectionLost) {
       // S31 P0-4 — cinematicTimer cleanup REMOVED (deleted alongside the
       // setTimeout that created it). cutsceneOverlay.abort() internally

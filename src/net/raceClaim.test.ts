@@ -216,7 +216,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
     const s = sess();
     s.selfRace = 'demons';
     const seen: RosterEntry[][] = [];
-    broadcastQmPresence(s, null, (r) => { seen.push([...r]); });
+    broadcastQmPresence(s, null, (r) => { seen.push([...r]); }, 'LOBBY');
     expect(seen).toHaveLength(1);
     expect(seen[0]![0]!.raceId).toBe('demons');
   });
@@ -227,7 +227,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
     // is skipped instead.
     const s = sess();
     s.lobbySeats.set('PEER-A', 1);
-    broadcastQmPresence(s, null, () => {});
+    broadcastQmPresence(s, null, () => {}, 'LOBBY');
     expect(s.lobbySeats.get('PEER-A')).toBe(1);
   });
 
@@ -241,7 +241,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
     // picked still OCCUPIES its default race, while carrying no `raceId` for a taken-set to see.
     const s = sess();
     const seen: RosterEntry[][] = [];
-    broadcastQmPresence(s, null, (r) => { seen.push([...r]); });
+    broadcastQmPresence(s, null, (r) => { seen.push([...r]); }, 'LOBBY');
     expect(seen[0]![0]!.raceId).toBeUndefined();
     expect(seen[0]![0]!.color).toBe(RACE_COLORS[defaultRaceForSeat(0)]);
   });
@@ -267,7 +267,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
       send: () => {},
     } as unknown as NetTransport;
 
-    broadcastQmPresence(s, transport, () => {});
+    broadcastQmPresence(s, transport, () => {}, 'LOBBY');
 
     expect(s.raceByPeer.has('GONE-PEER'), 'a departed peer must not keep holding a race').toBe(false);
     // ...and the present peer is untouched: a prune that cleared everything would also pass the
@@ -290,7 +290,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
       send: () => {},
     } as unknown as NetTransport;
 
-    broadcastQmPresence(s, transport, () => {});
+    broadcastQmPresence(s, transport, () => {}, 'LOBBY');
 
     expect(s.raceByPeer.get('JOINING-PEER'), 'a mid-join peer keeps its claim').toBe('vampires');
   });
@@ -317,7 +317,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
 
     expect(() => broadcastQmPresence(s, transport, () => {
       throw new Error('pixi repaint blew up');
-    })).not.toThrow();
+    }, 'LOBBY')).not.toThrow();
 
     expect(sent, 'every remote rack would freeze if this were empty').toHaveLength(1);
     expect(sent[0]!.kind).toBe('LOBBY_PRESENCE');
@@ -332,7 +332,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
     } as unknown as NetTransport;
     const seen: RosterEntry[][] = [];
 
-    expect(() => broadcastQmPresence(s, transport, (r) => { seen.push([...r]); })).not.toThrow();
+    expect(() => broadcastQmPresence(s, transport, (r) => { seen.push([...r]); }, 'LOBBY')).not.toThrow();
 
     // The original symptom in one assertion: the pick is recorded AND visible.
     expect(seen, 'this is the "it shows but it doesnt change" bug').toHaveLength(1);
@@ -348,7 +348,7 @@ describe('S162 P1 — broadcastQmPresence repaints locally with no transport', (
       send: (m: { kind: string }) => { sent.push(m); },
     } as unknown as NetTransport;
     const seen: RosterEntry[][] = [];
-    broadcastQmPresence(s, transport, (r) => { seen.push([...r]); });
+    broadcastQmPresence(s, transport, (r) => { seen.push([...r]); }, 'LOBBY');
     expect(sent).toHaveLength(1);
     expect(sent[0]!.kind).toBe('LOBBY_PRESENCE');
     expect(seen[0]![0]!.raceId).toBe('orcs');

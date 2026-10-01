@@ -1,0 +1,285 @@
+{
+  "session_id": "S191",
+  "session_kind": "owner-driven: deploy #5 (land s189/weld + s189/net, carried S189 PDR P8/P0) while the owner supplies his new post-playtest list",
+  "session_start": "2026-09-25",
+  "prior_session_archive": ".claude/session-archive/session-state_S190_2026-09-25.json",
+  "phase": "CLOSE",
+  "tier": "Full",
+  "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+  "backlog_file": ".claude/plans/S191_BACKLOG.md",
+  "session_status": "S191 HANDED OFF (not CLOSED — 6 priorities carried) — deploy #5 LIVE d5c9c49 (PROTOCOL 52, verify-deploy 4/4); P0/P8/P10 completed for their deploy scope; P11-P16 + weld round 5/6 + net remainder carried → .claude/plans/S192_BACKLOG.md; handoff HANDOFF_S191_2026-10-01.md (ledger 18/18)",
+  "protocol_version": 52,
+  "owner_approval_verbatim": "I pre-approve the full session batch. Do the PDR, consider the then approved and get to work. In work trees, if you think it's the best way ... whatever council decides.",
+  "owner_approval_note": "P0/P8/P10 carried under the S189 batch PDR approval (pre-approved, IN-PROGRESS); R190-M deploy cadence: \"Whenever something is done and provably landed correctly and works, merge it to main, push it and deploy it.\"",
+  "pdr_approved": true,
+  "deliberation_completed": true,
+  "unlock_source": "user",
+  "council": {
+    "rounds": 2,
+    "ledger": ".claude/plans/2026-09-24_S189_BATCH_PDR.md §8"
+  },
+  "priorities": [
+    {
+      "id": "P8",
+      "title": "s189/weld: merge master into branch, re-audit round 4 + the seam, fix loop, merge to master (deploy #5, PROTOCOL 51->52)",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s189/weld",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "note": "carried from S190; audit wf_cd96cb8a-575 W-FR1..4 landed at 18769b4",
+      "check_completed": true,
+      "checkpoint_commit": "d5c9c49",
+      "check_method": "Independent audits: S190 wf_f67b55a1-d32 + wf_cd96cb8a-575 (rounds 1-3), S191 wf_df207922-015 (3 lenses + 2-angle verify) found round-5 (R191-A) defects -> merge owner shipped weld at c7436a2 (pre-round-5: merged master + DORMANT seam census fix + docs), round 5 + 6 CARRIED to S192 with the digest. deploy #5 d5c9c49 pushed; gates on the merged tree typecheck 0, vitest 0 (412 files), build 0 (972.7/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5), net specs 16/17 (red = reconnect-hard-blip @quarantine-flaky, known C4 timing); verify-deploy 0 (4/4 carriers); live looked at (title renders, 0 console errors, /pitch-masters/ 200)",
+      "carried_remainder": "round 5 R191-A (audited red) + round 6 R191-B -> S192_BACKLOG §A",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/towerMembers.ts",
+          "needle": "export function towerStandsAt("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/defenders/defender.ts",
+          "needle": "'DORMANT'"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/save.ts",
+          "needle": "ownBondIdLimit"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/weldDormantSeamsS191.test.ts",
+          "needle": "DORMANT"
+        }
+      ]
+    },
+    {
+      "id": "P0",
+      "title": "s189/net: merge master into branch, fix NETFR-1 (HIGH) / NETFR-2 / NETFR-3 (+NETFR-6 test), audit, fix loop, merge (deploy #5); then C4 retry tuning",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s189/net",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "note": "carried from S190; audit wf_c0da87a5-e17",
+      "check_completed": true,
+      "checkpoint_commit": "d5c9c49",
+      "check_method": "Independent audits wf_0593f6fe-d53 (FIX/SEAM/WIRE + verify) -> fix round -> re-audit wf_de15cae4-4a8 found ROUND-1 MED (FIX-3 re-opens NETFR-3) -> FIX-3 reverted on master (70d90fc); e2e on the merged tree: reconnect / exit-match / hostmigration (D3, D4 production, S125 thaw) GREEN. deploy #5 d5c9c49 pushed; gates on the merged tree typecheck 0, vitest 0 (412 files), build 0 (972.7/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5), net specs 16/17 (red = reconnect-hard-blip @quarantine-flaky, known C4 timing); verify-deploy 0 (4/4 carriers); live looked at (title renders, 0 console errors, /pitch-masters/ 200)",
+      "carried_remainder": "FIX-3 redo, ROUND-2/3, FIX-2 host succession (owner ruling), SEAM-1, C4 retry tuning -> S192_BACKLOG §A",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/reconnectPolicy.ts",
+          "needle": "export function seatedSurvivors("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/reconnectPolicy.ts",
+          "needle": "export function stepMigrationClaim("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "matchId"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/sameMatchProof.test.ts",
+          "needle": "new-match"
+        }
+      ]
+    },
+    {
+      "id": "P10",
+      "title": "merge-owner docs: canon fold (weld + net notes with canon.test.ts pins), protocol docblock, CLAUDE.md bundle line re-measured",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "note": "carried remainder",
+      "check_completed": true,
+      "checkpoint_commit": "d5c9c49",
+      "check_method": "PROTOCOL 51->52 docblock (weld + net reasons), canon §6 WHAT RIDES 52 + canon.test pins, CLAUDE.md protocol line; the bundle line re-measured at handoff (972.7 KiB). deploy #5 d5c9c49 pushed; gates on the merged tree typecheck 0, vitest 0 (412 files), build 0 (972.7/1100 KiB), e2e:gating 0 (70/70), e2e:races 0 (5/5), net specs 16/17 (red = reconnect-hard-blip @quarantine-flaky, known C4 timing); verify-deploy 0 (4/4 carriers); live looked at (title renders, 0 console errors, /pitch-masters/ 200)",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "export const PROTOCOL_VERSION = 52 as const;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 51 -> 52"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "`PROTOCOL_VERSION` is **52**"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/canon.test.ts",
+          "needle": "expect(PROTOCOL_VERSION).toBe(52);"
+        }
+      ]
+    },
+    {
+      "id": "P11",
+      "title": "s191/carry: carry-forwards C-1..C-5 (+C-6 on owner go, C-7 health bar after weld)",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/carry",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    },
+    {
+      "id": "P12",
+      "title": "s191/perf: wave-5 host tick next hotspots, byte-identical outputs",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/perf",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    },
+    {
+      "id": "P13",
+      "title": "s191/addons: orc rage 25 s, Alt footer toggle, R190-G right-clicks, A1 CI lane, magic-attack design doc",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/addons",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    },
+    {
+      "id": "P14",
+      "title": "s191/owner: Scorched Earth FIGHT-only + aimed ability + double; pencil chewers persist and spawn continuously",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/owner",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    },
+    {
+      "id": "P15",
+      "title": "s191/endstats: find research; else research + spec; implement on owner go",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/endstats",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    },
+    {
+      "id": "P16",
+      "title": "s191/tune: Ra perk column 35 TOTAL split (Pharaoh stays 300) + castle no-build radius 121 -> 61 (porch kept clear) — owner late items",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-09-25_S191_BATCH_PDR.md",
+      "branch": "s191/tune",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S192 — .claude/plans/S192_BACKLOG.md §A"
+    }
+  ],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P8",
+      "tag": "#s191-ship-the-audited-prefix-not-the-red-tip",
+      "text": "When a branch's newest round audits red and the budget is gone, merge its last audited-green commit (weld c7436a2) instead of shipping the tip or holding everything; the red round carries forward intact on its branch."
+    },
+    {
+      "priority": "P0",
+      "tag": "#s191-the-merge-owners-own-fix-shape-needs-an-audit-too",
+      "text": "FIX-3 was a shape I chose and forwarded as \"adopted\"; the re-audit showed it re-opened NETFR-3 in the most common real drop order. A merge owner's design call is still a change that owes an independent check."
+    },
+    {
+      "priority": "P10",
+      "tag": "#s191-fetch-before-push",
+      "text": "Another session pushed 38 commits to master while this one was paused; the push was rejected. Fetch, inspect the remote-only commits, merge, re-run every gate (incl. e2e), then push."
+    },
+    {
+      "priority": "SESSION",
+      "tag": "#s191-audit-fanout-is-the-spend",
+      "text": "Three multi-lens audits with 2 verifiers per finding at once burned ~2-4 M subagent tokens each and hit the org limit twice; one audit at a time, verify MED/HIGH only."
+    }
+  ],
+  "carry_forward_findings": [
+    "NOT DONE: s189-disconnect-hunt (5 lanes) and s189-branch-audits (9 jobs) were STOPPED unfinished on the owner quota order with ZERO agents complete — re-run from .claude/plans/s189-workflows/*.js at Step 1 of the PDR",
+    "CI: E2E run for 5c6615f concluded CANCELLED — read its reason at boot; E2E run 35972498981 (15035b9) was in progress at handoff",
+    "e2e webServer: hashed port + vite strictPort:false lets an orphan vite shift the port while Playwright polls the old URL (S188 timeout) — in the net brief",
+    "S173_NONET_STAGES.md is SUPERSEDED by canon §9 R182-G/H — close it in P10",
+    "Owner numbers to confirm: APEX PREDATOR bite x4, THE SWARM bite x11",
+    "INFRA DEFECT (S189): session-state.json lost-update race — a write followed by git add in the SAME Bash call committed the OLD content three times (fe027c6, 15f5938, 8663da6 all hold S188). Suspect the tool-call counter hook (.claude/session-state.json.tmp.counter.<pid> read-modify-rename). Rebuilt S189 by hand; verify session_id in a SEPARATE call before trusting it. Hunt the writer in ~/.claude/hooks."
+  ],
+  "scope_amendments": [
+    {
+      "id": "A1",
+      "ruling": "R191-A welded structures + sheets",
+      "branch": "s189/weld",
+      "round": 5
+    },
+    {
+      "id": "A2",
+      "ruling": "R191-B FIX by gatherer delivery",
+      "branch": "s189/weld",
+      "round": 6
+    }
+  ],
+  "boot_findings": [
+    "CI E2E for 7404a49 (run 36088405562) concluded SUCCESS - the \"red since S187\" note is stale; 5934d3b E2E cancelled, 15035b9 E2E failure (both pre-deploy-4).",
+    "master src == 7404a49 src (diff empty); worktrees s189-weld 18769b4 (162 behind master) and s189-net 2a75496 (103 behind), both clean.",
+    "statusline dead (SESSION-PDCA WARN) - cost counter undercounts; known since S190."
+  ],
+  "owner_approval_s191_verbatim": "I approve full session priority batch as described!",
+  "deliberation_note": "P0/P8/P10 inherit the S189 Council (2 rounds). P11-P15: Council dispatched IN PARALLEL with DO (Rule 0 deviation, recorded in the PDR sec.9); accepted challenges forwarded to branch agents.",
+  "owner_approval_s191_run_verbatim": "i APPROVE full run!",
+  "owner_standing_order_s191": "do make sure you deploy everything after it lands, right? Commit. Merge. Push. Deploy. (owner leaving for the day; tests in the evening)",
+  "owner_handoff_preapproval_s191_verbatim": "once you think you're there, just run through the handoff too … we will run a full and complete session handoff, making sure to run all the steps of the handoff. I will pre-approve it",
+  "owner_close_out_order_s191": "before we close off, I would like you to also give me a summary of everything that has actually landed and was done. Or maybe some things you think we should still look at next session to just make sure it landed as it should … What are the next priorities moving forward?",
+  "budget_total": 1000000,
+  "totals": {
+    "turns": 0,
+    "budget_remaining": 1000000,
+    "budget_status": "GREEN"
+  },
+  "auto_fill_applied": {
+    "ts": "2026-10-01T05:52:18.231369Z",
+    "fields": [
+      "budget_total",
+      "totals"
+    ],
+    "validator_version": "s110-three-tier-v1"
+  }
+}

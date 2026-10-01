@@ -937,6 +937,13 @@ interface SerializedSpawner {
   readonly lastValidatedTick?: number;
   readonly spawnedCount?: number;
   readonly ignitedAtTick?: number;
+  /**
+   * ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with (`CreatureSpawner.ownBondIdLimit`).
+   * Unlike the cadence above it is IDENTITY, not a clock, and it RIDES THE WIRE: a client's render
+   * walks (cover set, centroid, FEED row) need it to tell an own connector from a weld.
+   * Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
+   */
+  readonly ownBondIdLimit?: number;
 }
 
 /**
@@ -977,6 +984,8 @@ interface SerializedDefender {
   // while pursuing. A mid-walk host save/load resumes with the right velocity + facing (replay-safe).
   readonly prevPos?: Vec2;
   readonly walkTargetPos?: Vec2;
+  /** ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with. Rides the wire; absent ⇒ null. */
+  readonly ownBondIdLimit?: number;
 }
 
 /**
@@ -2382,6 +2391,8 @@ function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
     lastValidatedTick: sp.lastValidatedTick,
     spawnedCount: sp.spawnedCount,
     ignitedAtTick: sp.ignitedAtTick,
+    // S189 C2 — identity, emitted when known (additive-optional).
+    ...(sp.ownBondIdLimit != null ? { ownBondIdLimit: sp.ownBondIdLimit } : {}),
   };
 }
 
@@ -2398,6 +2409,8 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
     ownerPlayerId: s.ownerPlayerId,
     anchorPrimitiveId: s.anchorPrimitiveId,
     recipeId: s.recipeId,
+    // ⭐ S189 C2 — KEPT on the wire: it is identity, not a clock (see SerializedSpawner).
+    ...(s.ownBondIdLimit !== undefined ? { ownBondIdLimit: s.ownBondIdLimit } : {}),
   };
 }
 
@@ -2422,6 +2435,7 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
     recipeId: s.recipeId,
     ignitedAtTick: s.ignitedAtTick ?? tick,
     nextSpawnTick: s.nextSpawnTick ?? tick + SPAWN_INTERVAL_TICKS,
+    ownBondIdLimit: s.ownBondIdLimit ?? null, // S189 C2 — absent ⇒ unknown, never a guess
   });
   // `makeSpawner` seeds these two from ignitedAtTick / 0 (the fresh-ignition contract).
   // Restore them when the payload carried them, so an authority handoff is lossless.
@@ -2461,6 +2475,8 @@ function serializeDefender(d: Defender): SerializedDefender {
     ...(d.prevPos.x !== d.pos.x || d.prevPos.y !== d.pos.y
       ? { prevPos: { x: d.prevPos.x, y: d.prevPos.y } } : {}),
     ...(d.walkTargetPos !== null ? { walkTargetPos: { x: d.walkTargetPos.x, y: d.walkTargetPos.y } } : {}),
+    // S189 C2 — identity, emitted when known (additive-optional).
+    ...(d.ownBondIdLimit != null ? { ownBondIdLimit: d.ownBondIdLimit } : {}),
   };
 }
 
@@ -2484,6 +2500,7 @@ function deserializeDefender(s: SerializedDefender): Defender {
     recipeId: s.recipeId,
     pos: s.pos,
     registeredAtTick: 0,
+    ownBondIdLimit: s.ownBondIdLimit ?? null, // S189 C2 — absent ⇒ unknown, never a guess
   });
   d.state = s.state;
   d.ticksInState = s.ticksInState;

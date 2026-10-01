@@ -52,6 +52,8 @@
 import { asBondId, type BondId, type PrimitiveId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import { STINK_TOWER_SPRITE_BASE_SCALE } from '../constants.ts';
+// S189 C2 — the tower's OWN arms, shared with the sim's survival test.
+import { towerMembersAt } from '../state/towerMembers.ts';
 
 /**
  * The cover set for a stink tower: its Square hub, the three Circle leaves bonded to it, and the
@@ -63,25 +65,32 @@ import { STINK_TOWER_SPRITE_BASE_SCALE } from '../constants.ts';
  * has no ramp art — coupling this to a five-tower registry it is not a member of. Eight lines of
  * walk is the cheaper dependency. If a third caller ever wants it, lift it then.
  *
- * ⭐ NO TOPOLOGY CHECK HERE ON PURPOSE. The sim already decided this defender exists, which means
+ * ⭐ NO SECOND TOPOLOGY CHECK HERE. The sim already decided this defender exists, which means
  * `isStinkTowerComponent` passed at build time and the 0.5 s revalidation poll has not torn it down.
- * Re-deriving the predicate in the renderer would be a second source of truth that can disagree.
+ * ⚠ S189 C2 — the walk IS the sim's survival walk now (`towerMembersAt`), so the cover set and the
+ * "does it stand" answer come from one function rather than two that could disagree.
  */
 export function stinkTowerMembers(
   world: World,
   hubId: PrimitiveId,
 ): { readonly prims: PrimitiveId[]; readonly bonds: BondId[]; readonly newestTick: number } | null {
-  const hub = world.primitives.get(hubId);
-  if (hub === undefined) return null;
-  const prims: PrimitiveId[] = [hubId];
+  /*
+   * ⭐⭐ S189 C2 — THE TOWER'S OWN ARMS, NOT `hub.bonds`. The walk below used to take every bond on
+   * the Square hub, which was the tower's arms only because a shape welded onto the hub dissolved the
+   * tower (the owner's S189 report). It now stands with the weld on, so taking `hub.bonds` would HIDE
+   * the welded shape under the sprite — reversing R185-A (*"a shape that's not from your tower,
+   * should be at full opacity"*). `towerMembersAt` is the walk the sim's survival test uses.
+   */
+  const own = towerMembersAt(world, 'stinkTower', hubId);
+  if (own === null) return null;
+  const prims: PrimitiveId[] = [...own.prims];
   const bonds: BondId[] = [];
   let newestTick = 0;
-  for (const bondId of hub.bonds) {
+  for (const bondId of own.bonds) {
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue;
     bonds.push(asBondId(bondId as unknown as number));
     if (bond.createdTick > newestTick) newestTick = bond.createdTick;
-    prims.push(bond.aId === hubId ? bond.bId : bond.aId);
   }
   return { prims, bonds, newestTick };
 }

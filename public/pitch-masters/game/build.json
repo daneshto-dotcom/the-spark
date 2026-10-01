@@ -1,0 +1,34 @@
+{
+ "commit": "f9d7516faf77c8431eb025b13077515f852c0c57",
+ "label": "f9d7516faf",
+ "dirty": false,
+ "debug": false,
+ "built_at": "2026-09-30T21:00:13Z",
+ "godot": "4.3.stable",
+ "config": {
+  "args": [],
+  "canvasResizePolicy": 2,
+  "ensureCrossOriginIsolationHeaders": false,
+  "executable": "index",
+  "experimentalVK": false,
+  "fileSizes": {
+   "index.pck": 6016144,
+   "index.wasm": 35376909
+  },
+  "focusCanvas": true,
+  "gdextensionLibs": []
+ },
+ "files": {
+  "index.apple-touch-icon.png": 10259,
+  "index.audio.worklet.js": 7298,
+  "index.icon.png": 4372,
+  "index.js": 331441,
+  "index.pck": 6016144,
+  "index.png": 21443,
+  "index.wasm": 35376909,
+  "music.mp3": 4822404,
+  "music_beach.mp3": 4621523,
+  "music_home.mp3": 2084843,
+  "music_street.mp3": 4316949
+ }
+}
