@@ -157,16 +157,18 @@ export interface StructureActionView {
  * Pixi-free so the whole matrix is unit-testable headlessly — the S130 lesson, and the reason the
  * footer band's layout lives in free functions too.
  *
- * ## The FIX button's three states, and why the third is not "hidden"
+ * ## The FIX button's states, and why the last is not "hidden"
  *
- *   • **enabled** — the inventory covers the shortfall (or there is no shortfall and the tower is
- *     merely damaged). Caption names what it will cost.
- *   • **disabled, "NEED n MORE"** — this IS a repairable tower, the seat is just short. The button
- *     stays VISIBLE and says why, which is this codebase's standing contract for a refused control
- *     (`castleStructuresModel`: a disabled tile must SAY why, never read as absent).
+ *   • **enabled, "COSTS n"** — ⭐ S193 R191-B: FIX QUEUES A GATHERER JOB, so the bank no longer
+ *     decides it (a gatherer fetches each shape from the castle or the quarry). Caption names the bill.
+ *   • **disabled, with the reason** — `QUEUED` (one job per tower) · `NOTHING TO FIX` · `NO GATHERERS`
+ *     (⚠ MINE: nobody could carry it) · `QUEUE FULL` (the per-seat bound). Exactly what
+ *     `applyQueueRepair` refuses on. The button stays VISIBLE and says why — this codebase's standing
+ *     contract for a refused control (`castleStructuresModel`: a disabled tile must SAY why). The old
+ *     "NEED n MORE" (the bank short) is gone with the instant restore it described.
  *   • **absent entirely** — `planStructureRepair` returned null: freeform rubble with no blueprint
- *     to restore it to, or two stamps welded into one component. There is no repair to offer, so
- *     offering a greyed one would be a lie about what the game can do.
+ *     to restore it to, or a welded free-form shape (R191-A — each tower is fixed from its own card).
+ *     There is no repair to offer, so offering a greyed one would be a lie about what the game can do.
  *
  * SCRAP has no third state: if you may act on the structure at all, you may tear it down.
  */

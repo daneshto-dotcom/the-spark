@@ -966,8 +966,9 @@ function accentFor(world: World, owner: PlayerId | null | undefined): number | n
  * for it either, which is why nothing even looked clipped. The model was right; the card was blind.
  *
  * ⭐ SO NOTHING ABOUT COST OR AFFORDABILITY IS RE-DERIVED HERE. `structureActionModel` already
- * prices FIX at what was LOST (`COSTS n`), already says `NEED n MORE` when the seat is short,
- * already says `RETURNS n` for scrap's survivors, and already offers six FEED shapes whether or not
+ * prices FIX at what was LOST (`COSTS n`), already says why it is refused (S193 R191-B: `QUEUED` ·
+ * `NO GATHERERS` · `QUEUE FULL` · `NOTHING TO FIX` — a FIX is a gatherer job now, so the old
+ * `NEED n MORE` is gone), already says `RETURNS n` for scrap's survivors, and already offers six FEED shapes whether or not
  * you hold them. That is his *"how much it costs to fix"* — it exists, and a second pricing path
  * here would be the bespoke-constant defect the stat ladder section of CLAUDE.md forbids.
  */
