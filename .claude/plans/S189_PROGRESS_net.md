@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1, ROUND-2.**
+**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1, ROUND-2, ROUND-3.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -778,3 +778,16 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   in main.ts, the second site goes through `isMigrationCase`). The claim gate is untouched (it already needs
   `lastRoster !== null`), so the ex-host still never claims. Gates: typecheck **0**, `vitest src/net/` **0**
   (40 files / 632). Protocol: none.
+
+- **Step 4 — ROUND-3 (LOW, test only): FIX-4 guard holes.** Reproduced first: the S191 FIX-4 case run on the
+  HEAD file with `Object.assign(process.env, { SPARK_SPAWN_VITE: '1' })` / `Reflect.set(process.env, 'SPARK_' +
+  'SPAWN_VITE', '1')` inserted above the const → exit **0** both (green over the hole). Now the walk is a
+  function of the source text, `spawnGateViolations(text)`, and also flags: any call handed `process.env`
+  (Object.assign / Reflect.set / Object.defineProperty / …), any `stubEnv(` call, any template naming the
+  variable, `delete process.env…`. A new case runs it on NINE mutated copies of the file (= true, a top-of-file
+  assignment, Object.assign, vi.stubEnv(`…`), Reflect.set with concatenation, vi.stubEnv with concatenation,
+  Object.defineProperty, delete, `let`) and requires each RED — so the mutation tests are permanent, not a log.
+  The workflow list is `readdirSync('.github/workflows')` (both sites), and a new case asserts package.json,
+  vite.config.ts and playwright.config.ts do not name it. Two self-inflicted reds on the first run (my own
+  message template and the decl-line string named the variable) → resolved by building them from `ENV_NAME`.
+  `npx vitest run src/ci.e2ePort.test.ts` **0** (11 + 2 skipped). Protocol: none.
