@@ -13,4 +13,4 @@ Branch `s193/goblin-autobuild`, worktree `.claude/worktrees/s193-goblin-autobuil
 - [ ] gates + final report
 
 ## NEXT STEP (WIP commit 1)
-Sim side landed (intent, spawner fields 4 sites, runner in hostTick). Next: card cue + controls right-click + main.ts dispatch, then tests.
+Sim + UI landed; sim tests (28) green incl host-vs-worker + mutation-verified guard. Next: Controls REACH test with the real CharacterSheet (src/input/goblinAutoFeed.controls.test.ts), then full gates.
