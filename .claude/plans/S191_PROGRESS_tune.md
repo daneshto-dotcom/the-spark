@@ -155,3 +155,4 @@ IN FLIGHT (NOT applied yet):
 - ROUND 3 step B (Ra 35/75): core `wip` commits; census re-pins; raColumnS192.test (9); mutations M10 no-WRATH → 4 red, M11 boss spares owner → 1 red, M12 boss pool ignores owner → 1 red; canon §3e + pins; CANON_NOTES item 4 + §6 reason 4. NEXT: full gates.
 - ROUND 3 GATES: TYPECHECK=0 · VITEST=0 (6738 passed / 7 skipped, 417 files) · BUILD=0 (974.7 KiB). No Pharaoh-ritual / castleGuns test went red (they count landings, not 300). Branch NOT re-merged with master (master is now deploy #7, PROTOCOL 53) — merge owner's call.
 - ROUND 4 (mergeable): merge 7d2fb08 · carry port e8d1097 · re-pins 0034bd8 · docs 05e8512 · §6 54→55 (next commit). NEXT: gates.
+- ROUND 4 GATES: TYPECHECK=0 · VITEST=0 (6955 passed / 7 skipped, 443 files) · BUILD=0 (985.0 KiB, 115.0 headroom). PROTOCOL_VERSION untouched (54). Branch is mergeable.
