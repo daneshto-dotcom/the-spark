@@ -312,8 +312,10 @@ export function runLockMatch(
   if (lockWhen === 'midHaul') {
     while (!anyCarrying()) step();
   } else {
-    while (w.matchPhase === 'BUILD') step();
-    while (w.matchPhase !== 'BUILD') step();
+    // A reader, not a field access, so the compiler does not narrow the phase across `step()`.
+    const phase = (): string => w.matchPhase;
+    while (phase() === 'BUILD') step();
+    while (phase() !== 'BUILD') step();
   }
   let seatsWithTower = 0;
   for (const s of BOT_SEATS) {

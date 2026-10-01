@@ -23,3 +23,6 @@ Branch `s193/bots`, worktree `.claude/worktrees/s193-bots`, base master `a638565
 - [step 4b] botPersonality.test.ts 19/19 (identity hashes, table rules, brain unit+neg, REACH signatures, determinism); mutations MUT1 (adapt at HARD) + MUT2 (Fortress order) both turned it red, restored. Finding: towers only IGNITE in runGodlyMatcherCore (main/worker), not runHostTick — the old firstTowerSpeed-style harness stamps towers that never become spawners. NEXT: full gates.
 
 - [step 5] gates green (tc 0 / vitest 0 7261 / build 0, +212 B). Spec §9 measured table, HTML re-copied to Desktop. DONE — awaiting merge-owner audit.
+- [fix round] merged master c09365e -> 4bcbd50b (no conflicts), npm install. NEXT: HIGH endgame-lock fix in botBrain/botController.
+- [fix round] HIGH fixed + REACH (15 cells + mid-haul + wave-26 negative), mutations M3/M4/M5 red. NEXT: MED-1 identity differential.
+- [fix round] MED-1/MED-2/LOW-1/LOW-2/Q-F/teams seam done. NEXT: full gates.

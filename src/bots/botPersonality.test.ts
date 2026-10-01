@@ -125,10 +125,12 @@ describe('S193 — IDENTITY: BALANCED below IMBA is the pre-personality bot, byt
       .toBe(runManagerMatch(['NOOB', 'MID', 'HARD'], 200));
   });
 
-  it('⚠ NEGATIVE: the differential is not vacuous — IMBA BALANCED (Q4/Q6) and a non-BALANCED lobby differ', () => {
-    // IMBA BALANCED carries the two IMBA rulings, so it MUST differ from the bare IMBA row.
+  it('⚠ NEGATIVE: the differential is not vacuous — IMBA BALANCED carries Q4/Q6, so it differs', () => {
     expect(runIdentityArm(['IMBA', 'IMBA', 'IMBA'], 300, 'balanced'))
       .not.toBe(runIdentityArm(['IMBA', 'IMBA', 'IMBA'], 300, 'stripped'));
+  }, 60_000);
+
+  it('⚠ NEGATIVE: a non-BALANCED lobby differs from the bare manager', () => {
     expect(runManagerMatch(['HARD', 'MID', 'HARD'], 200, ['FORTRESS', 'BALANCED', 'WARMONGER']))
       .not.toBe(runManagerMatch(['HARD', 'MID', 'HARD'], 200));
   }, 60_000);
@@ -301,6 +303,20 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
   };
   const sum = (m: MatchSignature, f: (s: SeatSignature) => number): number => m.seats.reduce((a, s) => a + f(s), 0);
   const meanDef = (m: MatchSignature): number => sum(m, (s) => s.defenceRatio) / m.seats.length;
+
+  /*
+   * ⚠ ONE MATCH PER `it`, measured first and cached. A single synchronous test running five 300-s matches
+   * blocked the worker long enough under `--maxWorkers=3` load that vitest reported an unhandled
+   * "Timeout calling onTaskUpdate" (all tests green, run exit 1). Vitest yields between tests, so
+   * splitting the measurement keeps the RPC heartbeat alive; the assertions below read the cache.
+   */
+  for (const tier of ['HARD', 'IMBA'] as const) {
+    for (const p of BOT_PERSONALITIES) {
+      it(`measure ${tier} ${p}`, () => {
+        expect(sig(tier, p).seats).toHaveLength(3);
+      }, 60_000);
+    }
+  }
 
   it('the instrumented harness IS the BotManager (observation only)', () => {
     const lobby = ['WARMONGER', 'FORTRESS', 'SABOTEUR'] as const;
