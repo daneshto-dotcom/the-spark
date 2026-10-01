@@ -1,4 +1,4 @@
-**STATUS: COMPLETE — S191 FIX ROUND (audit wf_0593f6fe-d53): all 6 items committed; gates 0/0/0 (6592 tests, 965.6 KiB). Awaiting re-audit; step 8 (C4 tuning) only on a later message.**
+**STATUS: IN PROGRESS — S192 (ROUND-1..3, FIX-2, SEAM-1, then C4 step 8). Done: merge, ROUND-1.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -740,3 +740,29 @@ The renderer's per-frame `world.effects` wipe is modelled (without it the wire s
 
 ## S191 MERGE OWNER — FIX-3 REVERTED ON MASTER (deploy #5)
 The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes NETFR-3 in the usual real-drop order (starvation first, then our own transport loss). Reverted 6004e8d on master; NETFR-3 minimal shape is live (known cost: a survivor blink during a real 3+ seat host death restarts the claim clock). Carried to S192 with ROUND-1/ROUND-2/ROUND-3.
+
+## S192 (audit wf_de15cae4-4a8 ROUND-1..3 + FIX-2 ruling + SEAM-1; then C4 step 8)
+
+- **Step 1 — merge master (e4d52dc).** `git merge master` FAST-FORWARDED (master already held 02e493d + the
+  70d90fc revert of FIX-3): no conflicts, and the branch carries NO FIX-3 (verified: `reconnectPolicy.ts:182`
+  is the NETFR-3 reset line). Gates on the merged tree (captured `$?`): typecheck **0** · `npx vitest run
+  --maxWorkers=3` **1** — ONE red, `structureComponents.test.ts` "one sweep beats componentOf-per-primitive"
+  (a wall-clock perf ratio, 126.7 vs 120.3 ms, under 8-worktree load; not a net file) → re-run ALONE **0**:
+  BENIGN (timing). 6705 passed + 7 skipped / 414 files. build **0**, entry **972.7 KiB** (= master).
+  Benign, recorded: vitest rewrote `pentagramBuildability.test.ts.snap` line endings → restored.
+- **Step 2 — ROUND-1 (MED): FIX-3 redone with `clockStartedHostAbsent`.** `MigrationClaimInput/Step` gain a
+  REQUIRED `clockStartedHostAbsent` (tsc forces main.ts). Set on the clock's FIRST frame only (= `hostLost`);
+  in the no-seated-survivor branch a running clock is KEPT only when the flag is true, else dropped (0/false);
+  cleared with the clock (the not-lost-not-starved return, main.ts match-reset + D2-recovered sites).
+  main.ts: `migrationClockStartedHostAbsent` beside `migrationLossObservedAtMs` (decl + 2 clears + in/out of
+  the step). Tests (`reconnectPolicy.test.ts`): PRE-FIX 4 red / 24 green (the two FIX-3 blink cases, the
+  NEGATIVE re-pinned with the flag, the flag-lifecycle case) → POST 28 green. ROUND-1 cases: the auditor's
+  timeline (starvation clock at L+6 with H present, legs gone L+8/L+8.5, B back L+24, H L+26) → **null**;
+  same with H never back → claim at B's return + grace + rung. Mutations (byte-copy restore, `cmp`):
+  M-A keep every clock (the 6004e8d shape) → 3 red incl. the ROUND-1 null case · M-B reset every clock (the
+  NETFR-3 shape) → 3 red incl. both blink cases. ⚠ My first ROUND-1 timeline (B back at L+15) was green under
+  M-A too — a clock from L+6 is not yet due at L+15 — so it was re-pinned to the auditor's numbers (B lands
+  15 s after the legs leave). ⚠ Sub-case left as the auditor shaped it: a clock that began as STARVATION and
+  then saw the host leave with B visible keeps flag=false, so a later B blink still restarts it (upgrading
+  the flag there would re-open ROUND-1 whenever the two legs leave a few frames apart). Gates: typecheck **0**,
+  `npx vitest run src/net/` **0** (39 files / 626). Protocol: none (local timing only).

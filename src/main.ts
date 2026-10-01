@@ -2540,6 +2540,7 @@ Network routes: ${v.detail}`;
         }).__TEST_MIGRATION__
       : undefined;
   let migrationLossObservedAtMs = 0;
+  let migrationClockStartedHostAbsent = false; // S192 ROUND-1 — carried beside it, cleared with it
   // ⭐ S189 fix round (audit NET-4) — when the followed host last (re)appeared on our transport; the
   // claim counts starvation from it, so a reconnect that lands is not read as a starved host.
   let hostPresence: HostPresence = { hostPeerId: null, present: false, presentSinceMs: 0 };
@@ -3021,6 +3022,7 @@ Network routes: ${v.detail}`;
         clientLastShakeArcFlashTick = -Infinity;
         hostLastShakeArcFlashTick = -Infinity; // S119 P1 — same discipline, host cursor
         migrationLossObservedAtMs = 0; // S122 P2 — D3 latches die with the match
+        migrationClockStartedHostAbsent = false; // S192 ROUND-1
         migrationClaimedEpoch = -1;
         // S124 P1 (D4) — the D4 latches die with it too: claim/echo state, partition
         // evidence, the zombie terminal latch, and the pause window all reset so a fresh
@@ -3391,6 +3393,7 @@ Network routes: ${v.detail}`;
         } else if (clientStarvationLatched) {
           clientStarvationLatched = false; // recovered → re-arm for the next episode
           migrationLossObservedAtMs = 0; // S122 P2 — the loss episode ended; re-arm D3 too
+          migrationClockStartedHostAbsent = false; // S192 ROUND-1
           console.info('[net] host snapshot stream recovered (D2 detect).');
         }
       }
@@ -3455,8 +3458,10 @@ Network routes: ${v.detail}`;
             migrationSeam?.ladderMs ?? CLAIM_LADDER_MS,
           ),
           lossObservedAtMs: migrationLossObservedAtMs,
+          clockStartedHostAbsent: migrationClockStartedHostAbsent,
         });
         migrationLossObservedAtMs = claimStep.lossObservedAtMs;
+        migrationClockStartedHostAbsent = claimStep.clockStartedHostAbsent;
         {
           if (claimStep.claim) {
             {

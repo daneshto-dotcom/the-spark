@@ -148,6 +148,7 @@ function firstClaim(o: {
   roster?: string[];
 }): number | null {
   let obs = 0;
+  let hostAbsentStart = false;
   for (let t = o.fromMs; t <= o.toMs; t += 16) {
     const alive = new Set([...(o.othersAt?.(t) ?? o.others ?? []), ...(o.host(t) ? ['host'] : [])]);
     const seated = o.roster !== undefined
@@ -157,9 +158,10 @@ function firstClaim(o: {
       nowMs: t, hostPeerId: 'host', alivePeerIds: alive, seatedSurvivorIds: seated,
       lastAcceptedAtMs: o.lastSnapshotAt(t), hostPresentSinceMs: o.presentSince?.(t) ?? 0,
       starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS,
-      ladderDelayMs: o.ladderDelayMs ?? 0, lossObservedAtMs: obs,
+      ladderDelayMs: o.ladderDelayMs ?? 0, lossObservedAtMs: obs, clockStartedHostAbsent: hostAbsentStart,
     });
     obs = r.lossObservedAtMs;
+    hostAbsentStart = r.clockStartedHostAbsent;
     if (r.claim) return t;
   }
   return null;
@@ -221,6 +223,7 @@ describe('S189 fix round (audit NET-4) — the claim: D4 kept for a FROZEN host,
       const r = stepMigrationClaim({
         nowMs: t, hostPeerId: 'host', alivePeerIds: new Set(['host']), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
         starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: null, lossObservedAtMs: obs,
+        clockStartedHostAbsent: false,
       });
       obs = r.lossObservedAtMs;
       expect(r.claim).toBe(false);
@@ -282,12 +285,97 @@ describe('S191 NETFR-3 — the claim clock starts the first frame a survivor is 
     expect(at! - B_LANDS).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
   });
 
-  it('NEGATIVE — while nobody is visible the step reports NO loss episode (so nothing is banked)', () => {
-    const r = stepMigrationClaim({
-      nowMs: 20_000, hostPeerId: 'host', alivePeerIds: new Set(), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
-      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs: 12_000,
+  it('NEGATIVE — while nobody is visible no clock STARTS, and a clock that began as STARVATION (host present) is dropped', () => {
+    const step = (lossObservedAtMs: number, clockStartedHostAbsent: boolean) => stepMigrationClaim({
+      nowMs: 40_000, hostPeerId: 'host', alivePeerIds: new Set(), seatedSurvivorIds: new Set(), lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+      starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 0, lossObservedAtMs, clockStartedHostAbsent,
     });
-    expect(r).toEqual({ lossObservedAtMs: 0, claim: false });
+    expect(step(0, false)).toEqual({ lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false });
+    expect(step(12_000, false), 'a starvation clock must not survive our own transport loss (ROUND-1)')
+      .toEqual({ lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false });
+    // ⭐ S192 ROUND-1 — a clock that began with the host ABSENT and a seated survivor visible is KEPT (no claim
+    // while nobody is here to host for, but not thrown away either): the FIX-3 blink.
+    expect(step(12_000, true)).toEqual({ lossObservedAtMs: 12_000, clockStartedHostAbsent: true, claim: false });
+  });
+
+  /*
+   * ⛔ S192 ROUND-1 (audit wf_de15cae4-4a8, MED) — FIX-3 KEPT EVERY RUNNING CLOCK, AND THAT RE-OPENED NETFR-3
+   * IN THE USUAL ORDER OF A REAL DROP: snapshots stop at L, starvation (6 s) starts the clock at L+6 with the
+   * host STILL on our transport, Trystero removes both legs ~L+7–10 s (ICE 'disconnected' + 5 s), and the
+   * reconnect lands B's leg first — the kept L+6 clock was already past grace + rung, so we claimed on B's
+   * first frame. The fix (the auditor's shape): the clock remembers whether it STARTED with the host absent
+   * (`clockStartedHostAbsent`). Only such a clock — a real host death seen while our own transport was up —
+   * is kept through a survivor blink; a clock that began as starvation is dropped when our transport empties.
+   */
+  // The auditor's timeline: the legs leave ~L+8 s; the reconnect lands B 15 s after that and H 2 s after B.
+  it('⛔ ROUND-1 — lag, starvation at L+6 (host present), both legs gone ~L+8, B back at L+24, H at L+26 → NO claim', () => {
+    const L = 10_000;
+    const at = firstClaim({
+      fromMs: L, toMs: 90_000,
+      host: (t) => t < L + 8_000 || t >= L + 26_000,
+      othersAt: (t) => (t < L + 8_500 || t >= L + 24_000 ? ['seat-2'] : []),
+      lastSnapshotAt: (t) => (t >= L + 26_400 ? t : L),
+      presentSince: (t) => (t >= L + 26_000 ? L + 26_000 : 0),
+      ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at, "a claim on B's first frame back makes this seat a lone host (NETFR-3)").toBeNull();
+  });
+
+  it("⛔ ROUND-1 — …and the same drop with H NEVER back still migrates, counted from B's return", () => {
+    const L = 10_000;
+    const at = firstClaim({
+      fromMs: L, toMs: 90_000,
+      host: (t) => t < L + 8_000,
+      othersAt: (t) => (t < L + 8_500 || t >= L + 24_000 ? ['seat-2'] : []),
+      lastSnapshotAt: () => L,
+      ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - (L + 24_000)).toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - (L + 24_000)).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+  });
+
+  it('⭐ FIX-3 (kept by ROUND-1) — host dies at L with B connected, B blinks out for ONE frame at L+10 s → the claim still fires at L + grace + rung', () => {
+    const L = 12_000;
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < L,
+      othersAt: (t) => (t >= L + 10_000 && t < L + 10_016 ? [] : ['seat-2']),
+      lastSnapshotAt: () => L - 100, ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at! - L, 'a blink must not restart the grace').toBeGreaterThanOrEqual(RECONNECT_GRACE_MS + CLAIM_LADDER_MS);
+    expect(at! - L).toBeLessThan(RECONNECT_GRACE_MS + CLAIM_LADDER_MS + 32);
+  });
+
+  it('⭐ FIX-3 — a claim that falls due DURING a blink waits for a seated survivor, then fires on its first frame back', () => {
+    const L = 12_000;
+    const due = L + RECONNECT_GRACE_MS + CLAIM_LADDER_MS;
+    const at = firstClaim({
+      fromMs: 10_000, toMs: 60_000, host: (t) => t < L,
+      othersAt: (t) => (t >= due - 500 && t < due + 2_000 ? [] : ['seat-2']),
+      lastSnapshotAt: () => L - 100, ladderDelayMs: CLAIM_LADDER_MS,
+    });
+    expect(at).not.toBeNull();
+    expect(at!).toBeGreaterThanOrEqual(due + 2_000);
+    expect(at!).toBeLessThan(due + 2_000 + 32);
+  });
+
+  it("ROUND-1 — the flag is set on the clock's FIRST frame only, and clears with the clock", () => {
+    const base = {
+      hostPeerId: 'host', starvationMs: HOST_STARVATION_MS, graceMs: RECONNECT_GRACE_MS, ladderDelayMs: 99_999,
+      lastAcceptedAtMs: 10_000, hostPresentSinceMs: 0,
+    };
+    // Starvation start, host present → false; the host then leaves with B visible → the clock is kept, the flag stays false.
+    const a = stepMigrationClaim({ ...base, nowMs: 17_000, alivePeerIds: new Set(['host', 'b']), seatedSurvivorIds: new Set(['b']), lossObservedAtMs: 0, clockStartedHostAbsent: false });
+    expect(a).toEqual({ lossObservedAtMs: 17_000, clockStartedHostAbsent: false, claim: false });
+    const b = stepMigrationClaim({ ...base, nowMs: 18_000, alivePeerIds: new Set(['b']), seatedSurvivorIds: new Set(['b']), lossObservedAtMs: a.lossObservedAtMs, clockStartedHostAbsent: a.clockStartedHostAbsent });
+    expect(b).toEqual({ lossObservedAtMs: 17_000, clockStartedHostAbsent: false, claim: false });
+    // A host-absent start → true.
+    const c = stepMigrationClaim({ ...base, nowMs: 12_000, alivePeerIds: new Set(['b']), seatedSurvivorIds: new Set(['b']), lossObservedAtMs: 0, clockStartedHostAbsent: false });
+    expect(c).toEqual({ lossObservedAtMs: 12_000, clockStartedHostAbsent: true, claim: false });
+    // The episode ends (host back and fed) → both clear.
+    const d = stepMigrationClaim({ ...base, nowMs: 13_000, lastAcceptedAtMs: 12_900, alivePeerIds: new Set(['host', 'b']), seatedSurvivorIds: new Set(['b']), lossObservedAtMs: 12_000, clockStartedHostAbsent: true });
+    expect(d).toEqual({ lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false });
   });
 
   /**

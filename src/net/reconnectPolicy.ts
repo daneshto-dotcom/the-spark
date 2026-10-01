@@ -145,9 +145,16 @@ export interface MigrationClaimInput {
   readonly ladderDelayMs: number | null;
   /** When the current loss episode was first observed (0 = none). */
   readonly lossObservedAtMs: number;
+  /**
+   * ⭐ S192 ROUND-1 — did the running clock START on a frame where the host was already gone from our
+   * transport (a host death seen with our own transport up)? Carried by main.ts beside `lossObservedAtMs`;
+   * false when no clock runs. Only such a clock survives a frame with no seated survivor.
+   */
+  readonly clockStartedHostAbsent: boolean;
 }
 export interface MigrationClaimStep {
   readonly lossObservedAtMs: number;
+  readonly clockStartedHostAbsent: boolean;
   readonly claim: boolean;
 }
 
@@ -172,19 +179,35 @@ export interface MigrationClaimStep {
  * else here" is no episode at all: the grace is counted from the first frame a survivor is visible without
  * the host. (`planConnectionFrame` anchors its MIGRATING window on the same clock — `claimClockSinceMs`.)
  * ⚠ It narrows the window, it does not close it — see the RESIDUAL test in `reconnectPolicy.test.ts`.
+ *
+ * ⛔ S192 ROUND-1 (audit wf_de15cae4-4a8) — WHICH running clock survives a frame with no seated survivor.
+ * Resetting every one (NETFR-3 as first built) cost a real 3+-seat host death a whole fresh grace + rung per
+ * survivor blink (S191 FIX-3). KEEPING every one (6004e8d, reverted) re-opened NETFR-3 in the usual order of
+ * a real drop: snapshots stop, starvation starts the clock with the host STILL on our transport, Trystero
+ * then removes both legs, and the reconnect lands B first — on a clock already past grace + rung. So the
+ * clock remembers how it began (`clockStartedHostAbsent`, set on its first frame only): a clock that began
+ * with the host gone and a survivor visible is kept through the blink; one that began as starvation is
+ * dropped the moment our transport has nobody to host for, and restarts when a survivor is visible.
  */
 export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const hostPresent = i.hostPeerId !== null && i.alivePeerIds.has(i.hostPeerId);
   const hostLost = i.hostPeerId !== null && !hostPresent;
   const since = hostPresent ? Math.max(i.lastAcceptedAtMs, i.hostPresentSinceMs) : i.lastAcceptedAtMs;
   const starved = isSnapshotStarved(i.nowMs, since, i.starvationMs);
-  if (!(hostLost || starved)) return { lossObservedAtMs: 0, claim: false };
-  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
-  const obs = i.lossObservedAtMs === 0 ? i.nowMs : i.lossObservedAtMs;
-  if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
-    return { lossObservedAtMs: obs, claim: false };
+  if (!(hostLost || starved)) return { lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false };
+  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) {
+    // S192 ROUND-1 — never START a clock here; KEEP one only if it began with the host already absent.
+    return i.lossObservedAtMs !== 0 && i.clockStartedHostAbsent
+      ? { lossObservedAtMs: i.lossObservedAtMs, clockStartedHostAbsent: true, claim: false }
+      : { lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false };
   }
-  return { lossObservedAtMs: obs, claim: true };
+  const starting = i.lossObservedAtMs === 0;
+  const obs = starting ? i.nowMs : i.lossObservedAtMs;
+  const clockStartedHostAbsent = starting ? hostLost : i.clockStartedHostAbsent;
+  if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
+    return { lossObservedAtMs: obs, clockStartedHostAbsent, claim: false };
+  }
+  return { lossObservedAtMs: obs, clockStartedHostAbsent, claim: true };
 }
 
 /** When did the followed host last (re)appear on our transport? Pure; `main.ts` keeps the state. */
