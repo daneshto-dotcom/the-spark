@@ -41,6 +41,8 @@ import {
 } from './towerCover.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
+import { auraFx } from './fx/auraFx.ts';
+import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
 
 /** How many concentric rings radiate outward from the zone centre. */
 const RING_COUNT = 3;
@@ -55,6 +57,14 @@ const FALLBACK_TINT = 0xffd27a;
 
 export class SpawnerZoneRenderer {
   private readonly graphics: Graphics;
+  /**
+   * ⭐ S192 `s192/visuals` — the renderer's slot on `fogHiddenLayer` (index 5) is now a CONTAINER: the
+   * legacy Graphics, then the fx GROUND layer (`fx/fxRuntime.ts` adds it here). One slot, not two, so
+   * `tower-art.spec.ts`'s indices 6 and 11 do not move; `fog.spec.ts`'s roll call names the type change.
+   * The ground layer sits here because this is exactly the depth ground light belongs at: over the
+   * shapes and connectors, under every tower building and every unit.
+   */
+  readonly root: Container;
 
   // S100 P1 — defaults to app.stage but main.ts passes aboveFogLayer: a spawn
   // ⭐ S169 (owner) — SUPERSEDED. This now renders UNDER the fog on `fogHiddenLayer`: "It should all be hidden during build state ... You should only see, like, their castle." The cross-player-landmark argument below was overruled — scouting has to cost something.
@@ -62,8 +72,12 @@ export class SpawnerZoneRenderer {
   // raid it), so it renders THROUGH the fog like the other global-reach visuals."
   // ⚠ The aura had to move WITH the tower, or a hidden building would still glow.
   constructor(app: Application, parent: Container = app.stage) {
+    this.root = new Container();
+    this.root.label = 'spawnerZoneRoot';
+    this.root.eventMode = 'none';
     this.graphics = new Graphics();
-    parent.addChild(this.graphics);
+    this.root.addChild(this.graphics);
+    parent.addChild(this.root);
   }
 
   /** Clear + redraw the aura for every live spawner. No-op when none. */
@@ -117,6 +131,11 @@ export class SpawnerZoneRenderer {
       radius = Math.max(radius + p0Pad(prims), 28); // pad past prim sprites, min floor
 
       const tint = anchorTint(world, anchor);
+      // ⭐ S192 PILOT 2 — the rebuilt aura: a pool of light and rising embers (`fx/auraFx.ts`), drawn
+      // whether or not a building covers the shapes. It REPLACES the disc, the rings and the core dot
+      // below; the per-connector strokes stay, and stay faded under cover exactly as S183 ruled.
+      const rebuilt = fxActive();
+      if (rebuilt) auraFx(fxGround(), fxTop(), sp.id as unknown as number, cx, cy, radius, tint, world.tick);
 
       /*
        * ⭐⭐⭐ S183 (owner) — **THE AURA FADES WITH THE BUILDING, ON EVERY TOWER, FRIENDLY AND
@@ -154,7 +173,7 @@ export class SpawnerZoneRenderer {
        * sprite is standing on, so a zone with no building art glows exactly as it did in S100.
        */
       const zoneAlpha = coverAlphaForPrim(anchor.id);
-      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+      if (!rebuilt && zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
         // ── breathing tint disc under the structure (the "alive" glow floor) ──
         g.circle(cx, cy, radius * (0.85 + pulse * 0.1)).fill({
           color: tint,
@@ -202,7 +221,7 @@ export class SpawnerZoneRenderer {
       // ── a steady core glow at the anchor itself (the spawn point) ──
       // ⛔ S183 — *"that little graphic that have it, like, radiate"*. The core is the brightest
       // thing in this file and sits dead centre under the building, so it fades with the rest.
-      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+      if (!rebuilt && zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
         g.circle(anchor.pos.x, anchor.pos.y, 5 + pulse * 3).fill({
           color: tint,
           alpha: (0.35 + pulse * 0.3) * zoneAlpha,
@@ -218,6 +237,7 @@ export class SpawnerZoneRenderer {
   }
 
   destroy(): void {
+    // The root also holds the fx GROUND layer, which `fxRuntime` owns, so only our own Graphics goes.
     this.graphics.destroy();
   }
 }
