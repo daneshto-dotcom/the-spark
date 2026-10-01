@@ -31,3 +31,5 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - Owner approved deleting the main-checkout scratch; the permission layer DENIED the rm → still left untracked (harmless).
 - AUDIT QUEUE (serial): units-ai (running) → zombies (after its blast round) → lobby-ci → weld (after r6) → magic → endgame → endstats → teams.
 - QUEUED next worktrees: visuals-3 racial, visuals-4 combat (after zombies — damageNumbers), visuals-5 board (after weld — healthBar), MRES draft card (after magic + endgame).
+- AUDIT units-ai (aefc42cbf01edcbc6): FIX FIRST — MED creatureAI.ts:975 home-zone test reads only the quarry's zone (abroad unit re-acquires a drone crossing into home, 2–4 pickups/reversals measured over 84 fly-bys); MED differential blind to it; MED stale S192_CANON_NOTES_units_ai.md (3 wrong rules); LOW arcade exclusion in 2 guards, stale failure text, Math.hypot. Bump YES confirmed. Trial merge clean, branch +0.9 KiB. → fix-only round sent to a7a17269cbad0acb6.
+- AUDIT slot free while zombies/weld/lobby-ci build → AUDIT magic now (a4064b410f6b45efa); its merge seam re-checked after zombies lands.
