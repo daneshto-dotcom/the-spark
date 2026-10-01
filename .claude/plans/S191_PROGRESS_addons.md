@@ -23,7 +23,8 @@ Merge owner = the main session. This branch never merges, never pushes.
 | R2-5 | INPUT-4 castle-panel RMB put-back | DONE | 90732c4 |
 | R2-6 | INPUT-5 Alt latch reset on blur / hidden | DONE | 7ea99a5 |
 | R2-7 | INPUT-6 widened right-click guard + repo-wide scan | DONE | 08363cc |
-| R2-9 | DOCS — RAGE-6 superseded passages + RAGE-5 canon-notes paragraph | DONE | (this commit) |
+| R2-9 | DOCS — RAGE-6 superseded passages + RAGE-5 canon-notes paragraph | DONE | 629854e |
+| S192-1 | merge master (0 conflicts) + notes line + gates | DONE | 48edd8a, aa646bb, (this commit) |
 
 ## Decisions / owner answers received mid-task
 
@@ -302,3 +303,26 @@ Merge owner = the main session. This branch never merges, never pushes.
 - The rage latch is FIGHT-gated (S168 post-audit), so a Warlord raging at the whistle keeps the red bit
   through BUILD and is re-judged on the first FIGHT tick (both windows long over by then). Pre-existing
   shape (before S191 he stayed red forever); flagging because "25 seconds" is now visible as a length.
+
+## S192 — merge master + self-check (agent `s191-addons`)
+
+- **`git merge master`** (master `e4d52dc`, deploy #5 + S192 bookkeeping; base `42cc2ee`): merge commit
+  `48edd8a`, **ZERO conflicts** (ort, clean — no plans/state/handoff conflict either). Compose check by hand:
+  net's S189 A1 `consumeCancel(e)` (preventDefault on the Escape that cancels the Ra aim / a held tower)
+  sits in `onKeyDown` after my A-2 Alt line, which only acts on `e.key === 'Alt'` — disjoint keys.
+  `main.ts`: `makeDoubleEscapeLeave` reads `exitButton.isConfirmOpen()` through a closure; my
+  `setModalCover` statement still sits after `const exitButton = makeExitButton(…)` (now :2084) and composes
+  with master's `draftOverlay.setCoveredBy` (:2067). The cover is pointer-only, so the double-Escape path is
+  untouched.
+- **Digest self-check (merged tree):** RAGE-1 owner-ruled, pinned (`warlordRageClock.test.ts:258`, quote at
+  `constants.ts:3219`) · RAGE-2 (a) answered by the owner rule, built; (b) `⚠ MINE` length at
+  `WARLORD_RAGE_COOLDOWN_TICKS` · RAGE-3 fixed · RAGE-5 merge-owner (canon §3e still stale on master; the
+  replacement text is in `S191_CANON_NOTES_addons.md` — one stale notes line "frenzy only ever SETS a
+  Warlord" marked superseded, `aa646bb`) · RAGE-6 fixed · RAGE-7 tests present · INPUT-1/3/4/5/6/7 fixed ·
+  **INPUT-2 NOT APPLICABLE YET** — `s191/owner` is not in master; the seam fires when the merge owner merges
+  it (tag its `handleScorchedEarthAimClick` `button === 2` site `R190-G: HAND`, re-pin 5→6 sites, HAND 4→5;
+  INPUT-6's widened scan also requires a tag on every `button` token it adds).
+- **Gates (captured `$?`, `.tmp-gates/addons_*_exit.txt`):** typecheck 0 · vitest `--maxWorkers=3` 0 (6802
+  passed / 7 skipped, 417 files + 2 skipped) · `ci.e2eLanes.test.ts` 0 (6/6) · build 0, **975.3 KiB** (cap 1100,
+  headroom 124.7; master 972.7 → +2.6 KiB).
+- **Protocol:** not edited (52). Verdict **BUMP** (see canon notes §6).
