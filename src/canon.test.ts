@@ -301,7 +301,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(57);
+    expect(PROTOCOL_VERSION).toBe(58);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1108,7 +1108,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 56 -> 57');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 57 -> 58');
+    expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 55 -> 56')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 54 -> 55')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 53 -> 54')).toBeLessThan(constAt);
