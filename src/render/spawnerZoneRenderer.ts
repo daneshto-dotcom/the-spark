@@ -131,11 +131,13 @@ export class SpawnerZoneRenderer {
       radius = Math.max(radius + p0Pad(prims), 28); // pad past prim sprites, min floor
 
       const tint = anchorTint(world, anchor);
-      // ⭐ S192 PILOT 2 — the rebuilt aura: a pool of light and rising embers (`fx/auraFx.ts`), drawn
-      // whether or not a building covers the shapes. It REPLACES the disc, the rings and the core dot
-      // below; the per-connector strokes stay, and stay faded under cover exactly as S183 ruled.
+      // ⭐ S192 PILOT 2 — the rebuilt aura: a pool of light and rising embers (`fx/auraFx.ts`). It REPLACES
+      // the disc, the rings and the core dot below. ⛔ S192 audit V-1 — and it FADES WITH THE BUILDING like
+      // every other layer here (S183, owner: the aura fades with the building on every tower): the last
+      // argument is the anchor's cover alpha, so the light hides under a finished tower and shows only
+      // while it is being built or crumbling. `towerCover.test.ts` pins that argument mechanically.
       const rebuilt = fxActive();
-      if (rebuilt) auraFx(fxGround(), fxTop(), sp.id as unknown as number, cx, cy, radius, tint, world.tick);
+      if (rebuilt) auraFx(fxGround(), fxTop(), sp.id as unknown as number, cx, cy, radius, tint, world.tick, coverAlphaForPrim(anchor.id));
 
       /*
        * ⭐⭐⭐ S183 (owner) — **THE AURA FADES WITH THE BUILDING, ON EVERY TOWER, FRIENDLY AND

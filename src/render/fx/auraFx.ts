@@ -13,11 +13,11 @@
  *   · slow RISING EMBERS around the footprint — 12 to 28 by footprint size — drifting up with a sway,
  *     fading in and out, tinted towards white.
  *
- * ⛔ AND WHAT IT DELIBERATELY DOES NOT DRAW: rings, bond strokes, beads or a core dot. Those are the
- * pieces he objected to, and they stay faded under the building exactly as S183 ruled. Unlike them,
- * the pool and the embers stay visible AROUND a covered building: they are not a copy of its
- * connectors, they are light coming off it. ⚠ That is a new look, recorded in the progress file as
- * the first thing to show him.
+ * ⛔ AND WHAT IT DELIBERATELY DOES NOT DRAW: rings, bond strokes, beads or a core dot.
+ *
+ * ⛔ S192 audit V-1 — EVERY alpha here is scaled by `cover`, the anchor's tower-cover alpha, exactly as
+ * the legacy aura scaled by `zoneAlpha`. Owner S183: the aura fades with the building, on every tower.
+ * So the light shows while a tower is being built or crumbling, and is gone under a finished one.
  *
  * ⚠ The pulse and the embers age on `world.tick` and phase by the spawner id: two towers never
  * breathe in step, and every screen sees the same embers. No `performance.now()` (the legacy aura's
@@ -25,6 +25,9 @@
  */
 
 import { envelope, forEachLive, fxHash, fxSeed, mixColor, type FxSink } from './emitter.ts';
+
+/** Below this cover alpha nothing is drawn (`towerCover.TOWER_COVER_DRAW_EPSILON`, duplicated to keep this file Pixi-free). */
+export const COVER_EPSILON = 0.02;
 
 /** Ember life, ticks. */
 export const AURA_EMBER_LIFE = 120;
@@ -49,20 +52,23 @@ export function auraFx(
   radius: number,
   tint: number,
   tick: number,
+  /** ⛔ S192 audit V-1 — the anchor's tower-cover alpha (1 = no building on it, 0 = fully covered). */
+  cover: number,
 ): void {
+  if (!(cover > COVER_EPSILON)) return; // hidden under a finished building, exactly like the legacy aura
   const phase = spawnerId * 37;
   const pulse = 0.5 + 0.5 * Math.sin((((tick + phase) % AURA_PULSE_TICKS) / AURA_PULSE_TICKS) * Math.PI * 2);
   const bright = mixColor(tint, 0xffffff, 0.35);
 
   // The pool: wide and dim, then inner and brighter. Squashed to the board's perspective.
-  ground.emit('soft', cx, cy + radius * 0.15, radius * 3.0, radius * 1.4, 0, 0.3 + 0.12 * pulse, tint, 'add');
-  ground.emit('soft', cx, cy + radius * 0.1, radius * 1.6, radius * 0.72, 0, 0.3 + 0.14 * pulse, bright, 'add');
+  ground.emit('soft', cx, cy + radius * 0.15, radius * 3.0, radius * 1.4, 0, (0.3 + 0.12 * pulse) * cover, tint, 'add');
+  ground.emit('soft', cx, cy + radius * 0.1, radius * 1.6, radius * 0.72, 0, (0.3 + 0.14 * pulse) * cover, bright, 'add');
 
   // The embers.
   const ember = mixColor(tint, 0xffffff, 0.5);
   forEachLive(tick, auraEmberPeriod(radius), AURA_EMBER_LIFE, 1, phase, (b, k, t) => {
     const e = auraEmberAt(spawnerId, b, k, t, cx, cy, radius);
-    top.emit('core', e.x, e.y, e.size, e.size * 1.6, 0, e.alpha, ember, 'add');
+    top.emit('core', e.x, e.y, e.size, e.size * 1.6, 0, e.alpha * cover, ember, 'add');
   });
 }
 

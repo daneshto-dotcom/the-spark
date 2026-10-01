@@ -99,10 +99,10 @@ describe("S192 PILOT 1 — Vlad's siphon (`sapFx`)", () => {
 });
 
 describe('S192 PILOT 2 — the building aura (`auraFx`)', () => {
-  function runAura(id: number, tick: number, radius = 60) {
+  function runAura(id: number, tick: number, radius = 60, cover = 1) {
     const top = recordingSink();
     const ground = recordingSink();
-    auraFx(ground, top, id, 300, 300, radius, 0x3bd7ff, tick);
+    auraFx(ground, top, id, 300, 300, radius, 0x3bd7ff, tick, cover);
     return { top: top.out, ground: ground.out };
   }
 
@@ -142,6 +142,22 @@ describe('S192 PILOT 2 — the building aura (`auraFx`)', () => {
     expect(auraEmberAt(6, 2000, 0, 1, 300, 300, 60).y).toBeLessThan(auraEmberAt(6, 2000, 0, 0, 300, 300, 60).y - 25);
     expect(auraEmberAt(6, 2000, 0, 0, 300, 300, 60).alpha).toBe(0);
     expect(auraEmberAt(6, 2000, 0, 0.2, 300, 300, 60).alpha).toBeGreaterThan(0.5);
+  });
+
+  it('⛔ S192 audit V-1 — cover alpha 0 (a finished building) → no pool and no embers at all', () => {
+    for (let tick = 0; tick < 240; tick += 11) {
+      const r = runAura(4, tick, 60, 0);
+      expect([...r.top, ...r.ground]).toEqual([]);
+    }
+  });
+
+  it('⛔ S192 audit V-1 — every pool and ember alpha scales LINEARLY with the cover alpha', () => {
+    const full = runAura(4, 700, 60, 1);
+    const half = runAura(4, 700, 60, 0.5);
+    expect(half.ground.length).toBe(full.ground.length);
+    expect(half.top.length).toBe(full.top.length);
+    full.ground.forEach((e, i) => expect(half.ground[i]!.alpha).toBeCloseTo(e.alpha * 0.5, 12));
+    full.top.forEach((e, i) => expect(half.top[i]!.alpha).toBeCloseTo(e.alpha * 0.5, 12));
   });
 
   it('⛔ DETERMINISM, and two towers do not breathe in step', () => {
