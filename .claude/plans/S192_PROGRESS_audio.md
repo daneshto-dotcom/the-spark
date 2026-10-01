@@ -116,3 +116,5 @@ here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next
   `seekMusic|rmsLog|silentWindows` absent from `dist/assets/*.js` → the DEV probe is stripped from prod.
 - EXACT NEXT STEP after the reset: `npx vitest run --maxWorkers=3` on the tip (last full run was 8f58406's
   tree, exit 0; only the opt-in measure test changed since), then SubagentHandback with the final report.
+- FINAL (after reset): `npx vitest run --maxWorkers=3` on babc463 → VITEST_EXIT=0 (424 files passed / 3 skipped,
+  6778 tests passed / 8 skipped). Branch complete; handed to the merge owner.
