@@ -19,6 +19,10 @@ DONE (WIP commit, see git log):
 IN FLIGHT: first full vitest = 4 failing tests (typecheck 0):
   canon.test.ts §9d radial-clear source text · raidHitsAnything.test.ts picker source text ·
   stateHashFull.test.ts FIELD_COVERAGE contribution (teams needs a contribution case) · untargetable census verdict rot (re-run after regex fix).
-NEXT: fix those 4 (re-pin source-text guards to the new form) → re-run vitest → commit → guard test teams.sites.test.ts (mutation-tested)
+PAUSED (owner order, usage limit). Since the WIP commit: canon §9d FIXED (potatoLifecycle `blastTakes` hoisted so
+  applyRadialClear stays in the 1200-char window); census regex FIXED via Edit. STILL TO FIX: raidHitsAnything.test.ts:203 expects
+  `/c\.ownerPlayerId === this\.playerId/` in pickCreature → re-pin to the sameTeam form; stateHashFull.test.ts FIELD_COVERAGE
+  contribution case for `teams`. EXACT NEXT STEP: fix those two, re-run `npx vitest run --maxWorkers=3`.
+NEXT (after): fix those 4 (re-pin source-text guards to the new form) → re-run vitest → commit → guard test teams.sites.test.ts (mutation-tested)
   → FFA differential (hashWorldStateFull, 4-seat bots) → REACH tests (units, towers, castle gun, area blasts, raids) → lobby UI
   (bot overlay team chips + multiplayer CLAIM_TEAM/roster.team + arrangeTeamSeats at Begin) → build gate.

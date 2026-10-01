@@ -394,19 +394,28 @@ export function applyStructureSelfDestruct(world: World, action: StructureSelfDe
    * any pre-S157 caller), the behaviour is byte-identical to before.
    */
   const owner = action.ownerPlayerId;
-  const allies = action.alliesOf;
-  // ⭐ S192 — the owner's whole TEAM is spared; `alliesOf` spares a seat's teammates but not the seat.
-  const takes = (o: PlayerId | undefined): boolean =>
-    (owner === undefined || !sameTeam(world, o, owner)) &&
-    (allies === undefined || o === allies || !sameTeam(world, o, allies));
   return applyRadialClear(
     world,
     cx,
     cy,
     action.radius * action.radius,
-    (c) => takes(c.ownerPlayerId),
-    (p) => takes(p.placedBy),
+    (c) => blastTakes(world, c.ownerPlayerId, owner, action.alliesOf),
+    (p) => blastTakes(world, p.placedBy, owner, action.alliesOf),
   );
+}
+
+/**
+ * ⭐ S192 — does the self-destruct take this owner's thing? The OWNER's whole team is spared (FFA: the
+ * owner, exactly as before); `alliesOf` spares a seat's TEAMMATES but not the seat itself (spec Q5).
+ */
+function blastTakes(
+  world: World,
+  o: PlayerId | undefined,
+  owner: PlayerId | undefined,
+  allies: PlayerId | undefined,
+): boolean {
+  return (owner === undefined || !sameTeam(world, o, owner)) &&
+    (allies === undefined || o === allies || !sameTeam(world, o, allies));
 }
 
 /**
