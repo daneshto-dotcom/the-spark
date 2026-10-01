@@ -355,6 +355,15 @@ HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MA
 `CASTLE LOST` · `NOT YOURS`. The castle's sheet prints the PURCHASED numbers: one ATK point turns the
 **40** shot into **48** (`castleShotFifthsFor`).
 
+⭐ **S193 (R192-W1) — A FIFTH KIND OF ROW, ABOVE BUY GATHERER: FIX ALL.** *"there should be a button on
+your castle saying fix all. And then it just gives a mass command to all the gatherers to first go and
+fix all the existing towers before … continuing to gather."* It is the panel's **top row**
+(`CASTLE_ROW_KEYS[0]` = `fixAll`; ⚠ the position is MINE — the four stat rows stay directly under
+REGEN), reads `FIX ALL  n` (n = the towers it would queue, `fixAllTargets`) and names its blocker:
+`NOT YOURS` · `LOCKED` · `CASTLE LOST` · `BUILD ONLY` · `NO GATHERERS` · `QUEUE FULL` · `NOTHING TO FIX`.
+It queues one FIX job per own tower that needs one, **nearest the castle first** (squared distance,
+then lowest shape id) — see §8.
+
 | | |
 |---|---|
 | a bought HP point | **adds its band gain to the keep's CURRENT HP too**, not only to its ceiling |
@@ -1029,7 +1038,7 @@ unchanged.
 
 ⭐⭐ **WHAT RIDES 53 (S192, deploy #7)** — `s191/addons`: the new optional `Creature.rageStartTick` (serialized, on the wire, wide-hashed `:rs`), the Warlord's 25 s rage latch then a 25 s cooldown (the owner's), and the BLOOD FRENZY source as his own open window — the frenzy never sets or clears a Warlord. Local only: Alt toggles the footer like the arrow, R190-G right-click swallowing, the modal cover + its close-click latch.
 
-⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185).
+⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185). ⭐ **S193 — that changes when `s189/weld` lands (59 → 60 or later):** rounds 5 + 6 ride it — `ownPrimitiveIds` replaces `ownBondIdLimit` (the shapes a tower was built with), a welded structure IS repairable **per tower** (R191-A, §7b), and FIX becomes a gatherer job with a castle FIX ALL (R191-B / R192-W1, §8): the new `FIX_ALL` intent, `REPAIR_STRUCTURE` queuing instead of restoring, and the serialized, wide-hashed `World.repairJobs` / `nextRepairJobId` / `Gatherer.repairTask`.
 A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
@@ -1326,9 +1335,9 @@ refusing any bond with an endpoint outside the ring (`towerRenderer.ts:79`) and 
 hiding a welded shape is reversing a ruling, not fixing a bug.
 
 ⭐⭐ **R185-B — AND THE UNREPAIRABLE CONSEQUENCE IS A DELIBERATE TRADE HE ENDORSED, NOT A BUG.**
-`structureRepair.ts` refuses any component member with `origin === null`, so **one** welded shape
-makes a whole structure permanently unrepairable. Put to him as a defect; he reframed it as a
-mechanic and kept it:
+⚠ **AMENDED S191 BY R191-A — read the paragraph after the quote.** As ruled in S185, `structureRepair.ts`
+refused any component member with `origin === null`, so **one** welded shape made a whole structure
+permanently unrepairable. Put to him as a defect; he reframed it as a mechanic and kept it:
 
 > *"So if you have a tower that's producing tier three monsters, let's say a bat tower, and you're
 > welding it through many connectors to another bat tower — those two bat towers are a lot harder to
@@ -1337,7 +1346,16 @@ mechanic and kept it:
 > it higher HP. And then once the enemy does manage to destroy it, it destroys the connectors that
 > he's attacking. So I guess that's just a way of looking at it. That makes sense."* — owner, S185
 
-So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
+⭐⭐ **R191-A (S191) AMENDS IT: EACH TOWER IN A WELD IS STILL A TOWER.** *"a welded shape can still consist
+of multiple towers … the towers themselves should still be shown as towers and be able to be repaired
+and … scraped … just the tower, not the whole shape … when you clicking on a welded structure you can't
+fix it because it's … fixing what … you have to fix [them] manually."* So: a click on a tower's own shape
+opens THAT tower's card, whose FIX restores that tower alone (priced by what IT lost) and whose SCRAP
+takes it alone; a click on the welded shape opens the WELDED STRUCTURE card — SCRAP takes everything,
+FIX is refused. The weld still buys pool (the structure's pool is shared, R6); it no longer costs the
+towers their repair. `towerUnit.ts` is the one read model; `weldOntoTowerS189.test.ts` pins it.
+
+So welding buys pool, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
 TREATED AS SHIPPED:** R182-F measured that a welded hub read **48%** on the health bar while its
 art read **32%**. S191 C-7 made the bar follow the star (§9d item 3), so both read **32%** now — but
 that means the bar shows a welded tower's OWN pool, not the bigger component pool that makes the
@@ -1379,19 +1397,45 @@ nothing:
 - **Damaged but intact** (chipped shapes, or a hurt connector with nothing destroyed) → **ONE shape,
   flat.** R182-E: *"If there's only an amount of HP missing but no connector destroyed … then it takes
   one shape. So far it takes NO shape — that's not correct … whether it's one HP or fifty HP."*
-  ⚠ It used to be **free**, so a dented tower is no longer unconditionally repairable — with an empty
-  bank, FIX now reads `NEED 1 MORE`.
+  ⚠ It used to be **free**. (S182 then added that an empty bank read `NEED 1 MORE` — superseded by
+  R191-B below: the bank no longer gates the button.)
 - **Which shape** is `repairFeeShapeFor`: the blueprint's **most numerous node type**, ties broken by
   first appearance. ⚠ The rule is MINE — he dismissed a per-recipe table as over-thinking — but it
   lands on both examples he reached for himself (pentagram → Triangle, goblin tower → Circle).
   `structureRepairFee.test.ts` asserts the derivation over every registered blueprint, so it can
   never become a copied table.
 
+### ⭐⭐ R191-B (S191, built S193) — FIX IS A GATHERER JOB
+
+> *"clicking on fix … it actually queues … a gatherer and he has to bring the shape from the castle to
+> the tower that needs fixing. And once he reaches the tower, that fixes [it] automatically … It's going
+> to be the top … priority for your gatherers."* — owner, S191. Refined: *"the priority here is, first of
+> all, what are we nearer to? And second of all, does this place even have the shape I need?"*
+
+- **FIX queues a job** for the bill above (one job per tower; `REPAIR_STRUCTURE` no longer restores on
+  the spot). Each shape is one task, so a bill spreads over several gatherers.
+- **A free gatherer** (searching, empty-handed, lowest id first) takes the first open shape it can get,
+  from the **nearer** of its castle bank and the nearest quarry spark of that type; the castle wins a tie
+  (⚠ MINE). The bank is debited **on arrival** at the castle; a quarry spark is lifted on pickup.
+- **No shape anywhere → it waits**, and the gatherer keeps gathering; it is fetched once one appears.
+- **When the last shape arrives** the tower is re-planned: covered → restored (surplus to the bank);
+  short (it lost more on the way) → the shortfall is fetched too. A tower that is gone, scrapped or no
+  longer fixable cancels its job and **every shape goes back to the bank**; so does an eliminated
+  seat's.
+- **FIGHT:** a shape already in a gatherer's hands waits in the castle with him and lands next BUILD;
+  one not yet picked up is open again. From wave 27 the quarry spawns nothing, so jobs draw on the bank.
+- The card's FIX reads `QUEUED` · `NOTHING TO FIX` · `NO GATHERERS` (⚠ MINE: no carrier, no job) ·
+  `QUEUE FULL` · `COSTS n`. ⚠ MINE: at most **32** jobs a seat (`REPAIR_JOBS_MAX_PER_SEAT`); a waiting
+  job re-plans every **15** ticks (`REPAIR_JOB_REPLAN_TICKS`, phase-spread by job id).
+- **FIX ALL** (the castle's top row, §3d) queues every own tower that needs a FIX, nearest the castle
+  first. `repairJobs.ts` is the code; `repairJobsR191B.test.ts` drives it through the host tick.
+
 ⛔ **TWO REPAIR LIMITS THE OWNER HAS NOT SEEN YET, BOTH CONFIRMED IN CODE:**
 
 1. Repair only works during BUILD, so "a repairable wreck" means *repairable between rounds*. He has
    accepted this (R19).
-2. **One friendly hand-placed shape bonded onto one hub leaf makes that hub permanently
+2. ⚠ **SUPERSEDED by R191-A (§7b): each tower in a weld is fixed from its own card.** As written
+   before S191: **one friendly hand-placed shape bonded onto one hub leaf makes that hub permanently
    unrepairable.** `blueprintGroupOf` returns null if ANY member of the connected component has
    `origin === null`, and `seatStructureAt` walks the whole component. S158 B2b fixed exactly this
    lattice problem for the RECIPE (`isStarAt` walks the hub's own bonds) and never fixed it for
@@ -1699,8 +1743,9 @@ only because it changes the bar for every structure in the game, which that bran
 change to take unasked.
 
 ⭐ **BUILT S191 (`s191/carry` C-7).** `render/structureBarHealth.ts` is the one reading: a live tower's OWN members
-(`towerMembersAt`, the walk the fuse and the ramp share), priced `structurePoolFifths(own connectors)` minus the
-damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
+(`towerMembersAt`, the walk the fuse and the ramp share), priced ONCE by `towerUnit.towerOwnPoolAt` (S193 SEAM-C7): **the
+recipe pool, 0 once an own connector is gone** (the crumble rule — the bar, the card and the art agree in the
+poll window too), minus the damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
 character sheet (health and the CONNECTORS row) and the hub's ramp art now read it — the welded hub of R182-F reads
 **32 %** on all three. `structureRamp.test.ts`'s divergence case is an AGREEMENT case now. The width
 (`structureBarWidth`) is linear between bounds MEASURED off the roster and ⚠ MINE at the constants: pool **6**
