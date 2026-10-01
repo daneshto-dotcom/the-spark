@@ -366,3 +366,36 @@ None.
   sentences).
 - Wire/hash/rule: none (render only). No bump.
 - Full suite 0: 6776 passed / 7 skipped, 423 files. typecheck 0.
+
+## C-7 — DONE (canon §9d item 3 / R182-F: the bar follows the star, three surfaces, bounded width)
+
+- New pure module `src/render/structureBarHealth.ts`: `liveBarTowers` (one per anchor, lowest spawner id then lowest
+  defender id — `liveTowerRecipeAt`'s order), `towerOwnHealth` (`towerMembersAt` own bonds → `structurePoolFifths`,
+  banked on own bonds), `structureHealthAt` (sheet: the lowest-anchored live tower whose members include the shape,
+  else its component), `structureBarWidth` + the four ⚠ MINE bounds.
+- `healthBar.ts` `drawStructureBars`: ONE BAR PER LIVE TOWER on its own star (art towers keep the ring centroid +
+  sprite box; art-less towers ride above their OWN shapes — identical to the old component anchor when unwelded);
+  a component with no live tower (or none whose walk reads) keeps the component bar. Helga's HALL now reads its own
+  star too (her unit `ehp` bar is unchanged). `drawBar` gains optional `trackW` (structures only; creatures keep
+  the sqrt `span`). S173 docblock gets a supersession note.
+- `characterSheetModel.ts` `structureSheet`: health + CONNECTORS row from `structureHealthAt` (SHAPES row still the
+  component — it counts shapes, not health).
+- ⚠ MINE bounds, MEASURED off the roster (every `ALL_BLUEPRINT_IDS` recipe with a survival shape; art sizes):
+  pool 6 (one connector; a lone shape draws no structure bar — the brief's "5 fifths" lone shape does not apply)
+  → 9 px (the creature floor `BAR_MIN_W`); pool 126 (tier-9 ring, 9 connectors — the largest tower) → 150 px
+  (`T9_TOWER_SPRITE_PX`, the widest building art). Linear between (≈1.18 px/fifth), clamped; NaN → 9. Roster
+  measured: t3 rings 24 · stink 24 · goblin 36 · pentagram/hub 50 · laser/helga 66 · t9 rings 126 (voltkin 84,
+  no survival shape → excluded). The sprite floor (S171/S173) still applies on top and is ≤ 150 by construction.
+- Tests `src/render/structureBarHealth.test.ts` (8): arithmetic (bounds re-derived off the roster; linear; clamps);
+  REACH — a REAL hub ignited by the real matcher + host tick, a Square welded on a leaf after ignition, survives
+  the real poll: banked 34 → bar fill fraction = `starHealthFrac` = `rampHealthFrac` = 16/50, one bar, track =
+  `structureBarWidth(50)`, sheet {16, 50}; weld-connector damage moves neither bar nor sheet; the welded Square's
+  sheet = its component (66). Negatives: standalone hub agree (30/50); freeform lattice keeps component 7/14.
+- Inverted by design: `structureRamp.test.ts` divergence case → AGREEMENT case (same commit, as the brief requires).
+- Mutation: `towerOwnHealth` always null (= the pre-fix component reading) → 2 RED; restored → green.
+- Canon: §9d item 3 "RULED, NOT YET BUILT" → "BUILT S191" paragraph with the four bounds + consequences; the
+  measured-floor correction; §10 R182-F → built, agreement asserted; §7 R185-B paragraph: both read 32 % now, and
+  the stated consequence (a welded tower no longer reads tougher on the bar). Pins: built sentence, old text gone,
+  the four constants + their canon numbers + `structureBarWidth` endpoints, R185-B sentences.
+- Wire/hash/rule: none (render only). No bump.
+- Full suite 0: 6784 passed / 7 skipped, 424 files. typecheck 0.

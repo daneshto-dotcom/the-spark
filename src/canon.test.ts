@@ -203,6 +203,9 @@ import { GOBLIN_ATTACK_RANGE, KRAKEN_SONAR_STUN_TICKS, RACE_UNIT_ATK, RACE_UNIT_
 import { KRAKEN_SONAR_KNOCKBACK_PX } from './state/bossSkillsKraken.ts';
 import { RADAR_MAX_ATK } from './render/characterSheetRadar.ts';
 import { RA_STRIKE_GROUND_SLOTS } from './render/raStrikeArt.ts';
+import {
+  STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
+} from './render/structureBarHealth.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -1061,6 +1064,20 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('the damage art follows that same health')).toBe(true);
     // ⛔ And the two bounds are explicitly NOT ruled — they must be measured, not invented.
     expect(canonSays('THE TWO BOUNDS ARE NOT RULED')).toBe(true);
+    // ⭐ S191 C-7 — BUILT, and every measured bound in the canon is the constant's value.
+    expect(canonSays('⭐ **BUILT S191 (`s191/carry` C-7).**')).toBe(true);
+    expect(canonSays('RULED, NOT YET BUILT** — the decisions are final, the code is owed')).toBe(false);
+    expect(STRUCTURE_BAR_POOL_MIN).toBe(6);
+    expect(STRUCTURE_BAR_MIN_W).toBe(9);
+    expect(STRUCTURE_BAR_POOL_MAX).toBe(126);
+    expect(STRUCTURE_BAR_MAX_W).toBe(150);
+    expect(canonSays(`pool **${STRUCTURE_BAR_POOL_MIN}**`)).toBe(true);
+    expect(canonSays(`→ **${STRUCTURE_BAR_MIN_W} px**`)).toBe(true);
+    expect(canonSays(`pool **${STRUCTURE_BAR_POOL_MAX}**`)).toBe(true);
+    expect(canonSays(`→ **${STRUCTURE_BAR_MAX_W} px**`)).toBe(true);
+    expect(structureBarWidth(STRUCTURE_BAR_POOL_MIN)).toBe(STRUCTURE_BAR_MIN_W);
+    expect(structureBarWidth(STRUCTURE_BAR_POOL_MAX)).toBe(STRUCTURE_BAR_MAX_W);
+    expect(canonSays('star and `structureRamp.test.ts` now asserts the AGREEMENT')).toBe(true);
     expect(canonSays('so it is never "owed" again')).toBe(true);
     // ⛔ And the two that used to sit in §10 must be marked ANSWERED there, not merely moved.
     expect(canonSays('§9d')).toBe(true);
@@ -1321,6 +1338,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('ONE THING REMAINS UNVERIFIED AND MUST NOT BE')).toBe(true);
     expect(canonSays('**48%**')).toBe(true);
     expect(canonSays('**32%**')).toBe(true);
+    // ⭐ S191 C-7 — the bar follows the star now; the R185-B consequence is recorded, not hidden.
+    expect(canonSays('both read **32%** now')).toBe(true);
+    expect(canonSays('on the bar it now does not.')).toBe(true);
   });
 
   /**

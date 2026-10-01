@@ -1145,9 +1145,11 @@ mechanic and kept it:
 > he's attacking. So I guess that's just a way of looking at it. That makes sense."* — owner, S185
 
 So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
-TREATED AS SHIPPED:** R182-F measured that a welded hub reads **48%** on the health bar while its
-art reads **32%**. His trade depends on a welded stack reading as *tougher*; if the bar lies about
-it, the mechanic does not communicate itself. Verify the pool arithmetic before calling R185-B done.
+TREATED AS SHIPPED:** R182-F measured that a welded hub read **48%** on the health bar while its
+art read **32%**. S191 C-7 made the bar follow the star (§9d item 3), so both read **32%** now — but
+that means the bar shows a welded tower's OWN pool, not the bigger component pool that makes the
+weld tougher. His trade depends on a welded stack reading as *tougher*; on the bar it now does not.
+That is an owner question, not a defect to fix unasked.
 
 ## 7c · ⭐⭐ WHAT THE RENDER BRANCH SETTLED (S189/S190, `s189/render`, deploy #4)
 
@@ -1471,7 +1473,8 @@ arbitrarily large pools, and a bar that scales 1:1 with the pool would run off t
 bar has a **minimum width**, a **maximum width**, and scales between them with the pool — his
 *"a millimetre bigger every thousand HP"*. ⚠ **THE TWO BOUNDS ARE NOT RULED** — he said *"we have
 to see what's the maximum and what's the minimum"*. They must be MEASURED off the real roster (the
-smallest lone shape at 5 fifths against the largest realistic welded component) and flagged as MINE
+smallest lone shape at 5 fifths against the largest realistic welded component — ⚠ measured S191: a lone shape
+has no structure bar, so the floor is ONE connector, 6 fifths) and flagged as MINE
 at the constant, not invented.
 
 **RULE 3 — the damage art follows that same health**, so the frame a player sees and the bar they
@@ -1482,14 +1485,19 @@ He already ruled the principle in S182: **the STAR is what counts.** S182 did no
 
 only because it changes the bar for every structure in the game, which that branch judged too big a
 
-change to take unasked. ⚠ **RULED, NOT YET BUILT** — the decisions are final, the code is owed, and it is now THREE
-surfaces plus a width scale rather than one denominator swap. The work: **`healthBar.ts` switches to the same denominator the
+change to take unasked.
 
-damage art uses — `structurePoolFifths(component.bonds.size)` over the tower's OWN star — so the two
-
-agree by construction rather than by coincidence.** `structureRamp.test.ts`'s divergence assertion
-
-inverts to an AGREEMENT assertion in the same commit.
+⭐ **BUILT S191 (`s191/carry` C-7).** `render/structureBarHealth.ts` is the one reading: a live tower's OWN members
+(`towerMembersAt`, the walk the fuse and the ramp share), priced `structurePoolFifths(own connectors)` minus the
+damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
+character sheet (health and the CONNECTORS row) and the hub's ramp art now read it — the welded hub of R182-F reads
+**32 %** on all three. `structureRamp.test.ts`'s divergence case is an AGREEMENT case now. The width
+(`structureBarWidth`) is linear between bounds MEASURED off the roster and ⚠ MINE at the constants: pool **6**
+(one connector — a lone shape has no structure bar) → **9 px** (the creature floor), pool **126** (the tier-9 ring,
+the largest tower on the roster) → **150 px** (the widest building art); a bigger welded lattice pins at 150.
+⚠ Consequences, stated: a tower welded into a lattice can read EMPTY before any connector snaps (the sever is still
+priced on the component), the welds' extra pool shows on no bar, and the race towers' crack FRAMES still read their
+shapes' HP (`towerHpFrac`), a separate damage channel — not changed, an owner question.
 
 
 ### 4 · `SEVER_BOND` — CLOSED, and written down here so it is never "owed" again.
@@ -1576,8 +1584,8 @@ opens when something is welded on — which is the case R182-B was written for.
 
 ⭐ **The owner ruled the STAR is what counts, so the BAR is the thing that should follow.** That was
 not done in S182 because it changes the bar for **every** structure in the game, not just the hub,
-and that is a bigger ruling than this branch was given. `structureRamp.test.ts` asserts the
-divergence so it stays a measured fact rather than a sentence someone can delete.
+and that is a bigger ruling than this branch was given. ⭐ **BUILT S191 (C-7, §9d item 3):** the bar follows the
+star and `structureRamp.test.ts` now asserts the AGREEMENT.
 
 ⚠ **The S182 brief asserted these would "agree for free". That was wrong, and the wrong claim was in
 the tree as a test comment until this entry replaced it.**
