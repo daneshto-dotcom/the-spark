@@ -45,6 +45,7 @@ import { magicHitFifths, mresFor } from './magicResist.ts';
 import { attackFifths } from './stats.ts';
 import { raColumnImpactTick, raColumnPos } from './bossSkillsPharaohRitual.ts';
 import { RA_STRIKE_FIFTHS, raStrikeColumnPos } from './racial/powerOfRa.ts';
+import { raColumnPoolFor, raSplitShares } from './racial/raColumn.ts';
 import { dotIntervalTicks, maxPoolFifths } from './damageOverTime.ts';
 import { SCORCHED_GROUND_PER_MILLE } from './racial/scorchedGround.ts';
 import { makeDefender } from './defenders/defender.ts';
@@ -117,7 +118,32 @@ const sumIn = (cs: Call[]): number => cs.reduce((s, k) => s + k.amount, 0);
 const isDot = (k: Call): boolean => typeof k.cls === 'object';
 
 describe('S192 MRES — ⭐⭐ REACH of every magic source through the real host tick', () => {
-  it('POWER OF RA (mummies L0): a column lands 300 × 13/19 on the Archdemon, the raw 300 on an MRES = DEF soldier', () => {
+  /*
+   * ⭐⭐ S193 (owner flag) — **MRES APPLIES PER RA SHARE, NOT TO THE COLUMN TOTAL.** Since S191/S192 one
+   * column is a 35-fifth POOL split across everything it catches (`raSplitShares`, total order d², kind,
+   * id). Each share then goes through the funnel on ITS OWN target, so each is defended by that target's
+   * own MRES. Two victims, one column: the Archdemon (d² 0, share 18, MRES 14 > DEF 8) and an orcs soldier
+   * (d² 36, share 17, MRES = DEF). The discriminator is the SOLDIER: a total-based rescale would have
+   * shrunk the 35 by somebody's MRES before splitting, so the soldier — who resists nothing — would lose
+   * less than his 17. Per share, he loses exactly 17 and only the Archdemon's share shrinks.
+   */
+  const raShareCase = (w: World, r: { d: HostTickDeps; s: HostTickState }, arch: Creature, ctl: Creature, pool: number): void => {
+    const shares = raSplitShares(pool, 2);
+    expect(shares, 'fixture: 35 split two ways, the nearer target first').toEqual([18, 17]);
+    expect(lost(ctl), 'MRES = DEF: his share lands raw — the Archdemon’s MRES never touched it').toBe(shares[1]);
+    expect(lost(arch), 'the Archdemon resists HIS share').toBe(magicHitFifths(shares[0]!, ARCH_DEF, mresFor(ARCH, null)));
+    expect(lost(arch)).toBeLessThan(shares[0]!);
+    // ⛔ NEGATIVE — the total-then-split reading would not produce these numbers.
+    const total = magicHitFifths(pool, ARCH_DEF, mresFor(ARCH, null));
+    expect(lost(ctl) + lost(arch), 'not the rescaled total').not.toBe(total);
+    const k = callsOn(arch);
+    expect(k.length).toBe(1);
+    expect(k[0], 'the funnel saw the SHARE, never the pool').toMatchObject({ cls: 'magic', def: ARCH_DEF, mres: 14, amount: shares[0] });
+    expect(callsOn(ctl)[0]).toMatchObject({ cls: 'magic', amount: shares[1], out: shares[1] });
+    void w; void r;
+  };
+
+  it('POWER OF RA (mummies L0): MRES is applied PER SHARE — each split share is defended by its own target', () => {
     H.calls.length = 0;
     const w = twoSeat('mummies', ['racial']);
     const r = rig(w);
@@ -132,15 +158,12 @@ describe('S192 MRES — ⭐⭐ REACH of every magic source through the real host
     place(ctl, { x: spot.x + 6, y: spot.y });
     runHostTick(w, r.d, r.s);
     expect(w.tick).toBe(impact);
-    expect(lost(ctl), 'MRES = DEF: the raw column').toBe(RA_STRIKE_FIFTHS);
-    expect(lost(arch), 'the Archdemon resists').toBe(magicHitFifths(RA_STRIKE_FIFTHS, ARCH_DEF, mresFor(ARCH, null)));
-    expect(lost(arch)).toBeLessThan(RA_STRIKE_FIFTHS);
-    const k = callsOn(arch);
-    expect(k.length).toBe(1);
-    expect(k[0]).toMatchObject({ cls: 'magic', def: ARCH_DEF, mres: 14, amount: RA_STRIKE_FIFTHS });
+    const pool = raColumnPoolFor(w, P0);
+    expect(pool).toBe(RA_STRIKE_FIFTHS);
+    raShareCase(w, r, arch, ctl, pool);
   });
 
-  it('the PHARAOH’S OWN RA RITUAL column (R190-E): magic, rescaled on the Archdemon', () => {
+  it('the PHARAOH’S OWN RA RITUAL column (R190-E): magic, PER SHARE, through the same landRaColumn', () => {
     H.calls.length = 0;
     const w = twoSeat('mummies', []);
     const r = rig(w);
@@ -154,10 +177,7 @@ describe('S192 MRES — ⭐⭐ REACH of every magic source through the real host
     place(arch, spot);
     place(ctl, { x: spot.x + 6, y: spot.y });
     runHostTick(w, r.d, r.s);
-    const col = attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN);
-    expect(lost(ctl)).toBe(col);
-    expect(lost(arch)).toBe(magicHitFifths(col, ARCH_DEF, 14)); // 205
-    expect(callsOn(arch)[0]).toMatchObject({ cls: 'magic', amount: col, out: 205 });
+    raShareCase(w, r, arch, ctl, raColumnPoolFor(w, P0));
   });
 
   it('the VOLTKIN — its chain lightning is magic on every link it lands', () => {

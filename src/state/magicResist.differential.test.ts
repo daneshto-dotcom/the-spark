@@ -50,7 +50,11 @@ import { startC5Match, topUpCreatures, WAVE_TICKS } from './c5WaveFiveBoard.fixt
 
 const WAVES = 2;
 const CREATURES = 28;
-const MIX: readonly CreatureType[] = ['voltkin', 'raceUnit', 't9BossDemons', 't3Souleater', 'voltkin', 't9BossZombies', 'goblinMelee'];
+// ⭐ S193 — the zombie boss LEADS the mix: `topUpCreatures` picks type `floor(i / 4) % length`, so a type
+// late in the list only spawns when 20+ slots are empty at once. After the master merge the board never
+// emptied that far and B ran ZERO DoT beats (the anti-vacuity assertion below caught it); first in the
+// list, every top-up that refills a slot can bring his ROT aura (a magic DoT) back onto the board.
+const MIX: readonly CreatureType[] = ['t9BossZombies', 'voltkin', 'raceUnit', 't9BossDemons', 't3Souleater', 'voltkin', 'goblinMelee'];
 
 describe('S192 MRES — ⛔ MRES = DEF is byte-identical to the all-physical game over a bots match', () => {
   it('A (physical) and B (magic, MRES = DEF) agree on hashWorldStateFull every tick; C (shipped table) does not', async () => {
@@ -89,7 +93,11 @@ describe('S192 MRES — ⛔ MRES = DEF is byte-identical to the all-physical gam
     }
     H.mode = 'shipped';
     console.log(`[S192 MRES differential] ${compared} ticks compared · B magic hits ${H.magicCalls} · B DoT ticks ${H.dotCalls} · C diverged at tick ${cDivergedAt} after ${H.rescaled} rescaled hits`);
-    expect(compared, 'the run covered two whole waves').toBeGreaterThanOrEqual(end - 1);
+    // ⭐ S193 — two whole waves, OR the whole match when it ends sooner: after the master merge the bots
+    // can WIN inside wave 2 (a match that is over has no more ticks to compare). Never less than one wave.
+    const ended = (A.world.gameState as string) !== 'PLAYING';
+    expect(compared, 'at least one whole wave').toBeGreaterThanOrEqual(WAVE_TICKS);
+    if (!ended) expect(compared, 'the run covered two whole waves').toBeGreaterThanOrEqual(end - 1);
     expect(fights, 'both FIGHTs ran').toBeGreaterThan(0);
     // ⛔ ANTI-VACUITY — B ran the magic arithmetic for real, many times, single hits AND DoT beats.
     expect(H.magicCalls, 'magic single hits went through the rescale in B').toBeGreaterThan(20);
