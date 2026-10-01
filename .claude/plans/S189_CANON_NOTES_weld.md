@@ -188,9 +188,24 @@ no new action, no new `GameEffect` kind, no new intent.
  *      only from the tower owning the clicked shape (`seatFeedTowerAt`), a click that names a tower
  *      selects a shape only it owns (`unitClickShape`), only a weld beats the art box. None on the wire;
  *      listed so the history names them.
+ *   7. ⭐ S193 ROUND 6 (R191-B / R192-W1) — FIX IS A GATHERER JOB. `REPAIR_STRUCTURE` CHANGES MEANING:
+ *      it QUEUES a job (`repairJobs.applyQueueRepair`) where a 58/59 host restores on the spot — the
+ *      same intent, different worlds. The restore runs when the delivered shapes cover the re-planned
+ *      bill (`tickRepairJobs` → `restoreFromDelivered`).
+ *   8. NEW CLIENT INTENT `FIX_ALL` (the castle's FIX ALL row) — in both protocol allowlists; denied
+ *      benched (`benchGate`) and eliminated (`elimination`); ALLOWED under the wave-27 build lock
+ *      (`endgame.ENDGAME_LOCK_INTENT_POLICY`, his "you can fix existing structures").
+ *   9. NEW SERIALIZED + WIDE-HASHED STATE — `World.repairJobs` (id, seat, targetId, memberIds, need,
+ *      delivered; the `rj` parts, in queue order), `World.nextRepairJobId` (`rjn`), and
+ *      `Gatherer.repairTask` (jobId.type.source.sparkId.carrying, the `:rt` suffix). Disk save AND net
+ *      snapshot (additive-optional, validated on restore), counted in `structuralSignature`, cleared at
+ *      every gatherer-economy teardown. A peer without them cannot run a gatherer that is on a job.
 ```
 
-⚠ Round 6 (R191-B, the repair job — QUEUED) will add its own wire/hash state and append a reason here.
+Round 6's MINE defaults (for the owner, with recommendations, in the progress file): a gatherer
+mid-haul finishes first · no gatherer → no FIX · porch is not a source · castle wins a distance tie ·
+`REPAIR_JOBS_MAX_PER_SEAT` 32 · `REPAIR_JOB_REPLAN_TICKS` 15 · FIX ALL is the top row · DEEP CURRENT is
+not applied to repair trips · no carried-shape art.
 
 ## I · ⭐⭐ R191-A (S191) — A WELDED STRUCTURE HOLDS TOWERS. R185-B AMENDED. (suggest §7b, replacing
 ## the R185-B "unrepairable" paragraph's conclusion, and a line in §8)
