@@ -461,7 +461,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       bankCarriedSparksAtPhaseEdge(world);
       /*
        * ⭐ S192 (endgame) — every crossing restarts the monster count, and the fight's survivors leave
-       * the board at its end (⚠ MINE, spec Q3). Removed BEFORE `recallArmies` below, which would
+       * the board at its end — ⭐ HIS ruling (S193 Q3): *"they vanish when this wave ends"*. Removed BEFORE `recallArmies` below, which would
        * otherwise look for a home a monster does not have.
        */
       world.monsterWaveSpawned = 0;

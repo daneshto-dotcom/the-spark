@@ -239,7 +239,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
       action.creatureType !== 'locustCloud' &&
       /*
        * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER, AND THIS IS THE FIFTH SUMMON THIS LATCH WOULD HAVE
-       * EATEN. A wave is up to 75 per seat from ONE owner (`MONSTER_OWNER_ID`) of ONE type with
+       * EATEN. A wave is up to 250 per seat (S193, his) from ONE owner (`MONSTER_OWNER_ID`) of ONE type with
        * `sourceSpawnerId: null`; without this arm the first is born and every other one is silently
        * discarded. The bound is the spawner's own count (`MONSTER_WAVE_PER_SEAT`, `monsterWaveSpawned`).
        */

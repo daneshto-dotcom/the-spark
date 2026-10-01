@@ -1152,7 +1152,7 @@ export const LOCUST_CLOUD_CONFIG: CreatureConfig = {
  * structure-attacker on the shared unit factory (goblin cadence, range and fire tick), at its own
  * ladder stats (`ENDGAME_MONSTER_STATS`, HIS since S193 Q9: pool 100, strike 40). `targetsStructures: true` so
  * the shipped strike arms (unit / connector / lone shape / castle-in-reach) all serve it; its TARGET
- * SELECTION is its own fan-out arm in `hostTick` (`endgameMonsterTargets`), restricted to the seat it
+ * SELECTION is its own fan-out arm in `hostTick` (`runEndgameMonsterTargeting`), restricted to the seat it
  * was sent at. Persistent: survivors are removed at the end of the fight (`removeEndgameMonsters`).
  */
 export const ENDGAME_MONSTER_CONFIG: CreatureConfig = makeT3Config('endgameMonster', {

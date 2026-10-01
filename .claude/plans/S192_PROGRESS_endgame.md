@@ -40,7 +40,7 @@ Spec: `.claude/plans/S192_ENDGAME_SPEC.md` · `.claude/plans/S192_ENDGAME_SPEC.h
   ("Header missing") — benign: ~20 ms of a 2.37 s file, exit 0.
 - Gates: build exit 0, 977.7 KiB / 1100 (no code yet). Baseline: typecheck 0, vitest 0 (6837 passed / 7 skipped).
 
-## Step 3 — build (done)
+## Step 3 — build (done) — ⚠ HISTORICAL (S192): counts, pulse pace, "MINE" on Q3, sound-on-emergence and the 53→54 bump below are SUPERSEDED by S193 (see the reports at the top)
 - New: `src/state/endgame.ts` (lock policy + predicates + derived retarget), `src/state/endgameMonsters.ts` (spawner,
   targeting arm, end-of-fight sweep), `src/state/endgame.test.ts` (31 tests).
 - `'endgameMonster'` CreatureType + `ENDGAME_MONSTER_CONFIG` (pool 100 / strike 40); `Creature.monsterSeat` (four sites:

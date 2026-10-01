@@ -134,8 +134,9 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   rainbowSwitchTick: 'hashed',
   sudokuFiredThisMatch: 'hashed',
   waveNumber: 'hashed', // S157 B8 — drives the spawn rate, so a divergence is a real desync
-  // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the spawn pulses, so a
-  // host and a mirror disagreeing about it would release a different wave.
+  // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the release schedule (one
+  // lane per seat, `monstersDueBy`) and the countdown, so a host and a mirror disagreeing about it
+  // would release a different wave.
   monsterWaveSpawned: 'hashed',
   // ⭐ S193 (endgame) — the monster fight's start tick: the spawner's and the mega pants' clock.
   monsterFightStartTick: 'hashed',
