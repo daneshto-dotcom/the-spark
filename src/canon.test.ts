@@ -132,6 +132,8 @@ import {
   WARLORD_RAGE_MULTIPLIER,
   ZOMBIE_AURA_PER_MILLE,
 } from './constants.ts';
+// S191 / S192 — §3e the Warlord's 25 s rage clock and its cooldown (his number, S192).
+import { FIGHT_PHASE_TICKS, WARLORD_RAGE_COOLDOWN_TICKS, WARLORD_RAGE_TICKS, WARLORD_RAGE_TRIGGER_PCT } from './constants.ts';
 import {
   BLOOD_DEBT_LIFESTEAL_PCT,
   CRIMSON_TIDE_LIFESTEAL_PCT,
@@ -755,6 +757,31 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const t of goblins) expect(getCreatureConfig(t).persistent, t).toBe(true);
     expect(canonSays('THE GOBLIN CEILING IS LOAD-BEARING, NOT COSMETIC')).toBe(true);
     expect(canonSays(`**${GOBLIN_MAX_PER_SPAWNER} → ${HORDE_GOBLIN_MAX_PER_SPAWNER}**`)).toBe(true);
+  });
+
+  it('⭐ §3e — S191/S192: the Warlord rages 25 s by his OWN clock, then a 25 s cooldown (his); the frenzy never touches a Warlord', () => {
+    expect(WARLORD_RAGE_TICKS).toBe(25 * PHYSICS_HZ);
+    expect(WARLORD_RAGE_COOLDOWN_TICKS, 'HIS (S192): "Rage cooldown 25 seconds"').toBe(25 * PHYSICS_HZ);
+    expect(canonSays(`\`WARLORD_RAGE_TRIGGER_PCT\` = **${WARLORD_RAGE_TRIGGER_PCT}** %`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
+    expect(canonSays("Rage cooldown 25 seconds, that's fine.")).toBe(true);
+    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
+    // The per-FIGHT pattern, DERIVED (never a literal "25 on / 25 off"): one fire at 0, the next after
+    // rage + cooldown, and that second rage still running at the whistle.
+    const cycle = WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
+    expect(cycle).toBeLessThan(FIGHT_PHASE_TICKS);
+    expect(cycle + WARLORD_RAGE_TICKS).toBeGreaterThan(FIGHT_PHASE_TICKS);
+    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s through the whistle`)).toBe(true);
+    expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true);
+    expect(canonSays('(never another Warlord — S191)')).toBe(true);
+    // ⛔ The retired S188 sentence must not come back.
+    expect(canonSays('the frenzy only ever SETS a')).toBe(false);
+    expect(canonSays('raging by his OWN latch (below')).toBe(false);
+  });
+
+  it('⭐ §4b — S192: Alt IS the collapse arrow, armed or not', () => {
+    expect(canonSays('ALT TOGGLES THE FOOTER EXACTLY AS THE ARROW DOES')).toBe(true);
   });
 
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {

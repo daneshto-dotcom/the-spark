@@ -1,4 +1,7 @@
-# S191 CANON NOTES — `s191/addons` (for the merge owner; this branch never edits the canon)
+# S191 CANON NOTES — `s191/addons` (for the merge owner)
+
+⭐ **S192: the §3e text below (and the §4b Alt rule) is APPLIED to `SPARK_CANON.md` on this branch, with its
+`canon.test.ts` assertions, under the merge owner's one-time exception; the cooldown is now HIS number. §6 is not.**
 
 ## A-1 · §3e — the Warlord's rage is now a 25 s clock, then a cooldown
 
@@ -57,13 +60,37 @@ seat's castle soldiers and orc tier-3 units rage too (never another Warlord — 
 Assertion to land with it (`bloodFrenzy.ts` behaviour is pinned in `warlordRageClock.test.ts` and
 `bloodFrenzy.test.ts`; the canon pin is the sentence): `expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true)`.
 
-## A-1 · §6 — the wire (for the merge owner's ONE bump docblock)
+## A-1 · §6 — the wire: the FINISHED bump docblock (S192; the merge owner pastes it into `protocol.ts`)
 
+Verdict **BUMP**. Written as 52 → 53 on the assumption it rides its own deploy; if it shares a bump with
+other branches, keep this list as one numbered group under that bump's header (S182 lesson 6) and renumber.
+The canon §3e text and its `canon.test.ts` assertions already landed on this branch (S192, merge-owner
+exception); canon §6 and its pin are the merge owner's.
+
+```ts
+/**
+ * ⭐⭐ S192 — **BUMPED 52 -> 53: `s191/addons` — THE WARLORD'S 25 s RAGE CLOCK.** Each item earns it alone
+ * (the S186 test: two builds that shake hands would disagree about something either computes):
+ *   1. `Creature.rageStartTick?` — a NEW additive-optional field, the ONE stamp both rage windows derive
+ *      from; written only by `runWarlordRage`; SERIALIZED (only when stamped; restore takes a non-negative
+ *      integer, nothing else), rides `snapshot` AND `netSnapshot` (`trimMirrorCreature` keeps it), and is
+ *      wide-hashed (`:rs`). A v52 successor promoted by host migration drops it and loses every clock.
+ *   2. a CHANGED SHARED RULE — the latch: once fired (strictly below `WARLORD_RAGE_TRIGGER_PCT`, in FIGHT)
+ *      he rages `WARLORD_RAGE_TICKS` (1500) REGARDLESS OF HEALING, then is calm `WARLORD_RAGE_COOLDOWN_TICKS`
+ *      (1500, the owner's, S192) whatever his health — R151's heal-above-50 exit is retired. A v52 peer
+ *      would calm him only on a heal above half, i.e. never.
+ *   3. a CHANGED SHARED RULE — the BLOOD FRENZY source (`isFrenzySource`) is a Warlord whose OWN window is
+ *      open, not his health; and (owner, S191) the frenzy NEVER sets or clears a Warlord.
+ *   Local only, riding without needing it: Alt toggles the footer exactly as the collapse arrow (owner,
+ *   S192); the opaque panels and modals swallow right-clicks (R190-G); `Controls.setModalCover` + the
+ *   paired-press latch (S192 A-1); the attack row's frame cadence reads the cycle latch (render only).
+ */
+```
+
+The facts behind it (kept from S191):
 - **New additive-optional field `Creature.rageStartTick`** (serialized only when stamped; restore
-  validates non-negative integer). Rides `snapshot` AND `netSnapshot` (only `targetCreatureId` is
-  trimmed from the mirror).
+  validates a non-negative integer — it does NOT refuse a future stamp, `isOwnRageActive` makes one
+  harmless). Rides `snapshot` AND `netSnapshot` (only `targetCreatureId` is trimmed from the mirror).
 - **Changed shared rules**: the rage latch (`runWarlordRage`), the BLOOD FRENZY source
-  (`isFrenzySource`), and (S191 owner ruling) the frenzy no longer raising a Warlord. ⛔ Bump verdict: **YES** — two builds that shake hands disagree about when a
-  Warlord's rage ends (an old promoted successor would calm him only on a heal above 50 %, i.e. never,
-  and would read the frenzy source off his health). Additive-optional alone would cost none; the rule
-  change is what earns it.
+  (`isFrenzySource`), and (S191 owner ruling) the frenzy no longer touching a Warlord. Additive-optional
+  alone would cost none; the rule change is what earns it.

@@ -355,3 +355,13 @@ Merge owner = the main session. This branch never merges, never pushes.
   refuse a future stamp. `playwright.config.ts`: the invariant list now names all seven lanes (12<18 · 15<20 · 9<12 ·
   44<50 · 9<12 · 9<12 · 17<20, read from `e2e.yml`). `e2e/worker-bots.spec.ts`: its own lane, 9 min, not "12 min for
   ~35 tests". `ci.e2eLanes` + rage + racial 324/324.
+- **5 · CANON (merge-owner exception, ONE commit).** `SPARK_CANON.md` §3e: the BLOOD FRENZY row (own 25 s clock; the
+  castle soldiers + orc tier-3 units; "never another Warlord — S191"); the S188 guard sentence rewritten (the frenzy
+  never touches a Warlord; a source = his own open window); two new paragraphs — THE 25 s RAGE + "COOLDOWN FIRST"
+  (the cooldown HIS, quoted, per Warlord; the ruled red-through-BUILD pattern) and THE FRENZY NEVER TOUCHES A
+  WARLORD. §4b: Alt IS the collapse arrow (S192 quote) after the S186 open-question paragraph. `canon.test.ts` +2
+  tests: the three constants + the trigger %, his quote, the BUILD sentence, the per-FIGHT pattern DERIVED from
+  `FIGHT_PHASE_TICKS` / rage / cooldown (no "25 on / 25 off" literal), the frenzy sentence + the row, NEGATIVES for
+  the two retired sentences, the §4b Alt sentence. Mutation (cooldown printed 1400 + the old sentence back) → red;
+  restored (cmp). 64/64. Canon §6 + `PROTOCOL_VERSION` untouched; the finished bump docblock is in
+  `S191_CANON_NOTES_addons.md` §6.
