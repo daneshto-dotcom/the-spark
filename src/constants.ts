@@ -3103,7 +3103,13 @@ export const RA_COLUMN_TICKS = 2 * PHYSICS_HZ;
  */
 export const RA_RITUAL_TICKS = RA_COLUMN_COUNT * RA_COLUMN_TICKS;
 
-/** R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers. */
+/**
+ * R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers — ⛔ RETIRED FROM THE SIM IN S192, kept so
+ * the history stays legible: *"the [Ra] column, Pharaoh boss should not keep … his 300. That's
+ * ridiculous. He goes down to 35 per column, just like a regular column attack."* The boss's ritual now
+ * lands through `racial/raColumn.ts` (`raColumnPoolFor`: 35, or 75 for a WRATH OF RA seat). Nothing in
+ * the sim reads these two; `canon.test.ts` pins that 300 is no longer any column's number.
+ */
 export const RA_COLUMN_ATK = 15;
 export const RA_COLUMN_PEN = 15;
 
@@ -3129,6 +3135,49 @@ export const RA_COLUMN_RADIUS = 70;
  * for zero new fields. It also reads correctly: Ra brings the sun down AROUND his priest.
  */
 export const RA_COLUMN_SPREAD = 150;
+
+/**
+ * ⭐⭐ S191 (owner) — **POWER OF RA / WRATH OF RA: THE PLAYER'S COLUMN, AND IT IS NO LONGER THE
+ * PHARAOH'S.** Until S191 the perk dealt `attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = 300 a column
+ * to EVERY connector in its circle, and a 5-connector tower's whole ladder is 130.
+ *
+ * > *"The Wrath of Ra, or whatever the power of Ra. Is way too strong, dude. It destroys like a full
+ * > fucking tower. Within one hit … it shouldn't be like more than 50 or even less each beam."*
+ *
+ * > *"each column that it does 30 damage it split right so if it hits a tower and an enemy at the same
+ * > time then it split amongst those two … it's not like 30 to each thing in the vicinity. No, it's 30
+ * > split so if there's like two enemies it's split amongst them … we can do it 35 per hit."*
+ *
+ * So **35 fifths a column, IN TOTAL, split** across everything it hits (`powerOfRa.ts` —
+ * `raSplitShares`, and a structure is ONE target). His number, exactly, on the one ladder:
+ * `attackFifths(5, 2)` = 5 × (5 + 2) = **35**.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 35 = ATK × (5 + PEN) has three integer answers: 7/0, 5/2 and 1/30.
+ * 5/2 is the one nearest the Pharaoh's own balanced 15/15 profile this skill was cut from — it keeps
+ * a piercing character (PEN > 0) without resting the whole number on a 30-point secondary stat.
+ * Lever: change the pair; `RA_PERK_STRIKE_FIFTHS` and every test derive from it.
+ *
+ * ⭐⭐ S192 (owner) — **AND THE PHARAOH BOSS IS THIS COLUMN TOO.** *"Pharaoh boss should not keep …
+ * his 300. That's ridiculous. He goes down to 35 per column, just like a regular column attack."* His
+ * ritual (`bossSkillsPharaohRitual.ts`) lands through the same `racial/raColumn.ts` `landRaColumn`,
+ * and his number comes from the same `raColumnPoolFor` — 35, or 75 when his OWNER seat holds WRATH OF
+ * RA (`RA_WRATH_COLUMN_*` below). `RA_COLUMN_ATK` / `RA_COLUMN_PEN` (300) are retired from the sim.
+ * (S191 briefly kept him at 300; that sentence is superseded.)
+ */
+export const RA_PERK_COLUMN_ATK = 5;
+export const RA_PERK_COLUMN_PEN = 2;
+
+/**
+ * ⭐⭐ S192 (owner) — **WRATH OF RA RAISES EVERY COLUMN OF ITS SEAT TO 75**, the seat's Pharaoh included:
+ * *"once we have Ra's Wrath at … level 10, once we have that ability, then each column goes … up to 75.
+ * And also Pharaoh's become 75. Okay? If the player chose that ability."* Still IN TOTAL, split.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 75 = ATK × (5 + PEN) has four integer answers: 15/0, 5/10, 3/20, 1/70.
+ * 5/10 keeps the perk column's ATK (5) and raises only the piercing (2 → 10), so WRATH reads as the same
+ * sunlight burning hotter. Lever: change the pair; `RA_WRATH_STRIKE_FIFTHS` and every test derive from it.
+ */
+export const RA_WRATH_COLUMN_ATK = 5;
+export const RA_WRATH_COLUMN_PEN = 10;
 
 /*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and

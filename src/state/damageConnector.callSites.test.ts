@@ -111,7 +111,7 @@ describe('S188 — the damageConnector call-site census', () => {
     expect(tally((s) => s.attacker === 'null')).toEqual({
       'src/state/creatures/suicideBlast.ts': 1,
       'src/state/world.ts': 1,
-      'src/state/racial/powerOfRa.ts': 1,
+      'src/state/racial/raColumn.ts': 1, // S192 — the column moved here; the Pharaoh boss's column now cuts connectors too
       // ⭐ S191 C-5 — the lightning hub's self-destruct, 120 to each enemy connector in radius: a blast,
       // and the hub is a building being razed on the same tick — no creature to heal.
       'src/state/potatoLifecycle.ts': 1,

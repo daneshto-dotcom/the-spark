@@ -81,12 +81,13 @@ function feedOnce(w: World, race: RaceId): void {
   dispatch(w, { type: 'FEED_TOWER', playerId: P0, spawnerId: sp.id, sparkType: shape });
 }
 
-describe('S188 APEX PREDATOR — the stat line is the piranha ×3, derived', () => {
+describe('S188 → S192 APEX PREDATOR — the stat line is the piranha ×6, derived', () => {
   const base = getCreatureConfig('t3Piranha');
   const elite = getCreatureConfig(ELITE);
 
-  it('⭐⭐ HP / DEF / ATK / PEN are each exactly 3× the piranha’s — read off its config, never literals', () => {
-    expect(APEX_PREDATOR_STAT_MUL).toBe(3);
+  it('⭐⭐ HP / DEF / ATK / PEN are each exactly 6× the piranha’s — read off its config, never literals', () => {
+    // S192 re-pin (owner chose ×6, "like the bat swarm"; ×9 was proposed first) — was 3 (S188).
+    expect(APEX_PREDATOR_STAT_MUL).toBe(6);
     expect(elite.hp).toBe(base.hp * APEX_PREDATOR_STAT_MUL);
     expect(elite.def).toBe(base.def * APEX_PREDATOR_STAT_MUL);
     expect(elite.atk).toBe(base.atk * APEX_PREDATOR_STAT_MUL);
@@ -102,9 +103,15 @@ describe('S188 APEX PREDATOR — the stat line is the piranha ×3, derived', () 
     expect(CREATURE_CONFIGS[ELITE]).toBe(elite);
   });
 
-  it('⚠ on the ladder: the pool is ×3 (DEF 0) and the bite is ×4 (PEN is tripled too) — reported, not hidden', () => {
-    expect(unitPoolFifths(elite.hp, elite.def)).toBe(3 * unitPoolFifths(base.hp, base.def));
-    expect(attackFifths(elite.atk, elite.pen)).toBe(4 * attackFifths(base.atk, base.pen));
+  it('⚠ on the ladder: the pool is ×6 (DEF 0) and the bite is ×11 (PEN is ×6 too) — reported, not hidden', () => {
+    // S192 re-pin — was ×3 / ×4 at S188's multiplier. Derived: pool hp·M·5 (DEF 0); bite atk·M·(5 + pen·M).
+    const M = APEX_PREDATOR_STAT_MUL;
+    expect(base.def).toBe(0); // the precondition for "the pool is exactly ×M"
+    expect(unitPoolFifths(elite.hp, elite.def)).toBe(M * unitPoolFifths(base.hp, base.def));
+    expect(unitPoolFifths(elite.hp, elite.def)).toBe(90);
+    expect(attackFifths(elite.atk, elite.pen)).toBe(base.atk * M * (5 + base.pen * M));
+    expect(attackFifths(elite.atk, elite.pen)).toBe(132);
+    expect(attackFifths(elite.atk, elite.pen) / attackFifths(base.atk, base.pen)).toBe(11);
   });
 
   it('⭐ drawn TWICE the piranha’s size — his "two times bigger"', () => {
@@ -126,6 +133,18 @@ describe('S188 APEX PREDATOR — the tower emits the elite ONLY for a naga seat 
     run(w, RACE_TOWER_EMIT_INTERVAL_TICKS * WINDOWS + 5);
     expect(count(w, ELITE)).toBe(WINDOWS);
     expect(count(w, 't3Piranha')).toBe(0);
+    // ⭐ S192 REACH — the ×6 line is what the real emission carries. This seat also took the 'hp'
+    // general (it adds to the pool), so the bound is the ×6 pool from below and twice the old ×3 pool
+    // (45) — which an S188-strength elite plus that pick cannot reach.
+    const elite = getCreatureConfig(ELITE);
+    let seen = 0;
+    for (const c of w.creatures.values()) {
+      if (c.type !== ELITE) continue;
+      seen++;
+      expect(c.maxEhp).toBeGreaterThanOrEqual(unitPoolFifths(elite.hp, elite.def));
+      expect(c.maxEhp).toBeGreaterThan(2 * 3 * unitPoolFifths(getCreatureConfig('t3Piranha').hp, 0));
+    }
+    expect(seen).toBe(WINDOWS);
   });
 
   it('⭐⭐ the FED unit (FEED_TOWER) is promoted too — both emit sites ask the same rule', () => {
