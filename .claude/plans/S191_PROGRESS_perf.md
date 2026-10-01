@@ -380,3 +380,26 @@ Mean −43 % (A) / −32 % (C); p95 −44 % / −33 %; 3-tick p95 −43 % / −3
 - ⚠ What DOES flow through the rewrites: welds put far more cross-colour bonds on the board (the 2a mixed
   rule + the 2e union over mixed bonds) and the self-raze/orphan raze changes which bonds vanish. Hence
   step 2: re-prove on the merged tree, not by argument.
+
+## S192 step 2 — byte-identity re-proved ON THE MERGED TREE (f927bda)  ✅
+- Exit codes captured to `.tmp-gates/s192-exits.txt` (gitignored), never through a pipe.
+- 8 differential/guard files (s191Perf oracle default waves 1-3, territoryGrid, territoryComplexity, S118
+  territory.differential, navUnitIndex ×2 incl. the cache-invariant GUARD census, solveBonds, scoringMemo)
+  → **ORACLE_DEFAULT_EXIT=0**, 8 files / 29 tests. The guard census still passes, so master added no
+  creature spawn/removal/owner-write site the nav index does not know about.
+- Full oracle `SPARK_C5_PERF=1` (waves 1-5, 120 creatures, hash every tick) → **ORACLE_FULL_EXIT=0**, 349.7 s:
+  | arm | default (waves 1-3, 27 000 ticks) | full (waves 1-5, 45 000 ticks) |
+  |---|---|---|
+  | territory | 27 000 calls, 2 433 941 bonds, **0** mism., 910 674 engulfed, mixed 126 218 / 95 087, radii 0 mism. | 45 000 calls, 8 974 818 bonds, **0**, 3 948 661 engulfed, mixed 213 246 / 166 374, radii 0 |
+  | nav | 336 464 compared, **0**, pending-death returned 604 | 901 061 compared, **0**, pending-death returned 2 616 |
+  | solver | 204 472 calls, 19.47 M bonds, **0** | 348 472 calls, 71.80 M bonds, **0**, 43 broken |
+  | scoring | 10 800 calls, **0** | 18 000 calls, **0** |
+  | `hashWorldStateFull` | identical every tick | identical every tick (reached wave 6 BUILD) |
+  ⚠ Territory counts moved vs S191 (default engulfed 679 216 → 910 674; bonds 2.32 M → 2.43 M) — master's
+  board is different (weld/self-raze changes); nav/solver/scoring counters for waves 1-3 are unchanged.
+- MUTATION CHECKS on the merged tree (`scratchpad/mutate.py`: mutate one line, run, restore, sha256):
+  T1 no union (2e) → RED · T2 left neighbour cell dropped (2a) → RED · T3 mixed-bond rule `||`→`&&` (2a)
+  → RED · N6 id tie-break dropped (2b) → RED · S1 LOW break ratio read as MID (2c) → RED · C1 memo slot
+  ignores b (2d) → RED. Every RED is an assertion failure (no transform/syntax error); every restore
+  sha256-identical; `git status` clean afterwards.
+- VERDICT: **byte-identical on the merged tree. No divergence, nothing to fix.**
