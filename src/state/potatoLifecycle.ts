@@ -88,8 +88,9 @@ export interface DissipatePotatoAction {
  * would be the tolerant default this repo keeps being bitten by):
  *   · `'ladder'` — the LIGHTNING HUB (canon §9d item 2, R182-C): 120 fifths to every enemy entity in
  *     radius (`applyHubLadderBlast`). It always has an owner, so the variant REQUIRES one;
- *   · `'raze'` — the ZOMBIE BOSS's R138 death blast (*"hurting everything"*), which borrowed this
- *     action in S168. Nobody has ruled that it stops deleting, so it is byte-identical to before.
+ *   · `'raze'` — what the ZOMBIE BOSS's R138 death blast dispatched until S192. ⭐ S192 T3 / S193 R193-B1..B3
+ *     moved him to his own split-pool arm (`racial/zombieDeathBlast.ts`), so this variant has NO production
+ *     dispatcher now — kept byte-identical for its tests; retiring it is the merge owner's call.
  */
 export type StructureSelfDestructAction =
   | {
@@ -572,9 +573,9 @@ function hubBlastTarget(kind: Exclude<HubBlastKind, 'connector' | 'stinkCloud'>,
 
 /**
  * S113 Batch C — the lightningHub STRUCTURE self-destruct: a BOMB_EXPLODE burst at the anchor, then
- * the blast. ⭐ S191 C-5 — the hub's blast is now `'ladder'` (above); `'raze'` is the zombie boss's
- * R138 death blast, which still deletes everything in its radius through the shared radial clear
- * (the S113 body, below, unchanged). Position-based; host-internal (`hostTick` dispatches it on the
+ * the blast. ⭐ S191 C-5 — the hub's blast is now `'ladder'` (above); `'raze'` was the zombie boss's
+ * R138 death blast until S192 (no production dispatcher now — see the action's docblock); it still
+ * deletes everything in its radius through the shared radial clear (the S113 body, below, unchanged). Position-based; host-internal (`hostTick` dispatches it on the
  * destruction branch, then REMOVE_SPAWNER, so it fires exactly once).
  */
 export function applyStructureSelfDestruct(world: World, action: StructureSelfDestructAction): World {

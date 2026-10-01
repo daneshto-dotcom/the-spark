@@ -762,8 +762,8 @@ export interface RadialDamageResult {
  *     point of the S138 damage substrate — invisible to the newest damage source in the game.
  *  2. **Its predicate filters CREATURES ONLY.** The `creatureKill` callback gates the creature loop;
  *     the primitive loop took no predicate at all until S157 P0 gave it one (`primKill`). (⚠ S191: the
- *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; only the
- *     zombie boss's R138 raze does.) A bag that flattens the thrower's own tower is not a mechanic, it
+ *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; and since
+ *     S192 the zombie boss's death blast is its own split pool too, so no production blast does.) A bag that flattens the thrower's own tower is not a mechanic, it
  *     is a bug.
  *  3. **It never consults `world.defenders`.** A blast that cannot hurt a tower cannot be counterplay
  *     to towers.
