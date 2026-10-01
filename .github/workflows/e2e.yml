@@ -447,13 +447,18 @@ jobs:
   # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice, add
   # `continue-on-error: true` HERE — do NOT delete the lane, and do NOT re-tag the test. A noisy
   # multiplayer signal is still infinitely better than the none we had.
+  #
+  # ⭐ S192 T1 — the 4-player late-joiner mesh (`nplayer.spec.ts`, "S192 late 4th joiner") is the owner's
+  # "the 4th player can't connect" bug, reproduced deterministically; it gates HERE for the reasons
+  # above. It costs 1.1–2.0 min locally and CI is 3–5× slower, so this lane's budget went 12→20 /
+  # 9→16 (Playwright stays strictly below the runner, per the standing rule).
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 9
+      PW_GLOBAL_TIMEOUT_MIN: 16
     steps:
       - name: Checkout
         uses: actions/checkout@v6

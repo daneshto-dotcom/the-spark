@@ -83,7 +83,15 @@ async function readSelfId(page: Page): Promise<string> {
 }
 
 /*
- * ⛔⛔ S192 T1 — OUT OF @quarantine-flaky, AND WHY IT CAN NOW GATE.
+ * ⛔⛔ S192 T1 — NOW GATING, VIA THE `e2e-lobby` JOB, AND WHY IT CAN.
+ *
+ * ⚠ THE TAG STAYS, DELIBERATELY — the S155 / S142 P2 precedent (`S46 Baseline` in smoke.spec.ts,
+ * `S155 join-stall`): a real-P2P test is promoted to GATING by adding its title to `npm run e2e:lobby`
+ * (`--grep "…|S192 late 4th joiner"`), which runs on its OWN runner with no continue-on-error, while
+ * `@quarantine-flaky` keeps it out of the SHARED `e2e:gating` lane. That matters here more than for any
+ * other test: this one takes 1.1–2.0 min locally (4 contexts, a 3-way mesh, then a 4th), and CI is 3–5×
+ * slower — inside the shared 12-min Playwright cap it could starve 60 other tests. A relay hiccup
+ * then reddens the lane that names it, not the whole gate. `src/ci.e2eLanes.test.ts` pins the grep.
  *
  * This was quarantined as a "CI timeout flake" (S65). It was red for TWO reasons, and the second hid
  * the first:
@@ -102,7 +110,7 @@ async function readSelfId(page: Page): Promise<string> {
  *     stale pooled offers. The precondition is asserted, not assumed.
  * Without the fix the 4th reaches nobody; with it, the full 4-way mesh forms.
  */
-test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win, late 4th joiner (S192 T1)', () => {
+test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FFA win - S192 late 4th joiner @quarantine-flaky', () => {
   test('host + 3 joiners get distinct seats {0..3} incl green@seat3, all PLAYING, one wins', async ({
     browser,
   }) => {

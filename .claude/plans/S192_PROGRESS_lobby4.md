@@ -38,3 +38,19 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
   commit; then the nplayer.spec.ts repair as described in STATUS above.
 
 3. Browser canary e2e/poolSafePc.spec.ts GREEN on port 22006 (own vite, PID 77416): raw restart 105 B no m=application; POOL_SAFE_PC 458 B, m=application, ufrag changed, data channel opened over loopback. 1 passed (5.2s), exit 0.
+4. nplayer 4-player spec repaired (26078c1) + gating via e2e-lobby (this commit).
+   - Rot fixed: win score 3 < STARTING_VICTORY_POINTS 100 (instant WIN); free-spark drags waited on sparks
+     that no longer exist at match open (0 at tick 900) — removed; win injection now also sets
+     `scoreProgress` (tickScoring is FIGHT-only, so BUILD never re-derived it).
+   - Determinism: Date.now +60 s on the 3 in-room pages; 4th joiner's selfId forced "zzzz…" (Math.random
+     pinned until DOMContentLoaded), precondition asserted.
+   - GREEN with fix: 1/1 (1.1m) + --repeat-each=3 3/3 (2.0m, 1.1m, 1.4m). exit 0 both.
+   - RED without fix (rtcPolyfill commented out in transport.ts + quickmatch.ts, vite reloaded both):
+     exit 1 at "peer 0 has the full mesh (3 peers)", host peerCount 2. Restored; tree clean.
+   - Lane: KEPT @quarantine-flaky and added "S192 late 4th joiner" to `e2e:lobby` (GATING e2e-lobby job,
+     the S155/S142 precedent) instead of the shared e2e:gating lane: 1–2 min locally ×3–5 on CI would
+     endanger the shared 12-min cap. e2e-lobby budget 12→20 / PW 9→16. `src/ci.e2eLanes.test.ts` pins the
+     grep selection + the forced-staleness lines + no continue-on-error on e2e-lobby (mutant: adding
+     continue-on-error turns it RED). Also `@vite-ignore` added to NOT_A_LANE_TAG.
+   - Vite on 22006 died with exit 1 after the repeat run, no error printed, after all runs had
+     completed (benign for the results; cause unknown — likely an external orphan sweep).
