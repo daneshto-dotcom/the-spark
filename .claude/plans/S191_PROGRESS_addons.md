@@ -326,3 +326,14 @@ Merge owner = the main session. This branch never merges, never pushes.
   passed / 7 skipped, 417 files + 2 skipped) · `ci.e2eLanes.test.ts` 0 (6/6) · build 0, **975.3 KiB** (cap 1100,
   headroom 124.7; master 972.7 → +2.6 KiB).
 - **Protocol:** not edited (52). Verdict **BUMP** (see canon notes §6).
+
+## S192 FIX ROUND (merge owner) — fix ONLY these, one commit each
+
+- **1 · A-1 (MED) — the click that closes a modal.** Pixi's capture-phase `pointerup` → `pointertap` hides the
+  modal before the bubble-phase window `onUp` runs. Fix: `Controls.downUnderModal` latched in `onDown` (the
+  existing cover return now reads it), read + cleared at the top of `onUp`; both commit gates (PLACE_POTATO,
+  PLACE_FROM_FREE) add `!downUnderModal` — the spark path stays a REJECT (DROP_SPARK, released, Idle). Tests +4 in
+  `controls.modalCover.test.ts` (cover TRUE at the press, FALSE at the release): potato not planted + still carried;
+  the control plants; the latch lasts one release; a spark drag pressed under the modal → DROP_SPARK only, Idle.
+  Mutations: latch never set → 18 red; potato gate ignores it → 2 red; PLACE_FROM_FREE gate ignores it → 1 red.
+  Restored (cmp). `src/input` 346/346.

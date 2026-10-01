@@ -246,6 +246,63 @@ describe('⛔ S191 R2 INPUT-1 — a spark drag begun BEFORE the modal still ends
   });
 });
 
+/**
+ * ⛔ S192 A-1 — THE CLICK THAT CLOSES A MODAL. Pixi 8 fires `pointertap` from a CAPTURE-phase `pointerup` on
+ * globalThis, so "Keep playing" hides the exit confirm BEFORE `Controls.onUp` (a bubble-phase window listener)
+ * runs. The release then sees no modal. Modelled exactly: the cover is TRUE at the press and FALSE at the release.
+ */
+describe('⛔ S192 A-1 — a release whose PRESS was under a modal commits nothing', () => {
+  it('a carried potato: pressed under the exit confirm, released after it closed → NOT planted, still carried', () => {
+    const r = rig(0);
+    const p = bareBoardPoint(r);
+    r.w.players.get(r.seat)!.carriedPotatoId = 1 as never;
+    clear(r);
+    r.screen.exitConfirm = true;
+    down(r.c, p);
+    r.screen.exitConfirm = false; // Pixi's pointertap closed it first
+    up(r.c, p);
+    expect(boardActions(r)).toEqual([]);
+    expect(r.w.players.get(r.seat)!.carriedPotatoId, 'still carried — reversible').toBe(1);
+  });
+  it('the control: the same press + release with no modal at either end PLANTS it', () => {
+    const r = rig(0);
+    const p = bareBoardPoint(r);
+    r.w.players.get(r.seat)!.carriedPotatoId = 1 as never;
+    clear(r);
+    click(r.c, p);
+    expect(r.sent.map((a) => a.type)).toContain('PLACE_POTATO');
+  });
+  it('the latch lasts ONE release: the next uncovered click plants', () => {
+    const r = rig(0);
+    const p = bareBoardPoint(r);
+    r.w.players.get(r.seat)!.carriedPotatoId = 1 as never;
+    clear(r);
+    r.screen.exitConfirm = true;
+    down(r.c, p);
+    r.screen.exitConfirm = false;
+    up(r.c, p);
+    expect(boardActions(r)).toEqual([]);
+    click(r.c, p);
+    expect(r.sent.map((a) => a.type)).toContain('PLACE_POTATO');
+  });
+  it('a spark drag: a press under the modal, released after it closed → DROP_SPARK, Idle, NO PLACE_FROM_FREE', () => {
+    const r = rig(0);
+    const p = bareBoardPoint(r);
+    freeSparkAt(r, p);
+    down(r.c, p);
+    expect(r.c.state.kind, 'the grab landed before the modal opened').toBe('AttractDrag');
+    r.screen.exitConfirm = true;
+    move(r.c, p);
+    down(r.c, p); // the press on "Keep playing"
+    r.screen.exitConfirm = false;
+    clear(r);
+    up(r.c, p);
+    expect(r.sent.map((a) => a.type)).toEqual(['DROP_SPARK']);
+    expect(r.c.state.kind).toBe('Idle');
+    expect(r.w.players.get(r.seat)!.kind, 'no glued spark (S52 / S58)').toBe('Idle');
+  });
+});
+
 describe('⛔ S191 R2 INPUT-3 — the HUD controls: BACK TO MAIN and the settings gear', () => {
   const HUD: Array<[string, () => Pt]> = [
     ['BACK TO MAIN', () => centre(exitButtonRect())],

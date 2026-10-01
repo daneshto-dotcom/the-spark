@@ -564,6 +564,8 @@ export class Controls {
   private characterSheet: CharacterSheetLike | null = null;
   private draftPanel: DraftPanelLike | null = null;
   private modalCover: ((x: number, y: number) => boolean) | null = null; // S191 R2 INPUT-1 — see `setModalCover`
+  /** ⛔ S192 A-1 — was the PRESS that this release pairs with under a modal? Latched in `onDown`, read + cleared in `onUp`. */
+  private downUnderModal = false;
   private onSheetAction:
     | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
     | null = null;
@@ -1173,7 +1175,11 @@ export class Controls {
     // ⛔⛔ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL NOTHING ON THE BOARD ACTS, for EVERY
     // button: the modal's own Pixi hit (its buttons, its backdrop) is the whole of the click. `onUp`
     // does NOT return like this — a drag begun before the modal must still end (see its two gates).
-    if (this.isPointerUnderModal()) return;
+    // ⛔ S192 A-1 — LATCH IT: Pixi closes a modal on `pointertap`, which it fires from a CAPTURE-phase
+    // `pointerup` on globalThis BEFORE this bubble-phase window `onUp` runs. So the release of a click that
+    // CLOSES a modal ("Keep playing") sees no modal; the paired-down latch is what refuses its commit.
+    this.downUnderModal = this.isPointerUnderModal();
+    if (this.downUnderModal) return;
     // S136 P0 — CASTLE PANEL GUARD, and it is not optional. This raw canvas handler hit-tests WORLD
     // objects (bombs, rainbows, potatoes, sparks, bonds, creatures) with no notion of UI elements,
     // and Pixi's `pointertap` on a panel row does NOT suppress it — both fire for one physical
@@ -1630,6 +1636,9 @@ export class Controls {
     // release off the board still arrives — otherwise dragging off a pressed chip would leave it
     // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
     this.footerBand?.setPressed(false);
+    // ⛔ S192 A-1 — a release whose PRESS was under a modal commits nothing (read once, cleared at once).
+    const downUnderModal = this.downUnderModal;
+    this.downUnderModal = false;
     // S72 P3 — place a carried potato on LMB-up (the carry is world state, not an
     // AttractDrag). Plant it ARMED at the cursor + release the gesture capture.
     if (e.button === 0) { // R190-G: LMB
@@ -1666,7 +1675,8 @@ export class Controls {
         // ⛔ S188 (audit F1) — nor under the draft panel: a potato released there stays carried.
         !this.isPointerOverDraftPanel() &&
         // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control: it stays carried, fully reversible.
-        !this.isPointerUnderModal()
+        !this.isPointerUnderModal() &&
+        !downUnderModal // ⛔ S192 A-1 — nor when its press was (the click that closed the modal)
       ) {
         this.dispatchFn({
           type: 'PLACE_POTATO',
@@ -1765,7 +1775,8 @@ export class Controls {
           !this.isPointerOverDraftPanel() &&
           // ⛔ S191 R2 (INPUT-1) — nor under a modal or a HUD control. A REJECT, never an early return:
           // the DROP above has run, the capture is released and the state goes Idle below (S52 / S58).
-          !this.isPointerUnderModal()
+          !this.isPointerUnderModal() &&
+          !downUnderModal // ⛔ S192 A-1 — nor when its press was; still a REJECT, never an early return
         ) {
           // S52 P1 — atomic PLACE_FROM_FREE single intent replaces the S5-era
           // PICKUP_SPARK+PLACE_PRIMITIVE burst. The burst pattern had a
