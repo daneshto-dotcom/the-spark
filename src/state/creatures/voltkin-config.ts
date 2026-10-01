@@ -45,6 +45,10 @@ import {
   T3_STATS,
   DIREWOLF_LIFETIME_TICKS,
   DIREWOLF_STATS,
+  ENDGAME_MONSTER_STATS,
+  ENDGAME_MONSTER_SPEED_MUL,
+  MEGA_PANTS_STATS,
+  MEGA_PANTS_SPEED_MUL,
   T9_BOSS_STATS,
   LOCUST_CLOUD_STATS,
   LOCUST_CLOUD_SPEED_MUL,
@@ -1143,7 +1147,34 @@ export const LOCUST_CLOUD_CONFIG: CreatureConfig = {
   holdsRange: false,
 };
 
+/**
+ * ⭐⭐ S192 (owner, A3) — **THE ENDGAME MONSTER** (*"this silly looking pair of pants"*). A melee
+ * structure-attacker on the shared unit factory (goblin cadence, range and fire tick), at its own
+ * ladder stats (`ENDGAME_MONSTER_STATS`, HIS since S193 Q9: pool 100, strike 40). `targetsStructures: true` so
+ * the shipped strike arms (unit / connector / lone shape / castle-in-reach) all serve it; its TARGET
+ * SELECTION is its own fan-out arm in `hostTick` (`runEndgameMonsterTargeting`), restricted to the seat it
+ * was sent at. Persistent: survivors are removed at the end of the fight (`removeEndgameMonsters`).
+ */
+export const ENDGAME_MONSTER_CONFIG: CreatureConfig = makeT3Config('endgameMonster', {
+  ...ENDGAME_MONSTER_STATS,
+  speedMul: ENDGAME_MONSTER_SPEED_MUL,
+});
+
+/**
+ * ⭐⭐ S193 (owner, Q2) — **THE MEGA PANTS.** *"the boss is gonna be basically unbeatable, but it's all
+ * about surviving longer."* The pants' own factory at `MEGA_PANTS_STATS` (⚠ MINE: pool 12 500, strike
+ * 1 500 — the arithmetic is at the constant). Same targeting arm as the wave pants (`hostTick`), with
+ * no assigned seat, so `monsterVictimSeat` spreads it over the living seats and re-targets it as each
+ * keep falls.
+ */
+export const MEGA_PANTS_CONFIG: CreatureConfig = makeT3Config('megaPants', {
+  ...MEGA_PANTS_STATS,
+  speedMul: MEGA_PANTS_SPEED_MUL,
+});
+
 export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = {
+  endgameMonster: ENDGAME_MONSTER_CONFIG,
+  megaPants: MEGA_PANTS_CONFIG,
   direwolf: DIREWOLF_CONFIG,
   locustCloud: LOCUST_CLOUD_CONFIG,
   voltkin: VOLTKIN_CONFIG,

@@ -37,6 +37,8 @@
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
 import type { World } from '../state/world.ts';
+import type { FxSink } from './fx/emitter.ts';
+import { fxActive, fxTopShade } from './fx/fxState.ts';
 
 /** ⚠ MINE. Enough to read as a mass at a glance, few enough to stay cheap at the population cap. */
 const LOCUST_SWARM_MOTES = 22;
@@ -80,6 +82,8 @@ export function drawLocustClouds(g: Graphics, world: World): void {
  * twice — while staying a pure function that both peers reproduce exactly.
  */
 function drawOneCloud(g: Graphics, tick: number, id: number, cx: number, cy: number): void {
+  // ⭐ S193 (V17) — the motes as soft streak sprites (`locustCloudFx` below); `?fx=legacy` keeps the strokes.
+  if (fxActive()) { locustCloudFx(fxTopShade(), tick, id, cx, cy); return; }
   // The body of the mass. Two overlapping discs rather than one, so the silhouette is lumpy.
   g.circle(cx, cy, SWARM_RADIUS * 0.82).fill({ color: HAZE_TINT, alpha: HAZE_ALPHA });
   g.circle(cx + SWARM_RADIUS * 0.22, cy - SWARM_RADIUS * 0.14, SWARM_RADIUS * 0.55)
@@ -119,5 +123,52 @@ function drawOneCloud(g: Graphics, tick: number, id: number, cx: number, cy: num
     const tint = (h >>> 24) % 3 === 0 ? LOCUST_TINT_DARK : LOCUST_TINT;
 
     g.moveTo(mx, my).lineTo(ex, ey).stroke({ color: tint, width: 1.4, alpha });
+  }
+}
+
+/** One locust: where it is, where its streak ends, its flicker and its tint — the S171 formula, verbatim. PURE. */
+export function locustMote(k: number, tick: number, id: number, cx: number, cy: number): { mx: number; my: number; ex: number; ey: number; alpha: number; tint: number } {
+  const h = (k * 2654435761 + id * 40503) >>> 0;
+  const rFrac = Math.sqrt(((h >>> 3) % 1000) / 1000);
+  const r = 4 + rFrac * SWARM_RADIUS;
+  const phase = ((h >>> 13) % 628) / 100;
+  const dir = (h & 1) === 0 ? 1 : -1;
+  const speed = (1.6 - rFrac * 0.9) * dir;
+  const ang = phase + (tick / ORBIT_TICKS) * speed * Math.PI * 2;
+  const mx = cx + Math.cos(ang) * r;
+  const my = cy + Math.sin(ang) * r * 0.62;
+  const tangent = ang + Math.PI / 2 * dir;
+  const len = 1.6 + Math.abs(speed) * 1.5;
+  const beat = (tick * 2 + k * 5 + id) % 7;
+  return {
+    mx, my,
+    ex: mx + Math.cos(tangent) * len,
+    ey: my + Math.sin(tangent) * len * 0.62,
+    alpha: beat < 4 ? 0.92 : 0.5,
+    tint: (h >>> 24) % 3 === 0 ? LOCUST_TINT_DARK : LOCUST_TINT,
+  };
+}
+
+/** Sprites per rebuilt cloud: two haze puffs plus one streak per locust (the same count as S171's strokes). */
+export const LOCUST_FX_SPRITES = 2 + LOCUST_SWARM_MOTES;
+
+/**
+ * ⭐ S193 `s193/visuals-boss` (V17) — **THE SAME SWARM, AS SOFT STREAKS.** Every locust is the same mote
+ * on the same orbit (`locustMote`), now a soft sprite stretched ALONG its motion — longer than the S171
+ * stroke, so the fast inner insects smear — on the SHADE layer (normal blend, never bloomed: *"a plague
+ * reads as dirt"*, not as light). The haze becomes two slowly turning smoke puffs. Same count
+ * (`LOCUST_SWARM_MOTES`). ⚠ The stretch and the haze alpha are MINE. PURE: the sink is handed in.
+ */
+export function locustCloudFx(shade: FxSink, tick: number, id: number, cx: number, cy: number): void {
+  const turn = ((tick + id * 31) % 1256) / 200;
+  shade.emit('smoke', cx, cy, SWARM_RADIUS * 2.2, SWARM_RADIUS * 1.6, turn, HAZE_ALPHA * 2.2, HAZE_TINT, 'normal');
+  shade.emit('smoke', cx + SWARM_RADIUS * 0.22, cy - SWARM_RADIUS * 0.14, SWARM_RADIUS * 1.4, SWARM_RADIUS * 1.0, -turn,
+    HAZE_ALPHA * 1.8, HAZE_TINT, 'normal');
+  for (let k = 0; k < LOCUST_SWARM_MOTES; k++) {
+    const m = locustMote(k, tick, id, cx, cy);
+    const dx = m.ex - m.mx;
+    const dy = m.ey - m.my;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    shade.emit('soft', (m.mx + m.ex) / 2, (m.my + m.ey) / 2, len * 2.6 + 2.5, 2.6, Math.atan2(dy, dx), m.alpha, m.tint, 'normal');
   }
 }

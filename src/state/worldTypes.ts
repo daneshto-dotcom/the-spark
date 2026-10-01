@@ -687,6 +687,8 @@ export interface World {
       placeTargetMissing: number;
       actorBenched: number;
       actorEliminated: number;
+      /** ⭐ S192 — intent refused by the endgame BUILD LOCK (wave ≥ 27). */
+      endgameBuildLocked: number;
     };
     /**
      * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected
@@ -769,6 +771,21 @@ export interface World {
    * mirror all agree; a disagreement here would desync the SPAWN RATE, not just a HUD number.
    */
   waveNumber: number;
+  /**
+   * ⭐ S192 (endgame) — how many endgame monsters THIS FIGHT has released (`endgameMonsters.ts`).
+   * Reset to 0 on every BUILD→FIGHT edge; only waves 27–31 ever move it. A COUNTER rather than a
+   * pure function of the tick so a NONET freeze that skips ticks catches up instead of losing
+   * monsters. Serialized (omitted at 0) and hashed (`mw`).
+   */
+  monsterWaveSpawned: number;
+  /**
+   * ⭐ S193 (endgame) — the tick THIS monster FIGHT began, or 0 outside one. Written at the BUILD→FIGHT
+   * edge of waves 27–31 (the deadline tick the edge crossed, so a NONET multi-flip stamps the same
+   * value), cleared at FIGHT→BUILD. It is the spawner's clock: the deadline cannot be, because a monster
+   * fight HOLDS its deadline while pants are still to come out (`MONSTER_HOLD_LEAD_TICKS`). Serialized
+   * (omitted at 0) and hashed (`mf`).
+   */
+  monsterFightStartTick: number;
   /**
    * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
    * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old
