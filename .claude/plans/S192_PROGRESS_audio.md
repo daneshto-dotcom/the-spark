@@ -103,3 +103,11 @@ here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next
 - step 1 (7178461) — `src/render/musicLoop.ts` (pure loop-region math) + `musicLoop.test.ts` (14 cases) + this table.
 - steps 2–4 (8f58406) — loop wiring + voice cap + DEV probe + guards.
 - step 5 — real-fight H2 measurement (opt-in test) + verdict (this commit).
+
+## RESUME STATE (usage-limit save, owner order)
+- DONE: step 1 7178461 · steps 2–4 8f58406 · step 5 25bbd48. Tree clean.
+- Gates already run on 8f58406's tree: `npm run typecheck` 0 · `npx vitest run --maxWorkers=3` 0
+  (424 files passed / 3 skipped, 6778 tests) · `npm run build` 0 — bundle **978.3 KiB**, headroom 121.7.
+- IN FLIGHT: nothing running.
+- EXACT NEXT STEP: measure master 663c4c9's bundle KiB for the ≤ 10 KiB delta (build a clean checkout of
+  663c4c9 — do NOT build in the main checkout), re-run the three gates on the tip, write the final report.
