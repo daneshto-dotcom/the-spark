@@ -47,3 +47,6 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - ✅ DEPLOY #17 PUSHED 31b1862 (units-ai, PROTOCOL 57) — gates tc0 vt0 (7281) build0 1035.9 KiB · e2e:gating 70/70 · races 5/5 · lobby 5/5. verify-deploy running.
 - NEW goblin-autobuild DONE (tip 4b5b374; SET_AUTO_FEED intent, autoFeedMask/Cursor four sites, runner dispatches FEED_TOWER, 7th right-click site 'CONTROL'; Council 7 challenges; gates 0/0/0 1037.7 KiB +3.0; BUMP). Seams: endgame lock policy needs SET_AUTO_FEED 'allow'; right-click count 7. → AUDIT queue after lobby-ci.
 - NEW s193/visuals-board visuals-5 dispatched (V28 healthBar waits for weld).
+- ✅ DEPLOY #17 LIVE 31b1862 (units-ai, PROTOCOL 57) — verify-deploy 4/4 (first run FAIL REMOTE = my unpushed log commit; pushed, re-run PASS — benign, recorded).
+- DONE awaiting audit: visuals-2 (tip c8a73d6, +11.1 KiB, substrate additions fxDisplace — visuals-3 should reuse; stun-star height Q; no bump) · bots (tip 15ff7a9, 5 personalities, BALANCED byte-identical <IMBA, §10 Q4/Q6 now built, +212 B lazy chunk, NO bump) · weld round 6 (tip 6d8cd4a, repair jobs + FIX_ALL intent, +7.0 KiB → 1054.9, BUMP; canon FIX text now false; castle row index shift).
+- AUDIT CONCURRENCY raised to 3 (owner: throughput overnight). Third audit: lobby-ci. NEW worktree visuals-4 combat.
