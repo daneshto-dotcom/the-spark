@@ -22,7 +22,7 @@ import {
 import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
-import { isStunned, isUntargetable, creatureMaxEhp } from './creatures/creature.ts';
+import { isStunned, isLiveCreatureTarget, creatureMaxEhp } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
@@ -127,10 +127,10 @@ export function runArchdemonTeleport(world: World): void {
     for (const [id, c] of world.creatures) {
       if (id === demonId) continue;
       if (sameTeam(world, c.ownerPlayerId, demon.ownerPlayerId)) continue;
-      if (c.ehp <= 0) continue;
       // ⭐ S171 (owner R142/R171-A) — he cannot pick a victim he cannot target. Teleporting onto a
       // locust cloud, or onto a Pharaoh who has left the world, is an acquisition like any other.
-      if (isUntargetable(c, world.tick)) continue;
+      // ⭐ S192 T13 — the one liveness predicate (live pool, not pending, targetable).
+      if (!isLiveCreatureTarget(world, c)) continue;
 
       let allies = 0;
       for (const [otherId, other] of world.creatures) {

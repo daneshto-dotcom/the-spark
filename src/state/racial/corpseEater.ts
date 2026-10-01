@@ -66,7 +66,7 @@ import {
   creatureMaxEhp,
   isCorpseEaterFeeding,
   isStunned,
-  isUntargetable,
+  isLiveCreatureTarget,
   noteCreatureHeal,
   rageMultiplier,
   type Creature,
@@ -114,9 +114,9 @@ function isFeedable(world: World, boss: Creature, c: Creature, reachSq: number, 
   // old `(c.owner === boss.owner) === enemy` test.
   if (enemy ? sameTeam(world, c.ownerPlayerId, boss.ownerPlayerId) : c.ownerPlayerId !== boss.ownerPlayerId) return false;
   if (!enemy && isT9BossType(c.type)) return false; // MINE — his own units, never another boss
-  if (isUntargetable(c, world.tick)) return false;
-  if (c.ehp <= 0) return false;
-  if (world.pendingCreatureDeaths?.has(c.id) === true) return false;
+  // ⭐ S192 T13 — untargetable, a zero pool and a corpse-in-waiting are the shared liveness predicate,
+  // written once — see `isLiveCreatureTarget`.
+  if (!isLiveCreatureTarget(world, c)) return false;
   return distSq(boss.corpseEaterAnchor as Vec2, c.pos) <= reachSq;
 }
 

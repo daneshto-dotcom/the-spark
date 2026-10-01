@@ -67,7 +67,7 @@ import type { World } from '../world.ts';
 import { sameTeam } from '../teams.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import type { Creature } from './creature.ts';
-import { creatureAttackFifths, isUntargetable } from './creature.ts';
+import { creatureAttackFifths, isLiveCreatureTarget } from './creature.ts';
 import { bondMidpoint, distSq, isEnemyBond } from './creatureAI.ts';
 import { damageConnector, damageEntity, severWithCarry } from '../damage.ts';
 import { VOLTKIN_CHAIN_HOP_RANGE, VOLTKIN_CHAIN_JUMP_DIVISOR, VOLTKIN_CHAIN_MAX_TARGETS } from '../../constants.ts';
@@ -112,7 +112,9 @@ export function voltkinChainFrom(world: World, attacker: Creature, seed: ChainLi
       if (sameTeam(world, c.ownerPlayerId, attacker.ownerPlayerId)) continue; // enemy-only, like every target (S192: never a teammate)
       // ⭐ S171 (owner R142/R171-A) — a chain HOP is an acquisition: the arc chooses who it jumps
       // to. An untargetable unit is not a candidate, so the chain skips it and hops on past.
-      if (isUntargetable(c, world.tick)) continue;
+      // ⭐ S192 T13 — nor is a corpse-in-waiting: a bolt link must not land on a body killed
+      // earlier in this tick (the liveness predicate, which includes untargetability).
+      if (!isLiveCreatureTarget(world, c)) continue;
       const dSq = distSq(from, c.pos);
       if (dSq > hop2) continue;
       if (
