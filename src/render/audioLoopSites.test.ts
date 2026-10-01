@@ -116,7 +116,7 @@ describe('S192 T15 — SFX voices: every node-building SFX function admits a voi
 
   it('each calls admitVoice BEFORE its first node, and returns when refused', () => {
     for (const [name, body] of sfxFns) {
-      const admit = body.search(/if \(!admitVoice\('\w+', /);
+      const admit = body.search(/if \(!admitVoice\((?:'\w+'|kind), /); // playOneShot passes its `kind` parameter
       const firstNode = body.search(NODE);
       expect(admit, `${name}: no admitVoice gate`).toBeGreaterThan(-1);
       expect(admit, `${name}: admitVoice must precede the first node`).toBeLessThan(firstNode);

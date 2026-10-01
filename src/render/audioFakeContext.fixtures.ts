@@ -21,6 +21,8 @@ export interface FakeSourceRecord {
 
 export interface FakeAudioEnv {
   readonly sources: FakeSourceRecord[];
+  /** `AudioParam.cancelScheduledValues` calls — in audioManager only `duckMusic` makes them. */
+  ducks(): number;
   /** Advance the fake context clock. */
   setTime(t: number): void;
   restore(): void;
@@ -36,13 +38,14 @@ export function installFakeAudio(
   buffers: (url: string) => FakeBufferSpec = (url) => ({ url }),
 ): FakeAudioEnv {
   const sources: FakeSourceRecord[] = [];
+  let cancelCalls = 0;
   const param = (): unknown => ({
     value: 0,
     setValueAtTime: (): void => {},
     exponentialRampToValueAtTime: (): void => {},
     linearRampToValueAtTime: (): void => {},
     setTargetAtTime: (): void => {},
-    cancelScheduledValues: (): void => {},
+    cancelScheduledValues: (): void => { cancelCalls += 1; },
   });
   const node = (): Record<string, unknown> => ({
     connect: (): void => {},
@@ -118,6 +121,7 @@ export function installFakeAudio(
   };
   return {
     sources,
+    ducks: () => cancelCalls,
     setTime: (t: number) => { ctx.currentTime = t; },
     restore: () => { g.window = realWindow; g.fetch = realFetch; },
   };

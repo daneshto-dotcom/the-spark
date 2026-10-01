@@ -1060,9 +1060,15 @@ export function updateHelgaTheme(world: HelgaThemeWorldView): void {
 const oneShotBufferCache = new Map<string, AudioBuffer>();
 const oneShotInFlight = new Map<string, Promise<AudioBuffer | null>>();
 
-export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
+/**
+ * S192 audit A1 — resolves TRUE when the sample actually started, false when it did not (no context,
+ * load failure, or the voice cap refused it). Callers that duck the music for a voice duck ONLY on true,
+ * so a refused voice no longer dips the music under nothing. `kind` picks the cap pool: the crackle has
+ * its own, and once-per-match voices pass `'latchedVoice'`, which is never refused.
+ */
+export async function playOneShot(url: string, pos?: Vec2, kind: SfxKind = 'oneShot'): Promise<boolean> {
   const ctx = ensureAudio();
-  if (ctx === null || sfxGainNode === null) return;
+  if (ctx === null || sfxGainNode === null) return false;
   await resumeIfSuspended();
   let buffer = oneShotBufferCache.get(url) ?? null;
   if (buffer === null) {
@@ -1087,8 +1093,8 @@ export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
     }
     buffer = await pending;
   }
-  if (buffer === null || audioContext === null || sfxGainNode === null) return;
-  if (!admitVoice('oneShot', buffer.duration)) return; // S192 T15 — voice cap
+  if (buffer === null || audioContext === null || sfxGainNode === null) return false;
+  if (!admitVoice(kind, buffer.duration)) return false; // S192 T15 — voice cap
   const source = audioContext.createBufferSource();
   trackSourceNode(source);
   source.buffer = buffer;
@@ -1102,6 +1108,7 @@ export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
     source.connect(sfxGainNode);
   }
   source.start();
+  return true;
 }
 
 /**
@@ -1856,8 +1863,7 @@ const HELGA_SLAP_URL = '/godly/helga/audio/helga-slap.ogg';
  * (master/SFX mute + volume apply); ducks the music bed ~600 ms so the cry reads over her theme.
  */
 export async function playSlapSFX(pos?: Vec2): Promise<void> {
-  await playOneShot(HELGA_SLAP_URL, pos);
-  duckMusic(600);
+  if (await playOneShot(HELGA_SLAP_URL, pos)) duckMusic(600); // S192 audit A1 — no voice, no duck
 }
 
 /**
@@ -1911,8 +1917,8 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // only producers are `creatureAttack` (gated `creature.type === 'voltkin'`) and
       // `voltkinChain` (the Voltkin's own chain). Identity, not a catch-all.
       // S51 P2.b — positional; S51 P2.c — duck music for the ~700 ms crackle.
-      void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos);
-      duckMusic(700);
+      // S192 audit A1 — its own cap pool, and the duck only when the crackle actually plays.
+      void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos, 'crackle').then((played) => { if (played) duckMusic(700); });
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'chewer') {
       // S102 #2 — a pencil chewer's FINAL bite severs the connector with a beaver GNAW
       // crunch (NOT lightning). `final` = the lower/louder crunch variant.
@@ -1982,8 +1988,11 @@ export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: 
   const age = world.tick - switchTick;
   if (age < 0 || age > RAINBOW_YELL_FRESH_TICKS) return;
   lastYelledSwitchTick = switchTick;
-  void playOneShot(RAINBOW_YELL_URL);
-  duckMusic(RAINBOW_YELL_DUCK_MS); // S85 P1 — voice line must read over the bed
+  // S192 audit A1 — the latch above is already spent, so this voice must never be refused by the
+  // SFX cap ('latchedVoice' is uncapped); and the duck follows the voice, never fires without it.
+  void playOneShot(RAINBOW_YELL_URL, undefined, 'latchedVoice').then((played) => {
+    if (played) duckMusic(RAINBOW_YELL_DUCK_MS); // S85 P1 — voice line must read over the bed
+  });
 }
 
 /** Reset the drain cursor. Used by tests and on world reset (RETURN_TO_TITLE). */

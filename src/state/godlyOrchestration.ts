@@ -237,7 +237,7 @@ export function startCinematicIfNeeded(
       }
     },
     playVoice: (assetUrl: string) => {
-      void playOneShot(assetUrl);
+      void playOneShot(assetUrl, undefined, 'latchedVoice'); // S192 audit A1 — once per cutscene, never refused by the SFX cap
     },
   });
   // S28 P0 — REPLACE S25's wall-clock setTimeout-on-handoff (Council Q2

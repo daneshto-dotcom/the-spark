@@ -26,7 +26,22 @@
 export type SfxKind =
   | 'clave' | 'fart' | 'charge' | 'boom'
   | 'gnaw' | 'splat' | 'zap' | 'laser'
-  | 'oneShot' | 'ui';
+  | 'oneShot' | 'crackle' | 'ui' | 'latchedVoice';
+
+/*
+ * ⭐ S192 audit A1/A2 — TWO KINDS THE CAP NEVER REFUSES.
+ *
+ * `latchedVoice`: a once-per-match recorded voice (the rainbow yell, the Voltkin cutscene voice). Its
+ * caller latches BEFORE it plays, so a refusal is not "a late sound skipped" — it is the line never
+ * heard that match. The audit reproduced it: six Voltkin crackles in one tick filled the shared
+ * `oneShot` pool and the yell was refused for good while its 2.7 s music duck still fired.
+ * `ui`: a click's accept/refuse sound is the player's only "did that register" signal (S152 A5).
+ *
+ * Both are admitted unconditionally and are NOT booked into the global pool, so they neither get
+ * refused by it nor take a slot from anything else. They are rare by construction (once per match /
+ * once per click), which is what makes that safe.
+ */
+export const SFX_UNCAPPED_KINDS: ReadonlySet<SfxKind> = new Set<SfxKind>(['ui', 'latchedVoice']);
 
 /**
  * ⚠ MINE (S192). Concurrent SFX voices across every kind. Each voice is 3–6 Web Audio nodes, so 32
@@ -38,8 +53,8 @@ export const SFX_MAX_VOICES = 32;
 /**
  * ⚠ MINE (S192). Per-kind concurrency. Small on purpose: the fourth simultaneous clave is not audible
  * as a fourth clave, only as louder. `gnaw` matches `chewerRenderer`'s existing MAX_GNAW_VOICES = 3.
- * `oneShot` (recorded samples: crackle, slap, Voltkin voice, rainbow yell) gets the most room because
- * those are the authored, owner-auditioned sounds.
+ * `oneShot` (recorded samples other than the crackle and the latched voices — today Helga's slap) gets
+ * the most room because those are the authored, owner-auditioned sounds.
  *
  * ⛔ A `Record`, never a partial map — a new `SfxKind` must fail `tsc` here, not fall through uncapped.
  */
@@ -53,7 +68,12 @@ export const SFX_KIND_MAX_VOICES: Readonly<Record<SfxKind, number>> = {
   zap: 4,
   laser: 4,
   oneShot: 6,
-  ui: 3,
+  // S192 audit A1 — the Voltkin lightning crackle, split out of `oneShot` so a chain severing six
+  // bonds cannot occupy the pool every other recorded sample (Helga's slap) shares. ⚠ MINE.
+  crackle: 4,
+  // Uncapped (see SFX_UNCAPPED_KINDS) — never consulted, Infinity so it can never be the reason.
+  ui: Number.POSITIVE_INFINITY,
+  latchedVoice: Number.POSITIVE_INFINITY,
 };
 
 export interface SfxVoiceStats {
@@ -97,6 +117,10 @@ export class SfxVoiceLedger {
    */
   admit(kind: SfxKind, now: number, durationS: number): boolean {
     this.prune(now);
+    if (SFX_UNCAPPED_KINDS.has(kind)) {
+      this.admittedCount += 1;
+      return true; // never refused, never booked (see SFX_UNCAPPED_KINDS)
+    }
     if (this.ends.length >= this.maxVoices) {
       this.droppedGlobalCount += 1;
       return false;

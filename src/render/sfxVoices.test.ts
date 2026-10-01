@@ -3,14 +3,16 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { SFX_KIND_MAX_VOICES, SFX_MAX_VOICES, SfxVoiceLedger, type SfxKind } from './sfxVoices.ts';
+import { SFX_KIND_MAX_VOICES, SFX_MAX_VOICES, SFX_UNCAPPED_KINDS, SfxVoiceLedger, type SfxKind } from './sfxVoices.ts';
 
 describe('sfxVoices — the ⚠ MINE caps', () => {
   it('are the numbers the report quotes', () => {
     expect(SFX_MAX_VOICES).toBe(32);
     expect(SFX_KIND_MAX_VOICES).toEqual({
-      clave: 4, fart: 4, charge: 4, boom: 4, gnaw: 3, splat: 4, zap: 4, laser: 4, oneShot: 6, ui: 3,
+      clave: 4, fart: 4, charge: 4, boom: 4, gnaw: 3, splat: 4, zap: 4, laser: 4, oneShot: 6, crackle: 4,
+      ui: Number.POSITIVE_INFINITY, latchedVoice: Number.POSITIVE_INFINITY,
     });
+    expect([...SFX_UNCAPPED_KINDS].sort()).toEqual(['latchedVoice', 'ui']);
   });
 
   it('gnaw matches the chewer renderer’s pre-existing MAX_GNAW_VOICES = 3', async () => {
@@ -37,6 +39,18 @@ describe('sfxVoices — SfxVoiceLedger', () => {
     const got = kinds.map((k) => l.admit(k, 0, 1));
     expect(got).toEqual([true, true, true, false]);
     expect(l.stats().droppedGlobal).toBe(1);
+  });
+
+  it('S192 audit A1/A2 — uncapped kinds are admitted with the global pool FULL, and take no slot', () => {
+    const l = new SfxVoiceLedger(2);
+    expect(l.admit('boom', 0, 1)).toBe(true);
+    expect(l.admit('zap', 0, 1)).toBe(true);
+    expect(l.admit('laser', 0, 1)).toBe(false); // full
+    for (let i = 0; i < 10; i++) {
+      expect(l.admit('ui', 0, 0.08)).toBe(true);
+      expect(l.admit('latchedVoice', 0, 2.7)).toBe(true);
+    }
+    expect(l.liveAt(0)).toBe(2); // they were never booked
   });
 
   it('a voice frees its slot when it ends (end ≤ now), not before', () => {

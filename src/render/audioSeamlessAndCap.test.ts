@@ -21,8 +21,15 @@ import {
   getAudioDebugApi,
   initAudio,
   inspectAudioChain,
+  playGnawSFX,
+  playLaserSFX,
   playMusic,
+  playSplatSFX,
+  playUiClickSFX,
+  playUiRefusedSFX,
+  playZapBurstSFX,
   stopMusic,
+  syncRainbowYellAudio,
   updateHelgaTheme,
 } from './audioManager.ts';
 import { installFakeAudio, flushAudio, silentEdgedPcm, type FakeAudioEnv } from './audioFakeContext.fixtures.ts';
@@ -155,5 +162,67 @@ describe('S192 T15 H2 — the voice cap holds under a one-tick burst', () => {
     await flushAudio();
     const sfx = env.sources.filter((s) => !s.url.endsWith('.ogg'));
     expect(sfx.length).toBe(200 * (2 + 1 + 1 + 1));
+  });
+});
+
+/*
+ * S192 audit A1/A2 — the independent audit's reproduction, kept as the regression test.
+ * Six Voltkin crackles in one tick used to fill the shared 6-voice `oneShot` pool, so the rainbow yell
+ * (latched BEFORE it plays, once per match) was refused for good while its 2.7 s duck still fired.
+ */
+describe('S192 audit A1/A2 — once-only voices and UI clicks are never starved by the cap', () => {
+  const sev = (tick: number, n: number): GameEffect[] =>
+    Array.from({ length: n }, (_, i) => ({ kind: 'BOND_SEVERED', tick, pos: { x: 10 * i, y: 0 }, cause: 'creature' }) as GameEffect);
+  const built = (frag: string) => env.sources.filter((s) => s.url.includes(frag) && s.startArgs !== null).length;
+
+  beforeEach(() => {
+    // every recorded sample gets 1.8 s of real audio, so the ledger books real time (the audit's setup)
+    env.restore();
+    env = installFakeAudio((url) => ({ url, pcm: { sampleRate: 1000, channels: [new Float32Array(1800).fill(0.3)] } }));
+  });
+
+  it('six crackles, then the rainbow yell in the same window: the YELL PLAYS', async () => {
+    initAudio();
+    drainAudioEffects(sev(1, 6), 1);
+    await flushAudio();
+    syncRainbowYellAudio({ rainbowSwitchTick: 2, tick: 2 });
+    await flushAudio();
+    expect(built('rainbow-yell')).toBe(1);
+  });
+
+  it('the crackle has its OWN pool: a chain of 6 plays 4 crackles and leaves every oneShot slot free', async () => {
+    initAudio();
+    drainAudioEffects(sev(1, 6), 1);
+    await flushAudio();
+    expect(built('lightning-crackle')).toBe(SFX_KIND_MAX_VOICES.crackle);
+    expect(inspectAudioChain().sfxVoices.droppedByKind.crackle).toBe(6 - SFX_KIND_MAX_VOICES.crackle);
+    expect(inspectAudioChain().sfxVoices.droppedByKind.oneShot).toBeUndefined();
+  });
+
+  it('a refused voice does NOT duck the music; a played one does', async () => {
+    initAudio();
+    const before = env.ducks();
+    drainAudioEffects(sev(1, 6), 1); // 4 crackles play, 2 are refused by the crackle pool
+    await flushAudio();
+    expect(built('lightning-crackle')).toBe(4);
+    expect(env.ducks() - before, 'one 700 ms duck per crackle that PLAYED, none for the refused two').toBe(4);
+  });
+
+  it('a UI click is never refused, even with the global pool full', async () => {
+    initAudio();
+    const api = getAudioDebugApi();
+    for (const k of ['clave', 'boom', 'charge', 'fart'] as const) api.stress(4, k);
+    const p = { x: 0, y: 0 };
+    for (let i = 0; i < 3; i++) void playGnawSFX(p);
+    for (let i = 0; i < 4; i++) { void playSplatSFX(p); void playZapBurstSFX(p); void playLaserSFX(p); }
+    await flushAudio();
+    expect(inspectAudioChain().sfxVoices.live).toBe(31);
+    drainAudioEffects(sev(1, 1), 1); // the 32nd: a crackle
+    await flushAudio();
+    expect(inspectAudioChain().sfxVoices.live).toBe(SFX_MAX_VOICES);
+    const before = env.sources.length;
+    await playUiClickSFX();
+    await playUiRefusedSFX();
+    expect(env.sources.length - before).toBe(2);
   });
 });
