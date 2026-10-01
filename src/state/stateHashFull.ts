@@ -134,6 +134,12 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   rainbowSwitchTick: 'hashed',
   sudokuFiredThisMatch: 'hashed',
   waveNumber: 'hashed', // S157 B8 — drives the spawn rate, so a divergence is a real desync
+  // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the release schedule (one
+  // lane per seat, `monstersDueBy`) and the countdown, so a host and a mirror disagreeing about it
+  // would release a different wave.
+  monsterWaveSpawned: 'hashed',
+  // ⭐ S193 (endgame) — the monster fight's start tick: the spawner's and the mega pants' clock.
+  monsterFightStartTick: 'hashed',
   activeCinematicPlayerId: 'hashed',
   // Allocator cursors — two sims that allocated different id counts have diverged
   // even when the surviving entities happen to match.
@@ -377,7 +383,10 @@ type CreatureHashed =
    * test is `draftAtkReaches.test.ts`. (S190 merge: both render's `healedFifths` and this field are
    * kept, each with its own projection and its own contribution test.)
    */
-  | 'atkFifths';
+  | 'atkFifths'
+  // ⭐ S192 (endgame) — the seat an endgame monster was sent at. It decides whom the monster hunts on
+  // both sims. Projected as `:ms` below; contribution test in `endgame.test.ts`.
+  | 'monsterSeat';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
@@ -527,6 +536,8 @@ export function determinismParts(world: World): string[] {
     `rw${o(world.rainbowSwitchTick)}`,
     `sf${o(world.sudokuFiredThisMatch)}`,
     `wv${world.waveNumber}`,
+    `mw${world.monsterWaveSpawned}`, // S192 — the endgame spawn counter
+    `mf${world.monsterFightStartTick}`, // S193 — the endgame fight's start tick
     `ac${n(world.activeCinematicPlayerId)}`,
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
@@ -677,6 +688,8 @@ export function determinismParts(world: World): string[] {
         `:ak${o(c.atkFifths)}`,
         // S191 — the Warlord's rage clock. Absent marker for every creature that never raged by its own latch.
         `:rs${o(c.rageStartTick)}`,
+        // S192 — the endgame monster's assigned seat. Absent marker for every other creature.
+        `:ms${n(c.monsterSeat)}`,
     );
   }
 

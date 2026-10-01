@@ -19,6 +19,7 @@
  * must fail `tsc` here rather than fall through to silence.
  */
 import { type RaceId } from '../state/races.ts';
+import { MONSTER_FINAL_WAVE, MONSTER_FIRST_WAVE } from '../constants.ts';
 
 /**
  * The original track, and still the fallback for every "no" answer.
@@ -60,4 +61,47 @@ export function resolveMusicTrack(raceId: RaceId | null, raceMusicEnabled: boole
   if (!raceMusicEnabled) return DEFAULT_MUSIC_SRC;
   if (raceId === null) return DEFAULT_MUSIC_SRC;
   return RACE_MUSIC_SRC[raceId];
+}
+
+/**
+ * ⭐⭐ S193 (owner, R193-M) — THE PANTS MUSIC. *"here is the song for PANTS INCOMING. and this one is for
+ * every other round … one round first song, second round second song, third round first song again,
+ * fourth round of pants incoming second …"* → waves 27 / 29 / 31 song 1, waves 28 / 30 song 2, and the
+ * endless final fight (wave 31, `isMonsterFightHeld`) simply keeps wave 31's song.
+ *
+ * Shipped in the race tracks' format (Ogg Vorbis 80 kb/s, 48 kHz stereo, 360² Theora cover art), each
+ * raised to the siblings' −13.7 LUFS mean (+1.9 / +2.1 dB; they arrived ~2 LU quieter). The seamless
+ * loop region is DERIVED from the PCM at runtime (`musicLoop.ts`) like every other track — measured
+ * S193: neither song has any sub −40 dBFS edge, so both loop whole with a 0.000 s gap.
+ */
+export const PANTS_MUSIC_SRC = [
+  '/audio/endgame/pants-music-1.ogg',
+  '/audio/endgame/pants-music-2.ogg',
+] as const;
+
+/**
+ * The pants song for `waveNumber` in `phase`, or `null` when no pants round is running.
+ *
+ * ⚠ MINE — FIGHT ONLY. A "pants round" is the fight the pants come out in; the BUILD before it (the
+ * fix-only lock) keeps the seat's own track, so the song lands as the pants do — with the banner.
+ */
+export function pantsMusicForWave(waveNumber: number, phase: 'BUILD' | 'FIGHT'): string | null {
+  if (phase !== 'FIGHT' || waveNumber < MONSTER_FIRST_WAVE || waveNumber > MONSTER_FINAL_WAVE) return null;
+  return PANTS_MUSIC_SRC[(waveNumber - MONSTER_FIRST_WAVE) % 2]!;
+}
+
+/**
+ * The whole in-match decision: a pants round's song, else `resolveMusicTrack`.
+ *
+ * ⚠ MINE — THE PANTS SONG OVERRIDES THE RACE-MUSIC TOGGLE. That toggle chooses between a race's cover
+ * and the original theme; the pants song is neither — it is the round's own music, his ruling, so it
+ * plays for everyone in that round. Mute still silences it (the master bus, `audioManager`).
+ */
+export function resolveMatchMusicTrack(
+  raceId: RaceId | null,
+  raceMusicEnabled: boolean,
+  waveNumber: number,
+  phase: 'BUILD' | 'FIGHT',
+): string {
+  return pantsMusicForWave(waveNumber, phase) ?? resolveMusicTrack(raceId, raceMusicEnabled);
 }

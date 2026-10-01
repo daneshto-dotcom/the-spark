@@ -351,6 +351,9 @@ const LIFT = 34;
  */
 const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
   goblinMelee: 'MELEE GOBLIN',
+  // ⭐ S192 (owner) — *"this silly looking pair of pants"*.
+  endgameMonster: 'THE PANTS',
+  megaPants: 'THE MEGA PANTS',
   goblinArcher: 'ARCHER GOBLIN',
   goblinShield: 'SHIELD GOBLIN',
   goblinHound: 'HOUND GOBLIN',

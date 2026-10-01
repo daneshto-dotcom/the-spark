@@ -66,6 +66,8 @@ describe('S192 T13 — the liveness predicate is consulted at every pick and hol
       'state/racial/corpseEater.ts': 1, // CORPSE EATER's victim
       'state/bossSkillsArchdemon.ts': 1, // the teleport victim
       'state/bossSkillsKraken.ts': 1, // the sonar's aim point
+      // ⭐ S193 (s192/endgame merge) — the pants' victim-unit HOLD and its acquire scan
+      'state/endgameMonsters.ts': 2,
     });
   });
 

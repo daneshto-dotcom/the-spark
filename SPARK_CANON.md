@@ -858,6 +858,33 @@ flung debris. Measured, pinned and reported rather than taken.
 
 ---
 
+## 3f · ⭐⭐ THE ENDGAME — THE LAST DRAFT, THE BUILD LOCK, THE PANTS (S192, `s192/endgame`)
+
+> *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30, and 31,
+> the next five waves, is going to be basically instant death."* — owner, S192 (A3)
+
+| | |
+|---|---|
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
+| the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
+| monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
+| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. ⚠ MINE as a tick rule: one LANE per living seat, born on the quarry rim facing its keep, **one every 45 ticks** per lane (`MONSTER_EMERGE_TICKS`), lanes staggered |
+| the countdown | ⭐ S193 HIS: *"how many are left to come out"* — `PANTS LEFT TO COME OUT: N` on the top banner (`monstersLeftToComeOut`, derived) |
+| the hold | ⚠ MINE: waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
+| the final fight | ⭐ S193 HIS: wave 31 **never ends on the clock while two or more seats live** — a keep-standing or score win ends it |
+| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*), ⚠ MINE numbers: walks out **240 s** into the final fight (`MEGA_PANTS_AFTER_TICKS`), HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
+| the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
+| owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
+| retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| the music | ⭐ S193 HIS (R193-M): the FIGHT of waves **27 / 29 / 31 → song 1, 28 / 30 → song 2** (`PANTS_MUSIC_SRC`, `pantsMusicForWave`); the endless final fight keeps 31's. ⚠ MINE: FIGHT only, and it overrides the race-music toggle |
+| leftovers | ⭐ S193 HIS: *"they vanish when this wave ends"*; no points for pants kills |
+| the end | ⭐ S193 HIS: last keep standing wins; a wipe from wave 27 on → **the top score wins**; a solo board ends at the wave-32 edge, top score |
+
+Spec: `.claude/plans/S192_ENDGAME_SPEC.md`; his answers: `.claude/plans/S193_OWNER_ENDGAME_ANSWERS.md`. Pinned by `canon.test.ts`, `state/endgame.test.ts` and `state/endgameS193.test.ts`.
+
+---
+
 ## 4 · WHAT CAN BE ATTACKED, AND WHAT CANNOT
 
 | | attackable? |
@@ -1050,7 +1077,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **58** (S193 — deploy #18; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **59** (S193 — deploy #20; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
 
 ⭐⭐ **WHAT RIDES 58 (S193, deploy #18)** — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank.
 
