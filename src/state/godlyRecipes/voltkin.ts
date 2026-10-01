@@ -19,67 +19,25 @@
  * import. main.ts imports this module to wire it up.
  */
 
-import { AUTO_BOND_RADIUS, SparkType } from '../../constants.ts';
+import { AUTO_BOND_RADIUS } from '../../constants.ts';
 import type { World } from '../world.ts';
-import type { Bond } from '../../physics/bonds.ts';
 import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
 import type { PrimitiveId } from '../../types.ts';
 import { registerRecipe } from './index.ts';
+import { EXPECTED_CHAIN, otherEndpoint, walkChain } from './voltkinChainWalk.ts';
 
 /**
  * S140 P1 — exported so the bank-cap tests can pin "Voltkin still requires staging" against the real
  * chain length instead of a hand-copied 8 ("pin the relationship, not the value").
  */
 export const VOLTKIN_SIZE = 8;
-const EXPECTED_CHAIN: ReadonlyArray<SparkType> = [
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Triangle,
-  SparkType.Triangle,
-  SparkType.Triangle,
-  SparkType.Triangle,
-];
 
-function otherEndpoint(bond: Bond, id: PrimitiveId): PrimitiveId {
-  return bond.aId === id ? bond.bId : bond.aId;
-}
-
-/**
- * The shared DFS. Extracted in S175 P4a so `findVoltkinChain` and `findAllVoltkinChains` cannot
- * drift apart — this codebase's recurring defect is two copies of one rule, and a renderer that
- * disagreed with the matcher about what a Voltkin chain IS would draw a TV over shapes that never
- * fire, or leave a fired chain bare.
+/*
+ * ⭐ S192 T16 — `EXPECTED_CHAIN`, `otherEndpoint` and the shared DFS `walkChain` MOVED VERBATIM to the
+ * side-effect-free leaf `voltkinChainWalk.ts`, so `hostTick`'s per-wave TV census can share the one
+ * walk without importing this module (whose tail `registerRecipe` would pull the registry onto the
+ * sim hot path). Still one copy of the rule; this file and the census both call it.
  */
-function walkChain(
-  world: World,
-  currentId: PrimitiveId,
-  nextDepth: number,
-  visited: Set<PrimitiveId>,
-  path: PrimitiveId[],
-): PrimitiveId[] | null {
-  if (nextDepth === EXPECTED_CHAIN.length) return [...path];
-  const current = world.primitives.get(currentId);
-  if (current === undefined) return null;
-  const expected = EXPECTED_CHAIN[nextDepth];
-  for (const bondId of current.bonds) {
-    const bond = world.bonds.get(bondId);
-    if (bond === undefined) continue;
-    const otherId = otherEndpoint(bond, currentId);
-    if (visited.has(otherId)) continue;
-    const other = world.primitives.get(otherId);
-    if (other === undefined) continue;
-    if (other.type !== expected) continue;
-    visited.add(otherId);
-    path.push(otherId);
-    const result = walkChain(world, otherId, nextDepth + 1, visited, path);
-    if (result !== null) return result;
-    visited.delete(otherId);
-    path.pop();
-  }
-  return null;
-}
 
 /**
  * ⭐⭐ S175 P4a — EVERY standing Voltkin chain on the board, for the RENDERER.

@@ -45,6 +45,8 @@ import { getRecipe } from './godlyRecipes/index.ts';
 // S122 P1 — the matcher core (spawner/defender ignition + the cinematic matcher loop) lives in
 // godlyMatcherCore.ts (worker-safe, state-only imports); this module is the render-side wrapper.
 import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
+// S192 T16 — the one Voltkin-mint action, shared with the per-wave TV re-summon.
+import { dispatchVoltkinSpawn } from './voltkinTv.ts';
 import { dispatch, isNetworked, type World } from './world.ts';
 
 export interface GodlyOrchestrationState {
@@ -68,6 +70,12 @@ export interface GodlyOrchestrationCtx {
   cutsceneOverlay: CutsceneOverlay;
   vignette: CinematicVignetteHandle;
   controls: Controls;
+  /**
+   * ⭐ S192 T16 — true when THIS world runs the sim (direct mode). False on the worker-mode main-thread
+   * MIRROR (`mirror.isHost === true`, but it never runs `runHostTick`; the worker owns the spawn).
+   * Gates the early mint below, which would otherwise put a phantom Voltkin on the mirror.
+   */
+  simRunsHere: boolean;
 }
 
 /**
@@ -211,6 +219,20 @@ export function startCinematicIfNeeded(
       // Advance queue: if pendingCinematics has an event, fire it.
       const next = world.pendingCinematics.shift();
       if (next !== undefined) {
+        /*
+         * ⛔⛔ S192 T16 (Defect B) — RESET THE TRANSITION WATCH BEFORE CHAINING, as the worker path
+         * always has (`tickWorkerCinematics`: `cs.lastOwner = null`).
+         *
+         * COMPLETE and the queued TRIGGER land in this one callback, so the next frame sees
+         * `activeCinematicPlayerId` go X → Y with no null in between. When Y === X — a queued event
+         * from the SAME seat, e.g. one player closing two TVs — the early `owner ===
+         * state.lastCinematicOwner` return above swallowed it: it never played, never completed,
+         * and `activeCinematicPlayerId` stayed set FOR THE REST OF THE MATCH (every later Voltkin
+         * queued behind it; `castlePanel` read the slot as LOCKED). Reachable on a joiner whenever
+         * two host GODLY_TRIGGERs landed inside one 900 ms timer, and on the HOST once Defect A
+         * stopped the matcher dropping matches into the void.
+         */
+        state.lastCinematicOwner = null;
         dispatch(world, { type: 'GODLY_TRIGGER', event: next });
       }
     },
@@ -226,15 +248,21 @@ export function startCinematicIfNeeded(
   // spawn is still pending (should never fire — upstream activeCinematic
   // serialization prevents two cinematics overlapping).
   if (world.isHost) {
-    if (import.meta.env.DEV && world.pendingCreatureSpawn !== null) {
-      console.warn(
-        '[godly] startCinematic overwriting pending creature spawn',
-        {
-          existingFireAtTick: world.pendingCreatureSpawn.fireAtTick,
-          currentTick: world.tick,
-          newEvent: event.godlyId,
-        },
-      );
+    /*
+     * ⛔ S192 T16 — A STILL-PENDING SUMMON IS MINTED NOW, NEVER OVERWRITTEN.
+     *
+     * This used to be a DEV-only warning that "should never fire — upstream activeCinematic
+     * serialization prevents two cinematics overlapping". Once the queue chains (Defect A + B
+     * above), it CAN: completion here is the overlay's 900 ms wall-clock timer, while the spawn it
+     * scheduled fires on `world.tick`, and a slow frame clamps the accumulator (0.05 s) so ticks
+     * fall behind wall time. The chained cinematic would then replace a Voltkin that had not yet
+     * been minted — one more silently dropped TV. Minting it a few ticks early is the lesser
+     * evil, and it goes through the same action the hostTick poll dispatches.
+     */
+    if (ctx.simRunsHere && world.pendingCreatureSpawn !== null) {
+      const early = world.pendingCreatureSpawn.event;
+      world.pendingCreatureSpawn = null;
+      dispatchVoltkinSpawn(world, early.triggererPlayerId, early.targetPos);
     }
     // S31 P0-1 — fireAtTick delayed by `sustainedEffectMs + FADE_MS` ticks
     // so SPAWN_CREATURE dispatches at the exact moment `bg.alpha` reaches 0

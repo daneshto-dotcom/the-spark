@@ -3857,6 +3857,8 @@ Network routes: ${v.detail}`;
         cutsceneOverlay,
         vignette,
         controls,
+        // S192 T16 — false on the worker-mode MIRROR, which never runs runHostTick.
+        simRunsHere: !workerSimActive(),
       };
       // S122 P1 — in worker mode the matcher core runs INSIDE the worker (once per batch —
       // the cadence contract); running the wrapper here too would double-trigger against the

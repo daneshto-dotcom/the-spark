@@ -113,6 +113,7 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+import { resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — the per-wave TV re-summon
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
 import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
@@ -552,6 +553,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         releaseShelteredGatherers(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
+        // ⭐ S192 T16 — and every standing TV without a Voltkin gets one back (R190-J's rule, for the
+        // TV). AFTER the recall, which would teleport a just-minted Voltkin to the castle.
+        resummonVoltkins(world);
       }
       if (world.matchPhase === 'FIGHT') {
         /*
