@@ -235,6 +235,7 @@ describe('⭐⭐ S193 R191-B — FIX queues a gatherer job; the shape is CARRIED
     while (g.repairTask !== null && seen < 2000) {
       tick(w, st, 1);
       seen++;
+      if (g.repairTask === null) break; // delivered this tick — and free to gather again at once
       expect(g.targetSparkId, `tick ${seen}: no haul target while on the job`).toBeNull();
       expect(g.carriedSparkId, `tick ${seen}: no haul cargo while on the job`).toBeNull();
     }
@@ -378,7 +379,7 @@ describe('⭐⭐ S193 R192-W1 — FIX ALL: every tower, nearest the castle first
   });
 
   it('REACH: FIX ALL fixes every tower, then the gatherers go back to gathering', () => {
-    const { w, st, hub, leaf } = board({ goblin: true });
+    const { w, st, leaf } = board({ goblin: true });
     const goblin = [...w.creatureSpawners.values()][0]!;
     const goblinLeaf = [...goblin.ownPrimitiveIds!].filter((id) => id !== goblin.anchorPrimitiveId)[0]!;
     damageEntity(w, { kind: 'primitive', id: goblinLeaf }, 20, 'creature', null);
