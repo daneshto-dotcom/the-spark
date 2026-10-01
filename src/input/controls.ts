@@ -1862,16 +1862,10 @@ export class Controls {
       consumeCancel(e); // ⛔ S189 A1 — a cancel, so NOT the first press of the double-Escape leave
       return;
     }
-    /*
-     * ⭐ S191 — Escape puts the SCORCHED EARTH aim away, and CONSUMES the key: the s189/net
-     * `consumeCancel` pattern (a cancel is not the first press of `main.ts`'s double-Escape leave).
-     * ⚠ MERGE NOTE: that helper is not on master yet — once s189/net lands, replace the inline guard
-     * with `consumeCancel(e)` and add this cancel to `doubleEscapeLeave.ts`'s consumer list.
-     */
+    // ⭐ S191 — Escape puts the SCORCHED EARTH aim away, and CONSUMES the key (S189 A1).
     if (e.key === 'Escape' && scorchedEarthAim() !== null) {
       setScorchedEarthAim(null);
-      const ev = e as { preventDefault?: () => void };
-      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+      consumeCancel(e); // ⛔ S189 A1 — see consumeCancel (S192 UIGATES-3)
       return;
     }
     // S144 P3 — Escape puts a held tower down. Checked BEFORE the sudoku guard's sibling checks so

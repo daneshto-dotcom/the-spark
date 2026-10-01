@@ -180,3 +180,19 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   FIGHT→BUILD edge block before `recallArmies`. `game/player.ts` field + factory + both carry-FSM
   rebuilds; `gameMode.ts` reset in `applyStartGame`; `world.ts` union + case; `benchGate.ts` +
   `elimination.ts` `'deny'` rows; ⚠ `src/net/protocol.ts` — the TWO intent-allowlist rows only.
+
+---
+# S192 — fix round (merge owner's brief)
+
+## S192 step 1 — `git merge master` (e4d52dc, deploy #5 + S192 bookkeeping) → merge commit 4200429
+- **Conflicts: NONE.** Files touched by both sides, auto-merged textually clean: `src/input/controls.ts`,
+  `src/net/protocol.ts` (PROTOCOL_VERSION now 52 from master — untouched by this branch),
+  `src/state/hostTick.ts`, `src/state/save.ts`, `src/state/stateHashFull.ts`. `spawnerLifecycle.ts` is not
+  touched by this branch (the stock fix lives in `voltkin-config.ts`), so weld's hunks are master's verbatim.
+- Gates after the merge: typecheck EXIT=0 · vitest EXIT=1 — ONE red, `doubleEscapeLeave.test.ts` SEAM-4
+  (`expected 3 to be 2`) = digest UIGATES-3, predicted. Fixed in the next commit.
+- **UIGATES-3 — FIXED.** controls.ts scorch Escape branch → `consumeCancel(e)` (inline guard + MERGE NOTE
+  removed); SEAM-4 pin 2→3 (named); consumer list in `doubleEscapeLeave.ts`; new REACH case (scorch aim,
+  Escape ×2 through the real Controls + `makeDoubleEscapeLeave` → 0 leaves). Mutation: drop the
+  `consumeCancel` → the REACH case AND SEAM-4 red (2); restored. (On the merged tree the inline
+  `preventDefault` already made the behaviour right — the guard was the red, as the audit said.)
