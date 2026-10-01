@@ -37,6 +37,7 @@ import { isValidRoomCode } from './lobbyGeometry.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
+import { teamsPlayable } from '../state/teams.ts';
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 // Status-line colours — exported so the shell + tests share the exact values
@@ -408,6 +409,12 @@ export interface LobbyView extends LobbyState {
   readonly totalPlayers: number;
   /** true once the room holds MAX_PLAYERS (the 7th peer is dropped host-side). */
   readonly roomFull: boolean;
+  /**
+   * ⭐ S193 (audit F1, teams spec Q2) — can THIS room start a match? `teamsPlayable` over the occupied seats'
+   * team picks — the SAME predicate `main.ts`'s Begin handler refuses with, so the button never looks live
+   * while pressing it does nothing. False only when every occupied seat is on ONE team.
+   */
+  readonly teamsPlayable: boolean;
 }
 
 /**
@@ -496,10 +503,12 @@ export function lobbyView(state: LobbyState): LobbyView {
     }
   }
 
+  const picks = seats.filter((s) => s.occupied).map((s) => s.team);
   return {
     ...state,
     seats,
     totalPlayers,
     roomFull: totalPlayers >= MAX_PLAYERS,
+    teamsPlayable: teamsPlayable(picks, picks.length),
   };
 }

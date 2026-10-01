@@ -23,7 +23,7 @@
  * `npm run e2e:lobby` and pin it in `src/ci.e2eLanes.test.ts`).
  */
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import { canvasToCss, hostNewRoom, joinRoom, readSeats, waitForSeats, waitForWorld, CANVAS_WIDTH } from './helpers';
+import { canvasToCss, hostNewRoom, joinRoom, readSeats, readWorldState, waitForSeats, waitForWorld, CANVAS_WIDTH } from './helpers';
 
 async function prepCtx(ctx: BrowserContext): Promise<void> {
   await ctx.addInitScript(() => {
@@ -76,6 +76,23 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
       await clickOwnTeamChip(j2);
       // Joiner 2 must SEE its first pick land before cycling again — the chip has no local optimism.
       await waitForSeats(j2, (s) => teamOfSeat(s as SeatWithTeam[], i2) === 0, 'joiner 2 sees its T1 land', 30_000);
+
+      // ⭐ S193 (audit F1) — ALL THREE ON T1: no enemy, so the host's Begin is DIMMED with the hint, and a
+      // press does nothing. Read from the live display objects (`getDebugState`), not from the view.
+      await waitForSeats(
+        host,
+        (s) => [hi, i1, i2].every((i) => teamOfSeat(s as SeatWithTeam[], i) === 0),
+        'host sees T1 / T1 / T1',
+        30_000,
+      );
+      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean }> =>
+        host.evaluate(() => (window as unknown as { __SPARK__: { lobbyScreen: { getDebugState: () => never } } }).__SPARK__.lobbyScreen.getDebugState());
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true });
+      const dimBegin = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
+      await host.mouse.click(dimBegin.x, dimBegin.y);
+      await host.waitForTimeout(2_000);
+      expect((await readWorldState(host)).gameState, 'one team: Begin does nothing').toBe('LOBBY');
+
       await clickOwnTeamChip(j2);
       for (const [i, p] of pages.entries()) {
         await waitForSeats(
@@ -88,6 +105,9 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
           30_000,
         );
       }
+
+      // CONTROL — two sides now: Begin at full strength, no hint.
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false });
 
       // ── begin ──
       const beginBtn = await canvasToCss(host, CANVAS_WIDTH / 2, 814);

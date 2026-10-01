@@ -20,7 +20,7 @@ import { raceDisplayName } from './raceBanners.ts';
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS } from '../constants.ts';
 import { nextTeamPick, teamChipLabel, teamsPlayable } from '../state/teams.ts';
-import { teamChipColor } from './teamChip.ts';
+import { teamChipColor, TEAMS_UNPLAYABLE_HINT } from './teamChip.ts';
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_COLORS,
@@ -168,7 +168,7 @@ export class BotSetupOverlay {
     });
     this.container.addChild(start);
     this.teamsHint = new Text({
-      text: 'everyone is on one team — pick at least two sides',
+      text: TEAMS_UNPLAYABLE_HINT, // ⭐ S193 — one wording, shared with the multiplayer lobby
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xff8866 }),
     });
     this.teamsHint.anchor.set(0.5);

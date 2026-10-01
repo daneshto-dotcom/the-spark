@@ -32,6 +32,7 @@ import {
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
 import { nextTeamPick } from '../state/teams.ts';
+import { beginButtonPaint, TEAMS_UNPLAYABLE_HINT } from './teamChip.ts';
 // ⭐ S173 B1 — the seat-partitioned lobby backdrop (owner: the lobby showed only player one's).
 import { makeLobbyBackdrop, type LobbyBackdropHandle } from './lobbyBackdrop.ts';
 
@@ -146,6 +147,8 @@ export class LobbyScreen {
   private joinButton: Container;
   private joinButtonBg: Graphics;
   private beginButton: Container;
+  /** ⭐ S193 (audit F1) — "everyone is on one team" under a dimmed Begin. */
+  private teamsHint: Text;
   // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
   private hostBtnRef: Container;
   private backBtnRef: Container;
@@ -426,6 +429,15 @@ export class LobbyScreen {
     this.beginButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
     this.beginButton.visible = false;
     this.container.addChild(this.beginButton);
+    // ⭐ S193 (audit F1) — the bot lobby's hint (`botSetupOverlay.ts`), word for word, under a dimmed Begin.
+    this.teamsHint = new Text({
+      text: TEAMS_UNPLAYABLE_HINT,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xff8866 }),
+    });
+    this.teamsHint.anchor.set(0.5);
+    this.teamsHint.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 70 + BUTTON_HEIGHT + 18);
+    this.teamsHint.visible = false;
+    this.container.addChild(this.teamsHint);
 
     // S87 P4 — QUICK MATCH entry (SELECT pane only): match up to MAX_PLAYERS
     // strangers, everyone clicks READY to start. Centered above the Host/Join
@@ -706,11 +718,20 @@ export class LobbyScreen {
    *     If false despite hostConnected=true, points to a downstream visibility
    *     mutation after the latch fired.
    */
-  getDebugState(): { mode: LobbyMode; hostConnected: boolean; beginButtonVisible: boolean } {
+  getDebugState(): {
+    mode: LobbyMode;
+    hostConnected: boolean;
+    beginButtonVisible: boolean;
+    beginButtonAlpha: number;
+    teamsHintVisible: boolean;
+  } {
     return {
       mode: this.state.mode,
       hostConnected: this.state.hostConnected,
       beginButtonVisible: this.beginButton.visible,
+      // ⭐ S193 (audit F1) — the dim + hint, read from the LIVE display objects for the e2e REACH check.
+      beginButtonAlpha: this.beginButton.alpha,
+      teamsHintVisible: this.teamsHint.visible,
     };
   }
 
@@ -922,8 +943,10 @@ export class LobbyScreen {
     // S87 P4 — in QUICK MATCH there is NO manual Begin (the all-ready gate
     // auto-begins); the READY toggle takes the Begin slot. Friends lobby is
     // unchanged: Begin per the reducer, READY hidden.
-    const beginVisible = this.quickmatch ? false : v.beginVisible;
-    if (this.beginButton.visible !== beginVisible) this.beginButton.visible = beginVisible;
+    const begin = beginButtonPaint(v, this.quickmatch);
+    if (this.beginButton.visible !== begin.visible) this.beginButton.visible = begin.visible;
+    if (this.beginButton.alpha !== begin.alpha) this.beginButton.alpha = begin.alpha;
+    if (this.teamsHint.visible !== begin.hintVisible) this.teamsHint.visible = begin.hintVisible;
 
     // S69 P2 — the SELECT screen shows the two entry panes; once in a room they
     // hide and the 6-seat rack + room code + count line take over. The control
