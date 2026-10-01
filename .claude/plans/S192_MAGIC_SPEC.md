@@ -10,6 +10,19 @@
 
 ---
 
+## ⭐ S192 — HIS RULINGS ON THIS SPEC (verbatim), and what was built
+
+| | his words | built |
+|---|---|---|
+| **Buildings** | *"when you build buildings … it raises them at the same time"* | already the rule: a structure's DEF and MRES are both its connector count (`structureMres`) |
+| **Castle (Q2)** | *"when you're doing castle upgrades, you should be able to do either defense or resistance … All the stats the castle starts with are gonna be as is and whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward there should be … its own upgrades for … magic resistance or defense."* | the keep STARTS with MRES = its starting DEF (0); a NEW purchasable axis **MRES** beside HP/ATK/DEF/PEN, 100 VP a point, max 10; a DEF point no longer raises MRES; magic into the keep = `floor(A × 5 / (5 + MRES))`, min 1. Panel row, castle-card row, wire, hash, rematch reset. Bots never buy castle stats today, so never MRES (⚠ MINE) |
+| **Global units (Q-G)** | *"Get magic resistance equal to their [DEF]. Sounds good."* | as recommended — HIS now |
+| **Stink cloud (Q-C)** | *"Sure."* | magic — HIS now |
+| **Zero ticks (Q-D)** | *"A very magic resistant unit … can be totally resistant to very low level magic, I accept that, but we need to predefine … how it would look like."* | a grey **RESIST** floater over the unit, at most once per unit per second, derived from synced state (no wire). ⚠ MINE: the word, the grey, the rate |
+| **Q1** (DEF pick → MRES) | not ruled | default kept: a DEF pick grows the pool, so it defends both classes |
+
+---
+
 ## (a) THE ARITHMETIC
 
 ### The problem the rule has to solve
@@ -56,7 +69,7 @@ count, the same as its DEF), and so does every shape, bag and Helga under the re
 |---|---|---|---|---|
 | **creature** | its type's `def` (inside the pool) | `mresFor(type, ownerRace)` — table (b) | `floor(A·(5+DEF)/(5+MRES))`, min 1 | the only family where magic and physical differ |
 | **connector / structure** | `n` (connector count) | **`n`** — R192-M5 | `floor(A·(5+n)/(5+n))` = **A** | identical to today; the pool `n × (5+n)` per connector is untouched |
-| **castle** (off-ladder 2500 pool, DEF applied per hit) | bought `defLevel` | **`defLevel`** ⚠ MINE (Q2) | `floor(A·5/(5+mresLevel))`, min 1 — the castle's existing DEF formula with MRES in DEF's place | identical to today |
+| **castle** (off-ladder 2500 pool, DEF applied per hit) | bought `defLevel` | **starting DEF (0) + its own bought MRES** — HIS (S192) | `floor(A·5/(5+mresLevel))`, min 1 — the castle's existing DEF formula with MRES in DEF's place | identical to today until MRES is bought; a bought DEF no longer defends magic |
 | **Helga** (12 HP / 8 DEF) | 8 | **8** ⚠ MINE (globals rule) | = **A** | identical |
 | **shape** (14 HP / 0 DEF, a lone shape 1 / 0) | 0 | **0** | = **A** | identical |
 | **stink bag** (1 HP / 0 DEF) | 0 | **0** | = **A** | identical |
@@ -181,13 +194,13 @@ PHYSICAL. Because the tag is a REQUIRED argument, each sibling's new call fails 
 | | question | recommendation |
 |---|---|---|
 | **Q1** | Does a drafted **DEF** pick also raise MRES? | **It already does, and keep it.** A DEF pick has never moved the DEF stat; it adds +10 % to the POOL (`draftedPoolFifths`), and the magic rescale divides that same longer bar — so an HP or DEF pick buys 10 % more life against BOTH classes. Making DEF physical-only would mean the draft starting to move the DEF stat itself: a bigger change, his call. |
-| **Q2** | The castle's MRES (it BUYS DEF) | **= its bought DEF level** (the towers' rule, M5), no separate button yet. Identical to today. Only the Voltkin's zap (if Q-V is yes) can hit a keep with magic at all. |
+| **Q2** | The castle's MRES (it BUYS DEF) | ✅ **RULED S192** — its own axis (see the rulings table). Only the Voltkin's zap can hit a keep with magic today. |
 | **Q3** | Does a drafted **ATK** pick buff magic? | **No — keep R190-E** (*"buffs physical melee/ranged hits only"*). ⚠ Consequence he must see: the Voltkin's strike is drafted today (S190); if its lightning is magic, R190-E takes the draft off it. **Not built on this branch** — it changes the draft; one line in `makeCreature` when he confirms. |
 | **Q4** | A future MRES draft card? | **Yes, later** — the natural second half of "a whole different spectrum": a fifth general axis (or a racial), once he has played with MRES. Not now. |
-| **Q-G** | Global units: seat's race, or own class? | **Own class: MRES = DEF** (table above). |
+| **Q-G** | Global units: seat's race, or own class? | ✅ **RULED S192: MRES = DEF.** |
 | **Q-V** | Is the Voltkin's single zap (the bolt's first hit) magic too, or only the hops? | **Magic** — it is the same lightning; one bolt with a physical head and a magic tail would read wrong. One line (`strikeClassFor`) if he says hops only. |
-| **Q-C** | The landed stink-bag cloud — aura (magic) or bag (physical)? | **Magic** — it is the aura's own smell, same number, same cadence. |
-| **Q-D** | A one-fifth magic tick may land 0 on a high-MRES unit (a slower burn, never immunity) | **Accept** — otherwise MRES does nothing against four of six magic sources. |
+| **Q-C** | The landed stink-bag cloud — aura (magic) or bag (physical)? | ✅ **RULED S192: magic.** |
+| **Q-D** | A one-fifth magic tick may land 0 on a high-MRES unit (a slower burn, never immunity) | ✅ **RULED S192: accepted, with a visible cue** — the RESIST floater. |
 | **Q-E** | Elite piranha / bat swarm: multiply MRES like "every stat"? | **No — base MRES** (2 / 3); multiplied, the swarm is near magic-immune. |
 
 ---
@@ -199,7 +212,10 @@ PHYSICAL. Because the tag is a REQUIRED argument, each sibling's new call fails 
   `hashWorldStateFull`, no four-sites tax.
 - **The differential is the proof of no accidental change:** with every MRES forced equal to DEF, a long bots match
   through the real host tick must hash byte-identical to the all-physical run (master's arithmetic).
-- **BUMP — yes.** The S186 test: a shared rule both peers compute. Damage is host-authoritative, but the `?worker=1`
+- **BUMP — yes, for three reasons now.** (1) The S186 test: the magic rule is shared; (2) `UPGRADE_CASTLE_STAT.stat` gains the discriminant
+  `'mres'` — a v52 host refuses a v53 joiner's purchase; (3) `castleUpgrades.mresLevel` is a new (emitted-when-bought) serialized field a
+  v52 peer would drop, so a keep's magic damage would diverge. The RESIST cue is derived and costs nothing on the wire.
+- The S186 test, in full: a shared rule both peers compute. Damage is host-authoritative, but the `?worker=1`
   mirror and every successor host after a migration run this arithmetic; a pre-MRES successor would land magic hits at
   full strength and diverge. The table differs from DEF for most race units, so the result changes → **bump at merge**
   (52 → 53, or whatever the merge owner is at). This branch does not edit `PROTOCOL_VERSION`.

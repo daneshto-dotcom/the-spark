@@ -60,6 +60,17 @@ footer{margin-top:50px;color:var(--mute);font-size:13px;border-top:1px solid var
 
 <div class="quote">"magic resistance, which is basically on the same ladder as defense levels. One magic resistant level is 1.2, two … 1.4, three 1.6 …" · "it will look the same, but it'll be calculated differently." · "towers will inherently have the same magic resistance as their regular defense." — you, S192</div>
 
+<h2>0 · What you ruled (S192), and what was built</h2>
+<div class="tablewrap"><table>
+<tr><th>topic</th><th>your words</th><th>built</th></tr>
+<tr><td><b>Buildings</b></td><td><i>"when you build buildings … it raises them at the same time"</i></td><td>Already the rule: a tower's DEF and magic resistance are both its connector count.</td></tr>
+<tr><td><b>Castle</b></td><td><i>"either defense or resistance … whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward … its own upgrades"</i></td><td>The keep starts with magic resistance equal to its starting defense. A new <b>MRES</b> button sits beside HP / ATK / DEF / PEN: 100 points each, up to 10. Buying DEF no longer adds magic resistance. Magic hits on the keep are cut by MRES the way DEF cuts physical hits.</td></tr>
+<tr><td><b>Shared units</b></td><td><i>"Get magic resistance equal to their [DEF]. Sounds good."</i></td><td>Done.</td></tr>
+<tr><td><b>Stink cloud</b></td><td><i>"Sure."</i></td><td>Magic.</td></tr>
+<tr><td><b>Fully resisted ticks</b></td><td><i>"I accept that, but we need to predefine … how it would look like."</i></td><td>A small grey <b>RESIST</b> pops above the unit, at most once a second. <span class="mine">⚠ mine</span>: the word, the grey, and the rate. Tell me what to change once you've seen it.</td></tr>
+<tr><td><b>Q1</b> (does a DEF upgrade card also protect against magic?)</td><td>not ruled yet</td><td>Kept as recommended: yes. The card makes the health bar longer, and magic uses the same bar.</td></tr>
+</table></div>
+
 <h2>1 · The rule, in one line</h2>
 <div class="rule">
   <div class="big">A magic hit lands as <span class="mono">hit × (5 + DEF) ÷ (5 + MRES)</span>, rounded down, never below 1. A physical hit lands exactly as today.</div>
@@ -84,7 +95,7 @@ damage = ATK × (1 + 0.2 × PEN) × 5     ← unchanged</div>
 <tr><th>target</th><th>DEF</th><th>MRES</th><th>result</th></tr>
 <tr><td><b>units</b></td><td>its own</td><td>by race and class (section 2)</td><td>the only place magic and physical differ</td></tr>
 <tr><td><b>towers / connectors</b></td><td>connector count</td><td>connector count (your rule)</td><td class="ok">same as today</td></tr>
-<tr><td><b>castle</b></td><td>bought DEF</td><td>= bought DEF <span class="mine">⚠ mine</span></td><td class="ok">same as today</td></tr>
+<tr><td><b>castle</b></td><td>bought DEF</td><td>its own MRES: starts equal to starting DEF, then bought separately (your ruling)</td><td class="ok">same as today until you buy it</td></tr>
 <tr><td><b>Helga</b></td><td>8</td><td>8 <span class="mine">⚠ mine</span></td><td class="ok">same as today</td></tr>
 <tr><td><b>shapes, stink bags</b></td><td>0</td><td>0</td><td class="ok">same as today</td></tr>
 </table></div>
@@ -133,17 +144,17 @@ damage = ATK × (1 + 0.2 × PEN) × 5     ← unchanged</div>
 
 <h2>4 · Questions for you</h2>
 <div class="q"><span class="id">Q1</span> · <b>Does a DEF upgrade pick also protect against magic?</b><br>It already does: a DEF pick never changed the DEF number — it adds 10% to the health bar, and magic uses the same bar. <span class="rec">Recommend: keep it.</span></div>
-<div class="q"><span class="id">Q2</span> · <b>The castle's magic resistance</b> (you buy DEF for it)<br><span class="rec">Recommend: equal to its bought DEF</span>, like towers. No new button yet.</div>
+<div class="q"><span class="id">Q2</span> · <b>The castle's magic resistance</b> — <span class="rec">✅ ruled: its own MRES button</span> (section 0).</div>
 <div class="q"><span class="id">Q3</span> · <b>Should an ATK upgrade pick boost magic?</b><br><span class="rec">Recommend: no — keep your R190-E</span> (upgrade picks buff physical only). ⚠ The catch: the Voltkin's attack is upgraded today. If its lightning is magic, your rule takes the upgrade off it. Not changed until you say so.</div>
 <div class="q"><span class="id">Q4</span> · <b>A future magic-resistance upgrade card?</b><br><span class="rec">Recommend: yes, later</span>, once you've played with it.</div>
-<div class="q"><span class="id">Q5</span> · <b>Goblins, chewers, drones, Voltkin, Helga — follow the seat's race, or their own?</b><br><span class="rec">Recommend: their own — MRES = their DEF</span>, so the shared units stay exactly as balanced as today.</div>
+<div class="q"><span class="id">Q5</span> · <b>Shared units</b> — <span class="rec">✅ ruled: MRES = their DEF.</span></div>
 <div class="q"><span class="id">Q6</span> · <b>Is the Voltkin's first zap magic too, or only the chain hops?</b><br><span class="rec">Recommend: all of it is magic</span> — it's the same lightning.</div>
-<div class="q"><span class="id">Q7</span> · <b>The stink cloud a thrown bag leaves behind — aura (magic) or bag (physical)?</b><br><span class="rec">Recommend: magic</span> — it's the same smell as the aura, same number.</div>
+<div class="q"><span class="id">Q7</span> · <b>The stink cloud</b> — <span class="rec">✅ ruled: magic.</span></div>
 <div class="q"><span class="id">Q8</span> · <b>Elite Piranha and Bat Swarm multiply "every stat" — magic resistance too?</b><br><span class="rec">Recommend: no, keep the base unit's</span>. Multiplied, the Swarm would be nearly immune to magic (a 230-second burn).</div>
 <div class="q"><span class="id">Q9</span> · <b>Castle soldiers were "the same for every race forever"</b> — your new rule gives them magic resistance by race.<br><span class="rec">Recommend: follow the new rule</span> (by race). One number puts them back.</div>
 
 <h2>5 · Multiplayer</h2>
-<p>No new data goes over the network: magic resistance is worked out from the unit's type (and, for castle soldiers, the owner's race, which is already sent). But both sides must run the same rule, so this needs a <b>protocol version bump when it merges</b> — an old build can't play a new one.</p>
+<p>Magic resistance for units is worked out from the unit's type (and, for castle soldiers, the owner's race, which is already sent). The new castle MRES button and its level do go over the network, and both sides must run the same rule. So this needs a <b>protocol version bump when it merges</b>: an old build can't play a new one. The RESIST pop-up is worked out on each screen and sends nothing.</p>
 
 <footer>Spec file: <span class="mono">.claude/plans/S192_MAGIC_SPEC.md</span> · branch <span class="mono">s192/magic</span> · the rule is yours (R192-M1…M7); every number marked ⚠ mine waits for your word.</footer>
 </div>
