@@ -454,3 +454,13 @@ None.
   with its reason. Pins the 7 sites (creatureAttack, suicideBlast, voltkinChain, damage.ts [the carry — EXEMPT],
   potatoLifecycle, powerOfRa, world.ts); rejects stale/redundant exemptions. A new site fails until it carries or is named.
 - Mutation: suicideBlast's carry → a bare `SEVER_BOND` dispatch → RED naming `suicideBlast.ts#0`; restored.
+
+### CARRY-4 — DONE (comment only)
+- `world.ts` raid arm: "carry is at most 2 and only ever banks" was false. CONSTRUCTED (scratch, deleted): a
+  2-connector structure holding 20 on the struck bond, raided for 3 (the clamp) → 9 left over → the next connector
+  (pool 6) falls; 2 felled. Comment rewritten to that. No code change.
+
+### CARRY-3 — RECORD ONLY (code untouched, per the merge owner)
+- The audit's Voltkin `killCount` under-count: connectors felled by the CARRY in the Voltkin chain are severed
+  through `severWithCarry` but the chain's kill tally counts only the struck link, so a carry-felled connector is
+  not credited. Left as is; for the merge owner / endstats.

@@ -816,8 +816,11 @@ function dispatchReducer(world: World, action: GameAction): World {
       // turn on (the same answer this file's two `damageEntity` raid arms give).
       const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
-        // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2). A raid's
-        // hit is clamped to RAID_CONNECTOR_MAX_FIFTHS, so its carry is at most 2 and only ever banks.
+        // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+        // ⚠ S192 (audit CARRY-4) — the carry is NOT bounded by the raid clamp: it is whatever stands on the
+        // struck connector beyond the pool, INCLUDING damage banked on it earlier (chewers, a shrunken pool —
+        // S178). Measured: a 2-connector structure holding 20 on the struck bond, raided for 3 → 9 left over,
+        // which fells the next connector (pool 6). Only with nothing banked before is it ≤ the raid's own 3.
         severWithCarry(world, action.target.id, (id) => dispatch(world, {
           type: 'SEVER_BOND',
           bondId: id,
