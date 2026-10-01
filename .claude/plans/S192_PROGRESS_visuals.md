@@ -149,3 +149,9 @@ No wire, hash or sim change in any commit. **PROTOCOL_VERSION 54, no bump.**
 - Screenshots re-taken: `pilot2-aura-fades-as-the-tower-finishes.png` (+0 / +30 / +60 / +125 ticks after a build,
   plus a finished tower) replaces `pilot2-building-aura-*`, and the `v04-*` blasts were re-shot on HIGH. The Desktop
   `index.html` is updated.
+- Fix round gates after `git merge master` (merge `8ba5753`, clean, no conflicts; master brought only a script
+  change to package.json, no dependency change): typecheck **0** · vitest **0** (466 files, 7195 passed,
+  11 skipped) · build **0, 1032.3 KiB** (headroom 67.7 KiB; this branch's own share is still ≈ +31.7 KiB) ·
+  e2e:gating **0 (70/70)** on this worktree's port 27203, with a server Playwright started itself after the
+  pre-merge vite was stopped. PROTOCOL_VERSION is 56 (master's); this branch changes nothing under `src/net`,
+  so **no bump**.
