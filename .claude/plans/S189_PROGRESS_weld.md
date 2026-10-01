@@ -1,5 +1,55 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
+## ⭐ S193 FINAL REPORT (merge master + SEAM-C7) — read this first
+- **tip** `<TIP>` (code tip f1cff75) · **merge** 6e9b57e (master 71abc27) — **textually clean, 0 conflicts**
+  (auto-merged: controls.ts, characterSheetModel.ts, save.ts, stateHashFull.ts). Merged tree before any
+  edit: TC 0 · vitest 0 (7277 + 11 skipped / 472 + 4 skipped files).
+- **gates** (tree f1cff75, after `npm install`, captured `$?` in `.tmp-gates/{TC,VT,BUILD}.exit`):
+  typecheck **0** · `vitest --maxWorkers=3` **0** = **7282 passed + 11 skipped / 472 files + 4 skipped** ·
+  build **0** — entry **1047.9 KiB** / 1100 (52.1 headroom; the charter script WARNS under 60).
+  Delta vs master NOT measured here (no master build in this worktree); the rules file's "~65 KiB shared
+  headroom" puts master at ≈1035 → weld ≈ +13 KiB; this round's seam fix itself is a few hundred bytes.
+- **bump verdict: BUMP** (unchanged, earned by the branch, not by this round): `ownPrimitiveIds` replaces
+  `ownBondIdLimit` on SerializedSpawner/SerializedDefender (rides the wire, kept by `trimMirrorSpawner`,
+  wide-hashed) and the shared sim rules in notes §H. This round's SEAM-C7 changes are render-only reads
+  of already-synced state (bond `damageFifths`, own ids) — no new wire/hash field, no extra reason.
+- **SEAM-C7 resolution** (35ae4e3): ONE pricing `towerUnit.towerOwnPoolAt` over the ONE walk
+  `towerMembersAt` (ownPrimitiveIds): max = recipe pool, cur = max − banked while whole, **0 once an own
+  connector is gone** (crumble rule). `structureBarHealth.towerOwnHealth` (board bar) delegates to it;
+  `structureHealthAt` (lone-tower card) resolves the tower via `towerUnitAt` (the reducers' resolution);
+  `towerUnit.towerOwnHealth` (welded card + rows) and the welded card's CONNECTORS row read it; the ramp
+  art (`rampHealthFrac` over `rampMembersAt` = `towerMembersAt`) is the same arithmetic, asserted equal.
+  Two defects closed: (a) carry's bar priced `pool(own connectors LEFT)` → inside the poll window after a
+  cut own arm it drew a FULL pool(5) bar over a crumbling sprite while the card read 0; (b) `liveBarTowers`
+  is keyed by anchor, so on the W2-4 board (Scarab ring anchored AT a turret hub) the turret drew NO bar —
+  `healthBar` now loops `liveBarTowersByAnchor` (every tower at an anchor).
+- **CARRY-1 × welded per-tower FIX: correct, no code change.** `severWithCarry` filters candidates by
+  OWNER (both ends placed by the struck bond's owner), not by tower. REACH test: an overkill hit on a
+  welded turret arm fells ≥ 2 connectors, the turret falls, its own FIX (tower scope) re-registers it
+  whole (bar = card = art = 1), and the goblin tower's own connectors are untouched by the FIX.
+- **tests** (f1cff75, `weldOntoTowerS189.test.ts` "S193 SEAM-C7", 5): dent → bar = card = art = 49/66 +
+  the other card's row + `structureHealthAt`; weld damage moves none; cut-arm window → art 0, card 0/66,
+  bar 1/66 floor; W2-4 → two bars; FIX after carry. **Mutants (all RED, restored):** bar priced on
+  connectors left · one bar per anchor · pool ignores `whole`. Not mutation-distinguishable (by
+  construction): `structureHealthAt`'s tower resolution — a shape two towers share is always WELDED,
+  so the lone-tower path only ever holds one tower.
+- **MINE / owner questions:**
+  · ⚠ SEAM-C7 (a): in the ≤ 0.5 s window after an own arm is cut, the bar shows its 1-fifth floor on the
+    RECIPE width (was: a full bar on the shrunk width). Rec: keep — it follows the art (his S187 rule).
+  · ⚠ CARRY × WELD: an overkill on a welded tower carries across a SAME-OWNER weld into the next tower
+    (CARRY-1 is owner-scoped, not tower-scoped). Rec: keep (his "destroys however many connectors the
+    hit does"; the structure is one pool, R6) — ask only if he wants towers to stop a carry.
+  · carried over: STAMP_SLOT_TOLERANCE_FRAC 0.5 (X2), the majority-of-stamp fallen-tower rule, SHEETS-6
+    (own HP 0/66 while the weld keeps it standing).
+- **merge seams the merge owner must know:** canon §9d item 3 / RULE 1 docblock in
+  `structureBarHealth.ts` said "priced `structurePoolFifths(own connectors)`" — now the RECIPE pool with
+  the crumble zero (file docblock + both functions updated here); the CANON §9d text (`SPARK_CANON.md:1621`) still says `structurePoolFifths(own connectors)` and
+  should say "the recipe's pool, 0 once an own connector is gone". SEAMGATES-1 (endstats ×
+  DORMANT) / SEAMGATES-2 (hub blast prose) / SEAMGATES-4 (canon §7b R185-B amended + canon.test re-pin)
+  remain merge-owner chores per the digest. teams branch's CARRY-1 ally filter will touch the same
+  `severWithCarry` candidate filter.
+- **NOT DONE:** e2e (not run this round); master-side bundle measurement; round 6 (waits for go).
+
 Branch `s189/weld`, base 15035b9 (live deploy #2, PROTOCOL_VERSION 50). Brief = PDR §5.3.
 Merge owner resumes from this file if the agent is cut off.
 
@@ -788,3 +838,48 @@ ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverte
   carry's `structureBarHealth.ts` NOT touched (SEAM-C7 waits for the carry merge).
 - GATES (tree 98a44d7): TC_EXIT=0 · VT_EXIT=0 (6743 passed + 7 skipped / 414 files) · BUILD_EXIT=0 —
   985.4 KiB. IN-FLIGHT: none.
+
+## S193 — merge master + SEAM-C7 (coordinator brief)
+- step 1 — `git merge master` (71abc27, 233 commits) → 6e9b57e, **0 conflicts** (auto: controls.ts,
+  characterSheetModel.ts, save.ts, stateHashFull.ts). TC 0 · vitest 0 (7277+11 / 472+4) on the merged tree.
+- step 2 — SEAM-C7 census: master's `structureBarHealth.ts` already walks `towerMembersAt`, so it read
+  weld's `ownPrimitiveIds` automatically — but it PRICED the walk a second time (`pool(own.bonds.length)`)
+  and picked the tower a second way (lowest anchor), beside weld's `towerUnit.towerOwnHealth`. Conflicts
+  in meaning (not text) and their resolution:
+  | site | master (carry) | weld | resolution |
+  |---|---|---|---|
+  | bar `structureBarHealth.towerOwnHealth` | pool(own connectors left) − banked | — | → `towerOwnPoolAt` |
+  | lone card `structureHealthAt` | lowest-anchor live tower whose walk holds the shape | — | → `towerUnitAt` + `towerOwnPoolAt` |
+  | welded card / rows `towerUnit.towerOwnHealth` | — | recipe pool, 0 if !whole | → `towerOwnPoolAt` |
+  | welded CONNECTORS row | — | own `towerMembersAt` walk | → `towerOwnPoolAt().connectors` |
+  | bar loop `healthBar.ts` | one tower per anchor (`liveBarTowers`) | W2-4 shared anchors exist | → `liveBarTowersByAnchor` |
+  | ramp art `rampHealthFrac(rampMembersAt)` | towerMembersAt walk, 0 if a connector is missing | — | unchanged; asserted equal |
+  | `severWithCarry` CARRY-1 | owner-scoped candidates | per-tower FIX/SCRAP | unchanged; REACH-tested |
+  Committed 35ae4e3. Tests f1cff75 (5 + 3 mutants RED).
+- step 3 — gates (above). Failed commands this round and their verdicts: (1) a `cat >` with no stdin hung
+  a shell for 120 s, then stopped by hand — benign, my own typo, nothing ran; (2) the first seam-test run
+  RED ×3 — test-side: `row.health` carries `frozen`, the race ring's bar takes the art-width floor, and
+  the first overkill (pool + 30) could not fell a second connector (the re-formed pool(n−1) > 30) — all
+  three fixed in the TEST, not the code; (3) a quote lost in a heredoc broke the transform once — fixed.
+
+## ROUND 6 — PLAN SKETCH ONLY (not started; waits for the coordinator's "round 6 go")
+Owner: R191-B (FIX = gatherer jobs: N shapes = N tasks across gatherers; source per task = the NEARER of
+quarry / castle bank that HOLDS the type; queued; no shape → keep gathering, fetch when one appears; a
+repair in flight at FIGHT waits in the castle and lands next BUILD) + R192-W1 (castle FIX ALL button:
+"first go and fix all the existing towers before continuing to gather").
+- SEAM (designed in R5-0): `applyRepairStructure` splits into PLAN (unchanged: unit, bill — the tower
+  scope / structure scope reads `reclaimScopeAt`) and RESTORE (becomes the on-arrival step). A new
+  `REPAIR_STRUCTURE` semantics = enqueue a repair JOB {seat, target unit key (live ref | stamp lowest id),
+  bill remaining[], delivered[]}; one job per tower (re-click = no-op), FIX ALL = enqueue every own
+  damaged/fallen tower in a total order (lowest anchor id).
+- gatherers: `orderForGatherer` / `pickGathererTarget` get a repair-task tier ABOVE orders (owner: "top
+  priority"); task assignment = lowest gatherer id free → nearest source holding the type (squared
+  distance, then id); bank debited at PICKUP (escrow pattern already exists: `gathererEscrow.test.ts`);
+  delivery at the tower's anchor → `delivered += type`; when bill complete → RESTORE (heal + settle
+  identity). Tower death mid-job → cancel + refund carried/delivered to the bank.
+- FIGHT edge: a gatherer carrying a repair shape at FIGHT shelters with it (existing SHELTERED state) and
+  resumes at BUILD; a job never restores during FIGHT (FIX is BUILD-only today).
+- four sites: the job list on World (factory + save/net + wide hash + worker) → another BUMP reason
+  (new required serialized state + action semantics). Castle panel: FIX ALL button (+ hit-test pairing,
+  the S182 fill-count rule). Estimate ~1.5–2 days; bundle +4–6 KiB against 52 KiB headroom — flag.
+- open (MINE defaults to report): carry capacity (as today, multi-trip); one job per tower; FIX ALL order.

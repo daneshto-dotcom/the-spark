@@ -14,8 +14,9 @@
  * The board bar (`healthBar.ts`), the character-sheet bar (`characterSheetModel.ts`) and the damage
  * art (`structureRamp.ts` → `starHealthFrac`) read the SAME pool: a live tower's OWN members —
  * `towerMembersAt`, the walk the sim's survival test, the hub's fuse and the ramp renderer already
- * share (S189 C2) — priced `structurePoolFifths(own connectors)`, minus the damage banked on THOSE
- * connectors. A weld is not one of them (R182-B: *"neighbouring shapes are protecting it"*), so it
+ * share (S189 C2) — priced ONCE by `towerUnit.towerOwnPoolAt` (S193 SEAM-C7): the recipe's pool
+ * (`structurePoolFifths` of the connectors it is built with) minus the damage banked on its OWN
+ * connectors, and 0 once one of them is gone (the crumble rule). A weld is not one of them (R182-B: *"neighbouring shapes are protecting it"*), so it
  * neither pads the bar nor drains it. A structure with NO live tower (a freeform lattice) has no star
  * and keeps reading its whole connected component, exactly as before.
  *
