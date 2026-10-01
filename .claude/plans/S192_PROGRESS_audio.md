@@ -111,3 +111,8 @@ here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next
 - IN FLIGHT: nothing running.
 - EXACT NEXT STEP: measure master 663c4c9's bundle KiB for the ≤ 10 KiB delta (build a clean checkout of
   663c4c9 — do NOT build in the main checkout), re-run the three gates on the tip, write the final report.
+- UPDATE (pause order): master 663c4c9 bundle measured = **975.2 KiB** (vite build of 663c4c9's src in this
+  worktree, then restored) → branch **978.3 KiB = +3.1 KiB** (≤ 10 OK). Tip df69a42: typecheck 0, build 0.
+  `seekMusic|rmsLog|silentWindows` absent from `dist/assets/*.js` → the DEV probe is stripped from prod.
+- EXACT NEXT STEP after the reset: `npx vitest run --maxWorkers=3` on the tip (last full run was 8f58406's
+  tree, exit 0; only the opt-in measure test changed since), then SubagentHandback with the final report.
