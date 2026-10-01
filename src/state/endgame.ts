@@ -116,6 +116,7 @@ export const ENDGAME_LOCK_INTENT_POLICY = {
   CHOOSE_DRAFT: 'allow', // no draft opens past wave 26 anyway
   UPGRADE_CASTLE_STAT: 'allow',
   CAST_POWER_OF_RA: 'allow',
+  CAST_SCORCHED_EARTH: 'allow', // ⭐ S193 — a CAST is not a build: it scorches a zone, it makes no shape or connector
   SET_GATHERER_PREFERENCE: 'allow',
   ENQUEUE_GATHERER_ORDER: 'allow',
   CANCEL_GATHERER_ORDER: 'allow',
