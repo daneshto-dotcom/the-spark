@@ -2639,6 +2639,9 @@ Network routes: ${v.detail}`;
     session.hostSync = null;
     session.hostSeats.clear();
     migrationClaimedEpoch = -1; // this term is over for us; a future term may ladder us again
+    // ⛔ S192 audit L1 — and the claim clock with it: a deposed seat must not carry our term's clock into the next.
+    migrationLossObservedAtMs = 0;
+    migrationClockStartedHostAbsent = false;
     myClaim = null;
     session.currentEpoch = newEpoch;
     if (simWorkerDriver !== null) {

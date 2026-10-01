@@ -167,4 +167,10 @@ describe('S192 A1 + L1 — main.ts wiring (mechanical)', () => {
     const at = main.indexOf("if (!(isNetworked(world) && !world.isHost && world.gameState === 'PLAYING')) {");
     expect(main.slice(at, at + 400)).toContain('hostAbsentSeenFor = null;');
   });
+  it('⛔ L1 — demoteToClient resets the claim clock AND its flag', () => {
+    const at = main.indexOf('const demoteToClient = (');
+    const body = main.slice(at, at + 900);
+    expect(body).toContain('migrationLossObservedAtMs = 0;');
+    expect(body).toContain('migrationClockStartedHostAbsent = false;');
+  });
 });

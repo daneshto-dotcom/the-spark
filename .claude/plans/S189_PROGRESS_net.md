@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 audit fix round: merge + A1 done; next L1, owner notes B1/L2/L3, gates.**
+**STATUS: IN PROGRESS — S192 audit fix round: merge, A1, L1 done; owner notes recorded; final gates running.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -936,3 +936,19 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   `departureProofOf` accepts any snapshot → 2 red (incl. the seq case); drop the absence clause → 3 red (incl.
   the genuine case). `hostDeparted.test.ts`'s "a host signal latches" guard re-pinned to the clientHandlers site.
   Gates: typecheck **0**, `vitest src/net/` **0**. Protocol: none (local).
+
+- **Step 2 — L1: `demoteToClient` resets the claim clock.** `migrationLossObservedAtMs = 0` and
+  `migrationClockStartedHostAbsent = false` beside the existing `migrationClaimedEpoch = -1`, so a deposed or
+  loser-adopter seat does not carry this term's clock into the next. Reproduced first: the mechanical case in
+  `departureLatch.test.ts` ("demoteToClient resets the claim clock AND its flag") RED on the A1 commit → green.
+  (The guard is source-text: the reset runs synchronously inside `demoteToClient`, so a line in its body IS
+  reached on every demotion — no branch skips it.)
+- **OWNER NOTES (no code change, per the round's brief):**
+  · **B1 — NETFR-3 residual is order-dependent.** The auditor's probe: our transport dies BEFORE starvation
+    (legs removed at L+5.00 / L+5.05 s, under the 6 s `HOST_STARVATION_MS`). If H's leg goes first, the one
+    frame where B is still visible without H starts a clock with `clockStartedHostAbsent = true`; that clock
+    is then KEPT through the empty transport, and a B-first reconnect at L+25 claims at once. If B's leg goes
+    first → no claim. The NETFR-3 stronger shape (a seat whose own transport emptied never claims; it keeps
+    reconnecting and accepts B's claim) closes this too — the same owner question as before.
+  · **L2, L3** — named by the coordinator as owner notes; their text was not in my brief. The merge owner
+    holds the audit wording and should paste it here.
