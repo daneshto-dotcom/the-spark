@@ -49,3 +49,11 @@ on this ladder, so a magic hit must be rescaled by (5+DEF)/(5+MRES) or the pool 
 - R192-M11 STINK CLOUD is magic — *"Sure."*
 - R192-M12 ZERO TICKS accepted, with a visible cue — *"can be totally resistant to very low level magic, I accept that, but we need to predefine … how it would look like."* → default built: grey "RESIST" floater (MINE, to show him).
 - Q1 (drafted DEF pick raises MRES?) NOT ruled — default kept.
+
+## S192 later answers (verbatim)
+- R192-D1 MRES DRAFT CARD (queued, NOT built): *"we'll add another one then at level what we have. We'll do another one at level 26, right? That's going to be the, the magic damage one … And we'll need to make his own art as well. So you should queue that up."* → a general MRES card at the NEXT draft slot after the current table (drafts are waves 1/6/11/16/21 = levels 0/5/10/15/20; the next is wave 26 / level 25 — confirm the slot when built) + its own card art. A drafted DEF pick keeps today's behaviour (grows the pool, so it helps vs magic too).
+- R192-U1 a fallen tower's leftover shapes STAY targetable until destroyed — *"Just as it is today, dude."*
+- R192-U2 no "fading out of old age" concept — *"Units are either destroyed or respawned."* → remove the fading-untargetable extra.
+- R192-U3 HELGA engages passing drones — *"she should go at … passing by drones … protect against them. That's the whole point of Helga."*
+- R192-U4 T6 is SMART, not ignore: engage a fast drone/chewer when it is in reach, in your own zone, or interceptable before it reaches its target; never chase it across the map — *"I didn't say ignore drones or pencil chewers all the time. It just has to be smart."*
+- R192-W1 FIX ALL on the CASTLE: *"there should be a button on your castle saying fix all. And then it just gives a mass command to all the gatherers to first go and fix all the existing towers before … continuing to gather."* → part of weld round 6 (R191-B FIX-by-gatherer), the button on the castle panel.
