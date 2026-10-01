@@ -57,3 +57,10 @@ on this ladder, so a magic hit must be rescaled by (5+DEF)/(5+MRES) or the pool 
 - R192-U3 HELGA engages passing drones — *"she should go at … passing by drones … protect against them. That's the whole point of Helga."*
 - R192-U4 T6 is SMART, not ignore: engage a fast drone/chewer when it is in reach, in your own zone, or interceptable before it reaches its target; never chase it across the map — *"I didn't say ignore drones or pencil chewers all the time. It just has to be smart."*
 - R192-W1 FIX ALL on the CASTLE: *"there should be a button on your castle saying fix all. And then it just gives a mass command to all the gatherers to first go and fix all the existing towers before … continuing to gather."* → part of weld round 6 (R191-B FIX-by-gatherer), the button on the castle panel.
+
+## S192 — PITCH MASTERS IS OFF-LIMITS (owner, verbatim)
+*"Don't touch that game, dude. It's a different... Just think about it as a whole different Git. Okay, I know that it's living inside the arcade of spark-online.space, but that's only because I don't want to buy a new domain … Do not touch pitch masters … It doesn't even have four players."* → no SPARK branch edits `src/arcade/pitchMasters/**` or `public/pitch-masters/**`; enumerations/tripwires exclude `src/arcade/**`.
+
+## S192 — SCOPE AMENDMENT A4: THE VISUAL UPGRADE (owner, verbatim)
+*"I agree with the verdict. Do not rebuild in an engine, but upgrade the effects where we are based on the recommendations. To the best of our abilities. The pilot. I approve the new Pixie Filters MIT package. Yes, you should open Worktree to start on the pilot. And predefine what else are we going to rework to improve, not just Vlad Siphon … I want a list of everything that we're going to work and how it's going to look."*
+→ PACKAGE APPROVED LIVE: `pixi-filters` 6.1.5 (MIT) — install note: approved by Daniel in the live session, S192, for the visual pilot.
