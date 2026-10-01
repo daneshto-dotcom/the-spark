@@ -77,6 +77,8 @@ import {
   hostMovedOn,
   isRejoinPending,
   seatedSurvivors,
+  isMigrationCase,
+  matchPeerIds,
   type HostSignal,
   connectionEdge,
 } from './net/reconnectPolicy.ts';
@@ -1857,6 +1859,8 @@ async function bootstrap(): Promise<void> {
    * or match, leaves to title with the notice below instead of sitting on a frozen board.
    */
   let lastRejoinAttemptAtMs = 0;
+  // ⛔ S192 audit A1 — the followed host whose ABSENCE from our transport was seen during this match (null = none).
+  let hostAbsentSeenFor: string | null = null;
   let hostLobbyAtMs = 0;
   let hostNewMatchAtMs = 0;
   const clientJoinDeps = {
@@ -1870,9 +1874,13 @@ async function bootstrap(): Promise<void> {
     onHostSignal: (signal: HostSignal): void => {
       if (signal === 'new-match') hostNewMatchAtMs = performance.now();
       else hostLobbyAtMs = performance.now();
+      // ⛔ S192 audit A1 — the FIX-2 departure latch is NOT taken here any more (every signal latched, and a
+      // stale pre-Begin beacon or the seq fallback deposed a live host); clientHandlers takes it, gated.
     },
     // ⭐ S191 (NETFR-1/2) — while a rejoin is pending, clientHandlers releases only OUR match's snapshots.
     isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
+    // ⛔ S192 audit A1 — a departure proof latches only from a host seen absent this match (or a pending rejoin).
+    hostAbsentThisMatch: (): boolean => hostAbsentSeenFor !== null && hostAbsentSeenFor === session.hostPeerId,
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -2518,7 +2526,7 @@ Network routes: ${v.detail}`;
   // (the common case) recovers almost immediately; subsequent retries pace at RETRY_MS.
   let reconnectUntilMs = 0;
   let reconnectNextRetryMs = 0;
-  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (was 4 s, now JOIN_STALL_WARN_MS = 8 s)
+  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (4 s → 8 s in S189 → 35 s in S192, measured)
   // and RECONNECT_FIRST_RETRY_DELAY_MS (1 s) moved to `net/reconnectPolicy.ts`, imported above.
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. The host
   // triggers via the same post-drain ARC_FLASH scan since S119 (its twin cursor below);
@@ -2557,6 +2565,7 @@ Network routes: ${v.detail}`;
         }).__TEST_MIGRATION__
       : undefined;
   let migrationLossObservedAtMs = 0;
+  let migrationClockStartedHostAbsent = false; // S192 ROUND-1 — carried beside it, cleared with it
   // ⭐ S189 fix round (audit NET-4) — when the followed host last (re)appeared on our transport; the
   // claim counts starvation from it, so a reconnect that lands is not read as a starved host.
   let hostPresence: HostPresence = { hostPeerId: null, present: false, presentSinceMs: 0 };
@@ -2630,6 +2639,9 @@ Network routes: ${v.detail}`;
     session.hostSync = null;
     session.hostSeats.clear();
     migrationClaimedEpoch = -1; // this term is over for us; a future term may ladder us again
+    // ⛔ S192 audit L1 — and the claim clock with it: a deposed seat must not carry our term's clock into the next.
+    migrationLossObservedAtMs = 0;
+    migrationClockStartedHostAbsent = false;
     myClaim = null;
     session.currentEpoch = newEpoch;
     if (simWorkerDriver !== null) {
@@ -3038,6 +3050,7 @@ Network routes: ${v.detail}`;
         clientLastShakeArcFlashTick = -Infinity;
         hostLastShakeArcFlashTick = -Infinity; // S119 P1 — same discipline, host cursor
         migrationLossObservedAtMs = 0; // S122 P2 — D3 latches die with the match
+        migrationClockStartedHostAbsent = false; // S192 ROUND-1
         migrationClaimedEpoch = -1;
         // S124 P1 (D4) — the D4 latches die with it too: claim/echo state, partition
         // evidence, the zombie terminal latch, and the pause window all reset so a fresh
@@ -3408,6 +3421,7 @@ Network routes: ${v.detail}`;
         } else if (clientStarvationLatched) {
           clientStarvationLatched = false; // recovered → re-arm for the next episode
           migrationLossObservedAtMs = 0; // S122 P2 — the loss episode ended; re-arm D3 too
+          migrationClockStartedHostAbsent = false; // S192 ROUND-1
           console.info('[net] host snapshot stream recovered (D2 detect).');
         }
       }
@@ -3431,7 +3445,7 @@ Network routes: ${v.detail}`;
         session.hostPeerId,
         session.hostPeerId !== null &&
           session.netTransport !== null &&
-          session.netTransport.peerIds().includes(session.hostPeerId),
+          matchPeerIds(session.netTransport.peerIds(), session.hostDepartedPeerId).includes(session.hostPeerId),
         performance.now(),
       );
       if (
@@ -3444,7 +3458,7 @@ Network routes: ${v.detail}`;
         migrationClaimedEpoch === -1
       ) {
         const nowMigMs = performance.now();
-        const alivePeers = new Set(session.netTransport.peerIds());
+        const alivePeers = new Set(matchPeerIds(session.netTransport.peerIds(), session.hostDepartedPeerId)); // S192 FIX-2
         const aliveSeats = computeAliveSeats(
           session.lastRoster,
           alivePeers,
@@ -3472,8 +3486,10 @@ Network routes: ${v.detail}`;
             migrationSeam?.ladderMs ?? CLAIM_LADDER_MS,
           ),
           lossObservedAtMs: migrationLossObservedAtMs,
+          clockStartedHostAbsent: migrationClockStartedHostAbsent,
         });
         migrationLossObservedAtMs = claimStep.lossObservedAtMs;
+        migrationClockStartedHostAbsent = claimStep.clockStartedHostAbsent;
         {
           if (claimStep.claim) {
             {
@@ -3713,6 +3729,8 @@ Network routes: ${v.detail}`;
     // ⭐ S189 fix round (audit NET-1) — before the overlay reads the state: did a rejoin land in the host's
     // NEXT lobby or match? Only a pending rejoin can answer yes (see `hostMovedOn`), so neither a live
     // match nor D4's frozen-host takeover is touched. Stamps are per match: cleared outside one.
+    // ⭐ S192 FIX-2 — the peers as this match sees them (a host that proved it left is not here).
+    const matchPeers = matchPeerIds(session.netTransport?.peerIds() ?? [], session.hostDepartedPeerId);
     if (isNetworked(world) && !world.isHost && world.gameState === 'PLAYING' && session.clientSync !== null) {
       const movedOn = hostMovedOn({
         lastRejoinAttemptAtMs,
@@ -3720,7 +3738,17 @@ Network routes: ${v.detail}`;
         lobbyAtMs: hostLobbyAtMs,
         newMatchAtMs: hostNewMatchAtMs,
       });
-      if (movedOn !== null) {
+      // S192 FIX-2 — with someone seated to wait with, the next in line takes over (owner ruling): only a
+      // seat with nobody left (a 1v1) is sent to title.
+      const movedOnHasSuccessor = isMigrationCase({
+        isHost: world.isHost,
+        hasWarrant: session.warrant !== null,
+        roster: session.lastRoster,
+        transportPeerIds: session.netTransport === null ? null : matchPeers,
+        selfPeerId: trysteroSelfId,
+        hostPeerId: session.hostPeerId,
+      });
+      if (movedOn !== null && !movedOnHasSuccessor) {
         console.warn(`[net] HOST MOVED ON (${movedOn}) — the rejoin reached the host's next ${movedOn === 'lobby' ? 'lobby' : 'match'}, not ours; returning to title`);
         leaveToTitle();
         titleScreen.setNotice('The host started a new game — this match is over.');
@@ -3730,15 +3758,23 @@ Network routes: ${v.detail}`;
       lastRejoinAttemptAtMs = 0;
       hostLobbyAtMs = 0;
       hostNewMatchAtMs = 0;
+      session.hostDepartedPeerId = null; // S192 FIX-2 — the latch dies with the match
+      hostAbsentSeenFor = null; // S192 A1 — and so does the absence record
+    } else if (
+      session.hostPeerId !== null &&
+      session.netTransport !== null &&
+      !session.netTransport.peerIds().includes(session.hostPeerId)
+    ) {
+      hostAbsentSeenFor = session.hostPeerId; // S192 A1 — the RAW transport, not matchPeers
     }
     const hostLost = !world.isHost
       && session.hostPeerId !== null
       && session.netTransport !== null
-      && !session.netTransport.peerIds().includes(session.hostPeerId);
+      && !matchPeers.includes(session.hostPeerId);
     const peersGone = isNetworked(world)
       && world.gameState === 'PLAYING'
       && session.netTransport !== null
-      && (session.netTransport.peerCount() === 0 || hostLost);
+      && (matchPeers.length === 0 || hostLost);
     // S82 P4(b) — AUTO-RECONNECT grace (amends LOCKED §13.7 "no reconnect", user-
     // authorized). On loss, a RECONNECT_GRACE_MS window opens: the CLIENT periodically
     // tears the dead transport and re-runs the join path with the same room code —
@@ -3787,11 +3823,15 @@ Network routes: ${v.detail}`;
      *   • peerCount === 0 = OUR transport died — the reconnect cycle is the only path back.
      */
     // S191 WIRE-3 — a SEATED survivor, not any peer: a stray kept this true and the loop never retried the host.
-    const migrationCase =
-      !world.isHost &&
-      session.warrant !== null &&
-      session.netTransport !== null &&
-      seatedSurvivors(session.lastRoster, session.netTransport.peerIds(), trysteroSelfId, session.hostPeerId).size > 0;
+    // S192 ROUND-2 — …except a seat with NO Begin roster (a deposed ex-host rejoined as a client): any peer.
+    const migrationCase = isMigrationCase({
+      isHost: world.isHost,
+      hasWarrant: session.warrant !== null,
+      roster: session.lastRoster,
+      transportPeerIds: session.netTransport === null ? null : matchPeers, // S192 FIX-2
+      selfPeerId: trysteroSelfId,
+      hostPeerId: session.hostPeerId,
+    });
     const connectionPlan = planConnectionFrame({
       nowMs,
       zombieDeposed,
@@ -3799,7 +3839,7 @@ Network routes: ${v.detail}`;
       isHost: world.isHost,
       hasRoomCode: session.roomCode !== null,
       migrationCase,
-      peerCount: session.netTransport?.peerCount() ?? 0,
+      peerCount: matchPeers.length, // S192 FIX-2 — a departed host is not a peer of this match
       reconnectUntilMs,
       nextRetryMs: reconnectNextRetryMs,
       migrationExtraMs: (migrationSeam?.ladderMs ?? CLAIM_LADDER_MS) * MAX_PLAYERS + 5000,
@@ -3823,7 +3863,7 @@ Network routes: ${v.detail}`;
       lobbyScreen.setConnectionLostMigrating(overlay.secondsLeft);
       lobbyScreen.setConnectionLostVisible(true);
     } else {
-      lobbyScreen.setConnectionLostReconnecting(false);
+      lobbyScreen.setConnectionLostTerminal(overlay.retrying, overlay.waitingForPeers); // S192 SEAM-1
       lobbyScreen.setConnectionLostVisible(true);
     }
     const connectionLost = overlay.kind === 'terminal'; // terminal — drives the cinematic-abort edge below
