@@ -26,3 +26,25 @@ of healing should show above him."*
   read), hashed in the wide oracle (`:cb`), rebuilt by the worker from the same serializer. A required-to-agree sim
   field → part of this branch's BUMP.
 - The feed bite's coin exemption is a rule both peers compute → part of this branch's BUMP.
+
+## §3e THE RISEN row — T2 (S192)
+
+Replace the MINE cell's "a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody" with:
+⭐ S192 (owner T2) *"every zombie that kills another unit, doesn't matter if it's through an explosion, through an
+ability, or through … physical damage, that creates a regular zombie from the castle."* — the zombie boss's death blast
+now raises one soldier per ENEMY it kills; the kill credit `{seat, type}` is captured at the blow (`racial/killCredit.ts`),
+so a dead dealer still counts. Castle gun and raid still raise nobody. ⚠ MINE pending his confirmation: "every zombie" =
+the three racial types (Reading A); `THE_RISEN_ANY_SEAT_UNIT` (false) widens it.
+
+## §3e / §9d — the zombie boss DEATH BLAST — T3 (S192)
+
+New row/section: the blast is no longer a raze. ONE pool `T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` = **312** (3 ×
+`attackFifths(8, 8)`, ⚠ AWAITING OWNER — alternatives 208 / 416), split over everything within
+`T9_ZOMBIE_DEATH_BLAST_RADIUS` **380** px (⚠ AWAITING OWNER, MINE since S168) by linear falloff `max(1, floor(380 − d))`,
+integer shares, floor of one, summing exactly, remainder nearest-first. A structure is ONE target; its share lands on its
+nearest connector. Owner-agnostic (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE`, ⚠ AWAITING OWNER). Worked: 3 victims at
+50 / 190 / 330 px take 180 / 104 / 28. A Warlord (374) adjacent survives. canon.test pins owed: 312, 380, the two levers.
+
+## §6 THE WIRE — T2/T3
+
+No wire field. BUMP: the blast's damage and THE RISEN raises are rules both peers compute (host-migration successor).
