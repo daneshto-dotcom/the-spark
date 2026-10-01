@@ -93,8 +93,8 @@ case, +1.6 ms.
   everyone) saves 12.1 KiB.
 
 ### Owner LOOK items (MINE, not ruled)
-- The aura's light pool and embers stay visible AROUND a finished building. The S183 ruling faded the rings, strokes
-  and core dot, and those stay faded. He has not seen this look yet.
+- ~~The aura stays visible around a finished building~~. REVERSED by audit V-1: that contradicted S183 (*the aura
+  fades with the building on every tower*). It now fades with the cover alpha like the legacy aura did.
 - The siphon numbers (96 motes, 3 arms, 118 px, chest −64 px, landing at 78 %) are mine.
 
 ## STEP 3: the next three (owner refinement: *"we can do a few … cue all the other upgrades for the following sessions"*)
@@ -136,3 +136,16 @@ No wire, hash or sim change in any commit. **PROTOCOL_VERSION 54, no bump.**
 - The vitest run rewrites `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` with LF line endings
   (no content change) on every run. That is pre-existing, and it was reverted before each commit. Ruled benign: it
   is CRLF churn, not a snapshot change.
+
+## FIX ROUND (independent audit, FIX FIRST)
+- **V-1 (MED)** `d5584f3`: `auraFx` takes `cover` (`coverAlphaForPrim(anchor.id)`). Pool and ember alpha are scaled
+  by it, and nothing is drawn below 0.02. `towerCover.test.ts` now counts the single `auraFx(` call (its last arg must
+  be the cover alpha) and the 3 emits in `auraFx.ts` (each alpha must end in `* cover`). Both were mutation-checked
+  red. Pure tests: cover 0 draws nothing, cover 0.5 gives exactly half alpha.
+- **V-2 (LOW-MED)** `39e2808`: `fxTop` (still one roll-call entry at 20) is now a Container holding
+  [`fxTopShade` (normal blend, no filter), `fxTopLight` (additive, bloomed)]. Blast smoke moved to shade. A guard says
+  no normal-blend emit may appear on `top` in any layout (mutation-checked red). The "everything is light" comment
+  is corrected.
+- Screenshots re-taken: `pilot2-aura-fades-as-the-tower-finishes.png` (+0 / +30 / +60 / +125 ticks after a build,
+  plus a finished tower) replaces `pilot2-building-aura-*`, and the `v04-*` blasts were re-shot on HIGH. The Desktop
+  `index.html` is updated.
