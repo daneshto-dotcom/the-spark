@@ -28,9 +28,16 @@ import { verifyWarrant } from './successionWarrant.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4) — claim verification; the D3 exact-successor
 // gate (computeAliveSeats/computeSuccessorSeat) was retired by the D4 claim ladder + b′.
 import { verifyMigrationClaim } from './migrationClaim.ts';
-import { claimAcceptDecision, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
+import { claimAcceptDecision, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
-import { classifyHostMessage, type HostSignal } from './reconnectPolicy.ts';
+import {
+  classifyHostMessage,
+  departureProofOf,
+  observesHostLoss,
+  shouldLatchDeparture,
+  type HostMessageInput,
+  type HostSignal,
+} from './reconnectPolicy.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -68,6 +75,12 @@ export interface JoinAttemptDeps {
    * if the id is OURS (`NetSession.matchId`). `main.ts` owns the attempt clock; optional (absent = never).
    */
   isRejoinPending?: () => boolean;
+  /**
+   * ⛔ S192 audit A1 — was the followed host seen ABSENT from our transport during this match (main.ts records
+   * it per host id)? With `isRejoinPending` it is what lets a departure proof latch (`shouldLatchDeparture`);
+   * optional (absent = never).
+   */
+  hostAbsentThisMatch?: () => boolean;
 }
 
 /**
@@ -386,7 +399,7 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // snapshot carrying OUR id is released to ClientSync. LOBBY_PRESENCE flows on exactly as before
       // (nothing below acts on it outside LOBBY).
       if (deps.onHostSignal !== undefined) {
-        const signal = classifyHostMessage({
+        const hostMsg: HostMessageInput = {
           inMatch: !deps.world.isHost && deps.world.gameState === 'PLAYING',
           fromFollowedHost: peerId === deps.session.hostPeerId,
           kind: msg.kind,
@@ -398,7 +411,18 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
           ourMatchId: deps.session.matchId,
           matchId: msg.kind === 'NETSNAPSHOT' || msg.kind === 'LOBBY_PRESENCE' ? msg.matchId : undefined,
           hostPhase: msg.kind === 'LOBBY_PRESENCE' ? msg.phase : undefined,
-        });
+        };
+        const signal = classifyHostMessage(hostMsg);
+        // ⭐ S192 FIX-2 / ⛔ audit A1 — the followed host PROVED it left our match, and the proof cannot be a
+        // stale copy: it is not here for this match any more (`matchPeerIds`), so the next in line takes over.
+        if (
+          departureProofOf(hostMsg) &&
+          deps.session.hostDepartedPeerId !== deps.session.hostPeerId &&
+          shouldLatchDeparture({ rejoinPending: hostMsg.rejoinPending, hostAbsentThisMatch: deps.hostAbsentThisMatch?.() ?? false })
+        ) {
+          deps.session.hostDepartedPeerId = deps.session.hostPeerId;
+          console.warn(`[net] HOST LEFT THE MATCH (${msg.kind}) — treating the host as lost; the next in line takes over`);
+        }
         if (signal !== null) {
           deps.onHostSignal(signal);
           if (signal === 'new-match') return;
@@ -520,9 +544,15 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
           const alivePeers = new Set(transport.peerIds());
           const starvMs = seam?.starvationMs ?? HOST_STARVATION_MS;
           const lastAccepted = clientSync.lastAcceptedAt();
-          const hostGone =
-            (sess.hostPeerId !== null && !alivePeers.has(sess.hostPeerId)) ||
-            (lastAccepted > 0 && isSnapshotStarved(performance.now(), lastAccepted, starvMs));
+          // S192 FIX-2 — or the host proved it left our match (it re-hosted the room in a lobby).
+          const hostGone = observesHostLoss({
+            hostPeerId: sess.hostPeerId,
+            alivePeerIds: alivePeers,
+            hostDepartedPeerId: sess.hostDepartedPeerId,
+            lastAcceptedAtMs: lastAccepted,
+            nowMs: performance.now(),
+            starvationMs: starvMs,
+          });
           const decision = claimAcceptDecision(
             msg.epoch, msg.seat, sess.currentEpoch, sess.latchedClaimSeat, hostGone,
           );

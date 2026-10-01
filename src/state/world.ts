@@ -65,7 +65,7 @@ import {
   type DespawnCreatureAction,
   type SpawnCreatureAction,
 } from './creatures/creatureLifecycle.ts';
-import { damageConnector, damageEntity } from './damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from './damage.ts';
 import {
   applyCreatureAttack,
   type CreatureAttackAction,
@@ -186,6 +186,8 @@ import { applyDraftChoice, type ChooseDraftAction } from './draftEvent.ts';
 import { applyUpgradeCastleStat, type UpgradeCastleStatAction } from './castleUpgrades.ts';
 import { applyCastPowerOfRa } from './racial/powerOfRa.ts';
 import type { CastPowerOfRaAction } from './racial/powerOfRaRules.ts';
+import { applyCastScorchedEarth } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
+import type { CastScorchedEarthAction } from './racial/scorchedEarthRules.ts';
 import { spendScore } from './gameMode.ts';
 import { drainRacialSpawnQueueOutsideHostTick } from './racial/spawnQueue.ts';
 export { addScore, isNetworked } from './gameMode.ts';
@@ -372,6 +374,9 @@ export type GameAction =
   // ⭐ S188 P6 — CLIENT INTENT: call Ra on a point of the board (POWER OF RA, `mummies.l0`). The
   // first client intent that carries a free AIM point for an ability; see `racial/powerOfRa.ts`.
   | CastPowerOfRaAction
+  // ⭐ S191 — CLIENT INTENT: scorch a seat's zone for the rest of this FIGHT (SCORCHED EARTH, the aimed
+  // half of `demons.l0`). Carries a SEAT, never a point; see `racial/scorchedEarthRules.ts`.
+  | CastScorchedEarthAction
   | SetGathererPreferenceAction
   | EnqueueGathererOrderAction
   | CancelGathererOrderAction
@@ -817,9 +822,14 @@ function dispatchReducer(world: World, action: GameAction): World {
       // turn on (the same answer this file's two `damageEntity` raid arms give).
       const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
       if (shouldSever) {
-        dispatch(world, {
+        // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+        // ⚠ S192 (audit CARRY-4) — the carry is NOT bounded by the raid clamp: it is whatever stands on the
+        // struck connector beyond the pool, INCLUDING damage banked on it earlier (chewers, a shrunken pool —
+        // S178). Measured: a 2-connector structure holding 20 on the struck bond, raided for 3 → 9 left over,
+        // which fells the next connector (pool 6). Only with nothing banked before is it ≤ the raid's own 3.
+        severWithCarry(world, action.target.id, (id) => dispatch(world, {
           type: 'SEVER_BOND',
-          bondId: action.target.id,
+          bondId: id,
           playerId: action.playerId,
           // ⛔ 'raid', NOT 'player'. A 'player' sever is a PURCHASE gated on disruption charges;
           // this one was already paid for with a raid point and is a CONSEQUENCE of damage
@@ -827,7 +837,7 @@ function dispatchReducer(world: World, action: GameAction): World {
           // for want of a currency the raider never needed — found by raid.test.ts, which is
           // exactly why that test builds real topology instead of stubbing a bond.
           cause: 'raid',
-        });
+        }));
       }
       world.effects.push({
         kind: 'RAIDED',
@@ -960,6 +970,12 @@ function dispatchReducer(world: World, action: GameAction): World {
     // are all re-resolved against the host's own world, never trusted from the client.
     case 'CAST_POWER_OF_RA':
       return applyCastPowerOfRa(world, action);
+
+    // ⭐ S191 — SCORCHED EARTH. POWER OF RA's posture exactly: a CLIENT INTENT decided by the host,
+    // NO-OP-never-throw — the perk, the phase, once-per-fight and the TARGET SEAT (in the match, its
+    // zone on this board, its castle standing) are re-resolved against the host's own world.
+    case 'CAST_SCORCHED_EARTH':
+      return applyCastScorchedEarth(world, action);
 
     case 'PULL_FROM_BANK':
       return applyPullFromBank(world, action);

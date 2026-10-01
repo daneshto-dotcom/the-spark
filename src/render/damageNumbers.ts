@@ -138,6 +138,8 @@ interface StructWatched {
   rising: boolean;
   /** Emit the remainder when it vanishes? False for a pool whose disappearance is not a death. */
   deathOnVanish: boolean;
+  /** ⭐ S191 C-8 — a castle's `Player.castleHealedHp` as last seen (absent for every other pool). */
+  healed?: number;
 }
 
 /**
@@ -783,7 +785,24 @@ export class DamageNumbers {
     for (const p of world.players.values()) {
       // Seat IS the PlayerId, cast exactly as creatureAI.ts:599 and castleGuns.ts do.
       const at = castleAnchor(p.id as unknown as number, world.layout);
-      track(`c:${p.id}`, p.castleHp, at.x, at.y, p.id, false, false);
+      /*
+       * ⭐⭐ S191 C-8 (owner R190-I, on the CASTLE) — THE HIT AND THE HEAL, EACH IN ITS OWN COLOUR.
+       * > *"Show every hit and every heal separately, in different colours, stacking"*
+       * `castleHp` alone reads a 40 hit and a 25 regen in one window as one red 15 (on a joiner the
+       * window is a whole 10 Hz snapshot). `Player.castleHealedHp` splits them through the SAME pure
+       * rule creatures use; a stale host that never writes it (counter stays 0) falls back to the net.
+       */
+      const key = `c:${p.id}`;
+      const healed = p.castleHealedHp ?? 0;
+      seen.add(key);
+      const prev = this.watchedStruct.get(key);
+      this.watchedStruct.set(key, {
+        v: p.castleHp, x: at.x, y: at.y, owner: p.id, rising: false, deathOnVanish: false, healed,
+      });
+      if (prev === undefined) continue; // first sighting is neither a hit nor a heal
+      const { damage, heal } = creaturePoolChange(prev.v, p.castleHp, prev.healed ?? 0, healed);
+      if (damage > 0) this.emitAt(world, at.x, at.y, Math.round(damage), 'damage', p.id);
+      if (heal > 0) this.emitAt(world, at.x, at.y, Math.round(heal), 'heal', p.id);
     }
 
     /*

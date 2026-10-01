@@ -12,14 +12,27 @@
  *                         `Player.raStrikes` and nothing else;
  *   `runPowerOfRa`        the `racialTick` slot — lands whichever column is due this tick.
  *
- * ## ⛔ IT IS THE PHARAOH'S STRIKE, RE-CENTRED — THE FUNCTIONS AND CONSTANTS ARE HIS, NOT COPIES
+ * ## ⛔ IT FALLS LIKE THE PHARAOH'S STRIKE — THE PATTERN, TIMING AND RADIUS ARE HIS, NOT COPIES
  *
- * `RA_COLUMN_COUNT` columns, one every `RA_COLUMN_TICKS`, each `attackFifths(RA_COLUMN_ATK,
- * RA_COLUMN_PEN)` over `RA_COLUMN_RADIUS`, landing at `raColumnPos` and timed by
- * `raColumnImpactTick` — every one imported from `bossSkillsPharaohRitual.ts` / `constants.ts`. The
- * Pharaoh centres it on himself and seeds it with his id; a caster centres it on the aimed point and
- * seeds it with the seat. A retune of his ultimate retunes this one, which is what *"kind of like
- * Pharaoh has"* asks for.
+ * `RA_COLUMN_COUNT` columns, one every `RA_COLUMN_TICKS`, over `RA_COLUMN_RADIUS`, landing at
+ * `raColumnPos` and timed by `raColumnImpactTick` — every one imported from
+ * `bossSkillsPharaohRitual.ts` / `constants.ts`. The Pharaoh centres it on himself and seeds it with
+ * his id; a caster centres it on the aimed point and seeds it with the seat.
+ *
+ * ## ⭐⭐ S191 (owner) — BUT THE STRENGTH IS ITS OWN NOW: 35 A COLUMN, SPLIT
+ *
+ * > *"It destroys like a full fucking tower. Within one hit … each column that it does 30 damage it
+ * > split right so if it hits a tower and an enemy at the same time then it split amongst those two …
+ * > it's not like 30 to each thing in the vicinity … we can do it 35 per hit."*
+ *
+ * Until S191 this file said *"a retune of his ultimate retunes this one"*, and dealt his 300 to every
+ * connector in the circle — so one column deleted a 5-connector tower (whole ladder 130) several times
+ * over. Now a column deals `RA_PERK_STRIKE_FIFTHS` (**35**, `attackFifths(RA_PERK_COLUMN_ATK,
+ * RA_PERK_COLUMN_PEN)`) **in total**, split across the targets it catches (`raSplitShares`), and a
+ * STRUCTURE is ONE target however many of its connectors the circle covers (`raColumnTargets`).
+ * ⭐⭐ S192 — the Pharaoh boss is no longer 300 either: his ritual lands through the same column
+ * (`raColumn.ts`), and every column's number is `raColumnPoolFor` — 35, or 75 for a seat holding WRATH
+ * OF RA (*"And also Pharaoh's become 75 … If the player chose that ability"*).
  *
  * ## ⚠ TWO DELIBERATE DIFFERENCES FROM HIS, AND BOTH ARE MINE
  *
@@ -33,7 +46,8 @@
  *      (*"one potato could shred a fortress"*); that reasoning is about area damage in GENERAL and
  *      does not stand against a ruling about THIS skill — the suicide goblin's exact precedent
  *      (`suicideBlast.ts`), whose connector arm lives beside its one owner-named mechanic rather than
- *      inside the shared helper.
+ *      inside the shared helper. ⭐ S191 — and `applyRadialDamage` is no longer called here at all:
+ *      it hands ONE amount to every victim, and a split needs a share per target.
  *
  * ## ⚠ IT LANDS ONLY DURING FIGHT
  *
@@ -47,23 +61,33 @@
  *
  * No RNG, no clock, no accumulator. The strike is one synced record (`RaStrike`); which column is due
  * is `raColumnImpactTick(untilTick, k) === world.tick`, recomputed every tick. Seats are visited in
- * id order, connector victims are collected then sorted by id before any damage, and the creature /
- * shape arm is `applyRadialDamage`, which sorts its own victims. `world.creatures` is never inserted
- * into here, so nothing is born mid-strike (Council A5 does not apply).
+ * id order. ⭐ S191 — a column's targets are collected in full BEFORE any damage, then put in ONE
+ * total order (squared distance to the column centre, then kind, then id — never `Map` order, never
+ * `Math.hypot`), and that order alone decides who gets the remainder of the split. `world.creatures`
+ * is never inserted into here, so nothing is born mid-strike (Council A5 does not apply).
  */
 
-import { MAX_PLAYERS, RA_COLUMN_ATK, RA_COLUMN_COUNT, RA_COLUMN_PEN, RA_COLUMN_RADIUS, RA_RITUAL_TICKS } from '../../constants.ts';
-import type { BondId, PlayerId } from '../../types.ts';
+import { MAX_PLAYERS, RA_COLUMN_COUNT, RA_RITUAL_TICKS } from '../../constants.ts';
+import type { PlayerId } from '../../types.ts';
 import { raColumnImpactTick, raColumnPos } from '../bossSkillsPharaohRitual.ts';
-import { applyRadialDamage, damageConnector } from '../damage.ts';
-import { attackFifths } from '../stats.ts';
 import type { World } from '../world.ts';
-import { sameTeam } from '../teams.ts';
-import { applySeverBond } from '../severBond.ts';
+import { landRaColumn, RA_PERK_STRIKE_FIFTHS } from './raColumn.ts';
 import { raAimPoint, raCastRefusal, type CastPowerOfRaAction } from './powerOfRaRules.ts';
 
-/** What one column deals — to a creature, a shape and a connector alike. ONE LADDER (S177 P1). */
-export const RA_STRIKE_FIFTHS = attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN);
+/*
+ * ⭐⭐ S192 — THE COLUMN ITSELF MOVED TO `raColumn.ts`, shared with the Pharaoh boss's ritual (one
+ * implementation, one number: `raColumnPoolFor`). Re-exported here so every existing import keeps working.
+ */
+export { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS, raColumnPoolFor, raColumnTargets, raSplitShares, type RaColumnTarget } from './raColumn.ts';
+
+/**
+ * @deprecated S188's name for the column strength, kept only as a pure ALIAS of `RA_PERK_STRIKE_FIFTHS`
+ * so an old import still compiles. ⛔ It is NOT a second strike, NOT a per-target number and NOT always
+ * the number a column deals: a column deals `raColumnPoolFor(world, owner)` IN TOTAL, split — 35, or 75
+ * for a seat holding WRATH OF RA (S192), the Pharaoh boss included. Read `raColumnPoolFor`. Safe to
+ * delete once nothing imports it.
+ */
+export const RA_STRIKE_FIFTHS = RA_PERK_STRIKE_FIFTHS;
 
 /**
  * ⭐ WHERE COLUMN `k` OF A SEAT'S STRIKE LANDS — the Pharaoh's `raColumnPos`, re-centred on the aim
@@ -133,74 +157,9 @@ export function runPowerOfRa(world: World): void {
     for (const [charge, strike] of p.raStrikes.entries()) {
       for (let k = 0; k < RA_COLUMN_COUNT; k++) {
         if (raColumnImpactTick(strike.untilTick, k) !== world.tick) continue;
-        landRaColumn(world, seat, raStrikeColumnPos(seat, k, strike, charge));
+        // ⭐ S192 — the pool is the SEAT's (`raColumnPoolFor`): 35, or 75 once it holds WRATH OF RA.
+        landRaColumn(world, { spare: seat, alliesOf: null, owner: seat, severCause: 'raid' }, raStrikeColumnPos(seat, k, strike, charge));
       }
     }
   }
-}
-
-/**
- * One column of Ra's light at `at`, on behalf of `caster`.
- *
- * ⛔ CONNECTORS FIRST, THEN THE PHARAOH'S OWN RADIAL CALL — and the order is not cosmetic.
- * `applyRadialDamage` hits SHAPES too (`PRIMITIVE_MAX_HP` 70 governs area damage, canon §2), and a
- * razed shape takes its bonds with it. Run it first and every connector in the circle would be gone
- * before the connector arm looked — the building would still fall, but no connector would ever TAKE
- * the hit, and the S179 break-number (`connectorBreakHits`) would never print. Connectors first means
- * the structure takes the column the way a building in this game is meant to: through its connectors,
- * each one priced against the intact structure it belongs to.
- */
-function landRaColumn(world: World, caster: PlayerId, at: { x: number; y: number }): void {
-  /*
-   * Enemy-only by the same rule the suicide goblin and the raid use: a bond has no owner field, so
-   * ownership is read off the primitives it joins, and a bond touching ANY of the caster's shapes is
-   * spared. Collected before mutating, then sorted, so the sever order is a total order.
-   */
-  const r2 = RA_COLUMN_RADIUS * RA_COLUMN_RADIUS;
-  const hit: BondId[] = [];
-  for (const [bondId, bond] of world.bonds) {
-    const aOwner = world.primitives.get(bond.aId)?.placedBy;
-    const bOwner = world.primitives.get(bond.bId)?.placedBy;
-    if (sameTeam(world, aOwner, caster) || sameTeam(world, bOwner, caster)) continue; // S192 — spares the caster's team
-    const mx = (bond.a.pos.x + bond.b.pos.x) / 2;
-    const my = (bond.a.pos.y + bond.b.pos.y) / 2;
-    const dx = mx - at.x;
-    const dy = my - at.y;
-    if (dx * dx + dy * dy <= r2) hit.push(bondId);
-  }
-  hit.sort((a, b) => (a as unknown as number) - (b as unknown as number));
-  for (const bondId of hit) {
-    if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
-    // S188 merge — `null` attacker: a sky strike has no creature to heal (BLOOD DEBT), the same answer
-    // the raid and the suicide blast give (`damageConnector.callSites.test.ts`).
-    if (damageConnector(world, bondId, RA_STRIKE_FIFTHS, null)) {
-      /*
-       * ⚠ `cause: 'raid'` — the one existing cause that honestly means "a PLAYER's attack reached
-       * this connector's capacity": it bypasses the disruption-charge gate (the cast was the price),
-       * attributes the sever to the caster (`severActor`), and the victim's toast reads
-       * "<SEAT> BROKE YOUR BOND". A new cause would be a new discriminant on a serialized action —
-       * a protocol change this branch may not make. ⚠ MINE, and one side effect is the owner's to
-       * judge: 'raid' plays the player-sever SFX (`audioManager`), so a column that cuts three
-       * connectors plays it three times.
-       *
-       * ⛔ S188 audit F1 — **THE SEVER IS RESOLVED INLINE, NOT DISPATCHED.** `dispatch` runs the
-       * bench and elimination gates on any action carrying a `playerId`, and SEVER_BOND is `'deny'`
-       * in both — policies written for a player's INTENTS. A caster eaten by the hunter (or whose
-       * castle fell) between the cast and a column therefore had every connector the column broke
-       * REFUSED: the pool drained, the connector stood, the overkill banked. This sever is not the
-       * caster acting now; it is the CONSEQUENCE of damage that has already landed, the same thing
-       * the column's creature arm does to units with no gate at all. So it goes straight to the one
-       * sever reducer, `applySeverBond`, which still runs `canSeverBond` (a `'raid'` sever passes it,
-       * by its own rule) and still does the topology split and the effects in order.
-       */
-      applySeverBond(world, { type: 'SEVER_BOND', bondId, playerId: caster, cause: 'raid' });
-    }
-  }
-
-  /*
-   * THE PHARAOH'S COLUMN, VERBATIM EXCEPT FOR THE SPARE. Same radius, same ladder number to both
-   * arms, same `'aura'` source, and `null` for the attacker inside the helper (a column of light is
-   * not somebody a unit can turn on). `sparePlayerId: caster` is the one change — see the file header.
-   */
-  applyRadialDamage(world, at.x, at.y, RA_COLUMN_RADIUS, RA_STRIKE_FIFTHS, RA_STRIKE_FIFTHS, 'aura', caster);
 }

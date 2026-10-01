@@ -75,8 +75,24 @@ export function runGodlyMatcherCore(
   // S103 P2 — DEFENDER ignition, same decoupled treatment.
   runDefenderIgnition(world);
 
-  if (world.activeCinematicPlayerId !== null) return null; // queue handled in reducer
-
+  /*
+   * ⛔⛔ S192 T16 (Defect A) — THE `if (world.activeCinematicPlayerId !== null) return null;` THAT
+   * STOOD HERE DROPPED EVERY TV CLOSED WHILE ANOTHER VOLTKIN WAS EMERGING.
+   *
+   * Owner, S192: *"sometimes it didn't allow more than two Voltkins. I had five TVs, full health, but
+   * no new Voltkins."* The line's own comment said *"queue handled in reducer"* — and the reducer
+   * does queue (`applyGodlyTrigger` pushes onto `pendingCinematics` while a cinematic is active), but
+   * this early return meant nothing ever REACHED it: `world.effects` is wiped every frame (direct)
+   * or every batch (worker), so the `BOND_FORMED` of a TV closed inside the 900 ms (direct) / 4.8 s
+   * (worker) emerge window was gone for good by the time the slot freed. Five TVs stamped in quick
+   * succession produced one or two Voltkins.
+   *
+   * The matcher now always scans, and a match made during an emerge dispatches into the queue the
+   * reducer already had. ⚠ That makes the queue REACHABLE ON THE HOST for the first time, which is
+   * why Defect B (`godlyOrchestration.ts` `onComplete`: a queued SAME-SEAT event never played and
+   * latched the slot for the match) is fixed in the same commit. The per-invocation cap below (one
+   * trigger per frame / batch) is unchanged.
+   */
   let fired: GodlyTriggerEvent | null = null;
   for (const eff of world.effects) {
     // S99 — a godly is matched on any TOPOLOGY change: BOND_FORMED (build UP to the

@@ -22,6 +22,15 @@
  * against the same world at the same instant, and that a world run on this reference hashes
  * identically (`hashWorldStateFull`) to a world run on the index.
  *
+ * ## ⭐ S191 C-6 — THE ONE BEHAVIOUR CHANGE SINCE, MADE HERE FIRST (as the rule below says)
+ *
+ * `referenceSpreadEnemyTarget` builds its victims, and scans the chosen victim's bonds, over the
+ * STRICT enemy predicate (NEITHER endpoint the owner's colour) — the set the enemy-only nearest scan
+ * has used since S162. It used the OR predicate, so a chewer / drone / structure-attacker could be
+ * handed a MIXED bond (one endpoint its own seat's), the "my own creature destroys my own tower"
+ * chain S162 closed at the nearest step. Merge owner's go: *"C-6 go (spreadEnemyTarget on the STRICT
+ * predicate — enforces the owner's S162 rule)"*.
+ *
  * ## ⚠ IF YOU CHANGE TARGETING *BEHAVIOUR*
  *
  * Change THIS FILE FIRST — it is the readable specification — and then make the index agree. The
@@ -131,10 +140,16 @@ export function referenceFindNearestBondTarget(
 
 export function referenceSpreadEnemyTarget(world: World, creature: Creature, fallbackEnemyId: BondId): BondId {
   const ownerColor = creatureOwnerColor(world, creature);
+  // ⭐ S191 C-6 — the S162 STRICT set: both endpoints exist and neither is the owner's colour.
+  const strictlyEnemy = (bond: Bond): boolean => {
+    const a = world.primitives.get(bond.aId);
+    const b = world.primitives.get(bond.bId);
+    return a !== undefined && b !== undefined && a.placerColor !== ownerColor && b.placerColor !== ownerColor;
+  };
 
   const victimSet = new Set<PlayerId>();
   for (const bond of world.bonds.values()) {
-    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
+    if (!strictlyEnemy(bond)) continue;
     const primA = world.primitives.get(bond.aId);
     if (primA !== undefined) victimSet.add(primA.placedBy);
   }
@@ -162,7 +177,7 @@ export function referenceSpreadEnemyTarget(world: World, creature: Creature, fal
   let bestId: BondId | null = null;
   let bestDistSq = Infinity;
   for (const [bondId, bond] of world.bonds) {
-    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
+    if (!strictlyEnemy(bond)) continue; // ⭐ S191 C-6
     const primA = world.primitives.get(bond.aId);
     if (primA === undefined || primA.placedBy !== chosen) continue;
     const dSq = distSq(creature.pos, bondMidpoint(bond));

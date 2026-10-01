@@ -55,6 +55,7 @@ import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 
 import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
 import { botRaAction } from './botRa.ts';
+import { botScorchedEarthAction } from './botScorchedEarth.ts'; // ⭐ S191 — SCORCHED EARTH
 import type { BotDifficulty } from './botTypes.ts';
 
 
@@ -176,6 +177,9 @@ export class BotController {
      */
     const ra = botRaAction(world, this.seat);
     if (ra !== null) send(ra);
+    // ⭐ S191 — and SCORCH, if this seat holds SCORCHED GROUND (`botScorchedEarth.ts`, the same shape).
+    const scorch = botScorchedEarthAction(world, this.seat);
+    if (scorch !== null) send(scorch);
 
     // ── per-tick state validation (Council F1 fix: invalidate stale targets
     //    the tick they die, not on the next think) ─────────────────────────

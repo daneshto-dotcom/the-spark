@@ -104,6 +104,10 @@ describe('S188 P6 — ⛔ THE PHARAOH\'S OWN RITUAL IS UNCHANGED by the shared c
   it('⭐ a channelling Pharaoh still telegraphs column k at raColumnPos(boss, k), growing, then beams', () => {
     const w = makeWorld(3);
     w.gameState = 'PLAYING';
+    // ⚠ S191 C-4 re-pin: the ritual's columns are drawn only where the sim lands them (PLAYING + FIGHT);
+    // this board sat in `makeWorld`'s default BUILD.
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = 1_000_000;
     w.creatures.clear();
     const id = 41;
     const boss = {

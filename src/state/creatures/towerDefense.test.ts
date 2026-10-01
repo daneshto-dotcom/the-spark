@@ -165,22 +165,21 @@ describe('Voltkin regression — persistent gate does not touch the Voltkin life
     expect(world.creatures.has(id)).toBe(false);
   });
 
-  it('S104 P1 — a chewer (now finite, persistent:false) enters DESPAWNING then auto-deletes at its lifetime', () => {
+  // ⛔ S191 (owner) — RE-PINNED, INVERTED: the S104 P1 churn (DESPAWNING then auto-delete at 3000 t) is
+  // the defect the owner reported (*"when fight starts, they all died"*). A chewer is tower STOCK now.
+  it('S191 — a chewer is persistent: past its old 3000-tick life (and its own) it never fades nor is deleted', () => {
     const world = makeWorld(1);
     spawnChewer(world, { x: 100, y: 100 }, 0);
     const id = asCreatureId(0);
     const c = world.creatures.get(id)!;
-    const life = CHEWER_CONFIG.lifetimeTicks; // 3000 (S104); spawnedAtTick 0 → despawnAtTick = life
-    expect(c.despawnAtTick).toBe(life);
-    // Forced into DESPAWNING at despawnAtTick − CREATURE_DESPAWNING_TICKS (the churn fix; was: never).
+    expect(CHEWER_CONFIG.persistent).toBe(true);
     c.state = 'SEEKING';
-    world.tick = life - CREATURE_DESPAWNING_TICKS;
-    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
-    expect(world.creatures.get(id)!.state).toBe('DESPAWNING');
-    // Auto-deletes at despawnAtTick — the spawner slot frees so its 15s cadence keeps producing.
-    world.tick = life;
-    applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
-    expect(world.creatures.has(id)).toBe(false);
+    for (const t of [3000 - CREATURE_DESPAWNING_TICKS, 3000, c.despawnAtTick - CREATURE_DESPAWNING_TICKS, c.despawnAtTick]) {
+      world.tick = t;
+      applyCreatureTick(world, { type: 'CREATURE_TICK', creatureId: id });
+      expect(world.creatures.has(id), `alive at tick ${t}`).toBe(true);
+      expect(world.creatures.get(id)!.state, `never forced into DESPAWNING (tick ${t})`).not.toBe('DESPAWNING');
+    }
   });
 });
 
