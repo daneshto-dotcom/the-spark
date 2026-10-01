@@ -384,8 +384,22 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
     expect(body).not.toMatch(/this\.pick\w+\(|RAID_TARGET|SEVER_BOND/);
     expect(body).toContain('this.characterSheet.autoFeedAt?.(');
     // The HAND put-backs win: the toggle declines while an aim or a held tower is in hand.
-    expect(body).toContain('if (raAimPreview() !== null || scorchedEarthAim() !== null) return false;');
-    expect(body).toContain('if (this.castlePanel?.armedBlueprint() != null) return false;');
+    expect(body).toContain('if (this.isHandHolding()) return false;');
+    // ⭐ S193 round 2 — ONE "something in hand" predicate, and ONE put-back, covering all three.
+    const held = src.slice(src.indexOf('private isHandHolding(): boolean {'));
+    expect(held.slice(0, held.indexOf('\n  }\n'))).toContain(
+      'return raAimPreview() !== null || scorchedEarthAim() !== null || this.castlePanel?.armedBlueprint() != null;',
+    );
+  });
+
+  it('⭐ S193 round 2 — every HAND put-back that clears the hand goes through the ONE helper', () => {
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    // The aim-first chain is spelled out exactly once: inside `putBackHand`.
+    expect(code.split('if (raAimPreview() !== null) setRaAimPreview(null);').length - 1).toBe(1);
+    const i = code.indexOf('private putBackHand(): void {');
+    expect(code.indexOf('if (raAimPreview() !== null) setRaAimPreview(null);')).toBeGreaterThan(i);
+    // castle panel, draft plate, held tower — three call sites.
+    expect(code.split('this.putBackHand();').length - 1).toBe(3);
   });
 
   it('every BOARD site asks the opaque-surface question BEFORE it picks anything', () => {

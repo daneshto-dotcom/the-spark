@@ -951,10 +951,21 @@ export class Controls {
    */
   private handleSheetAutoFeedClick(): boolean {
     if (this.characterSheet === null || this.world.gameState !== 'PLAYING') return false;
-    if (raAimPreview() !== null || scorchedEarthAim() !== null) return false;
-    if (this.castlePanel?.armedBlueprint() != null) return false;
+    if (this.isHandHolding()) return false;
     const hit = this.characterSheet.autoFeedAt?.(this.cursor.x, this.cursor.y) ?? null;
-    if (hit === null) return false;
+    if (hit === null) {
+      /*
+       * ⭐ S193 round 2 (audit LOW, spec §2.5) — a right-click on a card control that is NOT a toggle
+       * (a race tower's chip, FIX, SCRAP) says so: the refused cue, and the click is consumed — the card
+       * swallowed it before this anyway (`isPointerOverAnyOpaqueSurface`), it just did so in silence.
+       */
+      if (this.characterSheet.isOverAnyAction(this.cursor.x, this.cursor.y)) {
+        void playUiRefusedSFX();
+        return true;
+      }
+      return false;
+    }
+    this.prunePendingAutoFeed();
     const primitiveId = this.characterSheet.actionPrimitiveId();
     const spawnerId = this.characterSheet.actionFeedSpawnerId();
     if (primitiveId === null || spawnerId === null) return false;
@@ -968,6 +979,38 @@ export class Controls {
     void playUiClickSFX();
     this.onSheetAction?.({ kind: 'AUTO_FEED', sparkType: hit.sparkType, on }, primitiveId);
     return true;
+  }
+
+  /**
+   * ⭐ S193 round 2 (audit LOW) — drop every pending toggle that has expired OR claims a deadline further
+   * out than the window allows (a tick that moved backwards — a restore — or a stale match).
+   */
+  private prunePendingAutoFeed(): void {
+    for (const [k, p] of [...this.pendingAutoFeed]) {
+      const left = p.untilTick - this.world.tick;
+      if (left <= 0 || left > AUTO_FEED_PENDING_TICKS) this.pendingAutoFeed.delete(k);
+    }
+  }
+
+  /** ⭐ S193 round 2 — main.ts calls this on the title-return, so no pending toggle outlives its match. */
+  clearAutoFeedPending(): void {
+    this.pendingAutoFeed.clear();
+  }
+
+  /**
+   * ⭐ S193 round 2 (audit LOW) — **IS SOMETHING IN HAND?** A Ra aim, a scorch aim or a held tower: the
+   * three things a right-click puts back (R190-G HAND). One predicate, asked by the auto-build toggle;
+   * `putBackHand` is its action, used by every HAND put-back that clears all three in this order.
+   */
+  private isHandHolding(): boolean {
+    return raAimPreview() !== null || scorchedEarthAim() !== null || this.castlePanel?.armedBlueprint() != null;
+  }
+
+  /** ⭐ S193 round 2 — put back what is in hand: the aim first, then the scorch aim, then a held tower. */
+  private putBackHand(): void {
+    if (raAimPreview() !== null) setRaAimPreview(null);
+    else if (scorchedEarthAim() !== null) setScorchedEarthAim(null);
+    else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
   }
 
   /**
@@ -1309,9 +1352,7 @@ export class Controls {
     // ⛔ S191 R2 (INPUT-4) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND, exactly as on the draft
     // plate below (S190 IL-2): it acts on the HAND, not on the ground under the panel. The aim first.
     if (e.button === 2 && this.isPointerOverPanel()) { // R190-G: HAND (the IL-2 put-back, castle panel)
-      if (raAimPreview() !== null) setRaAimPreview(null);
-      else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S192 OWN-2 — the scorch aim, same rule
-      else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+      this.putBackHand(); // ⭐ S192 OWN-2 — the scorch aim, same rule (S193: one helper for every put-back)
     }
     if (this.isPointerOverPanel()) return;
     /*
@@ -1333,9 +1374,7 @@ export class Controls {
        * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
        */
       if (e.button === 2) { // R190-G: HAND (the S190 IL-2 put-back)
-        if (raAimPreview() !== null) setRaAimPreview(null);
-        else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S191 — the same put-it-back
-        else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+        this.putBackHand(); // ⭐ S191 — the same put-it-back (S193: one helper)
       }
       return;
     }
@@ -1384,7 +1423,9 @@ export class Controls {
     const armed = this.castlePanel?.armedBlueprint() ?? null;
     if (armed !== null) {
       if (e.button === 2) { // R190-G: HAND
-        this.castlePanel?.disarm();
+        // S193 — the shared put-back. Both aims were already put back by their own handlers above
+        // (they return on RMB), so here it can only be the held tower: byte-identical to `disarm()`.
+        this.putBackHand();
         return;
       }
       if (e.button === 0) { // R190-G: LMB

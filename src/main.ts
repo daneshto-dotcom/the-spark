@@ -3079,6 +3079,8 @@ Network routes: ${v.detail}`;
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
         // S180 — and the character sheet with it, or a card floats over the title screen.
         characterSheet.clear();
+        // ⭐ S193 T4 — and any auto-build toggle still waiting on a snapshot, so none outlives its match.
+        controls.clearAutoFeedPending();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // ⭐ S192 — and every pooled fx sprite and ground ripple with it.

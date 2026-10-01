@@ -29,6 +29,9 @@ import { bankCountOf } from './castleBank.ts';
 import { AUTO_FEED_SHAPE_COUNT, type CreatureSpawner } from './spawners/spawner.ts';
 import type { PlayerId, SpawnerId } from '../types.ts';
 import { dispatch } from './world.ts';
+// ⭐ S193 round 2 — the two seat-state predicates `dispatch`'s own gates ask (side-effect-free leaves).
+import { isBenched } from './hunters/hunter.ts';
+import { isEliminated } from './elimination.ts';
 import type { World } from './worldTypes.ts';
 
 /**
@@ -113,6 +116,14 @@ export function runGoblinAutoFeed(world: World): void {
   // never by `Map` insertion order (which a peer that rebuilt the map could hold differently).
   towers.sort((a, b) => Number(a.id) - Number(b.id));
   for (const sp of towers) {
+    /*
+     * ⭐ S193 round 2 (audit LOW) — a benched or eliminated seat is SKIPPED here rather than sent into
+     * `dispatch` to be refused, so the forensic reject counters (`actorBenched`, `actorEliminated`)
+     * keep counting only what a PLAYER sent. Behaviour is identical — `dispatch` would refuse both —
+     * and the dispatch below still carries every gate for every other case.
+     */
+    const owner = world.players.get(sp.ownerPlayerId);
+    if (owner !== undefined && (isBenched(owner.benchedUntilTick, world.tick) || isEliminated(owner))) continue;
     const type = autoFeedChoice(world, sp);
     if (type === null) continue; // nothing toggled is banked — the toggles wait, still lit
     const before = sp.spawnedCount;
