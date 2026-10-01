@@ -48,7 +48,7 @@ export interface MagicDot {
  * ⛔⛔ THE ATTACK CLASS — a REQUIRED argument of every damage funnel (`damageEntity`, `damageConnector`,
  * `applyRadialDamage` / `RadialDamageFn`), never optional and never defaulted. An optional class would let
  * every existing and future site compile as "physical" by silence — the tolerant-default defect CLAUDE.md
- * lesson 7 records. Required means `tsc` enumerated all 29 sites and every new one must answer.
+ * lesson 7 records. Required means `tsc` enumerated all 29 sites (35 after the S193 master merge) and every new one must answer.
  * `src/state/magicResist.callSites.test.ts` pins the answers.
  */
 export type DamageClass = 'physical' | 'magic' | MagicDot;

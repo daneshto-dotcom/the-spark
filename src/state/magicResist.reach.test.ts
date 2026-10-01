@@ -29,7 +29,7 @@ vi.mock('./magicResist.ts', async (importOriginal) => {
   };
 });
 
-import { PLAYER_COLORS, RA_COLUMN_ATK, RA_COLUMN_PEN, RA_RITUAL_TICKS, STINK_AURA_CADENCE_TICKS, ZOMBIE_AURA_PER_MILLE, phaseDurationTicks } from '../constants.ts';
+import { PLAYER_COLORS, RA_RITUAL_TICKS, STINK_AURA_CADENCE_TICKS, ZOMBIE_AURA_PER_MILLE, phaseDurationTicks } from '../constants.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asCreatureId, makeCreature, type Creature, type CreatureType } from './creatures/creature.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
