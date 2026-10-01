@@ -11,6 +11,10 @@ Canon text for the merge owner: `.claude/plans/S188_CANON_NOTES_racial-d.md`.
 (925.2 KiB, headroom 74.8 — substrate 87f3dc4 measured 919.8, so this branch adds **5.5 KiB**) ·
 check:atlas 0.
 
+**FIX ROUND (after the merge, on top of master f61d6f5):** F1 96b662c knockback re-anchors instead of
+snapping · F2 d4097d6 heal wording (overkill included) · F3 66991bc seat-aware tower card · F4 62cdfba
+stunGates GATE 4 · F5 448b4c9 no feed drawn in BUILD, straddling window cut short.
+
 Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 0.
 
 ## Mechanic design as built
@@ -23,7 +27,7 @@ Full unit suite at 40b97a4: **5665 passed / 345 files, exit 0**. Typecheck exit 
   (type + serialize + deserialize), stateHashFull (union + projection `:ce…@…`), contribution tests.
 - While feeding the hostTick fan-out `continue`s past him (beside stun gate 3); the slot drives
   target (enemy first, else own non-boss, sticky), movement (leash-projected), bite (the ordinary
-  `CREATURE_ATTACK` reducer on his normal swing clock) and heal (= ehp the victim actually lost, capped).
+  `CREATURE_ATTACK` reducer on his normal swing clock) and heal (= 100 % of the bite's amount, the whole `attackFifths(atk, pen)` with overkill included, capped at his max).
   Last feeding tick releases him to SEEKING with no target.
 - `CORPSE_EATER_LEASH_RADIUS = 60` is MINE.
 
