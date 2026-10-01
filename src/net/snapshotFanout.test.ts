@@ -120,11 +120,19 @@ describe('⛔ S182 LEVER 1 — THE ESCAPE HATCH: flag OFF restores the pre-S182 
     expect(byName(recorders, 'torrent').sent).toHaveLength(1);
   });
 
-  it('the doubling returns in full — 10 snapshots produce 20 sends', () => {
+  it('the doubling returns in full — 10 snapshots produce 20 sends', async () => {
     // This is the cost the owner approved removing. Pinning it here makes the escape hatch a real,
     // measured way back rather than a comment claiming there is one.
+    //
+    // ⭐ S189 — the sends are SPACED, as the host's 10 Hz loop spaces them. Since S189 a snapshot
+    // handed to a strategy whose previous one is still in flight WAITS (latest-wins backpressure,
+    // `snapshotBackpressure.test.ts`), so ten back-to-back calls in one synchronous burst would
+    // honestly coalesce. Letting each fake send settle first keeps this a test of the FAN-OUT.
     const { transport, recorders } = harness([{ name: 'nostr' }, { name: 'torrent' }]);
-    for (let i = 1; i <= 10; i++) transport.send(snapMsg(i));
+    for (let i = 1; i <= 10; i++) {
+      transport.send(snapMsg(i));
+      await new Promise((r) => setTimeout(r, 0));
+    }
     expect(recorders.reduce((n, r) => n + r.sent.length, 0)).toBe(20);
   });
 
