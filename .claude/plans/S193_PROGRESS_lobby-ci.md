@@ -1,5 +1,21 @@
 # S193 PROGRESS — lobby-ci (`s193/lobby-ci`)
 
+## ⭐ WIDENED (coordinator, R193-CI): every failing e2e job in the last 20 master runs + relay rotation
+NEXT STEP: worker-bots wall-cap fix (in progress), then soak, quarantine (hostmigration x2, exit-match), relays.
+
+### Triage of last 20 master runs (gh run list --workflow e2e.yml --branch master -L 20)
+Run conclusion = failure (the emails) ONLY via gating jobs: e2e-lobby (fixed above), e2e (gating), e2e-worker-bots.
+e2e-soak and e2e-quarantine are `continue-on-error: true` — they never email (36844358659, 36765928848 = success with them red).
+e2e-protocol and e2e-races: GREEN in all 20 runs. The owner's email lists the RUN (all jobs), not the failing job —
+42c421c/b37cc72/1e9d1da/f6ae104 were red from e2e-lobby (+ 1e9d1da's checkout timeout), not protocol/races.
+- e2e (gating) red in 36840314291, 36822641370, 36689223067 (hunter + worker: `gatherer banks a shape` 30 s WALL wait,
+  720 s cap): HARNESS defect, ALREADY FIXED by 811121ba (S191 A-4, tick-budgeted wait; landed 48207dc→521f23a).
+  Green in all 13 runs since. 36871399300's e2e red = Checkout 3-min timeout (infra).
+- e2e-worker-bots red once (36867560496): helper itself says WALL BACKSTOP BOUND FIRST — 1104/1800 ticks in 180 s
+  (6.12 ticks/s). HARNESS defect: GROWTH_WALL_CAP_MS (180 s, sized for the 1200-tick growth wait at 11 t/s) was
+  "reused unchanged" as the backstop of the 1800-tick FIRST-build wait. Fix in progress.
+
+
 Branch base: master `71abc276` (contains `8693fdd`; `git merge master` = no-op, no conflicts).
 
 ## FINAL REPORT
