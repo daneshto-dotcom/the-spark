@@ -70,7 +70,10 @@ import {
 import { planStructureRepair, planStructureScrap } from './structureRepair.ts';
 import { structureTowersAt, towerUnitAt, weldedAt } from './towerUnit.ts';
 import { razePrimitives } from './razePrimitives.ts';
-import { damageEntity } from './damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from './damage.ts';
+import { drawHealthBars } from '../render/healthBar.ts';
+import { beginConcealmentFrame } from '../render/concealment.ts';
+import { liveBarTowersByAnchor, structureBarWidth, structureHealthAt } from '../render/structureBarHealth.ts';
 import { nearestEnemySpawnerBond } from '../bots/botBrain.ts';
 import { collectSpawnerLockedPrimitiveIds } from './placePrimitive.ts';
 import { applyBuildBlueprint } from './blueprintBuild.ts';
@@ -2409,5 +2412,146 @@ describe('⭐ S192 re-audit X2 — two stamps of one blueprint welded together a
     const hub = w.primitives.get(hubA)!;
     expect(neighbours(w, hub), 'no 124 px bond from A\'s hub to B\'s leaf').not.toContain(bLeaf);
     for (const d of w.defenders.values()) expect(d.ownPrimitiveIds, 'no turret built from two stamps').not.toContain(bLeaf);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ S193 SEAM-C7 (weld × carry) — THE BAR, THE SHEET AND THE RAMP ART READ A WELDED TOWER'S OWN
+// POOL FROM ONE PRICING (`towerOwnPoolAt` over `towerMembersAt` / `ownPrimitiveIds`), and a per-tower
+// FIX after an overkill CARRY (`severWithCarry`, CARRY-1) restores that tower alone.
+// Owner, S187: *"The bar needs to follow the art or the art needs to follow the bar — it has to be
+// consistent … same as the character sheet."*
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+/** Records `rect(x, y, w, h)`: the board bar's geometry, measured off the real `drawHealthBars`. */
+class SeamG {
+  readonly rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+  rect(x: number, y: number, w: number, h: number): this { this.rects.push({ x, y, w, h }); return this; }
+  fill(): this { return this; }
+  stroke(): this { return this; }
+  circle(): this { return this; }
+  moveTo(): this { return this; }
+  lineTo(): this { return this; }
+  clear(): this { this.rects.length = 0; return this; }
+}
+
+/** Every structure bar drawn, as `{ track width, fill fraction }`. */
+function seamBars(w: World): Array<{ trackW: number; frac: number }> {
+  w.creatures.clear(); // castle units' bars are not under test
+  const g = new SeamG();
+  beginConcealmentFrame(w, { x: 0, y: 0 });
+  drawHealthBars(g as never, w);
+  const out: Array<{ trackW: number; frac: number }> = [];
+  for (let i = 0; i + 1 < g.rects.length; i += 2) out.push({ trackW: g.rects[i]!.w, frac: g.rects[i + 1]!.w / g.rects[i]!.w });
+  return out;
+}
+
+/** The one bar whose track is `pool`'s bounded width (the turret's 66 and the goblin tower's 36 differ). */
+function seamBarFor(w: World, pool: number): { trackW: number; frac: number } {
+  const hits = seamBars(w).filter((b) => Math.abs(b.trackW - structureBarWidth(pool)) < 1e-9);
+  expect(hits, `exactly one bar on the ${pool}-fifth scale`).toHaveLength(1);
+  return hits[0]!;
+}
+
+/** The three surfaces for the live tower anchored at `anchorId`, as fractions of its own pool. */
+function surfaces(w: World, recipeId: GodlyId, anchorId: PrimitiveId, pool: number): { bar: number; sheet: number; art: number; card: { cur: number; max: number } } {
+  const spec = rampSpecFor(recipeId)!;
+  const at = rampMembersAt(w, anchorId, spec)!;
+  const art = rampHealthFrac(at.bonds.length, at.bankedFifths, spec);
+  const card = characterSheetModel(w, P0, { kind: 'structure', primitiveId: anchorId })!.health;
+  return { bar: seamBarFor(w, pool).frac, sheet: card.cur / card.max, art, card: { cur: card.cur, max: card.max } };
+}
+
+describe('⭐⭐ S193 SEAM-C7 — a WELDED tower: the bar, the sheet and the ramp art agree on its OWN pool', () => {
+  it('dented on its own arms: bar = card = art = (66 − 17) / 66; the goblin tower\'s card row and lone read agree', () => {
+    const { w, turretHub, goblinHub } = stampedPair();
+    const pool = structurePoolFifths(TURRET_HUB_DEGREE);
+    const own = towerMembersAt(w, 'laserTurret', turretHub)!;
+    w.bonds.get(own.bonds[0]!)!.damageFifths = 9;
+    w.bonds.get(own.bonds[1]!)!.damageFifths = 8;
+    const s = surfaces(w, 'laserTurret', turretHub, pool);
+    expect(s.card).toEqual({ cur: pool - 17, max: pool });
+    expect(s.art).toBeCloseTo((pool - 17) / pool, 10);
+    expect(s.bar, 'the bar follows the art').toBeCloseTo(s.art, 10);
+    expect(s.sheet).toBeCloseTo(s.art, 10);
+    expect(structureHealthAt(w, turretHub), 'the lone-tower reader prices it the same').toEqual({ cur: pool - 17, max: pool, connectors: TURRET_HUB_DEGREE });
+    // The OTHER card's row for the turret — the fourth place its own pool is shown.
+    const goblinCard = characterSheetModel(w, P0, { kind: 'structure', primitiveId: goblinHub })!;
+    const row = goblinCard.welded!.towers.find((t) => t.name === codexCopyFor('laserTurret').name)!;
+    expect({ cur: row.health.cur, max: row.health.max }).toEqual({ cur: pool - 17, max: pool });
+    // And the goblin tower is untouched on all three.
+    const gpool = structurePoolFifths(GOBLIN_TOWER_HUB_DEGREE);
+    expect(seamBarFor(w, gpool).frac).toBe(1);
+    const gh = characterSheetModel(w, P0, { kind: 'structure', primitiveId: goblinHub })!.health;
+    expect({ cur: gh.cur, max: gh.max }).toEqual({ cur: gpool, max: gpool });
+  });
+
+  it('⛔ damage on the WELD moves none of the turret\'s three surfaces', () => {
+    const { w, turretHub, weld } = stampedPair();
+    for (const bid of weld.bonds) w.bonds.get(bid)!.damageFifths = 11;
+    const pool = structurePoolFifths(TURRET_HUB_DEGREE);
+    const s = surfaces(w, 'laserTurret', turretHub, pool);
+    expect(s).toEqual({ bar: 1, sheet: 1, art: 1, card: { cur: pool, max: pool } });
+  });
+
+  it('⛔ the poll window after a cut own arm: the art crumbles (0), and the bar and the card say so too — never a healthy pool(5) bar', () => {
+    const { w, turretHub, turretArmAwayFromWeld } = stampedPair();
+    const pool = structurePoolFifths(TURRET_HUB_DEGREE);
+    cutBond(w, turretArmAwayFromWeld);
+    expect(w.defenders.size, 'fixture: inside the window the record still stands').toBe(1);
+    const s = surfaces(w, 'laserTurret', turretHub, pool);
+    expect(s.art, 'the crumble rule').toBe(0);
+    expect(s.card).toEqual({ cur: 0, max: pool });
+    // The bar keeps its S178 one-fifth floor (a standing structure always draws a bar) on the RECIPE's width.
+    expect(s.bar).toBeCloseTo(1 / pool, 10);
+  });
+
+  it('the W2-4 board: a Scarab ring anchored AT the turret hub — both towers draw their own bar (one per tower, not one per anchor)', () => {
+    const { w, hubId } = turretWithScarabOnItsHub();
+    const turretPool = structurePoolFifths(TURRET_HUB_DEGREE);
+    const drawn = seamBars(w);
+    // The ring has building art, so its track takes the art's width floor (S171/S173), not the scale's.
+    expect(drawn, 'TWO bars on one structure: one per tower (the anchor-keyed map drew only the ring’s)').toHaveLength(2);
+    expect(drawn.filter((b) => Math.abs(b.trackW - structureBarWidth(turretPool)) < 1e-9), 'the turret keeps its bar').toHaveLength(1);
+    expect(liveBarTowersByAnchor(w).get(hubId)!.map((t) => t.recipeId)).toEqual(['t3TowerMummies', 'laserTurret']);
+  });
+});
+
+describe('⭐⭐ S193 SEAM-C7 — per-tower FIX after an overkill CARRY (CARRY-1) restores THAT tower alone', () => {
+  it('a FIGHT hit with overkill fells several turret connectors; the turret falls; its own FIX brings it back whole on all three surfaces; the goblin tower is untouched by the FIX', () => {
+    const { w, st, turretHub, goblinHub, turretArmAwayFromWeld } = stampedPair();
+    const gpool = structurePoolFifths(GOBLIN_TOWER_HUB_DEGREE);
+    const goblinOwn = () => towerMembersAt(w, 'goblinTower', goblinHub)?.bonds.map((b) => [b, w.bonds.get(b)?.damageFifths ?? null]) ?? null;
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    // One hit worth the whole structure's pool plus 30 — the carry must fell more than the struck arm.
+    const comp = componentOf(w.primitives.get(turretHub)!, w.primitives, w.bonds);
+    // pool(n) fells the struck arm, pool(n − 1) the next one the carry reaches (the struck arm's leaf is cut
+    // off with it, so the re-formed structure has n − 1 connectors), and 5 more stay banked.
+    const hit = structurePoolFifths(comp.bondIds.size) + structurePoolFifths(comp.bondIds.size - 1) + 5;
+    expect(damageConnector(w, turretArmAwayFromWeld, hit, null), 'fixture: the hit severs').toBe(true);
+    const felled = severWithCarry(w, turretArmAwayFromWeld, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: asPlayerId(1), cause: 'unit' }));
+    expect(felled, 'the overkill CARRIED past the struck arm').toBeGreaterThanOrEqual(2);
+    tick(w, st, PAST_TWO_POLLS);
+    for (const sp of w.creatureSpawners.values()) sp.nextSpawnTick = 1_000_000_000;
+    expect(w.defenders.size, 'the turret fell').toBe(0);
+
+    w.matchPhase = 'BUILD';
+    const before = goblinOwn();
+    const plan = planStructureRepair(w, P0, turretHub)!;
+    expect(plan, 'its own card offers FIX').not.toBeNull();
+    fund(w, plan.cost);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret stands again').toBe(1);
+    const d = [...w.defenders.values()][0]!;
+    const pool = structurePoolFifths(TURRET_HUB_DEGREE);
+    const s = surfaces(w, 'laserTurret', d.anchorPrimitiveId, pool);
+    expect(s, 'restored whole: bar = card = art = full').toEqual({ bar: 1, sheet: 1, art: 1, card: { cur: pool, max: pool } });
+    expect(goblinOwn(), 'the turret\'s FIX touched none of the goblin tower\'s own connectors').toEqual(before);
+    expect(w.creatureSpawners.size, 'the goblin tower stood through the carry and the FIX').toBe(1);
+    const banked = before!.reduce((n, [, f]) => n + (f ?? 0), 0);
+    const g = characterSheetModel(w, P0, { kind: 'structure', primitiveId: goblinHub })!.health;
+    expect({ cur: g.cur, max: g.max }, 'its own card: its own pool, whatever the carry banked on it').toEqual({ cur: Math.max(0, gpool - banked), max: gpool });
   });
 });
