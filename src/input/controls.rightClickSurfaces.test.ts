@@ -348,20 +348,21 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
     .filter(({ text }) => /\bbutton\s*[!=]==\s*2\b/.test(text) && !/^\s*(\*|\/\/)/.test(text));
 
   // ⭐ S191 R2 (INPUT-4) — 4 → 5: the castle-panel put-back, classified HAND before this was bumped.
-  it('there are exactly FIVE right-click sites today — a sixth must be classified before this is updated', () => {
+  // ⭐ S192 (s191/owner, OWN-3) — 5 → 6: the SCORCHED EARTH aim's put-back (`handleScorchedEarthAimClick`), HAND.
+  it('there are exactly SIX right-click sites today — a seventh must be classified before this is updated', () => {
     expect(
       sites.map((s) => s.line).length,
       `found ${sites.length}: ${sites.map((s) => `:${s.line}`).join(' ')} — tag the new one "R190-G: HAND" or ` +
         '"R190-G: BOARD" (and gate a BOARD one on isPointerOverAnyOpaqueSurface) BEFORE bumping this',
-    ).toBe(5);
+    ).toBe(6);
   });
 
   it('every site says whether it acts on the HAND or on the BOARD', () => {
     for (const s of sites) expect(s.text, `controls.ts:${s.line}`).toMatch(/R190-G: (HAND|BOARD)\b/);
     expect(
       sites.filter((s) => /R190-G: HAND/.test(s.text)),
-      'the aim, the castle-panel, the draft-plate and the held-tower put-backs',
-    ).toHaveLength(4);
+      'the Ra aim, the SCORCHED EARTH aim, the castle-panel, the draft-plate and the held-tower put-backs',
+    ).toHaveLength(5);
   });
 
   it('every BOARD site asks the opaque-surface question BEFORE it picks anything', () => {

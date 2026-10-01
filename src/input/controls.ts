@@ -776,13 +776,13 @@ export class Controls {
   }
 
   /** ⭐ S191 — while aiming, the board click is the cast. Returns true when it consumed the click. */
-  private handleScorchedEarthAimClick(button: number): boolean {
+  private handleScorchedEarthAimClick(button: number): boolean { // R190-G: ROUTE
     if (scorchedEarthAim() === null) return false;
-    if (button === 2) {
+    if (button === 2) { // R190-G: HAND (puts the aim away)
       setScorchedEarthAim(null);
       return true;
     }
-    if (button !== 0) return false;
+    if (button !== 0) return false; // R190-G: LMB
     // Ground the player cannot see is not ground they aimed at: swallow and keep aiming (Ra's rule).
     if (this.isPointerOverCard() || this.isPointerOverFooterSurface()) return true;
     if (scorchedEarthLocalRefusal(this.world, this.playerId) !== null) {
