@@ -38,6 +38,8 @@ import { FOOTPRINT_MARGIN, blueprintFor, blueprintRadius } from '../state/bluepr
 import { asBondId, asPrimitiveId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { SparkType } from '../constants.ts';
+import { towerShapeFor } from '../state/towerMembers.ts';
 
 const HUB = rampSpecFor('lightningHub' as GodlyId)!;
 
@@ -441,6 +443,11 @@ function starWorld(n: number, banked: number): World {
   return {
     primitives: new Map([[HUB_A, { bonds: new Set(bondIds) }]]),
     bonds,
+    // ⚠ S189 C2 — `starHealthFrac` now asks whether a LIVE tower anchors the hub (its own arms are
+    // read through `towerMembersAt`), so the fixture needs the two maps every real World has. Empty:
+    // no tower anchors here, so the raw-bond reading — the one this case pins — is what is taken.
+    creatureSpawners: new Map(),
+    defenders: new Map(),
   } as unknown as World;
 }
 
@@ -566,9 +573,23 @@ function structureWorld(opts: {
   /** [id, aId, bId] per connector. */
   readonly bonds: readonly (readonly [number, number, number])[];
 }): World {
+  /*
+   * ⚠ S189 C2 — THE SHAPES NOW HAVE TYPES, BECAUSE THE WALK READS THEM. `rampMembersAt` walks the
+   * tower's OWN members (`towerMembersAt`, the sim's survival walk), which tells an arm from a weld
+   * by its shape type. A type-less fixture is no tower at all to that walk, so each prim is typed
+   * from the first tower's BLUEPRINT: the anchor is node 0's type, every other shape node 1's. That
+   * is exact for every single-leaf-type recipe these fixtures build (goblin tower, laser turret,
+   * pentagram, stink tower); HELGA's mixed leaves are not built here.
+   */
+  const tower = opts.spawners?.[0] ?? opts.defenders?.[0];
+  const bp = tower !== undefined ? blueprintFor(tower.recipeId as GodlyId) : null;
+  const typeOf = (id: number): SparkType | undefined => {
+    if (bp === null || tower === undefined) return undefined;
+    return id === tower.anchor ? bp.nodes[0]!.type : (bp.nodes[1] ?? bp.nodes[0]!).type;
+  };
   const prims = new Map(opts.prims.map(([id, x, y]) => [
     asPrimitiveId(id),
-    { id: asPrimitiveId(id), pos: { x, y }, bonds: new Set<ReturnType<typeof asBondId>>() },
+    { id: asPrimitiveId(id), type: typeOf(id), pos: { x, y }, bonds: new Set<ReturnType<typeof asBondId>>() },
   ]));
   const bonds = new Map(opts.bonds.map(([id, a, b]) => {
     prims.get(asPrimitiveId(a))!.bonds.add(asBondId(id));
@@ -680,7 +701,15 @@ describe('S183 — rampAnchorAtPoint: the FIX / SCRAP click box for a hidden tow
     expect(rampAnchorAtPoint(world, 0, -20)).toBe(asPrimitiveId(1));
   });
 
-  it('⛔ the star walk on a pentagram would find only TWO arms — which is why shape exists', () => {
+  /*
+   * ⚠ S189 C2 — RE-PINNED, NOT DELETED. This case demonstrated that walking a pentagram as a STAR
+   * (its anchor's own bonds) finds only two of its five arms, which is why `RampSpec.shape` chose
+   * the walk. The walk is now the recipe's OWN survival walk (`towerMembersAt`), keyed on the RECIPE,
+   * so a spec whose `shape` is set wrong can no longer under-walk the building: the answer is the
+   * ring's five connectors either way. The two-arm defect it demonstrated is now unreachable, and the
+   * case below it asserts every spec's `shape` still agrees with its recipe's survival shape.
+   */
+  it('⛔ a mis-set `shape` can no longer under-walk a pentagram — the walk follows the RECIPE', () => {
     const R = 40;
     const pts = Array.from({ length: 5 }, (_, i) => {
       const a = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
@@ -694,7 +723,13 @@ describe('S183 — rampAnchorAtPoint: the FIX / SCRAP click box for a hidden tow
     const asStar = rampMembersAt(
       world, asPrimitiveId(1), { ...rampSpecFor('pentagram' as GodlyId)!, shape: 'star' },
     )!;
-    expect(asStar.bonds).toHaveLength(2); // the defect the 'ring' shape avoids, demonstrated
+    expect(asStar.bonds).toHaveLength(5); // S189: the recipe's own ring, whatever the spec says
+  });
+
+  it("⭐ every ramp spec's `shape` agrees with its recipe's SURVIVAL shape (S189 C2)", () => {
+    for (const spec of RAMP_SPECS) {
+      expect(towerShapeFor(spec.recipeId)?.kind, spec.recipeId).toBe(spec.shape);
+    }
   });
 
   it('returns null when nothing is there, and for a structure with no ramp art', () => {

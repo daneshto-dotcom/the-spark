@@ -279,7 +279,9 @@ describe('S182 step 0 — zero-cost-when-disabled contract', () => {
       });
     }
     // 6 sites: send envelope · send per-strategy · receive · snapshot accept · seq drop · epoch drop.
-    expect(checked).toBe(6);
+    // ⭐ S189 — +2: a snapshot is now recorded where it is TRANSMITTED (`transmitSnapshot`, per strategy
+    // + its envelope once), because behind a starved uplink most are superseded and never sent.
+    expect(checked).toBe(8);
   });
 
   it('the recorders still self-guard, so an unguarded future call site is inert rather than wrong', () => {

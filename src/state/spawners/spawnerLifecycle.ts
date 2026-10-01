@@ -25,22 +25,20 @@
 
 import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '../../types.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
-import { isPentagramComponent } from '../godlyRecipes/pentagram.ts';
-import { isGoblinTowerComponent } from '../goblinKinds.ts';
-import { isLightningHubComponent } from '../godlyRecipes/lightningHub.ts';
+// ⭐ S189 C2 — the SURVIVAL test for the pentagram / lightning hub / goblin tower arms below. The
+// three `is…Component` IGNITION predicates these arms used to call are no longer imported here.
+import { towerStandsAt } from '../towerMembers.ts';
 /*
- * S166 — the ring validator plus the two lookups the race-tower cases need.
+ * S166 — the two lookups the race-tower cases need.
  *
- * ⚠ `ringShape.ts` is a PURE leaf (types only, no `registerRecipe`), and `races.ts` /
- * `raceTowerIds.ts` are side-effect-free by contract — which is what makes them importable here.
- * `world.ts` reaches this file, so pulling in a registering module would repeat the S144 trap the
- * `goblinKinds` import two lines up exists to avoid.
+ * ⚠ `raceTowerIds.ts` / `t9BossIds.ts` are side-effect-free by contract — which is what makes them
+ * importable here. `world.ts` reaches this file, so pulling in a registering module would repeat
+ * the S144 trap the `goblinKinds` import two lines up exists to avoid. (S189 C2 item 2: the ring
+ * validator `isRingAt` is no longer imported — the race arms ask `towerStandsAt` now.)
  */
-import { isRingAt } from '../godlyRecipes/ringShape.ts';
-import { RACE_FEED_SHAPE } from '../races.ts';
-import { RACE_TOWER_SIZE, raceForTowerId } from '../raceTowerIds.ts';
+import { raceForTowerId } from '../raceTowerIds.ts';
 // S167 — the tier-9 leaf, side-effect-free by the same contract as the line above.
-import { T9_TOWER_SIZE, raceForT9TowerId } from '../t9BossIds.ts';
+import { raceForT9TowerId } from '../t9BossIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
 
@@ -83,6 +81,8 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       // ⭐ S158 B2 — the recipe's OWN cadence, not the chewer's. A lightning hub seeded here at the
       // chewer's 15 s spent the first quarter of its fight silent before it emitted anything.
       nextSpawnTick: world.tick + spawnerIntervalTicks(action.recipeId),
+      // ⭐ S189 C2 (audit W1) — every connector it was BUILT with has an id below this.
+      ownBondIdLimit: world.nextBondId,
     }),
   );
   return world;
@@ -108,25 +108,36 @@ export function applyRemoveSpawner(world: World, action: RemoveSpawnerAction): W
  * recipe shape-check against the CURRENT connected component of its anchor
  * primitive: the spawner survives ONLY while that component still EXACTLY matches
  * the recipe. Removing a triangle (component shrinks / a ring node drops degree)
- * OR attaching an extra shape (component grows past 5 / a non-triangle appears)
- * both make this return false → the host poll dispatches REMOVE_SPAWNER → income +
+ * makes this return false → the host poll dispatches REMOVE_SPAWNER → income +
  * swarm stop instantly. This IS the counterplay.
+ *
+ * ⚠ S189 C2 — "OR attaching an extra shape" USED TO BE THE OTHER HALF OF THIS SENTENCE, and it
+ * was the owner's S189 bug report. A weld no longer un-makes a star or the pentagram: those arms
+ * ask `towerStandsAt` whether the recipe is still CONTAINED — and since S189 C2 item 2 so do the
+ * twelve race rings, which until then kept R136's exact same-type-2 rule for survival as well.
  *
  * Dispatches on `spawner.recipeId` so future spawner recipes (different shapes)
  * slot in here. `pentagram` is the only registered spawner recipe in Phase 1b;
- * `isPentagramComponent` already returns false when the anchor primitive is gone,
+ * `towerStandsAt` already returns false when the anchor primitive is gone,
  * so the missing-anchor case is covered without a separate `.has` guard (the host
  * poll also short-circuits on `!world.primitives.has(anchor)` first as
  * defense-in-depth).
  */
 export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): boolean {
   switch (spawner.recipeId) {
+    /*
+     * ⭐⭐ S189 C2 — THE THREE ARMS BELOW ARE SURVIVAL TESTS, AND SURVIVAL IS "THE RECIPE IS STILL
+     * CONTAINED". The `is…Component` predicates they used to call are IGNITION tests and stay exact
+     * there. As survival tests they were the owner's S189 report — *"it still has a pentagram, but
+     * you can connect to it"*: the pentagram's whole-component test died to ANY weld, and the two
+     * stars' exact hub degree died to a weld on the hub. See `state/towerMembers.ts`.
+     */
     case 'pentagram':
-      return isPentagramComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'pentagram', spawner.anchorPrimitiveId);
     // S113 Batch C — a lightningHub survives only while its Dot hub still anchors a 1-Dot(deg5)
     // + 5-Circle star (a chewer/drone eating a Circle leaf drops the size/degree -> teardown).
     case 'lightningHub':
-      return isLightningHubComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'lightningHub', spawner.anchorPrimitiveId);
     // ⭐ S151 P3 — a goblin tower survives only while its Circle hub still anchors a
     // 1-Circle(deg 4) + 4-Circle star. Without this case it would fall to `default:` below, which
     // checks ONLY that the anchor exists — so a tower whose four leaves were eaten would keep
@@ -136,7 +147,7 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     // file, and every recipe module calls `registerRecipe` at its tail — see the leaf's header for
     // the S144 trap and the ?worker=1 boot failure it caused in this very priority.
     case 'goblinTower':
-      return isGoblinTowerComponent(world, spawner.anchorPrimitiveId);
+      return towerStandsAt(world, 'goblinTower', spawner.anchorPrimitiveId);
     /*
      * ⭐ S166 — THE SIX TIER-3 RACE TOWERS. Without these cases all six would fall to `default:`
      * below, which checks ONLY that the anchor exists — so a tower whose other two nodes had been
@@ -151,6 +162,11 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
      * ⚠ `isRingAt`, NOT a component check. R136: total degree is unconstrained, so a friendly shape
      * auto-bonded onto a node must NOT tear the tower down. A `componentOf` rule here would
      * re-introduce the S158 B2b defect on the cheapest structure in the game.
+     *
+     * ⭐ S189 C2 item 2 — AND NOW NOT `isRingAt` EITHER, for survival. R136's exact-2 same-type clause
+     * exists to keep IGNITION collision-free and still does there (`findRingAnchors`). As a survival
+     * test it meant a shape of the ring's OWN type welded on dissolved the tower — which is the
+     * owner's own bat-tower example (R185-B). Survival is `towerStandsAt`: the ring's own 3-cycle.
      */
     case 't3TowerVampires':
     case 't3TowerNagas':
@@ -160,7 +176,9 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     case 't3TowerDemons': {
       const race = raceForTowerId(spawner.recipeId);
       if (race === null) return false; // unreachable: the case labels ARE the six ids
-      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], RACE_TOWER_SIZE);
+      // ⭐⭐ S189 C2 item 2 — CONTAINS, not R136's exact same-type 2: a weld of the ring's OWN type
+      // (the owner's own "weld two bat towers") no longer un-makes it. Ignition stays exact.
+      return towerStandsAt(world, spawner.recipeId, spawner.anchorPrimitiveId);
     }
     /*
      * ⭐ S167 — THE SIX TIER-9 BOSS TOWERS. Six explicit labels for the same reason the tier-3 block
@@ -186,7 +204,8 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
     case 't9TowerDemons': {
       const race = raceForT9TowerId(spawner.recipeId);
       if (race === null) return false; // unreachable: the case labels ARE the six ids
-      return isRingAt(world, spawner.anchorPrimitiveId, RACE_FEED_SHAPE[race], T9_TOWER_SIZE);
+      // ⭐⭐ S189 C2 item 2 — CONTAINS, as the tier-3 arm above. Ignition stays exact.
+      return towerStandsAt(world, spawner.recipeId, spawner.anchorPrimitiveId);
     }
     default:
       // A spawner minted by a recipe with no re-validation rule (none today) is
