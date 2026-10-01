@@ -120,7 +120,8 @@ describe('S183 — the damageEntity call-site census', () => {
     // quotations in `damage.ts`, would silently pass every assertion below.
     // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity).
     // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
-    expect(sites.length).toBe(17);
+    // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
+    expect(sites.length).toBe(18);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -135,7 +136,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(named.length + nulled.length).toBe(sites.length);
 
     expect(named.length).toBe(8);
-    expect(nulled.length).toBe(9); // ⭐ S191 +2 — SCORCHED EARTH's shape + bag arms
+    expect(nulled.length).toBe(10); // ⭐ S191 +2 — SCORCHED EARTH's shape + bag arms; ⭐ S192 +1 — its Helga arm
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -160,7 +161,7 @@ describe('S183 — the damageEntity call-site census', () => {
       'src/state/damage.ts': 3, // applyRadialDamage — a splash names nobody
       // S188 — burning ground: nobody to turn on or heal. ⭐ S191: 3 — the creature arm (the passive and
       // every cast share it), a LONE shape and a landed STINK BAG inside a scorched zone.
-      'src/state/racial/scorchedGround.ts': 3,
+      'src/state/racial/scorchedGround.ts': 4, // ⭐ S192 — + the Helga arm
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });
   });

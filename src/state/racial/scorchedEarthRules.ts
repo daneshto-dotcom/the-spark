@@ -139,8 +139,12 @@ export function scorchedEarthTargetZone(world: World, zoneSeat: unknown): number
  *
  *   · the cast must be THIS wave's (one FIGHT; the record from an earlier wave is spent);
  *   · the phase must be FIGHT in a PLAYING match — it burns only while the passive does;
- *   · ⚠ MINE (Council default): **the CASTER falling stops it** — S188 F4's rule for the passive (*"an
- *     eliminated seat's perk must not go on damaging the board after it is out"*) applied to the skill;
+ *   · ⭐ OWNER, S191 (later answer): **a fallen caster's cast on an ENEMY zone STOPS; his OWN zone keeps
+ *     burning.** *"scorch: a fallen caster's ENEMY-zone cast stops, his own zone keeps burning"* — so a
+ *     cast he made on his own seat burns on for the rest of that FIGHT after his castle falls, and a cast
+ *     on anybody else's seat ends the tick he falls. (HIS ruling; it replaced the Council's ⚠ MINE
+ *     "the caster falling stops it". The always-on PASSIVE keeps S188 F4 — whether "his own zone keeps
+ *     burning" reverses F4 too is an open question, reported, not built.)
  *   · ⚠ MINE (Council default): **the ZONE OWNER falling after the cast does NOT stop it.** The ground
  *     was scorched while it was a legal target; the land stays burning for the rest of that FIGHT.
  */
@@ -148,7 +152,7 @@ export function scorchedEarthActiveZone(world: World, caster: Player): number | 
   const cast = caster.scorchedEarth;
   if (cast === null || cast.wave !== world.waveNumber) return null;
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return null;
-  if (isEliminated(caster)) return null;
+  if (isEliminated(caster) && cast.zoneSeat !== caster.id) return null; // ⭐ OWNER S191 — own zone burns on
   return zoneOwner(cast.zoneSeat as unknown as number, world.layout);
 }
 

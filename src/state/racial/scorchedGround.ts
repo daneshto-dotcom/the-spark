@@ -59,7 +59,12 @@
  *  · **lone built shapes and landed stink bags** (pool 5 each) at the same half rate.
  *
  * ⛔ NOT: the castle (HIS answer), gatherers and avatars (canon §4 — nothing touches them), shapes lying
- * loose (they are sparks, not primitives), and ⚠ MINE (Council default, reported): **Helga**.
+ * loose (they are sparks, not primitives).
+ *
+ * ⭐ OWNER, S191 (later answer) — **HELGA IS NOT IMMUNE: she burns at the units' 2 %.** She is a UNIT that
+ * lives in `world.defenders` (R77), so she burns on the creature DoT clock for HER pool (`burnHelgas`),
+ * from every source that burns units — the passive and each cast. A DORMANT Helga (S189 C2, `ehp ===
+ * null`) is a record, not a live unit, and takes nothing; a tower (`ehp === null`) never did.
  *
  * ⭐ **STACKING — EACH SOURCE ON ITS OWN CLOCK (Council).** The passive and each live cast are separate
  * sources, each dealing its own fifth when due. So a cast on the caster's OWN zone doubles the burn on
@@ -81,7 +86,8 @@ import { applySeverBond } from '../severBond.ts';
 import { structurePoolFifths, unitPoolFifths } from '../stats.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
 import type { World } from '../worldTypes.ts';
-import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type StinkCloudId } from '../../types.ts';
+import { asPlayerId, type BondId, type CreatureId, type DefenderId, type PlayerId, type PrimitiveId, type StinkCloudId } from '../../types.ts';
+import { getDefenderConfig } from '../defenders/defender.ts';
 import {
   scorchedEarthActiveZone,
   scorchedEarthCastRefusal,
@@ -182,10 +188,12 @@ export function runScorchedGround(world: World): void {
   // 1 · THE PASSIVE — byte-identical to S188: zone by zone in seat order, the creature arm only.
   for (const { seat, zone } of scorchedZones(world)) {
     burnCreatures(world, seat, zone, SCORCHED_GROUND_PER_MILLE);
+    burnHelgas(world, seat, zone, SCORCHED_GROUND_PER_MILLE); // ⭐ OWNER S191 — Helga is NOT immune
   }
   // 2 · ⭐ S191 — THE AIMED CASTS, each on its own clock, in caster-seat order. The caster is spared.
   for (const { caster, zone } of scorchedEarthZones(world)) {
     burnCreatures(world, caster, zone, SCORCHED_EARTH_CAST_PER_MILLE);
+    burnHelgas(world, caster, zone, SCORCHED_EARTH_CAST_PER_MILLE);
     burnStructures(world, caster, zone);
     burnLoneShapes(world, caster, zone);
     burnStinkBags(world, caster, zone);
@@ -205,6 +213,30 @@ function burnCreatures(world: World, spared: PlayerId, zone: number, perMille: n
   // Total order before mutating: damage can remove a creature, so the scan finishes first.
   victims.sort((a, b) => (a as number) - (b as number));
   for (const id of victims) damageEntity(world, { kind: 'creature', id }, 1, 'aura', null);
+}
+
+/**
+ * ⭐ OWNER, S191 — *"Helga is NOT immune"* (she burns at the units' 2 %). One fifth to every LIVE unit-class
+ * defender (`ehp > 0` — Helga; a tower and a DORMANT Helga carry `null`) in `zone` not owned by `spared`,
+ * on the creature DoT clock for HER pool (`dotIntervalTicks(unitPoolFifths(unitStats))`), phase-spread by
+ * her id — exactly `dotDueThisTick`'s rule, which keys on a creature TYPE and so cannot be called here.
+ * `null` attacker: burning ground is nobody she can retaliate against (`recordDefenderRetaliation`).
+ */
+function burnHelgas(world: World, spared: PlayerId, zone: number, perMille: number): void {
+  const victims: DefenderId[] = [];
+  for (const [id, d] of world.defenders) {
+    if (d.ownerPlayerId === spared) continue;
+    if (d.ehp === null || d.ehp <= 0 || d.state === 'DORMANT') continue;
+    const stats = getDefenderConfig(d.kind).unitStats;
+    if (stats === null) continue;
+    if (zoneOf(d.pos, world.layout) !== zone) continue;
+    const interval = dotIntervalTicks(unitPoolFifths(stats.hp, stats.def), perMille);
+    if (!Number.isFinite(interval)) continue;
+    if ((world.tick + (id as unknown as number)) % interval !== 0) continue;
+    victims.push(id);
+  }
+  victims.sort((a, b) => (a as unknown as number) - (b as unknown as number));
+  for (const id of victims) damageEntity(world, { kind: 'defender', id }, 1, 'aura', null);
 }
 
 /**

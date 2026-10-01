@@ -107,10 +107,12 @@ const SANCTIONED: ReadonlyArray<{
   },
   {
     file: 'state/racial/scorchedGround.ts',
-    occurrences: 1,
+    occurrences: 2,
     why:
       '⭐ S191 — SCORCHED EARTH derives a landed STINK BAG’s pool (`STINK_BAG_HP` / `STINK_BAG_DEF`, the ' +
-      'numbers `makeStinkCloud` uses) to time its burn. A bag is not a creature and has no drafted max.',
+      'numbers `makeStinkCloud` uses) to time its burn. A bag is not a creature and has no drafted max. ' +
+      '⭐ S192 (owner: Helga is NOT immune) — and HELGA’s pool (`getDefenderConfig(kind).unitStats`, the ' +
+      'numbers `makeDefender` uses) to time hers. A defender is not a creature and has no drafted max.',
   },
 ];
 

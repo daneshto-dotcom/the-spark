@@ -196,3 +196,22 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   Escape ×2 through the real Controls + `makeDoubleEscapeLeave` → 0 leaves). Mutation: drop the
   `consumeCancel` → the REACH case AND SEAM-4 red (2); restored. (On the merged tree the inline
   `preventDefault` already made the behaviour right — the guard was the red, as the audit said.)
+
+## S192 step 2 — the owner's two later answers (HIS rulings) — DONE
+- **Caster falls** → `scorchedEarthActiveZone`: `isEliminated(caster) && cast.zoneSeat !== caster.id` → stop.
+  An ENEMY-zone cast stops the tick he falls; an OWN-zone cast burns on to the end of that FIGHT. The
+  PASSIVE keeps S188 F4 (canon-pinned) — "his own zone keeps burning" read as the CAST; whether it also
+  reverses F4 is SCORCH-6, still an open question (reported, not built).
+- **Helga is NOT immune** → new `burnHelgas` arm in `scorchedGround.ts`, run by BOTH sources (passive and
+  each cast — she is a unit, "the units' 2 %"): every live unit-class defender (`ehp > 0`, not DORMANT,
+  `unitStats` non-null) not the spared seat's, in the zone, one fifth on the creature DoT clock for HER pool
+  (`dotIntervalTicks(unitPoolFifths(PRINCESS_HP, PRINCESS_DEF)=156, 20)` = 19 ticks), phase = tick + her id,
+  `damageEntity(defender, 1, 'aura', null)`. DORMANT Helga (S189 C2 record, `ehp === null`) takes nothing.
+  (The passive arm is moot in practice — an enemy Helga's hall cannot stand in your zone — but a Helga that
+  WALKS into a demon's land now burns there too.)
+- Tests `src/state/racial/scorchedEarthOwnerAnswers.test.ts` (7, real host tick + real Helga recipe/matcher):
+  RED first (2: own-zone after fall 0≠3; Helga 0≠6), green after. Negatives: enemy-zone cast stops; no cast
+  → Helga untouched; caster's own Helga resistant; DORMANT Helga untouched and stays DORMANT. Mutations
+  (each reverted): old `isEliminated` stop → own-zone REACH red; Helga arm dropped from the cast → Helga REACH red.
+- Re-pinned: `damage.callSites` 17→18 sites, null 9→10, scorchedGround null 3→4; `creatureMaxPool.guard`
+  scorchedGround occurrences 1→2 (Helga's pool, a defender's).
