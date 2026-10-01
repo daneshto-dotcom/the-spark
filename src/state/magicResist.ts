@@ -18,8 +18,10 @@
  * ⚠ A ONE-FIFTH DoT TICK CANNOT USE THAT FLOOR — `floor(1 × …)` with the floor-at-one is 1 whenever
  * MRES ≥ DEF, so MRES would defend against none of the four DoT sources. A DoT tick is spread over its
  * victim's own beats instead (`magicDotFifths`, a stateless Bresenham): exact on average, deterministic
- * from the beat number and the id, and exactly 1 per beat at MRES = DEF. ⚠ MINE (spec Q-D): at MRES > DEF
- * some beats land 0 — a slower burn, never immunity.
+ * from the beat number and the id, and exactly 1 per beat at MRES = DEF. ⭐ HIS (S192, spec Q-D): at MRES > DEF
+ * some beats land 0 — *"A very magic resistant unit … can be totally resistant to very low level magic, I
+ * accept that, but we need to predefine … how it would look like."* The look is the RESIST floater
+ * (`render/resistFloaters.ts`, ⚠ MINE).
  *
  * ## Determinism / wire
  *
@@ -127,7 +129,8 @@ export function bossMres(race: RaceId): number {
 
 /**
  * How each creature type gets its MRES. An exhaustive `Record` so a new type fails `tsc` until someone
- * decides. `'def'` = a GLOBAL unit, MRES = its own DEF (⚠ MINE, spec Q-G); `'ownerRace'` = the castle
+ * decides. `'def'` = a GLOBAL unit, MRES = its own DEF (⭐ HIS, S192 Q-G: *"Get magic resistance equal to
+ * their [DEF]. Sounds good."*); `'ownerRace'` = the castle
  * soldier, one type for six races (⚠ MINE, spec Q9 — departs from R94/R117 per R192-M6); a race = that
  * race's level (tier-3) ; `{ boss }` = `bossMres`.
  *
@@ -177,7 +180,8 @@ export function mresFor(type: CreatureType, ownerRace: RaceId | null): number {
 }
 
 /** R192-M5 — *"towers will inherently have the same magic resistance as their regular defense. So, like,
- *  per connector"*: a structure of `n` connectors has DEF `n` and MRES `n`. */
+ *  per connector"*: a structure of `n` connectors has DEF `n` and MRES `n`. ⭐ Re-confirmed S192: *"when
+ *  you build buildings … it raises them at the same time"* — one connector raises both. */
 export function structureMres(connectors: number): number {
   return connectors;
 }
@@ -187,7 +191,8 @@ export function castleMresLevel(u: CastleUpgrades): number {
   return u.defLevel;
 }
 
-/** ⚠ MINE (spec Q-G) — a defender with a pool (Helga) resists magic with its own DEF. */
+/** ⭐ HIS (S192 Q-G, *"Get magic resistance equal to their [DEF]"*) — a defender with a pool (Helga)
+ *  resists magic with its own DEF. */
 export function defenderMres(unitStats: { readonly def: number }): number {
   return unitStats.def;
 }

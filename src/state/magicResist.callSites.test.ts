@@ -132,7 +132,7 @@ describe('S192 — the attack-class census of every production damage call', () 
       'src/state/bossSkills.ts damageEntity magicDot': 1, // zombie boss ROT
       'src/state/racial/scorchedGround.ts damageEntity magicDot': 1, // SCORCHED GROUND
       'src/state/defenders/stinkTower.ts radial magicDot': 1, // STINK TOWER aura
-      'src/state/defenders/stinkCloud.ts radial magicDot': 1, // the landed-bag cloud (⚠ MINE, Q-C)
+      'src/state/defenders/stinkCloud.ts radial magicDot': 1, // the landed-bag cloud (HIS, S192 Q-C)
       // ── A UNIT'S OWN STRIKE: physical, the Voltkin's zap magic (⚠ MINE, Q-V) ──
       'src/state/creatures/creatureAttack.ts damageEntity strikeClassFor': 5,
       'src/state/creatures/creatureAttack.ts damageConnector strikeClassFor': 1,
