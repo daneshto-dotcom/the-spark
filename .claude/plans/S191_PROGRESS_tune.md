@@ -126,3 +126,28 @@ None (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts` untouched).
   untouched. canon.test.ts re-pinned to RA_PERK_STRIKE_FIFTHS / ×9 / literal 6, all derived. RA_STRIKE_FIFTHS alias
   comment re-worded. Bump docblock → CANON_NOTES §6. Gates: TYPECHECK=0 · VITEST=0 (6730 passed / 7 skipped) ·
   BUILD=0 (974.5 KiB).
+
+## ⏸ PAUSED (owner order, usage limit) — S192 round 3 — RESUME HERE
+DONE: rounds 1–2 (tip `1c9a0a6`, all gates 0). Tree is clean and compiles at the pause.
+IN FLIGHT (NOT applied yet):
+- (A) APEX ×6 (owner chose ×6 "like the bat swarm"): script `.claude/plans/S191_tune_scratch/apex6.py`. It edits
+  voltkin-config (MUL 9 → 6 + docblock), stats.ts, racialPerks copy "six times", apexPredator/theSwarm/statsLadder
+  tests, SPARK_CANON §3e (row 18/0/12/6, ×6/×11 paragraph, radar note: no ceiling moves), and canon.test.
+  ⚠ Before running it: add `import { readFileSync } from 'node:fs';` to `src/state/racial/theSwarm.test.ts` (the
+  script's new literal-source guard uses it). Run it from the worktree root, then typecheck, then vitest on
+  apexPredator/theSwarm/statsLadder/canon, then COMMIT SEPARATELY. Also update CANON_NOTES item 3 and §6 reason 3
+  (×6: 18/0/12/6, pool 90, bite 132).
+- (B) Ra round 3 (owner S192): the Pharaoh boss column → 35 split via the perk path; a WRATH seat's columns
+  (POWER OF RA, the 3 charges, the bot cast, AND its Pharaoh boss) → 75 split. NOT STARTED. Plan:
+  1. Move raSplitShares / raColumnTargets / landRaColumn into new `src/state/racial/raColumn.ts` (avoids a
+     powerOfRa ↔ bossSkillsPharaohRitual import cycle); re-export them from powerOfRa.ts. `raColumnTargets(world,
+     spare: PlayerId | null, at)`. Add `raColumnPoolFor(world, seat)` = seatHoldsPerk(p,'mummies.l10') ? 75 : 35,
+     as the ONLY source of the number. Constants RA_WRATH_COLUMN_ATK 5 / PEN 10 → attackFifths = 75 (⚠ MINE pair;
+     alternatives 15/0, 3/20, 1/70).
+  2. Boss: `runPharaohRitual` → landRaColumn(world, spare=null (spares nobody, unchanged), pos,
+     raColumnPoolFor(world, boss.ownerPlayerId), sever actor boss.ownerPlayerId, cause 'unit' ⚠ MINE).
+  3. Re-pin: bossSkillsPharaohRitual*.test, powerOfRaSplit "NEGATIVE boss 300" test (→ boss 35 split / 75 for a
+     WRATH owner), damage.callSites (file moves to raColumn.ts; ritual's applyRadialDamage site gone → damage.ts
+     count unchanged? recount), untargetableCallSites key → raColumn.ts, canon rows + pins, CANON_NOTES §6 reason.
+  4. Tests: arithmetic; REACH boss column 35 split; WRATH seat cast 75 split + its Pharaoh 75; non-WRATH 35;
+     negative; mutation; host-vs-worker wide hash. Gates. Commit each step.
