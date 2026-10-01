@@ -28,6 +28,7 @@ import {
   raChargesFor,
   type RaCastRefusal,
 } from '../state/racial/powerOfRaRules.ts';
+import { pendingRecordAnchor } from './pendingRecordClock.ts';
 
 export interface RaAimPreview {
   /** The seat aiming — it seeds the column pattern, exactly as it will seed the real strike. */
@@ -67,7 +68,8 @@ export function raAimPreview(): RaAimPreview | null {
  *
  * The record clears itself when the synced count catches up, when the wave changes, or after
  * `RA_PENDING_TIMEOUT_TICKS` of synced time — the timeout is what keeps a cast the host REFUSED in
- * flight (the seat benched, the fight ending) from stranding the seat's last charge.
+ * flight (the seat benched, the fight ending) from stranding the seat's last charge. ⚠ S191 C-2: that
+ * synced time can step BACKWARDS on a joiner; `pendingRecordClock.ts` holds the rule for it.
  */
 interface PendingRaCasts {
   /** The world it was sent from: a record never outlives its match's World (a new one starts clean). */
@@ -90,12 +92,24 @@ export const RA_PENDING_TIMEOUT_TICKS = 90;
 
 let pending: PendingRaCasts | null = null;
 
-/** The live record for `seat`, or null when there is none or it has caught up / expired. */
+/**
+ * The live record for `seat`, or null when there is none or it has caught up / expired.
+ *
+ * ⛔ S191 C-2 (WRATH-F5) — the clock is `pendingRecordAnchor`'s rule: a snapshot that moves
+ * `world.tick` BACK below the send tick RE-ANCHORS the record there (it used to read `age < 0` as dead,
+ * which is the W-4 window exactly — a joiner's clock steps back on apply right after a send), and an
+ * EXPIRED record is DROPPED here, so no later step back can revive a cast the host refused.
+ */
 function livePending(world: World, seat: PlayerId): PendingRaCasts | null {
-  const q = pending;
-  if (q === null || q.world !== world || q.seat !== seat || q.wave !== world.waveNumber) return null;
-  const age = world.tick - q.atTick;
-  if (age < 0 || age > RA_PENDING_TIMEOUT_TICKS) return null;
+  const q0 = pending;
+  if (q0 === null || q0.world !== world || q0.seat !== seat) return null;
+  const atTick = pendingRecordAnchor(world.tick, q0.atTick, RA_PENDING_TIMEOUT_TICKS);
+  if (atTick === null) {
+    pending = null;
+    return null;
+  }
+  const q = atTick === q0.atTick ? q0 : (pending = { ...q0, atTick });
+  if (q.wave !== world.waveNumber) return null;
   const p = world.players.get(seat);
   if (p === undefined || raCastsInWave(p, world.waveNumber) >= q.base + q.sent) return null;
   return q;

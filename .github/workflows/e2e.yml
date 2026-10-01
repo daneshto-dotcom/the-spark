@@ -42,6 +42,9 @@
 #                            grep-lane idiom. Added because multiplayer had NO blocking
 #                            coverage at all and a broken lobby reached the owner's living
 #                            room. See the long note on the job itself.
+#   • job `e2e-worker-bots` — GATING (S191 A-4). The one VS-BOTS `?worker=1` smoke (`@worker-bots`),
+#                            inverted out of `e2e` because its single 360 s test was up to half of
+#                            that lane's 720 s cap. Same shape as `e2e-races`.
 #   • job `e2e-quarantine` — NON-GATING. Runs ONLY @quarantine-flaky, the real
 #                            multi-peer WebRTC tests that fail in the CI sandbox
 #                            on net::ERR_ADDRESS_UNREACHABLE (it can't hold P2P
@@ -65,6 +68,11 @@
 #   GitHub annotations. Deterministic transport is rejected (playwright.config
 #   C9 + LOCKED_DECISIONS: real Trystero/Nostr P2P IS the surface under test);
 #   de-flaking WebRTC-in-CI is tracked as a carry-forward, not done here.
+#
+#   ⭐ S191 A-4 — EVERY `Checkout` STEP IS BOUNDED AT 3 MINUTES. Run 36059057491 (deploy #3) spent
+#   9m23s in `actions/checkout` on the gating job, leaving the tests ~9 of their 18 minutes, and the
+#   job concluded `cancelled` — no failure, no email, no report. A normal checkout here takes ~14 s,
+#   so 3 minutes is a hang detector, not a budget: a hung checkout now FAILS, loudly, in 3.
 #
 #   master is currently NOT branch-protected (no required status checks), so the
 #   gating signal is advisory; the job is named `e2e` so that if/when branch
@@ -186,6 +194,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -212,12 +221,60 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # ⭐ S191 A-4 (A1, R190-L) — THE WORKER-BOTS LANE. GATING (a red here reds the run), on its own runner.
+  #
+  # `e2e/worker-bots.spec.ts` is ONE test with `test.setTimeout(360_000)` and `retries: 0` — up to half
+  # of the shared `e2e` lane's 720 s Playwright cap by itself. Every red run of that lane since S187 ran
+  # the cap out with specs never started (run 35972498981: "2 failed · 11 did not run"), so a slow but
+  # green worker-bots was starving the specs queued behind it. Split out on the `@races` precedent: its
+  # own runner and timeout, still gating. `@worker-bots` is inverted out of `e2e:gating`, and
+  # `src/ci.e2eLanes.test.ts` pins the tag → job → script mapping.
+  e2e-worker-bots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      # ⛔ Below timeout-minutes, set HERE (Council, S191): Playwright must end an overrun and flush its
+      # report. If the runner's cap fires first the job concludes `cancelled` — no failure, no email, no
+      # artifacts — which is the silent non-signal this file documents three times over.
+      PW_GLOBAL_TIMEOUT_MIN: 9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # ⚠ NOT chained behind `&&` — the project rule. The step's exit code IS Playwright's.
+      - name: Run E2E (worker-bots — the VS-BOTS ?worker=1 smoke, GATING)
+        run: npm run e2e:worker-bots
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report (worker-bots)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-worker-bots
+          path: playwright-report/
+          retention-days: 14
+
   atlas-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -264,6 +321,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -327,6 +385,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -386,6 +445,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -447,16 +507,22 @@ jobs:
   # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice, add
   # `continue-on-error: true` HERE — do NOT delete the lane, and do NOT re-tag the test. A noisy
   # multiplayer signal is still infinitely better than the none we had.
+  #
+  # ⭐ S192 T1 — the 4-player late-joiner mesh (`nplayer.spec.ts`, "S192 late 4th joiner") is the owner's
+  # "the 4th player can't connect" bug, reproduced deterministically; it gates HERE for the reasons
+  # above. It costs 1.1–2.0 min locally and CI is 3–5× slower, so this lane's budget went 12→20 /
+  # 9→16 (Playwright stays strictly below the runner, per the standing rule).
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 9
+      PW_GLOBAL_TIMEOUT_MIN: 16
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -509,6 +575,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -560,6 +627,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
 
       - name: Setup Node
         uses: actions/setup-node@v6

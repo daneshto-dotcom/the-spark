@@ -1236,6 +1236,9 @@ export class FooterBand {
     return this.collapsed;
   }
 
+  // ⭐ S191 A-2 / S192 owner ruling — Alt calls `toggleCollapsed` exactly as the arrow does (`controls.ts`
+  // `handleAltFooterKey`); there is no Alt-only state and nothing re-raises the band on a disarm.
+
   isOverChip(x: number, y: number): boolean {
     // ⭐ S188 P6 — the Ra button, in both states (null whenever it was not drawn this frame).
     if (this.isOverRaButton(x, y)) return true;

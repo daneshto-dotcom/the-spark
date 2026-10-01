@@ -2793,7 +2793,7 @@ export const DRONE_MAX_GLOBAL = 12; // hard ceiling on live drones (its OWN popu
  * is left standing; it is the *strong* direction that was wrong, which is why the error survived.
  */
 export const DRONE_MAX_PER_SPAWNER = 3; // <=3 LIVE from one hub (owner's S113 figure, kept — and INERT, see above)
-export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC "lightning storm" AoE on the anchor
+export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's blast radius. ⚠ S191: NOT owner-agnostic (S157 P0 spares the owner) and NOT a raze — 120 fifths in total, split (`planHubBlast`)
 
 /*
  * ⭐⭐ S168 P7 (owner R138) — **THE ZOMBIE BOSS EXPLODES WHEN HE DIES.**
@@ -2801,10 +2801,11 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — large owner-AGNOSTIC
  * Owner: *"when he dies he explodes in a huge radius hurting everything radius"*.
  *
  * ⭐ "HURTING EVERYTHING" PICKS THE MECHANIC FOR FREE, and that is why this skill costs almost
- * nothing to build. `applyStructureSelfDestruct` takes an OPTIONAL `ownerPlayerId` that SPARES the
- * owner's own units and shapes (S157 P0, added after he reported hubs eating their own base).
- * *Everything* is unambiguous, so the boss passes NO owner — which is the pre-S157, owner-agnostic
- * default that reducer already had. No new action, no new `GameEffect` kind (it reuses
+ * nothing to build. `applyStructureSelfDestruct`'s `blast: 'raze'` variant takes an OPTIONAL
+ * `ownerPlayerId` that SPARES the owner's own units and shapes (S157 P0, added after he reported hubs
+ * eating their own base). *Everything* is unambiguous, so the boss passes NO owner — the pre-S157,
+ * owner-agnostic raze. ⚠ S191: the HUB's own blast is the other variant now (`blast: 'ladder'`, 120
+ * fifths in total); `blast` is required, so neither can be reached by omission. No new action, no new `GameEffect` kind (it reuses
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
@@ -3116,7 +3117,13 @@ export const RA_COLUMN_TICKS = 2 * PHYSICS_HZ;
  */
 export const RA_RITUAL_TICKS = RA_COLUMN_COUNT * RA_COLUMN_TICKS;
 
-/** R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers. */
+/**
+ * R142/R171-C: *"15 atk and 15 pen per culumn"*. HIS numbers — ⛔ RETIRED FROM THE SIM IN S192, kept so
+ * the history stays legible: *"the [Ra] column, Pharaoh boss should not keep … his 300. That's
+ * ridiculous. He goes down to 35 per column, just like a regular column attack."* The boss's ritual now
+ * lands through `racial/raColumn.ts` (`raColumnPoolFor`: 35, or 75 for a WRATH OF RA seat). Nothing in
+ * the sim reads these two; `canon.test.ts` pins that 300 is no longer any column's number.
+ */
 export const RA_COLUMN_ATK = 15;
 export const RA_COLUMN_PEN = 15;
 
@@ -3143,6 +3150,49 @@ export const RA_COLUMN_RADIUS = 70;
  */
 export const RA_COLUMN_SPREAD = 150;
 
+/**
+ * ⭐⭐ S191 (owner) — **POWER OF RA / WRATH OF RA: THE PLAYER'S COLUMN, AND IT IS NO LONGER THE
+ * PHARAOH'S.** Until S191 the perk dealt `attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = 300 a column
+ * to EVERY connector in its circle, and a 5-connector tower's whole ladder is 130.
+ *
+ * > *"The Wrath of Ra, or whatever the power of Ra. Is way too strong, dude. It destroys like a full
+ * > fucking tower. Within one hit … it shouldn't be like more than 50 or even less each beam."*
+ *
+ * > *"each column that it does 30 damage it split right so if it hits a tower and an enemy at the same
+ * > time then it split amongst those two … it's not like 30 to each thing in the vicinity. No, it's 30
+ * > split so if there's like two enemies it's split amongst them … we can do it 35 per hit."*
+ *
+ * So **35 fifths a column, IN TOTAL, split** across everything it hits (`powerOfRa.ts` —
+ * `raSplitShares`, and a structure is ONE target). His number, exactly, on the one ladder:
+ * `attackFifths(5, 2)` = 5 × (5 + 2) = **35**.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 35 = ATK × (5 + PEN) has three integer answers: 7/0, 5/2 and 1/30.
+ * 5/2 is the one nearest the Pharaoh's own balanced 15/15 profile this skill was cut from — it keeps
+ * a piercing character (PEN > 0) without resting the whole number on a 30-point secondary stat.
+ * Lever: change the pair; `RA_PERK_STRIKE_FIFTHS` and every test derive from it.
+ *
+ * ⭐⭐ S192 (owner) — **AND THE PHARAOH BOSS IS THIS COLUMN TOO.** *"Pharaoh boss should not keep …
+ * his 300. That's ridiculous. He goes down to 35 per column, just like a regular column attack."* His
+ * ritual (`bossSkillsPharaohRitual.ts`) lands through the same `racial/raColumn.ts` `landRaColumn`,
+ * and his number comes from the same `raColumnPoolFor` — 35, or 75 when his OWNER seat holds WRATH OF
+ * RA (`RA_WRATH_COLUMN_*` below). `RA_COLUMN_ATK` / `RA_COLUMN_PEN` (300) are retired from the sim.
+ * (S191 briefly kept him at 300; that sentence is superseded.)
+ */
+export const RA_PERK_COLUMN_ATK = 5;
+export const RA_PERK_COLUMN_PEN = 2;
+
+/**
+ * ⭐⭐ S192 (owner) — **WRATH OF RA RAISES EVERY COLUMN OF ITS SEAT TO 75**, the seat's Pharaoh included:
+ * *"once we have Ra's Wrath at … level 10, once we have that ability, then each column goes … up to 75.
+ * And also Pharaoh's become 75. Okay? If the player chose that ability."* Still IN TOTAL, split.
+ *
+ * ⚠ MINE, NOT HIS — THE PAIR. 75 = ATK × (5 + PEN) has four integer answers: 15/0, 5/10, 3/20, 1/70.
+ * 5/10 keeps the perk column's ATK (5) and raises only the piercing (2 → 10), so WRATH reads as the same
+ * sunlight burning hotter. Lever: change the pair; `RA_WRATH_STRIKE_FIFTHS` and every test derive from it.
+ */
+export const RA_WRATH_COLUMN_ATK = 5;
+export const RA_WRATH_COLUMN_PEN = 10;
+
 /*
  * ⭐ S168 (owner R149) — **RAGE.** *"he becomes enraged when drops to 25% health and attacks and
  * moves x2 quicker for the rest of his lifetime."*
@@ -3162,6 +3212,11 @@ export const RA_COLUMN_SPREAD = 150;
  * branches in `bossSkillsWarlord.ts`: at 49% a calm Warlord ENRAGES (49 < 50) and an enraged one
  * stays (49 > 50 is false); at 51% a calm one stays calm and an enraged one CALMS; at exactly 50%
  * NEITHER branch fires, so he keeps whatever state he is in. That is his "below 50" exactly.
+ *
+ * ⛔ S191 — **SUPERSEDED: THE CALM HALF OF THIS PARAGRAPH IS HISTORY.** The rage now ends on a 25 s
+ * CLOCK (`WARLORD_RAGE_TICKS`), not on a heal above 50 %, so no health reading calms him and there is no
+ * band, zero-width or otherwise. The TRIGGER half stands: strictly below 50 % fires his latch (in FIGHT,
+ * outside his cooldown). The flicker note below is moot for the same reason.
  *
  * ⚠ AND THE FLICKER THE OLD BAND GUARDED AGAINST IS UNREACHABLE TODAY. Flicker needs hp to CROSS
  * the line repeatedly, i.e. a heal. Every `.ehp =` write in the sim that RAISES a pool is gated to
@@ -3188,8 +3243,54 @@ export const WARLORD_RAGE_MULTIPLIER = 2;
  * the clear condition is unreachable in play TODAY. It is implemented anyway, because the ruling is
  * about what should happen when it is reachable, and a rule that exists only in a comment is the
  * class of thing S167 shipped a whole session on.
+ *
+ * ⛔⛔ S191 — **RETIRED IN PLACE, UNREAD BY THE SIM.** The owner replaced R151's exit with a CLOCK
+ * (`WARLORD_RAGE_TICKS` below): once his own latch fires he rages for 25 s *regardless of healing*,
+ * so no health reading calms him any more. Kept exported, with its history, so the R151/S179 record
+ * above stays readable; `bossSkillsWarlord.ts` no longer imports it.
  */
 export const WARLORD_RAGE_CLEAR_PCT = 50;
+
+/**
+ * ⭐⭐ S191 (owner) — **THE RAGE LASTS 25 SECONDS.** *"let's do it like 25 seconds"* (S190, recorded
+ * for S191 in `S190_OWNER_RULINGS.md`).
+ *
+ * Once a Warlord's OWN latch fires (strictly below `WARLORD_RAGE_TRIGGER_PCT` of his own max) he rages
+ * for exactly this many ticks, **regardless of healing** — the clock replaces R151's "until IF healed
+ * above 50 %" exit. Measured in `world.tick` from `Creature.rageStartTick`: raging on ticks
+ * `start … start + WARLORD_RAGE_TICKS − 1`, calm from `start + WARLORD_RAGE_TICKS`.
+ */
+export const WARLORD_RAGE_SECONDS = 25;
+export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s @ 60 Hz
+
+/**
+ * ⭐ S191 (owner) — **"COOLDOWN FIRST".** Asked what happens when the 25 s end and he is still under
+ * half, he ruled a cooldown before any re-trigger: calm for this many ticks after the rage ends, during
+ * which his latch cannot fire whatever his health; after it, below the line → he rages again at once.
+ *
+ * ⭐ THE LENGTH IS HIS (S192): *"Rage cooldown 25 seconds, that's fine. Per warlord."* — 25 s, and it is
+ * per Warlord (each one's own `rageStartTick`; the frenzy never touches a Warlord, S191).
+ *
+ * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
+ * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
+ * latch runs only inside the FIGHT gate (`hostTick`), so in each FIGHT a hurt Warlord fires on its first
+ * tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
+ * `FIGHT_PHASE_TICKS`; a rage still running at the whistle is NOT lowered in BUILD — he (and BLOOD FRENZY's
+ * orcs) stay red through the whole BUILD — and the next FIGHT's first tick fires a fresh rage (BUILD,
+ * `PHASE_DURATION_TICKS`, outlasts both windows). A rage that ended before the whistle stays ended.
+ * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging from 50 s through the
+ * whistle and all of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a real whistle.
+ *
+ * ⭐ RULED S191 (owner, round 2 RAGE-1 — the audit's "red through BUILD" finding, and he KEEPS it):
+ * *"if the rage started … during the fight and the countdown is still down while you're in … build
+ * phase, then your creatures still look to be enraged. And then it … restarts the next fight. Yeah,
+ * that's fine. Who cares? You can't really see the creatures anyways … they're like kind of standing
+ * behind the castle or their tower."* Do not "fix" it without his word.
+ *
+ * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
+ * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
+ */
+export const WARLORD_RAGE_COOLDOWN_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 ticks = 25 s
 
 /*
  * ⭐⭐ S168 (owner R150) — **THE ARCHDEMON.**
