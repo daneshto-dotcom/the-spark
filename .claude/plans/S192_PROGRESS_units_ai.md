@@ -69,3 +69,26 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
 - EXACT NEXT STEP on resume: fix those two fixtures, then measure BEFORE (mutant: `if (limits !== null) return false;`
   as first line of `cannotCatch`) vs AFTER; then update `navUnitReference.fixtures.ts` with the rule longhand and run
   `src/state/s191Perf.differential.test.ts` + `navUnitIndex.differential.test.ts`; then full gates.
+
+## T6 — DONE (resumed after the limit)
+- Fixtures fixed: the archer row now tests at reach+1 (219 px, inside the 220 acquire radius); the REACH repro scripts ONLY
+  the drone's flight (west at the measured 3.92 px/tick — an unscripted drone with no enemy connector idles at its hub)
+  and removes the castle emitter's mid-run births; the drone is born NOW (back-dating it expired its fuse → it vanished on
+  tick 0, which was the earlier "drone arm went further" artefact).
+- MEASURED on that repro, 500 ticks, `cannotCatch` forced false (BEFORE) vs shipped (AFTER):
+  goblinMelee 904 → 517 px = **−42.9 %**, 129 ticks locked → **0.0 %**, 0 ticks locked;
+  t9BossOrcs 957 → 545 px = **−43.0 %**, 129 ticks locked → **0.0 %**, 0 ticks locked.
+  (The research's own board measured −40 % / −59 %.)
+- `navUnitReference.fixtures.ts`: `referenceCannotCatch` LONGHAND (standoff fraction copied as a literal and pinned equal
+  in `chaseGiveUp.test.ts`), applied in its acquire (with the chaser) and hold. Perf differential (waves 1–3): 0 nav
+  mismatches, no hash divergence; its stats are byte-identical to the T13 run — ⚠ the bots match never exercises T6
+  (no drone/chewer chase occurs), so T6's oracle proof is the NEW isolated-quarry case in `navUnitIndex.differential`
+  (6 chaser types × drone/chewer × 4 distance bands, epoch + live; anti-vacuity both kept and dropped), which goes RED
+  under the `cannotCatch → false` mutant. `navUnitIndex.guards` #5 re-pinned (fallback carries the chaser; rule read live).
+- `chaseGiveUp.test.ts` (8): config arithmetic (non-combatants = exactly chewer + lightningDrone; who drops whom), REACH ×2
+  through the real host tick, negatives (drone inside reach still picked/held; chewer still chased by a melee goblin;
+  R184-A — an archer is acquired and HELD by a vampire boss), the reference-fraction pin. Mutation `cannotCatch → false`:
+  3 red here + 1 red in the differential.
+- Helga's IDLE acquisition NOT changed (research marked it optional; not in the brief) — owner question.
+- Gates: typecheck 0 · vitest 0 (423 files / 6763 tests passed, 7 skipped) · build 0, **975.9 KiB** (+0.7 over master 975.2).
+- Bump: **NO** — host-only targeting; static config only, no field.
