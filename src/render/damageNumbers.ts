@@ -57,7 +57,8 @@
 
 import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
-import type { CreatureId, PlayerId } from '../types.ts';
+import type { CreatureId, PlayerId, PrimitiveId } from '../types.ts';
+import { componentOf } from '../game/structure.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 // S181 — everything `fatalBlowFifths` needs, and every one of them is DERIVABLE ON BOTH PEERS from
 // state already held: per-type attack config, the shared fifths ladder, and the keep's pure
@@ -139,7 +140,12 @@ interface StructWatched {
   deathOnVanish: boolean;
   /** ⭐ S191 C-8 — a castle's `Player.castleHealedHp` as last seen (absent for every other pool). */
   healed?: number;
+  /** ⭐ S193 T11 — a connector's two shape ids as last seen (absent for every other pool). */
+  ends?: readonly [PrimitiveId, PrimitiveId];
 }
+
+/** ⭐ S193 T11 — one repair-heal candidate seen this frame: a shape that rose or a bank that fell. */
+interface RepairPiece { prim: PrimitiveId; amount: number; bond: boolean }
 
 /**
  * PURE — what one frame's change in a damage pool should PRINT, if anything.
@@ -714,9 +720,12 @@ export class DamageNumbers {
      * `damageConnector` spends the structure pool and every counter drops. Emitted from the recorded
      * hit so it is the SAME number a unit would show for the same swing, which is what he asked for.
      */
+    // ⭐ S193 T11 — a break's ends, so the repair derivation below never reads its drain as a heal.
+    const breakEnds: PrimitiveId[] = [];
     for (const hit of world.connectorBreakHits) {
       const bond = world.bonds.get(hit.bondId);
       if (bond === undefined) continue;
+      breakEnds.push(bond.aId, bond.bId);
       const a = world.primitives.get(bond.aId);
       const b = world.primitives.get(bond.bId);
       if (a === undefined || b === undefined) continue;
@@ -734,14 +743,39 @@ export class DamageNumbers {
       this.emitAt(world, h.x, h.y, h.amount, 'heal', h.owner);
     }
     world.structureHealHits.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
+    /*
+     * ⭐⭐ S193 (owner T11, joiner half) — *"every healing should show … just like damage is shown on
+     * every hit."* The record above is host-local, so a JOINER (and a worker-sim host) saw only the
+     * shape refills, one green each, and never the connector half. Both halves are on the wire already
+     * (`Primitive.hp`, `Bond.damageFifths`), so the peer DERIVES the same one number: every shape that
+     * ROSE (only a repair raises `Primitive.hp`) and every connector bank that FELL, summed per structure.
+     *
+     * ⛔ A BANK ALSO FALLS WHEN A CONNECTOR BREAKS — `damageConnector` drains the survivors to pay the
+     * pool, and `severWithCarry` severs the struck one on the SAME tick. So a fall counts only when no
+     * connector of that structure VANISHED this frame (its last-seen ends are checked against the
+     * structure as it stands now). A repair removes nothing, so it always passes; a break always fails.
+     * On the host the record wins: its `keys` re-seed every bond and shape it covered (deleted above),
+     * so the derivation sees them as first sightings and nothing prints twice.
+     */
+    const repairPieces: RepairPiece[] = [];
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
+      repair?: { prim: PrimitiveId; ends?: readonly [PrimitiveId, PrimitiveId] },
     ): void => {
       seen.add(key);
       const prev = this.watchedStruct.get(key);
-      this.watchedStruct.set(key, { v, x, y, owner, rising, deathOnVanish });
+      this.watchedStruct.set(key, {
+        v, x, y, owner, rising, deathOnVanish, ...(repair?.ends !== undefined ? { ends: repair.ends } : {}),
+      });
       if (prev === undefined) return; // first sighting is neither a hit nor a heal
+      if (repair !== undefined) {
+        const healed = rising ? prev.v - v : v - prev.v;
+        if (healed > 0) {
+          repairPieces.push({ prim: repair.prim, amount: healed, bond: rising });
+          return;
+        }
+      }
       const d = poolDelta(prev.v, v, rising);
       if (d !== null) this.emitAt(world, x, y, d.amount, d.kind, owner);
     };
@@ -749,7 +783,7 @@ export class DamageNumbers {
     // SHAPES — `hp` out of PRIMITIVE_MAX_HP, which is 70 FIFTHS since S177 P1. Same ladder as a
     // creature, so this prints the same number a creature would for the same swing.
     for (const prim of world.primitives.values()) {
-      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true);
+      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true, { prim: prim.id });
     }
 
     /*
@@ -764,8 +798,10 @@ export class DamageNumbers {
         `b:${bond.id}`, bond.damageFifths,
         (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2,
         a.placedBy, true, false,
+        { prim: bond.aId, ends: [bond.aId, bond.bId] },
       );
     }
+    if (repairPieces.length > 0) this.emitDerivedRepairs(world, repairPieces, seen, breakEnds);
 
     // DEFENDERS — turret / Helga / stink tower. `ehp` is null for kinds with no unit stats.
     for (const d of world.defenders.values()) {
@@ -851,6 +887,61 @@ export class DamageNumbers {
       if (amount > 0) {
         this.emitAt(world, last.x, last.y, Math.round(amount), 'damage', last.owner);
       }
+    }
+  }
+
+  /**
+   * ⭐ S193 T11 — the joiner's derived repair number: ONE green per structure, the sum of what rose and
+   * fell (see the note in `syncStructures`). Grouped by the structure as it stands NOW; a structure that
+   * lost a connector this frame keeps its shape rises but not its bank falls (those were a break's drain).
+   * Anchored at the structure's centroid — the host's record uses the blueprint frame centre, which a
+   * peer cannot see; render-only, so a few pixels of difference cost nothing.
+   */
+  private emitDerivedRepairs(
+    world: World, pieces: readonly RepairPiece[], seen: ReadonlySet<string>, breakEnds: readonly PrimitiveId[],
+  ): void {
+    // A connector that vanished this frame (a peer sees the sever), or one the host recorded breaking
+    // (the drain is visible even before — or without — the sever landing).
+    const severedEnds = new Set<PrimitiveId>(breakEnds);
+    for (const [key, last] of this.watchedStruct) {
+      if (last.ends === undefined || seen.has(key)) continue;
+      severedEnds.add(last.ends[0]);
+      severedEnds.add(last.ends[1]);
+    }
+    const groupOf = new Map<PrimitiveId, { prims: ReadonlySet<PrimitiveId>; amount: number; severed: boolean }>();
+    const order: PrimitiveId[] = [];
+    for (const piece of pieces) {
+      const seed = world.primitives.get(piece.prim);
+      if (seed === undefined) continue;
+      let group = groupOf.get(piece.prim);
+      if (group === undefined) {
+        const prims = componentOf(seed, world.primitives, world.bonds).primitiveIds;
+        let severed = false;
+        for (const id of severedEnds) if (prims.has(id)) { severed = true; break; }
+        group = { prims, amount: 0, severed };
+        for (const id of prims) groupOf.set(id, group);
+        order.push(piece.prim);
+      }
+      if (piece.bond && group.severed) continue; // a break's drain, not a heal
+      group.amount += piece.amount;
+    }
+    for (const first of order) {
+      const group = groupOf.get(first)!;
+      if (group.amount <= 0) continue;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      let owner: PlayerId | null = null;
+      for (const id of group.prims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        sx += p.pos.x;
+        sy += p.pos.y;
+        n += 1;
+        owner ??= p.placedBy;
+      }
+      if (n === 0 || owner === null) continue;
+      this.emitAt(world, sx / n, sy / n, Math.round(group.amount), 'heal', owner);
     }
   }
 
