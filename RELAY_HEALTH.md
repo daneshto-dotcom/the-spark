@@ -18,6 +18,22 @@ S43 lost real-time 1v1 for the user because 4 of 6 production Nostr relays decay
 
 ---
 
+## ⛔ S193 rotation (2026-10-01) — supersedes the Nostr table below
+
+`src/net/iceConfig.ts` NOSTR_RELAYS is now **nos.lol, purplerelay.com, nostr.mom, relay.primal.net** (4).
+
+| Removed | Evidence |
+|---|---|
+| `wss://relay.mostr.pub` | DEAD: HTTP 301 on every handshake (`npm run probe-relays`; every CI e2e page console) |
+| `wss://offchain.pub` | socket OPENS but every event is REJECTED: "Policy violated and pubkey is not in our web of trust" |
+| `wss://nostr-pub.wellorder.net` | socket OPENS but every event is REJECTED: "blocked: spam not permitted" |
+
+⚠ A handshake probe calls the two write-rejectors HEALTHY — that is how S44 pinned them. `probe-relays.mjs` now lists them
+separately ("Removed S193 for REJECTING WRITES"); `src/net/relayLists.test.ts` keeps all three off the list for good and
+`src/net/relayRotation.test.ts` proves the rotated list is what `NetTransport.connect` hands Trystero.
+⚠ purplerelay.com kept: intermittent "No space left on device" on some writes. ⚠ No replacement added — pick one with a
+FUNCTIONAL write test (a real published event), never a handshake.
+
 ## Current relay set (S44 rotation)
 
 ### Nostr (`STRATEGY_FLAGS.nostr = true`, primary)
