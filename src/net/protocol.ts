@@ -1215,6 +1215,10 @@ export interface HelloMsg {
    * the per-match id on START_GAME_SIGNAL / LOBBY_PRESENCE / NETSNAPSHOT and the C6 beacon election.
    * Full reasons on the const's JSDoc.)
    *
+   * S192: 52->53 (DEPLOY #7 — `s191/addons`: `Creature.rageStartTick`, the Warlord's 25 s rage latch +
+   * 25 s cooldown, the BLOOD FRENZY source = his own open window and never a Warlord. Full reasons on
+   * the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1252,7 +1256,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 52;
+  readonly protoVersion: 53;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
