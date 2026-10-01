@@ -37,7 +37,7 @@ import {
   type CreatureId,
   type CreatureType,
   isStunned,
-  isUntargetable,
+  isLiveCreatureTarget,
   attackCycleMultiplier,
   ragedFireTick,
   isChannellingRa,
@@ -921,7 +921,8 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       if (victim === undefined) return false;
       // ⭐ S179 — untargetable is re-checked on RETENTION, not only at acquisition. See the note at
       // `creatureAI.pickNavUnit`'s hold branch for the frozen-army symptom this ends.
-      if (isUntargetable(victim, world.tick)) return false;
+      // ⭐ S192 T13 — and not a corpse-in-waiting: never ENTER ATTACKING on a body.
+      if (!isLiveCreatureTarget(world, victim)) return false;
       const reach = engageRange(config); // S154 P2 — see the note on the structure arm above
       return distSq(creature.pos, victim.pos) <= reach * reach;
     })();
@@ -1066,7 +1067,9 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
         victim.ownerPlayerId !== creature.ownerPlayerId &&
         // ⭐ S179 — and this is the arm that actually UNFREEZES the unit: clearing the commit sends
         // it back to SEEKING, where `computeSteeringAccel` moves it again instead of ZERO_ACCEL.
-        !isUntargetable(victim, world.tick) &&
+        // ⭐ S192 T13 (owner) — *"my spawn were attacking him, even though it was already dead"*: a
+        // victim killed earlier this tick by someone else drops the commit too (the liveness predicate).
+        isLiveCreatureTarget(world, victim) &&
         distSq(creature.pos, victim.pos) <= range * range;
       if (!stillValid) creature.targetCreatureId = null;
     }
@@ -1095,7 +1098,8 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       creature.targetCreatureId !== null
       && world.creatures.has(creature.targetCreatureId)
       // ⭐ S179 — the wind-up must abort too, or the strike lands on a target that cannot be hit.
-      && !isUntargetable(world.creatures.get(creature.targetCreatureId)!, world.tick)
+      // ⭐ S192 T13 — the wind-up aborts on a corpse-in-waiting too (the liveness predicate).
+      && isLiveCreatureTarget(world, world.creatures.get(creature.targetCreatureId)!)
       && isWithinAttackRangeOfCreature(world, creature, creature.targetCreatureId);
     // ⭐ S139 P2 — THE THIRD ARM, and the whole reason a real-physics test was mandatory.
     //

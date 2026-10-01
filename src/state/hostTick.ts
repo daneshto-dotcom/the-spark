@@ -100,6 +100,8 @@ import {
   recipeStillSatisfied as defenderRecipeStillSatisfied,
   standDownDefenders,
   reviveDormantHelgas, // S189 R190-J — wake a dead Helga at the FIGHT→BUILD edge while her hall stands
+  stepPrincessPatrol, // S192 T5 — her BUILD-stage patrol (motion only)
+  defenderHomePos,
 } from './defenders/defenderLifecycle.ts';
 // S159 P8 — the magazine refill on the BUILD edge reads each kind's `bags` from its config.
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -1433,7 +1435,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // player severed their own bonds, or is mid-rebuild) must still be REMOVED, or a dead tower
       // would linger all phase and come back to life at the FIGHT edge. Dormancy suspends the
       // WEAPON, not the entity's bookkeeping.
-      if (world.matchPhase !== 'FIGHT') continue;
+      //
+      // ⭐⭐ S192 T5 (owner) — *"Helga is not patrolling during … the build stage … She should always
+      // like walk around her tower patrolling."* Dormancy suspends the weapon, NOT HER LEGS: in BUILD
+      // a living Helga takes one patrol step and nothing else — no acquire, no fire clock, no aura,
+      // and she stays IDLE with a null target, so her music does not start (see `stepPrincessPatrol`).
+      // `standDownDefenders` leaves every non-DORMANT defender IDLE at the FIGHT→BUILD edge, so the
+      // IDLE gate is every living Helga in practice; DORMANT (R190-J) stays exactly where she fell.
+      if (world.matchPhase !== 'FIGHT') {
+        if (d.kind === 'princess' && d.state === 'IDLE') {
+          const home = defenderHomePos(world, d);
+          if (home !== null) stepPrincessPatrol(world, d, home);
+        }
+        continue;
+      }
       if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga does nothing until the edge
       dispatch(world, { type: 'DEFENDER_TICK', defenderId });
     }

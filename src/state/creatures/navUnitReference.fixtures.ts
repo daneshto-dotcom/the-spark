@@ -22,11 +22,75 @@
  * ## ⚠ IF YOU CHANGE NAV-UNIT *BEHAVIOUR* (e.g. stop targeting a unit killed earlier in the tick)
  *
  * Change THIS FILE FIRST — it is the readable specification — then make `creatureAI.ts` agree.
+ *
+ * ## ⭐ S192 T13 — THE FIRST BEHAVIOUR CHANGE, AND IT LANDED HERE FIRST
+ *
+ * Owner: *"my spawn were attacking him, even though it was already dead"* — he ruled that a pick
+ * returning a unit killed earlier in the same tick IS a bug. The acquire scan and the hold now both
+ * skip a creature that is not a live target: `ehp <= 0`, in `pendingCreatureDeaths` (the S155 N1
+ * corpse-in-waiting), or untargetable. (A `DESPAWNING` clause shipped in the first cut and was removed
+ * by ruling — *"Units are either destroyed or respawned"*.)
+ *
+ * ⛔ WRITTEN OUT LONGHAND (`referenceIsLiveTarget`), NOT IMPORTED. Production reads the shared
+ * `isLiveCreatureTarget` from `creature.ts`; if this file imported it too, a wrong edit to that
+ * predicate would move both sides at once and the differential would stay green over it. The
+ * longhand copy is what keeps the oracle independent. `isUntargetable` stays imported, as before:
+ * it is the S169/S171 rule this file has always shared, and T13 did not change it.
  */
 import type { CreatureId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { isUntargetable } from './creature.ts';
+import { CREATURE_CONFIGS } from './voltkin-config.ts';
+import { CHASE_GIVEUP_SLACK_PX, CHASE_GIVEUP_SPEED_RATIO } from '../../constants.ts';
+import { zoneOf, zoneOwner } from '../zones.ts';
+
+/**
+ * S192 T6 — "don't chase what you can't catch", LONGHAND for the same reason as the liveness rule.
+ * `creatureAI.STANDOFF_ENGAGE_FRACTION` is copied as a literal (importing `creatureAI.ts` here is the
+ * circular import the file docblock describes); `chaseGiveUp.test.ts` pins the two equal.
+ */
+export const REFERENCE_STANDOFF_ENGAGE_FRACTION = 0.9;
+
+export function referenceCannotCatch(world: World, chaser: Creature, quarry: Creature, dSq: number): boolean {
+  const cc = CREATURE_CONFIGS[chaser.type];
+  const reach = (cc.holdsRange ? cc.attackRange * REFERENCE_STANDOFF_ENGAGE_FRACTION : cc.attackRange) + CHASE_GIVEUP_SLACK_PX;
+  if (dSq <= reach * reach) return false;
+  const qc = CREATURE_CONFIGS[quarry.type];
+  const nonCombatant = quarry.type === 'chewer' || (qc.selfExplode && !qc.targetsStructures);
+  if (!nonCombatant) return false;
+  if (!(qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO)) return false;
+  // S192 refinement — at home it is engaged.
+  const home = zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout);
+  // S193 audit — the CHASER must be at home too ("you're still in your zone" = the unit's own zone).
+  if (home !== null && zoneOf(chaser.pos, world.layout) === home && zoneOf(quarry.pos, world.layout) === home) return false;
+  // S192 refinement — and when it can be cut off before it reaches its target.
+  const vx = quarry.targetPos.x - quarry.pos.x;
+  const vy = quarry.targetPos.y - quarry.pos.y;
+  const len2 = vx * vx + vy * vy;
+  if (len2 >= 1) {
+    const t = Math.min(1, Math.max(0, ((chaser.pos.x - quarry.pos.x) * vx + (chaser.pos.y - quarry.pos.y) * vy) / len2));
+    const px = quarry.pos.x + t * vx;
+    const py = quarry.pos.y + t * vy;
+    const quarryTravel = t * Math.sqrt(len2);
+    const cdx = chaser.pos.x - px;
+    const cdy = chaser.pos.y - py;
+    const chaserTravel = Math.max(0, Math.sqrt(cdx * cdx + cdy * cdy) - reach);
+    if (chaserTravel * qc.maxAccel <= quarryTravel * cc.maxAccel) return false;
+  }
+  return true;
+}
+
+/**
+ * S192 T13 — the liveness rule, longhand (see the file docblock for why it is not imported):
+ * a live pool, not a corpse-in-waiting, and selectable.
+ */
+export function referenceIsLiveTarget(world: World, c: Creature): boolean {
+  if (c.ehp <= 0) return false;
+  if (world.pendingCreatureDeaths !== null && world.pendingCreatureDeaths.has(c.id)) return false;
+  if (isUntargetable(c, world.tick)) return false;
+  return true;
+}
 
 /**
  * Squared distance between two Vec2 points. Avoids sqrt for hot-path compare.
@@ -58,6 +122,7 @@ export function referenceFindNearestEnemyCreatureFrom(
   ownerPlayerId: PlayerId,
   maxRangeSq: number = Infinity,
   excludeId?: CreatureId,
+  chaser?: Creature,
 ): CreatureId | null {
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
@@ -84,10 +149,13 @@ export function referenceFindNearestEnemyCreatureFrom(
      * Kraken's own sonar cone — still reach it, because "cannot be targeted" is a statement about
      * ACQUISITION and reading it as invulnerability would make a 15-second locust cloud unkillable
      * by anything at all. `untargetableGates.test.ts` pins both halves.
+     *
+     * S192 T13 — and not dead: the liveness rule, longhand.
      */
-    if (isUntargetable(c, world.tick)) continue;
+    if (!referenceIsLiveTarget(world, c)) continue;
     const dSq = referenceDistSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
+    if (chaser !== undefined && referenceCannotCatch(world, chaser, c, dSq)) continue; // S192 T6
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -134,8 +202,11 @@ export function referencePickNavUnit(
       // untargetable, every unit already locked on him renewed that lock here, and because
       // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
       // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
-      !isUntargetable(quarry, world.tick) &&
-      referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq
+      // S192 T13 — a corpse-in-waiting is not held either.
+      referenceIsLiveTarget(world, quarry) &&
+      referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq &&
+      // S192 T6 — and a quarry it cannot catch is let go.
+      !referenceCannotCatch(world, creature, quarry, referenceDistSq(creature.pos, quarry.pos))
     ) {
       return held;
     }
@@ -147,5 +218,6 @@ export function referencePickNavUnit(
     creature.ownerPlayerId,
     acquireRadiusSq,
     creature.id,
+    creature,
   );
 }
