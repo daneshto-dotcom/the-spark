@@ -60,6 +60,7 @@ import {
   classifyJoinError,
   type StrategyName,
 } from './iceConfig.ts';
+import { POOL_SAFE_PC } from './poolSafePeerConnection.ts';
 
 export { classifyJoinError };
 
@@ -534,6 +535,10 @@ export class NetTransport {
             iceServers: ICE_SERVERS,
             iceTransportPolicy: 'all',
           },
+          // ⛔ S192 T1 — the pool-safe PC (never rolls back an unanswered pooled offer). Without it a
+          // pooled offer > 57.3 s old is restarted into an EMPTY offer and the late joiner's link
+          // is dead. See `poolSafePeerConnection.ts`; `trysteroPolyfill.test.ts` pins every site.
+          rtcPolyfill: POOL_SAFE_PC,
           trickleIce: true,
         },
         roomCode,
