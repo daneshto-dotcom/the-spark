@@ -1,5 +1,8 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
+// PITCH MASTERS (arcade) — its page is built as a separate Vite pass so SPARK's index chunk stays
+// byte-identical; it receives the same `define` (TURN) block. See the plugin's docblock.
+import { pitchMastersPage } from './src/arcade/pitchMasters/vitePlugin.ts';
 
 const sessionPort = Number(process.env.SESSION_PORT);
 const port = Number.isFinite(sessionPort) && sessionPort > 0 ? sessionPort : 5173;
@@ -55,6 +58,7 @@ const turnDefines = Object.fromEntries(
 
 export default defineConfig({
   define: turnDefines,
+  plugins: [pitchMastersPage(turnDefines)],
   base: '/',
   server: {
     port,
