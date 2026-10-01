@@ -40,6 +40,25 @@ import type { CreatureId, PlayerId, Vec2 } from '../../types.ts';
 import type { World } from '../world.ts';
 import type { Creature } from './creature.ts';
 import { isUntargetable } from './creature.ts';
+import { CREATURE_CONFIGS } from './voltkin-config.ts';
+import { CHASE_GIVEUP_SLACK_PX, CHASE_GIVEUP_SPEED_RATIO } from '../../constants.ts';
+
+/**
+ * S192 T6 — "don't chase what you can't catch", LONGHAND for the same reason as the liveness rule.
+ * `creatureAI.STANDOFF_ENGAGE_FRACTION` is copied as a literal (importing `creatureAI.ts` here is the
+ * circular import the file docblock describes); `chaseGiveUp.test.ts` pins the two equal.
+ */
+export const REFERENCE_STANDOFF_ENGAGE_FRACTION = 0.9;
+
+export function referenceCannotCatch(chaser: Creature, quarry: Creature, dSq: number): boolean {
+  const cc = CREATURE_CONFIGS[chaser.type];
+  const reach = (cc.holdsRange ? cc.attackRange * REFERENCE_STANDOFF_ENGAGE_FRACTION : cc.attackRange) + CHASE_GIVEUP_SLACK_PX;
+  if (dSq <= reach * reach) return false;
+  const qc = CREATURE_CONFIGS[quarry.type];
+  const nonCombatant = quarry.type === 'chewer' || (qc.selfExplode && !qc.targetsStructures);
+  if (!nonCombatant) return false;
+  return qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO;
+}
 
 /**
  * S192 T13 — the liveness rule, longhand (see the file docblock for why it is not imported):
@@ -83,6 +102,7 @@ export function referenceFindNearestEnemyCreatureFrom(
   ownerPlayerId: PlayerId,
   maxRangeSq: number = Infinity,
   excludeId?: CreatureId,
+  chaser?: Creature,
 ): CreatureId | null {
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
@@ -115,6 +135,7 @@ export function referenceFindNearestEnemyCreatureFrom(
     if (!referenceIsLiveTarget(world, c)) continue;
     const dSq = referenceDistSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
+    if (chaser !== undefined && referenceCannotCatch(chaser, c, dSq)) continue; // S192 T6
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -163,7 +184,9 @@ export function referencePickNavUnit(
       // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
       // S192 T13 — a corpse-in-waiting (or a fading unit) is not held either.
       referenceIsLiveTarget(world, quarry) &&
-      referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq
+      referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq &&
+      // S192 T6 — and a quarry it cannot catch is let go.
+      !referenceCannotCatch(creature, quarry, referenceDistSq(creature.pos, quarry.pos))
     ) {
       return held;
     }
@@ -175,5 +198,6 @@ export function referencePickNavUnit(
     creature.ownerPlayerId,
     acquireRadiusSq,
     creature.id,
+    creature,
   );
 }

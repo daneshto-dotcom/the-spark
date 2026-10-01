@@ -175,6 +175,25 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
     });
   });
 
+  it('⭐ S192 T6 — drones and chewers at every distance band, every chaser type: index and live scan agree with the reference', () => {
+    const t = bothWays(() => {
+      const w = brawl();
+      const chasers: CreatureType[] = ['goblinMelee', 'goblinShield', 'goblinArcher', 't3Bat', 't9BossOrcs', 't9BossNagas'];
+      let x = 200;
+      for (const type of chasers) {
+        insertAs(w, asCreatureId(w.nextCreatureId++), 0, x, 150, type);
+        // quarries at 30 / 60 / 120 / 210 px: inside reach, at the slack edge, beyond it, at the acquire edge
+        for (const dx of [30, 60, 120, 210]) {
+          insertAs(w, asCreatureId(w.nextCreatureId++), 1, x + dx, 150 + (dx % 7), 'lightningDrone');
+          insertAs(w, asCreatureId(w.nextCreatureId++), 2, x - dx, 150 - (dx % 5), 'chewer');
+        }
+        x += 260;
+      }
+      return w;
+    }, (_w, check) => check('drones + chewers'));
+    expect(t.nonNull, 'anti-vacuity: units were found').toBeGreaterThan(100);
+  });
+
   it('a unit moved after the index was built, a unit at NaN, and held locks of every kind', () => {
     bothWays(brawl, (w, check) => {
       check('before');

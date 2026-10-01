@@ -27,7 +27,8 @@ import {
   PLAYER_COLORS,
 } from '../../constants.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
-import { engageRange, pickNavUnit } from './creatureAI.ts';
+import { engageRange, pickNavUnit, STANDOFF_ENGAGE_FRACTION } from './creatureAI.ts';
+import { REFERENCE_STANDOFF_ENGAGE_FRACTION } from './navUnitReference.fixtures.ts';
 import { makeCreature, type Creature, type CreatureType } from './creature.ts';
 import { CREATURE_CONFIGS, isNonCombatantType } from './voltkin-config.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -154,6 +155,12 @@ describe('S192 T6 — the arithmetic over the real configs', () => {
       w.creatures.delete(ch.id);
       w.creatures.delete(me.id);
     }
+  });
+});
+
+describe('S192 T6 — the perf reference spells the rule out longhand', () => {
+  it('its copied standoff fraction is the live one', () => {
+    expect(REFERENCE_STANDOFF_ENGAGE_FRACTION).toBe(STANDOFF_ENGAGE_FRACTION);
   });
 });
 
