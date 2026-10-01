@@ -112,3 +112,11 @@ None (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts` untouched).
   pool 135, bite 252. Re-pinned apexPredator.test (×9, ×9 pool / ×21 bite, + REACH maxEhp on real emission),
   theSwarm.test (6, decoupled), statsLadder.test (elite gets its own derived lane — HP 27 / ATK 18 are off 1..12 by
   his ruling). Copy: racialPerks nagas.l5 "nine times the stats". Mutations: swarm re-coupled → 5 red; apex 3 → 3 red.
+- ITEM 3 committed `bbb3f60`. l5-nagas card art inspected: no printed multiplier.
+- FINAL GATES (captured `$?`): TYPECHECK=0 · VITEST=1 — 6726 passed / 4 failed / 7 skipped (6737, 416 files); the 4
+  are ALL `canon.test.ts` §3e (POWER OF RA, WRATH OF RA, APEX PREDATOR, THE SWARM) — RED BY DESIGN, re-pin text in
+  `S191_CANON_NOTES_tune.md` (merge owner). · BUILD=0 — 974.5 KiB / 1100 (master 972.7 → +1.8 KiB).
+- PROTOCOL verdict: BUMP (strike damage split, placement legality, piranha-elite stats — all host/successor rules).
+  PROTOCOL_VERSION untouched (52). No wire/hash field changed.
+- STATUS: DONE, awaiting merge-owner audit. Re-check after s191/carry lands (overkill carry → 7 columns becomes ~4;
+  `powerOfRaSplit.test` "SEVENTH column" will go red by design then).

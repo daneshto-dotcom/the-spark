@@ -112,4 +112,4 @@ decided at the EMIT (`towerUnitForSeat`). (S188–S191 it was ×3: 45 / 48.)
 
 ### Player-facing copy changed
 `racialPerks.ts` `nagas.l5.detail`: "three times the stats" → "nine times the stats". ⚠ The `l5-nagas` CARD ART
-(`public/art/upgrade-cards/`) was not inspected for a printed "×3" — owner/merge owner to eyeball.
+(`public/art/upgrade-cards/l5-nagas.webp`) was inspected: title and art only, no printed multiplier — nothing to regenerate.
