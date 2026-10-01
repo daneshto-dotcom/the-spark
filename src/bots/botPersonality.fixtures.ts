@@ -27,6 +27,7 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { asPlayerId } from '../types.ts';
 import { BotController } from './botController.ts';
 import { BotManager } from './botManager.ts';
+import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
 import { DEFENCE_ROLES, towerRoleOf } from './botPersonality.ts';
 import { isRaceTowerId } from '../state/raceTowerIds.ts';
 import {
@@ -334,4 +335,38 @@ export function runLockMatch(
     seatsWithTower,
     carryingAtEnd: anyCarrying(),
   };
+}
+
+/**
+ * ⭐ S193 audit MED-1 — the IDENTITY differential's two arms, on the real frame lifecycle.
+ *
+ * `'stripped'` builds every controller and then replaces its config with the bare tier row
+ * (`BOT_CONFIGS[tier]`, no `persona`), so the brain runs the pre-S193 path (`personaOf` → identity) and no
+ * personality knob is ever read. `'balanced'` is the lobby's explicit BALANCED. Equal hashes ⇒ BALANCED
+ * below IMBA is the pre-personality bot, on whatever master this runs on — a relative pin that cannot go
+ * stale when an unrelated sim change moves every absolute hash (which is what MED-1 was).
+ */
+export function runIdentityArm(
+  tiers: readonly BotDifficulty[],
+  seconds: number,
+  arm: 'stripped' | 'balanced',
+): number {
+  const w = startMatch();
+  const total = tiers.length + 1;
+  const controllers = tiers.map((tier, i) => {
+    const rng = mulberry32(((SIG_BOT_SEED ^ ((i + 1) * 0xb07b07)) >>> 0) || 1);
+    const c = new BotController(asPlayerId(i + 1), tier, rng, total, 'BALANCED');
+    // Test-only seam: the config is private by design; the stripped arm is exactly "no persona at all".
+    if (arm === 'stripped') (c as unknown as { cfg: BotConfig }).cfg = BOT_CONFIGS[tier];
+    return c;
+  });
+  const d = makeDeps({ tick(world: World): void { for (const c of controllers) c.tick(world, (a) => void dispatch(world, a)); } });
+  const st = makeHostTickState(w);
+  const cursor: GodlyMatcherCursor = { lastMatcherTick: -1 };
+  for (let t = 0; t < 60 * seconds; t++) {
+    runHostTick(w, d, st);
+    if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, cursor);
+    w.effects.length = 0;
+  }
+  return hashWorldStateFull(w);
 }

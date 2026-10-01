@@ -47,6 +47,7 @@ import {
 } from './botPersonality.ts';
 import {
   runFrameMatchWithManager,
+  runIdentityArm,
   runLockMatch,
   runManagerMatch,
   runSignatureMatch,
@@ -58,6 +59,7 @@ import {
   BOT_PERSONALITIES,
   BOT_PERSONALITY_CHOICES,
   resolvePersonality,
+  type BotDifficulty,
   type BotPersonality,
 } from './botTypes.ts';
 
@@ -93,29 +95,40 @@ function raiseTower(w: World, seat: PlayerId, id: GodlyId, cfg: BotConfig): void
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S193 — IDENTITY: BALANCED below IMBA is the pre-S193 bot, byte for byte', () => {
+describe('S193 — IDENTITY: BALANCED below IMBA is the pre-personality bot, byte for byte', () => {
   /*
-   * Measured on master a638565b with the UNCHANGED bot code, through this exact harness (bots before
-   * `runHostTick`, the `firstTowerSpeed.test.ts` fixture), world seed 0xb07, bot seed 0xbeef, 200 s.
-   * If either number moves, BALANCED is no longer the bot the owner has been ruling on.
+   * ⭐ S193 audit MED-1 — A DIFFERENTIAL, NOT AN ABSOLUTE PIN. The first version pinned two hashes measured
+   * on master a638565b; one merge later (deploy #20, endgame) they were stale, though BALANCED had not
+   * changed — every unrelated sim change moves an absolute hash. The auditor re-derived identity on the
+   * merged tree four ways (master == merged bare == merged BALANCED); this asserts the same relation on
+   * whatever tree it runs on: the bare tier config (no persona read anywhere) vs the lobby's BALANCED,
+   * same seed, real frame lifecycle (towers ignite and feed), 300 s. No absolute pin is kept: none can be
+   * justified that would not go red on the next unrelated merge.
    */
-  const PRE_S193_NOOB_MID_HARD = 3272847274;
-  const PRE_S193_HARD_MID_HARD = 2679319443;
+  const CELLS: ReadonlyArray<readonly BotDifficulty[]> = [
+    ['NOOB', 'MID', 'HARD'],
+    ['HARD', 'MID', 'HARD'],
+    ['MID', 'MID', 'MID'],
+    ['HARD', 'HARD', 'HARD'],
+  ];
+  for (const cell of CELLS) {
+    it(`${cell.join('/')}: stripped (no persona) === explicit BALANCED`, () => {
+      expect(runIdentityArm(cell, 300, 'balanced')).toBe(runIdentityArm(cell, 300, 'stripped'));
+    }, 60_000);
+  }
 
-  it('a bare BotManager (no personalities) reproduces the pre-S193 hash', () => {
-    expect(runManagerMatch(['NOOB', 'MID', 'HARD'], 200)).toBe(PRE_S193_NOOB_MID_HARD);
-    expect(runManagerMatch(['HARD', 'MID', 'HARD'], 200)).toBe(PRE_S193_HARD_MID_HARD);
-  });
-
-  it('explicit BALANCED reproduces it too', () => {
+  it('the older harness agrees: a bare BotManager === explicit BALANCED', () => {
     expect(runManagerMatch(['NOOB', 'MID', 'HARD'], 200, ['BALANCED', 'BALANCED', 'BALANCED']))
-      .toBe(PRE_S193_NOOB_MID_HARD);
+      .toBe(runManagerMatch(['NOOB', 'MID', 'HARD'], 200));
   });
 
-  it('⚠ NEGATIVE: a non-BALANCED personality DOES move the hash (the pin is not vacuous)', () => {
+  it('⚠ NEGATIVE: the differential is not vacuous — IMBA BALANCED (Q4/Q6) and a non-BALANCED lobby differ', () => {
+    // IMBA BALANCED carries the two IMBA rulings, so it MUST differ from the bare IMBA row.
+    expect(runIdentityArm(['IMBA', 'IMBA', 'IMBA'], 300, 'balanced'))
+      .not.toBe(runIdentityArm(['IMBA', 'IMBA', 'IMBA'], 300, 'stripped'));
     expect(runManagerMatch(['HARD', 'MID', 'HARD'], 200, ['FORTRESS', 'BALANCED', 'WARMONGER']))
-      .not.toBe(PRE_S193_HARD_MID_HARD);
-  });
+      .not.toBe(runManagerMatch(['HARD', 'MID', 'HARD'], 200));
+  }, 60_000);
 
   it('BALANCED NOOB/MID/HARD carry the identity knobs and the tier row untouched', () => {
     expect(IDENTITY_KNOBS.saveHoldTicks).toBe(SAVE_HOLD_TICKS);
