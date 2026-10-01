@@ -434,7 +434,11 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/racial/scorchedEarthRules.ts': { n: 1, verdict: 'isScorchImmune: owner === spared → never for 255' },
     'src/state/racial/scorchedGround.ts': { n: 6, verdict: 'every burn arm asks isScorchImmune → a pants burns' },
     'src/state/racial/theRisen.ts': { n: 1, verdict: 'an ENEMY kill only; a pants killer has no seat to raise for' },
-    'src/state/structureRepair.ts': { n: 1, verdict: 'FIX: a seat\'s own shapes only' },
+    // ⭐ S193 weld merge seam — `s189/weld` R191-A / R191-B. Every one is seat bookkeeping a pants (255,
+    // never in `world.players`) can never be party to: it places no shapes, owns no gatherers, queues no jobs.
+    'src/state/repairJobs.ts': { n: 3, verdict: 'FIX jobs: a seat\'s own gatherers / stamped shapes / bank reservations — seats only' },
+    'src/state/structureRepair.ts': { n: 2, verdict: 'FIX / SCRAP: a seat\'s own shapes only (seatStructureAt + reclaimScopeAt)' },
+    'src/state/towerUnit.ts': { n: 2, verdict: 'a fallen stamp is grouped from ONE placer\'s shapes — a pants places none' },
     'src/state/vision.ts': { n: 2, verdict: 'a seat\'s own sight sources — a pants grants none' },
     'src/state/world.ts': { n: 2, verdict: 'RAID: target owner !== raider → a pants is raidable' },
     'src/bots/botBrain.ts': { n: 12, verdict: 'a bot\'s own shapes/gatherers — seats only' },
