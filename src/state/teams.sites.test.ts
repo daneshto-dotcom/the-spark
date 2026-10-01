@@ -95,11 +95,16 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   'state/godlyRecipes/raceTower.ts': 1,
   'state/godlyRecipes/stinkTower.ts': 1,
   'state/godlyRecipes/t9BossTower.ts': 1,
+  // ⭐ S193 (merged from master) — `voltkinTvOwner` counts a chain's members by COLOUR: whose TV it is (MINE).
+  'state/godlyRecipes/voltkinChainWalk.ts': 1,
   'state/placeFromFree.ts': 1,
   'state/placePrimitive.ts': 3,
   'state/raceUnitEmit.ts': 1,
   'state/racial/corpseEater.ts': 1,
   'state/racial/endlessDynasty.ts': 1,
+  // ⭐ S193 — two regex FALSE POSITIVES, not comparisons of seats: `spared(d.ownerPlayerId) || d.ehp === null`
+  // and `spared(p.placedBy) || p.bonds.size !== 0` (the seat test is the team-aware `spared` closure).
+  'state/racial/raColumn.ts': 2,
   'state/structureRepair.ts': 1,
   'state/territory.ts': 2,
   'state/vision.ts': 2,
@@ -110,6 +115,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'bots/botBrain.ts': 6,
   'bots/botController.ts': 1,
   'bots/botRa.ts': 3,
+  'bots/botScorchedEarth.ts': 1, // S193 — the bot never scorches a teammate's zone
   'input/controls.ts': 4,
   'render/characterSheetModel.ts': 4,
   'render/creatureProjectile.ts': 1,
@@ -123,21 +129,109 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'state/creatures/retaliation.ts': 1,
   'state/creatures/suicideBlast.ts': 2,
   'state/creatures/voltkinChain.ts': 1,
-  'state/damage.ts': 2,
+  'state/damage.ts': 3, // S193 — + master's `alsoSparePlayerId` (the hub-popped bag) spares its TEAM
   'state/defenders/defenderLifecycle.ts': 2,
   'state/defenders/stinkTower.ts': 1,
   'state/disruptionManager.ts': 1,
   'state/droneLifecycle.ts': 2,
   'state/gameMode.ts': 1,
   'state/gameState.ts': 1,
-  'state/potatoLifecycle.ts': 2,
+  'state/potatoLifecycle.ts': 8, // S193 — + master's `planHubBlast`: 4 arms isEnemySeat, the connector arm 2× sameTeam
   'state/racial/corpseEater.ts': 1,
-  'state/racial/powerOfRa.ts': 2,
-  'state/racial/scorchedGround.ts': 1,
+  // S193 — master moved the column to `raColumn.ts` (perk AND Pharaoh boss) and the scorch's resistance into
+  // `isScorchImmune` (`scorchedEarthRules.ts`, the ONE site its docblock names); `powerOfRa.ts` and
+  // `scorchedGround.ts` now hold no seat decision of their own.
+  'state/racial/raColumn.ts': 2,
+  'state/racial/scorchedEarthRules.ts': 1,
   'state/racial/theRisen.ts': 1,
   'state/territory.ts': 3,
   'state/walls.ts': 2,
   'state/world.ts': 5,
+};
+
+/**
+ * ⭐⭐ S193 — **THE SEAT-VARIABLE CENSUS: the hole the INLINE regex had.** `INLINE` only sees a comparison that
+ * names a FIELD (`ownerPlayerId` / `placerColor` / `placedBy`). Master's S191–S192 work added enemy decisions
+ * that compare two seat VARIABLES instead — `owner === spare` (raColumn), `seat === sparePlayerId` (damage),
+ * `owner === spared` (isScorchImmune), `other === seat` (the bot scorch picker) — and every one of them was
+ * invisible to the S192 census; the bot scorch picker was a live friendly-fire choice when this was written.
+ *
+ * `SEATVAR` matches `===`/`!==` where one side NAMES a seat (seat, other, owner, caster, spare…, allies…,
+ * victim…, playerId, localPlayerId, …Seat, …Owner) and the other is not null/undefined/a literal. Each
+ * file's count is PINNED; every pinned hit below was READ and classified MINE (your gatherer, your seat,
+ * the local viewer, a seat-table lookup, a creature-id false positive) — none asks "is this an ENEMY?".
+ * A new one turns this red until somebody routes it through `sameTeam` or pins it with the reason.
+ */
+const SEATNAME = String.raw`(?:[\w.?]*\b(?:seat|other|owner|caster|spare\w*|alsoSpare\w*|alliesOf|allies|victim\w*|attackerSeat|ownerSeat|zoneSeat|hoverSeat|mySeat|selfSeat|playerId|localPlayerId|\w+Seat|\w+Owner))`;
+const OPERAND = String.raw`[\w.?()]+`;
+const SEATVAR = new RegExp(
+  String.raw`(?:${SEATNAME}\s*(?:===|!==)\s*(?!null\b|undefined\b|\d|'|")${OPERAND})|(?:(?<![=!]==\s*)${OPERAND}\s*(?:===|!==)\s*${SEATNAME}\b)`,
+  'g',
+);
+export function countSeatVar(src: string): number {
+  return (stripComments(src).match(SEATVAR) ?? []).filter(
+    (x) => !/(===|!==)\s*(null|undefined)\b/.test(x) && !/^(null|undefined)\b/.test(x),
+  ).length;
+}
+function seatVarCensus(): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const f of productionFiles(SRC).sort()) {
+    const r = rel(f);
+    if (r.startsWith('arcade/') || r === 'state/teams.ts') continue; // Pitch Masters is off-limits (owner, S192)
+    const n = countSeatVar(readFileSync(f, 'utf8'));
+    if (n > 0) out[r] = n;
+  }
+  return out;
+}
+
+/** Every hit READ and classified MINE / not-a-side-decision (S193). The reason is per file. */
+const PINNED_SEATVAR: Readonly<Record<string, number>> = {
+  'bots/botBrain.ts': 9, // the bot's OWN shapes/gatherers/hunter; `targetSeat` filters the already-chosen enemy's things
+  'dev/fxLab.ts': 1, // dev-only effect lab: pick any other seat to stage an effect
+  'dev/probeHarness.ts': 1, // dev probe: the local seat's shapes
+  'input/controls.ts': 3, // your gatherer, the spark you carry
+  'input/controlsCore.ts': 1, // the spark you carry
+  'main.ts': 2, // the spark you carry; your own seat row
+  'net/successionWarrant.ts': 1, // seat-table lookup
+  'net/sync.ts': 1, // the spark you carry
+  'render/avatarRenderer.ts': 3, // the local avatar
+  'render/botSetupOverlay.ts': 1, // lobby seat swap
+  'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
+  'render/characterSheetModel.ts': 5, // YOURS vs not (the ALLY/ENEMY split is below it, team-aware)
+  'render/concealment.ts': 1, // the local viewer's own things are never concealed
+  'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id
+  'render/lobbyStateMachine.ts': 2, // seat-table rows
+  'render/raAimPreview.ts': 1, // memo key
+  'render/scorchedEarthAim.ts': 1, // memo key
+  'render/severToastRenderer.ts': 2, // a toast for YOUR bond; actor === victim (self-sever wording)
+  'render/sudokuOverlay.ts': 1, // who solved it
+  'render/ui.ts': 1, // the local row
+  'render/zoneBackgroundRenderer.ts': 1, // the hovered zone
+  'state/bossSkillsArchdemon.ts': 2, // `allies` is a COUNT compared for the best cluster
+  'state/creatures/creatureLifecycle.ts': 1, // whose bond a creature was cutting (victim bookkeeping)
+  'state/creatures/retaliation.ts': 3, // creature ids
+  'state/damage.ts': 3, // CARRY-1: the carry stays on the struck bond's OWNER (MINE, narrower than team); `alliesOf` excludes his own seat
+  'state/exploredMemory.ts': 1, // the local viewer's shapes
+  'state/gatherers/gathererLifecycle.ts': 3, // your gatherer
+  'state/goblinKinds.ts': 2, // the goblin tower's owner
+  'state/goblinTowerFeed.ts': 1, // your goblin tower
+  'state/godlyMatcherCore.ts': 3, // a recipe's owner
+  'state/godlyOrchestration.ts': 2, // cinematic owner / the local seat
+  'state/hostTick.ts': 1, // seat-table lookup (forfeit)
+  'state/placeFromFree.ts': 2, // the local seat's own action
+  'state/placePrimitive.ts': 1, // the local seat's own action
+  'state/potatoLifecycle.ts': 1, // `alliesOf` excludes the boss's own seat (spec Q5)
+  'state/raceUnitEmit.ts': 1, // your race units
+  'state/racial/corpseEater.ts': 1, // creature id
+  'state/racial/endlessDynasty.ts': 1, // your mummies
+  'state/racial/raColumn.ts': 1, // `alliesOf` excludes the Pharaoh's own seat
+  'state/racial/scorchedEarthRules.ts': 1, // a fallen caster's OWN zone keeps burning
+  'state/save.ts': 1, // default race for a seat
+  'state/sparkLifecycle.ts': 1, // the local seat's own action
+  'state/structureRepair.ts': 2, // a zone's owner; you repair your own
+  'state/towerMembers.ts': 1, // bond ids
+  'state/voltkinTv.ts': 1, // a Voltkin claim binds to its OWN seat's TV
+  'state/zones.ts': 1, // a zone's owner
 };
 
 describe('S192 — the teams site census (every enemy decision asks the team predicate)', () => {
@@ -163,6 +257,31 @@ describe('S192 — the teams site census (every enemy decision asks the team pre
       'A file lost (or gained) a team-predicate call. Reverting a converted site to an inline ' +
         'comparison re-opens friendly fire in team games — S192_TEAMS_SPEC.md §(a) lists them.',
     ).toEqual(PINNED_PREDICATE);
+  });
+
+  it('⛔ S193 — SEAT-VARIABLE comparisons are exactly the pinned, classified sites — a new one must be classified', () => {
+    expect(
+      seatVarCensus(),
+      'A production file gained (or lost) a seat-VARIABLE comparison (`owner === spare`, `other === seat`). If it ' +
+        'asks "is this an ENEMY?", route it through sameTeam / isEnemySeat (state/teams.ts). If it asks "is this ' +
+        'MINE?", update PINNED_SEATVAR with the reason.',
+    ).toEqual(PINNED_SEATVAR);
+  });
+
+  it('⭐ MUTATION (S193) — reverting the bot scorch picker to `other === seat` is SEEN by the seat-variable census', () => {
+    const src = readFileSync(join(SRC, 'bots/botScorchedEarth.ts'), 'utf8');
+    const site = 'sameTeam(world, other, seat)';
+    expect(src.includes(site), 'the mutation target moved — update this test').toBe(true);
+    const reverted = src.replace('if (sameTeam(world, other, seat)) continue;', 'if (other === seat) continue;');
+    expect(countSeatVar(src)).toBe(0);
+    expect(countSeatVar(reverted)).toBe(1);
+    expect(countPredicate(reverted)).toBe(countPredicate(src) - 1);
+    // master's pre-teams forms, each of which the S192 INLINE regex could not see:
+    for (const old of ['return owner === spared;', 'spare !== null && owner === spare;', '(sparePlayerId !== null && seat === sparePlayerId)']) {
+      expect(countInline(old), `INLINE is blind to ${old}`).toBe(0);
+      expect(countSeatVar(old), `SEATVAR sees ${old}`).toBeGreaterThan(0);
+    }
+    expect(countSeatVar('// other === seat'), 'a comment does not count').toBe(0);
   });
 
   it('⭐ MUTATION — reverting one real converted site moves BOTH pins', () => {

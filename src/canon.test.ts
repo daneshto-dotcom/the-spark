@@ -1337,7 +1337,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(arm).not.toContain('applyRadialDamage('); // …nor the helper whose shape arm razes buildings
     expect(arm).toContain('Math.floor(STRUCTURE_SELFDESTRUCT_FIFTHS / n)');
     expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS % n');
-    expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
+    // S157 P0 — the exemption is still what spares his base; ⭐ S193 (teams, R192-T1) it spares his TEAM,
+    // through the one predicate (FFA: `isEnemySeat` is exactly the old `!== owner`).
+    expect(arm).toContain('isEnemySeat(world, owner, c.ownerPlayerId)');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
     expect(host.match(/blast: 'raze'/g)?.length, 'and only the zombie boss keeps the raze').toBe(1);
