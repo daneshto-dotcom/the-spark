@@ -1462,7 +1462,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
       'state/creatures/voltkinChain.ts',
       'state/droneLifecycle.ts',
       'state/potatoLifecycle.ts',
-      'state/racial/powerOfRa.ts',
+      'state/racial/raColumn.ts',
       'state/world.ts',
     ]);
     const table = CANON.slice(CANON.indexOf('### 4 · `SEVER_BOND`'), CANON.indexOf('## 10 · '));

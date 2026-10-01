@@ -289,13 +289,14 @@ describe('S191 — ⭐⭐ REACH: one column through the REAL host tick', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S191 — the numbers the owner asked for (measured, not derived by hand)', () => {
-  it('a fresh 5-connector hub falls on the SEVENTH column landing on it (no overkill carry on this branch)', () => {
+  it('a fresh 5-connector hub falls on the FIFTH column landing on it (with the s191/carry overkill carry)', () => {
     /*
      * Each column is landed on the hub by translating the hub onto that column's spot just before it
      * lands — the count is "columns that HIT it", whatever casts they came from.
-     * 50 pool: 35 (stands) → 70 breaks; the 20 over sits on the severed bond and goes with it.
-     * 36: 35 → 70 breaks. 24: one. 14: one. 6: one. = 2 + 2 + 1 + 1 + 1 = 7.
-     * (With s191/carry's overkill carry the arithmetic is ceil(130 / 35) = 4 — re-measure after merge.)
+     * S192 re-pin, MEASURED after the s191/carry merge: 5 (was 7 without carry — the overkill sat on the
+     * severed bond and went with it). The column's sever now goes through `severWithCarry`, so the
+     * overkill walks on to the next connector under carry's own rule; ceil(130 / 35) = 4 is only the
+     * lower bound a lossless carry would give, and the measurement, not the bound, is what is pinned.
      */
     const w = raWorld();
     const h = hub(w, P1, AIM);
@@ -330,7 +331,7 @@ describe('S191 — the numbers the owner asked for (measured, not derived by han
       if (columns === 1) firstStood = h.bonds.every((id) => w.bonds.has(id));
     }
     expect(firstStood, 'one column does not level a tower any more').toBe(true);
-    expect(columns).toBe(7);
+    expect(columns).toBe(5);
   });
 });
 

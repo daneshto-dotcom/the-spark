@@ -6,28 +6,28 @@
  * were promises the sim does not keep.
  *
  * REACH: the REAL host tick carries the ritual across the REAL phase edge (`phaseEndsAtTick`), and every
- * tick the REAL `drawBossAuras` draws the board. The sim's landings are observed at `applyRadialDamage`
- * (a pass-through spy — the one call `runPharaohRitual` damages through), so what is asserted is the two
- * sides AGREEING tick by tick, not either side alone.
+ * tick the REAL `drawBossAuras` draws the board. The sim's landings are observed at `landRaColumn` (a
+ * pass-through spy — the one call `runPharaohRitual` damages through since S192; it was `applyRadialDamage`
+ * at 300 before), counted only for `spare === null` — the boss's posture, never the perk's — so what is
+ * asserted is the two sides AGREEING tick by tick, not either side alone.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // `spy: true` keeps every real implementation and records calls. (A pass-through factory with
 // `importOriginal` did NOT intercept here: an import cycle binds the sim's copy before it resolves.)
-vi.mock('../state/damage.ts', { spy: true });
+vi.mock('../state/racial/raColumn.ts', { spy: true });
 
 import type { Graphics } from 'pixi.js';
-import { PLAYER_COLORS, RA_COLUMN_ATK, RA_COLUMN_PEN, RA_COLUMN_RADIUS, RA_COLUMN_TICKS, RA_RITUAL_TICKS } from '../constants.ts';
+import { PLAYER_COLORS, RA_COLUMN_TICKS, RA_RITUAL_TICKS } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
 import { damageCreature } from '../state/creatures/creatureLifecycle.ts';
 import { isChannellingRa } from '../state/creatures/creature.ts';
-import { applyRadialDamage } from '../state/damage.ts';
+import { landRaColumn } from '../state/racial/raColumn.ts';
 import { makeGameStateExtras } from '../state/gameState.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { mulberry32 } from '../state/rng.ts';
-import { attackFifths } from '../state/stats.ts';
 import { T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import { asPlayerId, type CreatureId } from '../types.ts';
@@ -35,7 +35,6 @@ import { drawBossAuras } from './bossAuras.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
-const RA_STRIKE = attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN);
 
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
 function deps(): HostTickDeps {
@@ -94,13 +93,13 @@ interface Frame { tick: number; phase: 'BUILD' | 'FIGHT'; channelling: boolean; 
 function run(w: World, id: CreatureId, until: number): Frame[] {
   const d = deps();
   const st = makeHostTickState(w);
-  const spy = vi.mocked(applyRadialDamage);
+  const spy = vi.mocked(landRaColumn);
   const frames: Frame[] = [];
   while (w.tick < until + 20) {
     const before = spy.mock.calls.length;
     runHostTick(w, d, st);
     const landed = spy.mock.calls.slice(before)
-      .filter((c) => c[3] === RA_COLUMN_RADIUS && c[5] === RA_STRIKE).length;
+      .filter((c) => c[1].spare === null).length; // S192 — the boss's column: it spares nobody
     const g = recorder();
     const strike = recorder();
     drawBossAuras(g.g, w, strike.g);
@@ -117,7 +116,7 @@ function run(w: World, id: CreatureId, until: number): Frame[] {
   return frames;
 }
 
-beforeEach(() => { vi.mocked(applyRadialDamage).mockClear(); });
+beforeEach(() => { vi.mocked(landRaColumn).mockClear(); });
 
 describe('S191 C-4 — a Pharaoh ritual that straddles FIGHT→BUILD draws no column after the edge', () => {
   it('⛔ REACH: the real edge falls between columns 1 and 2 — the sim lands two, and nothing is drawn in BUILD', () => {

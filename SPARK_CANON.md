@@ -1595,7 +1595,8 @@ right-click a raid, and the drone, the raid, POWER OF RA and the hub were missin
 | a lightning drone's detonation | `'drone'` | `droneLifecycle.ts` |
 | ⭐ the lightning hub's self-destruct (S191) | `'drone'` | `potatoLifecycle.ts` |
 | a player's RAID (right-click) reaching the connector's pool | `'raid'` | `world.ts` |
-| a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/powerOfRa.ts` |
+| a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/raColumn.ts` |
+| ⭐ the Pharaoh boss's Ra column (S192 — the perk's column, sparing nobody) | `'unit'` | `racial/raColumn.ts` |
 | the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
 | a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
