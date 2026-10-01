@@ -33,6 +33,7 @@
     "@trystero-p2p/mqtt": "0.25.2",
     "@trystero-p2p/nostr": "0.25.2",
     "@trystero-p2p/torrent": "0.25.2",
+    "pixi-filters": "6.1.5",
     "pixi.js": "^8.19.0"
   },
   "devDependencies": {

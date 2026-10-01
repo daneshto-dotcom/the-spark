@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Visual Upgrade</title>
+<style>
+:root{
+  --bg:#f6f4ef; --panel:#ffffff; --ink:#1d1b18; --muted:#6b665d; --line:#e4dfd4;
+  --accent:#b3122b; --accent2:#d9822b; --ok:#2f7d4a; --queued:#5a6b8c; --chip:#f0ebe1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121115; --panel:#1b1a20; --ink:#ece9e3; --muted:#9a958c; --line:#2c2a33;
+    --accent:#ff4d6a; --accent2:#ffb15c; --ok:#5fcf86; --queued:#8fa3cc; --chip:#24222b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121115; --panel:#1b1a20; --ink:#ece9e3; --muted:#9a958c; --line:#2c2a33;
+  --accent:#ff4d6a; --accent2:#ffb15c; --ok:#5fcf86; --queued:#8fa3cc; --chip:#24222b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.01em}
+h2{font-size:20px;margin:40px 0 12px}
+.sub{color:var(--muted);margin:0 0 20px}
+.quote{border-left:3px solid var(--accent);padding:8px 14px;background:var(--panel);border-radius:0 8px 8px 0;color:var(--muted);font-style:italic}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h3{margin:0 0 6px;font-size:15px}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.k{font-size:28px;font-weight:700}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);font-size:14px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--chip)}
+td.r{font-weight:700;color:var(--muted);white-space:nowrap}
+code{font:12.5px ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--chip);padding:1px 5px;border-radius:4px}
+.tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.done{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.q{background:color-mix(in srgb,var(--queued) 18%,transparent);color:var(--queued)}
+.eff{font-weight:700}
+.after{color:var(--ink)}
+.today{color:var(--muted);font-size:13px}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.batch{border-top:4px solid var(--queued)}
+.batch.done{border-top-color:var(--ok);background:var(--panel);color:var(--ink)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.swatch{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.glow{width:64px;height:64px;border-radius:50%;background:radial-gradient(circle,#fff 0,#ff6a7f 18%,rgba(179,18,43,.55) 40%,rgba(179,18,43,0) 70%)}
+.flat{width:64px;height:64px;display:grid;place-items:center}
+.flat i{width:14px;height:14px;border-radius:50%;background:#b3122b;display:block}
+small{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SPARK: the visual upgrade</h1>
+  <p class="sub">S192 · branch <code>s192/visuals</code> · every code-drawn effect in the game, what it looks like today, and what it will look like after</p>
+
+  <p class="quote">"Upgrade the effects where we are based on the recommendations. To the best of our abilities … I want a list of everything that we're going to work and how it's going to look." Owner, S192</p>
+
+  <div class="grid" style="margin-top:18px">
+    <div class="card"><div class="k">123</div><p>render modules scanned; <b>81</b> draw code shapes</p></div>
+    <div class="card"><div class="k">28</div><p>effects on the list, ranked by visual gain per hour</p></div>
+    <div class="card"><div class="k">6</div><p>built on this branch: the substrate, the 2-item pilot and the next 3</p></div>
+    <div class="card"><div class="k">4</div><p>queued worktree batches, file sets kept separate, ready to dispatch</p></div>
+  </div>
+
+  <h2>What changes, in one picture</h2>
+  <div class="card">
+    <p>Today every effect is a flat, solid shape. After the upgrade, effects are soft particles drawn with additive light (they brighten whatever is under them), with one bloom pass and a ground shockwave on the High setting.</p>
+    <div class="swatch">
+      <div class="flat"><i></i></div><small>today: a solid 3.4 px dot</small>
+      <div class="glow"></div><small>after: a soft additive mote with a hot core and bloom</small>
+    </div>
+  </div>
+
+  <h2>Art versus code</h2>
+  <div class="grid">
+    <div class="card"><h3>Stays generated art (veo or atlas)</h3><p>All characters, towers, castles, damage-ramp sheets, the corpse-eater feed rows, and the Ra strike sheet. You preferred your art there, so code only adds glow around it.</p></div>
+    <div class="card"><h3>Moves to code effects</h3><p>Every aura, siphon, beam, bolt, blast, cloud, glow, telegraph polish and racial-perk visual. <b>No more veo clips for effects:</b> a clip costs about $20 and cannot react to the game. A code effect costs a few KiB and looks the same on every screen.</p></div>
+    <div class="card"><h3>Not yet</h3><p>Skeletal animation (Spine, DragonBones), as you said. Archived mechanics (seagulls, potato, bombs, rainbow) are excluded.</p></div>
+  </div>
+
+  <h2>The ranked list</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>#</th><th>Effect</th><th>Today</th><th>After</th><th>Effort</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="r">0</td><td class="eff">FX substrate</td><td class="today">none</td><td class="after">Deterministic particle emitter (same motes on every screen), soft glow textures drawn at runtime, an additive effects layer, a <b>High-quality effects</b> setting (bloom on or off), and <code>?fx=legacy</code> to compare against the old look</td><td>M</td><td><span class="tag done">BUILT</span></td></tr>
+      <tr><td class="r">1</td><td class="eff">Vlad's life siphon</td><td class="today">one growing circle and 18 solid dots sliding inward</td><td class="after">~110 crimson motes on 3 spiral arms streaking into his chest, a pulsing hot core, a dark-red ground stain, and on the heal a burst ring, 24 sparks and a ground shockwave; bloom</td><td>M</td><td><span class="tag done">PILOT</span></td></tr>
+      <tr><td class="r">2</td><td class="eff">Building aura</td><td class="today">a disc, 3 thin rings, bond strokes and a core dot (all hidden under the building art)</td><td class="after">An owner-coloured pool of light under each tower that breathes, with slow rising embers around it. It stays visible around a finished building. Connectors and rings stay hidden, as you ruled in S183</td><td>M</td><td><span class="tag done">PILOT</span></td></tr>
+      <tr><td class="r">3</td><td class="eff">Detonations: hub blast, zombie death, suicide goblin, drone, stink tower</td><td class="today">one orange ring and one flat disc</td><td class="after">A white flash, a fireball core, 28 embers thrown out under gravity, 8 smoke puffs rising, a shock ring at the true radius, and a ground shockwave. It scales from 70 px to 380 px</td><td>M</td><td><span class="tag done">BUILT</span></td></tr>
+      <tr><td class="r">4</td><td class="eff">Zombie rot aura</td><td class="today">14 flat green circles</td><td class="after">Soft bubbles that swell and pop into droplets, rising green miasma, additive; still stops while he is stunned</td><td>S</td><td><span class="tag done">BUILT</span></td></tr>
+      <tr><td class="r">5</td><td class="eff">Castle gun shot</td><td class="today">a flat bolt</td><td class="after">A race-coloured bolt with a white-hot core, glow halo, mote trail and an impact spark burst</td><td>S</td><td><span class="tag done">BUILT</span></td></tr>
+      <tr><td class="r">6</td><td class="eff">Lightning: Voltkin, turret, drone cloud, hub</td><td class="today">stroked lines</td><td class="after">A double stroke (wide soft glow plus a thin white core), endpoint sparks and a tick-keyed flicker; bloom</td><td>M</td><td><span class="tag q">visuals-4</span></td></tr>
+      <tr><td class="r">7</td><td class="eff">Damage and heal numbers</td><td class="today">static text floaters</td><td class="after">Pop-in scale, a small shake on big hits, heals rise with sparkle</td><td>S</td><td><span class="tag q">visuals-4</span></td></tr>
+      <tr><td class="r">8</td><td class="eff">Ra telegraph, columns and Pharaoh halo</td><td class="today">flat shade, ring and halo stroke</td><td class="after">Your art strike stays. Added: sand spiralling into the growing telegraph, a glow on the beam, an impact dust burst, and a sun halo with orbiting motes</td><td>M</td><td><span class="tag q">visuals-2</span></td></tr>
+      <tr><td class="r">9</td><td class="eff">Kraken sonar wave</td><td class="today">4 stroked arcs</td><td class="after">A foaming water crescent, forward spray and a ripple distortion</td><td>M</td><td><span class="tag q">visuals-2</span></td></tr>
+      <tr><td class="r">10</td><td class="eff">BLOOD DEBT / CRIMSON TIDE</td><td class="today">only a green number</td><td class="after">Crimson motes fly from the victim into the attacker on every lifesteal</td><td>S-M</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">11</td><td class="eff">SCORCHED GROUND</td><td class="today">a flat orange tint</td><td class="after">The tint stays, plus drifting embers, heat shimmer and burn flickers on enemies</td><td>M</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">12</td><td class="eff">Arrows and harpoons</td><td class="today">plain shapes</td><td class="after">A motion trail and an impact puff</td><td>S</td><td><span class="tag q">visuals-4</span></td></tr>
+      <tr><td class="r">13</td><td class="eff">Rage (Warlord, BLOOD FRENZY)</td><td class="today">a red tint</td><td class="after">The tint stays, plus a red ember aura and heat sparks</td><td>S</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">14</td><td class="eff">Stun stars</td><td class="today">flat stars</td><td class="after">Twinkling additive stars with a halo</td><td>S</td><td><span class="tag q">visuals-2</span></td></tr>
+      <tr><td class="r">15</td><td class="eff">Stink cloud and lob</td><td class="today">flat haze</td><td class="after">Rolling soft smoke puffs and a puff trail behind the lob</td><td>S</td><td><span class="tag q">visuals-5</span></td></tr>
+      <tr><td class="r">16</td><td class="eff">Locust cloud</td><td class="today">dots</td><td class="after">Motion-stretched soft motes</td><td>S</td><td><span class="tag q">visuals-2</span></td></tr>
+      <tr><td class="r">17</td><td class="eff">Corpse Eater feed</td><td class="today">art only</td><td class="after">A stream of green-crimson motes into him while he feeds</td><td>S</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">18</td><td class="eff">DEEP CURRENT teleport</td><td class="today">three arcs</td><td class="after">A water vortex of droplets and a splash at both ends</td><td>S</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">19</td><td class="eff">Build juice: bond, sever, grow, merge, tier</td><td class="today">thin rings</td><td class="after">Soft rings and spark pops in the owner's colour</td><td>S</td><td><span class="tag q">visuals-5</span></td></tr>
+      <tr><td class="r">20</td><td class="eff">THE SWARM / APEX elite aura</td><td class="today">art only</td><td class="after">A faint race-coloured under-glow</td><td>S</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">21</td><td class="eff">HELLSPAWN split</td><td class="today">a tint</td><td class="after">A hellfire burst at each split</td><td>S</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">22</td><td class="eff">Chew bite, Helga slap, raided cloud</td><td class="today">rings</td><td class="after">Debris particles and an impact flash</td><td>S</td><td><span class="tag q">visuals-4/5</span></td></tr>
+      <tr><td class="r">23</td><td class="eff">Ground decals and race ground</td><td class="today">flat fills</td><td class="after">Soft, noise-textured stains</td><td>M</td><td><span class="tag q">visuals-5</span></td></tr>
+      <tr><td class="r">24</td><td class="eff">Free sparks</td><td class="today">glyphs</td><td class="after">A soft glow pulse behind each spark</td><td>S</td><td><span class="tag q">visuals-5</span></td></tr>
+      <tr><td class="r">25</td><td class="eff">Backdrop grade</td><td class="today">plain art</td><td class="after">A per-race colour grade and vignette</td><td>M</td><td><span class="tag q">visuals-3</span></td></tr>
+      <tr><td class="r">26</td><td class="eff">Fog edge mist</td><td class="today">a soft erase edge</td><td class="after">Slow drifting mist along the vision edge</td><td>L</td><td><span class="tag q">visuals-5</span></td></tr>
+      <tr><td class="r">27</td><td class="eff">Health bars</td><td class="today">crisp bar</td><td class="after">A trailing "ghost" segment that drains after each hit</td><td>S</td><td><span class="tag q">visuals-5</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>The next sessions: four worktrees, ready to dispatch</h2>
+  <div class="grid">
+    <div class="card batch done"><h3><span class="dot" style="background:var(--ok)"></span>visuals-1 (this branch)</h3><p>Substrate, Vlad siphon, building aura, detonations, rot aura, castle shot</p></div>
+    <div class="card batch"><h3>visuals-2: boss skills</h3><p>Ra telegraph and halo, Kraken sonar, stun stars, locust cloud</p></div>
+    <div class="card batch"><h3>visuals-3: racial perks</h3><p>BLOOD DEBT, SCORCHED GROUND, rage, corpse eater, DEEP CURRENT, elite aura, HELLSPAWN, backdrop grade</p></div>
+    <div class="card batch"><h3>visuals-4: combat feedback</h3><p>Lightning, damage numbers, arrows and harpoons, bite and slap</p></div>
+    <div class="card batch"><h3>visuals-5: board and build</h3><p>Stink, build juice, raided, decals, sparks, fog mist, health ghost</p></div>
+  </div>
+
+  <h2>Rules every effect follows</h2>
+  <div class="grid">
+    <div class="card"><h3>The same on every screen</h3><p>Every effect is re-derived each frame from synced state, with a seeded random keyed by entity id and tick. Nothing goes on the wire, no protocol bump.</p></div>
+    <div class="card"><h3>Fast at a wave-5 fight</h3><p>Pooled sprites. Bloom and shockwave run only on High. Measured at 120 creatures before and after.</p></div>
+    <div class="card"><h3>Easy to compare</h3><p>Add <code>?fx=legacy</code> to the URL to see the old version of every rebuilt effect.</p></div>
+    <div class="card"><h3>Free</h3><p>pixi-filters (MIT, which you approved). Textures are drawn in code, so there are no downloads and no licences.</p></div>
+  </div>
+</div>
+</body>
+</html>
