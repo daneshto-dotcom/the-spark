@@ -341,3 +341,28 @@ None.
   one `.castleHealedHp +=` in each of the two writers; save emit; hash projection; the split call).
 - Wire: additive-optional, presentational (the `healedFifths` precedent) — no bump of its own.
 - Full suite 0: 6768 passed / 7 skipped, 422 files (+2 skipped). typecheck 0.
+
+## C-9 — DONE (R190-H extended: Ra above buildings, the rune ring on the ground)
+
+- `main.ts`: one staging block right after `stinkTowerRenderer` — `raStrikeLayer = new Graphics()` appended as the
+  LAST child of `fogHiddenLayer` (above the laser rig / Voltkin TV / Helga / ramp / stink tower; still under the
+  fog mask; indices 0-18 unchanged, so `tower-art.spec.ts` 6/11 do not move) → `goblinRenderer.setRaStrikeLayer`.
+  No zIndex. `e2e/fog.spec.ts` roll call gains index 19 `_Graphics` (NOT run here — merge owner's e2e).
+- `goblinRenderer.ts`: `setRaStrikeLayer`; the layer is cleared at the top of `sync` and in `clear()` (only
+  writer); `drawBossAuras(g, world, this.raStrikeLayer ?? this.arrowLayer)` — unset → S190 behaviour.
+- `raStrikeArt.ts`: `RA_STRIKE_GROUND_SLOTS = 4` (slots 0-3 = sheet frames 1-4, the ring alone, −120…−49);
+  `bossAuras.ts` `drawRaColumns`: slot < 4 → ground `g`, else `strike`.
+- Tests `src/render/raStrikeAboveBuildings.test.ts` (8): arithmetic (4 slots = 72 ticks, slot 3→4 at −48);
+  REACH via real `GoblinRenderer.sync` + shipped manifest: ring mid-telegraph on the ground only; beam drop in the
+  strike layer (arrow + ground 0); impact+2 = col 0 flash up + col 1 ring down (exactly 1 ground frame); cleared
+  every frame. Negatives: no layer handed in → arrowLayer fallback; no cast → nothing. Source-text guard
+  (limit stated): enumerates every `new X(app, fogHiddenLayer)` + `fogHiddenLayer.addChild(` (14 + 1) and pins
+  the strike layer as the last, then the hand-off.
+- Re-pinned by design (`s190RaStrikeAboveUnits.test.ts`): the REACH case sampled −60 (the ring, now ground) →
+  samples −40 (beam); WRATH at impact+2: ground 0 → 1 / 2 (column 1's ring per strike); header limit updated.
+- Mutations: (1) ring select → always `strike`: 3 RED; (2) goblin passes `arrowLayer`: 3 RED. Restored.
+- Canon §7c R190-H: "AND ABOVE THE BUILDINGS, WITH ITS RUNE RING ON THE GROUND (S191 C-9)" replaces the "still
+  draw over it — not asked" sentence; pin updated (new call text, hand-off line, `RA_STRIKE_GROUND_SLOTS` 4, both
+  sentences).
+- Wire/hash/rule: none (render only). No bump.
+- Full suite 0: 6776 passed / 7 skipped, 423 files. typecheck 0.

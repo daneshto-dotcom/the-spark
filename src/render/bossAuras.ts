@@ -68,7 +68,7 @@ import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
-import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
+import { RA_STRIKE_GROUND_SLOTS, RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -107,6 +107,8 @@ const SONAR_FOAM_TINT = 0xffffff;
  * layer, so the strike draws on top of the units it lands on. Everything else — every other aura, the
  * Ra telegraph shade and outline, the hitbox scorch, the Pharaoh's halo, the aim preview — stays in `g`,
  * under the sprites, unchanged. Defaults to `g` so a caller that passes one Graphics draws as before.
+ * ⭐ S191 C-9 — in the game `strike` is `main.ts`'s `raStrikeLayer` (the LAST child of `fogHiddenLayer`,
+ * so above the buildings too), and the art's rune-ring-only slots (< `RA_STRIKE_GROUND_SLOTS`) go to `g`.
  */
 export function drawBossAuras(g: Graphics, world: World, strike: Graphics = g): void {
   for (const [bossId, boss] of world.creatures) {
@@ -371,7 +373,9 @@ function drawRaColumns(
 
   if (art === null || sprites.length === 0) return;
   sprites.sort((a, b) => a.y - b.y || a.k - b.k);
-  for (const s of sprites) drawRaStrikeFrame(strike, art, s.slot, s.x, s.y); // ⭐ S190 R190-H — above the units
+  // ⭐ S190 R190-H — the strike above the units (and since S191 C-9, above the buildings); ⭐ S191 C-9 — the
+  // rune ring alone (slots 0-3, before the beam drops) stays ON THE GROUND, under them.
+  for (const s of sprites) drawRaStrikeFrame(s.slot < RA_STRIKE_GROUND_SLOTS ? g : strike, art, s.slot, s.x, s.y);
 }
 
 /* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to

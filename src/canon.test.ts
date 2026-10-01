@@ -202,6 +202,7 @@ import { corpseEaterOwnStepPx } from './state/racial/corpseEater.ts';
 import { GOBLIN_ATTACK_RANGE, KRAKEN_SONAR_STUN_TICKS, RACE_UNIT_ATK, RACE_UNIT_PEN } from './constants.ts';
 import { KRAKEN_SONAR_KNOCKBACK_PX } from './state/bossSkillsKraken.ts';
 import { RADAR_MAX_ATK } from './render/characterSheetRadar.ts';
+import { RA_STRIKE_GROUND_SLOTS } from './render/raStrikeArt.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -880,7 +881,12 @@ describe('SPARK_CANON.md is bound to the code', () => {
 
   it('⭐ §7c — R190-H: the Ra strike above the units; R190-I: every hit and heal separately; the pen-lift rule', () => {
     const goblin = readFileSync(new URL('./render/goblinRenderer.ts', import.meta.url), 'utf8');
-    expect(goblin).toContain('drawBossAuras(g, world, this.arrowLayer)');
+    // ⭐ S191 C-9 — the strike's layer is main.ts's raStrikeLayer (arrowLayer only when none is handed in).
+    expect(goblin).toContain('drawBossAuras(g, world, this.raStrikeLayer ?? this.arrowLayer)');
+    expect(readFileSync(new URL('./main.ts', import.meta.url), 'utf8')).toContain('goblinRenderer.setRaStrikeLayer(raStrikeLayer)');
+    expect(RA_STRIKE_GROUND_SLOTS).toBe(4);
+    expect(canonSays('**AND ABOVE THE BUILDINGS, WITH ITS RUNE RING ON THE GROUND (S191 C-9).**')).toBe(true);
+    expect(canonSays("The art's first **4** slots")).toBe(true);
     expect(canonSays('R190-H — THE RA STRIKE DRAWS ON TOP OF THE UNITS')).toBe(true);
     expect(canonSays('*"Draw it ON TOP of units."*')).toBe(true);
     expect(canonSays('R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY')).toBe(true);

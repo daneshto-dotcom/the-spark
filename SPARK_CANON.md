@@ -1155,8 +1155,10 @@ it, the mechanic does not communicate itself. Verify the pool arithmetic before 
 strike — the owner's sprite frames, or the code-beam shafts before the art loads — goes to the goblin
 renderer's layer above its unit sprites (`drawBossAuras(g, world, this.arrowLayer)`); the telegraph shade,
 the hitbox scorch and every other aura stay on the ground. Every charge of WRATH OF RA goes the same way.
-⚠ Renderers built LATER in `main.ts` (the laser rig, HELGA, the ramp buildings, the stink tower) still draw
-over it — not asked; recorded for him.
+**AND ABOVE THE BUILDINGS, WITH ITS RUNE RING ON THE GROUND (S191 C-9).** The strike goes to `raStrikeLayer`,
+the LAST child `main.ts` stages on `fogHiddenLayer`, so it draws over the laser rig, the Voltkin TV, HELGA, the
+ramp buildings and the stink tower and is still masked by the fog. The art's first **4** slots
+(`RA_STRIKE_GROUND_SLOTS` — the rune ring alone, before the beam drops) draw on the GROUND, under the units.
 
 ⭐ **R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY, IN THEIR OWN COLOURS, STACKING. HIS RULING.** *"it
 shows every single hit or heal … it looks sick."* A same-tick heal used to hide inside a net damage
