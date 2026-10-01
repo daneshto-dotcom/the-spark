@@ -663,7 +663,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const seat: PlayerId = asPlayerId(0);
     const buy = (castleHp: number) => {
       const w = {
-        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades() }]]),
+        players: new Map([[seat, { castleHp, castleUpgrades: emptyCastleUpgrades(), castleHealedHp: 0 }]]),
         scoreByPlayer: new Map([[seat, CASTLE_UPGRADE_PRICE]]),
         waveNumber: 1,
       };
@@ -884,6 +884,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('R190-H — THE RA STRIKE DRAWS ON TOP OF THE UNITS')).toBe(true);
     expect(canonSays('*"Draw it ON TOP of units."*')).toBe(true);
     expect(canonSays('R190-I — EVERY HIT AND EVERY HEAL SHOWS SEPARATELY')).toBe(true);
+    // ⭐ S191 C-8 — and on the castle: the counter is written at exactly the two HP-rise sites, rides the
+    // wire only above zero, is wide-hashed, and the castle watch splits through `creaturePoolChange`.
+    expect(canonSays('**AND ON THE CASTLE (S191 C-8):** `Player.castleHealedHp` counts every point a keep heals')).toBe(true);
+    const healWrites = ['./state/castleRegen.ts', './state/castleUpgrades.ts'].map((f) =>
+      (readFileSync(new URL(f, import.meta.url), 'utf8').match(/\.castleHealedHp \+=/g) ?? []).length);
+    expect(healWrites).toEqual([1, 1]);
+    expect(readFileSync(new URL('./state/save.ts', import.meta.url), 'utf8')).toContain('{ castleHealedHp: p.castleHealedHp }');
+    expect(readFileSync(new URL('./state/stateHashFull.ts', import.meta.url), 'utf8')).toContain(',ch${pl.castleHealedHp}');
+    expect(readFileSync(new URL('./render/damageNumbers.ts', import.meta.url), 'utf8'))
+      .toContain('creaturePoolChange(prev.v, p.castleHp, prev.healed ?? 0, healed)');
     expect(canonSays('EVERY PIXI PATH SEGMENT STARTS WITH `moveTo`')).toBe(true);
     expect(canonSays('no stage child gets a zIndex; place it by its staging line')).toBe(true);
   });

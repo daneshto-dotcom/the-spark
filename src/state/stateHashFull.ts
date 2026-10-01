@@ -577,7 +577,10 @@ export function determinismParts(world: World): string[] {
         + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
         // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
         // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
-        + `,dy${pl.dynastyHpLost}`,
+        + `,dy${pl.dynastyHpLost}`
+        // ⭐ S191 C-8 — the keep's heal counter. PRESENTATIONAL (no sim reads it), projected anyway so a
+        // host and its `?worker=1` mirror that disagree about what a keep healed cannot hash alike.
+        + `,ch${pl.castleHealedHp}`,
     );
   }
 

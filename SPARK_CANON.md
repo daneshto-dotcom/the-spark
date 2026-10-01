@@ -1162,6 +1162,10 @@ over it — not asked; recorded for him.
 shows every single hit or heal … it looks sick."* A same-tick heal used to hide inside a net damage
 number. Heals are counted on the creature (`Creature.healedFifths`, written only through
 `noteCreatureHeal`), synced and hashed, so a joiner sees the green number too (§6).
+**AND ON THE CASTLE (S191 C-8):** `Player.castleHealedHp` counts every point a keep heals — regen and an HP
+purchase, the only two places its HP rises — so a keep hit and regenerating in one window prints a red AND a
+green number, not the net. Presentational (no sim reads it), emitted only above zero, wide-hashed; a stale
+host that never writes it prints the old net number, never a wrong one.
 
 ⛔ **EVERY PIXI PATH SEGMENT STARTS WITH `moveTo` (S189 C7).** *"a big line every time they teleport all over
 the screen"* — owner, of DEEP CURRENT. Pixi 8 `arc()` / `lineTo()` join the current pen to their start, and

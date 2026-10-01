@@ -320,3 +320,24 @@ None.
 - Post-merge gates: typecheck 0 · vitest 1 → (the comment) → canon file 0 · build 0, entry **975.3 KiB** (998,704 B;
   master per PDR 972.7 → +2.6 KiB).
 - Weld/DORMANT Helga seam re-checked: carry's Helga arm reads `d.ehp !== null`; weld's dormant record sets `ehp = null` → skipped.
+
+## C-8 — DONE (R190-I on the castle)
+
+- `Player.castleHealedHp: number` REQUIRED (`game/player.ts`: type + `makeIdlePlayer` 0 + both carry-FSM rebuilds);
+  reset to 0 at match start (`gameMode.ts`, beside `dynastyHpLost`). Written at the ONLY two castle-HP rise sites
+  (enumerated: every `castleHp =` writer in src) — `castleRegen.ts` regen and `castleUpgrades.ts` HP purchase
+  (its `players` param type widened) — as `+= hp − before` (after the cap).
+- `save.ts`: `SerializedPlayer.castleHealedHp?` (emitted > 0 only → byte-identical when unhealed; rehydrated
+  `Math.max(0, Math.trunc(Number(…)))||0`). `stateHashFull.ts`: `,ch${…}` on the `pl` part + mutation row
+  (`stateHashFull.test.ts` 6 → 7). `damageNumbers.ts`: the castle watch splits through `creaturePoolChange`
+  (`StructWatched.healed?`), rounded at emit.
+- Tests (un-parked): `src/render/castleHitHealSplit.test.ts` (4) — REACH through real `runHostTick` regen + the
+  real castle arm of `damageEntity` into real `DamageNumbers`, host AND joiner (real HostSync → ClientSync);
+  negatives (hit alone, regen alone); stale host (counter stripped) → old net, no error.
+  `src/state/castleHealCounter.test.ts` (6) — factory, regen exact + capped beat, purchase, hit never moves it,
+  pickup/drop keep it, save/wire + malformed → 0, wide hash + `?worker=1` INIT bit-exact.
+- Mutation: the regen write → `void before` → 3 RED (both REACH + regen counter); restored → green.
+- Canon §7c R190-I: one paragraph "AND ON THE CASTLE (S191 C-8)" + pin in the §7c canon test (sentence; exactly
+  one `.castleHealedHp +=` in each of the two writers; save emit; hash projection; the split call).
+- Wire: additive-optional, presentational (the `healedFifths` precedent) — no bump of its own.
+- Full suite 0: 6768 passed / 7 skipped, 422 files (+2 skipped). typecheck 0.

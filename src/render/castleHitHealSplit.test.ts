@@ -131,7 +131,7 @@ describe('⭐⭐ S191 C-8 — HOST: a hit and a regen on the keep in one window 
     const hpBefore = w.players.get(P0).castleHp;
     const out = hostFloaters(w, () => { hitKeep(w); step(); });
     expect(w.players.get(P0).castleHp, 'the real tick did regenerate').toBe(hpBefore - HIT + regen);
-    expect(out.filter((f) => f.color === 'red').map((f) => f.text), 'pre-fix: one net number').toEqual([String(HIT)]);
+    expect(out.filter((f) => f.color === 'red').map((f) => f.text), 'the hit alone, not the net (pre-fix: one red net number)').toEqual([String(HIT)]);
     expect(out.filter((f) => f.color === 'green').map((f) => f.text)).toEqual([String(regen)]);
   });
 
