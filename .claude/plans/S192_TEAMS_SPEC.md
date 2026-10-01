@@ -92,7 +92,7 @@ Method: grep of every non-test `src/**/*.ts` for an equality/inequality against 
 | 60 | `input/controls.ts:2083` | raid creature picker | skip teammates |
 | 61 | `input/controls.ts:2114` | raid defender picker | skip teammates |
 
-### D · RENDER — presentation only (9 sites)
+### D · RENDER — presentation only (8 sites + the lobby)
 
 | 62 | `render/wallRenderer.ts:163` | which border walls are drawn (walls are RENDER-ONLY — `walls.ts` says the clamp has no sim consumer) | `visibleWallSegments(world)`: drop a segment whose two zone owners are teammates (T2) |
 | 63 | `render/creatureProjectile.ts:109` | where a ranged unit's shot is drawn going | skip teammates |
@@ -113,7 +113,7 @@ These ask *"is this MINE?"*, not *"is this an enemy?"*, and stay seat equality: 
 (`vision.ts:92/98`, `concealment.ts:108`, `fogRenderer.ts:351` — Q8); the hunter (neutral — chases the leader); scoring and
 the points-race gate (Q1); archived subsystems with own-seat filters (`bombLifecycle.ts:110/117`, `seagullLifecycle.ts:377`).
 
-**Count: 61 converted decision sites in A–D (+ the lobby work).** A mechanical guard (`teams.sites.test.ts`) pins, per
+**Count: 69 converted decision sites in A–D (49 sim · 9 bots · 3 input · 8 render), plus the lobby work (#70).** A mechanical guard (`teams.sites.test.ts`) pins, per
 file, how many inline seat/colour comparisons remain, and requires every converted file to call the predicate — a new
 inline comparison turns it red until someone classifies it.
 
