@@ -824,6 +824,13 @@ interface SerializedCreature {
   readonly enraged?: boolean;
   /** S188 F3 — the ATTACKING cycle's latched rage (`Creature.attackCycleRaged`). Emitted only when true. */
   readonly attackCycleRaged?: boolean;
+  /**
+   * ⭐⭐ S191 (owner, 25 s rage + "cooldown first") — `Creature.rageStartTick`, the one stamp both rage
+   * windows derive from. Emitted only when stamped. ⛔ It MUST ride the save for the reason the
+   * `enraged` note above gives: the worker and a promoted successor restore rather than recompute, so a
+   * dropped stamp ends the rage early on one sim — or lets it re-fire inside the cooldown.
+   */
+  readonly rageStartTick?: number;
 
   /**
    * ⭐⭐ S169 (owner R152) — the STUN stamp. ON THE WIRE, conditionally.
@@ -2353,6 +2360,7 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.poopyUntilTick !== undefined ? { poopyUntilTick: c.poopyUntilTick } : {}),
     ...(c.enraged === true ? { enraged: true } : {}), // S168 R149/R151 — see the field note above
     ...(c.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
+    ...(c.rageStartTick !== undefined ? { rageStartTick: c.rageStartTick } : {}), // S191 — the 25 s rage clock
     // S169 R152 — STUN, conditional so an unstunned board is byte-identical.
     ...(c.stunnedUntilTick !== undefined ? { stunnedUntilTick: c.stunnedUntilTick } : {}),
     ...(c.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: c.sapFlashUntilTick } : {}), // S170 P7
@@ -2751,6 +2759,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // default for every pre-S168 save and for every Warlord who never dropped below 25%.
     enraged: s.enraged === true,
     ...(s.attackCycleRaged === true ? { attackCycleRaged: true } : {}), // S188 F3
+    // ⭐ S191 — the rage clock, validated, never trusted: a tick is a non-negative integer. Anything else
+    // off the wire is dropped, which reads as "never raged" (his latch re-fires below the line).
+    ...(typeof s.rageStartTick === 'number' && Number.isInteger(s.rageStartTick) && s.rageStartTick >= 0
+      ? { rageStartTick: s.rageStartTick }
+      : {}),
     ...(s.stunnedUntilTick !== undefined ? { stunnedUntilTick: s.stunnedUntilTick } : {}), // S169 R152
     ...(s.sapFlashUntilTick !== undefined ? { sapFlashUntilTick: s.sapFlashUntilTick } : {}), // S170 P7
     ...(s.raRitualUntilTick !== undefined ? { raRitualUntilTick: s.raRitualUntilTick } : {}), // S171 R142

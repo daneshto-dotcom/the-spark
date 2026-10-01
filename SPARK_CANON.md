@@ -432,7 +432,7 @@ just change it … don't argue if it's too OP"*.
 | **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; cuts connectors too; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
 | **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
 | **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each exactly POWER OF RA's strike (5 columns × **300** fifths over **70** px) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
-| **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN latch, every ORC RACIAL creature it owns rages too — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
+| **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN 25 s clock, the seat's castle soldiers and orc tier-3 units rage too (never another Warlord — S191) — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
 | **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
 | **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
 | **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | "the pentagram's chewers" = every chewer the seat owns, and one alive at the pick splits too; ageing out is not dying; the red/black tint is a placeholder |
@@ -486,11 +486,33 @@ just change it … don't argue if it's too OP"*.
 A goblin is a GLOBAL tower unit — any race builds goblin towers — so a goblin owned by an orc seat
 passes the ownership test and must FAIL the type test (`isOrcRacialCreatureType`: the castle soldier,
 the orc tier-3 unit, the Warlord). ⚠ **Filtering by owner alone is the obvious implementation and the
-wrong one.** No rage and no rage tint on a goblin. Two more guards: the frenzy only ever SETS a
-Warlord — only his own latch calms him — and a source is a Warlord raging by his OWN latch (below
-`WARLORD_RAGE_TRIGGER_PCT` of his pool), or two Warlords would keep each other raging forever. ⚠ THE
+wrong one.** No rage and no rage tint on a goblin. Two more guards (rewritten S191): the frenzy never
+touches a Warlord at all (below), and a source is a Warlord whose OWN 25 s window is open
+(`Creature.rageStartTick`, stamped only by his latch) — not his health, not the bare `enraged` bit. ⚠ THE
 HORDE GROWS raising the goblin cap is not in tension with this: *"orcs and goblins do tend to work
 together"*. Orcs get MORE goblins; the goblins simply never rage.
+
+⭐⭐ **THE WARLORD'S RAGE LASTS 25 SECONDS, THEN "COOLDOWN FIRST" (S191).** *"let's do it like 25
+seconds"* — once his own latch fires (strictly below `WARLORD_RAGE_TRIGGER_PCT` = **50** % of his own
+max, in FIGHT) he rages for `WARLORD_RAGE_TICKS` = **1500** ticks **regardless of healing** — R151's
+heal-above-50 exit is retired (`WARLORD_RAGE_CLEAR_PCT` is kept, unread). Then, *"cooldown first"*: he is
+calm for `WARLORD_RAGE_COOLDOWN_TICKS` = **1500** ticks whatever his health, and after it, below the line,
+he rages again at once. ⭐ The cooldown's length is HIS (S192): *"Rage cooldown 25 seconds, that's fine.
+Per warlord."* Both windows derive from ONE stamp per Warlord, `Creature.rageStartTick`, written only by
+`runWarlordRage` — serialized, hashed, on the wire.
+⭐ **THE PATTERN, RULED (S191):** the latch runs only in FIGHT, so a rage still running at the whistle
+stays red through the whole BUILD and the next FIGHT — re-judged on that FIGHT's first tick, which fires afresh —
+*"Yeah, that's fine. Who cares? You can't really see the creatures anyways."* A hurt Warlord therefore
+rages from each FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`
+inside `FIGHT_PHASE_TICKS` — today: raging 0–25 s, then from 50 s through the whistle and all of BUILD.
+Goblins never rage.
+
+⛔ **THE FRENZY NEVER TOUCHES A WARLORD (S191).** *"I don't think each warlord should be able to enrage
+the other warlord. Yes, the warlord enrages all the orc units, but still rage for himself is … warlord
+specific."* — owner, S191. BLOOD FRENZY raises the seat's orc racial units — the castle soldier and the
+orc tier-3 unit — and NEVER a Warlord (`runBloodFrenzy` neither sets nor clears one): a Warlord rages only
+by his own 25 s clock, and when a second Warlord enters his own rage he frenzies the orc units, not the
+first Warlord. A source is a Warlord whose own window is open.
 
 ⚠ **AND THE GOBLIN CEILING IS LOAD-BEARING, NOT COSMETIC.** Every goblin is `persistent`
 (`GOBLIN_MELEE_CONFIG.persistent = true`) — it never ages out — so the per-tower ceiling is what
@@ -763,6 +785,15 @@ lists the gates that now refuse it. So the dead band and the footer stand on the
 would put towers under a plate the guards then refuse anyway. ⚠ **THE OPEN QUESTION IS THE FOOTER,
 NOT THE EDGE RULE** — move it to a side rail, or auto-hide it while a tower is armed. That is his
 call and it is the only thing left in this item.
+
+⭐ **HIS ANSWER, IN TWO STEPS: ALT IS THE COLLAPSE ARROW (S191 A-2, ruled again S192).** S187 gave the band
+a collapse arrow; S191 let Alt drop it with a tower in hand, and S192 made it unconditional: *"whenever
+you click alt on the … keyboard, it should take the footer down just like as if you click the arrow … it
+doesn't matter you have a tower, you hold a tower, you're dragging it … or not … it's independent."*
+**ALT TOGGLES THE FOOTER EXACTLY AS THE ARROW DOES** — the same `toggleCollapsed`, armed or not,
+wherever the arrow can be pressed (PLAYING, outside the NONET lock), and nothing raises it again behind his
+back. Lowered, the band gives back the ground under its plates to every placement gate (S187). Ignored: a
+held key's auto-repeat, Ctrl/Meta chords (AltGr), a focused text field (`controls.altFooter.test.ts`).
 
 ⚠ **AND ONE MORE THING WORTH CHECKING BEFORE ANYONE BUILDS ANY OF IT:** a LOOSE SHAPE has no edge
 rule at all — it can already be hand-placed anywhere in that band today. Only a stamped TOWER is

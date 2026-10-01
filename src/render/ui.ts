@@ -434,6 +434,14 @@ export interface HudMetrics {
  * shape legend, which `footerBand.test.ts` owns because their geometry is derived from the recipe
  * registry rather than fixed.
  */
+/**
+ * ⭐ S191 R2 (INPUT-3) — the gear's registered HUD rectangle, one function so `hudSurfaces` and the input
+ * layer's cover predicate (`main.ts` → `Controls.setModalCover`) cannot disagree about where it is.
+ */
+export function settingsGearRect(): { x: number; y: number; w: number; h: number } {
+  return { x: GAUGE_X - 8, y: AUDIO_ICON_Y, w: 16, h: 16 };
+}
+
 export function hudSurfaces(m: HudMetrics): HudSurface[] {
   const out: HudSurface[] = [];
   for (let i = 0; i < m.rows; i++) {
@@ -493,7 +501,7 @@ export function hudSurfaces(m: HudMetrics): HudSurface[] {
    */
   out.push({
     name: 'settings-gear',
-    rect: { x: GAUGE_X - 8, y: AUDIO_ICON_Y, w: 16, h: 16 },
+    rect: settingsGearRect(),
   });
   out.push({
     name: 'connection-dot',
