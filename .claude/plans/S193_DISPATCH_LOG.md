@@ -76,3 +76,4 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - AUDIT bots (a29dbd5e67518b5cf) dispatched; autobuild fix round sent (toggle memory per seat+anchor, MINE).
 - teams round 2 DONE (tip 5f8074e on master 656b106: 5 conflicts per script, FFA golden 90/90, F1 dim Begin + shared hint, F2 re-arm + found onAutoBegin stopped quickmatch before the team check, F4 12 REACH, canon §5d TEAMS; gates 0/0/0 +5.9 KiB; teams-lobby e2e 2/2). HELD — lands LAST; at its turn: merge final master, extend zombie blast spare to teammates (sameTeam), re-record FFA golden, bump.
 - deploy #20 gates ALL 0 (tc vt 7417 build 1050.7 KiB e2e 71/71 races 5/5 lobby 5/5 atlas 0 — the '1 atlas' line is the chain's last command; endgame-monster scanned in batch 1, benign).
+- ✅ DEPLOY #20 LIVE 5566c09 (endgame, PROTOCOL 59) — verify-deploy 4/4.
