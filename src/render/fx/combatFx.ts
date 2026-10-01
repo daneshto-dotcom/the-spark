@@ -31,7 +31,7 @@ const FLAME_TINT = 0xff9a2e;
 const FLAME_HOT = 0xffe08a;
 const ASH_TINT = 0xf2e8d0;
 const STEEL_TINT = 0xd6e2ee;
-const DUST_TINT = 0x8a7f6c;
+const DUST_TINT = 0xc2b59a;
 
 /**
  * THE TRAIL — `PROJECTILE_TRAIL` streaks at earlier points of the same straight flight, oldest
@@ -51,8 +51,8 @@ export function projectileTrailFx(
   const rot = Math.atan2(dy, dx);
   const step = Math.min(0.09, 14 / len); // ~14 px between streaks, never more than 9 % of the flight
   const tint = flaming ? FLAME_TINT : harpoon ? STEEL_TINT : ASH_TINT;
-  const w0 = flaming ? 9 : harpoon ? 6 : 4.5;
-  const peak = flaming ? 0.75 : 0.45;
+  const w0 = flaming ? 9 : harpoon ? 7 : 6;
+  const peak = flaming ? 0.75 : 0.65;
   for (let i = PROJECTILE_TRAIL; i >= 1; i--) {
     const tt = t - i * step;
     if (tt <= 0) continue;
@@ -93,16 +93,17 @@ export function projectileImpactFx(
     }
     return;
   }
-  if (t < 0.4) {
-    const k = 1 - t / 0.4;
-    top.emit('core', x, y, 14 * k + 4, 14 * k + 4, 0, 0.7 * k, 0xfff6e0, 'add');
+  if (t < 0.5) {
+    const k = 1 - t / 0.5;
+    top.emit('core', x, y, 22 * k + 6, 22 * k + 6, 0, 0.9 * k, 0xfff6e0, 'add');
+    top.emit('soft', x, y, 44 * k + 10, 32 * k + 8, 0, 0.45 * k, 0xffe2b0, 'add');
   }
-  const puff = 10 + 18 * go;
-  shade.emit('smoke', x, y - 3 * go, puff, puff * 0.75, fxHash(seed, 9, 0xe3) * Math.PI, 0.4 * life, DUST_TINT, 'normal');
+  const puff = 14 + 24 * go;
+  shade.emit('smoke', x, y - 3 * go, puff, puff * 0.75, fxHash(seed, 9, 0xe3) * Math.PI, 0.55 * life, DUST_TINT, 'normal');
   for (let s = 0; s < 5; s++) {
     const a = fxHash(seed, s, 0xe4) * Math.PI * 2;
     const d = (6 + 12 * fxHash(seed, s, 0xe5)) * go;
-    shade.emit('soft', x + Math.cos(a) * d, y + Math.sin(a) * d * 0.6 + 6 * t * t, 3, 3, 0, 0.75 * life, 0x4a4238, 'normal');
+    shade.emit('soft', x + Math.cos(a) * d, y + Math.sin(a) * d * 0.6 + 6 * t * t, 4, 4, 0, 0.85 * life, 0xa89a80, 'normal');
   }
 }
 
@@ -114,19 +115,19 @@ export function chewBiteFx(top: FxSink, shade: FxSink, x: number, y: number, t: 
   if (t < 0 || t >= 1) return;
   const life = 1 - t;
   const go = easeOutCubic(t);
-  if (t < 0.35) {
-    const k = 1 - t / 0.35;
-    top.emit('core', x, y, 18 * k + 4, 18 * k + 4, 0, 0.55 * k, 0xdfe6f0, 'add');
+  if (t < 0.5) {
+    const k = 1 - t / 0.5;
+    top.emit('core', x, y, 26 * k + 6, 26 * k + 6, 0, 0.85 * k, 0xdfe6f0, 'add');
   }
-  const puff = 10 + 16 * go;
-  shade.emit('smoke', x, y - 2 * go, puff, puff * 0.8, fxHash(seed, 0, 0xb1) * Math.PI, 0.45 * life, 0x5a5e68, 'normal');
+  const puff = 14 + 22 * go;
+  shade.emit('smoke', x, y - 2 * go, puff, puff * 0.8, fxHash(seed, 0, 0xb1) * Math.PI, 0.55 * life, 0x9a9fa8, 'normal');
   for (let s = 0; s < 7; s++) {
     const a = -Math.PI / 2 + (fxHash(seed, s, 0xb2) * 2 - 1) * 1.6;
     const v = 10 + 16 * fxHash(seed, s, 0xb3);
     const cx = x + Math.cos(a) * v * go;
     const cy = y + Math.sin(a) * v * go + 26 * t * t; // the chips fall
-    const sz = 2.2 + 2 * fxHash(seed, s, 0xb4);
-    shade.emit('soft', cx, cy, sz * 1.6, sz, a + t * 6, 0.9 * life, s % 3 === 0 ? 0x9aa0ac : 0x2e3038, 'normal');
+    const sz = 3 + 2.5 * fxHash(seed, s, 0xb4);
+    shade.emit('soft', cx, cy, sz * 1.6, sz, a + t * 6, 0.95 * life, s % 3 === 0 ? 0xd8dce4 : 0x8a909c, 'normal');
   }
 }
 

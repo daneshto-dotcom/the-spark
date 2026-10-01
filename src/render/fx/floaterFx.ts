@@ -73,7 +73,7 @@ export function floaterShake(
 
 /**
  * THE HEAL SPARKLE — three motes beside the number at (x, y): each starts at a hashed spot within
- * ±16 px, rises a little faster than the number, twinkles (its size steps every 3 frames), and
+ * ±22 px, rises a little faster than the number, twinkles (its size steps every 3 frames), and
  * fades with the number's own `alpha`. Additive, green cooling to white.
  */
 export function healSparkleFx(
@@ -85,14 +85,14 @@ export function healSparkleFx(
     const delay = 0.12 * m; // staggered, so the three do not appear on one frame
     const q = (p - delay) / (1 - delay);
     if (q <= 0) continue;
-    const ox = (fxHash(seed, m, 0x4e1) * 2 - 1) * 16;
+    const ox = (fxHash(seed, m, 0x4e1) * 2 - 1) * 22;
     const oy = (fxHash(seed, m, 0x4e2) * 2 - 1) * 6 - 4;
     const rise = 18 * q;
     const twinkle = 0.6 + 0.4 * fxHash(seed, m * 97 + Math.floor(age / 3), 0x4e3);
-    const d = (5 + 4 * fxHash(seed, m, 0x4e4)) * twinkle;
+    const d = (8 + 5 * fxHash(seed, m, 0x4e4)) * twinkle;
     const mx = x + ox;
     const my = y + oy - rise;
-    top.emit('soft', mx, my, d * 2.4, d * 2.4, 0, 0.55 * alpha, 0x3fdc5a, 'add');
+    top.emit('soft', mx, my, d * 3, d * 3, 0, 0.7 * alpha, 0x3fdc5a, 'add');
     top.emit('core', mx, my, d, d, 0, 0.95 * alpha, mixColor(0x9dffb0, 0xffffff, q), 'add');
   }
 }

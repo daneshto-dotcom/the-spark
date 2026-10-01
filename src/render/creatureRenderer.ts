@@ -812,8 +812,8 @@ export class CreatureRenderer {
     const a = life * lightningFlicker(s.id, tick);
     const R = LIGHTNING_CLOUD_R;
     top.emit('soft', s.x, s.y, R * 4.2 * (0.8 + 0.4 * t), R * 3.4 * (0.8 + 0.4 * t), 0, 0.55 * life, LIGHTNING_GLOW, 'add');
-    top.emit('core', s.x, s.y, R * 1.8 * life + 4, R * 1.8 * life + 4, 0, 0.9 * life, LIGHTNING_CORE, 'add');
-    const reach = R * (0.5 + t * 1.4);
+    top.emit('core', s.x, s.y, R * 1.1 * life + 4, R * 1.1 * life + 4, 0, 0.75 * life, LIGHTNING_CORE, 'add');
+    const reach = R * (1.1 + t * 1.6); // ⚠ MINE — longer than the S103 scribble's, so the bolts clear the flash
     const age = tick - s.bornTick;
     for (let b = 0; b < LIGHTNING_BOLTS; b++) {
       const bolt = lightningCloudBolt(s.id, b, LIGHTNING_BOLTS, s.x, s.y, reach, age);

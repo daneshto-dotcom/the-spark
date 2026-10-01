@@ -264,12 +264,15 @@ export function drawArcFlashFx(
   const strike = lightningStrikeSeed(seed, age);
   const path = lightningPath(strike, sx, sy, ex, ey, ARC_JITTER_SEGMENTS, ARC_JITTER_AMP_PX);
   const fork = lightningFork(strike, path);
-  const a = alpha * lightningFlicker(seed, effect.tick + age);
+  const flick = lightningFlicker(seed, effect.tick + age);
+  const a = alpha * flick;
+  // The glow fades slower than the core (√ of the linear fade), so a dying bolt still reads as light.
+  const glow = Math.sqrt(alpha) * flick;
   const top = fxTop();
-  boltGlowFx(top, path, VOLT_STYLE, a);
-  if (fork !== null) boltGlowFx(top, fork, VOLT_STYLE, a * 0.7, 0.6);
+  boltGlowFx(top, path, VOLT_STYLE, glow);
+  if (fork !== null) boltGlowFx(top, fork, VOLT_STYLE, glow * 0.85, 0.75);
   lightningSparksFx(top, sx, sy, seed, t01, 6, 22, VOLT_STYLE.sheath);
   lightningSparksFx(top, ex, ey, seed ^ 0x51ab, t01, 9, 32, VOLT_STYLE.sheath);
   strokePath(g, path.xs, path.ys, 2.4, a);
-  if (fork !== null) strokePath(g, fork.xs, fork.ys, 1.4, a * 0.8);
+  if (fork !== null) strokePath(g, fork.xs, fork.ys, 1.8, a * 0.9);
 }
