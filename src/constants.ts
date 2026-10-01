@@ -4252,6 +4252,25 @@ export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
  * stall a lane for the rest of the wave.
  */
 export const MONSTER_EMERGE_TICKS = 45;
+/**
+ * ⚠ MINE (S193 audit, MED perf) — AT MOST 30 LIVE PANTS PER SEAT. His reason for the trickle was LAG
+ * (*"Because we're gonna be lagging"*), and with no cap a 4-seat wave 31 whose keeps hold reached 945
+ * live pants: `netSnapshot` 176 KB, ~5 MB/s of host upload at 10 Hz × 3 peers (the S193 audit probe).
+ *
+ * SIZED FROM A MEASURED BUDGET (S193, real `runHostTick`, 4 seats, wave 31): a pants costs **~163 B**
+ * of `netSnapshot` JSON ((83 903 − 18 533) B / (507 − 105) pants). Budget ⚠ MINE: the pants' share of
+ * a 4-seat snapshot ≤ ~20 KB → 120 pants → 30 a seat: 120 × 163 ≈ 19.6 KB, ≈ 590 KB/s of host upload
+ * to 3 peers (was ~5 MB/s); 6 seats → 180 × 163 ≈ 29 KB. A seat's lane WAITS while that seat has 30
+ * alive — *"once he's out of the circle the next comes"* — and the countdown still counts what is
+ * left to come out. 30 still one-shots every unit below a Voltkin, 30 times over.
+ */
+export const MONSTER_MAX_LIVE_PER_SEAT = 30;
+/**
+ * ⚠ MINE (S193) — never more than one pants born on a tick. The normal pace is N / 45 a tick (< 1 for
+ * any board), so this only bites when a capped lane frees up after waiting: the backlog then comes out
+ * one a tick, never as a chunk.
+ */
+export const MONSTER_MAX_RELEASES_PER_TICK = 1;
 /** ⚠ MINE — the birth point's distance from the quarry centre: 20 px inside the 125 px rim. */
 export const MONSTER_BIRTH_RADIUS_PX = 105;
 /**

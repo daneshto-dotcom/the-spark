@@ -21,6 +21,8 @@ import {
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
   MONSTER_BIRTH_RADIUS_PX,
+  MONSTER_MAX_LIVE_PER_SEAT,
+  MONSTER_MAX_RELEASES_PER_TICK,
   MONSTER_OWNER_SEAT,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
@@ -79,9 +81,21 @@ export function tickEndgameSpawner(world: World): void {
   if (living.length === 0) return;
   const elapsed = world.tick - world.monsterFightStartTick;
   const due = monstersDueBy(elapsed, living.length, perSeat * living.length);
-  while (world.monsterWaveSpawned < due) {
+  // ⚠ MINE (S193 audit) — live pants per assigned seat, for `MONSTER_MAX_LIVE_PER_SEAT`. Counted once,
+  // bumped as this tick releases. A lane whose seat is at the cap WAITS — and because release `k` must
+  // go to lane `k mod N` (that is what makes each seat's remaining count derivable, `monstersLeftForSeat`),
+  // the whole sequence waits with it until one of that seat's pants is gone.
+  const live = new Map<PlayerId, number>();
+  for (const c of world.creatures.values()) {
+    if (c.type === 'endgameMonster' && c.monsterSeat !== undefined) live.set(c.monsterSeat, (live.get(c.monsterSeat) ?? 0) + 1);
+  }
+  let released = 0;
+  while (world.monsterWaveSpawned < due && released < MONSTER_MAX_RELEASES_PER_TICK) {
     const k = world.monsterWaveSpawned;
     const seat = living[k % living.length]!;
+    if ((live.get(seat) ?? 0) >= MONSTER_MAX_LIVE_PER_SEAT) break;
+    live.set(seat, (live.get(seat) ?? 0) + 1);
+    released++;
     const a = castleAnchor(seat as unknown as number, world.layout);
     dispatch(world, {
       type: 'SPAWN_CREATURE',

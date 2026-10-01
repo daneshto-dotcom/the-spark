@@ -20,7 +20,7 @@ import {
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
+import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
 import { MEGA_PANTS_AFTER_TICKS, MONSTER_FINAL_WAVE } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
@@ -99,12 +99,23 @@ export function formatPhaseBanner(
  *   · FIGHT on waves 27–31: ⭐ S193 HIS COUNTDOWN — *"a countdown at the top of how many are left to
  *     come out … oh shit, I have 66 left"* — `PANTS LEFT TO COME OUT: 66`, then `ALL PANTS ARE OUT`.
  */
-export function formatEndgameCue(phase: MatchPhase, waveNumber: number, leftToComeOut = 0): string {
+export function formatEndgameCue(
+  phase: MatchPhase,
+  waveNumber: number,
+  leftToComeOut = 0,
+  /**
+   * ⭐ S193 audit — HIS "I have 66 left" is the LOCAL seat's count (`monstersLeftForSeat`), shown
+   * first and big; the board's total sits small beside it (⚠ MINE). `null` = not a living seat.
+   */
+  leftForMe: number | null = null,
+): string {
   if (!isBuildLocked({ waveNumber })) return '';
   const each = monstersPerSeatForWave(waveNumber);
   if (phase === 'BUILD') return each > 0 ? `⛔ FIX ONLY · NEXT ${each} PANTS EACH` : '⛔ FIX ONLY';
   if (each === 0) return '';
-  return leftToComeOut > 0 ? `PANTS LEFT TO COME OUT: ${leftToComeOut}` : 'ALL PANTS ARE OUT';
+  if (leftToComeOut <= 0) return 'ALL PANTS ARE OUT';
+  if (leftForMe === null) return `PANTS LEFT TO COME OUT: ${leftToComeOut}`;
+  return `YOUR PANTS LEFT: ${leftForMe}  (all ${leftToComeOut})`;
 }
 
 /**
@@ -1072,7 +1083,10 @@ export class HUD {
       this.lastSeenPhase = null;
       return;
     }
-    const cue = formatEndgameCue(world.matchPhase, world.waveNumber, monstersLeftToComeOut(world)); // ⭐ S192/S193
+    const cue = formatEndgameCue(
+      world.matchPhase, world.waveNumber, monstersLeftToComeOut(world),
+      monstersLeftForSeat(world, world.localPlayerId), // ⭐ S193 audit — HIS number is MY seat's
+    );
     this.phaseBannerText.text =
       (isClockFrozenForDisplay(world)
         ? formatHeldClock(world.waveNumber) // ⭐ S193 — a held deadline would read a frozen 0:10

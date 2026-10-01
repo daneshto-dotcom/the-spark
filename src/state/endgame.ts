@@ -80,6 +80,27 @@ export function monstersLeftToComeOut(world: World): number {
 }
 
 /**
+ * ⭐ HIS COUNTDOWN, PER SEAT (S193 audit): *"oh shit, I have 66 left"* is MY seat's number. Release `k`
+ * goes to lane `living[k mod N]` (`tickEndgameSpawner`), so the releases still to come for the seat at
+ * index `i` are the `k` in [spawned, total) with `k mod N = i` — counted exactly, no field. `null` when
+ * `seat` is not a living seat (a fallen or spectating viewer), so the HUD shows the total alone.
+ *
+ * ⚠ MINE (kept as is, S193 audit item 6) — WHEN A SEAT FALLS, ITS UN-EMERGED PANTS ARE DROPPED: the
+ * total becomes his count × the living seats, so the fallen seat's queue never comes out (its pants
+ * already on the board retarget to the survivors, `monsterVictimSeat`).
+ */
+export function monstersLeftForSeat(world: World, seat: PlayerId): number | null {
+  if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return null;
+  const living = livingSeats(world);
+  const i = living.indexOf(seat);
+  if (i < 0) return null;
+  const n = living.length;
+  const total = monstersPerSeatForWave(world.waveNumber) * n;
+  const upTo = (m: number): number => (m > i ? Math.ceil((m - i) / n) : 0);
+  return Math.max(0, upTo(total) - upTo(Math.min(world.monsterWaveSpawned, total)));
+}
+
+/**
  * ⭐ IS THIS FIGHT'S DEADLINE HELD? Two rules, one his and one mine:
  *   · HIS (Q2) — the FINAL fight (wave 31) never ends on the clock while two or more seats live. It
  *     ends when someone wins (score or last keep standing), never by going to BUILD.
