@@ -79,6 +79,11 @@ const rel = (p: string): string => p.slice(SRC.length + 1).split('\\').join('/')
  * A.0 sweep — this list is a set of VERDICTS, not a set of exemptions.
  */
 const NOT_ACQUISITION: Readonly<Record<string, string>> = {
+  'state/magicResistCue.ts':
+    'S192 — PRESENTATIONAL MIRROR OF AREA DoTs, never a pick. It asks whether a magic DoT beat (rot, ' +
+    'Scorched Ground, stink aura/cloud) landed 0 on a creature, to print a RESIST floater; its enemy ' +
+    'scan finds the zombie boss whose AURA covers the creature, exactly as the area effect it mirrors ' +
+    'does (`bossSkills.ts`, already a verdict here). Read-only; gating it would hide a real resist.',
   'render/damageNumbers.ts':
     'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
     'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
