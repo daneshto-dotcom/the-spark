@@ -143,6 +143,8 @@ import {
   WARLORD_RAGE_MULTIPLIER,
   ZOMBIE_AURA_PER_MILLE,
 } from './constants.ts';
+// S191 / S192 — §3e the Warlord's 25 s rage clock and its cooldown (his number, S192).
+import { FIGHT_PHASE_TICKS, WARLORD_RAGE_COOLDOWN_TICKS, WARLORD_RAGE_TICKS, WARLORD_RAGE_TRIGGER_PCT } from './constants.ts';
 import {
   BLOOD_DEBT_LIFESTEAL_PCT,
   CRIMSON_TIDE_LIFESTEAL_PCT,
@@ -285,7 +287,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(52);
+    expect(PROTOCOL_VERSION).toBe(53);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -772,6 +774,31 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`**${GOBLIN_MAX_PER_SPAWNER} → ${HORDE_GOBLIN_MAX_PER_SPAWNER}**`)).toBe(true);
   });
 
+  it('⭐ §3e — S191/S192: the Warlord rages 25 s by his OWN clock, then a 25 s cooldown (his); the frenzy never touches a Warlord', () => {
+    expect(WARLORD_RAGE_TICKS).toBe(25 * PHYSICS_HZ);
+    expect(WARLORD_RAGE_COOLDOWN_TICKS, 'HIS (S192): "Rage cooldown 25 seconds"').toBe(25 * PHYSICS_HZ);
+    expect(canonSays(`\`WARLORD_RAGE_TRIGGER_PCT\` = **${WARLORD_RAGE_TRIGGER_PCT}** %`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
+    expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
+    expect(canonSays("Rage cooldown 25 seconds, that's fine.")).toBe(true);
+    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
+    // The per-FIGHT pattern, DERIVED (never a literal "25 on / 25 off"): one fire at 0, the next after
+    // rage + cooldown, and that second rage still running at the whistle.
+    const cycle = WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
+    expect(cycle).toBeLessThan(FIGHT_PHASE_TICKS);
+    expect(cycle + WARLORD_RAGE_TICKS).toBeGreaterThan(FIGHT_PHASE_TICKS);
+    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s through the whistle`)).toBe(true);
+    expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true);
+    expect(canonSays('(never another Warlord — S191)')).toBe(true);
+    // ⛔ The retired S188 sentence must not come back.
+    expect(canonSays('the frenzy only ever SETS a')).toBe(false);
+    expect(canonSays('raging by his OWN latch (below')).toBe(false);
+  });
+
+  it('⭐ §4b — S192: Alt IS the collapse arrow, armed or not', () => {
+    expect(canonSays('ALT TOGGLES THE FOOTER EXACTLY AS THE ARROW DOES')).toBe(true);
+  });
+
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
     expect(canonSays(`\`SCORCHED_GROUND_PER_MILLE\` = **${SCORCHED_GROUND_PER_MILLE}**`)).toBe(true);
     expect(canonSays(`\`ZOMBIE_AURA_PER_MILLE\` **${ZOMBIE_AURA_PER_MILLE}**`)).toBe(true);
@@ -1000,8 +1027,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it('⚠ §6 — `attackCycleRaged` rode 50, and since S190 the 50 docblock lists it (backfilled)', () => {
     const proto = readFileSync(new URL('./net/protocol.ts', import.meta.url), 'utf8');
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
-    // ⭐ S190 — re-pointed: the docblock NEAREST the const is 51's now; the 50 docblock is KEPT above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 51 -> 52');
+    // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
+    // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 52 -> 53');
+    expect(proto.indexOf('BUMPED 51 -> 52')).toBeLessThan(constAt);
     const at50 = proto.indexOf('BUMPED 49 -> 50');
     expect(at50).toBeGreaterThan(-1);
     expect(at50).toBeLessThan(constAt);

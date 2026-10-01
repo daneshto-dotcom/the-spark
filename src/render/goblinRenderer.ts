@@ -359,6 +359,16 @@ export function animTicksPerFrame(baseTicksPerFrame: number, enraged: boolean): 
   return Math.max(1, Math.round(baseTicksPerFrame / rageMultiplier({ enraged })));
 }
 
+/**
+ * ⭐ S191 round 2 (RAGE-3) — PURE: which rage bit sets a row's frame rate. The ATTACK row reads the
+ * CYCLE's latch (`Creature.attackCycleRaged`), because the sim's swing does (`attackCycleMultiplier`):
+ * a rage edge mid-swing changes nothing until the next cycle, so neither may the drawing, or the row
+ * jumps at every edge — half-length or cut off. Walk and idle keep the LIVE bit, as movement does.
+ */
+export function animRageForRow(rowName: string, enraged: boolean, attackCycleRaged: boolean): boolean {
+  return rowName === 'attack' ? attackCycleRaged : enraged;
+}
+
 /** Lift `color` towards white by `t` (0..1), per channel. Pure — no allocation, no Pixi types. */
 function washTowardsWhite(color: number, t: number): number {
   const r = (color >> 16) & 0xff;
@@ -823,6 +833,8 @@ export class GoblinRenderer {
   private syncSprite(
     id: CreatureId, type: CreatureType, atlas: LoadedAtlas, state: string, ticksInState: number,
     x: number, y: number, face: 1 | -1, alpha: number, tint: number, enraged: boolean,
+    /** ⭐ S191 R2 (RAGE-3) — the cycle's latched rage, for the ATTACK row's frame rate only. */
+    attackCycleRaged: boolean,
     /** S188 — a row and frame chosen by the caller (the corpse-eater feed), bypassing the FSM map. */
     forced?: { name: string; index: number },
   ): void {
@@ -850,7 +862,8 @@ export class GoblinRenderer {
      * the two cannot drift. `rageMultiplier` is 1 for every creature that is not an enraged Warlord,
      * which makes this line byte-identical in behaviour for all twenty-odd other kinds.
      */
-    const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, enraged);
+    // ⭐ S191 R2 (RAGE-3) — the attack row at the latched cycle's speed; walk / idle at the live bit.
+    const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, animRageForRow(name, enraged, attackCycleRaged));
     // Attack plays ONCE through and holds its last frame; idle and walk loop. A looping attack
     // would re-swing during the recovery half of the cadence and read as two hits for one strike.
     /*
@@ -1220,11 +1233,11 @@ export class GoblinRenderer {
         // deadline. A stunned boss keeps R152's idle pose, like every other stunned unit.
         const feed = this.corpseEaterFeed(world, c, stunnedNow);
         if (feed !== null) {
-          this.syncSprite(c.id, c.type, feed.atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, feed.frame);
+          this.syncSprite(c.id, c.type, feed.atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, c.attackCycleRaged === true, feed.frame);
           // ⚠ The CORPSE must find the main sheet's `die` row — the feed sheet has none.
           this.spriteAtlas.set(c.id, atlas);
         } else {
-          this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true);
+          this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, c.attackCycleRaged === true);
         }
         // ⭐ S170 P5 — scaled by the sprite multiplier, or the ring sits inside a boss.
         if (stunnedNow) drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, Number(c.id), alpha, creatureSpriteScaleMul(c.type));

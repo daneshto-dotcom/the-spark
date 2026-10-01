@@ -57,7 +57,7 @@ import { installProbeHarness } from './dev/probeHarness.ts';
 import type { BotManager } from './bots/botManager.ts';
 import type { BotDifficulty } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
-import { Controls, type ControlsDispatchFn } from './input/controls.ts';
+import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
 // referenced directly from main.ts after lobby-callback extraction (Battle
 // Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
@@ -111,7 +111,7 @@ import {
 } from './net/succession.ts';
 import { formatStrategySummary } from './net/strategySummary.ts';
 // ⭐ S155 P2 — the in-match BACK TO MAIN button + its confirm modal.
-import { makeExitButton } from './render/exitButton.ts';
+import { exitButtonRect, makeExitButton } from './render/exitButton.ts';
 // ⭐ S155 P1 — the joiner stall interpretation (pure). See joinDiagnosis.ts.
 import { joinStallMessage } from './net/joinDiagnosis.ts';
 import {
@@ -166,7 +166,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen, settingsGearRect } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -2093,6 +2093,8 @@ Network routes: ${v.detail}`;
    * saw nothing happen, i.e. exactly this player. See exitButton.ts.
    */
   const exitButton = makeExitButton(app, leaveToTitle);
+  // ⛔ S191 R2 (INPUT-1 / INPUT-3) — the modals and the HUD controls cover the board; see `Controls.setModalCover`.
+  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
 
   // ⛔ S168 (owner: "also remove this line from the bottom left LMB drag spark blah blah blah").
   // THE CONTROLS HELP LINE IS GONE. It ran along the bottom-left for the whole match — 581 px of

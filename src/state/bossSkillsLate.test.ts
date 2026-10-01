@@ -16,8 +16,10 @@ import {
   PLAYER_COLORS,
   WARLORD_RAGE_CLEAR_PCT,
   WARLORD_RAGE_MULTIPLIER,
+  WARLORD_RAGE_TICKS,
   WARLORD_RAGE_TRIGGER_PCT,
 } from '../constants.ts';
+import { readFileSync } from 'node:fs';
 import { makeIdlePlayer } from '../game/player.ts';
 import { rageMultiplier } from './creatures/creature.ts';
 import { maxPoolFifths } from './damageOverTime.ts';
@@ -109,14 +111,16 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
   });
 
   /*
-   * ⭐⭐ THE ASSERTIONS THE RULING TURNS ON, AND THE RULING MOVED MID-SESSION.
+   * ⭐⭐ THE ASSERTIONS THE RULING TURNS ON, AND THE RULING MOVED — TWICE.
    *
    * R149 said *"for the rest of his lifetime"*. R151 replaced it: *"he will stay rages until he dies
-   * or until and IF healed above 50%."* So it still LATCHES — a boss at 30% stays furious, which a
-   * predicate over current HP would get wrong — but there is now an exit, and the two thresholds
-   * differ on purpose. The three tests below are the three regions of that band.
+   * or until and IF healed above 50%."* ⛔ S191 replaced THAT: *"let's do it like 25 seconds"* — the
+   * rage now lasts `WARLORD_RAGE_TICKS` REGARDLESS OF HEALING, then a cooldown (*"cooldown first"*).
+   * The three tests below were R151's three regions of the heal band; they are RE-PINNED to the
+   * clock, not deleted — each still names the case, and now asserts what the clock does with it.
+   * The full cycle, through the real host tick, is `warlordRageClock.test.ts`.
    */
-  it('⭐⭐ LATCHES inside the band — 30% is above the 25% trigger and he stays enraged', () => {
+  it('⭐⭐ LATCHES — healed into 30% inside his window, he stays enraged', () => {
     const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
     const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
     world.creatures.get(id)!.ehp = 5;
@@ -127,18 +131,26 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
     expect(world.creatures.get(id)!.enraged, 'still furious between 25% and 50%').toBe(true);
   });
 
-  it('⭐ R151 — healed ABOVE 50% and he calms down', () => {
+  it('⛔⛔ S191 — healed ABOVE 50% he STILL rages; the clock, not the heal, ends it', () => {
     const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
     const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
     world.creatures.get(id)!.ehp = 5;
     runWarlordRage(world);
+    const start = world.tick;
     expect(world.creatures.get(id)!.enraged).toBe(true);
+    expect(world.creatures.get(id)!.rageStartTick, 'his own latch stamps the clock').toBe(start);
     world.creatures.get(id)!.ehp = max; // fully healed
     runWarlordRage(world);
-    expect(world.creatures.get(id)!.enraged, '"until and IF healed above 50%"').toBe(false);
+    expect(world.creatures.get(id)!.enraged, "R151's heal exit is gone — 25 seconds").toBe(true);
+    world.tick = start + WARLORD_RAGE_TICKS - 1;
+    runWarlordRage(world);
+    expect(world.creatures.get(id)!.enraged, 'the last raging tick').toBe(true);
+    world.tick = start + WARLORD_RAGE_TICKS;
+    runWarlordRage(world);
+    expect(world.creatures.get(id)!.enraged, '25 s on the dot: calm').toBe(false);
   });
 
-  it('⛔ exactly 50% does NOT calm him — "ABOVE 50%" is strict', () => {
+  it('⛔ exactly 50% inside his window keeps him enraged (the clock holds him)', () => {
     const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
     const max = maxPoolFifths(T9_BOSS_TYPE.orcs);
     world.creatures.get(id)!.ehp = 5;
@@ -151,6 +163,12 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
   /*
    * ⭐⭐ S179 (owner) — **RE-PINNED, NOT DELETED. THE BAND IS ZERO-WIDTH NOW, BY HIS RULING.**
    *
+   * ⛔ S191 — AND RE-PINNED AGAIN. The TRIGGER half of his S179 ruling stands untouched (strictly
+   * below 50 fires). The CALM half — "calm at 51, keep state at exactly 50" — was a reading of the
+   * shared bit, and S191's clock retired it: a bare `enraged` bit with no live `rageStartTick` is NOT
+   * his latch (it is what BLOOD FRENZY writes), so his own latch lowers it at ANY health not below 50.
+   * The original S179 text follows as history.
+   *
    * This asserted `CLEAR > TRIGGER`, because a hysteresis band was the point of having two numbers.
    * He moved the trigger to 50, where CLEAR already sat. He was told to his face that this collapses
    * the band, and was offered a raised CLEAR to keep one. He ruled:
@@ -162,9 +180,13 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
    * around the line. That is strictly stronger than the inequality ever was: it fails if someone
    * re-separates the constants to "restore" a band, and it fails if either branch's comparison flips.
    */
-  it('⭐⭐ HIS RULING — enrage at 49, calm at 51, and exactly 50 changes nothing', () => {
+  it('⭐⭐ HIS RULING — enrage at 49; not at 50 or 51; a bare bit is not his latch (S191)', () => {
     expect(WARLORD_RAGE_TRIGGER_PCT, 'below 50').toBe(50);
-    expect(WARLORD_RAGE_CLEAR_PCT, 'CLEAR stays where R151 put it').toBe(50);
+    expect(WARLORD_RAGE_CLEAR_PCT, 'retired in place — the value is history').toBe(50);
+    const latch = readFileSync(new URL('./bossSkillsWarlord.ts', import.meta.url), 'utf8');
+    const imports = latch.slice(0, latch.indexOf("from '../constants.ts'"));
+    expect(imports.includes('WARLORD_RAGE_TRIGGER_PCT'), 'fixture: this is the constants import').toBe(true);
+    expect(imports.includes('WARLORD_RAGE_CLEAR_PCT'), 'S191: no health reading calms him any more').toBe(false);
 
     const at = (pct: number, enraged: boolean): boolean => {
       const { world, id } = bossWorld(T9_BOSS_TYPE.orcs);
@@ -176,11 +198,11 @@ describe('S168 R149 — the Orc Warlord RAGE', () => {
     };
 
     expect(at(49, false), '49% calm → ENRAGES').toBe(true);
-    expect(at(49, true), '49% enraged → stays enraged').toBe(true);
+    expect(at(49, true), '49% with a bare bit → his latch FIRES (stamps a clock)').toBe(true);
     expect(at(51, false), '51% calm → stays calm').toBe(false);
-    expect(at(51, true), '51% enraged → CALMS').toBe(false);
-    expect(at(50, false), 'exactly 50 keeps him calm').toBe(false);
-    expect(at(50, true), 'exactly 50 keeps him enraged').toBe(true);
+    expect(at(51, true), '51% with a bare bit → his latch lowers it').toBe(false);
+    expect(at(50, false), 'exactly 50 does not fire — strictly below').toBe(false);
+    expect(at(50, true), 'S191: exactly 50 with a bare bit → lowered (no clock holds him)').toBe(false);
   });
 
   it('⭐ rage is one multiplier, and it is the owner x2', () => {

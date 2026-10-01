@@ -2161,6 +2161,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
      * would let a Warlord stunned below 25% come out of the stun un-enraged (or, worse, stay enraged
      * after being healed past 50% during one). A stun stops what a creature DOES, not what is TRUE
      * about it. Stated here because "skip everything" reads tidier and would be wrong.
+     * ⛔ S191 — the R151 threshold wording above is SUPERSEDED: the rage now ends on its own 25 s clock
+     * (`WARLORD_RAGE_TICKS`), not on a heal. The exemption still holds for the same reason — skipping the
+     * latch while stunned would freeze his clock's END and his re-fire, which are true of him, not acts.
      */
     runZombieRotAura(world);
     runVladLifeSap(world, state.sapLedger);
