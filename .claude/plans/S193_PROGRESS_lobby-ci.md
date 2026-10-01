@@ -2,8 +2,15 @@
 
 Branch base: master `71abc276` (contains `8693fdd`; `git merge master` = no-op, no conflicts).
 
-## NEXT STEP
-Fix committed (`96393070`). Running `npm run e2e:lobby` locally ×3 (own port 2xxxx, per-worktree hash), then full gates.
+## FINAL REPORT
+- tip: see `git log -1` (this commit); fix `96393070`. Merge: base master `71abc276`, `git merge master` no-op, 0 conflicts.
+- Gates (exit codes from files): typecheck 0 · vitest --maxWorkers=3 0 (470 files passed / 4 skipped; 7241 tests passed / 11 skipped) · build 0.
+- Entry 1034.7 KiB, delta 0 (no src/ change; headroom 65.3 KiB, none used).
+- e2e:lobby locally on own port 33396: run1 exit 0 (5 passed, 2.7m) · run2 exit 0 (5 passed, 2.9m) · run3 exit 0 (5 passed, 2.6m); late-4th-joiner test 1.4 m each.
+- Bump verdict: NO BUMP — only e2e/CI/test files changed; nothing on the wire, nothing either build computes differs.
+- MINE: `LATE_JOINER_BUDGET_MS = 330_000` and the lane's 22/32 min are my numbers from the CI traces (282 s measured + margin). Recommendation: keep; if CI minutes matter, the alternative is cutting render cost in the 4-page test, not the budget.
+- Seams: (1) `e2e.yml` + `ci.e2eLanes.test.ts` + `playwright.config.ts` are shared files — re-run ci.e2eLanes after merging any other branch that touches them. (2) Residual, NOT fixed (out of scope): a restarted pooled offer carries 0 inline ICE candidates and depends on trickled candidate messages through relays that are partly rejecting writes (purplerelay/offchain/wellorder; mostr DEAD). One CI attempt of 12 lost a stale-path pair this way-or-by-flake. Candidates for later: relay rotation (RELAY_HEALTH.md), or waiting for gathering on the restart path.
+- NOT DONE: nothing in scope. The CI proof itself happens on the next push of this lane (merge owner).
 
 ## VERDICT: (b) TEST-HARNESS DEFECT — the whole-test budget. Not (a), not mainly (c).
 
@@ -58,7 +65,7 @@ depends on separate candidate messages through the relays; a fresh offer is self
   M3 PW_GLOBAL 16 · M4 timeout-minutes 28. Restored: EXIT 0, 8/8.
 
 ## Local e2e:lobby runs
-(pending)
+port 33396 · 3/3 exit 0 (see final report)
 
 ## Gates
-(pending)
+tc 0 · vitest 0 · build 0 (see final report)
