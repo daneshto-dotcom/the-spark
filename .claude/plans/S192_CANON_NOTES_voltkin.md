@@ -9,9 +9,11 @@ number below needs a `canon.test.ts` pin except `VOLTKINS_PER_TV`.
 Owner, S192: *"I had five TVs, full health, but no new Voltkins each new wave phase. I had to …
 rebuild the Voltkin tower."*
 
-- **The rule:** at FIGHT→BUILD, every standing TV (the 4-Square + 4-Triangle chain, the same set the
-  renderer draws, welded or not) that has no Voltkin gets one at its centre, owned by the seat whose
-  colour is on most of its members (lowest seat on a tie). R190-J's rule for Helga, applied to the TV.
+- **The rule:** at FIGHT→BUILD, every standing TV that would IGNITE now (the strict S48 4-Square +
+  4-Triangle chain, `isIsolatedVoltkinChain`, shared with the ignition predicate — S192 audit M1; a
+  welded TV does NOT count) that has no Voltkin gets one at its centre, owned by the seat whose
+  colour is on most of its members (lowest seat on a tie, `voltkinTvOwner`, shared with ignition — L1).
+  ⭐ FOLDED INTO `SPARK_CANON.md` §5b (T16 bullet) with its `canon.test.ts` pin. R190-J's rule for Helga, applied to the TV.
   `resummonVoltkins` (`src/state/voltkinTv.ts`), called once from `hostTick`'s FIGHT→BUILD arm after
   `recallArmies`.
 - **One per TV** — `VOLTKINS_PER_TV = 1`. ⚠ MINE.

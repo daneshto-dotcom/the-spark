@@ -57,5 +57,17 @@ worker), and the next BUILD **3 healthy TVs → 0 Voltkins** (both). Matches the
 
 ## STATUS
 - DONE: step 1 f0cfe1a (fixes + tests + canon notes), step 2 (this commit). Final report sent.
-- Bump verdict: BUMP OWED (a changed shared rule: a v52 successor promoted by host migration would
-  not re-summon). PROTOCOL_VERSION not edited.
+- Bump verdict (mine): owed. ⚠ OVERRULED by the independent audit: NO bump (host-only rule; precedent
+  s189/units rode 51). It rides whatever deploy carries it. PROTOCOL_VERSION not edited.
+
+## Fix round (independent audit)
+- 0. `git merge master` (a14e399) → c45bac7, no conflicts. npm ci. TYPECHECK=0, VITEST=0 (455 files
+  passed, 3 skipped), BUILD=0 (997.8 KiB).
+- 1+2. M1 + L1 → 64f66b3. Reproduced first on c45bac7: A1 census 1 (want 0), A4 census 2 (want 0),
+  A3 tie owner P1 (want P0) — all red; A2 (every blueprint, census == ignition) green, kept as a guard.
+  `isIsolatedVoltkinChain` + `voltkinTvOwner` in the leaf `voltkinChainWalk.ts`, called by BOTH the
+  predicate and the census. ⚠ Ignition on a 4/4 tie now goes to the LOWER seat (it was walk order).
+- 3. L4 → 5010ea6. hostTick's poll calls `dispatchVoltkinSpawn`; the parity pin is dropped.
+- 4. Canon §5b T16 bullet + `canon.test.ts` §5b T16 case (VOLTKINS_PER_TV, the iff-ignite rule, the
+  shared isolation/owner calls, the edge after recallArmies) → this commit.
+
