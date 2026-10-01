@@ -85,8 +85,15 @@ export function scorchedEarthHoverSeat(world: World): PlayerId | null {
  * the cast by RTT plus up to one 10 Hz snapshot. Without this the square would light again inside that
  * window and a second press would play the accept click before the host refused it. The record clears
  * itself when the synced cast appears, when the wave changes, or after POWER OF RA's timeout (a cast the
- * host REFUSED must not strand the charge). ⚠ `world.tick` moving BACKWARDS (a joiner re-syncing to an
- * earlier host tick) expires the record — the same `age < 0` guard `raAimPreview.ts` uses.
+ * host REFUSED must not strand the charge).
+ *
+ * ⛔ S192 (audit UIGATES-4 — the scorch twin of s191/carry C-2 / WRATH-F5): **the synced clock is NOT
+ * monotonic on a joiner** — each snapshot sets `world.tick = snap.tick`, so a clock that ran ahead steps
+ * BACK right after the send. A step back below the send tick RE-ANCHORS the record at the adopted tick
+ * (its window restarts; every other check still re-validates it); older than the timeout it EXPIRES and
+ * is DROPPED, so a later step back can never revive a refused cast. Same rule as carry's
+ * `pendingRecordAnchor` (`render/pendingRecordClock.ts`), inlined until that branch lands — the merge
+ * owner swaps this for the shared helper then.
  */
 interface PendingScorch {
   readonly world: World;
@@ -98,10 +105,16 @@ interface PendingScorch {
 let pending: PendingScorch | null = null;
 
 function livePending(world: World, seat: PlayerId): PendingScorch | null {
-  const q = pending;
-  if (q === null || q.world !== world || q.seat !== seat || q.wave !== world.waveNumber) return null;
-  const age = world.tick - q.atTick;
-  if (age < 0 || age > RA_PENDING_TIMEOUT_TICKS) return null;
+  const q0 = pending;
+  if (q0 === null || q0.world !== world || q0.seat !== seat) return null;
+  // ⛔ S192 UIGATES-4 — re-anchor on a step back; DROP once expired (never merely hide it).
+  const atTick = world.tick < q0.atTick ? world.tick : world.tick - q0.atTick > RA_PENDING_TIMEOUT_TICKS ? null : q0.atTick;
+  if (atTick === null) {
+    pending = null;
+    return null;
+  }
+  const q = atTick === q0.atTick ? q0 : (pending = { ...q0, atTick });
+  if (q.wave !== world.waveNumber) return null;
   const p = world.players.get(seat);
   if (p === undefined || scorchedEarthCastsInWave(p, world.waveNumber) >= SCORCHED_EARTH_CHARGES) return null;
   return q;

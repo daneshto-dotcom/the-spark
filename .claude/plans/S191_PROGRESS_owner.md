@@ -239,3 +239,9 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   t=3329 in MY S191 comment → 3359 (the audit's master measurement, not re-measured here). The S182
   comments at :169/:229 predate the branch → left for the merge owner. The bound itself awaits STOCK-1.
 - voltkin-config.ts drone docblock corrected to agree (STOCK-2 return-home, STOCK-5 gate, STOCK-1 levers).
+- **UIGATES-4 FIXED (real on the merged tree — carry has NOT landed, but the joiner clock steps back
+  regardless).** Reproduced red through the real `netSnapshot` → `applyNetSnapshot` (clock 2 back):
+  `expected null to be 'USED'`. `scorchedEarthAim.ts` `livePending`: re-anchor on a step back, DROP when
+  expired — carry's `pendingRecordAnchor` rule, INLINED (carry not on master); merge owner swaps it for the
+  shared helper when carry lands. Test `src/render/scorchedEarthPendingTickBack.test.ts` (2). Mutation: keep
+  the expired record (no drop) → the NEGATIVE (revival) case red; restored.
