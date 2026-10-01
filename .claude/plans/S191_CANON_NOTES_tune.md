@@ -113,3 +113,30 @@ decided at the EMIT (`towerUnitForSeat`). (S188–S191 it was ×3: 45 / 48.)
 ### Player-facing copy changed
 `racialPerks.ts` `nagas.l5.detail`: "three times the stats" → "nine times the stats". ⚠ The `l5-nagas` CARD ART
 (`public/art/upgrade-cards/l5-nagas.webp`) was inspected: title and art only, no printed multiplier — nothing to regenerate.
+
+## §6 — PROTOCOL BUMP DOCBLOCK (for the merge owner to paste above `PROTOCOL_VERSION` in `src/net/protocol.ts`)
+
+The number (52 → N) is the merge owner's: if another S192 branch bumps in the same deploy, merge the
+reason lists under ONE bump (S182 lesson 6). No wire field, no hashed field and no serialized
+discriminant changed on this branch — every reason is a SHARED RULE (the S186 test: two builds that shake
+hands would disagree about something either computes, on the host or on a successor after migration).
+
+```ts
+/**
+ * ⭐⭐ S192 — **BUMPED 52 -> 53: `s191/tune` — three owner retunes, all shared rules, no wire change.**
+ * Each item earns it alone (the S186 test — a v52 and a v53 build that shook hands would compute
+ * different worlds from the same intents; `.claude/plans/S191_CANON_NOTES_tune.md`):
+ *   1. POWER OF RA / WRATH OF RA (S191, owner: "we can do it 35 per hit") — a perk column deals
+ *      `RA_PERK_STRIKE_FIFTHS` 35 IN TOTAL, split by `raSplitShares` over `raColumnTargets` (a structure is
+ *      ONE target; stink bags are now reached; shapes inside a structure are no longer razed). A v52 host
+ *      or successor lands 300 on every connector and razes the shapes — towers that stand on v53 fall.
+ *      The Pharaoh BOSS ritual is unchanged (300, unsplit).
+ *   2. THE CASTLE KEEP-OUT (S191, owner: "It needs to be halved") — `CASTLE_NO_BUILD_RADIUS` 121 -> 61 plus
+ *      a `CASTLE_PORCH_KEEP_OUT_RADIUS` 34 disc per porch slot. Placement is a hashed REDUCER: a v52 host
+ *      refuses a placement in the 61..121 ring that a v53 client's ghost shows as legal (and vice versa
+ *      around the porch) — a divergence, not a cosmetic disagreement.
+ *   3. APEX PREDATOR (S192, owner: "I think it should be times nine") — `APEX_PREDATOR_STAT_MUL` 3 -> 9
+ *      (elite piranha 27 / 0 / 18 / 9: pool 135, bite 252). `THE_SWARM_STAT_MUL` DECOUPLED to a literal 6
+ *      (R190-D), numerically unchanged. A v52 sim emits a 45-pool elite with a 48 bite.
+ */
+```

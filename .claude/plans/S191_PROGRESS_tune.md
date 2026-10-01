@@ -120,3 +120,9 @@ None (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts` untouched).
   PROTOCOL_VERSION untouched (52). No wire/hash field changed.
 - STATUS: DONE, awaiting merge-owner audit. Re-check after s191/carry lands (overkill carry → 7 columns becomes ~4;
   `powerOfRaSplit.test` "SEVENTH column" will go red by design then).
+- S192 ROUND 2 (merge owner's one-time canon exception): SPARK_CANON.md §3e POWER OF RA / WRATH / APEX rows,
+  quotes, the POWER OF RA paragraph, the APEX ×9/×21 paragraph, THE SWARM decoupling sentence and the radar
+  ceiling note (ATK 12 → 18; HP/PEN/SHOT ceilings also move — render-only, reported). §4b has no castle radius →
+  untouched. canon.test.ts re-pinned to RA_PERK_STRIKE_FIFTHS / ×9 / literal 6, all derived. RA_STRIKE_FIFTHS alias
+  comment re-worded. Bump docblock → CANON_NOTES §6. Gates: TYPECHECK=0 · VITEST=0 (6730 passed / 7 skipped) ·
+  BUILD=0 (974.5 KiB).

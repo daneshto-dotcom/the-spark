@@ -145,7 +145,8 @@ import {
   CORPSE_EATER_TICKS,
   CORPSE_EATER_TRIGGER_PCT,
 } from './state/racial/corpseEater.ts';
-import { RA_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { RA_PERK_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
@@ -709,14 +710,20 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('that is the S188 brief\'s reading')).toBe(true);
   });
 
-  it('⭐ §3e — the mummies: POWER OF RA is the Pharaoh’s strike; the aim is REFUSED off the board', () => {
-    expect(RA_STRIKE_FIFTHS).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+  it('⭐ §3e — the mummies: POWER OF RA is 35 a column, SPLIT (S191) — not the Pharaoh’s 300; the aim is REFUSED off the board', () => {
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(attackFifths(RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN));
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(35); // his "we can do it 35 per hit"
+    expect(RA_PERK_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    expect(canonSays(
+      `\`attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)\` = **${attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)}** on EVERY victim, unsplit`,
+    )).toBe(true);
     expect(RA_COLUMN_TICKS).toBe(2 * PHYSICS_HZ); // "five columns two seconds apart"
     expect(canonSays(
       `\`RA_COLUMN_COUNT\` = **${RA_COLUMN_COUNT}**, one every \`RA_COLUMN_TICKS\` = **${RA_COLUMN_TICKS}**` +
-      ` · \`RA_STRIKE_FIFTHS\` = **${RA_STRIKE_FIFTHS}** over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
+      ` · \`RA_PERK_STRIKE_FIFTHS\` = **${RA_PERK_STRIKE_FIFTHS}** a column IN TOTAL, split, over \`RA_COLUMN_RADIUS\` = **${RA_COLUMN_RADIUS}** px`,
     )).toBe(true);
-    expect(canonSays(`= **${RA_STRIKE_FIFTHS}** fifths a column over \`RA_COLUMN_RADIUS\` **${RA_COLUMN_RADIUS}** px`)).toBe(true);
+    expect(canonSays(`RA_PERK_COLUMN_PEN ${RA_PERK_COLUMN_PEN})\` = **${RA_PERK_STRIKE_FIFTHS}** fifths a column IN TOTAL, split by \`raSplitShares\``)).toBe(true);
+    expect(canonSays(`\`attackFifths(RA_PERK_COLUMN_ATK ${RA_PERK_COLUMN_ATK},`)).toBe(true);
     // ⛔ CANON-6 — REFUSED, not clamped: every one of these is a no-op at the host.
     expect(raAimPoint(-1, 10)).toBeNull();
     expect(raAimPoint(CANVAS_WIDTH + 1, 10)).toBeNull();
@@ -790,7 +797,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`chewer has at most **${descendants}** descendants`)).toBe(true);
   });
 
-  it('⭐ §3e — the nagas: APEX PREDATOR triples every STAT, which is ×3 health but ×4 bite', () => {
+  it('⭐ §3e — the nagas: APEX PREDATOR is every STAT ×9 (S192), which is ×9 health but ×21 bite', () => {
+    expect(APEX_PREDATOR_STAT_MUL).toBe(9); // his "I think it should be times nine"
     const base = T3_STATS.piranha;
     const elite = T3_PIRANHA_ELITE_STATS;
     expect([elite.hp, elite.def, elite.atk, elite.pen])
@@ -811,7 +819,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(perkDraftIndex('mummies.l10')).toBe(2);
     expect(RACIAL_PERK_REQUIRES['mummies.l10']).toBe('mummies.l0');
     expect(WRATH_OF_RA_CHARGES).toBe(3); // his "times three"
-    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each exactly POWER OF RA's strike (${RA_COLUMN_COUNT} columns × **${RA_STRIKE_FIFTHS}** fifths over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
+    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each exactly POWER OF RA's strike (${RA_COLUMN_COUNT} columns × **${RA_PERK_STRIKE_FIFTHS}** fifths, split, over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
     expect(existsSync(new URL('../public/art/skills/wrath-of-ra.webp', import.meta.url))).toBe(true);
     expect(canonSays('`public/art/skills/wrath-of-ra.webp`')).toBe(true);
     expect(canonSays('WRATH OF RA IS POWER OF RA THREE TIMES A FIGHT, AND NOTHING ELSE')).toBe(true);
@@ -821,7 +829,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
   it('⭐ §3e — THE SWARM: every stat ×6 from the bat (R190-D), ×11 bite, and a CRIMSON TIDE heal above its pool', () => {
     const bat = T3_STATS.bat;
     const swarm = T3_BAT_SWARM_STATS;
-    expect(THE_SWARM_STAT_MUL).toBe(2 * APEX_PREDATOR_STAT_MUL); // "whatever we did for the piranha, we double that"
+    // S192 — DECOUPLED: R190-D's literal 6, no longer `2 × APEX_PREDATOR_STAT_MUL` (that would now be 18).
+    expect(THE_SWARM_STAT_MUL).toBe(6);
+    expect(THE_SWARM_STAT_MUL).not.toBe(2 * APEX_PREDATOR_STAT_MUL);
+    expect(canonSays('`THE_SWARM_STAT_MUL` is a LITERAL 6, decoupled from `APEX_PREDATOR_STAT_MUL`')).toBe(true);
     expect([swarm.hp, swarm.def, swarm.atk, swarm.pen]).toEqual([bat.hp, bat.def, bat.atk, bat.pen].map((x) => x * THE_SWARM_STAT_MUL));
     const live = getCreatureConfig('t3BatSwarm');
     expect([live.hp, live.def, live.atk, live.pen]).toEqual([swarm.hp, swarm.def, swarm.atk, swarm.pen]);
@@ -842,9 +853,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(tide).toBeGreaterThan(pool);
     expect(canonSays(`\`lifestealFifths(${bite}, ${CRIMSON_TIDE_LIFESTEAL_PCT})\` = **${tide}** against a pool of **${pool}**`)).toBe(true);
     expect(canonSays(`BLOOD DEBT alone: **${lifestealFifths(bite, BLOOD_DEBT_LIFESTEAL_PCT)}**`)).toBe(true);
-    // The radar's ATK ceiling is the swarm's ATK now — noted, left as is.
-    expect(RADAR_MAX_ATK).toBe(swarm.atk);
-    expect(canonSays(`ATK ceiling rose **10 → ${RADAR_MAX_ATK}**`)).toBe(true);
+    // The radar's ATK ceiling: the swarm's ATK in S190, the ×9 elite piranha's since S192 — noted, left as is.
+    expect(RADAR_MAX_ATK).toBe(Math.max(swarm.atk, T3_PIRANHA_ELITE_STATS.atk));
+    expect(canonSays(`ATK ceiling rose **10 → ${swarm.atk}**`)).toBe(true);
+    expect(canonSays(`**${swarm.atk} → ${RADAR_MAX_ATK}** with the ×9 elite piranha (S192)`)).toBe(true);
   });
 
   /* ══ S190 deploy #4 — §5b, three unit rules he reported (s189/units) ══════════════════════════ */

@@ -89,10 +89,11 @@ import { raAimPoint, raCastRefusal, type CastPowerOfRaAction } from './powerOfRa
 export const RA_PERK_STRIKE_FIFTHS = attackFifths(RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN);
 
 /**
- * @deprecated S188's name, kept ONLY because `canon.test.ts` imports it (a worktree may not edit the
- * canon). It is the PERK's column — the thing the canon row it pins describes — so it now reads **35**,
- * and the canon's *"300"* assertions go RED by design until the merge owner re-pins them (reported).
- * New code reads `RA_PERK_STRIKE_FIFTHS`.
+ * @deprecated S188's name for the column strength, kept only as a pure ALIAS of `RA_PERK_STRIKE_FIFTHS`
+ * so an old import still compiles. ⛔ It is NOT a second strike and NOT a per-target number: a perk column
+ * deals **35 fifths IN TOTAL, split** across its targets (`raSplitShares`), and the Pharaoh BOSS's column
+ * (300, unsplit) is a different number entirely (`bossSkillsPharaohRitual.ts`). Read
+ * `RA_PERK_STRIKE_FIFTHS`; the canon and its test do (S191). Safe to delete once nothing imports it.
  */
 export const RA_STRIKE_FIFTHS = RA_PERK_STRIKE_FIFTHS;
 

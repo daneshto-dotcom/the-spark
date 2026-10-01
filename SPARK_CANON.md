@@ -429,15 +429,15 @@ just change it … don't argue if it's too OP"*.
 | **THE SWARM** | vampires · 10 | the seat's bat tower emits the BAT SWARM from now on — every stat ×6 from the bat (R190-D), drawn twice the size; its own atlas and the `l10-vampires` card | `THE_SWARM_STAT_MUL` = **6** → **12 / 0 / 12 / 6** · pool **10 → 60** · bite **12 → 132** · `BAT_SWARM_SPRITE_SCALE_MUL` = **2** | its speed is the bat's; the ×2 draw size |
 | **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
 | **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
-| **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims the Pharaoh's sun columns anywhere on the board — enemy creatures, Helga, shapes AND connectors | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_STRIKE_FIFTHS` = **300** over `RA_COLUMN_RADIUS` = **70** px | spares the caster; cuts connectors too; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
+| **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims five sun columns anywhere on the board — each column's damage is SPLIT between the enemy creatures, Helga, lone shapes, stink bags and structures it catches (S191) | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_PERK_STRIKE_FIFTHS` = **35** a column IN TOTAL, split, over `RA_COLUMN_RADIUS` = **70** px | spares the caster (and does not count its things); a STRUCTURE is ONE target, its share on its connector nearest the centre; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
 | **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
-| **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each exactly POWER OF RA's strike (5 columns × **300** fifths over **70** px) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
+| **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each exactly POWER OF RA's strike (5 columns × **35** fifths, split, over **70** px) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
 | **BLOOD FRENZY** | orcs · 0 | while a Warlord of the seat rages by his OWN latch, every ORC RACIAL creature it owns rages too — twice as fast, twice the attacks | `WARLORD_RAGE_MULTIPLIER` = **2** | the Warlord's direwolves are not orcs |
 | **THE HORDE GROWS** | orcs · 5 | the seat's goblin towers hold 20 goblins instead of 10, and its castle emits its unit twice as fast | `HORDE_GOBLIN_MAX_PER_SPAWNER` = **20** · `HORDE_CASTLE_EMIT_SPEEDUP` = **2** (every **15** s) | "goblin tower" = the `'goblinTower'` recipe only |
 | **SCORCHED GROUND** | demons · 0 | every ENEMY creature inside the seat's zone (`zoneOf(pos) === zoneOwner(seat)`) burns on the zombie aura's one-fifth tick | `SCORCHED_GROUND_PER_MILLE` = **20** | FIGHT only; the quarry never burns; creatures only |
 | **HELLSPAWN** | demons · 5 | a seat's chewer that DIES splits into two at 50 %; each of those into two at 25 %; then nothing | `HELLSPAWN_CHILDREN` = **2** · `HELLSPAWN_PCT_BY_GEN` = 100 / 50 / 25 · `HELLSPAWN_MAX_GEN` = **2** · pool 5 → 2 → 1, bite 7 → 3 → 1 | "the pentagram's chewers" = every chewer the seat owns, and one alive at the pick splits too; ageing out is not dying; the red/black tint is a placeholder |
 | **DEEP CURRENT** | nagas · 0 | the gatherer's walk HOME becomes a snap onto its deposit point, shape in hand; the walk out is unchanged | `deepCurrentSnap` — no number | the snap lands one tick after the claim |
-| **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat tripled, drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **3** → **9 / 0 / 6 / 3** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
+| **APEX PREDATOR** | nagas · 5 | the seat's piranha tower emits the ELITE piranha from now on — every stat ×9 (S192; tripled S188–S191), drawn twice the size | `APEX_PREDATOR_STAT_MUL` = **9** → **27 / 0 / 18 / 9** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2** | its speed is the piranha's |
 
 **His words, one per perk** (S187, verbatim — the S188 PDR §2 holds them in full):
 
@@ -451,7 +451,9 @@ just change it … don't argue if it's too OP"*.
   life steal on his attack, so for as much as he attacks that's as much as he heals, for like eight
   seconds … enemy units first, obviously."*
 - **POWER OF RA** — *"once per fight, you can use the power of Ra … kind of like Pharaoh has. But you
-  get to choose where it lands."*
+  get to choose where it lands."* Then S191: *"each column that it does 30 damage it split right so if it
+  hits a tower and an enemy at the same time then it split amongst those two … it's not like 30 to each
+  thing in the vicinity … we can do it 35 per hit."*
 - **ENDLESS DYNASTY** — *"every time a castle loses 1,000 points, it spawns a pharaoh … from now on
   and until the end of the game."*
 - **BLOOD FRENZY** — *"Every time your orc warlord does rage … any orc spawn on the screen that is
@@ -467,7 +469,8 @@ just change it … don't argue if it's too OP"*.
 - **DEEP CURRENT** — *"they will go to get a shape and then they will teleport back to base rather
   than having to walk all the way back."*
 - **APEX PREDATOR** — *"So all the stats you take and you just triple them"* and *"two times bigger
-  than the current piranha"*.
+  than the current piranha"*. Then S192: *"the Piranha, when it's upgraded … the Nagas get the Piranha
+  upgrade, it should be stronger … I think it should be times nine."*
 - **THE SWARM** (S187) — *"it upgrades the regular tier three bat tower at level 10, if we choose it, to
   become bat swarm, to generate and create bat swarms"* and *"Whatever we did for the piranha, we double
   that."* Then R190-D (S190): *"a bat 1/1/1/1 → 6/6/6/6"* — every stat multiplied from the base.
@@ -530,12 +533,25 @@ un-counts a loss** (`Player.dynastyHpLost` only rises), and one hit crossing two
 ⚠ `DYNASTY_LIVE_PHARAOH_SENTINEL` (**40** live Pharaohs a seat) is a **PERFORMANCE sentinel, never a
 gameplay cap** (Council A3, MINE): past it the Pharaoh is not born and its 1,000 is still consumed.
 
-⛔ **POWER OF RA IS THE PHARAOH'S OWN STRIKE, RE-CENTRED.** The same functions and constants —
-`attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = **300** fifths a column over `RA_COLUMN_RADIUS` **70** px,
-five columns two seconds apart — so a retune of his ultimate retunes this one. **Once per FIGHT** (one
-cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two differences, both MINE: it
-**spares the caster** (the Pharaoh's own columns spare nobody), and it cuts CONNECTORS as well,
-because a building dies through its connectors (§4). ⛔ **The host REFUSES an aim that is off the
+⛔ **POWER OF RA FALLS LIKE THE PHARAOH'S STRIKE BUT IS NOT HIS NUMBER (S191).** Same pattern
+(`raColumnPos`), timing (`raColumnImpactTick`) and radius (`RA_COLUMN_RADIUS` **70** px), five columns two
+seconds apart — but a column deals `RA_PERK_STRIKE_FIFTHS` = `attackFifths(RA_PERK_COLUMN_ATK 5,
+RA_PERK_COLUMN_PEN 2)` = **35** fifths a column IN TOTAL, split by `raSplitShares` over everything it catches
+(`raColumnTargets`): each enemy creature with pool left, Helga, lone built shape and landed stink bag is one
+target, and each enemy STRUCTURE is ONE target whose share lands on its connector nearest the centre.
+Share = floor(35 / n); the remainder goes one fifth apiece to the first targets in the total order
+(squared distance, then kind structure < creature < defender < shape < bag, then id). ⚠ MINE: n > 35 →
+the first 35 get 1, the rest 0; the ATK/PEN pair 5/2 (35 = 7/0 = 5/2 = 1/30); a corpse and a channelling
+Pharaoh take no share; a structure whose shapes but no connector midpoints are in the circle is not a
+target (shapes inside a structure are not targetable). The old area arm that razed every shape inside a
+structure is GONE — that is what let one column level a tower — and the column now reaches stink bags,
+which it never did. Measured: a fresh 5-connector tower stands after one column and falls on the
+**7th** column that lands on it (no overkill carry). ⛔ The Pharaoh BOSS keeps
+`attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)` = **300** on EVERY victim, unsplit — the two no longer share a
+number. **Once per FIGHT** (one cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two
+differences from his, both MINE: it **spares the caster** (the Pharaoh's own columns spare nobody), and it
+cuts CONNECTORS as well (through the structure's one share), because a building dies through its
+connectors (§4). ⛔ **The host REFUSES an aim that is off the
 canvas, non-finite or not a number** — a no-op, never a clamp to the corner, because a strike landing
 at (0, 0) would be an attack nobody aimed — and rounds an on-canvas aim to integers (`raAimPoint`,
 Council A1). The button sits in the footer, left of the tier chips, where he put it. ⚠ MINE, and his to
@@ -568,9 +584,12 @@ outlasts the window (**480**), so it can never reach the next FIGHT. Nothing is 
 over; the once-per-life latch is spent. The renderer stops drawing the feed at the edge
 (`showsCorpseEaterFeed`).
 
-⚠ **APEX PREDATOR: "×3 EVERY STAT" IS ×3 HEALTH BUT ×4 BITE — SHIPPED AS HIS LITERAL WORDS, AND
-FLAGGED FOR HIM.** The ladder multiplies ATK by (5 + PEN), and both are tripled: pool **15 → 45**, bite
-**12 → 48**. "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
+⚠ **APEX PREDATOR: "×9 EVERY STAT" IS ×9 HEALTH BUT ×21 BITE — HIS NUMBER (S192), THE LADDER'S
+ARITHMETIC (R190-D).** The ladder multiplies ATK by (5 + PEN), and both are ×9: pool **15 → 135**, bite
+**12 → 252** — 18 × (5 + 9) against the piranha's 2 × (5 + 1). One elite bite is more than a whole
+5-connector tower, every level of it. Its HP 27 and ATK 18 sit OFF the 1..12 point ladder by his ruling;
+`statsLadder.test.ts` gives the elite its own lane, pinned to exactly piranha × `APEX_PREDATOR_STAT_MUL`.
+(S188–S191 it was ×3: pool 45, bite 48.) "From now on" is decided at the EMIT, so piranhas already on the board are untouched, and
 both of the tower's emit sites (the free trickle and FEED_TOWER) ask one function, `towerUnitForSeat`.
 
 ⚠ **THE SWARM: "×6 EVERY STAT" IS ×6 HEALTH BUT ×11 BITE — AND THAT IS HIS RULING, NOT A FLAG (R190-D,
@@ -578,12 +597,16 @@ S190).** *"a bat 1/1/1/1 → 6/6/6/6"* — every stat is multiplied from the bas
 gives pool **10 → 60** and bite **12 → 132**: 12 × (5 + 6) against the bat's 2 × (5 + 1). One swarm bite is
 more than it costs to fell a whole 5-connector tower, every level of it (**130**). ✅ CLOSED — never re-ask. His 1/1/1/1 is
 illustrative; the bat's real line is 2 / 0 / 2 / 1 (`T3_STATS.bat`), and DEF stays 0 because 0 × 6 = 0.
+⛔ Since S192 `THE_SWARM_STAT_MUL` is a LITERAL 6, decoupled from `APEX_PREDATOR_STAT_MUL`: left as
+`2 × APEX` the owner's ×9 piranha would have silently made the swarm ×18.
 
 ⚠ **A STATED CONSEQUENCE: WITH CRIMSON TIDE ONE SWARM BITE HEALS MORE THAN THE SWARM'S WHOLE POOL** —
 `lifestealFifths(132, 50)` = **66** against a pool of **60**. The heal is capped at its own max, so every
 swarm that lands a bite is topped back to full (BLOOD DEBT alone: **26**). Vampire bots take both by
 default. ⚠ And the character-sheet radar's ATK ceiling rose **10 → 12** for every unit (`RADAR_MAX_ATK` —
-the swarm's ATK is now the roster's largest; render-only, left as is on the S190 call). "From now on" is
+the swarm's ATK was then the roster's largest; render-only, left as is on the S190 call), and rose again
+**12 → 18** with the ×9 elite piranha (S192) — whose HP 27, PEN 9 and bite 252 also become the radar's
+HP / PEN / SHOT ceilings, so every other unit's radar draws smaller. Render-only, reported, not changed. "From now on" is
 decided at the EMIT (`towerUnitForSeat`), so bats already alive stay bats, and a vampire seat that takes
 the GENERAL at wave 11 keeps its bats.
 
