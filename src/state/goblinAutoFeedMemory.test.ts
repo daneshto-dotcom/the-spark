@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { ALL_SPARK_TYPES, PLAYER_COLORS, REVALIDATE_INTERVAL_TICKS, SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, BUILD_LOCK_FROM_WAVE, PLAYER_COLORS, REVALIDATE_INTERVAL_TICKS, SparkType } from '../constants.ts';
 import { blueprintBill } from './blueprints.ts';
 import { applyBuildBlueprint } from './blueprintBuild.ts';
 import { bankAdd, makeCastleBank } from './castleBank.ts';
@@ -23,6 +23,7 @@ import { AUTO_FEED_POLL_TICKS, runGoblinAutoFeed } from './goblinAutoFeed.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import { netSnapshot, restore, snapshot } from './save.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
+import { isBuildLocked } from './endgame.ts';
 import { asPlayerId, asPrimitiveId, type PlayerId, type PrimitiveId, type SpawnerId } from '../types.ts';
 import './godlyRecipes/registerAll.ts';
 
@@ -193,5 +194,26 @@ describe('⭐ S193 round 2 — the runner skips a benched / eliminated seat, so 
     }
     expect(fed(w, t)).toEqual([]);
     expect(w.diagnostics.rejectReasons.actorEliminated).toBe(before);
+  });
+});
+
+describe('⭐ S193 round 2 — the ENDGAME build lock: toggles allowed, auto-feeds built (his "they can build more goblins")', () => {
+  it('⭐ from the lock wave: SET_AUTO_FEED applies and the runner still builds through dispatch (mutation-tested)', () => {
+    /* ⚠ MUTATION-TESTED: `SET_AUTO_FEED: 'deny'` in ENDGAME_LOCK_INTENT_POLICY turns this red. */
+    const { w, t } = towerWorld();
+    w.waveNumber = BUILD_LOCK_FROM_WAVE;
+    expect(isBuildLocked(w), 'fixture: the lock holds').toBe(true);
+    const lockedBefore = w.diagnostics.rejectReasons.endgameBuildLocked;
+    dispatch(w, { type: 'PULL_FROM_BANK', playerId: P0, sparkType: SparkType.Dot } as never);
+    expect(w.diagnostics.rejectReasons.endgameBuildLocked, 'negative control: a denied intent IS refused').toBe(lockedBefore + 1);
+    toggle(w, P0, t, SparkType.Square);
+    expect(w.creatureSpawners.get(t)!.autoFeedMask).toBe(1 << SparkType.Square);
+    bankN(w, P0, SparkType.Square, 2);
+    for (let i = 0; i < AUTO_FEED_POLL_TICKS * 2; i++) {
+      w.tick++;
+      runGoblinAutoFeed(w);
+    }
+    expect(fed(w, t).map((c) => c.type)).toEqual(['goblinShield', 'goblinShield']);
+    expect(w.diagnostics.rejectReasons.endgameBuildLocked).toBe(lockedBefore + 1);
   });
 });
