@@ -2332,3 +2332,21 @@ describe('⭐ S192 SHEETS-1 — one fallen tower is ONE fallen tower, and its FI
     expect(structureTowersAt(w, stray.id)!.towers.map((t) => t.kind), 'the weld lists the one live turret').toEqual(['live']);
   });
 });
+
+describe('⭐ S192 re-audit X1 — a FALLEN tower\'s row opens that tower, even when its anchor is a live tower\'s shape', () => {
+  it('the W2-4 board after the turret falls: the Scarab card\'s "LASER TURRET · DOWN" row opens the turret, and its SCRAP is the turret\'s', () => {
+    const { w, st, hubId, turretOwn, lines } = turretWithScarabOnItsHub();
+    const leaf = turretOwn.filter((id) => id !== hubId)[0]!;
+    razePrimitives(w, [leaf], undefined, true, true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(0);
+    const scarabCard = characterSheetModel(w, P0, { kind: 'structure', primitiveId: lines[0]!.id })!;
+    const row = scarabCard.welded!.towers.find((t) => t.name === codexCopyFor('laserTurret').name)!;
+    expect(row?.down, 'fixture: the fallen turret is listed').toBe(true);
+    expect(characterSheetModel(w, P0, row.target)!.title, 'row → the turret').toBe(codexCopyFor('laserTurret').name);
+    const target = (row.target as { primitiveId: PrimitiveId }).primitiveId;
+    const scrap = planStructureScrap(w, P0, target)!;
+    expect(scrap.memberIds, 'never the ring\'s Lines').not.toContain(lines[0]!.id);
+    expect(scrap.memberIds).not.toContain(lines[1]!.id);
+  });
+});

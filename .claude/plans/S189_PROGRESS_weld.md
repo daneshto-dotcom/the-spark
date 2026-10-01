@@ -762,3 +762,13 @@ ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverte
 
 ## IN-FLIGHT
 - none — round 5 report delivered. Round 6 waits for "round 6 go".
+
+## S192 RE-AUDIT ROUND (coordinator: X1, X2, L1, notes §H; NOT carry's structureBarHealth.ts)
+- DONE: none yet. X1 test added (RED, reproduces: row → SCARAB TOWER). X2 test written (RED, reproduces:
+  unit members [0,1,2,3,4,6,12]) and parked at `.claude/plans/S192_reaudit_X2_test_block.ts.txt`.
+- IN FLIGHT: X1 fix in `towerUnit.ts` `unitClickShape` (stamp → lowest member no live tower owns).
+- RESUME: 1) X1 fix + mutant + commit; 2) append the parked X2 block to weldOntoTowerS189.test.ts, fix
+  `stampGroupAt` whole-component mode (each candidate fits its node slot under `fitBlueprintFrame`
+  within tolerance, else bond walk), mutant, commit; 3) L1 save.ts validate+sort ownPrimitiveIds +
+  test; 4) notes §H rewritten for the NEW bump (after 53); 5) gates typecheck / vitest --maxWorkers=3 /
+  build, exit codes to files.
