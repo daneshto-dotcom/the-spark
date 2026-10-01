@@ -262,6 +262,57 @@ describe('S192 T3 — a structure is ONE target and BANKS its share', () => {
   });
 });
 
+describe('⭐ S193 merge — the blast severs through severWithCarry (owner S191: overkill CARRIES)', () => {
+  /** A three-shape own chain (2 connectors, one structure) `dy` px below the blast. */
+  function chain(w: World, dy: number): void {
+    const color = w.players.get(P0)!.color;
+    const mk = (x: number): number => {
+      const id = w.nextPrimitiveId++ as never;
+      w.primitives.set(id, {
+        id, type: 1, placerColor: color, placedBy: P0, createdTick: w.tick, pos: { x, y: AT.y + dy },
+        prevPos: { x, y: AT.y + dy }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
+        radius: 9, hp: 70, origin: null,
+      } as never);
+      return id as unknown as number;
+    };
+    const [a, b, c] = [mk(AT.x - 20), mk(AT.x), mk(AT.x + 20)];
+    const bond = (x: number, y: number): void => {
+      const pa = w.primitives.get(x as never)!;
+      const pb = w.primitives.get(y as never)!;
+      const bd = makeBond(w, pa, pb, lookupCombo(pa.type, pb.type).stiffnessTier);
+      w.bonds.set(bd.id, bd);
+      pa.bonds.add(bd.id);
+      pb.bonds.add(bd.id);
+    };
+    bond(a, b);
+    bond(b, c);
+  }
+
+  it('⭐⭐ REACH: a lone chain at his feet takes the whole 312 — 14 fells the first connector, the overkill fells the second', () => {
+    const w = board();
+    const boss = put(w, BOSS, P0, AT.x);
+    chain(w, 20);
+    let share = -1;
+    killBossAndBlast(w, boss, (ww) => {
+      const s = planZombieDeathBlast(ww, AT, P0).filter((x) => x.target.kind === 'structure');
+      expect(s.length).toBe(1);
+      share = s[0]!.share;
+    });
+    // arithmetic: pool(2) = 2 × (5 + 2) = 14, then the survivor re-forms at pool(1) = 6; 14 + 6 = 20 ≤ share
+    expect(share, 'fixture: the share covers both connectors').toBeGreaterThanOrEqual(14 + 6);
+    expect(w.bonds.size, 'the overkill carried: BOTH connectors fell (a bare SEVER_BOND leaves 1)').toBe(0);
+  });
+
+  it('negative: a share below one connector pool fells nothing and carries nothing', () => {
+    const w = board();
+    const boss = put(w, BOSS, P0, AT.x);
+    for (let i = 0; i < 6; i++) put(w, 'goblinMelee', P1, AT.x + 10 + i * 5);
+    chain(w, 300);
+    killBossAndBlast(w, boss);
+    expect(w.bonds.size).toBe(2);
+  });
+});
+
 describe('S192 T2 + T3 — determinism', () => {
   function run(w: World, boss: Creature): number {
     killBossAndBlast(w, boss);

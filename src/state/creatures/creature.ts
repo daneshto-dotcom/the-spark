@@ -28,7 +28,7 @@ import {
 } from './voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from '../stats.ts';
 import { draftedAttackFifths, draftedPoolFifths, type DraftPick } from '../draft.ts';
-import { WARLORD_RAGE_MULTIPLIER } from '../../constants.ts';
+import { WARLORD_RAGE_COOLDOWN_TICKS, WARLORD_RAGE_MULTIPLIER, WARLORD_RAGE_TICKS } from '../../constants.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
 
@@ -145,6 +145,30 @@ export function ragedFireTick(fireTick: number, c: Pick<Creature, 'attackCycleRa
  */
 export function attackCycleMultiplier(c: Pick<Creature, 'attackCycleRaged'>): number {
   return c.attackCycleRaged === true ? WARLORD_RAGE_MULTIPLIER : 1;
+}
+
+/**
+ * ⭐⭐ S191 (owner) — **IS THIS WARLORD RAGING BY HIS OWN 25-SECOND LATCH RIGHT NOW?** The one read of
+ * `rageStartTick`'s first window. Strictly `<`, so a stamp at `T` rages on exactly `WARLORD_RAGE_TICKS`
+ * ticks (`T … T + 1499`). A stamp in the future (never written by the sim) is not active. ⚠ Restore
+ * (`save.ts`) validates only a non-negative INTEGER — it does NOT refuse a future stamp; this read is
+ * what makes one harmless. Takes `tick`, not the World, like `isStunned`.
+ */
+export function isOwnRageActive(c: Pick<Creature, 'rageStartTick'>, tick: number): boolean {
+  if (c.rageStartTick === undefined) return false;
+  const since = tick - c.rageStartTick;
+  return since >= 0 && since < WARLORD_RAGE_TICKS;
+}
+
+/**
+ * ⭐ S191 (owner, *"cooldown first"*) — **IS HIS LATCH IN ITS COOLDOWN?** The window right after the
+ * rage: `WARLORD_RAGE_TICKS ≤ tick − start < WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`. While
+ * true he cannot fire again, whatever his health.
+ */
+export function isRageCoolingDown(c: Pick<Creature, 'rageStartTick'>, tick: number): boolean {
+  if (c.rageStartTick === undefined) return false;
+  const since = tick - c.rageStartTick;
+  return since >= WARLORD_RAGE_TICKS && since < WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
 }
 
 /**
@@ -645,6 +669,23 @@ export interface Creature {
    * so a board with nothing raging stays byte-identical. `undefined` and `false` mean the same thing.
    */
   attackCycleRaged?: boolean;
+  /**
+   * ⭐⭐ S191 (owner) — **THE TICK THIS WARLORD'S OWN RAGE LATCH LAST FIRED.** *"let's do it like 25
+   * seconds"*, then *"cooldown first"*.
+   *
+   * ONE stamp carries both windows, so nothing else has to be remembered: raging while
+   * `tick − start < WARLORD_RAGE_TICKS` (`isOwnRageActive`), then cooling down for
+   * `WARLORD_RAGE_COOLDOWN_TICKS` (`isRageCoolingDown`), then free to fire again below the line.
+   * Written ONLY by `runWarlordRage` — BLOOD FRENZY never stamps it, which is exactly what keeps a
+   * frenzy-raged Warlord from being a frenzy SOURCE (`isFrenzySource` reads this, not the shared bit).
+   *
+   * ⚠ SERIALIZED AND HASHED, ADDITIVE-OPTIONAL: `makeWorkerSim` and a promoted successor build their
+   * world from the save, so a stamp missing from the payload would end a rage early (or start a second
+   * one inside the cooldown) on one sim and not the other. Absent = never raged, which is every
+   * creature that is not a Warlord and every Warlord above half. A stale stamp (both windows over) is
+   * left in place — harmless, overwritten when he next fires.
+   */
+  rageStartTick?: number;
   /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.

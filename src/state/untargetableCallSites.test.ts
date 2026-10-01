@@ -102,6 +102,10 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'Neither selects a victim.',
   'state/creatures/creatureLifecycle.ts':
     'LIFECYCLE. Despawn/expiry sweeps and the deferred-death batch. Removal is not acquisition.',
+  'state/racial/raColumn.ts':
+    'AREA. S191 — `raColumnTargets` collects EVERYONE standing in the column (owner: "split amongst them") ' +
+    'and divides one fixed total between them; it picks no victim. An untargetable unit in the column ' +
+    'takes its share by the "untargetable is NOT invulnerable" ruling — the case `applyRadialDamage` covered.',
   'state/damage.ts':
     'AREA. `applyRadialDamage` asks who is standing in a shape. This is the canonical case the ' +
     '"untargetable is NOT invulnerable" ruling exists to protect.',
@@ -142,7 +146,13 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
      * reporting a clean board because it could not SEE the file, which is the same failure
      * shape as the S171 atlas checker. A short cast-like span now counts too.
      */
-    const filtersOwner = /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src);
+    /*
+     * ⭐ S192 — AND THE SCORCH'S ONE RESISTANCE PREDICATE. `scorchedGround.ts` now asks
+     * `isScorchImmune(c.ownerPlayerId, spared)` instead of comparing inline (the single site a later
+     * teams branch changes), which is still an ownership filter — the census must keep SEEING it.
+     */
+    const filtersOwner =
+      /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) || /isScorchImmune\(\s*\w+\.ownerPlayerId\b/.test(src);
     return iterates && filtersOwner;
   });
 

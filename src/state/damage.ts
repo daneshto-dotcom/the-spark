@@ -287,40 +287,10 @@ export function damageEntity(
       return true;
     }
 
-    case 'stinkCloud': {
-      /*
-       * ⭐ S158 A2 — shoot the bag, wear the burst.
-       *
-       * ⚠ THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER. Every area effect in this game spares
-       * the side that created it, and a bag is no different just because someone else set it off —
-       * otherwise a player could clear their own minefield by shooting it and be hurt for it. The
-       * unit that popped it eats the blast precisely because it is standing there.
-       *
-       * ⛔ REMOVED BEFORE THE BURST, which is the opposite of the suicide goblin's order and is
-       * deliberate: `applyRadialDamage` walks `world.stinkClouds`? It does not — but a burst that
-       * killed a NEIGHBOURING bag would re-enter this arm while this one is still in the map, and
-       * removing first makes that chain terminate. A bag cannot detonate itself twice.
-       */
-      const cloud = world.stinkClouds.get(target.id);
-      if (cloud === undefined) return false;
-      cloud.ehp -= amount;
-      applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
-      if (cloud.ehp > 0) return false;
-      // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
-      world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
-      const at = { x: cloud.pos.x, y: cloud.pos.y };
-      const owner = cloud.ownerPlayerId;
-      const radius = cloud.radius;
-      world.stinkClouds.delete(target.id);
-      world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
-      applyRadialDamage(
-        world, at.x, at.y, radius,
-        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-        attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
-        'hazard', owner,
-      );
-      return true;
-    }
+    case 'stinkCloud':
+      // ⭐ S191 BLAST-1 — the arm is `damageStinkCloud` below, so the hub blast can pass one more
+      // seat for the burst to spare. Every other caller spares only the bag's owner, as before.
+      return damageStinkCloud(world, target.id, amount, attacker, null);
 
     case 'defender': {
       /*
@@ -391,6 +361,63 @@ export function damageEntity(
 }
 
 /**
+ * ⭐ S158 A2 — a LANDED STINK BAG takes a hit, and bursts when it reaches zero. The body of
+ * `damageEntity`'s `'stinkCloud'` arm, lifted out verbatim so one caller can add a spared seat.
+ *
+ * ⭐ S191 (owner) — `burstAlsoSpares`. A bag the LIGHTNING HUB's blast pops bursts without hitting the
+ * HUB OWNER either: *"Stink bags should not be able to hit your own units or your own … buildings, no matter what, they're resistant"* — owner,
+ * S191 (confirming the BLAST-1 default the audit raised). Without it the blast that spares his base
+ * (S157 P0) reached up to 90 px past its own 240 through an enemy bag. `null` everywhere else: an
+ * ordinary pop spares the bag's owner (S158 A2), which his words also keep.
+ *
+ * The amount must be a validated non-negative integer (`damageEntity`'s guard, or the hub planner).
+ */
+export function damageStinkCloud(
+  world: World,
+  id: StinkCloudId,
+  amount: number,
+  attacker: DamageAttacker,
+  burstAlsoSpares: PlayerId | null,
+): boolean {
+  if (!Number.isInteger(amount) || amount < 0) {
+    throw new Error(`damageStinkCloud: amount must be a non-negative INTEGER, got ${amount}.`);
+  }
+  if (amount === 0) return false;
+  /*
+   * ⭐ S158 A2 — shoot the bag, wear the burst.
+   *
+   * ⚠ THE BURST SPARES THE BAG'S OWNER, NOT THE KILLER. Every area effect in this game spares
+   * the side that created it, and a bag is no different just because someone else set it off —
+   * otherwise a player could clear their own minefield by shooting it and be hurt for it. The
+   * unit that popped it eats the blast precisely because it is standing there.
+   *
+   * ⛔ REMOVED BEFORE THE BURST, which is the opposite of the suicide goblin's order and is
+   * deliberate: `applyRadialDamage` walks `world.stinkClouds`? It does not — but a burst that
+   * killed a NEIGHBOURING bag would re-enter this arm while this one is still in the map, and
+   * removing first makes that chain terminate. A bag cannot detonate itself twice.
+   */
+  const cloud = world.stinkClouds.get(id);
+  if (cloud === undefined) return false;
+  cloud.ehp -= amount;
+  applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
+  if (cloud.ehp > 0) return false;
+  // ⭐ S182 — the killing blow on a landed bag, same reason as the shape arm above.
+  world.structureKillHits.push({ key: `s:${cloud.id}`, amount });
+  const at = { x: cloud.pos.x, y: cloud.pos.y };
+  const owner = cloud.ownerPlayerId;
+  const radius = cloud.radius;
+  world.stinkClouds.delete(id);
+  world.effects.push({ kind: 'BOMB_EXPLODE', tick: world.tick, pos: at, radius });
+  applyRadialDamage(
+    world, at.x, at.y, radius,
+    attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
+    attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
+    'hazard', owner, burstAlsoSpares,
+  );
+  return true;
+}
+
+/**
  * ⭐ S177 P1 (owner R173-B) — DAMAGE ONE CONNECTOR. The tower-durability path.
  *
  * ⛔⛔ THE RULE BELOW IS THE SHIPPED ONE. Until S178 this docblock opened by stating R76's
@@ -434,8 +461,9 @@ export function damageEntity(
  * Required rather than optional so `tsc` enumerated all four call sites and each had to answer;
  * `damageConnector.callSites.test.ts` pins the answers.
  *
- * @returns `true` when accumulated damage has reached capacity and the caller must dispatch
- *          `SEVER_BOND`; `false` while the connector still holds (or the bond is already gone).
+ * @returns `true` when accumulated damage has reached capacity and the caller must sever — through
+ *          `severWithCarry` (S191), which severs it and carries the overkill; `false` while the
+ *          connector still holds (or the bond is already gone).
  */
 export function damageConnector(
   world: World,
@@ -486,8 +514,11 @@ export function damageConnector(
   if (banked < pool) return false;
 
   /*
-   * ⛔ SPEND THE POOL, DO NOT ZERO IT — overkill carries into the next connector, which is what makes
-   * the accelerating collapse he describes continuous rather than lossy.
+   * ⛔ SPEND THE POOL, DO NOT ZERO IT — damage banked on the OTHER connectors by earlier hits keeps
+   * whatever this pool does not take, and the BREAKING hit's own overkill is left on the struck bond
+   * (drained first, below) for `severWithCarry` to carry on into the structure after the sever — the
+   * owner's S191 *"I do want the overkill to carry forward"* (canon §2). Until S191 nothing carried it and
+   * the sever deleted it with the bond.
    *
    * ⚠ TOTAL ORDER, NEVER `Map` ORDER. The bond the attacker TARGETED is drained first (R173-C: *"the
    * damage lands on whatever bond the attacker targeted ... the first connector to be targeted is the
@@ -525,6 +556,91 @@ export function damageConnector(
     .sort((x, y) => Number(x) - Number(y));
   for (const id of survivors) drain(world.bonds.get(id));
   return true;
+}
+
+/**
+ * ⭐⭐ S191 (owner) — **SEVER THE STRUCK CONNECTOR, AND LET THE OVERKILL CARRY.**
+ *
+ * > *"I do want the overkill to carry forward because there's only a few like enemies that can
+ * > actually do that … one boss should be able to sever like one connection or a few connections from
+ * > … a regular … tier three tower. Yeah, one hit, boom, done. For now, it destroys … however many
+ * > connectors the hit does … If it looks too OP, then later we will change that."* — owner, S191
+ *
+ * Call it where a caller used to dispatch `SEVER_BOND` after `damageConnector` returned `true`; `sever`
+ * is that caller's own sever (its cause, `dispatch` or `applySeverBond`), unchanged. It:
+ *   1. severs the STRUCK connector first (R173-C — the targeted one falls first);
+ *   2. takes what the drain left on it — the hit's overkill, which the sever used to delete with the
+ *      bond — and re-applies it to the next survivor of the struck bond's structure through
+ *      `damageConnector` (so the pool it meets is the RE-FORMED structure's, at the lower count);
+ *   3. repeats while the remainder covers the next pool: 50 → 36 → 24 → 14 → 6. Whatever cannot fell
+ *      the next one stays banked on the structure, structure-wide, like any other damage.
+ *
+ * ⚠ MINE — WHICH SURVIVOR FALLS NEXT. He ruled that the overkill carries, not the order. It is a TOTAL
+ * order: the survivor (of the struck bond's structure, as it stood before the first sever) whose
+ * midpoint is NEAREST the struck bond's midpoint, by squared distance, then the lowest bond id — the
+ * damage spreads outward from where it landed. `connectorCarry.test.ts` pins it.
+ *
+ * The carried hits name NO attacker: the lifesteal (BLOOD DEBT) was paid once on the whole hit by the
+ * caller's own `damageConnector`, and a second heal on the carry would count the same damage twice.
+ * If the sever is REFUSED (the connector still stands), nothing carries.
+ *
+ * ⛔⛔ S192 (audit CARRY-1) — **THE CARRY STAYS ON THE STRUCK CONNECTOR'S OWNER.** Candidates are only the
+ * structure's bonds whose BOTH ends were placed by the struck bond's owner (`struck.a.placedBy`). Without
+ * this the carry walked straight through a weld into whatever was welded on, undoing every caller's own
+ * filter: a seat-0 boss's 150 on a seat-1 bond felled seat 0's OWN connectors across the weld (the S162
+ * "my own creature destroys my own tower" chain), and the hub blast's leftover felled the hub OWNER's
+ * connectors that `planHubBlast` spares (S157 P0). A weld (mixed ends) is never a carry target either.
+ * When no same-owner connector is left, the remainder has nothing to land on.
+ *
+ * @returns how many connectors fell (0 when the struck one did not).
+ */
+export function severWithCarry(world: World, bondId: BondId, sever: (bondId: BondId) => void): number {
+  const struck = world.bonds.get(bondId);
+  if (struck === undefined) return 0;
+  // Captured BEFORE the first sever: a sever can split the structure and raze an orphaned shape.
+  const ox = (struck.a.pos.x + struck.b.pos.x) / 2;
+  const oy = (struck.a.pos.y + struck.b.pos.y) / 2;
+  const anchor = world.primitives.get(struck.aId) ?? world.primitives.get(struck.bId);
+  // ⛔ S192 CARRY-1 — the carry never leaves the struck bond's owner (read off the SHAPES: `Bond.a/b` are
+  // typed as physics bodies, so `placedBy` comes from `world.primitives`).
+  const placer = (id: PrimitiveId): PlayerId | undefined => world.primitives.get(id)?.placedBy;
+  const owner = placer(struck.aId);
+  const candidates = anchor === undefined
+    ? []
+    : [...componentOf(anchor, world.primitives, world.bonds).bondIds].filter((id) => {
+      if (id === bondId) return false;
+      const b = world.bonds.get(id);
+      return b !== undefined && owner !== undefined && placer(b.aId) === owner && placer(b.bId) === owner;
+    });
+
+  let current = bondId;
+  let felled = 0;
+  for (;;) {
+    const bond = world.bonds.get(current);
+    if (bond === undefined) break;
+    const leftover = bond.damageFifths;
+    sever(current);
+    if (world.bonds.has(current)) break; // refused — it stands, so nothing carries past it
+    felled += 1;
+    if (leftover <= 0) break;
+    let next: BondId | null = null;
+    let bestD2 = Infinity;
+    for (const id of candidates) {
+      const b = world.bonds.get(id);
+      if (b === undefined) continue;
+      const dx = (b.a.pos.x + b.b.pos.x) / 2 - ox;
+      const dy = (b.a.pos.y + b.b.pos.y) / 2 - oy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2 || (d2 === bestD2 && next !== null && (id as unknown as number) < (next as unknown as number))) {
+        bestD2 = d2;
+        next = id;
+      }
+    }
+    if (next === null) break; // the whole structure is down; the rest has nothing to land on
+    if (!damageConnector(world, next, leftover, null)) break; // banked on the structure
+    current = next;
+  }
+  return felled;
 }
 
 /*
@@ -641,9 +757,10 @@ export interface RadialDamageResult {
  *     through it would one-shot a full-health 1000-hp shape, making `Primitive.hp` — the entire
  *     point of the S138 damage substrate — invisible to the newest damage source in the game.
  *  2. **Its predicate filters CREATURES ONLY.** The `creatureKill` callback gates the creature loop;
- *     the primitive loop takes no predicate at all, which is why the lightningHub self-destruct
- *     passes `() => true` and razes friendly shapes by design. A bag that flattens the thrower's own
- *     tower is not a mechanic, it is a bug.
+ *     the primitive loop took no predicate at all until S157 P0 gave it one (`primKill`). (⚠ S191: the
+ *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; only the
+ *     zombie boss's R138 raze does.) A bag that flattens the thrower's own tower is not a mechanic, it
+ *     is a bug.
  *  3. **It never consults `world.defenders`.** A blast that cannot hurt a tower cannot be counterplay
  *     to towers.
  *
@@ -692,8 +809,16 @@ export function applyRadialDamage(
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /**
+   * ⭐ S191 BLAST-1 — ONE MORE seat to spare, for the one blast that has two owners to respect (a bag
+   * the lightning hub popped: the bag's owner AND the hub's — `damageStinkCloud`). Optional, `null` for
+   * every other caller, so each of them is byte-identical.
+   */
+  alsoSparePlayerId: PlayerId | null = null,
 ): RadialDamageResult {
   const r2 = radius * radius;
+  const spared = (seat: PlayerId): boolean =>
+    (sparePlayerId !== null && seat === sparePlayerId) || (alsoSparePlayerId !== null && seat === alsoSparePlayerId);
   const inRange = (x: number, y: number): boolean => {
     const dx = x - cx;
     const dy = y - cy;
@@ -703,21 +828,23 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    if (sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) continue;
+    // ⚠ S191 — written out (not `spared(...)`) so `untargetableCallSites.test.ts` still SEES this area
+    // scan's owner filter: its census matches `ownerPlayerId … ===` and a helper call hid it.
+    if ((sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && c.ownerPlayerId === alsoSparePlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if (sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) continue;
+    if ((sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && dd.ownerPlayerId === alsoSparePlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
   }
   defenderVictims.sort((a, b) => (a as number) - (b as number));
 
   const primVictims: PrimitiveId[] = [];
   for (const [pid, p] of world.primitives) {
-    if (sparePlayerId !== null && p.placedBy === sparePlayerId) continue;
+    if (spared(p.placedBy)) continue;
     if (inRange(p.pos.x, p.pos.y)) primVictims.push(pid);
   }
   primVictims.sort((a, b) => (a as number) - (b as number));

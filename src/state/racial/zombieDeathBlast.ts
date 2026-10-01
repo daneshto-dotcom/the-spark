@@ -46,7 +46,7 @@ import type { BondId, PlayerId } from '../../types.ts';
 import { componentOf } from '../../game/structure.ts';
 import { isChannellingRa } from '../creatures/creature.ts';
 import { getCreatureConfig } from '../creatures/voltkin-config.ts';
-import { damageConnector, damageEntity, type DamageTarget } from '../damage.ts';
+import { damageConnector, damageEntity, severWithCarry, type DamageTarget } from '../damage.ts';
 import { attackFifths } from '../stats.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
 import { dispatch, type World } from '../world.ts';
@@ -225,7 +225,9 @@ export function applyZombieDeathBlast(world: World, at: { x: number; y: number }
     if (t.kind !== 'structure' || share === 0) continue;
     if (!world.bonds.has(t.bondId)) continue;
     if (damageConnector(world, t.bondId, share, null)) {
-      dispatch(world, { type: 'SEVER_BOND', bondId: t.bondId, playerId: owner, cause: 'unit' });
+      // ⭐ S193 merge — `severWithCarry` (owner S191, canon §2): the struck connector falls and the overkill
+      // carries on through the SAME structure, like every other connector-damage caller (CARRY-2 census).
+      severWithCarry(world, t.bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'unit' }));
     }
   }
   for (const { target: t, share } of plan) {

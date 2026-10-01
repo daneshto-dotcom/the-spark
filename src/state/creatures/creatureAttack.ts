@@ -40,7 +40,7 @@ import { dispatch } from '../world.ts';
 import type { BondId, CreatureId, Vec2 } from '../../types.ts';
 import { bondMidpoint, distSq, enemyCastleInReach, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
-import { damageConnector, damageEntity } from '../damage.ts';
+import { damageConnector, damageEntity, severWithCarry } from '../damage.ts';
 // ⭐ S190 (draft-atk) — every arm below strikes for the CREATURE's own baked strike (a drafted ATK/PEN
 // pick), never its type's: `creatureAttackFifths`. `creatureStrike.guard.test.ts` counts the derivations.
 import { creatureAttackFifths, isCorpseEaterFeeding } from './creature.ts';
@@ -594,9 +594,10 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
   // S102 #2 — split the chewer cause off Voltkin's: a pencil chewer's final bite uses
   // cause:'chewer' (the audio drain plays a beaver GNAW, NOT lightning-crackle); a
   // Voltkin keeps cause:'creature' (its lightning zap). `creature.type` is the discriminant.
-  dispatch(world, {
+  // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
+  severWithCarry(world, action.bondId, (id) => dispatch(world, {
     type: 'SEVER_BOND',
-    bondId: action.bondId,
+    bondId: id,
     playerId: creature.ownerPlayerId,
     /*
      * ⛔⛔ S182 — THE SECOND HALF OF THE OWNER'S REPORT. This read `isChewer ? 'chewer' :
@@ -609,7 +610,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
      * PROTOCOL_VERSION 46 -> 47 — earned, not assumed; see the union in `effects.ts`.
      */
     cause: creature.type === 'voltkin' ? 'creature' : isChewer ? 'chewer' : 'unit',
-  });
+  }));
 
   // Emit ARC_FLASH only if the bond actually severed.
   if (!world.bonds.has(action.bondId)) {

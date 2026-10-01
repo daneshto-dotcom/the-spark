@@ -65,12 +65,13 @@ import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul, towerArtForRecipe, towerRingCentroid, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { labelStructureComponents } from './structureComponents.ts';
+import { liveBarTowers, structureBarWidth, towerOwnHealth } from './structureBarHealth.ts'; // ⭐ S191 C-7
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { creatureMaxEhp } from '../state/creatures/creature.ts';
 import { structureDefenceFifths, unitPoolFifths } from '../state/stats.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
-import type { CreatureId, DefenderId, PlayerId, PrimitiveId } from '../types.ts';
+import type { CreatureId, DefenderId, PrimitiveId } from '../types.ts';
 
 /**
  * How big a creature is actually DRAWN, supplied by the renderer that owns its sprite.
@@ -238,6 +239,11 @@ export function drawHealthBars(
  *
  * ## ⚠ IT IS THE **STRUCTURE'S** BAR, NOT THE TOWER'S — WHICH IS WHAT THE OWNER'S RULING IMPLIES
  *
+ * ⛔⛔ S191 C-7 — **SUPERSEDED FOR TOWERS (owner S187, canon §9d item 3 / R182-F): THE BAR FOLLOWS THE
+ * STAR.** A live tower now draws its OWN bar on its OWN members (`structureBarHealth.ts`), the pool the
+ * damage art and the sheet read, at a bounded proportional width; only a component with NO live tower
+ * (a freeform lattice) still reads the component pool described below.
+ *
  * He chose POOL semantics over WEAKEST-connector: *"total remaining"*, so that a tower's bar is
  * comparable with every other bar on screen. But a POOL belongs to a connected component, not to a
  * building — `connectorCapacityFifths` reads the CURRENT component's connector count, and two towers
@@ -357,38 +363,67 @@ function drawStructureBars(g: Graphics, world: World): void {
    * the inverse of the old walk, which started from the towers and could therefore only ever reach
    * structures that had one.
    */
-  const towerAt = new Map<PrimitiveId, { recipeId: GodlyId | null; ownerPlayerId: PlayerId }>();
-  // The two pool-less DEFENDER kinds — `turret` and `stinkTower`, both `unitStats: null`. Helga and
-  // anything else with a real pool is drawn by the defender loop above, from its own `ehp`.
-  for (const d of world.defenders.values()) {
-    if (d.ehp !== null) continue;
-    towerAt.set(d.anchorPrimitiveId, { recipeId: null, ownerPlayerId: d.ownerPlayerId });
-  }
   /*
    * …AND THE SPAWNER TOWERS, which are a SEPARATE MAP and not defenders at all. The goblin tower in
    * the owner's screenshot is one of these, as are the pentagram, the lightning hub, the six race
    * tier-3 towers and the six tier-9 boss towers. Missing this map would have shipped bars on two
    * tower kinds and called the job done.
+   *
+   * ⭐⭐ S191 C-7 (canon §9d item 3, R182-F) — EVERY live tower, spawner AND defender (Helga's hall
+   * too: her own `ehp` bar above is HER pool; this is the HALL's), one per anchor in
+   * `liveTowerRecipeAt`'s order (`liveBarTowers`). Each is read on its OWN STAR — the pool the damage
+   * art and the sheet read — and gets its own bar; a component with no live tower is a freeform
+   * lattice and keeps its component bar. See `structureBarHealth.ts`.
    */
-  for (const sp of world.creatureSpawners.values()) {
-    towerAt.set(sp.anchorPrimitiveId, { recipeId: sp.recipeId, ownerPlayerId: sp.ownerPlayerId });
-  }
+  const towers = liveBarTowers(world);
 
   for (const comp of labelStructureComponents(world.primitives, world.bonds)) {
     const n = comp.bondIds.length;
     if (n === 0) continue; // a lone shape has no connectors, so it has no durability to show
 
     /*
-     * ⚠ THE LOWEST tower anchor, not the first one found. `comp.primitiveIds` is in traversal order,
-     * which descends from `Map` iteration order, and two towers welded into one lattice would
-     * otherwise hand the sprite box to whichever one the sweep happened to enter through.
+     * ⭐ S191 C-7 — ONE BAR PER LIVE TOWER, ON ITS OWN STAR, in ascending anchor id (never the sweep's
+     * traversal order). A tower whose walk yields nothing (mid-teardown with no connector left, a
+     * recipe `towerMembersAt` does not govern) is skipped here; if NONE in the component reads, the
+     * component draws its own bar below, so a standing structure never loses its bar (S178).
      */
-    let anchorId: PrimitiveId | null = null;
-    for (const id of comp.primitiveIds) {
-      if (!towerAt.has(id)) continue;
-      if (anchorId === null || (id as number) < (anchorId as number)) anchorId = id;
+    const anchors = comp.primitiveIds.filter((id) => towers.has(id)).sort((a, b) => (a as number) - (b as number));
+    let drewTower = false;
+    for (const anchorId of anchors) {
+      const tower = towers.get(anchorId)!;
+      const own = towerOwnHealth(world, tower.recipeId, anchorId);
+      if (own === null) continue;
+      const artRecipe = tower.spawner ? tower.recipeId : null;
+      const sb = spriteBoxFor(artRecipe);
+      const art = artRecipe === null ? null : towerArtForRecipe(artRecipe);
+      const ringAt = art === null ? null : ringCentroid(world, anchorId, art);
+      // No art: the bar rides above the tower's OWN shapes — for an unwelded tower that is exactly the
+      // component's centroid and top-most point it used before.
+      let sx = 0;
+      let sy = 0;
+      let topY = Number.POSITIVE_INFINITY;
+      for (const id of own.prims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        sx += p.pos.x;
+        sy += p.pos.y;
+        topY = Math.min(topY, p.pos.y - p.radius);
+      }
+      const k = own.prims.length;
+      const x = ringAt?.x ?? (k > 0 ? sx / k : comp.cx);
+      const y = ringAt?.y ?? (k > 0 ? sy / k : comp.cy);
+      const rise = sb === null ? y - (Number.isFinite(topY) ? topY : comp.topY) : sb.h;
+      drewTower = true;
+      if (isConcealed(x, y, tower.ownerPlayerId)) continue;
+      const shown = Math.max(1, Math.min(own.max, own.max - own.banked));
+      drawBar(g, x, y, shown, own.max, 1, sb?.w ?? 0, rise, buildingTint(shown / own.max), structureBarWidth(own.max));
     }
-    const tower = anchorId === null ? null : towerAt.get(anchorId)!;
+    if (drewTower) continue;
+    // The COMPONENT bar: a freeform lattice (no tower), or a tower whose own walk read nothing — the
+    // lowest anchor still lends its building art's box, as before S191 C-7.
+    const anchorId = anchors[0] ?? null;
+    const bt = anchorId === null ? null : towers.get(anchorId)!;
+    const tower = bt === null ? null : { recipeId: bt.spawner ? bt.recipeId : null, ownerPlayerId: bt.ownerPlayerId };
     const sb = tower === null ? null : spriteBoxFor(tower.recipeId);
 
     /*
@@ -444,7 +479,7 @@ function drawStructureBars(g: Graphics, world: World): void {
     const shown = Math.max(1, current);
 
     // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
-    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max));
+    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max), structureBarWidth(max));
   }
 }
 
@@ -499,6 +534,11 @@ function drawBar(
   spriteRise: number,
   /** ⭐ S173 — the FILL colour. Creatures keep the red; BUILDINGS pass the castle ramp (owner). */
   fillTint: number = FILL_TINT,
+  /**
+   * ⭐ S191 C-7 (canon §9d item 3, rule 2) — a STRUCTURE's track width, bounded and proportional
+   * (`structureBarWidth`). `null` = a creature: the sqrt `span` below, unchanged.
+   */
+  trackW: number | null = null,
 ): void {
   const span = (v: number): number =>
     Math.min(BAR_MAX_W, Math.max(BAR_MIN_W, Math.sqrt(Math.max(0, v)) * BAR_PX_PER_SQRT_FIFTH));
@@ -554,7 +594,7 @@ function drawBar(
    * ⚠ `healthBar.test.ts` asserts this for EVERY `CreatureType`, not one boss. The S171 test that
    * should have caught it used `t9BossNagas`, whose 132-fifth pool sits 19× above the floor.
    */
-  const w = Math.max(span(max), spriteW);
+  const w = Math.max(trackW ?? span(max), spriteW);
   const fw = max > 0 ? w * Math.min(1, Math.max(0, ehp / max)) : 0;
   const h = BAR_H * scale;
   const bx = x - w / 2;

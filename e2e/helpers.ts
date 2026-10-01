@@ -83,17 +83,36 @@ function isPorchSpark(s: {
  * break every spec that builds something.
  *
  * No-op when a porch shape is already present, so callers can invoke it freely.
+ *
+ * ⛔⛔ S191 A-4 (A1, R190-L) — **THE ECONOMY WAIT IS IN SIM TICKS NOW, AND THIS WAS THE GATING LANE'S RED.**
+ * It was `waitForWorld(…, 30_000)` — a WALL-CLOCK budget on something only the SIMULATION can do (a
+ * gatherer walking out, hauling back, depositing). Ticks are frame-bound (≤ 3 per rendered frame, see
+ * `waitForWorldWithinTicks`), so 30 s bought ~1800 ticks locally and ~520–720 on the 2-core CI runner.
+ * MEASURED on master's gating lane: `waitForWorld timeout (30000ms): a gatherer banks a shape into the
+ * local castle` at tick **521** (`hunter.spec.ts`, run 35972498981) and tick **723** (`worker.spec.ts`,
+ * run 35831620160) — the gatherer was still HAULING its first shape. Three retries of the same wall
+ * budget then ate the lane's 720 s cap, so 11 specs never ran. The author's intent was 30 s of GAME:
+ * `PULL_FROM_BANK_BUDGET_TICKS` is exactly that, and the wall cap is only the dead-page backstop.
  */
-export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void> {
+export const PULL_FROM_BANK_BUDGET_TICKS = 30 * 60; // 30 s of SIM at PHYSICS_HZ 60 — the author's 30 s, in the game's own clock
+/** The porch-appearance wait after the slot click (step 4) — wall-clock, see the note there. */
+const PULL_FROM_BANK_PORCH_WAIT_MS = 30_000;
+
+export async function pullFromBank(
+  page: Page,
+  budgetTicks = PULL_FROM_BANK_BUDGET_TICKS,
+  wallCapMs = 240_000,
+): Promise<void> {
   const already = (await readWorldState(page)).freeSparks.some(isPorchSpark);
   if (already) return;
 
-  // 1. wait for the gatherers to actually bank a shape
-  await waitForWorld(
+  // 1. wait for the gatherers to actually bank a shape — in TICKS (see the docblock)
+  await waitForWorldWithinTicks(
     page,
     (w) => (w.castleBanks.find(([seat]) => seat === w.localPlayerId)?.[1] ?? 0) > 0,
     'a gatherer banks a shape into the local castle',
-    timeoutMs,
+    budgetTicks,
+    wallCapMs,
   );
 
   // 2. open the castle panel (click the local seat's keep)
@@ -156,11 +175,13 @@ export async function pullFromBank(page: Page, timeoutMs = 30_000): Promise<void
   await page.mouse.click(slot.x, slot.y);
 
   // 4. confirm the shape really reached the porch
+  // ⚠ S191 A-4 — this one stays WALL-CLOCK, on the 30 s it always had: it waits on ONE click the host
+  // applies on its next tick, not on the economy, so even ~11 ticks/s on CI gives it ~300 ticks of room.
   await waitForWorld(
     page,
     (w) => w.freeSparks.some(isPorchSpark),
     'the pulled shape appears on the castle porch',
-    timeoutMs,
+    PULL_FROM_BANK_PORCH_WAIT_MS,
   );
   // Close the panel so it cannot swallow the caller's subsequent drag — again state-aware, so a
   // panel that already closed itself is not re-opened by a stray toggle.
@@ -788,7 +809,12 @@ export async function placeFreeSparkAndConfirm(
   // 597 and 680, i.e. roughly a tenth of the way there, so the economy has ample room. A caller
   // that wants LONGER still gets longer — this only refuses to give the economy less than the
   // budget it was designed with.
-  await pullFromBank(page, Math.max(timeoutMs, 30_000));
+  //
+  // ⭐ S191 A-4 — and it no longer passes a number at all: `pullFromBank` now budgets the economy in
+  // SIM TICKS (its own `PULL_FROM_BANK_BUDGET_TICKS`), so this function's 15 s DRAG budget cannot reach
+  // it even by accident. The S165 `Math.max` above was the right fix for a wall-clock wait; the wait is
+  // no longer wall-clock.
+  await pullFromBank(page);
   const hasZoneSpark = (
     w: Awaited<ReturnType<typeof readWorldState>>,
   ): boolean => w.freeSparks.some(isPorchSpark);
@@ -893,7 +919,7 @@ export async function placeFreeSparkAndConfirm(
       if (attempt === ATTEMPTS) throw err;
       // Re-stock the porch and drag again. A shape left mid-board from a failed attempt is an
       // ordinary free spark and reaps on its own TTL, so this cannot accumulate litter.
-      await pullFromBank(page, timeoutMs);
+      await pullFromBank(page); // S191 A-4 — tick-budgeted; `timeoutMs` is the drag's, not the economy's
       const again = await dragSparkTo(page, targetX, targetY);
       if (again !== null) sparkId = again;
     }

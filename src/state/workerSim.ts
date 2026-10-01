@@ -55,6 +55,11 @@ import {
 import type { GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
+// S191 C-1 — the ONE shared allocator repair (`main.ts`' two adoption paths call it too). The worker
+// graph's only value import from `net/`: the function is a pure scan, but its module pulls
+// `hostIdentity` / `successionWarrant` into the worker chunk (measured +2,257 B, 222,208 → 224,465).
+// `main.ts` already imports it, so the gated entry chunk is unchanged (978,794 B before and after).
+import { rebuildAuthorityAllocators } from '../net/migrationClaim.ts';
 import { netSnapshot, restore, type NetSnapshot, type WorldSnapshot } from './save.ts';
 import { hashWorldState } from './stateHash.ts';
 import { tickSudoku } from './sudokuEvent.ts';
@@ -211,6 +216,17 @@ export function makeWorkerSim(
   // MEASURED pre-fix: host 1700 → 0 here, while the chewer's 3600 survived.
   // Do not "optimise" this path back onto the trimmed wire shape.
   restore(snap, world);
+  // ⛔ S191 C-1 — THE FOURTH ALLOCATOR AT THE THIRD ADOPTION SITE. `nextPulledSparkId` (the
+  // DESCENDING castle-pull allocator) is not serialized, so `restore()` leaves it at `makeWorld`'s −1.
+  // Both main-thread adoptions (worker-failure repair, migration takeover — `main.ts`) repair it
+  // through `rebuildAuthorityAllocators`; this one did not, so a worker adopted mid-match minted its
+  // first pull at −1 straight over a live pulled shape. ONLY this field is taken: `restore()` already
+  // wrote the save's exact nextPrimitiveId / nextBondId, and the spawner's own `restoreState` below
+  // carries its spark cursor — re-deriving those would overwrite exact values with a scan.
+  // ⚠ Collision-free, not bit-exact: the scan sees LIVE ids only, so if the newest pull has already
+  // left the board this resumes one above the source's counter and re-mints a dead id (the trade the
+  // two main-thread repairs already make). Pinned in `workerSim.pulledSparkId.test.ts`.
+  world.nextPulledSparkId = rebuildAuthorityAllocators(world).nextPulledSparkId;
   world.isHost = true;
   world.localPlayerId = asPlayerId(init.localPlayerId);
   const cfg: SpawnerConfig =

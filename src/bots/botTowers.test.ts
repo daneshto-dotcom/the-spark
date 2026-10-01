@@ -485,6 +485,10 @@ describe('S154 AMENDMENT A — ⭐ the assertion I should have written the first
  * ========================================================================== */
 
 /**
+ * ⚠ S191: the radius is now 61 (owner, "halved") plus a disc per porch slot, so the margin below is
+ * 149 px, not 89 — but VOLTKIN's 152 px reach still crosses it (210 − 152 = 58 < 61), so its
+ * horizontal angles stay refused. The sweep below is unchanged and still the guard.
+ *
  * ⚠ THE HAZARD, STATED BEFORE IT IS TESTED. S182 added `CASTLE_NO_BUILD_RADIUS` (121) around every
  * anchor, and the bot plants at `TOWER_SITE_OFFSET` (210) from THAT SAME anchor. The margin is
  * therefore 89 px — and the widest recipe, VOLTKIN, reaches 152 px toward the anchor along its

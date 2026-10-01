@@ -62,3 +62,20 @@ export function isZoneBackgroundEnabled(): boolean {
 export function setZoneBackgroundEnabled(value: boolean): void {
   writeBool(STORAGE_KEY_ZONE_BG, value);
 }
+
+/*
+ * ⭐ S192 `s192/visuals` — HIGH-QUALITY EFFECTS (bloom + ground ripples). Owner: *"upgrade the effects …
+ * to the best of our abilities"*; the brief asked for a high/low switch in case bloom proves costly.
+ * HIGH by default, because the upgrade is the point; LOW keeps every new particle and drops only the
+ * two filter passes. Same rules as the backdrop toggle above: local, try/caught, never on the wire.
+ */
+const STORAGE_KEY_FX_HQ = 'display.fxHighQuality';
+const DEFAULT_FX_HQ = true;
+
+export function isFxHighQuality(): boolean {
+  return readBool(STORAGE_KEY_FX_HQ, DEFAULT_FX_HQ);
+}
+
+export function setFxHighQuality(value: boolean): void {
+  writeBool(STORAGE_KEY_FX_HQ, value);
+}

@@ -66,6 +66,13 @@ export const RA_STRIKE_FRAME_TICKS: readonly number[] = [
   18, 18, 18, 18, 6, 6, 12, 12, 12, // before the impact — sums to RA_COLUMN_TICKS
   6, 6, 6, 6, 6, 8, 8, 8, 8, 8, 10, 10, 10, 10, // from the impact on
 ];
+/**
+ * ⭐ S191 C-9 (owner R190-H, extended) — slots 0-3 (sheet frames 1-4) are the RUNE RING ALONE, swelling
+ * on the ground before anything falls: they draw on the GROUND layer, under the units, like the
+ * telegraph shade they announce. From slot 4 (the beam drops from the sky) every frame is the strike and
+ * draws above the units and the buildings. Pinned against the table above in `raStrikeArt.test.ts`.
+ */
+export const RA_STRIKE_GROUND_SLOTS = 4;
 /** The slot that starts ON the impact tick — sheet frame 10, the flash. */
 export const RA_STRIKE_IMPACT_FRAME = 9;
 /** How long before the impact the first frame shows. Must equal `RA_COLUMN_TICKS` (tested). */

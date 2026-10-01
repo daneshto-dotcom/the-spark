@@ -8,7 +8,7 @@
  * racial pick, and an ENEMY Warlord's rage all leave the seat's orcs calm.
  */
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, WARLORD_RAGE_MULTIPLIER, phaseDurationTicks } from '../../constants.ts';
+import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, WARLORD_RAGE_MULTIPLIER, WARLORD_RAGE_TICKS, phaseDurationTicks } from '../../constants.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { isFrenzySource, isOrcRacialCreatureType, runBloodFrenzy } from './bloodFrenzy.ts';
 import {
@@ -134,29 +134,45 @@ describe('S188 BLOOD FRENZY — who is an orc, and who can start it', () => {
     }
   });
 
-  it('a source is a Warlord raging by his OWN latch — below the line, alive, enraged', () => {
+  it('a source is a Warlord raging by his OWN latch — his live 25 s clock, alive, enraged', () => {
     const w = twoSeat();
     const low = warlord(w, P0, 300, 300, 40);
     low.enraged = true;
-    expect(isFrenzySource(low)).toBe(true);
-    low.enraged = false;
-    expect(isFrenzySource(low), 'the latch has not fired').toBe(false);
+    low.rageStartTick = w.tick; // ⭐ S191 — his own latch stamps this; the frenzy never does
+    expect(isFrenzySource(low, w.tick)).toBe(true);
+    expect(isFrenzySource(low, w.tick + WARLORD_RAGE_TICKS - 1), 'the last tick of his window').toBe(true);
+    expect(isFrenzySource(low, w.tick + WARLORD_RAGE_TICKS), 'his 25 s are over').toBe(false);
+    delete low.rageStartTick;
+    expect(isFrenzySource(low, w.tick), 'the latch has not fired — no clock of his own').toBe(false);
     const dead = warlord(w, P0, 300, 300, 40);
     dead.enraged = true;
+    dead.rageStartTick = w.tick;
     dead.ehp = 0;
-    expect(isFrenzySource(dead), 'a corpse awaiting the sweep').toBe(false);
+    expect(isFrenzySource(dead, w.tick), 'a corpse awaiting the sweep').toBe(false);
   });
 
-  it('⛔ a Warlord raged BY the frenzy (healthy, or at exactly 50 %) is NOT a source — no self-sustain', () => {
+  it('⛔ a Warlord raged BY the frenzy (healthy, at exactly 50 %, or even below) is NOT a source — no self-sustain', () => {
     const w = twoSeat();
     const healthy = warlord(w, P0, 300, 300, 100);
     healthy.enraged = true;
-    expect(isFrenzySource(healthy)).toBe(false);
+    expect(isFrenzySource(healthy, w.tick)).toBe(false);
     const half = unit(w, WARLORD, P0, 300, 300);
     half.ehp = creatureMaxEhp(half) / 2;
     expect(Number.isInteger(half.ehp), 'fixture: 374 halves exactly').toBe(true);
-    half.enraged = true; // the latch KEEPS state at exactly 50 %
-    expect(isFrenzySource(half)).toBe(false);
+    half.enraged = true;
+    expect(isFrenzySource(half, w.tick)).toBe(false);
+    // ⭐ S191 — the source is his CLOCK, not his health: a bare bit below the line is not a source either.
+    const low = warlord(w, P0, 300, 300, 40);
+    low.enraged = true;
+    expect(isFrenzySource(low, w.tick), 'no stamp → the bit is the frenzy’s, not his').toBe(false);
+  });
+
+  it('⭐⭐ S191 — a Warlord HEALED above half inside his window is STILL a source (the rage outlasts a heal)', () => {
+    const w = twoSeat();
+    const healed = warlord(w, P0, 300, 300, 100);
+    healed.enraged = true;
+    healed.rageStartTick = w.tick - 600; // 10 s into his 25
+    expect(isFrenzySource(healed, w.tick)).toBe(true);
   });
 });
 
@@ -270,35 +286,46 @@ describe('S188 BLOOD FRENZY — ⭐ REACH through the real host tick', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 BLOOD FRENZY — ⛔ a Warlord’s OWN rage latch is untouched by the frenzy', () => {
+  /*
+   * ⛔ S191 — RE-PINNED. This used a Warlord at exactly 50 %, where R151's band "kept whatever state he
+   * was in", to get a raging Warlord with the frenzy OFF. The 25 s clock retired that band: a Warlord his
+   * own latch holds furious now IS a source, so through the host tick the two can no longer be pulled
+   * apart. The rule is therefore pinned where it lives — the frenzy's own pass leaves a Warlord's bit
+   * alone while it clears the race unit — and then the host tick shows it is HIS latch that lowers it.
+   */
   it('⛔ the frenzy ending never calms a Warlord — only his own latch does', () => {
-    // A seat holding the pick with NO source (the only Warlord sits at exactly 50 %, where the latch
-    // keeps whatever state he is in), so the frenzy is OFF this tick and runs its clear.
     const w = twoSeat();
     seatAs(w, P0, 'orcs', ['racial']);
     const half = unit(w, WARLORD, P0, 250, 250);
     half.ehp = creatureMaxEhp(half) / 2;
-    half.enraged = true;
+    half.enraged = true; // no live clock of his own: nobody is a source, so the frenzy is OFF
     half.stunnedUntilTick = w.tick + 100_000;
     const soldier = unit(w, 'raceUnit', P0, 300, 800);
     soldier.enraged = true; // left over from a frenzy that has now ended
-    ticks(w, 1);
+    runBloodFrenzy(w);
     expect(w.creatures.get(soldier.id)?.enraged ?? false, 'the frenzy clears the race unit').toBe(false);
-    expect(half.enraged, 'but the Warlord keeps the state HIS latch holds at exactly 50 %').toBe(true);
+    expect(half.enraged, 'but the frenzy never lowers a Warlord').toBe(true);
+    ticks(w, 1);
+    expect(half.enraged, 'his OWN latch lowers it — no clock holds him').toBe(false);
   });
 
-  it('⛔ when the raging Warlord dies, the frenzy ends — a frenzy-raged second Warlord cannot sustain it', () => {
+  // ⭐⭐ S191 (owner) — RE-PINNED: the healthy second Warlord is NEVER raised by the first's frenzy
+  // (*"rage for himself is … warlord specific"*). The rest of the case stands: when the source dies the
+  // frenzy ends, and a second Warlord cannot sustain it.
+  it('⛔ when the raging Warlord dies, the frenzy ends — and a second Warlord was never raised by it (S191)', () => {
     const w = twoSeat();
     seatAs(w, P0, 'orcs', ['racial']);
     const source = warlord(w, P0, 250, 250, 40);
     const second = warlord(w, P0, 350, 250, 100);
     const soldier = unit(w, 'raceUnit', P0, 300, 800);
     ticks(w, 2);
-    expect(second.enraged, 'the healthy Warlord rages with the first').toBe(true);
+    expect(second.enraged, 'S191: the healthy Warlord does NOT rage with the first').toBe(false);
     expect(w.creatures.get(soldier.id)?.enraged).toBe(true);
 
+    expect(second.rageStartTick, 'the frenzy never stamps a clock on him').toBeUndefined();
     w.creatures.delete(source.id);
     ticks(w, 2);
-    expect(second.enraged, 'his own latch calmed him (100 % > 50 %)').toBe(false);
+    expect(second.enraged, 'his own latch calmed him (no clock of his own, 100 % > 50 %)').toBe(false);
     expect(w.creatures.get(soldier.id)?.enraged ?? false).toBe(false);
   });
 
