@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 step A complete; step 8 (C4 retry 35 s) committed; final gates + e2e running.**
+**STATUS: COMPLETE — S192 round (ROUND-1..3, SEAM-1, FIX-2(a), C4 step 8): gates 0/0/0 (6740 tests, 974.6 KiB), net e2e 17/17. Nothing in flight; awaiting re-audit. NEXT (only on message): owner answers to the FIX-2 second clause / C4 host re-arm.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -885,3 +885,26 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   hard-blip spec's "inside the grace" assertion stays quarantine-flaky: ~1/3 of runs still sit in the stuck
   window (only a Trystero-side change, or a HOST-side transport re-arm, could shorten it — an owner question,
   not built). Not touched: `RECONNECT_FIRST_RETRY_DELAY_MS` (1 s), the 15 s grace, the 180 s give-up.
+
+- **Step 9 — final gates on the shipped constant (tip 487040f), captured `$?`:** hard-blip ×6 (the unmodified
+  spec) exit **1** — 6/6 recovered, 4/6 inside the grace (5.9 / 6.3 / 6.6 / 7.4 s; late 23.9 / 32.3 s, one
+  attempt each) — the quarantine-flaky "inside the grace" assertion, expected, recorded. **Net e2e** (reconnect,
+  reconnect-hard-blip, exit-match, hostmigration; own port 21241) exit **0 — 17/17 passed** (hard-blip 9.3 s).
+  35 s cadence in total: **17/17 recovered, 12/17 inside the grace** (8 s cadence: 9/9, 2/9). typecheck **0** ·
+  `npx vitest run --maxWorkers=3` **0** (415 files + 2 skipped / 6740 + 7 skipped) · build **0**, **974.6 KiB**
+  (headroom 125.4; +1.9 KiB over master 972.7). Benign: pentagram snapshot line endings → restored.
+- **DONE — nothing in flight.** Commits: 8dfa641 ROUND-1 · 5a297c3 ROUND-2 · ab5e7d2 ROUND-3 · d3bd907 SEAM-1 ·
+  a2fa46c FIX-2 · 44decce step-A gates · 487040f C4 step 8 · (this) final. Merge (step 1) was a fast-forward to
+  master e4d52dc — no merge commit, no conflicts, no FIX-3.
+- **Bump verdict: NO bump owed by this round.** No wire field, no discriminant, no hash or sim change. FIX-2
+  changes only LOCAL decisions (when a survivor counts its followed host as lost, and when it accepts a claim);
+  seat assignment is NOT changed (the "new lower seat" clause was not built). Mixed builds converge: an old-52
+  survivor rejects the successor's claim while the departed host's lobby looks fed, then accepts it once it
+  starves (6 s after the host's return). If the merge owner bumps anyway, list FIX-2 as behaviour only.
+- **Open owner questions:** (1) FIX-2's second clause — a returning ex-host as a NEW lower seat ("player
+  three"): today a QUIT host cannot rejoin a successor's match at all, and a frozen-then-thawed one gets his old
+  seat 0 back but can never host again; building it = mid-match seating + succession by join order (wire + sim,
+  a bump). (2) Skip the grace on a positive departure proof (faster takeover; MINE default keeps the grace).
+  (3) NETFR-3 stronger shape vs the residual L+22 s window (unchanged, still pinned). (4) C4: ~1/3 of hard blips
+  still sit in Trystero's 23.3 s stuck-handshake window — only a library change or a HOST-side transport re-arm
+  (free in a 1v1 with no peers left) could shorten it.
