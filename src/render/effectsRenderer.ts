@@ -35,7 +35,7 @@ import { drawBondCommit } from './effects/bondCommit.ts';
 import { drawArcFlash } from './effects/arcFlash.ts';
 import { drawBombExplode } from './effects/bombExplode.ts';
 import { blastFx } from './fx/blastFx.ts';
-import { fxActive, fxGround, fxShock, fxTop } from './fx/fxState.ts';
+import { fxActive, fxGround, fxShock, fxTop, fxTopShade } from './fx/fxState.ts';
 import { drawChewBite } from './effects/chewBite.ts';
 import { drawRaided } from './effects/raided.ts';
 import { effectLifetime } from './effects/lifetime.ts';
@@ -148,7 +148,7 @@ export class EffectsRenderer {
         // ⭐ S192 (V04) — every detonation (hub blast, zombie raze, suicide goblin, drone, stink tower) is
         // rebuilt in `fx/blastFx.ts`; the S71 ring+disc stays the `?fx=legacy` path and the unit-test path.
         if (fxActive()) {
-          blastFx(fxTop(), fxGround(), fxShock(), effect.tick, effect.pos.x, effect.pos.y, effect.radius, Math.min(1, age / lifetime), age);
+          blastFx(fxTop(), fxTopShade(), fxGround(), fxShock(), effect.tick, effect.pos.x, effect.pos.y, effect.radius, Math.min(1, age / lifetime), age);
         } else {
           drawBombExplode(g, effect, Math.min(1, age / lifetime));
         }

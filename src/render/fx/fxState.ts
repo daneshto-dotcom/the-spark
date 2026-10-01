@@ -11,6 +11,8 @@ import { NULL_SHOCK, NULL_SINK, type FxShockSink, type FxSink } from './emitter.
 
 export interface FxHooks {
   readonly top: FxSink;
+  /** Smoke and soot: normal blend, never bloomed, drawn under `top`. */
+  readonly shade: FxSink;
   readonly ground: FxSink;
   readonly shock: FxShockSink;
 }
@@ -28,6 +30,8 @@ export function setFxLegacyFlag(v: boolean): void { legacy = v; }
 
 /** The layer over every unit and building (bloom on HIGH). A no-op sink when inactive. */
 export function fxTop(): FxSink { return hooks !== null && !legacy ? hooks.top : NULL_SINK; }
+/** The non-bloomed shade layer over units (smoke darkens; S192 audit V-2). A no-op sink when inactive. */
+export function fxTopShade(): FxSink { return hooks !== null && !legacy ? hooks.shade : NULL_SINK; }
 /** The layer on the ground, under buildings and units. A no-op sink when inactive. */
 export function fxGround(): FxSink { return hooks !== null && !legacy ? hooks.ground : NULL_SINK; }
 /** Ground ripples (HIGH only). A no-op sink when inactive. */

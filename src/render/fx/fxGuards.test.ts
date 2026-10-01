@@ -47,6 +47,14 @@ describe('S192 fx guards', () => {
     expect(callers).toEqual(Object.keys(MATH_RANDOM_ALLOWED).sort());
   });
 
+  it('⛔ S192 audit V-2 — nothing normal-blend (smoke, soot, stains) is ever emitted on the bloomed TOP layer', () => {
+    const layouts = files.filter((f) => /^src\/render\/fx\/\w+Fx\.ts$/.test(f.path));
+    for (const f of layouts) {
+      const topEmits = [...f.text.matchAll(/\btop\.emit\(([^;]*)\);/g)].map((m) => m[1]!);
+      for (const e of topEmits) expect(e, `${f.path}: a normal-blend sprite on the bloomed layer`).not.toMatch(/'normal'/);
+    }
+  });
+
   it('⛔ the fx layouts are pure: no pixi, no DOM, no wall clock, no Math.random', () => {
     const layouts = files.filter((f) => /^src\/render\/fx\/(emitter|fxState|\w+Fx)\.ts$/.test(f.path));
     expect(layouts.length, 'emitter + fxState + every *Fx layout').toBeGreaterThanOrEqual(4);

@@ -23,7 +23,7 @@
  * ⛔ RENDER-ONLY. Nothing here reads or writes sim state; the layouts read synced fields and ticks.
  */
 
-import type { Container, Rectangle } from 'pixi.js';
+import { Container, type Rectangle } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import { ShockwaveFilter } from 'pixi-filters/shockwave';
 import type { FxShockSink } from './emitter.ts';
@@ -40,6 +40,7 @@ interface ShockReq { x: number; y: number; age: number; radius: number; amplitud
 interface Installed {
   ground: FxLayer;
   top: FxLayer;
+  shade: FxLayer;
   groundArt: Container;
   screen: Rectangle;
   bloom: AdvancedBloomFilter;
@@ -66,12 +67,25 @@ function readLegacyFromUrl(): boolean {
  */
 export function installFx(opts: { groundParent: Container; topParent: Container; groundArt: Container; screen: Rectangle; highQuality: boolean }): void {
   const ground = new FxLayer('fxGround');
-  const top = new FxLayer('fxTop');
+  const top = new FxLayer('fxTopLight');
+  /*
+   * ⛔ S192 audit V-2 — THE TOP SLOT HOLDS TWO LAYERS. `fxTop` (the one child of `fogHiddenLayer` that
+   * `fog.spec.ts` roll-calls at 20) is a plain Container holding, in draw order: SHADE (smoke, soot —
+   * normal blend, NO filter, so it darkens what is under it) and LIGHT (motes, fire, sparks — additive,
+   * the one carrying the bloom). Smoke used to sit on the light layer, and with the bloom's additive
+   * composite on HIGH it ADDED brown light instead of darkening.
+   */
+  const shade = new FxLayer('fxTopShade');
+  const topRoot = new Container();
+  topRoot.label = 'fxTop';
+  topRoot.eventMode = 'none';
+  topRoot.addChild(shade.container);
+  topRoot.addChild(top.container);
   opts.groundParent.addChild(ground.container);
-  opts.topParent.addChild(top.container);
+  opts.topParent.addChild(topRoot);
   const bloom = new AdvancedBloomFilter({ threshold: 0.2, bloomScale: 1.6, brightness: 1, blur: 10, quality: 5 });
   /*
-   * ⛔ ADDITIVE COMPOSITE. Everything on the top layer is light, so the filtered layer must ADD onto the
+   * ⛔ ADDITIVE COMPOSITE. Everything on the LIGHT layer is light (smoke lives on SHADE, above), so the filtered layer must ADD onto the
    * scene exactly as its sprites do without the filter (LOW) — a 'normal' composite would darken the
    * ground under every mote by its alpha.
    */
@@ -79,8 +93,8 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
   // ⛔ AND PADDING: the blurred glow spreads past the layer's bounds, and with no padding it was CLIPPED
   // there — a hard-edged rectangle around every bright effect. 48 px covers the blur's reach.
   bloom.padding = 48;
-  installed = { ground, top, groundArt: opts.groundArt, screen: opts.screen, bloom, shockPool: [], shockReqs: [], shockApplied: 0 };
-  setFxHooks({ top, ground, shock: shockSink });
+  installed = { ground, top, shade, groundArt: opts.groundArt, screen: opts.screen, bloom, shockPool: [], shockReqs: [], shockApplied: 0 };
+  setFxHooks({ top, shade, ground, shock: shockSink });
   setFxLegacyFlag(readLegacyFromUrl());
   setFxHighQualityRuntime(opts.highQuality);
 }
@@ -88,7 +102,7 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
 /** The side-by-side switch: true draws every rebuilt effect the pre-S192 way. */
 export function setFxLegacy(v: boolean): void {
   setFxLegacyFlag(v);
-  if (v && installed !== null) { installed.ground.clear(); installed.top.clear(); applyShocks(installed, true); }
+  if (v && installed !== null) { installed.ground.clear(); installed.top.clear(); installed.shade.clear(); applyShocks(installed, true); }
 }
 export function fxHighQuality(): boolean { return highQuality; }
 
@@ -113,6 +127,7 @@ export function fxBeginFrame(): void {
   if (inst === null) return;
   inst.ground.begin();
   inst.top.begin();
+  inst.shade.begin();
   inst.shockReqs.length = 0;
 }
 
@@ -121,6 +136,7 @@ export function fxEndFrame(): void {
   if (inst === null) return;
   inst.ground.end();
   inst.top.end();
+  inst.shade.end();
   applyShocks(inst, false);
 }
 
@@ -163,6 +179,7 @@ export function fxClear(): void {
   if (installed === null) return;
   installed.ground.clear();
   installed.top.clear();
+  installed.shade.clear();
   installed.shockReqs.length = 0;
   applyShocks(installed, true);
 }
@@ -171,7 +188,7 @@ export function fxClear(): void {
 export function fxStats(): { ground: number; top: number; shocks: number; legacy: boolean; highQuality: boolean } {
   return {
     ground: installed?.ground.lastCount ?? 0,
-    top: installed?.top.lastCount ?? 0,
+    top: (installed?.top.lastCount ?? 0) + (installed?.shade.lastCount ?? 0),
     shocks: installed?.shockApplied ?? 0,
     legacy: fxLegacy(),
     highQuality,

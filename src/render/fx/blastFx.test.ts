@@ -5,9 +5,10 @@ import { BLAST_FX_RING_REACH, blastEmberAt, blastFx } from './blastFx.ts';
 function run(t: number, radius = 100, tick = 50, x = 400, y = 300) {
   const top = recordingSink();
   const ground = recordingSink();
+  const shade = recordingSink();
   const sh: FxShockSink & { n: number } = { n: 0, shock() { this.n++; } };
-  blastFx(top, ground, sh, tick, x, y, radius, t, Math.round(t * 36));
-  return { top: top.out, ground: ground.out, shocks: sh.n };
+  blastFx(top, shade, ground, sh, tick, x, y, radius, t, Math.round(t * 36));
+  return { top: top.out, shade: shade.out, ground: ground.out, shocks: sh.n };
 }
 
 describe('S192 V04 — every detonation (`blastFx`)', () => {
@@ -60,8 +61,12 @@ describe('S192 V04 — every detonation (`blastFx`)', () => {
   it('smoke and scorch are normal-blend (they darken); fire, flash, ring and embers are light', () => {
     const r = run(0.3);
     expect(r.ground.every((e) => e.blend === 'normal')).toBe(true);
-    expect(r.top.filter((e) => e.tex === 'smoke').every((e) => e.blend === 'normal')).toBe(true);
-    expect(r.top.filter((e) => e.tex !== 'smoke').every((e) => e.blend === 'add')).toBe(true);
+    // ⛔ S192 audit V-2 — smoke lives ONLY on the non-bloomed shade layer, in normal blend; the bloomed
+    // light layer carries no smoke and nothing that is not additive.
+    expect(r.shade.length).toBeGreaterThan(0);
+    expect(r.shade.every((e) => e.tex === 'smoke' && e.blend === 'normal')).toBe(true);
+    expect(r.top.some((e) => e.tex === 'smoke')).toBe(false);
+    expect(r.top.every((e) => e.blend === 'add')).toBe(true);
     expect(r.shocks).toBe(1);
   });
 });

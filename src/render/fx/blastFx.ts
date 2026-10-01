@@ -14,7 +14,8 @@
  *   · a FIREBALL, orange to deep red, swelling and fading;
  *   · a soft SHOCK RING running out to 1.15 × radius — the true hitbox, give or take its soft edge;
  *   · 28 EMBERS thrown outward under gravity, stretched along their flight;
- *   · 8 SMOKE puffs, normal blend (smoke covers, it does not glow), rising and spreading;
+ *   · 8 SMOKE puffs, normal blend on the non-bloomed SHADE layer (smoke covers, it does not glow), rising
+ *     and spreading;
  *   · a SCORCH on the ground that outlives the fire;
  *   · a ground ripple (`ShockwaveFilter`, HIGH only).
  *
@@ -52,6 +53,8 @@ export function blastEmberAt(seed: number, k: number, t: number, radius: number)
 
 export function blastFx(
   top: FxSink,
+  /** ⛔ S192 audit V-2 — smoke goes HERE: normal blend, never bloomed, so it darkens. */
+  shade: FxSink,
   ground: FxSink,
   shock: FxShockSink,
   effectTick: number,
@@ -75,7 +78,7 @@ export function blastFx(
     const size = r * (0.55 + 0.6 * t) * (0.7 + 0.5 * fxHash(seed, s, 42));
     const sx = x + Math.cos(a) * d;
     const sy = y + Math.sin(a) * d * 0.5 - r * 0.45 * t;
-    top.emit('smoke', sx, sy, size, size * 0.85, fxHash(seed, s, 43) * 6.283, 0.6 * envelope(t, 0.3), SMOKE, 'normal');
+    shade.emit('smoke', sx, sy, size, size * 0.85, fxHash(seed, s, 43) * 6.283, 0.6 * envelope(t, 0.3), SMOKE, 'normal');
   }
 
   // The fireball.
