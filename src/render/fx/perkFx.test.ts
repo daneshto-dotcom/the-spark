@@ -93,11 +93,11 @@ describe('V12 scorched ground', () => {
     expect(scorch(900, 4)).not.toEqual(a);
   });
 
-  it('a burning creature carries LIFE / PERIOD (3) small flames at its feet', () => {
+  it('a burning creature carries LIFE / PERIOD (3) small flames at its feet, plus one fire glow', () => {
     expect(BURN_FLICKER_LIFE / BURN_FLICKER_PERIOD).toBe(3);
     const s = recordingSink();
     burnFlickerFx(s, 400, 300, 1000, 17, 1);
-    expect(s.out).toHaveLength(3);
+    expect(s.out).toHaveLength(4);
     for (const e of s.out) { expect(e.y).toBeLessThanOrEqual(300); expect(Math.abs(e.x - 400)).toBeLessThan(10); }
   });
 });

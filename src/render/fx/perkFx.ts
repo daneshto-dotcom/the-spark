@@ -76,15 +76,29 @@ export function lifestealFx(
     const y = sy + dy * e + py * bow;
     const dir = Math.atan2(dy + py * bow * 0.1, dx + px * bow * 0.1);
     const a = envelope(t, 0.2);
-    const size = 5 + 3 * fxHash(seed, k, 2);
-    top.emit('soft', x, y, size * 2.4, size, dir, 0.85 * a, LIFESTEAL_FX_COLOR, 'add');
-    top.emit('core', x, y, size * 0.9, size * 0.9, 0, 0.9 * a, 0xffc4cc, 'add');
+    const size = 8 + 4 * fxHash(seed, k, 2);
+    // Two fading ghosts behind each mote, so the flight reads as a stream rather than as dots.
+    for (let g = 2; g >= 1; g--) {
+      const tg = t - g * 0.09;
+      if (tg <= 0) continue;
+      const bg = (fxHash(seed, k, 1) - 0.5) * 2 * (14 + 0.25 * len) * Math.sin(Math.PI * tg);
+      const eg = easeInQuad(tg) * 0.7 + tg * 0.3;
+      top.emit('soft', sx + dx * eg + px * bg, sy + dy * eg + py * bg, size * (1.1 - 0.25 * g), size * (1.1 - 0.25 * g), 0,
+        a * (0.55 - 0.18 * g), LIFESTEAL_FX_COLOR, 'add');
+    }
+    top.emit('soft', x, y, size * 2.6, size, dir, 0.95 * a, LIFESTEAL_FX_COLOR, 'add');
+    top.emit('core', x, y, size * 0.9, size * 0.9, 0, 0.95 * a, 0xffd0d8, 'add');
+  }
+  // The wound: a short crimson spurt on the victim as the drinking starts.
+  if (age < 8) {
+    const sp = 1 - age / 8;
+    top.emit('soft', sx, sy, 16 + 14 * sp, 16 + 14 * sp, 0, 0.7 * sp, LIFESTEAL_FX_COLOR, 'add');
   }
   // The drink: a soft crimson flash on the attacker once the first mote lands.
   const land = (age - LIFESTEAL_FX_FLIGHT) / (LIFESTEAL_FX_FRAMES - LIFESTEAL_FX_FLIGHT);
   if (land >= 0 && land < 1) {
-    const d = 18 + 14 * easeOutCubic(land);
-    top.emit('soft', tx, ty, d, d * 0.8, 0, (1 - land) * 0.55, LIFESTEAL_FX_COLOR, 'add');
+    const d = 26 + 22 * easeOutCubic(land);
+    top.emit('soft', tx, ty, d, d * 0.85, 0, (1 - land) * 0.75, LIFESTEAL_FX_COLOR, 'add');
   }
 }
 
@@ -119,7 +133,7 @@ export function scorchZoneFx(
     const py = y + fxHash(seed, b, 12 + k) * h;
     if (!outsideQuarry(px, py)) return;
     const s = 60 + 70 * fxHash(seed, b, 13);
-    ground.emit('soft', px, py, s, s * 0.42, 0, envelope(t, 0.5) * 0.16, 0xff3a0e, 'add');
+    ground.emit('soft', px, py, s, s * 0.42, 0, envelope(t, 0.5) * 0.24, 0xff3a0e, 'add');
   });
   forEachLive(tick, SCORCH_EMBER_PERIOD, SCORCH_EMBER_LIFE, 1, (seed >>> 8) & 0xff, (b, k, t) => {
     const h1 = fxHash(seed, b, 1 + k);
@@ -130,8 +144,8 @@ export function scorchZoneFx(
     const py = y + h2 * h - 58 * t;
     if (!outsideQuarry(px, py)) return;
     const flicker = 0.65 + 0.35 * Math.sin(b * 1.7 + t * 31);
-    const size = 3 + 4 * h3;
-    top.emit('soft', px, py, size, size * 1.7, 0, envelope(t, 0.2) * 0.85 * flicker, mixColor(0xff5a14, 0xffd27a, h1), 'add');
+    const size = 5 + 6 * h3;
+    top.emit('soft', px, py, size, size * 1.7, 0, envelope(t, 0.2) * 0.95 * flicker, mixColor(0xff5a14, 0xffd27a, h1), 'add');
   });
 }
 
@@ -139,15 +153,18 @@ export function scorchZoneFx(
 export const BURN_FLICKER_PERIOD = 6;
 export const BURN_FLICKER_LIFE = 18;
 
-/** Small flames licking up from a burning creature's feet (x, y). `scale` follows its sprite. */
+/** Small flames licking up from a burning creature's feet (x, y), over a soft fire glow (4 sprites). `scale` follows its sprite. */
 export function burnFlickerFx(top: FxSink, x: number, y: number, tick: number, id: number, scale: number): void {
   const seed = (id | 0) * 0x9e37 + 0x5c0;
   forEachLive(tick, BURN_FLICKER_PERIOD, BURN_FLICKER_LIFE, 1, id, (b, _k, t) => {
     const ox = (fxHash(seed, b, 1) - 0.5) * 16 * scale;
     const py = y - 3 - 16 * t * scale;
-    const size = (5 + 3 * fxHash(seed, b, 2)) * scale * (1 - 0.5 * t);
-    top.emit('soft', x + ox, py, size, size * 1.5, 0, envelope(t, 0.3) * 0.85, mixColor(0xffe48a, 0xff3a10, t), 'add');
+    const size = (9 + 4 * fxHash(seed, b, 2)) * scale * (1 - 0.45 * t);
+    top.emit('soft', x + ox, py, size, size * 1.8, 0, envelope(t, 0.3) * 0.95, mixColor(0xffe48a, 0xff3a10, t), 'add');
   });
+  // The fire under it: one soft orange glow at the feet, flickering on the tick.
+  const fl = 0.75 + 0.25 * Math.sin(((tick + (id | 0) * 13) / 3) % TAU);
+  top.emit('soft', x, y - 4 * scale, 30 * scale, 16 * scale, 0, 0.45 * fl, 0xff5a10, 'add');
 }
 
 // ─────────────────────────────────────────────────── V14 · rage ──
@@ -240,8 +257,8 @@ export function vortexFx(top: FxSink, ground: FxSink, x: number, y: number, t: n
     const ang = a0 + t * 7 * (0.7 + 0.6 * fxHash(seed, k, 3));
     const px = x + Math.cos(ang) * r;
     const py = y + Math.sin(ang) * r * 0.6;
-    const s = 3 + 2 * fxHash(seed, k, 4);
-    top.emit('soft', px, py, s * 2.2, s, ang + Math.PI / 2, fade * 0.9, mixColor(color, 0xffffff, 0.35 * fxHash(seed, k, 5)), 'add');
+    const s = 4 + 3 * fxHash(seed, k, 4);
+    top.emit('soft', px, py, s * 2.2, s, ang + Math.PI / 2, fade * 0.95, mixColor(color, 0xffffff, 0.35 * fxHash(seed, k, 5)), 'add');
   }
   const d = 16 + 64 * close;
   ground.emit('ring', x, y, d, d * 0.5, 0, fade * 0.75, color, 'add');
@@ -254,7 +271,7 @@ export function vortexFx(top: FxSink, ground: FxSink, x: number, y: number, t: n
 export function eliteGlowFx(ground: FxSink, x: number, y: number, color: number, scale: number, tick: number, id: number): void {
   const breathe = 0.5 + 0.5 * Math.sin(((tick + (id | 0) * 11) / 14) % TAU);
   const w = 38 * scale;
-  ground.emit('soft', x, y, w, w * 0.42, 0, 0.3 + 0.12 * breathe, color, 'add');
+  ground.emit('soft', x, y, w, w * 0.42, 0, 0.42 + 0.14 * breathe, color, 'add');
 }
 
 // ─────────────────────────────────────────────── V22 · hellspawn ──

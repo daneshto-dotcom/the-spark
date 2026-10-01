@@ -322,7 +322,7 @@ describe('V12 SCORCHED GROUND — the real host tick crosses BUILD → FIGHT; th
       return s.out;
     };
     const has = (rec: FxEmitRecord): boolean => top.out.some((e) => JSON.stringify(e) === JSON.stringify(rec));
-    expect(flamesOf(enemy)).toHaveLength(3);
+    expect(flamesOf(enemy)).toHaveLength(4);
     expect(flamesOf(enemy).every(has), 'the enemy in the burning zone carries its flames').toBe(true);
     expect(flamesOf(own).some(has), 'the caster seat\'s own unit never burns').toBe(false);
   });

@@ -453,7 +453,7 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'direwolf',
 ]);
 
-/** ⭐ S193 V11 — at most this many lifesteal bursts live at once (≤ 13 sprites each). ⚠ MINE. */
+/** ⭐ S193 V11 — at most this many lifesteal bursts live at once (≤ 26 sprites each). ⚠ MINE. */
 export const LIFESTEAL_FX_MAX_BURSTS = 48;
 
 /**
