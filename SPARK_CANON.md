@@ -986,7 +986,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **56** (S192 — deploy #12; see the S192 entries on the const).
+`PROTOCOL_VERSION` is **57** (S193 — deploy #17; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 57 (S193, deploy #17)** — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules.
 
 ⭐⭐ **WHAT RIDES 56 (S192, deploy #12)** — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist).
 

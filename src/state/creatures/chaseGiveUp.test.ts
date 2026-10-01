@@ -423,7 +423,9 @@ describe('S192 T6 — REACH, through the real host tick', () => {
       // 663 → 619 (−6.6 %, 38 ticks locked), t9BossOrcs 702 → 651 (−7.3 %, 39) — most of the S192 "intercept"
       // loss was this unit (starting 40 px abroad) re-taking the drone once it crossed into zone 0. What is
       // left is the intercept he asked for: they step out to cut it off and let it go once it is by.
-      expect(loss).toBeLessThan(0.45);
+      // ⭐ S193 merge owner (re-audit a50d846c LOW): pinned at 0.15 so the −6.6 % / −7.3 % S193 numbers are ASSERTED,
+      // not only printed — the pre-fix −37.6 % now fails here too.
+      expect(loss).toBeLessThan(0.15);
     });
   }
 });

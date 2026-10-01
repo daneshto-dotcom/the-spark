@@ -958,7 +958,20 @@ export type { NetSnapshot };
  *      successor MINTS new chewers with a 3000-tick life and new drones with a 480-tick absolute fuse, so its
  *      stock dies at the next FIGHT edge while a v56 build keeps it.
  */
-export const PROTOCOL_VERSION = 56 as const;
+/**
+ * ⭐⭐ S193 — **BUMPED 56 -> 57: `s192/units-ai` — THREE TARGETING RULES THE HOST TICK COMPUTES.** No field,
+ * no wire change, no new discriminant — the bump is for the RULE (the S186 test; S192's C-6 at 54 is the
+ * precedent): a host-migration successor runs `runHostTick`, so a v56 and a v57 build that shook hands would
+ * pick different targets from the same state.
+ *   1. T13 — NEVER ATTACK THE DEAD (owner S192: "my spawn were attacking him, even though it was already
+ *      dead … went back to the castle that's already destroyed"): one predicate `isLiveCreatureTarget` at
+ *      every target-picking site, and a fallen keep is never marched on (nearest live keep, then lowest seat).
+ *   2. T6 — DON'T CHASE WHAT YOU CAN'T CATCH, SMARTLY (R192-U4): a fast drone/chewer is engaged when in reach,
+ *      when BOTH it and the chaser are in the chaser's home zone, or when interceptable; never across the map
+ *      (`CHASE_GIVEUP_SPEED_RATIO` 1.25, `CHASE_GIVEUP_SLACK_PX` 20 — ⚠ MINE).
+ *   3. T5 — HELGA PATROLS IN BUILD TOO (owner S192: "She should always like walk around her tower patrolling").
+ */
+export const PROTOCOL_VERSION = 57 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1286,6 +1299,8 @@ export interface HelloMsg {
    *
    * S192: 55->56 (DEPLOY #12 — s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist). Full reasons on the const's JSDoc.)
    *
+   * S193: 56->57 (DEPLOY #17 — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1323,7 +1338,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 56;
+  readonly protoVersion: 57;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
