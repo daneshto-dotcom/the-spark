@@ -32,6 +32,8 @@ import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { playZapBurstSFX } from './audioManager.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { VOLT_STYLE, boltGlowFx, lightningCloudBolt, lightningFlicker, lightningSparksFx } from './fx/lightningFx.ts';
 import {
   CREATURE_DESPAWNING_TICKS,
   CREATURE_FADE_TICKS,
@@ -299,7 +301,7 @@ export class CreatureRenderer {
   private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
   /** S103 #8 — active lightning-cloud bursts (a Voltkin that was KILLED). Render-only, wall-clock
    *  culled; outlives the rig that spawned it, mirroring the chewer goo-splat pattern. */
-  private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number }> = [];
+  private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number; id: number; bornTick: number }> = [];
   /** S103 #8 — dedicated Graphics for the procedural lightning-clouds (drawn after the bodies). */
   private readonly cloudGfx: Graphics;
   // S110 P5 — matted-art sprite layer + per-creature sprites. Null textures = not yet loaded (or
@@ -600,7 +602,7 @@ export class CreatureRenderer {
         const owner = this.lastSeenOwner.get(id);
         const hidden = owner !== undefined && isConcealed(pos.x, pos.y, owner);
         if (playing && !hidden && wasState !== undefined && wasState !== 'DESPAWNING') {
-          this.lightningClouds.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 1.732 + 0.61 });
+          this.lightningClouds.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 1.732 + 0.61, id: id as unknown as number, bornTick: world.tick });
           void playZapBurstSFX({ x: pos.x, y: pos.y });
         }
         this.lastSeenPos.delete(id);
@@ -612,7 +614,7 @@ export class CreatureRenderer {
 
     // S103 #8 — render + cull the active lightning-clouds LAST + unconditionally (they keep crackling
     // for LIGHTNING_CLOUD_SEC after the Voltkin is gone).
-    this.drawLightningClouds(nowSec);
+    this.drawLightningClouds(nowSec, world.tick);
   }
 
   /**
@@ -764,13 +766,18 @@ export class CreatureRenderer {
    * Wall-clock fade is render-only cosmetic (the sim already removed the creature); the per-cloud seed
    * keeps two clients' bolt shapes stable-per-cloud (cosmetic divergence only). VERBATIM from S103.
    */
-  private drawLightningClouds(nowSec: number): void {
+  private drawLightningClouds(nowSec: number, tick: number): void {
     const g = this.cloudGfx;
     g.clear();
     for (let i = this.lightningClouds.length - 1; i >= 0; i--) {
       const s = this.lightningClouds[i];
       const t = (nowSec - s.bornSec) / LIGHTNING_CLOUD_SEC;
       if (t >= 1 || t < 0) { this.lightningClouds.splice(i, 1); continue; }
+      // ⭐ S193 (V07) — the rebuilt burst (`fx/lightningFx.ts`): an additive halo and flash, seven
+      // glowing bolts that re-strike every few ticks with white cores, and tip sparks. Seeded by the
+      // creature id and keyed to the tick this peer saw the death; the lifetime (and the cull above)
+      // is the S103 one, unchanged. The S103 scribble below stays the `?fx=legacy` path.
+      if (fxActive()) { this.drawLightningCloudFx(g, s, t, tick); continue; }
       const alpha = 1 - t;
       const reach = LIGHTNING_CLOUD_R * (0.5 + t * 1.4);
       g.circle(s.x, s.y, LIGHTNING_CLOUD_R * (0.9 - t * 0.4)).fill({ color: LIGHTNING_GLOW, alpha: 0.5 * alpha });
@@ -794,6 +801,30 @@ export class CreatureRenderer {
         g.circle(px, py, Math.max(0.5, 1.8 * alpha)).fill({ color: LIGHTNING_GLOW, alpha: 0.85 * alpha });
       }
     }
+  }
+
+  /** ⭐ S193 (V07) — one lightning cloud, lit. See `drawLightningClouds`. */
+  private drawLightningCloudFx(
+    g: Graphics, s: { x: number; y: number; id: number; bornTick: number }, t: number, tick: number,
+  ): void {
+    const top = fxTop();
+    const life = 1 - t;
+    const a = life * lightningFlicker(s.id, tick);
+    const R = LIGHTNING_CLOUD_R;
+    top.emit('soft', s.x, s.y, R * 4.2 * (0.8 + 0.4 * t), R * 3.4 * (0.8 + 0.4 * t), 0, 0.55 * life, LIGHTNING_GLOW, 'add');
+    top.emit('core', s.x, s.y, R * 1.8 * life + 4, R * 1.8 * life + 4, 0, 0.9 * life, LIGHTNING_CORE, 'add');
+    const reach = R * (0.5 + t * 1.4);
+    const age = tick - s.bornTick;
+    for (let b = 0; b < LIGHTNING_BOLTS; b++) {
+      const bolt = lightningCloudBolt(s.id, b, LIGHTNING_BOLTS, s.x, s.y, reach, age);
+      boltGlowFx(top, bolt, VOLT_STYLE, a, 0.5);
+      g.moveTo(bolt.xs[0]!, bolt.ys[0]!);
+      for (let k = 1; k < bolt.xs.length; k++) g.lineTo(bolt.xs[k]!, bolt.ys[k]!);
+      g.stroke({ color: 0xffffff, width: Math.max(0.75, 1.8 * life), alpha: 0.95 * a, cap: 'round', join: 'round' });
+      const n = bolt.xs.length - 1;
+      top.emit('core', bolt.xs[n]!, bolt.ys[n]!, 8 * life + 2, 8 * life + 2, 0, 0.9 * a, LIGHTNING_GLOW, 'add');
+    }
+    lightningSparksFx(top, s.x, s.y, s.id ^ 0xc10d, t, 8, R * 2.2, VOLT_STYLE.sheath);
   }
 
   /** Drop all Voltkin geometry + death-watcher/cloud state (title-return), preserving the container. */
