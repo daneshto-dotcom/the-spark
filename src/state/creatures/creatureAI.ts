@@ -959,7 +959,8 @@ function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: n
  * (`isNonCombatantType`: drone, chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (⚠
  * MINE) — when NONE of his three engage conditions holds:
  *   1. it is within the chaser's reach + `CHASE_GIVEUP_SLACK_PX` (⚠ MINE) — *"if it's around them"*;
- *   2. it is inside the chaser's OWN seat zone — defending home, *"you're still in your zone"*;
+ *   2. the chaser AND the quarry both stand inside the chaser's OWN seat zone — defending home, *"you're
+ *      still in your zone"* (S193 audit: the chaser's own position too, not only the quarry's);
  *   3. an intercept is feasible (`interceptFeasible`) — *"before he reaches his target"*.
  * Outside all three it is outside your zone, faster than you, and you cannot get ahead of it: the
  * chase cannot close, so it is dropped and the unit's march / structure target resumes.

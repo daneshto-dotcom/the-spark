@@ -26,7 +26,9 @@
  *     still takes and holds an archer; HELGA still engages a passing drone (the rule is `pickNavUnit`'s).
  *   ⭐ MUTATION-TESTED (`cannotCatch → false`): the scenario, the arithmetic, the intercept-away and the
  *   advance cases go red; dropping the zone arm turns the home case red; dropping the intercept arm turns
- *   the intercept-past case red. Results in `S192_PROGRESS_units_ai.md`.
+ *   the intercept-past case red. ⭐ S193: dropping the CHASER-at-home clause (real side only, or real AND
+ *   reference) turns the HOME-means-both case, the three border REACH cases and the oracle's abroad/home
+ *   case red (5). Results in `S192_PROGRESS_units_ai.md`.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -177,6 +179,27 @@ describe('S192 T6 — his three engage conditions', () => {
     expect(pickNavUnit(w, me, q.id, ACQ, LEASH)).toBe(q.id);
   });
 
+  it('⭐ S193 HOME means BOTH of you are home: a unit abroad by the border does not take a drone that crossed into its zone', () => {
+    const w = board();
+    const abroad = { x: 1000, y: 200 }; // 40 px into seat 1's half
+    expect(zoneOf(abroad, w.layout)).toBe(1);
+    const me = put(w, 0, 'goblinMelee', abroad);
+    const reach = engageRange(CREATURE_CONFIGS.goblinMelee) + CHASE_GIVEUP_SLACK_PX;
+    for (const dx of [88, 150, 202]) {
+      expect(dx).toBeGreaterThan(reach); // arithmetic: every band is beyond reach + slack
+      const q = put(w, 1, 'lightningDrone', { x: abroad.x - dx, y: abroad.y }); // pathless, in zone 0
+      expect(zoneOf(q.pos, w.layout)).toBe(0);
+      expect(pickNavUnit(w, me, null, ACQ, LEASH), `acquire at -${dx}`).toBeNull();
+      expect(pickNavUnit(w, me, q.id, ACQ, LEASH), `hold at -${dx}`).toBeNull();
+      w.creatures.delete(q.id);
+    }
+    // NEGATIVE — the same drone 150 px away with the unit standing at home is engaged (home defence).
+    me.pos.x = 900;
+    const q = put(w, 1, 'lightningDrone', { x: 750, y: abroad.y });
+    expect(zoneOf(me.pos, w.layout)).toBe(0);
+    expect(pickNavUnit(w, me, null, ACQ, LEASH)).toBe(q.id);
+  });
+
   it('⭐ INTERCEPT: abroad, the same drone at the same distance is engaged when its path runs past you, dropped when it flies away', () => {
     const w = board();
     const at0 = { x: 1300, y: 200 };
@@ -303,11 +326,54 @@ describe('S192 T6 — REACH, through the real host tick', () => {
     // Never chased toward the middle of the map. MEASURED (S192, this board): with `cannotCatch` forced
     // false the army chased drones to x = 1158; with the rule it never locks one west of x = 1329.
     expect(minXWhileLocked).toBeGreaterThan(1250);
-    // MEASURED (S192): 1550 ticks locked on drones before the fix (1 far re-acquire); 231 after.
+    // MEASURED (S192): 1550 ticks locked on drones before the fix (1 far re-acquire); 231 after; 284 with
+    // the S193 home clause (min x while locked 1305) — the run's drone timing shifts, still far under 600.
     expect(lockedTicks).toBeLessThan(600);
     // (`maxDropDist` is logged, not asserted: a lock also ends when the unit commits to a STRUCTURE strike,
     // at any distance — so it measures the FSM as much as this rule.)
   });
+
+  /**
+   * ⭐ S193 audit — the auditor's repro, through the real host tick: a seat-0 unit abroad by the border
+   * (x 1000, the border at 960) while a seat-1 drone flies WEST into seat 0's zone, 88–202 px from it.
+   * Old rule (quarry-only home test): it took the drone and turned back, 2–4 pickups a drone. Now it is
+   * never locked on a drone farther than reach + slack. The drone's flight is scripted (see `advance`).
+   */
+  for (const type of ['goblinMelee', 't9BossOrcs', 't3Bat'] as const) {
+    it(`⭐ S193 REACH — ${type} abroad by the border never picks up a drone that crossed into its zone beyond reach`, () => {
+      const reach = engageRange(CREATURE_CONFIGS[type]) + CHASE_GIVEUP_SLACK_PX;
+      let farPickups = 0;
+      let flights = 0;
+      for (const dx of [88, 120, 160, 202]) {
+        const w = board();
+        const u = put(w, 0, type, { x: 1000, y: 300 }, castleAnchor(1, w.layout));
+        const start = { x: 1000 - dx, y: 300 + 30 };
+        const drone = put(w, 1, 'lightningDrone', start, castleAnchor(0, w.layout));
+        const d = deps();
+        const s = makeHostTickState(w);
+        for (let t = 0; t < 120; t++) {
+          if (w.creatures.has(drone.id)) {
+            const x = start.x - DRONE_CRUISE_PX_PER_TICK * t;
+            drone.prevPos.x = x + DRONE_CRUISE_PX_PER_TICK; drone.prevPos.y = start.y;
+            drone.pos.x = x; drone.pos.y = start.y;
+            const home = castleAnchor(0, w.layout);
+            drone.targetPos.x = home.x; drone.targetPos.y = home.y;
+          }
+          runHostTick(w, d, s);
+          for (const id of [...w.creatures.keys()]) if (id !== u.id && id !== drone.id) w.creatures.delete(id);
+          const me = w.creatures.get(u.id);
+          if (me === undefined) break;
+          if (t === 0) { flights++; expect(zoneOf(drone.pos, w.layout), 'fixture: the drone is in seat 0 zone').toBe(0); }
+          if (me.targetCreatureId === drone.id) {
+            const dist = Math.sqrt((drone.pos.x - me.pos.x) ** 2 + (drone.pos.y - me.pos.y) ** 2);
+            if (dist > reach + 5) farPickups++;
+          }
+        }
+      }
+      expect(flights, 'anti-vacuity: every fly-by ran').toBe(4);
+      expect(farPickups, `${type}: ticks locked on a drone beyond reach + slack (${reach.toFixed(0)} px)`).toBe(0);
+    });
+  }
 
   /**
    * The advance table: a seat-0 unit marching east IN ENEMY GROUND with one seat-1 drone flying west
@@ -353,8 +419,10 @@ describe('S192 T6 — REACH, through the real host tick', () => {
       expect(clean.dx, 'anti-vacuity: the unit really marched').toBeGreaterThan(300);
       // MEASURED (S192, 400 ticks): BEFORE (`cannotCatch` forced false) goblinMelee 663 → 285 px (−57.0 %,
       // 129 ticks locked), t9BossOrcs 702 → 296 (−57.8 %, 130). AFTER goblinMelee 663 → 413 (−37.6 %, 92),
-      // t9BossOrcs 702 → 434 (−38.2 %, 93). ⚠ The remaining loss is the INTERCEPT he asked for: this drone
-      // flies past them toward their base, so they step out to cut it off — and let it go once it is by.
+      // t9BossOrcs 702 → 434 (−38.2 %, 93). ⭐ S193 (home arm needs the CHASER at home too): goblinMelee
+      // 663 → 619 (−6.6 %, 38 ticks locked), t9BossOrcs 702 → 651 (−7.3 %, 39) — most of the S192 "intercept"
+      // loss was this unit (starting 40 px abroad) re-taking the drone once it crossed into zone 0. What is
+      // left is the intercept he asked for: they step out to cut it off and let it go once it is by.
       expect(loss).toBeLessThan(0.45);
     });
   }

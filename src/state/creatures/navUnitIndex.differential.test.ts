@@ -206,6 +206,36 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
     expect(nulls, 'some quarries were let go').toBeGreaterThan(20);
   });
 
+  it('⭐ S193 audit — a chaser ABROAD by the border, the quarry in ITS home zone: index, live scan and reference agree', () => {
+    // The case the first oracle never built: real and reference had to agree on "home" with the chaser
+    // abroad and the quarry at home. Under the old quarry-only test both sides engaged it; now both drop
+    // it beyond reach + slack. A real-side-only change of the home arm turns this red.
+    const chasers: CreatureType[] = ['goblinMelee', 't3Bat', 't9BossOrcs'];
+    let compared = 0;
+    let found = 0;
+    let nulls = 0;
+    for (const type of chasers) {
+      for (const quarry of ['lightningDrone', 'chewer'] as CreatureType[]) {
+        for (const dx of [30, 88, 150, 202]) for (const tx of [null, 40, 1880]) {
+          const t = bothWays(() => {
+            const w = board();
+            insertAs(w, asCreatureId(w.nextCreatureId++), 0, 1000, 200, type); // seat 1's ground, 40 px past the border
+            const qid = asCreatureId(w.nextCreatureId++);
+            insertAs(w, qid, 1, 1000 - dx, 220, quarry); // seat 0's ground for dx > 40
+            if (tx !== null) w.creatures.get(qid)!.targetPos = { x: tx, y: 220 };
+            return w;
+          }, (_w, check) => check(`${type} abroad at 1000,200 vs ${quarry} at -${dx} heading ${String(tx)}`));
+          compared += t.compared;
+          found += t.nonNull;
+          nulls += t.compared - t.nonNull;
+        }
+      }
+    }
+    expect(compared).toBeGreaterThan(500);
+    expect(found, 'some were kept (inside reach, a catchable chewer, an intercept)').toBeGreaterThan(10);
+    expect(nulls, 'some were let go').toBeGreaterThan(10);
+  });
+
   it('a unit moved after the index was built, a unit at NaN, and held locks of every kind', () => {
     bothWays(brawl, (w, check) => {
       check('before');
