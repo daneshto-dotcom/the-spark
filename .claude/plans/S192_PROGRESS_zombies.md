@@ -1,3 +1,24 @@
+# S193 ROUND 1 — FINAL REPORT (merge master into `s192/zombies`)
+
+- **Merge SHA `c717e52`** (master `71abc27` into branch tip `9e995f3`; 213 commits). `npm install` run after the merge
+  (pixi-filters 6.1.5 from master's lockfile — owner-approved, not new).
+- **Conflicts (3):** `hostTick.ts` zombie-boss death (master `STRUCTURE_SELFDESTRUCT blast:'raze'` vs branch
+  `applyZombieDeathBlast`) → kept the branch's split-pool arm (owner T3). `damage.callSites.test.ts` → master 20/12
+  + zombie blast = 21 sites / 13 null. `damageConnector.callSites.test.ts` → master 8 + zombie blast = 9.
+- **Merge seams found by the suite after a clean auto-merge (2):** (1) CARRY-2 census — the blast severed with a bare
+  `SEVER_BOND`, deleting the overkill the owner ruled CARRIES (S191) → now `severWithCarry`; REACH test (a lone chain at
+  his feet loses both connectors), negative (a small share fells nothing), mutation to a bare sever → RED (1 bond left).
+  (2) canon.test R182-C / GATES-2 — canon said the zombie boss still razes → canon §9d text + SEVER table row
+  (`racial/zombieDeathBlast.ts`, `'unit'`), test now pins raze = none in hostTick, `applyZombieDeathBlast(world,` = 1.
+- **Gates (merged tree + fix):** typecheck 0 · vitest 0 (474 files passed / 4 skipped; 7275 passed / 11 skipped) ·
+  build 0, entry **1038.5 KiB** vs master 1034.7 (measured on master in this worktree) = **+3.8 KiB**; headroom 61.5.
+- **Bump:** BUMP (unchanged verdict — feed-bite coin exemption + serialized heal bank + blast/RISEN rules both peers compute).
+- **MINE (unchanged):** 312 pool · 380 radius · own-side hit · THE_RISEN Reading A · 6×10 pulses · feed coin exemption ·
+  stun-doesn't-stop · forfeit at fight end · heal-above for ALL heals.
+- **Seams for the merge owner:** the `blast:'raze'` variant of `STRUCTURE_SELFDESTRUCT` has no production dispatcher
+  now (tests only) — retire or keep; KillCredit vs s191/endstats `{kind:'seat'}` (see report); healAnchor now also
+  places master's C-8 castle heal numbers straight above the castle.
+
 # S192 PROGRESS — `s192/zombies` (T12, T11, T2, T3)
 
 Branch `s192/zombies`, fresh from master `663c4c9`. Never merged, never pushed. Research source:
