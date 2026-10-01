@@ -70,6 +70,7 @@ import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
 import { fxActive, fxGround, fxShock, fxTop } from './fx/fxState.ts';
 import { sapFx } from './fx/sapFx.ts';
+import { rotFx } from './fx/rotFx.ts';
 import { RA_STRIKE_GROUND_SLOTS, RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
@@ -461,6 +462,13 @@ function drawRotAura(g: Graphics, world: World, id: number, pos: { x: number; y:
   if (stunned) return;
   g.circle(pos.x, pos.y, ZOMBIE_AURA_RADIUS)
     .fill({ color: ROT_SCORCH_TINT, alpha: ROT_SCORCH_ALPHA });
+
+  // ⭐ S192 (V05) — the boil rebuilt (`fx/rotFx.ts`): soft bubbles that POP, and rising miasma. The disc
+  // above stays, because it is the sim's damage circle at its real radius. `?fx=legacy` keeps the below.
+  if (fxActive()) {
+    rotFx(fxGround(), fxTop(), id, pos.x, pos.y, world.tick, ZOMBIE_AURA_RADIUS);
+    return;
+  }
 
   for (let k = 0; k < ROT_BUBBLES; k++) {
     // Deterministic pseudo-scatter: integer hash of (bubble index, boss id). No Math.random.
