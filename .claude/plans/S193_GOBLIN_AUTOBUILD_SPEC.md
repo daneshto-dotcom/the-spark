@@ -156,3 +156,16 @@ PRIME-AUDIT (self): what could still be rubber-stamped — (a) the 6-tick poll i
 as "lag" to him; one constant to change. (b) "race towers not toggleable" is MINE; the reducer gate
 is one line. (c) the R190-G count test moves 6 → 7 with a NEW tag class `CONTROL`; the BOARD-gate
 assertion is untouched, and a new assertion requires the CONTROL site to pick nothing on the board.
+
+## 5 · Round 2 (independent audit CLEAN; merge-owner follow-ups, built)
+
+1. MED — one bite wiped the toggles (REMOVE_SPAWNER took the mask). Now `World.goblinAutoFeedMemory`
+   (anchor → {owner, mask, cursor}, ⚠ MINE): written by `applyRemoveSpawner` when a toggled goblin tower
+   falls with its anchor standing, consumed by `applyRegisterSpawner` (restored only for the same seat
+   and a goblin tower), pruned when the anchor is gone, cleared with `creatureSpawners` (5 sites).
+   Disk + worker INIT, stripped from the wire, wide-hashed `gm:`.
+2. LOW — a right-click on a non-toggle card control (race chip, FIX, SCRAP) plays the refused cue.
+3. LOW — `pendingAutoFeed` pruned (expired, or a deadline beyond the window) and cleared on title-return.
+4. LOW — the runner skips benched / eliminated seats (forensic counters stay clean).
+5. LOW — `isHandHolding()` / `putBackHand()` in `controls.ts`, used by the toggle and the three put-backs.
+6. Canon §3g with `AUTO_FEED_POLL_TICKS` pinned in `canon.test.ts`.

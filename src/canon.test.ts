@@ -174,6 +174,8 @@ import {
 } from './state/racial/endlessDynasty.ts';
 import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
 import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
+// ⭐ S193 T4 — the auto-build poll (canon §3g).
+import { AUTO_FEED_POLL_TICKS } from './state/goblinAutoFeed.ts';
 import {
   SCORCHED_EARTH_CAST_PER_MILLE,
   SCORCHED_GROUND_PER_MILLE,
@@ -1633,6 +1635,13 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+  });
+
+  it('⭐ §3g — T4: the goblin tower auto-build poll the canon quotes is the live constant (6 ticks, MINE)', () => {
+    expect(AUTO_FEED_POLL_TICKS).toBe(6);
+    expect(canonSays(`\`AUTO_FEED_POLL_TICKS\` = **${AUTO_FEED_POLL_TICKS}** ticks`)).toBe(true);
+    expect(CANON.replace(/\r?\n\s*/g, ' ').includes('by sending an ordinary `FEED_TOWER`')).toBe(true);
+    expect(canonSays('`World.goblinAutoFeedMemory`')).toBe(true);
   });
 
   it('⛔ T13 — the S191 "dead units deliberately not filtered" report is marked superseded, and the two rulings are recorded', () => {
