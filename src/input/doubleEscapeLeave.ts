@@ -15,7 +15,7 @@
  * Now every Escape that is used for something else marks the press consumed (`preventDefault`), and
  * this handler treats a consumed Escape as "not a leave press" — and resets the chord, so the NEXT press
  * starts a fresh pair. THE CONSUMERS, all of which run before this handler (keep the list whole):
- *   · `Controls` — dropping a held tower, putting the Power-of-Ra aim away (`consumeCancel`);
+ *   · `Controls` — dropping a held tower, putting the Power-of-Ra aim away, putting the SCORCHED EARTH aim away (`consumeCancel`);
  *   · the Codex close in `main.ts` (`makeOverlayEscapeClose`, below);
  *   · the settings panel's two Escape listeners (`closeSettingsOnEscape`, `render/settingsOverlay.ts`),
  *     on its root and on `document`, which a window listener only hears after them.

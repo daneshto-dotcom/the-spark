@@ -351,8 +351,8 @@ export function findNearestBondTarget(
  * ⭐ S190 P0 (C5) — its two full passes over `world.bonds` (the victim set, then the chosen victim's
  * nearest bond) were 41 % of the host tick on a 120-creature wave-5 board, measured. Both now read the
  * bucket: the victim list is built there once per tick, sorted exactly as before, and the second pass
- * visits only the chosen victim's bonds. The universe is unchanged — the NON-strict enemy set, as it
- * always was (see the carry-forward note in `buildColourBucket`).
+ * visits only the chosen victim's bonds. ⛔ S191 C-6 — the universe is the STRICT enemy set now (the
+ * S162 set the nearest scan uses), never the OR set: see `buildColourBucket`.
  */
 function spreadEnemyTarget(
   world: World,
@@ -595,21 +595,25 @@ function buildColourBucket(world: World, ownerColor: number): ColourBucket {
     if (primA.placerColor !== ownerColor && primB.placerColor !== ownerColor) {
       strict.bonds.push(bond);
       strict.ids.push(bondId);
+      /*
+       * ⛔ S191 C-6 — **THE SPREAD'S UNIVERSE IS THE STRICT SET TOO**, so it lives INSIDE this branch.
+       *
+       * S190 reported and did not change it (a pure performance change may not move an output): the
+       * victims were built over the OR set, so a MIXED bond's `primA` could key a victim — even the
+       * owner's own seat — and an enemy-only creature could be handed the mixed bond by the spread
+       * right after the S162 tightening above refused it one. Merge owner's go (S191): *"C-6 go
+       * (spreadEnemyTarget on the STRICT predicate — enforces the owner's S162 rule)"*. The reference
+       * (`bondTargetReference.fixtures.ts`) moved first; `spreadStrict.test.ts` drives it through the
+       * real host tick against a welded mixed-colour structure.
+       */
+      let v = byVictim.get(primA.placedBy);
+      if (v === undefined) {
+        v = { bonds: [], ids: [] };
+        byVictim.set(primA.placedBy, v);
+      }
+      v.bonds.push(bond);
+      v.ids.push(bondId);
     }
-    /*
-     * ⚠ S190 — REPORTED, NOT CHANGED (a pure performance change may not move an output). The spread's
-     * universe is the NON-strict set, as it always was: a MIXED bond's `primA` can be the owner's own
-     * shape, so the owner can appear among its own victims, and an enemy-only creature can be handed
-     * a mixed bond by the spread even though the S162 tightening above refused it one. Whether that is
-     * wanted is a targeting ruling, carried forward in `S190_PROGRESS_perf.md`.
-     */
-    let v = byVictim.get(primA.placedBy);
-    if (v === undefined) {
-      v = { bonds: [], ids: [] };
-      byVictim.set(primA.placedBy, v);
-    }
-    v.bonds.push(bond);
-    v.ids.push(bondId);
   }
 
   const victims = Array.from(byVictim.keys()).sort(

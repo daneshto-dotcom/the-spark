@@ -37,6 +37,9 @@ from PIL import Image
 CUTS = {
     "power-of-ra": ("assets-source/upgrade-cards/l0-mummies.png", 310, 700),
     "wrath-of-ra": ("assets-source/upgrade-cards/l10-mummies.png", 96, 752),
+    # S191 (owner item 1b) — SCORCHED EARTH: the l0-demons card below its "SCORCHED GROUND" title (the
+    # glyphs end ~y 400). MINE, by eye against (420, 800) — which caught a title glyph — and (520, 700).
+    "scorched-earth": ("assets-source/upgrade-cards/l0-demons.png", 440, 700),
 }
 
 

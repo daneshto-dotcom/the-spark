@@ -395,6 +395,9 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Graphics',  // 17 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
                     //      procedural because they are STATE READOUTS, not character art.
       '_Container', // 18 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
+      '_Graphics',  // 19 — raStrikeLayer                    (S191 C-9, owner R190-H extended) — the Ra
+                    //      strike, ABOVE every building. ⛔ It must stay LAST: appending is what keeps
+                    //      `tower-art.spec.ts`'s indices 6 and 11 where they are.
     ]);
 
     /*

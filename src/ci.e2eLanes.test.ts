@@ -71,15 +71,23 @@ const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING' | 'OWN_JOB'>> = {
    * Playwright cap on two runs. Gating on its own runner instead of slow in a shared one.
    */
   '@races': 'OWN_JOB',
+  /*
+   * ⭐ S191 A-4 (A1, R190-L) — the VS-BOTS `?worker=1` smoke. ONE 360 s test with no retries, i.e. up
+   * to half of the shared lane's 720 s cap by itself, and every red run of that lane since S187 ran
+   * the cap out with specs never started. Gating on its own runner, the `@races` shape.
+   */
+  '@worker-bots': 'OWN_JOB',
 };
 
 /** For each OWN_JOB tag, the workflow job that must run it and the script it must call. */
 const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
   '@races': { job: 'e2e-races', script: 'e2e:races' },
+  '@worker-bots': { job: 'e2e-worker-bots', script: 'e2e:worker-bots' },
 };
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
-const NOT_A_LANE_TAG = new Set(['@param', '@playwright', '@typescript-eslint', '@seat', '@returns', '@see']);
+// S192 — `@vite-ignore` is the magic comment on a dev-server dynamic import (`e2e/poolSafePc.spec.ts`).
+const NOT_A_LANE_TAG = new Set(['@param', '@playwright', '@typescript-eslint', '@seat', '@returns', '@see', '@vite-ignore']);
 
 function invertList(): string[] {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
@@ -230,6 +238,74 @@ describe('e2e lane composition is a decision, not an accident', () => {
         block.includes('continue-on-error'),
         `\`${job}\` carries continue-on-error, so ${tag} is not actually gating anywhere`,
       ).toBe(false);
+      /*
+       * ⭐ S191 A-4 (Council, S191 ledger) — AND PLAYWRIGHT, NOT THE RUNNER, ENDS AN OVERRUN. An own
+       * job with no `PW_GLOBAL_TIMEOUT_MIN` below its `timeout-minutes` concludes `cancelled` on an
+       * overrun — no failure, no email, no report — which is a gating lane that cannot fail loudly.
+       */
+      const cap = /\n {4}timeout-minutes:\s*(\d+)/.exec(block);
+      const pw = /\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block);
+      expect(cap, `\`${job}\` must set a job-level timeout-minutes`).not.toBeNull();
+      expect(pw, `\`${job}\` must set PW_GLOBAL_TIMEOUT_MIN in its env:`).not.toBeNull();
+      expect(
+        Number((pw as RegExpExecArray)[1]),
+        `\`${job}\`: PW_GLOBAL_TIMEOUT_MIN must be strictly below timeout-minutes`,
+      ).toBeLessThan(Number((cap as RegExpExecArray)[1]));
     }
+  });
+
+  it('⭐ S191 A-4 — every job’s Checkout is bounded, so a hung checkout FAILS instead of eating the lane', () => {
+    /*
+     * Run 36059057491 (deploy #3): `actions/checkout` hung for 9m23s on the gating job, the tests got
+     * ~9 of their 18 minutes, and the job concluded `cancelled` — the silent non-signal. A normal
+     * checkout takes ~14 s; 3 minutes is a hang detector, not a budget.
+     */
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { join } = require('node:path') as typeof import('node:path');
+    const yml = readFileSync(join(ROOT, '.github', 'workflows', 'e2e.yml'), 'utf8').split('\r\n').join('\n');
+    const jobs = yml.slice(yml.indexOf('\njobs:\n')).match(/\n {2}[a-z][a-z0-9-]*:\n/g) ?? [];
+    const bare = yml.match(/- name: Checkout\n/g) ?? [];
+    const bounded = yml.match(/- name: Checkout\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: (\d+)/g) ?? [];
+    expect(jobs.length, 'anti-vacuity: the jobs were parsed').toBeGreaterThanOrEqual(9);
+    expect(bare.length, 'one Checkout per job').toBe(jobs.length);
+    expect(bounded.length, 'every Checkout step carries a timeout-minutes').toBe(bare.length);
+    for (const c of bounded) expect(Number((/timeout-minutes: (\d+)/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
+  });
+});
+
+/*
+ * ⭐ S192 T1 — THE 4-PLAYER LATE-JOINER MESH IS GATING, AND THIS PINS HOW.
+ *
+ * It keeps `@quarantine-flaky` (so it stays out of the SHARED lane's budget — 1–2 min locally, 3–5×
+ * that on CI) and gates through `e2e:lobby` on the `e2e-lobby` job, the S155 precedent. Both halves of
+ * that are text, so both are pinned: if the title is edited or the grep loses it, the owner's
+ * "the 4th player can't connect" regression would silently go back to the non-gating lane it was red
+ * in, unnoticed, from 2026-08-11 to S192.
+ */
+describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  it('e2e:lobby greps the nplayer late-4th-joiner describe, and e2e-lobby carries no continue-on-error', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    const m = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:lobby'] ?? '');
+    expect(m, 'could not parse --grep out of e2e:lobby').not.toBeNull();
+    const grep = new RegExp((m as RegExpExecArray)[1]);
+    const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
+    const titles = [...spec.matchAll(/test\.describe\('([^']+)'/g)].map((x) => x[1]!);
+    const lateJoiner = titles.filter((t) => t.includes('late 4th joiner'));
+    expect(lateJoiner, 'the S192 late-4th-joiner describe is missing from nplayer.spec.ts').toHaveLength(1);
+    expect(grep.test(lateJoiner[0]!), `e2e:lobby's grep does not select: ${lateJoiner[0]}`).toBe(true);
+    // The forced-staleness core of the test is still there (otherwise it is a coin flip again).
+    expect(spec).toContain('Date.now = () => real() + 60_000;');
+    expect(spec).toContain("peer ${i} has the full mesh (3 peers)");
+    const yml = norm(readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8'));
+    const start = yml.indexOf('\n  e2e-lobby:\n');
+    expect(start).toBeGreaterThan(-1);
+    const rest = yml.slice(start + 1);
+    // The job ends at the next 2-space-indented line — a job key OR the comment block above the next
+    // job (which talks about the quarantine lane's continue-on-error and must not be read as this one's).
+    const end = rest.search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
+    const block = end === -1 ? rest : rest.slice(0, end);
+    expect(block).toContain('run: npm run e2e:lobby');
+    expect(block.includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
   });
 });
