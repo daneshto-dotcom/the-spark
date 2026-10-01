@@ -104,3 +104,11 @@ None (`save.ts`, `stateHashFull.ts`, `worldTypes.ts`, `main.ts` untouched).
 - canon.test.ts §3e POWER OF RA + WRATH stay RED by design → `.claude/plans/S191_CANON_NOTES_tune.md`.
 - NEXT: ITEM 2 (castle radius 61 + porch-slot discs), then ITEM 3 (APEX_PREDATOR_STAT_MUL 3 → 9, THE_SWARM
   decoupled to a literal 6), gates.
+- ITEM 2 committed `25c5bc8`: CASTLE_NO_BUILD_RADIUS 121 → 61; CASTLE_PORCH_KEEP_OUT_RADIUS = 34 (2 × 17, ⚠ MINE)
+  per porch slot inside castleKeepOutHitsBox; zones.test re-pinned (halving derivation, porch now outside the disc,
+  sprite roof/corners outside — reported, boundary probed along ±x); new castleKeepOutS191.test (12). Mutations:
+  no slot discs → 5 red; radius 121 → 11 red; slot disc 17 → 1 red.
+- ITEM 3 (coordinator, owner S192): APEX_PREDATOR_STAT_MUL 3 → 9; THE_SWARM_STAT_MUL → literal 6. Elite 27/0/18/9,
+  pool 135, bite 252. Re-pinned apexPredator.test (×9, ×9 pool / ×21 bite, + REACH maxEhp on real emission),
+  theSwarm.test (6, decoupled), statsLadder.test (elite gets its own derived lane — HP 27 / ATK 18 are off 1..12 by
+  his ruling). Copy: racialPerks nagas.l5 "nine times the stats". Mutations: swarm re-coupled → 5 red; apex 3 → 3 red.

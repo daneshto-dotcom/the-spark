@@ -97,9 +97,15 @@ describe('S188 THE SWARM — the stat line is the bat ×6, derived', () => {
   const base = getCreatureConfig('t3Bat');
   const swarm = getCreatureConfig(SWARM);
 
-  it('⭐⭐ ×6 is HIS derivation — "whatever we did for the piranha, we double that"', () => {
+  it('⭐⭐ ×6 is HIS number (R190-D, "a bat 1/1/1/1 → 6/6/6/6") — and since S192 it is DECOUPLED from the piranha', () => {
     expect(THE_SWARM_STAT_MUL).toBe(6);
-    expect(THE_SWARM_STAT_MUL).toBe(2 * APEX_PREDATOR_STAT_MUL);
+    /*
+     * S192 re-pin — was `toBe(2 * APEX_PREDATOR_STAT_MUL)` ("whatever we did for the piranha, we double
+     * that", S188). The owner then made APEX PREDATOR ×9 while R190-D keeps the swarm at 6, so the two
+     * MUST no longer move together: a derived swarm would have silently become ×18.
+     */
+    expect(APEX_PREDATOR_STAT_MUL).toBe(9);
+    expect(THE_SWARM_STAT_MUL).not.toBe(2 * APEX_PREDATOR_STAT_MUL);
   });
 
   it('⭐⭐ HP / DEF / ATK / PEN are each exactly 6× the bat’s — read off its config, never literals', () => {

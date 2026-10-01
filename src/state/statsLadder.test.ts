@@ -60,7 +60,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
+import { APEX_PREDATOR_STAT_MUL, CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
 import { T9_BOSS_STATS } from '../constants.ts';
 import { STAT_POINT_MAX, STAT_POINT_MIN, attackFifths, unitPoolFifths } from './stats.ts';
 import type { CreatureType } from './creatures/creature.ts';
@@ -119,6 +119,16 @@ const BOSS_TYPES: ReadonlySet<string> = new Set(
 
 const isBoss = (type: CreatureType): boolean => BOSS_TYPES.has(type);
 
+/*
+ * ⭐ S192 (owner) — THE ELITE PIRANHA GETS ITS OWN, DERIVED LANE. *"I think it should be times nine."*
+ * APEX PREDATOR multiplies every piranha stat by `APEX_PREDATOR_STAT_MUL` (R190-D, from the base), so
+ * at ×9 its HP 27 and ATK 18 sit off the 1..12 point ladder by HIS ruling, not by drift. Same pattern
+ * as S172's boss lane: rather than raise the shared ceiling (retiring the guard for every other unit),
+ * the elite is held to something STRICTER — exactly the piranha × the multiplier, stat for stat.
+ */
+const isApexElite = (type: CreatureType): boolean => type === 't3PiranhaElite';
+const PIRANHA = CREATURE_CONFIGS.t3Piranha;
+
 describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', () => {
   it('is not vacuous — the roster is actually populated', () => {
     // A guard that iterates an empty list passes forever. This is the first thing to check.
@@ -147,6 +157,10 @@ describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', 
      * check it replaces: it gained a FLOOR of 20, which is what actually pins "a lot stronger".
      */
     for (const [type, c] of ALL) {
+      if (isApexElite(type)) {
+        expect(c.hp, `${type} hp = piranha × APEX_PREDATOR_STAT_MUL`).toBe(PIRANHA.hp * APEX_PREDATOR_STAT_MUL);
+        continue;
+      }
       const lo = isBoss(type) ? BOSS_HP_MIN : STAT_POINT_MIN;
       const hi = isBoss(type) ? BOSS_HP_MAX : STAT_POINT_MAX;
       expect(c.hp, `${type} hp`).toBeGreaterThanOrEqual(lo);
@@ -159,6 +173,10 @@ describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', 
   // boss ATK is still R141's 6..10 and sits inside the shared ladder. Do not give this a boss lane.
   it('⛔ ATK is a POINT in 1..12 — a 0-ATK attacker could never kill anything', () => {
     for (const [type, c] of ALL) {
+      if (isApexElite(type)) {
+        expect(c.atk, `${type} atk = piranha × APEX_PREDATOR_STAT_MUL`).toBe(PIRANHA.atk * APEX_PREDATOR_STAT_MUL);
+        continue;
+      }
       expect(c.atk, `${type} atk`).toBeGreaterThanOrEqual(STAT_POINT_MIN);
       expect(c.atk, `${type} atk`).toBeLessThanOrEqual(STAT_POINT_MAX);
       expect(Number.isInteger(c.atk), `${type} atk must be an integer point`).toBe(true);

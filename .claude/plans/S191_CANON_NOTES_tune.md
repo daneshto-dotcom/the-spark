@@ -78,3 +78,38 @@ Consumers (all route through `castleKeepOutHitsBox`; none changed): `canBuildAt`
 ⚠ Bots plant towers at `TOWER_SITE_OFFSET` 210 px from their anchor regardless, so the halving does not
 move bot tower sites; VOLTKIN's horizontal angles stay refused (210 − 152 = 58 < 61). Bot LOOSE shapes do use
 the freed ring (`isLegalBuildPos`, tested).
+
+## ITEM 3 (S192) — APEX PREDATOR ×3 → ×9; THE SWARM decoupled, stays ×6
+
+Owner (S192): *"the Piranha, when it's upgraded … the Nagas get the Piranha upgrade, it should be stronger …
+I think it should be times nine."* R190-D unchanged: *"a bat 1/1/1/1 → 6/6/6/6"*.
+
+### §3e row APEX PREDATOR (line ~440)
+"what" cell: *every stat ×9 (S192; tripled S188–S191), drawn twice the size*. Numbers cell:
+`APEX_PREDATOR_STAT_MUL` = **9** → **27 / 0 / 18 / 9** · `PIRANHA_ELITE_SPRITE_SCALE_MUL` = **2**
+(the canon test also needs `pool **15 → 135**` and `**12 → 252**` somewhere in the text.)
+
+### §3e row THE SWARM (line ~429) — numbers unchanged (`THE_SWARM_STAT_MUL` = **6** → 12 / 0 / 12 / 6 · pool 10 → 60 · bite 12 → 132).
+Wording only: it is no longer "double the piranha's"; it is R190-D's ×6, a literal.
+
+### Paragraph "⚠ APEX PREDATOR: "×3 EVERY STAT" IS ×3 HEALTH BUT ×4 BITE" (line ~571) — replace with
+⚠ **APEX PREDATOR: "×9 EVERY STAT" IS ×9 HEALTH BUT ×21 BITE — HIS NUMBER (S192), THE LADDER'S ARITHMETIC
+(R190-D).** The ladder multiplies ATK by (5 + PEN), and both are ×9: pool **15 → 135**, bite **12 → 252**
+(18 × (5 + 9) against the piranha's 2 × (5 + 1)). One elite bite is more than a whole 5-connector tower,
+every level of it (130). Its HP 27 and ATK 18 sit OFF the 1..12 point ladder by his ruling; `statsLadder.test`
+gives the elite its own lane, pinned to exactly piranha × `APEX_PREDATOR_STAT_MUL`. "From now on" is still
+decided at the EMIT (`towerUnitForSeat`). (S188–S191 it was ×3: 45 / 48.)
+
+### THE SWARM paragraph (line ~576) — add one sentence
+⛔ Since S192 `THE_SWARM_STAT_MUL` is a LITERAL 6, decoupled from `APEX_PREDATOR_STAT_MUL`: left as
+`2 × APEX` the owner's ×9 piranha would have silently made the swarm ×18.
+
+### canon.test.ts assertions to re-pin (RED on this branch by design)
+- §3e nagas test (~:793): title "×9 health but ×21 bite"; the three `canonSays` strings follow the text above
+  (they derive from the constants, so only the canon TEXT must change).
+- §3e THE SWARM test (~:824): `expect(THE_SWARM_STAT_MUL).toBe(2 * APEX_PREDATOR_STAT_MUL)` → `toBe(6)` and
+  `not.toBe(2 * APEX_PREDATOR_STAT_MUL)` (as `theSwarm.test.ts` now does).
+
+### Player-facing copy changed
+`racialPerks.ts` `nagas.l5.detail`: "three times the stats" → "nine times the stats". ⚠ The `l5-nagas` CARD ART
+(`public/art/upgrade-cards/`) was not inspected for a printed "×3" — owner/merge owner to eyeball.
