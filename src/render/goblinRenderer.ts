@@ -359,6 +359,16 @@ export function animTicksPerFrame(baseTicksPerFrame: number, enraged: boolean): 
   return Math.max(1, Math.round(baseTicksPerFrame / rageMultiplier({ enraged })));
 }
 
+/**
+ * ⭐ S191 round 2 (RAGE-3) — PURE: which rage bit sets a row's frame rate. The ATTACK row reads the
+ * CYCLE's latch (`Creature.attackCycleRaged`), because the sim's swing does (`attackCycleMultiplier`):
+ * a rage edge mid-swing changes nothing until the next cycle, so neither may the drawing, or the row
+ * jumps at every edge — half-length or cut off. Walk and idle keep the LIVE bit, as movement does.
+ */
+export function animRageForRow(rowName: string, enraged: boolean, attackCycleRaged: boolean): boolean {
+  return rowName === 'attack' ? attackCycleRaged : enraged;
+}
+
 /** Lift `color` towards white by `t` (0..1), per channel. Pure — no allocation, no Pixi types. */
 function washTowardsWhite(color: number, t: number): number {
   const r = (color >> 16) & 0xff;
@@ -552,6 +562,22 @@ export class GoblinRenderer {
 
   setDefenderSpriteBox(fn: (id: DefenderId) => { w: number; h: number } | null): void {
     this.defenderSpriteBox = fn;
+  }
+
+  /**
+   * ⭐⭐ S191 C-9 (owner R190-H, extended) — THE RA STRIKE DRAWS ABOVE THE BUILDINGS TOO.
+   *
+   * `arrowLayer` is above this renderer's units, but every renderer `main.ts` constructs LATER — the
+   * laser turret's rig, the Voltkin TV, HELGA, the ramp buildings, the stink tower — drew over the
+   * strike. `main.ts` stages one Graphics as the LAST child of `fogHiddenLayer` (so it is above all of
+   * them, still under the fog's mask, and no earlier child index moves) and hands it here. Only the
+   * strike goes in it; unset (a unit test mounting this renderer alone) it falls back to `arrowLayer`.
+   * Cleared by this renderer every frame, because only this renderer draws into it.
+   */
+  private raStrikeLayer: Graphics | null = null;
+
+  setRaStrikeLayer(layer: Graphics): void {
+    this.raStrikeLayer = layer;
   }
   /**
    * The atlas key each live creature is drawing from, so a CORPSE can find its own `die` row after
@@ -807,6 +833,8 @@ export class GoblinRenderer {
   private syncSprite(
     id: CreatureId, type: CreatureType, atlas: LoadedAtlas, state: string, ticksInState: number,
     x: number, y: number, face: 1 | -1, alpha: number, tint: number, enraged: boolean,
+    /** ⭐ S191 R2 (RAGE-3) — the cycle's latched rage, for the ATTACK row's frame rate only. */
+    attackCycleRaged: boolean,
     /** S188 — a row and frame chosen by the caller (the corpse-eater feed), bypassing the FSM map. */
     forced?: { name: string; index: number },
   ): void {
@@ -834,7 +862,8 @@ export class GoblinRenderer {
      * the two cannot drift. `rageMultiplier` is 1 for every creature that is not an enraged Warlord,
      * which makes this line byte-identical in behaviour for all twenty-odd other kinds.
      */
-    const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, enraged);
+    // ⭐ S191 R2 (RAGE-3) — the attack row at the latched cycle's speed; walk / idle at the live bit.
+    const per = animTicksPerFrame(st?.ticksPerFrame ?? 6, animRageForRow(name, enraged, attackCycleRaged));
     // Attack plays ONCE through and holds its last frame; idle and walk loop. A looping attack
     // would re-swing during the recovery half of the cadence and read as two hits for one strike.
     /*
@@ -991,6 +1020,7 @@ export class GoblinRenderer {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    this.raStrikeLayer?.clear(); // ⭐ S191 C-9 — this renderer is the strike layer's only writer
     // ⭐ S190 (audit SW-7) — the swarm's sheet starts fetching on the seat's `vampires.l10` pick.
     this.warmPerkSheets(world);
     /*
@@ -1018,7 +1048,7 @@ export class GoblinRenderer {
     // R84 — derived from synced FSM state every frame, never from a one-shot effect push
     // (which the 10 Hz snapshot drops ~5/6 of the time). See creatureProjectile.ts (renamed from archerArrow.ts in S154 P2, when the bat rider gained a harpoon).
     syncCreatureProjectiles(this.arrowLayer, world);
-    drawBossAuras(g, world, this.arrowLayer);
+    drawBossAuras(g, world, this.raStrikeLayer ?? this.arrowLayer); // ⭐ S191 C-9 — above the buildings
     /*
      * ⭐ S171 (owner R142/R171-I) — the Pharaoh's locust clouds, into this SAME Graphics for the same
      * reason as the auras above: a new child of `fogHiddenLayer` shifts its indices. Drawn after the
@@ -1203,11 +1233,11 @@ export class GoblinRenderer {
         // deadline. A stunned boss keeps R152's idle pose, like every other stunned unit.
         const feed = this.corpseEaterFeed(world, c, stunnedNow);
         if (feed !== null) {
-          this.syncSprite(c.id, c.type, feed.atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, feed.frame);
+          this.syncSprite(c.id, c.type, feed.atlas, c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, c.attackCycleRaged === true, feed.frame);
           // ⚠ The CORPSE must find the main sheet's `die` row — the feed sheet has none.
           this.spriteAtlas.set(c.id, atlas);
         } else {
-          this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true);
+          this.syncSprite(c.id, c.type, atlas, stunnedNow ? 'STUNNED' : c.state, c.ticksInState, c.pos.x, c.pos.y - lift, face, alpha, tint, c.enraged === true, c.attackCycleRaged === true);
         }
         // ⭐ S170 P5 — scaled by the sprite multiplier, or the ring sits inside a boss.
         if (stunnedNow) drawStunStars(g, c.pos.x, c.pos.y - lift, world.tick, Number(c.id), alpha, creatureSpriteScaleMul(c.type));
@@ -1401,6 +1431,7 @@ export class GoblinRenderer {
   clear(): void {
     this.graphics.clear();
     this.arrowLayer.clear();
+    this.raStrikeLayer?.clear();
     this.lastSeenPos.clear();
     this.facing.clear();
     for (const sp of this.sprites.values()) sp.destroy();

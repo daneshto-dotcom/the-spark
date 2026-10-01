@@ -60,6 +60,7 @@ import {
   classifyJoinError,
   type StrategyName,
 } from './iceConfig.ts';
+import { POOL_SAFE_PC } from './poolSafePeerConnection.ts';
 
 export { classifyJoinError };
 
@@ -162,6 +163,8 @@ interface StrategyDiagnostic {
   readonly peerCount: number;
   readonly relays: ReadonlyArray<RelayDiagnostic>;
   readonly lastError: string | null;
+  /** ⭐ S192 T1 — distinct peers whose link failed on this strategy (per-peer, not a strategy failure). */
+  readonly peerJoinFailures?: number;
 }
 
 export interface NetDiagnostics {
@@ -181,6 +184,12 @@ interface StrategyHandle {
   relayUrls: string[];
   getSockets: (() => unknown) | null;
   lastError: string | null;
+  /**
+   * ⭐ S192 T1 — peers whose connection failed ON THIS STRATEGY (Trystero `onJoinError`, a per-peer
+   * report). OPTIONAL so test-injected handles read as "none". Deliberately NOT `state`: see
+   * `onPeerJoinError`.
+   */
+  peerJoinFailures?: Set<string>;
   icePollTimer: ReturnType<typeof setInterval> | null;
   icePollStartMs: number;
   /**
@@ -534,25 +543,16 @@ export class NetTransport {
             iceServers: ICE_SERVERS,
             iceTransportPolicy: 'all',
           },
+          // ⛔ S192 T1 — the pool-safe PC (never rolls back an unanswered pooled offer). Without it a
+          // pooled offer > 57.3 s old is restarted into an EMPTY offer and the late joiner's link
+          // is dead. See `poolSafePeerConnection.ts`; `trysteroPolyfill.test.ts` pins every site.
+          rtcPolyfill: POOL_SAFE_PC,
           trickleIce: true,
         },
         roomCode,
         {
           handshakeTimeoutMs: HANDSHAKE_TIMEOUT_MS,
-          onJoinError: (details) => {
-            const errMsg = `[${name}] ${classifyJoinError(details.error)}`;
-            console.error('[net] onJoinError:', name, details);
-            handle.lastError = details.error;
-            handle.state = 'failed';
-            // Only escalate to UI if ALL strategies have failed; otherwise a
-            // single-strategy decay is invisible to the user (multi-broadcast
-            // continues on the survivors).
-            if (this.allStrategiesFailed()) {
-              this.emitError(errMsg);
-            } else {
-              console.warn('[net]', name, 'failed but others active — UI quiet');
-            }
-          },
+          onJoinError: (details) => this.onPeerJoinError(handle, details),
           onPeerHandshake: async (peerId, _send, _receive, isInitiator) => {
             console.info(
               `[net] ${name} onPeerHandshake peer=${peerId} isInitiator=${isInitiator}`,
@@ -581,6 +581,8 @@ export class NetTransport {
       room.onPeerJoin = (peerId) => {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
         handle.peers.add(peerId);
+        // S192 audit L1 — it connected, so every recorded failure for it is history.
+        this.clearPeerJoinFailures(peerId);
         this.stopIcePoll(handle);
         this.watchPeerConnection(handle, peerId);
         // Dedup at transport boundary — only fire onPeerChange the first
@@ -659,7 +661,73 @@ export class NetTransport {
     console.error(`[net] strategy ${name} failed:`, errMsg);
     if (this.allStrategiesFailed()) {
       this.emitError(`[${name}] ${errMsg}`);
+      return;
     }
+    // ⛔ S192 audit F1 — a strategy dying can turn an earlier QUIET per-peer failure into a total one:
+    // the host link failed on nostr while torrent had not started (quiet, correctly — it might still
+    // reach the peer), and now torrent itself has failed. `allStrategiesFailed()` cannot see that,
+    // because nostr is (rightly) not failed. Re-ask the per-peer question for every recorded failure.
+    for (const h of this.strategies.values()) {
+      for (const peerId of h.peerJoinFailures ?? []) {
+        if (this.peerUnreachableEverywhere(peerId)) {
+          this.emitError(`[${h.name}] ${classifyJoinError(h.lastError ?? errMsg)}`);
+          return;
+        }
+      }
+    }
+  }
+
+  /**
+   * ⛔ S192 T1 — Trystero's `onJoinError` is a PER-PEER report, never a strategy failure.
+   *
+   * Every call site in `@trystero-p2p/core` (`signal-handler.mjs` SDP-exchange failure and the two
+   * decrypt failures, `strategy.mjs` `onHandshakeError`) carries a `peerId` and is about ONE pair.
+   * This used to set `handle.state = 'failed'` for the whole strategy, permanently: one dead pair on
+   * nostr and one on torrent — even two DIFFERENT non-host peers — tripped `allStrategiesFailed()`
+   * and latched the sticky red lobby error while the host link was fine, and the diagnostics strip
+   * read `nostr:fail` for a strategy still carrying every other peer.
+   *
+   * Now `state` means what it says (the join threw / the chunk failed to load, `markStrategyFailed`),
+   * and a per-peer failure is recorded per peer. The UI is told only when THAT peer is unreachable on
+   * every live strategy and is not connected through any of them — the honest version of the old
+   * "all strategies failed" escalation, scoped to the peer it is actually about.
+   */
+  private onPeerJoinError(handle: StrategyHandle, details: { error: string; peerId: string }): void {
+    console.error('[net] onJoinError:', handle.name, details);
+    handle.lastError = details.error;
+    // ⛔ S192 re-audit L1-RACE — a failure for a peer that IS connected (on another strategy) is a
+    // redundant handshake timing out late (HANDSHAKE_TIMEOUT_MS = 30 s), not a reachability fact.
+    // Recording it would outlive the clear in onPeerJoin: when the peer later drops, ONE fresh failure
+    // would read as "unreachable everywhere" and latch the red error, and the ✗ count would never drop.
+    if (this.peerSet.has(details.peerId)) {
+      console.warn('[net]', handle.name, `peer ${details.peerId} failed here but is connected — not recorded`);
+      return;
+    }
+    (handle.peerJoinFailures ??= new Set()).add(details.peerId);
+    if (this.peerUnreachableEverywhere(details.peerId)) {
+      this.emitError(`[${handle.name}] ${classifyJoinError(details.error)}`);
+    } else {
+      console.warn('[net]', handle.name, `peer ${details.peerId} failed here but is reachable elsewhere — UI quiet`);
+    }
+  }
+
+  /**
+   * ⭐ S192 audit L1 — forget `peerId`'s recorded join failures on EVERY strategy once it connects on
+   * any of them. Without this the sets only grew while a handle lived: a stale nostr failure for a peer
+   * that later connected (then dropped) let one fresh torrent failure read as "unreachable everywhere",
+   * and the strip's ✗N count never came down.
+   */
+  private clearPeerJoinFailures(peerId: string): void {
+    for (const h of this.strategies.values()) h.peerJoinFailures?.delete(peerId);
+  }
+
+  /** True iff `peerId` is not connected and has a recorded join failure on every non-failed strategy. */
+  private peerUnreachableEverywhere(peerId: string): boolean {
+    if (this.peerSet.has(peerId)) return false;
+    const enabled = (Object.keys(STRATEGY_FLAGS) as StrategyName[]).filter((n) => STRATEGY_FLAGS[n]);
+    const live = enabled.map((n) => this.strategies.get(n)).filter((h) => h === undefined || h.state !== 'failed');
+    // A strategy that has not started yet may still reach the peer — stay quiet until it reports.
+    return live.every((h) => h !== undefined && h.peerJoinFailures?.has(peerId) === true);
   }
 
   private allStrategiesFailed(): boolean {
@@ -997,6 +1065,7 @@ export class NetTransport {
         peerCount: handle.peers.size,
         relays,
         lastError: handle.lastError,
+        peerJoinFailures: handle.peerJoinFailures?.size ?? 0,
       };
     });
     return {

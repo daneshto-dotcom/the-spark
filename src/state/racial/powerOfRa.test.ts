@@ -25,6 +25,8 @@ import {
   RA_COLUMN_PEN,
   RA_COLUMN_RADIUS,
   RA_COLUMN_TICKS,
+  RA_PERK_COLUMN_ATK,
+  RA_PERK_COLUMN_PEN,
   RA_RITUAL_TICKS,
   SparkType,
 } from '../../constants.ts';
@@ -46,7 +48,7 @@ import { applyNetSnapshot, netSnapshot, restore, snapshot } from '../save.ts';
 import { BENCH_INTENT_POLICY } from '../benchGate.ts';
 import { ELIMINATION_INTENT_POLICY } from '../elimination.ts';
 import { CLIENT_INTENT_TYPES, isClientIntentAllowed, parseNetMessage } from '../../net/protocol.ts';
-import { applyCastPowerOfRa, raStrikeColumnPos, RA_STRIKE_FIFTHS, runPowerOfRa } from './powerOfRa.ts';
+import { applyCastPowerOfRa, raStrikeColumnPos, RA_PERK_STRIKE_FIFTHS, RA_STRIKE_FIFTHS, runPowerOfRa } from './powerOfRa.ts';
 import { raAimPoint, raCastRefusal, raStrikeFromWire, type RaStrike } from './powerOfRaRules.ts';
 
 const P0 = asPlayerId(0); // the caster — MUMMIES, took POWER OF RA in the pre-wave-1 draft
@@ -170,9 +172,12 @@ describe('S188 P6 — POWER OF RA is live in the draft (RACIAL_PERK_BUILT)', () 
     expect(raCastRefusal(w, P0), 'a mummy seat that took it can cast in FIGHT').toBeNull();
   });
 
-  it('the damage is the Pharaoh\'s column — attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN), one ladder', () => {
-    expect(RA_STRIKE_FIFTHS).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
-    expect(RA_STRIKE_FIFTHS).toBe(300);
+  it('⭐ S191 — the damage is the PERK\'s own column, 35 on one ladder — NOT the Pharaoh\'s 300', () => {
+    // S191 re-pin (owner: "we can do it 35 per hit"): was attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN) = 300.
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(attackFifths(RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN));
+    expect(RA_PERK_STRIKE_FIFTHS).toBe(35);
+    expect(RA_STRIKE_FIFTHS, 'the deprecated alias reads the perk number').toBe(RA_PERK_STRIKE_FIFTHS);
+    expect(RA_PERK_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
     // …and the landing spot IS his function, re-centred and seeded by the seat, not a copy.
     for (let k = 0; k < RA_COLUMN_COUNT; k++) {
       expect(raStrikeColumnPos(P1, k, AIM)).toEqual(raColumnPos(1, k, AIM.x, AIM.y));
@@ -271,7 +276,7 @@ describe('S188 P6 — the reducer: legal only for a mummies.l0 seat, in FIGHT, o
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick', () => {
-  it('⭐⭐ exactly FIVE columns, each on its own spot, each dealing 300 to an ENEMY creature — and 0 to the caster\'s', () => {
+  it('⭐⭐ exactly FIVE columns, each on its own spot, each dealing its whole 35 to a LONE ENEMY creature — and 0 to the caster\'s', () => {
     const w = raWorld();
     const d = deps();
     const s = makeHostTickState(w);
@@ -292,8 +297,9 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
       const oBefore = w.creatures.get(own)!.ehp;
       runHostTick(w, d, s); // THE impact tick
       expect(w.tick).toBe(impact);
+      // S191 re-pin: the caster's own unit is spared AND not counted, so the lone enemy takes the whole 35.
       expect(eBefore - w.creatures.get(enemy)!.ehp, `column ${k} hit the enemy for exactly one column`)
-        .toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+        .toBe(RA_PERK_STRIKE_FIFTHS);
       expect(w.creatures.get(own)!.ehp, `column ${k} spared the caster's own unit`).toBe(oBefore);
     }
 
@@ -306,7 +312,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     expect(w.creatures.get(enemy)!.ehp, 'a sixth column landed').toBe(after);
   });
 
-  it('⭐⭐ an ENEMY connector takes the column (300 fifths, it breaks) — the caster\'s own takes 0', () => {
+  it('⭐⭐ an ENEMY connector takes the column (35 fifths ≥ its pool of 6, it breaks) — the caster\'s own takes 0', () => {
     const w = raWorld();
     const d = deps();
     const s = makeHostTickState(w);
@@ -324,8 +330,13 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     expect(
       w.connectorBreakHits.find((h) => h.bondId === enemy.bondId)?.amount,
       'the breaking hit on the ENEMY connector was the column, on the one ladder',
-    ).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    ).toBe(RA_PERK_STRIKE_FIFTHS);
     expect(w.bonds.has(enemy.bondId), 'and it broke').toBe(false);
+    /*
+     * S191 — still gone, but now ONLY through the sever's own topology split (a severed pair's sides
+     * are erased by `severSplit`); the column no longer razes shapes inside a structure (the old area
+     * arm, 300 vs 70). The single-target 35 → break → erase path is what this measures now.
+     */
     expect(w.primitives.has(enemy.a.id) || w.primitives.has(enemy.b.id), 'the building is gone').toBe(false);
 
     expect(w.bonds.has(own.bondId), "the caster's own connector stands").toBe(true);
@@ -335,12 +346,12 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     expect(w.connectorBreakHits.some((h) => h.bondId === own.bondId)).toBe(false);
   });
 
-  it('⭐ an enemy connector too big to break in one column still BANKS the full 300', () => {
+  it('⭐ an enemy connector too big to break in one column still BANKS the full column (35)', () => {
     const w = raWorld();
     cast(w, AIM.x, AIM.y);
     const strike = w.players.get(P0)!.raStrikes[0]!;
     const spot = raStrikeColumnPos(P0, 0, strike);
-    // A 16-connector enemy chain: pool 16 × 21 = 336 > 300, so one column banks rather than cuts.
+    // A 16-connector enemy chain: pool 16 × 21 = 336 > 35, so one column banks rather than cuts.
     const prims: Primitive[] = [];
     for (let i = 0; i < 17; i++) prims.push(addPrim(w, P1, spot.x - 400 + i * 50, spot.y + 300));
     let centre: BondId | null = null;
@@ -358,7 +369,7 @@ describe('S188 P6 — ⭐⭐ REACH: the columns land through the REAL host tick'
     c.b.pos = { x: spot.x + 45, y: spot.y - 60 }; c.b.prevPos = { ...c.b.pos };
     w.tick = raColumnImpactTick(strike.untilTick, 0);
     runPowerOfRa(w);
-    expect(w.bonds.get(centre!)?.damageFifths, 'the connector took the whole column').toBe(RA_STRIKE_FIFTHS);
+    expect(w.bonds.get(centre!)?.damageFifths, 'the connector took the whole column').toBe(RA_PERK_STRIKE_FIFTHS);
   });
 
   it('⚠ the sun sets with the fight — a column due after FIGHT→BUILD never lands', () => {

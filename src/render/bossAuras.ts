@@ -68,7 +68,10 @@ import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
-import { RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
+import { fxActive, fxGround, fxShock, fxTop } from './fx/fxState.ts';
+import { sapFx } from './fx/sapFx.ts';
+import { rotFx } from './fx/rotFx.ts';
+import { RA_STRIKE_GROUND_SLOTS, RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
  * around him, 2.5% of the affected unit's own pool per second) and gave no look. His only note on
@@ -107,6 +110,8 @@ const SONAR_FOAM_TINT = 0xffffff;
  * layer, so the strike draws on top of the units it lands on. Everything else — every other aura, the
  * Ra telegraph shade and outline, the hitbox scorch, the Pharaoh's halo, the aim preview — stays in `g`,
  * under the sprites, unchanged. Defaults to `g` so a caller that passes one Graphics draws as before.
+ * ⭐ S191 C-9 — in the game `strike` is `main.ts`'s `raStrikeLayer` (the LAST child of `fogHiddenLayer`,
+ * so above the buildings too), and the art's rune-ring-only slots (< `RA_STRIKE_GROUND_SLOTS`) go to `g`.
  */
 export function drawBossAuras(g: Graphics, world: World, strike: Graphics = g): void {
   for (const [bossId, boss] of world.creatures) {
@@ -121,7 +126,12 @@ export function drawBossAuras(g: Graphics, world: World, strike: Graphics = g): 
     if (isConcealed(boss.pos.x, boss.pos.y, boss.ownerPlayerId)) continue;
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
-    if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
+    if (boss.type === T9_BOSS_TYPE.vampires) {
+      // ⭐ S192 PILOT 1 — the rebuilt siphon (`fx/sapFx.ts`). The S170 drawing stays reachable with
+      // `?fx=legacy`, and it is what every unit test of this file exercises (no fx is installed there).
+      if (fxActive()) sapFx(fxTop(), fxGround(), fxShock(), bossId as number, boss.pos.x, boss.pos.y, world.tick, boss.sapFlashUntilTick);
+      else drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
+    }
     if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, strike, world, bossId as number, boss);
   }
   // ⭐ RAVFX-5 — the Pharaoh's FINALE column, played out after the host has removed him.
@@ -179,7 +189,26 @@ function drawRaRitual(
   g.circle(boss.pos.x, boss.pos.y, 30 + pulse * 6)
     .stroke({ color: RA_HALO_TINT, width: 2, alpha: 0.35 + pulse * 0.3 });
 
+  // ⛔ S191 C-4 — the columns only while the sim can land one (`ritualColumnsCanLand`). ⚠ MINE: the halo
+  // above stays — `isChannellingRa` is still the sim's truth in BUILD (the damage guard reads it).
+  if (!ritualColumnsCanLand(world)) return;
   drawRaColumns(g, strike, world.tick, until, (k) => raColumnPos(id, k, boss.pos.x, boss.pos.y));
+}
+
+/**
+ * ⛔ S191 C-4 — **THE SIM'S OWN GATE FOR A RITUAL COLUMN LANDING, READ — NOT RE-INVENTED.**
+ *
+ * `runPharaohRitual` lands a column only when `hostTick` calls it, and that is inside its ONE boss-skill
+ * gate, `matchPhase === 'FIGHT'` (S168); the runner itself returns unless `gameState === 'PLAYING'`. So a
+ * ritual that straddles FIGHT→BUILD lands nothing after the edge, and `drawRaRitual` used to keep drawing
+ * its telegraphs and beams through BUILD — promises (R171-B) the sim does not keep. Exactly those two
+ * conditions, on the CURRENT phase, and nothing predicted from `phaseEndsAtTick`: the same test
+ * `drawPowerOfRa` and `showsCorpseEaterFeed` already make. A column still telegraphing when the edge
+ * arrives therefore vanishes at the edge, as a called POWER OF RA strike's does.
+ * `raRitualFightGate.test.ts` pins the agreement tick by tick through the real host tick.
+ */
+function ritualColumnsCanLand(world: Pick<World, 'gameState' | 'matchPhase'>): boolean {
+  return world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT';
 }
 
 /**
@@ -352,7 +381,9 @@ function drawRaColumns(
 
   if (art === null || sprites.length === 0) return;
   sprites.sort((a, b) => a.y - b.y || a.k - b.k);
-  for (const s of sprites) drawRaStrikeFrame(strike, art, s.slot, s.x, s.y); // ⭐ S190 R190-H — above the units
+  // ⭐ S190 R190-H — the strike above the units (and since S191 C-9, above the buildings); ⭐ S191 C-9 — the
+  // rune ring alone (slots 0-3, before the beam drops) stays ON THE GROUND, under them.
+  for (const s of sprites) drawRaStrikeFrame(s.slot < RA_STRIKE_GROUND_SLOTS ? g : strike, art, s.slot, s.x, s.y);
 }
 
 /* ── POWER OF RA aim dial. ⚠ MINE: the owner ruled the gesture (*"you click on it and then you have to
@@ -431,6 +462,13 @@ function drawRotAura(g: Graphics, world: World, id: number, pos: { x: number; y:
   if (stunned) return;
   g.circle(pos.x, pos.y, ZOMBIE_AURA_RADIUS)
     .fill({ color: ROT_SCORCH_TINT, alpha: ROT_SCORCH_ALPHA });
+
+  // ⭐ S192 (V05) — the boil rebuilt (`fx/rotFx.ts`): soft bubbles that POP, and rising miasma. The disc
+  // above stays, because it is the sim's damage circle at its real radius. `?fx=legacy` keeps the below.
+  if (fxActive()) {
+    rotFx(fxGround(), fxTop(), id, pos.x, pos.y, world.tick, ZOMBIE_AURA_RADIUS);
+    return;
+  }
 
   for (let k = 0; k < ROT_BUBBLES; k++) {
     // Deterministic pseudo-scatter: integer hash of (bubble index, boss id). No Math.random.

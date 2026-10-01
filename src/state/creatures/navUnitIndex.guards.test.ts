@@ -70,9 +70,12 @@ function bodyOf(path: string, name: string): string {
 describe('S191 perf — the nav-unit enemy index fingerprint is exact only while these sets hold', () => {
   it('1 · every creature is born through nextCreatureId++ and inserted with creatures.set — counted per file', () => {
     expect(countsOf(/nextCreatureId\+\+/), 'the creature-id allocators (applySpawnCreature: voltkin / drone / everyone else)')
-      .toEqual({ 'src/state/creatures/creatureLifecycle.ts': 3 });
+      .toEqual({ 'src/state/creatures/creatureLifecycle.ts': 3, 'src/dev/fxLab.ts': 1 });
+    // ⭐ S192 — `src/dev/fxLab.ts` is the DEV-only fx lab (`__SPARK__.fx`, stripped from production). It
+    // allocates through `nextCreatureId++` like every real site, so the fingerprint still invalidates,
+    // and it runs from the browser console between frames, never inside the creature loop.
     expect(countsOf(/\bcreatures\.set\(/), 'insertion sites (save.ts = snapshot restore, after a clear, outside the loop)')
-      .toEqual({ 'src/state/creatures/creatureLifecycle.ts': 3, 'src/state/save.ts': 1 });
+      .toEqual({ 'src/state/creatures/creatureLifecycle.ts': 3, 'src/state/save.ts': 1, 'src/dev/fxLab.ts': 1 });
   });
 
   it('2 · creatures leave only through creatures.delete or a whole-Map clear', () => {

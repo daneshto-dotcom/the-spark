@@ -91,6 +91,8 @@ export const ELIMINATION_INTENT_POLICY = {
   // exactly: a spectator calling down five columns could decide the match between the survivors.
   // Denied, and stricter-or-equal to the bench (which also denies), as elimination.test.ts requires.
   CAST_POWER_OF_RA: 'deny',
+  // ⭐ S191 — SCORCHED EARTH: the same kingmaker case as POWER OF RA. Denied (and ≥ the bench's deny).
+  CAST_SCORCHED_EARTH: 'deny',
   SHRINK_TERRITORY: 'deny',
   TRIGGER_BOMB: 'deny',
   TRIGGER_RAINBOW: 'deny',

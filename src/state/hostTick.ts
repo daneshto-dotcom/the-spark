@@ -59,7 +59,6 @@ import {
   type InvariantSnapshot,
 } from '../game/invariants.ts';
 import type { ControlsLike } from '../input/controlsCore.ts';
-import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import { stepPhysics } from '../physics/physicsLoop.ts';
 import {
   bondMidpoint,
@@ -115,6 +114,7 @@ import { underDroneCaps } from './droneLifecycle.ts';
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+import { dispatchVoltkinSpawn, resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — re-summon + the one Voltkin mint
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
 import { isRaceTowerId, RACE_TOWER_UNIT, raceForTowerId } from './raceTowerIds.ts';
@@ -142,6 +142,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -552,8 +553,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           d.bagsRemaining = getDefenderConfig(d.kind).bags;
         }
         releaseShelteredGatherers(world);
+        // ⭐ S191 — the FIGHT is over, so is every SCORCHED EARTH cast (the owner: it lasts until that
+        // FIGHT ends). The wave key already made it inert; this keeps the wire and the hash clean.
+        clearScorchedEarthAtBuild(world);
         // ⭐ S154 P4 (owner A3) — and NOBODY IS LEFT STANDING IN ENEMY GROUND.
         recallArmies(world);
+        // ⭐ S192 T16 — and every standing TV without a Voltkin gets one back (R190-J's rule, for the
+        // TV). AFTER the recall, which would teleport a just-minted Voltkin to the castle.
+        resummonVoltkins(world);
       }
       if (world.matchPhase === 'FIGHT') {
         /*
@@ -710,14 +717,8 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   ) {
     const { event } = world.pendingCreatureSpawn;
     world.pendingCreatureSpawn = null;
-    const spawnTargetPos = computeStubTargetPos(world.tick, event.triggererPlayerId);
-    dispatch(world, {
-      type: 'SPAWN_CREATURE',
-      creatureType: 'voltkin',
-      ownerPlayerId: event.triggererPlayerId,
-      pos: { x: event.targetPos.x, y: event.targetPos.y },
-      targetPos: spawnTargetPos,
-    });
+    // ⭐ S192 audit L4 — ONE mint path: the same helper the per-wave re-summon and the early mint use.
+    dispatchVoltkinSpawn(world, event.triggererPlayerId, event.targetPos);
   }
 
   // S71 P1 — bomb dissipation poll (host-only, tick-deterministic). An
@@ -892,15 +893,16 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                * So the set is the hub's OWN members (`towerMembersAt`: the Dot + its own Circle
                * arms, the same walk that decided it stood and that its fuse read). S157 P0's reason
                * for razing at all survives intact — the hub's own leaves cannot linger as bond-less
-               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT` →
-               * `applyStructureSelfDestruct` → `applyRadialClear`, its owner exemption, and the
-               * ruled-not-built 120 fifths of R182-C) is untouched.
+               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT`, ladder
+               * arm → `applyHubLadderBlast`, 120 fifths IN TOTAL split across its
+               * targets, S157 P0 owner exemption — S191 C-5 / R2-A, R182-C) is a separate rule.
                */
               const selfIds = [
                 ...(towerMembersAt(world, 'lightningHub', sp.anchorPrimitiveId)?.prims ?? [dying.id]),
               ];
               dispatch(world, {
                 type: 'STRUCTURE_SELFDESTRUCT',
+                blast: 'ladder', // ⭐ S191 C-5 — 120 fifths, not the raze (canon §9d item 2)
                 pos: { x: dying.pos.x, y: dying.pos.y },
                 radius: STRUCTURE_SELFDESTRUCT_RADIUS,
                 ownerPlayerId: sp.ownerPlayerId,
@@ -1632,6 +1634,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         // S113 Batch C — a lightning-DRONE is a homing missile: every-tick enemy-only
         // re-selection (NOT the chewer throttle/stickiness — it never commits/chews). It then
         // DETONATES in Step 1.5 below the moment it is in blast range (or its fuse expires).
+        const hadTarget = creature.targetBondId !== null; // ⭐ S192 STOCK-2 — read BEFORE re-selecting
         const nextTarget = findNearestBondTarget(world, creature, true);
         creature.targetBondId = nextTarget;
         if (nextTarget !== null) {
@@ -1640,6 +1643,21 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             const mid = bondMidpoint(targetBond);
             creature.targetPos.x = mid.x;
             creature.targetPos.y = mid.y;
+          }
+        } else if (hadTarget) {
+          /*
+           * ⭐ S192 (audit STOCK-2) — A DRONE THAT LOSES ITS TARGET MID-FLIGHT GOES HOME TO ITS HUB.
+           * Since S191 a drone is STOCK (persistent, no fuse): with no target it used to keep its stale
+           * `targetPos` and hover in enemy ground for the rest of the FIGHT, in reach of guns and
+           * defenders. Only on the had-target → no-target TRANSITION, so a drone that never acquired
+           * one (idle at its hub) is byte-identical. The S165 recall spread, never `home` verbatim, or
+           * the stock re-stacks on one pixel.
+           */
+          const home = ownHomePos(world, creature);
+          if (home !== null) {
+            const at = spreadTargetPos(home, creature.id, RECALL_SPREAD);
+            creature.targetPos.x = at.x;
+            creature.targetPos.y = at.y;
           }
         }
       } else if (
@@ -1706,8 +1724,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * the ATTACKING wind-up, and the bond strike arm already deals `attackFifths(atk, pen)` (⭐ S190:
          * the creature's own `creatureAttackFifths`, drafted-buffed) through `damageConnector` with no
          * `targetsStructures` gate. `damageConnector` already banks
-         * structure-wide and spends overkill into the next connector (R173-A/B), so a boss's 150
-         * takes the 50, then the 36, then the 24 in one blow. Everything downstream was waiting.
+         * structure-wide (R173-A/B), and since S191 the overkill CARRIES (`severWithCarry`, owner S191), so
+         * a boss's 150 takes the 50, the 36, the 24, the 14 and the 6 in one blow (canon §2). Everything
+         * downstream was waiting.
          */
         const st = structureTargets(world, creature);
         creature.targetPrimitiveId = st.primitiveId;
@@ -1998,7 +2017,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
           const inRange =
             droneCandidate.targetBondId !== null &&
             isWithinAttackRange(world, droneCandidate, droneCandidate.targetBondId);
-          if (inRange || fuseExpiring) {
+          // ⭐ S192 (audit STOCK-5) — a PERSISTENT drone is stock: it has no fuse (its deadline is the
+          // match-length lifetime, and fusing out at home 60 minutes in is the S191 bug, pushed out).
+          if (inRange || (fuseExpiring && !bomberCfg.persistent)) {
             dispatch(world, { type: 'DRONE_EXPLODE', creatureId: id });
             continue;
           }
@@ -2174,6 +2195,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
      * would let a Warlord stunned below 25% come out of the stun un-enraged (or, worse, stay enraged
      * after being healed past 50% during one). A stun stops what a creature DOES, not what is TRUE
      * about it. Stated here because "skip everything" reads tidier and would be wrong.
+     * ⛔ S191 — the R151 threshold wording above is SUPERSEDED: the rage now ends on its own 25 s clock
+     * (`WARLORD_RAGE_TICKS`), not on a heal. The exemption still holds for the same reason — skipping the
+     * latch while stunned would freeze his clock's END and his re-fire, which are true of him, not acts.
      */
     runZombieRotAura(world);
     runVladLifeSap(world, state.sapLedger);
@@ -2454,6 +2478,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
         dispatch(world, {
           type: 'STRUCTURE_SELFDESTRUCT',
+          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
           pos: { x: boss.x, y: boss.y },
           radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
           // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
