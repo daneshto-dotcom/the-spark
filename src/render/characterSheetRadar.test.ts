@@ -29,7 +29,11 @@ describe('S185 — the maxima are DERIVED from the roster, never typed in', () =
    * been doing for three sessions. This recomputes from the same source the module reads.
    */
   it('each max equals the true maximum over every creature config', () => {
-    const vals = Object.values(CREATURE_CONFIGS) as unknown as Record<string, number>[];
+    // ⭐ S193 — over every creature EXCEPT the mega pants, which is deliberately off the radar's scale
+    // (HP 500 would shrink every other web to a dot); it is the one exclusion, and it reads at the rim.
+    const vals = (Object.values(CREATURE_CONFIGS) as unknown as Array<Record<string, number> & { type: string }>)
+      .filter((v) => v.type !== 'megaPants');
+    expect(Object.values(CREATURE_CONFIGS).length - vals.length).toBe(1);
     const maxOf = (k: string): number => Math.max(...vals.map((v) => v[k]!).filter(Number.isFinite));
     expect(RADAR_MAX_HP).toBe(maxOf('hp'));
     expect(RADAR_MAX_DEF).toBe(maxOf('def'));

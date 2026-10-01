@@ -1488,7 +1488,17 @@ describe('S192 §3f — the endgame table is the constants', () => {
     expect(endgameConstants.BUILD_LOCK_FROM_WAVE).toBe(27);
     expect(canonSays('from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`)')).toBe(true);
     const w = endgameConstants.MONSTER_WAVE_PER_SEAT;
-    expect(canonSays(`**27 → ${w[27]} · 28 → ${w[28]} · 29 → ${w[29]} ⚠ MINE · 30 → ${w[30]} · 31 → ${w[31]} ⚠ MINE**`)).toBe(true);
+    expect(canonSays(`**27 → ${w[27]} · 28 → ${w[28]} · 29 → ${w[29]} · 30 → ${w[30]} · 31 → ${w[31]}**`)).toBe(true);
+    expect([w[27], w[28], w[29], w[30], w[31]]).toEqual([10, 25, 50, 100, 250]); // ⭐ S193 — all his
+  });
+
+  it('⭐ S193 — the pace, the hold, the final fight and the mega pants', () => {
+    expect(canonSays(`**one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks** per lane (\`MONSTER_EMERGE_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
+    expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
+    const m = ENDGAME_CONFIGS.megaPants;
+    expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
+    expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);
   });
 
   it('the pants: its stat line, pool and strike', () => {
