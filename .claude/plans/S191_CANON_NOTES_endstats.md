@@ -27,7 +27,10 @@ merge owner adds the `canon.test.ts` assertions in the same commit.
 - **Bundle:** the view + model are a lazy chunk (`matchBoardHost.ts` is the eager shim); entry +5.3 KiB.
 - **`DamageAttacker` has a fourth answer, `{ kind: 'seat' }`** — the castle gun, the raid arms, every blast that
   names its owner. It turns, heals and raises NOBODY (retaliation / lifesteal / THE RISEN read `kind === 'creature'`);
-  it exists so the board can credit a seat. `null` is left at the Pharaoh's divine fire and SCORCHED GROUND.
+  it exists so the board can credit a seat. ⭐ S193 BLAST-2 — NO `null` attacker is left in production: the
+  lightning hub's ladder blast credits the hub owner, SCORCHED GROUND/EARTH the ground's seat / the caster, a Ra
+  column its owner (the caster, or the Pharaoh's seat), and the overkill CARRY (`severWithCarry`'s `carryBy`) the
+  striking seat. Read through `statCredit.ts`, which folds into s192/zombies' `KillCredit` (the one seam).
 - **The exit:** a canvas click no longer resets POSTGAME; the board's CONTINUE (primary button) or R does, each
   refused for `ARM_MS` = **1200** ms after the board appears (`matchBoard.ts`).
 

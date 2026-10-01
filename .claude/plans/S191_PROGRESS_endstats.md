@@ -1,4 +1,52 @@
-**STATUS: S192 — MERGED WITH MASTER (deploy #5), gates green; BLAST-2 waits on carry/owner — S191 worktree agent `s191-endstats` (branch `s191/endstats`).**
+**STATUS: S193 — MERGED WITH MASTER (71abc27) + BLAST-2 BUILT, gates green; report sent — S191 worktree agent `s191-endstats` (branch `s191/endstats`). Lands 6th.**
+
+## ⭐ S193 FINAL REPORT (round: merge master + BLAST-2)
+- **tip** the docs commit on top of `4b30761` (see the report message for its SHA) · merge `3a06b9d` (master `71abc27`, 233 commits) · BLAST-2 `041c741` · adapter `4b30761`.
+- **Merge conflicts (3 + 1 silent):**
+  1. `src/state/damage.ts` stinkCloud arm — master lifted it into `damageStinkCloud` (hub-owner burst spare); took master, re-added the stat-board `recordDamage` INSIDE `damageStinkCloud`.
+  2. `src/state/racial/powerOfRa.ts` — master moved `landRaColumn` to `racial/raColumn.ts`; took master (endstats' seat on the connector arm was then re-applied in raColumn by BLAST-2).
+  3. `src/state/damage.callSites.test.ts` — counts re-derived from the merged tree.
+  4. ⚠ `src/state/damageConnector.callSites.test.ts` merged TEXTUALLY CLEAN BUT WRONG (audit GATES-5 predicted it): master's null sites landed inside endstats' SEAT tally. Re-derived.
+  Merge-tree full suite (before BLAST-2): vitest exit 0, 475 files / 7283 passed / 11 skipped.
+- **BLAST-2** — every `null` damage attacker in production is now a SEAT (censuses: damageEntity null 6→0, damageConnector null 4→0):
+  · hub ladder blast (`potatoLifecycle.ts` `applyHubLadderBlast`) → the hub OWNER (entity, connector, bag arms + its carry);
+  · SCORCHED GROUND passive → the perk's seat; SCORCHED EARTH cast → the caster (`racial/scorchedGround.ts`, all 5 arms);
+  · Ra column (`racial/raColumn.ts`) → `src.owner` = the caster (perk) AND the Pharaoh's seat (boss);
+  · castle gun + 3 raid arms were already seats (S191) — REACH-tested now (raid);
+  · ⭐ FOUND: master's S191 overkill CARRY (`severWithCarry`) re-applied the leftover with a `null` attacker, so every fifth the carry felled was TAKEN with no dealer, for EVERY striker (a boss's 150 credited only its first connector). `severWithCarry` gains `carryBy: SeatAttacker | null` (typed so a creature cannot be passed — it would lifesteal twice); all 7 production callers pass the striking seat; a new census case pins them (optional param, so tsc cannot).
+  · `{kind:'seat'}` is INERT: retaliation/lifesteal/THE RISEN read `kind === 'creature'` (grep-verified: damage.ts:251/278/348, lifesteal.ts:114).
+- **Tests**: NEW `src/state/matchStats.blast2.test.ts` 11 — REACH through `runHostTick` (hub via the real spawner poll + matcher; scorch passive + cast; Ra perk cast; Pharaoh ritual column) and the real `RAID_TARGET` reducer; every case checks conservation (DEALT == victim's TAKEN). Negatives: hub owner's own unit; demon's own unit; Pharaoh's own-seat share is TAKEN not DEALT. Mutations (each → red, restored): hub entity arm → null; carry `carryBy` → null; scorch creature arm → null; Ra entity arm → null; raid carry arg dropped.
+- **Gates** on `4b30761` (captured `$?`): typecheck **0** · `vitest run --maxWorkers=3` **0** (476 files passed / 4 skipped; **7295 passed** / 11 skipped) · build **0**.
+- **Bundle**: entry **1040.6 KiB** (1,065,547 B) vs master `71abc27` measured the same way **1034.7 KiB** (1,059,553 B) → **+5.9 KiB** (the board's eager shim + recorder; BLAST-2 itself ~0). Headroom **59.4 KiB** — build prints the S101 "raise the charter" warning (shared headroom). `npm ci` ran after the merge (pixi-filters 6.1.5 from master's lockfile; `node_modules/pixi-filters` present) — the build is not the 1158 KiB double-pixi one.
+- **PROTOCOL bump verdict: NONE owed by this branch.** `DamageAttacker`/`carryBy` are call arguments, never serialized; BLAST-2 changes only `World.matchStats` values, which no reducer reads (inert) and which ride the already additive-optional `WorldSnapshot.matchStats?`. S186 test: two shaking builds never disagree about anything either SIMULATES — an older build simply does not compute or show the board.
+
+### MINE — owner questions (one line each, with a recommendation)
+- The Pharaoh boss's column credits his SEAT (DEALT/KILLS) — rec: keep; it is that seat's unit.
+- A bag popped by the hub blast: its burst credits the BAG's owner (as every bag pop does, S158 A2) — rec: keep.
+- ⚠ Edge: in the S178 shrunken-pool cascade (a structure already holding MORE than its pool), the carry re-applies OLD banked damage and the board counts it TAKEN a second time (pre-existing on master's carry) and now DEALT to the breaker — rec: accept (rare; normal hits leave ≤ the hit's own overkill, proven: banked < pool before any non-breaking hit).
+- Owner Qs carried from S191/S192 (still flagged, unchanged): `HISTORY_WINDOW_TICKS` 120 · BUILT graph = connectors standing · `towersFell` counts a scrapped/extended recipe · `ARM_MS` 1200 · HELGA not a tower.
+
+### ⭐ THE ONE SEAM — how BLAST-2 unifies with s192/zombies' `KillCredit` (merge owner ruling: KillCredit IS the seam)
+Built now as a THIN ADAPTER: `src/state/statCredit.ts` — `StatCredit = { seat, type: CreatureType | null } | null` (KillCredit with `type` widened), `statCreditOf(world, attacker)`; `damage.ts`'s `attackerSeat` is a one-liner through it. NON-sim (only matchStats writers read it). **The fold, when zombies is on master** (also written in the file header):
+1. delete `statCredit.ts`; in `racial/killCredit.ts` widen `type` to `CreatureType | null`, add `killCreditOf(world, attacker)` (= `statCreditOf`; its creature arm IS `creatureKillCredit`);
+2. `damageEntity` resolves `const blow = credit !== undefined ? credit : killCreditOf(world, attacker)` ONCE at the top; `recordDamage`/`recordKill` read `blow?.seat ?? null`; `damageConnector`/`damageStinkCloud` read `killCreditOf(...)?.seat` — so the zombie boss's explicit death-blast credit reaches the board too (today: credits nobody);
+3. ⛔ `riseOnKill` gains `if (credit.type === null) return;` BEFORE the `THE_RISEN_ANY_SEAT_UNIT` lever — Reading A unchanged (null fails `isZombieRacialType`), and the lever-ON reading cannot start raising zombies for castle-gun/raid/Ra/scorch kills. Pass `blow` to `damageCreature` only after that guard exists;
+4. `zombieDeathBlast.ts` connector arm: `null` → `{ kind: 'seat', seat: owner }`, and its sever through `severWithCarry(…, { kind: 'seat', seat: owner })` (master's carry rule);
+5. re-pin both censuses (zombies' entity site = `null` attacker + explicit credit — a 5th population or count it in `null`); add a zombie-death-blast REACH case to `matchStats.blast2.test.ts`.
+Files the fold touches: `statCredit.ts` (deleted), `racial/killCredit.ts`, `damage.ts`, `racial/theRisen.ts`, `racial/zombieDeathBlast.ts`, both `*.callSites.test.ts`, `matchStats.blast2.test.ts`.
+
+### Merge seams for the merge owner
+- Both census files are touched by this branch AND zombies — derive the counts on the merged tree, never hunk-by-hunk.
+- `severWithCarry` has a 4th param now: any branch adding a `severWithCarry` call gets the census case red until it names a seat (zombies' blast uses a direct SEVER_BOND today — see fold step 4).
+- Canon notes (`S191_CANON_NOTES_endstats.md`) updated: the "`null` is left at the Pharaoh … SCORCHED GROUND" sentence is gone.
+- BLAST-3 (hub 'drone' vs scorch 'raid' sever causes) untouched — not this branch's.
+
+### NOT DONE
+- No e2e run (not asked this round); no live look at the board in a browser (pane serves the main checkout).
+- The KillCredit fold itself — by ruling, after zombies is on master.
+
+---
+
 
 # S191 PROGRESS — `s191/endstats` (owner item 3: end-of-game stats)
 
