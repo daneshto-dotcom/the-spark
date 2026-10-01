@@ -12,11 +12,11 @@
  * ## What is pinned
  *   · the arithmetic over the real configs (who gives up on whom);
  *   · REACH, through the real host tick: a unit marching on the enemy keep with one enemy drone crossing
- *     its path loses (almost) none of its advance — the research measured 40 % (melee goblin) and 59 %
- *     (orc boss) lost before the fix; the numbers this run measures are printed and asserted;
+ *     its path loses (almost) none of its advance (−42.9 % / −43.0 % before the fix on this repro, 0.0 %
+ *     after; the research's own board measured −40 % / −59 %);
  *   · NEGATIVE: a drone INSIDE the chaser's reach is still picked; a chewer next to a melee goblin is
  *     still chased; a quarry that can strike (an archer — R184-A) is never skipped, held or acquired.
- *   ⭐ MUTATION-TESTED: `cannotCatch` returning false turns the REACH and the arithmetic cases red.
+ *   ⭐ MUTATION-TESTED: `cannotCatch` returning false turns the REACH (both units) and the arithmetic cases red.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -79,7 +79,8 @@ function put(w: World, seat: number, type: CreatureType, pos: Vec2, targetPos: V
     ownerPlayerId: asPlayerId(seat),
     pos: { x: pos.x, y: pos.y },
     targetPos: { x: targetPos.x, y: targetPos.y },
-    spawnedAtTick: w.tick - 1000, // already out of SPAWNING
+    // A drone is born NOW: back-dating it would expire its fuse on the first tick (it detonates).
+    spawnedAtTick: type === 'lightningDrone' ? w.tick : w.tick - 1000,
     sourceSpawnerId: type === 'voltkin' ? null : asSpawnerId(1),
     clock: w,
   });
@@ -90,18 +91,32 @@ function put(w: World, seat: number, type: CreatureType, pos: Vec2, targetPos: V
 
 /**
  * The research repro, rebuilt: a seat-0 unit marches east on seat 1's keep; one seat-1 drone appears
- * 260 px ahead and 120 px off-axis, flying west for seat 0's keep. Returns how far east it got.
+ * 260 px ahead and 120 px off-axis and flies WEST past it, toward seat 0's base, at the drone's measured
+ * cruise speed (3.92 px/tick, S192 research). Returns how far east the unit got.
+ *
+ * ⚠ THE DRONE'S FLIGHT IS SCRIPTED, AND ONLY THE DRONE'S. A drone with no enemy connector to home on
+ * idles at its hub (`s191/owner` stock), so an unscripted one never crosses anything; and the castle
+ * emitter births units mid-run that the marcher would stop to fight. Both would measure something other
+ * than "a drone flew past". The marcher itself runs on the unmodified host tick.
  */
+const DRONE_CRUISE_PX_PER_TICK = 3.92;
 function advance(type: CreatureType, withDrone: boolean, ticks: number): { dx: number; lockedTicks: number } {
   const w = board();
   const start = { x: 600, y: 540 };
   const u = put(w, 0, type, start, castleAnchor(1, w.layout));
-  if (withDrone) put(w, 1, 'lightningDrone', { x: start.x + 260, y: start.y - 120 }, castleAnchor(0, w.layout));
+  const drone = withDrone ? put(w, 1, 'lightningDrone', { x: start.x + 260, y: start.y - 120 }, castleAnchor(0, w.layout)) : null;
   const d = deps();
   const s = makeHostTickState(w);
   let lockedTicks = 0;
   for (let t = 0; t < ticks; t++) {
+    if (drone !== null && w.creatures.has(drone.id)) {
+      const x = start.x + 260 - DRONE_CRUISE_PX_PER_TICK * t;
+      const y = start.y - 120 + 0.4 * t;
+      drone.prevPos.x = x + DRONE_CRUISE_PX_PER_TICK; drone.prevPos.y = y - 0.4;
+      drone.pos.x = x; drone.pos.y = y;
+    }
     runHostTick(w, d, s);
+    for (const id of [...w.creatures.keys()]) if (id !== u.id && id !== drone?.id) w.creatures.delete(id);
     const me = w.creatures.get(u.id);
     if (me === undefined) break;
     if (me.targetCreatureId !== null) lockedTicks++;
@@ -118,20 +133,22 @@ describe('S192 T6 — the arithmetic over the real configs', () => {
     expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
   });
 
-  it('a drone 200 px away is dropped by every structure-attacker; a chewer only by the slowest', () => {
+  it('a drone just beyond reach is dropped by every structure-attacker; a chewer only by the slowest', () => {
     const w = board();
     const drone = CREATURE_CONFIGS.lightningDrone.maxAccel;
     const chewer = CREATURE_CONFIGS.chewer.maxAccel;
     for (const type of ['goblinMelee', 'goblinShield', 'goblinArcher', 't3Bat', 't9BossOrcs'] as CreatureType[]) {
       const me = put(w, 0, type, { x: 600, y: 540 });
       const reach = engageRange(CREATURE_CONFIGS[type]) + CHASE_GIVEUP_SLACK_PX;
-      expect(200, `fixture: 200 px is beyond ${type}'s reach`).toBeGreaterThan(reach);
-      const q = put(w, 1, 'lightningDrone', { x: 800, y: 540 });
+      // Beyond reach + slack, and inside the 220 px acquire radius (the archer's is 218).
+      const at = Math.max(200, Math.floor(reach) + 1);
+      expect(at, `fixture: ${at} px is inside the acquire radius`).toBeLessThanOrEqual(GOBLIN_UNIT_ACQUIRE_RADIUS);
+      const q = put(w, 1, 'lightningDrone', { x: 600 + at, y: 540 });
       expect(drone).toBeGreaterThan(CREATURE_CONFIGS[type].maxAccel * 1.25);
       expect(pickNavUnit(w, me, null, ACQ, LEASH), `${type} acquires a passing drone`).toBeNull();
       expect(pickNavUnit(w, me, q.id, ACQ, LEASH), `${type} holds a passing drone`).toBeNull();
       w.creatures.delete(q.id);
-      const ch = put(w, 1, 'chewer', { x: 800, y: 540 });
+      const ch = put(w, 1, 'chewer', { x: 600 + at, y: 540 });
       const shouldChase = chewer <= CREATURE_CONFIGS[type].maxAccel * 1.25;
       expect(pickNavUnit(w, me, null, ACQ, LEASH) === ch.id, `${type} vs chewer`).toBe(shouldChase);
       w.creatures.delete(ch.id);
@@ -168,9 +185,12 @@ describe('S192 T6 — negatives', () => {
 });
 
 describe('S192 T6 — REACH, through the real host tick: one passing drone no longer costs the advance', () => {
-  for (const [type, beforeLoss] of [['goblinMelee', 0.4], ['t9BossOrcs', 0.59]] as const) {
-    it(`${type}: the research measured ${Math.round(beforeLoss * 100)} % lost; now under 10 %`, () => {
-      const TICKS = 600;
+  // BEFORE, measured on THIS repro with `cannotCatch` forced false (S192): goblinMelee 904 → 517 px
+  // (−42.9 %, 129 ticks locked on the drone), t9BossOrcs 957 → 545 px (−43.0 %, 129 ticks). The research's
+  // own repro (a different board) measured −40 % / −59 %. AFTER: 0.0 % for both, 0 ticks locked.
+  for (const [type, beforeLoss] of [['goblinMelee', 0.429], ['t9BossOrcs', 0.43]] as const) {
+    it(`${type}: ${Math.round(beforeLoss * 100)} % of the advance lost before the fix; now under 10 %`, () => {
+      const TICKS = 500;
       const clean = advance(type, false, TICKS);
       const drone = advance(type, true, TICKS);
       const loss = 1 - drone.dx / clean.dx;
