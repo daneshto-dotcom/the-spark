@@ -28,8 +28,8 @@ import { castleAnchor, makeGatherer, type Gatherer } from './gatherers/gatherer.
 import { makeFreeSpark } from '../game/spark.ts';
 import { planStructureRepair } from './structureRepair.ts';
 import { fixAllTargets, REPAIR_JOBS_MAX_PER_SEAT } from './repairJobs.ts';
-import { hashWorldStateFull } from './stateHashFull.ts';
-import { restore, snapshot } from './save.ts';
+import { determinismParts, hashWorldStateFull } from './stateHashFull.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
 import { isClientIntentAllowed } from '../net/protocol.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isEliminationDeniedIntent } from './elimination.ts';
@@ -59,8 +59,10 @@ function tick(w: World, st: HostTickState, n: number): void {
   const d = deps();
   const cursor = { lastMatcherTick: -1 };
   for (let i = 0; i < n; i++) {
-    runGodlyMatcherCore(w, cursor);
+    // ⚠ PRODUCTION ORDER (workerSim.ts / main.ts): the host tick, THEN the matcher, THEN the effect wipe —
+    // a FIX restored inside the host tick arms the matcher with its BOND_FORMED in the same frame.
     runHostTick(w, d, st);
+    runGodlyMatcherCore(w, cursor);
     w.effects.length = 0;
     w.creatures.clear(); // castle units are not under test; keep the board quiet
   }
@@ -423,25 +425,54 @@ describe('⭐ S193 — the wire and the gates', () => {
     expect(isEliminationDeniedIntent('FIX_ALL')).toBe(true);
   });
 
-  it('FOUR SITES — a save mid-job restores into a world whose wide hash matches, and both run on identically', () => {
+  it('FOUR SITES — the job, the task and the counter round-trip the disk save AND the wire snapshot, and a restored host finishes the job', () => {
     const { w, st, hub, leaf } = board();
     breakTurret(w, st, leaf);
     const g = hire(w, door(w));
     w.castleBanks.get(P0)![SparkType.Spiral as number] = 1;
     fix(w, hub);
     tickUntil(w, st, () => g.repairTask?.carrying === true);
-    const copy = makeWorld(0x193b);
-    restore(snapshot(w), copy);
-    expect(hashWorldStateFull(copy), 'the job, the task and the counter all round-trip').toBe(hashWorldStateFull(w));
-    expect(copy.repairJobs).toEqual(w.repairJobs);
-    expect([...copy.gatherers.values()][0]!.repairTask).toEqual(g.repairTask);
-    const st2 = makeHostTickState(copy);
-    for (let i = 0; i < 400; i++) {
-      tick(w, st, 1);
-      tick(copy, st2, 1);
-      expect(hashWorldStateFull(copy), `frame ${i}`).toBe(hashWorldStateFull(w));
+    expect(w.nextRepairJobId).toBe(1);
+    for (const via of ['disk', 'wire'] as const) {
+      const copy = makeWorld(0x193b);
+      if (via === 'disk') restore(snapshot(w), copy);
+      else applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(w))), copy);
+      expect(copy.repairJobs, via).toEqual(w.repairJobs);
+      expect(copy.nextRepairJobId, via).toBe(w.nextRepairJobId);
+      expect([...copy.gatherers.values()][0]!.repairTask, via).toEqual(g.repairTask);
+      const rj = (x: World) => determinismParts(x).filter((p) => p.startsWith('rj') || p.startsWith('ga'));
+      expect(rj(copy), `${via}: the job and gatherer parts hash identically`).toEqual(rj(w));
     }
-    expect(w.repairJobs).toHaveLength(0);
+    // A successor that inherited the save carries on: the shape in hand lands and the turret stands.
+    const heir = makeWorld(0x193b);
+    restore(snapshot(w), heir);
+    const st2 = makeHostTickState(heir);
+    tickUntil(heir, st2, () => heir.repairJobs.length === 0);
+    tick(heir, st2, 40);
+    expect(heir.defenders.size, 'the heir finished the job').toBe(1);
+  });
+
+  it('DETERMINISM — two identical runs through queue, fetch, carry and restore hash equal on every frame', () => {
+    const run = () => {
+      const b = board({ goblin: true });
+      breakTurret(b.w, b.st, b.leaf);
+      hire(b.w, door(b.w));
+      hire(b.w, { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y });
+      b.w.castleBanks.get(P0)![SparkType.Spiral as number] = 1;
+      quarrySpark(b.w, SparkType.Spiral, 10);
+      dispatch(b.w, { type: 'FIX_ALL', playerId: P0 });
+      return b;
+    };
+    sparkSeq = 20000;
+    const a = run();
+    sparkSeq = 20000;
+    const b = run();
+    for (let i = 0; i < 600; i++) {
+      tick(a.w, a.st, 1);
+      tick(b.w, b.st, 1);
+      expect(hashWorldStateFull(b.w), `frame ${i}`).toBe(hashWorldStateFull(a.w));
+    }
+    expect(a.w.repairJobs).toHaveLength(0);
   });
 
   it('the wide hash sees every part of a job and a task', () => {
