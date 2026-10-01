@@ -245,3 +245,10 @@ DONE — both items; waiting for the merge owner's audit / fix rounds.
   expired — carry's `pendingRecordAnchor` rule, INLINED (carry not on master); merge owner swaps it for the
   shared helper when carry lands. Test `src/render/scorchedEarthPendingTickBack.test.ts` (2). Mutation: keep
   the expired record (no drop) → the NEGATIVE (revival) case red; restored.
+
+## S192 step 4 — gates, round 1 (captured `$?`): TC=1 · VT=1 · B=1 — each investigated
+- TC/B=1: `s191TowerStock.test.ts:336` assigned the readonly `despawnAtTick` (my STOCK-5 test) → cast. FIXED.
+- VT=1: `untargetableCallSites.test.ts` "verdict list cannot rot" — the `isScorchImmune` refactor hid
+  scorchedGround.ts's ownership filter from the census regex, so the file's AREA exemption looked unused.
+  A REAL finding of my refactor (the census must keep SEEING the enemy scan): the census now also
+  recognises `isScorchImmune(<x>.ownerPlayerId` as an owner filter. FIXED; without it → red (observed).

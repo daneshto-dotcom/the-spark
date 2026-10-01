@@ -138,7 +138,13 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
      * reporting a clean board because it could not SEE the file, which is the same failure
      * shape as the S171 atlas checker. A short cast-like span now counts too.
      */
-    const filtersOwner = /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src);
+    /*
+     * ⭐ S192 — AND THE SCORCH'S ONE RESISTANCE PREDICATE. `scorchedGround.ts` now asks
+     * `isScorchImmune(c.ownerPlayerId, spared)` instead of comparing inline (the single site a later
+     * teams branch changes), which is still an ownership filter — the census must keep SEEING it.
+     */
+    const filtersOwner =
+      /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) || /isScorchImmune\(\s*\w+\.ownerPlayerId\b/.test(src);
     return iterates && filtersOwner;
   });
 

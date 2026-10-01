@@ -333,7 +333,7 @@ describe('S192 fix round — the drone stock findings (STOCK-2 / STOCK-3 / STOCK
     r.step(PHASE_DURATION_TICKS - 30);
     const stock = of(r.w, hub, 'lightningDrone');
     expect(stock.length).toBe(DRONE_MAX_PER_SPAWNER);
-    for (const c of stock) c.despawnAtTick = r.w.tick + 1; // as if held 60 minutes of match time
+    for (const c of stock) (c as { despawnAtTick: number }).despawnAtTick = r.w.tick + 1; // as if held 60 minutes of match time
     r.step(3);
     for (const c of stock) expect(r.w.creatures.has(c.id), `drone ${c.id} kept`).toBe(true);
   });
