@@ -28,7 +28,11 @@ const SRC = join(import.meta.dirname, '..', '..');
 function productionFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) productionFiles(full, out);
+    if (statSync(full).isDirectory()) {
+      // ⛔ Pitch Masters (`src/arcade/**`) is a separate project — never enumerated (S193 rule).
+      if (full === join(SRC, 'arcade')) continue;
+      productionFiles(full, out);
+    }
     else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts')) out.push(full);
   }
   return out;
