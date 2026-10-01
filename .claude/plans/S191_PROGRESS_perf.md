@@ -362,3 +362,21 @@ Mean −43 % (A) / −32 % (C); p95 −44 % / −33 %; 3-tick p95 −43 % / −3
 (Shares of a smaller tick: structureTargets' share rose because everything around it shrank.)
 
 ## STOP — report sent to the merge owner.
+
+# S192 — merge master + re-proof on the merged tree
+
+## S192 step 1 — `git merge master`  ✅
+- Local master at e4d52dc (deploy #5 = weld C2 + net C4/C5/C6 + Pitch Masters + PROTOCOL 52) merged into
+  0b0fef6 → merge commit **010783d**. `git merge` EXIT=0: **ZERO conflicts** (ort auto-merge), none in
+  `.claude/**`, `HANDOFF_*`, `boot-snapshot.md` either — nothing to resolve.
+- Overlap check: master changed NONE of the four production files this branch rewrote
+  (`territory.ts`, `creatures/creatureAI.ts`, `physics/bonds.ts`, `scoring.ts` — `git diff 42cc2ee master`
+  empty for each), so the verbatim reference fixtures are still exactly the master versions of those
+  functions. `hostTick.ts` changed on master (towerMembersAt self-raze + `razeOrphans`, Helga DORMANT
+  revive at both phase edges, DORMANT defenders skip DEFENDER_TICK) — none of it touches the epoch
+  open/close calls or the territory/scoring/solver call sites. `ownBondIdLimit` is read only by
+  towerMembers/migrationClaim/defender/render — not by any rewritten function. package.json /
+  package-lock unchanged → no reinstall needed.
+- ⚠ What DOES flow through the rewrites: welds put far more cross-colour bonds on the board (the 2a mixed
+  rule + the 2e union over mixed bonds) and the self-raze/orphan raze changes which bonds vanish. Hence
+  step 2: re-prove on the merged tree, not by argument.
