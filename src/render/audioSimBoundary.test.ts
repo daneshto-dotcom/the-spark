@@ -36,7 +36,13 @@ function runtimeRelativeImports(src: string): string[] {
 
 const rel = (abs: string): string => relative(SRC, abs).split(sep).join('/');
 
-/** Every file reachable from `root` at runtime, mapped to the chain that reached it. */
+/**
+ * Every file reachable from `root` at runtime, mapped to the chain that reached it.
+ *
+ * ⛔ S192 audit A6 — AN IMPORT THE WALKER CANNOT READ IS A FAILURE, NOT A SKIP. It used to `continue`,
+ * so a renamed file, an extensionless specifier or a moved directory silently pruned that whole
+ * subtree from the walk — and an audio import hiding under it would have left this guard green.
+ */
 function reachable(root: string): Map<string, string[]> {
   const seen = new Map<string, string[]>();
   const stack: Array<{ file: string; chain: string[] }> = [{ file: resolve(SRC, root), chain: [root] }];
@@ -46,7 +52,11 @@ function reachable(root: string): Map<string, string[]> {
     if (seen.has(key)) continue;
     seen.set(key, chain);
     let src: string;
-    try { src = readFileSync(file, 'utf8'); } catch { continue; }
+    try {
+      src = readFileSync(file, 'utf8');
+    } catch (err) {
+      throw new Error(`audioSimBoundary: cannot read ${key} (reached via ${chain.join(' → ')}): ${String(err)}`);
+    }
     for (const spec of runtimeRelativeImports(src)) {
       const target = resolve(dirname(file), spec);
       stack.push({ file: target, chain: [...chain, rel(target)] });
@@ -66,6 +76,10 @@ describe('S192 T15 — no sim entry reaches an audio module at runtime', () => {
       }
     });
   }
+
+  it('NEGATIVE CONTROL (A6): an unresolvable import THROWS, it does not prune the walk', () => {
+    expect(() => reachable('render/__does_not_exist__.ts')).toThrow(/cannot read render\/__does_not_exist__\.ts/);
+  });
 
   it('POSITIVE CONTROL: from main.ts (the client) the walker DOES reach audioManager', () => {
     expect(reachable('main.ts').has('render/audioManager.ts')).toBe(true);
