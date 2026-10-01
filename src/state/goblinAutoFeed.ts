@@ -50,10 +50,8 @@ export interface SetAutoFeedAction {
   readonly on: boolean;
 }
 
-/** PURE — is `sparkType` toggled on this tower? */
-export function isAutoFed(sp: Pick<CreatureSpawner, 'autoFeedMask'>, sparkType: SparkType): boolean {
-  return (((sp.autoFeedMask ?? 0) >> (sparkType as number)) & 1) === 1;
-}
+// The pure read lives in the spawner LEAF so the renderer can ask it without importing this reducer.
+export { isAutoFed } from './spawners/spawner.ts';
 
 /** PURE — is this a shape index the bitfield has a bit for? Guards the wire (the parser checks only `type`). */
 function isShapeIndex(t: unknown): t is SparkType {

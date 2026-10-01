@@ -46,6 +46,11 @@ import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 export const AUTO_FEED_SHAPE_COUNT = 6;
 export const AUTO_FEED_ALL_MASK = (1 << AUTO_FEED_SHAPE_COUNT) - 1;
 
+/** ⭐ S193 (T4) — PURE: is shape index `sparkType` toggled on this tower? (The renderer's read.) */
+export function isAutoFed(sp: { readonly autoFeedMask?: number }, sparkType: number): boolean {
+  return (((sp.autoFeedMask ?? 0) >> sparkType) & 1) === 1;
+}
+
 export interface CreatureSpawner {
   readonly id: SpawnerId;
   readonly ownerPlayerId: PlayerId;

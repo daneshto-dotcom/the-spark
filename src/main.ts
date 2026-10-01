@@ -1285,6 +1285,20 @@ async function bootstrap(): Promise<void> {
   });
 
   controls.setSheetActionHandler((action, primitiveId) => {
+    // ⭐ S193 (owner T4) — a right-click on a goblin-tower feed chip: set its auto-build toggle. The
+    // spawner comes off the CARD for the FEED reason below; `on` is computed by `controls` (a SET).
+    if (action.kind === 'AUTO_FEED') {
+      const spawnerId = characterSheet.actionFeedSpawnerId();
+      if (spawnerId === null || action.on === undefined) return;
+      dispatchFn({
+        type: 'SET_AUTO_FEED',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+        on: action.on,
+      });
+      return;
+    }
     if (action.kind === 'FEED') {
       const spawnerId = characterSheet.actionFeedSpawnerId();
       if (spawnerId === null) return; // unreachable: the row cannot draw without one
