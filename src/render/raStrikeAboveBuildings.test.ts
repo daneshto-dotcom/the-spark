@@ -196,4 +196,16 @@ describe('⚠ main.ts — raStrikeLayer is the LAST child staged on fogHiddenLay
     expect(Math.max(...parents), 'nothing is parented to fogHiddenLayer after the strike layer').toBe(staged);
     expect(code.indexOf('goblinRenderer.setRaStrikeLayer(raStrikeLayer)')).toBeGreaterThan(staged);
   });
+  /*
+   * ⭐ S192 `s192/visuals` — THE ONE PERMITTED FOLLOWER: the fx TOP layer (`installFx({ topParent:
+   * fogHiddenLayer })`). It holds only effect sprites (motes, sparks, flashes), never a unit or a
+   * building, so the strike is still above every building and every unit. Pinned mechanically so a
+   * second follower cannot hide behind the first: exactly one `topParent: fogHiddenLayer`, after the strike.
+   */
+  it('S192 — the fx top layer is the only thing parented after the strike, and it is parented once', () => {
+    const staged = code.indexOf('fogHiddenLayer.addChild(raStrikeLayer)');
+    const fx = [...code.matchAll(/topParent: fogHiddenLayer/g)].map((m) => m.index!);
+    expect(fx.length, 'exactly one fx top layer').toBe(1);
+    expect(fx[0]!, 'and it follows the strike layer').toBeGreaterThan(staged);
+  });
 });

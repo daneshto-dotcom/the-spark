@@ -25,7 +25,7 @@
 // window.__TEST_SPAWN_RATE_PER_SECOND__ before constants.ts captures it at module init.
 // DEV-only; the whole module dead-code-eliminates in a production build. See its docblock.
 import './dev/probeBootstrap.ts';
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle, UPDATE_PRIORITY } from 'pixi.js';
 import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
 import {
   SPAWN_RATE_PER_SECOND,
@@ -158,7 +158,9 @@ import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
 import { beginConcealmentFrame } from './render/concealment.ts';
 import { beginTowerCoverFrame } from './render/towerCover.ts';
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
-import { isZoneBackgroundEnabled } from './render/displayPrefs.ts';
+import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
+import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
+import { makeFxLab } from './dev/fxLab.ts';
 import { resolveMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
@@ -876,13 +878,28 @@ async function bootstrap(): Promise<void> {
    * `fogHiddenLayer`: the strike (the owner's frames from the beam's drop on, or the code shafts) now
    * draws over the laser rig, the Voltkin TV, Helga, the ramp buildings and the stink tower, and stays
    * under the fog's mask. The rune ring it is announced with stays on the ground (`bossAuras.ts`).
-   * ⚠ It must stay the LAST child: `e2e/fog.spec.ts` roll-calls it as index 19, and appending is what
-   * keeps `tower-art.spec.ts`'s hardcoded indices 6 and 11 where they are.
+   * ⚠ It must stay the LAST GAMEPLAY child: `e2e/fog.spec.ts` roll-calls it as index 19, and appending is
+   * what keeps `tower-art.spec.ts`'s hardcoded indices 6 and 11 where they are. ⭐ S192: only the fx TOP
+   * layer (effect sprites, never a unit or a building) follows it — `raStrikeAboveBuildings.test.ts` pins that.
    */
   const raStrikeLayer = new Graphics();
   raStrikeLayer.eventMode = 'none';
   fogHiddenLayer.addChild(raStrikeLayer);
   goblinRenderer.setRaStrikeLayer(raStrikeLayer);
+  /*
+   * ⭐ S192 `s192/visuals` — THE FX LAYERS (`render/fx/fxRuntime.ts`). The TOP layer is appended here,
+   * AFTER the Ra strike, so it is now the LAST child of `fogHiddenLayer` (index 20 in `fog.spec.ts`'s
+   * roll call) and every earlier index — `tower-art.spec.ts`'s 6 and 11 included — stays put. The GROUND
+   * layer goes inside the spawner aura's own root container (index 5), under the tower buildings.
+   * The ripples distort `groundLayer` (the race backdrop and the walls), never the units.
+   */
+  installFx({
+    groundParent: spawnerZoneRenderer.root,
+    topParent: fogHiddenLayer,
+    groundArt: groundLayer,
+    screen: app.screen,
+    highQuality: isFxHighQuality(),
+  });
   // S71 P1 — bomb renderer stays on app.stage (BELOW the fog): single-owner, NOT fog-exempt.
   // Below effects so BOMB_EXPLODE stacks over the orb. Cheap no-op when world.bombs is empty.
   const bombRenderer = new BombRenderer(app);
@@ -2120,6 +2137,9 @@ Network routes: ${v.detail}`;
     badgeHeight: betaBadge.height,
   });
 
+  // S192 — the DEV frame-time probe's state (see `__SPARK__.frameMs`).
+  let devFrameT0 = -1;
+  const devFrameMs: number[] = [];
   if (import.meta.env.DEV) {
     // V6-0.1 (S128) — v0.6 economy probe harness, armed only by ?probe=1. Settles the B3
     // faucet and B4 carve-down blockers before Phase 1 opens. Reaches the world through
@@ -2341,7 +2361,23 @@ Network routes: ${v.detail}`;
         };
       },
       app,
+      /*
+       * ⭐ S192 `s192/visuals` — the fx lab (`dev/fxLab.ts`): force a siphon / a tower / a blast / a horde for
+       * the BEFORE/AFTER screenshots, flip `setLegacy` for the side-by-side, and read `frameMs` — the
+       * last 600 frames' CPU time from the start of the game ticker to the end of the render (the probe
+       * below). DEV-only, stripped from production with the rest of `__SPARK__`.
+       */
+      fx: makeFxLab(() => world, app),
+      get frameMs(): readonly number[] { return devFrameMs; },
     };
+    // S192 — the frame-time probe: stamp at the top of the game tick, read after Pixi's render
+    // (UTILITY runs after the LOW-priority render listener).
+    app.ticker.add(() => { devFrameT0 = performance.now(); }, undefined, UPDATE_PRIORITY.INTERACTION);
+    app.ticker.add(() => {
+      if (devFrameT0 < 0) return;
+      devFrameMs.push(performance.now() - devFrameT0);
+      if (devFrameMs.length > 600) devFrameMs.shift();
+    }, undefined, UPDATE_PRIORITY.UTILITY);
   }
 
   let lastGameState: GameState = world.gameState;
@@ -3031,6 +3067,8 @@ Network routes: ${v.detail}`;
         characterSheet.clear();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
+        // ⭐ S192 — and every pooled fx sprite and ground ripple with it.
+        fxClear();
         // S167 — and the tower buildings with it, or six towers float over the title screen.
         towerRenderer.clear();
         // S71 P1 — drop bomb sprites on title-return (the reducer applyReturnToTitle
@@ -4183,6 +4221,14 @@ Network routes: ${v.detail}`;
      * z-order and fog behaviour for a purely cosmetic feature.
      */
     beginTowerCoverFrame(world);
+    /*
+     * ⭐ S192 — the fx layers reset ONCE per frame, here, before any renderer writes to them (several
+     * renderers share each layer); `fxEndFrame` after `effectsRenderer.sync` hides what went unused.
+     * The quality preference is polled exactly like the race-background one below.
+     */
+    const wantFxHq = isFxHighQuality();
+    if (wantFxHq !== fxHighQuality()) setFxHighQualityRuntime(wantFxHq);
+    fxBeginFrame();
 
     const wantZoneBg = isZoneBackgroundEnabled();
     if (wantZoneBg !== zoneBackgroundRenderer.isEnabled()) {
@@ -4290,6 +4336,7 @@ Network routes: ${v.detail}`;
     // method, one call site, both on this side of the wipe, so there is no half to misplace.
     severToastRenderer.drainSeverToast(world);
     effectsRenderer.sync(world);
+    fxEndFrame(); // ⭐ S192 — after the last fx writer (the detonations, inside effectsRenderer.sync)
     avatarRenderer.sync(world, controls);
     // S98 P3 — pulsating preview of the bond(s) the dragged spark would form.
     dragPreviewRenderer.sync(world, controls);

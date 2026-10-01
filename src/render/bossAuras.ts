@@ -68,6 +68,9 @@ import type { World } from '../state/world.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
 import { raAimPoint } from '../state/racial/powerOfRaRules.ts';
 import { raAimPreview, raCastsInWaveLocal, raLocalCastRefusal } from './raAimPreview.ts';
+import { fxActive, fxGround, fxShock, fxTop } from './fx/fxState.ts';
+import { sapFx } from './fx/sapFx.ts';
+import { rotFx } from './fx/rotFx.ts';
 import { RA_STRIKE_GROUND_SLOTS, RA_STRIKE_TAIL_TICKS, drawRaStrikeFrame, ensureRaStrikeArt, raStrikeArt, raStrikeFrameAt } from './raStrikeArt.ts';
 
 /* ── ROT AURA dial. ⚠ MINE, NOT THE OWNER'S. He ruled the MECHANIC (R138: an aura damaging enemies
@@ -123,7 +126,12 @@ export function drawBossAuras(g: Graphics, world: World, strike: Graphics = g): 
     if (isConcealed(boss.pos.x, boss.pos.y, boss.ownerPlayerId)) continue;
     if (boss.type === T9_BOSS_TYPE.zombies) drawRotAura(g, world, bossId as number, boss.pos, isStunned(boss, world.tick));
     if (boss.type === T9_BOSS_TYPE.nagas) drawSonarWave(g, world, bossId as number, boss);
-    if (boss.type === T9_BOSS_TYPE.vampires) drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
+    if (boss.type === T9_BOSS_TYPE.vampires) {
+      // ⭐ S192 PILOT 1 — the rebuilt siphon (`fx/sapFx.ts`). The S170 drawing stays reachable with
+      // `?fx=legacy`, and it is what every unit test of this file exercises (no fx is installed there).
+      if (fxActive()) sapFx(fxTop(), fxGround(), fxShock(), bossId as number, boss.pos.x, boss.pos.y, world.tick, boss.sapFlashUntilTick);
+      else drawLifeSap(g, world, bossId as number, boss.pos, boss.sapFlashUntilTick);
+    }
     if (boss.type === T9_BOSS_TYPE.mummies) drawRaRitual(g, strike, world, bossId as number, boss);
   }
   // ⭐ RAVFX-5 — the Pharaoh's FINALE column, played out after the host has removed him.
@@ -454,6 +462,13 @@ function drawRotAura(g: Graphics, world: World, id: number, pos: { x: number; y:
   if (stunned) return;
   g.circle(pos.x, pos.y, ZOMBIE_AURA_RADIUS)
     .fill({ color: ROT_SCORCH_TINT, alpha: ROT_SCORCH_ALPHA });
+
+  // ⭐ S192 (V05) — the boil rebuilt (`fx/rotFx.ts`): soft bubbles that POP, and rising miasma. The disc
+  // above stays, because it is the sim's damage circle at its real radius. `?fx=legacy` keeps the below.
+  if (fxActive()) {
+    rotFx(fxGround(), fxTop(), id, pos.x, pos.y, world.tick, ZOMBIE_AURA_RADIUS);
+    return;
+  }
 
   for (let k = 0; k < ROT_BUBBLES; k++) {
     // Deterministic pseudo-scatter: integer hash of (bubble index, boss id). No Math.random.
