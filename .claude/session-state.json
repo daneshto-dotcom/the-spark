@@ -3,18 +3,18 @@
   "session_kind": "owner-driven: land the eight carried S191 worktree branches one deploy at a time while the owner feeds his playtest bug list",
   "session_start": "2026-10-01",
   "prior_session_archive": ".claude/session-archive/session-state_S191_2026-10-01.json",
-  "phase": "DO",
+  "phase": "CLOSE",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
   "backlog_file": ".claude/plans/S192_BACKLOG.md",
-  "session_status": "S192 IN PROGRESS",
+  "session_status": "S192 HANDED OFF — 11 deploys (#6-#16, PROTOCOL 56); 7 branches carried -> .claude/plans/S193_BACKLOG.md",
   "protocol_version": 52,
   "owner_approval_verbatim": "You can already deploy all the carry forwards as their own unique work trees ... keep working them. From where we left off ... when each work tree is done and lands, you can start the next one ... After it's been obviously landed, tested, that it's correct, and then uh, implemented and deployed within the game",
   "owner_scope_note": "infra alerts OUT (owner: 'I'm gonna make sure to correct it all in a different session')",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "deliberation_note": "continuation of the S191 batch PDR; every item deliberated in S191 (Council ledger S191_COUNCIL_LEDGER.md) or S189 PDR �8",
+  "deliberation_note": "continuation of the S191 batch PDR; every item deliberated in S191 (Council ledger S191_COUNCIL_LEDGER.md) or S189 PDR §8",
   "priorities": [
     {
       "id": "P1",
@@ -22,11 +22,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/perf",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit a6e8c211 CLEAN (perf oracle 0 mismatches over 45k ticks); gates tc0 vt0 build0 e2e:gating races all 0; verify-deploy 4/4",
+      "checkpoint_commit": "48207dc",
+      "deploy": "#6",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/territoryGrid.differential.test.ts",
+          "needle": "describe"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 52 -> 53"
+        }
+      ]
     },
     {
       "id": "P2",
@@ -34,11 +52,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/addons",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit FIX FIRST (A-1 modal close-click latch) -> fixed -> re-audit CLEAN; PROTOCOL 53; gates tc0 vt0 build0 e2e:gating races all 0; verify-deploy 4/4",
+      "checkpoint_commit": "521f23a",
+      "deploy": "#7",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/warlordRageClock.test.ts",
+          "needle": "rageStartTick"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 52 -> 53"
+        }
+      ]
     },
     {
       "id": "P3",
@@ -46,11 +82,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/carry",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit FIX FIRST (CARRY-1 owner-filtered overkill carry) -> fixed -> re-audit CLEAN; PROTOCOL 54; gates tc0 vt0 build0 e2e:gating races all 0; verify-deploy 4/4",
+      "checkpoint_commit": "f242cb5",
+      "deploy": "#8",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/damage.ts",
+          "needle": "export function severWithCarry"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 53 -> 54"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -58,11 +112,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/owner",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit CLEAN + 4 merge seams applied; PROTOCOL 56; gates tc0 vt0 build0 e2e:gating races + e2e:lobby all 0; verify-deploy 4/4",
+      "checkpoint_commit": "1e9d1da",
+      "deploy": "#12",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/racial/scorchedEarthRules.ts",
+          "needle": "isScorchImmune"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 55 -> 56"
+        }
+      ]
     },
     {
       "id": "P5",
@@ -70,11 +142,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/tune",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit CLEAN + merge chores; Ra 35/75 split incl Pharaoh, castle 61, APEX x6; PROTOCOL 55; gates tc0 vt0 build0 e2e:gating races all 0; verify-deploy 4/4",
+      "checkpoint_commit": "15be5ca",
+      "deploy": "#9",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/racial/raColumn.ts",
+          "needle": "raColumnPoolFor"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 54 -> 55"
+        }
+      ]
     },
     {
       "id": "P6",
@@ -82,11 +172,12 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s189/weld",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "carried",
+      "priority_state": "carried",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md"
     },
     {
       "id": "P7",
@@ -94,11 +185,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s189/net",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "audit FIX FIRST (A1 HIGH live host deposed by a late duplicated beacon) -> fixed -> re-audit CLEAN; no bump; gates tc0 vt0 build0 e2e:gating races + net e2e 17/17 + e2e:lobby 5/5; verify-deploy 4/4",
+      "checkpoint_commit": "42c421c",
+      "deploy": "#15",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/clientHandlers.ts",
+          "needle": "shouldLatchDeparture"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/departureLatch.test.ts",
+          "needle": "describe"
+        }
+      ]
     },
     {
       "id": "P8",
@@ -106,14 +215,280 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S192_BATCH_PDR.md",
       "branch": "s191/endstats",
-      "status": "approved",
-      "priority_state": "approved",
+      "status": "carried",
+      "priority_state": "carried",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md"
+    },
+    {
+      "id": "P9",
+      "title": "lobby4: T1 4-player lobby fix",
+      "tier": "Full",
+      "branch": "s192/lobby4",
+      "status": "completed",
+      "priority_state": "completed",
+      "check_completed": true,
+      "check_method": "Trystero rtcPolyfill; audit F1 + re-audit L1-RACE fixed; nplayer RED without / GREEN with; Pitch Masters untouched; gates all 0 incl e2e:lobby; verify-deploy 4/4",
+      "checkpoint_commit": "f1d24b9",
+      "deploy": "#11",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/transport.ts",
+          "needle": "rtcPolyfill"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/poolSafePeerConnection.ts",
+          "needle": "setLocalDescription"
+        }
+      ]
+    },
+    {
+      "id": "P10",
+      "title": "nagas-song: owner's new Nagas track",
+      "tier": "Full",
+      "branch": "s192/nagas-song",
+      "status": "completed",
+      "priority_state": "completed",
+      "check_completed": true,
+      "check_method": "asset only, ffprobe-verified; gates all 0; verify-deploy 4/4",
+      "checkpoint_commit": "7b9f815",
+      "deploy": "#10",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_exists",
+          "path": "public/audio/races/nagas.ogg"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/raceMusic.ts",
+          "needle": "nagas"
+        }
+      ]
+    },
+    {
+      "id": "P11",
+      "title": "voltkin: T16 re-summon + slot fixes",
+      "tier": "Full",
+      "branch": "s192/voltkin",
+      "status": "completed",
+      "priority_state": "completed",
+      "check_completed": true,
+      "check_method": "audit FIX FIRST (M1 S48 isolation) -> fixed; no bump; gates all 0; verify-deploy 4/4",
+      "checkpoint_commit": "f6ae104",
+      "deploy": "#13",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/voltkinTv.ts",
+          "needle": "export const VOLTKINS_PER_TV = 1;"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/godlyRecipes/voltkinChainWalk.ts",
+          "needle": "isIsolatedVoltkinChain"
+        }
+      ]
+    },
+    {
+      "id": "P12",
+      "title": "audio: T15 seamless loops + voice cap",
+      "tier": "Full",
+      "branch": "s192/audio",
+      "status": "completed",
+      "priority_state": "completed",
+      "check_completed": true,
+      "check_method": "audit CLEAN + A1 once-only voices fix; gates all 0; verify-deploy 4/4",
+      "checkpoint_commit": "b37cc72",
+      "deploy": "#14",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/musicLoop.ts",
+          "needle": "export function computeLoopRegion("
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/musicLoop.ts",
+          "needle": "export function findAudibleBounds("
+        }
+      ]
+    },
+    {
+      "id": "P13",
+      "title": "visuals: fx foundation + 5 effects",
+      "tier": "Full",
+      "branch": "s192/visuals",
+      "status": "completed",
+      "priority_state": "completed",
+      "check_completed": true,
+      "check_method": "pixi-filters 6.1.5 approved live; audit FIX FIRST (V-1 cover fade, V-2 smoke) -> fixed; 1034.7/1100 KiB; gates all 0; verify-deploy 4/4",
+      "checkpoint_commit": "10ec442",
+      "deploy": "#16",
+      "real_context_tokens_at_close": 800000,
+      "real_context_pct_at_close": 80.0,
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "package.json",
+          "needle": "pixi-filters"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/fx/emitter.ts",
+          "needle": "export type FxTex"
+        }
+      ]
+    },
+    {
+      "id": "P14",
+      "title": "zombies T2/T3/T11/T12",
+      "tier": "Full",
+      "branch": "s192/zombies",
+      "status": "carried",
+      "priority_state": "carried",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P15",
+      "title": "units-ai T5/T6/T13",
+      "tier": "Full",
+      "branch": "s192/units-ai",
+      "status": "carried",
+      "priority_state": "carried",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P16",
+      "title": "magic MRES + castle MRES + RESIST",
+      "tier": "Full",
+      "branch": "s192/magic",
+      "status": "carried",
+      "priority_state": "carried",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P17",
+      "title": "teams v1",
+      "tier": "Full",
+      "branch": "s192/teams",
+      "status": "carried",
+      "priority_state": "carried",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "P18",
+      "title": "endgame waves 26-31",
+      "tier": "Full",
+      "branch": "s192/endgame",
+      "status": "carried",
+      "priority_state": "carried",
+      "carried_to": "S193 — .claude/plans/S193_BACKLOG.md",
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [],
+  "reflexion_entries_to_archive": [
+    {
+      "priority": "P0",
+      "tag": "#s192-audit-one-at-a-time-lands-more",
+      "text": "One independent audit at a time plus light re-audits of fix rounds landed 11 deploys with no spend-limit hit; every FIX FIRST was a real defect in a green branch."
+    },
+    {
+      "priority": "P1",
+      "tag": "#s192-read-the-bump-checklist",
+      "text": "My 52->53 bump missed 3 of protocol.ts's six sites; a sibling's gates caught it pre-push. Now a bump.py edits all six and fails closed."
+    },
+    {
+      "priority": "P2",
+      "tag": "#s192-trial-merge-inside-the-audit",
+      "text": "Branches cut before carry/tune landed needed merge chores; auditing a trial merge against CURRENT master made every merge predictable."
+    },
+    {
+      "priority": "P3",
+      "tag": "#s192-own-wrong-call-pitch-masters",
+      "text": "I let a branch edit Pitch Masters claiming it shared the 4-player bug; the owner corrected it. A domain-sharing project is a separate repo: exclude src/arcade everywhere."
+    },
+    {
+      "priority": "P4",
+      "tag": "#s192-green-hides-high",
+      "text": "net was green on every gate and e2e while a late duplicated beacon could depose a live host; only the adversarial audit found it."
+    },
+    {
+      "priority": "P6",
+      "tag": "#s192-cp1252-in-session-state",
+      "text": "My Python open() without encoding wrote '§' as cp1252 into session-state; always pass encoding='utf-8'."
+    },
+    {
+      "priority": "P8",
+      "tag": "#s192-quarantine-hid-the-bug",
+      "text": "The 4-player spec was red in ~40 CI runs under @quarantine-flaky; it was the owner's exact bug."
+    },
+    {
+      "priority": "P9",
+      "tag": "#s192-asset-swap-cheap-deploy",
+      "text": "An asset-only swap verified by ffprobe + gates shipped as its own deploy with no audit spend."
+    },
+    {
+      "priority": "P10",
+      "tag": "#s192-new-path-must-reuse-old-predicate",
+      "text": "The Voltkin re-summon duplicated ignition's walk without its S48 isolation test; share ONE predicate."
+    },
+    {
+      "priority": "P11",
+      "tag": "#s192-caps-need-priorities",
+      "text": "A voice cap without priority silently ate once-per-match voices; exempt latched sounds."
+    },
+    {
+      "priority": "P12",
+      "tag": "#s192-guard-green-over-new-path",
+      "text": "The cover-fade guard stayed green while the new fx path skipped the fade; guards must count new call sites."
+    },
+    {
+      "priority": "SESSION",
+      "tag": "#s192-worktrees-keep-the-merge-owner-light",
+      "text": "20 worktree branches, 30+ agents, 11 deploys within ~80% context: the merge owner only routed, merged, bumped and gated."
+    }
+  ],
   "carry_forward_findings": [],
   "scope_amendments": [],
   "budget_total": 1000000,
