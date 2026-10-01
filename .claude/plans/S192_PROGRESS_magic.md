@@ -1,3 +1,27 @@
+# ⭐ S193 ENDGAME MERGE — `s192/magic` (latest; ready for deploy #21)
+
+- **merge**: 1cdbe49 = `git merge master` at c09365e (endgame, PROTOCOL 59). No conflicts. `npm install` exit 0.
+- **1 · seam** 27d02c7 — the auditor's `.tmp-audit/endgame-seam.patch`, applied as is:
+  - `CREATURE_MRES` `endgameMonster: 'def'` and `megaPants: 'def'` (⚠ MINE: MRES = DEF);
+  - `'physical'` on three endgame test calls;
+  - creature-type count 28;
+  - `magicResistCue.ts` added to the endgame owner-predicate census (n 5).
+- **2 · differential** (WIP commit + the final one) — `magicResist.differential.test.ts` now:
+  - grants `demons.l0` to the nagas seat (the auditor's mock);
+  - keeps three stink clouds seeded each FIGHT;
+  - places a real STINK TOWER star and a real HELGA star (both the target seat's, on its land);
+  - dispatches one CAST_SCORCHED_EARTH per wave onto that land.
+
+  Each magic call in B is attributed to its source by its stack frame (scorched creature beats are split passive/cast by the victim's zone). There is a floor PER SOURCE: rot, voltkinChain, ra, scorchPassive, scorchCast, scorchHelga, scorchConnector, stinkAura, stinkCloud.
+  - Measured: 18000 ticks, A == B every tick. Per source: scorchCast 8593 · rot 6264 · scorchPassive 1469 · stinkCloud 373 · voltkinChain 118 · scorchHelga 68 · scorchConnector 26 · ra 7 · stinkAura 5 · (Voltkin zap, unfloored) 69. C diverges at 5412.
+  - Mutation: stink cloud `magicDot`→`'physical'` → red on `source stinkCloud` (reverted).
+- **3 · canon** — §2b differential sentence rewritten to say exactly what it proves (per-source floors, plumbing not table); the zombie boss death blast added to the physical column; both pinned in `canon.test.ts`.
+- **Gates** (tip after this file's commit): typecheck **0** · vitest `--maxWorkers=3` **0** (490 files passed / 4 skipped; 7469 tests passed / 11 skipped) · build **0**, entry **1055.5 KiB**, cap now 1250, headroom 194.5 KiB (my share ≈ +4.4 KiB; master not rebuilt here).
+  - Failed commands, both resolved: my canon pin first had a broken string (typecheck red → fixed); the Helga fixture used recipeId `'princessHelga'` (typecheck red → `'helga'`; the measured counts were identical after the fix).
+- **Bump verdict**: BUMP **59 → 60** (the MRES rule both peers compute + the `'mres'` CastleStat discriminant). PROTOCOL_VERSION not edited.
+- **MINE**: endgameMonster / megaPants MRES = DEF (rec: keep, like every global unit) + the earlier list.
+- **NOT DONE**: nothing. e2e not run.
+
 # ⭐ S193 ZOMBIES MERGE — `s192/magic` (latest; ready for the light re-audit)
 
 - **merge**: 465bc37 = `git merge master` at e693dac (zombies 7ecc53e + PROTOCOL 58). `npm install` exit 0, lockfile unchanged.
