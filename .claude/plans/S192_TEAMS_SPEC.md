@@ -97,7 +97,7 @@ Method: grep of every non-test `src/**/*.ts` for an equality/inequality against 
 | 62 | `render/wallRenderer.ts:163` | which border walls are drawn (walls are RENDER-ONLY — `walls.ts` says the clamp has no sim consumer) | `visibleWallSegments(world)`: drop a segment whose two zone owners are teammates (T2) |
 | 63 | `render/creatureProjectile.ts:109` | where a ranged unit's shot is drawn going | skip teammates |
 | 64–67 | `render/damageNumbers.ts:251 / 263 / 279 / 377` | which attacker a floating number is attributed to | skip teammates |
-| 68 | `render/characterSheetModel.ts:1228 / 1270 / 1303 / 1402 / 1523` | "ENEMY" / "YOUR UNIT" labels | a teammate's reads **ALLY** |
+| 68 | `render/characterSheetModel.ts:1228 / 1270 / 1447 / 1536` | "ENEMY" / "YOUR UNIT" labels (`:1303` FIX/SCRAP gating stays own-seat) | a teammate's reads **ALLY** |
 | 69 | `render/ui.ts:1016` | win banner | **TEAM N WINS** when teams are on |
 | 70 | lobby + bot overlay (new) | the team pick (T4) | §(b) |
 

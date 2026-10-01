@@ -358,6 +358,14 @@ export class BotSetupOverlay {
     youRow.addChild(youLabel);
     youRow.addChild(this.makeRaceButton(0, PANEL_W / 2 - 300));
     youRow.addChild(this.makeTeamButton(0, -120));
+    // ⭐ S192 — a column caption over the team chips, so "—" reads as "no team" rather than as a blank.
+    const teamCaption = new Text({
+      text: 'TEAM',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0x888888, letterSpacing: 2 }),
+    });
+    teamCaption.anchor.set(0.5, 1);
+    teamCaption.position.set(-120, -4);
+    youRow.addChild(teamCaption);
     this.rowsHost.addChild(youRow);
 
     for (let i = 0; i < this.botCount; i++) {

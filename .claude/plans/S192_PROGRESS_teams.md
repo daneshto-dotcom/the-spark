@@ -26,3 +26,19 @@ RESUMED: the 4 reds fixed (commit below); full vitest 0 — 6735 passed.
 NEXT (after): fix those 4 (re-pin source-text guards to the new form) → re-run vitest → commit → guard test teams.sites.test.ts (mutation-tested)
   → FFA differential (hashWorldStateFull, 4-seat bots) → REACH tests (units, towers, castle gun, area blasts, raids) → lobby UI
   (bot overlay team chips + multiplayer CLAIM_TEAM/roster.team + arrangeTeamSeats at Begin) → build gate.
+
+## STEP 2 — DONE (S192 resume)
+- d3cf130 four reds fixed (raid picker re-pin, teams hash contribution, census sees team predicates, canon §9d window).
+- 9a458b4 `teams.sites.test.ts` — inline owner comparisons + predicate calls pinned per file; mutation-tested.
+- f3e516d `teams.ffaDifferential.test.ts` — 90 hashWorldStateFull checkpoints, 3 waves, 4-seat bots; golden recorded on
+  master 663c4c9; byte-identical; mutation (forced teams) diverges at tick 2100.
+- 7acfde5 `teams.reach.test.ts` — REACH + enemy CONTROL: units, castle gun, laser turret, area blasts (+alliesOf),
+  zombie death blast, Scorched Ground, raids; walls, last-team-standing, snapshot, START_GAME.
+- 24478c2 bot lobby team chips; 066fc08 multiplayer lobby (RosterEntry.team, CLAIM_TEAM, seat chip, Begin gate,
+  side-by-side re-seat); 0a641e3 wire tests.
+- Browser check (dev server on 5291, this worktree): bot lobby chips cycle; started 2v2 → world.teams [0,1,1,0], the
+  host's teammate re-seated to BL, only the vertical wall drawn. Host room: own-seat chip cycles to T1 without opening
+  the race menu. A real two-peer join was NOT exercised (unit-tested only).
+- Final gates: typecheck 0 · vitest 0 (6770 passed / 7 skipped) · build 0, 980.2 KiB (+5.0 over 975.2).
+OPEN: Scorched Earth (`isScorchImmune`, s191/owner) converts when that branch lands — `git merge master` and re-enumerate.
+BUMP: YES 52→53 (or the next free number after whatever master now carries) — owed at merge.
