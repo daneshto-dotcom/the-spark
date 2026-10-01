@@ -813,6 +813,7 @@ flung debris. Measured, pinned and reported rather than taken.
 | the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
 | owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
 | retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| the music | ⭐ S193 HIS (R193-M): the FIGHT of waves **27 / 29 / 31 → song 1, 28 / 30 → song 2** (`PANTS_MUSIC_SRC`, `pantsMusicForWave`); the endless final fight keeps 31's. ⚠ MINE: FIGHT only, and it overrides the race-music toggle |
 | leftovers | ⭐ S193 HIS: *"they vanish when this wave ends"*; no points for pants kills |
 | the end | ⭐ S193 HIS: last keep standing wins; a wipe from wave 27 on → **the top score wins**; a solo board ends at the wave-32 edge, top score |
 

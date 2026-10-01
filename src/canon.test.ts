@@ -1480,6 +1480,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
 import * as endgameConstants from './constants.ts';
 import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
 import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
+import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
 
 describe('S192 §3f — the endgame table is the constants', () => {
   it('the last draft, the lock and the five wave counts', () => {
@@ -1499,6 +1500,10 @@ describe('S192 §3f — the endgame table is the constants', () => {
     const m = ENDGAME_CONFIGS.megaPants;
     expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
     expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);
+    // ⭐ S193 R193-M — his song alternation, read back off the resolver.
+    const song = (w: number): number => PANTS_MUSIC_SRC.indexOf(pantsMusicForWave(w, 'FIGHT') as (typeof PANTS_MUSIC_SRC)[number]) + 1;
+    expect([27, 28, 29, 30, 31].map(song)).toEqual([1, 2, 1, 2, 1]);
+    expect(canonSays('waves **27 / 29 / 31 → song 1, 28 / 30 → song 2**')).toBe(true);
   });
 
   it('the pants: its stat line, pool and strike', () => {

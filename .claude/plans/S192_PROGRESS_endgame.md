@@ -1,3 +1,13 @@
+# S193 ROUND 2 (R193-M, pants music) — DONE. Next step: none (stop; audit queue 5th).
+
+- merge master → `471e6ed5` (clean, plans only) · `npm install` 0.
+- assets: `public/audio/endgame/pants-music-1.ogg` (2,088,746 B, 211.60 s) + `pants-music-2.ogg` (1,934,982 B, 196.40 s) = **+3.84 MiB** (reported, never gated). Race-track format: Vorbis 80k, 48 kHz stereo, 360² Theora art. Loudness −15.6/−15.8 LUFS encoded (~2 LU under siblings' −13.7 mean, outside the 1.5 LU band) → +1.9/+2.1 dB → **−13.7 / −13.7 LUFS**, true peak −1.8 dBFS. Originals in Downloads untouched.
+- seam re-measured with the shipped `computeLoopRegion` on decoded PCM: both **loop whole, 0.000 s below −40 dBFS at the seam** (ffmpeg silencedetect: no silence ≥0.3 s even at −50 dB); head/tail RMS equal (−21.2/−21.2, −22.6/−22.5 dB) — built to loop. Voice cap untouched (music is not an SFX voice).
+- wiring: `resolveMatchMusicTrack` (raceMusic.ts) at both `main.ts` sites; 27/29/31 song 1, 28/30 song 2, final fight keeps 31's. ⚠ MINE: FIGHT only; overrides the race-music toggle. Canon §3f row + pin.
+- gates: typecheck 0 · vitest 0 (7307 passed / 11 skipped, 473 files; canon+pantsMusic re-run after the canon row: 81/81) · build 0 — 1044.2 KiB (+0.2), headroom 55.8 · check:atlas 0. Mutations: no-alternation → 4 red; a main.ts site ignoring the wave → 1 red.
+- bump: no new one — client-side music choice off synced fields (the round-1 56→57 verdict stands).
+- seam: first play of each song is a ~2 MB fetch+decode at FIGHT start (the swap waits on it; `MUSIC_BUFFER_CAP` 2 evicts, so no prefetch).
+
 # S193 FINAL REPORT — `s192/endgame` (lands 5th)
 
 - **tip** = the commit carrying this file (child of `c20cd55c`) · **merge** `8e352fd0` (master `71abc276`; ONE conflict: `src/canon.test.ts` — kept both the §3f block and master's S191 R2-D block)
