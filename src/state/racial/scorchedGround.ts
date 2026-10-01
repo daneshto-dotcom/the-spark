@@ -89,6 +89,7 @@ import type { World } from '../worldTypes.ts';
 import { asPlayerId, type BondId, type CreatureId, type DefenderId, type PlayerId, type PrimitiveId, type StinkCloudId } from '../../types.ts';
 import { getDefenderConfig } from '../defenders/defender.ts';
 import {
+  isScorchImmune,
   scorchedEarthActiveZone,
   scorchedEarthCastRefusal,
   scorchedEarthTargetZone,
@@ -204,7 +205,7 @@ export function runScorchedGround(world: World): void {
 function burnCreatures(world: World, spared: PlayerId, zone: number, perMille: number): void {
   const victims: CreatureId[] = [];
   for (const [id, c] of world.creatures) {
-    if (c.ownerPlayerId === spared) continue; // "anyone who goes into THEIR lands" — enemies only
+    if (isScorchImmune(c.ownerPlayerId, spared)) continue; // "anyone who goes into THEIR lands" — enemies only
     if (c.ehp <= 0) continue; // already dead this tick, awaiting the sweep
     if (zoneOf(c.pos, world.layout) !== zone) continue;
     if (!dotDueThisTick(world.tick, id as number, c.type, perMille)) continue;
@@ -225,7 +226,7 @@ function burnCreatures(world: World, spared: PlayerId, zone: number, perMille: n
 function burnHelgas(world: World, spared: PlayerId, zone: number, perMille: number): void {
   const victims: DefenderId[] = [];
   for (const [id, d] of world.defenders) {
-    if (d.ownerPlayerId === spared) continue;
+    if (isScorchImmune(d.ownerPlayerId, spared)) continue;
     if (d.ehp === null || d.ehp <= 0 || d.state === 'DORMANT') continue;
     const stats = getDefenderConfig(d.kind).unitStats;
     if (stats === null) continue;
@@ -259,7 +260,7 @@ function burnStructures(world: World, caster: PlayerId, zone: number): void {
     const aOwner = world.primitives.get(bond.aId)?.placedBy;
     const bOwner = world.primitives.get(bond.bId)?.placedBy;
     if (aOwner === undefined || bOwner === undefined) continue; // orphaned — nothing to burn
-    if (aOwner === caster || bOwner === caster) continue; // resistant
+    if (isScorchImmune(aOwner, caster) || isScorchImmune(bOwner, caster)) continue; // resistant
     const mid = { x: (bond.a.pos.x + bond.b.pos.x) / 2, y: (bond.a.pos.y + bond.b.pos.y) / 2 };
     if (zoneOf(mid, world.layout) !== zone) continue;
     candidates.push(bondId);
@@ -296,7 +297,7 @@ function burnLoneShapes(world: World, caster: PlayerId, zone: number): void {
   const interval = scorchedStructureIntervalTicks(LONE_PRIMITIVE_POOL_FIFTHS);
   const due: PrimitiveId[] = [];
   for (const [id, prim] of world.primitives) {
-    if (prim.placedBy === caster) continue;
+    if (isScorchImmune(prim.placedBy, caster)) continue;
     if (prim.bonds.size > 0) continue; // a shape IN a structure burns through its connectors
     if (prim.hp <= 0) continue;
     if (zoneOf(prim.pos, world.layout) !== zone) continue;
@@ -316,7 +317,7 @@ function burnStinkBags(world: World, caster: PlayerId, zone: number): void {
   const interval = scorchedStructureIntervalTicks(STINK_BAG_POOL_FIFTHS);
   const due: StinkCloudId[] = [];
   for (const [id, cloud] of world.stinkClouds) {
-    if (cloud.ownerPlayerId === caster) continue;
+    if (isScorchImmune(cloud.ownerPlayerId, caster)) continue;
     if (cloud.ehp <= 0) continue;
     if (zoneOf(cloud.pos, world.layout) !== zone) continue;
     if ((world.tick + (id as unknown as number)) % interval !== 0) continue;

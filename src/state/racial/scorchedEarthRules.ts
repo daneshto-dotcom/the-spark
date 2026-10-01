@@ -87,6 +87,18 @@ export type ScorchedEarthRefusal =
   | 'NOT_FIGHT'
   | 'USED';
 
+/**
+ * ⭐⭐ THE ONE RESISTANCE PREDICATE — owner, S191/S192: *"only you are resistant when you're a demon to your
+ * own scorched earth … if you have a friend with you, he still gets hit."* Resistance belongs to the
+ * SPARED SEAT ONLY (the caster for a cast; the zone's own seat for the passive) — every other seat burns.
+ * Teams do not exist yet; ⛔ a later teams branch changes THIS function and nothing else. Every burn arm in
+ * `scorchedGround.ts` asks it (a connector: either endpoint), and `scorchedEarthResistance.test.ts`
+ * counts the calls so a new arm cannot compare seats inline.
+ */
+export function isScorchImmune(owner: PlayerId | undefined, spared: PlayerId): boolean {
+  return owner === spared;
+}
+
 /** Does this seat hold the skill at all (i.e. should the square exist)? */
 export function seatHasScorchedEarth(p: Pick<Player, 'raceId' | 'draftPicks'> | undefined): boolean {
   return p !== undefined && seatHoldsPerk(p, SCORCHED_EARTH_PERK);
