@@ -3,11 +3,9 @@
 Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never merged/pushed by this agent.
 
 ## Commits
-1. pool-safe RTCPeerConnection + wiring at all 3 Trystero join sites (transport.ts joinFn, quickmatch.ts
-   openRoom, arcade/pitchMasters/bridge.ts) + unit tests (predicate truth table, REAL Trystero
+1. pool-safe RTCPeerConnection + wiring at both SPARK Trystero join sites (transport.ts joinFn,
+   quickmatch.ts openRoom) + unit tests (predicate truth table, REAL Trystero
    `peer.mjs` restart driven over a fake base) + mechanical join-site tripwire + Trystero 0.25.x pin.
-   - Third site found by the enumeration: `src/arcade/pitchMasters/bridge.ts` (separate Pitch Masters
-     page, same bug). No other branch touches it (checked pm-s2/pm-s4/s189/s191/s192 diffs).
    - Mutation check: removing rtcPolyfill from quickmatch.ts turns the tripwire RED (1 failed / 7).
 2. transport.ts: `onJoinError` is per-PEER (every Trystero call site carries a peerId — verified in
    signal-handler.mjs SDP-exchange + 2 decrypt failures, strategy.mjs onHandshakeError). It no longer sets
@@ -60,3 +58,7 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
 6. e2e:gating exit 0 — 71 passed (5.9m), Playwright-started dev server on this worktree port 22006 (nothing else was listening). e2e:lobby exit 0 — 5 passed (2.1m) incl the 4-player late-joiner (1.0m).
 
 ## DONE — awaiting merge owner. Cross-NAT TURN health still UNMEASURED (all proofs are loopback, one machine).
+
+7. OWNER ORDER (S192): the Pitch Masters arcade is another project sharing only the domain — DO NOT TOUCH.
+   Reverted its bridge wiring (byte-identical to master); the join-site tripwire now skips that directory
+   (comment quotes the owner) and pins the 2 SPARK sites.

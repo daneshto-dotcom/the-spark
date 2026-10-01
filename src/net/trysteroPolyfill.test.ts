@@ -24,9 +24,19 @@ import { join, relative } from 'node:path';
 const ROOT = process.cwd();
 const norm = (s: string): string => s.replace(/\r\n/g, '\n');
 
+/**
+ * ⛔ `src/arcade/**` IS NOT SPARK AND IS NEVER ENUMERATED. Owner, S192: *"Don't touch that game … Just
+ * think about it as a whole different Git … it's living inside the arcade of spark-online.space … only
+ * because I don't want to buy a new domain … Do not touch pitch masters."* It is another project that
+ * only shares the domain and this repo; its Trystero joins are its own business, so this guard must not
+ * demand anything of them.
+ */
+const OTHER_PROJECT_DIR = join(ROOT, 'src', 'arcade');
+
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
+    if (p === OTHER_PROJECT_DIR) continue;
     if (statSync(p).isDirectory()) walk(p, out);
     else if (/\.ts$/.test(name) && !/\.test\.ts$/.test(name) && !/\.d\.ts$/.test(name)) out.push(p);
   }
@@ -82,9 +92,8 @@ function findJoinSites(): JoinSite[] {
 describe('S192 T1 — every Trystero join passes the pool-safe rtcPolyfill', () => {
   const sites = findJoinSites();
 
-  it('the enumerated call sites are exactly the known three (a new one must be wired, then re-pinned)', () => {
+  it('the enumerated SPARK call sites are exactly the known two (a new one must be wired, then re-pinned)', () => {
     expect(sites.map((s) => `${s.file}:${s.callee}`)).toEqual([
-      'src/arcade/pitchMasters/bridge.ts:joinRoom',
       'src/net/quickmatch.ts:joinNostr',
       'src/net/transport.ts:joinFn',
     ]);

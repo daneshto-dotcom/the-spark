@@ -35,7 +35,6 @@
 
 import { joinRoom, selfId } from '@trystero-p2p/nostr';
 import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
-import { POOL_SAFE_PC } from '../../net/poolSafePeerConnection.ts';
 import { Lobby3, isThreeCode } from './lobby3.ts';
 import { Matchmaker, type Channel, type MatchmakerDeps, type RoomHandlers, type RoomLike } from './matchmaker.ts';
 
@@ -88,9 +87,6 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
       appId: APP_ID,
       relayConfig: { urls: [...PM_RELAYS], redundancy: PM_RELAYS.length },
       rtcConfig: { iceServers: ICE_SERVERS, iceTransportPolicy: 'all' },
-      // S192 T1 — the same Trystero pooled-offer restart bug hits this page; see
-      // `src/net/poolSafePeerConnection.ts`. `src/net/trysteroPolyfill.test.ts` pins every join site.
-      rtcPolyfill: POOL_SAFE_PC,
       trickleIce: true,
     },
     roomId,
