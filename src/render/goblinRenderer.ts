@@ -271,6 +271,7 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    * Lazy (`ensureTypeAtlas` from the draw loop, warmed from wave 26 by `warmEndgameSheet`).
    */
   endgameMonster: ENDGAME_MONSTER_ATLAS_BASE,
+  megaPants: ENDGAME_MONSTER_ATLAS_BASE, // ⭐ S193 — the same pants, drawn huge (`MEGA_PANTS_SPRITE_SCALE_MUL`)
 };
 
 /**
@@ -471,6 +472,7 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'direwolf',
   // ⭐ S192 — the endgame pants. Absent from this Set it would siege a castle INVISIBLE.
   'endgameMonster',
+  'megaPants', // ⭐ S193 — the same sheet
 ]);
 
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */
@@ -1141,10 +1143,10 @@ export class GoblinRenderer {
 
       const owner = world.players.get(c.ownerPlayerId);
       const tint =
-        c.type === 'endgameMonster'
+        c.type === 'endgameMonster' || c.type === 'megaPants'
           ? ENDGAME_MONSTER_TINT // ⭐ S192 — no seat, no seat wash
           : owner?.color ?? PLAYER_COLORS[c.ownerPlayerId as unknown as number] ?? PLAYER_COLORS[0]!;
-      if (c.type === 'endgameMonster') {
+      if (c.type === 'endgameMonster' || c.type === 'megaPants') {
         // ⭐ S192 — his sound, on emergence and on the swing; one at a time board-wide.
         const due = pantsSoundDue(this.pantsState.get(c.id), c.state);
         this.pantsState.set(c.id, c.state);

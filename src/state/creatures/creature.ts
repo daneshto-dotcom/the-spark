@@ -381,6 +381,10 @@ export type CreatureType =
    * protocol bump. ⛔ SERIALIZED, so it earns a PROTOCOL_VERSION bump on the grounds every new
    * literal has (`deserializeCreature` has no type whitelist). */
   | 'endgameMonster'
+  /* ── S193 (owner, Q2) — THE MEGA PANTS: *"a huge boss that just comes and destroys everything"*, the
+   * final fight's clock-breaker. One at a time, owned by `MONSTER_OWNER_SEAT`, no assigned seat.
+   * ⛔ SERIALIZED — a new literal, so it rides the same bump. */
+  | 'megaPants'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'

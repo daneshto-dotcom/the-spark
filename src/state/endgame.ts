@@ -20,10 +20,10 @@
 
 import {
   BUILD_LOCK_FROM_WAVE,
+  MEGA_PANTS_AFTER_TICKS,
+  MONSTER_EMERGE_TICKS,
   MONSTER_FINAL_WAVE,
   MONSTER_FIRST_WAVE,
-  MONSTER_MIN_PULSE_TICKS,
-  MONSTER_SPAWN_WINDOW_TICKS,
   MONSTER_WAVE_PER_SEAT,
 } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
@@ -49,12 +49,60 @@ export function monstersPerSeatForWave(wave: number): number {
 }
 
 /**
- * ⚠ MINE — ticks between pulses: the wave pours out over `MONSTER_SPAWN_WINDOW_TICKS`, one monster
- * per living seat per pulse. 10 each → 120 ticks · 25 → 48 · 35 → 34 · 50 → 24 · 75 → 16.
+ * ⭐ HIS PACE (S193): *"one comes and then once he's out of the circle the next comes"*. Release `j`
+ * (0-based) of a monster fight is due `floor(j × EMERGE / N)` ticks after the fight began, `N` = the
+ * living seats: lane `j mod N` gets one pants every `MONSTER_EMERGE_TICKS`, and the lanes are
+ * staggered so the board never sees two born on one tick (unless N > EMERGE, which no board reaches).
+ * So the number due by `elapsed` ticks is `floor(elapsed × N / EMERGE) + 1`, capped at the wave's
+ * total. Integer arithmetic only. A seat falling mid-wave shrinks `N`: the formula then dips below what
+ * has already come out and the lanes simply wait — it can never produce a burst.
  */
-export function monsterPulseTicks(perSeat: number): number {
-  if (perSeat <= 0) return MONSTER_SPAWN_WINDOW_TICKS;
-  return Math.max(MONSTER_MIN_PULSE_TICKS, Math.floor(MONSTER_SPAWN_WINDOW_TICKS / perSeat));
+export function monstersDueBy(elapsed: number, living: number, total: number): number {
+  if (elapsed < 0 || living <= 0 || total <= 0) return 0;
+  return Math.min(total, Math.floor((elapsed * living) / MONSTER_EMERGE_TICKS) + 1);
+}
+
+/** This monster fight's total: his count per LIVING seat × the living seats, now. */
+export function monsterWaveTotal(world: World): number {
+  return monstersPerSeatForWave(world.waveNumber) * livingSeats(world).length;
+}
+
+/**
+ * ⭐ HIS COUNTDOWN (S193): *"there will be a countdown at the top of how many are left to come out so
+ * that players can know, like, oh shit, I have 66 left"*. A pure function of synced state
+ * (`waveNumber`, `matchPhase`, the castles, `monsterWaveSpawned`) — no new wire field for the count: a
+ * joiner, a promoted host and the worker mirror all read the same number. 0 outside a monster fight.
+ */
+export function monstersLeftToComeOut(world: World): number {
+  if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return 0;
+  return Math.max(0, monsterWaveTotal(world) - world.monsterWaveSpawned);
+}
+
+/**
+ * ⭐ IS THIS FIGHT'S DEADLINE HELD? Two rules, one his and one mine:
+ *   · HIS (Q2) — the FINAL fight (wave 31) never ends on the clock while two or more seats live. It
+ *     ends when someone wins (score or last keep standing), never by going to BUILD.
+ *   · ⚠ MINE (`MONSTER_HOLD_LEAD_TICKS`) — a monster fight on waves 27–30 holds while pants are still
+ *     to come out, because his counts at his pace do not fit a 60 s fight from wave 29 on.
+ * Pure function of synced state, so the HUD reads the same verdict the host acts on.
+ */
+export function isMonsterFightHeld(world: World): boolean {
+  if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return false;
+  if (world.waveNumber === MONSTER_FINAL_WAVE && livingSeats(world).length >= 2) return true;
+  return monstersLeftToComeOut(world) > 0;
+}
+
+/**
+ * ⭐ HIS MEGA PANTS (Q2) — due in the FINAL fight, two or more seats alive, once `MEGA_PANTS_AFTER_TICKS`
+ * (⚠ MINE, 4 min) of it have passed, whenever none is on the board. So a felled one is followed by
+ * another ("basically unbeatable"). Derived, never latched: it needs no field of its own.
+ */
+export function megaPantsDue(world: World): boolean {
+  if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT' || world.waveNumber !== MONSTER_FINAL_WAVE) return false;
+  if (world.monsterFightStartTick <= 0 || world.tick - world.monsterFightStartTick < MEGA_PANTS_AFTER_TICKS) return false;
+  if (livingSeats(world).length < 2) return false;
+  for (const c of world.creatures.values()) if (c.type === 'megaPants') return false;
+  return true;
 }
 
 /**

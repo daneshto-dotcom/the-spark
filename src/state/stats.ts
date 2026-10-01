@@ -394,6 +394,7 @@ const STRUCTURES_ONLY: ReadonlySet<TargetClass> = new Set<TargetClass>(['structu
 export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetClass>>> = {
   // ⭐ S192 (owner) — the endgame pants: *"they attack each player"* — units, buildings and the keep.
   endgameMonster: BOTH,
+  megaPants: BOTH, // ⭐ S193 — *"destroys everything"*
   /*
    * ⭐ S168 (owner R149) — the Orc Warlord's summoned direwolf. BOTH, like the rest of the melee
    * roster: he summons it as a war pack, and a pack that walked past an enemy tower to reach a
@@ -515,6 +516,7 @@ export const DEFENDER_TARGETS: Readonly<Record<DefenderKind, ReadonlySet<TargetC
 export const CREATURE_ROLES: Readonly<Record<CreatureType, CombatRole>> = {
   // ⭐ S192 — a neutral siege wave sent at one seat. It holds nothing.
   endgameMonster: 'offence',
+  megaPants: 'offence', // ⭐ S193 — the final fight's clock-breaker
   // ⭐ S168 (R149) — a summoned war pack. It goes where the Warlord is going; it does not hold ground.
   direwolf: 'offence',
   // S171 R142 — a swarm that eats units and buildings alike; it defends nothing.

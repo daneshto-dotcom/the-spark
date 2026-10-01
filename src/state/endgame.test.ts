@@ -11,9 +11,9 @@ import { join } from 'node:path';
 import {
   BUILD_LOCK_FROM_WAVE,
   ENDGAME_MONSTER_STATS,
-  FIGHT_PHASE_TICKS,
   LAST_DRAFT_WAVE,
-  MONSTER_SPAWN_WINDOW_TICKS,
+  MONSTER_EMERGE_TICKS,
+  MONSTER_HOLD_LEAD_TICKS,
   PHASE_DURATION_TICKS,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
@@ -31,7 +31,9 @@ import {
   ENDGAME_LOCK_INTENT_POLICY,
   isBuildLocked,
   isEndgameLockDeniedIntent,
-  monsterPulseTicks,
+  monstersDueBy,
+  monstersLeftToComeOut,
+  isMonsterFightHeld,
   monstersPerSeatForWave,
   monsterVictimSeat,
 } from './endgame.ts';
@@ -105,18 +107,26 @@ describe('S192 — the pants monster is ON THE LADDER (spec §2)', () => {
     expect(cfg.targetsStructures).toBe(true); // the shipped strike arms serve it
   });
 
-  it('his counts per living seat: 27 → 10, 28 → 25, 30 → 50 (his); 29 → 35, 31 → 75 (MINE); nothing outside', () => {
-    expect([26, 27, 28, 29, 30, 31, 32].map(monstersPerSeatForWave)).toEqual([0, 10, 25, 35, 50, 75, 0]);
-    // every wave's share fits inside the 20 s window
-    for (const w of [27, 28, 29, 30, 31]) {
-      const n = monstersPerSeatForWave(w);
-      expect((n - 1) * monsterPulseTicks(n)).toBeLessThan(MONSTER_SPAWN_WINDOW_TICKS);
-    }
+  it('⭐ HIS counts per living seat (S193 Q1): 27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250; nothing outside', () => {
+    expect([26, 27, 28, 29, 30, 31, 32].map(monstersPerSeatForWave)).toEqual([0, 10, 25, 50, 100, 250, 0]);
+  });
+
+  it('⭐ HIS pace, as arithmetic: one lane per seat, one pants per lane every EMERGE ticks, lanes staggered', () => {
+    expect(MONSTER_EMERGE_TICKS).toBe(45);
+    // 2 seats, 20 total: due 1 at t=0, 2 at t=22.5→23, 3 at t=45 …
+    expect([0, 22, 23, 44, 45, 67, 68].map((t) => monstersDueBy(t, 2, 20))).toEqual([1, 1, 2, 2, 3, 3, 4]);
+    expect(monstersDueBy(10_000, 2, 20)).toBe(20); // capped at the wave
+    expect(monstersDueBy(-1, 2, 20)).toBe(0);
+    expect(monstersDueBy(10, 0, 20)).toBe(0);
+    // a seat falling mid-wave shrinks N: the due count DIPS, never bursts
+    expect(monstersDueBy(450, 1, 10)).toBeLessThan(monstersDueBy(450, 2, 20));
+    // his wave 31 at his pace: 250 per lane × 45 = 11 250 ticks of emergence
+    expect(250 * MONSTER_EMERGE_TICKS).toBe(11_250);
   });
 });
 
 describe('S192 — REACH: each monster wave pours out of the quarry through the real host tick (spec §3)', () => {
-  for (const wave of [27, 28, 29, 30, 31]) {
+  for (const wave of [27, 28, 29]) {
     it(`wave ${wave}: exactly ${monstersPerSeatForWave(wave)} per living seat, assigned round-robin, owned by no seat`, () => {
       const world = board(2);
       toFightEdge(world, wave);
@@ -126,7 +136,8 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
       const d = deps();
       const st = makeHostTickState(world);
       const seen = new Map<number, PlayerId | undefined>();
-      for (let t = 0; t < MONSTER_SPAWN_WINDOW_TICKS + 30; t++) {
+      const runFor = monstersPerSeatForWave(wave) * MONSTER_EMERGE_TICKS + 30;
+      for (let t = 0; t < runFor; t++) {
         runHostTick(world, d, st);
         for (const c of monsters(world)) seen.set(c.id as unknown as number, c.monsterSeat);
       }
@@ -151,15 +162,26 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
     expect(world.monsterWaveSpawned).toBe(0);
   });
 
-  it('the fight\'s survivors leave the board at its end, and the next fight starts counting from zero', () => {
+  it('⭐ HIS (Q3): the fight\'s survivors VANISH at its end — after the HOLD lets go — and the next fight counts from zero', () => {
     const world = board(2);
     toFightEdge(world, 27);
+    for (const p of world.players.values()) p.castleHp = 1_000_000_000;
     const d = deps();
     const st = makeHostTickState(world);
     for (let t = 0; t < 200; t++) runHostTick(world, d, st);
     expect(monsters(world).length).toBeGreaterThan(0);
-    world.phaseEndsAtTick = world.tick + 1; // end the FIGHT on the next tick, through the real edge
+    // ⚠ MINE (the hold) — a deadline that falls while pants are still to come out is HELD, not crossed.
+    world.phaseEndsAtTick = world.tick + 1;
     runHostTick(world, d, st);
+    expect(world.matchPhase).toBe('FIGHT');
+    expect(monstersLeftToComeOut(world)).toBeGreaterThan(0);
+    expect(isMonsterFightHeld(world)).toBe(true);
+    expect(world.phaseEndsAtTick - world.tick).toBe(MONSTER_HOLD_LEAD_TICKS);
+    // the last pants comes out, then the held lead counts down normally and the real edge is crossed
+    let guard = 0;
+    while (world.matchPhase === 'FIGHT' && guard++ < 20 * MONSTER_EMERGE_TICKS + MONSTER_HOLD_LEAD_TICKS + 10) {
+      runHostTick(world, d, st);
+    }
     expect(world.matchPhase).toBe('BUILD');
     expect(world.waveNumber).toBe(28);
     expect(monsters(world).length).toBe(0);
@@ -171,7 +193,7 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
     toFightEdge(world, 27);
     const d = deps();
     const st = makeHostTickState(world);
-    runHostTick(world, d, st); // cross into FIGHT; the first pulse is born
+    for (let t = 0; t < 30; t++) runHostTick(world, d, st); // cross into FIGHT; both lanes' first pants are born
     const a = castleAnchor(1, world.layout);
     const m = monsters(world).find((c) => c.monsterSeat === P1)!;
     m.pos.x = a.x; m.pos.y = a.y; m.prevPos.x = a.x; m.prevPos.y = a.y;
@@ -201,7 +223,7 @@ describe('S192 — the retarget is DERIVED: leftovers fan out over the survivors
     toFightEdge(world, 27);
     const d = deps();
     const st = makeHostTickState(world);
-    for (let t = 0; t < 40; t++) runHostTick(world, d, st);
+    for (let t = 0; t < 90; t++) runHostTick(world, d, st);
     const sent = monsters(world).filter((c) => c.monsterSeat === P1);
     expect(sent.length).toBeGreaterThan(0);
     world.players.get(P1)!.castleHp = 0;
@@ -365,6 +387,7 @@ describe('S192 — the draft ends at 26; the match ends after 31 (spec §1, §5,
     world.draft = null; // the opening draft START_GAME left pending
     world.matchPhase = 'FIGHT';
     world.phaseEndsAtTick = world.tick + 1;
+    world.monsterWaveSpawned = monstersPerSeatForWave(30) * 2; // every pants is out, so nothing holds
     const d = deps();
     const st = makeHostTickState(world);
     runHostTick(world, d, st);
@@ -454,11 +477,9 @@ describe('S192 — the art, the sound and the HUD cue', () => {
     expect(formatEndgameCue('BUILD', 26)).toBe('');
     expect(formatEndgameCue('FIGHT', 26)).toBe('');
     expect(formatEndgameCue('BUILD', 27)).toBe('⛔ FIX ONLY · NEXT 10 PANTS EACH');
-    expect(formatEndgameCue('FIGHT', 30)).toBe('MONSTER WAVE · 50 PANTS EACH');
+    expect(formatEndgameCue('FIGHT', 30, 66)).toBe('PANTS LEFT TO COME OUT: 66'); // ⭐ HIS countdown — "I have 66 left"
+    expect(formatEndgameCue('FIGHT', 30, 0)).toBe('ALL PANTS ARE OUT');
     expect(formatEndgameCue('BUILD', 32)).toBe('⛔ FIX ONLY');
   });
 
-  it('the fight is long enough for the whole window', () => {
-    expect(MONSTER_SPAWN_WINDOW_TICKS).toBeLessThan(FIGHT_PHASE_TICKS);
-  });
 });

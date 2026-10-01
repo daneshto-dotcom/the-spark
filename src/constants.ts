@@ -4197,21 +4197,68 @@ export const BUILD_LOCK_FROM_WAVE = 27;
 export const MONSTER_FIRST_WAVE = 27;
 export const MONSTER_FINAL_WAVE = 31;
 /**
- * Monsters per LIVING player, by wave. 27 → 10, 28 → 25 and 30 → 50 are HIS (*"10 of those monsters
- * … for each of those two players"*, *"25 of those monsters"*, *"twice the amount … 50 monsters
- * each"*). ⚠ 29 → 35 and 31 → 75 are MINE: he gave no number for either.
+ * Monsters per LIVING player, by wave — ⭐ ALL FIVE ARE HIS (S193, `S193_OWNER_ENDGAME_ANSWERS.md` Q1):
+ * *"it should be 10, 25, 50, 100, and 250. That way, nobody can really beat 250 at wave 31."*
+ * (Replaces the S192 build's 10/25/35/50/75, whose 29 and 31 were mine.)
  */
 export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
   27: 10,
   28: 25,
-  29: 35, // ⚠ MINE
-  30: 50,
-  31: 75, // ⚠ MINE
+  29: 50,
+  30: 100,
+  31: 250,
 };
 /**
- * ⚠ MINE — the pants monster ON THE LADDER: pool `unitPoolFifths(10, 5)` = 100, strike
- * `attackFifths(5, 3)` = 40 (the castle gun's own shot). One-shots every unit below a Voltkin, dies to
- * three castle shots or one tier-9 boss swing. "Instant death" comes from the COUNT, not a multiplier.
+ * ⭐ HIS PACE (S193, Q1+Q8): *"one comes and then once he's out of the circle the next comes and then
+ * the next comes and there's a countdown of how many are coming how many are left"* — never a chunk.
+ *
+ * ⚠ MINE — "OUT OF THE CIRCLE", MADE A TICK RULE. Each living seat has its own LANE: its pants are born
+ * on the quarry rim facing that seat's keep, one every `MONSTER_EMERGE_TICKS`, and the lanes are
+ * STAGGERED (lane k releases `k × EMERGE / N` ticks after lane 0), so the board sees one pants at a
+ * time and each lane's previous pants has left the circle before its next is born. 45 ticks = the
+ * 30-tick SPAWNING rise + ~15 ticks to walk the 20 px from the birth point past the rim (measured S193:
+ * a pants born 60 px in took 111–163 ticks to clear the 125 px circle; born 20 px inside the rim it
+ * clears in ~45). A tick rule, not a position test, so a pants shoved back into the circle cannot
+ * stall a lane for the rest of the wave.
+ */
+export const MONSTER_EMERGE_TICKS = 45;
+/** ⚠ MINE — the birth point's distance from the quarry centre: 20 px inside the 125 px rim. */
+export const MONSTER_BIRTH_RADIUS_PX = 105;
+/**
+ * ⚠ MINE — WHILE PANTS ARE STILL TO COME OUT, THE FIGHT DOES NOT END. His counts at his pace do not fit
+ * a 60 s fight from wave 29 on (100 each × 45 ticks = 75 s at wave 30), and he gave both. So on waves
+ * 27–30 the deadline is held `MONSTER_HOLD_LEAD_TICKS` ahead of the clock until the last pants is out,
+ * then counts those 10 s down normally — which also keeps every phase-end WINDOW (the army's 3 s
+ * run-home, the gatherers' 1 s shelter, the bots' Ra timing) firing exactly as on any other fight.
+ */
+export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
+/**
+ * ⭐ HIS (S193, Q2): *"If two players are still alive, then the clock doesn't end. It doesn't go into
+ * the next build phase … it keeps going until you reach your score … Either your score or you destroy
+ * the other player's castle … if … the timer … passes a certain amount, we will make … a huge boss that
+ * just comes and destroys everything … the boss is gonna be basically unbeatable, but it's all about
+ * surviving longer."*
+ *
+ * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. His 250 each
+ * take 250 × 45 = 11 250 ticks (3:07.5) to come out, so the boss arrives ~50 s after the last pants.
+ */
+export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
+/**
+ * ⚠ MINE — THE MEGA PANTS, ON THE LADDER: HP 500 / DEF 20 → pool `unitPoolFifths(500, 20)` = 500 × 5 × 5
+ * = **12 500** (125 regular pants; 312 castle-gun shots of 40). ATK 60 / PEN 20 → strike
+ * `attackFifths(60, 20)` = 60 × 5 × 5 = **1 500**: a 2500 keep falls in two blows, a 5-connector tower's
+ * whole 130 ladder (and the next tower's) in one through the carry. "Basically unbeatable", his word —
+ * beatable in principle, and if it IS felled another one walks out (`megaPantsDue`).
+ */
+export const MEGA_PANTS_STATS = { hp: 500, def: 20, atk: 60, pen: 20 } as const;
+/** ⚠ MINE — the pants' own pace (0.75 of a goblin): it is not in a hurry. */
+export const MEGA_PANTS_SPEED_MUL = 0.75;
+/**
+ * ⭐ HIS NOW (S193, Q9 + Q4): the pants monster ON THE LADDER — pool `unitPoolFifths(10, 5)` = 100,
+ * strike `attackFifths(5, 3)` = 40 (the castle gun's own shot). *"stats for pants … fine"*, and twice
+ * *"They hit for 40, that's fine."* One-shots every unit below a Voltkin, dies to three castle shots or
+ * one tier-9 boss swing. "Instant death" comes from the COUNT, not a multiplier.
+ * ⚠ FLAG (one line, Q9): he once listed *"attack 5 penetration 5"* — PEN 5 would be a 50 hit; built 40.
  */
 export const ENDGAME_MONSTER_STATS = { hp: 10, def: 5, atk: 5, pen: 3 } as const;
 /** ⚠ MINE — slower than a melee goblin (0.85), so defenders get time to meet the wave. */
@@ -4222,9 +4269,5 @@ export const ENDGAME_MONSTER_SPEED_MUL = 0.75;
  * monster as an enemy with no further wiring. ⚠ It is never in `world.players`.
  */
 export const MONSTER_OWNER_SEAT = 255;
-/** ⚠ MINE — a wave pours out over its first 20 s of FIGHT, one monster per living seat per pulse. */
-export const MONSTER_SPAWN_WINDOW_TICKS = 20 * PHYSICS_HZ;
-/** ⚠ MINE — the fastest pulse (75 each → 16 ticks; this only floors a hypothetical larger count). */
-export const MONSTER_MIN_PULSE_TICKS = 6;
-/** ⚠ MINE — radius of the deterministic birth ring around the quarry centre. */
-export const MONSTER_SPAWN_RING_PX = 60;
+// (S193 — the S192 pulse window `MONSTER_SPAWN_WINDOW_TICKS` / `MONSTER_MIN_PULSE_TICKS` / `MONSTER_SPAWN_RING_PX`
+// is retired: his pace is one pants at a time out of the circle — `MONSTER_EMERGE_TICKS` above.)

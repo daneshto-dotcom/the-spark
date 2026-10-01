@@ -137,6 +137,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the spawn pulses, so a
   // host and a mirror disagreeing about it would release a different wave.
   monsterWaveSpawned: 'hashed',
+  // ⭐ S193 (endgame) — the monster fight's start tick: the spawner's and the mega pants' clock.
+  monsterFightStartTick: 'hashed',
   activeCinematicPlayerId: 'hashed',
   // Allocator cursors — two sims that allocated different id counts have diverged
   // even when the surviving entities happen to match.
@@ -526,6 +528,7 @@ export function determinismParts(world: World): string[] {
     `sf${o(world.sudokuFiredThisMatch)}`,
     `wv${world.waveNumber}`,
     `mw${world.monsterWaveSpawned}`, // S192 — the endgame spawn counter
+    `mf${world.monsterFightStartTick}`, // S193 — the endgame fight's start tick
     `ac${n(world.activeCinematicPlayerId)}`,
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +

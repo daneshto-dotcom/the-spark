@@ -11,26 +11,24 @@
  * HOST-ONLY: called from `runHostTick` (host and `?worker=1` mirror alike), never by a client.
  *
  * ## Determinism
- * No RNG and no wall clock. Birth position is `spreadTargetPos` of the quarry centre keyed by the id
- * the monster is about to receive; the assigned seat is round-robin over `livingSeats` (id order); every
+ * No RNG and no wall clock. Birth position is a fixed point on the quarry rim facing the lane's keep; the assigned seat is round-robin over `livingSeats` (id order); every
  * scan below is a total order — squared distance, then id. The spawn counter is synced world state
  * (`monsterWaveSpawned`), so a NONET freeze that skips ticks catches up rather than losing monsters.
  */
 
 import {
-  FIGHT_PHASE_TICKS,
   GOBLIN_SPREAD_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
+  MONSTER_BIRTH_RADIUS_PX,
   MONSTER_OWNER_SEAT,
-  MONSTER_SPAWN_RING_PX,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
 } from '../constants.ts';
-import { asCreatureId, asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
+import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
-import { monsterPulseTicks, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
+import { megaPantsDue, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
 import { isUntargetable, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
@@ -45,26 +43,42 @@ export const MONSTER_OWNER_ID: PlayerId = asPlayerId(MONSTER_OWNER_SEAT);
  */
 export const MONSTER_BUILDING_RESCAN_TICKS = 15;
 
-/** Where monster `nextId` is born: a deterministic ring around the quarry centre (canon §3c). */
-export function monsterBirthPos(nextId: number): Vec2 {
-  return spreadTargetPos({ x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y }, asCreatureId(nextId), MONSTER_SPAWN_RING_PX);
+/**
+ * ⭐ S193 — where lane `seat`'s pants is born: on the quarry rim (`MONSTER_BIRTH_RADIUS_PX`, ⚠ MINE)
+ * on the ray from the quarry centre to that seat's keep, so each lane walks out of the circle on its
+ * own side and the next of the lane is born where the last one no longer stands. `Math.sqrt` (correctly
+ * rounded, the same on every peer), never `Math.hypot`.
+ */
+export function monsterBirthPos(world: World, seat: PlayerId): Vec2 {
+  const a = castleAnchor(seat as unknown as number, world.layout);
+  const dx = a.x - SPAWNER_CENTER_X;
+  const dy = a.y - SPAWNER_CENTER_Y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len === 0) return { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y };
+  return {
+    x: SPAWNER_CENTER_X + (dx * MONSTER_BIRTH_RADIUS_PX) / len,
+    y: SPAWNER_CENTER_Y + (dy * MONSTER_BIRTH_RADIUS_PX) / len,
+  };
 }
 
 /**
- * Release this tick's due monsters. Pulse `p` (0-based) is due at `fightStart + p × pulseTicks`, and
- * each pulse releases one monster per LIVING seat, in seat order — so every seat's share grows at the
- * same rate (*"10 … for each of those two players"*).
+ * Release this tick's due pants — ⭐ HIS PACE, one at a time out of the circle (`monstersDueBy`), on
+ * his counts (`MONSTER_WAVE_PER_SEAT`). Release `k` goes to lane `living[k mod N]`, so every seat's
+ * share grows at the same rate (*"10 … for each of those two players"*).
+ *
+ * The clock is `monsterFightStartTick` (synced), NOT the deadline: a monster fight HOLDS its deadline
+ * while pants are still to come out (`isMonsterFightHeld`), so the deadline no longer says when the
+ * fight began. Then, in the final fight only, the MEGA PANTS (`megaPantsDue`).
  */
 export function tickEndgameSpawner(world: World): void {
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return;
+  if (world.monsterFightStartTick <= 0) return;
   const perSeat = monstersPerSeatForWave(world.waveNumber);
   if (perSeat === 0) return;
   const living = livingSeats(world);
   if (living.length === 0) return;
-  const elapsed = world.tick - (world.phaseEndsAtTick - FIGHT_PHASE_TICKS);
-  if (elapsed < 0) return;
-  const pulses = Math.min(perSeat, Math.floor(elapsed / monsterPulseTicks(perSeat)) + 1);
-  const due = Math.min(perSeat * living.length, pulses * living.length);
+  const elapsed = world.tick - world.monsterFightStartTick;
+  const due = monstersDueBy(elapsed, living.length, perSeat * living.length);
   while (world.monsterWaveSpawned < due) {
     const k = world.monsterWaveSpawned;
     const seat = living[k % living.length]!;
@@ -73,7 +87,7 @@ export function tickEndgameSpawner(world: World): void {
       type: 'SPAWN_CREATURE',
       creatureType: 'endgameMonster',
       ownerPlayerId: MONSTER_OWNER_ID,
-      pos: monsterBirthPos(world.nextCreatureId),
+      pos: monsterBirthPos(world, seat),
       targetPos: { x: a.x, y: a.y },
       sourceSpawnerId: null,
       monsterSeat: seat,
@@ -81,16 +95,36 @@ export function tickEndgameSpawner(world: World): void {
     // Counted whether or not the reducer accepted it, so a refusal can never spin this loop.
     world.monsterWaveSpawned = k + 1;
   }
+  if (megaPantsDue(world)) {
+    // ⭐ HIS (Q2) — *"a huge boss that just comes and destroys everything"*. Born at the quarry centre
+    // with no assigned seat, so `monsterVictimSeat` spreads it over the living seats by id, and walks
+    // to its victim's keep; it re-targets as each one falls until one seat is left standing.
+    const victim = monsterVictimSeat(world, { id: world.nextCreatureId as unknown as CreatureId, monsterSeat: undefined });
+    const a = victim === null ? { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y } : castleAnchor(victim as unknown as number, world.layout);
+    dispatch(world, {
+      type: 'SPAWN_CREATURE',
+      creatureType: 'megaPants',
+      ownerPlayerId: MONSTER_OWNER_ID,
+      pos: { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y },
+      targetPos: { x: a.x, y: a.y },
+      sourceSpawnerId: null,
+    });
+  }
+}
+
+/** Is `type` one of the endgame's pants (the wave pants or the mega pants)? */
+export function isPantsType(type: Creature['type']): boolean {
+  return type === 'endgameMonster' || type === 'megaPants';
 }
 
 /**
- * ⚠ MINE (spec Q3) — at the FIGHT→BUILD edge every surviving monster leaves the board, so each
- * monster wave starts fresh from the centre and none stands frozen in a player's base through BUILD
- * (the creature fan-out is FIGHT-gated). Ascending id order; idempotent.
+ * ⭐ HIS (S193, Q3 — *"they vanish when this wave ends"*) — at the FIGHT→BUILD edge every surviving
+ * pants leaves the board, so each monster wave starts fresh from the centre and none stands frozen in
+ * a player's base through BUILD (the creature fan-out is FIGHT-gated). Ascending id order; idempotent.
  */
 export function removeEndgameMonsters(world: World): void {
   const ids: CreatureId[] = [];
-  for (const c of world.creatures.values()) if (c.type === 'endgameMonster') ids.push(c.id);
+  for (const c of world.creatures.values()) if (isPantsType(c.type)) ids.push(c.id);
   ids.sort((x, y) => (x as unknown as number) - (y as unknown as number));
   for (const id of ids) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: id });
 }

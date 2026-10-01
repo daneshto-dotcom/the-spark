@@ -42,6 +42,7 @@ import {
   PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
   phaseDurationTicks,
+  MONSTER_HOLD_LEAD_TICKS, // ⭐ S193 — the monster fight hold
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   T9_ZOMBIE_DEATH_BLAST_RADIUS,
@@ -143,7 +144,8 @@ import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 // ⭐ S192 (owner, A3) — the endgame monster waves.
-import { removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
+import { isPantsType, removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
+import { isMonsterFightHeld, isMonsterWave } from './endgame.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
@@ -410,9 +412,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   tickDraft(world);
 
   if (world.gameState === 'PLAYING') {
+    /*
+     * ⭐⭐ S193 (owner, Q2 + ⚠ MINE) — A MONSTER FIGHT CAN HOLD ITS DEADLINE. *"If two players are still
+     * alive, then the clock doesn't end. It doesn't go into the next build phase."* (wave 31, his) — and
+     * waves 27–30 hold while pants are still to come out (mine; `MONSTER_HOLD_LEAD_TICKS`). The deadline
+     * is kept that lead AHEAD of the clock rather than frozen, so every phase-end window (the army's
+     * run-home, the gatherers' shelter, the bots' Ra timing) stays closed while held and fires
+     * normally once the hold lets go. Policy: `isMonsterFightHeld` (pure, synced state).
+     */
+    if (isMonsterFightHeld(world) && world.phaseEndsAtTick < world.tick + MONSTER_HOLD_LEAD_TICKS) {
+      world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    }
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
+      const edgeTick = world.phaseEndsAtTick;
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
+      // ⭐ S193 — the monster fight's own clock (`monsterFightStartTick`): stamped with the deadline
+      // tick the edge crossed (so a NONET multi-flip stamps the same value), cleared on leaving FIGHT.
+      world.monsterFightStartTick =
+        world.matchPhase === 'FIGHT' && isMonsterWave(world.waveNumber) ? edgeTick : 0;
       // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
       // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
       // above, so reading it here is already the new phase — which is exactly what is wanted.
@@ -1661,7 +1679,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = at.y;
           }
         }
-      } else if (creature !== undefined && creature.state === 'SEEKING' && creature.type === 'endgameMonster') {
+      } else if (creature !== undefined && creature.state === 'SEEKING' && isPantsType(creature.type)) {
         /*
          * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER HUNTS ONE SEAT. *"those monsters generate and attack
          * a certain enemy."* Placed AHEAD of the structure-attacker arm because a monster belongs to no

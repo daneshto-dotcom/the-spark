@@ -13,7 +13,7 @@
  * by elapsed-tick dwell (so a "WIN" banner shows briefly before save).
  */
 
-import { MONSTER_FINAL_WAVE, PHYSICS_HZ, winScoreForWave } from '../constants.ts';
+import { MONSTER_FINAL_WAVE, MONSTER_FIRST_WAVE, PHYSICS_HZ, winScoreForWave } from '../constants.ts';
 import { computeComplexity } from './scoring.ts';
 import { teardownBombs } from './bombLifecycle.ts';
 import { teardownHunters } from './hunters/hunterLifecycle.ts';
@@ -157,8 +157,25 @@ export function tickGameState(
         // With ≥2 seats the winner is the ONE seat still alive. A true zero-survivor board and solo
         // both fall back to the primary — the pre-S162 behaviour, now reachable only by the cases
         // that genuinely reached it before.
-        const winnerId: PlayerId =
+        let winnerId: PlayerId =
           !soloBoard && contenders.length === 1 ? contenders[0]! : primaryPlayerId;
+        /*
+         * ⭐ S193 (owner, Q2) — A WIPE IN THE ENDGAME GOES TO THE TOP SCORE. *"the match ends and the top
+         * score wins … If nobody beats … the huge mega pants boss."* From wave 27 on a zero-survivor
+         * board (the pants razed every keep, possibly on one tick) crowns the highest banked score over
+         * EVERY seat, lowest seat on a tie — the same total order the score gate uses. Before wave 27
+         * the S162 wipe rule above is unchanged.
+         */
+        if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {
+          let best = -Infinity;
+          for (const pid of [...world.players.keys()].sort((a, b) => (a as unknown as number) - (b as unknown as number))) {
+            const sc = world.scoreByPlayer.get(pid) ?? 0;
+            if (sc > best) {
+              best = sc;
+              winnerId = pid;
+            }
+          }
+        }
         console.info(
           `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
             `placings=${matchPlacings(world).map((id) => `P${(id as number) + 1}`).join('>')} | ` +
@@ -173,11 +190,11 @@ export function tickGameState(
 
       /*
        * ⭐ S192 (owner, A3) — **THE MATCH ENDS AFTER WAVE 31.** *"If they haven't won by points or by
-       * … instant death, then they should."* ⚠ MINE (spec Q2): if two or more seats survive the last
-       * monster wave, the wave counter reaching 32 (the BUILD edge after wave 31's FIGHT, `hostTick`)
-       * crowns the LIVING seat with the most banked score, lowest seat on a tie — the same skip and
-       * the same total order as the score gate below. One WIN path, so the banner and dwell behave as
-       * for every other win. Derived from `waveNumber` on every peer, so it needs no new field.
+       * … instant death, then they should."* ⭐ S193 (owner, Q2): *"the match ends and the top score
+       * wins. That's fine too."* With two or more seats alive the final fight never reaches this edge
+       * (it HOLDS — `isMonsterFightHeld` — until a keep-standing or score win, the mega pants seeing to
+       * it), so the wave counter reaching 32 is now the SOLO board's end (one seat alive never holds):
+       * it crowns the LIVING seat with the most banked score, lowest seat on a tie. One WIN path.
        */
       if (world.waveNumber > MONSTER_FINAL_WAVE) {
         let winnerId: PlayerId = living.length > 0 ? living[0]! : primaryPlayerId;

@@ -761,6 +761,14 @@ export interface World {
    */
   monsterWaveSpawned: number;
   /**
+   * ⭐ S193 (endgame) — the tick THIS monster FIGHT began, or 0 outside one. Written at the BUILD→FIGHT
+   * edge of waves 27–31 (the deadline tick the edge crossed, so a NONET multi-flip stamps the same
+   * value), cleared at FIGHT→BUILD. It is the spawner's clock: the deadline cannot be, because a monster
+   * fight HOLDS its deadline while pants are still to come out (`MONSTER_HOLD_LEAD_TICKS`). Serialized
+   * (omitted at 0) and hashed (`mf`).
+   */
+  monsterFightStartTick: number;
+  /**
    * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
    * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old
    * per-player 60s cooldown gate (which cross-blocked DIFFERENT types for 60s). Independent of

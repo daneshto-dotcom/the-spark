@@ -290,6 +290,8 @@ export interface WorldSnapshot {
   waveNumber?: number;
   /** ⭐ S192 — the endgame monster spawn counter, omitted at 0 (every fight before wave 27). */
   monsterWaveSpawned?: number;
+  /** ⭐ S193 — the endgame fight's start tick, omitted at 0 (every tick outside a monster fight). */
+  monsterFightStartTick?: number;
   /**
    * S97 P5 — per-type godly once-per-match guard (SORTED GodlyId[]). Additive-optional (emitted
    * only when non-empty); a new host (host-migration) / save-load won't re-fire an already-used
@@ -1260,6 +1262,8 @@ export function snapshot(
     waveNumber: world.waveNumber > 1 ? world.waveNumber : undefined,
     // ⭐ S192 — omitted at 0, so every pre-endgame snapshot stays byte-identical.
     monsterWaveSpawned: world.monsterWaveSpawned > 0 ? world.monsterWaveSpawned : undefined,
+    // ⭐ S193 — the same: 0 outside a monster fight, so pre-endgame snapshots stay byte-identical.
+    monsterFightStartTick: world.monsterFightStartTick > 0 ? world.monsterFightStartTick : undefined,
     // S97 P5 — emit the per-type godly guard only when non-empty (sorted ⇒ byte-stable, like discoveredCombos).
     godlyFiredThisMatch:
       world.godlyFiredThisMatch.size > 0 ? [...world.godlyFiredThisMatch].sort() : undefined,
@@ -1794,6 +1798,11 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.monsterWaveSpawned =
     typeof snap.monsterWaveSpawned === 'number' && Number.isInteger(snap.monsterWaveSpawned) && snap.monsterWaveSpawned >= 0
       ? snap.monsterWaveSpawned
+      : 0;
+  // ⭐ S193 — validated the same way.
+  world.monsterFightStartTick =
+    typeof snap.monsterFightStartTick === 'number' && Number.isInteger(snap.monsterFightStartTick) && snap.monsterFightStartTick >= 0
+      ? snap.monsterFightStartTick
       : 0;
   world.godlyFiredThisMatch = new Set((snap.godlyFiredThisMatch ?? []) as GodlyId[]); // S97 P5
 

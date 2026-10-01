@@ -20,7 +20,8 @@ import {
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { isBuildLocked, monstersPerSeatForWave } from '../state/endgame.ts';
+import { isBuildLocked, isMonsterFightHeld, isMonsterWave, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
+import { MEGA_PANTS_AFTER_TICKS, MONSTER_FINAL_WAVE } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
@@ -92,16 +93,60 @@ export function formatPhaseBanner(
 
 /**
  * ⭐ S192 (owner, A3) — THE ENDGAME CUE, appended to the phase banner. Derived from synced state only
- * (`matchPhase`, `waveNumber`), never from a pushed effect, so a joiner and a promoted client read
- * the same line. Empty before the lock. Pure + exported for test.
+ * (`matchPhase`, `waveNumber`, and in FIGHT the pants still to come out), never from a pushed effect,
+ * so a joiner and a promoted client read the same line. Empty before the lock. Pure + exported for test.
  *   · BUILD from wave 27: `⛔ FIX ONLY · NEXT 10 PANTS EACH` (the next fight is THIS wave's);
- *   · FIGHT on waves 27–31: `MONSTER WAVE · 10 PANTS EACH`.
+ *   · FIGHT on waves 27–31: ⭐ S193 HIS COUNTDOWN — *"a countdown at the top of how many are left to
+ *     come out … oh shit, I have 66 left"* — `PANTS LEFT TO COME OUT: 66`, then `ALL PANTS ARE OUT`.
  */
-export function formatEndgameCue(phase: MatchPhase, waveNumber: number): string {
+export function formatEndgameCue(phase: MatchPhase, waveNumber: number, leftToComeOut = 0): string {
   if (!isBuildLocked({ waveNumber })) return '';
   const each = monstersPerSeatForWave(waveNumber);
   if (phase === 'BUILD') return each > 0 ? `⛔ FIX ONLY · NEXT ${each} PANTS EACH` : '⛔ FIX ONLY';
-  return each > 0 ? `MONSTER WAVE · ${each} PANTS EACH` : '';
+  if (each === 0) return '';
+  return leftToComeOut > 0 ? `PANTS LEFT TO COME OUT: ${leftToComeOut}` : 'ALL PANTS ARE OUT';
+}
+
+/**
+ * ⭐ S193 — the clock while a monster fight HOLDS its deadline (`isMonsterFightHeld`). The held deadline
+ * sits 10 s ahead of the clock, so the ordinary readout would freeze on a lying `0:10`. The final fight
+ * says what his ruling says — it does not end on the clock — and waves 27–30 say they are waiting.
+ */
+export function formatHeldClock(waveNumber: number): string {
+  return waveNumber === MONSTER_FINAL_WAVE
+    ? `WAVE ${waveNumber}   FINAL FIGHT  NO CLOCK`
+    : `WAVE ${waveNumber}   FIGHT  PANTS STILL COMING`;
+}
+
+/** ⭐ S193 — how long the silly banner shows when a monster wave (or the mega pants) starts. Render-only. */
+export const PANTS_BANNER_TICKS = 4 * PHYSICS_HZ;
+
+/**
+ * ⭐ S193 (owner, Q6) — THE BIG SILLY BANNER. *"there's gonna be also a big writing … something super
+ * funny, like, beware the pants, or now the pants are coming, or incoming pants"* — the wording was left
+ * to us, and kept silly. One line per monster wave, and one for the mega pants, each shown for the
+ * first `PANTS_BANNER_TICKS` of its arrival. A pure function of synced state (`matchPhase`,
+ * `waveNumber`, `monsterFightStartTick`, `tick`), so every peer shows it on the same tick and a joiner
+ * mid-banner sees the rest of it. `''` = no banner.
+ */
+export const PANTS_BANNER_LINES: Readonly<Record<number, string>> = {
+  27: 'BEWARE THE PANTS!',
+  28: 'INCOMING PANTS!',
+  29: 'MORE PANTS. WHY ARE THERE MORE PANTS',
+  30: 'PANTSAGEDDON',
+  31: 'ALL THE PANTS. ALL OF THEM.',
+};
+export const MEGA_PANTS_BANNER = 'MEGA PANTS HAS ENTERED THE CHAT';
+
+export function pantsBannerText(
+  world: Pick<World, 'matchPhase' | 'waveNumber' | 'monsterFightStartTick' | 'tick'>,
+): string {
+  if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber) || world.monsterFightStartTick <= 0) return '';
+  const elapsed = world.tick - world.monsterFightStartTick;
+  if (elapsed >= 0 && elapsed < PANTS_BANNER_TICKS) return PANTS_BANNER_LINES[world.waveNumber] ?? '';
+  const sinceMega = elapsed - MEGA_PANTS_AFTER_TICKS;
+  if (world.waveNumber === MONSTER_FINAL_WAVE && sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
+  return '';
 }
 
 /**
@@ -596,6 +641,9 @@ export class HUD {
   private lastSeenPhase: MatchPhase | null = null;
   /** V6-0.2 (S129) — milestone banner fired by a SCORE_TIER crossing. */
   private readonly tierBannerText: Text;
+  /** ⭐ S193 — the big silly pants banner (`pantsBannerText`), and its render-only wobble frame. */
+  private readonly pantsBannerText: Text;
+  private pantsBannerFrame = 0;
   /**
    * P3 (S131) — dark backing plate behind the banner, on the `betaBadgePlate` precedent
    * (main.ts:277). The S131 playtest showed the banner's glyphs sitting on the spawner rings and
@@ -744,6 +792,41 @@ export class HUD {
     this.tierBannerText.visible = false;
     app.stage.addChild(this.tierBannerText);
 
+    // ⭐ S193 (owner, Q6) — the big silly pants banner. Centre screen, huge, wobbling.
+    this.pantsBannerText = new Text({
+      text: '',
+      style: new TextStyle({
+        fontFamily: 'Impact, "Arial Black", sans-serif',
+        fontSize: 84,
+        fill: 0xffe14d,
+        align: 'center',
+        stroke: { color: 0x5a1a8a, width: 10 },
+        dropShadow: { color: 0x000000, distance: 6, blur: 2, alpha: 0.6, angle: Math.PI / 4 },
+      }),
+    });
+    this.pantsBannerText.anchor.set(0.5, 0.5);
+    this.pantsBannerText.position.set(CANVAS_WIDTH / 2, CANVAS_HEIGHT * 0.3);
+    this.pantsBannerText.visible = false;
+    app.stage.addChild(this.pantsBannerText);
+
+  }
+
+  /**
+   * ⭐ S193 (owner, Q6) — THE BIG SILLY BANNER, centre screen. Text from `pantsBannerText` (synced state
+   * only); the wobble is render-only, on frames. Below the win overlay, above the board.
+   */
+  private drawPantsBanner(world: World): void {
+    const text = world.gameState === 'PLAYING' ? pantsBannerText(world) : '';
+    if (text === '') {
+      this.pantsBannerText.visible = false;
+      return;
+    }
+    if (this.pantsBannerText.text !== text) this.pantsBannerText.text = text;
+    this.pantsBannerFrame += 1;
+    const f = this.pantsBannerFrame;
+    this.pantsBannerText.rotation = Math.sin(f * 0.21) * 0.06;
+    this.pantsBannerText.scale.set(1 + Math.sin(f * 0.13) * 0.06);
+    this.pantsBannerText.visible = true;
   }
 
   /** S15 P2 — main.ts sets this from netTransport.peerCount() each frame. */
@@ -793,6 +876,7 @@ export class HUD {
     this.drawMultiplayerHUD(world);
     this.drawComboCounter(world);
     this.drawPhaseBanner(world);
+    this.drawPantsBanner(world); // ⭐ S193
     // S150 P1 — LAST of the three, deliberately: it measures the two texts above, so it must run
     // after both have been given this frame's label (and this frame's pulse scale).
     this.drawTopCentrePlate(world);
@@ -988,9 +1072,11 @@ export class HUD {
       this.lastSeenPhase = null;
       return;
     }
-    const cue = formatEndgameCue(world.matchPhase, world.waveNumber); // ⭐ S192
+    const cue = formatEndgameCue(world.matchPhase, world.waveNumber, monstersLeftToComeOut(world)); // ⭐ S192/S193
     this.phaseBannerText.text =
-      formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick, world.waveNumber) +
+      (isMonsterFightHeld(world)
+        ? formatHeldClock(world.waveNumber) // ⭐ S193 — a held deadline would read a frozen 0:10
+        : formatPhaseBanner(world.matchPhase, world.phaseEndsAtTick - world.tick, world.waveNumber)) +
       (cue === '' ? '' : `   ${cue}`);
     this.phaseBannerText.style.fill = world.matchPhase === 'FIGHT' ? 0xffb347 : 0xcfe8ff;
     this.phaseBannerText.visible = true;

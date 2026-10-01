@@ -501,6 +501,7 @@ export function makeWorld(rngSeed: number): World {
     sudokuFiredThisMatch: false,
     waveNumber: 1, // S157 B8 — the opening BUILD is wave 1
     monsterWaveSpawned: 0, // ⭐ S192 — no endgame monster released yet
+    monsterFightStartTick: 0, // ⭐ S193 — no monster fight running
     // S97 P5 — per-type godly guard: no godly type fired yet this match.
     godlyFiredThisMatch: new Set(),
   };
