@@ -94,18 +94,36 @@ function unitOfLive(world: World, t: LiveTower): TowerUnit {
 }
 
 /**
- * PURE — the STAMP GROUP a stamped shape belongs to: every shape of the same blueprint reachable from
- * it through bonds whose OTHER end is also stamped with that blueprint, by the same seat. Ascending.
+ * PURE — the STAMP GROUP a stamped shape belongs to. Ascending.
  *
- * ⚠ SOUND BECAUSE TWO STAMPS CANNOT TOUCH. A bond only ever joins the shape being placed to shapes
- * already there, and FIX re-welds only its own blueprint's edges — so two stamps of one blueprint are
- * never bonded directly, and a weld (`origin === null`) is never walked through. `blueprintGroupOf`
- * still refuses a repeated node index, which is the fail-closed backstop if that ever changes.
+ * ⭐ S192 (audit SHEETS-1) — **THE WHOLE COMPONENT FIRST.** Every shape in the clicked shape's
+ * component stamped with the same blueprint by the same seat and not one of a live same-recipe tower's own, when
+ * no node index repeats among them — so a leaf a weld still holds after its own arm was cut is the
+ * SAME fallen tower as the hub (round 5 walked stamped-to-stamped bonds only, listed it as a second
+ * "DOWN" turret, and its FIX built a whole new turret around it). FIX then re-welds that leaf instead
+ * of minting a new one, priced as the connector it lost (R182-E).
+ *
+ * ⚠ Only when a node index REPEATS (two stamps of one blueprint welded into one structure) does it fall
+ * back to the stamped-bond walk: every shape of the same blueprint reachable through bonds whose OTHER
+ * end is also stamped with it. Sound because a bond only ever joins the shape being placed to shapes
+ * already there and FIX re-welds only its own blueprint's edges, so two stamps are never bonded
+ * directly; `blueprintGroupOf` still refuses a repeated node index as the fail-closed backstop.
  */
 export function stampGroupAt(world: World, primId: PrimitiveId): PrimitiveId[] | null {
   const seed = world.primitives.get(primId);
   if (seed === undefined || seed.origin === null) return null;
   const bp = seed.origin.blueprintId;
+  const owned = new Set<PrimitiveId>();
+  // A slot a live tower of THIS blueprint holds is its, not the fallen one's; a shape a tower of ANOTHER
+  // recipe is also built of (a mummies ring through a turret's hub, W2-4) is still this stamp's node.
+  for (const t of liveTowers(world)) if (t.recipeId === bp) for (const m of liveMembers(world, t)) owned.add(m);
+  const comp = componentOf(seed, world.primitives, world.bonds);
+  const candidates = [...comp.primitiveIds].filter((id) => {
+    const q = world.primitives.get(id);
+    return q !== undefined && q.origin !== null && q.origin.blueprintId === bp && q.placedBy === seed.placedBy && !owned.has(id);
+  }).sort((a, b) => a - b);
+  const nodes = new Set(candidates.map((id) => world.primitives.get(id)!.origin!.nodeIndex));
+  if (candidates.includes(primId) && nodes.size === candidates.length) return candidates;
   const seen = new Set<PrimitiveId>([primId]);
   const queue: PrimitiveId[] = [primId];
   while (queue.length > 0) {
@@ -143,6 +161,17 @@ export function towerUnitAt(world: World, primId: PrimitiveId): TowerUnit | null
   const group = stampGroupAt(world, primId);
   if (group === null) return null;
   const recipeId = world.primitives.get(primId)!.origin!.blueprintId;
+  /*
+   * ⚠ MINE (S192, audit SHEETS-1 P4b / IDENTITY-3) — **A FALLEN TOWER IS A MAJORITY OF ITS STAMP.** Fewer
+   * than half its blueprint's shapes — a lone leaf in a hand-built wall, the stray an un-welded FIX
+   * left loose and a later drop bonded back on, the two leaves a weld held when the hub was razed — is
+   * rubble: a free-form shape (SCRAP, no FIX — master never offered one inside a weld), never a second
+   * "DOWN" tower whose FIX builds a whole new one around a single shape. Two disjoint majorities of one
+   * stamp cannot exist, so one fallen tower can never be listed twice. Two whole stamps welded together
+   * are still two towers.
+   */
+  const bp = blueprintFor(recipeId);
+  if (bp === undefined || group.length * 2 <= bp.nodes.length) return null;
   return { kind: 'stamp', recipeId, members: group };
 }
 

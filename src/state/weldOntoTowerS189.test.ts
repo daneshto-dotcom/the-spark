@@ -68,7 +68,7 @@ import {
   markTowerCover,
 } from '../render/towerCover.ts';
 import { planStructureRepair, planStructureScrap } from './structureRepair.ts';
-import { towerUnitAt, weldedAt } from './towerUnit.ts';
+import { structureTowersAt, towerUnitAt, weldedAt } from './towerUnit.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { damageEntity } from './damage.ts';
 import { nearestEnemySpawnerBond } from '../bots/botBrain.ts';
@@ -2221,5 +2221,95 @@ describe('⭐ S192 IDENTITY-2 — a tower named on a card opens THAT tower, even
     // …and FIX / SCRAP from that card act on that tower: SCRAP takes the six Spirals, never the shared hub.
     const scrap = planStructureScrap(w, P0, (turretRow.target as { primitiveId: PrimitiveId }).primitiveId)!;
     expect([...scrap.memberIds].sort(byId)).toEqual(turretOwn.filter((id) => id !== hubId).sort(byId));
+  });
+});
+
+/** A stamped laser turret with a Triangle dropped (real path) on its art between the hub and leaf L. */
+function turretWithTriangleOnHubAndLeaf(): { w: World; st: HostTickState; hub: Primitive; L: Primitive; tri: Primitive; hubL: BondId } {
+  const w = worldInBuild();
+  const st = makeHostTickState(w);
+  stamp(w, 'laserTurret', { x: 500, y: 300 });
+  tick(w, st, 3);
+  expect(w.defenders.size).toBe(1);
+  const hub = w.primitives.get([...w.defenders.values()][0]!.anchorPrimitiveId)!;
+  const L = w.primitives.get(neighbours(w, hub)[0]!)!;
+  const dx = L.pos.x - hub.pos.x, dy = L.pos.y - hub.pos.y, len = Math.hypot(dx, dy);
+  const tri = placeLikeAPlayer(w, SparkType.Triangle, {
+    x: (hub.pos.x + L.pos.x) / 2 + (-dy / len) * 8, y: (hub.pos.y + L.pos.y) / 2 + (dx / len) * 8,
+  });
+  expect(neighbours(w, tri), 'fixture: the drop bonds the hub AND L').toEqual(expect.arrayContaining([hub.id, L.id]));
+  tick(w, st, PAST_TWO_POLLS);
+  expect(w.defenders.size, 'the welded turret stands').toBe(1);
+  const hubL = [...hub.bonds].find((bid) => { const b = w.bonds.get(bid)!; return b.aId === L.id || b.bId === L.id; })!;
+  return { w, st, hub, L, tri, hubL };
+}
+
+describe('⭐ S192 SHEETS-1 — one fallen tower is ONE fallen tower, and its FIX charges only what it lost', () => {
+  it('the hub–L arm severs while the weld holds L: ONE "DOWN" row; L is that tower; FIX re-welds L (no new shape) and the turret stands', () => {
+    const { w, st, hub, L, tri, hubL } = turretWithTriangleOnHubAndLeaf();
+    w.matchPhase = 'FIGHT';
+    dispatch(w, { type: 'SEVER_BOND', bondId: hubL, playerId: P1, cause: 'chewer' });
+    w.matchPhase = 'BUILD';
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret fell').toBe(0);
+    expect(componentOf(L, w.primitives, w.bonds).primitiveIds.has(hub.id), 'fixture: L is still in the weld').toBe(true);
+    const towers = structureTowersAt(w, tri.id)!.towers;
+    expect(towers.map((t) => [t.kind, t.recipeId]), 'ONE fallen turret, not two').toEqual([['stamp', 'laserTurret']]);
+    expect(towers[0]!.members, 'L is one of its shapes').toContain(L.id);
+    const onL = planStructureRepair(w, P0, L.id)!;
+    const onHub = planStructureRepair(w, P0, hub.id)!;
+    expect(onL.memberIds, 'L and the hub name the same tower').toEqual(onHub.memberIds);
+    expect(onHub.group.missing, 'it lost no SHAPE').toEqual([]);
+    expect(onHub.missingBondCount, 'it lost one connector').toBe(1);
+    expect(onHub.cost, 'one shape (R182-E), not a whole turret').toHaveLength(1);
+    fund(w, onHub.cost);
+    const shapes = w.primitives.size;
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    expect(w.primitives.size, 'no shape minted').toBe(shapes);
+    expect(neighbours(w, hub), 'L re-welded to the hub').toContain(L.id);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size, 'the turret stands again').toBe(1);
+    expect(structureTowersAt(w, tri.id)!.towers.map((t) => t.kind), 'and the weld lists exactly it').toEqual(['live']);
+  });
+
+  it('⚠ MINE — the hub razed, two leaves held by the weld: the remains are rubble (no phantom DOWN rows, no 6-shape FIX)', () => {
+    const { w, st, hub, L, tri } = turretWithTriangleOnHubAndLeaf();
+    const other = neighbours(w, tri).find((id) => id !== hub.id && id !== L.id);
+    razePrimitives(w, [hub.id], undefined, true, true);
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(0);
+    expect(structureTowersAt(w, tri.id)!.towers, 'a minority of a turret is not a fallen turret').toEqual([]);
+    expect(planStructureRepair(w, P0, L.id), 'no FIX builds a whole turret around one leaf inside a weld').toBeNull();
+    if (other !== undefined) expect(planStructureRepair(w, P0, other)).toBeNull();
+    expect(planStructureScrap(w, P0, L.id), 'SCRAP still reclaims it').not.toBeNull();
+  });
+
+  it('⚠ MINE (P4b / IDENTITY-3) — a stray stamped leaf (left loose by an un-welded FIX) welded back on: rubble, never a second turret', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    stamp(w, 'laserTurret', { x: 500, y: 300 });
+    tick(w, st, 3);
+    const hub = w.primitives.get([...w.defenders.values()][0]!.anchorPrimitiveId)!;
+    const arm = [...hub.bonds].sort((a, b) => a - b)[0]!;
+    const b0 = w.bonds.get(arm)!;
+    const stray = w.primitives.get(b0.aId === hub.id ? b0.bId : b0.aId)!;
+    cutBond(w, arm);
+    const fix = planStructureRepair(w, P0, hub.id)!;
+    expect(fix.scope, 'un-welded: the pre-S191 structure FIX').toBe('structure');
+    fund(w, fix.cost);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.defenders.size).toBe(1);
+    expect(stray.origin?.blueprintId, 'fixture: the stray still carries its stamp').toBe('laserTurret');
+    // A hand-built wall onto the stray (P4b): no tower card, no FIX.
+    const wall = mk(w, SparkType.Square, stray.pos.x + 200, stray.pos.y);
+    bond(w, wall, stray);
+    expect(towerUnitAt(w, stray.id), 'one shape of seven is rubble').toBeNull();
+    expect(planStructureRepair(w, P0, stray.id)).toBeNull();
+    // Welded back ONTO the live turret (IDENTITY-3): still rubble; no FIX registers a second turret.
+    bond(w, stray, hub);
+    expect(towerUnitAt(w, stray.id)?.kind ?? null).toBeNull();
+    expect(planStructureRepair(w, P0, stray.id)).toBeNull();
+    expect(structureTowersAt(w, stray.id)!.towers.map((t) => t.kind), 'the weld lists the one live turret').toEqual(['live']);
   });
 });
