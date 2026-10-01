@@ -391,6 +391,18 @@ export function damageAnchor(
   };
 }
 
+/**
+ * ⭐⭐ S192 (owner T12) — **A HEAL IS DRAWN STRAIGHT ABOVE THE UNIT THAT WAS HEALED.** *"every tick of
+ * healing should show above him."* No lean toward the nearest enemy (that is R185-D's rule for a HIT,
+ * which says who RECEIVED the blow; a heal has no attacker to point at) and no sideways fling — only the
+ * lift, so a run of pulses stacks in one column over his head. Applies to EVERY heal (lifesteal, LIFE
+ * SAP, CORPSE EATER, repairs, castle regen). ⚠ Heal placement was never separately ruled; this is his
+ * T12 sentence read for all heals, MINE where it widens past the zombie boss. Pure, render-only.
+ */
+export function healAnchor(vx: number, vy: number): { x: number; y: number } {
+  return { x: vx, y: vy - LIFT_PX };
+}
+
 /** Exported for the tests that pin the owner's placement ruling. */
 export const DAMAGE_TOWARD_ATTACKER = TOWARD_ATTACKER;
 export const DAMAGE_LIFT_PX = LIFT_PX;
@@ -817,7 +829,7 @@ export class DamageNumbers {
     world: World, x: number, y: number, amount: number, kind: FloaterKind, owner: PlayerId,
   ): void {
     if (amount <= 0) return;
-    this.place(damageAnchor(world, null, x, y, owner), amount, kind);
+    this.place(kind === 'heal' ? healAnchor(x, y) : damageAnchor(world, null, x, y, owner), amount, kind);
   }
 
   private emit(
@@ -830,7 +842,8 @@ export class DamageNumbers {
     owner: PlayerId,
   ): void {
     if (amount <= 0) return;
-    this.place(damageAnchor(world, victim, vx, vy, owner), amount, kind);
+    // ⭐ S192 T12 — a heal sits straight above the healed unit (`healAnchor`); a hit keeps R185-D.
+    this.place(kind === 'heal' ? healAnchor(vx, vy) : damageAnchor(world, victim, vx, vy, owner), amount, kind);
   }
 
   /**
@@ -853,7 +866,9 @@ export class DamageNumbers {
     t.anchor.set(0.5);
     t.visible = true;
     this.flip = -this.flip;
-    this.live.push({ text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift: this.flip * DRIFT_PX });
+    // ⭐ S192 T12 — a heal rises straight up (no fling), so his pulses read as one column above him.
+    const drift = kind === 'heal' ? 0 : this.flip * DRIFT_PX;
+    this.live.push({ text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift });
     this.layer.addChild(t);
     if (this.live.length > MAX_LIVE) this.retire(0);
   }

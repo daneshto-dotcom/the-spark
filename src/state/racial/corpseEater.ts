@@ -244,8 +244,10 @@ function maybeTrigger(world: World, boss: Creature): void {
  * `attackFifths(atk, pen)` — the bite rides the ordinary strike reducer, so the heal follows it.
  * "Overkill included" is the brief's reading of *"for as much as he attacks that's as much as he
  * heals"*: a bite that fells a 28-fifth
- * scarab still heals the full swing. A bite the reducer REFUSED (out of reach, lost the initiative
- * roll) removed nothing and heals nothing.
+ * scarab still heals the full swing. A bite the reducer REFUSED (out of reach) removed nothing and
+ * heals nothing. ⭐ S192 (T12): a feed bite no longer loses the S156 P4 initiative roll
+ * (`creatureAttack.ts`), and its heal is BANKED and paid over the next cycle in six green pulses
+ * (`payCorpseEaterHealPulse`) — *"he's healing over time … every tick of healing should show above him"*.
  */
 function bite(world: World, boss: Creature, victimId: CreatureId): void {
   const victim = world.creatures.get(victimId);
@@ -258,11 +260,73 @@ function bite(world: World, boss: Creature, victimId: CreatureId): void {
   // that window, i.e. only when a test calls this directly) lost the ordinary hit.
   // ⭐ S190 — the fallback is his OWN strike: the number the reducer's creature arm strikes with.
   const lost = after === undefined ? creatureAttackFifths(boss) : Math.max(0, before - after.ehp);
-  if (lost <= 0) return; // the reducer refused (out of reach, lost the initiative roll) — no bite, no heal
+  if (lost <= 0) return; // the reducer refused (out of reach) — no bite, no heal
   const heal = Math.floor((lost * CORPSE_EATER_HEAL_PCT) / 100);
+  bankCorpseEaterHeal(world, boss, heal);
+}
+
+/**
+ * ⚠ MINE (S192 T12) — **HOW MANY GREEN PULSES ONE BITE'S HEAL IS PAID IN, AND HOW FAR APART.** His words
+ * are the shape, not the numbers: *"It should show that he's healing over time … every tick of healing
+ * should show above him."* Six pulses ten ticks apart is exactly one of his bite cycles
+ * (`attackCadenceTicks` 60, pinned by the test file), so a bite's heal has finished landing by the time
+ * the next bite banks the next one. Ten ticks is also above the joiner's 10 Hz snapshot spacing (6
+ * ticks), so two pulses never merge into one number on a peer. Overrule on sight.
+ */
+export const CORPSE_EATER_HEAL_PULSES = 6;
+export const CORPSE_EATER_HEAL_PULSE_TICKS = 10;
+
+/**
+ * ⭐ S192 (T12) — bank one bite's heal. A bite landing while the last one is still paying adds to what
+ * is owed and RESTARTS the six-pulse schedule from this tick, so the owed total is paid exactly and
+ * nothing is ever lost to the overlap. Exported for the test file.
+ */
+export function bankCorpseEaterHeal(world: World, boss: Creature, heal: number): void {
+  if (heal <= 0) return;
+  const owed = boss.corpseEaterHealBank?.fifths ?? 0;
+  boss.corpseEaterHealBank = {
+    fifths: owed + heal,
+    untilTick: world.tick + CORPSE_EATER_HEAL_PULSES * CORPSE_EATER_HEAL_PULSE_TICKS,
+  };
+}
+
+/**
+ * ⭐⭐ S192 (T12) — **PAY ONE PULSE OF THE BANKED HEAL, IF ONE IS DUE THIS TICK.**
+ *
+ * Pulses land at `untilTick − 50, −40, … , untilTick` (six, ten ticks apart). Each pays
+ * `floor(owed / pulsesLeft)`, so the last pulse takes the remainder and the six always sum to EXACTLY
+ * the bank — 104 pays 17, 17, 17, 17, 18, 18. Integers only, no float, no RNG, keyed on `world.tick`.
+ * Every pulse is capped at his own max (no overheal; a capped pulse still drains the bank, as the old
+ * one-shot heal discarded its excess) and goes through `noteCreatureHeal`, so each one is its own
+ * green number on the host and on a joiner.
+ *
+ * ⚠ MINE, each stated: a STUN does not stop the payout (healing is not an action, the R152 split the
+ * release makes too); a corpse-in-waiting is paid nothing (the sweep removes him); and a bank whose
+ * schedule ran out unpaid — only possible when the FIGHT ended mid-schedule, since this slot is
+ * FIGHT-gated and BUILD (5400 ticks) outlasts it — is FORFEITED, never paid into the next fight. That
+ * is the "cut short, nothing carried over" rule the feed window itself follows (audit F5).
+ *
+ * Exported for the test file.
+ */
+export function payCorpseEaterHealPulse(world: World, boss: Creature): void {
+  const bank = boss.corpseEaterHealBank;
+  if (bank === undefined) return;
+  if (boss.ehp <= 0 || world.pendingCreatureDeaths?.has(boss.id) === true) return;
+  const left = bank.untilTick - world.tick;
+  if (left < 0) {
+    delete boss.corpseEaterHealBank; // the whistle cut it short — forfeited (see above)
+    return;
+  }
+  if (left >= CORPSE_EATER_HEAL_PULSES * CORPSE_EATER_HEAL_PULSE_TICKS) return; // the bite's own tick
+  if (left % CORPSE_EATER_HEAL_PULSE_TICKS !== 0) return;
+  const pulsesLeft = left / CORPSE_EATER_HEAL_PULSE_TICKS + 1;
+  const pay = pulsesLeft === 1 ? bank.fifths : Math.floor(bank.fifths / pulsesLeft);
   const ehpBefore = boss.ehp; // S189 R190-I
-  boss.ehp = Math.min(creatureMaxEhp(boss), boss.ehp + heal);
-  noteCreatureHeal(boss, ehpBefore); // S189 R190-I — the green floater
+  boss.ehp = Math.min(creatureMaxEhp(boss), boss.ehp + pay);
+  noteCreatureHeal(boss, ehpBefore); // S189 R190-I — one green floater per pulse
+  const owed = bank.fifths - pay;
+  if (pulsesLeft === 1 || owed <= 0) delete boss.corpseEaterHealBank;
+  else boss.corpseEaterHealBank = { fifths: owed, untilTick: bank.untilTick };
 }
 
 /** One feeding tick for one unstunned, living boss. */
@@ -362,6 +426,9 @@ export function runCorpseEater(world: World): void {
   for (const id of liveIdsOfType(world, T9_BOSS_TYPE.zombies)) {
     const boss = world.creatures.get(id);
     if (boss === undefined) continue;
+    // ⭐ S192 (T12) — the banked heal pays BEFORE this tick's bite, so a bite landing on a pulse tick
+    // banks into a fresh schedule after the old one's last pulse has paid out.
+    payCorpseEaterHealPulse(world, boss);
     maybeTrigger(world, boss);
     if (!isCorpseEaterFeeding(boss, world.tick)) continue;
     if (

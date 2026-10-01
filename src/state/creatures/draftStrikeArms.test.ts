@@ -312,14 +312,18 @@ describe('⛔ the heals that are a share of the strike follow the BUFFED strike'
       w.creatures.set(food.id, food);
       const before = boss.ehp;
       // corpseEater.test.ts's slot harness: one feed call per emulated strike batch, clock advancing.
-      for (let i = 0; i <= getCreatureConfig(BOSS).attackFireTick; i++) {
+      const slot = (): void => {
         w.pendingCreatureDeaths = new Set();
         runCorpseEater(w);
         for (const id of w.pendingCreatureDeaths) w.creatures.delete(id);
         w.pendingCreatureDeaths = null;
         w.tick++;
-      }
-      return { bite: DEEP - food.ehp, healed: boss.ehp - before };
+      };
+      for (let i = 0; i <= getCreatureConfig(BOSS).attackFireTick; i++) slot();
+      const bite = DEEP - food.ehp;
+      // ⭐ S192 T12 — the heal lands over the next cycle in six pulses; measured once they have all paid.
+      for (let i = 0; i < getCreatureConfig(BOSS).attackCadenceTicks; i++) slot();
+      return { bite, healed: boss.ehp - before };
     };
     const drafted = run(['hp', 'racial', 'atk']);
     expect(drafted.bite, 'one bite, his OWN drafted strike').toBe(draftedStrike(BOSS));

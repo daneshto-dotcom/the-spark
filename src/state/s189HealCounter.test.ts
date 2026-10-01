@@ -117,7 +117,9 @@ describe('⭐ S189 R190-I — every heal site writes the counter, exactly what l
     food.ehp = 1000;
     const before = boss.ehp;
     const bite = attackFifths(getCreatureConfig('t9BossZombies').atk, getCreatureConfig('t9BossZombies').pen);
-    for (let i = 0; i <= getCreatureConfig('t9BossZombies').attackFireTick; i++) {
+    // ⭐ S192 T12 — the bite, then its six heal pulses across the next cycle (the next bite banks, unpaid).
+    const cfg = getCreatureConfig('t9BossZombies');
+    for (let i = 0; i <= cfg.attackFireTick + cfg.attackCadenceTicks; i++) {
       w.pendingCreatureDeaths = new Set();
       runCorpseEater(w);
       for (const id of w.pendingCreatureDeaths) w.creatures.delete(id);
