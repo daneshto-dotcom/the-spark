@@ -22,10 +22,19 @@ import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS } from '../cons
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_COLORS,
+  BOT_PERSONALITY_CHOICES,
+  BOT_PERSONALITY_COLORS,
+  BOT_PERSONALITY_TAGLINES,
   type BotDifficulty,
+  type BotPersonalityChoice,
 } from '../bots/botTypes.ts';
 
-const PANEL_W = 640;
+// ⭐ S193 — widened 640 → 860 for the third chip (personality) between race and difficulty.
+const PANEL_W = 860;
+/** Row-relative centres of the three chips, right to left: difficulty, personality, race. */
+const DIFF_X = PANEL_W / 2 - 110;
+const PERSONA_X = PANEL_W / 2 - 300;
+const RACE_X = PANEL_W / 2 - 500;
 const ROW_H = 56;
 const ROW_GAP = 10;
 
@@ -39,7 +48,15 @@ export interface BotSetupCallbacks {
    * (index 0 = the HUMAN, index i+1 = bot i), so `races.length === difficulties.length + 1`. The
    * seat-indexed shape is the one `applyStartGame` wants, since it builds a roster over seats.
    */
-  onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[]): void;
+  onStart(
+    difficulties: readonly BotDifficulty[],
+    races: readonly RaceId[],
+    /**
+     * ⭐ S193 (owner R193-AI) — one personality choice per BOT, indexed like `difficulties`. RANDOM is
+     * passed through unresolved; the BotManager resolves it from the match seed.
+     */
+    personalities: readonly BotPersonalityChoice[],
+  ): void;
   onClose(): void;
 }
 
@@ -50,6 +67,8 @@ export interface BotSetupUiPoints {
   readonly start: { x: number; y: number };
   readonly close: { x: number; y: number };
   readonly difficulty: ReadonlyArray<{ x: number; y: number }>;
+  /** ⭐ S193 — the personality chip centres, one per active bot. */
+  readonly personality: ReadonlyArray<{ x: number; y: number }>;
 }
 
 export class BotSetupOverlay {
@@ -58,6 +77,10 @@ export class BotSetupOverlay {
   private visible = false;
   private botCount = 3;
   private readonly difficulties: BotDifficulty[];
+  /** ⭐ S193 — per BOT; default BALANCED, so an untouched lobby fields today's bot. */
+  private readonly personalities: BotPersonalityChoice[] =
+    Array.from({ length: MAX_BOTS }, () => 'BALANCED' as BotPersonalityChoice);
+  private personalityCenters: Array<{ x: number; y: number }> = [];
   private readonly rowsHost: Container;
   private readonly countText: Text;
   private readonly callbacks: BotSetupCallbacks;
@@ -74,7 +97,7 @@ export class BotSetupOverlay {
   private readonly racePicker: RacePickerHandle;
   /** Which SEAT's row opened the picker, so the pick lands on the right row. */
   private pickingSeat = 0;
-  private uiPoints: Omit<BotSetupUiPoints, 'difficulty'> | null = null;
+  private uiPoints: Omit<BotSetupUiPoints, 'difficulty' | 'personality'> | null = null;
 
   constructor(app: Application, callbacks: BotSetupCallbacks) {
     this.app = app;
@@ -150,7 +173,11 @@ export class BotSetupOverlay {
     // ── START + close ────────────────────────────────────────────────────
     const startY = CANVAS_HEIGHT - 140;
     const start = this.makeWideButton('START MATCH', CANVAS_WIDTH / 2, startY, () => {
-      this.callbacks.onStart(this.difficulties.slice(0, this.botCount), this.races.slice(0, this.botCount + 1));
+      this.callbacks.onStart(
+        this.difficulties.slice(0, this.botCount),
+        this.races.slice(0, this.botCount + 1),
+        this.personalities.slice(0, this.botCount),
+      );
     });
     this.container.addChild(start);
 
@@ -179,12 +206,14 @@ export class BotSetupOverlay {
         close: { x: close.position.x, y: close.position.y },
       };
       this.getUiPoints = () => ({
-        ...(this.uiPoints as Omit<BotSetupUiPoints, 'difficulty'>),
+        ...(this.uiPoints as Omit<BotSetupUiPoints, 'difficulty' | 'personality'>),
         difficulty: this.difficultyCenters.map((p) => ({ ...p })),
+        personality: this.personalityCenters.map((p) => ({ ...p })),
       });
       this.getState = () => ({
         botCount: this.botCount,
         difficulties: this.difficulties.slice(0, this.botCount),
+        personalities: this.personalities.slice(0, this.botCount),
       });
     }
 
@@ -200,7 +229,11 @@ export class BotSetupOverlay {
   /** S87 — e2e geometry getter (DEV-only; live-container reads). */
   getUiPoints?: () => BotSetupUiPoints;
   /** S87 — e2e state probe (DEV-only). */
-  getState?: () => { botCount: number; difficulties: readonly BotDifficulty[] };
+  getState?: () => {
+    botCount: number;
+    difficulties: readonly BotDifficulty[];
+    personalities: readonly BotPersonalityChoice[];
+  };
 
   setVisible(visible: boolean): void {
     // ⭐ S162 P3 (MED-3) — the picker mounts inside this container; without this it stayed flagged
@@ -265,6 +298,7 @@ export class BotSetupOverlay {
     this.countText.text = `${this.botCount} BOT${this.botCount > 1 ? 'S' : ''}`;
     this.rowsHost.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.difficultyCenters = [];
+    this.personalityCenters = [];
     const top = 300;
 
     /*
@@ -297,7 +331,7 @@ export class BotSetupOverlay {
     youLabel.anchor.set(0, 0.5);
     youLabel.position.set(-PANEL_W / 2 + 64, ROW_H / 2);
     youRow.addChild(youLabel);
-    youRow.addChild(this.makeRaceButton(0, PANEL_W / 2 - 300));
+    youRow.addChild(this.makeRaceButton(0, RACE_X));
     this.rowsHost.addChild(youRow);
 
     for (let i = 0; i < this.botCount; i++) {
@@ -329,12 +363,21 @@ export class BotSetupOverlay {
         }),
       });
       label.anchor.set(0, 0.5);
-      label.position.set(-PANEL_W / 2 + 64, ROW_H / 2);
+      label.position.set(-PANEL_W / 2 + 64, ROW_H / 2 - 8);
       row.addChild(label);
+
+      // ⭐ S193 — the personality's one-line identity under the bot's name (read at a glance).
+      const tagline = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0x888888 }),
+      });
+      tagline.anchor.set(0, 0.5);
+      tagline.position.set(-PANEL_W / 2 + 64, ROW_H / 2 + 13);
+      row.addChild(tagline);
 
       // Difficulty cycler button.
       const diffBtn = new Container();
-      diffBtn.position.set(PANEL_W / 2 - 110, ROW_H / 2);
+      diffBtn.position.set(DIFF_X, ROW_H / 2);
       const diffBg = new Graphics();
       const diffText = new Text({
         text: '',
@@ -347,6 +390,45 @@ export class BotSetupOverlay {
       });
       diffText.anchor.set(0.5);
       diffBtn.addChild(diffBg, diffText);
+
+      /*
+       * ⭐ S193 (owner R193-AI) — the PERSONALITY chip: click to cycle BALANCED, WARMONGER, FORTRESS,
+       * TYCOON, SABOTEUR, RANDOM. ⛔ GREYED AND INERT ON A NOOB ROW (Council S193, Gemini M3): a NOOB
+       * builds no towers and cannot raid, so a personality there would be a fake choice, and the brain
+       * resolves every NOOB to BALANCED. The pick is KEPT, so cycling the difficulty up restores it.
+       */
+      const personaBtn = new Container();
+      personaBtn.position.set(PERSONA_X, ROW_H / 2);
+      const personaBg = new Graphics();
+      const personaText = new Text({
+        text: '',
+        style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold', fill: 0xffffff }),
+      });
+      personaText.anchor.set(0.5);
+      personaBtn.addChild(personaBg, personaText);
+      const paintPersona = (): void => {
+        const pick = this.personalities[i];
+        const locked = this.difficulties[i] === 'NOOB';
+        const col = locked ? 0x555555 : BOT_PERSONALITY_COLORS[pick];
+        personaBg.clear();
+        personaBg.roundRect(-90, -18, 180, 36, 6)
+          .fill({ color: 0x0a0a0a, alpha: 0.9 })
+          .stroke({ width: 2, color: col, alpha: 0.9 });
+        personaText.text = locked ? 'BALANCED' : pick;
+        personaText.style.fill = col;
+        personaBtn.cursor = locked ? 'default' : 'pointer';
+        tagline.text = locked ? 'personality unlocks at MID' : BOT_PERSONALITY_TAGLINES[pick];
+      };
+      personaBtn.eventMode = 'static';
+      personaBtn.on('pointertap', () => {
+        if (this.difficulties[i] === 'NOOB') return;
+        const cur = BOT_PERSONALITY_CHOICES.indexOf(this.personalities[i]);
+        this.personalities[i] = BOT_PERSONALITY_CHOICES[(cur + 1) % BOT_PERSONALITY_CHOICES.length];
+        paintPersona();
+      });
+      row.addChild(personaBtn);
+      this.personalityCenters.push({ x: CANVAS_WIDTH / 2 + PERSONA_X, y: y + ROW_H / 2 });
+
       const paint = (): void => {
         const d = this.difficulties[i];
         const col = BOT_DIFFICULTY_COLORS[d];
@@ -358,18 +440,20 @@ export class BotSetupOverlay {
         diffText.style.fill = col;
       };
       paint();
+      paintPersona();
       diffBtn.eventMode = 'static';
       diffBtn.cursor = 'pointer';
       diffBtn.on('pointertap', () => {
         const cur = BOT_DIFFICULTIES.indexOf(this.difficulties[i]);
         this.difficulties[i] = BOT_DIFFICULTIES[(cur + 1) % BOT_DIFFICULTIES.length];
         paint();
+        paintPersona(); // S193 — the NOOB lock follows the difficulty
       });
       row.addChild(diffBtn);
-      row.addChild(this.makeRaceButton(i + 1, PANEL_W / 2 - 300));
+      row.addChild(this.makeRaceButton(i + 1, RACE_X));
 
       this.difficultyCenters.push({
-        x: CANVAS_WIDTH / 2 + PANEL_W / 2 - 110,
+        x: CANVAS_WIDTH / 2 + DIFF_X,
         y: y + ROW_H / 2,
       });
       this.rowsHost.addChild(row);
