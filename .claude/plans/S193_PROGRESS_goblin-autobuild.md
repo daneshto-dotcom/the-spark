@@ -13,4 +13,4 @@ Branch `s193/goblin-autobuild`, worktree `.claude/worktrees/s193-goblin-autobuil
 - [ ] gates + final report
 
 ## NEXT STEP (WIP commit 1)
-Sim + UI landed; sim tests (28) green incl host-vs-worker + mutation-verified guard. Next: Controls REACH test with the real CharacterSheet (src/input/goblinAutoFeed.controls.test.ts), then full gates.
+All code + tests landed (sim 28 + controls 11, both mutation-verified). Next: full gates (typecheck, vitest --maxWorkers=3, build), then final report.
