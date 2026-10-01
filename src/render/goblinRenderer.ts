@@ -38,7 +38,7 @@ import { syncCreatureProjectiles } from './creatureProjectile.ts';
 import { GOBLIN_LIFT, GROUND_RX, GROUND_RY, drawGroundMarker } from './creatureLift.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 // S169 R152 — the STUN read, for the idle-pose override and the derived "seeing stars".
-import { isStunned, rageMultiplier, type Creature } from '../state/creatures/creature.ts';
+import { isCorpseEaterFeeding, isStunned, rageMultiplier, type Creature } from '../state/creatures/creature.ts';
 // S188 CORPSE EATER — the eat loop, derived per frame from the synced feed deadline.
 import { corpseEaterElapsed, corpseEaterFrame, showsCorpseEaterFeed } from './corpseEaterFrames.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
@@ -51,7 +51,15 @@ import { drawBossAuras } from './bossAuras.ts';
 import { drawLocustClouds } from './locustCloud.ts';
 import { drawHealthBars } from './healthBar.ts';
 import { isConcealed } from './concealment.ts';
-import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
+import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from '../state/races.ts';
+// ⭐ S193 visuals-3 — the racial perks, lit (`fx/perkFx.ts`). Render-only, derived from synced state.
+import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
+import { fxHash, fxSeed } from './fx/emitter.ts';
+import {
+  corpseFeedFx, corpseFeedIntensity, eliteGlowFx, LIFESTEAL_FX_FRAMES, lifestealFx, rageFx,
+} from './fx/perkFx.ts';
+import { CORPSE_EATER_LEASH_RADIUS, CORPSE_EATER_TICKS } from '../state/racial/corpseEater.ts';
+import { lifestealPctFor } from '../state/racial/lifesteal.ts';
 // S166 — tier-3 atlas paths, from the side-effect-free leaf.
 import { RACE_TOWER_UNIT, t3UnitAtlasBase } from '../state/raceTowerIds.ts';
 // S167 — the tier-9 leaf, same side-effect-free contract.
@@ -445,6 +453,38 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
   'direwolf',
 ]);
 
+/** ⭐ S193 V11 — at most this many lifesteal bursts live at once (≤ 13 sprites each). ⚠ MINE. */
+export const LIFESTEAL_FX_MAX_BURSTS = 48;
+
+/**
+ * ⭐ S193 V11 — PURE: where a lifesteal burst's motes come FROM. The nearest enemy creature within the
+ * drinker's reach + 30 px — a total order, squared distance then id — or, when there is none (a hit on
+ * a building, a castle or Helga), a point 34 px beside the drinker at an angle hashed from its id and
+ * its synced heal counter. Never `Map` order, never a clock.
+ */
+export function lifestealSource(
+  world: Pick<World, 'creatures'>,
+  c: Pick<Creature, 'id' | 'type' | 'pos' | 'ownerPlayerId' | 'healedFifths'>,
+): { x: number; y: number } {
+  const reach = getCreatureConfig(c.type).attackRange + 30;
+  const r2 = reach * reach;
+  let best: { x: number; y: number } | null = null;
+  let bestD = Infinity;
+  let bestId = Infinity;
+  for (const o of world.creatures.values()) {
+    if (o.ownerPlayerId === c.ownerPlayerId || o.ehp <= 0) continue;
+    const dx = o.pos.x - c.pos.x;
+    const dy = o.pos.y - c.pos.y;
+    const d = dx * dx + dy * dy;
+    if (d > r2) continue;
+    const oid = o.id as number;
+    if (d < bestD || (d === bestD && oid < bestId)) { bestD = d; bestId = oid; best = { x: o.pos.x, y: o.pos.y - 10 }; }
+  }
+  if (best !== null) return best;
+  const a = fxHash(c.id as number, c.healedFifths ?? 0, 0x1fe) * Math.PI * 2;
+  return { x: c.pos.x + Math.cos(a) * 34, y: c.pos.y + Math.sin(a) * 20 - 10 };
+}
+
 /** Where a race's unit atlas pair lives, WITHOUT the `-atlas.png` / `-anim.json` suffix. */
 const RACE_UNIT_ATLAS_BASE = (race: RaceId): string => `/art/race-units/unit-${race}`;
 
@@ -603,6 +643,10 @@ export class GoblinRenderer {
   private readonly typeLoadStarted: Set<CreatureType> = new Set();
   /** S188 — the corpse-eater feed sheet's load latch. */
   private feedLoadStarted = false;
+  /** ⭐ S193 V11 — `Creature.healedFifths` as last seen, to see each lifesteal heal RISE (render-local). */
+  private readonly healSeen: Map<CreatureId, number> = new Map();
+  /** ⭐ S193 V11 — live lifesteal bursts. `age` counts render frames (smooth on a 10 Hz joiner). */
+  private lifestealBursts: Array<{ id: CreatureId; sx: number; sy: number; tx: number; ty: number; age: number; heal: number; seed: number }> = [];
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -1009,6 +1053,82 @@ export class GoblinRenderer {
   }
 
   /** Release a sprite when a kind falls back to the puppet, so the two can never both draw. */
+  /**
+   * ⭐ S193 visuals-3 (`S192_VISUALS_PLAN.md` V14 / V18 / V21) — the per-unit perk light, read off synced
+   * state each frame:
+   *   · V14 RAGE — `Creature.enraged` ALONE (synced), the gate the red tint already uses, never `type`:
+   *     a Warlord by his own clock and the orc units BLOOD FRENZY raises. Goblins never rage (S187), and
+   *     this reads the sim's verdict rather than restating it, so it cannot disagree with it.
+   *   · V18 CORPSE EATER — `showsCorpseEaterFeed` (the predicate the feed rows draw on) and the synced
+   *     `corpseEaterUntilTick`: the stream swells in, runs and dies out with the window.
+   *   · V21 ELITE — THE SWARM's bat swarm and APEX PREDATOR's piranha, by TYPE (the type IS the
+   *     promotion), glowing in their owner's race colour.
+   */
+  private drawPerkFx(world: World, c: Creature, lift: number): void {
+    const id = c.id as number;
+    const scale = creatureSpriteScaleMul(c.type);
+    if (c.enraged === true) rageFx(fxGround(), fxTop(), c.pos.x, c.pos.y, world.tick, id, scale);
+    if (c.type === 't3BatSwarm' || c.type === 't3PiranhaElite') {
+      const pl = world.players.get(c.ownerPlayerId);
+      const race: RaceId = pl !== undefined && isRaceId(pl.raceId) ? pl.raceId : defaultRaceForSeat(c.ownerPlayerId as unknown as number);
+      eliteGlowFx(fxGround(), c.pos.x, c.pos.y, RACE_COLORS[race], scale, world.tick, id);
+    }
+    if (c.type === T9_BOSS_TYPE.zombies && showsCorpseEaterFeed(c, world)) {
+      const elapsed = corpseEaterElapsed(c.corpseEaterUntilTick as number, world.tick);
+      const sp = this.sprites.get(c.id);
+      const mouthY = c.pos.y - lift - (sp !== undefined ? sp.height * 0.38 : 30 * scale);
+      corpseFeedFx(fxTop(), c.pos.x, c.pos.y, mouthY, CORPSE_EATER_LEASH_RADIUS + 14, world.tick, id,
+        corpseFeedIntensity(elapsed, CORPSE_EATER_TICKS));
+    }
+  }
+
+  /**
+   * ⭐ S193 V11 — **BLOOD DEBT / CRIMSON TIDE: THE LIFE YOU CAN SEE GO IN.** Before this a lifesteal heal
+   * was a green number and nothing else.
+   *
+   * DERIVED from the rise in the synced `Creature.healedFifths` (S189 R190-I — the counter the green
+   * number already reads; no new field), on a creature whose seat carries a lifesteal rate
+   * (`lifestealPctFor`, the sim's own predicate). Two other heals raise the same counter and draw their
+   * own picture, so they are skipped: Vlad's siphon (`sapFlashUntilTick` live) and CORPSE EATER's feed.
+   *
+   * ⚠ THE VICTIM IS RESOLVED HERE, because `targetCreatureId` never rides the wire: `lifestealSource`.
+   * The seed is the creature id and its new `healedFifths` — both synced — so every screen throws the
+   * same arcs; only the start can differ by a snapshot, as every rise-watch here (`damageNumbers`) does.
+   */
+  private syncLifestealFx(world: World): void {
+    const on = fxActive();
+    for (const c of world.creatures.values()) {
+      const hf = c.healedFifths ?? 0;
+      const prev = this.healSeen.get(c.id);
+      this.healSeen.set(c.id, hf);
+      if (!on || prev === undefined || hf <= prev) continue; // first sighting is not a heal
+      if (lifestealPctFor(world.players.get(c.ownerPlayerId)) === 0) continue;
+      if ((c.sapFlashUntilTick ?? -1) > world.tick) continue; // Vlad's siphon draws its own
+      if (isCorpseEaterFeeding(c, world.tick)) continue; // so does the feed (V18)
+      if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
+      if (this.lifestealBursts.length >= LIFESTEAL_FX_MAX_BURSTS) continue;
+      const src = lifestealSource(world, c);
+      const seed = fxSeed(c.id as number, hf);
+      this.lifestealBursts.push({ id: c.id, sx: src.x, sy: src.y, tx: c.pos.x, ty: c.pos.y, age: 0, heal: hf - prev, seed });
+    }
+    if (this.healSeen.size > world.creatures.size) {
+      for (const id of this.healSeen.keys()) if (!world.creatures.has(id)) this.healSeen.delete(id);
+    }
+    if (this.lifestealBursts.length === 0) return;
+    const top = fxTop();
+    for (const b of this.lifestealBursts) {
+      const c = world.creatures.get(b.id);
+      if (c !== undefined) {
+        const lift = GOBLIN_LIFT[c.type] ?? 0;
+        b.tx = c.pos.x;
+        b.ty = c.pos.y - lift - 14 * creatureSpriteScaleMul(c.type);
+      }
+      if (on) lifestealFx(top, b.sx, b.sy, b.tx, b.ty, b.age, b.heal, b.seed);
+      b.age++;
+    }
+    this.lifestealBursts = this.lifestealBursts.filter((b) => b.age < LIFESTEAL_FX_FRAMES);
+  }
+
   private dropSprite(id: CreatureId): void {
     const sp = this.sprites.get(id);
     if (sp !== undefined) { sp.destroy(); this.sprites.delete(id); }
@@ -1255,11 +1375,16 @@ export class GoblinRenderer {
         // The puppet is drawn unscaled, so the stars are too — scaleMul defaults to 1.
         if (isStunned(c, world.tick)) drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), alpha);
       }
+      // ⭐ S193 visuals-3 — V14 rage, V18 corpse eater, V21 elite under-glow. Render-only.
+      if (fxActive()) this.drawPerkFx(world, c, GOBLIN_LIFT[c.type] ?? 0);
       // ⭐ S171 (owner R171-E) — the per-HP pips that used to draw here are GONE, replaced by
       // `render/healthBar.ts`, which draws for EVERY creature (these pips reached 20 of 23
       // types), stays visible at FULL health (they hid, which was his actual complaint) and
       // scales to the sprite (they were goblin-tuned, so on a boss they sat inside its chest).
     }
+
+    // ⭐ S193 V11 — BLOOD DEBT / CRIMSON TIDE: every creature type, so it walks the world itself.
+    this.syncLifestealFx(world);
 
     // Sprites for goblins that died this frame must go with them, or they freeze mid-swing forever.
     /*
