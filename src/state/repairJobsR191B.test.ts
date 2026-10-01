@@ -27,7 +27,10 @@ import { damageEntity } from './damage.ts';
 import { castleAnchor, makeGatherer, type Gatherer } from './gatherers/gatherer.ts';
 import { makeFreeSpark } from '../game/spark.ts';
 import { planStructureRepair } from './structureRepair.ts';
-import { fixAllTargets, REPAIR_JOBS_MAX_PER_SEAT } from './repairJobs.ts';
+import { fixAllTargets, REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT, tickRepairJobs } from './repairJobs.ts';
+import { applyRepairStructure } from './structureRepair.ts';
+import { structureActionModel } from '../render/structurePanel.ts';
+import { castleControlsModel } from '../render/castlePanel.ts';
 import { determinismParts, hashWorldStateFull } from './stateHashFull.ts';
 import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
 import { isClientIntentAllowed } from '../net/protocol.ts';
@@ -512,5 +515,85 @@ describe('⭐ S193 — the wire and the gates', () => {
     expect(hashWorldStateFull(w)).not.toBe(h3);
     w.nextRepairJobId += 1;
     expect(hashWorldStateFull(w)).not.toBe(h3);
+  });
+});
+
+describe('⛔ S193 audit fix round — the LOWs', () => {
+  it('an ELIMINATED seat’s jobs end, and everything they held goes back to the bank', () => {
+    const { w, st, hub, leaf } = board();
+    breakTurret(w, st, leaf);
+    const g = hire(w, door(w));
+    w.castleBanks.get(P0)![SparkType.Spiral as number] = 1;
+    fix(w, hub);
+    tickUntil(w, st, () => g.repairTask?.carrying === true);
+    expect(spirals(w)).toBe(0);
+    w.players.get(P0)!.castleHp = 0; // R127: the castle fell — the seat is out
+    // ⚠ The pass itself, not the host tick: in a 1v1 the fall ENDS the match and the teardown would clear
+    // the queue for its own reason, which is not what this pins (a 3+ seat match goes on without him).
+    tickRepairJobs(w);
+    expect(w.repairJobs, 'the job ended').toHaveLength(0);
+    expect(g.repairTask).toBeNull();
+    expect(spirals(w), 'the shape in hand came home').toBe(1);
+  });
+
+  it('negative: a LIVING seat’s job is not cancelled by the same pass', () => {
+    const { w, st, hub, leaf } = board();
+    breakTurret(w, st, leaf);
+    hire(w, door(w));
+    fix(w, hub);
+    tick(w, st, 3 * REPAIR_JOB_REPLAN_TICKS);
+    expect(w.repairJobs, 'no source, still waiting — never dropped').toHaveLength(1);
+  });
+
+  it('QUEUE FULL — at the bound the card FIX and the FIX ALL row say so and stay disabled; one under, they act', () => {
+    const { w, st, hub, leaf } = board();
+    breakTurret(w, st, leaf);
+    hire(w, door(w));
+    const filler = (n: number) => {
+      w.repairJobs = [];
+      for (let i = 0; i < n; i++) {
+        w.repairJobs.push({ id: 100 + i, seat: P0, targetId: (90_000 + i) as PrimitiveId, memberIds: [(90_000 + i) as PrimitiveId], need: [SparkType.Dot], delivered: [] });
+      }
+    };
+    filler(REPAIR_JOBS_MAX_PER_SEAT);
+    const card = structureActionModel(w, P0, hub)!.buttons.find((b) => b.kind === 'FIX')!;
+    expect(card).toMatchObject({ enabled: false, caption: 'QUEUE FULL' });
+    expect(castleControlsModel(w).find((r) => r.key === 'fixAll')).toMatchObject({ enabled: false, reason: 'QUEUE FULL' });
+    fix(w, hub);
+    expect(w.repairJobs, 'the reducer refuses too').toHaveLength(REPAIR_JOBS_MAX_PER_SEAT);
+    filler(REPAIR_JOBS_MAX_PER_SEAT - 1);
+    expect(structureActionModel(w, P0, hub)!.buttons.find((b) => b.kind === 'FIX')!.enabled).toBe(true);
+    expect(castleControlsModel(w).find((r) => r.key === 'fixAll')!.enabled).toBe(true);
+  });
+
+  it('fixAllTargets: a WHOLE tower is neither queued nor allowed to block a damaged one', () => {
+    const { w, st, leaf } = board({ goblin: true });
+    breakTurret(w, st, leaf);
+    const goblin = [...w.creatureSpawners.values()][0]!;
+    hire(w, door(w));
+    const targets = fixAllTargets(w, P0);
+    expect(targets, 'only the broken turret').toHaveLength(1);
+    expect(targets[0]!.plan.memberIds).not.toContain(goblin.anchorPrimitiveId);
+  });
+
+  it('the re-plan is PHASE-SPREAD: a waiting job whose tower stopped needing a FIX is dropped within REPLAN_TICKS, on its own phase', () => {
+    const { w, st, hub, leaf } = board();
+    breakTurret(w, st, leaf);
+    hire(w, door(w));
+    fix(w, hub);
+    const job = w.repairJobs[0]!;
+    // Repaired some other way (an instant restore): the job has nothing left to do.
+    w.castleBanks.get(P0)![SparkType.Spiral as number] = 1;
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub });
+    let n = 0;
+    while (w.repairJobs.length > 0 && n < 4 * REPAIR_JOB_REPLAN_TICKS) { tick(w, st, 1); n++; }
+    expect(w.repairJobs, 'dropped').toHaveLength(0);
+    expect(n, 'within one re-plan period').toBeLessThanOrEqual(REPAIR_JOB_REPLAN_TICKS);
+    // And on its own phase: the pass that dropped it ran on a tick with (tick + id) % N === 0.
+    expect((w.tick + job.id) % REPAIR_JOB_REPLAN_TICKS, 'the dropping pass ran on its phase (the host tick advances `tick` before the pass)').toBe(0);
+  });
+
+  it('⚠ MINE — the re-plan period is a quarter second', () => {
+    expect(REPAIR_JOB_REPLAN_TICKS).toBe(15);
   });
 });
