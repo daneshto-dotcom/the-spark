@@ -9,3 +9,5 @@ Worktree `.claude/worktrees/s193-visuals-combat`, branch `s193/visuals-combat`, 
 - worktree created from master f576a801, npm install exit 0.
 - 95bb4325 V07 lightning (lightningFx.ts; arcFlash, turret beam, lightning clouds, Voltkin TV crackle) · 7a949ed7 V08/V13/V23 (floaterFx.ts, combatFx.ts) · pure tests + reach tests 0680edfc (33 tests green, 2 mutations red-checked).
 - NEXT: screenshot harness .tmp-gates/fx (port 34243), bench, full gates, merge master.
+- a11f98d2 tuned after first screenshots. Screenshots composed → Desktop SPARK_Visuals_Pilot/visuals-4/ (12 pairs; raw/ = latest singles; first-pass-before-tuning/ = superseded first run).
+- NEXT: bench (.tmp-gates/fx/bench.spec.ts), full gates, git merge master, re-gate, final report.
