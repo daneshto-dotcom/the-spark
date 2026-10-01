@@ -11,13 +11,14 @@
  * RISEN → the spawn queue), negatives, and a three-way determinism differential.
  */
 import { describe, expect, it } from 'vitest';
-import { T9_ZOMBIE_DEATH_BLAST_RADIUS } from '../../constants.ts';
+import { STINK_BAG_RADIUS, T9_ZOMBIE_DEATH_BLAST_RADIUS } from '../../constants.ts';
+import { makeStinkCloud } from '../defenders/stinkCloud.ts';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../../game/spawner.ts';
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
-import { asCreatureId, asPlayerId, type PlayerId } from '../../types.ts';
+import { asCreatureId, asPlayerId, asStinkCloudId, type PlayerId } from '../../types.ts';
 import type { Controls } from '../../input/controls.ts';
 import type { RaceId } from '../races.ts';
 import type { DraftPick } from '../draft.ts';
@@ -181,7 +182,7 @@ describe('S192 T2 + T3 — REACH through the real host tick', () => {
       plan = planZombieDeathBlast(ww, AT, P0);
       for (const c of ww.creatures.values()) pools.set(c.id as unknown as number, c.ehp);
     });
-    expect(plan.length, '10 enemies + 2 own + Warlord').toBe(13);
+    expect(plan.length, '10 enemies + Warlord — his own 2 are NOT targets (R193-B3)').toBe(11);
     expect(plan.reduce((a, p) => a + p.share, 0)).toBe(POOL);
     for (const { target, share } of plan) {
       const c = w.creatures.get(asCreatureId(target.id));
@@ -200,8 +201,9 @@ describe('S192 T2 + T3 — REACH through the real host tick', () => {
     const enemiesKilled = enemies.filter((e) => !w.creatures.has(e.id)).length;
     const ownKilled = own.filter((o) => !w.creatures.has(o.id)).length;
     expect(enemiesKilled, 'fixture: the blast killed enemies').toBeGreaterThan(0);
-    expect(ownKilled, 'fixture: and some of his own (owner-agnostic)').toBeGreaterThan(0);
-    expect(soldiers(w, P0) - (soldiersBefore - ownKilled), 'one risen per enemy corpse').toBe(enemiesKilled);
+    expect(ownKilled, 'R193-B3 — his own side is not hit').toBe(0);
+    for (const o of own) expect(w.creatures.get(o.id)!.ehp, 'his own soldiers untouched').toBe(creatureMaxEhp(o));
+    expect(soldiers(w, P0) - soldiersBefore, 'one risen per enemy corpse').toBe(enemiesKilled);
   });
 
   it('negative: a zombie seat WITHOUT THE RISEN raises nobody from the same blast', () => {
@@ -234,17 +236,42 @@ describe('S192 T2 + T3 — REACH through the real host tick', () => {
   });
 });
 
+/** A three-shape chain (2 connectors, one structure) of `owner`'s, `dy` px below the blast. */
+function chain(w: World, dy: number, owner: PlayerId = P1): void {
+  const color = w.players.get(owner)!.color;
+  const mk = (x: number): number => {
+    const id = w.nextPrimitiveId++ as never;
+    w.primitives.set(id, {
+      id, type: 1, placerColor: color, placedBy: owner, createdTick: w.tick, pos: { x, y: AT.y + dy },
+      prevPos: { x, y: AT.y + dy }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
+      radius: 9, hp: 70, origin: null,
+    } as never);
+    return id as unknown as number;
+  };
+  const [a, b, c] = [mk(AT.x - 20), mk(AT.x), mk(AT.x + 20)];
+  const bond = (x: number, y: number): void => {
+    const pa = w.primitives.get(x as never)!;
+    const pb = w.primitives.get(y as never)!;
+    const bd = makeBond(w, pa, pb, lookupCombo(pa.type, pb.type).stiffnessTier);
+    w.bonds.set(bd.id, bd);
+    pa.bonds.add(bd.id);
+    pb.bonds.add(bd.id);
+  };
+  bond(a, b);
+  bond(b, c);
+}
+
 describe('S192 T3 — a structure is ONE target and BANKS its share', () => {
-  it('⭐ an own 2-connector chain far out takes one small share on its nearest connector — it stands', () => {
+  it('⭐ an ENEMY 2-connector chain far out takes one small share on its nearest connector — it stands', () => {
     const w = board();
     const boss = put(w, BOSS, P0, AT.x);
     for (let i = 0; i < 6; i++) put(w, 'goblinMelee', P1, AT.x + 10 + i * 5); // a crowd at his feet
-    // a three-shape chain 300 px out: 2 connectors, one structure
-    const color = w.players.get(P0)!.color;
+    // a three-shape ENEMY chain 300 px out: 2 connectors, one structure
+    const color = w.players.get(P1)!.color;
     const mk = (x: number): number => {
       const id = w.nextPrimitiveId++ as never;
       w.primitives.set(id, {
-        id, type: 1, placerColor: color, placedBy: P0, createdTick: w.tick, pos: { x, y: AT.y + 300 },
+        id, type: 1, placerColor: color, placedBy: P1, createdTick: w.tick, pos: { x, y: AT.y + 300 },
         prevPos: { x, y: AT.y + 300 }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
         radius: 9, hp: 70, origin: null,
       } as never);
@@ -276,31 +303,6 @@ describe('S192 T3 — a structure is ONE target and BANKS its share', () => {
 });
 
 describe('⭐ S193 merge — the blast severs through severWithCarry (owner S191: overkill CARRIES)', () => {
-  /** A three-shape own chain (2 connectors, one structure) `dy` px below the blast. */
-  function chain(w: World, dy: number): void {
-    const color = w.players.get(P0)!.color;
-    const mk = (x: number): number => {
-      const id = w.nextPrimitiveId++ as never;
-      w.primitives.set(id, {
-        id, type: 1, placerColor: color, placedBy: P0, createdTick: w.tick, pos: { x, y: AT.y + dy },
-        prevPos: { x, y: AT.y + dy }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
-        radius: 9, hp: 70, origin: null,
-      } as never);
-      return id as unknown as number;
-    };
-    const [a, b, c] = [mk(AT.x - 20), mk(AT.x), mk(AT.x + 20)];
-    const bond = (x: number, y: number): void => {
-      const pa = w.primitives.get(x as never)!;
-      const pb = w.primitives.get(y as never)!;
-      const bd = makeBond(w, pa, pb, lookupCombo(pa.type, pb.type).stiffnessTier);
-      w.bonds.set(bd.id, bd);
-      pa.bonds.add(bd.id);
-      pb.bonds.add(bd.id);
-    };
-    bond(a, b);
-    bond(b, c);
-  }
-
   it('⭐⭐ REACH: a lone chain at his feet takes the whole 312 — 14 fells the first connector, the overkill fells the second', () => {
     const w = board();
     const boss = put(w, BOSS, P0, AT.x);
@@ -323,6 +325,71 @@ describe('⭐ S193 merge — the blast severs through severWithCarry (owner S191
     chain(w, 300);
     killBossAndBlast(w, boss);
     expect(w.bonds.size).toBe(2);
+  });
+});
+
+describe('⭐⭐ S193 R193-B2 + B3 — through the real host tick', () => {
+  it('⭐⭐ R193-B2 REACH: a goblin and a one-connector tower at the SAME distance — the goblin takes twice the tower', () => {
+    const w = board();
+    const boss = put(w, BOSS, P0, AT.x);
+    const gob = put(w, 'goblinMelee', P1, AT.x, AT.y - 100);
+    const color = w.players.get(P1)!.color;
+    const mk = (x: number): number => {
+      const id = w.nextPrimitiveId++ as never;
+      w.primitives.set(id, {
+        id, type: 1, placerColor: color, placedBy: P1, createdTick: w.tick, pos: { x, y: AT.y + 100 },
+        prevPos: { x, y: AT.y + 100 }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
+        radius: 9, hp: 70, origin: null,
+      } as never);
+      return id as unknown as number;
+    };
+    const [a, b] = [mk(AT.x - 20), mk(AT.x + 20)];
+    const pa = w.primitives.get(a as never)!;
+    const pb = w.primitives.get(b as never)!;
+    const bd = makeBond(w, pa, pb, lookupCombo(pa.type, pb.type).stiffnessTier);
+    w.bonds.set(bd.id, bd);
+    pa.bonds.add(bd.id);
+    pb.bonds.add(bd.id);
+    const gobPool = gob.ehp;
+    let plan: ReturnType<typeof planZombieDeathBlast> = [];
+    killBossAndBlast(w, boss, (ww) => { plan = planZombieDeathBlast(ww, AT, P0); });
+    const tower = plan.find((p) => p.target.kind === 'structure')!;
+    const unit = plan.find((p) => p.target.kind === 'creature')!;
+    expect(plan.length).toBe(2);
+    expect([tower.share, unit.share], 'weights 280 : 560 of 312').toEqual([104, 208]);
+    expect(unit.share).toBe(2 * tower.share);
+    // REACH: both shares landed — the one-connector tower (pool 6) fell, the goblin took 208
+    expect(w.bonds.has(bd.id), 'the tower took its 104').toBe(false);
+    if (gobPool > 208) expect(w.creatures.get(gob.id)!.ehp).toBe(gobPool - 208);
+    else expect(w.creatures.has(gob.id), 'the goblin took its 208').toBe(false);
+  });
+
+  it('⭐⭐ R193-B3 negative: his OWN unit, tower, lone shape and bag at his feet are untouched', () => {
+    const w = board();
+    const boss = put(w, BOSS, P0, AT.x);
+    const mine = put(w, 'raceUnit', P0, AT.x + 15);
+    const enemy = put(w, 'goblinMelee', P1, AT.x + 300); // so the pool has somewhere to go
+    chain(w, 20, P0);
+    const color = w.players.get(P0)!.color;
+    const loneId = w.nextPrimitiveId++ as never;
+    w.primitives.set(loneId, {
+      id: loneId, type: 1, placerColor: color, placedBy: P0, createdTick: w.tick, pos: { x: AT.x - 15, y: AT.y },
+      prevPos: { x: AT.x - 15, y: AT.y }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
+      radius: 9, hp: 70, origin: null,
+    } as never);
+    const bagId = asStinkCloudId(w.nextStinkCloudId++);
+    w.stinkClouds.set(bagId, makeStinkCloud({ id: bagId, pos: { x: AT.x, y: AT.y + 10 }, ownerPlayerId: P0, landedAtTick: w.tick, radius: STINK_BAG_RADIUS }));
+    const bagEhp = w.stinkClouds.get(bagId)!.ehp;
+    const bondsBefore = [...w.bonds.values()].map((x) => x.damageFifths);
+    let plan: ReturnType<typeof planZombieDeathBlast> = [];
+    killBossAndBlast(w, boss, (ww) => { plan = planZombieDeathBlast(ww, AT, P0); });
+    expect(plan.map((p) => p.target.id), 'only the enemy is a target').toEqual([enemy.id as unknown as number]);
+    expect(plan[0]!.share, 'a lone enemy takes the whole pool').toBe(POOL);
+    expect(w.creatures.get(mine.id)!.ehp).toBe(creatureMaxEhp(mine));
+    expect([...w.bonds.values()].map((x) => x.damageFifths), 'his tower untouched').toEqual(bondsBefore);
+    expect(w.bonds.size).toBe(2);
+    expect((w.primitives.get(loneId) as { hp: number }).hp, 'his lone shape untouched').toBe(70);
+    expect(w.stinkClouds.get(bagId)?.ehp, 'his bag untouched').toBe(bagEhp);
   });
 });
 
