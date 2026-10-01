@@ -3,12 +3,7 @@
     THE BOTS GET EYES, A LADDER, AND THE HOST STOPS LAGGING
 ═══════════════════════════════════════════════════════════
 
-STATUS: STALE — CLOSED BY AUDIT (S170). This plan has read as IN-PROGRESS since 2026-08-28,
-through fifteen sessions. Its work either shipped long ago or was superseded; nothing in it is
-live. Marked rather than deleted so the audit trail survives.
-⚠ The reason this matters: a stale IN-PROGRESS status is matched by the boot pre-flight and
-presented to the next session as active work. That is the same failure class that made S170
-chase a fog defect S169 had mis-described.
+Status: PARTIALLY COMPLETED (S155) — P1/P2/P3/P6 + N1/N4 SHIPPED LIVE; P4 partial (test+measurement, no behaviour change); P7 substrate only (INERT); P5 not started; amendment A1/A2/A3 owner-GO but NOT implemented
 Parent PDR: `.claude/plans/2026-08-28_PDR_S155_BATCH.md` (7 priorities; P1/P2/P3/P6 shipped,
 P4 partial, P7 substrate-only, P5 not started)
 Tier: **Standard** (3 changes, ~6 files, no protocol bump)
