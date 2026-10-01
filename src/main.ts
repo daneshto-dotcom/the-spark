@@ -2544,7 +2544,7 @@ Network routes: ${v.detail}`;
    * command line instead of from the screen he is already looking at.
    *
    * ⚠ BOTH STRIPS, NOT ONLY THE ONE HE SCREENSHOTTED. He was hosting, so he saw the orange host
-   * line; the joiner gets a grey `sync 0/0 seq=… [nostr:7/7]` one row up. Same class, same screen,
+   * line; the joiner gets a grey `sync 0/0 seq=… [nostr:4/4]` one row up. Same class, same screen,
    * and fixing only the half in the screenshot is how the other half survives to be reported again.
    */
   const lobbyDiagnostics = netStatsRequested(window.location.search);
@@ -3991,7 +3991,7 @@ Network routes: ${v.detail}`;
         const td = session.netTransport.getDiagnostics();
         const errs = session.clientSync !== null ? session.clientSync.applyErrors() : 0;
         // S44 — surface multi-strategy health (Council G-NEW-2 / GE-NEW-2).
-        // Shows e.g. "nostr:6/7" = 6 of 7 relays connected. Failed strategies
+        // Shows e.g. "nostr:3/4" = 3 of 4 relays connected. Failed strategies
         // shown as "torrent:fail". Disabled strategies omitted from the strip.
         const strategySummary = formatStrategySummary(td.strategies);
         lobbyScreen.updateDiagnostics(

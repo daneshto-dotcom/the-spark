@@ -240,6 +240,21 @@ export interface World {
    */
   structureKillHits: { key: string; amount: number | null }[];
   /**
+   * ⭐⭐ S192 (owner T11) — **A REPAIRED STRUCTURE SHOWS ONE GREEN NUMBER: WHAT THE REPAIR RESTORED.**
+   * *"when a tower heals or anything … every healing should show … just like damage is shown on every
+   * hit."* A repair clears every connector's banked damage and refills every surviving shape, and the
+   * renderer could not see the connector half at all: a connector is a RISING pool (`Bond.damageFifths`)
+   * and a fall in it is deliberately never printed — a sever or re-form lowers banks too, and flipping
+   * that test would print fake heals on severs. So `applyRepairStructure` pushes ONE record: the total
+   * restored (banks cleared + shape HP refilled) at the structure's frame centre. `keys` are the shape
+   * watch keys the repair refilled, so the renderer re-seeds them instead of ALSO printing each one.
+   *
+   * Per-FRAME, the `structureKillHits` contract exactly: written on the host, wiped by the consumer and
+   * at the five sites (three phase resets, the consumer, the worker frame boundary), never serialized,
+   * never hashed. ⚠ A JOINER has no record, so on a peer only the shape refills print — a stated limit.
+   */
+  structureHealHits: { x: number; y: number; owner: PlayerId; amount: number; keys: string[] }[];
+  /**
    * ⭐⭐ S182 — **THE MASS-CLEAR CUE, and without it a new match opens in a shower of phantom
    * damage numbers.**
    *

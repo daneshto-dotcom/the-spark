@@ -2809,6 +2809,12 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's 
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
+ * ⛔⛔ SUPERSEDED (the mechanic, not this radius): S192 T3 made it a split ladder pool
+ * (`racial/zombieDeathBlast.ts`, no longer this action), and the owner ruled S193 (R193-B1..B3):
+ * *"312 blast pool, but split over … everyone who's around"*, creatures take twice a tower, and
+ * *"It does not hit his own side"* — which replaces R138's "hurting everything" for this blast. Only
+ * the RADIUS below survives from S168, and it is still MINE.
+ *
  * ⚠ THE NUMBER IS MINE, NOT HIS. He said "huge" and did not give a figure. 380 px is set against
  * the only comparable already on the board — the lightning hub's 240 px "lightning storm" — because
  * a tier-9 boss detonating must read as decisively bigger than a tier-6 structure doing it. It is
@@ -4114,6 +4120,36 @@ export const GOBLIN_UNIT_ACQUIRE_RADIUS = 220;
  * between the two is the dead-band, and no oscillation can live inside it.
  */
 export const GOBLIN_UNIT_LEASH_RADIUS = 300;
+
+/**
+ * ⭐⭐ S192 T6 (owner) — **DON'T CHASE WHAT YOU CAN'T CATCH.**
+ *
+ * > *"there's like a … electric drone … flies across. Then they turn around to chase him … he explodes …
+ * > they turn back … another drone flies through and they turn around … going back and forth, not doing
+ * > anything … sure, maybe they target it if it's around them, but if it's like gets too far away or if
+ * > it's quicker than them, they just turn around and … keep attacking … they ignore it if it's like way
+ * > too quick for them to actually catch up."* — owner, S192
+ *
+ * ⭐ REFINED S192 — *"I didn't say ignore drones or pencil chewers all the time. It just has to be
+ * smart"*. A FAST NON-COMBATANT — cannot strike a unit (`isNonCombatantType`: drone, chewer) and faster
+ * than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (`maxAccel` IS the speed: terminal speed ∝ maxAccel,
+ * measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119) — is engaged when ANY of:
+ *   (1) it is within the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` (*"if it's around them"*);
+ *   (2) the chaser AND the quarry both stand inside the chaser's OWN zone (*"you're still in your zone"*;
+ *       S193 audit — the chaser's own position too, not only the quarry's);
+ *   (3) the chaser can cut its path off before it reaches its target (*"before he reaches his target"*);
+ * and is neither acquired nor held otherwise (`cannotCatch`, `creatureAI.ts`). A unit that can strike
+ * back is never skipped — so R184-A (the melee boss chasing an archer it cannot catch, ruled S184) is
+ * untouched by construction, not by exception.
+ *
+ * ⚠ BOTH NUMBERS ARE MINE (S192), not his. 1.25: the drone (240) clears it against every chaser
+ * (fastest t3Bat 168 × 1.25 = 210); the chewer (120) clears it only against the shield goblin and the
+ * naga boss, so every other unit still chases a chewer (120 ≤ 119 × 1.25). 20 px: a body length of
+ * slack so a quarry grazing the edge of reach is not dropped and re-acquired every tick.
+ */
+export const CHASE_GIVEUP_SPEED_RATIO = 1.25;
+/** ⚠ MINE (S192 T6) — see `CHASE_GIVEUP_SPEED_RATIO`. */
+export const CHASE_GIVEUP_SLACK_PX = 20;
 
 /**
  * ⭐ S159 P1 (owner R77) — **HOW CLOSE A LANDED STINK BAG HAS TO BE TO PULL A UNIT ONTO IT.**

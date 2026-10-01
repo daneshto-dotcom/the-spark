@@ -260,9 +260,15 @@ export type PickNavUnitFn = (
 export interface NavCheckStats {
   /** Host-tick calls of `pickNavUnit`, and comparisons (host calls + every sweep entry). */
   calls: number; compared: number; mismatches: number; sweeps: number;
-  /** Results: a unit found at all; the reference returned a unit KILLED earlier in the same loop
-   *  (`pendingCreatureDeaths`) — see `EnemyCreatureIndex` for why that is kept. */
+  /** Results: a unit found at all; a unit KILLED earlier in the same loop (`pendingCreatureDeaths`)
+   *  was returned by EITHER side — ⭐ S192 T13: an invariant now, must be 0 (it was 604 / 2 616 at S191,
+   *  when the corpse was deliberately kept). */
   nonNull: number; pendingDeathReturned: number;
+  /** ⭐ S192 T13 — the anti-vacuity half of that invariant: calls where a corpse-in-waiting WOULD have
+   *  been the answer under the pre-T13 rule (a pending-death enemy nearer, in the acquire radius, than
+   *  what was returned — or a held lock on one that was dropped). 0 here would mean the corpse case was
+   *  never exercised and `pendingDeathReturned === 0` proved nothing. */
+  corpseAvoided: number;
   /** Holds: calls with a held lock; kept; a lock this creature's previous pick did NOT set (a
    *  retaliation turn, `retaliation.ts`) and how often that hold was kept. */
   held: number; heldKept: number; heldElsewhere: number; heldElsewhereKept: number;
@@ -319,9 +325,32 @@ export function birthCreature(w: World, seat: number, x: number, y: number, type
   return id;
 }
 
+/**
+ * S192 T13 — would the PRE-T13 rule have answered with a corpse-in-waiting here? True when `held` is a
+ * pending-death enemy that was not kept (the old hold kept any in-leash enemy), or when no lock was kept
+ * and some pending-death, type-targetable enemy inside the acquire radius beats `result` on `(distSq, id)`.
+ */
+function corpseWouldHaveWon(w: World, c: Creature, held: CreatureId | null, acq: number, result: CreatureId | null): boolean {
+  const pending = w.pendingCreatureDeaths;
+  if (pending === null || pending.size === 0) return false;
+  if (held !== null && result !== held && pending.has(held)) return true;
+  if (held !== null && result === held) return false;
+  const r = result === null ? undefined : w.creatures.get(result);
+  const rd = r === undefined ? Infinity : (r.pos.x - c.pos.x) ** 2 + (r.pos.y - c.pos.y) ** 2;
+  for (const id of pending) {
+    const q = w.creatures.get(id);
+    if (q === undefined || id === c.id || q.ownerPlayerId === c.ownerPlayerId) continue;
+    if (CREATURE_CONFIGS[q.type].untargetable === true) continue;
+    const d = (q.pos.x - c.pos.x) ** 2 + (q.pos.y - c.pos.y) ** 2;
+    if (d > acq) continue;
+    if (d < rd || (d === rd && result !== null && (id as unknown as number) < (result as unknown as number))) return true;
+  }
+  return false;
+}
+
 export function makeNavChecker(real: PickNavUnitFn): NavChecker {
   const stats: NavCheckStats = {
-    calls: 0, compared: 0, mismatches: 0, sweeps: 0, nonNull: 0, pendingDeathReturned: 0,
+    calls: 0, compared: 0, mismatches: 0, sweeps: 0, nonNull: 0, pendingDeathReturned: 0, corpseAvoided: 0,
     held: 0, heldKept: 0, heldElsewhere: 0, heldElsewhereKept: 0,
     injectedKills: 0, injectedRemovals: 0, injectedBirths: 0, naturalMidLoopChanges: 0, callsAfterMidLoopChange: 0,
   };
@@ -380,6 +409,10 @@ export function makeNavChecker(real: PickNavUnitFn): NavChecker {
         stats.nonNull++;
         if (w.pendingCreatureDeaths?.has(f) === true) stats.pendingDeathReturned++;
       }
+      if (checked && result !== f && result !== null && w.pendingCreatureDeaths?.has(result) === true) {
+        stats.pendingDeathReturned++; // the real side returned a corpse the reference did not
+      }
+      if (corpseWouldHaveWon(w, c, held, a, f)) stats.corpseAvoided++;
       let last = lastPick.get(w);
       if (last === undefined) lastPick.set(w, (last = new Map()));
       if (held !== null) {

@@ -34,13 +34,32 @@ export const APP_ID = 'spark-game-v1';
  * time; NIP-78 functional health surfaces via per-relay telemetry once
  * users connect. See RELAY_HEALTH.md for re-verification runbook.
  */
+/*
+ * ⛔ S193 ROTATION — THREE OF THE SEVEN CARRIED NO SIGNALING, AND WERE MEASURED THREE WAYS.
+ *
+ *   wss://relay.mostr.pub            DEAD   — every WebSocket handshake answers HTTP 301 (`npm run probe-relays`
+ *                                             2026-10-01; CI console "Unexpected response code: 301" on every page)
+ *   wss://offchain.pub               REJECTS WRITES — "Policy violated and pubkey is not in our web of trust"
+ *   wss://nostr-pub.wellorder.net    REJECTS WRITES — "blocked: spam not permitted"
+ *
+ * The two write-rejectors still OPEN a socket, so a handshake probe calls them HEALTHY; the verdict is from the
+ * relay's own NOTICE on every event we publish — in every e2e trace of CI runs 36882836513 / 36877965841 /
+ * 36875812341 / 36871399300 (2026-10-01), and independently in the Pitch Masters live audit (346 / 287 refusals,
+ * `src/arcade/pitchMasters/bridge.ts` DEAD_RELAYS). ⚠ S193 audit L1, measured by a publish-and-subscribe probe: both
+ * accept a HANDFUL of events and then REFUSE SUSTAINED publishing (offchain 6/60, wellorder 0/120 in a burst) — exactly
+ * the load a signalling room puts on them, so they carry no offer when it matters. Only mostr reconnect-loops.
+ *
+ * ⚠ purplerelay.com is KEPT: it returned "No space left on device" on SOME writes in the same traces, not all —
+ * intermittent, and it carried signaling in between. Re-measure it at the next rotation.
+ * ⚠ NO REPLACEMENT ADDED. A new relay is chosen by a functional write test (a real published event), not a
+ * handshake — the mistake that put two write-rejectors on this list in S44. Four write-accepting relays remain;
+ * a peer on an older build still meets this build on all four (signaling is not versioned), so no bump.
+ * `src/net/relayLists.test.ts` keeps all three off this list for good.
+ */
 export const NOSTR_RELAYS = [
   'wss://nos.lol',
-  'wss://relay.mostr.pub',
   'wss://purplerelay.com',
   'wss://nostr.mom',
-  'wss://offchain.pub',
-  'wss://nostr-pub.wellorder.net',
   'wss://relay.primal.net',
 ];
 

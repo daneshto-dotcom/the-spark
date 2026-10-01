@@ -1204,6 +1204,20 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
  * Inlining the flag now would mean finding all of them again later, which is the "three of four call
  * sites" failure this codebase keeps paying for.
  */
+/**
+ * ⭐ S192 T6 — CAN THIS TYPE STRIKE A UNIT AT ALL? `true` = it cannot (a NON-COMBATANT, for chasing).
+ *
+ * A named, per-type statement, the `NEVER_RETALIATES` pattern: the lightning drone
+ * (`selfExplode && !targetsStructures` — it homes on connectors and detonates, it never ATTACKS) and the
+ * pencil chewer (STRUCTURES_ONLY). ⚠ `creatureCanTarget` alone cannot say this: the drone's matrix row is
+ * BOTH. Only these two; every other unit can hit back, which is what keeps R184-A out of `cannotCatch`.
+ */
+export function isNonCombatantType(type: CreatureType): boolean {
+  if (type === 'chewer') return true;
+  const cfg = CREATURE_CONFIGS[type];
+  return cfg.selfExplode && !cfg.targetsStructures;
+}
+
 export function isUntargetableType(type: CreatureType): boolean {
   return CREATURE_CONFIGS[type].untargetable === true;
 }

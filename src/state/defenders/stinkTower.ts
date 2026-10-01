@@ -79,6 +79,8 @@ export type RadialDamageFn = (
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /** ⭐ S193 R193-B4 — `'distance'` for a blast, `'flat'` for the damage-over-time aura (see `applyRadialDamage`). */
+  falloff: 'distance' | 'flat',
 ) => unknown;
 
 /** PURE — is this defender an out-of-ammo Stink Tower? */
@@ -174,7 +176,7 @@ export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialD
   radialDamage(
     world, d.pos.x, d.pos.y, radius,
     blastFifths, blastFifths,
-    'hazard', d.ownerPlayerId,
+    'hazard', d.ownerPlayerId, 'distance', // ⭐ S193 R193-B4 — "the stink tower blast … similarly"
   );
 }
 
@@ -249,7 +251,7 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
   radialDamage(
     world, at.x, at.y, STINK_BAG_RADIUS,
     attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
-    'hazard', d.ownerPlayerId,
+    'hazard', d.ownerPlayerId, 'distance', // ⭐ S193 R193-B4 — "the poop bag … closer = more"
   );
   /*
    * ⭐ S158 P6 (CF-S157-b) — AND THE BAG STAYS WHERE IT FELL.
@@ -315,7 +317,7 @@ export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDam
   radialDamage(
     world, d.pos.x, d.pos.y, STINK_AURA_RADIUS,
     STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
-    'aura', d.ownerPlayerId,
+    'aura', d.ownerPlayerId, 'flat', // S193 — an aura is damage over time, not a blast; 1 fifth cannot fall off
   );
   return true;
 }
