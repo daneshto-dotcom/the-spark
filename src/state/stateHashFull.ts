@@ -200,6 +200,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatureKillHits: 'acknowledged', // S181 — presentational per-frame record, never sim input
   /* ⭐ S182 — identical contract to the four entries above: per-frame, host-local, never on the wire. */
   structureKillHits: 'acknowledged',
+  /* ⭐ S192 T11 — the repair heal record: per-frame, host-local, never on the wire, never sim input. */
+  structureHealHits: 'acknowledged',
   /* ⭐ S182 — a renderer cue for mass clears. Host-local, never on the wire, never a sim input. */
   structureWatchEpoch: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */

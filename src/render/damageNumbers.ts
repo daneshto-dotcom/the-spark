@@ -721,6 +721,17 @@ export class DamageNumbers {
       this.emitAt(world, (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2, hit.amount, 'damage', a.placedBy);
     }
     world.connectorBreakHits.length = 0;
+    /*
+     * ⭐⭐ S192 (owner T11) — **A REPAIR PRINTS ONE GREEN NUMBER: EVERYTHING IT RESTORED.** The connector
+     * half is invisible to the diff below by design (a rising pool's fall is never printed — a sever
+     * lowers banks too), so `applyRepairStructure` records the total. The shapes it refilled are
+     * re-seeded as first sightings, or each would ALSO print its own green number on top of the total.
+     */
+    for (const h of world.structureHealHits) {
+      for (const key of h.keys) this.watchedStruct.delete(key);
+      this.emitAt(world, h.x, h.y, h.amount, 'heal', h.owner);
+    }
+    world.structureHealHits.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
