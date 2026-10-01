@@ -9,7 +9,7 @@ Not the merge owner: never push, never touch master, never edit PROTOCOL_VERSION
 3. carry CF-2 (census 'later in same function' false-pass) — DONE (test-only, no bump)
 4. net R-2 (hidden tab never samples host absence) — DONE (client-local, no bump)
 5. audio A3 (iOS 'interrupted') — DONE (render-only, no bump)
-6. lobby4 L2 (dynamic-import tripwire hole) — todo
+6. lobby4 L2 (dynamic-import tripwire hole) — DONE (test-only, no bump)
 
 ## Log
 - worktree created at 11d86a3, npm install exit 0.
@@ -18,4 +18,5 @@ Not the merge owner: never push, never touch master, never edit PROTOCOL_VERSION
 - item 3 DONE: census parses each call's true path (4 taught shapes; anything else = not carried). All 9 real sites still carried. Synthetic fixtures incl. the dispatchReducer two-arm false pass; mutant (old rest-of-function window) RED 1/4.
 - item 4 DONE: clientHandlers onPeerChange('leave') -> deps.onPeerLeft; main.ts records hostAbsentSeenFor via pure hostAbsentOnLeave (same conditions as the frame sampler). departureLatch.test.ts +4 (REACH via connectAsClient + fake transport, no frame; negative other-peer leave; pure table; main.ts wiring guard). Mutant (leave never forwarded) RED 1/15. tc 0, src/net 690 pass.
 - item 5 DONE: contextNeedsResume (suspended|interrupted) used by resumeIfSuspended + ensureSfxBus; new resumeAudioOnGesture wired in main.ts on every pointerdown/keydown/touchend (not once) + visibilitychange→visible. audioInterrupted.test.ts (7). Mutants: suspended-only RED 5/7, once:true RED 1/7. src/render 2057 pass.
-- NEXT: item 6 lobby4 L2 — trysteroPolyfill.test.ts: classify every joinRoom token + every imported alias use + pin dynamic imports.
+- item 6 DONE: trysteroPolyfill.test.ts +4: every `joinRoom` token / imported-alias use / string key / other Trystero import form classified (allowed: Trystero import specifier, call, typeof, `mod.joinRoom as JoinFn` + `alias as JoinFn` in transport); dynamic Trystero imports pinned to transport torrent+mqtt, each handing joinRoom only to startStrategy; 7 hole fixtures + positive control. Real-tree mutant (destructured dynamic import + call appended to quickmatch.ts): new tests RED 2/11 while all 7 S192 tests stayed GREEN (the hole, proven).
+- NEXT: full gates (typecheck, vitest --maxWorkers=3, build) then final report.
