@@ -406,3 +406,25 @@ None.
   `S191_CANON_NOTES_carry.md` §5 (no new number; + "rides the deploy's bump"). Notes §5 marked APPLIED.
 - Pin (`canon.test.ts` §5b): the new sentence present, the "NOT FIXED" sentence absent. Mutation: the stale sentence
   re-appended → 1 RED; restored → 66/66.
+
+## S192 FINAL GATES (captured `$?` → `.tmp-gates/*-final.exit`)
+
+| gate | exit | numbers |
+|---|---|---|
+| `npm run typecheck` | 0 | — |
+| `npx vitest run --maxWorkers=3` | 0 | 6784 passed / 7 skipped, 424 files (+2 skipped) — no timeout reds |
+| `npm run build` | 0 | entry **977.9 KiB** (1,001,385 B), headroom 122.1 KiB; +5.2 KiB vs master's 972.7 (PDR), +2.6 of it pre-S192 |
+| `e2e/fog.spec.ts` (index 19 added by C-9) | NOT RUN here | merge owner's e2e on the merged tree |
+
+## PROTOCOL BUMP VERDICT (whole branch) — ⭐ ONE BUMP OWED (52 → 53), not written here
+
+- RULES both peers / a successor compute, no field: C-5 hub blast = ladder not raze (+ required action field
+  `blast: 'ladder'|'raze'` — host-internal, not serialized); R2-A 120 TOTAL split (order MINE); R2-C a hub-popped
+  bag's burst spares the hub owner; C-6 the FFA spread on the strict predicate; R2-E overkill CARRIES to the next
+  connector (`severWithCarry`). A pre-carry and a post-carry build at 52 would disagree on every one.
+- FIELD: C-8 `Player.castleHealedHp?` — additive-optional, emitted > 0 only, presentational, WIDE hash only (narrow
+  `hashWorldState` untouched). No bump of its own; a stale peer prints the net number.
+- NONE: C-1 (unserialized counter repair), C-2/C-3/C-4/C-7/C-9 (render / test-only).
+- Docblock line for the merge owner: "S191 carry — the lightning hub's self-destruct is 120 fifths of ladder damage
+  split across its targets (R182-C), its bag bursts spare the owner, the FFA spread is strict (S162), and a
+  connector hit's overkill carries into the next connector (owner S191)."
