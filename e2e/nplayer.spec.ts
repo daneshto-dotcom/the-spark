@@ -29,7 +29,6 @@ import {
   canvasToCss,
   hostNewRoom,
   joinRoom,
-  dragSparkTo,
   readWorldState,
   readSeats,
   waitForWorld,
@@ -196,18 +195,27 @@ test.describe('S63 - 4-player FFA: roster broadcast + distinct seats/colors + FF
       // Render artifact (Playwright screenshot works headless, unlike the preview tool).
       await hostPage.screenshot({ path: 'test-results/s63-4player-hud.png' });
 
-      // FFA scoring → one winner. Host places 3 non-bonding anchors, then the host score is
-      // INJECTED over the win threshold (S78/S79 idiom, mirrors hunter.spec). This test covers the
-      // FFA WIN PIPELINE (win fires + ENDGAME propagates to all joiners), not the income rate
-      // (unit-tested in scoring.test.ts), so injection is the correct decoupling.
-      await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host', 20_000);
-      await dragSparkTo(hostPage, 300, 400);
-      await dragSparkTo(hostPage, 300, 600);
-      await dragSparkTo(hostPage, 300, 800);
+      // FFA scoring → one winner. The host score is INJECTED over the win threshold (S78/S79 idiom,
+      // mirrors hunter.spec). This test covers the FFA WIN PIPELINE (win fires + ENDGAME propagates to
+      // all joiners), not the income rate (unit-tested in scoring.test.ts), so injection is the
+      // correct decoupling.
+      // ⚠ S192 — the 3 "non-bonding anchor" drags that used to precede this are GONE: they waited for
+      // `freeSparks.length >= 8`, and measured S192 the host had ZERO free sparks at tick 900 of
+      // PLAYING (the match no longer opens with a free-spark field). They never fed the win —
+      // `scoreProgress = max(scoreByPlayer)` — so they were test rot, not coverage.
+      // ⚠ S192 — `scoreProgress` TOO, not only `scoreByPlayer`. The win gate reads `scoreProgress`,
+      // and since S147 the only thing that re-derives it (`tickScoring`) runs in FIGHT only
+      // (`hostTick.ts`), so a match still in its opening BUILD phase never noticed the injected
+      // score (measured: 1e9 in `scoreByPlayer`, PLAYING at tick 889, no WIN). Attribution still
+      // scans `scoreByPlayer`, so seat 0 is the winner either way.
       await hostPage.evaluate((score) => {
-        const w = (window as unknown as { __SPARK__: { world: { scoreByPlayer: Map<number, number> } } })
-          .__SPARK__.world;
+        const w = (
+          window as unknown as {
+            __SPARK__: { world: { scoreByPlayer: Map<number, number>; scoreProgress: number } };
+          }
+        ).__SPARK__.world;
         w.scoreByPlayer.set(0, score); // >> the win bar at any wave → WIN on the next tick
+        w.scoreProgress = score;
       }, NPLAYER_INJECTED_SCORE);
       await waitForWorld(
         hostPage,
