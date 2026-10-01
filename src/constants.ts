@@ -4009,14 +4009,16 @@ export const GOBLIN_UNIT_LEASH_RADIUS = 300;
  * > it's quicker than them, they just turn around and … keep attacking … they ignore it if it's like way
  * > too quick for them to actually catch up."* — owner, S192
  *
- * A unit does not acquire, and drops, a quarry when ALL THREE hold (`cannotCatch`, `creatureAI.ts`):
- *   (a) the quarry cannot strike a unit (`isNonCombatantType`: the lightning drone, the pencil chewer);
- *   (b) the quarry is faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (`maxAccel` IS the speed:
- *       terminal speed ∝ maxAccel, measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119);
- *   (c) the quarry is farther than the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX`.
- * His *"maybe they target it if it's around them"* is (c): a drone that flies THROUGH your reach is
- * still hit. A unit that can strike back is never skipped — so R184-A (the melee boss chasing an archer
- * it cannot catch, ruled S184) is untouched by construction, not by exception.
+ * ⭐ REFINED S192 — *"I didn't say ignore drones or pencil chewers all the time. It just has to be
+ * smart"*. A FAST NON-COMBATANT — cannot strike a unit (`isNonCombatantType`: drone, chewer) and faster
+ * than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (`maxAccel` IS the speed: terminal speed ∝ maxAccel,
+ * measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119) — is engaged when ANY of:
+ *   (1) it is within the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` (*"if it's around them"*);
+ *   (2) it is inside the chaser's OWN zone (*"you're still in your zone"*);
+ *   (3) the chaser can cut its path off before it reaches its target (*"before he reaches his target"*);
+ * and is neither acquired nor held otherwise (`cannotCatch`, `creatureAI.ts`). A unit that can strike
+ * back is never skipped — so R184-A (the melee boss chasing an archer it cannot catch, ruled S184) is
+ * untouched by construction, not by exception.
  *
  * ⚠ BOTH NUMBERS ARE MINE (S192), not his. 1.25: the drone (240) clears it against every chaser
  * (fastest t3Bat 168 × 1.25 = 210); the chewer (120) clears it only against the shield goblin and the

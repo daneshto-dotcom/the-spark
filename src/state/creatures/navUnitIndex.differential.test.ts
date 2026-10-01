@@ -183,13 +183,17 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
     let found = 0;
     for (const type of chasers) {
       for (const quarry of ['lightningDrone', 'chewer'] as CreatureType[]) {
-        for (const dx of [30, 60, 120, 210]) {
+        // Every distance band × the three refinement arms: abroad (seat 1's quadrant) or at home
+        // (seat 0's), and pathless / flying past the chaser / flying away (the intercept arm).
+        for (const dx of [30, 60, 120, 210]) for (const [cx, cy] of [[1300, 200], [500, 200]] as const) for (const tx of [null, 300, 1880]) {
           const t = bothWays(() => {
             const w = board();
-            insertAs(w, asCreatureId(w.nextCreatureId++), 0, 600, 500, type);
-            insertAs(w, asCreatureId(w.nextCreatureId++), 1, 600 + dx, 500, quarry);
+            insertAs(w, asCreatureId(w.nextCreatureId++), 0, cx, cy, type);
+            const qid = asCreatureId(w.nextCreatureId++);
+            insertAs(w, qid, 1, cx + dx, cy + 20, quarry);
+            if (tx !== null) w.creatures.get(qid)!.targetPos = { x: tx, y: cy + 20 };
             return w;
-          }, (_w, check) => check(`${type} vs ${quarry} at ${dx}`));
+          }, (_w, check) => check(`${type} at ${cx},${cy} vs ${quarry} at +${dx} heading ${String(tx)}`));
           compared += t.compared;
           found += t.nonNull;
           nulls += t.compared - t.nonNull;
@@ -197,7 +201,7 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
       }
     }
     // Anti-vacuity both ways: the rule both kept and dropped quarries across the bands.
-    expect(compared).toBeGreaterThan(300);
+    expect(compared).toBeGreaterThan(2000);
     expect(found, 'some quarries were chased').toBeGreaterThan(20);
     expect(nulls, 'some quarries were let go').toBeGreaterThan(20);
   });

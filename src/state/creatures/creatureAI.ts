@@ -52,6 +52,7 @@ import type { Creature } from './creature.ts';
 import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
+import { zoneOf, zoneOwner } from '../zones.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -747,7 +748,7 @@ export function findNearestEnemyCreatureFrom(
 ): CreatureId | null {
   // S192 T6 — only `pickNavUnit` passes a chaser. Every other caller (castle guns, defenders, the
   // Voltkin's in-reach zap) shoots and never chases, so for them this stays exactly the T13 scan.
-  const chase = chaser === undefined ? null : chaseLimitsOf(chaser);
+  const chase = chaser === undefined ? null : chaseLimitsOf(world, chaser);
   let bestId: CreatureId | null = null;
   let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
@@ -862,7 +863,7 @@ export function pickNavUnit(
       // too quick for them to actually catch up"*. A non-combatant faster than you and out of your
       // reach is dropped here, so the unit turns back to its push instead of chasing a drone across
       // the board (measured S192: one passing drone cost a melee goblin 40 % of its advance).
-      !cannotCatch(chaseLimitsOf(creature), quarry, distSq(creature.pos, quarry.pos))
+      !cannotCatch(chaseLimitsOf(world, creature), quarry, distSq(creature.pos, quarry.pos))
     ) {
       return held;
     }
@@ -879,31 +880,97 @@ export function pickNavUnit(
   );
 }
 
-/** S192 T6 — a chaser's two numbers for `cannotCatch`, read once per scan. */
+/** S192 T6 — what `cannotCatch` needs to know about the chaser, read once per scan. */
 interface ChaseLimits {
+  readonly pos: Vec2;
+  /** `maxAccel` — the speed proxy (terminal speed ∝ maxAccel; only RATIOS are compared). */
+  readonly speed: number;
   readonly giveUpAboveAccel: number;
+  readonly reach: number;
   readonly reachSq: number;
+  /** The chaser's OWN seat zone (`zoneOwner`), or `null` if the seat owns no ground. */
+  readonly homeZone: number | null;
+  readonly layout: World['layout'];
 }
 
-function chaseLimitsOf(chaser: Creature): ChaseLimits {
+function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
   const cfg = getCreatureConfig(chaser.type);
   const reach = engageRange(cfg) + CHASE_GIVEUP_SLACK_PX;
-  return { giveUpAboveAccel: cfg.maxAccel * CHASE_GIVEUP_SPEED_RATIO, reachSq: reach * reach };
+  return {
+    pos: chaser.pos,
+    speed: cfg.maxAccel,
+    giveUpAboveAccel: cfg.maxAccel * CHASE_GIVEUP_SPEED_RATIO,
+    reach,
+    reachSq: reach * reach,
+    homeZone: zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout),
+    layout: world.layout,
+  };
 }
 
 /**
- * ⭐⭐ S192 T6 (owner) — **"they ignore it if it's like way too quick for them to actually catch up."**
+ * ⭐ S192 T6 (owner, refinement) — **CAN THE CHASER CUT THE QUARRY OFF BEFORE IT ARRIVES?**
  *
- * True when the quarry cannot strike a unit, is faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser,
- * AND sits beyond the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` — see those constants (both ⚠
- * MINE). A quarry that CAN strike is never skipped, so R184-A (a melee unit turning on an archer it can
- * never catch) is untouched. Pure static config plus the squared distance already computed: no field,
- * no history, and the `(distSq, id)` total order is untouched (it only removes candidates).
+ * > *"if you can acquire the drone or a pencil chewer before he reaches his target … then you
+ * > shouldn't ignore them"*
+ *
+ * The quarry is flying a straight line from its `pos` to its `targetPos` (the drone arm re-aims that
+ * point at its connector every tick; a chewer's is its bond). P = the point of that segment nearest
+ * the chaser. Feasible when the chaser can close to within its reach of P no later than the quarry
+ * gets there: `max(0, |C−P| − reach) / v_chaser ≤ |A−P| / v_quarry`, cross-multiplied so nothing is
+ * divided. ⚠ An approximation, stated: a straight path at cruise speed, no braking — the sim's own
+ * steering is not simulated forward. A quarry with no path (`targetPos` on itself) has nothing to
+ * cut off, so this is false and only reach/zone can engage it. Pure arithmetic on synced state, so
+ * the host, a worker and a successor all agree.
+ */
+function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: number): boolean {
+  const ax = quarry.pos.x;
+  const ay = quarry.pos.y;
+  const vx = quarry.targetPos.x - ax;
+  const vy = quarry.targetPos.y - ay;
+  const len2 = vx * vx + vy * vy;
+  if (!(len2 >= 1)) return false; // no path to cut (also rejects NaN)
+  let t = ((limits.pos.x - ax) * vx + (limits.pos.y - ay) * vy) / len2;
+  if (t < 0) t = 0;
+  else if (t > 1) t = 1;
+  const px = ax + t * vx;
+  const py = ay + t * vy;
+  const quarryTravel = t * Math.sqrt(len2);
+  const chaserTravel = Math.max(0, Math.hypot(limits.pos.x - px, limits.pos.y - py) - limits.reach);
+  return chaserTravel * quarrySpeed <= quarryTravel * limits.speed;
+}
+
+/**
+ * ⭐⭐ S192 T6 (owner) — **SMART, NOT "ALWAYS IGNORE".**
+ *
+ * > *"I didn't say ignore drones or pencil chewers all the time. It just has to be smart … if you can
+ * > acquire the drone or a pencil chewer before he reaches his target, or if … the target is not too
+ * > far from you, so you're still in your zone, then you shouldn't ignore them … I already destroyed
+ * > his army, so I'm approaching to attack his buildings. But then one of his buildings produces a
+ * > drone … my creatures are changing a target to his drone, and they're basically chasing down till
+ * > the middle of the map … a never-ending cycle."* — owner, S192 refinement
+ *
+ * True (= skip it, at acquire AND at hold) only for a FAST NON-COMBATANT — cannot strike a unit
+ * (`isNonCombatantType`: drone, chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` × the chaser (⚠
+ * MINE) — when NONE of his three engage conditions holds:
+ *   1. it is within the chaser's reach + `CHASE_GIVEUP_SLACK_PX` (⚠ MINE) — *"if it's around them"*;
+ *   2. it is inside the chaser's OWN seat zone — defending home, *"you're still in your zone"*;
+ *   3. an intercept is feasible (`interceptFeasible`) — *"before he reaches his target"*.
+ * Outside all three it is outside your zone, faster than you, and you cannot get ahead of it: the
+ * chase cannot close, so it is dropped and the unit's march / structure target resumes.
+ *
+ * ⭐ NO PING-PONG, AND NO MEMORY. The same predicate gates acquire and hold, so a dropped quarry cannot
+ * be re-acquired until it re-enters one of the three — which is the "never re-acquire that same fast
+ * quarry" rule with no new field, no history, and the `(distSq, id)` total order untouched (this only
+ * removes candidates). A quarry that CAN strike is never skipped, so R184-A is untouched.
  */
 function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolean {
-  if (dSq <= limits.reachSq) return false; // inside your reach: hit it (*"maybe they target it if it's around them"*)
+  if (dSq <= limits.reachSq) return false; // 1 — *"maybe they target it if it's around them"*
   if (!isNonCombatantType(quarry.type)) return false; // it can hit back — R184-A
-  return getCreatureConfig(quarry.type).maxAccel > limits.giveUpAboveAccel;
+  const quarrySpeed = getCreatureConfig(quarry.type).maxAccel;
+  if (quarrySpeed <= limits.giveUpAboveAccel) return false; // catchable: chase as before
+  if (limits.homeZone !== null && zoneOf(quarry.pos, limits.layout) === limits.homeZone) return false; // 2 — home
+  if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off
+  return true;
 }
 
 /**
@@ -1021,7 +1088,7 @@ function findNearestEnemyCreatureIndexed(
   if (epochWorld !== world || epochTick !== world.tick) {
     return findNearestEnemyCreatureFrom(world, fromPos, ownerPlayerId, maxRangeSq, excludeId, chaser);
   }
-  const chase = chaseLimitsOf(chaser); // S192 T6 — chaser-relative, so read here, never cached in the list
+  const chase = chaseLimitsOf(world, chaser); // S192 T6 — chaser-relative, so read here, never cached in the list
   const list = enemyListFor(world, ownerPlayerId);
   const ids = list.ids;
   const creatures = list.creatures;

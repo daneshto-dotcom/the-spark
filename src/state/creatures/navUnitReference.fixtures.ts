@@ -43,6 +43,7 @@ import type { Creature } from './creature.ts';
 import { isUntargetable } from './creature.ts';
 import { CREATURE_CONFIGS } from './voltkin-config.ts';
 import { CHASE_GIVEUP_SLACK_PX, CHASE_GIVEUP_SPEED_RATIO } from '../../constants.ts';
+import { zoneOf, zoneOwner } from '../zones.ts';
 
 /**
  * S192 T6 — "don't chase what you can't catch", LONGHAND for the same reason as the liveness rule.
@@ -51,14 +52,30 @@ import { CHASE_GIVEUP_SLACK_PX, CHASE_GIVEUP_SPEED_RATIO } from '../../constants
  */
 export const REFERENCE_STANDOFF_ENGAGE_FRACTION = 0.9;
 
-export function referenceCannotCatch(chaser: Creature, quarry: Creature, dSq: number): boolean {
+export function referenceCannotCatch(world: World, chaser: Creature, quarry: Creature, dSq: number): boolean {
   const cc = CREATURE_CONFIGS[chaser.type];
   const reach = (cc.holdsRange ? cc.attackRange * REFERENCE_STANDOFF_ENGAGE_FRACTION : cc.attackRange) + CHASE_GIVEUP_SLACK_PX;
   if (dSq <= reach * reach) return false;
   const qc = CREATURE_CONFIGS[quarry.type];
   const nonCombatant = quarry.type === 'chewer' || (qc.selfExplode && !qc.targetsStructures);
   if (!nonCombatant) return false;
-  return qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO;
+  if (!(qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO)) return false;
+  // S192 refinement — at home it is engaged.
+  const home = zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout);
+  if (home !== null && zoneOf(quarry.pos, world.layout) === home) return false;
+  // S192 refinement — and when it can be cut off before it reaches its target.
+  const vx = quarry.targetPos.x - quarry.pos.x;
+  const vy = quarry.targetPos.y - quarry.pos.y;
+  const len2 = vx * vx + vy * vy;
+  if (len2 >= 1) {
+    const t = Math.min(1, Math.max(0, ((chaser.pos.x - quarry.pos.x) * vx + (chaser.pos.y - quarry.pos.y) * vy) / len2));
+    const px = quarry.pos.x + t * vx;
+    const py = quarry.pos.y + t * vy;
+    const quarryTravel = t * Math.sqrt(len2);
+    const chaserTravel = Math.max(0, Math.hypot(chaser.pos.x - px, chaser.pos.y - py) - reach);
+    if (chaserTravel * qc.maxAccel <= quarryTravel * cc.maxAccel) return false;
+  }
+  return true;
 }
 
 /**
@@ -135,7 +152,7 @@ export function referenceFindNearestEnemyCreatureFrom(
     if (!referenceIsLiveTarget(world, c)) continue;
     const dSq = referenceDistSq(fromPos, c.pos);
     if (dSq > maxRangeSq) continue; // range gate
-    if (chaser !== undefined && referenceCannotCatch(chaser, c, dSq)) continue; // S192 T6
+    if (chaser !== undefined && referenceCannotCatch(world, chaser, c, dSq)) continue; // S192 T6
     if (
       dSq < bestDistSq ||
       (dSq === bestDistSq &&
@@ -186,7 +203,7 @@ export function referencePickNavUnit(
       referenceIsLiveTarget(world, quarry) &&
       referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq &&
       // S192 T6 — and a quarry it cannot catch is let go.
-      !referenceCannotCatch(creature, quarry, referenceDistSq(creature.pos, quarry.pos))
+      !referenceCannotCatch(world, creature, quarry, referenceDistSq(creature.pos, quarry.pos))
     ) {
       return held;
     }

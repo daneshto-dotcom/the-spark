@@ -103,3 +103,26 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
   of FIGHT), **direwolf** (1800 = 30 s), **chewer** (3000 = 50 s — ⚠ s191/owner makes it persistent, so after that merge it
   no longer ages out), **locustCloud** (900 = 15 s; untargetable anyway). The **lightningDrone** has a TTL too (480 = 8 s)
   but it is a flight FUSE: it detonates, it never fades. Every goblin / race unit / t3 / boss is persistent.
+
+### R2 — T6 made SMART (*"I didn't say ignore drones or pencil chewers all the time. It just has to be smart"*)
+- `cannotCatch` (`creatureAI.ts`): a FAST NON-COMBATANT (drone/chewer, > 1.25 × chaser `maxAccel`, ⚠ MINE) is ENGAGED
+  when ANY of: (1) within reach + 20 px (⚠ MINE); (2) inside the chaser's OWN zone (`zoneOf(q.pos) === zoneOwner(seat)`);
+  (3) an INTERCEPT is feasible — `interceptFeasible`: P = point of the quarry's straight path `pos → targetPos` nearest the
+  chaser; engage iff `max(0, |C−P| − reach) · v_q ≤ |A−P| · v_c` (speeds = `maxAccel`, cross-multiplied, no division;
+  ⚠ approximation: straight path at cruise speed, no braking; a pathless quarry has nothing to cut off). Otherwise it is
+  neither acquired NOR held — the same predicate at both, so a dropped drone cannot be re-taken until it re-enters (1)–(3):
+  no ping-pong, no memory, no new field. Reference longhand updated (`referenceCannotCatch(world, …)`).
+- HIS SCENARIO through the real host tick (`chaseGiveUp.test.ts`): seat 1's REAL lightning hub + three stink towers, a
+  4-orc-boss army razing the towers, seat 0's stink tower at home for the drones to fly at. BEFORE (`cannotCatch` forced
+  false) vs AFTER: ticks locked on a drone **1550 → 231**; far re-acquires **1 → 0**; westmost point while locked
+  **x 1158 → 1329** (asserted > 1250); towers razed at tick 414 either way; 3–4 drones emitted. Then the army walks onto
+  the hub, whose S187 self-destruct kills it — game reality, not this rule.
+- ADVANCE TABLE (scripted fly-by, enemy ground, 400 ticks), BEFORE → AFTER:
+  goblinMelee 663→285 px (−57.0 %, 129 ticks locked) → 663→413 px (**−37.6 %**, 92); t9BossOrcs 702→296 (−57.8 %, 130) →
+  702→434 (**−38.2 %**, 93). The remaining loss is the INTERCEPT he asked for (the drone flies past them toward their base,
+  they step out to cut it off and let it go once it is by). Asserted < 45 %.
+- Mutations: `cannotCatch → false` → 5 red in `chaseGiveUp` + the oracle case; zone arm removed → home case red + oracle;
+  intercept arm removed → intercept case red + oracle. The `navUnitIndex.differential` T6 case now spans 6 chaser types ×
+  drone/chewer × 4 distances × home/abroad × pathless/past/away, epoch and live.
+- HELGA (*"she should go at … passing by drones"*): untouched — the rule is `pickNavUnit`'s only; pinned: a Helga with a
+  drone 300 px from her hall, flying past, takes it (`WALK`).
