@@ -411,6 +411,9 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
         if (msg.team === null) deps.session.teamByPeer.delete(peerId);
         else deps.session.teamByPeer.set(peerId, msg.team);
         broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
+        // ⭐ S193 (audit F2) — a pick that turns a one-team (refused) quickmatch room into two sides must
+        // RE-ARM the all-ready gate: readiness did not change, so nothing else would fire it again.
+        maybeQmAutoBegin(deps.session, deps.onAutoBegin);
       }
       if (msg.kind === 'CLAIM_RACE' && deps.world.gameState === 'LOBBY') {
         if (raceIsFree(deps.session, msg.raceId, peerId)) {

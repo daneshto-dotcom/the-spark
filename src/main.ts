@@ -101,7 +101,7 @@ import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
-import { broadcastQmPresence, maybeQmAutoBegin } from './net/quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, sessionTeamsPlayable } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
 import {
@@ -279,7 +279,7 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
-import { arrangeTeamSeats, permuteSeats, teamsPlayable } from './state/teams.ts';
+import { arrangeTeamSeats, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1813,8 +1813,7 @@ async function bootstrap(): Promise<void> {
   const baseBeginMatch = createBeginMatchHandler({ session, world, hostIdentity });
   const onBeginMatch = (): void => {
     // ⭐ S192 (teams spec Q2) — a match needs two SIDES. With every seat on one team, Begin does nothing.
-    const picks = [session.selfTeam ?? undefined, ...[...session.lobbySeats.keys()].map((p) => session.teamByPeer.get(p))];
-    if (!teamsPlayable(picks, picks.length)) return;
+    if (!sessionTeamsPlayable(session)) return;
     reseedForNewMatch();
     baseBeginMatch();
   };
@@ -1853,6 +1852,9 @@ async function bootstrap(): Promise<void> {
   // late LOBBY_READY can't re-dispatch START_GAME (idempotency, Council F4).
   const onAutoBegin = (): void => {
     if (world.gameState !== 'LOBBY') return;
+    // ⭐ S193 (audit F2) — refuse BEFORE stopping discovery: a one-team room that cannot begin must stay
+    // findable, and a later team pick re-arms this gate (`hostHandlers` CLAIM_TEAM, `onPickTeam`).
+    if (!sessionTeamsPlayable(session)) return;
     stopQuickmatch();
     onBeginMatch();
   };
@@ -2000,6 +2002,7 @@ async function bootstrap(): Promise<void> {
     if (world.isHost) {
       session.selfTeam = team;
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
+      maybeQmAutoBegin(session, onAutoBegin); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_TEAM', team });
     }

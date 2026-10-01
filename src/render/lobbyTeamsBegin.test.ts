@@ -48,7 +48,9 @@ describe('S193 F1 — the lobby view knows whether Begin can start a match', () 
     const strip = (s: string): string => s.replace(/\r\n/g, '\n').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const main = strip(readFileSync(new URL('../main.ts', import.meta.url), 'utf8'));
     const begin = main.slice(main.indexOf('const onBeginMatch'), main.indexOf('const onBeginMatch') + 600);
-    expect(begin, 'main.ts refuses Begin with teamsPlayable').toMatch(/if \(!teamsPlayable\(picks, picks\.length\)\) return;/);
+    expect(begin, 'main.ts refuses Begin with the session predicate').toMatch(/if \(!sessionTeamsPlayable\(session\)\) return;/);
+    const qm = strip(readFileSync(new URL('../net/quickmatchGate.ts', import.meta.url), 'utf8'));
+    expect(qm, 'which is teamsPlayable over the same picks').toMatch(/return teamsPlayable\(picks, picks\.length\);/);
     const view = strip(readFileSync(new URL('./lobbyStateMachine.ts', import.meta.url), 'utf8'));
     expect(view).toMatch(/teamsPlayable: teamsPlayable\(picks, picks\.length\)/);
     const screen = strip(readFileSync(new URL('./lobbyScreen.ts', import.meta.url), 'utf8'));

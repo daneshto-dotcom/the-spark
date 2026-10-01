@@ -16,6 +16,7 @@ import type { HostPhase, RosterEntry } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { selfId, type NetTransport } from './transport.ts';
 import type { GameState } from '../state/worldTypes.ts';
+import { teamsPlayable } from '../state/teams.ts';
 
 /**
  * Host-side START GATE. True iff worth auto-beginning: ≥2 players present, the
@@ -200,6 +201,16 @@ export function broadcastQmPresence(
 /** ⭐ S191 (NETFR-1) — a host is in its LOBBY until Begin; PLAYING, WIN and POSTGAME are all its MATCH. */
 export function hostPhaseOf(gameState: GameState): HostPhase {
   return gameState === 'LOBBY' || gameState === 'TITLE' ? 'LOBBY' : 'MATCH';
+}
+
+/**
+ * ⭐ S193 (audit F1/F2, teams spec Q2) — can the HOST's lobby start a match? The host's own pick plus every
+ * seated peer's, through `teamsPlayable`. ONE helper, read by `main.ts`'s Begin AND auto-begin, so the two
+ * cannot disagree about what "one team, no enemy" means.
+ */
+export function sessionTeamsPlayable(session: Pick<NetSession, 'selfTeam' | 'lobbySeats' | 'teamByPeer'>): boolean {
+  const picks = [session.selfTeam ?? undefined, ...[...session.lobbySeats.keys()].map((p) => session.teamByPeer.get(p))];
+  return teamsPlayable(picks, picks.length);
 }
 
 /** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */
