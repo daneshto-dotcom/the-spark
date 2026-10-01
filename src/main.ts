@@ -275,6 +275,7 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
+import { arrangeTeamSeats, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1656,12 +1657,21 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (difficulties, races) => {
+          onStart: (pickedDifficulties, pickedRaces, pickedTeams) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
               const mod = await import('./bots/botManager.ts');
-              const totalSeats = difficulties.length + 1;
+              const totalSeats = pickedDifficulties.length + 1;
+              /*
+               * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE. Seat 0 (you) never
+               * moves; the bots are re-seated so allies share a border, carrying their race, team and
+               * difficulty with them. No shared team ⇒ the identity ⇒ exactly the pre-S192 seating.
+               */
+              const order = arrangeTeamSeats(pickedTeams.slice(0, totalSeats));
+              const races = permuteSeats(pickedRaces.slice(0, totalSeats), order);
+              const teams = permuteSeats(pickedTeams.slice(0, totalSeats), order);
+              const difficulties = order.slice(1).map((old) => pickedDifficulties[old - 1]!);
               /*
                * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
                *
@@ -1673,7 +1683,8 @@ async function bootstrap(): Promise<void> {
                */
               const roster = Array.from({ length: totalSeats }, (_, seat) => {
                 const raceId = races[seat] ?? defaultRaceForSeat(seat);
-                return { seat, color: RACE_COLORS[raceId], raceId };
+                const team = teams[seat];
+                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}) };
               });
               const botSeats = difficulties.map((_, i) => i + 1);
               // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND

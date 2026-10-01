@@ -181,3 +181,25 @@ function permutationsFixingZero(n: number): number[][] {
   go([], rest);
   return out;
 }
+
+/**
+ * ⭐ S192 (owner R192-T4) — the lobby chip's click: no team → TEAM 1 → … → TEAM 4 → no team. Shared by
+ * the bot lobby and the multiplayer lobby so both cycle identically.
+ */
+export function nextTeamPick(cur: number | undefined): number | undefined {
+  if (!isTeamIndex(cur)) return 0;
+  return cur + 1 < TEAM_COUNT ? cur + 1 : undefined;
+}
+
+/** The chip's label: `—` for no team (its own side), `T1`..`T4` otherwise (the lobby is 1-based). */
+export function teamChipLabel(pick: number | undefined): string {
+  return isTeamIndex(pick) ? `T${pick + 1}` : '—';
+}
+
+/**
+ * ⭐ S192 — apply `arrangeTeamSeats` to a seat-indexed list (races, teams, …): `out[newSeat] = list[order[newSeat]]`.
+ * With no shared team the order is the identity, so a free-for-all lobby seats exactly as before.
+ */
+export function permuteSeats<T>(list: readonly T[], order: readonly number[]): T[] {
+  return order.map((old) => list[old]!);
+}

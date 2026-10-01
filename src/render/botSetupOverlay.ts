@@ -19,6 +19,8 @@ import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts'
 import { raceDisplayName } from './raceBanners.ts';
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS } from '../constants.ts';
+import { nextTeamPick, teamChipLabel, teamsPlayable } from '../state/teams.ts';
+import { teamChipColor } from './teamChip.ts';
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_COLORS,
@@ -39,7 +41,11 @@ export interface BotSetupCallbacks {
    * (index 0 = the HUMAN, index i+1 = bot i), so `races.length === difficulties.length + 1`. The
    * seat-indexed shape is the one `applyStartGame` wants, since it builds a roster over seats.
    */
-  onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[]): void;
+  /**
+   * ⭐ S192 (owner R192-T4) — `teams` is per SEAT like `races` (index 0 = the human): each seat's team
+   * (0..3) or `undefined` (its own side). All `undefined` is the free-for-all, exactly as before.
+   */
+  onStart(difficulties: readonly BotDifficulty[], races: readonly RaceId[], teams: readonly (number | undefined)[]): void;
   onClose(): void;
 }
 
@@ -72,6 +78,10 @@ export class BotSetupOverlay {
   private readonly races: RaceId[] =
     Array.from({ length: MAX_BOTS + 1 }, (_, seat) => defaultRaceForSeat(seat));
   private readonly racePicker: RacePickerHandle;
+  /** ⭐ S192 (R192-T4) — SEAT-indexed team picks, like `races`. `undefined` = no team (its own side). */
+  private readonly teams: (number | undefined)[] = Array.from({ length: MAX_BOTS + 1 }, () => undefined);
+  /** ⭐ S192 — shown under START when every seat is on one team (spec Q2): no enemy, no match. */
+  private readonly teamsHint: Text;
   /** Which SEAT's row opened the picker, so the pick lands on the right row. */
   private pickingSeat = 0;
   private uiPoints: Omit<BotSetupUiPoints, 'difficulty'> | null = null;
@@ -150,9 +160,21 @@ export class BotSetupOverlay {
     // ── START + close ────────────────────────────────────────────────────
     const startY = CANVAS_HEIGHT - 140;
     const start = this.makeWideButton('START MATCH', CANVAS_WIDTH / 2, startY, () => {
-      this.callbacks.onStart(this.difficulties.slice(0, this.botCount), this.races.slice(0, this.botCount + 1));
+      // ⭐ S192 (spec Q2) — a match needs two sides. With every seat on one team START does nothing
+      // and the hint below says why.
+      const teams = this.teams.slice(0, this.botCount + 1);
+      if (!teamsPlayable(teams, this.botCount + 1)) return;
+      this.callbacks.onStart(this.difficulties.slice(0, this.botCount), this.races.slice(0, this.botCount + 1), teams);
     });
     this.container.addChild(start);
+    this.teamsHint = new Text({
+      text: 'everyone is on one team — pick at least two sides',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xff8866 }),
+    });
+    this.teamsHint.anchor.set(0.5);
+    this.teamsHint.position.set(CANVAS_WIDTH / 2, startY + 56);
+    this.teamsHint.visible = false;
+    this.container.addChild(this.teamsHint);
 
     const close = this.makeSmallButton('✕', CANVAS_WIDTH - 60, 60, () => {
       this.callbacks.onClose();
@@ -261,7 +283,44 @@ export class BotSetupOverlay {
     return btn;
   }
 
+  /**
+   * ⭐ S192 (owner R192-T4) — the TEAM chip on every row: *"team one, team two, team three, team four …
+   * just like in Red Alert"*. Click cycles — → T1 → T2 → T3 → T4 → —. Bots can be on your team (Q3).
+   */
+  private makeTeamButton(seat: number, cx: number): Container {
+    const btn = new Container();
+    btn.position.set(cx, ROW_H / 2);
+    const bg = new Graphics();
+    const t = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: 0xffffff }),
+    });
+    t.anchor.set(0.5);
+    btn.addChild(bg, t);
+    const paint = (): void => {
+      const col = teamChipColor(this.teams[seat]);
+      bg.clear();
+      bg.roundRect(-36, -18, 72, 36, 6).fill({ color: 0x0a0a0a, alpha: 0.9 }).stroke({ width: 2, color: col, alpha: 0.9 });
+      t.text = teamChipLabel(this.teams[seat]);
+      t.style.fill = col;
+    };
+    paint();
+    btn.eventMode = 'static';
+    btn.cursor = 'pointer';
+    btn.on('pointertap', () => {
+      this.teams[seat] = nextTeamPick(this.teams[seat]);
+      paint();
+      this.paintTeamsHint();
+    });
+    return btn;
+  }
+
+  private paintTeamsHint(): void {
+    this.teamsHint.visible = !teamsPlayable(this.teams.slice(0, this.botCount + 1), this.botCount + 1);
+  }
+
   private rebuildRows(): void {
+    this.paintTeamsHint();
     this.countText.text = `${this.botCount} BOT${this.botCount > 1 ? 'S' : ''}`;
     this.rowsHost.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.difficultyCenters = [];
@@ -298,6 +357,7 @@ export class BotSetupOverlay {
     youLabel.position.set(-PANEL_W / 2 + 64, ROW_H / 2);
     youRow.addChild(youLabel);
     youRow.addChild(this.makeRaceButton(0, PANEL_W / 2 - 300));
+    youRow.addChild(this.makeTeamButton(0, -120));
     this.rowsHost.addChild(youRow);
 
     for (let i = 0; i < this.botCount; i++) {
@@ -367,6 +427,7 @@ export class BotSetupOverlay {
       });
       row.addChild(diffBtn);
       row.addChild(this.makeRaceButton(i + 1, PANEL_W / 2 - 300));
+      row.addChild(this.makeTeamButton(i + 1, -120));
 
       this.difficultyCenters.push({
         x: CANVAS_WIDTH / 2 + PANEL_W / 2 - 110,
