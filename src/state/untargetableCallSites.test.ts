@@ -79,6 +79,15 @@ const rel = (p: string): string => p.slice(SRC.length + 1).split('\\').join('/')
  * A.0 sweep — this list is a set of VERDICTS, not a set of exemptions.
  */
 const NOT_ACQUISITION: Readonly<Record<string, string>> = {
+  // ⭐ S193 visuals-3 — two render-only reads, neither picks a victim.
+  'render/goblinRenderer.ts':
+    'PURELY PRESENTATIONAL (S193 V11). `lifestealSource` finds the nearest enemy creature only to '+
+    'decide where a lifesteal burst of motes is DRAWN FROM, after the heal has already landed in the '+
+    'sim. Nothing is targeted, damaged or written; gating it would draw the motes from the wrong place.',
+  'render/zoneBackgroundRenderer.ts':
+    'PURELY PRESENTATIONAL (S193 V12). `isCreatureBurning` / `drawScorchFx` restate the SCORCHED '+
+    'GROUND burn predicate (an AREA effect, which must reach untargetable units too) only to draw '+
+    'flames on the units it is burning. Nothing is targeted, damaged or written.',
   'render/damageNumbers.ts':
     'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
     'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
