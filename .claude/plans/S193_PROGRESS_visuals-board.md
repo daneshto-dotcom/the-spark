@@ -11,5 +11,10 @@ Own e2e/dev port (playwright FNV hash): **27145**.
 - gates @ 49f1e526: typecheck 0 · vitest 1 → 4 red in stinkBagPortrait.test.ts (Object.create stub lacked the new smoke layer; FIXED next commit, file re-run 0) · build 0, 1049.1 KiB (+13.2 vs 1035.9 base; AlphaFilter = 3.0 of it, measured by stubbing it out).
 - pentagramBuildability snapshot LF churn after vitest: reverted (pre-existing, benign, noted by S192).
 
+- screenshots: 3 passes (.tmp-gates/fx/board.spec.ts), tuned stink puffs, mist visibility, stain footprint (1.12x). Pairs + index.html at C:/Users/onesh/OneDrive/Desktop/SPARK_Visuals_Pilot/visuals-5/.
+  Harness failures, each ruled: draft overlay covered board (cleared w.draft) / FIGHT refused builds (removed) / solo has 1 seat (raider colour fixed) / one clock.pauseAt "fast-forward to the past" (harness timing, offset widened, re-run green).
+- bench (FX_GPU=1, 120 creatures + 4 towers + 4 stink clouds + build/raided pushes every 330 ms, machine shared with ~12 worktrees):
+  batch1 legacy 4.15/4.55, HIGH 4.45/5.27, LOW 5.73/4.82; batch2 legacy 6.99/6.50, HIGH 6.37/6.30, LOW 5.75/5.80 ms avg. Paired delta HIGH -0.6..+0.7 ms: within the +1.0 contract, dominated by load noise.
+
 ## NEXT STEP
-- screenshots running (.tmp-gates/fx/board.spec.ts, port 27145) → review, fix, then bench (bench.spec.ts), full gates, e2e:gating. V28 waits for weld.
+- final gates running (tc, vitest, build, e2e:gating port 27145). Then report; V28 waits for weld.
