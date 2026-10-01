@@ -13,7 +13,8 @@ each track's real decoded PCM (ffmpeg → f32le 48 kHz stereo → `musicLoop.ts`
 |---|---:|---|---|---|---|---|
 | `blue-steppe-orbit.ogg` (default) | 384.97 s | 382.34 → end (**2.62 s**) | 382.47 → end (2.49 s) | 0.000 – 382.353 | 2.61 → **0.00** | 2.62 → 0.01 |
 | vampires | 279.81 s | 0 → 1.33 + 278.07 → end (**3.07 s across seam**); 164.46–164.96 (0.49 s, inside) | 0 → 0.52 + 278.75 → end | 1.097 – 278.399 | 2.51 → **0.00** | 3.08 → 0.57 |
-| nagas | 314.84 s | 0 → 1.50 (**1.50 s**) | 0 → 0.60 | 0.869 – 314.840 | 0.87 → **0.00** | 1.50 → 0.63 |
+| nagas — **NEW asset** (7b65e663, `s192/nagas-song`, merged from master; re-measured after the merge) | 266.00 s | 0 → 0.63 (0.63 s, a fade-in above −40 dB) | none | whole (no trim) | 0.01 → 0.01 | 0.65 → 0.65 |
+| ~~nagas (old asset, replaced)~~ | ~~314.84 s~~ | ~~0 → 1.50~~ | ~~0 → 0.60~~ | ~~0.869 – 314.840~~ | ~~0.87 → 0.00~~ | ~~1.50 → 0.63~~ |
 | mummies | 307.37 s | none at the seam. INSIDE: **39.44–42.40 (2.96 s)**, plus 0.34/0.60/0.73/0.99/0.50/0.93 s dips at 4.2, 5.2, 6.1, 15.0, 23.8, 163.4 s | 40.98–42.39 (1.42 s, inside) | whole (no trim) | 0.06 → 0.06 | 0.27 → 0.27 |
 | zombies | 208.77 s | 207.23 → end (**1.54 s**) | 207.43 → end (1.34 s) | 0.000 – 207.273 | 1.50 → **0.00** | 1.54 → 0.04 |
 | orcs | 159.96 s | 157.93 → end (**2.03 s**) | 158.98 → end (0.98 s) | 0.000 – 158.499 | 1.46 → **0.00** | 2.03 → 0.57 |
@@ -118,3 +119,16 @@ here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next
   tree, exit 0; only the opt-in measure test changed since), then SubagentHandback with the final report.
 - FINAL (after reset): `npx vitest run --maxWorkers=3` on babc463 → VITEST_EXIT=0 (424 files passed / 3 skipped,
   6778 tests passed / 8 skipped). Branch complete; handed to the merge owner.
+
+## Audit fix round (independent audit: CLEAN + one MED)
+- merged master f6ae1041 (brings the new nagas.ogg) — clean merge. Nagas row above re-measured: region WHOLE,
+  0.01 s seam under −40 dB — agrees with the auditor.
+- A1 (MED) 509550b2 — reproduced first with the auditor's `zzAudit*.test.ts` (yell built 0 during and after
+  a 6-crackle burst; latch spent). Fix: `crackle` is its own kind (4, ⚠ MINE); `latchedVoice` (rainbow yell,
+  Voltkin cutscene voice via `godlyOrchestration.playVoice`) and `ui` are UNCAPPED and unbooked
+  (`SFX_UNCAPPED_KINDS`); `playOneShot` resolves `played: boolean` and the crackle / yell / slap ducks fire
+  only when the voice played. After the fix the auditor's run shows: 4 crackles built (2 refused by their own
+  pool), yell built 1, UI click built with the pool at 32/32. Regression tests in `audioSeamlessAndCap.test.ts`.
+- A2 (LOW) — same commit (same mechanism): `ui` sits outside the global 32, never refused.
+- A6 (LOW) dfc4d9ae — `audioSimBoundary.test.ts` throws on an unreadable import (+ a negative control).
+- The auditor's scratch tests were run in this worktree to reproduce and then removed (not committed).
