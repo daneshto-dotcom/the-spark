@@ -22,7 +22,6 @@
  *
  * And the loop gave up at the grace: a network that came back at 16 s never rejoined.
  */
-import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 import { isSnapshotStarved } from './succession.ts';
 import type { HostPhase } from './protocol.ts';
 
@@ -34,8 +33,24 @@ export const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
  * ⭐ S189 — a retry may only replace an attempt that has had the repo's own budget for a HEALTHY join:
  * `JOIN_STALL_WARN_MS` (8 s), the point at which the lobby first calls a join slow. Was 4 s, below a
  * measured fresh join (~6.3 s), so every attempt but the last was torn down before it could land.
+ *
+ * ⛔ S192 (C4 step 8) — AND 8 s WAS STILL TOO SHORT, BECAUSE A STUCK HANDSHAKE IS NOT A DEAD ATTEMPT.
+ * Measured on `e2e/reconnect-hard-blip.spec.ts` (real WebRTC, public relays, this worktree's own dev
+ * server): with the 8 s cadence the match came back inside the 15 s grace 2 / 9 times, and every late
+ * recovery landed ~4 s after the LAST attempt (24.7 / 29.4–30.6 / 40.4 s) — the attempts at +9.5 and
+ * +17.6 s never landed once. The first attempt's signalling gets stuck behind Trystero's per-peer
+ * answering / post-answer TTLs (`answeringTtlMs` = `offerPostAnswerTtlMs` = 23 333 ms,
+ * `@trystero-p2p/core/dist/signal-handler.mjs`); a teardown inside that window cannot land and only
+ * restarts it. Left ALONE in its room, that same attempt recovers on its own once the TTL expires and the
+ * next announce (`announceIntervalMs` 5 333 ms) re-handshakes: 23.0 / 25.6 / 25.7 / 28.0 / 32.7 s with a
+ * single attempt. With 24.5 s the grace rate was 8 / 14 but a teardown at +26 s twice killed exactly that
+ * in-room recovery (one run did not come back inside 45 s). With 35 s: 10 / 10 recovered, 7 / 10 inside
+ * the grace, never a second attempt.
+ * ⚠ MINE: 35 s = the 23.3 s TTL + one 5.3 s announce + the ~6.3 s fresh join, rounded up. A second
+ * attempt is still made (a room whose relays really died needs one), just not inside the window where it
+ * can only hurt. `reconnectPolicy.test.ts` pins this against the Trystero constants it is derived from.
  */
-export const RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS;
+export const RECONNECT_RETRY_MS = 35_000;
 /**
  * ⭐ S189 fix round (audit NET-1) — the BACKSTOP: the loop stops retrying this long after the loss
  * began; the terminal overlay stays (Return to Title). ⚠ MINE, not the owner's: 3 minutes is long past
@@ -110,6 +125,58 @@ export function seatedSurvivors(
   return out;
 }
 
+/**
+ * ⭐ S192 ROUND-2 (audit wf_de15cae4-4a8) — the MIGRATION case, extracted from main.ts so a test can reach it:
+ * a warranted client whose followed host is lost while someone it should wait with is still connected —
+ * the loop then never tears its transport down (that would drop the coming MIGRATION_CLAIM).
+ *   · with a Begin roster: a SEATED survivor (S191 WIRE-3 — a stray on the room is nobody to wait with);
+ *   · with NO roster: any transport peer (the S125 v2 rule). Every deposed original host that rejoined as a
+ *     client is such a seat — `lastRoster` is written only from a START_GAME_SIGNAL received in LOBBY — and
+ *     WIRE-3 made it tear its live mesh down every 8 s when its successor was lost, instead of waiting for
+ *     the next claim. It cannot claim itself (the claim block needs a roster), so this changes only the wait.
+ */
+export function isMigrationCase(i: {
+  readonly isHost: boolean;
+  readonly hasWarrant: boolean;
+  readonly roster: readonly { readonly peerId: string }[] | null;
+  /** null = no transport. */
+  readonly transportPeerIds: readonly string[] | null;
+  readonly selfPeerId: string;
+  readonly hostPeerId: string | null;
+}): boolean {
+  if (i.isHost || !i.hasWarrant || i.transportPeerIds === null) return false;
+  if (i.roster === null) return i.transportPeerIds.length > 0;
+  return seatedSurvivors(i.roster, i.transportPeerIds, i.selfPeerId, i.hostPeerId).size > 0;
+}
+
+/**
+ * ⭐ S192 FIX-2 — the transport's peers as THIS MATCH sees them: a followed host that proved it left our
+ * match (`NetSession.hostDepartedPeerId`, latched from a 'lobby' / 'new-match' host signal) is not here,
+ * even while his re-hosted lobby sits on the same room. Owner ruling (S191 PDR §0): *"if a host quits,
+ * then the next player who … was in line becomes the hosts"*. main.ts reads host presence through this.
+ */
+export function matchPeerIds(transportPeerIds: readonly string[], departedHostPeerId: string | null): string[] {
+  return departedHostPeerId === null ? [...transportPeerIds] : transportPeerIds.filter((p) => p !== departedHostPeerId);
+}
+
+/**
+ * ⭐ S192 FIX-2 — does this survivor observe the loss of the host it follows (the gate a forward-epoch
+ * MIGRATION_CLAIM needs, `claimAcceptDecision`)? Gone from our transport, starved of snapshots — or (new)
+ * proved to have left our match. A latch for a host we no longer follow proves nothing.
+ */
+export function observesHostLoss(i: {
+  readonly hostPeerId: string | null;
+  readonly alivePeerIds: ReadonlySet<string>;
+  readonly hostDepartedPeerId: string | null;
+  readonly lastAcceptedAtMs: number;
+  readonly nowMs: number;
+  readonly starvationMs: number;
+}): boolean {
+  if (i.hostPeerId !== null && !i.alivePeerIds.has(i.hostPeerId)) return true;
+  if (i.hostPeerId !== null && i.hostDepartedPeerId === i.hostPeerId) return true;
+  return i.lastAcceptedAtMs > 0 && isSnapshotStarved(i.nowMs, i.lastAcceptedAtMs, i.starvationMs);
+}
+
 /** ⭐ S189 (C4, hunt E3) — why the overlay went TERMINAL, for the one `[net] CONNECTION LOST (terminal)` line. */
 export type TerminalLossCause = 'zombieDeposed' | 'migrationDeadline' | 'hostLost' | 'peerCount0';
 
@@ -145,9 +212,16 @@ export interface MigrationClaimInput {
   readonly ladderDelayMs: number | null;
   /** When the current loss episode was first observed (0 = none). */
   readonly lossObservedAtMs: number;
+  /**
+   * ⭐ S192 ROUND-1 — did the running clock START on a frame where the host was already gone from our
+   * transport (a host death seen with our own transport up)? Carried by main.ts beside `lossObservedAtMs`;
+   * false when no clock runs. Only such a clock survives a frame with no seated survivor.
+   */
+  readonly clockStartedHostAbsent: boolean;
 }
 export interface MigrationClaimStep {
   readonly lossObservedAtMs: number;
+  readonly clockStartedHostAbsent: boolean;
   readonly claim: boolean;
 }
 
@@ -172,19 +246,35 @@ export interface MigrationClaimStep {
  * else here" is no episode at all: the grace is counted from the first frame a survivor is visible without
  * the host. (`planConnectionFrame` anchors its MIGRATING window on the same clock — `claimClockSinceMs`.)
  * ⚠ It narrows the window, it does not close it — see the RESIDUAL test in `reconnectPolicy.test.ts`.
+ *
+ * ⛔ S192 ROUND-1 (audit wf_de15cae4-4a8) — WHICH running clock survives a frame with no seated survivor.
+ * Resetting every one (NETFR-3 as first built) cost a real 3+-seat host death a whole fresh grace + rung per
+ * survivor blink (S191 FIX-3). KEEPING every one (6004e8d, reverted) re-opened NETFR-3 in the usual order of
+ * a real drop: snapshots stop, starvation starts the clock with the host STILL on our transport, Trystero
+ * then removes both legs, and the reconnect lands B first — on a clock already past grace + rung. So the
+ * clock remembers how it began (`clockStartedHostAbsent`, set on its first frame only): a clock that began
+ * with the host gone and a survivor visible is kept through the blink; one that began as starvation is
+ * dropped the moment our transport has nobody to host for, and restarts when a survivor is visible.
  */
 export function stepMigrationClaim(i: MigrationClaimInput): MigrationClaimStep {
   const hostPresent = i.hostPeerId !== null && i.alivePeerIds.has(i.hostPeerId);
   const hostLost = i.hostPeerId !== null && !hostPresent;
   const since = hostPresent ? Math.max(i.lastAcceptedAtMs, i.hostPresentSinceMs) : i.lastAcceptedAtMs;
   const starved = isSnapshotStarved(i.nowMs, since, i.starvationMs);
-  if (!(hostLost || starved)) return { lossObservedAtMs: 0, claim: false };
-  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) return { lossObservedAtMs: 0, claim: false };
-  const obs = i.lossObservedAtMs === 0 ? i.nowMs : i.lossObservedAtMs;
-  if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
-    return { lossObservedAtMs: obs, claim: false };
+  if (!(hostLost || starved)) return { lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false };
+  if (hostLost && !hasSurvivorToHostFor(i.seatedSurvivorIds, i.hostPeerId)) {
+    // S192 ROUND-1 — never START a clock here; KEEP one only if it began with the host already absent.
+    return i.lossObservedAtMs !== 0 && i.clockStartedHostAbsent
+      ? { lossObservedAtMs: i.lossObservedAtMs, clockStartedHostAbsent: true, claim: false }
+      : { lossObservedAtMs: 0, clockStartedHostAbsent: false, claim: false };
   }
-  return { lossObservedAtMs: obs, claim: true };
+  const starting = i.lossObservedAtMs === 0;
+  const obs = starting ? i.nowMs : i.lossObservedAtMs;
+  const clockStartedHostAbsent = starting ? hostLost : i.clockStartedHostAbsent;
+  if (i.ladderDelayMs === null || i.nowMs - obs < i.graceMs + i.ladderDelayMs) {
+    return { lossObservedAtMs: obs, clockStartedHostAbsent, claim: false };
+  }
+  return { lossObservedAtMs: obs, clockStartedHostAbsent, claim: true };
 }
 
 /** When did the followed host last (re)appear on our transport? Pure; `main.ts` keeps the state. */
@@ -217,7 +307,17 @@ export type ConnectionOverlay =
   | { readonly kind: 'hidden' }
   | { readonly kind: 'reconnecting'; readonly secondsLeft: number }
   | { readonly kind: 'migrating'; readonly secondsLeft: number }
-  | { readonly kind: 'terminal'; readonly cause: TerminalLossCause };
+  | {
+      readonly kind: 'terminal';
+      readonly cause: TerminalLossCause;
+      /**
+       * ⭐ S192 SEAM-1 — a CLIENT whose loop is still retrying behind the overlay (until `RECONNECT_GIVE_UP_MS`).
+       * The help line must not say "return to title to retry": Return to Title ENDS the retry.
+       */
+      readonly retrying: boolean;
+      /** ⭐ S192 SEAM-1 — a HOST still inside the give-up window: its clients may still be retrying back to it. */
+      readonly waitingForPeers: boolean;
+    };
 
 export interface ConnectionFrameInput {
   readonly nowMs: number;
@@ -255,7 +355,7 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
       reconnectUntilMs: i.reconnectUntilMs,
       nextRetryMs: i.nextRetryMs,
       retry: false,
-      overlay: { kind: 'terminal', cause: 'zombieDeposed' },
+      overlay: { kind: 'terminal', cause: 'zombieDeposed', retrying: false, waitingForPeers: false },
     };
   }
   if (!i.peersGone) {
@@ -291,6 +391,9 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
     overlay = {
       kind: 'terminal',
       cause: terminalLossCause({ zombieDeposed: false, migrationCase: i.migrationCase, peerCount: i.peerCount }),
+      // S192 SEAM-1 — the same predicate `reconnectRetryDue` gates on, minus the per-attempt time.
+      retrying: !gaveUp && !i.isHost && i.hasRoomCode && !i.migrationCase,
+      waitingForPeers: !gaveUp && i.isHost,
     };
   }
   return { reconnectUntilMs, nextRetryMs, retry, overlay };
@@ -358,6 +461,30 @@ export interface HostMessageInput {
   readonly matchId?: string;
   /** ⭐ S191 — LOBBY_PRESENCE's `phase`, if it carries one. */
   readonly hostPhase?: HostPhase;
+}
+
+/**
+ * ⛔ S192 audit A1 (HIGH) — is this message a PROOF that the followed host left our match? A presence in
+ * phase LOBBY, or a presence / snapshot that carries a DIFFERENT match id. NEVER the seq-regression fallback
+ * (`classifyHostMessage`'s 'new-match' with our own id or none): it fires mid-match on a live host.
+ * A proof is still not enough to latch — see `shouldLatchDeparture`.
+ */
+export function departureProofOf(i: HostMessageInput): boolean {
+  if (!i.inMatch || !i.fromFollowedHost) return false;
+  if (i.kind !== 'LOBBY_PRESENCE' && i.kind !== 'NETSNAPSHOT') return false;
+  if (i.kind === 'LOBBY_PRESENCE' && i.hostPhase === 'LOBBY') return true;
+  return i.matchId !== undefined && i.ourMatchId !== null && i.matchId !== i.ourMatchId;
+}
+
+/**
+ * ⛔ S192 audit A1 (HIGH) — may a departure proof LATCH the host as departed (`NetSession.hostDepartedPeerId`)?
+ * Only when it cannot be a stale copy: nostr and torrent each deliver every control message with no dedup,
+ * so the pre-Begin phase-LOBBY beacon can land on the slower strategy AFTER START_GAME_SIGNAL. It is
+ * trusted only from a host that was seen ABSENT from our transport during this match (it re-appeared: the
+ * FIX-2 case of H re-hosting the room), or while our own rejoin is pending (we re-met it).
+ */
+export function shouldLatchDeparture(i: { readonly rejoinPending: boolean; readonly hostAbsentThisMatch: boolean }): boolean {
+  return i.rejoinPending || i.hostAbsentThisMatch;
 }
 
 /** A classified snapshot of 'new-match' is NOT applied (`clientHandlers.ts` returns before `receive`). */

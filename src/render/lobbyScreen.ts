@@ -600,6 +600,11 @@ export class LobbyScreen {
     this.connectionLostHandle.setReconnecting(reconnecting, secondsLeft);
   }
 
+  /** ⭐ S192 SEAM-1 — the terminal CONNECTION LOST state; the help line says whether the loop is still working. */
+  setConnectionLostTerminal(retrying: boolean, waitingForPeers: boolean): void {
+    this.connectionLostHandle.setTerminal(retrying, waitingForPeers);
+  }
+
   /** S124 P1 (host-migration D4) — the MIGRATING overlay variant (successor takeover window). */
   setConnectionLostMigrating(secondsLeft?: number): void {
     this.connectionLostHandle.setMigrating(secondsLeft);

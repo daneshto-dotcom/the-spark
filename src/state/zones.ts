@@ -33,6 +33,10 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_PORCH_OFFSET_Y,
+  CASTLE_PORCH_PITCH_X,
+  CASTLE_PORCH_SLOT_CLEAR_RADIUS,
+  CASTLE_PORCH_SLOTS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -219,11 +223,38 @@ export function layoutForSeatCount(seatCount: number): ZoneLayout {
  * ⚠ A LITERAL, NOT A COMPUTATION. `Math.hypot` is not guaranteed identical across JS engines, and
  * two peers may be on different browsers — see rule 2 in this file's docblock. The arithmetic above
  * is re-derived from those constants in `zones.test.ts` instead, where a drift turns a test RED.
+ *
+ * ⭐⭐ S191 (owner) — **HALVED: 121 → 61.** *"you can't build … near the castle. Like it takes so
+ * much space. Like the no build zone near castle is like way too ridiculous. It needs to be halved.
+ * Okay, like the radius where you can't build around the castle."* His number: 121 / 2, rounded UP
+ * so the keep-out never shrinks below half. Still a literal (rule 2).
+ *
+ * ⚠ IT IS NO LONGER THE CASTLE'S REACH, and two things the old 121 covered now sit OUTSIDE it:
+ *   · the PORCH (slots 75.5–86.6 px out) — so each slot keeps its own clear disc,
+ *     `CASTLE_PORCH_KEEP_OUT_RADIUS` below, inside this same function, or a tower could be stamped
+ *     over a deposit slot and every pulled shape would be minted into it (the S136 fling);
+ *   · the top of the castle SPRITE (67 px) and its corners (82.4 px) — a shape may now be built
+ *     against the drawn keep's roof and corners. A consequence of his halving, reported, not "fixed".
+ * Still inside it: the keep BOX (half-diagonal ≈ 47) and the castle's unit-emit ring
+ * (`RACE_UNIT_SPAWN_SPREAD` 46, `raceUnitEmit.ts`) — so units still leave the keep on clear ground.
  */
-export const CASTLE_NO_BUILD_RADIUS = 121;
+export const CASTLE_NO_BUILD_RADIUS = 61;
 
 /** Squared, for the same reason `QUARRY_R2` is — see rule 2 in the file docblock. No sqrt. */
 const CASTLE_NO_BUILD_R2 = CASTLE_NO_BUILD_RADIUS * CASTLE_NO_BUILD_RADIUS;
+
+/**
+ * ⭐ S191 — **EACH PORCH SLOT KEEPS ITS OWN CLEAR DISC**, now that the halved keep-out no longer
+ * covers the porch. ⚠ MINE (the brief's default), not his: **34 = 2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`**
+ * (17) — one 17 for the shape the porch puts on the slot and one for the built shape beside it, so a
+ * single shape placed at a POINT (which carries no footprint margin) cannot sit close enough to touch a
+ * deposited shape and be flung. A blueprint stamp's box already carries its margin, so for a stamp this
+ * is conservative — the safety direction the castle arm has always erred in (`blueprintLegality`).
+ * Lever: this one number. The slot positions are `castleBank.porchSlot`'s formula, re-derived inline
+ * because this module is a LEAF (it may not import `castleBank`); `zones.test.ts` pins the two equal.
+ */
+export const CASTLE_PORCH_KEEP_OUT_RADIUS = 2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+const CASTLE_PORCH_KEEP_OUT_R2 = CASTLE_PORCH_KEEP_OUT_RADIUS * CASTLE_PORCH_KEEP_OUT_RADIUS;
 
 /** An axis-aligned box in world px. What a blueprint's footprint looks like to this file. */
 export interface Box {
@@ -255,6 +286,12 @@ export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
   for (let i = 0; i < anchors.length; i++) {
     const a = anchors[i] as Vec2;
     if (boxPointDistSq(box, a.x, a.y) < CASTLE_NO_BUILD_R2) return true;
+    // ⭐ S191 — and every porch slot of that castle (see `CASTLE_PORCH_KEEP_OUT_RADIUS`).
+    const slotY = a.y + CASTLE_PORCH_OFFSET_Y;
+    for (let s = 0; s < CASTLE_PORCH_SLOTS; s++) {
+      const slotX = a.x + (s - (CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
+      if (boxPointDistSq(box, slotX, slotY) < CASTLE_PORCH_KEEP_OUT_R2) return true;
+    }
   }
   return false;
 }

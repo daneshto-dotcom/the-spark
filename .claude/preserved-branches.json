@@ -2,52 +2,49 @@
   "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S191: the eight S191 worktree branches carried to S192 (each has its worktree under .claude/worktrees/, a progress file and, where run, an audit in .claude/plans/S191_AUDIT_DIGEST.md; plan .claude/plans/S192_BACKLOG.md §A) + the Pitch Masters sessions' branches (another session's work; never touch). Delete an entry when its branch merges.",
   "preserved": [
     {
-      "branch": "s189/net",
-      "reason": "merged in deploy #5 except FIX-3 (reverted); worktree continues: FIX-3 redo, ROUND-2/3, FIX-2 host succession, C4 retry tuning"
-    },
-    {
-      "branch": "s189/weld",
-      "reason": "deploy #5 shipped it at c7436a2; round 5 (R191-A, audited red) at 002cd42 + round 6 (R191-B FIX-by-gatherer) carried"
-    },
-    {
-      "branch": "s191/carry",
-      "reason": "C-1..C-6 + hub blast split + overkill carries built; C-7/C-8/C-9 + audit owed"
-    },
-    {
-      "branch": "s191/perf",
-      "reason": "done, byte-identical; audit + merge owed"
-    },
-    {
-      "branch": "s191/addons",
-      "reason": "rounds 1-2 done; re-audit (stopped at 98 % budget) + merge owed"
-    },
-    {
-      "branch": "s191/owner",
-      "reason": "Scorched Earth + systemic stock fix built and audited; owner answers + audit fixes owed"
-    },
-    {
-      "branch": "s191/endstats",
-      "reason": "END-OF-MATCH STAT BOARD v1 built; never audited or looked at"
-    },
-    {
-      "branch": "s191/tune",
-      "reason": "research + draft patch only (Ra 35 total split, castle zone 121 -> 61)"
-    },
-    {
       "branch": "pm-s2/arcade",
-      "reason": "Pitch Masters session's branch (worktree F:/pm-s2-work) — another session's work, never touch"
+      "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
       "branch": "pm-s4/spark-3s",
-      "reason": "Pitch Masters session's branch — another session's work, never touch"
+      "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
       "branch": "pm-s4/spark-audit",
-      "reason": "Pitch Masters session's branch — another session's work, never touch"
+      "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
       "branch": "pm-s4/spark-webboot",
-      "reason": "Pitch Masters session's branch — another session's work, never touch"
+      "reason": "Pitch Masters — another project/session owns it; NEVER touch"
+    },
+    {
+      "branch": "s189/weld",
+      "reason": "S192 carried: round-5 fixes done, re-audit + SEAM-C7 + round 6 owed"
+    },
+    {
+      "branch": "s191/endstats",
+      "reason": "S192 carried: BLAST-2 + audit, merge late"
+    },
+    {
+      "branch": "s192/endgame",
+      "reason": "S192 carried: owner Qs + audit"
+    },
+    {
+      "branch": "s192/magic",
+      "reason": "S192 carried: merge master + re-tag + audit"
+    },
+    {
+      "branch": "s192/teams",
+      "reason": "S192 carried: lands LAST"
+    },
+    {
+      "branch": "s192/units-ai",
+      "reason": "S192 carried: audit owed"
+    },
+    {
+      "branch": "s192/zombies",
+      "reason": "S192 carried: audit owed, T3 pool awaiting owner"
     }
-  ]
+  ],
+  "updated": "S192 2026-10-01"
 }

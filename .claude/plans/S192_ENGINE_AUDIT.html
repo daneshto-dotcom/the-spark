@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Engine Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0f14; --panel:#151922; --panel2:#1b2030; --line:#2a3142;
+  --text:#e6e9ef; --muted:#9aa3b5; --dim:#6c7488;
+  --accent:#ffb547; --good:#4ade80; --warn:#facc15; --bad:#f87171; --blue:#60a5fa; --violet:#c084fc;
+  --crimson:#ff4d6a;
+}
+:root[data-theme="light"]{
+  --bg:#f7f7f9; --panel:#ffffff; --panel2:#f0f2f6; --line:#d9dde6;
+  --text:#161a22; --muted:#4b5468; --dim:#6b7385;
+  --accent:#b86e00; --good:#15803d; --warn:#a16207; --bad:#b91c1c; --blue:#1d4ed8; --violet:#7e22ce; --crimson:#be123c;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--blue)}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.86em;background:var(--panel2);padding:.1em .35em;border-radius:4px;word-break:break-word}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;line-height:1.2}
+h1{font-size:clamp(1.9rem,4vw,2.8rem);margin:.2em 0 .3em}
+h2{font-size:1.6rem;margin:2.4em 0 .6em;padding-top:.4em;border-top:1px solid var(--line)}
+h3{font-size:1.15rem;margin:1.6em 0 .4em;color:var(--accent)}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:40px;max-width:1240px;margin:0 auto;padding:32px 24px 80px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;font-size:.9rem;border-left:2px solid var(--line);padding-left:14px}
+nav.toc b{display:block;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;margin-bottom:8px}
+nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0}
+nav.toc a:hover{color:var(--text)}
+nav.toc a.sub{padding-left:12px;font-size:.84rem}
+main{min-width:0}
+.kicker{color:var(--accent);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.8rem}
+.lede{font-size:1.12rem;color:var(--muted);max-width:62ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:16px 0}
+.verdict{border-left:4px solid var(--accent);background:linear-gradient(90deg,rgba(255,181,71,.10),transparent 60%),var(--panel)}
+.verdict ol{margin:.4em 0 0;padding-left:1.3em}
+.verdict li{margin:.35em 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat .n{font-family:"Space Grotesk";font-size:1.7rem;font-weight:700}
+.stat .l{color:var(--muted);font-size:.85rem}
+.tbl{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.92rem}
+th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:var(--panel2);font-weight:600;color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+tr:last-child td{border-bottom:0}
+td.g{color:var(--good)} td.w{color:var(--warn)} td.b{color:var(--bad)}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:.75rem;font-weight:600;border:1px solid currentColor}
+.pill.g{color:var(--good)} .pill.w{color:var(--warn)} .pill.b{color:var(--bad)} .pill.v{color:var(--violet)}
+.note{color:var(--muted);font-size:.9rem}
+.callout{border:1px dashed var(--line);border-radius:10px;padding:12px 16px;margin:14px 0;background:var(--panel2)}
+.callout strong{color:var(--crimson)}
+ul.tight li{margin:.25em 0}
+.bar{height:10px;background:var(--panel2);border-radius:99px;overflow:hidden;margin:4px 0 10px}
+.bar span{display:block;height:100%;background:var(--accent)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.footer{margin-top:60px;color:var(--dim);font-size:.85rem}
+.theme-btn{position:fixed;right:14px;bottom:14px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:99px;padding:6px 12px;font:inherit;font-size:.8rem;cursor:pointer}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;padding:16px 16px 70px;gap:0}
+  nav.toc{position:static;max-height:none;border-left:0;border-bottom:1px solid var(--line);padding:0 0 12px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:4px 14px}
+  nav.toc b{width:100%}
+  nav.toc a.sub{display:none}
+  .split{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <b>Contents</b>
+  <a href="#answer">The short answer</a>
+  <a href="#facts">1 · Today's stack, measured</a>
+  <a class="sub" href="#effects">How effects are drawn</a>
+  <a class="sub" href="#ugly">The two he called ugly</a>
+  <a class="sub" href="#expensive">The expensive part to port</a>
+  <a href="#optA">2 · Option A: stay, upgrade visuals</a>
+  <a class="sub" href="#a-tools">The toolbox</a>
+  <a class="sub" href="#a-replace">Replacing siphon + auras</a>
+  <a href="#optB">3 · Option B: rebuild in an engine</a>
+  <a class="sub" href="#godot">Godot 4.x</a>
+  <a class="sub" href="#unity">Unity 6</a>
+  <a class="sub" href="#unreal">Unreal 5</a>
+  <a class="sub" href="#port">Port-effort estimate</a>
+  <a href="#optC">4 · Option C: web game on Steam</a>
+  <a href="#rec">5 · Recommendation</a>
+  <a class="sub" href="#compare">Comparison table</a>
+  <a class="sub" href="#pilot">The visual pilot</a>
+  <a href="#sources">Sources</a>
+</nav>
+
+<main>
+<div class="kicker">SPARK · S192 · independent research audit · 1 October 2026</div>
+<h1>Engine or no engine?</h1>
+<p class="lede">How SPARK is built today, what it would cost to move it into Godot, Unity or Unreal, and the cheaper path that fixes the effects without throwing anything away. Every repo number on this page was measured from the main checkout today. Every price and version was checked online today, with sources at the bottom.</p>
+
+<section id="answer">
+<div class="card verdict">
+<strong>The short answer</strong>
+<ol>
+<li><b>Don't rebuild.</b> The ugly effects aren't the web stack's fault. SPARK draws its effects as flat, solid shapes, with no glow, no additive light and no particle textures. Pixi, the drawing library we already use, can do all of that.</li>
+<li><b>This month: run a visual pilot on the current stack.</b> Redo Vlad's siphon and the building aura with soft particle textures, additive blending and a bloom filter. That's one or two days of work and costs $0 (MIT-licensed libraries, free CC0 textures).</li>
+<li><b>For Steam: wrap the same game in Electron and add Steamworks.</b> Vampire Survivors (Phaser + Electron) sold about 2 million copies in its first month this way, and Cookie Clicker ships on Steam as an Electron app. Expect 1–2 weeks of work, plus Steam's fixed 2-week "Coming Soon" wait.</li>
+<li><b>An engine port would take roughly 3–6 months</b> before SPARK is back where it is today. You'd rewrite about 110,000 lines of game code and 115,000 lines of tests, and you'd re-open bug classes the project has spent five months closing.</li>
+<li><b>Reconsider an engine only if SPARK becomes a different game</b>, for example 3D, a console target, or a team of artists working in an editor. Godot would be the engine, not Unity or Unreal.</li>
+</ol>
+</div>
+</section>
+
+<!-- ================================================================ -->
+<h2 id="facts">1 · Today's stack, measured from the repo</h2>
+<p>You're right that we don't use a game engine. SPARK is a web app written in TypeScript, and it draws the screen with <b>PixiJS</b>, a 2D drawing library that browser games use. It does sprites, shapes, filters and shaders, but it has no editor, no particle designer and no asset store. Everything an engine's editor would give you, we write as code.</p>
+
+<div class="tbl"><table>
+<tr><th>Layer</th><th>What we use</th><th>Measured</th></tr>
+<tr><td>Language</td><td>TypeScript 5</td><td>313 source files, <b>111,709 lines</b> (tests excluded)</td></tr>
+<tr><td>Renderer</td><td>PixiJS <code>8.19.0</code> (WebGL, WebGPU-capable)</td><td>121 render modules, 41,161 lines. Pixi's newest release is 8.21.0 (17 Sep 2026)</td></tr>
+<tr><td>Build</td><td>Vite 6, <code>tsc</code>, our own bundle-size charter</td><td>Main JS bundle <b>977.7 KiB</b> of a 1,100 KiB cap (122 KiB headroom), plus a 228 KiB sim-worker chunk</td></tr>
+<tr><td>Netcode</td><td>Trystero 0.25.2, browser-to-browser WebRTC; signalling over public MQTT, Nostr and BitTorrent relays; a metered.ca TURN server as fallback</td><td>23 net modules, 9,227 lines. The host simulates the match and peers receive 10 snapshots a second (<code>NET_SNAPSHOT_HZ = 10</code>)</td></tr>
+<tr><td>Hosting</td><td>GitHub Pages at <code>spark-online.space</code>; pushing <code>master</code> deploys</td><td>A Cloudflare Worker + D1 database runs the arcade leaderboard</td></tr>
+<tr><td>Tests</td><td>Vitest (unit), Playwright (browser end-to-end)</td><td>426 test files / <b>115,442 lines</b>, about 5,700 test cases (regex count); 35 e2e specs / 111 e2e tests</td></tr>
+<tr><td>Static assets</td><td>PNG atlases, WebP, OGG/MP3, WebM</td><td><b>177.4 MiB across 225 files</b>. 54.6 MiB of that is your Godot game <i>Pitch Masters</i>, hosted on the same site</td></tr>
+<tr><td>History</td><td>git</td><td>2,112 commits since 9 May 2026</td></tr>
+</table></div>
+
+<div class="grid">
+  <div class="stat"><div class="n">111.7K</div><div class="l">lines of game code</div></div>
+  <div class="stat"><div class="n">115.4K</div><div class="l">lines of tests guarding it</div></div>
+  <div class="stat"><div class="n">978 KiB</div><div class="l">download for the whole game's code</div></div>
+  <div class="stat"><div class="n">35.4 MB</div><div class="l">Pitch Masters' Godot engine file (<code>index.wasm</code>) alone, for comparison</div></div>
+</div>
+
+<p class="note">One comparison you already own: the Godot 4.3 web export of Pitch Masters, built 30 Sep 2026 and sitting in <code>public/pitch-masters/game/</code>, ships a 35.4 MB engine file and a 6.0 MB game pack. All of SPARK's code is under 1 MB. On the web that gap is real (load time, phones); on Steam it doesn't matter.</p>
+
+<h3 id="effects">How effects are drawn today</h3>
+<p>The render folder splits into two kinds of drawing:</p>
+<div class="split">
+<div class="card"><b>Code-drawn shapes (Pixi "Graphics")</b>
+<div class="bar"><span style="width:73%"></span></div>
+<ul class="tight">
+<li>81 of 121 render modules draw with circles, lines and polygons</li>
+<li><b>59 of them use nothing but shapes</b>: no images at all</li>
+<li>388 direct shape-drawing calls</li>
+<li>Includes every boss ability, building aura, hit flash, bomb, bond, toast and health bar</li>
+</ul></div>
+<div class="card"><b>Picture-based art (sprites, atlases)</b>
+<div class="bar"><span style="width:27%;background:var(--violet)"></span></div>
+<ul class="tight">
+<li>28 modules load images or atlases</li>
+<li>69 animation atlases across <code>public/art</code> (19 folders) and <code>public/godly</code> (12)</li>
+<li>Characters, towers, castles, zones; three VFX atlases (Ra strike, pentagram, lightning hub)</li>
+<li>The veo pipeline: one still → image-to-video clip → <b>12 frames per row</b> (not 24) packed by <code>scripts/build-sprite-atlas.mjs</code></li>
+</ul></div>
+</div>
+
+<div class="callout"><strong>The real reason the effects look cheap:</strong> I searched the whole <code>src/</code> tree. There are <b>zero</b> glow or bloom filters, <b>zero</b> additive blend modes (the setting that makes overlapping particles add up to light, the way fire and magic do), <b>zero</b> particle systems, and <b>zero</b> soft particle textures. The only custom shader in the game is the luma-key that cuts the background out of cutscene video. Every effect is a set of solid, flat-coloured circles whose transparency is animated. Engines don't make effects look good by magic. They make the right defaults (additive, soft-edged, glowing) easy to reach for. Pixi has the same defaults; nobody has used them yet.</div>
+
+<h3 id="ugly">The two effects you named</h3>
+<div class="tbl"><table>
+<tr><th>Effect</th><th>File</th><th>What it actually draws</th></tr>
+<tr><td><b>Vlad's life siphon</b> ("life sap")</td><td><code>src/render/bossAuras.ts</code>, <code>drawLifeSap()</code> (lines 560–590; dials at 526–531)</td><td>One solid pink circle that grows, plus <b>18 solid red dots</b> (radius 3.4 px) sliding inward and shrinking. No glow, no trail, no additive light, no texture. The dial values are marked "MINE, NOT THE OWNER'S" in the code. (The comment also records an open ruling: there's no victim to tether to, because R140 is a pure self-heal.)</td></tr>
+<tr><td><b>The aura behind/under each building</b></td><td><code>src/render/spawnerZoneRenderer.ts</code> (242 lines)</td><td>A breathing disc at 6–11% opacity, <b>three thin 2 px rings</b> expanding outward, a bright stroke over each connector, a white dot at each connector's midpoint, and a glowing core dot. All flat strokes in the owner's colour, all redrawn every frame.</td></tr>
+<tr><td>Ground mark under every structure</td><td><code>src/render/groundDecalRenderer.ts</code> + <code>raceGround.ts</code></td><td>A procedural, race-flavoured mark drawn in shapes (S185, after your "sticks out like a sore thumb"). If this is what you meant by "behind each building", it gets the same treatment as the aura.</td></tr>
+</table></div>
+
+<h3 id="expensive">The architecture, and why it's the expensive part to port</h3>
+<p>SPARK is <b>host-authoritative</b>. One player's browser runs the real match (the "sim") and sends everyone else snapshots 10 times a second. The sim is also <b>deterministic</b>: given the same inputs it produces exactly the same match, tick for tick. There's no randomness, no clock and no drifting decimals, and every target scan has a strict tie-break order. That's what lets the project replay matches, run the sim in a background worker, and compare two sims by hash.</p>
+<p>That machinery lives in <code>src/state</code> (130 files, 41,221 lines) plus the game, physics and bot code, about <b>50,700 lines</b> in total. Behind it sit 115,000 lines of tests and a long list of hard-won rules in <code>CLAUDE.md</code>: the four-sites rule, the stat ladder, protocol versions. <b>None of that is graphics, and none of it would get easier in an engine.</b> An engine gives you a better way to draw. It doesn't give you SPARK's rules. Porting means re-typing all 50,700 lines into another language and re-proving them, and the tests that do the proving would have to be rewritten too.</p>
+
+<!-- ================================================================ -->
+<h2 id="optA">2 · Option A: stay on the web stack, upgrade the visuals</h2>
+<h3 id="a-tools">The toolbox (versions and prices checked 1 Oct 2026)</h3>
+<div class="tbl"><table>
+<tr><th>Tool</th><th>What it is, in plain words</th><th>Version · licence · price</th><th>Verdict for SPARK</th></tr>
+<tr><td><b>Pixi built-ins</b>: <code>ParticleContainer</code>, <code>blendMode:'add'</code>, texture fills, <code>MeshRope</code> trails</td><td>Already in the library we ship. Draws thousands of small images fast, and makes them add up like light.</td><td>Pixi 8.19 (installed) · MIT · free</td><td><span class="pill g">Use first</span> This alone is most of the jump.</td></tr>
+<tr><td><b>pixi-filters</b>: Glow, AdvancedBloom, Shockwave, Displacement, GodRay, Bloom</td><td>"Photo filters" for parts of the screen: glow halos, light bloom, ripple shockwaves, heat-haze wobble, light shafts.</td><td><code>6.1.5</code> (Nov 2025) · MIT · free · works with Pixi v8, import one filter at a time</td><td><span class="pill g">Use</span> Put one bloom on an "effects layer", not on each sprite. Each filter is only kilobytes of bundle.</td></tr>
+<tr><td><b>Particle emitter libraries</b></td><td>Ready-made "spray particles with these settings" engines.</td><td><code>@pixi/particle-emitter</code> 5.0.10 is <b>Pixi v7 only</b> (its v8 rewrite isn't published). The community v8 fork <code>@spd789562/particle-emitter</code> is 1.0.2 (Oct 2025) · MIT · free</td><td><span class="pill w">Careful</span> These use <code>Math.random</code>, which breaks the project's rule that every screen shows the same effect. Better: our own ~150-line deterministic emitter, seeded by tick and entity id like <code>drawLifeSap</code> already is. You can still use the fork's editor to design the look.</td></tr>
+<tr><td><b>Custom GLSL shaders</b></td><td>Small GPU programs for any look you can describe: swirling energy, dissolve, rim light.</td><td>Built into Pixi (<code>Filter</code> + <code>GlProgram</code>, already used once in <code>cinematicLumaKey.ts</code>) · free</td><td><span class="pill g">Use for 2–3 signature looks</span> (blood vortex, rune glow). Costs a shader-writing session each.</td></tr>
+<tr><td><b>Spine</b> (skeletal animation)</td><td>Animate characters as jointed paper-doll parts, not frames. Smooth at any frame rate, tiny files, blends between moves, one skeleton with many race skins.</td><td>Runtime <code>@esotericsoftware/spine-pixi-v8</code> 4.3.13 (Jul 2026) · Spine licence: Essential $69 sale / $99 list; Professional $369 sale / $439 list (needed for mesh deformation); Enterprise $2,499 base, required once annual revenue reaches $500K</td><td><span class="pill w">Later, characters only</span> It needs the art drawn as separate parts, and our one-image AI art isn't. Big win for bosses' file size (boss atlases are 4.8–6.8 MB PNGs each). It doesn't help effects.</td></tr>
+<tr><td><b>DragonBones</b></td><td>Free alternative to Spine.</td><td><code>dragonbones-pixijs</code> 1.0.5 (May 2025, community) · ISC</td><td><span class="pill b">Skip</span> The editor is effectively unmaintained. If skeletal animation is ever worth doing, pay for Spine.</td></tr>
+<tr><td><b>Effect sprite-sheet packs</b></td><td>Pre-drawn effect animations (slashes, magic circles, blood, fire) as frame strips.</td><td><b>Kenney Particle Pack</b>: 80 soft particle textures, CC0, free. <b>CraftPix / itch.io</b> magic packs: about $6–7 each, often 90% off; a 774-asset bundle for $49. Unity Asset Store packs: most third-party ones may be used outside Unity (Unity's own "Companion Licence" assets may not), but they ship as Unity particle systems and you'd have to render them out to sheets</td><td><span class="pill g">Use Kenney now</span> for particle textures. Buy packs only for one-shot hits. Most packs are pixel art, so check the style matches before paying.</td></tr>
+<tr><td><b>AI video → sprites</b> (what we do now)</td><td>veo image-to-video → 12-frame atlas.</td><td>About $20 per clip (your measurement). PixelLab from $12/mo; Ludo $20/mo (both mainly pixel art)</td><td><span class="pill v">Keep for characters and towers</span> It's the wrong tool for effects: an effect has to react to the game (size, colour, direction, length), and a baked loop can't.</td></tr>
+<tr><td><b>VFX authoring tools</b></td><td>A designer app where you build an effect with sliders, then export it.</td><td><b>Effekseer</b>: MIT, free. Its WebGL runtime's last release was 2023 and it has no Pixi integration, so use it as an editor that exports PNG frames, not as a runtime. <b>Pixel FX Designer</b>: about £8.50 on Steam, exports sprite sheets</td><td><span class="pill w">Optional</span> Good for you to design one-shot bursts (explosion, death pop) without code, then bake them into an atlas.</td></tr>
+</table></div>
+
+<h3 id="a-replace">What it would take to fix the two named effects</h3>
+<div class="split">
+<div class="card"><b style="color:var(--crimson)">Vlad's siphon, redone</b>
+<ol class="tight">
+<li>A soft round particle texture (Kenney, or one generated image), drawn with <b>additive blending</b>, so overlapping motes build into bright red light instead of flat dots.</li>
+<li>About 120 particles spiralling inward along curved paths, not 18 sliding straight. Each leaves a short <b>trail</b> (MeshRope).</li>
+<li>A <b>bloom/glow filter</b> on the effects layer, so the core and the streams bleed light.</li>
+<li>A dark-red <b>ground stain</b> that pulses under him, and a <b>shockwave ripple</b> (Shockwave filter) the tick the heal lands.</li>
+<li>Still driven purely by <code>world.tick</code> and the synced <code>sapFlashUntilTick</code>, so every player sees the same thing, as now.</li>
+</ol>
+<p class="note">Effort: 1–2 days. Bundle: under 15 KiB. No new art spend.</p></div>
+<div class="card"><b style="color:var(--accent)">Building aura, redone</b>
+<ol class="tight">
+<li>Swap the 2 px rings for a <b>soft textured ring</b> (one radial-gradient image) that expands and fades, drawn additively.</li>
+<li>A slow <b>rune or sigil decal</b> per race rotating under the tower. One generated still per race, rotated in code, no video needed.</li>
+<li>A few rising <b>embers or motes</b> in the owner's colour from the same deterministic emitter.</li>
+<li>Keep the existing <code>towerCover</code> fade rules exactly as they are (S183).</li>
+</ol>
+<p class="note">Effort: 1–2 days after the siphon, since it reuses the emitter and the glow layer. Art: 6 stills (one per race), not 6 videos.</p></div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="optB">3 · Option B: rebuild in an engine</h2>
+<p>An engine gives you three things we don't have: <b>an editor</b> where you see and tweak an effect live, <b>an asset store</b> with drop-in packs, and <b>built-in Steam/console export</b>. Here's what each would actually mean for this game.</p>
+
+<h3 id="godot">Godot 4.x (you know it; latest stable 4.7.2, Aug 2026)</h3>
+<ul>
+<li><b>VFX:</b> a real 2D particle editor (<code>GPUParticles2D</code>), a visual shader editor, and AnimationPlayer for timing. This is the strongest argument for it: you could tune an effect yourself without a coding session.</li>
+<li><b>Asset library:</b> free and smaller than Unity's. For a 2D top-down TD/builder you get tools (particle packs, the Kenney packs, shader collections) more than finished game art. Paid 2D art comes from itch.io / CraftPix anyway, and those work in Pixi too.</li>
+<li><b>2D:</b> excellent; a true 2D engine.</li>
+<li><b>Multiplayer:</b> high-level multiplayer API with host authority built in. In the browser it supports <b>WebRTC and WebSocket</b>, but you'd still need your own signalling server; no raw sockets. Since 4.3, single-threaded web export is the default and the most compatible. <b>C# projects can't be exported to the web</b>, so GDScript only. Browser play survives, at roughly 35 MB+ of engine download (your Pitch Masters build).</li>
+<li><b>Steam:</b> <b>GodotSteam</b> (MIT; version 4.20 shipped alongside Godot 4.7) covers achievements, lobbies and Steam networking through Valve's relays, which would replace the TURN/relay troubles. Desktop builds only, not web.</li>
+<li><b>Licence:</b> MIT. Free forever, no royalty, no seat fee.</li>
+<li><b>Proof:</b> Brotato (Godot) passed 10 million copies; Slay the Spire 2 moved from Unity to Godot and entered Early Access in March 2026.</li>
+</ul>
+
+<h3 id="unity">Unity 6</h3>
+<ul>
+<li><b>VFX:</b> Shuriken particles and VFX Graph; the biggest market of ready-made effect packs.</li>
+<li><b>Asset store:</b> the largest, with many 2D VFX and TD kits, mostly built for Unity's own particle system.</li>
+<li><b>2D:</b> good (2D renderer, 2D lights, Sprite Shape).</li>
+<li><b>Multiplayer:</b> Netcode for GameObjects runs on Unity Transport. <b>In a browser (Unity Web/WebGL) it can only be a WebSocket <i>client</i></b>, so a player's browser can't be the host the way SPARK's is. Browser multiplayer would need a paid relay or dedicated server. That breaks SPARK's free P2P model on the web.</li>
+<li><b>Steam:</b> mature (Steamworks.NET, Facepunch.Steamworks) on desktop.</li>
+<li><b>Licence and cost:</b> Personal is free under $200K/yr revenue + funding, and from Unity 6 the "Made with Unity" splash is optional. Pro is <b>$2,310/yr per seat</b> (from 12 Jan 2026). The per-install "Runtime Fee" was announced in Sept 2023 and cancelled on 12 Sep 2024. It's gone, but it's why studios such as Mega Crit left.</li>
+</ul>
+
+<h3 id="unreal">Unreal Engine 5</h3>
+<ul>
+<li><b>VFX:</b> Niagara is the best particle system on this list, but it's built for 3D.</li>
+<li><b>2D:</b> <b>weak, and that's true.</b> Paper2D still ships, but it has had little attention for years. 2D work relies on the paid Paper ZD plugin or on faking 2D in 3D.</li>
+<li><b>Multiplayer:</b> excellent dedicated-server replication. <b>No browser export at all</b>; HTML5 support was removed back in 4.24. spark-online.space would end.</li>
+<li><b>Licence:</b> free until a product's lifetime gross reaches $1 million, then <b>5% royalty</b> on gross (waived on Epic Games Store sales).</li>
+<li><b>Verdict:</b> the wrong tool for a 2D top-down builder. Not recommended.</li>
+</ul>
+
+<h3 id="port">Realistic port-effort estimate (from the measured sizes)</h3>
+<div class="tbl"><table>
+<tr><th>Part of SPARK</th><th>Lines today</th><th>In an engine it…</th><th>Effort</th></tr>
+<tr><td>Simulation: state, game rules, physics, combos, constants, bots</td><td>~50,700</td><td><b>Ports as logic.</b> Line-by-line translation to GDScript or C#. Every determinism rule has to be re-checked: integer hashing like <code>&gt;&gt;&gt; 0</code>, iteration order, float behaviour.</td><td class="b">Largest, riskiest</td></tr>
+<tr><td>Netcode: Trystero, snapshots, host migration, protocol</td><td>~9,200</td><td><b>Rewritten</b> against Godot multiplayer / GodotSteam (or Netcode in Unity). Simpler on Steam, the same problems on web.</td><td class="w">Medium</td></tr>
+<tr><td>Rendering + UI: 121 modules</td><td>~41,200</td><td><b>Rebuilt as scenes</b> in the editor. This is the part an engine actually makes better and faster.</td><td class="w">Large but rewarding</td></tr>
+<tr><td>App shell, input, arcade, worker</td><td>~10,600</td><td>Mostly replaced by engine features.</td><td class="g">Small–medium</td></tr>
+<tr><td>Tests: 426 files, ~5,700 cases; 111 e2e</td><td>~115,400</td><td><b>Rewritten</b> in GUT / gdUnit4 (Godot) or NUnit (Unity). Playwright e2e has no equivalent; it becomes manual or custom harness work.</td><td class="b">Large, and skipping it is how bugs return</td></tr>
+</table></div>
+<p><b>Estimate: 3–5 months of daily sessions for Godot to reach today's feature level, 4–6 for Unity.</b> Unreal isn't worth estimating. For scale: building the current game took five months and 2,112 commits. A port is faster than the original because the design is settled, but it isn't five times faster. The tests have to be redone, and S182 found that <i>every</i> fix round introduces two to four new defects. During the port you ship nothing new to players.</p>
+
+<!-- ================================================================ -->
+<h2 id="optC">4 · Option C: hybrid. Same web game, shipped to Steam</h2>
+<p>Package the existing build as a desktop app. Steam players download it like any other game; it runs the same Pixi code inside a bundled browser (Chromium).</p>
+<div class="tbl"><table>
+<tr><th>Wrapper</th><th>Version · licence</th><th>Notes</th></tr>
+<tr><td><b>Electron</b></td><td>44.5.1 (30 Sep 2026) · MIT</td><td>The proven route. Bundles Chromium (about 100 MB+ download), so WebGL performance is predictable everywhere. <span class="pill g">Recommended</span></td></tr>
+<tr><td>Tauri</td><td>2.12.1 · MIT/Apache</td><td>Tiny downloads, but it uses the system web view, which behaves differently on each OS (Safari engine on macOS), and the Steam bindings are less tested. <span class="pill w">Not for a game</span></td></tr>
+<tr><td>NW.js</td><td>MIT</td><td>What CrossCode used. Works, with a smaller community than Electron.</td></tr>
+<tr><td><b>steamworks.js</b></td><td>0.4.0 · MIT (last commit Sep 2025)</td><td>Achievements, stats, <b>cloud saves</b>, lobbies (matchmaking), P2P packets over Steam's relays, overlay, Workshop. <b>Caveat:</b> the in-game Steam overlay is unreliable in Electron. The known workaround is to keep a canvas redrawing every frame, which a game already does. Maintenance is slow, so budget time to patch it yourself. Alternative: greenworks.</td></tr>
+</table></div>
+<h3>Has this actually worked?</h3>
+<div class="tbl"><table>
+<tr><th>Game</th><th>Tech on Steam</th><th>Result</th></tr>
+<tr><td><b>Vampire Survivors</b></td><td>Phaser (JavaScript) in Electron, until it moved to Unity in v1.6 (Aug 2023) for console ports and performance</td><td>About 2 million copies and about $7M in its first month on Steam, all on web tech</td></tr>
+<tr><td><b>Cookie Clicker</b></td><td>The HTML game in an Electron wrapper (Steam, Sep 2021), with achievements, cloud saves and Workshop</td><td>Estimated 2.5M+ copies on Steam (estimates vary widely)</td></tr>
+<tr><td><b>CrossCode</b></td><td>Modified impact.js + NW.js</td><td>Estimated about 464K copies and about $6M gross on Steam; later ported to consoles</td></tr>
+</table></div>
+<p><b>What Steam needs from us:</b> a $100 Steam Direct fee (returned after $1,000 in revenue), a store page reviewed in about 3–5 business days, that page live as <b>"Coming Soon" for at least 2 weeks</b>, then a build review. Achievements, cloud saves and lobbies come through steamworks.js. Multiplayer could use <b>Steam lobbies + Steam's relay network</b> on the Steam build. That ends the TURN and relay problems for Steam players, while the web build keeps Trystero. The transport behind our snapshot protocol would need a second implementation (estimate: 1–2 weeks).</p>
+<p><b>Performance:</b> the same as Chrome today. The one thing to fix before Steam is the 4.8–6.8 MB boss PNG atlases. Compressing them (WebP/KTX2) cuts load time and GPU memory. That's a packaging job, not a rewrite.</p>
+<p><b>The ceiling:</b> consoles. Switch, PlayStation and Xbox don't run Electron. If consoles ever become a goal, that's the moment an engine port starts paying for itself, which is exactly what Vampire Survivors did after it was already a hit.</p>
+
+<!-- ================================================================ -->
+<h2 id="rec">5 · Recommendation</h2>
+<h3 id="compare">Comparison</h3>
+<div class="tbl"><table>
+<tr><th></th><th>A · Web + visual upgrade</th><th>C · A + Electron on Steam</th><th>B1 · Godot rebuild</th><th>B2 · Unity rebuild</th><th>B3 · Unreal rebuild</th></tr>
+<tr><td>Visual ceiling (2D)</td><td class="g">High: filters, shaders, particles, Spine</td><td class="g">Same as A</td><td class="g">High, plus an editor</td><td class="g">High, plus the biggest store</td><td class="w">Highest in 3D, awkward in 2D</td></tr>
+<tr><td>Effort</td><td class="g">Days per effect</td><td class="g">A + 2–4 weeks</td><td class="b">3–5 months</td><td class="b">4–6 months</td><td class="b">6+ months</td></tr>
+<tr><td>Risk</td><td class="g">Low; nothing thrown away</td><td class="g">Low–medium (overlay quirks)</td><td class="b">High; re-opens determinism bugs</td><td class="b">High, plus vendor-pricing risk</td><td class="b">Very high</td></tr>
+<tr><td>Time to Steam</td><td>n/a</td><td class="g">About 4–6 weeks (incl. the 2-week Coming Soon)</td><td class="b">About 4–6 months</td><td class="b">About 5–7 months</td><td class="b">Longer</td></tr>
+<tr><td>Multiplayer quality</td><td class="w">As today (WebRTC + TURN)</td><td class="g">Steam relays on Steam, WebRTC on web</td><td class="g">Steam relays; web via WebRTC</td><td class="w">Steam good; browser can't host</td><td class="b">No browser</td></tr>
+<tr><td>Browser version survives</td><td class="g">Yes (978 KiB)</td><td class="g">Yes</td><td class="w">Yes, about 40 MB</td><td class="w">Weakened</td><td class="b">No</td></tr>
+<tr><td>Money</td><td class="g">$0 (optional packs $6–49)</td><td class="g">$100 Steam fee</td><td class="g">$0 (MIT)</td><td class="w">$0 under $200K, then $2,310/seat/yr</td><td class="w">5% of gross over $1M</td></tr>
+</table></div>
+
+<div class="card verdict">
+<b>The call:</b> <b>A now, C next, B only if the game's goals change.</b>
+<ul class="tight">
+<li><b>Biggest visual jump per hour this month: Option A.</b> The effects are the weakest part, the cheapest to fix, and fully under Pixi's control. The gain comes from switching on additive light, soft textures and bloom, none of which SPARK uses today.</li>
+<li><b>Stop generating video for effects.</b> Keep veo for characters and towers, which are things with a body. Effects should be particles + glow + shaders that react to the game. That also cuts the $20-a-clip spend.</li>
+<li><b>Steam is reachable without an engine.</b> Electron + steamworks.js is a proven path with multi-million-copy precedents.</li>
+<li><b>If you ever do rebuild, use Godot</b>: MIT, real 2D, you know it, browser export still works, and GodotSteam is solid. Unity's browser can't host; Unreal has no browser and weak 2D.</li>
+</ul>
+</div>
+
+<h3 id="pilot">What the "visual upgrade pilot" looks like</h3>
+<div class="tbl"><table>
+<tr><th>Step</th><th>What</th><th>Time</th></tr>
+<tr><td>0</td><td>Before/after capture: record Vlad's current sap and a spawner aura in the browser, for a side-by-side.</td><td>30 min</td></tr>
+<tr><td>1</td><td>Add <code>pixi-filters</code> (only <code>advanced-bloom</code>, <code>glow</code>, <code>shockwave</code>). Create one <b>fxLayer</b> container with additive blending and a single bloom filter. Check the bundle stays under the 1,100 KiB cap.</td><td>2 h</td></tr>
+<tr><td>2</td><td>Write a small <b>deterministic particle helper</b>: position, size and alpha as pure functions of <code>(world.tick, entityId, particleIndex)</code>, no <code>Math.random</code>. Soft texture from the CC0 Kenney pack.</td><td>3–4 h</td></tr>
+<tr><td>3</td><td>Rebuild <code>drawLifeSap</code> on it: about 120 spiralling motes with trails, a pulsing core, a ground stain, and a shockwave on heal. Same trigger field, no protocol bump.</td><td>3–4 h</td></tr>
+<tr><td>4</td><td>Tests: the existing <code>bossAuras.test.ts</code> contracts still hold, plus a test that the effect is identical for the same tick on two calls (determinism pin).</td><td>1–2 h</td></tr>
+<tr><td>5</td><td>You judge the side-by-side. If it lands, the same layer does the building aura, then Ra, lightning, hits and deaths, about a day each.</td><td>review</td></tr>
+</table></div>
+<p class="note">Pilot total: about 1.5 working days and $0. If after this you still feel the game "looks like code", that's the real evidence for an engine. You'd have it for two days of work, where finding out with a port would cost months.</p>
+
+<!-- ================================================================ -->
+<h2 id="sources">Sources (accessed 1 Oct 2026)</h2>
+<ul class="tight note">
+<li>Repo measurements: <code>find</code>/<code>wc</code>/<code>grep</code> over <code>src/</code>, <code>public/</code>, <code>e2e/</code>; <code>node scripts/check-bundle-size.mjs</code> on the main checkout's <code>dist/</code>; <code>public/pitch-masters/game/build.json</code>; <code>git log</code>.</li>
+<li>npm registry, live queries: pixi.js 8.21.0 (17 Sep 2026); pixi-filters 6.1.5; @pixi/particle-emitter 5.0.10 (peer pixi &lt;8); @spd789562/particle-emitter 1.0.2; @esotericsoftware/spine-pixi-v8 4.3.13; dragonbones-pixijs 1.0.5; steamworks.js 0.4.0; electron 44.5.1; @tauri-apps/cli 2.12.1. <a href="https://www.npmjs.com/">npmjs.com</a></li>
+<li><a href="https://github.com/pixijs/filters">pixijs/filters</a> · <a href="https://pixijs.com/8.x/guides/components/scene-objects/particle-container">Pixi v8 ParticleContainer guide</a> · <a href="https://github.com/pixijs-userland/particle-emitter">pixijs-userland/particle-emitter</a> · <a href="https://jsr.io/@spd789562/particle-emitter">@spd789562/particle-emitter</a></li>
+<li><a href="https://esotericsoftware.com/spine-purchase">Spine purchase page</a></li>
+<li><a href="https://github.com/effekseer/EffekseerForWebGL">EffekseerForWebGL</a> (last release tag 170e, May 2023) · <a href="https://store.steampowered.com/sub/815848">Pixel FX Designer on Steam</a> · <a href="https://codemanu.itch.io/particle-fx-designer">Particle FX Designer (itch)</a></li>
+<li><a href="https://github.com/Calinou/kenney-particle-pack">Kenney Particle Pack (CC0)</a> · <a href="https://free-game-assets.itch.io/pixel-art-magic-sprite-sheet-effects">CraftPix magic sprite effects (itch.io)</a> · <a href="https://support.unity.com/hc/en-us/articles/34387186019988-Can-I-use-assets-from-the-Asset-Store-with-other-engines">Unity: using Asset Store assets in other engines</a></li>
+<li><a href="https://ludo.ai/compare/best-ai-sprite-generators">Ludo AI sprite-generator comparison</a> · <a href="https://app.cinevva.com/guides/ai-pixel-art-generators">Cinevva AI pixel-art generators 2026</a></li>
+<li><a href="https://godotengine.org/news/release">Godot release news</a> (4.7 on 18 Jun 2026; 4.7.2 on 18 Aug 2026) · <a href="https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html">Godot: Exporting for the Web</a> (C# not exportable to web; WebRTC/WebSocket only; single-threaded default since 4.3) · <a href="https://godotsteam.com/">GodotSteam</a></li>
+<li><a href="https://unity.com/products/pricing-updates">Unity pricing updates</a> (Pro $2,310/yr from 12 Jan 2026) · <a href="https://unity.com/blog/unity-is-canceling-the-runtime-fee">Unity cancels the Runtime Fee</a> (12 Sep 2024) · <a href="https://docs.unity3d.com/2023.1/Documentation/Manual/webgl-networking.html">Unity WebGL networking</a> · <a href="https://coherence.io/blog/tech/unity-webgl-game-builds-meet-multiplayer">coherence: Unity WebGL multiplayer</a></li>
+<li><a href="https://www.unrealengine.com/en-US/faq">Unreal Engine FAQ</a> · <a href="https://roadtovr.com/unreal-engine-royalty-free-first-1-million-revenue/">Road to VR: royalty-free first $1M</a> · <a href="https://forums.unrealengine.com/t/paper2d-dead/121200">Unreal forums: "Paper2D dead?"</a></li>
+<li><a href="https://partner.steamgames.com/doc/features/multiplayer/steamdatagramrelay">Steam Datagram Relay</a> · <a href="https://partner.steamgames.com/doc/store/coming_soon">Steamworks: Coming Soon (2-week rule)</a> · <a href="https://partner.steamgames.com/doc/store/releasing">Steamworks: Releasing</a> · <a href="https://fungies.io/how-to-sell-games-on-steam/">Steam Direct fee guide 2026</a></li>
+<li><a href="https://github.com/ceifa/steamworks.js">steamworks.js</a> (API surface from <code>client.d.ts</code>) · <a href="https://github.com/goldfire/greenworks/blob/master/docs/troubleshooting.md">greenworks troubleshooting (overlay)</a> · <a href="https://www.drawize.com/blog/tech-how-to-release-html5-game-on-steam">Drawize: releasing an HTML5 game on Steam</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Vampire_Survivors">Vampire Survivors (Wikipedia)</a> · <a href="https://www.gamingonlinux.com/2023/07/vampire-survivors-switching-to-new-game-engine-on-august-17">GamingOnLinux: engine switch</a> · <a href="https://www.vidaextra.com/industria/vampire-survivors-consiguio-7-millones-dolares-su-primer-mes-cuanto-habria-perdido-cambios-unity">VidaExtra: $7M first month</a> · <a href="https://raijin.gg/app/1454400/Cookie_Clicker">Cookie Clicker estimates</a> · <a href="https://raijin.gg/app/368340/CrossCode/sales-revenue">CrossCode estimates</a> · <a href="https://wiki.netbsd.org/gaming/crosscode/">CrossCode tech (NW.js)</a> · <a href="https://en.wikipedia.org/wiki/Brotato">Brotato</a> · <a href="https://en.wikipedia.org/wiki/Slay_the_Spire_II">Slay the Spire II</a></li>
+</ul>
+<p class="footer">Read-only audit. No source edited, nothing committed. Sales figures for Cookie Clicker and CrossCode are third-party estimates and vary between trackers. Port-effort numbers are my estimates from measured code size and this project's own defect history, not quotes.</p>
+</main>
+</div>
+<button class="theme-btn" onclick="(function(){var r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'dark':'light';})()">Light / dark</button>
+</body>
+</html>

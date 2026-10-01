@@ -177,6 +177,7 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    *
    * PROJECTED: castleHp, castleRegenLevel, raceId, eliminatedAtTick, raidPoints, raidProgress.
    * ⭐ S188 P6 / P11 — and raStrikes (POWER OF RA / WRATH OF RA), after raidProgress, in order.
+   * ⭐ S191 — and scorchedEarth (SCORCHED EARTH's cast: wave + zone seat), right after raStrikes.
    * EXCLUDED, deliberately: everything about the avatar (`kind`, `avatarPos`, the carry union) and
    * `color`, which is derived from raceId. `scoreByPlayer` stays its own hashed scalar.
    *
@@ -305,6 +306,10 @@ type CreatureHashed =
   // S188 F3 — the ATTACKING cycle's latched rage: it sets the cycle's cadence and fire tick on both
   // sims, so a host and a mirror disagreeing about it would disagree about when a blow lands.
   | 'attackCycleRaged'
+  // ⭐ S191 (owner) — the Warlord's own rage clock. It decides when his rage ENDS, when its cooldown
+  // ends and whether he is a BLOOD FRENZY source, on both sims. Projected as `:rs` below; its
+  // contribution test is `warlordRageClock.test.ts`.
+  | 'rageStartTick'
   /*
    * ⭐⭐ S169 (owner R152) — the STUN stamp. HASHED, and for a stronger reason than `enraged` above:
    * this field is BOTH serialized and simulated. `hashWorldStateFull` compares two SIMS (host vs
@@ -564,6 +569,9 @@ export function determinismParts(world: World): string[] {
         // point + deadline decide where and when five 300-fifth columns land. Field by field, `_`
         // when never cast, so a host and a mirror that disagree about a strike cannot hash alike.
         + `,ra${pl.raStrikes.length === 0 ? '_' : pl.raStrikes.map((s) => `${s.wave},${s.x},${s.y},${s.untilTick}`).join(';')}`
+        // ⭐ S191 — SCORCHED EARTH. A SIM INPUT: the wave gates the next cast and the zone seat decides
+        // which ground burns every creature and structure but the caster's. `_` when never cast.
+        + `,se${pl.scorchedEarth === null ? '_' : `${pl.scorchedEarth.wave},${n(pl.scorchedEarth.zoneSeat)}`}`
         // ⭐ S187 — the drafted upgrades, JOINED IN PICK ORDER. Two peers holding the same
         // picks in a different sequence are a genuine divergence: the list drives a
         // leaderboard row (R113), so the order is observable state, not an implementation
@@ -577,7 +585,10 @@ export function determinismParts(world: World): string[] {
         + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
         // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
         // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
-        + `,dy${pl.dynastyHpLost}`,
+        + `,dy${pl.dynastyHpLost}`
+        // ⭐ S191 C-8 — the keep's heal counter. PRESENTATIONAL (no sim reads it), projected anyway so a
+        // host and its `?worker=1` mirror that disagree about what a keep healed cannot hash alike.
+        + `,ch${pl.castleHealedHp}`,
     );
   }
 
@@ -652,6 +663,8 @@ export function determinismParts(world: World): string[] {
         `:hf${o(c.healedFifths)}`,
         // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
         `:ak${o(c.atkFifths)}`,
+        // S191 — the Warlord's rage clock. Absent marker for every creature that never raged by its own latch.
+        `:rs${o(c.rageStartTick)}`,
     );
   }
 

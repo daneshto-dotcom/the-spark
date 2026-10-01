@@ -18,6 +18,7 @@ import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 import type { DraftPick } from '../state/draft.ts';
 import { emptyCastleUpgrades, type CastleUpgrades } from '../state/castleUpgrades.ts';
 import type { RaStrike } from '../state/racial/powerOfRaRules.ts';
+import type { ScorchedEarthCast } from '../state/racial/scorchedEarthRules.ts';
 
 interface PlayerCommon {
   readonly id: PlayerId;
@@ -128,6 +129,23 @@ interface PlayerCommon {
    */
   dynastyHpLost: number;
   /**
+   * ⭐ S191 C-8 (owner R190-I, on the CASTLE) — EVERY POINT THIS KEEP HAS HEALED THIS MATCH.
+   *
+   * > *"Show every hit and every heal separately, in different colours, stacking"* — owner, R190-I
+   *
+   * The castle twin of `Creature.healedFifths`: a monotonic count, raised by exactly what the keep
+   * GAINED (after the cap) at the two places its HP rises — regen (`castleRegenTick`) and an HP
+   * purchase (`applyUpgradeCastleStat`). `damageNumbers.ts` splits a window's change into the hit and
+   * the heal with it (`creaturePoolChange`), so a besieged, regenerating keep prints both.
+   *
+   * PRESENTATIONAL: nothing any sim computes reads it. It is serialized (additive-optional, emitted
+   * only when > 0) so a joiner's numbers are exact, and hashed by the WIDE oracle so a host and its
+   * `?worker=1` mirror cannot disagree about it unseen. Reset to 0 at match start (`gameMode.ts`).
+   *
+   * REQUIRED, for the reason `dynastyHpLost` is: tsc reds the carry-FSM rebuilds below.
+   */
+  castleHealedHp: number;
+  /**
    * ⭐ S161 P2 (owner R127) — THE TICK THIS SEAT'S CASTLE FELL. `undefined` = still in the match.
    *
    * > *"when a castle is destroyed a player cant gather anymore primitives so yes he is out! but he
@@ -199,6 +217,20 @@ interface PlayerCommon {
    * cleared per match in `applyStartGame`.
    */
   raStrikes: RaStrike[];
+  /**
+   * ⭐ S191 (owner item 1b, `demons.l0`) — **THIS SEAT'S SCORCHED EARTH CAST, or `null`.** *"you can
+   * click on any quadrant of the enemy … you will be resistant. Everybody else will … receive damage
+   * over time."* The wave it was cast in and the seat whose zone burns (`ScorchedEarthCast`); the burn
+   * and the red backdrop are DERIVED from it every tick / frame, never pushed as an effect.
+   *
+   * ⛔ REQUIRED, NOT OPTIONAL — the `raStrikes` rule directly above: a required field goes red at the
+   * two carry-FSM rebuilds below, and an optional one would silently forget the cast the moment the
+   * seat picked up a shape, handing it a second scorch in the same fight.
+   *
+   * Serialized additive-optional (emitted only when set), hashed in the `pl{seat}:` part, cleared at the
+   * FIGHT→BUILD edge and per match in `applyStartGame`.
+   */
+  scorchedEarth: ScorchedEarthCast | null;
   /**
    * S15 P2 — per-player cursor / avatar position. In solo (Phase 1) the
    * cursor doubles as the single avatar (avatarRenderer.ts reads
@@ -300,10 +332,14 @@ export function makeIdlePlayer(
     castleUpgrades: emptyCastleUpgrades(),
     // ⭐ S188 — and has lost nothing toward ENDLESS DYNASTY.
     dynastyHpLost: 0,
+    // ⭐ S191 C-8 — and has healed nothing (R190-I's castle heal counter).
+    castleHealedHp: 0,
     raceId,
     raidProgress: 0,
     // ⭐ S188 P6 — POWER OF RA: nothing called yet.
     raStrikes: [],
+    // ⭐ S191 — SCORCHED EARTH: nothing scorched yet.
+    scorchedEarth: null,
     avatarPos: { x: avatarPos.x, y: avatarPos.y },
     territorialShrinkUntilTick: null,
   };
@@ -334,6 +370,8 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
     raStrikes: player.raStrikes,
+    // ⭐ S191 — SCORCHED EARTH, the `raStrikes` rule: omitted, a pickup mid-fight would re-arm the cast.
+    scorchedEarth: player.scorchedEarth,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -352,6 +390,9 @@ export function pickup(player: Player, sparkId: SparkId): CarryingPlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
     // restart the count toward the next Pharaoh.
     dynastyHpLost: player.dynastyHpLost,
+    // ⭐ S191 C-8 — the keep's heal counter, same rule: omitted here, every pickup would reset it
+    // and the next frame would print the whole match's healing as one phantom green number.
+    castleHealedHp: player.castleHealedHp,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the
@@ -397,6 +438,8 @@ export function drop(player: Player): IdlePlayer {
     // ⭐ S188 P6 — POWER OF RA. Omitted, a seat that picked up a shape mid-fight would forget it had
     // already called Ra and could call it again. Required, so tsc reds this line if it goes missing.
     raStrikes: player.raStrikes,
+    // ⭐ S191 — SCORCHED EARTH, the `raStrikes` rule: omitted, a pickup mid-fight would re-arm the cast.
+    scorchedEarth: player.scorchedEarth,
     // ⛔ S154 AMENDMENT C — AND castleHp, for the exact reason the note above gives: `pickup` and
     // `fsmDrop` rebuild the player wholesale, so a field omitted here is silently RESET to full every
     // time the seat picks up or drops a shape. A castle that heals itself whenever its owner touches a
@@ -415,6 +458,9 @@ export function drop(player: Player): IdlePlayer {
     // ⭐ S188 — ENDLESS DYNASTY's running loss, same rule again: omitted here, every pickup would
     // restart the count toward the next Pharaoh.
     dynastyHpLost: player.dynastyHpLost,
+    // ⭐ S191 C-8 — the keep's heal counter, same rule: omitted here, every pickup would reset it
+    // and the next frame would print the whole match's healing as one phantom green number.
+    castleHealedHp: player.castleHealedHp,
     // ⭐ W1-A (S160) — the THIRD entry in this file's documented pattern. Omitting a field from
     // these literals silently RESETS it; for `raceId` that would re-race a seat the instant its
     // player picked up or dropped a spark. tsc catches it because the field is required — the

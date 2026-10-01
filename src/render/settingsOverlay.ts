@@ -34,7 +34,7 @@ import {
   setSfxMuted,
   setSfxVolume,
 } from './audioManager.ts';
-import { isZoneBackgroundEnabled, setZoneBackgroundEnabled } from './displayPrefs.ts';
+import { isFxHighQuality, isZoneBackgroundEnabled, setFxHighQuality, setZoneBackgroundEnabled } from './displayPrefs.ts';
 
 /**
  * ⭐ S189 fix round (audit NET-3) — the settings panel's Escape: close it. Used by BOTH of its Escape
@@ -129,6 +129,10 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   const zoneBgRow = createToggleRow('Race background', 'zone-bg');
   root.appendChild(raceMusicRow.el);
   root.appendChild(zoneBgRow.el);
+  // ⭐ S192 `s192/visuals` — bloom + ground ripples on/off (`fx/fxRuntime.ts`). main.ts polls the store
+  // every frame, exactly as it does for the race background, so the switch is visible immediately.
+  const fxHqRow = createToggleRow('High-quality effects', 'fx-hq');
+  root.appendChild(fxHqRow.el);
 
   // Footer hint
   const hint = document.createElement('div');
@@ -155,6 +159,7 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
      */
     raceMusicRow.checkbox.checked = s.raceMusicEnabled;
     zoneBgRow.checkbox.checked = isZoneBackgroundEnabled();
+    fxHqRow.checkbox.checked = isFxHighQuality();
   }
 
   // Wire interactions.
@@ -181,6 +186,9 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   zoneBgRow.checkbox.addEventListener('change', () => {
     // Same shape: persist here, and main.ts's render loop hands it to the renderer next frame.
     setZoneBackgroundEnabled(zoneBgRow.checkbox.checked);
+  });
+  fxHqRow.checkbox.addEventListener('change', () => {
+    setFxHighQuality(fxHqRow.checkbox.checked);
   });
 
   // Stop keydown propagation inside the overlay (PRIME-AUDIT #3): typing
