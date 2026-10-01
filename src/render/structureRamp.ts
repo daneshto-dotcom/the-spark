@@ -87,7 +87,8 @@
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/world.ts';
 import type { BondId, PrimitiveId } from '../types.ts';
-import { componentOf } from '../game/structure.ts';
+// S189 C2 — the tower's OWN members, shared with the sim's survival test (replaces `componentOf`).
+import { towerMembersAt } from '../state/towerMembers.ts';
 import { structurePoolFifths } from '../state/stats.ts';
 import { STAR_SELFDESTRUCT_BELOW_FRAC } from '../state/structureStarHealth.ts';
 
@@ -110,8 +111,13 @@ export interface RampRow {
  *   arbitrary ring node holding TWO of the five connectors. Walking `anchor.bonds` would have
  *   covered two shapes of five, priced its health against a 2-connector pool of 14 instead of the
  *   real 50, and ignored every point of damage landing on the other three arms. The walk is the
- *   anchor's connected COMPONENT — which for a live pentagram is the ring and nothing else, because
- *   the predicate rejects the shape outright the moment anything is welded to it.
+ *   ring it was BUILT with (`towerMembersAt(...).whole`, the bonds below its `ownBondIdLimit`).
+ *
+ * ⚠ S189 C2 — THIS USED TO SAY THE RING WALK WAS THE ANCHOR'S CONNECTED COMPONENT, "the ring and
+ * nothing else, because the predicate rejects the shape outright the moment anything is welded to
+ * it". That rejection was the owner's S189 bug report. A welded pentagram now stands, so the walk
+ * is the recipe's own members (`towerMembersAt`) for BOTH shapes, and this field names the topology
+ * rather than choosing the walk.
  */
 export type RampShape = 'star' | 'ring';
 
@@ -465,9 +471,10 @@ export interface RampMembers {
  * and with the shapes underneath now invisible, a hit box that disagrees with the art is a tower
  * the player cannot repair.
  *
- * ⚠ `'ring'` uses the anchor's connected COMPONENT, which for a LIVE pentagram is exactly its five
- * nodes: its predicate demands every component node be degree 2 and the component be size 5, so a
- * pentagram with anything welded on is not a pentagram and has no spawner to draw.
+ * ⚠ S189 C2 — BOTH shapes walk the tower's OWN members (`towerMembersAt`): a star's own arms, a
+ * ring's own cycle. A welded shape is not a member, so it is never covered, never moves the sprite
+ * and never prices the art (R185-A). This paragraph used to say a welded pentagram "is not a
+ * pentagram and has no spawner to draw" — true then, and the defect itself.
  */
 /**
  * PURE — where this building's weapon fires from, in world coordinates, or `null`.
@@ -527,19 +534,24 @@ export function rampMembersAt(world: World, anchorId: PrimitiveId, spec: RampSpe
     bankedFifths += bond.damageFifths;
     if (bond.createdTick > newestTick) newestTick = bond.createdTick;
   };
-  if (spec.shape === 'star') {
-    addPrim(anchorId);
-    for (const bondId of anchor.bonds) {
-      const bond = world.bonds.get(bondId);
-      if (bond === undefined) continue;
-      addBond(bondId);
-      addPrim(bond.aId === anchorId ? bond.bId : bond.aId);
-    }
-  } else {
-    const comp = componentOf(anchor, world.primitives, world.bonds);
-    for (const pid of comp.primitiveIds) addPrim(pid);
-    for (const bid of comp.bondIds) addBond(bid);
-  }
+  /*
+   * ⭐⭐ S189 C2 — **THE BUILDING'S OWN SHAPES, NEVER A WELD.** This walked `anchor.bonds` for a star
+   * and the anchor's whole connected COMPONENT for a ring, both of which were right only while a
+   * weld could not survive: a shape bonded to a star's HUB, or anywhere on a pentagram, un-made the
+   * tower before the renderer ever saw it. S189 lets a tower stand with welds on it, and the old
+   * walk would then have HIDDEN the welded shape under the sprite (reversing R185-A — *"a shape
+   * that's not from your tower, should be at full opacity"*), slid the sprite toward it, and priced
+   * the art against the weld's connector.
+   *
+   * So the walk is the one the SIM uses to decide the tower still stands (`towerMembersAt`): the
+   * star's own arms, or the pentagram's own 5-cycle. One walk for alive, drawn, covered and clicked.
+   * `spec.shape` still names the topology, and `structureRamp.test.ts` asserts it agrees with the
+   * recipe's survival shape, so the two cannot drift.
+   */
+  const own = towerMembersAt(world, spec.recipeId, anchorId);
+  if (own === null) return null;
+  for (const pid of own.prims) addPrim(pid);
+  for (const bid of own.bonds) addBond(bid);
   if (n === 0) return null;
   return { members, bonds, cx: cx / n, cy: cy / n, newestTick, bankedFifths };
 }

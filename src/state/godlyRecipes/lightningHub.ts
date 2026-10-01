@@ -33,6 +33,8 @@ import type { SpawnerGodlyRecipe, SpawnerRecipePredicate } from './types.ts';
  * Read-only check: is the component anchored at `dotId` a 1-Dot(deg5) + 5-Circle star? Exported so
  * spawnerLifecycle.recipeStillSatisfied can re-validate a live hub's CURRENT component each poll
  * (a chewer/drone eating a Circle leaf drops the size/degree → the hub's spawner tears down).
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
+ * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
  */
 export function isLightningHubComponent(world: World, dotId: PrimitiveId): boolean {
   // ⭐ S158 B2b — the STAR AT THE ANCHOR, not the island it sits on. The old whole-component

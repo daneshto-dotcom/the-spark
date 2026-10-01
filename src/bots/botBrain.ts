@@ -52,7 +52,8 @@ import {
   GATHERER_PRICE,
   GATHERER_SPEED_UPGRADE_PRICE,
 } from '../constants.ts';
-import { componentOf } from '../game/structure.ts';
+// S189 C2 (audit W3) — a raid aims at the tower's OWN connectors, never at a weld.
+import { towerMembersAt } from '../state/towerMembers.ts';
 import type { World } from '../state/world.ts';
 import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import type { BotConfig } from './botConfig.ts';
@@ -1016,17 +1017,22 @@ export function nearestEnemyBond(
 }
 
 /**
- * S100 P1 (TD Phase 1a) — nearest connector bond of an ENEMY spawner's anchor component.
- * Iterates live spawners (host-authoritative); for each one owned by a different seat,
- * walks the CURRENT connected component of its anchor primitive and considers every bond
- * whose BOTH endpoints lie inside that component (the recipe's connectors). Returns the
- * nearest such bond's id + midpoint, or null when no enemy spawner exists (→ the caller
- * falls back to the generic nearest-enemy-bond). Severing any one connector drops the
- * pentagram below the recipe shape, tearing the spawner down on the next re-validation.
+ * S100 P1 (TD Phase 1a) — nearest OWN connector of an ENEMY spawner. Iterates live spawners
+ * (host-authoritative); for each one owned by a different seat, considers the tower's OWN
+ * connectors (`towerMembersAt(...).bonds`). Returns the nearest one's id + midpoint, or null when
+ * no enemy spawner exists (→ the caller falls back to the generic nearest-enemy-bond). Severing any
+ * one OWN connector breaks the recipe, tearing the spawner down on the next re-validation.
+ *
+ * ⛔ S189 C2 (audit W3) — THIS WALKED THE WHOLE CONNECTED COMPONENT, and "any connector in the
+ * component kills it" stopped being true the moment a tower could stand with welds on it. A welded
+ * tower's nearest connector is usually a WELD — outside the building, closest to the approaching
+ * avatar — so a bot spent its raid point cutting a bond that left the tower standing, every raid.
+ * The tower's own connectors are the only ones whose cut is a kill.
  *
  * Deterministic: spawners iterate in Map (insertion = SpawnerId mint) order; the nearest
- * bond wins, ties broken by the first-seen (so by spawner order then component-walk order)
- * — the bot's avatar-distance is the only ranking key, identical across same-seed runs.
+ * bond wins, ties broken by the first-seen (so by spawner order then the tower's own-member order,
+ * which `towerMembersAt` returns as a pure function of bond ids) — the bot's avatar-distance is the
+ * only ranking key, identical across same-seed runs. No rng is drawn here.
  */
 export function nearestEnemySpawnerBond(
   world: World,
@@ -1044,12 +1050,11 @@ export function nearestEnemySpawnerBond(
     if (targetSeat != null && sp.ownerPlayerId !== targetSeat) continue;
     const anchor = world.primitives.get(sp.anchorPrimitiveId);
     if (anchor === undefined) continue; // stale anchor (poll will tear it down)
-    const comp = componentOf(anchor, world.primitives, world.bonds);
-    for (const bondId of comp.bondIds) {
+    const own = towerMembersAt(world, sp.recipeId, sp.anchorPrimitiveId);
+    if (own === null) continue; // no own connectors to cut (the poll will tear it down)
+    for (const bondId of own.bonds) {
       const bond = world.bonds.get(bondId);
       if (bond === undefined) continue;
-      // Connector = a bond internal to the component (both endpoints in the ring).
-      if (!comp.primitiveIds.has(bond.aId) || !comp.primitiveIds.has(bond.bId)) continue;
       const a = world.primitives.get(bond.aId);
       const b = world.primitives.get(bond.bId);
       if (a === undefined || b === undefined) continue;

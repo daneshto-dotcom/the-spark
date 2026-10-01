@@ -177,6 +177,7 @@ export class PrincessRenderer {
 
     for (const d of world.defenders.values()) {
       if (d.kind !== 'princess') continue;
+      if (d.state === 'DORMANT') continue; // S189 R190-J — she is dead; her HALL still draws
       /*
        * ⭐ S170 (owner) — FOG: an enemy DEFENDER is not drawn unless it is in live vision.
        * He named Helga specifically: *"Also, Helga and stuff, like, all of those need to be

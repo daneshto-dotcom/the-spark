@@ -27,6 +27,12 @@
  * then die in front of them. That is why the retune is a copy migration, not a constant change: if
  * any "seven" survives anywhere a player can read it, it becomes a trap.
  *
+ * ⚠ S189 C2 — THE "DIES AT SEVEN" HALF IS NOW TRUE ONLY OF BUILDING ONE. `stillValid` no longer calls
+ * the exact predicate: a LIVE turret stands while its own six Spiral arms are contained, whatever is
+ * welded on (`state/towerMembers.ts`). So a seventh Spiral bonded to a live turret's hub is a weld,
+ * not a death — and stands in for an own arm if one is later cut. Ignition is unchanged: a Line of
+ * degree 7 still never BUILDS a turret, so "builds at six" holds and the copy migration still matters.
+ *
  * Strictness (mirrors pentagram.ts's component-isolation predicate): componentOf follows EVERY
  * bond, so an extra attached shape or a leaf that is also bonded elsewhere pushes the size past 7
  * / raises a leaf's degree ⇒ NO match. A single connected graph of {one degree-6 hub + six
@@ -50,6 +56,8 @@ import type { DefenderGodlyRecipe, DefenderRecipePredicate } from './types.ts';
 import { registerRecipe } from './index.ts';
 // S158 B2b — the shared star test that replaced four whole-component tests.
 import { isStarAt } from './starShape.ts';
+// S189 C2 — the survival test (contains), distinct from the ignition test above (exact).
+import { towerStandsAt } from '../towerMembers.ts';
 
 /**
  * S140 P1 — exported so `castleBank.test.ts` can pin the RELATIONSHIP between the bank cap and the
@@ -64,6 +72,8 @@ const HUB_DEGREE = TURRET_HUB_DEGREE;
  * Read-only check: is the component anchored at `lineId` a 1-Line(deg6) + 6-Spiral star?
  * Exported so defenderLifecycle.recipeStillSatisfied (via the recipe's `stillValid`) can re-validate
  * a live turret's component each poll without re-walking the whole world.
+ * ⚠ S189 C2 — IGNITION ONLY NOW. The live tower's survival poll asks `towerStandsAt`
+ * (`state/towerMembers.ts`: the recipe still CONTAINED, welds ignored), not this exact test.
  *
  * S103 P3 CHECK (Council, Grok+Gemini): the gate is (a) the hub is a Line of bond-degree exactly 6,
  * (b) its connected component is exactly 7 primitives, (c) every non-hub member is a Spiral. Those
@@ -127,7 +137,13 @@ export const LASER_TURRET_RECIPE: DefenderGodlyRecipe = {
   id: 'laserTurret',
   defenderKind: 'turret',
   predicate: laserTurretPredicate,
-  stillValid: (world, anchorId) => isLaserTurretComponent(world, anchorId),
+  /*
+   * ⭐⭐ S189 C2 — SURVIVAL IS "THE RECIPE IS STILL CONTAINED", NOT "THE HUB IS STILL EXACT".
+   * `isLaserTurretComponent` is the IGNITION test and stays exact. As the survival test it was the
+   * owner's S189 report verbatim: two triangles dropped on the turret bond to the Line hub, the hub
+   * reads degree 8, and the turret vanished within half a second. See `state/towerMembers.ts`.
+   */
+  stillValid: (world, anchorId) => towerStandsAt(world, 'laserTurret', anchorId),
   // Codex gallery sprite placeholder (reuses the new matted Voltkin zap art until a turret art pass).
   characterSprite: '/godly/voltkin/anim/voltkin-zap.png',
 };

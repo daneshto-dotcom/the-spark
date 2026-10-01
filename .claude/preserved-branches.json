@@ -1,45 +1,53 @@
 {
-  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S188 carry-forwards (pushed to origin) + S189's four PREPARED worktrees (branched at master 15035b9, npm ci done, empty until the next session dispatches them per .claude/plans/2026-09-24_S189_BATCH_PDR.md). Delete an entry when its branch merges.",
+  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S191: the eight S191 worktree branches carried to S192 (each has its worktree under .claude/worktrees/, a progress file and, where run, an audit in .claude/plans/S191_AUDIT_DIGEST.md; plan .claude/plans/S192_BACKLOG.md §A) + the Pitch Masters sessions' branches (another session's work; never touch). Delete an entry when its branch merges.",
   "preserved": [
     {
-      "branch": "s188/canon",
-      "reason": "S188 canon text; wip"
-    },
-    {
-      "branch": "s188/draft-atk",
-      "reason": "S187's dead ATK/PEN draft picks; salvaged mid-flight, unverified"
-    },
-    {
-      "branch": "s188/input-layer",
-      "reason": "footer arrow layering + draft-panel click-through; complete, needs audit"
-    },
-    {
-      "branch": "s188/ra-vfx",
-      "reason": "Ra strike sprite + WRATH card; wip"
-    },
-    {
-      "branch": "s188/swarm",
-      "reason": "THE SWARM; complete, audit died on the spend limit"
-    },
-    {
-      "branch": "s188/wrath",
-      "reason": "WRATH OF RA + square Ra icon + bots cast Ra; complete, audit died on the spend limit"
-    },
-    {
       "branch": "s189/net",
-      "reason": "S189 PDR §5.1 — disconnect/lag/quickmatch; prepared worktree, dispatch after the hunt"
-    },
-    {
-      "branch": "s189/units",
-      "reason": "S189 PDR §5.2 — Voltkin/Helga/Kraken + sim LOWs; prepared worktree"
+      "reason": "merged in deploy #5 except FIX-3 (reverted); worktree continues: FIX-3 redo, ROUND-2/3, FIX-2 host succession, C4 retry tuning"
     },
     {
       "branch": "s189/weld",
-      "reason": "S189 PDR §5.3 — welding onto towers; prepared worktree"
+      "reason": "deploy #5 shipped it at c7436a2; round 5 (R191-A, audited red) at 002cd42 + round 6 (R191-B FIX-by-gatherer) carried"
     },
     {
-      "branch": "s189/render",
-      "reason": "S189 PDR §5.4 — spark layer, teleport line + render LOWs; prepared worktree"
+      "branch": "s191/carry",
+      "reason": "C-1..C-6 + hub blast split + overkill carries built; C-7/C-8/C-9 + audit owed"
+    },
+    {
+      "branch": "s191/perf",
+      "reason": "done, byte-identical; audit + merge owed"
+    },
+    {
+      "branch": "s191/addons",
+      "reason": "rounds 1-2 done; re-audit (stopped at 98 % budget) + merge owed"
+    },
+    {
+      "branch": "s191/owner",
+      "reason": "Scorched Earth + systemic stock fix built and audited; owner answers + audit fixes owed"
+    },
+    {
+      "branch": "s191/endstats",
+      "reason": "END-OF-MATCH STAT BOARD v1 built; never audited or looked at"
+    },
+    {
+      "branch": "s191/tune",
+      "reason": "research + draft patch only (Ra 35 total split, castle zone 121 -> 61)"
+    },
+    {
+      "branch": "pm-s2/arcade",
+      "reason": "Pitch Masters session's branch (worktree F:/pm-s2-work) — another session's work, never touch"
+    },
+    {
+      "branch": "pm-s4/spark-3s",
+      "reason": "Pitch Masters session's branch — another session's work, never touch"
+    },
+    {
+      "branch": "pm-s4/spark-audit",
+      "reason": "Pitch Masters session's branch — another session's work, never touch"
+    },
+    {
+      "branch": "pm-s4/spark-webboot",
+      "reason": "Pitch Masters session's branch — another session's work, never touch"
     }
   ]
 }

@@ -20,9 +20,12 @@
  *
  * ## ⭐ AND IT IS FREE TO COMPUTE — NO BFS, NO NEW FIELD, NO PROTOCOL BUMP
  *
- * `isStarAt` (`godlyRecipes/starShape.ts`) already asserts `hub.bonds.size === degree` and that every
- * bond reaches a leaf of the right type. So for any LIVE hub, `world.primitives.get(anchor).bonds`
- * **is** the star's arms and nothing else. The walk is five map lookups.
+ * ⚠ S189 C2 — THIS USED TO SAY *"for any LIVE hub, `world.primitives.get(anchor).bonds` **is** the
+ * star's arms and nothing else"*, because `isStarAt` — then also the survival test — asserted
+ * `hub.bonds.size === degree`. That exactness WAS the owner's S189 bug (a weld on the hub dissolved
+ * the tower), so a live hub may now carry welds and the arms are read through `towerMembersAt`
+ * (`ownStarBonds` below). Still no BFS, no new field and no protocol bump for THIS file: it is a
+ * sort of the hub's own bonds.
  *
  * ⚠ **DETERMINISTIC ON BOTH PEERS, VERIFIED RATHER THAN ASSUMED.** `Primitive.bonds` is serialized
  * as an array (`save.ts:1802`) and rebuilt as a Set (`:1626`); `Bond.damageFifths` is on the wire
@@ -34,7 +37,9 @@
  * spends most of its comments on.
  */
 import { structurePoolFifths } from './stats.ts';
-import type { PrimitiveId } from '../types.ts';
+import type { BondId, PrimitiveId } from '../types.ts';
+// S189 C2 — the tower's OWN arms, shared with the survival test and the ramp renderer.
+import { liveTowerRecipeAt, towerMembersAt } from './towerMembers.ts';
 import type { World } from './worldTypes.ts';
 
 /**
@@ -90,25 +95,54 @@ export const HUB_DEATH_RUN_TICKS = 16;
  * primitive (a stale id, or the hub was razed between the read and the call).
  */
 export function starBankedFifths(world: World, anchorId: PrimitiveId): number | null {
+  const arms = ownStarBonds(world, anchorId);
+  if (arms === null) return null;
+  let banked = 0;
+  for (const bondId of arms) banked += world.bonds.get(bondId)?.damageFifths ?? 0;
+  return banked;
+}
+
+/**
+ * ⭐⭐ S189 C2 — PURE — **THE STAR'S OWN ARMS, WHICH `hub.bonds` NO LONGER IS.** `null` when the
+ * anchor is gone.
+ *
+ * Until S189 a live hub's `bonds` WERE its arms, because `isStarAt` — which was also the survival
+ * test — tore the tower down the moment anything bonded to the hub. S189 lets a tower stand with
+ * shapes welded onto its hub (owner: *"as long as the existing tower, the shape is there … you can
+ * connect to it"*), so `hub.bonds` now includes welds. R182-B says the percentage is the star the
+ * player BUILT, and a weld is not that: its connector must neither pad the pool nor bank damage
+ * against it, or a hub with a triangle welded to it would detonate on a different number than the
+ * art it shows.
+ *
+ * So a LIVE tower is read through `towerMembersAt` — the same walk the sim's survival test and the
+ * ramp renderer use, so the fuse and the frame cannot disagree about which connectors count. A
+ * primitive that anchors no live tower is read on its raw bonds, which is exactly the pre-S189
+ * reading: nothing but ignition could have made it a star, and ignition is exact.
+ */
+function ownStarBonds(world: World, anchorId: PrimitiveId): readonly BondId[] | null {
   const hub = world.primitives.get(anchorId);
   if (hub === undefined) return null;
-  let banked = 0;
-  for (const bondId of hub.bonds) banked += world.bonds.get(bondId)?.damageFifths ?? 0;
-  return banked;
+  const recipe = liveTowerRecipeAt(world, anchorId);
+  if (recipe !== null) {
+    const own = towerMembersAt(world, recipe, anchorId);
+    if (own !== null) return own.bonds;
+  }
+  return [...hub.bonds];
 }
 
 /**
  * PURE — what the hub's own star can absorb before its next arm snaps, in fifths.
  *
- * ⚠ READ FROM `hub.bonds.size`, NEVER FROM THE RECIPE'S DEGREE CONSTANT. They are equal for a live
- * hub — `isStarAt` enforces it — and reading the live count is what keeps this correct for a hub
- * that is mid-teardown, and correct for the next star recipe that adopts the ramp without anyone
- * having to remember to pass its degree in.
+ * ⚠ READ FROM THE LIVE ARM COUNT, NEVER FROM THE RECIPE'S DEGREE CONSTANT. They are equal for a
+ * whole star, and reading the live count is what keeps this correct for a hub that is mid-teardown,
+ * and correct for the next star recipe that adopts the ramp without anyone having to remember to
+ * pass its degree in. ⚠ S189 C2 — the live count is the star's OWN arms (`ownStarBonds`), no longer
+ * `hub.bonds.size`: a weld on the hub is not an arm.
  */
 export function starPoolFifths(world: World, anchorId: PrimitiveId): number | null {
-  const hub = world.primitives.get(anchorId);
-  if (hub === undefined) return null;
-  return structurePoolFifths(hub.bonds.size);
+  const arms = ownStarBonds(world, anchorId);
+  if (arms === null) return null;
+  return structurePoolFifths(arms.length);
 }
 
 /**

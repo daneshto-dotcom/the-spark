@@ -30,6 +30,7 @@ import { verifyWarrant } from './successionWarrant.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import { claimAcceptDecision, isSnapshotStarved, HOST_STARVATION_MS } from './succession.ts';
 import { NetTransport, selfId } from './transport.ts';
+import { classifyHostMessage, type HostSignal } from './reconnectPolicy.ts';
 import type { Controls } from '../input/controls.ts';
 import { dispatch, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -55,6 +56,18 @@ export interface JoinAttemptDeps {
    * successor; the same key later signs a D3 MIGRATION_CLAIM. Late-bound like the host's identity.
    */
   clientIdentity: PeerIdentity;
+  /**
+   * ⭐ S189 fix round (audit NET-1) — told when the followed host says something only a host that has
+   * MOVED ON would say while we are in its match (`classifyHostMessage`). `main.ts` decides; optional so
+   * every other caller is unchanged.
+   */
+  onHostSignal?: (signal: HostSignal) => void;
+  /**
+   * ⭐ S191 (NETFR-1/2) — is a rejoin PENDING (the loop fired an attempt, nothing accepted since —
+   * `isRejoinPending`)? While it is, a snapshot that carries a match id reaches `ClientSync.receive` only
+   * if the id is OURS (`NetSession.matchId`). `main.ts` owns the attempt clock; optional (absent = never).
+   */
+  isRejoinPending?: () => boolean;
 }
 
 /**
@@ -367,6 +380,30 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // Drops the five host-authored kinds unless they come from the latched host peer.
       // INTENT/HELLO are unaffected (the host side stamps INTENT playerIds itself).
       if (!hostAuthFilter(deps.session, msg, peerId)) return;
+      // ⭐ S189 fix round (audit NET-1) — did a rejoin land in the host's NEXT lobby or match? ⭐ S191
+      // (NETFR-1/2) — decided by the match id + host phase the host now sends (`classifyHostMessage`): a
+      // snapshot of another match is not applied — while a rejoin is pending that is the HOLD, and only a
+      // snapshot carrying OUR id is released to ClientSync. LOBBY_PRESENCE flows on exactly as before
+      // (nothing below acts on it outside LOBBY).
+      if (deps.onHostSignal !== undefined) {
+        const signal = classifyHostMessage({
+          inMatch: !deps.world.isHost && deps.world.gameState === 'PLAYING',
+          fromFollowedHost: peerId === deps.session.hostPeerId,
+          kind: msg.kind,
+          snapshotSeq: msg.kind === 'NETSNAPSHOT' ? msg.snapshotSeq : undefined,
+          epoch: msg.kind === 'NETSNAPSHOT' ? msg.epoch : undefined,
+          lastSeq: deps.session.clientSync?.lastSnapshotSeq() ?? 0,
+          currentEpoch: deps.session.currentEpoch,
+          rejoinPending: deps.isRejoinPending?.() ?? false,
+          ourMatchId: deps.session.matchId,
+          matchId: msg.kind === 'NETSNAPSHOT' || msg.kind === 'LOBBY_PRESENCE' ? msg.matchId : undefined,
+          hostPhase: msg.kind === 'LOBBY_PRESENCE' ? msg.phase : undefined,
+        });
+        if (signal !== null) {
+          deps.onHostSignal(signal);
+          if (signal === 'new-match') return;
+        }
+      }
       if (msg.kind === 'NETSNAPSHOT' && deps.session.clientSync !== null) {
         deps.session.clientSync.receive(msg, performance.now());
       }
@@ -397,6 +434,8 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
         // S122 P2 (host-migration D3) — keep the frozen seat↔peerId roster: the successor
         // rebuilds hostSeats from it and every survivor grounds its alive-seat view in it.
         deps.session.lastRoster = msg.roster;
+        // ⭐ S191 (NETFR-1/2) — the match a later rejoin must be shown again (absent from an id-less host).
+        deps.session.matchId = msg.matchId ?? null;
         dispatch(deps.world, {
           type: 'START_GAME',
           mode: msg.mode,
