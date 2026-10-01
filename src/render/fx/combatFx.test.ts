@@ -12,8 +12,8 @@ import {
   lightningStrikeSeed, tvCrackleFx,
 } from './lightningFx.ts';
 import {
-  FLOATER_BIG_HIT_FIFTHS, FLOATER_HEAL_MOTES, FLOATER_POP_FROM, FLOATER_POP_PEAK, FLOATER_SHAKE_FRAMES,
-  FLOATER_SHAKE_PX, floaterPopScale, floaterSeed, floaterShake, healSparkleFx,
+  FLOATER_BIG_HIT_FIFTHS, FLOATER_HEAL_MOTES, FLOATER_SHAKE_FRAMES,
+  FLOATER_SHAKE_PX, floaterSeed, floaterShake, healSparkleFx,
 } from './floaterFx.ts';
 import {
   PROJECTILE_TRAIL, SLAP_FX_TICKS, chewBiteFx, projectileImpactFx, projectileTrailFx, slapImpactFx,
@@ -129,19 +129,6 @@ describe('S193 V07 — lightning (`lightningFx`)', () => {
 });
 
 describe('S193 V08 — damage and heal numbers (`floaterFx`)', () => {
-  it('the pop: 0.6 at birth, 1.15 at the half, 1 from the end of the pop on', () => {
-    expect(floaterPopScale(0, 7.5)).toBeCloseTo(FLOATER_POP_FROM, 9);
-    expect(floaterPopScale(3.75, 7.5)).toBeCloseTo(FLOATER_POP_PEAK, 9);
-    expect(floaterPopScale(7.5, 7.5)).toBe(1);
-    expect(floaterPopScale(30, 7.5)).toBe(1);
-    // It never overshoots the peak and never drops below the start.
-    for (let a = 0; a <= 8; a += 0.25) {
-      const s = floaterPopScale(a, 7.5);
-      expect(s).toBeGreaterThanOrEqual(FLOATER_POP_FROM - 1e-9);
-      expect(s).toBeLessThanOrEqual(FLOATER_POP_PEAK + 1e-9);
-    }
-  });
-
   it('a BIG hit judders within ±2 px and settles; a small hit and a heal never move', () => {
     const o = { dx: 0, dy: 0 };
     const seed = floaterSeed(300, 200, 120);

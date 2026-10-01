@@ -3,11 +3,14 @@
  *
  * Called from `damageNumbers.ts`'s per-frame `advance()` and nowhere else, so that file's change is a
  * few lines (it is also edited by `s192/zombies` and `s192/magic`). The number itself stays crisp
- * Kanit text; this only shapes how it ARRIVES and what sparkles beside a heal:
- *   · POP-IN 0.6× → 1.15× → 1× across the first sixth of the life (the S192 plan's V08 shape; the
- *     shipped NameplateSCT 0.5 → 2.0 → 1.0 punch stays the `?fx=legacy` path);
+ * Kanit text; this only adds two things ON TOP of the shipped animation:
  *   · a BIG HIT shakes ±2 px for its first few frames, settling to still;
  *   · a HEAL gets three green-white sparkle motes rising and twinkling beside it.
+ *
+ * ⛔ THE SHIPPED POP STAYS: 0.5× → 2.0× → 1.0× (NameplateSCT), in fx mode and legacy alike. Merge
+ * owner, S193: the owner praised the current numbers (R185-D: *"the damage numbers actually finally
+ * look good … it just looks epic"*), and changing what he likes is not ours to do unasked. The S192
+ * plan's softer 0.6 → 1.15 → 1 pop is an OWNER QUESTION, deliberately NOT built.
  *
  * ⛔ IT DOES NOT TOUCH WHERE A NUMBER SITS OR HOW MANY THERE ARE. The owner's R185-D (every hit at its
  * own anchor, numbers *"go over each other, it looks epic"*) and R190-I (the hit and the heal each
@@ -18,14 +21,11 @@
  * renderer's presentational FRAME counter (its own header explains why a tick would stutter on a
  * peer), and the seed is the floater's own anchor and amount, so the wobble is reproducible.
  *
- * ⚠ Every number here is MINE except the 0.6 / 1.15 / 1 pop and the 2 px shake (the S192 plan).
+ * ⚠ Every number here is MINE except the 2 px shake and the three motes (the S192 plan).
  */
 
-import { clamp01, easeOutCubic, fxHash, fxSeed, mixColor, type FxSink } from './emitter.ts';
+import { clamp01, fxHash, fxSeed, mixColor, type FxSink } from './emitter.ts';
 
-/** The pop's start, overshoot and rest scale (S192 plan V08). */
-export const FLOATER_POP_FROM = 0.6;
-export const FLOATER_POP_PEAK = 1.15;
 /**
  * ⚠ MINE — a hit this many FIFTHS or more is "big" and shakes. 60 fifths is 12 HP: above every
  * goblin swing (`attackFifths(2,1)` = 12) and every tower shot on the shipped roster, reached by
@@ -38,16 +38,6 @@ export const FLOATER_SHAKE_FRAMES = 10;
 /** Sparkle motes beside a heal (S192 plan: three). */
 export const FLOATER_HEAL_MOTES = 3;
 
-/**
- * The pop-in scale at `age` frames, where the pop spans `popFrames`. 0.6 → 1.15 over the first
- * half (eased out, so it snaps up), 1.15 → 1 over the second half, then 1 for the rest of its life.
- */
-export function floaterPopScale(age: number, popFrames: number): number {
-  const k = popFrames <= 0 ? 1 : age / popFrames;
-  if (k >= 1) return 1;
-  if (k < 0.5) return FLOATER_POP_FROM + (FLOATER_POP_PEAK - FLOATER_POP_FROM) * easeOutCubic(k / 0.5);
-  return FLOATER_POP_PEAK + (1 - FLOATER_POP_PEAK) * ((k - 0.5) / 0.5);
-}
 
 /** A floater's seed: its anchor (rounded) and its amount — synced numbers, so every screen agrees. */
 export function floaterSeed(x: number, y: number, amount: number): number {

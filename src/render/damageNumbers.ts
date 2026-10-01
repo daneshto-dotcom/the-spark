@@ -70,9 +70,9 @@ import { creatureAttackFifths } from '../state/creatures/creature.ts';
 import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
-// ⭐ S193 (V08) — the pop, the big-hit shake and the heal sparkle live in `fx/floaterFx.ts`.
+// ⭐ S193 (V08) — the big-hit shake and the heal sparkle live in `fx/floaterFx.ts` (the pop below is untouched).
 import { fxActive, fxTop } from './fx/fxState.ts';
-import { floaterPopScale, floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
+import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -931,13 +931,11 @@ export class DamageNumbers {
       f.text.alpha =
         f.age <= OPAQUE_FRAMES ? 1 : 1 - (f.age - OPAQUE_FRAMES) / (LIFE_FRAMES - OPAQUE_FRAMES);
       if (fx) {
-        // ⭐ S193 (V08) — pop 0.6 → 1.15 → 1, a big hit judders ±2 px, a heal sparkles.
+        // ⭐ S193 (V08) — ON TOP of the shipped animation: a big hit judders ±2 px, a heal sparkles.
         const sh = floaterShake(SHAKE_OUT, f.age, f.amount, f.heal, f.seed);
         f.text.x += sh.dx;
         f.text.y += sh.dy;
-        f.text.scale.set(floaterPopScale(f.age, POP_FRAMES));
         if (f.heal) healSparkleFx(fxTop(), f.text.x, f.text.y, f.age, LIFE_FRAMES, f.text.alpha, f.seed);
-        continue;
       }
       // The pop: 0.5 → 2.0 → 1.0 across the first sixth, then hold at 1.
       const k = f.age / POP_FRAMES;

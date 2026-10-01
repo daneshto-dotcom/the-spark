@@ -1,6 +1,6 @@
 /**
- * S193 `s193/visuals-combat` (V08) — **REACH: THE REAL `DamageNumbers` USES THE NEW POP, SHAKE AND
- * SPARKLE — AND STILL PRINTS EVERY HIT AND EVERY HEAL ON ITS OWN (R185-D, R190-I).**
+ * S193 `s193/visuals-combat` (V08) — **REACH: THE REAL `DamageNumbers` KEEPS THE SHIPPED POP, ADDS THE SHAKE AND
+ * SPARKLE ON TOP OF THE SHIPPED POP — AND STILL PRINTS EVERY HIT AND EVERY HEAL ON ITS OWN (R185-D, R190-I).**
  *
  * Driven through the real `DamageNumbers.sync` on a real world: a creature is hit and healed on one
  * frame, and the floaters it produces are inspected. Only Pixi's `Text` is faked (Node has no
@@ -36,7 +36,19 @@ const { asPlayerId } = await import('../../types.ts');
 const { DamageNumbers } = await import('../damageNumbers.ts');
 const { recordingSink } = await import('./emitter.ts');
 const { setFxHooks, setFxLegacyFlag } = await import('./fxState.ts');
-const { FLOATER_POP_FROM, FLOATER_HEAL_MOTES } = await import('./floaterFx.ts');
+const { FLOATER_HEAL_MOTES } = await import('./floaterFx.ts');
+
+/** The SHIPPED NameplateSCT pop (`damageNumbers.ts`), 0.5 → 2.0 → 1.0 over the first sixth of 45 frames. */
+const POP = 45 / 6;
+const shippedPop = (age: number): number => { const k = age / POP; return k >= 1 ? 1 : k < 0.5 ? 0.5 + 3 * k : 2 - 2 * (k - 0.5); };
+
+/** Run `n` more frames with nothing new happening; returns the scale each live floater got, per frame. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function popTrace(dn: any, w: any, n: number): number[][] {
+  const out: number[][] = [];
+  for (let i = 0; i < n; i++) { scales.length = 0; dn.sync(w); out.push([...scales]); }
+  return out;
+}
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -79,17 +91,22 @@ describe('S193 V08 REACH — `DamageNumbers` with the rebuilt fx live', () => {
     expect(hitAndHeal(dn, w, c, 12, 2).sort()).toEqual(['12', '2']);
   });
 
-  it('the pop starts near 0.6 (not the legacy 0.5 → 2.0 punch), and the heal sparkles', () => {
+  it('⛔ the SHIPPED pop (0.5 → 2.0 → 1.0) is kept in fx mode, frame for frame — and the heal sparkles', () => {
     const top = recordingSink();
     setFxHooks({ top, shade: recordingSink(), ground: recordingSink(), shock: { shock() {} } });
     const { w, c } = scene();
     const dn = new DamageNumbers();
     hitAndHeal(dn, w, c, 12, 2);
-    // age 1 of a 7.5-frame pop: between 0.6 and 1.15, nowhere near the legacy 0.5 + 3/7.5 = 0.9 path's later 2.0.
     expect(scales.length, 'anti-vacuity').toBe(2);
-    for (const s of scales) { expect(s).toBeGreaterThan(FLOATER_POP_FROM); expect(s).toBeLessThan(1.15); }
+    for (const s of scales) expect(s).toBeCloseTo(shippedPop(1), 9); // 0.9 at age 1
     expect(top.out.length, 'the heal sparkle reached the top layer').toBeGreaterThan(0);
     expect(top.out.length).toBeLessThanOrEqual(FLOATER_HEAL_MOTES * 2);
+    const trace = popTrace(dn, w, 10);
+    trace.forEach((frame, i) => {
+      expect(frame.length).toBe(2);
+      for (const s of frame) expect(s).toBeCloseTo(shippedPop(i + 2), 9);
+    });
+    expect(Math.max(...trace.flat()), 'it still punches toward 2.0 (the plan pop never passed 1.15)').toBeGreaterThan(1.9);
   });
 
   it('NEGATIVE: legacy keeps the shipped 0.5 → 2.0 → 1.0 pop and draws no sparkle', () => {
@@ -103,6 +120,31 @@ describe('S193 V08 REACH — `DamageNumbers` with the rebuilt fx live', () => {
     expect(scales.length, 'anti-vacuity').toBe(2);
     for (const s of scales) expect(s).toBeCloseTo(0.9, 9);
     expect(top.out).toEqual([]);
+  });
+
+  it('a BIG hit judders ±2 px around the shipped path; a small hit does not move off it', () => {
+    setFxHooks({ top: recordingSink(), shade: recordingSink(), ground: recordingSink(), shock: { shock() {} } });
+    const { w, c } = scene();
+    const dn = new DamageNumbers();
+    dn.sync(w);
+    c.ehp -= 120;
+    dn.sync(w);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const f = (dn as any).live[0];
+    const p = f.age / 45;
+    const dx = f.text.x - (f.x + f.drift * p);
+    const dy = f.text.y - (f.y - 23 * p);
+    expect(Math.hypot(dx, dy)).toBeGreaterThan(0);
+    expect(Math.abs(dx)).toBeLessThanOrEqual(2);
+    expect(Math.abs(dy)).toBeLessThanOrEqual(2);
+    const s2 = scene();
+    const dn2 = new DamageNumbers();
+    dn2.sync(s2.w);
+    s2.c.ehp -= 12;
+    dn2.sync(s2.w);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = (dn2 as any).live[0];
+    expect(g.text.x).toBeCloseTo(g.x + g.drift * (g.age / 45), 9);
   });
 
   it('a damage-only frame draws no sparkle (only heals sparkle)', () => {
