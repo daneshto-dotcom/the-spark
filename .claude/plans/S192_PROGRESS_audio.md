@@ -132,3 +132,4 @@ here; the DEV `__SPARK__.audio` probe is how the merge owner or the owner's next
 - A2 (LOW) — same commit (same mechanism): `ui` sits outside the global 32, never refused.
 - A6 (LOW) dfc4d9ae — `audioSimBoundary.test.ts` throws on an unreadable import (+ a negative control).
 - The auditor's scratch tests were run in this worktree to reproduce and then removed (not committed).
+- Gates on 5bd844db: typecheck 0 · vitest --maxWorkers=3 0 (460 files / 7144 tests passed, 4 / 11 skipped) · build 0 — 1000.3 KiB vs master f6ae1041 997.1 KiB = **+3.2 KiB**.
