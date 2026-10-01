@@ -46,6 +46,17 @@ import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 export const AUTO_FEED_SHAPE_COUNT = 6;
 export const AUTO_FEED_ALL_MASK = (1 << AUTO_FEED_SHAPE_COUNT) - 1;
 
+/**
+ * ⭐ S193 (T4, audit round 1) — what a goblin tower's toggles were when it last FELL at an anchor that is
+ * still standing (`World.goblinAutoFeedMemory`, keyed by that anchor). A one-connector bite removes the
+ * spawner; FIX re-ignites it at the same anchor, and the toggles come back instead of silently OFF.
+ */
+export interface AutoFeedMemory {
+  readonly owner: PlayerId;
+  readonly mask: number;
+  readonly cursor: number;
+}
+
 /** ⭐ S193 (T4) — PURE: is shape index `sparkType` toggled on this tower? (The renderer's read.) */
 export function isAutoFed(sp: { readonly autoFeedMask?: number }, sparkType: number): boolean {
   return (((sp.autoFeedMask ?? 0) >> sparkType) & 1) === 1;

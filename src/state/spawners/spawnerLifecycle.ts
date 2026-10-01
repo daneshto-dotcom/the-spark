@@ -85,6 +85,21 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       ownBondIdLimit: world.nextBondId,
     }),
   );
+  /*
+   * ⭐ S193 (owner T4, audit round 1) — a goblin tower re-registering at an anchor it fell from takes its
+   * toggles back, IF it is the same seat's. The entry is consumed either way, and stale ones (anchor
+   * gone) are pruned, so a tower destroyed and rebuilt elsewhere starts OFF (⚠ MINE).
+   */
+  const remembered = world.goblinAutoFeedMemory.get(action.anchorPrimitiveId);
+  if (remembered !== undefined) {
+    world.goblinAutoFeedMemory.delete(action.anchorPrimitiveId);
+    if (action.recipeId === 'goblinTower' && remembered.owner === action.ownerPlayerId) {
+      const sp = world.creatureSpawners.get(id)!;
+      sp.autoFeedMask = remembered.mask;
+      sp.autoFeedCursor = remembered.cursor;
+    }
+  }
+  pruneAutoFeedMemory(world);
   return world;
 }
 
@@ -99,8 +114,36 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
  * kill path). Only the EMITTER and its passive income stop.
  */
 export function applyRemoveSpawner(world: World, action: RemoveSpawnerAction): World {
+  const sp = world.creatureSpawners.get(action.spawnerId);
+  /*
+   * ⭐⭐ S193 (owner T4, audit round 1) — A ONE-CONNECTOR BITE MUST NOT WIPE THE TOGGLES. *"whenever
+   * there's free space … it builds"* is a standing order; the revalidation poll removes the spawner the
+   * moment one own connector falls, and FIX re-ignites it at the same anchor. So a toggled goblin tower
+   * that falls with its anchor still standing leaves its toggles behind, keyed by that anchor.
+   */
+  if (
+    sp !== undefined &&
+    sp.recipeId === 'goblinTower' &&
+    ((sp.autoFeedMask ?? 0) !== 0 || (sp.autoFeedCursor ?? 0) !== 0) &&
+    world.primitives.has(sp.anchorPrimitiveId)
+  ) {
+    world.goblinAutoFeedMemory.set(sp.anchorPrimitiveId, {
+      owner: sp.ownerPlayerId,
+      mask: sp.autoFeedMask ?? 0,
+      cursor: sp.autoFeedCursor ?? 0,
+    });
+  }
   world.creatureSpawners.delete(action.spawnerId);
+  pruneAutoFeedMemory(world);
   return world;
+}
+
+/** ⭐ S193 T4 — drop every remembered toggle whose anchor is gone: that tower was destroyed, not bitten. */
+function pruneAutoFeedMemory(world: World): void {
+  if (world.goblinAutoFeedMemory.size === 0) return;
+  for (const anchor of [...world.goblinAutoFeedMemory.keys()]) {
+    if (!world.primitives.has(anchor)) world.goblinAutoFeedMemory.delete(anchor);
+  }
 }
 
 /**
@@ -224,5 +267,6 @@ export function recipeStillSatisfied(world: World, spawner: CreatureSpawner): bo
  */
 export function teardownSpawners(world: World): void {
   world.creatureSpawners.clear();
+  world.goblinAutoFeedMemory.clear(); // ⭐ S193 T4 — no remembered toggle survives into the next match
   world.nextSpawnerId = 0;
 }

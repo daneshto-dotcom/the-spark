@@ -476,6 +476,7 @@ export function makeWorld(rngSeed: number): World {
     stinkClouds: new Map(),
     nextStinkCloudId: 0,
     fouledPrimitives: new Set(),
+    goblinAutoFeedMemory: new Map(), // ⭐ S193 T4 — empty at world birth
     // S88 G3a — in-match combo-discovery set (the magic combos); empty at world birth.
     discoveredCombos: new Set(),
     // S42 — race-condition observability (real-time 1v1) + local-player

@@ -110,6 +110,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    */
   stinkClouds: 'hashed',
   fouledPrimitives: 'hashed',
+  // ⭐ S193 (owner T4) — remembered goblin-tower toggles: decide what a re-ignited tower builds. Projected `gm:`.
+  goblinAutoFeedMemory: 'hashed',
   discoveredCombos: 'hashed',
   godlyFiredThisMatch: 'hashed',
 
@@ -785,6 +787,13 @@ export function determinismParts(world: World): string[] {
   }
 
   parts.push(`fo:${idSet(world.fouledPrimitives)}`);
+  // ⭐ S193 T4 — sorted by anchor, never Map order.
+  parts.push(
+    `gm:${[...world.goblinAutoFeedMemory.entries()]
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([a, m]) => `${Number(a)}>${Number(m.owner)}.${m.mask}.${m.cursor}`)
+      .join(',')}`,
+  );
   parts.push(`dc:${[...world.discoveredCombos].map(String).sort().join(',')}`);
   parts.push(`gf:${[...world.godlyFiredThisMatch].map(String).sort().join(',')}`);
 

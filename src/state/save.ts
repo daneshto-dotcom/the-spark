@@ -307,6 +307,12 @@ export interface WorldSnapshot {
   stinkClouds?: SerializedStinkCloud[];
   fouledPrimitives?: PrimitiveId[];
   /**
+   * ⭐ S193 (owner T4) — remembered goblin-tower toggles keyed by anchor (`World.goblinAutoFeedMemory`).
+   * HOST-ONLY: disk + worker INIT; stripped from the wire by `netSnapshot` (a client never registers a
+   * spawner). Emitted only when non-empty, sorted by anchor.
+   */
+  goblinAutoFeedMemory?: Array<{ anchor: PrimitiveId; owner: PlayerId; mask: number; cursor: number }>;
+  /**
    * S87 — seats occupied by AI bots in 'bots' mode. Additive-optional
    * (creature precedent; NO schemaVersion bump): emitted only when non-empty,
    * so every pre-S87 save AND every networked NetSnapshot (bots never exist
@@ -1278,6 +1284,12 @@ export function snapshot(
         ? [...world.stinkClouds.values()].map(serializeStinkCloud)
         : undefined,
     fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
+    // ⭐ S193 T4 — host-only (stripped in `netSnapshot`); absent when empty, so every other save is unchanged.
+    goblinAutoFeedMemory: world.goblinAutoFeedMemory.size > 0
+      ? [...world.goblinAutoFeedMemory.entries()]
+          .sort((a, b) => Number(a[0]) - Number(b[0]))
+          .map(([anchor, m]) => ({ anchor, owner: m.owner, mask: m.mask, cursor: m.cursor }))
+      : undefined,
     // S87 — emit bot seats only when present (byte-identical pre-S87 + on the wire,
     // where bots can never exist).
     botSeats: world.botSeats.size > 0 ? [...world.botSeats].map((p) => p as number) : undefined,
@@ -1325,6 +1337,16 @@ export function restore(snap: WorldSnapshot, world: World): void {
   world.rngSeed = snap.rngSeed;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+  // ⭐ S193 T4 — host-only remembered toggles (disk + worker INIT). Sanitised like the spawner fields.
+  world.goblinAutoFeedMemory.clear();
+  for (const m of snap.goblinAutoFeedMemory ?? []) {
+    const cursor = m.cursor | 0;
+    world.goblinAutoFeedMemory.set(m.anchor, {
+      owner: m.owner,
+      mask: (m.mask | 0) & AUTO_FEED_ALL_MASK,
+      cursor: cursor >= 0 && cursor < AUTO_FEED_SHAPE_COUNT ? cursor : 0,
+    });
+  }
   // Audit Pass 1 fix 3c8630d7 + Pass 2 refactor 622a7c7f: see import comment.
   // world.tick was just set by applySnapshotCore to the persisted value, which
   // may be lower than the audio cursor's prior maximum. Reset so audio effects
@@ -1342,6 +1364,8 @@ export type NetSnapshot = Omit<
   // S82 P2 — 'spawner' joins the host-only omission list (rngSeed precedent: the spawner
   // stream words are the spawn schedule — never ship them to clients).
   'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'
+  // ⭐ S193 T4 — remembered goblin-tower toggles are host-only (a client never registers a spawner).
+  | 'goblinAutoFeedMemory'
 >;
 
 /**
@@ -1358,9 +1382,10 @@ export function netSnapshot(world: World): NetSnapshot {
     // S82 P2 — defense-in-depth: snapshot(world) without opts never emits 'spawner',
     // but if a future call path ever does, the destructure still strips it off the wire.
     spawner: _spawner,
+    goblinAutoFeedMemory: _goblinAutoFeedMemory, // ⭐ S193 T4 — host-only
     ...rest
   } = full;
-  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
+  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner; void _goblinAutoFeedMemory;
   // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
   // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3).
   // ⚠ AMENDED S134 — the stripped set is now `targetCreatureId` ONLY. `hp`/`chewProgress`/

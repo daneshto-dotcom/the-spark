@@ -43,3 +43,8 @@
 
 ## NEXT STEP
 None on this branch — hand to the merge owner (seams above).
+
+## ROUND 2 (coordinator audit follow-ups) — IN PROGRESS
+- merged master (PROTOCOL 58) clean, npm install 0.
+- [x] item 1 sim: World.goblinAutoFeedMemory (worldTypes/factory/clears x5/save+strip/restore/hash)
+- NEXT: item 4 runner skip benched/eliminated; items 2/3/5 controls; item 6 canon; tests; gates.
