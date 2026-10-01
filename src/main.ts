@@ -161,7 +161,7 @@ import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
 import { makeFxLab } from './dev/fxLab.ts';
-import { resolveMusicTrack } from './render/raceMusic.ts';
+import { resolveMatchMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
 import { StatsOverlay } from './render/statsOverlay.ts';
 // S182 STEP 0 — net bandwidth + snapshot-arrival counters, armed from the URL (see the call site).
@@ -2967,9 +2967,11 @@ Network routes: ${v.detail}`;
          * `resolveMusicTrack` takes the nullable race precisely so "not known yet" has an honest
          * answer (the original track) instead of a guess.
          */
-        setMusicTrack(resolveMusicTrack(
+        setMusicTrack(resolveMatchMusicTrack(
           world.players.get(world.localPlayerId)?.raceId ?? null,
           isRaceMusicEnabled(),
+          world.waveNumber, // ⭐ S193 R193-M — a pants round plays its own song
+          world.matchPhase,
         ));
         void playMusic();
         // S95 P0 — preload the NONET overlay chunk at match start so the trial appears INSTANTLY
@@ -4191,9 +4193,13 @@ Network routes: ${v.detail}`;
      * note above), so polling there would set the wrong track for everyone.
      */
     if (world.gameState === 'PLAYING') {
-      setMusicTrack(resolveMusicTrack(
+      // ⭐ S193 (owner, R193-M) — and a pants round swaps to its song on the same poll, from synced
+      // state (`waveNumber`, `matchPhase`), so a joiner hears the round the host is in.
+      setMusicTrack(resolveMatchMusicTrack(
         world.players.get(world.localPlayerId)?.raceId ?? null,
         isRaceMusicEnabled(),
+        world.waveNumber,
+        world.matchPhase,
       ));
     }
 
