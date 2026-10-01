@@ -365,3 +365,5 @@ Merge owner = the main session. This branch never merges, never pushes.
   the two retired sentences, the §4b Alt sentence. Mutation (cooldown printed 1400 + the old sentence back) → red;
   restored (cmp). 64/64. Canon §6 + `PROTOCOL_VERSION` untouched; the finished bump docblock is in
   `S191_CANON_NOTES_addons.md` §6.
+- **Gates after the S192 fix round** (captured `$?`, `.tmp-gates/r_*_exit.txt`): typecheck 0 · vitest `--maxWorkers=3`
+  0 (6809 passed / 7 skipped; 417 files + 2 skipped; the snapshot file `pentagramBuildability.test.ts.snap` is rewritten LF by vitest — line endings only, restored, benign) · build 0, **975.2 KiB** (cap 1100, headroom 124.8; master 972.7).
