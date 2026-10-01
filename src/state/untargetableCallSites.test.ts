@@ -98,7 +98,7 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'Neither selects a victim.',
   'state/creatures/creatureLifecycle.ts':
     'LIFECYCLE. Despawn/expiry sweeps and the deferred-death batch. Removal is not acquisition.',
-  'state/racial/powerOfRa.ts':
+  'state/racial/raColumn.ts':
     'AREA. S191 — `raColumnTargets` collects EVERYONE standing in the column (owner: "split amongst them") ' +
     'and divides one fixed total between them; it picks no victim. An untargetable unit in the column ' +
     'takes its share by the "untargetable is NOT invulnerable" ruling — the case `applyRadialDamage` covered.',

@@ -156,7 +156,7 @@ describe('S183 — the damageEntity call-site census', () => {
     expect(tally((s) => s.attacker === 'null')).toEqual({
       'src/state/castleGuns.ts': 1, // a KEEP is not an entity
       'src/state/damage.ts': 3, // applyRadialDamage — a splash names nobody
-      'src/state/racial/powerOfRa.ts': 1, // S191 — the Ra perk column's split share: a column of light is nobody to turn on
+      'src/state/racial/raColumn.ts': 1, // S191/S192 — a Ra column's split share (perk AND Pharaoh boss): a column of light is nobody to turn on
       'src/state/racial/scorchedGround.ts': 1, // S188 — burning ground: nobody to turn on or heal
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });

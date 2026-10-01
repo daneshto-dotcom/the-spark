@@ -29,7 +29,7 @@ import { autoPickFor, draftOptionsFor, openDraftIfDue, pickIsOffered, playerHold
 import { RACIAL_PERK_BUILT, RACIAL_PERK_REQUIRES, perkDraftIndex, racialPerkFor, seatHoldsPerk } from '../racialPerks.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
 import { restore, snapshot } from '../save.ts';
-import { raStrikeColumnPos, RA_PERK_STRIKE_FIFTHS } from './powerOfRa.ts';
+import { raColumnPoolFor, raStrikeColumnPos, RA_WRATH_STRIKE_FIFTHS } from './powerOfRa.ts';
 import {
   WRATH_OF_RA_CHARGES,
   raCastRefusal,
@@ -194,7 +194,7 @@ describe('S188 P11 — THREE CHARGES a fight', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S188 P11 — ⭐⭐ REACH: three OVERLAPPING strikes, through the real host tick', () => {
-  it('each strike\'s every column lands its whole 35 on a lone enemy standing on ITS spot', () => {
+  it('each strike\'s every column lands its whole 75 (WRATH, S192) on a lone enemy standing on ITS spot', () => {
     const w = world(WRATH);
     const d = deps();
     const s = makeHostTickState(w);
@@ -202,6 +202,7 @@ describe('S188 P11 — ⭐⭐ REACH: three OVERLAPPING strikes, through the real
     for (const a of aims) cast(w, a.x, a.y); // all three on ONE tick — the overlap case
     const strikes = w.players.get(P0)!.raStrikes;
     expect(strikes).toHaveLength(3);
+    expect(raColumnPoolFor(w, P0), 'a WRATH seat\'s every column is 75').toBe(RA_WRATH_STRIKE_FIFTHS);
 
     const victims: CreatureId[] = aims.map((a, i) => {
       dispatch(w, {
@@ -228,7 +229,7 @@ describe('S188 P11 — ⭐⭐ REACH: three OVERLAPPING strikes, through the real
       expect(w.tick).toBe(impact);
       victims.forEach((id, charge) => {
         expect(before[charge]! - w.creatures.get(id)!.ehp, `strike ${charge} column ${k}`)
-          .toBe(RA_PERK_STRIKE_FIFTHS); // S191 re-pin — was attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN) = 300
+          .toBe(RA_WRATH_STRIKE_FIFTHS); // S192 re-pin ("each column goes … up to 75") — was 35 (S191), 300 (S188)
       });
     }
     void RA_COLUMN_TICKS;

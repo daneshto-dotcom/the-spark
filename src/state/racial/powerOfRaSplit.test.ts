@@ -35,8 +35,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps, type HostTickState }
 import { makeGameStateExtras } from '../gameState.ts';
 import { mulberry32 } from '../rng.ts';
 import { attackFifths, structurePoolFifths } from '../stats.ts';
-import { raColumnImpactTick, raColumnPos, runPharaohRitual } from '../bossSkillsPharaohRitual.ts';
-import { damageCreature } from '../creatures/creatureLifecycle.ts';
+import { raColumnImpactTick } from '../bossSkillsPharaohRitual.ts';
 import { generalPickForWave } from '../draft.ts';
 import { hashWorldState } from '../stateHash.ts';
 import { hashWorldStateFull } from '../stateHashFull.ts';
@@ -336,29 +335,8 @@ describe('S191 — the numbers the owner asked for (measured, not derived by han
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S191 — ⛔ NEGATIVE: the Pharaoh BOSS is not retuned and not split', () => {
-  it('his column still lands attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN) = 300 on EACH of two victims', () => {
-    const w = raWorld();
-    dispatch(w, {
-      type: 'SPAWN_CREATURE', creatureType: 't9BossMummies' as never, ownerPlayerId: P0,
-      pos: { x: 500, y: 500 }, targetPos: { x: 500, y: 500 }, sourceSpawnerId: asSpawnerId(9990),
-    });
-    const boss = [...w.creatures.values()].find((c) => c.type === 't9BossMummies')!;
-    expect(damageCreature(w, boss.id, 100_000)).toBe(false); // starts the ritual
-    const until = boss.raRitualUntilTick!;
-    expect(until).toBeDefined();
-
-    const pos = raColumnPos(boss.id as unknown as number, 0, boss.pos.x, boss.pos.y);
-    const a = victim(w, P1, pos.x, pos.y);
-    const b = victim(w, P1, pos.x + 4, pos.y);
-    place(w, a, pos);
-    place(w, b, { x: pos.x + 4, y: pos.y });
-    w.tick = raColumnImpactTick(until, 0);
-    runPharaohRitual(w);
-    expect(10_000 - w.creatures.get(a)!.ehp).toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
-    expect(10_000 - w.creatures.get(b)!.ehp).toBe(300);
-  });
-});
+// S192 — the Pharaoh BOSS is no longer 300: his column is this file's rule (35, or 75 for a WRATH seat),
+// pinned through the real host tick in `raColumnS192.test.ts`. (S191's "boss stays 300" negative is retired.)
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S191 — host vs ?worker=1 through a split strike (wide hash)', () => {
