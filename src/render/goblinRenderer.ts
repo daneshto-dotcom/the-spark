@@ -1104,7 +1104,8 @@ export class GoblinRenderer {
       if (!on || prev === undefined || hf <= prev) continue; // first sighting is not a heal
       if (lifestealPctFor(world.players.get(c.ownerPlayerId)) === 0) continue;
       if ((c.sapFlashUntilTick ?? -1) > world.tick) continue; // Vlad's siphon draws its own
-      if (isCorpseEaterFeeding(c, world.tick)) continue; // so does the feed (V18)
+      // so does the feed (V18) — and, since s192/zombies T12, its banked heal pays out in pulses after a bite
+      if (isCorpseEaterFeeding(c, world.tick) || c.corpseEaterHealBank !== undefined) continue;
       if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
       if (this.lifestealBursts.length >= LIFESTEAL_FX_MAX_BURSTS) continue;
       const src = lifestealSource(world, c);
