@@ -188,7 +188,16 @@ export function weldedAt(world: World, primId: PrimitiveId, unit: TowerUnit | nu
   const seed = world.primitives.get(primId);
   if (seed === undefined) return false;
   const comp = componentOf(seed, world.primitives, world.bonds);
-  if (unit !== null) return comp.primitiveIds.size > unit.members.length;
+  /*
+   * ⛔ S192 (audit IDENTITY-5) — MEMBERSHIP, never a size compare. Inside the poll window a broken tower's
+   * live own shapes can sit OUTSIDE this component (a detached leaf, the far side of a cut ring), so
+   * "component bigger than the tower" read a one-shape weld as un-welded: FIX refused, SCRAP took the weld.
+   */
+  if (unit !== null) {
+    const mine = new Set(unit.members);
+    for (const id of comp.primitiveIds) if (!mine.has(id)) return true;
+    return false;
+  }
   const st = structureTowersAt(world, primId);
   return st !== null && st.towers.length > 0;
 }

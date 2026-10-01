@@ -68,7 +68,7 @@ import {
   markTowerCover,
 } from '../render/towerCover.ts';
 import { planStructureRepair, planStructureScrap } from './structureRepair.ts';
-import { towerUnitAt } from './towerUnit.ts';
+import { towerUnitAt, weldedAt } from './towerUnit.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { damageEntity } from './damage.ts';
 import { nearestEnemySpawnerBond } from '../bots/botBrain.ts';
@@ -2140,5 +2140,40 @@ describe('⭐ S192 IDENTITY-1 — a paid FIX on a fallen welded tower always bri
     const bank = JSON.stringify(w.castleBanks.get(P0));
     dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
     expect(JSON.stringify(w.castleBanks.get(P0)), 'nothing spent').toBe(bank);
+  });
+});
+
+describe('⭐ S192 IDENTITY-5 — "welded" is MEMBERSHIP (a shape outside the tower), never a size compare', () => {
+  it('a pentagram with ONE weld on its anchor, both anchor neighbours killed inside the poll window: still welded, tower FIX, SCRAP keeps the weld', () => {
+    const w = worldInBuild();
+    const st = makeHostTickState(w);
+    stamp(w, 'pentagram', { x: 500, y: 300 });
+    tick(w, st, 3);
+    const sp = [...w.creatureSpawners.values()][0]!;
+    expect(sp.recipeId).toBe('pentagram');
+    const anchor = w.primitives.get(sp.anchorPrimitiveId)!;
+    // Outward from the ring centre, beside the anchor: a real drop that bonds to the anchor alone.
+    const dx = anchor.pos.x - 500, dy = anchor.pos.y - 300, len = Math.hypot(dx, dy);
+    const weld = placeLikeAPlayer(w, SparkType.Square, { x: anchor.pos.x + (dx / len) * 28, y: anchor.pos.y + (dy / len) * 28 });
+    tick(w, st, PAST_TWO_POLLS);
+    expect(w.creatureSpawners.size, 'the welded pentagram stands').toBe(1);
+    const own = new Set(sp.ownPrimitiveIds!);
+    expect(own.has(weld.id)).toBe(false);
+    const ringNbrs = neighbours(w, anchor).filter((id) => own.has(id));
+    expect(ringNbrs).toHaveLength(2);
+    razePrimitives(w, ringNbrs, undefined, true, true); // the damage path's raze shape; NO tick
+    // The window: 3 own shapes live (anchor + the far pair), the anchor's component is anchor + weld (2).
+    // A size compare reads 2 > 3 = "not welded"; the weld is plainly outside the tower.
+    const unit = towerUnitAt(w, anchor.id)!;
+    expect(unit.kind).toBe('live');
+    expect(weldedAt(w, anchor.id, unit), 'the anchor sits in a welded structure').toBe(true);
+    const fix = planStructureRepair(w, P0, anchor.id);
+    expect(fix?.scope, 'the TOWER\'s FIX is offered').toBe('tower');
+    const scrap = planStructureScrap(w, P0, anchor.id)!;
+    expect(scrap.scope).toBe('tower');
+    expect(scrap.memberIds, 'a tower SCRAP never takes the weld').not.toContain(weld.id);
+    // The card asks the same question through the same helper.
+    const view = characterSheetModel(w, P0, { kind: 'structure', primitiveId: anchor.id });
+    expect(view?.welded?.role, 'the card reads it as a tower in a weld').toBe('tower');
   });
 });

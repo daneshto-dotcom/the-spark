@@ -88,7 +88,7 @@ import { towerArtForRecipe } from './towerFrames.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { towerMembersAt } from '../state/towerMembers.ts';
 import {
-  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerUnitAt,
+  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerUnitAt, weldedAt,
   type StructureTowers, type TowerUnit,
 } from '../state/towerUnit.ts';
 
@@ -1348,7 +1348,8 @@ function structureSheet(
    */
   const unit = towerUnitAt(world, prim.id);
   const st = structureTowersAt(world, prim.id);
-  if (st !== null && (unit !== null ? st.primitiveIds.size > unit.members.length : st.towers.length > 0)) {
+  // ⭐ S192 (audit IDENTITY-5) — the reducers' OWN predicate, not a second derivation of it.
+  if (st !== null && weldedAt(world, prim.id, unit)) {
     return unit !== null ? weldedTowerSheet(world, seat, target, unit, st) : weldedStructureSheet(world, seat, target, st);
   }
   const comp = componentOf(prim, world.primitives, world.bonds);
