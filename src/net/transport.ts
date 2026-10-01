@@ -695,6 +695,14 @@ export class NetTransport {
   private onPeerJoinError(handle: StrategyHandle, details: { error: string; peerId: string }): void {
     console.error('[net] onJoinError:', handle.name, details);
     handle.lastError = details.error;
+    // ⛔ S192 re-audit L1-RACE — a failure for a peer that IS connected (on another strategy) is a
+    // redundant handshake timing out late (HANDSHAKE_TIMEOUT_MS = 30 s), not a reachability fact.
+    // Recording it would outlive the clear in onPeerJoin: when the peer later drops, ONE fresh failure
+    // would read as "unreachable everywhere" and latch the red error, and the ✗ count would never drop.
+    if (this.peerSet.has(details.peerId)) {
+      console.warn('[net]', handle.name, `peer ${details.peerId} failed here but is connected — not recorded`);
+      return;
+    }
     (handle.peerJoinFailures ??= new Set()).add(details.peerId);
     if (this.peerUnreachableEverywhere(details.peerId)) {
       this.emitError(`[${handle.name}] ${classifyJoinError(details.error)}`);

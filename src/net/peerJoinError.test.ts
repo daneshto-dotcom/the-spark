@@ -123,6 +123,27 @@ describe('S192 T1 — a per-peer join error is not a strategy failure', () => {
     expect(src.slice(join0, leave0)).toContain('this.clearPeerJoinFailures(peerId);');
   });
 
+  /*
+   * ⛔ S192 re-audit L1-RACE — the clear alone is not enough. P connects on torrent (clear runs), then
+   * the REDUNDANT nostr handshake for P times out late (HANDSHAKE_TIMEOUT_MS = 30 s) and used to be
+   * recorded while P was connected. P later drops, and ONE fresh torrent failure read as "unreachable
+   * everywhere" — a latched red error — while nostr's ✗ never came down. A failure for a peer that is
+   * connected is not recorded at all.
+   */
+  it('L1-RACE: connect → late redundant failure → drop → one failure ⇒ no error, nostr ✗ 0', () => {
+    const { t, priv, errors } = rig();
+    priv.peerSet.add('P');
+    (priv.strategies.get('torrent')!.peers as Set<string>).add('P');
+    priv.clearPeerJoinFailures('P'); // onPeerJoin on torrent
+    fail(priv, 'nostr', 'P'); // the late handshake timeout on the redundant strategy
+    expect(errors).toEqual([]);
+    priv.peerSet.delete('P'); // drop
+    (priv.strategies.get('torrent')!.peers as Set<string>).delete('P');
+    fail(priv, 'torrent', 'P');
+    expect(errors).toEqual([]);
+    expect(t.getDiagnostics().strategies.find((s) => s.name === 'nostr')?.peerJoinFailures).toBe(0);
+  });
+
   it('F1: a strategy failing outright with NO recorded per-peer failure stays quiet (others live)', () => {
     const { priv, errors } = rig();
     priv.markStrategyFailed('torrent', 'chunk load failed: boom');
