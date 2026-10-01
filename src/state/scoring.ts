@@ -48,6 +48,7 @@ import {
   SCORE_TIER_STEP,
   SPAWNER_INCOME_COMPLEXITY,
 } from '../constants.ts';
+import type { SparkType } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
 import type { World } from './worldTypes.ts';
 
@@ -141,6 +142,43 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
   const inc = (m: Map<PlayerId, number>, k: PlayerId): void => {
     m.set(k, (m.get(k) ?? 0) + 1);
   };
+  /*
+   * ⭐ S191 (`s191/perf`, owner C5: *"it was lagging at about wave five"*) — THE TWO COMBO QUESTIONS,
+   * ANSWERED ONCE PER TYPE PAIR PER CALL. `lookupCombo` builds a template-string key and does a Map
+   * lookup; this pass asked it for every bond, again for every magic bond (`isFilamentCombo`), and again
+   * for every Filament neighbour — `lookupCombo` alone was 3.5-8.5 % of a wave-5 host tick (V8 profile,
+   * `S191_PROGRESS_perf.md`). There are only 6 × 6 type pairs, so each answer is now computed by the SAME
+   * function the first time its pair appears in this call and reused after. Exact by construction:
+   * nothing inside this call can change the combo table, the calls happen in the same order (so an
+   * invalid type still throws from the same bond), a type that is not one of the six integer
+   * `SparkType`s bypasses the memo, and every loop, skip, count and `Map` insertion order is unchanged.
+   * Proven against the verbatim pass (`scoringReference.fixtures.ts`) by `scoringMemo.differential.test.ts`
+   * and the SCORING arm of `s191Perf.differential.test.ts`.
+   */
+  const magicMemo = new Int8Array(36).fill(-1); // -1 = not asked yet this call; else 0 / 1
+  const filamentMemo = new Int8Array(36).fill(-1);
+  const pairSlot = (a: SparkType, b: SparkType): number =>
+    (a >>> 0) === a && a < 6 && (b >>> 0) === b && b < 6 ? a * 6 + b : -1;
+  const isMagicPair = (a: SparkType, b: SparkType): boolean => {
+    const k = pairSlot(a, b);
+    if (k < 0) return lookupCombo(a, b).isMagical;
+    let v = magicMemo[k]!;
+    if (v < 0) {
+      v = lookupCombo(a, b).isMagical ? 1 : 0;
+      magicMemo[k] = v;
+    }
+    return v === 1;
+  };
+  const isFilamentPair = (a: SparkType, b: SparkType): boolean => {
+    const k = pairSlot(a, b);
+    if (k < 0) return isFilamentCombo(a, b);
+    let v = filamentMemo[k]!;
+    if (v < 0) {
+      v = isFilamentCombo(a, b) ? 1 : 0;
+      filamentMemo[k] = v;
+    }
+    return v === 1;
+  };
 
   // S77 P3 — a poop-FOULED primitive earns nothing (its whole structure's income stops until
   // cleaned). O(1) Set check; the set is empty in the common case.
@@ -158,11 +196,11 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
     // S77 P3 — skip a fouled structure's bonds too (either endpoint fouled), consistent with
     // skipping its prims above, so a poop-fouled structure earns ZERO until cleaned.
     if (world.fouledPrimitives.has(bond.aId) || world.fouledPrimitives.has(bond.bId)) continue;
-    if (lookupCombo(a.type, b.type).isMagical) {
+    if (isMagicPair(a.type, b.type)) {
       inc(magicBonds, a.placedBy);
       // S90 P1 (G1b ECONOMY) — a Filament ALSO earns the income trickle (extra, on top of the
       // magic premium). The 2nd lookup only fires for the handful of magic bonds.
-      if (isFilamentCombo(a.type, b.type)) inc(filamentBonds, a.placedBy);
+      if (isFilamentPair(a.type, b.type)) inc(filamentBonds, a.placedBy);
     } else {
       inc(functionalBonds, a.placedBy);
     }
@@ -185,7 +223,7 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
     if (fa === undefined) continue;
     const fb = world.primitives.get(fil.bId);
     if (fb === undefined) continue;
-    if (!isFilamentCombo(fa.type, fb.type)) continue;
+    if (!isFilamentPair(fa.type, fb.type)) continue;
     if (world.fouledPrimitives.has(fil.aId) || world.fouledPrimitives.has(fil.bId)) continue;
     let n = 0;
     for (const prim of [fa, fb]) {
@@ -197,7 +235,7 @@ export function computeAllComplexities(world: World): Map<PlayerId, number> {
         if (na === undefined) continue;
         const nbEnd = world.primitives.get(nb.bId);
         if (nbEnd === undefined) continue;
-        if (!lookupCombo(na.type, nbEnd.type).isMagical) continue; // only magic neighbors are blessed
+        if (!isMagicPair(na.type, nbEnd.type)) continue; // only magic neighbors are blessed
         if (world.fouledPrimitives.has(nb.aId) || world.fouledPrimitives.has(nb.bId)) continue;
         n++;
       }

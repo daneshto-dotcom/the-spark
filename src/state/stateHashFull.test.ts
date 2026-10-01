@@ -709,9 +709,11 @@ describe('S165 - players: the sim fields are hashed, the avatar is not', () => {
       ['eliminatedAtTick', (p) => { p.eliminatedAtTick = 4242; }],
       ['raidPoints', (p) => { p.raidPoints = (p.raidPoints as number) + 5; }],
       ['raidProgress', (p) => { p.raidProgress = (p.raidProgress as number) + 11; }],
+      // ⭐ S191 C-8 — the keep's heal counter (R190-I).
+      ['castleHealedHp', (p) => { p.castleHealedHp = (p.castleHealedHp as number) + 25; }],
     ];
     // Anti-vacuity: an empty list would make the loop pass while asserting nothing.
-    expect(mutations.length).toBe(6);
+    expect(mutations.length).toBe(7);
 
     for (const [name, mutate] of mutations) {
       const w = seat0();

@@ -1,44 +1,41 @@
 # Boot Snapshot (auto-generated at handoff)
-Generated: 2026-10-01 | Session: S191 | deploy #5 LIVE (`d5c9c49`, PROTOCOL **52**, verify-deploy 4/4) · deploy #4 `7404a49` before it
+Generated: 2026-10-01 | Session: S192 | deploy #16 LIVE (`10ec442`, PROTOCOL **56**, verify-deploy 4/4, bundle 1034.7 / 1100 KiB)
 
 ## ⛔ READ FIRST
-- **The owner has a NEW list** from his weekend playtest with friends (bugs found) — take it first.
-- `.claude/plans/S192_BACKLOG.md` is the carried work (§A = eight worktree branches with their state + next action);
-  `.claude/plans/S191_AUDIT_DIGEST.md` holds every S191 audit finding; `.claude/plans/2026-09-25_S191_BATCH_PDR.md` §0 holds
-  every S191 owner ruling verbatim — **never re-ask an answered question**.
-- `PROTOCOL_VERSION` is **52**. Every carried branch is 83–115 commits behind master: merge master in FIRST, gates, then audit.
-- ⚠ Another session works on Pitch Masters (branches `pm-*`, worktrees on `F:/pm-s2-work/`) and pushes to master directly:
-  **`git fetch` before every push**; never touch the `pm-*` branches.
+- `.claude/plans/S193_BACKLOG.md` is the carried work (§A = 7 worktree branches + 3 not started; §B owner questions; §C carry-forwards).
+- `.claude/plans/S192_DISPATCH_LOG.md` holds every report, audit verdict and agent id. Owner rulings: `S192_OWNER_PLAYTEST_LIST.md`,
+  `S192_OWNER_RULINGS_teams_magic.md`, `S192_OWNER_ENDGAME_SPEC.md` — never re-ask an answered question.
+- ⛔ Pitch Masters (`src/arcade/**`, `public/pitch-masters/**`) is OFF-LIMITS — a separate project sharing the domain (owner, S192).
+- ⛔ A protocol bump touches SIX sites (protocol.ts checklist ~:1238) — S192's hand bump missed three; use a script.
 
 ## Next Steps
-1. Take the owner's new playtest list (plan it after reading the canon + S190 rulings + S191 PDR §0).
-2. Land the carried branches one at a time (S192_BACKLOG §A order): perf (audit → merge, byte-identical) · carry (finish
-   C-8/C-9/C-7, audit) · addons (re-audit, merge) · owner (apply the Helga / caster-fall answers + audit findings) · tune
-   (Ra 35 TOTAL split, castle zone 121→61) · weld round 5 fixes then round 6 (FIX-by-gatherer) · net remainder + C4 tuning ·
-   endstats (audit, LOOK, merge late).
-3. One protocol bump per deploy; e2e gating + races before every push; verify-deploy + a live look after.
+1. Land the carried branches one at a time per S193_BACKLOG §A: zombies → units-ai → weld (re-audit, SEAM-C7, then round 6 + castle FIX ALL) → magic → endgame → endstats → teams (LAST).
+2. Each: merge master in → ONE independent audit (trial-merge vs current master) → fix-only round → merge → bump if earned → gates + e2e → fetch (timeout) → push → verify-deploy.
+3. Put S193_BACKLOG §B owner questions in ONE plain-words batch (zombie blast 312, endgame 9 Qs, magic Q1, chewer cap, Voltkin welded TV…).
+4. Not started: goblin tower auto-build (T4), visuals-2..5 batches (S192_VISUALS_PLAN.md), MRES draft card at the wave-26 slot.
 
 ## Blockers
-- None technical. Owner-only: his new list; the open questions in S192_BACKLOG §B (none block work).
+- None technical. Owner-only: the §B answers (defaults are built and flagged MINE / AWAITING OWNER). Infra alerts (mirror, MinIO) are the owner's, another session.
 
 ## Pending Backlog
-- See `.claude/plans/S192_BACKLOG.md` §A–§C (the live list). Older forward lists (S191/S182/S180 backlogs) are superseded.
+- See `.claude/plans/S193_BACKLOG.md` §A–§C (the live list). S192_BACKLOG / S191 lists are superseded.
 
 ## Recent Reflexion (last 2 sessions)
-`.claude/reflexion_log.md` top: S191 (ship the audited prefix, not the red tip · a merge owner's own fix shape needs an
-audit too · fetch before push · the audit fan-out is the spend), then S190 (8 entries). 49 total, under the cap.
+`.claude/reflexion_log.md` top: S192 (one audit at a time lands more · read the bump checklist · trial-merge inside the audit ·
+Pitch Masters is another repo · green hides HIGH · cp1252 in session-state · quarantine hid the bug · reuse the old predicate ·
+caps need priorities · guards must count new call sites), then S191 (4). 45 total, under the cap.
 
 ## Muscle memory (auto) [Vigil]
-- Traces: `C:\Users\onesh\.claude\traces\2026-10-01\The-Spark.jsonl`
+- Traces: `C:/Users/onesh/.claude/traces/2026-10-01/The-Spark.jsonl`
 - Last decisions:
-  - Seven named worktree agents + a parallel Council; fix rounds back to the same agent by SendMessage.
-  - Every branch audited by an independent workflow; spend-limit-killed verifiers → findings sent back as reproduce-first fixes.
-  - Shipped weld at its last audited-green commit and net minus the re-audit-red FIX-3; one bump 51→52.
-  - Remote master had moved (Pitch Masters): fetch → merge → full gates incl. e2e → push; verify-deploy 4/4; live looked at.
-  - Carried the rest with an audit digest instead of spending the last context on more rounds.
+  - Merge owner only routed / merged / bumped / gated; every build, research and audit ran in a worktree agent.
+  - One independent audit at a time, trial-merging against current master; fix-only rounds + light re-audits.
+  - 11 deploys (#6-#16), PROTOCOL 52→56 via a six-site bump script.
+  - Pitch Masters ruled off-limits; src/arcade excluded from every enumeration.
+  - Paused on the owner's limit order with a resume plan; resumed cleanly by SendMessage.
 - CLAUDE_LOOP: **closed**
 - Shared bundle checklist:
   - [x] boot-snapshot.md (this file)
-  - [x] latest HANDOFF: `HANDOFF_S191_2026-10-01.md`
-  - [x] LOCKED_DECISIONS.md (unchanged S191)
+  - [x] latest HANDOFF: `HANDOFF_S192_2026-10-01.md`
+  - [x] LOCKED_DECISIONS.md (unchanged S192)
   - [x] traces jsonl path above

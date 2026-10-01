@@ -340,7 +340,9 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Container', //  2 — structureRenderer.primitiveLayer — the SHAPES / unbuilt structures.
       '_Graphics',  //  3 — keystoneTelegraphRenderer        (S121 P1 B3)
       '_Graphics',  //  4 — dragPreviewRenderer              (S98 P3) — the placement preview.
-      '_Graphics',  //  5 — spawnerZoneRenderer              (S100 P1) — the spawner "it's alive" aura,
+      '_Container', //  5 — spawnerZoneRenderer.root         (S100 P1) — the spawner "it's alive" aura,
+                    //      ⭐ S192 `s192/visuals` — a CONTAINER now: [the legacy aura Graphics, the fx
+                    //      GROUND layer]. One slot rather than two, so indices 6 and 11 do not move.
                     //      i.e. the owner's *"spawn that they're generating"*. Its own docblock still
                     //      argues for `aboveFogLayer` as a cross-player landmark; that was overruled
                     //      in S169 (*"scouting has to cost something"*) — the comment is stale, not
@@ -395,6 +397,14 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       '_Graphics',  // 17 — stinkTowerRenderer.graphics      (S141 P1) — aura ring + lob arc stay
                     //      procedural because they are STATE READOUTS, not character art.
       '_Container', // 18 — stinkTowerRenderer.spriteLayer   (S151 P3) — the veo tower atlas.
+      '_Graphics',  // 19 — raStrikeLayer                    (S191 C-9, owner R190-H extended) — the Ra
+                    //      strike, ABOVE every building. ⛔ It must stay the last GAMEPLAY child: appending
+                    //      keeps `tower-art.spec.ts`'s indices 6 and 11 where they are. Only fxTop (20)
+                    //      follows it, and that holds effect sprites only.
+      '_Container', // 20 — fxTop                            (S192 `s192/visuals`) — the fx layer over every
+                    //      unit and building: siphon motes, embers, blast flashes; it carries the one
+                    //      bloom filter on HIGH. Appended AFTER the Ra strike, so it is the last child
+                    //      now and nothing below it moved. Still under the fog, like everything here.
     ]);
 
     /*

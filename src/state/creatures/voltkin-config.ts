@@ -57,7 +57,6 @@ import {
   RACE_UNIT_PEN,
   CHEWER_HP,
   VOLTKIN_HP,
-  DRONE_LIFETIME_TICKS,
   DRONE_EXPLODE_RADIUS,
   GOBLIN_ATTACK_CADENCE_TICKS,
   GOBLIN_ATTACK_FIRE_TICK,
@@ -425,7 +424,9 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  * spawner-structure. Generalizes the Voltkin substrate (same FSM / Verlet /
  * SEVER_BOND choke point) with three behavioral diffs encoded here:
  *
- *   - `persistent: false` (S104 P1 — was true) — a FINITE `lifetimeTicks` so the swarm
+ *   - ⛔ SUPERSEDED S191 (owner): `persistent: true` again, match-length — tower STOCK, the tier-3
+ *     rule (see the config below). The S104 P1 text is kept for its history:
+ *     `persistent: false` (S104 P1 — was true) — a FINITE `lifetimeTicks` so the swarm
  *     CHURNS: a chewer ages out through the SAME `!config.persistent` DESPAWNING→auto-delete
  *     FSM the Voltkin uses, freeing the spawner's per-spawner slot so its 15s cadence keeps
  *     producing (the owner's "constantly produce more every ~15s" fix). A chewer can also die
@@ -440,7 +441,7 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  *     a readable, counterable hop. `maxAccel = 200 × 0.6` (the de-hardcoded
  *     CREATURE_MAX_ACCEL scaled by hopSpeedMul).
  *
- * `lifetimeTicks` (3000 = 50s @ 60Hz) is the REAL despawn gate now (`persistent:false`):
+ * ⛔ (S104 P1, SUPERSEDED S191) `lifetimeTicks` (3000 = 50s @ 60Hz) was the REAL despawn gate (`persistent:false`):
  * the FSM auto-deletes at `despawnAtTick` and routes the last second through DESPAWNING, so
  * a timed-out chewer FADES (the renderer reserves the green-goo splat for KILLS). `attackRange`
  * is a touch shorter than Voltkin's 180 (chewers engage at melee-ish chew range, not a ranged arc).
@@ -452,15 +453,34 @@ export const VOLTKIN_CONFIG: CreatureConfig = {
  */
 export const CHEWER_CONFIG: CreatureConfig = {
   type: 'chewer',
-  // S104 P1 — FINITE lifetime (was a 1e9 sentinel + persistent:true). The chewer now ages out
-  // through the SAME replay-proven Voltkin DESPAWNING→auto-delete FSM, so the spawner's swarm
-  // CHURNS (an old chewer expires ~as the 15s cadence mints a new one) instead of hard-stopping at
-  // the per-spawner cap — the owner's "should constantly produce more every ~15s" fix. 3000t = 50s
-  // @ 60Hz, comfortably longer than seek+travel+a full 5-chew sever (5×60=300t=5s) so a chewer
-  // actually completes severs rather than timing out mid-bite. Lifetime-expiry FADES via DESPAWNING
-  // (the chewerRenderer death-watcher reserves the green-goo splat for KILLS — a non-DESPAWNING vanish).
-  lifetimeTicks: 3000, // 50 s @ 60Hz — finite so the swarm churns (steady-state ≈ 3000/SPAWN_INTERVAL_TICKS 900 ≈ 3.3/spawner)
   /*
+   * ⭐⭐ S191 (owner) — **A PENCIL CHEWER IS STOCK NOW: IT NO LONGER AGES OUT.** *"pencil chewers die
+   * before the [fight] starts … they go back to their building for the build phase. They stay there,
+   * but then when fight starts, they all died. Like why? … released in and fight during fight and then
+   * they continue being spawned just like a tier three tower or a castle."*
+   *
+   * ⛔ THE CAUSE, REPRODUCED (`s191TowerStock.test.ts`): S104 P1 gave the chewer a FINITE 3000-tick
+   * ABSOLUTE lifetime so the swarm would churn under the old per-spawner cap. Spawners are dormant
+   * outside FIGHT (S157 P0), so a chewer is born in FIGHT; `recallArmies` sends it home at the whistle;
+   * the creature fan-out is FIGHT-gated, so its FSM does not run through BUILD — and on the FIRST FIGHT
+   * tick step 1 of `applyCreatureTick` (`world.tick >= despawnAtTick`) deleted every chewer whose 50 s
+   * had run out while it sat at home. Every one born in the last 50 s of a 60 s FIGHT, i.e. all of them.
+   *
+   * ⭐ THE FIX IS THE TIER-3 / CASTLE LIFECYCLE, NOT A NEW ONE: `persistent: true` and a match-length
+   * lifetime, exactly as every tier-3 unit, every goblin and the castle's race unit. The churn's reason
+   * is gone — S157 B8b turned the chewer caps OFF (sentinels), so a pentagram never stops emitting and
+   * needs no slot freed. HELLSPAWN children are chewers and follow the same rule. ⚠ With no cap and no
+   * lifetime the horde can only grow while its pentagram stands and nobody kills it — measured and
+   * REPORTED to the owner (S191), not capped here. Lever: re-set a finite `lifetimeTicks` with
+   * `persistent: false` (and the S155 `'fight'` clock), or a real `CHEWER_MAX_PER_SPAWNER`.
+   */
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what keeps it alive (S191)
+  /*
+   * ⛔⛔ S191 — THE NOTE BELOW IS SUPERSEDED, AND ITS OWN SENTENCE IS THE OWNER'S S191 BUG REPORT: *"a
+   * chewer born in a FIGHT survives that whole fight and is swept at the start of the next one"* is
+   * exactly *"when fight starts, they all died"*. The chewer is `persistent` now, so neither clock
+   * applies; the Voltkin remains the only type on the `'fight'` clock. Kept for its history:
+   *
    * ⭐ S157 F4 — CONSIDERED AND DELIBERATELY NOT CHANGED. Recorded so the next session does not
    * re-derive it.
    *
@@ -487,7 +507,7 @@ export const CHEWER_CONFIG: CreatureConfig = {
   attackCadenceTicks: 300, // legacy span; the gnaw now runs until the connector gives way
   attackFireTick: 300, // sever on the final (5th) chew hit
   attackChargeEngageTick: 60, // first chew bite lands one CHEW_INTERVAL_TICKS in
-  persistent: false, // S104 P1 — finite lifetime (see lifetimeTicks); routes end-of-life through the Voltkin DESPAWNING FSM
+  persistent: true, // ⭐ S191 (owner) — STOCK, the tier-3 rule: it leaves the board by dying, never by age
   chewsConnectors: true, // the gnawer — durability lives on the bond now, not here
   hopSpeedMul: 0.6,
   maxAccel: 120, // 200 (CREATURE_MAX_ACCEL) × hopSpeedMul 0.6
@@ -516,7 +536,8 @@ export const CHEWER_CONFIG: CreatureConfig = {
  *
  *  - `selfExplode: true` — the discriminator the main.ts fan-out reads to dispatch
  *    DRONE_EXPLODE before the generic CREATURE_TICK (it never enters the chew/zap path).
- *  - `persistent: false` + `lifetimeTicks` = the fly-time FUSE (DRONE_LIFETIME_TICKS, 8s):
+ *  - ⛔ SUPERSEDED S191 (owner): `persistent: true`, match-length — tower STOCK (see the config). It was
+ *    `persistent: false` + `lifetimeTicks` = the fly-time FUSE (DRONE_LIFETIME_TICKS, 8s):
  *    if it never reaches an enemy it explodes harmlessly in place at fuse end.
  *  - `chewHits: 0` (not a chewer); `attackRange` = DRONE_EXPLODE_RADIUS (arrival == blast).
  *  - `hopSpeedMul` 1.2 / `maxAccel` 240 — a touch faster than a Voltkin (it's a missile).
@@ -524,7 +545,31 @@ export const CHEWER_CONFIG: CreatureConfig = {
  */
 export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
   type: 'lightningDrone',
-  lifetimeTicks: DRONE_LIFETIME_TICKS, // 8s fly-time fuse
+  /*
+   * ⭐⭐ S191 (owner) — **A DRONE IS STOCK NOW: THE 8 s FUSE IS RETIRED.** *"It does the same thing to
+   * the drones from the drone hub … I had like three drones in each tower, and then the fight started.
+   * Boom, they disappeared, and it started producing them from zero … If you have some drone stock,
+   * you should be able to use them the next fight."*
+   *
+   * ⛔ THE CAUSE, REPRODUCED (`s191TowerStock.test.ts`): the fuse (`DRONE_LIFETIME_TICKS`, 480 ABSOLUTE
+   * ticks) kept running while a recalled drone waited at home through BUILD, and `hostTick`'s Step 1.5
+   * (`world.tick >= despawnAtTick - 1`) detonated every one of them in place on the first FIGHT tick —
+   * the S170 P2b report (*"I saw him blow up in my zone when the fight started"*) has the SAME root.
+   * It also meant a hub could never HOLD stock at all: with nothing to home on, each drone fused out
+   * 8 s after its birth.
+   *
+   * ⭐ THE FIX IS THE TIER-3 RULE: `persistent: true` and a
+   * match-length lifetime — the suicide goblin's shape exactly (`selfExplode` + match-length). A drone
+   * now leaves the board only by being USED (it detonates on an enemy connector) or by being shot down,
+   * and the hub's existing ceiling (`DRONE_MAX_PER_SPAWNER` 3, `DRONE_MAX_GLOBAL` 12) bounds its stock.
+   * ⚠ MINE, and his to judge: a drone with nothing to hit no longer fizzles after 8 s; it hovers at its
+   * hub (stock) until an enemy connector exists — and ⭐ S192 (audit STOCK-2) a drone whose target is
+   * used up mid-flight flies BACK to its hub (`hostTick` drone selection), it does not hover in enemy
+   * ground. ⭐ S192 (audit STOCK-5): Step 1.5's fuse is gated `!persistent` for the drone arm, so stock
+   * never fuses out at home when the match-length deadline arrives. Levers for the fizzle (STOCK-1, the
+   * owner's): re-arm `despawnAtTick` at the bell (no new field), or let an idle drone target units.
+   */
+  lifetimeTicks: GOBLIN_LIFETIME_TICKS, // match-length; `persistent` is what keeps it alive (S191)
   spawnTicks: 30, // fast materialize (like a chewer) — it's a swarm-ish unit
   despawningTicks: 30,
   fadeTicks: 15,
@@ -532,7 +577,7 @@ export const LIGHTNING_DRONE_CONFIG: CreatureConfig = {
   attackCadenceTicks: 60, // unused (the drone explodes, it never ATTACKS) — sane placeholder
   attackFireTick: 30, // unused
   attackChargeEngageTick: 15, // unused
-  persistent: false, // lifetime-bound: lifetimeTicks is the fuse
+  persistent: true, // ⭐ S191 (owner) — STOCK, the tier-3 rule: it leaves by detonating (USED) or dying
   chewsConnectors: false, // not a chewer
   hopSpeedMul: 1.2, // a touch faster than Voltkin — a homing missile
   maxAccel: 240, // 200 (Voltkin) × 1.2
@@ -870,21 +915,30 @@ export const T3_SOULEATER_CONFIG: CreatureConfig = makeT3Config('t3Souleater', T
 /**
  * ⭐⭐ S188 (owner, nagas level 5 — APEX PREDATOR) — HIS NUMBER: *"the stats will be like three times
  * stronger than a regular piranha unit. So all the stats you take and you just triple them."*
+ *
+ * ⭐⭐ S192 (owner) — **×3 → ×6, "LIKE THE BAT SWARM".** He first said *"the Piranha, when it's upgraded
+ * … the Nagas get the Piranha upgrade, it should be stronger … I think it should be times nine"*, then,
+ * shown what ×9 does on the ladder (bite 252, ×21), CHOSE ×6 — the same multiplier as THE SWARM — from the
+ * options he was given. Still every stat from the base (R190-D). ⛔ Equal to `THE_SWARM_STAT_MUL` BY
+ * RULING, NOT BY COUPLING: each is its own literal, so a future retune of one never moves the other.
  */
-export const APEX_PREDATOR_STAT_MUL = 3;
+export const APEX_PREDATOR_STAT_MUL = 6;
 
 /**
  * ⭐ THE ELITE PIRANHA'S STAT LINE, DERIVED FROM THE PIRANHA'S — never typed out, so a retune of
  * `T3_STATS.piranha` retunes the elite with it and the two can never drift apart.
  *
- * ⛔ THE FOUR LADDER STATS ARE TRIPLED, AND ONLY THEY ARE. `speedMul` is not a stat on the ladder and
+ * ⛔ THE FOUR LADDER STATS ARE MULTIPLIED (×6 since S192; tripled S188–S191), AND ONLY THEY ARE. `speedMul` is not a stat on the ladder and
  * he said "stats"; a creature three times faster would be a second, unasked-for change. So it swims
  * at the piranha's speed.
  *
  * ⚠ REPORTED, NOT HIDDEN: on the ×5 ladder "every stat ×3" is NOT "every number ×3". The pool is
- * `hp × (5 + def)`, and the piranha has 0 DEF, so the pool is exactly ×3 (15 → 45). Damage is
- * `atk × (5 + pen)` and the PEN is tripled too, so a bite goes 12 → 48 — **×4**. That is the literal
- * reading of his words and it is shipped as such; the arithmetic is what he should see.
+ * `hp × (5 + def)`, and the piranha (3/0/2/1) has 0 DEF, so the pool is exactly ×6 (15 → 90). Damage
+ * is `atk × (5 + pen)` and the PEN is ×6 too, so a bite goes 12 → 12 × 11 = 132 — **×11**, the swarm's
+ * exact bite (at S188's ×3 it was 45 and 48, ×4). One elite bite is more than a whole 5-connector tower
+ * level (130). That is
+ * the literal reading of his words (R190-D: the bite multiple is whatever the ladder gives) and it is
+ * shipped as such; the arithmetic is what he should see.
  */
 export const T3_PIRANHA_ELITE_STATS = {
   hp: T3_STATS.piranha.hp * APEX_PREDATOR_STAT_MUL,
@@ -901,10 +955,13 @@ export const T3_PIRANHA_ELITE_CONFIG: CreatureConfig = makeT3Config('t3PiranhaEl
  * would be … whatever we did for the piranha … this has to be double that … Whatever we did for the
  * piranha, we double that."*
  *
- * ⛔ WRITTEN AS `2 × APEX_PREDATOR_STAT_MUL`, NOT AS A LITERAL 6, because that IS what he said: the
- * swarm is defined RELATIVE to the piranha's upgrade. Today that is ×6 (`theSwarm.test.ts` pins 6).
+ * ⛔⛔ S192 — **DECOUPLED: A LITERAL 6.** Until S192 this read `2 × APEX_PREDATOR_STAT_MUL`, the
+ * derivation above. The owner then retuned APEX PREDATOR (S192: ×9 proposed, ×6 chosen) while his R190-D
+ * ruling fixes the swarm at six: *"a bat 1/1/1/1 → 6/6/6/6"*. Left derived, ×6 would have made the swarm
+ * ×12. The two are now EQUAL (6 and 6) by two rulings, not by a formula; `theSwarm.test.ts` pins 6 and
+ * pins that this constant is written as a literal.
  */
-export const THE_SWARM_STAT_MUL = 2 * APEX_PREDATOR_STAT_MUL;
+export const THE_SWARM_STAT_MUL = 6;
 
 /**
  * ⭐ THE BAT SWARM'S STAT LINE, DERIVED FROM THE BAT'S — the elite piranha's shape exactly: the four
@@ -1116,7 +1173,7 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
   t3Hound: T3_HOUND_CONFIG,
   t3Scarab: T3_SCARAB_CONFIG,
   t3Piranha: T3_PIRANHA_CONFIG,
-  // ⭐ S188 APEX PREDATOR — the piranha ×3, see `T3_PIRANHA_ELITE_STATS`.
+  // ⭐ S188 APEX PREDATOR — the piranha ×APEX_PREDATOR_STAT_MUL (6 since S192), see `T3_PIRANHA_ELITE_STATS`.
   t3PiranhaElite: T3_PIRANHA_ELITE_CONFIG,
   t3Bat: T3_BAT_CONFIG,
   // ⭐ S188 THE SWARM — the bat ×6, see `T3_BAT_SWARM_STATS`.

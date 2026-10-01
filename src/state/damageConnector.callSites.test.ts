@@ -89,7 +89,10 @@ describe('S188 — the damageConnector call-site census', () => {
   const sites = collect();
 
   it('finds every production call site (and not zero — a vacuous parser would pass everything)', () => {
-    expect(sites.length).toBe(5);
+    // S191 C-5 +1: the lightning hub's ladder blast (a null site). S191 (owner) +1: the overkill
+    // CARRY in `damage.ts` (`severWithCarry`) — a null site, the lifesteal was paid on the whole hit.
+    // ⭐ S191 +1 — SCORCHED EARTH's structure arm (null).
+    expect(sites.length).toBe(8);
   });
 
   it('pins which sites name the striker and which deliberately pass null', () => {
@@ -108,11 +111,19 @@ describe('S188 — the damageConnector call-site census', () => {
     // (S188 merge of racial-c) the POWER OF RA sky strike — a player's column, not a creature's blow.
     // ⭐ S191 — each now names its SEAT for the stat board; `'seat'` heals nobody (lifesteal reads
     // `kind === 'creature'`), so these three still heal nothing, exactly as their `null` did.
-    expect(tally((s) => s.attacker === 'null')).toEqual({});
+    expect(tally((s) => s.attacker === 'null')).toEqual({
+      // ⭐ S191 C-5 — the lightning hub's self-destruct, 120 to each enemy connector in radius.
+      'src/state/potatoLifecycle.ts': 1,
+      // ⭐ S191 (owner) — the overkill carry: the SAME hit walking on to the next connector; BLOOD DEBT
+      // was already paid on all of it by the caller's own `damageConnector`, so it heals nobody again.
+      'src/state/damage.ts': 1,
+      'src/state/racial/raColumn.ts': 1, // S192 — the column moved here; the Pharaoh boss's column now cuts connectors too
+      // ⭐ S191 — SCORCHED EARTH burning a structure: burning ground heals nobody (BLOOD DEBT).
+      'src/state/racial/scorchedGround.ts': 1,
+    });
     expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/creatures/suicideBlast.ts': 1,
       'src/state/world.ts': 1,
-      'src/state/racial/powerOfRa.ts': 1,
     });
   });
 });

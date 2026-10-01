@@ -44,6 +44,8 @@ import type { Vec2 } from '../types.ts';
 // state/ stays inside the conventional render→state direction.
 import { registerResetHandler } from '../state/audioCursor.ts';
 import { DEFAULT_MUSIC_SRC } from './raceMusic.ts';
+import { computeLoopRegion, type LoopRegion } from './musicLoop.ts';
+import { SfxVoiceLedger, type SfxKind, type SfxVoiceStats } from './sfxVoices.ts';
 
 /*
  * S51 P2.a - the music is `.ogg` (Opus 64k VBR, peaks ~73 kb/s), 65% smaller than the original
@@ -136,6 +138,197 @@ let sfxGainNode: GainNode | null = null;
 let musicSource: AudioBufferSourceNode | null = null;
 /** Set once by `shutDownAudioForDeadServer`, never cleared outside the test reset. */
 let audioShutDown = false;
+
+/*
+ * ⭐ S192 T15 — EVERY LOOPING MUSIC SOURCE IS BUILT HERE, AND ONLY HERE.
+ *
+ * Owner: *"At wave eight, the music and sound stopped for a few seconds."* Every shipped track ends
+ * (or starts) in 0.7–3.7 s of dead air, and the three music paths (`playMusic`, `enterNonetRealm`,
+ * `startHelgaTheme`) each looped the WHOLE buffer, so every lap played the gap. This helper sets
+ * `loopStart` / `loopEnd` to the audible region `computeLoopRegion` derives from the decoded PCM
+ * (`musicLoop.ts` has the measured table) and starts playback AT `loopStart`, so a silent head is
+ * skipped on the first lap too. Assets untouched.
+ *
+ * ⛔ `audioLoopSites.test.ts` COUNTS the `createBufferSource()` sites in this file and the callers of
+ * this helper. A fourth music path that builds its own looping source fails that test until it is
+ * routed through here.
+ */
+const loopRegionCache = new WeakMap<object, LoopRegion | null>();
+let musicLoopsStarted = 0;
+let musicLoopsTrimmed = 0;
+let lastMusicLoopRegion: LoopRegion | null = null;
+
+function loopRegionFor(buffer: AudioBuffer): LoopRegion | null {
+  if (loopRegionCache.has(buffer)) return loopRegionCache.get(buffer) ?? null;
+  let region: LoopRegion | null = null;
+  try {
+    region = computeLoopRegion(buffer);
+  } catch {
+    region = null; // a buffer we cannot read loops whole, exactly as before S192
+  }
+  loopRegionCache.set(buffer, region);
+  return region;
+}
+
+function startMusicLoop(
+  ctx: AudioContext,
+  buffer: AudioBuffer,
+  dest: AudioNode,
+  offsetS?: number,
+): AudioBufferSourceNode {
+  const source = ctx.createBufferSource();
+  trackSourceNode(source);
+  source.buffer = buffer;
+  source.loop = true;
+  const region = loopRegionFor(buffer);
+  if (region !== null) {
+    source.loopStart = region.loopStart;
+    source.loopEnd = region.loopEnd;
+    musicLoopsTrimmed += 1;
+  }
+  lastMusicLoopRegion = region;
+  musicLoopsStarted += 1;
+  if (import.meta.env.DEV) {
+    devProbeNote(`music loop ${region === null ? 'WHOLE' : `${region.loopStart.toFixed(3)}–${region.loopEnd.toFixed(3)} s`}`);
+  }
+  source.connect(dest);
+  const start = region?.loopStart ?? 0;
+  const end = region?.loopEnd ?? (Number.isFinite(buffer.duration) ? buffer.duration : Infinity);
+  // A debug seek past the region's end would play the dead tail before wrapping — clamp it inside.
+  const offset = offsetS === undefined ? start : Math.min(Math.max(offsetS, start), Math.max(start, end - 0.001));
+  source.start(0, offset);
+  return source;
+}
+
+/*
+ * ⭐ S192 T15 (H2) — THE VOICE CAP AND THE LIVE-NODE COUNTER.
+ *
+ * `sfxVoices` is the pure ledger (see `sfxVoices.ts` for the ⚠ MINE caps). `admitVoice` is called by
+ * every SFX function BEFORE it builds a graph; a refusal skips the sound. `liveSourceNodes` counts
+ * scheduled-source nodes (oscillators + buffer sources) from `start` to `onended`, which is the
+ * research's "node counter" — readable on `inspectAudioChain()` and the `?debug=1` overlay.
+ */
+const sfxVoices = new SfxVoiceLedger();
+let liveSourceNodes = 0;
+let peakLiveSourceNodes = 0;
+
+function admitVoice(kind: SfxKind, durationS: number): boolean {
+  if (audioContext === null) return false;
+  if (!sfxVoiceCapEnabled) return true;
+  return sfxVoices.admit(kind, audioContext.currentTime, durationS);
+}
+
+/** Ledger stats with finished voices pruned at the current context time. */
+function sfxVoiceStatsNow(): SfxVoiceStats {
+  if (audioContext !== null) sfxVoices.liveAt(audioContext.currentTime);
+  return sfxVoices.stats();
+}
+
+function trackSourceNode(node: AudioScheduledSourceNode): void {
+  liveSourceNodes += 1;
+  if (liveSourceNodes > peakLiveSourceNodes) peakLiveSourceNodes = liveSourceNodes;
+  node.onended = (): void => { liveSourceNodes = Math.max(0, liveSourceNodes - 1); };
+}
+
+/** S192 T15 (H3) — AudioContext `statechange` events seen (suspend / interrupt / resume). */
+let contextStateChanges = 0;
+/** DEV-only A/B lever: `__SPARK__.audio.setVoiceCap(false)` lets every voice through, uncounted. */
+let sfxVoiceCapEnabled = true;
+
+/*
+ * ⭐ S192 T15 — THE DEV AUDIO PROBE: the owner's next "it went silent" becomes self-diagnosing.
+ *
+ * DEV BUILDS ONLY — `installDevAudioProbe` is called under `import.meta.env.DEV` in `ensureAudio`, so
+ * the production bundle never builds the analyser or the timer. Reached through
+ * `__SPARK__.audio` (`getAudioDebugApi`, wired in `main.ts`'s DEV block):
+ *
+ *   · `rmsLog()`   — every 100 ms: output level in dBFS at the master bus, the context state, and how
+ *                    far `ctx.currentTime` advanced against the wall clock (`ctxRatio` < ~0.5 while
+ *                    running = the audio thread fell behind, i.e. H2 overload). 60 s ring.
+ *   · `events()`   — timestamped context `statechange`s (H3) and music loop starts/seeks.
+ *   · `seekMusic(s)` — restart the base track at `s` seconds through the seamless-loop path, so the
+ *                    seam can be checked without playing 380 s: `seekMusic(380)` then read `rmsLog()`.
+ *   · `stress(n, kind)` — fire `n` SFX of `kind` this frame, through the real SFX functions.
+ *   · `setVoiceCap(on)` — A/B the cap by ear.
+ */
+interface RmsSample { readonly t: number; readonly db: number; readonly state: string; readonly ctxRatio: number }
+const DEV_RMS_RING = 600;
+const devRms: RmsSample[] = [];
+const devEvents: Array<{ readonly t: number; readonly what: string }> = [];
+
+function devProbeNote(what: string): void {
+  devEvents.push({ t: audioContext?.currentTime ?? -1, what });
+  if (devEvents.length > 200) devEvents.shift();
+}
+
+function installDevAudioProbe(ctx: AudioContext, master: GainNode): void {
+  if (typeof ctx.createAnalyser !== 'function' || typeof setInterval !== 'function') return;
+  try {
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    // In the chain, not a side tap: master → analyser → destination, so the analyser is always pulled.
+    master.disconnect();
+    master.connect(analyser);
+    analyser.connect(ctx.destination);
+    const frame = new Float32Array(analyser.fftSize);
+    let lastCtx = ctx.currentTime;
+    let lastWall = performance.now();
+    setInterval(() => {
+      if (audioContext !== ctx) return; // shut down / replaced
+      analyser.getFloatTimeDomainData(frame);
+      let sum = 0;
+      for (let i = 0; i < frame.length; i++) sum += frame[i]! * frame[i]!;
+      const rms = Math.sqrt(sum / frame.length);
+      const nowCtx = ctx.currentTime;
+      const nowWall = performance.now();
+      const dWall = (nowWall - lastWall) / 1000;
+      const ctxRatio = dWall > 0 ? (nowCtx - lastCtx) / dWall : 1;
+      lastCtx = nowCtx;
+      lastWall = nowWall;
+      devRms.push({ t: nowCtx, db: rms > 0 ? 20 * Math.log10(rms) : -Infinity, state: ctx.state, ctxRatio });
+      if (devRms.length > DEV_RMS_RING) devRms.shift();
+    }, 100);
+  } catch {
+    // A probe that cannot build must never take the audio bus down with it.
+  }
+}
+
+export interface AudioDebugApi {
+  rmsLog(): ReadonlyArray<RmsSample>;
+  /** Samples in the ring quieter than `belowDb` (default −50) — the dropout windows. */
+  silentWindows(belowDb?: number): ReadonlyArray<RmsSample>;
+  events(): ReadonlyArray<{ readonly t: number; readonly what: string }>;
+  seekMusic(seconds: number): boolean;
+  stress(n: number, kind?: 'clave' | 'boom' | 'charge' | 'fart'): SfxVoiceStats;
+  setVoiceCap(enabled: boolean): void;
+  inspect(): AudioChainSnapshot;
+}
+
+/** DEV seam for `__SPARK__.audio`. A function (not a const) so production tree-shakes it away. */
+export function getAudioDebugApi(): AudioDebugApi {
+  return {
+    rmsLog: () => devRms.slice(),
+    silentWindows: (belowDb = -50) => devRms.filter((s) => s.db < belowDb),
+    events: () => devEvents.slice(),
+    seekMusic: (seconds: number): boolean => {
+      if (audioContext === null || musicGainNode === null) return false;
+      const buffer = musicBuffers.get(desiredMusicUrl);
+      if (buffer === undefined) return false;
+      stopMusic();
+      musicSource = startMusicLoop(audioContext, buffer, musicGainNode, seconds);
+      devProbeNote(`seekMusic(${seconds}) ${desiredMusicUrl}`);
+      return true;
+    },
+    stress: (n, kind = 'clave') => {
+      const centre = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 };
+      const fn = kind === 'boom' ? playBoomSFX : kind === 'charge' ? playChargeSFX : kind === 'fart' ? playFartSFX : playClaveSFX;
+      for (let i = 0; i < n; i++) void fn(centre);
+      return sfxVoices.stats();
+    },
+    setVoiceCap: (enabled: boolean) => { sfxVoiceCapEnabled = enabled; },
+    inspect: () => inspectAudioChain(),
+  };
+}
 /*
  * S165 - URL-KEYED, AND HARD-CAPPED AT TWO, WHICH IS A MEMORY DECISION AND NOT A STYLE ONE.
  *
@@ -436,6 +629,17 @@ function ensureAudio(): AudioContext | null {
     sfxGainNode = audioContext.createGain();
     sfxGainNode.gain.value = sfxMuted ? 0 : clamp01(sfxVolume);
     sfxGainNode.connect(masterGain);
+
+    // S192 T15 (H3) — a suspended/interrupted context used to be invisible until the next play*
+    // call resumed it. Count every transition; the DEV probe below also timestamps them.
+    const ctxForState = audioContext;
+    if (typeof ctxForState.addEventListener === 'function') {
+      ctxForState.addEventListener('statechange', () => {
+        contextStateChanges += 1;
+        if (import.meta.env.DEV) devProbeNote(`state → ${ctxForState.state}`);
+      });
+    }
+    if (import.meta.env.DEV) installDevAudioProbe(audioContext, masterGain);
   } catch {
     audioContext = null;
     masterGain = null;
@@ -524,12 +728,7 @@ export async function playMusic(): Promise<void> {
   if (desiredMusicUrl !== url) return;
   if (musicSource !== null) return;
 
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(musicGainNode);
-  source.start();
-  musicSource = source;
+  musicSource = startMusicLoop(audioContext, buffer, musicGainNode);
 }
 
 /**
@@ -749,12 +948,7 @@ export async function enterNonetRealm(): Promise<void> {
     void playMusic();
     return;
   }
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(musicGainNode);
-  source.start();
-  nonetSource = source;
+  nonetSource = startMusicLoop(audioContext, buffer, musicGainNode);
 }
 
 /** S93 — leave the NONET realm: stop the trial theme and resume the duel track. */
@@ -822,12 +1016,7 @@ async function startHelgaTheme(): Promise<void> {
   const buffer = await getHelgaThemeBuffer();
   // disengaged, or NONET took the bus, during the async load → bail without starting
   if (!helgaThemeActive || nonetRealmActive || buffer === null || audioContext === null || musicGainNode === null) return;
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(musicGainNode);
-  source.start();
-  helgaThemeSource = source;
+  helgaThemeSource = startMusicLoop(audioContext, buffer, musicGainNode);
 }
 
 function stopHelgaTheme(resumeBase: boolean): void {
@@ -871,9 +1060,15 @@ export function updateHelgaTheme(world: HelgaThemeWorldView): void {
 const oneShotBufferCache = new Map<string, AudioBuffer>();
 const oneShotInFlight = new Map<string, Promise<AudioBuffer | null>>();
 
-export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
+/**
+ * S192 audit A1 — resolves TRUE when the sample actually started, false when it did not (no context,
+ * load failure, or the voice cap refused it). Callers that duck the music for a voice duck ONLY on true,
+ * so a refused voice no longer dips the music under nothing. `kind` picks the cap pool: the crackle has
+ * its own, and once-per-match voices pass `'latchedVoice'`, which is never refused.
+ */
+export async function playOneShot(url: string, pos?: Vec2, kind: SfxKind = 'oneShot'): Promise<boolean> {
   const ctx = ensureAudio();
-  if (ctx === null || sfxGainNode === null) return;
+  if (ctx === null || sfxGainNode === null) return false;
   await resumeIfSuspended();
   let buffer = oneShotBufferCache.get(url) ?? null;
   if (buffer === null) {
@@ -898,8 +1093,10 @@ export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
     }
     buffer = await pending;
   }
-  if (buffer === null || audioContext === null || sfxGainNode === null) return;
+  if (buffer === null || audioContext === null || sfxGainNode === null) return false;
+  if (!admitVoice(kind, buffer.duration)) return false; // S192 T15 — voice cap
   const source = audioContext.createBufferSource();
+  trackSourceNode(source);
   source.buffer = buffer;
   // S51 P2.b — optional spatial routing via PannerNode. When pos absent,
   // direct source → sfxGain (preserves byte-identical pre-S51 behavior).
@@ -911,6 +1108,7 @@ export async function playOneShot(url: string, pos?: Vec2): Promise<void> {
     source.connect(sfxGainNode);
   }
   source.start();
+  return true;
 }
 
 /**
@@ -1040,6 +1238,19 @@ export interface AudioChainSnapshot {
   /** S37 P7 — Voltkin lightning charge-up SFX diagnostic counters. */
   chargeCallsTotal: number;
   chargeCallsSynthed: number;
+  /*
+   * ⭐ S192 T15 — the three readings that make "the music and sound stopped" diagnosable from the
+   * `?debug=1` overlay: did the loop region apply (H1), how hard did SFX bursts push and how many
+   * were refused (H2), and did the context change state (H3).
+   */
+  musicLoopsStarted: number;
+  musicLoopsTrimmed: number;
+  /** The region the most recent music loop started with; null = looped the whole buffer. */
+  musicLoopRegion: LoopRegion | null;
+  sfxVoices: SfxVoiceStats;
+  liveSourceNodes: number;
+  peakLiveSourceNodes: number;
+  contextStateChanges: number;
   storageKeys: {
     masterMuted: string | null;
     musicMuted: string | null;
@@ -1084,6 +1295,13 @@ export function inspectAudioChain(): AudioChainSnapshot {
     fartCallsSynthed,
     chargeCallsTotal,
     chargeCallsSynthed,
+    musicLoopsStarted,
+    musicLoopsTrimmed,
+    musicLoopRegion: lastMusicLoopRegion,
+    sfxVoices: sfxVoiceStatsNow(),
+    liveSourceNodes,
+    peakLiveSourceNodes,
+    contextStateChanges,
     storageKeys: storage,
   };
 }
@@ -1145,6 +1363,17 @@ export function _resetAudioForTest(): void {
   helgaThemeBuffer = null;
   helgaThemeFetchPromise = null;
   lastHelgaEngagedTick = -1;
+  // S192 T15 — loop-region, voice-cap and probe state.
+  musicLoopsStarted = 0;
+  musicLoopsTrimmed = 0;
+  lastMusicLoopRegion = null;
+  sfxVoices.reset();
+  sfxVoiceCapEnabled = true;
+  liveSourceNodes = 0;
+  peakLiveSourceNodes = 0;
+  contextStateChanges = 0;
+  devRms.length = 0;
+  devEvents.length = 0;
 }
 
 async function playClaveSFX(pos?: Vec2): Promise<void> {
@@ -1174,6 +1403,7 @@ async function playClaveSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('clave', CLAVE_DURATION)) return; // S192 T15 — voice cap
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(CLAVE_GAIN, now);
@@ -1189,6 +1419,7 @@ async function playClaveSFX(pos?: Vec2): Promise<void> {
 
   for (const freq of [1200, 2400]) {
     const osc = ctx.createOscillator();
+    trackSourceNode(osc);
     osc.type = 'sine';
     osc.frequency.value = freq;
     osc.connect(gain);
@@ -1221,6 +1452,7 @@ async function playFartSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('fart', FART_DURATION)) return; // S192 T15 — voice cap
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(FART_GAIN, now);
@@ -1242,6 +1474,7 @@ async function playFartSFX(pos?: Vec2): Promise<void> {
   filter.connect(gain);
 
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'sawtooth';
   osc.frequency.setValueAtTime(600, now);
   osc.frequency.exponentialRampToValueAtTime(180, now + FART_DURATION);
@@ -1288,6 +1521,7 @@ async function playChargeSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('charge', CHARGE_DURATION)) return; // S192 T15 — voice cap
 
   // Gain envelope: 0 → peak (linear swell), hold at peak, exp decay tail.
   // linearRampToValueAtTime to the same value = "hold" segment in Web Audio.
@@ -1317,6 +1551,7 @@ async function playChargeSFX(pos?: Vec2): Promise<void> {
   // Sawtooth oscillator (electrical/buzzy harmonics suit lightning) with
   // exp pitch rise — feels like energy gathering toward the strike.
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'sawtooth';
   osc.frequency.setValueAtTime(CHARGE_FREQ_START, now);
   osc.frequency.exponentialRampToValueAtTime(CHARGE_FREQ_END, now + CHARGE_DURATION);
@@ -1346,6 +1581,7 @@ async function playBoomSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('boom', BOOM_DURATION)) return; // S192 T15 — voice cap
 
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(BOOM_GAIN, now); // punchy attack
@@ -1366,6 +1602,7 @@ async function playBoomSFX(pos?: Vec2): Promise<void> {
   filter.connect(gain);
 
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'sine';
   osc.frequency.setValueAtTime(BOOM_FREQ_START, now);
   osc.frequency.exponentialRampToValueAtTime(BOOM_FREQ_END, now + BOOM_DURATION);
@@ -1412,6 +1649,7 @@ export async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('gnaw', (GNAW_PULSES - 1) * GNAW_PULSE_GAP + GNAW_PULSE_DUR + 0.01)) return; // S192 T15 — voice cap
   const noise = getGnawNoiseBuffer(ctx);
   const panner = pos !== undefined ? createPanner(pos) : null;
   const sink: AudioNode = panner ?? sfxGainNode;
@@ -1420,6 +1658,7 @@ export async function playGnawSFX(pos?: Vec2, final = false): Promise<void> {
   for (let i = 0; i < GNAW_PULSES; i++) {
     const t = now + i * GNAW_PULSE_GAP;
     const src = ctx.createBufferSource();
+    trackSourceNode(src);
     src.buffer = noise;
     src.loop = true;
 
@@ -1467,12 +1706,14 @@ export async function playSplatSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('splat', 0.22)) return; // S192 T15 — voice cap
   const panner = pos !== undefined ? createPanner(pos) : null;
   const sink: AudioNode = panner ?? sfxGainNode;
   if (panner !== null) panner.connect(sfxGainNode);
 
   // 1) wet squish — a short noise burst swept from bright to muffled (the SPLAT).
   const nsrc = ctx.createBufferSource();
+  trackSourceNode(nsrc);
   nsrc.buffer = getGnawNoiseBuffer(ctx);
   nsrc.loop = true;
   const lp = ctx.createBiquadFilter();
@@ -1489,6 +1730,7 @@ export async function playSplatSFX(pos?: Vec2): Promise<void> {
 
   // 2) low thud — a quick sine drop for the "body" of the impact.
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'sine';
   osc.frequency.setValueAtTime(180, now);
   osc.frequency.exponentialRampToValueAtTime(48, now + 0.14);
@@ -1519,12 +1761,14 @@ export async function playZapBurstSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('zap', 0.24)) return; // S192 T15 — voice cap
   const panner = pos !== undefined ? createPanner(pos) : null;
   const sink: AudioNode = panner ?? sfxGainNode;
   if (panner !== null) panner.connect(sfxGainNode);
 
   // 1) electric crackle — white noise through a high-pass, snappy decay (the SPARK).
   const nsrc = ctx.createBufferSource();
+  trackSourceNode(nsrc);
   nsrc.buffer = getGnawNoiseBuffer(ctx);
   nsrc.loop = true;
   const hp = ctx.createBiquadFilter();
@@ -1543,6 +1787,7 @@ export async function playZapBurstSFX(pos?: Vec2): Promise<void> {
   for (let i = 0; i < 2; i++) {
     const t = now + i * 0.04;
     const osc = ctx.createOscillator();
+    trackSourceNode(osc);
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(1400 - i * 180, t);
     osc.frequency.exponentialRampToValueAtTime(140, t + 0.16);
@@ -1572,12 +1817,14 @@ export async function playLaserSFX(pos?: Vec2): Promise<void> {
 
   const ctx = audioContext;
   const now = ctx.currentTime;
+  if (!admitVoice('laser', 0.32)) return; // S192 T15 — voice cap
   const panner = pos !== undefined ? createPanner(pos) : null;
   const sink: AudioNode = panner ?? sfxGainNode;
   if (panner !== null) panner.connect(sfxGainNode);
 
   // 1) the beam "pew" — a square wave swept high→low (blaster discharge).
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'square';
   osc.frequency.setValueAtTime(880, now);
   osc.frequency.exponentialRampToValueAtTime(110, now + 0.28);
@@ -1594,6 +1841,7 @@ export async function playLaserSFX(pos?: Vec2): Promise<void> {
 
   // 2) a brief high sizzle over the front of the beam (energy crackle).
   const nsrc = ctx.createBufferSource();
+  trackSourceNode(nsrc);
   nsrc.buffer = getGnawNoiseBuffer(ctx);
   nsrc.loop = true;
   const hp = ctx.createBiquadFilter();
@@ -1615,8 +1863,7 @@ const HELGA_SLAP_URL = '/godly/helga/audio/helga-slap.ogg';
  * (master/SFX mute + volume apply); ducks the music bed ~600 ms so the cry reads over her theme.
  */
 export async function playSlapSFX(pos?: Vec2): Promise<void> {
-  await playOneShot(HELGA_SLAP_URL, pos);
-  duckMusic(600);
+  if (await playOneShot(HELGA_SLAP_URL, pos)) duckMusic(600); // S192 audit A1 — no voice, no duck
 }
 
 /**
@@ -1670,8 +1917,8 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       // only producers are `creatureAttack` (gated `creature.type === 'voltkin'`) and
       // `voltkinChain` (the Voltkin's own chain). Identity, not a catch-all.
       // S51 P2.b — positional; S51 P2.c — duck music for the ~700 ms crackle.
-      void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos);
-      duckMusic(700);
+      // S192 audit A1 — its own cap pool, and the duck only when the crackle actually plays.
+      void playOneShot(LIGHTNING_CRACKLE_URL, effect.pos, 'crackle').then((played) => { if (played) duckMusic(700); });
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'chewer') {
       // S102 #2 — a pencil chewer's FINAL bite severs the connector with a beaver GNAW
       // crunch (NOT lightning). `final` = the lower/louder crunch variant.
@@ -1741,8 +1988,11 @@ export function syncRainbowYellAudio(world: { rainbowSwitchTick?: number; tick: 
   const age = world.tick - switchTick;
   if (age < 0 || age > RAINBOW_YELL_FRESH_TICKS) return;
   lastYelledSwitchTick = switchTick;
-  void playOneShot(RAINBOW_YELL_URL);
-  duckMusic(RAINBOW_YELL_DUCK_MS); // S85 P1 — voice line must read over the bed
+  // S192 audit A1 — the latch above is already spent, so this voice must never be refused by the
+  // SFX cap ('latchedVoice' is uncapped); and the duck follows the voice, never fires without it.
+  void playOneShot(RAINBOW_YELL_URL, undefined, 'latchedVoice').then((played) => {
+    if (played) duckMusic(RAINBOW_YELL_DUCK_MS); // S85 P1 — voice line must read over the bed
+  });
 }
 
 /** Reset the drain cursor. Used by tests and on world reset (RETURN_TO_TITLE). */
@@ -1888,7 +2138,9 @@ export async function playUiClickSFX(): Promise<void> {
   const ctx = await uiAudioContext();
   if (ctx === null || sfxGainNode === null) return;
   const now = ctx.currentTime;
+  if (!admitVoice('ui', 0.08)) return; // S192 T15 — voice cap
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'triangle';
   osc.frequency.setValueAtTime(660, now);
   osc.frequency.exponentialRampToValueAtTime(1180, now + 0.05);
@@ -1911,7 +2163,9 @@ export async function playUiRefusedSFX(): Promise<void> {
   const ctx = await uiAudioContext();
   if (ctx === null || sfxGainNode === null) return;
   const now = ctx.currentTime;
+  if (!admitVoice('ui', 0.12)) return; // S192 T15 — voice cap
   const osc = ctx.createOscillator();
+  trackSourceNode(osc);
   osc.type = 'sine';
   osc.frequency.setValueAtTime(196, now);
   osc.frequency.exponentialRampToValueAtTime(120, now + 0.09);

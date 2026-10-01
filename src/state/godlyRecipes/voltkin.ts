@@ -13,73 +13,31 @@
  * place 4 squares in a row, continue with 4 triangles, win-bond fires Voltkin.
  *
  * Triggerer = player whose color dominates the chain's placerColor distribution.
- * Tie-break: first player encountered in iteration order (deterministic via Map).
+ * Tie-break: LOWEST seat id (S192 audit L1 — `voltkinTvOwner`, shared with the per-wave census).
  *
  * Side-effect: registers VOLTKIN_RECIPE in the godlyRecipes registry on module
  * import. main.ts imports this module to wire it up.
  */
 
-import { AUTO_BOND_RADIUS, SparkType } from '../../constants.ts';
+import { AUTO_BOND_RADIUS } from '../../constants.ts';
 import type { World } from '../world.ts';
-import type { Bond } from '../../physics/bonds.ts';
 import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
 import type { PrimitiveId } from '../../types.ts';
 import { registerRecipe } from './index.ts';
+import { EXPECTED_CHAIN, isIsolatedVoltkinChain, otherEndpoint, voltkinTvOwner, walkChain } from './voltkinChainWalk.ts';
 
 /**
  * S140 P1 — exported so the bank-cap tests can pin "Voltkin still requires staging" against the real
  * chain length instead of a hand-copied 8 ("pin the relationship, not the value").
  */
 export const VOLTKIN_SIZE = 8;
-const EXPECTED_CHAIN: ReadonlyArray<SparkType> = [
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Square,
-  SparkType.Triangle,
-  SparkType.Triangle,
-  SparkType.Triangle,
-  SparkType.Triangle,
-];
 
-function otherEndpoint(bond: Bond, id: PrimitiveId): PrimitiveId {
-  return bond.aId === id ? bond.bId : bond.aId;
-}
-
-/**
- * The shared DFS. Extracted in S175 P4a so `findVoltkinChain` and `findAllVoltkinChains` cannot
- * drift apart — this codebase's recurring defect is two copies of one rule, and a renderer that
- * disagreed with the matcher about what a Voltkin chain IS would draw a TV over shapes that never
- * fire, or leave a fired chain bare.
+/*
+ * ⭐ S192 T16 — `EXPECTED_CHAIN`, `otherEndpoint` and the shared DFS `walkChain` MOVED VERBATIM to the
+ * side-effect-free leaf `voltkinChainWalk.ts`, so `hostTick`'s per-wave TV census can share the one
+ * walk without importing this module (whose tail `registerRecipe` would pull the registry onto the
+ * sim hot path). Still one copy of the rule; this file and the census both call it.
  */
-function walkChain(
-  world: World,
-  currentId: PrimitiveId,
-  nextDepth: number,
-  visited: Set<PrimitiveId>,
-  path: PrimitiveId[],
-): PrimitiveId[] | null {
-  if (nextDepth === EXPECTED_CHAIN.length) return [...path];
-  const current = world.primitives.get(currentId);
-  if (current === undefined) return null;
-  const expected = EXPECTED_CHAIN[nextDepth];
-  for (const bondId of current.bonds) {
-    const bond = world.bonds.get(bondId);
-    if (bond === undefined) continue;
-    const otherId = otherEndpoint(bond, currentId);
-    if (visited.has(otherId)) continue;
-    const other = world.primitives.get(otherId);
-    if (other === undefined) continue;
-    if (other.type !== expected) continue;
-    visited.add(otherId);
-    path.push(otherId);
-    const result = walkChain(world, otherId, nextDepth + 1, visited, path);
-    if (result !== null) return result;
-    visited.delete(otherId);
-    path.pop();
-  }
-  return null;
-}
 
 /**
  * ⭐⭐ S175 P4a — EVERY standing Voltkin chain on the board, for the RENDERER.
@@ -266,108 +224,40 @@ export const voltkinPredicate: RecipePredicate = (world, bondPos) => {
   // S48 P4 (Sym G fix) — strict chain isolation enforcement.
   //
   // User-reported bug: 5 squares all bonded together as one structure +
-  // 4 triangles bonded to one of the squares → Voltkin fired. The DFS
-  // in findVoltkinChain finds a 4-Sq + 4-Tr path within that graph but
-  // doesn't verify the chain primitives are ISOLATED from off-chain
-  // primitives. The spec ("strict 4 squares followed by 4 triangles —
-  // if you accidentally connect anything else to the structure it
-  // shouldn't go off") demands that no chain primitive bond to any
-  // off-chain primitive.
+  // 4 triangles bonded to one of the squares → Voltkin fired. The spec ("strict 4 squares followed
+  // by 4 triangles — if you accidentally connect anything else to the structure it shouldn't go
+  // off") demands that no chain primitive bond to any off-chain primitive, and that the chain be a
+  // plain path (endpoint degree 1, middle degree 2).
   //
-  // Check: walk every bond on every chain prim; reject if any bond's
-  // other endpoint is not in the chain set. Also enforces linear-path
-  // geometry: each chain prim's bonds.size must equal its in-chain-
-  // expected degree (endpoint=1 for chain[0] and chain[7]; middle=2
-  // for chain[1..6]) — rejects triangulated / loop-closed chains where
-  // chain prims have extra bonds AMONG themselves.
-  const chainSet = new Set(chain);
-  for (let i = 0; i < chain.length; i++) {
-    const id = chain[i];
-    const p = world.primitives.get(id);
-    if (p === undefined) {
-      if (isVoltkinDebug()) console.log(`[voltkin] predicate: chain prim ${id} missing`);
-      return null;
-    }
-    const expectedDegree = (i === 0 || i === chain.length - 1) ? 1 : 2;
-    if (p.bonds.size !== expectedDegree) {
-      if (isVoltkinDebug()) {
-        console.log(
-          `[voltkin] predicate: chain[${i}]=${id} degree ${p.bonds.size} != expected ${expectedDegree} `
-          + `(isolation/linearity check failed)`,
-        );
-      }
-      return null;
-    }
-    // Defense-in-depth: even when degree matches, verify each bond connects
-    // to an in-chain neighbor. Guards against the bizarre case where degree
-    // happens to equal expected but bonds point to off-chain prims via
-    // some race (e.g., chain prim has 1 in-chain bond + 1 off-chain bond
-    // while another in-chain neighbor is missing a back-bond).
-    for (const bondId of p.bonds) {
-      const bond = world.bonds.get(bondId);
-      if (bond === undefined) continue;
-      const otherEnd = bond.aId === id ? bond.bId : bond.aId;
-      if (!chainSet.has(otherEnd)) {
-        if (isVoltkinDebug()) {
-          console.log(
-            `[voltkin] predicate: chain[${i}]=${id} has off-chain bond to ${otherEnd}`,
-          );
-        }
-        return null;
-      }
-    }
+  // ⭐ S192 audit M1 — the check MOVED VERBATIM to `isIsolatedVoltkinChain` (voltkinChainWalk.ts) so
+  // the per-wave TV census runs the SAME test: a TV re-summons iff it would ignite now.
+  if (!isIsolatedVoltkinChain(world, chain)) {
+    if (isVoltkinDebug()) console.log('[voltkin] predicate: isolation/linearity check failed');
+    return null;
   }
 
-  const colorCounts = new Map<number, number>();
-  const chainColors: string[] = [];
   let sumX = 0;
   let sumY = 0;
   for (const id of chain) {
     const p = world.primitives.get(id);
     if (p === undefined) continue;
-    colorCounts.set(p.placerColor, (colorCounts.get(p.placerColor) ?? 0) + 1);
-    chainColors.push(`0x${p.placerColor.toString(16).padStart(6, '0')}`);
     sumX += p.pos.x;
     sumY += p.pos.y;
   }
-  let topColor = 0;
-  let topCount = 0;
-  for (const [c, n] of colorCounts) {
-    if (n > topCount) {
-      topColor = c;
-      topCount = n;
-    }
-  }
-  // S23 P3 — fall back to ANY player (solo + 1v1 host both have triggerer
-  // available). Previous logic required strict `p.color === topColor` match
-  // which silently dropped matches when player.color and prim.placerColor
-  // diverged (e.g., color rotation, lobby color reassignment, or any other
-  // path where the player object's color mutates after placement). The chain
-  // existed in the bond graph; that's the user-visible signal. Triggerer
-  // derivation should not gate the cinematic on a fragile color invariant.
-  let triggerer = Array.from(world.players.values()).find(
-    (p) => p.color === topColor,
-  );
-  if (triggerer === undefined) {
-    // S23 P3 fallback — use the first player in the world. In solo this is
-    // unambiguously the local player. In 1v1, host-side matcher picks the
-    // first player iterated, which is deterministic per Map insertion order.
-    triggerer = Array.from(world.players.values())[0];
-  }
+  /*
+   * ⭐ S192 audit L1 — THE OWNER RULE IS `voltkinTvOwner`, shared with the per-wave census: majority
+   * colour, LOWEST seat on a tie, lowest-id player when no colour matches (the S23 P3 fallback,
+   * made total). It replaced a first-in-walk-order tie-break, which could give a 4/4 TV to the
+   * other seat from the one the census binds it to.
+   */
+  const triggererId = voltkinTvOwner(world, chain);
   if (isVoltkinDebug()) {
-    const playerLog = Array.from(world.players.values()).map(
-      (p) => `P${p.id}=0x${p.color.toString(16).padStart(6, '0')}`,
-    ).join(',');
-    console.log(
-      `[voltkin] predicate: chain=${chain.length} prims, placerColors=[${chainColors.join(',')}], `
-      + `topColor=0x${topColor.toString(16).padStart(6, '0')}, players=[${playerLog}], `
-      + `triggerer=${triggerer === undefined ? 'NULL' : `P${triggerer.id}`}`,
-    );
+    console.log(`[voltkin] predicate: chain=${chain.length} prims, triggerer=${triggererId === null ? 'NULL' : `P${triggererId}`}`);
   }
-  if (triggerer === undefined) return null;
+  if (triggererId === null) return null;
 
   return {
-    triggererPlayerId: triggerer.id,
+    triggererPlayerId: triggererId,
     targetComponentPrimitiveIds: chain,
     targetPos: { x: sumX / chain.length, y: sumY / chain.length },
   };

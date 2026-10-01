@@ -118,7 +118,11 @@ describe('S183 — the damageEntity call-site census', () => {
   it('finds every production call site and no comment quotation', () => {
     // ⚠ Both halves: a parser that matched nothing, or one that swallowed the two docblock
     // quotations in `damage.ts`, would silently pass every assertion below.
-    expect(sites.length).toBe(15); // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity)
+    // S188 +1: SCORCHED GROUND (a null site — burning ground is no entity). S191 C-5 +1: the lightning
+    // hub's ladder blast (a null site — a blast names nobody). S191/S192 +1: the Ra column's split share (null).
+    // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
+    // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
+    expect(sites.length).toBe(20);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -139,10 +143,11 @@ describe('S183 — the damageEntity call-site census', () => {
 
     expect(named.length).toBe(8);
     // ⭐ S191 — seven S183 `null`s became: 3 seats (castle gun, 2 raid arms), 3 forwarded (the radial
-    // helper), and 1 `null` left (scorched ground — `s191/owner` owns that file this session).
+    // helper). The `null`s left are master's area sweeps with no owner threaded yet (S193 merge: the hub
+    // blast, the Ra column's split share, SCORCHED EARTH's four arms).
     expect(seated.length).toBe(3);
     expect(forwarded.length).toBe(3);
-    expect(nulled.length).toBe(1);
+    expect(nulled.length).toBe(6);
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -163,7 +168,11 @@ describe('S183 — the damageEntity call-site census', () => {
     // And every path where there is genuinely nobody to turn on. Each `null` carries its reason
     // at the call site; this is the list, so a fifteenth one cannot join it unremarked.
     expect(tally((s) => s.attacker === 'null')).toEqual({
-      'src/state/racial/scorchedGround.ts': 1, // S188 — burning ground: nobody to turn on or heal
+      'src/state/potatoLifecycle.ts': 1, // S191 C-5 — the lightning hub's 120-fifth blast, a splash too
+      'src/state/racial/raColumn.ts': 1, // S191/S192 — a Ra column's split share (perk AND Pharaoh boss)
+      // S188 — burning ground: nobody to turn on or heal. ⭐ S191: the creature arm (the passive and
+      // every cast share it), a LONE shape and a landed STINK BAG; ⭐ S192: + the Helga arm.
+      'src/state/racial/scorchedGround.ts': 4,
     });
     // ⭐ S191 — a SEAT: still nobody to turn on (a keep, the untargetable avatar), but a seat to credit.
     expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
