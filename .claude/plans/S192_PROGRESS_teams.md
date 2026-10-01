@@ -1,3 +1,26 @@
+# S193 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
+
+- Merge 8e3eed69 = `git merge master` @ 71abc27. 6 source conflicts: bossSkillsPharaohRitual (master landRaColumn + new
+  REQUIRED `RaColumnSource.alliesOf`), damage.ts applyRadialDamage (both params: alsoSparePlayerId 9th, alliesOf 10th, team-aware),
+  potatoLifecycle (master ladder|raze union; alliesOf on 'raze'), powerOfRa + scorchedGround (master taken; team logic moved to
+  raColumn.ts / scorchedEarthRules.ts), untargetableCallSites.test (both regexes).
+- Ally exemption: isScorchImmune(world, owner, spared)=sameTeam · raColumnTargets team spare; Pharaoh boss own seat burns,
+  teammates spared (MINE) · planHubBlast 5 arms · popped-bag burstAlsoSpares (team) · CARRY-1 kept owner-only (MINE-classified)
+  · FOUND by the new SEATVAR census: botScorchTarget `other === seat` would scorch a teammate → sameTeam.
+- SEATVAR census (teams.sites.test.ts): 81 hits / 46 files classified + pinned; mutation-tested. teams.reachMaster.test.ts: 12
+  REACH/CONTROL tests; 6/6 hand mutations red.
+- FFA differential: golden re-recorded on 71abc27; merged tree 90/90 identical; forced-teams mutation diverges at tick 2100.
+- e2e/teams-lobby.spec.ts (3 browsers, port 33228): run 1 exit 1 (joiner 2 rack froze after a nostr SDP/TURN failure; host had
+  its claim), runs 2+3 exit 0. @quarantine-flaky.
+- Gates: typecheck 0 · vitest 0 (7292 passed / 11 skipped) · build 0, entry 1039.8 KiB vs master 1034.7 (+5.1), headroom 60.2.
+- Bump: YES 56→57 (next free) — a pre-teams peer ignores world.teams/RosterEntry.team and computes enemies differently.
+- MINE: Pharaoh column spares teammates not own seat (keep) · zombie R138 same (keep) · CARRY-1 owner-only (keep) · scorch on a
+  teammate's zone allowed (harmless).
+- Seams: applyRadialDamage arg order; RaColumnSource.alliesOf required; isScorchImmune takes world first; per-file census pins;
+  FFA golden tied to 71abc27; e2e promotion is the merge owner's call. NOT DONE: bump, e2e lane promotion.
+
+---
+
 # S192 — PROGRESS — `s192/teams`
 
 Base: master `663c4c9`. Merge owner: the main session. This branch never pushes and never touches master.
