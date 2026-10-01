@@ -1,3 +1,15 @@
+# S193 FINAL REPORT — `s192/endgame` (lands 5th)
+
+- **tip** = the commit carrying this file (child of `c20cd55c`) · **merge** `8e352fd0` (master `71abc276`; ONE conflict: `src/canon.test.ts` — kept both the §3f block and master's S191 R2-D block)
+- **gates** (exit codes in `.tmp-gates/*.exit`): typecheck **0** · vitest `--maxWorkers=3` **0** (7299 passed / 11 skipped, 472 files; the one test added after it, run alone 28/28 + typecheck 0) · build **0** — entry **1044.0 KiB**, headroom 56.0 KiB (≈ +9 KiB over master, ESTIMATED from the ~65 KiB shared headroom; master not rebuilt here) · `check:atlas` **0** (endgame-monster clean on all five checks) · `npm install` run first (exit 0).
+- **bump verdict: BUMP 56 → 57** (PROTOCOL_VERSION NOT edited): new serialized `CreatureType`s (`endgameMonster`, `megaPants`), the lock is a `dispatch` gate a stale joiner would not predict, three additive wire fields (`Creature.monsterSeat`, `monsterWaveSpawned`, `monsterFightStartTick`).
+- **merge checks**: CAST_SCORCHED_EARTH added to the lock policy as ALLOW (coverage contract caught it red); blueprint ghost refuses `LOCKED`; Alt footer toggle is UI-only; keep-out discs sit behind the lock. FEED_TOWER, FIX, scorch cast: REACH tests passing the lock.
+- **pants are every seat's enemy**: 33 owner-comparing production files enumerated + counted + verdicted in `endgameS193.test.ts`; REACH per family (scorch, Ra, hub blast, carry, castle gun, Helga).
+- **MINE**: 45-tick lane pace · hold on 27–30 while pants remain (10 s lead/tail) · mega pants at 240 s · mega HP500/DEF20/ATK60/PEN20 (pool 12 500, strike 1 500; own ladder lane, off the radar scale) · 3.5× size · replaced if felled · banner wording · countdown shrinks when a seat falls · Q9 PEN-5 flag.
+- **NOT DONE**: e2e; master bundle not rebuilt (delta estimated). Music prompt: `C:/Users/onesh/OneDrive/Desktop/SPARK_Pants_Music_Prompt.txt`.
+
+---
+
 # S192 — endgame worktree progress (`s192/endgame`)
 
 | step | status | commit |
