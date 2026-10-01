@@ -111,7 +111,7 @@ function isFeedable(world: World, boss: Creature, c: Creature, reachSq: number, 
   if ((c.ownerPlayerId === boss.ownerPlayerId) === enemy) return false;
   if (!enemy && isT9BossType(c.type)) return false; // MINE — his own units, never another boss
   // ⭐ S192 T13 — untargetable, a zero pool and a corpse-in-waiting are the shared liveness predicate,
-  // which adds only the fade (a DESPAWNING unit, ⚠ MINE) — see `isLiveCreatureTarget`.
+  // written once — see `isLiveCreatureTarget`.
   if (!isLiveCreatureTarget(world, c)) return false;
   return distSq(boss.corpseEaterAnchor as Vec2, c.pos) <= reachSq;
 }

@@ -4,7 +4,7 @@
  * > *"my spawn were attacking him, even though it was already dead"* — owner, S192
  *
  * `isLiveCreatureTarget` (`creature.ts`) is the one statement of "may this creature be selected / kept
- * as a target": a live pool, not a corpse-in-waiting, not fading out (⚠ MINE), and not untargetable.
+ * as a target": a live pool, not a corpse-in-waiting, and not untargetable.
  * The S192 enumeration found it owed at fourteen sites in nine files. Prose cannot hold an enumeration
  * (`untargetableCallSites.test.ts` learned that), so this file pins it two ways:
  *
@@ -82,13 +82,14 @@ describe('S192 T13 — the liveness predicate is consulted at every pick and hol
     expect(countsOf(/\bisUntargetable\(/g)).toEqual(want);
   });
 
-  it('the predicate is the four conditions, the gate last', () => {
+  it('the predicate is the three conditions, the gate last — and no fade clause', () => {
     const src = code(readFileSync(join(SRC, 'state/creatures/creature.ts'), 'utf8'));
     const at = src.indexOf('export function isLiveCreatureTarget(');
     const body = src.slice(at, src.indexOf('\n}', at)).replace(/\s+/g, ' ');
     expect(body).toContain('if (c.ehp <= 0) return false;');
     expect(body).toContain('if (world.pendingCreatureDeaths?.has(c.id) === true) return false;');
-    expect(body).toContain("if (c.state === 'DESPAWNING') return false;");
+    // ⛔ By ruling (*"Units are either destroyed or respawned"*) there is NO fade clause — pinned absent.
+    expect(body).not.toContain('DESPAWNING');
     expect(body).toContain('return !isUntargetable(c, world.tick);');
   });
 });

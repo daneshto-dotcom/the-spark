@@ -11,7 +11,7 @@
  *      `enemyCastleInReach` refuses to strike, and milled there forever.
  *   2. THE CORPSE-IN-WAITING — under the S155 N1 deferral a unit killed earlier in the tick stays in
  *      `world.creatures`; every pick and hold could return it. ONE predicate now:
- *      `isLiveCreatureTarget` (live pool · not pending · not DESPAWNING ⚠ MINE · targetable).
+ *      `isLiveCreatureTarget` (live pool · not pending · targetable). No fade clause, by ruling.
  *
  * ## What is pinned
  *   · the arithmetic of the predicate, each of its four conditions alone;
@@ -102,7 +102,7 @@ function killDeferred(w: World, id: CreatureId): void {
 }
 
 describe('S192 T13 — isLiveCreatureTarget, the arithmetic', () => {
-  it('each of the four conditions alone makes a creature not a target', () => {
+  it('each of the three conditions alone makes a creature not a target', () => {
     const w = board(2);
     const c = put(w, 1, { x: 900, y: 500 });
     expect(isLiveCreatureTarget(w, c), 'a healthy unit is a target').toBe(true);
@@ -114,7 +114,7 @@ describe('S192 T13 — isLiveCreatureTarget, the arithmetic', () => {
     expect(isLiveCreatureTarget(w, c), 'pending death').toBe(false);
     w.pendingCreatureDeaths = null;
     c.state = 'DESPAWNING';
-    expect(isLiveCreatureTarget(w, c), 'fading out (⚠ MINE)').toBe(false);
+    expect(isLiveCreatureTarget(w, c), 'a unit in its last second is still a target — "destroyed or respawned"').toBe(true);
     c.state = 'SEEKING';
     c.raRitualUntilTick = w.tick + 5;
     expect(isLiveCreatureTarget(w, c), 'between realities').toBe(false);
@@ -231,13 +231,13 @@ describe('S192 T13 — every pick skips a corpse-in-waiting', () => {
     expect(ids, 'anti-vacuity: the chain did hop to a live unit').toContain(liveOne.id);
   });
 
-  it('a creature fading out of old age (DESPAWNING, ⚠ MINE) is skipped by the chokepoint too', () => {
+  it('⛔ by ruling, a TTL unit in its last second (DESPAWNING) is still picked — "Units are either destroyed or respawned"', () => {
     const w = board(2);
     const me = put(w, 0, { x: 600, y: 500 });
-    const fading = put(w, 1, { x: 640, y: 500 }, 'voltkin');
-    const liveOne = put(w, 1, { x: 700, y: 500 });
-    fading.state = 'DESPAWNING';
-    expect(findNearestEnemyCreatureFrom(w, me.pos, P0, 300 * 300, me.id)).toBe(liveOne.id);
+    const ending = put(w, 1, { x: 640, y: 500 }, 'voltkin');
+    put(w, 1, { x: 700, y: 500 });
+    ending.state = 'DESPAWNING';
+    expect(findNearestEnemyCreatureFrom(w, me.pos, P0, 300 * 300, me.id)).toBe(ending.id);
   });
 
   it('a unit in ATTACKING on a victim killed this tick by someone else drops the commit (host tick)', () => {

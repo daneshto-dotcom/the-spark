@@ -159,7 +159,7 @@ export function nearestEnemyFor(
      * wave's axis, and a Pharaoh mid-ritual is not in the world to be aimed at.
      *
      * ⭐ S192 T13 — the AIM is a pick, so it takes the one liveness predicate (which subsumes the
-     * old `ehp <= 0` line): a corpse-in-waiting or a fading unit does not swing the cone either.
+     * old `ehp <= 0` line): a corpse-in-waiting does not swing the cone either.
      */
     if (!isLiveCreatureTarget(world, c)) continue;
     const dx = c.pos.x - boss.pos.x;

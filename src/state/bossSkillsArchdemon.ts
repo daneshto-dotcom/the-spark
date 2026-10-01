@@ -128,7 +128,7 @@ export function runArchdemonTeleport(world: World): void {
       if (c.ownerPlayerId === demon.ownerPlayerId) continue;
       // ⭐ S171 (owner R142/R171-A) — he cannot pick a victim he cannot target. Teleporting onto a
       // locust cloud, or onto a Pharaoh who has left the world, is an acquisition like any other.
-      // ⭐ S192 T13 — the one liveness predicate (live pool, not pending, not fading, targetable).
+      // ⭐ S192 T13 — the one liveness predicate (live pool, not pending, targetable).
       if (!isLiveCreatureTarget(world, c)) continue;
 
       let allies = 0;

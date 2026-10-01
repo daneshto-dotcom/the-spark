@@ -10,7 +10,7 @@
  *   · an exact distance tie inserted high-id-first; the range boundary exactly at the acquire radius;
  *   · an untargetable TYPE (locust cloud), and the Ra ritual stamped on a unit AFTER the index was built;
  *   · a unit killed under the deferral (still in the Map — ⭐ S192 T13: NEITHER side may return it now);
- *   · a unit fading out (`DESPAWNING`, ⚠ MINE) — skipped by both sides;
+ *   · a unit in `DESPAWNING` — still a target on both sides (no fade clause, by ruling);
  *   · a removal, a birth, and a removal + birth that leaves the Map's size unchanged;
  *   · a unit MOVED after the index was built, and one at NaN;
  *   · the epoch left open across a tick, and opened on a different world;
@@ -163,15 +163,15 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
     expect(heldCorpseKept, 'a lock on the dying unit was held').toBe(0);
   });
 
-  it('⭐ S192 T13 — a unit fading out (DESPAWNING, ⚠ MINE) is skipped by both sides, acquire and hold', () => {
+  it('⭐ S192 — a unit in DESPAWNING is still picked by both sides, acquire and hold (no fade clause, by ruling)', () => {
     bothWays(brawl, (w, check) => {
       const seat0 = [...w.creatures.values()].find((c) => c.ownerPlayerId === asPlayerId(0))!;
       const pick = referencePickNavUnit(w, seat0, null, ACQ, LEASH)!;
       expect(pick).not.toBeNull();
       w.creatures.get(pick)!.state = 'DESPAWNING';
-      check('after the nearest enemy began to fade');
-      expect(pickNavUnit(w, seat0, null, ACQ, LEASH)).not.toBe(pick);
-      expect(pickNavUnit(w, seat0, pick, ACQ, LEASH)).not.toBe(pick);
+      check('after the nearest enemy entered DESPAWNING');
+      expect(pickNavUnit(w, seat0, null, ACQ, LEASH)).toBe(pick);
+      expect(pickNavUnit(w, seat0, pick, ACQ, LEASH)).toBe(pick);
     });
   });
 
@@ -257,7 +257,7 @@ describe('S191 perf — pickNavUnit through the enemy index agrees with the verb
           else if (k < 0.6) birthCreature(w, Math.floor(rnd() * 4), c.pos.x + (rnd() - 0.5) * 60, c.pos.y + (rnd() - 0.5) * 60);
           else if (k < 0.75) { c.pos.x += (rnd() - 0.5) * 400; c.pos.y += (rnd() - 0.5) * 400; }
           else if (k < 0.85) c.raRitualUntilTick = w.tick + 1 + Math.floor(rnd() * 3);
-          else if (k < 0.9) c.state = 'DESPAWNING'; // S192 T13 — the fade, read live
+          else if (k < 0.9) c.state = 'DESPAWNING'; // S192 — state churn; no predicate reads it
           else { removeCreature(w, c.id); birthCreature(w, Math.floor(rnd() * 4), c.pos.x, c.pos.y); }
         }
       } finally { closeBondTargetEpoch(); }

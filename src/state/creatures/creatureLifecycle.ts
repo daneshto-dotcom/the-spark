@@ -921,7 +921,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       if (victim === undefined) return false;
       // ⭐ S179 — untargetable is re-checked on RETENTION, not only at acquisition. See the note at
       // `creatureAI.pickNavUnit`'s hold branch for the frozen-army symptom this ends.
-      // ⭐ S192 T13 — and not a corpse-in-waiting / fading out: never ENTER ATTACKING on a body.
+      // ⭐ S192 T13 — and not a corpse-in-waiting: never ENTER ATTACKING on a body.
       if (!isLiveCreatureTarget(world, victim)) return false;
       const reach = engageRange(config); // S154 P2 — see the note on the structure arm above
       return distSq(creature.pos, victim.pos) <= reach * reach;

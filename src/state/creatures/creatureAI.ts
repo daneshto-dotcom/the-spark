@@ -775,8 +775,8 @@ export function findNearestEnemyCreatureFrom(
      * by anything at all. `untargetableGates.test.ts` pins both halves.
      *
      * ⭐⭐ S192 T13 (owner) — and now NOT DEAD either: *"my spawn were attacking him, even though it
-     * was already dead"*. `isLiveCreatureTarget` = live pool, not a corpse-in-waiting, not fading
-     * out, AND not untargetable — so the castle guns, every defender and the Voltkin's opportunism
+     * was already dead"*. `isLiveCreatureTarget` = live pool, not a corpse-in-waiting, AND not
+     * untargetable — so the castle guns, every defender and the Voltkin's opportunism
      * stop picking bodies by the same construction that made them stop picking locust clouds.
      */
     if (!isLiveCreatureTarget(world, c)) continue;
@@ -1033,7 +1033,7 @@ function findNearestEnemyCreatureIndexed(
     if (id === excludeId) continue;
     const c = creatures[i]!;
     // The static TYPE half of untargetability, precomputed, short-circuits first; everything that can
-    // change mid-loop — the Ra ritual, a lethal deferred blow (S192 T13), the fade — is read LIVE.
+    // change mid-loop — the Ra ritual, a lethal deferred blow (S192 T13) — is read LIVE.
     if (untargetableType[i] || !isLiveCreatureTarget(world, c)) continue;
     const dSq = distSq(fromPos, c.pos); // live position, never a copy
     if (dSq > maxRangeSq) continue; // range gate

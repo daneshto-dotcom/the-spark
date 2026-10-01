@@ -28,7 +28,8 @@
  * Owner: *"my spawn were attacking him, even though it was already dead"* — he ruled that a pick
  * returning a unit killed earlier in the same tick IS a bug. The acquire scan and the hold now both
  * skip a creature that is not a live target: `ehp <= 0`, in `pendingCreatureDeaths` (the S155 N1
- * corpse-in-waiting), `DESPAWNING` (⚠ MINE — fading out of old age), or untargetable.
+ * corpse-in-waiting), or untargetable. (A `DESPAWNING` clause shipped in the first cut and was removed
+ * by ruling — *"Units are either destroyed or respawned"*.)
  *
  * ⛔ WRITTEN OUT LONGHAND (`referenceIsLiveTarget`), NOT IMPORTED. Production reads the shared
  * `isLiveCreatureTarget` from `creature.ts`; if this file imported it too, a wrong edit to that
@@ -62,12 +63,11 @@ export function referenceCannotCatch(chaser: Creature, quarry: Creature, dSq: nu
 
 /**
  * S192 T13 — the liveness rule, longhand (see the file docblock for why it is not imported):
- * a live pool, not a corpse-in-waiting, not fading out, and selectable.
+ * a live pool, not a corpse-in-waiting, and selectable.
  */
 export function referenceIsLiveTarget(world: World, c: Creature): boolean {
   if (c.ehp <= 0) return false;
   if (world.pendingCreatureDeaths !== null && world.pendingCreatureDeaths.has(c.id)) return false;
-  if (c.state === 'DESPAWNING') return false;
   if (isUntargetable(c, world.tick)) return false;
   return true;
 }
@@ -182,7 +182,7 @@ export function referencePickNavUnit(
       // untargetable, every unit already locked on him renewed that lock here, and because
       // ATTACKING returns ZERO_ACCEL they stood FROZEN for the full ritual dealing nothing —
       // his own S177 P9 complaint, *"pretending to attack and not hitting anything"*.
-      // S192 T13 — a corpse-in-waiting (or a fading unit) is not held either.
+      // S192 T13 — a corpse-in-waiting is not held either.
       referenceIsLiveTarget(world, quarry) &&
       referenceDistSq(creature.pos, quarry.pos) <= leashRadiusSq &&
       // S192 T6 — and a quarry it cannot catch is let go.

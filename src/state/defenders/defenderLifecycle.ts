@@ -161,7 +161,7 @@ function targetValid(world: World, d: Defender, config: DefenderConfig): boolean
    *
    * Dropping the target is correct; the FSM re-acquires next tick through the guarded chokepoint.
    *
-   * ⭐ S192 T13 — the same holds for a corpse-in-waiting and a creature fading out: one liveness
+   * ⭐ S192 T13 — the same holds for a corpse-in-waiting: one liveness
    * predicate (`isLiveCreatureTarget`) for every pick and every hold.
    */
   if (!isLiveCreatureTarget(world, victim)) return false;
@@ -414,7 +414,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
       const leashOk = victim !== undefined
         && victim.ownerPlayerId !== d.ownerPlayerId
         // ⭐ S192 T13 — the WALK hold had no liveness test at all (`targetValid` covers WINDUP on).
-        // She no longer walks out to a body, a fading Voltkin or a Pharaoh between realities.
+        // She no longer walks out to a body or a Pharaoh between realities.
         && isLiveCreatureTarget(world, victim)
         && distSq(victim.pos, homePos) <= config.attackRange * config.attackRange;
       if (!leashOk) {

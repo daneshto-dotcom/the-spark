@@ -184,8 +184,8 @@ function canBeRetaliatedAgainst(world: World, c: Creature, victimOwner: Creature
    * therefore defence in depth against a future caller that leaves a zero-pool creature in the
    * map, not the other half of a pair. It was previously described as "the immediate arm".
    */
-  // ⭐ S192 T13 — these two lines are now the shared liveness predicate, which adds only the fade
-  // (a DESPAWNING aggressor, ⚠ MINE) — see `isLiveCreatureTarget`.
+  // ⭐ S192 T13 — these two lines (plus the untargetable gate) are now the shared liveness predicate,
+  // `isLiveCreatureTarget` — the same rule, written once.
   return isLiveCreatureTarget(world, c);
 }
 

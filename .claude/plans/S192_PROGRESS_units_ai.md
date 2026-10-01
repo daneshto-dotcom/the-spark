@@ -92,3 +92,14 @@ Every exit code below was captured from `$?` into a file, never through a pipe.
 - Helga's IDLE acquisition NOT changed (research marked it optional; not in the brief) — owner question.
 - Gates: typecheck 0 · vitest 0 (423 files / 6763 tests passed, 7 skipped) · build 0, **975.9 KiB** (+0.7 over master 975.2).
 - Bump: **NO** — host-only targeting; static config only, no field.
+
+## REFINEMENT ROUND (owner answers, S192)
+### R1 — fading clause REMOVED (*"Units are either destroyed or respawned."*)
+- `isLiveCreatureTarget` = live pool · not pending death · targetable. The `DESPAWNING` line is gone from the predicate,
+  the perf reference longhand, and every comment; a test now pins that a DESPAWNING unit IS still a target, and the sites
+  guard pins the predicate body contains no `DESPAWNING`.
+- Which creatures can age out with a fade (TTL, `!persistent && !selfExplode` → the 60-tick DESPAWNING window,
+  `creatureLifecycle.ts:766`), read from `CREATURE_CONFIGS` on this tree: **voltkin** (1200 ticks on the 'fight' clock = 20 s
+  of FIGHT), **direwolf** (1800 = 30 s), **chewer** (3000 = 50 s — ⚠ s191/owner makes it persistent, so after that merge it
+  no longer ages out), **locustCloud** (900 = 15 s; untargetable anyway). The **lightningDrone** has a TTL too (480 = 8 s)
+  but it is a flight FUSE: it detonates, it never fades. Every goblin / race unit / t3 / boss is persistent.
