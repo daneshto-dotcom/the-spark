@@ -44,7 +44,6 @@ import {
   phaseDurationTicks,
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  T9_ZOMBIE_DEATH_BLAST_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -145,6 +144,7 @@ import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
+import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
@@ -201,7 +201,8 @@ export interface HostTickState {
    * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
-  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number }>;
+  // ⭐ S192 T2 — `owner` too: the death blast credits his seat's kills after he is gone.
+  bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number; owner: PlayerId }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
   /**
@@ -2443,10 +2444,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     if (world.gameState !== 'PLAYING') {
       previous.clear();
     } else {
-      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number }[] = [];
+      const deaths: { id: CreatureId; type: CreatureType; x: number; y: number; owner: PlayerId }[] = [];
       for (const [id, boss] of previous) {
         if (world.creatures.has(id)) continue;
-        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y });
+        deaths.push({ id, type: boss.type, x: boss.x, y: boss.y, owner: boss.owner });
       }
       /*
        * ⚠ S168 POST-AUDIT — TOTAL ORDER. The scan above is a membership test and does not care about
@@ -2470,19 +2471,20 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       previous.clear();
       for (const c of world.creatures.values()) {
         if (isT9BossType(c.type)) {
-          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y });
+          previous.set(c.id, { type: c.type, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId });
         }
       }
 
       for (const boss of deaths) {
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
-        dispatch(world, {
-          type: 'STRUCTURE_SELFDESTRUCT',
-          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
-          pos: { x: boss.x, y: boss.y },
-          radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
-          // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
-        });
+        /*
+         * ⭐⭐ S192 (owner T2 + T3) — NO LONGER A RAZE. *"a total damage pool that is split … closer to the
+         * explosion will give you more damage and further is less"* and *"every zombie that kills …
+         * through an explosion … creates a regular zombie"*. One pool (⚠ AWAITING OWNER), split by
+         * distance over everything in `T9_ZOMBIE_DEATH_BLAST_RADIUS`, owner-agnostic as R138 ruled,
+         * every kill credited to his seat — see `racial/zombieDeathBlast.ts`.
+         */
+        applyZombieDeathBlast(world, { x: boss.x, y: boss.y }, boss.owner);
       }
     }
   }

@@ -2809,6 +2809,12 @@ export const STRUCTURE_SELFDESTRUCT_RADIUS = 240; // px — the lightning hub's 
  * `BOMB_EXPLODE`), and `STRUCTURE_SELFDESTRUCT` is HOST-INTERNAL (`protocol.ts` records it as never
  * a client intent), so **no PROTOCOL_VERSION bump either**.
  *
+ * ⛔⛔ SUPERSEDED (the mechanic, not this radius): S192 T3 made it a split ladder pool
+ * (`racial/zombieDeathBlast.ts`, no longer this action), and the owner ruled S193 (R193-B1..B3):
+ * *"312 blast pool, but split over … everyone who's around"*, creatures take twice a tower, and
+ * *"It does not hit his own side"* — which replaces R138's "hurting everything" for this blast. Only
+ * the RADIUS below survives from S168, and it is still MINE.
+ *
  * ⚠ THE NUMBER IS MINE, NOT HIS. He said "huge" and did not give a figure. 380 px is set against
  * the only comparable already on the board — the lightning hub's 240 px "lightning storm" — because
  * a tier-9 boss detonating must read as decisively bigger than a tier-6 structure doing it. It is

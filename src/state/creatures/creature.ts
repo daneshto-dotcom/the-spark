@@ -948,6 +948,19 @@ export interface Creature {
    */
   corpseEaterAnchor?: Vec2;
   /*
+   * ⭐⭐ S192 (owner T12, CORPSE EATER) — **THE FEED HEAL STILL OWED, AND WHEN ITS LAST PULSE LANDS.**
+   * *"It should show that he's healing over time … every tick of healing should show above him."*
+   * Each landed feed bite banks its heal here (`bankCorpseEaterHeal`), and `payCorpseEaterHealPulse`
+   * pays it in six pulses ten ticks apart ending at `untilTick`, each through `noteCreatureHeal`.
+   *
+   * ⚠ SIM STATE, NOT PRESENTATION: it decides his pool for the next 60 ticks, so a save, a snapshot,
+   * a host-migration successor and the `?worker=1` mirror must all carry it — FOUR SITES: defaults
+   * undefined (no factory change), serialized (`save.ts`, both directions, only while set), HASHED in
+   * the wide oracle (`:cb`), and the worker rebuilds from that same serializer. Emitted only while
+   * set, so a board with no feeding boss is byte-identical. Read only through `corpseEater.ts`.
+   */
+  corpseEaterHealBank?: { fifths: number; untilTick: number };
+  /*
    * ⭐⭐ S189 (owner R190-I) — **EVERY HEAL THIS CREATURE HAS EVER RECEIVED, SUMMED. A MONOTONIC
    * COUNTER, NEVER RESET.**
    *

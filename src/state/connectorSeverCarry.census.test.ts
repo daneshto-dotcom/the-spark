@@ -75,7 +75,7 @@ function collect(): Site[] {
 describe('⛔ S192 CARRY-2 — every damageConnector site severs through severWithCarry, or is a named exemption', () => {
   const sites = collect();
 
-  it('the census sees every site (anti-vacuity: 8 production sites today)', () => {
+  it('the census sees every site (anti-vacuity: 9 production sites today)', () => {
     expect(sites.map((s) => s.key)).toEqual([
       'src/state/creatures/creatureAttack.ts#0',
       'src/state/creatures/suicideBlast.ts#0',
@@ -84,6 +84,7 @@ describe('⛔ S192 CARRY-2 — every damageConnector site severs through severWi
       'src/state/potatoLifecycle.ts#0',
       'src/state/racial/raColumn.ts#0',
       'src/state/racial/scorchedGround.ts#0', // ⭐ S192 OWN-1 — the SCORCHED EARTH structure burn
+      'src/state/racial/zombieDeathBlast.ts#0', // ⭐ S192 T3 — the zombie boss's death blast
       'src/state/world.ts#0',
     ]);
   });

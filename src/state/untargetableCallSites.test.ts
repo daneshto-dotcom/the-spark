@@ -84,6 +84,10 @@ const rel = (p: string): string => p.slice(SRC.length + 1).split('\\').join('/')
  * A.0 sweep — this list is a set of VERDICTS, not a set of exemptions.
  */
 const NOT_ACQUISITION: Readonly<Record<string, string>> = {
+  'state/racial/zombieDeathBlast.ts':
+    'S192 T3 — AREA. The zombie boss death blast splits one pool over EVERYTHING in its radius (the ' +
+    'ownership filter is the optional `spare` seat, off by default — R138 *"hurting everything"*). It ' +
+    'picks no victim; an area effect must still reach untargetable units, the standing ruling.',
   'render/damageNumbers.ts':
     'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
     'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
