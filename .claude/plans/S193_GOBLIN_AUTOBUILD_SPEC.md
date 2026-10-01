@@ -62,10 +62,8 @@ in §2 marked MINE.
   Factory (`makeSpawner` → 0) · serialize (disk + worker INIT + **the wire**, emitted only when ≠ 0 —
   the client needs it to draw the lit cue) · wide hash `:af` + the `SpawnerHashed` union + per-field
   contribution test · worker (rides `serializeSpawner`, which the worker INIT already uses).
-- `autoFeedCursor?: number` — the round-robin cursor (§2.3). Disk + worker INIT, **trimmed off the
-  wire** like the cadence fields (host-local; a client never simulates it). Wide-hashed `:ac`.
-  ⚠ On a host migration the promoted client re-seeds it to 0 — at worst the next auto-built goblin is
-  a different one of the toggled kinds. Never a wrong count, never a free goblin.
+- `autoFeedCursor?: number` — the round-robin cursor (§2.3). Disk + worker INIT + **the wire** (Council
+  G1: emitted only when ≠ 0, so a promoted host keeps the round-robin). Wide-hashed `:ac`.
 - **Per tower, not per seat** (his "in the goblin tower"). A tower that dies takes its toggles with
   it; a rebuilt tower starts with every toggle OFF (⚠ MINE, Q4).
 
@@ -141,4 +139,20 @@ change, and the `s193/bots` branch is open in parallel with its own file set.
 
 ## 4 · Council ledger
 
-(filled in below after the Grok + Gemini round)
+One round, 2026-10-01. GROK-ANALYST `grok-4.20-0309-reasoning` (3 challenges, ADOPT-WITH-CHANGES) ·
+GEMINI-AUDITOR `gemini-3.1-pro-preview` (4 challenges, ADOPT-WITH-CHANGES). 7 challenges, triaged:
+
+| # | from | challenge | verdict | what changed |
+|---|---|---|---|---|
+| G1 | Grok | the cursor trimmed off the wire re-seeds to 0 on migration / changes composition | **ADOPT** | the cursor RIDES THE WIRE (emitted only when ≠ 0). One small integer; a promoted host keeps the round-robin exactly. §2.2 amended. |
+| M1 | Gemini | same, framed as a hash desync | **ADOPT (the fix), REJECT (the diagnosis)** | the wide hash compares SIM vs SIM (host vs worker, replay vs replay) — never host vs client — and the client never simulates spawners, so no desync existed. The fix is adopted anyway for G1's reason. |
+| G2 | Grok | HAND put-back winning over the toggle is a silent failure | **REJECT, with a test** | R190-G (S191, his): the put-backs work over EVERY opaque surface. RMB with something in hand means "put it back" everywhere in the game; a toggle is the next right-click. Making one card control the only place a held tower cannot be put back would be the inconsistency. A test pins both halves (in hand → put back, no toggle; empty hand → toggle). |
+| G3 / M2 | both | a manual FEED and an auto-feed in the same tick can both pass the cap → 11/10 | **REJECT the race, ADOPT the test** | every `FEED_TOWER` re-evaluates every gate synchronously inside `dispatch` and mutates before returning (JS is single-threaded; `applyFeedTower` is atomic) — two feeds cannot both see 9/10. Pinned by a contention test anyway: two towers of one seat, one Square banked, same poll tick → exactly ONE goblin, from the lower spawner id. |
+| M2b | Gemini | the sim must not dispatch a client intent; refactor into `executeTowerFeed` | **REJECT** | here `dispatch` is the reducer, not an input log: `hostTick` already dispatches `SPAWN_CREATURE`, `REMOVE_SPAWNER`, `STRUCTURE_SELFDESTRUCT`; replays re-run `runHostTick`, so an auto-feed re-derives rather than being replayed twice. Dispatching is what buys the bench / elimination / endgame-lock gates for free — a private executor would have to re-implement three policy tables, the S158 "four copies of one rule" defect. |
+| M3 | Gemini | a fast double right-click under lag reads the same stale lit state twice → stuck ON | **ADOPT** | `Controls` keeps a short-lived local PENDING overlay per (tower, shape): the second click inverts the pending value, not the stale snapshot. Expires after `AUTO_FEED_PENDING_TICKS` = 60 (1 s) or as soon as the synced bit agrees. Render-side only; nothing reaches the sim but the SET. |
+| M4 | Gemini | test simultaneous auto-feeds sharing one phase | **ADOPT** | folded into G3's contention test (same phase by construction, ids chosen so `(tick + id) % 6` coincide). |
+
+PRIME-AUDIT (self): what could still be rubber-stamped — (a) the 6-tick poll is MINE and could read
+as "lag" to him; one constant to change. (b) "race towers not toggleable" is MINE; the reducer gate
+is one line. (c) the R190-G count test moves 6 → 7 with a NEW tag class `CONTROL`; the BOARD-gate
+assertion is untouched, and a new assertion requires the CONTROL site to pick nothing on the board.
