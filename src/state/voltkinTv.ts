@@ -100,10 +100,9 @@ export function standingVoltkinTvs(world: World): StandingVoltkinTv[] {
 }
 
 /**
- * Mint one Voltkin for `owner` at `pos` — the exact action `hostTick`'s `pendingCreatureSpawn` poll
- * dispatches (`hostTick.ts`, "S28 P0 — Step 0"), kept field-for-field identical and pinned so by
- * `voltkinResummon.test.ts`. ⚠ The poll keeps its own inline copy because the S192 brief limits this
- * branch to ONE hostTick hunk; folding it onto this helper is a safe follow-up for the merge owner.
+ * Mint one Voltkin for `owner` at `pos`. ⭐ S192 audit L4 — THE ONE MINT PATH: `hostTick`'s
+ * `pendingCreatureSpawn` poll ("S28 P0 — Step 0"), the per-wave re-summon and the early mint in
+ * `startCinematicIfNeeded` all call this, so a Voltkin cannot be born two different ways.
  */
 export function dispatchVoltkinSpawn(
   world: World,

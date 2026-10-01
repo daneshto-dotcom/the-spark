@@ -473,32 +473,6 @@ describe('S192 T16 — determinism of the TV census', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('S192 T16 — the one mint action', () => {
-  it('dispatchVoltkinSpawn mints exactly what the hostTick pendingCreatureSpawn poll mints', () => {
-    const a = twoSeat();
-    const pos = { x: 333, y: 444 };
-    a.pendingCreatureSpawn = {
-      fireAtTick: a.tick + 1,
-      event: { godlyId: 'voltkin', triggererPlayerId: P0, targetComponentPrimitiveIds: [], targetPos: pos, triggeredAtTick: a.tick } as never,
-    };
-    const d = deps();
-    const s = makeHostTickState(a);
-    while (a.pendingCreatureSpawn !== null) runHostTick(a, d, s);
-    const fromPoll = [...a.creatures.values()].find((c) => c.type === 'voltkin')!;
-    expect(fromPoll).toBeDefined();
-
-    const b = twoSeat();
-    b.tick = fromPoll.spawnedAtTick;
-    dispatchVoltkinSpawn(b, P0, pos);
-    const fromHelper = [...b.creatures.values()].find((c) => c.type === 'voltkin')!;
-    const pick = (c: typeof fromPoll) => ({
-      type: c.type, owner: c.ownerPlayerId, spawnedAtTick: c.spawnedAtTick, targetPos: c.targetPos,
-    });
-    expect(pick(fromHelper)).toEqual(pick(fromPoll));
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
 /*
  * ⭐ S192 audit M1 / L1 (merge-owner decision): A TV RE-SUMMONS IFF IT WOULD IGNITE NOW, AND FOR THE
  * SAME SEAT. Owner, S48: *"if you accidentally connect anything else to the structure it shouldn't go
