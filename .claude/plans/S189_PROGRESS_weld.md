@@ -387,6 +387,27 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
   VT_EXIT=0 — 6723 passed + 7 skipped / 414 files + 2 skipped · build BUILD_EXIT=0 — **982.3 KiB** (master
   972.7 → round 5 = **+9.6 KiB** on the merged base).
 
+### STEP 2 — the round-5 audit rows, reproduce-first (each test RED on the round-5 code, then GREEN)
+- **IDENTITY-1 — FIXED ccfa159.** `fallenTowerRegistrationRefused` (per collection, as the register
+  reducers de-dup; same-recipe dup among own; race R137; defender BUILD) is the ONE gate for
+  `settleTowerIdentity` AND `planStructureRepair` (via `fallenTowerFixCanRegister`) — a FIX that could
+  not re-register is never offered, so the reducer never consumes for it. Tests: real-drop W2-4 board
+  (FIX → registered → stands, ring untouched); cannot-half-spend contract. Mutants: any-collection gate
+  → RED; plan prediction off → RED.
+- **IDENTITY-5 — FIXED 6af3832.** `weldedAt` = membership; the card calls `weldedAt` (no second copy).
+  Test: pentagram + one real-drop weld on its anchor, both anchor neighbours razed, no tick. Mutants:
+  size compare → RED; card inline copy → RED.
+- **SHEETS-2 — FIXED 86be927.** `weldHits = []` in `reset()`. Tests: select(null)+sync, SCRAP+sync,
+  clear(), REACH through the real Controls (a goblin on the stale row opens the goblin).
+- **IDENTITY-4 — FIXED 2fc8005.** `sameUnit` = record identity (live) / equal member arrays (stamps).
+  Test: chained goblin towers sharing their lowest shape — each card lists the other.
+- **IDENTITY-2 + SHEETS-4 — FIXED 2b6771c.** `towerHitAtPoint` / `rampHitAtPoint` carry the art's
+  recipe; `towerClickShapeAt` / `unitClickShape` select the tower's lowest UNSHARED own shape (art arm
+  and `weldedRowFor`). Only a shape in the hit tower's component that is not a live tower's own beats
+  the art box. Tests: W2-4 rows (state), REACH turret art → LASER TURRET + scoped SCRAP, loose rubble on
+  an un-welded art → the tower, weld on the art → structure. Mutants ×3 → RED.
+  `characterSheet.wired.test.ts` source tripwire re-pinned (`towerHit` → `named`).
+
 ## IN-FLIGHT (superseded — see the S191 section's own IN-FLIGHT at the end)
 - none — round-4 report delivered.
 
