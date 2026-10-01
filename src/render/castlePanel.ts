@@ -639,10 +639,12 @@ export interface PanelControl {
  * and reported by the same `getUiPoints`, which is what the S165 note above says a new row costs.
  */
 export const CASTLE_ROW_KEYS = [
+  // ⭐ S193 R192-W1 — *"a button on your castle saying fix all"*, FIRST (the panel's top row). Drawn and
+  // hit-tested by the row loop like every other row. ⚠ MINE: its position (above BUY GATHERER) —
+  // canon §3d pins the four stat rows directly under REGEN, so it cannot go at the bottom.
+  'fixAll',
   'buyGatherer', 'upgradeSpeed', 'castleRegen',
   'castleHp', 'castleAtk', 'castleDef', 'castlePen',
-  // ⭐ S193 R192-W1 — *"a button on your castle saying fix all"*. Drawn and hit-tested by the row loop.
-  'fixAll',
 ] as const;
 
 /** One control row's key. The union `activate` switches over exhaustively. */
@@ -810,6 +812,7 @@ export function castleControlsModel(
   };
 
   return [
+    fixAllRow,
     {
       key: 'buyGatherer',
       label: buyReason === '' ? `BUY GATHERER  ${GATHERER_PRICE}` : `BUY GATHERER  ${buyReason}`,
@@ -837,7 +840,6 @@ export function castleControlsModel(
       reason: regenReason,
     },
     ...statRows,
-    fixAllRow,
   ];
 }
 
