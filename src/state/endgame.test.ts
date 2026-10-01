@@ -140,6 +140,8 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
       for (let t = 0; t < runFor; t++) {
         runHostTick(world, d, st);
         for (const c of monsters(world)) seen.set(c.id as unknown as number, c.monsterSeat);
+        // the defence kills each one as it is counted, so the S193 live cap (30 a seat) never binds here
+        for (const c of monsters(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: c.id });
       }
       expect(world.matchPhase).toBe('FIGHT');
       const per = monstersPerSeatForWave(wave);

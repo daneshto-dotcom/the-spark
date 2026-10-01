@@ -206,6 +206,8 @@ describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a c
     let endedAt = -1;
     for (let t = 0; t < lastDue + MONSTER_HOLD_LEAD_TICKS + 30 && endedAt < 0; t++) {
       runHostTick(world, d, st);
+      // a defence that keeps up: the live cap never binds, so the pace alone sets the hold
+      for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
       if (world.matchPhase === 'BUILD') endedAt = world.tick;
     }
     expect(world.waveNumber).toBe(31);
