@@ -136,9 +136,11 @@ describe('S192 — the attack-class census of every production damage call', () 
   // ⭐ S193 (merge of master) — 29 → 35: the shared Ra column (`raColumn.ts`, perk AND Pharaoh boss) replaced
   // `powerOfRa.ts`'s and the ritual's own calls; SCORCHED EARTH's five arms; the hub ladder blast; the
   // connector overkill carry (`severWithCarry`).
-  it('finds all 35 sites (20 + 8 + 7) and every one names a class this file recognises', () => {
-    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(20);
-    expect(sites.filter((s) => s.funnel === 'damageConnector').length).toBe(8);
+  // ⭐ S193 (zombies merge) — 35 → 37: the zombie boss DEATH BLAST (`racial/zombieDeathBlast.ts`, a split pool,
+  // physical — R192-M3 "blows up"). `falloff` (R193-B4) rides AFTER `cls` on the radial funnel, so slot 8 is still the class.
+  it('finds all 37 sites (21 + 9 + 7) and every one names a class this file recognises', () => {
+    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(21);
+    expect(sites.filter((s) => s.funnel === 'damageConnector').length).toBe(9);
     expect(sites.filter((s) => s.funnel === 'radial').length).toBe(7);
     expect(sites.filter((s) => s.cls === 'OTHER'), 'an unrecognised class argument — decide and pin it').toEqual([]);
   });
@@ -149,7 +151,7 @@ describe('S192 — the attack-class census of every production damage call', () 
     expect(count('magicDot')).toBe(6);
     expect(count('strikeClassFor')).toBe(6);
     expect(count('forwarded')).toBe(3);
-    expect(count('physical')).toBe(14);
+    expect(count('physical')).toBe(16);
   });
 
   it('pins WHICH site answers WHAT — his list, file by file', () => {
@@ -189,6 +191,8 @@ describe('S192 — the attack-class census of every production damage call', () 
       'src/state/potatoLifecycle.ts damageConnector physical': 1, // the hub self-destruct LADDER blast (S191 C-5)
       'src/state/potatoLifecycle.ts damageEntity physical': 1, // ditto, its unit / shape shares
       'src/state/defenders/stinkTower.ts radial physical': 2, // death blast · bag splash
+      'src/state/racial/zombieDeathBlast.ts damageConnector physical': 1, // ⭐ S193 — the zombie boss death blast
+      'src/state/racial/zombieDeathBlast.ts damageEntity physical': 1, // ditto, unit / shape shares
     });
   });
 
@@ -204,6 +208,8 @@ describe('S192 — the attack-class census of every production damage call', () 
       'src/state/creatures/creatureLifecycle.ts ehp-=': 1, // `damageCreature` itself
       // the hub ladder blast's bag share: physical (R192-M3), and a bag has MRES = DEF = 0 anyway
       'src/state/potatoLifecycle.ts damageStinkCloud(': 1,
+      // the zombie death blast's bag share: physical, and a bag has MRES = DEF = 0 anyway
+      'src/state/racial/zombieDeathBlast.ts damageStinkCloud(': 1,
     });
   });
 });
