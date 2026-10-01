@@ -161,6 +161,15 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
  * file's count is PINNED; every pinned hit below was READ and classified MINE (your gatherer, your seat,
  * the local viewer, a seat-table lookup, a creature-id false positive) — none asks "is this an ENEMY?".
  * A new one turns this red until somebody routes it through `sameTeam` or pins it with the reason.
+ *
+ * ⚠ S193 (audit F3) — **THE HOLE THIS STILL HAS: AN ALIASED OPERAND.** Both regexes read NAMES. A seat
+ * copied into a local whose name is on neither list — `const a = c.ownerPlayerId; const b = me; if (a === b)`
+ * — is a seat comparison neither census can see (the auditor's mutation M4 stayed green). Widening the name
+ * list until it catches `a`/`b` would pin every loop index in the tree and bury the real sites. So the
+ * census is the FIRST net, not the only one: the REACH tests (`teams.reach.test.ts`,
+ * `teams.reachMaster.test.ts`, `teams.reachSites.test.ts`) drive each enemy decision through the real host
+ * tick with a TEAMMATE and an ENEMY side by side, and they go red on a friendly-fire bug however its
+ * comparison is spelled. A new damage/target site owes its REACH pair, census or no census.
  */
 const SEATNAME = String.raw`(?:[\w.?]*\b(?:seat|other|owner|caster|spare\w*|alsoSpare\w*|alliesOf|allies|victim\w*|attackerSeat|ownerSeat|zoneSeat|hoverSeat|mySeat|selfSeat|playerId|localPlayerId|\w+Seat|\w+Owner))`;
 const OPERAND = String.raw`[\w.?()]+`;
