@@ -231,3 +231,106 @@ describe('⭐⭐ S191 R191-A — the TOWER card and the STRUCTURE card of a weld
     expect(characterSheetModel(w, P0, onArt)!.welded?.role).toBe('tower');
   });
 });
+
+/** The real-click harness: a recording sheet stub + a Controls over `w`. Returns `click(x, y)` → the selection. */
+function clicker(w: World): (x: number, y: number) => SheetTarget | null {
+  let sel: SheetSelectable | null = null;
+  const sheet: CharacterSheetLike = {
+    select(t) { sel = t; },
+    selection: () => sel,
+    ownedRowAt: () => null,
+    isOver: () => false,
+    actionAt: () => null,
+    isOverAnyAction: () => false,
+    actionPrimitiveId: () => null,
+    actionFeedSpawnerId: () => null,
+    setHover() {},
+  };
+  const canvas = {
+    addEventListener() {}, setPointerCapture() {}, releasePointerCapture() {}, style: { cursor: '' },
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 1920, height: 1080, right: 1920, bottom: 1080, x: 0, y: 0 }),
+  };
+  const c = new Controls({ canvas } as never, w, P0, (a) => dispatch(w, a));
+  c.setCastlePanel({
+    isOpen: () => false, toggle() {}, close() {}, isOverPanel: () => false, armedBlueprint: () => null,
+    disarm() {}, armExternal() {}, requestShapesFor() {},
+  } as unknown as CastlePanelLike);
+  c.setCharacterSheet(sheet);
+  type Ptr = { button: number; clientX: number; clientY: number; pointerId: number };
+  return (x, y) => {
+    (c as unknown as { onDown(e: Ptr): void }).onDown({ button: 0, clientX: x, clientY: y, pointerId: 1 });
+    (c as unknown as { onUp(e: Ptr): void }).onUp({ button: 0, clientX: x, clientY: y, pointerId: 1 });
+    return sel as SheetTarget | null;
+  };
+}
+
+function inBuild(seed: number): { w: World; st: HostTickState } {
+  const w = makeWorld(seed);
+  dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+  w.gameState = 'PLAYING';
+  w.matchPhase = 'BUILD';
+  w.creatures.clear();
+  return { w, st: makeHostTickState(w) };
+}
+
+/** True when no shape lies within its pick radius of (x, y) — the click lands on the art, not a shape. */
+function onNoShape(w: World, x: number, y: number): boolean {
+  for (const p of w.primitives.values()) if ((p.pos.x - x) ** 2 + (p.pos.y - y) ** 2 <= (p.radius + 6) ** 2) return false;
+  return true;
+}
+
+describe('⭐ S192 IDENTITY-2 — REACH: the turret\'s ART opens the turret, though a Scarab ring shares its hub', () => {
+  it('a click on the laser turret\'s art (no shape under it) opens LASER TURRET; SCRAP from it takes its six Spirals', () => {
+    const { w, st } = inBuild(0x5192a);
+    const p = w.players.get(P0)!;
+    w.players.set(P0, { ...p, raceId: 'mummies' } as typeof p);
+    stamp(w, 'laserTurret', { x: 500, y: 300 });
+    tick(w, st, 3);
+    const turret = [...w.defenders.values()][0]!;
+    const hub = w.primitives.get(turret.anchorPrimitiveId)!;
+    // The audit W2-4 topology: two Lines on the hub and on each other — an exact Line 3-ring through it.
+    const la = mk(w, SparkType.Line, hub.pos.x + 10, hub.pos.y - 17);
+    const lb = mk(w, SparkType.Line, hub.pos.x - 10, hub.pos.y - 17);
+    bond(w, la, hub); bond(w, lb, hub); bond(w, la, lb);
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { ...hub.pos }, bondCount: 3 });
+    tick(w, st, 62);
+    expect([...w.creatureSpawners.values()].map((s) => [s.recipeId, s.anchorPrimitiveId])).toEqual([['t3TowerMummies', hub.id]]);
+    expect(w.defenders.size).toBe(1);
+    const click = clicker(w);
+    // BELOW the hub: inside the turret's art box, away from the ring (which sits above the hub), on no shape.
+    const at = [20, 26, 32, 38].flatMap((dy) => [-12, -6, 0, 6, 12].map((dx) => ({ x: hub.pos.x + dx, y: hub.pos.y + dy })))
+      .find((q) => onNoShape(w, q.x, q.y))!;
+    expect(at, 'fixture: a point on the art, not on a shape').toBeDefined();
+    const sel = click(at.x, at.y)!;
+    expect(sel, 'the art box answered').not.toBeNull();
+    expect(characterSheetModel(w, P0, sel)!.title).toBe(codexCopyFor('laserTurret').name);
+    const scrapPlan = (sel as { primitiveId: PrimitiveId }).primitiveId;
+    const own = [...turret.ownPrimitiveIds!].filter((id) => id !== hub.id).sort((a, b) => a - b);
+    // The intent the card's SCRAP sends is the card's own primitiveId: it must name THIS tower.
+    dispatch(w, { type: 'SCRAP_STRUCTURE', playerId: P0, primitiveId: scrapPlan });
+    for (const id of own) expect(w.primitives.has(id), 'the turret\'s Spirals are scrapped').toBe(false);
+    expect(w.primitives.has(hub.id), 'the hub the ring shares stays').toBe(true);
+    expect(w.creatureSpawners.size, 'the Scarab ring is untouched').toBe(1);
+  });
+});
+
+describe('⛔ S192 SHEETS-4 — loose rubble on an UN-welded tower\'s art does not steal the art\'s click', () => {
+  it('a lone free-form shape inside the turret\'s art box: clicking it opens the TURRET (canon §7b "ANYWHERE on the tower")', () => {
+    const { w, st } = inBuild(0x5192b);
+    const loose = mk(w, SparkType.Square, 454, 254); // put down first, unbonded
+    stamp(w, 'laserTurret', { x: 500, y: 300 });
+    tick(w, st, 3);
+    expect(w.defenders.size).toBe(1);
+    const hub = w.primitives.get([...w.defenders.values()][0]!.anchorPrimitiveId)!;
+    expect(componentOf(hub, w.primitives, w.bonds).primitiveIds.has(loose.id), 'fixture: not welded').toBe(false);
+    const sel = clicker(w)(loose.pos.x, loose.pos.y)!;
+    expect(characterSheetModel(w, P0, sel)!.title, 'the tower opens from anywhere on its art').toBe(codexCopyFor('laserTurret').name);
+  });
+
+  it('…while a shape WELDED onto that art still opens the structure (R191-A, unchanged)', () => {
+    const { w, tri } = welded();
+    const sel = clicker(w)(tri.pos.x, tri.pos.y)!;
+    expect(sel).toEqual({ kind: 'structure', primitiveId: tri.id });
+    expect(characterSheetModel(w, P0, sel)!.title).toBe('WELDED STRUCTURE');
+  });
+});

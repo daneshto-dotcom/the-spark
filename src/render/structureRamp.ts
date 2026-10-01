@@ -576,7 +576,12 @@ export function rampMembersAt(world: World, anchorId: PrimitiveId, spec: RampSpe
  * same way on every machine, and `Map` iteration order is not that.
  */
 export function rampAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {
-  let bestAnchor: PrimitiveId | null = null;
+  return rampHitAtPoint(world, x, y)?.anchorId ?? null;
+}
+
+/** ⭐ S192 (audit IDENTITY-2) — `rampAnchorAtPoint` WITH the recipe of the art that was hit (see `towerHitAtPoint`). */
+export function rampHitAtPoint(world: World, x: number, y: number): { anchorId: PrimitiveId; recipeId: GodlyId } | null {
+  let best: { anchorId: PrimitiveId; recipeId: GodlyId } | null = null;
   let bestSize = Infinity;
   let bestId = Infinity;
   const consider = (anchorId: PrimitiveId, recipeId: GodlyId): void => {
@@ -615,11 +620,11 @@ export function rampAnchorAtPoint(world: World, x: number, y: number): Primitive
     if (spec.artPx > bestSize || (spec.artPx === bestSize && id >= bestId)) return;
     bestSize = spec.artPx;
     bestId = id;
-    bestAnchor = anchorId;
+    best = { anchorId, recipeId };
   };
   for (const sp of world.creatureSpawners.values()) consider(sp.anchorPrimitiveId, sp.recipeId);
   for (const def of world.defenders.values()) consider(def.anchorPrimitiveId, def.recipeId);
-  return bestAnchor;
+  return best;
 }
 
 /**

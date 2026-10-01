@@ -436,7 +436,16 @@ export function towerRingCentroid(
  * of its comments on. Ties break on the lower spawner id so two peers agree.
  */
 export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {
-  let bestAnchor: PrimitiveId | null = null;
+  return towerHitAtPoint(world, x, y)?.anchorId ?? null;
+}
+
+/**
+ * ⭐ S192 (audit IDENTITY-2) — `towerAnchorAtPoint` WITH the recipe of the art that was hit. An anchor
+ * alone cannot name a tower: two towers can share one (a mummies Line ring through a laser turret's
+ * Line hub), and the click must open the one whose ART the cursor is on.
+ */
+export function towerHitAtPoint(world: World, x: number, y: number): { anchorId: PrimitiveId; recipeId: GodlyId } | null {
+  let best: { anchorId: PrimitiveId; recipeId: GodlyId } | null = null;
   let bestSize = Infinity;
   let bestSpawner = Infinity;
   for (const sp of world.creatureSpawners.values()) {
@@ -450,7 +459,7 @@ export function towerAnchorAtPoint(world: World, x: number, y: number): Primitiv
     if (art.sizePx > bestSize || (art.sizePx === bestSize && id >= bestSpawner)) continue;
     bestSize = art.sizePx;
     bestSpawner = id;
-    bestAnchor = sp.anchorPrimitiveId;
+    best = { anchorId: sp.anchorPrimitiveId, recipeId: sp.recipeId };
   }
-  return bestAnchor;
+  return best;
 }

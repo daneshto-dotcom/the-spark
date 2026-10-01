@@ -88,6 +88,7 @@ import { isRingAt } from './godlyRecipes/ringShape.ts';
 import { repairFeeShapeFor } from './structureRepair.ts';
 import { towerArtForRecipe, towerRingCentroid } from '../render/towerFrames.ts';
 import { characterSheetModel } from '../render/characterSheetModel.ts';
+import { codexCopyFor } from '../render/codexPresentation.ts';
 import { makeWorkerCinematicState, tickWorkerCinematics } from './godlyMatcherCore.ts';
 import { applyTickBatch, makeWorkerSim, WorkerControls, type WorkerTickBatchMsg } from './workerSim.ts';
 import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
@@ -2202,5 +2203,23 @@ describe('⭐ S192 IDENTITY-4 — "the other towers" strip compares tower IDENTI
     expect(cardG2.welded?.role).toBe('tower');
     expect(cardG.welded!.towers, 'G lists G2').toHaveLength(1);
     expect(cardG2.welded!.towers, 'G2 lists G').toHaveLength(1);
+  });
+});
+
+describe('⭐ S192 IDENTITY-2 — a tower named on a card opens THAT tower, even when its anchor is shared', () => {
+  it('the W2-4 board: the Scarab card\'s turret row opens the LASER TURRET; the turret card\'s Scarab row opens the SCARAB', () => {
+    const { w, hubId, turretOwn, lines } = turretWithScarabOnItsHub();
+    const spiral = turretOwn.filter((id) => id !== hubId).sort(byId)[0]!;
+    const turretCard = characterSheetModel(w, P0, { kind: 'structure', primitiveId: spiral })!;
+    expect(turretCard.title, 'fixture: a Spiral opens the turret').toBe(codexCopyFor('laserTurret').name);
+    const scarabCard = characterSheetModel(w, P0, { kind: 'structure', primitiveId: lines[0]!.id })!;
+    expect(scarabCard.title, 'fixture: a Line opens the Scarab').toBe(codexCopyFor('t3TowerMummies').name);
+    const turretRow = scarabCard.welded!.towers.find((t) => t.name === codexCopyFor('laserTurret').name)!;
+    const scarabRow = turretCard.welded!.towers.find((t) => t.name === codexCopyFor('t3TowerMummies').name)!;
+    expect(characterSheetModel(w, P0, turretRow.target)!.title, 'the turret row → the turret').toBe(codexCopyFor('laserTurret').name);
+    expect(characterSheetModel(w, P0, scarabRow.target)!.title, 'the Scarab row → the Scarab').toBe(codexCopyFor('t3TowerMummies').name);
+    // …and FIX / SCRAP from that card act on that tower: SCRAP takes the six Spirals, never the shared hub.
+    const scrap = planStructureScrap(w, P0, (turretRow.target as { primitiveId: PrimitiveId }).primitiveId)!;
+    expect([...scrap.memberIds].sort(byId)).toEqual(turretOwn.filter((id) => id !== hubId).sort(byId));
   });
 });

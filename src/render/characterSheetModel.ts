@@ -88,7 +88,7 @@ import { towerArtForRecipe } from './towerFrames.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { towerMembersAt } from '../state/towerMembers.ts';
 import {
-  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerUnitAt, weldedAt,
+  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerUnitAt, unitClickShape, weldedAt,
   type StructureTowers, type TowerUnit,
 } from '../state/towerUnit.ts';
 
@@ -1462,7 +1462,7 @@ function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId:
 function weldedRowFor(world: World, u: TowerUnit): SheetWeldedTower {
   const pool = towerOwnHealth(world, u);
   return {
-    target: { kind: 'structure', primitiveId: u.kind === 'live' ? u.anchorId : u.members[0]! },
+    target: { kind: 'structure', primitiveId: unitClickShape(world, u) }, // S192 IDENTITY-2 — THIS tower, never a shared anchor
     name: codexCopyFor(u.recipeId).name,
     portrait: portraitForStructure(u.recipeId),
     health: { cur: pool.cur, max: pool.max },

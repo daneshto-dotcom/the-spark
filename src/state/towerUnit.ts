@@ -268,3 +268,27 @@ export function sharedWithOtherTowers(world: World, unit: TowerUnit): PrimitiveI
   }
   return [...shared].sort((a, b) => a - b);
 }
+
+/**
+ * ⭐ S192 (audit IDENTITY-2) — PURE: the shape a click on `unit` selects, so that every consumer that
+ * re-derives the tower from a shape id (`towerUnitAt` → the card, the FIX / SCRAP planners, the host
+ * reducers) lands on THIS tower. Its anchor is not enough: a shape two live towers share resolves to
+ * the first in the total order (lowest spawner id), so a turret whose hub a mummies Line ring runs
+ * through opened, scrapped and fixed the RING from its own art and its own row. Its lowest own shape no
+ * other live tower is built of; the anchor only when every one of them is shared. A fallen stamp: its
+ * lowest shape (stamp groups are disjoint). No wire change: the card's target is still one shape id.
+ */
+export function unitClickShape(world: World, unit: TowerUnit): PrimitiveId {
+  if (unit.kind !== 'live') return unit.members[0]!;
+  const shared = new Set(sharedWithOtherTowers(world, unit));
+  for (const m of unit.members) if (!shared.has(m)) return m;
+  return unit.anchorId;
+}
+
+/** ⭐ S192 — PURE: `unitClickShape` for the live tower an ART hit names (anchor + the recipe of the art). */
+export function towerClickShapeAt(world: World, anchorId: PrimitiveId, recipeId: GodlyId): PrimitiveId {
+  for (const t of liveTowers(world)) {
+    if (t.anchorId === anchorId && t.recipeId === recipeId) return unitClickShape(world, unitOfLive(world, t));
+  }
+  return anchorId;
+}
