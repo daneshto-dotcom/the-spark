@@ -1,4 +1,4 @@
-**STATUS: IN PROGRESS — S192 step A COMPLETE (gates 0/0/0, net e2e 16/17 — the 1 = the known C4 hard-blip timing); now step 8 (C4 retry tuning).**
+**STATUS: IN PROGRESS — S192 step A complete; step 8 (C4 retry 35 s) committed; final gates + e2e running.**
 
 # S189 — `s189/net` progress (worktree agent, brief = PDR §5.1: C4 disconnect, C5 lag at wave 5, C6 quickmatch seat)
 
@@ -860,3 +860,28 @@ The re-audit (wf_de15cae4-4a8 ROUND-1, MED) found FIX-3 kept claim clock undoes 
   17958 ms, recovered at **21 840 ms**, grace 15 000): the KNOWN C4 timing item that step 8 exists for
   (S191 measured 6/7 recovered, only 2 inside the grace), not a regression — the match came back. All four
   hostmigration cases (D3, D4 production, v2 frozen-then-thawed host) and both exit-match cases green.
+
+- **Step 8 — C4 retry tuning: `RECONNECT_RETRY_MS` 8 000 → 35 000 (⚠ MINE, measured).** Measured on
+  `e2e/reconnect-hard-blip.spec.ts` (real WebRTC, public relays, this worktree's own port 21241), varying only
+  the constant (temporary edits, restored byte-for-byte from a copy):
+  · **8 s (S189):** 9 runs (1 in the step-A e2e + 8) → 9/9 recovered, **2/9 inside the grace** (5.8, 5.9 s);
+    the rest at 21.8 / 24.7 / 29.4 / 29.7 / 30.4 / 30.6 / 40.4 s — each ~4 s after the LAST attempt; the
+    attempts at +9.5 and +17.6 s never landed once.
+  · **24.5 s:** 14 runs (8 + 6 with both pages' console captured) → 8/14 inside the grace (5.7–7.8 s); late
+    ones 25.6 / 25.7 s with ONE attempt (the stuck first attempt landing in-room on its own), and 27.3 / 30.4 s
+    / one NOT within 45 s where the +26 s teardown hit exactly that in-room recovery.
+  · **35 s:** 10 runs → **10/10 recovered, 7/10 inside the grace** (6.3–7.6 s), late 23.0 / 28.0 / 32.7 s, never
+    a second attempt.
+  Diagnosis from the captured consoles: the host sees `cause=peer-left` at +0.3 s, and then NEITHER side has an
+  RTCPeerConnection for ~23 s in the slow runs — the first attempt's signalling is stuck behind Trystero's
+  per-peer `answeringTtlMs` / `offerPostAnswerTtlMs` (23 333 ms, `signal-handler.mjs`; nostr relays were
+  rejecting publishes throughout — "pow: 28 bits needed", "spam not permitted"), after which the next announce
+  (`announceIntervalMs` 5 333) re-handshakes. A teardown inside that window cannot land and restarts it.
+  35 s = TTL + one announce + the 6.3 s fresh join, rounded up. Tests: the cadence test now pins it against the
+  three Trystero constants READ FROM node_modules (a library upgrade that moves them goes red) + a new frame
+  case (an attempt stuck 25.6 s lands under the new cadence, never under the 8 s one) — PRE-FIX 2 red → green;
+  WIRE-3's "keeps retrying" count re-pinned from a literal `> 3` to the derived count. `JOIN_STALL_WARN_MS` import
+  dropped from `reconnectPolicy.ts` (typecheck TS6133). Canon notes updated (constant + table row). ⚠ The
+  hard-blip spec's "inside the grace" assertion stays quarantine-flaky: ~1/3 of runs still sit in the stuck
+  window (only a Trystero-side change, or a HOST-side transport re-arm, could shorten it — an owner question,
+  not built). Not touched: `RECONNECT_FIRST_RETRY_DELAY_MS` (1 s), the 15 s grace, the 180 s give-up.

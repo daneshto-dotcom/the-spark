@@ -22,7 +22,6 @@
  *
  * And the loop gave up at the grace: a network that came back at 16 s never rejoined.
  */
-import { JOIN_STALL_WARN_MS } from './joinDiagnosis.ts';
 import { isSnapshotStarved } from './succession.ts';
 import type { HostPhase } from './protocol.ts';
 
@@ -34,8 +33,24 @@ export const RECONNECT_FIRST_RETRY_DELAY_MS = 1_000;
  * ⭐ S189 — a retry may only replace an attempt that has had the repo's own budget for a HEALTHY join:
  * `JOIN_STALL_WARN_MS` (8 s), the point at which the lobby first calls a join slow. Was 4 s, below a
  * measured fresh join (~6.3 s), so every attempt but the last was torn down before it could land.
+ *
+ * ⛔ S192 (C4 step 8) — AND 8 s WAS STILL TOO SHORT, BECAUSE A STUCK HANDSHAKE IS NOT A DEAD ATTEMPT.
+ * Measured on `e2e/reconnect-hard-blip.spec.ts` (real WebRTC, public relays, this worktree's own dev
+ * server): with the 8 s cadence the match came back inside the 15 s grace 2 / 9 times, and every late
+ * recovery landed ~4 s after the LAST attempt (24.7 / 29.4–30.6 / 40.4 s) — the attempts at +9.5 and
+ * +17.6 s never landed once. The first attempt's signalling gets stuck behind Trystero's per-peer
+ * answering / post-answer TTLs (`answeringTtlMs` = `offerPostAnswerTtlMs` = 23 333 ms,
+ * `@trystero-p2p/core/dist/signal-handler.mjs`); a teardown inside that window cannot land and only
+ * restarts it. Left ALONE in its room, that same attempt recovers on its own once the TTL expires and the
+ * next announce (`announceIntervalMs` 5 333 ms) re-handshakes: 23.0 / 25.6 / 25.7 / 28.0 / 32.7 s with a
+ * single attempt. With 24.5 s the grace rate was 8 / 14 but a teardown at +26 s twice killed exactly that
+ * in-room recovery (one run did not come back inside 45 s). With 35 s: 10 / 10 recovered, 7 / 10 inside
+ * the grace, never a second attempt.
+ * ⚠ MINE: 35 s = the 23.3 s TTL + one 5.3 s announce + the ~6.3 s fresh join, rounded up. A second
+ * attempt is still made (a room whose relays really died needs one), just not inside the window where it
+ * can only hurt. `reconnectPolicy.test.ts` pins this against the Trystero constants it is derived from.
  */
-export const RECONNECT_RETRY_MS = JOIN_STALL_WARN_MS;
+export const RECONNECT_RETRY_MS = 35_000;
 /**
  * ⭐ S189 fix round (audit NET-1) — the BACKSTOP: the loop stops retrying this long after the loss
  * began; the terminal overlay stays (Return to Title). ⚠ MINE, not the owner's: 3 minutes is long past

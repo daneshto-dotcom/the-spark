@@ -2509,7 +2509,7 @@ Network routes: ${v.detail}`;
   // (the common case) recovers almost immediately; subsequent retries pace at RETRY_MS.
   let reconnectUntilMs = 0;
   let reconnectNextRetryMs = 0;
-  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (was 4 s, now JOIN_STALL_WARN_MS = 8 s)
+  // ⭐ S189 (C4) — RECONNECT_GRACE_MS (15 s), RECONNECT_RETRY_MS (4 s → 8 s in S189 → 35 s in S192, measured)
   // and RECONNECT_FIRST_RETRY_DELAY_MS (1 s) moved to `net/reconnectPolicy.ts`, imported above.
   // S31 P0-3 — client-side cursor for ARC_FLASH-triggered screen-shake. The host
   // triggers via the same post-drain ARC_FLASH scan since S119 (its twin cursor below);

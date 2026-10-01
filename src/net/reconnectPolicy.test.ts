@@ -6,6 +6,7 @@
  * that turned that recoverable blip into a lost match, against the REAL constants.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   hasSurvivorToHostFor,
   reconnectRetryDue,
@@ -55,9 +56,34 @@ function firstLanding(opts: {
 }
 
 describe('S189 C4 — the reconnect schedule lets a join LAND', () => {
-  it('⭐ the retry cadence is the repo\'s own healthy-join budget, and it outlasts a measured fresh join', () => {
-    expect(RECONNECT_RETRY_MS).toBe(JOIN_STALL_WARN_MS);
-    expect(RECONNECT_RETRY_MS, 'a retry must not tear down a join that is still healthy').toBeGreaterThan(MEASURED_FRESH_JOIN_MS);
+  it('⭐ the retry cadence outlasts a healthy join AND Trystero\'s stuck-handshake window (S192 C4 step 8)', () => {
+    expect(RECONNECT_RETRY_MS, 'a retry must not tear down a join that is still healthy').toBeGreaterThan(JOIN_STALL_WARN_MS);
+    expect(RECONNECT_RETRY_MS).toBeGreaterThan(MEASURED_FRESH_JOIN_MS);
+    // ⛔ The constants it is derived from, read from the shipped library — a Trystero upgrade that moves
+    // them turns this red instead of silently re-opening the window.
+    const sh = readFileSync('node_modules/@trystero-p2p/core/dist/signal-handler.mjs', 'utf-8');
+    const st = readFileSync('node_modules/@trystero-p2p/core/dist/strategy.mjs', 'utf-8');
+    const answeringTtlMs = Number(/const answeringTtlMs = (\d+);/.exec(sh)?.[1]);
+    const postAnswerTtlMs = Number(/const offerPostAnswerTtlMs = (\d+);/.exec(sh)?.[1]);
+    const announceIntervalMs = Number(/const announceIntervalMs = (\d+);/.exec(st)?.[1]);
+    expect([answeringTtlMs, postAnswerTtlMs, announceIntervalMs]).toEqual([23_333, 23_333, 5_333]);
+    expect(RECONNECT_RETRY_MS, 'TTL + one announce + a fresh join').toBeGreaterThanOrEqual(
+      Math.max(answeringTtlMs, postAnswerTtlMs) + announceIntervalMs + MEASURED_FRESH_JOIN_MS,
+    );
+  });
+
+  /*
+   * ⛔ S192 (C4 step 8) — the measured failure mode: the first attempt's handshake is stuck behind the
+   * 23.3 s TTL and then lands ON ITS OWN in its room (~23–33 s, single attempt, measured). An 8 s loop tears
+   * it down every 8 s, and each teardown restarts the window, so it never lands that way.
+   */
+  it('⛔ an attempt stuck behind the TTL lands on its own — the S192 cadence leaves it alone, the 8 s one never lets it', () => {
+    const STUCK_THEN_LANDS_MS = 25_600; // measured S192: 25.6 / 25.7 s with one attempt
+    const now = firstLanding({ retryMs: RECONNECT_RETRY_MS, retryPastGrace: true, joinMs: STUCK_THEN_LANDS_MS, horizonMs: 90_000 });
+    expect(now.attemptsAt).toEqual([1008]);
+    expect(now.landedAtMs).not.toBeNull();
+    const s189 = firstLanding({ retryMs: JOIN_STALL_WARN_MS, retryPastGrace: true, joinMs: STUCK_THEN_LANDS_MS, horizonMs: 90_000 });
+    expect(s189.landedAtMs, 'every teardown restarts the stuck window').toBeNull();
   });
 
   it('⭐ REACH (the loop, frame by frame): a hard blip rejoins INSIDE the grace', () => {
@@ -445,7 +471,11 @@ describe('S191 WIRE-3 — only a SEATED survivor is someone to host for', () => 
       nextRetryMs = p.nextRetryMs;
       if (p.retry) retries++;
     }
-    expect(retries, 'a reachable host must still be rejoined').toBeGreaterThan(3);
+    // S192 — derived from the cadence (35 s since C4 step 8), not a literal: the first retry, then one per RECONNECT_RETRY_MS.
+    expect(retries, 'a reachable host must still be rejoined').toBe(
+      1 + Math.floor((60_000 - 10_000 - RECONNECT_FIRST_RETRY_DELAY_MS) / RECONNECT_RETRY_MS),
+    );
+    expect(retries).toBeGreaterThanOrEqual(2);
   });
 
   it('NEGATIVE — 3-seat with a SEATED survivor (and a stray) claims as before, at the grace + its rung', () => {
