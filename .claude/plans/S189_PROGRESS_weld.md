@@ -781,3 +781,10 @@ ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverte
   (cycle) → export a pure fit from a small shared module or duplicate it in towerUnit with a pinned
   tolerance ⚠ MINE), else fall back to the bond walk; mutant; commit. Then L1, notes §H, gates.
   Nothing running in the background.
+- ▶ RESUMED. X2 FIXED 22cfa03 (whole-component grouping needs every candidate in its node slot of ONE
+  Procrustes-fitted stamp, ⚠ MINE tolerance 0.5 × min node spacing, else the bond walk; mutant RED).
+  L1 FIXED adc71ff (`save.restoredOwnIds`: non-negative integers else null, sorted; mutant RED).
+  NOTES 98a44d7 (§H = the NEW bump after 53, six reasons + paste-ready docblock; 52-era text removed).
+  carry's `structureBarHealth.ts` NOT touched (SEAM-C7 waits for the carry merge).
+- GATES (tree 98a44d7): TC_EXIT=0 · VT_EXIT=0 (6743 passed + 7 skipped / 414 files) · BUILD_EXIT=0 —
+  985.4 KiB. IN-FLIGHT: none.
