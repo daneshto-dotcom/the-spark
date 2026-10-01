@@ -1,7 +1,17 @@
 # S193 PROGRESS — lobby-ci (`s193/lobby-ci`)
 
+## FINAL REPORT v2 (widened scope R193-CI) — DONE
+Commits since v1: 9d78e440 (merge master 62b83e0 + triage) · ac0137b2 worker-bots · 6721e8e3 hostmigration tick clock ·
+d4deb3f9 quarantine dedupe · 80ea5bfd relay rotation. Gates: typecheck 0 · vitest --maxWorkers=3 0 (471 files / 7245 tests
+passed, 4/11 skipped) · build 0 · entry 1034.6 KiB (−0.1, headroom 65.4) · e2e (own port 33396): e2e:worker-bots 0 (1/1) ·
+hostmigration+tickClock 0 (4/4) · e2e:lobby with the 4-relay list 0 (5/5) · tsc over the touched e2e files 0.
+Bump: NONE (relay list = signaling config, not wire; e2e/CI only otherwise).
+MINE: SLOWEST_CI_TICKS_PER_S=6; frame budget 4×delta (+60 mirror); lane minutes 11/20 and 22/32; relay list of 4 with no replacement.
+NOT DONE: worker-heap soak (verdict inconclusive-noise, not relaxed); other quarantine specs (smoke Sym A/C/D/G, reconnect-hard-blip,
+nplayer S63 :74) not investigated — the lane now has its budget back to show which are real.
+
 ## ⭐ WIDENED (coordinator, R193-CI): every failing e2e job in the last 20 master runs + relay rotation
-NEXT STEP: hostmigration local repro running (successor tick frozen after migration?), then quarantine-lane dedupe, relays.
+NEXT STEP: none — see FINAL REPORT v2.
 - worker-bots: FIXED ac0137b2 (derived backstops; lane 11/20; 5/5 mutations red; local e2e:worker-bots exit 0, 52 s).
 - e2e-soak worker-heap (continue-on-error, never emails): 2 modes. (1) 34 s fails in 7 runs before 521f23a = the same
   30 s gatherer WALL wait, fixed by 811121ba. (2) after it: MAIN post-GC Δ 11.46 MB (4689 ticks) and 10.80 MB (5202) > 10 MB,
