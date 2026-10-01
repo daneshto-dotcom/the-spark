@@ -62,3 +62,5 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
 7. OWNER ORDER (S192): the Pitch Masters arcade is another project sharing only the domain — DO NOT TOUCH.
    Reverted its bridge wiring (byte-identical to master); the join-site tripwire now skips that directory
    (comment quotes the owner) and pins the 2 SPARK sites.
+
+8. Audit F1 (MED): markStrategyFailed now re-asks peerUnreachableEverywhere for every recorded per-peer failure (nostr per-peer fail, then torrent fails outright => 1 red error; old code emitted here). Reproduced RED (1 failed/7), fixed GREEN 7/7, mutant (disable the new check) RED.

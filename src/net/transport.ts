@@ -659,6 +659,19 @@ export class NetTransport {
     console.error(`[net] strategy ${name} failed:`, errMsg);
     if (this.allStrategiesFailed()) {
       this.emitError(`[${name}] ${errMsg}`);
+      return;
+    }
+    // ⛔ S192 audit F1 — a strategy dying can turn an earlier QUIET per-peer failure into a total one:
+    // the host link failed on nostr while torrent had not started (quiet, correctly — it might still
+    // reach the peer), and now torrent itself has failed. `allStrategiesFailed()` cannot see that,
+    // because nostr is (rightly) not failed. Re-ask the per-peer question for every recorded failure.
+    for (const h of this.strategies.values()) {
+      for (const peerId of h.peerJoinFailures ?? []) {
+        if (this.peerUnreachableEverywhere(peerId)) {
+          this.emitError(`[${h.name}] ${classifyJoinError(h.lastError ?? errMsg)}`);
+          return;
+        }
+      }
     }
   }
 

@@ -15,6 +15,7 @@ type Priv = {
   peerSet: Set<string>;
   strategies: Map<string, Record<string, unknown>>;
   onPeerJoinError(handle: Record<string, unknown>, d: { error: string; peerId: string }): void;
+  markStrategyFailed(name: string, errMsg: string): void;
 };
 
 const SDP_FAIL = 'could not connect to peer X after exchanging SDP; check that your TURN server URLs';
@@ -77,6 +78,27 @@ describe('S192 T1 — a per-peer join error is not a strategy failure', () => {
     const { priv, errors } = rig();
     priv.strategies.delete('torrent');
     fail(priv, 'nostr', 'peerA');
+    expect(errors).toEqual([]);
+  });
+
+  /*
+   * ⛔ S192 audit F1 — the quiet case above must not become "quiet forever". The host link fails on
+   * nostr while torrent has not started (quiet, correctly); torrent then fails OUTRIGHT
+   * (`markStrategyFailed`). The peer is now unreachable on every live strategy, and the old code did
+   * report this — `markStrategyFailed` must re-ask the per-peer question, not only "all failed?".
+   */
+  it('F1: per-peer failure on nostr, THEN torrent fails outright ⇒ exactly one red error', () => {
+    const { priv, errors } = rig();
+    priv.strategies.delete('torrent');
+    fail(priv, 'nostr', 'host-x');
+    expect(errors).toEqual([]);
+    priv.markStrategyFailed('torrent', 'chunk load failed: boom');
+    expect(errors).toHaveLength(1);
+  });
+
+  it('F1: a strategy failing outright with NO recorded per-peer failure stays quiet (others live)', () => {
+    const { priv, errors } = rig();
+    priv.markStrategyFailed('torrent', 'chunk load failed: boom');
     expect(errors).toEqual([]);
   });
 });
