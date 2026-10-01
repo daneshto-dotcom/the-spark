@@ -54,6 +54,12 @@ export function makeFxLab(getWorld: () => World, app: Application) {
       const w = getWorld();
       return spawn(T9_BOSS_TYPE.zombies as CreatureType, w.localPlayerId, x, y);
     },
+    /** An ENEMY goblin (owned by the next seat) at (x, y) — a target for the castle gun. */
+    enemy(x: number, y: number): number {
+      const w = getWorld();
+      const other = [...w.players.keys()].find((p) => p !== w.localPlayerId) ?? ((Number(w.localPlayerId) + 1) as unknown as PlayerId);
+      return spawn('goblinMelee', other, x, y);
+    },
     /** Stamp a sap flash as if the heal landed `ago` ticks ago (0 = this tick). */
     sap(id: number, ago = 0): void {
       const w = getWorld();

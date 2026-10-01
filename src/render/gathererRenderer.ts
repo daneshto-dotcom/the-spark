@@ -58,6 +58,8 @@ import { BAR_LIFT } from './healthBar.ts';
 import type { GathererId, PlayerId, SparkId } from '../types.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 import type { World } from '../state/world.ts';
+import { castleShotFx } from './fx/castleShotFx.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
 
 /**
  * ⭐ S188 — DEEP CURRENT's VORTEX, DERIVED FROM THE POSITION JUMP (never a one-shot effect push).
@@ -585,6 +587,11 @@ export class GathererRenderer {
       color,
       raceId,
     );
+    // ⭐ S192 (V06) — the light around that race ammunition (`fx/castleShotFx.ts`): a halo, a trail and an
+    // impact burst. Additive on the fx top layer; the S161 shapes above are unchanged either way.
+    if (fxActive()) {
+      castleShotFx(fxTop(), from.x, from.y - KEEP_H / 2, target.pos.x, target.pos.y, age / CASTLE_SHOT_VFX_TICKS, color, seat, world.tick - age);
+    }
   }
 
   /** The real type of the shape this gatherer is carrying, or null when its hands are empty. */
