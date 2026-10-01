@@ -850,7 +850,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **52** (S191 — deploy #5; see the S191 entry on the const).
+`PROTOCOL_VERSION` is **53** (S192 — deploy #7; see the S192 entry on the const).
+
+⭐⭐ **WHAT RIDES 53 (S192, deploy #7)** — `s191/addons`: the new optional `Creature.rageStartTick` (serialized, on the wire, wide-hashed `:rs`), the Warlord's 25 s rage latch then a 25 s cooldown (the owner's), and the BLOOD FRENZY source as his own open window — the frenzy never sets or clears a Warlord. Local only: Alt toggles the footer like the arrow, R190-G right-click swallowing, the modal cover + its close-click latch.
 
 ⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185).
 A mismatched peer is **refused outright** — there is no degraded-play

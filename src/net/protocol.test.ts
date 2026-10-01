@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 52 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 53 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -106,7 +106,9 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // the drafted strike baked into `Creature.atkFifths`. Full list on the const's JSDoc.
     // ⭐ S191 — 51 → 52: deploy #5 — weld (ownBondIdLimit, 'DORMANT', built-with survival) + net (the
     // per-match id, the C6 beacon election). Full list on the const's JSDoc.
-    expect(PROTOCOL_VERSION).toBe(52);
+    // ⭐ S192 — 52 → 53: deploy #7 — s191/addons (Creature.rageStartTick, the 25 s rage latch + cooldown,
+    // the frenzy source = his own window and never a Warlord).
+    expect(PROTOCOL_VERSION).toBe(53);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {
