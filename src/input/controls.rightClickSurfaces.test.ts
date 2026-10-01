@@ -349,20 +349,43 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
 
   // ⭐ S191 R2 (INPUT-4) — 4 → 5: the castle-panel put-back, classified HAND before this was bumped.
   // ⭐ S192 (s191/owner, OWN-3) — 5 → 6: the SCORCHED EARTH aim's put-back (`handleScorchedEarthAimClick`), HAND.
-  it('there are exactly SIX right-click sites today — a seventh must be classified before this is updated', () => {
+  // ⭐ S193 (owner T4) — 6 → 7: the goblin-tower AUTO-BUILD toggle on the card's feed chip, a NEW class
+  // CONTROL — a card control owns the click; nothing on the board under it acts (asserted below).
+  it('there are exactly SEVEN right-click sites today — an eighth must be classified before this is updated', () => {
     expect(
       sites.map((s) => s.line).length,
-      `found ${sites.length}: ${sites.map((s) => `:${s.line}`).join(' ')} — tag the new one "R190-G: HAND" or ` +
-        '"R190-G: BOARD" (and gate a BOARD one on isPointerOverAnyOpaqueSurface) BEFORE bumping this',
-    ).toBe(6);
+      `found ${sites.length}: ${sites.map((s) => `:${s.line}`).join(' ')} — tag the new one "R190-G: HAND", ` +
+        '"R190-G: CONTROL" or "R190-G: BOARD" (and gate a BOARD one on isPointerOverAnyOpaqueSurface) BEFORE bumping this',
+    ).toBe(7);
   });
 
-  it('every site says whether it acts on the HAND or on the BOARD', () => {
-    for (const s of sites) expect(s.text, `controls.ts:${s.line}`).toMatch(/R190-G: (HAND|BOARD)\b/);
+  it('every site says whether it acts on the HAND, on a card CONTROL, or on the BOARD', () => {
+    for (const s of sites) expect(s.text, `controls.ts:${s.line}`).toMatch(/R190-G: (HAND|BOARD|CONTROL)\b/);
     expect(
       sites.filter((s) => /R190-G: HAND/.test(s.text)),
       'the Ra aim, the SCORCHED EARTH aim, the castle-panel, the draft-plate and the held-tower put-backs',
     ).toHaveLength(5);
+  });
+
+  /*
+   * ⭐ S193 (owner T4) — THE ONE CONTROL SITE IS THE AUTO-BUILD TOGGLE, AND ITS HANDLER TOUCHES NOTHING
+   * ON THE BOARD: no pick, no raid, no sever — it reads the card's chip and sends one SET_AUTO_FEED
+   * through the sheet-action seam. And it DECLINES while something is in hand, so the HAND put-backs
+   * below it still win (R190-G: they work over every opaque surface). The REACH half is
+   * `goblinAutoFeed.controls.test.ts`, through the real `Controls` and the real `CharacterSheet`.
+   */
+  it('⭐ S193 — the ONE CONTROL site is the auto-build toggle, and its handler picks nothing on the board', () => {
+    const control = sites.filter((s) => /R190-G: CONTROL/.test(s.text));
+    expect(control).toHaveLength(1);
+    expect(control[0]!.text).toContain('this.handleSheetAutoFeedClick()');
+    const i = src.indexOf('private handleSheetAutoFeedClick(): boolean {');
+    expect(i).toBeGreaterThan(-1);
+    const body = src.slice(i, src.indexOf('\n  }\n', i));
+    expect(body).not.toMatch(/this\.pick\w+\(|RAID_TARGET|SEVER_BOND/);
+    expect(body).toContain('this.characterSheet.autoFeedAt?.(');
+    // The HAND put-backs win: the toggle declines while an aim or a held tower is in hand.
+    expect(body).toContain('if (raAimPreview() !== null || scorchedEarthAim() !== null) return false;');
+    expect(body).toContain('if (this.castlePanel?.armedBlueprint() != null) return false;');
   });
 
   it('every BOARD site asks the opaque-surface question BEFORE it picks anything', () => {
@@ -405,7 +428,7 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
    * untagged — the hole the `=== 2` regex alone left open.
    */
   it('⭐ INPUT-6 — every `button` / `buttons` code token in controls.ts sits on a TAGGED line', () => {
-    const tagged = /R190-G: (HAND|BOARD|LMB|ROUTE)\b/;
+    const tagged = /R190-G: (HAND|BOARD|CONTROL|LMB|ROUTE)\b/;
     const code = (l: string): string =>
       l.replace(/'[^']*'|"[^"]*"|`[^`]*`/g, '""').replace(/\/\/.*$/, '');
     const tokens = lines
@@ -413,7 +436,7 @@ describe('⛔ S191 A-3 — MECHANICAL: every right-click handler in controls.ts 
       .filter(({ text }) => !/^\s*(\*|\/\/|\/\*)/.test(text) && /\bbuttons?\b/.test(code(text)));
     expect(tokens.length, 'anti-vacuity: the scan found the button handling').toBeGreaterThan(sites.length);
     const untagged = tokens.filter((t) => !tagged.test(t.text)).map((t) => `:${t.line} ${t.text.trim()}`);
-    expect(untagged, 'tag each: R190-G: HAND | BOARD | LMB | ROUTE').toEqual([]);
+    expect(untagged, 'tag each: R190-G: HAND | BOARD | CONTROL | LMB | ROUTE').toEqual([]);
     // …and a right-click line is never tagged LMB or ROUTE.
     for (const s of sites) expect(s.text, `controls.ts:${s.line}`).not.toMatch(/R190-G: (LMB|ROUTE)\b/);
   });
