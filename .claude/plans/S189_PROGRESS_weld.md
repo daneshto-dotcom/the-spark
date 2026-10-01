@@ -407,6 +407,24 @@ hotspot file touched this round; no protocol edit (the weld bump reasons are unc
   the art box. Tests: W2-4 rows (state), REACH turret art → LASER TURRET + scoped SCRAP, loose rubble on
   an un-welded art → the tower, weld on the art → structure. Mutants ×3 → RED.
   `characterSheet.wired.test.ts` source tripwire re-pinned (`towerHit` → `named`).
+- **SHEETS-1 — FIXED 9af1701.** Stamp groups span the whole component (same blueprint/seat, not a live
+  SAME-recipe tower's own, distinct node indices; else the old walk). ⚠ MINE: a group of <= half its
+  blueprint is RUBBLE (free-form, SCRAP only) — closes P4b and the IDENTITY-3 case. Mutants ×2 → RED.
+- **SHEETS-5 — FIXED b608c71.** Strip icons fall down texture → painter → codex emblem → two letters.
+- **IDENTITY-6 / SEAMGATES-3 / SEAMGATES-7 — DONE c39cf83** (doc rows inside this branch's files).
+- **WIRE — ecd0eb5.** `ownBondIdLimit` SHIPPED at 52 (deploy #5); a v52 payload's field is deliberately
+  not read → `ownPrimitiveIds: null` (exact reading) + migration test; "never shipped" docs corrected.
+- **SEAMGATES-1 — NOT REPRODUCIBLE on the current endstats tip**: s191/endstats (d407dbf) already holds
+  the DORMANT body + re-pinned reach test. Trial merge weld(c39cf83) × endstats on a throwaway branch:
+  ONE conflict, `defenderLifecycle.ts` imports (keep BOTH: `ownSetAtRegistration` + `recordTowerBuilt`);
+  typecheck 0, full vitest 0 (6782 passed / 419 files). Branch deleted, nothing kept. Note: a FIX that
+  re-registers a fallen welded tower goes through `applyRegisterDefender`/`Spawner`, so it counts
+  `towersBuilt` again on endstats' board (same as an un-welded FIX re-ignition today).
+- **SEAMGATES-2** (carry prose) — merge owner at the carry merge (false only on the merged tree).
+- **SEAMGATES-4/5/6** — merge-owner chores (SPARK_CANON / canon.test.ts / bundle ledger), not touched.
+
+### STEP 3 — FINAL GATES (tree ecd0eb5): TC_EXIT=0 · VT_EXIT=0 (6740 passed + 7 skipped / 414 files)
+· BUILD_EXIT=0 — **984.3 KiB** (master 972.7 → branch +11.6 KiB; this fix round +2.0 over the merged base).
 
 ## IN-FLIGHT (superseded — see the S191 section's own IN-FLIGHT at the end)
 - none — round-4 report delivered.
