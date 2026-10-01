@@ -14,3 +14,17 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
    the whole strategy `failed`; failures are recorded per peer (`peerJoinFailures`), and the red UI error
    fires only when THAT peer is unreachable on every live strategy and not connected. Strip shows
    `nostr:6/7✗1` instead of `nostr:fail`. Tests: `src/net/peerJoinError.test.ts` (5). src/net 643 pass.
+
+## STATUS (resume point)
+- DONE: commits 1 (2a1ee8f) + 2 (8b2cf91). Working tree clean after this commit.
+- IN FLIGHT: nothing running.
+- EXACT NEXT STEP: (3) browser canary `e2e/poolSafePc.spec.ts` — goto `/?debug=1`, `page.evaluate`
+  dynamic-import `/src/net/poolSafePeerConnection.ts`, raw RTCPeerConnection restart ⇒ no m=application;
+  POOL_SAFE_PC ⇒ m=application + changed ufrag (+ optional loopback connect). Then (4) repair
+  `e2e/nplayer.spec.ts:73`: prepCtx winScore high (STARTING_VICTORY_POINTS=100 ⇒ winScore 3 ended the match at
+  once), inject score 1e9 for the win; wait 3-way mesh, shift Date.now +60 s on the 3 in-room pages, force
+  the 4th joiner's selfId to sort ABOVE the others (addInitScript Math.random high for the first calls,
+  verify via `await import('/src/net/transport.ts')).selfId`, reload fallback) ⇒ 100% red without fix.
+  Prove RED (stash the rtcPolyfill lines) and GREEN; then drop @quarantine-flaky from that describe and
+  pin it in `src/ci.e2eLanes.test.ts`. Then gates: typecheck, vitest --maxWorkers=3, build, e2e:gating.
+- e2e port: hashed from this worktree's cwd (playwright.config.ts e2ePort); compute with node before running.
