@@ -54,3 +54,5 @@ Brief: `.claude/plans/S192_RESEARCH_T1_lobby4.md`. Branch `s192/lobby4`, never m
      continue-on-error turns it RED). Also `@vite-ignore` added to NOT_A_LANE_TAG.
    - Vite on 22006 died with exit 1 after the repeat run, no error printed, after all runs had
      completed (benign for the results; cause unknown — likely an external orphan sweep).
+
+5. Gates on ab3b291: typecheck 0; vitest --maxWorkers=3 exit 0 (6757 passed / 7 skipped, 422 files); build exit 0, 976.1 KiB / 1100 (123.9 headroom). PROTOCOL_VERSION 52 untouched, protocol.ts not in diff — no bump.
