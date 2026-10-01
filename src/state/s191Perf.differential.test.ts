@@ -111,6 +111,9 @@ const FULL = process.env.SPARK_C5_PERF === '1';
 const WAVES = FULL ? 5 : 3;
 /** Held through the last FIGHT: 120 (the brother's S182 count) in the full run, 40 by default. */
 const CREATURES = FULL ? 120 : 40;
+/** S192 T13 — `corpseAvoided` floor and its measurement (default / full). */
+const CORPSE_FLOOR = 100;
+const CORPSE_MEASURED = '746 (S192 default run; 1 160 on the S193 merged tree) / full not re-run';
 /** Every this-many ticks both twins get the same cross-seat weld / intruder before their tick. */
 const WELD_EVERY = 97;
 const INTRUDE_EVERY = 131;
@@ -229,6 +232,10 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
     expect(ss.mismatches, `solver in-place mismatches:\n${solver.firstMismatches.join('\n')}`).toBe(0);
     expect(sc.mismatches, `scoring in-place mismatches:\n${scoring.firstMismatches.join('\n')}`).toBe(0);
     expect(divergedAt, 'hashWorldStateFull diverged between the reference world and the changed world').toBe(-1);
+    // ⭐ S192 T13 (owner: *"my spawn were attacking him, even though it was already dead"*) — an
+    // INVARIANT now: no pick, on either side, returns a unit killed earlier in the same loop. Its
+    // anti-vacuity floor (`corpseAvoided`) is in the table below.
+    expect(ns.pendingDeathReturned, 'a pick returned a corpse-in-waiting (S192 T13)').toBe(0);
     expect(A.world.tick, 'the run reached the end of its last wave').toBe(end);
     /*
      * ── ANTI-VACUITY FLOORS ── (the bondTargetIndex.differential discipline: each a FLOOR well under the
@@ -259,6 +266,8 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
       ['nav: host-tick pickNavUnit calls', ns.calls, 1000, '228 350 / 579 376', 'every SEEKING structure-attacker, every FIGHT tick'],
       ['nav: comparisons (calls + sweeps)', ns.compared, 10_000, '336 464 / 901 061', 'a whole-population sweep per tick and after every injection'],
       ['nav: a unit was found', ns.nonNull, 100, '47 598 / 135 866', 'a re-acquire that always returns null proves nothing'],
+      ['nav: a corpse-in-waiting WOULD have been the pick under the pre-T13 rule (S192 T13)', ns.corpseAvoided, CORPSE_FLOOR, CORPSE_MEASURED,
+        'the anti-vacuity half of `pendingDeathReturned === 0` — S191 measured 604 / 2 616 corpse returns before the rule existed'],
       ['nav: injected lethal blows between two calls (Council S191 item 2)', ns.injectedKills, 20, '384 / 624', 'every 7th FIGHT tick with 2+ calls and a pick'],
       ['nav: injected removals between two calls', ns.injectedRemovals, 10, '230 / 380', 'every 13th FIGHT tick with 3+ calls and a pick'],
       ['nav: injected births between two calls', ns.injectedBirths, 10, '736 / 1 146', 'every 19th FIGHT tick with 4+ calls'],
@@ -282,8 +291,7 @@ describe(`S191 perf — every s191/perf change is byte-identical to the code it 
      * DEFERRED (S155 N1), so the Map's size does not move, and nothing in the loop spawns between two
      * structure-attackers' picks. The index's rebuild path is therefore exercised by the INJECTED
      * kills / removals / births above (`callsAfterMidLoopChange`), which is why those are floors.
-     * `pendingDeathReturned` (the live scan handing back a unit killed earlier the same loop — kept by
-     * the index, see `EnemyCreatureIndex`) is printed for the same reason: a count, not a claim. And
+     * `pendingDeathReturned` was printed here as a count until S192; T13 made it the invariant above. And
      * scoring's `withFouled` is 0 in a bots match (the seagull hazard that fouls shapes is switched off),
      * so the fouled branch is proven only by `scoringMemo.differential.test.ts`.
      */

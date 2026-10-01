@@ -816,7 +816,7 @@ describe('S183 — a SPLASH cannot make you turn round', () => {
     const w = setupWorld();
     const victim = addUnit(w, GOBLIN_MELEE_CONFIG, 1, P0, 0, 0);
     addUnit(w, GOBLIN_MELEE_CONFIG, 2, P1, 10, 0);
-    const res = applyRadialDamage(w, 0, 0, 200, 1, SWING, 'hazard', P1);
+    const res = applyRadialDamage(w, 0, 0, 200, 1, SWING, 'hazard', P1, 'distance');
     expect(res.creaturesHit).toBe(1);
     expect(victim.targetCreatureId).toBeNull();
   });

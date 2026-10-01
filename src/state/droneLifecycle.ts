@@ -207,6 +207,7 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     blastFifths,
     'creature',
     drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds
+    'distance', // ⭐ S193 R193-B4 — closer = more; the connector severs below stay his COUNT ruling
   );
 
   const arcStart: Vec2 = { x: cx, y: cy };
