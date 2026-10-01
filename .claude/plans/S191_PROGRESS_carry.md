@@ -307,3 +307,16 @@ None.
 | C-2 | 0 | 0 — 6476 passed / 2 skipped, 399 files (128 s) | — | — |
 | C-3 + C-4 | 0 | 0 — 6485 passed / 2 skipped, 401 files (133 s) | — | — |
 | C-5 | 0 | 0 — 6494 passed / 2 skipped, 402 files (130 s) | 0 | 957.2 (980,125 B; +1,331 B vs baseline) · worker chunk 225,586 B |
+
+## S192 — merge master (deploy #5, PROTOCOL 52) — DONE
+
+- `git merge master` (e4d52dc, 123 commits) → `b457fee`: **ZERO textual conflicts** (no plans/state conflicts either).
+- GATES-6 seam (weld's hub comment claimed the blast still goes through `applyRadialClear`, "ruled-not-built") →
+  rewritten to name the ladder arm / `applyHubLadderBlast` / 120 fifths in total. weld's `towerMembersAt` selfIds +
+  `razeOrphans` kept; carry's `blast: 'ladder'` kept (BLAST-4 resolved by the clean merge + this comment).
+- ⛔ First post-merge suite: 1 RED — `canon.test.ts` "the hub dispatches the ladder: expected 2 to be 1". CAUSE = MY
+  comment rewrite quoted the `blast: 'ladder'` literal, which the pin counts in raw text. Reworded (no literal);
+  canon.test.ts alone → 66/66 green. Investigated and resolved — not a merge defect.
+- Post-merge gates: typecheck 0 · vitest 1 → (the comment) → canon file 0 · build 0, entry **975.3 KiB** (998,704 B;
+  master per PDR 972.7 → +2.6 KiB).
+- Weld/DORMANT Helga seam re-checked: carry's Helga arm reads `d.ehp !== null`; weld's dormant record sets `ehp = null` → skipped.

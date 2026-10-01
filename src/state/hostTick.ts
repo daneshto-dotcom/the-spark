@@ -890,9 +890,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
                * So the set is the hub's OWN members (`towerMembersAt`: the Dot + its own Circle
                * arms, the same walk that decided it stood and that its fuse read). S157 P0's reason
                * for razing at all survives intact — the hub's own leaves cannot linger as bond-less
-               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT` →
-               * `applyStructureSelfDestruct` → `applyRadialClear`, its owner exemption, and the
-               * ruled-not-built 120 fifths of R182-C) is untouched.
+               * orphans. ⚠ ONLY this set changed: the blast below (`STRUCTURE_SELFDESTRUCT`, ladder
+               * arm → `applyHubLadderBlast`, 120 fifths IN TOTAL split across its
+               * targets, S157 P0 owner exemption — S191 C-5 / R2-A, R182-C) is a separate rule.
                */
               const selfIds = [
                 ...(towerMembersAt(world, 'lightningHub', sp.anchorPrimitiveId)?.prims ?? [dying.id]),
