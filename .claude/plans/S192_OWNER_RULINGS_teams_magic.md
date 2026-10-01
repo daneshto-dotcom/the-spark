@@ -41,3 +41,11 @@ resistance, WoW armor vs resistances; his ladder version is the same idea).
 a drafted DEF pick also raises MRES; the castle's MRES (it buys DEF); whether neutral/global units (goblins, chewers, Voltkin,
 Helga, bosses) follow their seat's race or their own class; how MRES enters the pool arithmetic (DEF is folded into the POOL
 on this ladder, so a magic hit must be rescaled by (5+DEF)/(5+MRES) or the pool split — the spec must show the arithmetic).
+
+## MAGIC — answers to the spec questions (S192, later; verbatim)
+- R192-M8 BUILDINGS: DEF and MRES rise together — *"when you build buildings, they're inherently … it raises them at the same time."*
+- R192-M9 CASTLE: *"when you're doing castle upgrades, you should be able to do either defense or resistance … All the stats the castle starts with are gonna be as is and whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward there should be … its own upgrades for … magic resistance or defense."* → starting MRES = starting DEF; a NEW separate MRES castle upgrade.
+- R192-M10 GLOBAL UNITS: MRES = their own DEF — *"Sounds good."*
+- R192-M11 STINK CLOUD is magic — *"Sure."*
+- R192-M12 ZERO TICKS accepted, with a visible cue — *"can be totally resistant to very low level magic, I accept that, but we need to predefine … how it would look like."* → default built: grey "RESIST" floater (MINE, to show him).
+- Q1 (drafted DEF pick raises MRES?) NOT ruled — default kept.
