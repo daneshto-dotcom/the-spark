@@ -379,6 +379,14 @@ the committed tree, each a captured `$?`:
 VITEST_EXIT=0 (6062 / 368) · build BUILD_EXIT=0 (950.7 KiB, +6.5 KiB of the shared headroom). No
 hotspot file touched this round; no protocol edit (the weld bump reasons are unchanged).
 
+## S192 — ROUND 5 FIX ROUND (merge owner brief: fix the digest's "s189/weld ROUND 5" rows, reproduce-first)
+
+### STEP 1 — `git merge master` (master e4d52dc) → merge commit c8d50fe
+- CONFLICTS: **none** (textual merge clean; master already held this branch's c7436a2).
+- gates on the merged tree, each a captured `$?`: typecheck TC_EXIT=0 · `npx vitest run --maxWorkers=3`
+  VT_EXIT=0 — 6723 passed + 7 skipped / 414 files + 2 skipped · build BUILD_EXIT=0 — **982.3 KiB** (master
+  972.7 → round 5 = **+9.6 KiB** on the merged base).
+
 ## IN-FLIGHT (superseded — see the S191 section's own IN-FLIGHT at the end)
 - none — round-4 report delivered.
 
