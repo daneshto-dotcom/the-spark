@@ -67,7 +67,7 @@ import {
   coverAlphaForPrim,
   markTowerCover,
 } from '../render/towerCover.ts';
-import { planStructureRepair, planStructureScrap } from './structureRepair.ts';
+import { applyRepairStructure, planStructureRepair, planStructureScrap } from './structureRepair.ts';
 import { structureTowersAt, towerUnitAt, weldedAt } from './towerUnit.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import { damageConnector, damageEntity, severWithCarry } from './damage.ts';
@@ -636,7 +636,7 @@ describe('⭐ S189 C2 / S191 R191-A — welding costs STRUCTURE repair; each tow
     w.bonds.get(weldBond)!.damageFifths = 7;
     // R5 — the WELD's card: no FIX, and the reducer refuses.
     expect(planStructureRepair(w, P0, t.id), 'welded structure: no FIX').toBeNull();
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: t.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: t.id });
     expect(w.bonds.get(arm)!.damageFifths, 'the reducer refuses too').toBe(10);
     // R4 — the TOWER's card: its own FIX, priced by what IT lost (a dent = the R182-E flat fee).
     const plan = planStructureRepair(w, P0, hubId)!;
@@ -644,7 +644,7 @@ describe('⭐ S189 C2 / S191 R191-A — welding costs STRUCTURE repair; each tow
     expect(plan.cost).toEqual([repairFeeShapeFor('laserTurret')]);
     expect(plan.memberIds).not.toContain(t.id);
     const defenderId = [...w.defenders.keys()][0]!;
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubId });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubId });
     expect(w.bonds.get(arm)!.damageFifths, 'its own arm is healed').toBe(0);
     expect(w.bonds.get(weldBond)!.damageFifths, 'the weld is not the tower — untouched').toBe(7);
 
@@ -1067,13 +1067,13 @@ describe("⭐⭐⭐ S189 C2 — THE OWNER'S OWN CASE: two bat towers welded thro
 
     // "they cannot be repaired either" — the welded STRUCTURE, from a weld (R185-B as amended, R191-A)
     expect(planStructureRepair(w, P0, drops[1]!.id), 'welded structure: no FIX').toBeNull();
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: drops[1]!.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: drops[1]!.id });
     expect(w.bonds.get(aBond)!.damageFifths, 'the reducer refuses too').toBe(5);
     // …but tower A, from its own card, repairs itself and nothing else (R191-A R4).
     const bOwnDent = [...w.primitives.get(b)!.bonds].sort((x, y) => x - y)[0]!;
     w.bonds.get(bOwnDent)!.damageFifths = 3;
     expect(planStructureRepair(w, P0, a)!.scope).toBe('tower');
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: a });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: a });
     expect(w.bonds.get(aBond)!.damageFifths, 'tower A is healed').toBe(0);
     expect(w.bonds.get(bOwnDent)!.damageFifths, 'tower B is not A').toBe(3);
 
@@ -1893,7 +1893,7 @@ describe('⭐⭐ S191 R191-A — FIX / SCRAP on a tower inside a welded structur
     expect(plan.missingBondCount).toBe(1);
     fund(w, plan.cost);
     const bondsBefore = w.nextBondId;
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
     expect(w.nextBondId, 'the arm was re-welded with a NEW bond id').toBe(bondsBefore + 1);
     tick(w, st, PAST_TWO_POLLS);
     expect([...w.defenders.keys()], 'the SAME turret stands after the poll').toEqual([defenderId]);
@@ -1920,7 +1920,7 @@ describe('⭐⭐ S191 R191-A — FIX / SCRAP on a tower inside a welded structur
     const plan = planStructureRepair(w, P0, turretHub)!;
     expect(plan.scope).toBe('tower');
     fund(w, plan.cost);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
     expect(w.defenders.size, 're-registered by the FIX — exact ignition can never see a welded tower').toBe(1);
     const d = [...w.defenders.values()][0]!;
     expect(d.anchorPrimitiveId).toBe(turretHub);
@@ -1978,7 +1978,7 @@ describe('⭐⭐ S191 R191-A — FIX / SCRAP on a tower inside a welded structur
     fund(w, [SparkType.Spiral, SparkType.Circle, SparkType.Square]);
     expect(planStructureRepair(w, P0, weld.id)).toBeNull();
     const before = hashWorldStateFull(w);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: weld.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: weld.id });
     expect(hashWorldStateFull(w), 'a refused intent is a no-op').toBe(before);
   });
 
@@ -2028,7 +2028,7 @@ describe('⭐⭐ S191 R191-A — FIX / SCRAP on a tower inside a welded structur
     for (let f = 0; f < 90; f++) {
       if (f === 5) for (const world of [w, rig.worker]) cutBond(world, turretArmAwayFromWeld);
       if (f === 6) {
-        for (const world of [w, rig.worker]) dispatch(world, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+        for (const world of [w, rig.worker]) applyRepairStructure(world, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
       }
       rig.step(f);
     }
@@ -2051,7 +2051,7 @@ describe('⭐ S191 R191-A — the two identity edges of a tower FIX, and the sha
     expect(plan.group.missing, 'one node lost').toHaveLength(1);
     fund(w, plan.cost);
     const firstNew = w.nextPrimitiveId;
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
     const d = w.defenders.get(defenderId)!;
     expect(d.ownPrimitiveIds, 'the re-minted leaf is one of its own now').toContain(firstNew);
     expect(d.ownPrimitiveIds).not.toContain(leaf);
@@ -2104,7 +2104,7 @@ describe('⭐ S191 R191-A — the identity edge on an UN-WELDED tower (the path 
     expect(plan.group.missing).toHaveLength(1);
     fund(w, plan.cost);
     const reminted = asPrimitiveId(w.nextPrimitiveId);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
     expect(w.primitives.has(reminted), 'FIX re-minted the leaf').toBe(true);
     expect(w.defenders.get(defenderId)!.ownPrimitiveIds, 'the record adopts it').toContain(reminted);
     tick(w, st, PAST_TWO_POLLS);
@@ -2157,7 +2157,7 @@ describe('⭐ S192 IDENTITY-1 — a paid FIX on a fallen welded tower always bri
     expect(plan, 'FIX is offered on the fallen turret').not.toBeNull();
     expect(plan.scope).toBe('tower');
     fund(w, plan.cost);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
     expect([...w.defenders.values()].map((d) => [d.recipeId, d.anchorPrimitiveId]), 'paid for ⇒ registered')
       .toEqual([['laserTurret', hubId]]);
     tick(w, st, PAST_TWO_POLLS);
@@ -2185,7 +2185,7 @@ describe('⭐ S192 IDENTITY-1 — a paid FIX on a fallen welded tower always bri
     expect(planStructureRepair(w, P0, spiral), 'no FIX that cannot finish').toBeNull();
     fund(w, [SparkType.Spiral]);
     const bank = JSON.stringify(w.castleBanks.get(P0));
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: spiral });
     expect(JSON.stringify(w.castleBanks.get(P0)), 'nothing spent').toBe(bank);
   });
 });
@@ -2310,7 +2310,7 @@ describe('⭐ S192 SHEETS-1 — one fallen tower is ONE fallen tower, and its FI
     expect(onHub.cost, 'one shape (R182-E), not a whole turret').toHaveLength(1);
     fund(w, onHub.cost);
     const shapes = w.primitives.size;
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
     expect(w.primitives.size, 'no shape minted').toBe(shapes);
     expect(neighbours(w, hub), 'L re-welded to the hub').toContain(L.id);
     tick(w, st, PAST_TWO_POLLS);
@@ -2343,7 +2343,7 @@ describe('⭐ S192 SHEETS-1 — one fallen tower is ONE fallen tower, and its FI
     const fix = planStructureRepair(w, P0, hub.id)!;
     expect(fix.scope, 'un-welded: the pre-S191 structure FIX').toBe('structure');
     fund(w, fix.cost);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub.id });
     tick(w, st, PAST_TWO_POLLS);
     expect(w.defenders.size).toBe(1);
     expect(stray.origin?.blueprintId, 'fixture: the stray still carries its stamp').toBe('laserTurret');
@@ -2407,7 +2407,7 @@ describe('⭐ S192 re-audit X2 — two stamps of one blueprint welded together a
     const plan = planStructureRepair(w, P0, hubA);
     if (plan !== null) {
       fund(w, plan.cost);
-      dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubA });
+      applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hubA });
     }
     const hub = w.primitives.get(hubA)!;
     expect(neighbours(w, hub), 'no 124 px bond from A\'s hub to B\'s leaf').not.toContain(bLeaf);
@@ -2541,7 +2541,7 @@ describe('⭐⭐ S193 SEAM-C7 — per-tower FIX after an overkill CARRY (CARRY-1
     const plan = planStructureRepair(w, P0, turretHub)!;
     expect(plan, 'its own card offers FIX').not.toBeNull();
     fund(w, plan.cost);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: turretHub });
     tick(w, st, PAST_TWO_POLLS);
     expect(w.defenders.size, 'the turret stands again').toBe(1);
     const d = [...w.defenders.values()][0]!;

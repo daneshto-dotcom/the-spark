@@ -19,13 +19,16 @@ import type { PlayerId, PrimitiveId, SparkId } from '../types.ts';
  * One queued FIX: a tower (or an un-welded stamped structure) and the shapes its bill still needs.
  *
  * ⚠ ADDRESSED BY SHAPES, NOT BY A TOWER ID, for `RepairStructureAction`'s reason: there is no
- * structure id. `memberIds` are the plan's members when the FIX was clicked (ascending); the job's
- * target is the LOWEST of them that still stands, and every re-plan goes through that shape, so the
- * job resolves its tower exactly the way the card and the reducer do (`reclaimScopeAt`).
+ * structure id. `targetId` is the shape the FIX was planned through and `memberIds` the plan's members
+ * then (ascending). Every re-plan goes through `targetId` while it stands, else through the lowest
+ * surviving member whose plan still overlaps `memberIds`, so the job resolves its tower exactly the way
+ * the card and the reducer do (`reclaimScopeAt`) — a shape two towers share never re-aims it.
  */
 export interface RepairJob {
   readonly id: number;
   readonly seat: PlayerId;
+  /** The shape the FIX was planned through (the clicked shape; FIX ALL's pick). Re-planned through it while it stands. */
+  readonly targetId: PrimitiveId;
   readonly memberIds: readonly PrimitiveId[];
   /** Shapes of the bill no gatherer has taken yet, in bill order. */
   need: SparkType[];

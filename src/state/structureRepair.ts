@@ -517,10 +517,31 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
     return world;
   }
 
-  const bp = blueprintFor(plan.group.blueprintId);
-
   // ── CONSUME ─────────────────────────────────────────────────────────────────────────────────
   consumePayments(world, action.playerId, payments);
+  restorePlannedRepair(world, action.playerId, plan, payments);
+  return world;
+}
+
+/**
+ * ⭐ S193 R191-B — a FIX job's last shape has reached the tower: restore it from what the gatherers
+ * DELIVERED. The bill was paid at each pickup (bank) or by lifting the quarry spark, so nothing is
+ * consumed here — the delivered types stand in as bank payments, positionally aligned with
+ * `plan.cost` exactly as `consumePayments`' list would be. The caller (`repairJobs.ts`) has checked that
+ * the delivered multiset covers `plan.cost`. Same restore, same identity settling, as an instant FIX.
+ */
+export function restoreFromDelivered(world: World, seat: PlayerId, plan: RepairPlan): void {
+  if (!world.players.has(seat)) return;
+  const payments: Payment[] = plan.cost.map((sparkType) => ({ from: 'bank', sparkType }));
+  restorePlannedRepair(world, seat, plan, payments);
+}
+
+/** The restore half of a FIX (re-mint, re-weld, heal, arm the matcher, settle identity). Pays nothing. */
+function restorePlannedRepair(world: World, seat: PlayerId, plan: RepairPlan, payments: readonly Payment[]): void {
+  const player = world.players.get(seat);
+  if (player === undefined) return;
+  const action = { playerId: seat };
+  const bp = blueprintFor(plan.group.blueprintId);
 
   // ── RE-MINT THE LOST NODES ──────────────────────────────────────────────────────────────────
   // The frame is fitted BEFORE anything is minted, so it is derived purely from the shapes that
@@ -614,8 +635,6 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
   if (plan.unit !== null) {
     settleTowerIdentity(world, action.playerId, plan.unit, plan.group.blueprintId, byNode, plan.scope === 'tower');
   }
-
-  return world;
 }
 
 /**

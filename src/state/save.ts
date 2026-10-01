@@ -237,7 +237,7 @@ export interface WorldSnapshot {
    * idle board round-trips byte-identically; MUST round-trip so a successor keeps the jobs the seat's
    * gatherers are already working (their `repairTask`s name these ids).
    */
-  repairJobs?: Array<{ id: number; seat: PlayerId; memberIds: PrimitiveId[]; need: SparkType[]; delivered: SparkType[] }>;
+  repairJobs?: Array<{ id: number; seat: PlayerId; targetId: PrimitiveId; memberIds: PrimitiveId[]; need: SparkType[]; delivered: SparkType[] }>;
   nextRepairJobId?: number;
   /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
@@ -1227,7 +1227,7 @@ export function snapshot(
     gathererOrders: serializeGathererOrders(world),
     // S193 R191-B — copies, never aliases of live world state.
     repairJobs: world.repairJobs.length > 0
-      ? world.repairJobs.map((j) => ({ id: j.id, seat: j.seat, memberIds: [...j.memberIds], need: [...j.need], delivered: [...j.delivered] }))
+      ? world.repairJobs.map((j) => ({ id: j.id, seat: j.seat, targetId: j.targetId, memberIds: [...j.memberIds], need: [...j.need], delivered: [...j.delivered] }))
       : undefined,
     nextRepairJobId: world.nextRepairJobId > 0 ? world.nextRepairJobId : undefined,
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
@@ -2948,9 +2948,9 @@ function restoredRepairJobs(v: WorldSnapshot['repairJobs']): RepairJob[] {
   const ints = (a: unknown): number[] => (Array.isArray(a) ? a.filter((x) => Number.isInteger(x) && x >= 0) : []);
   const out: RepairJob[] = [];
   for (const j of v) {
-    if (!Number.isInteger(j.id)) continue;
+    if (!Number.isInteger(j.id) || !Number.isInteger(j.targetId)) continue;
     out.push({
-      id: j.id, seat: j.seat,
+      id: j.id, seat: j.seat, targetId: j.targetId,
       memberIds: (ints(j.memberIds) as PrimitiveId[]).sort((a, b) => a - b),
       need: ints(j.need) as SparkType[], delivered: ints(j.delivered) as SparkType[],
     });

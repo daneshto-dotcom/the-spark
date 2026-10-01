@@ -81,6 +81,7 @@ export const ELIMINATION_INTENT_POLICY = {
   BUILD_BLUEPRINT: 'deny',
   FEED_TOWER: 'deny',
   REPAIR_STRUCTURE: 'deny',
+  FIX_ALL: 'deny', // S193 R192-W1 — FIX ALL is FIX, many times
   SCRAP_STRUCTURE: 'deny',
 
   // ── Offence and disruption. A fallen seat must not be able to decide the match between the

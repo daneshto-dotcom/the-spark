@@ -150,8 +150,8 @@ import {
 } from './defenders/defenderLifecycle.ts';
 import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
 import { applyFeedTower, type FeedTowerAction } from './goblinTowerFeed.ts';
+import { applyFixAll, applyQueueRepair, type FixAllAction } from './repairJobs.ts';
 import {
-  applyRepairStructure,
   applyScrapStructure,
   type RepairStructureAction,
   type ScrapStructureAction,
@@ -393,6 +393,8 @@ export type GameAction =
   // primitive that may already be rubble, and that must cost the host nothing.
   | RepairStructureAction
   | ScrapStructureAction
+  // ⭐ S193 R192-W1 — the castle's FIX ALL: a CLIENT INTENT, BUILD-only through the same FIX planner.
+  | FixAllAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -995,7 +997,11 @@ function dispatchReducer(world: World, action: GameAction): World {
     // no-op-never-throw. R19 (BUILD-stage only) is enforced inside, through the shared `canBuildNow`
     // rather than a second phase check here — see buildLegality.ts for why that matters.
     case 'REPAIR_STRUCTURE':
-      return applyRepairStructure(world, action);
+      // ⭐ S193 R191-B — FIX QUEUES A GATHERER JOB now (the restore runs when the shapes arrive).
+      return applyQueueRepair(world, action);
+
+    case 'FIX_ALL':
+      return applyFixAll(world, action);
 
     case 'SCRAP_STRUCTURE':
       return applyScrapStructure(world, action);

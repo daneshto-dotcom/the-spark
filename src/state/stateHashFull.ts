@@ -733,7 +733,7 @@ export function determinismParts(world: World): string[] {
   parts.push(`rjn${world.nextRepairJobId}`);
   for (const j of world.repairJobs) {
     parts.push(
-      `rj${j.id}:${n(j.seat)}:m${j.memberIds.join('.')}:nd${j.need.map((t) => o(t)).join('.')}` +
+      `rj${j.id}:${n(j.seat)}:t${n(j.targetId)}:m${j.memberIds.join('.')}:nd${j.need.map((t) => o(t)).join('.')}` +
         `:dl${j.delivered.map((t) => o(t)).join('.')}`,
     );
   }

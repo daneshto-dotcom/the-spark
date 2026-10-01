@@ -107,6 +107,7 @@ import {
   releaseShelteredGatherers,
   tickGathererShelter,
 } from './gatherers/gathererLifecycle.ts';
+import { tickRepairJobs } from './repairJobs.ts'; // ⭐ S193 R191-B — FIX is a gatherer job
 import { underDroneCaps } from './droneLifecycle.ts';
 // S160 P4b — the castle's own weapon. No stored timer: the schedule derives from `world.tick`.
 import { castleGunsTick } from './castleGuns.ts';
@@ -2263,6 +2264,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // the hunter loop above. Keys are snapshotted first: a tick can mutate the population in a
     // future slot (respawn/harassment, V6-2.2), and iterating a live Map while it changes is the
     // bug class the creature fan-out already guards against.
+    // ⭐ S193 R191-B — the FIX queue first: it checks, moves, finishes and hands out repair tasks, and the
+    // haul cycle below skips every gatherer that holds one ("the top priority for your gatherers").
+    tickRepairJobs(world);
     if (world.gatherers.size > 0) {
       for (const gid of Array.from(world.gatherers.keys())) {
         dispatch(world, { type: 'GATHERER_TICK', gathererId: gid });
