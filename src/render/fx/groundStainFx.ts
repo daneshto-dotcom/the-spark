@@ -72,23 +72,25 @@ export interface StainTexel { readonly color: number; readonly alpha: number }
 export function groundStainTexel(race: RaceId, variant: number, u: number, v: number): StainTexel {
   const seed = RACE_SALT[race] * 7919 + variant * 104729;
   const rho = Math.sqrt(u * u + v * v);
-  // An irregular soft edge, pulled inward by up to 0.24 of the radius, never pushed out.
+  // An irregular soft edge, pulled inward by at most 0.12 of the radius, never pushed out. ⚠ The
+  // owner tuned the zone's SIZE over five rounds (S185), so the visible footprint must stay the
+  // S185 ellipse: first screenshot pass had the edge 0.24 in and a 0.26 band, and the zone shrank.
   const edgeN = fbm(seed + 1, u * 2.6 + 9, v * 2.6 + 9);
-  const edge = 0.76 + 0.24 * edgeN;
-  const alpha = rho >= 1 ? 0 : 1 - smooth(clamp01((rho - (edge - 0.26)) / 0.26));
-  const m = fbm(seed + 2, u * 3.2 + 3, v * 3.2 + 3) - 0.5;
+  const edge = 0.88 + 0.12 * edgeN;
+  const alpha = rho >= 1 ? 0 : 1 - smooth(clamp01((rho - (edge - 0.2)) / 0.2));
+  const m = (fbm(seed + 2, u * 3.2 + 3, v * 3.2 + 3) - 0.5) * 1.4;
   const core = 1 - clamp01(rho);
   let f: number;
   switch (race) {
     case 'zombies': {
       // goo: brighter towards the middle, glossy where the noise runs high
-      f = 0.34 + 0.2 * core + 0.24 * m;
+      f = 0.36 + 0.22 * core + 0.24 * m;
       if (fbm(seed + 3, u * 6 + 1, v * 6 + 1) > 0.7) f += 0.22;
       break;
     }
     case 'vampires': {
       // blood: a darker pool with tacky clots and a wet glint at the middle
-      f = 0.26 + 0.18 * core * core + 0.16 * m;
+      f = 0.3 + 0.26 * core + 0.16 * m;
       if (fbm(seed + 3, u * 5 + 2, v * 5 + 2) < 0.32) f *= 0.8;
       break;
     }
@@ -101,18 +103,18 @@ export function groundStainTexel(race: RaceId, variant: number, u: number, v: nu
     }
     case 'mummies': {
       // drifted sand: the noise is stretched along the wind
-      f = 0.3 + 0.08 * core + 0.24 * (fbm(seed + 3, u * 1.6 + 6, v * 7 + 6) - 0.5) + 0.08 * m;
+      f = 0.34 + 0.12 * core + 0.28 * (fbm(seed + 3, u * 1.6 + 6, v * 7 + 6) - 0.5) + 0.08 * m;
       break;
     }
     case 'nagas': {
       // wet silt rippled in rings, the rings wandering with the noise
       const ripple = 0.5 + 0.5 * Math.sin(rho * 20 + m * 5);
-      f = 0.24 + 0.1 * ripple + 0.1 * m;
+      f = 0.26 + 0.12 * ripple + 0.1 * m;
       break;
     }
     case 'orcs': {
       // trampled hardpan: coarse mottling plus a fine grain
-      f = 0.27 + 0.16 * m + 0.12 * (valueNoise(seed + 4, u * 22 + 5, v * 22 + 5) - 0.5);
+      f = 0.3 + 0.16 * m + 0.12 * (valueNoise(seed + 4, u * 22 + 5, v * 22 + 5) - 0.5);
       break;
     }
   }
