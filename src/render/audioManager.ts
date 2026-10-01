@@ -1876,6 +1876,17 @@ export async function playSlapSFX(pos?: Vec2): Promise<void> {
 }
 
 /**
+ * ⭐ S192 (owner, A3) — THE PANTS: his own generated *"how they sound when they attack"* clip, converted
+ * from his mp3 (`assets-source/endgame-monster/`). ⭐ S193 (owner): it is the pants' ATTACK sound, like
+ * Helga's slap — played by `goblinRenderer` on each swing (`pantsSoundDue`), derived from synced state
+ * and THROTTLED there (wave 31 is 250 a seat).
+ */
+export const PANTS_SFX_URL = '/audio/endgame/pants-attack.ogg';
+export async function playPantsSFX(pos?: Vec2): Promise<void> {
+  await playOneShot(PANTS_SFX_URL, pos);
+}
+
+/**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */

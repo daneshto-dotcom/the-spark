@@ -65,3 +65,12 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - ✅ DEPLOY #18 LIVE 11d86a3 (zombies, PROTOCOL 58, charter 1250) — verify-deploy 4/4.
 - lobby-ci MERGED + merge-owner chores L1 (relay wording: "refuse sustained publishing") + L6 ("/7" → "/4"); L2 (6→5 ticks/s) DECLINED — it moves the worker-bots lane minutes and its pins, a larger change than a LOW warrants; logged. Deploy #19 gates running.
 - NEW s193/carry-fwd dispatched (T11 joiner repair numbers, CF-1, CF-2, net R-2, audio A3, lobby L2).
+- RE-AUDIT endgame (a77c23ee877c59fbc) CLEAN; merge seam MED: endgameS193.test.ts SITES needs `zombieDeathBlast.ts: {n: 6, verdict: spares the dead boss's seat only → a pants is hit}` (merge-owner one-liner); bump 58→59; LOW design: coupled lanes — one seat at the cap waits all seats (stall only if pants immortal; owner Q, MINE accept); LOW owner Q: pants killed by zombie racial units raise free zombies (THE RISEN literal). → lands as deploy #20 after #19 (ready-first).
+- light RE-AUDIT magic dispatched.
+- endstats round 2 DONE (tip af824a8; merged zombies, BLAST-2 folded into KillCredit — killCreditOf, type widened to CreatureType|null, riseOnKill guards type===null; statCredit.ts deleted; 14 blast2 REACH with DEALT==TAKEN; gates 0/0/0 1046.5 (+5.8); NO bump). → audit queue.
+- AUDIT QUEUE: visuals-2 → bots → visuals-3 → endstats → teams (after its round) → carry-fwd.
+- AUDIT weld (a0439edd3e4db53a4) FIX FIRST: MED castle-panel.spec 7-row literal (gating e2e red); MED seam repairHealNumber.test vs zombies T11; MED seam endgame lock policy needs FIX_ALL 'allow'; LOW jobs of eliminated seats never end, QUEUE FULL UI, fixAllTargets covered set, re-plan every tick; canon chores. Round 6 sim clean (no double-charge, mutant red). Merged-P58 +20.2 KiB. → weld fix round sent.
+- AUDIT goblin-autobuild (aa38fa682e961ed81) CLEAN; MED design gap: one connector loss → REMOVE_SPAWNER wipes the toggles (verified probe) → merge-owner decision: remember per (seat, anchor), MINE; LOWs refused cue, pending map clear, benched counters, in-hand helper drift; canon T4. → fix round sent.
+- ✅ DEPLOY #19 LIVE ba1062b (lobby-ci, no bump) — verify-deploy 4/4.
+- ENDGAME MERGED + SITES seam (zombieDeathBlast.ts n:6) + PROTOCOL 58→59 → deploy #20 gates running.
+- AUDIT bots (a29dbd5e67518b5cf) dispatched; autobuild fix round sent (toggle memory per seat+anchor, MINE).

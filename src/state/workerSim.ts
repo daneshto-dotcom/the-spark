@@ -62,6 +62,7 @@ import { mulberry32 } from './rng.ts';
 import { rebuildAuthorityAllocators } from '../net/migrationClaim.ts';
 import { netSnapshot, restore, type NetSnapshot, type WorldSnapshot } from './save.ts';
 import { hashWorldState } from './stateHash.ts';
+import { isMonsterFightHeld } from './endgame.ts';
 import { tickSudoku } from './sudokuEvent.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -373,7 +374,10 @@ export function structuralSignature(world: World): string {
     // stale phase (and a stale HUD countdown) for up to 100 ms after the flip. Including the phase
     // makes the edge itself a structural change, so the mirror updates on the flip tick.
     world.matchPhase,
-    world.phaseEndsAtTick,
+    // ⭐ S193 (audit) — a HELD monster fight rewrites `phaseEndsAtTick` every tick (it is kept
+    // `MONSTER_HOLD_LEAD_TICKS` ahead, `hostTick`), which made EVERY batch a full snapshot. While held
+    // the slot is a constant token; the hold letting go changes it, so that edge is still structural.
+    isMonsterFightHeld(world) ? 'held' : world.phaseEndsAtTick,
     // S148 P1 — the board is a structural term for the same reason the phase is: it changes no
     // collection size, so without it a mirror could keep drawing every keep on the previous board
     // for up to the 100 ms floor after a match starts.
