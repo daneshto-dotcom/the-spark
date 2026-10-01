@@ -886,6 +886,12 @@ interface SerializedCreature {
   readonly corpseEaterUntilTick?: number;
   readonly corpseEaterAnchor?: { x: number; y: number };
   /**
+   * ⭐ S192 (owner T12) — the CORPSE EATER heal still owed and its schedule's last pulse tick
+   * (`Creature.corpseEaterHealBank`). SIM state: it decides the boss's pool for the next cycle, so the
+   * disk save, the wire (a successor) and the worker mirror all carry it. Emitted only while set.
+   */
+  readonly corpseEaterHealBank?: { fifths: number; untilTick: number };
+  /**
    * ⭐ S189 (owner R190-I) — the creature's monotonic HEAL counter (`Creature.healedFifths`). Emitted only
    * once > 0, so an unhealed creature is byte-identical; it rides the wire so a JOINER splits "-12 +2"
    * exactly as the host does, and the worker mirror rebuilds from this shape. Additive-optional: a stale
@@ -1888,6 +1894,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
+  world.structureHealHits.length = 0; // ⭐ S192 T11 — same, for the repair heal record
   if (snap.effects !== undefined) {
     for (const se of snap.effects) {
       world.effects.push(deserializeEffect(se));
@@ -2406,6 +2413,10 @@ function serializeCreature(c: Creature): SerializedCreature {
     ...(c.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: c.corpseEaterAnchor.x, y: c.corpseEaterAnchor.y } }
       : {}),
+    // ⭐ S192 T12 — the banked feed heal, only while some is owed.
+    ...(c.corpseEaterHealBank !== undefined
+      ? { corpseEaterHealBank: { fifths: c.corpseEaterHealBank.fifths, untilTick: c.corpseEaterHealBank.untilTick } }
+      : {}),
     // ⭐ S189 R190-I — the heal counter, only once a heal has landed.
     ...(c.healedFifths !== undefined && c.healedFifths > 0 ? { healedFifths: c.healedFifths } : {}),
   };
@@ -2809,6 +2820,12 @@ function deserializeCreature(s: SerializedCreature): Creature {
     ...(s.corpseEaterUntilTick !== undefined ? { corpseEaterUntilTick: s.corpseEaterUntilTick } : {}),
     ...(s.corpseEaterAnchor !== undefined
       ? { corpseEaterAnchor: { x: s.corpseEaterAnchor.x, y: s.corpseEaterAnchor.y } }
+      : {}),
+    // ⭐ S192 T12 — validated, never trusted: a positive integer owed and an integer tick, else nothing.
+    ...(s.corpseEaterHealBank !== undefined &&
+    Number.isInteger(s.corpseEaterHealBank.fifths) && s.corpseEaterHealBank.fifths > 0 &&
+    Number.isInteger(s.corpseEaterHealBank.untilTick)
+      ? { corpseEaterHealBank: { fifths: s.corpseEaterHealBank.fifths, untilTick: s.corpseEaterHealBank.untilTick } }
       : {}),
     // ⭐ S189 R190-I — validated, never trusted: a positive integer or nothing (absent reads as 0).
     ...(Number.isInteger(s.healedFifths) && (s.healedFifths as number) > 0 ? { healedFifths: s.healedFifths } : {}),

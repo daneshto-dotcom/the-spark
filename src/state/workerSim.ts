@@ -578,6 +578,7 @@ export function applyTickBatch(
   world.connectorBreakHits.length = 0;
   world.creatureKillHits.length = 0;
   world.structureKillHits.length = 0;
+  world.structureHealHits.length = 0; // ⭐ S192 T11 — the repair heal record, same contract
 
   return {
     type: 'BATCH_RESULT',

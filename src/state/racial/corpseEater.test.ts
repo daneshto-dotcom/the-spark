@@ -205,6 +205,9 @@ describe('S188 CORPSE EATER — heal = damage, capped at max', () => {
     for (let i = 0; i <= FIRST_BITE_TICK; i++) slotTick(w);
     const lost = 1000 - own.ehp;
     expect(lost, 'one bite, the ordinary attackFifths(atk, pen)').toBe(BITE);
+    // ⭐ S192 T12 — the heal is paid over the NEXT cycle in six pulses (`corpseEaterHeal.test.ts`), so
+    // it is measured once the schedule has run out; the next bite banks on that same tick, unpaid.
+    for (let i = 0; i < getCreatureConfig(BOSS).attackCadenceTicks; i++) slotTick(w);
     expect(b.ehp - bossBefore, 'healed exactly what the bite took').toBe(lost);
   });
 
@@ -213,7 +216,8 @@ describe('S188 CORPSE EATER — heal = damage, capped at max', () => {
     const b = bossAtTrigger(w);
     put(w, 't3Scarab', P0, CX + 20); // 28 fifths, far under one bite
     const before = b.ehp;
-    for (let i = 0; i <= FIRST_BITE_TICK; i++) slotTick(w);
+    // S192 T12 — the bite, then its six pulses (the scarab is gone, so no second bite banks).
+    for (let i = 0; i <= FIRST_BITE_TICK + getCreatureConfig(BOSS).attackCadenceTicks; i++) slotTick(w);
     expect(b.ehp - before).toBe(BITE);
   });
 
@@ -223,7 +227,8 @@ describe('S188 CORPSE EATER — heal = damage, capped at max', () => {
     put(w, 't3Scarab', P0, CX + 20);
     slotTick(w); // arm the feed at 20 %
     b.ehp = creatureMaxEhp(b) - 3;
-    for (let i = 1; i <= FIRST_BITE_TICK; i++) slotTick(w);
+    // S192 T12 — through the bite's whole six-pulse schedule.
+    for (let i = 1; i <= FIRST_BITE_TICK + getCreatureConfig(BOSS).attackCadenceTicks; i++) slotTick(w);
     expect(b.ehp).toBe(creatureMaxEhp(b));
   });
 

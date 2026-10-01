@@ -42,7 +42,8 @@
  *
  * A new production file grew a loop over `world.creatures` that filters by `ownerPlayerId`. Decide
  * which it is and act, do NOT just add it to the allowlist:
- *   · it PICKS a victim  ⇒ add the `isUntargetable(c, world.tick)` guard, and a behavioural test;
+ *   · it PICKS a victim  ⇒ gate it with `isLiveCreatureTarget(world, c)` (S192 T13 — it contains the
+ *     `isUntargetable` gate AND the liveness test), and a behavioural test;
  *   · it SWEEPS an area  ⇒ allowlist it WITH A REASON. Area effects must still reach untargetable
  *     units — that is the standing ruling, and reading "cannot be targeted" as invulnerability
  *     would make a 15-second locust cloud unkillable by anything at all.
@@ -66,7 +67,11 @@ const SRC = join(import.meta.dirname, '..');
 function productionFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) productionFiles(full, out);
+    if (statSync(full).isDirectory()) {
+      // ⛔ Pitch Masters (`src/arcade/**`) is a separate project — never enumerated (S193 rule).
+      if (full === join(SRC, 'arcade')) continue;
+      productionFiles(full, out);
+    }
     else if (entry.endsWith('.ts') && !entry.endsWith('.test.ts')) out.push(full);
   }
   return out;
@@ -84,6 +89,10 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'Scorched Ground, stink aura/cloud) landed 0 on a creature, to print a RESIST floater; its enemy ' +
     'scan finds the zombie boss whose AURA covers the creature, exactly as the area effect it mirrors ' +
     'does (`bossSkills.ts`, already a verdict here). Read-only; gating it would hide a real resist.',
+  'state/racial/zombieDeathBlast.ts':
+    'S192 T3 — AREA. The zombie boss death blast splits one pool over EVERYTHING in its radius (the ' +
+    'ownership filter is the optional `spare` seat, off by default — R138 *"hurting everything"*). It ' +
+    'picks no victim; an area effect must still reach untargetable units, the standing ruling.',
   'render/damageNumbers.ts':
     'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
     'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
@@ -175,7 +184,11 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
       // took the gate in P2A, so a file that acquires THROUGH it inherits the refusal exactly as one
       // routing through the chokepoint does. Listing it here rather than granting the Pharaoh a
       // verdict is the honest fix: the file genuinely is guarded, just by a different guarded helper.
-      src.includes('nearestEnemyFor');
+      src.includes('nearestEnemyFor') ||
+      // ⭐ S192 T13 — the liveness predicate CONTAINS the gate (`!isUntargetable(c, world.tick)` is
+      // its last line, pinned by `navUnitIndex.guards.test.ts` and `liveTargetSites.guards.test.ts`),
+      // so a file that picks through it is guarded exactly as one calling the gate directly.
+      src.includes('isLiveCreatureTarget');
       if (guarded) continue;
       const r = rel(f);
       if (r in NOT_ACQUISITION) continue;
@@ -184,7 +197,8 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
     expect(
       offenders,
       'A new production file selects among enemy creatures without consulting the targetability ' +
-        'gate. If it PICKS a victim, add `isUntargetable(c, world.tick)` and a behavioural test. If ' +
+        'gate. If it PICKS a victim, gate it with `isLiveCreatureTarget(world, c)` (the S192 T13 liveness ' +
+        'predicate, which contains `isUntargetable`) and a behavioural test. If ' +
         'it SWEEPS AN AREA, add it to NOT_ACQUISITION with the reason — area effects must still ' +
         'reach untargetable units.',
     ).toEqual([]);

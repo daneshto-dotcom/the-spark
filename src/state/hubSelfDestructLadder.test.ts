@@ -16,6 +16,7 @@
  * blown by the real spawner poll in FIGHT. Everything around it is STUNNED so the only thing acting on
  * the board in the measured tick is the blast.
  */
+import { blastHitAtDistance, blastSplitWeight, splitBlastPool } from './blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import {
   CANVAS_HEIGHT,
@@ -179,7 +180,7 @@ function bankOnStar(w: World, hub: Primitive, fifths: number): void {
 }
 
 describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT and deals 120 IN TOTAL, not a raze', () => {
-  it('five enemy targets share 120 (24 each): chewer dies · boss loses 24 · connector felled · structure shapes untouched · owner untouched', () => {
+  it('five enemy targets share 120 BY DISTANCE (34/29/21/18/18): chewer dies · boss loses 18 · connector felled · structure shapes untouched · owner untouched', () => {
     expect(BLAST).toBe(120);
     const { w, hub, d, st } = hubBoard();
 
@@ -188,10 +189,12 @@ describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT
     const boss = spawn(w, T9_BOSS_TYPE.nagas, P1, 600, 560);
     const loneEnemy = prim(w, P1, SparkType.Triangle, 600, 250);
     const enemyBag = bag(w, P1, 440, 400);
-    // A chain whose FIRST connector's midpoint is inside (230 px) and second's is outside (270 px).
-    const e1 = prim(w, P1, SparkType.Triangle, 810, 400);
-    const e2 = prim(w, P1, SparkType.Triangle, 850, 400);
-    const e3 = prim(w, P1, SparkType.Triangle, 890, 400);
+    // A chain whose FIRST connector's midpoint is inside (99 px) and second's is outside (345 px).
+    // ⭐ S193 — moved in from 230 px: under the distance split a connector at the rim takes 3, too
+    // little to fell it, and this test exists to see a real sever (and its carry) through the host tick.
+    const e1 = prim(w, P1, SparkType.Triangle, 650, 330);
+    const e2 = prim(w, P1, SparkType.Triangle, 690, 330);
+    const e3 = prim(w, P1, SparkType.Triangle, 1200, 330);
     const e12 = link(w, e1, e2);
     const e23 = link(w, e2, e3);
     // A shape INSIDE the blast (190 px) but in a structure whose connector is outside (midpoint 255 px).
@@ -224,26 +227,28 @@ describe('⭐⭐ S191 C-5 — REACH: a hub below a third self-destructs in FIGHT
     expect(w.creatures.has(chewer), 'a chewer (pool 5) dies').toBe(false);
     expect(bossMaxPoolFifths(T9_BOSS_TYPE.nagas), 'anti-vacuity: a tier-9 pool is above 120').toBeGreaterThan(BLAST);
     expect(w.creatures.has(boss), 'pre-fix: the raze DELETED him').toBe(true);
-    // ⭐ S191 (owner): "120 divided by everything that's around it". Five enemy targets are inside —
-    // chewer, boss, lone shape, bag, one connector — so each takes 120 / 5 = 24. (A sixth target
-    // appearing inside would move this number, which is what keeps the count honest.)
-    expect(bossBefore - w.creatures.get(boss)!.ehp, 'the boss loses only his share').toBe(BLAST / 5);
+    // ⭐ S191 (owner): "120 divided by everything that's around it" — ⭐ S193 (R193-B4) BY DISTANCE.
+    // Five enemy targets: e12 99 px (w 141), chewer 120 (120), lone 150 (90), boss 160 (80), bag 160
+    // (80); sum 511 -> floor(120 w / 511) = 33/28/21/18/18 = 118, the 2 left nearest-first -> 34/29/21/18/18.
+    const shares = splitBlastPool(BLAST, [9800, 14400, 22500, 25600, 25600].map((d2) => blastSplitWeight(d2, STRUCTURE_SELFDESTRUCT_RADIUS)));
+    expect(shares).toEqual([34, 29, 21, 18, 18]);
+    expect(bossBefore - w.creatures.get(boss)!.ehp, 'the boss loses only his share').toBe(18);
     expect(w.primitives.has(loneEnemy.id), 'a lone built shape (5) dies').toBe(false);
     expect(w.stinkClouds.has(enemyBag.id), 'a stink bag (5) dies').toBe(false);
     expect(w.bonds.has(e12), 'the connector inside is felled').toBe(false);
-    expect(w.connectorBreakHits, 'and the hit that felled it was its 24').toContainEqual({ bondId: e12, amount: BLAST / 5 });
+    expect(w.connectorBreakHits, 'and the hit that felled it was its 34').toContainEqual({ bondId: e12, amount: 34 });
     const severs = w.effects.filter((e) => e.kind === 'BOND_SEVERED');
     expect(severs.length, 'anti-vacuity: the blast severed something').toBeGreaterThan(0);
     expect(severs.every((e) => e.kind === 'BOND_SEVERED' && e.cause === 'drone'), 'an EXISTING cause, never a new one').toBe(true);
     /*
      * ⭐ S191 (owner) — THE OVERKILL CARRIES (canon §2), and it replaces what this test used to pin (the
-     * 10 of overkill deleted with the struck bond). The chain's pool is 14 (2 connectors); its share, 24,
-     * fells e12 and leaves 10; the survivor re-forms at ONE connector (pool 6), so the 10 fells e23 too —
-     * though e23 is OUTSIDE the blast: the carry walks the structure, not the radius — and the last 4
+     * 10 of overkill deleted with the struck bond). The chain's pool is 14 (2 connectors); its share, 34,
+     * fells e12 and leaves 20; the survivor re-forms at ONE connector (pool 6), so the 20 fells e23 too —
+     * though e23 is OUTSIDE the blast: the carry walks the structure, not the radius — and the last 14
      * has nothing to land on.
      */
     expect(w.bonds.has(e23), 'the carry fells the connector outside the radius').toBe(false);
-    expect(w.connectorBreakHits, 'with the 10 the first sever left').toContainEqual({ bondId: e23, amount: 10 });
+    expect(w.connectorBreakHits, 'with the 20 the first sever left').toContainEqual({ bondId: e23, amount: 20 });
     expect(w.primitives.get(s1.id)?.hp, 'a shape INSIDE a structure has no arm').toBe(PRIMITIVE_MAX_HP);
     expect(w.bonds.get(s12)?.damageFifths, 'and its connector outside took nothing').toBe(0);
     expect(w.players.get(P1)!.castleHp, 'the castle is not an arm').toBe(enemyCastle);
@@ -300,7 +305,7 @@ describe('S191 C-5 — every arm, exactly', () => {
     expect(w.primitives.get(turretAnchor.id)?.hp, 'its anchor is a shape in a structure: no arm').toBe(PRIMITIVE_MAX_HP);
   });
 
-  it('a 5-connector tower wholly inside SHARES the 120 (24 a connector); its structure-wide pool decides how many fall', () => {
+  it('a 5-connector tower wholly inside SHARES the 120 by distance (27 27 23 23 20); its structure-wide pool decides how many fall', () => {
     const w = board();
     const hub = prim(w, P1, SparkType.Dot, 700, 400);
     const bonds: BondId[] = [];
@@ -309,9 +314,11 @@ describe('S191 C-5 — every arm, exactly', () => {
       bonds.push(link(w, hub, prim(w, P1, SparkType.Square, 700 + Math.cos(a) * 40, 400 + Math.sin(a) * 40)));
     }
     hubBlast(w);
-    // 24 + 24 bank 48 < 50; the third 24 fells one (pool 50), the fourth another (36), the fifth a third
-    // (24). Pre-split each took its own 120 and all five fell.
-    expect(w.connectorBreakHits.map((h) => h.amount)).toEqual([24, 24, 24]);
+    // ⭐ S193 R193-B4 — the five midpoints are 84.6 / 84.6 / 107.9 / 107.9 / 120 px out, so the 120 splits
+    // 27 27 23 23 20 (`splitBlastPool`), nearest first; the structure-wide pool falls 50 -> 36 -> 24 as
+    // connectors go, so three of the five shares land a break. Pre-split each took its own 120.
+    expect(splitBlastPool(BLAST, [84.64, 84.64, 107.87, 107.87, 120].map((d) => blastSplitWeight(d * d, STRUCTURE_SELFDESTRUCT_RADIUS)))).toEqual([27, 27, 23, 23, 20]);
+    expect(w.connectorBreakHits.map((h) => h.amount)).toEqual([27, 23, 20]);
     expect(bonds.filter((b) => w.bonds.has(b)).length, 'two connectors still stand').toBe(2);
   });
 
@@ -426,9 +433,9 @@ describe('S191 C-5 — every arm, exactly', () => {
     expect(after, 'anti-vacuity: the blast changed the world').not.toBe(before);
     expect(hashWorldStateFull(b), 'B = A after the blast').toBe(after);
     expect(hashWorldStateFull(c), 'C = A after the blast').toBe(after);
-    // And the remainder went where the order says: the lower-id boss of the tied pair.
-    expect(bossPool - a.creatures.get(bossA)!.ehp).toBe(18);
-    expect(bossBPool - a.creatures.get(bossB)!.ehp).toBe(17);
+    // ⭐ S193 R193-B4 — by distance the two tied bosses (50 px, weight 190) take 21 each.
+    expect(bossPool - a.creatures.get(bossA)!.ehp).toBe(21);
+    expect(bossBPool - a.creatures.get(bossB)!.ehp).toBe(21);
   });
 });
 
@@ -452,7 +459,7 @@ describe('⭐⭐ S191 (owner) — the blast is 120 IN TOTAL, split across every 
     expect(before - w.creatures.get(boss)!.ehp).toBe(BLAST);
   });
 
-  it('SEVEN targets: 17 each, the one-point remainder to the NEAREST, exactly 120 in total — and the boss among them loses only his 17', () => {
+  it('SEVEN targets share 120 BY DISTANCE (closer = more), exactly 120 in total — and the boss among them loses only his 26', () => {
     const w = board();
     // A chain of 11 enemy shapes: its first six connectors' midpoints are inside (45…195 px), the other
     // four outside, so the structure-wide pool (10 connectors = 150) is never reached and each bond's
@@ -470,8 +477,9 @@ describe('⭐⭐ S191 (owner) — the blast is 120 IN TOTAL, split across every 
     hubBlast(w);
     const banked = inside.map((b) => w.bonds.get(b)!.damageFifths);
     const bossLost = before - w.creatures.get(boss)!.ehp;
-    expect(banked, 'the nearest (45 px) takes the remainder').toEqual([18, 17, 17, 17, 17, 17]);
-    expect(bossLost, 'the boss loses only his share').toBe(17);
+    // ⭐ S193 R193-B4 — weights max(1, floor(240 - d)): 195 (45 px) · 190 (boss, 50) · 165 · 135 · 105 · 75 · 45.
+    expect(banked, 'closer takes more').toEqual([26, 22, 18, 14, 9, 5]);
+    expect(bossLost, 'the boss loses only his share').toBe(26);
     expect(banked.reduce((a, b) => a + b, 0) + bossLost, 'exactly 120 in total').toBe(BLAST);
     for (const b of chain.slice(6)) expect(w.bonds.get(b)!.damageFifths).toBe(0);
   });
@@ -560,7 +568,8 @@ describe('⭐ S191 (owner) — BLAST-1: a bag the hub blast pops still bursts, a
     const thirdPool = w.creatures.get(third)!.ehp;
     hubBlast(w);
     expect(w.stinkClouds.has(enemyBag.id)).toBe(false);
-    expect(thirdPool - w.creatures.get(third)!.ehp, 'the burst is the bag\'s own 1 ATK / 1 PEN').toBe(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+    // ⭐ S193 R193-B4 — the burst is the bag's own 1 ATK / 1 PEN, scaled by the 72.8 px to its centre.
+    expect(thirdPool - w.creatures.get(third)!.ehp, 'the burst is the bag\'s own 1 ATK / 1 PEN').toBe(blastHitAtDistance(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), 70 * 70 + 20 * 20, STINK_BAG_RADIUS));
 
     // The same bag popped by an ordinary blow: the hub owner is NOT spared — the S158 A2 rule stands.
     const w2 = board();
@@ -568,7 +577,7 @@ describe('⭐ S191 (owner) — BLAST-1: a bag the hub blast pops still bursts, a
     const ownBoss = spawn(w2, T9_BOSS_TYPE.nagas, P0, 900, 400);
     const ownPool = w2.creatures.get(ownBoss)!.ehp;
     damageEntity(w2, { kind: 'stinkCloud', id: bag2.id }, 5, 'creature', null, 'physical');
-    expect(ownPool - w2.creatures.get(ownBoss)!.ehp).toBe(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+    expect(ownPool - w2.creatures.get(ownBoss)!.ehp).toBe(blastHitAtDistance(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), 70 * 70, STINK_BAG_RADIUS));
   });
 });
 

@@ -162,14 +162,14 @@ describe('S158 P7 — area damage reaches her again', () => {
   it('⭐ a blast in range hurts HELGA on the UNIT scale', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL - 3);
   });
 
   it('⛔ the same blast does nothing to a TOWER — the S151 note still holds for towers', () => {
     const w = make1v1();
     const t = plant(w, 'turret', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(t.id)!.ehp).toBeNull();
     expect(w.defenders.has(t.id)).toBe(true);
   });
@@ -177,14 +177,14 @@ describe('S158 P7 — area damage reaches her again', () => {
   it('a blast SPARES the owner\'s own princess', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 0, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical'); // spare = P0, who owns her
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance'); // spare = P0, who owns her
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 
   it('and one out of range is untouched', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 900, 900);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 });
@@ -446,7 +446,7 @@ describe('S158 P7 — end to end, through the real host tick', () => {
   it('CONTROL — P1 is spared by P1\'s own blast, so the spare is owner-scoped not seat-0-scoped', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P1, 'physical');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P1, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 });

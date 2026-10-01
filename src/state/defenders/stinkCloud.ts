@@ -129,6 +129,7 @@ export function stinkCloudTick(world: World, c: StinkCloud, radialDamage: Radial
     'aura', c.ownerPlayerId,
     // ⭐ S192 — HIS (spec Q-C, *"Sure."*): the cloud is the aura's own smell, so it is MAGIC like the aura.
     magicDot(Math.floor(world.tick / STINK_AURA_CADENCE_TICKS)),
+    'flat', // S193 — the lingering cloud is damage over time, not a blast (its landing hit is)
   );
   return true;
 }

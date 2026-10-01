@@ -61,6 +61,8 @@ import {
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { getDefenderConfig } from './defenders/defender.ts';
 export type { DamageClass } from './magicResist.ts';
+import { creatureKillCredit, type KillCredit } from './racial/killCredit.ts'; // ⭐ S192 T2
+import { blastHitAtDistance } from './blastFalloff.ts'; // ⭐ S193 R193-B4
 
 /** What is being damaged. Discriminated so a caller cannot pass a bare number id to the wrong family. */
 export type DamageTarget =
@@ -155,6 +157,14 @@ export function damageEntity(
    * one is untouched. `amount` stays the SWING (lifesteal heals the swing, as it does before a keep's DEF).
    */
   cls: DamageClass,
+  /**
+   * ⭐ S192 (owner T2) — WHO GETS THE KILL, when it is not the live attacker. Omitted = derived from a
+   * creature `attacker` at this blow (`creatureKillCredit`), which is every ordinary strike. Passed
+   * explicitly ONLY by a blast whose dealer is gone — the zombie boss's death blast credits
+   * `{ seat: his owner, type: zombie boss }` with a `null` attacker, so nobody retaliates against or
+   * heals from a dead boss, and THE RISEN still raises. Read only at the death decision.
+   */
+  credit?: KillCredit,
 ): boolean {
   void source; // attribution only for now — see DamageSource
   /*
@@ -250,7 +260,10 @@ export function damageEntity(
       }
       const died = damageCreature(
         world, target.id, landed, world.pendingCreatureDeaths ?? undefined,
-        attacker !== null && attacker.kind === 'creature' ? attacker.id : null,
+        // ⭐ S192 T2 — the credit resolved NOW, while the dealer is still readable.
+        credit !== undefined
+          ? credit
+          : attacker !== null && attacker.kind === 'creature' ? creatureKillCredit(world, attacker.id) : null,
       );
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
         applyLifesteal(world, attacker, amount);
@@ -441,7 +454,7 @@ export function damageStinkCloud(
     attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
     'hazard', owner,
     'physical', // S192 — a bag BLOWS UP (R192-M3)
-    burstAlsoSpares,
+    'distance', burstAlsoSpares, // ⭐ S193 R193-B4 — the bag's burst is a blast
   );
   return true;
 }
@@ -781,6 +794,9 @@ function onDefenderDestroyed(world: World, d: Defender): void {
   if (d.kind === 'stinkTower') stinkDeathBlast(world, d, applyRadialDamage);
 }
 
+/** ⭐ S193 R193-B4 — how an area's hit varies over its radius (see `applyRadialDamage`'s `falloff`). */
+export type RadialFalloff = 'distance' | 'flat';
+
 export interface RadialDamageResult {
   readonly primitivesHit: number;
   readonly creaturesHit: number;
@@ -801,8 +817,8 @@ export interface RadialDamageResult {
  *     point of the S138 damage substrate — invisible to the newest damage source in the game.
  *  2. **Its predicate filters CREATURES ONLY.** The `creatureKill` callback gates the creature loop;
  *     the primitive loop took no predicate at all until S157 P0 gave it one (`primKill`). (⚠ S191: the
- *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; only the
- *     zombie boss's R138 raze does.) A bag that flattens the thrower's own tower is not a mechanic, it
+ *     lightning hub no longer uses it — its blast is 120 fifths on the ladder, `planHubBlast`; and since
+ *     S192 the zombie boss's death blast is its own split pool too, so no production blast does.) A bag that flattens the thrower's own tower is not a mechanic, it
  *     is a bug.
  *  3. **It never consults `world.defenders`.** A blast that cannot hurt a tower cannot be counterplay
  *     to towers.
@@ -813,9 +829,12 @@ export interface RadialDamageResult {
  * snapshot — sorting is what makes the damage order identical on both, which is what keeps the state
  * hash agreeing. Copy the discipline, never the body.
  *
- * ⚠ NO FALLOFF, deliberately. Falloff needs a rounding rule, and a rounded fraction at the rim is
- * exactly how a host and a `?worker=1` mirror end up disagreeing by one hp. Flat integers cannot
- * drift, and `damageEntity` throws on a fraction anyway.
+ * ⭐⭐ S193 (owner R193-B4) — **A BLAST FALLS OFF WITH DISTANCE NOW.** This said *"NO FALLOFF,
+ * deliberately"*, because a rounded fraction at the rim could split host and worker by one hp. The
+ * rounding rule is now ONE pure integer function (`blastFalloff.ts`, `blastHitAtDistance` — floor, then
+ * at least 1), fed the victim's squared distance at collection time and a correctly-rounded `Math.sqrt`,
+ * so every peer computes the same integer. The `falloff` parameter is required: `'distance'` for every
+ * blast, `'flat'` only for the two damage-over-time areas.
  *
  * `sparePlayerId` is the OWNER FILTER: pass the blast owner's seat and nothing they own is touched.
  * ⚠ Ownership is a DIFFERENT FIELD per family and they are not interchangeable. Creatures and
@@ -855,6 +874,15 @@ export function applyRadialDamage(
   /** ⭐ S192 — REQUIRED: one blast, one class, forwarded to all three arms. */
   cls: DamageClass,
   /**
+   * ⭐⭐ S193 (owner R193-B4) — *"the closer you are to the blast side, the more damage you take"*.
+   * REQUIRED, so every caller answers: `'distance'` for a BLAST (each hit scaled by
+   * `blastHitAtDistance` — full at the centre, `BLAST_EDGE_FLOOR_PERCENT` at the rim, floor 1);
+   * `'flat'` ONLY for a damage-over-time AREA that is not a blast (the stink aura and a landed bag's
+   * lingering cloud — 1 fifth a second, which no falloff could lower). `blastFalloff.census.test.ts`
+   * pins which sites may say `'flat'`.
+   */
+  falloff: RadialFalloff,
+  /**
    * ⭐ S191 BLAST-1 — ONE MORE seat to spare, for the one blast that has two owners to respect (a bag
    * the lightning hub popped: the bag's owner AND the hub's — `damageStinkCloud`). Optional, `null` for
    * every other caller, so each of them is byte-identical.
@@ -864,11 +892,16 @@ export function applyRadialDamage(
   const r2 = radius * radius;
   const spared = (seat: PlayerId): boolean =>
     (sparePlayerId !== null && seat === sparePlayerId) || (alsoSparePlayerId !== null && seat === alsoSparePlayerId);
-  const inRange = (x: number, y: number): boolean => {
+  const d2Of = (x: number, y: number): number => {
     const dx = x - cx;
     const dy = y - cy;
-    return dx * dx + dy * dy <= r2;
+    return dx * dx + dy * dy;
   };
+  const inRange = (x: number, y: number): boolean => d2Of(x, y) <= r2;
+  // ⭐ S193 R193-B4 — each victim's hit, read off its distance at COLLECTION time (before anything moves).
+  const hit = (full: number, x: number, y: number): number =>
+    falloff === 'distance' ? blastHitAtDistance(full, d2Of(x, y), radius) : full;
+  const amountOf = new Map<string, number>(); // a LOOKUP keyed by family:id; decisions never iterate it
 
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
@@ -876,21 +909,30 @@ export function applyRadialDamage(
     // ⚠ S191 — written out (not `spared(...)`) so `untargetableCallSites.test.ts` still SEES this area
     // scan's owner filter: its census matches `ownerPlayerId … ===` and a helper call hid it.
     if ((sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && c.ownerPlayerId === alsoSparePlayerId)) continue;
-    if (inRange(c.pos.x, c.pos.y)) creatureVictims.push(cid);
+    if (inRange(c.pos.x, c.pos.y)) {
+      creatureVictims.push(cid);
+      amountOf.set(`c:${cid}`, hit(unitAmountFifths, c.pos.x, c.pos.y));
+    }
   }
   creatureVictims.sort((a, b) => (a as number) - (b as number));
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
     if ((sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && dd.ownerPlayerId === alsoSparePlayerId)) continue;
-    if (inRange(dd.pos.x, dd.pos.y)) defenderVictims.push(did);
+    if (inRange(dd.pos.x, dd.pos.y)) {
+      defenderVictims.push(did);
+      amountOf.set(`d:${did}`, hit(unitAmountFifths, dd.pos.x, dd.pos.y));
+    }
   }
   defenderVictims.sort((a, b) => (a as number) - (b as number));
 
   const primVictims: PrimitiveId[] = [];
   for (const [pid, p] of world.primitives) {
     if (spared(p.placedBy)) continue;
-    if (inRange(p.pos.x, p.pos.y)) primVictims.push(pid);
+    if (inRange(p.pos.x, p.pos.y)) {
+      primVictims.push(pid);
+      amountOf.set(`p:${pid}`, hit(primitiveAmount, p.pos.x, p.pos.y));
+    }
   }
   primVictims.sort((a, b) => (a as number) - (b as number));
 
@@ -914,7 +956,7 @@ export function applyRadialDamage(
    * counted by `damage.callSites.test.ts`, and the same answer for all three arms below.
    */
   for (const cid of creatureVictims) {
-    damageEntity(world, { kind: 'creature', id: cid }, unitAmountFifths, source, null, cls);
+    damageEntity(world, { kind: 'creature', id: cid }, amountOf.get(`c:${cid}`)!, source, null, cls);
   }
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
@@ -929,10 +971,10 @@ export function applyRadialDamage(
    * function and swapping them typechecks, which is why the signature documents them at length.
    */
   for (const did of defenderVictims) {
-    damageEntity(world, { kind: 'defender', id: did }, unitAmountFifths, source, null, cls);
+    damageEntity(world, { kind: 'defender', id: did }, amountOf.get(`d:${did}`)!, source, null, cls);
   }
   for (const pid of primVictims) {
-    damageEntity(world, { kind: 'primitive', id: pid }, primitiveAmount, source, null, cls);
+    damageEntity(world, { kind: 'primitive', id: pid }, amountOf.get(`p:${pid}`)!, source, null, cls);
   }
 
   return {

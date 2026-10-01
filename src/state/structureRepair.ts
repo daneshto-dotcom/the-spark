@@ -495,9 +495,17 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
   // `planStructureRepair` and `consumePayments` above has already taken it; the heal itself is
   // unchanged. Attrition still bites hardest where R16 puts it — on connectors that actually died —
   // but a dent is no longer worth nothing.
+  // ⭐ S192 (owner T11) — sum what this repair RESTORES, for the one green number (`structureHealHits`).
+  let restored = 0;
+  const refilledKeys: string[] = [];
   for (const id of byNode.values()) {
     const p = world.primitives.get(id);
-    if (p !== undefined) p.hp = PRIMITIVE_MAX_HP;
+    if (p === undefined) continue;
+    if (p.hp < PRIMITIVE_MAX_HP) {
+      restored += PRIMITIVE_MAX_HP - p.hp;
+      refilledKeys.push(`p:${p.id}`);
+    }
+    p.hp = PRIMITIVE_MAX_HP;
   }
   // ⭐ S151 P2 (owner R76) — HEAL THE CONNECTORS. This replaces restoring a tower hp pool that no
   // longer exists. Clearing accumulated damage restores FULL durability rather than a captured
@@ -506,7 +514,19 @@ export function applyRepairStructure(world: World, action: RepairStructureAction
   // before. Nothing to rebalance-drift against: there is no stored ceiling to go stale.
   for (const bondId of bondIdsWithin(world, new Set(byNode.values()))) {
     const b = world.bonds.get(bondId);
-    if (b !== undefined) b.damageFifths = 0;
+    if (b === undefined) continue;
+    restored += b.damageFifths;
+    b.damageFifths = 0;
+  }
+  /*
+   * ⭐⭐ S192 (owner T11) — *"when a tower heals or anything … every healing should show"*. ONE record per
+   * repair, the TOTAL restored (connector banks cleared + shape HP refilled), at the frame centre the
+   * BOND_FORMED cue below also uses. One number, not one per connector (the research's recommendation,
+   * MINE until he says otherwise). A repair that restored nothing (only missing nodes re-minted) prints
+   * nothing here; the re-minted shapes are first sightings, so they print nothing either.
+   */
+  if (restored > 0) {
+    world.structureHealHits.push({ x: frame.cx, y: frame.cy, owner: player.id, amount: restored, keys: refilledKeys });
   }
 
   // ── ARM THE MATCHER ─────────────────────────────────────────────────────────────────────────
