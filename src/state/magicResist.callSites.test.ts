@@ -113,6 +113,9 @@ export function collectBypasses(): Record<string, number> {
     ['damageFifths+=', /damageFifths\s*\+=/g],
     ['damageCreature(', /(?<!function\s)\bdamageCreature\(/g],
     ['damageStinkCloud(', /(?<!function\s)\bdamageStinkCloud\(/g],
+    // ⭐ S193 (audit LOW) — the two other spellings of a direct write; 0 today, so absent from the pin below.
+    ['ehp=…ehp-', /\.ehp\s*=\s*[^;]*\.ehp\s*-/g],
+    ['castleHp-=', /castleHp\s*-=/g],
   ];
   const out: Record<string, number> = {};
   for (const file of productionSources(join(ROOT, 'src'))) {
@@ -155,7 +158,7 @@ describe('S192 — the attack-class census of every production damage call', () 
     expect(tally).toEqual({
       // ── MAGIC (R192-M2) ──
       // the ONE Ra column (S191/S192 `landRaColumn`): POWER / WRATH OF RA, the bot cast AND the Pharaoh boss's
-      // ritual (R190-E). Magic PER SHARE — each split share is rescaled by its own target (`magicResist.raShare.test.ts`).
+      // ritual (R190-E). Magic PER SHARE — each split share is rescaled by its own target (`magicResist.reach.test.ts`).
       'src/state/racial/raColumn.ts damageConnector magic': 1, // a structure's share
       'src/state/racial/raColumn.ts damageEntity magic': 1, // a creature / Helga / shape / bag share
       'src/state/creatures/voltkinChain.ts damageEntity magic': 1, // chain — creature hop

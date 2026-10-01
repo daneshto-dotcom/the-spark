@@ -21,7 +21,7 @@
  * from the beat number and the id, and exactly 1 per beat at MRES = DEF. ⭐ HIS (S192, spec Q-D): at MRES > DEF
  * some beats land 0 — *"A very magic resistant unit … can be totally resistant to very low level magic, I
  * accept that, but we need to predefine … how it would look like."* The look is the RESIST floater
- * (`render/resistFloaters.ts`, ⚠ MINE).
+ * (derived in `state/magicResistCue.ts`, printed by `render/damageNumbers.ts`; ⚠ MINE look).
  *
  * ## Determinism / wire
  *

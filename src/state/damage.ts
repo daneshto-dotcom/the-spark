@@ -209,7 +209,9 @@ export function damageEntity(
      * hit, so a high DEF cannot make a keep immune to small attackers.
      */
     // ⭐ S192 — a MAGIC hit is defended by the keep's MRES level instead of its DEF level, by the
-    // same formula (`floor(A·5/(5+level))`, min 1). `castleMresLevel` = its DEF level (⚠ MINE, spec Q2).
+    // same formula (`floor(A·5/(5+level))`, min 1). `castleMresLevel` is its OWN bought axis (⭐ HIS, R192-M9:
+    // starting MRES = starting DEF, then the separate `'mres'` castle upgrade; a bought DEF point no longer
+    // raises it). Until S193 this comment said "= its DEF level (⚠ MINE, spec Q2)" — superseded.
     const taken = isMagicClass(cls)
       ? magicHitFifths(amount, 0, castleMresLevel(seat.castleUpgrades))
       : castleDamageAfterDefence(amount, seat.castleUpgrades);
