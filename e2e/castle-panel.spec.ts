@@ -98,9 +98,13 @@ test.describe('S136 P0 — castle context panel', () => {
      *
      * ⭐ S188 P3 — SEVEN, and still a literal for the same reason: the four castle-stat rows (HP /
      * ATK / DEF / PEN, the S187 sim wired to a button at last) joined the list.
+     *
+     * ⭐ S193 R192-W1 — EIGHT, still a literal: FIX ALL (*"a button on your castle saying fix all"*) is
+     * the TOP row (canon §3d keeps the four stat rows directly under REGEN).
      */
     expect(open.rowCenters.map((r) => r.key))
       .toEqual([
+        'fixAll',
         'buyGatherer', 'upgradeSpeed', 'castleRegen',
         'castleHp', 'castleAtk', 'castleDef', 'castlePen',
       ]);
