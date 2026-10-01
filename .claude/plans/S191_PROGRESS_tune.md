@@ -152,3 +152,4 @@ IN FLIGHT (NOT applied yet):
   4. Tests: arithmetic; REACH boss column 35 split; WRATH seat cast 75 split + its Pharaoh 75; non-WRATH 35;
      negative; mutation; host-vs-worker wide hash. Gates. Commit each step.
 - ROUND 3 step A DONE: APEX ×6 applied (script + theSwarm literal-source guard; canon §3e + pins). Mutations: APEX written as 2*3 → theSwarm red; APEX 9 → 4 red. NEXT: Ra 35/75 (raColumn.ts).
+- ROUND 3 step B (Ra 35/75): core `wip` commits; census re-pins; raColumnS192.test (9); mutations M10 no-WRATH → 4 red, M11 boss spares owner → 1 red, M12 boss pool ignores owner → 1 red; canon §3e + pins; CANON_NOTES item 4 + §6 reason 4. NEXT: full gates.

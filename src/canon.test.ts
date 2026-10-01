@@ -145,8 +145,8 @@ import {
   CORPSE_EATER_TICKS,
   CORPSE_EATER_TRIGGER_PCT,
 } from './state/racial/corpseEater.ts';
-import { RA_PERK_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
-import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN } from './constants.ts';
+import { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
+import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
@@ -714,9 +714,14 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(RA_PERK_STRIKE_FIFTHS).toBe(attackFifths(RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN));
     expect(RA_PERK_STRIKE_FIFTHS).toBe(35); // his "we can do it 35 per hit"
     expect(RA_PERK_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
-    expect(canonSays(
-      `\`attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)\` = **${attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN)}** on EVERY victim, unsplit`,
-    )).toBe(true);
+    // ⭐ S192 — the Pharaoh boss's column is this column: 35, or 75 for a WRATH OF RA owner; 300 is retired.
+    expect(RA_WRATH_STRIKE_FIFTHS).toBe(attackFifths(RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN));
+    expect(RA_WRATH_STRIKE_FIFTHS).toBe(75); // his "up to 75"
+    expect(RA_WRATH_STRIKE_FIFTHS).not.toBe(attackFifths(RA_COLUMN_ATK, RA_COLUMN_PEN));
+    expect(canonSays('THE PHARAOH BOSS\'S COLUMN IS THIS COLUMN')).toBe(true);
+    expect(canonSays(`**${RA_PERK_STRIKE_FIFTHS}**, or **${RA_WRATH_STRIKE_FIFTHS}**`)).toBe(true);
+    expect(canonSays(`\`attackFifths(RA_WRATH_COLUMN_ATK ${RA_WRATH_COLUMN_ATK}, RA_WRATH_COLUMN_PEN ${RA_WRATH_COLUMN_PEN})\``)).toBe(true);
+    expect(canonSays(`(**${RA_WRATH_STRIKE_FIFTHS}** — \`RA_WRATH_STRIKE_FIFTHS\` — once the seat holds WRATH OF RA)`)).toBe(true);
     expect(RA_COLUMN_TICKS).toBe(2 * PHYSICS_HZ); // "five columns two seconds apart"
     expect(canonSays(
       `\`RA_COLUMN_COUNT\` = **${RA_COLUMN_COUNT}**, one every \`RA_COLUMN_TICKS\` = **${RA_COLUMN_TICKS}**` +
@@ -819,7 +824,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(perkDraftIndex('mummies.l10')).toBe(2);
     expect(RACIAL_PERK_REQUIRES['mummies.l10']).toBe('mummies.l0');
     expect(WRATH_OF_RA_CHARGES).toBe(3); // his "times three"
-    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each exactly POWER OF RA's strike (${RA_COLUMN_COUNT} columns × **${RA_PERK_STRIKE_FIFTHS}** fifths, split, over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
+    expect(canonSays(`\`WRATH_OF_RA_CHARGES\` = **${WRATH_OF_RA_CHARGES}** a FIGHT, each POWER OF RA's strike at the WRATH number (${RA_COLUMN_COUNT} columns × **${RA_WRATH_STRIKE_FIFTHS}** fifths, split, over **${RA_COLUMN_RADIUS}** px)`)).toBe(true);
     expect(existsSync(new URL('../public/art/skills/wrath-of-ra.webp', import.meta.url))).toBe(true);
     expect(canonSays('`public/art/skills/wrath-of-ra.webp`')).toBe(true);
     expect(canonSays('WRATH OF RA IS POWER OF RA THREE TIMES A FIGHT, AND NOTHING ELSE')).toBe(true);

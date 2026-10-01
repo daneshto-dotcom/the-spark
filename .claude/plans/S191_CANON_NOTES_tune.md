@@ -151,3 +151,29 @@ stats". `statsLadder.test` keeps the elite's derived lane (HP 18 is off 1..12). 
 and canon.test in the S192 round-3 commit.
 §6 reason 3 now reads: APEX PREDATOR 3 -> 6 (elite 18 / 0 / 12 / 6: pool 90, bite 132); a v52 sim emits a
 45-pool elite with a 48 bite.
+
+## ITEM 4 (S192 round 3) — the Pharaoh BOSS column = the perk column; WRATH OF RA → 75 for the seat
+
+Owner (S192): *"the [Ra] column, Pharaoh boss should not keep … his 300. That's ridiculous. He goes down to 35
+per column, just like a regular column attack. And once we have Ra's Wrath at … level 10, once we have that
+ability, then each column goes … up to 75. And also Pharaoh's become 75. Okay? If the player chose that ability."*
+
+Built: `src/state/racial/raColumn.ts` — `landRaColumn` / `raColumnTargets` / `raSplitShares` and
+`raColumnPoolFor(world, seat)` (the ONLY source of the number: 75 when the seat `seatHoldsPerk(…, 'mummies.l10')`,
+else 35; read at LANDING from the column's OWNER — the caster for the perk, `ownerPlayerId` for a boss).
+`RA_WRATH_COLUMN_ATK 5 / PEN 10` → `RA_WRATH_STRIKE_FIFTHS` = 75 (⚠ MINE pair; 15/0, 3/20, 1/70 also give 75).
+The boss's ritual (`bossSkillsPharaohRitual.ts`) calls `landRaColumn(world, { spare: null, owner:
+boss.ownerPlayerId, severCause: 'unit' }, pos)`: still spares NOBODY (his own seat included — unchanged), one
+target per structure, and it now CUTS CONNECTORS (sever credited to his seat, `cause: 'unit'`, ⚠ MINE) where it
+used to raze every shape in the circle. `RA_COLUMN_ATK/PEN` (15/15 = 300) are retired from the sim, kept documented.
+Applied to SPARK_CANON §3e (POWER OF RA row, WRATH row, the POWER OF RA paragraph) and canon.test in the round-3 commit.
+
+### §6 reason 4 (add to the docblock above)
+```
+ *   4. THE PHARAOH BOSS'S Ra COLUMN (S192, owner: "He goes down to 35 per column, just like a regular
+ *      column attack … And also Pharaoh's become 75 … If the player chose that ability") — his ritual
+ *      lands through the perk's `landRaColumn` (one target per structure, connectors cut, nobody
+ *      spared); `raColumnPoolFor` = 35, or 75 when the column's OWNER seat holds WRATH OF RA — which also
+ *      raises that seat's POWER OF RA cast, its three WRATH charges and its bot cast to 75. A v52 host
+ *      or successor lands 300 on every unit and shape in the circle — a different world.
+```
