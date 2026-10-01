@@ -1600,10 +1600,9 @@ import {
 } from './state/magicResist.ts';
 import {
   CASTLE_BASE_MRES_LEVEL, CASTLE_UPGRADE_MAX_LEVEL as MRES_CASTLE_MAX, CASTLE_UPGRADE_PRICE as MRES_CASTLE_PRICE,
-  castleMagicDamageAfterResist, castleMresLevelOf, emptyCastleUpgrades, withCastlePurchase,
+  castleMagicDamageAfterResist, castleMresLevelOf, withCastlePurchase,
 } from './state/castleUpgrades.ts';
 import { RESIST_MIN_GAP_TICKS, RESIST_TEXT } from './render/damageNumbers.ts';
-import { PHYSICS_HZ } from './constants.ts';
 
 describe('§2b MAGIC RESISTANCE is bound to the code', () => {
   it('the rule and the worked case: the Archdemon DEF 8 / MRES 14 — magic 300 lands 205', () => {
