@@ -35,6 +35,8 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
+// ⭐ S193 audit HIGH — the endgame build lock (BUILD of wave 27 on) refuses PLACE/PULL/BUILD_BLUEPRINT.
+import { isBuildLocked } from '../state/endgame.ts';
 /*
  * ⭐ S155 P7 (owner) — THE FOG APPLIES TO BOTS NOW. Owner: *"not fair if bots see evcerything"*.
  * `vision.ts` was hardcoded to `world.localPlayerId` and consumed only by the renderer, so the fog
@@ -633,7 +635,14 @@ export function chooseGoal(
   // shift every downstream number and break all of them. `chooseTowerPlan` and `chooseTowerOrder` are
   // both pure functions of world state in canonical order — the `ALL_SPARK_TYPES.find` idiom
   // botController.ts:196 already uses for exactly this reason.
-  const tower = chooseTowerPlan(world, seat, cfg);
+  /*
+   * ⛔ S193 audit HIGH (live on deploy #20) — UNDER THE ENDGAME BUILD LOCK NOTHING CAN BE BUILT, so the
+   * TOWER branch and the whole loose-BUILD block (BUILD / ORDER / PULL) are skipped. Before this, a bot
+   * stood still proposing placements the reducer refused (~9.8k `endgameBuildLocked` rejects per 60 s
+   * across three bots) and never reached the FEED the owner allowed: *"they can build more goblins"*.
+   */
+  const buildLocked = isBuildLocked(world);
+  const tower = buildLocked ? null : chooseTowerPlan(world, seat, cfg);
   if (tower !== null) return { kind: 'TOWER', blueprintId: tower.blueprintId, centre: tower.centre };
 
   // ⭐ 6c — S193 (owner §10 Q4): *"build goblin tower first and then buy goblins with leftover shapes"*.
@@ -646,7 +655,7 @@ export function chooseGoal(
   // 7 — BUILD: the bread and butter. Idle-only: claiming while Carrying
   // throws carry-1 (the controller self-heals that state before thinking,
   // but the brain must never PROPOSE it).
-  if (buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
+  if (!buildLocked && buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
     /*
      * ⛔ S154 AMENDMENT A — THE SAVE IS NOT HERE, AND THE REASON IS A MEASUREMENT.
      *
@@ -969,8 +978,16 @@ export function chooseFeed(
   cfg: BotConfig,
 ): { spawnerId: SpawnerId; sparkType: SparkType } | null {
   const policy = personaOf(cfg).feed;
-  if (policy === 'never') return null;
-  const reserveNothing = policy === 'eager' && world.matchPhase === 'FIGHT';
+  /*
+   * ⭐ S193 audit HIGH — UNDER THE ENDGAME BUILD LOCK EVERY BOT FEEDS AND RESERVES NOTHING. No tower can
+   * be stamped again, so a bill reserve would hoard shapes forever; FEED_TOWER is allowed by the lock
+   * (owner: *"they can build more goblins"*). ⚠ MINE: this includes `feed: 'never'` personalities —
+   * the shapes have no other use left, and a bot sitting on a full bank through waves 27–31 is the
+   * passivity the owner keeps reporting.
+   */
+  const locked = isBuildLocked(world);
+  if (policy === 'never' && !locked) return null;
+  const reserveNothing = locked || (policy === 'eager' && world.matchPhase === 'FIGHT');
   const target = reserveNothing ? null : chooseTargetBlueprint(world, seat, cfg);
   const reserve = target === null ? null : blueprintBill(target);
 

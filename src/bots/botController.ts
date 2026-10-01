@@ -46,6 +46,7 @@ import type { Player } from '../game/player.ts';
 import { pickRedundantBondTargets } from '../input/redundantBondTargets.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { isEliminated } from '../state/elimination.ts';
+import { isBuildLocked } from '../state/endgame.ts';
 import { ALL_SPARK_TYPES } from '../constants.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
@@ -193,6 +194,20 @@ export class BotController {
     // ── per-tick state validation (Council F1 fix: invalidate stale targets
     //    the tick they die, not on the next think) ─────────────────────────
     this.validateState(world, me.kind === 'Carrying');
+
+    /*
+     * ⛔ S193 audit HIGH — UNDER THE ENDGAME BUILD LOCK A CARRIED SHAPE CAN NEVER BE PLACED, so drop it
+     * and go IDLE. Before this the HAUL arm re-sent a refused PLACE_PRIMITIVE every tick for the rest of
+     * the match (the reducer's lock gate keeps the carry), and the self-heal below re-armed it from IDLE.
+     * DROP_SPARK is allowed under the lock (`ENDGAME_LOCK_INTENT_POLICY`). Checked before the self-heal
+     * and before the stuck guard so neither can re-route the shape into another doomed haul.
+     */
+    if (isBuildLocked(world) && me.kind === 'Carrying') {
+      send({ type: 'DROP_SPARK', playerId: this.seat, pos: { x: me.avatarPos.x, y: me.avatarPos.y } });
+      this.state = { kind: 'IDLE' };
+      this.vel = 0;
+      return; // `me` is stale after the drop; think again next tick with the shape gone
+    }
 
     // Self-heal: idle while still Carrying (bench released mid-haul, or a
     // placement reject path) → route the held spark to a fresh build point.
