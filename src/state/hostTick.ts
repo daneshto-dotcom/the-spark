@@ -149,7 +149,7 @@ import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 // ⭐ S192 (owner, A3) — the endgame monster waves.
 import { isPantsType, removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
-import { isMonsterFightHeld, isMonsterWave } from './endgame.ts';
+import { isMonsterFightHeld, isMonsterWave, monsterFightTicks } from './endgame.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -441,7 +441,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
       // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
       // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
       // above, so reading it here is already the new phase — which is exactly what is wanted.
-      world.phaseEndsAtTick += phaseDurationTicks(world.matchPhase);
+      // ⭐ S194 R194-17 — a monster FIGHT lasts its window + the 10 s tail (`monsterFightTicks`, ⚠ MINE),
+      // set here at the whistle, so its length is known from the start (no longer an open-ended hold).
+      world.phaseEndsAtTick += world.matchPhase === 'FIGHT' ? monsterFightTicks(world.waveNumber) : phaseDurationTicks('BUILD');
       flipped = true;
     }
     // ⭐ S149 P2 — THE PHASE EDGE ACTIONS (R4 / R6 / R12).

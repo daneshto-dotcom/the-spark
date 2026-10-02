@@ -30,7 +30,7 @@ import {
 import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
-import { megaPantsDue, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
+import { megaPantsDue, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
@@ -80,7 +80,8 @@ export function tickEndgameSpawner(world: World): void {
   const living = livingSeats(world);
   if (living.length === 0) return;
   const elapsed = world.tick - world.monsterFightStartTick;
-  const due = monstersDueBy(elapsed, living.length, perSeat * living.length);
+  // ⭐ S194 R194-17 — his window: the whole wave out, evenly, by `pantsWindowTicks` after the whistle.
+  const due = monstersDueBy(elapsed, living.length, perSeat * living.length, pantsWindowTicks(world.waveNumber));
   // ⚠ MINE (S193 audit) — live pants per assigned seat, for `MONSTER_MAX_LIVE_PER_SEAT`. Counted once,
   // bumped as this tick releases. A lane whose seat is at the cap WAITS — and because release `k` must
   // go to lane `k mod N` (that is what makes each seat's remaining count derivable, `monstersLeftForSeat`),

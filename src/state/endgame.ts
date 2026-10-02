@@ -20,12 +20,14 @@
 
 import {
   BUILD_LOCK_FROM_WAVE,
+  FIGHT_PHASE_TICKS,
   MEGA_PANTS_AFTER_TICKS,
-  MONSTER_EMERGE_TICKS,
   MONSTER_HOLD_LEAD_TICKS,
   MONSTER_FINAL_WAVE,
   MONSTER_FIRST_WAVE,
   MONSTER_WAVE_PER_SEAT,
+  PANTS_WINDOW_SECONDS,
+  PHYSICS_HZ,
 } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
 import { mix32 } from './rng.ts';
@@ -49,18 +51,40 @@ export function monstersPerSeatForWave(wave: number): number {
   return isMonsterWave(wave) ? (MONSTER_WAVE_PER_SEAT[wave] ?? 0) : 0;
 }
 
+/** ⭐ S194 R194-17 — this wave's pants window in ticks (`PANTS_WINDOW_SECONDS`, HIS); 0 off the monster waves. */
+export function pantsWindowTicks(wave: number): number {
+  return isMonsterWave(wave) ? (PANTS_WINDOW_SECONDS[wave] ?? 0) * PHYSICS_HZ : 0;
+}
+
 /**
- * ⭐ HIS PACE (S193): *"one comes and then once he's out of the circle the next comes"*. Release `j`
- * (0-based) of a monster fight is due `ceil(j × EMERGE / N)` ticks after the fight began, `N` = the
- * living seats: lane `j mod N` gets one pants every `MONSTER_EMERGE_TICKS`, and the lanes are
- * staggered so the board never sees two born on one tick (unless N > EMERGE, which no board reaches).
- * So the number due by `elapsed` ticks is `floor(elapsed × N / EMERGE) + 1`, capped at the wave's
- * total. Integer arithmetic only. A seat falling mid-wave shrinks `N`: the formula then dips below what
- * has already come out and the lanes simply wait — it can never produce a burst.
+ * ⭐ S194 R194-17 — how long this wave's FIGHT lasts, set at the whistle. ⚠ MINE: a monster fight runs
+ * `max(FIGHT_PHASE_TICKS, window + MONSTER_HOLD_LEAD_TICKS)` — the window, then the old 10 s tail — so
+ * 27 / 28 / 29 / 30 / 31 = 3600 / 3600 / 4200 / 6000 / 7800 ticks. Any other wave: `FIGHT_PHASE_TICKS`.
+ * (Wave 31 with two seats alive is still held open by `isMonsterFightHeld` — his "the clock doesn't end".)
  */
-export function monstersDueBy(elapsed: number, living: number, total: number): number {
-  if (elapsed < 0 || living <= 0 || total <= 0) return 0;
-  return Math.min(total, Math.floor((elapsed * living) / MONSTER_EMERGE_TICKS) + 1);
+export function monsterFightTicks(wave: number): number {
+  if (!isMonsterWave(wave)) return FIGHT_PHASE_TICKS;
+  return Math.max(FIGHT_PHASE_TICKS, pantsWindowTicks(wave) + MONSTER_HOLD_LEAD_TICKS);
+}
+
+/**
+ * ⭐⭐ S194 R194-17 (HIS, option B) — THE PANTS WINDOW. *"Within that minute … all those pants should be
+ * able to be spawned no matter how many."* The wave's `total` = his count × `N` living seats comes out
+ * evenly across `windowTicks` from the fight's start: release `r` (0-based; it goes to lane `r mod N`,
+ * `tickEndgameSpawner`) is due at `floor((r + 1) × window / total)`. So lane `i`'s pants `k` (1-based) is
+ * due at `floor((k − 1 + (i + 1) / N) × window / count)` — the lanes STAGGERED by `window / total`, each
+ * lane one pants every `window / count` on average, and the LAST lane's last pants exactly at the
+ * window's end (`k = count` → `window`). One at a time: `total < window` on every shipped board (max
+ * 6 × 250 = 1500 < 7200), so no two releases share a tick.
+ *
+ * The count due by `elapsed` is the number of `m = r + 1` in [1, total] with `floor(m × W / T) ≤ e`, i.e.
+ * `m × W < (e + 1) × T`, i.e. `m ≤ floor(((e + 1) × T − 1) / W)`. Integer arithmetic only. A seat falling
+ * mid-wave shrinks `T`: the formula then dips below what has already come out and the lanes simply wait —
+ * it can never produce a burst (R194-2: the fallen seat's un-emerged pants never come).
+ */
+export function monstersDueBy(elapsed: number, living: number, total: number, windowTicks: number): number {
+  if (elapsed < 0 || living <= 0 || total <= 0 || windowTicks <= 0) return 0;
+  return Math.min(total, Math.floor(((elapsed + 1) * total - 1) / windowTicks));
 }
 
 /** This monster fight's total: his count per LIVING seat × the living seats, now. */
