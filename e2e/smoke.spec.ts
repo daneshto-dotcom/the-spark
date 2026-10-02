@@ -358,8 +358,21 @@ test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4) @quarantine-
   });
 });
 
-test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-flaky', () => {
-  test('Cross-color bond attempt is silently rejected', async ({ browser }) => {
+/**
+ * ⛔ S194 (T8) — VERDICT: UNCONSTRUCTIBLE IN PLAY, so `test.fixme` (the Sym E precedent), NOT deleted.
+ *
+ * Red on every quarantine run. Measured locally after porting both placements to the S136 porch
+ * (`placeFreeSparkAndConfirm`): the joiner's blue shape lands at (1500, 400); the HOST's red one at
+ * (1520, 410) is refused 4 attempts out of 4 (BUILD, tick 2610, porch shape in hand) — it is inside
+ * the JOINER's zone, and since the zone / edge placement rules (canon §4b) no seat can put a shape
+ * next to an enemy's at all. So the cross-colour adjacency this spec needs cannot be built through the
+ * UI, and the `__TEST_TERRITORY_BASE_RADIUS__ = 0` seam it relies on no longer opens the door. The
+ * invariant itself (no cross-colour bond) is pinned at the reducer by `src/state/world.test.ts`
+ * ("S46 P3 Sym D + S49 Sym F — enemy cannot place inside P1 territory (no cross-color bond)").
+ * Kept as a fixme so the lane stops paying ~2 minutes a run for a guaranteed red.
+ */
+test.describe('Sym D — color-segregated bonds (UNCONSTRUCTIBLE since the zone rules — see the block above) @quarantine-flaky', () => {
+  test.fixme('Cross-color bond attempt is silently rejected', async ({ browser }) => {
     test.setTimeout(TWO_PEER_BUILD_BUDGET_MS); // ⭐ S194 — see the constant
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
@@ -394,7 +407,7 @@ test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-
       await waitForWorld(joinerPage, (w) => w.primitives.some((p) => p.placerColor === 0x3bd7ff && Math.abs(p.pos.x - 1500) < 50), 'blue prim placed');
       // Host attempts to place red prim at (1520, 410) — close enough to bond.
       // After P3 (color-segregation), should place anchor (no bond) instead of cross-color bond.
-      await dragSparkTo(hostPage, 1520, 410);
+      await placeFreeSparkAndConfirm(hostPage, 1520, 410); // ⭐ S194 — the host's shape off ITS porch too
       await waitForWorld(hostPage, (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 1520) < 50), 'red prim placed');
 
       // Assert: NO bond between any RED prim and any BLUE prim.
