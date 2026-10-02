@@ -658,7 +658,16 @@ export function severWithCarry(world: World, bondId: BondId, sever: (bondId: Bon
   // typed as physics bodies, so `placedBy` comes from `world.primitives`).
   const placer = (id: PrimitiveId): PlayerId | undefined => world.primitives.get(id)?.placedBy;
   const owner = placer(struck.aId);
-  const candidates = anchor === undefined
+  /*
+   * ⛔ S193 (audit CF-1) — **A STRUCK WELD CARRIES NOTHING.** `owner` above is read off `aId`, and on a
+   * MIXED bond which end is `aId` is an accident of placement order — so a Voltkin's bolt on a weld whose
+   * `aId` was HIS seat carried the overkill into his OWN connectors (the S162 chain CARRY-1 closed for
+   * strictly-enemy bonds). A weld has no single owner to stay on, so its overkill has nowhere to go; the
+   * weld itself still falls. ⚠ MINE (the auditor's recommended shape): a third seat striking a weld
+   * between two others no longer carries into either side either.
+   */
+  const mixedWeld = owner === undefined || placer(struck.bId) !== owner;
+  const candidates = anchor === undefined || mixedWeld
     ? []
     : [...componentOf(anchor, world.primitives, world.bonds).bondIds].filter((id) => {
       if (id === bondId) return false;

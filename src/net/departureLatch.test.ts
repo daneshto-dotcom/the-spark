@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 
 const fake = vi.hoisted(() => ({
   route: null as null | ((msg: unknown, peerId: string) => void),
+  peer: [] as Array<(peerId: string, kind: 'join' | 'leave') => void>,
 }));
 vi.mock('./transport.ts', () => ({
   selfId: 'self-peer-id',
@@ -31,7 +32,9 @@ vi.mock('./transport.ts', () => ({
     on(h: (msg: unknown, peerId: string) => void): void {
       fake.route = h;
     }
-    onPeerChange(): void {}
+    onPeerChange(h: (peerId: string, kind: 'join' | 'leave') => void): void {
+      fake.peer.push(h);
+    }
     peerIds(): string[] {
       return ['host-peer'];
     }
@@ -44,11 +47,14 @@ import { connectAsClient, type JoinAttemptDeps } from './clientHandlers.ts';
 import { makeNetSession } from './session.ts';
 import { ClientSync } from './sync.ts';
 import type { RosterEntry } from './protocol.ts';
-import { departureProofOf, shouldLatchDeparture, type HostMessageInput, type HostSignal } from './reconnectPolicy.ts';
+import {
+  departureProofOf, hostAbsentOnLeave, shouldLatchDeparture, type HostMessageInput, type HostSignal,
+} from './reconnectPolicy.ts';
 import { makeWorld } from '../state/world.ts';
 
 afterEach(() => {
   fake.route = null;
+  fake.peer = [];
   vi.restoreAllMocks();
 });
 
@@ -128,6 +134,70 @@ describe('S192 A1 — a stale copy never latches a live host as departed (real c
   });
 });
 
+/**
+ * ⭐ S193 (net R-2) — A HIDDEN TAB NEVER SAMPLED HOST ABSENCE. `main.ts` recorded it per render FRAME, and a
+ * backgrounded tab paints none, so the latch below stayed shut. The transport's LEAVE fires anyway: this
+ * client is wired exactly as `main.ts` wires it (`onPeerLeft` → `hostAbsentOnLeave` → the record that
+ * `hostAbsentThisMatch` reads), and no frame ever runs.
+ */
+function hiddenTabClient() {
+  let absentFor: string | null = null;
+  const session = makeNetSession();
+  const world = makeWorld(1);
+  world.gameState = 'PLAYING';
+  session.hostVerifiedPeerId = HOST;
+  session.hostPeerId = HOST;
+  session.matchId = OUR_MATCH;
+  const sync = new ClientSync();
+  sync.receive({ kind: 'NETSNAPSHOT', snapshotSeq: 500, snapshot: {} } as never, 1_000);
+  session.clientSync = sync;
+  const deps: JoinAttemptDeps = {
+    session,
+    world,
+    controls: { setPlayerId: () => {} } as never,
+    onLobbyError: () => {},
+    onPresence: () => {},
+    clientIdentity: { spkiB64: 'spki', sign: () => Promise.resolve('pop') } as never,
+    onHostSignal: () => {}, // main.ts always passes it (the latch lives inside its guard)
+    isRejoinPending: () => false,
+    hostAbsentThisMatch: () => absentFor !== null && absentFor === session.hostPeerId,
+    onPeerLeft: (peerId) => {
+      if (hostAbsentOnLeave({ peerId, hostPeerId: session.hostPeerId, isHost: world.isHost, playing: world.gameState === 'PLAYING' })) {
+        absentFor = peerId;
+      }
+    },
+  };
+  connectAsClient(deps, 'ROOMAA');
+  const leave = (peerId: string): void => { for (const h of fake.peer) h(peerId, 'leave'); };
+  return { session, leave, host: (m: unknown) => fake.route!(m, HOST) };
+}
+
+describe('⭐ S193 R-2 — the transport LEAVE records the absence (no render frame needed)', () => {
+  it('⭐ the host leaves our transport while the tab is hidden, re-hosts, says LOBBY → the latch is taken', () => {
+    const c = hiddenTabClient();
+    expect(fake.peer.length, 'fixture: connectAsClient subscribed to peer changes').toBeGreaterThan(0);
+    c.leave(HOST);
+    c.host({ kind: 'LOBBY_PRESENCE', roster: ROSTER, phase: 'LOBBY' });
+    expect(c.session.hostDepartedPeerId).toBe(HOST);
+  });
+
+  it('NEGATIVE — another peer leaving is not the host absence: the stale beacon still never latches', () => {
+    const c = hiddenTabClient();
+    c.leave('some-other-seat');
+    c.host({ kind: 'LOBBY_PRESENCE', roster: ROSTER, phase: 'LOBBY' });
+    expect(c.session.hostDepartedPeerId).toBeNull();
+  });
+
+  it('hostAbsentOnLeave: only the followed host, only for a client, only while PLAYING', () => {
+    const base = { peerId: HOST, hostPeerId: HOST, isHost: false, playing: true };
+    expect(hostAbsentOnLeave(base)).toBe(true);
+    expect(hostAbsentOnLeave({ ...base, peerId: 'x' })).toBe(false);
+    expect(hostAbsentOnLeave({ ...base, hostPeerId: null })).toBe(false);
+    expect(hostAbsentOnLeave({ ...base, isHost: true })).toBe(false);
+    expect(hostAbsentOnLeave({ ...base, playing: false })).toBe(false);
+  });
+});
+
 describe('S192 A1 — the two pure halves', () => {
   const base: HostMessageInput = {
     inMatch: true, fromFollowedHost: true, kind: 'LOBBY_PRESENCE', lastSeq: 500, currentEpoch: 0,
@@ -166,6 +236,15 @@ describe('S192 A1 + L1 — main.ts wiring (mechanical)', () => {
     expect(main).toMatch(/hostAbsentSeenFor = session\.hostPeerId;/);
     const at = main.indexOf("if (!(isNetworked(world) && !world.isHost && world.gameState === 'PLAYING')) {");
     expect(main.slice(at, at + 400)).toContain('hostAbsentSeenFor = null;');
+  });
+  it('⭐ S193 R-2 — main.ts records the absence from the transport LEAVE too, through hostAbsentOnLeave', () => {
+    const at = main.indexOf('onPeerLeft: (peerId: string): void => {');
+    expect(at, 'clientJoinDeps wires onPeerLeft').toBeGreaterThan(-1);
+    const body = main.slice(at, main.indexOf('},', at));
+    expect(body).toContain('hostAbsentOnLeave({');
+    expect(body).toContain('hostPeerId: session.hostPeerId,');
+    expect(body).toContain("playing: isNetworked(world) && world.gameState === 'PLAYING',");
+    expect(body).toMatch(/\)\) hostAbsentSeenFor = peerId;/);
   });
   it('⛔ L1 — demoteToClient resets the claim clock AND its flag', () => {
     const at = main.indexOf('const demoteToClient = (');

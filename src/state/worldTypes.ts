@@ -251,7 +251,10 @@ export interface World {
    *
    * Per-FRAME, the `structureKillHits` contract exactly: written on the host, wiped by the consumer and
    * at the five sites (three phase resets, the consumer, the worker frame boundary), never serialized,
-   * never hashed. ⚠ A JOINER has no record, so on a peer only the shape refills print — a stated limit.
+   * never hashed. ⭐ S193 — a JOINER (and a worker-sim host) has no record, so `DamageNumbers` DERIVES the
+   * same one number from synced state: a connector bank that FELL with no connector severed beside it,
+   * plus the shapes that rose, summed per structure. `keys` also carries the `b:` keys the repair cleared,
+   * so on the host the record wins and the derivation sees those bonds as first sightings.
    */
   structureHealHits: { x: number; y: number; owner: PlayerId; amount: number; keys: string[] }[];
   /**
