@@ -1,5 +1,24 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
+## ⭐⭐⭐⭐ S193 PRE-LAND MERGE ROUND (re-audit CLEAN) — read this first
+- **merge** cd2a1e1 ← master 0a64ff8 (PROTOCOL 60: magic, bots, goblin-autobuild, visuals-4/5, carry-fwd,
+  endstats). **7 conflicts**, each kept both intents: spawner.ts / save.ts / stateHashFull.ts (weld's
+  `ownPrimitiveIds` REPLACES `ownBondIdLimit`; goblin-autobuild's `autoFeedMask` / `autoFeedCursor` kept in
+  field, factory, both serializers, trim, hash union + projection) · defenderLifecycle.ts, world.ts (both
+  imports) · structurePanel.test.ts (weld `hire()` + magic `'physical'`) · e2e/castle-panel.spec.ts (NINE
+  rows: fixAll … castleMres, both docblocks). Magic's required `DamageClass` added at weld's 11 test sites.
+- **seams fixed** (828ee9c, 7ae17e1, 68f03db): canon §3d + `castlePanel.ts` comment say FIVE stat rows
+  (MRES); FIX ALL blocker docblock lists QUEUE FULL; phase test gains a second job (id 7) — the re-auditor's
+  surviving mutant "phase by tick only" is now RED; carry-fwd `repairHealNumberJoiner.test.ts` (3 RED on the
+  merge: it dispatched REPAIR_STRUCTURE for an instant restore) re-pinned to `applyRepairStructure` + a NEW
+  joiner REACH: a JOB finished through the host tick → the joiner derives one green 12 off the wire;
+  goblin-autobuild `goblinAutoFeedMemory.test.ts` (1 RED, same cause) re-pinned. Every remaining test
+  `dispatch(…REPAIR_STRUCTURE…)` is a deliberate job test.
+- **gates** (tree 68f03db, `.tmp-gates/{TC8,VT8,BUILD8,E2E8}.exit`): typecheck **0** · vitest **0** =
+  **7836 passed + 11 skipped / 517 + 4 skipped** · build **0** — **1121.4 KiB** / 1250 (128.6 headroom) ·
+  e2e:gating (own port) **0** = **71 passed**.
+- **bump:** folded into the merge owner's single 60 → 61 (notes §H reasons 1-9). Never edited PROTOCOL_VERSION.
+
 ## ⭐⭐⭐ S193 AUDIT FIX ROUND — FINAL REPORT (read this first)
 - **tip**: see `git log` (code tip 91a1181; docs commits on top). **Merges** (all 0 conflicts):
   110c17a (master 58 — zombies + lobby-ci), the endgame merge (59), and the latest master b72e779
