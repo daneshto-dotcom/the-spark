@@ -84,6 +84,8 @@ import { draftOptionsFor, draftTicksRemaining, seatMustStillPick } from '../stat
 import { RACIAL_PERK_COPY } from '../state/racialPerks.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId } from '../types.ts';
+// ⭐ S194 T5 — the shared skin (translucent; drawn INSIDE the plate / tiles `draftHitTest` + `isOver` use).
+import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
 
 /* ── geometry, all derived from the spawn zone ────────────────────────────────────────────────── */
 
@@ -329,6 +331,12 @@ export class DraftOverlay {
   private readonly racialCard = new Sprite();
   /** The tile outlines, drawn ABOVE the cards so the hover highlight shows on the art. Strokes only. */
   private readonly frames = new Graphics({ label: 'frames' });
+  /**
+   * ⭐ S194 T5 — the GLASS over each card (gloss, glow, hover sheen; desaturated on a dead tile). Its own
+   * Graphics so `frames` stays strokes-only for the stroke-width tests, and drawn strictly inside each
+   * tile (`uiSkin.test.ts`), so `isOver` — which asks every Graphics child — gains not a pixel.
+   */
+  private readonly glass = new Graphics({ label: 'glass' });
   private readonly title: Text;
   private readonly clock: Text;
   private readonly generalTitle: Text;
@@ -431,7 +439,7 @@ export class DraftOverlay {
     this.racialCard.visible = false;
 
     this.container.addChild(this.plate, this.tiles,
-      this.generalCard, generalMask, this.racialCard, racialMask, this.frames,
+      this.generalCard, generalMask, this.racialCard, racialMask, this.glass, this.frames,
       this.title, this.clock,
       this.generalTitle, this.generalLine, this.racialTitle, this.racialLine, this.racialMark,
       this.tipPlate, this.tip);
@@ -560,7 +568,10 @@ export class DraftOverlay {
     this.plate.clear();
     this.plate
       .roundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 12)
-      .fill({ color: PLATE_BG, alpha: 0.97 })
+      .fill({ color: PLATE_BG, alpha: 0.97 });
+    skinPanelFx(this.plate, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, PLATE_EDGE, 0, 12);
+    this.plate
+      .roundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 12)
       .stroke({ color: PLATE_EDGE, width: 2, alpha: 0.9 });
 
     this.tiles.clear();
@@ -575,6 +586,12 @@ export class DraftOverlay {
     const generalShown = this.placeCard(this.generalCard, this.cardTexture(views.general.card), g, litGeneral);
     const racialShown = this.placeCard(this.racialCard, this.cardTexture(views.racial.card), r, litRacial);
 
+    const uiNow = typeof performance === 'undefined' ? 0 : performance.now();
+    this.glass.clear();
+    skinButtonFx(this.glass, g.x, g.y, g.w, g.h, { accent: PLATE_EDGE, state: litGeneral ? 'hover' : 'rest', radius: CORNER, t: uiNow });
+    skinButtonFx(this.glass, r.x, r.y, r.w, r.h, {
+      accent: RACE_COLORS[race], state: !liveRacial ? 'disabled' : litRacial ? 'hover' : 'rest', radius: CORNER, t: uiNow,
+    });
     this.frames.clear();
     this.frames
       .roundRect(g.x, g.y, g.w, g.h, CORNER)
