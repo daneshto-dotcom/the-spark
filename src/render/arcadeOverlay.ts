@@ -33,6 +33,7 @@ import { Application, Container, FillGradient, Graphics, Text } from 'pixi.js';
 import { skinIcon, type SkinIconKind } from './uiSkin.ts';
 import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import type { TitleBackdrop } from './titleBackdrop.ts';
+import { fitTextToWidth } from './textFit.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { generateSudoku, type SudokuEvent } from '../state/sudoku.ts';
 import { asPlayerId } from '../types.ts';
@@ -359,6 +360,8 @@ export class ArcadeOverlay {
       const t = new Text({ text: l.text, style: { fontFamily: 'monospace', fontSize: l.size, fill: l.fill } });
       t.anchor.set(0.5);
       t.position.set(r.w / 2 + shift, l.dy);
+      // …and never runs past the plate's right edge into the space the badge gave up.
+      fitTextToWidth(t, r.w - (badge + 10) - 28);
       btn.addChild(t);
       this.texts.push(t);
     }
