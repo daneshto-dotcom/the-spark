@@ -473,6 +473,9 @@ async function bootstrap(): Promise<void> {
   settingsIcon.alpha = 0.55;
   settingsIcon.eventMode = 'static';
   settingsIcon.cursor = 'pointer';
+  // ⭐ S194 T5 — the gear answers the pointer like every other control: it lights and lifts on hover.
+  settingsIcon.on('pointerover', () => { settingsIcon.alpha = 1; settingsIcon.scale.set(1.15); });
+  settingsIcon.on('pointerout', () => { settingsIcon.alpha = 0.55; settingsIcon.scale.set(1); });
   settingsIcon.on('pointertap', () => {
     // initAudio() makes the gear icon double as a user-gesture trigger,
     // matching the pointerdown/keydown listeners below. Safe to call when

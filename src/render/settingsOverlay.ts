@@ -59,6 +59,27 @@ export interface SettingsOverlayHandle {
   destroy(): void;
 }
 
+/**
+ * ⭐ S194 T5 — the hover / press / focus states a DOM control needs (inline styles cannot express
+ * them). Installed once; scoped to `.spark-settings`, so nothing else on the page is touched.
+ */
+function installSettingsSkinCss(): void {
+  if (document.getElementById('spark-settings-skin') !== null) return;
+  const css = document.createElement('style');
+  css.id = 'spark-settings-skin';
+  css.textContent = [
+    '.spark-settings-close{border-radius:6px;transition:background .12s,transform .08s,color .12s}',
+    '.spark-settings-close:hover{background:rgba(59,215,255,.18)!important;color:#3bd7ff!important}',
+    '.spark-settings-close:active{transform:scale(.92)}',
+    '.spark-settings input[type=checkbox]{transition:transform .08s,filter .12s}',
+    '.spark-settings input[type=checkbox]:hover{filter:drop-shadow(0 0 4px #3bd7ff)}',
+    '.spark-settings input[type=checkbox]:active{transform:scale(.9)}',
+    '.spark-settings input[type=range]{accent-color:#3bd7ff;transition:filter .12s}',
+    '.spark-settings input[type=range]:hover{filter:drop-shadow(0 0 4px rgba(59,215,255,.7))}',
+  ].join(' ');
+  document.head.appendChild(css);
+}
+
 export function createSettingsOverlay(): SettingsOverlayHandle {
   const root = document.createElement('div');
   root.setAttribute('role', 'dialog');
@@ -71,12 +92,17 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   root.style.fontFamily = 'monospace';
   root.style.fontSize = '13px';
   root.style.color = '#ffffff';
-  root.style.background = 'rgba(0, 0, 0, 0.85)';
+  // ⭐ S194 T5 — the same "forged glass" as the canvas panels: a lit-from-above gradient, an inner
+  // bevel, a soft cyan glow, and a blur of the board behind it. Attributes and roles are unchanged.
+  root.className = 'spark-settings';
+  root.style.background = 'linear-gradient(180deg, rgba(24, 34, 52, 0.94) 0%, rgba(9, 13, 22, 0.94) 55%, rgba(8, 26, 36, 0.94) 100%)';
   root.style.border = '1px solid #3bd7ff';
-  root.style.borderRadius = '6px';
+  root.style.borderRadius = '10px';
   root.style.padding = '12px 14px 10px 14px';
-  root.style.minWidth = '220px';
-  root.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.5)';
+  root.style.minWidth = '240px';
+  root.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 18px rgba(59, 215, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.14)';
+  root.style.backdropFilter = 'blur(4px)';
+  installSettingsSkinCss();
 
   // Header row: title + ✕ close
   const header = document.createElement('div');
@@ -101,7 +127,8 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   closeBtn.style.color = '#ffffff';
   closeBtn.style.fontSize = '14px';
   closeBtn.style.cursor = 'pointer';
-  closeBtn.style.padding = '0 4px';
+  closeBtn.style.padding = '0 6px';
+  closeBtn.className = 'spark-settings-close';
   closeBtn.style.fontFamily = 'monospace';
 
   header.appendChild(title);
