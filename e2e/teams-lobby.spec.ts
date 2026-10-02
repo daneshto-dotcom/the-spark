@@ -158,4 +158,84 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
       for (const c of ctxs) await c.close();
     }
   });
+
+  /*
+   * ⭐ S194 — THE TWO-PEER CASE, which the three-peer test cannot reach. Two peers can never make a TEAM
+   * match (a team needs a teammate AND an enemy), so what two real peers prove is the gate and the wire:
+   *   · both claim T1 over `CLAIM_TEAM` → one side, no enemy → the host's Begin is DIMMED with the hint and a
+   *     press stays in LOBBY (spec Q2, `teamsPlayable`);
+   *   · the joiner cycles to T2 → two sides of one seat each IS the free-for-all → Begin at full strength, both
+   *     peers reach PLAYING with `world.teams` UNDEFINED (`normalizeTeams`) and every wall a side boundary —
+   *     the exact pre-teams 1v1, which is the byte-identical-FFA promise seen from a real browser.
+   */
+  test('2 peers: T1 / T1 refuses Begin; T1 / T2 is the free-for-all 1v1 (no world.teams, every wall up)', async ({ browser }) => {
+    test.setTimeout(120_000);
+    const ctxs = await Promise.all([browser.newContext(), browser.newContext()]);
+    try {
+      for (const c of ctxs) await prepCtx(c);
+      const pages = await Promise.all(ctxs.map((c) => c.newPage()));
+      const [host, j1] = pages as [Page, Page];
+      const code = await hostNewRoom(host);
+      await joinRoom(j1, code);
+      for (const [i, p] of pages.entries()) {
+        await waitForWorld(p, (w) => w.peerCount >= 1, `peer ${i} sees the other`, 60_000);
+        await waitForSeats(p, (s) => s.filter((x) => x.occupied).length === 2, `peer ${i} sees two seats`, 30_000);
+      }
+      const ownIndex = async (p: Page): Promise<number> => (await readSeats(p)).find((s) => s.isYou && s.occupied)!.index;
+      const [hi, i1] = [await ownIndex(host), await ownIndex(j1)];
+      await clickOwnTeamChip(host);
+      await clickOwnTeamChip(j1);
+      for (const [i, p] of pages.entries()) {
+        await waitForSeats(
+          p,
+          (s) => teamOfSeat(s as SeatWithTeam[], hi) === 0 && teamOfSeat(s as SeatWithTeam[], i1) === 0,
+          `peer ${i} sees T1 / T1 (the joiner's pick crossed the wire as CLAIM_TEAM)`,
+          30_000,
+        );
+      }
+      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean }> =>
+        host.evaluate(() => (window as unknown as { __SPARK__: { lobbyScreen: { getDebugState: () => never } } }).__SPARK__.lobbyScreen.getDebugState());
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true });
+      const begin = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
+      await host.mouse.click(begin.x, begin.y);
+      await host.waitForTimeout(2_000);
+      expect((await readWorldState(host)).gameState, 'one team: Begin does nothing').toBe('LOBBY');
+
+      await clickOwnTeamChip(j1);
+      for (const [i, p] of pages.entries()) {
+        await waitForSeats(
+          p,
+          (s) => teamOfSeat(s as SeatWithTeam[], hi) === 0 && teamOfSeat(s as SeatWithTeam[], i1) === 1,
+          `peer ${i} sees T1 / T2`,
+          30_000,
+        );
+      }
+      // CONTROL — two sides: Begin at full strength, no hint.
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false });
+      await host.mouse.click(begin.x, begin.y);
+      for (const [i, p] of pages.entries()) {
+        await waitForWorld(p, (w) => w.gameState === 'PLAYING' && w.players.length === 2, `peer ${i} PLAYING with 2 players`, 45_000);
+      }
+      const views = await Promise.all(
+        pages.map((p) =>
+          p.evaluate(async () => {
+            const w = (window as unknown as { __SPARK__: { world: { teams?: number[]; layout: unknown } } }).__SPARK__.world;
+            const wp = '/src/state/walls.ts';
+            const walls = (await import(/* @vite-ignore */ wp)) as {
+              wallSegments: (l: unknown) => Array<{ zoneA: number; zoneB: number }>;
+              wallSeparatesSides: (w: unknown, s: { zoneA: number; zoneB: number }) => boolean;
+            };
+            return { teams: w.teams ?? null, seps: walls.wallSegments(w.layout).map((s) => walls.wallSeparatesSides(w, s)) };
+          }),
+        ),
+      );
+      for (const v of views) {
+        expect(v.teams, 'one seat per side IS the free-for-all: no world.teams').toBeNull();
+        expect(v.seps.length, 'anti-vacuity: the board has walls').toBeGreaterThan(0);
+        expect(v.seps.every(Boolean), 'every wall is a side boundary (the pre-teams 1v1)').toBe(true);
+      }
+    } finally {
+      for (const c of ctxs) await c.close();
+    }
+  });
 });
