@@ -27,7 +27,8 @@ Every tree agent got a PAUSE order: WIP commit, exact next step at the TOP of it
 - Audit queue order after T3: T8 · T2 · T11 · T6 · T7 · T4 · T9 · T5 · T10 · T1 (last). ≤3 auditors concurrent. Merge one at a time; T4/T5/T9 share render files → merge T4 before T9, T5 after both.
 
 ## Pause confirmations (tips)
-T1 0a4271fe · T4 63d92543 · T6 e322b504 · T7 9a607bc0 · T8 0f5818a6 · T10 b8e17654 · T11 ad13047e. Pending at write: T2, T5, T9, re-audit T3.
+T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f5818a6 · T9 3fc09a94 · T10 b8e17654 · T11 ad13047e. Pending at write: T2, re-audit T3.
+- T5 shared style module `src/render/uiSkin.ts` (T10 may import after T5 lands). T9 added `src/render/coherence/*`, `fx/unitDeathFx.ts`, `fx/hitPopFx.ts`, edits `damageNumbers.ts` + `creatureRenderer.ts` + `main.ts` — seam with T2/T4 render files; T9 open item: Helga death fx needs host-only data.
 ## Seams found before pause
 - ⛔ T8 fixed a REAL product bug in `src/render/buttonFeedback.ts` (press-scale 0.97 made the right ~5 px of every top-left-drawn button dead on release; new `hitRectAtScale`, `setScale`). T5 restyles buttons → MERGE T8 BEFORE T5, and on RESUME tell T5 to keep `hitRectAtScale` semantics (the rest-size plate is the hit target) and to merge master after T8 lands.
 - T8: deploy #22 red was the gating lane's 720 s Playwright cap (61 passed, 3 flaky, 7 not run) — green runs already use 8.9–10.5 of 12 min → T8 item 5 raises the lane budget.
