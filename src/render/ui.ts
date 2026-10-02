@@ -21,8 +21,9 @@ import {
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { TEAM_COUNT, teamOf } from '../state/teams.ts';
 import { asPlayerId } from '../types.ts';
-import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, megaPantsAtElapsed, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
+import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
 import { MONSTER_FINAL_WAVE } from '../constants.ts';
+import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
@@ -150,16 +151,35 @@ export const PANTS_BANNER_LINES: Readonly<Record<number, string>> = {
 };
 export const MEGA_PANTS_BANNER = 'MEGA PANTS HAS ENTERED THE CHAT';
 
+/**
+ * ⭐ S194 re-audit LOW-1 — the tick the newest MEGA PANTS actually walked out, or null when none stands.
+ * Derived from the live creature, not from his scheduled slot: the live cap can hold the last lane back,
+ * and he comes only after it (`megaPantsDue`). `spawnedAtTick` does not ride the wire, but
+ * `despawnAtTick` does, and for him it is `spawnedAtTick + lifetimeTicks` (born in FIGHT, so
+ * `lifetimeStartTick` is his birth tick) — so a joiner reads the same arrival.
+ */
+export function megaPantsArrivalTick(world: Pick<World, 'creatures'>): number | null {
+  let at: number | null = null;
+  for (const c of world.creatures.values()) {
+    if (c.type !== 'megaPants') continue;
+    const born = c.despawnAtTick - CREATURE_CONFIGS.megaPants.lifetimeTicks;
+    if (at === null || born > at) at = born;
+  }
+  return at;
+}
+
 export function pantsBannerText(
   world: Pick<World, 'matchPhase' | 'waveNumber' | 'monsterFightStartTick' | 'tick'>,
-  /** ⭐ S194 R194-26 — the mega pants' slot, elapsed ticks into the final fight (`megaPantsAtElapsed`). */
-  megaAtElapsed: number,
+  /** ⭐ S194 re-audit LOW-1 — when the mega pants really arrived (`megaPantsArrivalTick`), null if he has not. */
+  megaArrivedAtTick: number | null,
 ): string {
   if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber) || world.monsterFightStartTick <= 0) return '';
   const elapsed = world.tick - world.monsterFightStartTick;
   if (elapsed >= 0 && elapsed < PANTS_BANNER_TICKS) return PANTS_BANNER_LINES[world.waveNumber] ?? '';
-  const sinceMega = elapsed - megaAtElapsed;
-  if (world.waveNumber === MONSTER_FINAL_WAVE && sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
+  if (world.waveNumber === MONSTER_FINAL_WAVE && megaArrivedAtTick !== null) {
+    const sinceMega = world.tick - megaArrivedAtTick;
+    if (sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
+  }
   return '';
 }
 
@@ -840,7 +860,7 @@ export class HUD {
    * only); the wobble is render-only, on frames. Below the win overlay, above the board.
    */
   private drawPantsBanner(world: World): void {
-    const text = world.gameState === 'PLAYING' ? pantsBannerText(world, megaPantsAtElapsed(world)) : '';
+    const text = world.gameState === 'PLAYING' ? pantsBannerText(world, megaPantsArrivalTick(world)) : '';
     if (text === '') {
       this.pantsBannerText.visible = false;
       return;

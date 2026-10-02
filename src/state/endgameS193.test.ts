@@ -38,11 +38,11 @@ import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
 import { isMonsterFightHeld, megaPantsAtElapsed, megaPantsDue, monstersDueBy, megaPantsSlotTicks, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
-import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
+import { MONSTER_OWNER_ID, monsterBirthPos, monsterMaxLivePerSeat } from './endgameMonsters.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
-import { restore, snapshot } from './save.ts';
-import { formatEndgameCue, formatHeldClock, MEGA_PANTS_BANNER, PANTS_BANNER_LINES, PANTS_BANNER_TICKS, pantsBannerText } from '../render/ui.ts';
+import { applyNetSnapshot as applyNetSnapshotS194, netSnapshot as netSnapshotS194, restore, snapshot } from './save.ts';
+import { formatEndgameCue, formatHeldClock, megaPantsArrivalTick, MEGA_PANTS_BANNER, PANTS_BANNER_LINES, PANTS_BANNER_TICKS, pantsBannerText } from '../render/ui.ts';
 import { creatureSpriteScaleMul, MEGA_PANTS_SPRITE_SCALE_MUL } from '../render/towerFrames.ts';
 import { ATLASES, ENDGAME_MONSTER_ATLAS_BASE, GOBLIN_KINDS } from '../render/goblinRenderer.ts';
 import { makeCreature, type Creature } from './creatures/creature.ts';
@@ -443,14 +443,17 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
   it('the banner: one silly line per monster wave for its first 4 s, the mega pants line at its arrival, nothing else', () => {
     expect(PANTS_BANNER_TICKS).toBe(4 * PHYSICS_HZ);
     const at = (wave: number, elapsed: number, phase: 'FIGHT' | 'BUILD' = 'FIGHT') =>
-      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed }, 7214);
+      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed }, 1000 + 7214);
     expect(at(27, 0)).toBe('BEWARE THE PANTS!');
     expect(at(28, PANTS_BANNER_TICKS - 1)).toBe('INCOMING PANTS!');
     expect(at(28, PANTS_BANNER_TICKS)).toBe('');
     expect(at(27, 0, 'BUILD')).toBe('');
     expect(at(26, 0)).toBe('');
     expect(at(31, 7214)).toBe(MEGA_PANTS_BANNER);
-    expect(at(31, 7213)).toBe(''); // one tick before his slot
+    expect(at(31, 7213)).toBe(''); // one tick before he arrived
+    expect(at(31, 7214 + PANTS_BANNER_TICKS)).toBe('');
+    // ⭐ S194 re-audit LOW-1 — no mega pants on the board → no mega banner, whatever the clock says
+    expect(pantsBannerText({ matchPhase: 'FIGHT', waveNumber: 31, monsterFightStartTick: 1000, tick: 1000 + 7214 }, null)).toBe('');
     expect(at(30, 7214)).toBe('');
     for (const w of [27, 28, 29, 30, 31]) expect(PANTS_BANNER_LINES[w]!.length).toBeGreaterThan(0);
   });
@@ -459,7 +462,58 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
     const world = board(2);
     toFightEdge(world, 27);
     runHostTick(world, deps(), makeHostTickState(world));
-    expect(pantsBannerText(world, megaPantsAtElapsed(world))).toBe('BEWARE THE PANTS!');
+    expect(pantsBannerText(world, megaPantsArrivalTick(world))).toBe('BEWARE THE PANTS!');
+  });
+
+  it('⭐ S194 re-audit LOW-1 — REACH: the mega banner shows on his REAL arrival, not on his slot', () => {
+    // A held lane delays him past his slot (`megaPantsDue` waits for the last wave pants); the banner must
+    // follow the creature. Here every wave pants is out only 500 ticks after the slot.
+    const world = board(2);
+    toFightEdge(world, 31);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const slot = megaPantsAtElapsed(world);
+    world.tick = start + slot;
+    world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    // The REAL hold: the last slot belongs to lane P1 (k = T − 1, odd), and P1 is kept AT the live cap
+    // (topped up before every tick — the castle guns thin it), so the spawner may not release it.
+    const T = monstersPerSeatForWave(31) * 2;
+    world.monsterWaveSpawned = T - 1;
+    const k1 = castleAnchor(1, world.layout);
+    const topUp = (): void => {
+      let n = pants(world).filter((c) => c.monsterSeat === P1).length;
+      for (; n < monsterMaxLivePerSeat(2); n++) {
+        dispatch(world, {
+          type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+          pos: monsterBirthPos(world, P1), targetPos: { ...k1 }, sourceSpawnerId: null, monsterSeat: P1,
+        });
+      }
+    };
+    let bannerAtSlot = 'unset';
+    for (let t = 0; t < 500; t++) {
+      topUp();
+      runHostTick(world, d, st);
+      if (t === 1) bannerAtSlot = pantsBannerText(world, megaPantsArrivalTick(world)); // inside the old slot window
+    }
+    expect(bannerAtSlot, 'at his slot, held back: the old slot-driven banner would fire here').toBe('');
+    expect(world.monsterWaveSpawned, 'the cap really held the last lane').toBe(T - 1);
+    expect(mega(world), 'held: no mega yet').toHaveLength(0);
+    expect(pantsBannerText(world, megaPantsArrivalTick(world)), 'past his slot, but he is not here — no banner').toBe('');
+    for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id }); // the defence catches up
+    runHostTick(world, d, st);
+    expect(world.monsterWaveSpawned).toBe(T);
+    expect(mega(world)).toHaveLength(1);
+    const arrived = megaPantsArrivalTick(world)!;
+    expect(arrived - start).toBeGreaterThan(slot + 400);
+    expect(pantsBannerText(world, arrived)).toBe(MEGA_PANTS_BANNER);
+    // and a joiner reads the same arrival off the wire (`despawnAtTick` rides it)
+    const client = board(2);
+    client.isHost = false;
+    applyNetSnapshotS194(JSON.parse(JSON.stringify(netSnapshotS194(world))), client);
+    expect(megaPantsArrivalTick(client)).toBe(arrived);
   });
 });
 
@@ -708,7 +762,7 @@ describe('S193 — a CLIENT reads the same countdown, banner and clock from the 
     applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), client);
     expect(client.monsterFightStartTick).toBe(host.monsterFightStartTick);
     expect(monstersLeftToComeOut(client)).toBe(monstersLeftToComeOut(host));
-    expect(pantsBannerText(client, megaPantsAtElapsed(client))).toBe(pantsBannerText(host, megaPantsAtElapsed(host)));
+    expect(pantsBannerText(client, megaPantsArrivalTick(client))).toBe(pantsBannerText(host, megaPantsArrivalTick(host)));
     expect(isClockFrozenForDisplay(client)).toBe(isClockFrozenForDisplay(host));
     expect(monstersLeftToComeOut(client)).toBeGreaterThan(0);
   });
