@@ -1080,7 +1080,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **59** (S193 — deploy #20; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **60** (S193 — deploy #22; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 60 (S193, deploy #22)** — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade.
 
 ⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
 
