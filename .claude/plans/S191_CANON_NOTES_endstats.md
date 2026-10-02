@@ -30,7 +30,9 @@ merge owner adds the `canon.test.ts` assertions in the same commit.
   it exists so the board can credit a seat. ⭐ S193 BLAST-2 — NO `null` attacker is left in production: the
   lightning hub's ladder blast credits the hub owner, SCORCHED GROUND/EARTH the ground's seat / the caster, a Ra
   column its owner (the caster, or the Pharaoh's seat), and the overkill CARRY (`severWithCarry`'s `carryBy`) the
-  striking seat. Read through `statCredit.ts`, which folds into s192/zombies' `KillCredit` (the one seam).
+  striking seat. Resolved by `killCreditOf` in `racial/killCredit.ts` — s192/zombies' `KillCredit`, widened to
+  `type: CreatureType | null`: the ONE seam the board (its `seat`) and THE RISEN (whole; a typeless credit
+  raises nobody) both read. ⭐ S193 — after an endgame WIPE the crowned seat is placed 1st even if it fell.
 - **The exit:** a canvas click no longer resets POSTGAME; the board's CONTINUE (primary button) or R does, each
   refused for `ARM_MS` = **1200** ms after the board appears (`matchBoard.ts`).
 

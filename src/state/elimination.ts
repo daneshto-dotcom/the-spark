@@ -209,18 +209,23 @@ export function matchPlacings(world: World): PlayerId[] {
   const score = (id: PlayerId): number => world.scoreByPlayer.get(id) ?? 0;
   return [...world.players.entries()]
     .sort(([aId, a], [bId, b]) => {
+      /*
+       * ⛔ S193 (audit, MED) — THE CROWNED SEAT IS FIRST, WHETHER OR NOT ITS CASTLE STOOD. An endgame WIPE
+       * (wave 27+, every castle down) crowns the top SCORE over every seat (`gameState.ts`), including one
+       * that fell first; ordering him among the fallen put "BOT 2 WINS" in 3rd on the stat board.
+       */
+      if (winner !== null && (aId === winner) !== (bId === winner)) return aId === winner ? -1 : 1;
       const at = a.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       const bt = b.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       if (at !== bt) return bt - at; // later elimination = better placing
       /*
        * ⭐ S191 — R20'S SECOND HALF, RULED AND NEVER BUILT: *"Remaining places are then ordered by score."*
        * (`SPARK_TD_BLUEPRINT.md` R20; found unbuilt by the S181 stat-board recon.) Among the SURVIVORS the
-       * crowned seat leads — a points win can leave an offline seat alive with more banked score — and the
-       * rest go by score, highest first. The fallen keep their elimination order. Seat id still settles
+       * crowned seat leads (now above, for every seat) — a points win can leave an offline seat alive with more
+       * banked score — and the rest go by score, highest first. The fallen keep their elimination order. Seat id still settles
        * every tie, so this stays a TOTAL order and `Map` order decides nothing.
        */
       if (at === Number.POSITIVE_INFINITY) {
-        if (winner !== null && (aId === winner) !== (bId === winner)) return aId === winner ? -1 : 1;
         const d = score(bId) - score(aId);
         if (d !== 0) return d;
       }

@@ -3025,7 +3025,8 @@ Network routes: ${v.detail}`;
       // object: the HTMLVideoElement + Pixi sprite + ticker callback owned
       // by cutsceneOverlay, the stage offset owned by screenShake, and the
       // lastCinematicOwner watcher used to gate startCinematicIfNeeded.
-      // Fires on POSTGAME→TITLE (canvas click → resetIfPostgame → dispatch),
+      // Fires on POSTGAME→TITLE (the stat board's CONTINUE or R → resetIfPostgame → dispatch; S191: a
+      // canvas click no longer resets POSTGAME while the board shows),
       // lobby Back-to-Title (onBackToTitle → dispatch), and peer-drop via
       // onReturnFromConnectionLost. Idempotent on no-cinematic-active path:
       // cutsceneOverlay.abort bails when isActive() is false; screenShake.reset
@@ -3753,7 +3754,7 @@ Network routes: ${v.detail}`;
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
      *
      * Shown in PLAYING and nowhere else, because every other state already has its own exit: TITLE
-     * *is* the destination, LOBBY has its Back button, POSTGAME returns on a click, and the
+     * *is* the destination, LOBBY has its Back button, POSTGAME returns from the stat board (CONTINUE or R — S191), and the
      * connection-lost overlay has its own return. `modalUp` is reused rather than re-derived so the
      * button cannot draw over the codex / bot-setup / arcade panes — the S152 through-drawing class.
      */
