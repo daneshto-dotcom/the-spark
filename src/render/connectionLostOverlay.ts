@@ -10,7 +10,7 @@
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 // ⭐ S194 T5 — the shared skin (still glass inside the button's own plate).
-import { skinStaticPlate } from './uiSkinButton.ts';
+import { attachChipHover, skinStaticPlate } from './uiSkinButton.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 
 const BUTTON_WIDTH = 220;
@@ -85,6 +85,7 @@ export function makeConnectionLostOverlay(
   returnBtn.eventMode = 'static';
   returnBtn.cursor = 'pointer';
   returnBtn.on('pointertap', onReturn);
+  attachChipHover(returnBtn, btnBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 8);
   returnBtn.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
   container.addChild(returnBtn);
 

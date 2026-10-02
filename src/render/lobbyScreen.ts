@@ -17,7 +17,7 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../cons
 import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass, frame, hover sheen — all inside each plate / hit rect).
 import { skinPanelFx } from './uiSkin.ts';
-import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
@@ -370,6 +370,8 @@ export class LobbyScreen {
         callbacks.onJoinAttempt(code);
       }
     };
+    // ⭐ S194 — lights only once the code is complete (the button's own 0.4-alpha "disabled" look).
+    attachChipHover(this.joinButton, this.joinButtonBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 8, () => this.joinButton.alpha >= 1);
     this.joinButton.on('pointertap', attemptJoin);
     this.attemptJoinFn = attemptJoin;
 

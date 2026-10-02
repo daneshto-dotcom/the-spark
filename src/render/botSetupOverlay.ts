@@ -16,7 +16,7 @@
 import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass + sheen, inside each plate / hit rect).
 import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
-import { attachHoverSheen } from './uiSkinButton.ts';
+import { attachChipHover, attachHoverSheen } from './uiSkinButton.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
@@ -279,6 +279,7 @@ export class BotSetupOverlay {
     skinButtonFx(plate, -92, -18, 184, 36, { accent: col, state: 'rest', radius: 6, studs: false });
     plate.roundRect(-92, -18, 184, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
     btn.addChild(plate);
+    attachChipHover(btn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
     const t = new Text({
       text: raceDisplayName(raceId),
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: col }),
@@ -428,6 +429,7 @@ export class BotSetupOverlay {
         tagline.text = locked ? BOT_PERSONALITY_LOCKED_TAGLINE : BOT_PERSONALITY_TAGLINES[pick];
       };
       personaBtn.eventMode = 'static';
+      attachChipHover(personaBtn, personaBg, { x: -90, y: -18, w: 180, h: 36 }, 6, () => this.difficulties[i] !== 'NOOB');
       personaBtn.on('pointertap', () => {
         if (this.difficulties[i] === 'NOOB') return;
         const cur = BOT_PERSONALITY_CHOICES.indexOf(this.personalities[i]);
@@ -450,6 +452,7 @@ export class BotSetupOverlay {
       paint();
       paintPersona();
       diffBtn.eventMode = 'static';
+      attachChipHover(diffBtn, diffBg, { x: -80, y: -18, w: 160, h: 36 }, 6);
       diffBtn.cursor = 'pointer';
       diffBtn.on('pointertap', () => {
         const cur = BOT_DIFFICULTIES.indexOf(this.difficulties[i]);
@@ -487,11 +490,11 @@ export class BotSetupOverlay {
     });
     t.anchor.set(0.5);
     c.addChild(t);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.on('pointertap', onClick);
-    c.on('pointerover', () => { bg.tint = 0xddddee; });
-    c.on('pointerout', () => { bg.tint = 0xffffff; });
+    // ⭐ S194 (owner: *"the plus and minus button … doesn't have any graphic implemented"*) — the
+    // steppers and the close ✕ get the shared button grammar (hover pop, press squash, click blip) and
+    // the sheen, on exactly their 48×48 plate. They used to answer only with a near-invisible tint.
+    attachButtonFeedback(c, bg, onClick, { hit: { x: -24, y: -24, w: 48, h: 48 } });
+    attachHoverSheen(c, { x: -24, y: -24, w: 48, h: 48 }, 8);
     return c;
   }
 

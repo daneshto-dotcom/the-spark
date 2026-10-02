@@ -69,7 +69,7 @@
 import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass + sheen, inside each tab / button hit rect).
 import { skinButtonFx } from './uiSkin.ts';
-import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
@@ -930,9 +930,9 @@ export class CodexOverlay {
     const tile = new Container();
     tile.position.set(x, y);
     const bg = new Graphics();
-    bg.roundRect(0, 0, w, h, 12)
-      .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: GOLD, alpha: 0.75 });
+    bg.roundRect(0, 0, w, h, 12).fill({ color: 0x0a0d14, alpha: 0.88 });
+    skinStaticPlate(bg, { x: 0, y: 0, w, h }, GOLD, 12);
+    bg.roundRect(0, 0, w, h, 12).stroke({ width: 2, color: GOLD, alpha: 0.75 });
     tile.addChild(bg);
 
     // ⭐ S174 (b) — the combo half of the owner's ruling: fourteen named results, never `???`.
@@ -990,6 +990,7 @@ export class CodexOverlay {
      */
     tile.eventMode = 'static';
     tile.cursor = 'pointer';
+    attachChipHover(tile, bg, { x: 0, y: 0, w, h }, 12);
     tile.on('pointerover', () => { this.hoveredCombo = entry.key; });
     tile.on('pointerout', () => { if (this.hoveredCombo === entry.key) this.hoveredCombo = null; });
     tile.on('pointertap', () => { this.pinnedCombo = this.pinnedCombo === entry.key ? null : entry.key; });

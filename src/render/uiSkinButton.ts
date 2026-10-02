@@ -19,16 +19,23 @@ export function skinStaticPlate(bg: Graphics, r: HitRect, accent: number, radius
   skinButtonFx(bg, r.x, r.y, r.w, r.h, { accent, state, radius });
 }
 
+/** Which rect each sheen was given — read by the census REACH test, never by the game. */
+const SHEEN_RECTS = new WeakMap<Container, HitRect>();
+export function sheenRectOf(c: Container): HitRect | undefined {
+  return SHEEN_RECTS.get(c);
+}
+
 /**
  * A sheen that sweeps across `r` while the pointer is over `c`. Adds one non-interactive Graphics to
  * `c` (above everything already in it — call after the label is added if it should glint over it,
  * before if under). Returns it so a caller can re-order it.
  */
-export function attachHoverSheen(c: Container, r: HitRect, radius: number): Graphics {
+export function attachHoverSheen(c: Container, r: HitRect, radius: number, enabled: () => boolean = () => true): Graphics {
   const g = new Graphics();
   g.eventMode = 'none';
   g.label = 'sheen';
   c.addChild(g);
+  SHEEN_RECTS.set(c, r);
   let t0 = 0;
   const stop = (): void => {
     Ticker.shared.remove(tick);
@@ -49,6 +56,7 @@ export function attachHoverSheen(c: Container, r: HitRect, radius: number): Grap
     skinSheen(g, r.x, r.y, r.w, r.h, radius, t0);
   }
   c.on('pointerover', () => {
+    if (!enabled()) return; // an inert chip does not advertise a click
     t0 = 0;
     Ticker.shared.remove(tick);
     Ticker.shared.add(tick);
@@ -57,3 +65,30 @@ export function attachHoverSheen(c: Container, r: HitRect, radius: number): Grap
   c.on('destroyed', stop);
   return g;
 }
+
+/**
+ * ⭐ S194 (owner: *"make sure that's implemented across the board"*) — the hover half for a chip that is
+ * NOT an `attachButtonFeedback` button (its click goes through its own `pointertap`, its hit is its
+ * children's bounds): the sweeping sheen inside `r`, plus a brightening tint on `plate` while hovered.
+ * Changes nothing about what is clicked. `enabled` (default always) keeps a refused/inert chip from
+ * advertising a click it will not take.
+ */
+export function attachChipHover(
+  c: Container,
+  plate: { tint: number } | null,
+  r: HitRect,
+  radius: number,
+  enabled: () => boolean = () => true,
+): Graphics {
+  const sheen = attachHoverSheen(c, r, radius, enabled);
+  c.on('pointerover', () => {
+    if (enabled() && plate !== null) plate.tint = CHIP_HOVER_TINT;
+  });
+  c.on('pointerout', () => {
+    if (plate !== null) plate.tint = 0xffffff;
+  });
+  return sheen;
+}
+
+/** The chip hover brightening — the same value `buttonFeedback` uses for its plates. */
+export const CHIP_HOVER_TINT = 0xbfd4ff;
