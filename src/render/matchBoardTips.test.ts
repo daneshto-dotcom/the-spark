@@ -92,7 +92,7 @@ describe('S194 tooltipFor — what it says', () => {
     const a = order.indexOf(P(0));
     const v = order.indexOf(P(1));
     const cell = tooltipFor(m, { kind: 'graphs' }, { kind: 'cell', attacker: a, victim: v })!;
-    expect(cell.map((l) => l.text)).toEqual(['P1 → P2', 'dealt  100', 'took back  0']);
+    expect(cell.map((l) => l.text)).toEqual(['P1 → P2', 'dealt  100', 'P2 hit back  0']);
     expect(cell[0]!.color, "the attacker's line is in the attacker's colour").toBe(w.players.get(P(0))!.color);
   });
 

@@ -217,7 +217,7 @@ describe('⭐ S194 MatchBoard — hover tooltips', () => {
     const t = visibleTexts(b);
     expect(t).toContain('P1 → P2');
     expect(t).toContain('dealt  65'); // 40 on a unit + 25 on a structure
-    expect(t).toContain('took back  300'); // P2's hits on P1's keep
+    expect(t).toContain('P2 hit back  300'); // P2's hits on P1's keep
   });
 });
 

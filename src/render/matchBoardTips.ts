@@ -107,7 +107,7 @@ export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | n
       const back = m.matrix.cells[h.victim]?.[h.attacker] ?? 0;
       return [
         { text: `${a} → ${v}`, color: m.matrix.colors[h.attacker] ?? null },
-        ...plain(`dealt  ${groupThousands(n)}`, `took back  ${groupThousands(back)}`),
+        ...plain(`dealt  ${groupThousands(n)}`, `${v} hit back  ${groupThousands(back)}`),
       ];
     }
     case 'ledger': {
