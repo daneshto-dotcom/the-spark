@@ -363,6 +363,11 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
      * the S154 "take what you can" escape (nothing stamped ⇒ cheapest legal rung), stamped ONE stink tower
      * before re-raising the goblin (goblin>stink>goblin>nagas, def 0.25; 0.00 / 0.00 on the others).
      * Its PLANNED order still lists no defence. What survives as the signature: the LOWEST defence of the five.
+     * ⚠ S193 MED-1 RE-MEASURE (bots no longer build within 34 px of their own porch slots, `isLegalBuildPos`):
+     * every assertion here still holds, re-measured, and none was loosened. What moved, HARD only (IMBA is
+     * byte-identical): BALANCED s2 t3Mummies>t3Mummies def 0.00 → t3Mummies>stinkTower 0.50 (its pulls land
+     * again, so it affords the stink); FORTRESS s2 stink>mummies>stink 0.67 → stink>mummies 0.50, mean 0.44 →
+     * 0.39 (still the highest; BALANCED 0.28); loose counts ±1 (BALANCED s1 15→14, TYCOON s2 18→19).
      */
     for (const m of [bal, fort, tyc, sab]) expect(meanDef(war)).toBeLessThan(meanDef(m));
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
