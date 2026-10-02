@@ -184,9 +184,11 @@ function code(file: string): string {
 }
 
 describe('S194 — ⛔ EVERY tower kind that hides its connectors publishes a FOOT (mechanical census)', () => {
-  const publishers = readdirSync(RENDER_DIR)
+  // ⭐ S194 audit — RECURSIVE over src/render/** (a publisher in a sub-folder must not escape the census).
+  const publishers = (readdirSync(RENDER_DIR, { recursive: true }) as string[])
+    .map((f) => f.split(String.fromCharCode(92)).join('/'))
     .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'towerCover.ts')
-    .filter((f) => !/^(arcade|nonet|sudokuOverlay)/.test(f))
+    .filter((f) => !/(^|\/)(arcade|nonet|sudokuOverlay)/.test(f))
     .filter((f) => code(f).includes('markTowerCover('));
 
   it('the census found the four publishers (anti-vacuity) — and no other', () => {
