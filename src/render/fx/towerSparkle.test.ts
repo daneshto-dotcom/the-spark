@@ -333,6 +333,30 @@ describe('S194 REACH — `SpawnerZoneRenderer.sync` sparkles every tower kind', 
     }
   });
 
+  /*
+   * ⭐ S194 (overlap with T15 `s194/weld-rebuild`) — a tower welded into a big structure whose structure
+   * RE-FORMS (a connector breaks; it re-registers a beat later on n−1 shapes, under a new group key) must
+   * not play the BUILD sparkle again. L1 (the old key is dropped once a standing group holds its shapes)
+   * + L2 (shapes already seen standing ⇒ a re-reveal) make that true here. ⚠ What this does NOT cover:
+   * the shapes' COVER phase still flips during the gap (towerCover's reveal), so they phase back in and
+   * out — that half is sim/registration timing and stays with T15.
+   */
+  it('⭐ a welded tower that re-forms on n−1 shapes after a short gap plays NO build sparkle', () => {
+    const { w, prims, bonds } = boardWith('spawner');
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    for (let t = 1000; t <= 1000 + TOWER_COVER_FADE_TICKS + 5; t += 5) syncAt(r, w, t, true, prims, bonds);
+    const gap = 1000 + TOWER_COVER_FADE_TICKS + 6;
+    for (let t = gap; t < gap + 20; t++) syncAt(r, w, t, false, prims, bonds); // the re-form gap (≤ a poll)
+    const survivors = prims.slice(1); // re-formed WITHOUT its smallest shape: a new group key
+    const back = gap + 20;
+    syncAt(r, w, back, true, survivors, bonds.slice(1));
+    for (let t = back + 1; t < back + 30; t++) {
+      syncAt(r, w, t, true, survivors, bonds.slice(1));
+      expect(top.out.filter((e) => e.tint === 0xffffff), `tick ${t}: no build-sparkle beads`).toEqual([]);
+      expect(ground.out, `tick ${t}: no build light pool`).toEqual([]);
+    }
+  });
+
   it('⛔ NEGATIVE — `?fx=legacy` emits no sparkle sprites at all', () => {
     const { w, prims, bonds } = boardWith('defender');
     const r = new SpawnerZoneRenderer({} as never, new Container());
