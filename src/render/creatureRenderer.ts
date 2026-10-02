@@ -27,6 +27,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture } from './coherence/unitDeparture.ts';
 import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
@@ -299,6 +300,8 @@ export class CreatureRenderer {
    * despawn (which passes through DESPAWNING for ~60 ticks = many snapshots). KILL → lightning-cloud.
    */
   private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
+  /** ⭐ S194 T9 — the shared mass-clear latch (`coherence/unitDeparture.ts`). */
+  private readonly departureEpoch = new CreatureWatchEpoch();
   /** S103 #8 — active lightning-cloud bursts (a Voltkin that was KILLED). Render-only, wall-clock
    *  culled; outlives the rig that spawned it, mirroring the chewer goo-splat pattern. */
   private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number; id: number; bornTick: number }> = [];
@@ -593,15 +596,16 @@ export class CreatureRenderer {
      * bought a skipped iteration over a handful of ids and cost a missed death. Dropped.
      */
     {
-      const playing = world.gameState === 'PLAYING';
+      // ⭐ S194 T9 (coherence) — a mass clear is not a massacre: forget, never discharge (S182's rule).
+      const cleared = this.departureEpoch.moved(world);
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
         const wasState = this.lastSeenState.get(id);
-        // ⭐ S178 — a death the player cannot see makes no light and no noise. Same rule
-        // `effectsRenderer` applies to one-shot effects by position.
+        // ⭐ S178 — a death the player cannot see makes no light and no noise. ⭐ S194 T9 — that rule,
+        // the DESPAWNING one and the PLAYING one now live in ONE shared classifier every watcher calls.
         const owner = this.lastSeenOwner.get(id);
-        const hidden = owner !== undefined && isConcealed(pos.x, pos.y, owner);
-        if (playing && !hidden && wasState !== undefined && wasState !== 'DESPAWNING') {
+        if (!cleared && wasState !== undefined && owner !== undefined
+          && classifyCreatureDeparture(world, { state: wasState, x: pos.x, y: pos.y, owner }) === 'killed') {
           this.lightningClouds.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 1.732 + 0.61, id: id as unknown as number, bornTick: world.tick });
           void playZapBurstSFX({ x: pos.x, y: pos.y });
         }
