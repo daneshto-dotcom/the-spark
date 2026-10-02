@@ -36,6 +36,14 @@ const { applyBuildBlueprint } = await import('../state/blueprintBuild.ts');
 const { makeCastleBank } = await import('../state/castleBank.ts');
 const { damageConnector } = await import('../state/damage.ts');
 const { runGodlyMatcherCore } = await import('../state/godlyMatcherCore.ts');
+// ⭐ S193 weld merge seam (R191-B) — `REPAIR_STRUCTURE` now QUEUES a gatherer job, so the restore under
+// test is called directly; the job path prints the same record (`repairHealNumber.test.ts` REACH).
+const { applyRepairStructure } = await import('../state/structureRepair.ts');
+const { makeHostTickState, runHostTick } = await import('../state/hostTick.ts');
+const { makeGameStateExtras } = await import('../state/gameState.ts');
+const { castleAnchor, makeGatherer } = await import('../state/gatherers/gatherer.ts');
+const { asGathererId } = await import('../types.ts');
+const { GATHERER_DEPOSIT_OFFSET_Y } = await import('../constants.ts');
 const { HostSync, ClientSync } = await import('../net/sync.ts');
 const { DamageNumbers } = await import('./damageNumbers.ts');
 await import('../state/godlyRecipes/stinkTower.ts');
@@ -101,7 +109,7 @@ describe('⭐⭐ S193 T11 — JOINER: a repair prints ONE total green number, de
     const [b1, b2] = [...w.bonds.keys()];
     expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
     expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
-    const { placed, cw } = joiner(w, () => dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
+    const { placed, cw } = joiner(w, () => applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
     for (const b of cw.bonds.values()) expect(b.damageFifths, 'fixture: the repair crossed the wire').toBe(0);
     expect(placed).toEqual([{ amount: 12, kind: 'heal' }]);
   });
@@ -110,7 +118,7 @@ describe('⭐⭐ S193 T11 — JOINER: a repair prints ONE total green number, de
     const w = tower();
     damageConnector(w, [...w.bonds.keys()][0], 9, null, 'physical');
     [...w.primitives.values()][1].hp = PRIMITIVE_MAX_HP - 20;
-    const { placed } = joiner(w, () => dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
+    const { placed } = joiner(w, () => applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
     expect(placed).toEqual([{ amount: 29, kind: 'heal' }]);
   });
 
@@ -141,8 +149,48 @@ describe('S193 T11 — HOST: the record still wins, so the derivation never doub
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
     dn.sync(w);
     expect(placed).toEqual([{ amount: 12, kind: 'heal' }]);
+  });
+});
+
+describe('⭐⭐ S193 R191-B × T11 — JOINER: a repair JOB finished by a gatherer prints the same ONE green number', () => {
+  it('REACH (host tick): chew two connectors, FIX queues, the gatherer brings the fee — the joiner derives one green 12', () => {
+    const w: any = makeWorld(0x193f);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'BUILD';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    w.creatures.clear();
+    w.freeSparks.clear();
+    w.gatherers.clear();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('laserTurret')) bank[type as number] = (bank[type as number] ?? 0) + count;
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre: { x: 500, y: 300 } });
+    const deps: any = {
+      spawner: { tick() {} }, controls: { state: { kind: 'Idle' }, applyPerSubstep() {} }, botManager: null,
+      gameStateExtras: makeGameStateExtras(), alivePeerIds: null, hostSeats: new Map(),
+    };
+    const st = makeHostTickState(w);
+    const cursor = { lastMatcherTick: -1 };
+    const step = (): void => { runHostTick(w, deps, st); runGodlyMatcherCore(w, cursor); w.effects.length = 0; w.creatures.clear(); };
+    for (let i = 0; i < 3; i++) step();
+    const [b1, b2] = [...w.bonds.keys()];
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
+    w.castleBanks.set(P0, makeCastleBank());
+    w.castleBanks.get(P0)[SparkType.Spiral as number] = 1;
+    const c = castleAnchor(0, w.layout);
+    const gid = asGathererId(w.nextGathererId++);
+    w.gatherers.set(gid, makeGatherer({ id: gid, ownerPlayerId: P0, pos: { x: c.x, y: c.y + GATHERER_DEPOSIT_OFFSET_Y }, spawnedAtTick: 0 }));
+    const { placed } = joiner(w, () => {
+      dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: [...w.primitives.values()][0].id });
+      expect(w.repairJobs, 'the FIX queued a job').toHaveLength(1);
+      for (let t = 0; t < 4000 && w.repairJobs.length > 0; t++) step();
+      expect(w.repairJobs, 'the gatherer finished it').toHaveLength(0);
+    });
+    expect(placed.filter((p) => p.kind === 'heal')).toEqual([{ amount: 12, kind: 'heal' }]);
   });
 });

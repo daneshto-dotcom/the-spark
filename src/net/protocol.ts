@@ -1010,7 +1010,33 @@ export type { NetSnapshot };
  *      starts equal to its DEF). A v59 host refuses it; a stale peer falls through the switch.
  *   3. A NEW WIRE FIELD — `castleUpgrades.mresLevel` (additive-optional), wide-hashed.
  */
-export const PROTOCOL_VERSION = 60 as const;
+/**
+ * ⭐⭐ S193 — **BUMPED 60 -> 61: deploy #22 — ONE bump for the train merged on master (S190 deploy-#4 precedent).**
+ * Each branch below earns it alone (the S186 test). `s193/bots`, `s193/visuals-combat`, `s193/visuals-board` and
+ * `s191/endstats` ride it without needing it (host-only bots, render-only fx, presentational stats).
+ *   1. `s189/weld` — `ownPrimitiveIds` REPLACES `ownBondIdLimit` on SerializedSpawner / SerializedDefender (wire, wide-hashed);
+ *      R191-A per-tower FIX/SCRAP inside a weld; R191-B FIX BY GATHERER: `REPAIR_STRUCTURE` now QUEUES a repair job instead of
+ *      restoring on the spot (a v60 host would restore instantly); a NEW client intent `FIX_ALL` (R192-W1, the castle row);
+ *      new serialized + wide-hashed `World.repairJobs`, `World.nextRepairJobId`, `Gatherer.repairTask`. Full list: weld canon notes §H.
+ *   2. `s193/goblin-autobuild` — a NEW client intent `SET_AUTO_FEED` (owner T4; a v60 host drops a v61 joiner's toggles — the
+ *      CHOOSE_DRAFT precedent); `CreatureSpawner.autoFeedMask/autoFeedCursor` on the wire (additive-optional, hashed :af/:ac);
+ *      host-only `World.goblinAutoFeedMemory` (hashed gm:, not on the wire); the host auto-build runner.
+ *   3. `s193/carry-fwd` CF-1 — a struck MIXED-weld connector carries no overkill (a v60 successor still carries through it).
+ */
+/**
+ * ⭐⭐ S193 — **BUMPED 61 -> 62: `s193/playtest3` — the owner's live 4-player playtest (S193 A3).** Each alone:
+ *   1. P3-1 THE CASTLE KEEP-OUT IS ONE 61 px DISC ON EVERY SIDE (owner: "it should be just as far as the horizontal …
+ *      a short radius … immediately around it"). The four porch-slot discs (all south of the keep) made the refused
+ *      ground reach ~108 px south vs ~74 east; `zones.castleKeepOutHitsBox` is now the single disc. The porch
+ *      protection moved to the pull (a slot with a built shape within 34 px is skipped) and to the stamp (BLOCKED over
+ *      a shape resting on the porch). Placement is a hashed reducer the host, the client ghost and a successor all run.
+ *   2. P3-2 NEAREST ENEMY FIRST (owner: "simple creatures should target the nearest enemy spawn right around them
+ *      first"): `structureTargets` no longer picks a victim SEAT by leader + hash (`spreadEnemyTarget`) — it takes
+ *      `nearestStrictEnemyBond` (squared distance, then id): enemy unit → nearer of lone shape / connector → nearest
+ *      live castle. The chewer and the lightning drone keep the spread (⚠ owner question). A v61 host, worker or
+ *      successor picks different connectors from the same world.
+ */
+export const PROTOCOL_VERSION = 62 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1346,6 +1372,10 @@ export interface HelloMsg {
    *
    * S193: 59->60 (DEPLOY #22 — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade. Full reasons on the const's JSDoc.)
    *
+   * S193: 60->61 (DEPLOY #22 — deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride. Full reasons on the const's JSDoc.)
+   *
+   * S193: 61->62 (DEPLOY #23 — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1383,7 +1413,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 60;
+  readonly protoVersion: 62;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -1822,6 +1852,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // PROTOCOL_VERSION bumped 26->27.
   REPAIR_STRUCTURE: true,
   SCRAP_STRUCTURE: true,
+  // ⭐ S193 R192-W1 — FIX ALL (a joiner queues every one of ITS OWN towers; the host re-plans each).
+  FIX_ALL: true,
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE. Both are also CLIENT INTENTs (see below).
   ENQUEUE_GATHERER_ORDER: true,
   CANCEL_GATHERER_ORDER: true,
@@ -2033,6 +2065,8 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // desync. The one real cross-check is benchGate.test.ts's set-equality against BENCH_INTENT_POLICY.
   REPAIR_STRUCTURE: true,
   SCRAP_STRUCTURE: true,
+  // ⭐ S193 R192-W1 — FIX ALL (a joiner queues every one of ITS OWN towers; the host re-plans each).
+  FIX_ALL: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

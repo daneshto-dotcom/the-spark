@@ -148,7 +148,8 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { requestPull } from './input/pullFeedback.ts'; // S193 L1
+import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, playUiRefusedSFX, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -180,6 +181,7 @@ import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { DraftOverlay } from './render/draftOverlay.ts';
+import { MatchBoardHost } from './render/matchBoardHost.ts'; // ⭐ S191 — the stat board (its view is a lazy chunk)
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -1034,10 +1036,17 @@ async function bootstrap(): Promise<void> {
   castlePanel.setCastleStatHandler((stat) => {
     dispatchFn({ type: 'UPGRADE_CASTLE_STAT', playerId: world.localPlayerId, stat });
   });
+  // ⭐ S193 R192-W1 — the castle's FIX ALL: queue a gatherer FIX job for every own tower that needs one.
+  // Same dispatchFn seam (all three transport paths); NOT predicted — the host owns the queue.
+  castlePanel.setFixAllHandler(() => {
+    dispatchFn({ type: 'FIX_ALL', playerId: world.localPlayerId });
+  });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
+  // ⭐ S193 L1 — through `requestPull`, which plays the refused thud when the seat's own built shapes
+  // cover every free porch slot (the pull would be a silent no-op). The intent is sent unchanged.
   castlePanel.setPullHandler((sparkType) => {
-    dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, sparkType });
+    requestPull(world, sparkType, dispatchFn, () => { void playUiRefusedSFX(); });
   });
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE (owner ruling B4). Same dispatchFn seam as every
   // other panel control, so it routes on all three paths (networked joiner → wire intent; worker
@@ -1385,6 +1394,12 @@ async function bootstrap(): Promise<void> {
    * `draftOverlay.ts`). `s189CruiserAboveDraft.test.ts` pins these three lines in this order.
    */
   app.stage.addChild(draftOverlay.container);
+  // ⭐ S191 — THE END-OF-MATCH STAT BOARD: staged here, by its line and no zIndex (canon §7b) — over the HUD,
+  // the footer, the sheet and the draft panel, under the cruiser. It re-derives itself from `world` every frame
+  // and shows only in POSTGAME; its CONTINUE is the POSTGAME exit (see `resetIfPostgame`).
+  const matchBoard = new MatchBoardHost(() => resetIfPostgame());
+  app.stage.addChild(matchBoard.container);
+  app.ticker.add(() => matchBoard.render(world, performance.now()));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -2410,7 +2425,8 @@ Network routes: ${v.detail}`;
 
   let lastGameState: GameState = world.gameState;
   const resetIfPostgame = (): void => {
-    if (world.gameState === 'POSTGAME') {
+    // ⭐ S191 — the stat board is up: nothing leaves it until it has been readable for `ARM_MS` (CONTINUE, R).
+    if (world.gameState === 'POSTGAME' && matchBoard.isArmed(performance.now())) {
       // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
       // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
       // re-selects 1 Player to play again (cleaner than implicit replay).
@@ -2418,7 +2434,9 @@ Network routes: ${v.detail}`;
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
-  app.canvas.addEventListener('click', resetIfPostgame);
+  // ⛔ S191 — ANY canvas click in POSTGAME used to reset the match, which made a stat board unreadable. While the
+  // board is up only its own CONTINUE (Pixi `pointertap`, primary button) or R leaves; this is the fallback.
+  app.canvas.addEventListener('click', () => { if (!matchBoard.isShowing()) resetIfPostgame(); });
 
   // S18 P1 — audio: lazy-init AudioContext on first user gesture anywhere
   // (canvas or window). Browser autoplay policy requires this to be inside
@@ -3049,7 +3067,8 @@ Network routes: ${v.detail}`;
       // object: the HTMLVideoElement + Pixi sprite + ticker callback owned
       // by cutsceneOverlay, the stage offset owned by screenShake, and the
       // lastCinematicOwner watcher used to gate startCinematicIfNeeded.
-      // Fires on POSTGAME→TITLE (canvas click → resetIfPostgame → dispatch),
+      // Fires on POSTGAME→TITLE (the stat board's CONTINUE or R → resetIfPostgame → dispatch; S191: a
+      // canvas click no longer resets POSTGAME while the board shows),
       // lobby Back-to-Title (onBackToTitle → dispatch), and peer-drop via
       // onReturnFromConnectionLost. Idempotent on no-cinematic-active path:
       // cutsceneOverlay.abort bails when isActive() is false; screenShake.reset
@@ -3780,7 +3799,7 @@ Network routes: ${v.detail}`;
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
      *
      * Shown in PLAYING and nowhere else, because every other state already has its own exit: TITLE
-     * *is* the destination, LOBBY has its Back button, POSTGAME returns on a click, and the
+     * *is* the destination, LOBBY has its Back button, POSTGAME returns from the stat board (CONTINUE or R — S191), and the
      * connection-lost overlay has its own return. `modalUp` is reused rather than re-derived so the
      * button cannot draw over the codex / bot-setup / arcade panes — the S152 through-drawing class.
      */

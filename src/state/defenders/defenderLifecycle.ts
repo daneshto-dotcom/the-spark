@@ -47,6 +47,8 @@ import type { World } from '../worldTypes.ts';
 import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
+import { ownSetAtRegistration } from '../towerMembers.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -56,6 +58,8 @@ export interface RegisterDefenderAction {
   readonly anchorPrimitiveId: PrimitiveId;
   readonly recipeId: GodlyId;
   readonly pos: Vec2;
+  /** S191 (R191-A) — see `RegisterSpawnerAction.ownPrimitiveIds`. Omitted ⇒ the exact shape at the anchor. */
+  readonly ownPrimitiveIds?: readonly PrimitiveId[];
 }
 export interface RemoveDefenderAction {
   readonly type: 'REMOVE_DEFENDER';
@@ -86,10 +90,17 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
       recipeId: action.recipeId,
       pos: action.pos,
       registeredAtTick: world.tick,
-      // ⭐ S189 C2 (audit W1) — every connector it was BUILT with has an id below this.
-      ownBondIdLimit: world.nextBondId,
+      // ⭐ S189 C2 / S191 — the shapes it is BUILT of (its own connectors are the bonds between them).
+      ownPrimitiveIds:
+        action.ownPrimitiveIds ?? ownSetAtRegistration(world, action.recipeId, action.anchorPrimitiveId),
     }),
   );
+  /*
+   * ⭐ S191 — the stat board's TOWERS. ⚠ MINE: HELGA (`'princess'`) is not counted — she is a unit with a pool
+   * that her hall re-summons every BUILD after she dies, so counting her would score one hall as a new tower
+   * (and a fallen one) every wave. Turrets and stink towers count; spawners count at their own register.
+   */
+  if (action.defenderKind !== 'princess') recordTowerBuilt(world, action.ownerPlayerId);
   return world;
 }
 
@@ -631,7 +642,7 @@ export function reviveDormantHelgas(world: World): void {
     // derivation, so a revived Helga cannot drift from a newly built one.
     const fresh = makeDefender({
       id: d.id, kind: d.kind, ownerPlayerId: d.ownerPlayerId, anchorPrimitiveId: d.anchorPrimitiveId,
-      recipeId: d.recipeId, pos: home, registeredAtTick: world.tick, ownBondIdLimit: d.ownBondIdLimit,
+      recipeId: d.recipeId, pos: home, registeredAtTick: world.tick, ownPrimitiveIds: d.ownPrimitiveIds,
     });
     d.state = fresh.state;
     d.ticksInState = fresh.ticksInState;

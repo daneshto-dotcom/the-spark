@@ -29,6 +29,7 @@ import { CHEWER_CONFIG } from './creatures/voltkin-config.ts';
 import { makeSpawner } from './spawners/spawner.ts';
 import { makeDefender } from './defenders/defender.ts';
 import { makeGatherer } from './gatherers/gatherer.ts';
+import { recordUnitBuilt } from './matchStats.ts'; // ⭐ S191
 import { makeFreeSpark } from '../game/spark.ts';
 import { SparkType, PRIMITIVE_MAX_HP } from '../constants.ts';
 import {
@@ -66,6 +67,8 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   'nextPrimitiveId', 'nextBondId', 'nextCreatureId', 'nextSpawnerId', 'nextDefenderId',
   'nextBombId', 'nextHunterId', 'nextPotatoId', 'nextRainbowId', 'nextSeagullId',
   'nextPoopId', 'sudoku', 'pendingCreatureSpawn',
+  // ⭐ S193 R191-B — the FIX-job allocator cursor (the `rjn` part).
+  'nextRepairJobId',
   // ⭐ S187 — THE OPEN UPGRADE DRAFT. A world SCALAR (a two-integer record or null, projected as
   // the `dr` part), not an entity family, so it belongs here beside `sudoku` rather than in
   // EXPECTED below — that list enumerates only the families that own a per-element projection
@@ -564,6 +567,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     w.castleBanks.set(P0, invBank);
     // S141 P2 — a queued order, so the new family contributes a part here too.
     w.gathererOrders.set(P0, [SparkType.Square, SparkType.Circle, SparkType.Square]);
+    // ⭐ S193 R191-B — a queued FIX job, so its projection loop must contribute.
+    w.repairJobs.push({ id: 0, seat: P0, targetId: 3 as never, memberIds: [3 as never], need: [SparkType.Square], delivered: [] });
     // S158 P6 — a landed stink bag, so the new family contributes a part here too. Without this the
     // family's projection loop could be deleted and every assertion in this file would stay green.
     w.stinkClouds.set(
@@ -575,6 +580,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
     w.goblinAutoFeedMemory.set(asPrimitiveId(3), { owner: P0, mask: 0b1000, cursor: 0 });
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
+    // ⭐ S191 — a stat-board counter, so the family contributes its `ms` part here too.
+    recordUnitBuilt(w, P0, 'chewer');
     addPrimBondSpark(w);
 
     const parts = determinismParts(w);
@@ -588,6 +595,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['gatherers', /^ga\d+:/],
       ['castleBanks', /^cb\d+:/],
       ['gathererOrders', /^go\d+:/],
+      // ⭐ S193 R191-B — the FIX queue (one part per job).
+      ['repairJobs', /^rj\d+:/],
       ['bombs', /^bo\d+:/],
       ['hunters', /^h\d+:/],
       ['potatoes', /^po\d+:/],
@@ -601,6 +610,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       ['goblinAutoFeedMemory', /^gm:\d/], // ⭐ S193 T4
       ['discoveredCombos', /^dc:./],
       ['godlyFiredThisMatch', /^gf:./],
+      // ⭐ S191 — the stat board's running totals (the history's `mh` part is pinned in matchStats.test.ts).
+      ['matchStats', /^ms\d+:/],
     ];
     for (const [family, re] of EXPECTED) {
       expect(FIELD_COVERAGE[family as keyof typeof FIELD_COVERAGE], `${family} must be hashed`).toBe(

@@ -45,6 +45,7 @@
 import type { PlayerId } from '../types.ts';
 import type { Player } from '../game/player.ts';
 import type { GameAction, World } from './world.ts';
+import { recordSeatFell } from './matchStats.ts'; // ⭐ S191
 
 type EliminationPolicy = 'allow' | 'deny';
 
@@ -83,6 +84,7 @@ export const ELIMINATION_INTENT_POLICY = {
   // ⭐ S193 (owner T4) — elimination denies standing orders, and a fallen seat has nothing to feed.
   SET_AUTO_FEED: 'deny',
   REPAIR_STRUCTURE: 'deny',
+  FIX_ALL: 'deny', // S193 R192-W1 — FIX ALL is FIX, many times
   SCRAP_STRUCTURE: 'deny',
 
   // ── Offence and disruption. A fallen seat must not be able to decide the match between the
@@ -189,6 +191,7 @@ export function markFallenSeats(world: World): PlayerId[] {
   for (const [id, p] of world.players) {
     if (isEliminated(p) && p.eliminatedAtTick === undefined) {
       p.eliminatedAtTick = world.tick;
+      recordSeatFell(world, id); // ⭐ S191 — the stat board's "OUT Wn" (the wave is not derivable from a tick)
       stamped.push(id);
     }
   }
@@ -205,11 +208,30 @@ export function markFallenSeats(world: World): PlayerId[] {
  * verdict on their match. A seat with no stamp sorts as `Infinity`, so survivors lead.
  */
 export function matchPlacings(world: World): PlayerId[] {
+  const winner = world.lastWinnerId;
+  const score = (id: PlayerId): number => world.scoreByPlayer.get(id) ?? 0;
   return [...world.players.entries()]
     .sort(([aId, a], [bId, b]) => {
+      /*
+       * ⛔ S193 (audit, MED) — THE CROWNED SEAT IS FIRST, WHETHER OR NOT ITS CASTLE STOOD. An endgame WIPE
+       * (wave 27+, every castle down) crowns the top SCORE over every seat (`gameState.ts`), including one
+       * that fell first; ordering him among the fallen put "BOT 2 WINS" in 3rd on the stat board.
+       */
+      if (winner !== null && (aId === winner) !== (bId === winner)) return aId === winner ? -1 : 1;
       const at = a.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       const bt = b.eliminatedAtTick ?? Number.POSITIVE_INFINITY;
       if (at !== bt) return bt - at; // later elimination = better placing
+      /*
+       * ⭐ S191 — R20'S SECOND HALF, RULED AND NEVER BUILT: *"Remaining places are then ordered by score."*
+       * (`SPARK_TD_BLUEPRINT.md` R20; found unbuilt by the S181 stat-board recon.) Among the SURVIVORS the
+       * crowned seat leads (now above, for every seat) — a points win can leave an offline seat alive with more
+       * banked score — and the rest go by score, highest first. The fallen keep their elimination order. Seat id still settles
+       * every tie, so this stays a TOTAL order and `Map` order decides nothing.
+       */
+      if (at === Number.POSITIVE_INFINITY) {
+        const d = score(bId) - score(aId);
+        if (d !== 0) return d;
+      }
       return (aId as unknown as number) - (bId as unknown as number);
     })
     .map(([id]) => id);

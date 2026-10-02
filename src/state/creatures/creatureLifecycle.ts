@@ -62,6 +62,7 @@ import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 import { isT9BossType, T9_BOSS_TYPE } from '../t9BossIds.ts';
 // ⭐ S188 — the racial mechanics' one death hook (THE RISEN, HELLSPAWN). See `damageCreature`.
 import { onCreatureDeathDecided } from '../racial/racialDeaths.ts';
+import { recordUnitBuilt } from '../matchStats.ts'; // ⭐ S191 — the stat board's UNITS, at each of the three mints
 import type { KillCredit } from '../racial/killCredit.ts'; // S192 T2
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
@@ -292,6 +293,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     // ⭐ S192 — the endgame monster's victim seat, written once at birth (see `Creature.monsterSeat`).
     if (action.monsterSeat !== undefined) creature.monsterSeat = action.monsterSeat;
     world.creatures.set(id, creature);
+    recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
     return world;
   }
 
@@ -317,6 +319,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         ownerRace: world.players.get(action.ownerPlayerId)?.raceId ?? null,
       }),
     );
+    recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
     return world;
   }
 
@@ -384,6 +387,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     ownerRace: world.players.get(action.ownerPlayerId)?.raceId ?? null,
   });
   world.creatures.set(id, creature);
+  recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
   return world;
 }
 

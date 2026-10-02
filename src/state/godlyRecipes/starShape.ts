@@ -154,14 +154,15 @@ export interface StarArms {
  * one is cut, the lowest remaining same-type bond can be a WELD, which then "stood in" and kept the
  * tower alive. Nobody ruled that — the brief and R185-B say a cut own connector levels it. So:
  *
- *   `bondIdLimit` (the tower's `ownBondIdLimit` — `world.nextBondId` when it was registered) marks
- *   the connectors it was built with: exactly the hub bonds with an id BELOW it (ignition is exact,
- *   so at registration the hub's bonds WERE its arms). A weld has a higher id and is never counted,
- *   of ANY type. The star stands iff all `count` arms of every type are still among them.
+ *   `own` (the tower's `ownPrimitiveIds`, recorded at registration — ignition is exact, so the hub's
+ *   neighbours then WERE its leaves) marks the shapes it was built with: an arm is a hub bond to one
+ *   of THOSE leaves, whatever the bond's id. A weld is never an own shape and is never counted, of
+ *   ANY type — and a connector FIX re-welds to an own leaf (a NEW bond id) counts again, which a
+ *   bond-id watermark could not do (S191, audit W-FR4). The star stands iff all `count` arms of every
+ *   type are still there.
  *
- *   `bondIdLimit === null` (a pre-S189 save, a hand-built fixture, a structure that is not a live
- *   tower): the exact pre-S189 reading — every hub bond is an arm of the right type and the degree
- *   is exact.
+ *   `own === null` (a pre-S189 save, a hand-built fixture, a structure that is not a live tower): the
+ *   exact pre-S189 reading — every hub bond is an arm of the right type and the degree is exact.
  *
  * ⛔ **TOTAL ORDER, NEVER `Set` ORDER.** Candidates are sorted by bond id before any is taken.
  * ⚠ DISTINCT LEAVES: an arm is counted once per leaf.
@@ -175,7 +176,7 @@ export function starArmsAt(
   anchorId: PrimitiveId,
   hubType: SparkType,
   arms: readonly StarArmSpec[],
-  bondIdLimit: number | null = null,
+  own: ReadonlySet<PrimitiveId> | null = null,
 ): StarArms | null {
   const hub = world.primitives.get(anchorId);
   if (hub === undefined) return null;
@@ -193,9 +194,9 @@ export function starArmsAt(
     const bond = world.bonds.get(bondId);
     if (bond === undefined) continue; // a dangling bond id — the shape is mid-teardown
     liveHubBonds++;
-    // A connector minted AFTER the tower was built is a weld — never an arm, whatever its type.
-    if (bondIdLimit !== null && Number(bondId) >= bondIdLimit) continue;
     const otherId = bond.aId === anchorId ? bond.bId : bond.aId;
+    // A shape the tower was not built with is a weld — never an arm, whatever its type.
+    if (own !== null && !own.has(otherId)) continue;
     if (otherId === anchorId) continue; // a self-bond is never an arm (see `isStarAt`)
     const leaf = world.primitives.get(otherId);
     if (leaf === undefined) continue;
@@ -219,7 +220,7 @@ export function starArmsAt(
   }
   let whole = true;
   for (const [type, count] of want) if ((taken.get(type) ?? 0) < count) whole = false;
-  // Unknown build (no limit): the exact reading — nothing else may be bonded to the hub.
-  if (bondIdLimit === null && liveHubBonds !== total) whole = false;
+  // Unknown build (no own set): the exact reading — nothing else may be bonded to the hub.
+  if (own === null && liveHubBonds !== total) whole = false;
   return { leaves, bonds, whole };
 }

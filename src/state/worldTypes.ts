@@ -18,6 +18,7 @@ import type { Spark } from '../game/spark.ts';
 import type { SudokuEvent } from './sudoku.ts';
 import type { DraftEvent } from './draftEvent.ts';
 import type { ZoneLayout } from './zones.ts';
+import type { MatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board's record
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
@@ -29,6 +30,7 @@ import type { AutoFeedMemory, CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
+import type { RepairJob } from './repairJobTypes.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
@@ -317,6 +319,14 @@ export interface World {
    */
   scoreByPlayer: Map<PlayerId, number>;
   /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD'S RECORD: each seat's running totals (units built and killed per
+   * type, towers built/fell, damage dealt/taken in fifths) and the per-wave history the two graphs draw.
+   * Written ONLY through `matchStats.ts`, from host reducers. ⛔ INERT: no reducer may read it (see that
+   * file). Four sites: factory `makeWorld`; resets `applyStartGame` / `applyReturnToTitle` / `softReset`;
+   * `save.ts` additive-optional; `stateHashFull` `ms`/`mh` parts. The worker crosses by snapshot.
+   */
+  matchStats: MatchStats;
+  /**
    * S10 P5: debug toggle for structure cinematics.
    */
   cinematicsEnabled: boolean;
@@ -495,6 +505,14 @@ export interface World {
    * economy — a queue is an instruction to units that no longer exist.
    */
   gathererOrders: Map<PlayerId, SparkType[]>;
+  /**
+   * ⭐ S193 R191-B / R192-W1 — the FIX queue: every seat's repair jobs, in enqueue order (FIX clicks and
+   * FIX ALL). Host-authoritative, serialized, wide-hashed; cleared with the gatherer economy. See
+   * `repairJobs.ts`.
+   */
+  repairJobs: RepairJob[];
+  /** S193 — monotonic repair-job id counter (serialized: a re-derived one would re-issue ids). */
+  nextRepairJobId: number;
   /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`

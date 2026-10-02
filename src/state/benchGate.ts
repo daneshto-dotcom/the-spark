@@ -151,6 +151,8 @@ export const BENCH_INTENT_POLICY = {
   // and mints geometry, which is the whole of what the bench exists to stop. Nothing is lost — the
   // shapes stay banked and the tower stays broken until the bench lifts.
   REPAIR_STRUCTURE: 'deny',
+  // ⭐ S193 R192-W1 — FIX ALL is FIX for every tower at once: the same ruling.
+  FIX_ALL: 'deny',
   // S152 — SCRAP is denied too, and the reasoning is the PULL_FROM_BANK reasoning rather than the
   // SET_GATHERER_PREFERENCE one. It looks like pure deconstruction ("acquires nothing"), but it
   // converts standing structure into SPENDABLE INVENTORY, which is exactly the staging move

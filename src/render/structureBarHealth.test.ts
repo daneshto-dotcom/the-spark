@@ -8,7 +8,7 @@
  *
  * DRIVEN FOR REAL: a real lightning hub (a Dot of degree 5 + 5 Circles) ignited by the real matcher and
  * host tick, then a friendly shape WELDED onto a leaf after ignition (so the weld connector is not one of
- * the hub's own, `ownBondIdLimit`). The bar is read off the real `drawHealthBars` (a recording Graphics),
+ * the hub's own, `ownPrimitiveIds`). The bar is read off the real `drawHealthBars` (a recording Graphics),
  * the sheet off the real `characterSheetModel`, the art off the real `starHealthFrac` / `rampHealthFrac`.
  */
 import { describe, expect, it } from 'vitest';

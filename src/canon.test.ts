@@ -109,6 +109,7 @@ import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
+import { findNearestBondTarget, structureTargets } from './state/creatures/creatureAI.ts'; // S193 P3-2
 import { HUB_BLAST_CREATURE_WEIGHT, STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -224,6 +225,8 @@ import { VOLTKINS_PER_TV } from './state/voltkinTv.ts';
 import {
   STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
 } from './render/structureBarHealth.ts';
+// S193 R191-B / R192-W1 — the FIX job queue (canon §8 / §3d).
+import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -303,7 +306,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(60);
+    expect(PROTOCOL_VERSION).toBe(62);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -353,17 +356,58 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**1075**')).toBe(true);
   });
 
-  it('⭐ §4b — S191: the castle keep-out is HALVED (61) and every porch slot keeps a 34 px disc', () => {
+  it('⭐ §4b — S191 → S193: the castle keep-out is HALVED (61) and it is ONE disc, the same on every side', () => {
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
     expect(canonSays(`\`CASTLE_PORCH_KEEP_OUT_RADIUS\` = **${CASTLE_PORCH_KEEP_OUT_RADIUS}** px`)).toBe(true);
-    expect(canonSays(`any of that castle's **${CASTLE_PORCH_SLOTS}** porch slots`)).toBe(true);
-    // The rule is REAL, not prose: a porch slot is refused although it is outside the halved disc.
+    // ⭐ S193 P3-1 (owner: "it should be just as far as the horizontal") — the per-slot discs are OUT.
+    expect(canonSays('AND IT IS ONE DISC, THE SAME ON EVERY SIDE')).toBe(true);
+    expect(canonSays('THE PORCH DISCS ARE OUT OF THE BUILD RULE')).toBe(true);
+    expect(canonSays('a **PULL skips any slot a built shape stands within')).toBe(true);
+    // The rule is REAL, not prose: a porch slot (outside the disc) is buildable, and south = east.
     const a = zoneCastleAnchor(0, 'PITCH_2P');
     const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
     expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(false);
+    for (const d of [CASTLE_NO_BUILD_RADIUS - 1, CASTLE_NO_BUILD_RADIUS + 1]) {
+      expect(isInsideCastleKeepOut({ x: a.x, y: a.y + d }, 'PITCH_2P')).toBe(isInsideCastleKeepOut({ x: a.x + d, y: a.y }, 'PITCH_2P'));
+    }
+  });
+
+  it('⭐⭐ §5c — S193 P3-2: a structure-attacker goes to the NEAREST enemy, never a hash-chosen victim', () => {
+    expect(canonSays('THE NEAREST ENEMY FIRST — NOT POINTS, NOT A HASH')).toBe(true);
+    expect(canonSays('It WAS points, a hash and seat order')).toBe(true);
+    expect(canonSays('`nearestStrictEnemyBond`')).toBe(true);
+    expect(canonSays('the spread now serves only the CHEWER and the DRONE')).toBe(true);
+    // The rule is REAL: on a 3-seat board the spread may send a creature to the far seat; the ladder may not.
+    const w = makeWorld(0x5c2);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'bots', isHost: true, roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1, 2, 3] });
+    w.creatures.clear(); w.primitives.clear(); w.bonds.clear();
+    const mk = (seat: number, x: number, y: number) => {
+      const color = w.players.get(asPlayerId(seat))!.color;
+      const id = asPrimitiveId(w.nextPrimitiveId++);
+      w.primitives.set(id, { id, type: 0 as never, placerColor: color, placedBy: asPlayerId(seat), createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: color, lastOwnershipChange: 0, radius: 9, hp: 70, origin: null });
+      return w.primitives.get(id)!;
+    };
+    const pair = (seat: number, x: number, y: number): BondId => {
+      const a = mk(seat, x, y); const b = mk(seat, x + 40, y);
+      const id = asBondId(w.nextBondId++);
+      w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 });
+      a.bonds.add(id); b.bonds.add(id);
+      return id;
+    };
+    const near = pair(0, 300, 420);
+    pair(1, 1600, 420);
+    pair(2, 1600, 700);
+    w.scoreByPlayer.set(asPlayerId(1), 900);
+    for (let i = 0; i < 24; i++) {
+      dispatch(w, { type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(3), pos: { x: 260 + i * 4, y: 780 }, targetPos: { x: 300, y: 800 }, sourceSpawnerId: (9000 + i * 7) as never });
+    }
+    const army = [...w.creatures.values()];
+    expect(army.some((c) => findNearestBondTarget(w, c, true) !== near), 'anti-vacuity: the spread is engaged').toBe(true);
+    for (const c of army) expect(structureTargets(w, c).bondId).toBe(near);
   });
 
   it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {
@@ -1111,7 +1155,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 59 -> 60');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 61 -> 62');
+    expect(proto.indexOf('BUMPED 60 -> 61')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
@@ -1303,6 +1349,25 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(Math.ceil(trigger / 12)).toBe(3);
     expect(Math.ceil(trigger / 7)).toBe(5);
     expect(canonSays('(banked 50 of a 50 pool) to "below a third" (banked 34)')).toBe(true);
+  });
+
+  /**
+   * ⭐ S193 R191-B / R192-W1 — FIX is a gatherer job; the castle's FIX ALL. Every number the canon prints
+   * for it is read off its constant here, and the superseded "NEED 1 MORE" button cannot come back.
+   */
+  it('§8 records R191-B (FIX is a gatherer job) and §3d the FIX ALL row, with their numbers', () => {
+    expect(REPAIR_JOBS_MAX_PER_SEAT).toBe(32);
+    expect(canonSays(`at most **${REPAIR_JOBS_MAX_PER_SEAT}** jobs a seat (\`REPAIR_JOBS_MAX_PER_SEAT\`)`)).toBe(true);
+    expect(REPAIR_JOB_REPLAN_TICKS).toBe(15);
+    expect(canonSays(`re-plans every **${REPAIR_JOB_REPLAN_TICKS}** ticks (\`REPAIR_JOB_REPLAN_TICKS\``)).toBe(true);
+    expect(canonSays('R191-B (S191, built S193) — FIX IS A GATHERER JOB')).toBe(true);
+    expect(canonSays('No shape anywhere → it waits')).toBe(true);
+    expect(canonSays('bank, FIX now reads `NEED 1 MORE`.')).toBe(false);
+    expect(CASTLE_ROW_KEYS[0]).toBe('fixAll');
+    expect(canonSays('(`CASTLE_ROW_KEYS[0]` = `fixAll`')).toBe(true);
+    // §7b — R185-B as amended; §9d item 3 — the one pricing.
+    expect(canonSays('R191-A (S191) AMENDS IT: EACH TOWER IN A WELD IS STILL A TOWER.')).toBe(true);
+    expect(canonSays('recipe pool, 0 once an own connector is gone')).toBe(true);
   });
 
   it('§8 records that a dent costs ONE shape, and the fee is still derived', () => {

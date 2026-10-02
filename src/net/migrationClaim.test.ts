@@ -244,10 +244,11 @@ describe('S122 P2 — MIGRATION_CLAIM wire-shape gate', () => {
 });
 
 /*
- * ⛔ S189 C2 (audit W-FR1) — a takeover / worker repair must never rewind `nextBondId` below a live
- * tower's `ownBondIdLimit`, or the next weld is read as a connector the tower was BUILT with.
+ * ⛔ S189 C2 (audit W-FR1) / S191 — a takeover / worker repair must never rewind `nextPrimitiveId` onto a
+ * shape a live tower is BUILT of (`ownPrimitiveIds`), or the next shape placed would BE one of its own.
+ * (Until S191 this pinned the `nextBondId` floor of the retired `ownBondIdLimit` watermark.)
  */
-describe('S189 C2 W-FR1 — the rebuilt nextBondId respects every live tower\u2019s ownBondIdLimit', () => {
+describe('S189 C2 W-FR1 / S191 — the rebuilt nextPrimitiveId never re-issues a live tower\u2019s own shape id', () => {
   const P0 = asPlayerId(0);
   function mk(w: World, type: SparkType, x: number, y: number): Primitive {
     const color = w.players.get(P0)!.color;
@@ -268,7 +269,7 @@ describe('S189 C2 W-FR1 — the rebuilt nextBondId respects every live tower\u20
     return bid;
   }
 
-  it('a tower registered at L, bond L-1 razed, takeover -> nextBondId >= L; a post-takeover weld does not break the ring', () => {
+  it('an own node razed while the record lives, takeover -> the next shape is NOT that id; a stranger never closes the ring', () => {
     const world = makeWorld(11);
     world.gameState = 'TITLE';
     dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true });
@@ -277,28 +278,27 @@ describe('S189 C2 W-FR1 — the rebuilt nextBondId respects every live tower\u20
       return mk(world, SparkType.Triangle, 500 + Math.cos(a) * 42.5, 300 + Math.sin(a) * 42.5);
     });
     for (let i = 0; i < 5; i++) bond(world, nodes[i]!, nodes[(i + 1) % 5]!);
-    // One more bond minted before the tower registers, elsewhere — it will be razed later.
-    const x1 = mk(world, SparkType.Dot, 900, 900);
-    const x2 = mk(world, SparkType.Dot, 930, 900);
-    const doomed = bond(world, x1, x2);
     dispatch(world, { type: 'REGISTER_SPAWNER', ownerPlayerId: P0, anchorPrimitiveId: nodes[0]!.id, recipeId: 'pentagram' });
-    const L = world.nextBondId;
     const sp = [...world.creatureSpawners.values()][0]!;
-    expect(sp.ownBondIdLimit).toBe(L);
-    expect(doomed).toBe(L - 1);
-    // Bond L-1 is razed (cut, eaten) before the takeover.
-    world.bonds.delete(doomed);
-    x1.bonds.delete(doomed);
-    x2.bonds.delete(doomed);
+    expect(sp.ownPrimitiveIds, 'registration records the five shapes').toEqual(nodes.map((n) => n.id));
+    // The HIGHEST own node is razed (eaten) while the record still lives — the <= 0.5 s before the poll.
+    const dead = nodes[4]!;
+    for (const bid of [...dead.bonds]) {
+      const b = world.bonds.get(bid)!;
+      world.bonds.delete(bid);
+      world.primitives.get(b.aId === dead.id ? b.bId : b.aId)?.bonds.delete(bid);
+    }
+    world.primitives.delete(dead.id);
 
     const allocs = rebuildAuthorityAllocators(world);
-    expect(allocs.nextBondId, 'max(live)+1 alone would be L-1').toBeGreaterThanOrEqual(L);
-    world.nextBondId = allocs.nextBondId;
+    expect(allocs.nextPrimitiveId, 'max(live)+1 alone would re-issue the dead own id').toBeGreaterThan(dead.id);
+    world.nextPrimitiveId = allocs.nextPrimitiveId;
 
-    // A same-type weld after the takeover gets an id >= L: a weld, not a built-with connector.
-    const weld = mk(world, SparkType.Triangle, 500, 230);
-    const weldBond = bond(world, weld, nodes[0]!);
-    expect(weldBond).toBeGreaterThanOrEqual(L);
-    expect(towerStandsAt(world, 'pentagram', nodes[0]!.id), 'the welded ring stands').toBe(true);
+    // A Triangle placed after the takeover bridging the gap (nodes 3 and 0): a stranger, not the dead node.
+    const stranger = mk(world, SparkType.Triangle, dead.pos.x, dead.pos.y);
+    expect(stranger.id).not.toBe(dead.id);
+    bond(world, stranger, nodes[3]!);
+    bond(world, stranger, nodes[0]!);
+    expect(towerStandsAt(world, 'pentagram', nodes[0]!.id), 'a stranger never stands in for an own shape').toBe(false);
   });
 });

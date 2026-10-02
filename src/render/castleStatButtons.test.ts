@@ -606,7 +606,7 @@ describe('⛔ the S182 fill enumeration, applied to castlePanel.ts', () => {
     { what: 'the panel plate', hitTest: 'CastlePanel.isOverPanel — controls.ts swallows the click' },
     { what: 'a bank / inventory slot', hitTest: 'slot box pointertap -> pull()' },
     { what: 'a build tile (grid disabled since S149 P5)', hitTest: 'tile box pointertap -> armTile()' },
-    { what: 'a control row — all seven, castle stats included', hitTest: 'row box pointertap -> activate()' },
+    { what: 'a control row — all eight, castle stats and FIX ALL (S193) included', hitTest: 'row box pointertap -> activate()' },
   ];
 
   it('the module contains exactly the enumerated opaque fills, and no more', () => {

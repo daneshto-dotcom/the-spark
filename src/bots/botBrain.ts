@@ -20,7 +20,8 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 // S138 P2 — a bot's supply is now its own bank + its own porch, never the shared quarry.
-import { bankCount, bankCountOf, isOwnPorchSpark } from '../state/castleBank.ts';
+import { bankCount, bankCountOf, isOwnPorchSpark, porchSlot } from '../state/castleBank.ts';
+import { CASTLE_PORCH_KEEP_OUT_RADIUS } from '../state/zones.ts';
 // S154 P3 (A5) — a bot's tower uses the SAME predicates the human path uses: affordability from
 // `planBlueprintPayment` (the one the reducer calls) and legality from the footprint-aware
 // `stampRefusalAt`, never a lookalike.
@@ -33,7 +34,7 @@ import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
-import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
+import { ALL_SPARK_TYPES, CASTLE_PORCH_SLOTS, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 // ⭐ S193 audit HIGH — the endgame build lock (BUILD of wave 27 on) refuses PLACE/PULL/BUILD_BLUEPRINT.
 import { isBuildLocked } from '../state/endgame.ts';
@@ -954,6 +955,21 @@ export function isLegalBuildPos(pos: Vec2, seat: PlayerId, world: World): boolea
   const dx = pos.x - SPAWNER_CENTER_X;
   const dy = pos.y - SPAWNER_CENTER_Y;
   if (dx * dx + dy * dy < (SPAWNER_RADIUS + 10) * (SPAWNER_RADIUS + 10)) return false;
+  /*
+   * ⭐ S193 P3-1 audit MED-1 — **A BOT DOES NOT WALL ITS OWN PORCH.** The castle keep-out is one uniform
+   * 61 px disc now (owner, S193), so the porch row is legal ground — and a pull skips any slot a built
+   * shape stands within `CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of. Measured (audit, HARD BALANCED): seat 2's
+   * loose shapes covered all four of its slots by tick 4620 and 574 of 586 pulls became no-ops — the bot
+   * starved itself. A BOT PREFERENCE, not a legality rule: host-only planning, the reducer is unchanged,
+   * so it owes no protocol bump. Only the bot's OWN slots — another seat's porch is enemy ground anyway.
+   */
+  const r2 = CASTLE_PORCH_KEEP_OUT_RADIUS * CASTLE_PORCH_KEEP_OUT_RADIUS;
+  for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+    const slot = porchSlot(seat as unknown as number, i, world.layout);
+    const sx = pos.x - slot.x;
+    const sy = pos.y - slot.y;
+    if (sx * sx + sy * sy < r2) return false;
+  }
   // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). A bot that used the
   // old bubble would happily walk into another player's half and have every placement refused.
   return canBuildNow(world, pos, seat);

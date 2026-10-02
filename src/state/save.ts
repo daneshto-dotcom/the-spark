@@ -74,6 +74,7 @@ import { scorchedEarthFromWire } from './racial/scorchedEarthRules.ts'; // ⭐ S
 import { unitPoolFifths } from './stats.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { Gatherer, GathererState } from './gatherers/gatherer.ts';
+import type { RepairJob, RepairTask } from './repairJobTypes.ts';
 import type { Hunter, HunterState } from './hunters/hunter.ts';
 import type { Potato, PotatoState } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
@@ -99,6 +100,7 @@ import { makeCastleBank } from './castleBank.ts';
 // Test paths that never load audioManager treat triggerReset() as a no-op
 // (single-slot handler stays null), preserving the audit-safe semantics.
 import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
+import { applySerializedHistory, applySerializedSeats, serializeMatchStats, trimMatchStatsForNet, type SerializedMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const PHYSICS_DT = 1 / 60;
 
@@ -146,6 +148,13 @@ export interface WorldSnapshot {
   currentPlayerId?: PlayerId;
   /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
   scoreByPlayer?: Array<readonly [PlayerId, number]>;
+  /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD (`matchStats.ts`). ADDITIVE-OPTIONAL: absent while every counter
+   * is zero, so an opening snapshot stays byte-identical. `seats` rides every snapshot; `history` rides the
+   * full local form always and the NET form only inside its window and through WIN/POSTGAME
+   * (`trimMatchStatsForNet`). INERT — no reducer reads it — so a peer that drops the key diverges on nothing.
+   */
+  matchStats?: SerializedMatchStats;
   /**
    * S28 P0 — Voltkin Phase 2D NetSnapshot v2 (Council Q1 UNANIMOUS A additive-
    * optional pattern; no schemaVersion bump per S15 P2 precedent). Host
@@ -231,6 +240,13 @@ export interface WorldSnapshot {
    * would evaporate at a host migration with no entity left behind to notice.
    */
   gathererOrders?: Array<{ seat: PlayerId; types: SparkType[] }>;
+  /**
+   * ⭐ S193 R191-B — the FIX queue and its counter. Additive-optional (omitted while empty / zero), so an
+   * idle board round-trips byte-identically; MUST round-trip so a successor keeps the jobs the seat's
+   * gatherers are already working (their `repairTask`s name these ids).
+   */
+  repairJobs?: Array<{ id: number; seat: PlayerId; targetId: PrimitiveId; memberIds: PrimitiveId[]; need: SparkType[]; delivered: SparkType[] }>;
+  nextRepairJobId?: number;
   /**
    * S72 P2 — once-per-game hunter-spawned guard. Additive-optional; emitted only
    * when true so a host save/load mid-game does not re-spawn a second hunter on
@@ -978,12 +994,12 @@ interface SerializedSpawner {
   readonly spawnedCount?: number;
   readonly ignitedAtTick?: number;
   /**
-   * ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with (`CreatureSpawner.ownBondIdLimit`).
+   * ⭐ S189 C2 / S191 — the shapes the tower is BUILT of (`CreatureSpawner.ownPrimitiveIds`, ascending).
    * Unlike the cadence above it is IDENTITY, not a clock, and it RIDES THE WIRE: a client's render
-   * walks (cover set, centroid, FEED row) need it to tell an own connector from a weld.
-   * Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
+   * walks (cover set, centroid, FEED row) and the R191-A sheets need it to tell an own shape from a
+   * weld. Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
    */
-  readonly ownBondIdLimit?: number;
+  readonly ownPrimitiveIds?: readonly PrimitiveId[];
   /** ⭐ S193 (T4) — the auto-build toggles + round-robin cursor. RIDE THE WIRE; emitted only when ≠ 0. */
   readonly autoFeedMask?: number;
   readonly autoFeedCursor?: number;
@@ -1027,8 +1043,8 @@ interface SerializedDefender {
   // while pursuing. A mid-walk host save/load resumes with the right velocity + facing (replay-safe).
   readonly prevPos?: Vec2;
   readonly walkTargetPos?: Vec2;
-  /** ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with. Rides the wire; absent ⇒ null. */
-  readonly ownBondIdLimit?: number;
+  /** ⭐ S189 C2 / S191 — the shapes the tower is BUILT of. Rides the wire; absent ⇒ null. */
+  readonly ownPrimitiveIds?: readonly PrimitiveId[];
 }
 
 /**
@@ -1094,6 +1110,8 @@ interface SerializedGatherer {
   readonly carriedSparkId?: SparkId | null;
   readonly speedLevel?: number;
   readonly preferredType?: SparkType | null;
+  /** S193 R191-B — the FIX shape it is fetching / carrying (absent ⇒ none). */
+  readonly repairTask?: RepairTask | null;
 }
 
 /**
@@ -1214,6 +1232,7 @@ export function snapshot(
     // Slot retained on WorldSnapshot as ignored-optional for back-compat
     // (Council R1 Battle Ledger row 2). New saves omit it entirely.
     scoreByPlayer: [...world.scoreByPlayer.entries()],
+    matchStats: serializeMatchStats(world.matchStats), // ⭐ S191 — undefined when empty (byte-identical)
     // S28 P0 — NetSnapshot v2: only emit `creatures` when non-empty so pre-S28
     // saves stay byte-identical (the field stays `undefined` and is dropped by
     // JSON.stringify). Host always emits; clients never read this for serialize
@@ -1243,6 +1262,11 @@ export function snapshot(
     // S136 P1 (V6-1.3) — the castle banks (omitted entirely when every bank is empty).
     castleBanks: serializeCastleBanks(world),
     gathererOrders: serializeGathererOrders(world),
+    // S193 R191-B — copies, never aliases of live world state.
+    repairJobs: world.repairJobs.length > 0
+      ? world.repairJobs.map((j) => ({ id: j.id, seat: j.seat, targetId: j.targetId, memberIds: [...j.memberIds], need: [...j.need], delivered: [...j.delivered] }))
+      : undefined,
+    nextRepairJobId: world.nextRepairJobId > 0 ? world.nextRepairJobId : undefined,
     // S72 P2 — emit the once-per-game guard only when true (byte-identical pre-S72).
     hunterSpawned: world.hunterSpawned ? true : undefined,
     // S72 P3 — emit potatoes only when present (byte-identical pre-S72-P3).
@@ -1349,6 +1373,7 @@ export function restore(snap: WorldSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, true); // ⭐ S191 — a save IS the whole history
   // restore() owns host-only fields (savedAt is informational only; rngSeed
   // + nextPrimitiveId/nextBondId are absent in NetSnapshot but present here).
   world.rngSeed = snap.rngSeed;
@@ -1428,6 +1453,10 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
+  // ⭐ S191 — the stat board's HISTORY rides the net form only inside its window and through WIN/POSTGAME;
+  // the running totals always do. Not a strip at the wire boundary, deliberately: the worker->main mirror
+  // wants exactly what a peer wants, and gets the whole history again at every wave edge.
+  if (rest.matchStats !== undefined) rest.matchStats = trimMatchStatsForNet(rest.matchStats, world);
   // ⛔ S182 — `prevPos` IS **NOT** STRIPPED HERE. IT IS STRIPPED AT THE WIRE BOUNDARY.
   // See `stripWirePrevPos` below for why this distinction is load-bearing, and what breaks when the
   // strip lives in this function instead.
@@ -1675,6 +1704,7 @@ export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, false); // ⭐ S191 — absent outside its window: keep
 }
 
 /** Shared apply logic for restore() and applyNetSnapshot(). */
@@ -1701,6 +1731,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   if (snap.scoreByPlayer !== undefined) {
     for (const [pid, score] of snap.scoreByPlayer) world.scoreByPlayer.set(pid, score);
   }
+  applySerializedSeats(world, snap.matchStats); // ⭐ S191 — running totals: replaced every snapshot
 
   world.freeSparks.clear();
   world.primitives.clear();
@@ -1990,6 +2021,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
       if (entry.types.length > 0) world.gathererOrders.set(entry.seat, [...entry.types]);
     }
   }
+  // ⭐ S193 R191-B — the FIX queue: same clear-then-rehydrate contract (a missing field = no jobs).
+  world.repairJobs = restoredRepairJobs(snap.repairJobs);
+  world.nextRepairJobId = Number.isInteger(snap.nextRepairJobId) && (snap.nextRepairJobId as number) >= 0
+    ? (snap.nextRepairJobId as number)
+    : 0;
+  for (const j of world.repairJobs) if (j.id >= world.nextRepairJobId) world.nextRepairJobId = j.id + 1;
 
   for (const p of snap.primitives) {
     const stubSpark = makeFreeSpark({
@@ -2493,8 +2530,8 @@ function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
     lastValidatedTick: sp.lastValidatedTick,
     spawnedCount: sp.spawnedCount,
     ignitedAtTick: sp.ignitedAtTick,
-    // S189 C2 — identity, emitted when known (additive-optional).
-    ...(sp.ownBondIdLimit != null ? { ownBondIdLimit: sp.ownBondIdLimit } : {}),
+    // S189 C2 / S191 — identity, emitted when known (additive-optional).
+    ...(sp.ownPrimitiveIds != null ? { ownPrimitiveIds: [...sp.ownPrimitiveIds] } : {}),
     // ⭐ S193 (T4) — emitted only when set, so every untoggled tower stays byte-identical.
     ...(sp.autoFeedMask ? { autoFeedMask: sp.autoFeedMask } : {}),
     ...(sp.autoFeedCursor ? { autoFeedCursor: sp.autoFeedCursor } : {}),
@@ -2515,7 +2552,7 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
     anchorPrimitiveId: s.anchorPrimitiveId,
     recipeId: s.recipeId,
     // ⭐ S189 C2 — KEPT on the wire: it is identity, not a clock (see SerializedSpawner).
-    ...(s.ownBondIdLimit !== undefined ? { ownBondIdLimit: s.ownBondIdLimit } : {}),
+    ...(s.ownPrimitiveIds !== undefined ? { ownPrimitiveIds: s.ownPrimitiveIds } : {}),
     // ⭐ S193 (T4) — KEPT on the wire: the client draws the lit toggle off the mask, and the cursor
     // rides with it so a promoted host keeps the round-robin (Council G1).
     ...(s.autoFeedMask !== undefined ? { autoFeedMask: s.autoFeedMask } : {}),
@@ -2536,6 +2573,18 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
  * silently reset `spawnedCount` — a live self-destruct cap, not telemetry — every time a
  * migration-promoted host adopted the sim worker mid-match.
  */
+/**
+ * ⛔ S192 re-audit L1 — a tower's own set as RESTORED: an array of non-negative integer ids, ascending
+ * (the wide hash joins it in array order, so an unsorted payload would hash differently from the sim
+ * that wrote it). Anything else — absent, not an array, a non-integer or negative entry — is UNKNOWN
+ * (`null`), the exact pre-S189 reading, never a partial guess.
+ */
+function restoredOwnIds(v: unknown): PrimitiveId[] | null {
+  if (!Array.isArray(v)) return null;
+  for (const id of v) if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) return null;
+  return (v as PrimitiveId[]).slice().sort((a, b) => a - b);
+}
+
 function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner {
   const sp = makeSpawner({
     id: s.id,
@@ -2544,7 +2593,13 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
     recipeId: s.recipeId,
     ignitedAtTick: s.ignitedAtTick ?? tick,
     nextSpawnTick: s.nextSpawnTick ?? tick + SPAWN_INTERVAL_TICKS,
-    ownBondIdLimit: s.ownBondIdLimit ?? null, // S189 C2 — absent ⇒ unknown, never a guess
+    /*
+     * S189 C2 — absent ⇒ unknown, never a guess. ⛔ S192 — a PROTOCOL-52 payload's `ownBondIdLimit` (the
+     * shipped bond-id watermark this field replaced) is DELIBERATELY NOT READ: there is no world here to
+     * walk it against, and no production path can deliver one once the bump refuses v52 peers (disk
+     * restore is the DEV-only `restoreWorld`). It degrades to `null` = the exact pre-S189 reading.
+     */
+    ownPrimitiveIds: restoredOwnIds(s.ownPrimitiveIds),
   });
   // `makeSpawner` seeds these two from ignitedAtTick / 0 (the fresh-ignition contract).
   // Restore them when the payload carried them, so an authority handoff is lossless.
@@ -2591,8 +2646,8 @@ function serializeDefender(d: Defender): SerializedDefender {
     ...(d.prevPos.x !== d.pos.x || d.prevPos.y !== d.pos.y
       ? { prevPos: { x: d.prevPos.x, y: d.prevPos.y } } : {}),
     ...(d.walkTargetPos !== null ? { walkTargetPos: { x: d.walkTargetPos.x, y: d.walkTargetPos.y } } : {}),
-    // S189 C2 — identity, emitted when known (additive-optional).
-    ...(d.ownBondIdLimit != null ? { ownBondIdLimit: d.ownBondIdLimit } : {}),
+    // S189 C2 / S191 — identity, emitted when known (additive-optional).
+    ...(d.ownPrimitiveIds != null ? { ownPrimitiveIds: [...d.ownPrimitiveIds] } : {}),
   };
 }
 
@@ -2616,7 +2671,7 @@ function deserializeDefender(s: SerializedDefender): Defender {
     recipeId: s.recipeId,
     pos: s.pos,
     registeredAtTick: 0,
-    ownBondIdLimit: s.ownBondIdLimit ?? null, // S189 C2 — absent ⇒ unknown, never a guess
+    ownPrimitiveIds: restoredOwnIds(s.ownPrimitiveIds), // S189 C2 — absent ⇒ unknown; a v52 `ownBondIdLimit` is NOT read (see deserializeSpawner)
   });
   d.state = s.state;
   d.ticksInState = s.ticksInState;
@@ -2982,6 +3037,7 @@ function serializeGatherer(g: Gatherer): SerializedGatherer {
     carriedSparkId: g.carriedSparkId,
     speedLevel: g.speedLevel,
     preferredType: g.preferredType,
+    repairTask: g.repairTask === null ? undefined : { ...g.repairTask },
   };
 }
 
@@ -2996,7 +3052,31 @@ function deserializeGatherer(s: SerializedGatherer): Gatherer {
     carriedSparkId: s.carriedSparkId ?? null,
     speedLevel: s.speedLevel ?? 0,
     preferredType: s.preferredType ?? null,
+    repairTask: restoredRepairTask(s.repairTask),
   };
+}
+
+/** S193 R191-B — a restored task, or null when absent or malformed (fail closed: the unit re-seeks). */
+function restoredRepairTask(v: RepairTask | null | undefined): RepairTask | null {
+  if (v == null || !Number.isInteger(v.jobId) || !Number.isInteger(v.type)) return null;
+  if (v.source !== 'bank' && v.source !== 'quarry') return null;
+  return { jobId: v.jobId, type: v.type, source: v.source, sparkId: v.sparkId ?? null, carrying: v.carrying === true };
+}
+
+/** S193 R191-B — restored jobs: well-formed entries only, ids ascending as they were queued. */
+function restoredRepairJobs(v: WorldSnapshot['repairJobs']): RepairJob[] {
+  if (v === undefined) return [];
+  const ints = (a: unknown): number[] => (Array.isArray(a) ? a.filter((x) => Number.isInteger(x) && x >= 0) : []);
+  const out: RepairJob[] = [];
+  for (const j of v) {
+    if (!Number.isInteger(j.id) || !Number.isInteger(j.targetId)) continue;
+    out.push({
+      id: j.id, seat: j.seat, targetId: j.targetId,
+      memberIds: (ints(j.memberIds) as PrimitiveId[]).sort((a, b) => a - b),
+      need: ints(j.need) as SparkType[], delivered: ints(j.delivered) as SparkType[],
+    });
+  }
+  return out;
 }
 
 function deserializeHunter(s: SerializedHunter): Hunter {

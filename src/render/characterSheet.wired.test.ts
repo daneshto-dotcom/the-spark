@@ -58,7 +58,8 @@ describe('the character sheet is reachable from a real click', () => {
    * capability is still covered; what is gone is the second, popover-shaped path to it.
    */
   it('opens on your OWN building through the one seat-agnostic structure arm', () => {
-    expect(controls).toContain("this.characterSheet.select({ kind: 'structure', primitiveId: towerHit })");
+    // S192 (audit IDENTITY-2) re-pin: the art-box arm selects the shape that NAMES the hit tower (`towerClickShapeAt`).
+    expect(controls).toContain("this.characterSheet.select({ kind: 'structure', primitiveId: named })");
     // ⛔ and the retired popover's own aim must NOT come back alongside it.
     expect(controls).not.toContain('if (this.handleStructureSelect()) return;');
   });
