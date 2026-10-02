@@ -64,7 +64,17 @@ export default defineConfig({
     port,
     strictPort: false,
     open: true,
+    /*
+     * ⛔ S194 — NEVER WATCH THE PARALLEL WORKTREES. `.claude/worktrees/*` holds full repo copies
+     * (src, dist, node_modules) for every open branch. Unignored, the main checkout's dev server
+     * reloaded pages when ANOTHER branch built (`page reload .claude/worktrees/s194-coherence/dist/
+     * index.html` in its log) and its startup crawl stalled past Playwright's 60 s webServer timeout
+     * while ten trees were busy — all three e2e lanes died before running a test.
+     */
+    watch: { ignored: ['**/.claude/**', '**/.tmp-gates/**', '**/.tmp-audit/**'] },
   },
+  // ⛔ S194 — scan only the ROOT html pages for deps; the default `**/*.html` walks into every worktree.
+  optimizeDeps: { entries: ['*.html'] },
   build: {
     target: 'es2022',
     sourcemap: true,

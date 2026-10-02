@@ -60,6 +60,15 @@ import { seatHoldsPerk } from '../state/racialPerks.ts';
 import { scorchedEarthActiveZone } from '../state/racial/scorchedEarthRules.ts';
 import { scorchedEarthHoverSeat } from './scorchedEarthAim.ts';
 import type { PlayerId } from '../types.ts';
+// ⭐ S193 visuals-3 — V12 (the scorch's embers, burn flickers and heat shimmer) and V26 (the grade).
+import { isScorchImmune } from '../state/racial/scorchedEarthRules.ts';
+import { scorchedEarthZones, scorchedZones } from '../state/racial/scorchedGround.ts';
+import { zoneOf } from '../state/zones.ts';
+import { fxActive, fxGround, fxHaze, fxTop } from './fx/fxState.ts';
+import { fxSeed } from './fx/emitter.ts';
+import { BURN_FLICKER_MAX_UNITS, burnFlickerFx, scorchZoneFx } from './fx/perkFx.ts';
+import { isConcealed } from './concealment.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 
 /**
  * How strongly the backdrop shows through.
@@ -140,6 +149,62 @@ export function zoneTintFor(world: World, seat: PlayerId, hoverSeat: PlayerId | 
   }
   return zoneBackdropTintNow(player, world);
 }
+
+/**
+ * ⭐ S193 V12 — **WHICH GROUND IS BURNING THIS TICK, AND WHO IT SPARES.** PURE, and it is the burn's own
+ * two lists, never a restatement: the passive (`scorchedZones`, which `runScorchedGround` runs only
+ * inside the host tick's FIGHT gate of a PLAYING match — so the same two tests gate it here) and every
+ * live SCORCHED EARTH cast (`scorchedEarthZones`, whose own predicate already carries FIGHT/PLAYING).
+ * A zone burning twice (the passive plus a cast on it, the owner's *"double scorched earth"*) is listed
+ * twice — once per burn, as the sim burns it.
+ */
+export function burningZonesNow(world: World): Array<{ spared: PlayerId; zone: number }> {
+  const out: Array<{ spared: PlayerId; zone: number }> = [];
+  if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return out;
+  for (const { seat, zone } of scorchedZones(world)) out.push({ spared: seat, zone });
+  for (const { caster, zone } of scorchedEarthZones(world)) out.push({ spared: caster, zone });
+  return out;
+}
+
+/**
+ * ⭐ S193 V12 — PURE: is this creature burning under any of `burning`? The burn's own predicates —
+ * `zoneOf(pos) === zone` and `isScorchImmune(owner, spared)` — so a flicker is drawn exactly on a unit
+ * the DoT is ticking on (`burnCreatures`), never on the caster's own and never in the quarry.
+ */
+export function isCreatureBurning(
+  world: Pick<World, 'layout'>,
+  c: { readonly pos: { x: number; y: number }; readonly ownerPlayerId: PlayerId; readonly ehp: number },
+  burning: ReadonlyArray<{ spared: PlayerId; zone: number }>,
+): boolean {
+  if (c.ehp <= 0 || burning.length === 0) return false;
+  const z = zoneOf(c.pos, world.layout);
+  if (z === null) return false;
+  for (const b of burning) if (b.zone === z && !isScorchImmune(c.ownerPlayerId, b.spared)) return true;
+  return false;
+}
+
+/**
+ * ⭐ S193 V26 (`S192_VISUALS_PLAN.md`) — **THE PER-RACE COLOUR GRADE.** Each race's world is pulled
+ * toward its own hue so the six quarters read as six places at a glance: crimson Carpathia, drowned
+ * teal, desert amber, bile swamp, rust badlands, blood hell. ⚠ MINE, every value.
+ *
+ * ⛔ BAKED INTO THE TEXTURE, NOT A FILTER — the plan named an `AdjustmentFilter`, and this is the
+ * deliberate deviation: a per-frame full-zone filter pass is exactly the cost class that took the CI
+ * runner (software GL) to 5 ticks/s in S166 (the `PORTAL_CUT_RADIUS` docblock). The grade is static,
+ * so it rides the same one-time canvas bake as the portal hole, costs the frame NOTHING, and shows on
+ * LOW quality too. `?fx=legacy` (and the suite, where nothing is installed) bakes the ungraded art.
+ */
+export const ZONE_GRADE: Readonly<Record<RaceId, { readonly hue: number; readonly hueAlpha: number; readonly light: number; readonly lightAlpha: number }>> = {
+  vampires: { hue: 0xc0183c, hueAlpha: 0.26, light: 0xffb0c0, lightAlpha: 0.22 },
+  nagas: { hue: 0x10a8c8, hueAlpha: 0.26, light: 0xb0f4ff, lightAlpha: 0.22 },
+  mummies: { hue: 0xd09020, hueAlpha: 0.24, light: 0xffe4a0, lightAlpha: 0.24 },
+  zombies: { hue: 0x58b020, hueAlpha: 0.26, light: 0xd0ffa0, lightAlpha: 0.2 },
+  orcs: { hue: 0xc05010, hueAlpha: 0.24, light: 0xffc890, lightAlpha: 0.22 },
+  demons: { hue: 0xc01010, hueAlpha: 0.28, light: 0xffa080, lightAlpha: 0.22 },
+};
+
+/** ⭐ S193 V26 — the board vignette's darkest corner (normal blend, under every gameplay layer). ⚠ MINE. */
+export const ZONE_VIGNETTE_ALPHA = 0.42;
 
 /**
  * S165 (owner) - THE QUARRY IS A PORTAL, NOT GROUND, SO NO RACE OWNS IT.
@@ -309,7 +374,9 @@ export function portalInSource(
   return { cx, cy, rad, intersects };
 }
 
-function punchPortal(tex: Texture, zone: number, layout: ZoneLayout): Texture {
+const hex = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;
+
+function punchPortal(tex: Texture, zone: number, layout: ZoneLayout, grade: RaceId | null = null): Texture {
   const resource = (tex.source as unknown as { resource?: unknown }).resource;
   if (typeof document === 'undefined' || resource === undefined || resource === null) return tex;
   const w = Math.trunc(tex.width);
@@ -317,7 +384,7 @@ function punchPortal(tex: Texture, zone: number, layout: ZoneLayout): Texture {
   if (w <= 0 || h <= 0) return tex;
 
   const { cx, cy, rad, intersects } = portalInSource(w, h, zone, layout);
-  if (!intersects) return tex;
+  if (!intersects && grade === null) return tex;
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -331,11 +398,110 @@ function punchPortal(tex: Texture, zone: number, layout: ZoneLayout): Texture {
     // detached bitmap). Cosmetic seam beats a thrown renderer.
     return tex;
   }
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.beginPath();
-  ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-  ctx.fill();
+  // ⭐ S193 V26 — the race grade, baked once with the hole (see `ZONE_GRADE`): a hue wash in `color`
+  // mode (luminance kept, palette pulled to the race), then a soft-light lift for contrast.
+  if (grade !== null) {
+    const gr = ZONE_GRADE[grade];
+    ctx.globalCompositeOperation = 'color';
+    ctx.globalAlpha = gr.hueAlpha;
+    ctx.fillStyle = hex(gr.hue);
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.globalAlpha = gr.lightAlpha;
+    ctx.fillStyle = hex(gr.light);
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+  if (intersects) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    // ⛔ canon §7c — a 2D-canvas path, not Pixi, but the same habit: the arc starts its own subpath.
+    ctx.moveTo(cx + rad, cy);
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
   return Texture.from(canvas);
+}
+
+/**
+ * ⭐ S193 V26 — the board VIGNETTE texture: a radial ramp, transparent over the middle 55 % and
+ * darkening to the corners. Generated once from a canvas gradient — no asset. `null` without a DOM.
+ */
+function vignetteTexture(): Texture | null {
+  if (typeof document === 'undefined') return null;
+  const s = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = s;
+  canvas.height = s;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return null;
+  const grad = ctx.createRadialGradient(s / 2, s / 2, s * 0.3, s / 2, s / 2, s * 0.72);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, s, s);
+  return Texture.from(canvas);
+}
+
+/**
+ * ⭐ S193 V12 (`S192_VISUALS_PLAN.md`) — **SCORCHED GROUND / SCORCHED EARTH, BURNING.** The ember tint
+ * stays; this adds drifting embers and smouldering patches over every burning zone (the quarry spared,
+ * as the burn spares it) and small flames on every enemy creature the burn is ticking on. Everything
+ * is derived from the burn's own lists (`burningZonesNow`, `isCreatureBurning`) and `world.tick`;
+ * the seed is the zone and the spared seat, so two screens light the same embers.
+ *
+ * Fog: the embers are terrain (which ground burns is as public as the red tint already makes it) but
+ * they sit on the fx layer under the fog's mask like every other effect; a burning creature's flames
+ * are drawn only where the creature itself is (`isConcealed`, the rule its renderer obeys).
+ */
+export function drawScorchFx(world: World, burning: ReadonlyArray<{ spared: PlayerId; zone: number }>): void {
+  const top = fxTop();
+  const ground = fxGround();
+  const quarry = { cx: SPAWNER_CENTER_X, cy: SPAWNER_CENTER_Y, r: SPAWNER_RADIUS + 6 };
+  for (let i = 0; i < burning.length; i++) {
+    const b = burning[i]!;
+    const r = zoneRect(b.zone, world.layout);
+    scorchZoneFx(top, ground, r.x, r.y, r.w, r.h, world.tick, fxSeed(b.zone * 8 + (b.spared as unknown as number), 0x5c0 + i), quarry);
+  }
+  // ⭐ S193 audit — every burning unit (creatures, and HELGA: *"Helga is NOT immune"*, `burnHelgas`), then
+  // capped at BURN_FLICKER_MAX_UNITS by a total order (creatures before Helgas, each by id).
+  const units: Array<{ x: number; y: number; id: number; scale: number }> = [];
+  for (const c of world.creatures.values()) {
+    if (!isCreatureBurning(world, c, burning)) continue;
+    if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
+    units.push({ x: c.pos.x, y: c.pos.y, id: c.id as number, scale: creatureSpriteScaleMul(c.type) });
+  }
+  if (units.length > BURN_FLICKER_MAX_UNITS) units.sort((a, b) => a.id - b.id);
+  for (const d of world.defenders.values()) {
+    if (units.length >= BURN_FLICKER_MAX_UNITS) break;
+    if (!isHelgaBurning(world, d, burning)) continue;
+    if (isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) continue;
+    units.push({ x: d.pos.x, y: d.pos.y, id: 0x40000000 + (d.id as unknown as number), scale: HELGA_FLAME_SCALE });
+  }
+  const n = Math.min(units.length, BURN_FLICKER_MAX_UNITS);
+  for (let i = 0; i < n; i++) {
+    const u = units[i]!;
+    burnFlickerFx(top, u.x, u.y, world.tick, u.id, u.scale);
+  }
+}
+
+/** ⭐ S193 audit — Helga's flames are drawn a little larger: she is a bigger figure than a goblin. ⚠ MINE. */
+export const HELGA_FLAME_SCALE = 1.4;
+
+/**
+ * ⭐ S193 audit (LOW) — PURE: is this defender a burning HELGA? `burnHelgas`' own gates: a LIVE unit-class
+ * defender (`ehp > 0`, not DORMANT — a tower carries `null`), in a burning zone, not spared (`isScorchImmune`).
+ */
+export function isHelgaBurning(
+  world: Pick<World, 'layout'>,
+  d: { readonly pos: { x: number; y: number }; readonly ownerPlayerId: PlayerId; readonly ehp: number | null; readonly state: string },
+  burning: ReadonlyArray<{ spared: PlayerId; zone: number }>,
+): boolean {
+  if (d.ehp === null || d.ehp <= 0 || d.state === 'DORMANT' || burning.length === 0) return false;
+  const z = zoneOf(d.pos, world.layout);
+  if (z === null) return false;
+  for (const b of burning) if (b.zone === z && !isScorchImmune(d.ownerPlayerId, b.spared)) return true;
+  return false;
 }
 
 export class ZoneBackgroundRenderer {
@@ -359,6 +525,9 @@ export class ZoneBackgroundRenderer {
   private readonly baked: Map<string, Texture> = new Map();
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
+  /** ⭐ S193 V26 — the board vignette (one sprite, above the backdrops, inside this layer only). */
+  private vignette: Sprite | null = null;
+  private vignetteTried = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.layer = new Container();
@@ -431,6 +600,9 @@ export class ZoneBackgroundRenderer {
   }
 
   sync(world: World): void {
+    // ⭐ S193 V12 — the scorch's light is perk feedback, not backdrop art: it draws with backdrops off.
+    const burning = world.gameState === 'PLAYING' ? burningZonesNow(world) : [];
+    if (fxActive() && burning.length > 0) drawScorchFx(world, burning);
     if (!this.enabled) return;
     /*
      * ⛔ NOT ON THE TITLE SCREEN. Seat 0 exists before a match starts, so without this the menu got
@@ -499,10 +671,12 @@ export class ZoneBackgroundRenderer {
 
       // ⛔ EVERY PATH BELOW USES THE HOLED TEXTURE. Handing `raw` to either branch is how the
       // backdrop grows back over the quarry, and it would look exactly like the S165 seam bug.
-      const bakeKey = `${url}|${layout}|${zone}`;
+      // ⭐ S193 V26 — `|g` / `|n`: the graded bake (new effects on) or the original (`?fx=legacy`).
+      const graded = fxActive();
+      const bakeKey = `${url}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
-        tex = punchPortal(raw, zone, layout);
+        tex = punchPortal(raw, zone, layout, graded ? race : null);
         this.baked.set(bakeKey, tex);
       }
 
@@ -519,6 +693,10 @@ export class ZoneBackgroundRenderer {
 
       // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
       sp.tint = zoneTintFor(world, playerId, hoverSeat);
+      // ⭐ S193 V12 — the heat shimmer, on exactly the zones the burn is ticking in. ⭐ S194: it is
+      // `fxRuntime`'s haze now (one module owns every ground distortion; HIGH-only and the legacy switch
+      // are enforced THERE, and a zone not asked this frame loses its filter at `fxEndFrame`).
+      if (burning.some((b) => b.zone === zone)) fxHaze().haze(sp, world.tick);
       const r = zoneRect(zone, layout);
       /*
        * COVER, not stretch. The generated aspect never matches the zone exactly — 3:4 is the
@@ -542,5 +720,24 @@ export class ZoneBackgroundRenderer {
         this.sprites.delete(zone);
       }
     }
+    this.syncVignette();
   }
+
+  /** ⭐ S193 V26 — the vignette: on with the new effects, off under `?fx=legacy`. Above the backdrops. */
+  private syncVignette(): void {
+    if (!this.vignetteTried) {
+      this.vignetteTried = true;
+      const tex = vignetteTexture();
+      if (tex !== null) {
+        this.vignette = new Sprite(tex);
+        this.vignette.eventMode = 'none';
+        this.vignette.width = CANVAS_WIDTH;
+        this.vignette.height = CANVAS_HEIGHT;
+        this.vignette.alpha = ZONE_VIGNETTE_ALPHA;
+        this.layer.addChild(this.vignette); // after `spriteHost`: over the art, under every gameplay layer
+      }
+    }
+    if (this.vignette !== null) this.vignette.visible = fxActive();
+  }
+
 }
