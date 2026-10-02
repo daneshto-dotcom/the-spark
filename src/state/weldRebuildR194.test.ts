@@ -37,6 +37,8 @@ import { makeCastleBank } from './castleBank.ts';
 import { structurePoolFifths } from './stats.ts';
 import { towerOwnPoolAt } from './towerUnit.ts';
 import { towerMembersAt } from './towerMembers.ts';
+import { applyEntropyTax, planEntropy } from './entropy.ts';
+import { characterSheetModel } from '../render/characterSheetModel.ts';
 import { damageConnector, severWithCarry } from './damage.ts';
 import { planStructureRepair, restoreFromDelivered } from './structureRepair.ts';
 import { creatureAttackFifths } from './creatures/creature.ts';
@@ -363,6 +365,141 @@ describe('R194-30 negatives — what must still heal, and what must still build'
     expect(damageConnector(r.w, r.ownBonds[0]!, 18, null, 'physical')).toBe(false);
     r.frame();
     expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur).toBe(32);
+  });
+});
+
+/** Bank `each` fifths on every own connector of the rig's pentagram, standing (the weld's pool is 2250). */
+function dentOwn(r: Rig, each: number): void {
+  for (const b of r.ownBonds) expect(damageConnector(r.w, b, each, null, 'physical')).toBe(false);
+}
+
+/** Fell the lowest-id LATTICE connector (not one of the tower's own) through the real damage + sever path. */
+function fellLatticeConnector(r: Rig): BondId {
+  const w = r.w;
+  const comp = componentOf(w.primitives.get(r.anchor)!, w.primitives, w.bonds);
+  const target = [...comp.bondIds].filter((b) => !r.ownBonds.includes(b)).sort((a, b) => Number(a) - Number(b))[0]!;
+  let banked = 0;
+  for (const id of comp.bondIds) banked += w.bonds.get(id)!.damageFifths;
+  expect(damageConnector(w, target, structurePoolFifths(comp.bondIds.size) - banked, null, 'physical')).toBe(true);
+  severWithCarry(w, target, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: P1, cause: 'unit' }));
+  expect(w.bonds.has(target)).toBe(false);
+  return target;
+}
+
+describe('⛔ S194 audit F1 — the hold survives a JOINER tick step-back; a new match clears it', () => {
+  it('a 1-tick step-back after a drain (snapshot `world.tick = snap.tick`) keeps the hold', () => {
+    const r = rig();
+    dentOwn(r, 12); // 60 ≥ 50
+    beginTowerHealthHoldFrame(r.w);
+    fellLatticeConnector(r);
+    expect(towerOwnPoolAt(r.w, PENTA, r.anchor)!.cur, 'raw: refilled by the drain').toBe(50);
+    beginTowerHealthHoldFrame(r.w);
+    r.w.tick -= 1; // the joiner's snapshot puts the clock one step back
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur, 'still held after the step-back').toBe(0);
+  });
+
+  it('a match boundary (leaving PLAYING, or a different world) forgets every hold', () => {
+    const r = rig();
+    dentOwn(r, 12);
+    beginTowerHealthHoldFrame(r.w);
+    fellLatticeConnector(r);
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur).toBe(0);
+    r.w.gameState = 'GAME_OVER' as never;
+    beginTowerHealthHoldFrame(r.w);
+    r.w.gameState = 'PLAYING';
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur, 'left PLAYING: forgotten, reads the sim').toBe(50);
+    // A different world whose tower has the SAME recipe and anchor id inherits nothing either.
+    const r2 = rig();
+    dentOwn(r2, 12);
+    beginTowerHealthHoldFrame(r2.w);
+    fellLatticeConnector(r2);
+    beginTowerHealthHoldFrame(r2.w);
+    const r3 = rig();
+    expect(r3.anchor).toBe(r2.anchor);
+    beginTowerHealthHoldFrame(r3.w);
+    expect(heldOwnPoolAt(r3.w, PENTA, r3.anchor)!.cur, 'a new world: nothing carried over').toBe(50);
+  });
+});
+
+describe('⛔ S194 audit 2a — a FIX and a weld fall in the SAME frame: the repair shows', () => {
+  it('a finished repair job covering the tower is authoritative', () => {
+    const r = rig();
+    r.w.matchPhase = 'BUILD';
+    dentOwn(r, 12);
+    const plan = planStructureRepair(r.w, P0, r.ring[0]!)!;
+    expect(plan).not.toBeNull();
+    r.w.repairJobs.push({ id: 1, seat: P0, targetId: r.ring[0]!, memberIds: [...plan.memberIds], need: [], delivered: [...plan.cost] } as never);
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur).toBe(0);
+    // ONE frame / snapshot: the job finishes (restore + removal, as `tickRepairJobs` does) AND a weld falls.
+    restoreFromDelivered(r.w, P0, planStructureRepair(r.w, P0, r.ring[0]!)!);
+    r.w.repairJobs.length = 0;
+    fellLatticeConnector(r);
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur, 'the FIX shows, the fall does not hide it').toBe(50);
+  });
+
+  it('a re-welded own connector (a new bond id) is authoritative', () => {
+    const r = rig();
+    dentOwn(r, 12);
+    beginTowerHealthHoldFrame(r.w);
+    const w = r.w;
+    // Same frame: a weld connector falls (drain) AND one own connector is replaced by a fresh one.
+    fellLatticeConnector(r);
+    const old = w.bonds.get(r.ownBonds[0]!)!;
+    const a = w.primitives.get(old.aId)!;
+    const b = w.primitives.get(old.bId)!;
+    w.bonds.delete(old.id); a.bonds.delete(old.id); b.bonds.delete(old.id);
+    link(w, a, b);
+    for (const id of towerMembersAt(w, PENTA, r.anchor)!.bonds) w.bonds.get(id)!.damageFifths = 0;
+    beginTowerHealthHoldFrame(w);
+    expect(heldOwnPoolAt(w, PENTA, r.anchor)!.cur).toBe(50);
+  });
+});
+
+describe('S194 audit 3 — the CARD shows the held pool (`characterSheetModel` → `shownOwnHealth`)', () => {
+  it('the welded tower card does not read full again after a weld fall', () => {
+    const r = rig();
+    dentOwn(r, 12);
+    beginTowerHealthHoldFrame(r.w);
+    fellLatticeConnector(r);
+    beginTowerHealthHoldFrame(r.w);
+    const card = characterSheetModel(r.w, P0, { kind: 'structure', primitiveId: r.ring[0]! })!;
+    expect((card as unknown as { health: { cur: number; max: number } }).health).toMatchObject({ cur: 0, max: 50 });
+    // …and with the hold off (a model call with no frame), the raw read is the refilled 50 — the old card.
+    __resetTowerHealthHoldForTests();
+    const raw = characterSheetModel(r.w, P0, { kind: 'structure', primitiveId: r.ring[0]! })!;
+    expect((raw as unknown as { health: { cur: number } }).health.cur).toBe(50);
+  });
+});
+
+describe('S194 audit 4 — ENTROPY: a whistle snap in the welded structure is not a rebuild', () => {
+  it('an entropy snap of a lattice connector leaves the dented tower dented and the same tower', () => {
+    const r = rig();
+    dentOwn(r, 12);
+    beginTowerHealthHoldFrame(r.w);
+    // A wave whose roll snaps lattice connectors only (45 connectors → 3.5 % each), found, not assumed.
+    let wave = -1;
+    for (let v = 1; v < 500 && wave < 0; v++) {
+      r.w.waveNumber = v;
+      const doomed = planEntropy(r.w);
+      if (doomed.length > 0 && doomed.every((b) => !r.ownBonds.includes(b))) wave = v;
+    }
+    expect(wave, 'fixture: a lattice-only entropy wave exists').toBeGreaterThan(0);
+    r.w.waveNumber = wave;
+    const sp = spawnerIds(r.w);
+    const before = compSize(r);
+    expect(applyEntropyTax(r.w)).toBeGreaterThan(0);
+    expect(compSize(r)).toBeLessThan(before);
+    beginTowerHealthHoldFrame(r.w);
+    expect(heldOwnPoolAt(r.w, PENTA, r.anchor)!.cur, 'still dented').toBe(0);
+    expect(towerOwnHealth(r.w, PENTA, r.anchor)!.banked).toBeGreaterThanOrEqual(50);
+    expect(spawnerIds(r.w), 'the same tower').toEqual(sp);
+    r.frame();
+    expect(r.view.target, 'the art does not aim at pristine').toBe(SPEC.frames);
   });
 });
 
