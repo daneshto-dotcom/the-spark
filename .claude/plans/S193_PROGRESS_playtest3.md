@@ -12,6 +12,22 @@
   and a migrated successor — two builds pick different connectors from the same world.
 - **NOT DONE**: nothing in scope. Chewer/drone spread deliberately untouched (question 2).
 
+## ⭐ AUDIT FIX ROUND (FIX FIRST: MED-1 + L1) — DONE
+- Merged master 3b4c96c (deploy #22, PROTOCOL 61) as 62d5dc2e — no conflicts; `npm install` 0. `.tmp-audit/` left untouched.
+- **MED-1** `src/bots/botBrain.ts` `isLegalBuildPos`: refuses a point within `CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of any of the bot's OWN
+  porch slots (host-only planning; no bump of its own). REACH `src/bots/botPorchClear.test.ts`: 5 HARD personalities × 300 s real
+  bot matches — max covered slots ≤ 1 on every seat; HARD BALANCED seat 2 no-op pulls 574 → 169 (= auditor). Mutation (guard off)
+  reproduces exactly 586 pulls / 574 no-op / 4 covered. Negative: 1 px past the disc is legal again.
+- `botPersonality.test.ts` re-measured: every assertion holds, none loosened; what moved is written in the test comment
+  (HARD only: BALANCED s2 gains its stink 0.00→0.50; FORTRESS s2 0.67→0.50, mean 0.44→0.39, still highest; loose ±1; IMBA identical).
+- **L1** `src/input/pullFeedback.ts` (`pullBlockedByBuilt` + `requestPull`), wired at the castle panel pull handler in `main.ts`:
+  plays the existing `playUiRefusedSFX` when the seat's own built shapes cover every free porch slot (⚠ MINE: the thud, not a castle
+  flash — no castle flash exists). Intent still sent; client-only. Tests `src/input/pullFeedback.test.ts` (cue + real no-op; 3
+  negatives incl. the old full-porch no-op; wiring guard; mutation → red). Finding: slot pitch 30 < clearance 34, so one shape covers 2 slots.
+- Gates: typecheck 0 · vitest 0 (7859 passed / 11 skipped, 520 files) · build 0 entry 1121.9 KiB (+0.3 KiB / +329 B this round),
+  headroom 128.1 · e2e:gating 0 (71 passed). Benign: the pentagramBuildability snapshot EOL rewrite again, restored.
+- Bump: **YES, 61 → 62** (P3-1 placement reducer + P3-2 targeting; MED-1/L1 add nothing to the wire).
+
 ### What is MINE — owner questions (one line each, with a recommendation)
 1. **Building over your own porch**: legal now; those slots stop receiving pulls until the tower goes (all 4 covered = pull is the
    full-porch no-op, nothing lost). Rec: accept — it is self-inflicted and visible.
