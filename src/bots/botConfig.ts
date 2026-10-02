@@ -142,6 +142,16 @@ export interface BotConfig {
    */
   readonly scoutsWhileIdle: boolean;
   /**
+   * ⭐ S194 (T7) — does this bot FIX its towers (canon §8, R191-B / R192-W1)? Before S194 no bot ever sent
+   * `REPAIR_STRUCTURE` or `FIX_ALL`, so a bot tower only ever went down. ⚠ MINE, every value:
+   *   `'never'`  — NOOB (it builds no towers);
+   *   `'broken'` — MID: only a tower that has LOST a shape (`group.missing`) — the visibly broken one;
+   *   `'any'`    — HARD / IMBA: every tower `fixAllTargets` names (lost shapes, chipped shapes, hurt or
+   *                missing connectors — the castle row's own definition of "needs a FIX").
+   * A tier knob, not a personality one: it is a CAPABILITY (rule 1 of `botPersonality.ts`).
+   */
+  readonly repairsTowers: 'never' | 'broken' | 'any';
+  /**
    * ⭐ S193 (owner R193-AI) — this bot's PERSONALITY knobs (`botPersonality.ts`). ABSENT = the pre-S193
    * bot exactly (`IDENTITY_KNOBS`), which is what every `BOT_CONFIGS[tier]` literal below is, so the
    * brain's unit tests that pass a bare tier config keep testing the bot they always tested.
@@ -172,6 +182,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     buysSecondGatherer: false,
     rushesFirstTower: false,
     scoutsWhileIdle: false,
+    repairsTowers: 'never',
   },
   MID: {
     cursorSpeed: 5.0,
@@ -195,6 +206,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     buysSecondGatherer: false,
     rushesFirstTower: false,
     scoutsWhileIdle: false,
+    repairsTowers: 'broken',
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -218,6 +230,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     buysSecondGatherer: false,
     rushesFirstTower: true,
     scoutsWhileIdle: true,
+    repairsTowers: 'any',
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -241,6 +254,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     buysSecondGatherer: true,
     rushesFirstTower: true,
     scoutsWhileIdle: true,
+    repairsTowers: 'any',
   },
 };
 
