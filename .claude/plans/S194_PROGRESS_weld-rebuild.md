@@ -1,3 +1,23 @@
+# S194 T15 — weld-rebuild (R194-30) — FINAL REPORT
+
+- tip: see `git log -1` (after this commit) · merge of master d69475f6: fast-forward, no conflicts.
+- Gates (exit codes captured to files): typecheck 0 · vitest --maxWorkers=3 0 (545 files passed / 4 skipped;
+  8359 tests passed / 11 skipped) · build 0 — entry 1150.3 KiB vs 1149.0 on this master (+1.3 KiB), headroom 99.7.
+  e2e not run (render-only, no e2e surface named in the brief).
+- Root cause: `damageConnector`'s drain (damage.ts ~:681-692) spends a welded structure's pool from the struck
+  bond then survivors by ASCENDING id; a tower's own connectors are the oldest bonds, so a fall ANYWHERE in the
+  weld zeroes the damage on the tower's own connectors. Bar/card/ramp art read the OWN pool (S191 C-7) → full
+  again, and `advanceRampCursor` snaps the art from the last collapse frame to frame 1 = "it rebuilds".
+  H1 (re-match) KILLED: same spawner id, towersBuilt/Fell unchanged, ignition never fires (FIGHT has no
+  BOND_FORMED). H2 cover/sparkle reset KILLED on master: own prims never re-key, cover stays hidden.
+  H3 bot FIX KILLED as the cause: repair jobs move/finish only in BUILD (repairJobs.ts tickRepairJobs).
+- Fix: render-only `src/render/towerHealthHold.ts` — per live tower, held own damage that ignores a drain that
+  coincides with its structure losing a connector; heals only on a FIX (drop with no connector lost) or a new
+  tower. Bar (structureBarHealth.heldOwnPoolAt), both cards (characterSheetModel.shownOwnHealth) and ramp art
+  (structureRampRenderer) all read it; main.ts advances it each frame after beginTowerCoverFrame.
+- Bump: NONE (no sim, hash or wire change).
+- T4 (s194/visuals-6) trial merge: clean (`git merge-tree --write-tree` exit 0).
+
 # S194 T15 — weld-rebuild (R194-30) — PROGRESS
 
 Branch `s194/weld-rebuild`, merged master d69475f6 (fast-forward, no conflicts). `npm install` exit 0.
