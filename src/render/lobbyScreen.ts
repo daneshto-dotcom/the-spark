@@ -18,6 +18,7 @@ import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass, frame, hover sheen — all inside each plate / hit rect).
 import { skinPanelFx } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import { ACCENT_LOBBY, LazyScreenBackdrop, glowTitleStyle } from './uiScreenChrome.ts';
 import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
@@ -240,11 +241,14 @@ export class LobbyScreen {
      */
     this.backdrop = makeLobbyBackdrop(() => this.isShown);
     this.container.addChild(this.backdrop.container);
+    // ⭐ S194 R194-32 — the home page's living backdrop in cyan/pink: ABOVE the room's zone art (so it
+    // shows in the room view too) and below every pane, rack and button.
+    this.screenBackdrop = new LazyScreenBackdrop(this.container, 1, { ...ACCENT_LOBBY.backdrop, logoY: 120, orbitRx: 520, orbitRy: 80 });
 
-    // Title
+    // Title — ⭐ S194 R194-32: the glowing gradient title (cyan → pink), like SPARK and ARCADE.
     const title = new Text({
       text: 'MULTIPLAYER LOBBY',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 48, fill: 0xffffff, letterSpacing: 6 }),
+      style: glowTitleStyle(ACCENT_LOBBY, 54, 6),
     });
     title.anchor.set(0.5);
     title.position.set(CANVAS_WIDTH / 2, 120);
@@ -589,8 +593,12 @@ export class LobbyScreen {
     if (!visible) this.racePicker.close();
     this.container.visible = visible;
     this.isShown = visible;
+    this.screenBackdrop.setShown(visible);
     this.updateInputVisibility();
   }
+
+  /** ⭐ S194 R194-32 — the shared backdrop; animates only while the lobby is shown. */
+  private readonly screenBackdrop: LazyScreenBackdrop;
 
   setConnectionLostVisible(visible: boolean): void {
     this.connectionLostHandle.setVisible(visible);
