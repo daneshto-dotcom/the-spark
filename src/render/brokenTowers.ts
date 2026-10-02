@@ -11,9 +11,13 @@
  *   · `towerUnitAt` → `kind: 'stamp'` — the remains of a STAMPED tower that fell (more than half its
  *     nodes still standing; a live tower is `'live'`, rubble is `null`);
  *   · `blueprintGroupOf` non-null — the shapes still read as ONE blueprint stamp (what FIX bills);
- *   · `fallenTowerFixCanRegister` — a FIX would stand it up again (planStructureRepair's own gate).
- * ⚠ NOT gated on the phase or on the bank: FIX itself is BUILD-only (R19) and can be short of shapes,
- * but "this is where you need to fix" is true in FIGHT too, and that is when the tower breaks. ⚠ MINE.
+ *   · `fallenTowerFixCanRegister` — a FIX would stand it up again (planStructureRepair's own gate),
+ *     ⭐ asked AS IF IN BUILD (S194 re-audit): its shared refusal says no to every DEFENDER outside BUILD
+ *     (S157 B6, a sim rule this file does not change), so a broken turret or HELGA never sparkled in FIGHT
+ *     while a broken spawner did. The question here is "could a FIX re-stand it", which is phase-free.
+ * ⚠ MINE — NOT gated on the phase or on the bank: FIX itself is BUILD-only (R19) and can be short of
+ * shapes, but "this is where you need to fix" is true in FIGHT too, for every tower kind alike, and FIGHT
+ * is when towers break.
  *
  * ⭐ R194-23 (owner, S194) — EVERY VIEWER SEES IT, not the owner only: *"It doesn't matter because enemies
  * can't … control their own units … so it's fine."* Fog still hides it exactly like the tower itself
@@ -68,6 +72,15 @@ function bondBetween(world: World, aId: PrimitiveId, bId: PrimitiveId): BondId |
   return best;
 }
 
+/**
+ * The world as the FIX predicate would see it in BUILD: a read-only view whose `matchPhase` is 'BUILD' and
+ * every other field is the live world's (prototype lookup — nothing is copied, nothing is written).
+ */
+function asIfBuild(world: World): World {
+  if (world.matchPhase === 'BUILD') return world;
+  return Object.create(world, { matchPhase: { value: 'BUILD', enumerable: true } }) as World;
+}
+
 /** PURE — every fallen tower FIX could stand up again, in ascending key order. */
 export function brokenTowersOf(world: World): BrokenTower[] {
   /*
@@ -91,7 +104,7 @@ export function brokenTowersOf(world: World): BrokenTower[] {
     const owner = world.primitives.get(unit.members[0]!)!.placedBy;
     try {
       group = blueprintGroupOf(world, unit.members);
-      if (group !== null && !fallenTowerFixCanRegister(world, owner, group)) group = null;
+      if (group !== null && !fallenTowerFixCanRegister(asIfBuild(world), owner, group)) group = null;
     } catch { group = null; }
     if (group === null) continue;
     const bp = blueprintFor(group.blueprintId);
@@ -113,7 +126,7 @@ export class BrokenTowerCache {
   private value: BrokenTower[] = [];
 
   get(world: World): readonly BrokenTower[] {
-    const k = `${Math.floor(world.tick / BROKEN_TOWER_RESCAN_TICKS)}:${world.primitives.size}:${world.bonds.size}:${world.creatureSpawners.size}:${world.defenders.size}`;
+    const k = `${world.matchPhase}:${Math.floor(world.tick / BROKEN_TOWER_RESCAN_TICKS)}:${world.primitives.size}:${world.bonds.size}:${world.creatureSpawners.size}:${world.defenders.size}`;
     if (k !== this.key) {
       this.key = k;
       this.value = brokenTowersOf(world);

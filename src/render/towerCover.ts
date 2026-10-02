@@ -193,6 +193,7 @@ const groupOfPrim = new Map<PrimitiveId, CoverGroup>();
 let frameNo = 0;
 /** ⭐ S194 audit L2 — every shape seen standing under a drawn tower this match (cleared on title return). */
 const everStood = new Set<PrimitiveId>();
+let lastGroupTick = 0;
 
 /**
  * ⭐ S194 audit M1 — forget every tower group (title return). The shapes are cleared there while
@@ -248,6 +249,10 @@ export function beginTowerCoverFrame(world: World): void {
  * for the same reason `reconcile` is: every reader in the next frame sees the same `standing`.
  */
 function reconcileGroups(): void {
+  // ⛔ S194 re-audit (c) — a clock that went BACKWARDS is a new match: forget every group and what was seen
+  // standing (the groups' own linger guard below only drops the ones already down).
+  if (tick < lastGroupTick) resetTowerCoverGroups();
+  lastGroupTick = tick;
   const prev = frameNo;
   frameNo++;
   groupOfPrim.clear();
@@ -435,6 +440,7 @@ export function __resetTowerCoverForTests(): void {
   groups.clear();
   groupOfPrim.clear();
   everStood.clear();
+  lastGroupTick = 0;
   frameNo = 0;
   tick = 0;
   active = false;

@@ -137,6 +137,21 @@ describe('S194 — towerCover remembers every drawn tower as a GROUP', () => {
     expect(groups()[0]!.revealOnly).toBe(true);
   });
 
+  it('⛔ S194 re-audit (c) — a clock that goes BACKWARDS (a new match) forgets what was seen standing', () => {
+    const w = { tick: 5000 };
+    frame(w, () => markTowerCover(P, B, 5000, FOOT));
+    w.tick = 5001;
+    frame(w, () => markTowerCover(P, B, 5000, FOOT));
+    w.tick = 3;
+    frame(w, null);
+    w.tick = 4;
+    frame(w, () => markTowerCover(P, B, 4, FOOT));
+    w.tick = 5;
+    frame(w, () => markTowerCover(P, B, 4, FOOT));
+    expect(groups()[0]!.standing).toBe(true);
+    expect(groups()[0]!.revealOnly, 'a build in the new match, not a re-reveal').toBe(false);
+  });
+
   it('is INACTIVE until the render tick starts it — nothing is remembered, nothing is visited', () => {
     markTowerCover(P, B, 0, FOOT);
     expect(groups()).toEqual([]);

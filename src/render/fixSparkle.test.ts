@@ -88,7 +88,7 @@ function cutBond(w: World, bid: BondId): void {
 }
 
 /** The S191 fixture: a stamped turret + a stamped goblin tower welded by one Square; returns a far arm. */
-function weldedPair(): { w: World; st: HostTickState; turretHub: PrimitiveId; arm: BondId } {
+function weldedPair(): { w: World; st: HostTickState; turretHub: PrimitiveId; arm: BondId; goblinHub: PrimitiveId; goblinArm: BondId } {
   const w = makeWorld(0x5189);
   dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
   w.gameState = 'PLAYING';
@@ -110,7 +110,13 @@ function weldedPair(): { w: World; st: HostTickState; turretHub: PrimitiveId; ar
     .map((bid) => { const b = w.bonds.get(bid)!; return { bid, leaf: b.aId === turretHub ? b.bId : b.aId }; })
     .filter((x) => !weldNbrs.has(x.leaf) && x.leaf !== weld.id)
     .sort((x, y) => w.primitives.get(x.leaf)!.pos.x - w.primitives.get(y.leaf)!.pos.x || x.bid - y.bid)[0]!.bid;
-  return { w, st, turretHub, arm };
+  const goblinHub = [...w.creatureSpawners.values()].find((sp) => sp.recipeId === 'goblinTower')!.anchorPrimitiveId;
+  const gHub = w.primitives.get(goblinHub)!;
+  const goblinArm = [...gHub.bonds]
+    .map((bid) => { const b = w.bonds.get(bid)!; return { bid, leaf: b.aId === goblinHub ? b.bId : b.aId }; })
+    .filter((x) => !weldNbrs.has(x.leaf) && x.leaf !== weld.id)
+    .sort((x, y) => w.primitives.get(y.leaf)!.pos.x - w.primitives.get(x.leaf)!.pos.x || x.bid - y.bid)[0]!.bid;
+  return { w, st, turretHub, arm, goblinHub, goblinArm };
 }
 
 let top: ReturnType<typeof recordingSink>;
@@ -208,6 +214,29 @@ describe('S194 R194-22 REACH — the fix-me sparkle through the real host tick',
     const r = new SpawnerZoneRenderer({} as never, new Container());
     expect(() => draw(w, r)).not.toThrow();
   });
+
+  /*
+   * ⭐ S194 re-audit (a) — CONSISTENT ACROSS ALL TOWERS (owner): the FIX gate refuses a DEFENDER outside
+   * BUILD (S157 B6, a sim rule), which hid a broken turret's sparkle in FIGHT while a spawner's showed.
+   * The render asks "could FIX re-stand it" phase-free.
+   */
+  for (const kind of ['defender (laser turret)', 'spawner (goblin tower)'] as const) {
+    it(`⭐ a broken ${kind} sparkles in BUILD and in FIGHT alike`, () => {
+      const { w, st, turretHub, arm, goblinHub, goblinArm } = weldedPair();
+      const defender = kind.startsWith('defender');
+      cutBond(w, defender ? arm : goblinArm);
+      tick(w, st, PAST_TWO_POLLS);
+      const hub = defender ? turretHub : goblinHub;
+      expect(towerUnitAt(w, hub)!.kind, 'fixture: it fell').toBe('stamp');
+      for (const phase of ['BUILD', 'FIGHT'] as const) {
+        w.matchPhase = phase;
+        const broken = brokenTowersOf(w);
+        expect(broken.map((b) => b.prims.includes(hub)), `${phase}: the fallen tower is named`).toContain(true);
+        const r = new SpawnerZoneRenderer({} as never, new Container());
+        expect(draw(w, r).length, `${phase}: it sparkles`).toBeGreaterThan(8);
+      }
+    });
+  }
 
   it('⛔ NEGATIVE — `?fx=legacy`: off', () => {
     const { w, st, arm } = weldedPair();
