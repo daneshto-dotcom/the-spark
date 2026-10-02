@@ -20,7 +20,7 @@
  * rngSeed (deterministic RNG not v1), nextPrimitiveId/nextBondId (host-only
  * authority — clients never mint IDs).
  */
-
+
 import { simMemo } from './simMemo.ts';
 import {
   PRIMITIVE_MAX_HP,
