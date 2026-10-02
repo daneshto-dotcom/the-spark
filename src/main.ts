@@ -148,7 +148,8 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { requestPull } from './input/pullFeedback.ts'; // S193 L1
+import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, playUiRefusedSFX, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -1042,8 +1043,10 @@ async function bootstrap(): Promise<void> {
   });
   // S136 P1 (V6-1.3) — pull a stored shape out of the castle onto the porch, where the ordinary
   // drag-and-place flow takes over. Same dispatchFn seam, so it routes on all three paths.
+  // ⭐ S193 L1 — through `requestPull`, which plays the refused thud when the seat's own built shapes
+  // cover every free porch slot (the pull would be a silent no-op). The intent is sent unchanged.
   castlePanel.setPullHandler((sparkType) => {
-    dispatchFn({ type: 'PULL_FROM_BANK', playerId: world.localPlayerId, sparkType });
+    requestPull(world, sparkType, dispatchFn, () => { void playUiRefusedSFX(); });
   });
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE (owner ruling B4). Same dispatchFn seam as every
   // other panel control, so it routes on all three paths (networked joiner → wire intent; worker

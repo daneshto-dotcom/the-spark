@@ -82,7 +82,7 @@ function runMatch(p: BotPersonality, seconds: number) {
   const cur: GodlyMatcherCursor = { lastMatcherTick: -1 };
   for (let t = 0; t < 60 * seconds; t++) {
     runHostTick(w, d, st);
-    if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, cur);
+    if ((w.gameState as string) === 'PLAYING') runGodlyMatcherCore(w, cur);
     w.effects.length = 0;
     if (t % 30 === 0) for (let i = 0; i < 3; i++) rec[i]!.maxCovered = Math.max(rec[i]!.maxCovered, coveredSlots(w, i + 1));
   }
