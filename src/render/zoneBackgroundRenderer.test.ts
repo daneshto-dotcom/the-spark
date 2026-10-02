@@ -167,8 +167,10 @@ describe('S166 — the zone backdrop covers neither the shape queue nor the fram
     expect(src).toContain('function punchPortal');
 
     // The bake is reached from sync, and cached on all three axes that change the hole.
-    expect(src).toContain('punchPortal(raw, zone, layout)');
-    expect(src).toContain('`${url}|${layout}|${zone}`');
+    // ⭐ S193 V26 — plus a FOURTH, the race grade (`|g` graded, `|n` the `?fx=legacy` original): the
+    // grade rides the same one-time bake, so the cache must tell the two apart or legacy shows graded art.
+    expect(src).toContain('punchPortal(raw, zone, layout, graded ? race : null)');
+    expect(src).toContain("`${url}|${layout}|${zone}|${graded ? 'g' : 'n'}`");
     // `raw` must never reach a Sprite: that is the seam bug growing back.
     expect(src).not.toContain('new Sprite(raw)');
     expect(src).not.toContain('sp.texture = raw');
