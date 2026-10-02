@@ -45,12 +45,18 @@ export class TitleBackdrop {
   private running = false;
   private readonly tick = (t: Ticker): void => this.step(t.deltaMS);
 
-  constructor() {
+  /** ⭐ S194 R194-24 — the arcade menu reuses this behind its own title, so the logo centre is a parameter. */
+  private readonly cx: number;
+  private readonly cy: number;
+
+  constructor(opts: { readonly logoX?: number; readonly logoY?: number } = {}) {
+    this.cx = opts.logoX ?? LOGO_X;
+    this.cy = opts.logoY ?? LOGO_Y;
     this.container.eventMode = 'none';
     this.container.label = 'title-backdrop';
     for (const s of [this.halo, this.ring]) {
       s.anchor.set(0.5);
-      s.position.set(LOGO_X, LOGO_Y);
+      s.position.set(this.cx, this.cy);
       s.blendMode = 'add';
       s.eventMode = 'none';
     }
@@ -117,8 +123,8 @@ export class TitleBackdrop {
     for (let i = 0; i < n; i++) {
       const a = ((f % ORBIT_PERIOD_FRAMES) / ORBIT_PERIOD_FRAMES) * Math.PI * 2 + (i / n) * Math.PI * 2;
       const depth = 0.5 + 0.5 * Math.sin(a); // 1 = front
-      const x = LOGO_X + Math.cos(a) * ORBIT_RX;
-      const y = LOGO_Y + 10 + Math.sin(a) * ORBIT_RY;
+      const x = this.cx + Math.cos(a) * ORBIT_RX;
+      const y = this.cy + 10 + Math.sin(a) * ORBIT_RY;
       const type = ALL_SPARK_TYPES[i]!;
       const color = mixColor(raceColorForShape(type) ?? 0xffffff, 0x0a0f18, 0.6 * (1 - depth));
       drawSparkGlyph(o, x, y, 10 + 8 * depth, type, color);

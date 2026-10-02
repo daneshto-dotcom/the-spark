@@ -137,7 +137,7 @@ describe('S194 uiSkin — the panel overlay and icons stay inside their boxes', 
 
   const KINDS: SkinIconKind[] = [
     'hp', 'atk', 'def', 'pen', 'mres', 'regen', 'speed', 'gatherer', 'fix', 'scrap',
-    'feed', 'exit', 'play', 'bots', 'globe', 'book', 'star', 'check', 'back',
+    'feed', 'exit', 'play', 'bots', 'globe', 'book', 'star', 'check', 'back', 'grid', 'ball',
   ];
   for (const kind of KINDS) {
     for (const size of [12, 16, 22, 34]) {

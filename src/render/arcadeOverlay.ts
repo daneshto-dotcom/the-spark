@@ -28,7 +28,11 @@
  */
 
 import { attachButtonFeedback } from './buttonFeedback.ts';
-import { Application, Container, Graphics, Text } from 'pixi.js';
+import { Application, Container, FillGradient, Graphics, Text } from 'pixi.js';
+// ⭐ S194 R194-24 — the arcade MENU in the home screen's language (the games themselves untouched).
+import { skinIcon, type SkinIconKind } from './uiSkin.ts';
+import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import type { TitleBackdrop } from './titleBackdrop.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { generateSudoku, type SudokuEvent } from '../state/sudoku.ts';
 import { asPlayerId } from '../types.ts';
@@ -39,6 +43,8 @@ export interface ArcadeGame {
   readonly name: string;
   readonly blurb: string;
   readonly tint: number;
+  /** ⭐ S194 R194-24 — the badge on its menu plate (a game without one gets a play triangle). */
+  readonly icon?: SkinIconKind;
   /**
    * A game that lives on its own page (PITCH MASTERS, a separate Godot build at `/pitch-masters/`).
    * Launching it navigates there instead of calling `onSelect`, so `main.ts` needs no branch for it.
@@ -57,12 +63,14 @@ export const ARCADE_GAMES: readonly ArcadeGame[] = [
     name: 'NONET',
     blurb: 'the six-colour logic trial — fill every row, column and box',
     tint: 0x9b7bff,
+    icon: 'grid',
   },
   {
     id: 'pitch-masters',
     name: 'PITCH MASTERS',
     blurb: 'real-time soccer card battler — quick match online',
     tint: 0xf2bf26,
+    icon: 'ball',
     href: '/pitch-masters/',
   },
 ];
@@ -197,6 +205,8 @@ export class ArcadeOverlay {
   show(): void {
     this.open = true;
     this.container.visible = true;
+    this.backdrop?.setRunning(true);
+    if (this.backdrop === null && !this.backdropLoading) this.loadBackdrop();
     // ⛔ S149 P5 FIX — RE-ADD TO THE PARENT SO IT IS ON TOP.
     //
     // This overlay is constructed BEFORE `TitleScreen` (its select-callback has to exist before the
@@ -212,6 +222,25 @@ export class ArcadeOverlay {
   hide(): void {
     this.open = false;
     this.container.visible = false;
+    this.backdrop?.setRunning(false);
+  }
+
+  /**
+   * ⭐ S194 R194-24 — the home screen's living backdrop, behind the menu (the same lazy chunk, centred on
+   * the ARCADE title). Child 1: above the dimming plate, below every button. `eventMode: 'none'`, so the
+   * container-level tap and every plate's hit rect are untouched.
+   */
+  private backdrop: TitleBackdrop | null = null;
+  private backdropLoading = false;
+  private loadBackdrop(): void {
+    this.backdropLoading = true;
+    import('./titleBackdrop.ts')
+      .then((m) => {
+        this.backdrop = new m.TitleBackdrop({ logoY: TITLE_Y });
+        this.container.addChildAt(this.backdrop.container, 1);
+        this.backdrop.setRunning(this.open);
+      })
+      .catch(() => { /* the plain menu is complete without it */ });
   }
 
   isOpen(): boolean {
@@ -243,13 +272,33 @@ export class ArcadeOverlay {
     const g = this.graphics;
     g.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: 0x05070c, alpha: 0.95 });
 
-    this.addText('ARCADE', CANVAS_WIDTH / 2, TITLE_Y, 54, 0xffd60a);
+    // ⭐ S194 R194-24 — the title in the home screen's treatment: a gold gradient, a dark rim, a glow.
+    {
+      const t = new Text({
+        text: 'ARCADE',
+        style: {
+          fontFamily: 'monospace', fontSize: 64, fontWeight: 'bold', letterSpacing: 8,
+          // (A gradient needs a canvas to build; headless — vitest — falls back to flat gold.)
+          fill: typeof document === 'undefined' ? 0xffd60a : new FillGradient({
+            type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 }, textureSpace: 'local',
+            colorStops: [{ offset: 0, color: 0xfff6c8 }, { offset: 0.5, color: 0xffd60a }, { offset: 1, color: 0xd98a00 }],
+          }),
+          stroke: { color: 0x1e1400, width: 5 },
+          dropShadow: { color: 0xffb020, alpha: 0.75, blur: 20, distance: 0, angle: 0 },
+          padding: 40,
+        },
+      });
+      t.anchor.set(0.5);
+      t.position.set(CANVAS_WIDTH / 2, TITLE_Y);
+      this.container.addChild(t);
+      this.texts.push(t);
+    }
     this.addText(
       'standalone trials — no match, no opponents, just the puzzle',
       CANVAS_WIDTH / 2,
-      TITLE_Y + 52,
+      TITLE_Y + 58,
       20,
-      0x9aa6b8,
+      0x9fb4cc,
     );
 
     /*
@@ -275,13 +324,13 @@ export class ArcadeOverlay {
       this.addButton(r, 12, game.tint, () => this.onSelect(r.id), [
         { text: game.name, dy: 26, size: 28, fill: game.tint },
         { text: game.blurb, dy: 55, size: 16, fill: 0x8f9bb0 },
-      ]);
+      ], game.icon ?? 'play');
     }
 
     const back = arcadeBackGeom();
     this.addButton(back, 10, 0x6f7b8f, () => this.onSelect('back'), [
       { text: 'BACK', dy: back.h / 2, size: 24, fill: 0xc8d2e0 },
-    ]);
+    ], 'back');
   }
 
   /** One pop-out button: its own plate, its own labels, centred so it scales from the middle. */
@@ -291,22 +340,32 @@ export class ArcadeOverlay {
     stroke: number,
     onClick: () => void,
     labels: readonly { text: string; dy: number; size: number; fill: number }[],
+    icon: SkinIconKind,
   ): void {
     const btn = new Container();
     const plate = new Graphics();
     plate.roundRect(0, 0, r.w, r.h, radius).fill({ color: 0x0b1018, alpha: 0.95 });
+    // ⭐ S194 R194-24 — the glass + an icon badge in its own socket, all inside the rest-size hit rect.
+    skinStaticPlate(plate, { x: 0, y: 0, w: r.w, h: r.h }, stroke, radius);
+    const badge = Math.min(r.h - 16, 48);
+    const bx = 10 + badge / 2;
+    plate.roundRect(bx - badge / 2, r.h / 2 - badge / 2, badge, badge, 10).stroke({ width: 1.5, color: stroke, alpha: 0.45 });
+    skinIcon(plate, icon, bx, r.h / 2, badge * 0.62, stroke, 0.95);
     plate.roundRect(0, 0, r.w, r.h, radius).stroke({ width: 2, color: stroke, alpha: 0.9 });
     btn.addChild(plate);
+    // The text block moves right by half the badge so it stays centred in the room the badge leaves.
+    const shift = (badge + 10) / 2;
     for (const l of labels) {
       const t = new Text({ text: l.text, style: { fontFamily: 'monospace', fontSize: l.size, fill: l.fill } });
       t.anchor.set(0.5);
-      t.position.set(r.w / 2, l.dy);
+      t.position.set(r.w / 2 + shift, l.dy);
       btn.addChild(t);
       this.texts.push(t);
     }
     btn.pivot.set(r.w / 2, r.h / 2);
     btn.position.set(r.x + r.w / 2, r.y + r.h / 2);
     attachButtonFeedback(btn, plate, onClick, { hit: { x: 0, y: 0, w: r.w, h: r.h } });
+    attachHoverSheen(btn, { x: 0, y: 0, w: r.w, h: r.h }, radius);
     this.container.addChild(btn);
     this.buttons.push(btn);
   }

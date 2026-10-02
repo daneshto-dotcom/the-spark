@@ -190,7 +190,7 @@ export function skinPanelFx(g: SkinGraphics, x: number, y: number, w: number, h:
 
 export type SkinIconKind =
   | 'hp' | 'atk' | 'def' | 'pen' | 'mres' | 'regen' | 'speed' | 'gatherer' | 'fix' | 'scrap'
-  | 'feed' | 'exit' | 'play' | 'bots' | 'globe' | 'book' | 'star' | 'check' | 'back';
+  | 'feed' | 'exit' | 'play' | 'bots' | 'globe' | 'book' | 'star' | 'check' | 'back' | 'grid' | 'ball';
 
 /**
  * A procedural stroked glyph centred on (cx, cy), inside a box of side `size`. Strokes only (no
@@ -301,6 +301,33 @@ export function skinIcon(g: SkinGraphics, kind: SkinIconKind, cx: number, cy: nu
     case 'back':
       path([P(0.8, 0), P(-0.7, 0)]);
       path([P(-0.25, -0.5), P(-0.75, 0), P(-0.25, 0.5)]);
+      break;
+    case 'grid': // a 3×3 board (NONET)
+      path([P(-0.8, -0.8), P(0.8, -0.8), P(0.8, 0.8), P(-0.8, 0.8)], true);
+      path([P(-0.27, -0.8), P(-0.27, 0.8)]);
+      path([P(0.27, -0.8), P(0.27, 0.8)]);
+      path([P(-0.8, -0.27), P(0.8, -0.27)]);
+      path([P(-0.8, 0.27), P(0.8, 0.27)]);
+      break;
+    case 'ball': // a football: an octagon with a pentagon at its heart (PITCH MASTERS)
+      {
+        const ring: Array<[number, number]> = [];
+        for (let k = 0; k < 8; k++) {
+          const a = (k * Math.PI) / 4 + Math.PI / 8;
+          ring.push(P(Math.cos(a) * 0.85, Math.sin(a) * 0.85));
+        }
+        path(ring, true);
+        const pent: Array<[number, number]> = [];
+        for (let k = 0; k < 5; k++) {
+          const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5;
+          pent.push(P(Math.cos(a) * 0.32, Math.sin(a) * 0.32));
+        }
+        path(pent, true);
+        for (let k = 0; k < 5; k++) {
+          const a = -Math.PI / 2 + (k * 2 * Math.PI) / 5;
+          path([P(Math.cos(a) * 0.32, Math.sin(a) * 0.32), P(Math.cos(a) * 0.8, Math.sin(a) * 0.8)]);
+        }
+      }
       break;
   }
   g.stroke(st);
