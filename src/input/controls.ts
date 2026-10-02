@@ -187,9 +187,14 @@ export interface CharacterSheetLike {
   actionAt(
     x: number,
     y: number,
-  ): { readonly kind: string; readonly sparkType?: number } | null;
+  ): { readonly kind: string; readonly sparkType?: number; readonly on?: boolean } | null;
   /** Includes DISABLED buttons, so a refusal can be told apart from a miss (the S152 contract). */
   isOverAnyAction(x: number, y: number): boolean;
+  /**
+   * ⭐ S193 (owner T4) — the goblin-tower feed chip under (x, y) whose auto-build a RIGHT-click toggles,
+   * with its current state; null elsewhere. Optional so every harness stub stays assignable.
+   */
+  autoFeedAt?(x: number, y: number): { readonly sparkType: number; readonly on: boolean } | null;
   actionPrimitiveId(): PrimitiveId | null;
   actionFeedSpawnerId(): SpawnerId | null;
   /** S181 — the pointer moved; light the control under it (owner: "slightly changes hue"). */
@@ -266,6 +271,13 @@ function makeLocalDispatcher(world: World): ControlsDispatchFn {
 
 const PICK_RADIUS = 28;
 const BOND_PICK_DIST = 8;
+/**
+ * ⭐ S193 (T4, Council M3) — ⚠ MINE: how long a sent auto-build toggle is trusted over the synced bit
+ * (60 ticks = 1 s) — longer than any snapshot round-trip, short enough that a refused toggle stops
+ * steering the next click almost at once.
+ */
+const AUTO_FEED_PENDING_TICKS = 60;
+
 // S102 #1 — cursor→creature hit radius for a right-click RAID (≈ 2× the chewer body so a
 // click "on" a hopping chewer reliably pops it). Bigger than BOND_PICK_DIST (a creature is a
 // fat blob; a bond is a thin segment).
@@ -555,7 +567,7 @@ export class Controls {
    * direct) keep working with no second code path.
    */
   setSheetActionHandler(
-    fn: (action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void,
+    fn: (action: { readonly kind: string; readonly sparkType?: number; readonly on?: boolean }, primitiveId: PrimitiveId) => void,
   ): void {
     this.onSheetAction = fn;
   }
@@ -574,8 +586,14 @@ export class Controls {
   private modalCover: ((x: number, y: number) => boolean) | null = null; // S191 R2 INPUT-1 — see `setModalCover`
   /** ⛔ S192 A-1 — was the PRESS that this release pairs with under a modal? Latched in `onDown`, read + cleared in `onUp`. */
   private downUnderModal = false;
+  /**
+   * ⭐ S193 (T4, Council M3) — the toggles this client has SENT and not yet seen come back on a snapshot,
+   * keyed `spawnerId:sparkType`. A fast second right-click under lag inverts THIS, not the stale synced
+   * bit, so on-then-off lands off. Input-local; the sim only ever sees the SET.
+   */
+  private readonly pendingAutoFeed = new Map<string, { readonly on: boolean; readonly untilTick: number }>();
   private onSheetAction:
-    | ((action: { readonly kind: string; readonly sparkType?: number }, primitiveId: PrimitiveId) => void)
+    | ((action: { readonly kind: string; readonly sparkType?: number; readonly on?: boolean }, primitiveId: PrimitiveId) => void)
     | null = null;
 
   /**
@@ -923,6 +941,79 @@ export class Controls {
   }
 
   /**
+   * ⭐⭐ S193 (owner T4) — **A RIGHT-CLICK ON A GOBLIN-TOWER FEED CHIP TOGGLES ITS AUTO-BUILD.**
+   * *"right click each of the six shapes that build … the goblins … it's like a toggle."*
+   *
+   * ⚠ A HAND PUT-BACK WINS (R190-G): with a Ra aim, a scorch aim or a held tower in hand, this declines
+   * and the put-back further down `onDown` runs — RMB with something in hand means "put it back"
+   * everywhere, and the card must not be the one place it does not. Dimmed chips toggle too.
+   * Consumes the click on a hit, so nothing on the board under the card acts.
+   */
+  private handleSheetAutoFeedClick(): boolean {
+    if (this.characterSheet === null || this.world.gameState !== 'PLAYING') return false;
+    if (this.isHandHolding()) return false;
+    const hit = this.characterSheet.autoFeedAt?.(this.cursor.x, this.cursor.y) ?? null;
+    if (hit === null) {
+      /*
+       * ⭐ S193 round 2 (audit LOW, spec §2.5) — a right-click on a card control that is NOT a toggle
+       * (a race tower's chip, FIX, SCRAP) says so: the refused cue, and the click is consumed — the card
+       * swallowed it before this anyway (`isPointerOverAnyOpaqueSurface`), it just did so in silence.
+       */
+      if (this.characterSheet.isOverAnyAction(this.cursor.x, this.cursor.y)) {
+        void playUiRefusedSFX();
+        return true;
+      }
+      return false;
+    }
+    this.prunePendingAutoFeed();
+    const primitiveId = this.characterSheet.actionPrimitiveId();
+    const spawnerId = this.characterSheet.actionFeedSpawnerId();
+    if (primitiveId === null || spawnerId === null) return false;
+    const key = `${Number(spawnerId)}:${hit.sparkType}`;
+    const pending = this.pendingAutoFeed.get(key);
+    // The pending value counts only while it is fresh AND the snapshot has not caught up with it.
+    const current =
+      pending !== undefined && pending.untilTick > this.world.tick && pending.on !== hit.on ? pending.on : hit.on;
+    const on = !current;
+    this.pendingAutoFeed.set(key, { on, untilTick: this.world.tick + AUTO_FEED_PENDING_TICKS });
+    void playUiClickSFX();
+    this.onSheetAction?.({ kind: 'AUTO_FEED', sparkType: hit.sparkType, on }, primitiveId);
+    return true;
+  }
+
+  /**
+   * ⭐ S193 round 2 (audit LOW) — drop every pending toggle that has expired OR claims a deadline further
+   * out than the window allows (a tick that moved backwards — a restore — or a stale match).
+   */
+  private prunePendingAutoFeed(): void {
+    for (const [k, p] of [...this.pendingAutoFeed]) {
+      const left = p.untilTick - this.world.tick;
+      if (left <= 0 || left > AUTO_FEED_PENDING_TICKS) this.pendingAutoFeed.delete(k);
+    }
+  }
+
+  /** ⭐ S193 round 2 — main.ts calls this on the title-return, so no pending toggle outlives its match. */
+  clearAutoFeedPending(): void {
+    this.pendingAutoFeed.clear();
+  }
+
+  /**
+   * ⭐ S193 round 2 (audit LOW) — **IS SOMETHING IN HAND?** A Ra aim, a scorch aim or a held tower: the
+   * three things a right-click puts back (R190-G HAND). One predicate, asked by the auto-build toggle;
+   * `putBackHand` is its action, used by every HAND put-back that clears all three in this order.
+   */
+  private isHandHolding(): boolean {
+    return raAimPreview() !== null || scorchedEarthAim() !== null || this.castlePanel?.armedBlueprint() != null;
+  }
+
+  /** ⭐ S193 round 2 — put back what is in hand: the aim first, then the scorch aim, then a held tower. */
+  private putBackHand(): void {
+    if (raAimPreview() !== null) setRaAimPreview(null);
+    else if (scorchedEarthAim() !== null) setScorchedEarthAim(null);
+    else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+  }
+
+  /**
    * S152 — clicking one of YOUR OWN placed shapes aims the FIX / SCRAP popover at its structure.
    *
    * ⚠ ORDERED BELOW `pickSpark`, DELIBERATELY. A free spark can be sitting on top of a tower, and
@@ -1261,9 +1352,7 @@ export class Controls {
     // ⛔ S191 R2 (INPUT-4) — BUT A RIGHT-CLICK STILL PUTS BACK WHAT IS IN HAND, exactly as on the draft
     // plate below (S190 IL-2): it acts on the HAND, not on the ground under the panel. The aim first.
     if (e.button === 2 && this.isPointerOverPanel()) { // R190-G: HAND (the IL-2 put-back, castle panel)
-      if (raAimPreview() !== null) setRaAimPreview(null);
-      else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S192 OWN-2 — the scorch aim, same rule
-      else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+      this.putBackHand(); // ⭐ S192 OWN-2 — the scorch aim, same rule (S193: one helper for every put-back)
     }
     if (this.isPointerOverPanel()) return;
     /*
@@ -1285,9 +1374,7 @@ export class Controls {
        * panel's own `pointertap` ignores every button but the primary, so RMB makes no pick either.
        */
       if (e.button === 2) { // R190-G: HAND (the S190 IL-2 put-back)
-        if (raAimPreview() !== null) setRaAimPreview(null);
-        else if (scorchedEarthAim() !== null) setScorchedEarthAim(null); // ⭐ S191 — the same put-it-back
-        else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+        this.putBackHand(); // ⭐ S191 — the same put-it-back (S193: one helper)
       }
       return;
     }
@@ -1318,6 +1405,9 @@ export class Controls {
      * the board around the card stays live.
      */
     if (e.button === 0 && this.handleSheetActionClick()) return; // R190-G: LMB
+    // ⭐ S193 (owner T4) — a RIGHT-click on a goblin-tower feed chip toggles its auto-build. Same slot as
+    // the LMB above, for its reason: above every world pick. The HAND put-backs still win (inside).
+    if (e.button === 2 && this.handleSheetAutoFeedClick()) return; // R190-G: CONTROL
     // ⭐ S188 P6 — an aimed Ra owns the next BOARD click. ⛔ S188 audit F4: BELOW the card's own
     // FIX / SCRAP / FEED (the line above), exactly as a held tower is, or aiming swallowed them. ABOVE
     // the castle click on purpose: striking the enemy at your own keep is a legitimate aim.
@@ -1333,7 +1423,9 @@ export class Controls {
     const armed = this.castlePanel?.armedBlueprint() ?? null;
     if (armed !== null) {
       if (e.button === 2) { // R190-G: HAND
-        this.castlePanel?.disarm();
+        // S193 — the shared put-back. Both aims were already put back by their own handlers above
+        // (they return on RMB), so here it can only be the held tower: byte-identical to `disarm()`.
+        this.putBackHand();
         return;
       }
       if (e.button === 0) { // R190-G: LMB

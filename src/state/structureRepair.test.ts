@@ -130,7 +130,7 @@ function nodesOf(w: World, id: GodlyId): Map<number, PrimitiveId> {
 function destroyNode(w: World, id: GodlyId, nodeIndex: number): void {
   const target = nodesOf(w, id).get(nodeIndex);
   expect(target).toBeDefined();
-  const died = damageEntity(w, { kind: 'primitive', id: target! }, PRIMITIVE_MAX_HP, 'creature', null);
+  const died = damageEntity(w, { kind: 'primitive', id: target! }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
   expect(died).toBe(true); // a destroy that did not destroy would make every test below vacuous
 }
 
@@ -365,7 +365,7 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     build(w, 'laserTurret');
     stock(w, SparkType.Spiral, 1); // the build spent the exact bill; the fee needs its own funding
     const victim = nodesOf(w, 'laserTurret').get(2)!;
-    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature', null); // ⭐ S177 P1 — the 70-fifth scale
+    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature', null, 'physical'); // ⭐ S177 P1 — the 70-fifth scale
     expect(w.primitives.get(victim)!.hp).toBe(PRIMITIVE_MAX_HP - 40);
 
     const plan = planStructureRepair(w, P0, victim)!;
@@ -385,7 +385,7 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     fund(w, 'laserTurret');
     build(w, 'laserTurret');
     const victim = nodesOf(w, 'laserTurret').get(2)!;
-    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: victim }, 40, 'creature', null, 'physical');
 
     expect(planStructureRepair(w, P0, victim)!.payments).toBeNull();
     const before = totalShapes(w);
@@ -411,7 +411,7 @@ describe('S152 — FIX consumes exactly what was lost (R13)', () => {
     // Hurt a CONNECTOR without touching a single shape, and without breaking it.
     const bondId = [...w.bonds.keys()][0];
     const capacity = connectorCapacityFifths(w.bonds.size);
-    expect(damageConnector(w, bondId, Math.max(1, Math.floor(capacity / 2)), null)).toBe(false);
+    expect(damageConnector(w, bondId, Math.max(1, Math.floor(capacity / 2)), null, 'physical')).toBe(false);
     expect(w.bonds.get(bondId)!.damageFifths).toBeGreaterThan(0);
     for (const p of w.primitives.values()) expect(p.hp).toBe(PRIMITIVE_MAX_HP);
 

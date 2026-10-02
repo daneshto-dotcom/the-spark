@@ -246,9 +246,10 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
         hit,
         'creature',
         { kind: 'creature', id: attacker.id },
+        'magic', // ⭐ S192 — R192-M2, the Voltkin's chain lightning
       );
       if (died) attacker.killCount += 1;
-    } else if (damageConnector(world, link.id, hit, { kind: 'creature', id: attacker.id })) {
+    } else if (damageConnector(world, link.id, hit, { kind: 'creature', id: attacker.id }, 'magic')) { // S192 — R192-M2
       // ⭐ S188 — named on every building link too, exactly as the creature links above are.
       toSever.push(link.id);
     }

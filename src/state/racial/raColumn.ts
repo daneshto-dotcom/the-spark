@@ -231,7 +231,9 @@ export function landRaColumn(world: World, src: RaColumnSource, at: { x: number;
     // S188 merge — no creature attacker: a sky strike has no creature to heal (BLOOD DEBT).
     // ⭐ S193 BLAST-2 — `'seat'`: the column's OWNER (the caster, or the Pharaoh's seat) is credited on the
     // stat board; a seat heals nobody. A Pharaoh column on his own seat's things credits nobody (own side).
-    if (damageConnector(world, t.bondId, share, { kind: 'seat', seat: src.owner })) {
+    // ⭐ S192 (R192-M2, R190-E) — MAGIC, PER SHARE: each share is rescaled by ITS OWN target's DEF/MRES
+    // inside the funnel, never the column total (a structure's MRES = its DEF, so its share lands as is).
+    if (damageConnector(world, t.bondId, share, { kind: 'seat', seat: src.owner }, 'magic')) {
       /*
        * ⛔ S188 audit F1 — RESOLVED INLINE, not dispatched, so a caster benched or eliminated
        * mid-strike (or a Pharaoh's seat) still breaks what the column drained.
@@ -246,7 +248,7 @@ export function landRaColumn(world: World, src: RaColumnSource, at: { x: number;
     if (t.kind === 'structure' || share === 0) continue;
     // `'aura'` and a SEAT: a column of light is nobody a unit can turn on (⭐ S193 BLAST-2 — the seat is the
     // stat board's credit only).
-    damageEntity(world, t.target, share, 'aura', { kind: 'seat', seat: src.owner });
+    damageEntity(world, t.target, share, 'aura', { kind: 'seat', seat: src.owner }, 'magic'); // ⭐ S192 — magic, per share (R192-M2)
   }
   return pool;
 }

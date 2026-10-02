@@ -91,8 +91,8 @@ function batch(w: any, strikes: () => void): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function trade(w: any, mine: any, theirs: any): void {
   batch(w, () => {
-    damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
-    damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
+    damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id }, 'physical');
+    damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id }, 'physical');
   });
 }
 
@@ -182,16 +182,16 @@ describe('✅ the single cases stay exact', () => {
   it('damage alone prints the true swing, red', () => {
     const { w, mine, theirs } = fight(['hp']);
     const out = hostFloaters(w, () => batch(w, () => {
-      damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
+      damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id }, 'physical');
     }));
     expect(out).toEqual([{ text: String(SWING), color: 'red' }]);
   });
 
   it('a heal alone prints the true heal, green (and the enemy its 12, red)', () => {
     const { w, mine, theirs } = fight(['racial']);
-    damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id });
+    damageEntity(w, { kind: 'creature', id: mine.id }, SWING, 'creature', { kind: 'creature', id: theirs.id }, 'physical');
     const out = hostFloaters(w, () => batch(w, () => {
-      damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id });
+      damageEntity(w, { kind: 'creature', id: theirs.id }, SWING, 'creature', { kind: 'creature', id: mine.id }, 'physical');
     }));
     expect(out).toContainEqual({ text: String(lifestealFifths(SWING, BLOOD_DEBT_LIFESTEAL_PCT)), color: 'green' });
     expect(out).toContainEqual({ text: String(SWING), color: 'red' });

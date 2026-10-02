@@ -141,7 +141,7 @@ describe('S191 REACH — a real WIN keeps the board, and every peer receives it'
     const victim = w.players.get(P1)!;
     victim.castleHp = 40;
     // The killing blow, as applied: 40 left, a 300 swing takes 40.
-    damageEntity(w, { kind: 'castle', seat: P1 }, 300, 'creature', { kind: 'seat', seat: P0 });
+    damageEntity(w, { kind: 'castle', seat: P1 }, 300, 'creature', { kind: 'seat', seat: P0 }, 'physical');
     expect(stats(w, P0)!.dealtFifths).toBe(40);
     expect(stats(w, P1)!.takenFifths).toBe(40);
     tickGameState(w, makeGameStateExtras(), P0);
@@ -158,8 +158,8 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     const pool = w.creatures.get(victim)!.ehp;
     w.pendingCreatureDeaths = new Set();
     const by: DamageAttacker = { kind: 'seat', seat: P0 };
-    damageEntity(w, { kind: 'creature', id: victim }, pool + 50, 'creature', by);
-    damageEntity(w, { kind: 'creature', id: victim }, pool + 50, 'creature', by); // a second lethal blow
+    damageEntity(w, { kind: 'creature', id: victim }, pool + 50, 'creature', by, 'physical');
+    damageEntity(w, { kind: 'creature', id: victim }, pool + 50, 'creature', by, 'physical'); // a second lethal blow
     w.pendingCreatureDeaths = null;
     expect(stats(w, P0)!.kills.get('chewer')).toBe(1);
     expect(stats(w, P0)!.dealtFifths).toBe(pool);
@@ -182,9 +182,9 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     w.bonds.set(bondId, { id: bondId, aId: a, bId: b, a: pa, b: pb, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
     pa.bonds.add(bondId);
     pb.bonds.add(bondId);
-    expect(damageConnector(w, bondId, 4, { kind: 'seat', seat: P0 })).toBe(false);
+    expect(damageConnector(w, bondId, 4, { kind: 'seat', seat: P0 }, 'physical')).toBe(false);
     expect(stats(w, P0)!.dealtFifths).toBe(4); // banked in full
-    expect(damageConnector(w, bondId, 30, { kind: 'seat', seat: P0 })).toBe(true);
+    expect(damageConnector(w, bondId, 30, { kind: 'seat', seat: P0 }, 'physical')).toBe(true);
     expect(stats(w, P0)!.dealtFifths).toBe(6); // 4 + the 2 that finished it; 28 overkill thrown away
     expect(stats(w, P1)!.takenFifths).toBe(6);
   });
@@ -209,7 +209,7 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     dispatch(w, { type: 'REGISTER_DEFENDER', defenderKind: 'princess', ownerPlayerId: P1, anchorPrimitiveId: asPrimitiveId(79), recipeId: 'helga', pos: { x: 600, y: 600 } } as never);
     const helga = [...w.defenders.values()].find((d) => d.kind === 'princess')!;
     expect(stats(w, P1)?.towersBuilt ?? 0).toBe(0);
-    damageEntity(w, { kind: 'defender', id: helga.id }, 10_000, 'creature', { kind: 'seat', seat: P0 });
+    damageEntity(w, { kind: 'defender', id: helga.id }, 10_000, 'creature', { kind: 'seat', seat: P0 }, 'physical');
     // ⭐ S192 (merge with weld, R190-J) — she goes DORMANT, her record is KEPT for the edge revive.
     expect(w.defenders.get(helga.id)?.state, 'fixture: she died').toBe('DORMANT');
     expect(w.defenders.get(helga.id)?.ehp).toBeNull();
@@ -222,8 +222,8 @@ describe('S191 REACH — the exact rules at the chokepoints', () => {
     const run = (by: DamageAttacker): string[] => {
       const w = fightWorld();
       const id = chewerNearSeat0(w, 400);
-      damageEntity(w, { kind: 'creature', id }, 1, 'defender', by); // survives: retaliation would fire here
-      damageEntity(w, { kind: 'castle', seat: P1 }, 25, 'defender', by);
+      damageEntity(w, { kind: 'creature', id }, 1, 'defender', by, 'physical'); // survives: retaliation would fire here
+      damageEntity(w, { kind: 'castle', seat: P1 }, 25, 'defender', by, 'physical');
       return determinismParts(w).filter((p) => !/^m[sh]\d+:/.test(p));
     };
     expect(run({ kind: 'seat', seat: P0 })).toEqual(run(null));
@@ -283,7 +283,7 @@ describe('⭐ S192 — the DORMANT Helga (weld R190-J) through the REAL matcher 
     expect(helga(), 'fixture: her hall ignites').toBeDefined();
     crossPhase(w, st); // → FIGHT
     const h = helga()!;
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', { kind: 'seat', seat: P1 })).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', { kind: 'seat', seat: P1 }, 'physical')).toBe(true);
     expect(helga()?.state).toBe('DORMANT');
     expect(stats(w, P1)!.dealtFifths, 'the damage she took is credited').toBeGreaterThan(0);
     crossPhase(w, st); // → BUILD: the edge revives her

@@ -546,7 +546,7 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
       if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
       // ⭐ S193 BLAST-2 — `'seat'`: the hub's OWNER is credited on the stat board (DEALT / KILLS); a seat
       // heals nobody (BLOOD DEBT reads creatures) and turns nobody (retaliation reads creatures).
-      if (damageConnector(world, bondId, t.amount, { kind: 'seat', seat: owner })) {
+      if (damageConnector(world, bondId, t.amount, { kind: 'seat', seat: owner }, 'physical')) { // ⭐ S192 — a hub BLOWS UP (R192-M3)
         // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
         severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'drone' }), { kind: 'seat', seat: owner });
       }
@@ -557,7 +557,7 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
       damageStinkCloud(world, t.id as unknown as StinkCloudId, t.amount, { kind: 'seat', seat: owner }, owner);
       continue;
     }
-    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', { kind: 'seat', seat: owner }); // ⭐ S193 BLAST-2
+    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', { kind: 'seat', seat: owner }, 'physical'); // ⭐ S192 — R192-M3
   }
 }
 

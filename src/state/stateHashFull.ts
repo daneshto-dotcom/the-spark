@@ -118,6 +118,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    */
   stinkClouds: 'hashed',
   fouledPrimitives: 'hashed',
+  // ⭐ S193 (owner T4) — remembered goblin-tower toggles: decide what a re-ignited tower builds. Projected `gm:`.
+  goblinAutoFeedMemory: 'hashed',
   discoveredCombos: 'hashed',
   godlyFiredThisMatch: 'hashed',
 
@@ -399,7 +401,9 @@ type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
   // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  | 'ownBondIdLimit'
+  // ⭐ S193 (T4) — the goblin tower's auto-build toggles + cursor: decide which goblin is born next.
+  | 'autoFeedMask' | 'autoFeedCursor';
 // ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
 // hand-written string template with NO executable link to this union, so a field listed here but
 // absent from the template compiles clean, passes every existing test, and leaves the wide
@@ -611,6 +615,8 @@ export function determinismParts(world: World): string[] {
         // CastleUpgrades later cannot ride in unnoticed.
         + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
         + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
+        // ⭐ S192 — bought MAGIC RESISTANCE: it decides the magic damage the keep TAKES.
+        + `,mr${pl.castleUpgrades.mresLevel}`
         // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
         // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
         + `,dy${pl.dynastyHpLost}`
@@ -705,7 +711,8 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `cs${n(s.id)}:${n(s.ownerPlayerId)}:${n(s.anchorPrimitiveId)}:${s.recipeId}` +
         `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}` +
-        `:ob${o(s.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:ob${o(s.ownBondIdLimit ?? null)}` + // S189 C2 — `_` when unknown
+        `:af${s.autoFeedMask ?? 0}:ac${s.autoFeedCursor ?? 0}`, // S193 T4 — absent reads as 0, the factory's value
     );
   }
 
@@ -804,6 +811,13 @@ export function determinismParts(world: World): string[] {
   }
 
   parts.push(`fo:${idSet(world.fouledPrimitives)}`);
+  // ⭐ S193 T4 — sorted by anchor, never Map order.
+  parts.push(
+    `gm:${[...world.goblinAutoFeedMemory.entries()]
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([a, m]) => `${Number(a)}>${Number(m.owner)}.${m.mask}.${m.cursor}`)
+      .join(',')}`,
+  );
   parts.push(`dc:${[...world.discoveredCombos].map(String).sort().join(',')}`);
   parts.push(`gf:${[...world.godlyFiredThisMatch].map(String).sort().join(',')}`);
 

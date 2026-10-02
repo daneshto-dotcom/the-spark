@@ -81,6 +81,8 @@ export const ELIMINATION_INTENT_POLICY = {
   PULL_FROM_BANK: 'deny',
   BUILD_BLUEPRINT: 'deny',
   FEED_TOWER: 'deny',
+  // ⭐ S193 (owner T4) — elimination denies standing orders, and a fallen seat has nothing to feed.
+  SET_AUTO_FEED: 'deny',
   REPAIR_STRUCTURE: 'deny',
   SCRAP_STRUCTURE: 'deny',
 

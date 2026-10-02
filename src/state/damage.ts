@@ -55,6 +55,14 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 import { applyLifesteal } from './racial/lifesteal.ts';
 // ⭐ S191 — the end-of-match stat board's two damage chokepoints + the defender removal site.
 import { recordDamage, recordKill, recordTowerFell } from './matchStats.ts';
+// ⭐ S192 (owner R192-M1..M7) — MAGIC RESISTANCE. Every funnel below takes a REQUIRED `cls`.
+import {
+  castleMresLevel, defenderMres, isMagicClass, landedFifths, magicHitFifths, mresFor, structureMres,
+  type DamageClass,
+} from './magicResist.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import { getDefenderConfig } from './defenders/defender.ts';
+export type { DamageClass } from './magicResist.ts';
 import { killCreditOf, type KillCredit } from './racial/killCredit.ts'; // ⭐ S192 T2 · S193 the ONE seam
 import { blastHitAtDistance } from './blastFalloff.ts'; // ⭐ S193 R193-B4
 
@@ -170,6 +178,12 @@ export function damageEntity(
   source: DamageSource,
   attacker: DamageAttacker,
   /**
+   * ⭐⭐ S192 (R192-M1..M3) — PHYSICAL or MAGIC. REQUIRED, for the reason `attacker` is: `tsc`
+   * enumerates every site. A magic hit is rescaled by the victim's `(5+DEF)/(5+MRES)` below; a physical
+   * one is untouched. `amount` stays the SWING (lifesteal heals the swing, as it does before a keep's DEF).
+   */
+  cls: DamageClass,
+  /**
    * ⭐ S192 (owner T2) — WHO GETS THE KILL, when it is not the live attacker. Omitted = derived from a
    * creature `attacker` at this blow (`creatureKillCredit`), which is every ordinary strike. Passed
    * explicitly ONLY by a blast whose dealer is gone — the zombie boss's death blast credits
@@ -237,7 +251,13 @@ export function damageEntity(
      * can hit a keep. `castleDamageAfterDefence` floors the reduction and never returns 0 on a real
      * hit, so a high DEF cannot make a keep immune to small attackers.
      */
-    const taken = castleDamageAfterDefence(amount, seat.castleUpgrades);
+    // ⭐ S192 — a MAGIC hit is defended by the keep's MRES level instead of its DEF level, by the
+    // same formula (`floor(A·5/(5+level))`, min 1). `castleMresLevel` is its OWN bought axis (⭐ HIS, R192-M9:
+    // starting MRES = starting DEF, then the separate `'mres'` castle upgrade; a bought DEF point no longer
+    // raises it). Until S193 this comment said "= its DEF level (⚠ MINE, spec Q2)" — superseded.
+    const taken = isMagicClass(cls)
+      ? magicHitFifths(amount, 0, castleMresLevel(seat.castleUpgrades))
+      : castleDamageAfterDefence(amount, seat.castleUpgrades);
     const hpBefore = seat.castleHp;
     seat.castleHp = Math.max(0, seat.castleHp - taken);
     // ⭐ S188 — ENDLESS DYNASTY counts what the keep ACTUALLY lost: after DEF, and after the clamp, so
@@ -263,8 +283,19 @@ export function damageEntity(
       const victim = world.creatures.get(target.id);
       const before = victim?.ehp ?? 0;
       const bySeat = blowSeat; // ⭐ S191 — read BEFORE the blow can remove anyone
+      // ⭐ S192 — what the hit LANDS on this victim's one bar: the swing for physical, the swing ×
+      // (5+DEF)/(5+MRES) for magic (a DoT tick spread over its beats). See `magicResist.ts`.
+      let landed = amount;
+      if (victim !== undefined && isMagicClass(cls)) {
+        const owner = world.players.get(victim.ownerPlayerId);
+        landed = landedFifths(
+          amount, cls, getCreatureConfig(victim.type).def,
+          mresFor(victim.type, owner?.raceId ?? null), target.id as unknown as number,
+        );
+        if (landed === 0) return false; // a skipped DoT beat — nothing landed, nothing heals
+      }
       const died = damageCreature(
-        world, target.id, amount, world.pendingCreatureDeaths ?? undefined,
+        world, target.id, landed, world.pendingCreatureDeaths ?? undefined,
         // ⭐ S192 T2 — the credit resolved at the top, while the dealer is still readable. ⭐ S193 — a
         // typeless (seat / tower) credit now reaches the hook too; `riseOnKill` ignores it, so THE RISEN
         // sees exactly what it saw before (an explicit credit, or a live creature attacker's).
@@ -304,6 +335,8 @@ export function damageEntity(
     case 'primitive': {
       const prim = world.primitives.get(target.id);
       if (prim === undefined) return false;
+      // ⭐ S192 — a shape is 14 HP / 0 DEF (a lone shape 1 / 0) and resists magic with MRES 0 = its DEF,
+      // so a magic hit lands unchanged. Nothing to rescale; the class is carried, not read.
       /*
        * ⭐⭐⭐ S179 (owner) — **A SHAPE WITH NO CONNECTORS IS WORTH FIVE.** See
        * `LONE_PRIMITIVE_POOL_FIFTHS`. Gated on the LIVE connector count, so a shape inside any
@@ -354,9 +387,15 @@ export function damageEntity(
        */
       const d = world.defenders.get(target.id);
       if (d === undefined || d.ehp === null) return false;
-      // ⭐ S191 — the stat board: what Helga's pool actually lost (a tower returned above, took nothing).
-      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(amount, Math.max(0, d.ehp)));
-      d.ehp -= amount;
+      // ⭐ S192 — Helga resists magic with her own DEF (⚠ MINE, spec Q-G), so a magic hit lands as-is today.
+      const unit = getDefenderConfig(d.kind).unitStats;
+      const landed = unit === null || !isMagicClass(cls)
+        ? amount
+        : landedFifths(amount, cls, unit.def, defenderMres(unit), target.id as unknown as number);
+      if (landed === 0) return false;
+      // ⭐ S191 — the stat board: what Helga's pool actually lost (⭐ S192: of the LANDED hit, after MRES).
+      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(landed, Math.max(0, d.ehp)));
+      d.ehp -= landed;
       applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
         /*
@@ -469,7 +508,9 @@ export function damageStinkCloud(
     world, at.x, at.y, radius,
     attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
     attackFifths(STINK_BAG_ATK, STINK_BAG_PEN),
-    'hazard', owner, 'distance', burstAlsoSpares, // ⭐ S193 R193-B4 — the bag's burst is a blast
+    'hazard', owner,
+    'physical', // S192 — a bag BLOWS UP (R192-M3)
+    'distance', burstAlsoSpares, // ⭐ S193 R193-B4 — the bag's burst is a blast
   );
   return true;
 }
@@ -527,6 +568,8 @@ export function damageConnector(
   bondId: BondId,
   amountFifths: number,
   attacker: DamageAttacker,
+  /** ⭐ S192 — REQUIRED, as on `damageEntity`. A structure's MRES is its connector count (R192-M5). */
+  cls: DamageClass,
 ): boolean {
   if (!Number.isInteger(amountFifths) || amountFifths < 0) {
     throw new Error(
@@ -538,27 +581,36 @@ export function damageConnector(
   if (bond === undefined) return false;
   if (amountFifths === 0) return false;
 
-  bond.damageFifths += amountFifths;
-  // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
-  applyLifesteal(world, attacker, amountFifths);
-  /*
-   * ⭐ S191 — THE STAT BOARD. A connector hit BANKS IN FULL: the pool is structure-wide and overkill
-   * CARRIES into the next connector (R173-B), so nothing is clamped — except the remainder left on THIS
-   * bond when it breaks, which the caller's sever throws away (recorded at the break below). Owner is the
-   * `bond.aId → placedBy` single-owner rule.
-   */
-  const victimSeat = world.primitives.get(bond.aId)?.placedBy;
-  const bySeat = attackerSeat(world, attacker);
-
   // The pool is a function of the component this bond is CURRENTLY part of, so it is read fresh on
   // every hit rather than cached. `componentOf` is the established on-demand BFS here (the structure
   // renderer runs it every frame), so this is not a new cost pattern.
+  // ⭐ S192 — read BEFORE the damage is banked (it reads topology only, never `damageFifths`), because a
+  // magic hit is rescaled by the structure's own DEF/MRES — both its connector count `n` (R192-M5), so
+  // the factor is exactly 1 and every connector takes today's number.
   const anchor = world.primitives.get(bond.aId) ?? world.primitives.get(bond.bId);
-  if (anchor === undefined) {
-    recordDamage(world, victimSeat, bySeat, amountFifths);
+  const comp = anchor === undefined ? null : componentOf(anchor, world.primitives, world.bonds);
+  const n = comp === null ? 0 : comp.bondIds.size;
+  const landed = isMagicClass(cls)
+    ? landedFifths(amountFifths, cls, n, structureMres(n), bondId as unknown as number)
+    : amountFifths;
+  if (landed === 0) return false;
+
+  bond.damageFifths += landed;
+  // ⭐ S188 — the hit has landed on a building; the attacker heals (BLOOD DEBT / CRIMSON TIDE).
+  applyLifesteal(world, attacker, amountFifths);
+
+  /*
+   * ⭐ S191 — THE STAT BOARD. A connector hit BANKS IN FULL: the pool is structure-wide and overkill
+   * CARRIES into the next connector (R173-B), so nothing is clamped — except the remainder left on THIS
+   * bond when it breaks (recorded at the break below). ⭐ S192 merge — of the LANDED hit (after MRES).
+   * Owner is the `bond.aId → placedBy` single-owner rule.
+   */
+  const victimSeat = world.primitives.get(bond.aId)?.placedBy;
+  const bySeat = attackerSeat(world, attacker);
+  if (comp === null) {
+    recordDamage(world, victimSeat, bySeat, landed);
     return true; // orphaned bond — nothing holds it up
   }
-  const comp = componentOf(anchor, world.primitives, world.bonds);
   const pool = structurePoolFifths(comp.bondIds.size);
 
   /*
@@ -580,7 +632,7 @@ export function damageConnector(
   let banked = 0;
   for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
   if (banked < pool) {
-    recordDamage(world, victimSeat, bySeat, amountFifths); // ⭐ S191 — banked in full
+    recordDamage(world, victimSeat, bySeat, landed); // ⭐ S191 — banked in full (⭐ S192: the landed hit)
     return false;
   }
 
@@ -612,7 +664,7 @@ export function damageConnector(
    * actually broke a connector was invisible. Measured: 12, nothing, 12, nothing. Recorded here, at
    * the only place that knows both the hit and that it landed the finishing blow.
    */
-  world.connectorBreakHits.push({ bondId, amount: amountFifths });
+  world.connectorBreakHits.push({ bondId, amount: landed });
 
   let toSpend = pool;
   const drain = (b: { damageFifths: number } | undefined): void => {
@@ -627,7 +679,7 @@ export function damageConnector(
     .sort((x, y) => Number(x) - Number(y));
   for (const id of survivors) drain(world.bonds.get(id));
   // ⭐ S191 — what is left on THIS bond is thrown away by the caller's sever; the rest carried or landed.
-  recordDamage(world, victimSeat, bySeat, amountFifths - Math.min(amountFifths, bond.damageFifths));
+  recordDamage(world, victimSeat, bySeat, landed - Math.min(landed, bond.damageFifths));
   return true;
 }
 
@@ -720,7 +772,10 @@ export function severWithCarry(
       }
     }
     if (next === null) break; // the whole structure is down; the rest has nothing to land on
-    if (!damageConnector(world, next, leftover, carryBy)) break; // banked on the structure
+    // ⭐ S192 (MRES) — `'physical'`: the carry is damage that has ALREADY LANDED (converted once, on the
+    // connector it first struck), so it must not be rescaled again. Moot by R192-M5 as well — a structure's
+    // MRES is its DEF (its connector count), so a magic carry would land the same number.
+    if (!damageConnector(world, next, leftover, carryBy, 'physical')) break; // banked on the structure
     current = next;
   }
   return felled;
@@ -899,6 +954,8 @@ export function applyRadialDamage(
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /** ⭐ S192 — REQUIRED: one blast, one class, forwarded to all three arms. */
+  cls: DamageClass,
   /**
    * ⭐⭐ S193 (owner R193-B4) — *"the closer you are to the blast side, the more damage you take"*.
    * REQUIRED, so every caller answers: `'distance'` for a BLAST (each hit scaled by
@@ -988,7 +1045,7 @@ export function applyRadialDamage(
    */
   const blastBy: DamageAttacker = sparePlayerId === null ? null : { kind: 'seat', seat: sparePlayerId };
   for (const cid of creatureVictims) {
-    damageEntity(world, { kind: 'creature', id: cid }, amountOf.get(`c:${cid}`)!, source, blastBy);
+    damageEntity(world, { kind: 'creature', id: cid }, amountOf.get(`c:${cid}`)!, source, blastBy, cls);
   }
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND THE UNIT-CLASS DEFENDERS, on the UNIT scale.
@@ -1003,10 +1060,10 @@ export function applyRadialDamage(
    * function and swapping them typechecks, which is why the signature documents them at length.
    */
   for (const did of defenderVictims) {
-    damageEntity(world, { kind: 'defender', id: did }, amountOf.get(`d:${did}`)!, source, blastBy);
+    damageEntity(world, { kind: 'defender', id: did }, amountOf.get(`d:${did}`)!, source, blastBy, cls);
   }
   for (const pid of primVictims) {
-    damageEntity(world, { kind: 'primitive', id: pid }, amountOf.get(`p:${pid}`)!, source, blastBy);
+    damageEntity(world, { kind: 'primitive', id: pid }, amountOf.get(`p:${pid}`)!, source, blastBy, cls);
   }
 
   return {

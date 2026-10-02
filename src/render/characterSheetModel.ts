@@ -65,7 +65,7 @@ import {
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 // ⭐ S188 P3 — the PURCHASED numbers, through the functions the sim reads (the base
 // `castleShotFifths()` stays in castleGuns.ts; the card no longer prints it).
-import { castleMaxHpFor, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
+import { castleMaxHpFor, castleMresLevelOf, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -999,6 +999,8 @@ export function feedCaptionMaxWidthPx(): number {
 export interface SheetActionSlot {
   readonly kind: string;
   readonly sparkType?: number;
+  /** ⭐ S193 (T4) — a goblin tower chip's auto-build toggle; `undefined` = not toggleable. */
+  readonly autoFeed?: boolean;
   readonly label: string;
   readonly caption: string;
   readonly enabled: boolean;
@@ -1442,6 +1444,16 @@ function castleSheet(
         u.defLevel === 0
           ? null
           : castleUpgradePreview({ ...u, defLevel: u.defLevel - 1 }, 'def', world.waveNumber)
+              .toLowerCase(),
+    },
+    // ⭐ S192 — the keep's MAGIC RESISTANCE (starting = its starting DEF, then its own bought axis).
+    {
+      label: 'MRES',
+      points: castleMresLevelOf(u),
+      derived:
+        u.mresLevel === 0
+          ? null
+          : castleUpgradePreview({ ...u, mresLevel: u.mresLevel - 1 }, 'mres', world.waveNumber)
               .toLowerCase(),
     },
     { label: 'RANGE', points: CASTLE_ATTACK_RANGE, derived: 'px' },

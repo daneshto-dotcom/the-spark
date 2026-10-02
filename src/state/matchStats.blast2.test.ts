@@ -480,7 +480,7 @@ describe('⭐ S193 — the zombie boss\'s death blast and a falloff blast credit
     const st = makeHostTickState(w);
     runHostTick(w, d, st); // on the roster
     w.pendingCreatureDeaths = null;
-    damageEntity(w, { kind: 'creature', id: boss }, 100_000, 'player', null); // he dies to nobody
+    damageEntity(w, { kind: 'creature', id: boss }, 100_000, 'player', null, 'physical'); // he dies to nobody
     let plan: ReturnType<typeof planZombieDeathBlast> = [];
     const pools = new Map<number, number>();
     plan = planZombieDeathBlast(w, AT, P0);
@@ -552,14 +552,14 @@ describe('⭐ S193 — killCreditOf: the stat board\'s credit, shaped as KillCre
     };
     // A seat (castle gun / raid / Ra / scorch / hub): the board credits it, THE RISEN does not.
     const a = setup();
-    damageEntity(a.w, { kind: 'creature', id: a.victim }, 100_000, 'player', { kind: 'seat', seat: P0 });
+    damageEntity(a.w, { kind: 'creature', id: a.victim }, 100_000, 'player', { kind: 'seat', seat: P0 }, 'physical');
     expect(a.w.creatures.has(a.victim)).toBe(false);
     expect(kills(a.w, P0, 'goblinMelee'), 'the board credits the seat').toBe(1);
     expect(pendingRacialSpawns(a.w), 'a typeless credit raises nobody').toBe(0);
     // Positive control — the identical kill by his RACE UNIT raises one (the hook is live in this fixture).
     const b = setup();
     const unit = spawn(b.w, 'raceUnit', P0, 520, 500);
-    damageEntity(b.w, { kind: 'creature', id: b.victim }, 100_000, 'creature', { kind: 'creature', id: unit });
+    damageEntity(b.w, { kind: 'creature', id: b.victim }, 100_000, 'creature', { kind: 'creature', id: unit }, 'physical');
     expect(pendingRacialSpawns(b.w)).toBe(1);
   });
 });
