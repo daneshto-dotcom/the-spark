@@ -1,4 +1,19 @@
-# S194 PROGRESS — T11 rules (branch `s194/rules`) — R194-16 porch, R194-17 pants window
+# S194 PROGRESS — T11 rules (branch `s194/rules`)
+
+## ⏸ PAUSED (owner session limit, round 2) — EXACT NEXT STEP
+- **Done this round (all committed):** R194-26 mega pants = 251st (slot floor(T·W/(T−1)): 2 seats 7214, 4 seats 7207; REACH + mutation); MED-2 botPersonality.test.ts reverted to master; LOW-1 stale docs; LOW-2 gatherer spawn beside the keep (x ±50+26c, y ∓13; 29.4 px from nearest slot; mutation-checked); R194-27 measured (`SPARK_PANTS_MEASURE=1 npx vitest run src/net/pantsLoadMeasure.test.ts`), perf fix (owned-unit index + living fast path, verdict-identical differential), cap MONSTER_MAX_LIVE_TOTAL 360 split over living seats; canon §3f rows + pins.
+- **Just merged master 814f1871 (T7 bots-tune) — clean merge, NOT yet tested on the combined tree.**
+- **NEXT:** on the merged tree run `npx vitest run --maxWorkers=3 src/bots src/state/endgame src/state/endgameS194Perf.test.ts`; handle the 3 T7 seams per coordinator: (1) `botFix.test.ts:135` count only sends with `w.tick >= stripGatherersFromTick`, mutation-check by deleting the gatherer guard; (2) any SABOTEUR pin (my IMBA pin is reverted — re-measure only if a T7 pin reds); (3) T7 pin "IMBA WARMONGER and TYCOON differ" — re-measure, REPORT numbers if red, never relax. Then full gates (typecheck, full vitest, build + entry KiB) and the final report.
+- **Last gates (pre-merge):** tsc 0; endgame/canon/gatherer/castle suites 0 (targeted); full vitest last ran 0 (7868 passed) BEFORE R194-26/27; build last 0 (1122.2 KiB) before this round.
+- No background processes running.
+
+## R194-27 measurement (4 seats, wave 31, nobody killing; host ms p50/p95 · NETSNAPSHOT KiB · worker positions KiB/frame · mirror apply ms p50)
+| live | before perf fix | after perf fix | wire | positions | mirror apply |
+|---|---|---|---|---|---|
+| 250 | 3.09 / 6.46 | 1.52 / 2.15 | 41.7 | 6.2 | 1.17 |
+| 500 | 7.88 / 12.06 | 3.09 / 5.53 | 81.1 | 12.0 | 2.13 |
+| 1000 | 23.18 / 36.12 | 6.12 / 11.07 | 160.1 | 23.7 | 7.31 |
+Decision: cap stays (1000 live = 6.1 ms sim and 160 KiB/snapshot), measured value 360 total (~57 KiB pants + ~20 KiB board < 84 KiB; ~2.2 ms p50).
 
 ## ✅ FINAL REPORT (T11, `s194/rules`) — DONE
 - Merge: `git merge master` fast-forward to ad812166, no conflicts.
