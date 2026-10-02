@@ -183,7 +183,10 @@ export type GameEffect =
        * reused for the suicide blast precisely BECAUSE it cost no bump; there is no existing value
        * that honestly means "a unit cut it", so this one is new. See protocol.ts 46 -> 47.
        */
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit'
+        // ⭐ S194 (R194-18) — the ENTROPY TAX: a big structure's connector snapped on its own at the FIGHT
+        // whistle. No actor (`severActor`), silent (`audioManager`), its own toast (`severToastCopy`).
+        | 'entropy';
       /**
        * V6-0.3 (S131) — SEVER ATTRIBUTION. Both fields are ADDITIVE-OPTIONAL, on the
        * `ARC_FLASH.creatureId?` precedent immediately above (save.ts:357): a named-field
