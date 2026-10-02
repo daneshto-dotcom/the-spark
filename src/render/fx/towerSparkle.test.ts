@@ -193,7 +193,7 @@ function boardWith(kind: 'spawner' | 'defender'): { w: World; prims: PrimitiveId
       id: asPrimitiveId(id), type: 0, placerColor: color, placedBy: P0, createdTick: 0, pos: { x, y }, prevPos: { x, y },
       bonds: new Set(), ownerColor: color, lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
     };
-    w.primitives.set(p.id, p);
+    w.primitives.set(p.id, p as never);
     return p;
   };
   const a = mk(10, 380, 300), b = mk(11, 420, 300), c = mk(12, 400, 270);
