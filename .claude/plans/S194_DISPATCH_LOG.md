@@ -27,7 +27,7 @@ Every tree agent got a PAUSE order: WIP commit, exact next step at the TOP of it
 - Audit queue order after T3: T8 · T2 · T11 · T6 · T7 · T4 · T9 · T5 · T10 · T1 (last). ≤3 auditors concurrent. Merge one at a time; T4/T5/T9 share render files → merge T4 before T9, T5 after both.
 
 ## Pause confirmations (tips)
-T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f5818a6 · T9 3fc09a94 · T10 b8e17654 · T11 ad13047e. T2 6eaa836e (perf contract MET: HIGH +0.54 ms, LOW +0.34 ms combined). Pending at write: re-audit T3.
+T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f5818a6 · T9 3fc09a94 · T10 b8e17654 · T11 ad13047e. T2 6eaa836e (perf contract MET: HIGH +0.54 ms, LOW +0.34 ms combined). Re-audit T3 (a1607ea1fa41f88d7) STOPPED by the merge owner at the pause, before any verdict (it had only run npm install in its throwaway `.claude/worktrees/audit-mres2`, detached). ON RESUME: re-dispatch the T3 light re-audit fresh (same brief), remove audit-mres2 first. ALL agents paused; no SPARK processes running (verified).
 - T5 shared style module `src/render/uiSkin.ts` (T10 may import after T5 lands). T9 added `src/render/coherence/*`, `fx/unitDeathFx.ts`, `fx/hitPopFx.ts`, edits `damageNumbers.ts` + `creatureRenderer.ts` + `main.ts` — seam with T2/T4 render files; T9 open item: Helga death fx needs host-only data.
 ## Seams found before pause
 - ⛔ T8 fixed a REAL product bug in `src/render/buttonFeedback.ts` (press-scale 0.97 made the right ~5 px of every top-left-drawn button dead on release; new `hitRectAtScale`, `setScale`). T5 restyles buttons → MERGE T8 BEFORE T5, and on RESUME tell T5 to keep `hitRectAtScale` semantics (the rest-size plate is the hit target) and to merge master after T8 lands.
