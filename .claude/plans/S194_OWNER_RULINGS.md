@@ -16,3 +16,5 @@
 - **R194-14 T3's MRES card questions**: agrees with all recommendations (+10 % of the magic pool, wave 26 replaces DEF, "WARDED", soldier fixed at birth — now MRES 1).
 - **R194-15 End-of-match board v2** → T10 `s194/matchboard`: compare with good games, different/interactive graphs, per-player pages like Dota.
 - OPEN (asked in chat): pants timing window; building over the castle's porch; ENTROPY TAX option pick.
+- **R194-16 Castle entrance (porch)**: *"you should definitely not be able to build over that. Leave that a little space. Or make that entrance like right under the castle, like closer."* (Fact: 4 porch slots, y+74, pitch 30 — he thought 5.) → T11.
+- **R194-17 Pants window (option B)**: a fixed window per pants wave in which ALL its pants come out, growing per wave: *"first wave … 30 seconds, next one is 45, next one is 60, next one is 90, next one is 120"* → waves 27/28/29/30/31 = 30/45/60/90/120 s. → T11.
