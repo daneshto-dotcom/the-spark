@@ -176,3 +176,64 @@ describe('S194 T9 audit — each production removal class, through its real redu
     expect(r.numbers).toEqual([]);
   });
 });
+
+const { applyEntropyTax, planEntropy } = await import('../../state/entropy.ts');
+const { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } = await import('../../constants.ts');
+const { asBondId, asPrimitiveId } = await import('../../types.ts');
+
+/** One seat-0 lattice of `shapes` shapes and `connectors` nearest-first bonds (the entropy suite's fixture shape). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lattice(w: any, shapes: number, connectors: number, ox: number, oy: number): void {
+  const cols = Math.ceil(Math.sqrt(shapes));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ps: any[] = [];
+  for (let i = 0; i < shapes; i++) {
+    const r = Math.floor(i / cols), c = i % cols;
+    const x = ox + c * 40 + (r % 2) * 20, y = oy + r * 35;
+    const id = asPrimitiveId(w.nextPrimitiveId++);
+    const p = { id, type: i % 2 === 0 ? SparkType.Square : SparkType.Triangle, placerColor: PLAYER_COLORS[0], placedBy: asPlayerId(0),
+      createdTick: w.tick, pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: PLAYER_COLORS[0],
+      lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null };
+    w.primitives.set(id, p);
+    ps.push(p);
+  }
+  const pairs: Array<[number, number, number]> = [];
+  for (let i = 0; i < shapes; i++) for (let j = i + 1; j < shapes; j++) {
+    const dx = ps[i].pos.x - ps[j].pos.x, dy = ps[i].pos.y - ps[j].pos.y;
+    pairs.push([dx * dx + dy * dy, i, j]);
+  }
+  pairs.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  const have = new Set<string>();
+  let n = 0;
+  const add = (i: number, j: number): void => {
+    if (have.has(`${i},${j}`)) return;
+    have.add(`${i},${j}`);
+    const id = asBondId(w.nextBondId++);
+    const a = ps[i], b = ps[j];
+    w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y), stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick });
+    a.bonds.add(id); b.bonds.add(id);
+    n++;
+  };
+  for (let i = 1; i < shapes; i++) add(i - 1, i);
+  for (const [, i, j] of pairs) { if (n >= connectors) break; add(i, j); }
+}
+
+describe('S194 T9 (batch 2) — the ENTROPY TAX snaps bonds, never units', () => {
+  it("an entropy snap that splits a structure removes no creature, so the classifier is never asked: no beat, no unit number", () => {
+    const w = board('FIGHT');
+    lattice(w, 65, 145, 260, 200);
+    expect(planEntropy(w).length, 'anti-vacuity: the tax really snaps something').toBeGreaterThan(0);
+    // units standing on and around the lattice, both seats
+    const units = [spawn(w, 'goblinMelee', 300, 230), spawn(w, 't3Warband', 420, 300), spawn(w, 'chewer', 500, 260)];
+    units[1].ownerPlayerId = asPlayerId(0);
+    const dn = new DamageNumbers();
+    const ud = new UnitDeathRenderer();
+    dn.sync(w); ud.sync(w);
+    const bondsBefore = w.bonds.size;
+    expect(applyEntropyTax(w)).toBeGreaterThan(0);
+    expect(w.bonds.size).toBeLessThan(bondsBefore);
+    for (const u of units) expect(w.creatures.has(u.id), 'entropy removed a unit').toBe(true);
+    ud.sync(w); dn.sync(w);
+    expect(ud.liveCount()).toBe(0);
+  });
+});
