@@ -548,15 +548,18 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
       it(`${tier} ${p}: zero refused builds, and every seat with a feedable tower feeds`, () => {
         const r = runLockMatch(tier, p, 200, 80, 27);
         expect(r.lockRejects, 'lock rejects').toBe(0);
+        expect(r.feedsLanded, `feeds (${r.seatsWithTower} seats with a tower)`).toBeGreaterThanOrEqual(r.seatsWithTower);
         /*
-         * ⚠ S194 (T7) RE-PIN — was `feedsLanded ≥ seatsWithTower`. Bots now FIX (allowed under the lock, and
-         * ranked above FEED — R191-B "top priority"), so in two cells the ONE seeded shape a race tower eats
-         * went to repairing that seat's damaged tower instead (measured: HARD SABOTEUR and IMBA BALANCED,
-         * 0 feeds / 1 tower; with `chooseFix` disabled both feed again). The rule this test guards — a locked
-         * bot does not sit on its bank — holds: every such seat FEEDS or FIXES.
+         * ⭐ S194 audit MED — PER SEAT. Every seat that owns a feedable tower FEEDS (the S193 rule, restored
+         * literally above). The first S194 version summed feeds + repairs across seats because the new FIX
+         * spent the one seeded shape on a chip repair; the auditor showed that let one seat's repair excuse
+         * another's idle bank. Under the lock `chooseFix` now repairs only towers that LOST a shape, and the
+         * check is per seat: a seat's own feed, or that SAME seat's own repair job.
          */
-        expect(r.feedsLanded + r.fixJobsQueued, `feeds ${r.feedsLanded} + fix jobs ${r.fixJobsQueued} (${r.seatsWithTower} seats with a tower)`)
-          .toBeGreaterThanOrEqual(r.seatsWithTower);
+        for (const ps of r.perSeat) {
+          if (!ps.hasFeedableTower) continue;
+          expect(ps.feeds + ps.fixJobs, `seat ${ps.seat}: feeds ${ps.feeds}, own fix jobs ${ps.fixJobs}`).toBeGreaterThan(0);
+        }
       }, 60_000);
     }
   }

@@ -1043,7 +1043,16 @@ export function chooseFix(world: World, seat: PlayerId, cfg: BotConfig): BotGoal
   if (seatGathererCount(world, seat) === 0) return null;
   if (seatJobCount(world, seat) >= REPAIR_JOBS_MAX_PER_SEAT) return null;
   const all = fixAllTargets(world, seat);
-  const targets = cfg.repairsTowers === 'broken' ? all.filter((t) => t.plan.group.missing.length > 0) : all;
+  /*
+   * ⛔ S194 audit MED — UNDER THE ENDGAME BUILD LOCK ONLY A TOWER THAT LOST A SHAPE IS FIXED. A chip-only FIX
+   * costs one flat shape (`repairFeeShapeFor`, the blueprint's most numerous type) — for a race tower that is
+   * the very type it eats — and from wave 27 the bank only drains, so the bot repaired a scratch instead of
+   * buying units (measured: HARD SABOTEUR s3 and IMBA BALANCED s1 fed 0 while holding shapes). R191-B's "top
+   * priority" orders the gatherers' queue; it does not make the brain choose FIX over FEED. Outside the lock,
+   * unchanged. `isBuildLocked` is the sim's own predicate.
+   */
+  const onlyBroken = cfg.repairsTowers === 'broken' || isBuildLocked(world);
+  const targets = onlyBroken ? all.filter((t) => t.plan.group.missing.length > 0) : all;
   if (targets.length === 0) return null;
   // MID's filter can leave ONE broken tower among several hurt ones: FIX_ALL would queue the hurt ones too,
   // so a filtered list always fixes tower by tower.

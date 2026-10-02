@@ -65,3 +65,8 @@ Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base maste
   (chooseFix disabled → green). Re-pinned to feed-OR-fix with `fixJobsQueued`. Re-run: tc 0 · vitest 0 (7875) · build 0 (1122.0 KiB).
 - Final IMBA (with FIX): mean def BAL 0.28 · WAR 0.00 · FORT 0.39 (only laser) · TYC 0.17 · SAB 0.00; fed BAL 6 · WAR 17 · FORT 18 · TYC 3 · SAB 17.
   HARD: def BAL 0.28 · WAR 0.00 · FORT 0.39 · TYC 0.28 · SAB 0.11; fed WAR 20, SAB 3, others 0; loose TYC 52 vs BAL 34.
+- [fix round, step 0] merged master 2fe065fb → e59bbd2d, no conflicts; npm install 0.
+- [fix round, MED] `chooseFix` under the build lock (`isBuildLocked`) repairs only towers with `missing.length > 0`. Lock cells: the
+  S193 rule `feeds ≥ seatsWithTower` RESTORED literally, plus a per-seat check (each tower seat: own feeds + own fix jobs > 0;
+  `LockResult.perSeat`). Mutation (lock clause removed) → HARD SABOTEUR + IMBA BALANCED red (0 feeds / 1 tower) via the restored rule.
+- NEXT: LOW — placeRefusedAt parity against the real reducer.

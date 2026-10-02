@@ -255,6 +255,11 @@ export interface LockResult {
    * tower needs back goes to its repair before it buys a unit.
    */
   readonly fixJobsQueued: number;
+  /**
+   * ⭐ S194 audit MED — the same, PER SEAT, so a seat with a feedable tower is judged on ITS OWN feeds and
+   * repairs (a sum across seats let one seat's repair excuse another seat's idle bank).
+   */
+  readonly perSeat: ReadonlyArray<{ readonly seat: number; readonly hasFeedableTower: boolean; readonly feeds: number; readonly fixJobs: number }>;
   /** Seats that owned a feedable spawner when the lock fell. */
   readonly seatsWithTower: number;
   /** Is any bot still holding a shape when the window ends? (It can never place it.) */
@@ -289,6 +294,9 @@ export function runLockMatch(
   let locked = false;
   let feedsLanded = 0;
   let fixJobsQueued = 0;
+  const seatFeeds = new Map<number, number>();
+  const seatFix = new Map<number, number>();
+  const bump = (m: Map<number, number>, seat: number, n: number): void => { m.set(seat, (m.get(seat) ?? 0) + n); };
   const controllers = BOT_SEATS.map((s, i) => {
     const rng = mulberry32(((SIG_BOT_SEED ^ ((i + 1) * 0xb07b07)) >>> 0) || 1);
     return new BotController(asPlayerId(s), tier, rng, BOT_SEATS.length + 1,
@@ -298,13 +306,18 @@ export function runLockMatch(
     if (a.type === 'FEED_TOWER' && locked) {
       const before = w.creatures.size;
       dispatch(w, a);
-      if (w.creatures.size > before) feedsLanded++;
+      if (w.creatures.size > before) {
+        feedsLanded++;
+        bump(seatFeeds, a.playerId as unknown as number, 1);
+      }
       return;
     }
     if ((a.type === 'FIX_ALL' || a.type === 'REPAIR_STRUCTURE') && locked) {
       const before = w.repairJobs.length;
       dispatch(w, a);
-      fixJobsQueued += Math.max(0, w.repairJobs.length - before);
+      const grew = Math.max(0, w.repairJobs.length - before);
+      fixJobsQueued += grew;
+      bump(seatFix, a.playerId as unknown as number, grew);
       return;
     }
     dispatch(w, a);
@@ -331,10 +344,12 @@ export function runLockMatch(
     while (phase() !== 'BUILD') step();
   }
   let seatsWithTower = 0;
+  const towerSeats = new Set<number>();
   for (const s of BOT_SEATS) {
     for (const sp of w.creatureSpawners.values()) {
       if ((sp.ownerPlayerId as unknown as number) === s && (sp.recipeId === 'goblinTower' || isRaceTowerId(sp.recipeId))) {
         seatsWithTower++;
+        towerSeats.add(s);
         break;
       }
     }
@@ -348,6 +363,12 @@ export function runLockMatch(
     lockRejects: w.diagnostics.rejectReasons.endgameBuildLocked - rej0,
     feedsLanded,
     fixJobsQueued,
+    perSeat: BOT_SEATS.map((seat) => ({
+      seat,
+      hasFeedableTower: towerSeats.has(seat),
+      feeds: seatFeeds.get(seat) ?? 0,
+      fixJobs: seatFix.get(seat) ?? 0,
+    })),
     seatsWithTower,
     carryingAtEnd: anyCarrying(),
   };
