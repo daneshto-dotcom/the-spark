@@ -172,14 +172,14 @@ export function burningZonesNow(world: World): Array<{ spared: PlayerId; zone: n
  * the DoT is ticking on (`burnCreatures`), never on the caster's own and never in the quarry.
  */
 export function isCreatureBurning(
-  world: Pick<World, 'layout'>,
+  world: Pick<World, 'layout' | 'teams'>, // S194 — the spare is the TEAM's (isScorchImmune)
   c: { readonly pos: { x: number; y: number }; readonly ownerPlayerId: PlayerId; readonly ehp: number },
   burning: ReadonlyArray<{ spared: PlayerId; zone: number }>,
 ): boolean {
   if (c.ehp <= 0 || burning.length === 0) return false;
   const z = zoneOf(c.pos, world.layout);
   if (z === null) return false;
-  for (const b of burning) if (b.zone === z && !isScorchImmune(c.ownerPlayerId, b.spared)) return true;
+  for (const b of burning) if (b.zone === z && !isScorchImmune(world, c.ownerPlayerId, b.spared)) return true;
   return false;
 }
 
@@ -493,14 +493,14 @@ export const HELGA_FLAME_SCALE = 1.4;
  * defender (`ehp > 0`, not DORMANT — a tower carries `null`), in a burning zone, not spared (`isScorchImmune`).
  */
 export function isHelgaBurning(
-  world: Pick<World, 'layout'>,
+  world: Pick<World, 'layout' | 'teams'>, // S194 — the spare is the TEAM's (isScorchImmune)
   d: { readonly pos: { x: number; y: number }; readonly ownerPlayerId: PlayerId; readonly ehp: number | null; readonly state: string },
   burning: ReadonlyArray<{ spared: PlayerId; zone: number }>,
 ): boolean {
   if (d.ehp === null || d.ehp <= 0 || d.state === 'DORMANT' || burning.length === 0) return false;
   const z = zoneOf(d.pos, world.layout);
   if (z === null) return false;
-  for (const b of burning) if (b.zone === z && !isScorchImmune(d.ownerPlayerId, b.spared)) return true;
+  for (const b of burning) if (b.zone === z && !isScorchImmune(world, d.ownerPlayerId, b.spared)) return true;
   return false;
 }
 
