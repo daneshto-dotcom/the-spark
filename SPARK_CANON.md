@@ -1149,7 +1149,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **61** (S193 — deploy #22; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **62** (S193 — deploy #23; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 
 ⭐⭐ **WHAT RIDES 61 (S193, deploy #22)** — deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride.
 
