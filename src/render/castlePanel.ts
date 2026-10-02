@@ -62,6 +62,8 @@ import { codexCopyFor } from './codexPresentation.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { fitTextToWidth } from './textFit.ts';
+// ⭐ S194 T5 — the shared skin: translucent, drawn INSIDE each plate this module already hit-tests.
+import { skinButtonFx, skinIcon, skinPanelFx, type SkinIconKind } from './uiSkin.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { ZoneLayout } from '../state/zones.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
@@ -653,6 +655,27 @@ export const CASTLE_ROW_KEYS = [
 export type CastleRowKey = (typeof CASTLE_ROW_KEYS)[number];
 
 /**
+ * ⭐ S194 T5 — each row's procedural icon (owner: *"little graphics"*). Drawn as STROKES inside the
+ * row's own plate, left of the label; a `Record` over the key union, so a new row cannot ship without
+ * one (tsc fails first).
+ */
+export const CASTLE_ROW_ICON: Readonly<Record<CastleRowKey, SkinIconKind>> = {
+  fixAll: 'fix',
+  buyGatherer: 'gatherer',
+  upgradeSpeed: 'speed',
+  castleRegen: 'regen',
+  castleHp: 'hp',
+  castleAtk: 'atk',
+  castleDef: 'def',
+  castlePen: 'pen',
+  castleMres: 'mres',
+};
+/** The icon's box, and the room the label gives up for it (row-local px). */
+export const ROW_ICON_SIZE = 20;
+export const ROW_ICON_CX = 20;
+const ROW_LABEL_SHIFT = 14;
+
+/**
  * ⭐ S188 P3 — which row buys which stat, and the word it is printed under. HIS order: *"castle HP …
  * attack as well, and for defense and for penetration"*.
  */
@@ -1055,10 +1078,13 @@ export class CastlePanel {
       const bg = new Graphics();
       const label = new Text({
         text: '',
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fill: 0xffffff }),
+        style: new TextStyle({
+          fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: 0xffffff,
+          dropShadow: { color: 0x000000, alpha: 0.7, blur: 2, distance: 1.5, angle: Math.PI / 2 },
+        }),
       });
       label.anchor.set(0.5);
-      label.position.set((PANEL_W - PANEL_PAD * 2) / 2, ROW_H / 2);
+      label.position.set((PANEL_W - PANEL_PAD * 2) / 2 + ROW_LABEL_SHIFT, ROW_H / 2);
       // ⭐ S188 P3 — the optional second line (`PanelControl.detail`). Built for every row so the
       // loop stays one shape; a row with no detail leaves it empty and its label centred.
       const detail = new Text({
@@ -1066,7 +1092,7 @@ export class CastlePanel {
         style: new TextStyle({ fontFamily: 'monospace', fontSize: ROW_DETAIL_FONT_SIZE, fill: 0x9fc4e8 }),
       });
       detail.anchor.set(0.5);
-      detail.position.set((PANEL_W - PANEL_PAD * 2) / 2, ROW_DETAIL_Y);
+      detail.position.set((PANEL_W - PANEL_PAD * 2) / 2 + ROW_LABEL_SHIFT, ROW_DETAIL_Y);
       const box = new Container();
       box.addChild(bg); // ⚠ Graphics child supplies containsPoint — do not remove (see docblock).
       box.addChild(label);
@@ -1584,9 +1610,11 @@ export class CastlePanel {
     const tint = own?.color ?? 0x9fc4e8;
     const g = this.plate;
     g.clear();
-    g.roundRect(0, 0, r.w, r.h, 8)
-      .fill({ color: 0x0a1622, alpha: 0.94 })
-      .stroke({ width: 2, color: tint, alpha: 0.85 });
+    g.roundRect(0, 0, r.w, r.h, 8).fill({ color: 0x0a1622, alpha: 0.95 });
+    // ⭐ S194 T5 — depth, a header band and accent corner brackets, all inside the plate `isOverPanel` tests.
+    skinPanelFx(g, 0, 0, r.w, r.h, tint, PANEL_PAD + TITLE_H - 6, 8);
+    g.roundRect(0, 0, r.w, r.h, 8).stroke({ width: 2, color: tint, alpha: 0.85 });
+    const uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     this.titleText.style.fill = tint;
 
     // S146 P2 — the INVENTORY strip. No `n/CAP` in the title any more: there is no cap, so the
@@ -1612,7 +1640,11 @@ export class CastlePanel {
       const sbg = slot.bg;
       sbg.clear();
       sbg.roundRect(0, 0, SLOT_W, SLOT_H, 5)
-        .fill({ color: slot.filled ? (slot.hover ? 0x1f5f9e : 0x14283c) : 0x101a26, alpha: 0.95 })
+        .fill({ color: slot.filled ? (slot.hover ? 0x1f5f9e : 0x14283c) : 0x101a26, alpha: 0.95 });
+      skinButtonFx(sbg, 0, 0, SLOT_W, SLOT_H, {
+        accent: tint, state: !slot.filled ? 'disabled' : slot.hover ? 'hover' : 'rest', radius: 5, t: uiNow, studs: false,
+      });
+      sbg.roundRect(0, 0, SLOT_W, SLOT_H, 5)
         .stroke({
           width: slot.filled ? 2 : 1,
           color: slot.filled ? tint : 0x2a3a4a,
@@ -1657,7 +1689,11 @@ export class CastlePanel {
         .fill({
           color: isArmed ? 0x1f5f9e : m.enabled ? (t.hover ? 0x17497a : 0x14283c) : 0x101a26,
           alpha: 0.95,
-        })
+        });
+      skinButtonFx(t.bg, 0, 0, TILE, TILE, {
+        accent: tint, state: isArmed ? 'active' : !m.enabled ? 'disabled' : t.hover ? 'hover' : 'rest', radius: 6, t: uiNow,
+      });
+      t.bg.roundRect(0, 0, TILE, TILE, 6)
         .stroke({
           width: isArmed ? 3 : m.enabled ? 2 : 1,
           color: isArmed ? 0xffffff : m.enabled ? tint : 0x2a3a4a,
@@ -1717,12 +1753,23 @@ export class CastlePanel {
       const bg = row.bg;
       bg.clear();
       bg.roundRect(0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, 6)
-        .fill({ color: on ? (row.hover ? 0x1f5f9e : 0x17497a) : 0x1a2530, alpha: 0.95 })
+        .fill({ color: on ? (row.hover ? 0x1f5f9e : 0x17497a) : 0x1a2530, alpha: 0.95 });
+      // ⭐ S194 T5 — the glass, then the row's icon at the left, both inside the row box's own plate.
+      skinButtonFx(bg, 0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, {
+        accent: on ? tint : 0x3a4a58, state: on ? (row.hover ? 'hover' : 'rest') : 'disabled', radius: 6, t: uiNow,
+      });
+      skinIcon(bg, CASTLE_ROW_ICON[CASTLE_ROW_KEYS[i]!], ROW_ICON_CX, ROW_H / 2, ROW_ICON_SIZE, on ? 0xffffff : 0x56636f, on ? 0.92 : 0.7);
+      bg.roundRect(0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, 6)
         .stroke({ width: 2, color: on ? 0x85b7eb : 0x3a4a58, alpha: 0.95 });
       // A dim row NAMES its blocker instead of leaving the player to guess (owner item 1). The
       // blocker is already folded into `label` by castleControlsModel — do NOT append `reason`
       // again here, which is what made the disabled row overflow its box.
-      row.label.text = m.label;
+      if (row.label.text !== m.label) {
+        row.label.text = m.label;
+        // ⭐ S194 T5 — the icon takes the left 32 px, so the label is re-fitted (from full size) when it changes.
+        row.label.style.fontSize = 17;
+        fitTextToWidth(row.label, ROW_INNER_W - ROW_LABEL_SHIFT * 2 - 22);
+      }
       row.label.style.fill = on ? 0xffffff : 0x6b7a88;
       // ⭐ S188 P3 — a row with a detail line lifts its label to make room; one without it draws
       // exactly where every row drew before this change.
