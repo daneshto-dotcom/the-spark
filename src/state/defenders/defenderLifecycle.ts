@@ -47,6 +47,7 @@ import type { World } from '../worldTypes.ts';
 import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -90,6 +91,12 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
       ownBondIdLimit: world.nextBondId,
     }),
   );
+  /*
+   * ⭐ S191 — the stat board's TOWERS. ⚠ MINE: HELGA (`'princess'`) is not counted — she is a unit with a pool
+   * that her hall re-summons every BUILD after she dies, so counting her would score one hall as a new tower
+   * (and a fallen one) every wave. Turrets and stink towers count; spawners count at their own register.
+   */
+  if (action.defenderKind !== 'princess') recordTowerBuilt(world, action.ownerPlayerId);
   return world;
 }
 

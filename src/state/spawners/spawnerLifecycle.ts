@@ -41,6 +41,7 @@ import { raceForTowerId } from '../raceTowerIds.ts';
 import { raceForT9TowerId } from '../t9BossIds.ts';
 import type { World } from '../worldTypes.ts';
 import { makeSpawner, spawnerIntervalTicks, type CreatureSpawner } from './spawner.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterSpawnerAction {
@@ -85,6 +86,7 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       ownBondIdLimit: world.nextBondId,
     }),
   );
+  recordTowerBuilt(world, action.ownerPlayerId); // ⭐ S191 — the stat board's TOWERS
   /*
    * ⭐ S193 (owner T4, audit round 1) — a goblin tower re-registering at an anchor it fell from takes its
    * toggles back, IF it is the same seat's. The entry is consumed either way, and stale ones (anchor

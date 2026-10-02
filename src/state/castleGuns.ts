@@ -134,6 +134,7 @@ export function castleGunsTick(world: World): void {
     // `world.creatures` nor `world.defenders`, and `Creature` has no field that could hold it — a
     // unit already marches on the keep by position (`enemyCastleInReach`), which is the closest
     // thing to retaliating against one that exists.
-    damageEntity(world, { kind: 'creature', id: targetId }, amount, 'defender', null, 'physical'); // S192 — a gun SHOOTS (R192-M3)
+    // ⭐ S191 — …but it IS a seat, and the stat board credits the keep's kills to it (`'seat'` turns nobody).
+    damageEntity(world, { kind: 'creature', id: targetId }, amount, 'defender', { kind: 'seat', seat: playerId }, 'physical'); // S192 — a gun SHOOTS (R192-M3)
   }
 }

@@ -267,7 +267,7 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
       bondId: id,
       playerId: attacker.ownerPlayerId,
       cause: 'creature', // a Voltkin's lightning, never a chewer's gnaw — the chain is its alone
-    }));
+    }), { kind: 'seat', seat: attacker.ownerPlayerId }); // ⭐ S193 — the carry's stat-board credit
     if (!world.bonds.has(bondId)) attacker.killCount += 1;
   }
   return links.length;

@@ -99,6 +99,7 @@ import { makeCastleBank } from './castleBank.ts';
 // Test paths that never load audioManager treat triggerReset() as a no-op
 // (single-slot handler stays null), preserving the audit-safe semantics.
 import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
+import { applySerializedHistory, applySerializedSeats, serializeMatchStats, trimMatchStatsForNet, type SerializedMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const PHYSICS_DT = 1 / 60;
 
@@ -146,6 +147,13 @@ export interface WorldSnapshot {
   currentPlayerId?: PlayerId;
   /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
   scoreByPlayer?: Array<readonly [PlayerId, number]>;
+  /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD (`matchStats.ts`). ADDITIVE-OPTIONAL: absent while every counter
+   * is zero, so an opening snapshot stays byte-identical. `seats` rides every snapshot; `history` rides the
+   * full local form always and the NET form only inside its window and through WIN/POSTGAME
+   * (`trimMatchStatsForNet`). INERT — no reducer reads it — so a peer that drops the key diverges on nothing.
+   */
+  matchStats?: SerializedMatchStats;
   /**
    * S28 P0 — Voltkin Phase 2D NetSnapshot v2 (Council Q1 UNANIMOUS A additive-
    * optional pattern; no schemaVersion bump per S15 P2 precedent). Host
@@ -1209,6 +1217,7 @@ export function snapshot(
     // Slot retained on WorldSnapshot as ignored-optional for back-compat
     // (Council R1 Battle Ledger row 2). New saves omit it entirely.
     scoreByPlayer: [...world.scoreByPlayer.entries()],
+    matchStats: serializeMatchStats(world.matchStats), // ⭐ S191 — undefined when empty (byte-identical)
     // S28 P0 — NetSnapshot v2: only emit `creatures` when non-empty so pre-S28
     // saves stay byte-identical (the field stays `undefined` and is dropped by
     // JSON.stringify). Host always emits; clients never read this for serialize
@@ -1344,6 +1353,7 @@ export function restore(snap: WorldSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, true); // ⭐ S191 — a save IS the whole history
   // restore() owns host-only fields (savedAt is informational only; rngSeed
   // + nextPrimitiveId/nextBondId are absent in NetSnapshot but present here).
   world.rngSeed = snap.rngSeed;
@@ -1423,6 +1433,10 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
+  // ⭐ S191 — the stat board's HISTORY rides the net form only inside its window and through WIN/POSTGAME;
+  // the running totals always do. Not a strip at the wire boundary, deliberately: the worker->main mirror
+  // wants exactly what a peer wants, and gets the whole history again at every wave edge.
+  if (rest.matchStats !== undefined) rest.matchStats = trimMatchStatsForNet(rest.matchStats, world);
   // ⛔ S182 — `prevPos` IS **NOT** STRIPPED HERE. IT IS STRIPPED AT THE WIRE BOUNDARY.
   // See `stripWirePrevPos` below for why this distinction is load-bearing, and what breaks when the
   // strip lives in this function instead.
@@ -1670,6 +1684,7 @@ export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, false); // ⭐ S191 — absent outside its window: keep
 }
 
 /** Shared apply logic for restore() and applyNetSnapshot(). */
@@ -1696,6 +1711,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   if (snap.scoreByPlayer !== undefined) {
     for (const [pid, score] of snap.scoreByPlayer) world.scoreByPlayer.set(pid, score);
   }
+  applySerializedSeats(world, snap.matchStats); // ⭐ S191 — running totals: replaced every snapshot
 
   world.freeSparks.clear();
   world.primitives.clear();

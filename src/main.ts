@@ -180,6 +180,7 @@ import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { DraftOverlay } from './render/draftOverlay.ts';
+import { MatchBoardHost } from './render/matchBoardHost.ts'; // ⭐ S191 — the stat board (its view is a lazy chunk)
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -1385,6 +1386,12 @@ async function bootstrap(): Promise<void> {
    * `draftOverlay.ts`). `s189CruiserAboveDraft.test.ts` pins these three lines in this order.
    */
   app.stage.addChild(draftOverlay.container);
+  // ⭐ S191 — THE END-OF-MATCH STAT BOARD: staged here, by its line and no zIndex (canon §7b) — over the HUD,
+  // the footer, the sheet and the draft panel, under the cruiser. It re-derives itself from `world` every frame
+  // and shows only in POSTGAME; its CONTINUE is the POSTGAME exit (see `resetIfPostgame`).
+  const matchBoard = new MatchBoardHost(() => resetIfPostgame());
+  app.stage.addChild(matchBoard.container);
+  app.ticker.add(() => matchBoard.render(world, performance.now()));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -2410,7 +2417,8 @@ Network routes: ${v.detail}`;
 
   let lastGameState: GameState = world.gameState;
   const resetIfPostgame = (): void => {
-    if (world.gameState === 'POSTGAME') {
+    // ⭐ S191 — the stat board is up: nothing leaves it until it has been readable for `ARM_MS` (CONTINUE, R).
+    if (world.gameState === 'POSTGAME' && matchBoard.isArmed(performance.now())) {
       // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
       // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
       // re-selects 1 Player to play again (cleaner than implicit replay).
@@ -2418,7 +2426,9 @@ Network routes: ${v.detail}`;
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
-  app.canvas.addEventListener('click', resetIfPostgame);
+  // ⛔ S191 — ANY canvas click in POSTGAME used to reset the match, which made a stat board unreadable. While the
+  // board is up only its own CONTINUE (Pixi `pointertap`, primary button) or R leaves; this is the fallback.
+  app.canvas.addEventListener('click', () => { if (!matchBoard.isShowing()) resetIfPostgame(); });
 
   // S18 P1 — audio: lazy-init AudioContext on first user gesture anywhere
   // (canvas or window). Browser autoplay policy requires this to be inside
@@ -3049,7 +3059,8 @@ Network routes: ${v.detail}`;
       // object: the HTMLVideoElement + Pixi sprite + ticker callback owned
       // by cutsceneOverlay, the stage offset owned by screenShake, and the
       // lastCinematicOwner watcher used to gate startCinematicIfNeeded.
-      // Fires on POSTGAME→TITLE (canvas click → resetIfPostgame → dispatch),
+      // Fires on POSTGAME→TITLE (the stat board's CONTINUE or R → resetIfPostgame → dispatch; S191: a
+      // canvas click no longer resets POSTGAME while the board shows),
       // lobby Back-to-Title (onBackToTitle → dispatch), and peer-drop via
       // onReturnFromConnectionLost. Idempotent on no-cinematic-active path:
       // cutsceneOverlay.abort bails when isActive() is false; screenShake.reset
@@ -3780,7 +3791,7 @@ Network routes: ${v.detail}`;
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
      *
      * Shown in PLAYING and nowhere else, because every other state already has its own exit: TITLE
-     * *is* the destination, LOBBY has its Back button, POSTGAME returns on a click, and the
+     * *is* the destination, LOBBY has its Back button, POSTGAME returns from the stat board (CONTINUE or R — S191), and the
      * connection-lost overlay has its own return. `modalUp` is reused rather than re-derived so the
      * button cannot draw over the codex / bot-setup / arcade panes — the S152 through-drawing class.
      */

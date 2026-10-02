@@ -52,6 +52,7 @@
 
 import type { World } from './worldTypes.ts';
 import { fnv1a32 } from './stateHash.ts';
+import { matchStatsHashParts } from './matchStats.ts'; // ⭐ S191
 
 /* ========================================================================== *
  *                          THE COVERAGE CONTRACT                             *
@@ -78,6 +79,13 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
 
   // ---- entity families S133 made visible for the first time ----
   creatures: 'hashed',
+  /**
+   * ⭐ S191 — the end-of-match stat board. INERT (no reducer reads it), but it is host-authoritative sim
+   * OUTPUT that a host and a `?worker=1` sim must produce identically, so the wide oracle compares it.
+   * Projected as `ms{seat}:` (running totals) and `mh{wave}:` (the graph history), sorted, integers only.
+   * The narrow production hash does not carry it.
+   */
+  matchStats: 'hashed',
   // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
   pendingCreatureDeaths: 'acknowledged',
   // S188 F1 — transient one-tick lifesteal accumulator; null at every tick boundary, nothing to hash.
@@ -575,6 +583,7 @@ export function determinismParts(world: World): string[] {
 
   const scores = [...world.scoreByPlayer.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [id, s] of scores) parts.push(`P${n(id)}=${s}`);
+  parts.push(...matchStatsHashParts(world.matchStats)); // ⭐ S191 — `ms{seat}:` then `mh{wave}:`
 
   /*
    * S165 - THE SIM-AUTHORITATIVE HALF OF `players`. See the FIELD_COVERAGE note for why the avatar

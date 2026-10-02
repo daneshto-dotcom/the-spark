@@ -210,7 +210,7 @@ export function planZombieDeathBlast(
  * shapes; a structure whose chosen connector it razed first would lose its share — tune's order), then
  * everything else, both in the one total order.
  *
- * ⚠ `null` ATTACKER, EXPLICIT CREDIT: a dead boss is nobody to retaliate against and heals nobody
+ * ⚠ A SEAT ATTACKER (S193 — inert, for the stat board), EXPLICIT CREDIT: a dead boss is nobody to retaliate against and heals nobody
  * (BLOOD DEBT), but every kill is credited `{ seat: owner, type: zombie boss }` for THE RISEN (T2).
  * ⚠ The cut connector is severed `cause: 'unit'` in his seat's name — the suicide goblin's honest cause.
  */
@@ -221,22 +221,25 @@ export function applyZombieDeathBlast(world: World, at: { x: number; y: number }
   for (const { target: t, share } of plan) {
     if (t.kind !== 'structure' || share === 0) continue;
     if (!world.bonds.has(t.bondId)) continue;
-    if (damageConnector(world, t.bondId, share, null, 'physical')) { // ⭐ S193 — the death blast BLOWS UP (R192-M3)
+    // ⭐ S193 BLAST-2 — `'seat'`: his seat is credited on the stat board; a seat heals and turns nobody.
+    if (damageConnector(world, t.bondId, share, { kind: 'seat', seat: owner }, 'physical')) { // ⭐ S193 — the death blast BLOWS UP (R192-M3)
       // ⭐ S193 merge — `severWithCarry` (owner S191, canon §2): the struck connector falls and the overkill
       // carries on through the SAME structure, like every other connector-damage caller (CARRY-2 census).
       // ⭐ S193 — straight to `applySeverBond`, not `dispatch`: POWER OF RA's audit-F1 reason (the hub does
       // the same) — `dispatch`'s bench / elimination gates would REFUSE a sever in an eliminated seat's
       // name and leave a connector standing on a spent pool. `canSeverBond` still runs.
-      severWithCarry(world, t.bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'unit' }));
+      severWithCarry(world, t.bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'unit' }), { kind: 'seat', seat: owner });
     }
   }
   for (const { target: t, share } of plan) {
     if (t.kind === 'structure' || share === 0) continue;
     if (t.kind === 'stinkCloud') {
       // ⭐ S193 R193-B3 — a bag he pops bursts without hitting HIS side either (the hub's BLAST-1 rule).
-      damageStinkCloud(world, t.id as unknown as StinkCloudId, share, null, owner);
+      damageStinkCloud(world, t.id as unknown as StinkCloudId, share, { kind: 'seat', seat: owner }, owner);
       continue;
     }
-    damageEntity(world, t.target, share, 'creature', null, 'physical', credit); // ⭐ S193 — R192-M3
+    // ⭐ S193 — a SEAT attacker (inert: nobody retaliates against or heals from a dead boss) AND the explicit
+    // credit, which carries his TYPE for THE RISEN and wins over the attacker's typeless one.
+    damageEntity(world, t.target, share, 'creature', { kind: 'seat', seat: owner }, 'physical', credit); // ⭐ S193 — R192-M3
   }
 }

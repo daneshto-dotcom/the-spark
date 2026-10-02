@@ -156,6 +156,7 @@ import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
+import { recordWaveSample } from './matchStats.ts'; // ⭐ S191
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
 import { isCorpseEaterFeeding, isStunned, ragedFireTick } from './creatures/creature.ts';
 
@@ -483,6 +484,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * tick — the same reason that guard is keyed on "the loop ran AND we landed in X".
          */
         world.waveNumber += 1;
+        recordWaveSample(world, world.waveNumber - 1); // ⭐ S191 — the stat board's graph point for the wave just closed
         /*
          * ⭐⭐ S187 — AND A NEW WAVE MAY OPEN A DRAFT. Waves 6, 11, 16, 21 … qualify; the pre-wave-1
          * draft is opened by `applyStartGame` instead, because the opening BUILD never crosses this
