@@ -320,10 +320,11 @@ describe('S193 — the new brain functions, each with its negative', () => {
     expect(chooseTowerPlan(w, BOT, fort)?.blueprintId).toBe('stinkTower');
   });
 
-  it('S194: only WARMONGER and IMBA FORTRESS narrow their substitutes — every other cell keeps the pre-S194 "any"', () => {
+  it('S194: only WARMONGER, FORTRESS and IMBA SABOTEUR narrow their substitutes — every other cell keeps the pre-S194 "any"', () => {
     for (const tier of BOT_DIFFICULTIES) for (const p of BOT_PERSONALITIES) {
       // WARMONGER at every tier that has one (Q-E + the HARD re-pin), FORTRESS at IMBA. NOOB is BALANCED.
-      const want = tier !== 'NOOB' && (p === 'WARMONGER' || (tier === 'IMBA' && p === 'FORTRESS')) ? 'listed' : 'any';
+      // ⭐ S194 R3 (porch +42): FORTRESS at every tier, SABOTEUR at IMBA joined (see the table's comments).
+      const want = tier !== 'NOOB' && (p === 'WARMONGER' || p === 'FORTRESS' || (tier === 'IMBA' && p === 'SABOTEUR')) ? 'listed' : 'any';
       expect(botConfigFor(tier, p).persona!.substitute, `${tier} ${p}`).toBe(want);
     }
   });
@@ -406,6 +407,17 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
     expect(Math.min(...war.seats.map((s) => (s.firstFeedTick < 0 ? Infinity : s.firstFeedTick)))).toBeLessThan(5400);
     // FORTRESS — measured mean defence ratio 0.44, the highest; stink first on 2/3 seats.
+    /*
+     * ⭐ S194 R3 RE-MEASURE (s194/rules, porch +74 → +42, R194-16; no pin relaxed — the TABLE was re-tuned).
+     * The closer porch shortens every gatherer trip: HARD BALANCED now stamps a stink tower on 3/3 seats (0.50) and the
+     * S193 FORTRESS row fell to 0.42 (nagas>nagas>stink>goblin | stink>mummies | stink>zombies). FORTRESS now
+     * `substitute: 'listed'`. Measured, 300 s, 0xb07 / 0xbeef:
+     *   BALANCED  nagas>stink>stink>goblin | mummies>stink | zombies>stink            def 0.50
+     *   WARMONGER goblin>nagas>pentagram | goblin>mummies | zombies                   def 0.00 · fed 16
+     *   FORTRESS  stink>nagas>stink>goblin | stink>mummies>stink | stink>zombies     def 0.56 · stink first 3/3
+     *   TYCOON    nagas>stink>goblin | mummies | zombies×2                            def 0.11 · loose 52
+     *   SABOTEUR  pentagram>nagas>stink | pentagram>mummies | pentagram>zombies       def 0.11
+     */
     for (const m of [bal, war, tyc, sab]) expect(meanDef(fort)).toBeGreaterThan(meanDef(m));
     expect(fort.seats.filter((s) => s.stamps[0] === 'stinkTower').length).toBeGreaterThanOrEqual(2);
     // TYCOON — measured 54 loose shapes vs BALANCED's 34: the fast, wide builder.
@@ -423,6 +435,14 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
       expect(sum(m, (s) => s.feeds), `IMBA ${p} feeds`).toBeGreaterThan(0);
     }
     const fort = sig('IMBA', 'FORTRESS');
+    /*
+     * ⭐ S194 R3 RE-MEASURE (s194/rules, porch +74 → +42; table re-tuned, no pin relaxed). Measured, 300 s:
+     *   BALANCED  goblin>nagas>stink | goblin>mummies | zombies×3                     def 0.11 · fed 16
+     *   WARMONGER goblin>nagas×2>pentagram | goblin>mummies×2>pentagram | zombies×3   def 0.00 · fed 18 (IMBA hold 3300)
+     *   FORTRESS  goblin>stink>goblin>laser | goblin>stink | goblin>laser             def 0.50 · the only laser
+     *   TYCOON    goblin>stink | goblin | zombies×2                                   def 0.17 (order goblin>stink, hold 1650)
+     *   SABOTEUR  goblin×2>pentagram | goblin×2 | goblin                              def 0.00 (substitute 'listed')
+     */
     /*
      * ⭐ S194 (T7) — THE FORTRESS IDENTITY IS RESTORED, and both S193 pins are back.
      * History: S193 measured Fortress as the only IMBA laser and the highest mean defence (0.44). Deploy #23's
