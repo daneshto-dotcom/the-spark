@@ -191,6 +191,15 @@ export const DIREWOLF_SPRITE_SCALE_MUL = 2;
 export const PIRANHA_ELITE_SPRITE_SCALE_MUL = 2;
 
 /**
+ * ⭐ S192 — the endgame pants, drawn at 1.25× a unit. ⚠ MINE: a mini-boss should read bigger than a
+ * goblin, but wave 31 puts up to 300 on one board, and the bosses' 1.6 would bury it. Render-only.
+ */
+export const ENDGAME_MONSTER_SPRITE_SCALE_MUL = 1.25;
+
+/** ⭐ S193 — ⚠ MINE: the MEGA PANTS is the same art at 3.5× a unit — *"a huge boss"*. There is only one. */
+export const MEGA_PANTS_SPRITE_SCALE_MUL = 3.5;
+
+/**
  * ⭐ S188 (owner, THE SWARM — vampires level 10) — the bat swarm is drawn at **2×** the bat.
  *
  * ⚠ MINE, NOT THE OWNER'S — he ruled the swarm's STATS (*"whatever we did for the piranha, we double
@@ -213,6 +222,8 @@ export const BAT_SWARM_SPRITE_SCALE_MUL = 2;
  */
 export function creatureSpriteScaleMul(type: CreatureType): number {
   if (type === 'direwolf') return DIREWOLF_SPRITE_SCALE_MUL;
+  if (type === 'endgameMonster') return ENDGAME_MONSTER_SPRITE_SCALE_MUL;
+  if (type === 'megaPants') return MEGA_PANTS_SPRITE_SCALE_MUL;
   if (type === 't3PiranhaElite') return PIRANHA_ELITE_SPRITE_SCALE_MUL;
   if (type === 't3BatSwarm') return BAT_SWARM_SPRITE_SCALE_MUL;
   return isT9BossType(type) ? T9_BOSS_SPRITE_SCALE_MUL : 1;
@@ -436,7 +447,16 @@ export function towerRingCentroid(
  * of its comments on. Ties break on the lower spawner id so two peers agree.
  */
 export function towerAnchorAtPoint(world: World, x: number, y: number): PrimitiveId | null {
-  let bestAnchor: PrimitiveId | null = null;
+  return towerHitAtPoint(world, x, y)?.anchorId ?? null;
+}
+
+/**
+ * ⭐ S192 (audit IDENTITY-2) — `towerAnchorAtPoint` WITH the recipe of the art that was hit. An anchor
+ * alone cannot name a tower: two towers can share one (a mummies Line ring through a laser turret's
+ * Line hub), and the click must open the one whose ART the cursor is on.
+ */
+export function towerHitAtPoint(world: World, x: number, y: number): { anchorId: PrimitiveId; recipeId: GodlyId } | null {
+  let best: { anchorId: PrimitiveId; recipeId: GodlyId } | null = null;
   let bestSize = Infinity;
   let bestSpawner = Infinity;
   for (const sp of world.creatureSpawners.values()) {
@@ -450,7 +470,7 @@ export function towerAnchorAtPoint(world: World, x: number, y: number): Primitiv
     if (art.sizePx > bestSize || (art.sizePx === bestSize && id >= bestSpawner)) continue;
     bestSize = art.sizePx;
     bestSpawner = id;
-    bestAnchor = sp.anchorPrimitiveId;
+    best = { anchorId: sp.anchorPrimitiveId, recipeId: sp.recipeId };
   }
-  return bestAnchor;
+  return best;
 }

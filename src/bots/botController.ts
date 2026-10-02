@@ -46,17 +46,18 @@ import type { Player } from '../game/player.ts';
 import { pickRedundantBondTargets } from '../input/redundantBondTargets.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { isEliminated } from '../state/elimination.ts';
+import { isBuildLocked } from '../state/endgame.ts';
 import { ALL_SPARK_TYPES } from '../constants.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { sameTeam } from '../state/teams.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
-import { BOT_CONFIGS, type BotConfig } from './botConfig.ts';
-import { chooseBuildPos, chooseGoal, type BotGoal } from './botBrain.ts';
+import { botConfigFor, type BotConfig } from './botConfig.ts';
+import { chooseBuildPos, chooseGoal, personaOf, raidTargetSeat, type BotGoal } from './botBrain.ts';
 import { botRaAction } from './botRa.ts';
 import { botScorchedEarthAction } from './botScorchedEarth.ts'; // ⭐ S191 — SCORCHED EARTH
-import type { BotDifficulty } from './botTypes.ts';
+import type { BotDifficulty, BotPersonality } from './botTypes.ts';
 
 
 /**
@@ -119,15 +120,22 @@ export class BotController {
   private buildReadyAtTick = 0;
   private wanderTarget: Vec2 | null = null;
 
+  /** ⭐ S193 (owner R193-AI) — this bot's resolved personality (never RANDOM; see `resolvePersonality`). */
+  readonly personality: BotPersonality;
+
   constructor(
     seat: PlayerId,
     difficulty: BotDifficulty,
     rng: () => number,
     totalSeats: number,
+    personality: BotPersonality = 'BALANCED',
   ) {
     this.seat = seat;
     this.difficulty = difficulty;
-    this.cfg = BOT_CONFIGS[difficulty];
+    this.personality = personality;
+    // ⭐ S193 — the tier's row with the personality's knobs layered on. BALANCED below IMBA carries the
+    // identity knobs, so it is the pre-S193 bot byte for byte (`botPersonality.test.ts` pins the hash).
+    this.cfg = botConfigFor(difficulty, personality);
     this.rng = rng;
     this.totalSeats = totalSeats;
   }
@@ -175,7 +183,10 @@ export class BotController {
      * like PULL: no travel, no FSM state, dispatched through the same `send` as every other intent.
      * Pure over synced state (`botRa.ts`), so the host's bots and the worker's cast identically.
      */
-    const ra = botRaAction(world, this.seat);
+    // ⭐ S193 — a `raAim: 'front'` personality ranks Ra's aims near its RAID TARGET's castle instead of
+    // its own. Pure over synced state (scores), so the host's bots and the worker's still agree.
+    const raFocus = personaOf(this.cfg).raAim === 'front' ? raidTargetSeat(world, this.seat, this.cfg) : null;
+    const ra = botRaAction(world, this.seat, raFocus);
     if (ra !== null) send(ra);
     // ⭐ S191 — and SCORCH, if this seat holds SCORCHED GROUND (`botScorchedEarth.ts`, the same shape).
     const scorch = botScorchedEarthAction(world, this.seat);
@@ -184,6 +195,20 @@ export class BotController {
     // ── per-tick state validation (Council F1 fix: invalidate stale targets
     //    the tick they die, not on the next think) ─────────────────────────
     this.validateState(world, me.kind === 'Carrying');
+
+    /*
+     * ⛔ S193 audit HIGH — UNDER THE ENDGAME BUILD LOCK A CARRIED SHAPE CAN NEVER BE PLACED, so drop it
+     * and go IDLE. Before this the HAUL arm re-sent a refused PLACE_PRIMITIVE every tick for the rest of
+     * the match (the reducer's lock gate keeps the carry), and the self-heal below re-armed it from IDLE.
+     * DROP_SPARK is allowed under the lock (`ENDGAME_LOCK_INTENT_POLICY`). Checked before the self-heal
+     * and before the stuck guard so neither can re-route the shape into another doomed haul.
+     */
+    if (isBuildLocked(world) && me.kind === 'Carrying') {
+      send({ type: 'DROP_SPARK', playerId: this.seat, pos: { x: me.avatarPos.x, y: me.avatarPos.y } });
+      this.state = { kind: 'IDLE' };
+      this.vel = 0;
+      return; // `me` is stale after the drop; think again next tick with the shape gone
+    }
 
     // Self-heal: idle while still Carrying (bench released mid-haul, or a
     // placement reject path) → route the held spark to a fresh build point.
@@ -294,6 +319,12 @@ export class BotController {
         this.state = { kind: 'IDLE' };
         return;
       }
+      case 'FEED':
+        // ⭐ S193 (owner §10 Q4) — a castle command like PULL: no travel. The human's FEED row sends
+        // exactly this intent; the reducer re-checks every gate, so a refusal costs nothing.
+        send({ type: 'FEED_TOWER', playerId: this.seat, spawnerId: goal.spawnerId, sparkType: goal.sparkType });
+        this.state = { kind: 'IDLE' };
+        return;
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;

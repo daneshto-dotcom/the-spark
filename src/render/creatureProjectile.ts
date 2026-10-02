@@ -55,6 +55,9 @@ import { bondMidpoint, distSq } from '../state/creatures/creatureAI.ts';
 import { isUntargetable } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { Vec2 } from '../types.ts';
+import { fxActive, fxTop, fxTopShade } from './fx/fxState.ts';
+import { fxSeed } from './fx/emitter.ts';
+import { PROJECTILE_IMPACT_TICKS, projectileImpactFx, projectileTrailFx } from './fx/combatFx.ts';
 
 /** Which silhouette this projectile draws with. */
 export type ProjectileKind = 'arrow' | 'harpoon';
@@ -90,6 +93,22 @@ const PROJECTILE_BY_TYPE: Partial<Record<CreatureType, ProjectileKind>> = {
  * decoration, they are asking to be able to SEE what already happens.
  */
 export function resolveProjectileShot(world: World, c: Creature): ProjectileShot | null {
+  return resolveShotIn(world, c, false);
+}
+
+/**
+ * ⭐ S193 (V13) — THE LANDING, for the impact puff: the same shot, resolved in the
+ * `PROJECTILE_IMPACT_TICKS` AFTER the fire tick (`ticksInState` in `(fireTick, fireTick + N]`), by
+ * the same victim rule, from the same synced state. Here `t` is the IMPACT's progress (0 → 1 over
+ * those ticks), not the flight's. ⚠ A victim the shot killed is gone from the board by then, so a
+ * killing arrow lands with no puff — the rule cannot find a target that no longer exists, and
+ * inventing one would be a puff where nothing was hit.
+ */
+export function resolveProjectileImpact(world: World, c: Creature): ProjectileShot | null {
+  return resolveShotIn(world, c, true);
+}
+
+function resolveShotIn(world: World, c: Creature, impact: boolean): ProjectileShot | null {
   const kind = PROJECTILE_BY_TYPE[c.type];
   if (kind === undefined) return null;
   if (c.state !== 'ATTACKING') return null;
@@ -97,7 +116,9 @@ export function resolveProjectileShot(world: World, c: Creature): ProjectileShot
   const config = getCreatureConfig(c.type);
   const fireTick = config.attackFireTick;
   const start = fireTick - ARROW_FLIGHT_TICKS;
-  if (c.ticksInState < start || c.ticksInState > fireTick) return null;
+  if (impact) {
+    if (c.ticksInState <= fireTick || c.ticksInState > fireTick + PROJECTILE_IMPACT_TICKS) return null;
+  } else if (c.ticksInState < start || c.ticksInState > fireTick) return null;
 
   // Same victim rule the sim uses, re-evaluated from synced populations (see docblock).
   const rangeSq = config.attackRange * config.attackRange;
@@ -178,7 +199,9 @@ export function resolveProjectileShot(world: World, c: Creature): ProjectileShot
   if (to === null) return null;
 
   const span = ARROW_FLIGHT_TICKS <= 0 ? 1 : ARROW_FLIGHT_TICKS;
-  const t = Math.max(0, Math.min(1, (c.ticksInState - start) / span));
+  const t = impact
+    ? (c.ticksInState - fireTick - 1) / PROJECTILE_IMPACT_TICKS
+    : Math.max(0, Math.min(1, (c.ticksInState - start) / span));
   /*
    * ⭐ S154 P2 — THE LAUNCH POINT IS LIFTED, and for the bat rider that is not cosmetic. His picture
    * is drawn `GOBLIN_LIFT.goblinBat` = 34 px above his `pos` (see `creatureLift.ts`), so a harpoon
@@ -336,8 +359,21 @@ export function drawProjectile(g: Graphics, shot: ProjectileShot): void {
 /** Redraw every in-flight projectile this frame. Called from the goblin renderer's sync. */
 export function syncCreatureProjectiles(g: Graphics, world: World): void {
   g.clear();
+  const fx = fxActive();
   for (const c of world.creatures.values()) {
     const shot = resolveProjectileShot(world, c);
-    if (shot !== null) drawProjectile(g, shot);
+    if (shot !== null) {
+      // ⭐ S193 (V13) — the motion trail, under the silhouette it follows (`fx/combatFx.ts`).
+      if (fx) projectileTrailFx(fxTop(), shot.from.x, shot.from.y, shot.to.x, shot.to.y, shot.t, shot.flaming, shot.kind === 'harpoon');
+      drawProjectile(g, shot);
+      continue;
+    }
+    if (!fx) continue;
+    // ⭐ S193 (V13) — the impact puff, in the ticks after the shot lands. Seeded by the shooter and
+    // the tick the shot landed on (`world.tick − (ticksInState − fireTick)`), so one puff per shot.
+    const hit = resolveProjectileImpact(world, c);
+    if (hit === null) continue;
+    const landed = world.tick - (c.ticksInState - getCreatureConfig(c.type).attackFireTick);
+    projectileImpactFx(fxTop(), fxTopShade(), hit.to.x, hit.to.y, hit.t, hit.flaming, fxSeed(c.id as unknown as number, landed));
   }
 }

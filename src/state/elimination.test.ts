@@ -175,6 +175,30 @@ describe('matchPlacings', () => {
     expect(placings[0]).toBe(P(2));            // the survivor
     expect(placings.slice(1)).toEqual([P(0), P(1)]); // tie broken by id, not insertion
   });
+
+  // ⭐ S191 — R20: *"Remaining places are then ordered by score."* This failed before S191 (survivors sorted by seat).
+  it('R20 — survivors are ordered by SCORE, highest first, not by seat id', () => {
+    const w = boardOf(4);
+    w.scoreByPlayer.set(P(0), 100); w.scoreByPlayer.set(P(1), 900); w.scoreByPlayer.set(P(2), 400);
+    w.tick = 50; raze(w, 3); markFallenSeats(w);
+    expect(matchPlacings(w)).toEqual([P(1), P(2), P(0), P(3)]);
+  });
+
+  it('R20 — the crowned seat leads the survivors even when another survivor banked more', () => {
+    const w = boardOf(3);
+    w.scoreByPlayer.set(P(0), 50); w.scoreByPlayer.set(P(1), 900); w.scoreByPlayer.set(P(2), 400);
+    w.lastWinnerId = P(0);
+    expect(matchPlacings(w)).toEqual([P(0), P(1), P(2)]);
+  });
+
+  it('R20 — equal scores still fall to seat id, whatever the Map order', () => {
+    const w = boardOf(3);
+    const p0 = w.players.get(P(0))!;
+    w.players.delete(P(0));
+    w.players.set(P(0), p0);
+    for (const i of [0, 1, 2]) w.scoreByPlayer.set(P(i), 300);
+    expect(matchPlacings(w)).toEqual([P(0), P(1), P(2)]);
+  });
 });
 
 describe('the dispatch gate (owner R127 — "so yes he is out")', () => {

@@ -54,6 +54,7 @@ import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
+import { monsterVictimSeat } from '../endgame.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -214,7 +215,26 @@ export function structureTargets(
   creature: Creature,
 ): { primitiveId: PrimitiveId | null; bondId: BondId | null } {
   const primitiveId = findNearestEnemyPrimitiveFrom(world, creature);
-  const bondId = findNearestBondTarget(world, creature, true);
+  /*
+   * ⭐⭐ S193 P3-2 (owner) — **THE NEAREST ENEMY BUILDING, NOT A HASH-CHOSEN VICTIM.**
+   *
+   * > *"The orcs that are underneath me directly … they're not attacking me. They're going all the way
+   * > diagonally to attack the Nagas … Is it because he has more points, he's stronger, or what? …
+   * > simple creatures should target the nearest enemy spawn right around them first."* — owner, S193
+   *
+   * This line used to be `findNearestBondTarget(world, creature, true)`, which ends in the FFA spread:
+   * with two or more enemy seats it picks the VICTIM by `mix32(id, sourceSpawnerId) % (n + 1)`, slot 0
+   * = the SCORE LEADER (ties → lowest seat), and only then that victim's nearest bond. Measured S193 on
+   * a 4P board through the real host tick (`nearestEnemyFirst.test.ts`): 9 of 25 orcs walked past the
+   * enemy 380 px away to one 1370 px away, and 16 of 25 once the far seat led on points. So the answer
+   * to his question was *points, a hash, and seat order on a tie — never geometry.*
+   *
+   * ⭐ NOW THE WHOLE LADDER IS GEOMETRY, IN A TOTAL ORDER: an enemy unit around it (`pickNavUnit`, 220 px)
+   * → the nearer of the nearest lone enemy shape and the nearest STRICT enemy connector (squared
+   * distance, then id) → the nearest live enemy keep (`enemyCastleMarchPos`). ⛔ The spread is untouched
+   * for the CHEWER and the DRONE, which call `findNearestBondTarget(…, true)` from their own branches.
+   */
+  const bondId = nearestStrictEnemyBond(world, creature);
   if (primitiveId === null) return { primitiveId: null, bondId };
   if (bondId === null) return { primitiveId, bondId: null };
 
@@ -310,6 +330,16 @@ export function findNearestEnemyPrimitiveFrom(
  * the distance arithmetic and the `(distSq, bondId)` total order are unchanged; see the index's
  * docblock for how, and `bondTargetIndex.differential.test.ts` for the proof.
  */
+/**
+ * ⭐ S193 P3-2 — the nearest STRICT enemy connector (neither endpoint the creature's own colour), by
+ * `(distSq, bondId)`, with NO FFA spread. The structure-attacker's bond (`structureTargets`). Same
+ * per-tick bucket, same S162 strict set and same arithmetic as `findNearestBondTarget(…, true)` up to
+ * its final spread line — `referenceNearestStrictEnemyBond` is the readable specification.
+ */
+export function nearestStrictEnemyBond(world: World, creature: Creature): BondId | null {
+  return nearestBondIn(colourBucketFor(world, creatureOwnerColor(world, creature)).strict, creature.pos);
+}
+
 export function findNearestBondTarget(
   world: World,
   creature: Creature,
@@ -1280,9 +1310,18 @@ export function enemyCastleInReach(world: World, creature: Creature, reach: numb
    * ⚠ "not helga" needs no clause here: Helga is a DEFENDER, not a creature, and never reaches this
    * function at all.
    */
+  /*
+   * ⭐ S193 (audit) — A PANTS STRIKES ONLY ITS VICTIM'S KEEP. It belongs to no seat, so "not my seat"
+   * admitted EVERY keep it walked past, and the lowest seat in reach won — the engage, abort and
+   * strike sites all read this one function. Its victim is `monsterVictimSeat` (derived, synced).
+   */
+  const isPants = creature.type === 'endgameMonster' || creature.type === 'megaPants';
+  const onlySeat = isPants ? monsterVictimSeat(world, creature) : null;
+  if (isPants && onlySeat === null) return null;
   let best: PlayerId | null = null;
   for (const seat of world.players.keys()) {
     if (sameTeam(world, seat, creature.ownerPlayerId)) continue; // S192 — never a teammate's keep
+    if (isPants && seat !== onlySeat) continue;
     const victim = world.players.get(seat);
     if (victim === undefined || victim.castleHp <= 0) continue;
     const a = castleAnchor(seat as unknown as number, world.layout);

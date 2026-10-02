@@ -51,6 +51,7 @@ import {
 } from '../constants.ts';
 import { FOOTPRINT_MARGIN, blueprintExtent, blueprintPositions } from './blueprints.ts';
 import { canBuildAt, castleKeepOutHitsBox, type Box } from './zones.ts';
+import { isBuildLocked } from './endgame.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import type { World } from './worldTypes.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
@@ -88,7 +89,7 @@ const EDGE_PAD = 0;
  * (`castlePanel.ts`: *"A DISABLED CONTROL MUST SAY WHY"*), and a silently-red ghost is the same
  * defect in a different costume.
  */
-export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'CASTLE' | 'ENEMY GROUND' | 'BLOCKED' | 'FIGHT';
+export type StampRefusal = 'OFF SCREEN' | 'QUARRY' | 'CASTLE' | 'ENEMY GROUND' | 'BLOCKED' | 'FIGHT' | 'LOCKED';
 
 /**
  * ⭐ S182 — PURE — the blueprint's footprint as a world-space box, centred at `centre`.
@@ -148,6 +149,11 @@ export function stampRefusalAt(
   //    the real reason is "the fight has started" would be a lie on your own territory. So the two
   //    halves of legality are asked separately HERE and composed everywhere else.
   if (world.matchPhase !== 'BUILD') return 'FIGHT';
+
+  // 0b. ⭐ S193 (endgame merge) — FROM BUILD OF WAVE 27 NOTHING NEW IS BUILT. `dispatch`'s lock gate
+  //     refuses BUILD_BLUEPRINT outright; asked HERE as well so the ghost says LOCKED instead of
+  //     tinting green over a click the reducer will drop, and the bots stop proposing stamps.
+  if (isBuildLocked(world)) return 'LOCKED';
 
   // 1. The whole footprint must be on canvas — a partially off-screen tower is unclickable and
   //    un-defendable, and the arena edge is not a legal build site in any TD.
@@ -240,6 +246,18 @@ export function stampRefusalAt(
       const pdx = prim.pos.x - node.x;
       const pdy = prim.pos.y - node.y;
       if (Math.hypot(pdx, pdy) < STAMP_CLEARANCE) return 'BLOCKED';
+    }
+    /*
+     * ⭐ S193 P3-1 — AND NOT OVER A SHAPE RESTING ON A PORCH. The castle keep-out is now one uniform
+     * disc (owner: *"a short radius … immediately around it"*), so the porch row (anchor.y + 74) is
+     * buildable ground. A pulled shape waiting there (`escrow: 'banked'`, the only free sparks that
+     * rest outside the quarry) is geometry like any other, so a stamp may not land on it — the other
+     * half of what the S191 porch discs protected (the pull half is `firstFreePorchSlot`'s `built`).
+     * Same clearance, same per-node test as the shapes above, on every side alike.
+     */
+    for (const spark of world.freeSparks.values()) {
+      if (spark.escrow !== 'banked') continue;
+      if (Math.hypot(spark.pos.x - node.x, spark.pos.y - node.y) < STAMP_CLEARANCE) return 'BLOCKED';
     }
   }
 

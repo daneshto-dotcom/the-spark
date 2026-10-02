@@ -119,6 +119,160 @@ describe('S192 T1 — every Trystero join passes the pool-safe rtcPolyfill', () 
   });
 });
 
+/**
+ * ⛔⛔ S193 (lobby4 audit L2) — **THE DYNAMIC-IMPORT HOLE, CLOSED MECHANICALLY.**
+ *
+ * The enumeration above finds a join by NAME: `joinRoom` (or its alias) from a STATIC
+ * `import { … } from '@trystero-p2p/*'`, plus transport's `joinFn(`. Everything reached any other way was
+ * invisible to it, and the `.joinRoom(` sweep below it only caught a direct member call:
+ *   · `const { joinRoom } = await import('@trystero-p2p/torrent'); joinRoom(cfg, …)` — a destructured
+ *     dynamic import, or `.then(({ joinRoom }) => joinRoom(…))`;
+ *   · `const j = mod.joinRoom; j(…)`, or `mod['joinRoom'](…)`;
+ *   · an alias handed off: `const j = joinNostr; j(…)`;
+ *   · a namespace import (`import * as T from '@trystero-p2p/nostr'`) or a re-export.
+ * Each would join Trystero WITHOUT the pool-safe PC and stay green.
+ *
+ * So instead of searching for the shapes a join can take, this classifies EVERY occurrence of the
+ * `joinRoom` token and of every imported alias in SPARK source, and allows exactly the shapes that are
+ * already covered — anything else is a failure naming its file and text. And every dynamic import of a
+ * Trystero module is pinned, so a new one must be looked at.
+ */
+describe('⛔ S193 L2 — every way to reach a Trystero joinRoom is one the enumeration above covers', () => {
+  // ⭐ S193 audit LOW — backtick specifiers too (`import(\`@trystero-p2p/torrent\`)` is a plain string).
+  const TRYSTERO = /['"`](?:@trystero-p2p\/[^'"`]+|trystero(?:\/[^'"`]*)?)['"`]/;
+
+  function sources(): Array<{ file: string; src: string }> {
+    return walk(join(ROOT, 'src')).map((abs) => ({
+      file: relative(ROOT, abs).replace(/\\/g, '/'),
+      src: stripComments(norm(readFileSync(abs, 'utf8'))),
+    }));
+  }
+
+  /** Every token occurrence that is NOT one of the allowed shapes, as `file: <line text>`. */
+  function unclassified(file: string, src: string): string[] {
+    const bad: string[] = [];
+    const lineOf = (i: number): string => src.slice(src.lastIndexOf('\n', i) + 1, src.indexOf('\n', i)).trim();
+    // Static named imports from Trystero: the specifier list is an ALLOWED site for `joinRoom`, and its
+    // local alias (if any) becomes a name whose every use is classified below.
+    const importSpans: Array<[number, number]> = [];
+    const aliases = new Set<string>();
+    for (const m of src.matchAll(/import\s*(type\s*)?\{([^}]*)\}\s*from\s*(['"][^'"]+['"])/g)) {
+      if (!TRYSTERO.test(m[3]!)) continue;
+      importSpans.push([m.index!, m.index! + m[0].length]);
+      if (m[1] !== undefined) continue;
+      for (const part of m[2]!.split(',')) {
+        const mm = /^\s*joinRoom(?:\s+as\s+(\w+))?\s*$/.exec(part);
+        if (mm) aliases.add(mm[1] ?? 'joinRoom');
+      }
+    }
+    const inImport = (i: number): boolean => importSpans.some(([a, b]) => i >= a && i < b);
+    // Any other import form of a Trystero module: namespace, default, side-effect, re-export, require.
+    for (const m of src.matchAll(/(?:import\s*\*\s*as\s+\w+\s*from|import\s+\w+\s*(?:,\s*\{[^}]*\})?\s*from|export\s*(?:\*|\{[^}]*\})\s*from|require\s*\()\s*(['"][^'"]+['"])/g)) {
+      if (TRYSTERO.test(m[1]!)) bad.push(`${file}: ${lineOf(m.index!)}`);
+    }
+    // 1. Every `joinRoom` token: inside a Trystero import's specifier list, or `mod.joinRoom as JoinFn`
+    //    handed to transport's startStrategy (whose `joinFn(` call the enumeration above checks).
+    for (const m of src.matchAll(/joinRoom/g)) {
+      const i = m.index!;
+      if (inImport(i)) continue;
+      if (file === 'src/net/transport.ts' && /^\bmod\.joinRoom as JoinFn,$/.test(lineOf(i)) && /\bmod\.$/.test(src.slice(i - 4, i))) continue;
+      bad.push(`${file}: ${lineOf(i)}`);
+    }
+    // 2. Every use of an imported alias: a CALL (checked above), `typeof alias` in a type position, or
+    //    `alias as JoinFn` handed to transport's startStrategy.
+    for (const name of aliases) {
+      if (name === 'joinRoom') continue; // a bare `joinRoom` import's calls are caught by rule 1 and checked above
+      for (const m of src.matchAll(new RegExp(`\\b${name}\\b`, 'g'))) {
+        const i = m.index!;
+        if (inImport(i)) continue;
+        const after = src.slice(i + name.length);
+        const before = src.slice(Math.max(0, i - 7), i);
+        if (/^\s*\(/.test(after)) continue; // a call — the enumeration above requires the polyfill on it
+        if (/typeof\s+$/.test(before)) continue; // a type query, never a value
+        if (file === 'src/net/transport.ts' && /^\s+as JoinFn,/.test(after)) continue;
+        bad.push(`${file}: ${lineOf(i)}`);
+      }
+    }
+    // 3. A string key or computed member that names it.
+    for (const m of src.matchAll(/\[\s*['"`]joinRoom['"`]\s*\]|['"`]joinRoom['"`]/g)) bad.push(`${file}: ${lineOf(m.index!)}`);
+    return bad;
+  }
+
+  /** Every `import(…)` of a Trystero module, as `file:<module>` (it must be looked at before it is added). */
+  function dynamicImports(file: string, src: string): string[] {
+    const out: string[] = [];
+    for (const m of src.matchAll(/\bimport\s*\(\s*(['"`][^'"`]+['"`]|[^)'"`]+)\s*\)/g)) {
+      const spec = m[1]!;
+      // ⭐ S193 audit LOW — a template literal with `${` is computed, not a module name.
+      const computed = !/^['"`]/.test(spec) || spec.includes('${');
+      if (!computed && TRYSTERO.test(spec)) out.push(`${file}:${spec.slice(1, -1)}`);
+      // A computed specifier cannot be checked at all; none exists anywhere in SPARK src, so pin that too.
+      else if (computed) out.push(`${file}:<computed ${spec.trim()}>`);
+    }
+    return out;
+  }
+
+  it('no SPARK source reaches joinRoom by any shape the call-site enumeration cannot see', () => {
+    const bad = sources().flatMap(({ file, src }) => unclassified(file, src));
+    expect(bad, 'a joinRoom reached around the enumeration — wire POOL_SAFE_PC through a covered shape').toEqual([]);
+  });
+
+  it('the dynamically-imported Trystero modules are exactly the two transport hands to joinFn', () => {
+    expect(sources().flatMap(({ file, src }) => dynamicImports(file, src)).sort()).toEqual([
+      'src/net/transport.ts:@trystero-p2p/mqtt',
+      'src/net/transport.ts:@trystero-p2p/torrent',
+    ]);
+  });
+
+  it('each of those dynamic imports hands its joinRoom ONLY to startStrategy (the joinFn the enumeration checks)', () => {
+    const t = stripComments(norm(readFileSync(join(ROOT, 'src/net/transport.ts'), 'utf8')));
+    for (const mod of ['torrent', 'mqtt']) {
+      const at = t.indexOf(`import('@trystero-p2p/${mod}')`);
+      expect(at, mod).toBeGreaterThan(-1);
+      const then = /^\s*\.then\(\(mod\) => \{/.exec(t.slice(at + `import('@trystero-p2p/${mod}')`.length));
+      expect(then, `${mod}: the .then((mod) => { … }) shape changed — re-check what reaches joinRoom`).not.toBeNull();
+      const bodyStart = t.indexOf('{', at + `import('@trystero-p2p/${mod}')`.length);
+      const body = t.slice(bodyStart, t.indexOf('.catch(', bodyStart));
+      expect(body.match(/joinRoom/g), `${mod}: exactly one joinRoom use`).toHaveLength(1);
+      expect(body).toMatch(/this\.startStrategy\(\s*'\w+',\s*roomCode,\s*mod\.joinRoom as JoinFn,/);
+    }
+  });
+
+  it('⛔ the classifier itself catches every hole the audit named (mutation fixtures)', () => {
+    const holes: Record<string, string> = {
+      destructuredDynamic: "async function f() { const { joinRoom } = await import('@trystero-p2p/torrent'); joinRoom(cfg, code); }",
+      thenDestructure: "import('@trystero-p2p/torrent').then(({ joinRoom }) => joinRoom(cfg, code));",
+      memberAlias: 'function f(mod) { const j = mod.joinRoom; j(cfg, code); }',
+      computed: "function f(mod) { mod['joinRoom'](cfg, code); }",
+      aliasHandoff: "import { joinRoom as joinNostr } from '@trystero-p2p/nostr';\nconst j = joinNostr;\nj(cfg, code);",
+      namespace: "import * as T from '@trystero-p2p/nostr';\nT.joinRoom(cfg, code);",
+      reExport: "export { joinRoom } from '@trystero-p2p/nostr';",
+    };
+    for (const [name, src] of Object.entries(holes)) {
+      expect(unclassified('src/net/fixture.ts', src).length, `hole "${name}" must be caught`).toBeGreaterThan(0);
+    }
+    // …and the covered shapes stay clean (positive control).
+    expect(unclassified('src/net/fixture.ts', [
+      "import { joinRoom as joinNostr, selfId } from '@trystero-p2p/nostr';",
+      'type C = Parameters<typeof joinNostr>[0];',
+      'const room = joinNostr({ rtcPolyfill: POOL_SAFE_PC }, code);',
+    ].join('\n'))).toEqual([]);
+    expect(dynamicImports('src/net/fixture.ts', "const m = await import('@trystero-p2p/nostr');")).toEqual([
+      'src/net/fixture.ts:@trystero-p2p/nostr',
+    ]);
+    // ⭐ S193 audit LOW — a backtick specifier, and a computed one anywhere in src (not only src/net).
+    expect(dynamicImports('src/render/fixture.ts', 'const m = await import(`@trystero-p2p/torrent`);')).toEqual([
+      'src/render/fixture.ts:@trystero-p2p/torrent',
+    ]);
+    expect(dynamicImports('src/render/fixture.ts', 'const m = await import(`@trystero-p2p/${kind}`);')).toEqual([
+      'src/render/fixture.ts:<computed `@trystero-p2p/${kind}`>',
+    ]);
+    expect(dynamicImports('src/state/fixture.ts', 'const m = await import(name);')).toEqual([
+      'src/state/fixture.ts:<computed name>',
+    ]);
+  });
+});
+
 describe('S192 T1 — the Trystero restart bug the workaround targets is still the installed code', () => {
   const core = (p: string) => norm(readFileSync(join(ROOT, 'node_modules/@trystero-p2p/core', p), 'utf8'));
 

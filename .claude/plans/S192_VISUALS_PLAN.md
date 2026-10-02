@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS: S192 `s192/visuals` built V01-V06 (the substrate, the 2-item pilot and the next 3), awaiting merge plus the owner's LOOK. Every other item is QUEUED in batches visuals-2 to visuals-5 (section 5).**
+**STATUS: IN-PROGRESS — V01–V06 (S192), visuals-2 (#21), visuals-4 + visuals-5 (#22) LIVE. Open: visuals-3 (combined re-bench, S194 T2), V28 health ghost + lightning-hub arc + the aura rework (S194 T4), the shimmer fold.**
 
 # S192 · SPARK VISUAL UPGRADE · the rework list
 
@@ -127,7 +127,7 @@ and after, gates after every commit, no protocol bump.
 Measured with the dev seam `__SPARK__.fx.bench(n)`: it spawns n creatures in FIGHT, then times
 `app.renderer.render` plus the renderer syncs over 300 frames in headless Chromium. Numbers are in
 `S192_PROGRESS_visuals.md`. Rule: no more than +1.0 ms average frame time on HIGH at 120 creatures with every new
-effect live, and no measurable cost on LOW. If bloom breaks the budget, HIGH stays opt-in.
+effect live, and ≤ +1.0 ms on LOW too (⚠ S193 audit L1: LOW is not free — about +0.5 ms on the worst-case board, which is CPU sprite count, not filters). If bloom breaks the budget, HIGH stays opt-in.
 
 ## 7 · Asset licences
 

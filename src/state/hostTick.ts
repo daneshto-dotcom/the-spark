@@ -42,9 +42,9 @@ import {
   PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
   phaseDurationTicks,
+  MONSTER_HOLD_LEAD_TICKS, // ⭐ S193 — the monster fight hold
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
-  T9_ZOMBIE_DEATH_BLAST_RADIUS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
@@ -109,11 +109,14 @@ import {
   releaseShelteredGatherers,
   tickGathererShelter,
 } from './gatherers/gathererLifecycle.ts';
+import { tickRepairJobs } from './repairJobs.ts'; // ⭐ S193 R191-B — FIX is a gatherer job
 import { underDroneCaps } from './droneLifecycle.ts';
 // S160 P4b — the castle's own weapon. No stored timer: the schedule derives from `world.tick`.
 import { castleGunsTick } from './castleGuns.ts';
 import { castleRegenTick } from './castleRegen.ts';
 import { raceUnitEmitTick } from './raceUnitEmit.ts';
+// ⭐ S193 (owner T4) — the goblin tower's auto-build runner.
+import { runGoblinAutoFeed } from './goblinAutoFeed.ts';
 import { dispatchVoltkinSpawn, resummonVoltkins } from './voltkinTv.ts'; // S192 T16 — re-summon + the one Voltkin mint
 // S166 — from the side-effect-free leaf, NOT from `godlyRecipes/raceTower.ts`: hostTick is on the
 // sim hot path and must not pull the registry in as an import side effect.
@@ -144,12 +147,17 @@ import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
+// ⭐ S192 (owner, A3) — the endgame monster waves.
+import { isPantsType, removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
+import { isMonsterFightHeld, isMonsterWave } from './endgame.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
+import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
 import { dispatch, isNetworked, type World } from './world.ts';
 import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
+import { recordWaveSample } from './matchStats.ts'; // ⭐ S191
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
 import { isCorpseEaterFeeding, isStunned, ragedFireTick } from './creatures/creature.ts';
 
@@ -201,6 +209,7 @@ export interface HostTickState {
    * clear, hunter chomp, elimination and a between-ticks raid all look the same to it. Keeping
    * it here rather than on `World` avoids the four-sites tax and a protocol bump.
    */
+  // ⭐ S192 T2 — `owner` too: the death blast credits his seat's kills after he is gone.
   bossRoster: Map<CreatureId, { type: CreatureType; x: number; y: number; owner: PlayerId }>;
   /** ⭐ S168 P7 — life saps SPENT per Vlad. Host-local; see `state/bossSkills.ts` for the tradeoff. */
   sapLedger: SapLedger;
@@ -410,9 +419,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   tickDraft(world);
 
   if (world.gameState === 'PLAYING') {
+    /*
+     * ⭐⭐ S193 (owner, Q2 + ⚠ MINE) — A MONSTER FIGHT CAN HOLD ITS DEADLINE. *"If two players are still
+     * alive, then the clock doesn't end. It doesn't go into the next build phase."* (wave 31, his) — and
+     * waves 27–30 hold while pants are still to come out (mine; `MONSTER_HOLD_LEAD_TICKS`). The deadline
+     * is kept that lead AHEAD of the clock rather than frozen, so every phase-end window (the army's
+     * run-home, the gatherers' shelter, the bots' Ra timing) stays closed while held and fires
+     * normally once the hold lets go. Policy: `isMonsterFightHeld` (pure, synced state).
+     */
+    if (isMonsterFightHeld(world) && world.phaseEndsAtTick < world.tick + MONSTER_HOLD_LEAD_TICKS) {
+      world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    }
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
+      const edgeTick = world.phaseEndsAtTick;
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
+      // ⭐ S193 — the monster fight's own clock (`monsterFightStartTick`): stamped with the deadline
+      // tick the edge crossed (so a NONET multi-flip stamps the same value), cleared on leaving FIGHT.
+      world.monsterFightStartTick =
+        world.matchPhase === 'FIGHT' && isMonsterWave(world.waveNumber) ? edgeTick : 0;
       // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
       // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
       // above, so reading it here is already the new phase — which is exactly what is wanted.
@@ -439,6 +464,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * is exactly why nothing caught it. Both crossings are covered here.
        */
       bankCarriedSparksAtPhaseEdge(world);
+      /*
+       * ⭐ S192 (endgame) — every crossing restarts the monster count, and the fight's survivors leave
+       * the board at its end — ⭐ HIS ruling (S193 Q3): *"they vanish when this wave ends"*. Removed BEFORE `recallArmies` below, which would
+       * otherwise look for a home a monster does not have.
+       */
+      world.monsterWaveSpawned = 0;
+      if (world.matchPhase === 'BUILD') removeEndgameMonsters(world);
       if (world.matchPhase === 'BUILD') {
         /*
          * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
@@ -453,6 +485,7 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
          * tick — the same reason that guard is keyed on "the loop ran AND we landed in X".
          */
         world.waveNumber += 1;
+        recordWaveSample(world, world.waveNumber - 1); // ⭐ S191 — the stat board's graph point for the wave just closed
         /*
          * ⭐⭐ S187 — AND A NEW WAVE MAY OPEN A DRAFT. Waves 6, 11, 16, 21 … qualify; the pre-wave-1
          * draft is opened by `applyStartGame` instead, because the opening BUILD never crosses this
@@ -1394,6 +1427,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     }
   }
 
+  /*
+   * ⭐⭐ S193 (owner T4) — THE AUTO-BUILD TOGGLES. AFTER the spawner poll, so a tower that broke this
+   * tick is already gone. Both phases (a manual FEED is not phase-gated either). It dispatches
+   * FEED_TOWER as the tower's owner, so every gate a click passes applies — see `goblinAutoFeed.ts`.
+   */
+  runGoblinAutoFeed(world);
+
   // S103 P2 — DEFENDER poll (host-only), mirroring the spawner poll above. Each tick:
   //   (a) revalidate (throttled per-defender by a deterministic phase slot): anchor gone OR the
   //       recipe broke (a chewer ate the structure) → REMOVE_DEFENDER (the v1 counterplay).
@@ -1547,6 +1587,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // ⛔ WHY THE WHOLE BLOCK AND NOT A MOVEMENT CLAMP. A clamp would freeze them in place but leave
   // Step 1's target re-selection and Step 3's CREATURE_ATTACK dispatch running, so a creature
   // already adjacent to a bond would keep chewing it without moving an inch.
+  /*
+   * ⭐ S192 (owner, A3) — THE MONSTER WAVES POUR OUT OF THE QUARRY, BEFORE THE FAN-OUT, the position
+   * every spawner poll in this tick already uses: a monster born here is in SPAWNING (force-free) for
+   * its first `spawnTicks`, so it joins the loop below without acting on its birth tick. Gated inside
+   * (PLAYING + FIGHT + waves 27–31), so this call site holds no policy.
+   */
+  tickEndgameSpawner(world);
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
     /*
@@ -1660,6 +1707,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = at.y;
           }
         }
+      } else if (creature !== undefined && creature.state === 'SEEKING' && isPantsType(creature.type)) {
+        /*
+         * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER HUNTS ONE SEAT. *"those monsters generate and attack
+         * a certain enemy."* Placed AHEAD of the structure-attacker arm because a monster belongs to no
+         * seat, so that arm's owner-colour scans would aim it at EVERY player's buildings. Its strike
+         * still runs through the shipped fire step below, unchanged.
+         */
+        runEndgameMonsterTargeting(world, creature);
       } else if (
         creature !== undefined &&
         creature.state === 'SEEKING' &&
@@ -2278,6 +2333,9 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // the hunter loop above. Keys are snapshotted first: a tick can mutate the population in a
     // future slot (respawn/harassment, V6-2.2), and iterating a live Map while it changes is the
     // bug class the creature fan-out already guards against.
+    // ⭐ S193 R191-B — the FIX queue first: it checks, moves, finishes and hands out repair tasks, and the
+    // haul cycle below skips every gatherer that holds one ("the top priority for your gatherers").
+    tickRepairJobs(world);
     if (world.gatherers.size > 0) {
       for (const gid of Array.from(world.gatherers.keys())) {
         dispatch(world, { type: 'GATHERER_TICK', gathererId: gid });
@@ -2476,15 +2534,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
 
       for (const boss of deaths) {
         if (boss.type !== T9_BOSS_TYPE.zombies) continue;
-        dispatch(world, {
-          type: 'STRUCTURE_SELFDESTRUCT',
-          blast: 'raze', // ⭐ S191 C-5 — R138 is not the hub's ruling: still the raze, unchanged
-          pos: { x: boss.x, y: boss.y },
-          radius: T9_ZOMBIE_DEATH_BLAST_RADIUS,
-          // ⭐ NO ownerPlayerId — owner-AGNOSTIC, which is exactly R138's *"hurting everything"*.
-          // ⭐ S192 (spec Q5, ⚠ MINE) — except his seat's TEAMMATES (R192-T1); his own side still burns.
-          alliesOf: boss.owner,
-        });
+        /*
+         * ⭐⭐ S192 (owner T2 + T3) — NO LONGER A RAZE. *"a total damage pool that is split … closer to the
+         * explosion will give you more damage and further is less"* and *"every zombie that kills …
+         * through an explosion … creates a regular zombie"*. One pool (⚠ AWAITING OWNER), split by
+         * distance over everything in `T9_ZOMBIE_DEATH_BLAST_RADIUS`, owner-agnostic as R138 ruled,
+         * every kill credited to his seat — see `racial/zombieDeathBlast.ts`.
+         */
+        applyZombieDeathBlast(world, { x: boss.x, y: boss.y }, boss.owner);
       }
     }
   }

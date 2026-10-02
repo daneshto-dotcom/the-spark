@@ -1,5 +1,172 @@
 # S189 PROGRESS — `s189/weld` (C2: welding onto a tower must not dissolve it)
 
+## ⭐⭐⭐⭐ S193 PRE-LAND MERGE ROUND (re-audit CLEAN) — read this first
+- **merge** cd2a1e1 ← master 0a64ff8 (PROTOCOL 60: magic, bots, goblin-autobuild, visuals-4/5, carry-fwd,
+  endstats). **7 conflicts**, each kept both intents: spawner.ts / save.ts / stateHashFull.ts (weld's
+  `ownPrimitiveIds` REPLACES `ownBondIdLimit`; goblin-autobuild's `autoFeedMask` / `autoFeedCursor` kept in
+  field, factory, both serializers, trim, hash union + projection) · defenderLifecycle.ts, world.ts (both
+  imports) · structurePanel.test.ts (weld `hire()` + magic `'physical'`) · e2e/castle-panel.spec.ts (NINE
+  rows: fixAll … castleMres, both docblocks). Magic's required `DamageClass` added at weld's 11 test sites.
+- **seams fixed** (828ee9c, 7ae17e1, 68f03db): canon §3d + `castlePanel.ts` comment say FIVE stat rows
+  (MRES); FIX ALL blocker docblock lists QUEUE FULL; phase test gains a second job (id 7) — the re-auditor's
+  surviving mutant "phase by tick only" is now RED; carry-fwd `repairHealNumberJoiner.test.ts` (3 RED on the
+  merge: it dispatched REPAIR_STRUCTURE for an instant restore) re-pinned to `applyRepairStructure` + a NEW
+  joiner REACH: a JOB finished through the host tick → the joiner derives one green 12 off the wire;
+  goblin-autobuild `goblinAutoFeedMemory.test.ts` (1 RED, same cause) re-pinned. Every remaining test
+  `dispatch(…REPAIR_STRUCTURE…)` is a deliberate job test.
+- **gates** (tree 68f03db, `.tmp-gates/{TC8,VT8,BUILD8,E2E8}.exit`): typecheck **0** · vitest **0** =
+  **7836 passed + 11 skipped / 517 + 4 skipped** · build **0** — **1121.4 KiB** / 1250 (128.6 headroom) ·
+  e2e:gating (own port) **0** = **71 passed**.
+- **bump:** folded into the merge owner's single 60 → 61 (notes §H reasons 1-9). Never edited PROTOCOL_VERSION.
+
+## ⭐⭐⭐ S193 AUDIT FIX ROUND — FINAL REPORT (read this first)
+- **tip**: see `git log` (code tip 91a1181; docs commits on top). **Merges** (all 0 conflicts):
+  110c17a (master 58 — zombies + lobby-ci), the endgame merge (59), and the latest master b72e779
+  (visuals-2) — master is fully merged at report time. `npm install` after each.
+- **gates** on the final merged tree, each `$?` in `.tmp-gates/{TC7,VT7,BUILD7,E2E7}.exit`:
+  typecheck **0** · `vitest --maxWorkers=3` **0** = **7515 passed + 11 skipped / 489 files + 4 skipped** ·
+  build **0** — entry **1082.3 KiB** / 1250 (167.7 headroom; master alone was not built here — the
+  auditor measured weld at ≈ +20 KiB over master) · `npm run e2e:gating` on this worktree's own port
+  **0** = **71 passed** (7.6 min).
+- **bump verdict: BUMP** (59 → 60 or later; the merge owner's number) — notes §H reasons 1-9: the
+  `ownPrimitiveIds` field replacement and the R191-A rules (round 5), and round 6's `REPAIR_STRUCTURE`
+  meaning change, the new `FIX_ALL` intent, and the new serialized + wide-hashed `World.repairJobs` /
+  `nextRepairJobId` / `Gatherer.repairTask`. The fix round adds no wire change.
+- **fixed this round:** (1) e2e castle-panel row literal → EIGHT rows, `fixAll` first; (2) zombies T11
+  seam — `repairHealNumber` instant cases re-pinned + a JOB REACH test that prints the one green number;
+  (3) endgame seam — `FIX_ALL: 'allow'` under the wave-27 lock, docblock corrected, the lock's FIX test
+  re-pinned to the job (bank-sourced); plus a seam the audit could not see before the endgame merge:
+  `endgameS193.test.ts`'s owner-predicate enumeration gains weld's seat-only sites with verdicts;
+  (4) an eliminated seat's jobs cancel and refund; (5) `QUEUE FULL` on the card FIX and the FIX ALL row;
+  (6) `fixAllTargets` claims shapes only for towers it queues (defensive — no reachable board shows the
+  difference; recorded below); (7) the job re-plan is phase-spread by id (`REPAIR_JOB_REPLAN_TICKS` 15,
+  MINE), measured 0.61–1.13 → 0.05–0.07 ms/tick at 32 waiting jobs; (8) canon §8 / §3d / §7b / §9d / §6
+  rewritten on this branch with canon.test pins (32, 15, fixAll first, the new phrases), the two stale
+  docblocks, canon notes §H reasons 7-9.
+- **mutants:** F1 eliminated-not-cancelled · F2 card ignores the bound · F3 row ignores the bound ·
+  F4 re-plan every tick · F5 job restore no-op — all RED, restored (plus round 6's M1-M9).
+- **MINE / owner questions (unchanged from round 6, plus one):** `REPAIR_JOB_REPLAN_TICKS` 15 (a waiting
+  job notices "nothing left to fix" within a quarter second) — rec: keep. Round 6's list stands: mid-haul
+  finishes first · no gatherer → no FIX · porch not a source · castle wins a tie · 32 jobs a seat · FIX ALL
+  top row · DEEP CURRENT not on repair trips · no carried-shape art.
+- **merge seams:** the canon is rewritten ON THIS BRANCH (§3d, §6, §7b, §8, §9d) — merge it as-is, do not
+  re-apply the digest's suggestions on top. `endgameS193.test.ts` SITES gained three weld entries.
+  Any branch counting owner predicates in `structureRepair.ts` sees 2 now (round 5's `reclaimScopeAt`).
+- **NOT DONE:** item 6 has no REACH case that distinguishes it (stamps never bond to existing shapes;
+  hand-built shared-leaf towers carry no provenance and are never FIX candidates) — kept as a defensive
+  fix with a whole-tower negative test, not mutation-tested. Carried-shape art; DEEP CURRENT on trips.
+
+## ⭐⭐ S193 ROUND 6 FINAL REPORT (R191-B FIX-by-gatherer + R192-W1 castle FIX ALL) — read this first
+- **tip**: see `git log` (code tip 054896f; this report is the docs commit on top) · **merge** 4aaf81a
+  (master 62b83e0, plan-file commits only) — **0 conflicts**.
+- **gates** (tree 054896f, captured `$?` in `.tmp-gates/{TC6,VT6,BUILD6}.exit`): typecheck **0** ·
+  `vitest --maxWorkers=3` **0** = **7307 passed + 11 skipped / 474 files + 4 skipped** · build **0** —
+  entry **1054.9 KiB** / 1100 (45.1 headroom) — round 6 = **+7.0 KiB** (1047.9 → 1054.9).
+- **bump verdict: BUMP** (the branch already earns one; round 6 adds reasons): (1) new client intent
+  `FIX_ALL` (both allowlists, bench + elimination deny); (2) `REPAIR_STRUCTURE` CHANGED MEANING — a v56
+  host restores on the spot, this one queues a job: two builds that shake hands disagree about what the
+  same intent does; (3) new required serialized + wide-hashed state: `World.repairJobs`,
+  `World.nextRepairJobId`, `Gatherer.repairTask` (disk save + net snapshot; `structuralSignature`).
+- **what landed** (`src/state/repairJobs.ts`, `src/state/repairJobTypes.ts`): FIX queues a job (the
+  plan's bill — R13 lost shapes / R182-E one flat; R19 BUILD only; R191-A per tower in a weld; one job
+  per tower). FIX ALL queues every own tower that needs one, in (squared distance from the castle,
+  lowest shape id) order. Each shape = one task. A free gatherer (SEEKING, empty-handed, by id) takes
+  the first open shape of the first job a source can supply, from the NEARER of the castle bank (net of
+  reservations; a tie goes to the castle) and the nearest quarry spark (d², id). Bank debited ON
+  ARRIVAL; a quarry spark is lifted on pickup; the shape is carried to the tower. When the whole bill is
+  delivered the tower is RE-PLANNED: covered → restored (`restoreFromDelivered` = the instant FIX's
+  restore half, nothing consumed twice), surplus → bank; short → the shortfall becomes new open shapes.
+  Tower gone / scrapped / no FIX left → cancel, refund EVERYTHING (delivered + in hand). No source → the
+  shape waits and the gatherer keeps gathering. The shelter keeps a shape IN HAND through the FIGHT (it
+  lands next BUILD) and reopens one not yet picked up. Task holders are off the haul cycle.
+  UI: the card's FIX reads QUEUED / NOTHING TO FIX / NO GATHERERS / COSTS n (the bank no longer gates
+  it); the castle's FIX ALL row (top row) `FIX ALL  n` with NOT YOURS / LOCKED / CASTLE LOST /
+  BUILD ONLY / NO GATHERERS / NOTHING TO FIX; main.ts `setFixAllHandler` → `FIX_ALL` (not predicted).
+- **tests**: `src/state/repairJobsR191B.test.ts` (20) + `src/render/fixAllCastleR192W1.test.ts` (5) —
+  REACH through the real host tick (matcher in PRODUCTION order: host tick → matcher → wipe), the real
+  `CastlePanel` row pressed through its hit-tested Graphics child, the card's FIX through the real
+  `Controls.onDown`. Negatives: R19 FIGHT refusal, no gatherer, one job per tower, a disabled row
+  dispatches nothing, a second FIX ALL queues nothing. Four sites: disk save + wire snapshot round-trip
+  and an heir that finishes the job; two identical runs hash equal every frame for 600 ticks.
+  **Mutants M1-M9 all RED, restored** (source ignores distance · shelter drops a shape in hand · haul
+  cycle runs over a task · restore without coverage · FIX restores on the spot · cancel keeps a shape in
+  hand · bank debited at assignment · FIX ALL unordered · no one-job-per-tower).
+  RE-PINNED (not relaxed): 17 weld tests that dispatched `REPAIR_STRUCTURE` for an instant restore now
+  call `applyRepairStructure` (the restore they test); `structurePanel.test` affordability cases → the
+  job semantics; `stateHashFull.test` families += `repairJobs` (+ the `nextRepairJobId` scalar);
+  `castleStatButtons` fill enumeration text (count unchanged: the row loop draws FIX ALL).
+- **MINE / owner questions (one line each, with a recommendation):**
+  · a gatherer mid-HAUL finishes his delivery before taking a FIX shape — rec: keep (no shape dropped).
+  · a seat with NO gatherer cannot queue a FIX (button: NO GATHERERS) — rec: keep; or an instant FIX
+    from the bank as the fallback if he prefers.
+  · porch shapes are not a FIX source (castle bank + quarry only — his two) — rec: keep.
+  · surplus delivered shapes go to the bank when the bill shrank; a bill that grew on the way adds new
+    open shapes — rec: keep.
+  · FIX ALL is the castle's TOP row (canon §3d pins the four stat rows directly under REGEN) — rec: keep.
+  · the per-seat job bound `REPAIR_JOBS_MAX_PER_SEAT` = 32 — rec: keep.
+  · the castle wins a distance tie with the quarry — rec: keep (a bank shape cannot be taken from you).
+  · DEEP CURRENT (nagas) snap is not applied to repair trips — rec: ask; one line to add.
+  · the carried repair shape has NO art on the gatherer (the cargo is a type, not an entity) — rec: a
+    small glyph on the carrier, for a visuals branch.
+- **merge seams:** SPARK_CANON.md FIX text (≈ :1344-1352, "FIX now reads `NEED 1 MORE`" on an empty
+  bank) is now false — FIX queues a gatherer job; the canon needs the R191-B paragraph and the FIX ALL
+  row (canon §3d's castle buttons gain a row above BUY GATHERER). `bots/` never FIX. `hostTick.ts`
+  gained one call (`tickRepairJobs`) before the gatherer fan-out; `gathererLifecycle.ts` exports
+  `isHarvestable` / `stepToward`; `castlePanel.ts` `CASTLE_ROW_KEYS` gained `fixAll` FIRST (any branch
+  indexing castle rows by number shifts by one). Perf watch: each BUILD tick re-plans every queued job
+  (≤ 32 per seat), and the open castle panel plans every own tower per sync.
+- **NOT DONE:** e2e not run; no carried-shape art; DEEP CURRENT on repair trips.
+
+## ⭐ S193 FINAL REPORT (merge master + SEAM-C7) — read this first
+- **tip** `8430a334` (code tip f1cff75) · **merge** 6e9b57e (master 71abc27) — **textually clean, 0 conflicts**
+  (auto-merged: controls.ts, characterSheetModel.ts, save.ts, stateHashFull.ts). Merged tree before any
+  edit: TC 0 · vitest 0 (7277 + 11 skipped / 472 + 4 skipped files).
+- **gates** (tree f1cff75, after `npm install`, captured `$?` in `.tmp-gates/{TC,VT,BUILD}.exit`):
+  typecheck **0** · `vitest --maxWorkers=3` **0** = **7282 passed + 11 skipped / 472 files + 4 skipped** ·
+  build **0** — entry **1047.9 KiB** / 1100 (52.1 headroom; the charter script WARNS under 60).
+  Delta vs master NOT measured here (no master build in this worktree); the rules file's "~65 KiB shared
+  headroom" puts master at ≈1035 → weld ≈ +13 KiB; this round's seam fix itself is a few hundred bytes.
+- **bump verdict: BUMP** (unchanged, earned by the branch, not by this round): `ownPrimitiveIds` replaces
+  `ownBondIdLimit` on SerializedSpawner/SerializedDefender (rides the wire, kept by `trimMirrorSpawner`,
+  wide-hashed) and the shared sim rules in notes §H. This round's SEAM-C7 changes are render-only reads
+  of already-synced state (bond `damageFifths`, own ids) — no new wire/hash field, no extra reason.
+- **SEAM-C7 resolution** (35ae4e3): ONE pricing `towerUnit.towerOwnPoolAt` over the ONE walk
+  `towerMembersAt` (ownPrimitiveIds): max = recipe pool, cur = max − banked while whole, **0 once an own
+  connector is gone** (crumble rule). `structureBarHealth.towerOwnHealth` (board bar) delegates to it;
+  `structureHealthAt` (lone-tower card) resolves the tower via `towerUnitAt` (the reducers' resolution);
+  `towerUnit.towerOwnHealth` (welded card + rows) and the welded card's CONNECTORS row read it; the ramp
+  art (`rampHealthFrac` over `rampMembersAt` = `towerMembersAt`) is the same arithmetic, asserted equal.
+  Two defects closed: (a) carry's bar priced `pool(own connectors LEFT)` → inside the poll window after a
+  cut own arm it drew a FULL pool(5) bar over a crumbling sprite while the card read 0; (b) `liveBarTowers`
+  is keyed by anchor, so on the W2-4 board (Scarab ring anchored AT a turret hub) the turret drew NO bar —
+  `healthBar` now loops `liveBarTowersByAnchor` (every tower at an anchor).
+- **CARRY-1 × welded per-tower FIX: correct, no code change.** `severWithCarry` filters candidates by
+  OWNER (both ends placed by the struck bond's owner), not by tower. REACH test: an overkill hit on a
+  welded turret arm fells ≥ 2 connectors, the turret falls, its own FIX (tower scope) re-registers it
+  whole (bar = card = art = 1), and the goblin tower's own connectors are untouched by the FIX.
+- **tests** (f1cff75, `weldOntoTowerS189.test.ts` "S193 SEAM-C7", 5): dent → bar = card = art = 49/66 +
+  the other card's row + `structureHealthAt`; weld damage moves none; cut-arm window → art 0, card 0/66,
+  bar 1/66 floor; W2-4 → two bars; FIX after carry. **Mutants (all RED, restored):** bar priced on
+  connectors left · one bar per anchor · pool ignores `whole`. Not mutation-distinguishable (by
+  construction): `structureHealthAt`'s tower resolution — a shape two towers share is always WELDED,
+  so the lone-tower path only ever holds one tower.
+- **MINE / owner questions:**
+  · ⚠ SEAM-C7 (a): in the ≤ 0.5 s window after an own arm is cut, the bar shows its 1-fifth floor on the
+    RECIPE width (was: a full bar on the shrunk width). Rec: keep — it follows the art (his S187 rule).
+  · ⚠ CARRY × WELD: an overkill on a welded tower carries across a SAME-OWNER weld into the next tower
+    (CARRY-1 is owner-scoped, not tower-scoped). Rec: keep (his "destroys however many connectors the
+    hit does"; the structure is one pool, R6) — ask only if he wants towers to stop a carry.
+  · carried over: STAMP_SLOT_TOLERANCE_FRAC 0.5 (X2), the majority-of-stamp fallen-tower rule, SHEETS-6
+    (own HP 0/66 while the weld keeps it standing).
+- **merge seams the merge owner must know:** canon §9d item 3 / RULE 1 docblock in
+  `structureBarHealth.ts` said "priced `structurePoolFifths(own connectors)`" — now the RECIPE pool with
+  the crumble zero (file docblock + both functions updated here); the CANON §9d text (`SPARK_CANON.md:1621`) still says `structurePoolFifths(own connectors)` and
+  should say "the recipe's pool, 0 once an own connector is gone". SEAMGATES-1 (endstats ×
+  DORMANT) / SEAMGATES-2 (hub blast prose) / SEAMGATES-4 (canon §7b R185-B amended + canon.test re-pin)
+  remain merge-owner chores per the digest. teams branch's CARRY-1 ally filter will touch the same
+  `severWithCarry` candidate filter.
+- **NOT DONE:** e2e (not run this round); master-side bundle measurement; round 6 (waits for go).
+
 Branch `s189/weld`, base 15035b9 (live deploy #2, PROTOCOL_VERSION 50). Brief = PDR §5.3.
 Merge owner resumes from this file if the agent is cut off.
 
@@ -379,7 +546,54 @@ the committed tree, each a captured `$?`:
 VITEST_EXIT=0 (6062 / 368) · build BUILD_EXIT=0 (950.7 KiB, +6.5 KiB of the shared headroom). No
 hotspot file touched this round; no protocol edit (the weld bump reasons are unchanged).
 
-## IN-FLIGHT
+## S192 — ROUND 5 FIX ROUND (merge owner brief: fix the digest's "s189/weld ROUND 5" rows, reproduce-first)
+
+### STEP 1 — `git merge master` (master e4d52dc) → merge commit c8d50fe
+- CONFLICTS: **none** (textual merge clean; master already held this branch's c7436a2).
+- gates on the merged tree, each a captured `$?`: typecheck TC_EXIT=0 · `npx vitest run --maxWorkers=3`
+  VT_EXIT=0 — 6723 passed + 7 skipped / 414 files + 2 skipped · build BUILD_EXIT=0 — **982.3 KiB** (master
+  972.7 → round 5 = **+9.6 KiB** on the merged base).
+
+### STEP 2 — the round-5 audit rows, reproduce-first (each test RED on the round-5 code, then GREEN)
+- **IDENTITY-1 — FIXED ccfa159.** `fallenTowerRegistrationRefused` (per collection, as the register
+  reducers de-dup; same-recipe dup among own; race R137; defender BUILD) is the ONE gate for
+  `settleTowerIdentity` AND `planStructureRepair` (via `fallenTowerFixCanRegister`) — a FIX that could
+  not re-register is never offered, so the reducer never consumes for it. Tests: real-drop W2-4 board
+  (FIX → registered → stands, ring untouched); cannot-half-spend contract. Mutants: any-collection gate
+  → RED; plan prediction off → RED.
+- **IDENTITY-5 — FIXED 6af3832.** `weldedAt` = membership; the card calls `weldedAt` (no second copy).
+  Test: pentagram + one real-drop weld on its anchor, both anchor neighbours razed, no tick. Mutants:
+  size compare → RED; card inline copy → RED.
+- **SHEETS-2 — FIXED 86be927.** `weldHits = []` in `reset()`. Tests: select(null)+sync, SCRAP+sync,
+  clear(), REACH through the real Controls (a goblin on the stale row opens the goblin).
+- **IDENTITY-4 — FIXED 2fc8005.** `sameUnit` = record identity (live) / equal member arrays (stamps).
+  Test: chained goblin towers sharing their lowest shape — each card lists the other.
+- **IDENTITY-2 + SHEETS-4 — FIXED 2b6771c.** `towerHitAtPoint` / `rampHitAtPoint` carry the art's
+  recipe; `towerClickShapeAt` / `unitClickShape` select the tower's lowest UNSHARED own shape (art arm
+  and `weldedRowFor`). Only a shape in the hit tower's component that is not a live tower's own beats
+  the art box. Tests: W2-4 rows (state), REACH turret art → LASER TURRET + scoped SCRAP, loose rubble on
+  an un-welded art → the tower, weld on the art → structure. Mutants ×3 → RED.
+  `characterSheet.wired.test.ts` source tripwire re-pinned (`towerHit` → `named`).
+- **SHEETS-1 — FIXED 9af1701.** Stamp groups span the whole component (same blueprint/seat, not a live
+  SAME-recipe tower's own, distinct node indices; else the old walk). ⚠ MINE: a group of <= half its
+  blueprint is RUBBLE (free-form, SCRAP only) — closes P4b and the IDENTITY-3 case. Mutants ×2 → RED.
+- **SHEETS-5 — FIXED b608c71.** Strip icons fall down texture → painter → codex emblem → two letters.
+- **IDENTITY-6 / SEAMGATES-3 / SEAMGATES-7 — DONE c39cf83** (doc rows inside this branch's files).
+- **WIRE — ecd0eb5.** `ownBondIdLimit` SHIPPED at 52 (deploy #5); a v52 payload's field is deliberately
+  not read → `ownPrimitiveIds: null` (exact reading) + migration test; "never shipped" docs corrected.
+- **SEAMGATES-1 — NOT REPRODUCIBLE on the current endstats tip**: s191/endstats (d407dbf) already holds
+  the DORMANT body + re-pinned reach test. Trial merge weld(c39cf83) × endstats on a throwaway branch:
+  ONE conflict, `defenderLifecycle.ts` imports (keep BOTH: `ownSetAtRegistration` + `recordTowerBuilt`);
+  typecheck 0, full vitest 0 (6782 passed / 419 files). Branch deleted, nothing kept. Note: a FIX that
+  re-registers a fallen welded tower goes through `applyRegisterDefender`/`Spawner`, so it counts
+  `towersBuilt` again on endstats' board (same as an un-welded FIX re-ignition today).
+- **SEAMGATES-2** (carry prose) — merge owner at the carry merge (false only on the merged tree).
+- **SEAMGATES-4/5/6** — merge-owner chores (SPARK_CANON / canon.test.ts / bundle ledger), not touched.
+
+### STEP 3 — FINAL GATES (tree ecd0eb5): TC_EXIT=0 · VT_EXIT=0 (6740 passed + 7 skipped / 414 files)
+· BUILD_EXIT=0 — **984.3 KiB** (master 972.7 → branch +11.6 KiB; this fix round +2.0 over the merged base).
+
+## IN-FLIGHT (superseded — see the S191 section's own IN-FLIGHT at the end)
 - none — round-4 report delivered.
 
 ## NEXT
@@ -529,3 +743,314 @@ new code never reads a defender or a tower's membership; the rows that do, and t
 - `npm run build` → BUILD_EXIT=0 — **962.6 KiB** / 1100 (137.4 headroom); master 955.9 ⇒ weld **+6.7 KiB**
 - e2e NOT run (brief). Steps 1-6 DONE. Per the merge owner's message, round 5 (R191-A) follows
   instead of stopping; round 6 (R191-B) is QUEUED until "round 6 go".
+
+## ROUND 5 — R191-A, the owner's welded-structure rules (R185-B amended)
+
+### R5-0 — THE DESIGN (written before any code)
+- ⛔ IDENTITY — **a tower's own members are its own PRIMITIVES, and its own connectors are the bonds
+  between them.** Every spawner/defender records `ownPrimitiveIds` (ascending, anchor included) at
+  registration — the exact shape at the anchor (ignition is exact: a star = hub + every hub neighbour,
+  a ring = the exact walk) — REPLACING `ownBondIdLimit`. Star: stands iff the hub + every own leaf
+  stand, types match the recipe, and each own leaf still has a bond to the hub (ANY id). Ring: stands
+  iff the n own nodes stand and the bonds among them close one n-cycle. WHY PRIMITIVES, NOT BONDS: a
+  bond id changes on every re-weld (FIX mints a new one — W-FR4), a primitive id changes only when a
+  NODE is re-minted, which FIX does itself and records in the same reducer; and no bond can ever join
+  two EXISTING shapes except a recipe edge (placement bonds only the NEW shape; FIX re-welds only
+  blueprint edges), so "a bond between two own shapes" is own by construction, whatever its id. A weld
+  can never be an own primitive. Four sites (factory, save + `trimMirrorSpawner` keeps it, wide hash,
+  worker via the save); absent ⇒ the exact pre-S189 reading. The W-FR1 floor moves from `nextBondId`
+  to `nextPrimitiveId` (a razed own shape's id must not be re-issued while its record lives).
+- THE TOWER UNIT (one read model, `towerUnitAt(world, prim)`, used by the reducers AND the sheet):
+  the live tower whose own members hold `prim` (lowest spawner id, then lowest defender id), else —
+  for a stamped shape (`origin`) — its STAMP GROUP (the shapes of the same blueprint reachable through
+  bonds between stamped shapes: a fallen stamped tower), else `null` (a free-form shape).
+  WELDED ⇔ the component holds shapes outside that unit (or, for a free-form click, holds any tower).
+- REDUCERS — no new action, no new field: `REPAIR_STRUCTURE` / `SCRAP_STRUCTURE` infer the scope from
+  the clicked shape, the same way the sheet does. UN-WELDED: byte-identical to today. WELDED + tower
+  shape: FIX = that unit only (bill = what IT lost, R13 / R182-E; heal its own shapes + own connectors;
+  a live record's own set gains the re-minted ids; a FALLEN welded stamp is re-registered directly —
+  exact ignition can never see a welded tower — with anchor = hub / lowest ring id, the matcher's own
+  rule, so the matcher's de-dup still holds later). SCRAP = that unit's own shapes only (a shape
+  another live tower also owns stays — ⚠ MINE). WELDED + free-form shape: SCRAP = the whole component
+  (towers included); FIX refused (plan null + reducer no-op).
+- SHEETS (render model): tower-in-weld → that tower's card (own CONNECTORS/SHAPES/pool, own
+  ATK/aura/Helga/FEED) + a WELDED strip "part of a welded structure cur / max" + small icons of the
+  OTHER towers (clickable); free-form in a weld → WELDED STRUCTURE card: its pool, shape counts by type,
+  connector count, every tower (icon, name, own pool/max; live by spawner id then defender id, then
+  fallen stamps by lowest id), each row clickable (re-uses `ownedRowAt`'s path, no controls change). A
+  visible (non-own) shape under the cursor now beats the tower art box, so a weld on the art is
+  clickable. ONE function per number (`towerOwnHealth`, `structureHealth`), no second derivation.
+- COST, file by file (estimate): spawner.ts/defender.ts + both lifecycles (~40) · towerMembers.ts +
+  starShape.ts + ringShape.ts (~110) · save.ts + stateHashFull.ts hotspot hunks (~20) ·
+  migrationClaim.ts (~10) · NEW state/towerUnit.ts (~150) · structureRepair.ts (~120) ·
+  characterSheetModel.ts (~160) · characterSheet.ts (~110) · structurePanel.ts FEED gate (~5) ·
+  controls.ts click order (~15) · tests (~700). ~1 working day; bundle est. +3–5 KiB (⚠ on top of
+  weld's +6.7 — reported, not hidden).
+- ⚠ Round 6 (repair job, queued) plugs in at ONE seam: `applyRepairStructure`'s restore half becomes
+  the job's on-arrival step; the plan (unit, bill) is unchanged, so this design does not corner it.
+
+### R5-1 — IDENTITY: `ownBondIdLimit` → `ownPrimitiveIds` (W-FR4's root closed)
+- four sites: `spawner.ts` / `defender.ts` field + factory (sorted copy); registration
+  (`applyRegisterSpawner` / `applyRegisterDefender`) records `action.ownPrimitiveIds ??
+  ownSetAtRegistration(...)` (NEW, `towerMembers.ts`: the EXACT shape at the anchor, else null);
+  `reviveDormantHelgas` carries it; SAVE + WIRE (`save.ts`: both Serialized types, both serializers,
+  `trimMirrorSpawner` KEEPS it, both deserializers `?? null`); HASH (`stateHashFull.ts`: both unions +
+  `:op<ids.join('.')>` in both projections); WORKER via the save.
+- walks: `starArmsAt(…, own)` — an arm = a hub bond to an OWN leaf, any id; `ringMembersAt` /
+  `ringRemainsAt` / `sameTypeNeighbours(…, own)` — only own neighbours; `liveTowerLimit` →
+  `liveTowerOwnSet`; `cycleBonds` / `bondsWhollyInside` lose the id filter (both ends are own).
+- `migrationClaim.ts` W-FR1 floor: `nextPrimitiveId` ≥ every live record's own id + 1; `nextBondId`
+  back to `max(live)+1` (bond ids carry no identity now).
+- tests RE-PINNED (not relaxed): the arm test now also re-welds the cut arm with a NEW bond id and
+  asserts it is own again (the W-FR4 case, unit level); four-sites block → `ownPrimitiveIds`
+  (factory, disk + client snapshot keep it, hash flips on either); ring test asserts the recorded set;
+  `migrationClaim.test.ts` W-FR1 → the primitive floor (highest own node razed in the window, takeover,
+  a Triangle bridging the gap gets a NEW id and does not close the ring).
+- mutants: own filter removed from `starArmsAt` → 2 RED (spare arm stands in); prim floor removed → the
+  migration test RED. Restored.
+- runs: typecheck 0; `src/state src/net src/render src/bots` 359 files / 5800 tests EXIT=0 (netWireSize
+  budgets included — the id array fits).
+- HOTSPOT HUNKS: `save.ts` (the two Serialized fields, 2 serializers, trim, 2 deserializers — field
+  rename, self-contained); `stateHashFull.ts` (2 union members, 2 projection suffixes).
+
+### R5-2 — the tower unit + scope-inferred FIX / SCRAP (R4, R5) + R6 verified
+- NEW `src/state/towerUnit.ts` (side-effect-free): `towerUnitAt` (live tower by own shapes — spawners by
+  id then defenders by id — else the STAMP GROUP of a stamped shape, else null), `stampGroupAt`,
+  `structureTowersAt`, `weldedAt`, `recipeConnectorCount`, `towerOwnHealth`, `structureHealth`,
+  `structureComposition`, `sharedWithOtherTowers`.
+- `structureRepair.ts`: NEW `reclaimScopeAt` (WHEN/WHERE + ownership over the WHOLE component in both
+  scopes — S152's foreign-shape rule is not bypassable by tower scope); `planStructureRepair` /
+  `planStructureScrap` take their members from it and carry `scope` (+ `unit`); a welded free-form
+  click → FIX null (R5); tower SCRAP drops shapes another live tower is built of (⚠ MINE);
+  `applyRepairStructure` → NEW `settleTowerIdentity`: a LIVE record adopts the restored stamp's shapes
+  (a re-minted node joins), a FALLEN welded stamp is registered directly (`applyRegisterDefender` /
+  `applyRegisterSpawner` with explicit `ownPrimitiveIds`; anchor = hub / lowest ring id — the matcher's
+  own pick; gates: stands as its recipe on its own shapes, no live tower of it anchored there, race
+  tower only for its race, defender only in BUILD). The stale `blueprintGroupOf` reason rewritten (§E).
+- UN-WELDED structures: byte-identical path (the component IS the tower). Every pre-existing
+  repair / panel test green except the ones that pinned R185-B's old "one weld = unfixable" — RE-PINNED:
+  `weldOntoTowerS189` (dented welded turret: weld-click refused, tower-click heals only its own arm, the
+  weld's damage untouched, SAME defender stands; two bat towers: weld-click refused, tower A's FIX heals
+  A only), `structurePanel.test` (the free-form member of a stamp → SCRAP only; a stamped member of that
+  welded structure → the tower's FIX — new case).
+- NEW tests (weld file, 12): W-FR4 window (cut arm → tower FIX re-welds, NEW bond id, SAME turret after
+  two polls) + control (no FIX → falls); FALLEN welded turret → FIX from its remains re-registers it
+  (own set = 6 survivors + the re-minted leaf, never the weld or the cut-off loose leaf) → stands;
+  tower SCRAP (weld + goblin tower stay, refund = its own 6 spirals); structure SCRAP from the weld
+  (everything); structure FIX from the weld (plan null, wide hash unchanged); R6; host-vs-worker over
+  cut → tower FIX → stand (wide hash equal every frame); leaf RAZED in the window → FIX re-mints, the
+  record adopts it, SAME turret stands; shared-leaf SCRAP (lightning hub + stink tower sharing a Circle:
+  the Circle stays, the hub stands).
+- ⭐ R6 VERIFIED, NO CODE CHANGE: `damageConnector` banks on the attacked bond against the COMPONENT's
+  pool and returns "sever" for THAT bond (targeted bond drained first). REACH test through the real host
+  tick: a P1 chewer at the welded turret's far edge (structure pool 204) severs a TURRET connector; the
+  turret falls, the goblin tower stands.
+- mutants (all RED, restored — `mutants.py` in the scratchpad): M1 scope always 'structure' → 8 RED ·
+  M2 fallen stamp not re-registered → 1 · M3 live record keeps the dead id → 1 · M4 shared shape
+  scrapped → 1 · M5 structure SCRAP = the clicked shape only → 1. R5's FIX refusal is enforced twice
+  (explicit welded check + `blueprintGroupOf`'s origin-null refusal — a free-form shape has no origin by
+  definition), so its explicit line is redundant by construction; not mutation-distinguishable.
+- ⚠ FOUND, NOT MINE (reported): a castle unit spawned before a save round trip comes back with a
+  different `Creature.spawnedAtTick` (host `sa1`, worker `sa0`) — the worker INIT wide hash differs.
+  The differential clears setup creatures; units born inside the window compare equal.
+- gates: typecheck 0 · FULL vitest 0 = 6544 + 2 skipped / 399 + 1 skipped files.
+
+### R5-3 — the two cards (R2, R3 + the addendum) and the click
+- MODEL (`characterSheetModel.ts`): `CharacterSheetView.welded?: SheetWelded | null` (absent on every
+  other card). `structureSheet` branches through the SAME read model as the reducers: tower-in-weld →
+  NEW `weldedTowerSheet` (its own CONNECTORS / SHAPES, `health` = `towerOwnHealth`, its own aura /
+  spawn / ATK via the shared `towerRowsFor`, its own Helga row, its own FIX / SCRAP / FEED, subtitle
+  `… · WELDED`, `welded = {role:'tower', structure: structureHealth(comp), towers: the OTHER towers}`);
+  free-form weld → NEW `weldedStructureSheet` (title WELDED STRUCTURE, `health` = the structure pool,
+  CONNECTORS / SHAPES + one row per shape type, SCRAP only, `welded = {role:'structure', towers: ALL}`).
+  Rows: `weldedRowFor` (codex name, portrait, own pool, `down` for a fallen stamp) — ordered spawners
+  by id, then defenders by id, then fallen stamps. `weldedBlockHeight` feeds `heightFor`.
+  ⚠ MINE: `WELD_STRIP_H` 50, `WELD_ICON_PX` 22, `WELD_ROW_H` 26, `WELD_MAX_ROWS` 6 (then "+N MORE").
+- `towerRowsFor` (NEW) — the aura / spawn / emplacement rows, ONE copy for the plain card and the
+  welded-tower card. (The first cut duplicated the emplacement `attackFifths` — `creatureStrike.guard`
+  went RED on the count, correctly; de-duplicated rather than re-pinned. `auraStats.test`'s literal
+  tripwire RE-PINNED to the helper's call AND the plain card's call into it.)
+- RENDERER (`characterSheet.ts`): `drawWelded` after the owned row — tower role: "PART OF A WELDED
+  STRUCTURE", `cur / max`, a bar, a row of the other towers' portrait icons (a small Sprite pool,
+  texture from the card's own `portraitSource`, two letters if the atlas has not loaded); structure
+  role: "TOWERS IN IT · n" + one row per tower (icon, name, own `cur / max` or DOWN). Every icon / row
+  is recorded as drawn and `ownedRowAt` returns its target — the existing re-aim path, so NO controls
+  change was needed for the rows. `getUiPoints().welded` added for the e2e seam.
+- FEED (`goblinKinds.seatFeedTowerAt`): only the tower whose OWN shapes hold the clicked shape — the
+  "else lowest spawner id" fallback put a welded goblin tower's FEED on the turret's and the weld's
+  cards (mutant S3 shows exactly that: 8 buttons on the turret card). Un-welded: unchanged.
+- CLICK (`controls.ts`): a shape under the cursor that is NOT a live tower's own (a weld, loose
+  rubble) now wins over the tower art box — a weld sits ON the art at full opacity (R185-A) and the box
+  swallowed its click.
+- TESTS: `src/render/weldedSheetsR191A.test.ts` (4): each tower card = own pool + total + the other
+  tower, a dent on one moves its own pool and the total, never the other's; the weld card = pool,
+  composition, both towers in order with own pools, SCRAP only, a row opens that tower; a standalone
+  tower has no welded block; REACH through the real `Controls.onDown`: the Triangle ON the turret art
+  opens the structure card, the art opens the tower card. `src/render/weldedSheetRows.test.ts` (1): the
+  real `CharacterSheet.sync` draws 2 rows inside the card rect and `ownedRowAt` on a row → that tower.
+- mutants (RED, restored): S1 weld-first click off → the weld click opens the tower · S2 welded branch
+  off → 2 RED · S3 FEED fallback back → 2 RED · S4 row hit-test off → RED.
+- gates: typecheck 0 · FULL vitest 0 = 6549 + 2 skipped / 401 + 1 skipped · build 0 — **972.0 KiB**.
+  ⛔ BUNDLE: round 5 = **+9.4 KiB** (962.6 → 972.0); the weld branch is now **+16.1 KiB** over master
+  (955.9) against the ≤ 10 KiB per-branch guidance. REPORTED, not hidden, not contorted to fit
+  (128.0 KiB of charter headroom remains).
+
+### RESUME NOTE — an org spend limit stopped the session mid-R5-4 (canon notes). On resume
+`git status` showed exactly one uncommitted file, `S189_CANON_NOTES_weld.md`, = the intended R191-A
+notes edit, fully applied. INSPECTED, coherent; one wording slip fixed ("bonds below its
+ownPrimitiveIds" → "the bonds among") and committed (ac9b209). Nothing reverted.
+
+### R5-4 — canon notes + a self-audit defect found and fixed
+- `S189_CANON_NOTES_weld.md`: identity text → `ownPrimitiveIds` (§A, §G, §H-A); R185-B marked AMENDED;
+  NEW §I (the owner's words, R185-B as amended, the click → card / FIX / SCRAP / FEED table, the
+  fallen-stamp rule ⚠ MINE, the unchanged "FIX needs provenance" rule, suggested canon assertions,
+  §8 limit 2 superseded); §H reasons 9-11 (scope-inferred FIX/SCRAP semantics, FIX re-registers /
+  amends identity, the render-side FEED / click / cards).
+- ⛔ DEFECT FOUND BY SELF-AUDIT (before any auditor): R5-2 only settled identity in TOWER scope. An
+  UN-welded stamped tower that loses a NODE inside the poll window and is FIXed gets a re-minted shape
+  the record never adopted → the poll levels it. Master's survival test was exact, so on master this
+  path worked: a REGRESSION this branch would have shipped. Fix: `settleTowerIdentity` updates a LIVE
+  record in BOTH scopes (recipe + anchor-in-group checked); re-registering a FALLEN stamp stays
+  tower-scope only (un-welded stamps are left to the matcher as before). Test: "a stamped turret
+  loses a LEAF inside the poll window, FIX re-mints it: the SAME turret stands" (un-welded); mutant
+  (tower-scope-only settle) → RED ("the record adopts it"). Restored.
+- `makeBond` call sites re-enumerated to back the "own by construction" claim: `placePrimitive.ts`
+  ×3 (all bond the NEW shape), `blueprintBuild.ts` (fresh stamp nodes only), `structureRepair.ts`
+  (blueprint edges of the group). No path bonds two pre-existing shapes of different towers.
+
+### ROUND 5 FINAL GATES (committed tree 39083cc, `git status` clean), each a captured `$?`
+- `npm run typecheck` → TC_EXIT=0
+- `npx vitest run --maxWorkers=4` → VITEST_EXIT=0 — **6550 passed + 2 skipped / 401 files + 1 skipped**
+- `npm run build` → BUILD_EXIT=0 — **972.1 KiB** / 1100 (127.9 headroom) — weld branch **+16.2 KiB** over
+  master 955.9 (round 5 = +9.5) ⚠ over the ≤ 10 KiB guidance, reported.
+- e2e NOT run. Round 6 (R191-B) QUEUED — not started; the owner's S191 refinement (no shape available
+  → gatherers keep gathering, a job waits for availability; a repair in flight at FIGHT waits in the
+  castle with the shape and lands after the next BUILD starts) is recorded for when it is released.
+
+## IN-FLIGHT
+- none — round 5 report delivered. Round 6 waits for "round 6 go".
+
+## S192 RE-AUDIT ROUND (coordinator: X1, X2, L1, notes §H; NOT carry's structureBarHealth.ts)
+- DONE: none yet. X1 test added (RED, reproduces: row → SCARAB TOWER). X2 test written (RED, reproduces:
+  unit members [0,1,2,3,4,6,12]) and parked at `.claude/plans/S192_reaudit_X2_test_block.ts.txt`.
+- IN FLIGHT: X1 fix in `towerUnit.ts` `unitClickShape` (stamp → lowest member no live tower owns).
+- RESUME: 1) X1 fix + mutant + commit; 2) append the parked X2 block to weldOntoTowerS189.test.ts, fix
+  `stampGroupAt` whole-component mode (each candidate fits its node slot under `fitBlueprintFrame`
+  within tolerance, else bond walk), mutant, commit; 3) L1 save.ts validate+sort ownPrimitiveIds +
+  test; 4) notes §H rewritten for the NEW bump (after 53); 5) gates typecheck / vitest --maxWorkers=3 /
+  build, exit codes to files.
+- ⏸ PAUSED (owner order, usage limit). DONE: X1 FIXED 5a54ed4 (unitClickShape for a stamp = lowest
+  member no live tower owns; test red→green). NEXT STEP EXACTLY: append
+  `.claude/plans/S192_reaudit_X2_test_block.ts.txt` to `src/state/weldOntoTowerS189.test.ts` (run it:
+  RED, unit members [0,1,2,3,4,6,12]); then in `towerUnit.ts stampGroupAt` whole-component mode accept
+  the candidates only if every one fits its node slot under a Procrustes fit (`fitBlueprintFrame` /
+  `frameToWorld` live privately in structureRepair.ts — towerUnit must not import structureRepair
+  (cycle) → export a pure fit from a small shared module or duplicate it in towerUnit with a pinned
+  tolerance ⚠ MINE), else fall back to the bond walk; mutant; commit. Then L1, notes §H, gates.
+  Nothing running in the background.
+- ▶ RESUMED. X2 FIXED 22cfa03 (whole-component grouping needs every candidate in its node slot of ONE
+  Procrustes-fitted stamp, ⚠ MINE tolerance 0.5 × min node spacing, else the bond walk; mutant RED).
+  L1 FIXED adc71ff (`save.restoredOwnIds`: non-negative integers else null, sorted; mutant RED).
+  NOTES 98a44d7 (§H = the NEW bump after 53, six reasons + paste-ready docblock; 52-era text removed).
+  carry's `structureBarHealth.ts` NOT touched (SEAM-C7 waits for the carry merge).
+- GATES (tree 98a44d7): TC_EXIT=0 · VT_EXIT=0 (6743 passed + 7 skipped / 414 files) · BUILD_EXIT=0 —
+  985.4 KiB. IN-FLIGHT: none.
+
+## S193 — merge master + SEAM-C7 (coordinator brief)
+- step 1 — `git merge master` (71abc27, 233 commits) → 6e9b57e, **0 conflicts** (auto: controls.ts,
+  characterSheetModel.ts, save.ts, stateHashFull.ts). TC 0 · vitest 0 (7277+11 / 472+4) on the merged tree.
+- step 2 — SEAM-C7 census: master's `structureBarHealth.ts` already walks `towerMembersAt`, so it read
+  weld's `ownPrimitiveIds` automatically — but it PRICED the walk a second time (`pool(own.bonds.length)`)
+  and picked the tower a second way (lowest anchor), beside weld's `towerUnit.towerOwnHealth`. Conflicts
+  in meaning (not text) and their resolution:
+  | site | master (carry) | weld | resolution |
+  |---|---|---|---|
+  | bar `structureBarHealth.towerOwnHealth` | pool(own connectors left) − banked | — | → `towerOwnPoolAt` |
+  | lone card `structureHealthAt` | lowest-anchor live tower whose walk holds the shape | — | → `towerUnitAt` + `towerOwnPoolAt` |
+  | welded card / rows `towerUnit.towerOwnHealth` | — | recipe pool, 0 if !whole | → `towerOwnPoolAt` |
+  | welded CONNECTORS row | — | own `towerMembersAt` walk | → `towerOwnPoolAt().connectors` |
+  | bar loop `healthBar.ts` | one tower per anchor (`liveBarTowers`) | W2-4 shared anchors exist | → `liveBarTowersByAnchor` |
+  | ramp art `rampHealthFrac(rampMembersAt)` | towerMembersAt walk, 0 if a connector is missing | — | unchanged; asserted equal |
+  | `severWithCarry` CARRY-1 | owner-scoped candidates | per-tower FIX/SCRAP | unchanged; REACH-tested |
+  Committed 35ae4e3. Tests f1cff75 (5 + 3 mutants RED).
+- step 3 — gates (above). Failed commands this round and their verdicts: (1) a `cat >` with no stdin hung
+  a shell for 120 s, then stopped by hand — benign, my own typo, nothing ran; (2) the first seam-test run
+  RED ×3 — test-side: `row.health` carries `frozen`, the race ring's bar takes the art-width floor, and
+  the first overkill (pool + 30) could not fell a second connector (the re-formed pool(n−1) > 30) — all
+  three fixed in the TEST, not the code; (3) a quote lost in a heredoc broke the transform once — fixed.
+
+## ROUND 6 — PLAN SKETCH ONLY (not started; waits for the coordinator's "round 6 go")
+Owner: R191-B (FIX = gatherer jobs: N shapes = N tasks across gatherers; source per task = the NEARER of
+quarry / castle bank that HOLDS the type; queued; no shape → keep gathering, fetch when one appears; a
+repair in flight at FIGHT waits in the castle and lands next BUILD) + R192-W1 (castle FIX ALL button:
+"first go and fix all the existing towers before continuing to gather").
+- SEAM (designed in R5-0): `applyRepairStructure` splits into PLAN (unchanged: unit, bill — the tower
+  scope / structure scope reads `reclaimScopeAt`) and RESTORE (becomes the on-arrival step). A new
+  `REPAIR_STRUCTURE` semantics = enqueue a repair JOB {seat, target unit key (live ref | stamp lowest id),
+  bill remaining[], delivered[]}; one job per tower (re-click = no-op), FIX ALL = enqueue every own
+  damaged/fallen tower in a total order (lowest anchor id).
+- gatherers: `orderForGatherer` / `pickGathererTarget` get a repair-task tier ABOVE orders (owner: "top
+  priority"); task assignment = lowest gatherer id free → nearest source holding the type (squared
+  distance, then id); bank debited at PICKUP (escrow pattern already exists: `gathererEscrow.test.ts`);
+  delivery at the tower's anchor → `delivered += type`; when bill complete → RESTORE (heal + settle
+  identity). Tower death mid-job → cancel + refund carried/delivered to the bank.
+- FIGHT edge: a gatherer carrying a repair shape at FIGHT shelters with it (existing SHELTERED state) and
+  resumes at BUILD; a job never restores during FIGHT (FIX is BUILD-only today).
+- four sites: the job list on World (factory + save/net + wide hash + worker) → another BUMP reason
+  (new required serialized state + action semantics). Castle panel: FIX ALL button (+ hit-test pairing,
+  the S182 fill-count rule). Estimate ~1.5–2 days; bundle +4–6 KiB against 52 KiB headroom — flag.
+- open (MINE defaults to report): carry capacity (as today, multi-trip); one job per tower; FIX ALL order.
+
+## S193 ROUND 6 — R191-B + R192-W1 (coordinator "round 6 go")
+- step 0 — `git merge master` (62b83e0, five plan files) → 4aaf81a, 0 conflicts.
+- step 1 — types + four sites (e49b10d): `repairJobTypes.ts`; `World.repairJobs` / `nextRepairJobId`,
+  `Gatherer.repairTask`; factory, save (disk + wire; validated restore), wide hash (+ unions), worker
+  `structuralSignature`, every teardown site.
+- step 2 — `repairJobs.ts` + plumbing (d560402): queue / FIX ALL / per-tick check-move-finish-assign;
+  the `FIX_ALL` intent (world union + dispatch, both protocol allowlists, bench + elimination deny);
+  `applyRepairStructure` split into consume + `restorePlannedRepair`; `restoreFromDelivered`; the shelter
+  keeps a shape in hand; the haul cycle skips task holders; `tickRepairJobs` before the fan-out.
+- step 3 — UI (6425bd5, 6e508b2): the FIX button reads the queue; the castle FIX ALL row first; main.ts.
+- step 4 — tests (cba6759, 1f8e376, 006eafe, f10f21c, 054896f) + mutants M1-M9 RED.
+- failed commands and their verdicts: (1) the first suite run RED ×5 — `canon.test` §3d (FIX ALL
+  appended under the stat rows → moved to the TOP row, canon untouched), the hash family list
+  (re-pinned: a forcing function), 3 panel affordability cases (re-pinned to the job semantics);
+  (2) the first REACH draft RED ×7 — the test helper ran the matcher BEFORE the host tick, so a restore
+  inside the tick never armed ignition (production runs host tick → matcher → wipe; the helper now does
+  too), and a full-world hash diff after a disk `restore` (bond ids re-keyed by `restore` — pre-existing,
+  not this branch) → replaced by field-level + job/gatherer-part equality, an heir that finishes the job
+  and a two-run determinism differential; (3) the goblin tower's fee unfunded → the job correctly WAITED
+  (no source) — the test now funds `repairFeeShapeFor`; (4) mutants M3 / M6 survived the first draft →
+  the off-the-haul-cycle guard and the exact cancel refund were added; (5) gates chained after a red test
+  → typecheck and build RED on an unused binding (TS6133) — fixed; all three re-run separately → 0/0/0;
+  (6) a bash heredoc with nested quotes failed to parse (exit 2) — nothing ran; rewritten as files.
+
+## S193 AUDIT FIX ROUND (verdict FIX FIRST; auditor notes in `.tmp-audit/`, untouched)
+- step 0 — merges: 110c17a (master 58: zombies + lobby-ci), 059e…/`merge 59` (endgame), then b72e779
+  (visuals-2) — all textually clean; `npm install` after each.
+- 1 MED e2e literal (0f70ac6): `e2e/castle-panel.spec.ts` — EIGHT rows, `fixAll` first.
+- 2 MED zombies T11 seam (f320c4f): `repairHealNumber.test.ts` instant cases → `applyRepairStructure`;
+  NEW REACH: a JOB finished through the host tick prints ONE green 12, nothing at the click.
+- 3 endgame seam (059e21c): `ENDGAME_LOCK_INTENT_POLICY.FIX_ALL = 'allow'`; docblock corrected (FIX is
+  a gatherer job; bank-only once the quarry stops at wave 27); the lock's FIX test re-pinned to the job
+  through the real host tick (the shape came from the BANK).
+- 4-7 LOWs (b7ab615 + tests c20a5ef): eliminated seat → jobs cancel (refund); `QUEUE FULL` on the card
+  and the FIX ALL row; `fixAllTargets` claims shapes only for towers it queues (⚠ not
+  mutation-distinguishable: no reachable board has two STAMPED towers sharing a shape — stamps never bond
+  to existing shapes, and hand-built shared-leaf towers have no provenance, so they are never FIX
+  candidates; kept as a defensive fix, plus a "a whole tower is neither queued nor blocks" test);
+  re-plan phase-spread by job id, `REPAIR_JOB_REPLAN_TICKS` 15 (MINE) — MEASURED with a temporary
+  probe (32 waiting jobs, `tickRepairJobs` alone, 600 ticks × 3): 0.61–1.13 → 0.05–0.07 ms/tick.
+  Mutants F1-F5 RED, restored.
+- 8 canon/doc (cd66ad0, 33a2964, 9d7f36a): SPARK_CANON §8 R191-B paragraph (replaces NEED 1 MORE),
+  §3d FIX ALL row, §7b R185-B amended by R191-A (pinned needles kept), §9d one pricing, §6 what rides the
+  weld merge; canon.test pins 32 / 15 / fixAll-first / the new phrases; stale docblocks in
+  `structurePanel.ts` and `characterSheetModel.ts`; canon notes §H reasons 7-9.
+- merge seam found after the endgame merge (91a1181): `endgameS193.test.ts`'s owner-predicate
+  enumeration — weld's seat-only sites added with verdicts (repairJobs 3, structureRepair 2, towerUnit 2).
+- failed commands and verdicts: the endgame FIX re-pin first read only MY gatherer — the seat starts with
+  its own two and the lowest free id took the task (test fixed to read any of the seat's gatherers);
+  a python heredoc escape mismatch twice (no edit landed; redone with the Edit tool); the eliminated
+  test through the host tick was confounded by the 1v1 match END clearing the queue (that test now calls
+  the pass directly — documented at the test); the phase assertion was off by one (the host tick
+  advances `tick` before the pass) — corrected.

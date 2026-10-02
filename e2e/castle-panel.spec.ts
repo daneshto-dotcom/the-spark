@@ -98,11 +98,19 @@ test.describe('S136 P0 — castle context panel', () => {
      *
      * ⭐ S188 P3 — SEVEN, and still a literal for the same reason: the four castle-stat rows (HP /
      * ATK / DEF / PEN, the S187 sim wired to a button at last) joined the list.
+     *
+     * ⭐ S193 (s192/magic) — the castle MAGIC RESISTANCE row (owner R192-M9, *"either defense or
+     * resistance"*, its own bought axis) joined after PEN; this spec went red on the deploy-#22 gating
+     * run with exactly that one extra key — the literal doing its job.
+     *
+     * ⭐ S193 R192-W1 — NINE, still a literal: FIX ALL (*"a button on your castle saying fix all"*) is
+     * the TOP row (canon §3d keeps the five stat rows directly under REGEN).
      */
     expect(open.rowCenters.map((r) => r.key))
       .toEqual([
+        'fixAll',
         'buyGatherer', 'upgradeSpeed', 'castleRegen',
-        'castleHp', 'castleAtk', 'castleDef', 'castlePen',
+        'castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres',
       ]);
     // On-canvas for this seat — panelOrigin flips the box when it would overflow.
     expect(open.rect!.x).toBeGreaterThanOrEqual(0);

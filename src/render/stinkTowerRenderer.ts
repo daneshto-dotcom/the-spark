@@ -30,6 +30,9 @@
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
+import { fxSeed } from './fx/emitter.ts';
+import { fxActive, fxTop, fxTopShade } from './fx/fxState.ts';
+import { stinkLobFx } from './fx/stinkFx.ts';
 
 /* ⭐ S151 P3 — the veo atlas built from the owner's own STINK TOWER design. Owner: *"the stink tower
  * there is designed and actually looks good so make sure you make the stink tower look like that
@@ -49,6 +52,7 @@ import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { markTowerCover } from './towerCover.ts';
 import { stinkTowerMembers } from './stinkTowerCover.ts';
 import {
+  DEFENDER_FIRE_HOLD_TICKS,
   STINK_AURA_RADIUS,
   STINK_TOWER_BAGS,
   STINK_TOWER_SPRITE_BASE_SCALE,
@@ -217,6 +221,14 @@ export class StinkTowerRenderer {
 
       if (firing && d.lastStrikePos !== null) {
         this.drawLob(g, d.pos.x, d.pos.y - BODY_H, d.lastStrikePos.x, d.lastStrikePos.y);
+        /*
+         * ⭐ S193 (V16) — the contrail and the splash, inside the same not-concealed branch as the arc,
+         * from the same synced FIRE window. Seeded by the defender id and the tick the throw began.
+         */
+        if (fxActive()) {
+          stinkLobFx(fxTop(), fxTopShade(), fxSeed(d.id as unknown as number, world.tick - d.ticksInState),
+            d.pos.x, d.pos.y - BODY_H, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState / DEFENDER_FIRE_HOLD_TICKS);
+        }
       }
     }
 

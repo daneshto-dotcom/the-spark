@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Bot Personalities</title>
+<style>
+:root{--bg:#f6f5f2;--card:#ffffff;--ink:#1d1d1f;--mute:#6b6b70;--line:#e2e0da;
+--bal:#5b7cfa;--war:#e5484d;--for:#2f9e6a;--tyc:#d99a00;--sab:#9b5de5;--rnd:#8a8a8f;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111214;--card:#1b1c1f;--ink:#ececee;--mute:#9a9aa2;--line:#2c2d31;}}
+:root[data-theme="dark"]{--bg:#111214;--card:#1b1c1f;--ink:#ececee;--mute:#9a9aa2;--line:#2c2d31;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:34px;margin:0 0 4px;letter-spacing:-.5px}
+h2{font-size:21px;margin:40px 0 12px}
+.sub{color:var(--mute);margin:0 0 24px}
+.rule{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.box b{display:block;margin-bottom:4px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.p{background:var(--card);border:1px solid var(--line);border-top:6px solid var(--c);border-radius:12px;padding:16px}
+.p h3{margin:0 0 2px;color:var(--c);font-size:20px}
+.p .tag{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:1px}
+.p p{margin:8px 0 0;font-size:15px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--mute)}
+td.name{font-weight:700;color:var(--c);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.lock{color:var(--mute);font-style:italic}
+.chip{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid var(--line);margin:1px 2px 1px 0}
+.army{background:#e5484d22}.def{background:#2f9e6a22}.ruled{background:#5b7cfa22}
+.q{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--tyc);border-radius:10px;padding:12px 14px;margin:8px 0}
+.q b{color:var(--tyc)}
+.lobby{background:#0b0b0c;color:#ddd;border-radius:12px;padding:18px;font-family:ui-monospace,monospace;overflow-x:auto}
+.row{display:flex;align-items:center;gap:12px;background:#151515;border:1px solid #333;border-radius:8px;padding:8px 12px;margin:6px 0;min-width:600px}
+.dot{width:16px;height:16px;border-radius:50%}
+.btn{border:2px solid;border-radius:6px;padding:4px 12px;font-weight:700}
+.small{font-size:11px;color:#888}
+</style>
+</head>
+<body>
+<main>
+<h1>Bot Personalities</h1>
+<p class="sub">S193 · R193-AI · "make them different, not only smarter" — five personalities × four difficulties, like C&amp;C, Age of Mythology and StarCraft II.</p>
+
+<div class="rule">
+ <div class="box"><b>Difficulty = how WELL</b>Speed, reaction, aim, scouting, gatherer upgrades, first-tower rush. Unchanged.</div>
+ <div class="box"><b>Personality = WHAT and WHEN</b>Which towers first, how many, whether it pours shapes into units, who it raids, where Ra lands.</div>
+ <div class="box"><b>Your rulings stay ruled</b>Raid rate untouched (Q2). No self-sever (Q3/Q7). IMBA: goblin tower first, then goblins from leftovers (Q4). HARD waits, IMBA adapts (Q6).</div>
+</div>
+
+<h2>The five</h2>
+<div class="cards">
+ <div class="p" style="--c:var(--bal)"><span class="tag">default</span><h3>Balanced</h3><p>Today's bot, exactly — plus your two IMBA rulings that were never built.</p></div>
+ <div class="p" style="--c:var(--war)"><span class="tag">rusher</span><h3>Warmonger</h3><p>Army first. Goblin and race towers, every spare shape fed into units. At IMBA it goes for the leader.</p></div>
+ <div class="p" style="--c:var(--for)"><span class="tag">turtle</span><h3>Fortress</h3><p>Defence first: stink tower, laser turret, Helga — and more of them. Saves long, Ra guards home.</p></div>
+ <div class="p" style="--c:var(--tyc)"><span class="tag">economist</span><h3>Tycoon</h3><p>Fast and wide: many cheap towers, loose shapes for score, short saves, faster building.</p></div>
+ <div class="p" style="--c:var(--sab)"><span class="tag">harasser</span><h3>Saboteur</h3><p>Connector-eaters first (chewers, drones). Always raids the LEADER. Ra lands on the enemy's front.</p></div>
+ <div class="p" style="--c:var(--rnd)"><span class="tag">surprise</span><h3>Random</h3><p>One of the five, drawn per match from the match seed. Same seed, same pick.</p></div>
+</div>
+
+<h2>How each one plays at each level</h2>
+<p class="sub"><span class="chip army">army</span> emits units · <span class="chip def">defence</span> shoots · <span class="chip ruled">ruled</span> your ruling</p>
+<div class="scroll"><table>
+<tr><th></th><th>NOOB</th><th>MID<br>(race, stink)</th><th>HARD<br>(+ goblin, pentagram)</th><th>IMBA<br>(+ hub, Helga, laser)</th></tr>
+<tr style="--c:var(--bal)"><td class="name">Balanced</td><td>today</td><td>today</td><td>today</td><td><span class="chip ruled">goblin tower first</span><span class="chip ruled">feeds leftovers</span><span class="chip ruled">adapts at the bell</span></td></tr>
+<tr style="--c:var(--war)"><td class="name">Warmonger</td><td class="lock">locked to Balanced</td><td><span class="chip army">race tower</span> → stink · feeds leftovers · saves less</td><td><span class="chip army">goblin</span>→<span class="chip army">race</span>→<span class="chip army">pentagram</span> · <b>feeds EVERYTHING in the fight</b> · more goblin towers · Ra at the enemy</td><td><span class="chip ruled">goblin first</span> → race → pentagram → hub · feeds everything · <b>raids the LEADER</b></td></tr>
+<tr style="--c:var(--for)"><td class="name">Fortress</td><td class="lock">locked to Balanced</td><td><span class="chip def">stink first</span> · more stink towers · saves long · never feeds</td><td><span class="chip def">stink</span> → race → goblin → pentagram · more stinks · never feeds</td><td><span class="chip ruled">goblin first</span> → <span class="chip def">stink</span>→<span class="chip def">laser</span>→<span class="chip def">Helga</span> · more lasers · feeds leftovers</td></tr>
+<tr style="--c:var(--tyc)"><td class="name">Tycoon</td><td class="lock">locked to Balanced</td><td>cheapest first · many race towers · builds 20% faster · saves short</td><td>same, wider ladder</td><td><span class="chip ruled">goblin first</span> → cheapest · many cheap towers · feeds leftovers</td></tr>
+<tr style="--c:var(--sab)"><td class="name">Saboteur</td><td class="lock">locked to Balanced</td><td><b>raids the LEADER</b> · Ra at the enemy</td><td><span class="chip army">pentagram</span> (chewers) first · raids the leader · feeds leftovers</td><td><span class="chip ruled">goblin first</span> → pentagram → <span class="chip army">drone hub</span> · raids the leader · Ra at the enemy</td></tr>
+</table></div>
+<p class="sub" style="margin-top:8px">NOOB builds no towers and cannot raid (your "little cousin"), so a personality there would be a fake choice — the chip is greyed.</p>
+
+<h2>In the VS BOTS lobby</h2>
+<div class="lobby">
+ <div class="row"><span class="dot" style="background:#d8a"></span><span style="width:120px">YOU</span><span class="btn" style="border-color:#d8a;color:#d8a">VAMPIRES</span></div>
+ <div class="row"><span class="dot" style="background:#6c6"></span><span style="width:120px">BOT 2<br><span class="small">army first, feeds units</span></span><span class="btn" style="border-color:#6c6;color:#6c6">ZOMBIES</span><span class="btn" style="border-color:#e5484d;color:#e5484d">WARMONGER</span><span class="btn" style="border-color:#ff3b6b;color:#ff3b6b">IMBA</span></div>
+ <div class="row"><span class="dot" style="background:#ca5"></span><span style="width:120px">BOT 3<br><span class="small">defence first</span></span><span class="btn" style="border-color:#ca5;color:#ca5">MUMMIES</span><span class="btn" style="border-color:#2f9e6a;color:#2f9e6a">FORTRESS</span><span class="btn" style="border-color:#ff8c1a;color:#ff8c1a">HARD</span></div>
+ <div class="row"><span class="dot" style="background:#59f"></span><span style="width:120px">BOT 4</span><span class="btn" style="border-color:#59f;color:#59f">NAGAS</span><span class="btn" style="border-color:#555;color:#555">BALANCED</span><span class="btn" style="border-color:#44ff5e;color:#44ff5e">NOOB</span></div>
+ <p class="small">Click the personality chip to cycle Balanced → Warmonger → Fortress → Tycoon → Saboteur → Random. Default Balanced.</p>
+</div>
+
+<h2>Your questions (built as the recommendation until you say otherwise)</h2>
+<div class="q"><b>A ·</b> At IMBA every personality opens with the goblin tower (your S154 rule) and then plays its style. Or should an IMBA Fortress open with defence? <i>Built: your rule.</i></div>
+<div class="q"><b>B ·</b> Warmonger and Saboteur raid at the same rate as everyone (your "don't change raid rate"). Their aggression is units and who they hit. Want an aggressive bot to raid more? <i>Recommendation: no.</i></div>
+<div class="q"><b>C ·</b> Two Saboteurs both hit the leader (a pile-on). OK? <i>Built: yes.</i></div>
+<div class="q"><b>D ·</b> The names, and my numbers: save 15/20/45 s of each minute, Tycoon builds 20% faster, IMBA adapts in the last 15 s of BUILD.</div>
+
+<h2>Measured (v1, 5 sim-minutes, 3 bots of each kind)</h2>
+<div class="scroll"><table>
+<tr><th>HARD</th><th>what it built first</th><th>units it fed</th><th>signature</th></tr>
+<tr style="--c:var(--bal)"><td class="name">Balanced</td><td>race tower ×3</td><td>0</td><td>today's bot (hash-identical)</td></tr>
+<tr style="--c:var(--war)"><td class="name">Warmonger</td><td>goblin tower on 2 of 3</td><td><b>25</b></td><td>zero defence towers, first paid unit inside the first build phase</td></tr>
+<tr style="--c:var(--for)"><td class="name">Fortress</td><td>stink tower on 2 of 3</td><td>0</td><td>highest defence share (0.44)</td></tr>
+<tr style="--c:var(--tyc)"><td class="name">Tycoon</td><td>race tower</td><td>0</td><td>54 loose shapes vs Balanced's 34</td></tr>
+<tr style="--c:var(--sab)"><td class="name">Saboteur</td><td><b>pentagram on 3 of 3</b></td><td>2</td><td>chewers first, raids the leader</td></tr>
+</table></div>
+<p class="sub" style="margin-top:8px">IMBA: every personality opens with the goblin tower (your rule). Fortress is the only one to field a laser turret; Saboteur adds a pentagram. Warmonger and Tycoon look alike at IMBA in five minutes — that is tuning for next session (question E).</p>
+<div class="q"><b>F ·</b> After wave 27 (no more building) every bot pours its shapes into its goblin AND race towers — you said "they can build more goblins". Feeding race towers too is my call. <i>Built: yes.</i></div>
+<div class="q"><b>E ·</b> IMBA Warmonger and Tycoon need more separation. Tune next session? <i>Built: v1 numbers.</i></div>
+
+<h2>Safe by construction</h2>
+<div class="rule">
+ <div class="box"><b>No protocol bump</b>Bots run only on the host. The only new thing a bot does — feed a tower — is the same button a player presses.</div>
+ <div class="box"><b>Deterministic</b>No new random draws. Same seed, same match, on the host and on the worker.</div>
+ <div class="box"><b>Balanced = today</b>Pinned by a hash taken from master before the code changed.</div>
+</div>
+</main>
+</body>
+</html>

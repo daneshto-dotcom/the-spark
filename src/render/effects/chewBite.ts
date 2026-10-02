@@ -17,6 +17,9 @@
 
 import { Graphics } from 'pixi.js';
 import type { GameEffect } from '../../game/effects.ts';
+import { fxActive, fxTop, fxTopShade } from '../fx/fxState.ts';
+import { fxSeed } from '../fx/emitter.ts';
+import { chewBiteFx } from '../fx/combatFx.ts';
 
 const BITE_RING_COLOR = 0x6b6f7a; // graphite grey ring (pencil-lead)
 const DUST_COLOR = 0x3a3d44; // darker graphite crumb
@@ -32,6 +35,10 @@ export function drawChewBite(
 ): void {
   const { x, y } = effect.pos;
   const r = BASE_RADIUS;
+
+  // ⭐ S193 (V23) — chips that fall, a dust puff and a pale snap (`fx/combatFx.ts`), seeded by the
+  // chewer and the bite's tick. The graphite ring below stays: it is the bite's shape, not its juice.
+  if (fxActive()) chewBiteFx(fxTop(), fxTopShade(), x, y, t, fxSeed(effect.creatureId as number, effect.tick));
 
   // Expanding bite ring (ease-out so it pops then settles), like the bomb ring
   // but small + graphite-grey rather than orange.

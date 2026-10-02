@@ -247,9 +247,10 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
         hit,
         'creature',
         { kind: 'creature', id: attacker.id },
+        'magic', // ⭐ S192 — R192-M2, the Voltkin's chain lightning
       );
       if (died) attacker.killCount += 1;
-    } else if (damageConnector(world, link.id, hit, { kind: 'creature', id: attacker.id })) {
+    } else if (damageConnector(world, link.id, hit, { kind: 'creature', id: attacker.id }, 'magic')) { // S192 — R192-M2
       // ⭐ S188 — named on every building link too, exactly as the creature links above are.
       toSever.push(link.id);
     }
@@ -267,7 +268,7 @@ export function applyVoltkinChain(world: World, attacker: Creature, seed: ChainL
       bondId: id,
       playerId: attacker.ownerPlayerId,
       cause: 'creature', // a Voltkin's lightning, never a chewer's gnaw — the chain is its alone
-    }));
+    }), { kind: 'seat', seat: attacker.ownerPlayerId }); // ⭐ S193 — the carry's stat-board credit
     if (!world.bonds.has(bondId)) attacker.killCount += 1;
   }
   return links.length;

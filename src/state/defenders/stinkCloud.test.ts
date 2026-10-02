@@ -19,6 +19,7 @@
  *    reason was that no bag is ever thrown. The test below is the direct carrier it never had.
  */
 
+import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -44,6 +45,7 @@ import {
   PHYSICS_HZ,
   STINK_AURA_CADENCE_TICKS,
   STINK_AURA_UNIT_FIFTHS,
+  LONE_PRIMITIVE_POOL_FIFTHS,
   PRIMITIVE_MAX_HP,
   SparkType,
   GOBLIN_SHIELD_ATK,
@@ -404,9 +406,9 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const w = make1v1();
     const c = landCloud(w);
     const pool = c.ehp;
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, pool - 1, 'creature', null)).toBe(false);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, pool - 1, 'creature', null, 'physical')).toBe(false);
     expect(w.stinkClouds.get(c.id)!.ehp).toBe(1);
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 1, 'creature', null)).toBe(true);
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 1, 'creature', null, 'physical')).toBe(true);
     expect(w.stinkClouds.has(c.id), 'and the arm REMOVES it — the contract in full').toBe(false);
   });
 
@@ -415,11 +417,11 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const victim = plantVoltkinAt(w, 520, 500); // inside the 90 px bag radius
     const c = landCloud(w); // owned by P0; the Voltkin is P1's
     const before = victim.ehp;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null, 'physical');
     expect(
       w.creatures.get(victim.id)!.ehp,
       'the unit standing in it eats the burst',
-    ).toBe(before - attackFifths(STINK_BAG_ATK, STINK_BAG_PEN));
+    ).toBe(before - blastHitAtDistance(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), 20 * 20, STINK_BAG_RADIUS)); // ⭐ S193 R193-B4 — 20 px off
   });
 
   it('⭐ the burst spares the BAG’S OWNER, not the killer — you cannot safely clear your own', () => {
@@ -432,7 +434,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const mine = [...w.creatures.values()].at(-1)!;
     const before = mine.ehp;
     const c = landCloud(w, P0);
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null, 'physical');
     expect(w.creatures.get(mine.id)!.ehp).toBe(before);
   });
 
@@ -440,7 +442,7 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
     const w = make1v1();
     const c = landCloud(w);
     w.effects.length = 0;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null, 'physical');
     const bursts = w.effects.filter((e) => e.kind === 'BOMB_EXPLODE');
     expect(bursts).toHaveLength(1);
     expect((bursts[0] as { radius: number }).radius).toBe(STINK_BAG_RADIUS);
@@ -449,8 +451,8 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
   it('is idempotent on a bag already gone', () => {
     const w = make1v1();
     const c = landCloud(w);
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null);
-    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 999, 'creature', null)).toBe(false);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, c.ehp, 'creature', null, 'physical');
+    expect(damageEntity(w, { kind: 'stinkCloud', id: c.id }, 999, 'creature', null, 'physical')).toBe(false);
   });
 
   it('⭐ a UNIT finds an enemy bag in reach — and never its own side’s', () => {
@@ -535,6 +537,43 @@ describe('S158 A2 (owner R77) — a landed bag is DESTRUCTIBLE and BURSTS when k
   });
 });
 
+describe('⭐⭐ S193 (owner R193-B4) — "the poop bag … similarly": the burst falls off with distance', () => {
+  it('⭐ REACH: a goblin pops an enemy bag through the real host tick; a lone shape 60 px out takes the scaled 4, not the flat 6', () => {
+    const w = make1v1();
+    const c = landCloud(w, P0); // P0's bag at (500, 500)
+    applySpawnCreature(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: P1,
+      pos: { x: 505, y: 500 }, targetPos: { x: 505, y: 500 }, sourceSpawnerId: null,
+    });
+    // A lone P1 shape 60 px from the bag: its pool is LONE_PRIMITIVE_POOL_FIFTHS (5), so the FLAT 6 would
+    // kill it and the scaled hit does not.
+    const player = w.players.get(P1)!;
+    const id = asPrimitiveId(w.nextPrimitiveId++);
+    w.primitives.set(id, {
+      id, type: SparkType.Square, placerColor: player.color, placedBy: P1, createdTick: w.tick,
+      pos: { x: 560, y: 500 }, prevPos: { x: 560, y: 500 }, bonds: new Set(), ownerColor: player.color,
+      lastOwnershipChange: w.tick, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+    });
+    const full = attackFifths(STINK_BAG_ATK, STINK_BAG_PEN);
+    const scaled = blastHitAtDistance(full, 60 * 60, STINK_BAG_RADIUS);
+    expect([full, scaled], 'arithmetic: 6 at the centre, 4 at 60 of 90 px').toEqual([6, 4]);
+    expect(scaled).toBeLessThan(LONE_PRIMITIVE_POOL_FIFTHS);
+    expect(full, 'the flat hit would have killed it').toBeGreaterThanOrEqual(LONE_PRIMITIVE_POOL_FIFTHS);
+    const d = deps();
+    const st = makeHostTickState(w);
+    let gone = false;
+    for (let t = 0; t < STINK_CLOUD_LIFETIME_TICKS - 40 && !gone; t++) {
+      runHostTick(w, d, st);
+      gone = !w.stinkClouds.has(c.id);
+    }
+    expect(gone, 'anti-vacuity: the goblin popped the bag').toBe(true);
+    // The bag's own 1-fifth aura beat lands first (5 → 4), so the burst is the KILLING blow — and the
+    // blow that killed it is recorded with its amount: the scaled 4, where the flat burst was 6.
+    expect(w.primitives.has(id), 'aura 1 + burst 4 = its 5').toBe(false);
+    expect(w.structureKillHits.find((h) => h.key === `p:${id}`)?.amount, 'the shape took the distance-scaled burst').toBe(scaled);
+  });
+});
+
 describe('S160 P3 — the landed bag dies to EVERYTHING, and the floor has zero margin', () => {
   /**
    * ⛔ WHY THIS EXISTS. `STINK_BAG_DEF`'s docblock used to say *"1 hp / 0 def means most of the
@@ -573,6 +612,7 @@ describe('S160 P3 — the landed bag dies to EVERYTHING, and the floor has zero 
       attackFifths(GOBLIN_SHIELD_ATK, GOBLIN_SHIELD_PEN),
       'creature',
     null,
+    'physical',
     );
     expect(killed, 'the killing blow reports true').toBe(true);
     expect(w.stinkClouds.has(c.id), 'and the cloud is gone').toBe(false);

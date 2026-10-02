@@ -412,6 +412,16 @@ export type CreatureType =
    * ⚠ A SUMMON, like the direwolf: `sourceSpawnerId: null`, no CreatureSpawner mints it — which is
    * exactly what puts it in front of the one-live-per-(owner,type) latch it must be exempt from. */
   | 'locustCloud'
+  /* ── S192 (owner, A3) — THE ENDGAME MONSTER ("this silly looking pair of pants") ─────────────────
+   * Spawned from the quarry centre in waves 27–31, owned by `MONSTER_OWNER_SEAT` (no seat), each one
+   * assigned a target seat (`monsterSeat`). Keyed by ROLE, not by art, so re-skinning it costs no
+   * protocol bump. ⛔ SERIALIZED, so it earns a PROTOCOL_VERSION bump on the grounds every new
+   * literal has (`deserializeCreature` has no type whitelist). */
+  | 'endgameMonster'
+  /* ── S193 (owner, Q2) — THE MEGA PANTS: *"a huge boss that just comes and destroys everything"*, the
+   * final fight's clock-breaker. One at a time, owned by `MONSTER_OWNER_SEAT`, no assigned seat.
+   * ⛔ SERIALIZED — a new literal, so it rides the same bump. */
+  | 'megaPants'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'
@@ -724,6 +734,15 @@ export interface Creature {
    */
   rageStartTick?: number;
   /**
+   * ⭐⭐ S192 (owner, A3) — **THE SEAT THIS ENDGAME MONSTER WAS SENT AT.** *"those monsters generate
+   * and attack a certain enemy"*. Written ONCE at birth (round-robin over the living seats); the
+   * retarget when that seat is eliminated is DERIVED (`monsterVictimSeat`), never re-written, so both
+   * sims agree without a second write. Absent for every other creature.
+   *
+   * ⚠ SERIALIZED, ON THE WIRE (a promoted successor runs the AI) AND HASHED (`:ms`), ADDITIVE-OPTIONAL.
+   */
+  monsterSeat?: PlayerId;
+  /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.
    *
@@ -947,6 +966,19 @@ export interface Creature {
    * treatment as the deadline, and meaningless once the deadline has passed.
    */
   corpseEaterAnchor?: Vec2;
+  /*
+   * ⭐⭐ S192 (owner T12, CORPSE EATER) — **THE FEED HEAL STILL OWED, AND WHEN ITS LAST PULSE LANDS.**
+   * *"It should show that he's healing over time … every tick of healing should show above him."*
+   * Each landed feed bite banks its heal here (`bankCorpseEaterHeal`), and `payCorpseEaterHealPulse`
+   * pays it in six pulses ten ticks apart ending at `untilTick`, each through `noteCreatureHeal`.
+   *
+   * ⚠ SIM STATE, NOT PRESENTATION: it decides his pool for the next 60 ticks, so a save, a snapshot,
+   * a host-migration successor and the `?worker=1` mirror must all carry it — FOUR SITES: defaults
+   * undefined (no factory change), serialized (`save.ts`, both directions, only while set), HASHED in
+   * the wide oracle (`:cb`), and the worker rebuilds from that same serializer. Emitted only while
+   * set, so a board with no feeding boss is byte-identical. Read only through `corpseEater.ts`.
+   */
+  corpseEaterHealBank?: { fifths: number; untilTick: number };
   /*
    * ⭐⭐ S189 (owner R190-I) — **EVERY HEAL THIS CREATURE HAS EVER RECEIVED, SUMMED. A MONOTONIC
    * COUNTER, NEVER RESET.**

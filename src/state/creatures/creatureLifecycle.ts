@@ -63,6 +63,8 @@ import { underRaceUnitCaps } from '../raceUnitEmit.ts';
 import { isT9BossType, T9_BOSS_TYPE } from '../t9BossIds.ts';
 // ⭐ S188 — the racial mechanics' one death hook (THE RISEN, HELLSPAWN). See `damageCreature`.
 import { onCreatureDeathDecided } from '../racial/racialDeaths.ts';
+import { recordUnitBuilt } from '../matchStats.ts'; // ⭐ S191 — the stat board's UNITS, at each of the three mints
+import type { KillCredit } from '../racial/killCredit.ts'; // S192 T2
 
 /** Action shapes — exported so `world.ts` can compose `GameAction`. */
 export interface SpawnCreatureAction {
@@ -93,6 +95,8 @@ export interface SpawnCreatureAction {
    * chewer spawn that hasn't picked a victim). Chewer-only.
    */
   readonly victimPlayerId?: PlayerId;
+  /** ⭐ S192 — an endgame monster's assigned seat, stamped onto `Creature.monsterSeat`. */
+  readonly monsterSeat?: PlayerId;
 }
 
 export interface DespawnCreatureAction {
@@ -236,6 +240,13 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
       action.creatureType !== 'voltkin' &&
       action.creatureType !== 'direwolf' &&
       action.creatureType !== 'locustCloud' &&
+      /*
+       * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER, AND THIS IS THE FIFTH SUMMON THIS LATCH WOULD HAVE
+       * EATEN. A wave is up to 250 per seat (S193, his) from ONE owner (`MONSTER_OWNER_ID`) of ONE type with
+       * `sourceSpawnerId: null`; without this arm the first is born and every other one is silently
+       * discarded. The bound is the spawner's own count (`MONSTER_WAVE_PER_SEAT`, `monsterWaveSpawned`).
+       */
+      action.creatureType !== 'endgameMonster' &&
       !isT9BossType(action.creatureType)
     ) {
       for (const c of world.creatures.values()) {
@@ -276,7 +287,10 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
             sourceSpawnerId: null,
             draftPicks,
           });
+    // ⭐ S192 — the endgame monster's victim seat, written once at birth (see `Creature.monsterSeat`).
+    if (action.monsterSeat !== undefined) creature.monsterSeat = action.monsterSeat;
     world.creatures.set(id, creature);
+    recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
     return world;
   }
 
@@ -301,6 +315,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
       }),
     );
+    recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
     return world;
   }
 
@@ -367,6 +382,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
   });
   world.creatures.set(id, creature);
+  recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
   return world;
 }
 
@@ -543,11 +559,12 @@ export function damageCreature(
    */
   deferDelete?: Set<CreatureId>,
   /**
-   * ⭐ S188 — WHICH CREATURE DEALT THE BLOW, when a creature did (`damageEntity` forwards its
-   * `DamageAttacker` here). Read ONLY at the death decision below, by the racial mechanics that
-   * care who killed whom (THE RISEN). Omitted / `null` = nobody to credit, and changes nothing.
+   * ⭐ S188 — WHO DEALT THE BLOW. ⭐ S192 (T2): no longer a creature id re-read at the death decision but
+   * the resolved `KillCredit` (seat + type, `racial/killCredit.ts`), captured by `damageEntity` at the
+   * blow — so a kill whose dealer is already gone (the zombie boss's death blast) is still credited.
+   * Read ONLY at the death decision below, by THE RISEN. Omitted / `null` = nobody to credit.
    */
-  killerId?: CreatureId | null,
+  credit?: KillCredit,
 ): boolean {
   const c = world.creatures.get(creatureId);
   if (c === undefined) return false;
@@ -642,7 +659,7 @@ export function damageCreature(
      * hook does is QUEUED and happens after the sweep — `racial/racialTick.ts`, Council A5.
      */
     if (deferDelete === undefined || !deferDelete.has(creatureId)) {
-      onCreatureDeathDecided(world, c, killerId ?? null);
+      onCreatureDeathDecided(world, c, credit ?? null);
     }
     if (deferDelete !== undefined) {
       // Still "dead" to the caller (kill counts, effects, return value) — only the REMOVAL waits, so

@@ -36,7 +36,7 @@
 // entry bundle. The concrete BotManager is INJECTED by the caller: simWorker.ts (worker
 // chunk, static import — S123 P1) and the differential/unit tests construct it themselves.
 import type { BotManager } from '../bots/botManager.ts';
-import type { BotDifficulty } from '../bots/botTypes.ts';
+import type { BotDifficulty, BotPersonalityChoice } from '../bots/botTypes.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner, type SpawnerConfig } from '../game/spawner.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
@@ -62,6 +62,7 @@ import { mulberry32 } from './rng.ts';
 import { rebuildAuthorityAllocators } from '../net/migrationClaim.ts';
 import { netSnapshot, restore, type NetSnapshot, type WorldSnapshot } from './save.ts';
 import { hashWorldState } from './stateHash.ts';
+import { isMonsterFightHeld } from './endgame.ts';
 import { tickSudoku } from './sudokuEvent.ts';
 import { dispatch, makeWorld, type GameAction, type World } from './world.ts';
 import { asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
@@ -92,6 +93,12 @@ export interface WorkerInitMsg {
    * paths (fallback repair, migration takeover) can never skew the bot streams.
    */
   readonly botMatchSeed?: number;
+  /**
+   * ⭐ S193 (owner R193-AI) — one lobby personality choice per bot seat, same indexing as
+   * `botDifficulties`. Absent ⇒ every bot BALANCED (the pre-S193 bot). RANDOM entries are resolved by
+   * the BotManager from `(botMatchSeed, seat)`, so the worker resolves exactly what main resolved.
+   */
+  readonly botPersonalities?: readonly BotPersonalityChoice[];
 }
 
 export interface WorkerTickBatchMsg {
@@ -193,7 +200,11 @@ export interface WorkerSim {
  */
 export function makeWorkerSim(
   init: WorkerInitMsg,
-  makeBotManager?: (difficulties: readonly BotDifficulty[], matchSeed: number) => BotManager,
+  makeBotManager?: (
+    difficulties: readonly BotDifficulty[],
+    matchSeed: number,
+    personalities: readonly BotPersonalityChoice[],
+  ) => BotManager,
 ): WorkerSim {
   const world = makeWorld(1);
   const snap = JSON.parse(init.saveJson) as WorldSnapshot;
@@ -250,7 +261,7 @@ export function makeWorkerSim(
     init.botDifficulties !== undefined &&
     init.botDifficulties.length > 0 &&
     makeBotManager !== undefined
-      ? makeBotManager(init.botDifficulties, init.botMatchSeed ?? world.rngSeed)
+      ? makeBotManager(init.botDifficulties, init.botMatchSeed ?? world.rngSeed, init.botPersonalities ?? [])
       : null;
   const sim: WorkerSim = {
     world,
@@ -343,6 +354,9 @@ export function structuralSignature(world: World): string {
     // which every other size term in this signature is blind to.
     world.gathererOrders.size,
     queuedOrderTotal(world),
+    // ⭐ S193 R191-B — the FIX queue: a job's need/delivered lists move without any size above moving.
+    world.repairJobs.length,
+    world.repairJobs.reduce((t, j) => t + j.need.length + j.delivered.length, 0),
     world.bombs.size,
     world.hunters.size,
     world.potatoes.size,
@@ -370,7 +384,10 @@ export function structuralSignature(world: World): string {
     // stale phase (and a stale HUD countdown) for up to 100 ms after the flip. Including the phase
     // makes the edge itself a structural change, so the mirror updates on the flip tick.
     world.matchPhase,
-    world.phaseEndsAtTick,
+    // ⭐ S193 (audit) — a HELD monster fight rewrites `phaseEndsAtTick` every tick (it is kept
+    // `MONSTER_HOLD_LEAD_TICKS` ahead, `hostTick`), which made EVERY batch a full snapshot. While held
+    // the slot is a constant token; the hold letting go changes it, so that edge is still structural.
+    isMonsterFightHeld(world) ? 'held' : world.phaseEndsAtTick,
     // S148 P1 — the board is a structural term for the same reason the phase is: it changes no
     // collection size, so without it a mirror could keep drawing every keep on the previous board
     // for up to the 100 ms floor after a match starts.
@@ -578,6 +595,7 @@ export function applyTickBatch(
   world.connectorBreakHits.length = 0;
   world.creatureKillHits.length = 0;
   world.structureKillHits.length = 0;
+  world.structureHealHits.length = 0; // ⭐ S192 T11 — the repair heal record, same contract
 
   return {
     type: 'BATCH_RESULT',

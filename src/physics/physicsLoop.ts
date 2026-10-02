@@ -76,6 +76,7 @@ import { applyKeystoneAnchor } from '../state/keystoneAnchor.ts';
 // modules are kept and still tested; they are simply not wired into the loop. See the ruling block
 // in `stepPhysics` below for why, and for the creature-drag idea he left the door open for.
 import { dispatch } from '../state/world.ts';
+import { isBuildLocked } from '../state/endgame.ts';
 import { asPlayerId, type SparkId } from '../types.ts';
 
 export const PHYSICS_DT = 1 / PHYSICS_HZ;
@@ -116,7 +117,11 @@ export function stepPhysics(
   // that stream differently on a host than on the `?worker=1` mirror the moment their phases
   // disagreed for even one tick, and the differential hash would diverge. Skipping only the
   // dispatch consumes identical randomness on both sims and merely discards the result.
-  if (world.matchPhase === 'BUILD') {
+  //
+  // ⭐⭐ S193 (owner, Q6) — AND FROM THE BUILD LOCK ON, NOTHING AT ALL. *"Shapes don't come anymore, only
+  // fucking pants come."* The same discipline: the call above still runs (identical randomness on host
+  // and mirror), only the dispatch is dropped. `isBuildLocked` is a pure function of the synced wave.
+  if (world.matchPhase === 'BUILD' && !isBuildLocked(world)) {
     for (const s of spawned) dispatch(world, { type: 'SPAWN_SPARK', spark: s });
   }
   // S71 P1 — bomb cadence: dispatch SPAWN_BOMB per request, gated on BOMB_MAX_ACTIVE

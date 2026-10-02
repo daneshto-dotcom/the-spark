@@ -487,6 +487,25 @@ export function shouldLatchDeparture(i: { readonly rejoinPending: boolean; reado
   return i.rejoinPending || i.hostAbsentThisMatch;
 }
 
+/**
+ * ⭐ S193 (net R-2) — does this transport LEAVE record the followed host as absent this match?
+ *
+ * The per-frame sampler in `main.ts` reads `peerIds()` inside the render loop, and a HIDDEN tab runs no
+ * render loop — so a backgrounded joiner never saw its host go, the departure latch stayed closed, and a
+ * 3+-seat takeover waited for the claim clock instead of the re-hosted host's own proof (delayed, never
+ * frozen). The transport's `onPeerChange('leave')` fires from the network callbacks whether or not the
+ * tab is painting, so it records the same fact the sampler does, under the same conditions: a networked
+ * CLIENT, in a PLAYING match, and the peer that left is the host it follows.
+ */
+export function hostAbsentOnLeave(i: {
+  readonly peerId: string;
+  readonly hostPeerId: string | null;
+  readonly isHost: boolean;
+  readonly playing: boolean;
+}): boolean {
+  return i.playing && !i.isHost && i.hostPeerId !== null && i.peerId === i.hostPeerId;
+}
+
 /** A classified snapshot of 'new-match' is NOT applied (`clientHandlers.ts` returns before `receive`). */
 export function classifyHostMessage(i: HostMessageInput): HostSignal | null {
   if (!i.inMatch || !i.fromFollowedHost) return null;

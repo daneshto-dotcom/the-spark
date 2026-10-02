@@ -18,6 +18,7 @@ import type { Spark } from '../game/spark.ts';
 import type { SudokuEvent } from './sudoku.ts';
 import type { DraftEvent } from './draftEvent.ts';
 import type { ZoneLayout } from './zones.ts';
+import type { MatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board's record
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
@@ -25,10 +26,11 @@ import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
-import type { CreatureSpawner } from './spawners/spawner.ts';
+import type { AutoFeedMemory, CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
+import type { RepairJob } from './repairJobTypes.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
@@ -254,6 +256,24 @@ export interface World {
    */
   structureKillHits: { key: string; amount: number | null }[];
   /**
+   * ⭐⭐ S192 (owner T11) — **A REPAIRED STRUCTURE SHOWS ONE GREEN NUMBER: WHAT THE REPAIR RESTORED.**
+   * *"when a tower heals or anything … every healing should show … just like damage is shown on every
+   * hit."* A repair clears every connector's banked damage and refills every surviving shape, and the
+   * renderer could not see the connector half at all: a connector is a RISING pool (`Bond.damageFifths`)
+   * and a fall in it is deliberately never printed — a sever or re-form lowers banks too, and flipping
+   * that test would print fake heals on severs. So `applyRepairStructure` pushes ONE record: the total
+   * restored (banks cleared + shape HP refilled) at the structure's frame centre. `keys` are the shape
+   * watch keys the repair refilled, so the renderer re-seeds them instead of ALSO printing each one.
+   *
+   * Per-FRAME, the `structureKillHits` contract exactly: written on the host, wiped by the consumer and
+   * at the five sites (three phase resets, the consumer, the worker frame boundary), never serialized,
+   * never hashed. ⭐ S193 — a JOINER (and a worker-sim host) has no record, so `DamageNumbers` DERIVES the
+   * same one number from synced state: a connector bank that FELL with no connector severed beside it,
+   * plus the shapes that rose, summed per structure. `keys` also carries the `b:` keys the repair cleared,
+   * so on the host the record wins and the derivation sees those bonds as first sightings.
+   */
+  structureHealHits: { x: number; y: number; owner: PlayerId; amount: number; keys: string[] }[];
+  /**
    * ⭐⭐ S182 — **THE MASS-CLEAR CUE, and without it a new match opens in a shower of phantom
    * damage numbers.**
    *
@@ -312,6 +332,14 @@ export interface World {
    * win = first player to reach PHASE_1_WIN_SCORE.
    */
   scoreByPlayer: Map<PlayerId, number>;
+  /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD'S RECORD: each seat's running totals (units built and killed per
+   * type, towers built/fell, damage dealt/taken in fifths) and the per-wave history the two graphs draw.
+   * Written ONLY through `matchStats.ts`, from host reducers. ⛔ INERT: no reducer may read it (see that
+   * file). Four sites: factory `makeWorld`; resets `applyStartGame` / `applyReturnToTitle` / `softReset`;
+   * `save.ts` additive-optional; `stateHashFull` `ms`/`mh` parts. The worker crosses by snapshot.
+   */
+  matchStats: MatchStats;
   /**
    * S10 P5: debug toggle for structure cinematics.
    */
@@ -492,6 +520,14 @@ export interface World {
    */
   gathererOrders: Map<PlayerId, SparkType[]>;
   /**
+   * ⭐ S193 R191-B / R192-W1 — the FIX queue: every seat's repair jobs, in enqueue order (FIX clicks and
+   * FIX ALL). Host-authoritative, serialized, wide-hashed; cleared with the gatherer economy. See
+   * `repairJobs.ts`.
+   */
+  repairJobs: RepairJob[];
+  /** S193 — monotonic repair-job id counter (serialized: a re-derived one would re-issue ids). */
+  nextRepairJobId: number;
+  /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`
    * in cutsceneOverlay.ts (S25 reflexion: never mutate world from wall-clock
@@ -632,6 +668,15 @@ export interface World {
    */
   fouledPrimitives: Set<PrimitiveId>;
   /**
+   * ⭐ S193 (owner T4, ⚠ MINE) — a goblin tower's auto-build toggles, remembered by ANCHOR while the
+   * tower is down. `applyRemoveSpawner` writes an entry when a toggled goblin tower falls with its
+   * anchor still standing; `applyRegisterSpawner` restores it when a goblin tower of the SAME seat
+   * re-registers at that anchor (a FIX / re-ignition), and drops it either way. An entry whose anchor
+   * is gone is pruned on both paths. Host-only: disk + worker INIT, never the wire; wide-hashed.
+   * Cleared wherever `creatureSpawners` is (match start, title, abort, teardown).
+   */
+  goblinAutoFeedMemory: Map<PrimitiveId, AutoFeedMemory>;
+  /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops
    * because the targeted spark/primitive was claimed by the other player
@@ -683,6 +728,8 @@ export interface World {
       placeTargetMissing: number;
       actorBenched: number;
       actorEliminated: number;
+      /** ⭐ S192 — intent refused by the endgame BUILD LOCK (wave ≥ 27). */
+      endgameBuildLocked: number;
     };
     /**
      * S49 P1 (Sym F) — count of PLACE_PRIMITIVE attempts silently rejected
@@ -765,6 +812,21 @@ export interface World {
    * mirror all agree; a disagreement here would desync the SPAWN RATE, not just a HUD number.
    */
   waveNumber: number;
+  /**
+   * ⭐ S192 (endgame) — how many endgame monsters THIS FIGHT has released (`endgameMonsters.ts`).
+   * Reset to 0 on every BUILD→FIGHT edge; only waves 27–31 ever move it. A COUNTER rather than a
+   * pure function of the tick so a NONET freeze that skips ticks catches up instead of losing
+   * monsters. Serialized (omitted at 0) and hashed (`mw`).
+   */
+  monsterWaveSpawned: number;
+  /**
+   * ⭐ S193 (endgame) — the tick THIS monster FIGHT began, or 0 outside one. Written at the BUILD→FIGHT
+   * edge of waves 27–31 (the deadline tick the edge crossed, so a NONET multi-flip stamps the same
+   * value), cleared at FIGHT→BUILD. It is the spawner's clock: the deadline cannot be, because a monster
+   * fight HOLDS its deadline while pants are still to come out (`MONSTER_HOLD_LEAD_TICKS`). Serialized
+   * (omitted at 0) and hashed (`mf`).
+   */
+  monsterFightStartTick: number;
   /**
    * S97 P5 — per-GodlyId once-per-match guard. Each godly TYPE (voltkin, …) fires at most once
    * per match — "as many godlies as possible but only 1 of each type" (user). Replaces the old

@@ -211,14 +211,14 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
   it('a creature hit heals the attacker', () => {
     const { w, a } = vampireAttacker();
     const v = unit(w, 't3Warband', P1, 520, 500);
-    damageEntity(w, { kind: 'creature', id: v.id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'creature', id: v.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(1 + lifestealFifths(GOBLIN_SWING, 20));
   });
 
   it('a killing blow still heals (overkill included — the number he reads)', () => {
     const { w, a } = vampireAttacker();
     const v = unit(w, 'chewer', P1, 520, 500);
-    const died = damageEntity(w, { kind: 'creature', id: v.id }, GOBLIN_SWING, 'creature', by(a));
+    const died = damageEntity(w, { kind: 'creature', id: v.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(died).toBe(true);
     expect(a.ehp).toBe(3);
   });
@@ -226,16 +226,16 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
   it('a hit on a CONNECTOR heals — the building funnel carries the attacker now', () => {
     const { w, a } = vampireAttacker();
     const [bond] = building(w, P1, 600, 600, 5);
-    damageConnector(w, bond!, GOBLIN_SWING, by(a));
+    damageConnector(w, bond!, GOBLIN_SWING, by(a), 'physical');
     expect(a.ehp).toBe(3);
   });
 
   it('a hit on a lone SHAPE and on the CASTLE heal', () => {
     const { w, a } = vampireAttacker();
     const lone = addShape(w, P1, 700, 700);
-    damageEntity(w, { kind: 'primitive', id: lone.id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'primitive', id: lone.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(3);
-    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(5);
   });
 
@@ -243,9 +243,9 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
     const { w, a } = vampireAttacker();
     const max = creatureMaxEhp(a);
     a.ehp = max - 1;
-    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(max);
-    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(max);
   });
 
@@ -253,37 +253,37 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
     const { w, a } = vampireAttacker();
     a.maxEhp = 9; // a buffed goblin (config pool 7)
     a.ehp = 5;
-    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, 1000, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(9);
   });
 
   it('⛔ NO damage landed ⇒ NO heal: a fallen castle, a tower, a channelling Pharaoh, a corpse, a missing target', () => {
     const { w, a } = vampireAttacker();
     w.players.get(P1)!.castleHp = 0;
-    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a), 'physical');
     // a TOWER: a defender with no pool
     w.defenders.set(4242 as never, { id: 4242, ehp: null } as never);
-    damageEntity(w, { kind: 'defender', id: 4242 as never }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'defender', id: 4242 as never }, GOBLIN_SWING, 'creature', by(a), 'physical');
     // a Pharaoh between realities — damage passes straight through him
     const ph = unit(w, 't9BossMummies', P1, 800, 500);
     ph.raRitualUntilTick = w.tick + 100;
     const phBefore = ph.ehp;
-    damageEntity(w, { kind: 'creature', id: ph.id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'creature', id: ph.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(ph.ehp).toBe(phBefore);
     // a corpse already awaiting the sweep
     const corpse = unit(w, 't3Warband', P1, 820, 500);
     corpse.ehp = 0;
-    damageEntity(w, { kind: 'creature', id: corpse.id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'creature', id: corpse.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     // nothing there at all
-    damageEntity(w, { kind: 'creature', id: asCreatureId(999999) }, GOBLIN_SWING, 'creature', by(a));
-    damageConnector(w, asBondId(999999), GOBLIN_SWING, by(a));
+    damageEntity(w, { kind: 'creature', id: asCreatureId(999999) }, GOBLIN_SWING, 'creature', by(a), 'physical');
+    damageConnector(w, asBondId(999999), GOBLIN_SWING, by(a), 'physical');
     expect(a.ehp).toBe(1);
   });
 
   it('⛔ a DEAD attacker heals nothing (its committed blow still lands — S155 N1)', () => {
     const { w, a } = vampireAttacker();
     a.ehp = 0;
-    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(a.ehp).toBe(0);
   });
 
@@ -298,7 +298,7 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
     w.defenders.set(helga.id, helga);
     expect(helga.ehp, 'fixture: Helga has a pool').not.toBeNull();
     const before = helga.ehp!;
-    damageEntity(w, { kind: 'defender', id: helga.id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'defender', id: helga.id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(helga.ehp, 'the blow landed').toBe(before - GOBLIN_SWING);
     expect(a.ehp).toBe(1 + lifestealFifths(GOBLIN_SWING, BLOOD_DEBT_LIFESTEAL_PCT));
   });
@@ -308,7 +308,7 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
     const id = asStinkCloudId(4401);
     // A bag that SURVIVES the hit, so its burst (which would also hit the attacker) does not fire.
     w.stinkClouds.set(id, { id, pos: { x: 950, y: 950 }, ownerPlayerId: P1, landedAtTick: w.tick, radius: 40, ehp: 30 } as never);
-    damageEntity(w, { kind: 'stinkCloud', id }, GOBLIN_SWING, 'creature', by(a));
+    damageEntity(w, { kind: 'stinkCloud', id }, GOBLIN_SWING, 'creature', by(a), 'physical');
     expect(w.stinkClouds.get(id)?.ehp, 'the blow landed').toBe(30 - GOBLIN_SWING);
     expect(a.ehp).toBe(1 + lifestealFifths(GOBLIN_SWING, BLOOD_DEBT_LIFESTEAL_PCT));
   });
@@ -330,8 +330,8 @@ describe('S188 lifesteal — every funnel arm heals on a LANDED hit, and only th
 
   it('a null attacker (area damage) and a DEFENDER attacker heal no creature', () => {
     const { w, a } = vampireAttacker();
-    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'aura', null);
-    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'defender', { kind: 'defender', id: a.id as never });
+    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'aura', null, 'physical');
+    damageEntity(w, { kind: 'castle', seat: P1 }, GOBLIN_SWING, 'defender', { kind: 'defender', id: a.id as never }, 'physical');
     expect(a.ehp).toBe(1);
   });
 });

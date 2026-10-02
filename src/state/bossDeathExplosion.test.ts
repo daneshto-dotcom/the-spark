@@ -106,7 +106,7 @@ const exploded = (w: World): boolean =>
 /** Kill outright, with the deferred batch CLOSED — the turret / Helga / stink-bag path. */
 function killImmediately(w: World, id: CreatureId): void {
   w.pendingCreatureDeaths = null;
-  damageEntity(w, { kind: 'creature', id }, 100_000, 'player', null);
+  damageEntity(w, { kind: 'creature', id }, 100_000, 'player', null, 'physical');
 }
 
 describe('S168 P7 — the zombie boss death explosion (R138)', () => {
@@ -134,7 +134,7 @@ describe('S168 P7 — the zombie boss death explosion (R138)', () => {
     world.effects.length = 0;
     const batch = new Set<CreatureId>();
     world.pendingCreatureDeaths = batch;
-    damageEntity(world, { kind: 'creature', id: bossId }, 100_000, 'player', null);
+    damageEntity(world, { kind: 'creature', id: bossId }, 100_000, 'player', null, 'physical');
     expect(world.creatures.has(bossId), 'deferred: still present, still swinging').toBe(true);
     sweepDeferredDeaths(world, batch);
     world.pendingCreatureDeaths = null;
@@ -144,22 +144,22 @@ describe('S168 P7 — the zombie boss death explosion (R138)', () => {
   });
 
   /*
-   * ⭐ THE BLAST IS OWNER-AGNOSTIC, and that is R138 read literally. `applyStructureSelfDestruct`
-   * takes an OPTIONAL ownerPlayerId that SPARES the owner's own units — added in S157 after the
-   * owner reported lightning hubs eating their own base. *"hurting everything"* is unambiguous, so
-   * the boss passes none. This asserts the CHOICE, because passing the owner would look like a
-   * tidy improvement to a future reader.
+   * ⭐⭐ S193 (owner R193-B3) — *"It does not hit his own side"*. This test pinned R138's *"hurting
+   * everything"* (owner-agnostic) and is INVERTED by his S193 ruling, which supersedes R138 for this
+   * blast: the boss owner's bystander survives untouched; the enemy's still takes its share.
    */
-  it('⭐ hurts EVERYTHING — including the boss owner own units', () => {
+  it('⭐ R193-B3 — spares the boss owner own units; still hits the enemy', () => {
     const { world, bossId, st } = worldWithBoss('zombies');
     const mine = [...world.creatures.values()].filter(
       (c) => c.ownerPlayerId === P0 && c.type === 'goblinMelee',
     );
     expect(mine.length, 'fixture: the boss owner has a bystander in range').toBe(1);
+    const minePool = mine[0]!.ehp;
     killImmediately(world, bossId);
     runHostTick(world, deps(), st);
-    const survivors = [...world.creatures.values()].filter((c) => c.type === 'goblinMelee');
-    expect(survivors, 'both seats bystanders are inside the blast').toEqual([]);
+    expect(world.creatures.get(mine[0]!.id)?.ehp, 'his own bystander is untouched').toBe(minePool);
+    const enemies = [...world.creatures.values()].filter((c) => c.type === 'goblinMelee' && c.ownerPlayerId !== P0);
+    expect(enemies, 'the enemy bystander is inside the blast (a goblin dies to the whole pool)').toEqual([]);
   });
 
   it('⛔ only the ZOMBIE explodes — the other five bosses die quietly', () => {

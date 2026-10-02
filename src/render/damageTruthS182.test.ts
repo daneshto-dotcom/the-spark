@@ -155,7 +155,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     a.hp = 5; // chewed down; one goblin swing is 12 and will overkill it
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
+      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null, 'physical');
     });
 
     expect(w.primitives.has(a.id), 'the swing must actually kill it').toBe(false);
@@ -168,7 +168,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const c = bag(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null);
+      damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null, 'physical');
     });
 
     expect(w.stinkClouds.has(c.id)).toBe(false);
@@ -181,7 +181,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const d = helga(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null);
+      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null, 'physical');
     });
 
     // ⚠ S189 R190-J — RE-PINNED: killed means DORMANT (no pool), not deleted; the floater is the same.
@@ -197,7 +197,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     connect(w, a, b);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null);
+      damageEntity(w, { kind: 'primitive', id: a.id }, GOBLIN_SWING, 'creature', null, 'physical');
     });
 
     expect(w.primitives.has(a.id), 'it survives — this is the diff path, not the sweep').toBe(true);
@@ -217,7 +217,7 @@ describe('S182 — the killing blow on a STRUCTURE pool prints the SWING', () =>
     const dn = new DamageNumbers();
     dn.sync(w);
     const before = printed(dn).length;
-    damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null);
+    damageEntity(w, { kind: 'stinkCloud', id: c.id }, GOBLIN_SWING, 'creature', null, 'physical');
     w.structureKillHits.length = 0; // the peer never had one
     dn.sync(w);
 
@@ -270,7 +270,7 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
     const d = helga(w, 5);
 
     const out = newFloaters(w, () => {
-      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null);
+      damageEntity(w, { kind: 'defender', id: d.id }, GOBLIN_SWING, 'creature', null, 'physical');
     });
 
     expect(out).toContain(String(GOBLIN_SWING));
@@ -303,7 +303,8 @@ describe('S182 — a pool REMOVED rather than hit prints NOTHING', () => {
  * live and made this guard a lie by omission.
  */
 describe('S182 — the new array is wiped at all FIVE sites, and so are its three siblings', () => {
-  const ARRAYS = ['razedNotKilled', 'connectorBreakHits', 'creatureKillHits', 'structureKillHits'];
+  // ⭐ S192 T11 — `structureHealHits` joins them: the same contract, the same five sites.
+  const ARRAYS = ['razedNotKilled', 'connectorBreakHits', 'creatureKillHits', 'structureKillHits', 'structureHealHits'];
 
   /**
    * ⛔ S182 — **THIS GUARD WAS FILE-SCOPED AND COULD NOT SEE FUNCTIONS.** `src.includes(...)` is

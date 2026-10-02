@@ -86,6 +86,11 @@ the ladder continues to the 14 and the 6, and so does the code.
 whose BOTH ends were placed by the struck bond's owner — never across a weld onto what is welded on, so a
 strike on an enemy bond cannot fell the striker's own connectors (S162) and the hub blast's leftover cannot
 fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
+⛔ **AND A STRUCK WELD CARRIES NOTHING (S193, audit CF-1).** The owner above is read off the struck bond's
+`aId`, and on a weld (mixed ends) which end that is is an accident of placement order — a Voltkin's bolt on
+a weld whose `aId` was his own seat carried into his OWN connectors. The weld still falls; its overkill has
+no single owner to stay on, so it lands nowhere (⚠ MINE: a third seat striking a weld between two others
+carries into neither side either). `connectorCarryWeld.test.ts`.
 
 ### Shapes
 
@@ -98,6 +103,73 @@ fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 
 ---
 
+## 2b · ⭐⭐ MAGIC RESISTANCE (MRES) — ONE MORE STAT ON THE SAME LADDER (S192, `s192/magic`)
+
+> *"magic resistance, which is basically on the same ladder as defense levels. One magic resistant level is 1.2,
+> two … 1.4, these 1.6, etc."* · *"nothing makes magic stronger, it's just different."* — owner, S192 (R192-M1, M4)
+
+**THE RULE.** DEF is folded into the POOL (§2), so against magic the one bar must behave as if it were
+`HP × (5 + MRES)` long. A magic hit of `A` fifths therefore lands as
+
+```
+magic landed = floor(A × (5 + DEF) / (5 + MRES))     never below 1 on a real hit     `magicHitFifths`
+```
+
+The HP cancels. **At MRES = DEF it is `A` exactly** — so every unit whose MRES equals its DEF plays exactly as it did
+before magic existed. `magicResist.differential.test.ts` proves it on a four-seat bots match: an all-physical twin and an
+MRES = DEF twin hash identical on EVERY tick for two whole waves (or the whole match, if it ends sooner), with a floor PER
+SOURCE — the Ra column, the Voltkin chain, the zombie ROT, SCORCHED GROUND, a SCORCHED EARTH cast (units, Helga, connectors),
+the stink aura and the stink cloud each have to reach the rescale. It proves the plumbing, not the table.
+The damage number looks the same; magic is not a colour (R192-M4).
+
+**WORKED CASE — the Archdemon, DEF 8 / MRES 14: a magic 300 lands 205** (`floor(300 × 13 / 19)`). A physical 300
+lands 300. A soldier with MRES = DEF takes a magic 300 as 300.
+
+**A one-fifth DoT beat cannot use that floor** (it would always land 1), so a magic DoT is spread over the victim's own
+beats: `floor((b+1)·r) − floor(b·r)` with `r = (5+DEF)/(5+MRES)` (`magicDotFifths`). Exact on average, 1 on every beat
+at MRES = DEF, and **some beats land 0** when MRES > DEF — HIS (R192-M12): *"can be totally resistant to very low level
+magic, I accept that"*.
+
+### What is magic, and what is physical (R192-M2 / M3)
+
+| MAGIC | PHYSICAL — *"Physical, anything else"* |
+|---|---|
+| the **Ra column** — POWER OF RA, every WRATH OF RA charge, the bot cast, AND the Pharaoh boss's ritual (one `landRaColumn`). ⭐ **PER SHARE**: the column's pool is split first, then EACH share is defended by its own target's MRES | every swing, shot and bite |
+| the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, the **zombie boss death blast**, a stink bag bursting, the stink tower's death blast and bag splash |
+| **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
+| the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
+| the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
+
+`magicResist.callSites.test.ts` pins every production damage call and its class, file by file, plus every direct pool write.
+
+### Who has how much MRES (R192-M5 / M6 / M10)
+
+| | MRES | |
+|---|---|---|
+| a **STRUCTURE** of `n` connectors | **`n`** = its DEF | HIS: *"towers will inherently have the same magic resistance as their regular defense"* — so magic lands on a tower exactly as physical |
+| a **shape**, a **stink bag** | **0** = DEF | |
+| a **GLOBAL** unit (goblins, chewer, Voltkin, drone, direwolf, locusts) and **Helga** | **= its own DEF** | HIS (R192-M10) |
+| a **race's** tier-3 unit, and the **castle soldier** by its owner's race | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
+
+⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
+against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+
+### The castle's MRES axis (R192-M9)
+
+*"whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward there
+should be … its own upgrades"* — the keep starts at MRES **0** (its starting DEF) and **MRES is its own bought row**:
+**100 VP** a point, **10** max, like every axis (§3). A bought DEF point no longer raises MRES. A magic hit on the keep lands
+`floor(A × 5 / (5 + MRES level))`, never below 1.
+
+### The RESIST cue (R192-M12, ⚠ MINE look)
+
+When a magic DoT beat lands 0, a grey **"RESIST"** floats over the unit — at most **once a second** per unit, never over a unit
+whose MRES = DEF. DERIVED from synced state every frame (`state/magicResistCue.ts` → `render/damageNumbers.ts`); nothing
+rides the wire for it. It covers the ROT, SCORCHED GROUND, SCORCHED EARTH casts, the stink aura and the stink cloud.
+
+---
+
 ## 3 · THE CASTLE
 
 | | |
@@ -107,7 +179,7 @@ fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 | Damage an attacker deals to it | **its own strike — `creatureAttackFifths(creature)`**: its type's `attackFifths(atk, pen)`, drafted-buffed when its seat drafted ATK/PEN (S190, §3d) — the same ladder as everything else, through the keep's DEF |
 | Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
 | Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level on an un-upgraded keep — 1.0–1.8 % of the seat's **UPGRADED** total (owner ruling R190-C, S190; §3d) |
-| Bought stats | **HP / ATK / DEF / PEN**, 100 VP a point, 10 per axis — live buttons since S188 (§3d) |
+| Bought stats | **HP / ATK / DEF / PEN / MRES**, 100 VP a point, 10 per axis — live buttons since S188 (§3d); MRES (magic resistance) added S192 by his ruling: *"either defense or resistance"* — the keep starts with MRES = its starting DEF, then each axis is bought apart |
 
 ⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
 
@@ -348,12 +420,21 @@ clamp is MINE, like the win bar's.
 ### ⭐⭐ S188 — AND NOW HE CAN PRESS THEM: THE FOUR CASTLE BUTTONS ARE LIVE
 
 S187 built all four in the sim and nothing dispatched `UPGRADE_CASTLE_STAT` — his *"we just have
-regen"* was exactly right. The castle panel now carries **four rows under REGEN — HP, ATK, DEF, PEN** —
+regen"* was exactly right. The castle panel now carries **five rows under REGEN — HP, ATK, DEF, PEN, MRES** (MRES since S192) —
 each printing its level out of **10** (`CASTLE_UPGRADE_MAX_LEVEL`), its price **100**
 (`CASTLE_UPGRADE_PRICE`), and on a second line what the NEXT point buys (`castleUpgradePreview` — for
 HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MAX` · `LOCKED` ·
 `CASTLE LOST` · `NOT YOURS`. The castle's sheet prints the PURCHASED numbers: one ATK point turns the
 **40** shot into **48** (`castleShotFifthsFor`).
+
+⭐ **S193 (R192-W1) — A FIFTH KIND OF ROW, ABOVE BUY GATHERER: FIX ALL.** *"there should be a button on
+your castle saying fix all. And then it just gives a mass command to all the gatherers to first go and
+fix all the existing towers before … continuing to gather."* It is the panel's **top row**
+(`CASTLE_ROW_KEYS[0]` = `fixAll`; ⚠ the position is MINE — the five stat rows (HP · ATK · DEF · PEN · MRES) stay directly under
+REGEN), reads `FIX ALL  n` (n = the towers it would queue, `fixAllTargets`) and names its blocker:
+`NOT YOURS` · `LOCKED` · `CASTLE LOST` · `BUILD ONLY` · `NO GATHERERS` · `QUEUE FULL` · `NOTHING TO FIX`.
+It queues one FIX job per own tower that needs one, **nearest the castle first** (squared distance,
+then lowest shape id) — see §8.
 
 | | |
 |---|---|
@@ -731,6 +812,30 @@ transient: never serialized, never hashed (`'acknowledged'` in `FIELD_COVERAGE`)
 
 ---
 
+## 3g · ⭐ THE GOBLIN TOWER AUTO-BUILD TOGGLES (S193, owner T4)
+
+> *"right click each of the six shapes that build … the goblins … it's like a toggle … whenever there's
+> a free shape, it builds … those goblins."* — owner, S192 playtest list T4
+
+**Right-click a shape on your own goblin tower's card to toggle auto-build for that goblin kind**
+(Square → shield, Spiral → bat, the `GOBLIN_FEED_MAP` row). Several at once. A lit toggle wears a
+green ring and a corner pip, dimmed chip or not. Whenever the tower has a free slot (10, or 20 under
+THE HORDE GROWS) and the bank holds a toggled shape, the tower builds that goblin by itself — **by
+sending an ordinary `FEED_TOWER`**, so it pays exactly what a click pays and every feed gate applies.
+
+- **HIS:** the right-click, the toggle, several at once, "free slot + shape in the bank".
+- **MINE (⚠, at the constants):** a toggled tower looks every `AUTO_FEED_POLL_TICKS` = **6** ticks
+  (0.1 s), one goblin per look; several toggles take turns in shape order from a saved cursor; the
+  goblin tower only (a race tower's chip plays the refused cue); a right-click with something in hand
+  puts it back instead; bots do not use it.
+- **ONE BITE DOES NOT WIPE IT:** a toggled tower that falls with its anchor standing is remembered by
+  that anchor (`World.goblinAutoFeedMemory`, host-only, hashed); FIX re-ignites it there with its
+  toggles back. A tower whose anchor is destroyed, or rebuilt elsewhere, starts OFF.
+- The toggle is the client intent `SET_AUTO_FEED` (a SET, not a flip). Benched: the toggle is allowed,
+  the feeds wait. Eliminated: refused. The endgame build lock: allowed.
+
+---
+
 ## 3c · ⭐⭐ THE QUARRY — ONE SHARED FAUCET, AND IT STEPS UP AT THE SAME FOUR WAVES (S186)
 
 > *"Every wave the primitives need to be spawned quicker and quicker. So far it does that but not
@@ -791,6 +896,33 @@ it**, it only shortens the window.
 ⚠ **NOT FIXED, ON PURPOSE.** The one-line change (stop reaping during FIGHT, so the last BUILD's
 surplus greets them) is a balance decision he has not been asked for, and the TTL is also what clears
 flung debris. Measured, pinned and reported rather than taken.
+
+---
+
+## 3f · ⭐⭐ THE ENDGAME — THE LAST DRAFT, THE BUILD LOCK, THE PANTS (S192, `s192/endgame`)
+
+> *"after the fight of level 25, it's going to be the last upgrade … wave fight 27, 28, 29, … 30, and 31,
+> the next five waves, is going to be basically instant death."* — owner, S192 (A3)
+
+| | |
+|---|---|
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
+| the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
+| monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
+| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. ⚠ MINE as a tick rule: one LANE per living seat, born on the quarry rim facing its keep, **one every 45 ticks** per lane (`MONSTER_EMERGE_TICKS`), lanes staggered |
+| the countdown | ⭐ S193 HIS: *"how many are left to come out"* — `PANTS LEFT TO COME OUT: N` on the top banner (`monstersLeftToComeOut`, derived) |
+| the hold | ⚠ MINE: waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
+| the final fight | ⭐ S193 HIS: wave 31 **never ends on the clock while two or more seats live** — a keep-standing or score win ends it |
+| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*), ⚠ MINE numbers: walks out **240 s** into the final fight (`MEGA_PANTS_AFTER_TICKS`), HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
+| the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
+| owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
+| retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| the music | ⭐ S193 HIS (R193-M): the FIGHT of waves **27 / 29 / 31 → song 1, 28 / 30 → song 2** (`PANTS_MUSIC_SRC`, `pantsMusicForWave`); the endless final fight keeps 31's. ⚠ MINE: FIGHT only, and it overrides the race-music toggle |
+| leftovers | ⭐ S193 HIS: *"they vanish when this wave ends"*; no points for pants kills |
+| the end | ⭐ S193 HIS: last keep standing wins; a wipe from wave 27 on → **the top score wins**; a solo board ends at the wave-32 edge, top score |
+
+Spec: `.claude/plans/S192_ENDGAME_SPEC.md`; his answers: `.claude/plans/S193_OWNER_ENDGAME_ANSWERS.md`. Pinned by `canon.test.ts`, `state/endgame.test.ts` and `state/endgameS193.test.ts`.
 
 ---
 
@@ -882,12 +1014,28 @@ blocker was a footer plate and never this rule.
 **3 · ⭐⭐ The castle keep-out — HALVED (S191).** *"the no build zone near castle is like way too
 ridiculous. It needs to be halved. Okay, like the radius where you can't build around the castle."*
 Nobody builds within `CASTLE_NO_BUILD_RADIUS` = **61** px of ANY castle anchor (S182's 121, halved and
-rounded up — his), NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`,
-⚠ MINE) of any of that castle's **4** porch slots — the halved disc no longer reaches the porch, and a tower
-on a slot would have every pulled shape minted into it. ONE rule, `zones.castleKeepOutHitsBox`: a single
+rounded up — his). ⛔ ~~NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = 34 px of any of that castle's 4 porch
+slots~~ — S191's per-slot discs, **REMOVED from the build rule in S193** (below): they made the keep-out
+reach 108 px south. `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`, ⚠ MINE)
+survives as how close a BUILT shape may stand before a pull skips that slot. ONE rule, `zones.castleKeepOutHitsBox`: a single
 shape (`canBuildAt`) and a stamp (`stampRefusalAt` → `CASTLE`), on the host, the client ghost and the bots
 alike. Still inside it: the keep box and the unit-emit ring (46 px). ⚠ No longer inside it: the castle
 sprite's roof (67 px) and corners (82 px) — a consequence of his halving, reported, not "fixed".
+
+⭐⭐ **S193 P3-1 — AND IT IS ONE DISC, THE SAME ON EVERY SIDE.** *"going down to the south of it look how far
+i need to be … to the right of it … i can build pretty close … it should be just as far as the horizontal …
+like a short radius that you can't build, like immediately around it."* The porch slots all sit SOUTH
+(anchor.y + 74), so S191's per-slot discs stretched the keep-out to **108 px south** against 61 east —
+measured through the real `stampRefusalAt` on the 4P board: a laser turret needed a 73.9 px gap east and
+108.0 south, a single shape 61 east and 105 south. **THE PORCH DISCS ARE OUT OF THE BUILD RULE**:
+`zones.castleKeepOutHitsBox` is the `CASTLE_NO_BUILD_RADIUS` disc and nothing else, so every recipe now
+gets the same gap on every side (laser turret 61.9 / 61.0, single shape 61). What the discs protected moved
+to where it belongs, both uniform: a **PULL skips any slot a built shape stands within
+`CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of** (`firstFreePorchSlot`'s `built` arm — nothing is minted into a
+tower; with every slot covered the pull is the old full-porch no-op, the shape stays banked), and a
+**stamp is `BLOCKED` over a shape resting on the porch** (`blueprintLegality` arm 5, `STAMP_CLEARANCE`).
+⚠ The trade, his call: a player who builds over his own porch loses those slots for pulls until the tower
+goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat).
 
 ---
 
@@ -945,6 +1093,8 @@ the nearest-bond step. Found by the S190 perf audit (`S190_CANON_NOTES_perf.md`)
 (`bondTargetReference.fixtures.ts`) moved first; `spreadStrict.test.ts` drives 40 chewers through the real
 host tick beside a welded mixed structure (30 of them targeted a weld before the fix). The Voltkin
 (`enemyOnly: false`) is unchanged. A targeting rule both peers compute — it rides the deploy's bump.
+⚠ **S193 P3-2: the spread now serves only the CHEWER and the DRONE** — a structure-attacking unit takes the
+nearest strict connector with no spread at all (§5c).
 
 ⭐ **AND THE SCAN IS NOW INDEXED (S190 `s190/perf`), WITH BYTE-IDENTICAL OUTPUTS.** One classification of
 `world.bonds` per colour per tick, opened and closed around exactly the creature loop
@@ -981,6 +1131,19 @@ unchanged.
   scripted drone flying past a unit 40 px inside enemy ground, 400 ticks: melee goblin −57.0 % of its advance
   before → **−6.6 %**; orc boss −57.8 % → **−7.3 %** (S192's −37.6 % / −38.2 % was before the S193 audit added
   "the chaser too" to (2)). `chaseGiveUp.test.ts`, mutation-tested.
+- **⭐⭐ THE NEAREST ENEMY FIRST — NOT POINTS, NOT A HASH (S193 P3-2, `s193/playtest3`).** *"The orcs that are
+  underneath me directly … they're not attacking me. They're going all the way diagonally to attack the Nagas
+  … Is it because he has more points …? … simple creatures should target the nearest enemy spawn right around
+  them first."* — owner, S193. **It WAS points, a hash and seat order:** `structureTargets` took its connector
+  through the FFA spread, which picks the VICTIM seat by `mix32(id, sourceSpawnerId) % (n + 1)` with slot 0 =
+  the SCORE LEADER (ties → lowest seat). Measured, 4P, seat 3's army of 25 beside seat 0's building (380 px)
+  with seat 1's 1370 px away: **9 of 25** went past him with nobody ahead, **16 of 25** once seat 1 led. Now
+  every structure-attacker's ladder is geometry in a total order: an enemy UNIT around it (`pickNavUnit`,
+  220 px acquire / 300 hold) → the nearer of the nearest lone enemy shape and the nearest STRICT enemy
+  connector (`nearestStrictEnemyBond`, squared distance then id) → the nearest LIVE enemy keep
+  (`enemyCastleMarchPos`). Measured after: **25 of 25**, whoever leads. Untouched: R183/R184 retaliation, T6,
+  T13, the endgame pants (their own victim rule), and the CHEWER and DRONE, which keep the spread from their
+  own branches (⚠ MINE to leave — reported). `nearestEnemyFirst.test.ts`, all four quarters, mutation-tested.
 
 ---
 
@@ -1025,7 +1188,17 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **57** (S193 — deploy #17; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **62** (S193 — deploy #23; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
+
+⭐⭐ **WHAT RIDES 61 (S193, deploy #22)** — deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride.
+
+⭐⭐ **WHAT RIDES 60 (S193, deploy #22)** — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade.
+
+⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
+
+⭐⭐ **WHAT RIDES 58 (S193, deploy #18)** — s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank.
 
 ⭐⭐ **WHAT RIDES 57 (S193, deploy #17)** — s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules.
 
@@ -1037,7 +1210,7 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ⭐⭐ **WHAT RIDES 53 (S192, deploy #7)** — `s191/addons`: the new optional `Creature.rageStartTick` (serialized, on the wire, wide-hashed `:rs`), the Warlord's 25 s rage latch then a 25 s cooldown (the owner's), and the BLOOD FRENZY source as his own open window — the frenzy never sets or clears a Warlord. Local only: Alt toggles the footer like the arrow, R190-G right-click swallowing, the modal cover + its close-click latch.
 
-⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185).
+⭐⭐ **WHAT RIDES 52 (S191, deploy #5)** — `PROTOCOL_VERSION`'s own docblock is the source: `s189/weld` (at c7436a2) adds `ownBondIdLimit` on spawners and defenders (the connectors a tower was BUILT with; on the wire, wide-hashed), the serialized `'DORMANT'` Helga state (she is kept as a record and revives at both phase edges, R190-J) and the built-with survival rule — a tower stands while its OWN connectors stand, whatever is welded on (C2) — with its render walks, the empty S107 P4 lock and own-member razes; `s189/net` adds the per-match id (`START_GAME_SIGNAL.matchId`, `LOBBY_PRESENCE.phase` + `matchId`, `NETSNAPSHOT.matchId`, envelope-only) and the C6 beacon election (the elder keeps the room). ⚠ Weld round 5 (R191-A, per-tower FIX/SCRAP in a welded structure) is NOT on 52 — audited red in S191 and carried; so a welded structure is still unrepairable on the live build (R185-B as ruled in S185). ⭐ **S193 — that changes when `s189/weld` lands (59 → 60 or later):** rounds 5 + 6 ride it — `ownPrimitiveIds` replaces `ownBondIdLimit` (the shapes a tower was built with), a welded structure IS repairable **per tower** (R191-A, §7b), and FIX becomes a gatherer job with a castle FIX ALL (R191-B / R192-W1, §8): the new `FIX_ALL` intent, `REPAIR_STRUCTURE` queuing instead of restoring, and the serialized, wide-hashed `World.repairJobs` / `nextRepairJobId` / `Gatherer.repairTask`.
 A mismatched peer is **refused outright** — there is no degraded-play
 path. An **additive-optional** field costs no bump; a **required** new field, or a new discriminant
 value on an existing action, does.
@@ -1334,9 +1507,9 @@ refusing any bond with an endpoint outside the ring (`towerRenderer.ts:79`) and 
 hiding a welded shape is reversing a ruling, not fixing a bug.
 
 ⭐⭐ **R185-B — AND THE UNREPAIRABLE CONSEQUENCE IS A DELIBERATE TRADE HE ENDORSED, NOT A BUG.**
-`structureRepair.ts` refuses any component member with `origin === null`, so **one** welded shape
-makes a whole structure permanently unrepairable. Put to him as a defect; he reframed it as a
-mechanic and kept it:
+⚠ **AMENDED S191 BY R191-A — read the paragraph after the quote.** As ruled in S185, `structureRepair.ts`
+refused any component member with `origin === null`, so **one** welded shape made a whole structure
+permanently unrepairable. Put to him as a defect; he reframed it as a mechanic and kept it:
 
 > *"So if you have a tower that's producing tier three monsters, let's say a bat tower, and you're
 > welding it through many connectors to another bat tower — those two bat towers are a lot harder to
@@ -1345,7 +1518,16 @@ mechanic and kept it:
 > it higher HP. And then once the enemy does manage to destroy it, it destroys the connectors that
 > he's attacking. So I guess that's just a way of looking at it. That makes sense."* — owner, S185
 
-So welding buys pool and costs repair, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
+⭐⭐ **R191-A (S191) AMENDS IT: EACH TOWER IN A WELD IS STILL A TOWER.** *"a welded shape can still consist
+of multiple towers … the towers themselves should still be shown as towers and be able to be repaired
+and … scraped … just the tower, not the whole shape … when you clicking on a welded structure you can't
+fix it because it's … fixing what … you have to fix [them] manually."* So: a click on a tower's own shape
+opens THAT tower's card, whose FIX restores that tower alone (priced by what IT lost) and whose SCRAP
+takes it alone; a click on the welded shape opens the WELDED STRUCTURE card — SCRAP takes everything,
+FIX is refused. The weld still buys pool (the structure's pool is shared, R6); it no longer costs the
+towers their repair. `towerUnit.ts` is the one read model; `weldOntoTowerS189.test.ts` pins it.
+
+So welding buys pool, on purpose. ⚠ **ONE THING REMAINS UNVERIFIED AND MUST NOT BE
 TREATED AS SHIPPED:** R182-F measured that a welded hub read **48%** on the health bar while its
 art read **32%**. S191 C-7 made the bar follow the star (§9d item 3), so both read **32%** now — but
 that means the bar shows a welded tower's OWN pool, not the bigger component pool that makes the
@@ -1387,19 +1569,45 @@ nothing:
 - **Damaged but intact** (chipped shapes, or a hurt connector with nothing destroyed) → **ONE shape,
   flat.** R182-E: *"If there's only an amount of HP missing but no connector destroyed … then it takes
   one shape. So far it takes NO shape — that's not correct … whether it's one HP or fifty HP."*
-  ⚠ It used to be **free**, so a dented tower is no longer unconditionally repairable — with an empty
-  bank, FIX now reads `NEED 1 MORE`.
+  ⚠ It used to be **free**. (S182 then added that an empty bank read `NEED 1 MORE` — superseded by
+  R191-B below: the bank no longer gates the button.)
 - **Which shape** is `repairFeeShapeFor`: the blueprint's **most numerous node type**, ties broken by
   first appearance. ⚠ The rule is MINE — he dismissed a per-recipe table as over-thinking — but it
   lands on both examples he reached for himself (pentagram → Triangle, goblin tower → Circle).
   `structureRepairFee.test.ts` asserts the derivation over every registered blueprint, so it can
   never become a copied table.
 
+### ⭐⭐ R191-B (S191, built S193) — FIX IS A GATHERER JOB
+
+> *"clicking on fix … it actually queues … a gatherer and he has to bring the shape from the castle to
+> the tower that needs fixing. And once he reaches the tower, that fixes [it] automatically … It's going
+> to be the top … priority for your gatherers."* — owner, S191. Refined: *"the priority here is, first of
+> all, what are we nearer to? And second of all, does this place even have the shape I need?"*
+
+- **FIX queues a job** for the bill above (one job per tower; `REPAIR_STRUCTURE` no longer restores on
+  the spot). Each shape is one task, so a bill spreads over several gatherers.
+- **A free gatherer** (searching, empty-handed, lowest id first) takes the first open shape it can get,
+  from the **nearer** of its castle bank and the nearest quarry spark of that type; the castle wins a tie
+  (⚠ MINE). The bank is debited **on arrival** at the castle; a quarry spark is lifted on pickup.
+- **No shape anywhere → it waits**, and the gatherer keeps gathering; it is fetched once one appears.
+- **When the last shape arrives** the tower is re-planned: covered → restored (surplus to the bank);
+  short (it lost more on the way) → the shortfall is fetched too. A tower that is gone, scrapped or no
+  longer fixable cancels its job and **every shape goes back to the bank**; so does an eliminated
+  seat's.
+- **FIGHT:** a shape already in a gatherer's hands waits in the castle with him and lands next BUILD;
+  one not yet picked up is open again. From wave 27 the quarry spawns nothing, so jobs draw on the bank.
+- The card's FIX reads `QUEUED` · `NOTHING TO FIX` · `NO GATHERERS` (⚠ MINE: no carrier, no job) ·
+  `QUEUE FULL` · `COSTS n`. ⚠ MINE: at most **32** jobs a seat (`REPAIR_JOBS_MAX_PER_SEAT`); a waiting
+  job re-plans every **15** ticks (`REPAIR_JOB_REPLAN_TICKS`, phase-spread by job id).
+- **FIX ALL** (the castle's top row, §3d) queues every own tower that needs a FIX, nearest the castle
+  first. `repairJobs.ts` is the code; `repairJobsR191B.test.ts` drives it through the host tick.
+
 ⛔ **TWO REPAIR LIMITS THE OWNER HAS NOT SEEN YET, BOTH CONFIRMED IN CODE:**
 
 1. Repair only works during BUILD, so "a repairable wreck" means *repairable between rounds*. He has
    accepted this (R19).
-2. **One friendly hand-placed shape bonded onto one hub leaf makes that hub permanently
+2. ⚠ **SUPERSEDED by R191-A (§7b): each tower in a weld is fixed from its own card.** As written
+   before S191: **one friendly hand-placed shape bonded onto one hub leaf makes that hub permanently
    unrepairable.** `blueprintGroupOf` returns null if ANY member of the connected component has
    `origin === null`, and `seatStructureAt` walks the whole component. S158 B2b fixed exactly this
    lattice problem for the RECIPE (`isStarAt` walks the hub's own bonds) and never fixed it for
@@ -1570,7 +1778,7 @@ of the building art. Reported as "damage numbers print over blank ground". He li
 raised between his S175 *"you gotta see damage everywhere"* and R183-E *"you don't have to see the
 connectors"* — S175 wins for the floating number, R183-E still governs the connector's own alpha.
 
-## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187)
+## 9d · ⭐⭐ FOUR THINGS THAT KEPT COMING BACK, CLOSED FOR GOOD (S187) — and a fifth (S193)
 
 
 > *"Resolve all of this now. Do what needs to be done. Don't bring this up again."* — owner, S187
@@ -1625,8 +1833,11 @@ STRUCTURE_SELFDESTRUCT_FIFTHS = 4 × attackFifths(DRONE_ATK 5, DRONE_PEN 1) = 4 
 inside `STRUCTURE_SELFDESTRUCT_RADIUS` (240 px)**, through the ordinary funnels and on the one ladder:
 creatures, Helga, lone built shapes, landed stink bags, and every enemy connector whose midpoint is
 inside — **each connector is one entity** (`damageConnector`, no creature attacker → no lifesteal;
-severed with the EXISTING cause `'drone'`, so no new discriminant). n targets each take
-`floor(120 / n)`, and the first `120 mod n` take one more, so the shares always sum to exactly 120. A
+severed with the EXISTING cause `'drone'`, so no new discriminant). ⭐ **S193 (owner R193-B4) — BY
+DISTANCE:** each target takes `floor(120 × w / Σw)` with `w = max(1, floor(240 − d))` (the shared falloff,
+§9d item 5), and the leftover fifths go one apiece nearest-first, so the shares always sum to exactly
+120. (Until S193: an equal split, 120 over n.) The hub's creature:connector weight is 1:1 — ⚠ MINE
+(`HUB_BLAST_CREATURE_WEIGHT`); he ruled 2:1 only for the zombie boss. A
 shape INSIDE a structure has no arm — a building dies through its connectors (§4). ⚠ **The S157 P0
 owner-exemption is UNTOUCHED** — the blast still spares the hub owner's own shapes, units, bags and
 Helga, and a connector with either end his. *"He will also bring down some of his own connectors"*
@@ -1647,9 +1858,24 @@ OWNER as well as the bag's owner (`damageStinkCloud`) — *"Stink bags should no
 through an enemy bag. A bag popped by anything else keeps the S158 A2 rule (spares its owner).
 
 ⛔ **THE ZOMBIE BOSS'S R138 DEATH BLAST IS NOT THIS RULING.** It borrowed the same action in S168
-(380 px, no owner, *"hurting everything"*) and still RAZES: it dispatches `blast: 'raze'`. `blast` is
-REQUIRED, so no dispatcher can fall into either blast by omission.
+(380 px, no owner, *"hurting everything"*). ⭐ **S192 (owner T3): it no longer razes and no longer
+uses this action** — `applyZombieDeathBlast` (`racial/zombieDeathBlast.ts`) splits ONE pool by distance.
+⭐⭐ **S193 — HIS RULINGS R193-B1..B3:**
+> *"312 blast pool, but split over, you know, everyone who's around."* · *"creatures get twice as much
+> damage as towers do from that blast."* · *"It does not hit his own side"* — owner, S193
 
+- the pool is **312** (`T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS` = 3 × `attackFifths(8, 8)`) — HIS now;
+- each target weighs `kind × max(1, floor(380 − d))`: **kind 2** for a creature or Helga, **1** for a
+  structure (still ONE target, its share on its nearest connector), a lone shape or a bag
+  (`T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT`); shares `floor(312 × w / Σw)`, the leftover nearest-first,
+  summing to exactly 312. Worked: a goblin and a one-connector tower both 100 px out take **208 / 104**;
+- **it does NOT hit his own side** (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE` = false) — his units, Helga,
+  structures, lone shapes and bags are spared, and a bag it pops bursts without hitting his side either.
+  This SUPERSEDES R138's *"hurting everything"* for this blast;
+- the radius stays 380 px (⚠ MINE since S168, not re-ruled); the overkill carries (`severWithCarry`).
+
+The `blast: 'raze'` variant has no production dispatcher now. `blast` stays REQUIRED, so no dispatcher
+can fall into either blast by omission.
 
 ### 3 · THE HEALTH BAR — CLOSED, AND HE WIDENED IT (S187). Three rules, not one.
 
@@ -1689,8 +1915,9 @@ only because it changes the bar for every structure in the game, which that bran
 change to take unasked.
 
 ⭐ **BUILT S191 (`s191/carry` C-7).** `render/structureBarHealth.ts` is the one reading: a live tower's OWN members
-(`towerMembersAt`, the walk the fuse and the ramp share), priced `structurePoolFifths(own connectors)` minus the
-damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
+(`towerMembersAt`, the walk the fuse and the ramp share), priced ONCE by `towerUnit.towerOwnPoolAt` (S193 SEAM-C7): **the
+recipe pool, 0 once an own connector is gone** (the crumble rule — the bar, the card and the art agree in the
+poll window too), minus the damage on THOSE connectors. The board bar (one bar per live tower; a freeform lattice keeps its component), the
 character sheet (health and the CONNECTORS row) and the hub's ramp art now read it — the welded hub of R182-F reads
 **32 %** on all three. `structureRamp.test.ts`'s divergence case is an AGREEMENT case now. The width
 (`structureBarWidth`) is linear between bounds MEASURED off the roster and ⚠ MINE at the constants: pool **6**
@@ -1727,6 +1954,7 @@ right-click a raid, and the drone, the raid, POWER OF RA and the hub were missin
 | a POWER OF RA / WRATH OF RA column | `'raid'` | `racial/raColumn.ts` |
 | ⭐ the Pharaoh boss's Ra column (S192 — the perk's column, sparing nobody) | `'unit'` | `racial/raColumn.ts` |
 | ⭐ SCORCHED EARTH burning through a structure's pool (S191) | `'raid'` | `racial/scorchedGround.ts` |
+| ⭐ the zombie boss's death blast reaching a structure's pool (S192 T3) | `'unit'` | `racial/zombieDeathBlast.ts` |
 | the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
 | a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
@@ -1746,6 +1974,32 @@ an unknown cause falls through `severToastRenderer`'s switch and goes silent, wh
 
 
 ---
+
+
+### 5 · ⭐⭐ CLOSER = MORE DAMAGE — FOR EVERY BLAST (owner R193-B4, S193)
+
+> *"whoever is closer to him, to the actual blast, gets damaged more … And that's obviously for every
+> blast … the poop bag or the stink tower blast. Similarly, right?"* — owner, S193
+
+ONE falloff, `state/blastFalloff.ts`, and every production blast reads it (`blastFalloff.census.test.ts`
+fails on a blast producer that does not):
+
+| blast | kind | rule |
+|---|---|---|
+| zombie boss death blast (`racial/zombieDeathBlast.ts`) | split pool 312 | weight `kind × max(1, floor(R − d))`, kind 2 : 1 (ruled) |
+| lightning hub self-destruct (`potatoLifecycle.ts`) | split pool 120 | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE) |
+| suicide goblin (`creatures/suicideBlast.ts`) — units, shapes AND connectors | full hit | `blastHitAtDistance` |
+| lightning drone (`droneLifecycle.ts`) — units and shapes | full hit | `blastHitAtDistance` |
+| stink bag throw + landed bag's burst (`defenders/stinkTower.ts`, `damage.ts`) | full hit | `blastHitAtDistance` |
+| stink tower death blast (`defenders/stinkTower.ts`) | full hit | `blastHitAtDistance` |
+
+A **full-hit** blast deals its full ladder number at the centre and falls linearly to
+`BLAST_EDGE_FLOOR_PERCENT` = **50 %** of it at the rim (⚠ MINE — the curve and the 50 are mine; he ruled
+only the direction), floored, never below 1 on a real hit. Worked: the suicide goblin's 20 is 17 at 20 px
+and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. Not blasts, so flat: the
+stink tower's aura and a landed bag's lingering cloud (1 fifth a second — damage over time), SCORCHED
+ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is an open question). The drone's
+connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.
 
 
 ## 10 · ⛔ OPEN — needs the owner, do not guess

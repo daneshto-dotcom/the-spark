@@ -13,7 +13,7 @@
  * by elapsed-tick dwell (so a "WIN" banner shows briefly before save).
  */
 
-import { PHYSICS_HZ, winScoreForWave } from '../constants.ts';
+import { MONSTER_FINAL_WAVE, MONSTER_FIRST_WAVE, PHYSICS_HZ, winScoreForWave } from '../constants.ts';
 import { computeComplexity } from './scoring.ts';
 import { teardownBombs } from './bombLifecycle.ts';
 import { teardownHunters } from './hunters/hunterLifecycle.ts';
@@ -28,6 +28,7 @@ import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
 import { sameTeam } from './teams.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
+import { resetMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
 
@@ -162,11 +163,29 @@ export function tickGameState(
         // With ≥2 seats the winner is the ONE seat still alive. A true zero-survivor board and solo
         // both fall back to the primary — the pre-S162 behaviour, now reachable only by the cases
         // that genuinely reached it before.
-        const winnerId: PlayerId =
+        let winnerId: PlayerId =
           !soloBoard && oneSideLeft
             // The winning side's LOWEST living seat names it (total order, never `Map` order). FFA: the one.
             ? contenders.reduce((lo, id) => ((id as number) < (lo as number) ? id : lo), contenders[0]!)
             : primaryPlayerId;
+        /*
+         * ⭐ S193 (owner, Q2) — A WIPE IN THE ENDGAME GOES TO THE TOP SCORE. *"the match ends and the top
+         * score wins … If nobody beats … the huge mega pants boss."* From wave 27 on a zero-survivor
+         * board (the pants razed every keep, possibly on one tick) crowns the highest banked score over
+         * EVERY seat, lowest seat on a tie — the same total order the score gate uses. Before wave 27
+         * the S162 wipe rule above is unchanged. (⚠ S194 teams, MINE: the top SEAT names the winning
+         * team — its banner reads TEAM N WINS like any other team win.)
+         */
+        if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {
+          let best = -Infinity;
+          for (const pid of [...world.players.keys()].sort((a, b) => (a as unknown as number) - (b as unknown as number))) {
+            const sc = world.scoreByPlayer.get(pid) ?? 0;
+            if (sc > best) {
+              best = sc;
+              winnerId = pid;
+            }
+          }
+        }
         console.info(
           `[SPARK] WIN-BY-CASTLE tick=${world.tick} winner=P${(winnerId as number) + 1} | ` +
             `placings=${matchPlacings(world).map((id) => `P${(id as number) + 1}`).join('>')} | ` +
@@ -174,6 +193,30 @@ export function tickGameState(
         );
         // Same exit the score gate uses — one WIN path, so the dwell timer, the banner and every
         // downstream watcher behave identically however the match was won.
+        dispatch(world, { type: 'WIN_TRIGGER', winnerId });
+        extras.winEnteredTick = world.tick;
+        return world.gameState;
+      }
+
+      /*
+       * ⭐ S192 (owner, A3) — **THE MATCH ENDS AFTER WAVE 31.** *"If they haven't won by points or by
+       * … instant death, then they should."* ⭐ S193 (owner, Q2): *"the match ends and the top score
+       * wins. That's fine too."* With two or more seats alive the final fight never reaches this edge
+       * (it HOLDS — `isMonsterFightHeld` — until a keep-standing or score win, the mega pants seeing to
+       * it), so the wave counter reaching 32 is now the SOLO board's end (one seat alive never holds):
+       * it crowns the LIVING seat with the most banked score, lowest seat on a tie. One WIN path.
+       */
+      if (world.waveNumber > MONSTER_FINAL_WAVE) {
+        let winnerId: PlayerId = living.length > 0 ? living[0]! : primaryPlayerId;
+        let best = -Infinity;
+        for (const pid of living) {
+          const s = world.scoreByPlayer.get(pid) ?? 0;
+          if (s > best) {
+            best = s;
+            winnerId = pid;
+          }
+        }
+        console.info(`[SPARK] WIN-BY-ENDGAME tick=${world.tick} wave=${world.waveNumber} winner=P${(winnerId as number) + 1}`);
         dispatch(world, { type: 'WIN_TRIGGER', winnerId });
         extras.winEnteredTick = world.tick;
         return world.gameState;
@@ -246,6 +289,7 @@ export function softReset(world: World, extras: GameStateExtras): void {
   world.connectorBreakHits.length = 0; // ⭐ S179 — same per-frame lifetime as `effects`
   world.creatureKillHits.length = 0; // ⭐ S181 — same, for the creature kill swing
   world.structureKillHits.length = 0; // ⭐ S182 — same, for the structure kill swing + removals
+  world.structureHealHits.length = 0; // ⭐ S192 T11 — same, for the repair heal record
   // ⭐ S182 — a mass clear is not a massacre: tell the renderer to drop its structure watch,
   // or its vanish sweep prints a full-pool number for every shape, bag and Helga on the board.
   world.structureWatchEpoch += 1;
@@ -269,6 +313,7 @@ export function softReset(world: World, extras: GameStateExtras): void {
   // S15 P2: per-player score reset; keep keyed entries (player roster
   // unchanged by softReset).
   for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);
+  resetMatchStats(world); // ⭐ S191 — a fresh PLAYING world starts a fresh stat board
   for (const player of world.players.values()) {
     player.buildActions = 0;
     player.disruptionCharges = 0;

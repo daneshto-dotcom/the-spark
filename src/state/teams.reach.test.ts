@@ -248,7 +248,7 @@ describe('S192 teams — ⭐ REACH through the real host tick: no friendly damag
     const mate = unit(w, P[1], { x: OPEN.x + 5, y: OPEN.y }, 't3Warband', true);
     const foe = unit(w, P[2], { x: OPEN.x - 5, y: OPEN.y }, 't3Warband', true);
     const full = own.ehp;
-    applyRadialDamage(w, OPEN.x, OPEN.y, 60, 10, 10, 'hazard', P[0]);
+    applyRadialDamage(w, OPEN.x, OPEN.y, 60, 10, 10, 'hazard', P[0], 'physical', 'flat');
     expect(own.ehp).toBe(full);
     expect(mate.ehp).toBe(full);
     expect(foe.ehp).toBe(full - 10);
@@ -260,7 +260,7 @@ describe('S192 teams — ⭐ REACH through the real host tick: no friendly damag
     const mate = unit(w, P[1], { x: OPEN.x + 5, y: OPEN.y }, 't3Warband', true);
     const foe = unit(w, P[2], { x: OPEN.x - 5, y: OPEN.y }, 't3Warband', true);
     const full = own.ehp;
-    applyRadialDamage(w, OPEN.x, OPEN.y, 60, 10, 10, 'aura', null, null, P[0]); // S193 — alliesOf is the 10th arg since master's alsoSparePlayerId
+    applyRadialDamage(w, OPEN.x, OPEN.y, 60, 10, 10, 'aura', null, 'physical', 'flat', null, P[0]); // S194 — alliesOf is the 12th arg since master's cls + falloff
     expect(own.ehp).toBe(full - 10);
     expect(mate.ehp).toBe(full);
     expect(foe.ehp).toBe(full - 10);

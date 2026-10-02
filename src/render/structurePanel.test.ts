@@ -22,6 +22,9 @@ import { damageEntity } from '../state/damage.ts';
 import { structureActionModel } from './structurePanel.ts';
 import { runSpawnerIgnition } from '../state/godlyMatcherCore.ts';
 import '../state/godlyRecipes/goblinTower.ts';
+import { makeGatherer } from '../state/gatherers/gatherer.ts';
+import { asGathererId } from '../types.ts';
+import { applyQueueRepair } from '../state/repairJobs.ts';
 
 const P0 = asPlayerId(0);
 const SITE: Vec2 = { x: 300, y: 300 };
@@ -49,6 +52,12 @@ function nodeId(w: World, i: number): PrimitiveId {
   throw new Error(`node ${i} missing`);
 }
 
+/** ⭐ S193 R191-B — a FIX is carried by a gatherer, so a seat needs one for the button to enable. */
+function hire(w: World): void {
+  const id = asGathererId(w.nextGathererId++);
+  w.gatherers.set(id, makeGatherer({ id, ownerPlayerId: P0, pos: { x: SITE.x, y: SITE.y + 200 }, spawnedAtTick: 0 }));
+}
+
 function stock(w: World, type: SparkType, n: number): void {
   const bank = w.castleBanks.get(P0)!;
   bank[type as number] = (bank[type as number] ?? 0) + n;
@@ -74,28 +83,36 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
   it("SCRAP's caption is the SURVIVOR count — R21 stated to the player, not the bill", () => {
     const w = setup();
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 7');
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature', null);
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 5');
   });
 
-  it('FIX prices the shortfall when it can be paid, and NAMES it when it cannot', () => {
+  /*
+   * ⭐⭐ S193 R191-B — RE-PINNED. This asserted "NEED 2 MORE" on an empty bank: FIX restored on the spot
+   * and the bank had to cover the bill. FIX now QUEUES A GATHERER JOB and the quarry is a source too
+   * (*"no shape → keep gathering, fetch when one appears"*), so the bank no longer decides the button.
+   * What does: a gatherer to carry it (NO GATHERERS, ⚠ MINE), and one job per tower (QUEUED).
+   */
+  it('FIX prices the bill whatever the bank holds; NO GATHERERS without a carrier; QUEUED once clicked', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature', null);
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
 
-    // Empty bank: visible, disabled, and it SAYS why — the standing contract for a refused control.
-    const broke = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
-    expect(broke.enabled).toBe(false);
-    expect(broke.caption).toBe('NEED 2 MORE');
+    const alone = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
+    expect(alone.enabled, 'nobody to carry it').toBe(false);
+    expect(alone.caption).toBe('NO GATHERERS');
 
-    stock(w, SparkType.Spiral, 1);
-    expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[0].caption).toBe('NEED 1 MORE');
-
-    stock(w, SparkType.Spiral, 1);
+    hire(w);
     const ready = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
-    expect(ready.enabled).toBe(true);
+    expect(ready.enabled, 'an EMPTY bank no longer disables FIX').toBe(true);
     expect(ready.caption).toBe('COSTS 2');
+
+    applyQueueRepair(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: nodeId(w, 0) });
+    expect(w.repairJobs).toHaveLength(1);
+    const queued = structureActionModel(w, P0, nodeId(w, 4))!.buttons[0];
+    expect(queued.enabled, 'one job per tower, from any of its shapes').toBe(false);
+    expect(queued.caption).toBe('QUEUED');
   });
 
   it('an untouched tower shows FIX disabled with NOTHING TO FIX — matching the reducer refusal', () => {
@@ -113,29 +130,45 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
    */
   it('chip damage alone COSTS ONE SHAPE (was: REPAIR FREE)', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null); // ⭐ S177 P1 — chip damage on the 70-fifth scale
-    stock(w, SparkType.Spiral, 1); // the build spent the whole bill, so the fee needs funding
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null, 'physical'); // ⭐ S177 P1 — chip damage on the 70-fifth scale
+    hire(w); // S193 R191-B — the fee is fetched by a gatherer, not paid from the bank on the spot
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);
     expect(fix.caption).toBe('COSTS 1');
   });
 
-  it('…and an empty bank cannot afford that one shape, so FIX says so instead of lying', () => {
-    // ⛔ THE REAL CONSEQUENCE OF R182-E, and the owner should see it: a dented tower is no longer
-    // unconditionally repairable. `setup` spends the exact bill, so the bank is empty here.
+  it('…and an empty bank still offers it (R191-B: a gatherer fetches the shape from the quarry)', () => {
+    // ⭐ S193 R191-B — RE-PINNED from "NEED 1 MORE": the bank is one of two sources now. `setup`
+    // spends the exact bill, so the bank is empty here; the FIX is still offered at its one-shape price.
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null, 'physical');
+    hire(w);
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
-    expect(fix.enabled).toBe(false);
-    expect(fix.caption).toBe('NEED 1 MORE');
+    expect(fix.enabled).toBe(true);
+    expect(fix.caption).toBe('COSTS 1');
   });
 
+  /*
+   * ⭐ S191 R191-A — RE-PINNED. A stamp with one hand-placed (origin-null) member IS a welded structure:
+   * the six stamped shapes are a tower's remains and the seventh is a weld. Before R191-A any origin-null
+   * member refused FIX for the whole thing; now the FREE-FORM shape's card is the structure's (SCRAP
+   * only — R191-A R5), and the stamped shapes' card is the tower's, with its own FIX.
+   */
   it('freeform rubble offers SCRAP ONLY — no greyed FIX lying about what the game can do', () => {
+    const w = setup();
+    const freeform = nodeId(w, 3);
+    w.primitives.get(freeform)!.origin = null;
+    const view = structureActionModel(w, P0, freeform)!;
+    expect(view.buttons.map((b) => b.kind)).toEqual(['SCRAP']);
+    expect(view.title).toBe('STRUCTURE');
+  });
+
+  it('⭐ S191 R191-A — …while a STAMPED shape of that welded structure offers its tower’s own FIX', () => {
     const w = setup();
     w.primitives.get(nodeId(w, 3))!.origin = null;
     const view = structureActionModel(w, P0, nodeId(w, 0))!;
-    expect(view.buttons.map((b) => b.kind)).toEqual(['SCRAP']);
-    expect(view.title).toBe('STRUCTURE');
+    expect(view.buttons.map((b) => b.kind)).toEqual(['FIX', 'SCRAP']);
+    expect(view.title, 'the tower is named').not.toBe('STRUCTURE');
   });
 
   it('R19: no popover at all during the FIGHT stage', () => {

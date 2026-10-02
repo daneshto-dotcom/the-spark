@@ -123,7 +123,11 @@ describe('S181 — ⛔ THE CALL SITES EXIST (the green-gates tripwire)', () => {
   });
 
   it('the stink tower and the zombie boss both push an aura row', () => {
-    expect(model).toContain('auraOwnerIn(world, comp.primitiveIds)');
+    // ⭐ S191 R191-A — RE-PINNED, not relaxed: the aura row moved into `towerRowsFor`, which the plain
+    // building card calls over its component and the welded-tower card over the tower's own shapes.
+    // Both the helper's own call and the plain card's call into it are pinned.
+    expect(model).toContain('auraOwnerIn(world, members)');
+    expect(model).toContain('towerRowsFor(world, comp.primitiveIds, recipeId)');
     expect(model).toContain('zombieAuraPercentPerSecond()');
   });
 });

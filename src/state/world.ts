@@ -27,6 +27,7 @@ import { attackFifths } from './stats.ts';
 import { isEnemySeat, sameTeam } from './teams.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isEliminated, isEliminationDeniedIntent } from './elimination.ts';
+import { isBuildLocked, isEndgameLockDeniedIntent } from './endgame.ts';
 import { isBenched } from './hunters/hunter.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
@@ -151,8 +152,10 @@ import {
 } from './defenders/defenderLifecycle.ts';
 import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
 import { applyFeedTower, type FeedTowerAction } from './goblinTowerFeed.ts';
+import { applyFixAll, applyQueueRepair, type FixAllAction } from './repairJobs.ts';
+// ⭐ S193 (T4) — the goblin tower's auto-build toggles: the SET_AUTO_FEED reducer.
+import { applySetAutoFeed, type SetAutoFeedAction } from './goblinAutoFeed.ts';
 import {
-  applyRepairStructure,
   applyScrapStructure,
   type RepairStructureAction,
   type ScrapStructureAction,
@@ -190,6 +193,7 @@ import { applyCastScorchedEarth } from './racial/scorchedGround.ts'; // ⭐ S191
 import type { CastScorchedEarthAction } from './racial/scorchedEarthRules.ts';
 import { spendScore } from './gameMode.ts';
 import { drainRacialSpawnQueueOutsideHostTick } from './racial/spawnQueue.ts';
+import { makeMatchStats, recordWaveSample } from './matchStats.ts'; // ⭐ S191 — the stat board
 export { addScore, isNetworked } from './gameMode.ts';
 
 // S61 P3 — World / GameState / GameMode moved to src/state/worldTypes.ts (§XV
@@ -387,6 +391,8 @@ export type GameAction =
   // S144 P1 — click-to-build: stamps a recipe's real geometry from banked shapes.
   | BuildBlueprintAction
   | FeedTowerAction
+  // ⭐ S193 (owner T4) — set one auto-build toggle on the seat's own goblin tower. A CLIENT INTENT.
+  | SetAutoFeedAction
   // S152 (R13/R19/R21) — the attrition economy. FIX re-mints exactly the shapes a structure lost;
   // SCRAP tears it down and returns exactly the shapes still standing. Both are CLIENT INTENTs (a
   // joiner repairs and scraps its own towers), both are BUILD-stage-only through the shared
@@ -394,6 +400,8 @@ export type GameAction =
   // primitive that may already be rubble, and that must cost the host nothing.
   | RepairStructureAction
   | ScrapStructureAction
+  // ⭐ S193 R192-W1 — the castle's FIX ALL: a CLIENT INTENT, BUILD-only through the same FIX planner.
+  | FixAllAction
   // S93 — NONET: a player submits a completed Sudoku grid (client INTENT or host/solo local);
   // the host validates first-valid-wins. playerId is host-stamped to the sender's seat.
   | { readonly type: 'SUDOKU_SOLVED'; readonly playerId: PlayerId; readonly grid: readonly number[] };
@@ -426,9 +434,11 @@ export function makeWorld(rngSeed: number): World {
     connectorBreakHits: [],
     creatureKillHits: [], // S181 — per-frame, wiped by the consumer (see worldTypes)
     structureKillHits: [], // S182 — same contract, for the three structure pools (see worldTypes)
+    structureHealHits: [], // S192 T11 — same contract, one record per structure REPAIR (see worldTypes)
     structureWatchEpoch: 0, // S182 — bumped on a mass clear so the renderer drops its watch
     scoreProgress: 0,
     scoreByPlayer: new Map(),
+    matchStats: makeMatchStats(), // ⭐ S191 — the end-of-match stat board (see matchStats.ts)
     cinematicsEnabled: true,
     gameMode: 'solo',
     isHost: true,
@@ -453,6 +463,8 @@ export function makeWorld(rngSeed: number): World {
     // S136 P1 (V6-1.3) — per-seat castle bank; seats are populated lazily on first deposit.
     castleBanks: new Map(),
     gathererOrders: new Map(), // S141 P2 (V6-1.4) — the per-player ordered build queue
+    repairJobs: [], // S193 R191-B — the FIX queue (gatherer jobs)
+    nextRepairJobId: 0,
     nextGathererId: 0,
     pendingCreatureSpawn: null,
     bombs: new Map(),
@@ -472,6 +484,7 @@ export function makeWorld(rngSeed: number): World {
     stinkClouds: new Map(),
     nextStinkCloudId: 0,
     fouledPrimitives: new Set(),
+    goblinAutoFeedMemory: new Map(), // ⭐ S193 T4 — empty at world birth
     // S88 G3a — in-match combo-discovery set (the magic combos); empty at world birth.
     discoveredCombos: new Set(),
     // S42 — race-condition observability (real-time 1v1) + local-player
@@ -486,6 +499,7 @@ export function makeWorld(rngSeed: number): World {
         placeTargetMissing: 0,
         actorBenched: 0,
         actorEliminated: 0,
+        endgameBuildLocked: 0,
       },
       territoryBlockRejects: 0,
       intentThrottled: 0,
@@ -499,6 +513,8 @@ export function makeWorld(rngSeed: number): World {
     draft: null,
     sudokuFiredThisMatch: false,
     waveNumber: 1, // S157 B8 — the opening BUILD is wave 1
+    monsterWaveSpawned: 0, // ⭐ S192 — no endgame monster released yet
+    monsterFightStartTick: 0, // ⭐ S193 — no monster fight running
     // S97 P5 — per-type godly guard: no godly type fired yet this match.
     godlyFiredThisMatch: new Set(),
   };
@@ -577,6 +593,17 @@ function dispatchReducer(world: World, action: GameAction): World {
       return world;
     }
   }
+  /*
+   * ⭐⭐ S192 (owner, A3) — THE ENDGAME BUILD LOCK, the bench and elimination gates' third twin.
+   * *"in the build phase of 27 … you can't build anything new anymore. You can fix existing
+   * structures."* ONE choke point for local input, optimistic joiner prediction and remote intents, on
+   * a pure function of the synced wave counter. Policy + the deny list: `endgame.ts`.
+   */
+  if (isEndgameLockDeniedIntent(action.type) && isBuildLocked(world)) {
+    world.diagnostics.raceRejects++;
+    world.diagnostics.rejectReasons.endgameBuildLocked++;
+    return world;
+  }
   switch (action.type) {
     case 'SPAWN_SPARK':
       return applySpawnSpark(world, action);
@@ -623,6 +650,10 @@ function dispatchReducer(world: World, action: GameAction): World {
     case 'WIN_TRIGGER':
       world.gameState = 'WIN';
       world.lastWinnerId = action.winnerId;
+      // ⭐ S191 — THE STAT BOARD'S LAST GRAPH POINT, TAKEN BEFORE A SINGLE LINE OF TEARDOWN BELOW. Both win
+      // paths (castle, score) reach this one reducer, so neither can skip it. HOST-ONLY: a client reaches
+      // this arm from ENDGAME and must not invent a sample the host's snapshot will carry anyway.
+      if (world.isHost) recordWaveSample(world, world.waveNumber);
       // S72 P2 — tear the hunter down on the PLAYING->WIN edge so it never lingers
       // on the win screen + no player carries a bench into POSTGAME / the next match.
       teardownHunters(world);
@@ -752,7 +783,8 @@ function dispatchReducer(world: World, action: GameAction): World {
         raider.raidPoints--;
         // ⭐ S183 — `null`: a RAID is dealt by the player's AVATAR, and the avatar is untargetable
         // by ruling (canon §4). There is nothing for the victim to turn on.
-        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player', null);
+        // ⭐ S191 — `'seat'`: the raider is credited on the stat board; the avatar is still no target.
+        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player', { kind: 'seat', seat: action.playerId }, 'physical'); // S192 — a raid swings
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }
@@ -778,7 +810,7 @@ function dispatchReducer(world: World, action: GameAction): World {
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
         // ⭐ S183 — `null`, same reason as the creature arm above: the raider is an avatar.
-        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player', null);
+        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player', { kind: 'seat', seat: action.playerId }, 'physical'); // S192 — a raid swings
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }
@@ -820,7 +852,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
       // S188 — `null`: the raider is a player avatar, not a creature — nothing to heal, nobody to
       // turn on (the same answer this file's two `damageEntity` raid arms give).
-      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage, { kind: 'seat', seat: action.playerId }, 'physical'); // S192 — a raid swings
       if (shouldSever) {
         // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
         // ⚠ S192 (audit CARRY-4) — the carry is NOT bounded by the raid clamp: it is whatever stands on the
@@ -837,7 +869,7 @@ function dispatchReducer(world: World, action: GameAction): World {
           // for want of a currency the raider never needed — found by raid.test.ts, which is
           // exactly why that test builds real topology instead of stubbing a bond.
           cause: 'raid',
-        }));
+        }), { kind: 'seat', seat: action.playerId }); // ⭐ S193 — the carry's stat-board credit
       }
       world.effects.push({
         kind: 'RAIDED',
@@ -990,11 +1022,20 @@ function dispatchReducer(world: World, action: GameAction): World {
     case 'FEED_TOWER':
       return applyFeedTower(world, action);
 
+    // ⭐ S193 (owner T4) — the auto-build toggle. A client INTENT, host-authoritative, no-op-never-
+    // throw; the FEEDS it causes are dispatched by `runGoblinAutoFeed` as ordinary FEED_TOWERs.
+    case 'SET_AUTO_FEED':
+      return applySetAutoFeed(world, action);
+
     // S152 — FIX / SCRAP. Same posture as BUILD_BLUEPRINT above: client INTENTs, host-authoritative,
     // no-op-never-throw. R19 (BUILD-stage only) is enforced inside, through the shared `canBuildNow`
     // rather than a second phase check here — see buildLegality.ts for why that matters.
     case 'REPAIR_STRUCTURE':
-      return applyRepairStructure(world, action);
+      // ⭐ S193 R191-B — FIX QUEUES A GATHERER JOB now (the restore runs when the shapes arrive).
+      return applyQueueRepair(world, action);
+
+    case 'FIX_ALL':
+      return applyFixAll(world, action);
 
     case 'SCRAP_STRUCTURE':
       return applyScrapStructure(world, action);

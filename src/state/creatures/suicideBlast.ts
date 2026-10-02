@@ -49,6 +49,7 @@
 import { GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
 import type { BondId, CreatureId } from '../../types.ts';
 import { applyRadialDamage, damageConnector, severWithCarry } from '../damage.ts';
+import { blastHitAtDistance } from '../blastFalloff.ts'; // ⭐ S193 R193-B4
 import { creatureAttackFifths } from './creature.ts';
 import { dispatch, type World } from '../world.ts';
 import { sameTeam } from '../teams.ts';
@@ -113,6 +114,8 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     blastFifths,
     'creature',
     bomber.ownerPlayerId,
+    'physical', // S192 — it BLOWS UP (R192-M3)
+    'distance', // ⭐ S193 R193-B4 — closer = more (the connector arm below scales the same way)
   );
 
   /*
@@ -136,6 +139,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
    */
   const r2 = GOBLIN_SUICIDE_BLAST_RADIUS * GOBLIN_SUICIDE_BLAST_RADIUS;
   const hitBonds: BondId[] = [];
+  const bondD2 = new Map<BondId, number>(); // a LOOKUP; the sorted `hitBonds` decides the order
   for (const [bondId, bond] of world.bonds) {
     const aOwner = world.primitives.get(bond.aId)?.placedBy;
     const bOwner = world.primitives.get(bond.bId)?.placedBy;
@@ -144,7 +148,10 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     const my = (bond.a.pos.y + bond.b.pos.y) / 2;
     const dx = mx - cx;
     const dy = my - cy;
-    if (dx * dx + dy * dy <= r2) hitBonds.push(bondId);
+    if (dx * dx + dy * dy <= r2) {
+      hitBonds.push(bondId);
+      bondD2.set(bondId, dx * dx + dy * dy);
+    }
   }
   // Sorted so the severance order is a total order and cannot depend on Map iteration.
   hitBonds.sort((a, b) => (a as unknown as number) - (b as unknown as number));
@@ -152,7 +159,9 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     if (!world.bonds.has(bondId)) continue; // a sibling sever already took it
     // S188 — `null`: this is the blast's AREA arm (its unit half, `applyRadialDamage` above, names
     // nobody either), and the bomber is deleted at the bottom of this function — no one to heal.
-    if (damageConnector(world, bondId, blastFifths, null)) {
+    // ⭐ S193 R193-B4 — the connector's hit falls off with its midpoint's distance, like the unit arm above.
+    // ⭐ S191 — `'seat'`: the bomber's owner is credited on the stat board; it heals and turns nobody.
+    if (damageConnector(world, bondId, blastHitAtDistance(blastFifths, bondD2.get(bondId)!, GOBLIN_SUICIDE_BLAST_RADIUS), { kind: 'seat', seat: bomber.ownerPlayerId }, 'physical')) { // S192 — R192-M3
       /*
        * ⛔ S182 — **THIS WAS `cause: 'creature'`, SO AN EXPLOSION PLAYED VOLTKIN'S LIGHTNING
        * CRACKLE.** A separate producer of the same stale clause the ARC_FLASH gate carried:
@@ -181,7 +190,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
        * `'unit'` exactly as they treat `'bomb'`.
        */
       // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
-      severWithCarry(world, bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: bomber.ownerPlayerId, cause: 'unit' }));
+      severWithCarry(world, bondId, (id) => dispatch(world, { type: 'SEVER_BOND', bondId: id, playerId: bomber.ownerPlayerId, cause: 'unit' }), { kind: 'seat', seat: bomber.ownerPlayerId });
     }
   }
 

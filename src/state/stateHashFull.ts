@@ -52,6 +52,7 @@
 
 import type { World } from './worldTypes.ts';
 import { fnv1a32 } from './stateHash.ts';
+import { matchStatsHashParts } from './matchStats.ts'; // ⭐ S191
 
 /* ========================================================================== *
  *                          THE COVERAGE CONTRACT                             *
@@ -78,6 +79,13 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
 
   // ---- entity families S133 made visible for the first time ----
   creatures: 'hashed',
+  /**
+   * ⭐ S191 — the end-of-match stat board. INERT (no reducer reads it), but it is host-authoritative sim
+   * OUTPUT that a host and a `?worker=1` sim must produce identically, so the wide oracle compares it.
+   * Projected as `ms{seat}:` (running totals) and `mh{wave}:` (the graph history), sorted, integers only.
+   * The narrow production hash does not carry it.
+   */
+  matchStats: 'hashed',
   // S155 N1 — transient one-tick deferral set; null at every tick boundary, nothing to hash.
   pendingCreatureDeaths: 'acknowledged',
   // S188 F1 — transient one-tick lifesteal accumulator; null at every tick boundary, nothing to hash.
@@ -98,6 +106,10 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // their gatherers to different sparks and diverge within a tick. This is exactly the class the
   // wide oracle exists to catch, so it must contribute.
   gathererOrders: 'hashed',
+  // ⭐ S193 R191-B — the FIX queue and its id counter. Both drive which gatherer fetches what and which
+  // tower is restored when, so two sims that disagree here diverge within a tick.
+  repairJobs: 'hashed',
+  nextRepairJobId: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -110,6 +122,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
    */
   stinkClouds: 'hashed',
   fouledPrimitives: 'hashed',
+  // ⭐ S193 (owner T4) — remembered goblin-tower toggles: decide what a re-ignited tower builds. Projected `gm:`.
+  goblinAutoFeedMemory: 'hashed',
   discoveredCombos: 'hashed',
   godlyFiredThisMatch: 'hashed',
 
@@ -137,6 +151,12 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   rainbowSwitchTick: 'hashed',
   sudokuFiredThisMatch: 'hashed',
   waveNumber: 'hashed', // S157 B8 — drives the spawn rate, so a divergence is a real desync
+  // ⭐ S192 (endgame) — how many monsters this FIGHT has released. It drives the release schedule (one
+  // lane per seat, `monstersDueBy`) and the countdown, so a host and a mirror disagreeing about it
+  // would release a different wave.
+  monsterWaveSpawned: 'hashed',
+  // ⭐ S193 (endgame) — the monster fight's start tick: the spawner's and the mega pants' clock.
+  monsterFightStartTick: 'hashed',
   activeCinematicPlayerId: 'hashed',
   // Allocator cursors — two sims that allocated different id counts have diverged
   // even when the surviving entities happen to match.
@@ -204,6 +224,8 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   creatureKillHits: 'acknowledged', // S181 — presentational per-frame record, never sim input
   /* ⭐ S182 — identical contract to the four entries above: per-frame, host-local, never on the wire. */
   structureKillHits: 'acknowledged',
+  /* ⭐ S192 T11 — the repair heal record: per-frame, host-local, never on the wire, never sim input. */
+  structureHealHits: 'acknowledged',
   /* ⭐ S182 — a renderer cue for mass clears. Host-local, never on the wire, never a sim input. */
   structureWatchEpoch: 'acknowledged',
   /** Presentation sequencing; the authoritative gate (`godlyFiredThisMatch`) IS hashed. */
@@ -359,6 +381,12 @@ type CreatureHashed =
   | 'corpseEaterUntilTick'
   | 'corpseEaterAnchor'
   /*
+   * ⭐ S192 (owner T12) — the CORPSE EATER heal bank. HASHED: it decides the boss's pool for the next
+   * cycle, so a host and a `?worker=1` mirror disagreeing about it diverge on the next pulse. Projected
+   * as `:cb` below; its contribution test is `racial/corpseEaterHeal.test.ts`.
+   */
+  | 'corpseEaterHealBank'
+  /*
    * ⭐ S189 (owner R190-I) — the monotonic HEAL counter behind the green floater. Presentational (no sim
    * reads it) but SERIALIZED, so HASHED for the `sapFlashUntilTick` reason: a host and its worker mirror
    * disagreeing about it would print different heals, and an unhashed synced field is a blind spot.
@@ -372,12 +400,17 @@ type CreatureHashed =
    * test is `draftAtkReaches.test.ts`. (S190 merge: both render's `healedFifths` and this field are
    * kept, each with its own projection and its own contribution test.)
    */
-  | 'atkFifths';
+  | 'atkFifths'
+  // ⭐ S192 (endgame) — the seat an endgame monster was sent at. It decides whom the monster hunts on
+  // both sims. Projected as `:ms` below; contribution test in `endgame.test.ts`.
+  | 'monsterSeat';
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds'
+  // ⭐ S193 (T4) — the goblin tower's auto-build toggles + cursor: decide which goblin is born next.
+  | 'autoFeedMask' | 'autoFeedCursor';
 // ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
 // hand-written string template with NO executable link to this union, so a field listed here but
 // absent from the template compiles clean, passes every existing test, and leaves the wide
@@ -391,8 +424,8 @@ type DefenderHashed =
   // HASHED because it decides whether she is alive, which every later tick branches on.
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
   | 'lastStrikePos' | 'bagsRemaining' | 'ehp'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -413,7 +446,7 @@ type StinkCloudHashed =
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
 type GathererHashed =
   | 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick' | 'state' | 'targetSparkId'
-  | 'carriedSparkId' | 'speedLevel' | 'preferredType';
+  | 'carriedSparkId' | 'speedLevel' | 'preferredType' | 'repairTask';
 
 /**
  * S141 P3 — THE CASTLE-BANK PROJECTION GUARD.
@@ -522,6 +555,8 @@ export function determinismParts(world: World): string[] {
     `rw${o(world.rainbowSwitchTick)}`,
     `sf${o(world.sudokuFiredThisMatch)}`,
     `wv${world.waveNumber}`,
+    `mw${world.monsterWaveSpawned}`, // S192 — the endgame spawn counter
+    `mf${world.monsterFightStartTick}`, // S193 — the endgame fight's start tick
     `ac${n(world.activeCinematicPlayerId)}`,
     `nx${world.nextPrimitiveId},${world.nextBondId},${world.nextCreatureId},` +
       `${world.nextSpawnerId},${world.nextDefenderId},${world.nextBombId},` +
@@ -557,6 +592,7 @@ export function determinismParts(world: World): string[] {
 
   const scores = [...world.scoreByPlayer.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [id, s] of scores) parts.push(`P${n(id)}=${s}`);
+  parts.push(...matchStatsHashParts(world.matchStats)); // ⭐ S191 — `ms{seat}:` then `mh{wave}:`
 
   /*
    * S165 - THE SIM-AUTHORITATIVE HALF OF `players`. See the FIELD_COVERAGE note for why the avatar
@@ -588,6 +624,8 @@ export function determinismParts(world: World): string[] {
         // CastleUpgrades later cannot ride in unnoticed.
         + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
         + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
+        // ⭐ S192 — bought MAGIC RESISTANCE: it decides the magic damage the keep TAKES.
+        + `,mr${pl.castleUpgrades.mresLevel}`
         // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
         // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
         + `,dy${pl.dynastyHpLost}`
@@ -664,12 +702,16 @@ export function determinismParts(world: World): string[] {
         `:hg${o(c.hellspawnGen)}`,
         // S188 CORPSE EATER — `o()`/`v2()` absent markers (`_`), so an unfed creature projects a fixed token.
         `:ce${o(c.corpseEaterUntilTick)}@${v2(c.corpseEaterAnchor)}`,
+        // S192 T12 — the banked feed heal: owed / last-pulse tick, `_` while nothing is owed.
+        `:cb${c.corpseEaterHealBank === undefined ? '_' : `${c.corpseEaterHealBank.fifths}/${c.corpseEaterHealBank.untilTick}`}`,
         // S189 R190-I — the heal counter. `o()` absent marker for every never-healed creature.
         `:hf${o(c.healedFifths)}`,
         // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
         `:ak${o(c.atkFifths)}`,
         // S191 — the Warlord's rage clock. Absent marker for every creature that never raged by its own latch.
         `:rs${o(c.rageStartTick)}`,
+        // S192 — the endgame monster's assigned seat. Absent marker for every other creature.
+        `:ms${n(c.monsterSeat)}`,
     );
   }
 
@@ -678,7 +720,8 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `cs${n(s.id)}:${n(s.ownerPlayerId)}:${n(s.anchorPrimitiveId)}:${s.recipeId}` +
         `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}` +
-        `:ob${o(s.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:op${s.ownPrimitiveIds == null ? '_' : s.ownPrimitiveIds.join('.')}` + // S189 C2 / S191 — `_` when unknown
+        `:af${s.autoFeedMask ?? 0}:ac${s.autoFeedCursor ?? 0}`, // S193 T4 — absent reads as 0, the factory's value
     );
   }
 
@@ -690,7 +733,7 @@ export function determinismParts(world: World): string[] {
         `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}` +
         `:eh${o(d.ehp)}` + // S158 P7 — `_` for a tower (null), a number for a unit-class defender
-        `:ob${o(d.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:op${d.ownPrimitiveIds == null ? '_' : d.ownPrimitiveIds.join('.')}`, // S189 C2 / S191 — `_` when unknown
     );
   }
 
@@ -699,7 +742,9 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}` +
         `:${g.state}:tg${n(g.targetSparkId)}:cy${n(g.carriedSparkId)}:sl${g.speedLevel}` +
-        `:pf${o(g.preferredType)}`,
+        `:pf${o(g.preferredType)}` +
+        // S193 R191-B — `_` when idle, else job.type.source.spark.carrying
+        `:rt${g.repairTask === null ? '_' : `${g.repairTask.jobId}.${o(g.repairTask.type)}.${g.repairTask.source}.${n(g.repairTask.sparkId)}.${g.repairTask.carrying ? 1 : 0}`}`,
     );
   }
 
@@ -726,6 +771,15 @@ export function determinismParts(world: World): string[] {
   for (const seat of orderSeats) {
     const q = world.gathererOrders.get(seat) ?? [];
     parts.push(`go${n(seat)}:${q.map((t) => o(t)).join('.')}`);
+  }
+
+  // ⭐ S193 R191-B — the FIX queue, in queue order (the ORDER is the priority), and its counter.
+  parts.push(`rjn${world.nextRepairJobId}`);
+  for (const j of world.repairJobs) {
+    parts.push(
+      `rj${j.id}:${n(j.seat)}:t${n(j.targetId)}:m${j.memberIds.join('.')}:nd${j.need.map((t) => o(t)).join('.')}` +
+        `:dl${j.delivered.map((t) => o(t)).join('.')}`,
+    );
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));
@@ -777,6 +831,13 @@ export function determinismParts(world: World): string[] {
   }
 
   parts.push(`fo:${idSet(world.fouledPrimitives)}`);
+  // ⭐ S193 T4 — sorted by anchor, never Map order.
+  parts.push(
+    `gm:${[...world.goblinAutoFeedMemory.entries()]
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([a, m]) => `${Number(a)}>${Number(m.owner)}.${m.mask}.${m.cursor}`)
+      .join(',')}`,
+  );
   parts.push(`dc:${[...world.discoveredCombos].map(String).sort().join(',')}`);
   parts.push(`gf:${[...world.godlyFiredThisMatch].map(String).sort().join(',')}`);
 

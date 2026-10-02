@@ -122,22 +122,34 @@ describe('S183 — the damageEntity call-site census', () => {
     // hub's ladder blast (a null site — a blast names nobody). S191/S192 +1: the Ra column's split share (null).
     // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
     // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
-    expect(sites.length).toBe(20);
+    // ⭐ S192 (zombies) +1: the zombie death blast (null attacker, explicit KillCredit).
+    expect(sites.length).toBe(21);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
   it('pins WHICH sites name an attacker and which deliberately pass null', () => {
-    const named = sites.filter((s) => s.attacker.startsWith('{'));
+    // ⭐ S191 — FOUR populations now, each a decision: an ENTITY (retaliation can use it), a SEAT (the stat
+    // board's credit only — `'seat'` turns nobody), the radial helper's forwarded `blastBy` (the blast
+    // owner as a seat, or null for a blast that spares nobody), and a considered `null`.
+    const seated = sites.filter((s) => s.attacker.includes("kind: 'seat'"));
+    const named = sites.filter((s) => s.attacker.startsWith('{') && !s.attacker.includes("kind: 'seat'"));
+    const forwarded = sites.filter((s) => s.attacker === 'blastBy');
     const nulled = sites.filter((s) => s.attacker === 'null');
     /*
      * ⛔ NOTHING ELSE IS ALLOWED. A forwarded variable is a perfectly reasonable future shape —
      * `applyRadialDamage` would use one the day a blast gets an owner that can be retaliated
      * against — but it must be a DECISION. Failing here is the prompt to make it.
      */
-    expect(named.length + nulled.length).toBe(sites.length);
+    expect(named.length + seated.length + forwarded.length + nulled.length).toBe(sites.length);
 
     expect(named.length).toBe(8);
-    expect(nulled.length).toBe(12); // S191 C-5 +1 — the hub's blast; S191 +1 — the Ra column's split share; ⭐ S191 +2 — SCORCHED EARTH's shape + bag arms; ⭐ S192 +1 — its Helga arm
+    // ⭐ S191 — seven S183 `null`s became: 3 seats (castle gun, 2 raid arms), 3 forwarded (the radial
+    // helper). ⭐ S193 BLAST-2 — and every area sweep names its seat too (the hub blast, the Ra column's
+    // split share, SCORCHED EARTH's four arms, the zombie boss's death blast — which also passes his
+    // explicit KillCredit). NO `null` IS LEFT: every hit has a seat to credit.
+    expect(seated.length).toBe(10);
+    expect(forwarded.length).toBe(3);
+    expect(nulled.length).toBe(0);
   });
 
   it('names the files on each side, so a moved call is visible and not merely counted', () => {
@@ -148,7 +160,7 @@ describe('S183 — the damageEntity call-site census', () => {
     };
 
     // Every path that knows WHO swung. `retaliation.ts` decides what each one means.
-    expect(tally((s) => s.attacker.startsWith('{'))).toEqual({
+    expect(tally((s) => s.attacker.startsWith('{') && !s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/bossSkills.ts': 1, // the zombie rot aura — named, and refused as a splash
       'src/state/creatures/creatureAttack.ts': 5, // creature / Helga / shape / bag / keep
       'src/state/creatures/voltkinChain.ts': 1, // the seed retaliates; the five hops do not
@@ -157,15 +169,20 @@ describe('S183 — the damageEntity call-site census', () => {
 
     // And every path where there is genuinely nobody to turn on. Each `null` carries its reason
     // at the call site; this is the list, so a fifteenth one cannot join it unremarked.
-    expect(tally((s) => s.attacker === 'null')).toEqual({
-      'src/state/castleGuns.ts': 1, // a KEEP is not an entity
-      'src/state/damage.ts': 3, // applyRadialDamage — a splash names nobody
-      'src/state/potatoLifecycle.ts': 1, // S191 C-5 — the lightning hub's 120-fifth blast, a splash too
-      'src/state/racial/raColumn.ts': 1, // S191/S192 — a Ra column's split share (perk AND Pharaoh boss): a column of light is nobody to turn on
-      // S188 — burning ground: nobody to turn on or heal. ⭐ S191: the creature arm (the passive and
-      // every cast share it), a LONE shape and a landed STINK BAG; ⭐ S192: + the Helga arm.
+    expect(tally((s) => s.attacker === 'null')).toEqual({});
+    // ⭐ S191 — a SEAT: still nobody to turn on (a keep, the untargetable avatar), but a seat to credit.
+    expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
+      'src/state/castleGuns.ts': 1, // a KEEP is not an entity — but it is a seat
+      'src/state/potatoLifecycle.ts': 1, // ⭐ S193 BLAST-2 — the lightning hub's 120-fifth blast: the hub's owner
+      'src/state/racial/raColumn.ts': 1, // ⭐ S193 BLAST-2 — a Ra column's split share: the caster / the Pharaoh's seat
+      // ⭐ S193 BLAST-2 — burning ground: the perk's seat (passive) or the caster. The creature arm, the Helga
+      // arm, a LONE shape and a landed STINK BAG. Still nobody to turn on or heal.
       'src/state/racial/scorchedGround.ts': 4,
+      'src/state/racial/zombieDeathBlast.ts': 1, // S192 T3 — a dead boss: nobody to turn on; credited for THE RISEN
       'src/state/world.ts': 2, // the player RAID — the avatar is untargetable by ruling
     });
+    // ⭐ S191 — applyRadialDamage forwards its blast owner (`sparePlayerId`) as a seat; a splash still
+    // names no ENTITY, so nothing retaliates against it.
+    expect(tally((s) => s.attacker === 'blastBy')).toEqual({ 'src/state/damage.ts': 3 });
   });
 });

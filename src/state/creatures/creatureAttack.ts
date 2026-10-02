@@ -43,11 +43,13 @@ import { getCreatureConfig } from './voltkin-config.ts';
 import { damageConnector, damageEntity, severWithCarry } from '../damage.ts';
 // ⭐ S190 (draft-atk) — every arm below strikes for the CREATURE's own baked strike (a drafted ATK/PEN
 // pick), never its type's: `creatureAttackFifths`. `creatureStrike.guard.test.ts` counts the derivations.
-import { creatureAttackFifths } from './creature.ts';
+import { creatureAttackFifths, isCorpseEaterFeeding } from './creature.ts';
 // ⭐ S188 demons.l5 — a split chewer hits for its generation's share (identity for everyone else).
 import { hellspawnStrikeFifths } from '../racial/hellspawn.ts';
 // S159 P2 (owner R77) — the bolt walks: up to VOLTKIN_CHAIN_MAX_TARGETS links per strike.
 import { applyVoltkinChain } from './voltkinChain.ts';
+// ⭐ S192 — every arm below strikes with its unit's own class: physical, the Voltkin's zap magic (Q-V).
+import { strikeClassFor } from '../magicResist.ts';
 import { mix32 } from '../rng.ts';
 
 /**
@@ -178,7 +180,21 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
      * still lands). Initiative decides *who swings in a duel*; the deferral decides *that the loop
      * order is irrelevant*. Removing either one re-opens a bug the other does not cover.
      */
-    if (victim.targetCreatureId === action.creatureId) {
+    /*
+     * ⭐ S192 (T12) — **A FEEDING ZOMBIE BOSS IS EATING, NOT DUELLING: HIS BITE SKIPS THE COIN.**
+     *
+     * > *"he's not healing. It should show that he's healing over time"* — owner, S192 (T12)
+     *
+     * ⚠ MINE, derived from his CORPSE EATER words (*"he starts eating everyone around him"*), and an
+     * EXCEPTION to his S156 P4 roll above, stated here at the roll. Under retaliation (R183) everyone
+     * who hits him targets him, so EVERY feed bite was a "mutual collision" and lost the coin about
+     * half the time — measured S192 through the real host tick: six of six mutual bites refused, two
+     * heals in the 8 s window. A refused bite heals nothing and waits a whole 60-tick cycle. While he
+     * feeds the fan-out skips him (`corpseEater.ts`), so every CREATURE_ATTACK he issues in the window
+     * IS a feed bite — the predicate needs no action flag. ⚠ ONE-SIDED: the victim's own strike on
+     * him still rolls exactly as before.
+     */
+    if (victim.targetCreatureId === action.creatureId && !isCorpseEaterFeeding(creature, world.tick)) {
       if (!winsInitiative(action.creatureId, action.targetCreatureId, world.tick)) return world;
     }
     const arcStart: Vec2 = { x: creature.pos.x, y: creature.pos.y };
@@ -202,6 +218,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (died) creature.killCount += 1;
     /*
@@ -316,6 +333,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -399,6 +417,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
+        strikeClassFor(creature.type),
       );
       if (died) {
         creature.killCount += 1;
@@ -446,6 +465,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
       hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
       'creature',
       { kind: 'creature', id: creature.id },
+      strikeClassFor(creature.type),
     );
     if (killed) creature.killCount += 1;
     return world;
@@ -510,6 +530,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
         hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
         'creature',
         { kind: 'creature', id: creature.id },
+        strikeClassFor(creature.type),
       );
     }
     return world;
@@ -546,6 +567,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
     action.bondId,
     hellspawnStrikeFifths(creature, creatureAttackFifths(creature)),
     { kind: 'creature', id: creature.id },
+    strikeClassFor(creature.type),
   );
 
   /*
@@ -596,7 +618,7 @@ export function applyCreatureAttack(world: World, action: CreatureAttackAction):
      * PROTOCOL_VERSION 46 -> 47 — earned, not assumed; see the union in `effects.ts`.
      */
     cause: creature.type === 'voltkin' ? 'creature' : isChewer ? 'chewer' : 'unit',
-  }));
+  }), { kind: 'seat', seat: creature.ownerPlayerId }); // ⭐ S193 — the carry's stat-board credit (heals nobody)
 
   // Emit ARC_FLASH only if the bond actually severed.
   if (!world.bonds.has(action.bondId)) {
