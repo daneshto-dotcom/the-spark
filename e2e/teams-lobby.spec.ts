@@ -85,9 +85,9 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
         'host sees T1 / T1 / T1',
         30_000,
       );
-      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean }> =>
+      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean; beginButtonDisabledSkin: boolean }> =>
         host.evaluate(() => (window as unknown as { __SPARK__: { lobbyScreen: { getDebugState: () => never } } }).__SPARK__.lobbyScreen.getDebugState());
-      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true });
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true, beginButtonDisabledSkin: true });
       const dimBegin = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
       await host.mouse.click(dimBegin.x, dimBegin.y);
       await host.waitForTimeout(2_000);
@@ -107,7 +107,7 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
       }
 
       // CONTROL — two sides now: Begin at full strength, no hint.
-      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false });
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false, beginButtonDisabledSkin: false });
 
       // ── begin ──
       const beginBtn = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
@@ -193,9 +193,9 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
           30_000,
         );
       }
-      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean }> =>
+      const lobbyDebug = (): Promise<{ beginButtonVisible: boolean; beginButtonAlpha: number; teamsHintVisible: boolean; beginButtonDisabledSkin: boolean }> =>
         host.evaluate(() => (window as unknown as { __SPARK__: { lobbyScreen: { getDebugState: () => never } } }).__SPARK__.lobbyScreen.getDebugState());
-      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true });
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 0.4, teamsHintVisible: true, beginButtonDisabledSkin: true });
       const begin = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
       await host.mouse.click(begin.x, begin.y);
       await host.waitForTimeout(2_000);
@@ -211,7 +211,7 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
         );
       }
       // CONTROL — two sides: Begin at full strength, no hint.
-      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false });
+      await expect.poll(lobbyDebug, { timeout: 10_000 }).toMatchObject({ beginButtonVisible: true, beginButtonAlpha: 1, teamsHintVisible: false, beginButtonDisabledSkin: false });
       await host.mouse.click(begin.x, begin.y);
       for (const [i, p] of pages.entries()) {
         await waitForWorld(p, (w) => w.gameState === 'PLAYING' && w.players.length === 2, `peer ${i} PLAYING with 2 players`, 45_000);

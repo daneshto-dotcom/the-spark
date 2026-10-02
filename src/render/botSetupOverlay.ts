@@ -58,6 +58,8 @@ export const BOT_ROW_LAYOUT = {
     { name: 'team', cx: TEAM_X, halfW: 36 },
   ],
 } as const;
+/** ⭐ S194 — the team chip's plate, which is also its hit (its Graphics children ARE its bounds). */
+export const TEAM_CHIP_RECT = { x: -36, y: -18, w: 72, h: 36 } as const;
 const ROW_H = 56;
 const ROW_GAP = 10;
 
@@ -125,6 +127,9 @@ export class BotSetupOverlay {
   private readonly racePicker: RacePickerHandle;
   /** ⭐ S192 (R192-T4) — SEAT-indexed team picks, like `races`. `undefined` = no team (its own side). */
   private readonly teams: (number | undefined)[] = Array.from({ length: MAX_BOTS + 1 }, () => undefined);
+  /** ⭐ S194 — START's plate painter (T5 disabled look while blocked) and the blocked flag its sheen reads. */
+  private paintStartPlate: ((disabled: boolean) => void) | null = null;
+  private startBlocked = false;
   /** ⭐ S192 — shown under START when every seat is on one team (spec Q2): no enemy, no match. */
   private readonly teamsHint: Text;
   /** Which SEAT's row opened the picker, so the pick lands on the right row. */
@@ -312,66 +317,86 @@ export class BotSetupOverlay {
    * the way `RACE_COLORS` exists to prevent.
    */
   private makeRaceButton(seat: number, cx: number): Container {
-    const btn = new Container();
-    btn.position.set(cx, ROW_H / 2);
+    const raceBtn = new Container();
+    raceBtn.position.set(cx, ROW_H / 2);
     const raceId = this.races[seat]!;
     const col = RACE_COLORS[raceId];
     const plate = new Graphics().roundRect(-92, -18, 184, 36, 6).fill({ color: 0x0d121c, alpha: 0.92 });
     skinButtonFx(plate, -92, -18, 184, 36, { accent: col, state: 'rest', radius: 6, studs: false });
     plate.roundRect(-92, -18, 184, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
-    btn.addChild(plate);
-    attachChipHover(btn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
+    raceBtn.addChild(plate);
+    attachChipHover(raceBtn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
     const t = new Text({
       text: raceDisplayName(raceId),
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: col }),
     });
     t.anchor.set(0.5);
-    btn.addChild(t);
-    btn.eventMode = 'static';
-    btn.cursor = 'pointer';
-    btn.on('pointertap', () => {
+    raceBtn.addChild(t);
+    raceBtn.eventMode = 'static';
+    raceBtn.cursor = 'pointer';
+    raceBtn.on('pointertap', () => {
       this.pickingSeat = seat;
       const taken = new Set<RaceId>();
       for (let s2 = 0; s2 <= this.botCount; s2++) if (s2 !== seat) taken.add(this.races[s2]!);
       this.racePicker.open(taken, this.races[seat]);
     });
-    return btn;
+    return raceBtn;
   }
 
   /**
    * ⭐ S192 (owner R192-T4) — the TEAM chip on every row: *"team one, team two, team three, team four …
    * just like in Red Alert"*. Click cycles — → T1 → T2 → T3 → T4 → —. Bots can be on your team (Q3).
    */
-  private makeTeamButton(seat: number, cx: number): Container {
-    const btn = new Container();
-    btn.position.set(cx, ROW_H / 2);
+  private makeTeamButton(seat: number, cx: number, row: Container): Container {
+    const teamBtn = new Container();
+    teamBtn.position.set(cx, ROW_H / 2);
     const bg = new Graphics();
     const t = new Text({
       text: '',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: 0xffffff }),
     });
     t.anchor.set(0.5);
-    btn.addChild(bg, t);
+    teamBtn.addChild(bg, t);
+    /*
+     * ⭐ S194 (owner: *"the same UI beautification … that all the current buttons … have"*) — T5's chip
+     * language: glass plate with the TEAM colour as its accent, sweeping sheen + brighten on hover (no pop,
+     * like the race / difficulty chips). ⭐ And the seat says whose side it is at a glance: a TEAM-coloured
+     * ring around the row's seat swatch (no ring = no team). `TEAM_CHIP_RECT` is the plate AND the hit.
+     */
+    const ring = new Graphics();
+    ring.eventMode = 'none';
+    row.addChild(ring);
     const paint = (): void => {
-      const col = teamChipColor(this.teams[seat]);
+      const pick = this.teams[seat];
+      const col = teamChipColor(pick);
+      const r = TEAM_CHIP_RECT;
       bg.clear();
-      bg.roundRect(-36, -18, 72, 36, 6).fill({ color: 0x0a0a0a, alpha: 0.9 }).stroke({ width: 2, color: col, alpha: 0.9 });
-      t.text = teamChipLabel(this.teams[seat]);
+      bg.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0d121c, alpha: 0.92 });
+      skinButtonFx(bg, r.x, r.y, r.w, r.h, { accent: col, state: pick === undefined ? 'rest' : 'active', radius: 6, studs: false });
+      bg.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ width: 2, color: col, alpha: 0.9 });
+      t.text = teamChipLabel(pick);
       t.style.fill = col;
+      ring.clear();
+      if (pick !== undefined) ring.circle(-PANEL_W / 2 + 36, ROW_H / 2, 16).stroke({ width: 3, color: col, alpha: 0.95 });
     };
     paint();
-    btn.eventMode = 'static';
-    btn.cursor = 'pointer';
-    btn.on('pointertap', () => {
+    attachChipHover(teamBtn, bg, TEAM_CHIP_RECT, 6);
+    teamBtn.eventMode = 'static';
+    teamBtn.cursor = 'pointer';
+    teamBtn.on('pointertap', () => {
       this.teams[seat] = nextTeamPick(this.teams[seat]);
       paint();
       this.paintTeamsHint();
     });
-    return btn;
+    return teamBtn;
   }
 
   private paintTeamsHint(): void {
-    this.teamsHint.visible = !teamsPlayable(this.teams.slice(0, this.botCount + 1), this.botCount + 1);
+    const blocked = !teamsPlayable(this.teams.slice(0, this.botCount + 1), this.botCount + 1);
+    this.teamsHint.visible = blocked;
+    // ⭐ S194 — START wears T5's DISABLED plate while no match can start (one side), and its sheen stays dark.
+    this.startBlocked = blocked;
+    this.paintStartPlate?.(blocked);
   }
 
   private rebuildRows(): void {
@@ -419,7 +444,7 @@ export class BotSetupOverlay {
     youLabel.position.set(-PANEL_W / 2 + 64, ROW_H / 2);
     youRow.addChild(youLabel);
     youRow.addChild(this.makeRaceButton(0, RACE_X));
-    youRow.addChild(this.makeTeamButton(0, TEAM_X));
+    youRow.addChild(this.makeTeamButton(0, TEAM_X, youRow));
     // ⭐ S192 — a column caption over the team chips, so "—" reads as "no team" rather than as a blank.
     const teamCaption = new Text({
       text: 'TEAM',
@@ -549,7 +574,7 @@ export class BotSetupOverlay {
       });
       row.addChild(diffBtn);
       row.addChild(this.makeRaceButton(i + 1, RACE_X));
-      row.addChild(this.makeTeamButton(i + 1, TEAM_X));
+      row.addChild(this.makeTeamButton(i + 1, TEAM_X, row));
 
       this.difficultyCenters.push({
         x: CANVAS_WIDTH / 2 + DIFF_X,
@@ -590,9 +615,15 @@ export class BotSetupOverlay {
     const c = new Container();
     c.position.set(cx, cy);
     const bg = new Graphics();
-    bg.roundRect(-180, -36, 360, 72, 12).fill({ color: 0x0d121c, alpha: 0.94 });
-    skinButtonFx(bg, -180, -36, 360, 72, { accent: BOT_ACCENT_COLOR, state: 'rest', radius: 12 });
-    bg.roundRect(-180, -36, 360, 72, 12).stroke({ width: 2, color: BOT_ACCENT_COLOR, alpha: 0.9 });
+    // ⭐ S194 (teams) — repaintable: START goes to T5's DISABLED plate while every seat is on one team.
+    const paintPlate = (disabled: boolean): void => {
+      bg.clear();
+      bg.roundRect(-180, -36, 360, 72, 12).fill({ color: 0x0d121c, alpha: 0.94 });
+      skinButtonFx(bg, -180, -36, 360, 72, { accent: BOT_ACCENT_COLOR, state: disabled ? 'disabled' : 'rest', radius: 12 });
+      bg.roundRect(-180, -36, 360, 72, 12).stroke({ width: 2, color: disabled ? 0x555555 : BOT_ACCENT_COLOR, alpha: 0.9 });
+    };
+    paintPlate(false);
+    this.paintStartPlate = paintPlate;
     c.addChild(bg);
     const t = new Text({
       text: label,
@@ -617,7 +648,7 @@ export class BotSetupOverlay {
      * plate is already drawn about its own centre, so it scales from the middle with no pivot work.
      */
     attachButtonFeedback(c, bg, onClick, { hit: { x: -180, y: -36, w: 360, h: 72 } });
-    attachHoverSheen(c, { x: -180, y: -36, w: 360, h: 72 }, 12);
+    attachHoverSheen(c, { x: -180, y: -36, w: 360, h: 72 }, 12, () => !this.startBlocked);
     return c;
   }
 }

@@ -16,7 +16,7 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../cons
 // ⭐ S155 P2 — the ONE shared button grammar (hover pop + press + blip). See buttonFeedback.ts.
 import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass, frame, hover sheen — all inside each plate / hit rect).
-import { skinPanelFx } from './uiSkin.ts';
+import { skinPanelFx, type SkinState } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import {
   makeConnectionLostOverlay,
@@ -152,6 +152,8 @@ export class LobbyScreen {
   private beginButton: Container;
   /** ⭐ S193 (audit F1) — "everyone is on one team" under a dimmed Begin. */
   private teamsHint: Text;
+  /** ⭐ S194 — Begin is refused (one side): its plate wears T5's disabled state and its sheen stays dark. */
+  private beginBlocked = false;
   // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
   private hostBtnRef: Container;
   private backBtnRef: Container;
@@ -430,7 +432,9 @@ export class LobbyScreen {
     this.container.addChild(this.hostDiagnosticsText);
 
     // Begin Match (revealed when peer joins on host side)
-    this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch);
+    // ⭐ S194 (teams) — Begin keeps T5's DISABLED look while every seat is on one team: the plate repaints
+    // 'disabled' (see `refresh`), its sheen stays dark, and the alpha dim (0.4) the e2e reads stays too.
+    this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch, () => !this.beginBlocked);
     this.beginButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
     this.beginButton.visible = false;
     this.container.addChild(this.beginButton);
@@ -730,6 +734,7 @@ export class LobbyScreen {
     beginButtonVisible: boolean;
     beginButtonAlpha: number;
     teamsHintVisible: boolean;
+    beginButtonDisabledSkin: boolean;
   } {
     return {
       mode: this.state.mode,
@@ -738,6 +743,8 @@ export class LobbyScreen {
       // ⭐ S193 (audit F1) — the dim + hint, read from the LIVE display objects for the e2e REACH check.
       beginButtonAlpha: this.beginButton.alpha,
       teamsHintVisible: this.teamsHint.visible,
+      // ⭐ S194 — the plate wears T5's 'disabled' state (repainted in `refresh`), read for the e2e REACH check.
+      beginButtonDisabledSkin: this.beginBlocked,
     };
   }
 
@@ -952,6 +959,10 @@ export class LobbyScreen {
     const begin = beginButtonPaint(v, this.quickmatch);
     if (this.beginButton.visible !== begin.visible) this.beginButton.visible = begin.visible;
     if (this.beginButton.alpha !== begin.alpha) this.beginButton.alpha = begin.alpha;
+    if (this.beginBlocked !== begin.hintVisible) {
+      this.beginBlocked = begin.hintVisible;
+      paintLobbyPlate(this.beginButton.children[0] as Graphics, this.beginBlocked ? 0x555555 : 0x9bff3b, this.beginBlocked ? 'disabled' : 'rest');
+    }
     if (this.teamsHint.visible !== begin.hintVisible) this.teamsHint.visible = begin.hintVisible;
 
     // S69 P2 — the SELECT screen shows the two entry panes; once in a room they
@@ -1007,13 +1018,11 @@ export class LobbyScreen {
     return c;
   }
 
-  private makeButton(label: string, color: number, onClick: () => void): Container {
+  private makeButton(label: string, color: number, onClick: () => void, enabled: () => boolean = () => true): Container {
     const c = new Container();
     const bg = new Graphics();
     const hit = { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
-    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
-    skinStaticPlate(bg, hit, color, 8);
-    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
+    paintLobbyPlate(bg, color, 'rest');
     c.addChild(bg);
     const text = new Text({
       text: label,
@@ -1039,7 +1048,7 @@ export class LobbyScreen {
     attachButtonFeedback(c, bg, onClick, {
       hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
     });
-    attachHoverSheen(c, hit, 8);
+    attachHoverSheen(c, hit, 8, enabled);
     return c;
   }
 
@@ -1142,4 +1151,13 @@ export class LobbyScreen {
     this.applyView();
     this.updateInputVisibility();
   }
+}
+
+/** ⭐ S194 — a lobby button's plate in T5's language; repainted for Begin's disabled state (teams). */
+function paintLobbyPlate(bg: Graphics, color: number, state: SkinState): void {
+  const hit = { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
+  bg.clear();
+  bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
+  skinStaticPlate(bg, hit, color, 8, state);
+  bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
 }

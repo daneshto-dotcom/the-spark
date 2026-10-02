@@ -619,7 +619,7 @@ describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => 
     const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
     expect(overlay).toMatch(/const PANEL_W = 960;/); // S194 — 860 → 960 for the team chip
     expect(overlay).toMatch(/const TEAM_X = PANEL_W \/ 2 - 626;/);
-    expect(overlay).toMatch(/roundRect\(-36, -18, 72, 36, 6\)/); // the team chip's ±36
+    expect(overlay).toMatch(/TEAM_CHIP_RECT = \{ x: -36, y: -18, w: 72, h: 36 \}/); // the team chip's ±36 (S194: one rect, plate + hit)
     expect(overlay).toMatch(/roundRect\(-92, -18, 184, 36, 6\)/);
     expect(overlay).toMatch(/tagline\.position\.set\(-PANEL_W \/ 2 \+ 64,/);
   });

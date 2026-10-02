@@ -38,6 +38,9 @@ import { teamChipLabel } from '../state/teams.ts';
 import { teamChipColor } from './teamChip.ts';
 // ⭐ S194 — your own seat (the race-picker opener) answers the pointer like every other button.
 import { attachChipHover } from './uiSkinButton.ts';
+import { skinButtonFx } from './uiSkin.ts';
+/** ⭐ S194 — the seat TEAM chip's plate, which is also its hit (its Graphics child IS its bounds). */
+export const SEAT_TEAM_CHIP_RECT = { x: 0, y: 0, w: 56, h: 32 } as const;
 
 const EMPTY_OUTLINE = 0x555555;
 const EMPTY_GLYPH = 0x777777;
@@ -266,6 +269,9 @@ export function makeSeatRack(
     teamText.position.set(28, 16);
     teamChip.addChild(teamBg, teamText);
     teamChip.visible = false;
+    // ⭐ S194 (owner: *"the same UI beautification"*) — T5's chip language: sheen + brighten on hover, only on
+    // YOUR seat's chip (the others are labels, inert); the glass plate is painted with the seat in `setSeats`.
+    attachChipHover(teamChip, teamBg, SEAT_TEAM_CHIP_RECT, 6, () => teamChip.eventMode === 'static');
     teamChip.on('pointertap', (e) => {
       e.stopPropagation();
       if (teamChip.eventMode === 'static') onTeamClick?.(i);
@@ -324,7 +330,11 @@ export function makeSeatRack(
       if (nowOccupied) {
         const col = teamChipColor(seat.team);
         c.teamBg.clear();
-        c.teamBg.roundRect(0, 0, 56, 32, 6).fill({ color: 0x0a0a0a, alpha: 0.85 }).stroke({ width: 2, color: col, alpha: 0.95 });
+        const r = SEAT_TEAM_CHIP_RECT;
+        c.teamBg.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0d121c, alpha: 0.9 });
+        // ⭐ S194 — glass in the TEAM colour; a picked team glows 'active', so T1 vs T2 reads across the rack.
+        skinButtonFx(c.teamBg, r.x, r.y, r.w, r.h, { accent: col, state: seat.team === undefined ? 'rest' : 'active', radius: 6, studs: false });
+        c.teamBg.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ width: 2, color: col, alpha: 0.95 });
         c.teamText.text = teamChipLabel(seat.team);
         c.teamText.style.fill = col;
         c.teamChip.eventMode = seat.isYou && onTeamClick !== undefined ? 'static' : 'none';
