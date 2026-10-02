@@ -202,7 +202,10 @@ export function applyPullFromBank(world: World, action: PullFromBankAction): Wor
   // Occupancy is tested against EVERY spark, not just this seat's — a stray spark that drifted onto
   // the porch still physically occupies the spot, and minting into it is the bug being prevented.
   const occupied = [...world.freeSparks.values()].map((s) => s.pos);
-  const slotIndex = firstFreePorchSlot(seat, occupied, world.layout);
+  // ⭐ S193 P3-1 — and every BUILT shape: a slot a tower covers is skipped, never minted into (the
+  // protection the S191 porch build-discs gave, moved here so the castle keep-out can be uniform).
+  const built = [...world.primitives.values()].map((p) => p.pos);
+  const slotIndex = firstFreePorchSlot(seat, occupied, world.layout, built);
   if (slotIndex === null) return world; // porch full → the shape stays in the inventory
   // Spend FIRST: if the seat holds none of this type there is nothing to mint and nothing changed.
   if (!bankRemove(world.castleBanks, action.playerId, action.sparkType)) return world;

@@ -97,7 +97,7 @@ function victimTally(w: World, seat: number): Map<number, number> {
     if ((c.ownerPlayerId as unknown as number) !== seat || c.targetBondId === null) continue;
     // Only the army this test spawned — a unit the castle emits from the far corner has its own nearest.
     if (((c.sourceSpawnerId ?? 0) as unknown as number) < 9000) continue;
-    const v = w.bonds.get(c.targetBondId)!.a.placedBy as unknown as number;
+    const v = w.primitives.get(w.bonds.get(c.targetBondId)!.aId)!.placedBy as unknown as number;
     tally.set(v, (tally.get(v) ?? 0) + 1);
   }
   return tally;
@@ -144,7 +144,7 @@ describe('⭐⭐ S193 P3-2 — the orcs below him attack HIM, whoever leads on p
       w.scoreByPlayer.set(asPlayerId(enemies[2]!), 900);
       army(w, seat, at);
       const oldPicks = [...w.creatures.values()].map((c) => findNearestBondTarget(w, c, true));
-      const nearBond = [...w.bonds.values()].find((b) => (b.a.placedBy as unknown as number) === enemies[0])!.id;
+      const nearBond = [...w.bonds.values()].find((b) => (w.primitives.get(b.aId)!.placedBy as unknown as number) === enemies[0])!.id;
       expect(oldPicks.some((b) => b !== nearBond), `seat ${seat}: anti-vacuity — the spread was engaged`).toBe(true);
       const d = deps();
       const st = makeHostTickState(w);
@@ -158,7 +158,7 @@ describe('⭐⭐ S193 P3-2 — the orcs below him attack HIM, whoever leads on p
           let best: BondId | null = null;
           let bd = Infinity;
           for (const [id, b] of w.bonds) {
-            if (b.a.placedBy === c.ownerPlayerId || b.b.placedBy === c.ownerPlayerId) continue;
+            if (w.primitives.get(b.aId)!.placedBy === c.ownerPlayerId || w.primitives.get(b.bId)!.placedBy === c.ownerPlayerId) continue;
             const dd = (c.pos.x - (b.a.pos.x + b.b.pos.x) * 0.5) ** 2 + (c.pos.y - (b.a.pos.y + b.b.pos.y) * 0.5) ** 2;
             if (dd < bd || (dd === bd && best !== null && id < best)) { bd = dd; best = id; }
           }

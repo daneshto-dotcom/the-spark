@@ -247,6 +247,18 @@ export function stampRefusalAt(
       const pdy = prim.pos.y - node.y;
       if (Math.hypot(pdx, pdy) < STAMP_CLEARANCE) return 'BLOCKED';
     }
+    /*
+     * ⭐ S193 P3-1 — AND NOT OVER A SHAPE RESTING ON A PORCH. The castle keep-out is now one uniform
+     * disc (owner: *"a short radius … immediately around it"*), so the porch row (anchor.y + 74) is
+     * buildable ground. A pulled shape waiting there (`escrow: 'banked'`, the only free sparks that
+     * rest outside the quarry) is geometry like any other, so a stamp may not land on it — the other
+     * half of what the S191 porch discs protected (the pull half is `firstFreePorchSlot`'s `built`).
+     * Same clearance, same per-node test as the shapes above, on every side alike.
+     */
+    for (const spark of world.freeSparks.values()) {
+      if (spark.escrow !== 'banked') continue;
+      if (Math.hypot(spark.pos.x - node.x, spark.pos.y - node.y) < STAMP_CLEARANCE) return 'BLOCKED';
+    }
   }
 
   return null;
