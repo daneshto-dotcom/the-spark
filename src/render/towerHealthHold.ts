@@ -63,9 +63,10 @@
  */
 import { componentOf } from '../game/structure.ts';
 import { towerOwnPoolAt } from '../state/towerUnit.ts';
+import { towerMembersAt } from '../state/towerMembers.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/worldTypes.ts';
-import type { PrimitiveId } from '../types.ts';
+import type { BondId, PrimitiveId } from '../types.ts';
 
 interface Hold {
   /** The tower's own banked damage as if no re-form had drained it, fifths. */
@@ -74,12 +75,22 @@ interface Hold {
   raw: number;
   /** Connectors in the tower's whole structure (its anchor's component) at the last frame. */
   compBonds: number;
+  /** The tower's own connector ids at the last frame (a FIX re-weld mints a NEW id — audit 2a). */
+  ownBonds: ReadonlySet<BondId>;
+  /** Was a repair job covering this tower queued at the last frame? (`world.repairJobs` is synced.) */
+  hadJob: boolean;
 }
 
 const holds = new Map<string, Hold>();
 let active = false;
-/** The tick of the last frame — a clock that went BACKWARDS is a new match (ids restart): forget all. */
-let lastTick = -1;
+/**
+ * ⛔ S194 audit F1 — the MATCH the holds belong to. NOT a tick watermark: on a JOINER `world.tick` steps
+ * BACK routinely (the client steps `tick++`, then a snapshot sets `world.tick = snap.tick`, `save.ts`), and
+ * a "the clock went backwards ⇒ new match" clear wiped every hold on every joiner — the tower rebuilt again
+ * there. The real boundaries: a different `World` object, or the world leaving PLAYING (title, lobby, win
+ * screen); ids restart only across those. The per-frame prune below drops towers that vanish mid-match.
+ */
+let lastWorld: World | null = null;
 
 const keyOf = (recipeId: GodlyId, anchorId: PrimitiveId): string => `${recipeId}:${anchorId as unknown as number}`;
 
@@ -90,8 +101,8 @@ const keyOf = (recipeId: GodlyId, anchorId: PrimitiveId): string => `${recipeId}
  */
 export function beginTowerHealthHoldFrame(world: World): void {
   active = true;
-  if (world.tick < lastTick) holds.clear();
-  lastTick = world.tick;
+  if (world !== lastWorld || world.gameState !== 'PLAYING') holds.clear();
+  lastWorld = world;
   const seen = new Set<string>();
   const towers: { recipeId: GodlyId; anchorId: PrimitiveId }[] = [];
   for (const sp of [...world.creatureSpawners.values()].sort((a, b) => Number(a.id) - Number(b.id))) {
@@ -109,22 +120,37 @@ export function beginTowerHealthHoldFrame(world: World): void {
     if (own === null) continue;
     seen.add(key);
     const compBonds = componentOf(anchor, world.primitives, world.bonds).bondIds.size;
+    const ownBonds = new Set<BondId>(towerMembersAt(world, t.recipeId, t.anchorId)?.bonds ?? []);
+    const members = new Set<PrimitiveId>(own.prims);
+    const hasJob = world.repairJobs.some((j) => j.memberIds.some((m) => members.has(m)));
     const h = holds.get(key);
     if (h === undefined) {
       // First sight: a NEW tower (or a joiner's first look) reads exactly what the sim says.
-      holds.set(key, { held: own.banked, raw: own.banked, compBonds });
+      holds.set(key, { held: own.banked, raw: own.banked, compBonds, ownBonds, hadJob: hasJob });
       continue;
     }
+    /*
+     * ⭐ S194 audit 2a — A REPAIR IS AUTHORITATIVE, even when a weld connector fell in the same frame /
+     * snapshot (which alone would read as a drain and hide the heal forever): a FIX job covering this tower
+     * that was queued last frame and is gone now (it finished — `repairJobs.ts` removes a job on restore;
+     * a cancel leaves the tower as the sim reads it anyway), or an own connector id that was not there last
+     * frame (a FIX re-weld mints a new bond id; placement never bonds two existing own shapes).
+     */
+    let rewelded = false;
+    for (const b of ownBonds) if (!h.ownBonds.has(b)) { rewelded = true; break; }
+    const repaired = rewelded || (h.hadJob && !hasJob);
     if (own.banked >= h.raw) {
       h.held += own.banked - h.raw; // new damage always shows
-    } else if (compBonds < h.compBonds) {
+    } else if (compBonds < h.compBonds && !repaired) {
       // ⛔ THE R194-30 CASE: a connector of its structure fell and the drain spent the tower's own
       // damage. The structure re-formed; the TOWER was not repaired. Hold.
     } else {
-      h.held = own.banked; // a FIX (no connector lost): the repair is real, show it
+      h.held = own.banked; // a FIX: the repair is real, show it
     }
     h.raw = own.banked;
     h.compBonds = compBonds;
+    h.ownBonds = ownBonds;
+    h.hadJob = hasJob;
   }
   for (const key of [...holds.keys()]) if (!seen.has(key)) holds.delete(key); // fallen / scrapped towers
 }
@@ -144,5 +170,5 @@ export function heldOwnBanked(recipeId: GodlyId, anchorId: PrimitiveId, rawBanke
 export function __resetTowerHealthHoldForTests(): void {
   holds.clear();
   active = false;
-  lastTick = -1;
+  lastWorld = null;
 }
