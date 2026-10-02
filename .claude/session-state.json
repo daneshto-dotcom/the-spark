@@ -31,7 +31,19 @@
       "checkpoint_commit": "b2c9a478",
       "deploy": "#5",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/teams.ts",
+          "needle": "sameTeam"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "CLAIM_TEAM"
+        }
+      ]
     },
     {
       "id": "T2",
@@ -49,7 +61,19 @@
       "checkpoint_commit": "6ae616da",
       "deploy": "#2",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/fx/perkFx.ts",
+          "needle": "export"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "fxHaze"
+        }
+      ]
     },
     {
       "id": "T3",
@@ -67,7 +91,19 @@
       "checkpoint_commit": "2fe065fb",
       "deploy": "#1",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/magicResist.ts",
+          "needle": "CASTLE_SOLDIER_MRES"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/draft.ts",
+          "needle": "mres"
+        }
+      ]
     },
     {
       "id": "T4",
@@ -120,7 +156,19 @@
       "checkpoint_commit": "b2c9a478",
       "deploy": "#5",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/entropy.ts",
+          "needle": "applyEntropyTax"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "applyEntropyTax"
+        }
+      ]
     },
     {
       "id": "T7",
@@ -138,7 +186,19 @@
       "checkpoint_commit": "814f1871",
       "deploy": "#3",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/bots/botBrain.ts",
+          "needle": "chooseFix"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/bots/botController.ts",
+          "needle": "placeRefusedAt"
+        }
+      ]
     },
     {
       "id": "T8",
@@ -156,7 +216,19 @@
       "checkpoint_commit": "d69475f6",
       "deploy": "#4",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/buttonFeedback.ts",
+          "needle": "hitRectAtScale"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/intentStamp.ts",
+          "needle": "cause: 'player'"
+        }
+      ]
     },
     {
       "id": "T9",
@@ -174,7 +246,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/coherence/unitDeparture.ts",
+          "needle": "classifyCreatureDeparture"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/creatureRenderer.ts",
+          "needle": "lastSeenLife.clear()"
+        }
+      ]
     },
     {
       "id": "T10",
@@ -192,7 +276,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/matchBoardModel.ts",
+          "needle": "MONSTERS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsPharaohRitual.ts",
+          "needle": "ehp > 0"
+        }
+      ]
     },
     {
       "id": "T11",
@@ -256,7 +352,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S194_OWNER_RULINGS.md",
+          "needle": "R194-29"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S194_DISPATCH_LOG.md",
+          "needle": "team-music"
+        }
+      ]
     },
     {
       "id": "T15",
@@ -274,7 +382,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/towerHealthHold.ts",
+          "needle": "beginTowerHealthHoldFrame"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/main.ts",
+          "needle": "beginTowerHealthHoldFrame"
+        }
+      ]
     },
     {
       "id": "T16",
@@ -292,7 +412,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/state/hostTick.ts",
+          "needle": "runBloodFrenzy"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/bossSkillsWarlord.ts",
+          "needle": "mayFire"
+        }
+      ]
     },
     {
       "id": "T17",
@@ -310,7 +442,19 @@
       "checkpoint_commit": "e9855ba9",
       "deploy": "#6",
       "real_context_tokens_at_close": 873483,
-      "real_context_pct_at_close": 87.35
+      "real_context_pct_at_close": 87.35,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S194_OWNER_RULINGS.md",
+          "needle": "R194-33"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S194_OWNER_RULINGS.md",
+          "needle": "Multiplayer must work tonight"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
@@ -320,7 +464,15 @@
     "#s194-permission-refusal-not-laundered: the integrator was refused a merge by the permission system; the owner's approval relayed by the merge owner was correctly NOT treated as consent by the subagent. Ask the owner, and have the merge owner act.",
     "#s194-owner-names-the-mechanism: the welded-tower 'rebuild' was exactly the owner's diagnosis (the pool refill read by the art as a new build); start a bug brief from his words.",
     "#s194-dev-server-watched-worktrees: the main checkout's vite watched and dep-scanned .claude/worktrees/** and timed e2e out; fixed in vite.config.",
-    "#s194-measure-before-deciding: the pants cap: measured 250/500/1000 live pants, then chose 360 total; no guessed caps."
+    "#s194-measure-before-deciding: the pants cap: measured 250/500/1000 live pants, then chose 360 total; no guessed caps.",
+    "P1 #s194-T2-auto-extracted: s193/visuals-racial (visuals-3) combined re-bench + independent audit CLEAN; merged with gates green; shipped deploy #2 6ae616da alongside the intentStamp SEVER_BOND security fix; verify-deploy 4/4",
+    "P2 #s194-T3-auto-extracted: s193/mres-card audited by a non-author agent; merged with gates green; shipped deploy #1 2fe065fb with BUMP 63 + vite worktree-ignore fix; verify-deploy 4/4",
+    "P5 #s194-T6-auto-extracted: s194/entropy: owner picked an option in chat; built; independent audit CLEAN; merged with full gates; shipped deploy #5 b2c9a478 (BUMP 65); verify-deploy 4/4",
+    "P6 #s194-T7-auto-extracted: s194/bots-tune audited by a non-author agent; merged with gates green; shipped deploy #3 814f1871; verify-deploy 4/4",
+    "P7 #s194-T8-auto-extracted: s194/fixes audited; merged with full gates; shipped deploy #4 d69475f6 (BUMP 64); verify-deploy 4/4; CI e2e reds on #4/#5 carried to S195 as a finding",
+    "P13 #s194-T14-auto-extracted: s194/team-music: Desktop/SPARK_Team_Music_Prompts.html built from the owner's real prompts; no src, nothing to deploy; branch preserved, folds into S195 T12; checkpoint = live deploy #6 e9855ba9",
+    "P15 #s194-T16-auto-extracted: s194/rage (R194-31) audit CLEAN; merged; BUMP 65->66 rode deploy #6 e9855ba9 (six sites + canon s6); verify-deploy 4/4",
+    "P16 #s194-T17-auto-extracted: s194/mp live-MP harness check run; branch kept unmerged as an optional harness (carried, preserved); live deploy at check = #6 e9855ba9"
   ],
   "budget_total": 1000000,
   "totals": {

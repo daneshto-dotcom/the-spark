@@ -1,3 +1,35 @@
+## S194 (2026-10-02) - 6 deploys live and verified 4/4 (#1-#6, PROTOCOL 62→66): mres-card, intentStamp SEVER_BOND security fix + visuals-3, bots-tune, fixes + ui r1/r2, teams + entropy, coherence + weld-rebuild + rage + matchboard; ui r3, rules, visuals-6, mp, team-music carried to S195.
+
+- #s194-integrator-agent: moving merges, gates and deploys to one integrator agent kept the merge owner's context light and shipped 3 deploys while the worktrees were still running.
+
+- #s194-every-fix-round-adds-a-defect: 9 of 10 audits found a real defect in an all-green branch: T15's hold wiped on joiners via tick step-back, T11's cap not a total after a fall, T9's pants sweep drawn as deaths, T10's Pharaoh double LOST, T4's defender sparkle missing in FIGHT, T1's census holes. The audit is the product.
+
+- #s194-crlf-in-audits: a Python rewrite flipped save.ts to CRLF (+3248 lines); an audit must compare git diff --stat size against the real change.
+
+- #s194-permission-refusal-not-laundered: the integrator was refused a merge by the permission system; the owner's approval relayed by the merge owner was correctly NOT treated as consent by the subagent. Ask the owner, and have the merge owner act.
+
+- #s194-owner-names-the-mechanism: the welded-tower 'rebuild' was exactly the owner's diagnosis (the pool refill read by the art as a new build); start a bug brief from his words.
+
+- #s194-dev-server-watched-worktrees: the main checkout's vite watched and dep-scanned .claude/worktrees/** and timed e2e out; fixed in vite.config.
+
+- #s194-measure-before-deciding: the pants cap: measured 250/500/1000 live pants, then chose 360 total; no guessed caps.
+
+- P1 #s194-T2-auto-extracted: s193/visuals-racial (visuals-3) combined re-bench + independent audit CLEAN; merged with gates green; shipped deploy #2 6ae616da alongside the intentStamp SEVER_BOND security fix; verify-deploy 4/4
+
+- P2 #s194-T3-auto-extracted: s193/mres-card audited by a non-author agent; merged with gates green; shipped deploy #1 2fe065fb with BUMP 63 + vite worktree-ignore fix; verify-deploy 4/4
+
+- P5 #s194-T6-auto-extracted: s194/entropy: owner picked an option in chat; built; independent audit CLEAN; merged with full gates; shipped deploy #5 b2c9a478 (BUMP 65); verify-deploy 4/4
+
+- P6 #s194-T7-auto-extracted: s194/bots-tune audited by a non-author agent; merged with gates green; shipped deploy #3 814f1871; verify-deploy 4/4
+
+- P7 #s194-T8-auto-extracted: s194/fixes audited; merged with full gates; shipped deploy #4 d69475f6 (BUMP 64); verify-deploy 4/4; CI e2e reds on #4/#5 carried to S195 as a finding
+
+- P13 #s194-T14-auto-extracted: s194/team-music: Desktop/SPARK_Team_Music_Prompts.html built from the owner's real prompts; no src, nothing to deploy; branch preserved, folds into S195 T12; checkpoint = live deploy #6 e9855ba9
+
+- P15 #s194-T16-auto-extracted: s194/rage (R194-31) audit CLEAN; merged; BUMP 65->66 rode deploy #6 e9855ba9 (six sites + canon s6); verify-deploy 4/4
+
+- P16 #s194-T17-auto-extracted: s194/mp live-MP harness check run; branch kept unmerged as an optional harness (carried, preserved); live deploy at check = #6 e9855ba9
+
 ## S193 (2026-10-02) - 7 deploys live and verified 4/4 (#17-#23, PROTOCOL 56→62): units-ai, zombies + every-blast falloff, CI health + relays, endgame pants, visuals-2, an 8-branch train (magic, bots, autobuild, visuals-4/5, carry-fwd, endstats, weld) and the owner's live playtest fixes; teams, visuals-3, mres-card carried.
 
 - P0 #s193-property-test-the-split: an owner ruling phrased 'for every blast' had to be enumerated mechanically (a census keyed on BOMB_EXPLODE found every producer); the auditor's 60-layout property test through runHostTick proved the 312 split sums exactly and spares his side — arithmetic tests alone would not have.
@@ -72,30 +104,3 @@
 
 - SESSION #s190-commit-every-step-is-what-makes-a-spend-limit-cheap: the org spend limit killed every in-flight agent THREE times; each time the loss was one step per branch, because every brief said commit after every step and every workflow journals per agent. Parallelism is only as safe as its smallest unit of saved progress.
 
-## S189 (2026-09-24) - deploy #2 shipped and verified 4/4; the owner's ten playtest corrections + every S188 carry-forward planned into a Council-reviewed six-worktree PDR; execution carried to a fresh account at 96% of the weekly quota.
-
-- S189 - P1 #s189-a-failing-check-is-a-finding-about-the-check-first #verify-deploy #load-vs-defect: two reds this session were the MEASUREMENT, not the code. S188's three @visual e2e failures were machine load (69/69 on a quiet run in the candidate's own worktree), and verify-deploy's LIVE failure after the push was a stale dist/ in the main checkout, which had not built this session (4/4 after a rebuild). Both were re-run under the right conditions instead of waived or chased as bugs.
-
-- S189 - PLAN #s189-read-the-code-before-the-fanout #quota #handoff-as-deliverable: one hand-read of main.ts answered the handoff's first question before any agent ran. A protocol mismatch cannot produce CONNECTION LOST, because the overlay needs PLAYING and a mismatched HELLO never gets there. When the owner called quota at 96%, stopping 14 in-flight read-only agents cost nothing: none had finished, and their scripts were saved into the repo for the next account to re-run as written.
-
-- S189 - META #s189-a-write-and-a-commit-in-one-call-can-commit-the-old-file #session-state #race: S189's session-state was written and committed in the same Bash call three times, and all three commits hold S188's content. A hook's read-modify-rename (the .tmp.counter files) landed between the write and the git add, so the review card and the ledger then read S188 as the live session. Verify a state file in a SEPARATE call before committing or trusting it. And on a day two sessions closed, a ledger PASS that only matches the date is not evidence that this session did the step.
-
-## S188 (2026-09-24) - the racials went live: all twelve level-0/5 mechanics, the 16 cards and the castle upgrade buttons, built on six parallel worktrees and merged by the main session; deploy #1 live and verified 4/4; plus the ecosystem-wide BOOT-READ GATE the owner ordered. Deploy #2 parked on a candidate branch behind 3 unclearable e2e reds.
-
-- S188 - P0 #s188-printing-a-boot-list-is-not-reading-it #boot #enforcement #owner-frustration: pre-flight had PRINTED every boot file for months and nothing checked any was opened; S188 skimmed the traces through tail|cut and never opened S187's recorded research, then started re-deriving specs that were on disk. A rule the model must remember fails exactly when it matters, so it became a gate: boot reads are required, marked only by the Read tool, and Edit/Write/Agent/Workflow are denied until done. The build also exposed two latent defects the old advice hid: pre-flight's trace slug never matched a spaced project name (it pointed SPARK at another project's file), and an IN-PROGRESS plan in .claude/plans/ that pre-flight never scans. Grok caught a lost-update race in the first design (parallel Reads rewriting one JSON); per-read marker files remove it.
-
-- S188 - P1 #s188-a-second-option-turns-a-latent-bug-live #draft #validation: applyDraftChoice had pushed ANY pick since S187 - harmless while the panel could only send the offered general, live the moment a racial option exists. Found by asking what the reducer ASSUMED about its input once the input's range widened (S187's own lesson, one layer up). And two S187 tests encoded the latent bug as expected behaviour - one chose ATK at the HP draft and passed only because nothing refused it. A test that passes because of a bug is a pin on the bug; re-pin it to the intent, never delete it.
-
-- S188 - P2 #s188-the-tile-a-click-goes-through #ui-layering: the cards branch was right against its brief and the panel still let a click reach the board, because controls.ts listens on the raw canvas and knows nothing about Pixi overlays. The fill-count tripwire paired each plate with draftHitTest, a predicate only the overlay itself consults, so the guard was green over the leak (S182 lesson 2 again). Every opaque surface needs a predicate the INPUT layer asks, not one the surface asks itself.
-
-- S188 - P3 #s188-new-buttons-expose-old-bugs #wire: the castle upgrades had been built since S187 with no button, and three latent bugs lived there unseen - castleHp above 2500 never crossed the wire, an HP buy moved only the ceiling, and bought stats survived a rematch. A feature nobody can press is a feature nobody has tested; wiring the UI is when the sim finally gets exercised.
-
-- S188 - P4 #s188-a-boss-skill-that-never-fired #measure: rage halved the attack cycle and left the fire tick past its end, so since S168 an enraged Warlord landed NOTHING. It was found only because the frenzy test measured damage dealt instead of asserting the flag was set. Assert the OUTCOME the owner would see, never the flag that should cause it.
-
-- S188 - P5 #s188-spawn-during-iteration #determinism: three mechanics make creatures from events inside the strike batch, and a JS Map visits entries added mid-loop, so a newborn would act on its birth tick - deterministic on host AND worker, so no hash oracle would ever catch it. The Council prime-audit named it before any code existed; the substrate queue made the right thing the easy thing for three branches at once.
-
-- S188 - P6 #s188-cross-branch-defect-has-no-owner #merge: racial-a made damageConnector's attacker REQUIRED while racial-c called it with three arguments; each was green against master and only the merge failed. Then a census test failed on a trailing comment my own conflict resolution introduced. Typecheck plus the full suite after EVERY merge is what surfaced both.
-
-- S188 - P7 #s188-save-every-step-paid #resilience: the org spend limit killed every agent at once, twice. Because the owner asked for wip commits every step, nothing was lost: salvage commits captured in-flight files and each agent resumed from its own transcript. Long parallel runs need commit-as-you-go as a standing brief rule, not an emergency message.
-
-- S188 - SESSION #s188-do-not-ship-a-red-you-cannot-clear #deploy: the deploy-2 tree went 3/69 red on @visual sprite tests that were green an hour earlier, and the re-run could not start. Probably load - but a red you cannot clear is not shipped onto a build the owner is playing; the merges were parked on a candidate branch and master reset to the verified live commit.
