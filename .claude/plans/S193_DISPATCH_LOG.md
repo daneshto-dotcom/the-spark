@@ -103,3 +103,4 @@ Fix rounds go to the SAME agent by SendMessage. Audits: ONE at a time, single in
 - ✅ DEPLOY #22 LIVE 0a4d947 (PROTOCOL 61: magic, bots, goblin-autobuild, visuals-4, visuals-5, carry-fwd, endstats, weld) — verify-deploy 4/4 (first run raced Pages, re-run PASS).
 - AUDIT playtest3 (a7fab9d6f33e11d0e) FIX FIRST MED-1 bots wall their own porch after P3-1 (isLegalBuildPos porch-blind) — fix verified by auditor; P3-1/P3-2 VERIFIED; re-pins justified (ruling consequence); L1 silent no-op pull. → fix round sent; deploy #23 (61→62) after.
 - deploy #23 gates ALL 0 (tc vt 7859 build 1121.9 e2e 71/71 races 5/5 lobby 5/5). PUSHING #23 (playtest3, PROTOCOL 62).
+- ✅ DEPLOY #23 LIVE 77e2a00 (playtest3, PROTOCOL 62) — verify-deploy 4/4. HANDOFF started; STEP 0 review gate BLOCKED awaiting owner APPROVE.
