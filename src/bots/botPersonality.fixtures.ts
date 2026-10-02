@@ -249,6 +249,12 @@ export interface LockResult {
   readonly lockRejects: number;
   /** FEED_TOWER sends that landed during the locked window. */
   readonly feedsLanded: number;
+  /**
+   * ⭐ S194 (T7) — repair jobs the bots' FIX / FIX ALL queued during the locked window. FIX is allowed under
+   * the lock and outranks FEED in the brain (owner R191-B: *"the top … priority"*), so a seeded shape a
+   * tower needs back goes to its repair before it buys a unit.
+   */
+  readonly fixJobsQueued: number;
   /** Seats that owned a feedable spawner when the lock fell. */
   readonly seatsWithTower: number;
   /** Is any bot still holding a shape when the window ends? (It can never place it.) */
@@ -282,6 +288,7 @@ export function runLockMatch(
   const w = startMatch();
   let locked = false;
   let feedsLanded = 0;
+  let fixJobsQueued = 0;
   const controllers = BOT_SEATS.map((s, i) => {
     const rng = mulberry32(((SIG_BOT_SEED ^ ((i + 1) * 0xb07b07)) >>> 0) || 1);
     return new BotController(asPlayerId(s), tier, rng, BOT_SEATS.length + 1,
@@ -292,6 +299,12 @@ export function runLockMatch(
       const before = w.creatures.size;
       dispatch(w, a);
       if (w.creatures.size > before) feedsLanded++;
+      return;
+    }
+    if ((a.type === 'FIX_ALL' || a.type === 'REPAIR_STRUCTURE') && locked) {
+      const before = w.repairJobs.length;
+      dispatch(w, a);
+      fixJobsQueued += Math.max(0, w.repairJobs.length - before);
       return;
     }
     dispatch(w, a);
@@ -334,6 +347,7 @@ export function runLockMatch(
   return {
     lockRejects: w.diagnostics.rejectReasons.endgameBuildLocked - rej0,
     feedsLanded,
+    fixJobsQueued,
     seatsWithTower,
     carryingAtEnd: anyCarrying(),
   };

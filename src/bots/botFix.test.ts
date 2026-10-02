@@ -87,13 +87,15 @@ function runFixMatch(tier: BotDifficulty, seconds: number, opts: { stripGatherer
   } as unknown as HostTickDeps;
   const st = makeHostTickState(w);
   const cursor: GodlyMatcherCursor = { lastMatcherTick: -1 };
+  // A reader, not a field access, so the compiler does not narrow `gameState` across the tick.
+  const playing = (): boolean => w.gameState === 'PLAYING';
   for (let i = 0; i < 60 * seconds; i++) {
     if (opts.stripGatherersFromTick !== undefined && i >= opts.stripGatherersFromTick) {
       for (const [id, g] of [...w.gatherers]) if ((g.ownerPlayerId as unknown as number) !== 0) w.gatherers.delete(id);
     }
     const jobsBefore = new Map(w.repairJobs.map((j) => [j.id, j]));
     runHostTick(w, deps, st);
-    if (w.gameState === 'PLAYING') runGodlyMatcherCore(w, cursor);
+    if (playing()) runGodlyMatcherCore(w, cursor);
     w.effects.length = 0;
     for (const [id, job] of jobsBefore) {
       if (w.repairJobs.some((j) => j.id === id)) continue;

@@ -430,8 +430,9 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
      * the old row spent its BUILDs re-raising them and filled the bell with race towers (0.25 < BALANCED
      * 0.28, no laser) and S193 re-pinned it down to "a defence on ≥ 2 seats". S194 re-tuned the ROW, not the
      * test (`botPersonality.ts`, FORTRESS IMBA: laser 2nd, substitute 'listed', hold 3300). MEASURED after
-     * (final S194 tree): goblin>laser>stink | goblin | goblin>laser — mean defence 0.39 (BALANCED 0.28,
-     * TYCOON 0.17, WARMONGER 0.00, SABOTEUR 0.00), two lasers, 8 units fed, 13 loose shapes.
+     * (final S194 tree, bots FIX): goblin>laser>stink | goblin | goblin>helga — mean defence 0.39 (BALANCED
+     * 0.28, TYCOON 0.17, WARMONGER 0.00, SABOTEUR 0.00), the only laser, 18 units fed. (Before bots FIXed, the
+     * same row measured goblin>laser>stink | goblin | goblin>laser.)
      */
     for (const [p, m] of all) {
       if (p === 'FORTRESS') continue;
@@ -439,8 +440,8 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
       expect(m.seats.some((s) => s.stamps.includes('laserTurret')), `${p} fields no laser`).toBe(false);
     }
     expect(fort.seats.filter((s) => s.stamps.includes('laserTurret')).length, 'FORTRESS lasers').toBeGreaterThanOrEqual(1);
-    // Measured S194 after the T7 PLACE/PULL fixes moved the bot rng stream: goblin>laser>stink | goblin |
-    // goblin>laser — a defence on 2 of 3 seats (3 of 3 on the pre-fix stream), mean 0.39 vs BALANCED 0.28.
+    // Measured S194 after the T7 PLACE/PULL fixes moved the bot rng stream: a defence on 2 of 3 seats (3 of 3
+    // on the pre-fix stream), mean 0.39 vs BALANCED 0.28.
     expect(fort.seats.filter((s) => s.defenceRatio > 0).length, 'FORTRESS stamps a defence on ≥ 2 seats').toBeGreaterThanOrEqual(2);
     // ⚠ It still PLAYS between towers: the 3300 hold leaves a spend window (3600 measured 0 loose — rejected).
     expect(sum(fort, (s) => s.loosePlaced)).toBeGreaterThan(0);
@@ -547,7 +548,15 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
       it(`${tier} ${p}: zero refused builds, and every seat with a feedable tower feeds`, () => {
         const r = runLockMatch(tier, p, 200, 80, 27);
         expect(r.lockRejects, 'lock rejects').toBe(0);
-        expect(r.feedsLanded, `feeds (${r.seatsWithTower} seats with a tower)`).toBeGreaterThanOrEqual(r.seatsWithTower);
+        /*
+         * ⚠ S194 (T7) RE-PIN — was `feedsLanded ≥ seatsWithTower`. Bots now FIX (allowed under the lock, and
+         * ranked above FEED — R191-B "top priority"), so in two cells the ONE seeded shape a race tower eats
+         * went to repairing that seat's damaged tower instead (measured: HARD SABOTEUR and IMBA BALANCED,
+         * 0 feeds / 1 tower; with `chooseFix` disabled both feed again). The rule this test guards — a locked
+         * bot does not sit on its bank — holds: every such seat FEEDS or FIXES.
+         */
+        expect(r.feedsLanded + r.fixJobsQueued, `feeds ${r.feedsLanded} + fix jobs ${r.fixJobsQueued} (${r.seatsWithTower} seats with a tower)`)
+          .toBeGreaterThanOrEqual(r.seatsWithTower);
       }, 60_000);
     }
   }

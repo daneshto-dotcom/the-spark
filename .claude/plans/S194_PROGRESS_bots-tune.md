@@ -2,21 +2,32 @@
 
 Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base master `0a37175e`.
 
-## ⏸ PAUSED (owner session limit) — RESUME HERE
-- **EXACT NEXT STEP: step 3 — bots FIX.** Nothing of it is written yet (no half-done code). Plan: new BotGoal `FIX`
-  (castle command, no travel) in `botBrain.chooseGoal` (BUILD only, own gatherer ≥ 1, `seatJobCount < REPAIR_JOBS_MAX_PER_SEAT`),
-  driven by `fixAllTargets(world, seat)` (`src/state/repairJobs.ts:190`): ≥ 2 targets → send `FIX_ALL`; exactly 1 →
-  `REPAIR_STRUCTURE { primitiveId: targetId }`. Both are existing allowlisted intents (protocol.ts:1853/1856) and allowed
-  under the endgame lock. New tier knob `repairsTowers` (MID/HARD/IMBA, ⚠ MINE) + thresholds ⚠ MINE. Then REACH test through
-  the real host tick (jobs queued + a tower restored), negative (FIGHT / no gatherer), mutation; then step 4 report numbers
-  (already measured, in the log), full gates, final report.
-- Done + committed: step 1 (Fortress), step 2 (PLACE/PULL spam), step 4's Warmonger/Tycoon separation.
-- Last gates: `npx vitest run src/bots --maxWorkers=3` → exit 0 (21 files / 220 tests, incl. untracked scratch probes).
-  Full typecheck/vitest/build NOT yet run on this branch. Untracked scratch `src/bots/zz_probeT7*.test.ts` (never commit;
-  they fail typecheck with TS2367 — scratch only, delete before the gates).
-
-## FINAL REPORT
-(pending)
+## FINAL REPORT (T7 `s194/bots-tune`)
+- **Tip**: the commit carrying this report (on top of the gates run). **Merge**: master ed54f64a → 0a02ed5e, no conflicts (plans/
+  canon/canon.test/session-state only); `npm install` 0 at boot (lockfile unchanged by the merge).
+- **Gates (merged tree)**: typecheck **0** · vitest `--maxWorkers=3` **0 — 522 files / 4 skipped, 7875 passed / 11 skipped** · build **0**,
+  entry **1122.0 KiB (1 148 880 B)**, headroom 128.0; vs the recorded master 1121.9 → **≈ +0.1 KiB** (bots are a lazy chunk; master not
+  rebuilt here). e2e not run (no UI/render change; bots are host-side sim). Benign: `pentagramBuildability.test.ts.snap` LF rewrite —
+  `git diff -w` empty, restored, never committed. Scratch probes `zz_probeT7*` deleted before the gates.
+- **BUMP: NO.** S186 test: two builds that shake hands disagree about nothing either computes — bots run on the host only (and the worker
+  sim, which is the host's), and emit only existing allowlisted intents (FIX_ALL, REPAIR_STRUCTURE, PLACE, PULL…) via local dispatch.
+  No reducer, hash, serialized field or wire type changed; a client never runs bot code.
+- **Done**: (1) IMBA FORTRESS identity restored; (2) refused-PLACE spam → 0 (+ no-op PULL spam → 0); (3) bots FIX (FIX_ALL / per-tower);
+  (4) Q-E Warmonger vs Tycoon separated. Numbers in the Log below.
+- **MINE / owner questions** (one line each, with a recommendation):
+  1. Personality names (Balanced / Warmonger / Fortress / Tycoon / Saboteur) — rec: keep; R194-12 says keep the five, and they now measure distinct.
+  2. S154 "IMBA goblin tower first" for EVERY style — rec: keep (Q4 floor held in all five; Fortress/Warmonger still distinct above it).
+  3. "Leftovers feed race towers" (Q-F) — rec: keep; a race tower eats one type, so leftovers of that type become units instead of idling.
+  4. FIX outranks FEED and TOWER in the bot brain (R191-B "top priority") — under the lock a seeded shape may repair rather than buy a unit — rec: keep.
+  5. `repairsTowers` MID = lost-shape only, HARD/IMBA = any damage — rec: keep.
+  6. `substitute: 'listed'` for WARMONGER (all tiers) and IMBA FORTRESS; Fortress IMBA laser-2nd + hold 3300; Warmonger IMBA hold 3000 — rec: keep.
+  7. `PLACE_RETRY_BACKOFF_TICKS` 30 — rec: keep.
+- **Merge seams**: new `BotConfig.repairsTowers` (required field — any other branch adding a `BOT_CONFIGS` literal or a test fixture
+  BotConfig must add it); new `PersonalityKnobs.substitute` (in `IDENTITY_KNOBS`); new BotGoal kind `FIX`; `botPersonality.fixtures.ts`
+  `LockResult.fixJobsQueued`; re-pinned in `botPersonality.test.ts`: HARD Warmonger `toBe(0)` restored, IMBA Fortress pins restored
+  (≥ 2 seats), lock anti-vacuity WARMONGER→SABOTEUR, lock cells feed-OR-fix. Any branch that moves the sim moves bot signatures; the
+  pins are relational (who out-defends whom), not absolute.
+- **NOT DONE**: nothing in scope. Visual check of bots in the browser not done (no UI change).
 
 ## Log
 - [step 0] `git merge master` = no-op (already at 0a37175e). `npm install` exit 0. Read S194_AGENT_RULES, canon §3d/§8,
@@ -49,3 +60,8 @@ Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base maste
   MID 0/1 FIX_ALL/FIX → 1 job, 1 restored; HARD 1/3 → 6 jobs, 6 restored; IMBA 1/1 → 3, 3; 0 refused FIX, 0 outside BUILD.
   `src/bots/botFix.test.ts`. Mutations: chooseFix disabled → 4 red; gatherer guard removed → 1800 refused FIX, red.
 - NEXT: delete nothing (scratch probes already deleted), run full gates.
+- [gates] merged master ed54f64a (0a02ed5e). First full run: typecheck 1 (TS2367 in botFix.test — fixed with a reader fn); vitest 1 —
+  two lock cells (HARD SABOTEUR, IMBA BALANCED) 0 feeds / 1 tower: verified cause = the new FIX spends the one seeded shape on a repair
+  (chooseFix disabled → green). Re-pinned to feed-OR-fix with `fixJobsQueued`. Re-run: tc 0 · vitest 0 (7875) · build 0 (1122.0 KiB).
+- Final IMBA (with FIX): mean def BAL 0.28 · WAR 0.00 · FORT 0.39 (only laser) · TYC 0.17 · SAB 0.00; fed BAL 6 · WAR 17 · FORT 18 · TYC 3 · SAB 17.
+  HARD: def BAL 0.28 · WAR 0.00 · FORT 0.39 · TYC 0.28 · SAB 0.11; fed WAR 20, SAB 3, others 0; loose TYC 52 vs BAL 34.
