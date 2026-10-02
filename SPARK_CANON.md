@@ -821,9 +821,9 @@ slot). His answers, each HIS:
   bags burn at the same half rate.
 - **Own zone = double**: the passive and the cast are separate clocks, so outsiders' units there burn ×2.
 - **Not burned:** the castle (HIS), gatherers and avatars (§4), a DORMANT Helga (a record, not a unit).
-- **Resistance is the CASTER'S SEAT only** — `isScorchImmune(owner, spared)`, the ONE site; R192-T1
-  (*teammates never damage each other … a demon teammate's zone does not burn you*) changes that function
-  and nothing else when teams are built.
+- **Resistance is the CASTER'S SEAT and its TEAM** — `isScorchImmune(world, owner, spared)`, the ONE site;
+  R192-T1 (*teammates never damage each other … a demon teammate's zone does not burn you*, superseding T7)
+  made it `sameTeam` and changed nothing else. In a free-for-all that is the caster's seat only.
 - **A fallen caster:** his cast on an ENEMY zone stops; his OWN zone keeps burning (HIS, S191). ⚠ MINE: the
   zone's owner falling after the cast leaves it burning.
 - ⚠ Consequence, measured: one cast banks 60 % of one connector of a 5-connector tower per FIGHT, and burn
@@ -1186,6 +1186,59 @@ unchanged.
   own branches (⚠ MINE to leave — reported). `nearestEnemyFirst.test.ts`, all four quarters, mutation-tested.
 
 ---
+
+## 5d · ⭐⭐ TEAMS — RED ALERT STYLE, TEAMS 1–4 (S192, `s192/teams`)
+
+**The rulings (owner, S192 — `S192_OWNER_RULINGS_teams_magic.md`):**
+- **R192-T1 — teammates never damage each other**: units, towers, and zone effects (*"a demon teammate's
+  zone does not burn you"*). It SUPERSEDES T7's *"he still gets hit"*: a teammate does not take your
+  Scorched Earth / SCORCHED GROUND.
+- **R192-T2 — no wall between teammates' zones** (*"one continuous zone"*). `wallSeparatesSides`.
+- **R192-T3 — v1: you cannot build in a teammate's zone.** v2 (leaning, NOT built): one buildable half per
+  team with an adaptive combined backdrop.
+- **R192-T4 — a team pick in BOTH lobbies**, `TEAM_COUNT` = **4** teams. The multiplayer lobby's chip sends
+  `CLAIM_TEAM`; the host answers with the presence beacon (no local optimism).
+
+**How it is built:** ONE predicate, `state/teams.ts` — `sameTeam` / `isEnemySeat` / `sameTeamColor`. Every
+"is this an ENEMY?" decision asks it; every "is this MINE?" decision stays seat equality.
+`teams.sites.test.ts` pins both kinds per file (field AND seat-variable comparisons) and
+`teams.reach*.test.ts` drive each damage site through the host tick with a teammate and an enemy.
+`world.teams` is stamped once by the HOST at START_GAME and rides the snapshot; a joiner, the worker and a
+successor read it, never compute it. **A free-for-all is byte-identical**: with no shared team
+`world.teams` is undefined and `sameTeam(a, b)` is `a === b` (`teams.ffaDifferential.test.ts`, 90
+checkpoints against master).
+
+**The win rule:** the match ends when every contender left is on ONE side (**last TEAM standing**); the
+winning side's LOWEST living seat names it, and the banner reads **TEAM N WINS**. The points race is
+per-seat, unchanged — the first seat to the bar wins for its team.
+
+**⚠ MINE (built as defaults, the owner has not ruled — each is one line to flip):**
+- A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
+  least two sides"*), and the sim falls back to the free-for-all.
+- **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
+- The **Pharaoh boss's columns** ("kills everything") still hit his OWN seat but spare its TEAMMATES.
+- ⚠ MINE (S194) — an endgame WIPE (wave 27+, every keep down) crowns the top-scoring SEAT (S193 Q2); with
+  teams on, that seat's TEAM wins and the banner reads TEAM N WINS like any other team win.
+
+**⭐ S194 — the master sites that landed after round 2 (deploys #18–#23), each asks the one predicate:**
+- **The zombie boss's death blast spares his whole TEAM — NOT MINE any more.** R193-B3 (*"It does not hit
+  his own side"*) retired R138's *"hurting everything"*, so his own seat is spared by ruling and R192-T1
+  extends it to his teammates (`zombieBlastTargets`: every arm `sameTeam`, a structure when either end is).
+  The S192 default (teammates spared, his own seat burns) is SUPERSEDED. `T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE`
+  stays `false`.
+- The **Saboteur** bot's leader (`leaderTargetSeat`, also its Ra "front" focus) is the top ENEMY — never a
+  teammate; flat among enemies is flat.
+- The RESIST cue mirrors the sim's team spare (rot, stink aura, landed bag); a teammate's building card reads
+  **ALLY BUILDING**; the end-of-match board reads **TEAM N WINS** and stars the whole winning team.
+- The bot lobby row holds four chips — difficulty · personality · race · team (panel 960 px); a re-seated bot
+  keeps its personality (`permuteBots`).
+- CORPSE EATER never eats a teammate's unit; THE RISEN raises only from enemy-TEAM kills.
+- The overkill CARRY stays on the struck connector's OWNER (narrower than a team).
+- A human may cast Scorched Earth on a teammate's zone (only enemies standing there burn).
+- A bot never aims its Scorched Earth at a teammate's zone.
+- A teammate's fallen castle: today's elimination, unchanged (that seat spectates; its zone stays
+  unbuildable).
+- **NOT built:** shared vision between teammates (Q8 — recommended yes), the v2 merged half (T3).
 
 ## 6 · THE WIRE
 

@@ -37,6 +37,7 @@ import { isValidRoomCode } from './lobbyGeometry.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
+import { teamsPlayable } from '../state/teams.ts';
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 // Status-line colours — exported so the shell + tests share the exact values
@@ -161,7 +162,8 @@ function rostersEqual(
       a[i].color !== b[i].color ||
       a[i].isYou !== b[i].isYou ||
       a[i].ready !== b[i].ready || // S87 P4 — re-render on a readiness change
-      a[i].raceId !== b[i].raceId // S163 P6 — re-render on a RACE change, not via its colour
+      a[i].raceId !== b[i].raceId || // S163 P6 — re-render on a RACE change, not via its colour
+      a[i].team !== b[i].team // ⭐ S192 — and on a TEAM change
     ) {
       return false;
     }
@@ -361,6 +363,8 @@ export interface SeatPresence {
    * that to `defaultRaceForSeat` rather than leaving the tile blank.
    */
   readonly raceId?: RaceId;
+  /** ⭐ S192 (R192-T4) — the seat's team pick (0..3), carried from `RosterEntry.team`. Absent = no team. */
+  readonly team?: number;
 }
 
 /**
@@ -391,6 +395,8 @@ export interface SeatView {
    * touches the picker.
    */
   readonly raceId?: RaceId;
+  /** ⭐ S192 (R192-T4) — the seat's team (0..3), or undefined = no team. Drives the seat's team chip. */
+  readonly team?: number;
 }
 
 export interface LobbyView extends LobbyState {
@@ -403,6 +409,12 @@ export interface LobbyView extends LobbyState {
   readonly totalPlayers: number;
   /** true once the room holds MAX_PLAYERS (the 7th peer is dropped host-side). */
   readonly roomFull: boolean;
+  /**
+   * ⭐ S193 (audit F1, teams spec Q2) — can THIS room start a match? `teamsPlayable` over the occupied seats'
+   * team picks — the SAME predicate `main.ts`'s Begin handler refuses with, so the button never looks live
+   * while pressing it does nothing. False only when every occupied seat is on ONE team.
+   */
+  readonly teamsPlayable: boolean;
 }
 
 /**
@@ -465,6 +477,7 @@ export function lobbyView(state: LobbyState): LobbyView {
         ready: entry !== undefined ? entry.ready : undefined,
         // ⭐ S161 P6 — absent on the wire means "never chose", which IS this seat's default race.
         raceId: entry !== undefined ? (entry.raceId ?? defaultRaceForSeat(i)) : undefined,
+        team: entry !== undefined ? entry.team : undefined,
       });
     }
     // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).
@@ -490,10 +503,12 @@ export function lobbyView(state: LobbyState): LobbyView {
     }
   }
 
+  const picks = seats.filter((s) => s.occupied).map((s) => s.team);
   return {
     ...state,
     seats,
     totalPlayers,
     roomFull: totalPlayers >= MAX_PLAYERS,
+    teamsPlayable: teamsPlayable(picks, picks.length),
   };
 }

@@ -22,6 +22,8 @@ import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts'
 import { raceDisplayName } from './raceBanners.ts';
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS } from '../constants.ts';
+import { nextTeamPick, teamChipLabel, teamsPlayable } from '../state/teams.ts';
+import { teamChipColor, TEAMS_UNPLAYABLE_HINT } from './teamChip.ts';
 import {
   BOT_DIFFICULTIES,
   BOT_DIFFICULTY_COLORS,
@@ -34,11 +36,30 @@ import {
 } from '../bots/botTypes.ts';
 
 // ⭐ S193 — widened 640 → 860 for the third chip (personality) between race and difficulty.
-const PANEL_W = 860;
-/** Row-relative centres of the three chips, right to left: difficulty, personality, race. */
+// ⭐ S194 (teams × personality, S193 audit seam) — widened 860 → 960 for the FOURTH chip (team). Both
+// branches had placed a chip on the same strip (team at −120, race at −70 — they overlapped). Now laid
+// out right to left with a 12 px gap: difficulty (±80) · personality (±90) · race (±92) · team (±36).
+// `botSetupLayout.test.ts` pins the arithmetic: no two chips touch, all sit inside the panel, and the
+// tagline keeps ≥ `BOT_TAGLINE_MAX_CHARS` of room left of the team chip. (⚠ MINE — the order.)
+const PANEL_W = 960;
+/** Row-relative centres of the four chips, right to left: difficulty, personality, race, team. */
 const DIFF_X = PANEL_W / 2 - 110;
-const PERSONA_X = PANEL_W / 2 - 300;
-const RACE_X = PANEL_W / 2 - 500;
+const PERSONA_X = PANEL_W / 2 - 292;
+const RACE_X = PANEL_W / 2 - 486;
+const TEAM_X = PANEL_W / 2 - 626;
+/** ⭐ S194 — the row geometry, exported for the layout test (half-widths are the chips' own `roundRect`s). */
+export const BOT_ROW_LAYOUT = {
+  panelW: PANEL_W,
+  taglineLeft: -PANEL_W / 2 + 64,
+  chips: [
+    { name: 'difficulty', cx: DIFF_X, halfW: 80 },
+    { name: 'personality', cx: PERSONA_X, halfW: 90 },
+    { name: 'race', cx: RACE_X, halfW: 92 },
+    { name: 'team', cx: TEAM_X, halfW: 36 },
+  ],
+} as const;
+/** ⭐ S194 — the team chip's plate, which is also its hit (its Graphics children ARE its bounds). */
+export const TEAM_CHIP_RECT = { x: -36, y: -18, w: 72, h: 36 } as const;
 const ROW_H = 56;
 const ROW_GAP = 10;
 
@@ -60,6 +81,11 @@ export interface BotSetupCallbacks {
      * passed through unresolved; the BotManager resolves it from the match seed.
      */
     personalities: readonly BotPersonalityChoice[],
+    /**
+     * ⭐ S192 (owner R192-T4) — `teams` is per SEAT like `races` (index 0 = the human): each seat's team
+     * (0..3) or `undefined` (its own side). All `undefined` is the free-for-all, exactly as before.
+     */
+    teams: readonly (number | undefined)[],
   ): void;
   onClose(): void;
 }
@@ -99,6 +125,13 @@ export class BotSetupOverlay {
   private readonly races: RaceId[] =
     Array.from({ length: MAX_BOTS + 1 }, (_, seat) => defaultRaceForSeat(seat));
   private readonly racePicker: RacePickerHandle;
+  /** ⭐ S192 (R192-T4) — SEAT-indexed team picks, like `races`. `undefined` = no team (its own side). */
+  private readonly teams: (number | undefined)[] = Array.from({ length: MAX_BOTS + 1 }, () => undefined);
+  /** ⭐ S194 — START's plate painter (T5 disabled look while blocked) and the blocked flag its sheen reads. */
+  private paintStartPlate: ((disabled: boolean) => void) | null = null;
+  private startBlocked = false;
+  /** ⭐ S192 — shown under START when every seat is on one team (spec Q2): no enemy, no match. */
+  private readonly teamsHint: Text;
   /** Which SEAT's row opened the picker, so the pick lands on the right row. */
   private pickingSeat = 0;
   private uiPoints: Omit<BotSetupUiPoints, 'difficulty' | 'personality'> | null = null;
@@ -177,13 +210,26 @@ export class BotSetupOverlay {
     // ── START + close ────────────────────────────────────────────────────
     const startY = CANVAS_HEIGHT - 140;
     const start = this.makeWideButton('START MATCH', CANVAS_WIDTH / 2, startY, () => {
+      // ⭐ S192 (spec Q2) — a match needs two sides. With every seat on one team START does nothing
+      // and the hint below says why.
+      const teams = this.teams.slice(0, this.botCount + 1);
+      if (!teamsPlayable(teams, this.botCount + 1)) return;
       this.callbacks.onStart(
         this.difficulties.slice(0, this.botCount),
         this.races.slice(0, this.botCount + 1),
         this.personalities.slice(0, this.botCount),
+        teams,
       );
     });
     this.container.addChild(start);
+    this.teamsHint = new Text({
+      text: TEAMS_UNPLAYABLE_HINT, // ⭐ S193 — one wording, shared with the multiplayer lobby
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xff8866 }),
+    });
+    this.teamsHint.anchor.set(0.5);
+    this.teamsHint.position.set(CANVAS_WIDTH / 2, startY + 56);
+    this.teamsHint.visible = false;
+    this.container.addChild(this.teamsHint);
 
     const close = this.makeSmallButton('✕', CANVAS_WIDTH - 60, 60, () => {
       this.callbacks.onClose();
@@ -271,33 +317,90 @@ export class BotSetupOverlay {
    * the way `RACE_COLORS` exists to prevent.
    */
   private makeRaceButton(seat: number, cx: number): Container {
-    const btn = new Container();
-    btn.position.set(cx, ROW_H / 2);
+    const raceBtn = new Container();
+    raceBtn.position.set(cx, ROW_H / 2);
     const raceId = this.races[seat]!;
     const col = RACE_COLORS[raceId];
     const plate = new Graphics().roundRect(-92, -18, 184, 36, 6).fill({ color: 0x0d121c, alpha: 0.92 });
     skinButtonFx(plate, -92, -18, 184, 36, { accent: col, state: 'rest', radius: 6, studs: false });
     plate.roundRect(-92, -18, 184, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
-    btn.addChild(plate);
-    attachChipHover(btn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
+    raceBtn.addChild(plate);
+    attachChipHover(raceBtn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
     const t = new Text({
       text: raceDisplayName(raceId),
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: col }),
     });
     t.anchor.set(0.5);
-    btn.addChild(t);
-    btn.eventMode = 'static';
-    btn.cursor = 'pointer';
-    btn.on('pointertap', () => {
+    raceBtn.addChild(t);
+    raceBtn.eventMode = 'static';
+    raceBtn.cursor = 'pointer';
+    raceBtn.on('pointertap', () => {
       this.pickingSeat = seat;
       const taken = new Set<RaceId>();
       for (let s2 = 0; s2 <= this.botCount; s2++) if (s2 !== seat) taken.add(this.races[s2]!);
       this.racePicker.open(taken, this.races[seat]);
     });
-    return btn;
+    return raceBtn;
+  }
+
+  /**
+   * ⭐ S192 (owner R192-T4) — the TEAM chip on every row: *"team one, team two, team three, team four …
+   * just like in Red Alert"*. Click cycles — → T1 → T2 → T3 → T4 → —. Bots can be on your team (Q3).
+   */
+  private makeTeamButton(seat: number, cx: number, row: Container): Container {
+    const teamBtn = new Container();
+    teamBtn.position.set(cx, ROW_H / 2);
+    const bg = new Graphics();
+    const t = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: 0xffffff }),
+    });
+    t.anchor.set(0.5);
+    teamBtn.addChild(bg, t);
+    /*
+     * ⭐ S194 (owner: *"the same UI beautification … that all the current buttons … have"*) — T5's chip
+     * language: glass plate with the TEAM colour as its accent, sweeping sheen + brighten on hover (no pop,
+     * like the race / difficulty chips). ⭐ And the seat says whose side it is at a glance: a TEAM-coloured
+     * ring around the row's seat swatch (no ring = no team). `TEAM_CHIP_RECT` is the plate AND the hit.
+     */
+    const ring = new Graphics();
+    ring.eventMode = 'none';
+    row.addChild(ring);
+    const paint = (): void => {
+      const pick = this.teams[seat];
+      const col = teamChipColor(pick);
+      const r = TEAM_CHIP_RECT;
+      bg.clear();
+      bg.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0d121c, alpha: 0.92 });
+      skinButtonFx(bg, r.x, r.y, r.w, r.h, { accent: col, state: pick === undefined ? 'rest' : 'active', radius: 6, studs: false });
+      bg.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ width: 2, color: col, alpha: 0.9 });
+      t.text = teamChipLabel(pick);
+      t.style.fill = col;
+      ring.clear();
+      if (pick !== undefined) ring.circle(-PANEL_W / 2 + 36, ROW_H / 2, 16).stroke({ width: 3, color: col, alpha: 0.95 });
+    };
+    paint();
+    attachChipHover(teamBtn, bg, TEAM_CHIP_RECT, 6);
+    teamBtn.eventMode = 'static';
+    teamBtn.cursor = 'pointer';
+    teamBtn.on('pointertap', () => {
+      this.teams[seat] = nextTeamPick(this.teams[seat]);
+      paint();
+      this.paintTeamsHint();
+    });
+    return teamBtn;
+  }
+
+  private paintTeamsHint(): void {
+    const blocked = !teamsPlayable(this.teams.slice(0, this.botCount + 1), this.botCount + 1);
+    this.teamsHint.visible = blocked;
+    // ⭐ S194 — START wears T5's DISABLED plate while no match can start (one side), and its sheen stays dark.
+    this.startBlocked = blocked;
+    this.paintStartPlate?.(blocked);
   }
 
   private rebuildRows(): void {
+    this.paintTeamsHint();
     this.countText.text = `${this.botCount} BOT${this.botCount > 1 ? 'S' : ''}`;
     this.rowsHost.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.difficultyCenters = [];
@@ -341,6 +444,15 @@ export class BotSetupOverlay {
     youLabel.position.set(-PANEL_W / 2 + 64, ROW_H / 2);
     youRow.addChild(youLabel);
     youRow.addChild(this.makeRaceButton(0, RACE_X));
+    youRow.addChild(this.makeTeamButton(0, TEAM_X, youRow));
+    // ⭐ S192 — a column caption over the team chips, so "—" reads as "no team" rather than as a blank.
+    const teamCaption = new Text({
+      text: 'TEAM',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0x888888, letterSpacing: 2 }),
+    });
+    teamCaption.anchor.set(0.5, 1);
+    teamCaption.position.set(TEAM_X, -4);
+    youRow.addChild(teamCaption);
     this.rowsHost.addChild(youRow);
 
     for (let i = 0; i < this.botCount; i++) {
@@ -462,6 +574,7 @@ export class BotSetupOverlay {
       });
       row.addChild(diffBtn);
       row.addChild(this.makeRaceButton(i + 1, RACE_X));
+      row.addChild(this.makeTeamButton(i + 1, TEAM_X, row));
 
       this.difficultyCenters.push({
         x: CANVAS_WIDTH / 2 + DIFF_X,
@@ -502,9 +615,15 @@ export class BotSetupOverlay {
     const c = new Container();
     c.position.set(cx, cy);
     const bg = new Graphics();
-    bg.roundRect(-180, -36, 360, 72, 12).fill({ color: 0x0d121c, alpha: 0.94 });
-    skinButtonFx(bg, -180, -36, 360, 72, { accent: BOT_ACCENT_COLOR, state: 'rest', radius: 12 });
-    bg.roundRect(-180, -36, 360, 72, 12).stroke({ width: 2, color: BOT_ACCENT_COLOR, alpha: 0.9 });
+    // ⭐ S194 (teams) — repaintable: START goes to T5's DISABLED plate while every seat is on one team.
+    const paintPlate = (disabled: boolean): void => {
+      bg.clear();
+      bg.roundRect(-180, -36, 360, 72, 12).fill({ color: 0x0d121c, alpha: 0.94 });
+      skinButtonFx(bg, -180, -36, 360, 72, { accent: BOT_ACCENT_COLOR, state: disabled ? 'disabled' : 'rest', radius: 12 });
+      bg.roundRect(-180, -36, 360, 72, 12).stroke({ width: 2, color: disabled ? 0x555555 : BOT_ACCENT_COLOR, alpha: 0.9 });
+    };
+    paintPlate(false);
+    this.paintStartPlate = paintPlate;
     c.addChild(bg);
     const t = new Text({
       text: label,
@@ -529,7 +648,7 @@ export class BotSetupOverlay {
      * plate is already drawn about its own centre, so it scales from the middle with no pivot work.
      */
     attachButtonFeedback(c, bg, onClick, { hit: { x: -180, y: -36, w: 360, h: 72 } });
-    attachHoverSheen(c, { x: -180, y: -36, w: 360, h: 72 }, 12);
+    attachHoverSheen(c, { x: -180, y: -36, w: 360, h: 72 }, 12, () => !this.startBlocked);
     return c;
   }
 }

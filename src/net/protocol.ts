@@ -21,6 +21,7 @@ import type { GodlyTriggerEvent } from '../state/godlyRecipes/types.ts';
 import type { SuccessionWarrant } from './successionWarrant.ts';
 import { MAX_PLAYERS } from '../constants.ts';
 import { isRaceId, type RaceId } from '../state/races.ts';
+import { isTeamIndex } from '../state/teams.ts';
 
 // NetSnapshot is defined in save.ts (alongside its producer netSnapshot()
 // + consumer applyNetSnapshot()). Re-export so protocol callers can refer
@@ -1624,6 +1625,15 @@ export interface RosterEntry {
    * `isValidRoster` by design, so the single check added there guards each of them.
    */
   readonly raceId?: RaceId;
+  /**
+   * ⭐ S192 (owner R192-T4) — THE SEAT'S TEAM (0..3 = the lobby's TEAM 1..4), resolved by the host.
+   * Absent = no team (its own side); a roster with no team at all is the free-for-all, byte-identical.
+   * Validated in `isValidRoster` (an integer 0..3 or the whole message is rejected). ⛔ Part of the
+   * PROTOCOL bump: teams rides the bump the MERGE OWNER makes when this branch lands (S194: the next number
+   * after master's 63) — `world.teams` is a rule both peers compute (teams spec §d), and `CLAIM_TEAM` is a new
+   * message. This branch never edits `PROTOCOL_VERSION`.
+   */
+  readonly team?: number;
 }
 
 export interface StartGameMsg {
@@ -1783,6 +1793,18 @@ interface ClaimRaceMsg {
   readonly raceId: RaceId;
 }
 
+/**
+ * ⭐ S192 (owner R192-T4) — A PLAYER PICKS ITS TEAM IN THE LOBBY. CLIENT→HOST, the `CLAIM_RACE` twin:
+ * recorded against the sender's TRANSPORT peerId, answered by `LOBBY_PRESENCE` (`RosterEntry.team`),
+ * no reply kind. `null` = no team. It gates nothing on its own (a peer that cannot send one plays on its
+ * own side), so the kind itself rides the CLAIM_RACE no-bump precedent; the bump teams owe is for
+ * `world.teams` (spec §d).
+ */
+interface ClaimTeamMsg {
+  readonly kind: 'CLAIM_TEAM';
+  readonly team: number | null;
+}
+
 export type NetMessage =
   | HelloMsg
   | IntentMsg
@@ -1793,6 +1815,7 @@ export type NetMessage =
   | LobbyPresenceMsg
   | LobbyReadyMsg
   | ClaimRaceMsg
+  | ClaimTeamMsg
   | MigrationClaimMsg;
 
 /**
@@ -2133,6 +2156,8 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     // ⭐ W1-A (S160) — same fail-closed posture: absent is fine, present-but-not-a-race rejects the
     // whole message. An unvalidated string here would reach `RACE_COLORS[...]` and paint `undefined`.
     if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;
+    // ⭐ S192 — the team: absent is fine, present-but-not-0..3 rejects the whole message (fail-closed).
+    if (r.team !== undefined && !isTeamIndex(r.team)) return false;
     /*
      * ⛔ S163 P4 — **`seat` WAS CHECKED FOR ITS TYPE AND NOTHING ELSE**, so `-1`, `99`, `1.5` and
      * `NaN` all passed a validator whose whole job is to make the wire safe to trust. Both writers
@@ -2266,6 +2291,11 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // `undefined`. Fail-closed like every other validator here.
       if (!isRaceId(obj.raceId)) return null;
       return obj as unknown as ClaimRaceMsg;
+    }
+    case 'CLAIM_TEAM': {
+      // ⭐ S192 — null (no team) or a team index 0..3; anything else is dropped.
+      if (obj.team !== null && !isTeamIndex(obj.team)) return null;
+      return obj as unknown as ClaimTeamMsg;
     }
     case 'ENDGAME':
       // ⭐ S163 P1 — `epoch` is additive-optional: absent is fine, present-but-not-a-non-negative

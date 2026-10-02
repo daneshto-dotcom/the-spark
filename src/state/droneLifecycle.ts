@@ -20,6 +20,7 @@
  */
 
 import type { World } from './world.ts';
+import { sameTeamColor } from './teams.ts';
 import { dispatch } from './world.ts';
 import type { BondId, CreatureId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import { bondMidpoint, isEnemyBond } from './creatures/creatureAI.ts';
@@ -116,8 +117,10 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     world.players.get(drone.ownerPlayerId)?.color
     ?? PLAYER_COLORS[drone.ownerPlayerId as unknown as number];
   const sparesOwn = (bond: { aId: PrimitiveId; bId: PrimitiveId }): boolean =>
-    world.primitives.get(bond.aId)?.placerColor !== ownerColor &&
-    world.primitives.get(bond.bId)?.placerColor !== ownerColor;
+    // ⭐ S192 — spares its own SIDE: an endpoint on the drone's team is spared like its own. A missing
+    // endpoint (`undefined`) is nobody's teammate, exactly as `undefined !== ownerColor` was.
+    !sameTeamColor(world, world.primitives.get(bond.aId)?.placerColor, ownerColor) &&
+    !sameTeamColor(world, world.primitives.get(bond.bId)?.placerColor, ownerColor);
 
   // Collect candidate ENEMY bonds within radius (squared dist; reuse the locked isEnemyBond rule).
   const candidates: { bondId: BondId; dSq: number }[] = [];

@@ -166,12 +166,16 @@ describe('S171 — the acquisition census cannot silently grow an ungated path',
      * shape as the S171 atlas checker. A short cast-like span now counts too.
      */
     /*
-     * ⭐ S192 — AND THE SCORCH'S ONE RESISTANCE PREDICATE. `scorchedGround.ts` now asks
-     * `isScorchImmune(c.ownerPlayerId, spared)` instead of comparing inline (the single site a later
-     * teams branch changes), which is still an ownership filter — the census must keep SEEING it.
+     * ⭐ S192 — the team predicate IS an owner filter: `sameTeam(world, c.ownerPlayerId, x)` must keep a
+     * file in the census, or converting a scan to teams would silently drop it out (the S172 blind spot).
+     * `spared` (damage.ts) and `blastTakes` (potatoLifecycle.ts) are the two area-blast wrappers over it.
+     * AND THE SCORCH'S ONE RESISTANCE PREDICATE: `scorchedGround.ts` asks `isScorchImmune(c.ownerPlayerId,
+     * spared)` instead of comparing inline, which is still an ownership filter — the census must keep SEEING it.
      */
     const filtersOwner =
-      /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) || /isScorchImmune\(\s*\w+\.ownerPlayerId\b/.test(src);
+      /ownerPlayerId\b[^;\n]{0,24}(===|!==)/.test(src) ||
+      /(sameTeam|isEnemySeat|spared|blastTakes)\([^;\n]{0,40}ownerPlayerId/.test(src) ||
+      /isScorchImmune\(\s*(\w+,\s*)?\w+\.ownerPlayerId\b/.test(src);
     return iterates && filtersOwner;
   });
 

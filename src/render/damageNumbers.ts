@@ -57,6 +57,7 @@
 
 import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { CreatureId, PlayerId, PrimitiveId } from '../types.ts';
 import { componentOf } from '../game/structure.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
@@ -274,7 +275,7 @@ export function fatalBlowFifths(
   let best = 0;
 
   for (const a of world.creatures.values()) {
-    if (a.ownerPlayerId === victimOwner) continue;
+    if (sameTeam(world, a.ownerPlayerId, victimOwner)) continue; // S192 — a teammate never dealt it
     const cfg = getCreatureConfig(a.type);
     const r = cfg.attackRange + FATAL_REACH_SLACK;
     const dx = a.pos.x - at.x;
@@ -286,7 +287,7 @@ export function fatalBlowFifths(
   }
 
   for (const d of world.defenders.values()) {
-    if (d.ownerPlayerId === victimOwner) continue;
+    if (sameTeam(world, d.ownerPlayerId, victimOwner)) continue;
     if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga strikes nothing
     const cfg = getDefenderConfig(d.kind);
     const r = cfg.attackRange + FATAL_REACH_SLACK;
@@ -302,7 +303,7 @@ export function fatalBlowFifths(
    * would print 40.
    */
   for (const [seat, p] of world.players) {
-    if (seat === victimOwner) continue;
+    if (sameTeam(world, seat, victimOwner)) continue;
     if (p.castleHp <= 0) continue;
     const seatN = seat as unknown as number;
     if (!castleFiresOnTick(seatN, world.tick)) continue;
@@ -405,9 +406,10 @@ export function damageAnchor(
    * so a CAST written between the field and the operator makes a real scan INVISIBLE to the
    * guard. This file did exactly that for one commit in S172 and dropped out of the census
    * while still scanning enemies every frame. Keep the branded type and no cast.
+   * ⭐ S192 — now `sameTeam(world, o.ownerPlayerId, mine)`; the census regex recognises that form too.
    */
   for (const o of world.creatures.values()) {
-    if (o.id === victim || o.ownerPlayerId === mine) continue;
+    if (o.id === victim || sameTeam(world, o.ownerPlayerId, mine)) continue;
     const dx = o.pos.x - vx;
     const dy = o.pos.y - vy;
     const d = dx * dx + dy * dy;

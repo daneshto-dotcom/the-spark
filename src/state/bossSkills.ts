@@ -38,6 +38,7 @@ import { isStunned, creatureMaxEhp, noteCreatureHeal } from './creatures/creatur
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from './creatures/creature.ts';
 import type { World } from './world.ts';
+import { sameTeam } from './teams.ts';
 
 /** How many life saps each live Vlad has already spent, by creature id. Host-local. */
 export type SapLedger = Map<CreatureId, number>;
@@ -193,7 +194,7 @@ export function runZombieRotAura(world: World): void {
     const victims: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
       if (id === bossId) continue;
-      if (c.ownerPlayerId === boss.ownerPlayerId) continue; // "damages ENEMIES around him"
+      if (sameTeam(world, c.ownerPlayerId, boss.ownerPlayerId)) continue; // "damages ENEMIES around him" (S192: by team)
       const dx = c.pos.x - boss.pos.x;
       const dy = c.pos.y - boss.pos.y;
       if (dx * dx + dy * dy > rSq) continue;

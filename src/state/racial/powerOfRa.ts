@@ -158,7 +158,7 @@ export function runPowerOfRa(world: World): void {
       for (let k = 0; k < RA_COLUMN_COUNT; k++) {
         if (raColumnImpactTick(strike.untilTick, k) !== world.tick) continue;
         // ⭐ S192 — the pool is the SEAT's (`raColumnPoolFor`): 35, or 75 once it holds WRATH OF RA.
-        landRaColumn(world, { spare: seat, owner: seat, severCause: 'raid' }, raStrikeColumnPos(seat, k, strike, charge));
+        landRaColumn(world, { spare: seat, alliesOf: null, owner: seat, severCause: 'raid' }, raStrikeColumnPos(seat, k, strike, charge));
       }
     }
   }

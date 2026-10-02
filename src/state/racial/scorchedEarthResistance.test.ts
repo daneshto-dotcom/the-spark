@@ -5,11 +5,11 @@
  * > your Scorched Earth … click on yours again"* — owner, S192 (re-stated after the playtest)
  *
  * ⭐ R192-T1 (owner, S192): teammates never damage each other — units, towers, and zone effects (a demon
- * teammate's zone does not burn you). Teams do not exist YET, so today every seat that is not the spared
- * one burns; `isScorchImmune` is the single site the teams branch changes — pinned mechanically here (every
+ * teammate's zone does not burn you). ⭐ S193 (teams merged) — the spared seat's TEAM is immune; in a
+ * free-for-all every other seat burns. `isScorchImmune` is the single site teams changed — pinned mechanically here (every
  * burn arm calls it; none compares seats inline) and by REACH through the real host tick (ANOTHER SEAT in
- * the caster's own doubled zone burns ×2 while the caster's own unit beside him loses nothing). The teams
- * branch re-pins the REACH case to "a teammate is spared".
+ * the caster's own doubled zone burns ×2 while the caster's own unit beside him loses nothing), plus the
+ * teams REACH case: a TEAMMATE beside him loses nothing while an enemy burns.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -31,12 +31,12 @@ import { asPlayerId, asSpawnerId, type PlayerId, type Vec2 } from '../../types.t
 const P0 = asPlayerId(0); // the demon caster
 const stubControls = { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls;
 
-function fourSeatFight(): { w: World; keep: Set<number> } {
+function fourSeatFight(teams?: readonly number[]): { w: World; keep: Set<number> } {
   const w = makeWorld(0x192b);
   w.gameState = 'TITLE';
   dispatch(w, {
     type: 'START_GAME', mode: '1v1', isHost: true,
-    roster: [0, 1, 2, 3].map((seat) => ({ seat, color: PLAYER_COLORS[seat] })),
+    roster: [0, 1, 2, 3].map((seat) => ({ seat, color: PLAYER_COLORS[seat], ...(teams ? { team: teams[seat] } : {}) })),
   } as never);
   w.gameState = 'PLAYING';
   w.isHost = true;
@@ -73,13 +73,39 @@ function step(w: World, keep: Set<number>, n: number): void {
 }
 
 describe('S192 — isScorchImmune: the caster’s seat, and nobody else', () => {
-  it('the predicate: only the spared seat is immune (no teams yet)', () => {
-    expect(isScorchImmune(P0, P0)).toBe(true);
-    for (const s of [1, 2, 3]) expect(isScorchImmune(asPlayerId(s), P0)).toBe(false);
-    expect(isScorchImmune(undefined, P0)).toBe(false);
+  it('the predicate: free-for-all — only the spared seat is immune', () => {
+    const ffa = { teams: undefined };
+    expect(isScorchImmune(ffa, P0, P0)).toBe(true);
+    for (const s of [1, 2, 3]) expect(isScorchImmune(ffa, asPlayerId(s), P0)).toBe(false);
+    expect(isScorchImmune(ffa, undefined, P0)).toBe(false);
   });
 
-  it('⭐⭐ REACH: another seat (no teams yet — R192-T1 lands with teams) in the caster’s OWN doubled zone burns ×2; the caster’s own unit loses nothing', () => {
+  it('⭐ the predicate with TEAMS (R192-T1 supersedes T7): the spared seat AND its teammate are immune, enemies are not', () => {
+    const w2v2 = { teams: [0, 1, 0, 1] };
+    expect(isScorchImmune(w2v2, P0, P0)).toBe(true);
+    expect(isScorchImmune(w2v2, asPlayerId(2), P0), 'teammate').toBe(true);
+    expect(isScorchImmune(w2v2, asPlayerId(1), P0), 'enemy').toBe(false);
+    expect(isScorchImmune(w2v2, asPlayerId(3), P0), 'enemy').toBe(false);
+    expect(isScorchImmune(w2v2, undefined, P0), 'nobody').toBe(false);
+  });
+
+  it('⭐⭐ REACH (teams): a TEAMMATE in the caster’s own doubled zone loses nothing; an ENEMY beside him burns ×2', () => {
+    const { w, keep } = fourSeatFight([0, 1, 0, 1]);
+    expect(w.teams, 'the roster made a 2v2').toEqual([0, 1, 0, 1]);
+    const at = { x: 400, y: 300 };
+    expect(zoneOf(at, w.layout)).toBe(zoneOwner(0, w.layout));
+    const mate = held(w, keep, asPlayerId(2), at);
+    const enemy = held(w, keep, asPlayerId(1), { x: at.x + 30, y: at.y });
+    const mateFull = mate.ehp;
+    const enemyFull = enemy.ehp;
+    dispatch(w, { type: 'CAST_SCORCHED_EARTH', playerId: P0, zoneSeat: P0 });
+    const n = 4;
+    step(w, keep, dotIntervalTicks(maxPoolFifths('t3Warband'), SCORCHED_GROUND_PER_MILLE) * n);
+    expect(enemyFull - w.creatures.get(enemy.id)!.ehp, 'the enemy burns, passive + cast').toBe(n * SCORCHED_EARTH_OWN_ZONE_MUL);
+    expect(w.creatures.get(mate.id)!.ehp, 'R192-T1: a teammate does not take your Scorched Earth').toBe(mateFull);
+  });
+
+  it('⭐⭐ REACH (free-for-all): another seat in the caster’s OWN doubled zone burns ×2; the caster’s own unit loses nothing', () => {
     const { w, keep } = fourSeatFight();
     const at = { x: 400, y: 300 };
     expect(zoneOf(at, w.layout)).toBe(zoneOwner(0, w.layout));
@@ -90,7 +116,7 @@ describe('S192 — isScorchImmune: the caster’s seat, and nobody else', () => 
     dispatch(w, { type: 'CAST_SCORCHED_EARTH', playerId: P0, zoneSeat: P0 }); // "click on yours again"
     const n = 4;
     step(w, keep, dotIntervalTicks(maxPoolFifths('t3Warband'), SCORCHED_GROUND_PER_MILLE) * n);
-    expect(full - w.creatures.get(other.id)!.ehp, 'any other seat burns today — passive + cast').toBe(n * SCORCHED_EARTH_OWN_ZONE_MUL);
+    expect(full - w.creatures.get(other.id)!.ehp, 'in a free-for-all any other seat burns — passive + cast').toBe(n * SCORCHED_EARTH_OWN_ZONE_MUL);
     expect(w.creatures.get(mine.id)!.ehp, 'only the caster is resistant').toBe(mineFull);
   });
 

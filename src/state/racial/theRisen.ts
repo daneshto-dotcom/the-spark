@@ -56,6 +56,7 @@
 
 import type { Creature, CreatureType } from '../creatures/creature.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import type { KillCredit } from './killCredit.ts';
 import type { PlayerId } from '../../types.ts';
 import { RACE_TOWER_UNIT } from '../raceTowerIds.ts';
@@ -107,7 +108,8 @@ export function riseOnHelgaKill(world: World, helgaOwner: PlayerId, credit: Kill
  */
 function riseForVictimOf(world: World, victim: Pick<Creature, 'ownerPlayerId'>, credit: KillCredit): void {
   if (credit === null) return;
-  if (credit.seat === victim.ownerPlayerId) return; // an ENEMY kill only — his own units never raise
+  // an ENEMY kill only — his own units never raise; ⭐ S192/S194 (R192-T1) nor a teammate's
+  if (sameTeam(world, credit.seat, victim.ownerPlayerId)) return;
   // ⭐ S193 — a SEAT credit (castle gun, raid, Ra, scorch, hub, tower: `type: null`) raises nobody, under
   // Reading A AND with the lever on — the stat board's credit must never become a sim rule.
   if (credit.type === null) return;
