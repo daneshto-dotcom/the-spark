@@ -544,7 +544,7 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
     if (t.kind === 'connector') {
       const bondId = t.id as unknown as BondId;
       if (!world.bonds.has(bondId)) continue; // an earlier sever, raze or burst already took it
-      if (damageConnector(world, bondId, t.amount, null)) {
+      if (damageConnector(world, bondId, t.amount, null, 'physical')) { // ⭐ S192 — a hub BLOWS UP (R192-M3)
         // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
         severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'drone' }));
       }
@@ -555,7 +555,7 @@ function applyHubLadderBlast(world: World, cx: number, cy: number, radius: numbe
       damageStinkCloud(world, t.id as unknown as StinkCloudId, t.amount, null, owner);
       continue;
     }
-    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', null);
+    damageEntity(world, hubBlastTarget(t.kind, t.id), t.amount, 'hazard', null, 'physical'); // ⭐ S192 — R192-M3
   }
 }
 

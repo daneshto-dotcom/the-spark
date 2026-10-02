@@ -114,14 +114,14 @@ describe('⭐ S191 census — a Helga killed and revived inside one render frame
     const h = helga(w);
     const full = h.ehp as number;
     dn.sync(w); // the watch sees her at full
-    damageEntity(w, { kind: 'defender', id: h.id }, 12, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, 12, 'creature', null, 'physical');
     dn.sync(w); // the watch sees her dented: a red 12
     expect(floaters(dn).map((f) => f.text), 'control: a dent prints its swing').toContain('12');
     const before = floaters(dn).length;
 
     // ONE frame: the killing blow AND the FIGHT→BUILD edge that revives her, no sync in between.
     const KILL = 300; // a swing bigger than what she has left, so the swing and the remainder differ
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, KILL, 'creature', null)).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, KILL, 'creature', null, 'physical')).toBe(true);
     expect(helga(w).state).toBe('DORMANT');
     crossPhase(w, st); // → BUILD: the edge revives her
     expect(helga(w).state, 'revived on the same record').toBe('IDLE');
@@ -144,7 +144,7 @@ describe('⭐ S191 census — a Helga killed and revived inside one render frame
     const h = helga(w);
     dn.sync(w);
     const before = floaters(dn).length;
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, 300, 'creature', null)).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, 300, 'creature', null, 'physical')).toBe(true);
     dn.sync(w); // sees her DORMANT → the key vanishes → the kill prints
     crossPhase(w, st);
     dn.sync(w); // the revive is a first sighting

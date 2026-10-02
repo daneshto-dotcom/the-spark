@@ -602,6 +602,8 @@ export function determinismParts(world: World): string[] {
         // CastleUpgrades later cannot ride in unnoticed.
         + `,cu${pl.castleUpgrades.hpLevel},${pl.castleUpgrades.hpBonus}`
         + `,${pl.castleUpgrades.atkLevel},${pl.castleUpgrades.defLevel},${pl.castleUpgrades.penLevel}`
+        // ⭐ S192 — bought MAGIC RESISTANCE: it decides the magic damage the keep TAKES.
+        + `,mr${pl.castleUpgrades.mresLevel}`
         // ⭐ S188 — ENDLESS DYNASTY's running loss. A SIM INPUT (it decides the tick a Pharaoh rises),
         // so a host and a `?worker=1` mirror disagreeing about it must turn this oracle red.
         + `,dy${pl.dynastyHpLost}`

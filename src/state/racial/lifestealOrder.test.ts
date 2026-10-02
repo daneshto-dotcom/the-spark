@@ -137,8 +137,8 @@ describe('S188 F1 — the accumulator itself', () => {
     const v = vampireAt(w, 5);
     w.pendingCreatureDeaths = new Set();
     w.pendingLifestealFifths = new Map();
-    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v)); // +9
-    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v)); // +9
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v), 'physical'); // +9
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v), 'physical'); // +9
     expect(v.ehp, 'nothing applied mid-batch').toBe(5);
     expect(w.pendingLifestealFifths.get(v.id)).toBe(18);
     applyPendingLifesteal(w);
@@ -162,7 +162,7 @@ describe('S188 F1 — the accumulator itself', () => {
     const w = board();
     const v = vampireAt(w, 5);
     expect(w.pendingLifestealFifths).toBeNull();
-    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v));
+    damageEntity(w, { kind: 'castle', seat: P1 }, 18, 'creature', by(v), 'physical');
     expect(v.ehp).toBe(14);
   });
 

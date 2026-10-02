@@ -113,6 +113,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     blastFifths,
     'creature',
     bomber.ownerPlayerId,
+    'physical', // S192 — it BLOWS UP (R192-M3)
     'distance', // ⭐ S193 R193-B4 — closer = more (the connector arm below scales the same way)
   );
 
@@ -158,7 +159,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     // S188 — `null`: this is the blast's AREA arm (its unit half, `applyRadialDamage` above, names
     // nobody either), and the bomber is deleted at the bottom of this function — no one to heal.
     // ⭐ S193 R193-B4 — the connector's hit falls off with its midpoint's distance, like the unit arm above.
-    if (damageConnector(world, bondId, blastHitAtDistance(blastFifths, bondD2.get(bondId)!, GOBLIN_SUICIDE_BLAST_RADIUS), null)) {
+    if (damageConnector(world, bondId, blastHitAtDistance(blastFifths, bondD2.get(bondId)!, GOBLIN_SUICIDE_BLAST_RADIUS), null, 'physical')) { // S192 — R192-M3
       /*
        * ⛔ S182 — **THIS WAS `cause: 'creature'`, SO AN EXPLOSION PLAYED VOLTKIN'S LIGHTNING
        * CRACKLE.** A separate producer of the same stale clause the ARC_FLASH gate carried:

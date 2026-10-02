@@ -50,6 +50,7 @@ import { asStinkCloudId, type PlayerId, type Vec2 } from '../../types.ts';
 // S158 P6 — the landed bag this throw leaves behind (CF-S157-b).
 import { makeStinkCloud } from './stinkCloud.ts';
 import type { DamageSource } from '../damage.ts';
+import { magicDot, type DamageClass } from '../magicResist.ts';
 import { attackFifths } from '../stats.ts';
 import { mix32, pseudoRand } from '../rng.ts';
 import type { World } from '../worldTypes.ts';
@@ -79,6 +80,8 @@ export type RadialDamageFn = (
   unitAmountFifths: number,
   source: DamageSource,
   sparePlayerId: PlayerId | null,
+  /** ⭐ S192 — REQUIRED, as on `applyRadialDamage` itself. */
+  cls: DamageClass,
   /** ⭐ S193 R193-B4 — `'distance'` for a blast, `'flat'` for the damage-over-time aura (see `applyRadialDamage`). */
   falloff: 'distance' | 'flat',
 ) => unknown;
@@ -176,7 +179,9 @@ export function stinkDeathBlast(world: World, d: Defender, radialDamage: RadialD
   radialDamage(
     world, d.pos.x, d.pos.y, radius,
     blastFifths, blastFifths,
-    'hazard', d.ownerPlayerId, 'distance', // ⭐ S193 R193-B4 — "the stink tower blast … similarly"
+    'hazard', d.ownerPlayerId,
+    'physical', // S192 — the tower BLOWS UP (R192-M3)
+    'distance', // ⭐ S193 R193-B4 — "the stink tower blast … similarly"
   );
 }
 
@@ -251,7 +256,9 @@ export function stinkThrowBag(world: World, d: Defender, at: Vec2, radialDamage:
   radialDamage(
     world, at.x, at.y, STINK_BAG_RADIUS,
     attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
-    'hazard', d.ownerPlayerId, 'distance', // ⭐ S193 R193-B4 — "the poop bag … closer = more"
+    'hazard', d.ownerPlayerId,
+    'physical', // S192 — a thrown bag hits (R192-M3)
+    'distance', // ⭐ S193 R193-B4 — "the poop bag … closer = more"
   );
   /*
    * ⭐ S158 P6 (CF-S157-b) — AND THE BAG STAYS WHERE IT FELL.
@@ -317,7 +324,10 @@ export function stinkAuraTick(world: World, d: Defender, radialDamage: RadialDam
   radialDamage(
     world, d.pos.x, d.pos.y, STINK_AURA_RADIUS,
     STINK_AURA_UNIT_FIFTHS, STINK_AURA_UNIT_FIFTHS, // ⭐ S177 P1 — ONE LADDER: shapes take the unit number.
-    'aura', d.ownerPlayerId, 'flat', // S193 — an aura is damage over time, not a blast; 1 fifth cannot fall off
+    'aura', d.ownerPlayerId,
+    // ⭐ S192 (R192-M2) — the STINK TOWER AURA is MAGIC: a DoT tick, its beat = this tower's pulse count.
+    magicDot(Math.floor(world.tick / STINK_AURA_CADENCE_TICKS)),
+    'flat', // S193 — an aura is damage over time, not a blast; 1 fifth cannot fall off
   );
   return true;
 }

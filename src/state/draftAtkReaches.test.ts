@@ -158,7 +158,7 @@ describe('⛔ THE CARD — the derived numbers are the creature’s, not its typ
     const parent = spawnAt(w, P0, 'chewer', 400, 400);
     // One lethal blow in runHostTick's batch order: open, strike, sweep, drain.
     w.pendingCreatureDeaths = new Set();
-    damageEntity(w, { kind: 'creature', id: parent }, 999, 'aura', null);
+    damageEntity(w, { kind: 'creature', id: parent }, 999, 'aura', null, 'physical');
     sweepDeferredDeaths(w, w.pendingCreatureDeaths);
     w.pendingCreatureDeaths = null;
     drainRacialSpawnQueue(w);
@@ -267,7 +267,7 @@ describe('⛔ HELLSPAWN — a split chewer’s strike is a share of its PARENT�
   /** One lethal blow on `id` in runHostTick's batch order; returns the generation-`gen` children. */
   const split = (w: World, id: CreatureId, gen: 1 | 2) => {
     w.pendingCreatureDeaths = new Set();
-    damageEntity(w, { kind: 'creature', id }, 999, 'aura', null);
+    damageEntity(w, { kind: 'creature', id }, 999, 'aura', null, 'physical');
     sweepDeferredDeaths(w, w.pendingCreatureDeaths);
     w.pendingCreatureDeaths = null;
     drainRacialSpawnQueue(w);
@@ -379,7 +379,7 @@ describe('⛔ THE KILL NUMBER — `fatalBlowFifths` credits the creature’s own
     const demons = fightWorld(['racial', 'racial'], 'demons');
     const parent = spawnAt(demons, P0, 'chewer', at.x + 5, at.y);
     demons.pendingCreatureDeaths = new Set();
-    damageEntity(demons, { kind: 'creature', id: parent }, 999, 'aura', null);
+    damageEntity(demons, { kind: 'creature', id: parent }, 999, 'aura', null, 'physical');
     sweepDeferredDeaths(demons, demons.pendingCreatureDeaths);
     demons.pendingCreatureDeaths = null;
     drainRacialSpawnQueue(demons);

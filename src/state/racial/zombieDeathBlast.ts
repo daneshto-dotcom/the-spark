@@ -221,7 +221,7 @@ export function applyZombieDeathBlast(world: World, at: { x: number; y: number }
   for (const { target: t, share } of plan) {
     if (t.kind !== 'structure' || share === 0) continue;
     if (!world.bonds.has(t.bondId)) continue;
-    if (damageConnector(world, t.bondId, share, null)) {
+    if (damageConnector(world, t.bondId, share, null, 'physical')) { // ⭐ S193 — the death blast BLOWS UP (R192-M3)
       // ⭐ S193 merge — `severWithCarry` (owner S191, canon §2): the struck connector falls and the overkill
       // carries on through the SAME structure, like every other connector-damage caller (CARRY-2 census).
       // ⭐ S193 — straight to `applySeverBond`, not `dispatch`: POWER OF RA's audit-F1 reason (the hub does
@@ -237,6 +237,6 @@ export function applyZombieDeathBlast(world: World, at: { x: number; y: number }
       damageStinkCloud(world, t.id as unknown as StinkCloudId, share, null, owner);
       continue;
     }
-    damageEntity(world, t.target, share, 'creature', null, credit);
+    damageEntity(world, t.target, share, 'creature', null, 'physical', credit); // ⭐ S193 — R192-M3
   }
 }
