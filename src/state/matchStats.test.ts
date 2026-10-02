@@ -1,0 +1,243 @@
+/**
+ * SPARK — ⭐ S191: the end-of-match stat board's RECORDER, its wire shape and its hash.
+ *
+ * The REACH half (counters driven through the real host tick, a real WIN, host vs worker) lives in
+ * `matchStats.reach.test.ts`. This file pins the arithmetic and the four sites.
+ */
+import { describe, expect, it } from 'vitest';
+import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
+import { makeIdlePlayer } from '../game/player.ts';
+import type { Primitive } from '../game/primitive.ts';
+import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
+import { makeGameStateExtras, softReset } from './gameState.ts';
+import {
+  HISTORY_WINDOW_TICKS,
+  applySerializedSeats,
+  matchStatsHashParts,
+  recordDamage,
+  recordKill,
+  recordSeatFell,
+  recordTowerBuilt,
+  recordTowerFell,
+  recordUnitBuilt,
+  recordWaveSample,
+  sampleBuilt,
+  serializeMatchStats,
+} from './matchStats.ts';
+import { applyNetSnapshot, netSnapshot, restore, snapshot } from './save.ts';
+import { hashWorldStateFull } from './stateHashFull.ts';
+import { dispatch, makeWorld } from './world.ts';
+import type { World } from './worldTypes.ts';
+
+const P = (n: number): PlayerId => asPlayerId(n);
+
+function board(n: number): World {
+  const w = makeWorld(0);
+  for (let i = 0; i < n; i++) {
+    if (!w.players.has(P(i))) w.players.set(P(i), makeIdlePlayer(P(i), PLAYER_COLORS[i]!));
+    w.scoreByPlayer.set(P(i), 100);
+  }
+  return w;
+}
+
+/** A two-shape, one-connector structure owned by `owner` (ids offset so several can coexist). */
+function addConnector(w: World, owner: PlayerId, base: number): void {
+  const mk = (id: number, x: number): Primitive => ({
+    id: asPrimitiveId(id), type: SparkType.Dot, placerColor: 0xffffff, placedBy: owner,
+    createdTick: 0, pos: { x, y: 0 }, prevPos: { x, y: 0 }, bonds: new Set(),
+    ownerColor: 0xffffff, lastOwnershipChange: 0, radius: 8, hp: PRIMITIVE_MAX_HP, origin: null,
+  });
+  const a = mk(base, base);
+  const b = mk(base + 1, base + 30);
+  w.primitives.set(a.id, a);
+  w.primitives.set(b.id, b);
+  const id = asBondId(base);
+  w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
+  a.bonds.add(id);
+  b.bonds.add(id);
+}
+
+describe('S191 matchStats — the arithmetic', () => {
+  it('TAKEN goes to the victim, DEALT to the attacker, and a self-hit is a loss for nobody else', () => {
+    const w = board(2);
+    recordDamage(w, P(1), P(0), 12);
+    recordDamage(w, P(0), P(0), 7); // own blast on own unit
+    recordDamage(w, P(1), null, 5); // unattributed (divine fire)
+    const s0 = w.matchStats.seats.get(P(0))!;
+    const s1 = w.matchStats.seats.get(P(1))!;
+    expect(s0.dealtFifths).toBe(12);
+    expect(s0.takenFifths).toBe(7);
+    expect(s1.takenFifths).toBe(17);
+    expect(s1.dealtFifths).toBe(0);
+  });
+
+  it('a zero or negative applied amount records nothing (never the swing, never a heal)', () => {
+    const w = board(2);
+    recordDamage(w, P(1), P(0), 0);
+    recordDamage(w, P(1), P(0), -3);
+    expect(w.matchStats.seats.size).toBe(0);
+  });
+
+  it('kills are per VICTIM type, credited to the killer; a self-kill and an unattributed kill count nothing', () => {
+    const w = board(2);
+    recordKill(w, P(0), P(1), 'chewer');
+    recordKill(w, P(0), P(1), 'chewer');
+    recordKill(w, P(0), P(1), 'raceUnit');
+    recordKill(w, P(1), P(1), 'chewer');
+    recordKill(w, null, P(1), 'chewer');
+    expect([...w.matchStats.seats.get(P(0))!.kills]).toEqual([['chewer', 2], ['raceUnit', 1]]);
+    expect(w.matchStats.seats.has(P(1))).toBe(false);
+  });
+
+  it('units built are per type; towers built/fell count; the fell-wave stamp is write-once', () => {
+    const w = board(1);
+    recordUnitBuilt(w, P(0), 'raceUnit');
+    recordUnitBuilt(w, P(0), 'raceUnit');
+    recordUnitBuilt(w, P(0), 'goblinMelee');
+    recordTowerBuilt(w, P(0));
+    recordTowerBuilt(w, P(0));
+    recordTowerFell(w, P(0));
+    w.waveNumber = 5;
+    recordSeatFell(w, P(0));
+    w.waveNumber = 9;
+    recordSeatFell(w, P(0));
+    const s = w.matchStats.seats.get(P(0))!;
+    expect(s.built.get('raceUnit')).toBe(2);
+    expect(s.built.get('goblinMelee')).toBe(1);
+    expect([s.towersBuilt, s.towersFell, s.fellOnWave]).toEqual([2, 1, 5]);
+  });
+
+  it('the BUILT graph counts connectors STANDING per seat, owner = bond.aId → placedBy', () => {
+    const w = board(2);
+    addConnector(w, P(0), 100);
+    addConnector(w, P(0), 200);
+    addConnector(w, P(1), 300);
+    expect([...sampleBuilt(w)].sort()).toEqual([[P(0), 2], [P(1), 1]]);
+  });
+
+  it('a wave sample floors the score, lists every seat in id order, and upserts its wave', () => {
+    const w = makeWorld(0);
+    w.players.set(P(2), makeIdlePlayer(P(2), PLAYER_COLORS[2]!));
+    w.scoreByPlayer.set(P(0), 123.9);
+    w.scoreByPlayer.set(P(2), 50.2);
+    addConnector(w, P(2), 100);
+    w.tick = 900;
+    recordWaveSample(w, 1);
+    w.scoreByPlayer.set(P(0), 200);
+    recordWaveSample(w, 1); // the win landing on the edge's tick: one point, not two
+    expect(w.matchStats.history).toHaveLength(1);
+    expect(w.matchStats.history[0]).toEqual({
+      wave: 1,
+      tick: 900,
+      seats: [{ seat: P(0), score: 200, built: 0 }, { seat: P(2), score: 50, built: 1 }],
+    });
+    recordWaveSample(w, 2);
+    expect(w.matchStats.history.map((h) => h.wave)).toEqual([1, 2]);
+  });
+});
+
+describe('S191 matchStats — the four sites', () => {
+  it('FACTORY + WIRE: an untouched world carries no key at all (opening snapshots stay byte-identical)', () => {
+    const w = board(2);
+    expect(serializeMatchStats(w.matchStats)).toBeUndefined();
+    expect(JSON.stringify(snapshot(w))).not.toContain('matchStats');
+    expect(JSON.stringify(netSnapshot(w))).not.toContain('matchStats');
+  });
+
+  it('SERIALIZE: a full snapshot round-trips every counter and the whole history', () => {
+    const w = board(2);
+    recordUnitBuilt(w, P(0), 'raceUnit');
+    recordKill(w, P(1), P(0), 'raceUnit');
+    recordDamage(w, P(0), P(1), 44);
+    recordTowerBuilt(w, P(1));
+    recordTowerFell(w, P(1));
+    recordSeatFell(w, P(0));
+    recordWaveSample(w, 1);
+    const back = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snapshot(w))), back);
+    expect(matchStatsHashParts(back.matchStats)).toEqual(matchStatsHashParts(w.matchStats));
+  });
+
+  it('WIRE: the NET form carries the history only inside its window and through WIN/POSTGAME', () => {
+    const w = board(2);
+    recordUnitBuilt(w, P(0), 'raceUnit');
+    w.tick = 10_000;
+    recordWaveSample(w, 3);
+    expect(netSnapshot(w).matchStats?.history).toHaveLength(1); // just sampled
+    w.tick = 10_000 + HISTORY_WINDOW_TICKS - 1;
+    expect(netSnapshot(w).matchStats?.history).toHaveLength(1);
+    w.tick = 10_000 + HISTORY_WINDOW_TICKS;
+    const outside = netSnapshot(w);
+    expect(outside.matchStats?.history).toBeUndefined();
+    expect(outside.matchStats?.seats).toHaveLength(1); // the running totals always ride
+    w.gameState = 'POSTGAME';
+    expect(netSnapshot(w).matchStats?.history).toHaveLength(1);
+    // …while the FULL local form always carries it (worker INIT, disk, takeover).
+    w.gameState = 'PLAYING';
+    expect(snapshot(w).matchStats?.history).toHaveLength(1);
+  });
+
+  it('RECEIVER: totals replace every snapshot; history is kept when absent and replaced when present', () => {
+    const host = board(2);
+    recordUnitBuilt(host, P(0), 'raceUnit');
+    host.tick = 5000;
+    recordWaveSample(host, 1);
+    const peer = board(2);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), peer);
+    expect(peer.matchStats.history.map((h) => h.wave)).toEqual([1]);
+    host.tick = 5000 + HISTORY_WINDOW_TICKS * 3; // outside the window
+    recordUnitBuilt(host, P(0), 'raceUnit');
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), peer);
+    expect(peer.matchStats.history.map((h) => h.wave)).toEqual([1]); // kept
+    expect(peer.matchStats.seats.get(P(0))!.built.get('raceUnit')).toBe(2); // replaced
+    recordWaveSample(host, 2);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), peer);
+    expect(peer.matchStats.history.map((h) => h.wave)).toEqual([1, 2]);
+  });
+
+  it('RECEIVER: garbage on the wire is dropped, never thrown', () => {
+    const w = board(1);
+    applySerializedSeats(w, {
+      seats: [
+        { seat: 0, built: [['raceUnit', 3], ['x', -1] as never, [7, 7] as never], dealt: 1.5, taken: 9 },
+        { seat: -1 } as never,
+        null as never,
+      ],
+    });
+    const s = w.matchStats.seats.get(P(0))!;
+    expect([...s.built]).toEqual([['raceUnit', 3]]);
+    expect([s.dealtFifths, s.takenFifths]).toEqual([0, 9]);
+    expect(w.matchStats.seats.size).toBe(1);
+  });
+
+  it('HASH: a counter and a history point each move the WIDE oracle (per-field contribution)', () => {
+    const w = board(2);
+    const h0 = hashWorldStateFull(w);
+    recordDamage(w, P(1), P(0), 6);
+    const h1 = hashWorldStateFull(w);
+    expect(h1).not.toBe(h0);
+    recordKill(w, P(0), P(1), 'chewer');
+    const h2 = hashWorldStateFull(w);
+    expect(h2).not.toBe(h1);
+    recordWaveSample(w, 1);
+    expect(hashWorldStateFull(w)).not.toBe(h2);
+  });
+
+  it('RESETS: match start, return to title and soft reset each start a clean board', () => {
+    const dirty = (): World => {
+      const w = board(2);
+      recordUnitBuilt(w, P(0), 'raceUnit');
+      recordWaveSample(w, 1);
+      return w;
+    };
+    const a = dirty();
+    dispatch(a, { type: 'START_GAME', mode: 'solo', isHost: true });
+    expect([a.matchStats.seats.size, a.matchStats.history.length]).toEqual([0, 0]);
+    const b = dirty();
+    dispatch(b, { type: 'RETURN_TO_TITLE' });
+    expect([b.matchStats.seats.size, b.matchStats.history.length]).toEqual([0, 0]);
+    const c = dirty();
+    softReset(c, makeGameStateExtras());
+    expect([c.matchStats.seats.size, c.matchStats.history.length]).toEqual([0, 0]);
+  });
+});

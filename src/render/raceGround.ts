@@ -105,7 +105,14 @@ export function drawRaceGround(
   hw: number,
   hh: number,
   tick: number,
+  /**
+   * ⭐ S193 (V24) — `skipBase` leaves out the flat body ellipse(s) and draws only the race's MOTIFS
+   * (bubbles, cracks, droplets, banks, rings, scuffs): the noise-textured stain sprite under them
+   * (`fx/groundStainFx.ts`) is the body now. Omitted = the S185 drawing, unchanged.
+   */
+  opts?: { readonly skipBase?: boolean },
 ): void {
+  const flat = opts?.skipBase !== true;
   const base = RACE_COLORS[race];
   // the body sits well below the race colour so the tower reads on top of it, never against it
   const body = shade(base, 0.32);
@@ -119,8 +126,10 @@ export function drawRaceGround(
   switch (race) {
     case 'zombies': {
       // a goo pool with a slow bubble — the one he named first
-      g.ellipse(cx, cy, rx, ry).fill({ color: body, alpha: 1 });
-      g.ellipse(cx, cy, rx * 0.72, ry * 0.72).fill({ color: shade(base, 0.5), alpha: 1 });
+      if (flat) {
+        g.ellipse(cx, cy, rx, ry).fill({ color: body, alpha: 1 });
+        g.ellipse(cx, cy, rx * 0.72, ry * 0.72).fill({ color: shade(base, 0.5), alpha: 1 });
+      }
       for (let i = 0; i < 4; i++) {
         const ph = (tick / 60 + jitter(id, i)) % 1; // one slow cycle per second, per bubble
         const r = ry * 0.16 * Math.sin(ph * Math.PI); // swells then pops
@@ -133,7 +142,7 @@ export function drawRaceGround(
     }
     case 'demons': {
       // ⭐ HIS RULING: the crack burns VIOLET, not orange. Cracks radiate from under the building.
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.22), alpha: 1 });
+      if (flat) g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.22), alpha: 1 });
       /*
        * ⚠ THE EMBER BREATHES THROUGH GEOMETRY AND COLOUR, NOT THROUGH ALPHA — and the test caught me
        * when it did not. The first cut animated `alpha`, which stopped working the moment every draw
@@ -155,9 +164,11 @@ export function drawRaceGround(
     }
     case 'vampires': {
       // blood, pooled and gone tacky at the rim
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
-      g.ellipse(cx + rx * 0.1, cy + ry * 0.08, rx * 0.6, ry * 0.58)
-        .fill({ color: shade(base, 0.45), alpha: 1 });
+      if (flat) {
+        g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
+        g.ellipse(cx + rx * 0.1, cy + ry * 0.08, rx * 0.6, ry * 0.58)
+          .fill({ color: shade(base, 0.45), alpha: 1 });
+      }
       for (let i = 0; i < 3; i++) {
         const a = jitter(id, i + 40) * Math.PI * 2;
         const d = rx * (0.85 + jitter(id, i + 50) * 0.3);
@@ -168,8 +179,9 @@ export function drawRaceGround(
     }
     case 'mummies': {
       // drifted sand, banked on one side the way wind actually leaves it
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.3), alpha: 1 });
-      for (let i = 0; i < 3; i++) {
+      if (flat) g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.3), alpha: 1 });
+      // ⚠ S193 — the banks are part of the body too: the stain's wind-stretched noise carries them.
+      for (let i = 0; flat && i < 3; i++) {
         const off = (i - 1) * ry * 0.34;
         g.ellipse(cx + rx * 0.16, cy + off, rx * (0.85 - i * 0.16), ry * 0.3)
           .fill({ color: shade(base, 0.42 + i * 0.07), alpha: 1 });
@@ -178,7 +190,7 @@ export function drawRaceGround(
     }
     case 'nagas': {
       // wet silt with pale rings, the drowned-citadel floor its backdrop is built on
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.24), alpha: 1 });
+      if (flat) g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.24), alpha: 1 });
       for (let i = 1; i <= 3; i++) {
         const f = i / 3;
         g.ellipse(cx, cy, rx * f, ry * f)
@@ -188,7 +200,7 @@ export function drawRaceGround(
     }
     case 'orcs': {
       // hardpan: scuffed, trampled, irregular — the one race that may eventually want real art
-      g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
+      if (flat) g.ellipse(cx, cy, rx, ry).fill({ color: shade(base, 0.26), alpha: 1 });
       for (let i = 0; i < 5; i++) {
         const a = jitter(id, i + 60) * Math.PI * 2;
         const d = rx * (0.3 + jitter(id, i + 70) * 0.6);

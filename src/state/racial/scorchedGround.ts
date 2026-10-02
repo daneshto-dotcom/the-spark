@@ -217,12 +217,13 @@ function burnCreatures(world: World, spared: PlayerId, zone: number, perMille: n
   }
   // Total order before mutating: damage can remove a creature, so the scan finishes first.
   victims.sort((a, b) => (a as number) - (b as number));
+  // ⭐ S193 BLAST-2 — the burning ground's OWNER (the perk's seat / the caster) is credited on the stat board.
   // ⭐ S192 (R192-M2) — SCORCHED GROUND / SCORCHED EARTH are MAGIC: a DoT tick rescaled over the
   // victim's own beats (`magicResist.ts`). The beat is this source's due-count for the victim.
   for (const id of victims) {
     const c = world.creatures.get(id);
     const beat = c === undefined ? 0 : dotBeat(world.tick, id as number, c.type, perMille);
-    damageEntity(world, { kind: 'creature', id }, 1, 'aura', null, magicDot(beat));
+    damageEntity(world, { kind: 'creature', id }, 1, 'aura', { kind: 'seat', seat: spared }, magicDot(beat));
   }
 }
 
@@ -248,7 +249,7 @@ function burnHelgas(world: World, spared: PlayerId, zone: number, perMille: numb
   }
   victims.sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number));
   // ⭐ S192 (R192-M2) — magic DoT, rescaled by HER DEF/MRES over her beats (`(tick + id) / interval`).
-  for (const { id, beat } of victims) damageEntity(world, { kind: 'defender', id }, 1, 'aura', null, magicDot(beat));
+  for (const { id, beat } of victims) damageEntity(world, { kind: 'defender', id }, 1, 'aura', { kind: 'seat', seat: spared }, magicDot(beat));
 }
 
 /**
@@ -295,13 +296,13 @@ function burnStructures(world: World, caster: PlayerId, zone: number): void {
     if (!world.bonds.has(bondId)) continue;
     // `null` attacker: burning ground heals nobody (BLOOD DEBT) — `damageConnector.callSites.test.ts`.
     // ⭐ S192 (R192-M2) — magic DoT. A structure's MRES is its DEF (R192-M5), so every beat lands its one fifth.
-    if (damageConnector(world, bondId, 1, null, magicDot(beat))) {
+    if (damageConnector(world, bondId, 1, { kind: 'seat', seat: caster }, magicDot(beat))) {
       // ⛔ INLINE, NOT DISPATCHED — POWER OF RA's audit F1: the sever is the CONSEQUENCE of damage that
       // has landed, not the caster acting now, so a benched caster must not have it refused. `'raid'`
       // is the existing cause for a player's attack reaching a connector's capacity (⚠ MINE, Ra's).
       // ⭐ S192 (audit OWN-1) — through `severWithCarry`, like every `damageConnector` site (the S191 overkill
       // CARRY ruling; `connectorSeverCarry.census.test.ts`).
-      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }));
+      severWithCarry(world, bondId, (id) => applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: caster, cause: 'raid' }), { kind: 'seat', seat: caster });
     }
   }
 }
@@ -320,7 +321,7 @@ function burnLoneShapes(world: World, caster: PlayerId, zone: number): void {
   }
   due.sort((a, b) => (a as unknown as number) - (b as unknown as number));
   // ⭐ S192 (R192-M2) — magic; a shape's MRES is its DEF (0), so the fifth lands as is.
-  for (const id of due) damageEntity(world, { kind: 'primitive', id }, 1, 'aura', null, 'magic');
+  for (const id of due) damageEntity(world, { kind: 'primitive', id }, 1, 'aura', { kind: 'seat', seat: caster }, 'magic');
 }
 
 /**
@@ -340,6 +341,6 @@ function burnStinkBags(world: World, caster: PlayerId, zone: number): void {
   }
   due.sort((a, b) => (a as unknown as number) - (b as unknown as number));
   for (const id of due) {
-    if (world.stinkClouds.has(id)) damageEntity(world, { kind: 'stinkCloud', id }, 1, 'aura', null, 'magic'); // ⭐ S192 — R192-M2
+    if (world.stinkClouds.has(id)) damageEntity(world, { kind: 'stinkCloud', id }, 1, 'aura', { kind: 'seat', seat: caster }, 'magic'); // ⭐ S192 — R192-M2
   }
 }

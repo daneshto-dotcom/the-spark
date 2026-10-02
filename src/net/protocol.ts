@@ -1816,6 +1816,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // that shape maps to. A CLIENT INTENT (see the second allowlist below) so a 1v1 joiner can feed
   // their own tower; the host re-checks ownership, recipe and affordability regardless.
   FEED_TOWER: true,
+  // ⭐ S193 (owner T4) — SET_AUTO_FEED: a goblin tower's auto-build toggle. A CLIENT INTENT, so in both records.
+  SET_AUTO_FEED: true,
   // S152 — FIX + SCRAP (R13/R19/R21). Both are also CLIENT INTENTs (see below).
   // PROTOCOL_VERSION bumped 26->27.
   REPAIR_STRUCTURE: true,
@@ -2015,6 +2017,11 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // seat owns it, its anchor is still standing, and the bank really holds that shape), so a stale
   // click no-ops instead of minting a goblin from a tower that has already collapsed.
   FEED_TOWER: true,
+  // ⭐ S193 (owner T4) — a joiner right-clicks a shape on ITS OWN goblin tower's card to toggle its
+  // auto-build. The host re-resolves the tower, its recipe, its owner and the shape index (the wire
+  // parser checks only `type`, so a float, a string or a seventh shape arrives here and must no-op).
+  // ⛔ Omitted HERE, a joiner's toggle is dropped silently while the host seat's own works.
+  SET_AUTO_FEED: true,
   // S152 — a joiner clicks one of ITS OWN towers and presses FIX or SCRAP. The host re-resolves
   // every gate against its own world: `canBuildNow` (BUILD stage + the seat's own ground, R19),
   // per-member ownership, blueprint provenance, and — for FIX — `planPaymentForTypes` against its

@@ -41,6 +41,7 @@ import { layoutForSeatCount } from './zones.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
+import { recordTowerFell, resetMatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board, per match
 
 
 /* ────────────────────────── Action types ───────────────────────────── */
@@ -257,6 +258,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   world.waveNumber = 1; // S157 B8 — every match opens on wave 1
   world.monsterWaveSpawned = 0; // ⭐ S192 — and no endgame monster has been released
   world.monsterFightStartTick = 0; // ⭐ S193 — and no monster fight is running
+  resetMatchStats(world); // ⭐ S191 — the stat board counts THIS match (applyStartGame keeps the seats)
   /*
    * ⭐⭐ S187 — EVERY SEAT STARTS A MATCH HAVING DRAFTED NOTHING, and the pre-wave-1 draft opens
    * here, at the one TITLE/LOBBY->PLAYING edge every entry path takes (solo, bots, host 1v1, joiner).
@@ -282,6 +284,7 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // S100 P1 (TD Phase 1a) — clear any lingering spawner at match start (same all-hazards
   // start-of-match invariant: no spawner before a player ignites one this match).
   world.creatureSpawners.clear();
+  world.goblinAutoFeedMemory.clear(); // ⭐ S193 T4
   world.nextSpawnerId = 0;
   // S103 P2 — clear any lingering defender at match start (same all-hazards invariant).
   world.defenders.clear();
@@ -481,6 +484,7 @@ export function applyReturnToTitle(world: World): World {
   world.nextBondId = 0;
   world.scoreProgress = 0;
   world.scoreByPlayer.clear();
+  resetMatchStats(world); // ⭐ S191 — the stat board, with the score it sits beside
   // S31 P0-2 — clear Phase-2 godly/creature cinematic state. Mirrors the
   // GODLY_ABORT cascade (world.ts:407-418) but applied on title-return path
   // instead of peer-drop path. Without these clears, an active Voltkin
@@ -540,6 +544,7 @@ export function applyReturnToTitle(world: World): World {
   // S100 P1 (TD Phase 1a) — clear creature spawners on title-return (mirror of the other
   // hazards). A lingering spawner would keep minting chewers + accruing income next match.
   world.creatureSpawners.clear();
+  world.goblinAutoFeedMemory.clear(); // ⭐ S193 T4
   world.nextSpawnerId = 0;
   // S103 P2 — clear defenders on title-return (mirror of the other hazards).
   world.defenders.clear();
@@ -792,6 +797,13 @@ export function spendScore(world: World, playerId: PlayerId, cost: number): void
  * `SPAWNER_KILL_REWARD / enemyCount` share (float — replay-safe, host-authoritative).
  */
 export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): void {
+  /*
+   * ⭐ S191 — THE STAT BOARD'S "TOWERS FELL" FOR A SPAWNER, AND IT IS HERE BECAUSE THIS IS THE EVENT. The host
+   * poll calls this exactly once per spawner DESTRUCTION (anchor gone, recipe broken, the hub's fuse) and
+   * never on teardown or when a T9 ring is released as its boss. Counted BEFORE the FIGHT gate below: a
+   * tower that falls in BUILD still fell, it just pays no bounty.
+   */
+  recordTowerFell(world, spawner.ownerPlayerId);
   // S147 P1 (R3) — *"Points accrue during the FIGHT stage ONLY."* This is the SECOND score path in
   // the codebase (the first is tickScoring's complexity income) and it is the one that is easy to
   // miss, because it is event-driven rather than per-tick: a spawner dying during BUILD would award

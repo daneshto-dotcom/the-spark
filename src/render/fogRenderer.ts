@@ -22,7 +22,7 @@
  * the un-unit-testable GPU half; it is verified live in the preview.
  */
 
-import { Application, Container, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
+import { Application, Container, Rectangle, RenderTexture, Sprite, Texture, type Renderer } from 'pixi.js';
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
@@ -54,6 +54,9 @@ import { zoneRect } from './zoneBackgroundRenderer.ts';
 import { zoneOwner } from '../state/zones.ts';
 import type { World } from '../state/world.ts';
 import type { PrimitiveId, Vec2 } from '../types.ts';
+import { FxLayer } from './fx/fxLayer.ts';
+import { fxActive } from './fx/fxState.ts';
+import { computeMistField, fogMistFx, makeMistField, type MistField } from './fx/fogMistFx.ts';
 
 /** Fogged-area colour. Pure black (0x000000 = the app background), so fog reads as plain darkness, not a tinted layer (S63 user tuning — was 0x05070d). */
 const FOG_COLOR = 0x000000;
@@ -165,6 +168,17 @@ export class FogRenderer {
   private readonly memoryLayer: Container;
   private readonly ghostTextures: ShapeTextures;
   private readonly ghostSprites: Map<PrimitiveId, Sprite> = new Map();
+  /**
+   * ⭐ S193 (V27) — the edge MIST, drawn over the shroud inside this container (after `fogSprite`).
+   * ⛔ It only adds over the fog; it is laid out from the LOCAL seat's own vision and quarter only
+   * (`fx/fogMistFx.ts` states the three properties that make it incapable of revealing anything).
+   * Its lattice is recomputed on the mask's own ~20 Hz cadence and frozen with it on the win-lift.
+   */
+  private readonly mist: FxLayer;
+  private readonly mistField: MistField = makeMistField(CANVAS_WIDTH, CANVAS_HEIGHT);
+  private mistReady = false;
+  /** DEV probe: mist puffs drawn last frame. */
+  mistCount = 0;
 
   constructor(app: Application) {
     this.renderer = app.renderer;
@@ -259,6 +273,14 @@ export class FogRenderer {
     this.container.eventMode = 'none';
     this.container.visible = false;
     this.container.addChild(this.fogSprite);
+    this.mist = new FxLayer('fogMist');
+    /*
+     * ⛔ PINNED BOUNDS. Edge puffs overhang the board by up to ~80 px, and without this the stage's
+     * bounds grow past 1920×1080 — every `renderer.extract.pixels(app.stage)` probe then maps board
+     * points to the wrong pixel (fog.spec's ghost test read 0 at the ghost). The board is the frame.
+     */
+    this.mist.container.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    this.container.addChild(this.mist.container);
     app.stage.addChild(this.container);
 
     // S60 P2 — memory layer, added to the stage AFTER the fog container so it sits
@@ -299,6 +321,9 @@ export class FogRenderer {
       this.container.visible = false;
       this.memoryLayer.visible = false;
       this.maskFrameCounter = 0; // force an immediate recompose on re-activation
+      this.mist.clear();
+      this.mistReady = false;
+      this.mistCount = 0;
       /*
        * ⭐⭐ S170 P1 — **RELEASE THE MASK, and this is the arm that makes FIGHT work.**
        *
@@ -326,6 +351,10 @@ export class FogRenderer {
     // silhouettes dissolve in lockstep on the win-lift (and snap on at match start).
     this.memoryLayer.visible = true;
     this.memoryLayer.alpha = this.alpha;
+    // ⭐ S193 (V27) — every frame the fog shows, from the last composed lattice, at the fog's alpha.
+    this.mist.begin();
+    this.mistCount = fxActive() && this.mistReady ? fogMistFx(this.mist, this.mistField, world.tick, this.alpha) : 0;
+    this.mist.end();
 
     // S60 P3(a) — during the win-lift (target 0, fog still fading > epsilon) FREEZE the
     // mask + memory recompose: the holes and ghosts stay put while the alpha tween
@@ -357,6 +386,10 @@ export class FogRenderer {
       this.ownZoneErase.position.set(r.x, r.y);
       this.ownZoneErase.width = r.w;
       this.ownZoneErase.height = r.h;
+    }
+    if (fxActive()) {
+      computeMistField(this.mistField, sources, ownZone === null ? null : zoneRect(ownZone, world.layout), VISION_FADE_PX);
+      this.mistReady = true;
     }
     // S59 P1 — accumulate explored cells; only re-upload the grid texture when the
     // explored set actually grew (most ticks it doesn't) — keeps the sim canary happy.
@@ -480,6 +513,8 @@ export class FogRenderer {
     this.gridNeedsRedraw = true;
     this.resetMemory();
     for (const brush of this.pool) brush.visible = false;
+    this.mist.clear();
+    this.mistReady = false;
     this.alpha = 0;
     this.maskFrameCounter = 0;
     this.wasActive = false;

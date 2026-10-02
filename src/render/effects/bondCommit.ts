@@ -24,6 +24,9 @@ import {
   drawWheel,
   drawWhip,
 } from './silhouettes.ts';
+import { bondCommitFx } from '../fx/buildFx.ts';
+import { fxSeedAt } from '../fx/emitter.ts';
+import { fxActive, fxTop } from '../fx/fxState.ts';
 
 export function drawBondCommit(
   g: Graphics,
@@ -34,9 +37,17 @@ export function drawBondCommit(
   const alpha = 1 - eased;
   const x = effect.pos.x;
   const y = effect.pos.y;
+  /*
+   * ⭐ S193 (V20) — with the fx layers live, the flat inner flash and the generic default ring are
+   * replaced by soft additive light (`fx/buildFx.ts`). The twelve bespoke silhouettes below still
+   * draw: they are the combo's identity, not its punctuation. `?fx=legacy` and the unit suite keep
+   * the S6 drawing exactly.
+   */
+  const fx = fxActive();
+  if (fx) bondCommitFx(fxTop(), fxSeedAt(effect.tick, x, y), x, y, effect.radius, effect.color, t);
 
   // Inner flash — same on every combo. Anchors visual continuity.
-  if (t < 0.3) {
+  if (!fx && t < 0.3) {
     const flashAlpha = (0.3 - t) / 0.3;
     g.circle(x, y, effect.radius * 1.4).fill({
       color: effect.color,
@@ -82,7 +93,7 @@ export function drawBondCommit(
       drawWarped(g, x, y, effect.radius, effect.color, eased, alpha);
       break;
     default:
-      drawDefaultRing(g, x, y, effect.radius, effect.color, eased, alpha);
+      if (!fx) drawDefaultRing(g, x, y, effect.radius, effect.color, eased, alpha);
       break;
   }
 }

@@ -21,6 +21,9 @@
 import { Graphics } from 'pixi.js';
 import type { GameEffect } from '../../game/effects.ts';
 import { pseudoRand } from '../../state/rng.ts';
+import { fxActive, fxTop } from '../fx/fxState.ts';
+import { effectLifetime } from './lifetime.ts';
+import { VOLT_STYLE, boltGlowFx, lightningFlicker, lightningFork, lightningPath, lightningSparksFx, lightningStrikeSeed } from '../fx/lightningFx.ts';
 
 /** Number of jitter segments between start and end. 5 → 6 polyline vertices total. */
 const ARC_JITTER_SEGMENTS = 5;
@@ -146,6 +149,13 @@ export function drawArcFlash(
   const ex = effect.end.x;
   const ey = effect.end.y;
 
+  // ⭐ S193 (V07) — the rebuilt bolt (`fx/lightningFx.ts`). The S30 three-stroke arc below stays the
+  // `?fx=legacy` path and the unit-test path (nothing is installed under vitest, so `fxActive()` is false).
+  if (fxActive()) {
+    drawArcFlashFx(g, effect, t01, alpha);
+    return;
+  }
+
   // S34 P2-24 — polyline build extracted to `buildJitteredPolyline` pure
   // helper. Seed incorporates start coordinates + creatureId so simultaneous-
   // tick arcs from different creatures produce distinct patterns (CHECK
@@ -222,4 +232,47 @@ export function drawArcFlash(
     cap: 'round',
     join: 'round',
   });
+}
+
+/** Graphics core stroke over a polyline. */
+function strokePath(g: Graphics, xs: readonly number[], ys: readonly number[], width: number, alpha: number): void {
+  g.moveTo(xs[0]!, ys[0]!);
+  for (let i = 1; i < xs.length; i++) g.lineTo(xs[i]!, ys[i]!);
+  g.stroke({ color: 0xffffff, width, alpha, cap: 'round', join: 'round' });
+}
+
+/**
+ * ⭐ S193 (V07) — THE ARC, LIT: a wide additive glow and a hot sheath on the bloomed fx layer, a thin
+ * white core stroke here, a side fork, a spark burst at both ends, and a tick-keyed flicker and
+ * re-strike. The age is recovered from `t01 × lifetime` (an integer: the caller computes `t01` as
+ * `age / lifetime`), so the flicker is keyed to `effect.tick + age` — a synced tick, never a clock.
+ * The base seed is the S33 `arcSeed`, so two arcs on one tick still differ by origin and creature.
+ * @internal exported for the unit test.
+ */
+export function drawArcFlashFx(
+  g: Graphics,
+  effect: Extract<GameEffect, { kind: 'ARC_FLASH' }>,
+  t01: number,
+  alpha: number,
+): void {
+  const sx = effect.start.x;
+  const sy = effect.start.y;
+  const ex = effect.end.x;
+  const ey = effect.end.y;
+  const age = Math.round(t01 * effectLifetime(effect));
+  const seed = arcSeed(effect.tick, sx, sy, effect.creatureId);
+  const strike = lightningStrikeSeed(seed, age);
+  const path = lightningPath(strike, sx, sy, ex, ey, ARC_JITTER_SEGMENTS, ARC_JITTER_AMP_PX);
+  const fork = lightningFork(strike, path);
+  const flick = lightningFlicker(seed, effect.tick + age);
+  const a = alpha * flick;
+  // The glow fades slower than the core (√ of the linear fade), so a dying bolt still reads as light.
+  const glow = Math.sqrt(alpha) * flick;
+  const top = fxTop();
+  boltGlowFx(top, path, VOLT_STYLE, glow);
+  if (fork !== null) boltGlowFx(top, fork, VOLT_STYLE, glow * 0.85, 0.75);
+  lightningSparksFx(top, sx, sy, seed, t01, 6, 22, VOLT_STYLE.sheath);
+  lightningSparksFx(top, ex, ey, seed ^ 0x51ab, t01, 9, 32, VOLT_STYLE.sheath);
+  strokePath(g, path.xs, path.ys, 2.4, a);
+  if (fork !== null) strokePath(g, fork.xs, fork.ys, 1.8, a * 0.9);
 }

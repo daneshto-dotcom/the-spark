@@ -55,7 +55,7 @@ import {
 import type { BotSetupOverlay } from './render/botSetupOverlay.ts';
 import { installProbeHarness } from './dev/probeHarness.ts';
 import type { BotManager } from './bots/botManager.ts';
-import type { BotDifficulty } from './bots/botTypes.ts';
+import type { BotDifficulty, BotPersonalityChoice } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
 import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
@@ -81,6 +81,7 @@ import {
   matchPeerIds,
   type HostSignal,
   connectionEdge,
+  hostAbsentOnLeave,
 } from './net/reconnectPolicy.ts';
 import { createHostStartHandler, createBeginMatchHandler, raceIsFree } from './net/hostHandlers.ts';
 // S122 P2 (host-migration D3) / S124 P1 (D4 production-ON) — claim sign/verify + takeover helpers.
@@ -147,7 +148,7 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './state/hostT
 // underChewerCaps / underDroneCaps / creatureAI / getCreatureConfig all moved to
 // state/hostTick.ts (B2 phase a).
 import { AvatarRenderer, shouldHideOsCursor } from './render/avatarRenderer.ts';
-import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
+import { drainAudioEffects, enterNonetRealm, getAudioDebugApi, exitNonetRealm, initAudio, isRaceMusicEnabled, playMusic, resumeAudioOnGesture, setMusicTrack, stopMusic, syncRainbowYellAudio, toggleMute, updateHelgaTheme } from './render/audioManager.ts';
 // S50 P2 — Audit Pass 2 refactor 622a7c7f: triggerReset is now called from
 // inside teardownNet (extracted to src/net/session.ts). No direct main.ts
 // import required.
@@ -179,6 +180,7 @@ import { castleAnchor } from './state/gatherers/gatherer.ts';
 import { CutsceneOverlay } from './render/cutsceneOverlay.ts';
 import type { SudokuOverlay } from './render/sudokuOverlay.ts';
 import { DraftOverlay } from './render/draftOverlay.ts';
+import { MatchBoardHost } from './render/matchBoardHost.ts'; // ⭐ S191 — the stat board (its view is a lazy chunk)
 // ⭐ S174 (b) — the `mergeDiscoveredCombos` import that stood here is gone with the discovery
 // mechanism itself (owner: *"It should ALL be discovered right from the start"*). The COMBOS tab
 // reads the catalog directly and renders all fourteen, so nothing in the render loop needs to
@@ -568,6 +570,8 @@ async function bootstrap(): Promise<void> {
   let workerBotInit: {
     difficulties: readonly BotDifficulty[];
     matchSeed: number;
+    /** ⭐ S193 — the lobby's personality choices (RANDOM unresolved; both managers resolve it alike). */
+    personalities: readonly BotPersonalityChoice[];
   } | null = null;
   const workerSimActive = (): boolean =>
     simWorkerDriver !== null && !simWorkerDriver.failed;
@@ -1285,6 +1289,20 @@ async function bootstrap(): Promise<void> {
   });
 
   controls.setSheetActionHandler((action, primitiveId) => {
+    // ⭐ S193 (owner T4) — a right-click on a goblin-tower feed chip: set its auto-build toggle. The
+    // spawner comes off the CARD for the FEED reason below; `on` is computed by `controls` (a SET).
+    if (action.kind === 'AUTO_FEED') {
+      const spawnerId = characterSheet.actionFeedSpawnerId();
+      if (spawnerId === null || action.on === undefined) return;
+      dispatchFn({
+        type: 'SET_AUTO_FEED',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+        on: action.on,
+      });
+      return;
+    }
     if (action.kind === 'FEED') {
       const spawnerId = characterSheet.actionFeedSpawnerId();
       if (spawnerId === null) return; // unreachable: the row cannot draw without one
@@ -1368,6 +1386,12 @@ async function bootstrap(): Promise<void> {
    * `draftOverlay.ts`). `s189CruiserAboveDraft.test.ts` pins these three lines in this order.
    */
   app.stage.addChild(draftOverlay.container);
+  // ⭐ S191 — THE END-OF-MATCH STAT BOARD: staged here, by its line and no zIndex (canon §7b) — over the HUD,
+  // the footer, the sheet and the draft panel, under the cruiser. It re-derives itself from `world` every frame
+  // and shows only in POSTGAME; its CONTINUE is the POSTGAME exit (see `resetIfPostgame`).
+  const matchBoard = new MatchBoardHost(() => resetIfPostgame());
+  app.stage.addChild(matchBoard.container);
+  app.ticker.add(() => matchBoard.render(world, performance.now()));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -1688,7 +1712,7 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (difficulties, races) => {
+          onStart: (difficulties, races, personalities) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
@@ -1712,10 +1736,11 @@ async function bootstrap(): Promise<void> {
               // seeds the bot AI streams from the same draw, so both the shapes you get and the bots'
               // play vary each match (was the fixed boot SEED → identical every time).
               const matchSeed = reseedForNewMatch();
-              botManager = new mod.BotManager(difficulties, matchSeed);
+              botManager = new mod.BotManager(difficulties, matchSeed, personalities);
               // S123 P1 — capture the exact ctor inputs for the sim worker's INIT
               // (fresh-from-seed reconstruction at adoption; Council S123 design (A)).
-              workerBotInit = { difficulties: [...difficulties], matchSeed };
+              // ⭐ S193 — the personalities are a ctor input too, so they ride along.
+              workerBotInit = { difficulties: [...difficulties], matchSeed, personalities: [...personalities] };
               botSetupOverlay?.setVisible(false);
               dispatch(world, {
                 type: 'START_GAME',
@@ -1898,6 +1923,16 @@ async function bootstrap(): Promise<void> {
     isRejoinPending: (): boolean => isRejoinPending(lastRejoinAttemptAtMs, session.clientSync?.lastAcceptedAt() ?? 0),
     // ⛔ S192 audit A1 — a departure proof latches only from a host seen absent this match (or a pending rejoin).
     hostAbsentThisMatch: (): boolean => hostAbsentSeenFor !== null && hostAbsentSeenFor === session.hostPeerId,
+    // ⭐ S193 (net R-2) — a hidden tab runs no render loop, so the per-frame sampler below never saw the host
+    // go; the transport's LEAVE fires anyway and records the same fact, under the same conditions.
+    onPeerLeft: (peerId: string): void => {
+      if (hostAbsentOnLeave({
+        peerId,
+        hostPeerId: session.hostPeerId,
+        isHost: world.isHost,
+        playing: isNetworked(world) && world.gameState === 'PLAYING',
+      })) hostAbsentSeenFor = peerId;
+    },
   };
   const onJoinAttempt = createJoinAttemptHandler(clientJoinDeps);
 
@@ -2382,7 +2417,8 @@ Network routes: ${v.detail}`;
 
   let lastGameState: GameState = world.gameState;
   const resetIfPostgame = (): void => {
-    if (world.gameState === 'POSTGAME') {
+    // ⭐ S191 — the stat board is up: nothing leaves it until it has been readable for `ARM_MS` (CONTINUE, R).
+    if (world.gameState === 'POSTGAME' && matchBoard.isArmed(performance.now())) {
       // S15 P2 — POSTGAME → TITLE flow clears scoreProgress + drops P2 on
       // RETURN_TO_TITLE. Solo path: RETURN_TO_TITLE drops to TITLE; user
       // re-selects 1 Player to play again (cleaner than implicit replay).
@@ -2390,7 +2426,9 @@ Network routes: ${v.detail}`;
       dispatch(world, { type: 'RETURN_TO_TITLE' });
     }
   };
-  app.canvas.addEventListener('click', resetIfPostgame);
+  // ⛔ S191 — ANY canvas click in POSTGAME used to reset the match, which made a stat board unreadable. While the
+  // board is up only its own CONTINUE (Pixi `pointertap`, primary button) or R leaves; this is the fallback.
+  app.canvas.addEventListener('click', () => { if (!matchBoard.isShowing()) resetIfPostgame(); });
 
   // S18 P1 — audio: lazy-init AudioContext on first user gesture anywhere
   // (canvas or window). Browser autoplay policy requires this to be inside
@@ -2399,6 +2437,12 @@ Network routes: ${v.detail}`;
   const initAudioOnGesture = (): void => { initAudio(); };
   window.addEventListener('pointerdown', initAudioOnGesture, { once: true });
   window.addEventListener('keydown', initAudioOnGesture, { once: true });
+  // ⭐ S193 (audio A3) — and on EVERY later gesture / return to the tab, resume a context iOS parked in
+  // 'interrupted' (or any browser left 'suspended'). Not `once`: an interruption can happen any time.
+  for (const kind of ['pointerdown', 'keydown', 'touchend'] as const) {
+    window.addEventListener(kind, resumeAudioOnGesture, { passive: true });
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudioOnGesture(); });
 
   // S95 P0 — stale-deploy / transient chunk recovery. Every code-split dynamic import() (NONET
   // overlay, codex, bots, debug, quickmatch…) fetches a hashed chunk at runtime. When a fresh
@@ -3015,7 +3059,8 @@ Network routes: ${v.detail}`;
       // object: the HTMLVideoElement + Pixi sprite + ticker callback owned
       // by cutsceneOverlay, the stage offset owned by screenShake, and the
       // lastCinematicOwner watcher used to gate startCinematicIfNeeded.
-      // Fires on POSTGAME→TITLE (canvas click → resetIfPostgame → dispatch),
+      // Fires on POSTGAME→TITLE (the stat board's CONTINUE or R → resetIfPostgame → dispatch; S191: a
+      // canvas click no longer resets POSTGAME while the board shows),
       // lobby Back-to-Title (onBackToTitle → dispatch), and peer-drop via
       // onReturnFromConnectionLost. Idempotent on no-cinematic-active path:
       // cutsceneOverlay.abort bails when isActive() is false; screenShake.reset
@@ -3067,6 +3112,8 @@ Network routes: ${v.detail}`;
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
         // S180 — and the character sheet with it, or a card floats over the title screen.
         characterSheet.clear();
+        // ⭐ S193 T4 — and any auto-build toggle still waiting on a snapshot, so none outlives its match.
+        controls.clearAutoFeedPending();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // ⭐ S192 — and every pooled fx sprite and ground ripple with it.
@@ -3145,6 +3192,7 @@ Network routes: ${v.detail}`;
             ? {
                 botDifficulties: workerBotInit.difficulties,
                 botMatchSeed: workerBotInit.matchSeed,
+                botPersonalities: workerBotInit.personalities,
               }
             : {}),
         });
@@ -3743,7 +3791,7 @@ Network routes: ${v.detail}`;
      * ⭐ S155 P2 — the BACK TO MAIN button lives with the match, and only with the match.
      *
      * Shown in PLAYING and nowhere else, because every other state already has its own exit: TITLE
-     * *is* the destination, LOBBY has its Back button, POSTGAME returns on a click, and the
+     * *is* the destination, LOBBY has its Back button, POSTGAME returns from the stat board (CONTINUE or R — S191), and the
      * connection-lost overlay has its own return. `modalUp` is reused rather than re-derived so the
      * button cannot draw over the codex / bot-setup / arcade panes — the S152 through-drawing class.
      */
