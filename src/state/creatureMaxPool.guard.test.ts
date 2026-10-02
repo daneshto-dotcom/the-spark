@@ -100,10 +100,25 @@ const SANCTIONED: ReadonlyArray<{
   },
   {
     file: 'state/draft.ts',
-    occurrences: 2,
+    occurrences: 3,
     why:
       '`draftedPoolFifths` and `raceUnitPoolAfterPicks` compose the base pool in order to BUFF it. ' +
-      'These are the sites that produce the stored max, not sites that bypass it.',
+      'These are the sites that produce the stored max, not sites that bypass it. ⭐ S193 — and ' +
+      '`draftedMagicPoolFifths` composes `HP × (5 + MRES)`, the MAGIC-defended pool it buffs into ' +
+      '`Creature.mresFifths` — not a creature max at all (its second argument is MRES, not DEF).',
+  },
+  {
+    file: 'state/damage.ts',
+    occurrences: 1,
+    why:
+      '⭐ S193 (R192-D1) — the magic rescale for a victim carrying a drafted `mresFifths`: the TYPE’s ' +
+      '`HP×(5+DEF)` is one side of a RATIO (`floor(A × typePool / mresFifths)`), exactly the type-only ' +
+      '`(5+DEF)/(5+MRES)` it replaces. Not a clamp: a drafted HP/DEF max still grows the bar the hit lands on.',
+  },
+  {
+    file: 'state/magicResistCue.ts',
+    occurrences: 1,
+    why: '⭐ S193 — the RESIST cue mirrors the damage.ts ratio above, for the same reason. Cosmetic only.',
   },
   {
     file: 'state/racial/scorchedGround.ts',

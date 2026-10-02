@@ -14,6 +14,7 @@ import {
   DRAFT_WAVE_INTERVAL,
   GENERAL_TRACK,
   damagePickCount,
+  mresPickCount,
   draftIndexForWave,
   draftedPoolFifths,
   generalPickForWave,
@@ -103,10 +104,14 @@ describe('which picks move which derived number', () => {
     for (const p of GENERAL_PICKS) {
       const asPool = poolPickCount([p]);
       const asDmg = damagePickCount([p]);
-      expect(asPool + asDmg).toBe(1);
+      // ⭐ S193 (R192-D1) — the third derived number: the MRES pick moves the magic-defended pool.
+      const asMres = mresPickCount([p]);
+      expect(asPool + asDmg + asMres).toBe(1);
     }
+    expect(mresPickCount(['mres'])).toBe(1);
+    expect(poolPickCount(['mres']) + damagePickCount(['mres'])).toBe(0);
     expect(DRAFT_PICKS.filter((p) => !(GENERAL_PICKS as readonly string[]).includes(p))).toEqual(['racial']);
-    expect(poolPickCount(['racial']) + damagePickCount(['racial'])).toBe(0);
+    expect(poolPickCount(['racial']) + damagePickCount(['racial']) + mresPickCount(['racial'])).toBe(0);
   });
 });
 
@@ -137,7 +142,14 @@ describe('the schedule — and the off-by-one that bit the original spec', () =>
     // R101 makes the draft recurring with no ceiling, so a table would run dry. If he rules a fifth
     // distinct option, this is the assertion that should change.
     expect(generalPickForWave(21)).toBe('hp');
-    expect(generalPickForWave(26)).toBe('def');
+    // ⭐ S193 — R192-D1, HIS: the wave-26 (last) draft is the MRES card, NOT the cycle's DEF.
+    expect(generalPickForWave(26)).toBe('mres');
+    // ⚠ The cycle itself is unchanged past it — `isDraftWave` is false from 27 on, so nothing reads this.
+    expect(generalPickForWave(31)).toBe('atk');
+  });
+
+  it('⭐ S193 R192-D1 — the MRES card is offered at wave 26 and NOWHERE in 1/6/11/16/21', () => {
+    expect([1, 6, 11, 16, 21, 26].map(generalPickForWave)).toEqual(['hp', 'def', 'atk', 'pen', 'hp', 'mres']);
   });
 
   it('keeps the interval at the ruled 5', () => {

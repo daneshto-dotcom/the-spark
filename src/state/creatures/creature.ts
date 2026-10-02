@@ -27,7 +27,11 @@ import {
   type CreatureConfig,
 } from './voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from '../stats.ts';
-import { draftedAttackFifths, draftedPoolFifths, type DraftPick } from '../draft.ts';
+import {
+  draftedAttackFifths, draftedMagicPoolFifths, draftedPoolFifths, mresPickCount, type DraftPick,
+} from '../draft.ts';
+import { mresFor } from '../magicResist.ts';
+import type { RaceId } from '../races.ts';
 import { WARLORD_RAGE_COOLDOWN_TICKS, WARLORD_RAGE_MULTIPLIER, WARLORD_RAGE_TICKS } from '../../constants.ts';
 
 export { asCreatureId, type CreatureId } from '../../types.ts';
@@ -826,6 +830,24 @@ export interface Creature {
    */
   atkFifths?: number;
   /**
+   * ⭐⭐ S193 (R192-D1) — **THE DRAFTED MAGIC-DEFENDED POOL**, the third birth property after `maxEhp`
+   * and `atkFifths`. Against magic the one bar behaves as if it were `HP × (5 + MRES)` long (canon §2b);
+   * the wave-26 MRES card raises THAT number by the draft's rule (`draftedMagicPoolFifths`), and a magic
+   * hit then lands `floor(A × HP×(5+DEF) / mresFifths)` (`creatureLandedFifths`).
+   *
+   * ⛔ STORED AT BIRTH, NEVER RE-DERIVED FROM THE SEAT — the `maxEhp` / `atkFifths` rule: a unit born
+   * before the pick keeps the MRES it was born with. Stored ONLY when a pick moved it, so an unbuffed
+   * creature serializes to the same bytes as before and every replay guard is untouched.
+   *
+   * ⭐ A HELLSPAWN child inherits its PARENT's value (`hellspawn.ts`), as it does `atkFifths` — the ratio
+   * to the type's physical pool is what the rescale reads, so the halved child keeps the parent's resist.
+   *
+   * ⛔ SERIALIZED AND HASHED — `CreatureHashed` + the `:mr` projection + the per-field test in
+   * `draftMresReaches.test.ts` + the save/wire round-trip the worker INIT rides. Validated on the way
+   * in: a positive integer or dropped. ⚠ OWES A PROTOCOL BUMP (both peers compute the magic rescale).
+   */
+  mresFifths?: number;
+  /**
    * S109 P2 — tick until which a seagull-pooped creature crawls at POOP_SLOW_MULTIPLIER speed
    * ("still in effect but slowed if poop hits them"). undefined / past = not slowed (self-heals
    * at expiry). Consumed by `computeSteeringAccel` (scales the steering accel while live).
@@ -1122,6 +1144,12 @@ export function makeCreature(
      * pool it was born with when its owner drafts again later.
      */
     draftPicks?: readonly DraftPick[];
+    /**
+     * ⭐ S193 (R192-D1) — the owner seat's race, passed to `mresFor` when sizing a drafted magic-defended
+     * pool. ⭐ S194 (HIS) — the castle soldier is MRES 1 for every race, so today no answer depends on it;
+     * kept so every production spawn site stays wired if a race-dependent MRES is ever ruled again.
+     */
+    ownerRace?: RaceId | null;
   },
 ): Creature {
   const basePool = unitPoolFifths(config.hp, config.def);
@@ -1137,6 +1165,12 @@ export function makeCreature(
     args.draftPicks === undefined || args.draftPicks.length === 0
       ? baseAtk
       : draftedAttackFifths(config.atk, config.pen, args.draftPicks);
+  // ⭐ S193 (R192-D1) — and the MAGIC-DEFENDED pool, the same snapshot at the same moment. Computed only
+  // when the seat holds an MRES pick; otherwise the field is absent and the rescale reads `5+DEF`/`5+MRES`.
+  const mresPicked = args.draftPicks !== undefined && mresPickCount(args.draftPicks) > 0;
+  const mresPool = mresPicked
+    ? draftedMagicPoolFifths(config.hp, mresFor(config.type, args.ownerRace ?? null), args.draftPicks ?? [])
+    : 0;
   return {
     id: args.id,
     type: config.type,
@@ -1171,6 +1205,7 @@ export function makeCreature(
     // ⭐ S188 (draft-atk) — the same rule for the strike: stored ONLY when a drafted ATK/PEN pick
     // moved it, so an unbuffed creature serializes to exactly the bytes it did before.
     ...(atk !== baseAtk ? { atkFifths: atk } : {}),
+    ...(mresPicked ? { mresFifths: mresPool } : {}),
   };
 }
 
@@ -1194,6 +1229,8 @@ export function makeVoltkinCreature(args: {
   clock?: { matchPhase: 'BUILD' | 'FIGHT'; phaseEndsAtTick: number };
   /** ⭐ S187 — forwarded to `makeCreature`, so a Voltkin is sized by its owner's drafted upgrades. */
   draftPicks?: readonly DraftPick[];
+  /** ⭐ S193 — forwarded to `makeCreature` (the drafted magic-defended pool). */
+  ownerRace?: RaceId | null;
 }): Creature {
   return makeCreature(VOLTKIN_CONFIG, { ...args, sourceSpawnerId: null });
 }
