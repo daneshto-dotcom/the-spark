@@ -30,4 +30,12 @@ rising with complexity (connector count / shapes / weld count); and/or diminishi
 options with arithmetic and his two examples (145c/65s ≈ 20 000; 54c/24s ≈ 3 100) to him; build after he picks. Shared
 rule → protocol bump.
 
-## Q3 · (he will tell us) — "one more thing … I don't remember right now … I'll tell you."
+## Q3 · UPGRADE EVERY CLICKABLE SURFACE AND THE HOME SCREEN — own worktree (S193 close, verbatim)
+*"now that we're already working on the visuals aspect … let's upgrade all the buttons too. So like the tier buttons with the
+towers, and the castle tower … buttons where you upgrade the castle stats … The tower buttons that we click on the shapes to build
+more units. The goblin tower. Everything. Let's … look at all the clickable surfaces … within towers, characters, stuff like that.
+And … UIs, UX, and see how we can upgrade it … make it like pop out more, make it … little graphics … more interesting, more
+awesome looking. Also in the home screen … can be improved upon too. So that will be next session too in its own … work tree.
+Now that we're using a upgraded Pixie … visual, mechanics and … graphics, then we might as well do that too."*
+
+## Q4 · (he will tell us) — "one more thing … I don't remember right now … I'll tell you."
