@@ -118,8 +118,12 @@ interface OptionCopy {
   readonly title: string;
   readonly line: string;
   readonly detail: string;
-  /** Basename of the card under `public/art/upgrade-cards/` — the same shape as `RacialPerkCopy.card`. */
-  readonly card: string;
+  /**
+   * Basename of the card under `public/art/upgrade-cards/` — the same shape as `RacialPerkCopy.card`.
+   * ⭐ S193 — `null` = the card is AWAITING ART (`GENERAL_CARDS_AWAITING_ART`): the tile draws its text
+   * title, exactly as it does while any card is still loading or has failed.
+   */
+  readonly card: string | null;
 }
 
 /**
@@ -162,15 +166,25 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
   },
   // ⭐ S193 — R192-D1, HIS: *"another one at level 26 … the magic damage one … make his own art as well"*.
   // Offered at the wave-26 draft only (`MRES_DRAFT_WAVE`). ⚠ MINE: the title and the words.
+  // ⛔ NO CARD YET: S193's imagen call returned 404 for every Imagen model on the gcp-vertex server, so no
+  // art was made. The basename is `general-mres` (MANIFEST.md row 4b) — drop the PNG, add it to
+  // `build-upgrade-cards.py`, set `card: 'general-mres'` here and empty `GENERAL_CARDS_AWAITING_ART`.
   mres: {
     title: 'WARDED',
     line: `+${DRAFT_BUFF_PCT}% MAGIC RESIST`,
     detail:
       `Every unit you spawn from now on shrugs off ${DRAFT_BUFF_PCT}% more magic. ` +
       'Units already on the board keep what they were born with.',
-    card: 'general-mres',
+    card: null,
   },
 };
+
+/**
+ * ⭐ S193 — the general axes whose card is NOT YET DRAWN. Pinned by `draftOverlay.test.ts` both ways: an
+ * axis listed here must have `card: null`, and every other axis must ship its webp. Empty it the day the
+ * art lands, and the on-disk test then demands the file.
+ */
+export const GENERAL_CARDS_AWAITING_ART: readonly GeneralPick[] = ['mres'];
 
 /** What a seat is offered — exactly `draftOptionsFor`'s shape, so the panel cannot drift from it. */
 export type DraftOptions = ReturnType<typeof draftOptionsFor>;

@@ -34,7 +34,6 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { RaceId } from './races.ts';
 import { castleMresLevelOf, type CastleUpgrades } from './castleUpgrades.ts';
 import { dotIntervalTicks, maxPoolFifths } from './damageOverTime.ts';
-import { unitPoolFifths } from './stats.ts';
 
 /**
  * ⭐ A DoT tick's class: magic, rescaled across its beats. `beat` is the source's due-count for this
@@ -122,38 +121,16 @@ export function landedFifths(amount: number, cls: DamageClass, def: number, mres
 }
 
 /**
- * ⭐ S193 (R192-D1) — `landedFifths` for a CREATURE, which may carry a drafted magic-defended pool
- * (`Creature.mresFifths`). Absent, it is `landedFifths(amount, cls, cfg.def, mres, phase)` byte for byte
- * (the `5+DEF` / `5+MRES` ratio); present, the bar magic sees is that stored pool against the type's
- * physical pool `HP×(5+DEF)`.
+ * ⭐ S193 (R192-D1) — `landedFifths` with the two bar lengths named, for a CREATURE born after its seat's
+ * MRES pick (`Creature.mresFifths`): `phys` = its type's physical pool `HP×(5+DEF)`, `magic` = that stored
+ * magic-defended pool. ⛔ Call sites use it ONLY when the field is present and keep calling
+ * `landedFifths(…, cfg.def, mresFor(…), …)` otherwise — so every pre-pick hit runs the exact S192 path
+ * (and the S192 differential / reach mocks, which wrap `landedFifths` and `mresFor`, still see it).
  */
-export function creatureLandedFifths(
-  amount: number,
-  cls: DamageClass,
-  c: { readonly type: CreatureType; readonly mresFifths?: number },
-  ownerRace: RaceId | null,
-  phase: number,
-): number {
-  const cfg = getCreatureConfig(c.type);
-  if (c.mresFifths === undefined) return landedFifths(amount, cls, cfg.def, mresFor(c.type, ownerRace), phase);
+export function landedFifthsPools(amount: number, cls: DamageClass, phys: number, magic: number, phase: number): number {
   if (cls === 'physical') return amount;
-  const phys = unitPoolFifths(cfg.hp, cfg.def);
-  if (cls === 'magic') return magicHitFifthsPools(amount, phys, c.mresFifths);
-  return magicDotFifthsPools(amount, phys, c.mresFifths, cls.beat + phase);
-}
-
-/**
- * ⭐ S193 — can a magic DoT beat land 0 on this creature? Exactly when the bar magic sees is LONGER than
- * the physical one: `MRES > DEF` (§2b), or a drafted MRES pick (`mresFifths` above `HP×(5+DEF)`). The
- * RESIST cue's gate, so it is never printed over a unit that cannot resist.
- */
-export function creatureCanResistBeat(
-  c: { readonly type: CreatureType; readonly mresFifths?: number },
-  ownerRace: RaceId | null,
-): boolean {
-  const cfg = getCreatureConfig(c.type);
-  if (c.mresFifths !== undefined) return c.mresFifths > unitPoolFifths(cfg.hp, cfg.def);
-  return mresFor(c.type, ownerRace) > cfg.def;
+  if (cls === 'magic') return magicHitFifthsPools(amount, phys, magic);
+  return magicDotFifthsPools(amount, phys, magic, cls.beat + phase);
 }
 
 // ── THE TABLE (spec §b) — every number ⚠ MINE until the owner rules ─────────────────────────────

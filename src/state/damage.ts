@@ -39,7 +39,7 @@
 
 import { PRIMITIVE_MAX_HP, STINK_BAG_ATK, STINK_BAG_PEN } from '../constants.ts';
 import { componentOf } from '../game/structure.ts';
-import { attackFifths, structurePoolFifths } from './stats.ts';
+import { attackFifths, structurePoolFifths, unitPoolFifths } from './stats.ts';
 import { LONE_PRIMITIVE_POOL_FIFTHS } from '../constants.ts';
 import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId } from '../types.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
@@ -53,9 +53,11 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
 // actually LANDED, so a tower swing or a blow into a channelling Pharaoh heals nothing.
 import { applyLifesteal } from './racial/lifesteal.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
 // ⭐ S192 (owner R192-M1..M7) — MAGIC RESISTANCE. Every funnel below takes a REQUIRED `cls`.
 import {
-  castleMresLevel, creatureLandedFifths, defenderMres, isMagicClass, landedFifths, magicHitFifths, structureMres,
+  castleMresLevel, defenderMres, isMagicClass, landedFifths, landedFifthsPools, magicHitFifths, mresFor,
+  structureMres,
   type DamageClass,
 } from './magicResist.ts';
 import { getDefenderConfig } from './defenders/defender.ts';
@@ -251,12 +253,18 @@ export function damageEntity(
       let landed = amount;
       if (victim !== undefined && isMagicClass(cls)) {
         const owner = world.players.get(victim.ownerPlayerId);
-        // ⭐ S193 (R192-D1) — through the creature form, which reads a drafted magic-defended pool
-        // (`victim.mresFifths`) when the victim was born after its seat's MRES pick; absent, it is the
-        // `landedFifths(…, cfg.def, mresFor(…), …)` call this line made before, byte for byte.
-        landed = creatureLandedFifths(
-          amount, cls, victim, owner?.raceId ?? null, target.id as unknown as number,
-        );
+        // ⭐ S193 (R192-D1) — a victim born after its seat's MRES pick carries a drafted magic-defended
+        // pool (`victim.mresFifths`): magic lands `floor(A × HP×(5+DEF) / mresFifths)`. Absent, it is the
+        // S192 `landedFifths(…, cfg.def, mresFor(…), …)` call, byte for byte.
+        const vcfg = getCreatureConfig(victim.type);
+        landed = victim.mresFifths === undefined
+          ? landedFifths(
+            amount, cls, vcfg.def,
+            mresFor(victim.type, owner?.raceId ?? null), target.id as unknown as number,
+          )
+          : landedFifthsPools(
+            amount, cls, unitPoolFifths(vcfg.hp, vcfg.def), victim.mresFifths, target.id as unknown as number,
+          );
         if (landed === 0) return false; // a skipped DoT beat — nothing landed, nothing heals
       }
       const died = damageCreature(

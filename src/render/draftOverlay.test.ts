@@ -36,6 +36,7 @@ import {
   pickForTile,
   racialTileRect,
   upgradeCardUrl,
+  GENERAL_CARDS_AWAITING_ART,
   type DraftOptions,
 } from './draftOverlay.ts';
 import {
@@ -209,10 +210,13 @@ describe('the hit-test — the racial tile answers ONLY while a perk is on offer
 
 describe('what each tile shows', () => {
   it('the general tile shows its own axis’s card and copy', () => {
-    const titles: Record<string, string> = { hp: 'TOUGHER', def: 'ARMOURED', atk: 'STRONGER', pen: 'PIERCING' };
+    const titles: Record<string, string> = {
+      hp: 'TOUGHER', def: 'ARMOURED', atk: 'STRONGER', pen: 'PIERCING', mres: 'WARDED',
+    };
     for (const axis of GENERAL_PICKS) {
       const v = draftTileViews({ general: axis, racial: null }).general;
-      expect(v.card).toBe(`general-${axis}`);
+      // ⭐ S193 — an axis awaiting its art shows NO card (text title), every other one its own.
+      expect(v.card).toBe(GENERAL_CARDS_AWAITING_ART.includes(axis) ? null : `general-${axis}`);
       expect(v.title).toBe(titles[axis]);
       expect(v.choosable).toBe(true);
       expect(v.detail).not.toBeNull();
@@ -236,6 +240,8 @@ describe('what each tile shows', () => {
     for (const axis of GENERAL_PICKS) {
       for (const racial of [null, ...RACIAL_PERK_IDS] as (RacialPerkId | null)[]) {
         const v = draftTileViews({ general: axis, racial });
+        // ⭐ S193 — two null cards (an axis awaiting art beside COMING SOON) show no card at all; never a shared one.
+        if (v.general.card === null) continue;
         expect(v.racial.card).not.toBe(v.general.card);
       }
     }
@@ -269,7 +275,8 @@ describe('the cards on disk — every card a tile can ask for, both level-10 car
   }
 
   const referenced = [
-    ...GENERAL_PICKS.map((a) => draftTileViews({ general: a, racial: null }).general.card as string),
+    ...GENERAL_PICKS.filter((a) => !GENERAL_CARDS_AWAITING_ART.includes(a))
+      .map((a) => draftTileViews({ general: a, racial: null }).general.card as string),
     ...RACIAL_PERK_IDS.map((p) => RACIAL_PERK_COPY[p].card),
   ];
 
@@ -284,7 +291,11 @@ describe('the cards on disk — every card a tile can ask for, both level-10 car
   });
 
   it('every card a tile can ask for is shipped, 2× the tile, and a sane size', () => {
-    expect(referenced).toHaveLength(GENERAL_PICKS.length + RACIAL_PERK_IDS.length);
+    expect(referenced).toHaveLength(GENERAL_PICKS.length - GENERAL_CARDS_AWAITING_ART.length + RACIAL_PERK_IDS.length);
+    // ⭐ S193 — the MRES card is the ONE awaiting art (imagen 404'd). This pin turns red when its art lands
+    // and the list is emptied without the file, or when another axis quietly joins the list.
+    expect(GENERAL_CARDS_AWAITING_ART).toEqual(['mres']);
+    expect(existsSync(join(DIR, 'general-mres.webp')), 'general-mres shipped: empty GENERAL_CARDS_AWAITING_ART').toBe(false);
     expect(referenced, 'WRATH OF RA draws its own card').toContain('l10-mummies');
     // ⭐ S190 MERGE (train B) — and THE SWARM draws its own: 4 general + 14 racial = 18.
     expect(referenced, 'THE SWARM draws its own card').toContain('l10-vampires');
