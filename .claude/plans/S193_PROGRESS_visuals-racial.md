@@ -1,5 +1,17 @@
 # S193 · `s193/visuals-racial` (visuals-3) · progress
 
+## ✅ S194 FINAL REPORT (T2)
+- Merges: master `0a37175e` → `b72b7857` (1 conflict: `untargetableCallSites.test.ts` NOT_ACQUISITION, kept both sides);
+  master `3e96ccda` → `3c1bad7e` (clean). Merge seam fixed: `perkFxReach.test.ts` now passes the required `damageEntity` class.
+- Gates on the merged tree: typecheck 0 · vitest 0 (522 files passed / 4 skipped; 7895 passed / 11 skipped, --maxWorkers=3) ·
+  build 0, entry **1132.5 KiB** (≈ +10.6 KiB over master's 1121.9; headroom 117.5 of 1250) · e2e:gating 0 (**71 passed**, own hashed port).
+- Perf (bench B, paired in-page, n=30 per mode): master alone HIGH +0.21 / LOW −0.30 ms; master+v3 HIGH **+0.54** / LOW **+0.34** ms
+  vs legacy → contract (≤ +1.0 on both) MET; no trim, no HIGH-only gate.
+- Haze fold: done (`2e42864c`). fog.spec roll call: unchanged (no new direct child). Screenshots: `.tmp-gates/shots/`.
+- Bump verdict: **NO** — render-only; no field, action or effect kind added to the wire; two builds that handshake compute identical sims.
+- MINE: `FX_HAZE_PX` 5 (unchanged from S193's `SCORCH_SHIMMER_PX`); S193 MINEs stand (`BURN_FLICKER_MAX_UNITS` 24, burn/rage lifetimes).
+- NOT DONE: nothing. e2e:races not re-run (no race-lane file touched).
+
 ## ▶ RESUMED (S194) — log
 - Re-merged master `3e96ccda` (canon + plans only) as `3c1bad7e`, clean. Screenshots: `.tmp-gates/shots/{master,merged}-{legacy,high,low}.png`.
   Scratch master worktree removed. Gates: typecheck 0 · build 0, entry **1132.5 KiB** (headroom 117.5) · vitest 0 (522 files passed / 4 skipped; 7895 passed / 11 skipped).
