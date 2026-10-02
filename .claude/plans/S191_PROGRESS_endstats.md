@@ -1,4 +1,13 @@
-**STATUS: S193 round 2 — merged master e693dac (zombies, PROTOCOL 58) + BLAST-2 FOLDED into KillCredit; gates green; report sent. Next: the merge owner's independent audit — fix only what it sends back.**
+**STATUS: S193 round 3 — audit FIX FIRST done (MED wipe placing + 2 LOWs), merged master 2cd0050, gates green; report sent. Next: the merge owner's light re-check, then landing.**
+
+## S193 ROUND 3 (audit fixes)
+- merge `c4deda8` (master `2cd0050`): ONE conflict, `gameMode.ts` applyStartGame — kept master's `monsterWaveSpawned`/`monsterFightStartTick` resets AND `resetMatchStats`. `npm install` 0.
+- MED `9deff29`: `matchPlacings` winner-first clause moved to the TOP of the comparator (an endgame wipe crowns the top score even if he fell first). NEW `src/state/endgameWipePlacing.test.ts` (the auditor's probe: real START_GAME → tickGameState wipe → matchBoardModel; row 1 isWinner, placings [P1,P0,P2]) + a negative (no crown → pure reverse-elimination). Mutation: clause removed → red; restored.
+- LOWs: canon notes now cite `killCreditOf` in `racial/killCredit.ts`; `main.ts` two stale comments (canvas click resetting POSTGAME) corrected.
+- `0afb870`: the probe called `tickGameState` with 2 args — vitest passed but `tsc` (typecheck + build) went RED (exit 1, TS2554 ×3). Finding resolved: pass `P0`.
+- Gates: typecheck **0** (on 0afb870) · vitest --maxWorkers=3 **0** on 9deff29 (492 files / 4 skipped; **7500 passed** / 11 skipped; the later commit only adds the missing arg in that one test file, re-run alone 2/2) · build **0** (on 0afb870) — entry **1067.7 KiB** vs master 2cd0050 **1061.9 KiB** = **+5.8 KiB**; cap 1250, headroom 182.3 KiB.
+- Bump: none owed (placings are a render-only derivation — `matchPlacings`' only consumers are the board model and a log line).
+
 
 ## ⭐ S193 ROUND 2 REPORT (merge zombies + fold)
 - **merge** `6edf187` (master `e693dac`, PROTOCOL 58) + `962bdba` (test fix) — tip = the docs commit above `962bdba`.
