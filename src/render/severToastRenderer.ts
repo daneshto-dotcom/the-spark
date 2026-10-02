@@ -130,6 +130,13 @@ export function severToastCopy(
   count: number,
 ): string {
   const burst = count > 1 ? ` ×${count}` : '';
+  /*
+   * ⭐ S194 (R194-18, ⚠ MINE wording) — THE ENTROPY TAX names no culprit, because there is none: the
+   * structure wore out at the FIGHT whistle. It states the count instead of a ×N burst, because the
+   * count IS the news (*"big structures lose … a certain amount of connectors"*). Checked BEFORE the
+   * actor branches so it can never fall into the tolerant default's "BROKE YOUR BOND".
+   */
+  if (cause === 'entropy') return `ENTROPY: ${count} CONNECTOR${count === 1 ? '' : 'S'} SNAPPED`;
   // Nothing to name: physics overstretch, or a mixed batch. State the outcome, claim no culprit.
   if (agent === null) {
     const line =

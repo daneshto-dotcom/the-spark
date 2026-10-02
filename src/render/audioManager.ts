@@ -1938,6 +1938,13 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
         effect.cause === 'raid')
     ) {
       void playFartSFX(effect.pos);
+    } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'entropy') {
+      /*
+       * ⭐ S194 (R194-18) — DELIBERATELY SILENT, for the reason the `'unit'` arm below is: a sound is an
+       * owner taste call, and the entropy tax can snap a dozen connectors on one tick — one SFX per snap
+       * would be a burst of noise at every FIGHT whistle. The toast carries the news. Written out so it
+       * cannot fall through into the Voltkin crackle arm by accident.
+       */
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'unit') {
       /*
        * ⛔⛔ S182 — DELIBERATELY SILENT, AND WRITTEN OUT RATHER THAN LEFT TO FALL THROUGH.

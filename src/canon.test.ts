@@ -227,6 +227,8 @@ import {
 } from './render/structureBarHealth.ts';
 // S193 R191-B / R192-W1 — the FIX job queue (canon §8 / §3d).
 import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
+// S194 R194-18 — the entropy tax (canon §2).
+import { ENTROPY_CAP, ENTROPY_FREE_CONNECTORS, ENTROPY_RATE_PER_CONNECTOR, ENTROPY_SCALE, entropyChance } from './state/entropy.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -1659,6 +1661,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
       'state/creatures/suicideBlast.ts',
       'state/creatures/voltkinChain.ts',
       'state/droneLifecycle.ts',
+      'state/entropy.ts', // ⭐ S194 R194-18
       'state/potatoLifecycle.ts',
       'state/racial/raColumn.ts',
       'state/racial/scorchedGround.ts',
@@ -1877,5 +1880,28 @@ describe('§3d the wave-26 MRES card is bound to the code', () => {
   it('the card: awaiting art, and the canon says so', () => {
     expect(GENERAL_CARDS_AWAITING_ART).toEqual(['mres']);
     expect(canonSays('`GENERAL_CARDS_AWAITING_ART`')).toBe(true);
+  });
+});
+
+describe('S194 R194-18 — §2 THE ENTROPY TAX is pinned to its constants', () => {
+  it('free 10, +0.1 % per connector, cap 50 % reached at 510 — and the table row by row', () => {
+    expect(canonSays('THE ENTROPY TAX — A BIG STRUCTURE WEARS OUT (R194-18')).toBe(true);
+    expect(ENTROPY_FREE_CONNECTORS).toBe(10);
+    expect(canonSays('`ENTROPY_FREE_CONNECTORS` 10')).toBe(true);
+    expect(ENTROPY_RATE_PER_CONNECTOR).toBe(10);
+    expect(ENTROPY_SCALE).toBe(10_000);
+    expect(canonSays('`ENTROPY_RATE_PER_CONNECTOR`\n10 / 10 000') || canonSays('`ENTROPY_RATE_PER_CONNECTOR`\r\n10 / 10 000')).toBe(true);
+    expect(ENTROPY_CAP).toBe(5_000);
+    expect(canonSays('`ENTROPY_CAP` 5 000 / 10 000 — the cap is reached at 510 connectors')).toBe(true);
+    expect(entropyChance(510)).toBe(ENTROPY_CAP);
+    expect(entropyChance(509)).toBeLessThan(ENTROPY_CAP);
+    const pct = (n: number) => `${entropyChance(n) / 100} %`;
+    expect([10, 20, 54, 145].map(pct)).toEqual(['0 %', '1 %', '4.4 %', '13.5 %']);
+    expect(canonSays('| chance per connector per FIGHT | 0 % | 1 % | 4.4 % | 13.5 % |')).toBe(true);
+    const mean = (n: number) => Math.round((n * entropyChance(n)) / 1000) / 10;
+    expect([10, 20, 54, 145].map(mean)).toEqual([0, 0.2, 2.4, 19.6]);
+    expect(canonSays('| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |')).toBe(true);
+    expect(structurePoolFifths(145)).toBe(21_750);
+    expect(canonSays('costs **21 750** a connector')).toBe(true);
   });
 });
