@@ -22,7 +22,8 @@
  *
  * Pure data, read by pure brain functions. ZERO rng draws are added anywhere, so the bot's mulberry32
  * draw ORDER is unchanged and BALANCED below IMBA replays byte-for-byte as it did before S193 (pinned by
- * a hash taken from master a638565b in `botPersonality.test.ts`).
+ * the bare-config vs explicit-BALANCED differential in `botPersonality.test.ts`; S193 audit MED-1 retired the
+ * absolute hash pins).
  */
 
 import type { GodlyId } from '../state/godlyRecipes/types.ts';

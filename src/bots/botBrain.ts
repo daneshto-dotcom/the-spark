@@ -648,7 +648,8 @@ export function chooseGoal(
   // ⭐ 6c — S193 (owner §10 Q4): *"build goblin tower first and then buy goblins with leftover shapes"*.
   // Below TOWER (a full bill raises the tower, never feeds it away), above the loose BUILD (a leftover
   // shape becomes a unit before it becomes a loose shape). Pure and rng-free; `feed: 'never'` returns
-  // before reading anything, which is what keeps BALANCED below IMBA byte-identical to pre-S193.
+  // before reading anything, which is what keeps BALANCED below IMBA byte-identical to pre-S193 — UNTIL the
+  // endgame lock (wave 27), where every personality feeds and the BUILD block (and its rng draws) is skipped.
   const feed = chooseFeed(world, seat, cfg);
   if (feed !== null) return { kind: 'FEED', spawnerId: feed.spawnerId, sparkType: feed.sparkType };
 
