@@ -20,3 +20,6 @@ reconnect-hard-blip grace assessment; teams lobby after deploy #5.
   8 s app-layer blackout joiner -> 9.8 s, host -> 10.3 s. No takeover, no terminal overlay sampled. No code change proposed tonight.
 - e2e run 37030899560 (deploy #4) gating red = fog ghost + hunter (not the join path); e2e-lobby lane GREEN.
 Next: teams lobby after deploy #5 (PROTOCOL 65).
+- TEAMS on a LOCAL PROD BUILD of master b2c9a478 (vite preview, real relays, PROTOCOL 65): PASS — both-T1 dims Begin (alpha 0.4 + hint),
+  T1 vs T2 agrees on both pages, Begin works, START roster carries team 0/1, first snapshot 0.8–0.9 s, ticks lock-step.
+  Re-run on LIVE once deploy #5 lands: `node scripts/live-mp/live-teams.mjs`.

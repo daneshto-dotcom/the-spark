@@ -14,6 +14,7 @@ export const INIT = (opt = {}) => {
     if (s.includes('"kind":"NETSNAPSHOT"') || s.includes('"snapshotSeq"')) {
       if (dir === 'tx') { T.snapSent++; T.firstSnapSentAt ??= performance.now(); } else { T.snapRecv++; T.firstSnapRecvAt ??= performance.now(); }
     }
+    if (s.includes('START_GAME_SIGNAL')) T.start = s.slice(Math.max(0, s.indexOf('{')), 4000);
     const tm = s.match(/"tick":(\d+)/);
     if (tm) { const t = +tm[1]; if (dir === 'tx') T.lastSentTick = Math.max(T.lastSentTick, t); else T.lastRecvTick = Math.max(T.lastRecvTick, t); }
   };
