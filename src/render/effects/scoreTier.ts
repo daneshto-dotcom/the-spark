@@ -15,6 +15,9 @@
 import { Graphics } from 'pixi.js';
 import type { GameEffect } from '../../game/effects.ts';
 import { SCORE_TIER_DURATION_TICKS } from './lifetime.ts';
+import { scoreTierFx } from '../fx/buildFx.ts';
+import { fxSeedAt } from '../fx/emitter.ts';
+import { fxActive, fxTop } from '../fx/fxState.ts';
 
 export function drawScoreTier(
   g: Graphics,
@@ -26,6 +29,11 @@ export function drawScoreTier(
   const env = Math.sin(t * Math.PI);
   const cx = effect.pos.x;
   const cy = effect.pos.y;
+  // ⭐ S193 (V20) — soft bloom, soft ring and 12 rising sparks replace the flat disc when fx is live.
+  if (fxActive()) {
+    scoreTierFx(fxTop(), fxSeedAt(effect.tick, cx, cy), cx, cy, effect.color, t);
+    return;
+  }
   // Soft outer bloom — fills behind the ring. Starts at 60 (S10 was 28
   // at corner; doubled for visibility in open canvas) and grows to 100.
   const bloomR = 60 + t * 40;

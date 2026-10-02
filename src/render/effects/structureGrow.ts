@@ -14,6 +14,9 @@ import {
 import type { GameEffect } from '../../game/effects.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { World } from '../../state/world.ts';
+import { growBondFx, growPrimFx } from '../fx/buildFx.ts';
+import { fxActive, fxTop } from '../fx/fxState.ts';
+import { isConcealed } from '../concealment.ts';
 
 export function drawStructureGrow(
   g: Graphics,
@@ -21,13 +24,24 @@ export function drawStructureGrow(
   age: number,
   world: World,
 ): void {
+  // ⭐ S193 (V20) — the same cascade, drawn as soft light when the fx layers are live.
+  const fx = fxActive();
+  const top = fxTop();
   for (const [primId, hop] of effect.hopByPrimId) {
     const arrival = hop * STRUCTURE_GROW_HOP_TICKS;
     const flashEnd = arrival + STRUCTURE_FLASH_TICKS;
     if (age < arrival || age > flashEnd) continue;
     const prim = world.primitives.get(primId);
     if (prim === undefined) continue; // severed mid-effect
+    /*
+     * ⛔ S193 (audit, MED) — FOG. This effect carries no `pos`, so `effectsRenderer`'s drain-time cull
+     * (`'pos' in e`) never sees it, and it is host-only (`save.ts` keeps it off the wire): on the HOST
+     * an enemy's or a bot's placement flashed its shapes through the fog. Each shape is culled with
+     * the same test `structureRenderer` uses for the shape itself — and the V20 light made it louder.
+     */
+    if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;
     const t = (age - arrival) / STRUCTURE_FLASH_TICKS;
+    if (fx) { growPrimFx(top, prim.pos.x, prim.pos.y, prim.radius, effect.color, t); continue; }
     // Sine envelope: 0 → 1 → 0 over the flash window. Peak alpha 0.7.
     const env = Math.sin(t * Math.PI);
     const radius = prim.radius * (1.5 + t * 1.4);
@@ -47,6 +61,9 @@ export function drawStructureGrow(
     const env = Math.sin(t * Math.PI);
     const a = bond.a as Primitive;
     const b = bond.b as Primitive;
+    // ⛔ S193 — the bond rule `structureRenderer` draws connectors by: hidden if either end is.
+    if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;
+    if (fx) { growBondFx(top, a.pos.x, a.pos.y, b.pos.x, b.pos.y, effect.color, t); continue; }
     g.moveTo(a.pos.x, a.pos.y)
       .lineTo(b.pos.x, b.pos.y)
       .stroke({

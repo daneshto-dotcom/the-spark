@@ -26,12 +26,16 @@
  */
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import {
   stinkCloudProgress,
   type StinkCloud,
 } from '../state/defenders/stinkCloud.ts';
 import type { StinkCloudId } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
+import { FxLayer } from './fx/fxLayer.ts';
+import { fxActive } from './fx/fxState.ts';
+import { stinkCloudFx } from './fx/stinkFx.ts';
 
 /** The atlas S157 built and nothing drew. Same manifest format as Helga and the goblins. */
 const ATLAS_BASE = '/godly/stink-bag/anim/stink-bag';
@@ -60,6 +64,13 @@ const FADE_FROM = 0.8;
 
 export class StinkCloudRenderer {
   private readonly haze: Graphics;
+  /**
+   * ⭐ S193 (V16) — the cloud's SMOKE: a pooled-sprite layer of its own, between the haze and the bag.
+   * ⚠ Not the shared `fxTop` layer: that lives on `fogHiddenLayer`, UNDER the fog sheet, and this
+   * cloud is drawn ABOVE the fog on purpose (an ambush rule — see the haze). Smoke under the fog over
+   * a haze above it would read as two different clouds. `e2e/fog.spec.ts` roll-calls it (index 24).
+   */
+  private readonly smoke: FxLayer;
   private readonly spriteLayer: Container;
   private readonly sprites = new Map<StinkCloudId, Sprite>();
   private frames: Texture[] | null = null;
@@ -69,6 +80,10 @@ export class StinkCloudRenderer {
   constructor(app: Application, parent: Container = app.stage) {
     this.haze = new Graphics();
     parent.addChild(this.haze);
+    this.smoke = new FxLayer('stinkCloudSmoke');
+    // Pinned to the board (see `renderer.ts` glow): an edge cloud's smoke must not grow the stage bounds.
+    this.smoke.container.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    parent.addChild(this.smoke.container);
     this.spriteLayer = new Container();
     parent.addChild(this.spriteLayer);
     void app;
@@ -141,6 +156,15 @@ export class StinkCloudRenderer {
   /** Clear + redraw every live cloud. Cheap no-op when there are none. */
   sync(world: World): void {
     this.haze.clear();
+    this.smoke.begin();
+    try {
+      this.syncClouds(world);
+    } finally {
+      this.smoke.end();
+    }
+  }
+
+  private syncClouds(world: World): void {
     if (world.stinkClouds.size === 0) {
       /**
        * ⭐⭐ **S185 — PRE-WARM ON THE TOWER, NOT ON THE BAG.** The atlas used to be fetched only
@@ -176,6 +200,8 @@ export class StinkCloudRenderer {
       const t = stinkCloudProgress(c, world.tick);
       const fade = t <= FADE_FROM ? 1 : 1 - (t - FADE_FROM) / (1 - FADE_FROM);
       this.drawHaze(c, fade);
+      // ⭐ S193 (V16) — the smoke over the haze; `?fx=legacy` and the unit suite draw the haze alone.
+      if (fxActive()) stinkCloudFx(this.smoke, c.id as unknown as number, c.landedAtTick, world.tick, c.pos.x, c.pos.y, c.radius, fade);
       this.syncSprite(c, world.tick, fade);
     }
 
@@ -224,6 +250,7 @@ export class StinkCloudRenderer {
   destroy(): void {
     this.reapAllSprites();
     this.haze.destroy();
+    this.smoke.container.destroy({ children: true });
     this.spriteLayer.destroy();
   }
 }
