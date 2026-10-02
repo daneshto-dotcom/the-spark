@@ -81,6 +81,14 @@ export interface PersonalityKnobs {
    * config, not its tier name.
    */
   readonly adaptsAtBell: boolean;
+  /**
+   * ⭐ S194 (T7) — what the brain's ESCAPES may build in place of the target (escape 1: nothing stamped
+   * yet; escape 2: the target has no legal site; escape 3: Q6's bell). `'any'` = every rung of the tier
+   * (pre-S194). `'listed'` = only the roles in `towerOrder` — a FORTRESS that cannot afford its stink
+   * tower saves for it instead of raising the cheap race tower. Only ever NARROWS the tier's set (rule 1).
+   * ⚠ MINE.
+   */
+  readonly substitute: 'any' | 'listed';
 }
 
 /**
@@ -101,6 +109,7 @@ export const IDENTITY_KNOBS: PersonalityKnobs = {
   raidTarget: 'ladder',
   raAim: 'home',
   adaptsAtBell: false,
+  substitute: 'any',
 };
 
 type Overrides = Partial<Omit<PersonalityKnobs, 'personality'>>;
@@ -120,7 +129,24 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
   },
   FORTRESS: {
     base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700 },
-    IMBA: { towerOrder: ['goblin', 'stink', 'laser', 'helga'], feed: 'leftovers' },
+    /*
+     * ⭐ S194 (T7) RE-TUNE — after deploy #23's nearest-enemy-first targeting, adjacent IMBA armies raze each
+     * other's opening goblin towers, and the S193 row (goblin > stink > laser > helga, hold 2700, any
+     * substitute) spent its BUILDs re-raising them and filling the bell with cheap race towers: mean defence
+     * 0.25 < BALANCED 0.28, no laser. Measured on the signature harness (seed 0xb07 / bots 0xbeef, 300 s,
+     * mean defence · loose shapes placed · stamps per seat):
+     *   S193 row                       0.25 · 25 · goblin>nagas>goblin>stink | goblin>stink | zombies×2
+     *   + substitute 'listed'          0.28
+     *   + listed, hold 2700→3600       0.58 ·  0 · (stands still between towers — rejected)
+     *   + listed, hold 2700 (laser 2nd) 0.33 · 21
+     *   + listed, hold 3300            0.39 · 13 · goblin>stink>laser | goblin×2 | goblin>stink
+     *   ⭐ listed, hold 3300, laser 2nd 0.50 · 12 · goblin>stink>goblin>laser | goblin>stink | goblin>laser
+     * Q4 still holds: goblin tower FIRST, leftovers fed. Laser before stink: the laser bill (6 of one type)
+     * is the one the save exists for; the stink tower still lands as the bell's listed substitute.
+     * ⚠ MINE: laser 2nd, 'listed' (a Fortress saves for a defence bill rather than raising a race tower at the bell)
+     * and 3300 (it spends 5 s of each 60 s BUILD cycle on loose shapes, so it never stands still).
+     */
+    IMBA: { towerOrder: ['goblin', 'laser', 'stink', 'helga'], feed: 'leftovers', substitute: 'listed', saveHoldTicks: 3300 },
   },
   TYCOON: {
     // Empty order = cheapest first; repeating the FIRST = another cheap tower, many of them.

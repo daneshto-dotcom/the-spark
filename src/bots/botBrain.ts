@@ -65,6 +65,7 @@ import {
   IDENTITY_KNOBS,
   IMBA_ADAPT_WINDOW_TICKS,
   orderRungsByPersonality,
+  towerRoleOf,
   type PersonalityKnobs,
 } from './botPersonality.ts';
 import { fedCreatureType } from '../state/goblinTowerFeed.ts';
@@ -369,8 +370,15 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
   const candidates: GodlyId[] = [];
   if (targetAffordable) candidates.push(target);
   if (targetAffordable || !hasStampedStructure(world, seat) || atBell) {
+    // ⭐ S194 (T7) — a `substitute: 'listed'` personality only substitutes its OWN roles (see the knob).
+    const knobs = personaOf(cfg);
     for (const id of personaRungs(world, seat, cfg)) {
-      if (id !== target) candidates.push(id);
+      if (id === target) continue;
+      if (knobs.substitute === 'listed') {
+        const role = towerRoleOf(id);
+        if (role === null || !knobs.towerOrder.includes(role)) continue;
+      }
+      candidates.push(id);
     }
   }
 
