@@ -149,7 +149,8 @@ magic, I accept that"*.
 | a **STRUCTURE** of `n` connectors | **`n`** = its DEF | HIS: *"towers will inherently have the same magic resistance as their regular defense"* — so magic lands on a tower exactly as physical |
 | a **shape**, a **stink bag** | **0** = DEF | |
 | a **GLOBAL** unit (goblins, chewer, Voltkin, drone, direwolf, locusts) and **Helga** | **= its own DEF** | HIS (R192-M10) |
-| a **race's** tier-3 unit, and the **castle soldier** by its owner's race | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| a **race's** tier-3 unit | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| the **castle soldier** (R125 1/1/1/1) | **1 for EVERY race** (`CASTLE_SOLDIER_MRES`) | ⭐ HIS (S194): *"They all have just one, so they're all equal between the races."* Until S194 it read its owner's race from the row above |
 | a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
 
 ⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps

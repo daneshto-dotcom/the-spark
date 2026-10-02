@@ -242,14 +242,12 @@ describe('the FOUR SITES of Creature.mresFifths — factory, save/wire, hash, wo
     for (const picks of [undefined, [], FIVE] as (DraftPick[] | undefined)[]) {
       expect('mresFifths' in makeCreature(cfg, { ...args(), draftPicks: picks, ownerRace: 'orcs' })).toBe(false);
     }
-    // orcs MRES 1: 6 → 7 · demons MRES 4: 9 → 10 · zombies MRES 0: 5 → 6 (each the floor-at-one step)
+    // ⭐ S194 HIS — the castle soldier is MRES 1 for EVERY race, so one pick is 6 → 7 for all six
+    // (until S194 it read the race table: demons 9 → 10, zombies 5 → 6).
     const picked = [...FIVE, 'mres'] as DraftPick[];
-    const want: Record<RaceId, number> = {} as Record<RaceId, number>;
     for (const race of RACE_IDS) {
-      want[race] = applyDraftPercent(unitPoolFifths(1, RACE_MRES_LEVEL[race]), 1, DRAFT_BUFF_PCT);
-      expect(makeCreature(cfg, { ...args(), draftPicks: picked, ownerRace: race }).mresFifths, race).toBe(want[race]);
+      expect(makeCreature(cfg, { ...args(), draftPicks: picked, ownerRace: race }).mresFifths, race).toBe(7);
     }
-    expect([want.orcs, want.demons, want.zombies]).toEqual([7, 10, 6]);
     // A type whose MRES is its own (a goblin) ignores the race; a boss uses its table value.
     const gob = getCreatureConfig('goblinMelee');
     expect(makeCreature(gob, { ...args(), draftPicks: ['mres'] }).mresFifths)
@@ -316,6 +314,35 @@ describe('the FOUR SITES of Creature.mresFifths — factory, save/wire, hash, wo
     spawnSoldier(w, P1, { x: 500, y: 400 });
     expect(JSON.stringify(snapshot(w))).not.toContain('mresFifths');
     expect(JSON.stringify(netSnapshot(w))).not.toContain('mresFifths');
+  });
+});
+
+describe('⭐⭐ S194 HIS — a castle soldier resists magic THE SAME for every race, through dispatch(SPAWN_CREATURE)', () => {
+  // *"every castle soldier has one HP, one defense, one … penetration, one attack, and one … magic
+  // resistance … They all have just one, so they're all equal between the races."* — owner, S194.
+  /** A soldier of `race`'s seat, born through the real reducer; returns what a magic 90 takes off it. */
+  function soldierOf(race: RaceId, picked: boolean): { lost: number; mresFifths: number | undefined } {
+    const w = wave25(race);
+    if (picked) w.players.get(P0)!.draftPicks = [...FIVE, 'mres'];
+    const id = spawnSoldier(w, P0, { x: 960, y: 540 });
+    const c = w.creatures.get(id)!;
+    c.ehp = DEEP;
+    c.maxEhp = DEEP;
+    damageEntity(w, { kind: 'creature', id }, 90, 'aura', null, 'magic');
+    return { lost: DEEP - c.ehp, mresFifths: c.mresFifths };
+  }
+
+  it('WITHOUT the pick: all six races take a magic 90 as 90 (MRES 1 = DEF 1), and carry no field', () => {
+    const got = RACE_IDS.map((r) => soldierOf(r, false));
+    expect(got.map((g) => g.lost)).toEqual(RACE_IDS.map(() => 90));
+    expect(got.every((g) => g.mresFifths === undefined)).toBe(true);
+  });
+
+  it('WITH the wave-26 pick: all six races bake the SAME pool, 6 → 7, and take a magic 90 as 77', () => {
+    const got = RACE_IDS.map((r) => soldierOf(r, true));
+    expect(got.map((g) => g.mresFifths)).toEqual(RACE_IDS.map(() => 7));
+    expect(got.map((g) => g.lost)).toEqual(RACE_IDS.map(() => Math.floor((90 * 6) / 7)));
+    expect(Math.floor((90 * 6) / 7)).toBe(77);
   });
 });
 

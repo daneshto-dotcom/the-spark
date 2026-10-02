@@ -25,8 +25,8 @@
  *
  * ## Determinism / wire
  *
- * No state, no float accumulator, no RNG. MRES is a pure function of the creature TYPE and — for
- * `raceUnit` only — the owner's `raceId`, which is already serialized and hashed. Nothing new rides the
+ * No state, no float accumulator, no RNG. MRES is a pure function of the creature TYPE (⭐ S194: the
+ * castle soldier no longer reads its owner's race). Nothing new rides the
  * wire; the RULE does, so it earns a protocol bump at merge (both peers compute it — the S186 test).
  */
 import type { CreatureType } from './creatures/creature.ts';
@@ -148,6 +148,14 @@ export const RACE_MRES_LEVEL: Readonly<Record<RaceId, number>> = {
   zombies: 0,
 };
 
+/**
+ * ⭐⭐ HIS (S194): *"every castle soldier has one HP, one defense, one … penetration, one attack, and one …
+ * magic resistance, right? They all have just one, so they're all equal between the races."* The castle
+ * soldier (`raceUnit`, R125 1/1/1/1) resists magic at **1** for EVERY race — not the race table, which
+ * stays on each race's tier-3 unit and its boss. A wave-26 MRES pick raises this same MRES-1 pool.
+ */
+export const CASTLE_SOLDIER_MRES = 1;
+
 /** ⚠ MINE — a tier-9 boss resists `6 + 2 × level` (Archdemon / Pharaoh 14 … zombie boss 6). */
 export function bossMres(race: RaceId): number {
   return 6 + 2 * RACE_MRES_LEVEL[race];
@@ -156,14 +164,15 @@ export function bossMres(race: RaceId): number {
 /**
  * How each creature type gets its MRES. An exhaustive `Record` so a new type fails `tsc` until someone
  * decides. `'def'` = a GLOBAL unit, MRES = its own DEF (⭐ HIS, S192 Q-G: *"Get magic resistance equal to
- * their [DEF]. Sounds good."*); `'ownerRace'` = the castle
- * soldier, one type for six races (⚠ MINE, spec Q9 — departs from R94/R117 per R192-M6); a race = that
+ * their [DEF]. Sounds good."*); `'soldier'` = the castle
+ * soldier, **`CASTLE_SOLDIER_MRES` (1) for every race** (⭐ HIS, S194 — supersedes the S192 per-race
+ * reading, spec Q9); a race = that
  * race's level (tier-3) ; `{ boss }` = `bossMres`.
  *
  * ⚠ The ELITE PIRANHA and the BAT SWARM keep their BASE unit's level — "every stat ×N" was ruled before
  * MRES existed, and multiplied the swarm would be near magic-immune (spec Q-E).
  */
-type MresRule = 'def' | 'ownerRace' | RaceId | { readonly boss: RaceId };
+type MresRule = 'def' | 'soldier' | RaceId | { readonly boss: RaceId };
 export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
   direwolf: 'def', // the Warlord's summon — "not orcs" (canon §3e)
   locustCloud: 'def',
@@ -176,7 +185,7 @@ export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
   goblinHound: 'def',
   goblinBat: 'def',
   goblinSuicide: 'def',
-  raceUnit: 'ownerRace',
+  raceUnit: 'soldier', // ⭐ HIS (S194): MRES 1, every race
   t3Hound: 'zombies',
   t3Scarab: 'mummies',
   t3Piranha: 'nagas',
@@ -196,13 +205,13 @@ export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
 };
 
 /**
- * A creature's MRES. `ownerRace` is read only for `raceUnit`; `null` (no such seat) falls back to the
- * soldier's own DEF, so the function is total.
+ * A creature's MRES. ⭐ S194 — `ownerRace` no longer changes any answer: the castle soldier is
+ * `CASTLE_SOLDIER_MRES` for every race (and with no seat). The parameter is kept so no call site moves.
  */
-export function mresFor(type: CreatureType, ownerRace: RaceId | null): number {
+export function mresFor(type: CreatureType, _ownerRace: RaceId | null): number {
   const rule = CREATURE_MRES[type];
   if (rule === 'def') return getCreatureConfig(type).def;
-  if (rule === 'ownerRace') return ownerRace === null ? getCreatureConfig(type).def : RACE_MRES_LEVEL[ownerRace];
+  if (rule === 'soldier') return CASTLE_SOLDIER_MRES;
   if (typeof rule === 'string') return RACE_MRES_LEVEL[rule];
   return bossMres(rule.boss);
 }
