@@ -94,6 +94,9 @@ const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
 // ⭐ S193 (V08) — the big-hit shake and the heal sparkle live in `fx/floaterFx.ts` (the pop below is untouched).
 import { fxActive, fxTop } from './fx/fxState.ts';
 import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
+// ⭐ S194 T9 (coherence) — the hit's floor: every red number also lands a pop on the victim (`fx/hitPopFx.ts`).
+import { HIT_POP_FRAMES, HIT_POP_MAX_LIVE, HIT_POP_SIZE, hitPopFx } from './fx/hitPopFx.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -458,7 +461,12 @@ interface Watched {
   owner: PlayerId;
   /** ⭐ S194 T9 — the FSM state as last seen, so an EXPIRY (last seen DESPAWNING) is not printed as a kill. */
   state: CreatureState;
+  /** ⭐ S194 T9 — the unit's sprite scale, so its hit pop sits at its own size (a boss's is bigger). */
+  scale: number;
 }
+
+/** ⭐ S194 T9 — one live hit pop at a victim, aged in render frames like the floaters. */
+interface HitPop { x: number; y: number; size: number; age: number; seed: number }
 
 /**
  * ⭐⭐ S189 (owner R190-I) — PURE — split one creature's change between two observations into the HIT
@@ -541,6 +549,9 @@ export class DamageNumbers {
    * `18560cd8`). One latch per watcher, shared shape (`CreatureWatchEpoch`).
    */
   private readonly creatureEpoch = new CreatureWatchEpoch();
+  /** ⭐ S194 T9 — the hit pops alive now (`fx/hitPopFx.ts`), and the scale of the unit the kill sweep is emitting for. */
+  private readonly pops: HitPop[] = [];
+  private vanishingScale = 1;
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
@@ -606,7 +617,9 @@ export class DamageNumbers {
       const prev = this.watched.get(c.id);
       const owner = c.ownerPlayerId;
       const healed = c.healedFifths ?? 0;
-      this.watched.set(c.id, { ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner, state: c.state });
+      this.watched.set(c.id, {
+        ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner, state: c.state, scale: creatureSpriteScaleMul(c.type),
+      });
       if (prev === undefined) continue; // first sighting is neither a hit nor a heal
       // ⭐ S189 R190-I — the hit AND the heal, each in its own colour (`creaturePoolChange`). Same
       // anchor for both (R185-D untouched); `place` stacks the second above the first.
@@ -672,6 +685,7 @@ export class DamageNumbers {
        */
       const recorded = takeKillHitNear(world, last.x, last.y, last.owner);
       const swing = recorded ?? fatalBlowFifths(world, { x: last.x, y: last.y }, last.owner);
+      this.vanishingScale = last.scale;
       this.emit(world, id, last.x, last.y, swing ?? last.ehp, 'damage', last.owner);
     }
 
@@ -1035,6 +1049,7 @@ export class DamageNumbers {
   ): void {
     if (amount <= 0) return;
     if (!alwaysVisible && isConcealed(x, y, owner)) return; // ⭐ S194 T9 — the fog rule, see `emit`
+    if (kind === 'damage') this.pop(x, y, HIT_POP_SIZE[alwaysVisible ? 'keep' : 'structure']);
     this.place(kind === 'heal' ? healAnchor(x, y) : damageAnchor(world, null, x, y, owner), amount, kind);
   }
 
@@ -1057,6 +1072,11 @@ export class DamageNumbers {
      * networked-only state (`fogActive`), so solo, vs-bots and every FIGHT are untouched.
      */
     if (isConcealed(vx, vy, owner)) return;
+    // ⭐ S194 T9 — the pop lands on the VICTIM (vx, vy), never on the drifted number's anchor.
+    if (kind === 'damage') {
+      const scale = world.creatures.get(victim) === undefined ? this.vanishingScale : this.watched.get(victim)?.scale ?? 1;
+      this.pop(vx, vy, HIT_POP_SIZE.unit * Math.min(scale, 2.2));
+    }
     // ⭐ S192 T12 — a heal sits straight above the healed unit (`healAnchor`); a hit keeps R185-D.
     this.place(kind === 'heal' ? healAnchor(vx, vy) : damageAnchor(world, victim, vx, vy, owner), amount, kind);
   }
@@ -1091,8 +1111,28 @@ export class DamageNumbers {
     if (this.live.length > MAX_LIVE) this.retire(0);
   }
 
+  /** ⭐ S194 T9 — queue one hit pop; the oldest goes first past the cap. */
+  private pop(x: number, y: number, size: number): void {
+    this.pops.push({ x, y, size, age: 0, seed: floaterSeed(x, y, size) });
+    if (this.pops.length > HIT_POP_MAX_LIVE) this.pops.shift();
+  }
+
+  /** Hit pops alive now (test + bench seam). */
+  hitPopCount(): number {
+    return this.pops.length;
+  }
+
   private advance(): void {
     const fx = fxActive();
+    for (let i = this.pops.length - 1; i >= 0; i--) {
+      const h = this.pops[i]!;
+      if (h.age >= HIT_POP_FRAMES) {
+        this.pops.splice(i, 1);
+        continue;
+      }
+      if (fx) hitPopFx(fxTop(), h.seed, h.x, h.y, h.size, h.age / HIT_POP_FRAMES);
+      h.age++;
+    }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const f = this.live[i]!;
       f.age++;

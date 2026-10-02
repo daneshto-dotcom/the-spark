@@ -37,6 +37,11 @@ const { DamageNumbers } = await import('../damageNumbers.ts');
 const { recordingSink } = await import('./emitter.ts');
 const { setFxHooks, setFxLegacyFlag } = await import('./fxState.ts');
 const { FLOATER_HEAL_MOTES } = await import('./floaterFx.ts');
+// ⭐ S194 T9 (coherence) — a hit now also lands a pop on the victim (`hitPopFx.ts`). These cases are about the
+// HEAL SPARKLE, so they count the sparkle alone; the pop is asserted on its own in `hitPopReach.test.ts`.
+const { isHitPopEmit } = await import('./hitPopFx.ts');
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sparkleOnly = (out: any[]): any[] => out.filter((e) => !isHitPopEmit(e));
 
 /** The SHIPPED NameplateSCT pop (`damageNumbers.ts`), 0.5 → 2.0 → 1.0 over the first sixth of 45 frames. */
 const POP = 45 / 6;
@@ -99,8 +104,8 @@ describe('S193 V08 REACH — `DamageNumbers` with the rebuilt fx live', () => {
     hitAndHeal(dn, w, c, 12, 2);
     expect(scales.length, 'anti-vacuity').toBe(2);
     for (const s of scales) expect(s).toBeCloseTo(shippedPop(1), 9); // 0.9 at age 1
-    expect(top.out.length, 'the heal sparkle reached the top layer').toBeGreaterThan(0);
-    expect(top.out.length).toBeLessThanOrEqual(FLOATER_HEAL_MOTES * 2);
+    expect(sparkleOnly(top.out).length, 'the heal sparkle reached the top layer').toBeGreaterThan(0);
+    expect(sparkleOnly(top.out).length).toBeLessThanOrEqual(FLOATER_HEAL_MOTES * 2);
     const trace = popTrace(dn, w, 10);
     trace.forEach((frame, i) => {
       expect(frame.length).toBe(2);
@@ -153,6 +158,7 @@ describe('S193 V08 REACH — `DamageNumbers` with the rebuilt fx live', () => {
     const { w, c } = scene();
     const dn = new DamageNumbers();
     expect(hitAndHeal(dn, w, c, 12, 0)).toEqual(['12']);
-    expect(top.out).toEqual([]);
+    expect(sparkleOnly(top.out)).toEqual([]);
+    expect(top.out.length, 'S194 T9 — but the HIT lands its pop on the victim').toBeGreaterThan(0);
   });
 });
