@@ -1762,3 +1762,42 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
   });
 });
+
+// ── ⭐⭐ S193 — §3d THE WAVE-26 MRES CARD (R192-D1, `s193/mres-card`), every number bound to its constant ──
+import {
+  GENERAL_PICKS as MRES_GENERAL_PICKS, MRES_DRAFT_WAVE, draftedMagicPoolFifths, mresPickCount,
+} from './state/draft.ts';
+import { landedFifthsPools } from './state/magicResist.ts';
+import { GENERAL_CARDS_AWAITING_ART } from './render/draftOverlay.ts';
+
+describe('§3d the wave-26 MRES card is bound to the code', () => {
+  it('the slot: the LAST draft offers MRES; 1/6/11/16/21 are unchanged', () => {
+    expect(MRES_DRAFT_WAVE).toBe(endgameConstants.LAST_DRAFT_WAVE);
+    expect(MRES_DRAFT_WAVE).toBe(26);
+    expect(isDraftWave(MRES_DRAFT_WAVE)).toBe(true);
+    expect(generalPickForWave(MRES_DRAFT_WAVE)).toBe('mres');
+    expect([1, 6, 11, 16, 21].map(generalPickForWave)).toEqual(['hp', 'def', 'atk', 'pen', 'hp']);
+    expect(MRES_GENERAL_PICKS).toEqual([...GENERAL_TRACK, 'mres']);
+    expect(canonSays('The LAST draft (wave 26, `MRES_DRAFT_WAVE` = `LAST_DRAFT_WAVE`) offers **MRES — WARDED**')).toBe(true);
+    expect(canonSays('its general option is the **MRES** card (§3d, R192-D1)')).toBe(true);
+    expect(canonSays('the general MRES draft card is BUILT')).toBe(true);
+    expect(canonSays('A general MRES draft card is QUEUED, not built')).toBe(false);
+  });
+
+  it('what a pick buys: +10 % of the magic-defended pool — 6 → 7, a 33 lands 28', () => {
+    expect(DRAFT_BUFF_PCT).toBe(10);
+    expect(mresPickCount(['mres'])).toBe(1);
+    expect(isPoolPick('mres') || isDamagePick('mres')).toBe(false);
+    const six = RACE_MRES_LEVEL.orcs + 5; // an orcs soldier: HP 1 × (5 + MRES 1)
+    expect(six).toBe(6);
+    expect(draftedMagicPoolFifths(1, RACE_MRES_LEVEL.orcs, ['mres'])).toBe(7);
+    expect(landedFifthsPools(33, 'magic', 6, 7, 0)).toBe(28);
+    expect(canonSays('An orcs soldier: **6 → 7**, so a Voltkin\'s **33** lands **28**')).toBe(true);
+    expect(canonSays('**+10 % of the MAGIC-DEFENDED POOL** `HP × (5 + MRES)`')).toBe(true);
+  });
+
+  it('the card: awaiting art, and the canon says so', () => {
+    expect(GENERAL_CARDS_AWAITING_ART).toEqual(['mres']);
+    expect(canonSays('`GENERAL_CARDS_AWAITING_ART`')).toBe(true);
+  });
+});

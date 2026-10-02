@@ -148,7 +148,8 @@ magic, I accept that"*.
 | a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
 
 ⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
-against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+against magic too; it does not raise MRES (Q1, not ruled — default kept). ⭐ S193 — the general MRES draft card is BUILT
+(R192-D1, `s193/mres-card`): the wave-26 draft's general option, **WARDED** — see §3d.
 
 ### The castle's MRES axis (R192-M9)
 
@@ -307,6 +308,8 @@ wave 6. The original spec contradicted itself on exactly this point. So "level 0
 | | |
 |---|---|
 | general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
+| ⭐ the wave-26 card | S193, HIS (R192-D1): *"We'll do another one at level 26 … That's going to be the, the magic damage one."* The LAST draft (wave 26, `MRES_DRAFT_WAVE` = `LAST_DRAFT_WAVE`) offers **MRES — WARDED** in place of the cycle's DEF; waves 1/6/11/16/21 still offer HP/DEF/ATK/PEN/HP. No racial is built at level 25, so the deadline (and every bot) takes MRES |
+| what an MRES pick buys | ⚠ MINE reading of *"+10 % MRES"*: **+10 % of the MAGIC-DEFENDED POOL** `HP × (5 + MRES)` (§2b), by the same `applyDraftPercent` — never "+1 MRES level", because no pick buys a level. Born into `Creature.mresFifths` (`draftedMagicPoolFifths`); a magic hit then lands `floor(A × HP×(5+DEF) / mresFifths)` (`landedFifthsPools`); physical hits are untouched. An orcs soldier: **6 → 7**, so a Voltkin's **33** lands **28** (`draftMresReaches.test.ts`, through the real host tick). ⚠ Its card art is NOT made — the S193 imagen call returned 404 on every Imagen model; the tile shows its text title (`GENERAL_CARDS_AWAITING_ART`) |
 | the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent`. ⭐ Since S190 (deploy #4) EVERY pick lands: HP/DEF on the pool, ATK/PEN on the strike — see *THE DRAFTED STRIKE* below |
 | where the buff lives | **born into the creature**: the pool in `Creature.maxEhp` (S187), the strike in `Creature.atkFifths` (S190), each stored ONLY when a pick moved it and read through `creatureMaxEhp` / `creatureAttackFifths` — never re-derived from the type |
 | ATK vs PEN | the ladder has two derived numbers, so an ATK pick and a PEN pick move the SAME strike, exactly as HP and DEF move the same pool |
@@ -868,7 +871,7 @@ flung debris. Measured, pinned and reported rather than taken.
 
 | | |
 |---|---|
-| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it. ⭐ S193 its general option is the **MRES** card (§3d, R192-D1) |
 | build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
 | the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
 | monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
