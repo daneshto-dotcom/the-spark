@@ -1,5 +1,22 @@
 # S193 · `s193/visuals-racial` (visuals-3) · progress
 
+## ⏸ PAUSED (S194 owner pause order) — RESUME HERE
+- EXACT NEXT STEP: (1) screenshots — run `.tmp-gates/shots/shots.spec.ts` in BOTH this tree and the scratch master tree
+  `.tmp-gates/master-tree` (a `git worktree add --detach` of master 18560cd8, npm-installed), with env
+  `FX_GPU=1 FX_SHOT_DIR=<abs .tmp-gates/shots> FX_SHOT_TAG=master|merged`, dev servers on 30914 (master tree) / 23871 (this tree)
+  — start them with `npm run dev -- --port <p> --strictPort --host`; (2) full gates: typecheck · `npx vitest run --maxWorkers=3` ·
+  `npm run build` (entry KiB) · `npm run e2e:gating` on this worktree's port; (3) final report; (4) `git worktree remove .tmp-gates/master-tree`.
+- DONE: merge (b72b7857) · haze fold (2e42864c) · bench A and bench B (results below). Perf VERDICT: within budget, no trim needed.
+- HALF-DONE: nothing in source. The scratch master worktree is still registered (remove at the end).
+- Gates last run: tsc 0 (after the fold) · vitest on `src/render/fx` + perkFxReach + untargetableCallSites 0 (17 files / 181 tests).
+  Full vitest, build, e2e NOT yet run on the merged tree.
+- BENCH B (paired, in-page: one page, 6 cycles × legacy/high/low, 2.5 s frameMs windows, 5 pages per tree, real GPU, interleaved trees;
+  board = 120-creature horde + 3 Pharaohs + 8 Krakens + 20 stunned + 3 locusts + Vlad + zombie + a blast every 0.5 s, demons scorch FIGHT, vampires lifesteal, 1/4 enraged):
+  · master alone: HIGH−legacy avg median **+0.21 ms** (IQR −0.08..+0.72, n=30); LOW **−0.30** (IQR −0.93..+0.40)
+  · master+v3:    HIGH−legacy avg median **+0.54 ms** (IQR +0.19..+0.87, n=30); LOW **+0.34** (IQR −0.36..+0.58)
+  · frame p50 deltas agree: master +0.30 / −0.05, merged +0.50 / +0.30. v3's own share ≈ +0.33 HIGH, +0.64 LOW (LOW is CPU sprite count).
+  Both modes ≤ +1.0 ms → contract MET; no trim, no HIGH-only gating needed.
+
 ## S194 ROUND (T2) — log, newest last
 - Merge of master `0a37175e` = `b72b7857`. ONE conflict: `src/state/untargetableCallSites.test.ts` NOT_ACQUISITION — kept both
   (this branch's goblinRenderer/zoneBackgroundRenderer verdicts + master's `state/magicResistCue.ts`). npm install 0.
