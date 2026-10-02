@@ -166,8 +166,8 @@ import {
 import { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
 import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
-import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
-import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS } from './constants.ts';
+import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_BUILD_CLEAR_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
+import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS, GATHERER_DEPOSIT_OFFSET_Y } from './constants.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
   DYNASTY_LIVE_PHARAOH_SENTINEL,
@@ -356,7 +356,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**1075**')).toBe(true);
   });
 
-  it('⭐ §4b — S191 → S193: the castle keep-out is HALVED (61) and it is ONE disc, the same on every side', () => {
+  it('⭐ §4b — S191 → S193 → S194: the castle keep-out is HALVED (61), ONE disc, plus a small clearance on the entrance', () => {
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
@@ -365,11 +365,19 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('AND IT IS ONE DISC, THE SAME ON EVERY SIDE')).toBe(true);
     expect(canonSays('THE PORCH DISCS ARE OUT OF THE BUILD RULE')).toBe(true);
     expect(canonSays('a **PULL skips any slot a built shape stands within')).toBe(true);
-    // The rule is REAL, not prose: a porch slot (outside the disc) is buildable, and south = east.
+    // ⭐ S194 R194-16 — the entrance moved right under the castle and is not built on.
+    expect(CASTLE_PORCH_OFFSET_Y).toBe(42);
+    expect(GATHERER_DEPOSIT_OFFSET_Y).toBe(CASTLE_PORCH_OFFSET_Y);
+    expect(CASTLE_PORCH_BUILD_CLEAR_RADIUS).toBe(CASTLE_PORCH_SLOT_CLEAR_RADIUS);
+    expect(canonSays(`\`CASTLE_PORCH_OFFSET_Y\` = **${CASTLE_PORCH_OFFSET_Y}**`)).toBe(true);
+    expect(canonSays(`\`CASTLE_PORCH_BUILD_CLEAR_RADIUS\` = **${CASTLE_PORCH_BUILD_CLEAR_RADIUS}** px`)).toBe(true);
+    expect(canonSays('THE ENTRANCE IS NOT BUILT ON, AND IT MOVED RIGHT UNDER THE CASTLE')).toBe(true);
+    // The rule is REAL, not prose: the OUTER porch slot sits just outside the 61 disc, and is refused
+    // anyway (the porch arm); and south still equals east.
     const a = zoneCastleAnchor(0, 'PITCH_2P');
     const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
     expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(false);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
     for (const d of [CASTLE_NO_BUILD_RADIUS - 1, CASTLE_NO_BUILD_RADIUS + 1]) {
       expect(isInsideCastleKeepOut({ x: a.x, y: a.y + d }, 'PITCH_2P')).toBe(isInsideCastleKeepOut({ x: a.x + d, y: a.y }, 'PITCH_2P'));
     }

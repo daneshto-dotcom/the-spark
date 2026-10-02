@@ -1037,6 +1037,20 @@ tower; with every slot covered the pull is the old full-porch no-op, the shape s
 ⚠ The trade, his call: a player who builds over his own porch loses those slots for pulls until the tower
 goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat).
 
+⭐⭐ **S194 R194-16 — THE ENTRANCE IS NOT BUILT ON, AND IT MOVED RIGHT UNDER THE CASTLE.** *"Castle entrance
+is where the shapes come out. Oh yeah, you should definitely not be able to build over that. Leave that a
+little space. Or make that entrance like right under the castle, like closer."* Both are built:
+- the porch row is `CASTLE_PORCH_OFFSET_Y` = **42** (was 74; ⚠ MINE, measured — the art's visible base is
+  the keep foot +29 on all six atlases, the tallest shape reaches 11 above its centre, +2 px air). The
+  gatherer deposit point (`GATHERER_DEPOSIT_OFFSET_Y`) IS that row now and moves with it;
+- `zones.castleKeepOutHitsBox` gained ONE small arm: nothing is built within
+  `CASTLE_PORCH_BUILD_CLEAR_RADIUS` = **17** px (⚠ MINE: the porch's own occupancy radius) of any porch slot of
+  ANY castle — host reducer, drag ghost, stamp ghost (`CASTLE`) and bots alike. Measured reach: **south 61,
+  east 61** for a single shape (the row's own reach, 42 + 17 = 59, is inside the disc); the only bulge is a
+  lobe round each OUTER slot, **78.5 px on the SE/SW diagonal**. A tall stamp laid beside the keep gains
+  1–2 px (laser 61.9 → 62.9, goblin tower 61.0 → 63.0; south unchanged at 61.0). The S193 pull skip
+  (`CASTLE_PORCH_KEEP_OUT_RADIUS` 34) still guards a slot a legal shape stands 17–34 px from.
+
 ---
 
 ## 5 · WHO SHOOTS WHAT
