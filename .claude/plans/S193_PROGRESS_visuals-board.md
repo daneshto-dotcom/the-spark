@@ -24,5 +24,10 @@
 - e2e:gating run 1: 1 red (fog.spec remembers-a-ghost: ghostA green 0) — CAUSED BY THIS BRANCH: mist puffs overhang the board, stage bounds grew, extract.pixels mapping shifted. Proven by disabling the mist (green). Fixed 50ad0bf8 (boundsArea on mist/glow/smoke). fog.spec 6/6, e2e:gating 70/70.
 - merged master b72e7790, post-merge tc 0 / vitest 0 (7473) / build 0 1075.2 KiB.
 
+- AUDIT ROUND (coordinator, audit CLEAN): merged master (c7eac682, only S193_DISPATCH_LOG.md, no conflicts), npm install 0.
+  MED grow/merge fog cull (structureGrow.ts/structureMerge.ts, isConcealed per prim/bond, both paths) + REACH test growMergeFog.test.ts (mutation red).
+  LOW1 mist bump 60/100/180 + pinned auditor sample fogMistSample.test.ts (inside-visible max 0, own 0; old values -> red).
+  LOW2 keep scaled to cap + spread test (unscaled -> red). LOW4 decal root boundsArea. Commits b358dfe7, cbff206c.
+
 ## NEXT STEP
-- V28 health-bar ghost segment: wait for the merge owner to say s189/weld landed, `git merge master`, build on the weld healthBar.ts (one bar per tower at an anchor).
+- audit-round gates running (r-*.exit). Then short report. V28 waits for weld.
