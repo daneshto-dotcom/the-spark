@@ -872,13 +872,21 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
     expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
     expect(canonSays("Rage cooldown 25 seconds, that's fine.")).toBe(true);
-    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
+    // ⛔⛔ S194 R194-31 — the S191 "red through the whole BUILD" pattern is SUPERSEDED and must not come back.
+    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(false);
+    expect(canonSays('from 50 s through the whistle and all of BUILD')).toBe(false);
+    expect(canonSays('THE PATTERN, RULED (S194, R194-31')).toBe(true);
+    expect(canonSays('should last only 25 seconds. Either for himself or for the units that he affected.')).toBe(true);
+    expect(canonSays('**in any phase**')).toBe(true);
     // The per-FIGHT pattern, DERIVED (never a literal "25 on / 25 off"): one fire at 0, the next after
-    // rage + cooldown, and that second rage still running at the whistle.
+    // rage + cooldown, and that second rage still running at the whistle — which now ENDS in BUILD on its
+    // own clock (the owner's own example: rage at 50 s, whistle at 60 s, calm at 75 s).
     const cycle = WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
     expect(cycle).toBeLessThan(FIGHT_PHASE_TICKS);
     expect(cycle + WARLORD_RAGE_TICKS).toBeGreaterThan(FIGHT_PHASE_TICKS);
-    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s through the whistle`)).toBe(true);
+    const end = cycle + WARLORD_RAGE_TICKS;
+    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s to ${end / PHYSICS_HZ} s (${(end - FIGHT_PHASE_TICKS) / PHYSICS_HZ} s past the whistle)`)).toBe(true);
+    expect(canonSays(`A rage started at FIGHT ${cycle / PHYSICS_HZ} s with the whistle at ${FIGHT_PHASE_TICKS / PHYSICS_HZ} s therefore ends at ${end / PHYSICS_HZ} s — ${(end - FIGHT_PHASE_TICKS) / PHYSICS_HZ} s into BUILD`)).toBe(true);
     expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true);
     expect(canonSays('(never another Warlord — S191)')).toBe(true);
     // ⛔ The retired S188 sentence must not come back.
