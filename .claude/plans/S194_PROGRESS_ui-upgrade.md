@@ -1,16 +1,12 @@
 # S194 — T5 UI UPGRADE (`s194/ui-upgrade`) — PROGRESS
 
-## ⏸ PAUSED (owner session limit) — RESUME HERE
-- **Exact next step:** wire `src/render/uiSkinButton.ts` (`skinStaticPlate` + `attachHoverSheen`, written + typechecked, NOT yet used anywhere) into `exitButton.ts` (BACK TO MAIN plate + icon 'exit'; modal panel `skinPanelFx`; LEAVE/KEEP buttons with icons 'exit'/'play'), then title screen (+ lazy animated backdrop), lobby, bot setup, settings DOM CSS, codex/conn-lost. Each with a test that the skin/sheen lies inside the `attachButtonFeedback` hit rect.
-- **Half-done:** nothing half-applied in a surface — footer, castle panel, character card and draft are complete and committed; `uiSkinButton.ts` is new and unused.
-- **Last gates run:** `npm run typecheck` (tsc -b --noEmit) exit 0 at the pause. Targeted vitest only so far (all green): uiSkin 305, footer+reach 77, castle 121+5, sheet 104, draft 244 (+4 new). Full `npx vitest run`, `npm run build` and e2e NOT yet run on this branch.
-- Dev server (vite :31947) stopped at the pause; restart with `npx vite --port 31947 --strictPort` from the worktree; screenshot harness `node .tmp-gates/shots.mjs <outdir> 31947 [filter]` (before-shots in `.tmp-gates/before/`).
+## RESUMED (owner RESUME) — work complete; e2e re-run on the merged tree in flight at time of writing (see FINAL REPORT)
 
 ## FINAL REPORT
 _(filled at the end)_
 
 ## NEXT STEP (exact)
-Draft overlay (#21) → exit button + confirm (#22) → title/home (#1-2, lazy backdrop) → lobby (#6-8) → bot setup (#5) → settings DOM (#4) → codex/conn-lost (#24-25). Then gates + screenshots.
+Done except: owner screenshot review. Not skinned (art-led, left as they are): race-picker tiles, seat-rack banners, codex combo tiles.
 
 ⚠ FILE BOUNDARY (coordinator, mid-run): `matchBoard.ts`, `matchBoardModel.ts`, `matchBoardHost.ts` + tests now belong to T10 — NOT touched by this branch (never were). T10 can import `src/render/uiSkin.ts` (`skinButtonFx`, `skinPanelFx`, `skinIcon`, `skinBase`, `SKIN`).
 
