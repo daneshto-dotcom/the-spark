@@ -7,6 +7,7 @@
  * ⚠ T8 (S194) owns the scale/hit-rect seam in `buttonFeedback.ts`; this file never asserts on scale,
  * only on the rest-size rectangle the button was given.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { Container, Graphics, Rectangle, Ticker } from 'pixi.js';
 import { installFakeTextCanvas } from './fakeTextCanvas.fixtures.ts';
@@ -109,4 +110,28 @@ describe('S194 T5 — container-button hover sheen', () => {
       sweepInside(b);
     }
   });
+});
+
+describe('S194 T5 — every feedback button that gained a sheen was given the SAME rect as its hit (source pairing)', () => {
+  /*
+   * The lobby cannot be constructed headless (it owns a DOM <input>), so its half is mechanical: in each
+   * file, the sheen count equals the feedback count, and every sheen rect is the file's one button rect.
+   */
+  const RECT: Record<string, RegExp> = {
+    'lobbyScreen.ts': /\{ x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT \}/,
+    'titleScreen.ts': /\{ x: -BUTTON_WIDTH \/ 2, y: -BUTTON_HEIGHT \/ 2, w: BUTTON_WIDTH, h: BUTTON_HEIGHT \}/,
+  };
+  for (const [file, rect] of Object.entries(RECT)) {
+    it(file, () => {
+      const src = readFileSync(new URL(`./${file}`, import.meta.url), 'utf8');
+      const fb = src.split('attachButtonFeedback(').length - 1;
+      const sheens = [...src.matchAll(/attachHoverSheen\(\s*[\w.]+,\s*([^\n]*?),\s*\w+\)/g)];
+      expect(sheens.length, `${file}: one sheen per feedback button`).toBe(fb);
+      const hitDecl = /const hit = (\{[^}]*\});/.exec(src)?.[1] ?? '';
+      for (const m of sheens) {
+        const arg = m[1]!.trim();
+        expect(rect.test(arg === 'hit' ? hitDecl : arg), `${file}: sheen rect ${arg}`).toBe(true);
+      }
+    });
+  }
 });

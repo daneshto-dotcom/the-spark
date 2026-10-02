@@ -352,7 +352,9 @@ export class TitleScreen {
      * grammar shared by every button beats a third hand-rolled variant and a fourth report.
      */
     // ⚠ CENTRED origin — this factory draws its plate from (-w/2, -h/2), unlike the lobby's.
-    attachButtonFeedback(c, bg, onClick, { hit });
+    attachButtonFeedback(c, bg, onClick, {
+      hit: { x: -BUTTON_WIDTH / 2, y: -BUTTON_HEIGHT / 2, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
+    });
     attachHoverSheen(c, hit, BUTTON_RADIUS);
     return c;
   }
