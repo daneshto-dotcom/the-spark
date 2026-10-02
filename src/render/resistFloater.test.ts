@@ -134,6 +134,66 @@ describe('S193 RESIST — SCORCHED EARTH cast beats swallowed by MRES are cued t
   });
 });
 
+/*
+ * ⭐ S194 (audit LOW, T3) — a castle soldier born AFTER its seat's wave-26 MRES pick carries a longer magic
+ * bar (`mresFifths` 7 over a physical 6), so even at MRES 1 = DEF 1 some one-fifth ROT beats land 0. The
+ * cue must fire on exactly those ticks. Driven through the sim's own `runZombieRotAura` (the function the
+ * host tick calls), so nothing but the ROT touches him and every pool drop is a landed beat.
+ */
+describe('S194 RESIST — a PICKED soldier under the zombie ROT', () => {
+  it('cue ticks = the ticks a due ROT beat landed 0; > 0 of them; and none for an UNPICKED soldier', async () => {
+    const { runZombieRotAura } = await import('../state/bossSkills.ts');
+    const { ZOMBIE_AURA_PER_MILLE } = await import('../constants.ts');
+    const w = makeWorld(0x194a);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME', mode: '1v1', isHost: true,
+      roster: [{ seat: 0, color: PLAYER_COLORS[0], raceId: 'zombies' }, { seat: 1, color: PLAYER_COLORS[1], raceId: 'demons' }],
+    } as never);
+    w.gameState = 'PLAYING';
+    w.creatures.clear();
+    const mk = (type: string, owner: typeof P0, x: number, picks?: string[]) => {
+      const c = makeCreature(getCreatureConfig(type as never), {
+        id: asCreatureId(w.nextCreatureId++), ownerPlayerId: owner, pos: { x, y: 300 }, targetPos: { x, y: 300 },
+        spawnedAtTick: w.tick, sourceSpawnerId: asSpawnerId(960 + w.creatures.size), clock: w,
+        draftPicks: picks as never, ownerRace: 'demons',
+      });
+      c.ehp = DEEP; c.maxEhp = DEEP;
+      w.creatures.set(c.id, c);
+      return c;
+    };
+    mk('t9BossZombies', P0, 600);
+    const picked = mk('raceUnit', P1, 640, ['hp', 'def', 'atk', 'pen', 'hp', 'mres']);
+    const plain = mk('raceUnit', P1, 560);
+    expect(picked.mresFifths, 'fixture: born after the pick').toBe(7);
+    expect(plain.mresFifths, 'fixture: no pick').toBeUndefined();
+    let due = 0;
+    let swallowed = 0;
+    let cued = 0;
+    let plainCued = 0;
+    for (let i = 0; i < 30000; i++) {
+      w.tick++;
+      const before = picked.ehp;
+      runZombieRotAura(w);
+      const t = w.tick;
+      const isDue = dotDueThisTick(t, picked.id as unknown as number, picked.type, ZOMBIE_AURA_PER_MILLE);
+      const zero = isDue && picked.ehp === before;
+      if (isDue) due++;
+      if (zero) swallowed++;
+      const cue = magicBeatResistedAt(w, picked, t);
+      if (cue) cued++;
+      expect(cue, `tick ${t}: the cue must equal "a due beat landed 0"`).toBe(zero);
+      if (magicBeatResistedAt(w, plain, t)) plainCued++;
+    }
+    expect(due, 'the ROT ran on him').toBeGreaterThan(20);
+    expect(swallowed, 'a 6/7 bar swallows some one-fifth beats').toBeGreaterThan(0);
+    expect(cued).toBe(swallowed);
+    expect(cued).toBe(due - (DEEP - picked.ehp));
+    expect(plainCued, 'MRES 1 = DEF 1 without the pick: never swallowed').toBe(0);
+    expect(DEEP - plain.ehp, 'the unpicked soldier took every beat').toBeGreaterThan(0);
+  });
+});
+
 describe('S192 RESIST — the floater (⚠ MINE: word, grey, once a second)', () => {
   it('prints RESIST over the resisting unit, at most once per unit per second, and never over the control', () => {
     const { w, arch, deps, st } = scorchedWorld();
