@@ -8,7 +8,10 @@
   `fxHaze().haze(sprite, tick)` (new hook in `fxState.ts`, new section in `fxRuntime.ts` beside the V10 ripple: shared map,
   one filter, HIGH-only + legacy + fxClear strip it, applied at `fxEndFrame`). `SCORCH_SHIMMER_PX` → `FX_HAZE_PX` (5). `fxStats().haze`.
   Haze stays on the zone SPRITE (zone-sized filter bounds), not on `groundArt` (that would be a full-screen pass). REACH test + 2 mutations red.
-- NEXT: combined perf re-bench (master tree vs merged tree, harness in `.tmp-gates/bench/`).
+- Bench A (separate page per mode, interleaved master/merged, 8 rounds, real GPU, CPU 31-91 % from other worktrees — noisy):
+  master HIGH−legacy median +1.15 (−0.31..+5.37), LOW +0.43 (−2.25..+2.30) · merged HIGH +0.84 (−0.21..+1.83), LOW +0.86 (−0.90..+2.34).
+  Spread ≫ effect, so a PAIRED in-page bench (B: one page, 6 cycles of legacy/high/low, 2.5 s windows) is running next.
+- NEXT: analyse bench B (`.tmp-gates/bench2/b-*.jsonl`), then screenshots (`.tmp-gates/shots/`), then full gates.
 
 ## FINAL (merge owner: full report is in the agent's hand-back)
 - DONE, all 8 items built (V11 V12 V14 V18 V19 V21 V22 V26). Merge `1469893b` of master `e693dac0` resolved one conflict, in
