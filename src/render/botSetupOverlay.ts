@@ -521,7 +521,7 @@ export class BotSetupOverlay {
      * ⭐ S185 — START MATCH pops like the title screen's buttons. Owner, auditing every screen:
      * *"if you get into versus bots, the start match doesn't [pop out]"* — while explicitly asking
      * to LEAVE the bot-count, race and difficulty chips alone: *"they do kind of change shade, so
-     * that's good … it shouldn't pop out for now."* `makeSmallButton` is therefore untouched.
+     * that's good … it shouldn't pop out for now."* ⭐ S194 SUPERSEDED for the −/+/✕ steppers by the owner's *"the plus and minus button … across the board"*: they now use `attachButtonFeedback` (hover pop, press squash, click). The race / difficulty chips still do not pop (`attachChipHover` never scales).
      *
      * ⚠ The hand-rolled tint pair here is REPLACED rather than extended: it was a look-alike of the
      * shared grammar that had drifted from it — no scale, no press state, and no click SOUND, which
