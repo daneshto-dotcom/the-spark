@@ -15,3 +15,8 @@ Pixi `__PIXI_APP_INIT__` hook + RTCDataChannel tap).
 
 ## Next step
 reconnect-hard-blip grace assessment; teams lobby after deploy #5.
+- LIVE 4-player room by code: PASS (seated 6.9 / 11.2 / 16.3 s per joiner on a loaded box, first snapshot 1.3–2.3 s, ticks lock-step 30 s).
+- LIVE blips (scripts/live-mp/live-blip.mjs): joiner pc.close x3 -> recovered 13.4 / 18.7 / 15.0 s; host pc.close -> 10.6 s;
+  8 s app-layer blackout joiner -> 9.8 s, host -> 10.3 s. No takeover, no terminal overlay sampled. No code change proposed tonight.
+- e2e run 37030899560 (deploy #4) gating red = fog ghost + hunter (not the join path); e2e-lobby lane GREEN.
+Next: teams lobby after deploy #5 (PROTOCOL 65).

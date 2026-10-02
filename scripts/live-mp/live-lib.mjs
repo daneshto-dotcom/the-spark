@@ -19,8 +19,13 @@ export const INIT = (opt = {}) => {
   };
   const tapped = new WeakSet();
   const tap = (ch) => { if (!ch || tapped.has(ch)) return; tapped.add(ch); ch.addEventListener('message', (e) => scan(e.data, 'rx')); };
+  window.__blackoutUntil = 0;
+  const dark = () => performance.now() < window.__blackoutUntil;
+  const omd = Object.getOwnPropertyDescriptor(RTCDataChannel.prototype, 'onmessage');
+  Object.defineProperty(RTCDataChannel.prototype, 'onmessage', { configurable: true, get() { return omd.get.call(this); },
+    set(fn) { tap(this); omd.set.call(this, typeof fn === 'function' ? function (e) { if (dark()) return; return fn.call(this, e); } : fn); } });
   const origSend = RTCDataChannel.prototype.send;
-  RTCDataChannel.prototype.send = function (d) { tap(this); try { scan(d, 'tx'); } catch {} return origSend.call(this, d); };
+  RTCDataChannel.prototype.send = function (d) { if (dark()) return; tap(this); try { scan(d, 'tx'); } catch {} return origSend.call(this, d); };
   const P = RTCPeerConnection.prototype;
   const origCDC = P.createDataChannel;
   P.createDataChannel = function (...a) { const ch = origCDC.apply(this, a); tap(ch); return ch; };
@@ -59,7 +64,7 @@ export async function toCss(page, x, y) {
   }, { x, y });
 }
 
-export async function clickText(page, re, { timeout = 20000 } = {}) {
+export async function clickText(page, re, { timeout = 60000 } = {}) {
   const t0 = Date.now();
   while (Date.now() - t0 < timeout) {
     const t = await texts(page);
