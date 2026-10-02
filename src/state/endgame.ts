@@ -69,22 +69,25 @@ export function monsterFightTicks(wave: number): number {
 
 /**
  * ⭐⭐ S194 R194-17 (HIS, option B) — THE PANTS WINDOW. *"Within that minute … all those pants should be
- * able to be spawned no matter how many."* The wave's `total` = his count × `N` living seats comes out
- * evenly across `windowTicks` from the fight's start: release `r` (0-based; it goes to lane `r mod N`,
- * `tickEndgameSpawner`) is due at `floor((r + 1) × window / total)`. So lane `i`'s pants `k` (1-based) is
- * due at `floor((k − 1 + (i + 1) / N) × window / count)` — the lanes STAGGERED by `window / total`, each
- * lane one pants every `window / count` on average, and the LAST lane's last pants exactly at the
- * window's end (`k = count` → `window`). One at a time: `total < window` on every shipped board (max
- * 6 × 250 = 1500 < 7200), so no two releases share a tick.
+ * able to be spawned no matter how many."* The wave's `total` T = his count × `N` living seats comes out
+ * evenly across the window W, FIRST AT THE WHISTLE and LAST EXACTLY AT THE WINDOW'S END: release `r`
+ * (0-based; it goes to lane `r mod N`, `tickEndgameSpawner`) is due at `floor(r × W / (T − 1))` ticks
+ * after the fight began. So each lane gets one pants every ≈ `W / count` ticks (250 in 120 s: 28.9), the
+ * lanes are STAGGERED by `W / (T − 1)`, and the last lane's last pants lands on `W`.
+ * ⚠ MINE: "from the window's start so the last one emerges at the window's end" read literally — the
+ * divisor is `T − 1`, not `T`, so BOTH ends hold (with `T` the first would wait a spacing, or the last
+ * would come one spacing early). One at a time: `T − 1 < W` on every shipped board (max 6 × 250 = 1500
+ * < 7200), so no two releases share a tick.
  *
- * The count due by `elapsed` is the number of `m = r + 1` in [1, total] with `floor(m × W / T) ≤ e`, i.e.
- * `m × W < (e + 1) × T`, i.e. `m ≤ floor(((e + 1) × T − 1) / W)`. Integer arithmetic only. A seat falling
- * mid-wave shrinks `T`: the formula then dips below what has already come out and the lanes simply wait —
- * it can never produce a burst (R194-2: the fallen seat's un-emerged pants never come).
+ * Due by `elapsed` = #{r ∈ [0, T−1] : floor(r × W / (T−1)) ≤ e} = #{r : r × W < (e+1)(T−1)}
+ * = `floor(((e + 1)(T − 1) − 1) / W) + 1`, capped at T. Integer arithmetic only. A seat falling mid-wave
+ * shrinks T: the formula then dips below what has already come out and the lanes simply wait — it can
+ * never produce a burst (R194-2: the fallen seat's un-emerged pants never come).
  */
 export function monstersDueBy(elapsed: number, living: number, total: number, windowTicks: number): number {
   if (elapsed < 0 || living <= 0 || total <= 0 || windowTicks <= 0) return 0;
-  return Math.min(total, Math.floor(((elapsed + 1) * total - 1) / windowTicks));
+  if (total === 1) return 1;
+  return Math.min(total, Math.floor(((elapsed + 1) * (total - 1) - 1) / windowTicks) + 1);
 }
 
 /** This monster fight's total: his count per LIVING seat × the living seats, now. */

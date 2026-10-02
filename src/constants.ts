@@ -4292,14 +4292,14 @@ export const MONSTER_EMERGE_TICKS = 45;
  * Waves 27 / 28 / 29 / 30 / 31 → **30 / 45 / 60 / 90 / 120 s — ALL HIS.** Each lane spreads its wave's
  * pants EVENLY across the window so its last one comes out at the window's end (`monstersDueBy`), still
  * one at a time, lanes still staggered. It REPLACES `MONSTER_EMERGE_TICKS` as the pace (that constant is
- * retired in place, unread by the sim): at 250 in 120 s a lane releases every **28.8** ticks on average.
+ * retired in place, unread by the sim): at 250 in 120 s a lane releases every ≈ **28.9** ticks (7200 / 249).
  *
  * ⚠ MINE (one line each, reported): (1) the window starts at the FIGHT's start; (2) a wave 27–31 fight now
  * lasts `max(FIGHT_PHASE_TICKS, window + MONSTER_HOLD_LEAD_TICKS)` (`monsterFightTicks`) — 60 / 60 / 70 /
  * 100 / 130 s — so its length is PREDICTABLE, set at the whistle; the old open-ended hold survives only as a
  * safety net (`MONSTER_MAX_LIVE_PER_SEAT` can still make a lane wait); (3) wave 31 stays endless while two
- * seats live — only its EMERGENCE follows the 120 s window; (4) the first pants of a lane comes out one
- * spacing in (window ÷ count), not at the whistle, so the LAST one lands exactly on the window's end.
+ * seats live — only its EMERGENCE follows the 120 s window; (4) the FIRST pants comes out at the whistle
+ * and the LAST exactly at the window's end (spacing window / (total − 1), `monstersDueBy`).
  */
 export const PANTS_WINDOW_SECONDS: Readonly<Record<number, number>> = {
   27: 30,
