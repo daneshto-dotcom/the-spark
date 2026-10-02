@@ -84,6 +84,7 @@ export const ELIMINATION_INTENT_POLICY = {
   // ⭐ S193 (owner T4) — elimination denies standing orders, and a fallen seat has nothing to feed.
   SET_AUTO_FEED: 'deny',
   REPAIR_STRUCTURE: 'deny',
+  FIX_ALL: 'deny', // S193 R192-W1 — FIX ALL is FIX, many times
   SCRAP_STRUCTURE: 'deny',
 
   // ── Offence and disruption. A fallen seat must not be able to decide the match between the

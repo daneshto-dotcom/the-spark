@@ -201,20 +201,22 @@ export function rebuildAuthorityAllocators(world: World): {
   let maxBond = 0;
   for (const id of world.bonds.keys()) if ((id as number) > maxBond) maxBond = id as number;
   /*
-   * ⛔ S189 C2 (audit W-FR1) — AND NEVER BELOW A LIVE TOWER'S `ownBondIdLimit`. A tower's own
-   * connectors are the recipe's bonds with an id BELOW that limit (`towerMembers.ts`), which holds only
-   * while every bond minted after its registration gets an id at or above it. `max(live bond)+1` can
-   * land under the limit — the highest bonds minted before the tower registered may since have been
-   * cut or razed — and the next weld would then count as a connector the tower was BUILT with: a ring
-   * reads a third same-type neighbour and is removed (C2 back), a star gains a spare arm. The limit
+   * ⛔ S189 C2 (audit W-FR1) / S191 — AND NEVER AT OR BELOW A SHAPE A LIVE TOWER IS BUILT OF. A tower's
+   * identity is its `ownPrimitiveIds` (`towerMembers.ts`); its own connectors are the bonds between
+   * those shapes. `max(live shape)+1` can land ON an own id — the highest shapes may since have been
+   * razed while the record still lives (the ≤ 0.5 s before the poll removes a broken tower) — and the
+   * next shape placed would then BE one of the tower's own: a stranger standing in a slot. The set
    * rides the wire, so a promoted successor or a repaired mirror has it.
+   *
+   * ⭐ S191 — the bond floor this replaced (`ownBondIdLimit`) is gone with the watermark: bond ids no
+   * longer carry identity, so `max(live bond)+1` is exact again.
    */
-  let minNextBond = maxBond + 1;
+  let minNextPrim = maxPrim + 1;
   for (const sp of world.creatureSpawners.values()) {
-    if (sp.ownBondIdLimit != null && sp.ownBondIdLimit > minNextBond) minNextBond = sp.ownBondIdLimit;
+    for (const id of sp.ownPrimitiveIds ?? []) if ((id as number) + 1 > minNextPrim) minNextPrim = (id as number) + 1;
   }
   for (const d of world.defenders.values()) {
-    if (d.ownBondIdLimit != null && d.ownBondIdLimit > minNextBond) minNextBond = d.ownBondIdLimit;
+    for (const id of d.ownPrimitiveIds ?? []) if ((id as number) + 1 > minNextPrim) minNextPrim = (id as number) + 1;
   }
   let maxSpark = 0;
   for (const id of world.freeSparks.keys()) if ((id as number) > maxSpark) maxSpark = id as number;
@@ -233,8 +235,8 @@ export function rebuildAuthorityAllocators(world: World): {
   let minSpark = 0;
   for (const id of world.freeSparks.keys()) if ((id as number) < minSpark) minSpark = id as number;
   return {
-    nextPrimitiveId: maxPrim + 1,
-    nextBondId: minNextBond,
+    nextPrimitiveId: minNextPrim,
+    nextBondId: maxBond + 1,
     maxSparkId: maxSpark,
     nextPulledSparkId: minSpark - 1,
     reseed: (roomCode, takeoverTick) => (fnv1a32(roomCode) ^ takeoverTick) >>> 0,

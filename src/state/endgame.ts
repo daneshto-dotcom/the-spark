@@ -165,10 +165,12 @@ type LockPolicy = 'allow' | 'deny';
  *   · PLACE_PRIMITIVE / PLACE_FROM_FREE — a hand-placed shape, and every auto-bond it forms;
  *   · BUILD_BLUEPRINT — a stamped tower;
  *   · PULL_FROM_BANK — ⚠ MINE: a shape out of the keep can no longer be placed, so pulling one would
- *     only strand it in the hand. FIX pays from the bank directly (`planPaymentForTypes`), and FEED
- *     reads the bank directly, so nothing he allowed needs a pull.
- * Everything else is ALLOWED, and three of those are his words: REPAIR_STRUCTURE (*"they can still fix
- * existing towers"*), FEED_TOWER (*"they can build more … goblins"*) and every upgrade / economy verb
+ *     only strand it in the hand. FIX does not need a pull either: since S193 (R191-B) a FIX is a
+ *     gatherer JOB that fetches each shape from the castle bank or the quarry and carries it to the
+ *     tower (`repairJobs.ts`) — and from wave 27 the quarry spawns nothing, so in the endgame a job
+ *     draws on the BANK only. FEED reads the bank directly. Nothing he allowed needs a pull.
+ * Everything else is ALLOWED, and three of those are his words: REPAIR_STRUCTURE and its castle-wide
+ * form FIX_ALL (S193 R192-W1) (*"they can still fix existing towers"*), FEED_TOWER (*"they can build more … goblins"*) and every upgrade / economy verb
  * (*"their towers keep summoning and everything"*).
  */
 export const ENDGAME_LOCK_INTENT_POLICY = {
@@ -177,6 +179,7 @@ export const ENDGAME_LOCK_INTENT_POLICY = {
   BUILD_BLUEPRINT: 'deny',
   PULL_FROM_BANK: 'deny', // ⚠ MINE — see above
   REPAIR_STRUCTURE: 'allow', // HIS — FIX stays
+  FIX_ALL: 'allow', // ⭐ S193 R192-W1 — FIX ALL is FIX for every tower: his "you can fix existing structures"
   SCRAP_STRUCTURE: 'allow', // removing a building creates nothing
   FEED_TOWER: 'allow', // HIS — "they can build more goblins"
   // ⭐ S193 (owner T4) — an auto-build toggle is a standing order for FEED_TOWER, which he allowed; the

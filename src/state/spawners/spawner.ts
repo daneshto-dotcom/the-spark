@@ -83,29 +83,25 @@ export interface CreatureSpawner {
   /** Tick the structure ignited — anchors the post-ignition grace window. */
   readonly ignitedAtTick: number;
   /**
-   * ⭐⭐ S189 C2 (audit W1) — **WHICH CONNECTORS THIS TOWER WAS BUILT WITH.** Every bond whose id is
-   * BELOW this was minted before the tower was registered (`world.nextBondId` at registration); its
-   * own members are the recipe's shape among those. A weld made later — of any type, anywhere — has a
-   * higher id and is never one of them, so it can neither kill the tower nor stand in for a lost own
-   * connector: cut one of the connectors it was built with and it falls (R185-B, *"it destroys the
-   * connectors that he's attacking"*).
+   * ⭐⭐ S189 C2 / S191 R191-A — **THE SHAPES THIS TOWER IS MADE OF**, ascending, the anchor included.
+   * Recorded at registration (ignition is exact, so the shape at the anchor then IS the tower: a star's
+   * hub + every hub neighbour, a ring's exact walk). Its own connectors are the bonds BETWEEN these
+   * shapes, whatever their ids. A weld — any type, anywhere — is never one of these shapes, so it can
+   * neither kill the tower nor stand in for a lost own connector: cut one of the connectors it was built
+   * with and it falls (R185-B, *"it destroys the connectors that he's attacking"*).
    *
-   * ⚠ A BOND ID, NOT A TICK. `ignitedAtTick` looks equivalent and is not: it is stripped from the wire
-   * and re-seeded to each CLIENT's own tick (so every weld would read "older" there and be hidden
-   * under the sprite), and a weld dropped in the frame right after ignition shares its tick.
-   * Bond ids are monotonic, unique, and exact.
+   * ⭐ S191 — PRIMITIVES, NOT A BOND-ID WATERMARK (`ownBondIdLimit`, which SHIPPED on the wire at PROTOCOL 52 in deploy #5 and is replaced here — the merge owner's bump retires it). FIX
+   * re-welds a connector with a NEW bond id, so a watermark read a repaired own connector as a weld and
+   * the tower fell (audit W-FR4). No bond can ever join two EXISTING shapes except a recipe edge
+   * (placement bonds only the shape being placed; FIX re-welds only blueprint edges), so "a bond between
+   * two own shapes" is own by construction. A shape id changes only when FIX re-mints a lost node, and
+   * the FIX reducer records that id here itself (`structureRepair.ts`, R191-A tower FIX).
    *
-   * SERIALIZED (disk, worker INIT AND the wire — the client render walks need it) and HASHED.
-   * `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test then
-   * falls back to the exact shape, the pre-S189 reading.
-   *
-   * ⚠ KNOWN GAP (audit W-FR4, documented, NOT fixed): a connector RE-MADE by FIX inside the ≤ 0.5 s
-   * before the revalidation poll removes a broken tower gets a NEW id (≥ this limit), so it counts as a
-   * weld — the tower still falls at that poll, and the repaired shape re-ignites as a new tower on the
-   * next BUILD-phase topology change. Narrow (FIX is BUILD-only; breaks come from FIGHT damage or a
-   * player's own sever) and it costs a re-ignition, never a wrong survivor.
+   * SERIALIZED (disk, worker INIT AND the wire — the client render walks and the sheets need it) and
+   * HASHED. `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test
+   * then falls back to the exact shape, the pre-S189 reading. Mutable ONLY for the FIX reducer.
    */
-  readonly ownBondIdLimit?: number | null;
+  ownPrimitiveIds?: readonly PrimitiveId[] | null;
   /**
    * ⭐⭐ S193 (owner T4) — **THE GOBLIN TOWER'S AUTO-BUILD TOGGLES**, one bit per shape
    * (`1 << sparkType`). *"right click each of the six shapes … it's like a toggle … whenever there's a
@@ -200,8 +196,8 @@ export function makeSpawner(args: {
   recipeId: GodlyId;
   ignitedAtTick: number;
   nextSpawnTick: number;
-  /** S189 C2 — `world.nextBondId` at registration (see the field). Omitted ⇒ `null` (unknown). */
-  ownBondIdLimit?: number | null;
+  /** S189 C2 / S191 — the tower's own shapes at registration (see the field). Omitted ⇒ `null`. */
+  ownPrimitiveIds?: readonly PrimitiveId[] | null;
 }): CreatureSpawner {
   return {
     id: args.id,
@@ -212,7 +208,7 @@ export function makeSpawner(args: {
     lastValidatedTick: args.ignitedAtTick,
     spawnedCount: 0,
     ignitedAtTick: args.ignitedAtTick,
-    ownBondIdLimit: args.ownBondIdLimit ?? null,
+    ownPrimitiveIds: args.ownPrimitiveIds == null ? null : [...args.ownPrimitiveIds].sort((a, b) => a - b),
     // ⭐ S193 (T4) — a new tower starts with every auto-build toggle OFF (⚠ MINE).
     autoFeedMask: 0,
     autoFeedCursor: 0,

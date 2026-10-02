@@ -225,6 +225,8 @@ import { VOLTKINS_PER_TV } from './state/voltkinTv.ts';
 import {
   STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
 } from './render/structureBarHealth.ts';
+// S193 R191-B / R192-W1 — the FIX job queue (canon §8 / §3d).
+import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -304,7 +306,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(60);
+    expect(PROTOCOL_VERSION).toBe(61);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1153,7 +1155,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 59 -> 60');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 60 -> 61');
+    expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
@@ -1345,6 +1348,25 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(Math.ceil(trigger / 12)).toBe(3);
     expect(Math.ceil(trigger / 7)).toBe(5);
     expect(canonSays('(banked 50 of a 50 pool) to "below a third" (banked 34)')).toBe(true);
+  });
+
+  /**
+   * ⭐ S193 R191-B / R192-W1 — FIX is a gatherer job; the castle's FIX ALL. Every number the canon prints
+   * for it is read off its constant here, and the superseded "NEED 1 MORE" button cannot come back.
+   */
+  it('§8 records R191-B (FIX is a gatherer job) and §3d the FIX ALL row, with their numbers', () => {
+    expect(REPAIR_JOBS_MAX_PER_SEAT).toBe(32);
+    expect(canonSays(`at most **${REPAIR_JOBS_MAX_PER_SEAT}** jobs a seat (\`REPAIR_JOBS_MAX_PER_SEAT\`)`)).toBe(true);
+    expect(REPAIR_JOB_REPLAN_TICKS).toBe(15);
+    expect(canonSays(`re-plans every **${REPAIR_JOB_REPLAN_TICKS}** ticks (\`REPAIR_JOB_REPLAN_TICKS\``)).toBe(true);
+    expect(canonSays('R191-B (S191, built S193) — FIX IS A GATHERER JOB')).toBe(true);
+    expect(canonSays('No shape anywhere → it waits')).toBe(true);
+    expect(canonSays('bank, FIX now reads `NEED 1 MORE`.')).toBe(false);
+    expect(CASTLE_ROW_KEYS[0]).toBe('fixAll');
+    expect(canonSays('(`CASTLE_ROW_KEYS[0]` = `fixAll`')).toBe(true);
+    // §7b — R185-B as amended; §9d item 3 — the one pricing.
+    expect(canonSays('R191-A (S191) AMENDS IT: EACH TOWER IN A WELD IS STILL A TOWER.')).toBe(true);
+    expect(canonSays('recipe pool, 0 once an own connector is gone')).toBe(true);
   });
 
   it('§8 records that a dent costs ONE shape, and the fee is still derived', () => {
