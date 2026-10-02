@@ -55,6 +55,7 @@ import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
 import { zoneOf, zoneOwner } from '../zones.ts';
 import { monsterVictimSeat } from '../endgame.ts';
+import { creatureCanTarget } from '../stats.ts';
 
 /**
  * S100 P1 (TD Phase 1a) — avalanche-mix two uint32s into one (murmur3-finalizer shape). Used by the
@@ -1363,6 +1364,16 @@ export function killableDefenderInReach(
   creature: Creature,
   reach: number,
 ): DefenderId | null {
+  /*
+   * ⭐⭐ S194 (T8, owner D) — HELGA IS A UNIT (R77), SO A STRUCTURES-ONLY CREATURE NEVER REACHES HER.
+   * *"they only target … buildings, towers, and connectors. And … free shapes. That's their whole
+   * point."* — owner, S194, on the pencil chewer and the lightning drone. Measured before this line
+   * (`chewerDroneTargets.test.ts`): a chewer beside an enemy Helga spent its bites on HER (4 × 7 fifths
+   * in 900 ticks) and a drone struck her 14 × 30 — this arm runs above the bond arm in
+   * `applyCreatureAttack`, and its engage term put both into ATTACKING. Gated HERE, once, so all seven
+   * readers (engage, re-validation, the fire clause, the strike arm, both retaliation scans) agree.
+   */
+  if (!creatureCanTarget(creature.type, 'units')) return null;
   let best: DefenderId | null = null;
   for (const d of world.defenders.values()) {
     if (sameTeam(world, d.ownerPlayerId, creature.ownerPlayerId)) continue; // enemy-only, like every other target

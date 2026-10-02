@@ -66,6 +66,8 @@ import {
   joinRoom,
   dragSparkTo,
   placeFreeSparkAndConfirm,
+  pullFromBank,
+  isPorchSpark,
   readWorldState,
   readLobbyStatus,
   waitForWorld,
@@ -133,6 +135,14 @@ async function disableFogOn(ctx: BrowserContext): Promise<void> {
   });
 }
 
+/**
+ * ⭐ S194 (T8) — the whole-test budget for a two-peer spec that BUILDS. A build now waits on the
+ * economy (`pullFromBank`: a gatherer hauls a shape home, budgeted in SIM ticks, up to 30 s of game)
+ * on top of the two-peer connect; the default 60 s test cap was spent before the first shape arrived.
+ * 240 s = `worker-duel.spec.ts`'s budget for the same two-page build. ⚠ MINE.
+ */
+const TWO_PEER_BUILD_BUDGET_MS = 240_000;
+
 async function open2Peers(browser: import('@playwright/test').Browser): Promise<{
   hostCtx: BrowserContext; hostPage: Page;
   joinerCtx: BrowserContext; joinerPage: Page;
@@ -186,6 +196,7 @@ test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phas
 
 test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2) @quarantine-flaky', () => {
   test('Joiner LMB-drag-release places primitive at release position', async ({ browser }) => {
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS); // ⭐ S194 — see the constant
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -197,14 +208,16 @@ test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2) @qua
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
 
-      // Wait for free sparks to be present (spawner has been running).
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 3, 'sparks spawned on joiner', 10_000);
-
+      // ⭐ S194 (T8) — PORTED TO THE S136 SHAPE SOURCE. This spec was written when the player dragged
+      // shapes straight out of the quarry ring; since S136 a player may only grab a shape standing on HIS
+      // OWN PORCH (`isPorchSpark` — pulled from the castle bank), and gatherers haul the quarry's free
+      // sparks away, so `freeSparks.length >= N` + a quarry drag measured a mechanic that no longer
+      // exists (it failed locally EVERY run, not intermittently). `placeFreeSparkAndConfirm` is the
+      // shipped path every gating builder uses: pull from the bank, drag the porch shape, confirm.
       const beforeCount = (await readWorldState(joinerPage)).primitives.length;
 
-      // Joiner drags a spark from the spawner zone to (1500, 400).
-      const sparkId = await dragSparkTo(joinerPage, 1500, 400);
-      expect(sparkId).not.toBeNull();
+      // Joiner drags its porch shape to (1500, 400) and releases — ONE action.
+      await placeFreeSparkAndConfirm(joinerPage, 1500, 400);
 
       // After LMB-up, joiner snapshot should show a new BLUE primitive at ~(1500, 400).
       await waitForWorld(
@@ -223,6 +236,7 @@ test.describe('Sym A — joiner single-action LMB-place (GREEN post-S46 P2) @qua
 
 test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-prediction parity) @quarantine-flaky', () => {
   test('Joiner dragged spark tracks the cursor mid-drag (not frozen at spawn)', async ({ browser }) => {
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS); // ⭐ S194 — see the constant
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -238,16 +252,19 @@ test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-predicti
       const j0 = await readWorldState(joinerPage);
       expect(j0.isHost).toBe(false);
 
-      // Find a Free spark inside the spawner pick-zone on the joiner.
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 3, 'sparks on joiner', 10_000);
-      const SPAWN_CX = CANVAS_WIDTH / 2;
-      const SPAWN_CY = CANVAS_HEIGHT / 2;
-      const picked = (await readWorldState(joinerPage)).freeSparks.find((s) => {
-        const dx = s.pos.x - SPAWN_CX;
-        const dy = s.pos.y - SPAWN_CY;
-        return s.state.kind === 'Free' && dx * dx + dy * dy < 200 * 200;
-      });
-      expect(picked, 'a Free spark exists in the joiner spawner zone').toBeTruthy();
+      // ⭐ S194 (T8) — PORTED TO THE S136 SHAPE SOURCE. This spec was written when the player dragged
+      // shapes straight out of the quarry ring; since S136 a player may only grab a shape standing on HIS
+      // OWN PORCH (`isPorchSpark` — pulled from the castle bank), and gatherers haul the quarry's free
+      // sparks away, so `freeSparks.length >= N` + a quarry drag measured a mechanic that no longer
+      // exists (it failed locally EVERY run, not intermittently). `placeFreeSparkAndConfirm` is the
+      // shipped path every gating builder uses: pull from the bank, drag the porch shape, confirm.
+      // (Here the porch shape is pulled and dragged by hand, because the proof is the HELD state.)
+      await pullFromBank(joinerPage);
+      await waitForWorld(joinerPage, (w) => w.freeSparks.some(isPorchSpark), 'a porch shape on the joiner', 15_000);
+      const picked = (await readWorldState(joinerPage)).freeSparks.find(isPorchSpark);
+      expect(picked, 'a porch shape exists on the joiner').toBeTruthy();
+      const SPAWN_CX = picked!.pos.x; // the drag's start — "away from where it was picked up"
+      const SPAWN_CY = picked!.pos.y;
       const sparkId = picked!.id;
 
       // Begin AttractDrag: press on the spark and drag toward (1500, 400)
@@ -301,6 +318,7 @@ test.describe('Sym G — joiner AttractDrag live-follow (S56 P1: client-predicti
 
 test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4) @quarantine-flaky', () => {
   test('Joiner can bond own primitives', async ({ browser }) => {
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS); // ⭐ S194 — see the constant
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -311,13 +329,18 @@ test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4) @quarantine-
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 5, 'sparks spawned');
+      // ⭐ S194 (T8) — PORTED TO THE S136 SHAPE SOURCE. This spec was written when the player dragged
+      // shapes straight out of the quarry ring; since S136 a player may only grab a shape standing on HIS
+      // OWN PORCH (`isPorchSpark` — pulled from the castle bank), and gatherers haul the quarry's free
+      // sparks away, so `freeSparks.length >= N` + a quarry drag measured a mechanic that no longer
+      // exists (it failed locally EVERY run, not intermittently). `placeFreeSparkAndConfirm` is the
+      // shipped path every gating builder uses: pull from the bank, drag the porch shape, confirm.
 
       // Place 1st blue prim at (1500, 400).
-      await dragSparkTo(joinerPage, 1500, 400);
+      await placeFreeSparkAndConfirm(joinerPage, 1500, 400);
       await waitForWorld(joinerPage, (w) => w.primitives.some((p) => p.placerColor === 0x3bd7ff), 'joiner placed 1st blue prim');
       // Place 2nd blue prim at (1530, 410) — should bond to 1st (within AUTO_BOND_RADIUS=60).
-      await dragSparkTo(joinerPage, 1530, 410);
+      await placeFreeSparkAndConfirm(joinerPage, 1530, 410);
       // Assert: a bond exists between two BLUE prims.
       await waitForWorld(
         joinerPage,
@@ -335,8 +358,22 @@ test.describe('Sym C — joiner self-bond (GREEN post-S46 P2+P3+P4) @quarantine-
   });
 });
 
-test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-flaky', () => {
-  test('Cross-color bond attempt is silently rejected', async ({ browser }) => {
+/**
+ * ⛔ S194 (T8) — VERDICT: UNCONSTRUCTIBLE IN PLAY, so `test.fixme` (the Sym E precedent), NOT deleted.
+ *
+ * Red on every quarantine run. Measured locally after porting both placements to the S136 porch
+ * (`placeFreeSparkAndConfirm`): the joiner's blue shape lands at (1500, 400); the HOST's red one at
+ * (1520, 410) is refused 4 attempts out of 4 (BUILD, tick 2610, porch shape in hand) — it is inside
+ * the JOINER's zone, and since the zone / edge placement rules (canon §4b) no seat can put a shape
+ * next to an enemy's at all. So the cross-colour adjacency this spec needs cannot be built through the
+ * UI, and the `__TEST_TERRITORY_BASE_RADIUS__ = 0` seam it relies on no longer opens the door. The
+ * invariant itself (no cross-colour bond) is pinned at the reducer by `src/state/world.test.ts`
+ * ("S46 P3 Sym D + S49 Sym F — enemy cannot place inside P1 territory (no cross-color bond)").
+ * Kept as a fixme so the lane stops paying ~2 minutes a run for a guaranteed red.
+ */
+test.describe('Sym D — color-segregated bonds (UNCONSTRUCTIBLE since the zone rules — see the block above) @quarantine-flaky', () => {
+  test.fixme('Cross-color bond attempt is silently rejected', async ({ browser }) => {
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS); // ⭐ S194 — see the constant
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -358,14 +395,19 @@ test.describe('Sym D — color-segregated bonds (GREEN post-S46 P3) @quarantine-
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 5, 'sparks spawned');
+      // ⭐ S194 (T8) — PORTED TO THE S136 SHAPE SOURCE. This spec was written when the player dragged
+      // shapes straight out of the quarry ring; since S136 a player may only grab a shape standing on HIS
+      // OWN PORCH (`isPorchSpark` — pulled from the castle bank), and gatherers haul the quarry's free
+      // sparks away, so `freeSparks.length >= N` + a quarry drag measured a mechanic that no longer
+      // exists (it failed locally EVERY run, not intermittently). `placeFreeSparkAndConfirm` is the
+      // shipped path every gating builder uses: pull from the bank, drag the porch shape, confirm.
 
       // Joiner places a blue prim at (1500, 400).
-      await dragSparkTo(joinerPage, 1500, 400);
+      await placeFreeSparkAndConfirm(joinerPage, 1500, 400);
       await waitForWorld(joinerPage, (w) => w.primitives.some((p) => p.placerColor === 0x3bd7ff && Math.abs(p.pos.x - 1500) < 50), 'blue prim placed');
       // Host attempts to place red prim at (1520, 410) — close enough to bond.
       // After P3 (color-segregation), should place anchor (no bond) instead of cross-color bond.
-      await dragSparkTo(hostPage, 1520, 410);
+      await placeFreeSparkAndConfirm(hostPage, 1520, 410); // ⭐ S194 — the host's shape off ITS porch too
       await waitForWorld(hostPage, (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 1520) < 50), 'red prim placed');
 
       // Assert: NO bond between any RED prim and any BLUE prim.

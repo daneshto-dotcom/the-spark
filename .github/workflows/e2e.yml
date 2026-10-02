@@ -231,6 +231,8 @@ jobs:
   # `src/ci.e2eLanes.test.ts` pins the tag → job → script mapping.
   # ⛔ S193 — 9/12 → 11/20. The spec's wall backstops are now derived from its tick budgets at the slowest
   # CI rate measured (6 ticks/s, run 36867560496), so its test budget is 590 s (no retries): 11 min holds it,
+  # ⭐ S194 (T8) — 11/20 → 12/20: the assumed slowest rate went 6 → 5 ticks/s (6 was AT the 6.12 measured,
+  # no margin), so the derived budget is 90 + 360 + 240 = 690 s, which 11 min (660 s) no longer holds.
   # and the runner keeps ≥ 8 min above Playwright for checkout + npm ci + browser install (7.5 min measured).
   e2e-worker-bots:
     runs-on: ubuntu-latest
@@ -239,7 +241,7 @@ jobs:
       # ⛔ Below timeout-minutes, set HERE (Council, S191): Playwright must end an overrun and flush its
       # report. If the runner's cap fires first the job concludes `cancelled` — no failure, no email, no
       # artifacts — which is the silent non-signal this file documents three times over.
-      PW_GLOBAL_TIMEOUT_MIN: 11
+      PW_GLOBAL_TIMEOUT_MIN: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -313,14 +315,18 @@ jobs:
   #
   # Post-split this lane is ~25 tests / ~1.6m locally, so 18m is deliberate headroom for
   # a 2-core SwiftShader runner (observed ~3-5× slower than local).
+  # ⭐ S194 (T8) — 12/18 → 15/23. Green runs take 8.9–10.5 min of the 12 (runs 36929138050 …
+  # 36979950077), so ONE retried flake pushes the lane over: deploy #22 (run 36976244366) died at
+  # "Timed out waiting 720s" with 61 passed, 3 flaky, 7 never run. 15 min gives a green run ~4.5 min
+  # for retries; the runner keeps the 8 min above Playwright the other lanes keep.
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 23
     env:
       # MUST stay strictly below timeout-minutes so PLAYWRIGHT ends an overrun, not the
       # runner — that is what flushes reporters and writes playwright-report/. See the
       # long note in playwright.config.ts.
-      PW_GLOBAL_TIMEOUT_MIN: 12
+      PW_GLOBAL_TIMEOUT_MIN: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v6

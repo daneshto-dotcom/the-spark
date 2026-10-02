@@ -4236,8 +4236,8 @@ export const MONSTER_FINAL_WAVE = 31;
  * Monsters per LIVING player, by wave — ⭐ ALL FIVE ARE HIS (S193, `S193_OWNER_ENDGAME_ANSWERS.md` Q1):
  * *"it should be 10, 25, 50, 100, and 250. That way, nobody can really beat 250 at wave 31."*
  * (Replaces the S192 build's 10/25/35/50/75, whose 29 and 31 were mine.)
- * ⚠ MINE (S193 audit, kept as is): WHEN A SEAT FALLS, ITS UN-EMERGED PANTS ARE DROPPED — the wave's total
- * becomes this count × the LIVING seats (`monsterWaveTotal`); its pants already out retarget to the survivors.
+ * ⭐ HIS (S194): WHEN A SEAT FALLS, ITS UN-EMERGED PANTS STOP COMING and its pants already out keep attacking
+ * (they retarget to the survivors); each survivor still gets this full count (`monsterLaneSeats`).
  */
 export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
   27: 10,

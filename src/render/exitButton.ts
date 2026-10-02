@@ -57,11 +57,16 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import { attachButtonFeedback } from './buttonFeedback.ts';
+// ⭐ S194 T5 — the shared skin: still glass in the plate, a hover sheen, icons — all inside each hit rect.
+import { skinIcon, skinPanelFx } from './uiSkin.ts';
+import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 
 /** Must stay < PROGRESS_X (1882) - the rail runs y=80..988 down the right edge. */
 export const EXIT_RIGHT_LIMIT = 1876;
 export const EXIT_BTN_W = 168;
 export const EXIT_BTN_H = 34;
+/** ⭐ S194 T5 — the door icon's centre inside the exit plate (button-local px). */
+const EXIT_ICON_CX = 18;
 
 /*
  * S165 (owner: "back to main covering the player two castle") - MOVED LEFT, OFF SEAT 1'S KEEP.
@@ -179,16 +184,19 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
     .roundRect(3, 3, EXIT_BTN_W, EXIT_BTN_H, 8)
     .fill({ color: 0x000000, alpha: 0.45 })
     .roundRect(0, 0, EXIT_BTN_W, EXIT_BTN_H, 8)
-    .fill({ color: PLATE, alpha: 0.92 })
-    .stroke({ width: 2, color: 0xcfe8ff, alpha: 0.85 });
+    .fill({ color: PLATE, alpha: 0.92 });
+  skinStaticPlate(btnBg, { x: 0, y: 0, w: EXIT_BTN_W, h: EXIT_BTN_H }, 0xcfe8ff, 8);
+  skinIcon(btnBg, 'exit', EXIT_ICON_CX, EXIT_BTN_H / 2, 16, 0xcfe8ff, 0.9);
+  btnBg.roundRect(0, 0, EXIT_BTN_W, EXIT_BTN_H, 8).stroke({ width: 2, color: 0xcfe8ff, alpha: 0.85 });
   btn.addChild(btnBg);
   const btnText = new Text({
     text: EXIT_BTN_LABEL,
     style: new TextStyle({ fontFamily: 'monospace', fontSize: 15, fill: 0xcfe8ff, letterSpacing: 1 }),
   });
   btnText.anchor.set(0.5);
-  btnText.position.set(EXIT_BTN_W / 2, EXIT_BTN_H / 2);
+  btnText.position.set(EXIT_BTN_W / 2 + 10, EXIT_BTN_H / 2);
   btn.addChild(btnText);
+  attachHoverSheen(btn, { x: 0, y: 0, w: EXIT_BTN_W, h: EXIT_BTN_H }, 8);
   root.addChild(btn);
 
   /* ── the confirm modal ──────────────────────────────────────────────────── */
@@ -204,8 +212,9 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
   const panel = new Graphics();
   panel
     .roundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 14)
-    .fill({ color: PLATE, alpha: 0.98 })
-    .stroke({ width: 2, color: 0xcfe8ff, alpha: 0.9 });
+    .fill({ color: PLATE, alpha: 0.98 });
+  skinPanelFx(panel, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 0xcfe8ff, 0, 14);
+  panel.roundRect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H, 14).stroke({ width: 2, color: 0xcfe8ff, alpha: 0.9 });
   modal.addChild(panel);
 
   const title = new Text({
@@ -224,21 +233,23 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
   body.position.set(CANVAS_WIDTH / 2, PANEL_Y + 100);
   modal.addChild(body);
 
-  const modalBtn = (label: string, color: number, x: number, onClick: () => void): Container => {
+  const modalBtn = (label: string, color: number, x: number, onClick: () => void, icon: 'exit' | 'play'): Container => {
     const c = new Container();
     c.position.set(x, MODAL_BTN_Y);
     const bg = new Graphics();
-    bg.roundRect(0, 0, MODAL_BTN_W, MODAL_BTN_H, 10)
-      .fill({ color: 0x1e1e1e, alpha: 0.95 })
-      .stroke({ width: 2, color, alpha: 0.9 });
+    bg.roundRect(0, 0, MODAL_BTN_W, MODAL_BTN_H, 10).fill({ color: 0x1e1e1e, alpha: 0.95 });
+    skinStaticPlate(bg, { x: 0, y: 0, w: MODAL_BTN_W, h: MODAL_BTN_H }, color, 10);
+    skinIcon(bg, icon, 28, MODAL_BTN_H / 2, 20, color, 0.9);
+    bg.roundRect(0, 0, MODAL_BTN_W, MODAL_BTN_H, 10).stroke({ width: 2, color, alpha: 0.9 });
     c.addChild(bg);
     const t = new Text({
       text: label,
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fill: color }),
     });
     t.anchor.set(0.5);
-    t.position.set(MODAL_BTN_W / 2, MODAL_BTN_H / 2);
+    t.position.set(MODAL_BTN_W / 2 + 12, MODAL_BTN_H / 2);
     c.addChild(t);
+    attachHoverSheen(c, { x: 0, y: 0, w: MODAL_BTN_W, h: MODAL_BTN_H }, 10);
     attachButtonFeedback(c, bg, onClick, {
       hit: { x: 0, y: 0, w: MODAL_BTN_W, h: MODAL_BTN_H },
     });
@@ -252,8 +263,8 @@ export function makeExitButton(app: Application, onConfirmLeave: () => void): Ex
   const leaveBtn = modalBtn('Leave match', DANGER, LEAVE_BTN_X, () => {
     closeConfirm();
     onConfirmLeave();
-  });
-  const keepBtn = modalBtn('Keep playing', SAFE, KEEP_BTN_X, closeConfirm);
+  }, 'exit');
+  const keepBtn = modalBtn('Keep playing', SAFE, KEEP_BTN_X, closeConfirm, 'play');
   modal.addChild(leaveBtn);
   modal.addChild(keepBtn);
   root.addChild(modal);

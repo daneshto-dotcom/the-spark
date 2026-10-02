@@ -292,9 +292,20 @@ describe('S151 P2 — the targeting matrix is ONE table (owner R72)', () => {
     expect(creatureCanTarget('chewer', 'units')).toBe(false);
   });
 
-  it.each(['goblinMelee', 'voltkin', 'lightningDrone'] as const)('%s attacks BOTH', (type) => {
+  it.each(['goblinMelee', 'voltkin'] as const)('%s attacks BOTH', (type) => {
     expect(creatureCanTarget(type, 'units')).toBe(true);
     expect(creatureCanTarget(type, 'structures')).toBe(true);
+  });
+
+  /**
+   * ⭐ S194 — RE-PINNED, NOT SILENCED. R72 said *"lightning drones can do both"*; in S194 he ruled the
+   * other way for the drone and the chewer together: *"they only target … buildings, towers, and
+   * connectors. And … free shapes. That's their whole point."* The later ruling governs. Behaviour:
+   * `creatures/chewerDroneTargets.test.ts` (it struck Helga, a unit, until this flipped).
+   */
+  it("LIGHTNING DRONES attack STRUCTURES only (S194, superseding R72's 'both')", () => {
+    expect(creatureCanTarget('lightningDrone', 'structures')).toBe(true);
+    expect(creatureCanTarget('lightningDrone', 'units')).toBe(false);
   });
 
   /**

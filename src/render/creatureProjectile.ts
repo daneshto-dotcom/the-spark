@@ -52,7 +52,7 @@ import { sameTeam } from '../state/teams.ts';
 import type { Creature, CreatureType } from '../state/creatures/creature.ts';
 import { liftOf } from './creatureLift.ts';
 import { bondMidpoint, distSq } from '../state/creatures/creatureAI.ts';
-import { isUntargetable } from '../state/creatures/creature.ts';
+import { isUntargetable, ragedFireTick } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
 import type { Vec2 } from '../types.ts';
 import { fxActive, fxTop, fxTopShade } from './fx/fxState.ts';
@@ -108,13 +108,31 @@ export function resolveProjectileImpact(world: World, c: Creature): ProjectileSh
   return resolveShotIn(world, c, true);
 }
 
+/**
+ * ⭐ S194 (T8) — THE TICK THE SHOT LANDS ON IS THE TICK THE SIM STRIKES ON, RAGED OR CALM.
+ *
+ * The host's fire check (`hostTick`) compares `ticksInState` against
+ * `ragedFireTick(attackFireTick, c)` — halved (30 → 15) while the cycle's rage latch
+ * `attackCycleRaged` is set. This file read the bare `attackFireTick`, so under rage the arrow flew
+ * on the calm clock: it landed at 30, a tick the halved cycle (cadence 30) never shows in ATTACKING,
+ * so the picture showed no landing at all while the sim struck at 15. Read through the SAME helper so
+ * the two can never drift again.
+ *
+ * ⚠ LATENT IN PRODUCTION TODAY: the only kinds that throw something are the goblin archer and bat
+ * rider, and goblins never rage (S187 ruling; `isOrcRacialCreatureType`). Fixed anyway, because the
+ * day a ranged unit can rage this must not be the clock that forgot. Render-only: no wire, no hash.
+ */
+export function projectileFireTick(c: Creature): number {
+  return ragedFireTick(getCreatureConfig(c.type).attackFireTick, c);
+}
+
 function resolveShotIn(world: World, c: Creature, impact: boolean): ProjectileShot | null {
   const kind = PROJECTILE_BY_TYPE[c.type];
   if (kind === undefined) return null;
   if (c.state !== 'ATTACKING') return null;
 
   const config = getCreatureConfig(c.type);
-  const fireTick = config.attackFireTick;
+  const fireTick = projectileFireTick(c);
   const start = fireTick - ARROW_FLIGHT_TICKS;
   if (impact) {
     if (c.ticksInState <= fireTick || c.ticksInState > fireTick + PROJECTILE_IMPACT_TICKS) return null;
@@ -373,7 +391,7 @@ export function syncCreatureProjectiles(g: Graphics, world: World): void {
     // the tick the shot landed on (`world.tick − (ticksInState − fireTick)`), so one puff per shot.
     const hit = resolveProjectileImpact(world, c);
     if (hit === null) continue;
-    const landed = world.tick - (c.ticksInState - getCreatureConfig(c.type).attackFireTick);
+    const landed = world.tick - (c.ticksInState - projectileFireTick(c)); // S194 — the raged fire tick too
     projectileImpactFx(fxTop(), fxTopShade(), hit.to.x, hit.to.y, hit.t, hit.flaming, fxSeed(c.id as unknown as number, landed));
   }
 }

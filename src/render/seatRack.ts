@@ -36,6 +36,8 @@ import { RACE_BANNER_SRC, seatRaceLabel } from './raceBanners.ts';
 import type { RaceId } from '../state/races.ts';
 import { teamChipLabel } from '../state/teams.ts';
 import { teamChipColor } from './teamChip.ts';
+// ⭐ S194 — your own seat (the race-picker opener) answers the pointer like every other button.
+import { attachChipHover } from './uiSkinButton.ts';
 
 const EMPTY_OUTLINE = 0x555555;
 const EMPTY_GLYPH = 0x777777;
@@ -247,6 +249,7 @@ export function makeSeatRack(
      * That gating is also what let the label drop its `(you)` marker — the clickable tile IS the
      * marker.
      */
+    attachChipHover(cell, null, { x: 0, y: 0, w: SEAT_W, h: SEAT_H }, CORNER, () => cell.eventMode === 'static');
     cell.on('pointertap', () => {
       if (cell.eventMode === 'static') onSeatClick?.(i);
     });
