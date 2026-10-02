@@ -1,3 +1,25 @@
+**⏸ PAUSED (owner session limit) during the T10 AUDIT fix round. Resume here.**
+
+## NEXT STEP (exact)
+Re-run `npm run e2e:gating` on this worktree's own port (`> .tmp-gates/a-e2e.log 2>&1; echo $? > .tmp-gates/a-e2e.exit`).
+It was STOPPED by the pause at 13 tests passed, 0 failed, so it has no verdict yet. After that: optionally retake the
+screenshots (`node .tmp-gates/shots.mjs` against `npx vite --port 31947`) to show the labelled WAVE BY WAVE axis, then
+the final report.
+- Audit items DONE and committed in `3ca9cdea` (merged master `edce64ba` first, no conflicts):
+  - MED-1: MONSTERS seat, and a who-hit-whom grid whose rows sum to DEALT and columns to TAKEN.
+  - LOW-1: HELL, radial clears and the Pharaoh ritual end are recorded; self-detonations are recorded as neither.
+  - LOW-3: the ledger axis now has DEALT/TAKEN labels.
+  - LOW-2: 60-wave wire pin.
+  - MINE #2 wording corrected.
+- NOTHING half-done in source.
+- GATES LAST RUN on `3ca9cdea`:
+  - typecheck **0**
+  - vitest **0**: 529 files / 7,995 tests passed, 4 files / 11 tests skipped
+  - build **0**: entry 1136.0 KiB, headroom 114.0; lazy chunk 29.03 kB / 11.04 kB gzip
+  - e2e:gating: **INTERRUPTED** (13 ok, 0 failed when stopped)
+- Entry delta against the NEW master was NOT measured (master grew; S194 pre-audit delta was +1.9 KiB vs 1121.9).
+- No background processes left running (playwright, its vite on 25283, esbuild and worker stopped by PID).
+
 **STATUS: DONE (awaiting merge) — S194 T10 `s194/matchboard` (END-OF-MATCH STAT BOARD v2).**
 
 # S194 T10 — FINAL REPORT (top of file, per S194_AGENT_RULES)
