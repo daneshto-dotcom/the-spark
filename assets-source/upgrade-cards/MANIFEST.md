@@ -31,6 +31,19 @@ for "seven per level"; it is **four generals plus six racials per level**.
 | 2 | `general-def.png` | L5, L25 … | left | ARMOURED |
 | 3 | `general-atk.png` | L10, L30 … | left | STRONGER |
 | 4 | `general-pen.png` | L15, L35 … | left | PIERCING |
+| 4b | `general-mres.png` | **L25 only** (wave 26, the last draft) | left | WARDED |
+
+⚠ **S193 — `general-mres.png` IS NOT MADE YET.** R192-D1 (*"we'll need to make his own art as well"*). The
+S193 `imagen_generate` call returned **404 on every Imagen model** the gcp-vertex server offers
+(`imagen-4.0-{generate,fast-generate,ultra-generate}-001`, also `-preview-06-06` and `imagen-3.0-generate-002`
+— `generativelanguage.googleapis.com/v1beta …:predict` "not found"), so no image was generated and nothing was
+spent. Until it lands the tile shows its text title (`GENERAL_CARDS_AWAITING_ART` in `draftOverlay.ts`).
+When it lands: drop the PNG here, add `general-mres` to `CARDS` in `build-upgrade-cards.py`, set
+`COPY.mres.card = 'general-mres'`, empty `GENERAL_CARDS_AWAITING_ART`, and move the canon's card count
+(`canon.test.ts` counts `GENERAL_TRACK.length + RACIAL_PERK_IDS.length` webps — it becomes `GENERAL_PICKS`).
+Brief used (original, the general cards' look): *bold hand-inked comic style, thick black outlines, cream
+brush lettering "WARDED" in the top band; an iron-rimmed rune buckler inside a turquoise ward bubble, green-violet
+sorcery bolts shattering against it; deep teal / midnight-blue ground.*
 
 ### Level 0 racials — all six ruled
 

@@ -46,3 +46,22 @@ let displaceHook: FxDisplaceSink | null = null;
 export function setFxDisplaceHook(h: FxDisplaceSink | null): void { displaceHook = h; }
 /** The directional ground ripple (HIGH only). A no-op sink when inactive or not installed. */
 export function fxDisplace(): FxDisplaceSink { return hooks !== null && !legacy && displaceHook !== null ? displaceHook : NULL_DISPLACE; }
+
+/*
+ * ⭐ S194 visuals-3 — THE HEAT HAZE, the second user of the displacement mechanism (audit S193 L-fold).
+ * The SCORCHED GROUND shimmer used to own its own `DisplacementFilter` + noise map inside
+ * `zoneBackgroundRenderer`; it now asks `fxRuntime` for one, beside the V10 ripple, so ONE module owns
+ * every ground distortion: one HIGH-only gate, one legacy switch, one clear path. A hook of its own, like
+ * `fxDisplace`, so no existing `setFxHooks` caller moves.
+ */
+/** Anything the haze filter can sit on (a zone backdrop sprite). Structural, so this file imports no Pixi. */
+export interface FxHazeTarget { filters: unknown; destroyed: boolean }
+export interface FxHazeSink {
+  /** Shimmer `target` this frame (HIGH only). Not asked this frame → its haze comes off at frame end. */
+  haze(target: FxHazeTarget, tick: number): void;
+}
+export const NULL_HAZE: FxHazeSink = { haze() { /* nothing installed, legacy, or LOW */ } };
+let hazeHook: FxHazeSink | null = null;
+export function setFxHazeHook(h: FxHazeSink | null): void { hazeHook = h; }
+/** The heat haze (HIGH only). A no-op sink when inactive or not installed. */
+export function fxHaze(): FxHazeSink { return hooks !== null && !legacy && hazeHook !== null ? hazeHook : NULL_HAZE; }

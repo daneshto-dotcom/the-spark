@@ -760,6 +760,11 @@ interface SerializedCreature {
    */
   readonly atkFifths?: number;
   /**
+   * ⭐ S193 (R192-D1) — this creature's drafted MAGIC-DEFENDED pool (the wave-26 MRES card), a BIRTH
+   * property for the `atkFifths` reason. Absent = no MRES pick: the rescale reads `5+DEF` / `5+MRES`.
+   */
+  readonly mresFifths?: number;
+  /**
    * S58 (#3) — owning player. Additive-optional (pre-S58 NetSnapshots omit it;
    * `deserializeCreature` rehydrates as 0 via nullish-coalescing). Pre-S58 this
    * was DELIBERATELY omitted ("host runs FSM, client only renders") — fog-of-war
@@ -2481,6 +2486,8 @@ function serializeCreature(c: Creature): SerializedCreature {
     // ⭐ S188 (draft-atk) — the baked strike, only when a drafted ATK/PEN pick moved it. Unbuffed
     // creatures stay byte-identical to every prior save.
     ...(c.atkFifths !== undefined ? { atkFifths: c.atkFifths } : {}),
+    // ⭐ S193 (R192-D1) — the drafted magic-defended pool, only when an MRES pick set it.
+    ...(c.mresFifths !== undefined ? { mresFifths: c.mresFifths } : {}),
     // ⛔ S142 P1 — the poop slow now round-trips (see the SerializedCreature field docblock).
     // Conditional, so an un-poopy creature — i.e. nearly every creature, nearly always —
     // stays byte-identical to every prior save.
@@ -2914,6 +2921,11 @@ function deserializeCreature(s: SerializedCreature): Creature {
     // hurt anything. Anything else off the wire is dropped, which reads as the type's own strike.
     ...(typeof s.atkFifths === 'number' && Number.isInteger(s.atkFifths) && s.atkFifths > 0
       ? { atkFifths: s.atkFifths }
+      : {}),
+    // ⭐ S193 (R192-D1) — validated the same way: a magic-defended pool is a POSITIVE INTEGER of fifths
+    // (it is a divisor in `magicHitFifthsPools`). Anything else is dropped = no MRES pick.
+    ...(typeof s.mresFifths === 'number' && Number.isInteger(s.mresFifths) && s.mresFifths > 0
+      ? { mresFifths: s.mresFifths }
       : {}),
     // ⛔ S142 P1 — the poop slow survives the round-trip now. `undefined` is the genuinely
     // neutral value here (it means "not poopy"), unlike `despawnAtTick`'s 0 above, because

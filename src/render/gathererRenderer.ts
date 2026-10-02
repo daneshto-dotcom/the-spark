@@ -59,7 +59,10 @@ import type { GathererId, PlayerId, SparkId } from '../types.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 import type { World } from '../state/world.ts';
 import { castleShotFx } from './fx/castleShotFx.ts';
-import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
+// ⭐ S193 visuals-3 V19 — the DEEP CURRENT vortex as droplets (`fx/perkFx.ts`).
+import { fxSeedAt } from './fx/emitter.ts';
+import { vortexFx } from './fx/perkFx.ts';
 
 /**
  * ⭐ S188 — DEEP CURRENT's VORTEX, DERIVED FROM THE POSITION JUMP (never a one-shot effect push).
@@ -504,10 +507,23 @@ export class GathererRenderer {
   private drawDeepCurrentVortices(g: Graphics, world: World): void {
     for (const id of this.lastGathererPos.keys()) if (!world.gatherers.has(id)) this.lastGathererPos.delete(id);
     if (this.vortices.length === 0) return;
+    /*
+     * ⭐ S193 V19 (`S192_VISUALS_PLAN.md`) — with the new effects on, each end is a WATER VORTEX of 16
+     * spiralling droplets, a splash ring on the ground and a cold glow at the eye (`vortexFx`), on the
+     * same 36-frame clock and under the same fog rule. Sprites only: NO Pixi path is drawn on this
+     * branch, so the canon §7c pen-lift rule has no segment to apply to — and the legacy arcs below,
+     * which `?fx=legacy` and the suite still draw, keep their `moveTo` exactly as S189 C7 wrote it.
+     * The seed is the vortex's own rounded position and its owner seat: the same droplets on every screen.
+     */
+    const lit = fxActive();
     for (const v of this.vortices) {
       v.age += 1;
       if (isConcealed(v.x, v.y, v.owner)) continue; // the fog rule the gatherer itself obeys
       const t = v.age / DEEP_CURRENT_VORTEX_FRAMES;
+      if (lit) {
+        vortexFx(fxTop(), fxGround(), v.x, v.y, t, fxSeedAt(v.owner as unknown as number, v.x, v.y), DEEP_CURRENT_VORTEX_COLOR);
+        continue;
+      }
       const alpha = Math.max(0, 1 - t);
       for (let k = 0; k < 3; k++) {
         const r = (10 + 9 * k) * (1 - 0.6 * t);
