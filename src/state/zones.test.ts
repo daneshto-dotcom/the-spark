@@ -354,23 +354,28 @@ describe('S182 → S191 — CASTLE_NO_BUILD_RADIUS: HIS halving, and what it no 
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(S182_RADIUS / 2));
   });
 
-  it('⚠ S191 re-pin — the PORCH is now OUTSIDE the disc, so each slot carries its own clear disc', () => {
-    // Was "it covers the PORCH". The nearest slot centre is past the halved radius; the slot discs
-    // (`CASTLE_PORCH_KEEP_OUT_RADIUS`) are what keep a tower off a deposit slot now.
+  it('⭐⭐ S193 P3-1 re-pin — ONE disc, the SAME distance on every side; the porch is outside it', () => {
+    // Was "S191 re-pin — each slot carries its own clear disc". Those discs sat at anchor.y + 74 and made
+    // the keep-out reach 108 px SOUTH against 61 everywhere else — the owner's S193 report. Now: 32
+    // directions, every seat, every board, 1 px either side of the radius — the same verdict.
     const innerPorchDx = CASTLE_PORCH_PITCH_X / 2;
     expect(Math.hypot(innerPorchDx, CASTLE_PORCH_OFFSET_Y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     for (const layout of LAYOUTS) {
       for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const a = zoneCastleAnchor(seat, layout);
+        for (let k = 0; k < 32; k++) {
+          const th = (k / 32) * 2 * Math.PI;
+          const at = (d: number) => ({ x: a.x + Math.cos(th) * d, y: a.y + Math.sin(th) * d });
+          expect(isInsideCastleKeepOut(at(CASTLE_NO_BUILD_RADIUS - 1), layout), `${layout} ${seat} dir ${k}`).toBe(true);
+          expect(isInsideCastleKeepOut(at(CASTLE_NO_BUILD_RADIUS + 1), layout), `${layout} ${seat} dir ${k}`).toBe(false);
+        }
         for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-          const s = porchSlot(seat, i, layout);
-          expect(isInsideCastleKeepOut(s, layout), `${layout} seat ${seat} slot ${i}`).toBe(true);
-          // the slot disc's own boundary, one pixel either side, straight down (+y is clear of the keep disc)
-          expect(isInsideCastleKeepOut({ x: s.x, y: s.y + CASTLE_PORCH_KEEP_OUT_RADIUS - 1 }, layout)).toBe(true);
-          expect(isInsideCastleKeepOut({ x: s.x, y: s.y + CASTLE_PORCH_KEEP_OUT_RADIUS }, layout)).toBe(false);
+          expect(isInsideCastleKeepOut(porchSlot(seat, i, layout), layout), `${layout} seat ${seat} slot ${i}`).toBe(false);
         }
       }
     }
+    // The number survives, with a new job: how close a BUILT shape may stand before a pull skips that slot.
+    expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
   });
 
   it('⚠ S191 — the castle SPRITE\'s roof and corners are now OUTSIDE the disc (a consequence, reported)', () => {
@@ -407,8 +412,8 @@ describe('S182 — canBuildAt asks the keep-out FIRST, and it is total', () => {
   it.each(LAYOUTS)('%s — the boundary decides it, one pixel either side', (layout) => {
     for (let seat = 0; seat < zoneCount(layout); seat++) {
       const a = zoneCastleAnchor(seat, layout);
-      // S191 re-pin — along the axis pointing INTO the board horizontally (+y now runs into the
-      // porch discs, which are their own rule above). Both boards' anchors are insets from the edge.
+      // Along the axis pointing INTO the board horizontally (S193: every direction is the same disc —
+      // see the uniformity test above). Both boards' anchors are insets from the edge.
       const dir = a.x < CANVAS_WIDTH / 2 ? 1 : -1;
       const at = (d: number) => ({ x: a.x + dir * d, y: a.y });
       expect(isInsideCastleKeepOut(at(CASTLE_NO_BUILD_RADIUS - 1), layout)).toBe(true);
@@ -432,7 +437,7 @@ describe('S182 — canBuildAt asks the keep-out FIRST, and it is total', () => {
       }
     }
     expect(refusedForCastle).toBeGreaterThan(20);
-    // S182: ~π·121² px² per anchor ÷ 400 px² per sample ≈ 115 each. S191: π·61² + the porch discs ≈ 50 each.
+    // S182: ~π·121² px² per anchor ÷ 400 px² per sample ≈ 115 each. S191: π·61² + the porch discs ≈ 50 each. S193: π·61² alone ≈ 29 each.
     expect(refusedForCastle).toBeLessThan(150 * zoneCount(layout));
     expect(allowed).toBeGreaterThan(500);
   });

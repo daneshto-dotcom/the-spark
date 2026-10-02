@@ -109,6 +109,7 @@ import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
+import { findNearestBondTarget, structureTargets } from './state/creatures/creatureAI.ts'; // S193 P3-2
 import { HUB_BLAST_CREATURE_WEIGHT, STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -355,17 +356,58 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**1075**')).toBe(true);
   });
 
-  it('⭐ §4b — S191: the castle keep-out is HALVED (61) and every porch slot keeps a 34 px disc', () => {
+  it('⭐ §4b — S191 → S193: the castle keep-out is HALVED (61) and it is ONE disc, the same on every side', () => {
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
     expect(canonSays(`\`CASTLE_PORCH_KEEP_OUT_RADIUS\` = **${CASTLE_PORCH_KEEP_OUT_RADIUS}** px`)).toBe(true);
-    expect(canonSays(`any of that castle's **${CASTLE_PORCH_SLOTS}** porch slots`)).toBe(true);
-    // The rule is REAL, not prose: a porch slot is refused although it is outside the halved disc.
+    // ⭐ S193 P3-1 (owner: "it should be just as far as the horizontal") — the per-slot discs are OUT.
+    expect(canonSays('AND IT IS ONE DISC, THE SAME ON EVERY SIDE')).toBe(true);
+    expect(canonSays('THE PORCH DISCS ARE OUT OF THE BUILD RULE')).toBe(true);
+    expect(canonSays('a **PULL skips any slot a built shape stands within')).toBe(true);
+    // The rule is REAL, not prose: a porch slot (outside the disc) is buildable, and south = east.
     const a = zoneCastleAnchor(0, 'PITCH_2P');
     const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
     expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(false);
+    for (const d of [CASTLE_NO_BUILD_RADIUS - 1, CASTLE_NO_BUILD_RADIUS + 1]) {
+      expect(isInsideCastleKeepOut({ x: a.x, y: a.y + d }, 'PITCH_2P')).toBe(isInsideCastleKeepOut({ x: a.x + d, y: a.y }, 'PITCH_2P'));
+    }
+  });
+
+  it('⭐⭐ §5c — S193 P3-2: a structure-attacker goes to the NEAREST enemy, never a hash-chosen victim', () => {
+    expect(canonSays('THE NEAREST ENEMY FIRST — NOT POINTS, NOT A HASH')).toBe(true);
+    expect(canonSays('It WAS points, a hash and seat order')).toBe(true);
+    expect(canonSays('`nearestStrictEnemyBond`')).toBe(true);
+    expect(canonSays('the spread now serves only the CHEWER and the DRONE')).toBe(true);
+    // The rule is REAL: on a 3-seat board the spread may send a creature to the far seat; the ladder may not.
+    const w = makeWorld(0x5c2);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'bots', isHost: true, roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1, 2, 3] });
+    w.creatures.clear(); w.primitives.clear(); w.bonds.clear();
+    const mk = (seat: number, x: number, y: number) => {
+      const color = w.players.get(asPlayerId(seat))!.color;
+      const id = asPrimitiveId(w.nextPrimitiveId++);
+      w.primitives.set(id, { id, type: 0 as never, placerColor: color, placedBy: asPlayerId(seat), createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: color, lastOwnershipChange: 0, radius: 9, hp: 70, origin: null });
+      return w.primitives.get(id)!;
+    };
+    const pair = (seat: number, x: number, y: number): BondId => {
+      const a = mk(seat, x, y); const b = mk(seat, x + 40, y);
+      const id = asBondId(w.nextBondId++);
+      w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 });
+      a.bonds.add(id); b.bonds.add(id);
+      return id;
+    };
+    const near = pair(0, 300, 420);
+    pair(1, 1600, 420);
+    pair(2, 1600, 700);
+    w.scoreByPlayer.set(asPlayerId(1), 900);
+    for (let i = 0; i < 24; i++) {
+      dispatch(w, { type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(3), pos: { x: 260 + i * 4, y: 780 }, targetPos: { x: 300, y: 800 }, sourceSpawnerId: (9000 + i * 7) as never });
+    }
+    const army = [...w.creatures.values()];
+    expect(army.some((c) => findNearestBondTarget(w, c, true) !== near), 'anti-vacuity: the spread is engaged').toBe(true);
+    for (const c of army) expect(structureTargets(w, c).bondId).toBe(near);
   });
 
   it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {

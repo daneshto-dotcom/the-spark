@@ -33,10 +33,7 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
-  CASTLE_PORCH_OFFSET_Y,
-  CASTLE_PORCH_PITCH_X,
   CASTLE_PORCH_SLOT_CLEAR_RADIUS,
-  CASTLE_PORCH_SLOTS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -230,13 +227,25 @@ export function layoutForSeatCount(seatCount: number): ZoneLayout {
  * so the keep-out never shrinks below half. Still a literal (rule 2).
  *
  * ⚠ IT IS NO LONGER THE CASTLE'S REACH, and two things the old 121 covered now sit OUTSIDE it:
- *   · the PORCH (slots 75.5–86.6 px out) — so each slot keeps its own clear disc,
- *     `CASTLE_PORCH_KEEP_OUT_RADIUS` below, inside this same function, or a tower could be stamped
- *     over a deposit slot and every pulled shape would be minted into it (the S136 fling);
+ *   · the PORCH (slots 75.5–86.6 px out, all SOUTH of the keep) — see S193 below;
  *   · the top of the castle SPRITE (67 px) and its corners (82.4 px) — a shape may now be built
  *     against the drawn keep's roof and corners. A consequence of his halving, reported, not "fixed".
  * Still inside it: the keep BOX (half-diagonal ≈ 47) and the castle's unit-emit ring
  * (`RACE_UNIT_SPAWN_SPREAD` 46, `raceUnitEmit.ts`) — so units still leave the keep on clear ground.
+ *
+ * ⭐⭐ S193 P3-1 (owner) — **AND IT IS THE ONLY DISC. THE SAME DISTANCE ON EVERY SIDE.**
+ * > *"going down to the south of it look how far i need to be to be able to build … to the right of it
+ * > so horizontally i can build pretty close … it should be just as far as the horizontal … like a
+ * > radius around it, like a short radius that you can't build, like immediately around it. But
+ * > otherwise, you should be able to build like where the right town tower is."*
+ * S191 had added a `CASTLE_PORCH_KEEP_OUT_RADIUS` (34) disc on each of the four porch slots, and the
+ * porch sits at anchor.y + 74 — so the keep-out was a 61 disc with a lobe reaching **108** px SOUTH.
+ * Measured S193 on the 4P board through the real `stampRefusalAt`: a laser turret needed a 73.9 px gap
+ * east (the outer slot's disc caught its tall box) and **108.0** south; a single shape 61 east, **105**
+ * south. Those discs are GONE from the keep-out. The porch's protection moved to the two places it is
+ * actually about, both uniform: a PULL skips a slot a built shape covers (`firstFreePorchSlot`'s
+ * `built` arm, `CASTLE_PORCH_KEEP_OUT_RADIUS`), and a stamp is BLOCKED over a shape resting on the
+ * porch (`blueprintLegality` arm 5) — so nothing is ever minted into a tower, nor a tower onto a shape.
  */
 export const CASTLE_NO_BUILD_RADIUS = 61;
 
@@ -244,17 +253,17 @@ export const CASTLE_NO_BUILD_RADIUS = 61;
 const CASTLE_NO_BUILD_R2 = CASTLE_NO_BUILD_RADIUS * CASTLE_NO_BUILD_RADIUS;
 
 /**
- * ⭐ S191 — **EACH PORCH SLOT KEEPS ITS OWN CLEAR DISC**, now that the halved keep-out no longer
- * covers the porch. ⚠ MINE (the brief's default), not his: **34 = 2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`**
- * (17) — one 17 for the shape the porch puts on the slot and one for the built shape beside it, so a
- * single shape placed at a POINT (which carries no footprint margin) cannot sit close enough to touch a
- * deposited shape and be flung. A blueprint stamp's box already carries its margin, so for a stamp this
- * is conservative — the safety direction the castle arm has always erred in (`blueprintLegality`).
- * Lever: this one number. The slot positions are `castleBank.porchSlot`'s formula, re-derived inline
- * because this module is a LEAF (it may not import `castleBank`); `zones.test.ts` pins the two equal.
+ * ⭐ S191 → S193 — **HOW CLOSE A BUILT SHAPE MAY STAND TO A PORCH SLOT BEFORE THE PORCH STOPS USING IT.**
+ * ⚠ MINE (S191's brief default), not his: **34 = 2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`** (17) — one 17
+ * for the shape the porch puts on the slot and one for the built shape beside it.
+ *
+ * ⛔ S193 P3-1 — IT IS NO LONGER A BUILD KEEP-OUT. S191 refused building within it of every slot,
+ * which is what made the keep-out reach 108 px south and 61 everywhere else (see
+ * `CASTLE_NO_BUILD_RADIUS`). It is now read by `castleBank.firstFreePorchSlot`: a slot with a BUILT
+ * shape this close is treated as occupied, so a pull never mints a shape into a tower. Building there
+ * is legal; the cost lands on the builder (that slot stops receiving pulls). Lever: this one number.
  */
 export const CASTLE_PORCH_KEEP_OUT_RADIUS = 2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
-const CASTLE_PORCH_KEEP_OUT_R2 = CASTLE_PORCH_KEEP_OUT_RADIUS * CASTLE_PORCH_KEEP_OUT_RADIUS;
 
 /** An axis-aligned box in world px. What a blueprint's footprint looks like to this file. */
 export interface Box {
@@ -285,13 +294,8 @@ export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
   const anchors = ANCHORS[layout];
   for (let i = 0; i < anchors.length; i++) {
     const a = anchors[i] as Vec2;
+    // ⭐⭐ S193 P3-1 — ONE disc, the same radius on every side. No porch lobe (see `CASTLE_NO_BUILD_RADIUS`).
     if (boxPointDistSq(box, a.x, a.y) < CASTLE_NO_BUILD_R2) return true;
-    // ⭐ S191 — and every porch slot of that castle (see `CASTLE_PORCH_KEEP_OUT_RADIUS`).
-    const slotY = a.y + CASTLE_PORCH_OFFSET_Y;
-    for (let s = 0; s < CASTLE_PORCH_SLOTS; s++) {
-      const slotX = a.x + (s - (CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
-      if (boxPointDistSq(box, slotX, slotY) < CASTLE_PORCH_KEEP_OUT_R2) return true;
-    }
   }
   return false;
 }

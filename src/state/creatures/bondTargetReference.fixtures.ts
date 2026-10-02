@@ -31,6 +31,15 @@
  * chain S162 closed at the nearest step. Merge owner's go: *"C-6 go (spreadEnemyTarget on the STRICT
  * predicate — enforces the owner's S162 rule)"*.
  *
+ * ## ⭐⭐ S193 P3-2 (owner) — THE STRUCTURE-ATTACKER GOES TO THE NEAREST ENEMY, NO SPREAD. MADE HERE FIRST.
+ *
+ * > *"simple creatures should target the nearest enemy spawn right around them first."* — owner, S193
+ *
+ * `referenceStructureTargets` now takes `referenceNearestStrictEnemyBond` — the strict nearest scan
+ * with the spread removed — so an army attacks the enemy beside it, not a hash-chosen victim (with a
+ * score-leader slot) across the map. The spread itself is UNCHANGED for the chewer and the drone
+ * (`referenceFindNearestBondTarget(…, true)`), which keep their own branches.
+ *
  * ## ⚠ IF YOU CHANGE TARGETING *BEHAVIOUR*
  *
  * Change THIS FILE FIRST — it is the readable specification — and then make the index agree. The
@@ -76,7 +85,8 @@ export function referenceStructureTargets(
   findNearestEnemyPrimitiveFrom: (world: World, creature: Creature) => PrimitiveId | null,
 ): { primitiveId: PrimitiveId | null; bondId: BondId | null } {
   const primitiveId = findNearestEnemyPrimitiveFrom(world, creature);
-  const bondId = referenceFindNearestBondTarget(world, creature, true);
+  // ⭐ S193 P3-2 — the NEAREST strict enemy bond, with NO FFA spread (see the file docblock).
+  const bondId = referenceNearestStrictEnemyBond(world, creature);
   if (primitiveId === null) return { primitiveId: null, bondId };
   if (bondId === null) return { primitiveId, bondId: null };
 
@@ -91,6 +101,28 @@ export function referenceStructureTargets(
   return dBond < dPrim
     ? { primitiveId: null, bondId }
     : { primitiveId, bondId: null };
+}
+
+/**
+ * ⭐ S193 P3-2 — the nearest STRICT enemy bond (neither endpoint the owner's colour), `(distSq, bondId)`,
+ * and NOTHING ELSE: no spread, no score leader. This is `referenceFindNearestBondTarget(…, true)` with its
+ * final spread line removed — the structure-attacker's bond since the owner's S193 ruling.
+ */
+export function referenceNearestStrictEnemyBond(world: World, creature: Creature): BondId | null {
+  const ownerColor = creatureOwnerColor(world, creature);
+  let best: BondId | null = null;
+  let bestDistSq = Infinity;
+  for (const [bondId, bond] of world.bonds) {
+    if (!isEnemyBondWithColor(world, ownerColor, bond)) continue;
+    if (world.primitives.get(bond.aId)?.placerColor === ownerColor) continue;
+    if (world.primitives.get(bond.bId)?.placerColor === ownerColor) continue;
+    const dSq = distSq(creature.pos, bondMidpoint(bond));
+    if (dSq < bestDistSq || (dSq === bestDistSq && (best === null || (bondId as unknown as number) < (best as unknown as number)))) {
+      bestDistSq = dSq;
+      best = bondId;
+    }
+  }
+  return best;
 }
 
 export function referenceFindNearestBondTarget(

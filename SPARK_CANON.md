@@ -1014,12 +1014,28 @@ blocker was a footer plate and never this rule.
 **3 · ⭐⭐ The castle keep-out — HALVED (S191).** *"the no build zone near castle is like way too
 ridiculous. It needs to be halved. Okay, like the radius where you can't build around the castle."*
 Nobody builds within `CASTLE_NO_BUILD_RADIUS` = **61** px of ANY castle anchor (S182's 121, halved and
-rounded up — his), NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`,
-⚠ MINE) of any of that castle's **4** porch slots — the halved disc no longer reaches the porch, and a tower
-on a slot would have every pulled shape minted into it. ONE rule, `zones.castleKeepOutHitsBox`: a single
+rounded up — his). ⛔ ~~NOR within `CASTLE_PORCH_KEEP_OUT_RADIUS` = 34 px of any of that castle's 4 porch
+slots~~ — S191's per-slot discs, **REMOVED from the build rule in S193** (below): they made the keep-out
+reach 108 px south. `CASTLE_PORCH_KEEP_OUT_RADIUS` = **34** px (2 × `CASTLE_PORCH_SLOT_CLEAR_RADIUS`, ⚠ MINE)
+survives as how close a BUILT shape may stand before a pull skips that slot. ONE rule, `zones.castleKeepOutHitsBox`: a single
 shape (`canBuildAt`) and a stamp (`stampRefusalAt` → `CASTLE`), on the host, the client ghost and the bots
 alike. Still inside it: the keep box and the unit-emit ring (46 px). ⚠ No longer inside it: the castle
 sprite's roof (67 px) and corners (82 px) — a consequence of his halving, reported, not "fixed".
+
+⭐⭐ **S193 P3-1 — AND IT IS ONE DISC, THE SAME ON EVERY SIDE.** *"going down to the south of it look how far
+i need to be … to the right of it … i can build pretty close … it should be just as far as the horizontal …
+like a short radius that you can't build, like immediately around it."* The porch slots all sit SOUTH
+(anchor.y + 74), so S191's per-slot discs stretched the keep-out to **108 px south** against 61 east —
+measured through the real `stampRefusalAt` on the 4P board: a laser turret needed a 73.9 px gap east and
+108.0 south, a single shape 61 east and 105 south. **THE PORCH DISCS ARE OUT OF THE BUILD RULE**:
+`zones.castleKeepOutHitsBox` is the `CASTLE_NO_BUILD_RADIUS` disc and nothing else, so every recipe now
+gets the same gap on every side (laser turret 61.9 / 61.0, single shape 61). What the discs protected moved
+to where it belongs, both uniform: a **PULL skips any slot a built shape stands within
+`CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of** (`firstFreePorchSlot`'s `built` arm — nothing is minted into a
+tower; with every slot covered the pull is the old full-porch no-op, the shape stays banked), and a
+**stamp is `BLOCKED` over a shape resting on the porch** (`blueprintLegality` arm 5, `STAMP_CLEARANCE`).
+⚠ The trade, his call: a player who builds over his own porch loses those slots for pulls until the tower
+goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat).
 
 ---
 
@@ -1077,6 +1093,8 @@ the nearest-bond step. Found by the S190 perf audit (`S190_CANON_NOTES_perf.md`)
 (`bondTargetReference.fixtures.ts`) moved first; `spreadStrict.test.ts` drives 40 chewers through the real
 host tick beside a welded mixed structure (30 of them targeted a weld before the fix). The Voltkin
 (`enemyOnly: false`) is unchanged. A targeting rule both peers compute — it rides the deploy's bump.
+⚠ **S193 P3-2: the spread now serves only the CHEWER and the DRONE** — a structure-attacking unit takes the
+nearest strict connector with no spread at all (§5c).
 
 ⭐ **AND THE SCAN IS NOW INDEXED (S190 `s190/perf`), WITH BYTE-IDENTICAL OUTPUTS.** One classification of
 `world.bonds` per colour per tick, opened and closed around exactly the creature loop
@@ -1113,6 +1131,19 @@ unchanged.
   scripted drone flying past a unit 40 px inside enemy ground, 400 ticks: melee goblin −57.0 % of its advance
   before → **−6.6 %**; orc boss −57.8 % → **−7.3 %** (S192's −37.6 % / −38.2 % was before the S193 audit added
   "the chaser too" to (2)). `chaseGiveUp.test.ts`, mutation-tested.
+- **⭐⭐ THE NEAREST ENEMY FIRST — NOT POINTS, NOT A HASH (S193 P3-2, `s193/playtest3`).** *"The orcs that are
+  underneath me directly … they're not attacking me. They're going all the way diagonally to attack the Nagas
+  … Is it because he has more points …? … simple creatures should target the nearest enemy spawn right around
+  them first."* — owner, S193. **It WAS points, a hash and seat order:** `structureTargets` took its connector
+  through the FFA spread, which picks the VICTIM seat by `mix32(id, sourceSpawnerId) % (n + 1)` with slot 0 =
+  the SCORE LEADER (ties → lowest seat). Measured, 4P, seat 3's army of 25 beside seat 0's building (380 px)
+  with seat 1's 1370 px away: **9 of 25** went past him with nobody ahead, **16 of 25** once seat 1 led. Now
+  every structure-attacker's ladder is geometry in a total order: an enemy UNIT around it (`pickNavUnit`,
+  220 px acquire / 300 hold) → the nearer of the nearest lone enemy shape and the nearest STRICT enemy
+  connector (`nearestStrictEnemyBond`, squared distance then id) → the nearest LIVE enemy keep
+  (`enemyCastleMarchPos`). Measured after: **25 of 25**, whoever leads. Untouched: R183/R184 retaliation, T6,
+  T13, the endgame pants (their own victim rule), and the CHEWER and DRONE, which keep the spread from their
+  own branches (⚠ MINE to leave — reported). `nearestEnemyFirst.test.ts`, all four quarters, mutation-tested.
 
 ---
 

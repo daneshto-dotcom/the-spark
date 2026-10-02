@@ -445,14 +445,18 @@ describe('S182 — gate 1+2: the reducers refuse a placement inside the castle k
     }
   }
 
-  it('⚠ ANTI-VACUITY — the porch really is inside the keep-out, on every seat of every board', () => {
-    // The keep-out must cover where gathered shapes LAND, or the one spot a player is guaranteed to
-    // click is the one spot the rule misses. If the porch offset or the radius ever moves apart,
-    // this fails rather than silently reopening the hole.
+  it('⭐ S193 P3-1 re-pin — the porch is OUTSIDE the keep-out, which is the same distance on every side', () => {
+    // Was "ANTI-VACUITY — the porch really is inside the keep-out". S182's 121 covered it and S191's
+    // per-slot discs kept it covered — which is what reached 108 px south. The owner (S193) ruled the
+    // keep-out "a short radius … immediately around it", the same as the horizontal. The porch's own
+    // protection (no shape minted into a tower) lives in the pull now: `castleKeepOutS191.test.ts`.
     for (const layout of LAYOUTS) {
       for (let s = 0; s < zoneCount(layout); s++) {
         const a = zoneCastleAnchor(s, layout);
-        expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_PORCH_OFFSET_Y }, layout)).toBe(true);
+        expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_PORCH_OFFSET_Y }, layout)).toBe(false);
+        const south = { x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS };
+        const east = { x: a.x + CASTLE_NO_BUILD_RADIUS, y: a.y };
+        expect(isInsideCastleKeepOut(south, layout)).toBe(isInsideCastleKeepOut(east, layout));
       }
     }
   });

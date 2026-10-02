@@ -356,7 +356,20 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     // WARMONGER — measured: 15+6+4 = 25 units fed, 0 defence stamps; nobody else at HARD feeds except a
     // Saboteur's late leftovers (2). First paid unit at tick 4303, inside the opening BUILD.
     expect(sum(war, (s) => s.feeds)).toBeGreaterThan(10);
-    expect(sum(war, (s) => s.defenceRatio)).toBe(0);
+    /*
+     * ⚠ S193 P3-2 RE-PIN (s193/playtest3 merge seam) — was `toBe(0)`. The owner's "nearest enemy first"
+     * (canon §5c) ended the FFA spread, so an army now hits the NEIGHBOUR's buildings instead of thinning
+     * over all three seats. Measured after: one Warmonger seat lost its opening goblin tower and, through
+     * the S154 "take what you can" escape (nothing stamped ⇒ cheapest legal rung), stamped ONE stink tower
+     * before re-raising the goblin (goblin>stink>goblin>nagas, def 0.25; 0.00 / 0.00 on the others).
+     * Its PLANNED order still lists no defence. What survives as the signature: the LOWEST defence of the five.
+     * ⚠ S193 MED-1 RE-MEASURE (bots no longer build within 34 px of their own porch slots, `isLegalBuildPos`):
+     * every assertion here still holds, re-measured, and none was loosened. What moved, HARD only (IMBA is
+     * byte-identical): BALANCED s2 t3Mummies>t3Mummies def 0.00 → t3Mummies>stinkTower 0.50 (its pulls land
+     * again, so it affords the stink); FORTRESS s2 stink>mummies>stink 0.67 → stink>mummies 0.50, mean 0.44 →
+     * 0.39 (still the highest; BALANCED 0.28); loose counts ±1 (BALANCED s1 15→14, TYCOON s2 18→19).
+     */
+    for (const m of [bal, fort, tyc, sab]) expect(meanDef(war)).toBeLessThan(meanDef(m));
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
     expect(Math.min(...war.seats.map((s) => (s.firstFeedTick < 0 ? Infinity : s.firstFeedTick)))).toBeLessThan(5400);
     // FORTRESS — measured mean defence ratio 0.44, the highest; stink first on 2/3 seats.
@@ -377,9 +390,19 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
       expect(sum(m, (s) => s.feeds), `IMBA ${p} feeds`).toBeGreaterThan(0);
     }
     const fort = sig('IMBA', 'FORTRESS');
-    // FORTRESS — measured: the only IMBA personality to field a laser turret, mean defence ratio 0.44.
-    expect(fort.seats.some((s) => s.stamps.includes('laserTurret'))).toBe(true);
-    for (const [p, m] of all) if (p !== 'FORTRESS') expect(meanDef(fort), `vs ${p}`).toBeGreaterThan(meanDef(m));
+    /*
+     * ⚠⚠ S193 P3-2 RE-PIN (s193/playtest3 merge seam) — REPORTED TO THE MERGE OWNER AS A QUESTION.
+     * Was: FORTRESS is the only IMBA personality to field a laser turret, and has the highest mean defence
+     * ratio (0.44). Under "nearest enemy first" (canon §5c) adjacent IMBA seats' armies now hit each
+     * other's opening goblin towers; FORTRESS spends its five minutes RE-RAISING them
+     * (goblin>nagas>goblin>stink | goblin>stink | zombies×2, mean def 0.25) and never reaches its laser,
+     * while BALANCED's stink/helga answers measure 0.28. ⛔ So at IMBA, in a 300 s match, the Fortress
+     * identity is no longer the most defensive — a balance consequence of the owner's ruling, NOT silenced:
+     * what still holds is pinned, and the lost discrimination is in the branch's final report.
+     */
+    expect(fort.seats.filter((s) => s.defenceRatio > 0).length, 'FORTRESS stamps a defence on ≥ 2 seats').toBeGreaterThanOrEqual(2);
+    const keys = all.map(([, m]) => JSON.stringify(m.seats.map((s) => [s.stamps, s.feeds, s.defenceRatio])));
+    expect(new Set(keys).size, 'the five IMBA signatures are still pairwise different').toBe(all.length);
     // SABOTEUR — measured: a pentagram behind its goblin tower; no other IMBA personality but Warmonger
     // (which ranks it third) reaches for one in five minutes.
     expect(sig('IMBA', 'SABOTEUR').seats.some((s) => s.stamps.includes('pentagram'))).toBe(true);

@@ -53,7 +53,7 @@ import {
 } from '../constants.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
-import type { ZoneLayout } from './zones.ts';
+import { CASTLE_PORCH_KEEP_OUT_RADIUS, type ZoneLayout } from './zones.ts';
 
 /**
  * A seat's stored shapes as a tally indexed by `SparkType`. Length is always
@@ -177,13 +177,23 @@ export function isOwnPorchSpark(seat: number, pos: Vec2, layout: ZoneLayout): bo
  * back an occupied slot no matter what the player picks up, in what order, or how many holes the
  * sequence has. Occupancy is tested against every spark position the caller passes in, so a pulled
  * shape the player has not moved yet also blocks its own slot.
+ *
+ * ⭐⭐ S193 P3-1 — **AND A SLOT A BUILT SHAPE COVERS IS OCCUPIED TOO** (`built`, within
+ * `CASTLE_PORCH_KEEP_OUT_RADIUS` 34). Owner: the castle keep-out is *"a short radius … immediately
+ * around it"*, the same on every side — so the S191 porch discs, which stretched it 108 px south, left
+ * the build rule. Their one job — never mint a pulled shape INTO a tower — is done here instead, where
+ * it belongs: a covered slot is skipped exactly like a slot with a shape already on it, and with every
+ * slot covered the pull is the same no-op a full porch has always been (the shape stays banked,
+ * nothing is lost). `built` defaults to empty so every pre-S193 caller reads exactly as before.
  */
 export function firstFreePorchSlot(
   seat: number,
   occupied: readonly Vec2[],
   layout: ZoneLayout,
+  built: readonly Vec2[] = [],
 ): number | null {
   const r2 = CASTLE_PORCH_SLOT_CLEAR_RADIUS * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+  const b2 = CASTLE_PORCH_KEEP_OUT_RADIUS * CASTLE_PORCH_KEEP_OUT_RADIUS;
   for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
     const s = porchSlot(seat, i, layout);
     let clear = true;
@@ -193,6 +203,16 @@ export function firstFreePorchSlot(
       if (dx * dx + dy * dy <= r2) {
         clear = false;
         break;
+      }
+    }
+    if (clear) {
+      for (const p of built) {
+        const dx = p.x - s.x;
+        const dy = p.y - s.y;
+        if (dx * dx + dy * dy < b2) {
+          clear = false;
+          break;
+        }
       }
     }
     if (clear) return i;
