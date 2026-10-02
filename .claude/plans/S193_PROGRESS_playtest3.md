@@ -3,7 +3,7 @@
 Base: origin/master 2cd00502 (deploy #21, PROTOCOL 59). Brief: P3-1 castle keep-out asymmetry, P3-2 creature nearest-enemy targeting.
 
 ## NEXT STEP
-Implement P3-2 fix (structureTargets → nearest strict bond, no spread; move reference fixture first), then P3-1.
+Both fixes + tests + canon landed (tip e4b3f98e+). NEXT: full gates (typecheck, vitest --maxWorkers=3, build, e2e:gating own port), then final report.
 
 Merged local `master` af4ab269 (s192/magic + PROTOCOL 60) at a30dee5d — no conflicts, lockfile unchanged.
 
