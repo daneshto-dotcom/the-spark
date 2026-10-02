@@ -1287,6 +1287,20 @@ async function bootstrap(): Promise<void> {
   });
 
   controls.setSheetActionHandler((action, primitiveId) => {
+    // ⭐ S193 (owner T4) — a right-click on a goblin-tower feed chip: set its auto-build toggle. The
+    // spawner comes off the CARD for the FEED reason below; `on` is computed by `controls` (a SET).
+    if (action.kind === 'AUTO_FEED') {
+      const spawnerId = characterSheet.actionFeedSpawnerId();
+      if (spawnerId === null || action.on === undefined) return;
+      dispatchFn({
+        type: 'SET_AUTO_FEED',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+        on: action.on,
+      });
+      return;
+    }
     if (action.kind === 'FEED') {
       const spawnerId = characterSheet.actionFeedSpawnerId();
       if (spawnerId === null) return; // unreachable: the row cannot draw without one
@@ -3070,6 +3084,8 @@ Network routes: ${v.detail}`;
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
         // S180 — and the character sheet with it, or a card floats over the title screen.
         characterSheet.clear();
+        // ⭐ S193 T4 — and any auto-build toggle still waiting on a snapshot, so none outlives its match.
+        controls.clearAutoFeedPending();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // ⭐ S192 — and every pooled fx sprite and ground ripple with it.

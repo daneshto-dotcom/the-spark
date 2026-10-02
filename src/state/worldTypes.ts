@@ -25,7 +25,7 @@ import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
-import type { CreatureSpawner } from './spawners/spawner.ts';
+import type { AutoFeedMemory, CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
@@ -632,6 +632,15 @@ export interface World {
    * (sever/bomb cascade + potato AoE). Cleared on teardown.
    */
   fouledPrimitives: Set<PrimitiveId>;
+  /**
+   * ⭐ S193 (owner T4, ⚠ MINE) — a goblin tower's auto-build toggles, remembered by ANCHOR while the
+   * tower is down. `applyRemoveSpawner` writes an entry when a toggled goblin tower falls with its
+   * anchor still standing; `applyRegisterSpawner` restores it when a goblin tower of the SAME seat
+   * re-registers at that anchor (a FIX / re-ignition), and drops it either way. An entry whose anchor
+   * is gone is pruned on both paths. Host-only: disk + worker INIT, never the wire; wide-hashed.
+   * Cleared wherever `creatureSpawners` is (match start, title, abort, teardown).
+   */
+  goblinAutoFeedMemory: Map<PrimitiveId, AutoFeedMemory>;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

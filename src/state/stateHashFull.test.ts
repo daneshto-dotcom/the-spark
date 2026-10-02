@@ -571,6 +571,8 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       makeStinkCloud({ id: asStinkCloudId(1), pos: { x: 80, y: 80 }, ownerPlayerId: P0, landedAtTick: 1, radius: 90 }),
     );
     w.fouledPrimitives.add(asPrimitiveId(3));
+    // ⭐ S193 T4 — a remembered goblin-tower toggle set, so the new family contributes a part here too.
+    w.goblinAutoFeedMemory.set(asPrimitiveId(3), { owner: P0, mask: 0b1000, cursor: 0 });
     w.discoveredCombos.add('0->1');
     w.godlyFiredThisMatch.add('voltkin');
     addPrimBondSpark(w);
@@ -596,6 +598,7 @@ describe('FIELD_COVERAGE — the forcing function', () => {
       // S165 - the sim-authoritative half of `players` (castleHp et al). The avatar stays out.
       ['players', /^pl\d+:/],
       ['fouledPrimitives', /^fo:\d/],
+      ['goblinAutoFeedMemory', /^gm:\d/], // ⭐ S193 T4
       ['discoveredCombos', /^dc:./],
       ['godlyFiredThisMatch', /^gf:./],
     ];

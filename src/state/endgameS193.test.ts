@@ -426,6 +426,9 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
     'src/state/goblinKinds.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
     'src/state/goblinTowerFeed.ts': { n: 1, verdict: 'FEED_TOWER: tower owner === feeder — seats only' },
+    // ⭐ S193 T4 (goblin-autobuild) — both seat-only: a pants owns no tower and sends no intent.
+    'src/state/goblinAutoFeed.ts': { n: 1, verdict: 'SET_AUTO_FEED: tower owner === toggler — seats only' },
+    'src/state/spawners/spawnerLifecycle.ts': { n: 1, verdict: 'remembered toggles restored only to the SAME seat — seats only' },
     'src/state/godlyMatcherCore.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
     'src/state/magicResistCue.ts': { n: 5, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued' },
     'src/state/potatoLifecycle.ts': { n: 8, verdict: 'hub blast + bomb: every arm skips the OWNER only → a pants is hit' },
