@@ -1,3 +1,16 @@
+# ⛔ PAUSED (owner session limit) — PHASE 2 BUILD (option A WEAR ONLY) — RESUME HERE
+
+**Owner picked A only.** Spec (from the merge owner): free ≤ 10 connectors (`ENTROPY_FREE_CONNECTORS`=10); per-connector snap chance per roll = min(`ENTROPY_CAP` 50 %, rate × (n − 10)); `ENTROPY_RATE_PER_CONNECTOR` integer (per-ten-thousand), default +0.1 % = 10/10000, flagged `⚠ PENDING OWNER: 0.1 % or 1 %` — tests derive from the constant + a test at both values on 54c/145c. Any connector can snap, a welded tower's own included (⚠ MINE). Roll ONCE per FIGHT start; toast to the owner seat "ENTROPY: N connectors snapped". Seeded mix32(rngSeed, wave, bondId); severs via the real SEVER_BOND with a NEW cause `'entropy'`. Endgame waves too. Report the bump (do not edit PROTOCOL_VERSION). Canon §2 paragraph. Turn `entropyResearch.test.ts` into real tests or delete it.
+
+**Half-done:** research done, NO source edited yet for Phase 2. Found:
+- hook point: `src/state/hostTick.ts` ~line 598, the `if (world.matchPhase === 'FIGHT') {` arm inside `if (flipped)` (next to `reviveDormantHelgas`).
+- cause unions (THREE + render): `src/game/effects.ts:186`, `src/state/save.ts:682`, `src/state/world.ts:245` (action union); consumers: `severBond.ts:149` (exhaustive `severActor` → entropy = no actor), `disruptionManager.ts:82` (bypass gates list — add 'entropy'), `severToastRenderer.ts:136/156/265` (tolerant default — add copy), `audioManager.ts:1941`, `save.ts` deserialize (~2729/2808 — check the cause allowlist), `net/protocol.ts` validators. Grep `'chewer'` file list for the rest.
+- toast carrier: unverified — look at severToastRenderer (victim seat on BOND_SEVERED) vs a summary toast.
+
+**EXACT NEXT STEP:** write `src/state/entropy.ts` (`entropyChancePerTenThousand(n)`, `applyEntropyTax(world)`: enumerate components in total order by min bond id from a snapshot, roll per bond, sever ascending id via `applySeverBond(... cause:'entropy', playerId: owner)`), add `'entropy'` to the three unions + every consumer, hook into the hostTick FIGHT arm, then tests.
+
+**Gates last run:** `npm run typecheck` exit 0; `npx vitest run src/state/entropyResearch.test.ts` exit 0 (both at c467ed1a/326f5a7d, Phase 1). No background processes running.
+
 # S194 — T6 ENTROPY TAX — progress (branch `s194/entropy`)
 
 ## ⭐ FINAL REPORT — PHASE 1 (research only, NOTHING BUILT — waiting for the owner to pick)
