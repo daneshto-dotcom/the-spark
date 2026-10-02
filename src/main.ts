@@ -27,6 +27,8 @@
 import './dev/probeBootstrap.ts';
 import { Application, Container, Graphics, Rectangle, Text, TextStyle, UPDATE_PRIORITY } from 'pixi.js';
 import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
+// ⭐ S194 T9 (coherence) — every unit kill gets the same shared death beat (`fx/unitDeathFx.ts`).
+import { UnitDeathRenderer } from './render/coherence/unitDeathRenderer.ts';
 import {
   SPAWN_RATE_PER_SECOND,
   CANVAS_HEIGHT,
@@ -844,6 +846,7 @@ async function bootstrap(): Promise<void> {
   // S139 P2 — the goblin needs its OWN renderer: both shipped creature renderers are
   // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
   const goblinRenderer = new GoblinRenderer(app, fogHiddenLayer);
+  const unitDeathRenderer = new UnitDeathRenderer();
   // ⭐ S172 — GoblinRenderer draws every health bar but only measures its OWN sprites. Bosses,
   // tier-3 units, Voltkin, the direwolf and the chewer live in CreatureRenderer, and without this
   // line their bars fall back to a 26 px box and are drawn inside the creature.
@@ -3150,6 +3153,7 @@ Network routes: ${v.detail}`;
         // chewers; this closes the one-frame orphan window + resets the hop phase).
         chewerRenderer.clear();
         goblinRenderer.clear();
+        unitDeathRenderer.clear(); // ⭐ S194 T9 — an army's deaths never replay over the title
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
         voltkinTowerRenderer.clear();
@@ -4378,6 +4382,7 @@ Network routes: ${v.detail}`;
     // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
     chewerRenderer.sync(world);
     goblinRenderer.sync(world);
+    unitDeathRenderer.sync(world); // ⭐ S194 T9 — the shared death beat, for every creature type alike
     // ⭐ S172 — after both creature renderers, so a number spawned this frame is drawn on top.
     damageNumbers.sync(world);
     /*
