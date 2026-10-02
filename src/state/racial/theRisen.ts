@@ -85,7 +85,7 @@ export const THE_RISEN_ANY_SEAT_UNIT = false;
  * so the killer need no longer be alive.
  */
 export function riseOnKill(world: World, victim: Creature, credit: KillCredit): void {
-  riseForVictimOf(world, victim.ownerPlayerId, credit);
+  riseForVictimOf(world, victim, credit);
 }
 
 /**
@@ -98,13 +98,16 @@ export function riseOnKill(world: World, victim: Creature, credit: KillCredit): 
  * "not like … Helga" — Helga as a KILLER — is untouched: she is the victim here.
  */
 export function riseOnHelgaKill(world: World, helgaOwner: PlayerId, credit: KillCredit): void {
-  riseForVictimOf(world, helgaOwner, credit);
+  riseForVictimOf(world, { ownerPlayerId: helgaOwner }, credit);
 }
 
-/** The one rule both deaths share: a victim owned by `victimOwner`, a blow credited to `credit`. */
-function riseForVictimOf(world: World, victimOwner: PlayerId, credit: KillCredit): void {
+/**
+ * The one rule both deaths share: a victim (only its owner is read), a blow credited to `credit`. Takes the
+ * owner as `ownerPlayerId` so the S193 owner-predicate census (`endgameS193.test.ts`) still SEES this site.
+ */
+function riseForVictimOf(world: World, victim: Pick<Creature, 'ownerPlayerId'>, credit: KillCredit): void {
   if (credit === null) return;
-  if (credit.seat === victimOwner) return; // an ENEMY kill only — his own units never raise
+  if (credit.seat === victim.ownerPlayerId) return; // an ENEMY kill only — his own units never raise
   // ⭐ S193 — a SEAT credit (castle gun, raid, Ra, scorch, hub, tower: `type: null`) raises nobody, under
   // Reading A AND with the lever on — the stat board's credit must never become a sim rule.
   if (credit.type === null) return;
