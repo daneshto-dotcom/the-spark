@@ -23,6 +23,7 @@ import { castleSpawnerId } from './raceUnitEmit.ts';
 import { mulberry32 } from './rng.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { dispatch, makeWorld } from './world.ts';
+import { restore, snapshot } from './save.ts';
 
 function deps(): HostTickDeps {
   return {
@@ -141,5 +142,37 @@ describe('⭐ S194 R194-27 — the owned-unit index is invalidated by a mid-tick
     pants.targetCreatureId = null;
     runEndgameMonsterTargeting(w, pants); // SAME tick: the death must be seen
     expect(pants.targetCreatureId).toBeNull();
+  });
+});
+
+describe('⭐ S194 re-audit — the owned-unit index never survives a snapshot load', () => {
+  it('restore() replaces the creature objects with nextCreatureId unchanged: the pants still acquires the soldier', () => {
+    const w = makeWorld(9);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME', mode: 'bots', isHost: true,
+      roster: [0, 1].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1],
+    });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'FIGHT';
+    w.waveNumber = 31;
+    const a = castleAnchor(0, w.layout);
+    const at = { x: a.x + 200, y: a.y + 100 };
+    const pantsId = w.nextCreatureId as unknown as number;
+    dispatch(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+      pos: { ...at }, targetPos: { ...a }, sourceSpawnerId: null, monsterSeat: asPlayerId(0),
+    });
+    const soldierId = w.nextCreatureId as unknown as number;
+    dispatch(w, {
+      type: 'SPAWN_CREATURE', creatureType: 'raceUnit', ownerPlayerId: asPlayerId(0),
+      pos: { x: at.x + 10, y: at.y }, targetPos: { x: at.x + 10, y: at.y }, sourceSpawnerId: castleSpawnerId(0),
+    });
+    runEndgameMonsterTargeting(w, w.creatures.get(pantsId as never)!); // builds the index over the OLD objects
+    restore(snapshot(w), w); // same world, same nextCreatureId, NEW creature objects
+    const pants = w.creatures.get(pantsId as never)!;
+    pants.targetCreatureId = null;
+    runEndgameMonsterTargeting(w, pants);
+    expect(pants.targetCreatureId as unknown as number).toBe(soldierId);
   });
 });

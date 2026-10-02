@@ -30,6 +30,7 @@ import {
 import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
+import { simMemo } from './simMemo.ts';
 import { megaPantsDue, monsterLaneSeats, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
@@ -175,26 +176,27 @@ function victimColor(world: World, seat: PlayerId): number | null {
 /**
  * ⭐ S194 R194-27 (perf, identical verdict) — the creatures each seat OWNS, indexed once per tick instead of
  * every pants scanning the whole creature map (500 pants × ~500 creatures = the measured 34 % of a
- * 500-pants host tick). Valid for one (world, tick, nextCreatureId): a creature born mid-tick bumps
+ * 500-pants host tick). Valid for one (world, snapshot generation `simMemo`, nextCreatureId) — the tick is NOT a
+ * key (re-audit: redundant; positions are read live, deaths are skipped at use): a creature born bumps
  * `nextCreatureId` and rebuilds it; one that died mid-tick is skipped at use (`world.creatures.get(id) === q`
  * + the same liveness test). Ownership never changes after birth (no `ownerPlayerId =` write anywhere in the
  * sim), so the candidate SET is exactly the old scan's, and the pick is the same total order (distSq, then
  * id) — so the verdict is the old one, tick for tick. A memo, not state: nothing is hashed or sent.
  */
-interface OwnedIndex { world: World; tick: number; nextId: number; bySeat: Map<PlayerId, Creature[]> }
+interface OwnedIndex { world: World; gen: number; nextId: number; bySeat: Map<PlayerId, Creature[]> }
 let ownedIndex: OwnedIndex | null = null;
 /** Test seam ONLY (the differential in `endgameS194Perf.test.ts`): false rebuilds the index on every call. */
 export const __ownedIndexMemo = { enabled: true };
 function ownedBy(world: World, seat: PlayerId): readonly Creature[] {
   const nextId = world.nextCreatureId as unknown as number;
-  if (!__ownedIndexMemo.enabled || ownedIndex === null || ownedIndex.world !== world || ownedIndex.tick !== world.tick || ownedIndex.nextId !== nextId) {
+  if (!__ownedIndexMemo.enabled || ownedIndex === null || ownedIndex.world !== world || ownedIndex.gen !== simMemo.generation || ownedIndex.nextId !== nextId) {
     const bySeat = new Map<PlayerId, Creature[]>();
     for (const q of world.creatures.values()) {
       let list = bySeat.get(q.ownerPlayerId);
       if (list === undefined) bySeat.set(q.ownerPlayerId, (list = []));
       list.push(q);
     }
-    ownedIndex = { world, tick: world.tick, nextId, bySeat };
+    ownedIndex = { world, gen: simMemo.generation, nextId, bySeat };
   }
   return ownedIndex.bySeat.get(seat) ?? [];
 }
