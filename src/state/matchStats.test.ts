@@ -12,6 +12,7 @@ import { asBondId, asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts'
 import { makeGameStateExtras, softReset } from './gameState.ts';
 import {
   HISTORY_WINDOW_TICKS,
+  applySerializedHistory,
   applySerializedSeats,
   matchStatsHashParts,
   recordDamage,
@@ -245,5 +246,98 @@ describe('S191 matchStats — the four sites', () => {
     const c = dirty();
     softReset(c, makeGameStateExtras());
     expect([c.matchStats.seats.size, c.matchStats.history.length]).toEqual([0, 0]);
+  });
+});
+
+describe('⭐ S194 v2 matchStats — the inert v2 counters', () => {
+  it('a hit is filed by WHAT it landed on, and by WHOM it hit; totals still sum', () => {
+    const w = board(3);
+    recordDamage(w, P(1), P(0), 10, 'unit');
+    recordDamage(w, P(1), P(0), 20, 'structure');
+    recordDamage(w, P(2), P(0), 300, 'keep');
+    recordDamage(w, P(0), P(0), 7, 'keep'); // own hit: taken only, no who-hit-whom entry
+    recordDamage(w, undefined, P(0), 5, 'structure'); // ownerless orphan bond: dealt, no victim column
+    const s0 = w.matchStats.seats.get(P(0))!;
+    expect([s0.dealtFifths, s0.dealtStruct, s0.dealtKeep]).toEqual([335, 25, 300]);
+    expect([...s0.dealtTo].sort()).toEqual([[P(1), 30], [P(2), 300]]);
+    expect([s0.takenFifths, s0.takenKeep, s0.takenStruct]).toEqual([7, 7, 0]);
+    const s1 = w.matchStats.seats.get(P(1))!;
+    expect([s1.takenFifths, s1.takenStruct, s1.takenKeep]).toEqual([30, 20, 0]);
+  });
+
+  it('a wave sample carries each seat\'s RUNNING TOTALS (cumulative; the board differences them)', () => {
+    const w = board(2);
+    recordUnitBuilt(w, P(0), 'raceUnit');
+    recordUnitBuilt(w, P(0), 'chewer');
+    recordKill(w, P(0), P(1), 'chewer');
+    recordDamage(w, P(1), P(0), 40, 'unit');
+    w.tick = 10;
+    recordWaveSample(w, 1);
+    recordDamage(w, P(1), P(0), 2, 'unit');
+    w.tick = 20;
+    recordWaveSample(w, 2);
+    const at = (i: number, seat: number) => w.matchStats.history[i]!.seats.find((p) => p.seat === P(seat))!;
+    expect([at(0, 0).units, at(0, 0).kills, at(0, 0).dealt, at(0, 0).taken]).toEqual([2, 1, 40, 0]);
+    expect([at(1, 0).dealt, at(1, 1).taken]).toEqual([42, 42]);
+    // ⛔ a READ: sampling a seat with no counters must not create an entry (the hash would move by looking).
+    const fresh = board(2);
+    recordWaveSample(fresh, 1);
+    expect(fresh.matchStats.seats.size).toBe(0);
+  });
+
+  it('SERIALIZE: every v2 counter round-trips through a save; the wire packs a sample\'s totals as one `v` array', () => {
+    const w = board(2);
+    recordKill(w, P(1), P(0), 'raceUnit');
+    recordDamage(w, P(0), P(1), 44, 'keep');
+    recordDamage(w, P(0), P(1), 9, 'structure');
+    recordWaveSample(w, 1);
+    const snap = JSON.parse(JSON.stringify(snapshot(w)));
+    const back = makeWorld(0);
+    restore(snap, back);
+    expect(matchStatsHashParts(back.matchStats)).toEqual(matchStatsHashParts(w.matchStats));
+    const s0 = back.matchStats.seats.get(P(0))!;
+    expect([...s0.lost]).toEqual([['raceUnit', 1]]);
+    expect([s0.takenKeep, s0.takenStruct]).toEqual([44, 9]);
+    expect([...back.matchStats.seats.get(P(1))!.dealtTo]).toEqual([[P(0), 53]]);
+    const wirePoint = snap.matchStats.history[0].seats.find((p: { seat: number }) => p.seat === 1);
+    expect(wirePoint).toEqual({ seat: 1, score: 100, built: 0, v: [0, 1, 53, 0] });
+    expect(Object.keys(wirePoint)).not.toContain('dealt');
+  });
+
+  it('RECEIVER: an S191 host (no v2 keys) reads as zeros; a malformed `v` is read as zeros, never thrown', () => {
+    const peer = board(2);
+    applySerializedSeats(peer, { seats: [{ seat: 0, dealt: 12 }] });
+    const s = peer.matchStats.seats.get(P(0))!;
+    expect([s.dealtFifths, s.dealtKeep, s.dealtStruct, s.lost.size, s.dealtTo.size]).toEqual([12, 0, 0, 0, 0]);
+    applySerializedHistory(peer, {
+      history: [
+        { wave: 1, tick: 5, seats: [{ seat: 0, score: 3, built: 1 }] },
+        { wave: 2, tick: 9, seats: [{ seat: 0, score: 4, built: 1, v: [1, -2, 3, 4] as never }] },
+        { wave: 3, tick: 12, seats: [{ seat: 0, score: 5, built: 2, v: [1, 2, 3, 4] }] },
+      ],
+    }, false);
+    expect(peer.matchStats.history.map((h) => [h.seats[0]!.units, h.seats[0]!.taken])).toEqual([[0, 0], [0, 0], [1, 4]]);
+  });
+
+  it('HASH: each v2 field moves the WIDE oracle (per-field contribution)', () => {
+    const steps: Array<(w: World) => void> = [
+      (w) => recordKill(w, null, P(1), 'chewer'), // lost only
+      (w) => recordDamage(w, P(1), P(0), 3, 'keep'), // keep split + dealtTo
+      (w) => recordDamage(w, P(1), P(0), 3, 'structure'), // structure split
+    ];
+    const w = board(2);
+    let prev = hashWorldStateFull(w);
+    for (const step of steps) {
+      step(w);
+      const h = hashWorldStateFull(w);
+      expect(h).not.toBe(prev);
+      prev = h;
+    }
+    // …and the same TOTAL filed under a different class hashes differently (the split is really in the hash).
+    const a = board(2);
+    recordDamage(a, P(1), P(0), 5, 'unit');
+    const b = board(2);
+    recordDamage(b, P(1), P(0), 5, 'keep');
+    expect(hashWorldStateFull(a)).not.toBe(hashWorldStateFull(b));
   });
 });

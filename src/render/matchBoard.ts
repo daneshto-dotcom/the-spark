@@ -87,6 +87,7 @@ class TextPool {
     t.style.fill = fill;
     t.style.fontWeight = weight;
     t.anchor.set(0, 0);
+    t.scale.set(1);
     t.alpha = 1;
     return t;
   }
@@ -116,6 +117,19 @@ class SpritePool {
     return s;
   }
   hideRest(): void { for (let i = this.used; i < this.items.length; i++) this.items[i]!.visible = false; }
+}
+
+/**
+ * A text's width ESTIMATED from its length, never measured. Measuring a Pixi Text needs a canvas (none in the
+ * unit suite) and makes the layout depend on font loading; the estimate is deterministic and only ever used
+ * to fit a label (scale-to-fit, legend spacing, tooltip width) — it never positions a hit target.
+ */
+export const estWidth = (text: string, size: number): number => Math.ceil(text.length * size * 0.56);
+
+/** Scale `t` down (never up) so its estimated width fits `max`. */
+function fitTo(t: Text, max: number): void {
+  const w = estWidth(t.text, Number(t.style.fontSize));
+  t.scale.set(w > max ? max / w : 1);
 }
 
 const mix = (c: number, alpha: number): { color: number; alpha: number } => ({ color: c, alpha });
@@ -361,8 +375,7 @@ export class MatchBoard {
       const t = this.texts.take(label, r.w < 170 ? 15 : 18, on ? INK : row !== undefined ? row.color : DIM);
       t.anchor.set(0.5, 0.5);
       t.position.set(r.x + r.w / 2 + (row !== undefined ? 6 : 0), r.y + r.h / 2);
-      if (t.width > r.w - 28) t.scale.set((r.w - 28) / t.width);
-      else t.scale.set(1);
+      fitTo(t, r.w - 28);
     });
   }
 
@@ -441,7 +454,7 @@ export class MatchBoard {
       const lt = this.texts.take(s.label, 13, s.color);
       lt.anchor.set(1, 0);
       lt.position.set(lx, R.y + 14);
-      lx -= lt.width + 6;
+      lx -= estWidth(lt.text, 13) + 6;
       g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(s.color, 1));
       lx -= 26;
     }
@@ -703,8 +716,7 @@ export class MatchBoard {
       const nm = this.texts.take(l.name, 16, INK, '400');
       nm.anchor.set(0, 0.5);
       nm.position.set(R.x + 54, cy);
-      if (nm.width > 186) nm.scale.set(186 / nm.width);
-      else nm.scale.set(1);
+      fitTo(nm, 186);
       for (const c of cols) {
         const v = c.of(l);
         const w = (cw - 48) * (v / maxV);
@@ -734,7 +746,7 @@ export class MatchBoard {
       const lt = this.texts.take(label, 13, SPLIT_COLORS[k]);
       lt.anchor.set(1, 0);
       lt.position.set(lx, R.y + 14);
-      lx -= lt.width + 6;
+      lx -= estWidth(lt.text, 13) + 6;
       g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(SPLIT_COLORS[k], 1));
       lx -= 26;
     }
@@ -831,7 +843,7 @@ export class MatchBoard {
     const lines = tooltipFor(m, this.tab, this.hover);
     if (lines === null) return;
     const texts = lines.map((l, i) => this.tipTexts.take(l, i === 0 ? 15 : 14, i === 0 ? EDGE : INK, i === 0 ? '900' : '400'));
-    const w = Math.max(...texts.map((t) => t.width)) + 24;
+    const w = Math.max(...texts.map((t) => estWidth(t.text, Number(t.style.fontSize)))) + 24;
     const h = texts.length * 20 + 16;
     let x = this.pointer.x + 18;
     let y = this.pointer.y + 18;
