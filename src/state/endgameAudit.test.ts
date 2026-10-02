@@ -320,3 +320,32 @@ describe('S193 merge — the pants obey master\'s S192 T13 liveness rule', () =>
     expect(m.targetCreatureId).toBe(victim.id);
   });
 });
+
+describe('⭐ S194 re-audit MED-1 — the 360 is a TRUE total, even after seats fall', () => {
+  it('REACH — 4 seats, wave 31, keeps holding, seats 2 and 3 fall mid-window: peak live never exceeds MONSTER_MAX_LIVE_TOTAL', () => {
+    const w = board(4);
+    toFightEdge(w, 31);
+    for (const p of w.players.values()) p.castleHp = 1e9;
+    const d = deps();
+    const st = makeHostTickState(w);
+    runHostTick(w, d, st);
+    const start = w.monsterFightStartTick;
+    const W = pantsWindowTicks(31);
+    let peak = 0;
+    let peakAfterFalls = 0;
+    for (let t = 0; t < W; t++) {
+      const e = w.tick - start;
+      if (e === Math.floor(W / 3)) w.players.get(asPlayerId(2))!.castleHp = 0;
+      if (e === Math.floor(W / 2)) w.players.get(asPlayerId(3))!.castleHp = 0;
+      runHostTick(w, d, st);
+      const n = pants(w).length;
+      peak = Math.max(peak, n);
+      if (w.tick - start > W / 2) peakAfterFalls = Math.max(peakAfterFalls, n);
+    }
+    expect(w.players.get(asPlayerId(3))!.castleHp, 'anti-vacuity: the seats fell').toBe(0);
+    // measured: peak 351 with the fix (castle guns trim it); 561 with it removed (the audit saw 450 / 570)
+    expect(peak, 'anti-vacuity: the cap binds').toBeGreaterThan(300);
+    expect(peakAfterFalls).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+    expect(peak).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+  });
+});

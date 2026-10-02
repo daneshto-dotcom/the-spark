@@ -97,9 +97,16 @@ export function tickEndgameSpawner(world: World): void {
   // bumped as this tick releases. A lane whose seat is at the cap WAITS — and because release `k` must
   // go to lane `k mod N` (that is what makes each seat's remaining count derivable, `monstersLeftForSeat`),
   // the whole sequence waits with it until one of that seat's pants is gone.
+  // ⭐ S194 re-audit MED-1 — counted by the seat each pants is ACTUALLY going for (`monsterVictimSeat`), so
+  // a fallen seat's leftovers count against the survivor they retarget to, and a TOTAL is kept: the 360 is a
+  // true ceiling on live pants, not 360 plus whatever a fallen seat left behind (measured before: 450 / 570).
   const live = new Map<PlayerId, number>();
+  let liveTotal = 0;
   for (const c of world.creatures.values()) {
-    if (c.type === 'endgameMonster' && c.monsterSeat !== undefined) live.set(c.monsterSeat, (live.get(c.monsterSeat) ?? 0) + 1);
+    if (c.type !== 'endgameMonster') continue;
+    liveTotal++;
+    const v = monsterVictimSeat(world, c);
+    if (v !== null) live.set(v, (live.get(v) ?? 0) + 1);
   }
   let released = 0;
   while (world.monsterWaveSpawned < due && released < MONSTER_MAX_RELEASES_PER_TICK) {
@@ -109,8 +116,10 @@ export function tickEndgameSpawner(world: World): void {
       world.monsterWaveSpawned = k + 1; // ⭐ S194 — a fallen seat's slot: it stops coming, at no cost
       continue;
     }
+    if (liveTotal >= MONSTER_MAX_LIVE_TOTAL) break;
     if ((live.get(seat) ?? 0) >= monsterMaxLivePerSeat(living.length)) break;
     live.set(seat, (live.get(seat) ?? 0) + 1);
+    liveTotal++;
     released++;
     const a = castleAnchor(seat as unknown as number, world.layout);
     dispatch(world, {
