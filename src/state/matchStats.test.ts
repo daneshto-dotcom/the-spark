@@ -60,9 +60,9 @@ function addConnector(w: World, owner: PlayerId, base: number): void {
 describe('S191 matchStats — the arithmetic', () => {
   it('TAKEN goes to the victim, DEALT to the attacker, and a self-hit is a loss for nobody else', () => {
     const w = board(2);
-    recordDamage(w, P(1), P(0), 12);
-    recordDamage(w, P(0), P(0), 7); // own blast on own unit
-    recordDamage(w, P(1), null, 5); // unattributed (divine fire)
+    recordDamage(w, P(1), P(0), 12, 'unit');
+    recordDamage(w, P(0), P(0), 7, 'unit'); // own blast on own unit
+    recordDamage(w, P(1), null, 5, 'unit'); // unattributed (divine fire)
     const s0 = w.matchStats.seats.get(P(0))!;
     const s1 = w.matchStats.seats.get(P(1))!;
     expect(s0.dealtFifths).toBe(12);
@@ -73,8 +73,8 @@ describe('S191 matchStats — the arithmetic', () => {
 
   it('a zero or negative applied amount records nothing (never the swing, never a heal)', () => {
     const w = board(2);
-    recordDamage(w, P(1), P(0), 0);
-    recordDamage(w, P(1), P(0), -3);
+    recordDamage(w, P(1), P(0), 0, 'unit');
+    recordDamage(w, P(1), P(0), -3, 'unit');
     expect(w.matchStats.seats.size).toBe(0);
   });
 
@@ -148,7 +148,7 @@ describe('S191 matchStats — the four sites', () => {
     const w = board(2);
     recordUnitBuilt(w, P(0), 'raceUnit');
     recordKill(w, P(1), P(0), 'raceUnit');
-    recordDamage(w, P(0), P(1), 44);
+    recordDamage(w, P(0), P(1), 44, 'unit');
     recordTowerBuilt(w, P(1));
     recordTowerFell(w, P(1));
     recordSeatFell(w, P(0));
@@ -213,7 +213,7 @@ describe('S191 matchStats — the four sites', () => {
   it('HASH: a counter and a history point each move the WIDE oracle (per-field contribution)', () => {
     const w = board(2);
     const h0 = hashWorldStateFull(w);
-    recordDamage(w, P(1), P(0), 6);
+    recordDamage(w, P(1), P(0), 6, 'unit');
     const h1 = hashWorldStateFull(w);
     expect(h1).not.toBe(h0);
     recordKill(w, P(0), P(1), 'chewer');

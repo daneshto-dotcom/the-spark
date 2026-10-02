@@ -33,7 +33,7 @@ function heavyMatch(): World {
     });
     for (let n = 0; n < 12; n++) recordTowerBuilt(w, me);
     for (let n = 0; n < 7; n++) recordTowerFell(w, me);
-    recordDamage(w, foe, me, 98_765);
+    recordDamage(w, foe, me, 98_765, 'unit');
   }
   for (let wave = 1; wave <= 30; wave++) {
     for (let seat = 0; seat < 4; seat++) w.scoreByPlayer.set(asPlayerId(seat), wave * 1_234 + seat);
