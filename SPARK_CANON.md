@@ -1251,7 +1251,9 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **65** (S194 deploy #5 — s194/entropy + s192/teams; see the S194 entries on the const). 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **66** (S194 deploy #6 — s194/rage, R194-31; see the S194 entries on the const). 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 66 (S194, deploy #6)** — s194/rage (R194-31): the Warlord rage window and his units' BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. T9 coherence, T15 weld-rebuild, T10 matchboard ride (render/UI).
 
 ⭐⭐ **WHAT RIDES 65 (S194, deploy #5)** — s194/entropy: the ENTROPY TAX roll at each FIGHT whistle and the new `'entropy'` sever cause; s192/teams: `world.teams`, `RosterEntry.team`, the `CLAIM_TEAM` lobby message.
 
