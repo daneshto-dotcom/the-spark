@@ -37,7 +37,7 @@ import {
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
-import { isMonsterFightHeld, megaPantsAtElapsed, megaPantsDue, megaPantsSlotTicks, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
+import { isMonsterFightHeld, megaPantsAtElapsed, megaPantsDue, monstersDueBy, megaPantsSlotTicks, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
 import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
@@ -750,8 +750,11 @@ describe('⭐⭐ S194 R194-17 × R194-2 — a seat knocked out mid-window: its u
     while (world.tick - start <= W) { runHostTick(world, d, st); sweep(); }
     expect([...seen.values()].filter((s) => s === P2).length, 'no pants for the fallen seat after the fall').toBe(beforeFall);
     expect(world.tick).toBeGreaterThan(fallTick);
-    // the wave is now his count × the TWO living seats, all out by the window's end
-    expect(world.monsterWaveSpawned).toBe(monstersPerSeatForWave(28) * 2);
+    // ⭐ S194 (T8 merge) — the schedule runs over the LANES that started the fight: the fallen lane's slots
+    // are skipped at no cost, so every slot is consumed by the window's end and each SURVIVOR gets his full
+    // count, at an unchanged pace (was: the total shrank to count × living and the survivors got fewer).
+    expect(world.monsterWaveSpawned).toBe(monstersPerSeatForWave(28) * 3);
+    for (const s of [0, 1]) expect([...seen.values()].filter((v) => v === asPlayerId(s)).length, `seat ${s}`).toBe(monstersPerSeatForWave(28));
     expect(monstersLeftToComeOut(world)).toBe(0);
   });
 });
@@ -791,4 +794,38 @@ describe('⭐⭐ S194 R194-26 — REACH: the mega pants walks out exactly one ca
       expect(mega(world)).toHaveLength(1);
     });
   }
+});
+
+describe('⭐⭐ S194 R194-26 × T8 lanes — a seat falls mid-window and the mega pants STILL comes at his 251st slot', () => {
+  it('REACH (3 seats, wave 31): seat 2 falls at half the window; the mega pants walks out at start + floor(T × W / (T − 1)), T = 250 × 3 lanes', () => {
+    const world = board(3);
+    toFightEdge(world, 31);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const W = pantsWindowTicks(31);
+    const T = monstersPerSeatForWave(31) * 3; // the LANES that started the fight, not the living seats
+    const slot = Math.floor((T * W) / (T - 1));
+    let megaAt = -1;
+    for (let t = 0; t < slot + 60 && megaAt < 0; t++) {
+      if (world.tick - start === Math.floor(W / 2)) world.players.get(asPlayerId(2))!.castleHp = 0;
+      runHostTick(world, d, st);
+      for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+      if (mega(world).length > 0) megaAt = world.tick;
+    }
+    expect(world.players.get(asPlayerId(2))!.castleHp, 'anti-vacuity: seat 2 really fell').toBe(0);
+    expect(world.monsterWaveSpawned, 'every lane slot consumed, the fallen lane\'s skipped').toBe(T);
+    expect(megaAt - start, 'the 251st slot, unmoved by the fall').toBe(slot);
+    expect(megaAt - start).toBe(megaPantsAtElapsed(world));
+  });
+
+  it('NEGATIVE (the hazard the T8 auditor named): a schedule over LIVING seats would leave spawned short of the lane total — no mega', () => {
+    // with `living` (2) in the due line the schedule tops out at 250 × 2 = 500 slots, while the wave's
+    // slot total (`monsterWaveTotal`, the lanes) stays 750 → `megaPantsDue` waits forever
+    const W = pantsWindowTicks(31);
+    expect(monstersDueBy(W + 1000, 2, 250 * 2, W)).toBeLessThan(250 * 3);
+    expect(monstersDueBy(W, 3, 250 * 3, W)).toBe(250 * 3);
+  });
 });
