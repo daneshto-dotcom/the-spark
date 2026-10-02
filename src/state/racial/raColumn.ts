@@ -229,7 +229,9 @@ export function landRaColumn(world: World, src: RaColumnSource, at: { x: number;
     if (t.kind !== 'structure' || share === 0) continue;
     if (!world.bonds.has(t.bondId)) continue;
     // S188 merge — `null` attacker: a sky strike has no creature to heal (BLOOD DEBT).
-    if (damageConnector(world, t.bondId, share, null)) {
+    // ⭐ S192 (R192-M2, R190-E) — MAGIC, PER SHARE: each share is rescaled by ITS OWN target's DEF/MRES
+    // inside the funnel, never the column total (a structure's MRES = its DEF, so its share lands as is).
+    if (damageConnector(world, t.bondId, share, null, 'magic')) {
       /*
        * ⛔ S188 audit F1 — RESOLVED INLINE, not dispatched, so a caster benched or eliminated
        * mid-strike (or a Pharaoh's seat) still breaks what the column drained.
@@ -243,7 +245,7 @@ export function landRaColumn(world: World, src: RaColumnSource, at: { x: number;
     const share = shares[i]!;
     if (t.kind === 'structure' || share === 0) continue;
     // `'aura'` and `null`: a column of light is nobody a unit can turn on.
-    damageEntity(world, t.target, share, 'aura', null);
+    damageEntity(world, t.target, share, 'aura', null, 'magic'); // ⭐ S192 — magic, per share (R192-M2)
   }
   return pool;
 }

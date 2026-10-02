@@ -76,7 +76,7 @@ function zombiesOf(w: World): CreatureId[] {
 function strike(w: World, blows: ReadonlyArray<{ by: CreatureId; on: CreatureId; amount: number }>): void {
   w.pendingCreatureDeaths = new Set();
   for (const b of blows) {
-    damageEntity(w, { kind: 'creature', id: b.on }, b.amount, 'creature', { kind: 'creature', id: b.by });
+    damageEntity(w, { kind: 'creature', id: b.on }, b.amount, 'creature', { kind: 'creature', id: b.by }, 'physical');
   }
   sweepDeferredDeaths(w, w.pendingCreatureDeaths);
   w.pendingCreatureDeaths = null;
@@ -160,7 +160,7 @@ describe('THE RISEN — one kill, one zombie, at the castle', () => {
     const victim = spawnAt(w, P1, 'chewer', 970, 500);
     const before = w.creatures.size;
     w.pendingCreatureDeaths = new Set();
-    damageEntity(w, { kind: 'creature', id: victim }, 999, 'creature', { kind: 'creature', id: killer });
+    damageEntity(w, { kind: 'creature', id: victim }, 999, 'creature', { kind: 'creature', id: killer }, 'physical');
     // Inside the batch: nothing inserted, one job waiting, the corpse still in the map.
     expect(w.creatures.size).toBe(before);
     expect(pendingRacialSpawns(w)).toBe(1);
@@ -203,7 +203,7 @@ describe('THE RISEN — negatives: every one of these raises NOBODY', () => {
     const victim = spawnAt(w, P1, 'chewer', 970, 500);
     const before = zombiesOf(w).length;
     w.pendingCreatureDeaths = new Set();
-    damageEntity(w, { kind: 'creature', id: victim }, 999, 'aura', null);
+    damageEntity(w, { kind: 'creature', id: victim }, 999, 'aura', null, 'physical');
     sweepDeferredDeaths(w, w.pendingCreatureDeaths);
     w.pendingCreatureDeaths = null;
     drainRacialSpawnQueue(w);

@@ -301,7 +301,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(59);
+    expect(PROTOCOL_VERSION).toBe(60);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -664,15 +664,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
    * ⭐ S189 P10 — §3d's castle buttons. S187 built the four stats in the sim and nothing dispatched
    * them; S188 put them on the panel. The canon's numbers are read off the reducer and the panel.
    */
-  it('⭐ §3d — the four castle buttons: order, price, cap, and what one point buys', () => {
-    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen']);
+  it('⭐ §3d — the five castle buttons: order, price, cap, and what one point buys', () => {
+    // ⭐ S192 — MRES is his fifth axis (*"either defense or resistance"*), after PEN.
+    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen', 'mres']);
     expect(canonSays(
-      `**HP / ATK / DEF / PEN**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
+      `**HP / ATK / DEF / PEN / MRES**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
     )).toBe(true);
-    // Four rows directly under REGEN, in HIS order.
+    // Five rows directly under REGEN, in HIS order.
     const regen = CASTLE_ROW_KEYS.indexOf('castleRegen');
-    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen']);
-    expect(canonSays('**four rows under REGEN — HP, ATK, DEF, PEN**')).toBe(true);
+    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres']);
+    expect(canonSays('**five rows under REGEN — HP, ATK, DEF, PEN, MRES**')).toBe(true);
     expect(canonSays(`out of **${CASTLE_UPGRADE_MAX_LEVEL}** (\`CASTLE_UPGRADE_MAX_LEVEL\`)`)).toBe(true);
     expect(canonSays(`its price **${CASTLE_UPGRADE_PRICE}**`)).toBe(true);
     // Every disabled reason the canon names is one the panel can print.
@@ -1108,7 +1109,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 58 -> 59');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 59 -> 60');
+    expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 55 -> 56')).toBeLessThan(constAt);
@@ -1641,7 +1643,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     };
     const hit = (amount: number) => {
       const { w, ids } = build();
-      expect(damageConnector(w, ids[0]!, amount, null)).toBe(true);
+      expect(damageConnector(w, ids[0]!, amount, null, 'physical')).toBe(true);
       const felled = severWithCarry(w, ids[0]!, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: asPlayerId(1), cause: 'unit' }));
       let banked = 0;
       for (const b of w.bonds.values()) banked += b.damageFifths;
@@ -1661,6 +1663,81 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     // ⭐ S191 (owner) — BLAST-1 is his ruling now, quoted in §9d item 2.
     expect(canonSays('HIS RULING (S191, BLAST-1)')).toBe(true);
     expect(canonSays("they're resistant")).toBe(true);
+  });
+});
+
+// ── ⭐⭐ S193 — §2b MAGIC RESISTANCE, every number bound to its constant ─────────────────────────
+import {
+  CREATURE_MRES, RACE_MRES_LEVEL, bossMres, defenderMres, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
+} from './state/magicResist.ts';
+import {
+  CASTLE_BASE_MRES_LEVEL, CASTLE_UPGRADE_MAX_LEVEL as MRES_CASTLE_MAX, CASTLE_UPGRADE_PRICE as MRES_CASTLE_PRICE,
+  castleMagicDamageAfterResist, castleMresLevelOf, withCastlePurchase,
+} from './state/castleUpgrades.ts';
+import { RESIST_MIN_GAP_TICKS, RESIST_TEXT } from './render/damageNumbers.ts';
+
+describe('§2b MAGIC RESISTANCE is bound to the code', () => {
+  it('the rule and the worked case: the Archdemon DEF 8 / MRES 14 — magic 300 lands 205', () => {
+    const arch = getCreatureConfig('t9BossDemons');
+    expect(arch.def).toBe(8);
+    expect(mresFor('t9BossDemons', null)).toBe(14);
+    expect(magicHitFifths(300, 8, 14)).toBe(205);
+    expect(Math.floor((300 * 13) / 19)).toBe(205);
+    expect(canonSays('a magic 300 lands 205')).toBe(true);
+    expect(canonSays('floor(A × (5 + DEF) / (5 + MRES))')).toBe(true);
+    // MRES = DEF is the identity; the floor never drops a real hit to 0; a DoT beat may land 0.
+    for (const a of [1, 12, 35, 300]) for (const d of [0, 3, 8]) expect(magicHitFifths(a, d, d)).toBe(a);
+    expect(magicHitFifths(1, 0, 20)).toBe(1);
+    const beats = Array.from({ length: 19 }, (_, b) => magicDotFifths(1, 8, 14, b));
+    expect(beats.reduce((s, x) => s + x, 0)).toBe(13);
+    expect(beats.includes(0)).toBe(true);
+    expect(canonSays('some beats land 0')).toBe(true);
+  });
+
+  it('the class table: Voltkin zap magic (MINE), every other unit strike physical', () => {
+    for (const t of Object.keys(CREATURE_MRES) as CreatureType[]) {
+      expect(strikeClassFor(t)).toBe(t === 'voltkin' ? 'magic' : 'physical');
+    }
+    expect(canonSays('⚠ MINE: its first zap too')).toBe(true);
+    expect(canonSays('EACH share is defended by its own target')).toBe(true);
+    expect(canonSays('the **zombie boss death blast**')).toBe(true); // ⭐ S193 — physical (R192-M3), `zombieDeathBlast.ts`
+    expect(canonSays('with a floor PER')).toBe(true); // the differential's per-source floors
+  });
+
+  it('who has how much: structures n, globals/Helga = DEF, races 4·4·3·2·1·0, bosses 6 + 2 × level', () => {
+    for (const n of [1, 2, 3, 4, 5]) expect(structureMres(n)).toBe(n);
+    expect(defenderMres({ def: 3 })).toBe(3);
+    for (const t of ['goblinMelee', 'voltkin', 'chewer', 'lightningDrone', 'direwolf', 'locustCloud'] as CreatureType[]) {
+      expect(CREATURE_MRES[t]).toBe('def');
+      expect(mresFor(t, null)).toBe(getCreatureConfig(t).def);
+    }
+    expect(RACE_MRES_LEVEL).toEqual({ demons: 4, mummies: 4, vampires: 3, nagas: 2, orcs: 1, zombies: 0 });
+    expect(canonSays('demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0**')).toBe(true);
+    expect(mresFor('raceUnit', 'nagas')).toBe(2);
+    expect(bossMres('demons')).toBe(14);
+    expect(bossMres('mummies')).toBe(14);
+    expect(bossMres('zombies')).toBe(6);
+    expect(canonSays('**6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6**')).toBe(true);
+  });
+
+  it('the castle MRES axis: starts 0, its own row, 100 VP, max 10; a DEF buy does not raise it', () => {
+    expect(CASTLE_BASE_MRES_LEVEL).toBe(0);
+    expect(MRES_CASTLE_PRICE).toBe(100);
+    expect(MRES_CASTLE_MAX).toBe(10);
+    const u0 = emptyCastleUpgrades();
+    expect(castleMresLevelOf(u0)).toBe(0);
+    expect(castleMresLevelOf(withCastlePurchase(u0, 'def', 1))).toBe(0);
+    const u1 = withCastlePurchase(u0, 'mres', 1);
+    expect(castleMresLevelOf(u1)).toBe(1);
+    expect(castleMagicDamageAfterResist(60, u1)).toBe(Math.floor((60 * 5) / 6));
+    expect(canonSays('the keep starts at MRES **0**')).toBe(true);
+    expect(canonSays('**100 VP** a point, **10** max')).toBe(true);
+  });
+
+  it('the RESIST cue: the word, at most once a second', () => {
+    expect(RESIST_TEXT).toBe('RESIST');
+    expect(RESIST_MIN_GAP_TICKS).toBe(PHYSICS_HZ);
+    expect(canonSays('a grey **"RESIST"** floats over the unit — at most **once a second**')).toBe(true);
   });
 });
 

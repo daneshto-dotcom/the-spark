@@ -98,6 +98,73 @@ fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 
 ---
 
+## 2b · ⭐⭐ MAGIC RESISTANCE (MRES) — ONE MORE STAT ON THE SAME LADDER (S192, `s192/magic`)
+
+> *"magic resistance, which is basically on the same ladder as defense levels. One magic resistant level is 1.2,
+> two … 1.4, these 1.6, etc."* · *"nothing makes magic stronger, it's just different."* — owner, S192 (R192-M1, M4)
+
+**THE RULE.** DEF is folded into the POOL (§2), so against magic the one bar must behave as if it were
+`HP × (5 + MRES)` long. A magic hit of `A` fifths therefore lands as
+
+```
+magic landed = floor(A × (5 + DEF) / (5 + MRES))     never below 1 on a real hit     `magicHitFifths`
+```
+
+The HP cancels. **At MRES = DEF it is `A` exactly** — so every unit whose MRES equals its DEF plays exactly as it did
+before magic existed. `magicResist.differential.test.ts` proves it on a four-seat bots match: an all-physical twin and an
+MRES = DEF twin hash identical on EVERY tick for two whole waves (or the whole match, if it ends sooner), with a floor PER
+SOURCE — the Ra column, the Voltkin chain, the zombie ROT, SCORCHED GROUND, a SCORCHED EARTH cast (units, Helga, connectors),
+the stink aura and the stink cloud each have to reach the rescale. It proves the plumbing, not the table.
+The damage number looks the same; magic is not a colour (R192-M4).
+
+**WORKED CASE — the Archdemon, DEF 8 / MRES 14: a magic 300 lands 205** (`floor(300 × 13 / 19)`). A physical 300
+lands 300. A soldier with MRES = DEF takes a magic 300 as 300.
+
+**A one-fifth DoT beat cannot use that floor** (it would always land 1), so a magic DoT is spread over the victim's own
+beats: `floor((b+1)·r) − floor(b·r)` with `r = (5+DEF)/(5+MRES)` (`magicDotFifths`). Exact on average, 1 on every beat
+at MRES = DEF, and **some beats land 0** when MRES > DEF — HIS (R192-M12): *"can be totally resistant to very low level
+magic, I accept that"*.
+
+### What is magic, and what is physical (R192-M2 / M3)
+
+| MAGIC | PHYSICAL — *"Physical, anything else"* |
+|---|---|
+| the **Ra column** — POWER OF RA, every WRATH OF RA charge, the bot cast, AND the Pharaoh boss's ritual (one `landRaColumn`). ⭐ **PER SHARE**: the column's pool is split first, then EACH share is defended by its own target's MRES | every swing, shot and bite |
+| the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, the **zombie boss death blast**, a stink bag bursting, the stink tower's death blast and bag splash |
+| **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
+| the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
+| the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
+
+`magicResist.callSites.test.ts` pins every production damage call and its class, file by file, plus every direct pool write.
+
+### Who has how much MRES (R192-M5 / M6 / M10)
+
+| | MRES | |
+|---|---|---|
+| a **STRUCTURE** of `n` connectors | **`n`** = its DEF | HIS: *"towers will inherently have the same magic resistance as their regular defense"* — so magic lands on a tower exactly as physical |
+| a **shape**, a **stink bag** | **0** = DEF | |
+| a **GLOBAL** unit (goblins, chewer, Voltkin, drone, direwolf, locusts) and **Helga** | **= its own DEF** | HIS (R192-M10) |
+| a **race's** tier-3 unit, and the **castle soldier** by its owner's race | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
+
+⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
+against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+
+### The castle's MRES axis (R192-M9)
+
+*"whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward there
+should be … its own upgrades"* — the keep starts at MRES **0** (its starting DEF) and **MRES is its own bought row**:
+**100 VP** a point, **10** max, like every axis (§3). A bought DEF point no longer raises MRES. A magic hit on the keep lands
+`floor(A × 5 / (5 + MRES level))`, never below 1.
+
+### The RESIST cue (R192-M12, ⚠ MINE look)
+
+When a magic DoT beat lands 0, a grey **"RESIST"** floats over the unit — at most **once a second** per unit, never over a unit
+whose MRES = DEF. DERIVED from synced state every frame (`state/magicResistCue.ts` → `render/damageNumbers.ts`); nothing
+rides the wire for it. It covers the ROT, SCORCHED GROUND, SCORCHED EARTH casts, the stink aura and the stink cloud.
+
+---
+
 ## 3 · THE CASTLE
 
 | | |
@@ -107,7 +174,7 @@ fell the hub owner's (S157 P0). `connectorCarryOwner.test.ts`.
 | Damage an attacker deals to it | **its own strike — `creatureAttackFifths(creature)`**: its type's `attackFifths(atk, pen)`, drafted-buffed when its seat drafted ATK/PEN (S190, §3d) — the same ladder as everything else, through the keep's DEF |
 | Goblins needed to fell a keep | **between ten and twelve**, measured S181 through the real host tick |
 | Regen, once bought | **25 / 30 / 35 / 40 / 45** HP per second by level on an un-upgraded keep — 1.0–1.8 % of the seat's **UPGRADED** total (owner ruling R190-C, S190; §3d) |
-| Bought stats | **HP / ATK / DEF / PEN**, 100 VP a point, 10 per axis — live buttons since S188 (§3d) |
+| Bought stats | **HP / ATK / DEF / PEN / MRES**, 100 VP a point, 10 per axis — live buttons since S188 (§3d); MRES (magic resistance) added S192 by his ruling: *"either defense or resistance"* — the keep starts with MRES = its starting DEF, then each axis is bought apart |
 
 ⭐⭐ **S181 — THE OWNER RAISED THE POOL TO 2500 AND ITS DAMAGE ×5.**
 
@@ -348,7 +415,7 @@ clamp is MINE, like the win bar's.
 ### ⭐⭐ S188 — AND NOW HE CAN PRESS THEM: THE FOUR CASTLE BUTTONS ARE LIVE
 
 S187 built all four in the sim and nothing dispatched `UPGRADE_CASTLE_STAT` — his *"we just have
-regen"* was exactly right. The castle panel now carries **four rows under REGEN — HP, ATK, DEF, PEN** —
+regen"* was exactly right. The castle panel now carries **five rows under REGEN — HP, ATK, DEF, PEN, MRES** (MRES since S192) —
 each printing its level out of **10** (`CASTLE_UPGRADE_MAX_LEVEL`), its price **100**
 (`CASTLE_UPGRADE_PRICE`), and on a second line what the NEXT point buys (`castleUpgradePreview` — for
 HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MAX` · `LOCKED` ·
@@ -1013,7 +1080,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **59** (S193 — deploy #20; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **60** (S193 — deploy #22; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 60 (S193, deploy #22)** — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade.
 
 ⭐⭐ **WHAT RIDES 59 (S193, deploy #20)** — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight.
 

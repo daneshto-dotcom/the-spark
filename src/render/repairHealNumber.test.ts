@@ -70,8 +70,8 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐⭐ two chewed connectors: one green number equal to the banks the repair cleared', () => {
     const w = tower();
     const [b1, b2] = [...w.bonds.keys()];
-    expect(damageConnector(w, b1, 7, null)).toBe(false);
-    expect(damageConnector(w, b2, 5, null)).toBe(false);
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
     const dn: any = new DamageNumbers();
     dn.sync(w); // seed every watch
     const placed = recorder(dn);
@@ -86,7 +86,7 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐ a chipped shape AND a chewed connector: still ONE number, the sum — the shape does not print twice', () => {
     const w = tower();
     const b1 = [...w.bonds.keys()][0];
-    damageConnector(w, b1, 9, null);
+    damageConnector(w, b1, 9, null, 'physical');
     const shape = [...w.primitives.values()][1];
     shape.hp = PRIMITIVE_MAX_HP - 20;
     const dn: any = new DamageNumbers();
@@ -100,7 +100,7 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('negative: a SEVER lowers banks and prints no green (poolDelta still never reads a rising fall)', () => {
     const w = tower();
     const ids = [...w.bonds.keys()];
-    for (const id of ids) damageConnector(w, id, 3, null);
+    for (const id of ids) damageConnector(w, id, 3, null, 'physical');
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);

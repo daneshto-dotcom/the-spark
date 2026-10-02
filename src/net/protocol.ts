@@ -999,7 +999,18 @@ export type { NetSnapshot };
  *      that never ends on the clock while 2+ live, the mega pants past 240 s (⚠ MINE), pants seeing only their
  *      victim's keep, the spawner bounty off on waves 27–31 (⚠ MINE), the last draft at wave 26.
  */
-export const PROTOCOL_VERSION = 59 as const;
+/**
+ * ⭐⭐ S193 — **BUMPED 59 -> 60: `s192/magic` — MAGIC RESISTANCE (owner R192-M1..M12).** Each reason is enough alone:
+ *   1. A RULE BOTH PEERS COMPUTE — every damage funnel takes a class ('physical' | 'magic' | DoT beats); a magic
+ *      hit is rescaled against the target's MRES the way DEF is folded into the pool (R192-M1: "the same ladder
+ *      as defense"). Magic: the Ra column (per SHARE), WRATH OF RA, the zombie rot aura, SCORCHED GROUND / EARTH,
+ *      the stink aura and cloud, the Voltkin chain (R192-M2; the Voltkin's own zap ⚠ MINE). Everything else is
+ *      physical (R192-M3). A v59 host or successor lands every magic hit unscaled.
+ *   2. A NEW DISCRIMINANT — `'mres'` on `UPGRADE_CASTLE_STAT.stat` (R192-M9: the castle buys MRES separately; it
+ *      starts equal to its DEF). A v59 host refuses it; a stale peer falls through the switch.
+ *   3. A NEW WIRE FIELD — `castleUpgrades.mresLevel` (additive-optional), wide-hashed.
+ */
+export const PROTOCOL_VERSION = 60 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1333,6 +1344,8 @@ export interface HelloMsg {
    *
    * S193: 58->59 (DEPLOY #20 — s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight. Full reasons on the const's JSDoc.)
    *
+   * S193: 59->60 (DEPLOY #22 — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade. Full reasons on the const's JSDoc.)
+   *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
    * of S150: **SEVEN** prior instances. Three are backfills recorded right here (S133 P2 filled in
@@ -1370,7 +1383,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 59;
+  readonly protoVersion: 60;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
