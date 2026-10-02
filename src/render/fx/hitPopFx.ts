@@ -26,7 +26,7 @@
  * The bespoke impacts above stay and play over it, the way the combo silhouettes stay over the build juice.
  *
  * Keyed by what was hit (`HitTarget`), so the keep's pop reads at castle scale and a goblin's sits inside it.
- * ⚠ EVERY NUMBER IS MINE (an owner LOOK item). Small and fast on purpose: 12 frames, 5 sprites — a melee
+ * ⚠ EVERY NUMBER IS MINE (an owner LOOK item). Small and fast on purpose: 12 frames, 4 sprites — a melee
  * scrum of thirty units must read as "blows landing", not as a fireworks display.
  *
  * PURE: (seed, position, size, the pop's 0..1 life). No Pixi, no clock, no `Math.random`.
@@ -41,9 +41,9 @@ export const HIT_POP_SIZE: Readonly<Record<HitTarget, number>> = { unit: 9, stru
 /** How long a pop lives, in render FRAMES — the floaters' own clock (`damageNumbers.advance`). ⚠ MINE. */
 export const HIT_POP_FRAMES = 12;
 /** Sparks per pop. */
-export const HIT_POP_SPARKS = 3;
+export const HIT_POP_SPARKS = 2;
 /** Pops alive at once — a 120-unit wave-5 fight must not turn into hundreds of sprites. ⚠ MINE. */
-export const HIT_POP_MAX_LIVE = 40;
+export const HIT_POP_MAX_LIVE = 20;
 
 /** A white-hot core and a red rim — the red of the damage number itself (0xe01b1b), lifted for additive light. */
 export const HIT_POP_CORE = 0xfff3ea;

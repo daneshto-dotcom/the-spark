@@ -31,9 +31,9 @@
  *
  * | family | members | the beat |
  * |---|---|---|
- * | `unit` | goblins, race + tier-3 units, direwolf, chewer | flash, dust ring, 8 motes |
- * | `boss` | the six tier-9 bosses, the endgame monster, mega pants | the same, ×1.6 motes, plus a soft shock ring |
- * | `swarm` | locust cloud, bat swarm | flash and 14 small motes scattering — a swarm has no feet to kick dust |
+ * | `unit` | goblins, race + tier-3 units, direwolf, chewer | flash, dust ring (4 puffs), 6 motes |
+ * | `boss` | the six tier-9 bosses, the endgame monster, mega pants | flash, 6 puffs, 10 motes, plus a soft shock ring |
+ * | `swarm` | locust cloud, bat swarm | flash and 10 small motes scattering — a swarm has no feet to kick dust |
  * | `construct` | Voltkin, lightning drone | flash and cool-white spark motes, no dust — they are made of charge |
  *
  * ⚠ EVERY NUMBER HERE IS MINE (an owner LOOK item, like every other S192+ fx number). Sized so a goblin's
@@ -93,10 +93,10 @@ interface DeathLook {
 
 /** ⚠ MINE — the per-family look. One table, so the families differ ONLY where a reason is written above. */
 export const UNIT_DEATH_LOOK: Readonly<Record<UnitFamily, DeathLook>> = {
-  unit: { motes: 8, dust: 6, ring: false, hot: 0xffffff },
-  boss: { motes: 13, dust: 9, ring: true, hot: 0xffffff },
-  swarm: { motes: 14, dust: 0, ring: false, hot: 0xffffff },
-  construct: { motes: 10, dust: 0, ring: false, hot: 0xe8f6ff },
+  unit: { motes: 6, dust: 4, ring: false, hot: 0xffffff },
+  boss: { motes: 10, dust: 6, ring: true, hot: 0xffffff },
+  swarm: { motes: 10, dust: 0, ring: false, hot: 0xffffff },
+  construct: { motes: 8, dust: 0, ring: false, hot: 0xe8f6ff },
 };
 
 /** How long the beat lasts, in ticks (0.6 s). ⚠ MINE — the length of the `die` row's first half. */

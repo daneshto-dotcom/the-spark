@@ -23,8 +23,12 @@ import { fxSeed } from '../fx/emitter.ts';
 import { UNIT_DEATH_LIFE_TICKS, UNIT_FAMILY, unitDeathFx, type UnitFamily } from '../fx/unitDeathFx.ts';
 import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './unitDeparture.ts';
 
-/** Hard cap on beats alive at once — a wave-5 wipe of 120 units must not become 120 × 30 sprites. ⚠ MINE. */
-export const UNIT_DEATH_MAX_LIVE = 24;
+/**
+ * Hard cap on beats alive at once — a wave-5 wipe of 120 units must not become 120 × 16 sprites. ⚠ MINE, and
+ * MEASURED: at 24 (with 40 hit pops) a forced 20-kills-a-second fight cost +0.43 ms a frame; 12 keeps the
+ * worst case inside the +0.3 ms budget (S194 T9 bench, `S194_PROGRESS_coherence.md`).
+ */
+export const UNIT_DEATH_MAX_LIVE = 12;
 
 /** The seat colour when the owner is unknown (a left player). Same neutral `spawnerZoneRenderer` falls back to. */
 const NEUTRAL = 0xc8c8d0;
