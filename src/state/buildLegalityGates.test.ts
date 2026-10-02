@@ -445,7 +445,7 @@ describe('S182 — gate 1+2: the reducers refuse a placement inside the castle k
     }
   }
 
-  it('⭐ S193 P3-1 re-pin — the porch is OUTSIDE the keep-out, which is the same distance on every side', () => {
+  it('⭐ S193 P3-1 → S194 R194-16 re-pin — the porch is INSIDE the keep-out again, and south still equals east', () => {
     // Was "ANTI-VACUITY — the porch really is inside the keep-out". S182's 121 covered it and S191's
     // per-slot discs kept it covered — which is what reached 108 px south. The owner (S193) ruled the
     // keep-out "a short radius … immediately around it", the same as the horizontal. The porch's own
@@ -453,7 +453,10 @@ describe('S182 — gate 1+2: the reducers refuse a placement inside the castle k
     for (const layout of LAYOUTS) {
       for (let s = 0; s < zoneCount(layout); s++) {
         const a = zoneCastleAnchor(s, layout);
-        expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_PORCH_OFFSET_Y }, layout)).toBe(false);
+        // ⭐ S194 R194-16 (owner: *"you should definitely not be able to build over that"*) — the entrance is
+        // refused (porch row moved to +42 and each slot carries a 17 px clearance), without stretching the
+        // zone south: the 61-px probes below still agree.
+        expect(isInsideCastleKeepOut({ x: a.x, y: a.y + CASTLE_PORCH_OFFSET_Y }, layout)).toBe(true);
         const south = { x: a.x, y: a.y + CASTLE_NO_BUILD_RADIUS };
         const east = { x: a.x + CASTLE_NO_BUILD_RADIUS, y: a.y };
         expect(isInsideCastleKeepOut(south, layout)).toBe(isInsideCastleKeepOut(east, layout));
