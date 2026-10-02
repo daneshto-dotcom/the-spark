@@ -1145,9 +1145,9 @@ export function makeCreature(
      */
     draftPicks?: readonly DraftPick[];
     /**
-     * ⭐ S193 (R192-D1) — the owner seat's race, read ONLY to size a drafted magic-defended pool: the
-     * castle soldier's MRES is its owner's race level (`mresFor`). Omitted = no race, the soldier's own
-     * DEF — the right answer for a seatless creature; every production spawn site passes it.
+     * ⭐ S193 (R192-D1) — the owner seat's race, passed to `mresFor` when sizing a drafted magic-defended
+     * pool. ⭐ S194 (HIS) — the castle soldier is MRES 1 for every race, so today no answer depends on it;
+     * kept so every production spawn site stays wired if a race-dependent MRES is ever ruled again.
      */
     ownerRace?: RaceId | null;
   },

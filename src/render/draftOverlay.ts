@@ -173,7 +173,9 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
     title: 'WARDED',
     line: `+${DRAFT_BUFF_PCT}% MAGIC RESIST`,
     detail:
-      `Every unit you spawn from now on shrugs off ${DRAFT_BUFF_PCT}% more magic. ` +
+      // ⭐ S194 — exact, not a promise: the pick raises the magic-resist pool 10 %, which is NOT "10 % less
+      // magic taken" (a magic 90 on a picked soldier lands 77, not 81). So the detail repeats the line.
+      `Every unit you spawn from now on: +${DRAFT_BUFF_PCT}% MAGIC RESIST. ` +
       'Units already on the board keep what they were born with.',
     card: null,
   },
