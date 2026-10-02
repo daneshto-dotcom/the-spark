@@ -1,5 +1,16 @@
 # S194 · `s194/visuals-6` (T4) · progress
 
+## FINAL REPORT — RE-AUDIT ROUND (a)(b)(c)
+- tip: the commit adding this report. Merged master e9855ba9-line (protocol 66, rage, coherence, weld-rebuild, UI r3, matchboard) → 90d13edf, clean. Master since moved by one docs file (2aeba678 deploy log) — not merged.
+- gates on aecb2805 (+ this report): typecheck 0 · vitest 0 (573 files, 8695 passed, 11 skipped) · build 0, entry 1180.4 KiB / 1250 (headroom 69.6) · e2e:gating 0, 74/74 on own port. Snapshot LF churn reverted (benign, pre-existing).
+- (a) fix-me sparkle phase-free: `brokenTowers.ts` asks `fallenTowerFixCanRegister` against a read-only BUILD view of the world (`asIfBuild`, prototype lookup — the sim rule S157 B6 is untouched); `matchPhase` in the cache key; docblock + MINE line rewritten. Tests: a broken DEFENDER (laser turret) and a broken SPAWNER (goblin tower) are named and sparkle in BUILD AND FIGHT; mutation (live-phase world) → the defender case red.
+- (c) a backwards clock calls `resetTowerCoverGroups()` (groups + everStood) at the frame boundary; test + mutation red.
+- (b) perf, contract §6, 4 interleaved master/branch cycles × 3 reps × HIGH/LOW (12 runs a side), 6 seats, 12 race towers (all six races) + turret/hub/stink, ~100 creatures, swiftshader headless on the shared machine:
+  · render + the touched syncs, per frame: HIGH master 4.72 ms [IQR 4.00–5.20] vs branch 5.30 [4.50–6.10] → **+0.58 ms**; LOW 4.63 [3.90–5.20] vs 4.75 [4.00–5.40] → **+0.12 ms**.
+  · whole frame (game-tick start → render end): HIGH 9.35 [8.00–10.20] vs 9.85 [8.40–10.90] → **+0.50 ms**; LOW 9.20 [7.70–10.20] vs 9.25 [7.80–10.40] → **+0.05 ms**.
+  · Both ≤ +1.0 ms: contract MET. No further cut applied (the listed sigil/ember cuts were not needed).
+- Owner LOOK (no code): a FIX that re-stands a fallen tower plays NO build sparkle — its shapes were already seen standing, so it reads as a re-reveal (L2). If he wants a "repaired" sparkle, it needs its own trigger.
+
 ## FINAL REPORT — BATCH 2 (R194-22/23 fix-me sparkle, audit M1/L1/L2/reach/perf/L3, T15 overlap)
 - tip: the commit adding this report. Merged master f7ebf0dc (PROTOCOL 64, T5, T8, entropy) clean. Newer master d454e1af (T9) trial-merged clean with `git merge-tree` (it touches structureRampRenderer.ts and main.ts too; auto-merged) — not merged in.
 - gates on 52da9ec5: typecheck 0 · vitest 0 (551 files, 8437 passed, 11 skipped) · build 0, entry 1164.9 KiB / 1250 (headroom 85.1) · e2e:gating 0, 74/74 on own port.
