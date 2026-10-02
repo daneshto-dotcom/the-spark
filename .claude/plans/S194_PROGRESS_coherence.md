@@ -9,5 +9,8 @@ everything more … consistent and … cohesive and mindful of each other and co
 ## Log
 - Setup: worktree from master `0a37175e`, `git merge master` → fast-forward to `18560cd8` (amendment A2), no conflicts. `npm install` exit 0.
 
+- C1 `b46d3e3d` — shared unit-departure rule (`src/render/coherence/unitDeparture.ts`); damageNumbers no longer prints a kill for an expiry / mass clear / fogged spot; creatureRenderer zap uses the same rule.
+- C2 `6f5ea1f7` — shared unit death beat for all 28 creature types (`fx/unitDeathFx.ts` + `coherence/unitDeathRenderer.ts`, wired in main.ts), census + reach + negatives.
+
 ## Next step
-Build the parity matrix (families × channels) by grep; verify candidate gaps with tests.
+Audit the TOWER family's fire/impact + Helga death + sound matrix; then perf bench + screenshots + full gates.
