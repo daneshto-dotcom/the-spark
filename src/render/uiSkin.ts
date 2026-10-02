@@ -170,7 +170,8 @@ export function skinPanelFx(g: SkinGraphics, x: number, y: number, w: number, h:
   const r = Math.max(0, Math.min(radius, w / 2, h / 2));
   // Vertical depth: lighter top, accent-tinted floor.
   g.roundRect(x + 2, y + 2, w - 4, Math.min(h - 4, Math.max(18, h * 0.22)), Math.max(0, r - 2)).fill({ color: 0xffffff, alpha: 0.035 });
-  g.roundRect(x + 2, y + h * 0.6, w - 4, h * 0.4 - 2, Math.max(0, r - 2)).fill({ color: accent, alpha: 0.05 });
+  // Three stacked washes, so the floor tint ramps up instead of starting at a visible seam.
+  for (const k of [0.4, 0.6, 0.8]) g.roundRect(x + 2, y + h * k, w - 4, h * (1 - k) - 2, Math.max(0, r - 2)).fill({ color: accent, alpha: 0.022 });
   if (header > 0 && header < h - 8) {
     g.roundRect(x + 3, y + 3, w - 6, header - 3, Math.max(0, r - 3)).fill({ color: accent, alpha: 0.14 });
     g.moveTo(x + 10, y + header + 0.5).lineTo(x + w - 10, y + header + 0.5).stroke({ width: 1, color: accent, alpha: 0.5 });
