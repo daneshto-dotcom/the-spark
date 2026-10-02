@@ -21,11 +21,14 @@
  *    waits is burn it throws away.
  *  · HOW OFTEN it looks: `BOT_SCORCH_EVAL_EVERY_TICKS`, phase-spread by seat (Ra's cadence).
  *  · It never scorches its OWN zone (the double is a human's call to make).
+ *  · ⭐ S193 (owner R192-T1) — nor a TEAMMATE's: "the highest-scoring ENEMY" means not on its team. In a
+ *    free-for-all `sameTeam(world, other, seat)` is exactly the old `other === seat`.
  */
 
 import type { PlayerId } from '../types.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { scorchedEarthCastRefusal, scorchedEarthTargetZone } from '../state/racial/scorchedEarthRules.ts';
+import { sameTeam } from '../state/teams.ts';
 
 /** How often a bot looks, in ticks (twice a second), phase-spread by seat. ⚠ MINE — Ra's cadence. */
 export const BOT_SCORCH_EVAL_EVERY_TICKS = 30;
@@ -35,7 +38,7 @@ export function botScorchTarget(world: World, seat: PlayerId): PlayerId | null {
   let best: { seat: PlayerId; score: number } | null = null;
   const seats = [...world.players.keys()].sort((a, b) => Number(a) - Number(b));
   for (const other of seats) {
-    if (other === seat) continue;
+    if (sameTeam(world, other, seat)) continue; // its own seat, or a teammate (R192-T1)
     if (scorchedEarthTargetZone(world, other) === null) continue;
     const score = world.scoreByPlayer.get(other) ?? 0;
     // Strictly greater only: seats are visited in id order, so a tie keeps the lower seat.

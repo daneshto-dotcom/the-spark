@@ -293,3 +293,48 @@ describe('⭐ S192 — the DORMANT Helga (weld R190-J) through the REAL matcher 
     expect([...(stats(w, P1)?.kills.values() ?? [])].reduce((a, b) => a + b, 0), 'nor a unit kill').toBe(0);
   });
 });
+
+describe('⭐ S194 v2 REACH — the new counters through the REAL dispatcher, host tick and wave edge', () => {
+  it('the castle gun\'s kill files a LOSS for the victim and a who-hit-whom entry; the wave edge carries the totals', () => {
+    const w = fightWorld();
+    const id = chewerNearSeat0(w, 10);
+    const deps = hostDeps();
+    const st = makeHostTickState(w);
+    for (let i = 0; i < 600 && w.creatures.has(id); i++) runHostTick(w, deps, st);
+    expect(w.creatures.has(id), 'fixture: the castle must kill it').toBe(false);
+    expect(stats(w, P1)!.lost.get('chewer')).toBe(1);
+    const s0 = stats(w, P0)!;
+    expect(s0.dealtTo.get(P1)).toBe(s0.dealtFifths); // every point of it landed on P1's chewer
+    expect([s0.dealtKeep, s0.dealtStruct]).toEqual([0, 0]); // a unit, not a building
+    w.phaseEndsAtTick = w.tick + 1;
+    for (let i = 0; i < 3; i++) runHostTick(w, deps, st);
+    const pt = w.matchStats.history.at(-1)!.seats.find((p) => p.seat === P0)!;
+    expect([pt.kills, pt.dealt]).toEqual([1, s0.dealtFifths]);
+  });
+
+  it('a keep hit files under KEEP, a connector hit under STRUCTURE — through damageEntity / damageConnector', () => {
+    const w = fightWorld();
+    damageEntity(w, { kind: 'castle', seat: P1 }, 30, 'creature', { kind: 'seat', seat: P0 }, 'physical');
+    const keep = stats(w, P0)!.dealtKeep;
+    expect(keep).toBeGreaterThan(0);
+    expect(stats(w, P1)!.takenKeep).toBe(keep);
+    const a = asPrimitiveId(9201);
+    const b = asPrimitiveId(9202);
+    const mk = (pid: typeof a, x: number) => ({
+      id: pid, type: 0, placerColor: 0, placedBy: P1, createdTick: 0, pos: { x, y: 300 }, prevPos: { x, y: 300 },
+      bonds: new Set(), ownerColor: 0, lastOwnershipChange: 0, radius: 8, hp: 70, origin: null,
+    }) as never;
+    w.primitives.set(a, mk(a, 300));
+    w.primitives.set(b, mk(b, 330));
+    const bondId = 9300 as never;
+    const pa = w.primitives.get(a)!;
+    const pb = w.primitives.get(b)!;
+    w.bonds.set(bondId, { id: bondId, aId: a, bId: b, a: pa, b: pb, restLength: 30, stiffnessTier: 'MID', createdTick: 0, damageFifths: 0 });
+    pa.bonds.add(bondId);
+    pb.bonds.add(bondId);
+    damageConnector(w, bondId, 4, { kind: 'seat', seat: P0 }, 'physical');
+    expect(stats(w, P0)!.dealtStruct).toBe(4);
+    expect(stats(w, P1)!.takenStruct).toBe(4);
+    expect(stats(w, P0)!.dealtTo.get(P1)).toBe(keep + 4);
+  });
+});

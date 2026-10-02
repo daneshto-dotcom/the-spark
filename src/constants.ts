@@ -3279,19 +3279,22 @@ export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 tic
  *
  * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
  * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
- * latch runs only inside the FIGHT gate (`hostTick`), so in each FIGHT a hurt Warlord fires on its first
- * tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
- * `FIGHT_PHASE_TICKS`; a rage still running at the whistle is NOT lowered in BUILD — he (and BLOOD FRENZY's
- * orcs) stay red through the whole BUILD — and the next FIGHT's first tick fires a fresh rage (BUILD,
- * `PHASE_DURATION_TICKS`, outlasts both windows). A rage that ended before the whistle stays ended.
- * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging from 50 s through the
- * whistle and all of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a real whistle.
+ * latch FIRES only in FIGHT (`mayFire` in `runWarlordRage`), so in each FIGHT a hurt Warlord fires on its
+ * first tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
+ * `FIGHT_PHASE_TICKS`. ⛔⛔ S194 (owner, R194-31): a rage still running at the whistle ENDS on its own clock
+ * in BUILD — he and BLOOD FRENZY's orcs calm `WARLORD_RAGE_TICKS` after the stamp, whatever the phase
+ * (`hostTick` runs the latch and the frenzy outside FIGHT too) — and the next FIGHT's first tick fires a
+ * fresh rage (BUILD, `PHASE_DURATION_TICKS`, outlasts the cooldown's remainder). ⚠ MINE (S194): the
+ * cooldown runs through BUILD as well — the same single stamp.
+ * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging 50–75 s (15 s past
+ * the whistle), calm for the rest of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a
+ * real whistle.
  *
- * ⭐ RULED S191 (owner, round 2 RAGE-1 — the audit's "red through BUILD" finding, and he KEEPS it):
- * *"if the rage started … during the fight and the countdown is still down while you're in … build
- * phase, then your creatures still look to be enraged. And then it … restarts the next fight. Yeah,
- * that's fine. Who cares? You can't really see the creatures anyways … they're like kind of standing
- * behind the castle or their tower."* Do not "fix" it without his word.
+ * ⛔ S191 round 2 RAGE-1 — SUPERSEDED S194. He first kept the "red through BUILD" finding (*"Yeah, that's
+ * fine. Who cares?"*); in S194 he saw it on screen and reversed it: *"Rage. When it's … turned on by a
+ * warlord, should last only 25 seconds. Either for himself or for the units that he affected. After
+ * twenty-five seconds, it has been cooled down, and then … if he's still there and low health, … he can
+ * enrage again. Next fight."*
  *
  * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
  * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Teams Spec</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0c0f16; --panel:#141925; --panel2:#1a2030; --line:#262e42; --ink:#e7ebf3; --dim:#97a1b8; --faint:#6a7390;
+  --t1:#e0524f; --t2:#3fa7f5; --t3:#3ccf8e; --t4:#f2b443; --accent:#b28cff; --warn:#ffb454; --ok:#5ee0a0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.55}
+body{background:radial-gradient(1200px 600px at 15% -10%,#1d2340 0%,transparent 60%),radial-gradient(900px 500px at 100% 0%,#2a1b3d 0%,transparent 55%),var(--bg)}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 16px 80px}
+header{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.kicker{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-size:44px;line-height:1.05;margin:0;font-weight:800;letter-spacing:-.02em}
+h1 .chips{display:inline-flex;gap:6px;vertical-align:middle;margin-left:10px}
+.chip{display:inline-block;width:14px;height:14px;border-radius:4px}
+.sub{color:var(--dim);font-size:17px;max-width:760px}
+h2{font-size:24px;margin:44px 0 14px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+h2 .n{font-size:12px;font-weight:700;color:var(--bg);background:var(--accent);border-radius:6px;padding:3px 8px;letter-spacing:.05em}
+h3{font-size:16px;margin:22px 0 10px;color:var(--ink)}
+p{margin:8px 0}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:12px 0}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.rule{border-left:4px solid var(--accent)}
+.rule b{display:block;font-size:13px;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.quote{color:var(--dim);font-style:italic;font-size:14px}
+.mine{display:inline-block;font-size:11px;font-weight:700;color:var(--bg);background:var(--warn);border-radius:5px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+.built{display:inline-block;font-size:11px;font-weight:700;color:var(--bg);background:var(--ok);border-radius:5px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+.notb{display:inline-block;font-size:11px;font-weight:700;color:var(--ink);background:#3a4360;border-radius:5px;padding:1px 6px;margin-left:4px;vertical-align:middle}
+.big{font-size:40px;font-weight:800;letter-spacing:-.02em}
+.stat{text-align:center}
+.stat small{display:block;color:var(--dim);font-size:13px}
+.tablewrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;background:var(--panel)}
+th,td{padding:8px 10px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:#1c2234;color:var(--dim);font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;position:sticky;top:0}
+tr:last-child td{border-bottom:none}
+td code,p code,li code{font-family:"JetBrains Mono",monospace;font-size:12px;color:#c9d3ff;background:#1e2540;padding:1px 5px;border-radius:4px;white-space:nowrap}
+td:first-child{color:var(--faint);font-family:"JetBrains Mono",monospace;font-size:12px}
+.group{font-weight:700;color:var(--accent);background:#181d2c}
+details{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:10px 0}
+summary{cursor:pointer;padding:12px 16px;font-weight:700;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:after{content:"▸";float:right;color:var(--dim)}
+details[open] summary:after{content:"▾"}
+details .inner{padding:0 16px 16px}
+.board{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;width:100%;max-width:330px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;border:1px solid var(--line);position:relative}
+.board div{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#0c0f16}
+.board .wall-v{position:absolute;left:50%;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;opacity:.9}
+.board .gapv{position:absolute;left:50%;top:0;height:100%;width:0}
+.board .wall-h{position:absolute;top:50%;height:4px;margin-top:-2px;background:#fff;opacity:.35}
+.legend{font-size:13px;color:var(--dim);margin-top:8px}
+.pairs{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;max-width:360px;font-size:11px;font-family:"JetBrains Mono",monospace}
+.pairs div{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#1e2540;color:var(--faint)}
+.pairs .h{background:transparent;color:var(--dim);font-weight:700}
+.pairs .same{background:#3a2f63;color:#d9cbff}
+.pairs .mix{background:#1f4b40;color:#bff2db}
+.pairs .dup{background:#262c40;color:#555f7c}
+ul{margin:6px 0;padding-left:20px}
+li{margin:4px 0}
+.foot{margin-top:50px;color:var(--faint);font-size:12px;text-align:center}
+@media (max-width:600px){h1{font-size:32px}.big{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kicker">SPARK · S192 · branch s192/teams</div>
+  <h1>Teams <span class="chips"><span class="chip" style="background:var(--t1)"></span><span class="chip" style="background:var(--t2)"></span><span class="chip" style="background:var(--t3)"></span><span class="chip" style="background:var(--t4)"></span></span></h1>
+  <div class="sub">Team 1–4 in both lobbies, like Red Alert. Teammates never hurt each other, there is no wall between them, and in v1 you still only build in your own zone. Everything below is either your ruling or marked <span class="mine">MINE</span> — a default you can flip in one line.</div>
+</header>
+
+<div class="grid g4">
+  <div class="card stat"><div class="big">69</div><small>"is this an enemy?" decisions found and switched to one team check</small></div>
+  <div class="card stat"><div class="big">1</div><small>predicate: <code>sameTeam(a, b)</code> — every site calls it</small></div>
+  <div class="card stat"><div class="big">0</div><small>bytes changed in a free-for-all match (each seat its own team)</small></div>
+  <div class="card stat"><div class="big">52→53</div><small>protocol bump owed at merge — both peers compute the rule</small></div>
+</div>
+
+<h2><span class="n">1</span> Your rulings — this is the spec</h2>
+<div class="grid g2">
+  <div class="card rule"><b>R192-T1 · no friendly damage</b>Units, towers, the castle gun, raids, blasts, auras, zone perks — a teammate is never hit. A demon teammate's zone does not burn you.<p class="quote">"Your towers don't attack each other, even though you're different colors, different races."</p></div>
+  <div class="card rule"><b>R192-T2 · no wall between teammates</b>The border wall is only drawn between zones of different teams.<p class="quote">"it kind of like looks like one continuous zone other than … having the art a little different."</p></div>
+  <div class="card rule"><b>R192-T3 · v1: not buildable</b>You cannot build in a teammate's zone. v2 (your lean): one buildable half per team, with a combined backdrop.<p class="quote">"no, you cannot build in a team's members … zone"</p></div>
+  <div class="card rule"><b>R192-T4 · pick in both lobbies</b>Team 1–4 chip on every seat — the multiplayer lobby and the bot lobby.<p class="quote">"team one, team two, team three, team four … just like in Red Alert, Command and Conquer."</p></div>
+</div>
+<div class="card" style="border-left:4px solid var(--warn)"><b>Supersedes T7.</b> Earlier the same day you said a friend still gets hit by your Scorched Earth. Your later teams ruling governs: <b>a teammate does not take your Scorched Earth or Scorched Ground.</b> One function changes (<code>isScorchImmune</code>), once the s191/owner branch lands.</div>
+
+<h2><span class="n">2</span> How v1 plays</h2>
+<div class="grid g2">
+  <div class="card">
+    <ul>
+      <li><b>Default is today's game.</b> Every seat starts on its own team — a free-for-all is byte-for-byte unchanged.</li>
+      <li><b>Pick a team</b> by clicking your team chip. In the bot lobby every bot has one too — bots can be on your team.</li>
+      <li><b>Teammates sit side by side</b> <span class="mine">MINE</span> — the host orders seats so allies share a border, never the diagonal. In a 2v2, team of the host takes the left half, the other team the right — your own v2 picture.</li>
+      <li><b>At least two teams</b> <span class="mine">MINE</span> — if everyone picks the same team, Begin is disabled.</li>
+      <li><b>Win</b> — last <i>team</i> standing on castles; on points, the first seat to the bar wins for its whole team. The banner says <b>TEAM 2 WINS</b>.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="board">
+      <div style="background:var(--t1)">TEAM 1</div><div style="background:var(--t2)">TEAM 2</div>
+      <div style="background:var(--t1)">TEAM 1</div><div style="background:var(--t2)">TEAM 2</div>
+      <span class="wall-v"></span>
+    </div>
+    <div class="legend">2v2 on the four-zone board. The white line is the only wall left standing during BUILD — between the two teams. The walls inside each team's half are gone.</div>
+  </div>
+</div>
+
+<h2><span class="n">3</span> Open questions — with what I built</h2>
+<div class="tablewrap"><table>
+<tr><th>Q</th><th>Question</th><th>Recommendation</th></tr>
+<tr><td>Q1</td><td>Win: does a team win when every enemy team's castles have fallen? Points: shared or per seat?</td><td><b>Castles:</b> yes, last team standing <span class="built">BUILT</span><br><b>Points:</b> per seat, unchanged — first seat to the bar wins for its team <span class="built">BUILT</span>. A shared total would let a two-player team hit the bar twice as fast in a 2v1.</td></tr>
+<tr><td>Q2</td><td>Does a match need at least 2 teams?</td><td>Yes. Lobby blocks it; the game also falls back to free-for-all if handed one team. <span class="built">BUILT</span></td></tr>
+<tr><td>Q3</td><td>Can bots be on your team?</td><td>Yes — a team chip on every bot row. <span class="built">BUILT</span></td></tr>
+<tr><td>Q4</td><td>Perks that say "enemy"</td><td>"Enemy" means <b>another team</b>, everywhere. THE RISEN raises only from enemy-team kills; SCORCHED GROUND / EARTH never burn a teammate; POWER / WRATH OF RA spare the caster's team; CORPSE EATER eats enemies, then his own units — <b>never a teammate's</b> <span class="mine">MINE</span>. <span class="built">BUILT</span></td></tr>
+<tr><td>Q5</td><td>The two "hurts everything" blasts: the Pharaoh's ultimate and the zombie boss's death blast</td><td>Spare teammates, still hit the caster's own side as you ruled. Both rulings, literally. <span class="mine">MINE</span> <span class="built">BUILT</span></td></tr>
+<tr><td>Q6</td><td>A teammate's castle falls</td><td>Same as today: that player spectates; their zone stays unbuildable for the survivors in v1 (v2's shared half fixes that). The team plays on until all its castles are down.</td></tr>
+<tr><td>Q7</td><td>v2 combined backdrop — how many?</td><td>See the next section.</td></tr>
+<tr><td>Q8</td><td>Do teammates share vision? (not ruled)</td><td>Recommend <b>yes</b>, like Red Alert allies. <span class="notb">NOT BUILT</span> — one line when you say so.</td></tr>
+</table></div>
+
+<h2><span class="n">4</span> Your backdrop count: 36?</h2>
+<div class="grid g2">
+  <div class="card">
+    <p>Six races. A two-player team is a <b>pair</b> of races.</p>
+    <ul>
+      <li><b>21</b> if a pair looks the same either way round — zombies + demons is demons + zombies. That is <b>15</b> mixed pairs plus <b>6</b> same-race pairs.</li>
+      <li><b>15</b> if a same-race team just reuses that race's own backdrop.</li>
+      <li><b>36</b> only if <i>who is on top</i> changes the art — "zombies over demons" different from "demons over zombies".</li>
+      <li><b>0 new pairs</b> if the backdrop is built from the two race halves with a blended seam — the six halves already exist; only the seam is new.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="pairs">
+      <div class="h"></div><div class="h">Va</div><div class="h">Zo</div><div class="h">Mu</div><div class="h">Or</div><div class="h">De</div><div class="h">Na</div>
+      <div class="h">Va</div><div class="same">=</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div>
+      <div class="h">Zo</div><div class="dup">·</div><div class="same">=</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div>
+      <div class="h">Mu</div><div class="dup">·</div><div class="dup">·</div><div class="same">=</div><div class="mix">●</div><div class="mix">●</div><div class="mix">●</div>
+      <div class="h">Or</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="same">=</div><div class="mix">●</div><div class="mix">●</div>
+      <div class="h">De</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="same">=</div><div class="mix">●</div>
+      <div class="h">Na</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="dup">·</div><div class="same">=</div>
+    </div>
+    <div class="legend">All 36 squares = 6 × 6. Green ● = 15 mixed pairs. Purple = = 6 same-race. Grey · = the same pair again, mirrored — only needed if top/bottom order matters.</div>
+  </div>
+</div>
+
+<h2><span class="n">5</span> Every place the game decides "enemy" — the list that IS the work</h2>
+<p style="color:var(--dim)">Found by grepping every production file for a comparison against an owner, a seat or a colour (260 raw hits in 75 files), then reading each one. A site missed here is a friendly-fire bug, so a test now counts them: a new inline comparison turns the suite red until someone decides which kind it is.</p>
+
+<details open><summary>A · The simulation — 49 sites</summary><div class="inner"><div class="tablewrap"><table>
+<tr><th>#</th><th>Where</th><th>What it decides</th><th>Team version</th></tr>
+<tr><td>1</td><td><code>creatureAI.ts:135</code></td><td>Is a connector an enemy's (Voltkin, drone, chewer, every building-attacker)</td><td>either end not on my team</td></tr>
+<tr><td>2</td><td><code>creatureAI.ts:243</code></td><td>Nearest enemy shape</td><td>skip teammates' shapes</td></tr>
+<tr><td>3</td><td><code>creatureAI.ts:568</code></td><td>Voltkin's own-connector fallback list</td><td>own = mine only; a friend's tower is in neither list</td></tr>
+<tr><td>4</td><td><code>creatureAI.ts:595</code></td><td>Strictly-enemy connectors (S162)</td><td>both ends on another team</td></tr>
+<tr><td>5</td><td><code>creatureAI.ts:749</code></td><td>Nearest enemy unit — units, <b>castle gun</b>, turrets, Helga</td><td>skip teammates</td></tr>
+<tr><td>6</td><td><code>creatureAI.ts:835</code></td><td>Goblin keeps its lock</td><td>enemy team only</td></tr>
+<tr><td>7</td><td><code>creatureAI.ts:946</code></td><td>Per-seat enemy index (S190 perf)</td><td>skip teammates</td></tr>
+<tr><td>8</td><td><code>creatureAI.ts:1142</code></td><td>Which keep a unit may hit</td><td>enemy keeps only</td></tr>
+<tr><td>9–11</td><td><code>creatureAI.ts:1176 / 1211 / 1292</code></td><td>Helga, stink bags as targets</td><td>skip teammates</td></tr>
+<tr><td>12</td><td><code>creatureAI.ts:1407</code></td><td>Which keep an army marches on</td><td>enemy keeps only</td></tr>
+<tr><td>13</td><td><code>creatureLifecycle.ts:1066</code></td><td>Committed target still valid</td><td>enemy team</td></tr>
+<tr><td>14</td><td><code>retaliation.ts:173</code></td><td>Who a hit unit turns on</td><td>never a teammate</td></tr>
+<tr><td>15</td><td><code>suicideBlast.ts:141</code></td><td>Bomber's connector blast spares its side</td><td>spares the team</td></tr>
+<tr><td>16</td><td><code>voltkinChain.ts:111</code></td><td>Chain-lightning hop</td><td>skip teammates</td></tr>
+<tr><td>17–19</td><td><code>damage.ts:694 / 701 / 708</code></td><td><b>Every area blast</b> — stink, drone, bomber, Ra, clouds</td><td>spares the whole team</td></tr>
+<tr><td>20</td><td><code>damage.ts</code> (new)</td><td>The two "hurts everything" blasts</td><td>spare teammates, still hit own seat <span class="mine">MINE</span></td></tr>
+<tr><td>21–22</td><td><code>defenderLifecycle.ts:147 / 384</code></td><td>Turret / Helga target and leash</td><td>enemy team</td></tr>
+<tr><td>23</td><td><code>stinkTower.ts:352</code></td><td>Depleted stink tower's aggro</td><td>skip teammates</td></tr>
+<tr><td>24</td><td><code>bossSkills.ts:195</code></td><td>Zombie boss ROT aura</td><td>skip teammates</td></tr>
+<tr><td>25–27</td><td><code>bossSkillsArchdemon.ts:70 / 128 / 137</code></td><td>Archdemon execute, teleport, victim's allies</td><td>by team</td></tr>
+<tr><td>28–29</td><td><code>bossSkillsKraken.ts:151 / 239</code></td><td>Kraken/Pharaoh target, sonar</td><td>skip teammates</td></tr>
+<tr><td>30</td><td><code>droneLifecycle.ts:119</code></td><td>Drone sever spares its own</td><td>spares the team</td></tr>
+<tr><td>31</td><td><code>disruptionManager.ts:138</code></td><td>A player cutting a wire</td><td>a teammate's wire is <b>refused</b></td></tr>
+<tr><td>32</td><td><code>gameMode.ts:801</code></td><td>Spawner-kill bounty split</td><td>enemy team only</td></tr>
+<tr><td>33</td><td><code>world.ts:689</code></td><td>SHRINK TERRITORY debuffs everyone else</td><td>enemies only</td></tr>
+<tr><td>34–36</td><td><code>world.ts:727 / 770 / 787</code></td><td><b>Raids</b> — unit, Helga, connector</td><td>a teammate's is refused</td></tr>
+<tr><td>37</td><td><code>powerOfRa.ts:163</code></td><td>Ra column cuts connectors</td><td>spares the caster's team</td></tr>
+<tr><td>38</td><td><code>scorchedGround.ts:70</code></td><td>SCORCHED GROUND burns enemies in the demon's zone</td><td>never a teammate</td></tr>
+<tr><td>39</td><td><code>scorchedEarthRules.ts:98</code> (s191/owner)</td><td>SCORCHED EARTH immunity, all 5 arms</td><td>same team = immune — after s191/owner lands</td></tr>
+<tr><td>40</td><td><code>theRisen.ts:65</code></td><td>"an ENEMY kill only"</td><td>enemy team</td></tr>
+<tr><td>41</td><td><code>corpseEater.ts:111</code></td><td>Enemies first, then his own</td><td>never a teammate <span class="mine">MINE</span></td></tr>
+<tr><td>42–44</td><td><code>territory.ts:400 / 290 / 296</code></td><td>Territory sag on enemy connectors</td><td>skip teammates</td></tr>
+<tr><td>45–46</td><td><code>potatoLifecycle.ts:396 / 397</code></td><td>Lightning-hub self-destruct spares its owner</td><td>spares the team</td></tr>
+<tr><td>47–48</td><td><code>hostTick.ts:2441</code>, <code>bossSkillsPharaohRitual.ts:152</code></td><td>Zombie death blast, Pharaoh ultimate</td><td>pass the caster for #20</td></tr>
+<tr><td>49</td><td><code>gameState.ts:156</code></td><td><b>The win</b> — last one standing</td><td>last <b>team</b> standing</td></tr>
+</table></div></div></details>
+
+<details><summary>B · Bots — 9 sites</summary><div class="inner"><div class="tablewrap"><table>
+<tr><th>#</th><th>Where</th><th>What it decides</th><th>Team version</th></tr>
+<tr><td>50</td><td><code>botBrain.ts:933</code></td><td>Raid-ladder rung (the seat above/below me)</td><td>enemies only</td></tr>
+<tr><td>51</td><td><code>botBrain.ts:977</code></td><td>Who to scout</td><td>enemies only</td></tr>
+<tr><td>52–54</td><td><code>botBrain.ts:1004 / 1048 / 1114</code></td><td>Raid connector, spawner, nearest enemy shape</td><td>skip teammates</td></tr>
+<tr><td>55</td><td><code>botController.ts:626</code></td><td>Nearest enemy shape (archived path)</td><td>skip teammates</td></tr>
+<tr><td>56–57</td><td><code>botRa.ts:73 / 77</code></td><td>Where a bot aims Ra</td><td>enemies only</td></tr>
+<tr><td>58</td><td><code>botBrain.ts:1007 / 1050</code></td><td>Narrow to one target seat</td><td>unchanged (only ever an enemy)</td></tr>
+</table></div></div></details>
+
+<details><summary>C · Your raid picker — 3 sites</summary><div class="inner"><div class="tablewrap"><table>
+<tr><th>#</th><th>Where</th><th>What it decides</th><th>Team version</th></tr>
+<tr><td>59–61</td><td><code>controls.ts:2044 / 2083 / 2114</code></td><td>What the raid cursor offers you</td><td>never a teammate's (the host refuses it anyway)</td></tr>
+</table></div></div></details>
+
+<details><summary>D · What you see — 8 sites + the lobby</summary><div class="inner"><div class="tablewrap"><table>
+<tr><th>#</th><th>Where</th><th>What it decides</th><th>Team version</th></tr>
+<tr><td>62</td><td><code>wallRenderer.ts:163</code></td><td>Which border walls are drawn</td><td>none between teammates</td></tr>
+<tr><td>63</td><td><code>creatureProjectile.ts:109</code></td><td>Where a shot is drawn flying</td><td>skip teammates</td></tr>
+<tr><td>64–67</td><td><code>damageNumbers.ts:251 / 263 / 279 / 377</code></td><td>Who a damage number is credited to</td><td>skip teammates</td></tr>
+<tr><td>68</td><td><code>characterSheetModel.ts</code> (5 lines)</td><td>"ENEMY" / "YOUR UNIT"</td><td>a teammate's says <b>ALLY</b></td></tr>
+<tr><td>69</td><td><code>ui.ts:1016</code></td><td>Win banner</td><td><b>TEAM N WINS</b></td></tr>
+<tr><td>70</td><td>both lobbies (new)</td><td>The team chip</td><td>T4</td></tr>
+</table></div></div></details>
+
+<details><summary>E · Deliberately unchanged — "is this mine?", not "is this an enemy?"</summary><div class="inner">
+<p>Your gatherers, what you are carrying, your own shapes to pick up, who owns a tower, counting your own units, <b>where you may build</b> (your zone only — which is already rule T3 v1), repair in your own zone, your own fog of war (Q8), the hunter (neutral — it chases the leader), scoring, and the archived bombs/seagulls. These stay "same seat" on purpose and are listed in the markdown spec so nobody converts them by mistake.</p>
+</div></details>
+
+<h2><span class="n">6</span> The wire — and why it costs a protocol bump</h2>
+<div class="tablewrap"><table>
+<tr><th>What</th><th>Where</th><th>Cost</th></tr>
+<tr><td>team on each roster seat</td><td>Begin signal + lobby presence</td><td>optional field, validated 0–3</td></tr>
+<tr><td>CLAIM_TEAM</td><td>joiner → host, lobby only</td><td>same as picking a race; the answer comes back in presence</td></tr>
+<tr><td>world.teams</td><td>stamped by the host at Begin; rides every snapshot, the worker and host migration</td><td>absent = free-for-all; hashed only when set</td></tr>
+</table></div>
+<div class="card" style="border-left:4px solid var(--t1);margin-top:14px"><b>Bump: yes, 52 → 53, at the merge.</b> Both computers run the team rule — your client decides "last team standing", the worker mirror runs every target choice, and an old build taking over as host would forget the teams and switch friendly fire back on. Two builds that both said 52 would shake hands and then disagree. The free-for-all game does not change by a single byte.</div>
+
+<div class="foot">SPARK · S192 · teams spec v1 · branch s192/teams · generated from the code at master 663c4c9</div>
+</div>
+</body>
+</html>

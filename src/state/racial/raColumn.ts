@@ -33,6 +33,7 @@ import { seatHoldsPerk } from '../racialPerks.ts';
 import { attackFifths } from '../stats.ts';
 import { applySeverBond } from '../severBond.ts';
 import type { World } from '../world.ts';
+import { sameTeam } from '../teams.ts';
 
 /**
  * ⭐⭐ S191 (owner) — **WHAT ONE COLUMN DEALS, IN TOTAL, WITHOUT WRATH OF RA: 35 FIFTHS, SPLIT** across
@@ -127,14 +128,28 @@ const RA_TARGET_KIND_RANK: Readonly<Record<RaColumnTarget['kind'], number>> = {
  * The total order is squared distance to `at` (the connector's midpoint for a structure), then
  * `RA_TARGET_KIND_RANK`, then id. No `Math.hypot`, no `Map` order.
  */
-export function raColumnTargets(world: World, spare: PlayerId | null, at: { x: number; y: number }): RaColumnTarget[] {
+export function raColumnTargets(
+  world: World,
+  spare: PlayerId | null,
+  at: { x: number; y: number },
+  alliesOf: PlayerId | null = null,
+): RaColumnTarget[] {
   const r2 = RA_COLUMN_RADIUS * RA_COLUMN_RADIUS;
   const d2At = (x: number, y: number): number => {
     const dx = x - at.x;
     const dy = y - at.y;
     return dx * dx + dy * dy;
   };
-  const spared = (owner: PlayerId | undefined): boolean => spare !== null && owner === spare;
+  /*
+   * ⭐ S192 (owner R192-T1) — *"teammates never damage each other"*: `spare` spares that seat's whole
+   * TEAM; `alliesOf` (the Pharaoh boss) spares his seat's TEAMMATES while his own seat still burns —
+   * ⚠ MINE, the same posture as the zombie boss's R138 blast (spec Q5). A free-for-all is
+   * byte-identical: `sameTeam` is `===` with `world.teams` undefined, and `alliesOf`'s arm is then
+   * `owner !== alliesOf && owner === alliesOf` — never true.
+   */
+  const spared = (owner: PlayerId | undefined): boolean =>
+    (spare !== null && sameTeam(world, owner, spare)) ||
+    (alliesOf !== null && owner !== alliesOf && sameTeam(world, owner, alliesOf));
   const out: RaColumnTarget[] = [];
 
   // ── structures: every candidate connector in the circle, grouped by the component it belongs to ──
@@ -199,6 +214,13 @@ export function raColumnTargets(world: World, spare: PlayerId | null, at: { x: n
 export interface RaColumnSource {
   /** The seat whose things are spared and uncounted — the caster; `null` (the boss) spares nobody. */
   readonly spare: PlayerId | null;
+  /**
+   * ⭐ S192 (owner R192-T1, ⚠ MINE for the boss) — the seat whose TEAMMATES are spared although the seat
+   * itself is not: the Pharaoh boss's own seat (his column *"kills everything"*, but teammates never
+   * damage each other). `null` for the perk, whose `spare` already covers the caster's whole team.
+   * REQUIRED, so `tsc` makes every new column source decide.
+   */
+  readonly alliesOf: PlayerId | null;
   /** The seat whose picks decide the pool (`raColumnPoolFor`) and who is credited with a sever. */
   readonly owner: PlayerId;
   /**
@@ -219,7 +241,7 @@ export interface RaColumnSource {
  * first would lose its share. Both passes walk the one total order.
  */
 export function landRaColumn(world: World, src: RaColumnSource, at: { x: number; y: number }): number {
-  const targets = raColumnTargets(world, src.spare, at);
+  const targets = raColumnTargets(world, src.spare, at, src.alliesOf);
   if (targets.length === 0) return 0;
   const pool = raColumnPoolFor(world, src.owner);
   const shares = raSplitShares(pool, targets.length);

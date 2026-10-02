@@ -52,6 +52,7 @@ import {
 import type { Vec2 } from '../types.ts';
 import { zoneOf, type ZoneLayout } from './zones.ts';
 import type { World } from './worldTypes.ts';
+import { sameTeam } from './teams.ts';
 
 /** One straight run of border wall, and the two zones it separates. */
 export interface WallSegment {
@@ -94,6 +95,20 @@ export function wallSegments(layout: ZoneLayout): readonly WallSegment[] {
     { a: { x: SPLIT_X, y: rimBottom }, b: { x: SPLIT_X, y: CANVAS_HEIGHT }, zoneA: 3, zoneB: 2 }, // south
     { a: { x: 0, y: SPLIT_Y }, b: { x: rimLeft, y: SPLIT_Y }, zoneA: 0, zoneB: 3 }, // west arm
   ];
+}
+
+/**
+ * ⭐⭐ S192 (owner R192-T2) — **DOES THIS SEGMENT STAND BETWEEN TWO SIDES?** *"there's no wall between you
+ * and your … teammate zone … it kind of like looks like one continuous zone."*
+ *
+ * Zone i is seat i's (`zoneOwner` is the identity), so a segment whose two zones belong to teammates is
+ * not drawn. A zone with no seat (zone 3 on a three-seat board) is nobody's teammate, so its wall stays.
+ * In a free-for-all every segment separates two sides — the renderer's output is unchanged.
+ *
+ * RENDER-ONLY, like the wall itself (`clampAcrossWalls` below has no sim consumer).
+ */
+export function wallSeparatesSides(world: Pick<World, 'teams'>, seg: WallSegment): boolean {
+  return !sameTeam(world, seg.zoneA, seg.zoneB);
 }
 
 /**

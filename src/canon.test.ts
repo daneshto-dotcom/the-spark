@@ -308,7 +308,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(64);
+    expect(PROTOCOL_VERSION).toBe(66);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -872,13 +872,21 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays(`\`WARLORD_RAGE_TICKS\` = **${WARLORD_RAGE_TICKS}**`)).toBe(true);
     expect(canonSays(`\`WARLORD_RAGE_COOLDOWN_TICKS\` = **${WARLORD_RAGE_COOLDOWN_TICKS}**`)).toBe(true);
     expect(canonSays("Rage cooldown 25 seconds, that's fine.")).toBe(true);
-    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(true);
+    // ⛔⛔ S194 R194-31 — the S191 "red through the whole BUILD" pattern is SUPERSEDED and must not come back.
+    expect(canonSays('stays red through the whole BUILD and the next FIGHT')).toBe(false);
+    expect(canonSays('from 50 s through the whistle and all of BUILD')).toBe(false);
+    expect(canonSays('THE PATTERN, RULED (S194, R194-31')).toBe(true);
+    expect(canonSays('should last only 25 seconds. Either for himself or for the units that he affected.')).toBe(true);
+    expect(canonSays('**in any phase**')).toBe(true);
     // The per-FIGHT pattern, DERIVED (never a literal "25 on / 25 off"): one fire at 0, the next after
-    // rage + cooldown, and that second rage still running at the whistle.
+    // rage + cooldown, and that second rage still running at the whistle — which now ENDS in BUILD on its
+    // own clock (the owner's own example: rage at 50 s, whistle at 60 s, calm at 75 s).
     const cycle = WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS;
     expect(cycle).toBeLessThan(FIGHT_PHASE_TICKS);
     expect(cycle + WARLORD_RAGE_TICKS).toBeGreaterThan(FIGHT_PHASE_TICKS);
-    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s through the whistle`)).toBe(true);
+    const end = cycle + WARLORD_RAGE_TICKS;
+    expect(canonSays(`raging 0–${WARLORD_RAGE_TICKS / PHYSICS_HZ} s, then from ${cycle / PHYSICS_HZ} s to ${end / PHYSICS_HZ} s (${(end - FIGHT_PHASE_TICKS) / PHYSICS_HZ} s past the whistle)`)).toBe(true);
+    expect(canonSays(`A rage started at FIGHT ${cycle / PHYSICS_HZ} s with the whistle at ${FIGHT_PHASE_TICKS / PHYSICS_HZ} s therefore ends at ${end / PHYSICS_HZ} s — ${(end - FIGHT_PHASE_TICKS) / PHYSICS_HZ} s into BUILD`)).toBe(true);
     expect(canonSays('THE FRENZY NEVER TOUCHES A WARLORD')).toBe(true);
     expect(canonSays('(never another Warlord — S191)')).toBe(true);
     // ⛔ The retired S188 sentence must not come back.
@@ -900,7 +908,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('and an enemy HELGA (S192: *"Helga is NOT immune"*)')).toBe(true);
     expect(canonSays('units only (creatures and Helga), never structures')).toBe(true);
     expect(canonSays('the quarry never burns; creatures only |')).toBe(false); // the S188 row, superseded by his Helga answer
-    expect(canonSays('`isScorchImmune(owner, spared)`, the ONE site')).toBe(true);
+    expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
   });
 
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
@@ -1157,7 +1165,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 63 -> 64');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 65 -> 66');
+    expect(proto.indexOf('BUMPED 64 -> 65')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 63 -> 64')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 60 -> 61')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
@@ -1419,7 +1429,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS,');
     expect(arm).toContain('blastSplitWeight(t.d2, radius,');
     expect(HUB_BLAST_CREATURE_WEIGHT, 'MINE — 1:1 until he rules otherwise').toBe(1);
-    expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
+    // S157 P0 — the exemption is still what spares his base; ⭐ S193 (teams, R192-T1) it spares his TEAM,
+    // through the one predicate (FFA: `isEnemySeat` is exactly the old `!== owner`).
+    expect(arm).toContain('isEnemySeat(world, owner, c.ownerPlayerId)');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
     // ⭐ S192 (owner T3) — the zombie boss no longer razes: his blast is its own split pool, not this action.
@@ -1841,6 +1853,29 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(flat.includes('**a fading unit stays a target**')).toBe(true);
     expect(flat.includes("**a fallen tower's leftover shapes stay targetable until destroyed**")).toBe(true);
     expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
+  });
+});
+
+describe('S193 teams — §5d is pinned to its constants', () => {
+  it('⭐ TEAM_COUNT, the two-sides rule, the hint wording, and every ruling is named', async () => {
+    const { TEAM_COUNT, normalizeTeams } = await import('./state/teams.ts');
+    const { TEAMS_UNPLAYABLE_HINT } = await import('./render/teamChip.ts');
+    expect(TEAM_COUNT).toBe(4);
+    expect(canonSays(`\`TEAM_COUNT\` = **${TEAM_COUNT}** teams`)).toBe(true);
+    expect(canonSays(`*"${TEAMS_UNPLAYABLE_HINT.slice(0, 32)}`)).toBe(true);
+    expect(normalizeTeams([0, 0, 0, 0], 4), 'one team → the sim falls back to the free-for-all').toBeUndefined();
+    for (const r of ['R192-T1', 'R192-T2', 'R192-T3', 'R192-T4']) expect(canonSays(`**${r} —`), r).toBe(true);
+    expect(canonSays('**last TEAM standing**')).toBe(true);
+    expect(canonSays('**TEAM N WINS**')).toBe(true);
+    expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
+  });
+
+  it('⭐ S194 — the zombie boss death blast spares his whole TEAM (R193-B3 × R192-T1), not MINE any more', async () => {
+    const { T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE } = await import('./state/racial/zombieDeathBlast.ts');
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
+    expect(canonSays("**The zombie boss's death blast spares his whole TEAM — NOT MINE any more.**")).toBe(true);
+    // the superseded S192 default is no longer stated as live
+    expect(canonSays("the Pharaoh's columns and the zombie boss's death blast")).toBe(false);
   });
 });
 

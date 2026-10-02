@@ -24,8 +24,10 @@ import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
 import { isStunned, isLiveCreatureTarget, creatureMaxEhp } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
+import { sameTeam } from './teams.ts';
 
 /**
  * ⭐⭐ **TAKEN TO HELL.**
@@ -67,7 +69,7 @@ export function runArchdemonHell(world: World): void {
     const doomed: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
       if (id === demonId) continue;
-      if (c.ownerPlayerId === demon.ownerPlayerId) continue; // "any ENEMY around"
+      if (sameTeam(world, c.ownerPlayerId, demon.ownerPlayerId)) continue; // "any ENEMY around" (S192: by team)
       if (c.ehp <= 0) continue;
       // ⭐ S187 — the victim's own max, so a drafted unit is judged against the pool it actually has.
       if (c.ehp * 100 >= creatureMaxEhp(c) * ARCHDEMON_HELL_THRESHOLD_PCT) continue;
@@ -77,7 +79,14 @@ export function runArchdemonHell(world: World): void {
     }
     doomed.sort((a, b) => (a as number) - (b as number));
     // S171 — through the chokepoint; the doom list cannot reach a boss who has left the world.
-    for (const id of doomed) removeCreature(world, id);
+    for (const id of doomed) {
+      // ⭐ S194 (audit T10 LOW-1) — HELL deletes, it never passes `damageEntity`, so the stat board hears of
+      // the death here: a LOSS for the victim's seat, a KILL for the demon's. INERT.
+      // Recorded only if the chokepoint really removed it (it refuses a channelling Pharaoh).
+      const c = world.creatures.get(id);
+      removeCreature(world, id);
+      if (c !== undefined && !world.creatures.has(id)) recordKill(world, demon.ownerPlayerId, c.ownerPlayerId, c.type);
+    }
   }
 }
 
@@ -125,7 +134,7 @@ export function runArchdemonTeleport(world: World): void {
     let best: { id: CreatureId; allies: number; distSq: number } | null = null;
     for (const [id, c] of world.creatures) {
       if (id === demonId) continue;
-      if (c.ownerPlayerId === demon.ownerPlayerId) continue;
+      if (sameTeam(world, c.ownerPlayerId, demon.ownerPlayerId)) continue;
       // ⭐ S171 (owner R142/R171-A) — he cannot pick a victim he cannot target. Teleporting onto a
       // locust cloud, or onto a Pharaoh who has left the world, is an acquisition like any other.
       // ⭐ S192 T13 — the one liveness predicate (live pool, not pending, targetable).
@@ -134,7 +143,7 @@ export function runArchdemonTeleport(world: World): void {
       let allies = 0;
       for (const [otherId, other] of world.creatures) {
         if (otherId === id) continue;
-        if (other.ownerPlayerId !== c.ownerPlayerId) continue; // "their OWN teammates"
+        if (!sameTeam(world, other.ownerPlayerId, c.ownerPlayerId)) continue; // "their OWN teammates" (S192: literally)
         const ax = other.pos.x - c.pos.x;
         const ay = other.pos.y - c.pos.y;
         if (ax * ax + ay * ay <= lonelySq) allies++;

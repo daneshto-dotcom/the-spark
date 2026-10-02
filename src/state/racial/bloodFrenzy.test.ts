@@ -8,6 +8,7 @@
  * racial pick, and an ENEMY Warlord's rage all leave the seat's orcs calm.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, WARLORD_RAGE_MULTIPLIER, WARLORD_RAGE_TICKS, phaseDurationTicks } from '../../constants.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { isFrenzySource, isOrcRacialCreatureType, runBloodFrenzy } from './bloodFrenzy.ts';
@@ -336,5 +337,51 @@ describe('S188 BLOOD FRENZY — ⛔ a Warlord’s OWN rage latch is untouched by
     own.enraged = true;
     runBloodFrenzy(w);
     expect(own.enraged).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+/*
+ * ⛔⛔ S194 (owner, R194-31) — A FRENZIED UNIT NEVER OUTLIVES ITS SOURCE'S WINDOW, IN ANY PHASE.
+ * *"Rage. When it's … turned on by a warlord, should last only 25 seconds. Either for himself or for the
+ * units that he affected."* His screenshot: orc soldiers back at their tower in BUILD, still red. Until
+ * S194 `runBloodFrenzy` (and `runWarlordRage`) ran only inside `hostTick`'s FIGHT gate, so nothing
+ * lowered the bit after the whistle. The full whistle-crossing cycle is in `warlordRageClock.test.ts`.
+ */
+describe('S194 R194-31 — BLOOD FRENZY ends with its source’s window in BUILD too', () => {
+  it('⭐ REACH — in BUILD, the soldier calms on the very tick his Warlord’s 25 s window closes', () => {
+    const w = twoSeat();
+    seatAs(w, P0, 'orcs', ['racial']);
+    w.matchPhase = 'BUILD';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    const boss = warlord(w, P0, 250, 250, 40);
+    const soldier = unit(w, 'raceUnit', P0, 300, 800);
+    const goblin = unit(w, 'goblinMelee', P0, 380, 800);
+    // His window has 1 tick left: the next tick (w.tick + 1) is its last, the one after is calm.
+    boss.rageStartTick = w.tick + 2 - WARLORD_RAGE_TICKS;
+    boss.enraged = true;
+    soldier.enraged = true;
+    ticks(w, 1);
+    expect(w.matchPhase, 'fixture: still BUILD').toBe('BUILD');
+    expect(boss.enraged, 'the last tick of his window').toBe(true);
+    expect(w.creatures.get(soldier.id)?.enraged, 'the soldier rages with him while it is open').toBe(true);
+    ticks(w, 1);
+    expect(boss.enraged, '25 s on the dot: calm, in BUILD').toBe(false);
+    expect(w.creatures.get(soldier.id)?.enraged ?? false, '⛔ and so is the soldier — never red past the window').toBe(false);
+    expect(w.creatures.get(goblin.id)?.enraged ?? false, 'goblins never rage').toBe(false);
+    ticks(w, 120);
+    expect(boss.enraged, 'under half, cooldown or not: no new rage in BUILD').toBe(false);
+    expect(boss.rageStartTick, 'never re-stamped in BUILD').toBe(w.tick - 122 + 2 - WARLORD_RAGE_TICKS);
+  });
+
+  it('⛔ GUARD (mutation-tested S194) — the non-FIGHT branch runs the latch then the frenzy; the latch fires only in FIGHT', () => {
+    const host = readFileSync(new URL('../hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    expect(
+      /\} else if \(world\.gameState === 'PLAYING'\) \{[\s\S]*?\n    runWarlordRage\(world\);\n    runBloodFrenzy\(world\);\n  \}/.test(host),
+      'hostTick: outside FIGHT, `runWarlordRage` then `runBloodFrenzy` — the window ends in every phase',
+    ).toBe(true);
+    const latch = readFileSync(new URL('../bossSkillsWarlord.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    expect(latch.includes("const mayFire = world.matchPhase === 'FIGHT';"), 'a new rage fires only in FIGHT').toBe(true);
+    expect(latch.includes('if (mayFire && !isRageCoolingDown(boss, world.tick)'), 'the fire branch reads mayFire').toBe(true);
   });
 });

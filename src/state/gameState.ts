@@ -26,6 +26,7 @@ import { teardownGatherers } from './gatherers/gathererLifecycle.ts';
 import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
+import { sameTeam } from './teams.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
 import { resetMatchStats } from './matchStats.ts'; // ⭐ S191
 
@@ -154,18 +155,26 @@ export function tickGameState(
       //
       // So a genuine wipe is now named explicitly, and "everyone alive has left" ends nothing.
       const wipe = living.length === 0;
-      if (fallenCount > 0 && (soloBoard || wipe || contenders.length === 1)) {
+      // ⭐⭐ S192 (spec Q1) — LAST TEAM STANDING. The match ends when every contender is on ONE side; in a
+      // free-for-all that is exactly `contenders.length === 1` (nobody else is anybody's teammate).
+      const oneSideLeft =
+        contenders.length >= 1 && contenders.every((id) => sameTeam(world, id, contenders[0]!));
+      if (fallenCount > 0 && (soloBoard || wipe || oneSideLeft)) {
         // With ≥2 seats the winner is the ONE seat still alive. A true zero-survivor board and solo
         // both fall back to the primary — the pre-S162 behaviour, now reachable only by the cases
         // that genuinely reached it before.
         let winnerId: PlayerId =
-          !soloBoard && contenders.length === 1 ? contenders[0]! : primaryPlayerId;
+          !soloBoard && oneSideLeft
+            // The winning side's LOWEST living seat names it (total order, never `Map` order). FFA: the one.
+            ? contenders.reduce((lo, id) => ((id as number) < (lo as number) ? id : lo), contenders[0]!)
+            : primaryPlayerId;
         /*
          * ⭐ S193 (owner, Q2) — A WIPE IN THE ENDGAME GOES TO THE TOP SCORE. *"the match ends and the top
          * score wins … If nobody beats … the huge mega pants boss."* From wave 27 on a zero-survivor
          * board (the pants razed every keep, possibly on one tick) crowns the highest banked score over
          * EVERY seat, lowest seat on a tie — the same total order the score gate uses. Before wave 27
-         * the S162 wipe rule above is unchanged.
+         * the S162 wipe rule above is unchanged. (⚠ S194 teams, MINE: the top SEAT names the winning
+         * team — its banner reads TEAM N WINS like any other team win.)
          */
         if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {
           let best = -Infinity;

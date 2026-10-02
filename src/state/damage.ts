@@ -49,6 +49,7 @@ import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { riseOnHelgaKill } from './racial/theRisen.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
+import { sameTeam } from './teams.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
 import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — mummies.l5
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
@@ -266,7 +267,7 @@ export function damageEntity(
     // a killing blow's overkill is not a loss. A no-op for every seat without `mummies.l5`.
     accrueDynastyLoss(world, target.seat, hpBefore - seat.castleHp);
     // ⭐ S191 — the stat board, on what the keep ACTUALLY lost (after DEF, after the clamp).
-    recordDamage(world, target.seat, blowSeat, hpBefore - seat.castleHp);
+    recordDamage(world, target.seat, blowSeat, hpBefore - seat.castleHp, 'keep');
     applyLifesteal(world, attacker, amount); // S188 — of the swing, before the keep's DEF
     return seat.castleHp === 0;
   }
@@ -318,7 +319,7 @@ export function damageEntity(
          * and his restore-to-1 counts as `before − 1`. A KILL is `died && before > 0` — exactly once per
          * death, because a second lethal blow on a deferred corpse finds `before <= 0`.
          */
-        recordDamage(world, victim.ownerPlayerId, bySeat, before - Math.max(0, victim.ehp));
+        recordDamage(world, victim.ownerPlayerId, bySeat, before - Math.max(0, victim.ehp), 'unit');
         if (died) recordKill(world, bySeat, victim.ownerPlayerId, victim.type);
       }
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
@@ -354,7 +355,7 @@ export function damageEntity(
        */
       if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
       // ⭐ S191 — the stat board: what the shape's pool (after the lone-shape clamp) actually lost.
-      recordDamage(world, prim.placedBy, blowSeat, Math.min(amount, Math.max(0, prim.hp)));
+      recordDamage(world, prim.placedBy, blowSeat, Math.min(amount, Math.max(0, prim.hp)), 'structure');
       prim.hp -= amount;
       applyLifesteal(world, attacker, amount); // S188
       if (prim.hp > 0) return false;
@@ -404,7 +405,7 @@ export function damageEntity(
         : landedFifths(amount, cls, unit.def, defenderMres(unit), target.id as unknown as number);
       if (landed === 0) return false;
       // ⭐ S191 — the stat board: what Helga's pool actually lost (⭐ S192: of the LANDED hit, after MRES).
-      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(landed, Math.max(0, d.ehp)));
+      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(landed, Math.max(0, d.ehp)), 'unit');
       d.ehp -= landed;
       applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
@@ -506,7 +507,7 @@ export function damageStinkCloud(
   const cloud = world.stinkClouds.get(id);
   if (cloud === undefined) return false;
   // ⭐ S191 — the stat board: what the bag's pool actually lost.
-  recordDamage(world, cloud.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, cloud.ehp)));
+  recordDamage(world, cloud.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, cloud.ehp)), 'structure');
   cloud.ehp -= amount;
   applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
   if (cloud.ehp > 0) return false;
@@ -621,7 +622,7 @@ export function damageConnector(
   const victimSeat = world.primitives.get(bond.aId)?.placedBy;
   const bySeat = attackerSeat(world, attacker);
   if (comp === null) {
-    recordDamage(world, victimSeat, bySeat, landed);
+    recordDamage(world, victimSeat, bySeat, landed, 'structure');
     return true; // orphaned bond — nothing holds it up
   }
   const pool = structurePoolFifths(comp.bondIds.size);
@@ -645,7 +646,7 @@ export function damageConnector(
   let banked = 0;
   for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
   if (banked < pool) {
-    recordDamage(world, victimSeat, bySeat, landed); // ⭐ S191 — banked in full (⭐ S192: the landed hit)
+    recordDamage(world, victimSeat, bySeat, landed, 'structure'); // ⭐ S191 — banked in full (⭐ S192: the landed hit)
     return false;
   }
 
@@ -692,7 +693,7 @@ export function damageConnector(
     .sort((x, y) => Number(x) - Number(y));
   for (const id of survivors) drain(world.bonds.get(id));
   // ⭐ S191 — what is left on THIS bond is thrown away by the caller's sever; the rest carried or landed.
-  recordDamage(world, victimSeat, bySeat, landed - Math.min(landed, bond.damageFifths));
+  recordDamage(world, victimSeat, bySeat, landed - Math.min(landed, bond.damageFifths), 'structure');
   return true;
 }
 
@@ -990,13 +991,24 @@ export function applyRadialDamage(
   /**
    * ⭐ S191 BLAST-1 — ONE MORE seat to spare, for the one blast that has two owners to respect (a bag
    * the lightning hub popped: the bag's owner AND the hub's — `damageStinkCloud`). Optional, `null` for
-   * every other caller, so each of them is byte-identical.
+   * every other caller, so each of them is byte-identical. ⭐ S192 (R192-T1) — its TEAM, like `sparePlayerId`.
    */
   alsoSparePlayerId: PlayerId | null = null,
+  /**
+   * ⭐ S192 (owner R192-T1, spec Q5 — ⚠ MINE) — for the blasts that spare NOBODY by ruling (the zombie
+   * boss's R138 death blast): the seat whose TEAMMATES are still spared. The seat itself is NOT —
+   * *"kills everything"* stays true of its own side, and *"teammates never take damage"* stays true of
+   * its friends. `null` (every pre-S192 caller) and a free-for-all are byte-identical.
+   */
+  alliesOf: PlayerId | null = null,
 ): RadialDamageResult {
   const r2 = radius * radius;
-  const spared = (seat: PlayerId): boolean =>
-    (sparePlayerId !== null && seat === sparePlayerId) || (alsoSparePlayerId !== null && seat === alsoSparePlayerId);
+  // ⭐ S192 — each spared seat spares its whole TEAM (FFA: exactly that seat, as before — `sameTeam`
+  // is `a === b` when `world.teams` is undefined, and `undefined` is nobody's teammate).
+  const spared = (owner: PlayerId | undefined): boolean =>
+    (sparePlayerId !== null && sameTeam(world, owner, sparePlayerId)) ||
+    (alsoSparePlayerId !== null && sameTeam(world, owner, alsoSparePlayerId)) ||
+    (alliesOf !== null && owner !== alliesOf && sameTeam(world, owner, alliesOf));
   const d2Of = (x: number, y: number): number => {
     const dx = x - cx;
     const dy = y - cy;
@@ -1011,9 +1023,9 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    // ⚠ S191 — written out (not `spared(...)`) so `untargetableCallSites.test.ts` still SEES this area
-    // scan's owner filter: its census matches `ownerPlayerId … ===` and a helper call hid it.
-    if ((sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && c.ownerPlayerId === alsoSparePlayerId)) continue;
+    // ⚠ S191/S192 — the census (`untargetableCallSites.test.ts`) SEES `spared(c.ownerPlayerId)`: its
+    // regex counts the team-predicate wrappers as owner filters since S192.
+    if (spared(c.ownerPlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) {
       creatureVictims.push(cid);
       amountOf.set(`c:${cid}`, hit(unitAmountFifths, c.pos.x, c.pos.y));
@@ -1023,7 +1035,7 @@ export function applyRadialDamage(
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if ((sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && dd.ownerPlayerId === alsoSparePlayerId)) continue;
+    if (spared(dd.ownerPlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) {
       defenderVictims.push(did);
       amountOf.set(`d:${did}`, hit(unitAmountFifths, dd.pos.x, dd.pos.y));
