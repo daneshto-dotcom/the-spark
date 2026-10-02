@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  CREATURE_MRES, RACE_MRES_LEVEL, bossMres, castleMresLevel, defenderMres, isMagicClass, landedFifths,
+  CASTLE_SOLDIER_MRES, CREATURE_MRES, RACE_MRES_LEVEL, bossMres, castleMresLevel, defenderMres, isMagicClass, landedFifths,
   magicDot, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
 } from './magicResist.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
@@ -141,8 +141,8 @@ describe('S192 MRES — the table (every value ⚠ MINE until he rules)', () => 
     expect(L.nagas).toBeGreaterThan(L.orcs);
     expect(L.orcs).toBeGreaterThan(L.zombies);
     const order: RaceId[] = ['demons', 'mummies', 'vampires', 'nagas', 'orcs', 'zombies'];
+    // ⭐ S194 HIS — the castle soldier left this order: it is MRES 1 for every race (pinned below).
     for (const tier of [
-      (r: RaceId) => mresFor('raceUnit', r),
       (r: RaceId) => mresFor(RACE_TOWER_UNIT[r], r),
       (r: RaceId) => mresFor(T9_BOSS_TYPE[r], r),
     ]) {
@@ -154,13 +154,15 @@ describe('S192 MRES — the table (every value ⚠ MINE until he rules)', () => 
     }
   });
 
-  it('the boss is 6 + 2 × level; the tier-3 unit and the castle soldier carry the race level', () => {
+  it('the boss is 6 + 2 × level; the tier-3 unit carries the race level; the castle soldier is 1 for every race (S194)', () => {
     expect(RACES.map((r) => bossMres(r))).toEqual([12, 10, 14, 6, 8, 14]);
     for (const r of RACES) {
       expect(mresFor(T9_BOSS_TYPE[r], null)).toBe(bossMres(r));
       expect(mresFor(RACE_TOWER_UNIT[r], null)).toBe(RACE_MRES_LEVEL[r]);
-      expect(mresFor('raceUnit', r)).toBe(RACE_MRES_LEVEL[r]);
+      // ⭐ S194 HIS: *"They all have just one, so they're all equal between the races."*
+      expect(mresFor('raceUnit', r)).toBe(CASTLE_SOLDIER_MRES);
     }
+    expect(CASTLE_SOLDIER_MRES).toBe(1);
     // ⚠ Q-E — the elite piranha / bat swarm keep their base unit's level
     expect(mresFor('t3PiranhaElite', null)).toBe(mresFor('t3Piranha', null));
     expect(mresFor('t3BatSwarm', null)).toBe(mresFor('t3Bat', null));
@@ -206,22 +208,27 @@ describe('S192 MRES — the funnels apply it (direct calls; the host-tick REACH 
     return { w, c };
   }
 
-  it('damageEntity: magic on a demons soldier lands 6/9 of the swing; physical lands it all', () => {
-    const m = oneVictim('raceUnit', 'demons');
+  it('damageEntity: magic on a demons TIER-3 unit (its DEF vs MRES 4) is rescaled; physical lands it all', () => {
+    // ⭐ S194 — re-pinned off the castle soldier (now MRES 1 = DEF for every race, so magic lands it all)
+    // onto the demons tier-3 unit, which keeps the race table.
+    const t = 't3Souleater' as const;
+    const m = oneVictim(t, 'demons');
     damageEntity(m.w, { kind: 'creature', id: m.c.id }, 90, 'aura', null, 'magic');
-    expect(10_000 - m.c.ehp).toBe(60);
+    expect(10_000 - m.c.ehp).toBe(magicHitFifths(90, getCreatureConfig(t).def, RACE_MRES_LEVEL.demons));
+    const s = oneVictim('raceUnit', 'demons');
+    damageEntity(s.w, { kind: 'creature', id: s.c.id }, 90, 'aura', null, 'magic');
+    expect(10_000 - s.c.ehp, 'a demons SOLDIER: MRES 1 = DEF 1, magic lands it all').toBe(90);
     const p = oneVictim('raceUnit', 'demons');
     damageEntity(p.w, { kind: 'creature', id: p.c.id }, 90, 'creature', null, 'physical');
     expect(10_000 - p.c.ehp).toBe(90);
   });
 
-  it('⚠ the castle soldier reads its OWNER’s race (R192-M6), so the same type resists differently', () => {
-    const z = oneVictim('raceUnit', 'zombies');
-    damageEntity(z.w, { kind: 'creature', id: z.c.id }, 50, 'aura', null, 'magic');
-    expect(10_000 - z.c.ehp).toBe(60); // 50 × 6/5
-    const o = oneVictim('raceUnit', 'orcs');
-    damageEntity(o.w, { kind: 'creature', id: o.c.id }, 50, 'aura', null, 'magic');
-    expect(10_000 - o.c.ehp).toBe(50); // MRES = DEF
+  it('⭐ S194 HIS — the castle soldier resists the SAME for every race (it used to read its owner’s race)', () => {
+    for (const r of RACES) {
+      const v = oneVictim('raceUnit', r);
+      damageEntity(v.w, { kind: 'creature', id: v.c.id }, 50, 'aura', null, 'magic');
+      expect(10_000 - v.c.ehp, r).toBe(50); // MRES 1 = DEF 1
+    }
   });
 
   it('damageConnector: a magic hit on a structure banks exactly what a physical one banks (R192-M5)', () => {

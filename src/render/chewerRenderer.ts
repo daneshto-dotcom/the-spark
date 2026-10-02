@@ -48,6 +48,10 @@ import type { World } from '../state/world.ts';
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
 import { isConcealed } from './concealment.ts';
+// ⭐ S193 visuals-3 V22 — the HELLSPAWN split burst (`fx/perkFx.ts`). Render-only.
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxSeed } from './fx/emitter.ts';
+import { HELLSPAWN_FX_FRAMES, hellspawnBurstFx } from './fx/perkFx.ts';
 import type { PlayerId } from '../types.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
@@ -125,6 +129,16 @@ export class ChewerRenderer {
   private readonly gooSplats: Array<{ x: number; y: number; bornSec: number; seed: number }> = [];
   /** Wall-clock seconds of the previous frame (idle-hop advance + jitter clock). */
   private prevNowSec = -1;
+  /**
+   * ⭐ S193 V22 — HELLSPAWN children already seen, so each split bursts ONCE, at the child's first
+   * sighting. `spawnedAtTick` never rides the wire, so the birth is the first frame the synced child
+   * (`hellspawnGen` set) exists — the death-watcher's idiom, in reverse. ⚠ Not primed until one frame
+   * has been seen, so a joiner arriving mid-fight does not burst every child already on the board.
+   */
+  private readonly splitSeen: Set<CreatureId> = new Set();
+  private splitPrimed = false;
+  /** Live split bursts; `age` counts render frames. */
+  private splitBursts: Array<{ x: number; y: number; age: number; seed: number; owner: PlayerId }> = [];
 
   // S100 P1 — `parent` defaults to app.stage but main.ts passes aboveFogLayer so
   // chewers (cross-player reach — they chew ANY enemy's connectors) render THROUGH
@@ -170,6 +184,13 @@ export class ChewerRenderer {
       liveIds.add(c.id);
       this.lastSeenState.set(c.id, c.state);
       this.lastSeenOwner.set(c.id, c.ownerPlayerId);
+      // ⭐ S193 V22 — a split child's first sighting is its birth (above the fog skip, like presence).
+      if (c.hellspawnGen !== undefined && !this.splitSeen.has(c.id)) {
+        this.splitSeen.add(c.id);
+        if (this.splitPrimed && fxActive()) {
+          this.splitBursts.push({ x: c.pos.x, y: c.pos.y, age: 0, seed: fxSeed(c.id as number, 0x4e11), owner: c.ownerPlayerId });
+        }
+      }
       // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
       // see render/concealment.ts. Own entities are never concealed.
       if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
@@ -270,6 +291,8 @@ export class ChewerRenderer {
       }
     }
 
+    this.syncSplitBursts(liveIds);
+
     // S102 #1 — DEATH WATCHER. Any chewer alive last frame but GONE from the synced snapshot
     // this frame was killed (raid / potato / future laser). Splat green goo at its last position
     // + a wet fly-splat SFX — reliable on host AND the 1v1 client (both render the same snapshot)
@@ -329,6 +352,26 @@ export class ChewerRenderer {
 
   /** S102 #1 — render + cull the active green-goo splats (expanding blob + flung droplets that
    *  fade over GOO_DURATION_SEC). Wall-clock fade is render-only cosmetic (no sim coupling). */
+  /**
+   * ⭐ S193 V22 (`S192_VISUALS_PLAN.md`) — **HELLSPAWN: THE SPLIT IS A BURST OF HELLFIRE**, where until
+   * now it was only the S188 red/black tint placeholder on the children. One flash, a ring and six
+   * sparks per child (two children a split → ~16 sprites for 0.3 s). Under the fog rule every chewer obeys.
+   */
+  private syncSplitBursts(liveIds: ReadonlySet<CreatureId>): void {
+    this.splitPrimed = true;
+    if (this.splitSeen.size > liveIds.size) {
+      for (const id of this.splitSeen) if (!liveIds.has(id)) this.splitSeen.delete(id);
+    }
+    if (this.splitBursts.length === 0) return;
+    const on = fxActive();
+    const top = fxTop();
+    for (const b of this.splitBursts) {
+      if (on && !isConcealed(b.x, b.y, b.owner)) hellspawnBurstFx(top, b.x, b.y - 6, b.age, b.seed);
+      b.age++;
+    }
+    this.splitBursts = this.splitBursts.filter((b) => b.age < HELLSPAWN_FX_FRAMES);
+  }
+
   private drawGoo(g: Graphics, nowSec: number): void {
     for (let i = this.gooSplats.length - 1; i >= 0; i--) {
       const s = this.gooSplats[i];

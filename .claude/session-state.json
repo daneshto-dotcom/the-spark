@@ -122,6 +122,30 @@
       "pdr_approved": true,
       "deliberation_completed": true,
       "unlock_source": "user"
+    },
+    {
+      "id": "T10",
+      "title": "matchboard v2: per-player pages, distinct interactive graphs",
+      "branch": "s194/matchboard",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "T11",
+      "title": "rules: porch no-build + closer (R194-16), pants window 30/45/60/90/120 (R194-17)",
+      "branch": "s194/rules",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
   "reflexion_entries_to_archive": []

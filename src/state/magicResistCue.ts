@@ -23,9 +23,10 @@
 import { STINK_AURA_CADENCE_TICKS, STINK_AURA_RADIUS, ZOMBIE_AURA_PER_MILLE, ZOMBIE_AURA_RADIUS } from '../constants.ts';
 import type { Creature } from './creatures/creature.ts';
 import { isStunned } from './creatures/creature.ts';
-import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { dotDueThisTick } from './damageOverTime.ts';
-import { dotBeat, landedFifths, magicDot, mresFor } from './magicResist.ts';
+import { dotBeat, landedFifths, landedFifthsPools, magicDot, mresFor } from './magicResist.ts';
+import { getCreatureConfig } from './creatures/voltkin-config.ts';
+import { unitPoolFifths } from './stats.ts';
 import { SCORCHED_EARTH_CAST_PER_MILLE, SCORCHED_GROUND_PER_MILLE, scorchedEarthZones, scorchedZones } from './racial/scorchedGround.ts';
 import { isScorchImmune } from './racial/scorchedEarthRules.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
@@ -41,11 +42,23 @@ const within = (ax: number, ay: number, bx: number, by: number, r: number): bool
 /** Did a magic DoT beat, due for `c` on `tick`, land 0 because of its MRES? */
 export function magicBeatResistedAt(world: World, c: Creature, tick: number): boolean {
   if (c.ehp <= 0) return false;
-  const def = getCreatureConfig(c.type).def;
-  const mres = mresFor(c.type, world.players.get(c.ownerPlayerId)?.raceId ?? null);
-  if (mres <= def) return false; // never swallowed: every beat lands ≥ 1
+  const cfg = getCreatureConfig(c.type);
+  const def = cfg.def;
   const id = c.id as unknown as number;
-  const zero = (beat: number): boolean => landedFifths(1, magicDot(beat), def, mres, id) === 0;
+  // ⭐ S193 (R192-D1) — a unit born after its seat's MRES pick carries a longer magic bar (`mresFifths`)
+  // and can show RESIST even at MRES = DEF; the sim's same `landedFifthsPools` decides its beats.
+  // Absent the pick, the S192 gate (`MRES > DEF`) and call, unchanged.
+  let zero: (beat: number) => boolean;
+  if (c.mresFifths !== undefined) {
+    const phys = unitPoolFifths(cfg.hp, def);
+    const magic = c.mresFifths;
+    if (magic <= phys) return false; // never swallowed: every beat lands ≥ 1
+    zero = (beat) => landedFifthsPools(1, magicDot(beat), phys, magic, id) === 0;
+  } else {
+    const mres = mresFor(c.type, world.players.get(c.ownerPlayerId)?.raceId ?? null);
+    if (mres <= def) return false; // never swallowed: every beat lands ≥ 1
+    zero = (beat) => landedFifths(1, magicDot(beat), def, mres, id) === 0;
+  }
 
   // 1 · the zombie boss ROT (`bossSkills.ts` runZombieRotAura)
   if (dotDueThisTick(tick, id, c.type, ZOMBIE_AURA_PER_MILLE)) {

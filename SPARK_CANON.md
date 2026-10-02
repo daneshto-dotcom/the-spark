@@ -138,7 +138,7 @@ magic, I accept that"*.
 | the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, the **zombie boss death blast**, a stink bag bursting, the stink tower's death blast and bag splash |
 | **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
 | the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
-| the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
+| the **Voltkin's chain lightning** — every hop INCLUDING the first zap — ⭐ HIS (S194): *"All Volkan zaps … the whole chain doesn't matter. First hit, second hit, or fourth hit, they're all magic damage."* | |
 
 `magicResist.callSites.test.ts` pins every production damage call and its class, file by file, plus every direct pool write.
 
@@ -149,11 +149,13 @@ magic, I accept that"*.
 | a **STRUCTURE** of `n` connectors | **`n`** = its DEF | HIS: *"towers will inherently have the same magic resistance as their regular defense"* — so magic lands on a tower exactly as physical |
 | a **shape**, a **stink bag** | **0** = DEF | |
 | a **GLOBAL** unit (goblins, chewer, Voltkin, drone, direwolf, locusts) and **Helga** | **= its own DEF** | HIS (R192-M10) |
-| a **race's** tier-3 unit, and the **castle soldier** by its owner's race | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| a **race's** tier-3 unit | demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0** | ⚠ MINE numbers on HIS order (R192-M6) |
+| the **castle soldier** (R125 1/1/1/1) | **1 for EVERY race** (`CASTLE_SOLDIER_MRES`) | ⭐ HIS (S194): *"They all have just one, so they're all equal between the races."* Until S194 it read its owner's race from the row above |
 | a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
 
 ⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
-against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+against magic too; ⛔ **it does NOT raise MRES — RULED, DO NOT RE-ASK** (R192-D1, re-stated S194: *"We are going to add its own magic resistance draft … And also for the castle upgrades, there's going to be its own … magic resistance upgrade. We've answered that … don't forget it anymore. I don't want to answer it again."*). MRES has its own castle row (§3d). ⭐ S193 — the general MRES draft card is BUILT
+(R192-D1, `s193/mres-card`): the wave-26 draft's general option, **WARDED** — see §3d.
 
 ### The castle's MRES axis (R192-M9)
 
@@ -312,6 +314,8 @@ wave 6. The original spec contradicted itself on exactly this point. So "level 0
 | | |
 |---|---|
 | general track | HP → DEF → ATK → PEN, **cycling** (⚠ the wrap is MINE — he gave the order, not what follows PEN) |
+| ⭐ the wave-26 card | S193, HIS (R192-D1): *"We'll do another one at level 26 … That's going to be the, the magic damage one."* The LAST draft (wave 26, `MRES_DRAFT_WAVE` = `LAST_DRAFT_WAVE`) offers **MRES — WARDED** in place of the cycle's DEF; waves 1/6/11/16/21 still offer HP/DEF/ATK/PEN/HP. No racial is built at level 25, so the deadline (and every bot) takes MRES |
+| what an MRES pick buys | ⚠ MINE reading of *"+10 % MRES"*: **+10 % of the MAGIC-DEFENDED POOL** `HP × (5 + MRES)` (§2b), by the same `applyDraftPercent` — never "+1 MRES level", because no pick buys a level. Born into `Creature.mresFifths` (`draftedMagicPoolFifths`); a magic hit then lands `floor(A × HP×(5+DEF) / mresFifths)` (`landedFifthsPools`); physical hits are untouched. An orcs soldier: **6 → 7**, so a Voltkin's **33** lands **28** (`draftMresReaches.test.ts`, through the real host tick). ⚠ Its card art is NOT made — the S193 imagen call returned 404 on every Imagen model; the tile shows its text title (`GENERAL_CARDS_AWAITING_ART`) |
 | the buff | **+10% of the ladder number, floored, minimum 1** — `applyDraftPercent`. ⭐ Since S190 (deploy #4) EVERY pick lands: HP/DEF on the pool, ATK/PEN on the strike — see *THE DRAFTED STRIKE* below |
 | where the buff lives | **born into the creature**: the pool in `Creature.maxEhp` (S187), the strike in `Creature.atkFifths` (S190), each stored ONLY when a pick moved it and read through `creatureMaxEhp` / `creatureAttackFifths` — never re-derived from the type |
 | ATK vs PEN | the ladder has two derived numbers, so an ATK pick and a PEN pick move the SAME strike, exactly as HP and DEF move the same pool |
@@ -906,7 +910,7 @@ flung debris. Measured, pinned and reported rather than taken.
 
 | | |
 |---|---|
-| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it |
+| last draft | **wave 26** (`LAST_DRAFT_WAVE`) — `isDraftWave` is false past it. ⭐ S193 its general option is the **MRES** card (§3d, R192-D1) |
 | build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
 | the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
 | monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
@@ -1149,7 +1153,7 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **62** (S193 — deploy #23; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **63** (S194 — s193/mres-card; see the S194 entry on the const). 62 was S193's deploy #23.
 
 ⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 
