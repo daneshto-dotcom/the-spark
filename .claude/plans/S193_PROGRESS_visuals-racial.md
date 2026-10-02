@@ -1,5 +1,10 @@
 # S193 · `s193/visuals-racial` (visuals-3) · progress
 
+## ▶ RESUMED (S194) — log
+- Re-merged master `3e96ccda` (canon + plans only) as `3c1bad7e`, clean. Screenshots: `.tmp-gates/shots/{master,merged}-{legacy,high,low}.png`.
+  Scratch master worktree removed. Gates: typecheck 0 · build 0, entry **1132.5 KiB** (headroom 117.5) · vitest 0 (522 files passed / 4 skipped; 7895 passed / 11 skipped).
+- NEXT: `npm run e2e:gating` (own hashed port), then final report.
+
 ## ⏸ PAUSED (S194 owner pause order) — RESUME HERE
 - EXACT NEXT STEP: (1) screenshots — run `.tmp-gates/shots/shots.spec.ts` in BOTH this tree and the scratch master tree
   `.tmp-gates/master-tree` (a `git worktree add --detach` of master 18560cd8, npm-installed), with env
