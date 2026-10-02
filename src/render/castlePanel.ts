@@ -643,7 +643,7 @@ export interface PanelControl {
 export const CASTLE_ROW_KEYS = [
   // ⭐ S193 R192-W1 — *"a button on your castle saying fix all"*, FIRST (the panel's top row). Drawn and
   // hit-tested by the row loop like every other row. ⚠ MINE: its position (above BUY GATHERER) —
-  // canon §3d pins the four stat rows directly under REGEN, so it cannot go at the bottom.
+  // canon §3d pins the five stat rows (HP / ATK / DEF / PEN / MRES) directly under REGEN, so it cannot go at the bottom.
   'fixAll',
   'buyGatherer', 'upgradeSpeed', 'castleRegen',
   'castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres',
@@ -792,7 +792,8 @@ export function castleControlsModel(
    * … continuing to gather."* The number is how many towers it would queue — `fixAllTargets`, the
    * reducer's own list, never a second count. Blockers in the reducer's order: not your keep, the input
    * lock, a fallen castle (eliminated — `elimination.ts` denies it too), FIX is BUILD-only (R19), no
-   * gatherer to carry anything (⚠ MINE), nothing to fix.
+   * gatherer to carry anything (⚠ MINE), the per-seat job bound (QUEUE FULL, `REPAIR_JOBS_MAX_PER_SEAT`),
+   * nothing to fix.
    */
   const fixable = notMine || locked || world.matchPhase !== 'BUILD' ? 0 : fixAllTargets(world, world.localPlayerId).length;
   const fixReason = notMine

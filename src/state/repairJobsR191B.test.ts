@@ -593,6 +593,35 @@ describe('⛔ S193 audit fix round — the LOWs', () => {
     expect((w.tick + job.id) % REPAIR_JOB_REPLAN_TICKS, 'the dropping pass ran on its phase (the host tick advances `tick` before the pass)').toBe(0);
   });
 
+  it('the spread is BY JOB ID: two waiting jobs with different ids re-plan on DIFFERENT ticks', () => {
+    // S193 re-audit LOW — with one job (id 0) "spread by tick" and "spread by tick + id" are the same
+    // schedule; a second job with a nonzero id tells them apart.
+    const { w, st, hub, leaf } = board({ goblin: true });
+    breakTurret(w, st, leaf);
+    const goblin = [...w.creatureSpawners.values()][0]!;
+    const gLeaf = [...goblin.ownPrimitiveIds!].filter((id) => id !== goblin.anchorPrimitiveId)[0]!;
+    damageEntity(w, { kind: 'primitive', id: gLeaf }, 20, 'creature', null, 'physical');
+    hire(w, door(w));
+    fix(w, hub);
+    w.nextRepairJobId = 7; // a nonzero, non-multiple-of-N id for the second job
+    fix(w, goblin.anchorPrimitiveId);
+    expect(w.repairJobs.map((j) => j.id)).toEqual([0, 7]);
+    // Both towers stop needing a FIX at once (instant restores); each job is dropped on ITS phase.
+    const bank = w.castleBanks.get(P0)!;
+    for (let t = 0; t < 6; t++) bank[t] = (bank[t] ?? 0) + 2;
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: hub });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: goblin.anchorPrimitiveId });
+    const droppedAt = new Map<number, number>();
+    for (let n = 0; n < 2 * REPAIR_JOB_REPLAN_TICKS && droppedAt.size < 2; n++) {
+      const before = new Set(w.repairJobs.map((j) => j.id));
+      tick(w, st, 1);
+      for (const id of before) if (!w.repairJobs.some((j) => j.id === id)) droppedAt.set(id, w.tick);
+    }
+    expect(droppedAt.size, 'both dropped within the period').toBe(2);
+    for (const [id, at] of droppedAt) expect((at + id) % REPAIR_JOB_REPLAN_TICKS, `job ${id} on its own phase`).toBe(0);
+    expect(droppedAt.get(0), 'and NOT on the same tick').not.toBe(droppedAt.get(7));
+  });
+
   it('⚠ MINE — the re-plan period is a quarter second', () => {
     expect(REPAIR_JOB_REPLAN_TICKS).toBe(15);
   });

@@ -430,7 +430,7 @@ HP, the CURRENT band's gain). A disabled row names its reason: `NEED 100` · `MA
 ⭐ **S193 (R192-W1) — A FIFTH KIND OF ROW, ABOVE BUY GATHERER: FIX ALL.** *"there should be a button on
 your castle saying fix all. And then it just gives a mass command to all the gatherers to first go and
 fix all the existing towers before … continuing to gather."* It is the panel's **top row**
-(`CASTLE_ROW_KEYS[0]` = `fixAll`; ⚠ the position is MINE — the four stat rows stay directly under
+(`CASTLE_ROW_KEYS[0]` = `fixAll`; ⚠ the position is MINE — the five stat rows (HP · ATK · DEF · PEN · MRES) stay directly under
 REGEN), reads `FIX ALL  n` (n = the towers it would queue, `fixAllTargets`) and names its blocker:
 `NOT YOURS` · `LOCKED` · `CASTLE LOST` · `BUILD ONLY` · `NO GATHERERS` · `QUEUE FULL` · `NOTHING TO FIX`.
 It queues one FIX job per own tower that needs one, **nearest the castle first** (squared distance,
