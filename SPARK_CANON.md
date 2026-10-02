@@ -1209,7 +1209,7 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **63** (S194 — s193/mres-card; see the S194 entry on the const). 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **64** (S194 — s194/fixes; see the S194 entries on the const). 63 was s193/mres-card; 62 was S193's deploy #23.
 
 ⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 
