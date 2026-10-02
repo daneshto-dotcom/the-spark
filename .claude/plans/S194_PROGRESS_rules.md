@@ -1,3 +1,8 @@
+## ✅ FINAL REPORT — re-audit fix round (MED-1, LOW-1, LOW-2, memo) + merge master e9855ba9
+- MED-1 true 360 total (count by victim seat + total check); LOW-1 mega banner from the live creature; LOW-2 docs; memo keyed on a snapshot generation (tick key dropped).
+- Merge master e9855ba9 (PROTOCOL 66): one conflict, the FFA golden — re-recorded on the merged tree (86 checkpoints, md5 f799248c52e031928c71b8d2abf18856). Pre-teams reference not constructible for this pair (weld-rebuild + matchboard carry teams; reverting teams conflicts in 5 files) — stated in the file.
+- Gates: typecheck 0 · vitest 0 (8640 passed / 12 skipped, 568 files) · build 0, entry 1166.8 KiB (headroom 83.2) · e2e:gating 0 (74 passed, own worktree port).
+
 # S194 PROGRESS — T11 rules (branch `s194/rules`)
 
 ## ✅ FINAL REPORT — batch 2 (R194-26/27, MED-2, LOW-1/2, T8 merge, T7 seams)
