@@ -1,61 +1,18 @@
 /**
  * SPARK — S194 (T8, owner C): a seat knocked out mid pants-wave. Fixtures (board, deps, toFightEdge,
- * pants, unkillable) are copied verbatim from `endgameS193.test.ts`; the S194 cases are at the bottom.
+ * pants, unkillable) are copied from `endgameS193.test.ts`.
  */
-
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import {
-  CASTLE_ATTACK_RANGE,
-  MEGA_PANTS_AFTER_TICKS,
-  MEGA_PANTS_STATS,
-  MONSTER_BIRTH_RADIUS_PX,
-  MONSTER_EMERGE_TICKS,
-  MONSTER_HOLD_LEAD_TICKS,
-  PHYSICS_HZ,
-  PLAYER_COLORS,
-  PRIMITIVE_MAX_HP,
-  SparkType,
-  SPAWNER_CENTER_X,
-  SPAWNER_CENTER_Y,
-  SPAWNER_RADIUS,
-  STRUCTURE_SELFDESTRUCT_RADIUS,
-} from '../constants.ts';
+import { MONSTER_EMERGE_TICKS, PLAYER_COLORS } from '../constants.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
-import { makeIdlePlayer } from '../game/player.ts';
-import type { Primitive } from '../game/primitive.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
-import {
-  asBondId, asCreatureId, asPlayerId, asPrimitiveId, asSpawnerId, type BondId, type PlayerId,
-} from '../types.ts';
-import { makeGameStateExtras, tickGameState } from './gameState.ts';
-import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
-import { attackFifths, unitPoolFifths } from './stats.ts';
-import { isMonsterFightHeld, megaPantsDue, monstersLeftToComeOut, monstersPerSeatForWave } from './endgame.ts';
-import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
+import { asPlayerId } from '../types.ts';
+import { makeGameStateExtras } from './gameState.ts';
+import { monstersLeftToComeOut, monstersPerSeatForWave } from './endgame.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
-import { hashWorldStateFull } from './stateHashFull.ts';
-import { restore, snapshot } from './save.ts';
-import { formatEndgameCue, formatHeldClock, MEGA_PANTS_BANNER, PANTS_BANNER_LINES, PANTS_BANNER_TICKS, pantsBannerText } from '../render/ui.ts';
-import { creatureSpriteScaleMul, MEGA_PANTS_SPRITE_SCALE_MUL } from '../render/towerFrames.ts';
-import { ATLASES, ENDGAME_MONSTER_ATLAS_BASE, GOBLIN_KINDS } from '../render/goblinRenderer.ts';
-import { makeCreature, type Creature } from './creatures/creature.ts';
-import { isScorchImmune } from './racial/scorchedEarthRules.ts';
-import { runScorchedGround } from './racial/scorchedGround.ts';
-import { raColumnTargets } from './racial/raColumn.ts';
-import { planHubBlast } from './potatoLifecycle.ts';
-import { damageConnector, severWithCarry } from './damage.ts';
-import { castleGunsTick, castleFiresOnTick } from './castleGuns.ts';
-import { castleShotFifthsFor } from './castleUpgrades.ts';
-import { applyDefenderTick, applyRegisterDefender } from './defenders/defenderLifecycle.ts';
-import { findNearestEnemyCreatureFrom } from './creatures/creatureAI.ts';
-import { stampRefusalAt } from './blueprintLegality.ts';
-import { bankAdd } from './castleBank.ts';
-import type { RaceId } from './races.ts';
-import type { DraftPick } from './draft.ts';
+import type { Creature } from './creatures/creature.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -65,7 +22,6 @@ function board(seats = 2): World {
   world.gameState = 'TITLE';
   const roster = Array.from({ length: seats }, (_, seat) => ({ seat, color: PLAYER_COLORS[seat]! }));
   if (seats === 2) dispatch(world, { type: 'START_GAME', mode: '1v1', isHost: true, roster });
-  else if (seats === 1) dispatch(world, { type: 'START_GAME', mode: 'solo', isHost: true, roster } as never);
   else dispatch(world, { type: 'START_GAME', mode: 'bots', isHost: true, roster, botSeats: Array.from({ length: seats - 1 }, (_, i) => i + 1) });
   world.gameState = 'PLAYING';
   world.draft = null;
@@ -91,45 +47,7 @@ function toFightEdge(world: World, wave: number): void {
 }
 
 const pants = (w: World): Creature[] => [...w.creatures.values()].filter((c) => c.type === 'endgameMonster');
-const mega = (w: World): Creature[] => [...w.creatures.values()].filter((c) => c.type === 'megaPants');
 const unkillable = (w: World): void => { for (const p of w.players.values()) p.castleHp = 1_000_000_000; };
-
-/** A pants held in place by a long stun — a stun stops what it DOES, never what is done to it. */
-function heldPants(w: World, at: { x: number; y: number }, seat: PlayerId = P1): Creature {
-  const c = makeCreature(getCreatureConfig('endgameMonster'), {
-    id: asCreatureId(w.nextCreatureId++), ownerPlayerId: MONSTER_OWNER_ID, pos: { ...at }, targetPos: { ...at },
-    spawnedAtTick: w.tick, sourceSpawnerId: null, clock: w,
-  });
-  c.monsterSeat = seat;
-  c.state = 'SEEKING';
-  c.stunnedUntilTick = w.tick + 1_000_000;
-  w.creatures.set(c.id, c);
-  return c;
-}
-
-function prim(w: World, seat: PlayerId, x: number, y: number): Primitive {
-  const color = w.players.get(seat)!.color;
-  const id = asPrimitiveId(w.nextPrimitiveId++);
-  const p: Primitive = {
-    id, type: SparkType.Square, placerColor: color, placedBy: seat, createdTick: w.tick,
-    pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: color, lastOwnershipChange: w.tick,
-    radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
-  };
-  w.primitives.set(id, p);
-  return p;
-}
-
-function link(w: World, a: Primitive, b: Primitive): BondId {
-  const id = asBondId(w.nextBondId++);
-  w.bonds.set(id, {
-    id, aId: a.id, bId: b.id, a, b, restLength: Math.sqrt((b.pos.x - a.pos.x) ** 2 + (b.pos.y - a.pos.y) ** 2),
-    stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick,
-  });
-  a.bonds.add(id);
-  b.bonds.add(id);
-  return id;
-}
-
 
 import { monsterLaneSeats, monstersLeftForSeat, monsterVictimSeat } from './endgame.ts';
 
