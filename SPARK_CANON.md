@@ -92,6 +92,39 @@ a weld whose `aId` was his own seat carried into his OWN connectors. The weld st
 no single owner to stay on, so it lands nowhere (⚠ MINE: a third seat striking a weld between two others
 carries into neither side either). `connectorCarryWeld.test.ts`.
 
+### ⭐⭐ THE ENTROPY TAX — A BIG STRUCTURE WEARS OUT (R194-18, S194, `s194/entropy`)
+
+> *"the more complex your … structure is. The more chances it has to be destroyed or to just break
+> down … players will have to decide, oh, do I keep … building onto this tower to increase his … HP …
+> Or do I … build more structures."* … *"It will go with option A … Up to 10 connectors, no entropy
+> tax. After that, it grows … for each connector past 10 … It should be capped at 50."* … *"mean +0.1%"*
+> — owner, S194
+
+**The rule: at the start of every FIGHT, every connector of a structure bigger than 10 connectors
+snaps with chance `min(50 %, 0.1 % × (n − 10))`**, n = the connectors in its structure
+(`entropyChance`, `src/state/entropy.ts`: `ENTROPY_FREE_CONNECTORS` 10, `ENTROPY_RATE_PER_CONNECTOR`
+10 / 10 000, `ENTROPY_CAP` 5 000 / 10 000 — the cap is reached at 510 connectors).
+
+| connectors | 10 | 20 | 54 | 145 |
+|---|---|---|---|---|
+| chance per connector per FIGHT | 0 % | 1 % | 4.4 % | 13.5 % |
+| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |
+
+Why it exists: a structure's pool is `n × (5 + n)` and that is the price of ONE connector, so the bot
+blob he reported (145 connectors) costs **21 750** a connector — 20 melee goblins (14 400 a fight) fell
+**none**. No tower recipe has more than 9 connectors, so a lone tower is never taxed; two welded towers
+are. Measured through the real host tick (`entropy.test.ts`): the 145-connector blob lost 25, 21, 10,
+8 … over eight fights — it erodes toward a size the builder can keep up with.
+
+- Seeded `mix32(mix32(rngSeed, waveNumber), bondId)` — host-only seed, integer, no clock; every roll is
+  read off the board as it stood before the first snap, and the snaps run in ascending bond id through
+  the one `SEVER_BOND` path with cause **`'entropy'`** (no actor, silent, its own toast). A snap that
+  SPLITS a structure deletes its smaller side like any other sever — so whole chunks can go
+  (*"or maybe whole parts of it"*).
+- ⚠ MINE (unruled, Q4/Q5): **any** connector may snap, a welded tower's own included; the roll is
+  **once, at the FIGHT whistle**; the owner reads **"ENTROPY: N CONNECTORS SNAPPED"**. No exemption for
+  the endgame or monster waves — they are FIGHTs too.
+
 ### Shapes
 
 | | pool | |
@@ -1916,6 +1949,7 @@ right-click a raid, and the drone, the raid, POWER OF RA and the hub were missin
 | ⭐ the Pharaoh boss's Ra column (S192 — the perk's column, sparing nobody) | `'unit'` | `racial/raColumn.ts` |
 | ⭐ SCORCHED EARTH burning through a structure's pool (S191) | `'raid'` | `racial/scorchedGround.ts` |
 | ⭐ the zombie boss's death blast reaching a structure's pool (S192 T3) | `'unit'` | `racial/zombieDeathBlast.ts` |
+| ⭐ the ENTROPY TAX at the FIGHT whistle (S194 R194-18, §2) | `'entropy'` | `entropy.ts` |
 | the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
 | a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 
