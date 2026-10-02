@@ -1,5 +1,11 @@
 # S194 T17 — MULTIPLAYER MUST WORK TONIGHT — progress (branch s194/mp)
 
+## FINAL (deploy #5 live, index-CidGFkDb.js, PROTOCOL 65) — NO product fix needed; harness only (scripts/live-mp/)
+- code join PASS 7.4 s / 1.6 s first snapshot · quick match PASS 9.3 s / 4.0 s · teams T1 v T2 PASS (roster team 0/1, 0.2 s)
+- relay-only (TURN) PASS relay<->relay · TURN allocates 98 ms · 4p PASS (seated 7.5/15.6/21.2 s)
+- hard blip: 5 runs recovered by itself 10.6-34.5 s; 1 of 5 showed CONNECTION LOST (17.6 s -> 34.5 s) then auto-cleared
+- gates: typecheck 0 · vitest 0 (558 files / 8481 tests) · build 0 (1156.7 KiB, src untouched -> +0)
+
 ## Evidence so far (live deploy #4, index-BMPYtvtQ.js, PROTOCOL 64)
 - probe-relays: EXIT 0, 6/6 (4 nostr + 2 torrent) answer.
 - TURN in live bundle: ONE url `turn:global.relay.metered.ca:80`, secrets STILL WRAPPED (`urls: "…"`),

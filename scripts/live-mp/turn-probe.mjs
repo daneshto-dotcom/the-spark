@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 const js = fs.readFileSync(process.argv[2], 'utf8');
-const m = js.match(/Rit\('urls: "([^"]+)"','username: "([^"]+)"',' credential: "([^"]+)"'\)/);
+const m = js.match(/[A-Za-z_$]+\('urls: "([^"]+)"','username: "([^"]+)"',' credential: "([^"]+)"'\)/);
 if (!m) { console.log('NO TURN TRIPLE FOUND'); process.exit(2); }
 const [, base, username, credential] = m;
 const variants = process.argv.slice(3).length ? process.argv.slice(3) : [base];
