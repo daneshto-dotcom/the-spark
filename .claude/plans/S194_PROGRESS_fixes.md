@@ -1,7 +1,26 @@
-# ⏸ PAUSED (owner session limit) — RESUME HERE
-- RESUMED. NEXT STEP: full gates (typecheck, vitest --maxWorkers=3, build) + final report. (old:) item 7 is DONE (7a exit edge, 7b hub-ramp, 7c tower-art). Next: item 5 (CI L2: SLOWEST_CI_TICKS_PER_S 6→5 in e2e/worker-bots.spec.ts:80 + lane minutes; ALSO the gating lane budget — deploy #22 died at the 12-min PW_GLOBAL cap with green runs at 8.9-10.5 min, so 3 retries overran it), then 6 (verify-only: 2028ba4 is in master; run a real-tree mutant), then scope adds A-D, then 4 (quarantine), 3 (soak), then full gates.
-- Half-done: nothing uncommitted. Full gates (typecheck / full vitest / build) NOT yet run on this branch.
-- Last runs: vitest per-file all exit 0 (creatureProjectileRage, princessSlapSpin, buttonPressHit+buttonFeedback, e2eHubRampClock, visualsCombatReach); e2e on own port: button-press-edge+exit-match x3 exit 0 (42/42), hub-ramp-art x3 exit 0 (9/9), tower-art exit 0 (3/3); throttled repros documented below.
+# FINAL REPORT (s194/fixes, T8) — DONE
+
+- Merge: master 43f51d16 merged as 9bfefae8, 0 conflicts. Tip = this commit (after 193e17e1).
+- Gates on the merged tree: typecheck 0 · vitest --maxWorkers=3 exit 1 → 1 timeout-only red (`bots/firstTowerSpeed.test.ts` HARD: 34.7 s under shared load vs its 20 s cap); re-run alone exit 0, 4/4, 8.0 s ⇒ BENIGN (load contention). 532 files / 7977 tests passed otherwise, 11 skipped · build 0.
+- Entry 1134.3 KiB / 1250 (headroom 115.7); master source on the same tree builds 1133.7 ⇒ +0.6 KiB is mine.
+- e2e (own port 25191, merged tree): button-press-edge + exit-match + hub-ramp-art + tower-art (non-quarantine) 19/20, then the hub-ramp lazy-atlas race was fixed → hub-ramp ×2 6/6. Smoke Sym A/C/G pass locally (quarantine lane).
+- BUMP verdict: YES — three sim rules both peers compute changed: (B) THE RISEN raises a soldier for a felled Helga; (C) pants lanes = seats that started the fight (a stale peer would release / count differently); (D) chewers and drones can no longer strike Helga (matrix + killableDefenderInReach). Everything else is render-only, CI or test-only: items 1, 2, 7a are render-only (1 changed no sim: hostTick already used ragedFireTick), 5/6/7b/7c/4/3 CI/test.
+- MINE (owner questions):
+  · Chewer with nothing to chew walks to the enemy keep and lands NOTHING there (swings at nothing) — should a chewer chew the keep, or not go there? rec: not go there (his D list says buildings/towers/connectors/free shapes).
+  · Drone detonation SPLASH still hurts enemy units near its target connector — is splash OK under "only target buildings"? rec: keep (it is an area effect, not a target).
+  · Hard-blip reconnect takes 20–31 s locally vs the 15 s grace (S189 measured 6.3 s) — schedule a net session; rec: yes, it is his S189 complaint.
+  · TOWER_ATLAS_WAIT_MS / RAMP_ATLAS_WAIT_MS 20 s, TWO_PEER_BUILD_BUDGET_MS 240 s, gating lane 15/23 min — my numbers; rec: keep.
+  · worker-heap metric: switch to snapshot retained size; rec: yes, do not raise 10 MB.
+- Merge seams (exact lines):
+  · `src/render/buttonFeedback.ts` — FeedbackTarget gains optional `pivot` (~line 58), new `hitRectAtScale` (~121), `setScale` replaces the five `c.scale.set` calls (~177–207). T5 restyles buttons; arcadeOverlay.ts is a CONSUMER (not edited) and gets the fix too.
+  · `src/render/princessRenderer.ts` — import PHYSICS_HZ, new `slapSpinSeconds` above the class, one drawImpact line (~259).
+  · `src/render/creatureProjectile.ts` — `projectileFireTick` + resolveShotIn fire tick + the impact-seed line (T4 owns the hub renderer, not this file).
+  · `src/state/endgame.ts` / `endgameMonsters.ts` — `monsterLaneSeats`, `monsterWaveTotal`, `monstersLeftToComeOut`, `monstersLeftForSeat`, `tickEndgameSpawner` lanes + dead-lane skip. ⚠ T11 (R194-26 mega pants 251st, R194-27 live cap) edits the same spawner: re-run endgamePantsFallenSeat.test.ts after merging it.
+  · `src/state/creatures/creatureAI.ts` killableDefenderInReach gate; `src/state/stats.ts` drone STRUCTURES_ONLY (+ stats.test re-pin); `src/state/damage.ts` defender-death arm calls riseOnHelgaKill; `racial/theRisen.ts` refactor (census-visible `victim.ownerPlayerId`).
+  · `.github/workflows/e2e.yml` gating 15/23, worker-bots 12/20; `playwright.config.ts` comment; `src/ci.e2eLanes.test.ts` rate ≤5; `e2e/worker-bots.spec.ts` rate 5. Shared CI files — re-run ci.e2eLanes after other branches.
+  · `e2e/helpers.ts` exports `isPorchSpark`; `e2e/smoke.spec.ts` Sym A/C/D/G.
+  · SPARK_CANON.md: §3e THE RISEN row, §3f fallen-seat row, §5 chewer/drone paragraph.
+- NOT DONE: reconnect-hard-blip root cause (real, kept quarantined, needs a net session); the worker-heap metric change (recommended, not made); Sym F/I not investigated (not in brief; red in one older quarantine run).
 
 # S194 PROGRESS — fixes (`s194/fixes`, tree T8)
 
