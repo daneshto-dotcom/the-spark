@@ -697,6 +697,32 @@ describe('⛔ the class, with NO racial perk on offer (COMING SOON)', () => {
     tap(o, centre(racialTileRect()));
     expect(picks).toEqual(['racial']);
   });
+
+  it('⭐ S194 — the WAVE-26 MRES tile, through the PRODUCTION offer: no card fetched, its text title drawn, a click sends "mres"', async () => {
+    // REACH for the art-pending path (GENERAL_CARDS_AWAITING_ART): the real class, the real
+    // `draftOptionsFor`, a seat that owes its sixth pick at the last draft.
+    const { w, seat } = startedWorld();
+    const pl = w.players.get(seat)!;
+    pl.raceId = 'orcs';
+    pl.draftPicks.splice(0, Infinity, 'hp', 'def', 'atk', 'pen', 'hp');
+    w.draft = { openedAtTick: w.tick, waveNumber: 26 };
+    const picks: DraftPick[] = [];
+    const loader = recordingLoader();
+    const o = new DraftOverlay((p) => picks.push(p), { loadCard: loader.load });
+    o.render(w, seat);
+    await settle();
+    o.render(w, seat);
+    expect(o.container.visible).toBe(true);
+    // No card is ever asked for (there is none on disk), so nothing can 404 and nothing hides the title.
+    expect(loader.asked.some((u) => u.includes('general-'))).toBe(false);
+    expect(child<Sprite>(o.container, 'generalCard').visible).toBe(false);
+    const title = child<Text>(o.container, 'generalTitle');
+    expect(title.visible).toBe(true);
+    expect(title.text).toBe('WARDED');
+    expect(child<Text>(o.container, 'generalLine').text).toBe('+10% MAGIC RESIST');
+    tap(o, centre(generalTileRect()));
+    expect(picks).toEqual(['mres']);
+  });
 });
 
 /*
