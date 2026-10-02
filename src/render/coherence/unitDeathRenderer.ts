@@ -21,7 +21,7 @@ import { creatureSpriteScaleMul } from '../towerFrames.ts';
 import { fxActive, fxTop, fxTopShade } from '../fx/fxState.ts';
 import { fxSeed } from '../fx/emitter.ts';
 import { UNIT_DEATH_LIFE_TICKS, UNIT_FAMILY, unitDeathFx, type UnitFamily } from '../fx/unitDeathFx.ts';
-import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './unitDeparture.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, departedInIdOrder, type CreatureLastSeen } from './unitDeparture.ts';
 
 /**
  * Hard cap on beats alive at once — a wave-5 wipe of 120 units must not become 120 × 16 sprites. ⚠ MINE, and
@@ -66,8 +66,8 @@ export class UnitDeathRenderer {
       });
     }
     // ⭐ S194 T9 audit — ascending id BEFORE the cap, so which beats survive a wipe is a total order.
-    for (const [id, last] of [...this.watched].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
-      if (world.creatures.has(id)) continue;
+    for (const id of departedInIdOrder(this.watched, (k) => world.creatures.has(k))) {
+      const last = this.watched.get(id)!;
       this.watched.delete(id);
       if (classifyCreatureDeparture(world, last) !== 'killed') continue;
       this.beats.push({

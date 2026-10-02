@@ -77,7 +77,7 @@ import { PHYSICS_HZ } from '../constants.ts';
 // ⭐ S194 T9 (coherence) — the ONE answer to "did that unit die?", shared with every death watcher, and the
 // fog rule `healthBar` / `effectsRenderer` / both death watchers already apply. See `coherence/unitDeparture.ts`.
 import type { CreatureState, CreatureType } from '../state/creatures/creature.ts';
-import { CreatureWatchEpoch, classifyCreatureDeparture } from './coherence/unitDeparture.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, departedInIdOrder } from './coherence/unitDeparture.ts';
 import { isConcealed } from './concealment.ts';
 
 /**
@@ -660,8 +660,9 @@ export class DamageNumbers {
      * fallback when nothing hostile was in reach.
      */
     // ⭐ S194 T9 audit — ascending id, a total order (the kill-swing records are consumed in this order).
-    for (const [id, last] of [...this.watched].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
+    for (const id of departedInIdOrder(this.watched, (k) => seen.has(k))) {
       if (seen.has(id)) continue;
+      const last = this.watched.get(id)!;
       this.watched.delete(id);
       if (last.ehp <= 0) continue;
       // ⭐⭐ S194 T9 — only a KILL prints a killing blow; an expired Voltkin printed "40" (`unitDeparture.ts`).

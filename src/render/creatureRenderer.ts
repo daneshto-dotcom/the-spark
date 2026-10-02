@@ -27,7 +27,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
-import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './coherence/unitDeparture.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, departedInIdOrder, type CreatureLastSeen } from './coherence/unitDeparture.ts';
 import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
@@ -602,8 +602,9 @@ export class CreatureRenderer {
       // ⭐ S194 T9 (coherence) — a mass clear is not a massacre: forget, never discharge (S182's rule).
       const cleared = this.departureEpoch.moved(world);
       // ⭐ S194 T9 audit — ascending id: departures are judged in a total order, never Map insertion order.
-      for (const [id, pos] of [...this.lastSeenPos].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
+      for (const id of departedInIdOrder(this.lastSeenPos, (k) => liveIds.has(k))) {
         if (liveIds.has(id)) continue;
+        const pos = this.lastSeenPos.get(id)!;
         const wasState = this.lastSeenState.get(id);
         const life = this.lastSeenLife.get(id);
         // ⭐ S178 — a death the player cannot see makes no light and no noise. ⭐ S194 T9 — that rule,

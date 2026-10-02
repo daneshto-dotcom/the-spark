@@ -116,6 +116,19 @@ function hostKillRecordNear(world: World, last: CreatureLastSeen): boolean {
 }
 
 /**
+ * ⭐ S194 T9 audit — the ids in `watched` that are no longer `live`, ASCENDING: every watcher judges a frame's
+ * departures in one total order (never Map insertion order), so which beats survive a cap is the same on every
+ * screen. Filters first and sorts only the departures — a frame usually has none, so the per-frame cost is one
+ * pass over the watch, not a sort of it.
+ */
+export function departedInIdOrder<K, V>(watched: ReadonlyMap<K, V>, isLive: (id: K) => boolean): K[] {
+  const out: K[] = [];
+  for (const id of watched.keys()) if (!isLive(id)) out.push(id);
+  if (out.length > 1) out.sort((a, b) => (a as unknown as number) - (b as unknown as number));
+  return out;
+}
+
+/**
  * Rule 3 as a tiny latch every creature watcher owns one of. `moved(world)` is true exactly once per mass
  * clear, and the watcher answers it by dropping its map WITHOUT emitting anything.
  */

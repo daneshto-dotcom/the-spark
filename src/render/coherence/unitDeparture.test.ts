@@ -33,7 +33,7 @@ vi.mock('../concealment.ts', () => ({
 const { makeWorld, dispatch } = await import('../../state/world.ts');
 const { asPlayerId } = await import('../../types.ts');
 const { DamageNumbers } = await import('../damageNumbers.ts');
-const { classifyCreatureDeparture, CreatureWatchEpoch } = await import('./unitDeparture.ts');
+const { classifyCreatureDeparture, CreatureWatchEpoch, departedInIdOrder } = await import('./unitDeparture.ts');
 
 const printed = (dn: unknown): string[] =>
   ((dn as { live: { text: { text: string } }[] }).live ?? []).map((f) => f.text.text);
@@ -153,5 +153,14 @@ describe('S194 T9 — classifyCreatureDeparture itself', () => {
     w.structureWatchEpoch += 1;
     expect(e.moved(w)).toBe(true);
     expect(e.moved(w)).toBe(false);
+  });
+});
+
+describe('S194 T9 audit — departures are judged in ascending id, never Map insertion order', () => {
+  it('filters to the departed and sorts them, whatever order they were watched in', () => {
+    const watched = new Map<number, string>([[9, 'a'], [3, 'b'], [7, 'c'], [1, 'd'], [5, 'e']]);
+    const live = new Set([7, 1]);
+    expect(departedInIdOrder(watched, (id) => live.has(id))).toEqual([3, 5, 9]);
+    expect(departedInIdOrder(watched, () => true)).toEqual([]);
   });
 });
