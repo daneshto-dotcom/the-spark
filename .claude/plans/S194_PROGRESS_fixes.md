@@ -1,5 +1,5 @@
 # ⏸ PAUSED (owner session limit) — RESUME HERE
-- NEXT STEP: item 7 is DONE (7a exit edge, 7b hub-ramp, 7c tower-art). Next: item 5 (CI L2: SLOWEST_CI_TICKS_PER_S 6→5 in e2e/worker-bots.spec.ts:80 + lane minutes; ALSO the gating lane budget — deploy #22 died at the 12-min PW_GLOBAL cap with green runs at 8.9-10.5 min, so 3 retries overran it), then 6 (verify-only: 2028ba4 is in master; run a real-tree mutant), then scope adds A-D, then 4 (quarantine), 3 (soak), then full gates.
+- RESUMED. NEXT STEP: item 6 verify. (old:) item 7 is DONE (7a exit edge, 7b hub-ramp, 7c tower-art). Next: item 5 (CI L2: SLOWEST_CI_TICKS_PER_S 6→5 in e2e/worker-bots.spec.ts:80 + lane minutes; ALSO the gating lane budget — deploy #22 died at the 12-min PW_GLOBAL cap with green runs at 8.9-10.5 min, so 3 retries overran it), then 6 (verify-only: 2028ba4 is in master; run a real-tree mutant), then scope adds A-D, then 4 (quarantine), 3 (soak), then full gates.
 - Half-done: nothing uncommitted. Full gates (typecheck / full vitest / build) NOT yet run on this branch.
 - Last runs: vitest per-file all exit 0 (creatureProjectileRage, princessSlapSpin, buttonPressHit+buttonFeedback, e2eHubRampClock, visualsCombatReach); e2e on own port: button-press-edge+exit-match x3 exit 0 (42/42), hub-ramp-art x3 exit 0 (9/9), tower-art exit 0 (3/3); throttled repros documented below.
 
@@ -12,7 +12,7 @@ Base: master 0a37175e (`git merge master` = already up to date, 0 conflicts). np
 2. Helga spin — DONE (render-only, NO BUMP; `princessRenderer.ts` fx path fed drawImpact `world.tick / 60`, a literal; now `slapSpinSeconds(tick)` = tick / PHYSICS_HZ. Identical today (PHYSICS_HZ = 60) — a drift hazard, not a visible bug)
 3. Worker-heap soak 2 reds — TODO
 4. Quarantine specs — TODO
-5. CI L2 SLOWEST_CI_TICKS_PER_S 6→5 + lane minutes — TODO
+5. CI L2 — DONE: SLOWEST_CI_TICKS_PER_S 6→5 (derived worker-bots budget 690 s → lane 11/20 → 12/20); GATING lane 12/18 → 15/23 (MINE; green runs 8.9-10.5 min, #22 overran 12 with 3 retries). Guards: ci.e2eLanes rate ≤5 (mutant 6 RED; and the existing lane check went RED at PW 11 vs 690 s before the yml edit — the derivation works); e2eHubRampClock gating-room test (mutant PW 12 RED). CI-only, NO BUMP.
 6. Tripwire backtick hole — verifying (2028ba4 is an ancestor of master)
 7. Boot finding: exit-match edge + hub-ramp frame 12 CI reds (run 36976244366) — TODO
 8. SCOPE ADD A — THE RISEN on pants (killed by zombie racial unit → 1 castle soldier at killer's keep) — TODO

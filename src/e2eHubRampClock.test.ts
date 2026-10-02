@@ -35,3 +35,17 @@ describe('S194 T8 — tower-art polls for the LAZY tower atlas instead of readin
     expect(tower).not.toMatch(/expect\(after\.towerSprites/);
   });
 });
+
+describe('S194 T8 — the shared gating lane has room for a retried flake', () => {
+  // Green runs measured 8.9–10.5 min (runs 36929138050 … 36979950077); deploy #22 overran 12 with 3 retries.
+  const MEASURED_GREEN_MAX_MIN = 10.5;
+  const yml = readFileSync(join(__dirname, '..', '.github', 'workflows', 'e2e.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const at = yml.indexOf('\n  e2e:\n');
+  const block = yml.slice(at, yml.indexOf('\n  e2e-soak:', at)); // the gating job sits just above e2e-soak
+  it('Playwright ≥ 4 min above the slowest green run, and the runner ≥ 8 min above Playwright', () => {
+    const cap = Number(/\n {4}timeout-minutes:\s*(\d+)/.exec(block)![1]);
+    const pw = Number(/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block)![1]);
+    expect(pw - MEASURED_GREEN_MAX_MIN).toBeGreaterThanOrEqual(4);
+    expect(cap - pw).toBeGreaterThanOrEqual(8);
+  });
+});
