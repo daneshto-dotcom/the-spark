@@ -12,6 +12,7 @@ import { Container, Graphics, Rectangle, Ticker } from 'pixi.js';
 import { installFakeTextCanvas } from './fakeTextCanvas.fixtures.ts';
 import { attachHoverSheen } from './uiSkinButton.ts';
 import { makeExitButton } from './exitButton.ts';
+import { TitleScreen } from './titleScreen.ts';
 
 installFakeTextCanvas();
 // The shared ticker auto-starts on its first listener; node has no animation frame, so give it a no-op one.
@@ -90,6 +91,21 @@ describe('S194 T5 — container-button hover sheen', () => {
     for (const b of buttons) {
       // The modal (and the hidden root) must be on screen for a hover to mean anything.
       for (let n: Container | null = b; n !== null; n = n.parent) n.visible = true;
+      sweepInside(b);
+    }
+  });
+
+  it('the five TITLE buttons: each sheen stays inside its own (centred) hit rect', () => {
+    const stage = new Container();
+    const t = new TitleScreen({ stage } as never, {
+      onSoloSelected() {}, on1v1Selected() {}, onVsBotsSelected() {}, onCodexSelected() {}, onArcadeSelected() {},
+    });
+    t.container.visible = true;
+    const buttons = sheenButtons(t.container);
+    expect(buttons.length).toBe(5);
+    for (const b of buttons) {
+      const hit = b.hitArea as Rectangle;
+      expect([hit.x, hit.y], 'centred origin, as the factory draws').toEqual([-hit.width / 2, -hit.height / 2]);
       sweepInside(b);
     }
   });
