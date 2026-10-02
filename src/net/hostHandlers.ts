@@ -30,6 +30,7 @@ import { verifyMigrationClaim } from './migrationClaim.ts';
 import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
 import { reconcileLobbySeats, buildMatchRoster, withTeams, arrangeRosterForTeams } from './lobbyRoster.ts';
+import { sessionTeamsPlayable } from './quickmatchGate.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
@@ -539,6 +540,11 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // byte-identical to the preview when no hole persisted to Begin. hostSeats freezes
     // from the DENSE roster so anti-spoof intent stamping keys peerId→in-game seat.
     deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, allPeers);
+    // ⭐ S194 (audit LOW-3, teams spec Q2) — THE TWO-SIDES GATE, RE-ASKED ON THE RECONCILED SEATS. main.ts asks
+    // `sessionTeamsPlayable` before calling Begin, but against the PRE-reconcile `lobbySeats`: a peer that left
+    // between the click and here (T1 / T1 / T2 with the T2 peer gone) let a ONE-team room start. The answer must
+    // come from the seats this Begin will actually roster. Refused ⇒ nothing is sent and the room stays LOBBY.
+    if (!sessionTeamsPlayable(deps.session)) return;
     // ⭐ S161 P6 — the lobby's claims become the MATCH's races. `buildMatchRoster` reads them by
     // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
     // ⭐ S192 — and the lobby's TEAM picks, then the side-by-side seating (`arrangeRosterForTeams`). Both
