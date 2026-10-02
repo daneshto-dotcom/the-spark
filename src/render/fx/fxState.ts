@@ -7,7 +7,7 @@
  * Graphics-recording tests meaningful.
  */
 
-import { NULL_SHOCK, NULL_SINK, type FxShockSink, type FxSink } from './emitter.ts';
+import { NULL_DISPLACE, NULL_SHOCK, NULL_SINK, type FxDisplaceSink, type FxShockSink, type FxSink } from './emitter.ts';
 
 export interface FxHooks {
   readonly top: FxSink;
@@ -36,3 +36,13 @@ export function fxTopShade(): FxSink { return hooks !== null && !legacy ? hooks.
 export function fxGround(): FxSink { return hooks !== null && !legacy ? hooks.ground : NULL_SINK; }
 /** Ground ripples (HIGH only). A no-op sink when inactive. */
 export function fxShock(): FxShockSink { return hooks !== null && !legacy ? hooks.shock : NULL_SHOCK; }
+
+/*
+ * ⭐ S193 `s193/visuals-boss` (V10) — ADDED, nothing above changes. The directional ground ripple is a
+ * hook of its own rather than a new `FxHooks` field, so every existing `setFxHooks` caller (and test)
+ * is untouched. `fxRuntime.installFx` registers it beside the others.
+ */
+let displaceHook: FxDisplaceSink | null = null;
+export function setFxDisplaceHook(h: FxDisplaceSink | null): void { displaceHook = h; }
+/** The directional ground ripple (HIGH only). A no-op sink when inactive or not installed. */
+export function fxDisplace(): FxDisplaceSink { return hooks !== null && !legacy && displaceHook !== null ? displaceHook : NULL_DISPLACE; }

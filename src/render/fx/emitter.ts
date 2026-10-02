@@ -40,6 +40,16 @@ export interface FxShockSink {
 }
 
 /**
+ * ⭐ S193 `s193/visuals-boss` (V10) — ADDED, the frozen API above is unchanged. A DIRECTIONAL ground
+ * ripple (`DisplacementFilter` on HIGH; ignored on LOW, in legacy mode and in tests). Where the
+ * shockwave is a full circle, this is a 120°-wide arc of rippling water centred on (x, y), its crest at
+ * `radius` board px, facing `rot` radians; `strength` is the peak shove in board px (0 = none).
+ */
+export interface FxDisplaceSink {
+  ripple(x: number, y: number, radius: number, rot: number, strength: number): void;
+}
+
+/**
  * Integer hash → [0, 1). `Math.imul` mixing (a 32-bit avalanche in the murmur3 finaliser's shape), so
  * nearby inputs (index 7 vs 8, tick 100 vs 101) land far apart. Deterministic on every JS engine:
  * every step is a 32-bit integer operation.
@@ -126,6 +136,8 @@ export function forEachLive(
 /** A sink that discards everything — the default when no fx layer is installed. */
 export const NULL_SINK: FxSink = { emit() { /* nothing installed */ } };
 export const NULL_SHOCK: FxShockSink = { shock() { /* nothing installed */ } };
+/** S193 — the no-op directional ripple (nothing installed, LOW, legacy). */
+export const NULL_DISPLACE: FxDisplaceSink = { ripple() { /* nothing installed */ } };
 
 /** Test helper shape — a recorded emit, so a test can compare two runs with `toEqual`. */
 export interface FxEmitRecord {

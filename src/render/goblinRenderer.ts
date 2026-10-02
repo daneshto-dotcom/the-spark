@@ -44,8 +44,9 @@ import { corpseEaterElapsed, corpseEaterFrame, showsCorpseEaterFeed } from './co
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 // ⭐ S190 (audit SW-7) — the pair and perk the swarm's sheet warms on (`warmPerkSheets`). A pure leaf.
 import { THE_SWARM_PERK, THE_SWARM_TO } from '../state/racial/theSwarm.ts';
-import { GOBLIN_SPRITE_BASE_SCALE, PLAYER_COLORS } from '../constants.ts';
+import { GOBLIN_SPRITE_BASE_SCALE, LAST_DRAFT_WAVE, PLAYER_COLORS } from '../constants.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
+import { playPantsSFX } from './audioManager.ts';
 import { drawStunStars } from './stunStars.ts';
 import { drawBossAuras } from './bossAuras.ts';
 import { drawLocustClouds } from './locustCloud.ts';
@@ -120,6 +121,27 @@ const CORPSE_EATER_FEED_KEY = 't9BossZombies:feed';
  * is the size ratio. `theSwarm.test.ts` asserts both files exist.
  */
 export const BAT_SWARM_ATLAS_BASE = `${t3UnitAtlasBase('vampires')}-swarm`;
+
+/** ⭐ S192 — the endgame monster's sheet (`public/art/endgame-monster/`). `endgame.test.ts` asserts both files exist. */
+export const ENDGAME_MONSTER_ATLAS_BASE = '/art/endgame-monster/endgame-monster';
+/**
+ * ⭐ S192 — a monster belongs to no seat, so it carries no seat wash: a near-white tint (a no-op
+ * multiply) keeps his drawing exactly as drawn. ⚠ Without this it fell to `PLAYER_COLORS[0]`, i.e. it
+ * would have been drawn in seat 0's colour, reading as seat 0's unit.
+ */
+export const ENDGAME_MONSTER_TINT = 0xffffff;
+/** ⚠ MINE — the fewest milliseconds between two pants sounds, board-wide (cosmetic, wall clock is fine). */
+export const PANTS_SFX_MIN_GAP_MS = 220;
+
+/**
+ * PURE — does this frame owe a pants sound? ⭐ S193 (owner): his mp3 is *the pants' ATTACK sound
+ * effect* — wired like Helga's slap, on each ENTRY into ATTACKING (its swing), derived from the synced
+ * state the renderer last saw. No longer on emergence: one pants every 45 ticks per lane would make the
+ * attack sound a constant drone with nothing being hit.
+ */
+export function pantsSoundDue(prevState: string | undefined, state: string): boolean {
+  return state === 'ATTACKING' && prevState !== 'ATTACKING';
+}
 
 /**
  * ⭐ S188 (s188/swarm) + S189 (s189/render LOW b) — **A PROMOTED UNIT WHOSE SHEET IS NOT READY DRAWS AS
@@ -253,6 +275,13 @@ export const ATLASES: Partial<Record<CreatureType, string>> = {
    * two packer defects the first still exposed.
    */
   direwolf: '/godly/direwolf/anim/direwolf',
+  /*
+   * ⭐ S192 (owner, A3) — THE ENDGAME PANTS. His own Gemini walk sheet, matted off its baked checker
+   * and packed by `scripts/matte-endgame-monster.py` (19-frame walk; idle and attack reuse it).
+   * Lazy (`ensureTypeAtlas` from the draw loop, warmed from wave 26 by `warmEndgameSheet`).
+   */
+  endgameMonster: ENDGAME_MONSTER_ATLAS_BASE,
+  megaPants: ENDGAME_MONSTER_ATLAS_BASE, // ⭐ S193 — the same pants, drawn huge (`MEGA_PANTS_SPRITE_SCALE_MUL`)
 };
 
 /**
@@ -451,6 +480,9 @@ export const GOBLIN_KINDS: ReadonlySet<CreatureType> = new Set<CreatureType>([
    * next artless type cannot inherit the humanoid puppet the way this one did.
    */
   'direwolf',
+  // ⭐ S192 — the endgame pants. Absent from this Set it would siege a castle INVISIBLE.
+  'endgameMonster',
+  'megaPants', // ⭐ S193 — the same sheet
 ]);
 
 /** ⭐ S193 V11 — at most this many lifesteal bursts live at once (≤ 26 sprites each). ⚠ MINE. */
@@ -647,6 +679,9 @@ export class GoblinRenderer {
   private readonly healSeen: Map<CreatureId, number> = new Map();
   /** ⭐ S193 V11 — live lifesteal bursts. `age` counts render frames (smooth on a 10 Hz joiner). */
   private lifestealBursts: Array<{ id: CreatureId; sx: number; sy: number; tx: number; ty: number; age: number; heal: number; seed: number }> = [];
+  /** ⭐ S192 — the last state seen per endgame monster, for `pantsSoundDue`; and the throttle stamp. */
+  private readonly pantsState: Map<CreatureId, string> = new Map();
+  private lastPantsSfxMs = -Infinity;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -1144,6 +1179,8 @@ export class GoblinRenderer {
     this.raStrikeLayer?.clear(); // ⭐ S191 C-9 — this renderer is the strike layer's only writer
     // ⭐ S190 (audit SW-7) — the swarm's sheet starts fetching on the seat's `vampires.l10` pick.
     this.warmPerkSheets(world);
+    // ⭐ S192 — warm the pants' sheet during wave 26, a whole BUILD+FIGHT before the first one is born.
+    if (world.waveNumber >= LAST_DRAFT_WAVE) this.ensureTypeAtlas('endgameMonster');
     /*
      * ⭐⭐ S170 P5 — BOSS GROUND AURAS FIRST, so they sit UNDER every unit drawn below. Owner:
      * *"I didn't see that they have, like, cool generated videos or effects."*
@@ -1229,7 +1266,19 @@ export class GoblinRenderer {
 
       const owner = world.players.get(c.ownerPlayerId);
       const tint =
-        owner?.color ?? PLAYER_COLORS[c.ownerPlayerId as unknown as number] ?? PLAYER_COLORS[0]!;
+        c.type === 'endgameMonster' || c.type === 'megaPants'
+          ? ENDGAME_MONSTER_TINT // ⭐ S192 — no seat, no seat wash
+          : owner?.color ?? PLAYER_COLORS[c.ownerPlayerId as unknown as number] ?? PLAYER_COLORS[0]!;
+      if (c.type === 'endgameMonster' || c.type === 'megaPants') {
+        // ⭐ S192 — his ATTACK sound (S193), on the swing like Helga's slap; one at a time board-wide.
+        const due = pantsSoundDue(this.pantsState.get(c.id), c.state);
+        this.pantsState.set(c.id, c.state);
+        const nowMs = performance.now();
+        if (due && nowMs - this.lastPantsSfxMs >= PANTS_SFX_MIN_GAP_MS) {
+          this.lastPantsSfxMs = nowMs;
+          void playPantsSFX({ x: c.pos.x, y: c.pos.y });
+        }
+      }
 
       /*
        * SPAWNING materialize: fade in over the config window so a granted goblin does not pop.
@@ -1458,6 +1507,7 @@ export class GoblinRenderer {
         this.facing.delete(id);
       }
     }
+    for (const id of [...this.pantsState.keys()]) if (!live.has(id)) this.pantsState.delete(id);
   }
 
   /**

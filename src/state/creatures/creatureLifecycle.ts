@@ -93,6 +93,8 @@ export interface SpawnCreatureAction {
    * chewer spawn that hasn't picked a victim). Chewer-only.
    */
   readonly victimPlayerId?: PlayerId;
+  /** ⭐ S192 — an endgame monster's assigned seat, stamped onto `Creature.monsterSeat`. */
+  readonly monsterSeat?: PlayerId;
 }
 
 export interface DespawnCreatureAction {
@@ -236,6 +238,13 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
       action.creatureType !== 'voltkin' &&
       action.creatureType !== 'direwolf' &&
       action.creatureType !== 'locustCloud' &&
+      /*
+       * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER, AND THIS IS THE FIFTH SUMMON THIS LATCH WOULD HAVE
+       * EATEN. A wave is up to 250 per seat (S193, his) from ONE owner (`MONSTER_OWNER_ID`) of ONE type with
+       * `sourceSpawnerId: null`; without this arm the first is born and every other one is silently
+       * discarded. The bound is the spawner's own count (`MONSTER_WAVE_PER_SEAT`, `monsterWaveSpawned`).
+       */
+      action.creatureType !== 'endgameMonster' &&
       !isT9BossType(action.creatureType)
     ) {
       for (const c of world.creatures.values()) {
@@ -276,6 +285,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
             sourceSpawnerId: null,
             draftPicks,
           });
+    // ⭐ S192 — the endgame monster's victim seat, written once at birth (see `Creature.monsterSeat`).
+    if (action.monsterSeat !== undefined) creature.monsterSeat = action.monsterSeat;
     world.creatures.set(id, creature);
     return world;
   }

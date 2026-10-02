@@ -61,6 +61,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { APEX_PREDATOR_STAT_MUL, CREATURE_CONFIGS } from './creatures/voltkin-config.ts';
+import { MEGA_PANTS_STATS } from '../constants.ts'; // ⭐ S193 — the mega pants lane
 import { T9_BOSS_STATS } from '../constants.ts';
 import { STAT_POINT_MAX, STAT_POINT_MIN, attackFifths, unitPoolFifths } from './stats.ts';
 import type { CreatureType } from './creatures/creature.ts';
@@ -129,6 +130,16 @@ const isBoss = (type: CreatureType): boolean => BOSS_TYPES.has(type);
 const isApexElite = (type: CreatureType): boolean => type === 't3PiranhaElite';
 const PIRANHA = CREATURE_CONFIGS.t3Piranha;
 
+/*
+ * ⭐ S193 (owner, Q2) — THE MEGA PANTS GETS ITS OWN LANE, AND IT IS THE ONLY UNIT OFF THE LADDER'S
+ * RANGES. *"a huge boss that just comes and destroys everything … the boss is gonna be basically
+ * unbeatable"*. Inside the ranges the toughest legal unit is a boss at HP 24 / DEF 16 = 504 fifths —
+ * beatable by design, which is what this file guards. ⚠ MINE: its numbers (`MEGA_PANTS_STATS`) are
+ * still on the ladder's FORMULA (pool 12 500, strike 1 500 — whole fifths), only its indices exceed the
+ * ranges. Held to something STRICTER than a range: exactly those four numbers.
+ */
+const isMegaPants = (type: CreatureType): boolean => type === 'megaPants';
+
 describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', () => {
   it('is not vacuous — the roster is actually populated', () => {
     // A guard that iterates an empty list passes forever. This is the first thing to check.
@@ -161,6 +172,10 @@ describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', 
         expect(c.hp, `${type} hp = piranha × APEX_PREDATOR_STAT_MUL`).toBe(PIRANHA.hp * APEX_PREDATOR_STAT_MUL);
         continue;
       }
+      if (isMegaPants(type)) {
+        expect(c.hp, 'the mega pants lane').toBe(MEGA_PANTS_STATS.hp);
+        continue;
+      }
       const lo = isBoss(type) ? BOSS_HP_MIN : STAT_POINT_MIN;
       const hi = isBoss(type) ? BOSS_HP_MAX : STAT_POINT_MAX;
       expect(c.hp, `${type} hp`).toBeGreaterThanOrEqual(lo);
@@ -175,6 +190,10 @@ describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', 
     for (const [type, c] of ALL) {
       if (isApexElite(type)) {
         expect(c.atk, `${type} atk = piranha × APEX_PREDATOR_STAT_MUL`).toBe(PIRANHA.atk * APEX_PREDATOR_STAT_MUL);
+        continue;
+      }
+      if (isMegaPants(type)) {
+        expect(c.atk, 'the mega pants lane').toBe(MEGA_PANTS_STATS.atk);
         continue;
       }
       expect(c.atk, `${type} atk`).toBeGreaterThanOrEqual(STAT_POINT_MIN);
@@ -194,6 +213,10 @@ describe('S167 — the owner’s stat ladder holds for EVERY shipped creature', 
      * included, and a boss PEN above 12 should still fail here.
      */
     for (const [type, c] of ALL) {
+      if (isMegaPants(type)) {
+        expect([c.def, c.pen], 'the mega pants lane').toEqual([MEGA_PANTS_STATS.def, MEGA_PANTS_STATS.pen]);
+        continue;
+      }
       expect(c.def, `${type} def`).toBeGreaterThanOrEqual(isBoss(type) ? BOSS_DEF_MIN : 0);
       expect(c.def, `${type} def`).toBeLessThanOrEqual(
         isBoss(type) ? BOSS_DEF_MAX : STAT_POINT_MAX,
@@ -264,6 +287,8 @@ describe('S167 — and the ladder is MEANINGFUL: nothing on the board is unkilla
   it('⛔ ONE basic goblin, given a whole FIGHT phase, can kill ANY unit in the game', () => {
     const soldierDps = attackFifths(2, 1) * SWINGS_PER_SECOND; // one goblinMelee: 12 fifths/s
     for (const [type, c] of ALL) {
+      // ⭐ S193 — the ONE exception, by his word ("basically unbeatable"); its lane is pinned above.
+      if (isMegaPants(type)) continue;
       const seconds = unitPoolFifths(c.hp, c.def) / soldierDps;
       expect(seconds, `${type} needs ${seconds.toFixed(1)}s of one goblin — a wall, not a hard unit`)
         .toBeLessThan(FIGHT_SECONDS);

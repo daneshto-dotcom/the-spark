@@ -27,6 +27,7 @@
  */
 
 import {
+  LAST_DRAFT_WAVE,
   RACE_UNIT_ATK,
   RACE_UNIT_DEF,
   RACE_UNIT_HP,
@@ -80,7 +81,10 @@ export const DRAFT_WAVE_INTERVAL = 5;
 
 /** True on the waves that open a draft: 1, 6, 11, 16, 21, … */
 export function isDraftWave(waveNumber: number): boolean {
-  return waveNumber >= 1 && (waveNumber - 1) % DRAFT_WAVE_INTERVAL === 0;
+  // ⭐ S192 (owner, A3) — *"after the fight of level 25, it's going to be the last upgrade"*: the
+  // wave-26 draft is the LAST one (`LAST_DRAFT_WAVE`), so wave 31 opens nothing. This bounds R101's
+  // "recurring with no ceiling", by his later ruling.
+  return waveNumber >= 1 && waveNumber <= LAST_DRAFT_WAVE && (waveNumber - 1) % DRAFT_WAVE_INTERVAL === 0;
 }
 
 /** 0 for the pre-wave-1 draft, 1 at wave 6, 2 at wave 11, … Undefined behaviour off a draft wave. */
