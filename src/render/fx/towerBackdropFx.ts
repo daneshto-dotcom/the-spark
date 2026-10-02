@@ -171,7 +171,7 @@ function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, se
 
 /* ── demons: violet hellfire cracks ──────────────────────────────────────────────────────────── */
 
-export const DEMON_CRACKS = 5;
+export const DEMON_CRACKS = 4;
 
 function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
   const seam = mixColor(base, 0xffffff, 0.35);

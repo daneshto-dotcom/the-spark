@@ -33,7 +33,12 @@ import { blueprintGroupOf, fallenTowerFixCanRegister } from '../state/structureR
 import { blueprintFor } from '../state/blueprints.ts';
 
 /** Rescan cadence (ticks). ⚠ MINE. */
-export const BROKEN_TOWER_RESCAN_TICKS = 15;
+/*
+ * ⚠ S194 audit perf — 120, not 15: a fall, a FIX, a SCRAP or a cut all change the board's counts, which
+ * re-keys the cache at once; the cadence is only a backstop. At 15 the full rescan (a `towerUnitAt` per
+ * stamped shape) showed up in the 12-tower re-bench.
+ */
+export const BROKEN_TOWER_RESCAN_TICKS = 120;
 
 /** One blueprint edge of a fallen tower: an existing connector, or a MISSING one between two survivors. */
 export interface BrokenEdge {
