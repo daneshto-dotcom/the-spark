@@ -203,3 +203,13 @@ export function teamChipLabel(pick: number | undefined): string {
 export function permuteSeats<T>(list: readonly T[], order: readonly number[]): T[] {
   return order.map((old) => list[old]!);
 }
+
+/**
+ * ⭐ S194 — the same permutation for a per-BOT list (index 0 = the bot in seat 1): difficulties AND, since
+ * the S193 personality chip, personalities. Seat 0 (the human) never moves (`order[0] === 0`), so bot `i`
+ * of the new seating is the bot that sat in `order[i + 1]`. A pick travels with its bot — a re-seated
+ * WARMONGER stays a WARMONGER. Identity order ⇒ the list unchanged (the free-for-all).
+ */
+export function permuteBots<T>(perBot: readonly T[], order: readonly number[]): T[] {
+  return order.slice(1).map((old) => perBot[old - 1]!);
+}

@@ -1421,7 +1421,7 @@ function structureSheet(
   return {
     target,
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
-    subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
+    subtitle: mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING', // S194 — a teammate's is an ALLY's
     portrait: portraitForStructure(recipeId),
     health: { cur: health.cur, max: pool, frozen },
     stats,
@@ -1541,7 +1541,7 @@ function weldedTowerSheet(
   return {
     target,
     title: codexCopyFor(recipeId).name,
-    subtitle: `${mine ? 'YOUR BUILDING' : 'ENEMY BUILDING'} · WELDED`,
+    subtitle: `${mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING'} · WELDED`, // S194
     portrait: portraitForStructure(recipeId),
     health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
     stats,
@@ -1588,7 +1588,7 @@ function weldedStructureSheet(
   return {
     target,
     title: 'WELDED STRUCTURE',
-    subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
+    subtitle: mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING', // S194 — a teammate's is an ALLY's
     portrait: portraitForStructure(null),
     health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
     stats,

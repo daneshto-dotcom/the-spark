@@ -1054,7 +1054,9 @@ export function leaderTargetSeat(world: World, seat: PlayerId): PlayerId | null 
   let bestScore = -Infinity;
   let flat = true;
   for (const player of world.players.values()) {
-    if (player.id === seat) continue;
+    // ⭐ S194 (teams, R192-T1) — the leader a Saboteur hunts is an ENEMY: never itself, never a teammate.
+    // FFA: `sameTeam` is exactly the old `player.id === seat`.
+    if (sameTeam(world, player.id, seat)) continue;
     const score = world.scoreByPlayer.get(player.id) ?? 0;
     if (score !== myScore) flat = false;
     if (score > bestScore) {

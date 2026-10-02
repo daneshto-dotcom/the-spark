@@ -69,6 +69,8 @@ export const BOT_PERSONALITY_LOCKED_TAGLINE = 'personality unlocks at MID';
  * at row x = −PANEL_W/2 + 64 = −366 (PANEL_W 860), the race chip's left edge is RACE_X − 92 = −162
  * (RACE_X = PANEL_W/2 − 500), so 204 px are free; less an 8 px gap, 196 px. 12 px monospace advances
  * ≤ 0.6 em = 7.2 px a glyph, so 196 / 7.2 = 27 characters. `botPersonality.test.ts` pins every tagline.
+ * ⭐ S194 (teams) — the panel widened 860 → 960 and the TEAM chip is now the leftmost (TEAM_X − 36 = −182);
+ * the tagline starts at −416, so 226 px are free → 31 characters. 27 is kept: the cap still holds, 4 spare.
  */
 export const BOT_TAGLINE_MAX_CHARS = 27;
 

@@ -24,6 +24,8 @@ import { asCreatureId, makeCreature, type Creature, type CreatureType } from './
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { applyRadialDamage } from './damage.ts';
+import { planZombieDeathBlast, T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS } from './racial/zombieDeathBlast.ts';
+import { attackFifths } from './stats.ts';
 import { makeDefender } from './defenders/defender.ts';
 import { addPrim } from './s191PerfOracle.fixtures.ts';
 import { asDefenderId } from '../types.ts';
@@ -266,16 +268,43 @@ describe('S192 teams — ⭐ REACH through the real host tick: no friendly damag
     expect(foe.ehp).toBe(full - 10);
   });
 
-  it('⛔ A ZOMBIE BOSS DEATH BLAST (R138) through the real host tick spares his teammates', () => {
+  /*
+   * ⭐ S194 — REWRITTEN for master's S192/S193 blast (`racial/zombieDeathBlast.ts`): no longer a raze but a
+   * 312-fifth pool split by distance, and R193-B3 *"It does not hit his own side"*. With teams his SIDE is
+   * his TEAM: his own unit AND his teammate's take nothing, the enemy is the ONLY target and so takes the
+   * whole pool — arithmetic: 3 × attackFifths(8, 8) = 3 × 104 = 312, `splitBlastPool(312, [w])` = [312].
+   * (This test went RED on the merged tree before `zombieBlastTargets` asked `sameTeam`: the teammate died.)
+   */
+  it('⛔ A ZOMBIE BOSS DEATH BLAST through the real host tick spares his own side AND his teammates', () => {
     const w = fourSeat();
     const boss = unit(w, P[0], OPEN, 't9BossZombies' as CreatureType, true);
+    const own = unit(w, P[0], { x: OPEN.x, y: OPEN.y + 30 }, 't3Warband', true);
     const mate = unit(w, P[1], { x: OPEN.x + 30, y: OPEN.y }, 't3Warband', true);
-    const foe = unit(w, P[2], { x: OPEN.x - 30, y: OPEN.y }, 't3Warband', true);
+    const foe = unit(w, P[2], { x: OPEN.x - 30, y: OPEN.y }, 't9BossVampires' as CreatureType, true);
+    const [ownFull, mateFull, foeFull] = [own.ehp, mate.ehp, foe.ehp];
+    expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(3 * attackFifths(8, 8));
+    expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
+    const plan = planZombieDeathBlast(w, OPEN, P[0]);
+    expect(plan.map((p) => p.target.id), 'the enemy is the only target').toEqual([foe.id as unknown as number]);
+    expect(plan[0]!.share).toBe(312);
     // ONE host-tick state: the boss roster that notices his death lives in it.
     let n = 0;
     ticks(w, 4, () => { if (++n === 2) w.creatures.delete(boss.id); }); // alive for two ticks, then he dies
-    expect(w.creatures.has(mate.id), 'teammate spared').toBe(true);
-    expect(w.creatures.has(foe.id), 'CONTROL — the enemy is razed').toBe(false);
+    expect(w.creatures.get(own.id)?.ehp, 'his own unit spared (R193-B3)').toBe(ownFull);
+    expect(w.creatures.get(mate.id)?.ehp, 'teammate spared (R192-T1)').toBe(mateFull);
+    const foeLeft = w.creatures.get(foe.id)?.ehp ?? 0;
+    expect(foeLeft, 'CONTROL — the enemy takes the whole pool').toBe(Math.max(0, foeFull - 312));
+  });
+
+  it('NEGATIVE — free-for-all: the same board with no teams blasts seat 1 like any enemy', () => {
+    const w = fourSeat([undefined, undefined, undefined, undefined]);
+    expect(w.teams).toBeUndefined();
+    const boss = unit(w, P[0], OPEN, 't9BossZombies' as CreatureType, true);
+    const other = unit(w, P[1], { x: OPEN.x + 30, y: OPEN.y }, 't9BossVampires' as CreatureType, true);
+    const full = other.ehp;
+    let n = 0;
+    ticks(w, 4, () => { if (++n === 2) w.creatures.delete(boss.id); });
+    expect(w.creatures.get(other.id)?.ehp ?? 0).toBe(Math.max(0, full - 312));
   });
 
   function scorched(victimOwner: PlayerId): number {

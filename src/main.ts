@@ -282,7 +282,7 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
-import { arrangeTeamSeats, permuteSeats } from './state/teams.ts';
+import { arrangeTeamSeats, permuteBots, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1735,9 +1735,9 @@ async function bootstrap(): Promise<void> {
               const order = arrangeTeamSeats(pickedTeams.slice(0, totalSeats));
               const races = permuteSeats(pickedRaces.slice(0, totalSeats), order);
               const teams = permuteSeats(pickedTeams.slice(0, totalSeats), order);
-              const difficulties = order.slice(1).map((old) => pickedDifficulties[old - 1]!);
-              // ⭐ S194 — a bot's personality (S193) travels with its seat, like its difficulty.
-              const personalities = order.slice(1).map((old) => pickedPersonalities[old - 1]!);
+              // ⭐ S194 — a bot's difficulty AND its personality (S193) travel with it (`permuteBots`).
+              const difficulties = permuteBots(pickedDifficulties, order);
+              const personalities = permuteBots(pickedPersonalities, order);
               /*
                * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
                *
