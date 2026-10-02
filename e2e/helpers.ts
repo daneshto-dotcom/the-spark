@@ -65,7 +65,7 @@ function isPlayerPickable(s: {
  * 'banked', outside the quarry disc, pinned by nothing. That is not a harness quirk, it IS the shipped
  * loop: gatherers fill the bank, the player pulls one out, then builds with it.
  */
-function isPorchSpark(s: {
+export function isPorchSpark(s: {
   pos: { x: number; y: number };
   state: { kind: string };
   escrow?: string;

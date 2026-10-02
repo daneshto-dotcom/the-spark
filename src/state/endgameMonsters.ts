@@ -30,7 +30,7 @@ import {
 import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
-import { megaPantsDue, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
+import { megaPantsDue, monsterLaneSeats, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
 import { isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
@@ -65,7 +65,7 @@ export function monsterBirthPos(world: World, seat: PlayerId): Vec2 {
 
 /**
  * Release this tick's due pants — ⭐ HIS PACE, one at a time out of the circle (`monstersDueBy`), on
- * his counts (`MONSTER_WAVE_PER_SEAT`). Release `k` goes to lane `living[k mod N]`, so every seat's
+ * his counts (`MONSTER_WAVE_PER_SEAT`). Release `k` goes to lane `lanes[k mod N]` (S194: the seats that started the fight), so every seat's
  * share grows at the same rate (*"10 … for each of those two players"*).
  *
  * The clock is `monsterFightStartTick` (synced), NOT the deadline: a monster fight HOLDS its deadline
@@ -79,8 +79,11 @@ export function tickEndgameSpawner(world: World): void {
   if (perSeat === 0) return;
   const living = livingSeats(world);
   if (living.length === 0) return;
+  // ⭐ S194 (owner) — the lanes are the seats that STARTED this fight (`monsterLaneSeats`); a fallen
+  // seat's lane is skipped below, so its queued pants stop coming and nobody else's share or pace moves.
+  const lanes = monsterLaneSeats(world);
   const elapsed = world.tick - world.monsterFightStartTick;
-  const due = monstersDueBy(elapsed, living.length, perSeat * living.length);
+  const due = monstersDueBy(elapsed, lanes.length, perSeat * lanes.length);
   // ⚠ MINE (S193 audit) — live pants per assigned seat, for `MONSTER_MAX_LIVE_PER_SEAT`. Counted once,
   // bumped as this tick releases. A lane whose seat is at the cap WAITS — and because release `k` must
   // go to lane `k mod N` (that is what makes each seat's remaining count derivable, `monstersLeftForSeat`),
@@ -92,7 +95,11 @@ export function tickEndgameSpawner(world: World): void {
   let released = 0;
   while (world.monsterWaveSpawned < due && released < MONSTER_MAX_RELEASES_PER_TICK) {
     const k = world.monsterWaveSpawned;
-    const seat = living[k % living.length]!;
+    const seat = lanes[k % lanes.length]!;
+    if (!living.includes(seat)) {
+      world.monsterWaveSpawned = k + 1; // ⭐ S194 — a fallen seat's slot: it stops coming, at no cost
+      continue;
+    }
     if ((live.get(seat) ?? 0) >= MONSTER_MAX_LIVE_PER_SEAT) break;
     live.set(seat, (live.get(seat) ?? 0) + 1);
     released++;
