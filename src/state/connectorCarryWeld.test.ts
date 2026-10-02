@@ -112,7 +112,7 @@ describe('S193 CF-1 — severWithCarry on a struck weld', () => {
       const Y = prim(w, other, 540, 400);
       link(w, Y, prim(w, other, 500, 400));
       const weld = link(w, X, Y); // aId = X
-      expect(damageConnector(w, weld, 150, null)).toBe(true);
+      expect(damageConnector(w, weld, 150, null, 'physical')).toBe(true);
       const felled = severWithCarry(w, weld, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: P0, cause: 'unit' }));
       expect(felled, `aId seat ${aSeat}`).toBe(1);
       for (const id of own) expect(w.bonds.has(id), `aId seat ${aSeat}: its own connector ${id} stands`).toBe(true);
@@ -126,7 +126,7 @@ describe('S193 CF-1 — severWithCarry on a struck weld', () => {
     const G = prim(w, P1, 540, 440);
     const ab = link(w, A, B);
     const bg = link(w, B, G);
-    expect(damageConnector(w, ab, 150, null)).toBe(true);
+    expect(damageConnector(w, ab, 150, null, 'physical')).toBe(true);
     expect(severWithCarry(w, ab, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: P0, cause: 'unit' }))).toBe(2);
     expect(w.bonds.has(bg)).toBe(false);
   });

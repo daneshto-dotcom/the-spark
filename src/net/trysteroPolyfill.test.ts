@@ -138,7 +138,8 @@ describe('S192 T1 — every Trystero join passes the pool-safe rtcPolyfill', () 
  * Trystero module is pinned, so a new one must be looked at.
  */
 describe('⛔ S193 L2 — every way to reach a Trystero joinRoom is one the enumeration above covers', () => {
-  const TRYSTERO = /['"](?:@trystero-p2p\/[^'"]+|trystero(?:\/[^'"]*)?)['"]/;
+  // ⭐ S193 audit LOW — backtick specifiers too (`import(\`@trystero-p2p/torrent\`)` is a plain string).
+  const TRYSTERO = /['"`](?:@trystero-p2p\/[^'"`]+|trystero(?:\/[^'"`]*)?)['"`]/;
 
   function sources(): Array<{ file: string; src: string }> {
     return walk(join(ROOT, 'src')).map((abs) => ({
@@ -200,11 +201,13 @@ describe('⛔ S193 L2 — every way to reach a Trystero joinRoom is one the enum
   /** Every `import(…)` of a Trystero module, as `file:<module>` (it must be looked at before it is added). */
   function dynamicImports(file: string, src: string): string[] {
     const out: string[] = [];
-    for (const m of src.matchAll(/\bimport\s*\(\s*(['"][^'"]+['"]|[^)'"]+)\s*\)/g)) {
+    for (const m of src.matchAll(/\bimport\s*\(\s*(['"`][^'"`]+['"`]|[^)'"`]+)\s*\)/g)) {
       const spec = m[1]!;
-      if (TRYSTERO.test(spec)) out.push(`${file}:${spec.slice(1, -1)}`);
-      // A computed specifier cannot be checked at all; none exists in src/net, so pin that too.
-      else if (!/^['"]/.test(spec) && file.startsWith('src/net/')) out.push(`${file}:<computed ${spec.trim()}>`);
+      // ⭐ S193 audit LOW — a template literal with `${` is computed, not a module name.
+      const computed = !/^['"`]/.test(spec) || spec.includes('${');
+      if (!computed && TRYSTERO.test(spec)) out.push(`${file}:${spec.slice(1, -1)}`);
+      // A computed specifier cannot be checked at all; none exists anywhere in SPARK src, so pin that too.
+      else if (computed) out.push(`${file}:<computed ${spec.trim()}>`);
     }
     return out;
   }
@@ -256,6 +259,16 @@ describe('⛔ S193 L2 — every way to reach a Trystero joinRoom is one the enum
     ].join('\n'))).toEqual([]);
     expect(dynamicImports('src/net/fixture.ts', "const m = await import('@trystero-p2p/nostr');")).toEqual([
       'src/net/fixture.ts:@trystero-p2p/nostr',
+    ]);
+    // ⭐ S193 audit LOW — a backtick specifier, and a computed one anywhere in src (not only src/net).
+    expect(dynamicImports('src/render/fixture.ts', 'const m = await import(`@trystero-p2p/torrent`);')).toEqual([
+      'src/render/fixture.ts:@trystero-p2p/torrent',
+    ]);
+    expect(dynamicImports('src/render/fixture.ts', 'const m = await import(`@trystero-p2p/${kind}`);')).toEqual([
+      'src/render/fixture.ts:<computed `@trystero-p2p/${kind}`>',
+    ]);
+    expect(dynamicImports('src/state/fixture.ts', 'const m = await import(name);')).toEqual([
+      'src/state/fixture.ts:<computed name>',
     ]);
   });
 });

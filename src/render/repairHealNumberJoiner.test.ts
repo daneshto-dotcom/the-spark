@@ -99,8 +99,8 @@ describe('⭐⭐ S193 T11 — JOINER: a repair prints ONE total green number, de
   it('two chewed connectors: one green equal to the banks the repair cleared (the host prints the same 12)', () => {
     const w = tower();
     const [b1, b2] = [...w.bonds.keys()];
-    expect(damageConnector(w, b1, 7, null)).toBe(false);
-    expect(damageConnector(w, b2, 5, null)).toBe(false);
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
     const { placed, cw } = joiner(w, () => dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
     for (const b of cw.bonds.values()) expect(b.damageFifths, 'fixture: the repair crossed the wire').toBe(0);
     expect(placed).toEqual([{ amount: 12, kind: 'heal' }]);
@@ -108,7 +108,7 @@ describe('⭐⭐ S193 T11 — JOINER: a repair prints ONE total green number, de
 
   it('a chipped shape AND a chewed connector: ONE number, the sum — no per-shape green on top', () => {
     const w = tower();
-    damageConnector(w, [...w.bonds.keys()][0], 9, null);
+    damageConnector(w, [...w.bonds.keys()][0], 9, null, 'physical');
     [...w.primitives.values()][1].hp = PRIMITIVE_MAX_HP - 20;
     const { placed } = joiner(w, () => dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) }));
     expect(placed).toEqual([{ amount: 29, kind: 'heal' }]);
@@ -117,7 +117,7 @@ describe('⭐⭐ S193 T11 — JOINER: a repair prints ONE total green number, de
   it('negative: a BREAK drains every surviving bank on the same tick — the joiner prints no green', () => {
     const w = tower();
     const ids = [...w.bonds.keys()];
-    for (const id of ids) damageConnector(w, id, 3, null);
+    for (const id of ids) damageConnector(w, id, 3, null, 'physical');
     const { placed } = joiner(w, () => {
       dispatch(w, { type: 'SEVER_BOND', bondId: ids[0], playerId: P0, cause: 'unit' } as never);
       for (const b of w.bonds.values()) b.damageFifths = 0; // the drain that paid the pool
@@ -136,8 +136,8 @@ describe('S193 T11 — HOST: the record still wins, so the derivation never doub
   it('host seat: exactly one green 12, not 12 + a derived 12', () => {
     const w = tower();
     const [b1, b2] = [...w.bonds.keys()];
-    damageConnector(w, b1, 7, null);
-    damageConnector(w, b2, 5, null);
+    damageConnector(w, b1, 7, null, 'physical');
+    damageConnector(w, b2, 5, null, 'physical');
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);
