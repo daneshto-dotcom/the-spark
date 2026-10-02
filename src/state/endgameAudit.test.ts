@@ -24,11 +24,11 @@ import { mulberry32 } from './rng.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId } from '../types.ts';
 import { makeGameStateExtras } from './gameState.ts';
-import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, pantsWindowTicks } from './endgame.ts';
+import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { netSnapshot, wireNumberReplacer } from './save.ts';
 import { structuralSignature } from './workerSim.ts';
 import { formatEndgameCue } from '../render/ui.ts';
-import { monsterMaxLivePerSeat } from './endgameMonsters.ts';
+import { MONSTER_OWNER_ID, monsterBirthPos, monsterMaxLivePerSeat, tickEndgameSpawner } from './endgameMonsters.ts';
 import { enemyCastleInReach } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -347,5 +347,57 @@ describe('⭐ S194 re-audit MED-1 — the 360 is a TRUE total, even after seats 
     expect(peak, 'anti-vacuity: the cap binds').toBeGreaterThan(300);
     expect(peakAfterFalls).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
     expect(peak).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+  });
+});
+
+describe('⭐ S194 re-audit — each half of the MED-1 cap, pinned on its own (tickEndgameSpawner directly)', () => {
+  function finalFight(seats: number): World {
+    const w = board(seats);
+    w.matchPhase = 'FIGHT';
+    w.waveNumber = 31;
+    w.tick = 100_000;
+    w.monsterFightStartTick = w.tick - 10 * 60 * 60; // the window is long over: every slot is due
+    for (const p of w.players.values()) p.castleHp = 1e9;
+    return w;
+  }
+  function inject(w: World, seat: number, n: number): void {
+    for (let i = 0; i < n; i++) {
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+        pos: monsterBirthPos(w, asPlayerId(seat)), targetPos: castleAnchor(seat, w.layout), sourceSpawnerId: null,
+        monsterSeat: asPlayerId(seat),
+      });
+    }
+  }
+
+  it('the TOTAL check alone: a survivor over his share (200) + the other under (160) = 360 → no release, though the next lane is under its share', () => {
+    const w = finalFight(2);
+    inject(w, 0, 200);
+    inject(w, 1, 160);
+    w.monsterWaveSpawned = 1; // next slot k = 1 → lane P1, at 160 < 180
+    const before = w.monsterWaveSpawned;
+    tickEndgameSpawner(w);
+    expect(pants(w).length).toBe(MONSTER_MAX_LIVE_TOTAL);
+    expect(w.monsterWaveSpawned, 'held by the total, not by P1\'s share').toBe(before);
+    // negative: one fewer live pants → P1 releases
+    dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: pants(w)[0]!.id });
+    tickEndgameSpawner(w);
+    expect(w.monsterWaveSpawned).toBe(before + 1);
+  });
+
+  it('the VICTIM counting alone: a fallen seat\'s leftovers count against the survivors they retarget to', () => {
+    const w = finalFight(3);
+    inject(w, 0, 150);
+    inject(w, 2, 100); // seat 2's pants…
+    const p2 = w.players.get(asPlayerId(2))!;
+    p2.castleHp = 0;
+    p2.eliminatedAtTick = w.monsterFightStartTick + 1; // …and seat 2 fell DURING the fight: still a lane
+    let toP0 = 0;
+    for (const c of pants(w)) if (monsterVictimSeat(w, c) === P0) toP0++;
+    expect(toP0, 'fixture: the leftovers push P0 past its 180 share').toBeGreaterThanOrEqual(180);
+    expect(pants(w).length, 'fixture: the total is NOT what holds it').toBeLessThan(MONSTER_MAX_LIVE_TOTAL);
+    w.monsterWaveSpawned = 3; // next slot k = 3 → lane P0 (3 lanes), whose OWN-seat count is only 150
+    tickEndgameSpawner(w);
+    expect(w.monsterWaveSpawned, 'held by P0\'s victim count').toBe(3);
   });
 });
