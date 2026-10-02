@@ -1118,7 +1118,9 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **60** (S193 — deploy #22; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **61** (S193 — deploy #22; see the S193 entries on the const).
+
+⭐⭐ **WHAT RIDES 61 (S193, deploy #22)** — deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride.
 
 ⭐⭐ **WHAT RIDES 60 (S193, deploy #22)** — s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade.
 
