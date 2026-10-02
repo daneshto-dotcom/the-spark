@@ -405,24 +405,21 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
    * comparison changes a count and turns this red until someone writes its verdict. The REACH tests
    * below then prove the six families the brief names through the real functions.
    */
+  /*
+   * ⭐ S194 (teams merge) — the files below that DROPPED out, or whose count fell, had their enemy decisions
+   * converted to `sameTeam` / `isEnemySeat` (`state/teams.ts`). The pants verdict is unchanged: `sameTeam(world,
+   * 255, seat)` reads `world.teams[255]`, which is never set, so a pants is nobody's teammate; and with teams off
+   * `sameTeam` IS `===`. The REACH tests below drive the six families through the converted functions. Converted
+   * whole: state/bossSkills.ts, state/bossSkillsArchdemon.ts, state/bossSkillsKraken.ts, state/racial/zombieDeathBlast.ts, state/creatures/creatureAI.ts, state/creatures/retaliation.ts, state/creatures/suicideBlast.ts, state/damage.ts, state/defenders/defenderLifecycle.ts, state/defenders/stinkTower.ts, state/potatoLifecycle.ts, state/racial/theRisen.ts, state/world.ts, bots/botController.ts, bots/botRa.ts.
+   */
   const SITES: Record<string, { n: number; verdict: string }> = {
-    'src/state/bossSkills.ts': { n: 1, verdict: 'skip OWN — a pants is never the boss owner → hit' },
-    'src/state/bossSkillsArchdemon.ts': { n: 3, verdict: 'skip OWN → hit; "own teammates" of a pants are pants' },
-    'src/state/bossSkillsKraken.ts': { n: 2, verdict: 'skip OWN → hit' },
     'src/state/bossSkillsPharaoh.ts': { n: 1, verdict: 'counts the boss\'s OWN locusts — a pants never counts' },
     'src/state/bossSkillsWarlord.ts': { n: 1, verdict: 'counts the boss\'s OWN wolves — a pants never counts' },
-    'src/state/racial/zombieDeathBlast.ts': { n: 6, verdict: 'spares the dead boss seat only (R193-B3) → a pants is hit, as a creature at weight 2' },
-    'src/state/creatures/creatureAI.ts': { n: 8, verdict: 'enemy-only scans skip OWN → a pants is a target (castle gun: findNearestEnemyCreatureFrom)' },
-    'src/state/creatures/creatureLifecycle.ts': { n: 3, verdict: 'summon latch (pants exempt) + kill credit to a different owner' },
-    'src/state/creatures/retaliation.ts': { n: 1, verdict: 'skip OWN → a seat retaliates on a pants' },
-    'src/state/creatures/suicideBlast.ts': { n: 2, verdict: 'spares the BOMBER\'s own bonds only' },
-    'src/state/creatures/voltkinChain.ts': { n: 2, verdict: 'skip OWN → chains onto a pants' },
-    'src/state/damage.ts': { n: 4, verdict: 'radial spares named seats only (never 255)' },
-    'src/state/defenders/defenderLifecycle.ts': { n: 2, verdict: 'Helga/turret: victim owner !== defender owner → a pants' },
-    'src/state/defenders/stinkTower.ts': { n: 1, verdict: 'skip OWN → gasses a pants' },
+    'src/state/creatures/creatureLifecycle.ts': { n: 2, verdict: 'summon latch (pants exempt) + kill credit to a different owner — S194 teams: the rest ask sameTeam' },
+    'src/state/creatures/voltkinChain.ts': { n: 1, verdict: 'skip OWN → chains onto a pants — S194 teams: the rest ask sameTeam' },
     'src/state/endgameMonsters.ts': { n: 2, verdict: 'the pants\' own victim filter (=== its seat)' },
     'src/state/exploredMemory.ts': { n: 2, verdict: 'fog memory of enemy SHAPES — a pants places none' },
-    'src/state/gameMode.ts': { n: 2, verdict: 'gatherer / spawner owner bookkeeping — seats only' },
+    'src/state/gameMode.ts': { n: 1, verdict: 'gatherer / spawner owner bookkeeping — seats only — S194 teams: the rest ask sameTeam' },
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
     'src/state/goblinKinds.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
     'src/state/goblinTowerFeed.ts': { n: 1, verdict: 'FEED_TOWER: tower owner === feeder — seats only' },
@@ -430,24 +427,19 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/goblinAutoFeed.ts': { n: 1, verdict: 'SET_AUTO_FEED: tower owner === toggler — seats only' },
     'src/state/spawners/spawnerLifecycle.ts': { n: 1, verdict: 'remembered toggles restored only to the SAME seat — seats only' },
     'src/state/godlyMatcherCore.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
-    'src/state/magicResistCue.ts': { n: 5, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued' },
-    'src/state/potatoLifecycle.ts': { n: 8, verdict: 'hub blast + bomb: every arm skips the OWNER only → a pants is hit' },
+    'src/state/magicResistCue.ts': { n: 2, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued — S194 teams: the rest ask sameTeam' },
     'src/state/raceUnitEmit.ts': { n: 1, verdict: 'counts a seat\'s own race units — a pants never counts' },
     'src/state/racial/corpseEater.ts': { n: 1, verdict: 'enemy/own split by boss owner → a pants corpse is an enemy\'s' },
     'src/state/racial/endlessDynasty.ts': { n: 1, verdict: 'counts a seat\'s own mummies' },
     'src/state/racial/scorchedEarthRules.ts': { n: 1, verdict: 'isScorchImmune: owner === spared → never for 255' },
     'src/state/racial/scorchedGround.ts': { n: 6, verdict: 'every burn arm asks isScorchImmune → a pants burns' },
-    'src/state/racial/theRisen.ts': { n: 1, verdict: 'an ENEMY kill only; a pants killer has no seat to raise for' },
     // ⭐ S193 weld merge seam — `s189/weld` R191-A / R191-B. Every one is seat bookkeeping a pants (255,
     // never in `world.players`) can never be party to: it places no shapes, owns no gatherers, queues no jobs.
     'src/state/repairJobs.ts': { n: 3, verdict: 'FIX jobs: a seat\'s own gatherers / stamped shapes / bank reservations — seats only' },
     'src/state/structureRepair.ts': { n: 2, verdict: 'FIX / SCRAP: a seat\'s own shapes only (seatStructureAt + reclaimScopeAt)' },
     'src/state/towerUnit.ts': { n: 2, verdict: 'a fallen stamp is grouped from ONE placer\'s shapes — a pants places none' },
     'src/state/vision.ts': { n: 2, verdict: 'a seat\'s own sight sources — a pants grants none' },
-    'src/state/world.ts': { n: 2, verdict: 'RAID: target owner !== raider → a pants is raidable' },
-    'src/bots/botBrain.ts': { n: 13, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none' },
-    'src/bots/botController.ts': { n: 1, verdict: 'a bot\'s own shapes' },
-    'src/bots/botRa.ts': { n: 3, verdict: 'Ra aim: everything not the bot\'s → a pants is a target' },
+    'src/bots/botBrain.ts': { n: 9, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none — S194 teams: the rest ask sameTeam' },
   };
 
   it('the enumeration is complete and every site has a verdict (a new comparison turns this red)', () => {

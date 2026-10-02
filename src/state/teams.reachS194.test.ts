@@ -172,3 +172,15 @@ describe('S194 teams — a re-seated bot keeps its personality (`permuteBots`, m
     expect(permuteBots(['NOOB', 'MID', 'IMBA'], order)).toEqual(['NOOB', 'MID', 'IMBA']);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('S194 teams — the endgame PANTS (owner 255) is every seat\'s enemy with teams ON too', () => {
+  it('⛔ sameTeam(255, seat) is false on a team board; a pants is its own side', async () => {
+    const { MONSTER_OWNER_ID } = await import('./endgameMonsters.ts');
+    const { sameTeam } = await import('./teams.ts');
+    const w = fourSeat([0, 0, 1, 1]);
+    expect(w.teams).toBeDefined();
+    for (const s of P) expect(sameTeam(w, MONSTER_OWNER_ID, s), `seat ${s}`).toBe(false);
+    expect(sameTeam(w, MONSTER_OWNER_ID, MONSTER_OWNER_ID)).toBe(true);
+  });
+});
