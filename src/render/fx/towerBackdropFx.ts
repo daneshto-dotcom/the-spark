@@ -32,6 +32,7 @@
  *   orcs     — scorched war-camp earth: smouldering coals, a war-drum beat that kicks dust, smoke.
  *   nagas    — a tidal pool: ripples running out from the base, caustic glints, droplets, lapping water.
  *
+ * ⚠ S194 audit perf trim: every count was roughly halved after the 12-tower re-bench (HIGH was +2.8 ms).
  * LOW quality draws the same picture with about half the particles and no smoke/mist/dust (the
  * `frontShade` sprites); `?fx=legacy` draws the S185 marks instead (the caller does not call this).
  *
@@ -113,7 +114,7 @@ function onGround(g: BackdropGeom, a: number, f: number): { x: number; y: number
 
 /* ── zombies: toxic goo ──────────────────────────────────────────────────────────────────────── */
 
-export const ZOMBIE_BUBBLES = 12;
+export const ZOMBIE_BUBBLES = 7;
 export const ZOMBIE_BUBBLE_CYCLE = 54;
 
 function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -148,7 +149,7 @@ function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, se
     }
   }
   // Goo LAPPING the base: slow fat blobs along the foot line, over the bottom of the building.
-  const laps = n(5, low);
+  const laps = n(3, low);
   for (let k = 0; k < laps; k++) {
     const u = (k + 0.5) / laps - 0.5;
     const w = wave(tick, 90 + 17 * k, ph + k * 23);
@@ -158,7 +159,7 @@ function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, se
     front.emit('soft', lx, g.footY - 1, lw * 0.85, 5 + 3 * w, 0, 0.32 + 0.18 * w, goo, 'add');
   }
   // Miasma: green wisps rising round the silhouette.
-  forEachLive(tick, low ? 14 : 7, 110, 1, ph, (b, k, t) => {
+  forEachLive(tick, low ? 28 : 14, 110, 1, ph, (b, k, t) => {
     const side = fxHash(seed, b, k + 40) < 0.5 ? -1 : 1;
     const x0 = g.x + side * g.R * (0.45 + 0.5 * fxHash(seed, b, k + 41));
     const rise = g.H * (0.15 + 0.85 * t);
@@ -170,7 +171,7 @@ function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, se
 
 /* ── demons: violet hellfire cracks ──────────────────────────────────────────────────────────── */
 
-export const DEMON_CRACKS = 7;
+export const DEMON_CRACKS = 5;
 
 function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
   const seam = mixColor(base, 0xffffff, 0.35);
@@ -181,9 +182,9 @@ function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick
     // A jagged three-segment seam from under the building out past the pool's rim.
     let px = g.x + Math.cos(a0) * g.R * 0.2;
     let py = g.y + Math.sin(a0) * g.ry * 0.2;
-    for (let s = 0; s < 3; s++) {
+    for (let s = 0; s < 2; s++) {
       const a = a0 + (fxHash(seed, c, 10 + s) - 0.5) * 0.9;
-      const f = 0.2 + (s + 1) * (0.34 + 0.12 * fxHash(seed, c, 20 + s));
+      const f = 0.2 + (s + 1) * (0.5 + 0.15 * fxHash(seed, c, 20 + s));
       const qx = g.x + Math.cos(a) * g.R * f;
       const qy = g.y + Math.sin(a) * g.ry * f;
       const dx = qx - px, dy = qy - py;
@@ -191,9 +192,9 @@ function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick
       const rot = Math.atan2(dy, dx);
       // the heat runs OUTWARD along each seam: a bright band travelling from the root to the tip
       const run = cyc(tick, 80, ph + c * 11);
-      const along = (s + 0.5) / 3;
+      const along = (s + 0.5) / 2;
       const heat = Math.max(0, 1 - Math.abs(run - along) * 3.2);
-      const taper = 1 - s * 0.25;
+      const taper = 1 - s * 0.35;
       const mx = (px + qx) / 2, my = (py + qy) / 2;
       back.emit('soft', mx, my, len + 8, 11 * taper, rot, 0.28 + 0.3 * heat, base, 'add');
       back.emit('core', mx, my, len + 3, 3.4 * taper, rot, 0.55 + 0.45 * heat, heat > 0.5 ? hot : seam, 'add');
@@ -209,7 +210,7 @@ function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick
     }
   }
   // Violet embers rising round the building.
-  forEachLive(tick, low ? 8 : 4, 80, 1, ph, (b, k, t) => {
+  forEachLive(tick, low ? 16 : 8, 80, 1, ph, (b, k, t) => {
     const a = fxHash(seed, b, k + 50) * TAU;
     const p = onGround(g, a, 0.4 + 0.7 * fxHash(seed, b, k + 51));
     const rise = g.H * (0.9 * t) * (0.6 + 0.6 * fxHash(seed, b, k + 52));
@@ -246,7 +247,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
   }
   // blood mist curling low round the base — dark in front of the building, lit at the rim
   if (!low) {
-    forEachLive(tick, 9, 160, 1, ph, (b, k, t) => {
+    forEachLive(tick, 18, 160, 1, ph, (b, k, t) => {
       const a = fxHash(seed, b, k + 60) * TAU + t * 1.4;
       const p = onGround(g, a, 0.85 + 0.35 * fxHash(seed, b, k + 61));
       const s = g.R * (0.5 + 0.4 * t);
@@ -255,7 +256,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
     });
   }
   // a few drops of light rising off the sigil's points
-  forEachLive(tick, low ? 16 : 8, 90, 1, ph + 3, (b, k, t) => {
+  forEachLive(tick, low ? 32 : 16, 90, 1, ph + 3, (b, k, t) => {
     const p = pts[Math.floor(fxHash(seed, b, k + 70) * 5)]!;
     const rise = g.H * 0.6 * t;
     front.emit('core', p.x, p.y - rise, 3.5, 6, 0, envelope(t, 0.25) * 0.8, glow, 'add');
@@ -264,7 +265,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
 
 /* ── mummies: a sun glyph and a sand vortex ──────────────────────────────────────────────────── */
 
-export const MUMMY_SAND_MOTES = 34;
+export const MUMMY_SAND_MOTES = 18;
 export const MUMMY_ORBIT_TICKS = 260;
 
 function mummies(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -274,7 +275,7 @@ function mummies(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tic
   // the sun glyph: a disc ring and twelve rays, turning very slowly
   back.emit('ring', g.x, g.y, g.R * 1.3, g.ry * 1.3, 0, 0.4 + 0.2 * pulse, gold, 'add');
   const turn = cyc(tick, 2400, ph) * TAU;
-  const rays = n(12, low);
+  const rays = n(8, low);
   for (let k = 0; k < rays; k++) {
     const a = turn + (k * TAU) / rays;
     const p0 = onGround(g, a, 0.78);
@@ -298,7 +299,7 @@ function mummies(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tic
     (near ? front : back).emit('soft', x, y, sz * 2.2, sz, a + Math.PI / 2, al, sand, 'add');
   }
   // a low sand haze skirting the base
-  forEachLive(tick, low ? 24 : 12, 140, 1, ph, (b, k, t) => {
+  forEachLive(tick, low ? 48 : 24, 140, 1, ph, (b, k, t) => {
     const a = fxHash(seed, b, k + 80) * TAU + t * 2;
     const p = onGround(g, a, 1.05);
     const s = g.R * (0.4 + 0.3 * t);
@@ -315,7 +316,7 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
   const hot = mixColor(base, 0xffe0a0, 0.5);
   const dust = 0xb89a72;
   // smouldering coals, flickering on 6-tick steps
-  const coals = n(11, low);
+  const coals = n(7, low);
   for (let k = 0; k < coals; k++) {
     const p = onGround(g, fxHash(seed, k, 1) * TAU, 0.3 + 0.85 * Math.sqrt(fxHash(seed, k, 2)));
     const fl = fxHash(seed, k, 1000 + Math.floor((tick + k * 3) / 6));
@@ -330,8 +331,8 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
     back.emit('ring', g.x, g.y, g.R * 2 * (0.6 + 1.1 * q), g.ry * 2 * (0.6 + 1.1 * q), 0, (1 - q) * 0.4, mixColor(dust, base, 0.3), 'add');
     if (!low) {
       const beatNo = Math.floor((tick + ph) / ORC_DRUM_TICKS);
-      for (let j = 0; j < 8; j++) {
-        const a = (j / 8) * TAU + fxHash(seed, beatNo, j) * 0.6;
+      for (let j = 0; j < 5; j++) {
+        const a = (j / 5) * TAU + fxHash(seed, beatNo, j) * 0.6;
         const p = onGround(g, a, 0.9 + 0.6 * q);
         const s = g.R * (0.25 + 0.35 * q);
         (p.y > g.footY - 2 ? shade : back).emit('smoke', p.x, p.y - 10 * q, s, s * 0.55, a, (1 - q) * 0.4, dust, 'normal');
@@ -340,7 +341,7 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
   }
   // smoke from the camp, rising off both flanks (it darkens, so it rides the shade layer)
   if (!low) {
-    forEachLive(tick, 10, 170, 1, ph, (b, k, t) => {
+    forEachLive(tick, 20, 170, 1, ph, (b, k, t) => {
       const side = fxHash(seed, b, k + 90) < 0.5 ? -1 : 1;
       const x0 = g.x + side * g.R * (0.55 + 0.35 * fxHash(seed, b, k + 91));
       const s = 16 + 34 * t;
@@ -348,7 +349,7 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
     });
   }
   // a few sparks off the coals
-  forEachLive(tick, low ? 14 : 7, 70, 1, ph + 5, (b, k, t) => {
+  forEachLive(tick, low ? 28 : 14, 70, 1, ph + 5, (b, k, t) => {
     const p = onGround(g, fxHash(seed, b, k + 95) * TAU, 0.5 + 0.6 * fxHash(seed, b, k + 96));
     const rise = g.H * 0.7 * t;
     front.emit('core', p.x + Math.sin(t * 7 + b) * 4, p.y - rise, 3, 5, 0, envelope(t, 0.2) * 0.85, hot, 'add');
@@ -371,7 +372,7 @@ function nagas(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick:
     back.emit('ring', g.x, g.y, g.R * 2 * r, g.ry * 2 * r, 0, (1 - q) * 0.55, foam, 'add');
   }
   // caustic glints
-  const glints = n(12, low);
+  const glints = n(7, low);
   for (let k = 0; k < glints; k++) {
     const p = onGround(g, fxHash(seed, k, 1) * TAU, 0.2 + 0.95 * Math.sqrt(fxHash(seed, k, 2)));
     const tw = wave(tick, 30 + Math.floor(fxHash(seed, k, 3) * 40), ph + k * 7);
@@ -383,7 +384,7 @@ function nagas(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick:
     front.emit('soft', g.x + (k === 0 ? -1 : 1) * g.R * (0.15 + 0.35 * w), g.footY, g.R * 0.7, 5, 0, 0.3 + 0.25 * w, foam, 'add');
   }
   // droplets thrown up from the rim, arcing and falling back
-  forEachLive(tick, low ? 12 : 6, 44, 1, ph, (b, k, t) => {
+  forEachLive(tick, low ? 24 : 12, 44, 1, ph, (b, k, t) => {
     const a = fxHash(seed, b, k + 30) * TAU;
     const p = onGround(g, a, 0.9 + 0.3 * fxHash(seed, b, k + 31));
     const out = 10 * t * (fxHash(seed, b, k + 32) - 0.5);

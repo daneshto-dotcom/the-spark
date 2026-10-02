@@ -516,7 +516,7 @@ function drawStructureBars(g: Graphics, world: World): void {
     const shown = Math.max(1, current);
 
     // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
-    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max), structureBarWidth(max), `s${Math.min(...(comp.primitiveIds as unknown as number[]))}`);
+    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max), structureBarWidth(max), `s${minId(comp.primitiveIds as unknown as readonly number[])}`);
   }
 }
 
@@ -658,4 +658,11 @@ function drawBar(
     if (gw > fw + 0.25) g.rect(bx + fw, by, gw - fw, h).fill({ color: GHOST_TINT, alpha: GHOST_ALPHA });
   }
   g.rect(bx, by, fw, h).fill({ color: fillTint, alpha: 0.95 });
+}
+
+/** S194 (V28) — the smallest id, without spreading a big lattice's ids onto the stack every frame. */
+function minId(ids: readonly number[]): number {
+  let m = Infinity;
+  for (const id of ids) if (id < m) m = id;
+  return m;
 }

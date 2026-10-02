@@ -51,7 +51,7 @@ describe('S194 — `towerBackdropFx`, every race', () => {
   for (const race of ALL_RACES) {
     it(`${race}: draws, deterministically, animated by the tick`, () => {
       const a = run(race, 1000);
-      expect(a.all.length, 'a real picture, not a token sprite').toBeGreaterThan(20);
+      expect(a.all.length, 'a real picture, not a token sprite').toBeGreaterThan(15);
       expect(run(race, 1000)).toEqual(a);
       expect(run(race, 1003).all).not.toEqual(a.all);
     });
