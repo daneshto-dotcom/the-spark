@@ -42,7 +42,8 @@
  */
 import { T9_TOWER_SPRITE_PX } from './towerFrames.ts';
 import { structurePoolFifths } from '../state/stats.ts';
-import { towerOwnPoolAt, towerUnitAt } from '../state/towerUnit.ts';
+import { towerOwnPoolAt, towerUnitAt, type OwnPoolRead } from '../state/towerUnit.ts';
+import { heldOwnBanked } from './towerHealthHold.ts'; // ⭐ S194 T15 (R194-30)
 import { componentOf } from '../game/structure.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import type { World } from '../state/worldTypes.ts';
@@ -133,9 +134,24 @@ export interface OwnStarHealth {
  * recipe's pool, 0 once an own connector is gone (the crumble rule), the walk `ownPrimitiveIds` defines.
  */
 export function towerOwnHealth(world: World, recipeId: GodlyId, anchorId: PrimitiveId): OwnStarHealth | null {
-  const own = towerOwnPoolAt(world, recipeId, anchorId);
+  const own = heldOwnPoolAt(world, recipeId, anchorId);
   if (own === null || own.connectors === 0) return null;
   return { max: own.max, banked: own.max - own.cur, connectors: own.connectors, prims: own.prims };
+}
+
+/**
+ * ⭐ S194 T15 (owner R194-30) — `towerOwnPoolAt`, with the damage a re-form of the tower's WELDED structure
+ * drained back on it (`towerHealthHold.ts`). The ONE read every live-tower health surface in the renderer
+ * takes — this bar, both cards (`characterSheetModel.ts`) and, by the same `heldOwnBanked`, the ramp art —
+ * so a welded tower no longer reads full again (and its art pristine again) each time a connector of its
+ * structure falls. Identical to `towerOwnPoolAt` until the hold is running, and for a tower nothing drained.
+ */
+export function heldOwnPoolAt(world: World, recipeId: GodlyId, anchorId: PrimitiveId): OwnPoolRead | null {
+  const own = towerOwnPoolAt(world, recipeId, anchorId);
+  if (own === null) return null;
+  const banked = heldOwnBanked(recipeId, anchorId, own.banked);
+  if (banked === own.banked) return own;
+  return { ...own, banked, cur: own.whole ? Math.max(0, own.max - banked) : 0 };
 }
 
 /**
@@ -154,7 +170,7 @@ export function structureHealthAt(
   if (prim === undefined) return null;
   const unit = towerUnitAt(world, primitiveId);
   if (unit !== null && unit.kind === 'live') {
-    const own = towerOwnPoolAt(world, unit.recipeId, unit.anchorId);
+    const own = heldOwnPoolAt(world, unit.recipeId, unit.anchorId);
     if (own !== null && own.connectors > 0) return { cur: own.cur, max: own.max, connectors: own.connectors };
   }
   const comp = componentOf(prim, world.primitives, world.bonds);

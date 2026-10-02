@@ -161,6 +161,7 @@ import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
 import { beginConcealmentFrame } from './render/concealment.ts';
 import { beginTowerCoverFrame } from './render/towerCover.ts';
+import { beginTowerHealthHoldFrame } from './render/towerHealthHold.ts'; // ⭐ S194 T15 (R194-30)
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
@@ -4331,6 +4332,13 @@ Network routes: ${v.detail}`;
      * z-order and fog behaviour for a purely cosmetic feature.
      */
     beginTowerCoverFrame(world);
+    /*
+     * ⭐ S194 T15 (owner R194-30) — a welded tower's own health HOLDS through a re-form of its structure
+     * (`towerHealthHold.ts`): without it the drain refilled its bar and snapped its art back to pristine
+     * every time a connector of the weld fell — *"it rebuilds the tower automatically"*. Before any sync:
+     * the bar, the card and the ramp art all read it this frame.
+     */
+    beginTowerHealthHoldFrame(world);
     /*
      * ⭐ S192 — the fx layers reset ONCE per frame, here, before any renderer writes to them (several
      * renderers share each layer); `fxEndFrame` after `effectsRenderer.sync` hides what went unused.
