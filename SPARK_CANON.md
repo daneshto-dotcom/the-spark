@@ -1052,6 +1052,8 @@ goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat)
 
 Units: see `S180_TARGETING_TABLE.md`, which is the live working document while the owner rules on it.
 
+⭐ **PENCIL CHEWER AND LIGHTNING DRONE — STRUCTURES ONLY (S194, his):** *"they only target … buildings, towers, and connectors. And … free shapes. That's their whole point."* Both are `STRUCTURES_ONLY` in `CREATURE_TARGETS` (the drone was BOTH under R72 — superseded), and `killableDefenderInReach` honours the matrix, so neither ever strikes HELGA (both did until S194). A drone's detonation SPLASH still hurts units near its connector — an area effect, not a target. ⚠ OPEN: with nothing to chew, a chewer walks to the enemy keep and lands NOTHING there (`chewerDroneTargets.test.ts`) — needs his ruling.
+
 ### 5b · ⭐ THREE UNIT RULES HE REPORTED, FIXED IN S189 (`s189/units`, deploy #4)
 
 - **THE VOLTKIN GOES FOR THE ENEMY FIRST (C3).** *"Vulcan attacks his own buildings … instead of going to

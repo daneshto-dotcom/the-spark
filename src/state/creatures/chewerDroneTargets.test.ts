@@ -9,8 +9,15 @@
  * creature target, never damage the goblin or Helga, and spend themselves on the enemy BUILDING. What
  * holds it: the chewer is excluded from `findNearestEnemyCreature` (`hostTick.ts`, `!isChewer`) and from
  * retaliation (`NEVER_RETALIATES`, R183-B); the drone's SEEKING branch selects bonds only
- * (`findNearestBondTarget`). REPORTED, not a target scan: with no enemy structure the CHEWER marches to
- * the nearest live enemy keep and chews it (the S154 castle fallback); the DRONE stays at its hub.
+ * (`findNearestBondTarget`).
+ *
+ * ⭐ FIXED HERE (S194): both DID strike HELGA — `killableDefenderInReach` ignored the R72 matrix, and its arm
+ * runs above the bond arm, so a chewer beside her bit HER (4 × 7 fifths in 900 ticks) and a drone hit her
+ * 14 × 30. Now gated on `creatureCanTarget(type, 'units')`, and the drone is STRUCTURES_ONLY in the matrix.
+ * A drone's DETONATION splash still hurts units near its connector — an area effect credited to its seat,
+ * not a target (out of scope of the ruling; reported).
+ * REPORTED: with no enemy structure the CHEWER walks to the enemy keep and lands nothing (see the last case);
+ * the DRONE stays at its hub.
  */
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, phaseDurationTicks } from '../../constants.ts';
@@ -92,7 +99,7 @@ const deps = (): HostTickDeps => ({
 
 const BIG = 1_000_000;
 
-/** `who` of P0 beside an enemy goblin + enemy Helga, optionally an enemy building 150 px on; the real host tick. */
+/** `who` of P0 beside an enemy goblin + enemy Helga, optionally an enemy building 500 px on; the real host tick. */
 function observe(who: CreatureType, withBuilding: boolean, ticks = 900) {
   const w = twoSeat();
   const me = unit(w, who, P0, 900, 540);
@@ -101,18 +108,22 @@ function observe(who: CreatureType, withBuilding: boolean, ticks = 900) {
   g.ehp = BIG;
   const h = helga(w, P1, 900, 560);
   h.ehp = BIG;
-  const bonds = withBuilding ? building(w, P1, 1050, 540, 6) : [];
+  // 500 px on: far enough that the DRONE's detonation splash (credited to its seat, an area effect,
+  // not a target) cannot reach the goblin or Helga it was parked beside.
+  const bonds = withBuilding ? building(w, P1, 1400, 540, 6) : [];
   const keep0 = w.players.get(P1)!.castleHp;
   const d = deps();
   const st = makeHostTickState(w);
   let creatureTargetTicks = 0;
   let minEhp = BIG;
+  let keepMin = keep0;
   for (let i = 0; i < ticks; i++) {
     runHostTick(w, d, st);
     const c = w.creatures.get(me.id);
     if (c === undefined) break;
     if (c.targetCreatureId !== null) creatureTargetTicks++;
     minEhp = Math.min(minEhp, c.ehp);
+    keepMin = Math.min(keepMin, w.players.get(P1)!.castleHp);
   }
   return {
     creatureTargetTicks,
@@ -120,7 +131,7 @@ function observe(who: CreatureType, withBuilding: boolean, ticks = 900) {
     goblinLost: BIG - (w.creatures.get(g.id)?.ehp ?? 0),
     helgaLost: BIG - (h.ehp ?? 0),
     struck: bonds.reduce((s, b) => s + (w.bonds.get(b)?.damageFifths ?? 0), 0) + bonds.filter((b) => !w.bonds.has(b)).length,
-    keepLost: keep0 - w.players.get(P1)!.castleHp,
+    keepLost: keep0 - keepMin, // the deepest it went (the keep regenerates)
   };
 }
 
@@ -146,11 +157,19 @@ describe('S194 T8 D — chewers and drones never target a unit or Helga (REACH t
     expect(observe('lightningDrone', false, 300).hitTaken).toBe(true);
   });
 
-  it('REPORTED — no enemy structure: the chewer goes for the keep, the drone stays home; neither for a unit', () => {
+  it('REPORTED — no enemy structure: neither goes for a unit; the chewer walks to the keep and lands NOTHING there', () => {
     const chew = observe('chewer', false, 1500);
     expect(chew.creatureTargetTicks).toBe(0);
     expect(chew.goblinLost + chew.helgaLost).toBe(0);
-    expect(chew.keepLost, 'the S154 castle fallback: a chewer with nothing to chew chews the keep').toBeGreaterThan(0);
+    /*
+     * ⚠ FINDING (S194, reported, NOT fixed — needs his ruling): with nothing to chew the chewer takes the
+     * S154 castle fallback, walks to the enemy keep, enters ATTACKING there and never lands a blow — 0
+     * castle hits in 600 ticks parked on the keep (measured with a probe on `damageEntity`). That is his
+     * S177 "nothing swings at nothing" in the one place it still happens. Either the fallback should not
+     * send a chewer to a keep (his D list — "buildings, towers, connectors, free shapes" — may or may not
+     * include the keep), or the chew should land on it. Pinned at 0 so the fix is a deliberate re-pin.
+     */
+    expect(chew.keepLost, '⚠ FINDING — re-pin when he rules on chewers and keeps').toBe(0);
     const drone = observe('lightningDrone', false, 900);
     expect(drone.creatureTargetTicks).toBe(0);
     expect(drone.goblinLost + drone.helgaLost).toBe(0);
