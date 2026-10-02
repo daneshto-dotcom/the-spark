@@ -1,5 +1,13 @@
 # S194 · `s194/visuals-6` (T4) · progress
 
+## PAUSED (owner session limit) — EXACT NEXT STEP
+- DONE + committed: (a2) shared build/destroy sparkle for every cover group (laser turret etc.), tests + mutations killed; (a) per-race background `fx/towerBackdropFx.ts` wired in the groundDecalRenderer fx path, tests `fx/towerBackdrop.test.ts` (30 pass) + V24 source test re-pointed.
+- HALF-DONE: none mid-edit. Backdrop numbers tuned once from screenshots only.
+- NEXT: (1) mutation-check the backdrop reach (drop the foot lookup -> foot test red); (2) (c) lightning-hub arc fx: new `fx/hubArcFx.ts` (glow stroke + white core + endpoint sparks via lightningFx boltGlowFx/lightningPath/lightningSparksFx), drawn from the spawnerZoneRenderer fx path for spawners with recipeId 'lightningHub', anchored on towerFootForPrim(anchor); (3) (b) V28 health-bar ghost in healthBar.ts (keyed ghost memory, hold then drain on world.tick, fx-active only); (4) after-screenshots all races HIGH + LOW + legacy into .tmp-gates/fx, copy after-shots to C:/Users/onesh/OneDrive/Desktop/SPARK_S194_TowerBackgrounds/; (5) bench HIGH/LOW vs master (harness .tmp-gates/fx, port 33494); (6) full gates + e2e:gating on own port; final report.
+- Last gates: typecheck 0 (after backdrop wiring); vitest subsets: src/render/fx + towerCover + spawnerZone 0 (177 tests); towerBackdrop + groundStainFx 0. Full vitest / build / e2e NOT yet run.
+- Harness: .tmp-gates/fx/towers.spec.ts + fx.config.ts (port 33494) + zoom.py; master HIGH shots in .tmp-gates/fx/before, first after shots in .tmp-gates/fx/a1.
+- No background process running (playwright webServer exits with its run; port 33494 not listening).
+
 ## FINAL REPORT
 (pending)
 
