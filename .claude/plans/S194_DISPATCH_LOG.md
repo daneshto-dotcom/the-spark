@@ -25,3 +25,11 @@ Every tree agent got a PAUSE order: WIP commit, exact next step at the TOP of it
 - Master local commits since deploy #23 are bookkeeping + canon re-pin (canon.test 85/85) — NOT pushed (pushing master = deploy). They ride T3's deploy.
 - Rulings: `.claude/plans/S194_OWNER_RULINGS.md` R194-1..18. Plan: `2026-10-02_S194_BATCH_PDR.md` A1–A3.
 - Audit queue order after T3: T8 · T2 · T11 · T6 · T7 · T4 · T9 · T5 · T10 · T1 (last). ≤3 auditors concurrent. Merge one at a time; T4/T5/T9 share render files → merge T4 before T9, T5 after both.
+
+## Pause confirmations (tips)
+T1 0a4271fe · T4 63d92543 · T6 e322b504 · T7 9a607bc0 · T8 0f5818a6 · T10 b8e17654 · T11 ad13047e. Pending at write: T2, T5, T9, re-audit T3.
+## Seams found before pause
+- ⛔ T8 fixed a REAL product bug in `src/render/buttonFeedback.ts` (press-scale 0.97 made the right ~5 px of every top-left-drawn button dead on release; new `hitRectAtScale`, `setScale`). T5 restyles buttons → MERGE T8 BEFORE T5, and on RESUME tell T5 to keep `hitRectAtScale` semantics (the rest-size plate is the hit target) and to merge master after T8 lands.
+- T8: deploy #22 red was the gating lane's 720 s Playwright cap (61 passed, 3 flaky, 7 not run) — green runs already use 8.9–10.5 of 12 min → T8 item 5 raises the lane budget.
+- T4 touched outside its boundary by design (A2): `markTowerCover` callers in towerRenderer / structureRampRenderer / voltkinTowerRenderer / stinkTowerRenderer pass the sprite foot; `towerCover.ts` changed. T9 must not edit those.
+- T10: no counting bug in TAKEN/DEALT; likely long siege on a keep with regen (unreproduced) — board v2 splits keep/structures/units.
