@@ -29,9 +29,14 @@ export const FOG_MIST_CELL = 48;
 /** Hard ceiling on puffs per frame (the plan's "~60 sprites"). */
 export const FOG_MIST_MAX = 72;
 /** Where the bump starts, peaks and ends, in px past the vision edge. */
-export const FOG_MIST_D0 = 0;
-export const FOG_MIST_PEAK = 40;
-export const FOG_MIST_D1 = 120;
+/*
+ * ⚠ S193 audit LOW 1 — moved out 60 px (was 0 / 40 / 120). A puff is ~100-160 px wide, so with the
+ * bump starting AT the edge its body reached ~75 px back inside what you can see. Starting it 60 px
+ * out keeps the mist where the claim says it is: in the fog, outside the edge.
+ */
+export const FOG_MIST_D0 = 60;
+export const FOG_MIST_PEAK = 100;
+export const FOG_MIST_D1 = 180;
 /** Fraction of edge points that carry a puff (a fixed per-point hash, so the choice never flickers). */
 export const FOG_MIST_KEEP = 0.55;
 const MIST_TINT = 0x8090a8;
@@ -126,13 +131,22 @@ export function fogMistFx(sink: FxSink, field: MistField, tick: number, fogAlpha
   if (fogAlpha <= 0) return 0;
   const { cols, rows, d } = field;
   const C = FOG_MIST_CELL;
+  /*
+   * ⚠ S193 audit LOW 2 — THIN EVENLY, DO NOT TRUNCATE. The cap used to fire in ~94 % of frames and the
+   * lattice is walked top-down, so the bottom of the board got no mist at all. Count the candidates
+   * first and lower the keep fraction to fit the cap (a fixed per-point hash, so the choice is stable
+   * for a given field); the hard cap below is only a backstop now.
+   */
+  let candidates = 0;
+  for (let i = 0; i < d.length; i++) if (mistWeight(d[i]!) > 0) candidates++;
+  const keep = candidates === 0 ? 0 : Math.min(FOG_MIST_KEEP, (FOG_MIST_MAX * 0.9) / candidates);
   let n = 0;
   for (let r = 0; r < rows && n < FOG_MIST_MAX; r++) {
     for (let c = 0; c < cols && n < FOG_MIST_MAX; c++) {
       const i = r * cols + c;
       const w = mistWeight(d[i]!);
       if (w <= 0) continue;
-      if (fxHash(0xf06, i) >= FOG_MIST_KEEP) continue;
+      if (fxHash(0xf06, i) >= keep) continue;
       const h1 = fxHash(0xf06, i, 1);
       const h2 = fxHash(0xf06, i, 2);
       const h3 = fxHash(0xf06, i, 3);

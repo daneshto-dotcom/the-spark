@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { recordingSink } from './emitter.ts';
 import {
-  FOG_MIST_CELL, FOG_MIST_MAX, computeMistField, fogMistFx, makeMistField, mistWeight, type MistRect, type MistSource,
+  FOG_MIST_CELL, FOG_MIST_D0, FOG_MIST_D1, FOG_MIST_MAX, FOG_MIST_PEAK, computeMistField, fogMistFx, makeMistField, mistWeight,
+  type MistRect, type MistSource,
 } from './fogMistFx.ts';
 
 const FADE = 40;
@@ -29,9 +30,12 @@ describe('V27 — fog-edge mist', () => {
   it('the bump: zero at and inside the edge, 1 at the peak, zero far out', () => {
     expect(mistWeight(-50)).toBe(0);
     expect(mistWeight(0)).toBe(0);
-    expect(mistWeight(40)).toBe(1);
-    expect(mistWeight(120)).toBe(0);
+    expect(mistWeight(FOG_MIST_D0)).toBe(0);
+    expect(mistWeight(FOG_MIST_PEAK)).toBe(1);
+    expect(mistWeight(FOG_MIST_D1)).toBe(0);
     expect(mistWeight(Infinity)).toBe(0);
+    // ⚠ S193 audit LOW 1 — the bump starts well outside the edge (a puff is ≤ 160 px wide)
+    expect(FOG_MIST_D0).toBeGreaterThanOrEqual(60);
   });
 
   it('⛔ no puff sits inside what you can see — every centre is outside every source\'s FULL radius', () => {
@@ -70,6 +74,19 @@ describe('V27 — fog-edge mist', () => {
     expect(run(many, OWN).n).toBeLessThanOrEqual(FOG_MIST_MAX);
     expect(run([CURSOR], OWN, 600)).toEqual(run([CURSOR], OWN, 600));
     expect(run([CURSOR], OWN, 900).out).not.toEqual(run([CURSOR], OWN, 600).out);
+  });
+
+  it('⚠ audit LOW 2 — a capped frame thins EVENLY: the bottom of the board gets mist too', () => {
+    // 24 small sources spread over the whole board, fog between them: far more candidates than the cap.
+    const many: MistSource[] = [];
+    for (let i = 0; i < 24; i++) many.push({ x: 120 + (i % 6) * 330, y: 100 + Math.floor(i / 6) * 290, radius: 30 });
+    const r = run(many, null);
+    expect(r.n).toBeLessThanOrEqual(FOG_MIST_MAX);
+    expect(r.n).toBeGreaterThan(FOG_MIST_MAX * 0.5);
+    const bottom = r.out.filter((e) => e.y > H * 0.6).length;
+    const top = r.out.filter((e) => e.y < H * 0.4).length;
+    expect(bottom, `top ${top} bottom ${bottom}`).toBeGreaterThan(r.n * 0.2);
+    expect(top).toBeGreaterThan(r.n * 0.2);
   });
 
   it('⛔ INFORMATION: the layout reads no world — only the sources and the quarter it is handed', () => {

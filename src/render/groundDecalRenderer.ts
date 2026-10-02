@@ -25,7 +25,8 @@
  * dislikes the coupling, the two are one constant apart.
  */
 
-import { AlphaFilter, Application, Container, Graphics, Sprite } from 'pixi.js';
+import { AlphaFilter, Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
+import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -116,6 +117,9 @@ export class GroundDecalRenderer {
     this.root = new Container();
     this.root.label = 'groundDecal';
     this.root.eventMode = 'none';
+    // S193 audit LOW 4 — pinned to the board, like the other fx layers: an edge stain must never grow
+    // the stage's bounds (that is what broke fog.spec's `extract.pixels(app.stage)` probe for the mist).
+    this.root.boundsArea = new Rectangle(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     this.stains = new Container();
     this.stains.eventMode = 'none';
     this.graphics = new Graphics();

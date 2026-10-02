@@ -15,6 +15,7 @@ import { MERGE_LEAD_IN_TICKS } from './lifetime.ts';
 import { mergePrimFx } from '../fx/buildFx.ts';
 import { fxSeed } from '../fx/emitter.ts';
 import { fxActive, fxTop } from '../fx/fxState.ts';
+import { isConcealed } from '../concealment.ts';
 
 export function drawStructureMerge(
   g: Graphics,
@@ -32,6 +33,8 @@ export function drawStructureMerge(
   for (const primId of effect.unionPrimIds) {
     const prim = world.primitives.get(primId);
     if (prim === undefined) continue;
+    // ⛔ S193 (audit, MED) — FOG: no `pos` on this effect, so the drain-time cull never sees it (see structureGrow.ts).
+    if (isConcealed(prim.pos.x, prim.pos.y, prim.placedBy)) continue;
     if (fx) { mergePrimFx(top, fxSeed(primId as unknown as number, effect.tick), prim.pos.x, prim.pos.y, prim.radius, effect.color, t); continue; }
     const radius = prim.radius * (1.8 + t * 1.2);
     g.circle(prim.pos.x, prim.pos.y, radius).fill({
