@@ -35,12 +35,12 @@ describe('⛔ S193 — an endgame wipe: the crowned top scorer is placed 1st', (
     w.scoreByPlayer.set(P2, 20);
     const ex = makeGameStateExtras();
     w.players.get(P1)!.castleHp = 0; // the top scorer falls first
-    tickGameState(w, ex);
-    for (let i = 0; i < 5; i++) { w.tick++; tickGameState(w, ex); }
+    tickGameState(w, ex, P0);
+    for (let i = 0; i < 5; i++) { w.tick++; tickGameState(w, ex, P0); }
     w.players.get(P0)!.castleHp = 0; // then the other two, the same tick — the wipe
     w.players.get(P2)!.castleHp = 0;
     w.tick++;
-    tickGameState(w, ex);
+    tickGameState(w, ex, P0);
 
     expect(w.lastWinnerId, 'fixture: the wipe crowned the top score').toBe(P1);
     expect(w.players.get(P1)!.eliminatedAtTick, 'fixture: and he fell first').toBeLessThan(w.players.get(P0)!.eliminatedAtTick!);
