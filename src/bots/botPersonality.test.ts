@@ -373,16 +373,7 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
     expect(Math.min(...war.seats.map((s) => (s.firstFeedTick < 0 ? Infinity : s.firstFeedTick)))).toBeLessThan(5400);
     // FORTRESS — measured mean defence ratio 0.44, the highest; stink first on 2/3 seats.
-    /*
-     * ⚠⚠ S194 R194-16 RE-PIN (s194/rules) — REPORTED TO THE MERGE OWNER AS A QUESTION. Was: FORTRESS above
-     * ALL four. Moving the porch row 74 → 42 (and the gatherer deposit with it) frees the old porch ground
-     * south of each keep and shifts every bot's economy (the match is chaotic: master geometry 55/55 green,
-     * the offset move ALONE turns this red, measured). Now, HARD: BALANCED t3Nagas>stink>stink>goblin |
-     * t3Mummies>stink | t3Zombies>stink — mean def 0.50; FORTRESS 0.25 / 0.50 / 0.50 → 0.42 (was 0.39);
-     * WARMONGER 0.00, TYCOON 0.25, SABOTEUR 0.22. FORTRESS still out-defends the three non-BALANCED styles
-     * and still opens on a stink on 2/3 seats; BALANCED now builds MORE defence than FORTRESS at HARD.
-     */
-    for (const m of [war, tyc, sab]) expect(meanDef(fort)).toBeGreaterThan(meanDef(m));
+    for (const m of [bal, war, tyc, sab]) expect(meanDef(fort)).toBeGreaterThan(meanDef(m));
     expect(fort.seats.filter((s) => s.stamps[0] === 'stinkTower').length).toBeGreaterThanOrEqual(2);
     // TYCOON — measured 54 loose shapes vs BALANCED's 34: the fast, wide builder.
     expect(sum(tyc, (s) => s.loosePlaced)).toBeGreaterThan(sum(bal, (s) => s.loosePlaced) + 8);
@@ -414,16 +405,7 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     expect(new Set(keys).size, 'the five IMBA signatures are still pairwise different').toBe(all.length);
     // SABOTEUR — measured: a pentagram behind its goblin tower; no other IMBA personality but Warmonger
     // (which ranks it third) reaches for one in five minutes.
-    /*
-     * ⚠⚠ S194 R194-16 RE-PIN (s194/rules) — REPORTED AS A QUESTION. Was: IMBA SABOTEUR reaches a pentagram
-     * (goblin>pentagram on seat 1). After the porch move (74 → 42) it measures goblin>stink>goblin | goblin |
-     * zombies×2 — no pentagram in 300 s at IMBA (its HARD signature, pentagram FIRST on 3/3 seats, is still
-     * pinned above). What still separates IMBA SABOTEUR: the most feeds of any IMBA personality (8+3).
-     */
-    {
-      const sabFeeds = sum(sig('IMBA', 'SABOTEUR'), (s) => s.feeds);
-      for (const p of BOT_PERSONALITIES) if (p !== 'SABOTEUR') expect(sabFeeds, `SABOTEUR feeds > ${p}`).toBeGreaterThan(sum(sig('IMBA', p), (s) => s.feeds));
-    }
+    expect(sig('IMBA', 'SABOTEUR').seats.some((s) => s.stamps.includes('pentagram'))).toBe(true);
     // ⚠ NEGATIVE: no IMBA personality's defence-ratio signature is accidentally Fortress's.
     expect(meanDef(sig('IMBA', 'WARMONGER'))).toBeLessThan(meanDef(fort));
   }, 180_000);
@@ -519,14 +501,7 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
       feeds += r.feedsLanded;
     }
     expect(towers).toBeGreaterThan(0);
-    /*
-     * ⚠ S194 R194-16 RE-PIN — was `feeds > towers` (measured 3 > 2 on master geometry). After the porch move
-     * (74 → 42) both cells own one feedable tower and land exactly one feed each (2 / 2), at 80 s, 120 s and
-     * 160 s alike (measured): the feeds are bounded by the ONE shape of each type the harness banks at the
-     * lock, not by time — so lengthening cannot restore it. What it guards still holds: towers exist, and
-     * every one of them is fed (the per-cell rule, feeds ≥ seats with a tower, summed).
-     */
-    expect(feeds).toBeGreaterThanOrEqual(towers);
+    expect(feeds).toBeGreaterThan(towers);
   }, 60_000);
 
   it('a bot CARRYING a shape when the lock falls drops it instead of re-sending PLACE every tick', () => {
