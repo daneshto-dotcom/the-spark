@@ -230,7 +230,9 @@ describe('S191 MatchBoard — the graphs draw clean polylines', () => {
     const colors = new Set([...w.players.values()].map((p) => p.color));
     const strokes = g.context.instructions.filter((ins) => {
       if (ins.action !== 'stroke') return false;
-      return colors.has((ins.data as unknown as { style: { color: number } }).style.color);
+      // The series lines are the width-3 strokes in a seat colour (the S194 skin's glow strokes are width 2).
+      const st = (ins.data as unknown as { style: { color: number; width: number } }).style;
+      return colors.has(st.color) && st.width === 3;
     });
     // the overview's one line chart × one series per seat
     expect(strokes.length).toBe(w.players.size);

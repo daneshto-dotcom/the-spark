@@ -43,6 +43,7 @@ import {
   groupThousands, matchBoardModel, type BoardGraph, type BoardRow, type BoardSeries, type MatchBoardModel,
 } from './matchBoardModel.ts';
 import { softTexture } from './fx/softTextures.ts';
+import { skinButtonFx, skinPanelFx } from './uiSkin.ts'; // ⭐ S194 — T5's one skin for every clickable
 import { hoverAt, sameTarget, tooltipFor, type HoverTarget } from './matchBoardTips.ts';
 
 /** ⚠ MINE — how long the board is up before CONTINUE / R may leave it. A fight's last click cannot skip it. */
@@ -325,6 +326,7 @@ export class MatchBoard {
     g.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(mix(0x05060a, 0.8));
     g.roundRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, 16).fill(mix(PLATE, 0.97));
     g.roundRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, 16).stroke({ color: EDGE, width: 2, alpha: 0.9 });
+    skinPanelFx(g, PANEL.x, PANEL.y, PANEL.w, PANEL.h, m.headlineColor, 0, 16);
     // A band of the winner's colour along the top edge: the page is about them first.
     g.roundRect(PANEL.x + 2, PANEL.y + 2, PANEL.w - 4, 8, 4).fill(mix(m.headlineColor, 0.85));
 
@@ -350,7 +352,8 @@ export class MatchBoard {
     const c = CONTINUE_RECT;
     const hot = this.hover?.kind === 'continue' && armed;
     g.roundRect(c.x, c.y, c.w, c.h, 10).fill({ color: armed ? EDGE : AXIS, alpha: armed ? (hot ? 1 : 0.92) : 0.6 });
-    if (hot) g.roundRect(c.x - 3, c.y - 3, c.w + 6, c.h + 6, 12).stroke({ color: INK, width: 2, alpha: 0.8 });
+    // ⭐ S194 — the shared skin (T5), laid INSIDE the rect `hoverAt` tests; disabled (hatched) until armed.
+    skinButtonFx(g, c.x, c.y, c.w, c.h, { accent: 0xffffff, state: armed ? (hot ? 'hover' : 'rest') : 'disabled', radius: 10 });
     const ct = this.texts.take('CONTINUE  (R)', 22, armed ? PLATE : DIM);
     ct.anchor.set(0.5, 0.5);
     ct.position.set(c.x + c.w / 2, c.y + c.h / 2);
@@ -371,6 +374,7 @@ export class MatchBoard {
       const hot = this.hover?.kind === 'tab' && this.hover.index === i;
       const accent = row?.color ?? EDGE;
       g.roundRect(r.x, r.y, r.w, r.h, 9).fill(mix(on ? accent : CARD, on ? 0.28 : hot ? 0.95 : 0.85));
+      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent, state: on ? 'active' : hot ? 'hover' : 'rest', radius: 9 });
       g.roundRect(r.x, r.y, r.w, r.h, 9).stroke({ color: on ? accent : hot ? INK : AXIS, width: on ? 2 : 1, alpha: 0.9 });
       if (row !== undefined) g.rect(r.x + 10, r.y + 12, 6, r.h - 24).fill(mix(row.color, 1));
       const label = i === 0 ? 'OVERVIEW' : i === 1 ? 'GRAPHS' : `${row!.label} ${row!.race}${row!.isLocal ? ' ·YOU' : ''}`;
@@ -397,6 +401,7 @@ export class MatchBoard {
       const r = L.rows[i]!;
       const hot = this.hover?.kind === 'row' && this.hover.index === i;
       g.roundRect(r.x, r.y, r.w, r.h, 8).fill(mix(row.color, hot ? 0.16 : row.isLocal ? 0.09 : 0.04));
+      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: row.color, state: hot ? 'hover' : 'rest', radius: 8, studs: false });
       if (hot) g.roundRect(r.x, r.y, r.w, r.h, 8).stroke({ color: row.color, width: 2, alpha: 0.9 });
       g.rect(r.x, r.y + 6, 5, r.h - 12).fill(mix(row.color, 1)); // the seat's colour, always on the edge
       for (const c of OV_COLUMNS) {
