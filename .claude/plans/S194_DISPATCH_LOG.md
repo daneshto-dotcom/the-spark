@@ -34,3 +34,11 @@ T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f
 - T8: deploy #22 red was the gating lane's 720 s Playwright cap (61 passed, 3 flaky, 7 not run) — green runs already use 8.9–10.5 of 12 min → T8 item 5 raises the lane budget.
 - T4 touched outside its boundary by design (A2): `markTowerCover` callers in towerRenderer / structureRampRenderer / voltkinTowerRenderer / stinkTowerRenderer pass the sprite foot; `towerCover.ts` changed. T9 must not edit those.
 - T10: no counting bug in TAKEN/DEALT; likely long siege on a keep with regen (unreproduced) — board v2 splits keep/structures/units.
+
+## LANDED
+- **Deploy S194-#1 `2fe065fb` LIVE** — s193/mres-card (merge ba2c8b97) + BUMP 62→63 + vite worktree-ignore fix. Gates: tc 0 · vitest 0 (7885) · build 0 (1123.1 KiB) · e2e:gating 71/71 · races 5/5 · lobby 5/5 (first run: all 3 lanes died on webServer 60 s timeout — cause: main-checkout vite watched/dep-scanned `.claude/worktrees/**`; fixed in vite.config) · verify-deploy 4/4.
+## AUDITS
+- T2 visuals-3: CLEAN (ac8d674ec068cf3d0) → merge next.
+- T1 teams: CLEAN + MED-1 (4 REACH gaps) + LOW-1 CRLF + LOW-2 Voltkin weld + LOW-3 begin gate → fix-only round sent; bump 63→64 at landing; re-record golden.
+- T7 bots: CLEAN + MED (lock repair eats feed shape) + LOW circular parity test → fix-only round sent.
+- T6 entropy: audit running. T4: audit running. T9, T10: queued. Open security hole (T6 report): client SEVER_BOND cause spoof in `stampSenderSeat` — audit confirming.

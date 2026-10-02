@@ -26,8 +26,8 @@
 import { Container, DisplacementFilter, Sprite, Texture, type Rectangle } from 'pixi.js';
 import { AdvancedBloomFilter } from 'pixi-filters/advanced-bloom';
 import { ShockwaveFilter } from 'pixi-filters/shockwave';
-import type { FxDisplaceSink, FxShockSink } from './emitter.ts';
-import { fxLegacy, setFxDisplaceHook, setFxHooks, setFxLegacyFlag } from './fxState.ts';
+import { fxHash, type FxDisplaceSink, type FxShockSink } from './emitter.ts';
+import { fxLegacy, setFxDisplaceHook, setFxHazeHook, setFxHooks, setFxLegacyFlag, type FxHazeSink, type FxHazeTarget } from './fxState.ts';
 import { FxLayer } from './fxLayer.ts';
 
 /** Ticks per second of the sim clock every layout ages against. */
@@ -55,6 +55,11 @@ interface Installed {
   displaceReqs: DisplaceReq[];
   displacePool: DisplaceSlot[];
   groundFilterKey: number;
+  /** S194 — the heat haze: this frame's targets, the targets carrying it now, the shared filter (made on first need). */
+  hazeReqs: FxHazeTarget[];
+  hazed: Set<FxHazeTarget>;
+  haze: { map: Sprite; filter: DisplacementFilter } | null;
+  hazeTick: number;
 }
 
 let installed: Installed | null = null;
@@ -104,9 +109,11 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
   installed = {
     ground, top, shade, groundArt: opts.groundArt, screen: opts.screen, bloom, shockPool: [], shockReqs: [], shockApplied: 0,
     displaceReqs: [], displacePool: [], groundFilterKey: 0,
+    hazeReqs: [], hazed: new Set(), haze: null, hazeTick: 0,
   };
   setFxHooks({ top, shade, ground, shock: shockSink });
   setFxDisplaceHook(displaceSink);
+  setFxHazeHook(hazeSink);
   setFxLegacyFlag(readLegacyFromUrl());
   setFxHighQualityRuntime(opts.highQuality);
 }
@@ -114,7 +121,7 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
 /** The side-by-side switch: true draws every rebuilt effect the pre-S192 way. */
 export function setFxLegacy(v: boolean): void {
   setFxLegacyFlag(v);
-  if (v && installed !== null) { installed.ground.clear(); installed.top.clear(); installed.shade.clear(); applyShocks(installed, true); }
+  if (v && installed !== null) { installed.ground.clear(); installed.top.clear(); installed.shade.clear(); applyShocks(installed, true); applyHaze(installed, true); }
 }
 export function fxHighQuality(): boolean { return highQuality; }
 
@@ -122,7 +129,7 @@ export function setFxHighQualityRuntime(v: boolean): void {
   highQuality = v;
   if (installed === null) return;
   installed.top.container.filters = v ? [installed.bloom] : null;
-  if (!v) applyShocks(installed, true);
+  if (!v) { applyShocks(installed, true); applyHaze(installed, true); }
 }
 
 const shockSink: FxShockSink = {
@@ -142,6 +149,7 @@ export function fxBeginFrame(): void {
   inst.shade.begin();
   inst.shockReqs.length = 0;
   inst.displaceReqs.length = 0;
+  inst.hazeReqs.length = 0;
 }
 
 export function fxEndFrame(): void {
@@ -151,6 +159,7 @@ export function fxEndFrame(): void {
   inst.top.end();
   inst.shade.end();
   applyShocks(inst, false);
+  applyHaze(inst, false);
 }
 
 /**
@@ -282,6 +291,104 @@ export function fxDisplaceCount(): number {
   return installed === null ? 0 : installed.groundFilterKey % (FX_MAX_DISPLACE + 1);
 }
 
+/* ── S194 visuals-3 — THE HEAT HAZE (SCORCHED GROUND's shimmer, V12), FOLDED IN FROM `zoneBackgroundRenderer`.
+ *
+ * The S193 audit's L-fold: the shimmer was a SECOND displacement mechanism (its own filter, its own map,
+ * its own HIGH gate) beside the V10 ripple. It now lives here, so one module owns every ground
+ * distortion. What stays different, on purpose: the haze sits on the burning ZONE SPRITE, not on the
+ * whole `groundArt` like the ripple — its filter bounds are one zone, where a `groundArt` filter is a
+ * full-screen pass (`filterArea = screen`), and a tiling noise map has no neutral border to make the
+ * rest of the screen sit still. One filter is shared by every burning zone.
+ *
+ * The map: tileable smooth value noise in R and G from `fxHash` over a wrapped 8×8 lattice (no asset,
+ * no `Math.random`), drifting up with the tick (heat rises). Its sprite sits in the GROUND fx layer like
+ * the ripple maps (never drawn; the filter clears `renderable`) — not a child of `groundLayer` or
+ * `fogHiddenLayer`, so the `fog.spec.ts` roll call does not move.
+ */
+/** The heat haze's reach in px (HIGH only). ⚠ MINE (S193): a haze, never a wobble. */
+export const FX_HAZE_PX = 5;
+const HAZE_MAP_PX = 64;
+let hazeMap: Texture | null = null;
+
+function hazeMapTexture(): Texture {
+  if (hazeMap !== null) return hazeMap;
+  const s = HAZE_MAP_PX;
+  const cells = 8;
+  const c = document.createElement('canvas');
+  c.width = s;
+  c.height = s;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(s, s);
+  const lattice = (ch: number, i: number, j: number): number =>
+    fxHash(0x5ca1d + ch, ((i % cells) + cells) % cells, ((j % cells) + cells) % cells);
+  const smooth = (t: number): number => t * t * (3 - 2 * t);
+  for (let y = 0; y < s; y++) {
+    for (let x = 0; x < s; x++) {
+      const fx = (x / s) * cells;
+      const fy = (y / s) * cells;
+      const i = Math.floor(fx);
+      const j = Math.floor(fy);
+      const u = smooth(fx - i);
+      const v = smooth(fy - j);
+      const o = (y * s + x) * 4;
+      for (let ch = 0; ch < 2; ch++) {
+        const a = lattice(ch, i, j) + (lattice(ch, i + 1, j) - lattice(ch, i, j)) * u;
+        const b = lattice(ch, i, j + 1) + (lattice(ch, i + 1, j + 1) - lattice(ch, i, j + 1)) * u;
+        img.data[o + ch] = Math.round((a + (b - a) * v) * 255);
+      }
+      img.data[o + 2] = 128;
+      img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  hazeMap = Texture.from(c);
+  hazeMap.source.addressMode = 'repeat';
+  return hazeMap;
+}
+
+const hazeSink: FxHazeSink = {
+  haze(target, tick) {
+    const inst = installed;
+    if (inst === null || fxLegacy() || !highQuality) return;
+    inst.hazeReqs.push(target);
+    inst.hazeTick = tick;
+  },
+};
+
+/**
+ * Put the shared haze filter on exactly this frame's targets. A target's `filters` is reassigned only
+ * when its state flips, so a steady burn allocates nothing; `forceOff` (LOW, legacy, title) strips all.
+ */
+function applyHaze(inst: Installed, forceOff: boolean): void {
+  const reqs = forceOff ? [] : inst.hazeReqs;
+  if (reqs.length > 0 && inst.haze === null) {
+    const map = new Sprite(hazeMapTexture());
+    map.eventMode = 'none';
+    map.scale.set(6);
+    inst.ground.container.addChild(map);
+    inst.haze = { map, filter: new DisplacementFilter({ sprite: map, scale: FX_HAZE_PX }) };
+  }
+  if (reqs.length > 0 && inst.haze !== null) {
+    inst.haze.map.x = (inst.hazeTick * 0.35) % 384;
+    inst.haze.map.y = -((inst.hazeTick * 1.1) % 384);
+  }
+  for (const t of [...inst.hazed]) {
+    if (reqs.includes(t)) continue;
+    inst.hazed.delete(t);
+    if (!t.destroyed) t.filters = null;
+  }
+  for (const t of reqs) {
+    if (inst.hazed.has(t) || t.destroyed || inst.haze === null) continue;
+    inst.hazed.add(t);
+    t.filters = [inst.haze.filter];
+  }
+}
+
+/** DEV probe (S194): how many targets carry the heat haze right now. */
+export function fxHazeCount(): number {
+  return installed === null ? 0 : installed.hazed.size;
+}
+
 /** Hide everything (title return). */
 export function fxClear(): void {
   if (installed === null) return;
@@ -290,15 +397,18 @@ export function fxClear(): void {
   installed.shade.clear();
   installed.shockReqs.length = 0;
   installed.displaceReqs.length = 0;
+  installed.hazeReqs.length = 0;
   applyShocks(installed, true);
+  applyHaze(installed, true);
 }
 
 /** DEV probe: sprites drawn last frame on each layer, the active ripples, and the switches. */
-export function fxStats(): { ground: number; top: number; shocks: number; legacy: boolean; highQuality: boolean } {
+export function fxStats(): { ground: number; top: number; shocks: number; haze: number; legacy: boolean; highQuality: boolean } {
   return {
     ground: installed?.ground.lastCount ?? 0,
     top: (installed?.top.lastCount ?? 0) + (installed?.shade.lastCount ?? 0),
     shocks: installed?.shockApplied ?? 0,
+    haze: installed?.hazed.size ?? 0,
     legacy: fxLegacy(),
     highQuality,
   };
