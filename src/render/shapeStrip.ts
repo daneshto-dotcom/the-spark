@@ -52,8 +52,8 @@
  * ## ⛔ AND IT HAS TO CLEAR THE SEAT-2 CASTLE PORCH
  *
  * `footerBand.ts` documents, and `footerBand.test.ts` asserts, that the chips are centred because
- * the `QUADRANTS_4P` bottom-quadrant porches sit at **(1790, 1024)** and **(130, 1024)** — INSIDE
- * the footer band. A strip reaching x ≥ 1790 would make that seat's porch unclickable, and no
+ * the `QUADRANTS_4P` bottom-quadrant porches sat at **(1790, 1024)** and **(130, 1024)** — INSIDE
+ * the footer band (⭐ S194 R194-16: now y 992, just above it, and a resting shape still reaches 17 px in). A strip reaching x ≥ 1790 would make that seat's porch unclickable, and no
  * existing test would have caught it: the porch sweep in `footerBand.test.ts` iterated `chips`
  * only. This module's rects are exported so that sweep can cover the strip too, and it now does.
  *

@@ -28,7 +28,11 @@ import {
   GATHERER_PRICE,
   GATHERER_REACH,
   GATHERER_SHELTER_LEAD_TICKS,
+  GATHERER_SPAWN_PITCH,
+  GATHERER_SPAWN_SIDE_GAP,
   GATHERER_SPEED_UPGRADE_PRICE,
+  CANVAS_WIDTH,
+  KEEP_W,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -104,6 +108,21 @@ export interface PullFromBankAction {
  * score, and the buy button already dims when unaffordable. New gatherers fan out beside the keep
  * (deterministic, count-based) so they do not perfectly overlap.
  */
+/**
+ * ⭐ S194 (audit LOW-2) — PURE: where the `owned`-th gatherer of a seat is born — beside the keep, clear of
+ * the porch (`GATHERER_SPAWN_PITCH` docblock). `owned % 4` picks the spot (left-upper, right-upper,
+ * left-lower, right-lower), `floor(owned / 4)` the column outward; x clamped onto the canvas. Integers.
+ */
+export function gathererSpawnPos(anchor: Vec2, owned: number): Vec2 {
+  const side = owned % 2 === 0 ? -1 : 1;
+  const row = owned % 4 < 2 ? -GATHERER_SPAWN_PITCH / 2 : GATHERER_SPAWN_PITCH / 2;
+  const out = KEEP_W / 2 + GATHERER_SPAWN_SIDE_GAP + Math.floor(owned / 4) * GATHERER_SPAWN_PITCH;
+  const x = anchor.x + side * out;
+  const lo = GATHERER_SPAWN_SIDE_GAP;
+  const hi = CANVAS_WIDTH - GATHERER_SPAWN_SIDE_GAP;
+  return { x: x < lo ? lo : x > hi ? hi : x, y: anchor.y + row };
+}
+
 export function applyBuyGatherer(world: World, action: BuyGathererAction): World {
   const buyer = world.players.get(action.playerId);
   if (buyer === undefined) return world;
@@ -120,10 +139,7 @@ export function applyBuyGatherer(world: World, action: BuyGathererAction): World
     makeGatherer({
       id,
       ownerPlayerId: action.playerId,
-      pos: {
-        x: anchor.x + ((owned % 4) * 26 - 39),
-        y: anchor.y + 38 + Math.floor(owned / 4) * 26,
-      },
+      pos: gathererSpawnPos(anchor, owned),
       spawnedAtTick: world.tick,
     }),
   );

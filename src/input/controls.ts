@@ -1296,8 +1296,8 @@ export class Controls {
    * Deliberately your OWN keep only: there is nothing to upgrade on an opponent's castle, and
    * opening a panel of controls you cannot use would read as a bug. Tested BEFORE the gatherer
    * preference cycle and the world hit-tests, so the castle box always wins its own footprint —
-   * the two do not overlap today (a gatherer spawns at anchor.y + GATHERER_DEPOSIT_OFFSET_Y = +74,
-   * outside the KEEP_H/2 = 29 box), but ordering it explicitly keeps that a fact rather than a
+   * the two do not overlap today (⭐ S194 a gatherer spawns BESIDE the box, x ±50+ — `gathererSpawnPos` —
+   * outside its KEEP_W/2 = 37 half-width), but ordering it explicitly keeps that a fact rather than a
    * coincidence that a future keep resize could silently invert.
    */
   private handleCastleClick(): boolean {

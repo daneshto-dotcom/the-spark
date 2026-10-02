@@ -816,6 +816,19 @@ export const CASTLE_PORCH_SLOT_CLEAR_RADIUS = 17;
  */
 export const GATHERER_DEPOSIT_OFFSET_Y = CASTLE_PORCH_OFFSET_Y;
 
+/**
+ * ⭐ S194 (audit LOW-2) — WHERE A NEWLY BOUGHT GATHERER STANDS: BESIDE THE KEEP, NOT ON THE PORCH.
+ * It spawned in a row at anchor.y + 38 (x −39 / −13 / 13 / 39) — 4 px above the porch row once R194-16
+ * moved it to +42, and a gatherer click (26 px, `Controls.pickGatherer`) wins over a spark pickup, so a
+ * fresh gatherer covered the porch shapes. Now ⚠ MINE: the four of each column stand LEFT / RIGHT of the
+ * keep box at rows ∓`GATHERER_SPAWN_PITCH` / 2, the first column `KEEP_W / 2 + GATHERER_SPAWN_SIDE_GAP` = 50
+ * px out (the drawn gatherer's 11 px radius + 2 px of air off the box), each further column one
+ * `GATHERER_SPAWN_PITCH` farther out, clamped onto the canvas. Nearest porch slot to any spawn: (±50, +13)
+ * to (±45, +42) = **29.4** px — past the 26 px gatherer click (`gathererLifecycle.test.ts` re-derives it).
+ */
+export const GATHERER_SPAWN_PITCH = 26;
+export const GATHERER_SPAWN_SIDE_GAP = 13;
+
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
 // S110 P2 — UNIFORM spawn speed (owner live-playtest: "same speed but random shapes").

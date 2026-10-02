@@ -5,8 +5,8 @@
  * right side of the footer (after tier 8)"*. This file pins the two things that can go wrong with a
  * control placed in that specific stretch of canvas:
  *
- *  1. it must not sit on a **castle porch** — the `QUADRANTS_4P` seat-2 porch is at (1790, 1024),
- *     INSIDE the footer band, and a control drawn over it makes that seat's deposit point
+ *  1. it must not sit on a **castle porch** — the `QUADRANTS_4P` seat-2 porch is at (1790, 992) since
+ *     S194 (was 1024), a shape on it still reaching INSIDE the footer band, and a control drawn over it makes that seat's deposit point
  *     unclickable. `footerBand.test.ts` has asserted this for the CHIPS since S149 P4, and its
  *     sweep iterated `chips` only — so a strip that collided would have shipped green;
  *  2. it must be **derived from the live chip row**, not placed at a fixed x, or the day a sixth
