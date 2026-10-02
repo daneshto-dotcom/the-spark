@@ -2,9 +2,23 @@
 
 # S194 T10 — progress
 
-## NEXT STEP
-Step 2: extend `matchStats.ts` with the inert v2 counters (damage by target class, who-hit-whom, units lost,
-cumulative per-wave fields), pass the class at every `recordDamage` site in `damage.ts`, re-pin tests.
+## NEXT STEP (PAUSED by owner session limit — resume here)
+EXACT NEXT STEP: write `src/render/matchBoard.ts` v2 (the Pixi view) against the NEW `matchBoardModel.ts`
+(committed) and NEW `matchBoardLayout.ts` (committed): tabs OVERVIEW / GRAPHS / one page per seat; overview =
+table (status column, badge under the name, rows clickable -> player page) + SCORE RACE lines with hover
+crosshair; GRAPHS = 2x2 (damage per wave grouped bars, built-standing stacked area, kills per wave stacked bars,
+who-hit-whom heatmap); PLAYER page = header band, 6 KPI tiles, UNITS ledger (icon + raised/lost/killed),
+DAMAGE dealt/taken split units/structures/keep, DEALT TO / TAKEN FROM bars, per-wave dealt-up / taken-down
+ledger chart. Tooltip overlay (pure `tooltipFor`), keys ArrowLeft/Right/Tab via `handleKey`, CONTINUE/R + ARM_MS
+unchanged, `setPortraitSource` for unit icons (MatchBoardHost passes it through; main.ts one setter line).
+Then: update `matchBoardModel.test.ts` (line ~124 seat literal lacks the v2 fields -> typecheck currently RED
+there, expected), `matchBoard.test.ts`, new `matchBoardLayout.test.ts` (inside/outside every rect), recorder
+tests for lost / dealtTo / keep-structure split / cumulative samples, re-measure `matchStats.wire.test.ts`
+(in-window bound 8 KiB will likely need re-pinning with the measured number).
+HALF-DONE: model + layout written and committed; view NOT started; tests NOT updated.
+GATES LAST RUN: `npm run typecheck` exit 1 — only `matchBoardModel.test.ts:124` (old SeatMatchStats literal)
+and the uncommitted scratch probe `src/state/zzProbeMatch.test.ts` (DELETE it before gates; never commit it).
+No vitest / build run yet on v2. No background processes running.
 
 ## Log
 - Step 0 — worktree at master `18560cd8` (merge: already up to date, no conflicts). `npm install` exit 0.
