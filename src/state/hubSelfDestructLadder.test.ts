@@ -576,7 +576,7 @@ describe('⭐ S191 (owner) — BLAST-1: a bag the hub blast pops still bursts, a
     const bag2 = bag(w2, P1, 830, 400, STINK_BAG_RADIUS);
     const ownBoss = spawn(w2, T9_BOSS_TYPE.nagas, P0, 900, 400);
     const ownPool = w2.creatures.get(ownBoss)!.ehp;
-    damageEntity(w2, { kind: 'stinkCloud', id: bag2.id }, 5, 'creature', null);
+    damageEntity(w2, { kind: 'stinkCloud', id: bag2.id }, 5, 'creature', null, 'physical');
     expect(ownPool - w2.creatures.get(ownBoss)!.ehp).toBe(blastHitAtDistance(attackFifths(STINK_BAG_ATK, STINK_BAG_PEN), 70 * 70, STINK_BAG_RADIUS));
   });
 });

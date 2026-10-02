@@ -148,7 +148,7 @@ describe('S171 R171-A — "he\'s not really in the game"', () => {
     damageCreature(world, id, 100_000);
     const ehp = world.creatures.get(id)!.ehp;
 
-    applyRadialDamage(world, 500, 500, 400, 0, 100_000, 'aura', null, 'distance');
+    applyRadialDamage(world, 500, 500, 400, 0, 100_000, 'aura', null, 'physical', 'distance');
     expect(world.creatures.has(id), 'a splash he is not in the world to receive').toBe(true);
     expect(world.creatures.get(id)!.ehp).toBe(ehp);
   });

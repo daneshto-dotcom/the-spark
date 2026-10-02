@@ -83,7 +83,7 @@ function siege(): { w: any; regen: number; step: () => void } {
 
 /** The keep takes HIT through the real castle arm (no attacker: a raid-shaped blow, nothing heals). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const hitKeep = (w: any): void => { damageEntity(w, { kind: 'castle', seat: P0 }, HIT, 'player', null); };
+const hitKeep = (w: any): void => { damageEntity(w, { kind: 'castle', seat: P0 }, HIT, 'player', null, 'physical'); };
 
 function read(dn: unknown): Floater[] {
   const live = (dn as { live: Array<{ text: { text: string; style: { o?: { fill?: number } } } }> }).live;

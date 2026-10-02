@@ -767,7 +767,7 @@ function dispatchReducer(world: World, action: GameAction): World {
         raider.raidPoints--;
         // ⭐ S183 — `null`: a RAID is dealt by the player's AVATAR, and the avatar is untargetable
         // by ruling (canon §4). There is nothing for the victim to turn on.
-        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player', null);
+        const killed = damageEntity(world, { kind: 'creature', id: action.target.id }, damage, 'player', null, 'physical'); // S192 — a raid swings
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }
@@ -793,7 +793,7 @@ function dispatchReducer(world: World, action: GameAction): World {
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
         // ⭐ S183 — `null`, same reason as the creature arm above: the raider is an avatar.
-        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player', null);
+        const killed = damageEntity(world, { kind: 'defender', id: action.target.id }, damage, 'player', null, 'physical'); // S192 — a raid swings
         world.effects.push({ kind: 'RAIDED', tick: world.tick, pos, color: raider.color, killed });
         return world;
       }
@@ -835,7 +835,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       const connectorDamage = Math.min(damage, RAID_CONNECTOR_MAX_FIFTHS);
       // S188 — `null`: the raider is a player avatar, not a creature — nothing to heal, nobody to
       // turn on (the same answer this file's two `damageEntity` raid arms give).
-      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null);
+      const shouldSever = damageConnector(world, action.target.id, connectorDamage, null, 'physical'); // S192 — a raid swings
       if (shouldSever) {
         // ⭐ S191 (owner) — `severWithCarry`: the struck connector falls, and the overkill carries (canon §2).
         // ⚠ S192 (audit CARRY-4) — the carry is NOT bounded by the raid clamp: it is whatever stands on the

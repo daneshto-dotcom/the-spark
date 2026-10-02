@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Magic Resistance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0f17; --panel:#151927; --panel2:#1b2033; --line:#2a3150; --text:#e6e8f2; --mute:#9aa1bd;
+  --gold:#e8c56a; --magic:#a98bff; --magic-bg:#2a2150; --phys:#ff9a6b; --phys-bg:#3a2218;
+  --good:#6fd39a; --warn:#ffcf5c; --bad:#ff6b7d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 Inter,system-ui,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:32px 16px 80px}
+header{border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:28px}
+h1{font-family:Cinzel,serif;font-weight:800;font-size:clamp(28px,5vw,44px);letter-spacing:.04em;margin:0 0 6px;
+   background:linear-gradient(90deg,var(--gold),var(--magic));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mute);margin:0}
+h2{font-family:Cinzel,serif;font-weight:600;color:var(--gold);font-size:22px;margin:44px 0 10px;letter-spacing:.03em}
+h3{font-size:16px;margin:24px 0 8px;color:var(--text)}
+p{margin:8px 0}
+.quote{border-left:3px solid var(--gold);background:var(--panel);padding:12px 16px;border-radius:0 10px 10px 0;color:#d9d3bd;font-style:italic;margin:14px 0}
+.rule{background:linear-gradient(135deg,#1f1a3c,#2a1d1d);border:1px solid #4a3d7a;border-radius:14px;padding:20px 22px;margin:18px 0}
+.rule .big{font-size:19px;font-weight:700}
+.mono,code{font-family:"JetBrains Mono",monospace;font-size:13px}
+code{background:var(--panel2);padding:1px 6px;border-radius:5px;color:#cfd6ff}
+.formula{font-family:"JetBrains Mono",monospace;background:#0a0c13;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;color:#cfe3ff;white-space:pre;font-size:13px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin:12px 0;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--panel2);color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+tr:last-child td{border-bottom:0}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.04em}
+.m{background:var(--magic-bg);color:var(--magic)} .p{background:var(--phys-bg);color:var(--phys)}
+.mine{color:var(--warn);font-weight:700;font-size:12px}
+.ok{color:var(--good);font-weight:700} .bad{color:var(--bad);font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:14px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card b{color:var(--gold)}
+.q{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
+.q .id{font-family:"JetBrains Mono",monospace;color:var(--magic);font-weight:600}
+.q .rec{color:var(--good);font-weight:700}
+.ladder{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.ladder span{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:700}
+.ladder span small{display:block;color:var(--mute);font-weight:500;font-size:11px}
+footer{margin-top:50px;color:var(--mute);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Magic Resistance</h1>
+  <p class="sub">SPARK · S192 · the <b>MRES</b> stat on the one ladder — what it does, the numbers, and the questions for you. Nothing here makes magic stronger. It is only different.</p>
+</header>
+
+<div class="quote">"magic resistance, which is basically on the same ladder as defense levels. One magic resistant level is 1.2, two … 1.4, three 1.6 …" · "it will look the same, but it'll be calculated differently." · "towers will inherently have the same magic resistance as their regular defense." — you, S192</div>
+
+<h2>0 · What you ruled (S192), and what was built</h2>
+<div class="tablewrap"><table>
+<tr><th>topic</th><th>your words</th><th>built</th></tr>
+<tr><td><b>Buildings</b></td><td><i>"when you build buildings … it raises them at the same time"</i></td><td>Already the rule: a tower's DEF and magic resistance are both its connector count.</td></tr>
+<tr><td><b>Castle</b></td><td><i>"either defense or resistance … whatever amount of defense it currently has just give it the same amount of magic resistance but moving forward … its own upgrades"</i></td><td>The keep starts with magic resistance equal to its starting defense. A new <b>MRES</b> button sits beside HP / ATK / DEF / PEN: 100 points each, up to 10. Buying DEF no longer adds magic resistance. Magic hits on the keep are cut by MRES the way DEF cuts physical hits.</td></tr>
+<tr><td><b>Shared units</b></td><td><i>"Get magic resistance equal to their [DEF]. Sounds good."</i></td><td>Done.</td></tr>
+<tr><td><b>Stink cloud</b></td><td><i>"Sure."</i></td><td>Magic.</td></tr>
+<tr><td><b>Fully resisted ticks</b></td><td><i>"I accept that, but we need to predefine … how it would look like."</i></td><td>A small grey <b>RESIST</b> pops above the unit, at most once a second. <span class="mine">⚠ mine</span>: the word, the grey, and the rate. Tell me what to change once you've seen it.</td></tr>
+<tr><td><b>Q1</b> (does a DEF upgrade card also protect against magic?)</td><td>not ruled yet</td><td>Kept as recommended: yes. The card makes the health bar longer, and magic uses the same bar.</td></tr>
+</table></div>
+
+<h2>1 · The rule, in one line</h2>
+<div class="rule">
+  <div class="big">A magic hit lands as <span class="mono">hit × (5 + DEF) ÷ (5 + MRES)</span>, rounded down, never below 1. A physical hit lands exactly as today.</div>
+  <p style="color:var(--mute);margin-top:10px">Why: on our ladder DEF isn't taken off the hit — it makes the health bar longer (<span class="mono">HP × (5 + DEF)</span>). So against magic, the same bar has to act as if it were <span class="mono">HP × (5 + MRES)</span> long. Scaling the magic hit by that ratio does exactly that. HP cancels out, so it works for every unit.</p>
+</div>
+
+<div class="formula">pool   = HP  × (1 + 0.2 × DEF) × 5     ← physical hits use up this bar
+magic  = HP  × (1 + 0.2 × MRES) × 5    ← magic hits "see" this one — same bar, rescaled hit
+damage = ATK × (1 + 0.2 × PEN) × 5     ← unchanged</div>
+
+<h3>Proof it changes nothing when MRES = DEF</h3>
+<div class="tablewrap"><table>
+<tr><th>target</th><th>HP / DEF / MRES</th><th class="n">hit</th><th class="n">× (5+DEF)</th><th class="n">÷ (5+MRES)</th><th class="n">lands</th><th class="n">today</th></tr>
+<tr><td>a boss, Ra column</td><td>22 / 16 / 16</td><td class="n">300</td><td class="n">6300</td><td class="n">21</td><td class="n ok">300</td><td class="n">300</td></tr>
+<tr><td>Voltkin bolt on a goblin</td><td>1 / 2 / 2</td><td class="n">33</td><td class="n">231</td><td class="n">7</td><td class="n ok">33</td><td class="n">33</td></tr>
+<tr><td>rot tick on a warband</td><td>4 / 1 / 1</td><td class="n">1</td><td class="n">6</td><td class="n">6</td><td class="n ok">1</td><td class="n">1</td></tr>
+</table></div>
+<p>So <b>every tower takes the same magic damage it takes today</b>: its MRES is its connector count, the same as its DEF.</p>
+
+<h3>Every kind of target</h3>
+<div class="tablewrap"><table>
+<tr><th>target</th><th>DEF</th><th>MRES</th><th>result</th></tr>
+<tr><td><b>units</b></td><td>its own</td><td>by race and class (section 2)</td><td>the only place magic and physical differ</td></tr>
+<tr><td><b>towers / connectors</b></td><td>connector count</td><td>connector count (your rule)</td><td class="ok">same as today</td></tr>
+<tr><td><b>castle</b></td><td>bought DEF</td><td>its own MRES: starts equal to starting DEF, then bought separately (your ruling)</td><td class="ok">same as today until you buy it</td></tr>
+<tr><td><b>Helga</b></td><td>8</td><td>8 <span class="mine">⚠ mine</span></td><td class="ok">same as today</td></tr>
+<tr><td><b>shapes, stink bags</b></td><td>0</td><td>0</td><td class="ok">same as today</td></tr>
+</table></div>
+
+<h3>The one wrinkle: one-point burns</h3>
+<p>Rot, Scorched Ground and the stink aura tick <b>one point at a time</b>. "Round down, never below 1" would make every tick 1 whatever the MRES — so MRES would do nothing against four of the six magic attacks. Instead, a burn tick is spread over its own beats: a unit with more MRES simply gets skipped on some beats. Exact on average, no randomness, and identical to today when MRES = DEF. <span class="mine">⚠ mine</span> — the only place a magic tick can be 0 (a slower burn, never immunity).</p>
+
+<h2>2 · Who resists how much</h2>
+<p>Your order, highest to lowest:</p>
+<div class="ladder">
+  <span>Demons<small>level 4</small></span><span>Mummies<small>level 4</small></span><span>Vampires<small>3</small></span><span>Nagas<small>2</small></span><span>Orcs<small>1</small></span><span>Zombies<small>0</small></span>
+</div>
+<p>Then by class inside each race: the castle soldier and the tier-3 unit get the race's level, the boss gets <span class="mono">6 + 2 × level</span>. <span class="mine">⚠ All numbers mine until you rule.</span></p>
+<div class="tablewrap"><table>
+<tr><th>race</th><th class="n">castle soldier</th><th>tier-3 unit</th><th>tier-9 boss</th></tr>
+<tr><td>Demons</td><td class="n">4</td><td>Souleater 4</td><td>Archdemon <b>14</b> <span style="color:var(--mute)">(DEF 8)</span></td></tr>
+<tr><td>Mummies</td><td class="n">4</td><td>Scarab 4</td><td>Pharaoh <b>14</b> <span style="color:var(--mute)">(DEF 16)</span></td></tr>
+<tr><td>Vampires</td><td class="n">3</td><td>Bat 3 · Bat Swarm 3</td><td>Vlad <b>12</b> <span style="color:var(--mute)">(DEF 8)</span></td></tr>
+<tr><td>Nagas</td><td class="n">2</td><td>Piranha 2 · Elite 2</td><td>Kraken <b>10</b> <span style="color:var(--mute)">(DEF 12)</span></td></tr>
+<tr><td>Orcs</td><td class="n">1</td><td>Raider 1</td><td>Warlord <b>8</b> <span style="color:var(--mute)">(DEF 12)</span></td></tr>
+<tr><td>Zombies</td><td class="n">0</td><td>Hound 0</td><td>Zombie boss <b>6</b> <span style="color:var(--mute)">(DEF 10)</span></td></tr>
+</table></div>
+<p><b>Everyone else</b> — the six goblins, chewers, drones, the Voltkin, Helga, direwolves, locusts — gets <b>MRES = their own DEF</b>, so magic hits them exactly like today. A goblin is the same goblin for every race.</p>
+
+<h3>What it does in a fight</h3>
+<div class="tablewrap"><table>
+<tr><th>unit</th><th class="n">health vs physical</th><th class="n">health vs magic</th><th class="n">Pharaoh's 300 column</th><th class="n">Voltkin bolt 33</th><th class="n">2%/s burn, time to die</th></tr>
+<tr><td>Zombie soldier</td><td class="n">6</td><td class="n">5</td><td class="n">360</td><td class="n">39</td><td class="n">42 s</td></tr>
+<tr><td>Demon soldier</td><td class="n">6</td><td class="n">9</td><td class="n">200</td><td class="n">22</td><td class="n">75 s</td></tr>
+<tr><td>Vlad</td><td class="n">260</td><td class="n">340</td><td class="n">229 <span class="ok">survives</span></td><td class="n">25</td><td class="n">65 s</td></tr>
+<tr><td>Archdemon</td><td class="n">260</td><td class="n">380</td><td class="n">205 <span class="ok">survives</span></td><td class="n">22</td><td class="n">73 s</td></tr>
+<tr><td>Kraken</td><td class="n">408</td><td class="n">360</td><td class="n">340</td><td class="n">37</td><td class="n">44 s</td></tr>
+<tr><td>Pharaoh</td><td class="n">462</td><td class="n">418</td><td class="n">331</td><td class="n">36</td><td class="n">45 s</td></tr>
+<tr><td>Zombie boss</td><td class="n">360</td><td class="n">264</td><td class="n">409 <span class="bad">dies</span></td><td class="n">45</td><td class="n">37 s</td></tr>
+<tr><td>Warlord</td><td class="n">374</td><td class="n">286</td><td class="n">392 <span class="bad">dies</span></td><td class="n">43</td><td class="n">38 s</td></tr>
+</table></div>
+<p>⚠ Worth seeing before you rule: the Pharaoh's own ritual column flips — it now kills the zombie boss and the Warlord, and no longer kills Vlad or the Archdemon. Your Ra <i>perk</i> is 35 split now, so it moves only a few points either way.</p>
+
+<h2>3 · Which attacks are magic</h2>
+<p>Every damage call in the game was listed by search, not from memory — 29 call sites.</p>
+<div class="cards">
+  <div class="card"><span class="tag m">MAGIC</span><p><b>Power of Ra / Wrath of Ra</b> — the area and the connector cut<br><b>The Pharaoh's Ra ritual column</b><br><b>Zombie boss rot</b><br><b>Scorched Ground</b> (and Scorched Earth when it lands)<br><b>Stink tower aura</b><br><b>Voltkin chain lightning</b> — every hop<br>The Voltkin's own zap <span class="mine">⚠ mine</span><br>The landed stink-bag cloud <span class="mine">⚠ mine</span></p></div>
+  <div class="card"><span class="tag p">PHYSICAL</span><p>Every unit swing (on units, Helga, shapes, bags, the keep, connectors) · the castle gun · the laser · Helga's slap · a player's raid · the suicide goblin · the lightning drone · stink bags, their burst and the tower's death blast · the hub blast and zombie death blast when they land</p></div>
+  <div class="card"><b>Not damage at all</b><p>The Archdemon's execute, the Kraken's sonar stun, Vlad's sap heal, the lightning hub's raze.</p></div>
+</div>
+
+<h2>4 · Questions for you</h2>
+<div class="q"><span class="id">Q1</span> · <b>Does a DEF upgrade pick also protect against magic?</b><br>It already does: a DEF pick never changed the DEF number — it adds 10% to the health bar, and magic uses the same bar. <span class="rec">Recommend: keep it.</span></div>
+<div class="q"><span class="id">Q2</span> · <b>The castle's magic resistance</b> — <span class="rec">✅ ruled: its own MRES button</span> (section 0).</div>
+<div class="q"><span class="id">Q3</span> · <b>Should an ATK upgrade pick boost magic?</b><br><span class="rec">Recommend: no — keep your R190-E</span> (upgrade picks buff physical only). ⚠ The catch: the Voltkin's attack is upgraded today. If its lightning is magic, your rule takes the upgrade off it. Not changed until you say so.</div>
+<div class="q"><span class="id">Q4</span> · <b>A future magic-resistance upgrade card?</b><br><span class="rec">Recommend: yes, later</span>, once you've played with it.</div>
+<div class="q"><span class="id">Q5</span> · <b>Shared units</b> — <span class="rec">✅ ruled: MRES = their DEF.</span></div>
+<div class="q"><span class="id">Q6</span> · <b>Is the Voltkin's first zap magic too, or only the chain hops?</b><br><span class="rec">Recommend: all of it is magic</span> — it's the same lightning.</div>
+<div class="q"><span class="id">Q7</span> · <b>The stink cloud</b> — <span class="rec">✅ ruled: magic.</span></div>
+<div class="q"><span class="id">Q8</span> · <b>Elite Piranha and Bat Swarm multiply "every stat" — magic resistance too?</b><br><span class="rec">Recommend: no, keep the base unit's</span>. Multiplied, the Swarm would be nearly immune to magic (a 230-second burn).</div>
+<div class="q"><span class="id">Q9</span> · <b>Castle soldiers were "the same for every race forever"</b> — your new rule gives them magic resistance by race.<br><span class="rec">Recommend: follow the new rule</span> (by race). One number puts them back.</div>
+
+<h2>5 · Multiplayer</h2>
+<p>Magic resistance for units is worked out from the unit's type (and, for castle soldiers, the owner's race, which is already sent). The new castle MRES button and its level do go over the network, and both sides must run the same rule. So this needs a <b>protocol version bump when it merges</b>: an old build can't play a new one. The RESIST pop-up is worked out on each screen and sends nothing.</p>
+
+<footer>Spec file: <span class="mono">.claude/plans/S192_MAGIC_SPEC.md</span> · branch <span class="mono">s192/magic</span> · the rule is yours (R192-M1…M7); every number marked ⚠ mine waits for your word.</footer>
+</div>
+</body>
+</html>

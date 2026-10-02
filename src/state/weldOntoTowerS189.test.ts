@@ -1254,7 +1254,7 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
 
   function killHelga(w: World): void {
     const h = helgaOf(w)!;
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null), 'the blow kills').toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null, 'physical'), 'the blow kills').toBe(true);
     const after = helgaOf(w)!;
     expect(after.state, 'she is dead — DORMANT, her hall keeps its record').toBe('DORMANT');
     expect(after.ehp, 'no pool: nothing can target, raid or damage her').toBeNull();
@@ -1366,7 +1366,7 @@ describe('⭐⭐ R190-J — a welded HELGA hall brings her back every fight; a b
         // The same kill on both sims, at the same tick.
         for (const world of [w, rig.worker]) {
           const h = [...world.defenders.values()].find((d) => d.kind === 'princess')!;
-          damageEntity(world, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+          damageEntity(world, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null, 'physical');
         }
         killed = true;
         w.phaseEndsAtTick = w.tick + 20;
@@ -1692,7 +1692,7 @@ describe('⭐ S189 C2 audit W-FR2 — R190-J for a BUILD death: revived at the B
     const h = helga(w)!;
     const full = h.ehp!;
     // A raid finishes her during BUILD (the raid reducer's own damage path).
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, full, 'player', null)).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, full, 'player', null, 'physical')).toBe(true);
     expect(helga(w)?.state).toBe('DORMANT');
     tick(w, st, PAST_TWO_POLLS);
     expect(helga(w)?.state, 'still down for the rest of BUILD').toBe('DORMANT');
@@ -1707,7 +1707,7 @@ describe('⭐ S189 C2 audit W-FR2 — R190-J for a BUILD death: revived at the B
     hallAt(w, st);
     crossPhase(w, st); // -> FIGHT
     const h = helga(w)!;
-    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null, 'physical');
     tick(w, st, PAST_TWO_POLLS);
     expect(helga(w)?.state, 'down for the rest of the fight she died in').toBe('DORMANT');
     crossPhase(w, st); // -> BUILD
@@ -1734,7 +1734,7 @@ describe('S189 C2 audit W-FR3 — a dormant Helga is not the hall\u2019s emplace
       characterSheetModel(w, P0, { kind: 'structure', primitiveId: hub.id })!.stats.map((r) => r.label);
     expect(labels(), 'the control: alive, the hall lists her strike').toContain('ATK');
     const h = [...w.defenders.values()][0]!;
-    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null, 'physical');
     expect([...w.defenders.values()][0]!.state).toBe('DORMANT');
     expect(labels(), 'dormant: no emplacement row').not.toContain('ATK');
   });

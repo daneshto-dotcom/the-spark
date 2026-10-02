@@ -214,6 +214,9 @@ describe('⛔ …and the three strikes that live outside it', () => {
   it('the VOLTKIN CHAIN — every link is halved from the Voltkin’s OWN strike', () => {
     const r = both((picks) => {
       const w = baseWorld();
+      // ⭐ S192 — the chain is MAGIC (R192-M2), so the hop lands × (5+DEF)/(5+MRES). This test pins the
+      // DRAFT, not MRES: an orcs soldier's MRES (1) equals its DEF (1), so the factor is exactly 1.
+      (w.players.get(P1)! as { raceId: RaceId }).raceId = 'orcs';
       const v = attacker(w, 'voltkin', picks, -100, 0);
       const [pa, pb] = [enemyPrim(w, 1, 0, 0), enemyPrim(w, 2, 80, 0)];
       const b1 = bondBetween(w, 1, pa, pb);
