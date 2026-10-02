@@ -27,9 +27,12 @@ import { isConcealed } from './concealment.ts';
 import type { World } from '../state/world.ts';
 import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
-import { TURRET_WINDUP_RINGS } from '../constants.ts';
+import { DEFENDER_FIRE_HOLD_TICKS, TURRET_WINDUP_RINGS } from '../constants.ts';
 import { playLaserSFX } from './audioManager.ts';
 import { rampMuzzleAt, rampSpecFor } from './structureRamp.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxHash, fxSeed } from './fx/emitter.ts';
+import { LASER_STYLE, boltGlowFx, lightningFlicker, lightningSparksFx, type FxPath } from './fx/lightningFx.ts';
 
 // ── pencil palette ──
 const GRAPHITE = 0x2e2f36;
@@ -121,7 +124,13 @@ export class TurretRenderer {
 
       this.drawTurret(g, ox, oy, charge, firing, aim, nowSec);
       if (firing && d.lastStrikePos !== null) {
-        this.drawBeam(g, ox, oy, d.lastStrikePos.x, d.lastStrikePos.y, nowSec);
+        // ⭐ S193 (V07) — the rebuilt beam (`fx/lightningFx.ts`), keyed to the synced FIRE window
+        // (`ticksInState`) and `world.tick`; the S103 strokes stay the `?fx=legacy` path.
+        if (fxActive()) {
+          drawTurretBeamFx(g, ox, oy, d.lastStrikePos.x, d.lastStrikePos.y, d.id as unknown as number, d.ticksInState, world.tick);
+        } else {
+          this.drawBeam(g, ox, oy, d.lastStrikePos.x, d.lastStrikePos.y, nowSec);
+        }
       }
     }
 
@@ -189,4 +198,56 @@ export class TurretRenderer {
     this.graphics.clear();
     this.lastState.clear();
   }
+}
+
+/** The beam's sample count along its curve. */
+const BEAM_FX_SAMPLES = 8;
+
+/**
+ * PURE — the beam's curve, sampled: a quadratic from the muzzle to the strike whose midpoint is
+ * pushed off the line by a jitter that steps every 2 ticks (`fxHash` of the defender's seed and the
+ * tick — the S103 wall-clock `sin(nowSec × 40)` is the legacy path only). @internal for the test.
+ */
+export function turretBeamPath(seed: number, x0: number, y0: number, x1: number, y1: number, tick: number): FxPath {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const jit = (fxHash(seed, Math.floor(tick / 2), 0xbea) * 2 - 1) * 4;
+  const mx = (x0 + x1) / 2 + nx * jit, my = (y0 + y1) / 2 + ny * jit;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i <= BEAM_FX_SAMPLES; i++) {
+    const t = i / BEAM_FX_SAMPLES;
+    const u = 1 - t;
+    xs.push(u * u * x0 + 2 * u * t * mx + t * t * x1);
+    ys.push(u * u * y0 + 2 * u * t * my + t * t * y1);
+  }
+  return { xs, ys };
+}
+
+/**
+ * ⭐ S193 (V07) — THE LASER, LIT. Drawn twice: an additive red glow and a hot orange sheath on the
+ * bloomed fx layer, then a red body and a thin white core stroked here. A muzzle flash and an impact
+ * spark burst, both aged by the FIRE window (`ticksInState` over `DEFENDER_FIRE_HOLD_TICKS`, a synced
+ * field), and a flicker keyed to `world.tick`. Seeded by the defender id.
+ */
+function drawTurretBeamFx(
+  g: Graphics, x0: number, y0: number, x1: number, y1: number, id: number, ticksInState: number, tick: number,
+): void {
+  const seed = fxSeed(id, 0x1a5e);
+  const t = Math.max(0, Math.min(0.999, ticksInState / DEFENDER_FIRE_HOLD_TICKS));
+  const fade = 1 - 0.55 * t;
+  const a = fade * lightningFlicker(seed, tick);
+  const path = turretBeamPath(seed, x0, y0, x1, y1, tick);
+  const top = fxTop();
+  boltGlowFx(top, path, LASER_STYLE, a);
+  const fireSeed = seed ^ Math.imul(tick - ticksInState, 0x2c1b3c6d); // one burst per shot
+  lightningSparksFx(top, x0, y0, fireSeed, t, 4, 14, LASER_STYLE.sheath);
+  lightningSparksFx(top, x1, y1, fireSeed ^ 0x77, t, 9, 30, LASER_STYLE.sheath);
+  g.moveTo(path.xs[0]!, path.ys[0]!);
+  for (let i = 1; i < path.xs.length; i++) g.lineTo(path.xs[i]!, path.ys[i]!);
+  g.stroke({ color: BEAM_EDGE, width: 4.5, alpha: 0.85 * a, cap: 'round', join: 'round' });
+  g.moveTo(path.xs[0]!, path.ys[0]!);
+  for (let i = 1; i < path.xs.length; i++) g.lineTo(path.xs[i]!, path.ys[i]!);
+  g.stroke({ color: 0xffffff, width: 2, alpha: 0.95 * a, cap: 'round', join: 'round' });
 }

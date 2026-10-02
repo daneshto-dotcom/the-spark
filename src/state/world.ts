@@ -151,6 +151,8 @@ import {
 } from './defenders/defenderLifecycle.ts';
 import { applyBuildBlueprint, type BuildBlueprintAction } from './blueprintBuild.ts';
 import { applyFeedTower, type FeedTowerAction } from './goblinTowerFeed.ts';
+// ⭐ S193 (T4) — the goblin tower's auto-build toggles: the SET_AUTO_FEED reducer.
+import { applySetAutoFeed, type SetAutoFeedAction } from './goblinAutoFeed.ts';
 import {
   applyRepairStructure,
   applyScrapStructure,
@@ -387,6 +389,8 @@ export type GameAction =
   // S144 P1 — click-to-build: stamps a recipe's real geometry from banked shapes.
   | BuildBlueprintAction
   | FeedTowerAction
+  // ⭐ S193 (owner T4) — set one auto-build toggle on the seat's own goblin tower. A CLIENT INTENT.
+  | SetAutoFeedAction
   // S152 (R13/R19/R21) — the attrition economy. FIX re-mints exactly the shapes a structure lost;
   // SCRAP tears it down and returns exactly the shapes still standing. Both are CLIENT INTENTs (a
   // joiner repairs and scraps its own towers), both are BUILD-stage-only through the shared
@@ -473,6 +477,7 @@ export function makeWorld(rngSeed: number): World {
     stinkClouds: new Map(),
     nextStinkCloudId: 0,
     fouledPrimitives: new Set(),
+    goblinAutoFeedMemory: new Map(), // ⭐ S193 T4 — empty at world birth
     // S88 G3a — in-match combo-discovery set (the magic combos); empty at world birth.
     discoveredCombos: new Set(),
     // S42 — race-condition observability (real-time 1v1) + local-player
@@ -1004,6 +1009,11 @@ function dispatchReducer(world: World, action: GameAction): World {
     // and every gate returns before the shape is debited (see the reducer's atomicity note).
     case 'FEED_TOWER':
       return applyFeedTower(world, action);
+
+    // ⭐ S193 (owner T4) — the auto-build toggle. A client INTENT, host-authoritative, no-op-never-
+    // throw; the FEEDS it causes are dispatched by `runGoblinAutoFeed` as ordinary FEED_TOWERs.
+    case 'SET_AUTO_FEED':
+      return applySetAutoFeed(world, action);
 
     // S152 — FIX / SCRAP. Same posture as BUILD_BLUEPRINT above: client INTENTs, host-authoritative,
     // no-op-never-throw. R19 (BUILD-stage only) is enforced inside, through the shared `canBuildNow`

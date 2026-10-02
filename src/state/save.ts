@@ -80,7 +80,7 @@ import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 // S158 P6 — landed stink bags ride the snapshot; the factory keeps rehydration total.
 import { makeStinkCloud, type StinkCloud } from './defenders/stinkCloud.ts';
-import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
+import { AUTO_FEED_ALL_MASK, AUTO_FEED_SHAPE_COUNT, makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
 import {
   makeDefender,
   type Defender,
@@ -310,6 +310,12 @@ export interface WorldSnapshot {
   /** S158 P6 — landed stink bags. Additive-optional: omitted when empty (byte-identical pre-S158). */
   stinkClouds?: SerializedStinkCloud[];
   fouledPrimitives?: PrimitiveId[];
+  /**
+   * ⭐ S193 (owner T4) — remembered goblin-tower toggles keyed by anchor (`World.goblinAutoFeedMemory`).
+   * HOST-ONLY: disk + worker INIT; stripped from the wire by `netSnapshot` (a client never registers a
+   * spawner). Emitted only when non-empty, sorted by anchor.
+   */
+  goblinAutoFeedMemory?: Array<{ anchor: PrimitiveId; owner: PlayerId; mask: number; cursor: number }>;
   /**
    * S87 — seats occupied by AI bots in 'bots' mode. Additive-optional
    * (creature precedent; NO schemaVersion bump): emitted only when non-empty,
@@ -978,6 +984,9 @@ interface SerializedSpawner {
    * Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
    */
   readonly ownBondIdLimit?: number;
+  /** ⭐ S193 (T4) — the auto-build toggles + round-robin cursor. RIDE THE WIRE; emitted only when ≠ 0. */
+  readonly autoFeedMask?: number;
+  readonly autoFeedCursor?: number;
 }
 
 /**
@@ -1292,6 +1301,12 @@ export function snapshot(
         ? [...world.stinkClouds.values()].map(serializeStinkCloud)
         : undefined,
     fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
+    // ⭐ S193 T4 — host-only (stripped in `netSnapshot`); absent when empty, so every other save is unchanged.
+    goblinAutoFeedMemory: world.goblinAutoFeedMemory.size > 0
+      ? [...world.goblinAutoFeedMemory.entries()]
+          .sort((a, b) => Number(a[0]) - Number(b[0]))
+          .map(([anchor, m]) => ({ anchor, owner: m.owner, mask: m.mask, cursor: m.cursor }))
+      : undefined,
     // S87 — emit bot seats only when present (byte-identical pre-S87 + on the wire,
     // where bots can never exist).
     botSeats: world.botSeats.size > 0 ? [...world.botSeats].map((p) => p as number) : undefined,
@@ -1339,6 +1354,16 @@ export function restore(snap: WorldSnapshot, world: World): void {
   world.rngSeed = snap.rngSeed;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+  // ⭐ S193 T4 — host-only remembered toggles (disk + worker INIT). Sanitised like the spawner fields.
+  world.goblinAutoFeedMemory.clear();
+  for (const m of snap.goblinAutoFeedMemory ?? []) {
+    const cursor = m.cursor | 0;
+    world.goblinAutoFeedMemory.set(m.anchor, {
+      owner: m.owner,
+      mask: (m.mask | 0) & AUTO_FEED_ALL_MASK,
+      cursor: cursor >= 0 && cursor < AUTO_FEED_SHAPE_COUNT ? cursor : 0,
+    });
+  }
   // Audit Pass 1 fix 3c8630d7 + Pass 2 refactor 622a7c7f: see import comment.
   // world.tick was just set by applySnapshotCore to the persisted value, which
   // may be lower than the audio cursor's prior maximum. Reset so audio effects
@@ -1356,6 +1381,8 @@ export type NetSnapshot = Omit<
   // S82 P2 — 'spawner' joins the host-only omission list (rngSeed precedent: the spawner
   // stream words are the spawn schedule — never ship them to clients).
   'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'
+  // ⭐ S193 T4 — remembered goblin-tower toggles are host-only (a client never registers a spawner).
+  | 'goblinAutoFeedMemory'
 >;
 
 /**
@@ -1372,9 +1399,10 @@ export function netSnapshot(world: World): NetSnapshot {
     // S82 P2 — defense-in-depth: snapshot(world) without opts never emits 'spawner',
     // but if a future call path ever does, the destructure still strips it off the wire.
     spawner: _spawner,
+    goblinAutoFeedMemory: _goblinAutoFeedMemory, // ⭐ S193 T4 — host-only
     ...rest
   } = full;
-  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
+  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner; void _goblinAutoFeedMemory;
   // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
   // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3).
   // ⚠ AMENDED S134 — the stripped set is now `targetCreatureId` ONLY. `hp`/`chewProgress`/
@@ -2467,6 +2495,9 @@ function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
     ignitedAtTick: sp.ignitedAtTick,
     // S189 C2 — identity, emitted when known (additive-optional).
     ...(sp.ownBondIdLimit != null ? { ownBondIdLimit: sp.ownBondIdLimit } : {}),
+    // ⭐ S193 (T4) — emitted only when set, so every untoggled tower stays byte-identical.
+    ...(sp.autoFeedMask ? { autoFeedMask: sp.autoFeedMask } : {}),
+    ...(sp.autoFeedCursor ? { autoFeedCursor: sp.autoFeedCursor } : {}),
   };
 }
 
@@ -2485,6 +2516,10 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
     recipeId: s.recipeId,
     // ⭐ S189 C2 — KEPT on the wire: it is identity, not a clock (see SerializedSpawner).
     ...(s.ownBondIdLimit !== undefined ? { ownBondIdLimit: s.ownBondIdLimit } : {}),
+    // ⭐ S193 (T4) — KEPT on the wire: the client draws the lit toggle off the mask, and the cursor
+    // rides with it so a promoted host keeps the round-robin (Council G1).
+    ...(s.autoFeedMask !== undefined ? { autoFeedMask: s.autoFeedMask } : {}),
+    ...(s.autoFeedCursor !== undefined ? { autoFeedCursor: s.autoFeedCursor } : {}),
   };
 }
 
@@ -2515,6 +2550,13 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
   // Restore them when the payload carried them, so an authority handoff is lossless.
   if (s.lastValidatedTick !== undefined) sp.lastValidatedTick = s.lastValidatedTick;
   if (s.spawnedCount !== undefined) sp.spawnedCount = s.spawnedCount;
+  // ⭐ S193 (T4) — sanitised, never trusted: six bits and a cursor in 0..5, so a malformed peer
+  // payload cannot mint a seventh shape or an out-of-range cursor.
+  if (s.autoFeedMask !== undefined) sp.autoFeedMask = (s.autoFeedMask | 0) & AUTO_FEED_ALL_MASK;
+  if (s.autoFeedCursor !== undefined) {
+    const c = s.autoFeedCursor | 0;
+    sp.autoFeedCursor = c >= 0 && c < AUTO_FEED_SHAPE_COUNT ? c : 0;
+  }
   return sp;
 }
 

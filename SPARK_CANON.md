@@ -801,6 +801,30 @@ transient: never serialized, never hashed (`'acknowledged'` in `FIELD_COVERAGE`)
 
 ---
 
+## 3g · ⭐ THE GOBLIN TOWER AUTO-BUILD TOGGLES (S193, owner T4)
+
+> *"right click each of the six shapes that build … the goblins … it's like a toggle … whenever there's
+> a free shape, it builds … those goblins."* — owner, S192 playtest list T4
+
+**Right-click a shape on your own goblin tower's card to toggle auto-build for that goblin kind**
+(Square → shield, Spiral → bat, the `GOBLIN_FEED_MAP` row). Several at once. A lit toggle wears a
+green ring and a corner pip, dimmed chip or not. Whenever the tower has a free slot (10, or 20 under
+THE HORDE GROWS) and the bank holds a toggled shape, the tower builds that goblin by itself — **by
+sending an ordinary `FEED_TOWER`**, so it pays exactly what a click pays and every feed gate applies.
+
+- **HIS:** the right-click, the toggle, several at once, "free slot + shape in the bank".
+- **MINE (⚠, at the constants):** a toggled tower looks every `AUTO_FEED_POLL_TICKS` = **6** ticks
+  (0.1 s), one goblin per look; several toggles take turns in shape order from a saved cursor; the
+  goblin tower only (a race tower's chip plays the refused cue); a right-click with something in hand
+  puts it back instead; bots do not use it.
+- **ONE BITE DOES NOT WIPE IT:** a toggled tower that falls with its anchor standing is remembered by
+  that anchor (`World.goblinAutoFeedMemory`, host-only, hashed); FIX re-ignites it there with its
+  toggles back. A tower whose anchor is destroyed, or rebuilt elsewhere, starts OFF.
+- The toggle is the client intent `SET_AUTO_FEED` (a SET, not a flip). Benched: the toggle is allowed,
+  the feeds wait. Eliminated: refused. The endgame build lock: allowed.
+
+---
+
 ## 3c · ⭐⭐ THE QUARRY — ONE SHARED FAUCET, AND IT STEPS UP AT THE SAME FOUR WAVES (S186)
 
 > *"Every wave the primitives need to be spawned quicker and quicker. So far it does that but not

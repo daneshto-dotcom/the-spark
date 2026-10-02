@@ -36,7 +36,7 @@
 // entry bundle. The concrete BotManager is INJECTED by the caller: simWorker.ts (worker
 // chunk, static import — S123 P1) and the differential/unit tests construct it themselves.
 import type { BotManager } from '../bots/botManager.ts';
-import type { BotDifficulty } from '../bots/botTypes.ts';
+import type { BotDifficulty, BotPersonalityChoice } from '../bots/botTypes.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner, type SpawnerConfig } from '../game/spawner.ts';
 import type { GameEffect } from '../game/effects.ts';
 import {
@@ -93,6 +93,12 @@ export interface WorkerInitMsg {
    * paths (fallback repair, migration takeover) can never skew the bot streams.
    */
   readonly botMatchSeed?: number;
+  /**
+   * ⭐ S193 (owner R193-AI) — one lobby personality choice per bot seat, same indexing as
+   * `botDifficulties`. Absent ⇒ every bot BALANCED (the pre-S193 bot). RANDOM entries are resolved by
+   * the BotManager from `(botMatchSeed, seat)`, so the worker resolves exactly what main resolved.
+   */
+  readonly botPersonalities?: readonly BotPersonalityChoice[];
 }
 
 export interface WorkerTickBatchMsg {
@@ -194,7 +200,11 @@ export interface WorkerSim {
  */
 export function makeWorkerSim(
   init: WorkerInitMsg,
-  makeBotManager?: (difficulties: readonly BotDifficulty[], matchSeed: number) => BotManager,
+  makeBotManager?: (
+    difficulties: readonly BotDifficulty[],
+    matchSeed: number,
+    personalities: readonly BotPersonalityChoice[],
+  ) => BotManager,
 ): WorkerSim {
   const world = makeWorld(1);
   const snap = JSON.parse(init.saveJson) as WorldSnapshot;
@@ -251,7 +261,7 @@ export function makeWorkerSim(
     init.botDifficulties !== undefined &&
     init.botDifficulties.length > 0 &&
     makeBotManager !== undefined
-      ? makeBotManager(init.botDifficulties, init.botMatchSeed ?? world.rngSeed)
+      ? makeBotManager(init.botDifficulties, init.botMatchSeed ?? world.rngSeed, init.botPersonalities ?? [])
       : null;
   const sim: WorkerSim = {
     world,

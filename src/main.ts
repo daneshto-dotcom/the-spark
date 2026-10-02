@@ -55,7 +55,7 @@ import {
 import type { BotSetupOverlay } from './render/botSetupOverlay.ts';
 import { installProbeHarness } from './dev/probeHarness.ts';
 import type { BotManager } from './bots/botManager.ts';
-import type { BotDifficulty } from './bots/botTypes.ts';
+import type { BotDifficulty, BotPersonalityChoice } from './bots/botTypes.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from './game/spawner.ts';
 import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls.ts';
 // S50 P2 — NetTransport / HostSync / ClientSync / generateRoomCode no longer
@@ -568,6 +568,8 @@ async function bootstrap(): Promise<void> {
   let workerBotInit: {
     difficulties: readonly BotDifficulty[];
     matchSeed: number;
+    /** ⭐ S193 — the lobby's personality choices (RANDOM unresolved; both managers resolve it alike). */
+    personalities: readonly BotPersonalityChoice[];
   } | null = null;
   const workerSimActive = (): boolean =>
     simWorkerDriver !== null && !simWorkerDriver.failed;
@@ -1285,6 +1287,20 @@ async function bootstrap(): Promise<void> {
   });
 
   controls.setSheetActionHandler((action, primitiveId) => {
+    // ⭐ S193 (owner T4) — a right-click on a goblin-tower feed chip: set its auto-build toggle. The
+    // spawner comes off the CARD for the FEED reason below; `on` is computed by `controls` (a SET).
+    if (action.kind === 'AUTO_FEED') {
+      const spawnerId = characterSheet.actionFeedSpawnerId();
+      if (spawnerId === null || action.on === undefined) return;
+      dispatchFn({
+        type: 'SET_AUTO_FEED',
+        playerId: world.localPlayerId,
+        spawnerId,
+        sparkType: action.sparkType as SparkType,
+        on: action.on,
+      });
+      return;
+    }
     if (action.kind === 'FEED') {
       const spawnerId = characterSheet.actionFeedSpawnerId();
       if (spawnerId === null) return; // unreachable: the row cannot draw without one
@@ -1688,7 +1704,7 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (difficulties, races) => {
+          onStart: (difficulties, races, personalities) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
@@ -1712,10 +1728,11 @@ async function bootstrap(): Promise<void> {
               // seeds the bot AI streams from the same draw, so both the shapes you get and the bots'
               // play vary each match (was the fixed boot SEED → identical every time).
               const matchSeed = reseedForNewMatch();
-              botManager = new mod.BotManager(difficulties, matchSeed);
+              botManager = new mod.BotManager(difficulties, matchSeed, personalities);
               // S123 P1 — capture the exact ctor inputs for the sim worker's INIT
               // (fresh-from-seed reconstruction at adoption; Council S123 design (A)).
-              workerBotInit = { difficulties: [...difficulties], matchSeed };
+              // ⭐ S193 — the personalities are a ctor input too, so they ride along.
+              workerBotInit = { difficulties: [...difficulties], matchSeed, personalities: [...personalities] };
               botSetupOverlay?.setVisible(false);
               dispatch(world, {
                 type: 'START_GAME',
@@ -3067,6 +3084,8 @@ Network routes: ${v.detail}`;
         // S152 — drop the FIX/SCRAP popover on title-return, together with its selection.
         // S180 — and the character sheet with it, or a card floats over the title screen.
         characterSheet.clear();
+        // ⭐ S193 T4 — and any auto-build toggle still waiting on a snapshot, so none outlives its match.
+        controls.clearAutoFeedPending();
         // S100 P1 — drop the spawner-zone aura on title-return.
         spawnerZoneRenderer.clear();
         // ⭐ S192 — and every pooled fx sprite and ground ripple with it.
@@ -3145,6 +3164,7 @@ Network routes: ${v.detail}`;
             ? {
                 botDifficulties: workerBotInit.difficulties,
                 botMatchSeed: workerBotInit.matchSeed,
+                botPersonalities: workerBotInit.personalities,
               }
             : {}),
         });

@@ -42,7 +42,10 @@ ctx.onmessage = (e: MessageEvent): void => {
   if (msg === null || typeof msg !== 'object') return;
   if (msg.type === 'INIT') {
     try {
-      sim = makeWorkerSim(msg, (difficulties, matchSeed) => new BotManager(difficulties, matchSeed));
+      sim = makeWorkerSim(
+        msg,
+        (difficulties, matchSeed, personalities) => new BotManager(difficulties, matchSeed, personalities),
+      );
       ctx.postMessage({ type: 'READY', tick: sim.world.tick });
     } catch (err) {
       console.error('[simWorker] INIT failed:', err instanceof Error ? err.message : String(err));

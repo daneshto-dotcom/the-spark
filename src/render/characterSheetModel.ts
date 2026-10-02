@@ -999,6 +999,8 @@ export function feedCaptionMaxWidthPx(): number {
 export interface SheetActionSlot {
   readonly kind: string;
   readonly sparkType?: number;
+  /** ⭐ S193 (T4) — a goblin tower chip's auto-build toggle; `undefined` = not toggleable. */
+  readonly autoFeed?: boolean;
   readonly label: string;
   readonly caption: string;
   readonly enabled: boolean;

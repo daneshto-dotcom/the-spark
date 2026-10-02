@@ -117,6 +117,7 @@ export function applyGodlyAbort(world: World): World {
   // accruing income in a dead session (inline clear mirrors the creatures.clear() above,
   // keeping godlyActions.ts free of a runtime teardownSpawners import).
   world.creatureSpawners.clear();
+  world.goblinAutoFeedMemory.clear(); // ⭐ S193 T4
   world.nextSpawnerId = 0;
   // S103 P2 — cascade-clear defenders alongside creatures/spawners on peer-drop / abort (inline,
   // keeping godlyActions.ts free of a runtime teardownDefenders import — mirrors the lines above).

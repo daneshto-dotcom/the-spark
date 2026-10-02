@@ -85,6 +85,9 @@ export const RESIST_FILL = 0xb4b4b4;
 export const RESIST_MIN_GAP_TICKS = PHYSICS_HZ;
 /** The longest tick window one frame scans (a joiner's tick jumps ~6 between snapshots). */
 const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
+// ⭐ S193 (V08) — the big-hit shake and the heal sparkle live in `fx/floaterFx.ts` (the pop below is untouched).
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -336,7 +339,14 @@ interface Floater {
   x: number;
   y: number;
   drift: number;
+  /** ⭐ S193 (V08) — what `fx/floaterFx.ts` needs: the amount (big hits shake), heal or not, a seed. */
+  amount: number;
+  heal: boolean;
+  seed: number;
 }
+
+/** S193 (V08) — the shake's reused out-parameter (no allocation per floater per frame). */
+const SHAKE_OUT = { dx: 0, dy: 0 };
 
 /**
  * ⚠ THE FONT MUST BE LOADED BEFORE THE FIRST `Text` IS RASTERISED, or Pixi bakes a fallback glyph
@@ -951,12 +961,16 @@ export class DamageNumbers {
     this.flip = -this.flip;
     // ⭐ S192 T12 — a heal rises straight up (no fling), so his pulses read as one column above him.
     const drift = kind === 'heal' ? 0 : this.flip * DRIFT_PX;
-    this.live.push({ text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift });
+    this.live.push({
+      text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift,
+      amount, heal: kind === 'heal', seed: floaterSeed(x, y, amount), // S193 (V08)
+    });
     this.layer.addChild(t);
     if (this.live.length > MAX_LIVE) this.retire(0);
   }
 
   private advance(): void {
+    const fx = fxActive();
     for (let i = this.live.length - 1; i >= 0; i--) {
       const f = this.live[i]!;
       f.age++;
@@ -969,6 +983,13 @@ export class DamageNumbers {
       f.text.y = f.y - RISE_PX_TOTAL * p; // constant velocity — MapleStory's shape, not an ease
       f.text.alpha =
         f.age <= OPAQUE_FRAMES ? 1 : 1 - (f.age - OPAQUE_FRAMES) / (LIFE_FRAMES - OPAQUE_FRAMES);
+      if (fx) {
+        // ⭐ S193 (V08) — ON TOP of the shipped animation: a big hit judders ±2 px, a heal sparkles.
+        const sh = floaterShake(SHAKE_OUT, f.age, f.amount, f.heal, f.seed);
+        f.text.x += sh.dx;
+        f.text.y += sh.dy;
+        if (f.heal) healSparkleFx(fxTop(), f.text.x, f.text.y, f.age, LIFE_FRAMES, f.text.alpha, f.seed);
+      }
       // The pop: 0.5 → 2.0 → 1.0 across the first sixth, then hold at 1.
       const k = f.age / POP_FRAMES;
       f.text.scale.set(k >= 1 ? 1 : k < 0.5 ? 0.5 + 3 * k : 2 - 2 * (k - 0.5));

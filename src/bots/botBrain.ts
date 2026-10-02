@@ -35,6 +35,8 @@ import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
+// ⭐ S193 audit HIGH — the endgame build lock (BUILD of wave 27 on) refuses PLACE/PULL/BUILD_BLUEPRINT.
+import { isBuildLocked } from '../state/endgame.ts';
 /*
  * ⭐ S155 P7 (owner) — THE FOG APPLIES TO BOTS NOW. Owner: *"not fair if bots see evcerything"*.
  * `vision.ts` was hardcoded to `world.localPlayerId` and consumed only by the renderer, so the fog
@@ -55,8 +57,17 @@ import {
 // S189 C2 (audit W3) — a raid aims at the tower's OWN connectors, never at a weld.
 import { towerMembersAt } from '../state/towerMembers.ts';
 import type { World } from '../state/world.ts';
-import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, Vec2 } from '../types.ts';
+import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, SpawnerId, Vec2 } from '../types.ts';
 import type { BotConfig } from './botConfig.ts';
+// ⭐ S193 (owner R193-AI) — personality knobs; a config without `persona` is the pre-S193 bot.
+import {
+  IDENTITY_KNOBS,
+  IMBA_ADAPT_WINDOW_TICKS,
+  orderRungsByPersonality,
+  type PersonalityKnobs,
+} from './botPersonality.ts';
+import { fedCreatureType } from '../state/goblinTowerFeed.ts';
+import { underGoblinCaps } from '../state/creatures/creatureLifecycle.ts';
 
 /** Margin kept from canvas edges for any chosen point. */
 const EDGE_MARGIN = 50;
@@ -96,8 +107,9 @@ const FLEE_HOP = 320;
  */
 const BOT_MAX_GATHERERS = 2;
 
-const SAVE_CYCLE_TICKS = 3_600;
-const SAVE_HOLD_TICKS = 1_800;
+export const SAVE_CYCLE_TICKS = 3_600;
+/** S193 — exported so `botPersonality.test.ts` can pin `IDENTITY_KNOBS.saveHoldTicks` to it. */
+export const SAVE_HOLD_TICKS = 1_800;
 
 const CHEWER_AVOID_RADIUS = 140;
 const CHEWER_AVOID_RADIUS_SQ = CHEWER_AVOID_RADIUS * CHEWER_AVOID_RADIUS;
@@ -143,6 +155,12 @@ export type BotGoal =
    * reuses the FLEE-shaped ERRAND actuation, carries no verb, and touches nothing on arrival.
    */
   | { readonly kind: 'SCOUT'; readonly pos: Vec2 }
+  /**
+   * ⭐ S193 (owner §10 Q4 + R193-AI) — FEED one banked shape to one of my own feedable towers. A castle
+   * command like PULL: no travel. `FEED_TOWER` is the SAME allowlisted intent the structure popover's
+   * FEED row sends for a human, dispatched locally, so it costs no protocol change.
+   */
+  | { readonly kind: 'FEED'; readonly spawnerId: SpawnerId; readonly sparkType: SparkType }
   | { readonly kind: 'REST' };
 
 /** ⭐ S154 P3 — the tower a bot has decided to build, and where. */
@@ -286,13 +304,32 @@ export function ownedBlueprintIds(world: World, seat: PlayerId): ReadonlySet<God
   return owned;
 }
 
+/** ⭐ S193 — the knobs a config carries, or the pre-S193 identity when it carries none. */
+export function personaOf(cfg: BotConfig): PersonalityKnobs {
+  return cfg.persona ?? IDENTITY_KNOBS;
+}
+
+/**
+ * ⭐ S193 (owner R193-AI) — the rungs this seat may climb, IN THE ORDER ITS PERSONALITY CLIMBS THEM.
+ *
+ * The SET is the tier's (`seatTowerRungs` sliced at `towerTiers`, unchanged — a personality never
+ * reaches a rung its tier cannot); only the ORDER is the personality's. With no persona, or an empty
+ * order, this is exactly the pre-S193 cheapest-first list. Pure, no rng.
+ */
+export function personaRungs(world: World, seat: PlayerId, cfg: BotConfig): readonly GodlyId[] {
+  const rungs = seatTowerRungs(world, seat).slice(0, cfg.towerTiers);
+  return orderRungsByPersonality(rungs, personaOf(cfg).towerOrder);
+}
+
 export function chooseTargetBlueprint(world: World, seat: PlayerId, cfg: BotConfig): GodlyId | null {
   if (!cfg.buildsTowers) return null;
-  const rungs = seatTowerRungs(world, seat).slice(0, cfg.towerTiers);
+  const rungs = personaRungs(world, seat, cfg);
   if (rungs.length === 0) return null;
   const owned = ownedBlueprintIds(world, seat);
   for (const id of rungs) if (!owned.has(id)) return id;
-  return rungs[rungs.length - 1]!; // every rung raised — build another of the best one it can climb
+  // Every rung raised — build another. Pre-S193 (and `repeatTower: 'last'`): the last rung, which in
+  // cost order is the best one it can climb. ⭐ S193 `'first'`: the personality's favourite.
+  return personaOf(cfg).repeatTower === 'first' ? rungs[0]! : rungs[rungs.length - 1]!;
 }
 
 export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): TowerPlan | null {
@@ -319,10 +356,19 @@ export function chooseTowerPlan(world: World, seat: PlayerId, cfg: BotConfig): T
    * substitute. Collapsing them into one condition restores first-affordable-wins.
    */
   const targetAffordable = planBlueprintPayment(world, seat, target) !== null;
+  /*
+   * ⭐ S193 — ESCAPE 3, owner §10 Q6: *"hard would wait, imba would adapt to build what he can before the
+   * build phase ends"*. In the last `IMBA_ADAPT_WINDOW_TICKS` of BUILD an `adaptsAtBell` (IMBA) bot whose
+   * target is unaffordable may take any affordable rung instead of saving through the bell. The TARGET
+   * does not move — next BUILD it is still the first unowned rung in the personality's order, so Q4's
+   * goblin tower is still pursued first (Council S193, Grok G1). HARD never adapts: it waits, as ruled.
+   */
+  const atBell =
+    personaOf(cfg).adaptsAtBell && world.phaseEndsAtTick - world.tick <= IMBA_ADAPT_WINDOW_TICKS;
   const candidates: GodlyId[] = [];
   if (targetAffordable) candidates.push(target);
-  if (targetAffordable || !hasStampedStructure(world, seat)) {
-    for (const id of seatTowerRungs(world, seat).slice(0, cfg.towerTiers)) {
+  if (targetAffordable || !hasStampedStructure(world, seat) || atBell) {
+    for (const id of personaRungs(world, seat, cfg)) {
       if (id !== target) candidates.push(id);
     }
   }
@@ -513,7 +559,10 @@ export function chooseGoal(
   // draw exactly ONE rng value in the same position, or every seeded replay, the worker-sim
   // differential and botController's same-seed test all diverge.
   if (cfg.canSever && me.raidPoints >= 1 && rng() < cfg.severChance) {
-    const rung = ladderTargetSeat(world, seat);
+    // ⭐ S193 — WHO is raided is the personality's, between the owner's two S156 options ("the leader OR
+    // the nearest enemy whose score sits closest above"). Read AFTER the one rng draw above, and it draws
+    // none itself, so the draw order — and Q2's rate — is identical for every personality.
+    const rung = raidTargetSeat(world, seat, cfg);
     const target =
       (rung === null ? null : nearestEnemySpawnerBond(world, seat, me.avatarPos, vision, rung)) ??
       (rung === null ? null : nearestEnemyBond(world, seat, me.avatarPos, vision, rung)) ??
@@ -586,13 +635,28 @@ export function chooseGoal(
   // shift every downstream number and break all of them. `chooseTowerPlan` and `chooseTowerOrder` are
   // both pure functions of world state in canonical order — the `ALL_SPARK_TYPES.find` idiom
   // botController.ts:196 already uses for exactly this reason.
-  const tower = chooseTowerPlan(world, seat, cfg);
+  /*
+   * ⛔ S193 audit HIGH (live on deploy #20) — UNDER THE ENDGAME BUILD LOCK NOTHING CAN BE BUILT, so the
+   * TOWER branch and the whole loose-BUILD block (BUILD / ORDER / PULL) are skipped. Before this, a bot
+   * stood still proposing placements the reducer refused (~9.8k `endgameBuildLocked` rejects per 60 s
+   * across three bots) and never reached the FEED the owner allowed: *"they can build more goblins"*.
+   */
+  const buildLocked = isBuildLocked(world);
+  const tower = buildLocked ? null : chooseTowerPlan(world, seat, cfg);
   if (tower !== null) return { kind: 'TOWER', blueprintId: tower.blueprintId, centre: tower.centre };
+
+  // ⭐ 6c — S193 (owner §10 Q4): *"build goblin tower first and then buy goblins with leftover shapes"*.
+  // Below TOWER (a full bill raises the tower, never feeds it away), above the loose BUILD (a leftover
+  // shape becomes a unit before it becomes a loose shape). Pure and rng-free; `feed: 'never'` returns
+  // before reading anything, which is what keeps BALANCED below IMBA byte-identical to pre-S193 — UNTIL the
+  // endgame lock (wave 27), where every personality feeds and the BUILD block (and its rng draws) is skipped.
+  const feed = chooseFeed(world, seat, cfg);
+  if (feed !== null) return { kind: 'FEED', spawnerId: feed.spawnerId, sparkType: feed.sparkType };
 
   // 7 — BUILD: the bread and butter. Idle-only: claiming while Carrying
   // throws carry-1 (the controller self-heals that state before thinking,
   // but the brain must never PROPOSE it).
-  if (buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
+  if (!buildLocked && buildReady && me.kind === 'Idle' && me.carriedPotatoId === undefined) {
     /*
      * ⛔ S154 AMENDMENT A — THE SAVE IS NOT HERE, AND THE REASON IS A MEASUREMENT.
      *
@@ -680,7 +744,9 @@ export function chooseGoal(
       // phase accident. A bot that OPENS the match standing still reads as broken, and the opening is
       // exactly when the player is watching it. So it plays for the first half of every cycle and
       // saves in the second.
-      world.tick % SAVE_CYCLE_TICKS >= SAVE_HOLD_TICKS;
+      // ⭐ S193 — the HOLD's length is the personality's (`saveHoldTicks`; 1800 = pre-S193, so the
+      // threshold below is exactly `SAVE_HOLD_TICKS` for the identity). Integer ticks, no float.
+      world.tick % SAVE_CYCLE_TICKS >= SAVE_CYCLE_TICKS - personaOf(cfg).saveHoldTicks;
     const sparkId = savingForTower
       ? null
       : pickTargetSpark(world, me.avatarPos, cfg, rng, me.id, heldForBill);
@@ -891,6 +957,95 @@ export function isLegalBuildPos(pos: Vec2, seat: PlayerId, world: World): boolea
   // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). A bot that used the
   // old bubble would happily walk into another player's half and have every placement refused.
   return canBuildNow(world, pos, seat);
+}
+
+/**
+ * ⭐ S193 (owner §10 Q4 + R193-AI) — which shape to FEED to which of my towers, or null.
+ *
+ * - `never` → null, before touching the world.
+ * - `leftovers` → a banked shape beyond the TARGET tower's full bill (Q4's *"leftover shapes"*). The
+ *   reserve is the whole bill, not the shortfall: during FIGHT a tower cannot be stamped, so an
+ *   affordable bill would otherwise read as "all leftovers" and be fed away before the next BUILD.
+ * - `eager` → as `leftovers` in BUILD; in FIGHT (no tower can be stamped) every banked shape.
+ *
+ * Total order: my feedable spawners by id ascending, shapes in `ALL_SPARK_TYPES` order. Mirrors the
+ * reducer's gates (`applyFeedTower`): the tower is mine, its anchor stands, the shape is one it eats
+ * (`fedCreatureType`, the panel's and the reducer's ONE rule), I hold it, and `underGoblinCaps` allows
+ * the birth — so a proposed feed is a feed that lands. Pure, no rng.
+ */
+export function chooseFeed(
+  world: World,
+  seat: PlayerId,
+  cfg: BotConfig,
+): { spawnerId: SpawnerId; sparkType: SparkType } | null {
+  const policy = personaOf(cfg).feed;
+  /*
+   * ⭐ S193 audit HIGH — UNDER THE ENDGAME BUILD LOCK EVERY BOT FEEDS AND RESERVES NOTHING. No tower can
+   * be stamped again, so a bill reserve would hoard shapes forever; FEED_TOWER is allowed by the lock
+   * (owner: *"they can build more goblins"*). ⚠ MINE: this includes `feed: 'never'` personalities —
+   * the shapes have no other use left, and a bot sitting on a full bank through waves 27–31 is the
+   * passivity the owner keeps reporting.
+   */
+  const locked = isBuildLocked(world);
+  if (policy === 'never' && !locked) return null;
+  const reserveNothing = locked || (policy === 'eager' && world.matchPhase === 'FIGHT');
+  const target = reserveNothing ? null : chooseTargetBlueprint(world, seat, cfg);
+  const reserve = target === null ? null : blueprintBill(target);
+
+  const mine: SpawnerId[] = [];
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.ownerPlayerId === seat) mine.push(sp.id);
+  }
+  mine.sort((a, b) => (a as unknown as number) - (b as unknown as number));
+  for (const id of mine) {
+    const sp = world.creatureSpawners.get(id)!;
+    if (!world.primitives.has(sp.anchorPrimitiveId)) continue;
+    let capsChecked = false;
+    for (const t of ALL_SPARK_TYPES) {
+      if (fedCreatureType(sp.recipeId, t) === null) continue;
+      const spare = bankCountOf(world.castleBanks, seat, t) - (reserve?.get(t) ?? 0);
+      if (spare <= 0) continue;
+      if (!capsChecked) {
+        if (!underGoblinCaps(world, id)) break; // this tower is full — try the next one
+        capsChecked = true;
+      }
+      return { spawnerId: id, sparkType: t };
+    }
+  }
+  return null;
+}
+
+/**
+ * ⭐ S193 (owner S156 + R193-AI) — the seat a raid aims at: `ladderTargetSeat` (one rung up — the S156
+ * default) or `leaderTargetSeat`, by personality. Both are the owner's words; Q2's rate is untouched.
+ */
+export function raidTargetSeat(world: World, seat: PlayerId, cfg: BotConfig): PlayerId | null {
+  return personaOf(cfg).raidTarget === 'leader'
+    ? leaderTargetSeat(world, seat)
+    : ladderTargetSeat(world, seat);
+}
+
+/**
+ * ⭐ S193 — the top-scoring enemy, or null on a flat board (every enemy level with me is no leader, and
+ * the caller keeps the pre-S156 nearest-enemy fallback exactly as the ladder does). Ties keep the first
+ * in `world.players` insertion order — the `leaderPlayerId` / ladder convention, so the HUD crown and a
+ * Saboteur never disagree about who leads. Pure, no rng.
+ */
+export function leaderTargetSeat(world: World, seat: PlayerId): PlayerId | null {
+  const myScore = world.scoreByPlayer.get(seat) ?? 0;
+  let best: PlayerId | null = null;
+  let bestScore = -Infinity;
+  let flat = true;
+  for (const player of world.players.values()) {
+    if (player.id === seat) continue;
+    const score = world.scoreByPlayer.get(player.id) ?? 0;
+    if (score !== myScore) flat = false;
+    if (score > bestScore) {
+      bestScore = score;
+      best = player.id;
+    }
+  }
+  return flat ? null : best;
 }
 
 /**
