@@ -1,110 +1,71 @@
 /**
  * SPARK — ⭐ S191 THE END-OF-MATCH STAT BOARD (the Pixi view). It draws `matchBoardModel` and decides nothing.
+ * ⭐ S194 v2 — PAGES. Owner, S194: *"Maybe different types of graphs, maybe more interactive ones, maybe more
+ * coherent ones … it seems like you just posted two of the same graphs there … Give you different pages that
+ * you can go per player, like in Dota."*
  *
- * Owner, S191: *"how many units were built, how many units were killed of each type … the graphs showing like
- * all the players and how much they have built and like compared to each other."*
+ *   OVERVIEW  — the table (place, survival marker, one badge it LEADS, the numbers) + the SCORE RACE lines.
+ *   GRAPHS    — four charts in four FORMS, because they answer four questions: damage IN each wave (grouped
+ *               bars), what each seat has standing (stacked area — its share of the board), kills IN each wave
+ *               (stacked bars), and WHO HIT WHOM (a heatmap).
+ *   P1 … Pn   — one page per seat: KPI tiles, its units raised / lost / killed by type (with portraits when
+ *               the board's atlases are loaded), damage dealt and taken split UNITS / STRUCTURES / KEEP, who it
+ *               hit and who hit it, and a per-wave ledger (dealt up, taken down).
  *
- * ## The three rules it lives by
+ * Hover any chart for a crosshair tooltip listing every seat at that wave; click a tab or an overview row;
+ * ← / → / Tab switch pages. CONTINUE or R is still the only way out, and still waits `ARM_MS`.
  *
- * - **No show()/hide().** `render(world, nowMs)` runs every frame and visibility is `model !== null` — the
- *   `arcadeRunOverlay` convention. POSTGAME has five exits (click, R, the exit button, a peer drop, lobby
- *   Back); an overlay you have to remember to hide eventually sticks on one of them.
- * - **⛔ It owns the exit.** `main.ts` used to reset the match on ANY canvas click in POSTGAME, which made a
- *   stat board unreadable by construction. The scrim swallows the board, `main.ts` ignores canvas clicks
- *   while `isShowing()`, and only CONTINUE (primary button) or R leaves — both refused until the board has
- *   been up `ARM_MS`, so a click still in flight from the last fight cannot skip it.
+ * ## The three rules it lives by (S191, unchanged)
+ *
+ * - **No show()/hide().** `render(world, nowMs)` runs every frame and visibility is `model !== null`.
+ * - **⛔ It owns the exit.** `main.ts` ignores canvas clicks while `isShowing()`; only CONTINUE (primary
+ *   button) or R leaves — both refused until the board has been up `ARM_MS`.
  * - **No zIndex.** Its place is its staging line in `main.ts` (canon §7b, S189 C1).
  *
- * Geometry lives in ONE place, `matchBoardLayout`, which both the draw and the hit test read — the
- * `castlePanel.ts:661` lesson (a layout kept in three places put every e2e click on empty canvas).
+ * Geometry lives in ONE place, `matchBoardLayout.ts`, which the draw, the hover (`matchBoardTips.ts`) and the
+ * click all read. Drawing is a pure function of (model, tab, hover, armed, pointer) — it redraws only when
+ * that key changes, so an idle board costs one string compare a frame.
  */
 
-import { Container, Graphics, Text, TextStyle, type FederatedPointerEvent } from 'pixi.js';
+import {
+  Container, Graphics, Sprite, Text, TextStyle, type FederatedPointerEvent, type Texture,
+} from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+import type { CreatureType } from '../state/creatures/creature.ts';
+import type { RaceId } from '../state/races.ts';
 import type { World } from '../state/worldTypes.ts';
-import { groupThousands, matchBoardModel, type BoardGraph, type BoardRow, type MatchBoardModel } from './matchBoardModel.ts';
+import {
+  CONTENT, CONTINUE_RECT, GRAPHS_SLOTS, OV_COLUMNS, PANEL, PP_LINE_H, graphsLayout, matrixCells,
+  overviewLayout, playerLayout, plotRect, pointX, tabAt, tabIndex, tabRects, unitLinesThatFit,
+  type BoardTab, type OvColumnKey, type Rect,
+} from './matchBoardLayout.ts';
+import {
+  groupThousands, matchBoardModel, type BoardGraph, type BoardRow, type BoardSeries, type MatchBoardModel,
+} from './matchBoardModel.ts';
+import { softTexture } from './fx/softTextures.ts';
+import { hoverAt, sameTarget, tooltipFor, type HoverTarget } from './matchBoardTips.ts';
 
 /** ⚠ MINE — how long the board is up before CONTINUE / R may leave it. A fight's last click cannot skip it. */
 export const ARM_MS = 1200;
 
+/** Re-exported for the S191 tests and any caller that hit-tests the old way. */
+export { CONTINUE_RECT } from './matchBoardLayout.ts';
+
 const INK = 0xf2efe6;
 const DIM = 0x7d8596;
+const FAINT = 0x4a5264;
 const PLATE = 0x10131c;
+const CARD = 0x0b0e16;
 const EDGE = 0xd8b45a;
 const AXIS = 0x3a4050;
+const GOOD = 0x6fd08a;
+const BAD = 0xe2684a;
+/** The three things damage lands on, always in this order and these colours. */
+const SPLIT_COLORS = { units: 0x6fb7e8, structures: 0xd8b45a, keep: 0xe2684a } as const;
 const FONT = ['Kanit', 'Impact', 'sans-serif'];
 
-export interface Rect { readonly x: number; readonly y: number; readonly w: number; readonly h: number }
-
-/** The table's columns: key, header, left edge (panel-relative), width, numeric (right-aligned + bar). */
-const COLUMNS = [
-  { key: 'place', head: 'PLACE', x: 30, w: 80, num: false },
-  { key: 'player', head: 'PLAYER', x: 120, w: 360, num: false },
-  { key: 'score', head: 'SCORE', x: 490, w: 150, num: true },
-  { key: 'units', head: 'UNITS', x: 650, w: 130, num: true },
-  { key: 'kills', head: 'KILLS', x: 790, w: 130, num: true },
-  { key: 'towers', head: 'TOWERS', x: 930, w: 140, num: true },
-  { key: 'dealt', head: 'DEALT', x: 1080, w: 220, num: true },
-  { key: 'taken', head: 'TAKEN', x: 1310, w: 220, num: true },
-] as const;
-
-const PANEL: Rect = { x: 160, y: 60, w: 1600, h: 960 };
-const ROW_H = 46;
-const TABLE_TOP = 150;
-
-/** THE single source of the board's geometry, for any row count. Absolute canvas pixels. */
-export function matchBoardLayout(rowCount: number): {
-  panel: Rect; rows: Rect[]; breakdown: Rect; graphs: [Rect, Rect]; cont: Rect;
-} {
-  const rows: Rect[] = [];
-  for (let i = 0; i < rowCount; i++) {
-    rows.push({ x: PANEL.x + 20, y: PANEL.y + TABLE_TOP + 40 + i * ROW_H, w: PANEL.w - 40, h: ROW_H - 4 });
-  }
-  const tableEnd = PANEL.y + TABLE_TOP + 40 + Math.max(1, rowCount) * ROW_H;
-  const gy = tableEnd + 90;
-  const gh = PANEL.y + PANEL.h - 100 - gy;
-  const gw = (PANEL.w - 60) / 2;
-  return {
-    panel: PANEL,
-    rows,
-    breakdown: { x: PANEL.x + 30, y: tableEnd + 8, w: PANEL.w - 60, h: 70 },
-    graphs: [
-      { x: PANEL.x + 20, y: gy, w: gw, h: gh },
-      { x: PANEL.x + 40 + gw, y: gy, w: gw, h: gh },
-    ],
-    cont: { x: PANEL.x + PANEL.w - 270, y: PANEL.y + PANEL.h - 76, w: 240, h: 54 },
-  };
-}
-
-const inRect = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
-
-function cellText(row: BoardRow, key: (typeof COLUMNS)[number]['key']): string {
-  switch (key) {
-    case 'place': return row.placeLabel;
-    case 'player': {
-      const out = row.out ? (row.outOnWave !== null ? `  OUT W${row.outOnWave}` : '  OUT') : '';
-      return `${row.isWinner ? '★ ' : ''}${row.label} ${row.race}${row.isLocal ? '  YOU' : ''}${out}`;
-    }
-    case 'score': return groupThousands(row.score);
-    case 'units': return groupThousands(row.units);
-    case 'kills': return groupThousands(row.kills);
-    case 'towers': return `${row.towersBuilt} / ${row.towersFell}`;
-    case 'dealt': return groupThousands(row.dealt);
-    case 'taken': return groupThousands(row.taken);
-  }
-}
-
-function cellValue(row: BoardRow, key: (typeof COLUMNS)[number]['key']): number {
-  switch (key) {
-    case 'score': return row.score;
-    case 'units': return row.units;
-    case 'kills': return row.kills;
-    case 'towers': return row.towersBuilt;
-    case 'dealt': return row.dealt;
-    case 'taken': return row.taken;
-    default: return 0;
-  }
-}
+/** Looks up a creature portrait (an idle frame) — injected by `main.ts` so this chunk imports no renderer. */
+export type BoardPortraitSource = (type: CreatureType, race: RaceId | null) => Texture | null;
 
 /** A tiny Text pool: the board redraws only when its content changes, and reuses every Text it made. */
 class TextPool {
@@ -126,37 +87,90 @@ class TextPool {
     t.style.fill = fill;
     t.style.fontWeight = weight;
     t.anchor.set(0, 0);
+    t.alpha = 1;
     return t;
   }
   hideRest(): void { for (let i = this.used; i < this.items.length; i++) this.items[i]!.visible = false; }
 }
 
+/** The same for the unit portraits. */
+class SpritePool {
+  private readonly items: Sprite[] = [];
+  private used = 0;
+  constructor(private readonly parent: Container) {}
+  reset(): void { this.used = 0; }
+  take(tex: Texture, cx: number, cy: number, box: number): Sprite {
+    let s = this.items[this.used];
+    if (s === undefined) {
+      s = new Sprite();
+      s.anchor.set(0.5, 0.5);
+      this.items.push(s);
+      this.parent.addChild(s);
+    }
+    this.used += 1;
+    s.visible = true;
+    s.texture = tex;
+    const k = box / Math.max(1, tex.width, tex.height);
+    s.scale.set(k, k);
+    s.position.set(cx, cy);
+    return s;
+  }
+  hideRest(): void { for (let i = this.used; i < this.items.length; i++) this.items[i]!.visible = false; }
+}
+
+const mix = (c: number, alpha: number): { color: number; alpha: number } => ({ color: c, alpha });
+
+/** The cumulative stack tops of `series` at wave `i`, bottom first (placing order). */
+function stackAt(series: readonly BoardSeries[], i: number): number[] {
+  const out: number[] = [];
+  let t = 0;
+  for (const s of series) {
+    t += s.values[i] ?? 0;
+    out.push(t);
+  }
+  return out;
+}
+
 export class MatchBoard {
   readonly container = new Container();
   private readonly g = new Graphics();
+  private readonly glowLayer = new Container();
+  private readonly iconLayer = new Container();
+  private readonly textLayer = new Container();
+  private readonly tipG = new Graphics();
+  private readonly tipLayer = new Container();
   private readonly texts: TextPool;
+  private readonly icons: SpritePool;
+  private readonly tipTexts: TextPool;
+  private glow: Sprite | null = null;
   private shownAtMs: number | null = null;
-  private hoverRow: number | null = null;
   private model: MatchBoardModel | null = null;
+  private modelJson = '';
+  private tab: BoardTab = { kind: 'overview' };
+  private hover: HoverTarget | null = null;
+  private pointer = { x: 0, y: 0 };
   private drawnKey = '';
+  private portraits: BoardPortraitSource | null = null;
 
   constructor(private readonly onContinue: () => void) {
     this.container.visible = false;
     this.container.eventMode = 'static';
-    this.container.addChild(this.g);
-    this.texts = new TextPool(this.container);
-    this.container.on('pointermove', (e: FederatedPointerEvent) => {
-      const rows = matchBoardLayout(this.model?.rows.length ?? 0).rows;
-      const i = rows.findIndex((r) => inRect(r, e.global.x, e.global.y));
-      this.hoverRow = i === -1 ? null : i;
-    });
+    this.container.addChild(this.g, this.glowLayer, this.iconLayer, this.textLayer, this.tipG, this.tipLayer);
+    this.texts = new TextPool(this.textLayer);
+    this.icons = new SpritePool(this.iconLayer);
+    this.tipTexts = new TextPool(this.tipLayer);
+    this.container.on('pointermove', (e: FederatedPointerEvent) => this.pointerMove(e.global.x, e.global.y));
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
       // ⛔ PRIMARY ONLY: right-click is the game's put-it-back / raid gesture (draftOverlay, S187).
-      if (e.button !== 0 || this.model === null) return;
-      if (inRect(matchBoardLayout(this.model.rows.length).cont, e.global.x, e.global.y) && this.isArmed(performance.now())) {
-        this.onContinue();
-      }
+      if (e.button !== 0) return;
+      this.click(e.global.x, e.global.y, performance.now());
     });
+  }
+
+  /** `main.ts` hands over the board renderers' portrait lookup; until it does (or while null) a chip is drawn. */
+  setPortraitSource(src: BoardPortraitSource | null): void {
+    this.portraits = src;
+    this.drawnKey = '';
   }
 
   /** Is the board up? `main.ts` swallows canvas clicks while it is. */
@@ -169,122 +183,680 @@ export class MatchBoard {
     return this.shownAtMs === null || nowMs - this.shownAtMs >= ARM_MS;
   }
 
+  /** The page on show (tests + DEV probe). */
+  currentTab(): BoardTab {
+    return this.tab;
+  }
+
+  /**
+   * ⭐ S194 — the board's keys, while it is up: → / Tab next page, ← / Shift+Tab previous. Returns true when it
+   * consumed the key (so `main.ts` can stop it reaching anything else). R is NOT consumed — it stays the exit.
+   */
+  handleKey(key: string, shift = false): boolean {
+    if (this.model === null) return false;
+    const count = 2 + this.model.rows.length;
+    const i = tabIndex(this.tab);
+    if (key === 'ArrowRight' || (key === 'Tab' && !shift)) {
+      this.setTab(tabAt((i + 1) % count));
+      return true;
+    }
+    if (key === 'ArrowLeft' || (key === 'Tab' && shift)) {
+      this.setTab(tabAt((i - 1 + count) % count));
+      return true;
+    }
+    return false;
+  }
+
+  /** A primary click at canvas (x, y): a tab, an overview row (→ that seat's page), or CONTINUE. */
+  click(x: number, y: number, nowMs: number): void {
+    const m = this.model;
+    if (m === null) return;
+    const h = hoverAt(m, this.tab, x, y);
+    if (h === null) return;
+    if (h.kind === 'continue') {
+      if (this.isArmed(nowMs)) this.onContinue();
+    } else if (h.kind === 'tab') {
+      this.setTab(tabAt(h.index));
+    } else if (h.kind === 'row') {
+      this.setTab({ kind: 'player', index: h.index });
+    }
+  }
+
+  private setTab(t: BoardTab): void {
+    this.tab = t;
+    this.hover = null;
+  }
+
+  private pointerMove(x: number, y: number): void {
+    this.pointer = { x, y };
+    const h = this.model === null ? null : hoverAt(this.model, this.tab, x, y);
+    if (!sameTarget(h, this.hover)) this.hover = h;
+  }
+
   /** Every frame, unconditionally. */
   render(world: World, nowMs: number): void {
     this.model = matchBoardModel(world);
     if (this.model === null) {
       this.shownAtMs = null;
-      this.hoverRow = null;
+      this.hover = null;
+      this.tab = { kind: 'overview' };
       this.container.visible = false;
       return;
     }
-    if (this.shownAtMs === null) this.shownAtMs = nowMs;
+    if (this.shownAtMs === null) {
+      this.shownAtMs = nowMs;
+      this.tab = { kind: 'overview' }; // every match opens on the overview
+    }
+    if (this.tab.kind === 'player' && this.tab.index >= this.model.rows.length) this.tab = { kind: 'overview' };
     this.container.visible = true;
     const armed = this.isArmed(nowMs);
-    const key = `${JSON.stringify(this.model)}|${this.hoverRow}|${armed}`;
+    this.modelJson = JSON.stringify(this.model);
+    // The pointer is in the key only while a tooltip follows it.
+    const tipAt = tooltipFor(this.model, this.tab, this.hover) === null ? '' : `${this.pointer.x},${this.pointer.y}`;
+    const iconsReady = this.portraits === null ? 0 : this.countPortraits(this.model);
+    const key = `${this.modelJson}|${JSON.stringify(this.tab)}|${JSON.stringify(this.hover)}|${armed}|${tipAt}|${iconsReady}`;
+    this.pulseGlow(nowMs);
     if (key === this.drawnKey) return;
     this.drawnKey = key;
     this.draw(this.model, armed);
   }
 
+  private countPortraits(m: MatchBoardModel): number {
+    let n = 0;
+    for (const r of m.rows) for (const l of r.unitLines) if (this.portraits?.(l.type, r.raceId) != null) n += 1;
+    return n;
+  }
+
+  /** The winner's glow breathes — the only per-frame work, an alpha on one sprite (fx substrate, `soft`). */
+  private pulseGlow(nowMs: number): void {
+    if (this.glow === null) return;
+    this.glow.alpha = 0.32 + 0.12 * Math.sin(nowMs / 520);
+  }
+
+  private ensureGlow(color: number): void {
+    if (this.glow === null) {
+      try {
+        // Browser-only (a canvas-built texture); in a unit test there is no document and the board simply
+        // has no glow.
+        if (typeof document === 'undefined') return;
+        const tex = softTexture('soft');
+        this.glow = new Sprite(tex);
+        this.glow.anchor.set(0.5, 0.5);
+        this.glow.blendMode = 'add';
+        this.glowLayer.addChild(this.glow);
+      } catch {
+        return;
+      }
+    }
+    this.glow.tint = color;
+    this.glow.position.set(PANEL.x + PANEL.w / 2, PANEL.y + 52);
+    this.glow.scale.set(14, 2.4);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────────────────────────
+  // DRAW
+  // ─────────────────────────────────────────────────────────────────────────────────────────────────
+
   private draw(m: MatchBoardModel, armed: boolean): void {
     const g = this.g;
-    const L = matchBoardLayout(m.rows.length);
     g.clear();
+    this.tipG.clear();
     this.texts.reset();
+    this.icons.reset();
+    this.tipTexts.reset();
+
     // The scrim swallows the board underneath; the plate carries everything.
-    g.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill({ color: 0x05060a, alpha: 0.78 });
-    g.roundRect(L.panel.x, L.panel.y, L.panel.w, L.panel.h, 14).fill({ color: PLATE, alpha: 0.97 });
-    g.roundRect(L.panel.x, L.panel.y, L.panel.w, L.panel.h, 14).stroke({ color: EDGE, width: 2, alpha: 0.9 });
+    g.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(mix(0x05060a, 0.8));
+    g.roundRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, 16).fill(mix(PLATE, 0.97));
+    g.roundRect(PANEL.x, PANEL.y, PANEL.w, PANEL.h, 16).stroke({ color: EDGE, width: 2, alpha: 0.9 });
+    // A band of the winner's colour along the top edge: the page is about them first.
+    g.roundRect(PANEL.x + 2, PANEL.y + 2, PANEL.w - 4, 8, 4).fill(mix(m.headlineColor, 0.85));
 
-    const head = this.texts.take(m.headline, 46, m.headlineColor);
+    this.ensureGlow(m.headlineColor);
+    const head = this.texts.take(`★  ${m.headline}  ★`, 46, m.headlineColor);
     head.anchor.set(0.5, 0);
-    head.position.set(L.panel.x + L.panel.w / 2, L.panel.y + 30);
+    head.position.set(PANEL.x + PANEL.w / 2, PANEL.y + 24);
+    const sub = this.texts.take(m.subline, 16, DIM, '400');
+    sub.anchor.set(0.5, 0);
+    sub.position.set(PANEL.x + PANEL.w / 2, PANEL.y + 80);
 
-    // ── the table ──
+    this.drawTabs(m);
+    if (this.tab.kind === 'overview') this.drawOverview(m);
+    else if (this.tab.kind === 'graphs') this.drawGraphsPage(m);
+    else this.drawPlayerPage(m, m.rows[this.tab.index]!);
+
+    // ── footer: the trust line, the keys, and the one way out ──
+    const note = m.noStats
+      ? 'this host sent no match stats (an older build) — places and scores only'
+      : 'every number is in the units that float off a unit  ·  ← → or TAB to change page  ·  hover a chart';
+    const n = this.texts.take(note, 15, DIM, '400');
+    n.position.set(PANEL.x + 30, CONTINUE_RECT.y + 18);
+    const c = CONTINUE_RECT;
+    const hot = this.hover?.kind === 'continue' && armed;
+    g.roundRect(c.x, c.y, c.w, c.h, 10).fill({ color: armed ? EDGE : AXIS, alpha: armed ? (hot ? 1 : 0.92) : 0.6 });
+    if (hot) g.roundRect(c.x - 3, c.y - 3, c.w + 6, c.h + 6, 12).stroke({ color: INK, width: 2, alpha: 0.8 });
+    const ct = this.texts.take('CONTINUE  (R)', 22, armed ? PLATE : DIM);
+    ct.anchor.set(0.5, 0.5);
+    ct.position.set(c.x + c.w / 2, c.y + c.h / 2);
+
+    this.drawTooltip(m);
+    this.texts.hideRest();
+    this.icons.hideRest();
+    this.tipTexts.hideRest();
+  }
+
+  private drawTabs(m: MatchBoardModel): void {
+    const g = this.g;
+    const rects = tabRects(m.rows.length);
+    const current = tabIndex(this.tab);
+    rects.forEach((r, i) => {
+      const row = i >= 2 ? m.rows[i - 2] : undefined;
+      const on = i === current;
+      const hot = this.hover?.kind === 'tab' && this.hover.index === i;
+      const accent = row?.color ?? EDGE;
+      g.roundRect(r.x, r.y, r.w, r.h, 9).fill(mix(on ? accent : CARD, on ? 0.28 : hot ? 0.95 : 0.85));
+      g.roundRect(r.x, r.y, r.w, r.h, 9).stroke({ color: on ? accent : hot ? INK : AXIS, width: on ? 2 : 1, alpha: 0.9 });
+      if (row !== undefined) g.rect(r.x + 10, r.y + 12, 6, r.h - 24).fill(mix(row.color, 1));
+      const label = i === 0 ? 'OVERVIEW' : i === 1 ? 'GRAPHS' : `${row!.label} ${row!.race}${row!.isLocal ? ' ·YOU' : ''}`;
+      const t = this.texts.take(label, r.w < 170 ? 15 : 18, on ? INK : row !== undefined ? row.color : DIM);
+      t.anchor.set(0.5, 0.5);
+      t.position.set(r.x + r.w / 2 + (row !== undefined ? 6 : 0), r.y + r.h / 2);
+      if (t.width > r.w - 28) t.scale.set((r.w - 28) / t.width);
+      else t.scale.set(1);
+    });
+  }
+
+  // ── OVERVIEW ─────────────────────────────────────────────────────────────────────────────────
+
+  private drawOverview(m: MatchBoardModel): void {
+    const g = this.g;
+    const L = overviewLayout(m.rows.length);
     const maxOf = new Map<string, number>();
-    for (const c of COLUMNS) if (c.num) maxOf.set(c.key, Math.max(1, ...m.rows.map((r) => cellValue(r, c.key))));
-    for (const c of COLUMNS) {
-      const t = this.texts.take(c.head, 16, DIM);
-      const x = L.panel.x + c.x + (c.num ? c.w : 0);
+    for (const c of OV_COLUMNS) if (c.num) maxOf.set(c.key, Math.max(1, ...m.rows.map((r) => ovValue(r, c.key))));
+    for (const c of OV_COLUMNS) {
+      const t = this.texts.take(c.head, 15, DIM);
       t.anchor.set(c.num ? 1 : 0, 0);
-      t.position.set(x, L.panel.y + TABLE_TOP + 8);
+      t.position.set(CONTENT.x + c.x + (c.num ? c.w - 6 : 0), CONTENT.y + 8);
     }
     m.rows.forEach((row, i) => {
       const r = L.rows[i]!;
-      if (i === this.hoverRow || (this.hoverRow === null && row.isLocal)) {
-        g.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0xffffff, alpha: 0.06 });
-      }
-      for (const c of COLUMNS) {
+      const hot = this.hover?.kind === 'row' && this.hover.index === i;
+      g.roundRect(r.x, r.y, r.w, r.h, 8).fill(mix(row.color, hot ? 0.16 : row.isLocal ? 0.09 : 0.04));
+      if (hot) g.roundRect(r.x, r.y, r.w, r.h, 8).stroke({ color: row.color, width: 2, alpha: 0.9 });
+      g.rect(r.x, r.y + 6, 5, r.h - 12).fill(mix(row.color, 1)); // the seat's colour, always on the edge
+      for (const c of OV_COLUMNS) {
+        const x0 = CONTENT.x + c.x;
         if (c.num) {
           // Bar-in-cell: each column reads as a tiny bar chart (S179 research — people scan a column).
-          const frac = cellValue(row, c.key) / maxOf.get(c.key)!;
-          if (frac > 0) g.rect(L.panel.x + c.x + c.w * (1 - frac), r.y + 6, c.w * frac, r.h - 12).fill({ color: row.color, alpha: 0.2 });
+          const frac = ovValue(row, c.key) / maxOf.get(c.key)!;
+          if (frac > 0) g.roundRect(x0 + c.w * (1 - frac), r.y + 8, c.w * frac, r.h - 16, 4).fill(mix(row.color, 0.22));
+          const t = this.texts.take(ovText(row, c.key), 23, row.color);
+          t.anchor.set(1, 0.5);
+          t.position.set(x0 + c.w - 6, r.y + r.h / 2);
+        } else if (c.key === 'place') {
+          const t = this.texts.take(row.placeLabel, 24, row.isWinner ? EDGE : INK);
+          t.anchor.set(0, 0.5);
+          t.position.set(x0, r.y + r.h / 2);
+        } else if (c.key === 'player') {
+          const name = this.texts.take(`${row.isWinner ? '★ ' : ''}${row.label}  ${row.race}${row.isLocal ? '   YOU' : ''}`, 22, row.color);
+          name.position.set(x0, r.y + 5);
+          const badge = this.texts.take(row.badge ?? ' ', 13, EDGE, '400');
+          badge.position.set(x0 + 2, r.y + 31);
+        } else if (c.key === 'status') {
+          const standing = !row.out;
+          g.roundRect(x0, r.y + 12, c.w - 10, r.h - 24, (r.h - 24) / 2).fill(mix(standing ? GOOD : BAD, 0.18));
+          g.roundRect(x0, r.y + 12, c.w - 10, r.h - 24, (r.h - 24) / 2).stroke({ color: standing ? GOOD : BAD, width: 1, alpha: 0.8 });
+          const t = this.texts.take(row.status, 14, standing ? GOOD : BAD);
+          t.anchor.set(0.5, 0.5);
+          t.position.set(x0 + (c.w - 10) / 2, r.y + r.h / 2);
         }
-        const t = this.texts.take(cellText(row, c.key), c.key === 'place' ? 22 : 24, c.num || c.key === 'player' ? row.color : INK);
-        t.anchor.set(c.num ? 1 : 0, 0.5);
-        t.position.set(L.panel.x + c.x + (c.num ? c.w - 6 : 0), r.y + r.h / 2);
       }
     });
-
-    // ── the per-type breakdown of the hovered (else your own, else the winner's) row ──
-    const focus = m.rows[this.hoverRow ?? -1] ?? m.rows.find((r) => r.isLocal) ?? m.rows[0];
-    if (focus !== undefined) {
-      const list = (xs: BoardRow['unitsByType']): string =>
-        xs.length === 0 ? '—' : xs.map((u) => `${u.name} ${groupThousands(u.count)}`).join(' · ');
-      const b1 = this.texts.take(`${focus.label}  UNITS BUILT   ${list(focus.unitsByType)}`, 17, focus.color, '400');
-      b1.position.set(L.breakdown.x, L.breakdown.y);
-      const b2 = this.texts.take(`${focus.label}  UNITS KILLED  ${list(focus.killsByType)}`, 17, focus.color, '400');
-      b2.position.set(L.breakdown.x, L.breakdown.y + 26);
-    }
-
-    // ── the two graphs ──
-    this.drawGraph(m.graphs[0], L.graphs[0]);
-    this.drawGraph(m.graphs[1], L.graphs[1]);
-
-    // ── footer: the trust line, and the one way out ──
-    const note = m.noStats
-      ? 'this host sent no match stats (an older build) — places and scores only'
-      : 'every number is in the same units that float off a unit · hover a row for its units';
-    const n = this.texts.take(note, 15, DIM, '400');
-    n.position.set(L.panel.x + 30, L.cont.y + 18);
-    g.roundRect(L.cont.x, L.cont.y, L.cont.w, L.cont.h, 10).fill({ color: armed ? EDGE : AXIS, alpha: armed ? 0.95 : 0.6 });
-    const ct = this.texts.take('CONTINUE  (R)', 22, armed ? PLATE : DIM);
-    ct.anchor.set(0.5, 0.5);
-    ct.position.set(L.cont.x + L.cont.w / 2, L.cont.y + L.cont.h / 2);
-    this.texts.hideRest();
+    this.drawChart(m.graphs.score, L.chart, 'score');
   }
 
-  private drawGraph(gr: BoardGraph, R: Rect): void {
+  // ── GRAPHS ───────────────────────────────────────────────────────────────────────────────────
+
+  private drawGraphsPage(m: MatchBoardModel): void {
+    const G = graphsLayout();
+    for (const slot of GRAPHS_SLOTS) {
+      if (slot === 'matrix') this.drawMatrix(m, G.matrix);
+      else this.drawChart(m.graphs[slot], G[slot], slot);
+    }
+  }
+
+  /** A chart frame: card, title, caption, axes, y labels. Returns the plot rect. */
+  private frame(R: Rect, title: string, caption: string, maxValue: number, legend: readonly BoardSeries[]): Rect {
     const g = this.g;
-    g.roundRect(R.x, R.y, R.w, R.h, 8).fill({ color: 0x0b0e16, alpha: 0.9 });
-    const title = this.texts.take(`${gr.title} PER WAVE`, 18, INK);
-    title.position.set(R.x + 14, R.y + 10);
-    const left = R.x + 64;
-    const right = R.x + R.w - 18;
-    const top = R.y + 44;
-    const bottom = R.y + R.h - 34;
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    g.roundRect(R.x, R.y, R.w, R.h, 10).stroke({ color: AXIS, width: 1, alpha: 0.8 });
+    const t = this.texts.take(title, 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    const c = this.texts.take(caption, 13, DIM, '400');
+    c.position.set(R.x + 16, R.y + 36);
+    // Legend chips, right-aligned on the title line.
+    let lx = R.x + R.w - 16;
+    for (let i = legend.length - 1; i >= 0; i--) {
+      const s = legend[i]!;
+      const lt = this.texts.take(s.label, 13, s.color);
+      lt.anchor.set(1, 0);
+      lt.position.set(lx, R.y + 14);
+      lx -= lt.width + 6;
+      g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(s.color, 1));
+      lx -= 26;
+    }
+    const P = plotRect(R);
     // ⛔ canon §7c C7: every path segment starts with moveTo, so no pen line joins two shapes.
-    g.moveTo(left, top).lineTo(left, bottom).lineTo(right, bottom).stroke({ color: AXIS, width: 2 });
-    const maxT = this.texts.take(groupThousands(gr.maxValue), 14, DIM, '400');
-    maxT.anchor.set(1, 0.5);
-    maxT.position.set(left - 8, top);
-    const n = gr.waves.length;
-    if (n === 0) return;
-    const xAt = (i: number): number => (n === 1 ? (left + right) / 2 : left + ((right - left) * i) / (n - 1));
-    const yAt = (v: number): number => bottom - ((bottom - top) * v) / gr.maxValue;
-    const step = Math.max(1, Math.ceil(n / 8));
-    gr.waves.forEach((w, i) => {
+    for (const f of [0.5, 1]) {
+      g.moveTo(P.x, P.y + P.h * (1 - f)).lineTo(P.x + P.w, P.y + P.h * (1 - f)).stroke({ color: FAINT, width: 1, alpha: 0.5 });
+    }
+    g.moveTo(P.x, P.y).lineTo(P.x, P.y + P.h).lineTo(P.x + P.w, P.y + P.h).stroke({ color: AXIS, width: 2 });
+    for (const [v, y] of [[maxValue, P.y], [Math.round(maxValue / 2), P.y + P.h / 2], [0, P.y + P.h]] as const) {
+      const yl = this.texts.take(groupThousands(v), 13, DIM, '400');
+      yl.anchor.set(1, 0.5);
+      yl.position.set(P.x - 8, y);
+    }
+    return P;
+  }
+
+  private waveLabels(P: Rect, waves: readonly number[], groups: boolean): void {
+    const n = waves.length;
+    const step = Math.max(1, Math.ceil(n / 10));
+    waves.forEach((w, i) => {
       if (i % step !== 0 && i !== n - 1) return;
-      const t = this.texts.take(`W${w}`, 13, DIM, '400');
+      const t = this.texts.take(`W${w}`, 12, DIM, '400');
       t.anchor.set(0.5, 0);
-      t.position.set(xAt(i), bottom + 6);
+      t.position.set(groups ? P.x + (P.w * (i + 0.5)) / n : pointX(P, n, i), P.y + P.h + 6);
     });
-    for (const s of gr.series) {
-      g.moveTo(xAt(0), yAt(s.values[0] ?? 0));
-      for (let i = 1; i < n; i++) g.lineTo(xAt(i), yAt(s.values[i] ?? 0));
-      g.stroke({ color: s.color, width: 3, alpha: 0.95 });
-      for (let i = 0; i < n; i++) g.circle(xAt(i), yAt(s.values[i] ?? 0), 4).fill({ color: s.color });
+  }
+
+  private hoveredWave(chart: string): number | null {
+    const h = this.hover;
+    return h !== null && h.kind === 'wave' && h.chart === chart ? h.index : null;
+  }
+
+  private drawChart(gr: BoardGraph, R: Rect, chart: 'score' | 'damage' | 'built' | 'kills'): void {
+    const g = this.g;
+    const P = this.frame(R, gr.title, gr.caption, gr.maxValue, gr.series);
+    const n = gr.waves.length;
+    if (n === 0) {
+      const t = this.texts.take('no wave has closed yet', 15, DIM, '400');
+      t.anchor.set(0.5, 0.5);
+      t.position.set(P.x + P.w / 2, P.y + P.h / 2);
+      return;
+    }
+    const hw = this.hoveredWave(chart);
+    const yAt = (v: number): number => P.y + P.h - (P.h * v) / gr.maxValue;
+    const groups = gr.form === 'bars' || gr.form === 'stackedBars';
+    this.waveLabels(P, gr.waves, groups);
+    const gw = P.w / n;
+    if (groups && hw !== null) g.rect(P.x + gw * hw, P.y, gw, P.h).fill(mix(INK, 0.06));
+
+    switch (gr.form) {
+      case 'lines': {
+        if (hw !== null) {
+          const x = pointX(P, n, hw);
+          g.moveTo(x, P.y).lineTo(x, P.y + P.h).stroke({ color: INK, width: 1, alpha: 0.45 });
+        }
+        for (const s of gr.series) {
+          if (n > 1) {
+            g.moveTo(pointX(P, n, 0), yAt(s.values[0] ?? 0));
+            for (let i = 1; i < n; i++) g.lineTo(pointX(P, n, i), yAt(s.values[i] ?? 0));
+            g.stroke({ color: s.color, width: 3, alpha: 0.95 });
+          }
+          for (let i = 0; i < n; i++) {
+            g.circle(pointX(P, n, i), yAt(s.values[i] ?? 0), i === hw ? 7 : 4).fill(mix(s.color, 1));
+          }
+          // The line's end carries its label, so a reader never has to map colours back to the legend.
+          const end = this.texts.take(s.label, 13, s.color);
+          end.anchor.set(1, 1);
+          end.position.set(pointX(P, n, n - 1) - 6, yAt(s.values[n - 1] ?? 0) - 6);
+        }
+        break;
+      }
+      case 'bars': {
+        const k = gr.series.length;
+        const bw = (gw * 0.78) / Math.max(1, k);
+        for (let i = 0; i < n; i++) {
+          gr.series.forEach((s, j) => {
+            const v = s.values[i] ?? 0;
+            if (v <= 0) return;
+            const x = P.x + gw * i + gw * 0.11 + bw * j;
+            g.rect(x, yAt(v), Math.max(1, bw - 1), P.y + P.h - yAt(v)).fill(mix(s.color, hw === null || hw === i ? 0.95 : 0.55));
+          });
+        }
+        break;
+      }
+      case 'stackedBars': {
+        for (let i = 0; i < n; i++) {
+          const tops = stackAt(gr.series, i);
+          let base = 0;
+          gr.series.forEach((s, j) => {
+            const top = tops[j]!;
+            if (top > base) {
+              g.rect(P.x + gw * i + gw * 0.15, yAt(top), gw * 0.7, yAt(base) - yAt(top))
+                .fill(mix(s.color, hw === null || hw === i ? 0.95 : 0.55));
+            }
+            base = top;
+          });
+        }
+        break;
+      }
+      case 'stackedArea': {
+        // Bottom-up bands; with one wave the band is a short plateau so it still reads as an area.
+        const xs = n === 1
+          ? [P.x + P.w / 2 - 30, P.x + P.w / 2 + 30]
+          : Array.from({ length: n }, (_, i) => pointX(P, n, i));
+        const at = (i: number): number => (n === 1 ? 0 : i);
+        const lower = xs.map(() => 0);
+        gr.series.forEach((s) => {
+          const upper = xs.map((_, i) => lower[i]! + (s.values[at(i)] ?? 0));
+          const pts: number[] = [];
+          xs.forEach((x, i) => pts.push(x, yAt(upper[i]!)));
+          for (let i = xs.length - 1; i >= 0; i--) pts.push(xs[i]!, yAt(lower[i]!));
+          if (upper.some((u, i) => u > lower[i]!)) {
+            g.poly(pts).fill(mix(s.color, 0.62));
+            g.moveTo(xs[0]!, yAt(upper[0]!));
+            for (let i = 1; i < xs.length; i++) g.lineTo(xs[i]!, yAt(upper[i]!));
+            g.stroke({ color: s.color, width: 2, alpha: 1 });
+          }
+          for (let i = 0; i < xs.length; i++) lower[i] = upper[i]!;
+        });
+        if (hw !== null) {
+          const x = n === 1 ? P.x + P.w / 2 : pointX(P, n, hw);
+          g.moveTo(x, P.y).lineTo(x, P.y + P.h).stroke({ color: INK, width: 1, alpha: 0.6 });
+        }
+        break;
+      }
     }
   }
+
+  private drawMatrix(m: MatchBoardModel, R: Rect): void {
+    const g = this.g;
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    g.roundRect(R.x, R.y, R.w, R.h, 10).stroke({ color: AXIS, width: 1, alpha: 0.8 });
+    const t = this.texts.take('WHO HIT WHOM', 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    const c = this.texts.take('row dealt it to column — damage over the whole match', 13, DIM, '400');
+    c.position.set(R.x + 16, R.y + 36);
+    const n = m.matrix.seats.length;
+    const { cells, rowLabelX, colLabelY } = matrixCells(R, n);
+    const hc = this.hover?.kind === 'cell' ? this.hover : null;
+    for (let j = 0; j < n; j++) {
+      const r = cells[0]?.[j];
+      if (r === undefined) continue;
+      const lt = this.texts.take(`→ ${m.matrix.labels[j]}`, 14, m.matrix.colors[j]!);
+      lt.anchor.set(0.5, 0);
+      lt.position.set(r.x + r.w / 2, colLabelY);
+    }
+    for (let i = 0; i < n; i++) {
+      const row = cells[i]!;
+      const rl = this.texts.take(m.matrix.labels[i]!, 15, m.matrix.colors[i]!);
+      rl.anchor.set(0, 0.5);
+      rl.position.set(rowLabelX, row[0]!.y + row[0]!.h / 2);
+      for (let j = 0; j < n; j++) {
+        const r = row[j]!;
+        if (i === j) {
+          g.roundRect(r.x, r.y, r.w, r.h, 6).fill(mix(FAINT, 0.18));
+          continue;
+        }
+        const v = m.matrix.cells[i]![j]!;
+        const frac = v / m.matrix.maxValue;
+        g.roundRect(r.x, r.y, r.w, r.h, 6).fill(mix(m.matrix.colors[i]!, 0.08 + 0.8 * frac));
+        const hot = hc !== null && hc.attacker === i && hc.victim === j;
+        if (hot) g.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ color: INK, width: 2 });
+        if (r.h >= 22) {
+          const vt = this.texts.take(groupThousands(v), Math.min(18, Math.max(11, r.h / 3)), frac > 0.55 ? PLATE : INK);
+          vt.anchor.set(0.5, 0.5);
+          vt.position.set(r.x + r.w / 2, r.y + r.h / 2);
+        }
+      }
+    }
+  }
+
+  // ── PLAYER PAGE ──────────────────────────────────────────────────────────────────────────────
+
+  private drawPlayerPage(m: MatchBoardModel, row: BoardRow): void {
+    const g = this.g;
+    const L = playerLayout();
+    // Header band in the seat's colour.
+    const H = L.header;
+    g.roundRect(H.x, H.y, H.w, H.h, 10).fill(mix(row.color, 0.16));
+    g.roundRect(H.x, H.y, 10, H.h, 5).fill(mix(row.color, 1));
+    const place = this.texts.take(row.placeLabel, 40, row.isWinner ? EDGE : INK);
+    place.anchor.set(0, 0.5);
+    place.position.set(H.x + 28, H.y + H.h / 2);
+    const name = this.texts.take(`${row.isWinner ? '★ ' : ''}${row.label}  ${row.race}${row.isLocal ? '   YOU' : ''}`, 32, row.color);
+    name.anchor.set(0, 0.5);
+    name.position.set(H.x + 128, H.y + H.h / 2 - 8);
+    const bl = this.texts.take(row.badge ?? `finished ${row.placeLabel} of ${m.rows.length}`, 15, row.badge !== null ? EDGE : DIM, '400');
+    bl.position.set(H.x + 130, H.y + H.h / 2 + 14);
+    const standing = !row.out;
+    const pill: Rect = { x: H.x + H.w - 190, y: H.y + 18, w: 170, h: H.h - 36 };
+    g.roundRect(pill.x, pill.y, pill.w, pill.h, pill.h / 2).fill(mix(standing ? GOOD : BAD, 0.2));
+    g.roundRect(pill.x, pill.y, pill.w, pill.h, pill.h / 2).stroke({ color: standing ? GOOD : BAD, width: 2 });
+    const st = this.texts.take(row.status, 18, standing ? GOOD : BAD);
+    st.anchor.set(0.5, 0.5);
+    st.position.set(pill.x + pill.w / 2, pill.y + pill.h / 2);
+
+    // KPI tiles.
+    const tiles: Array<[string, string]> = [
+      ['SCORE', groupThousands(row.score)],
+      ['UNITS RAISED', groupThousands(row.units)],
+      ['ENEMY KILLS', groupThousands(row.kills)],
+      ['UNITS LOST', groupThousands(row.lost)],
+      ['TOWERS BUILT / FELL', `${row.towersBuilt} / ${row.towersFell}`],
+      ['PEAK CONNECTORS', groupThousands(row.peakBuilt)],
+    ];
+    tiles.forEach(([label, value], i) => {
+      const r = L.tiles[i]!;
+      g.roundRect(r.x, r.y, r.w, r.h, 10).fill(mix(CARD, 0.95));
+      g.roundRect(r.x, r.y, r.w, 4, 2).fill(mix(row.color, 0.9));
+      const v = this.texts.take(value, 32, INK);
+      v.anchor.set(0.5, 0);
+      v.position.set(r.x + r.w / 2, r.y + 12);
+      const l = this.texts.take(label, 13, DIM, '400');
+      l.anchor.set(0.5, 0);
+      l.position.set(r.x + r.w / 2, r.y + 58);
+    });
+
+    this.drawUnitLedger(row, L.units);
+    this.drawDamageSplit(row, L.damage);
+    this.drawVersus(row, L.versus);
+    this.drawWaveLedger(m, row, L.ledger);
+  }
+
+  private drawUnitLedger(row: BoardRow, R: Rect): void {
+    const g = this.g;
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    const t = this.texts.take('UNITS', 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    const cols = [
+      { head: 'RAISED', x: R.x + 250, color: row.color, of: (l: BoardRow['unitLines'][number]) => l.built },
+      { head: 'LOST', x: R.x + 250 + (R.w - 270) / 3, color: BAD, of: (l: BoardRow['unitLines'][number]) => l.lost },
+      { head: 'KILLED', x: R.x + 250 + (2 * (R.w - 270)) / 3, color: GOOD, of: (l: BoardRow['unitLines'][number]) => l.killed },
+    ];
+    const cw = (R.w - 270) / 3 - 12;
+    for (const c of cols) {
+      const h = this.texts.take(c.head, 13, DIM);
+      h.position.set(c.x, R.y + 16);
+    }
+    const lines = row.unitLines;
+    const fit = unitLinesThatFit(R);
+    const shown = lines.slice(0, fit);
+    const maxV = Math.max(1, ...lines.flatMap((l) => [l.built, l.lost, l.killed]));
+    shown.forEach((l, i) => {
+      const y = R.y + 50 + i * PP_LINE_H;
+      if (i % 2 === 0) g.rect(R.x + 8, y - 2, R.w - 16, PP_LINE_H - 2).fill(mix(INK, 0.025));
+      const cx = R.x + 30;
+      const cy = y + (PP_LINE_H - 4) / 2;
+      const tex = this.portraits?.(l.type, row.raceId) ?? null;
+      if (tex !== null) {
+        g.circle(cx, cy, 15).fill(mix(row.color, 0.18));
+        this.icons.take(tex, cx, cy, 30);
+      } else {
+        g.circle(cx, cy, 13).fill(mix(row.color, 0.35));
+        const ini = this.texts.take(l.name.slice(0, 1), 14, INK);
+        ini.anchor.set(0.5, 0.5);
+        ini.position.set(cx, cy);
+      }
+      const nm = this.texts.take(l.name, 16, INK, '400');
+      nm.anchor.set(0, 0.5);
+      nm.position.set(R.x + 54, cy);
+      if (nm.width > 186) nm.scale.set(186 / nm.width);
+      else nm.scale.set(1);
+      for (const c of cols) {
+        const v = c.of(l);
+        const w = (cw - 48) * (v / maxV);
+        if (v > 0) g.roundRect(c.x, cy - 8, Math.max(2, w), 16, 4).fill(mix(c.color, 0.75));
+        const vt = this.texts.take(v === 0 ? '·' : groupThousands(v), 15, v === 0 ? FAINT : INK);
+        vt.anchor.set(0, 0.5);
+        vt.position.set(c.x + Math.max(2, w) + 6, cy);
+      }
+    });
+    if (lines.length === 0) {
+      const e = this.texts.take('no units this match', 15, DIM, '400');
+      e.position.set(R.x + 16, R.y + 56);
+    } else if (lines.length > fit) {
+      const more = this.texts.take(`+ ${lines.length - fit} more types`, 13, DIM, '400');
+      more.position.set(R.x + 16, R.y + R.h - 22);
+    }
+  }
+
+  private drawDamageSplit(row: BoardRow, R: Rect): void {
+    const g = this.g;
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    const t = this.texts.take('DAMAGE — WHAT IT LANDED ON', 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    // Legend.
+    let lx = R.x + R.w - 16;
+    for (const [k, label] of [['keep', 'KEEP'], ['structures', 'STRUCTURES'], ['units', 'UNITS']] as const) {
+      const lt = this.texts.take(label, 13, SPLIT_COLORS[k]);
+      lt.anchor.set(1, 0);
+      lt.position.set(lx, R.y + 14);
+      lx -= lt.width + 6;
+      g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(SPLIT_COLORS[k], 1));
+      lx -= 26;
+    }
+    const maxT = Math.max(1, row.dealt, row.taken);
+    const barX = R.x + 110;
+    const barW = R.w - 110 - 150;
+    ([['DEALT', row.dealtSplit, R.y + 52], ['TAKEN', row.takenSplit, R.y + 100]] as const).forEach(([label, sp, y]) => {
+      const lt = this.texts.take(label, 16, DIM);
+      lt.anchor.set(0, 0.5);
+      lt.position.set(R.x + 16, y + 15);
+      g.roundRect(barX, y, barW, 30, 6).fill(mix(FAINT, 0.25));
+      let x = barX;
+      for (const k of ['units', 'structures', 'keep'] as const) {
+        const w = (barW * sp[k]) / maxT;
+        if (w > 0) g.rect(x, y, w, 30).fill(mix(SPLIT_COLORS[k], 0.85));
+        if (w > 64) {
+          const st = this.texts.take(groupThousands(sp[k]), 13, PLATE);
+          st.anchor.set(0.5, 0.5);
+          st.position.set(x + w / 2, y + 15);
+        }
+        x += w;
+      }
+      const tt = this.texts.take(groupThousands(sp.total), 20, INK);
+      tt.anchor.set(1, 0.5);
+      tt.position.set(R.x + R.w - 16, y + 15);
+    });
+  }
+
+  private drawVersus(row: BoardRow, R: Rect): void {
+    const g = this.g;
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    const half = (R.w - 30) / 2;
+    ([['DEALT TO', row.dealtTo, R.x + 10], ['TAKEN FROM', row.takenFrom, R.x + 20 + half]] as const).forEach(([title, list, x0]) => {
+      const t = this.texts.take(title, 16, INK);
+      t.position.set(x0 + 6, R.y + 10);
+      const maxA = Math.max(1, ...list.map((a) => a.amount));
+      const lineH = Math.min(26, (R.h - 44) / Math.max(1, list.length));
+      if (list.length === 0) {
+        const e = this.texts.take('nobody', 14, DIM, '400');
+        e.position.set(x0 + 6, R.y + 44);
+      }
+      list.forEach((a, i) => {
+        const y = R.y + 40 + i * lineH;
+        const lt = this.texts.take(a.label, 14, a.color);
+        lt.anchor.set(0, 0.5);
+        lt.position.set(x0 + 6, y + lineH / 2);
+        const bw = (half - 170) * (a.amount / maxA);
+        g.roundRect(x0 + 78, y + 4, Math.max(2, bw), lineH - 8, 4).fill(mix(a.color, 0.8));
+        const vt = this.texts.take(groupThousands(a.amount), 14, INK);
+        vt.anchor.set(0, 0.5);
+        vt.position.set(x0 + 84 + Math.max(2, bw), y + lineH / 2);
+      });
+    });
+  }
+
+  /** Per wave: what this seat dealt (up, its colour) and took (down, red). Hover a wave for both numbers. */
+  private drawWaveLedger(m: MatchBoardModel, row: BoardRow, R: Rect): void {
+    const g = this.g;
+    const dealt = m.graphs.damage.series.find((s) => s.seat === row.seat)?.values ?? [];
+    const taken = m.takenPerWave.find((s) => s.seat === row.seat)?.values ?? [];
+    const maxV = Math.max(1, ...dealt, ...taken);
+    g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
+    const t = this.texts.take('WAVE BY WAVE', 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    const c = this.texts.take('dealt above the line · taken below it', 13, DIM, '400');
+    c.position.set(R.x + 16, R.y + 36);
+    const P = plotRect(R);
+    const mid = P.y + P.h / 2;
+    g.moveTo(P.x, mid).lineTo(P.x + P.w, mid).stroke({ color: AXIS, width: 2 });
+    for (const [v, y] of [[maxV, P.y], [maxV, P.y + P.h]] as const) {
+      const yl = this.texts.take(groupThousands(v), 12, DIM, '400');
+      yl.anchor.set(1, 0.5);
+      yl.position.set(P.x - 8, y);
+    }
+    const n = m.graphs.damage.waves.length;
+    if (n === 0) return;
+    this.waveLabels({ ...P, h: P.h }, m.graphs.damage.waves, true);
+    const gw = P.w / n;
+    const hw = this.hover?.kind === 'ledger' ? this.hover.index : null;
+    if (hw !== null) g.rect(P.x + gw * hw, P.y, gw, P.h).fill(mix(INK, 0.06));
+    for (let i = 0; i < n; i++) {
+      const up = ((P.h / 2) * (dealt[i] ?? 0)) / maxV;
+      const dn = ((P.h / 2) * (taken[i] ?? 0)) / maxV;
+      const x = P.x + gw * i + gw * 0.18;
+      const a = hw === null || hw === i ? 0.92 : 0.55;
+      if (up > 0) g.rect(x, mid - up, gw * 0.64, up).fill(mix(row.color, a));
+      if (dn > 0) g.rect(x, mid, gw * 0.64, dn).fill(mix(BAD, a * 0.85));
+    }
+  }
+
+  // ── TOOLTIP ──────────────────────────────────────────────────────────────────────────────────
+
+  private drawTooltip(m: MatchBoardModel): void {
+    const lines = tooltipFor(m, this.tab, this.hover);
+    if (lines === null) return;
+    const texts = lines.map((l, i) => this.tipTexts.take(l, i === 0 ? 15 : 14, i === 0 ? EDGE : INK, i === 0 ? '900' : '400'));
+    const w = Math.max(...texts.map((t) => t.width)) + 24;
+    const h = texts.length * 20 + 16;
+    let x = this.pointer.x + 18;
+    let y = this.pointer.y + 18;
+    if (x + w > CANVAS_WIDTH - 8) x = this.pointer.x - 18 - w;
+    if (y + h > CANVAS_HEIGHT - 8) y = this.pointer.y - 18 - h;
+    this.tipG.roundRect(x, y, w, h, 8).fill(mix(0x05060a, 0.94));
+    this.tipG.roundRect(x, y, w, h, 8).stroke({ color: EDGE, width: 1, alpha: 0.8 });
+    texts.forEach((t, i) => t.position.set(x + 12, y + 8 + i * 20));
+  }
+}
+
+function ovValue(row: BoardRow, key: OvColumnKey): number {
+  switch (key) {
+    case 'score': return row.score;
+    case 'units': return row.units;
+    case 'kills': return row.kills;
+    case 'lost': return row.lost;
+    case 'towers': return row.towersBuilt;
+    case 'dealt': return row.dealt;
+    case 'taken': return row.taken;
+    default: return 0;
+  }
+}
+
+function ovText(row: BoardRow, key: OvColumnKey): string {
+  if (key === 'towers') return `${row.towersBuilt} / ${row.towersFell}`;
+  return groupThousands(ovValue(row, key));
 }

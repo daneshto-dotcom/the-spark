@@ -151,6 +151,8 @@ export interface MatchBoardModel {
   readonly rows: readonly BoardRow[];
   readonly graphs: MatchBoardGraphs;
   readonly matrix: BoardMatrix;
+  /** ⭐ S194 — damage TAKEN in each wave alone, per seat (the player page's ledger draws it under the axis). */
+  readonly takenPerWave: readonly BoardSeries[];
   /** True when the host sent no counters at all (an older host): the view says so instead of drawing zeros. */
   readonly noStats: boolean;
 }
@@ -397,6 +399,7 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
     rows,
     graphs,
     matrix,
+    takenPerWave: seriesOf(world, order, (p) => p.taken, true),
     noStats: world.matchStats.seats.size === 0 && world.matchStats.history.length === 0,
   };
 }

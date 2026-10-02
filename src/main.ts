@@ -1400,6 +1400,9 @@ async function bootstrap(): Promise<void> {
   const matchBoard = new MatchBoardHost(() => resetIfPostgame());
   app.stage.addChild(matchBoard.container);
   app.ticker.add(() => matchBoard.render(world, performance.now()));
+  // ⭐ S194 — the per-player pages show each unit type's portrait, from the atlases the board already loaded.
+  matchBoard.setPortraitSource((type, race) =>
+    type === 'voltkin' ? creatureRenderer.voltkinPortraitTexture() : goblinRenderer.portraitTexture(type, race));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -2470,6 +2473,11 @@ Network routes: ${v.detail}`;
   });
 
   window.addEventListener('keydown', (e) => {
+    // ⭐ S194 — the stat board's pages (← → Tab). Consumed only while it is up; R below stays the exit.
+    if (matchBoard.isShowing() && matchBoard.handleKey(e.key, e.shiftKey)) {
+      e.preventDefault();
+      return;
+    }
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
       resetIfPostgame();
     }

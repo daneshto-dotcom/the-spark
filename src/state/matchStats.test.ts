@@ -86,7 +86,10 @@ describe('S191 matchStats — the arithmetic', () => {
     recordKill(w, P(1), P(1), 'chewer');
     recordKill(w, null, P(1), 'chewer');
     expect([...w.matchStats.seats.get(P(0))!.kills]).toEqual([['chewer', 2], ['raceUnit', 1]]);
-    expect(w.matchStats.seats.has(P(1))).toBe(false);
+    // ⭐ S194 v2 — every death is a LOSS for its owner (enemy, self or unattributed); a kill for nobody but P0.
+    expect(w.matchStats.seats.get(P(1))!.kills.size).toBe(0);
+    expect([...w.matchStats.seats.get(P(1))!.lost]).toEqual([['chewer', 4], ['raceUnit', 1]]);
+    expect(w.matchStats.seats.get(P(0))!.lost.size).toBe(0);
   });
 
   it('units built are per type; towers built/fell count; the fell-wave stamp is write-once', () => {
@@ -129,7 +132,10 @@ describe('S191 matchStats — the arithmetic', () => {
     expect(w.matchStats.history[0]).toEqual({
       wave: 1,
       tick: 900,
-      seats: [{ seat: P(0), score: 200, built: 0 }, { seat: P(2), score: 50, built: 1 }],
+      seats: [
+        { seat: P(0), score: 200, built: 0, units: 0, kills: 0, dealt: 0, taken: 0 },
+        { seat: P(2), score: 50, built: 1, units: 0, kills: 0, dealt: 0, taken: 0 },
+      ],
     });
     recordWaveSample(w, 2);
     expect(w.matchStats.history.map((h) => h.wave)).toEqual([1, 2]);

@@ -86,11 +86,11 @@ describe('S191 matchBoardModel — REACH: non-empty after a REAL win', () => {
     expect(r0!.towersBuilt).toBe(1);
     expect(r1!.units).toBeGreaterThanOrEqual(1);
     expect(r1!.taken).toBeGreaterThan(0);
-    for (const g of m.graphs) {
+    for (const g of Object.values(m.graphs)) {
       expect(g.waves.length, `${g.title} has the edge point and the win point`).toBeGreaterThanOrEqual(2);
       expect(g.series).toHaveLength(2);
     }
-    expect(m.graphs[0].series[0]!.values.at(-1)).toBe(Math.floor(w.scoreByPlayer.get(P0)!));
+    expect(m.graphs.score.series[0]!.values.at(-1)).toBe(Math.floor(w.scoreByPlayer.get(P0)!));
   });
 
   it('a PEER that only received the POSTGAME snapshot builds the SAME board', () => {
@@ -123,6 +123,7 @@ describe('S191 matchBoardModel — the rules a player reads', () => {
     w.players.get(P1)!.eliminatedAtTick = w.tick;
     w.matchStats.seats.set(P1, {
       built: new Map(), kills: new Map(), towersBuilt: 0, towersFell: 0, dealtFifths: 0, takenFifths: 0, fellOnWave: 7,
+      lost: new Map(), dealtTo: new Map(), dealtKeep: 0, dealtStruct: 0, takenKeep: 0, takenStruct: 0,
     });
     w.gameState = 'POSTGAME';
     const m = matchBoardModel(w)!;

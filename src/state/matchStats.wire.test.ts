@@ -33,7 +33,13 @@ function heavyMatch(): World {
     });
     for (let n = 0; n < 12; n++) recordTowerBuilt(w, me);
     for (let n = 0; n < 7; n++) recordTowerFell(w, me);
-    recordDamage(w, foe, me, 98_765, 'unit');
+    // ⭐ S194 v2 — every target class, and every other seat as a victim (a full who-hit-whom row).
+    for (let k = 1; k < 4; k++) {
+      const victim = asPlayerId((seat + k) % 4);
+      recordDamage(w, victim, me, 98_765, 'unit');
+      recordDamage(w, victim, me, 45_678, 'structure');
+      recordDamage(w, victim, me, 23_456, 'keep');
+    }
   }
   for (let wave = 1; wave <= 30; wave++) {
     for (let seat = 0; seat < 4; seat++) w.scoreByPlayer.set(asPlayerId(seat), wave * 1_234 + seat);
@@ -54,8 +60,12 @@ describe('S191 — the stat board on the wire, measured', () => {
     const withHistory = bytes(netSnapshot(w).matchStats);
     const full = bytes(snapshot(w).matchStats);
     console.log(`[S191 wire] totals-only ${totals} B · in-window ${withHistory} B · full ${full} B (4 seats, 8 types, 30 waves)`);
-    expect(totals).toBeLessThan(2 * 1024);
-    expect(withHistory).toBeLessThan(8 * 1024);
+    // ⭐ S194 v2 re-pin (measured, this test): S191 was totals 1,527 B / in-window 6,765 B; the v2 counters
+    // (units lost per type, who-hit-whom, keep/structure split, four running totals per wave point as one
+    // compact array) measure totals 2,503 B / in-window 11,101 B. Named per-point keys measured 13,697 B,
+    // which is why the wire form packs them as `v`. In-window rides ~2 s a wave + POSTGAME only.
+    expect(totals).toBeLessThan(3 * 1024);
+    expect(withHistory).toBeLessThan(12 * 1024);
     expect(withHistory).toBe(full);
     expect(totals).toBeLessThan(withHistory);
   });

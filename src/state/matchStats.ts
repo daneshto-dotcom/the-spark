@@ -307,7 +307,38 @@ export interface SerializedSeatStats {
 export interface SerializedMatchStats {
   readonly seats?: readonly SerializedSeatStats[];
   /** When present it is the WHOLE history, and the receiver replaces its own with it. */
-  readonly history?: readonly WaveSample[];
+  readonly history?: readonly SerializedWaveSample[];
+}
+
+/**
+ * ⭐ S194 — a wave sample ON THE WIRE. The S191 keys are unchanged (so an S191 build still reads its two graphs
+ * from an S194 host), and the four v2 running totals ride as ONE compact array `v = [units, kills, dealt,
+ * taken]`, omitted when all four are zero. Named keys would have cost ~2× the history bytes (measured:
+ * 13,697 B in-window vs 6,765 B before, `matchStats.wire.test.ts`); the array is what keeps it near S191.
+ */
+export interface SerializedWaveSample {
+  readonly wave: number;
+  readonly tick: number;
+  readonly seats: ReadonlyArray<{
+    readonly seat: number;
+    readonly score: number;
+    readonly built: number;
+    readonly v?: readonly [number, number, number, number];
+  }>;
+}
+
+function serializeSample(h: WaveSample): SerializedWaveSample {
+  return {
+    wave: h.wave,
+    tick: h.tick,
+    seats: h.seats.map((p) => {
+      const any = p.units > 0 || p.kills > 0 || p.dealt > 0 || p.taken > 0;
+      return {
+        seat: p.seat as number, score: p.score, built: p.built,
+        ...(any ? { v: [p.units, p.kills, p.dealt, p.taken] as const } : {}),
+      };
+    }),
+  };
 }
 
 function sortedEntries(m: Map<CreatureType, number>): Array<[string, number]> {
@@ -349,8 +380,7 @@ export function serializeMatchStats(ms: MatchStats): SerializedMatchStats | unde
     .filter((s): s is SerializedSeatStats => s !== null);
   const out: SerializedMatchStats = {
     ...(seats.length > 0 ? { seats } : {}),
-    // A shallow copy of the array only: a sample is never mutated after `recordWaveSample` pushes it.
-    ...(ms.history.length > 0 ? { history: ms.history.slice() } : {}),
+    ...(ms.history.length > 0 ? { history: ms.history.map(serializeSample) } : {}),
   };
   return out.seats === undefined && out.history === undefined ? undefined : out;
 }
@@ -424,7 +454,7 @@ export function applySerializedSeats(world: World, s: SerializedMatchStats | und
   }
 }
 
-function readHistory(arr: readonly WaveSample[]): WaveSample[] {
+function readHistory(arr: readonly SerializedWaveSample[]): WaveSample[] {
   const out: WaveSample[] = [];
   for (const h of arr) {
     if (h === null || typeof h !== 'object' || !isCount(h.wave) || !isCount(h.tick) || !Array.isArray(h.seats)) continue;
@@ -432,10 +462,11 @@ function readHistory(arr: readonly WaveSample[]): WaveSample[] {
     const seats: WaveSampleSeat[] = [];
     for (const p of h.seats) {
       if (p === null || typeof p !== 'object' || !isCount(p.seat) || !isCount(p.score) || !isCount(p.built)) continue;
-      const opt = (n: unknown): number => (isCount(n) ? n : 0); // ⭐ S194 v2 — an older host sends none
+      // ⭐ S194 v2 — `v` is all-or-nothing: an older host sends none, a malformed one is read as zeros.
+      const v = Array.isArray(p.v) && p.v.length === 4 && p.v.every(isCount) ? p.v : [0, 0, 0, 0];
       seats.push({
         seat: p.seat as PlayerId, score: p.score, built: p.built,
-        units: opt(p.units), kills: opt(p.kills), dealt: opt(p.dealt), taken: opt(p.taken),
+        units: v[0]!, kills: v[1]!, dealt: v[2]!, taken: v[3]!,
       });
     }
     out.push({ wave: h.wave, tick: h.tick, seats });
