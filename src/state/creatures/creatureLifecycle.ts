@@ -264,6 +264,8 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     // choke point every creature in the game is born through, which is why the buff is wired here
     // rather than at each of the callers that dispatch a spawn.
     const draftPicks = world.players.get(action.ownerPlayerId)?.draftPicks;
+    // ⭐ S193 (R192-D1) — and the seat's race, read only to size a drafted magic-defended pool.
+    const ownerRace = world.players.get(action.ownerPlayerId)?.raceId ?? null;
     const creature =
       action.creatureType === 'voltkin'
         ? makeVoltkinCreature({
@@ -275,6 +277,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         // S155 P3 — the live match clock; only a `lifetimeClock: 'fight'` creature reads it.
         clock: world,
             draftPicks,
+            ownerRace,
           })
         : makeCreature(getCreatureConfig(action.creatureType), {
             id,
@@ -286,6 +289,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         clock: world,
             sourceSpawnerId: null,
             draftPicks,
+            ownerRace,
           });
     // ⭐ S192 — the endgame monster's victim seat, written once at birth (see `Creature.monsterSeat`).
     if (action.monsterSeat !== undefined) creature.monsterSeat = action.monsterSeat;
@@ -313,6 +317,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
         clock: world,
         sourceSpawnerId,
         draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
+        ownerRace: world.players.get(action.ownerPlayerId)?.raceId ?? null,
       }),
     );
     recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191
@@ -380,6 +385,7 @@ export function applySpawnCreature(world: World, action: SpawnCreatureAction): W
     // ⭐ S187 — the third and last spawn site in this reducer. This is the one the CASTLE
     // emitter reaches, so it is the one that sizes a drafted seat's race units.
     draftPicks: world.players.get(action.ownerPlayerId)?.draftPicks,
+    ownerRace: world.players.get(action.ownerPlayerId)?.raceId ?? null,
   });
   world.creatures.set(id, creature);
   recordUnitBuilt(world, action.ownerPlayerId, action.creatureType); // ⭐ S191

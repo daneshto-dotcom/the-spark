@@ -49,14 +49,17 @@ import { applyDraftPercent, attackFifths, unitPoolFifths } from './stats.ts';
  * below can only ever be handed an axis — `isPoolPick('racial')` is false by construction, and a
  * racial pick therefore buffs no stat, which is R104's line held by the type system.
  */
-export type GeneralPick = 'hp' | 'def' | 'atk' | 'pen';
+export type GeneralPick = 'hp' | 'def' | 'atk' | 'pen' | 'mres';
 export type DraftPick = GeneralPick | 'racial';
 
 /** Every value of `DraftPick`, for the exhaustiveness tests and the wire validator. */
-export const DRAFT_PICKS: readonly DraftPick[] = ['hp', 'def', 'atk', 'pen', 'racial'] as const;
+export const DRAFT_PICKS: readonly DraftPick[] = ['hp', 'def', 'atk', 'pen', 'mres', 'racial'] as const;
 
-/** The four general axes alone. */
-export const GENERAL_PICKS: readonly GeneralPick[] = ['hp', 'def', 'atk', 'pen'] as const;
+/**
+ * The general axes alone — the four of the cycle, plus ⭐ S193 (R192-D1) the MRES card, which is
+ * offered at ONE slot only (`MRES_DRAFT_WAVE`), never inside the cycle.
+ */
+export const GENERAL_PICKS: readonly GeneralPick[] = ['hp', 'def', 'atk', 'pen', 'mres'] as const;
 
 /**
  * ⭐ HIS NUMBER: *"the 10% HP to all spawned units"*. One constant, so a retune after his first
@@ -105,8 +108,20 @@ export function draftIndexForWave(waveNumber: number): number {
  */
 export const GENERAL_TRACK: readonly GeneralPick[] = ['hp', 'def', 'atk', 'pen'] as const;
 
+/**
+ * ⭐⭐ S193 — R192-D1, HIS: *"We'll do another one at level 26 … That's going to be the, the magic damage
+ * one … And we'll need to make his own art as well."* The MRES card sits at the wave-26 draft — the
+ * slot after the cycle's wave-21 HP, and since S192's endgame the LAST draft (`LAST_DRAFT_WAVE`).
+ *
+ * ⚠ It REPLACES what the cycle would have put there (index 5 → `GENERAL_TRACK[1]` = DEF, ARMOURED); waves
+ * 1/6/11/16/21 still offer HP/DEF/ATK/PEN/HP. Named as its own constant, not inlined as "the last
+ * draft", so the slot reads as his ruling wherever it is used.
+ */
+export const MRES_DRAFT_WAVE = LAST_DRAFT_WAVE;
+
 /** The general option offered at a given wave. */
 export function generalPickForWave(waveNumber: number): GeneralPick {
+  if (waveNumber === MRES_DRAFT_WAVE) return 'mres';
   return GENERAL_TRACK[draftIndexForWave(waveNumber) % GENERAL_TRACK.length] as GeneralPick;
 }
 
@@ -129,6 +144,35 @@ export function isPoolPick(p: DraftPick): boolean {
 /** The complement of `isPoolPick` over the general axes. */
 export function isDamagePick(p: DraftPick): boolean {
   return p === 'atk' || p === 'pen';
+}
+
+/**
+ * ⭐ S193 (R192-D1) — the MRES pick moves NEITHER the pool nor the strike: it moves the third derived
+ * number magic brought to the ladder, the MAGIC-DEFENDED POOL `HP × (5 + MRES)` (§2b — against magic the
+ * one bar behaves as if it were that long). See `draftedMagicPoolFifths`.
+ */
+export function isMresPick(p: DraftPick): boolean {
+  return p === 'mres';
+}
+
+/** How many of a seat's picks raise the magic-defended pool. */
+export function mresPickCount(picks: readonly DraftPick[]): number {
+  let n = 0;
+  for (const p of picks) if (isMresPick(p)) n++;
+  return n;
+}
+
+/**
+ * ⭐ S193 — the MAGIC-DEFENDED pool of a unit born to a seat holding `picks`: `HP × (5 + MRES)` fifths,
+ * raised `DRAFT_BUFF_PCT` per MRES pick by the draft's own rule (`applyDraftPercent`: floored, never
+ * below 1). A magic hit then lands `floor(A × HP×(5+DEF) / this)` (`landedFifthsPools`).
+ *
+ * ⚠ MINE — *"+10 % MRES"* is not a stat level on this ladder, because the draft never buys levels: an
+ * HP pick is +10 % of the POOL, an ATK pick +10 % of the STRIKE. So an MRES pick is +10 % of the number
+ * MRES feeds, exactly as those are. Race unit (1/1, orcs MRES 1): 6 → 7, so a magic 30 lands 25.
+ */
+export function draftedMagicPoolFifths(hp: number, mres: number, picks: readonly DraftPick[]): number {
+  return applyDraftPercent(unitPoolFifths(hp, mres), mresPickCount(picks), DRAFT_BUFF_PCT);
 }
 
 /** How many of a seat's picks raise the effective pool. */
