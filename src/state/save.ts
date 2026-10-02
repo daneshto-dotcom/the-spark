@@ -679,7 +679,10 @@ type SerializedEffect =
       // (paid with a raid point, severs on damage reaching capacity); ⭐ S182 — 'unit' (any
       // non-Voltkin non-chewer creature; 'creature' is now the VOLTKIN's lightning alone, which is
       // what the audio arm always assumed). PROTOCOL_VERSION 46 -> 47.
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit'
+        // ⭐ S194 (R194-18) — the ENTROPY TAX: a big structure's connector snapped on its own at the FIGHT
+        // whistle. No actor (`severActor`), silent (`audioManager`), its own toast (`severToastCopy`).
+        | 'entropy';
       /**
        * V6-0.3 (S131) — sever attribution, additive-optional on the `creatureId?` precedent
        * above. NO `PROTOCOL_VERSION` bump and NO `schemaVersion` bump: `deserializeEffect`

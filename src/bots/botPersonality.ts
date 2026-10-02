@@ -81,6 +81,14 @@ export interface PersonalityKnobs {
    * config, not its tier name.
    */
   readonly adaptsAtBell: boolean;
+  /**
+   * ⭐ S194 (T7) — what the brain's ESCAPES may build in place of the target (escape 1: nothing stamped
+   * yet; escape 2: the target has no legal site; escape 3: Q6's bell). `'any'` = every rung of the tier
+   * (pre-S194). `'listed'` = only the roles in `towerOrder` — a FORTRESS that cannot afford its stink
+   * tower saves for it instead of raising the cheap race tower. Only ever NARROWS the tier's set (rule 1).
+   * ⚠ MINE.
+   */
+  readonly substitute: 'any' | 'listed';
 }
 
 /**
@@ -101,6 +109,7 @@ export const IDENTITY_KNOBS: PersonalityKnobs = {
   raidTarget: 'ladder',
   raAim: 'home',
   adaptsAtBell: false,
+  substitute: 'any',
 };
 
 type Overrides = Partial<Omit<PersonalityKnobs, 'personality'>>;
@@ -113,14 +122,44 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
     IMBA: { towerOrder: ['goblin'], feed: 'leftovers' },
   },
   WARMONGER: {
-    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front' },
+    // ⭐ S194 (T7) — `substitute: 'listed'`: measured HARD def 0.17 → 0.00 (it had stamped a stink tower through
+    // the S154 take-what-you-can escape after nearest-first armies razed its goblin tower), fed 10 → 17.
+    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front', substitute: 'listed' },
     MID: { feed: 'leftovers' },
     HARD: { feed: 'eager' },
-    IMBA: { feed: 'eager', raidTarget: 'leader' },
+    /*
+     * ⭐ S194 (T7, Q-E) — IMBA WARMONGER vs TYCOON were one bot: signature harness (0xb07 / 0xbeef, 300 s),
+     * S193 rows: WARMONGER def 0.22 · fed 6 · loose 46 · goblin>stink>stink | goblin>mummies | zombies×2;
+     * TYCOON def 0.17 · fed 3 · loose 51 · goblin>stink | goblin | zombies×2. Two changes, both ⚠ MINE:
+     * `substitute: 'listed'` (base, every tier — an army bot never stamps a stink tower to fill a gap) and,
+     * at IMBA, a 3000-tick hold so the army bill is saved for instead of trickled into loose shapes:
+     *   listed, hold 1200   def 0.00 · fed  5 · loose 46
+     *   listed, hold 2400   def 0.00 · fed  5 · loose 31
+     *   ⭐ listed, hold 3000 def 0.00 · fed 17 · loose 18 · goblin>nagas>goblin>pentagram | goblin>mummies | zombies×3
+     * (goblin>pentagram>hub at hold 2400 was rejected: it is SABOTEUR's order.)
+     */
+    IMBA: { feed: 'eager', raidTarget: 'leader', saveHoldTicks: 3000 },
   },
   FORTRESS: {
     base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700 },
-    IMBA: { towerOrder: ['goblin', 'stink', 'laser', 'helga'], feed: 'leftovers' },
+    /*
+     * ⭐ S194 (T7) RE-TUNE — after deploy #23's nearest-enemy-first targeting, adjacent IMBA armies raze each
+     * other's opening goblin towers, and the S193 row (goblin > stink > laser > helga, hold 2700, any
+     * substitute) spent its BUILDs re-raising them and filling the bell with cheap race towers: mean defence
+     * 0.25 < BALANCED 0.28, no laser. Measured on the signature harness (seed 0xb07 / bots 0xbeef, 300 s,
+     * mean defence · loose shapes placed · stamps per seat):
+     *   S193 row                       0.25 · 25 · goblin>nagas>goblin>stink | goblin>stink | zombies×2
+     *   + substitute 'listed'          0.28
+     *   + listed, hold 2700→3600       0.58 ·  0 · (stands still between towers — rejected)
+     *   + listed, hold 2700 (laser 2nd) 0.33 · 21
+     *   + listed, hold 3300            0.39 · 13 · goblin>stink>laser | goblin×2 | goblin>stink
+     *   ⭐ listed, hold 3300, laser 2nd 0.50 · 12 · goblin>stink>goblin>laser | goblin>stink | goblin>laser
+     * Q4 still holds: goblin tower FIRST, leftovers fed. Laser before stink: the laser bill (6 of one type)
+     * is the one the save exists for; the stink tower still lands as the bell's listed substitute.
+     * ⚠ MINE: laser 2nd, 'listed' (a Fortress saves for a defence bill rather than raising a race tower at the bell)
+     * and 3300 (it spends 5 s of each 60 s BUILD cycle on loose shapes, so it never stands still).
+     */
+    IMBA: { towerOrder: ['goblin', 'laser', 'stink', 'helga'], feed: 'leftovers', substitute: 'listed', saveHoldTicks: 3300 },
   },
   TYCOON: {
     // Empty order = cheapest first; repeating the FIRST = another cheap tower, many of them.

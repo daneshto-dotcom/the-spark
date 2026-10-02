@@ -71,6 +71,11 @@ export interface FeedbackTarget {
    * the helper stays testable against a stub, and so the ONE place that writes it is this module.
    */
   hitArea?: unknown;
+  /**
+   * ⭐ S194 (T8) — read, never written: the point the container scales about. Pixi's `Container` has
+   * one (default 0, 0); a stub may omit it. See `hitRectAtScale`.
+   */
+  readonly pivot?: { readonly x: number; readonly y: number };
 }
 
 /** The minimum a background plate must offer — just something to tint. */
@@ -119,6 +124,33 @@ export interface ButtonFeedbackOpts {
 }
 
 /**
+ * ⭐⭐ S194 (T8) — **THE CLICK TARGET NEVER SHRINKS BELOW THE PLATE AT REST.**
+ *
+ * The press grammar scales the container to `BUTTON_PRESS_SCALE` (0.97) on `pointerdown`, about its
+ * pivot. Pixi hit-tests `pointerup` against that SCALED transform, so the rest plate's outer 3 % fell
+ * outside the target while the button was held: release there and Pixi fires `pointerupoutside`, and
+ * the tap never happens. For a top-left-origin button (`exitButton`, `lobbyScreen`) all 3 % is on the
+ * RIGHT — 168 × 0.03 ≈ 5 px of BACK TO MAIN were dead to any click slow enough for a frame to render
+ * between down and up, i.e. to a person (and, on a slow CI runner, to Playwright: deploy #22's
+ * `exit-match.spec.ts:229` flake). The owner's S155 report, *"not on side of the button clickable"*,
+ * half-survived the S155 hitArea fix through this one path.
+ *
+ * So below rest scale the local rect is divided by the scale about the pivot, which maps it back onto
+ * exactly the rest footprint on screen. At or above rest (hover's 1.04) it is the plate's own rect and
+ * grows with the picture, as S155 intended. Pure, so the arithmetic is unit-testable.
+ */
+export function hitRectAtScale(hit: HitRect, scale: number, pivot: { x: number; y: number } = { x: 0, y: 0 }): HitRect {
+  if (scale >= BUTTON_REST_SCALE) return hit;
+  const k = BUTTON_REST_SCALE / scale;
+  return {
+    x: pivot.x + (hit.x - pivot.x) * k,
+    y: pivot.y + (hit.y - pivot.y) * k,
+    w: hit.w * k,
+    h: hit.h * k,
+  };
+}
+
+/**
  * Give `c` the standard SPARK button feel and wire `onClick` to its tap.
  *
  * Registers the tap itself (rather than leaving it to the caller) precisely so the sound cannot be
@@ -143,6 +175,12 @@ export function attachButtonFeedback(
    * transform, so a scaled button grows its target with it rather than losing part of it.
    */
   c.hitArea = new Rectangle(opts.hit.x, opts.hit.y, opts.hit.w, opts.hit.h);
+  // ⭐ S194 (T8) — every scale change goes through here, so the target follows `hitRectAtScale`.
+  const setScale = (v: number): void => {
+    c.scale.set(v);
+    const r = hitRectAtScale(opts.hit, v, c.pivot);
+    c.hitArea = new Rectangle(r.x, r.y, r.w, r.h);
+  };
   c.on('pointertap', () => {
     if (opts.silent !== true) void playUiClickSFX();
     onClick();
@@ -150,22 +188,22 @@ export function attachButtonFeedback(
   c.on('pointerover', () => {
     hovered = true;
     bg.tint = BUTTON_HOVER_TINT;
-    c.scale.set(BUTTON_HOVER_SCALE);
+    setScale(BUTTON_HOVER_SCALE);
   });
   c.on('pointerout', () => {
     hovered = false;
     bg.tint = BUTTON_REST_TINT;
-    c.scale.set(BUTTON_REST_SCALE);
+    setScale(BUTTON_REST_SCALE);
   });
   c.on('pointerdown', () => {
-    c.scale.set(BUTTON_PRESS_SCALE);
+    setScale(BUTTON_PRESS_SCALE);
   });
   // Returning to HOVER (not REST) when the pointer is still over the button is what makes a
   // click-and-hold-and-release feel continuous rather than snapping flat mid-gesture.
   c.on('pointerup', () => {
-    c.scale.set(hovered ? BUTTON_HOVER_SCALE : BUTTON_REST_SCALE);
+    setScale(hovered ? BUTTON_HOVER_SCALE : BUTTON_REST_SCALE);
   });
   c.on('pointerupoutside', () => {
-    c.scale.set(BUTTON_REST_SCALE);
+    setScale(BUTTON_REST_SCALE);
   });
 }

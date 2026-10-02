@@ -27,6 +27,9 @@ import { Assets, Container, Graphics, Sprite, Text, TextStyle, Texture } from 'p
 import { ALL_RACES, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { RACE_BANNER_SRC, raceDisplayName } from './raceBanners.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
+// ⭐ S194 — the shared skin: glass over the banner, hover sheen + glow, all inside the tile.
+import { skinButtonFx } from './uiSkin.ts';
+import { attachChipHover } from './uiSkinButton.ts';
 
 const TILE_W = 300;
 const TILE_H = 132;
@@ -139,11 +142,11 @@ export function makeRacePicker(onPick: (raceId: RaceId) => void): RacePickerHand
 
     // A wash of the race's own colour over the art, so the tile reads as a COLOUR swatch too — the
     // owner asked for a menu of colours, and the art is what says which colour it is.
-    root.addChild(
-      new Graphics()
-        .roundRect(0, 0, r.w, r.h, CORNER)
-        .fill({ color: RACE_COLORS[raceId], alpha: 0.2 }),
-    );
+    {
+      const wash = new Graphics().roundRect(0, 0, r.w, r.h, CORNER).fill({ color: RACE_COLORS[raceId], alpha: 0.2 });
+      skinButtonFx(wash, 0, 0, r.w, r.h, { accent: RACE_COLORS[raceId], state: 'rest', radius: CORNER });
+      root.addChild(wash);
+    }
 
     const overlay = new Graphics();
     root.addChild(overlay);
@@ -167,6 +170,7 @@ export function makeRacePicker(onPick: (raceId: RaceId) => void): RacePickerHand
     status.position.set(r.w / 2, r.h / 2 + 22);
     root.addChild(status);
 
+    attachChipHover(root, null, { x: 0, y: 0, w: r.w, h: r.h }, CORNER, () => root.eventMode === 'static');
     root.on('pointertap', (e) => {
       e.stopPropagation();
       if (root.eventMode !== 'static') return;

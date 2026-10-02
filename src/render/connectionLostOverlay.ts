@@ -9,6 +9,8 @@
  */
 
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+// ⭐ S194 T5 — the shared skin (still glass inside the button's own plate).
+import { attachChipHover, skinStaticPlate } from './uiSkinButton.ts';
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from '../constants.ts';
 
 const BUTTON_WIDTH = 220;
@@ -69,9 +71,9 @@ export function makeConnectionLostOverlay(
 
   const returnBtn = new Container();
   const btnBg = new Graphics();
-  btnBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
-    .fill({ color: 0x222222, alpha: 0.9 })
-    .stroke({ width: 2, color: 0x888888, alpha: 0.8 });
+  btnBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
+  skinStaticPlate(btnBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 0xcfe8ff, 8);
+  btnBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color: 0x888888, alpha: 0.8 });
   returnBtn.addChild(btnBg);
   const btnText = new Text({
     text: 'Return to Title',
@@ -83,6 +85,7 @@ export function makeConnectionLostOverlay(
   returnBtn.eventMode = 'static';
   returnBtn.cursor = 'pointer';
   returnBtn.on('pointertap', onReturn);
+  attachChipHover(returnBtn, btnBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 8);
   returnBtn.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, CANVAS_HEIGHT / 2 + 70);
   container.addChild(returnBtn);
 

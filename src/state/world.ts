@@ -242,7 +242,10 @@ export type GameAction =
        * four-sites failure this repo is built around. (It carries no 'godly' — that value exists on
        * the effect only.)
        */
-      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
+      readonly cause: 'player' | 'physics' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit'
+        // ⭐ S194 (R194-18) — the ENTROPY TAX: a big structure's connector snapped on its own at the FIGHT
+        // whistle. No actor (`severActor`), silent (`audioManager`), its own toast (`severToastCopy`).
+        | 'entropy';
     }
   | { readonly type: 'WIN_TRIGGER'; readonly winnerId: PlayerId }
   | StartGameAction
