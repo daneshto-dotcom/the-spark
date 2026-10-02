@@ -2,7 +2,24 @@
 
 ## STATUS: COMPLETE (tip = the commit carrying this report)
 
-## FINAL REPORT
+## ROUND 2 REPORT — audit fix round + R194-24 arcade menu + across-the-board census
+- **Merge:** `git merge master` → `628b9072` (visuals-racial, intentStamp security fix), **no conflicts**. Merge-base for the bundle: `fbddede7`.
+- **F1 fixed:** the refused cue on an illegal release now also requires NOT over panel / footer / card / draft / modal / downUnderModal — a UI drop is silent. New negative test (illegal spot under the panel → silent, nothing placed); mutation (guard dropped) → red.
+- **F2 fixed:** the gear's `hitArea` is pinned from `settingsGearLocalHit()` = `settingsGearRect()` in local coordinates; the hover scale is gone (alpha only). Test sweeps the gear's neighbourhood: gear-hit ⇔ covered; mutation (+3px) → red; the wire is source-pinned (no `settingsIcon.scale.set`).
+- **Nit fixed:** `.spark-settings button:focus-visible, input:focus-visible` outline (pinned). **Cosmetic:** castle row label 2px further from the icon.
+- **R194-24 arcade MENU:** gold gradient glowing ARCADE title, NONET (violet, grid badge) / PITCH MASTERS (gold, ball badge) / BACK (back arrow) glass plates with sheen, the living backdrop behind. Menu drawing only — `hitTest`, plate rects and every game file untouched. Per-plate test: hit rect = plate; `hitTest` inside/outside; glass + badge + sheen inside the rest-size rect. Labels re-fitted so the blurb never runs past the plate.
+  - Left alone (inside the games, per the brief): `arcadeRunOverlay.ts`, `arcadeLeaderboard.ts`, `arcadeScores.ts`, `arcadeRun.ts`, `sudokuOverlay.ts`, `nonet*.ts`, `src/arcade/**`.
+- **Census (owner: "across the board"):** `src/render/uiSkinCensus.test.ts` — every clickable code line in `src/render/**` + `src/main.ts` (eventMode static/dynamic, pointer listener, `attachButtonFeedback(`, DOM button, pointer cursor) must be claimed SKINNED or EXEMPT-with-reason; a new unclaimed one is RED (mutation verified). The list:
+  - SKINNED: title 5 buttons · arcade menu plates · VS-BOTS race / personality / difficulty chips, **− / + steppers and ✕ (owner's report)**, START · castle panel rows/slots/tiles · codex tabs, CLOSE, combo tiles · CONNECTION LOST Return · draft tiles · exit BACK TO MAIN / LEAVE / KEEP · lobby Connect, Host/Join/Begin/Back/Quick/Test/READY · own lobby seat · race-picker tiles · settings close/toggles/mutes/sliders (CSS) · Controls-driven: footer band, character card.
+  - EXEMPT: settings gear (16-px HUD glyph; lights on hover; see F2) · modal scrims (bot setup, codex, connection lost, exit confirm, race picker root/scrim/panel, arcade menu scrim + tap fallback) · lobby JOIN pane body (a framed surface, not a button) · `buttonFeedback.ts` / `uiSkinButton.ts` internals · `debugOverlay.ts` (dev only) · `matchBoard.ts` (T10) · `arcadeRunOverlay.ts`, `sudokuOverlay.ts` (inside the games).
+  - REACH `uiSkinReach.chips.test.ts`: Pixi's own hit rule takes each newly-skinned button 3px inside and refuses it 3px outside; sheen inside its rect; sheen rect == hit rect on feedback buttons (mutation +4px → red); a taken race tile does not light.
+- **Gates (final tree):** typecheck exit 0 · vitest exit 0 — 535 files / 8304 passed / 11 skipped · build exit 0 · UI e2e gating lane exit 0 — 36/36.
+- **Bundle:** entry **1148.4 KiB** vs merge-base master `fbddede7` built here at **1133.7 KiB** → **+14.7 KiB** total for T5 (title backdrop is a separate 1.9 kB lazy chunk, shared with the arcade menu). Headroom 101.6 KiB.
+- **Bump verdict: still NO** — render/UI and local sound cues only.
+- **Benign, recorded:** every full vitest run rewrites `pentagramBuildability.test.ts.snap` with EOL-only changes; restored each time, never committed.
+- **Screenshots added:** `before/after-04-arcade`, `04b-arcade-hover`, `02b-bot-setup-hover-plus`, refreshed `after-02-bot-setup` in `C:/Users/onesh/OneDrive/Desktop/SPARK_S194_UI_Upgrade/`.
+
+## FINAL REPORT (round 1)
 - **Merge:** start `0a37175e` (no-op). Mid-run `git merge master` @ `2fe065fb` (mres-card + protocol 63 + vite worktree-ignore) → `86ce1e65`, **no conflicts**. T8 (buttonFeedback) and T9 (coherence) had NOT landed yet — the merge owner reconciles.
 - **Gates on the merged tree:** `npm run typecheck` exit 0 · `npx vitest run --maxWorkers=3` exit 0 — 528 files / 8226 passed / 11 skipped · `npm run build` exit 0 · UI e2e (castle-panel, exit-match, smoke, click-to-build, feed-tower, footer-order-shapes, modal-layering, settings-toggles, lobby-construction) with the gating grep-invert: exit 0, **36/36 passed** on this worktree's own hashed port. An earlier run of the same files WITHOUT the grep-invert had 8 failures, all `@quarantine-flaky` networked smoke tests outside the gating lane — ruled benign (not a gating test; the 44 gating tests in that run passed).
 - **Benign finding:** the full vitest run rewrote `pentagramBuildability.test.ts.snap` with line-ending changes only (empty content diff) — restored, not committed.
