@@ -3,11 +3,11 @@
   "session_kind": "merge-owner",
   "session_start": "2026-10-01",
   "prior_session_archive": ".claude/session-state-archive/S192_session-state.json",
-  "phase": "DO",
+  "phase": "HANDOFF",
   "tier": "Full",
   "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
   "backlog_file": ".claude/plans/S193_BACKLOG.md",
-  "session_status": "closing",
+  "session_status": "closed",
   "protocol_version": 62,
   "owner_approval_verbatim": "We'll work no more than eight work trees at a time ... then you can launch the next work tree, okay? Don't wait for me to tell you that. Approved. Follow those directions meticulously.",
   "pdr_approved": true,
@@ -270,31 +270,15 @@
     }
   ],
   "reflexion_entries_to_archive": [
-    {
-      "session": "S193",
-      "priority": "P2",
-      "lesson": "The re-audit of a fix round found the fix had removed most of the measured cost — a border bug masqueraded as the intended intercept behaviour. Pin measured numbers as assertions, not prints."
-    },
-    {
-      "session": "S193",
-      "priority": "P1",
-      "lesson": "An owner ruling that reads 'for every blast' had to be enumerated mechanically — a census keyed on BOMB_EXPLODE found every producer, and the auditor still named the one it cannot see (the Ra column)."
-    },
-    {
-      "session": "S193",
-      "priority": "P5",
-      "lesson": "The owner's reason for a rule (lag) is a requirement the rule must be measured against: the trickle stopped bursts but the audit's peak-live measurement (945 pants, 176 KB) showed it did not stop lag until a cap landed."
-    },
-    {
-      "session": "S193",
-      "priority": "P3/P4/P6",
-      "lesson": "A train of eight merges with unit gates between each and ONE e2e on a fresh server shipped cleanly; the only e2e reds of the night came from a stale/overloaded environment, proven by the fresh run."
-    },
-    {
-      "session": "S193",
-      "priority": "P9",
-      "lesson": "The owner's playtest asked 'is it points, strength or what?' — the measured answer (leader + hash + seat order, never distance) came from enumerating the target pipeline, not from reading it; and the fix's side effect on bots only an audit could see."
-    }
+    "P0 #s193-property-test-the-split: an owner ruling phrased 'for every blast' had to be enumerated mechanically (a census keyed on BOMB_EXPLODE found every producer); the auditor's 60-layout property test through runHostTick proved the 312 split sums exactly and spares his side — arithmetic tests alone would not have.",
+    "P1 #s193-pin-measured-numbers: the units-ai re-audit found the fix removed most of the measured cost (−37.6 % → −6.6 %) — a border bug had masqueraded as the intended intercept; a printed measurement is not a test, so the bound was tightened to assert it.",
+    "P2 #s193-merge-owner-applies-seam-lists: weld landed after three branches changed shared signatures under it; the re-auditor's exact seam list (11 cls sites, a 9-row e2e literal, canon text) let the branch fix its own merge in one round instead of the merge owner hand-resolving 7 conflicts.",
+    "P3 #s193-required-arg-ripples: magic made the damage class a REQUIRED argument; every later branch (carry-fwd, endstats, weld, playtest3) needed a seam round for it — a required parameter added mid-train is a cost paid N times, so announce it to every open branch the moment it lands.",
+    "P4 #s193-owner-reason-is-a-requirement: the endgame trickle stopped bursts, but only the audit's peak-live measurement (945 pants, 176 KB snapshot) showed it did not stop the LAG he named as the reason; a cap sized from the measured snapshot closed it.",
+    "P5 #s193-stats-fold-one-seam: two branches both answering 'who did this' (KillCredit, BLAST-2) were reconciled by the merge owner picking ONE seam early and briefing the second to build an adapter; the fold then cost one round instead of a redesign.",
+    "P7 #s193-ci-email-is-the-run-not-the-job: the owner's failure emails named RUNS; only gating jobs fail a run, and the one failing gating job (e2e-lobby) was a 150 s test budget below the CI critical path — the T1 fix worked all along. Read the job, not the email.",
+    "P8 #s193-measure-the-owners-question: 'is it points, strength or what?' — enumerating the target pipeline answered it exactly (leader + hash + seat order, never distance), and the fix's side effect (bots walling their own porch) was invisible to the builder and found only by the auditor's bot runs.",
+    "SESSION #s193-meta: 7 deploys (#17–#23, PROTOCOL 56→62) with ≤8 worktrees, ≤3 concurrent auditors, one-branch-at-a-time merges with full vitest between, and ONE fresh-server e2e per deploy; the only e2e reds of the night were environment (an overloaded/stale server), proven by the fresh run; detach long gate chains (the 600 s tool cap killed one) and commit logs only after verify-deploy (its REMOTE carrier trips on a local commit)."
   ],
   "carry_forward_findings": [
     {
