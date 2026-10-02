@@ -32,7 +32,7 @@
  */
 
 import { auraEmberAt, auraEmberPeriod, AURA_EMBER_LIFE } from './auraFx.ts';
-import { forEachLive, fxHash, fxSeed, mixColor, type FxSink } from './emitter.ts';
+import { envelope, forEachLive, fxHash, fxSeed, mixColor, type FxSink } from './emitter.ts';
 
 /** After the connectors are fully back (destroy), the sparkle fades out over this many ticks. MINE. */
 export const TOWER_SPARKLE_TAIL_TICKS = 45;

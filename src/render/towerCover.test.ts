@@ -348,7 +348,8 @@ describe('S183 — the cover CONSUME sites, counted and pinned', () => {
     expect(src).toContain('a: grp.standing ? coverAlphaForBond(bid) : s');
     expect(src).toContain('a: grp.standing ? coverAlphaForPrim(pid) : s');
     expect(src).toContain('towerSparkleStrength(grp.standing, grp.alpha, grp.downTicks)');
-    const fx = codeOf('fx/towerSparkleFx.ts');
+    // the build/destroy sparkle only — the S194 R194-22 fix-me layout below it is pinned separately
+    const fx = codeOf('fx/towerSparkleFx.ts').split('export const FIX_SPARKLE_BREATH_TICKS')[0]!;
     const emits = [...fx.matchAll(/\.emit\(([^;]*)\);/g)].map((m) => m[1]!.split(',').map((x) => x.trim()));
     // pool (wide) · pool (inner) · ember · connector glow · bead · shape glow · twinkle × 2
     expect(emits, 'the sparkle draws eight sprites').toHaveLength(8);
