@@ -95,8 +95,8 @@ describe('S194 — `towerBackdropFx`, every race', () => {
     const r = run('mummies', 1000);
     const g = backdropGeom(FOOT.x, FOOT.y, FOOT.w, FOOT.h);
     const motes = (out: FxEmitRecord[]) => out.filter((e) => e.tex === 'soft' && e.w < 20).length;
-    expect(motes(r.front)).toBeGreaterThan(4);
-    expect(motes(r.back)).toBeGreaterThan(4);
+    expect(motes(r.front)).toBeGreaterThan(1);
+    expect(motes(r.back)).toBeGreaterThan(1);
     expect(g.R).toBe(FOOT.w * BACKDROP_POOL_R);
   });
 });
@@ -141,7 +141,7 @@ describe('S194 REACH — `GroundDecalRenderer.sync` draws the background for a b
     beginTowerCoverFrame(w);
     install();
     r.sync(w);
-    expect(back.out.length + front.out.length, 'the background reached the fx layers').toBeGreaterThan(10);
+    expect(back.out.length + front.out.length, 'the background reached the fx layers').toBeGreaterThan(5);
     const g = backdropGeom(foot.x, foot.y, foot.w, foot.h);
     const pools = back.out.filter((e) => e.tex === 'soft' && e.w >= g.R * 1.9);
     expect(pools.length).toBeGreaterThan(0);
@@ -154,7 +154,7 @@ describe('S194 REACH — `GroundDecalRenderer.sync` draws the background for a b
     beginTowerCoverFrame(w);
     install();
     r.sync(w);
-    expect(back.out.length + front.out.length).toBeGreaterThan(10);
+    expect(back.out.length + front.out.length).toBeGreaterThan(5);
   });
 
   it('⛔ NEGATIVE — `?fx=legacy` emits no background sprites (the S185 Graphics drawing stands alone)', () => {

@@ -87,10 +87,9 @@ export function towerBackdropFx(
   const base = RACE_COLORS[race];
   const seed = fxSeed(id, 0xbac0 + RACE_SLOT[race]);
   const ph = id * 29;
-  // Shared: the ground glow the race's colour throws around the base (a wide dim halo and a hot inner pool).
+  // Shared: the ground glow the race's colour throws around the base (one pool — the wide halo was cut for perf).
   const pulse = wave(tick, 150, ph);
-  back.emit('soft', g.x, g.y, g.R * 3.4, g.ry * 3.6, 0, 0.14 + 0.05 * pulse, base, 'add');
-  back.emit('soft', g.x, g.y, g.R * 2.0, g.ry * 2.1, 0, 0.22 + 0.1 * pulse, mixColor(base, 0xffffff, 0.15), 'add');
+  back.emit('soft', g.x, g.y, g.R * 2.4, g.ry * 2.6, 0, 0.26 + 0.1 * pulse, mixColor(base, 0xffffff, 0.15), 'add');
   switch (race) {
     case 'zombies': zombies(back, front, frontShade, g, seed, tick, ph, low, base); break;
     case 'demons': demons(back, front, g, seed, tick, ph, low, base); break;
@@ -114,7 +113,7 @@ function onGround(g: BackdropGeom, a: number, f: number): { x: number; y: number
 
 /* ── zombies: toxic goo ──────────────────────────────────────────────────────────────────────── */
 
-export const ZOMBIE_BUBBLES = 5;
+export const ZOMBIE_BUBBLES = 4;
 export const ZOMBIE_BUBBLE_CYCLE = 54;
 
 function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -196,7 +195,7 @@ function demons(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick
       const heat = Math.max(0, 1 - Math.abs(run - along) * 3.2);
       const taper = 1 - s * 0.35;
       const mx = (px + qx) / 2, my = (py + qy) / 2;
-      back.emit('soft', mx, my, len + 8, 11 * taper, rot, 0.28 + 0.3 * heat, base, 'add');
+      if (s === 0) back.emit('soft', mx, my, len + 8, 11 * taper, rot, 0.28 + 0.3 * heat, base, 'add');
       back.emit('core', mx, my, len + 3, 3.4 * taper, rot, 0.55 + 0.45 * heat, heat > 0.5 ? hot : seam, 'add');
       px = qx; py = qy;
     }
@@ -265,7 +264,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
 
 /* ── mummies: a sun glyph and a sand vortex ──────────────────────────────────────────────────── */
 
-export const MUMMY_SAND_MOTES = 12;
+export const MUMMY_SAND_MOTES = 8;
 export const MUMMY_ORBIT_TICKS = 260;
 
 function mummies(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -372,7 +371,7 @@ function nagas(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick:
     back.emit('ring', g.x, g.y, g.R * 2 * r, g.ry * 2 * r, 0, (1 - q) * 0.55, foam, 'add');
   }
   // caustic glints
-  const glints = n(7, low);
+  const glints = n(5, low);
   for (let k = 0; k < glints; k++) {
     const p = onGround(g, fxHash(seed, k, 1) * TAU, 0.2 + 0.95 * Math.sqrt(fxHash(seed, k, 2)));
     const tw = wave(tick, 30 + Math.floor(fxHash(seed, k, 3) * 40), ph + k * 7);
