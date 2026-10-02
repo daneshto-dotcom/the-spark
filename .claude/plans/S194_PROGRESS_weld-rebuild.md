@@ -14,3 +14,8 @@ from the struck bond then survivors in ASCENDING id — the tower's own (oldest,
 drained first — own damage → 0, and `advanceRampCursor` SNAPS a decrease back to frame 1 (pristine).
 That reads as "it rebuilds automatically". `advanceRampCursor`'s docblock asserts "the only way health
 goes UP is FIX" — false for a welded tower.
+- WIP commit: hold module + 4 consumers wired; typecheck 0. NEXT: tests (REACH + negative + mutation), then gates.
+- Tests landed: `src/state/weldRebuildR194.test.ts` (9): REACH via runHostTick + renderer model (3 lattice falls,
+  real t3Warband 18s), hold-OFF reproduction, goblin-tower star case, FIX heals, new tower builds, new hits show,
+  3 mechanical guards. Mutations: M1 (drain treated as FIX) RED, M2 (bar bypasses hold) RED, M3 (main.ts call
+  removed) RED — all restored. NEXT: full gates.
