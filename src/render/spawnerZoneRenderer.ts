@@ -37,7 +37,7 @@ import { Application, Container, Graphics } from 'pixi.js';
 import { towerFootprintAt } from '../state/towerMembers.ts';
 import { isConcealed } from './concealment.ts';
 import {
-  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, towerFootForPrim,
+  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, resetTowerCoverGroups, towerFootForPrim,
 } from './towerCover.ts';
 import { hubArcFx } from './fx/hubArcFx.ts';
 import { BrokenTowerCache } from './brokenTowers.ts';
@@ -278,7 +278,8 @@ export class SpawnerZoneRenderer {
         if (p.pos.x > maxX) maxX = p.pos.x;
         if (p.pos.y + p.radius > maxY) maxY = p.pos.y + p.radius;
       }
-      const s = towerSparkleStrength(grp.standing, grp.alpha, grp.downTicks);
+      // ⛔ S194 audit L2 — a re-reveal (back out of fog) shows the finished tower, not a build.
+      const s = grp.standing && grp.revealOnly ? 0 : towerSparkleStrength(grp.standing, grp.alpha, grp.downTicks);
       if (!(s > TOWER_SPARKLE_EPSILON)) return;
       const owner = this.groupOwner.get(key);
       if (owner === undefined) return;
@@ -362,6 +363,9 @@ export class SpawnerZoneRenderer {
 
   /** Drop the aura graphic (title-return; closes the one-frame orphan window). */
   clear(): void {
+    // ⭐ S194 audit M1 — the title return clears the shapes; forget every tower group and owner with them.
+    this.groupOwner.clear();
+    resetTowerCoverGroups();
     this.graphics.clear();
   }
 

@@ -173,6 +173,11 @@ interface CoverGroup {
   standing: boolean;
   /** Tick it stopped being marked (null while standing, or before it was ever seen standing). */
   downSinceTick: number | null;
+  /**
+   * ⭐ S194 audit L2 — it came up standing on shapes this client had ALREADY seen standing this match: a
+   * re-reveal (an enemy tower back out of fog), not a build. The build sparkle does not play for it.
+   */
+  revealOnly: boolean;
 }
 
 /**
@@ -186,6 +191,20 @@ const groups = new Map<PrimitiveId, CoverGroup>();
 /** Standing groups by member primitive — rebuilt at the frame boundary. */
 const groupOfPrim = new Map<PrimitiveId, CoverGroup>();
 let frameNo = 0;
+/** ⭐ S194 audit L2 — every shape seen standing under a drawn tower this match (cleared on title return). */
+const everStood = new Set<PrimitiveId>();
+
+/**
+ * ⭐ S194 audit M1 — forget every tower group (title return). The shapes are cleared there while
+ * `world.tick` keeps rising, so without this each standing group went "down" with its phase pruned
+ * (alpha 1) and played a phantom destroy sparkle behind the title. Called by `SpawnerZoneRenderer.clear()`,
+ * which the title-return block in `main.ts` already calls.
+ */
+export function resetTowerCoverGroups(): void {
+  groups.clear();
+  groupOfPrim.clear();
+  everStood.clear();
+}
 
 let tick = 0;
 /**
@@ -232,14 +251,21 @@ function reconcileGroups(): void {
   const prev = frameNo;
   frameNo++;
   groupOfPrim.clear();
+  for (const g of groups.values()) {
+    if (g.lastMarkFrame !== prev) continue;
+    if (!g.standing) g.revealOnly = g.prims.some((id) => everStood.has(id)); // L2: a re-reveal, not a build
+    g.standing = true;
+    g.downSinceTick = null;
+    for (const id of g.prims) { groupOfPrim.set(id, g); everStood.add(id); }
+  }
   for (const [key, g] of groups) {
-    const marked = g.lastMarkFrame === prev;
-    if (marked) {
-      g.standing = true;
-      g.downSinceTick = null;
-      for (const id of g.prims) groupOfPrim.set(id, g);
-      continue;
-    }
+    if (g.lastMarkFrame === prev) continue;
+    /*
+     * ⛔ S194 audit L1 — a group is keyed by its smallest shape. A tower that re-forms WITHOUT that shape
+     * is a new key; the old one must not then "go down" and play a destroy sparkle under a building that
+     * still stands. Any of its shapes now under a standing group ⇒ it is that tower, not a fallen one.
+     */
+    if (g.prims.some((id) => groupOfPrim.has(id))) { groups.delete(key); continue; }
     if (g.standing) {
       g.standing = false;
       g.downSinceTick = tick;
@@ -309,7 +335,7 @@ export function markTowerCover(
   if (key === null) return;
   const g = groups.get(key);
   if (g === undefined) {
-    groups.set(key, { prims, bonds, foot: foot ?? null, lastMarkFrame: frameNo, standing: false, downSinceTick: null });
+    groups.set(key, { prims, bonds, foot: foot ?? null, lastMarkFrame: frameNo, standing: false, downSinceTick: null, revealOnly: false });
   } else {
     g.prims = prims;
     g.bonds = bonds;
@@ -331,6 +357,8 @@ export interface TowerCoverGroupView {
   readonly alpha: number;
   /** Ticks since it stopped standing; 0 while standing. */
   readonly downTicks: number;
+  /** ⭐ S194 audit L2 — standing again on shapes already seen standing (a re-reveal): no BUILD sparkle. */
+  readonly revealOnly: boolean;
 }
 
 /**
@@ -348,6 +376,7 @@ export function forEachTowerCoverGroup(cb: (g: TowerCoverGroupView) => void): vo
       key, prims: g.prims, bonds: g.bonds, foot: g.foot, standing: g.standing,
       alpha: alphaOf(primPhase.get(key)),
       downTicks: g.standing || g.downSinceTick === null ? 0 : Math.max(0, tick - g.downSinceTick),
+      revealOnly: g.revealOnly,
     });
   }
 }
@@ -405,6 +434,7 @@ export function __resetTowerCoverForTests(): void {
   bondPhase.clear();
   groups.clear();
   groupOfPrim.clear();
+  everStood.clear();
   frameNo = 0;
   tick = 0;
   active = false;

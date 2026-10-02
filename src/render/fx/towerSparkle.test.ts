@@ -24,7 +24,7 @@ import {
 import {
   TOWER_COVER_FADE_TICKS, TOWER_COVER_GROUP_LINGER_TICKS, TOWER_COVER_REVEAL_TICKS,
   __resetTowerCoverForTests, beginTowerCoverFrame, forEachTowerCoverGroup, markTowerCover,
-  towerFootForPrim, type TowerCoverGroupView,
+  towerFootForPrim, resetTowerCoverGroups, pruneTowerCover, type TowerCoverGroupView,
 } from '../towerCover.ts';
 import { SpawnerZoneRenderer } from '../spawnerZoneRenderer.ts';
 import { resetConcealmentForTest } from '../concealment.ts';
@@ -92,19 +92,49 @@ describe('S194 — towerCover remembers every drawn tower as a GROUP', () => {
     expect(groups()).toEqual([]);
   });
 
-  it('a new match (the tick goes BACKWARDS) drops what the last one left', () => {
+  it('⛔ S194 audit M1 — a title return forgets every group (the tick stays monotonic, as in production)', () => {
     const w = { tick: 5000 };
     frame(w, () => markTowerCover(P, B, 5000, FOOT));
     w.tick = 5001;
     frame(w, () => markTowerCover(P, B, 5000, FOOT));
+    expect(groups()).toHaveLength(1);
+    resetTowerCoverGroups();
     w.tick = 5002;
     frame(w, null);
     w.tick = 5003;
     frame(w, null);
-    expect(groups()).toHaveLength(1);
-    w.tick = 3;
-    frame(w, null);
-    expect(groups()).toEqual([]);
+    expect(groups(), 'nothing goes "down" after the title return').toEqual([]);
+  });
+
+  it('⛔ S194 audit L1 — a tower that re-forms WITHOUT its smallest shape does not leave a "fallen" ghost group', () => {
+    const w = { tick: 100 };
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    w.tick = 101;
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    const reformed = [asPrimitiveId(11), asPrimitiveId(12), asPrimitiveId(13)];
+    w.tick = 102;
+    frame(w, () => markTowerCover(reformed, B, 100, FOOT));
+    w.tick = 103;
+    frame(w, () => markTowerCover(reformed, B, 100, FOOT));
+    w.tick = 104;
+    frame(w, () => markTowerCover(reformed, B, 100, FOOT));
+    const g = groups();
+    expect(g.map((x) => [x.key, x.standing])).toEqual([[asPrimitiveId(11), true]]);
+  });
+
+  it('⛔ S194 audit L2 — standing again on shapes already seen standing is a RE-REVEAL, not a build', () => {
+    const w = { tick: 100 };
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    w.tick = 101;
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    expect(groups()[0]!.revealOnly, 'the first time it stands: a build').toBe(false);
+    for (let t = 102; t < 140; t++) { w.tick = t; frame(w, null); } // into the fog
+    w.tick = 140;
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    w.tick = 141;
+    frame(w, () => markTowerCover(P, B, 100, FOOT));
+    expect(groups()[0]!.standing).toBe(true);
+    expect(groups()[0]!.revealOnly).toBe(true);
   });
 
   it('is INACTIVE until the render tick starts it — nothing is remembered, nothing is visited', () => {
@@ -268,6 +298,37 @@ describe('S194 REACH — `SpawnerZoneRenderer.sync` sparkles every tower kind', 
     expect(top.out.length, 'mid-reveal: sparkling').toBeGreaterThan(8);
     syncAt(r, w, gone + TOWER_SPARKLE_REVEAL_TICKS + TOWER_SPARKLE_TAIL_TICKS + 2, false, prims, bonds);
     expect(top.out, 'after the tail: quiet').toEqual([]);
+  });
+
+  it('⛔ S194 audit M1 REACH — a title return (shapes cleared, tick still rising) plays NO phantom sparkle', () => {
+    const { w, prims, bonds } = boardWith('defender');
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    for (let t = 1000; t <= 1000 + TOWER_COVER_FADE_TICKS + 5; t += 5) syncAt(r, w, t, true, prims, bonds);
+    // the title return: the reducer clears the board, main.ts calls clear(), the renderers keep syncing
+    w.primitives.clear();
+    w.bonds.clear();
+    pruneTowerCover(w);
+    r.clear();
+    const t0 = 1000 + TOWER_COVER_FADE_TICKS + 6;
+    for (let t = t0; t < t0 + 40; t++) {
+      syncAt(r, w, t, false, prims, bonds);
+      expect(top.out, `tick ${t}`).toEqual([]);
+    }
+    expect(groups(), 'clear() forgot the groups (not merely their owners)').toEqual([]);
+  });
+
+  it('⛔ S194 audit L2 REACH — a tower re-entering vision shows the finished state, no BUILD sparkle', () => {
+    const { w, prims, bonds } = boardWith('defender');
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    for (let t = 1000; t <= 1000 + TOWER_COVER_FADE_TICKS + 5; t += 5) syncAt(r, w, t, true, prims, bonds);
+    const fog = 1000 + TOWER_COVER_FADE_TICKS + 6;
+    for (let t = fog; t < fog + 100; t++) syncAt(r, w, t, false, prims, bonds); // fogged: not published
+    const back = fog + 100;
+    syncAt(r, w, back, true, prims, bonds);
+    for (let t = back + 1; t < back + 20; t++) {
+      syncAt(r, w, t, true, prims, bonds);
+      expect(top.out, `tick ${t}`).toEqual([]);
+    }
   });
 
   it('⛔ NEGATIVE — `?fx=legacy` emits no sparkle sprites at all', () => {
