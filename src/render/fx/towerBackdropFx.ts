@@ -114,7 +114,7 @@ function onGround(g: BackdropGeom, a: number, f: number): { x: number; y: number
 
 /* ── zombies: toxic goo ──────────────────────────────────────────────────────────────────────── */
 
-export const ZOMBIE_BUBBLES = 7;
+export const ZOMBIE_BUBBLES = 5;
 export const ZOMBIE_BUBBLE_CYCLE = 54;
 
 function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -159,7 +159,7 @@ function zombies(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, se
     front.emit('soft', lx, g.footY - 1, lw * 0.85, 5 + 3 * w, 0, 0.32 + 0.18 * w, goo, 'add');
   }
   // Miasma: green wisps rising round the silhouette.
-  forEachLive(tick, low ? 28 : 14, 110, 1, ph, (b, k, t) => {
+  forEachLive(tick, low ? 44 : 22, 110, 1, ph, (b, k, t) => {
     const side = fxHash(seed, b, k + 40) < 0.5 ? -1 : 1;
     const x0 = g.x + side * g.R * (0.45 + 0.5 * fxHash(seed, b, k + 41));
     const rise = g.H * (0.15 + 0.85 * t);
@@ -247,7 +247,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
   }
   // blood mist curling low round the base — dark in front of the building, lit at the rim
   if (!low) {
-    forEachLive(tick, 18, 160, 1, ph, (b, k, t) => {
+    forEachLive(tick, 30, 160, 1, ph, (b, k, t) => {
       const a = fxHash(seed, b, k + 60) * TAU + t * 1.4;
       const p = onGround(g, a, 0.85 + 0.35 * fxHash(seed, b, k + 61));
       const s = g.R * (0.5 + 0.4 * t);
@@ -265,7 +265,7 @@ function vampires(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, s
 
 /* ── mummies: a sun glyph and a sand vortex ──────────────────────────────────────────────────── */
 
-export const MUMMY_SAND_MOTES = 18;
+export const MUMMY_SAND_MOTES = 12;
 export const MUMMY_ORBIT_TICKS = 260;
 
 function mummies(back: FxSink, front: FxSink, g: BackdropGeom, seed: number, tick: number, ph: number, low: boolean, base: number): void {
@@ -331,8 +331,8 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
     back.emit('ring', g.x, g.y, g.R * 2 * (0.6 + 1.1 * q), g.ry * 2 * (0.6 + 1.1 * q), 0, (1 - q) * 0.4, mixColor(dust, base, 0.3), 'add');
     if (!low) {
       const beatNo = Math.floor((tick + ph) / ORC_DRUM_TICKS);
-      for (let j = 0; j < 5; j++) {
-        const a = (j / 5) * TAU + fxHash(seed, beatNo, j) * 0.6;
+      for (let j = 0; j < 3; j++) {
+        const a = (j / 3) * TAU + fxHash(seed, beatNo, j) * 0.6;
         const p = onGround(g, a, 0.9 + 0.6 * q);
         const s = g.R * (0.25 + 0.35 * q);
         (p.y > g.footY - 2 ? shade : back).emit('smoke', p.x, p.y - 10 * q, s, s * 0.55, a, (1 - q) * 0.4, dust, 'normal');
@@ -341,7 +341,7 @@ function orcs(back: FxSink, front: FxSink, shade: FxSink, g: BackdropGeom, seed:
   }
   // smoke from the camp, rising off both flanks (it darkens, so it rides the shade layer)
   if (!low) {
-    forEachLive(tick, 20, 170, 1, ph, (b, k, t) => {
+    forEachLive(tick, 34, 170, 1, ph, (b, k, t) => {
       const side = fxHash(seed, b, k + 90) < 0.5 ? -1 : 1;
       const x0 = g.x + side * g.R * (0.55 + 0.35 * fxHash(seed, b, k + 91));
       const s = 16 + 34 * t;
