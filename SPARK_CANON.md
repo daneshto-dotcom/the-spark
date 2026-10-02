@@ -1153,7 +1153,7 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **62** (S193 — deploy #23; see the S193 entries on the const).
+`PROTOCOL_VERSION` is **63** (S194 — s193/mres-card; see the S194 entry on the const). 62 was S193's deploy #23.
 
 ⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 
