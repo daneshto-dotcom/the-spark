@@ -1,3 +1,8 @@
+# ⏸ PAUSED (owner session limit) — RESUME HERE
+- NEXT STEP: item 7 is DONE (7a exit edge, 7b hub-ramp, 7c tower-art). Next: item 5 (CI L2: SLOWEST_CI_TICKS_PER_S 6→5 in e2e/worker-bots.spec.ts:80 + lane minutes; ALSO the gating lane budget — deploy #22 died at the 12-min PW_GLOBAL cap with green runs at 8.9-10.5 min, so 3 retries overran it), then 6 (verify-only: 2028ba4 is in master; run a real-tree mutant), then scope adds A-D, then 4 (quarantine), 3 (soak), then full gates.
+- Half-done: nothing uncommitted. Full gates (typecheck / full vitest / build) NOT yet run on this branch.
+- Last runs: vitest per-file all exit 0 (creatureProjectileRage, princessSlapSpin, buttonPressHit+buttonFeedback, e2eHubRampClock, visualsCombatReach); e2e on own port: button-press-edge+exit-match x3 exit 0 (42/42), hub-ramp-art x3 exit 0 (9/9), tower-art exit 0 (3/3); throttled repros documented below.
+
 # S194 PROGRESS — fixes (`s194/fixes`, tree T8)
 
 Base: master 0a37175e (`git merge master` = already up to date, 0 conflicts). npm install exit 0.
@@ -24,5 +29,8 @@ Base: master 0a37175e (`git merge master` = already up to date, 0 conflicts). np
 
 - item 7 diagnosis: deploy #22 gating red = 720 s suite cap (61 passed / 3 flaky / 7 did not run); green runs take 8.9-10.5 min of 12. exit-match right edge: PRESS scale 0.97 about the top-left origin shrinks the hit rect to 162.96 px, so a click 3 px inside the right edge (local 165) misses the pointerup hit test whenever a frame renders between down and up (pointerupoutside → no tap). Repro e2e next.
 - item 7a (exit edge) DONE — REAL PRODUCT BUG: `buttonFeedback.ts` hitRectAtScale + setScale (target never below the rest plate while pressed). Repro `e2e/button-press-edge.spec.ts` (held 150 ms click): before fix right-edge RED 1/3 deterministic, after 3/3 green; exit-match+new spec --repeat-each=3 42/42. Unit `buttonPressHit.test.ts` (5): arithmetic incl. codex pivot, REACH real Container via its pointerdown handler, negative outside edge. Mutation (setScale keeps the rest rect) RED unit 1/5 + e2e 1/3. Render-only, NO BUMP. ⚠ shared helper: arcadeOverlay.ts is a consumer (not edited).
+- item 7b (hub-ramp) DONE — HARNESS defect: 1200 ms wall wait for a 22-tick cursor walk; reproduced under 14x/20x CPU throttle (columns 9/6); now waitForTickAdvance(11*2+2) via tickClock.ts; passes at 20x. Guard `src/e2eHubRampClock.test.ts` (spec's ticks-per-frame copy == HUB_RAMP_TICKS_PER_FRAME; tick wait present) — mutants (copy=3; wall wait restored) RED.
+- item 7c (tower-art.spec.ts:314, the THIRD #22 flake) DONE — HARNESS defect: lazy atlas fetch raced a fixed 900 ms read; reproduced with 1.5 s CDP latency; now expect.poll up to TOWER_ATLAS_WAIT_MS 20 s (MINE) for both sprite checks, assertion unchanged (exactly 1). Guard in e2eHubRampClock.test.ts, mutant RED.
+- #22 run verdict: red = 720 s suite cap (61 passed, 3 flaky, 7 not run); retries of the 3 flakes overran a lane whose green runs take 8.9-10.5 of 12 min.
 
-NEXT STEP: item 7 (boot finding: exit-match edge + hub-ramp frame CI reds) — then 5, 4, 3, 6.
+OLD NEXT: item 7 (boot finding: exit-match edge + hub-ramp frame CI reds) — then 5, 4, 3, 6.

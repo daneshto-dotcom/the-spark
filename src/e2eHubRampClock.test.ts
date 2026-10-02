@@ -27,3 +27,11 @@ describe('S194 T8 — the hub-ramp e2e waits on ticks, with the real ticks-per-f
     expect(body).not.toMatch(/await page\.waitForTimeout\(1200\)/);
   });
 });
+
+describe('S194 T8 — tower-art polls for the LAZY tower atlas instead of reading at a fixed 900 ms', () => {
+  const tower = readFileSync(join(__dirname, '..', 'e2e', 'tower-art.spec.ts'), 'utf8');
+  it('both sprite-count checks are polled, and none is read once', () => {
+    expect(tower.match(/expect\.poll\(async \(\) => \(await towerState\(page\)\)\.towerSprites/g)?.length).toBe(2);
+    expect(tower).not.toMatch(/expect\(after\.towerSprites/);
+  });
+});
