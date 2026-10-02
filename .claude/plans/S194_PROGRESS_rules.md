@@ -1,3 +1,11 @@
+## ⏸ SESSION CLOSED (S194) — S195 RESUMES HERE. EXACT NEXT STEP
+- **Quick-check fix round (3 items) — ALL CODE + TESTS COMMITTED, GATES NOT YET RE-RUN:**
+  1. `save.ts` restored to master's LF bytes + the 2 simMemo lines (`git diff --stat master -- src/state/save.ts` = 2 insertions; index/worktree both LF). `endgameMonsters.ts` index is LF (`git ls-files --eol`).
+  2. `applyReturnToTitle` bumps `simMemo.generation`; test "RETURN_TO_TITLE resets nextCreatureId…" in `endgameS194Perf.test.ts` (mutation: bump removed → red).
+  3. MED-1 halves pinned separately in `endgameAudit.test.ts` ("each half of the MED-1 cap"): total-check-only mutation → the TOTAL test reds; victim-counting-only mutation → the VICTIM test reds.
+- **NEXT:** run the gates on this tip — `npm run typecheck`, `npx vitest run --maxWorkers=3`, `npm run build` (exit codes into files) — then report the tip + gate results to the merge owner. Last full gates (one commit round earlier, 95e56eaf): typecheck 0, vitest 0 (8640), build 0 (1166.8 KiB), e2e:gating 0 (74).
+- No background processes running.
+
 ## ✅ FINAL REPORT — re-audit fix round (MED-1, LOW-1, LOW-2, memo) + merge master e9855ba9
 - MED-1 true 360 total (count by victim seat + total check); LOW-1 mega banner from the live creature; LOW-2 docs; memo keyed on a snapshot generation (tick key dropped).
 - Merge master e9855ba9 (PROTOCOL 66): one conflict, the FFA golden — re-recorded on the merged tree (86 checkpoints, md5 f799248c52e031928c71b8d2abf18856). Pre-teams reference not constructible for this pair (weld-rebuild + matchboard carry teams; reverting teams conflicts in 5 files) — stated in the file.
