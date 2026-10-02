@@ -1,5 +1,11 @@
 # S194 — T5 UI UPGRADE (`s194/ui-upgrade`) — PROGRESS
 
+## ⏸ PAUSED (owner session limit) — RESUME HERE
+- **Exact next step:** wire `src/render/uiSkinButton.ts` (`skinStaticPlate` + `attachHoverSheen`, written + typechecked, NOT yet used anywhere) into `exitButton.ts` (BACK TO MAIN plate + icon 'exit'; modal panel `skinPanelFx`; LEAVE/KEEP buttons with icons 'exit'/'play'), then title screen (+ lazy animated backdrop), lobby, bot setup, settings DOM CSS, codex/conn-lost. Each with a test that the skin/sheen lies inside the `attachButtonFeedback` hit rect.
+- **Half-done:** nothing half-applied in a surface — footer, castle panel, character card and draft are complete and committed; `uiSkinButton.ts` is new and unused.
+- **Last gates run:** `npm run typecheck` (tsc -b --noEmit) exit 0 at the pause. Targeted vitest only so far (all green): uiSkin 305, footer+reach 77, castle 121+5, sheet 104, draft 244 (+4 new). Full `npx vitest run`, `npm run build` and e2e NOT yet run on this branch.
+- Dev server (vite :31947) stopped at the pause; restart with `npx vite --port 31947 --strictPort` from the worktree; screenshot harness `node .tmp-gates/shots.mjs <outdir> 31947 [filter]` (before-shots in `.tmp-gates/before/`).
+
 ## FINAL REPORT
 _(filled at the end)_
 
