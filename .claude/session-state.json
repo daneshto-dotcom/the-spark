@@ -1,327 +1,116 @@
 {
-  "session_id": "S193",
+  "session_id": "S194",
   "session_kind": "merge-owner",
-  "session_start": "2026-10-01",
-  "prior_session_archive": ".claude/session-state-archive/S192_session-state.json",
-  "phase": "HANDOFF",
+  "session_start": "2026-10-02",
+  "prior_session_archive": ".claude/session-state-archive/S193_session-state.json",
+  "phase": "DO",
   "tier": "Full",
-  "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-  "backlog_file": ".claude/plans/S193_BACKLOG.md",
-  "session_status": "closed",
+  "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+  "backlog_file": ".claude/plans/S194_BACKLOG.md",
+  "session_status": "active",
   "protocol_version": 62,
-  "owner_approval_verbatim": "We'll work no more than eight work trees at a time ... then you can launch the next work tree, okay? Don't wait for me to tell you that. Approved. Follow those directions meticulously.",
+  "owner_approval_verbatim": "UI upgrade? Just do it. Don't bring me the mockups. Just build it ... once that research lands, just present it to me here in chat. I'll answer all the questions and yeah, and get to work on them.",
   "pdr_approved": true,
   "deliberation_completed": true,
   "unlock_source": "user",
-  "deliberation_note": "inherited S191/S192 Council; T4 spec gets its own Council in its worktree",
+  "deliberation_note": "T1-T3 inherited S191/S192 Council + S193 audits; T5/T6 run a Council pass in-worktree",
   "priorities": [
     {
-      "id": "P1",
-      "title": "zombies: merge master, audit, merge (bump)",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s192/zombies",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "audit a2d1cfa6 CLEAN (60-layout property test through runHostTick, trial merge 0 conflicts); merge 7ecc53e + bump 57->58 e693dac; charter 1100->1250 11d86a3; gates tc0 vt0 7330 build0 1040.6 e2e:gating 70/70 races 5/5 lobby 5/5; verify-deploy 4/4",
-      "checkpoint_commit": "11d86a3b",
-      "deploy": "#18",
-      "real_context_tokens_at_close": 200000,
-      "real_context_pct_at_close": 20.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 57 -> 58"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/blastFalloff.ts",
-          "needle": "splitBlastPool"
-        }
-      ]
-    },
-    {
-      "id": "P2",
-      "title": "units-ai: merge master, audit, merge",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s192/units-ai",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "audit aefc42cb FIX FIRST (MED own-zone clause) -> fix 75355bd -> re-audit a50d846c CLEAN; merge fe3eb16 + bump 56->57 c298b17; gates tc0 vt0 7281 build0 1035.9 KiB e2e:gating 70/70 races 5/5 lobby 5/5; verify-deploy 4/4",
-      "checkpoint_commit": "31b1862d",
-      "deploy": "#17",
-      "real_context_tokens_at_close": 150000,
-      "real_context_pct_at_close": 15.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 56 -> 57"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/creatures/chaseGiveUp.test.ts",
-          "needle": "toBeLessThan(0.15)"
-        }
-      ]
-    },
-    {
-      "id": "P3",
-      "title": "weld: re-audit X1/X2/L1 + SEAM-C7, merge (bump); then round 6",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s189/weld",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "weld r5+r6: audit a0439edd FIX FIRST -> fix -> re-audit a1f43100 CLEAN -> pre-land merge 68f03db (e2e 71/71); in deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
-      "checkpoint_commit": "0a4d9470",
-      "deploy": "#22",
-      "real_context_tokens_at_close": 760000,
-      "real_context_pct_at_close": 76.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 60 -> 61"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/repairJobs.ts",
-          "needle": "tickRepairJobs"
-        }
-      ]
-    },
-    {
-      "id": "P4",
-      "title": "magic: merge master + re-tag, audit, merge (bump)",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s192/magic",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "magic: audits a4064b41 CLEAN -> re-audit a540e3c8 CLEAN -> endgame seam + per-source differential; e2e castle-panel fix 6a90107; merge af4ab26 + bump 59->60; deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
-      "checkpoint_commit": "0a4d9470",
-      "deploy": "#22",
-      "real_context_tokens_at_close": 760000,
-      "real_context_pct_at_close": 76.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 60 -> 61"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/magicResist.ts",
-          "needle": "MRES"
-        }
-      ]
-    },
-    {
-      "id": "P5",
-      "title": "endgame: merge master, audit, merge (bump)",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s192/endgame",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "audit a81012e4 CLEAN -> fix round d35852f (live cap, per-seat countdown, victim keep, bounty gate) -> re-audit a77c23ee CLEAN; merge + SITES seam + bump 58->59 e2d3cf5; gates tc0 vt0 7417 build0 1050.7 e2e 71/71 races 5/5 lobby 5/5 atlas 0; verify-deploy 4/4",
-      "checkpoint_commit": "5566c096",
-      "deploy": "#20",
-      "real_context_tokens_at_close": 260000,
-      "real_context_pct_at_close": 26.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 58 -> 59"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/endgameMonsters.ts",
-          "needle": "MONSTER_MAX_LIVE_PER_SEAT"
-        }
-      ]
-    },
-    {
-      "id": "P6",
-      "title": "endstats: BLAST-2 + KillCredit seam, audit, merge",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s191/endstats",
-      "status": "completed",
-      "priority_state": "completed",
-      "pdr_approved": true,
-      "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "endstats: audit adfcda67 FIX FIRST -> d4fa7eb -> merge rounds onto magic 3d2ad4c; deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
-      "checkpoint_commit": "0a4d9470",
-      "deploy": "#22",
-      "real_context_tokens_at_close": 760000,
-      "real_context_pct_at_close": 76.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 60 -> 61"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/state/elimination.ts",
-          "needle": "winner"
-        }
-      ]
-    },
-    {
-      "id": "P7",
-      "title": "teams: sameTeam seams, 2-peer lobby test, audit, merge LAST (bump)",
-      "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
+      "id": "T1",
+      "title": "teams: merge master, sameTeam spares, bots, golden, bump",
       "branch": "s192/teams",
-      "status": "carried",
-      "priority_state": "carried",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_method": "teams round 2 DONE (tip 5f8074e) — HELD to land LAST; S194: merge final master, zombie-blast teammate spare, FFA golden re-record, bump"
+      "unlock_source": "user"
     },
     {
-      "id": "P8",
-      "title": "lobby-ci: CI e2e-lobby nplayer 4-seat red 4/5 — research + fix",
+      "id": "T2",
+      "title": "visuals-3 combined re-bench + land",
+      "branch": "s193/visuals-racial",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s193/lobby-ci",
-      "status": "completed",
-      "priority_state": "completed",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "research verdict (b) harness budget; v2 CI health fixes; audit a6f548e6 CLEAN; merge bae5d78 + chores L1/L6 ff10902; gates tc0 vt0 7335 build0 e2e 71/71 races 5/5 lobby 5/5; verify-deploy 4/4",
-      "checkpoint_commit": "ba1062be",
-      "deploy": "#19",
-      "real_context_tokens_at_close": 230000,
-      "real_context_pct_at_close": 23.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/relayRotation.test.ts",
-          "needle": "describe"
-        },
-        {
-          "type": "file_contains",
-          "path": "e2e/tickClock.ts",
-          "needle": "FROZEN"
-        }
-      ]
+      "unlock_source": "user"
     },
     {
-      "id": "P9",
-      "title": "playtest3 (A3): castle keep-out one 61 px disc; nearest enemy first",
+      "id": "T3",
+      "title": "mres-card audit + land",
+      "branch": "s193/mres-card",
       "tier": "Full",
-      "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
-      "branch": "s193/playtest3",
-      "status": "completed",
-      "priority_state": "completed",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user",
-      "check_completed": true,
-      "check_method": "research (porch discs = the south lobe 108 vs 74 px; spread picked the victim seat by leader+hash) -> fix 0db6ee4 -> audit a7fab9d6 FIX FIRST (MED bots wall their porch) -> fix 6e815bf (auditor's verified fix + pull feedback); merge + bump 61->62 4aea9bf; gates tc0 vt0 7859 build0 1121.9 e2e 71/71 races 5/5 lobby 5/5; verify-deploy 4/4",
-      "checkpoint_commit": "77e2a007",
-      "deploy": "#23",
-      "real_context_tokens_at_close": 800000,
-      "real_context_pct_at_close": 80.0,
-      "verification": [
-        {
-          "type": "file_contains",
-          "path": "src/net/protocol.ts",
-          "needle": "BUMPED 61 -> 62"
-        },
-        {
-          "type": "file_contains",
-          "path": "src/bots/botPorchClear.test.ts",
-          "needle": "describe"
-        }
-      ]
+      "unlock_source": "user"
+    },
+    {
+      "id": "T4",
+      "title": "visuals-6: per-race tower background, V28 ghost, hub arc",
+      "branch": "s194/visuals-6",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "T5",
+      "title": "ui-upgrade: every clickable surface + home screen",
+      "branch": "s194/ui-upgrade",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "T6",
+      "title": "entropy tax: research, options in chat, build pick",
+      "branch": "s194/entropy",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "T7",
+      "title": "bots-tune",
+      "branch": "s194/bots-tune",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
+    },
+    {
+      "id": "T8",
+      "title": "fixes incl. #22 CI gating reds",
+      "branch": "s194/fixes",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-02_S194_BATCH_PDR.md",
+      "status": "in_progress",
+      "priority_state": "in_progress",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user"
     }
   ],
-  "reflexion_entries_to_archive": [
-    "P0 #s193-property-test-the-split: an owner ruling phrased 'for every blast' had to be enumerated mechanically (a census keyed on BOMB_EXPLODE found every producer); the auditor's 60-layout property test through runHostTick proved the 312 split sums exactly and spares his side — arithmetic tests alone would not have.",
-    "P1 #s193-pin-measured-numbers: the units-ai re-audit found the fix removed most of the measured cost (−37.6 % → −6.6 %) — a border bug had masqueraded as the intended intercept; a printed measurement is not a test, so the bound was tightened to assert it.",
-    "P2 #s193-merge-owner-applies-seam-lists: weld landed after three branches changed shared signatures under it; the re-auditor's exact seam list (11 cls sites, a 9-row e2e literal, canon text) let the branch fix its own merge in one round instead of the merge owner hand-resolving 7 conflicts.",
-    "P3 #s193-required-arg-ripples: magic made the damage class a REQUIRED argument; every later branch (carry-fwd, endstats, weld, playtest3) needed a seam round for it — a required parameter added mid-train is a cost paid N times, so announce it to every open branch the moment it lands.",
-    "P4 #s193-owner-reason-is-a-requirement: the endgame trickle stopped bursts, but only the audit's peak-live measurement (945 pants, 176 KB snapshot) showed it did not stop the LAG he named as the reason; a cap sized from the measured snapshot closed it.",
-    "P5 #s193-stats-fold-one-seam: two branches both answering 'who did this' (KillCredit, BLAST-2) were reconciled by the merge owner picking ONE seam early and briefing the second to build an adapter; the fold then cost one round instead of a redesign.",
-    "P7 #s193-ci-email-is-the-run-not-the-job: the owner's failure emails named RUNS; only gating jobs fail a run, and the one failing gating job (e2e-lobby) was a 150 s test budget below the CI critical path — the T1 fix worked all along. Read the job, not the email.",
-    "P8 #s193-measure-the-owners-question: 'is it points, strength or what?' — enumerating the target pipeline answered it exactly (leader + hash + seat order, never distance), and the fix's side effect (bots walling their own porch) was invisible to the builder and found only by the auditor's bot runs.",
-    "SESSION #s193-meta: 7 deploys (#17–#23, PROTOCOL 56→62) with ≤8 worktrees, ≤3 concurrent auditors, one-branch-at-a-time merges with full vitest between, and ONE fresh-server e2e per deploy; the only e2e reds of the night were environment (an overloaded/stale server), proven by the fresh run; detach long gate chains (the 600 s tool cap killed one) and commit logs only after verify-deploy (its REMOTE carrier trips on a local commit)."
-  ],
-  "carry_forward_findings": [
-    {
-      "id": "BOOT-CI1",
-      "sev": "MED",
-      "text": "CI e2e-lobby nplayer 4-seat red in 4/5 recent master runs -> P8"
-    },
-    {
-      "id": "BOOT-CI2",
-      "sev": "LOW",
-      "text": "e2e-quarantine red every run (hostmigration x2, exit-match) - non-gating lane, pre-existing"
-    },
-    {
-      "id": "BOOT-CI3",
-      "sev": "INFO",
-      "text": "deploy#10 run: gating e2e = Checkout action timeout (infra, benign); soak worker-heap red once, green on later runs"
-    }
-  ],
-  "scope_amendments": [],
-  "budget_total": null,
-  "totals": {
-    "budget_remaining": null
-  },
-  "auto_fill_applied": {
-    "ts": "2026-10-01T18:48:18.995702Z",
-    "fields": [
-      "totals.budget_remaining"
-    ],
-    "validator_version": "s110-three-tier-v1"
-  },
-  "extra_landed": [
-    "s193/bots (#22)",
-    "s193/goblin-autobuild (#22)",
-    "s193/visuals-boss (#21)",
-    "s193/visuals-combat (#22)",
-    "s193/visuals-board (#22)",
-    "s193/carry-fwd (#22)",
-    "s193/lobby-ci (#19)"
-  ],
-  "carried_branches": [
-    "s192/teams",
-    "s193/visuals-racial (combined re-bench owed)",
-    "s193/playtest3 (audit running)",
-    "s193/mres-card (needs audit; art blocked by Imagen 404)"
-  ]
+  "reflexion_entries_to_archive": []
 }
