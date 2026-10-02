@@ -1,6 +1,13 @@
 # S194 PROGRESS — s193/mres-card (T3, the wave-26 MRES draft card)
 
-## FINAL REPORT
+## FIX-ONLY ROUND (owner S194 ruling: castle soldier MRES 1, every race) — FINAL
+- commits: dad7f540 (CASTLE_SOLDIER_MRES=1, raceUnit rule 'ownerRace'->'soldier', re-pins, dispatch pin, canon §2b row split) · 8b84b161 (RESIST cue on a picked soldier under the ROT) · 9d532f27 (tile detail exact; ownerRace docblock).
+- gates: typecheck 0 · vitest --maxWorkers=3 0 (521 files / 7885 passed / 11 skipped; +4 new tests) · build 0, entry 1123.1 KiB (unchanged vs round 1, +1.2 over master), headroom 126.9.
+- re-pinned (never silenced): magicResist.test x4 (order test drops the soldier tier; soldier now = CASTLE_SOLDIER_MRES; demons-soldier 6/9 funnel case moved to the demons tier-3 unit; owner-race case -> all-races-equal), canon.test §2b (soldier=1 + canon sentence) + §3d (CASTLE_SOLDIER_MRES instead of RACE_MRES_LEVEL.orcs), draftMresReaches FACTORY (7 for every race, was 10/7/6).
+- mutation: soldier back on the race table -> both new dispatch pins RED; cue ignoring mresFifths -> ROT pin RED. Both restored.
+- bump: still ONE bump (the soldier's MRES rule change rides it — both peers compute it).
+
+## FINAL REPORT (round 1)
 - tip: `git log -1 s193/mres-card` (this commit). Merge 21e2be4e = master 0a37175e; 1 conflict, src/state/damage.ts import block, kept both sides.
 - gates (exit codes from files): typecheck 0 (re-run after the new test, 0) · vitest --maxWorkers=3 0 (521 files passed / 4 skipped; 7881 passed / 11 skipped; magicResist.differential, magicResist.callSites, draftMresReaches all green) · new overlay test file alone 0 (57/57) · build 0.
 - entry 1123.1 KiB (master 1121.9 per the rules) = +1.2 KiB; headroom 126.9 KiB.
