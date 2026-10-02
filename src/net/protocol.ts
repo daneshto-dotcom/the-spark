@@ -1054,7 +1054,18 @@ export type { NetSnapshot };
  *      drone's row is STRUCTURES_ONLY).
  *   `s194/ui-upgrade` (render/UI only) rides along.
  */
-export const PROTOCOL_VERSION = 64 as const;
+/**
+ * ⭐⭐ S194 — **BUMPED 64 -> 65: `s194/entropy` (ENTROPY TAX, R194-18/20/21) + `s192/teams` (owner R192-T4).** Each alone
+ * is a rule both peers compute or a message a stale peer cannot read:
+ *   1. ENTROPY — at each FIGHT whistle every structure past 10 connectors rolls a sever chance (+0.1%/connector past 10,
+ *      cap 50%); a v64 peer never rolls, so the two sims disagree about which bonds stand. The roll severs with a NEW
+ *      `'entropy'` BOND_SEVERED cause discriminant — a v64 peer falls through its switch on it.
+ *   2. TEAMS — `world.teams` (teams spec §d) decides who is an ally: targeting, damage and the win rule read it, so a v64
+ *      peer that has no teams fights its teammates. `RosterEntry.team` carries the lobby's pick (validated 0..3 in
+ *      `isValidRoster`), and `CLAIM_TEAM` is a new CLIENT→HOST lobby message a v64 host would drop.
+ *   Both ride ONE bump (deploy S194-#5).
+ */
+export const PROTOCOL_VERSION = 65 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1395,6 +1406,7 @@ export interface HelloMsg {
    * S193: 61->62 (DEPLOY #23 — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first. Full reasons on the const's JSDoc.)
    * S194: 62->63 (s193/mres-card: the wave-26 'mres' draft pick (WARDED), Creature.mresFifths, castle soldier MRES 1 for every race. Full reasons on the const's JSDoc.)
    * S194: 63->64 (s194/fixes: Helga RISEN, fallen-seat pants lanes, chewer/drone never strike Helga. Full reasons on the const's JSDoc.)
+   * S194: 64->65 (s194/entropy + s192/teams: the entropy roll at FIGHT start + the 'entropy' sever cause; world.teams, RosterEntry.team, CLAIM_TEAM. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1433,7 +1445,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 64;
+  readonly protoVersion: 65;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
@@ -1629,8 +1641,8 @@ export interface RosterEntry {
    * ⭐ S192 (owner R192-T4) — THE SEAT'S TEAM (0..3 = the lobby's TEAM 1..4), resolved by the host.
    * Absent = no team (its own side); a roster with no team at all is the free-for-all, byte-identical.
    * Validated in `isValidRoster` (an integer 0..3 or the whole message is rejected). ⛔ Part of the
-   * PROTOCOL bump: teams rides the bump the MERGE OWNER makes when this branch lands (S194: the next number
-   * after master's 63) — `world.teams` is a rule both peers compute (teams spec §d), and `CLAIM_TEAM` is a new
+   * PROTOCOL bump: teams rode the merge owner's bump when this branch landed (S194 deploy #5: 64 -> 65,
+   * shared with s194/entropy) — `world.teams` is a rule both peers compute (teams spec §d), and `CLAIM_TEAM` is a new
    * message. This branch never edits `PROTOCOL_VERSION`.
    */
   readonly team?: number;
