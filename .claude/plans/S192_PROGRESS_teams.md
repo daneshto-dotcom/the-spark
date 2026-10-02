@@ -3,7 +3,15 @@
 - STEP 1 DONE be40841e — merge master 0a37175e, 11 conflicts (listed in the commit). npm install 0. typecheck 0.
 - STEP 2+3 DONE 4d924bd5 — zombie death blast / leaderTargetSeat / RESIST cue / building cards / stat board / bot lobby relayout / permuteBots.
 - STEP 4 DONE cd0ce649 — FFA golden re-recorded on master 0a37175e, merged tree 90/90 identical, mutation diverges @3900.
-- NEXT: step 5 e2e teams-lobby on own hashed port; step 6 gates (typecheck, vitest --maxWorkers=3, build KiB).
+- STEP 5 DONE fb5b9f30 — e2e/teams-lobby.spec.ts + 2-peer test; port 33228 (hashed); 2/2 passed exit 0 (1.1 m + 27 s).
+- ⏸ PAUSED (owner session limit) mid STEP 6. Gates last run on fb5b9f30: typecheck 0 · full vitest STOPPED mid-run by the pause
+  (no verdict — re-run) · build NOT run. Targeted runs green: teams.* (sites/reach/reachS194/ffaDifferential), botSetupLayout,
+  botPersonality.
+- HALF-DONE: canon §5d S194 text prepared in `.tmp-gates/canon_edit.py` (NOT applied); also owed: a canon.test pin
+  (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE` false + the new §5d zombie sentence).
+- ⭐ EXACT NEXT STEP on RESUME: `python .tmp-gates/canon_edit.py` + add the canon.test pin → commit → `npm run typecheck` →
+  `npx vitest run --maxWorkers=3` (exit to file) → `npm run build` (entry KiB vs master) → final report here + handoff.
+- BUMP verdict (to report): YES 62 → 63 (world.teams / RosterEntry.team / CLAIM_TEAM; a 62 peer computes every enemy decision differently).
 
 # S193 ROUND 2 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
 
