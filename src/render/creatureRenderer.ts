@@ -847,6 +847,7 @@ export class CreatureRenderer {
     this.facings.clear();
     this.lastSeenState.clear();
     this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
+    this.lastSeenLife.clear(); // S194 T9 re-audit: the same cross-match leak S178 fixed for lastSeenOwner
     this.lightningClouds.length = 0;
     this.cloudGfx.clear();
   }
@@ -858,6 +859,7 @@ export class CreatureRenderer {
     this.facings.clear();
     this.lastSeenState.clear();
     this.lastSeenOwner.clear(); // ⭐ S178 second pass — was leaking across matches
+    this.lastSeenLife.clear(); // S194 T9 re-audit: the same cross-match leak S178 fixed for lastSeenOwner
     this.lightningClouds.length = 0;
     this.cloudGfx.destroy();
     this.container.destroy({ children: true });
