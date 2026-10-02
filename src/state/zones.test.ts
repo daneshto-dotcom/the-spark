@@ -20,6 +20,7 @@ import { CASTLE_SPRITE_PX } from '../render/castleFrames.ts';
 import { porchSlot } from './castleBank.ts';
 import {
   CASTLE_NO_BUILD_RADIUS,
+  CASTLE_PORCH_BUILD_CLEAR_RADIUS,
   CASTLE_PORCH_KEEP_OUT_RADIUS,
   canBuildAt,
   isInsideCastleKeepOut,
@@ -250,7 +251,10 @@ describe('S148 P1 — the anchors clear the HUD, and one of them barely', () => 
     for (const seat of [2, 3]) {
       const a = zoneCastleAnchor(seat, 'QUADRANTS_4P');
       const depositY = a.y + GATHERER_DEPOSIT_OFFSET_Y;
-      expect(depositY).toBeGreaterThan(FOOTER_TOP_Y);
+      // ⭐ S194 R194-16 — the porch row moved 74 → 42 (right under the castle): the point is now just
+      // ABOVE the footer line, but a shape resting there still reaches into the band (its slot disc).
+      expect(depositY).toBeLessThan(FOOTER_TOP_Y);
+      expect(depositY + CASTLE_PORCH_SLOT_CLEAR_RADIUS).toBeGreaterThan(FOOTER_TOP_Y);
       expect(depositY).toBeLessThan(CANVAS_HEIGHT); // still on the board
     }
   });
@@ -346,7 +350,9 @@ describe('S182 → S191 — CASTLE_NO_BUILD_RADIUS: HIS halving, and what it no 
   /** The outermost porch slot's offset from the anchor: slots fan symmetrically about the gate. */
   const outerPorchDx = ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
   /** S182's measured radius: the porch reach (104, rounded up) + one slot clearance of air. */
-  const S182_RADIUS = Math.ceil(Math.hypot(outerPorchDx, CASTLE_PORCH_OFFSET_Y) + CASTLE_PORCH_SLOT_CLEAR_RADIUS)
+  /** ⭐ S194 — S182 measured against the porch row of ITS day (74); R194-16 moved the row to 42. */
+  const S182_PORCH_OFFSET_Y = 74;
+  const S182_RADIUS = Math.ceil(Math.hypot(outerPorchDx, S182_PORCH_OFFSET_Y) + CASTLE_PORCH_SLOT_CLEAR_RADIUS)
     + CASTLE_PORCH_SLOT_CLEAR_RADIUS;
 
   it('⭐⭐ S191 — it is the S182 radius HALVED, rounded up ("It needs to be halved")', () => {
@@ -354,12 +360,22 @@ describe('S182 → S191 — CASTLE_NO_BUILD_RADIUS: HIS halving, and what it no 
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(S182_RADIUS / 2));
   });
 
-  it('⭐⭐ S193 P3-1 re-pin — ONE disc, the SAME distance on every side; the porch is outside it', () => {
+  it('⭐⭐ S193 P3-1 → S194 R194-16 re-pin — the 61 disc on every side, PLUS a small disc on each porch slot', () => {
     // Was "S191 re-pin — each slot carries its own clear disc". Those discs sat at anchor.y + 74 and made
     // the keep-out reach 108 px SOUTH against 61 everywhere else — the owner's S193 report. Now: 32
     // directions, every seat, every board, 1 px either side of the radius — the same verdict.
-    const innerPorchDx = CASTLE_PORCH_PITCH_X / 2;
-    expect(Math.hypot(innerPorchDx, CASTLE_PORCH_OFFSET_Y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
+    // ⭐ S194 R194-16 (owner: *"you should definitely not be able to build over that. Leave that a little
+    // space"*) — each porch slot carries a CASTLE_PORCH_BUILD_CLEAR_RADIUS (17) disc again, but the row now
+    // sits at +42, so those discs add only a small lobe to the 61 disc. Exactly the union, nothing more:
+    const inPorchDisc = (p: { x: number; y: number }, seat: number, layout: ZoneLayout): boolean => {
+      for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+        const sl = porchSlot(seat, i, layout);
+        if ((p.x - sl.x) ** 2 + (p.y - sl.y) ** 2 <= CASTLE_PORCH_BUILD_CLEAR_RADIUS ** 2) return true;
+      }
+      return false;
+    };
+    let lobed = 0;
+    let total = 0;
     for (const layout of LAYOUTS) {
       for (let seat = 0; seat < zoneCount(layout); seat++) {
         const a = zoneCastleAnchor(seat, layout);
@@ -367,13 +383,21 @@ describe('S182 → S191 — CASTLE_NO_BUILD_RADIUS: HIS halving, and what it no 
           const th = (k / 32) * 2 * Math.PI;
           const at = (d: number) => ({ x: a.x + Math.cos(th) * d, y: a.y + Math.sin(th) * d });
           expect(isInsideCastleKeepOut(at(CASTLE_NO_BUILD_RADIUS - 1), layout), `${layout} ${seat} dir ${k}`).toBe(true);
-          expect(isInsideCastleKeepOut(at(CASTLE_NO_BUILD_RADIUS + 1), layout), `${layout} ${seat} dir ${k}`).toBe(false);
+          const out = at(CASTLE_NO_BUILD_RADIUS + 1);
+          const expected = inPorchDisc(out, seat, layout);
+          total++;
+          if (expected) lobed++;
+          expect(isInsideCastleKeepOut(out, layout), `${layout} ${seat} dir ${k}`).toBe(expected);
         }
         for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
-          expect(isInsideCastleKeepOut(porchSlot(seat, i, layout), layout), `${layout} seat ${seat} slot ${i}`).toBe(false);
+          expect(isInsideCastleKeepOut(porchSlot(seat, i, layout), layout), `${layout} seat ${seat} slot ${i}`).toBe(true);
         }
       }
     }
+    // anti-vacuity both ways, MEASURED: at 62 px the porch lobe catches exactly 6 of the 32 directions per
+    // castle (three round each OUTER slot, SE and SW, ~34°–56° off the horizontal) — the other 26 are the S193 uniform disc.
+    expect(lobed).toBeGreaterThan(0);
+    expect(lobed / total).toBe(6 / 32);
     // The number survives, with a new job: how close a BUILT shape may stand before a pull skips that slot.
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
   });
@@ -440,5 +464,59 @@ describe('S182 — canBuildAt asks the keep-out FIRST, and it is total', () => {
     // S182: ~π·121² px² per anchor ÷ 400 px² per sample ≈ 115 each. S191: π·61² + the porch discs ≈ 50 each. S193: π·61² alone ≈ 29 each.
     expect(refusedForCastle).toBeLessThan(150 * zoneCount(layout));
     expect(allowed).toBeGreaterThan(500);
+  });
+});
+
+/* ========================================================================== *
+ *   ⭐⭐ S194 R194-16 (owner) — THE CASTLE ENTRANCE: CLOSER, AND NOT BUILT ON
+ * ========================================================================== */
+describe('⭐⭐ S194 R194-16 — the porch build-clearance, and how far the zone reaches', () => {
+  /** Farthest refused distance along `th` (radians, 0 = east, π/2 = SOUTH on screen), 0.25 px steps. */
+  const reach = (layout: ZoneLayout, seat: number, th: number): number => {
+    const a = zoneCastleAnchor(seat, layout);
+    let last = 0;
+    for (let d = 0; d <= 200; d += 0.25) {
+      if (isInsideCastleKeepOut({ x: a.x + Math.cos(th) * d, y: a.y + Math.sin(th) * d }, layout)) last = d;
+    }
+    return last;
+  };
+
+  it("arithmetic: the clearance is the porch's own occupancy radius, and the outer lobe is |(45,42)| + 17", () => {
+    expect(CASTLE_PORCH_BUILD_CLEAR_RADIUS).toBe(CASTLE_PORCH_SLOT_CLEAR_RADIUS);
+    const outerDx = ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
+    expect(outerDx).toBe(45);
+    expect(CASTLE_PORCH_OFFSET_Y).toBe(42);
+    // the farthest refused point: 61.55 + 17 = 78.55, on the SE/SW diagonal through the outer slot
+    expect(Math.hypot(outerDx, CASTLE_PORCH_OFFSET_Y) + CASTLE_PORCH_BUILD_CLEAR_RADIUS).toBeCloseTo(78.55, 2);
+    // the row's own southern reach, 42 + 17 = 59, is INSIDE the 61 disc
+    expect(CASTLE_PORCH_OFFSET_Y + CASTLE_PORCH_BUILD_CLEAR_RADIUS).toBeLessThan(CASTLE_NO_BUILD_RADIUS);
+  });
+
+  it('REACH (measured): south = east = 61 (the S193 disc kept); the only bulge is the outer-slot lobe, ≤ 78.6', () => {
+    for (const layout of LAYOUTS) {
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const east = reach(layout, seat, 0);
+        expect(east).toBeLessThan(CASTLE_NO_BUILD_RADIUS);
+        expect(east).toBeGreaterThanOrEqual(CASTLE_NO_BUILD_RADIUS - 0.25);
+        expect(reach(layout, seat, Math.PI / 2)).toBe(east); // south == east: no southern stretch
+        let max = 0;
+        for (let k = 0; k < 360; k++) max = Math.max(max, reach(layout, seat, (k / 360) * 2 * Math.PI));
+        expect(max).toBeGreaterThan(75);
+        expect(max).toBeLessThanOrEqual(78.6);
+      }
+    }
+  });
+
+  it('a point ON a slot, and 16 px below it, is refused; 18 px below it is legal again (negative)', () => {
+    for (const layout of LAYOUTS) {
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+          const sl = porchSlot(seat, i, layout);
+          expect(isInsideCastleKeepOut(sl, layout)).toBe(true);
+          expect(isInsideCastleKeepOut({ x: sl.x, y: sl.y + 16 }, layout)).toBe(true);
+          expect(isInsideCastleKeepOut({ x: sl.x, y: sl.y + 18 }, layout)).toBe(false);
+        }
+      }
+    }
   });
 });

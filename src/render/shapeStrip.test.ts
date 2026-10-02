@@ -23,6 +23,7 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   FOOTER_TOP_Y,
+  CASTLE_PORCH_SLOT_CLEAR_RADIUS,
   GATHERER_DEPOSIT_OFFSET_Y,
   PLAYER_COLORS,
   SparkType,
@@ -125,12 +126,14 @@ describe('S154 P1 — the strip is DERIVED from the chip row, never placed at a 
 describe('S154 P1 — ⛔ THE STRIP CLEARS THE CASTLE PORCHES (the assertion the chip sweep could not make)', () => {
   const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
 
-  it('the collision is real — the bottom quadrant porches ARE inside the footer band', () => {
-    // Anti-vacuity, mirroring footerBand.test.ts: if the porches ever move out of the band this
+  it('the collision is real — the bottom quadrant porches still REACH into the footer band', () => {
+    // Anti-vacuity, mirroring footerBand.test.ts: if the porches ever move fully out of the band this
     // fails and the whole clearance concern can be retired rather than kept forever on faith.
+    // ⭐ S194 R194-16 — centre now just above the band (porch row 74 → 42); the slot disc still reaches in.
     for (const seat of [2, 3]) {
-      const a = castleAnchor(seat, 'QUADRANTS_4P');
-      expect(a.y + GATHERER_DEPOSIT_OFFSET_Y).toBeGreaterThan(FOOTER_TOP_Y);
+      const y = castleAnchor(seat, 'QUADRANTS_4P').y + GATHERER_DEPOSIT_OFFSET_Y;
+      expect(y).toBeLessThan(FOOTER_TOP_Y);
+      expect(y + CASTLE_PORCH_SLOT_CLEAR_RADIUS).toBeGreaterThan(FOOTER_TOP_Y);
     }
   });
 

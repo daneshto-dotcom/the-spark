@@ -17,7 +17,7 @@ import {
 } from '../constants.ts';
 import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/blueprints.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
-import { GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
+import { CASTLE_PORCH_SLOT_CLEAR_RADIUS, GATHERER_DEPOSIT_OFFSET_Y } from '../constants.ts';
 import { asPlayerId } from '../types.ts';
 // S166 — the footer derives from the panel model, so the bucket total is asserted against it.
 // S173 — and the card's "WHICH shapes" readout is that same model's shortfall, unsummed.
@@ -120,14 +120,16 @@ describe('S149 P4 — ⛔ THE CHIPS CLEAR THE CASTLE PORCHES (the S148 warning, 
   // and this is the test that keeps them there.
   const LAYOUTS: readonly ZoneLayout[] = ['PITCH_2P', 'QUADRANTS_4P'];
 
-  it('the collision is real — the bottom quadrant porches ARE inside the footer band', () => {
-    // Establishes that this test is not vacuous: if the porches ever move out of the band, this
+  it('the collision is real — the bottom quadrant porches still REACH into the footer band', () => {
+    // Establishes that this test is not vacuous: if the porches ever move fully out of the band, this
     // fails and the whole clearance concern can be retired rather than silently kept forever.
-    const inBand = [2, 3].map((seat) => {
-      const a = castleAnchor(seat, 'QUADRANTS_4P');
-      return a.y + GATHERER_DEPOSIT_OFFSET_Y;
-    });
-    for (const y of inBand) expect(y).toBeGreaterThan(FOOTER_TOP_Y);
+    // ⭐ S194 R194-16 — the porch row moved 74 → 42 under the castle, so its CENTRE (992) is now just
+    // above the band (996); a shape resting there still reaches into it (its slot disc, +17).
+    for (const seat of [2, 3]) {
+      const y = castleAnchor(seat, 'QUADRANTS_4P').y + GATHERER_DEPOSIT_OFFSET_Y;
+      expect(y).toBeLessThan(FOOTER_TOP_Y);
+      expect(y + CASTLE_PORCH_SLOT_CLEAR_RADIUS).toBeGreaterThan(FOOTER_TOP_Y);
+    }
   });
 
   for (const layout of LAYOUTS) {
