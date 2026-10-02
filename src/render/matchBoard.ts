@@ -124,7 +124,7 @@ class SpritePool {
  * unit suite) and makes the layout depend on font loading; the estimate is deterministic and only ever used
  * to fit a label (scale-to-fit, legend spacing, tooltip width) — it never positions a hit target.
  */
-export const estWidth = (text: string, size: number): number => Math.ceil(text.length * size * 0.56);
+export const estWidth = (text: string, size: number): number => Math.ceil(text.length * size * 0.62);
 
 /** Scale `t` down (never up) so its estimated width fits `max`. */
 function fitTo(t: Text, max: number): void {
@@ -842,7 +842,7 @@ export class MatchBoard {
   private drawTooltip(m: MatchBoardModel): void {
     const lines = tooltipFor(m, this.tab, this.hover);
     if (lines === null) return;
-    const texts = lines.map((l, i) => this.tipTexts.take(l, i === 0 ? 15 : 14, i === 0 ? EDGE : INK, i === 0 ? '900' : '400'));
+    const texts = lines.map((l, i) => this.tipTexts.take(l.text, i === 0 ? 15 : 14, l.color ?? (i === 0 ? EDGE : INK), i === 0 ? '900' : '400'));
     const w = Math.max(...texts.map((t) => estWidth(t.text, Number(t.style.fontSize)))) + 24;
     const h = texts.length * 20 + 16;
     let x = this.pointer.x + 18;

@@ -77,13 +77,13 @@ describe('S194 tooltipFor — what it says', () => {
   const m = matchBoardModel(w)!;
 
   it('a wave lists EVERY seat at that wave, highest first', () => {
-    const lines = tooltipFor(m, { kind: 'graphs' }, { kind: 'wave', chart: 'damage', index: 1 })!;
+    const lines = tooltipFor(m, { kind: 'graphs' }, { kind: 'wave', chart: 'damage', index: 1 })!.map((l) => l.text);
     expect(lines[0]).toBe('WAVE 2 · DAMAGE PER WAVE');
     expect(lines.slice(1)).toEqual(['P1  70', 'P3  11', 'P2  0']); // wave 2 alone: 70 dealt by P1, 11 by P3
   });
 
   it('a stacked chart adds the total', () => {
-    const lines = tooltipFor(m, { kind: 'graphs' }, { kind: 'wave', chart: 'kills', index: 0 })!;
+    const lines = tooltipFor(m, { kind: 'graphs' }, { kind: 'wave', chart: 'kills', index: 0 })!.map((l) => l.text);
     expect(lines.at(-1)).toBe('ALL  1');
   });
 
@@ -91,13 +91,14 @@ describe('S194 tooltipFor — what it says', () => {
     const order = m.matrix.seats;
     const a = order.indexOf(P(0));
     const v = order.indexOf(P(1));
-    expect(tooltipFor(m, { kind: 'graphs' }, { kind: 'cell', attacker: a, victim: v }))
-      .toEqual(['P1 → P2', 'dealt  100', 'took back  0']);
+    const cell = tooltipFor(m, { kind: 'graphs' }, { kind: 'cell', attacker: a, victim: v })!;
+    expect(cell.map((l) => l.text)).toEqual(['P1 → P2', 'dealt  100', 'took back  0']);
+    expect(cell[0]!.color, "the attacker's line is in the attacker's colour").toBe(w.players.get(P(0))!.color);
   });
 
   it('the ledger reads this seat\'s dealt and taken in that wave; tabs and CONTINUE have none', () => {
     const i = m.rows.findIndex((r) => r.seat === P(0));
-    expect(tooltipFor(m, { kind: 'player', index: i }, { kind: 'ledger', index: 1 }))
+    expect(tooltipFor(m, { kind: 'player', index: i }, { kind: 'ledger', index: 1 })!.map((l) => l.text))
       .toEqual(['WAVE 2 · P1', 'dealt  70', 'taken  11']);
     expect(tooltipFor(m, { kind: 'overview' }, { kind: 'tab', index: 0 })).toBeNull();
     expect(tooltipFor(m, { kind: 'overview' }, { kind: 'continue' })).toBeNull();

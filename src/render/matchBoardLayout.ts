@@ -29,7 +29,7 @@ export const CONTINUE_RECT: Rect = { x: PANEL.x + PANEL.w - 274, y: PANEL.y + PA
 /** The tab strip: OVERVIEW, GRAPHS, then one tab per seat. Widths shrink to fit any seat count. */
 export function tabRects(seatCount: number): Rect[] {
   const gap = 8;
-  const fixed = [190, 160];
+  const fixed = [190, 190];
   const avail = PANEL.w - 48 - fixed[0]! - fixed[1]! - gap * (seatCount + 1);
   const seatW = seatCount === 0 ? 0 : Math.min(250, Math.floor(avail / seatCount));
   const out: Rect[] = [];

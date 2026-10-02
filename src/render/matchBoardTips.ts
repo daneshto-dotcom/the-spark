@@ -73,23 +73,29 @@ export function hoverAt(m: MatchBoardModel, tab: BoardTab, x: number, y: number)
   return null;
 }
 
+/** One tooltip line: its words, and the seat colour it is printed in (null = the default ink). */
+export interface TipLine { readonly text: string; readonly color: number | null }
+
+const plain = (...xs: string[]): TipLine[] => xs.map((text) => ({ text, color: null }));
+
 /** The tooltip's lines for a target (first line is the title), or null when it has none. */
-export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | null): string[] | null {
+export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | null): TipLine[] | null {
   if (h === null) return null;
   switch (h.kind) {
     case 'row': {
       const r = m.rows[h.index];
-      return r === undefined ? null : [`${r.label} ${r.race}`, 'click to open this player\'s page'];
+      return r === undefined ? null : [{ text: `${r.label} ${r.race}`, color: r.color }, ...plain('click to open this player\'s page')];
     }
     case 'wave': {
       const g = m.graphs[h.chart];
       const w = g.waves[h.index];
       if (w === undefined) return null;
-      const lines = [`WAVE ${w} · ${g.title}`];
+      const lines = plain(`WAVE ${w} · ${g.title}`);
+      // Highest first; ties keep placing order (a stable sort), so the tooltip is a total order too.
       const vals = g.series.map((s) => ({ s, v: s.values[h.index] ?? 0 })).sort((a, b) => b.v - a.v);
-      for (const { s, v } of vals) lines.push(`${s.label}  ${groupThousands(v)}`);
+      for (const { s, v } of vals) lines.push({ text: `${s.label}  ${groupThousands(v)}`, color: s.color });
       if (g.form === 'stackedArea' || g.form === 'stackedBars') {
-        lines.push(`ALL  ${groupThousands(vals.reduce((t, x) => t + x.v, 0))}`);
+        lines.push({ text: `ALL  ${groupThousands(vals.reduce((t, x) => t + x.v, 0))}`, color: null });
       }
       return lines;
     }
@@ -99,7 +105,10 @@ export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | n
       const n = m.matrix.cells[h.attacker]?.[h.victim];
       if (a === undefined || v === undefined || n === undefined) return null;
       const back = m.matrix.cells[h.victim]?.[h.attacker] ?? 0;
-      return [`${a} → ${v}`, `dealt  ${groupThousands(n)}`, `took back  ${groupThousands(back)}`];
+      return [
+        { text: `${a} → ${v}`, color: m.matrix.colors[h.attacker] ?? null },
+        ...plain(`dealt  ${groupThousands(n)}`, `took back  ${groupThousands(back)}`),
+      ];
     }
     case 'ledger': {
       if (tab.kind !== 'player') return null;
@@ -108,7 +117,7 @@ export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | n
       if (r === undefined || w === undefined) return null;
       const dealt = m.graphs.damage.series.find((s) => s.seat === r.seat)?.values[h.index] ?? 0;
       const taken = m.takenPerWave.find((s) => s.seat === r.seat)?.values[h.index] ?? 0;
-      return [`WAVE ${w} · ${r.label}`, `dealt  ${groupThousands(dealt)}`, `taken  ${groupThousands(taken)}`];
+      return plain(`WAVE ${w} · ${r.label}`, `dealt  ${groupThousands(dealt)}`, `taken  ${groupThousands(taken)}`);
     }
     case 'tab':
     case 'continue':
