@@ -1,4 +1,9 @@
-**STATUS: S193 round 3 — audit FIX FIRST done (MED wipe placing + 2 LOWs), merged master 2cd0050, gates green; report sent. Next: the merge owner's light re-check, then landing.**
+**STATUS: S193 round 4 — merged master c5ca0ce (s192/magic PROTOCOL 60 + bots + goblin-autobuild), gates green; report sent. Next: land (merge owner).**
+
+## S193 ROUND 4 (merge only)
+- merge `3d2ad4c`, 9 conflicts, both sides kept: magic's required `cls` exactly as master tags each site + the seat attacker/`blastBy`/`carryBy` (castleGuns, suicideBlast, potatoLifecycle ×2, raColumn ×2, scorchedGround ×5, zombieDeathBlast ×2, world ×3); damage.ts (imports; creature arm = master's `landed` + `blow`; Helga + connector stat records read the LANDED hit; connector banking in master's order; carry `carryBy` + 'physical'; radial `blastBy` + cls); spawnerLifecycle (recordTowerBuilt + auto-feed memory). 12 stat-board test calls gain 'physical'.
+- Gates on `3d2ad4c`: typecheck 0 · vitest 0 (502 files; 7663 passed / 11 skipped) · build 0, entry 1077.2 KiB (see report for delta).
+
 
 ## S193 ROUND 3 (audit fixes)
 - merge `c4deda8` (master `2cd0050`): ONE conflict, `gameMode.ts` applyStartGame — kept master's `monsterWaveSpawned`/`monsterFightStartTick` resets AND `resetMatchStats`. `npm install` 0.
