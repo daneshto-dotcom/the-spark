@@ -62,6 +62,8 @@
 
 import type { Graphics } from 'pixi.js';
 import { isConcealed } from './concealment.ts';
+import { fxActive } from './fx/fxState.ts';
+import { ghostFrac, stepGhost, type GhostState } from './fx/barGhost.ts';
 import { creatureSpriteScaleMul, towerArtForRecipe, towerRingCentroid, type TowerArt } from './towerFrames.ts';
 import { liftOf } from './creatureLift.ts';
 import { labelStructureComponents } from './structureComponents.ts';
@@ -168,6 +170,39 @@ export function drawHealthBars(
   box?: SpriteBoxLookup,
   defenderBox?: (id: DefenderId) => { w: number; h: number } | null,
 ): void {
+  // ⭐ S194 (V28) — the ghost runs on the rebuilt-fx path only (`?fx=legacy` and the tests keep the S171 bar).
+  ghostOn = fxActive();
+  ghostTick = world.tick;
+  ghostGen++;
+  try {
+    drawAllBars(g, world, box, defenderBox);
+  } finally {
+    // Forget bars not drawn this frame (dead, fogged, gone) so a long match does not accumulate them.
+    for (const [k, v] of ghosts) if (v.gen !== ghostGen) ghosts.delete(k);
+  }
+}
+
+/**
+ * ⭐ S194 (V28) — per-bar ghost memory, keyed by what the bar belongs to. RENDER-ONLY; the positions are
+ * closed forms of the synced tick (`fx/barGhost.ts`), so this map only remembers the last hit.
+ */
+const ghosts = new Map<string, GhostState & { gen: number }>();
+let ghostOn = false;
+let ghostTick = 0;
+let ghostGen = 0;
+/** The ghost's tint: a warm near-white, so it reads as "just lost" against both the red and the green fills. MINE. */
+const GHOST_TINT = 0xfff0c8;
+const GHOST_ALPHA = 0.8;
+
+/** TEST-ONLY. */
+export function __resetBarGhostsForTests(): void { ghosts.clear(); ghostGen = 0; }
+
+function drawAllBars(
+  g: Graphics,
+  world: World,
+  box?: SpriteBoxLookup,
+  defenderBox?: (id: DefenderId) => { w: number; h: number } | null,
+): void {
   for (const c of world.creatures.values()) {
     if (c.ehp <= 0) continue;
     if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
@@ -178,7 +213,7 @@ export function drawHealthBars(
     const scale = creatureSpriteScaleMul(c.type);
     const b = box?.(c.id) ?? null;
     drawBar(g, c.pos.x, c.pos.y - liftOf(c.type), c.ehp, max, scale,
-            b?.w ?? 0, b?.h ?? FALLBACK_SPRITE_H * scale);
+            b?.w ?? 0, b?.h ?? FALLBACK_SPRITE_H * scale, FILL_TINT, null, `c${c.id as unknown as number}`);
   }
 
   /*
@@ -201,7 +236,7 @@ export function drawHealthBars(
     if (stats === null) continue; // a TOWER — handled by the structure pass below, not here
     const db = defenderBox?.(d.id) ?? null;
     drawBar(g, d.pos.x, d.pos.y, d.ehp, unitPoolFifths(stats.hp, stats.def), 1,
-            db?.w ?? 0, db?.h ?? FALLBACK_SPRITE_H);
+            db?.w ?? 0, db?.h ?? FALLBACK_SPRITE_H, FILL_TINT, null, `d${d.id as unknown as number}`);
   }
 
   drawStructureBars(g, world);
@@ -418,7 +453,7 @@ function drawStructureBars(g: Graphics, world: World): void {
       drewTower = true;
       if (isConcealed(x, y, tower.ownerPlayerId)) continue;
       const shown = Math.max(1, Math.min(own.max, own.max - own.banked));
-      drawBar(g, x, y, shown, own.max, 1, sb?.w ?? 0, rise, buildingTint(shown / own.max), structureBarWidth(own.max));
+      drawBar(g, x, y, shown, own.max, 1, sb?.w ?? 0, rise, buildingTint(shown / own.max), structureBarWidth(own.max), `t${tower.recipeId}:${anchorId as unknown as number}`);
     }
     if (drewTower) continue;
     // The COMPONENT bar: a freeform lattice (no tower), or a tower whose own walk read nothing — the
@@ -481,7 +516,7 @@ function drawStructureBars(g: Graphics, world: World): void {
     const shown = Math.max(1, current);
 
     // ⭐ S173 (owner): a BUILDING reads green, on the castle's own ramp. See buildingTint.
-    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max), structureBarWidth(max));
+    drawBar(g, x, y, shown, max, 1, sb?.w ?? 0, rise, buildingTint(shown / max), structureBarWidth(max), `s${Math.min(...(comp.primitiveIds as unknown as number[]))}`);
   }
 }
 
@@ -541,6 +576,8 @@ function drawBar(
    * (`structureBarWidth`). `null` = a creature: the sqrt `span` below, unchanged.
    */
   trackW: number | null = null,
+  /** ⭐ S194 (V28) — what the bar belongs to, for its ghost; null = no ghost. */
+  ghostKey: string | null = null,
 ): void {
   const span = (v: number): number =>
     Math.min(BAR_MAX_W, Math.max(BAR_MIN_W, Math.sqrt(Math.max(0, v)) * BAR_PX_PER_SQRT_FIFTH));
@@ -606,5 +643,19 @@ function drawBar(
   const by = y - spriteRise - BAR_LIFT * scale;
 
   g.rect(bx, by, w, h).fill({ color: TRACK_TINT, alpha: TRACK_ALPHA });
+  /*
+   * ⭐ S194 (V28) — THE GHOST: the segment just lost, between the fill and the track, lit for a beat and
+   * then draining (`fx/barGhost.ts`). Drawn BEFORE the fill so the bar's own edge stays crisp over it.
+   */
+  if (ghostOn && ghostKey !== null && max > 0) {
+    const frac = Math.min(1, Math.max(0, ehp / max));
+    const prev = ghosts.get(ghostKey);
+    const st = stepGhost(prev, frac, ghostTick);
+    const rec = st === prev ? prev! : Object.assign(st, { gen: ghostGen });
+    rec.gen = ghostGen;
+    ghosts.set(ghostKey, rec);
+    const gw = w * ghostFrac(rec, ghostTick);
+    if (gw > fw + 0.25) g.rect(bx + fw, by, gw - fw, h).fill({ color: GHOST_TINT, alpha: GHOST_ALPHA });
+  }
   g.rect(bx, by, fw, h).fill({ color: fillTint, alpha: 0.95 });
 }
