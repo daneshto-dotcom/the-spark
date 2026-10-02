@@ -1,15 +1,45 @@
-# ⛔ PAUSED (owner session limit) — PHASE 2 BUILD (option A WEAR ONLY) — RESUME HERE
+# ⭐ S194 T6 — ENTROPY TAX — PHASE 2 FINAL REPORT (option A, R194-18) — DONE
 
-**Owner picked A only.** Spec (from the merge owner): free ≤ 10 connectors (`ENTROPY_FREE_CONNECTORS`=10); per-connector snap chance per roll = min(`ENTROPY_CAP` 50 %, rate × (n − 10)); `ENTROPY_RATE_PER_CONNECTOR` integer (per-ten-thousand), default +0.1 % = 10/10000, flagged `⚠ PENDING OWNER: 0.1 % or 1 %` — tests derive from the constant + a test at both values on 54c/145c. Any connector can snap, a welded tower's own included (⚠ MINE). Roll ONCE per FIGHT start; toast to the owner seat "ENTROPY: N connectors snapped". Seeded mix32(rngSeed, wave, bondId); severs via the real SEVER_BOND with a NEW cause `'entropy'`. Endgame waves too. Report the bump (do not edit PROTOCOL_VERSION). Canon §2 paragraph. Turn `entropyResearch.test.ts` into real tests or delete it.
+- **Tip:** see `git log -1` on `s194/entropy` (this commit). Master merged at `fcfb9d74` (= master 3e96ccda, fast-forward content, NO conflicts).
+- **Gates (exit codes captured into files under `.tmp-gates/`):** `npm run typecheck` **0**. `npx vitest run --maxWorkers=3` **0** — **521 files passed / 4 skipped, 7871 tests passed / 11 skipped**. `npm run build` **0** — entry **1122.9 KiB** (cap 1250, 127.1 KiB headroom), **+1.0 KiB** over the 1121.9 baseline in the rules. e2e NOT run: no UI surface beyond the existing toast copy.
+- **Protocol bump: YES.** It adds a new `cause` value `'entropy'` on `BOND_SEVERED`/`SEVER_BOND`, and canon §4/§6 say a new cause always costs a bump. The S186 test fails: an old-build host would not roll the tax and a new one would. On host migration between builds the tax would turn on or off mid-match, and a stale client would show the wrong toast for the new cause.
+- **What shipped:** `src/state/entropy.ts` (`ENTROPY_FREE_CONNECTORS` 10, `ENTROPY_RATE_PER_CONNECTOR` 10/10 000 = **+0.1 % — RULED R194-18 "mean +0.1%"**, `ENTROPY_CAP` 5 000/10 000 = 50 %, `entropyChance`, `entropyRoll` = mix32(mix32(rngSeed, wave), bondId) % 10 000, `planEntropy` (components enumerated in total order from a snapshot), `applyEntropyTax`). It is hooked ONCE in `hostTick.ts`, in the BUILD→FIGHT arm inside `if (flipped)`. There is no endgame/monster exemption, and none is forced by the code. Every bond cut goes through the real `applySeverBond`.
+- **Every consumer of the cause union was visited:** the three unions (`effects.ts`, `save.ts`, `world.ts`). `severActor` (exhaustive) → no actor. `canSeverBond` → bypass. `severToastCopy` (tolerant default) → "ENTROPY: N CONNECTOR(S) SNAPPED", checked before the actor arms. `audioManager` → explicit silent arm. Untouched: `godlyMatcherCore` (only `'player'` counts as a topology change; entropy behaves like `'unit'`, and the recipe poll catches the breaks). `save.ts` passes the cause through unchanged.
+- **Tests** (`src/state/entropy.test.ts`, 11):
+  - arithmetic derived from the constants (54c 4.4 %, 145c 13.5 %, cap at 510);
+  - the "why" fight: 20 goblins fell 0 connectors of 145c;
+  - REACH through the real `runHostTick`. Over 8 fights the 145c blob lost 25, 21, 10, 8, 5, 3, 5, 5 and the 54c blob lost 2, 6, 0, 0, 0, 2, 0, 2. The 10-connector structure lost 0, and the BUILD edge never taxes. The toast text is right.
+  - negative: a board of ≤ 10-connector structures loses 0 over 20 fights;
+  - plan/snapshot ordering;
+  - same seed → same wide hash, and a different seed gives a different plan;
+  - host vs `?worker=1`: wide hash every tick across the whistle, with an anti-vacuity check;
+  - source guards: one call site, inside the FIGHT arm, the gate bypass, the audio arm.
+  - **Mutation-tested:** unhooking the call → 2 red; removing the cap → 1 red; removing the toast arm → 2 red; dropping the wave from the seed → 2 red. Honest gap: removing the `canSeverBond` bypass is caught only by the source guard, because the victim-seat self-sever happens to pass the gate anyway.
+  - `entropyResearch.test.ts` retired.
+- **Canon:** written on THIS branch. It adds a §2 "THE ENTROPY TAX" subsection (the rule, a table at 10/20/54/145, the measured erosion, determinism, MINE items) and a §4 SEVER-table row. Both are pinned in `canon.test.ts`, which also adds `state/entropy.ts` to the mechanical GATES-2 producer list.
 
-**Half-done:** research done, NO source edited yet for Phase 2. Found:
-- hook point: `src/state/hostTick.ts` ~line 598, the `if (world.matchPhase === 'FIGHT') {` arm inside `if (flipped)` (next to `reviveDormantHelgas`).
-- cause unions (THREE + render): `src/game/effects.ts:186`, `src/state/save.ts:682`, `src/state/world.ts:245` (action union); consumers: `severBond.ts:149` (exhaustive `severActor` → entropy = no actor), `disruptionManager.ts:82` (bypass gates list — add 'entropy'), `severToastRenderer.ts:136/156/265` (tolerant default — add copy), `audioManager.ts:1941`, `save.ts` deserialize (~2729/2808 — check the cause allowlist), `net/protocol.ts` validators. Grep `'chewer'` file list for the rest.
-- toast carrier: unverified — look at severToastRenderer (victim seat on BOND_SEVERED) vs a summary toast.
+### MINE — owner questions (with my recommendation)
+1. Can ANY connector snap, a welded tower's own included (Q4)? → keep **yes** (built that way).
+2. Roll once at the FIGHT whistle (Q5)? → keep **yes**.
+3. Toast wording "ENTROPY: N CONNECTORS SNAPPED" and **no sound**? → keep. A sound is his audition call.
+4. **A snap that SPLITS a structure deletes its smaller side** (the existing sever rule), so a fight can lose more than the roll: wave 2 above rolled 16 and lost 27. That fits *"maybe whole parts of it"* → keep. He should know it.
+5. The toast reaches a REMOTE human owner only about 1/6 of the time. This is the existing ruled limitation of every sever toast; host, solo and vs-bots get it every time. → accept for now. A per-seat synced carrier would cost a wire field.
+6. Entropy losses are not recorded on the end-of-match stat board (they are not damage). → leave it, or add a "lost to entropy" line later.
 
-**EXACT NEXT STEP:** write `src/state/entropy.ts` (`entropyChancePerTenThousand(n)`, `applyEntropyTax(world)`: enumerate components in total order by min bond id from a snapshot, roll per bond, sever ascending id via `applySeverBond(... cause:'entropy', playerId: owner)`), add `'entropy'` to the three unions + every consumer, hook into the hostTick FIGHT arm, then tests.
+### Merge seams
+- **T7 `s194/bots-tune`:** bots can now be taught to stop growing a structure past 10 connectors and start a new one. Today their blobs simply erode.
+- The bump owner needs to record the new `'entropy'` cause in the protocol.ts docblock/checklist and canon §6.
+- Shared files: `hostTick.ts` (FIGHT arm), `severToastRenderer.ts`, `audioManager.ts`, `effects.ts`/`save.ts`/`world.ts` unions, `canon.test.ts` (GATES-2 list + new describe), `SPARK_CANON.md` §2/§4.
+- **Test harness note:** a same-type blob of ≥ 12 connectors opens the NONET trial (`sudokuEvent.ts`), which freezes the worker. The fixtures use mixed shape types, and the host loop mirrors the NONET freeze.
 
-**Gates last run:** `npm run typecheck` exit 0; `npx vitest run src/state/entropyResearch.test.ts` exit 0 (both at c467ed1a/326f5a7d, Phase 1). No background processes running.
+### ⛔ FINDING (pre-existing, NOT fixed — outside my file boundary): a client can choose any sever cause
+`hostHandlers.ts` → `stampOrReject` / `stampSenderSeat` (`src/net/intentStamp.ts:23`) re-stamps ONLY `playerId` on a client INTENT. `SEVER_BOND` is on the client allowlist (`protocol.ts` `CLIENT_INTENT_TYPES_RECORD`), so a modified client can send `cause: 'unit'`, `'raid'` (and now `'entropy'`). `canSeverBond` then bypasses BOTH the charge gate and the hostility gate, so that client can sever any enemy bond for free. The only legitimate client cause is `'player'` (`controls.ts`; a raid is its own action). **Suggested one-line fix:** in `stampSenderSeat`, force `cause: 'player'` on `SEVER_BOND` intents, plus a test.
+
+### NOT DONE
+- e2e (no new screen surface).
+- The protocol bump: per the rules, the merge owner does it.
+
+---
 
 # S194 — T6 ENTROPY TAX — progress (branch `s194/entropy`)
 
