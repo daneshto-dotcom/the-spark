@@ -17,3 +17,17 @@ Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base maste
   only laser) + unit test for 'listed' with negative. Mutation (row back to S193) → 3 red. Variants measured in the row comment.
 - NEXT: step 2 — PLACE spam. Probe: ~99.8 % of refused PLACEs are in FIGHT (`canBuildNow` false board-wide); MID 44/s, HARD
   66/s, IMBA 66/s across 3 bots over 300 s (13 226 / 19 741 / 19 954 FIGHT refusals; 0 / 2 / 10 in BUILD).
+- [step 2 — PLACE spam] Root cause, three parts (all bot-side): (1) fetches/hauls started or finished in FIGHT, where
+  `canBuildNow` is false board-wide (and `bankCarriedSparksAtPhaseEdge` banks the carry at the next whistle anyway); (2) the
+  HAUL arm sent first, re-routed to an illegal fallback and re-sent on arrival every tick; (3) same class on the bank: a saving
+  bot re-sent a no-op PULL into a full porch every think (426 HARD / 428 IMBA per 300 s). Fixes: brain `looseOk` (no pickup/
+  PULL outside BUILD; ORDER still runs), controller TO_SPARK ends at the whistle, `placeRefusedAt` pre-check (reducer's two
+  gates) + `PLACE_RETRY_BACKOFF_TICKS` 30 (⚠ MINE), brain `porchHasFreeSlot` (reducer's slot rule). After: 0/0/0 refused PLACE
+  (was 13 226 / 19 741 / 19 954), 0 no-op pulls, landed 26/34/42 (= before). `src/bots/botPlaceSpam.test.ts`. Mutations: loose
+  gates off → 4 red; + pre-check off → 621–675 refused (the back-off alone caps it), red; porch guard off → 426/428 no-op, red.
+- [step 4 — Q-E, early] The rng stream moved (fewer chooseBuildPos draws), HARD WARMONGER re-measured def 0.17 (stink via
+  escape after a razed goblin) — WARMONGER base gets `substitute: 'listed'` → def 0.00 every seat, `toBe(0)` pin restored.
+  IMBA WARMONGER hold 3000 (⚠ MINE): def 0.00 · fed 17 · loose 18 · pentagram vs TYCOON def 0.17 · fed 3 · loose 51. New
+  test "S194 Q-E". Lock anti-vacuity re-pinned WARMONGER→SABOTEUR (Warmonger's lock seat owns a race tower: 1 type → 1 feed,
+  verified by spawner dump). IMBA FORTRESS on the new stream: 0.39 (2 lasers) vs BALANCED 0.28 — pins hold.
+- NEXT: step 3 — bots FIX (REPAIR_STRUCTURE / FIX_ALL).

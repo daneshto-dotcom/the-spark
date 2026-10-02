@@ -20,7 +20,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 // S138 P2 — a bot's supply is now its own bank + its own porch, never the shared quarry.
-import { bankCount, bankCountOf, isOwnPorchSpark, porchSlot } from '../state/castleBank.ts';
+import { bankCount, bankCountOf, firstFreePorchSlot, isOwnPorchSpark, porchSlot } from '../state/castleBank.ts';
 import { CASTLE_PORCH_KEEP_OUT_RADIUS } from '../state/zones.ts';
 // S154 P3 (A5) — a bot's tower uses the SAME predicates the human path uses: affordability from
 // `planBlueprintPayment` (the one the reducer calls) and legality from the footprint-aware
@@ -756,7 +756,15 @@ export function chooseGoal(
       // ⭐ S193 — the HOLD's length is the personality's (`saveHoldTicks`; 1800 = pre-S193, so the
       // threshold below is exactly `SAVE_HOLD_TICKS` for the identity). Integer ticks, no float.
       world.tick % SAVE_CYCLE_TICKS >= SAVE_CYCLE_TICKS - personaOf(cfg).saveHoldTicks;
-    const sparkId = savingForTower
+    /*
+     * ⭐ S194 (T7) — NO LOOSE HAUL OUTSIDE BUILD. `canBuildNow` is false for the whole board in FIGHT and
+     * `bankCarriedSparksAtPhaseEdge` banks any carry at the next whistle, so a shape pulled and picked up in
+     * FIGHT could only be refused (measured: ~20 000 refused PLACEs per bot-table per 300 s, 99.9 % in
+     * FIGHT) and then banked again. The ORDER below still runs — telling the gatherer what to fetch next is
+     * free in any phase.
+     */
+    const looseOk = world.matchPhase === 'BUILD';
+    const sparkId = savingForTower || !looseOk
       ? null
       : pickTargetSpark(world, me.avatarPos, cfg, rng, me.id, heldForBill);
     if (sparkId !== null) return { kind: 'BUILD', sparkId };
@@ -787,7 +795,11 @@ export function chooseGoal(
       const queued = world.gathererOrders.get(me.id) ?? [];
       if (!queued.includes(wanted)) return { kind: 'ORDER', sparkType: wanted };
     }
-    if (bankCount(world.castleBanks, me.id) > 0) return { kind: 'PULL' };
+    // ⭐ S194 (T7) — and only into a FREE porch slot. A pull with the porch full is the reducer's no-op
+    // (`applyPullFromBank`: "porch full → the shape stays in the inventory"); while a bot saves, its porch
+    // shapes are held for the bill, so it re-sent that no-op every think — measured 426 (HARD) / 428 (IMBA)
+    // no-op pulls in 300 s. `porchHasFreeSlot` asks the reducer's own slot rule.
+    if (looseOk && bankCount(world.castleBanks, me.id) > 0 && porchHasFreeSlot(world, seat)) return { kind: 'PULL' };
   }
 
   /*
@@ -953,6 +965,19 @@ export function homeAnchor(
     cfg.aimJitterPx,
     rng,
   );
+}
+
+/**
+ * ⭐ S194 (T7) — PURE: would `PULL_FROM_BANK` find a slot on `seat`'s porch right now? The reducer's own
+ * test, verbatim: `firstFreePorchSlot` against EVERY free spark and EVERY built shape
+ * (`gathererLifecycle.ts` `applyPullFromBank`).
+ */
+export function porchHasFreeSlot(world: World, seat: PlayerId): boolean {
+  const occupied: Vec2[] = [];
+  for (const s of world.freeSparks.values()) occupied.push(s.pos);
+  const built: Vec2[] = [];
+  for (const p of world.primitives.values()) built.push(p.pos);
+  return firstFreePorchSlot(seat as unknown as number, occupied, world.layout, built) !== null;
 }
 
 /** Canvas-margin + spawner-zone + enemy-territory legality (mirror of the

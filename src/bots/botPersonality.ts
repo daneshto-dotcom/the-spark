@@ -122,10 +122,23 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
     IMBA: { towerOrder: ['goblin'], feed: 'leftovers' },
   },
   WARMONGER: {
-    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front' },
+    // ⭐ S194 (T7) — `substitute: 'listed'`: measured HARD def 0.17 → 0.00 (it had stamped a stink tower through
+    // the S154 take-what-you-can escape after nearest-first armies razed its goblin tower), fed 10 → 17.
+    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front', substitute: 'listed' },
     MID: { feed: 'leftovers' },
     HARD: { feed: 'eager' },
-    IMBA: { feed: 'eager', raidTarget: 'leader' },
+    /*
+     * ⭐ S194 (T7, Q-E) — IMBA WARMONGER vs TYCOON were one bot: signature harness (0xb07 / 0xbeef, 300 s),
+     * S193 rows: WARMONGER def 0.22 · fed 6 · loose 46 · goblin>stink>stink | goblin>mummies | zombies×2;
+     * TYCOON def 0.17 · fed 3 · loose 51 · goblin>stink | goblin | zombies×2. Two changes, both ⚠ MINE:
+     * `substitute: 'listed'` (base, every tier — an army bot never stamps a stink tower to fill a gap) and,
+     * at IMBA, a 3000-tick hold so the army bill is saved for instead of trickled into loose shapes:
+     *   listed, hold 1200   def 0.00 · fed  5 · loose 46
+     *   listed, hold 2400   def 0.00 · fed  5 · loose 31
+     *   ⭐ listed, hold 3000 def 0.00 · fed 17 · loose 18 · goblin>nagas>goblin>pentagram | goblin>mummies | zombies×3
+     * (goblin>pentagram>hub at hold 2400 was rejected: it is SABOTEUR's order.)
+     */
+    IMBA: { feed: 'eager', raidTarget: 'leader', saveHoldTicks: 3000 },
   },
   FORTRESS: {
     base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700 },

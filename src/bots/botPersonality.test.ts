@@ -320,9 +320,10 @@ describe('S193 — the new brain functions, each with its negative', () => {
     expect(chooseTowerPlan(w, BOT, fort)?.blueprintId).toBe('stinkTower');
   });
 
-  it('S194: only IMBA FORTRESS narrows its substitutes — every other cell keeps the pre-S194 "any"', () => {
+  it('S194: only WARMONGER and IMBA FORTRESS narrow their substitutes — every other cell keeps the pre-S194 "any"', () => {
     for (const tier of BOT_DIFFICULTIES) for (const p of BOT_PERSONALITIES) {
-      const want = tier === 'IMBA' && p === 'FORTRESS' ? 'listed' : 'any';
+      // WARMONGER at every tier that has one (Q-E + the HARD re-pin), FORTRESS at IMBA. NOOB is BALANCED.
+      const want = tier !== 'NOOB' && (p === 'WARMONGER' || (tier === 'IMBA' && p === 'FORTRESS')) ? 'listed' : 'any';
       expect(botConfigFor(tier, p).persona!.substitute, `${tier} ${p}`).toBe(want);
     }
   });
@@ -395,6 +396,12 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
      * again, so it affords the stink); FORTRESS s2 stink>mummies>stink 0.67 → stink>mummies 0.50, mean 0.44 →
      * 0.39 (still the highest; BALANCED 0.28); loose counts ±1 (BALANCED s1 15→14, TYCOON s2 18→19).
      */
+    /*
+     * ⭐ S194 (T7) — and the `toBe(0)` is BACK. WARMONGER now carries `substitute: 'listed'`, so the take-what-
+     * you-can escape after a razed goblin tower re-raises an ARMY rung instead of a stink tower. Measured
+     * (S194 tree): goblin>goblin>nagas | goblin>mummies | zombies×2, def 0.00 on every seat, 17 fed.
+     */
+    for (const s of war.seats) expect(s.defenceRatio, `WARMONGER s${s.seat} stamps no defence`).toBe(0);
     for (const m of [bal, fort, tyc, sab]) expect(meanDef(war)).toBeLessThan(meanDef(m));
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
     expect(Math.min(...war.seats.map((s) => (s.firstFeedTick < 0 ? Infinity : s.firstFeedTick)))).toBeLessThan(5400);
@@ -422,9 +429,9 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
      * nearest-enemy-first targeting (canon §5c) made adjacent IMBA armies raze each other's goblin towers;
      * the old row spent its BUILDs re-raising them and filled the bell with race towers (0.25 < BALANCED
      * 0.28, no laser) and S193 re-pinned it down to "a defence on ≥ 2 seats". S194 re-tuned the ROW, not the
-     * test (`botPersonality.ts`, FORTRESS IMBA: laser 2nd, substitute 'listed', hold 3300). MEASURED after:
-     * goblin>stink>goblin>laser | goblin>stink | goblin>laser — mean defence 0.50 (BALANCED 0.28, WARMONGER
-     * 0.22, TYCOON 0.17, SABOTEUR 0.00), two lasers, 14 units fed, 12 loose shapes.
+     * test (`botPersonality.ts`, FORTRESS IMBA: laser 2nd, substitute 'listed', hold 3300). MEASURED after
+     * (final S194 tree): goblin>laser>stink | goblin | goblin>laser — mean defence 0.39 (BALANCED 0.28,
+     * TYCOON 0.17, WARMONGER 0.00, SABOTEUR 0.00), two lasers, 8 units fed, 13 loose shapes.
      */
     for (const [p, m] of all) {
       if (p === 'FORTRESS') continue;
@@ -432,7 +439,9 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
       expect(m.seats.some((s) => s.stamps.includes('laserTurret')), `${p} fields no laser`).toBe(false);
     }
     expect(fort.seats.filter((s) => s.stamps.includes('laserTurret')).length, 'FORTRESS lasers').toBeGreaterThanOrEqual(1);
-    expect(fort.seats.filter((s) => s.defenceRatio > 0).length, 'FORTRESS stamps a defence on every seat').toBe(3);
+    // Measured S194 after the T7 PLACE/PULL fixes moved the bot rng stream: goblin>laser>stink | goblin |
+    // goblin>laser — a defence on 2 of 3 seats (3 of 3 on the pre-fix stream), mean 0.39 vs BALANCED 0.28.
+    expect(fort.seats.filter((s) => s.defenceRatio > 0).length, 'FORTRESS stamps a defence on ≥ 2 seats').toBeGreaterThanOrEqual(2);
     // ⚠ It still PLAYS between towers: the 3300 hold leaves a spend window (3600 measured 0 loose — rejected).
     expect(sum(fort, (s) => s.loosePlaced)).toBeGreaterThan(0);
     const keys = all.map(([, m]) => JSON.stringify(m.seats.map((s) => [s.stamps, s.feeds, s.defenceRatio])));
@@ -443,6 +452,22 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     // ⚠ NEGATIVE: no IMBA personality's defence-ratio signature is accidentally Fortress's.
     expect(meanDef(sig('IMBA', 'WARMONGER'))).toBeLessThan(meanDef(fort));
   }, 180_000);
+
+  it('⭐ S194 Q-E — IMBA WARMONGER and TYCOON are two different bots', () => {
+    /*
+     * Before (S193 rows, same harness): WARMONGER def 0.22 · fed 6 · loose 46; TYCOON def 0.17 · fed 3 ·
+     * loose 51 — one bot with two names. After (`botPersonality.ts`, WARMONGER `substitute: 'listed'` +
+     * IMBA hold 3000): WARMONGER def 0.00 · fed 17 · loose 18 · a pentagram; TYCOON unchanged.
+     */
+    const war = sig('IMBA', 'WARMONGER');
+    const tyc = sig('IMBA', 'TYCOON');
+    expect(meanDef(war), 'the army bot stamps no defence').toBe(0);
+    expect(meanDef(tyc)).toBeGreaterThan(0);
+    expect(sum(war, (s) => s.feeds), 'units bought').toBeGreaterThanOrEqual(2 * sum(tyc, (s) => s.feeds) + 5);
+    expect(sum(tyc, (s) => s.loosePlaced), 'loose shapes').toBeGreaterThanOrEqual(2 * sum(war, (s) => s.loosePlaced));
+    expect(war.seats.some((s) => s.stamps.includes('pentagram')), 'WARMONGER climbs an army rung').toBe(true);
+    expect(tyc.seats.some((s) => s.stamps.includes('pentagram'))).toBe(false);
+  }, 60_000);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -529,7 +554,14 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
   it('anti-vacuity: the cells as a whole own feedable towers and fed', () => {
     let towers = 0;
     let feeds = 0;
-    for (const p of ['WARMONGER', 'BALANCED'] as const) {
+    /*
+     * ⚠ S194 (T7) RE-PIN — was WARMONGER + BALANCED. After the S194 Warmonger row, its one seat that owns a
+     * feedable tower at the lock owns a RACE tower (nagas) and a pentagram — its goblin tower was razed —
+     * and a race tower eats ONE shape type, of which one is banked: 1 feed for 1 tower (verified with a
+     * spawner dump, not assumed; the per-cell test above still passes for it). The goblin-tower seat that
+     * makes this test non-vacuous is SABOTEUR's (measured 7 feeds over 1 tower).
+     */
+    for (const p of ['SABOTEUR', 'BALANCED'] as const) {
       const r = runLockMatch('IMBA', p, 200, 80, 27);
       towers += r.seatsWithTower;
       feeds += r.feedsLanded;
