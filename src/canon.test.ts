@@ -306,7 +306,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(62);
+    expect(PROTOCOL_VERSION).toBe(63);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1155,7 +1155,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 61 -> 62');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 62 -> 63');
     expect(proto.indexOf('BUMPED 60 -> 61')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
@@ -1735,7 +1735,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
 
 // ── ⭐⭐ S193 — §2b MAGIC RESISTANCE, every number bound to its constant ─────────────────────────
 import {
-  CREATURE_MRES, RACE_MRES_LEVEL, bossMres, defenderMres, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
+  CASTLE_SOLDIER_MRES, CREATURE_MRES, RACE_MRES_LEVEL, bossMres, defenderMres, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
 } from './state/magicResist.ts';
 import {
   CASTLE_BASE_MRES_LEVEL, CASTLE_UPGRADE_MAX_LEVEL as MRES_CASTLE_MAX, CASTLE_UPGRADE_PRICE as MRES_CASTLE_PRICE,
@@ -1781,7 +1781,10 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
     }
     expect(RACE_MRES_LEVEL).toEqual({ demons: 4, mummies: 4, vampires: 3, nagas: 2, orcs: 1, zombies: 0 });
     expect(canonSays('demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0**')).toBe(true);
-    expect(mresFor('raceUnit', 'nagas')).toBe(2);
+    // ⭐ S194 HIS — the castle soldier is MRES 1 for every race (it read the race table until S194).
+    for (const r of Object.keys(RACE_MRES_LEVEL) as (keyof typeof RACE_MRES_LEVEL)[]) expect(mresFor('raceUnit', r)).toBe(CASTLE_SOLDIER_MRES);
+    expect(CASTLE_SOLDIER_MRES).toBe(1);
+    expect(canonSays('**1 for EVERY race** (`CASTLE_SOLDIER_MRES`)')).toBe(true);
     expect(bossMres('demons')).toBe(14);
     expect(bossMres('mummies')).toBe(14);
     expect(bossMres('zombies')).toBe(6);
@@ -1835,5 +1838,44 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(flat.includes('**a fading unit stays a target**')).toBe(true);
     expect(flat.includes("**a fallen tower's leftover shapes stay targetable until destroyed**")).toBe(true);
     expect(flat.includes('there is no DESPAWNING clause')).toBe(true);
+  });
+});
+
+// ── ⭐⭐ S193 — §3d THE WAVE-26 MRES CARD (R192-D1, `s193/mres-card`), every number bound to its constant ──
+import {
+  GENERAL_PICKS as MRES_GENERAL_PICKS, MRES_DRAFT_WAVE, draftedMagicPoolFifths, mresPickCount,
+} from './state/draft.ts';
+import { landedFifthsPools } from './state/magicResist.ts';
+import { GENERAL_CARDS_AWAITING_ART } from './render/draftOverlay.ts';
+
+describe('§3d the wave-26 MRES card is bound to the code', () => {
+  it('the slot: the LAST draft offers MRES; 1/6/11/16/21 are unchanged', () => {
+    expect(MRES_DRAFT_WAVE).toBe(endgameConstants.LAST_DRAFT_WAVE);
+    expect(MRES_DRAFT_WAVE).toBe(26);
+    expect(isDraftWave(MRES_DRAFT_WAVE)).toBe(true);
+    expect(generalPickForWave(MRES_DRAFT_WAVE)).toBe('mres');
+    expect([1, 6, 11, 16, 21].map(generalPickForWave)).toEqual(['hp', 'def', 'atk', 'pen', 'hp']);
+    expect(MRES_GENERAL_PICKS).toEqual([...GENERAL_TRACK, 'mres']);
+    expect(canonSays('The LAST draft (wave 26, `MRES_DRAFT_WAVE` = `LAST_DRAFT_WAVE`) offers **MRES — WARDED**')).toBe(true);
+    expect(canonSays('its general option is the **MRES** card (§3d, R192-D1)')).toBe(true);
+    expect(canonSays('the general MRES draft card is BUILT')).toBe(true);
+    expect(canonSays('A general MRES draft card is QUEUED, not built')).toBe(false);
+  });
+
+  it('what a pick buys: +10 % of the magic-defended pool — 6 → 7, a 33 lands 28', () => {
+    expect(DRAFT_BUFF_PCT).toBe(10);
+    expect(mresPickCount(['mres'])).toBe(1);
+    expect(isPoolPick('mres') || isDamagePick('mres')).toBe(false);
+    const six = CASTLE_SOLDIER_MRES + 5; // a castle soldier, any race (S194): HP 1 × (5 + MRES 1)
+    expect(six).toBe(6);
+    expect(draftedMagicPoolFifths(1, CASTLE_SOLDIER_MRES, ['mres'])).toBe(7);
+    expect(landedFifthsPools(33, 'magic', 6, 7, 0)).toBe(28);
+    expect(canonSays('An orcs soldier: **6 → 7**, so a Voltkin\'s **33** lands **28**')).toBe(true);
+    expect(canonSays('**+10 % of the MAGIC-DEFENDED POOL** `HP × (5 + MRES)`')).toBe(true);
+  });
+
+  it('the card: awaiting art, and the canon says so', () => {
+    expect(GENERAL_CARDS_AWAITING_ART).toEqual(['mres']);
+    expect(canonSays('`GENERAL_CARDS_AWAITING_ART`')).toBe(true);
   });
 });

@@ -398,6 +398,12 @@ type CreatureHashed =
    * kept, each with its own projection and its own contribution test.)
    */
   | 'atkFifths'
+  /**
+   * ⭐ S193 (R192-D1) — the drafted magic-defended pool. HASHED: it divides every magic hit this creature
+   * takes, so two sims that disagreed would diverge on the next magic hit. Projected as `:mr` below; its
+   * contribution test is `draftMresReaches.test.ts`.
+   */
+  | 'mresFifths'
   // ⭐ S192 (endgame) — the seat an endgame monster was sent at. It decides whom the monster hunts on
   // both sims. Projected as `:ms` below; contribution test in `endgame.test.ts`.
   | 'monsterSeat';
@@ -703,6 +709,8 @@ export function determinismParts(world: World): string[] {
         `:hf${o(c.healedFifths)}`,
         // S188 draft-atk — the baked strike. Absent marker for every creature of an un-drafted seat.
         `:ak${o(c.atkFifths)}`,
+        // S193 R192-D1 — the drafted magic-defended pool. Absent marker for every creature born before an MRES pick.
+        `:mr${o(c.mresFifths)}`,
         // S191 — the Warlord's rage clock. Absent marker for every creature that never raged by its own latch.
         `:rs${o(c.rageStartTick)}`,
         // S192 — the endgame monster's assigned seat. Absent marker for every other creature.

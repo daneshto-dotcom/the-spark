@@ -111,6 +111,8 @@ export function hellspawnOnDeath(world: World, victim: Creature): void {
   // ⭐ S190 (draft-atk) — the PARENT's baked gen-0 strike (absent = the type's), captured now: the
   // children are born later, after the sweep, when the victim is gone.
   const parentAtkFifths = victim.atkFifths;
+  // ⭐ S193 (R192-D1) — and its drafted magic-defended pool, for the same reason.
+  const parentMresFifths = victim.mresFifths;
   const owner = victim.ownerPlayerId;
   const at: Vec2 = { x: victim.pos.x, y: victim.pos.y };
   // ⚠ A chewer always has a spawner in play; the castle sentinel is the fallback for one that does
@@ -118,7 +120,7 @@ export function hellspawnOnDeath(world: World, victim: Creature): void {
   const spawnerId: SpawnerId = victim.sourceSpawnerId ?? castleSpawnerId(owner as unknown as number);
   queueAfterStrike(world, () => {
     for (let i = 0; i < HELLSPAWN_CHILDREN; i++) {
-      spawnHellspawnChild(world, owner, at, spawnerId, childGen, pool, parentAtkFifths);
+      spawnHellspawnChild(world, owner, at, spawnerId, childGen, pool, parentAtkFifths, parentMresFifths);
     }
   });
 }
@@ -127,6 +129,7 @@ export function hellspawnOnDeath(world: World, victim: Creature): void {
 function spawnHellspawnChild(
   world: World, owner: PlayerId, at: Vec2, spawnerId: SpawnerId, gen: 1 | 2, pool: number,
   parentAtkFifths: number | undefined,
+  parentMresFifths: number | undefined,
 ): void {
   if (world.gameState !== 'PLAYING') return;
   const id = asCreatureId(world.nextCreatureId);
@@ -148,4 +151,7 @@ function spawnHellspawnChild(
   // child's gen-0 strike is its PARENT's, set or absent. `hellspawnStrikeFifths` takes the share.
   if (parentAtkFifths === undefined) delete child.atkFifths;
   else child.atkFifths = parentAtkFifths;
+  // ⭐ S193 — the magic-defended pool likewise: the PARENT's, set or absent.
+  if (parentMresFifths === undefined) delete child.mresFifths;
+  else child.mresFifths = parentMresFifths;
 }
