@@ -1,9 +1,18 @@
 # S194 — T5 UI UPGRADE (`s194/ui-upgrade`) — PROGRESS
 
-## RESUMED (owner RESUME) — work complete; e2e re-run on the merged tree in flight at time of writing (see FINAL REPORT)
+## STATUS: COMPLETE (tip = the commit carrying this report)
 
 ## FINAL REPORT
-_(filled at the end)_
+- **Merge:** start `0a37175e` (no-op). Mid-run `git merge master` @ `2fe065fb` (mres-card + protocol 63 + vite worktree-ignore) → `86ce1e65`, **no conflicts**. T8 (buttonFeedback) and T9 (coherence) had NOT landed yet — the merge owner reconciles.
+- **Gates on the merged tree:** `npm run typecheck` exit 0 · `npx vitest run --maxWorkers=3` exit 0 — 528 files / 8226 passed / 11 skipped · `npm run build` exit 0 · UI e2e (castle-panel, exit-match, smoke, click-to-build, feed-tower, footer-order-shapes, modal-layering, settings-toggles, lobby-construction) with the gating grep-invert: exit 0, **36/36 passed** on this worktree's own hashed port. An earlier run of the same files WITHOUT the grep-invert had 8 failures, all `@quarantine-flaky` networked smoke tests outside the gating lane — ruled benign (not a gating test; the 44 gating tests in that run passed).
+- **Benign finding:** the full vitest run rewrote `pentagramBuildability.test.ts.snap` with line-ending changes only (empty content diff) — restored, not committed.
+- **Bundle:** entry **1135.2 KiB** vs master `2fe065fb` measured on the same machine at **1123.1 KiB** → **+12.1 KiB**; plus a lazy `titleBackdrop` chunk of 1.9 kB. Headroom 114.8 KiB.
+- **Bump verdict: NO.** Render/UI only plus two local refused-sound cues: no wire field, no action discriminant, no hashed or serialized state, nothing the sim reads.
+- **Reusable module for T10:** `src/render/uiSkin.ts` (`skinButtonFx`, `skinPanelFx`, `skinIcon`, `skinSheen`, `skinBase`, `SKIN`, `shade`) + `src/render/uiSkinButton.ts` (`skinStaticPlate`, `attachHoverSheen`). matchBoard*.ts never touched.
+- **Merge seams:** (1) `buttonFeedback.ts` NOT edited — `attachHoverSheen` only adds its own pointerover/out listeners and a non-interactive Graphics inside the REST-size hit rect, so T8's `hitRectAtScale` / pivot / `setScale` compose; (2) `controls.ts` two refused-cue branches (T9 finding) — the illegal-release gate is in `controls.ts onUp`, not `dragPreview.ts` (which only computes the ghost); (3) `main.ts` +3 lines (gear hover); (4) `draftOverlay.ts` adds a `glass` Graphics child — `isOver` asks every Graphics child; glass is inside the tiles (tested); (5) fill-count pins unchanged (footer 11, castle 4, draft 5) — the skin lives in `uiSkin.ts`, bounds-tested; the footer's 8 skin sites are pinned and paired to their plates by source.
+- **MINE (owner questions):** the whole look ("forged glass": gloss, bevel, bottom lip, accent glow, rivet studs, hover sheen, hatch-desaturated disabled) — recommend he judges from the desktop screenshots; the castle-row icons (wrench / pick / chevrons / regen arrows / diamond-plus / sword / shield / arrowhead / rune star — deliberately NO heart for HP); the home backdrop (embers in the six race colours, the six shapes orbiting the logo) — recommend keep.
+- **NOT DONE:** race-picker tiles, seat-rack banners and codex combo tiles left as they are (card art, not plates). A hovered footer chip/card still grows HOVER_GROW px past its hit rect — pre-existing R81 behaviour, untouched.
+- **Screenshots:** before/after pairs in `C:/Users/onesh/OneDrive/Desktop/SPARK_S194_UI_Upgrade/` (match board excluded — T10's).
 
 ## NEXT STEP (exact)
 Done except: owner screenshot review. Not skinned (art-led, left as they are): race-picker tiles, seat-rack banners, codex combo tiles.
