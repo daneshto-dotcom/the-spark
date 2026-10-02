@@ -19,6 +19,9 @@
 
 import type { Graphics } from 'pixi.js';
 import type { GameEffect } from '../../game/effects.ts';
+import { raidedFx } from '../fx/buildFx.ts';
+import { fxSeedAt } from '../fx/emitter.ts';
+import { fxActive, fxTop, fxTopShade } from '../fx/fxState.ts';
 
 /** Puff offsets, as fractions of the cloud radius. Fixed, not random — see the note below. */
 const PUFFS: ReadonlyArray<readonly [number, number, number]> = [
@@ -59,7 +62,15 @@ export function drawRaided(
   // A survived hit is a smaller mark than a kill: same language, lower volume.
   const scale = (effect.killed ? 1 : 0.6) * spread;
 
-  for (const [dx, dy, pr] of PUFFS) {
+  /*
+   * ⭐ S193 (V23) — with the fx layers live, the five flat discs become soft smoke puffs in the same
+   * table and the same RAIDER's colour, plus an impact flash and debris (`fx/buildFx.ts` raidedFx).
+   * ⛔ The crisp ring and the two ticks below STILL draw: they are what points at the exact spot.
+   */
+  const fx = fxActive();
+  if (fx) raidedFx(fxTop(), fxTopShade(), fxSeedAt(effect.tick, x, y), x, y, effect.color, effect.killed, t);
+
+  for (const [dx, dy, pr] of fx ? [] : PUFFS) {
     g.circle(
       x + dx * BASE_RADIUS * spread,
       y + dy * BASE_RADIUS * spread - rise,

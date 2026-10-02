@@ -1,3 +1,14 @@
+# ⭐ S193 DEPLOY-#22 BLOCKER ROUND — `s192/magic`
+
+- merge master af4ab26 = fast-forward (branch == master + the 59→60 bump). `npm install` 0.
+- **castle-panel.spec.ts:75**: the row literal now has eight keys (`castleMres` after `castlePen`), with a comment. Fixed in 6a90107.
+- **tower-art.spec.ts:168 / :314 — NOT a magic regression; NOT REPRODUCIBLE on this tree.**
+  - On this worktree's own port, the file passes 3/3 alone, 3/3 under an 8-worker vitest load, and 71/71 inside `npm run e2e:gating`.
+  - The merge owner's failing artifacts (main checkout `test-results/`, 07:59) show **no static asset loaded at all**: the castle is the placeholder box, the draft cards have no art, the creature is a placeholder triangle, and in the same run `settings-toggles` failed with *"no race track was fetched. Saw: []"*. The tower ring stamped and ignited; only its PNG atlas (lazy `Assets.load` in `towerRenderer.ts`) never arrived.
+  - Magic touches no asset, renderer-layer or stamp path: its render diff vs origin/master is damageNumbers / castlePanel / characterSheetModel plus tests, and `towerRenderer.ts` is untouched.
+  - → Environmental in that run: the browser got no `/art` or `/audio` from the server on the main checkout's port (31118, `reuseExistingServer`). Recommendation: make sure nothing stale is listening on 31118 (or set `SPARK_E2E_PORT`), then re-run on a fresh server.
+- Gates: e2e:gating **0** (71 passed) · typecheck **0** · vitest `--maxWorkers=3` **0** (491 files / 7492 tests passed) · build **0**, entry 1066.7 KiB.
+
 # ⭐ S193 ENDGAME MERGE — `s192/magic` (latest; ready for deploy #21)
 
 - **merge**: 1cdbe49 = `git merge master` at c09365e (endgame, PROTOCOL 59). No conflicts. `npm install` exit 0.
