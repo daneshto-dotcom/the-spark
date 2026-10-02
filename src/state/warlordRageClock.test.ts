@@ -249,61 +249,138 @@ describe('S191 — ⭐ REACH through the real host tick', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 /*
- * ⭐ S191 round 2 (RAGE-1) — RULED BY THE OWNER, NOT BUILT, AND PINNED SO IT STAYS AS RULED. The audit
- * found that a rage running at the whistle stays red through BUILD (the latch runs only inside the FIGHT
- * gate) and re-fires on the next FIGHT's first tick. He keeps it: *"Yeah, that's fine. Who cares? You
- * can't really see the creatures anyways."* (quoted in full at `WARLORD_RAGE_COOLDOWN_TICKS`). Crossing a
- * REAL whistle — every other clock test parks the match in FIGHT.
+ * ⛔⛔ S194 (owner, R194-31) — THE RAGE WINDOW ENDS IN EVERY PHASE. SUPERSEDES S191 round 2 RAGE-1.
+ *
+ * S191 ruled a rage running at the whistle could stay red through the whole BUILD (*"Yeah, that's fine.
+ * Who cares?"*). In S194 he saw it — frenzied orc soldiers back at their tower in BUILD, still red — and
+ * reversed it: *"Rage. When it's … turned on by a warlord, should last only 25 seconds. Either for himself
+ * or for the units that he affected. After twenty-five seconds, it has been cooled down, and then … if
+ * he's still there and low health, … he can enrage again. Next fight."*
+ *
+ * So: the window is `WARLORD_RAGE_TICKS` of wall-sim time from `rageStartTick` in ANY phase; the frenzy
+ * follows it; the cooldown runs off the same stamp (through BUILD too); a NEW rage fires only in FIGHT.
+ * Every test here crosses a REAL whistle through `runHostTick` — every other clock test parks the match
+ * in FIGHT. All offsets derive from the constants.
  */
-describe('S191 round 2 — RAGE-1 as RULED: a rage running at the whistle stays red through BUILD, then restarts', () => {
-  it('⭐ a rage started 10 s before the whistle: red through the WHOLE BUILD (Warlord and frenzied soldier), fresh on the next FIGHT’s first tick', () => {
-    const r = rig(board(['racial']));
+describe('S194 R194-31 — the rage window ends on its own clock in every phase; firing stays FIGHT-only', () => {
+  /** A fresh FIGHT whose first tick is `F`, with the whistle at `F + FIGHT_PHASE_TICKS`. */
+  function fightRig(picks: DraftPick[] = ['racial']): { r: Rig; F: number; whistle: number } {
+    const r = rig(board(picks));
+    const F = r.w.tick + 1;
+    r.w.phaseEndsAtTick = F + FIGHT_PHASE_TICKS;
+    return { r, F, whistle: F + FIGHT_PHASE_TICKS };
+  }
+
+  it('⭐⭐ REACH — the owner’s case: rage at FIGHT 50 s, whistle at 60 s → he AND his frenzied orcs are calm at 75 s (15 s into BUILD), and stay calm all BUILD', () => {
+    const { r, F, whistle } = fightRig();
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
+    const raider = unit(r.w, 't3Warband', P0, 340, 800);
+    const goblin = unit(r.w, 'goblinMelee', P0, 380, 800);
+    for (const c of [soldier, raider, goblin]) {
+      c.maxEhp = 1_000_000;
+      c.ehp = 1_000_000;
+    }
+
+    const T = F + 50 * PHYSICS_HZ;
+    runTo(r, T - 1); // healthy until 50 s
+    expect(boss.enraged, 'healthy: calm').toBe(false);
+    boss.ehp = pctPool(boss, 40);
+    expect(step(r)).toBe(T);
+    expect(boss.rageStartTick, 'his latch fired at FIGHT 50 s').toBe(T);
+    expect(r.w.matchPhase).toBe('FIGHT');
+    expect(whistle - T, 'arithmetic: the whistle comes 10 s into his rage').toBe(10 * PHYSICS_HZ);
+
+    const end = T + WARLORD_RAGE_TICKS; // 75 s of match time = 15 s into BUILD
+    expect(end - whistle, 'arithmetic: the window ends 15 s into BUILD').toBe(15 * PHYSICS_HZ);
+    const nextFight = whistle + PHASE_DURATION_TICKS;
+    let ragedTicks = 1; // tick T
+    let ragedInBuild = 0;
+    runTo(r, nextFight - 1, (t) => {
+      const his = t < end;
+      expect(boss.enraged === true, `tick ${t} (${r.w.matchPhase}): the Warlord follows his 25 s window`).toBe(his);
+      expect(soldier.enraged === true, `tick ${t} (${r.w.matchPhase}): the frenzied soldier follows HIS window`).toBe(his);
+      expect(raider.enraged === true, `tick ${t} (${r.w.matchPhase}): the tier-3 orc too`).toBe(his);
+      expect(goblin.enraged ?? false, `tick ${t}: ⛔ goblins never rage`).toBe(false);
+      if (boss.enraged === true) {
+        ragedTicks++;
+        if (r.w.matchPhase === 'BUILD') ragedInBuild++;
+      }
+    });
+    expect(ragedTicks, 'exactly 25 s of rage, across the whistle').toBe(WARLORD_RAGE_TICKS);
+    expect(ragedInBuild, 'the 15 s of it that fell in BUILD — not cut at the whistle').toBe(end - whistle);
+    expect(boss.rageStartTick, 'BUILD never fires a new rage, though he is under half and his cooldown ended').toBe(T);
+
+    // "he can enrage again. Next fight." — the cooldown (T+R … T+R+C) ran out inside BUILD.
+    expect(T + WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS, 'premise: the cooldown ends inside BUILD').toBeLessThan(nextFight);
+    const F2 = step(r);
+    expect(F2).toBe(nextFight);
+    expect(r.w.matchPhase).toBe('FIGHT');
+    expect(boss.rageStartTick, 'a fresh rage on the next FIGHT’s first tick').toBe(F2);
+    expect(boss.enraged).toBe(true);
+    expect(soldier.enraged, 'and the frenzy with it').toBe(true);
+  });
+
+  it('⛔ NEGATIVE — a rage wholly inside FIGHT still lasts the FULL 25 s; the fix ends nothing early', () => {
+    const { r, F, whistle } = fightRig();
     const boss = unit(r.w, WARLORD, P0, 250, 250);
     const soldier = unit(r.w, 'raceUnit', P0, 300, 800);
     soldier.maxEhp = 1_000_000;
     soldier.ehp = 1_000_000;
     boss.ehp = pctPool(boss, 40);
-    const T = r.w.tick + 1;
-    const whistle = T + 10 * PHYSICS_HZ;
-    r.w.phaseEndsAtTick = whistle;
-    expect(step(r)).toBe(T);
-    const nextFight = whistle + PHASE_DURATION_TICKS;
-    let builds = 0;
-    runTo(r, nextFight - 1, (t) => {
-      if (r.w.matchPhase === 'BUILD') builds++;
-      expect(boss.enraged, `tick ${t} (${r.w.matchPhase}): still red, as ruled`).toBe(true);
-      expect(soldier.enraged, `tick ${t}: the frenzied soldier too`).toBe(true);
+    expect(step(r)).toBe(F);
+    expect(F + WARLORD_RAGE_TICKS, 'premise: the window closes inside FIGHT').toBeLessThan(whistle);
+    let bossRaged = 1;
+    let soldierRaged = 1;
+    runTo(r, F + WARLORD_RAGE_TICKS + 60, (t) => {
+      expect(r.w.matchPhase).toBe('FIGHT');
+      if (boss.enraged === true) bossRaged++;
+      if (soldier.enraged === true) soldierRaged++;
+      expect(boss.enraged === true, `tick ${t}`).toBe(t < F + WARLORD_RAGE_TICKS);
     });
-    expect(builds, 'fixture: the run crossed the whistle into a whole BUILD').toBe(PHASE_DURATION_TICKS);
-    expect(boss.rageStartTick, 'nothing re-stamped him in BUILD').toBe(T);
-    const F = step(r);
-    expect(F).toBe(nextFight);
+    expect(bossRaged, 'the Warlord: exactly WARLORD_RAGE_TICKS').toBe(WARLORD_RAGE_TICKS);
+    expect(soldierRaged, 'his soldier: exactly WARLORD_RAGE_TICKS').toBe(WARLORD_RAGE_TICKS);
+  });
+
+  it('⛔ NEGATIVE — a Warlord first hurt in BUILD does not rage in BUILD; he fires on the next FIGHT’s first tick', () => {
+    const { r, whistle } = fightRig();
+    const boss = unit(r.w, WARLORD, P0, 250, 250);
+    runTo(r, whistle + 60); // into BUILD, healthy
+    expect(r.w.matchPhase).toBe('BUILD');
+    boss.ehp = pctPool(boss, 10);
+    const nextFight = whistle + PHASE_DURATION_TICKS;
+    runTo(r, nextFight - 1, (t) => {
+      expect(boss.enraged ?? false, `tick ${t} (BUILD): "he can enrage again. Next fight."`).toBe(false);
+    });
+    expect(boss.rageStartTick, 'never stamped in BUILD').toBeUndefined();
+    const F2 = step(r);
     expect(r.w.matchPhase).toBe('FIGHT');
-    expect(boss.rageStartTick, '"it restarts the next fight" — a fresh 25 s from its first tick').toBe(F);
+    expect(boss.rageStartTick).toBe(F2);
     expect(boss.enraged).toBe(true);
   });
 
-  it('⭐ the per-FIGHT pattern as ruled, derived from the constants, across a whole FIGHT and BUILD into the next', () => {
+  it('⭐ the per-FIGHT pattern, derived from the constants, across a whole FIGHT and BUILD into the next', () => {
     const R = WARLORD_RAGE_TICKS;
     const C = WARLORD_RAGE_COOLDOWN_TICKS;
-    const fires: number[] = []; // offsets from the FIGHT's first tick
+    const fires: number[] = []; // offsets from the FIGHT's first tick — he fires only in FIGHT
     for (let k = 0; k * (R + C) < FIGHT_PHASE_TICKS; k++) fires.push(k * (R + C));
-    expect(PHASE_DURATION_TICKS, 'premise: BUILD outlasts both windows').toBeGreaterThan(R + C);
     const last = fires.at(-1)!;
-    const redAtWhistle = last + R > FIGHT_PHASE_TICKS; // a rage still running when the FIGHT ends
+    expect(last + R + C, 'premise: the last cooldown ends before the next FIGHT').toBeLessThanOrEqual(FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS);
     const expected = (off: number): boolean => {
       if (off >= FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS) return true; // the next FIGHT fires afresh
-      if (off >= FIGHT_PHASE_TICKS) return redAtWhistle; // BUILD: frozen as the whistle left it
-      return fires.some((f) => off >= f && off < f + R);
+      return fires.some((f) => off >= f && off < f + R); // ⛔ S194: the window, in ANY phase
     };
-    const r = rig(board());
+    const { r, F } = fightRig(['hp']);
     const boss = unit(r.w, WARLORD, P0, 250, 250);
     boss.ehp = pctPool(boss, 40);
-    const F = r.w.tick + 1;
-    r.w.phaseEndsAtTick = F + FIGHT_PHASE_TICKS;
+    let redInBuild = 0;
     runTo(r, F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS, (t) => {
       expect(boss.enraged === true, `offset ${t - F} (${r.w.matchPhase})`).toBe(expected(t - F));
+      if (r.w.matchPhase === 'BUILD' && boss.enraged === true) redInBuild++;
     });
+    // Today (3600 / 1500 / 1500): fires at 0 and 50 s; the second runs 15 s past the whistle, then ends.
+    expect(redInBuild, 'only the tail of the window that crossed the whistle').toBe(Math.max(0, last + R - FIGHT_PHASE_TICKS));
+    expect(redInBuild, 'never the whole BUILD (the S191 behaviour this ruling reversed)').toBeLessThan(PHASE_DURATION_TICKS);
     expect(boss.rageStartTick, 'the next FIGHT fired on its first tick').toBe(F + FIGHT_PHASE_TICKS + PHASE_DURATION_TICKS);
   });
 });
