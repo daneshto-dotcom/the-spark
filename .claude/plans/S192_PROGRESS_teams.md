@@ -1,10 +1,29 @@
+# S194 T1 ADDITION — 2v2 TEAMS IN T5's SKIN — FINAL REPORT (top)
+
+- Merges: master 17f20496 (T5 ui-upgrade + T8 fixes) = 9ee03794 — ONE conflict, seatRack.ts imports (both kept);
+  botSetupOverlay.ts, lobbyScreen.ts, main.ts auto-merged (layout + T5 skin both survived). Master 2c8ccc83 (PROTOCOL 64)
+  = 04369329, no conflicts.
+- Skin (6daf66ee): VS-BOTS team chip = glass in the TEAM colour ('active' once picked) + chip hover, plus a team-coloured
+  ring on the seat swatch; START repaints T5's DISABLED plate (sheen dark) while one side. MP seat TEAM chip (CLAIM_TEAM)
+  = glass in the team colour + chip hover on YOUR seat only (others inert labels). Begin repaints DISABLED while one side
+  (alpha 0.4 kept); getDebugState.beginButtonDisabledSkin, asserted in the teams-lobby e2e.
+- Census: the race chip claim 'btn.' was swallowing the team chip — narrowed to 'raceBtn.'; new SKINNED rows teamBtn. and
+  seatRack teamChip.on('pointertap'. uiSkinReach.teams.test (5 tests, inside/outside by Pixi's hit rule + sheen inside);
+  3 hand mutations red. Re-pins: uiSkinReach.buttons sheen regex (optional enabled arg), botPersonality layout pin.
+- Screenshots: C:/Users/onesh/OneDrive/Desktop/SPARK_S194_UI_Upgrade/ before_* and after_* : bots_2v2,
+  bots_one_team_start_disabled, mp_lobby_2v1_teams, mp_lobby_one_team_begin_disabled ("before" = 9ee03794's unskinned chips).
+- Gates: typecheck 0 · vitest 0 (8469 passed / 11 skipped, 557 files) · build 0, entry 1155.7 KiB vs master 2c8ccc83
+  1149.0 (+6.7), headroom 94.3 · e2e (own port 33228) teams-lobby + lobby-construction + castle-panel + modal-layering:
+  21/21 passed, exit 0.
+- Bump: teams takes 65 at merge (master is 64). Correction: the seam-fix commit is b43cf862 (not d6e3a74a).
+
 # S194 FIX-ONLY ROUND — FINAL REPORT (top) — T1 `s192/teams`
 
 - Merges: master 362a818c (canon.test append/append, both kept) · 01530fb1 (6e70d09c) · 814f1871 bots-tune (04ba1c46, botBrain
   imports) · bookkeeping da4a826c (no source change).
 - Golden: re-recorded on 814f1871 in a CLEAN temp worktree of master — master and merged teams both md5
   4781d982078f58dbe6618f37810ca2c5 (50c114be). On 01530fb1 both were e511479e3313aa4a1573e6463f253526 (= the auditor's 2fe065fb).
-- MED-1 9b5ba221 · LOW-1 4a9fd72d (hostHandlers CRLF, 641 CR; diff vs master 32+/8-) · seams d6e3a74a (zone renderer
+- MED-1 9b5ba221 · LOW-1 4a9fd72d (hostHandlers CRLF, 641 CR; diff vs master 32+/8-) · seams b43cf862 (zone renderer
   isScorchImmune arity; lifestealSource sameTeam) · LOW-2 d911aebf · LOW-3 13c155a3 · docblock dce3f73b.
 - Gates on the final tree: typecheck 0 · vitest 0 (8063 passed / 11 skipped, 538 files; botFix green this run) · build 0,
   entry 1139.8 KiB vs master 1133.7 (+6.1), headroom 110.2.
