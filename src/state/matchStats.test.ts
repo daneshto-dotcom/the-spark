@@ -255,14 +255,26 @@ describe('⭐ S194 v2 matchStats — the inert v2 counters', () => {
     recordDamage(w, P(1), P(0), 10, 'unit');
     recordDamage(w, P(1), P(0), 20, 'structure');
     recordDamage(w, P(2), P(0), 300, 'keep');
-    recordDamage(w, P(0), P(0), 7, 'keep'); // own hit: taken only, no who-hit-whom entry
-    recordDamage(w, undefined, P(0), 5, 'structure'); // ownerless orphan bond: dealt, no victim column
+    recordDamage(w, P(0), P(0), 7, 'keep'); // own hit: TAKEN only — it sits on the grid's diagonal
+    recordDamage(w, undefined, P(0), 5, 'structure'); // ⭐ audit: an ownerless orphan bond counts for NOBODY
+    recordDamage(w, P(1), null, 4, 'unit'); // ⭐ audit: unattributed → the victim's NO SOURCE cell
     const s0 = w.matchStats.seats.get(P(0))!;
-    expect([s0.dealtFifths, s0.dealtStruct, s0.dealtKeep]).toEqual([335, 25, 300]);
-    expect([...s0.dealtTo].sort()).toEqual([[P(1), 30], [P(2), 300]]);
+    expect([s0.dealtFifths, s0.dealtStruct, s0.dealtKeep]).toEqual([330, 20, 300]);
+    expect([...s0.dealtTo].sort()).toEqual([[P(0), 7], [P(1), 30], [P(2), 300]]);
     expect([s0.takenFifths, s0.takenKeep, s0.takenStruct]).toEqual([7, 7, 0]);
+    expect(w.matchStats.seats.get(P(1))!.takenUnattributed).toBe(4);
+    // ⛔ THE GRID ADDS UP: off-diagonal row = DEALT; column (diagonal + NO SOURCE included) = TAKEN.
+    const seats = w.matchStats.seats;
+    for (const [id, s] of seats) {
+      let row = 0;
+      for (const [v, n] of s.dealtTo) if (v !== id) row += n;
+      expect(row, `row ${id}`).toBe(s.dealtFifths);
+      let col = s.takenUnattributed;
+      for (const o of seats.values()) col += o.dealtTo.get(id) ?? 0;
+      expect(col, `column ${id}`).toBe(s.takenFifths);
+    }
     const s1 = w.matchStats.seats.get(P(1))!;
-    expect([s1.takenFifths, s1.takenStruct, s1.takenKeep]).toEqual([30, 20, 0]);
+    expect([s1.takenFifths, s1.takenStruct, s1.takenKeep]).toEqual([34, 20, 0]);
   });
 
   it('a wave sample carries each seat\'s RUNNING TOTALS (cumulative; the board differences them)', () => {

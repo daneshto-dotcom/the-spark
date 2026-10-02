@@ -9,7 +9,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Graphics, Text } from 'pixi.js';
-import { PLAYER_COLORS } from '../constants.ts';
+import { MONSTER_OWNER_SEAT, PLAYER_COLORS } from '../constants.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { asPlayerId } from '../types.ts';
 import { recordDamage, recordKill, recordUnitBuilt, recordWaveSample } from '../state/matchStats.ts';
@@ -307,5 +307,35 @@ describe('⛔ S191/S194 wiring — source text (the canvas is invisible to vites
   it('the HUD no longer promises "click … to reset" in POSTGAME', () => {
     const ui = readFileSync('src/render/ui.ts', 'utf8');
     expect(ui).not.toContain('click or press R to reset`');
+  });
+});
+
+describe('⭐ S194 (audit T10) — MONSTERS on the heatmap, and the ledger\'s labelled halves', () => {
+  it('the GRAPHS page draws MONSTERS and NO SOURCE and never "P256"; hovering the MONSTERS column names them', () => {
+    const b = new MatchBoard(() => {});
+    const w = postgame();
+    const M = asPlayerId(MONSTER_OWNER_SEAT);
+    recordDamage(w, M, P0, 70, 'unit');
+    recordDamage(w, P1, null, 3, 'unit');
+    b.render(w, 0);
+    b.handleKey('ArrowRight');
+    b.render(w, 1);
+    const t = visibleTexts(b);
+    expect(t).toEqual(expect.arrayContaining(['→ MONSTERS', 'MONSTERS', 'NO SOURCE']));
+    expect(t.some((x) => x.includes('256'))).toBe(false);
+    const { cells } = matrixCells(graphsLayout().matrix, 4, 3); // P1, P2, MONSTERS, NO SOURCE × P1, P2, MONSTERS
+    move(b, ...center(cells[0]![2]!));
+    b.render(w, 2);
+    expect(visibleTexts(b)).toEqual(expect.arrayContaining(['P1 → MONSTERS', 'dealt  70']));
+  });
+
+  it('the WAVE BY WAVE axis says DEALT above and TAKEN below', () => {
+    const b = new MatchBoard(() => {});
+    const w = postgame();
+    b.render(w, 0);
+    b.handleKey('ArrowRight');
+    b.handleKey('ArrowRight'); // the first seat's page
+    b.render(w, 1);
+    expect(visibleTexts(b)).toEqual(expect.arrayContaining(['DEALT ▲', 'TAKEN ▼']));
   });
 });

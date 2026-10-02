@@ -227,6 +227,8 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
     }
   }
 
+  // ⭐ S194 (audit T10 LOW-1) — a SELF-DETONATION: the stat board records it as NEITHER a loss nor a kill.
+  // The unit spent itself as a weapon, and what it hit is already on the board through the blast it set off.
   world.creatures.delete(action.creatureId);
   return world;
 }

@@ -58,8 +58,13 @@ export interface SeatMatchStats {
    * loss is a loss). SC2's "built vs lost" pair, the per-player page's most-read panel.
    */
   readonly lost: Map<CreatureType, number>;
-  /** ⭐ S194 v2 — WHO-HIT-WHOM: what this seat dealt, keyed by the VICTIM seat (sums to `dealtFifths`). */
+  /**
+   * ⭐ S194 v2 — WHO-HIT-WHOM: what this seat's hits took off each VICTIM seat. Its own key holds the seat's
+   * SELF-hits (the grid's diagonal), so the off-diagonal entries sum to `dealtFifths` exactly.
+   */
   readonly dealtTo: Map<PlayerId, number>;
+  /** ⭐ S194 (audit) — TAKEN with no seat to name as its source. Column sum + this = `takenFifths`. */
+  takenUnattributed: number;
   /**
    * ⭐ S194 v2 — the part of `dealtFifths` / `takenFifths` that landed on a KEEP or on a STRUCTURE (shapes,
    * connectors, landed bags); the rest landed on units. Why: the keep is the canon's one off-ladder pool AND
@@ -127,6 +132,7 @@ function emptySeat(): SeatMatchStats {
     takenFifths: 0,
     lost: new Map(),
     dealtTo: new Map(),
+    takenUnattributed: 0,
     dealtKeep: 0,
     dealtStruct: 0,
     takenKeep: 0,
@@ -171,20 +177,31 @@ export function recordDamage(
   on: DamageTargetClass,
 ): void {
   if (!(appliedFifths > 0)) return;
-  if (victim !== undefined) {
-    const v = seat(world, victim);
-    v.takenFifths += appliedFifths;
-    if (on === 'keep') v.takenKeep += appliedFifths;
-    else if (on === 'structure') v.takenStruct += appliedFifths;
+  /*
+   * ⭐ S194 (audit T10 MED-1) — THE WHO-HIT-WHOM GRID MUST ADD UP. Every point of TAKEN has exactly one
+   * source cell, and every point of DEALT exactly one victim cell:
+   *   · an ENEMY hit → `attacker.dealtTo[victim]`, and counts as the attacker's DEALT;
+   *   · a SELF hit → `victim.dealtTo[victim]` (the grid's diagonal), TAKEN only — never DEALT;
+   *   · an UNATTRIBUTED hit (no seat to name) → `victim.takenUnattributed`, TAKEN only;
+   *   · a hit on an OWNERLESS thing (an orphaned bond whose shapes are gone) → counts for nobody, because it
+   *     has no victim to take it. Until this audit it was DEALT with no column, so a row could not sum.
+   * Endgame monsters are a seat like any other here (`MONSTER_OWNER_SEAT`, 255): the board labels them.
+   */
+  if (victim === undefined) return;
+  const v = seat(world, victim);
+  v.takenFifths += appliedFifths;
+  if (on === 'keep') v.takenKeep += appliedFifths;
+  else if (on === 'structure') v.takenStruct += appliedFifths;
+  if (attacker === null) {
+    v.takenUnattributed += appliedFifths;
+    return;
   }
-  if (attacker !== null && attacker !== victim) {
-    const a = seat(world, attacker);
-    a.dealtFifths += appliedFifths;
-    if (on === 'keep') a.dealtKeep += appliedFifths;
-    else if (on === 'structure') a.dealtStruct += appliedFifths;
-    // A hit on an ownerless thing (an orphaned bond) is dealt, but has no victim column to land in.
-    if (victim !== undefined) a.dealtTo.set(victim, (a.dealtTo.get(victim) ?? 0) + appliedFifths);
-  }
+  const a = seat(world, attacker);
+  a.dealtTo.set(victim, (a.dealtTo.get(victim) ?? 0) + appliedFifths);
+  if (attacker === victim) return; // a loss for that seat and a gain for nobody
+  a.dealtFifths += appliedFifths;
+  if (on === 'keep') a.dealtKeep += appliedFifths;
+  else if (on === 'structure') a.dealtStruct += appliedFifths;
 }
 
 /**
@@ -302,6 +319,7 @@ export interface SerializedSeatStats {
   readonly ds?: number;
   readonly tk?: number;
   readonly ts?: number;
+  readonly tu?: number;
 }
 
 export interface SerializedMatchStats {
@@ -368,6 +386,7 @@ function serializeSeat(id: PlayerId, s: SeatMatchStats): SerializedSeatStats | n
     ...(s.dealtStruct > 0 ? { ds: s.dealtStruct } : {}),
     ...(s.takenKeep > 0 ? { tk: s.takenKeep } : {}),
     ...(s.takenStruct > 0 ? { ts: s.takenStruct } : {}),
+    ...(s.takenUnattributed > 0 ? { tu: s.takenUnattributed } : {}),
   };
   return Object.keys(out).length > 1 ? out : null;
 }
@@ -449,6 +468,7 @@ export function applySerializedSeats(world: World, s: SerializedMatchStats | und
       dealtStruct: isCount(r.ds) ? r.ds : 0,
       takenKeep: isCount(r.tk) ? r.tk : 0,
       takenStruct: isCount(r.ts) ? r.ts : 0,
+      takenUnattributed: isCount(r.tu) ? r.tu : 0,
       fellOnWave: isCount(r.fellOnWave) ? r.fellOnWave : undefined,
     });
   }
@@ -509,7 +529,7 @@ export function matchStatsHashParts(ms: MatchStats): string[] {
         `:d${s.dealtFifths}:t${s.takenFifths}:fw${s.fellOnWave ?? -1}` +
         // ⭐ S194 v2
         `:l${rec(s.lost)}:to${[...s.dealtTo.entries()].sort(([a], [b]) => (a as number) - (b as number)).map(([k, n]) => `${k as number}=${n}`).join('.')}` +
-        `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}`,
+        `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}:tu${s.takenUnattributed}`,
     );
   }
   for (const h of ms.history) {

@@ -54,7 +54,7 @@ describe('S194 hoverAt — the target under the pointer', () => {
     expect(hoverAt(m, tab, 20, 20)).toBeNull();
   });
 
-  it('graphs: each chart answers with its own key; the heatmap diagonal never answers', () => {
+  it('graphs: each chart answers with its own key; every heatmap cell answers, the diagonal (self-hits) too', () => {
     const tab = { kind: 'graphs' } as const;
     const G = graphsLayout();
     for (const k of ['damage', 'built', 'kills'] as const) {
@@ -63,7 +63,9 @@ describe('S194 hoverAt — the target under the pointer', () => {
     }
     const { cells } = matrixCells(G.matrix, 3);
     expect(hoverAt(m, tab, ...mid(cells[0]![2]!))).toEqual({ kind: 'cell', attacker: 0, victim: 2 });
-    expect(hoverAt(m, tab, ...mid(cells[1]![1]!))).toBeNull();
+    expect(hoverAt(m, tab, ...mid(cells[1]![1]!))).toEqual({ kind: 'cell', attacker: 1, victim: 1 });
+    const self = tooltipFor(m, tab, { kind: 'cell', attacker: 1, victim: 1 })!.map((l) => l.text);
+    expect(self[0]).toMatch(/→ ITSELF$/);
   });
 
   it('player page: the per-wave ledger answers with its wave', () => {
@@ -88,7 +90,7 @@ describe('S194 tooltipFor — what it says', () => {
   });
 
   it('a heatmap cell gives the damage both ways', () => {
-    const order = m.matrix.seats;
+    const order = m.matrix.cols.map((c) => c.seat);
     const a = order.indexOf(P(0));
     const v = order.indexOf(P(1));
     const cell = tooltipFor(m, { kind: 'graphs' }, { kind: 'cell', attacker: a, victim: v })!;

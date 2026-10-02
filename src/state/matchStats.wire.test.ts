@@ -18,7 +18,7 @@ const TYPES: readonly CreatureType[] = [
   'raceUnit', 'goblinMelee', 'goblinArcher', 'goblinShield', 'chewer', 'lightningDrone', 'direwolf', 'voltkin',
 ];
 
-function heavyMatch(): World {
+function heavyMatch(waves = 30): World {
   const w = makeWorld(0x5191d);
   for (let i = 0; i < 4; i++) {
     const id = asPlayerId(i);
@@ -41,7 +41,7 @@ function heavyMatch(): World {
       recordDamage(w, victim, me, 23_456, 'keep');
     }
   }
-  for (let wave = 1; wave <= 30; wave++) {
+  for (let wave = 1; wave <= waves; wave++) {
     for (let seat = 0; seat < 4; seat++) w.scoreByPlayer.set(asPlayerId(seat), wave * 1_234 + seat);
     w.tick = wave * 8_100;
     recordWaveSample(w, wave);
@@ -68,5 +68,16 @@ describe('S191 — the stat board on the wire, measured', () => {
     expect(withHistory).toBeLessThan(12 * 1024);
     expect(withHistory).toBe(full);
     expect(totals).toBeLessThan(withHistory);
+  });
+
+  it('⭐ S194 (audit LOW-2) — a 60-wave match: the history still rides only its window, and stays bounded', () => {
+    const w = heavyMatch(60);
+    w.tick += HISTORY_WINDOW_TICKS;
+    const totals = bytes(netSnapshot(w).matchStats);
+    w.tick -= 1;
+    const withHistory = bytes(netSnapshot(w).matchStats);
+    console.log(`[S194 wire] 60 waves: totals-only ${totals} B · in-window ${withHistory} B`);
+    expect(totals).toBeLessThan(3 * 1024); // the running totals do not grow with the wave count
+    expect(withHistory).toBeLessThan(22 * 1024); // measured 19,741 B (S194); ~145 B per extra wave
   });
 });

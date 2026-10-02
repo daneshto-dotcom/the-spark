@@ -26,6 +26,7 @@ import type { RaceId } from '../state/races.ts';
 import { isNetworked } from '../state/world.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId } from '../types.ts';
+import { MONSTER_OWNER_SEAT } from '../constants.ts';
 import { creatureDisplayName } from './characterSheetModel.ts';
 import { raceDisplayName } from './raceBanners.ts';
 
@@ -53,7 +54,8 @@ export interface BoardDamageSplit {
 }
 
 export interface BoardSeatAmount {
-  readonly seat: PlayerId;
+  /** The source / victim seat; null for NO SOURCE (damage no seat can be named for). */
+  readonly seat: PlayerId | null;
   readonly label: string;
   readonly color: number;
   readonly amount: number;
@@ -123,11 +125,24 @@ export interface BoardGraph {
   readonly form: 'lines' | 'bars' | 'stackedArea' | 'stackedBars';
 }
 
-/** ⭐ S194 — WHO HIT WHOM. `cells[i][j]` = damage seat `seats[i]` dealt to seat `seats[j]`; diagonal 0. */
+/** One row or column of the WHO-HIT-WHOM grid. `seat` null = the NO SOURCE row. */
+export interface BoardMatrixAxis {
+  readonly seat: PlayerId | null;
+  readonly label: string;
+  readonly color: number;
+}
+
+/**
+ * ⭐ S194 — WHO HIT WHOM. `cells[r][c]` = damage row `rows[r]` took off column `cols[c]`.
+ *
+ * ⛔ IT ADDS UP (audit T10 MED-1): columns are every seat in placing order, then MONSTERS when the endgame
+ * monsters hit or were hit; rows are the same, then NO SOURCE when any damage had no seat to name. So a
+ * seat's row, minus its diagonal (its self-hits), sums to its DEALT, and its column — diagonal and NO SOURCE
+ * included — sums to its TAKEN. `matchBoardModel.test.ts` pins both sums.
+ */
 export interface BoardMatrix {
-  readonly seats: readonly PlayerId[];
-  readonly labels: readonly string[];
-  readonly colors: readonly number[];
+  readonly rows: readonly BoardMatrixAxis[];
+  readonly cols: readonly BoardMatrixAxis[];
   readonly cells: readonly (readonly number[])[];
   readonly maxValue: number;
 }
@@ -206,8 +221,20 @@ function split(total: number, keep: number, structures: number): BoardDamageSpli
   return { total, keep: k, structures: st, units: total - k - st };
 }
 
+/** ⭐ S194 (audit T10 MED-1) — the endgame monsters' owner is a SENTINEL seat, never a player. */
+export const MONSTER_SEAT = MONSTER_OWNER_SEAT as PlayerId;
+/** A neutral slate: the monsters belong to nobody, so they wear no seat's colour. ⚠ MINE. */
+export const MONSTER_COLOR = 0xa7adbb;
+export const NO_SOURCE_COLOR = 0x6c7488;
+
 function seatLabel(world: World, seat: PlayerId): string {
+  if (seat === MONSTER_SEAT) return 'MONSTERS'; // never "P256"
   return world.botSeats.has(seat) ? `BOT ${(seat as number) + 1}` : `P${(seat as number) + 1}`;
+}
+
+function seatColor(world: World, seat: PlayerId): number {
+  if (seat === MONSTER_SEAT) return MONSTER_COLOR;
+  return world.players.get(seat)?.color ?? 0xffffff;
 }
 
 /** The value one wave sample holds for a seat, by key. */
@@ -231,7 +258,7 @@ function seriesOf(
       prev = v;
       return out;
     });
-    return { seat, label: seatLabel(world, seat), color: world.players.get(seat)?.color ?? 0xffffff, values };
+    return { seat, label: seatLabel(world, seat), color: seatColor(world, seat), values };
   });
 }
 
@@ -308,9 +335,7 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
   const amountsFor = (pairs: Array<[PlayerId, number]>): BoardSeatAmount[] =>
     pairs
       .filter(([, n]) => n > 0)
-      .map(([seat, amount]) => ({
-        seat, amount, label: seatLabel(world, seat), color: world.players.get(seat)?.color ?? 0xffffff,
-      }))
+      .map(([seat, amount]): BoardSeatAmount => ({ seat, amount, label: seatLabel(world, seat), color: seatColor(world, seat) }))
       .sort((a, b) => b.amount - a.amount || (a.seat as number) - (b.seat as number));
 
   const baseRows = order.map((seat, i): BoardRow => {
@@ -353,8 +378,14 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
       killsByType: byType(s?.kills),
       lostByType: byType(s?.lost),
       unitLines: unitLines(s),
-      dealtTo: amountsFor([...(s?.dealtTo?.entries() ?? [])]),
-      takenFrom: amountsFor(takenFrom),
+      // Its own key in `dealtTo` is its self-hits (the grid's diagonal) — not something it dealt to anyone.
+      dealtTo: amountsFor([...(s?.dealtTo?.entries() ?? [])].filter(([k]) => k !== seat)),
+      takenFrom: [
+        ...amountsFor(takenFrom),
+        ...((s?.takenUnattributed ?? 0) > 0
+          ? [{ seat: null, label: 'NO SOURCE', color: NO_SOURCE_COLOR, amount: s!.takenUnattributed }]
+          : []),
+      ],
       peakBuilt: peakOf(seat),
     };
   });
@@ -374,19 +405,27 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
       seriesOf(world, order, (p) => p.kills, true)),
   };
 
+  // ⭐ S194 (audit MED-1) — MONSTERS join the grid whenever they hit or were hit, and NO SOURCE whenever any
+  // damage had no seat to name, so every row and every column adds up (see `BoardMatrix`).
+  const ms = world.matchStats.seats;
+  const monsters = ms.has(MONSTER_SEAT) || [...ms.values()].some((s) => (s.dealtTo?.get(MONSTER_SEAT) ?? 0) > 0);
+  const colSeats = monsters && !order.includes(MONSTER_SEAT) ? [...order, MONSTER_SEAT] : [...order];
+  const axis = (seat: PlayerId): BoardMatrixAxis => ({ seat, label: seatLabel(world, seat), color: seatColor(world, seat) });
+  const cols = colSeats.map(axis);
   let maxCell = 1;
-  const cells = order.map((a) => order.map((v) => {
-    const n = a === v ? 0 : world.matchStats.seats.get(a)?.dealtTo?.get(v) ?? 0;
-    if (n > maxCell) maxCell = n;
+  const cells: number[][] = colSeats.map((a) => colSeats.map((v) => {
+    const n = ms.get(a)?.dealtTo?.get(v) ?? 0;
+    if (a !== v && n > maxCell) maxCell = n; // a diagonal (self-hits) never sets the heat scale
     return n;
   }));
-  const matrix: BoardMatrix = {
-    seats: order,
-    labels: order.map((s) => seatLabel(world, s)),
-    colors: order.map((s) => world.players.get(s)?.color ?? 0xffffff),
-    cells,
-    maxValue: maxCell,
-  };
+  const rowsAxis: BoardMatrixAxis[] = [...cols];
+  const unattributed = colSeats.map((v) => ms.get(v)?.takenUnattributed ?? 0);
+  if (unattributed.some((n) => n > 0)) {
+    rowsAxis.push({ seat: null, label: 'NO SOURCE', color: NO_SOURCE_COLOR });
+    cells.push(unattributed);
+    for (const n of unattributed) if (n > maxCell) maxCell = n;
+  }
+  const matrix: BoardMatrix = { rows: rowsAxis, cols, cells, maxValue: maxCell };
 
   const standing = rows.filter((r) => !r.out).length;
   const lastWave = waves.length > 0 ? waves[waves.length - 1]! : world.waveNumber;

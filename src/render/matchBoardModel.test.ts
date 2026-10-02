@@ -11,16 +11,16 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
-import { PHYSICS_HZ, phaseDurationTicks, winScoreForWave } from '../constants.ts';
+import { MONSTER_OWNER_SEAT, PHYSICS_HZ, phaseDurationTicks, winScoreForWave } from '../constants.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId } from '../types.ts';
 import { makeGameStateExtras, tickGameState } from '../state/gameState.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
-import { recordKill, recordUnitBuilt } from '../state/matchStats.ts';
+import { recordDamage, recordKill, recordUnitBuilt } from '../state/matchStats.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { applyNetSnapshot, netSnapshot } from '../state/save.ts';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
-import { groupThousands, matchBoardModel, placeLabel } from './matchBoardModel.ts';
+import { MONSTER_COLOR, groupThousands, matchBoardModel, placeLabel } from './matchBoardModel.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -123,7 +123,7 @@ describe('S191 matchBoardModel — the rules a player reads', () => {
     w.players.get(P1)!.eliminatedAtTick = w.tick;
     w.matchStats.seats.set(P1, {
       built: new Map(), kills: new Map(), towersBuilt: 0, towersFell: 0, dealtFifths: 0, takenFifths: 0, fellOnWave: 7,
-      lost: new Map(), dealtTo: new Map(), dealtKeep: 0, dealtStruct: 0, takenKeep: 0, takenStruct: 0,
+      lost: new Map(), dealtTo: new Map(), takenUnattributed: 0, dealtKeep: 0, dealtStruct: 0, takenKeep: 0, takenStruct: 0,
     });
     w.gameState = 'POSTGAME';
     const m = matchBoardModel(w)!;
@@ -165,5 +165,61 @@ describe('S191 matchBoardModel — the rules a player reads', () => {
     for (const family of ['world.defenders', 'world.gatherers', 'world.castleBanks', 'world.creatureSpawners']) {
       expect(src.includes(family), `${family} is empty at WIN — read the recorder instead`).toBe(false);
     }
+  });
+});
+
+describe('⭐ S194 (audit T10 MED-1) — endgame MONSTERS, and a grid that adds up', () => {
+  /** Two players, the monsters (seat 255), a self-hit and an unattributed hit. */
+  function withMonsters(): World {
+    const w = fightWorld();
+    const M = asPlayerId(MONSTER_OWNER_SEAT);
+    recordDamage(w, P1, P0, 100, 'unit');
+    recordDamage(w, M, P0, 300, 'unit'); // P0's towers shooting monsters
+    recordDamage(w, P0, M, 250, 'keep'); // the monsters chewing P0's keep
+    recordDamage(w, P1, M, 40, 'structure');
+    recordDamage(w, P0, P0, 9, 'unit'); // P0's own blast
+    recordDamage(w, P1, null, 6, 'unit'); // no seat to name
+    recordKill(w, P0, M, 'raceUnit');
+    w.lastWinnerId = P0;
+    w.gameState = 'POSTGAME';
+    return w;
+  }
+
+  it('⛔ "P256" never appears anywhere on the board; the monsters are labelled MONSTERS in a neutral colour', () => {
+    const m = matchBoardModel(withMonsters())!;
+    const json = JSON.stringify(m);
+    expect(json).not.toContain('P256');
+    expect(json).not.toContain('BOT 256');
+    expect(m.rows.map((r) => r.seat)).toEqual([P0, P1]); // monsters are never a ROW of the table
+    const col = m.matrix.cols.find((c) => c.label === 'MONSTERS')!;
+    expect(col.color).toBe(MONSTER_COLOR);
+    expect(m.rows[0]!.dealtTo.map((a) => a.label)).toEqual(['MONSTERS', 'P2']);
+    expect(m.rows[0]!.takenFrom.map((a) => a.label)).toEqual(['MONSTERS']);
+    expect(m.rows[1]!.takenFrom.map((a) => a.label)).toEqual(['P1', 'MONSTERS', 'NO SOURCE']);
+  });
+
+  it('⛔ every player ROW (minus its self-hit diagonal) sums to its DEALT; every COLUMN to its TAKEN', () => {
+    const m = matchBoardModel(withMonsters())!;
+    const { rows: R, cols: C, cells } = m.matrix;
+    expect(C.map((c) => c.label)).toEqual(['P1', 'P2', 'MONSTERS']);
+    expect(R.map((r) => r.label)).toEqual(['P1', 'P2', 'MONSTERS', 'NO SOURCE']);
+    for (const row of m.rows) {
+      const i = R.findIndex((r) => r.seat === row.seat);
+      const sum = cells[i]!.reduce((t, n, j) => t + (C[j]!.seat === row.seat ? 0 : n), 0);
+      expect(sum, `${row.label} row`).toBe(row.dealt);
+      const j = C.findIndex((c) => c.seat === row.seat);
+      const col = cells.reduce((t, r) => t + r[j]!, 0);
+      expect(col, `${row.label} column`).toBe(row.taken);
+    }
+    expect(m.rows[0]!.dealt).toBe(400); // the audit's probe: 400 DEALT against a row that summed to 100
+  });
+
+  it('with no monsters and no unattributed damage the grid is just the seats', () => {
+    const w = fightWorld();
+    recordDamage(w, P1, P0, 5, 'unit');
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    expect(m.matrix.cols.map((c) => c.label)).toEqual(['P1', 'P2']);
+    expect(m.matrix.rows.map((c) => c.label)).toEqual(['P1', 'P2']);
   });
 });

@@ -114,18 +114,22 @@ export function waveIndexAt(plot: Rect, n: number, x: number, form: 'points' | '
 export const pointX = (plot: Rect, n: number, i: number): number =>
   n <= 1 ? plot.x + plot.w / 2 : plot.x + (plot.w * i) / (n - 1);
 
-/** The who-hit-whom grid: one cell per (attacker row, victim column). */
-export function matrixCells(frame: Rect, n: number): { cells: Rect[][]; rowLabelX: number; colLabelY: number } {
+/**
+ * The who-hit-whom grid: one cell per (attacker row, victim column). ⭐ S194 (audit) — rows and columns are
+ * counted separately: the grid can carry a NO SOURCE row that has no column (see `BoardMatrix`).
+ */
+export function matrixCells(
+  frame: Rect, rows: number, cols: number = rows,
+): { cells: Rect[][]; rowLabelX: number; colLabelY: number } {
   const labelW = 110;
   const top = frame.y + 92;
   const left = frame.x + 24 + labelW;
-  const size = Math.max(1, n);
-  const cw = Math.floor((frame.x + frame.w - 24 - left) / size);
-  const ch = Math.floor((frame.y + frame.h - 20 - top) / size);
+  const cw = Math.floor((frame.x + frame.w - 24 - left) / Math.max(1, cols));
+  const ch = Math.floor((frame.y + frame.h - 20 - top) / Math.max(1, rows));
   const cells: Rect[][] = [];
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < rows; i++) {
     const row: Rect[] = [];
-    for (let j = 0; j < n; j++) row.push({ x: left + j * cw, y: top + i * ch, w: cw - 4, h: ch - 4 });
+    for (let j = 0; j < cols; j++) row.push({ x: left + j * cw, y: top + i * ch, w: cw - 4, h: ch - 4 });
     cells.push(row);
   }
   return { cells, rowLabelX: frame.x + 24, colLabelY: top - 26 };

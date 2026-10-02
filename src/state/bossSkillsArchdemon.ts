@@ -24,6 +24,7 @@ import { T9_BOSS_TYPE } from './t9BossIds.ts';
 // S169 R152 — a stunned Archdemon neither drags anyone to hell nor teleports.
 import { isStunned, isLiveCreatureTarget, creatureMaxEhp } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
 
@@ -77,7 +78,14 @@ export function runArchdemonHell(world: World): void {
     }
     doomed.sort((a, b) => (a as number) - (b as number));
     // S171 — through the chokepoint; the doom list cannot reach a boss who has left the world.
-    for (const id of doomed) removeCreature(world, id);
+    for (const id of doomed) {
+      // ⭐ S194 (audit T10 LOW-1) — HELL deletes, it never passes `damageEntity`, so the stat board hears of
+      // the death here: a LOSS for the victim's seat, a KILL for the demon's. INERT.
+      // Recorded only if the chokepoint really removed it (it refuses a channelling Pharaoh).
+      const c = world.creatures.get(id);
+      removeCreature(world, id);
+      if (c !== undefined && !world.creatures.has(id)) recordKill(world, demon.ownerPlayerId, c.ownerPlayerId, c.type);
+    }
   }
 }
 

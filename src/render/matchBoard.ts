@@ -592,41 +592,40 @@ export class MatchBoard {
     g.roundRect(R.x, R.y, R.w, R.h, 10).stroke({ color: AXIS, width: 1, alpha: 0.8 });
     const t = this.texts.take('WHO HIT WHOM', 19, INK);
     t.position.set(R.x + 16, R.y + 10);
-    const c = this.texts.take('row dealt it to column — damage over the whole match', 13, DIM, '400');
+    const c = this.texts.take('row dealt it to column · rows add up to DEALT, columns to TAKEN', 13, DIM, '400');
     c.position.set(R.x + 16, R.y + 36);
-    const n = m.matrix.seats.length;
-    const { cells, rowLabelX, colLabelY } = matrixCells(R, n);
+    const M = m.matrix;
+    const { cells, rowLabelX, colLabelY } = matrixCells(R, M.rows.length, M.cols.length);
     const hc = this.hover?.kind === 'cell' ? this.hover : null;
-    for (let j = 0; j < n; j++) {
+    M.cols.forEach((col, j) => {
       const r = cells[0]?.[j];
-      if (r === undefined) continue;
-      const lt = this.texts.take(`→ ${m.matrix.labels[j]}`, 14, m.matrix.colors[j]!);
+      if (r === undefined) return;
+      const lt = this.texts.take(`→ ${col.label}`, 14, col.color);
       lt.anchor.set(0.5, 0);
       lt.position.set(r.x + r.w / 2, colLabelY);
-    }
-    for (let i = 0; i < n; i++) {
+      fitTo(lt, r.w);
+    });
+    M.rows.forEach((rowAxis, i) => {
       const row = cells[i]!;
-      const rl = this.texts.take(m.matrix.labels[i]!, 15, m.matrix.colors[i]!);
+      const rl = this.texts.take(rowAxis.label, 15, rowAxis.color);
       rl.anchor.set(0, 0.5);
       rl.position.set(rowLabelX, row[0]!.y + row[0]!.h / 2);
-      for (let j = 0; j < n; j++) {
-        const r = row[j]!;
-        if (i === j) {
-          g.roundRect(r.x, r.y, r.w, r.h, 6).fill(mix(FAINT, 0.18));
-          continue;
-        }
-        const v = m.matrix.cells[i]![j]!;
-        const frac = v / m.matrix.maxValue;
-        g.roundRect(r.x, r.y, r.w, r.h, 6).fill(mix(m.matrix.colors[i]!, 0.08 + 0.8 * frac));
+      fitTo(rl, 104);
+      row.forEach((r, j) => {
+        const v = M.cells[i]![j]!;
+        // ⭐ S194 (audit) — the diagonal is the seat's SELF-hits: taken, never dealt, so drawn as a dim cell.
+        const self = rowAxis.seat !== null && rowAxis.seat === M.cols[j]!.seat;
+        const frac = self ? 0 : v / M.maxValue;
+        g.roundRect(r.x, r.y, r.w, r.h, 6).fill(self ? mix(FAINT, 0.18) : mix(rowAxis.color, 0.08 + 0.8 * frac));
         const hot = hc !== null && hc.attacker === i && hc.victim === j;
         if (hot) g.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ color: INK, width: 2 });
-        if (r.h >= 22) {
-          const vt = this.texts.take(groupThousands(v), Math.min(18, Math.max(11, r.h / 3)), frac > 0.55 ? PLATE : INK);
+        if (r.h >= 22 && (!self || v > 0)) {
+          const vt = this.texts.take(groupThousands(v), Math.min(18, Math.max(11, r.h / 3)), self ? DIM : frac > 0.55 ? PLATE : INK);
           vt.anchor.set(0.5, 0.5);
           vt.position.set(r.x + r.w / 2, r.y + r.h / 2);
         }
-      }
-    }
+      });
+    });
   }
 
   // ── PLAYER PAGE ──────────────────────────────────────────────────────────────────────────────
@@ -818,6 +817,12 @@ export class MatchBoard {
     const P = plotRect(R);
     const mid = P.y + P.h / 2;
     g.moveTo(P.x, mid).lineTo(P.x + P.w, mid).stroke({ color: AXIS, width: 2 });
+    // ⭐ S194 (audit T10 LOW-3) — the axis says which half is which, so a reader never needs the caption.
+    for (const [label, y, color] of [['DEALT ▲', mid - 12, row.color], ['TAKEN ▼', mid + 12, LOSS]] as const) {
+      const al = this.texts.take(label, 13, color);
+      al.anchor.set(1, 0.5);
+      al.position.set(P.x - 8, y);
+    }
     for (const [v, y] of [[maxV, P.y], [maxV, P.y + P.h]] as const) {
       const yl = this.texts.take(groupThousands(v), 12, DIM, '400');
       yl.anchor.set(1, 0.5);

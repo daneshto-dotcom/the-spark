@@ -14,7 +14,7 @@
 
 ## MINE (owner questions, one line each, with a recommendation)
 1. Badges: one per row, only for a stat it LEADS outright (MOST KILLS > MOST DAMAGE > BIGGEST ARMY > MASTER BUILDER > KEEP BREAKER > IRON WALL = peak connectors); ties award nothing. Recommend keeping it. It is not an MVP blend (S179 rule). Lever: `BADGE_CATEGORIES`.
-2. UNITS LOST counts every death of the seat's units (enemy, self-blast or unattributed), not only enemy kills. Recommend keeping it ("a loss is a loss").
+2. UNITS LOST counts every death of the seat's units that a hit or a skill caused: enemy hits, its own side's blasts, unattributed hits, Archdemon HELL, a potato or hub clear, and the Pharaoh's ritual end. ⭐ Audit T10 LOW-1: a SELF-DETONATION (suicide goblin, lightning drone) is NEITHER a loss nor a kill, because the unit spent itself as a weapon and what it hit is already on the board. KILLS go to an enemy seat only: HELL credits the demon's seat, a hub clear the hub owner, and a potato nobody (the sim never records who planted it). Recommend keeping it.
 3. The board's charts: SCORE RACE (lines, overview); DAMAGE / KILLS PER WAVE (per-wave differences of the cumulative samples); BUILT, STANDING (stacked area of connectors, still `sampleBuilt`). Recommend he picks any he wants swapped once he has seen them live.
 4. Keys ← / → / Tab page the board; R and CONTINUE are unchanged; the 1.2 s arm is unchanged.
 

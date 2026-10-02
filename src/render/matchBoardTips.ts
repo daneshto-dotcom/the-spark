@@ -52,10 +52,10 @@ export function hoverAt(m: MatchBoardModel, tab: BoardTab, x: number, y: number)
       const frame = G[slot];
       if (!inRect(frame, x, y)) continue;
       if (slot === 'matrix') {
-        const cells = matrixCells(frame, m.matrix.seats.length).cells;
+        const cells = matrixCells(frame, m.matrix.rows.length, m.matrix.cols.length).cells;
         for (let i = 0; i < cells.length; i++) {
           for (let j = 0; j < cells[i]!.length; j++) {
-            if (i !== j && inRect(cells[i]![j]!, x, y)) return { kind: 'cell', attacker: i, victim: j };
+            if (inRect(cells[i]![j]!, x, y)) return { kind: 'cell', attacker: i, victim: j };
           }
         }
         return null;
@@ -100,14 +100,20 @@ export function tooltipFor(m: MatchBoardModel, tab: BoardTab, h: HoverTarget | n
       return lines;
     }
     case 'cell': {
-      const a = m.matrix.labels[h.attacker];
-      const v = m.matrix.labels[h.victim];
+      const a = m.matrix.rows[h.attacker];
+      const v = m.matrix.cols[h.victim];
       const n = m.matrix.cells[h.attacker]?.[h.victim];
       if (a === undefined || v === undefined || n === undefined) return null;
+      if (a.seat === null) {
+        return [{ text: `NO SOURCE → ${v.label}`, color: null }, ...plain(`took  ${groupThousands(n)}`, 'damage no seat can be named for')];
+      }
+      if (a.seat === v.seat) {
+        return [{ text: `${a.label} → ITSELF`, color: a.color }, ...plain(`self-hits  ${groupThousands(n)}`, 'taken, never dealt')];
+      }
       const back = m.matrix.cells[h.victim]?.[h.attacker] ?? 0;
       return [
-        { text: `${a} → ${v}`, color: m.matrix.colors[h.attacker] ?? null },
-        ...plain(`dealt  ${groupThousands(n)}`, `${v} hit back  ${groupThousands(back)}`),
+        { text: `${a.label} → ${v.label}`, color: a.color },
+        ...plain(`dealt  ${groupThousands(n)}`, `${v.label} hit back  ${groupThousands(back)}`),
       ];
     }
     case 'ledger': {
