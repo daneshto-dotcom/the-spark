@@ -30,3 +30,17 @@ Decision: cap stays (1000 live = 6.1 ms sim and 160 KiB/snapshot), measured valu
   - Only `castleBank.porchSlot` reads `CASTLE_PORCH_OFFSET_Y`; consumers of porchSlot: `firstFreePorchSlot`, `isOwnPorchSpark`, gathererLifecycle:208-212 (pull landing), botBrain:961-968 (porch-clear), pullFeedback.
   - `structureRepair` deliberately does NOT read the keep-out (FIX/SCRAP) — adding the porch arm to `castleKeepOutHitsBox` keeps that true.
   - R194-17 not started (next: grep `MONSTER_EMERGE_TICKS`, `MONSTER_HOLD_LEAD_TICKS`).
+
+## T7 ROUND 3 — bot re-tune on the +42 porch (done by the T7 agent, in this worktree)
+- Merged master b2c9a478 (deploy #5 train, PROTOCOL 65) → 560b82fc. One conflict: `endgameS193.test.ts` census — master's teams
+  verdicts kept, endgameMonsters n 2→1 (R194-27 owner-keyed index), measured.
+- Bot-logic check for stale porch geometry: none. botBrain reads `porchSlot` / `firstFreePorchSlot` / `isOwnPorchSpark` (derived from
+  `CASTLE_PORCH_OFFSET_Y`); `placeRefusedAt` uses `canBuildNow`; no literal 74 in src/bots. botPlaceSpam / botFix / botPorchClear green.
+- Re-tune (no pin relaxed), measured signatures in `botPersonality.test.ts` comments: FORTRESS `substitute: 'listed'` all tiers (HARD def
+  0.42 → 0.56 > BALANCED 0.50, stink first 3/3); IMBA SABOTEUR listed (pentagram again); IMBA TYCOON goblin>stink, hold 1650 (def 0 → 0.17,
+  loose 44); IMBA WARMONGER hold 3300 (loose 13, fed 18, pentagram on 2 seats).
+- Teams seams on the merged tree: `teams.sites` census endgameMonsters inline 6→5, seat-variable 2→1 (R194-27); `teams.ffaDifferential`
+  golden re-recorded on a PRE-TEAMS reference (temp worktree master d650db33 + s194/rules 82ceff39 + re-tuned bots) — the merged teams
+  tree recorded the identical series (md5 cc6347aa…), so FFA = pre-teams still holds.
+- Gates: typecheck 0 · vitest --maxWorkers=3 0 (559 files / 5 skipped, 8501 passed / 12 skipped) · build 0, entry 1157.8 KiB, headroom 92.2.
+- Bump: none from the re-tune (host-only bot planning).
