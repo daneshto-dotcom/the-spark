@@ -42,7 +42,9 @@ import { LIFESTEAL_FX_COLOR, RAGE_FX_COLOR, burnFlickerFx } from './fx/perkFx.ts
 import { GoblinRenderer } from './goblinRenderer.ts';
 import { ChewerRenderer } from './chewerRenderer.ts';
 import { DEEP_CURRENT_JUMP_PX, GathererRenderer } from './gathererRenderer.ts';
-import { ZoneBackgroundRenderer, burningZonesNow } from './zoneBackgroundRenderer.ts';
+import { HELGA_FLAME_SCALE, ZoneBackgroundRenderer, burningZonesNow, drawScorchFx } from './zoneBackgroundRenderer.ts';
+import { makeDefender } from '../state/defenders/defender.ts';
+import { BURN_FLICKER_MAX_UNITS } from './fx/perkFx.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -322,9 +324,50 @@ describe('V12 SCORCHED GROUND — the real host tick crosses BUILD → FIGHT; th
       return s.out;
     };
     const has = (rec: FxEmitRecord): boolean => top.out.some((e) => JSON.stringify(e) === JSON.stringify(rec));
-    expect(flamesOf(enemy)).toHaveLength(4);
+    expect(flamesOf(enemy)).toHaveLength(3);
     expect(flamesOf(enemy).every(has), 'the enemy in the burning zone carries its flames').toBe(true);
     expect(flamesOf(own).some(has), 'the caster seat\'s own unit never burns').toBe(false);
+  });
+
+  it('⭐ S193 audit — an enemy HELGA in the burning zone carries flames; a DORMANT one and the caster seat own do not', () => {
+    const w = board('FIGHT', 'demons', ['racial']);
+    const home0 = castleAnchor(0, w.layout);
+    const helga = (owner: PlayerId, x: number, id: number) => {
+      const d = makeDefender({ id: id as never, kind: 'princess', ownerPlayerId: owner, anchorPrimitiveId: 1 as never,
+        recipeId: 'x' as never, pos: { x, y: home0.y }, registeredAtTick: w.tick });
+      w.defenders.set(d.id, d);
+      return d;
+    };
+    const enemy = helga(P1, home0.x + 80, 1);
+    const own = helga(P0, home0.x + 160, 2);
+    const asleep = helga(P1, home0.x + 240, 3);
+    asleep.state = 'DORMANT' as never;
+    const flamesAt = (x: number, id: number): FxEmitRecord[] => {
+      const r = recordingSink();
+      burnFlickerFx(r, x, home0.y, w.tick, id, HELGA_FLAME_SCALE);
+      return r.out;
+    };
+    drawScorchFx(w, burningZonesNow(w));
+    const has = (rec: FxEmitRecord): boolean => top.out.some((e) => JSON.stringify(e) === JSON.stringify(rec));
+    expect(flamesAt(enemy.pos.x, 0x40000000 + 1).every(has), 'the enemy Helga burns').toBe(true);
+    expect(flamesAt(own.pos.x, 0x40000000 + 2).some(has), 'the caster seat Helga is spared').toBe(false);
+    expect(flamesAt(asleep.pos.x, 0x40000000 + 3).some(has), 'a DORMANT Helga is not burning').toBe(false);
+  });
+
+  it('⭐ S193 audit — a whole burning army carries flames on at most BURN_FLICKER_MAX_UNITS units, lowest ids first', () => {
+    const w = board('FIGHT', 'demons', ['racial']);
+    const home0 = castleAnchor(0, w.layout);
+    const army: Creature[] = [];
+    for (let i = 0; i < BURN_FLICKER_MAX_UNITS + 16; i++) army.push(add(w, 'goblinMelee', P1, home0.x + 60 + (i % 10) * 30, home0.y - 200 + Math.floor(i / 10) * 60));
+    drawScorchFx(w, burningZonesNow(w));
+    const lit = (c: Creature): boolean => {
+      const r = recordingSink();
+      burnFlickerFx(r, c.pos.x, c.pos.y, w.tick, c.id as number, 1);
+      return r.out.every((rec) => top.out.some((e) => JSON.stringify(e) === JSON.stringify(rec)));
+    };
+    const flags = army.map(lit);
+    expect(flags.filter(Boolean).length).toBe(BURN_FLICKER_MAX_UNITS);
+    expect(flags.slice(0, BURN_FLICKER_MAX_UNITS).every(Boolean), 'the lowest ids carry the flames').toBe(true);
   });
 
   it('⭐ SCORCHED EARTH: a cast on the ENEMY zone burns it (the caster spared); a spent cast burns nothing', () => {

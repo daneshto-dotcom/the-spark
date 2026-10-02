@@ -94,22 +94,22 @@ describe('V12 scorched ground', () => {
   });
 
   it('a burning creature carries LIFE / PERIOD (3) small flames at its feet, plus one fire glow', () => {
-    expect(BURN_FLICKER_LIFE / BURN_FLICKER_PERIOD).toBe(3);
+    expect(BURN_FLICKER_LIFE / BURN_FLICKER_PERIOD).toBe(2);
     const s = recordingSink();
     burnFlickerFx(s, 400, 300, 1000, 17, 1);
-    expect(s.out).toHaveLength(4);
+    expect(s.out).toHaveLength(3);
     for (const e of s.out) { expect(e.y).toBeLessThanOrEqual(300); expect(Math.abs(e.x - 400)).toBeLessThan(10); }
   });
 });
 
 describe('V14 rage', () => {
   it('one red ember pool on the ground and LIFE / PERIOD (6) heat sparks rising', () => {
-    expect(RAGE_SPARK_LIFE / RAGE_SPARK_PERIOD).toBe(6);
+    expect(RAGE_SPARK_LIFE / RAGE_SPARK_PERIOD).toBe(3);
     const g = recordingSink(); const t = recordingSink();
     rageFx(g, t, 500, 500, 1200, 9, 1);
     expect(g.out).toHaveLength(1);
     expect(g.out[0]!.tint).toBe(RAGE_FX_COLOR);
-    expect(t.out).toHaveLength(6);
+    expect(t.out).toHaveLength(3);
     for (const e of t.out) expect(e.y).toBeLessThan(510);
   });
 

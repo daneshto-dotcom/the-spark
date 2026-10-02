@@ -66,7 +66,7 @@ import { scorchedEarthZones, scorchedZones } from '../state/racial/scorchedGroun
 import { zoneOf } from '../state/zones.ts';
 import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
 import { fxHash, fxSeed } from './fx/emitter.ts';
-import { burnFlickerFx, scorchZoneFx } from './fx/perkFx.ts';
+import { BURN_FLICKER_MAX_UNITS, burnFlickerFx, scorchZoneFx } from './fx/perkFx.ts';
 import { isFxHighQuality } from './displayPrefs.ts';
 import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
@@ -507,11 +507,45 @@ export function drawScorchFx(world: World, burning: ReadonlyArray<{ spared: Play
     const r = zoneRect(b.zone, world.layout);
     scorchZoneFx(top, ground, r.x, r.y, r.w, r.h, world.tick, fxSeed(b.zone * 8 + (b.spared as unknown as number), 0x5c0 + i), quarry);
   }
+  // ⭐ S193 audit — every burning unit (creatures, and HELGA: *"Helga is NOT immune"*, `burnHelgas`), then
+  // capped at BURN_FLICKER_MAX_UNITS by a total order (creatures before Helgas, each by id).
+  const units: Array<{ x: number; y: number; id: number; scale: number }> = [];
   for (const c of world.creatures.values()) {
     if (!isCreatureBurning(world, c, burning)) continue;
     if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) continue;
-    burnFlickerFx(top, c.pos.x, c.pos.y, world.tick, c.id as number, creatureSpriteScaleMul(c.type));
+    units.push({ x: c.pos.x, y: c.pos.y, id: c.id as number, scale: creatureSpriteScaleMul(c.type) });
   }
+  if (units.length > BURN_FLICKER_MAX_UNITS) units.sort((a, b) => a.id - b.id);
+  for (const d of world.defenders.values()) {
+    if (units.length >= BURN_FLICKER_MAX_UNITS) break;
+    if (!isHelgaBurning(world, d, burning)) continue;
+    if (isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) continue;
+    units.push({ x: d.pos.x, y: d.pos.y, id: 0x40000000 + (d.id as unknown as number), scale: HELGA_FLAME_SCALE });
+  }
+  const n = Math.min(units.length, BURN_FLICKER_MAX_UNITS);
+  for (let i = 0; i < n; i++) {
+    const u = units[i]!;
+    burnFlickerFx(top, u.x, u.y, world.tick, u.id, u.scale);
+  }
+}
+
+/** ⭐ S193 audit — Helga's flames are drawn a little larger: she is a bigger figure than a goblin. ⚠ MINE. */
+export const HELGA_FLAME_SCALE = 1.4;
+
+/**
+ * ⭐ S193 audit (LOW) — PURE: is this defender a burning HELGA? `burnHelgas`' own gates: a LIVE unit-class
+ * defender (`ehp > 0`, not DORMANT — a tower carries `null`), in a burning zone, not spared (`isScorchImmune`).
+ */
+export function isHelgaBurning(
+  world: Pick<World, 'layout'>,
+  d: { readonly pos: { x: number; y: number }; readonly ownerPlayerId: PlayerId; readonly ehp: number | null; readonly state: string },
+  burning: ReadonlyArray<{ spared: PlayerId; zone: number }>,
+): boolean {
+  if (d.ehp === null || d.ehp <= 0 || d.state === 'DORMANT' || burning.length === 0) return false;
+  const z = zoneOf(d.pos, world.layout);
+  if (z === null) return false;
+  for (const b of burning) if (b.zone === z && !isScorchImmune(d.ownerPlayerId, b.spared)) return true;
+  return false;
 }
 
 export class ZoneBackgroundRenderer {

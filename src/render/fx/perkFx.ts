@@ -149,9 +149,18 @@ export function scorchZoneFx(
   });
 }
 
-/** Burn-flicker cadence on one burning creature: a flame every 6 ticks living 18 → 3 live. ⚠ MINE. */
+/**
+ * Burn-flicker cadence on one burning creature: a flame every 6 ticks living 12 → 2 live (+ the glow = 3 sprites).
+ * ⚠ MINE. S193 audit perf fix: was 18 (3 live) — the merged board ran HIGH +1.23 ms over the +1.0 contract.
+ */
 export const BURN_FLICKER_PERIOD = 6;
-export const BURN_FLICKER_LIFE = 18;
+export const BURN_FLICKER_LIFE = 12;
+/**
+ * ⭐ S193 audit perf fix — at most this many burning units carry flames in one frame, picked by a TOTAL
+ * order (lowest id first), so a whole burning army costs a bounded sprite count; the zone's embers still
+ * say the ground burns. ⚠ MINE.
+ */
+export const BURN_FLICKER_MAX_UNITS = 24;
 
 /** Small flames licking up from a burning creature's feet (x, y), over a soft fire glow (4 sprites). `scale` follows its sprite. */
 export function burnFlickerFx(top: FxSink, x: number, y: number, tick: number, id: number, scale: number): void {
@@ -170,9 +179,9 @@ export function burnFlickerFx(top: FxSink, x: number, y: number, tick: number, i
 // ─────────────────────────────────────────────────── V14 · rage ──
 
 export const RAGE_FX_COLOR = 0xff2a10;
-/** Heat sparks: one every 5 ticks living 30 → 6 live a raging unit. ⚠ MINE. */
+/** Heat sparks: one every 5 ticks living 15 → 3 live a raging unit. ⚠ MINE (S193 audit perf fix: was 30 → 6). */
 export const RAGE_SPARK_PERIOD = 5;
-export const RAGE_SPARK_LIFE = 30;
+export const RAGE_SPARK_LIFE = 15;
 
 /**
  * A raging unit: a pulsing red ember pool on the ground under it, and heat sparks rising past its body.

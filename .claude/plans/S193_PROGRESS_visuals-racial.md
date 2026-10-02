@@ -20,3 +20,9 @@ Not the merge owner. Batch: V11 V12 V14 V18 V19 V21 V22 V26 (S192_VISUALS_PLAN.m
 - [x] wired: goblinRenderer (V11 V14 V18 V21) · chewerRenderer (V22) · gathererRenderer (V19) · zoneBackgroundRenderer (V12 V26)
 - [x] tests: `src/render/fx/perkFx.test.ts` (pure, 22) + `src/render/perkFxReach.test.ts` (REACH via real renderers + real sim, 15); 7 mutations each turned red
 - [ ] NEXT: Playwright screenshot/bench harness in `.tmp-gates/fx/` (own port), before/after shots, bench, full gates
+
+## AUDIT FIX ROUND (perf FIX FIRST + 2 LOW)
+- Merged master `14927078` (visuals-2 + endgame) as `c1c00c53`. One conflict, in the goblinRenderer.ts class fields; kept both sides (master's pantsState/lastPantsSfxMs and this branch's healSeen/lifestealBursts). npm install was re-run.
+- Perf: `BURN_FLICKER_LIFE` 18→12 (3 sprites per burning unit) and `RAGE_SPARK_LIFE` 30→15 (4 per raging unit). New cap `BURN_FLICKER_MAX_UNITS` = 24 (⚠ MINE): at most 24 units carry flames per frame, lowest ids first, creatures before Helgas.
+- LOW: an enemy HELGA in burning ground now gets flames (`isHelgaBurning`, which uses burnHelgas' own gates: live, not DORMANT, `isScorchImmune`). Tests are REACH plus mutation-checked.
+- LOW, carried for later (not refactored): the V12 heat shimmer is a second displacement mechanism (a per-zone sprite `DisplacementFilter` with its own 64 px noise map) next to visuals-2's `fxDisplace` pool on groundLayer. FOLD LATER: move the shimmer onto `fxDisplace`'s pool and map so one mechanism owns ground distortion.
