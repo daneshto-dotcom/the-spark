@@ -2,6 +2,19 @@
 
 Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base master `0a37175e`.
 
+## ⏸ PAUSED (owner session limit) — RESUME HERE
+- **EXACT NEXT STEP: step 3 — bots FIX.** Nothing of it is written yet (no half-done code). Plan: new BotGoal `FIX`
+  (castle command, no travel) in `botBrain.chooseGoal` (BUILD only, own gatherer ≥ 1, `seatJobCount < REPAIR_JOBS_MAX_PER_SEAT`),
+  driven by `fixAllTargets(world, seat)` (`src/state/repairJobs.ts:190`): ≥ 2 targets → send `FIX_ALL`; exactly 1 →
+  `REPAIR_STRUCTURE { primitiveId: targetId }`. Both are existing allowlisted intents (protocol.ts:1853/1856) and allowed
+  under the endgame lock. New tier knob `repairsTowers` (MID/HARD/IMBA, ⚠ MINE) + thresholds ⚠ MINE. Then REACH test through
+  the real host tick (jobs queued + a tower restored), negative (FIGHT / no gatherer), mutation; then step 4 report numbers
+  (already measured, in the log), full gates, final report.
+- Done + committed: step 1 (Fortress), step 2 (PLACE/PULL spam), step 4's Warmonger/Tycoon separation.
+- Last gates: `npx vitest run src/bots --maxWorkers=3` → exit 0 (21 files / 220 tests, incl. untracked scratch probes).
+  Full typecheck/vitest/build NOT yet run on this branch. Untracked scratch `src/bots/zz_probeT7*.test.ts` (never commit;
+  they fail typecheck with TS2367 — scratch only, delete before the gates).
+
 ## FINAL REPORT
 (pending)
 
