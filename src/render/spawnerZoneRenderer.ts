@@ -37,8 +37,10 @@ import { Application, Container, Graphics } from 'pixi.js';
 import { towerFootprintAt } from '../state/towerMembers.ts';
 import { isConcealed } from './concealment.ts';
 import {
-  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup,
+  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, towerFootForPrim,
 } from './towerCover.ts';
+import { hubArcFx } from './fx/hubArcFx.ts';
+import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId } from '../types.ts';
@@ -102,6 +104,7 @@ export class SpawnerZoneRenderer {
      */
     if (fxActive()) {
       this.syncSparkles(world);
+      this.syncHubArcs(world);
       return;
     }
     if (world.creatureSpawners.size === 0) return;
@@ -299,6 +302,22 @@ export class SpawnerZoneRenderer {
       towerSparkleFx(ground, top, key, foot.x, foot.y, foot.w, foot.h, tint, world.tick, s, bonds, prims);
     });
     for (const k of this.groupOwner.keys()) if (!seen.has(k)) this.groupOwner.delete(k);
+  }
+
+  /**
+   * ⭐ S194 (V07 leftover) — the lightning hub's arcs (`fx/hubArcFx.ts`). Only while its building is
+   * actually drawn (a published foot), and fogged with it.
+   */
+  private syncHubArcs(world: World): void {
+    for (const sp of world.creatureSpawners.values()) {
+      if (sp.recipeId !== 'lightningHub') continue;
+      const anchor = world.primitives.get(sp.anchorPrimitiveId);
+      if (anchor === undefined) continue;
+      const foot = towerFootForPrim(anchor.id);
+      if (foot === null) continue;
+      if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
+      hubArcFx(fxTop(), anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, !fxHighQuality());
+    }
   }
 
   /** Drop the aura graphic (title-return; closes the one-frame orphan window). */
