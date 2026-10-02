@@ -4349,6 +4349,7 @@ export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
  * his 250 each are now all out by **120 s** (`PANTS_WINDOW_SECONDS`), so the boss arrives ~2 minutes after
  * the last pants (was ~50 s after, when they took 250 × 45 = 11 250 ticks). Not retuned — flagged.
  */
+// ⛔ S194 R194-26 — RETIRED IN PLACE, UNREAD: he is the 251st now (`endgame.megaPantsSlotTicks`).
 export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
 /**
  * ⚠ MINE — THE MEGA PANTS, ON THE LADDER: HP 500 / DEF 20 → pool `unitPoolFifths(500, 20)` = 500 × 5 × 5

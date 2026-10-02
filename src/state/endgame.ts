@@ -21,7 +21,6 @@
 import {
   BUILD_LOCK_FROM_WAVE,
   FIGHT_PHASE_TICKS,
-  MEGA_PANTS_AFTER_TICKS,
   MONSTER_HOLD_LEAD_TICKS,
   MONSTER_FINAL_WAVE,
   MONSTER_FIRST_WAVE,
@@ -153,13 +152,36 @@ export function isClockFrozenForDisplay(world: World): boolean {
 }
 
 /**
- * ⭐ HIS MEGA PANTS (Q2) — due in the FINAL fight, two or more seats alive, once `MEGA_PANTS_AFTER_TICKS`
- * (⚠ MINE, 4 min) of it have passed, whenever none is on the board. So a felled one is followed by
- * another ("basically unbeatable"). Derived, never latched: it needs no field of its own.
+ * ⭐⭐ S194 R194-26 (HIS) — THE MEGA PANTS IS THE 251st. *"the mega pants comes out after the last pant came
+ * out … it's literally the last one in queue … we said 250 pants and he's going to be the 251."* His slot
+ * is the NEXT one of the window's own cadence, `floor(r × W / (T − 1))` at `r = T`: one interval past the
+ * window's end. 2 seats (T 500): floor(500 × 7200 / 499) = **7214** ticks; 4 seats (T 1000): **7207**.
+ * A lone pants (T ≤ 1) has no interval, so the slot is the window's end. Integer arithmetic only.
+ */
+export function megaPantsSlotTicks(total: number, windowTicks: number): number {
+  if (total <= 1) return windowTicks;
+  return Math.floor((total * windowTicks) / (total - 1));
+}
+
+/** The final fight's mega slot for this board, now (his count × the LIVING seats, his 120 s window). */
+export function megaPantsAtElapsed(world: World): number {
+  return megaPantsSlotTicks(
+    monstersPerSeatForWave(MONSTER_FINAL_WAVE) * livingSeats(world).length,
+    pantsWindowTicks(MONSTER_FINAL_WAVE),
+  );
+}
+
+/**
+ * ⭐ HIS MEGA PANTS (Q2) — due in the FINAL fight, two or more seats alive, at his slot (R194-26: the
+ * 251st — `megaPantsAtElapsed`) AND only once the last wave pants is actually out (*"after the last pant
+ * came out"*: should the live cap ever hold a lane back, he still comes last), whenever none is on the
+ * board. So a felled one is followed by another ("basically unbeatable"), exactly as before. Derived,
+ * never latched: it needs no field of its own. (Was `MEGA_PANTS_AFTER_TICKS`, 240 s — retired.)
  */
 export function megaPantsDue(world: World): boolean {
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT' || world.waveNumber !== MONSTER_FINAL_WAVE) return false;
-  if (world.monsterFightStartTick <= 0 || world.tick - world.monsterFightStartTick < MEGA_PANTS_AFTER_TICKS) return false;
+  if (world.monsterFightStartTick <= 0 || world.tick - world.monsterFightStartTick < megaPantsAtElapsed(world)) return false;
+  if (world.monsterWaveSpawned < monsterWaveTotal(world)) return false;
   if (livingSeats(world).length < 2) return false;
   for (const c of world.creatures.values()) if (c.type === 'megaPants') return false;
   return true;

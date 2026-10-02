@@ -20,8 +20,8 @@ import {
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
-import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
-import { MEGA_PANTS_AFTER_TICKS, MONSTER_FINAL_WAVE } from '../constants.ts';
+import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, megaPantsAtElapsed, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
+import { MONSTER_FINAL_WAVE } from '../constants.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
@@ -151,11 +151,13 @@ export const MEGA_PANTS_BANNER = 'MEGA PANTS HAS ENTERED THE CHAT';
 
 export function pantsBannerText(
   world: Pick<World, 'matchPhase' | 'waveNumber' | 'monsterFightStartTick' | 'tick'>,
+  /** ⭐ S194 R194-26 — the mega pants' slot, elapsed ticks into the final fight (`megaPantsAtElapsed`). */
+  megaAtElapsed: number,
 ): string {
   if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber) || world.monsterFightStartTick <= 0) return '';
   const elapsed = world.tick - world.monsterFightStartTick;
   if (elapsed >= 0 && elapsed < PANTS_BANNER_TICKS) return PANTS_BANNER_LINES[world.waveNumber] ?? '';
-  const sinceMega = elapsed - MEGA_PANTS_AFTER_TICKS;
+  const sinceMega = elapsed - megaAtElapsed;
   if (world.waveNumber === MONSTER_FINAL_WAVE && sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
   return '';
 }
@@ -827,7 +829,7 @@ export class HUD {
    * only); the wobble is render-only, on frames. Below the win overlay, above the board.
    */
   private drawPantsBanner(world: World): void {
-    const text = world.gameState === 'PLAYING' ? pantsBannerText(world) : '';
+    const text = world.gameState === 'PLAYING' ? pantsBannerText(world, megaPantsAtElapsed(world)) : '';
     if (text === '') {
       this.pantsBannerText.visible = false;
       return;
