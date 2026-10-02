@@ -49,3 +49,10 @@ describe('S194 T8 — the shared gating lane has room for a retried flake', () =
     expect(cap - pw).toBeGreaterThanOrEqual(8);
   });
 });
+
+describe('S194 T8 — hub-ramp polls for the LAZY ramp atlas before reading a sprite', () => {
+  it('both sprite reads wait on expect.poll over rampSprites, and none reads it once', () => {
+    expect(spec.match(/expect\.poll\(async \(\) => \(await rampState\(page\)\)\.rampSprites/g)?.length).toBe(2);
+    expect(spec).not.toMatch(/expect\(after\.rampSprites/);
+  });
+});

@@ -32,6 +32,14 @@ import { installFrameClock, waitForTickAdvance } from './tickClock.ts';
  */
 const HUB_RAMP_TICKS_PER_FRAME = 2;
 
+/**
+ * ⭐ S194 (T8) — `StructureRampRenderer.ensureAtlas` FETCHES the hub's manifest + atlas the first time a
+ * hub is seen and draws nothing until both land, so the sprite count was a race against a fixed 900 ms
+ * (it lost on the merged S194 tree: `no ramp sprite / no texture frame` at the pristine read). Same
+ * defect and same cure as `tower-art.spec.ts`'s TOWER_ATLAS_WAIT_MS: poll, assertion unchanged. ⚠ MINE.
+ */
+const RAMP_ATLAS_WAIT_MS = 20_000;
+
 /** `SparkType` on the wire. The hub's bill is 1 Dot + 5 Circles. */
 const DOT = 0;
 const CIRCLE = 4;
@@ -177,7 +185,10 @@ test.describe('@visual S182 — the lightning hub is DRAWN, not just built', () 
      * ⭐⭐⭐ THE ASSERTION THIS FILE EXISTS FOR. One live hub, one sprite. A zero here is the
      * `t3TowerAtlasBase` defect happening again: recipe fine, atlas fine, path fine, nothing drawn.
      */
-    expect(after.rampSprites, 'the ramp renderer must hold exactly one sprite').toBe(1);
+    // ⭐ S194 (T8) — polled: the ramp atlas is fetched LAZILY on first sight (see RAMP_ATLAS_WAIT_MS).
+    await expect.poll(async () => (await rampState(page)).rampSprites, {
+      message: 'the ramp renderer must hold exactly one sprite', timeout: RAMP_ATLAS_WAIT_MS,
+    }).toBe(1);
 
     await page.screenshot({ path: 'test-results/lightning-hub-on-board.png' });
   });
@@ -218,6 +229,8 @@ test.describe('@visual S182 — the lightning hub is DRAWN, not just built', () 
         return { x: f.x, y: f.y, w: f.width, h: f.height };
       });
 
+    // ⭐ S194 (T8) — wait for the lazily-loaded ramp atlas to put the sprite up before reading it.
+    await expect.poll(async () => (await rampState(page)).rampSprites, { timeout: RAMP_ATLAS_WAIT_MS }).toBe(1);
     const pristine = await frameOf();
     expect(pristine.x, 'a pristine hub draws frame 1 — column 0 of the damage row').toBe(0);
     expect(pristine.y, 'and row 0, not the collapse row').toBe(0);
