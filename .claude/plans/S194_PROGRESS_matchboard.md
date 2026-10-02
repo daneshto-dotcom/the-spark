@@ -1,3 +1,22 @@
+**STATUS: DONE (awaiting merge) — S194 T10, re-audit round + PROTOCOL 65 merge complete.**
+
+## FINAL (re-audit round)
+- `e892adb7`: two fixes, each mutation-tested.
+  - The Pharaoh's ritual-end LOST is guarded on `ehp > 0`, so a death already counted by `damageEntity` that tick is not counted twice.
+  - TAKEN FROM lists ITSELF, so it sums to TAKEN.
+- `c2bfa0e5`: merged master (PROTOCOL 65, teams + entropy). Two conflicts, resolved:
+  - `matchBoardModel.ts`: imports unioned; `isWinner` uses `sameTeam(winner)`, alongside our `out` / `status` / `badge`.
+  - `potatoLifecycle.ts`: teams' `blastTakes(...)` plus our `owner ?? null` kill credit.
+- `581fee27`: re-pins.
+  - `teams.ffaDifferential` GOLDEN re-recorded: 83 checkpoints, every hash moved by the v2 hash parts only. The branch tree (e892adb7) and the merged tree record the same series, md5 68609091879be7723572991648738e61.
+  - `teams.sites` PINNED_SEATVAR: `matchBoard.ts` 4, `matchBoardModel.ts` 7, `matchBoardTips.ts` 3, each classified (none is an enemy decision).
+- GATES on `581fee27` (exit codes from files):
+  - typecheck **0**
+  - vitest **0**: 561 files / 8,528 tests passed, 4 files / 11 tests skipped
+  - build **0**: entry 1159.0 KiB, headroom 91.0; lazy chunk 29.47 kB / 11.21 kB gzip
+  - `e2e:gating` on own port **0**: 74 passed
+- Bump verdict: still NO. All v2 counters are inert and additive-optional.
+
 **STATUS: DONE (awaiting merge) — S194 T10, audit round + batch-2 merge complete.**
 
 ## FINAL (batch 2)
