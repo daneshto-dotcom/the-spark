@@ -267,6 +267,41 @@ describe('⭐⭐ S193 P3-1 — REACH: what the porch discs protected still holds
   });
 });
 
+describe('⭐⭐ S193 P3-1 — REACH: the 4P board, every castle, every recipe — the same gap on every side', () => {
+  // The owner's report, as a map: walk a stamp out from each castle along each axis that stays on the
+  // canvas, through the real `stampRefusalAt` (host reducer, client ghost, click gate and bots all call
+  // it), and measure the gap from the anchor to the footprint at the first legal centre.
+  // Measured BEFORE (S191 rule): laser turret east 73.9, SOUTH 108.0; stink tower east 61.9, south 108.0.
+  it('laser turret, goblin tower, stink tower: every on-board side opens at the 61 disc, ±1.5 px', () => {
+    const layout: ZoneLayout = 'QUADRANTS_4P';
+    const recipes = ['laserTurret', 'goblinTower', TOWER] as const;
+    const dirs: readonly (readonly [number, number])[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    let sides = 0;
+    for (let s = 0; s < 4; s++) {
+      const a = zoneCastleAnchor(s, layout);
+      const w = boardWorld(layout, asPlayerId(s), a);
+      for (const bp of recipes) {
+        for (const [dx, dy] of dirs) {
+          let gap: number | null = null;
+          let last: string | null = 'CASTLE';
+          for (let d = 0; d <= 300 && gap === null; d++) {
+            const c = { x: a.x + dx * d, y: a.y + dy * d };
+            const r = stampRefusalAt(w, c, asPlayerId(s), bp);
+            if (r !== null && r !== 'CASTLE') { last = r; break; } // off-screen side: not this rule's
+            if (r === null) gap = Math.sqrt(boxPointDistSq(stampFootprintBox(c, bp), a.x, a.y));
+          }
+          if (gap === null) { expect(last, `${bp} seat ${s} (${dx},${dy})`).toBe('OFF SCREEN'); continue; }
+          sides++;
+          expect(gap, `${bp} seat ${s} dir (${dx},${dy})`).toBeGreaterThanOrEqual(CASTLE_NO_BUILD_RADIUS);
+          expect(gap, `${bp} seat ${s} dir (${dx},${dy})`).toBeLessThan(CASTLE_NO_BUILD_RADIUS + 1.5);
+        }
+      }
+    }
+    // Two on-board sides per corner castle × 4 castles × 3 recipes — including both top castles' SOUTH.
+    expect(sides).toBe(2 * 4 * 3);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S191 — units still leave the keep on clear ground', () => {
   it('a REAL castle emission is born inside the keep-out, so no tower can stand on the emit ring', () => {
