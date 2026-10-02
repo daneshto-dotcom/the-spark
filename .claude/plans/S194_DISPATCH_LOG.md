@@ -63,3 +63,4 @@ Owner: *"after this current batch of work trees … is done, we will not continu
 
 Bumps: T8, T1, T6, T11 each earn one; ride them as ONE bump per deploy (train), six sites + canon §6.
 Merge order on resume: T8 → T5 → T1 → T6 → T11 → T4 → T9 → T10, gates after each, deploys as trains.
+- PAUSED: T1 teams ee20e13a — all 5 fix steps done + merged 814f1871 (bots-tune seam resolved, golden re-recorded md5 4781d982… identical master vs teams); next: full vitest + build, report. ⚠ FINDING (T1): `botFix.test.ts` "at least one bot tower is actually restored" times out (79 s vs 60 s cap) on PURE master 814f1871 under 8-tree load → check alone on resume; if load-only, raise its cap with the measurement (never relax the assertion).
