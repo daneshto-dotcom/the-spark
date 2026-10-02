@@ -26,3 +26,10 @@ Not the merge owner. Batch: V11 V12 V14 V18 V19 V21 V22 V26 (S192_VISUALS_PLAN.m
 - Perf: `BURN_FLICKER_LIFE` 18→12 (3 sprites per burning unit) and `RAGE_SPARK_LIFE` 30→15 (4 per raging unit). New cap `BURN_FLICKER_MAX_UNITS` = 24 (⚠ MINE): at most 24 units carry flames per frame, lowest ids first, creatures before Helgas.
 - LOW: an enemy HELGA in burning ground now gets flames (`isHelgaBurning`, which uses burnHelgas' own gates: live, not DORMANT, `isScorchImmune`). Tests are REACH plus mutation-checked.
 - LOW, carried for later (not refactored): the V12 heat shimmer is a second displacement mechanism (a per-zone sprite `DisplacementFilter` with its own 64 px noise map) next to visuals-2's `fxDisplace` pool on groundLayer. FOLD LATER: move the shimmer onto `fxDisplace`'s pool and map so one mechanism owns ground distortion.
+- Also: `SCORCH_EMBER_PERIOD` 3→4 (30 embers a zone, not 40), to give LOW real margin.
+- BENCH (the auditor's `.tmp-audit/bench` harness on the merged tree, real GPU; each pass started only after CPU load was below 40 %; 8 paired, interleaved runs):
+  HIGH−legacy median **+0.85 ms**, LOW−legacy median **+0.60 ms**. Both include master's own effects. Top-layer sprites fell from ~780 to ~530 (master alone is ~355).
+  Runs taken while other worktrees held the CPU at 100 % (legacy 7.5–12 ms) are discarded as not meaningful.
+- Gates after the fix (tip below): tc 0 · vitest 0 (487 files, 7475 passed). A full-suite run under 100 % CPU had failed
+  `structureComponents.test.ts`, a wall-clock ratio test; it passed 9/9 when re-run alone, so it is ruled benign (load).
+  build 0, 1072.2 KiB · e2e:gating 0 (71/71) on port 23871.
