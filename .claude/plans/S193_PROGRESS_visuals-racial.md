@@ -1,5 +1,15 @@
 # S193 · `s193/visuals-racial` (visuals-3) · progress
 
+## S194 ROUND (T2) — log, newest last
+- Merge of master `0a37175e` = `b72b7857`. ONE conflict: `src/state/untargetableCallSites.test.ts` NOT_ACQUISITION — kept both
+  (this branch's goblinRenderer/zoneBackgroundRenderer verdicts + master's `state/magicResistCue.ts`). npm install 0.
+- MERGE SEAM fixed: master made `damageEntity`'s `cls` REQUIRED (S192 R192-M1); `perkFxReach.test.ts` (2 calls) failed tsc → `'physical'` added.
+- Heat-shimmer FOLD done: `zoneBackgroundRenderer` no longer owns a DisplacementFilter / map / HIGH gate; it calls
+  `fxHaze().haze(sprite, tick)` (new hook in `fxState.ts`, new section in `fxRuntime.ts` beside the V10 ripple: shared map,
+  one filter, HIGH-only + legacy + fxClear strip it, applied at `fxEndFrame`). `SCORCH_SHIMMER_PX` → `FX_HAZE_PX` (5). `fxStats().haze`.
+  Haze stays on the zone SPRITE (zone-sized filter bounds), not on `groundArt` (that would be a full-screen pass). REACH test + 2 mutations red.
+- NEXT: combined perf re-bench (master tree vs merged tree, harness in `.tmp-gates/bench/`).
+
 ## FINAL (merge owner: full report is in the agent's hand-back)
 - DONE, all 8 items built (V11 V12 V14 V18 V19 V21 V22 V26). Merge `1469893b` of master `e693dac0` resolved one conflict, in
   `untargetableCallSites.test.ts` NOT_ACQUISITION, by keeping both sides.

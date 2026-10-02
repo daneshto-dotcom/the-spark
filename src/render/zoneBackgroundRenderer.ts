@@ -43,7 +43,7 @@
  * ⚠ RENDER-ONLY. It reads `world.layout` and each player's `raceId`, both already synced, and writes
  * nothing. No new wire field, no protocol bump.
  */
-import { Application, Assets, Container, DisplacementFilter, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, Sprite, Texture } from 'pixi.js';
 
 import type { World } from '../state/world.ts';
 import {
@@ -64,10 +64,9 @@ import type { PlayerId } from '../types.ts';
 import { isScorchImmune } from '../state/racial/scorchedEarthRules.ts';
 import { scorchedEarthZones, scorchedZones } from '../state/racial/scorchedGround.ts';
 import { zoneOf } from '../state/zones.ts';
-import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
-import { fxHash, fxSeed } from './fx/emitter.ts';
+import { fxActive, fxGround, fxHaze, fxTop } from './fx/fxState.ts';
+import { fxSeed } from './fx/emitter.ts';
 import { BURN_FLICKER_MAX_UNITS, burnFlickerFx, scorchZoneFx } from './fx/perkFx.ts';
-import { isFxHighQuality } from './displayPrefs.ts';
 import { isConcealed } from './concealment.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 
@@ -206,8 +205,6 @@ export const ZONE_GRADE: Readonly<Record<RaceId, { readonly hue: number; readonl
 
 /** ⭐ S193 V26 — the board vignette's darkest corner (normal blend, under every gameplay layer). ⚠ MINE. */
 export const ZONE_VIGNETTE_ALPHA = 0.42;
-/** ⭐ S193 V12 — the heat shimmer's reach in px (HIGH quality only). ⚠ MINE: a haze, never a wobble. */
-export const SCORCH_SHIMMER_PX = 5;
 
 /**
  * S165 (owner) - THE QUARRY IS A PORTAL, NOT GROUND, SO NO RACE OWNS IT.
@@ -447,47 +444,6 @@ function vignetteTexture(): Texture | null {
 }
 
 /**
- * ⭐ S193 V12 — the heat shimmer's DISPLACEMENT MAP: tileable smooth value noise in R and G, from
- * `fxHash` over a wrapped 8×8 lattice (deterministic; no asset, no `Math.random`). `null` without a DOM.
- */
-function shimmerMapTexture(): Texture | null {
-  if (typeof document === 'undefined') return null;
-  const s = 64;
-  const cells = 8;
-  const canvas = document.createElement('canvas');
-  canvas.width = s;
-  canvas.height = s;
-  const ctx = canvas.getContext('2d');
-  if (ctx === null) return null;
-  const img = ctx.createImageData(s, s);
-  const lattice = (ch: number, i: number, j: number): number =>
-    fxHash(0x5ca1d + ch, ((i % cells) + cells) % cells, ((j % cells) + cells) % cells);
-  const smooth = (t: number): number => t * t * (3 - 2 * t);
-  for (let y = 0; y < s; y++) {
-    for (let x = 0; x < s; x++) {
-      const fx = (x / s) * cells;
-      const fy = (y / s) * cells;
-      const i = Math.floor(fx);
-      const j = Math.floor(fy);
-      const u = smooth(fx - i);
-      const v = smooth(fy - j);
-      const o = (y * s + x) * 4;
-      for (let ch = 0; ch < 2; ch++) {
-        const a = lattice(ch, i, j) + (lattice(ch, i + 1, j) - lattice(ch, i, j)) * u;
-        const b = lattice(ch, i, j + 1) + (lattice(ch, i + 1, j + 1) - lattice(ch, i, j + 1)) * u;
-        img.data[o + ch] = Math.round((a + (b - a) * v) * 255);
-      }
-      img.data[o + 2] = 128;
-      img.data[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = Texture.from(canvas);
-  tex.source.addressMode = 'repeat';
-  return tex;
-}
-
-/**
  * ⭐ S193 V12 (`S192_VISUALS_PLAN.md`) — **SCORCHED GROUND / SCORCHED EARTH, BURNING.** The ember tint
  * stays; this adds drifting embers and smouldering patches over every burning zone (the quarry spared,
  * as the burn spares it) and small flames on every enemy creature the burn is ticking on. Everything
@@ -572,12 +528,6 @@ export class ZoneBackgroundRenderer {
   /** ⭐ S193 V26 — the board vignette (one sprite, above the backdrops, inside this layer only). */
   private vignette: Sprite | null = null;
   private vignetteTried = false;
-  /** ⭐ S193 V12 — the heat shimmer: one shared filter + its map sprite, made on first need. */
-  private shimmer: DisplacementFilter | null = null;
-  private shimmerMap: Sprite | null = null;
-  private shimmerTried = false;
-  /** Which zone sprites currently carry the shimmer, so `filters` is reassigned only on a change. */
-  private readonly shimmering: Map<number, boolean> = new Map();
 
   constructor(app: Application, parent: Container = app.stage) {
     this.layer = new Container();
@@ -743,8 +693,10 @@ export class ZoneBackgroundRenderer {
 
       // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
       sp.tint = zoneTintFor(world, playerId, hoverSeat);
-      // ⭐ S193 V12 — the heat shimmer, HIGH quality only, on exactly the zones the burn is ticking in.
-      this.setShimmer(zone, sp, burning.some((b) => b.zone === zone) && fxActive() && isFxHighQuality(), world.tick);
+      // ⭐ S193 V12 — the heat shimmer, on exactly the zones the burn is ticking in. ⭐ S194: it is
+      // `fxRuntime`'s haze now (one module owns every ground distortion; HIGH-only and the legacy switch
+      // are enforced THERE, and a zone not asked this frame loses its filter at `fxEndFrame`).
+      if (burning.some((b) => b.zone === zone)) fxHaze().haze(sp, world.tick);
       const r = zoneRect(zone, layout);
       /*
        * COVER, not stretch. The generated aspect never matches the zone exactly — 3:4 is the
@@ -766,7 +718,6 @@ export class ZoneBackgroundRenderer {
       if (!stillOwned) {
         sp.destroy();
         this.sprites.delete(zone);
-        this.shimmering.delete(zone);
       }
     }
     this.syncVignette();
@@ -789,31 +740,4 @@ export class ZoneBackgroundRenderer {
     if (this.vignette !== null) this.vignette.visible = fxActive();
   }
 
-  /**
-   * ⭐ S193 V12 — the HEAT SHIMMER on one zone sprite: a `DisplacementFilter` driven by a tileable noise
-   * map drifting upward with `world.tick` (heat rises). One filter shared by every burning zone; the
-   * sprite's `filters` is reassigned only when its state flips, so a steady burn allocates nothing.
-   * HIGH only — LOW, `?fx=legacy` and BUILD carry no filter at all.
-   */
-  private setShimmer(zone: number, sp: Sprite, on: boolean, tick: number): void {
-    if (on && !this.shimmerTried) {
-      this.shimmerTried = true;
-      const tex = shimmerMapTexture();
-      if (tex !== null) {
-        this.shimmerMap = new Sprite(tex);
-        this.shimmerMap.eventMode = 'none';
-        this.shimmerMap.scale.set(6);
-        this.layer.addChild(this.shimmerMap); // in the graph for its transform; the filter hides it
-        this.shimmer = new DisplacementFilter({ sprite: this.shimmerMap, scale: SCORCH_SHIMMER_PX });
-      }
-    }
-    const want = on && this.shimmer !== null;
-    if (want && this.shimmerMap !== null) {
-      this.shimmerMap.x = (tick * 0.35) % 384;
-      this.shimmerMap.y = -((tick * 1.1) % 384);
-    }
-    if ((this.shimmering.get(zone) ?? false) === want) return;
-    this.shimmering.set(zone, want);
-    sp.filters = want && this.shimmer !== null ? [this.shimmer] : null;
-  }
 }

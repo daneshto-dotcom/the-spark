@@ -37,7 +37,7 @@ import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import type { DraftPick } from '../state/draft.ts';
 import { asGathererId, asPlayerId, asSpawnerId, type PlayerId } from '../types.ts';
 import { NULL_SHOCK, recordingSink, type FxEmitRecord } from './fx/emitter.ts';
-import { setFxHooks, setFxLegacyFlag } from './fx/fxState.ts';
+import { setFxHazeHook, setFxHooks, setFxLegacyFlag, type FxHazeTarget } from './fx/fxState.ts';
 import { LIFESTEAL_FX_COLOR, RAGE_FX_COLOR, burnFlickerFx } from './fx/perkFx.ts';
 import { GoblinRenderer } from './goblinRenderer.ts';
 import { ChewerRenderer } from './chewerRenderer.ts';
@@ -153,7 +153,7 @@ describe('V11 BLOOD DEBT — a real lifesteal heal throws crimson motes from the
     const { w, r, atk, vic } = duel(['racial']); // vampires.l0
     const before = atk.healedFifths ?? 0;
     // A 2-fifth jab — the victim survives it, so the motes have a living source (heal = the floor of 1).
-    damageEntity(w, { kind: 'creature', id: vic.id }, 2, 'melee' as never, { kind: 'creature', id: atk.id });
+    damageEntity(w, { kind: 'creature', id: vic.id }, 2, 'melee' as never, { kind: 'creature', id: atk.id }, 'physical');
     expect(vic.ehp, 'fixture: the victim lives').toBeGreaterThan(0);
     expect(atk.healedFifths ?? 0, 'fixture: the real lifesteal healed him').toBeGreaterThan(before);
     r.sync(w);
@@ -166,7 +166,7 @@ describe('V11 BLOOD DEBT — a real lifesteal heal throws crimson motes from the
 
   it('⛔ negative: the same hit for a seat WITHOUT the perk heals nothing and draws nothing', () => {
     const { w, r, atk, vic } = duel([]);
-    damageEntity(w, { kind: 'creature', id: vic.id }, 12, 'melee' as never, { kind: 'creature', id: atk.id });
+    damageEntity(w, { kind: 'creature', id: vic.id }, 12, 'melee' as never, { kind: 'creature', id: atk.id }, 'physical');
     expect(atk.healedFifths ?? 0).toBe(0);
     r.sync(w);
     r.sync(w);
@@ -327,6 +327,37 @@ describe('V12 SCORCHED GROUND — the real host tick crosses BUILD → FIGHT; th
     expect(flamesOf(enemy)).toHaveLength(3);
     expect(flamesOf(enemy).every(has), 'the enemy in the burning zone carries its flames').toBe(true);
     expect(flamesOf(own).some(has), 'the caster seat\'s own unit never burns').toBe(false);
+  });
+
+  it('⭐ S194 haze fold — the real sync asks the fxRuntime HAZE for the burning zone sprite in FIGHT, never in BUILD or legacy', () => {
+    const asked: FxHazeTarget[] = [];
+    setFxHazeHook({ haze(t) { asked.push(t); } });
+    try {
+      const w = board('BUILD', 'demons', ['racial']);
+      w.phaseEndsAtTick = w.tick + 4;
+      const d = {
+        spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)), controls: stubControls,
+        botManager: null, gameStateExtras: makeGameStateExtras(), alivePeerIds: null, hostSeats: new Map(),
+      } as unknown as HostTickDeps;
+      const st = makeHostTickState(w);
+      const r = zones();
+      r.sync(w);
+      expect(asked, 'BUILD: no zone is burning, so no haze').toEqual([]);
+      for (let i = 0; i < 8 && w.matchPhase === 'BUILD'; i++) runHostTick(w, d, st);
+      expect(w.matchPhase).toBe('FIGHT');
+      r.sync(w);
+      const sprites = (r as unknown as { sprites: Map<number, unknown> }).sprites;
+      expect(asked, 'exactly the burning zone (0) is hazed').toEqual([sprites.get(0)]);
+      // ⛔ negative: legacy → `fxHaze()` is the null sink, even with the hook installed.
+      asked.length = 0;
+      setFxLegacyFlag(true);
+      r.sync(w);
+      expect(asked).toEqual([]);
+      // ⛔ and the renderer itself no longer owns a filter — one module owns ground distortion.
+      expect((sprites.get(0) as { filters: unknown }).filters ?? null).toBeNull();
+    } finally {
+      setFxHazeHook(null);
+    }
   });
 
   it('⭐ S193 audit — an enemy HELGA in the burning zone carries flames; a DORMANT one and the caster seat own do not', () => {
