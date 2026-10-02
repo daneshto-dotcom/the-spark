@@ -1,30 +1,31 @@
 # S194 · T9 COHERENCE — progress (`s194/coherence`)
 
-**STATUS: IN-PROGRESS — AUDIT FIX ROUND, PAUSED by owner order (session limit). Wait for RESUME.**
+**STATUS: DONE (audit round + batch-2 merge) — ready for the merge owner.**
 
-## ⏸ PAUSE NOTE — AUDIT FIX ROUND (read first on resume)
-- **Exact next step:** re-run the FULL gates on the tip (`npm run typecheck`, `npx vitest run --maxWorkers=3`, `npm run build`). The last full run was on `7092757c`; since then only `9e8de1da` (`departedInIdOrder`) has landed, with targeted tests green. Then rewrite the FINAL REPORT below for the audit round and send it.
-- **Audit items, all committed:**
-  - F1 pants sweep → 'swept' (`42b4b125`).
-  - F2 detonation → 'detonated' (`42b4b125`).
-  - F3 a kill during the fade → killed (`42b4b125`).
-  - Item 4, real-concealment test (`7092757c`).
-  - Item 5, departures sorted by id before the caps (`42b4b125`, made cheap in `9e8de1da`); pops age by `world.tick` (`42b4b125`).
-  - Item 6, REACH per removal class, `departureClasses.test.ts` (`42b4b125`).
-  - Item 7, doc nits (`42b4b125`).
-- **Half-done:** nothing mid-edit. The final report text below is STALE (pre-audit).
-- **Merge:** `git merge master` → `6490ce47` (master `864cee98`, T2 visuals-3), clean, no conflicts.
-- **Gates last run:**
-  - full gates on `7092757c`: typecheck **0**, vitest **0** (529 files / 8001 tests passed, 11 skipped), build **0**;
-  - entry **1138.3 KiB** against master `864cee98`'s **1133.7** = **+4.6 KiB**, headroom 111.7;
-  - targeted vitest on `9e8de1da`: **0** (381/381); tsc **0**.
-- **Perf A/B on the merged tree:**
-  - 18 pairs, 1 run each, same port 41937, forced 20 kills/s + 100 hits/s.
-  - The machine was heavily contended in sets 1-2 (avg up to 16 ms), so those are noise-bound.
-  - Set 3 on tip `9e8de1da`: avg deltas +1.12 / −0.08 / −0.63 / −0.33 / −1.12 / −0.30, mean **−0.22 ms**, median **−0.32 ms** (no measurable cost).
-  - Full log: `.tmp-gates/fx/bench.txt`.
-- No background processes left: vite killed, port 41937 clear.
-
+## FINAL REPORT — AUDIT ROUND + BATCH 2 (supersedes the pre-audit report below where they differ)
+- **Merges:**
+  - `6490ce47` (master `864cee98`, T2 visuals-3), clean.
+  - `33b90e8e` (master `b968d940`: PROTOCOL 64, T5 UI restyle, T8 fixes, T7 bots, entropy), clean, **no conflicts**.
+- **Gates on `85d41ad9`:** typecheck **0** · vitest **0** (550 files / **8432 tests** passed, 4 files / 11 tests skipped) · build **0**.
+- **Entry:** **1154.8 KiB** against master `b968d940` built with the same three files swapped back: **1150.0** = **+4.8 KiB**. Headroom 95.2 KiB.
+- **Bump verdict: NO.** Still render-only: no wire field, no sim change, and `PROTOCOL_VERSION` (64) untouched.
+- **Audit fixes:**
+  - F1, endgame pants removed at the FIGHT→BUILD edge → `'swept'`.
+  - F2, sapper/drone self-detonation → `'detonated'`. The host still classifies a shot-down one as `'killed'`, using its kill record. On a peer it reads as detonated; that ambiguity is stated at `DETONATION_KILL_MATCH_PX`.
+  - F3, a kill during the DESPAWNING fade is a kill; it is `'expired'` only once `tick ≥ despawnAtTick − 1 snapshot`.
+  - Item 4, a test with the REAL `concealment.ts`.
+  - Item 5, departures in ascending id before the caps (`departedInIdOrder`); pops age by `world.tick`.
+  - Item 6, REACH per removal class: `departureClasses.test.ts` covers damage kill, age-out, a kill in the fade, the pants sweep, a pants kill, sapper/drone detonation, a drone shot down, and the title clear.
+  - Item 7, the docblock nits.
+  - I broke each of the three F-rules on purpose; the tests caught every one.
+- **Entropy (batch 2):** `applyEntropyTax` only severs bonds through `applySeverBond`. No creature-removal site was added; the production list is unchanged. A REACH test runs a real tax on a 145-connector lattice with units on it: bonds snap, every unit survives, and no death beat fires.
+- **Perf on the merged tree:**
+  - 18 A/B pairs; the first 12 are noise-bound (machine contended, frames up to 16 ms).
+  - The final 6 on `9e8de1da` gave mean **−0.22 ms**, median −0.32 ms: no measurable cost.
+  - The earlier clean measurement on `18560cd8` was +0.26 ms.
+  - Batch 2 added only a test, so I did not re-bench.
+- **Routed gaps, NOT DONE, and MINE questions:** unchanged from the report below. The Helga death beat is still open. T8's "Helga RISEN" landed on master, but it does not change the kill-vs-sweep ambiguity for a peer.
+- Nothing left running. Port 41937 is clear.
 
 ## FINAL REPORT
 - **Tip:** see `git log -1 s194/coherence` (the commit that lands this file). Merge: `git merge master` fast-forwarded to `18560cd8`, **no conflicts**. Not re-merged after RESUME (rules: master not touched).
