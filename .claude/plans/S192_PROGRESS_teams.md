@@ -1,17 +1,29 @@
-# S194 — IN PROGRESS (T1 teams) — WIP log, final report will replace this block
+# S194 — FINAL REPORT (top) — T1 `s192/teams`, worktree agent, NOT the merge owner
 
-- STEP 1 DONE be40841e — merge master 0a37175e, 11 conflicts (listed in the commit). npm install 0. typecheck 0.
-- STEP 2+3 DONE 4d924bd5 — zombie death blast / leaderTargetSeat / RESIST cue / building cards / stat board / bot lobby relayout / permuteBots.
-- STEP 4 DONE cd0ce649 — FFA golden re-recorded on master 0a37175e, merged tree 90/90 identical, mutation diverges @3900.
-- STEP 5 DONE fb5b9f30 — e2e/teams-lobby.spec.ts + 2-peer test; port 33228 (hashed); 2/2 passed exit 0 (1.1 m + 27 s).
-- ⏸ PAUSED (owner session limit) mid STEP 6. Gates last run on fb5b9f30: typecheck 0 · full vitest STOPPED mid-run by the pause
-  (no verdict — re-run) · build NOT run. Targeted runs green: teams.* (sites/reach/reachS194/ffaDifferential), botSetupLayout,
-  botPersonality.
-- HALF-DONE: canon §5d S194 text prepared in `.tmp-gates/canon_edit.py` (NOT applied); also owed: a canon.test pin
-  (`T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE` false + the new §5d zombie sentence).
-- ⭐ EXACT NEXT STEP on RESUME: `python .tmp-gates/canon_edit.py` + add the canon.test pin → commit → `npm run typecheck` →
-  `npx vitest run --maxWorkers=3` (exit to file) → `npm run build` (entry KiB vs master) → final report here + handoff.
-- BUMP verdict (to report): YES 62 → 63 (world.teams / RosterEntry.team / CLAIM_TEAM; a 62 peer computes every enemy decision differently).
+- Tip: see `git log -1` (report commit after 55a724b5). Merge be40841e = `git merge master` @ 0a37175e (deploy #23, PROTOCOL 62).
+  11 source conflicts: damage.ts applyRadialDamage (team `spared()` + master distance falloff/amountOf) · canon.test hub arm
+  (splitBlastPool pins + isEnemySeat) · creatureAI march (sameTeam + pants onlySeat) · gameState (oneSideLeft lowest seat + S193
+  endgame top-score wipe) · hostTick (master applyZombieDeathBlast) · theRisen (credit form + sameTeam) · save / damageNumbers /
+  botBrain imports · main.ts + botSetupOverlay (personalities + teams). Post-merge fixes: isScorchImmune world-first
+  (magicResistCue, endgame test), applyRadialDamage arity in teams.reach. No plans/state/handoff conflicts. npm install 0.
+- Sites extended (4d924bd5): zombie death blast spares the TEAM (R193-B3 × T1; supersedes my old MINE) · leaderTargetSeat
+  (Saboteur + Ra front focus) · RESIST cue · building cards ALLY BUILDING (3) · stat board TEAM N WINS + team stars · bot lobby
+  4-chip relayout (960 px) · permuteBots (re-seated bot keeps personality — main.ts dropped it before). Census: 14 new hits
+  classified + pinned; zombie census mutation. teams.reachS194.test (19 tests); 7 hand mutations all red.
+- FFA golden (cd0ce649): re-recorded on 0a37175e; merged tree 90/90 identical; forced-teams mutant diverges at tick 3900.
+- e2e (fb5b9f30): +2-peer test (T1/T1 refuses Begin; T1/T2 = FFA 1v1, no world.teams, all walls up). Port 33228: 2/2, exit 0.
+- Canon §5d updated + pinned (c7c259b2). endgameS193 pants census re-pinned (55a724b5).
+- Gates: typecheck 0 · vitest 0 (7958 passed / 11 skipped, 530 files; first full run 1 red = the endgame census, fixed) ·
+  build 0, entry 1127.9 KiB vs master 1121.9 (+6.0), headroom 122.1.
+- BUMP: YES 62 → 63 — world.teams / RosterEntry.team / CLAIM_TEAM; a 62 peer computes every enemy decision differently.
+- MINE: Pharaoh boss column spares teammates, burns own seat (rec: keep, or align with R193-B3 → spare own side too) · endgame
+  wipe top SEAT names its team (rec: keep) · Begin dim 0.4 · CARRY-1 owner-only · scorch a teammate's zone allowed · teammates
+  side by side · bot-lobby chip order difficulty/personality/race/team (rec: keep).
+- Seams: applyRadialDamage(…, cls, falloff, alsoSpare, alliesOf) arity; endgameS193 SITES + teams.sites pins move with any
+  owner-comparison change; FFA golden tied to 0a37175e (re-record if master moves the sim); BOT_ROW_LAYOUT/PANEL_W 960 vs
+  any UI-upgrade branch touching botSetupOverlay; main.ts bot onStart signature (4 args).
+- NOT DONE: protocol bump (merge owner); e2e lane promotion of teams-lobby (merge owner); welded building cards covered by the
+  census pin only (no REACH).
 
 # S193 ROUND 2 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
 
