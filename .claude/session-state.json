@@ -8,7 +8,7 @@
   "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
   "backlog_file": ".claude/plans/S193_BACKLOG.md",
   "session_status": "in_progress",
-  "protocol_version": 59,
+  "protocol_version": 61,
   "owner_approval_verbatim": "We'll work no more than eight work trees at a time ... then you can launch the next work tree, okay? Don't wait for me to tell you that. Approved. Follow those directions meticulously.",
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -81,11 +81,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
       "branch": "s189/weld",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "weld r5+r6: audit a0439edd FIX FIRST -> fix -> re-audit a1f43100 CLEAN -> pre-land merge 68f03db (e2e 71/71); in deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
+      "checkpoint_commit": "0a4d9470",
+      "deploy": "#22",
+      "real_context_tokens_at_close": 760000,
+      "real_context_pct_at_close": 76.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 60 -> 61"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/repairJobs.ts",
+          "needle": "tickRepairJobs"
+        }
+      ]
     },
     {
       "id": "P4",
@@ -93,11 +111,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
       "branch": "s192/magic",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "magic: audits a4064b41 CLEAN -> re-audit a540e3c8 CLEAN -> endgame seam + per-source differential; e2e castle-panel fix 6a90107; merge af4ab26 + bump 59->60; deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
+      "checkpoint_commit": "0a4d9470",
+      "deploy": "#22",
+      "real_context_tokens_at_close": 760000,
+      "real_context_pct_at_close": 76.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 60 -> 61"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/magicResist.ts",
+          "needle": "MRES"
+        }
+      ]
     },
     {
       "id": "P5",
@@ -135,11 +171,29 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
       "branch": "s191/endstats",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "completed",
+      "priority_state": "completed",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "endstats: audit adfcda67 FIX FIRST -> d4fa7eb -> merge rounds onto magic 3d2ad4c; deploy #22 train; train gates tc0 vt0 7836 build0 1121.4 KiB e2e 71/71 races 5/5 lobby 5/5 on a fresh server; bump 60->61 3e8ed14; verify-deploy 4/4 (first run raced the Pages build, re-run PASS)",
+      "checkpoint_commit": "0a4d9470",
+      "deploy": "#22",
+      "real_context_tokens_at_close": 760000,
+      "real_context_pct_at_close": 76.0,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 60 -> 61"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/elimination.ts",
+          "needle": "winner"
+        }
+      ]
     },
     {
       "id": "P7",
@@ -147,11 +201,12 @@
       "tier": "Full",
       "plan_file": ".claude/plans/2026-10-01_S193_BATCH_PDR.md",
       "branch": "s192/teams",
-      "status": "in_progress",
-      "priority_state": "in_progress",
+      "status": "carried",
+      "priority_state": "carried",
       "pdr_approved": true,
       "deliberation_completed": true,
-      "unlock_source": "user"
+      "unlock_source": "user",
+      "check_method": "teams round 2 DONE (tip 5f8074e) — HELD to land LAST; S194: merge final master, zombie-blast teammate spare, FFA golden re-record, bump"
     },
     {
       "id": "P8",
@@ -199,6 +254,11 @@
       "session": "S193",
       "priority": "P5",
       "lesson": "The owner's reason for a rule (lag) is a requirement the rule must be measured against: the trickle stopped bursts but the audit's peak-live measurement (945 pants, 176 KB) showed it did not stop lag until a cap landed."
+    },
+    {
+      "session": "S193",
+      "priority": "P3/P4/P6",
+      "lesson": "A train of eight merges with unit gates between each and ONE e2e on a fresh server shipped cleanly; the only e2e reds of the night came from a stale/overloaded environment, proven by the fresh run."
     }
   ],
   "carry_forward_findings": [
@@ -229,5 +289,20 @@
       "totals.budget_remaining"
     ],
     "validator_version": "s110-three-tier-v1"
-  }
+  },
+  "extra_landed": [
+    "s193/bots (#22)",
+    "s193/goblin-autobuild (#22)",
+    "s193/visuals-boss (#21)",
+    "s193/visuals-combat (#22)",
+    "s193/visuals-board (#22)",
+    "s193/carry-fwd (#22)",
+    "s193/lobby-ci (#19)"
+  ],
+  "carried_branches": [
+    "s192/teams",
+    "s193/visuals-racial (combined re-bench owed)",
+    "s193/playtest3 (audit running)",
+    "s193/mres-card (needs audit; art blocked by Imagen 404)"
+  ]
 }
