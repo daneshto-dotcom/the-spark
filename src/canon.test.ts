@@ -1761,11 +1761,12 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
     expect(canonSays('some beats land 0')).toBe(true);
   });
 
-  it('the class table: Voltkin zap magic (MINE), every other unit strike physical', () => {
+  it('the class table: every Voltkin zap magic, the first included (HIS, S194), every other unit strike physical', () => {
     for (const t of Object.keys(CREATURE_MRES) as CreatureType[]) {
       expect(strikeClassFor(t)).toBe(t === 'voltkin' ? 'magic' : 'physical');
     }
-    expect(canonSays('⚠ MINE: its first zap too')).toBe(true);
+    expect(canonSays('every hop INCLUDING the first zap')).toBe(true); // ⭐ R194-11 — his ruling, no longer MINE
+    expect(canonSays('⚠ MINE: its first zap too')).toBe(false);
     expect(canonSays('EACH share is defended by its own target')).toBe(true);
     expect(canonSays('the **zombie boss death blast**')).toBe(true); // ⭐ S193 — physical (R192-M3), `zombieDeathBlast.ts`
     expect(canonSays('with a floor PER')).toBe(true); // the differential's per-source floors
