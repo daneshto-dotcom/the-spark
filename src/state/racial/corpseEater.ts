@@ -54,6 +54,7 @@
 import { PHYSICS_HZ, PHYSICS_SUBSTEPS, VELOCITY_DAMPING } from '../../constants.ts';
 import type { CreatureId, Vec2 } from '../../types.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import { dispatch } from '../world.ts';
 import { liveIdsOfType } from '../bossSkills.ts';
 import { T9_BOSS_TYPE, isT9BossType } from '../t9BossIds.ts';
@@ -108,7 +109,10 @@ function distSq(a: Vec2, b: Vec2): number {
  */
 function isFeedable(world: World, boss: Creature, c: Creature, reachSq: number, enemy: boolean): boolean {
   if (c.id === boss.id) return false;
-  if ((c.ownerPlayerId === boss.ownerPlayerId) === enemy) return false;
+  // ⭐ S192 (⚠ MINE, spec Q4) — "enemies first, then his own units": an enemy is another TEAM's, "his own"
+  // is his own SEAT's, and a TEAMMATE's unit is neither — never eaten (R192-T1). FFA: identical to the
+  // old `(c.owner === boss.owner) === enemy` test.
+  if (enemy ? sameTeam(world, c.ownerPlayerId, boss.ownerPlayerId) : c.ownerPlayerId !== boss.ownerPlayerId) return false;
   if (!enemy && isT9BossType(c.type)) return false; // MINE — his own units, never another boss
   // ⭐ S192 T13 — untargetable, a zero pool and a corpse-in-waiting are the shared liveness predicate,
   // written once — see `isLiveCreatureTarget`.

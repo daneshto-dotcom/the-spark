@@ -38,6 +38,7 @@ import { openDraftIfDue } from './draftEvent.ts';
 import { castleMaxHpFor, emptyCastleUpgrades } from './castleUpgrades.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
+import { isEnemySeat, normalizeTeams } from './teams.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
@@ -60,6 +61,8 @@ export type StartGameAction = {
     readonly seat: number;
     readonly color: number;
     readonly raceId?: RaceId;
+    /** ⭐ S192 — this seat's team (0..3). Absent = its own side. Host-authoritative (the roster IS the host's). */
+    readonly team?: number;
   }[];
   // S87 — seats driven by AI bots (mode 'bots' only; subset of roster seats,
   // never seat 0). Host-local action — START_GAME is not a client intent and
@@ -369,6 +372,15 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // Stamped ONCE per match and never written again while it runs: see the `layout` field docblock
   // for why a live-roster derivation would move every castle when somebody joins or drops.
   world.layout = layoutForSeatCount(world.players.size);
+  // ⭐⭐ S192 (owner R192-T4) — WHO IS ON WHOSE SIDE, stamped once from the HOST's roster, beside the board
+  // and for the same reason: every enemy predicate reads it from tick 0. A roster with no shared team (or
+  // one team for everyone, spec Q2) normalises to `undefined` — the free-for-all, byte-identical to pre-S192.
+  // Solo and every roster-less start clear it, so a rematch never inherits last match's sides.
+  {
+    const picks: (number | undefined)[] = [];
+    for (const e of action.roster ?? []) picks[e.seat] = e.team;
+    world.teams = action.roster !== undefined ? normalizeTeams(picks, world.players.size) : undefined;
+  }
   /* ⭐ S148 P2 — THE OPENING IS A CASTLE, ONE GATHERER AND 100 POINTS. NOTHING ELSE.
    *
    * Owner playtest, verbatim: *"everyone should start with nothing but the castle and one gatherer"*.
@@ -449,6 +461,8 @@ function seedStartingGatherers(world: World): void {
 export function applyReturnToTitle(world: World): World {
   world.gameState = 'TITLE';
   world.gameMode = 'solo';
+  // ⭐ S192 — back to the free-for-all; the next START_GAME stamps sides afresh.
+  world.teams = undefined;
   // S62 — reset to the solo identity (seat 0). Pre-S62 this preserved the
   // client's id=1 across title-returns; with N-player the seat is re-assigned
   // fresh from the roster on every game start, so a clean reset to 0 is correct
@@ -831,7 +845,8 @@ export function awardSpawnerKillReward(world: World, spawner: CreatureSpawner): 
     // so an eliminated seat kept collecting kill bounties — flatly against the invariant `scoring.ts`
     // states, and against R127's own mechanic (no castle, no earning). It also DILUTED the living
     // raiders' share, because corpses inflated `enemies.length`.
-    if (player.id === spawner.ownerPlayerId || isEliminated(player)) continue;
+    // ⭐ S192 — and a TEAMMATE of the owner is no raider either: only the enemy side splits the bounty.
+    if (!isEnemySeat(world, player.id, spawner.ownerPlayerId) || isEliminated(player)) continue;
     enemies.push(player.id);
   }
   if (enemies.length === 0) return; // solo / no raider — nothing to award

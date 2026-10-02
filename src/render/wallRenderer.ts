@@ -32,7 +32,7 @@
  */
 
 import { Application, Assets, Container, Graphics, TilingSprite, type Texture } from 'pixi.js';
-import { wallSegments, wallsAreUp } from '../state/walls.ts';
+import { wallSegments, wallSeparatesSides, wallsAreUp } from '../state/walls.ts';
 import { zoneOf, zoneOwner } from '../state/zones.ts';
 import { ALL_RACES } from '../state/races.ts';
 import type { World } from '../state/world.ts';
@@ -162,6 +162,9 @@ export class WallRenderer {
     let segIndex = -1;
     for (const seg of wallSegments(world.layout)) {
       segIndex++;
+      // ⭐ S192 (R192-T2) — no wall between teammates. `continue` AFTER the index bump, so every other
+      // segment keeps its strip key.
+      if (!wallSeparatesSides(world, seg)) continue;
       // Unit vector along the segment, and its normal — the offset that separates the two owners'
       // strips. Segments are axis-aligned today, but deriving the normal rather than assuming it
       // keeps this correct if a future board ever has a diagonal border.

@@ -23,6 +23,7 @@ import type { CreatureType } from '../state/creatures/creature.ts';
 import { matchPlacings } from '../state/elimination.ts';
 import type { SeatMatchStats, WaveSampleSeat } from '../state/matchStats.ts';
 import type { RaceId } from '../state/races.ts';
+import { sameTeam, TEAM_COUNT, teamOf } from '../state/teams.ts';
 import { isNetworked } from '../state/world.ts';
 import type { World } from '../state/worldTypes.ts';
 import type { PlayerId } from '../types.ts';
@@ -323,8 +324,14 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
   const order = matchPlacings(world);
   const winner = world.lastWinnerId;
   const winnerPlayer = winner === null ? undefined : world.players.get(winner);
+  // ⭐ S194 (teams) — with teams on, the SIDE wins: the same "TEAM N WINS" the WIN banner (`ui.ts`) prints,
+  // and every teammate of the winner is starred. A seat that picked no team keeps its PLAYER/BOT label.
+  // FFA: `world.teams` is undefined, so this is the pre-teams headline and `sameTeam` is `seat === winner`.
+  const teamWin = winner !== null && world.teams !== undefined && teamOf(world, winner) < TEAM_COUNT;
   const headline = isNetworked(world) && winner !== null && winnerPlayer !== undefined
-    ? `${world.botSeats.has(winner) ? 'BOT' : 'PLAYER'} ${(winner as number) + 1} WINS`
+    ? teamWin
+      ? `TEAM ${teamOf(world, winner) + 1} WINS`
+      : `${world.botSeats.has(winner) ? 'BOT' : 'PLAYER'} ${(winner as number) + 1} WINS`
     : 'VICTORY';
   const hist = world.matchStats.history;
   const peakOf = (seat: PlayerId): number => {
@@ -359,7 +366,7 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
       raceId: p?.raceId ?? null,
       color: p?.color ?? 0xffffff,
       isLocal: seat === world.localPlayerId,
-      isWinner: seat === winner,
+      isWinner: winner !== null && sameTeam(world, seat, winner),
       out,
       outOnWave,
       status: out ? (outOnWave !== null ? `OUT W${outOnWave}` : 'OUT') : 'STANDING',

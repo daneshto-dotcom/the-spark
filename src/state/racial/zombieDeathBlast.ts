@@ -50,6 +50,7 @@ import { blastSplitWeight, splitBlastPool } from '../blastFalloff.ts'; // ⭐ S1
 import { applySeverBond } from '../severBond.ts';
 import { attackFifths } from '../stats.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
+import { sameTeam } from '../teams.ts'; // ⭐ S194 (R192-T1 × R193-B3) — "his own side" is his TEAM
 import type { World } from '../world.ts';
 
 import type { KillCredit } from './killCredit.ts';
@@ -107,6 +108,13 @@ const KIND_RANK: Readonly<Record<ZombieBlastTarget['kind'], number>> = {
 /**
  * ⭐ PURE (reads the world, writes nothing) — everything the blast at `at` catches, in the total order.
  * `spare` is the seat whose own things are skipped, or `null` for an owner-agnostic blast.
+ *
+ * ⭐⭐ S194 (teams) — **"his own side" is his TEAM.** R193-B3 (*"It does not hit his own side"*) meets
+ * R192-T1 (*"teammates never take damage"*): every arm skips a thing whose owner is on `spare`'s team
+ * (`sameTeam`), a STRUCTURE when EITHER end is — the suicide goblin's and the hub's connector rule. In a
+ * free-for-all `world.teams` is undefined and `sameTeam` is exactly the old `=== spare`, byte-identical.
+ * This SUPERSEDES the S192 team-branch MINE default (teammates spared, his own seat burns), which was
+ * written against R138's *"hurting everything"* — R193-B3 retired that ruling.
  */
 export function zombieBlastTargets(
   world: World,
@@ -129,7 +137,7 @@ export function zombieBlastTargets(
     const a = world.primitives.get(bond.aId);
     const b = world.primitives.get(bond.bId);
     if (a === undefined || b === undefined) continue;
-    if (spare !== null && (a.placedBy === spare || b.placedBy === spare)) continue;
+    if (spare !== null && (sameTeam(world, a.placedBy, spare) || sameTeam(world, b.placedBy, spare))) continue;
     const d2 = d2At((a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2);
     if (d2 > r2) continue;
     candidate.set(bondId, d2);
@@ -157,26 +165,26 @@ export function zombieBlastTargets(
 
   // ── units, Helga, lone shapes, bags ──
   for (const c of world.creatures.values()) {
-    if (spare !== null && c.ownerPlayerId === spare) continue;
+    if (spare !== null && sameTeam(world, c.ownerPlayerId, spare)) continue;
     if (c.ehp <= 0 || isChannellingRa(c, world.tick)) continue;
     if (world.pendingCreatureDeaths?.has(c.id) === true) continue;
     const d2 = d2At(c.pos.x, c.pos.y);
     if (d2 <= r2) out.push({ kind: 'creature', id: c.id as unknown as number, d2, target: { kind: 'creature', id: c.id } });
   }
   for (const d of world.defenders.values()) {
-    if (spare !== null && d.ownerPlayerId === spare) continue;
+    if (spare !== null && sameTeam(world, d.ownerPlayerId, spare)) continue;
     if (d.ehp === null || d.ehp <= 0) continue;
     const d2 = d2At(d.pos.x, d.pos.y);
     if (d2 <= r2) out.push({ kind: 'defender', id: d.id as unknown as number, d2, target: { kind: 'defender', id: d.id } });
   }
   for (const p of world.primitives.values()) {
-    if (spare !== null && p.placedBy === spare) continue;
+    if (spare !== null && sameTeam(world, p.placedBy, spare)) continue;
     if (p.bonds.size !== 0) continue; // a shape inside a structure is not a target (canon §4)
     const d2 = d2At(p.pos.x, p.pos.y);
     if (d2 <= r2) out.push({ kind: 'primitive', id: p.id as unknown as number, d2, target: { kind: 'primitive', id: p.id } });
   }
   for (const s of world.stinkClouds.values()) {
-    if (spare !== null && s.ownerPlayerId === spare) continue;
+    if (spare !== null && sameTeam(world, s.ownerPlayerId, spare)) continue;
     if (s.ehp <= 0) continue;
     const d2 = d2At(s.pos.x, s.pos.y);
     if (d2 <= r2) out.push({ kind: 'stinkCloud', id: s.id as unknown as number, d2, target: { kind: 'stinkCloud', id: s.id } });

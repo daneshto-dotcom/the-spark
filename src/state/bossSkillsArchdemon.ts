@@ -27,6 +27,7 @@ import { removeCreature } from './creatures/creatureLifecycle.ts';
 import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import type { CreatureId } from '../types.ts';
 import type { World } from './world.ts';
+import { sameTeam } from './teams.ts';
 
 /**
  * ⭐⭐ **TAKEN TO HELL.**
@@ -68,7 +69,7 @@ export function runArchdemonHell(world: World): void {
     const doomed: CreatureId[] = [];
     for (const [id, c] of world.creatures) {
       if (id === demonId) continue;
-      if (c.ownerPlayerId === demon.ownerPlayerId) continue; // "any ENEMY around"
+      if (sameTeam(world, c.ownerPlayerId, demon.ownerPlayerId)) continue; // "any ENEMY around" (S192: by team)
       if (c.ehp <= 0) continue;
       // ⭐ S187 — the victim's own max, so a drafted unit is judged against the pool it actually has.
       if (c.ehp * 100 >= creatureMaxEhp(c) * ARCHDEMON_HELL_THRESHOLD_PCT) continue;
@@ -133,7 +134,7 @@ export function runArchdemonTeleport(world: World): void {
     let best: { id: CreatureId; allies: number; distSq: number } | null = null;
     for (const [id, c] of world.creatures) {
       if (id === demonId) continue;
-      if (c.ownerPlayerId === demon.ownerPlayerId) continue;
+      if (sameTeam(world, c.ownerPlayerId, demon.ownerPlayerId)) continue;
       // ⭐ S171 (owner R142/R171-A) — he cannot pick a victim he cannot target. Teleporting onto a
       // locust cloud, or onto a Pharaoh who has left the world, is an acquisition like any other.
       // ⭐ S192 T13 — the one liveness predicate (live pool, not pending, targetable).
@@ -142,7 +143,7 @@ export function runArchdemonTeleport(world: World): void {
       let allies = 0;
       for (const [otherId, other] of world.creatures) {
         if (otherId === id) continue;
-        if (other.ownerPlayerId !== c.ownerPlayerId) continue; // "their OWN teammates"
+        if (!sameTeam(world, other.ownerPlayerId, c.ownerPlayerId)) continue; // "their OWN teammates" (S192: literally)
         const ax = other.pos.x - c.pos.x;
         const ay = other.pos.y - c.pos.y;
         if (ax * ax + ay * ay <= lonelySq) allies++;

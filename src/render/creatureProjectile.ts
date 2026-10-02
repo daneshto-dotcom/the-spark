@@ -48,6 +48,7 @@
 import type { Graphics } from 'pixi.js';
 import { ARROW_FLIGHT_TICKS } from '../constants.ts';
 import type { World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { Creature, CreatureType } from '../state/creatures/creature.ts';
 import { liftOf } from './creatureLift.ts';
 import { bondMidpoint, distSq } from '../state/creatures/creatureAI.ts';
@@ -145,7 +146,7 @@ function resolveShotIn(world: World, c: Creature, impact: boolean): ProjectileSh
   let bestId = Infinity;
   for (const [id, other] of world.creatures) {
     if (id === c.id) continue;
-    if (other.ownerPlayerId === c.ownerPlayerId) continue;
+    if (sameTeam(world, other.ownerPlayerId, c.ownerPlayerId)) continue; // S192 — never drawn at a teammate
     if (distSq(c.pos, other.pos) > rangeSq) continue;
     /*
      * ⭐ S171 (owner R142/R171-A) — the renderer must not DRAW an arrow at a unit the sim refuses

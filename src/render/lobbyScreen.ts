@@ -16,7 +16,7 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../cons
 // ⭐ S155 P2 — the ONE shared button grammar (hover pop + press + blip). See buttonFeedback.ts.
 import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass, frame, hover sheen — all inside each plate / hit rect).
-import { skinPanelFx } from './uiSkin.ts';
+import { skinPanelFx, type SkinState } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import {
   makeConnectionLostOverlay,
@@ -34,6 +34,8 @@ import {
 } from './lobbyStateMachine.ts';
 // S69 P2 — the 6-seat rack renderer, extracted so this shell does not grow (Council A1).
 import { makeSeatRack, type SeatRackHandle } from './seatRack.ts';
+import { nextTeamPick } from '../state/teams.ts';
+import { beginButtonPaint, TEAMS_UNPLAYABLE_HINT } from './teamChip.ts';
 // ⭐ S173 B1 — the seat-partitioned lobby backdrop (owner: the lobby showed only player one's).
 import { makeLobbyBackdrop, type LobbyBackdropHandle } from './lobbyBackdrop.ts';
 
@@ -104,6 +106,11 @@ export interface LobbyScreenCallbacks {
    * is the same Council Fork C boundary the presence digest is kept out of this file for.
    */
   onPickRace(raceId: RaceId): void;
+  /**
+   * ⭐ S192 (owner R192-T4) — this player picked a TEAM (0..3) or none (`null`) on its seat's chip. Same
+   * split as `onPickRace`: the host applies it to its session, a joiner sends `CLAIM_TEAM`.
+   */
+  onPickTeam(team: number | null): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -143,6 +150,10 @@ export class LobbyScreen {
   private joinButton: Container;
   private joinButtonBg: Graphics;
   private beginButton: Container;
+  /** ⭐ S193 (audit F1) — "everyone is on one team" under a dimmed Begin. */
+  private teamsHint: Text;
+  /** ⭐ S194 — Begin is refused (one side): its plate wears T5's disabled state and its sheen stays dark. */
+  private beginBlocked = false;
   // S85 P4c — captured for getUiPoints (the e2e geometry-getter migration).
   private hostBtnRef: Container;
   private backBtnRef: Container;
@@ -290,7 +301,14 @@ export class LobbyScreen {
      * has to check identity. It reads the taken-set off the CURRENT view rather than off any cached
      * copy, because a race can be claimed by somebody else between two opens.
      */
-    this.seatRack = makeSeatRack(() => this.openRacePicker());
+    this.seatRack = makeSeatRack(
+      () => this.openRacePicker(),
+      // ⭐ S192 — cycle YOUR team: — → T1 → … → T4 → —. No local optimism: the chip repaints from presence.
+      () => {
+        const mine = lobbyView(this.state).seats.find((s) => s.isYou && s.occupied);
+        callbacks.onPickTeam(nextTeamPick(mine?.team) ?? null);
+      },
+    );
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
     this.racePicker = makeRacePicker((raceId) => callbacks.onPickRace(raceId));
@@ -414,10 +432,21 @@ export class LobbyScreen {
     this.container.addChild(this.hostDiagnosticsText);
 
     // Begin Match (revealed when peer joins on host side)
-    this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch);
+    // ⭐ S194 (teams) — Begin keeps T5's DISABLED look while every seat is on one team: the plate repaints
+    // 'disabled' (see `refresh`), its sheen stays dark, and the alpha dim (0.4) the e2e reads stays too.
+    this.beginButton = this.makeButton('Begin Match', 0x9bff3b, callbacks.onBeginMatch, () => !this.beginBlocked);
     this.beginButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
     this.beginButton.visible = false;
     this.container.addChild(this.beginButton);
+    // ⭐ S193 (audit F1) — the bot lobby's hint (`botSetupOverlay.ts`), word for word, under a dimmed Begin.
+    this.teamsHint = new Text({
+      text: TEAMS_UNPLAYABLE_HINT,
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0xff8866 }),
+    });
+    this.teamsHint.anchor.set(0.5);
+    this.teamsHint.position.set(CANVAS_WIDTH / 2, paneY + PANE_HEIGHT + 70 + BUTTON_HEIGHT + 18);
+    this.teamsHint.visible = false;
+    this.container.addChild(this.teamsHint);
 
     // S87 P4 — QUICK MATCH entry (SELECT pane only): match up to MAX_PLAYERS
     // strangers, everyone clicks READY to start. Centered above the Host/Join
@@ -699,11 +728,23 @@ export class LobbyScreen {
    *     If false despite hostConnected=true, points to a downstream visibility
    *     mutation after the latch fired.
    */
-  getDebugState(): { mode: LobbyMode; hostConnected: boolean; beginButtonVisible: boolean } {
+  getDebugState(): {
+    mode: LobbyMode;
+    hostConnected: boolean;
+    beginButtonVisible: boolean;
+    beginButtonAlpha: number;
+    teamsHintVisible: boolean;
+    beginButtonDisabledSkin: boolean;
+  } {
     return {
       mode: this.state.mode,
       hostConnected: this.state.hostConnected,
       beginButtonVisible: this.beginButton.visible,
+      // ⭐ S193 (audit F1) — the dim + hint, read from the LIVE display objects for the e2e REACH check.
+      beginButtonAlpha: this.beginButton.alpha,
+      teamsHintVisible: this.teamsHint.visible,
+      // ⭐ S194 — the plate wears T5's 'disabled' state (repainted in `refresh`), read for the e2e REACH check.
+      beginButtonDisabledSkin: this.beginBlocked,
     };
   }
 
@@ -915,8 +956,14 @@ export class LobbyScreen {
     // S87 P4 — in QUICK MATCH there is NO manual Begin (the all-ready gate
     // auto-begins); the READY toggle takes the Begin slot. Friends lobby is
     // unchanged: Begin per the reducer, READY hidden.
-    const beginVisible = this.quickmatch ? false : v.beginVisible;
-    if (this.beginButton.visible !== beginVisible) this.beginButton.visible = beginVisible;
+    const begin = beginButtonPaint(v, this.quickmatch);
+    if (this.beginButton.visible !== begin.visible) this.beginButton.visible = begin.visible;
+    if (this.beginButton.alpha !== begin.alpha) this.beginButton.alpha = begin.alpha;
+    if (this.beginBlocked !== begin.hintVisible) {
+      this.beginBlocked = begin.hintVisible;
+      paintLobbyPlate(this.beginButton.children[0] as Graphics, this.beginBlocked ? 0x555555 : 0x9bff3b, this.beginBlocked ? 'disabled' : 'rest');
+    }
+    if (this.teamsHint.visible !== begin.hintVisible) this.teamsHint.visible = begin.hintVisible;
 
     // S69 P2 — the SELECT screen shows the two entry panes; once in a room they
     // hide and the 6-seat rack + room code + count line take over. The control
@@ -971,13 +1018,11 @@ export class LobbyScreen {
     return c;
   }
 
-  private makeButton(label: string, color: number, onClick: () => void): Container {
+  private makeButton(label: string, color: number, onClick: () => void, enabled: () => boolean = () => true): Container {
     const c = new Container();
     const bg = new Graphics();
     const hit = { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
-    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
-    skinStaticPlate(bg, hit, color, 8);
-    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
+    paintLobbyPlate(bg, color, 'rest');
     c.addChild(bg);
     const text = new Text({
       text: label,
@@ -1003,7 +1048,7 @@ export class LobbyScreen {
     attachButtonFeedback(c, bg, onClick, {
       hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
     });
-    attachHoverSheen(c, hit, 8);
+    attachHoverSheen(c, hit, 8, enabled);
     return c;
   }
 
@@ -1106,4 +1151,13 @@ export class LobbyScreen {
     this.applyView();
     this.updateInputVisibility();
   }
+}
+
+/** ⭐ S194 — a lobby button's plate in T5's language; repainted for Begin's disabled state (teams). */
+function paintLobbyPlate(bg: Graphics, color: number, state: SkinState): void {
+  const hit = { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
+  bg.clear();
+  bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
+  skinStaticPlate(bg, hit, color, 8, state);
+  bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
 }

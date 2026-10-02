@@ -518,7 +518,8 @@ describe('S193 — the lobby pick REACHES both bot managers', () => {
    */
   it('main.ts passes the lobby personalities to BOTH managers; simWorker forwards them', () => {
     const main = readFileSync('src/main.ts', 'utf-8');
-    expect(main).toMatch(/onStart: \(difficulties, races, personalities\) =>/);
+    expect(main).toMatch(/onStart: \(pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams\) =>/); // S194 — + teams
+    expect(main).toMatch(/const personalities = permuteBots\(pickedPersonalities, order\);/); // re-seated with its bot
     expect(main).toMatch(/new mod\.BotManager\(difficulties, matchSeed, personalities\)/);
     expect(main).toMatch(/botPersonalities: workerBotInit\.personalities/);
     const worker = readFileSync('src/simWorker.ts', 'utf-8');
@@ -602,12 +603,13 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
 });
 
 describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => {
-  it('no tagline is longer than BOT_TAGLINE_MAX_CHARS (27 = 196 px / 7.2 px a glyph)', () => {
+  it('no tagline is longer than BOT_TAGLINE_MAX_CHARS (27 ≤ 226 px / 7.2 px a glyph = 31)', () => {
     // The arithmetic, re-derived from the overlay's layout so a re-layout that moves the chips is caught
-    // by re-reading this line: (RACE_X − 92) − (−PANEL_W/2 + 64) − 8 with PANEL_W 860, RACE_X 430 − 500.
-    const free = (860 / 2 - 500 - 92) - (-860 / 2 + 64) - 8;
-    expect(free).toBe(196);
-    expect(Math.floor(free / (0.6 * 12))).toBe(BOT_TAGLINE_MAX_CHARS);
+    // by re-reading this line. ⭐ S194 (teams) — the LEFTMOST chip is now the TEAM chip (±36), so the room is
+    // (TEAM_X − 36) − (−PANEL_W/2 + 64) − 8 with PANEL_W 960, TEAM_X 480 − 626. 27 still fits, with 4 spare.
+    const free = (960 / 2 - 626 - 36) - (-960 / 2 + 64) - 8;
+    expect(free).toBe(226);
+    expect(Math.floor(free / (0.6 * 12))).toBeGreaterThanOrEqual(BOT_TAGLINE_MAX_CHARS);
     for (const t of [...Object.values(BOT_PERSONALITY_TAGLINES), BOT_PERSONALITY_LOCKED_TAGLINE]) {
       expect(t.length, t).toBeLessThanOrEqual(BOT_TAGLINE_MAX_CHARS);
     }
@@ -615,8 +617,9 @@ describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => 
 
   it('the overlay still lays the chips out where the arithmetic assumes', () => {
     const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
-    expect(overlay).toMatch(/const PANEL_W = 860;/);
-    expect(overlay).toMatch(/const RACE_X = PANEL_W \/ 2 - 500;/);
+    expect(overlay).toMatch(/const PANEL_W = 960;/); // S194 — 860 → 960 for the team chip
+    expect(overlay).toMatch(/const TEAM_X = PANEL_W \/ 2 - 626;/);
+    expect(overlay).toMatch(/TEAM_CHIP_RECT = \{ x: -36, y: -18, w: 72, h: 36 \}/); // the team chip's ±36 (S194: one rect, plate + hit)
     expect(overlay).toMatch(/roundRect\(-92, -18, 184, 36, 6\)/);
     expect(overlay).toMatch(/tagline\.position\.set\(-PANEL_W \/ 2 \+ 64,/);
   });

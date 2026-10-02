@@ -42,6 +42,7 @@ import { isBenched } from '../hunters/hunter.ts';
 import { isEliminated } from '../elimination.ts';
 import { zoneOwner } from '../zones.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 
 /** The perk the skill rides on — SCORCHED GROUND itself. Holding the perk IS holding the skill. */
 export const SCORCHED_EARTH_PERK = 'demons.l0' as const;
@@ -90,15 +91,15 @@ export type ScorchedEarthRefusal =
 /**
  * ⭐⭐ THE ONE RESISTANCE PREDICATE. Owner, S192 — *"only you are resistant when you're a demon to your own
  * scorched earth"*. Resistance belongs to the SPARED SEAT (the caster for a cast; the zone's own seat for
- * the passive). Teams do not exist yet, so today every other seat burns. ⭐ R192-T1 (owner, S192):
- * **teammates never damage each other — units, towers, and zone effects (a demon teammate's zone does not
- * burn you).** ⛔ When teams are built, THIS function is the one site that changes (spare the caster's
- * teammates too), and nothing else. Every burn arm in
+ * the passive). ⭐⭐ R192-T1 (owner, S192 — SUPERSEDES T7's *"he still gets hit"*): **teammates never damage
+ * each other — units, towers, and zone effects (a demon teammate's zone does not burn you).** So the spared
+ * seat's whole TEAM is immune (`sameTeam`); in a free-for-all `world.teams` is undefined and this is exactly
+ * the pre-teams `owner === spared`. THIS function is the one site that changed for teams. Every burn arm in
  * `scorchedGround.ts` asks it (a connector: either endpoint), and `scorchedEarthResistance.test.ts`
  * counts the calls so a new arm cannot compare seats inline.
  */
-export function isScorchImmune(owner: PlayerId | undefined, spared: PlayerId): boolean {
-  return owner === spared;
+export function isScorchImmune(world: Pick<World, 'teams'>, owner: PlayerId | undefined, spared: PlayerId): boolean {
+  return sameTeam(world, owner, spared);
 }
 
 /** Does this seat hold the skill at all (i.e. should the square exist)? */
