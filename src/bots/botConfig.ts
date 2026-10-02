@@ -10,7 +10,8 @@
  * hunter (catchable, comedic); MID (5.0) still edges it; HARD/IMBA out-run everything but a human.
  */
 
-import type { BotDifficulty } from './botTypes.ts';
+import type { BotDifficulty, BotPersonality } from './botTypes.ts';
+import { personalityKnobs, type PersonalityKnobs } from './botPersonality.ts';
 
 export interface BotConfig {
   /** Max virtual-cursor speed, px/tick. */
@@ -140,6 +141,12 @@ export interface BotConfig {
    * they are the ones with idle time to spend, and the tiers the fog costs the most.
    */
   readonly scoutsWhileIdle: boolean;
+  /**
+   * ⭐ S193 (owner R193-AI) — this bot's PERSONALITY knobs (`botPersonality.ts`). ABSENT = the pre-S193
+   * bot exactly (`IDENTITY_KNOBS`), which is what every `BOT_CONFIGS[tier]` literal below is, so the
+   * brain's unit tests that pass a bare tier config keep testing the bot they always tested.
+   */
+  readonly persona?: PersonalityKnobs;
 }
 
 export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
@@ -236,3 +243,18 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     scoutsWhileIdle: true,
   },
 };
+
+/**
+ * ⭐ S193 — the config a controller actually runs: the TIER's row (how well) with the PERSONALITY's
+ * knobs layered on (what and when). The one tier knob a personality may move is the loose-build tempo,
+ * by `buildCooldownScale`, rounded to whole ticks so no float reaches the sim's tick arithmetic.
+ */
+export function botConfigFor(difficulty: BotDifficulty, personality: BotPersonality): BotConfig {
+  const tier = BOT_CONFIGS[difficulty];
+  const persona = personalityKnobs(personality, difficulty);
+  return {
+    ...tier,
+    buildCooldownTicks: Math.round(tier.buildCooldownTicks * persona.buildCooldownScale),
+    persona,
+  };
+}

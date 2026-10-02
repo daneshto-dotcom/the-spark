@@ -80,8 +80,8 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐⭐ two chewed connectors: one green number equal to the banks the repair cleared', () => {
     const w = tower();
     const [b1, b2] = [...w.bonds.keys()];
-    expect(damageConnector(w, b1, 7, null)).toBe(false);
-    expect(damageConnector(w, b2, 5, null)).toBe(false);
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
     const dn: any = new DamageNumbers();
     dn.sync(w); // seed every watch
     const placed = recorder(dn);
@@ -96,7 +96,7 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐ a chipped shape AND a chewed connector: still ONE number, the sum — the shape does not print twice', () => {
     const w = tower();
     const b1 = [...w.bonds.keys()][0];
-    damageConnector(w, b1, 9, null);
+    damageConnector(w, b1, 9, null, 'physical');
     const shape = [...w.primitives.values()][1];
     shape.hp = PRIMITIVE_MAX_HP - 20;
     const dn: any = new DamageNumbers();
@@ -110,7 +110,7 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('negative: a SEVER lowers banks and prints no green (poolDelta still never reads a rising fall)', () => {
     const w = tower();
     const ids = [...w.bonds.keys()];
-    for (const id of ids) damageConnector(w, id, 3, null);
+    for (const id of ids) damageConnector(w, id, 3, null, 'physical');
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);
@@ -151,8 +151,8 @@ describe('⭐⭐ S193 R191-B × T11 — a repair JOB finished by a gatherer prin
     for (let i = 0; i < 3; i++) step();
     expect(w.defenders.size, 'fixture: the turret stands').toBe(1);
     const [b1, b2] = [...w.bonds.keys()];
-    expect(damageConnector(w, b1, 7, null)).toBe(false);
-    expect(damageConnector(w, b2, 5, null)).toBe(false);
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
     w.castleBanks.set(P0, makeCastleBank());
     w.castleBanks.get(P0)[SparkType.Spiral as number] = 1; // R182-E: a dent costs one shape — the turret's Spiral
     const c = castleAnchor(0, w.layout);

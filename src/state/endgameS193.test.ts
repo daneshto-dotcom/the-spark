@@ -426,7 +426,11 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
     'src/state/goblinKinds.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
     'src/state/goblinTowerFeed.ts': { n: 1, verdict: 'FEED_TOWER: tower owner === feeder — seats only' },
+    // ⭐ S193 T4 (goblin-autobuild) — both seat-only: a pants owns no tower and sends no intent.
+    'src/state/goblinAutoFeed.ts': { n: 1, verdict: 'SET_AUTO_FEED: tower owner === toggler — seats only' },
+    'src/state/spawners/spawnerLifecycle.ts': { n: 1, verdict: 'remembered toggles restored only to the SAME seat — seats only' },
     'src/state/godlyMatcherCore.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
+    'src/state/magicResistCue.ts': { n: 5, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued' },
     'src/state/potatoLifecycle.ts': { n: 8, verdict: 'hub blast + bomb: every arm skips the OWNER only → a pants is hit' },
     'src/state/raceUnitEmit.ts': { n: 1, verdict: 'counts a seat\'s own race units — a pants never counts' },
     'src/state/racial/corpseEater.ts': { n: 1, verdict: 'enemy/own split by boss owner → a pants corpse is an enemy\'s' },
@@ -441,7 +445,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/towerUnit.ts': { n: 2, verdict: 'a fallen stamp is grouped from ONE placer\'s shapes — a pants places none' },
     'src/state/vision.ts': { n: 2, verdict: 'a seat\'s own sight sources — a pants grants none' },
     'src/state/world.ts': { n: 2, verdict: 'RAID: target owner !== raider → a pants is raidable' },
-    'src/bots/botBrain.ts': { n: 12, verdict: 'a bot\'s own shapes/gatherers — seats only' },
+    'src/bots/botBrain.ts': { n: 13, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none' },
     'src/bots/botController.ts': { n: 1, verdict: 'a bot\'s own shapes' },
     'src/bots/botRa.ts': { n: 3, verdict: 'Ra aim: everything not the bot\'s → a pants is a target' },
   };
@@ -509,7 +513,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     const bg = link(w, B, prim(w, P1, 540, 440));
     const m = heldPants(w, { x: 520, y: 400 });
     const hit = attackFifths(CREATURE_CONFIGS.endgameMonster.atk, CREATURE_CONFIGS.endgameMonster.pen);
-    expect(damageConnector(w, ab, hit, { kind: 'creature', id: m.id })).toBe(true);
+    expect(damageConnector(w, ab, hit, { kind: 'creature', id: m.id }, 'physical')).toBe(true);
     // the sever is dispatched with the pants' owner (255, in no `world.players`) and cause 'unit', as
     // `applyCreatureAttack` does — and it must not be refused for being nobody
     const felled = severWithCarry(w, ab, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: m.ownerPlayerId, cause: 'unit' }));

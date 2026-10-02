@@ -96,7 +96,7 @@ function board(): { w: World; st: HostTickState; hub: PrimitiveId; goblinHub: Pr
   const d = [...w.defenders.values()][0]!;
   const hub = d.anchorPrimitiveId;
   const leaf = [...d.ownPrimitiveIds!].filter((id) => id !== hub).sort((a, b) => a - b)[0]!;
-  damageEntity(w, { kind: 'primitive', id: leaf }, PRIMITIVE_MAX_HP, 'creature', null);
+  damageEntity(w, { kind: 'primitive', id: leaf }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
   tick(w, st, 40);
   expect(w.defenders.size, 'fixture: the turret fell').toBe(0);
   const c = castleAnchor(0, w.layout);
@@ -149,7 +149,7 @@ describe('⭐⭐ S193 R192-W1 — the castle FIX ALL row', () => {
 
   it('REACH: pressing it queues a job for every damaged tower, and the host tick fixes them; then the row says NOTHING TO FIX', () => {
     const { w, st, goblinHub } = board();
-    damageEntity(w, { kind: 'primitive', id: goblinHub }, 20, 'creature', null); // a dent on the goblin tower too
+    damageEntity(w, { kind: 'primitive', id: goblinHub }, 20, 'creature', null, 'physical'); // a dent on the goblin tower too
     expect(fixAllRow(w)).toMatchObject({ enabled: true, label: 'FIX ALL  2' });
     const m = mountPanel(w);
     press(m, w, 'fixAll');

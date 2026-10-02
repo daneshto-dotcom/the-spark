@@ -182,6 +182,9 @@ export const ENDGAME_LOCK_INTENT_POLICY = {
   FIX_ALL: 'allow', // ⭐ S193 R192-W1 — FIX ALL is FIX for every tower: his "you can fix existing structures"
   SCRAP_STRUCTURE: 'allow', // removing a building creates nothing
   FEED_TOWER: 'allow', // HIS — "they can build more goblins"
+  // ⭐ S193 (owner T4) — an auto-build toggle is a standing order for FEED_TOWER, which he allowed; the
+  // feeds it causes are ordinary FEED_TOWERs and meet this lock as such.
+  SET_AUTO_FEED: 'allow',
   PICKUP_SPARK: 'allow',
   DROP_SPARK: 'allow',
   SEVER_BOND: 'allow',

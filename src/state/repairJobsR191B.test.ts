@@ -134,7 +134,7 @@ function board(opts: { goblin?: boolean } = {}): { w: World; st: HostTickState; 
 /** Raze one turret leaf (a Spiral) through the real damage path; the poll then removes the turret. */
 function breakTurret(w: World, st: HostTickState, leaf: PrimitiveId): void {
   expect(w.primitives.get(leaf)!.type, 'fixture: a turret leaf is a Spiral').toBe(SparkType.Spiral);
-  damageEntity(w, { kind: 'primitive', id: leaf }, PRIMITIVE_MAX_HP, 'creature', null);
+  damageEntity(w, { kind: 'primitive', id: leaf }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
   tick(w, st, 40);
   expect(w.defenders.size, 'fixture: the broken turret fell').toBe(0);
 }
@@ -249,7 +249,7 @@ describe('⭐⭐ S193 R191-B — FIX queues a gatherer job; the shape is CARRIED
     const { w, st, hub, leaf } = board();
     const d = [...w.defenders.values()][0]!;
     const leaf2 = [...d.ownPrimitiveIds!].filter((id) => id !== hub && id !== leaf).sort((a, b) => a - b)[0]!;
-    damageEntity(w, { kind: 'primitive', id: leaf2 }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: leaf2 }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
     breakTurret(w, st, leaf);
     const a = hire(w, door(w));
     const b = hire(w, door(w));
@@ -345,7 +345,7 @@ describe('⭐⭐ S193 R191-B — FIX queues a gatherer job; the shape is CARRIED
     tickUntil(w, st, () => g.repairTask?.carrying === true);
     const d = planStructureRepair(w, P0, hub)!;
     const another = d.memberIds.find((id) => id !== hub && w.primitives.get(id)?.type === SparkType.Spiral)!;
-    damageEntity(w, { kind: 'primitive', id: another }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: another }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
     tickUntil(w, st, () => g.repairTask === null);
     tick(w, st, 1);
     expect(w.repairJobs, 'still open: one Spiral delivered, two lost').toHaveLength(1);
@@ -359,7 +359,7 @@ describe('⭐⭐ S193 R192-W1 — FIX ALL: every tower, nearest the castle first
     const { w, st, hub, leaf } = board({ goblin: true });
     const goblin = [...w.creatureSpawners.values()][0]!;
     const goblinLeaf = [...goblin.ownPrimitiveIds!].filter((id) => id !== goblin.anchorPrimitiveId)[0]!;
-    damageEntity(w, { kind: 'primitive', id: goblinLeaf }, 20, 'creature', null); // a dent: one shape flat (R182-E)
+    damageEntity(w, { kind: 'primitive', id: goblinLeaf }, 20, 'creature', null, 'physical'); // a dent: one shape flat (R182-E)
     breakTurret(w, st, leaf);
     hire(w, door(w));
     const targets = fixAllTargets(w, P0);
@@ -385,7 +385,7 @@ describe('⭐⭐ S193 R192-W1 — FIX ALL: every tower, nearest the castle first
     const { w, st, leaf } = board({ goblin: true });
     const goblin = [...w.creatureSpawners.values()][0]!;
     const goblinLeaf = [...goblin.ownPrimitiveIds!].filter((id) => id !== goblin.anchorPrimitiveId)[0]!;
-    damageEntity(w, { kind: 'primitive', id: goblinLeaf }, 20, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: goblinLeaf }, 20, 'creature', null, 'physical');
     breakTurret(w, st, leaf);
     const g = hire(w, door(w));
     const bank = w.castleBanks.get(P0)!;
@@ -426,7 +426,7 @@ describe('⭐⭐ S193 R192-W1 — FIX ALL: every tower, nearest the castle first
       other.bonds.add(bid);
     }
     const own = [...turret.ownPrimitiveIds!].filter((x) => x !== hub)[1]!;
-    damageEntity(w, { kind: 'primitive', id: own }, 20, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: own }, 20, 'creature', null, 'physical');
     hire(w, door(w));
     dispatch(w, { type: 'FIX_ALL', playerId: P0 });
     expect(w.repairJobs).toHaveLength(1);

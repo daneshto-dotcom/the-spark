@@ -618,6 +618,9 @@ function restorePlannedRepair(world: World, seat: PlayerId, plan: RepairPlan, pa
     const b = world.bonds.get(bondId);
     if (b === undefined) continue;
     restored += b.damageFifths;
+    // ⭐ S193 (carry-fwd T11) — the connector watch key too, so the renderer's JOINER-path derivation
+    // (a bank that fell with no sever beside it) sees this bond re-seeded and does not print it twice.
+    if (b.damageFifths > 0) refilledKeys.push(`b:${b.id}`);
     b.damageFifths = 0;
   }
   /*

@@ -38,6 +38,30 @@ import { isRaceTowerId } from '../raceTowerIds.ts';
 import type { GodlyId } from '../godlyRecipes/types.ts';
 import type { PlayerId, PrimitiveId, SpawnerId } from '../../types.ts';
 
+/**
+ * ⭐ S193 (T4) — the auto-build toggle bitfield's width: one bit per `SparkType` (Dot = 0 … Spiral = 5).
+ * Literal here because this leaf must not import the enum's module graph; `goblinAutoFeed.test.ts`
+ * pins it to `ALL_SPARK_TYPES.length`, so a seventh shape turns that test red rather than going unfed.
+ */
+export const AUTO_FEED_SHAPE_COUNT = 6;
+export const AUTO_FEED_ALL_MASK = (1 << AUTO_FEED_SHAPE_COUNT) - 1;
+
+/**
+ * ⭐ S193 (T4, audit round 1) — what a goblin tower's toggles were when it last FELL at an anchor that is
+ * still standing (`World.goblinAutoFeedMemory`, keyed by that anchor). A one-connector bite removes the
+ * spawner; FIX re-ignites it at the same anchor, and the toggles come back instead of silently OFF.
+ */
+export interface AutoFeedMemory {
+  readonly owner: PlayerId;
+  readonly mask: number;
+  readonly cursor: number;
+}
+
+/** ⭐ S193 (T4) — PURE: is shape index `sparkType` toggled on this tower? (The renderer's read.) */
+export function isAutoFed(sp: { readonly autoFeedMask?: number }, sparkType: number): boolean {
+  return (((sp.autoFeedMask ?? 0) >> sparkType) & 1) === 1;
+}
+
 export interface CreatureSpawner {
   readonly id: SpawnerId;
   readonly ownerPlayerId: PlayerId;
@@ -78,6 +102,20 @@ export interface CreatureSpawner {
    * then falls back to the exact shape, the pre-S189 reading. Mutable ONLY for the FIX reducer.
    */
   ownPrimitiveIds?: readonly PrimitiveId[] | null;
+  /**
+   * ⭐⭐ S193 (owner T4) — **THE GOBLIN TOWER'S AUTO-BUILD TOGGLES**, one bit per shape
+   * (`1 << sparkType`). *"right click each of the six shapes … it's like a toggle … whenever there's a
+   * free shape, it builds … those goblins."* Written only by `SET_AUTO_FEED` (`goblinAutoFeed.ts`);
+   * read by the host runner and by the card's lit cue. `0` / absent = nothing toggled.
+   * SERIALIZED (disk, worker INIT AND the wire — the client draws the cue), wide-hashed `:af`.
+   */
+  autoFeedMask?: number;
+  /**
+   * ⭐ S193 — the round-robin cursor over the toggled shapes (⚠ MINE): the next auto-build tries the
+   * shapes in `ALL_SPARK_TYPES` order starting HERE. Serialized everywhere incl. the wire (Council G1,
+   * so a promoted host keeps the order), wide-hashed `:ac`. `0` / absent = start at Dot.
+   */
+  autoFeedCursor?: number;
 }
 
 /**
@@ -171,5 +209,8 @@ export function makeSpawner(args: {
     spawnedCount: 0,
     ignitedAtTick: args.ignitedAtTick,
     ownPrimitiveIds: args.ownPrimitiveIds == null ? null : [...args.ownPrimitiveIds].sort((a, b) => a - b),
+    // ⭐ S193 (T4) — a new tower starts with every auto-build toggle OFF (⚠ MINE).
+    autoFeedMask: 0,
+    autoFeedCursor: 0,
   };
 }

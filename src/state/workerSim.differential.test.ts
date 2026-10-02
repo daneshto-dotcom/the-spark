@@ -694,6 +694,14 @@ describe('S122 P1 — worker-sim batch envelope differential (HARD GATE)', () =>
         `acknowledged row WITH a reason.`,
       ).toBeGreaterThan(0);
     }
+    /*
+     * ⭐ S191 — THE STAT BOARD RODE THE WIDE COMPARE ABOVE, AND THIS PROVES IT WAS NOT EMPTY. `matchStats` is
+     * hashed (`ms{seat}:` parts), so every frame's `hashWorldStateFull` equality already compared the host's
+     * counters against the worker's — but only meaningfully if the run actually counted something. The bots'
+     * castles emit race units after the forced FIGHT flip, and each one is a UNITS mint on both sides.
+     */
+    expect(refWorld.matchStats.seats.size, 'the stat board must be SEEDED for the wide compare to mean anything').toBeGreaterThan(0);
+    expect(batch.world.matchStats.seats.size).toBe(refWorld.matchStats.seats.size);
   });
 
   it('S143 P3 — structuralSignature SEES the gatherer order queue (both terms)', () => {

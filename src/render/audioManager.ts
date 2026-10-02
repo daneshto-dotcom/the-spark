@@ -649,11 +649,35 @@ function ensureAudio(): AudioContext | null {
   return audioContext;
 }
 
+/**
+ * ⭐ S193 (audio A3) — **iOS PARKS A CONTEXT IN 'interrupted', AND IT NEEDS THE SAME RESUME AS 'suspended'.**
+ * Safari moves a running context to `'interrupted'` (a phone call, Siri, another app taking the audio
+ * session, the screen locking) — a state the DOM typings do not even list. Every check here that tested
+ * `=== 'suspended'` skipped it, so the music never came back and nothing tried again until an SFX call
+ * happened to resume from a frame (outside a gesture, which iOS refuses). Pure, so it is testable.
+ */
+export function contextNeedsResume(state: string): boolean {
+  return state === 'suspended' || state === 'interrupted';
+}
+
 async function resumeIfSuspended(): Promise<void> {
   if (audioContext === null) return;
-  if (audioContext.state === 'suspended') {
+  if (contextNeedsResume(audioContext.state)) {
     try { await audioContext.resume(); } catch { /* ignore */ }
   }
+}
+
+/**
+ * ⭐ S193 (audio A3) — resume a parked context (`contextNeedsResume`) from a USER GESTURE or the tab
+ * becoming visible again. `initAudioOnGesture` in `main.ts` is `once: true` (it only CREATES the
+ * context), so before this nothing re-tried a resume inside a gesture after the first one — and iOS
+ * only honours `resume()` inside one. Never creates a context (that stays `initAudio`'s job) and is a
+ * no-op on a running, closed or shut-down one.
+ */
+export function resumeAudioOnGesture(): void {
+  if (audioShutDown || audioContext === null) return;
+  if (!contextNeedsResume(audioContext.state)) return;
+  audioContext.resume().catch(() => { /* the next gesture tries again */ });
 }
 
 async function getMusicBuffer(url: string): Promise<AudioBuffer | null> {
@@ -1132,7 +1156,7 @@ export async function playOneShot(url: string, pos?: Vec2, kind: SfxKind = 'oneS
 export function ensureSfxBus(): { ctx: AudioContext; sfxGain: GainNode } | null {
   const ctx = ensureAudio();
   if (ctx === null || sfxGainNode === null) return null;
-  if (ctx.state === 'suspended') void ctx.resume();
+  if (contextNeedsResume(ctx.state)) void ctx.resume(); // ⭐ S193 A3 — 'interrupted' too
   return { ctx, sfxGain: sfxGainNode };
 }
 

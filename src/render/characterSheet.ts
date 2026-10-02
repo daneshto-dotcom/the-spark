@@ -60,6 +60,8 @@ import {
 } from './characterSheetRadar.ts';
 
 const BAR_H = 12;
+/** ⭐ S193 (T4) — the auto-build toggle's lit colour: the old FEED green, so ON reads as "feeding". */
+const AUTO_FEED_TINT = 0x8fe36a;
 const ROW_H = 20;
 /**
  * ⭐ S185 — the radar's breathing room inside the stat block. LEFT clears the value column's own
@@ -655,6 +657,17 @@ export class CharacterSheet {
       .fill({ color: b.enabled ? (hot ? 0x1f3850 : 0x16283a) : 0x111c28, alpha: 0.96 })
       .stroke({ color: b.enabled ? accent : EDGE, width: b.enabled ? (hot ? 2 : 1.5) : 1, alpha: b.enabled ? (hot ? 1 : 0.9) : 0.55 });
 
+    if (feed && b.autoFeed === true) {
+      /*
+       * ⭐⭐ S193 (owner T4) — **THE LIT TOGGLE.** A shape whose auto-build is ON wears a bright ring
+       * outside the chip and a filled pip in its top-right corner, whether or not a shape is banked
+       * right now — the toggle is a standing order for shapes still to come, so it must read on a
+       * DIMMED chip too. Drawn from the laid-out slot `autoFeedAt` hit-tests, never a second layout.
+       */
+      this.g.roundRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6, r + 3)
+        .stroke({ color: AUTO_FEED_TINT, width: 2, alpha: 0.95 });
+      this.g.circle(b.x + b.w - 4, b.y + 4, 4).fill({ color: AUTO_FEED_TINT });
+    }
     if (feed) {
       // The shape glyph IS the label for a feed chip — a word would not fit 32px and the player
       // recognises the shape from the palette they built with.
@@ -977,6 +990,8 @@ export class CharacterSheet {
      */
     actions: {
       kind: string; sparkType?: number; label: string; caption: string; enabled: boolean;
+      /** ⭐ S193 (T4) — a goblin-tower chip's auto-build toggle (the e2e seam reads the lit state here). */
+      autoFeed?: boolean;
       x: number; y: number; w: number; h: number;
     }[];
   } {
@@ -1010,6 +1025,21 @@ export class CharacterSheet {
       if (!b.enabled) continue;
       if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue;
       return b.sparkType === undefined ? { kind: b.kind } : { kind: b.kind, sparkType: b.sparkType };
+    }
+    return null;
+  }
+
+  /**
+   * ⭐⭐ S193 (owner T4) — the goblin-tower feed chip under (x, y) whose auto-build can be toggled, with
+   * its CURRENT state, or null. Enabled OR dimmed: a toggle waits for shapes still to come, so a chip
+   * with nothing banked is still a toggle. FIX, SCRAP and a race tower's chip carry no `autoFeed` and
+   * never answer. Read off the slots AS DRAWN — the same rectangles the lit cue is drawn on.
+   */
+  autoFeedAt(x: number, y: number): { readonly sparkType: number; readonly on: boolean } | null {
+    for (const b of this.slots) {
+      if (b.autoFeed === undefined || b.sparkType === undefined) continue;
+      if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) continue;
+      return { sparkType: b.sparkType, on: b.autoFeed };
     }
     return null;
   }

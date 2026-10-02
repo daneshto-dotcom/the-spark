@@ -143,6 +143,10 @@ export const BENCH_INTENT_POLICY = {
   // and that argument is wrong for the same reason it was wrong for PULL_FROM_BANK: what matters is
   // whether the ACTION advances the seat while it is meant to be paying a price.
   FEED_TOWER: 'deny',
+  // ⭐ S193 (owner T4) — ALLOW: an auto-build toggle is a STANDING ORDER (SET_GATHERER_PREFERENCE's
+  // class) — it acquires nothing and spends nothing. The FEEDS it causes are still denied above, because
+  // `runGoblinAutoFeed` dispatches them as ordinary FEED_TOWERs: a benched seat's toggles wait.
+  SET_AUTO_FEED: 'allow',
   // S152 — FIX IS BUILDING, so it takes BUILD_BLUEPRINT's ruling verbatim: it spends banked shapes
   // and mints geometry, which is the whole of what the bench exists to stop. Nothing is lost — the
   // shapes stay banked and the tower stays broken until the bench lifts.

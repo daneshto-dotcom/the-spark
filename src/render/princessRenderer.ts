@@ -39,6 +39,9 @@ import type { DefenderId } from '../types.ts';
 import { helgaPose, type HelgaPose } from './helgaPose.ts';
 import { helgaCell, type HelgaAnimConfig, type HelgaAnimState } from './helgaFrame.ts';
 import { playSlapSFX } from './audioManager.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxSeed } from './fx/emitter.ts';
+import { slapImpactFx } from './fx/combatFx.ts';
 
 // ── palette (CtCD: thick dark outline, saturated flats) — used by the procedural fallback puppet ──
 const OUTLINE = 0x241a14;
@@ -235,7 +238,16 @@ export class PrincessRenderer {
       }
 
       if (firing && d.lastStrikePos !== null) {
-        this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, nowSec);
+        // ⭐ S193 (V23) — a white-hot flash, a shock ring and star sparks (`fx/combatFx.ts`), aged by her
+        // synced FIRE clock and seeded by her id and the strike tick. The S112 star-burst stays (it is
+        // the slap's shape), spun by the tick instead of the wall clock while the rebuilt fx are on.
+        if (fxActive()) {
+          slapImpactFx(fxTop(), d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState,
+            fxSeed(d.id as unknown as number, world.tick - d.ticksInState));
+          this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, world.tick / 60);
+        } else {
+          this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, nowSec);
+        }
       }
     }
 

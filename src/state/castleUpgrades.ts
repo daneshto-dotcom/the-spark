@@ -38,11 +38,27 @@ import { CASTLE_ATK, CASTLE_MAX_HP, CASTLE_PEN } from '../constants.ts';
 import { FIFTHS, attackFifths } from './stats.ts';
 import type { PlayerId } from '../types.ts';
 
-/** The four things a keep can buy. */
-export type CastleStat = 'hp' | 'atk' | 'def' | 'pen';
+/**
+ * The five things a keep can buy.
+ *
+ * ⭐⭐ S192 (owner) — `'mres'`, MAGIC RESISTANCE, its own axis: *"when you're doing castle upgrades, you
+ * should be able to do either defense or resistance … All the stats the castle starts with are gonna be
+ * as is and whatever amount of defense it currently has just give it the same amount of magic
+ * resistance but moving forward there should be … its own upgrades for … magic resistance or defense."*
+ * ⛔ A NEW DISCRIMINANT on the serialized `UPGRADE_CASTLE_STAT.stat` — a v52 host drops a v53 joiner's
+ * MRES purchase (`CASTLE_STATS.includes` refuses it) → PROTOCOL BUMP at merge.
+ */
+export type CastleStat = 'hp' | 'atk' | 'def' | 'pen' | 'mres';
 
 /** Every value, for the exhaustiveness tests and the wire validator. */
-export const CASTLE_STATS: readonly CastleStat[] = ['hp', 'atk', 'def', 'pen'] as const;
+export const CASTLE_STATS: readonly CastleStat[] = ['hp', 'atk', 'def', 'pen', 'mres'] as const;
+
+/**
+ * ⭐ HIS (S192): *"whatever amount of defense it currently has just give it the same amount of magic
+ * resistance"* — the keep STARTS with MRES equal to its starting DEF. An un-bought keep's DEF level is 0
+ * (`emptyCastleUpgrades`), so its starting MRES level is 0 too. From there the two axes are bought apart.
+ */
+export const CASTLE_BASE_MRES_LEVEL = 0;
 
 /**
  * ⭐ HIS PRICE, matching the regen upgrade exactly: *"each a hundred victory points"*.
@@ -99,11 +115,13 @@ export interface CastleUpgrades {
   readonly atkLevel: number;
   readonly defLevel: number;
   readonly penLevel: number;
+  /** ⭐ S192 — bought MAGIC RESISTANCE points. A DEF purchase never moves this, nor this DEF. */
+  readonly mresLevel: number;
 }
 
 /** A seat that has bought nothing. The correct opening value and the correct pre-S187 default. */
 export function emptyCastleUpgrades(): CastleUpgrades {
-  return { hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0 };
+  return { hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0, mresLevel: 0 };
 }
 
 /** The level on a given axis, for the cap check and the HUD. */
@@ -117,6 +135,8 @@ export function castleLevelOf(u: CastleUpgrades, stat: CastleStat): number {
       return u.defLevel;
     case 'pen':
       return u.penLevel;
+    case 'mres':
+      return u.mresLevel;
   }
 }
 
@@ -145,6 +165,8 @@ export function withCastlePurchase(
       return { ...u, defLevel: u.defLevel + 1 };
     case 'pen':
       return { ...u, penLevel: u.penLevel + 1 };
+    case 'mres':
+      return { ...u, mresLevel: u.mresLevel + 1 };
   }
 }
 
@@ -186,6 +208,24 @@ export function castleDamageAfterDefence(amount: number, u: CastleUpgrades): num
   return Math.max(1, reduced);
 }
 
+/**
+ * ⭐ S192 — the keep's MAGIC RESISTANCE level: its starting MRES (= its starting DEF) plus bought MRES.
+ * A bought DEF point does NOT raise it (his ruling: the axes are bought apart).
+ */
+export function castleMresLevelOf(u: CastleUpgrades): number {
+  return CASTLE_BASE_MRES_LEVEL + u.mresLevel;
+}
+
+/**
+ * ⭐ S192 — MAGIC damage this castle actually takes: the SAME incoming ratio DEF applies to physical,
+ * with MRES in DEF's place — `floor(amount × 5 / (5 + mres))`, never below 1 on a real hit.
+ */
+export function castleMagicDamageAfterResist(amount: number, u: CastleUpgrades): number {
+  if (amount <= 0) return 0;
+  const reduced = Math.floor((amount * FIFTHS) / (FIFTHS + castleMresLevelOf(u)));
+  return Math.max(1, reduced);
+}
+
 /** For the HUD: what the next purchase on this axis would buy, in the player's own words. */
 export function castleUpgradePreview(
   u: CastleUpgrades,
@@ -209,6 +249,9 @@ export function castleUpgradePreview(
     case 'def':
       // The honest phrasing: DEF is a ratio, so it is a percentage the player can act on.
       return `-${Math.round((1 - FIFTHS / (FIFTHS + u.defLevel + 1)) * 100)}% TAKEN`;
+    case 'mres':
+      // ⚠ MINE (wording) — DEF's own phrasing, naming the class it defends against.
+      return `-${Math.round((1 - FIFTHS / (FIFTHS + castleMresLevelOf(u) + 1)) * 100)}% MAGIC`;
   }
 }
 

@@ -646,7 +646,7 @@ export const CASTLE_ROW_KEYS = [
   // canon §3d pins the four stat rows directly under REGEN, so it cannot go at the bottom.
   'fixAll',
   'buyGatherer', 'upgradeSpeed', 'castleRegen',
-  'castleHp', 'castleAtk', 'castleDef', 'castlePen',
+  'castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres',
 ] as const;
 
 /** One control row's key. The union `activate` switches over exhaustively. */
@@ -665,6 +665,8 @@ export const CASTLE_STAT_ROWS: ReadonlyArray<{
   { key: 'castleAtk', stat: 'atk', word: 'ATK' },
   { key: 'castleDef', stat: 'def', word: 'DEF' },
   { key: 'castlePen', stat: 'pen', word: 'PEN' },
+  // ⭐ S192 (owner) — *"either defense or resistance"*: MRES beside DEF's siblings, same price and cap.
+  { key: 'castleMres', stat: 'mres', word: 'MRES' },
 ];
 
 /**
@@ -1358,7 +1360,8 @@ export class CastlePanel {
       case 'castleHp':
       case 'castleAtk':
       case 'castleDef':
-      case 'castlePen': {
+      case 'castlePen':
+      case 'castleMres': {
         const onStat = this.onCastleStat;
         const row = CASTLE_STAT_ROWS.find((r) => r.key === key);
         if (onStat === null || row === undefined) return null;

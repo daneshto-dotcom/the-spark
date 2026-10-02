@@ -48,6 +48,7 @@ import { mix32 } from '../rng.ts';
 import { getDefenderConfig, makeDefender, type Defender, type DefenderConfig, type DefenderKind } from './defender.ts';
 import { stepDefenderWalk, freezeDefender, distSq, clampPointIntoPlayfield } from './defenderMotion.ts';
 import { ownSetAtRegistration } from '../towerMembers.ts';
+import { recordTowerBuilt } from '../matchStats.ts'; // ⭐ S191
 
 /** Action shapes — exported so world.ts can compose GameAction. */
 export interface RegisterDefenderAction {
@@ -94,6 +95,12 @@ export function applyRegisterDefender(world: World, action: RegisterDefenderActi
         action.ownPrimitiveIds ?? ownSetAtRegistration(world, action.recipeId, action.anchorPrimitiveId),
     }),
   );
+  /*
+   * ⭐ S191 — the stat board's TOWERS. ⚠ MINE: HELGA (`'princess'`) is not counted — she is a unit with a pool
+   * that her hall re-summons every BUILD after she dies, so counting her would score one hall as a new tower
+   * (and a fallen one) every wave. Turrets and stink towers count; spawners count at their own register.
+   */
+  if (action.defenderKind !== 'princess') recordTowerBuilt(world, action.ownerPlayerId);
   return world;
 }
 
@@ -495,9 +502,12 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
           d.lastStrikePos = { x: victim.pos.x, y: victim.pos.y };
           if (d.kind === 'stinkTower') {
             // S141 P1 — a STINK TOWER lobs a bag that SPLASHES at the target's position, rather than
-            // dealing the shared single-target hit. It spends a bag; when the magazine is empty the
-            // throw simply does not happen and the tower falls through to its depleted aura (handled
-            // above, before the FSM). Note the splash is what makes it a structure-breaker: unlike the
+            // dealing the shared single-target hit. ⭐ S161 P3 (BUG-2, owner: *"continuously throw out
+            // poop bags throughout the fight stage"*) — it throws for the WHOLE fight: an empty magazine
+            // does NOT stop the throw. The count still walks 5 → 0 and, once dry, only flips the tower to
+            // taunting and decays its death blast (`stinkThrowBag`'s docblock; `stinkReload.test.ts`).
+            // (This comment said "when the magazine is empty the throw simply does not happen" until S193.)
+            // Note the splash is what makes it a structure-breaker: unlike the
             // turret beam it damages primitives, so it can chew an enemy build rather than only its
             // units.
             stinkThrowBag(world, d, d.lastStrikePos, applyRadialDamage);
@@ -523,6 +533,7 @@ export function applyDefenderTick(world: World, action: DefenderTickAction): Wor
               attackFifths(config.atk, config.pen),
               'defender',
               { kind: 'defender', id: d.id },
+              'physical', // S192 — a beam and a slap are physical (R192-M3)
             );
           }
         }

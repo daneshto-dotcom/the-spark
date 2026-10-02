@@ -29,6 +29,7 @@ import {
 } from '../constants.ts';
 import { damageEntity } from './damage.ts';
 import { dotDueThisTick } from './damageOverTime.ts';
+import { dotBeat, magicDot } from './magicResist.ts';
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { unitPoolFifths } from './stats.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
@@ -212,7 +213,10 @@ export function runZombieRotAura(world: World): void {
      * rather than `null` keeps the attribution honest and leaves the decision in one place.
      */
     for (const id of victims) {
-      damageEntity(world, { kind: 'creature', id }, 1, 'aura', { kind: 'creature', id: bossId });
+      // ⭐ S192 (R192-M2) — the ROT is MAGIC, a DoT tick rescaled over the victim's own beats.
+      const victim = world.creatures.get(id);
+      const beat = victim === undefined ? 0 : dotBeat(world.tick, id as number, victim.type, ZOMBIE_AURA_PER_MILLE);
+      damageEntity(world, { kind: 'creature', id }, 1, 'aura', { kind: 'creature', id: bossId }, magicDot(beat));
     }
   }
 }

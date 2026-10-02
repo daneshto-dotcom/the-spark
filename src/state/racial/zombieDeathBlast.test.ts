@@ -97,7 +97,7 @@ function killBossAndBlast(w: World, boss: Creature, before?: (w: World) => void)
   const st = makeHostTickState(w);
   runHostTick(w, d, st);
   w.pendingCreatureDeaths = null;
-  damageEntity(w, { kind: 'creature', id: boss.id }, 100_000, 'player', null);
+  damageEntity(w, { kind: 'creature', id: boss.id }, 100_000, 'player', null, 'physical');
   before?.(w);
   runHostTick(w, d, st);
 }

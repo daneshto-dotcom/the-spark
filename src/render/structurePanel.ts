@@ -42,6 +42,8 @@ import { bankCountOf } from '../state/castleBank.ts';
 // `registerRecipe` at its tail, and the documented S144 trap is that a value import of a recipe
 // module registers every recipe for everything downstream of it. `goblinKinds.ts` exists for this.
 import { GOBLIN_FEED_MAP, seatFeedTowerAt } from '../state/goblinKinds.ts';
+// ⭐ S193 (T4) — the toggle's read; a pure helper over the synced spawner.
+import { isAutoFed } from '../state/spawners/spawner.ts';
 // S166 — the tier-3 feed rule, from the same side-effect-free leaves the note above requires.
 import { RACE_FEED_SHAPE } from '../state/races.ts';
 import { T3_SHORT_NAME, raceForTowerId } from '../state/raceTowerIds.ts';
@@ -125,6 +127,12 @@ export interface StructureButtonGeom {
   readonly kind: StructureActionKind;
   /** Set on FEED buttons only — which shape this button hands to the tower. */
   readonly sparkType?: SparkType;
+  /**
+   * ⭐ S193 (owner T4) — set on a GOBLIN TOWER's feed chips only: is this shape's auto-build toggle on
+   * (`true`) or off (`false`)? `undefined` = not toggleable (FIX, SCRAP, a race tower's chip). The card
+   * draws the lit cue and the right-click hit test reads it off the same laid-out slot.
+   */
+  readonly autoFeed?: boolean;
   /** The big word. */
   readonly label: string;
   /** The small line under it — the cost, the refund, or the reason it is refused. */
@@ -341,9 +349,12 @@ export function structureActionModel(
       // count that also included the porch would show a feedable 1 and then be refused with no
       // explanation. The panel must count what the reducer counts.
       const held = bankCountOf(world.castleBanks, seat, type);
+      // ⭐ S193 (T4) — the auto-build toggle, read off the synced spawner. Goblin tower only (⚠ MINE).
+      const sp = feedRace === null ? world.creatureSpawners.get(feed.spawnerId) : undefined;
       buttons.push({
         kind: 'FEED',
         sparkType: type,
+        ...(sp !== undefined ? { autoFeed: isAutoFed(sp, type) } : {}),
         label: '',           // the glyph IS the label — see the renderer
         caption: feedRace === null
           ? (GOBLIN_SHORT_NAME[GOBLIN_FEED_MAP[type]] ?? '?')

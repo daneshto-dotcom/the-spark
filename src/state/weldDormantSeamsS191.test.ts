@@ -115,7 +115,7 @@ describe('⭐ S191 census — a WRATH / POWER OF RA column does not touch a DORM
     const hub = hall(w, st);
     crossPhase(w, st); // → FIGHT
     const h = helga(w)!;
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null), 'the blow kills').toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, h.ehp!, 'creature', null, 'physical'), 'the blow kills').toBe(true);
     expect(helga(w)?.state).toBe('DORMANT');
     /*
      * Stand the dormant record FAR from her hall, so the column's CONNECTOR arm cannot reach the hall

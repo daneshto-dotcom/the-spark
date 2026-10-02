@@ -27,6 +27,7 @@ import { dispatch, isNetworked } from './world.ts';
 import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
+import { resetMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
 
@@ -303,6 +304,7 @@ export function softReset(world: World, extras: GameStateExtras): void {
   // S15 P2: per-player score reset; keep keyed entries (player roster
   // unchanged by softReset).
   for (const pid of world.scoreByPlayer.keys()) world.scoreByPlayer.set(pid, 0);
+  resetMatchStats(world); // ⭐ S191 — a fresh PLAYING world starts a fresh stat board
   for (const player of world.players.values()) {
     player.buildActions = 0;
     player.disruptionCharges = 0;

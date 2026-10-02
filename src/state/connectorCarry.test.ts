@@ -102,7 +102,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
   it('⭐ canon §2: a 150 on a fresh 5-connector tower fells ALL FIVE — 50, 36, 24, 14, 6 — and the last 20 has nothing to land on', () => {
     const w = board();
     const { bonds } = star(w, 500, 400);
-    expect(damageConnector(w, bonds[0]!, 150, null)).toBe(true);
+    expect(damageConnector(w, bonds[0]!, 150, null, 'physical')).toBe(true);
     expect(severWithCarry(w, bonds[0]!, sever(w)), 'connectors felled').toBe(5);
     expect(bonds.filter((b) => w.bonds.has(b))).toEqual([]);
     // Each felling hit, as `connectorBreakHits` records it: the 150, then what is left after each pool.
@@ -112,7 +112,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
   it('⭐ a 100 fells TWO (50, 36) and banks the remaining 14 on the three survivors', () => {
     const w = board();
     const { bonds } = star(w, 500, 400);
-    expect(damageConnector(w, bonds[0]!, 100, null)).toBe(true);
+    expect(damageConnector(w, bonds[0]!, 100, null, 'physical')).toBe(true);
     expect(severWithCarry(w, bonds[0]!, sever(w))).toBe(2);
     const standing = bonds.filter((b) => w.bonds.has(b));
     expect(standing).toHaveLength(3);
@@ -123,7 +123,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
   it('a hit EXACTLY one pool fells one and carries nothing', () => {
     const w = board();
     const { bonds } = star(w, 500, 400);
-    expect(damageConnector(w, bonds[0]!, 50, null)).toBe(true);
+    expect(damageConnector(w, bonds[0]!, 50, null, 'physical')).toBe(true);
     expect(severWithCarry(w, bonds[0]!, sever(w))).toBe(1);
     const standing = bonds.filter((b) => w.bonds.has(b));
     expect(standing).toHaveLength(4);
@@ -133,7 +133,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
   it('negative — a small hit fells nothing and carries nothing extra: it simply banks', () => {
     const w = board();
     const { bonds } = star(w, 500, 400);
-    expect(damageConnector(w, bonds[0]!, 12, null)).toBe(false);
+    expect(damageConnector(w, bonds[0]!, 12, null, 'physical')).toBe(false);
     expect(bonds.every((b) => w.bonds.has(b))).toBe(true);
     expect(banked(w, bonds)).toBe(12);
   });
@@ -148,7 +148,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
     const tieLow = link(w, hub, prim(w, P0, SparkType.Square, 500, 360));
     const next = link(w, hub, prim(w, P0, SparkType.Square, 540, 420));
     const order: BondId[] = [];
-    damageConnector(w, struck, 150, null);
+    damageConnector(w, struck, 150, null, 'physical');
     severWithCarry(w, struck, (id) => { order.push(id); sever(w)(id); });
     // struck mid (520, 400): next (520, 410) d²=100; tieHigh (500, 420) and tieLow (500, 380) d²=800
     // each — the lower id first; far (450, 400) d²=4900.
@@ -158,7 +158,7 @@ describe('⭐⭐ S191 (owner) — overkill carries through the real damageConnec
   it('a sever the reducer REFUSES stops the carry — nothing is felled past a connector that stood', () => {
     const w = board();
     const { bonds } = star(w, 500, 400);
-    damageConnector(w, bonds[0]!, 150, null);
+    damageConnector(w, bonds[0]!, 150, null, 'physical');
     expect(severWithCarry(w, bonds[0]!, () => { /* refused: nothing happens */ })).toBe(0);
     expect(bonds.every((b) => w.bonds.has(b))).toBe(true);
   });

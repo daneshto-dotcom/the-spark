@@ -85,6 +85,9 @@ export const THE_RISEN_ANY_SEAT_UNIT = false;
 export function riseOnKill(world: World, victim: Creature, credit: KillCredit): void {
   if (credit === null) return;
   if (credit.seat === victim.ownerPlayerId) return; // an ENEMY kill only — his own units never raise
+  // ⭐ S193 — a SEAT credit (castle gun, raid, Ra, scorch, hub, tower: `type: null`) raises nobody, under
+  // Reading A AND with the lever on — the stat board's credit must never become a sim rule.
+  if (credit.type === null) return;
   if (!THE_RISEN_ANY_SEAT_UNIT && !isZombieRacialType(credit.type)) return;
   const seat = world.players.get(credit.seat);
   if (seat === undefined || !seatHoldsPerk(seat, 'zombies.l0')) return;

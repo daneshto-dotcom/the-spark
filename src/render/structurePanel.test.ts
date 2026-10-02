@@ -83,8 +83,8 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
   it("SCRAP's caption is the SURVIVOR count — R21 stated to the player, not the bill", () => {
     const w = setup();
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 7');
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature', null);
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 3) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 5) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
     expect(structureActionModel(w, P0, nodeId(w, 0))!.buttons[1].caption).toBe('RETURNS 5');
   });
 
@@ -96,8 +96,8 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
    */
   it('FIX prices the bill whatever the bank holds; NO GATHERERS without a carrier; QUEUED once clicked', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature', null);
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 1) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, PRIMITIVE_MAX_HP, 'creature', null, 'physical');
 
     const alone = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(alone.enabled, 'nobody to carry it').toBe(false);
@@ -130,7 +130,7 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
    */
   it('chip damage alone COSTS ONE SHAPE (was: REPAIR FREE)', () => {
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null); // ⭐ S177 P1 — chip damage on the 70-fifth scale
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null, 'physical'); // ⭐ S177 P1 — chip damage on the 70-fifth scale
     hire(w); // S193 R191-B — the fee is fetched by a gatherer, not paid from the bank on the spot
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);
@@ -141,7 +141,7 @@ describe('structureActionModel — the FIX / SCRAP popover', () => {
     // ⭐ S193 R191-B — RE-PINNED from "NEED 1 MORE": the bank is one of two sources now. `setup`
     // spends the exact bill, so the bank is empty here; the FIX is still offered at its one-shape price.
     const w = setup();
-    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null);
+    damageEntity(w, { kind: 'primitive', id: nodeId(w, 2) }, 30, 'creature', null, 'physical');
     hire(w);
     const fix = structureActionModel(w, P0, nodeId(w, 0))!.buttons[0];
     expect(fix.enabled).toBe(true);

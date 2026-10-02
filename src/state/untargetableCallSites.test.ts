@@ -84,6 +84,11 @@ const rel = (p: string): string => p.slice(SRC.length + 1).split('\\').join('/')
  * A.0 sweep — this list is a set of VERDICTS, not a set of exemptions.
  */
 const NOT_ACQUISITION: Readonly<Record<string, string>> = {
+  'state/magicResistCue.ts':
+    'S192 — PRESENTATIONAL MIRROR OF AREA DoTs, never a pick. It asks whether a magic DoT beat (rot, ' +
+    'Scorched Ground, stink aura/cloud) landed 0 on a creature, to print a RESIST floater; its enemy ' +
+    'scan finds the zombie boss whose AURA covers the creature, exactly as the area effect it mirrors ' +
+    'does (`bossSkills.ts`, already a verdict here). Read-only; gating it would hide a real resist.',
   'state/racial/zombieDeathBlast.ts':
     'S192 T3 — AREA. The zombie boss death blast splits one pool over EVERYTHING in its radius (the ' +
     'ownership filter is the optional `spare` seat, off by default — R138 *"hurting everything"*). It ' +

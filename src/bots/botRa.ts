@@ -56,7 +56,16 @@ interface Target {
 }
 
 /** The CAST_POWER_OF_RA a bot seat should send THIS tick, or null. Pure; never mutates the world. */
-export function botRaAction(world: World, seat: PlayerId): GameAction | null {
+export function botRaAction(
+  world: World,
+  seat: PlayerId,
+  /**
+   * ⭐ S193 (R193-AI) — a `raAim: 'front'` personality passes its raid target here, and the candidate
+   * order and tie-break below rank aims near THAT seat's castle instead of its own. Null / omitted = the
+   * pre-S193 "defend first" ranking, byte for byte. ⚠ MINE (spec §2).
+   */
+  focusSeat: PlayerId | null = null,
+): GameAction | null {
   const s = seat as unknown as number;
   if (world.tick % BOT_RA_EVAL_EVERY_TICKS !== s % BOT_RA_EVAL_EVERY_TICKS) return null;
   if (raCastRefusal(world, seat) !== null) return null;
@@ -79,7 +88,7 @@ export function botRaAction(world: World, seat: PlayerId): GameAction | null {
     .map((b) => ({ id: b.id as unknown as number, x: (b.a.pos.x + b.b.pos.x) / 2, y: (b.a.pos.y + b.b.pos.y) / 2 }));
   const targets = [...creatures, ...bonds];
   if (targets.length === 0) return null;
-  const home = castleAnchor(s, world.layout);
+  const home = castleAnchor(focusSeat === null ? s : (focusSeat as unknown as number), world.layout);
   // S190 L1-06 — nearest the castle first, then id: a total order, so the slice is deterministic.
   const d2Home = (t: Target): number => (t.x - home.x) ** 2 + (t.y - home.y) ** 2;
   const nearestFirst = (list: readonly Target[]): Target[] =>

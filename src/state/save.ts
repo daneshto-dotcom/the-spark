@@ -81,7 +81,7 @@ import type { Rainbow } from './rainbow.ts';
 import type { Poop, PoopState, Seagull } from './seagulls/seagull.ts';
 // S158 P6 — landed stink bags ride the snapshot; the factory keeps rehydration total.
 import { makeStinkCloud, type StinkCloud } from './defenders/stinkCloud.ts';
-import { makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
+import { AUTO_FEED_ALL_MASK, AUTO_FEED_SHAPE_COUNT, makeSpawner, type CreatureSpawner } from './spawners/spawner.ts';
 import {
   makeDefender,
   type Defender,
@@ -100,6 +100,7 @@ import { makeCastleBank } from './castleBank.ts';
 // Test paths that never load audioManager treat triggerReset() as a no-op
 // (single-slot handler stays null), preserving the audit-safe semantics.
 import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
+import { applySerializedHistory, applySerializedSeats, serializeMatchStats, trimMatchStatsForNet, type SerializedMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const PHYSICS_DT = 1 / 60;
 
@@ -147,6 +148,13 @@ export interface WorldSnapshot {
   currentPlayerId?: PlayerId;
   /** S15 P2 — per-player score tuples. Optional for pre-S15 compat. */
   scoreByPlayer?: Array<readonly [PlayerId, number]>;
+  /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD (`matchStats.ts`). ADDITIVE-OPTIONAL: absent while every counter
+   * is zero, so an opening snapshot stays byte-identical. `seats` rides every snapshot; `history` rides the
+   * full local form always and the NET form only inside its window and through WIN/POSTGAME
+   * (`trimMatchStatsForNet`). INERT — no reducer reads it — so a peer that drops the key diverges on nothing.
+   */
+  matchStats?: SerializedMatchStats;
   /**
    * S28 P0 — Voltkin Phase 2D NetSnapshot v2 (Council Q1 UNANIMOUS A additive-
    * optional pattern; no schemaVersion bump per S15 P2 precedent). Host
@@ -318,6 +326,12 @@ export interface WorldSnapshot {
   /** S158 P6 — landed stink bags. Additive-optional: omitted when empty (byte-identical pre-S158). */
   stinkClouds?: SerializedStinkCloud[];
   fouledPrimitives?: PrimitiveId[];
+  /**
+   * ⭐ S193 (owner T4) — remembered goblin-tower toggles keyed by anchor (`World.goblinAutoFeedMemory`).
+   * HOST-ONLY: disk + worker INIT; stripped from the wire by `netSnapshot` (a client never registers a
+   * spawner). Emitted only when non-empty, sorted by anchor.
+   */
+  goblinAutoFeedMemory?: Array<{ anchor: PrimitiveId; owner: PlayerId; mask: number; cursor: number }>;
   /**
    * S87 — seats occupied by AI bots in 'bots' mode. Additive-optional
    * (creature precedent; NO schemaVersion bump): emitted only when non-empty,
@@ -524,6 +538,8 @@ interface SerializedPlayer {
     readonly atkLevel: number;
     readonly defLevel: number;
     readonly penLevel: number;
+    /** ⭐ S192 — bought MAGIC RESISTANCE; emitted only when > 0, so every pre-S192 save loads unchanged. */
+    readonly mresLevel?: number;
   };
   /**
    * ⭐ S188 — ENDLESS DYNASTY's running castle-HP loss (`Player.dynastyHpLost`). Additive-optional and
@@ -979,6 +995,9 @@ interface SerializedSpawner {
    * weld. Additive-optional (emitted when known); absent ⇒ `null` (a pre-S189 save).
    */
   readonly ownPrimitiveIds?: readonly PrimitiveId[];
+  /** ⭐ S193 (T4) — the auto-build toggles + round-robin cursor. RIDE THE WIRE; emitted only when ≠ 0. */
+  readonly autoFeedMask?: number;
+  readonly autoFeedCursor?: number;
 }
 
 /**
@@ -1208,6 +1227,7 @@ export function snapshot(
     // Slot retained on WorldSnapshot as ignored-optional for back-compat
     // (Council R1 Battle Ledger row 2). New saves omit it entirely.
     scoreByPlayer: [...world.scoreByPlayer.entries()],
+    matchStats: serializeMatchStats(world.matchStats), // ⭐ S191 — undefined when empty (byte-identical)
     // S28 P0 — NetSnapshot v2: only emit `creatures` when non-empty so pre-S28
     // saves stay byte-identical (the field stays `undefined` and is dropped by
     // JSON.stringify). Host always emits; clients never read this for serialize
@@ -1300,6 +1320,12 @@ export function snapshot(
         ? [...world.stinkClouds.values()].map(serializeStinkCloud)
         : undefined,
     fouledPrimitives: world.fouledPrimitives.size > 0 ? [...world.fouledPrimitives] : undefined,
+    // ⭐ S193 T4 — host-only (stripped in `netSnapshot`); absent when empty, so every other save is unchanged.
+    goblinAutoFeedMemory: world.goblinAutoFeedMemory.size > 0
+      ? [...world.goblinAutoFeedMemory.entries()]
+          .sort((a, b) => Number(a[0]) - Number(b[0]))
+          .map(([anchor, m]) => ({ anchor, owner: m.owner, mask: m.mask, cursor: m.cursor }))
+      : undefined,
     // S87 — emit bot seats only when present (byte-identical pre-S87 + on the wire,
     // where bots can never exist).
     botSeats: world.botSeats.size > 0 ? [...world.botSeats].map((p) => p as number) : undefined,
@@ -1342,11 +1368,22 @@ export function restore(snap: WorldSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, true); // ⭐ S191 — a save IS the whole history
   // restore() owns host-only fields (savedAt is informational only; rngSeed
   // + nextPrimitiveId/nextBondId are absent in NetSnapshot but present here).
   world.rngSeed = snap.rngSeed;
   world.nextPrimitiveId = snap.nextPrimitiveId;
   world.nextBondId = snap.nextBondId;
+  // ⭐ S193 T4 — host-only remembered toggles (disk + worker INIT). Sanitised like the spawner fields.
+  world.goblinAutoFeedMemory.clear();
+  for (const m of snap.goblinAutoFeedMemory ?? []) {
+    const cursor = m.cursor | 0;
+    world.goblinAutoFeedMemory.set(m.anchor, {
+      owner: m.owner,
+      mask: (m.mask | 0) & AUTO_FEED_ALL_MASK,
+      cursor: cursor >= 0 && cursor < AUTO_FEED_SHAPE_COUNT ? cursor : 0,
+    });
+  }
   // Audit Pass 1 fix 3c8630d7 + Pass 2 refactor 622a7c7f: see import comment.
   // world.tick was just set by applySnapshotCore to the persisted value, which
   // may be lower than the audio cursor's prior maximum. Reset so audio effects
@@ -1364,6 +1401,8 @@ export type NetSnapshot = Omit<
   // S82 P2 — 'spawner' joins the host-only omission list (rngSeed precedent: the spawner
   // stream words are the spawn schedule — never ship them to clients).
   'savedAt' | 'rngSeed' | 'nextPrimitiveId' | 'nextBondId' | 'spawner'
+  // ⭐ S193 T4 — remembered goblin-tower toggles are host-only (a client never registers a spawner).
+  | 'goblinAutoFeedMemory'
 >;
 
 /**
@@ -1380,9 +1419,10 @@ export function netSnapshot(world: World): NetSnapshot {
     // S82 P2 — defense-in-depth: snapshot(world) without opts never emits 'spawner',
     // but if a future call path ever does, the destructure still strips it off the wire.
     spawner: _spawner,
+    goblinAutoFeedMemory: _goblinAutoFeedMemory, // ⭐ S193 T4 — host-only
     ...rest
   } = full;
-  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner;
+  void _savedAt; void _rngSeed; void _nextPrimitiveId; void _nextBondId; void _spawner; void _goblinAutoFeedMemory;
   // S100 P1 (TD Phase 1a) — strip the HOST-SAVE-ONLY persistent chewer fields from the
   // wire (TOWER_DEFENSE_DESIGN.md §3.3/§3.5 R1+R3).
   // ⚠ AMENDED S134 — the stripped set is now `targetCreatureId` ONLY. `hp`/`chewProgress`/
@@ -1408,6 +1448,10 @@ export function netSnapshot(world: World): NetSnapshot {
   if (rest.creatureSpawners !== undefined) {
     rest.creatureSpawners = rest.creatureSpawners.map(trimMirrorSpawner);
   }
+  // ⭐ S191 — the stat board's HISTORY rides the net form only inside its window and through WIN/POSTGAME;
+  // the running totals always do. Not a strip at the wire boundary, deliberately: the worker->main mirror
+  // wants exactly what a peer wants, and gets the whole history again at every wave edge.
+  if (rest.matchStats !== undefined) rest.matchStats = trimMatchStatsForNet(rest.matchStats, world);
   // ⛔ S182 — `prevPos` IS **NOT** STRIPPED HERE. IT IS STRIPPED AT THE WIRE BOUNDARY.
   // See `stripWirePrevPos` below for why this distinction is load-bearing, and what breaks when the
   // strip lives in this function instead.
@@ -1655,6 +1699,7 @@ export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
     throw new Error(`unsupported schemaVersion ${snap.schemaVersion}`);
   }
   applySnapshotCore(snap, world);
+  applySerializedHistory(world, snap.matchStats, false); // ⭐ S191 — absent outside its window: keep
 }
 
 /** Shared apply logic for restore() and applyNetSnapshot(). */
@@ -1681,6 +1726,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   if (snap.scoreByPlayer !== undefined) {
     for (const [pid, score] of snap.scoreByPlayer) world.scoreByPlayer.set(pid, score);
   }
+  applySerializedSeats(world, snap.matchStats); // ⭐ S191 — running totals: replaced every snapshot
 
   world.freeSparks.clear();
   world.primitives.clear();
@@ -2058,6 +2104,7 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
             atkLevel: Math.max(0, Math.trunc(p.castleUpgrades.atkLevel)),
             defLevel: Math.max(0, Math.trunc(p.castleUpgrades.defLevel)),
             penLevel: Math.max(0, Math.trunc(p.castleUpgrades.penLevel)),
+            mresLevel: Math.max(0, Math.trunc(p.castleUpgrades.mresLevel ?? 0)),
           };
     const base = {
       id: p.id,
@@ -2315,8 +2362,13 @@ function serializePlayer(p: Player): SerializedPlayer {
     ...(p.castleUpgrades.hpLevel > 0 ||
     p.castleUpgrades.atkLevel > 0 ||
     p.castleUpgrades.defLevel > 0 ||
-    p.castleUpgrades.penLevel > 0
-      ? { castleUpgrades: { ...p.castleUpgrades } }
+    p.castleUpgrades.penLevel > 0 ||
+    p.castleUpgrades.mresLevel > 0
+      ? {
+          // ⭐ S192 — `mresLevel` only when bought, so a keep that bought only the S187 axes
+          // serializes byte-for-byte as it did before S192.
+          castleUpgrades: (({ mresLevel, ...rest }) => (mresLevel > 0 ? { ...rest, mresLevel } : rest))(p.castleUpgrades),
+        }
       : {}),
     // ⭐ S188 — ENDLESS DYNASTY's running loss, emitted only once the seat has lost something with
     // the perk held, so every other seat stays byte-identical to a v49 snapshot.
@@ -2473,6 +2525,9 @@ function serializeSpawner(sp: CreatureSpawner): SerializedSpawner {
     ignitedAtTick: sp.ignitedAtTick,
     // S189 C2 / S191 — identity, emitted when known (additive-optional).
     ...(sp.ownPrimitiveIds != null ? { ownPrimitiveIds: [...sp.ownPrimitiveIds] } : {}),
+    // ⭐ S193 (T4) — emitted only when set, so every untoggled tower stays byte-identical.
+    ...(sp.autoFeedMask ? { autoFeedMask: sp.autoFeedMask } : {}),
+    ...(sp.autoFeedCursor ? { autoFeedCursor: sp.autoFeedCursor } : {}),
   };
 }
 
@@ -2491,6 +2546,10 @@ function trimMirrorSpawner(s: SerializedSpawner): SerializedSpawner {
     recipeId: s.recipeId,
     // ⭐ S189 C2 — KEPT on the wire: it is identity, not a clock (see SerializedSpawner).
     ...(s.ownPrimitiveIds !== undefined ? { ownPrimitiveIds: s.ownPrimitiveIds } : {}),
+    // ⭐ S193 (T4) — KEPT on the wire: the client draws the lit toggle off the mask, and the cursor
+    // rides with it so a promoted host keeps the round-robin (Council G1).
+    ...(s.autoFeedMask !== undefined ? { autoFeedMask: s.autoFeedMask } : {}),
+    ...(s.autoFeedCursor !== undefined ? { autoFeedCursor: s.autoFeedCursor } : {}),
   };
 }
 
@@ -2539,6 +2598,13 @@ function deserializeSpawner(s: SerializedSpawner, tick: number): CreatureSpawner
   // Restore them when the payload carried them, so an authority handoff is lossless.
   if (s.lastValidatedTick !== undefined) sp.lastValidatedTick = s.lastValidatedTick;
   if (s.spawnedCount !== undefined) sp.spawnedCount = s.spawnedCount;
+  // ⭐ S193 (T4) — sanitised, never trusted: six bits and a cursor in 0..5, so a malformed peer
+  // payload cannot mint a seventh shape or an out-of-range cursor.
+  if (s.autoFeedMask !== undefined) sp.autoFeedMask = (s.autoFeedMask | 0) & AUTO_FEED_ALL_MASK;
+  if (s.autoFeedCursor !== undefined) {
+    const c = s.autoFeedCursor | 0;
+    sp.autoFeedCursor = c >= 0 && c < AUTO_FEED_SHAPE_COUNT ? c : 0;
+  }
   return sp;
 }
 
