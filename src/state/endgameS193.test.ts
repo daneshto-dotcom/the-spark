@@ -16,7 +16,6 @@ import {
   MEGA_PANTS_AFTER_TICKS,
   MEGA_PANTS_STATS,
   MONSTER_BIRTH_RADIUS_PX,
-  MONSTER_EMERGE_TICKS,
   MONSTER_HOLD_LEAD_TICKS,
   PHYSICS_HZ,
   PLAYER_COLORS,
@@ -39,7 +38,7 @@ import {
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
-import { isMonsterFightHeld, megaPantsDue, monstersLeftToComeOut, monstersPerSeatForWave } from './endgame.ts';
+import { isMonsterFightHeld, megaPantsDue, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
 import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
@@ -138,14 +137,15 @@ function link(w: World, a: Primitive, b: Primitive): BondId {
 /* ══════════════════════════════════════════ HIS PACE ══════════════════════════════════════════ */
 
 describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a chunk', () => {
-  it('no two pants are born on one tick; each lane gets one every EMERGE ticks, born on the rim facing its keep', () => {
+  it('no two pants are born on one tick; each lane spreads its wave EVENLY over HIS window (R194-17), born on the rim facing its keep', () => {
     const world = board(2);
     toFightEdge(world, 28);
     unkillable(world);
     const d = deps();
     const st = makeHostTickState(world);
     const bornAt = new Map<number, { tick: number; seat: PlayerId | undefined; x: number; y: number }>();
-    for (let t = 0; t < 25 * MONSTER_EMERGE_TICKS + 10; t++) {
+    const W = pantsWindowTicks(28); // ⭐ S194 R194-17 — 45 s, HIS
+    for (let t = 0; t < W + 10; t++) {
       runHostTick(world, d, st);
       for (const c of pants(world)) {
         const id = c.id as unknown as number;
@@ -158,8 +158,12 @@ describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a c
     for (const seat of [P0, P1]) {
       const lane = [...bornAt.values()].filter((b) => b.seat === seat).map((b) => b.tick).sort((a, b) => a - b);
       expect(lane).toHaveLength(25);
-      for (let i = 1; i < lane.length; i++) expect(lane[i]! - lane[i - 1]!).toBe(MONSTER_EMERGE_TICKS);
+      // ⭐ S194 — was "every EMERGE (45) ticks". Now each lane every 2 × 2700 / 49 = 110.2 ticks: 110 or 111.
+      for (let i = 1; i < lane.length; i++) expect([110, 111]).toContain(lane[i]! - lane[i - 1]!);
     }
+    // the whole wave is out by the window's end, the last EXACTLY on it (first at the whistle)
+    const all = ticks.slice().sort((a, b) => a - b);
+    expect(all[all.length - 1]! - all[0]!).toBe(W);
     // born on the rim (20 px inside the 125 px circle), on the ray to the lane's keep
     const rim = monsterBirthPos(world, P1);
     expect(Math.round(Math.sqrt((rim.x - SPAWNER_CENTER_X) ** 2 + (rim.y - SPAWNER_CENTER_Y) ** 2))).toBe(MONSTER_BIRTH_RADIUS_PX);
@@ -186,33 +190,83 @@ describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a c
     restore(snapshot(world), joiner);
     expect(monstersLeftToComeOut(joiner)).toBe(left);
     expect(formatEndgameCue(joiner.matchPhase, joiner.waveNumber, monstersLeftToComeOut(joiner))).toBe(`PANTS LEFT TO COME OUT: ${left}`);
-    for (let t = 0; t < 20 * MONSTER_EMERGE_TICKS; t++) runHostTick(world, d, st);
+    for (let t = 0; t < pantsWindowTicks(27); t++) runHostTick(world, d, st); // ⭐ S194 — his 30 s window
     expect(monstersLeftToComeOut(world)).toBe(0);
     expect(monstersLeftToComeOut(board(2))).toBe(0); // outside a monster fight
   });
 
-  it('⚠ MINE (the hold): wave 30 runs past its 60 s while pants are still coming, then ends 10 s after the last', () => {
+  it('⭐⭐ S194 R194-17 — the fight length is PREDICTABLE: set at the whistle to window + 10 s, and the last pants comes out exactly at the window end', () => {
+    // Was "⚠ MINE (the hold): wave 30 runs past its 60 s while pants are still coming, then ends 10 s after
+    // the last" (an open-ended hold, lastDue = ceil(199 × 45 / 2) = 4478). His window (90 s at wave 30)
+    // fixes both numbers in advance: last pants at +5400, fight over at +6000 (⚠ MINE: + the old 10 s tail).
+    for (const wave of [27, 30]) {
+      const world = board(2);
+      toFightEdge(world, wave);
+      unkillable(world);
+      const d = deps();
+      const st = makeHostTickState(world);
+      runHostTick(world, d, st);
+      const start = world.monsterFightStartTick;
+      expect(start).toBeGreaterThan(0);
+      expect(world.phaseEndsAtTick - start, `wave ${wave}: the deadline is known at the whistle`).toBe(monsterFightTicks(wave));
+      const W = pantsWindowTicks(wave);
+      let lastBorn = -1;
+      let endedAt = -1;
+      const seen = new Set<number>();
+      for (let t = 0; t < monsterFightTicks(wave) + 30 && endedAt < 0; t++) {
+        runHostTick(world, d, st);
+        for (const p of pants(world)) {
+          if (!seen.has(p.id as unknown as number)) { seen.add(p.id as unknown as number); lastBorn = world.tick; }
+          // a defence that keeps up: the live cap never binds, so the window alone sets the pace
+          dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+        }
+        if (world.matchPhase === 'BUILD') endedAt = world.tick;
+      }
+      expect(seen.size, `wave ${wave}: every pants came out`).toBe(2 * monstersPerSeatForWave(wave));
+      expect(lastBorn - start, `wave ${wave}: the last pants at start + window`).toBe(W);
+      expect(world.waveNumber).toBe(wave + 1);
+      expect(endedAt - start).toBe(monsterFightTicks(wave));
+      expect(endedAt - start).toBe(Math.max(60 * PHYSICS_HZ, W + MONSTER_HOLD_LEAD_TICKS));
+      expect(world.monsterFightStartTick, 'cleared on leaving FIGHT').toBe(0);
+    }
+  });
+
+  it('⭐⭐ S194 R194-17 — REACH: wave 31, 250 a seat, ALL out by 120 s through the real host tick (and the fight goes on — his endless final)', () => {
     const world = board(2);
-    toFightEdge(world, 30);
+    toFightEdge(world, 31);
     unkillable(world);
     const d = deps();
     const st = makeHostTickState(world);
     runHostTick(world, d, st);
     const start = world.monsterFightStartTick;
-    expect(start).toBeGreaterThan(0);
-    // 200 pants over two lanes: the last is due ceil(199 × 45 / 2) = 4478 ticks in — past the 3600 fight
-    const lastDue = Math.ceil((199 * MONSTER_EMERGE_TICKS) / 2);
-    expect(lastDue).toBeGreaterThan(60 * PHYSICS_HZ);
-    let endedAt = -1;
-    for (let t = 0; t < lastDue + MONSTER_HOLD_LEAD_TICKS + 30 && endedAt < 0; t++) {
+    const W = pantsWindowTicks(31);
+    expect(W).toBe(120 * PHYSICS_HZ);
+    let maxPerTick = 0;
+    for (let t = 0; t < W; t++) {
+      const before = world.monsterWaveSpawned;
       runHostTick(world, d, st);
-      // a defence that keeps up: the live cap never binds, so the pace alone sets the hold
+      maxPerTick = Math.max(maxPerTick, world.monsterWaveSpawned - before);
       for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
-      if (world.matchPhase === 'BUILD') endedAt = world.tick;
     }
-    expect(world.waveNumber).toBe(31);
-    expect(endedAt - start).toBe(lastDue + MONSTER_HOLD_LEAD_TICKS);
-    expect(world.monsterFightStartTick, 'cleared on leaving FIGHT').toBe(0);
+    expect(world.tick - start).toBe(W);
+    expect(world.monsterWaveSpawned).toBe(2 * 250);
+    expect(monstersLeftToComeOut(world)).toBe(0);
+    expect(maxPerTick, 'one at a time, never a chunk').toBe(1);
+    // NEGATIVE: one tick short of the window, the last one is still to come
+    const w2 = board(2);
+    toFightEdge(w2, 31);
+    unkillable(w2);
+    const st2 = makeHostTickState(w2);
+    runHostTick(w2, d, st2);
+    for (let t = 0; t < W - 1; t++) {
+      runHostTick(w2, d, st2);
+      for (const p of pants(w2)) dispatch(w2, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+    }
+    expect(monstersLeftToComeOut(w2)).toBe(1);
+    // and the final fight is still HIS endless one: two seats alive, the clock never ends it
+    for (let t = 0; t < 30 * PHYSICS_HZ; t++) runHostTick(world, d, st);
+    expect(world.matchPhase).toBe('FIGHT');
+    expect(isMonsterFightHeld(world)).toBe(true);
   });
 
   it('NEGATIVE: an ordinary fight (wave 26) ends on its 60 s, held by nothing', () => {

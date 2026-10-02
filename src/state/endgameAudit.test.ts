@@ -9,7 +9,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  MONSTER_EMERGE_TICKS,
   MONSTER_MAX_LIVE_PER_SEAT,
   MONSTER_MAX_RELEASES_PER_TICK,
   MONSTER_HOLD_LEAD_TICKS,
@@ -25,7 +24,7 @@ import { mulberry32 } from './rng.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId } from '../types.ts';
 import { makeGameStateExtras } from './gameState.ts';
-import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut } from './endgame.ts';
+import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, pantsWindowTicks } from './endgame.ts';
 import { netSnapshot, wireNumberReplacer } from './save.ts';
 import { structuralSignature } from './workerSim.ts';
 import { formatEndgameCue } from '../render/ui.ts';
@@ -115,7 +114,9 @@ describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat',
     const d = deps();
     const st = makeHostTickState(w);
     const n = 20;
-    for (let t = 0; t < Math.ceil(((n - 1) * MONSTER_EMERGE_TICKS) / 2) + 1; t++) {
+    // ⭐ S194 R194-17 — his window: release 19 of 200 over 90 s is due floor(19 × 5400 / 199) = 515 ticks
+    // in (was ceil(19 × 45 / 2) = 428); + 1 for the tick that crosses into FIGHT. Exactly n by then, not n + 1.
+    for (let t = 0; t < Math.floor(((n - 1) * pantsWindowTicks(30)) / (2 * 100 - 1)) + 1; t++) {
       runHostTick(w, d, st);
       for (const c of pants(w)) dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: c.id });
     }
@@ -216,7 +217,8 @@ describe('S193 audit 4 — a pants strikes only ITS victim\'s keep', () => {
     toFightEdge(w, 27);
     const d = deps();
     const st = makeHostTickState(w);
-    for (let t = 0; t < 40; t++) runHostTick(w, d, st);
+    // ⭐ S194 R194-17 — lane 1's first pants is due floor(1800 / 19) = 94 ticks in (was 22): wait for it
+    for (let t = 0; t < 40 + Math.floor(pantsWindowTicks(27) / 19); t++) runHostTick(w, d, st);
     const m = pants(w).find((c) => c.monsterSeat === P1)!;
     for (const c of pants(w)) if (c.id !== m.id) dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: c.id });
     w.monsterWaveSpawned = 20; // no more births

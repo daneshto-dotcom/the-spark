@@ -225,7 +225,9 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
     toFightEdge(world, 27);
     const d = deps();
     const st = makeHostTickState(world);
-    for (let t = 0; t < 30; t++) runHostTick(world, d, st); // cross into FIGHT; both lanes' first pants are born
+    // cross into FIGHT; both lanes' first pants are born — ⭐ S194 R194-17: lane 1's first is release 1 of
+    // 20 over his 30 s window, due floor(1800 / 19) = 94 ticks in (was 22 at the S193 pace)
+    for (let t = 0; t < 30 + Math.floor(pantsWindowTicks(27) / 19); t++) runHostTick(world, d, st);
     const a = castleAnchor(1, world.layout);
     const m = monsters(world).find((c) => c.monsterSeat === P1)!;
     m.pos.x = a.x; m.pos.y = a.y; m.prevPos.x = a.x; m.prevPos.y = a.y;
