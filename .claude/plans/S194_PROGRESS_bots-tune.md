@@ -2,6 +2,17 @@
 
 Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base master `0a37175e`.
 
+## FIX-ONLY ROUND (audit CLEAN + 1 MED, 1 LOW) — DONE
+- Merges: master 2fe065fb → e59bbd2d; master 01530fb1 (incl. 02acd574 intentStamp security fix) → 03442e8d. No conflicts; lockfile unchanged; npm install 0.
+- MED fixed (lock: FIX only towers that lost a shape; S193 feed rule restored + per-seat own-feed-or-own-fix check; mutation red).
+- LOW fixed (parity vs the real PLACE reducer; canBuildNow mutation red; disc-clause mutation green = benign, redundant with quarry refusal).
+- Gates on 03442e8d + test-only type fix: typecheck 0 · vitest --maxWorkers=3 0 (526 files / 4 skipped, 7949 passed / 11 skipped; run
+  before the one-line test narrowing fix, after which typecheck 0 and botPlaceSpam.test 0 were re-run) · build 0, entry 1133.7 KiB
+  (1 160 940 B), headroom 116.3 — master grew; this branch's code is in the lazy bots chunk (last measured ≈ +0.1 KiB vs master).
+  botPersonality.test.ts re-run alone: 0. First typecheck/build after the merge were 1: TS2352 in my new test (cast) — fixed.
+  Benign: pentagramBuildability snapshot LF rewrite, restored.
+- Bump: still NO.
+
 ## FINAL REPORT (T7 `s194/bots-tune`)
 - **Tip**: the commit carrying this report (on top of the gates run). **Merge**: master ed54f64a → 0a02ed5e, no conflicts (plans/
   canon/canon.test/session-state only); `npm install` 0 at boot (lockfile unchanged by the merge).

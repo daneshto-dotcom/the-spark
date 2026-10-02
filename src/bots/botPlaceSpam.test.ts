@@ -200,7 +200,8 @@ describe('⭐ S194 T7 — placeRefusedAt agrees with the REAL reducer', () => {
           const w = carryingWorld(phase, { x, y }, seat);
           if (w === null) continue; // the pickup itself was refused here; nothing to place
           const me = w.players.get(seat)!;
-          const sparkPos = w.freeSparks.get((me as { carriedSparkId: never }).carriedSparkId)!.pos;
+          if (me.kind !== 'Carrying') continue; // narrowed above; this satisfies the compiler
+          const sparkPos = w.freeSparks.get(me.carriedSparkId)!.pos;
           const predictedOk = !placeRefusedAt(w, sparkPos, seat);
           const before = w.primitives.size;
           dispatch(w, { type: 'PLACE_PRIMITIVE', playerId: seat, targetPrimitiveId: null, stiffnessTier: 'MID', placementPos: { x, y } });
