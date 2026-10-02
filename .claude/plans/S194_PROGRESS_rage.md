@@ -14,3 +14,4 @@
 - step 0: worktree from master b968d940; merge master = already up to date; npm install exit 0.
 - NEXT: implement in bossSkillsWarlord.ts + hostTick.ts.
 - step 1: fix landed in bossSkillsWarlord.ts (mayFire) + hostTick.ts non-FIGHT branch; the two S191 RAGE-1 tests go red as expected. NEXT: rewrite them + new REACH/negative/guard tests.
+- step 3: docblocks (constants WARLORD_RAGE_COOLDOWN_TICKS, bloodFrenzy.ts) updated. NEXT: gates.
