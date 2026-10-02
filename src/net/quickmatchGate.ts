@@ -11,11 +11,12 @@
  * Unit-tested in quickmatch.test.ts.
  */
 
-import { buildLobbyRoster, reconcileLobbySeats } from './lobbyRoster.ts';
+import { buildLobbyRoster, reconcileLobbySeats, withTeams } from './lobbyRoster.ts';
 import type { HostPhase, RosterEntry } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { selfId, type NetTransport } from './transport.ts';
 import type { GameState } from '../state/worldTypes.ts';
+import { teamsPlayable } from '../state/teams.ts';
 
 /**
  * Host-side START GATE. True iff worth auto-beginning: ≥2 players present, the
@@ -137,17 +138,22 @@ export function broadcastQmPresence(
     for (const peer of [...session.raceByPeer.keys()]) {
       if (!present.has(peer)) session.raceByPeer.delete(peer);
     }
+    // ⭐ S192 — and a departed peer's TEAM pick, for the same reason.
+    for (const peer of [...session.teamByPeer.keys()]) {
+      if (!present.has(peer)) session.teamByPeer.delete(peer);
+    }
   }
   // ⭐ S161 P6 — the race claims ride the ONE presence path. `broadcastQmPresence` is documented
   // above as "The SINGLE presence-broadcast path for the host", which is precisely why the claims
   // are attached here and nowhere else: every route that tells peers about seats (join, leave,
   // readiness, and now a race pick) already funnels through this function, so there is no second
   // place a claim could be forgotten.
-  const base = buildLobbyRoster(
-    session.lobbySeats,
+  // ⭐ S192 — the team picks ride the same one presence path as the race claims.
+  const base = withTeams(
+    buildLobbyRoster(session.lobbySeats, selfId, session.raceByPeer, session.selfRace ?? undefined),
+    session.teamByPeer,
+    session.selfTeam,
     selfId,
-    session.raceByPeer,
-    session.selfRace ?? undefined,
   );
   const roster = session.quickmatch
     ? rosterWithReady(base, session.qmReadyPeers, session.qmSelfReady, selfId)
@@ -195,6 +201,16 @@ export function broadcastQmPresence(
 /** ⭐ S191 (NETFR-1) — a host is in its LOBBY until Begin; PLAYING, WIN and POSTGAME are all its MATCH. */
 export function hostPhaseOf(gameState: GameState): HostPhase {
   return gameState === 'LOBBY' || gameState === 'TITLE' ? 'LOBBY' : 'MATCH';
+}
+
+/**
+ * ⭐ S193 (audit F1/F2, teams spec Q2) — can the HOST's lobby start a match? The host's own pick plus every
+ * seated peer's, through `teamsPlayable`. ONE helper, read by `main.ts`'s Begin AND auto-begin, so the two
+ * cannot disagree about what "one team, no enemy" means.
+ */
+export function sessionTeamsPlayable(session: Pick<NetSession, 'selfTeam' | 'lobbySeats' | 'teamByPeer'>): boolean {
+  const picks = [session.selfTeam ?? undefined, ...[...session.lobbySeats.keys()].map((p) => session.teamByPeer.get(p))];
+  return teamsPlayable(picks, picks.length);
 }
 
 /** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */

@@ -227,6 +227,8 @@ import {
 } from './render/structureBarHealth.ts';
 // S193 R191-B / R192-W1 — the FIX job queue (canon §8 / §3d).
 import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
+// S194 R194-18 — the entropy tax (canon §2).
+import { ENTROPY_CAP, ENTROPY_FREE_CONNECTORS, ENTROPY_RATE_PER_CONNECTOR, ENTROPY_SCALE, entropyChance } from './state/entropy.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -306,7 +308,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(64);
+    expect(PROTOCOL_VERSION).toBe(65);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -898,7 +900,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('and an enemy HELGA (S192: *"Helga is NOT immune"*)')).toBe(true);
     expect(canonSays('units only (creatures and Helga), never structures')).toBe(true);
     expect(canonSays('the quarry never burns; creatures only |')).toBe(false); // the S188 row, superseded by his Helga answer
-    expect(canonSays('`isScorchImmune(owner, spared)`, the ONE site')).toBe(true);
+    expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
   });
 
   it('⭐ §3e — the demons: SCORCHED GROUND is his 2 % on the aura’s clock; HELLSPAWN ends by generation', () => {
@@ -1155,7 +1157,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 63 -> 64');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 64 -> 65');
+    expect(proto.indexOf('BUMPED 63 -> 64')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 60 -> 61')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
@@ -1417,7 +1420,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(arm).toContain('STRUCTURE_SELFDESTRUCT_FIFTHS,');
     expect(arm).toContain('blastSplitWeight(t.d2, radius,');
     expect(HUB_BLAST_CREATURE_WEIGHT, 'MINE — 1:1 until he rules otherwise').toBe(1);
-    expect(arm).toContain('!== owner'); // S157 P0 — the exemption is still what spares his base
+    // S157 P0 — the exemption is still what spares his base; ⭐ S193 (teams, R192-T1) it spares his TEAM,
+    // through the one predicate (FFA: `isEnemySeat` is exactly the old `!== owner`).
+    expect(arm).toContain('isEnemySeat(world, owner, c.ownerPlayerId)');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8');
     expect(host.match(/blast: 'ladder'/g)?.length, 'the hub dispatches the ladder').toBe(1);
     // ⭐ S192 (owner T3) — the zombie boss no longer razes: his blast is its own split pool, not this action.
@@ -1659,6 +1664,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
       'state/creatures/suicideBlast.ts',
       'state/creatures/voltkinChain.ts',
       'state/droneLifecycle.ts',
+      'state/entropy.ts', // ⭐ S194 R194-18
       'state/potatoLifecycle.ts',
       'state/racial/raColumn.ts',
       'state/racial/scorchedGround.ts',
@@ -1841,6 +1847,29 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
   });
 });
 
+describe('S193 teams — §5d is pinned to its constants', () => {
+  it('⭐ TEAM_COUNT, the two-sides rule, the hint wording, and every ruling is named', async () => {
+    const { TEAM_COUNT, normalizeTeams } = await import('./state/teams.ts');
+    const { TEAMS_UNPLAYABLE_HINT } = await import('./render/teamChip.ts');
+    expect(TEAM_COUNT).toBe(4);
+    expect(canonSays(`\`TEAM_COUNT\` = **${TEAM_COUNT}** teams`)).toBe(true);
+    expect(canonSays(`*"${TEAMS_UNPLAYABLE_HINT.slice(0, 32)}`)).toBe(true);
+    expect(normalizeTeams([0, 0, 0, 0], 4), 'one team → the sim falls back to the free-for-all').toBeUndefined();
+    for (const r of ['R192-T1', 'R192-T2', 'R192-T3', 'R192-T4']) expect(canonSays(`**${r} —`), r).toBe(true);
+    expect(canonSays('**last TEAM standing**')).toBe(true);
+    expect(canonSays('**TEAM N WINS**')).toBe(true);
+    expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
+  });
+
+  it('⭐ S194 — the zombie boss death blast spares his whole TEAM (R193-B3 × R192-T1), not MINE any more', async () => {
+    const { T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE } = await import('./state/racial/zombieDeathBlast.ts');
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
+    expect(canonSays("**The zombie boss's death blast spares his whole TEAM — NOT MINE any more.**")).toBe(true);
+    // the superseded S192 default is no longer stated as live
+    expect(canonSays("the Pharaoh's columns and the zombie boss's death blast")).toBe(false);
+  });
+});
+
 // ── ⭐⭐ S193 — §3d THE WAVE-26 MRES CARD (R192-D1, `s193/mres-card`), every number bound to its constant ──
 import {
   GENERAL_PICKS as MRES_GENERAL_PICKS, MRES_DRAFT_WAVE, draftedMagicPoolFifths, mresPickCount,
@@ -1877,5 +1906,28 @@ describe('§3d the wave-26 MRES card is bound to the code', () => {
   it('the card: awaiting art, and the canon says so', () => {
     expect(GENERAL_CARDS_AWAITING_ART).toEqual(['mres']);
     expect(canonSays('`GENERAL_CARDS_AWAITING_ART`')).toBe(true);
+  });
+});
+
+describe('S194 R194-18 — §2 THE ENTROPY TAX is pinned to its constants', () => {
+  it('free 10, +0.1 % per connector, cap 50 % reached at 510 — and the table row by row', () => {
+    expect(canonSays('THE ENTROPY TAX — A BIG STRUCTURE WEARS OUT (R194-18')).toBe(true);
+    expect(ENTROPY_FREE_CONNECTORS).toBe(10);
+    expect(canonSays('`ENTROPY_FREE_CONNECTORS` 10')).toBe(true);
+    expect(ENTROPY_RATE_PER_CONNECTOR).toBe(10);
+    expect(ENTROPY_SCALE).toBe(10_000);
+    expect(canonSays('`ENTROPY_RATE_PER_CONNECTOR`\n10 / 10 000') || canonSays('`ENTROPY_RATE_PER_CONNECTOR`\r\n10 / 10 000')).toBe(true);
+    expect(ENTROPY_CAP).toBe(5_000);
+    expect(canonSays('`ENTROPY_CAP` 5 000 / 10 000 — the cap is reached at 510 connectors')).toBe(true);
+    expect(entropyChance(510)).toBe(ENTROPY_CAP);
+    expect(entropyChance(509)).toBeLessThan(ENTROPY_CAP);
+    const pct = (n: number) => `${entropyChance(n) / 100} %`;
+    expect([10, 20, 54, 145].map(pct)).toEqual(['0 %', '1 %', '4.4 %', '13.5 %']);
+    expect(canonSays('| chance per connector per FIGHT | 0 % | 1 % | 4.4 % | 13.5 % |')).toBe(true);
+    const mean = (n: number) => Math.round((n * entropyChance(n)) / 1000) / 10;
+    expect([10, 20, 54, 145].map(mean)).toEqual([0, 0.2, 2.4, 19.6]);
+    expect(canonSays('| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |')).toBe(true);
+    expect(structurePoolFifths(145)).toBe(21_750);
+    expect(canonSays('costs **21 750** a connector')).toBe(true);
   });
 });

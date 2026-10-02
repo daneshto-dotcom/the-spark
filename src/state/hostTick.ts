@@ -158,6 +158,7 @@ import { asPlayerId, type CreatureId, type PlayerId, type Vec2 } from '../types.
 import type { CreatureType } from './creatures/creature.ts';
 import { creatureCanTarget } from './stats.ts';
 import { recordWaveSample } from './matchStats.ts'; // ⭐ S191
+import { applyEntropyTax } from './entropy.ts'; // ⭐ S194 R194-18
 // S169 R152 — the STUN condition's single read; see `creatures/creature.ts`.
 import { isCorpseEaterFeeding, isStunned, ragedFireTick } from './creatures/creature.ts';
 
@@ -596,6 +597,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
         resummonVoltkins(world);
       }
       if (world.matchPhase === 'FIGHT') {
+        /*
+         * ⭐⭐ S194 (owner, R194-18) — THE ENTROPY TAX, rolled ONCE per FIGHT at the whistle (⚠ MINE: the
+         * edge). Every connector of a structure past 10 connectors snaps with chance
+         * min(50 %, 0.1 % × (n − 10)). Inside the `flipped` guard so a NONET multi-flip rolls once per
+         * crossing, and seeded by the wave, so the same wave can never roll twice differently.
+         * ⚠ No endgame exemption: the build-lock and monster waves are FIGHTs too.
+         */
+        applyEntropyTax(world);
         /*
          * ⭐⭐ S189 C2 (audit W-FR2) / R190-J — *"Every fight she should come back as long as the
          * tower is still up."* The FIGHT→BUILD revive above only catches a Helga who died in a FIGHT.

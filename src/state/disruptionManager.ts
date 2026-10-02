@@ -43,6 +43,7 @@ import { severSplit } from '../game/structure.ts';
 import type { Bond } from '../physics/bonds.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World, GameAction } from './world.ts';
+import { sameTeamColor } from './teams.ts';
 
 /** SeverBond-specific action narrowing. */
 type SeverBondAction = Extract<GameAction, { type: 'SEVER_BOND' }>;
@@ -97,11 +98,21 @@ export function canSeverBond(
     // ⛔ REUSING 'player' HERE WAS A REAL BUG, CAUGHT BY raid.test.ts AND NOT BY REVIEW: the
     // player branch below gates on `disruptionCharges`, so a fully-damaged connector silently
     // REFUSED to break because the raider had none — a currency a raid does not and must not use.
-    action.cause === 'raid'
+    action.cause === 'raid' ||
+    // ⭐ S194 (R194-18) — the ENTROPY TAX is host-authoritative (only `runHostTick` rolls it) and costs
+    // nobody a charge, so it bypasses both gates like the other host-side causes.
+    action.cause === 'entropy'
   ) return true;
 
   const player = world.players.get(action.playerId);
   if (player === undefined) return false;
+
+  // ⭐ S192 (owner R192-T1) — A TEAMMATE'S WIRE IS NEVER YOURS TO CUT. Without this it would read as a
+  // plain hostile sever (it is not your colour) and cost one charge. In a free-for-all no other colour is
+  // on your team, so this never refuses anything.
+  const friendNotMine = (p: Primitive): boolean =>
+    p.placerColor !== player.color && sameTeamColor(world, p.placerColor, player.color);
+  if (friendNotMine(primA) || friendNotMine(primB)) return false;
 
   // S90 P2 — gate on the REQUIRED charge for THIS bond (1 for a normal hostile sever,
   // DEFENSIVE_SEVER_CHARGE_COST for a hostile Diamond/Lattice, 0 for a self-sever). Derived from

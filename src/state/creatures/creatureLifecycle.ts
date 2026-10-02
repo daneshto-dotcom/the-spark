@@ -28,6 +28,7 @@
  */
 
 import type { World } from '../world.ts';
+import { isEnemySeat } from '../teams.ts';
 import type { PlayerId, SpawnerId, Vec2 } from '../../types.ts';
 import {
   asCreatureId,
@@ -1087,7 +1088,7 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
       const range = config.attackRange;
       const stillValid =
         victim !== undefined &&
-        victim.ownerPlayerId !== creature.ownerPlayerId &&
+        isEnemySeat(world, victim.ownerPlayerId, creature.ownerPlayerId) &&
         // ⭐ S179 — and this is the arm that actually UNFREEZES the unit: clearing the commit sends
         // it back to SEEKING, where `computeSteeringAccel` moves it again instead of ZERO_ACCEL.
         // ⭐ S192 T13 (owner) — *"my spawn were attacking him, even though it was already dead"*: a

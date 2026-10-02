@@ -49,6 +49,7 @@ import { stinkDeathBlast } from './defenders/stinkTower.ts';
 import { riseOnHelgaKill } from './racial/theRisen.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
+import { sameTeam } from './teams.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
 import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — mummies.l5
 // ⭐ S188 — BLOOD DEBT / CRIMSON TIDE. Called below each arm's early returns, i.e. only where damage
@@ -990,13 +991,24 @@ export function applyRadialDamage(
   /**
    * ⭐ S191 BLAST-1 — ONE MORE seat to spare, for the one blast that has two owners to respect (a bag
    * the lightning hub popped: the bag's owner AND the hub's — `damageStinkCloud`). Optional, `null` for
-   * every other caller, so each of them is byte-identical.
+   * every other caller, so each of them is byte-identical. ⭐ S192 (R192-T1) — its TEAM, like `sparePlayerId`.
    */
   alsoSparePlayerId: PlayerId | null = null,
+  /**
+   * ⭐ S192 (owner R192-T1, spec Q5 — ⚠ MINE) — for the blasts that spare NOBODY by ruling (the zombie
+   * boss's R138 death blast): the seat whose TEAMMATES are still spared. The seat itself is NOT —
+   * *"kills everything"* stays true of its own side, and *"teammates never take damage"* stays true of
+   * its friends. `null` (every pre-S192 caller) and a free-for-all are byte-identical.
+   */
+  alliesOf: PlayerId | null = null,
 ): RadialDamageResult {
   const r2 = radius * radius;
-  const spared = (seat: PlayerId): boolean =>
-    (sparePlayerId !== null && seat === sparePlayerId) || (alsoSparePlayerId !== null && seat === alsoSparePlayerId);
+  // ⭐ S192 — each spared seat spares its whole TEAM (FFA: exactly that seat, as before — `sameTeam`
+  // is `a === b` when `world.teams` is undefined, and `undefined` is nobody's teammate).
+  const spared = (owner: PlayerId | undefined): boolean =>
+    (sparePlayerId !== null && sameTeam(world, owner, sparePlayerId)) ||
+    (alsoSparePlayerId !== null && sameTeam(world, owner, alsoSparePlayerId)) ||
+    (alliesOf !== null && owner !== alliesOf && sameTeam(world, owner, alliesOf));
   const d2Of = (x: number, y: number): number => {
     const dx = x - cx;
     const dy = y - cy;
@@ -1011,9 +1023,9 @@ export function applyRadialDamage(
   // ── collect first, mutate second (see the iteration-discipline note above) ──
   const creatureVictims: CreatureId[] = [];
   for (const [cid, c] of world.creatures) {
-    // ⚠ S191 — written out (not `spared(...)`) so `untargetableCallSites.test.ts` still SEES this area
-    // scan's owner filter: its census matches `ownerPlayerId … ===` and a helper call hid it.
-    if ((sparePlayerId !== null && c.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && c.ownerPlayerId === alsoSparePlayerId)) continue;
+    // ⚠ S191/S192 — the census (`untargetableCallSites.test.ts`) SEES `spared(c.ownerPlayerId)`: its
+    // regex counts the team-predicate wrappers as owner filters since S192.
+    if (spared(c.ownerPlayerId)) continue;
     if (inRange(c.pos.x, c.pos.y)) {
       creatureVictims.push(cid);
       amountOf.set(`c:${cid}`, hit(unitAmountFifths, c.pos.x, c.pos.y));
@@ -1023,7 +1035,7 @@ export function applyRadialDamage(
 
   const defenderVictims: DefenderId[] = [];
   for (const [did, dd] of world.defenders) {
-    if ((sparePlayerId !== null && dd.ownerPlayerId === sparePlayerId) || (alsoSparePlayerId !== null && dd.ownerPlayerId === alsoSparePlayerId)) continue;
+    if (spared(dd.ownerPlayerId)) continue;
     if (inRange(dd.pos.x, dd.pos.y)) {
       defenderVictims.push(did);
       amountOf.set(`d:${did}`, hit(unitAmountFifths, dd.pos.x, dd.pos.y));

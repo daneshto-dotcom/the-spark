@@ -38,6 +38,7 @@ import {
 import type { Bond } from '../physics/bonds.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import type { World } from './world.ts';
+import { sameTeam, sameTeamColor } from './teams.ts';
 
 /**
  * S118 P3 (F1b) — ONE per-tick GLOBAL connected-component labeling for ALL primitives, via union-find
@@ -287,7 +288,7 @@ export function isInsideEnemyTerritory(
   // re-deriving complexity per enemy on each placement. Byte-identical value.
   const radii = computeAllPlayerRadii(world);
   for (const [enemyId, enemy] of world.players) {
-    if (enemyId === localPlayerId) continue;
+    if (sameTeam(world, enemyId, localPlayerId)) continue; // S192 — a teammate's territory is not an enemy's
     const R = radii.get(enemyId) ?? 0;
     if (R <= 0) continue;
     const R2 = R * R;
@@ -396,8 +397,9 @@ export function computeTerritorialInfluence(world: World): void {
       const bond = candidates[i]!;
       // Already maximally degraded — skip (handles overlap of two territories).
       if ((bond.stiffnessMultiplier ?? 1.0) <= TERRITORY_ENGULF_STIFFNESS) continue;
-      // Skip own bonds (both endpoints share this player's color).
-      if (colourA[i] === player.color || colourB[i] === player.color) continue;
+      // Skip own bonds (either endpoint is this player's colour) — ⭐ S192: or a TEAMMATE's colour, so a
+      // territory never sags a friend's structure. FFA: `sameTeamColor` is exactly `===`.
+      if (sameTeamColor(world, colourA[i], player.color) || sameTeamColor(world, colourB[i], player.color)) continue;
 
       // Check if endpoint A or B is inside this player's territory.
       if (

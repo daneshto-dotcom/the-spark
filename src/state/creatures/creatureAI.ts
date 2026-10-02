@@ -48,6 +48,7 @@ import {
 import type { StinkCloudId, DefenderId, BondId, CreatureId, PlayerId, PrimitiveId, Vec2 } from '../../types.ts';
 import { mix32 } from '../rng.ts';
 import type { World } from '../world.ts';
+import { isEnemySeat, sameTeam, sameTeamColor } from '../teams.ts';
 import type { Creature } from './creature.ts';
 import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
@@ -137,7 +138,8 @@ function isEnemyBondWithColor(world: World, ownerColor: number, bond: Bond): boo
   const primA = world.primitives.get(bond.aId);
   const primB = world.primitives.get(bond.bId);
   if (primA === undefined || primB === undefined) return false;
-  return primA.placerColor !== ownerColor || primB.placerColor !== ownerColor;
+  // ⭐ S192 — an endpoint is "mine" when it is on my TEAM (`sameTeamColor`; FFA: `=== ownerColor`).
+  return !sameTeamColor(world, primA.placerColor, ownerColor) || !sameTeamColor(world, primB.placerColor, ownerColor);
 }
 
 /**
@@ -264,7 +266,7 @@ export function findNearestEnemyPrimitiveFrom(
   const ownerColor = creatureOwnerColor(world, creature);
 
   for (const [primId, prim] of world.primitives) {
-    if (prim.placerColor === ownerColor) continue; // never your own builder's shapes
+    if (sameTeamColor(world, prim.placerColor, ownerColor)) continue; // never your own — or a teammate's (S192) — shapes
     if (prim.hp <= 0) continue;
     /*
      * ⭐⭐⭐ S179 (owner) — **A BUILDING IS KILLED THROUGH ITS CONNECTORS, NOT BY EATING ITS BRICKS.**
@@ -600,17 +602,33 @@ function buildColourBucket(world: World, ownerColor: number): ColourBucket {
 
   for (const [bondId, bond] of world.bonds) {
     if (!isEnemyBondWithColor(world, ownerColor, bond)) {
+      // ⭐ S192 — a TEAMMATE's bond is not an enemy's and not mine either: filed nowhere, so the
+      // Voltkin's own-bond fallback can never walk onto a friend's tower. In a free-for-all a
+      // not-enemy bond is always own-coloured (or degenerate), so this skip never fires there.
+      const oa = world.primitives.get(bond.aId);
+      const ob = world.primitives.get(bond.bId);
+      if (oa !== undefined && ob !== undefined && (oa.placerColor !== ownerColor || ob.placerColor !== ownerColor)) continue;
       // Own, or degenerate (an endpoint missing) — the pre-change `else` branch, exactly.
       own.bonds.push(bond);
       own.ids.push(bondId);
       continue;
     }
-    enemy.bonds.push(bond);
-    enemy.ids.push(bondId);
     // `isEnemyBondWithColor` is true only when BOTH endpoints exist, so both reads are defined here —
     // as they always were for the pre-change `strictlyEnemy`, whose `?.` could never short-circuit.
     const primA = world.primitives.get(bond.aId)!;
     const primB = world.primitives.get(bond.bId)!;
+    /*
+     * ⚠ MINE (S194 audit LOW-2, R192-T1 *"teammates never damage each other"*) — **A WELD WITH A TEAMMATE'S
+     * END IS NOBODY'S TARGET.** The OR above files a weld between a TEAMMATE's shape and an ENEMY's shape as
+     * enemy, and the Voltkin (the one `enemyOnly: false` caller of this set) could cut it — felling a connector
+     * of his teammate's. For a TEAMMATE's endpoint this uses the STRICT reading: any teammate end ⇒ not a
+     * target. His OWN end is unchanged (the Voltkin may still cut his own mixed welds — the documented fallback
+     * below). FFA: a teammate colour is never a colour other than your own, so this never fires there.
+     */
+    const teammateEnd = (c: number): boolean => c !== ownerColor && sameTeamColor(world, c, ownerColor);
+    if (teammateEnd(primA.placerColor) || teammateEnd(primB.placerColor)) continue;
+    enemy.bonds.push(bond);
+    enemy.ids.push(bondId);
     /**
      * ⛔ S162 POST-AUDIT — **`isEnemyBondWithColor` IS AN OR, SO A *MIXED* BOND READS AS ENEMY.**
      *
@@ -626,7 +644,7 @@ function buildColourBucket(world: World, ownerColor: number): ColourBucket {
      * ⭐ VOLTKIN IS DELIBERATELY UNTOUCHED. It passes `enemyOnly: false`, and its ability to cut its
      * own bonds is a documented feature (see the fallback note above), not an oversight.
      */
-    if (primA.placerColor !== ownerColor && primB.placerColor !== ownerColor) {
+    if (!sameTeamColor(world, primA.placerColor, ownerColor) && !sameTeamColor(world, primB.placerColor, ownerColor)) {
       strict.bonds.push(bond);
       strict.ids.push(bondId);
       /*
@@ -788,7 +806,7 @@ export function findNearestEnemyCreatureFrom(
   let bestDistSq = Infinity;
   for (const [id, c] of world.creatures) {
     if (id === excludeId) continue;
-    if (c.ownerPlayerId === ownerPlayerId) continue; // enemy-only
+    if (sameTeam(world, c.ownerPlayerId, ownerPlayerId)) continue; // enemy-only — never a teammate (S192)
     /*
      * ⭐⭐ S169 (owner R142, and R121) — **CANNOT BE TARGETED, ENFORCED AT THE CHOKEPOINT.**
      *
@@ -880,7 +898,7 @@ export function pickNavUnit(
     const quarry = world.creatures.get(held);
     if (
       quarry !== undefined &&
-      quarry.ownerPlayerId !== creature.ownerPlayerId &&
+      isEnemySeat(world, quarry.ownerPlayerId, creature.ownerPlayerId) &&
       // ⭐⭐ S179 (owner) — **RETENTION MUST RE-CHECK UNTARGETABILITY, NOT ONLY ACQUISITION.**
       // The defender half of this was fixed in S171 (`defenderLifecycle.ts`, "without this line
       // every turret already locked onto him keeps firing into a creature that is between
@@ -1106,7 +1124,7 @@ function enemyListFor(world: World, seat: PlayerId): EnemyList {
     const creatures: Creature[] = [];
     const untargetableType: boolean[] = [];
     for (const [id, c] of world.creatures) {
-      if (c.ownerPlayerId === seat) continue; // enemy-only — the live scan's owner filter, hoisted
+      if (sameTeam(world, c.ownerPlayerId, seat)) continue; // enemy-only — the live scan's owner filter, hoisted (S192: by team)
       ids.push(id);
       creatures.push(c);
       untargetableType.push(isUntargetableType(c.type));
@@ -1313,7 +1331,7 @@ export function enemyCastleInReach(world: World, creature: Creature, reach: numb
   if (isPants && onlySeat === null) return null;
   let best: PlayerId | null = null;
   for (const seat of world.players.keys()) {
-    if (seat === creature.ownerPlayerId) continue;
+    if (sameTeam(world, seat, creature.ownerPlayerId)) continue; // S192 — never a teammate's keep
     if (isPants && seat !== onlySeat) continue;
     const victim = world.players.get(seat);
     if (victim === undefined || victim.castleHp <= 0) continue;
@@ -1358,7 +1376,7 @@ export function killableDefenderInReach(
   if (!creatureCanTarget(creature.type, 'units')) return null;
   let best: DefenderId | null = null;
   for (const d of world.defenders.values()) {
-    if (d.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    if (sameTeam(world, d.ownerPlayerId, creature.ownerPlayerId)) continue; // enemy-only, like every other target
     if (d.ehp === null) continue; // a TOWER — nothing to subtract from, so nothing to attack
     if (distSq(creature.pos, d.pos) > reach * reach) continue;
     if (best === null || (d.id as unknown as number) < (best as unknown as number)) best = d.id;
@@ -1393,7 +1411,7 @@ export function enemyStinkCloudInReach(
 ): StinkCloudId | null {
   let best: StinkCloudId | null = null;
   for (const c of world.stinkClouds.values()) {
-    if (c.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    if (sameTeam(world, c.ownerPlayerId, creature.ownerPlayerId)) continue; // enemy-only, like every other target
     /*
      * ⭐⭐ S177 P5 (owner) — **IF YOU ARE STANDING IN THE SMELL, YOU CAN HIT THE BAG.**
      *
@@ -1474,7 +1492,7 @@ export function nearestEnemyStinkCloudWithin(
   let bestDistSq = Infinity;
   const r2 = radius * radius;
   for (const c of world.stinkClouds.values()) {
-    if (c.ownerPlayerId === creature.ownerPlayerId) continue; // enemy-only, like every other target
+    if (sameTeam(world, c.ownerPlayerId, creature.ownerPlayerId)) continue; // enemy-only, like every other target
     const dSq = distSq(creature.pos, c.pos);
     if (dSq > r2) continue;
     if (
@@ -1589,7 +1607,7 @@ export function enemyCastleMarchPos(world: World, creature: Creature): Vec2 | nu
   let bestDistSq = Infinity;
   let bestSeat = Infinity;
   for (const seat of world.players.keys()) {
-    if (seat === creature.ownerPlayerId) continue;
+    if (sameTeam(world, seat, creature.ownerPlayerId)) continue; // S192 — never march on a teammate's keep
     /*
      * ⭐⭐ S192 T13 (owner) — **NEVER MARCH ON A FALLEN KEEP.** *"an enemy castle was destroyed, and
      * instead of my … creatures going and attacking other towers or another's castle, they went back

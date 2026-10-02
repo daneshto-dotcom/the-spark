@@ -100,6 +100,8 @@ import { makeCastleBank } from './castleBank.ts';
 // Test paths that never load audioManager treat triggerReset() as a no-op
 // (single-slot handler stays null), preserving the audit-safe semantics.
 import { triggerReset as triggerAudioCursorReset } from './audioCursor.ts';
+import { TEAM_COUNT } from './teams.ts';
+import { MAX_PLAYERS } from '../constants.ts';
 import { applySerializedHistory, applySerializedSeats, serializeMatchStats, trimMatchStatsForNet, type SerializedMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const PHYSICS_DT = 1 / 60;
@@ -128,6 +130,11 @@ export interface WorldSnapshot {
    * 1v1 save — overwhelmingly the common case — would get from `layoutForSeatCount` anyway.
    */
   layout?: ZoneLayout;
+  /**
+   * ⭐ S192 — WHO IS ON WHOSE SIDE (`World.teams`). Additive-OPTIONAL: emitted only when teams are on,
+   * so a free-for-all snapshot is byte-identical to pre-S192. Validated on the way in (`readTeams`).
+   */
+  teams?: number[];
   lastWinnerId: PlayerId | null;
   nextPrimitiveId: number;
   nextBondId: number;
@@ -679,7 +686,10 @@ type SerializedEffect =
       // (paid with a raid point, severs on damage reaching capacity); ⭐ S182 — 'unit' (any
       // non-Voltkin non-chewer creature; 'creature' is now the VOLTKIN's lightning alone, which is
       // what the audio arm always assumed). PROTOCOL_VERSION 46 -> 47.
-      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit';
+      readonly cause: 'player' | 'physics' | 'godly' | 'creature' | 'bomb' | 'chewer' | 'drone' | 'raid' | 'unit'
+        // ⭐ S194 (R194-18) — the ENTROPY TAX: a big structure's connector snapped on its own at the FIGHT
+        // whistle. No actor (`severActor`), silent (`audioManager`), its own toast (`severToastCopy`).
+        | 'entropy';
       /**
        * V6-0.3 (S131) — sever attribution, additive-optional on the `creatureId?` precedent
        * above. NO `PROTOCOL_VERSION` bump and NO `schemaVersion` bump: `deserializeEffect`
@@ -1219,6 +1229,8 @@ export function snapshot(
     // the roster: it would compute a different board for one tick during a join and place every
     // keep somewhere else.
     layout: world.layout,
+    // ⭐ S192 — teams ride the snapshot ONLY when on (FFA: no key at all).
+    ...(world.teams !== undefined ? { teams: [...world.teams] } : {}),
     lastWinnerId: world.lastWinnerId,
     nextPrimitiveId: world.nextPrimitiveId,
     nextBondId: world.nextBondId,
@@ -1708,6 +1720,22 @@ export function applyNetSnapshot(snap: NetSnapshot, world: World): void {
 }
 
 /** Shared apply logic for restore() and applyNetSnapshot(). */
+/**
+ * ⭐ S192 — the snapshot's `teams`, validated: an array of 2..MAX_PLAYERS team indices (0..3) with at least
+ * two seats sharing one, or `undefined` (free-for-all). Anything else is dropped to FFA rather than trusted —
+ * a malformed list would otherwise hand a peer a side assignment the host never made.
+ */
+function readTeams(raw: unknown): readonly number[] | undefined {
+  if (!Array.isArray(raw) || raw.length < 2 || raw.length > MAX_PLAYERS) return undefined;
+  const out: number[] = [];
+  for (const v of raw) {
+    // 0..3 are the lobby's teams; TEAM_COUNT + seat is an unpicked seat alone on its side (`normalizeTeams`).
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v >= TEAM_COUNT + MAX_PLAYERS) return undefined;
+    out.push(v);
+  }
+  return new Set(out).size < out.length ? out : undefined;
+}
+
 function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.tick = snap.tick;
   world.gameState = snap.gameState;
@@ -1721,6 +1749,9 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   // S148 P1 — the board, rehydrated UNCONDITIONALLY so a joiner and a promoted successor adopt the
   // host's board exactly. See the `layout` field docblock for why the pre-S148 fallback is PITCH_2P.
   world.layout = snap.layout ?? 'PITCH_2P';
+  // ⭐ S192 — teams, rehydrated UNCONDITIONALLY (absent = free-for-all), so a joiner, the worker mirror
+  // and a promoted successor all adopt the host's sides exactly. A malformed list is dropped to FFA.
+  world.teams = readTeams(snap.teams);
   world.lastWinnerId = snap.lastWinnerId;
   world.scoreProgress = snap.scoreProgress ?? 0;
   world.gameMode = snap.gameMode ?? 'solo';

@@ -143,6 +143,9 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // about the layout would place its keeps somewhere else and enforce different borders — this is
   // the single highest-consequence scalar in the World, so it is hashed rather than acknowledged.
   layout: 'hashed',
+  // ⭐ S192 — WHO IS ON WHOSE SIDE. Every enemy predicate reads it (`state/teams.ts`). Projected ONLY
+  // when set, so a free-for-all world's hash is byte-identical to pre-S192.
+  teams: 'hashed',
   lastWinnerId: 'hashed',
   hunterSpawned: 'hashed',
   rainbowSwitchTick: 'hashed',
@@ -590,6 +593,8 @@ export function determinismParts(world: World): string[] {
     // consumed on the next tick and lands in `creatures`, which is hashed in full.
     `pc${world.pendingCreatureSpawn === null ? '_' : '1'}`,
   ];
+  // ⭐ S192 — teams, ONLY when on: an FFA world (teams undefined) adds no part, so its hash is unchanged.
+  if (world.teams !== undefined) parts.push(`tm${world.teams.join(',')}`);
 
   const scores = [...world.scoreByPlayer.entries()].sort((a, b) => Number(a[0]) - Number(b[0]));
   for (const [id, s] of scores) parts.push(`P${n(id)}=${s}`);

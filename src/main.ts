@@ -102,7 +102,7 @@ import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
-import { broadcastQmPresence, maybeQmAutoBegin } from './net/quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, sessionTeamsPlayable } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
 import {
@@ -283,6 +283,7 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
+import { arrangeTeamSeats, permuteBots, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1730,12 +1731,23 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (difficulties, races, personalities) => {
+          onStart: (pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
               const mod = await import('./bots/botManager.ts');
-              const totalSeats = difficulties.length + 1;
+              const totalSeats = pickedDifficulties.length + 1;
+              /*
+               * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE. Seat 0 (you) never
+               * moves; the bots are re-seated so allies share a border, carrying their race, team and
+               * difficulty with them. No shared team ⇒ the identity ⇒ exactly the pre-S192 seating.
+               */
+              const order = arrangeTeamSeats(pickedTeams.slice(0, totalSeats));
+              const races = permuteSeats(pickedRaces.slice(0, totalSeats), order);
+              const teams = permuteSeats(pickedTeams.slice(0, totalSeats), order);
+              // ⭐ S194 — a bot's difficulty AND its personality (S193) travel with it (`permuteBots`).
+              const difficulties = permuteBots(pickedDifficulties, order);
+              const personalities = permuteBots(pickedPersonalities, order);
               /*
                * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
                *
@@ -1747,7 +1759,8 @@ async function bootstrap(): Promise<void> {
                */
               const roster = Array.from({ length: totalSeats }, (_, seat) => {
                 const raceId = races[seat] ?? defaultRaceForSeat(seat);
-                return { seat, color: RACE_COLORS[raceId], raceId };
+                const team = teams[seat];
+                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}) };
               });
               const botSeats = difficulties.map((_, i) => i + 1);
               // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND
@@ -1827,6 +1840,7 @@ async function bootstrap(): Promise<void> {
         isYou: e.peerId === selfId,
         ready: e.ready,
         raceId: e.raceId,
+        team: e.team, // ⭐ S192 — the team chip
       })),
     );
   };
@@ -1843,6 +1857,8 @@ async function bootstrap(): Promise<void> {
   // reseed — its local START_GAME path stays untouched).
   const baseBeginMatch = createBeginMatchHandler({ session, world, hostIdentity });
   const onBeginMatch = (): void => {
+    // ⭐ S192 (teams spec Q2) — a match needs two SIDES. With every seat on one team, Begin does nothing.
+    if (!sessionTeamsPlayable(session)) return;
     reseedForNewMatch();
     baseBeginMatch();
   };
@@ -1881,6 +1897,9 @@ async function bootstrap(): Promise<void> {
   // late LOBBY_READY can't re-dispatch START_GAME (idempotency, Council F4).
   const onAutoBegin = (): void => {
     if (world.gameState !== 'LOBBY') return;
+    // ⭐ S193 (audit F2) — refuse BEFORE stopping discovery: a one-team room that cannot begin must stay
+    // findable, and a later team pick re-arms this gate (`hostHandlers` CLAIM_TEAM, `onPickTeam`).
+    if (!sessionTeamsPlayable(session)) return;
     stopQuickmatch();
     onBeginMatch();
   };
@@ -2029,8 +2048,24 @@ async function bootstrap(): Promise<void> {
     }
   };
 
+  /*
+   * ⭐ S192 (owner R192-T4) — A TEAM PICK FROM THE SEAT CHIP. `onPickRace`'s twin: the host writes its own
+   * session and rebroadcasts (teams are not exclusive, so there is nothing to refuse), a joiner sends
+   * `CLAIM_TEAM` and waits for the presence beacon.
+   */
+  const onPickTeam = (team: number | null): void => {
+    if (world.isHost) {
+      session.selfTeam = team;
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
+      maybeQmAutoBegin(session, onAutoBegin); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
+    } else if (session.netTransport !== null) {
+      session.netTransport.send({ kind: 'CLAIM_TEAM', team });
+    }
+  };
+
   lobbyScreen = new LobbyScreen(app, {
     onPickRace,
+    onPickTeam,
     // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
     // the flag so a deliberate friends room never inherits quickmatch gating.
     onHostStart: () => {
