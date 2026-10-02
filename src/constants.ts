@@ -4311,7 +4311,7 @@ export const MONSTER_EMERGE_TICKS = 45;
  * ⚠ MINE (one line each, reported): (1) the window starts at the FIGHT's start; (2) a wave 27–31 fight now
  * lasts `max(FIGHT_PHASE_TICKS, window + MONSTER_HOLD_LEAD_TICKS)` (`monsterFightTicks`) — 60 / 60 / 70 /
  * 100 / 130 s — so its length is PREDICTABLE, set at the whistle; the old open-ended hold survives only as a
- * safety net (`MONSTER_MAX_LIVE_PER_SEAT` can still make a lane wait); (3) wave 31 stays endless while two
+ * safety net (the measured live cap `MONSTER_MAX_LIVE_TOTAL` 360, `monsterMaxLivePerSeat`, can still make a lane wait); (3) wave 31 stays endless while two
  * seats live — only its EMERGENCE follows the 120 s window; (4) the FIRST pants comes out at the whistle
  * and the LAST exactly at the window's end (spacing window / (total − 1), `monstersDueBy`).
  */

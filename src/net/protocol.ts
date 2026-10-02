@@ -996,8 +996,8 @@ export type { NetSnapshot };
  *      the host refuses; a v58 successor would let them through.
  *   3. THREE ADDITIVE WIRE FIELDS — `Creature.monsterSeat`, `monsterWaveSpawned`, `monsterFightStartTick`.
  *   4. RULES EVERY HOST RUNS — the trickle (10/25/50/100/250 per LIVING player, one released at a time, at most
- *      `MONSTER_MAX_LIVE_PER_SEAT` 30 alive per seat — ⚠ MINE, sized from the measured snapshot), the wave-31 fight
- *      that never ends on the clock while 2+ live, the mega pants past 240 s (⚠ MINE), pants seeing only their
+ *      `MONSTER_MAX_LIVE_PER_SEAT` 30 alive per seat — ⚠ MINE, sized from the measured snapshot; ⭐ S194 R194-27: now `MONSTER_MAX_LIVE_TOTAL` 360 split over the living seats, re-measured), the wave-31 fight
+ *      that never ends on the clock while 2+ live, the mega pants past 240 s (⚠ MINE; ⭐ S194 R194-26: now the 251st slot), pants seeing only their
  *      victim's keep, the spawner bounty off on waves 27–31 (⚠ MINE), the last draft at wave 26.
  */
 /**
