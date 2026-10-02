@@ -10,11 +10,12 @@
  * The KILLER must be one of the zombie seat's RACIAL creatures: the castle's own soldier
  * (`raceUnit` — one literal for all six races, so ownership is what makes it a zombie), the zombie
  * tier-3 unit (`RACE_TOWER_UNIT.zombies`, the hound) and the zombie tier-9 boss. ⛔ Nothing global
- * counts: not a Voltkin, not Helga (a DEFENDER — she never reaches this path), not a pencil chewer,
+ * counts: not a Voltkin, not Helga (a DEFENDER, never a killer here), not a pencil chewer,
  * not a goblin, even when the zombie seat owns it. That is his *"so not like Voltkin or Helga or
  * Pencil Chewers"*, and it is the same ownership-AND-type shape as the orcs' BLOOD FRENZY ruling.
  *
- * The VICTIM is any ENEMY creature. The spawn is ONE `raceUnit` at the zombie seat's castle, through
+ * The VICTIM is any ENEMY creature — including a PANTS (owner 255, everyone's enemy; owner S194 *"of
+ * course"*) — and, since S194, an enemy HELGA (`riseOnHelgaKill`, called from `damageEntity`'s defender arm). The spawn is ONE `raceUnit` at the zombie seat's castle, through
  * the castle emitter's own spawn (`spawnRaceUnitAtCastle`) — so it carries the seat's draft buffs and
  * shelters / releases like every castle soldier.
  *
@@ -56,6 +57,7 @@
 import type { Creature, CreatureType } from '../creatures/creature.ts';
 import type { World } from '../worldTypes.ts';
 import type { KillCredit } from './killCredit.ts';
+import type { PlayerId } from '../../types.ts';
 import { RACE_TOWER_UNIT } from '../raceTowerIds.ts';
 import { T9_BOSS_TYPE } from '../t9BossIds.ts';
 import { seatHoldsPerk } from '../racialPerks.ts';
@@ -83,8 +85,26 @@ export const THE_RISEN_ANY_SEAT_UNIT = false;
  * so the killer need no longer be alive.
  */
 export function riseOnKill(world: World, victim: Creature, credit: KillCredit): void {
+  riseForVictimOf(world, victim.ownerPlayerId, credit);
+}
+
+/**
+ * ⭐⭐ S194 (T8, owner B) — HELGA FALLING RAISES ONE TOO. *"should Helga dying raise a zombie? … Might as
+ * well. … it's just one zombie."* She is a DEFENDER, not a creature, so `riseOnKill` never saw her: her
+ * death is the `'defender'` arm of `damageEntity`, which calls this on the ONE blow that takes her pool to
+ * 0 (she then goes DORMANT with `ehp: null`, immune to every further blow, so a pile-on cannot raise a
+ * second). Her hall re-summoning her at the next phase edge is a new life, and a new kill raises again.
+ * The SAME guards as any creature kill (enemy only, a typed racial credit, `zombies.l0`), so his S187
+ * "not like … Helga" — Helga as a KILLER — is untouched: she is the victim here.
+ */
+export function riseOnHelgaKill(world: World, helgaOwner: PlayerId, credit: KillCredit): void {
+  riseForVictimOf(world, helgaOwner, credit);
+}
+
+/** The one rule both deaths share: a victim owned by `victimOwner`, a blow credited to `credit`. */
+function riseForVictimOf(world: World, victimOwner: PlayerId, credit: KillCredit): void {
   if (credit === null) return;
-  if (credit.seat === victim.ownerPlayerId) return; // an ENEMY kill only — his own units never raise
+  if (credit.seat === victimOwner) return; // an ENEMY kill only — his own units never raise
   // ⭐ S193 — a SEAT credit (castle gun, raid, Ra, scorch, hub, tower: `type: null`) raises nobody, under
   // Reading A AND with the lever on — the stat board's credit must never become a sim rule.
   if (credit.type === null) return;
