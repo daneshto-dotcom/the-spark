@@ -140,6 +140,22 @@ describe('S194 — a shape released on an illegal spot plays the refused cue', (
     expect(r.sent.some((a) => a.type === 'PLACE_FROM_FREE')).toBe(false);
   });
 
+  it('⛔ F1 NEGATIVE: an illegal spot UNDER THE CASTLE PANEL is a UI drop — silent, nothing placed', () => {
+    const r = rig();
+    const mine = findPoint((p) => canBuildNow(r.w, p, P0));
+    const theirs = findPoint((p) => !canBuildNow(r.w, p, P0));
+    r.castle.isOverPanel = (x, y) => x === theirs.x && y === theirs.y; // the panel covers exactly that spot
+    grab(r, mine, 9404);
+    const s = r.w.freeSparks.get(asSparkId(9404))!;
+    s.pos.x = theirs.x;
+    s.pos.y = theirs.y;
+    move(r.c, theirs);
+    r.sent.length = 0;
+    up(r.c, theirs);
+    expect(refused).not.toHaveBeenCalled();
+    expect(r.sent.some((a) => a.type === 'PLACE_FROM_FREE')).toBe(false);
+  });
+
   it('NEGATIVE: a legal release places the shape and stays silent', () => {
     const r = rig();
     const mine = findPoint((p) => canBuildNow(r.w, p, P0));

@@ -2039,7 +2039,17 @@ export class Controls {
             sparkId: spark.id,
             sentAt: performance.now(),
           };
-        } else if (!gates.commit) {
+        } else if (
+          !gates.commit &&
+          // ⛔ S194 audit F1 — the same five UI predicates as the commit branch: a release over the panel,
+          // the footer, the card, the draft panel or a modal is a UI drop, never a refusal, so it stays silent.
+          !this.isPointerOverPanel() &&
+          !this.isPointerOverFooterSurface() &&
+          !this.isPointerOverCard() &&
+          !this.isPointerOverDraftPanel() &&
+          !this.isPointerUnderModal() &&
+          !downUnderModal
+        ) {
           // ⭐ S194 (T9 coherence, routed to T5) — releasing a dragged shape on an ILLEGAL spot (out of
           // reach, in a spawner zone, in another seat's territory) was silent: the shape just fell. It
           // now plays the same refused cue as every other refused control. ⚠ Only the legality gates:
