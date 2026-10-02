@@ -27,7 +27,7 @@ import { asSpawnerId, type PlayerId, type PrimitiveId, type SpawnerId } from '..
 import type { GodlyId } from '../godlyRecipes/types.ts';
 // ⭐ S189 C2 — the SURVIVAL test for the pentagram / lightning hub / goblin tower arms below. The
 // three `is…Component` IGNITION predicates these arms used to call are no longer imported here.
-import { towerStandsAt } from '../towerMembers.ts';
+import { ownSetAtRegistration, towerStandsAt } from '../towerMembers.ts';
 /*
  * S166 — the two lookups the race-tower cases need.
  *
@@ -49,6 +49,12 @@ export interface RegisterSpawnerAction {
   readonly ownerPlayerId: PlayerId;
   readonly anchorPrimitiveId: PrimitiveId;
   readonly recipeId: GodlyId;
+  /**
+   * S191 (R191-A) — the tower's own shapes, when the caller knows them better than the exact shape at
+   * the anchor can say: ONLY the tower FIX re-registering a welded stamp (`structureRepair.ts`), which
+   * exact ignition can never see. Omitted ⇒ read off the exact shape (`ownSetAtRegistration`).
+   */
+  readonly ownPrimitiveIds?: readonly PrimitiveId[];
 }
 export interface RemoveSpawnerAction {
   readonly type: 'REMOVE_SPAWNER';
@@ -82,8 +88,9 @@ export function applyRegisterSpawner(world: World, action: RegisterSpawnerAction
       // ⭐ S158 B2 — the recipe's OWN cadence, not the chewer's. A lightning hub seeded here at the
       // chewer's 15 s spent the first quarter of its fight silent before it emitted anything.
       nextSpawnTick: world.tick + spawnerIntervalTicks(action.recipeId),
-      // ⭐ S189 C2 (audit W1) — every connector it was BUILT with has an id below this.
-      ownBondIdLimit: world.nextBondId,
+      // ⭐ S189 C2 / S191 — the shapes it is BUILT of (its own connectors are the bonds between them).
+      ownPrimitiveIds:
+        action.ownPrimitiveIds ?? ownSetAtRegistration(world, action.recipeId, action.anchorPrimitiveId),
     }),
   );
   recordTowerBuilt(world, action.ownerPlayerId); // ⭐ S191 — the stat board's TOWERS

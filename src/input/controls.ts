@@ -72,8 +72,9 @@ import { isPointInKeep } from '../state/gatherers/gatherer.ts';
 // S152 A5 — UI click cues. ⚠ SAFE FOR THIS FILE: audioManager imports only constants + types, no
 // Pixi, so the standing rule that controls.ts must not pull Pixi into the input layer still holds.
 import { playUiClickSFX, playUiRefusedSFX } from '../render/audioManager.ts';
-import { creatureDrawnSizeRatio, towerAnchorAtPoint } from '../render/towerFrames.ts';
-import { rampAnchorAtPoint } from '../render/structureRamp.ts';
+import { creatureDrawnSizeRatio, towerHitAtPoint } from '../render/towerFrames.ts';
+import { rampHitAtPoint } from '../render/structureRamp.ts';
+import { towerClickShapeAt, towerUnitAt } from '../state/towerUnit.ts';
 import { stinkTowerAt } from '../render/stinkTowerCover.ts';
 // ⭐ S188 P6 — POWER OF RA. The rules leaf is Pixi-free and so is the aim context, so the standing
 // rule that this layer must not import Pixi still holds.
@@ -1173,14 +1174,6 @@ export class Controls {
      * cannot repair. Its box is measured from all twelve idle cells and is ASYMMETRIC, because the
      * art straddles its anchor rather than standing on it.
      */
-    const towerHit = towerAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
-      ?? rampAnchorAtPoint(this.world, this.cursor.x, this.cursor.y)
-      ?? stinkTowerAt(this.world, this.cursor.x, this.cursor.y);
-    if (towerHit !== null) {
-      this.characterSheet.select({ kind: 'structure', primitiveId: towerHit });
-      return true;
-    }
-
     let bestPrim: PrimitiveId | null = null;
     let bestPrimD2 = Infinity;
     for (const prim of this.world.primitives.values()) {
@@ -1191,6 +1184,35 @@ export class Controls {
       if (d2 > r * r || d2 >= bestPrimD2) continue;
       bestPrimD2 = d2;
       bestPrim = prim.id;
+    }
+    const stinkAnchor = stinkTowerAt(this.world, this.cursor.x, this.cursor.y);
+    const towerHit = towerHitAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? rampHitAtPoint(this.world, this.cursor.x, this.cursor.y)
+      ?? (stinkAnchor !== null ? { anchorId: stinkAnchor, recipeId: 'stinkTower' as GodlyId } : null);
+    if (towerHit !== null) {
+      /*
+       * ⭐ S191 R191-A — A VISIBLE WELD ON THE ART IS CLICKED, NOT THE TOWER UNDER IT. *"when you click on
+       * the shape that's welded to it, you can see the whole structure."* A live tower's OWN shapes are
+       * faded to nothing under its art (R183-E), which is why the art box is tried first; a weld is drawn
+       * at full opacity (R185-A) and sits ON the art, so the box would swallow the one click that opens
+       * the structure's card.
+       *
+       * ⛔ S192 (audit SHEETS-4) — and ONLY a weld: the shape must be WELDED INTO this tower (its
+       * component) and not a live tower's own. Round 5 let ANY non-tower shape under the cursor win, so
+       * loose rubble lying on an un-welded tower's art opened the rubble — against canon §7b's *"You
+       * click on the tower, ANYWHERE on the tower, and you still have the tower sheet."*
+       */
+      if (bestPrim !== null && towerUnitAt(this.world, bestPrim)?.kind !== 'live') {
+        const anchor = this.world.primitives.get(towerHit.anchorId);
+        if (anchor !== undefined && componentOf(anchor, this.world.primitives, this.world.bonds).primitiveIds.has(bestPrim)) {
+          this.characterSheet.select({ kind: 'structure', primitiveId: bestPrim });
+          return true;
+        }
+      }
+      // ⭐ S192 (audit IDENTITY-2) — the shape that names THIS tower, not its (possibly shared) anchor.
+      const named = towerClickShapeAt(this.world, towerHit.anchorId, towerHit.recipeId);
+      this.characterSheet.select({ kind: 'structure', primitiveId: named });
+      return true;
     }
     if (bestPrim !== null) {
       this.characterSheet.select({ kind: 'structure', primitiveId: bestPrim });

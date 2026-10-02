@@ -1822,6 +1822,8 @@ const KNOWN_GAME_ACTION_TYPES_RECORD: Record<GameAction['type'], true> = {
   // PROTOCOL_VERSION bumped 26->27.
   REPAIR_STRUCTURE: true,
   SCRAP_STRUCTURE: true,
+  // ⭐ S193 R192-W1 — FIX ALL (a joiner queues every one of ITS OWN towers; the host re-plans each).
+  FIX_ALL: true,
   // S141 P2 (V6-1.4) — the gatherer ORDER QUEUE. Both are also CLIENT INTENTs (see below).
   ENQUEUE_GATHERER_ORDER: true,
   CANCEL_GATHERER_ORDER: true,
@@ -2033,6 +2035,8 @@ const CLIENT_INTENT_TYPES_RECORD = {
   // desync. The one real cross-check is benchGate.test.ts's set-equality against BENCH_INTENT_POLICY.
   REPAIR_STRUCTURE: true,
   SCRAP_STRUCTURE: true,
+  // ⭐ S193 R192-W1 — FIX ALL (a joiner queues every one of ITS OWN towers; the host re-plans each).
+  FIX_ALL: true,
 } as const satisfies Partial<Record<GameAction['type'], true>>;
 
 export const CLIENT_INTENT_TYPES: ReadonlySet<string> = new Set(

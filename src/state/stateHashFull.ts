@@ -106,6 +106,10 @@ export const FIELD_COVERAGE: Readonly<Record<keyof World, 'hashed' | 'acknowledg
   // their gatherers to different sparks and diverge within a tick. This is exactly the class the
   // wide oracle exists to catch, so it must contribute.
   gathererOrders: 'hashed',
+  // ⭐ S193 R191-B — the FIX queue and its id counter. Both drive which gatherer fetches what and which
+  // tower is restored when, so two sims that disagree here diverge within a tick.
+  repairJobs: 'hashed',
+  nextRepairJobId: 'hashed',
   bombs: 'hashed',
   hunters: 'hashed',
   potatoes: 'hashed',
@@ -400,8 +404,8 @@ type CreatureHashed =
 type SpawnerHashed =
   | 'id' | 'ownerPlayerId' | 'anchorPrimitiveId' | 'recipeId' | 'nextSpawnTick'
   | 'lastValidatedTick' | 'spawnedCount' | 'ignitedAtTick'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit'
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds'
   // ⭐ S193 (T4) — the goblin tower's auto-build toggles + cursor: decide which goblin is born next.
   | 'autoFeedMask' | 'autoFeedCursor';
 // ⚠ ADDING A NAME HERE IS NOT ENOUGH — IT ONLY SILENCES `tsc`. The projection below is a
@@ -417,8 +421,8 @@ type DefenderHashed =
   // HASHED because it decides whether she is alive, which every later tick branches on.
   | 'walkTargetPos' | 'state' | 'ticksInState' | 'nextFireTick' | 'targetCreatureId'
   | 'lastStrikePos' | 'bagsRemaining' | 'ehp'
-  // ⭐ S189 C2 (audit W1) — which connectors the tower was BUILT with: decides whether it stands.
-  | 'ownBondIdLimit';
+  // ⭐ S189 C2 / S191 — the shapes the tower is BUILT of: decides whether it stands.
+  | 'ownPrimitiveIds';
 type BombHashed = 'id' | 'pos' | 'radius' | 'spawnedAtTick' | 'dissipateAtTick';
 type HunterHashed =
   | 'id' | 'pos' | 'prevPos' | 'state' | 'ticksInState' | 'targetPlayerId' | 'spawnedAtTick'
@@ -439,7 +443,7 @@ type StinkCloudHashed =
 // a pure fn of (tick, gathererId)). Every field the entity DOES carry is hashed.
 type GathererHashed =
   | 'id' | 'ownerPlayerId' | 'pos' | 'spawnedAtTick' | 'state' | 'targetSparkId'
-  | 'carriedSparkId' | 'speedLevel' | 'preferredType';
+  | 'carriedSparkId' | 'speedLevel' | 'preferredType' | 'repairTask';
 
 /**
  * S141 P3 — THE CASTLE-BANK PROJECTION GUARD.
@@ -711,7 +715,7 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `cs${n(s.id)}:${n(s.ownerPlayerId)}:${n(s.anchorPrimitiveId)}:${s.recipeId}` +
         `:ns${s.nextSpawnTick}:lv${s.lastValidatedTick}:sc${s.spawnedCount}:ig${o(s.ignitedAtTick)}` +
-        `:ob${o(s.ownBondIdLimit ?? null)}` + // S189 C2 — `_` when unknown
+        `:op${s.ownPrimitiveIds == null ? '_' : s.ownPrimitiveIds.join('.')}` + // S189 C2 / S191 — `_` when unknown
         `:af${s.autoFeedMask ?? 0}:ac${s.autoFeedCursor ?? 0}`, // S193 T4 — absent reads as 0, the factory's value
     );
   }
@@ -724,7 +728,7 @@ export function determinismParts(world: World): string[] {
         `:${d.state}:${d.ticksInState}:nf${o(d.nextFireTick)}` +
         `:tc${n(d.targetCreatureId)}:ls${v2(d.lastStrikePos)}:bg${o(d.bagsRemaining)}` +
         `:eh${o(d.ehp)}` + // S158 P7 — `_` for a tower (null), a number for a unit-class defender
-        `:ob${o(d.ownBondIdLimit ?? null)}`, // S189 C2 — `_` when unknown
+        `:op${d.ownPrimitiveIds == null ? '_' : d.ownPrimitiveIds.join('.')}`, // S189 C2 / S191 — `_` when unknown
     );
   }
 
@@ -733,7 +737,9 @@ export function determinismParts(world: World): string[] {
     parts.push(
       `ga${n(g.id)}:${n(g.ownerPlayerId)}:${g.pos.x},${g.pos.y}:sa${o(g.spawnedAtTick)}` +
         `:${g.state}:tg${n(g.targetSparkId)}:cy${n(g.carriedSparkId)}:sl${g.speedLevel}` +
-        `:pf${o(g.preferredType)}`,
+        `:pf${o(g.preferredType)}` +
+        // S193 R191-B — `_` when idle, else job.type.source.spark.carrying
+        `:rt${g.repairTask === null ? '_' : `${g.repairTask.jobId}.${o(g.repairTask.type)}.${g.repairTask.source}.${n(g.repairTask.sparkId)}.${g.repairTask.carrying ? 1 : 0}`}`,
     );
   }
 
@@ -760,6 +766,15 @@ export function determinismParts(world: World): string[] {
   for (const seat of orderSeats) {
     const q = world.gathererOrders.get(seat) ?? [];
     parts.push(`go${n(seat)}:${q.map((t) => o(t)).join('.')}`);
+  }
+
+  // ⭐ S193 R191-B — the FIX queue, in queue order (the ORDER is the priority), and its counter.
+  parts.push(`rjn${world.nextRepairJobId}`);
+  for (const j of world.repairJobs) {
+    parts.push(
+      `rj${j.id}:${n(j.seat)}:t${n(j.targetId)}:m${j.memberIds.join('.')}:nd${j.need.map((t) => o(t)).join('.')}` +
+        `:dl${j.delivered.map((t) => o(t)).join('.')}`,
+    );
   }
 
   const bombs = [...world.bombs.values()].sort((a, b) => Number(a.id) - Number(b.id));

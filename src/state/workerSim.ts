@@ -354,6 +354,9 @@ export function structuralSignature(world: World): string {
     // which every other size term in this signature is blind to.
     world.gathererOrders.size,
     queuedOrderTotal(world),
+    // ⭐ S193 R191-B — the FIX queue: a job's need/delivered lists move without any size above moving.
+    world.repairJobs.length,
+    world.repairJobs.reduce((t, j) => t + j.need.length + j.delivered.length, 0),
     world.bombs.size,
     world.hunters.size,
     world.potatoes.size,

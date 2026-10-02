@@ -97,7 +97,7 @@ export type DefenderKind = 'turret' | 'princess' | 'stinkTower';
  * So her record stays, DORMANT: `ehp` is `null` (no pool — every unit-facing consumer already skips a
  * pool-less defender: targeting, raids, damage, her bar, her sheet), she does not tick, is not drawn,
  * and does not engage the Helga theme. The HALL keeps its identity (`anchorPrimitiveId`,
- * `ownBondIdLimit`) and its art. At the FIGHT→BUILD edge (`hostTick`) she REVIVES if the hall's own
+ * `ownPrimitiveIds`) and its art. At the FIGHT→BUILD edge (`hostTick`) she REVIVES if the hall's own
  * members still stand, welded or not, with no bond formation needed; the same edge's sweep removes
  * the record if the hall fell. A SERIALIZED state literal ⇒ rides the S189 protocol bump.
  */
@@ -199,29 +199,13 @@ export interface Defender {
    */
   lastStrikePos: Vec2 | null;
   /**
-   * ⭐⭐ S189 C2 (audit W1) — **WHICH CONNECTORS THIS TOWER WAS BUILT WITH.** Every bond whose id is
-   * BELOW this was minted before the tower was registered (`world.nextBondId` at registration); its
-   * own members are the recipe's shape among those. A weld made later — of any type, anywhere — has a
-   * higher id and is never one of them, so it can neither kill the tower nor stand in for a lost own
-   * connector: cut one of the connectors it was built with and it falls (R185-B, *"it destroys the
-   * connectors that he's attacking"*).
-   *
-   * ⚠ A BOND ID, NOT A TICK. `ignitedAtTick` looks equivalent and is not: it is stripped from the wire
-   * and re-seeded to each CLIENT's own tick (so every weld would read "older" there and be hidden
-   * under the sprite), and a weld dropped in the frame right after ignition shares its tick.
-   * Bond ids are monotonic, unique, and exact.
-   *
-   * SERIALIZED (disk, worker INIT AND the wire — the client render walks need it) and HASHED.
-   * `null` / absent = unknown (a pre-S189 save, or a hand-built test fixture): the survival test then
-   * falls back to the exact shape, the pre-S189 reading.
-   *
-   * ⚠ KNOWN GAP (audit W-FR4, documented, NOT fixed): a connector RE-MADE by FIX inside the ≤ 0.5 s
-   * before the revalidation poll removes a broken tower gets a NEW id (≥ this limit), so it counts as a
-   * weld — the tower still falls at that poll, and the repaired shape re-ignites as a new tower on the
-   * next BUILD-phase topology change. Narrow (FIX is BUILD-only; breaks come from FIGHT damage or a
-   * player's own sever) and it costs a re-ignition, never a wrong survivor.
+   * ⭐⭐ S189 C2 / S191 R191-A — **THE SHAPES THIS TOWER IS MADE OF**, ascending, the anchor included.
+   * Exactly `CreatureSpawner.ownPrimitiveIds` — see that field for why these are SHAPES and not a
+   * bond-id watermark (FIX re-welds with new bond ids; a bond between two own shapes is own by
+   * construction). Serialized, on the wire, hashed; `null` = unknown ⇒ the exact pre-S189 reading.
+   * Mutable ONLY for the FIX reducer (a re-minted node's id joins the set).
    */
-  readonly ownBondIdLimit?: number | null;
+  ownPrimitiveIds?: readonly PrimitiveId[] | null;
 }
 
 /** Per-kind FSM + combat tuning. One entry per DefenderKind (compile-time exhaustive). */
@@ -390,8 +374,8 @@ export function makeDefender(args: {
   recipeId: GodlyId;
   pos: Vec2;
   registeredAtTick: number;
-  /** S189 C2 — `world.nextBondId` at registration (see the field). Omitted ⇒ `null` (unknown). */
-  ownBondIdLimit?: number | null;
+  /** S189 C2 / S191 — the tower's own shapes at registration (see the field). Omitted ⇒ `null`. */
+  ownPrimitiveIds?: readonly PrimitiveId[] | null;
 }): Defender {
   const config = getDefenderConfig(args.kind);
   return {
@@ -412,6 +396,6 @@ export function makeDefender(args: {
     nextFireTick: args.registeredAtTick + config.fireIntervalTicks,
     targetCreatureId: null,
     lastStrikePos: null,
-    ownBondIdLimit: args.ownBondIdLimit ?? null,
+    ownPrimitiveIds: args.ownPrimitiveIds == null ? null : [...args.ownPrimitiveIds].sort((a, b) => a - b),
   };
 }

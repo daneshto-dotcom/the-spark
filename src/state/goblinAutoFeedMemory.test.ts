@@ -22,6 +22,7 @@ import { dispatch, makeWorld, type World } from './world.ts';
 import { AUTO_FEED_POLL_TICKS, runGoblinAutoFeed } from './goblinAutoFeed.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
 import { netSnapshot, restore, snapshot } from './save.ts';
+import { applyRepairStructure } from './structureRepair.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
 import { isBuildLocked } from './endgame.ts';
 import { asPlayerId, asPrimitiveId, type PlayerId, type PrimitiveId, type SpawnerId } from '../types.ts';
@@ -80,7 +81,9 @@ function bite(w: World, t: SpawnerId): void {
 function fixAndReignite(w: World, anchor: PrimitiveId): CreatureSpawner | undefined {
   w.matchPhase = 'BUILD';
   for (const type of ALL_SPARK_TYPES) if (type !== SparkType.Square && type !== SparkType.Spiral) bankN(w, P0, type, 6);
-  dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: anchor });
+  // ⭐ S193 weld merge seam (R191-B) — `REPAIR_STRUCTURE` now QUEUES a gatherer job; this test is about the
+  // toggles surviving REMOVE → REGISTER, so it calls the restore itself (the job's last step runs the same one).
+  applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: anchor });
   runSpawnerIgnition(w);
   return [...w.creatureSpawners.values()].find((s) => s.recipeId === 'goblinTower');
 }

@@ -26,6 +26,7 @@ import {
 } from '../../constants.ts';
 import { zoneCastleAnchor, type ZoneLayout } from '../zones.ts';
 import type { GathererId, PlayerId, SparkId, Vec2 } from '../../types.ts';
+import type { RepairTask } from '../repairJobTypes.ts';
 
 /**
  * V6-1.2 — the haul cycle. SEEKING: walking to the chosen spark in the spawn zone. HAULING:
@@ -74,6 +75,12 @@ export interface Gatherer {
    * so an unattended player never stops earning).
    */
   preferredType: SparkType | null;
+  /**
+   * ⭐ S193 R191-B — the FIX job shape this gatherer is fetching or carrying, or null. While set, the
+   * unit is off the haul cycle (`applyGathererTick` skips it; `repairJobs.tickRepairJobs` drives it):
+   * *"the top priority for your gatherers"*. Serialized + wide-hashed (four sites).
+   */
+  repairTask: RepairTask | null;
 }
 
 /**
@@ -95,6 +102,7 @@ export function makeGatherer(args: {
     carriedSparkId: null,
     speedLevel: 0,
     preferredType: null,
+    repairTask: null,
   };
 }
 
