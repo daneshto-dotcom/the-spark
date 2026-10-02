@@ -335,21 +335,24 @@ describe('S183 — the cover CONSUME sites, counted and pinned', () => {
   });
 
   /**
-   * ⛔ S192 audit V-1 — THE REBUILT AURA (`fx/auraFx.ts`) IS A SEVENTH DRAW, AND IT MUST FADE TOO. It
-   * draws through sprites, not `alpha:` literals, so the count above cannot see it. This counts every
-   * `auraFx(` call in the renderer and requires its LAST argument to be the anchor's cover alpha, then
-   * requires every emit inside `auraFx.ts` to multiply its alpha by that `cover` parameter.
+   * ⛔ S192 audit V-1 — THE REBUILT AURA WAS A SEVENTH DRAW, AND IT HAD TO FADE TOO. ⭐ S194 moved it (and the
+   * charged connectors) into the shared build/destroy sparkle (`fx/towerSparkleFx.ts`), keyed on every
+   * tower's cover group rather than on the spawner collection. The rule is unchanged and so is its teeth:
+   * the renderer feeds the sparkle each connector's and shape's OWN cover alpha while the tower stands,
+   * and every sprite the sparkle draws is scaled by that alpha or by the strength `s` (the shapes'
+   * cover alpha while standing — 0 under a finished building).
    */
-  it('⛔ S192 — every rebuilt-aura call passes the cover alpha, and every one of its sprites is scaled by it', () => {
+  it('⛔ S192/S194 — the sparkle is fed cover alphas, and every one of its sprites is scaled by them', () => {
     const src = codeOf('spawnerZoneRenderer.ts');
-    const calls = [...src.matchAll(/\bauraFx\(([^;]*)\);/g)].map((m) => m[1]!.trim());
-    expect(calls, 'exactly one auraFx call').toHaveLength(1);
-    for (const c of calls) expect(c, `auraFx without the cover alpha: ${c}`).toMatch(/coverAlphaForPrim\(anchor\.id\)\s*$/);
-    const fx = codeOf('fx/auraFx.ts');
+    expect([...src.matchAll(/\bauraFx\(/g)], 'the S192 aura call moved into the shared sparkle').toHaveLength(0);
+    expect(src).toContain('a: grp.standing ? coverAlphaForBond(bid) : s');
+    expect(src).toContain('a: grp.standing ? coverAlphaForPrim(pid) : s');
+    expect(src).toContain('towerSparkleStrength(grp.standing, grp.alpha, grp.downTicks)');
+    const fx = codeOf('fx/towerSparkleFx.ts');
     const emits = [...fx.matchAll(/\.emit\(([^;]*)\);/g)].map((m) => m[1]!.split(',').map((x) => x.trim()));
-    // pool (wide) · pool (inner) · ember
-    expect(emits, 'the aura draws three sprites').toHaveLength(3);
-    for (const args of emits) expect(args[6], `un-covered aura alpha: ${args[6]}`).toMatch(/\*\s*cover$/);
+    // pool (wide) · pool (inner) · ember · connector glow · bead · shape glow · twinkle × 2
+    expect(emits, 'the sparkle draws eight sprites').toHaveLength(8);
+    for (const args of emits) expect(args[6], `un-covered sparkle alpha: ${args.join(',')}`).toMatch(/\*\s*(s|a)\)?$/);
   });
 
   /**
