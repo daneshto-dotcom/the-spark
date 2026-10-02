@@ -1240,8 +1240,8 @@ export const CREATURE_CONFIGS: Readonly<Record<CreatureType, CreatureConfig>> = 
  *
  * A named, per-type statement, the `NEVER_RETALIATES` pattern: the lightning drone
  * (`selfExplode && !targetsStructures` — it homes on connectors and detonates, it never ATTACKS) and the
- * pencil chewer (STRUCTURES_ONLY). ⚠ `creatureCanTarget` alone cannot say this: the drone's matrix row is
- * BOTH. Only these two; every other unit can hit back, which is what keeps R184-A out of `cannotCatch`.
+ * pencil chewer (STRUCTURES_ONLY). ⚠ `creatureCanTarget` alone cannot say this: the drone's matrix row was
+ * BOTH until S194 (R194-9 made it STRUCTURES_ONLY); the selfExplode test above is what names it, not the row. Only these two; every other unit can hit back, which is what keeps R184-A out of `cannotCatch`.
  */
 export function isNonCombatantType(type: CreatureType): boolean {
   if (type === 'chewer') return true;

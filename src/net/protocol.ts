@@ -1044,7 +1044,16 @@ export type { NetSnapshot };
  *   3. R194-13 — the castle soldier (`raceUnit`) is MRES 1 for EVERY race (`CASTLE_SOLDIER_MRES`), no longer its owner's
  *      race table: a v62 peer lands a magic hit on a demons soldier 4/9 lighter.
  */
-export const PROTOCOL_VERSION = 63 as const;
+/**
+ * ⭐⭐ S194 — **BUMPED 63 -> 64: `s194/fixes` (owner rulings R194-2/8/9).** Each alone is a rule both peers compute:
+ *   1. R194-8 — an enemy HELGA felled by a zombie seat's RACIAL unit raises ONE castle soldier (`riseOnHelgaKill`).
+ *   2. R194-2 — the pants lanes are the seats that STARTED the fight (`monsterLaneSeats`): a fallen seat's queued pants
+ *      stop, survivors keep their full count and pace; the hashed `monsterWaveSpawned` changes meaning.
+ *   3. R194-9 — chewers and lightning drones never strike Helga (`killableDefenderInReach` reads the R72 matrix; the
+ *      drone's row is STRUCTURES_ONLY).
+ *   `s194/ui-upgrade` (render/UI only) rides along.
+ */
+export const PROTOCOL_VERSION = 64 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1384,6 +1393,7 @@ export interface HelloMsg {
    *
    * S193: 61->62 (DEPLOY #23 — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first. Full reasons on the const's JSDoc.)
    * S194: 62->63 (s193/mres-card: the wave-26 'mres' draft pick (WARDED), Creature.mresFifths, castle soldier MRES 1 for every race. Full reasons on the const's JSDoc.)
+   * S194: 63->64 (s194/fixes: Helga RISEN, fallen-seat pants lanes, chewer/drone never strike Helga. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1422,7 +1432,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 63;
+  readonly protoVersion: 64;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

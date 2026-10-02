@@ -413,7 +413,10 @@ export const CREATURE_TARGETS: Readonly<Record<CreatureType, ReadonlySet<TargetC
   // Eats connectors, never fights soldiers — the shipped behaviour, now stated rather than implied.
   chewer: STRUCTURES_ONLY,
   voltkin: BOTH,
-  lightningDrone: BOTH,
+  // ⭐ S194 (owner D) — *"they only target … buildings, towers, and connectors. And … free shapes. That's
+  // their whole point."* Was BOTH; its SEEKING branch only ever picked bonds, but the matrix let it strike
+  // Helga (a unit, R77) through `killableDefenderInReach`.
+  lightningDrone: STRUCTURES_ONLY,
   goblinMelee: BOTH,
   // ⭐ Owner R72 is unambiguous and covers the whole family at once: *"goblins of all kinds can do
   // both"*. Stated per-kind anyway rather than via a loop, because this Record is the FORCING

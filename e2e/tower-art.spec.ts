@@ -159,6 +159,17 @@ async function towerState(page: import('@playwright/test').Page) {
   });
 }
 
+/**
+ * ⭐ S194 (T8) — `TowerRenderer.ensureAtlas` FETCHES a tower's manifest and multi-MB atlas the first
+ * time that tower is seen (lazy by design — two races × two tiers of PNG), and draws nothing until
+ * both land. The sprite count was read once at a fixed 900 ms after placing: a race against a network
+ * fetch + decode. Deploy #22's gating run lost it (`towerSprites` 0, then 1 on the retry); reproduced
+ * locally with 1.5 s of CDP network latency. Polled instead, up to this cap — the assertion is
+ * unchanged (exactly ONE sprite), only the wait for an async load is honest now. A path that 404s
+ * still never draws, so it still fails, after the cap.
+ */
+const TOWER_ATLAS_WAIT_MS = 20_000;
+
 async function clickCanvas(page: import('@playwright/test').Page, x: number, y: number): Promise<void> {
   const p = await canvasToCss(page, x, y);
   await page.mouse.click(p.x, p.y);
@@ -224,7 +235,9 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
      * defect that shipped for two sessions on the tier-3 towers: recipe fine, art fine, path fine,
      * and nothing on screen.
      */
-    expect(after.towerSprites, 'the tower renderer must hold exactly one sprite').toBe(1);
+    await expect.poll(async () => (await towerState(page)).towerSprites, {
+      message: 'the tower renderer must hold exactly one sprite', timeout: TOWER_ATLAS_WAIT_MS,
+    }).toBe(1);
 
     await page.screenshot({ path: 'test-results/t9-tower-on-board.png' });
   });
@@ -352,7 +365,10 @@ test.describe('@visual S167 — the race tower is DRAWN, not just built', () => 
     const after = await towerState(page);
     expect(after.primitives, 'three shapes stamped').toBe(3);
     expect(after.spawners, 'the tier-3 tower must ignite').toContain(towerId);
-    expect(after.towerSprites, '⛔ the S165 tower art must finally be DRAWN').toBe(1);
+    // ⭐ S194 (T8) — see TOWER_ATLAS_WAIT_MS: the atlas loads LAZILY at first sight, so poll for it.
+    await expect.poll(async () => (await towerState(page)).towerSprites, {
+      message: '⛔ the S165 tower art must finally be DRAWN', timeout: TOWER_ATLAS_WAIT_MS,
+    }).toBe(1);
 
     await page.screenshot({ path: 'test-results/t3-tower-on-board.png' });
   });

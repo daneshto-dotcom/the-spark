@@ -30,6 +30,7 @@ import { isConcealed } from './concealment.ts';
 import {
   DEFENDER_FIRE_HOLD_TICKS,
   DEFENDER_RECOVER_TICKS,
+  PHYSICS_HZ,
   PRINCESS_SPRITE_BASE_SCALE,
   PRINCESS_WINDUP_TICKS,
 } from '../constants.ts';
@@ -75,6 +76,15 @@ interface LoadedAtlas {
   cells: Record<HelgaAnimState, Texture[]>;
   footAnchor: { x: number; y: number };
   cfg: HelgaAnimConfig;
+}
+
+/**
+ * ⭐ S194 (T8) — the clock the slap's star-burst spins by while the rebuilt fx are on: SIM SECONDS,
+ * the synced tick over `PHYSICS_HZ` — the same unit the legacy path's `performance.now() / 1000` is
+ * in, so the spin rate (8 rad a second) is the same on both looks. Pure, so both peers agree.
+ */
+export function slapSpinSeconds(tick: number): number {
+  return tick / PHYSICS_HZ;
 }
 
 export class PrincessRenderer {
@@ -244,7 +254,9 @@ export class PrincessRenderer {
         if (fxActive()) {
           slapImpactFx(fxTop(), d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState,
             fxSeed(d.id as unknown as number, world.tick - d.ticksInState));
-          this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, world.tick / 60);
+          // ⭐ S194 (T8) — SIM SECONDS, i.e. the tick over `PHYSICS_HZ`: `drawImpact` spins by seconds
+          // (`nowSec × 8` rad), and this read a literal `/ 60` that only equalled it while the sim ran at 60.
+          this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, slapSpinSeconds(world.tick));
         } else {
           this.drawImpact(g, d.lastStrikePos.x, d.lastStrikePos.y, d.ticksInState, nowSec);
         }

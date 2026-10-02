@@ -515,6 +515,16 @@ export function settingsGearRect(): { x: number; y: number; w: number; h: number
   return { x: GAUGE_X - 8, y: AUDIO_ICON_Y, w: 16, h: 16 };
 }
 
+/**
+ * ⭐ S194 T5 (audit F2) — the gear's click rectangle in the GEAR's own local coordinates, given where it
+ * is positioned. Pinned as its `hitArea`, so Pixi's hit test and `settingsGearRect()` (the modal-cover
+ * rect) are the SAME pixels — a click the gear takes is a click the board never sees, and vice versa.
+ */
+export function settingsGearLocalHit(posX: number, posY: number): { x: number; y: number; w: number; h: number } {
+  const r = settingsGearRect();
+  return { x: r.x - posX, y: r.y - posY, w: r.w, h: r.h };
+}
+
 export function hudSurfaces(m: HudMetrics): HudSurface[] {
   const out: HudSurface[] = [];
   for (let i = 0; i < m.rows; i++) {

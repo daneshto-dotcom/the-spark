@@ -79,9 +79,11 @@ export function monsterFightTicks(wave: number): number {
  * < 7200), so no two releases share a tick.
  *
  * Due by `elapsed` = #{r ∈ [0, T−1] : floor(r × W / (T−1)) ≤ e} = #{r : r × W < (e+1)(T−1)}
- * = `floor(((e + 1)(T − 1) − 1) / W) + 1`, capped at T. Integer arithmetic only. A seat falling mid-wave
- * shrinks T: the formula then dips below what has already come out and the lanes simply wait — it can
- * never produce a burst (R194-2: the fallen seat's un-emerged pants never come).
+ * = `floor(((e + 1)(T − 1) − 1) / W) + 1`, capped at T. Integer arithmetic only. ⭐ S194 (T8 merge): N and
+ * T are the LANES — the seats that started the fight (`monsterLaneSeats`) — and stay fixed when a seat
+ * falls: the fallen lane's slots come due on the same schedule and are skipped at no cost
+ * (`tickEndgameSpawner`), so nobody else's pace moves, `monsterWaveSpawned` still reaches T by the window's
+ * end, and the mega pants (R194-26) still comes at his slot (R194-2: the fallen seat's pants never come).
  */
 export function monstersDueBy(elapsed: number, living: number, total: number, windowTicks: number): number {
   if (elapsed < 0 || living <= 0 || total <= 0 || windowTicks <= 0) return 0;
@@ -89,9 +91,33 @@ export function monstersDueBy(elapsed: number, living: number, total: number, wi
   return Math.min(total, Math.floor(((elapsed + 1) * (total - 1) - 1) / windowTicks) + 1);
 }
 
-/** This monster fight's total: his count per LIVING seat × the living seats, now. */
+/**
+ * ⭐⭐ S194 (T8, owner) — THE LANES ARE THE SEATS THAT STARTED THE FIGHT, AND A FALLEN SEAT'S LANE
+ * SIMPLY STOPS. *"if there's still pants that are supposedly queued, then they stop coming, but the
+ * existing ones just keep attacking."*
+ *
+ * ⛔ What it replaced: the lanes were the LIVING seats, so a seat falling shrank `N` and re-dealt the
+ * release sequence over the survivors — and the fallen seat's ALREADY-EMERGED pants stayed counted in
+ * `monsterWaveSpawned`, so they came out of the SURVIVORS' share. Measured (3 seats, wave 27 = 10 each,
+ * seat 2 falls at 4/4/4 out): the survivors got 8 each, not 10 — the fallen seat's 6 queued were dropped
+ * AND 4 more from the living. Now each lane keeps its own count: a living seat gets exactly his number,
+ * the fallen seat's un-emerged slots are skipped, and nobody's pace changes (`N` is fixed for the fight).
+ *
+ * A seat is a lane unless it fell BEFORE this fight began (`eliminatedAtTick` < `monsterFightStartTick`,
+ * both synced, so a joiner, a promoted host and the worker mirror all derive the same lanes). A seat down
+ * but not yet stamped counts as a lane — it is not living, so its slots are skipped all the same.
+ */
+export function monsterLaneSeats(world: World): PlayerId[] {
+  const start = world.monsterFightStartTick;
+  return [...world.players.entries()]
+    .filter(([, p]) => !isEliminated(p) || p.eliminatedAtTick === undefined || p.eliminatedAtTick >= start)
+    .map(([id]) => id)
+    .sort((a, b) => (a as unknown as number) - (b as unknown as number));
+}
+
+/** This monster fight's total release SLOTS: his count per lane × the lanes (dead lanes' slots are skipped). */
 export function monsterWaveTotal(world: World): number {
-  return monstersPerSeatForWave(world.waveNumber) * livingSeats(world).length;
+  return monstersPerSeatForWave(world.waveNumber) * monsterLaneSeats(world).length;
 }
 
 /**
@@ -102,25 +128,29 @@ export function monsterWaveTotal(world: World): number {
  */
 export function monstersLeftToComeOut(world: World): number {
   if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return 0;
-  return Math.max(0, monsterWaveTotal(world) - world.monsterWaveSpawned);
+  // ⭐ S194 — the LIVING lanes' remaining only: a fallen seat's un-emerged pants are not coming.
+  let left = 0;
+  for (const seat of livingSeats(world)) left += monstersLeftForSeat(world, seat) ?? 0;
+  return left;
 }
 
 /**
  * ⭐ HIS COUNTDOWN, PER SEAT (S193 audit): *"oh shit, I have 66 left"* is MY seat's number. Release `k`
- * goes to lane `living[k mod N]` (`tickEndgameSpawner`), so the releases still to come for the seat at
+ * goes to lane `lanes[k mod N]` (`tickEndgameSpawner`, `monsterLaneSeats`), so the releases still to come for the seat at
  * index `i` are the `k` in [spawned, total) with `k mod N = i` — counted exactly, no field. `null` when
  * `seat` is not a living seat (a fallen or spectating viewer), so the HUD shows the total alone.
  *
- * ⚠ MINE (kept as is, S193 audit item 6) — WHEN A SEAT FALLS, ITS UN-EMERGED PANTS ARE DROPPED: the
- * total becomes his count × the living seats, so the fallen seat's queue never comes out (its pants
- * already on the board retarget to the survivors, `monsterVictimSeat`).
+ * ⭐ HIS (S194) — WHEN A SEAT FALLS, ITS UN-EMERGED PANTS STOP COMING (its lane's slots are skipped) and
+ * its pants already on the board keep attacking — they retarget to the survivors (`monsterVictimSeat`).
+ * The survivors' own counts do not move (`monsterLaneSeats`).
  */
 export function monstersLeftForSeat(world: World, seat: PlayerId): number | null {
   if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber)) return null;
-  const living = livingSeats(world);
-  const i = living.indexOf(seat);
+  if (!livingSeats(world).includes(seat)) return null;
+  const lanes = monsterLaneSeats(world); // ⭐ S194 — fixed for the fight, see `monsterLaneSeats`
+  const i = lanes.indexOf(seat);
   if (i < 0) return null;
-  const n = living.length;
+  const n = lanes.length;
   const total = monstersPerSeatForWave(world.waveNumber) * n;
   const upTo = (m: number): number => (m > i ? Math.ceil((m - i) / n) : 0);
   return Math.max(0, upTo(total) - upTo(Math.min(world.monsterWaveSpawned, total)));
@@ -163,10 +193,14 @@ export function megaPantsSlotTicks(total: number, windowTicks: number): number {
   return Math.floor((total * windowTicks) / (total - 1));
 }
 
-/** The final fight's mega slot for this board, now (his count × the LIVING seats, his 120 s window). */
+/**
+ * The final fight's mega slot for this board: his count × the LANES (the seats that STARTED the fight,
+ * `monsterLaneSeats` — the same T the release cadence runs over, so a seat falling mid-window does not
+ * move his slot), over his 120 s window.
+ */
 export function megaPantsAtElapsed(world: World): number {
   return megaPantsSlotTicks(
-    monstersPerSeatForWave(MONSTER_FINAL_WAVE) * livingSeats(world).length,
+    monstersPerSeatForWave(MONSTER_FINAL_WAVE) * monsterLaneSeats(world).length,
     pantsWindowTicks(MONSTER_FINAL_WAVE),
   );
 }
