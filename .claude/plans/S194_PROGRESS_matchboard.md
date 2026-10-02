@@ -1,24 +1,22 @@
-**⏸ PAUSED (owner session limit) during the T10 AUDIT fix round. Resume here.**
+**STATUS: DONE (awaiting merge) — S194 T10, audit round + batch-2 merge complete.**
 
-## NEXT STEP (exact)
-Re-run `npm run e2e:gating` on this worktree's own port (`> .tmp-gates/a-e2e.log 2>&1; echo $? > .tmp-gates/a-e2e.exit`).
-It was STOPPED by the pause at 13 tests passed, 0 failed, so it has no verdict yet. After that: optionally retake the
-screenshots (`node .tmp-gates/shots.mjs` against `npx vite --port 31947`) to show the labelled WAVE BY WAVE axis, then
-the final report.
-- Audit items DONE and committed in `3ca9cdea` (merged master `edce64ba` first, no conflicts):
-  - MED-1: MONSTERS seat, and a who-hit-whom grid whose rows sum to DEALT and columns to TAKEN.
-  - LOW-1: HELL, radial clears and the Pharaoh ritual end are recorded; self-detonations are recorded as neither.
-  - LOW-3: the ledger axis now has DEALT/TAKEN labels.
-  - LOW-2: 60-wave wire pin.
-  - MINE #2 wording corrected.
-- NOTHING half-done in source.
-- GATES LAST RUN on `3ca9cdea`:
+## FINAL (batch 2)
+- Merges:
+  - `edce64ba`: master batch 1 (visuals-3, intentStamp, bots-tune).
+  - `a407a59f`: master batch 2 (PROTOCOL 64, T5 uiSkin, census, T8, entropy).
+  - Both clean, no conflicts.
+- Audit fixes:
+  - `3ca9cdea`: MED-1 MONSTERS seat and a grid that adds up; LOW-1 deaths outside the damage funnel; LOW-3 labelled ledger axis; LOW-2 60-wave pin.
+  - `862e473a`: the board wears T5's skin (`skinPanelFx` on the plate; `skinButtonFx` on tabs, overview rows and CONTINUE). The census exemption is replaced by three real rows: the root scrim EXEMPT, and the pointermove / pointertap controls SKINNED.
+- GATES on `862e473a` (exit codes from files):
   - typecheck **0**
-  - vitest **0**: 529 files / 7,995 tests passed, 4 files / 11 tests skipped
-  - build **0**: entry 1136.0 KiB, headroom 114.0; lazy chunk 29.03 kB / 11.04 kB gzip
-  - e2e:gating: **INTERRUPTED** (13 ok, 0 failed when stopped)
-- Entry delta against the NEW master was NOT measured (master grew; S194 pre-audit delta was +1.9 KiB vs 1121.9).
-- No background processes left running (playwright, its vite on 25283, esbuild and worker stopped by PID).
+  - vitest **0**: 548 files / 8,408 tests passed, 4 files / 11 tests skipped
+  - build **0**: entry 1152.3 KiB, headroom 97.7; lazy chunk 29.26 kB / 11.13 kB gzip
+  - `e2e:gating` on own port **0**: 74 passed
+- Entry delta vs the NEW master: NOT re-measured (master moved twice). Pre-audit it was +1.9 KiB; the audit added only a few eager lines (recorder + 3 death sites).
+- Bump verdict: still NO. Every new field is inert and additive-optional (`tu` included).
+- Screenshots refreshed in `C:\Users\onesh\OneDrive\Desktop\SPARK_S194_MatchBoard\` (skinned plates, labelled ledger axis).
+- No background processes left running.
 
 **STATUS: DONE (awaiting merge) — S194 T10 `s194/matchboard` (END-OF-MATCH STAT BOARD v2).**
 
