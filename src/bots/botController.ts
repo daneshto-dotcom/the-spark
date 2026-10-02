@@ -351,6 +351,16 @@ export class BotController {
         send({ type: 'FEED_TOWER', playerId: this.seat, spawnerId: goal.spawnerId, sparkType: goal.sparkType });
         this.state = { kind: 'IDLE' };
         return;
+      case 'FIX':
+        // ⭐ S194 (T7) — a castle command like PULL: no travel. The SAME intents the card's FIX and the
+        // castle's FIX ALL row send for a human; the reducer re-checks every gate, so a refusal costs nothing.
+        send(
+          goal.primitiveId === null
+            ? { type: 'FIX_ALL', playerId: this.seat }
+            : { type: 'REPAIR_STRUCTURE', playerId: this.seat, primitiveId: goal.primitiveId },
+        );
+        this.state = { kind: 'IDLE' };
+        return;
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;

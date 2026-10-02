@@ -58,7 +58,8 @@ import {
 // S189 C2 (audit W3) — a raid aims at the tower's OWN connectors, never at a weld.
 import { towerMembersAt } from '../state/towerMembers.ts';
 import type { World } from '../state/world.ts';
-import type { BondId, PlayerId, PotatoId, RainbowId, SparkId, SpawnerId, Vec2 } from '../types.ts';
+import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, SpawnerId, Vec2 } from '../types.ts';
+import { REPAIR_JOBS_MAX_PER_SEAT, fixAllTargets, seatGathererCount, seatJobCount } from '../state/repairJobs.ts';
 import type { BotConfig } from './botConfig.ts';
 // ⭐ S193 (owner R193-AI) — personality knobs; a config without `persona` is the pre-S193 bot.
 import {
@@ -163,6 +164,11 @@ export type BotGoal =
    * FEED row sends for a human, dispatched locally, so it costs no protocol change.
    */
   | { readonly kind: 'FEED'; readonly spawnerId: SpawnerId; readonly sparkType: SparkType }
+  /**
+   * ⭐ S194 (T7) — FIX my towers. A castle command like PULL: no travel. `primitiveId` set → the card's
+   * per-tower FIX (`REPAIR_STRUCTURE`); null → the castle's FIX ALL. Both are allowlisted intents.
+   */
+  | { readonly kind: 'FIX'; readonly primitiveId: PrimitiveId | null }
   | { readonly kind: 'REST' };
 
 /** ⭐ S154 P3 — the tower a bot has decided to build, and where. */
@@ -650,6 +656,15 @@ export function chooseGoal(
    * stood still proposing placements the reducer refused (~9.8k `endgameBuildLocked` rejects per 60 s
    * across three bots) and never reached the FEED the owner allowed: *"they can build more goblins"*.
    */
+  /*
+   * ⭐ 6a' — S194 (T7) — FIX BEFORE BUILDING. Owner, R191-B: *"It's going to be the top … priority for your
+   * gatherers"* — and a tower re-raised from scratch costs its whole bill where a FIX costs what was lost.
+   * Above TOWER so a bot repairs before it stamps; pure and rng-free, so the draw order below is untouched.
+   * Allowed under the endgame lock (`ENDGAME_LOCK_INTENT_POLICY`: FIX stays), so it is not gated on it.
+   */
+  const fix = chooseFix(world, seat, cfg);
+  if (fix !== null) return fix;
+
   const buildLocked = isBuildLocked(world);
   const tower = buildLocked ? null : chooseTowerPlan(world, seat, cfg);
   if (tower !== null) return { kind: 'TOWER', blueprintId: tower.blueprintId, centre: tower.centre };
@@ -1006,6 +1021,34 @@ export function isLegalBuildPos(pos: Vec2, seat: PlayerId, world: World): boolea
   // ⭐ S149 P1 — zone partition, not influence bubble (see placePrimitive.ts). A bot that used the
   // old bubble would happily walk into another player's half and have every placement refused.
   return canBuildNow(world, pos, seat);
+}
+
+/**
+ * ⭐ S194 (T7) — PURE: the FIX this bot sends now, or null.
+ *
+ * Mirrors the reducers' gates so a proposed FIX is a FIX that queues (the PLACE-spam lesson): BUILD only
+ * (R19 — `planStructureRepair` is null outside it, so `fixAllTargets` is empty there), the seat owns a
+ * gatherer to carry it, its queue is under `REPAIR_JOBS_MAX_PER_SEAT`, and the towers come from
+ * `fixAllTargets` — the castle row's own list, which already leaves out every tower a job covers. So once
+ * a FIX lands the same tower is never re-sent: a damaged tower costs exactly one intent.
+ *
+ * Which intent: two or more towers → `FIX_ALL` (one castle command, the reducer orders them nearest the
+ * castle first); exactly one → that tower's own FIX (`REPAIR_STRUCTURE`). `repairsTowers: 'broken'` (MID)
+ * only counts towers that LOST a shape. Rng-free, total order (`fixAllTargets` is sorted by distance, then
+ * lowest shape id).
+ */
+export function chooseFix(world: World, seat: PlayerId, cfg: BotConfig): BotGoal | null {
+  if (cfg.repairsTowers === 'never') return null;
+  if (world.matchPhase !== 'BUILD') return null;
+  if (seatGathererCount(world, seat) === 0) return null;
+  if (seatJobCount(world, seat) >= REPAIR_JOBS_MAX_PER_SEAT) return null;
+  const all = fixAllTargets(world, seat);
+  const targets = cfg.repairsTowers === 'broken' ? all.filter((t) => t.plan.group.missing.length > 0) : all;
+  if (targets.length === 0) return null;
+  // MID's filter can leave ONE broken tower among several hurt ones: FIX_ALL would queue the hurt ones too,
+  // so a filtered list always fixes tower by tower.
+  if (targets.length >= 2 && targets.length === all.length) return { kind: 'FIX', primitiveId: null };
+  return { kind: 'FIX', primitiveId: targets[0]!.targetId };
 }
 
 /**

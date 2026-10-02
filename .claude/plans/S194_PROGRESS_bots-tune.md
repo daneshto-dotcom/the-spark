@@ -44,3 +44,8 @@ Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base maste
   test "S194 Q-E". Lock anti-vacuity re-pinned WARMONGER→SABOTEUR (Warmonger's lock seat owns a race tower: 1 type → 1 feed,
   verified by spawner dump). IMBA FORTRESS on the new stream: 0.39 (2 lasers) vs BALANCED 0.28 — pins hold.
 - NEXT: step 3 — bots FIX (REPAIR_STRUCTURE / FIX_ALL).
+- [step 3 — bots FIX] (resumed) Tier knob `repairsTowers` NOOB never / MID broken / HARD+IMBA any (⚠ MINE). `chooseFix` (pure, rng-free,
+  above TOWER): BUILD only, gatherer ≥ 1, queue < 32, targets = `fixAllTargets`; ≥ 2 → FIX_ALL, 1 → REPAIR_STRUCTURE. Measured 600 s:
+  MID 0/1 FIX_ALL/FIX → 1 job, 1 restored; HARD 1/3 → 6 jobs, 6 restored; IMBA 1/1 → 3, 3; 0 refused FIX, 0 outside BUILD.
+  `src/bots/botFix.test.ts`. Mutations: chooseFix disabled → 4 red; gatherer guard removed → 1800 refused FIX, red.
+- NEXT: delete nothing (scratch probes already deleted), run full gates.
