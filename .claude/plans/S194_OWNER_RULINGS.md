@@ -1,0 +1,18 @@
+# S194 — OWNER RULINGS (verbatim where quoted, 2026-10-02). Every item here is RULED. Do not re-ask.
+
+- **R194-1 Mega pants**: keep HP 500 / DEF 20 / ATK 60 / PEN 20, 240 s. Art: reuse the pants sprite scaled up for now; new art later.
+- **R194-2 Pants knocked-out seat**: *"if there's still pants that are supposedly queued, then they stop coming, but the existing ones just keep attacking."* → T8 verifies.
+- **R194-3 RISEN on pants**: *"the pants unit killed by a zombie player racial unit, it should rise a free zombie, of course."* → T8.
+- **R194-4 No kill reward waves 27–31**: yes. (Fact for him: the only kill reward in the game is SPAWNER_KILL_REWARD for destroying an enemy spawner tower; no per-unit bounty exists.)
+- **R194-5 Blast 2:1 split stays ZOMBIE-ONLY**: *"each one is unique … drone … damages towers, it doesn't damage people … stink only damages units … we can tweak each blast accordingly. Later."*
+- **R194-6 Ra column hits evenly** (no distance falloff).
+- **R194-7 Blast edge floor 50 %**: keep.
+- **R194-8 Helga killed by zombie racial unit raises one zombie**: *"Might as well … it's just one zombie."* → T8.
+- **R194-9 Chewers + lightning drones target ONLY buildings, towers, connectors and free shapes** — never units; NOT nearest-enemy-first. → T8 verifies.
+- **R194-10 MRES vs DEF pick**: RULED in S192 (R192-D1) — DEF pick does NOT raise MRES; own MRES draft at level 25 (wave 26) + own castle MRES row. Canon fixed (was mislogged "Q1 not ruled").
+- **R194-11 Voltkin: every zap in the chain is magic, first included.** Canon fixed.
+- **R194-12 Bots**: keep the five personalities; *"I just want to make sure they're actually doing different things."* → T7 measures.
+- **R194-13 Castle soldier is 1/1/1/1 with MRES 1 for EVERY race**: *"They all have just one, so they're all equal between the races."* → T3 fix round (race tier-3 units keep the per-race table).
+- **R194-14 T3's MRES card questions**: agrees with all recommendations (+10 % of the magic pool, wave 26 replaces DEF, "WARDED", soldier fixed at birth — now MRES 1).
+- **R194-15 End-of-match board v2** → T10 `s194/matchboard`: compare with good games, different/interactive graphs, per-player pages like Dota.
+- OPEN (asked in chat): pants timing window; building over the castle's porch; ENTROPY TAX option pick.

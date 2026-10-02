@@ -138,7 +138,7 @@ magic, I accept that"*.
 | the **zombie boss ROT** aura (DoT) | every blast: the suicide goblin, the drone, the hub self-destruct, the **zombie boss death blast**, a stink bag bursting, the stink tower's death blast and bag splash |
 | **SCORCHED GROUND** (the passive) and **SCORCHED EARTH** (the cast) (DoT) | the castle guns, the laser, Helga's slap, a raid |
 | the **STINK TOWER aura** and the landed-bag **stink cloud** (HIS, S192) (DoT) | the overkill a broken connector carries on (already-landed damage) |
-| the **Voltkin's chain lightning** — every hop; ⚠ MINE: its first zap too | |
+| the **Voltkin's chain lightning** — every hop INCLUDING the first zap — ⭐ HIS (S194): *"All Volkan zaps … the whole chain doesn't matter. First hit, second hit, or fourth hit, they're all magic damage."* | |
 
 `magicResist.callSites.test.ts` pins every production damage call and its class, file by file, plus every direct pool write.
 
@@ -153,7 +153,7 @@ magic, I accept that"*.
 | a tier-9 **BOSS** | **6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6** | ⚠ MINE |
 
 ⚠ The elite piranha and the bat swarm keep their base unit's level (not ×N). A drafted DEF pick grows the pool, so it helps
-against magic too; it does not raise MRES (Q1, not ruled — default kept). A general MRES draft card is QUEUED, not built (R192-D1).
+against magic too; ⛔ **it does NOT raise MRES — RULED, DO NOT RE-ASK** (R192-D1, re-stated S194: *"We are going to add its own magic resistance draft … And also for the castle upgrades, there's going to be its own … magic resistance upgrade. We've answered that … don't forget it anymore. I don't want to answer it again."*). MRES has its OWN draft card at level 25 (= wave 26, `s193/mres-card`) and its own castle row (§3d).
 
 ### The castle's MRES axis (R192-M9)
 
