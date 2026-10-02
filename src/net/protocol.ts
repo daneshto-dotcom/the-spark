@@ -1036,7 +1036,15 @@ export type { NetSnapshot };
  *      live castle. The chewer and the lightning drone keep the spread (⚠ owner question). A v61 host, worker or
  *      successor picks different connectors from the same world.
  */
-export const PROTOCOL_VERSION = 62 as const;
+/**
+ * ⭐⭐ S194 — **BUMPED 62 -> 63: `s193/mres-card` — the wave-26 MRES draft card + the castle soldier's MRES (R194-13).** Each alone:
+ *   1. A NEW `CHOOSE_DRAFT.pick` discriminant `'mres'` (WARDED): the wave-26 draft's general option is MRES, not DEF. A v62
+ *      peer offers and auto-takes DEF at wave 26, so the seats' hashed `draftPicks` diverge (the CHOOSE_DRAFT precedent).
+ *   2. `Creature.mresFifths` — serialized and wide-hashed; both sims divide every magic hit on a creature by it.
+ *   3. R194-13 — the castle soldier (`raceUnit`) is MRES 1 for EVERY race (`CASTLE_SOLDIER_MRES`), no longer its owner's
+ *      race table: a v62 peer lands a magic hit on a demons soldier 4/9 lighter.
+ */
+export const PROTOCOL_VERSION = 63 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1375,6 +1383,7 @@ export interface HelloMsg {
    * S193: 60->61 (DEPLOY #22 — deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride. Full reasons on the const's JSDoc.)
    *
    * S193: 61->62 (DEPLOY #23 — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first. Full reasons on the const's JSDoc.)
+   * S194: 62->63 (s193/mres-card: the wave-26 'mres' draft pick (WARDED), Creature.mresFifths, castle soldier MRES 1 for every race. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1413,7 +1422,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 62;
+  readonly protoVersion: 63;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
