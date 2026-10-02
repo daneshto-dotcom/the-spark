@@ -176,3 +176,52 @@ describe('⭐ S194 re-audit — the owned-unit index never survives a snapshot l
     expect(pants.targetCreatureId as unknown as number).toBe(soldierId);
   });
 });
+
+describe('⭐ S194 re-audit — a title return can never leave a stale owned-unit index', () => {
+  it('RETURN_TO_TITLE resets nextCreatureId; a new match reaching the SAME nextCreatureId still acquires its NEW soldier', () => {
+    const w = makeWorld(11);
+    const start = (): void => {
+      w.gameState = 'TITLE';
+      dispatch(w, {
+        type: 'START_GAME', mode: 'bots', isHost: true,
+        roster: [0, 1].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1],
+      });
+      w.gameState = 'PLAYING';
+      w.matchPhase = 'FIGHT';
+      w.waveNumber = 31;
+    };
+    const a = (): { x: number; y: number } => castleAnchor(0, w.layout);
+    const at = (): { x: number; y: number } => ({ x: a().x + 200, y: a().y + 100 });
+    const spawnPants = (): number => {
+      const id = w.nextCreatureId as unknown as number;
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+        pos: at(), targetPos: a(), sourceSpawnerId: null, monsterSeat: asPlayerId(0),
+      });
+      return id;
+    };
+    const spawnSoldier = (): number => {
+      const id = w.nextCreatureId as unknown as number;
+      const p = { x: at().x + 10, y: at().y };
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: 'raceUnit', ownerPlayerId: asPlayerId(0),
+        pos: p, targetPos: p, sourceSpawnerId: castleSpawnerId(0),
+      });
+      return id;
+    };
+    start();
+    const p1 = spawnPants();
+    spawnSoldier();
+    runEndgameMonsterTargeting(w, w.creatures.get(p1 as never)!); // the index, over match 1's objects
+    const keyId = w.nextCreatureId as unknown as number;
+    dispatch(w, { type: 'RETURN_TO_TITLE' } as never);
+    expect(w.nextCreatureId as unknown as number, 'anti-vacuity: the ids restart').toBe(0);
+    start();
+    const p2 = spawnPants();
+    const s2 = spawnSoldier();
+    expect(w.nextCreatureId as unknown as number, 'anti-vacuity: the same nextCreatureId as the stale index').toBe(keyId);
+    const pants = w.creatures.get(p2 as never)!;
+    runEndgameMonsterTargeting(w, pants);
+    expect(pants.targetCreatureId as unknown as number).toBe(s2);
+  });
+});
