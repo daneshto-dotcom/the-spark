@@ -13,12 +13,13 @@
 
 import { Container } from 'pixi.js';
 import type { World } from '../state/worldTypes.ts';
-import type { MatchBoard } from './matchBoard.ts';
+import type { BoardPortraitSource, MatchBoard } from './matchBoard.ts';
 
 export class MatchBoardHost {
   readonly container = new Container();
   private board: MatchBoard | null = null;
   private state: 'idle' | 'loading' | 'failed' = 'idle';
+  private portraits: BoardPortraitSource | null = null;
 
   constructor(private readonly onContinue: () => void) {}
 
@@ -39,11 +40,23 @@ export class MatchBoardHost {
       const m = await import('./matchBoard.ts');
       if (this.board === null) {
         this.board = new m.MatchBoard(this.onContinue);
+        this.board.setPortraitSource(this.portraits);
         this.container.addChild(this.board.container);
       }
     } catch {
       this.state = 'failed';
     }
+  }
+
+  /** ⭐ S194 — the unit portraits for the per-player pages (held until the chunk arrives). */
+  setPortraitSource(src: BoardPortraitSource | null): void {
+    this.portraits = src;
+    this.board?.setPortraitSource(src);
+  }
+
+  /** ⭐ S194 — page keys (← → Tab) while the board is up; true when consumed. R is never consumed. */
+  handleKey(key: string, shift: boolean): boolean {
+    return this.board?.handleKey(key, shift) ?? false;
   }
 
   isShowing(): boolean {
