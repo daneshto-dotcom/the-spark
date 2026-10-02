@@ -66,13 +66,13 @@ describe('V12 scorched ground', () => {
     return { top: top.out, ground: ground.out };
   };
 
-  it('arithmetic: at most LIFE / PERIOD embers (40) and pools (6) live in one zone', () => {
-    expect(SCORCH_EMBER_LIFE / SCORCH_EMBER_PERIOD).toBe(40);
+  it('arithmetic: at most LIFE / PERIOD embers (30) and pools (6) live in one zone', () => {
+    expect(SCORCH_EMBER_LIFE / SCORCH_EMBER_PERIOD).toBe(30);
     expect(SCORCH_POOL_LIFE / SCORCH_POOL_PERIOD).toBe(6);
     for (const tick of [600, 601, 777, 1234]) {
       const { top, ground } = scorch(tick);
-      expect(top.length).toBeLessThanOrEqual(40);
-      expect(top.length).toBeGreaterThan(30); // the quarry (a corner of this quadrant) takes a few
+      expect(top.length).toBeLessThanOrEqual(30);
+      expect(top.length).toBeGreaterThan(22); // the quarry (a corner of this quadrant) takes a few
       expect(ground.length).toBeLessThanOrEqual(6);
     }
   });

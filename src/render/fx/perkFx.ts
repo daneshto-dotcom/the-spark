@@ -105,7 +105,7 @@ export function lifestealFx(
 // ──────────────────────────────────────── V12 · scorched ground ──
 
 /** Ember births: one every `PERIOD` ticks, each living `LIFE` ticks → LIFE / PERIOD live per zone. ⚠ MINE. */
-export const SCORCH_EMBER_PERIOD = 3;
+export const SCORCH_EMBER_PERIOD = 4; // S193 audit perf fix: was 3 (40 live)
 export const SCORCH_EMBER_LIFE = 120;
 /** Smouldering ground patches under the embers. ⚠ MINE. */
 export const SCORCH_POOL_PERIOD = 20;
@@ -113,7 +113,7 @@ export const SCORCH_POOL_LIFE = 120;
 
 /**
  * Drifting embers over a burning zone's rect (x, y, w, h), plus a few slow smouldering ground glows.
- * Live count: 40 embers + 6 pools a zone. Nothing is drawn inside the quarry disc (cx, cy, qr) — the
+ * Live count: 30 embers + 6 pools a zone. Nothing is drawn inside the quarry disc (cx, cy, qr) — the
  * quarry never burns (`scorchedGround.ts`: *"belongs to nobody"*).
  */
 export function scorchZoneFx(
