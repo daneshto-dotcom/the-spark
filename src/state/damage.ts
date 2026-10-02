@@ -267,7 +267,7 @@ export function damageEntity(
     // a killing blow's overkill is not a loss. A no-op for every seat without `mummies.l5`.
     accrueDynastyLoss(world, target.seat, hpBefore - seat.castleHp);
     // ⭐ S191 — the stat board, on what the keep ACTUALLY lost (after DEF, after the clamp).
-    recordDamage(world, target.seat, blowSeat, hpBefore - seat.castleHp);
+    recordDamage(world, target.seat, blowSeat, hpBefore - seat.castleHp, 'keep');
     applyLifesteal(world, attacker, amount); // S188 — of the swing, before the keep's DEF
     return seat.castleHp === 0;
   }
@@ -319,7 +319,7 @@ export function damageEntity(
          * and his restore-to-1 counts as `before − 1`. A KILL is `died && before > 0` — exactly once per
          * death, because a second lethal blow on a deferred corpse finds `before <= 0`.
          */
-        recordDamage(world, victim.ownerPlayerId, bySeat, before - Math.max(0, victim.ehp));
+        recordDamage(world, victim.ownerPlayerId, bySeat, before - Math.max(0, victim.ehp), 'unit');
         if (died) recordKill(world, bySeat, victim.ownerPlayerId, victim.type);
       }
       if (victim !== undefined && before > 0 && victim.ehp !== before) {
@@ -355,7 +355,7 @@ export function damageEntity(
        */
       if (prim.bonds.size === 0) prim.hp = Math.min(prim.hp, LONE_PRIMITIVE_POOL_FIFTHS);
       // ⭐ S191 — the stat board: what the shape's pool (after the lone-shape clamp) actually lost.
-      recordDamage(world, prim.placedBy, blowSeat, Math.min(amount, Math.max(0, prim.hp)));
+      recordDamage(world, prim.placedBy, blowSeat, Math.min(amount, Math.max(0, prim.hp)), 'structure');
       prim.hp -= amount;
       applyLifesteal(world, attacker, amount); // S188
       if (prim.hp > 0) return false;
@@ -405,7 +405,7 @@ export function damageEntity(
         : landedFifths(amount, cls, unit.def, defenderMres(unit), target.id as unknown as number);
       if (landed === 0) return false;
       // ⭐ S191 — the stat board: what Helga's pool actually lost (⭐ S192: of the LANDED hit, after MRES).
-      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(landed, Math.max(0, d.ehp)));
+      recordDamage(world, d.ownerPlayerId, blowSeat, Math.min(landed, Math.max(0, d.ehp)), 'unit');
       d.ehp -= landed;
       applyLifesteal(world, attacker, amount); // S188 — Helga has a pool; a tower returned above
       if (d.ehp > 0) {
@@ -507,7 +507,7 @@ export function damageStinkCloud(
   const cloud = world.stinkClouds.get(id);
   if (cloud === undefined) return false;
   // ⭐ S191 — the stat board: what the bag's pool actually lost.
-  recordDamage(world, cloud.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, cloud.ehp)));
+  recordDamage(world, cloud.ownerPlayerId, attackerSeat(world, attacker), Math.min(amount, Math.max(0, cloud.ehp)), 'structure');
   cloud.ehp -= amount;
   applyLifesteal(world, attacker, amount); // S188 — before the burst, at the moment the blow lands
   if (cloud.ehp > 0) return false;
@@ -622,7 +622,7 @@ export function damageConnector(
   const victimSeat = world.primitives.get(bond.aId)?.placedBy;
   const bySeat = attackerSeat(world, attacker);
   if (comp === null) {
-    recordDamage(world, victimSeat, bySeat, landed);
+    recordDamage(world, victimSeat, bySeat, landed, 'structure');
     return true; // orphaned bond — nothing holds it up
   }
   const pool = structurePoolFifths(comp.bondIds.size);
@@ -646,7 +646,7 @@ export function damageConnector(
   let banked = 0;
   for (const id of comp.bondIds) banked += world.bonds.get(id)?.damageFifths ?? 0;
   if (banked < pool) {
-    recordDamage(world, victimSeat, bySeat, landed); // ⭐ S191 — banked in full (⭐ S192: the landed hit)
+    recordDamage(world, victimSeat, bySeat, landed, 'structure'); // ⭐ S191 — banked in full (⭐ S192: the landed hit)
     return false;
   }
 
@@ -693,7 +693,7 @@ export function damageConnector(
     .sort((x, y) => Number(x) - Number(y));
   for (const id of survivors) drain(world.bonds.get(id));
   // ⭐ S191 — what is left on THIS bond is thrown away by the caller's sever; the rest carried or landed.
-  recordDamage(world, victimSeat, bySeat, landed - Math.min(landed, bond.damageFifths));
+  recordDamage(world, victimSeat, bySeat, landed - Math.min(landed, bond.damageFifths), 'structure');
   return true;
 }
 

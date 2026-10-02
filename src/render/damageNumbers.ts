@@ -75,6 +75,11 @@ import { attackFifths } from '../state/stats.ts';
 // ⭐ S192 — the RESIST cue: did a magic DoT beat land 0 on this creature, this tick? (derived, see module)
 import { magicBeatResistedAt } from '../state/magicResistCue.ts';
 import { PHYSICS_HZ } from '../constants.ts';
+// ⭐ S194 T9 (coherence) — the ONE answer to "did that unit die?", shared with every death watcher, and the
+// fog rule `healthBar` / `effectsRenderer` / both death watchers already apply. See `coherence/unitDeparture.ts`.
+import type { CreatureState, CreatureType } from '../state/creatures/creature.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, departedInIdOrder } from './coherence/unitDeparture.ts';
+import { isConcealed } from './concealment.ts';
 
 /**
  * ⭐ S192 (owner) — *"A very magic resistant unit … can be totally resistant to very low level magic, I
@@ -90,6 +95,9 @@ const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
 // ⭐ S193 (V08) — the big-hit shake and the heal sparkle live in `fx/floaterFx.ts` (the pop below is untouched).
 import { fxActive, fxTop } from './fx/fxState.ts';
 import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
+// ⭐ S194 T9 (coherence) — the hit's floor: every red number also lands a pop on the victim (`fx/hitPopFx.ts`).
+import { HIT_POP_TICKS, HIT_POP_MAX_LIVE, HIT_POP_SIZE, hitPopFx } from './fx/hitPopFx.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -453,7 +461,17 @@ interface Watched {
   x: number;
   y: number;
   owner: PlayerId;
+  /** ⭐ S194 T9 — the FSM state as last seen, so an EXPIRY (last seen DESPAWNING) is not printed as a kill. */
+  state: CreatureState;
+  /** ⭐ S194 T9 — the unit's sprite scale, so its hit pop sits at its own size (a boss's is bigger). */
+  scale: number;
+  /** ⭐ S194 T9 audit — the classifier's proofs: pants sweep / selfExplode by type, expiry by synced lifetime. */
+  type: CreatureType;
+  despawnAtTick: number;
 }
+
+/** ⭐ S194 T9 — one live hit pop at a victim, aged in render frames like the floaters. */
+interface HitPop { x: number; y: number; size: number; bornTick: number; seed: number }
 
 /**
  * ⭐⭐ S189 (owner R190-I) — PURE — split one creature's change between two observations into the HIT
@@ -529,6 +547,18 @@ export class DamageNumbers {
    * Starts at 0, matching a fresh World, so a normal boot clears nothing.
    */
   private watchEpoch = 0;
+  /**
+   * ⭐ S194 T9 (coherence) — THE CREATURE WATCH NOW HONOURS THE MASS-CLEAR EPOCH TOO. S182 taught
+   * `syncStructures` that *"a mass clear is not a massacre"*; the creature watch beside it never learned it,
+   * so a match reset with five goblins on the board printed five red numbers nobody dealt (measured on
+   * `18560cd8`). One latch per watcher, shared shape (`CreatureWatchEpoch`).
+   */
+  private readonly creatureEpoch = new CreatureWatchEpoch();
+  /** ⭐ S194 T9 — the hit pops alive now (`fx/hitPopFx.ts`), and the scale of the unit the kill sweep is emitting for. */
+  private readonly pops: HitPop[] = [];
+  private vanishingScale = 1;
+  /** ⭐ S194 T9 audit — the tick a pop is born on (set at the top of `sync`); pops age by `world.tick`. */
+  private popTick = 0;
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
@@ -586,13 +616,19 @@ export class DamageNumbers {
    */
   sync(world: World): void {
     const seen = new Set<CreatureId>();
+    this.popTick = world.tick;
+    // ⭐ S194 T9 — dropped WITHOUT emitting, before the sweep (the S182 structure rule, now for creatures).
+    if (this.creatureEpoch.moved(world)) this.watched.clear();
 
     for (const c of world.creatures.values()) {
       seen.add(c.id);
       const prev = this.watched.get(c.id);
       const owner = c.ownerPlayerId;
       const healed = c.healedFifths ?? 0;
-      this.watched.set(c.id, { ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner });
+      this.watched.set(c.id, {
+        ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner, state: c.state, scale: creatureSpriteScaleMul(c.type),
+        type: c.type, despawnAtTick: c.despawnAtTick,
+      });
       if (prev === undefined) continue; // first sighting is neither a hit nor a heal
       // ⭐ S189 R190-I — the hit AND the heal, each in its own colour (`creaturePoolChange`). Same
       // anchor for both (R185-D untouched); `place` stacks the second above the first.
@@ -625,10 +661,14 @@ export class DamageNumbers {
      * not `targetCreatureId`, which is stripped from the wire). The remainder survives ONLY as the
      * fallback when nothing hostile was in reach.
      */
-    for (const [id, last] of this.watched) {
+    // ⭐ S194 T9 audit — ascending id, a total order (the kill-swing records are consumed in this order).
+    for (const id of departedInIdOrder(this.watched, (k) => seen.has(k))) {
       if (seen.has(id)) continue;
+      const last = this.watched.get(id)!;
       this.watched.delete(id);
       if (last.ehp <= 0) continue;
+      // ⭐⭐ S194 T9 — only a KILL prints a killing blow; an expired Voltkin printed "40" (`unitDeparture.ts`).
+      if (classifyCreatureDeparture(world, last) !== 'killed') continue;
       /*
        * ⭐⭐⭐ S181 (owner) — **PRINT THE SWING, AND ONLY FALL BACK TO THE REMAINDER.** His report in
        * one line: *"it says it hits 40 per shot but it only does 6 damage … we need to show the
@@ -656,6 +696,7 @@ export class DamageNumbers {
        */
       const recorded = takeKillHitNear(world, last.x, last.y, last.owner);
       const swing = recorded ?? fatalBlowFifths(world, { x: last.x, y: last.y }, last.owner);
+      this.vanishingScale = last.scale;
       this.emit(world, id, last.x, last.y, swing ?? last.ehp, 'damage', last.owner);
     }
 
@@ -679,7 +720,7 @@ export class DamageNumbers {
 
     this.syncResist(world);
     this.syncStructures(world);
-    this.advance();
+    this.advance(world.tick);
   }
 
   /**
@@ -700,6 +741,7 @@ export class DamageNumbers {
       for (let t = from; t <= now; t++) {
         if (!magicBeatResistedAt(world, c, t)) continue;
         this.lastResist.set(c.id, now);
+        if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) break; // ⭐ S194 T9 — the fog rule, see `emit`
         this.place(damageAnchor(world, c.id, c.pos.x, c.pos.y, c.ownerPlayerId), 0, 'resist');
         break;
       }
@@ -923,8 +965,8 @@ export class DamageNumbers {
       });
       if (prev === undefined) continue; // first sighting is neither a hit nor a heal
       const { damage, heal } = creaturePoolChange(prev.v, p.castleHp, prev.healed ?? 0, healed);
-      if (damage > 0) this.emitAt(world, at.x, at.y, Math.round(damage), 'damage', p.id);
-      if (heal > 0) this.emitAt(world, at.x, at.y, Math.round(heal), 'heal', p.id);
+      if (damage > 0) this.emitAt(world, at.x, at.y, Math.round(damage), 'damage', p.id, true);
+      if (heal > 0) this.emitAt(world, at.x, at.y, Math.round(heal), 'heal', p.id, true);
     }
 
     /*
@@ -1013,8 +1055,12 @@ export class DamageNumbers {
   /** `emit` for a target that is not a creature — no id to exclude from the anchor scan. */
   private emitAt(
     world: World, x: number, y: number, amount: number, kind: FloaterKind, owner: PlayerId,
+    /** ⭐ S194 T9 — the KEEP only: it is the one thing on an enemy quarter the fog leaves in view (S169). */
+    alwaysVisible = false,
   ): void {
     if (amount <= 0) return;
+    if (!alwaysVisible && isConcealed(x, y, owner)) return; // ⭐ S194 T9 — the fog rule, see `emit`
+    if (kind === 'damage') this.pop(x, y, HIT_POP_SIZE[alwaysVisible ? 'keep' : 'structure']);
     this.place(kind === 'heal' ? healAnchor(x, y) : damageAnchor(world, null, x, y, owner), amount, kind);
   }
 
@@ -1028,6 +1074,20 @@ export class DamageNumbers {
     owner: PlayerId,
   ): void {
     if (amount <= 0) return;
+    /*
+     * ⭐⭐ S194 T9 (coherence) — A NUMBER IS A POSITION TELL, SO IT OBEYS THE FOG LIKE EVERY SIBLING.
+     * Owner S170, absolute: *"You shouldn't see anything in their zone."* The health bar over the same
+     * unit (`healthBar.ts`), the one-shot effects (`effectsRenderer`) and both death watchers all skip a
+     * concealed spot; the floaters alone did not, and they sit ABOVE the fog layer (S172), so a fight
+     * inside an enemy's fogged quarter printed itself through the shroud. Concealment is a BUILD-phase,
+     * networked-only state (`fogActive`), so solo, vs-bots and every FIGHT are untouched.
+     */
+    if (isConcealed(vx, vy, owner)) return;
+    // ⭐ S194 T9 — the pop lands on the VICTIM (vx, vy), never on the drifted number's anchor.
+    if (kind === 'damage') {
+      const scale = world.creatures.get(victim) === undefined ? this.vanishingScale : this.watched.get(victim)?.scale ?? 1;
+      this.pop(vx, vy, HIT_POP_SIZE.unit * Math.min(scale, 2.2));
+    }
     // ⭐ S192 T12 — a heal sits straight above the healed unit (`healAnchor`); a hit keeps R185-D.
     this.place(kind === 'heal' ? healAnchor(vx, vy) : damageAnchor(world, victim, vx, vy, owner), amount, kind);
   }
@@ -1062,8 +1122,28 @@ export class DamageNumbers {
     if (this.live.length > MAX_LIVE) this.retire(0);
   }
 
-  private advance(): void {
+  /** ⭐ S194 T9 — queue one hit pop; the oldest goes first past the cap. */
+  private pop(x: number, y: number, size: number): void {
+    this.pops.push({ x, y, size, bornTick: this.popTick, seed: floaterSeed(x, y, size) });
+    if (this.pops.length > HIT_POP_MAX_LIVE) this.pops.shift();
+  }
+
+  /** Hit pops alive now (test + bench seam). */
+  hitPopCount(): number {
+    return this.pops.length;
+  }
+
+  private advance(now: number): void {
     const fx = fxActive();
+    for (let i = this.pops.length - 1; i >= 0; i--) {
+      const h = this.pops[i]!;
+      const age = now - h.bornTick;
+      if (age < 0 || age >= HIT_POP_TICKS) {
+        this.pops.splice(i, 1);
+        continue;
+      }
+      if (fx) hitPopFx(fxTop(), h.seed, h.x, h.y, h.size, age / HIT_POP_TICKS);
+    }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const f = this.live[i]!;
       f.age++;

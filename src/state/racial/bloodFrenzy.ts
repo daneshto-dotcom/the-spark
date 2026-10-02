@@ -46,6 +46,13 @@
  *     latch only while nothing could heal him; the clock makes the rage outlast a heal, so the health
  *     reading would have dropped his orcs while he still raged.
  *
+ * ⛔⛔ S194 (owner, R194-31) — IT ALSO RUNS OUTSIDE FIGHT. *"should last only 25 seconds. Either for himself
+ * or for the units that he affected."* Until S194 it ran only in the FIGHT slot below, so a frenzy open at
+ * the whistle was never lowered and the orcs stayed red through BUILD. `hostTick`'s non-FIGHT branch now
+ * calls it (after `runWarlordRage`, the same order), so a frenzied unit never outlives its source's window
+ * in any phase. (A unit that appears in BUILD while a window is still open is raised for its remainder —
+ * the same predicate, not a new rule.)
+ *
  * ⚠ ORDER: this runs in `racial/racialTick.ts`'s FIGHT slot, AFTER `runWarlordRage` in the same tick,
  * so the latch has already spoken for this tick's health when the frenzy reads it; units it enrages
  * act on it from the next tick's strike batch. A Warlord killed this tick (`ehp <= 0`, awaiting the

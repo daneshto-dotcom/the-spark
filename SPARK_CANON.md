@@ -641,12 +641,21 @@ calm for `WARLORD_RAGE_COOLDOWN_TICKS` = **1500** ticks whatever his health, and
 he rages again at once. ⭐ The cooldown's length is HIS (S192): *"Rage cooldown 25 seconds, that's fine.
 Per warlord."* Both windows derive from ONE stamp per Warlord, `Creature.rageStartTick`, written only by
 `runWarlordRage` — serialized, hashed, on the wire.
-⭐ **THE PATTERN, RULED (S191):** the latch runs only in FIGHT, so a rage still running at the whistle
-stays red through the whole BUILD and the next FIGHT — re-judged on that FIGHT's first tick, which fires afresh —
-*"Yeah, that's fine. Who cares? You can't really see the creatures anyways."* A hurt Warlord therefore
-rages from each FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`
-inside `FIGHT_PHASE_TICKS` — today: raging 0–25 s, then from 50 s through the whistle and all of BUILD.
-Goblins never rage.
+⭐⭐ **THE PATTERN, RULED (S194, R194-31 — SUPERSEDES S191's "red through BUILD"):** his screenshot showed
+frenzied orc soldiers back at their tower in BUILD, still red.
+*"Rage. When it's … turned on by a warlord, should last only 25 seconds. Either for himself or for the units that he affected.
+After twenty-five seconds, it has been cooled down, and then … if he's still there and low health, … he can enrage again.
+Next fight."* — owner, S194. So the window is `WARLORD_RAGE_TICKS` of sim time from `rageStartTick`
+**in any phase**: `runWarlordRage` and `runBloodFrenzy` run on every playing tick (`hostTick` calls both
+in its non-FIGHT branch too), but a NEW rage fires only in FIGHT (`mayFire`).
+A rage started at FIGHT 50 s with the whistle at 60 s therefore ends at 75 s — 15 s into BUILD — for him
+AND for every orc his frenzy raised, and nobody is red for the rest of BUILD; a frenzied unit never outlives
+its source's window. ⚠ MINE (S194, reported): the cooldown runs through BUILD as well — it is the same single stamp.
+A hurt Warlord rages from each FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`
+inside `FIGHT_PHASE_TICKS`, and a window still open at the whistle runs out in BUILD — today:
+raging 0–25 s, then from 50 s to 75 s (15 s past the whistle), calm for the rest of BUILD, then afresh on the
+next FIGHT's first tick. S191's *"Yeah, that's fine. Who cares?"* is history (`warlordRageClock.test.ts`,
+the S194 block, crosses a real whistle). Goblins never rage.
 
 ⛔ **THE FRENZY NEVER TOUCHES A WARLORD (S191).** *"I don't think each warlord should be able to enrage
 the other warlord. Yes, the warlord enrages all the orc units, but still rage for himself is … warlord
@@ -1259,7 +1268,9 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **65** (S194 deploy #5 — s194/entropy + s192/teams; see the S194 entries on the const). 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **66** (S194 deploy #6 — s194/rage, R194-31; see the S194 entries on the const). 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 66 (S194, deploy #6)** — s194/rage (R194-31): the Warlord rage window and his units' BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. T9 coherence, T15 weld-rebuild, T10 matchboard ride (render/UI).
 
 ⭐⭐ **WHAT RIDES 65 (S194, deploy #5)** — s194/entropy: the ENTROPY TAX roll at each FIGHT whistle and the new `'entropy'` sever cause; s192/teams: `world.teams`, `RosterEntry.team`, the `CLAIM_TEAM` lobby message.
 

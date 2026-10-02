@@ -86,7 +86,7 @@ import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
-import { structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7
+import { heldOwnPoolAt, structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7 · ⭐ S194 T15 the hold
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import {
   structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerOwnPoolAt, towerUnitAt, unitClickShape,
@@ -1471,9 +1471,20 @@ function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId:
   return rows;
 }
 
+/**
+ * ⭐ S194 T15 (owner R194-30) — a LIVE tower's own pool as the board bar and the art show it: held through
+ * a re-form of its welded structure (`heldOwnPoolAt`). A fallen stamp reads exactly `towerOwnHealth` (0).
+ */
+function shownOwnHealth(world: World, u: TowerUnit): { cur: number; max: number } {
+  const pool = towerOwnHealth(world, u);
+  if (u.kind !== 'live') return pool;
+  const held = heldOwnPoolAt(world, u.recipeId, u.anchorId);
+  return held === null ? pool : { cur: held.cur, max: pool.max };
+}
+
 /** One welded-structure row for `u` — ONE derivation for both cards. */
 function weldedRowFor(world: World, u: TowerUnit): SheetWeldedTower {
-  const pool = towerOwnHealth(world, u);
+  const pool = shownOwnHealth(world, u);
   return {
     target: { kind: 'structure', primitiveId: unitClickShape(world, u) }, // S192 IDENTITY-2 — THIS tower, never a shared anchor
     name: codexCopyFor(u.recipeId).name,
@@ -1512,7 +1523,7 @@ function weldedTowerSheet(
 ): CharacterSheetView {
   const prim = world.primitives.get(target.primitiveId)!;
   const members = new Set(unit.members);
-  const pool = towerOwnHealth(world, unit);
+  const pool = shownOwnHealth(world, unit);
   const ownBonds = unit.kind === 'live'
     ? (towerOwnPoolAt(world, unit.recipeId, unit.anchorId)?.connectors ?? 0) // S193 SEAM-C7 — the pool's own walk
     : [...st.bondIds].filter((id) => {

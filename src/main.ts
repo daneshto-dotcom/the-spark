@@ -27,6 +27,8 @@
 import './dev/probeBootstrap.ts';
 import { Application, Container, Graphics, Rectangle, Text, TextStyle, UPDATE_PRIORITY } from 'pixi.js';
 import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
+// ⭐ S194 T9 (coherence) — every unit kill gets the same shared death beat (`fx/unitDeathFx.ts`).
+import { UnitDeathRenderer } from './render/coherence/unitDeathRenderer.ts';
 import {
   SPAWN_RATE_PER_SECOND,
   CANVAS_HEIGHT,
@@ -159,6 +161,7 @@ import { LobbyScreen } from './render/lobbyScreen.ts';
 import { SparkRenderer, makeSpawnerRing } from './render/renderer.ts';
 import { beginConcealmentFrame } from './render/concealment.ts';
 import { beginTowerCoverFrame } from './render/towerCover.ts';
+import { beginTowerHealthHoldFrame } from './render/towerHealthHold.ts'; // ⭐ S194 T15 (R194-30)
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
@@ -844,6 +847,7 @@ async function bootstrap(): Promise<void> {
   // S139 P2 — the goblin needs its OWN renderer: both shipped creature renderers are
   // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
   const goblinRenderer = new GoblinRenderer(app, fogHiddenLayer);
+  const unitDeathRenderer = new UnitDeathRenderer();
   // ⭐ S172 — GoblinRenderer draws every health bar but only measures its OWN sprites. Bosses,
   // tier-3 units, Voltkin, the direwolf and the chewer live in CreatureRenderer, and without this
   // line their bars fall back to a 26 px box and are drawn inside the creature.
@@ -1410,6 +1414,9 @@ async function bootstrap(): Promise<void> {
   const matchBoard = new MatchBoardHost(() => resetIfPostgame());
   app.stage.addChild(matchBoard.container);
   app.ticker.add(() => matchBoard.render(world, performance.now()));
+  // ⭐ S194 — the per-player pages show each unit type's portrait, from the atlases the board already loaded.
+  matchBoard.setPortraitSource((type, race) =>
+    type === 'voltkin' ? creatureRenderer.voltkinPortraitTexture() : goblinRenderer.portraitTexture(type, race));
   avatarRenderer.bringLocalToFront();
   const vignette = makeCinematicVignette(app);
   // S87 P4 — CodexOverlay is created lazily on first open (the botSetupOverlay
@@ -2514,6 +2521,11 @@ Network routes: ${v.detail}`;
   });
 
   window.addEventListener('keydown', (e) => {
+    // ⭐ S194 — the stat board's pages (← → Tab). Consumed only while it is up; R below stays the exit.
+    if (matchBoard.isShowing() && matchBoard.handleKey(e.key, e.shiftKey)) {
+      e.preventDefault();
+      return;
+    }
     if ((e.key === 'r' || e.key === 'R') && world.gameState === 'POSTGAME') {
       resetIfPostgame();
     }
@@ -3150,6 +3162,7 @@ Network routes: ${v.detail}`;
         // chewers; this closes the one-frame orphan window + resets the hop phase).
         chewerRenderer.clear();
         goblinRenderer.clear();
+        unitDeathRenderer.clear(); // ⭐ S194 T9 — an army's deaths never replay over the title
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
         voltkinTowerRenderer.clear();
@@ -4328,6 +4341,13 @@ Network routes: ${v.detail}`;
      */
     beginTowerCoverFrame(world);
     /*
+     * ⭐ S194 T15 (owner R194-30) — a welded tower's own health HOLDS through a re-form of its structure
+     * (`towerHealthHold.ts`): without it the drain refilled its bar and snapped its art back to pristine
+     * every time a connector of the weld fell — *"it rebuilds the tower automatically"*. Before any sync:
+     * the bar, the card and the ramp art all read it this frame.
+     */
+    beginTowerHealthHoldFrame(world);
+    /*
      * ⭐ S192 — the fx layers reset ONCE per frame, here, before any renderer writes to them (several
      * renderers share each layer); `fxEndFrame` after `effectsRenderer.sync` hides what went unused.
      * The quality preference is polled exactly like the race-background one below.
@@ -4378,6 +4398,7 @@ Network routes: ${v.detail}`;
     // S100 P1 (TD Phase 1a) — chewer pencil-sketch + physics hop. Cheap when no chewer is live.
     chewerRenderer.sync(world);
     goblinRenderer.sync(world);
+    unitDeathRenderer.sync(world); // ⭐ S194 T9 — the shared death beat, for every creature type alike
     // ⭐ S172 — after both creature renderers, so a number spawned this frame is drawn on top.
     damageNumbers.sync(world);
     /*

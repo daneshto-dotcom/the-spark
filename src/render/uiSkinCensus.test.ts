@@ -78,8 +78,10 @@ const CENSUS: readonly Claim[] = [
   { file: 'src/render/racePicker.ts', match: 'scrim.', status: E, what: 'the modal scrim (closes the picker)' },
   { file: 'src/render/racePicker.ts', match: 'panel.', status: E, what: 'the panel body (swallows taps between tiles)' },
   { file: 'src/render/racePicker.ts', match: 'root.', status: S, what: 'race tiles — glass over the banner + chip hover (inert when taken)' },
-  // ── match board: T10 owns it (S194 boundary) ──────────────────────────────────────────────────
-  { file: 'src/render/matchBoard.ts', match: 'this.container.', status: E, what: 'END-OF-MATCH board — owned by tree T10 (S194), redesigned there' },
+  // ── match board (T10, S194): ONE listener pair; every control inside it is a rect in matchBoardLayout ─
+  { file: 'src/render/matchBoard.ts', match: 'this.container.eventMode', status: E, what: 'the board root — the full-screen scrim that swallows the world under POSTGAME; its controls are drawn plates, skinned below' },
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointermove'", status: S, what: 'hover for the tabs, overview rows and CONTINUE (skinButtonFx hover state) and the chart crosshairs (hoverAt)' },
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointertap'", status: S, what: 'page tabs, overview rows (→ the page of that seat) and CONTINUE — glass via skinButtonFx; the plate via skinPanelFx; hit-tested by matchBoardTips.hoverAt'},
   // ── settings (DOM) ────────────────────────────────────────────────────────────────────────────
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", status: S, what: 'close ✕ — scoped CSS hover/press/focus (.spark-settings)' },
   { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", status: S, what: 'close, toggles, mutes, sliders — scoped CSS hover/press/focus (.spark-settings)' },

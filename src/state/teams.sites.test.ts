@@ -220,10 +220,14 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/botSetupOverlay.ts': 1, // lobby seat swap
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
   'render/characterSheetModel.ts': 7, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware)
+  'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
   'render/concealment.ts': 1, // the local viewer's own things are never concealed
   'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id
   'render/lobbyStateMachine.ts': 2, // seat-table rows
-  'render/matchBoardModel.ts': 2, // S194 — a history row lookup; the LOCAL viewer's row
+  // ⭐ S194 T10 — the stat board v2 (render-only, reads INERT counters; none of these is an ENEMY decision):
+  'render/matchBoard.ts': 4, // the heatmap diagonal (a seat's SELF-hits cell); the hovered cell's grid INDICES; the page's own seat's per-wave dealt/taken series (×2)
+  'render/matchBoardModel.ts': 7, // the MONSTERS sentinel label + colour (×2); a wave-sample row lookup; the seat's own peak-connector scan; TAKEN FROM skips the seat itself (its self-hits are listed as ITSELF); the LOCAL viewer's row; DEALT TO drops the self-hit key
+  'render/matchBoardTips.ts': 3, // the heatmap's diagonal cell (→ ITSELF); the ledger's own seat's dealt/taken series (×2)
   'render/raAimPreview.ts': 1, // memo key
   'render/scorchedEarthAim.ts': 1, // memo key
   'render/severToastRenderer.ts': 2, // a toast for YOUR bond; actor === victim (self-sever wording)

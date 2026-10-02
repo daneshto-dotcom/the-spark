@@ -145,6 +145,7 @@ import { HUB_DEATH_RUN_TICKS, starIsBelowSelfDestruct } from './structureStarHea
 import { detectNonet, mintNonetSeed, startSudoku } from './sudokuEvent.ts';
 import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
+import { runBloodFrenzy } from './racial/bloodFrenzy.ts'; // S194 R194-31 — the frenzy also ENDS outside FIGHT
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
 // ⭐ S192 (owner, A3) — the endgame monster waves.
@@ -2288,6 +2289,19 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
     // POWER OF RA columns, CORPSE EATER, …). Beside the boss skills and inside the same FIGHT gate
     // for the same reasons; `racial/racialTick.ts` holds one slot per mechanic.
     runRacialPerksFight(world);
+  } else if (world.gameState === 'PLAYING') {
+    /*
+     * ⛔⛔ S194 (owner, R194-31) — **A RAGE ENDS ON ITS OWN 25 s CLOCK IN EVERY PHASE.** *"When it's …
+     * turned on by a warlord, should last only 25 seconds. Either for himself or for the units that he
+     * affected."* Both writers of `enraged` used to run only in the FIGHT block above, so a rage running
+     * at the whistle was never lowered and the Warlord and his frenzied orcs stayed red through the whole
+     * BUILD. Outside FIGHT they run here too: `runWarlordRage` only ENDS a window (its `mayFire` is FIGHT
+     * only — "he can enrage again. Next fight."), and `runBloodFrenzy` follows the source windows, so a
+     * frenzied unit never outlives the window that raised it. Same order as the FIGHT block (latch, then
+     * frenzy). A decided match still mutates nothing (the `gameState` guard, as in `runRacialPerksFight`).
+     */
+    runWarlordRage(world);
+    runBloodFrenzy(world);
   }
 
   // ⭐ S188 F1 — the batch's heals land HERE: after every blow of the tick, before anyone is swept, so

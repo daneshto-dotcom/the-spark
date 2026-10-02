@@ -40,6 +40,7 @@ import {
 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import { razePrimitives } from './razePrimitives.ts';
 // ⭐ S191 C-5 — the hub's blast is ladder damage through the ordinary funnels, and its connector
 // sever goes straight to the one sever reducer (see `applyHubLadderBlast`).
@@ -275,7 +276,9 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
    * single potato wipes. Whether that is the intended counterplay is a ruling; the current answer is
    * simply what the old predicate already did, preserved.
    */
-  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => potatoClearsType(c.type));
+  // ⭐ S194 — the stat board credits NOBODY for a potato's victims (LOST only): the sim never records who
+  // planted it, and the carrier who cooked it off is the one it punishes, not its author.
+  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => potatoClearsType(c.type), undefined, null);
 }
 
 /**
@@ -374,6 +377,12 @@ export function applyRadialClear(
    * shapes is an asymmetry with no design behind it.
    */
   primKill: (prim: Primitive) => boolean = () => true,
+  /**
+   * ⭐ S194 (audit T10 LOW-1) — the seat the stat board credits with these deaths, or null for nobody. This
+   * clear DELETES (it never passes `damageEntity`), so without this a whole squad vanished from both LOST
+   * and KILLS. INERT — read only by the board.
+   */
+  killer: PlayerId | null = null,
 ): World {
   const creatureVictims: CreatureId[] = [];
   for (const [cid, creature] of world.creatures) {
@@ -386,7 +395,13 @@ export function applyRadialClear(
   // ⭐ S171 — THE SITE THAT MADE A CHOKEPOINT NECESSARY. This loop "obliterates regardless of hp"
   // (see damageCreature's docstring), so it bypasses every damage-side guard there is. A potato
   // blast is exactly how a channelling Pharaoh would have been deleted mid-ritual.
-  for (const cid of creatureVictims) removeCreature(world, cid);
+  for (const cid of creatureVictims) {
+    const c = world.creatures.get(cid);
+    removeCreature(world, cid);
+    // ⭐ S194 — only a death the chokepoint really made (it refuses a channelling Pharaoh), and never a
+    // corpse-in-waiting (`ehp <= 0`), whose death `damageEntity` already counted.
+    if (c !== undefined && c.ehp > 0 && !world.creatures.has(cid)) recordKill(world, killer, c.ownerPlayerId, c.type);
+  }
 
   const victims: PrimitiveId[] = [];
   for (const [pid, prim] of world.primitives) {
@@ -615,6 +630,7 @@ export function applyStructureSelfDestruct(world: World, action: StructureSelfDe
     action.radius * action.radius,
     (c) => blastTakes(world, c.ownerPlayerId, owner, action.alliesOf),
     (p) => blastTakes(world, p.placedBy, owner, action.alliesOf),
+    owner ?? null, // ⭐ S194 — the stat board credits the hub's owner with what its blast erased
   );
 }
 

@@ -1065,7 +1065,15 @@ export type { NetSnapshot };
  *      `isValidRoster`), and `CLAIM_TEAM` is a new CLIENT→HOST lobby message a v64 host would drop.
  *   Both ride ONE bump (deploy S194-#5).
  */
-export const PROTOCOL_VERSION = 65 as const;
+/**
+ * ⭐⭐ S194 — **BUMPED 65 -> 66: `s194/rage` (owner ruling R194-31).** A rule both peers compute:
+ *   1. R194-31 — the Warlord's rage window and the BLOOD FRENZY on his units END on their 25 s clock in ANY phase
+ *      (a v65 peer froze them outside FIGHT, so the two sims disagree about whether a unit is still frenzied — its
+ *      attack cycle and the hashed rage state). A NEW rage still fires only in FIGHT.
+ *   `s194/coherence` (T9), `s194/weld-rebuild` (T15) and `s194/matchboard` (T10) ride along — render/UI only, no wire
+ *   or rule change (deploy S194-#6).
+ */
+export const PROTOCOL_VERSION = 66 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1407,6 +1415,7 @@ export interface HelloMsg {
    * S194: 62->63 (s193/mres-card: the wave-26 'mres' draft pick (WARDED), Creature.mresFifths, castle soldier MRES 1 for every race. Full reasons on the const's JSDoc.)
    * S194: 63->64 (s194/fixes: Helga RISEN, fallen-seat pants lanes, chewer/drone never strike Helga. Full reasons on the const's JSDoc.)
    * S194: 64->65 (s194/entropy + s192/teams: the entropy roll at FIGHT start + the 'entropy' sever cause; world.teams, RosterEntry.team, CLAIM_TEAM. Full reasons on the const's JSDoc.)
+   * S194: 65->66 (s194/rage: R194-31 the Warlord rage window + BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1445,7 +1454,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 65;
+  readonly protoVersion: 66;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

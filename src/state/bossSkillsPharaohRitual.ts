@@ -45,6 +45,7 @@ import { liveIdsOfType } from './bossSkills.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { isChannellingRa } from './creatures/creature.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import { landRaColumn } from './racial/raColumn.ts';
 import type { World } from './world.ts';
 
@@ -156,6 +157,13 @@ export function runPharaohRitual(world: World): void {
      * exactly the behaviour wanted, and is why the guard is a predicate on TIME rather than a flag
      * somebody has to remember to clear. Nothing anywhere has to "end" the ritual.
      */
-    if (!isChannellingRa(boss, world.tick)) removeCreature(world, bossId);
+    if (!isChannellingRa(boss, world.tick)) {
+      // ⭐ S194 (audit T10 LOW-1) — the ritual's end IS his death, and nobody struck it: a LOSS for his seat,
+      // a kill for nobody. INERT — read only by the stat board. ⛔ Re-audit: only if he is still ALIVE — a blow
+      // earlier this tick may already have killed him through `damageEntity` (LOST + KILL counted there), and
+      // `liveIdsOfType` still hands back that corpse-in-waiting. Same guard as the potato / hub clear.
+      if (boss.ehp > 0) recordKill(world, null, boss.ownerPlayerId, boss.type);
+      removeCreature(world, bossId);
+    }
   }
 }
