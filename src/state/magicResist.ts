@@ -25,8 +25,8 @@
  *
  * ## Determinism / wire
  *
- * No state, no float accumulator, no RNG. MRES is a pure function of the creature TYPE and — for
- * `raceUnit` only — the owner's `raceId`, which is already serialized and hashed. Nothing new rides the
+ * No state, no float accumulator, no RNG. MRES is a pure function of the creature TYPE (⭐ S194: the
+ * castle soldier no longer reads its owner's race). Nothing new rides the
  * wire; the RULE does, so it earns a protocol bump at merge (both peers compute it — the S186 test).
  */
 import type { CreatureType } from './creatures/creature.ts';
@@ -76,10 +76,18 @@ export function isMagicClass(cls: DamageClass): boolean {
  * never below 1 on a real hit. Exact (= `amount`) whenever `mres === def`.
  */
 export function magicHitFifths(amount: number, def: number, mres: number): number {
+  return magicHitFifthsPools(amount, 5 + def, 5 + mres);
+}
+
+/**
+ * ⭐ S193 (R192-D1) — the same hit with the two bar lengths named: `floor(amount × phys / magic)`, never
+ * below 1. `phys` = the bar as physical sees it (`HP×(5+DEF)`, or just `5+DEF` — HP cancels), `magic` =
+ * as magic sees it (`HP×(5+MRES)`, raised by a drafted MRES pick). With no pick it is `magicHitFifths`
+ * exactly: `floor(A·HP·(5+DEF) / (HP·(5+MRES)))` is the same rational.
+ */
+export function magicHitFifthsPools(amount: number, phys: number, magic: number): number {
   if (amount <= 0) return 0;
-  const num = amount * (5 + def);
-  const den = 5 + mres;
-  return Math.max(1, Math.floor(num / den));
+  return Math.max(1, Math.floor((amount * phys) / magic));
 }
 
 /**
@@ -88,9 +96,14 @@ export function magicHitFifths(amount: number, def: number, mres: number): numbe
  * beats; exactly `amount` on every beat when `mres === def`; may be 0 when `mres > def`.
  */
 export function magicDotFifths(amount: number, def: number, mres: number, beat: number): number {
+  return magicDotFifthsPools(amount, 5 + def, 5 + mres, beat);
+}
+
+/** ⭐ S193 — `magicDotFifths` with the two bar lengths named (see `magicHitFifthsPools`). */
+export function magicDotFifthsPools(amount: number, phys: number, magic: number, beat: number): number {
   if (amount <= 0) return 0;
-  const num = amount * (5 + def);
-  const den = 5 + mres;
+  const num = amount * phys;
+  const den = magic;
   const b = Math.max(0, Math.trunc(beat));
   return Math.floor(((b + 1) * num) / den) - Math.floor((b * num) / den);
 }
@@ -105,6 +118,19 @@ export function landedFifths(amount: number, cls: DamageClass, def: number, mres
   // them is what lets the MRES = DEF differential prove the arithmetic rather than skip it.
   if (cls === 'magic') return magicHitFifths(amount, def, mres);
   return magicDotFifths(amount, def, mres, cls.beat + phase);
+}
+
+/**
+ * ⭐ S193 (R192-D1) — `landedFifths` with the two bar lengths named, for a CREATURE born after its seat's
+ * MRES pick (`Creature.mresFifths`): `phys` = its type's physical pool `HP×(5+DEF)`, `magic` = that stored
+ * magic-defended pool. ⛔ Call sites use it ONLY when the field is present and keep calling
+ * `landedFifths(…, cfg.def, mresFor(…), …)` otherwise — so every pre-pick hit runs the exact S192 path
+ * (and the S192 differential / reach mocks, which wrap `landedFifths` and `mresFor`, still see it).
+ */
+export function landedFifthsPools(amount: number, cls: DamageClass, phys: number, magic: number, phase: number): number {
+  if (cls === 'physical') return amount;
+  if (cls === 'magic') return magicHitFifthsPools(amount, phys, magic);
+  return magicDotFifthsPools(amount, phys, magic, cls.beat + phase);
 }
 
 // ── THE TABLE (spec §b) — every number ⚠ MINE until the owner rules ─────────────────────────────
@@ -122,6 +148,14 @@ export const RACE_MRES_LEVEL: Readonly<Record<RaceId, number>> = {
   zombies: 0,
 };
 
+/**
+ * ⭐⭐ HIS (S194): *"every castle soldier has one HP, one defense, one … penetration, one attack, and one …
+ * magic resistance, right? They all have just one, so they're all equal between the races."* The castle
+ * soldier (`raceUnit`, R125 1/1/1/1) resists magic at **1** for EVERY race — not the race table, which
+ * stays on each race's tier-3 unit and its boss. A wave-26 MRES pick raises this same MRES-1 pool.
+ */
+export const CASTLE_SOLDIER_MRES = 1;
+
 /** ⚠ MINE — a tier-9 boss resists `6 + 2 × level` (Archdemon / Pharaoh 14 … zombie boss 6). */
 export function bossMres(race: RaceId): number {
   return 6 + 2 * RACE_MRES_LEVEL[race];
@@ -130,14 +164,15 @@ export function bossMres(race: RaceId): number {
 /**
  * How each creature type gets its MRES. An exhaustive `Record` so a new type fails `tsc` until someone
  * decides. `'def'` = a GLOBAL unit, MRES = its own DEF (⭐ HIS, S192 Q-G: *"Get magic resistance equal to
- * their [DEF]. Sounds good."*); `'ownerRace'` = the castle
- * soldier, one type for six races (⚠ MINE, spec Q9 — departs from R94/R117 per R192-M6); a race = that
+ * their [DEF]. Sounds good."*); `'soldier'` = the castle
+ * soldier, **`CASTLE_SOLDIER_MRES` (1) for every race** (⭐ HIS, S194 — supersedes the S192 per-race
+ * reading, spec Q9); a race = that
  * race's level (tier-3) ; `{ boss }` = `bossMres`.
  *
  * ⚠ The ELITE PIRANHA and the BAT SWARM keep their BASE unit's level — "every stat ×N" was ruled before
  * MRES existed, and multiplied the swarm would be near magic-immune (spec Q-E).
  */
-type MresRule = 'def' | 'ownerRace' | RaceId | { readonly boss: RaceId };
+type MresRule = 'def' | 'soldier' | RaceId | { readonly boss: RaceId };
 export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
   direwolf: 'def', // the Warlord's summon — "not orcs" (canon §3e)
   locustCloud: 'def',
@@ -150,7 +185,7 @@ export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
   goblinHound: 'def',
   goblinBat: 'def',
   goblinSuicide: 'def',
-  raceUnit: 'ownerRace',
+  raceUnit: 'soldier', // ⭐ HIS (S194): MRES 1, every race
   t3Hound: 'zombies',
   t3Scarab: 'mummies',
   t3Piranha: 'nagas',
@@ -170,13 +205,13 @@ export const CREATURE_MRES: Readonly<Record<CreatureType, MresRule>> = {
 };
 
 /**
- * A creature's MRES. `ownerRace` is read only for `raceUnit`; `null` (no such seat) falls back to the
- * soldier's own DEF, so the function is total.
+ * A creature's MRES. ⭐ S194 — `ownerRace` no longer changes any answer: the castle soldier is
+ * `CASTLE_SOLDIER_MRES` for every race (and with no seat). The parameter is kept so no call site moves.
  */
-export function mresFor(type: CreatureType, ownerRace: RaceId | null): number {
+export function mresFor(type: CreatureType, _ownerRace: RaceId | null): number {
   const rule = CREATURE_MRES[type];
   if (rule === 'def') return getCreatureConfig(type).def;
-  if (rule === 'ownerRace') return ownerRace === null ? getCreatureConfig(type).def : RACE_MRES_LEVEL[ownerRace];
+  if (rule === 'soldier') return CASTLE_SOLDIER_MRES;
   if (typeof rule === 'string') return RACE_MRES_LEVEL[rule];
   return bossMres(rule.boss);
 }
