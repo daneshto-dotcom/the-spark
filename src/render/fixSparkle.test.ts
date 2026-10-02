@@ -193,6 +193,22 @@ describe('S194 R194-22 REACH — the fix-me sparkle through the real host tick',
     expect(top.out).toEqual([]);
   });
 
+  it('⛔ a shape with NO `origin` field welded into the structure (bare e2e fixtures) never throws out of the render', () => {
+    const { w, st, turretHub, arm } = weldedPair();
+    cutBond(w, arm);
+    tick(w, st, PAST_TWO_POLLS);
+    const hub = w.primitives.get(turretHub)!;
+    const bare: any = { ...hub, id: 99999, bonds: new Set(), pos: { x: hub.pos.x + 30, y: hub.pos.y + 30 } };
+    delete bare.origin;
+    w.primitives.set(bare.id, bare);
+    const bid = 88888 as BondId;
+    w.bonds.set(bid, { id: bid, aId: hub.id, bId: bare.id, a: hub, b: bare, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: w.tick } as never);
+    hub.bonds.add(bid); bare.bonds.add(bid);
+    expect(() => brokenTowersOf(w)).not.toThrow();
+    const r = new SpawnerZoneRenderer({} as never, new Container());
+    expect(() => draw(w, r)).not.toThrow();
+  });
+
   it('⛔ NEGATIVE — `?fx=legacy`: off', () => {
     const { w, st, arm } = weldedPair();
     cutBond(w, arm);

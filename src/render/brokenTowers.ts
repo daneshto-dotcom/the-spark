@@ -70,20 +70,30 @@ function bondBetween(world: World, aId: PrimitiveId, bId: PrimitiveId): BondId |
 
 /** PURE — every fallen tower FIX could stand up again, in ascending key order. */
 export function brokenTowersOf(world: World): BrokenTower[] {
-  const ids = [...world.primitives.values()].filter((p) => p.origin !== null).map((p) => p.id).sort((a, b) => a - b);
+  /*
+   * ⛔ `!= null`, not `!== null`, and the walk is guarded. This runs inside the RENDER tick: a shape whose
+   * `origin` is missing (several e2e fixtures inject bare shapes without the field) made `stampGroupAt`
+   * dereference `undefined`, the throw escaped the frame, and two gating specs (stink-tower ignition,
+   * the match-clock flip) went red. A render must never take the frame down.
+   */
+  const ids = [...world.primitives.values()].filter((p) => p.origin != null).map((p) => p.id).sort((a, b) => a - b);
   const seen = new Set<PrimitiveId>();
   const out: BrokenTower[] = [];
   for (const id of ids) {
     if (seen.has(id)) continue;
-    const unit = towerUnitAt(world, id);
+    let unit: ReturnType<typeof towerUnitAt>;
+    try { unit = towerUnitAt(world, id); } catch { unit = null; }
     if (unit === null) { seen.add(id); continue; }
     for (const m of unit.members) seen.add(m);
     seen.add(id);
     if (unit.kind !== 'stamp') continue;
-    const group = blueprintGroupOf(world, unit.members);
-    if (group === null) continue;
+    let group: ReturnType<typeof blueprintGroupOf> = null;
     const owner = world.primitives.get(unit.members[0]!)!.placedBy;
-    if (!fallenTowerFixCanRegister(world, owner, group)) continue;
+    try {
+      group = blueprintGroupOf(world, unit.members);
+      if (group !== null && !fallenTowerFixCanRegister(world, owner, group)) group = null;
+    } catch { group = null; }
+    if (group === null) continue;
     const bp = blueprintFor(group.blueprintId);
     const edges: BrokenEdge[] = [];
     for (const [ai, bi] of bp.bonds) {
