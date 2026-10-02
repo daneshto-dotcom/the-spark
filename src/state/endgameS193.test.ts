@@ -13,7 +13,6 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CASTLE_ATTACK_RANGE,
-  MEGA_PANTS_AFTER_TICKS,
   MEGA_PANTS_STATS,
   MONSTER_BIRTH_RADIUS_PX,
   MONSTER_HOLD_LEAD_TICKS,
@@ -38,7 +37,7 @@ import {
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
-import { isMonsterFightHeld, megaPantsDue, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
+import { isMonsterFightHeld, megaPantsAtElapsed, megaPantsDue, megaPantsSlotTicks, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
 import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
@@ -326,11 +325,20 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     expect(world.lastWinnerId).toBe(P0);
   });
 
-  it('⚠ MINE (the threshold): the mega pants walks out exactly MEGA_PANTS_AFTER_TICKS in, never before; a felled one is replaced', () => {
+  it('⭐⭐ S194 R194-26 HIS (was MINE, 240 s): the mega pants walks out at the 251st slot, never before; a felled one is replaced', () => {
     const { world, d, st } = finalFight();
     world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     const start = world.monsterFightStartTick;
-    world.tick = start + MEGA_PANTS_AFTER_TICKS - 3;
+    // arithmetic: T = 250 × 2 = 500 over W = 7200 → slot r = T at floor(500 × 7200 / 499) = 7214
+    const T = monstersPerSeatForWave(31) * 2;
+    expect(megaPantsSlotTicks(T, pantsWindowTicks(31))).toBe(Math.floor((T * pantsWindowTicks(31)) / (T - 1)));
+    expect(megaPantsSlotTicks(T, pantsWindowTicks(31))).toBe(7214);
+    expect(megaPantsSlotTicks(1000, pantsWindowTicks(31))).toBe(7207); // 4 seats
+    expect(megaPantsSlotTicks(1, pantsWindowTicks(31))).toBe(pantsWindowTicks(31)); // a lone pants: the window end
+    expect(megaPantsAtElapsed(world)).toBe(7214);
+    // one interval past the 250th: the last pants is at W, the mega one cadence step later
+    expect(megaPantsAtElapsed(world) - pantsWindowTicks(31)).toBe(Math.floor(T * pantsWindowTicks(31) / (T - 1)) - pantsWindowTicks(31));
+    world.tick = start + megaPantsAtElapsed(world) - 3;
     world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
     runHostTick(world, d, st);
     expect(mega(world)).toHaveLength(0);
@@ -349,10 +357,15 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     world.waveNumber = 30;
     world.matchPhase = 'FIGHT';
     world.monsterFightStartTick = 1;
-    world.tick = 1 + MEGA_PANTS_AFTER_TICKS + 10;
+    world.tick = 1 + megaPantsAtElapsed(world) + 10;
+    world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     expect(megaPantsDue(world)).toBe(false);
     world.waveNumber = 31;
     expect(megaPantsDue(world)).toBe(true);
+    // ⭐ S194 R194-26 — "after the last pant came out": one wave pants still to come → not yet
+    world.monsterWaveSpawned -= 1;
+    expect(megaPantsDue(world)).toBe(false);
+    world.monsterWaveSpawned += 1;
     world.players.get(P1)!.castleHp = 0;
     expect(megaPantsDue(world)).toBe(false);
   });
@@ -370,7 +383,7 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     runHostTick(world, d, st);
     world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
-    world.tick = world.monsterFightStartTick + MEGA_PANTS_AFTER_TICKS;
+    world.tick = world.monsterFightStartTick + megaPantsAtElapsed(world);
     world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
     runHostTick(world, d, st);
     const m = mega(world)[0]!;
@@ -430,14 +443,15 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
   it('the banner: one silly line per monster wave for its first 4 s, the mega pants line at its arrival, nothing else', () => {
     expect(PANTS_BANNER_TICKS).toBe(4 * PHYSICS_HZ);
     const at = (wave: number, elapsed: number, phase: 'FIGHT' | 'BUILD' = 'FIGHT') =>
-      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed });
+      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed }, 7214);
     expect(at(27, 0)).toBe('BEWARE THE PANTS!');
     expect(at(28, PANTS_BANNER_TICKS - 1)).toBe('INCOMING PANTS!');
     expect(at(28, PANTS_BANNER_TICKS)).toBe('');
     expect(at(27, 0, 'BUILD')).toBe('');
     expect(at(26, 0)).toBe('');
-    expect(at(31, MEGA_PANTS_AFTER_TICKS)).toBe(MEGA_PANTS_BANNER);
-    expect(at(30, MEGA_PANTS_AFTER_TICKS)).toBe('');
+    expect(at(31, 7214)).toBe(MEGA_PANTS_BANNER);
+    expect(at(31, 7213)).toBe(''); // one tick before his slot
+    expect(at(30, 7214)).toBe('');
     for (const w of [27, 28, 29, 30, 31]) expect(PANTS_BANNER_LINES[w]!.length).toBeGreaterThan(0);
   });
 
@@ -445,7 +459,7 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
     const world = board(2);
     toFightEdge(world, 27);
     runHostTick(world, deps(), makeHostTickState(world));
-    expect(pantsBannerText(world)).toBe('BEWARE THE PANTS!');
+    expect(pantsBannerText(world, megaPantsAtElapsed(world))).toBe('BEWARE THE PANTS!');
   });
 });
 
@@ -702,7 +716,7 @@ describe('S193 — a CLIENT reads the same countdown, banner and clock from the 
     applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), client);
     expect(client.monsterFightStartTick).toBe(host.monsterFightStartTick);
     expect(monstersLeftToComeOut(client)).toBe(monstersLeftToComeOut(host));
-    expect(pantsBannerText(client)).toBe(pantsBannerText(host));
+    expect(pantsBannerText(client, megaPantsAtElapsed(client))).toBe(pantsBannerText(host, megaPantsAtElapsed(host)));
     expect(isClockFrozenForDisplay(client)).toBe(isClockFrozenForDisplay(host));
     expect(monstersLeftToComeOut(client)).toBeGreaterThan(0);
   });
@@ -740,4 +754,41 @@ describe('⭐⭐ S194 R194-17 × R194-2 — a seat knocked out mid-window: its u
     expect(world.monsterWaveSpawned).toBe(monstersPerSeatForWave(28) * 2);
     expect(monstersLeftToComeOut(world)).toBe(0);
   });
+});
+
+/* ═══════════════════════ ⭐⭐ S194 R194-26 — THE MEGA PANTS IS THE 251st (REACH) ═══════════════════════ */
+
+describe('⭐⭐ S194 R194-26 — REACH: the mega pants walks out exactly one cadence step after the 250th', () => {
+  for (const seats of [2, 4]) {
+    it(`${seats} seats: the last wave pants at start + W, the mega pants at start + floor(T × W / (T − 1)), nothing between`, () => {
+      const world = board(seats);
+      toFightEdge(world, 31);
+      unkillable(world);
+      const d = deps();
+      const st = makeHostTickState(world);
+      runHostTick(world, d, st);
+      const start = world.monsterFightStartTick;
+      const W = pantsWindowTicks(31);
+      const T = monstersPerSeatForWave(31) * seats;
+      const slot = Math.floor((T * W) / (T - 1)); // derived from the constants, not typed
+      let lastPants = -1;
+      let megaAt = -1;
+      const seen = new Set<number>();
+      for (let t = 0; t < slot + 60 && megaAt < 0; t++) {
+        runHostTick(world, d, st);
+        for (const p of pants(world)) {
+          const id = p.id as unknown as number;
+          if (!seen.has(id)) { seen.add(id); lastPants = world.tick; }
+          dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+        }
+        if (mega(world).length > 0) megaAt = world.tick;
+      }
+      expect(seen.size, 'every wave pants out first').toBe(T);
+      expect(lastPants - start).toBe(W);
+      expect(megaAt - start, 'the 251st slot').toBe(slot);
+      expect(megaAt - start).toBe(megaPantsAtElapsed(world));
+      expect(megaAt - start).toBeGreaterThan(lastPants - start); // after the last, never before
+      expect(mega(world)).toHaveLength(1);
+    });
+  }
 });

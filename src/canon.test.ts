@@ -1571,7 +1571,7 @@ import * as endgameConstants from './constants.ts';
 import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
 import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
 import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
-import { monsterFightTicks } from './state/endgame.ts'; // ⭐ S194 R194-17
+import { megaPantsSlotTicks, monsterFightTicks } from './state/endgame.ts'; // ⭐ S194 R194-17 / R194-26
 
 describe('S192 §3f — the endgame table is the constants', () => {
   it('the last draft, the lock and the five wave counts', () => {
@@ -1593,7 +1593,14 @@ describe('S192 §3f — the endgame table is the constants', () => {
     const ft = (w: number): number => monsterFightTicks(w) / endgameConstants.PHYSICS_HZ;
     expect(canonSays(`**27 → ${ft(27)} s · 28 → ${ft(28)} s · 29 → ${ft(29)} s · 30 → ${ft(30)} s** (31 → ${ft(31)} s`)).toBe(true);
     expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
-    expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
+    // ⭐ S194 R194-26 — the mega pants is the 251st: one cadence step past the window, derived from the constants
+    const W31 = endgameConstants.PANTS_WINDOW_SECONDS[31]! * endgameConstants.PHYSICS_HZ;
+    const T2 = endgameConstants.MONSTER_WAVE_PER_SEAT[31]! * 2;
+    const T4 = endgameConstants.MONSTER_WAVE_PER_SEAT[31]! * 4;
+    expect(megaPantsSlotTicks(T2, W31)).toBe(Math.floor((T2 * W31) / (T2 - 1)));
+    expect(canonSays(`**2 seats → ${megaPantsSlotTicks(T2, W31)} ticks · 4 seats → ${megaPantsSlotTicks(T4, W31)} ticks**`)).toBe(true);
+    expect(canonSays('**he is the 251st**')).toBe(true);
+    expect(canonSays(`~~${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s, \`MEGA_PANTS_AFTER_TICKS\`~~ retired`)).toBe(true);
     const m = ENDGAME_CONFIGS.megaPants;
     expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
     expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);

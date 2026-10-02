@@ -4346,8 +4346,8 @@ export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
  * surviving longer."*
  *
  * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. ⭐ S194 R194-17 —
- * his 250 each are now all out by **120 s** (`PANTS_WINDOW_SECONDS`), so the boss arrives ~2 minutes after
- * the last pants (was ~50 s after, when they took 250 × 45 = 11 250 ticks). Not retuned — flagged.
+ * his 250 each are now all out by **120 s** (`PANTS_WINDOW_SECONDS`), and (R194-26, HIS) the
+ * mega pants is the 251st, one cadence step after them (`endgame.megaPantsSlotTicks`) — this 240 s is unread.
  */
 // ⛔ S194 R194-26 — RETIRED IN PLACE, UNREAD: he is the 251st now (`endgame.megaPantsSlotTicks`).
 export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
