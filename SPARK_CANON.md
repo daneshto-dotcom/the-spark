@@ -92,6 +92,39 @@ a weld whose `aId` was his own seat carried into his OWN connectors. The weld st
 no single owner to stay on, so it lands nowhere (⚠ MINE: a third seat striking a weld between two others
 carries into neither side either). `connectorCarryWeld.test.ts`.
 
+### ⭐⭐ THE ENTROPY TAX — A BIG STRUCTURE WEARS OUT (R194-18, S194, `s194/entropy`)
+
+> *"the more complex your … structure is. The more chances it has to be destroyed or to just break
+> down … players will have to decide, oh, do I keep … building onto this tower to increase his … HP …
+> Or do I … build more structures."* … *"It will go with option A … Up to 10 connectors, no entropy
+> tax. After that, it grows … for each connector past 10 … It should be capped at 50."* … *"mean +0.1%"*
+> — owner, S194
+
+**The rule: at the start of every FIGHT, every connector of a structure bigger than 10 connectors
+snaps with chance `min(50 %, 0.1 % × (n − 10))`**, n = the connectors in its structure
+(`entropyChance`, `src/state/entropy.ts`: `ENTROPY_FREE_CONNECTORS` 10, `ENTROPY_RATE_PER_CONNECTOR`
+10 / 10 000, `ENTROPY_CAP` 5 000 / 10 000 — the cap is reached at 510 connectors).
+
+| connectors | 10 | 20 | 54 | 145 |
+|---|---|---|---|---|
+| chance per connector per FIGHT | 0 % | 1 % | 4.4 % | 13.5 % |
+| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |
+
+Why it exists: a structure's pool is `n × (5 + n)` and that is the price of ONE connector, so the bot
+blob he reported (145 connectors) costs **21 750** a connector — 20 melee goblins (14 400 a fight) fell
+**none**. No tower recipe has more than 9 connectors, so a lone tower is never taxed; two welded towers
+are. Measured through the real host tick (`entropy.test.ts`): the 145-connector blob lost 25, 21, 10,
+8 … over eight fights — it erodes toward a size the builder can keep up with.
+
+- Seeded `mix32(mix32(rngSeed, waveNumber), bondId)` — host-only seed, integer, no clock; every roll is
+  read off the board as it stood before the first snap, and the snaps run in ascending bond id through
+  the one `SEVER_BOND` path with cause **`'entropy'`** (no actor, silent, its own toast). A snap that
+  SPLITS a structure deletes its smaller side like any other sever — so whole chunks can go
+  (*"or maybe whole parts of it"*).
+- ⚠ MINE (unruled, Q4/Q5): **any** connector may snap, a welded tower's own included; the roll is
+  **once, at the FIGHT whistle**; the owner reads **"ENTROPY: N CONNECTORS SNAPPED"**. No exemption for
+  the endgame or monster waves — they are FIGHTs too.
+
 ### Shapes
 
 | | pool | |
@@ -531,7 +564,7 @@ just change it … don't argue if it's too OP"*.
 | **BLOOD DEBT** | vampires · 0 | every creature the seat owns heals a share of every hit it LANDS — on a creature, a connector, a lone shape, a stink bag, Helga or a castle | `BLOOD_DEBT_LIFESTEAL_PCT` = **20** % | WHO heals and WHICH hits count (his words are *"every spawned unit"*; the S188 PDR §2 lists it under "my calls"); the share is of the hit SWUNG (overkill in, castle DEF not yet applied) |
 | **CRIMSON TIDE** | vampires · 5 | the lifesteal rate becomes 50 %, and it REPLACES 20 — never 70 | `CRIMSON_TIDE_LIFESTEAL_PCT` = **50** % | — |
 | **THE SWARM** | vampires · 10 | the seat's bat tower emits the BAT SWARM from now on — every stat ×6 from the bat (R190-D), drawn twice the size; its own atlas and the `l10-vampires` card | `THE_SWARM_STAT_MUL` = **6** → **12 / 0 / 12 / 6** · pool **10 → 60** · bite **12 → 132** · `BAT_SWARM_SPRITE_SCALE_MUL` = **2** | its speed is the bat's; the ×2 draw size |
-| **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
+| **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep — **a PANTS counts** (owner 255 is everyone's enemy; owner S194 *"of course"*), and **so does an enemy HELGA** (S194, `riseOnHelgaKill`, once per death; owner *"it's just one zombie"*) | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
 | **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
 | **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims five sun columns anywhere on the board — each column's damage is SPLIT between the enemy creatures, Helga, lone shapes, stink bags and structures it catches (S191) | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_PERK_STRIKE_FIFTHS` = **35** a column IN TOTAL, split, over `RA_COLUMN_RADIUS` = **70** px (**75** — `RA_WRATH_STRIKE_FIFTHS` — once the seat holds WRATH OF RA) | spares the caster (and does not count its things); the number is `raColumnPoolFor(world, seat)`, the ONE source; a STRUCTURE is ONE target, its share on its connector nearest the centre; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
 | **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
@@ -922,6 +955,7 @@ flung debris. Measured, pinned and reported rather than taken.
 | the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
 | owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
 | retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
+| a seat knocked out mid-wave | ⭐ S194 HIS: *"if there's still pants that are supposedly queued, then they stop coming, but the existing ones just keep attacking."* The lanes are the seats that STARTED the fight (`monsterLaneSeats`); a fallen seat's un-emerged slots are skipped, its emerged pants retarget (above), and every survivor still gets his full count at his pace (before S194 the fallen seat's emerged pants came out of the survivors' share: 8 each instead of 10 in the 3-seat wave-27 case) |
 | the music | ⭐ S193 HIS (R193-M): the FIGHT of waves **27 / 29 / 31 → song 1, 28 / 30 → song 2** (`PANTS_MUSIC_SRC`, `pantsMusicForWave`); the endless final fight keeps 31's. ⚠ MINE: FIGHT only, and it overrides the race-music toggle |
 | leftovers | ⭐ S193 HIS: *"they vanish when this wave ends"*; no points for pants kills |
 | the end | ⭐ S193 HIS: last keep standing wins; a wipe from wave 27 on → **the top score wins**; a solo board ends at the wave-32 edge, top score |
@@ -1055,6 +1089,8 @@ goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat)
 
 Units: see `S180_TARGETING_TABLE.md`, which is the live working document while the owner rules on it.
 
+⭐ **PENCIL CHEWER AND LIGHTNING DRONE — STRUCTURES ONLY (S194, his):** *"they only target … buildings, towers, and connectors. And … free shapes. That's their whole point."* Both are `STRUCTURES_ONLY` in `CREATURE_TARGETS` (the drone was BOTH under R72 — superseded), and `killableDefenderInReach` honours the matrix, so neither ever strikes HELGA (both did until S194). A drone's detonation SPLASH still hurts units near its connector — an area effect, not a target. ⚠ OPEN: with nothing to chew, a chewer walks to the enemy keep and lands NOTHING there (`chewerDroneTargets.test.ts`) — needs his ruling.
+
 ### 5b · ⭐ THREE UNIT RULES HE REPORTED, FIXED IN S189 (`s189/units`, deploy #4)
 
 - **THE VOLTKIN GOES FOR THE ENEMY FIRST (C3).** *"Vulcan attacks his own buildings … instead of going to
@@ -1153,7 +1189,7 @@ unchanged.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **63** (S194 — s193/mres-card; see the S194 entry on the const). 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **64** (S194 — s194/fixes; see the S194 entries on the const). 63 was s193/mres-card; 62 was S193's deploy #23.
 
 ⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 
@@ -1920,6 +1956,7 @@ right-click a raid, and the drone, the raid, POWER OF RA and the hub were missin
 | ⭐ the Pharaoh boss's Ra column (S192 — the perk's column, sparing nobody) | `'unit'` | `racial/raColumn.ts` |
 | ⭐ SCORCHED EARTH burning through a structure's pool (S191) | `'raid'` | `racial/scorchedGround.ts` |
 | ⭐ the zombie boss's death blast reaching a structure's pool (S192 T3) | `'unit'` | `racial/zombieDeathBlast.ts` |
+| ⭐ the ENTROPY TAX at the FIGHT whistle (S194 R194-18, §2) | `'entropy'` | `entropy.ts` |
 | the physics solver, when a wire is stretched past breaking | `'physics'` | `physics/physicsLoop.ts` |
 | a bomb — **ARCHIVED** (§1; unreachable in a shipped build) | `'bomb'` | `bombLifecycle.ts` |
 

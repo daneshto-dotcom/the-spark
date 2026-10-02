@@ -893,3 +893,55 @@ describe('the countdown', () => {
     expect(formatDraftClock(1)).toBe('0:01');
   });
 });
+
+describe('⭐ S194 T5 — the GLASS over the tiles is inside them, and the tiles still answer exactly as before', () => {
+  /** A Graphics' drawn extent, from its own instructions (no renderer needed). */
+  function extent(g: Graphics): { x0: number; y0: number; x1: number; y1: number } {
+    const b = g.bounds;
+    return { x0: b.minX, y0: b.minY, x1: b.maxX, y1: b.maxY };
+  }
+
+  for (const [name, offer] of [['perk on offer', offerAsIfBuilt], ['dead racial tile', offerDead]] as const) {
+    it(`${name}: the glass draws (non-vacuous) and lies inside the two tiles' span`, () => {
+      const { w, seat } = startedWorld();
+      const o = new DraftOverlay(() => {}, { optionsFor: offer, loadCard: recordingLoader().load });
+      o.render(w, seat);
+      const glass = child<Graphics>(o.container, 'glass');
+      expect(glass.context.instructions.length, 'the glass drew something').toBeGreaterThan(0);
+      const e = extent(glass);
+      const g = generalTileRect();
+      const r = racialTileRect();
+      expect(e.x0).toBeGreaterThanOrEqual(g.x);
+      expect(e.y0).toBeGreaterThanOrEqual(Math.min(g.y, r.y));
+      expect(e.x1).toBeLessThanOrEqual(r.x + r.w);
+      expect(e.y1).toBeLessThanOrEqual(Math.max(g.y + g.h, r.y + r.h));
+    });
+  }
+
+  it('hovering a choosable tile lights its glass (the sheen), and the click still lands on the same tile', () => {
+    const { w, seat } = startedWorld();
+    const picks: DraftPick[] = [];
+    const o = new DraftOverlay((p) => picks.push(p), { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+    o.render(w, seat);
+    const before = child<Graphics>(o.container, 'glass').context.instructions.length;
+    const g = generalTileRect();
+    move(o, { x: g.x + 2, y: g.y + 2 });
+    o.render(w, seat);
+    expect(child<Graphics>(o.container, 'glass').context.instructions.length, 'hover adds the glow/sheen').toBeGreaterThan(before);
+    tap(o, { x: g.x + 2, y: g.y + 2 });
+    tap(o, { x: g.x - 2, y: g.y + g.h / 2 });
+    expect(picks).toEqual([generalPickForWave(1)]);
+  });
+
+  it('the glass is never a click target of its own: a point just outside every tile is not choosable', () => {
+    const { w, seat } = startedWorld();
+    const o = new DraftOverlay(() => {}, { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+    o.render(w, seat);
+    const g = generalTileRect();
+    const r = racialTileRect();
+    expect(o.isOverChoosable(g.x - 2, g.y + g.h / 2)).toBe(false);
+    expect(o.isOverChoosable(r.x + r.w + 2, r.y + r.h / 2)).toBe(false);
+    expect(o.isOverChoosable(g.x + 2, g.y + g.h / 2)).toBe(true);
+    expect(o.isOverChoosable(r.x + r.w - 2, r.y + r.h / 2)).toBe(true);
+  });
+});

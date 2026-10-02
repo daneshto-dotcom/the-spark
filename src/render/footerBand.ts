@@ -58,6 +58,8 @@ import {
 } from './scorchedEarthAim.ts';
 import { SCORCHED_ZONE_TINT } from './zoneBackgroundRenderer.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
+// ⭐ S194 T5 — the shared 'forged glass' skin (translucent, drawn INSIDE each hit-tested plate).
+import { skinBase, skinButtonFx, type SkinState } from './uiSkin.ts';
 // S173 — the shortfall readout. Its shape and its geometry are PURE and live beside the model that
 // computes the shortfall, so this surface and the (retained) castle caption cannot lay it out
 // differently — the same sharing rule `structuresAtComplexity` follows for affordability.
@@ -434,6 +436,8 @@ export class FooterBand {
   private collapsed = false;
   /** S153 P4 — complexity of the chip under the pointer, or null. Set by `setHover`. */
   private hoverChip: number | null = null;
+  /** ⭐ S194 T5 — this frame's render clock (ms), for the skin's hover sheen. */
+  private uiNow = 0;
   /** S153 P4 — id of the tower card under the pointer, or null. */
   private hoverCard: GodlyId | null = null;
   /** S153 P4 — pointer is held down. */
@@ -510,6 +514,8 @@ export class FooterBand {
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    // ⭐ S194 T5 — the render clock for the hover sheen. Render-only: never read by the sim.
+    this.uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     this.chips = [];
     this.strip = { palette: [], queue: [] };
     this.carry = null;
@@ -609,9 +615,11 @@ export class FooterBand {
        */
       const hot = this.hoverChip === c.complexity;
       const grow = hot ? (this.pressed ? -1 : HOVER_GROW) : 0;
-      const plate = hot ? (this.pressed ? 0x161d29 : 0x131b27) : 0x0b0f16;
+      // ⭐ S194 T5 — the skin's state; a disabled chip keeps its hover GROW (R81) but reads desaturated.
+      const st: SkinState = !c.enabled ? 'disabled' : hot && this.pressed ? 'press' : isSel ? 'active' : hot ? 'hover' : 'rest';
       g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 8)
-        .fill({ color: plate, alpha: hot ? 0.95 : 0.82 });
+        .fill({ color: skinBase(st), alpha: hot ? 0.97 : 0.9 });
+      skinButtonFx(g, c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, { accent: tint, state: st, radius: 8, t: this.uiNow });
       g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 8)
         .stroke({ width: isSel ? 3 : hot ? 3 : 2, color: tint, alpha: 0.95 });
 
@@ -645,6 +653,13 @@ export class FooterBand {
         color: hot ? (this.pressed ? 0x1a4f83 : 0x1f5f9e) : 0x14283c,
         alpha: 0.95,
       });
+      skinButtonFx(g, b.x - grow, b.y - grow, b.w + grow * 2, b.h + grow * 2, {
+        accent: raceColorForShape(b.type) ?? TINT_ENABLED,
+        state: hot ? (this.pressed ? 'press' : 'hover') : 'rest',
+        radius: 6,
+        t: this.uiNow,
+        studs: false,
+      });
       g.roundRect(b.x - grow, b.y - grow, b.w + grow * 2, b.h + grow * 2, 6).stroke({
         width: hot ? 2 : 1.5,
         color: hot ? TINT_ENABLED : 0x2a3a4a,
@@ -674,6 +689,13 @@ export class FooterBand {
       g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 6).fill({
         color: hot ? 0x7a2c2c : c.next ? 0x1b4a76 : 0x14283c,
         alpha: 0.95,
+      });
+      skinButtonFx(g, c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, {
+        accent: hot ? 0xd46a6a : raceColorForShape(c.type) ?? TINT_ENABLED,
+        state: hot ? (this.pressed ? 'press' : 'hover') : c.next ? 'active' : 'rest',
+        radius: 6,
+        t: this.uiNow,
+        studs: false,
       });
       g.roundRect(c.x - grow, c.y - grow, c.w + grow * 2, c.h + grow * 2, 6).stroke({
         width: c.next ? 2 : 1,
@@ -738,6 +760,8 @@ export class FooterBand {
       const plateW = carry.right - carry.left + CARRY_PLATE_PAD * 2;
       g.roundRect(plateX, carry.y - CHIP_H / 2, plateW, CHIP_H, 8)
         .fill({ color: 0x0b0f16, alpha: 0.72 });
+      // A READOUT, not a control: the still skin (no sheen), so it never advertises a click.
+      skinButtonFx(g, plateX, carry.y - CHIP_H / 2, plateW, CHIP_H, { accent: TINT_SELECTED, state: 'rest', radius: 8, studs: false });
       g.roundRect(plateX, carry.y - CHIP_H / 2, plateW, CHIP_H, 8)
         .stroke({ width: 2, color: TINT_SELECTED, alpha: 0.75 });
 
@@ -791,8 +815,12 @@ export class FooterBand {
           // R81 — the open menu's cards lift and sink exactly like the chips that opened them.
           const hotCard = this.hoverCard === card.id;
           const cg = hotCard ? (this.pressed ? -1 : HOVER_GROW) : 0;
+          const cst: SkinState = !card.enabled && !armedHere
+            ? (hotCard ? 'hover' : 'disabled')
+            : hotCard && this.pressed ? 'press' : armedHere ? 'active' : hotCard ? 'hover' : 'rest';
           g.roundRect(card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, 10)
-            .fill({ color: hotCard ? (this.pressed ? 0x161d29 : 0x131b27) : 0x0b0f16, alpha: hotCard ? 0.96 : 0.92 });
+            .fill({ color: skinBase(cst), alpha: hotCard ? 0.97 : 0.94 });
+          skinButtonFx(g, card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, { accent: tint, state: cst, radius: 10, t: this.uiNow });
           g.roundRect(card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, 10)
             .stroke({ width: armedHere ? 3 : hotCard ? 3 : 2, color: tint, alpha: 0.95 });
 
@@ -915,9 +943,9 @@ export class FooterBand {
    */
   private drawCollapseTab(g: Graphics): void {
     const r = collapseTabRect(this.collapsed);
-    g.roundRect(r.x, r.y, r.w, r.h, 6)
-      .fill({ color: 0x0b0f16, alpha: 0.92 })
-      .stroke({ color: 0x8fa2c4, width: 1.5, alpha: 0.85 });
+    g.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0b0f16, alpha: 0.92 });
+    skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: 0x8fa2c4, state: 'rest', radius: 6, studs: false });
+    g.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ color: 0x8fa2c4, width: 1.5, alpha: 0.85 });
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
     const k = 5;
@@ -979,6 +1007,14 @@ export class FooterBand {
     }
 
     const o = this.ensureRaOverlay();
+    // ⭐ S194 T5 — the WoW-style glass over the skill's picture: gloss + bevel + glow, sheen while aimed/hovered.
+    skinButtonFx(o, x, y, side, side, {
+      accent: edge,
+      state: !enabled ? 'disabled' : this.hoverRa && this.pressed ? 'press' : aiming ? 'active' : this.hoverRa ? 'hover' : 'rest',
+      radius: 4,
+      t: this.uiNow,
+      studs: false,
+    });
     o.roundRect(x, y, side, side, 4).stroke({ width: aiming || this.hoverRa ? 3 : 2, color: edge, alpha: 0.95 });
     if (s.charges > 1) {
       // One pip per charge, centred along the top edge: lit = still to spend this fight.
@@ -1113,6 +1149,13 @@ export class FooterBand {
     }
 
     const o = this.ensureScorchedEarthOverlay();
+    skinButtonFx(o, x, y, side, side, {
+      accent: edge,
+      state: !enabled ? 'disabled' : this.hoverSe && this.pressed ? 'press' : aiming ? 'active' : this.hoverSe ? 'hover' : 'rest',
+      radius: 4,
+      t: this.uiNow,
+      studs: false,
+    });
     o.roundRect(x, y, side, side, 4).stroke({ width: aiming || this.hoverSe ? 3 : 2, color: edge, alpha: 0.95 });
     if (s.charges > 1) {
       // Ra's pips, for the day the charges lever is raised (inside the square, so the hit-test covers them).
@@ -1546,7 +1589,11 @@ export class FooterBand {
     while (this.labels.length <= i) {
       const t = new Text({
         text: '',
-        style: { fontFamily: 'monospace', fontSize: 24, fill: TINT_ENABLED },
+        style: {
+          fontFamily: 'monospace', fontSize: 24, fontWeight: 'bold', fill: TINT_ENABLED,
+          // ⭐ S194 T5 — a soft drop shadow so every footer label sits ON the glass, not in it.
+          dropShadow: { color: 0x000000, alpha: 0.75, blur: 2, distance: 1.5, angle: Math.PI / 2 },
+        },
       });
       t.anchor.set(0.5);
       this.container.addChild(t);

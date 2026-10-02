@@ -386,7 +386,7 @@ function laneMinutes(job: string): { cap: number; pw: number } {
  * given its runway and the run emailed the owner as a failure. This pins, mechanically:
  *   · EVERY `waitForWorldWithinTicks` call in the spec passes `X_BUDGET_TICKS, wallCapFor(X_BUDGET_TICKS)` —
  *     the same X twice, so a backstop cannot be borrowed from another budget again;
- *   · the slowest rate it assumes is no faster than the 6 ticks/s measured;
+ *   · the slowest rate it assumes sits BELOW the 6.12 ticks/s measured (≤ 5 since S194 — 6 had no margin);
  *   · the test budget is derived (not a literal), and the lane holds it with ≥ 8 min of runner headroom.
  */
 describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop derived from its own budget', () => {
@@ -401,7 +401,7 @@ describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop der
     }
     const rate = /\nconst SLOWEST_CI_TICKS_PER_S = (\d+);/.exec(spec);
     expect(rate, 'SLOWEST_CI_TICKS_PER_S missing').not.toBeNull();
-    expect(Number((rate as RegExpExecArray)[1]), 'assumed rate is faster than the 6.12 ticks/s CI measured').toBeLessThanOrEqual(6);
+    expect(Number((rate as RegExpExecArray)[1]), 'assumed rate leaves no margin under the 6.12 ticks/s CI measured').toBeLessThanOrEqual(5);
     const ticks = (name: string): number =>
       Number((new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec) as RegExpExecArray)[1]!.replace(/_/g, ''));
     const rateN = Number((rate as RegExpExecArray)[1]);

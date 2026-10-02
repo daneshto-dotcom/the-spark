@@ -77,16 +77,17 @@ const FIRST_BUILD_BUDGET_TICKS = 1_800;
  * with it. ⚠ The TICK budgets are unchanged — they are the game's runway and are never raised to make
  * this pass. `src/ci.e2eLanes.test.ts` pins every `waitForWorldWithinTicks` call to `wallCapFor(itsOwnBudget)`.
  */
-const SLOWEST_CI_TICKS_PER_S = 6; // measured 6.12 in run 36867560496 (S193); usual ~11
+// ⭐ S194 (T8, S193 audit L2) — 6 → 5: 6 sat AT the 6.12 measured, with no margin under it.
+const SLOWEST_CI_TICKS_PER_S = 5; // measured 6.12 in run 36867560496 (S193); usual ~11
 const wallCapFor = (ticks: number): number => Math.ceil((ticks / SLOWEST_CI_TICKS_PER_S) * 1000);
 /** Match start + VS-BOTS overlay + worker adoption waits before the first tick-budgeted wait (20+20+20+30 s caps). */
 const SETUP_WAITS_MS = 90_000;
 const WORKER_BOTS_TEST_BUDGET_MS =
-  SETUP_WAITS_MS + wallCapFor(FIRST_BUILD_BUDGET_TICKS) + wallCapFor(GROWTH_BUDGET_TICKS); // 90 + 300 + 200 s
+  SETUP_WAITS_MS + wallCapFor(FIRST_BUILD_BUDGET_TICKS) + wallCapFor(GROWTH_BUDGET_TICKS); // 90 + 360 + 240 = 690 s (S194, at 5 ticks/s)
 
 /*
  * ⭐ S191 A-4 (A1, R190-L) — ` @worker-bots`: THIS SPEC RUNS ON ITS OWN GATING JOB (`e2e-worker-bots`),
- * inverted OUT of the shared `e2e:gating` lane — the `@races` precedent (S165). It is one long test (590 s budget since S193; ~3 min typical)
+ * inverted OUT of the shared `e2e:gating` lane — the `@races` precedent (S165). It is one long test (690 s budget since S194; ~3 min typical)
  * with no retries, i.e. up to HALF of the shared lane's 720 s Playwright cap on its own, and every red
  * run of that lane since S187 ran out of cap with specs unexecuted. Still GATING (no continue-on-error);
  * `src/ci.e2eLanes.test.ts` pins the mapping.
@@ -94,8 +95,8 @@ const WORKER_BOTS_TEST_BUDGET_MS =
 test.describe('S123 P1 — VS-BOTS ?worker=1 sim worker smoke @worker-bots', () => {
   // S143 P2 — NO RETRIES ON THIS SPEC (the S127 `PW_RETRIES: 0` precedent). A tick-budgeted
   // failure reproduces identically, so retries buy nothing but wall-clock — and since S191 A-4 this
-  // spec is its own `e2e-worker-bots` lane with PW_GLOBAL_TIMEOUT_MIN 11 min (S193), which 3 attempts at a
-  // 590 s budget would overrun. The three attempts burned on every previous red produced three identical logs.
+  // spec is its own `e2e-worker-bots` lane with PW_GLOBAL_TIMEOUT_MIN 12 min (S194), which 3 attempts at a
+  // 690 s budget would overrun. The three attempts burned on every previous red produced three identical logs.
   test.describe.configure({ retries: 0 });
 
   test('bots match adopts the worker: bots place through the worker, 0 hash mismatches', async ({

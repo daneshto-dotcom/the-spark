@@ -28,6 +28,8 @@ import { codexCopyFor, drawEmblem } from './codexPresentation.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
 import { SparkType } from '../constants.ts';
 import type { PrimitiveId, SpawnerId } from '../types.ts';
+// ⭐ S194 T5 — the shared skin (translucent; drawn INSIDE plates this card already hit-tests).
+import { skinButtonFx, skinIcon, skinPanelFx } from './uiSkin.ts';
 import {
   characterSheetModel,
   FEED_CAPTION_FONT,
@@ -54,6 +56,9 @@ import {
 } from './characterSheetModel.ts';
 
 const PAD = 12;
+/** ⭐ S194 T5 — the FIX / SCRAP icon, and the narrowest button that carries one. */
+const SHEET_ICON_PX = 14;
+const SHEET_ICON_MIN_W = 100;
 const PORTRAIT = 76;
 import {
   flatten, radarAxesFromRows, radarPolygon, radarWeb,
@@ -241,6 +246,8 @@ export class CharacterSheet {
    * disagree with what a click would hit is worse than no highlight at all.
    */
   private hover: { x: number; y: number } | null = null;
+  /** ⭐ S194 T5 — this frame's render clock (ms), for the skin's hover sheen. */
+  private uiNow = 0;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
@@ -356,10 +363,11 @@ export class CharacterSheet {
       this.g.roundRect(x - 3, y - 3, w + 6, h + 6, 11).stroke({ color: accent, width: 1, alpha: 0.12 });
       this.g.roundRect(x - 1.5, y - 1.5, w + 3, h + 3, 9.5).stroke({ color: accent, width: 1, alpha: 0.26 });
     }
-    this.g
-      .roundRect(x, y, w, h, 8)
-      .fill({ color: PLATE, alpha: 0.94 })
-      .stroke({ color: accent, width: v.accent === null ? 1 : 2 });
+    this.g.roundRect(x, y, w, h, 8).fill({ color: PLATE, alpha: 0.95 });
+    // ⭐ S194 T5 — depth, a race-tinted header band and corner brackets, inside the card's own rect.
+    this.uiNow = typeof performance === 'undefined' ? 0 : performance.now();
+    skinPanelFx(this.g, x, y, w, h, accent, PAD + 34, 8);
+    this.g.roundRect(x, y, w, h, 8).stroke({ color: accent, width: v.accent === null ? 1 : 2 });
 
     // ── header: the name, largest thing on the card, and one identity line ────────────────────
     //    The TITLE takes the race colour; the identity line stays dim so the name still leads.
@@ -369,10 +377,9 @@ export class CharacterSheet {
     const top = y + PAD + 36;
 
     // ── portrait ──────────────────────────────────────────────────────────────────────────────
-    this.g
-      .roundRect(x + PAD, top, PORTRAIT, PORTRAIT, 6)
-      .fill({ color: 0x101a26 })
-      .stroke({ color: EDGE, width: 1 });
+    this.g.roundRect(x + PAD, top, PORTRAIT, PORTRAIT, 6).fill({ color: 0x101a26 });
+    skinButtonFx(this.g, x + PAD, top, PORTRAIT, PORTRAIT, { accent, state: 'rest', radius: 6 });
+    this.g.roundRect(x + PAD, top, PORTRAIT, PORTRAIT, 6).stroke({ color: EDGE, width: 1 });
     this.drawPortrait(v.portrait, x + PAD, top);
 
     // ── health: the bar AND the number. Both, always — the bar is for peripheral vision and the
@@ -514,10 +521,9 @@ export class CharacterSheet {
         this.g.roundRect(x + PAD - 2, oy - 2, w - PAD * 2 + 4, oh + 4, 8)
           .stroke({ color: accent, width: 2, alpha: 0.35 });
       }
-      this.g
-        .roundRect(x + PAD, oy, w - PAD * 2, oh, 6)
-        .fill({ color: ownedHot ? 0x1b2c3c : 0x14212e })
-        .stroke({ color: ownedHot ? accent : EDGE, width: ownedHot ? 1.5 : 1 });
+      this.g.roundRect(x + PAD, oy, w - PAD * 2, oh, 6).fill({ color: ownedHot ? 0x1b2c3c : 0x14212e });
+      skinButtonFx(this.g, x + PAD, oy, w - PAD * 2, oh, { accent, state: ownedHot ? 'hover' : 'rest', radius: 6, t: this.uiNow, studs: false });
+      this.g.roundRect(x + PAD, oy, w - PAD * 2, oh, 6).stroke({ color: ownedHot ? accent : EDGE, width: ownedHot ? 1.5 : 1 });
       this.text(v.owned.name, x + PAD + 46, oy + 6, 12, INK);
       const ow = w - PAD * 2 - 52;
       const of_ = v.owned.health.max <= 0 ? 0 : v.owned.health.cur / v.owned.health.max;
@@ -652,9 +658,21 @@ export class CharacterSheet {
       this.g.roundRect(b.x - (hot ? 4 : 2), b.y - (hot ? 4 : 2), b.w + (hot ? 8 : 4), b.h + (hot ? 8 : 4), r + 2)
         .stroke({ color: accent, width: hot ? 3 : 2, alpha: hot ? 0.42 : 0.18 });
     }
-    this.g
-      .roundRect(b.x, b.y, b.w, b.h, r)
-      .fill({ color: b.enabled ? (hot ? 0x1f3850 : 0x16283a) : 0x111c28, alpha: 0.96 })
+    this.g.roundRect(b.x, b.y, b.w, b.h, r).fill({ color: b.enabled ? (hot ? 0x1f3850 : 0x16283a) : 0x111c28, alpha: 0.96 });
+    // ⭐ S194 T5 — the glass, on exactly the rect `actionAt` / `autoFeedAt` hit-test.
+    skinButtonFx(this.g, b.x, b.y, b.w, b.h, {
+      accent: feed && b.autoFeed === true ? AUTO_FEED_TINT : accent,
+      state: !b.enabled ? 'disabled' : hot ? 'hover' : 'rest',
+      radius: r,
+      t: this.uiNow,
+      studs: !feed,
+    });
+    // ⭐ S194 T5 — a procedural icon on a wide FIX / SCRAP button (left of its centred word).
+    const icon = b.kind === 'FIX' ? 'fix' : b.kind === 'SCRAP' ? 'scrap' : null;
+    if (icon !== null && b.w >= SHEET_ICON_MIN_W) {
+      skinIcon(this.g, icon, b.x + 6 + SHEET_ICON_PX / 2, b.y + b.h / 2, SHEET_ICON_PX, b.enabled ? INK : DIM, b.enabled ? 0.9 : 0.6);
+    }
+    this.g.roundRect(b.x, b.y, b.w, b.h, r)
       .stroke({ color: b.enabled ? accent : EDGE, width: b.enabled ? (hot ? 2 : 1.5) : 1, alpha: b.enabled ? (hot ? 1 : 0.9) : 0.55 });
 
     if (feed && b.autoFeed === true) {
@@ -856,8 +874,9 @@ export class CharacterSheet {
       wv.towers.slice(0, fit).forEach((t, i) => {
         const ix = x + PAD + i * per;
         const lit = hot(ix, iy, WELD_ICON_PX, WELD_ICON_PX);
+        this.g.roundRect(ix, iy, WELD_ICON_PX, WELD_ICON_PX, 4).fill({ color: lit ? 0x1b2c3c : 0x101a26 });
+        skinButtonFx(this.g, ix, iy, WELD_ICON_PX, WELD_ICON_PX, { accent, state: lit ? 'hover' : 'rest', radius: 4, t: this.uiNow, studs: false });
         this.g.roundRect(ix, iy, WELD_ICON_PX, WELD_ICON_PX, 4)
-          .fill({ color: lit ? 0x1b2c3c : 0x101a26 })
           .stroke({ color: lit ? accent : t.down ? HP_LOW : EDGE, width: lit ? 1.5 : 1 });
         this.drawIcon(i, t.portrait, t.name, ix, iy, WELD_ICON_PX);
         this.weldHits.push({ x: ix, y: iy, w: WELD_ICON_PX, h: WELD_ICON_PX, target: t.target });
@@ -870,8 +889,9 @@ export class CharacterSheet {
     wv.towers.slice(0, WELD_MAX_ROWS).forEach((t, i) => {
       const rh = WELD_ROW_H - 4;
       const lit = hot(x + PAD, ry, inner, rh);
+      this.g.roundRect(x + PAD, ry, inner, rh, 5).fill({ color: lit ? 0x1b2c3c : 0x14212e });
+      skinButtonFx(this.g, x + PAD, ry, inner, rh, { accent, state: lit ? 'hover' : 'rest', radius: 5, t: this.uiNow, studs: false });
       this.g.roundRect(x + PAD, ry, inner, rh, 5)
-        .fill({ color: lit ? 0x1b2c3c : 0x14212e })
         .stroke({ color: lit ? accent : EDGE, width: lit ? 1.5 : 1 });
       this.drawIcon(i, t.portrait, t.name, x + PAD + 2, ry + 2, rh - 4);
       this.text(t.name, x + PAD + rh + 4, ry + 5, 11, INK);
