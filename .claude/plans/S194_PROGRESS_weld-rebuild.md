@@ -1,3 +1,16 @@
+# S194 T15 — AUDIT ROUND (F1, 2a, card, entropy) — DONE
+
+- master (PROTOCOL 65, teams + entropy) merged: 9d4c95d0, no conflicts; npm install 0.
+- F1: hold no longer clears on `world.tick < lastTick` (joiners step back on every snapshot); clears on a
+  different World object or `gameState !== 'PLAYING'`. Tests: 1-tick step-back keeps the hold; leaving
+  PLAYING / a new world forgets it. Mutation (tick clear restored) → RED.
+- 2a: a finished repair job covering the tower (synced `world.repairJobs`) or a new own bond id (re-weld) is
+  authoritative even when a weld connector fell in the same frame. Tests for both. Mutation (drop `!repaired`) → RED.
+- Card path test via `characterSheetModel` (held 0/50; raw 50 with hold off). Entropy test: a lattice-only
+  entropy wave snaps connectors — tower stays dented, same spawner, art aims at the collapse frame.
+- Gates: typecheck 0 · vitest 0 (559 files / 4 skipped; 8496 tests / 11 skipped) · build 0, entry 1158.3 KiB,
+  headroom 91.8. Snapshot CRLF→LF rewrite by vitest: benign, reverted.
+
 # S194 T15 — weld-rebuild (R194-30) — FINAL REPORT
 
 - tip: see `git log -1` (after this commit) · merge of master d69475f6: fast-forward, no conflicts.
