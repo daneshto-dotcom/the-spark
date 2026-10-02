@@ -732,8 +732,7 @@ export const GATHERER_SPEED_PER_LEVEL = 0.8;
 export const GATHERER_MAX_SPEED_LEVEL = 5;
 /** How close a gatherer must be to a spark to pick it up / to its keep to deposit. */
 export const GATHERER_REACH = 22;
-/** Where a hauled shape is parked, relative to the owner's keep anchor. */
-export const GATHERER_DEPOSIT_OFFSET_Y = 74;
+/* GATHERER_DEPOSIT_OFFSET_Y moved below the porch block (S194 R194-16) — it IS the porch row now. */
 
 /**
  * S141 P2 (V6-1.4) — how many entries one player's gatherer ORDER QUEUE may hold.
@@ -787,11 +786,35 @@ export const GATHERER_ORDER_QUEUE_MAX = 24;
  * construction, and refuses the pull when the porch is full.
  */
 export const CASTLE_PORCH_SLOTS = 4;
-/** Porch row offset below the keep anchor, and the horizontal pitch between slots. */
-export const CASTLE_PORCH_OFFSET_Y = 74;
+/**
+ * Porch row offset below the keep anchor, and the horizontal pitch between slots.
+ *
+ * ⭐⭐ S194 R194-16 (owner) — **THE ENTRANCE MOVED RIGHT UNDER THE CASTLE: 74 → 42.**
+ * > *"Castle entrance is where the shapes come out. Oh yeah, you should definitely not be able to build
+ * > over that. Leave that a little space. Or make that entrance like right under the castle, like closer."*
+ * He asked for both; both are built (the "little space" is `zones.CASTLE_PORCH_BUILD_CLEAR_RADIUS`).
+ *
+ * ⚠ MINE, MEASURED — 42 is as close as the art allows without a pulled shape overlapping it:
+ *   · the castle SPRITE is foot-anchored at the keep box's foot, `anchor.y + KEEP_H / 2` = **+29**, and
+ *     measured on all six shipped atlases (`public/art/castles/*-atlas.png`, alpha > 32) the intact and
+ *     damaged rows paint down to cell row 254–255 of 256 — i.e. the art's visible base IS +29;
+ *   · the tallest shape ABOVE its own centre is the Spiral (max r 10 + 1 px stroke = **11**,
+ *     `render/shapes.ts`; the Circle is 10, the Triangle's apex 9.2) — sparks are never rotated;
+ *   · 29 + 11 = 40, plus **2** px of air (the same ~2 px margin `STAMP_CLEARANCE` keeps) = **42**.
+ * The keep box's foot is +29 too, so a pulled shape's soft-collision radius (≤ 10.8) never reaches it.
+ * `castleBank.test.ts` re-derives 42 from those numbers. Before S194 it was 74 (S136, never measured).
+ */
+export const CASTLE_PORCH_OFFSET_Y = 42;
 export const CASTLE_PORCH_PITCH_X = 30;
 /** A porch slot counts as occupied if any spark is within this radius of it. */
 export const CASTLE_PORCH_SLOT_CLEAR_RADIUS = 17;
+
+/**
+ * Where a hauled shape is parked (the gatherer's walk target), relative to the owner's keep anchor.
+ * ⭐ S194 R194-16 — the ENTRANCE: it was a second literal 74 that happened to equal the porch row, so
+ * it now IS the porch row and moves with it (`CASTLE_PORCH_OFFSET_Y`).
+ */
+export const GATHERER_DEPOSIT_OFFSET_Y = CASTLE_PORCH_OFFSET_Y;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
