@@ -65,7 +65,7 @@ import {
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 // ⭐ S188 P3 — the PURCHASED numbers, through the functions the sim reads (the base
 // `castleShotFifths()` stays in castleGuns.ts; the card no longer prints it).
-import { castleMaxHpFor, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
+import { castleMaxHpFor, castleMresLevelOf, castleShotFifthsFor, castleUpgradePreview } from '../state/castleUpgrades.ts';
 import { componentOf } from '../game/structure.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { getCreatureConfig } from '../state/creatures/voltkin-config.ts';
@@ -87,6 +87,11 @@ import { structureActionModel, type StructureActionView } from './structurePanel
 import { towerArtForRecipe } from './towerFrames.ts';
 import { structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import {
+  structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerOwnPoolAt, towerUnitAt, unitClickShape,
+  weldedAt,
+  type StructureTowers, type TowerUnit,
+} from '../state/towerUnit.ts';
 
 /** What the sheet is pointed at. An id, NEVER an object — see the note on `characterSheetModel`. */
 export type SheetTarget =
@@ -323,8 +328,57 @@ export interface CharacterSheetView {
    * over a strip that is not there.
    */
   readonly feedHint: string | null;
+  /**
+   * ⭐⭐ S191 R191-A (owner) — **THE WELDED STRUCTURE THIS CARD IS PART OF, OR IS.** Absent / null for
+   * everything that is not in a weld, so every other card is exactly what it was.
+   *
+   * > *"if a … tower is welded to a larger structure, then it should show its own HP. And then out of
+   * > how much the total structure has HP. And maybe … what kind of buildings are there just by …
+   * > little pictures … when you click on the … welded shape itself, it's new character sheet will
+   * > include like all the structure[s] that are in that … whole structure."*
+   *
+   * `role: 'tower'` — a tower's card: its own pool is the card's `health`, and this carries the
+   * structure's pool and the OTHER towers. `role: 'structure'` — the weld's card: `health` is the
+   * structure's pool, and this carries EVERY tower in it. Each number comes from ONE function in
+   * `towerUnit.ts` (`towerOwnHealth`, `structureHealth`) — the renderer derives nothing.
+   */
+  readonly welded?: SheetWelded | null;
   /** Where the card body goes. The action row, when there is one, keeps its shipped geometry. */
   readonly rect: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
+}
+
+/** One tower inside a welded structure, as the card lists it. Clicking it opens that tower's card. */
+export interface SheetWeldedTower {
+  readonly target: SheetTarget;
+  readonly name: string;
+  readonly portrait: PortraitSpec;
+  /** Its OWN pool (`towerOwnHealth`) — 0 for a tower that has fallen and awaits its FIX. */
+  readonly health: { readonly cur: number; readonly max: number };
+  readonly down: boolean;
+}
+
+export interface SheetWelded {
+  readonly role: 'tower' | 'structure';
+  /** The whole welded structure's pool (`structureHealth`). */
+  readonly structure: { readonly cur: number; readonly max: number };
+  /** `'tower'`: the OTHER towers. `'structure'`: every tower. Live by spawner id then defender id, then fallen stamps. */
+  readonly towers: readonly SheetWeldedTower[];
+}
+
+/** ⚠ MINE — geometry of the welded block (the renderer reads these; the height is derived from them). */
+export const WELD_STRIP_H = 50;
+export const WELD_ICON_PX = 22;
+export const WELD_HEAD_H = 18;
+export const WELD_ROW_H = 26;
+/** ⚠ MINE — rows past this collapse to "+N MORE", so a sprawling weld cannot push the card off-screen. */
+export const WELD_MAX_ROWS = 6;
+
+/** PURE — how tall the welded block is, or 0 when there is none. */
+export function weldedBlockHeight(w: SheetWelded | null | undefined): number {
+  if (w === null || w === undefined) return 0;
+  if (w.role === 'tower') return WELD_STRIP_H;
+  const rows = Math.min(w.towers.length, WELD_MAX_ROWS);
+  return WELD_HEAD_H + rows * WELD_ROW_H + (w.towers.length > WELD_MAX_ROWS ? 14 : 0) + 4;
 }
 
 /** Card geometry. One width for everything, so a goblin and a boss read as the same kind of object. */
@@ -912,8 +966,9 @@ function accentFor(world: World, owner: PlayerId | null | undefined): number | n
  * for it either, which is why nothing even looked clipped. The model was right; the card was blind.
  *
  * ⭐ SO NOTHING ABOUT COST OR AFFORDABILITY IS RE-DERIVED HERE. `structureActionModel` already
- * prices FIX at what was LOST (`COSTS n`), already says `NEED n MORE` when the seat is short,
- * already says `RETURNS n` for scrap's survivors, and already offers six FEED shapes whether or not
+ * prices FIX at what was LOST (`COSTS n`), already says why it is refused (S193 R191-B: `QUEUED` ·
+ * `NO GATHERERS` · `QUEUE FULL` · `NOTHING TO FIX` — a FIX is a gatherer job now, so the old
+ * `NEED n MORE` is gone), already says `RETURNS n` for scrap's survivors, and already offers six FEED shapes whether or not
  * you hold them. That is his *"how much it costs to fix"* — it exists, and a second pricing path
  * here would be the bespoke-constant defect the stat ladder section of CLAUDE.md forbids.
  */
@@ -999,6 +1054,8 @@ export function feedCaptionMaxWidthPx(): number {
 export interface SheetActionSlot {
   readonly kind: string;
   readonly sparkType?: number;
+  /** ⭐ S193 (T4) — a goblin tower chip's auto-build toggle; `undefined` = not toggleable. */
+  readonly autoFeed?: boolean;
   readonly label: string;
   readonly caption: string;
   readonly enabled: boolean;
@@ -1291,6 +1348,17 @@ function structureSheet(
 ): CharacterSheetView | null {
   const prim = world.primitives.get(target.primitiveId);
   if (prim === undefined) return null;
+  /*
+   * ⭐⭐ S191 R191-A — A TOWER IN A WELD SHOWS THE TOWER; THE WELD SHOWS THE STRUCTURE. The same read
+   * model the FIX / SCRAP reducers use (`towerUnit.ts`), so the card can never offer a scope the host
+   * would act on differently. An un-welded structure falls through to the unchanged card below.
+   */
+  const unit = towerUnitAt(world, prim.id);
+  const st = structureTowersAt(world, prim.id);
+  // ⭐ S192 (audit IDENTITY-5) — the reducers' OWN predicate, not a second derivation of it.
+  if (st !== null && weldedAt(world, prim.id, unit)) {
+    return unit !== null ? weldedTowerSheet(world, seat, target, unit, st) : weldedStructureSheet(world, seat, target, st);
+  }
   const comp = componentOf(prim, world.primitives, world.bonds);
 
   /*
@@ -1341,32 +1409,7 @@ function structureSheet(
    * looks like the answer, and it has been retired and unread since S157 B9. The S181 audit named it
    * as a trap. The real aura is `STINK_AURA_UNIT_FIFTHS` once per `STINK_AURA_CADENCE_TICKS`.
    */
-  if (auraOwnerIn(world, comp.primitiveIds)) {
-    stats.push({
-      label: 'AURA',
-      points: (STINK_AURA_UNIT_FIFTHS * PHYSICS_HZ) / STINK_AURA_CADENCE_TICKS,
-      derived: 'a second',
-    });
-  }
-  /*
-   * ⭐ S185 — a SPAWNER's emit cadence, as a row rather than only as prose. Owner wanted a chart on
-   * every tower; a race tower prints no combat stats, so without this it had nothing to plot.
-   * The sentence below it already said "spawns a bat every 15s" — this is the same fact, countable.
-   */
-  const spawnRace = recipeId === null ? null : raceForTowerId(recipeId as GodlyId);
-  if (spawnRace !== null) {
-    stats.push({
-      label: 'SPAWN',
-      points: Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ),
-      derived: 'seconds',
-    });
-  }
-  const emplacement = towerStatsIn(world, comp.primitiveIds);
-  if (emplacement !== null) {
-    stats.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });
-    stats.push({ label: 'PEN', points: emplacement.pen, derived: null });
-    stats.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
-  }
+  stats.push(...towerRowsFor(world, comp.primitiveIds, recipeId));
   // ⭐ S188 (audit F3) — the tower OWNER's seat decides what it emits (APEX PREDATOR), exactly as the sim's
   // two emit sites ask it. The card is read by any seat, so it is the owner's rule, never the viewer's.
   const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
@@ -1392,6 +1435,168 @@ function structureSheet(
      * wrong-but-tidy label is worse than none.
      */
     feedHint: feedHintFor(recipeId, unitFor),
+    rect: rectFor(prim.pos, h),
+  };
+}
+
+/**
+ * The rows a building's card adds after CONNECTORS / SHAPES, for the shapes in `members`: its AURA,
+ * its SPAWN cadence, its emplacement's ATK / PEN / RANGE. ONE copy for the plain card and the S191
+ * welded-tower card, so a tower's card reads the same whether or not it is welded.
+ *
+ * ⭐⭐ S181 (owner) — **ANYTHING WITH AN AURA SHOWS ITS DAMAGE PER SECOND.** *"Anything that has an
+ * aura, damage per second, should show how much damage per second. So the zombie boss, the stink
+ * tower … you can put it under range, for example."* ⚠ DERIVED FROM THE CADENCE, and it must not
+ * print `STINK_AURA_DAMAGE`: that constant is 20, it looks like the answer, and it has been retired
+ * and unread since S157 B9. The real aura is `STINK_AURA_UNIT_FIFTHS` once per `STINK_AURA_CADENCE_TICKS`.
+ *
+ * ⭐ S185 — a SPAWNER's emit cadence, as a row rather than only as prose. Owner wanted a chart on
+ * every tower; a race tower prints no combat stats, so without this it had nothing to plot.
+ */
+function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId: string | null): SheetStatRow[] {
+  const rows: SheetStatRow[] = [];
+  if (auraOwnerIn(world, members)) {
+    rows.push({ label: 'AURA', points: (STINK_AURA_UNIT_FIFTHS * PHYSICS_HZ) / STINK_AURA_CADENCE_TICKS, derived: 'a second' });
+  }
+  if (recipeId !== null && raceForTowerId(recipeId as GodlyId) !== null) {
+    rows.push({ label: 'SPAWN', points: Math.round(RACE_TOWER_EMIT_INTERVAL_TICKS / PHYSICS_HZ), derived: 'seconds' });
+  }
+  const emplacement = towerStatsIn(world, members);
+  if (emplacement !== null) {
+    rows.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });
+    rows.push({ label: 'PEN', points: emplacement.pen, derived: null });
+    rows.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
+  }
+  return rows;
+}
+
+/** One welded-structure row for `u` — ONE derivation for both cards. */
+function weldedRowFor(world: World, u: TowerUnit): SheetWeldedTower {
+  const pool = towerOwnHealth(world, u);
+  return {
+    target: { kind: 'structure', primitiveId: unitClickShape(world, u) }, // S192 IDENTITY-2 — THIS tower, never a shared anchor
+    name: codexCopyFor(u.recipeId).name,
+    portrait: portraitForStructure(u.recipeId),
+    health: { cur: pool.cur, max: pool.max },
+    down: u.kind !== 'live',
+  };
+}
+
+/**
+ * ⛔ S192 (audit IDENTITY-4) — IDENTITY, not a proxy. Two live towers are one only if they are the same
+ * RECORD (two same-recipe towers chained hub-to-leaf share their lowest shape — `starShape.ts`); two
+ * fallen stamps only if they are the same shapes (stamp groups are disjoint); a live tower is never a stamp.
+ */
+const sameUnit = (a: TowerUnit, b: TowerUnit): boolean => {
+  if (a.kind === 'live' && b.kind === 'live') return a.ref.kind === b.ref.kind && a.ref.id === b.ref.id;
+  if (a.kind === 'stamp' && b.kind === 'stamp') {
+    return a.members.length === b.members.length && a.members.every((m, i) => m === b.members[i]);
+  }
+  return false;
+};
+
+/**
+ * ⭐⭐ S191 R191-A — **A TOWER INSIDE A WELD: THAT TOWER'S CARD.** *"When you click on the tower
+ * that's connected within the welded shape, you can only see the tower with its stats."* Everything
+ * on it is the tower's own — its connectors, its shapes, its pool, its gun or aura or princess, its
+ * FIX / SCRAP / FEED (the planners scope themselves the same way, `reclaimScopeAt`) — plus the strip
+ * that says it is part of a welded structure, the structure's pool, and the other towers in it.
+ */
+function weldedTowerSheet(
+  world: World,
+  seat: PlayerId,
+  target: { readonly kind: 'structure'; readonly primitiveId: PrimitiveId },
+  unit: TowerUnit,
+  st: StructureTowers,
+): CharacterSheetView {
+  const prim = world.primitives.get(target.primitiveId)!;
+  const members = new Set(unit.members);
+  const pool = towerOwnHealth(world, unit);
+  const ownBonds = unit.kind === 'live'
+    ? (towerOwnPoolAt(world, unit.recipeId, unit.anchorId)?.connectors ?? 0) // S193 SEAM-C7 — the pool's own walk
+    : [...st.bondIds].filter((id) => {
+        const b = world.bonds.get(id);
+        return b !== undefined && members.has(b.aId) && members.has(b.bId);
+      }).length;
+  const owner = prim.placedBy;
+  const mine = owner === seat;
+  const recipeId = unit.recipeId;
+  const owned = ownedUnitRow(world, members);
+  const actions = mine ? structureActionModel(world, seat, target.primitiveId) : null;
+  const stats: SheetStatRow[] = [
+    { label: 'CONNECTORS', points: ownBonds, derived: `${pool.max} pool` },
+    { label: 'SHAPES', points: members.size, derived: null },
+  ];
+  stats.push(...towerRowsFor(world, members, recipeId)); // S191 — scoped to THIS tower's own shapes
+  const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
+  const info = buildInfoFor(recipeId, unitFor);
+  const structure = structureHealth(world, st.bondIds);
+  const welded: SheetWelded = {
+    role: 'tower',
+    structure: { cur: structure.cur, max: structure.max },
+    towers: st.towers.filter((t) => !sameUnit(t, unit)).map((t) => weldedRowFor(world, t)),
+  };
+  const h = heightFor(stats.length, owned !== null, actions?.buttons ?? [], buildInfoHeight(info) + weldedBlockHeight(welded));
+  return {
+    target,
+    title: codexCopyFor(recipeId).name,
+    subtitle: `${mine ? 'YOUR BUILDING' : 'ENEMY BUILDING'} · WELDED`,
+    portrait: portraitForStructure(recipeId),
+    health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
+    stats,
+    owned,
+    actions,
+    accent: accentFor(world, owner),
+    ...info,
+    feedHint: feedHintFor(recipeId, unitFor),
+    welded,
+    rect: rectFor(prim.pos, h),
+  };
+}
+
+/**
+ * ⭐⭐ S191 R191-A — **A FREE-FORM WELDED SHAPE: THE WHOLE STRUCTURE'S CARD.** *"when you click on the
+ * shape that's welded to it, you can see the whole structure and what it's made of … it will show what
+ * towers are connected to it."* Its pool, what it is made of (connectors, shapes by type), every tower
+ * in it; SCRAP takes it all, and there is no FIX (*"are you fixing all the towers on it — no"*).
+ */
+function weldedStructureSheet(
+  world: World,
+  seat: PlayerId,
+  target: { readonly kind: 'structure'; readonly primitiveId: PrimitiveId },
+  st: StructureTowers,
+): CharacterSheetView {
+  const prim = world.primitives.get(target.primitiveId)!;
+  const owner = prim.placedBy;
+  const mine = owner === seat;
+  const pool = structureHealth(world, st.bondIds);
+  const stats: SheetStatRow[] = [
+    { label: 'CONNECTORS', points: st.bondIds.size, derived: `${pool.max} pool` },
+    { label: 'SHAPES', points: st.primitiveIds.size, derived: null },
+  ];
+  for (const { type, count } of structureComposition(world, st.primitiveIds)) {
+    stats.push({ label: `${SPARK_WORD[type]}${count > 1 ? 'S' : ''}`, points: count, derived: null });
+  }
+  const actions = mine ? structureActionModel(world, seat, target.primitiveId) : null;
+  const welded: SheetWelded = {
+    role: 'structure',
+    structure: { cur: pool.cur, max: pool.max },
+    towers: st.towers.map((t) => weldedRowFor(world, t)),
+  };
+  const h = heightFor(stats.length, false, actions?.buttons ?? [], weldedBlockHeight(welded));
+  return {
+    target,
+    title: 'WELDED STRUCTURE',
+    subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
+    portrait: portraitForStructure(null),
+    health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
+    stats,
+    owned: null,
+    actions,
+    accent: accentFor(world, owner),
+    ...NO_BUILD_INFO,
+    feedHint: null,
+    welded,
     rect: rectFor(prim.pos, h),
   };
 }
@@ -1442,6 +1647,16 @@ function castleSheet(
         u.defLevel === 0
           ? null
           : castleUpgradePreview({ ...u, defLevel: u.defLevel - 1 }, 'def', world.waveNumber)
+              .toLowerCase(),
+    },
+    // ⭐ S192 — the keep's MAGIC RESISTANCE (starting = its starting DEF, then its own bought axis).
+    {
+      label: 'MRES',
+      points: castleMresLevelOf(u),
+      derived:
+        u.mresLevel === 0
+          ? null
+          : castleUpgradePreview({ ...u, mresLevel: u.mresLevel - 1 }, 'mres', world.waveNumber)
               .toLowerCase(),
     },
     { label: 'RANGE', points: CASTLE_ATTACK_RANGE, derived: 'px' },

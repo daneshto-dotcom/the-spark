@@ -73,7 +73,7 @@ describe('S191 C-8 — Player.castleHealedHp', () => {
     const gained = p.castleHp - before;
     expect(gained, 'anti-vacuity: the purchase healed').toBeGreaterThan(0);
     expect(p.castleHealedHp).toBe(gained);
-    damageEntity(w, { kind: 'castle', seat: P0 }, 40, 'player', null);
+    damageEntity(w, { kind: 'castle', seat: P0 }, 40, 'player', null, 'physical');
     expect(p.castleHealedHp).toBe(gained);
   });
 

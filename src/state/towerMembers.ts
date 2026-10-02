@@ -53,10 +53,17 @@
  * weld stand in for a cut own connector (a spare Spiral on a turret hub, a Triangle bypass round a
  * cut pentagram edge). Nobody ruled that; the brief and R185-B say cutting one of the tower's own
  * connectors levels it. So identity is fixed AT REGISTRATION: every spawner and defender carries
- * `ownBondIdLimit` (`world.nextBondId` when it was registered), and its own connectors are the
- * recipe's shape among the bonds BELOW that id. A weld — any type, anywhere, minted later — is never
- * one of them. `liveTowerLimit` finds it; a structure that is not a live tower (or a pre-S189 save,
- * where the field is absent) is read on the exact pre-S189 shape.
+ * `ownPrimitiveIds` — the shapes it was built with — and its own connectors are the bonds BETWEEN
+ * those shapes. A weld — any type, anywhere — is never one of them. `liveTowerOwnSet` finds it; a
+ * structure that is not a live tower (or a pre-S189 save, where the field is absent) is read on the
+ * exact pre-S189 shape.
+ *
+ * ⭐ S191 (R191-A) — SHAPES, NOT A BOND-ID WATERMARK. The first identity was `ownBondIdLimit` (bonds
+ * below `world.nextBondId` at registration). FIX re-welds a lost connector with a NEW id, so the
+ * watermark read the repaired connector as a weld and the tower fell at the next poll (audit W-FR4) —
+ * and R191-A makes a tower's own FIX central. No bond can join two EXISTING shapes except a recipe
+ * edge (placement bonds only the shape being placed; FIX re-welds only blueprint edges), so a bond
+ * between two own shapes is own by construction; a re-minted node's id is recorded by FIX itself.
  *
  * The only recipe this module does not govern is the Voltkin — a cinematic, not a standing tower.
  */
@@ -192,47 +199,77 @@ export function towerShapeFor(recipeId: GodlyId): TowerShape | null {
 export function towerMembersAt(world: World, recipeId: GodlyId, anchorId: PrimitiveId): TowerMembers | null {
   const shape = towerShapeFor(recipeId);
   if (shape === null) return null;
-  const limit = liveTowerLimit(world, recipeId, anchorId);
+  const own = liveTowerOwnSet(world, recipeId, anchorId);
   if (shape.kind === 'star') {
-    const arms = starArmsAt(world, anchorId, shape.hub, shape.arms, limit);
+    const arms = starArmsAt(world, anchorId, shape.hub, shape.arms, own);
     if (arms === null) return null;
     return { prims: [anchorId, ...arms.leaves], bonds: arms.bonds, whole: arms.whole };
   }
-  // ⭐ An O(n) exact walk over the connectors the ring was built with — no search, no spare.
-  const ring = ringMembersAt(world, anchorId, shape.type, shape.n, limit);
+  // ⭐ An O(n) exact walk between the shapes the ring was built with — no search, no spare.
+  const ring = ringMembersAt(world, anchorId, shape.type, shape.n, own);
   if (ring !== null) {
-    return { prims: ring, bonds: cycleBonds(world, ring, limit), whole: true };
+    return { prims: ring, bonds: cycleBonds(world, ring), whole: true };
   }
-  const remains = ringRemainsAt(world, anchorId, shape.type, shape.n, limit);
+  const remains = ringRemainsAt(world, anchorId, shape.type, shape.n, own);
   if (remains === null) return null;
-  const inside = bondsWhollyInside(world, remains, limit);
+  const inside = bondsWhollyInside(world, remains);
   // ⚠ Fewer than `n` by construction, so a broken ring can never read as whole on the ramp.
   return { prims: remains, bonds: inside.slice(0, shape.n - 1), whole: false };
 }
 
 /**
- * S189 C2 (audit W1) — PURE — the `ownBondIdLimit` of the live tower `recipeId` anchored at
- * `anchorId`, or `null` when there is no such live tower or it predates the field.
+ * S189 C2 / S191 — PURE — the `ownPrimitiveIds` of the live tower `recipeId` anchored at `anchorId`,
+ * as a set, or `null` when there is no such live tower or it predates the field.
  *
  * ⚠ KEYED ON THE RECIPE AS WELL AS THE ANCHOR, deliberately: exact ignition does NOT keep anchors
  * disjoint across recipes (audit W2-4 — a mummies Line ring can run through a live laser turret's
- * Line hub), so an anchor-only lookup could read one tower's limit for another. Lowest spawner id,
+ * Line hub), so an anchor-only lookup could read one tower's shapes for another. Lowest spawner id,
  * then lowest defender id — never `Map` order.
  */
-export function liveTowerLimit(world: World, recipeId: GodlyId, anchorId: PrimitiveId): number | null {
-  let best: { id: number; limit: number | null } | null = null;
+export function liveTowerOwnSet(
+  world: World,
+  recipeId: GodlyId,
+  anchorId: PrimitiveId,
+): ReadonlySet<PrimitiveId> | null {
+  let best: { id: number; own: readonly PrimitiveId[] | null } | null = null;
   for (const sp of world.creatureSpawners.values()) {
     if (sp.anchorPrimitiveId !== anchorId || sp.recipeId !== recipeId) continue;
     const id = Number(sp.id);
-    if (best === null || id < best.id) best = { id, limit: sp.ownBondIdLimit ?? null };
+    if (best === null || id < best.id) best = { id, own: sp.ownPrimitiveIds ?? null };
   }
-  if (best !== null) return best.limit;
-  for (const d of world.defenders.values()) {
-    if (d.anchorPrimitiveId !== anchorId || d.recipeId !== recipeId) continue;
-    const id = Number(d.id);
-    if (best === null || id < best.id) best = { id, limit: d.ownBondIdLimit ?? null };
+  if (best === null) {
+    for (const d of world.defenders.values()) {
+      if (d.anchorPrimitiveId !== anchorId || d.recipeId !== recipeId) continue;
+      const id = Number(d.id);
+      if (best === null || id < best.id) best = { id, own: d.ownPrimitiveIds ?? null };
+    }
   }
-  return best?.limit ?? null;
+  return best === null || best.own === null ? null : new Set(best.own);
+}
+
+/**
+ * S191 — PURE — the shapes a tower registered NOW at `anchorId` is made of (ascending), or `null`
+ * when the recipe has no survival shape or the anchor is not an EXACT instance of it.
+ *
+ * Read on the EXACT shape (no own set), which is what makes it right: registration follows exact
+ * ignition, so at this moment a star's hub bonds ARE its arms and a ring's exact walk IS its ring.
+ * A caller that knows the members better (the R191-A tower FIX re-registering a welded stamp, which
+ * exact ignition can never see) passes them explicitly instead.
+ */
+export function ownSetAtRegistration(
+  world: World,
+  recipeId: GodlyId,
+  anchorId: PrimitiveId,
+): PrimitiveId[] | null {
+  const shape = towerShapeFor(recipeId);
+  if (shape === null) return null;
+  if (shape.kind === 'star') {
+    const arms = starArmsAt(world, anchorId, shape.hub, shape.arms, null);
+    if (arms === null || !arms.whole) return null;
+    return [anchorId, ...arms.leaves].sort((a, b) => a - b);
+  }
+  const ring = ringMembersAt(world, anchorId, shape.type, shape.n, null);
+  return ring === null ? null : [...ring].sort((a, b) => a - b);
 }
 
 /**
@@ -290,19 +327,19 @@ export function liveTowerRecipeAt(world: World, anchorId: PrimitiveId): GodlyId 
 }
 
 /** The bond joining each consecutive pair of a closed cycle, in cycle order. */
-function cycleBonds(world: World, cycle: readonly PrimitiveId[], limit: number | null): BondId[] {
+function cycleBonds(world: World, cycle: readonly PrimitiveId[]): BondId[] {
   const out: BondId[] = [];
   for (let i = 0; i < cycle.length; i++) {
     const a = cycle[i]!;
     const b = cycle[(i + 1) % cycle.length]!;
-    const bid = lowestBondBetween(world, a, b, limit);
+    const bid = lowestBondBetween(world, a, b);
     if (bid !== null) out.push(bid);
   }
   return out;
 }
 
 /** The lowest-id bond between `a` and `b`, or `null`. */
-function lowestBondBetween(world: World, a: PrimitiveId, b: PrimitiveId, limit: number | null): BondId | null {
+function lowestBondBetween(world: World, a: PrimitiveId, b: PrimitiveId): BondId | null {
   const pa = world.primitives.get(a);
   if (pa === undefined) return null;
   let best: BondId | null = null;
@@ -311,14 +348,13 @@ function lowestBondBetween(world: World, a: PrimitiveId, b: PrimitiveId, limit: 
     if (bond === undefined) continue;
     const other = bond.aId === a ? bond.bId : bond.aId;
     if (other !== b) continue;
-    if (limit !== null && Number(bid) >= limit) continue;
     if (best === null || Number(bid) < Number(best)) best = bid;
   }
   return best;
 }
 
 /** Every bond with BOTH ends in `ids`, ascending bond id. */
-function bondsWhollyInside(world: World, ids: readonly PrimitiveId[], limit: number | null): BondId[] {
+function bondsWhollyInside(world: World, ids: readonly PrimitiveId[]): BondId[] {
   const set = new Set(ids);
   const out = new Set<BondId>();
   for (const id of ids) {
@@ -327,7 +363,6 @@ function bondsWhollyInside(world: World, ids: readonly PrimitiveId[], limit: num
     for (const bid of p.bonds) {
       const bond = world.bonds.get(bid);
       if (bond === undefined) continue;
-      if (limit !== null && Number(bid) >= limit) continue;
       if (set.has(bond.aId) && set.has(bond.bId)) out.add(bid);
     }
   }

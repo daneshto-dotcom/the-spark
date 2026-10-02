@@ -57,7 +57,8 @@
 
 import { Container, Text, TextStyle } from 'pixi.js';
 import type { World } from '../state/world.ts';
-import type { CreatureId, PlayerId } from '../types.ts';
+import type { CreatureId, PlayerId, PrimitiveId } from '../types.ts';
+import { componentOf } from '../game/structure.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 // S181 — everything `fatalBlowFifths` needs, and every one of them is DERIVABLE ON BOTH PEERS from
 // state already held: per-type attack config, the shared fifths ladder, and the keep's pure
@@ -70,6 +71,24 @@ import { creatureAttackFifths } from '../state/creatures/creature.ts';
 import { hellspawnStrikeFifths } from '../state/racial/hellspawn.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { attackFifths } from '../state/stats.ts';
+// ⭐ S192 — the RESIST cue: did a magic DoT beat land 0 on this creature, this tick? (derived, see module)
+import { magicBeatResistedAt } from '../state/magicResistCue.ts';
+import { PHYSICS_HZ } from '../constants.ts';
+
+/**
+ * ⭐ S192 (owner) — *"A very magic resistant unit … can be totally resistant to very low level magic, I
+ * accept that, but we need to predefine … how it would look like."* ⚠ MINE, all three, for him to change
+ * after seeing it: the WORD, the GREY, and the RATE (at most one per unit per second, so a DoT that keeps
+ * being swallowed reads as a steady "resisting", not a spray).
+ */
+export const RESIST_TEXT = 'RESIST';
+export const RESIST_FILL = 0xb4b4b4;
+export const RESIST_MIN_GAP_TICKS = PHYSICS_HZ;
+/** The longest tick window one frame scans (a joiner's tick jumps ~6 between snapshots). */
+const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
+// ⭐ S193 (V08) — the big-hit shake and the heal sparkle live in `fx/floaterFx.ts` (the pop below is untouched).
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
 export const DAMAGE_FONT_FAMILY = 'Kanit';
@@ -139,7 +158,12 @@ interface StructWatched {
   deathOnVanish: boolean;
   /** ⭐ S191 C-8 — a castle's `Player.castleHealedHp` as last seen (absent for every other pool). */
   healed?: number;
+  /** ⭐ S193 T11 — a connector's two shape ids as last seen (absent for every other pool). */
+  ends?: readonly [PrimitiveId, PrimitiveId];
 }
+
+/** ⭐ S193 T11 — one repair-heal candidate seen this frame: a shape that rose or a bank that fell. */
+interface RepairPiece { prim: PrimitiveId; amount: number; bond: boolean }
 
 /**
  * PURE — what one frame's change in a damage pool should PRINT, if anything.
@@ -321,7 +345,14 @@ interface Floater {
   x: number;
   y: number;
   drift: number;
+  /** ⭐ S193 (V08) — what `fx/floaterFx.ts` needs: the amount (big hits shake), heal or not, a seed. */
+  amount: number;
+  heal: boolean;
+  seed: number;
 }
+
+/** S193 (V08) — the shake's reused out-parameter (no allocation per floater per frame). */
+const SHAKE_OUT = { dx: 0, dy: 0 };
 
 /**
  * ⚠ THE FONT MUST BE LOADED BEFORE THE FIRST `Text` IS RASTERISED, or Pixi bakes a fallback glyph
@@ -409,8 +440,8 @@ export function healAnchor(vx: number, vy: number): { x: number; y: number } {
 export const DAMAGE_TOWARD_ATTACKER = TOWARD_ATTACKER;
 export const DAMAGE_LIFT_PX = LIFT_PX;
 
-/** Damage is red, healing is green. Both carry the white outline. */
-export type FloaterKind = 'damage' | 'heal';
+/** Damage is red, healing is green. Both carry the white outline. ⭐ S192 — a swallowed magic beat is a grey RESIST. */
+export type FloaterKind = 'damage' | 'heal' | 'resist';
 
 /** What the renderer remembers about a creature between frames. */
 interface Watched {
@@ -530,6 +561,19 @@ export class DamageNumbers {
     stroke: { color: 0xffffff, width: 3, join: 'round' },
   });
 
+  /** ⭐ S192 — the RESIST cue (⚠ MINE look): same face and motion, smaller and grey, a word not a number. */
+  private readonly resistStyle = new TextStyle({
+    fontFamily: [DAMAGE_FONT_FAMILY, 'Impact', 'sans-serif'],
+    fontWeight: '900',
+    fontStyle: 'italic',
+    fontSize: 14,
+    fill: RESIST_FILL,
+    stroke: { color: 0x202020, width: 3, join: 'round' },
+  });
+  /** ⭐ S192 — the last tick each creature showed RESIST (the once-a-second limit), and the last tick scanned. */
+  private readonly lastResist = new Map<CreatureId, number>();
+  private resistScannedTo: number | null = null;
+
   /**
    * Called once per rendered frame. Reads `world`; never writes to it.
    *
@@ -631,8 +675,33 @@ export class DamageNumbers {
      */
     world.creatureKillHits.length = 0;
 
+    this.syncResist(world);
     this.syncStructures(world);
     this.advance();
+  }
+
+  /**
+   * ⭐ S192 — RESIST: for every tick since the last frame, ask the sim's own rule whether a magic DoT
+   * beat landed 0 on each creature (`magicBeatResistedAt`, a pure read of synced state), and print one
+   * grey RESIST at most once per unit per second. Derived on every peer alike — nothing rides the wire.
+   */
+  private syncResist(world: World): void {
+    const now = world.tick;
+    const from = this.resistScannedTo === null || this.resistScannedTo > now
+      ? now
+      : Math.max(this.resistScannedTo + 1, now - RESIST_SCAN_MAX_TICKS + 1);
+    this.resistScannedTo = now;
+    for (const id of this.lastResist.keys()) if (!world.creatures.has(id)) this.lastResist.delete(id);
+    for (const c of world.creatures.values()) {
+      const last = this.lastResist.get(c.id);
+      if (last !== undefined && now - last < RESIST_MIN_GAP_TICKS) continue;
+      for (let t = from; t <= now; t++) {
+        if (!magicBeatResistedAt(world, c, t)) continue;
+        this.lastResist.set(c.id, now);
+        this.place(damageAnchor(world, c.id, c.pos.x, c.pos.y, c.ownerPlayerId), 0, 'resist');
+        break;
+      }
+    }
   }
 
   /**
@@ -714,9 +783,12 @@ export class DamageNumbers {
      * `damageConnector` spends the structure pool and every counter drops. Emitted from the recorded
      * hit so it is the SAME number a unit would show for the same swing, which is what he asked for.
      */
+    // ⭐ S193 T11 — a break's ends, so the repair derivation below never reads its drain as a heal.
+    const breakEnds: PrimitiveId[] = [];
     for (const hit of world.connectorBreakHits) {
       const bond = world.bonds.get(hit.bondId);
       if (bond === undefined) continue;
+      breakEnds.push(bond.aId, bond.bId);
       const a = world.primitives.get(bond.aId);
       const b = world.primitives.get(bond.bId);
       if (a === undefined || b === undefined) continue;
@@ -734,14 +806,39 @@ export class DamageNumbers {
       this.emitAt(world, h.x, h.y, h.amount, 'heal', h.owner);
     }
     world.structureHealHits.length = 0; // per-FRAME, wiped by the consumer — the `effects` contract
+    /*
+     * ⭐⭐ S193 (owner T11, joiner half) — *"every healing should show … just like damage is shown on
+     * every hit."* The record above is host-local, so a JOINER (and a worker-sim host) saw only the
+     * shape refills, one green each, and never the connector half. Both halves are on the wire already
+     * (`Primitive.hp`, `Bond.damageFifths`), so the peer DERIVES the same one number: every shape that
+     * ROSE (only a repair raises `Primitive.hp`) and every connector bank that FELL, summed per structure.
+     *
+     * ⛔ A BANK ALSO FALLS WHEN A CONNECTOR BREAKS — `damageConnector` drains the survivors to pay the
+     * pool, and `severWithCarry` severs the struck one on the SAME tick. So a fall counts only when no
+     * connector of that structure VANISHED this frame (its last-seen ends are checked against the
+     * structure as it stands now). A repair removes nothing, so it always passes; a break always fails.
+     * On the host the record wins: its `keys` re-seed every bond and shape it covered (deleted above),
+     * so the derivation sees them as first sightings and nothing prints twice.
+     */
+    const repairPieces: RepairPiece[] = [];
     const track = (
       key: string, v: number, x: number, y: number, owner: PlayerId,
       rising: boolean, deathOnVanish: boolean,
+      repair?: { prim: PrimitiveId; ends?: readonly [PrimitiveId, PrimitiveId] },
     ): void => {
       seen.add(key);
       const prev = this.watchedStruct.get(key);
-      this.watchedStruct.set(key, { v, x, y, owner, rising, deathOnVanish });
+      this.watchedStruct.set(key, {
+        v, x, y, owner, rising, deathOnVanish, ...(repair?.ends !== undefined ? { ends: repair.ends } : {}),
+      });
       if (prev === undefined) return; // first sighting is neither a hit nor a heal
+      if (repair !== undefined) {
+        const healed = rising ? prev.v - v : v - prev.v;
+        if (healed > 0) {
+          repairPieces.push({ prim: repair.prim, amount: healed, bond: rising });
+          return;
+        }
+      }
       const d = poolDelta(prev.v, v, rising);
       if (d !== null) this.emitAt(world, x, y, d.amount, d.kind, owner);
     };
@@ -749,7 +846,7 @@ export class DamageNumbers {
     // SHAPES — `hp` out of PRIMITIVE_MAX_HP, which is 70 FIFTHS since S177 P1. Same ladder as a
     // creature, so this prints the same number a creature would for the same swing.
     for (const prim of world.primitives.values()) {
-      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true);
+      track(`p:${prim.id}`, prim.hp, prim.pos.x, prim.pos.y, prim.placedBy, false, true, { prim: prim.id });
     }
 
     /*
@@ -764,8 +861,10 @@ export class DamageNumbers {
         `b:${bond.id}`, bond.damageFifths,
         (a.pos.x + b.pos.x) / 2, (a.pos.y + b.pos.y) / 2,
         a.placedBy, true, false,
+        { prim: bond.aId, ends: [bond.aId, bond.bId] },
       );
     }
+    if (repairPieces.length > 0) this.emitDerivedRepairs(world, repairPieces, seen, breakEnds);
 
     // DEFENDERS — turret / Helga / stink tower. `ehp` is null for kinds with no unit stats.
     for (const d of world.defenders.values()) {
@@ -854,6 +953,61 @@ export class DamageNumbers {
     }
   }
 
+  /**
+   * ⭐ S193 T11 — the joiner's derived repair number: ONE green per structure, the sum of what rose and
+   * fell (see the note in `syncStructures`). Grouped by the structure as it stands NOW; a structure that
+   * lost a connector this frame keeps its shape rises but not its bank falls (those were a break's drain).
+   * Anchored at the structure's centroid — the host's record uses the blueprint frame centre, which a
+   * peer cannot see; render-only, so a few pixels of difference cost nothing.
+   */
+  private emitDerivedRepairs(
+    world: World, pieces: readonly RepairPiece[], seen: ReadonlySet<string>, breakEnds: readonly PrimitiveId[],
+  ): void {
+    // A connector that vanished this frame (a peer sees the sever), or one the host recorded breaking
+    // (the drain is visible even before — or without — the sever landing).
+    const severedEnds = new Set<PrimitiveId>(breakEnds);
+    for (const [key, last] of this.watchedStruct) {
+      if (last.ends === undefined || seen.has(key)) continue;
+      severedEnds.add(last.ends[0]);
+      severedEnds.add(last.ends[1]);
+    }
+    const groupOf = new Map<PrimitiveId, { prims: ReadonlySet<PrimitiveId>; amount: number; severed: boolean }>();
+    const order: PrimitiveId[] = [];
+    for (const piece of pieces) {
+      const seed = world.primitives.get(piece.prim);
+      if (seed === undefined) continue;
+      let group = groupOf.get(piece.prim);
+      if (group === undefined) {
+        const prims = componentOf(seed, world.primitives, world.bonds).primitiveIds;
+        let severed = false;
+        for (const id of severedEnds) if (prims.has(id)) { severed = true; break; }
+        group = { prims, amount: 0, severed };
+        for (const id of prims) groupOf.set(id, group);
+        order.push(piece.prim);
+      }
+      if (piece.bond && group.severed) continue; // a break's drain, not a heal
+      group.amount += piece.amount;
+    }
+    for (const first of order) {
+      const group = groupOf.get(first)!;
+      if (group.amount <= 0) continue;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      let owner: PlayerId | null = null;
+      for (const id of group.prims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        sx += p.pos.x;
+        sy += p.pos.y;
+        n += 1;
+        owner ??= p.placedBy;
+      }
+      if (n === 0 || owner === null) continue;
+      this.emitAt(world, sx / n, sy / n, Math.round(group.amount), 'heal', owner);
+    }
+  }
+
   /** `emit` for a target that is not a creature — no id to exclude from the anchor scan. */
   private emitAt(
     world: World, x: number, y: number, amount: number, kind: FloaterKind, owner: PlayerId,
@@ -891,19 +1045,23 @@ export class DamageNumbers {
     }
 
     const t = this.pool.pop() ?? new Text({ text: '', style: this.damageStyle });
-    t.style = kind === 'heal' ? this.healStyle : this.damageStyle;
-    t.text = String(amount);
+    t.style = kind === 'heal' ? this.healStyle : kind === 'resist' ? this.resistStyle : this.damageStyle;
+    t.text = kind === 'resist' ? RESIST_TEXT : String(amount);
     t.anchor.set(0.5);
     t.visible = true;
     this.flip = -this.flip;
     // ⭐ S192 T12 — a heal rises straight up (no fling), so his pulses read as one column above him.
     const drift = kind === 'heal' ? 0 : this.flip * DRIFT_PX;
-    this.live.push({ text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift });
+    this.live.push({
+      text: t, age: 0, x, y: y - stack * ROW_STACK_PX, drift,
+      amount, heal: kind === 'heal', seed: floaterSeed(x, y, amount), // S193 (V08)
+    });
     this.layer.addChild(t);
     if (this.live.length > MAX_LIVE) this.retire(0);
   }
 
   private advance(): void {
+    const fx = fxActive();
     for (let i = this.live.length - 1; i >= 0; i--) {
       const f = this.live[i]!;
       f.age++;
@@ -916,6 +1074,13 @@ export class DamageNumbers {
       f.text.y = f.y - RISE_PX_TOTAL * p; // constant velocity — MapleStory's shape, not an ease
       f.text.alpha =
         f.age <= OPAQUE_FRAMES ? 1 : 1 - (f.age - OPAQUE_FRAMES) / (LIFE_FRAMES - OPAQUE_FRAMES);
+      if (fx) {
+        // ⭐ S193 (V08) — ON TOP of the shipped animation: a big hit judders ±2 px, a heal sparkles.
+        const sh = floaterShake(SHAKE_OUT, f.age, f.amount, f.heal, f.seed);
+        f.text.x += sh.dx;
+        f.text.y += sh.dy;
+        if (f.heal) healSparkleFx(fxTop(), f.text.x, f.text.y, f.age, LIFE_FRAMES, f.text.alpha, f.seed);
+      }
       // The pop: 0.5 → 2.0 → 1.0 across the first sixth, then hold at 1.
       const k = f.age / POP_FRAMES;
       f.text.scale.set(k >= 1 ? 1 : k < 0.5 ? 0.5 + 3 * k : 2 - 2 * (k - 0.5));

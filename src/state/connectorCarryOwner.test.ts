@@ -73,7 +73,7 @@ function mixed(w: World, withOwnTail = false) {
 }
 
 const strike = (w: World, bondId: BondId, amount: number): number => {
-  expect(damageConnector(w, bondId, amount, null), 'fixture: the hit breaks the struck connector').toBe(true);
+  expect(damageConnector(w, bondId, amount, null, 'physical'), 'fixture: the hit breaks the struck connector').toBe(true);
   return severWithCarry(w, bondId, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: P0, cause: 'unit' }));
 };
 

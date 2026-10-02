@@ -109,6 +109,7 @@ import { damageConnector, severWithCarry } from './state/damage.ts';
 import { makeIdlePlayer } from './game/player.ts';
 import { dispatch } from './state/world.ts';
 import { asBondId, asPrimitiveId, type BondId } from './types.ts';
+import { findNearestBondTarget, structureTargets } from './state/creatures/creatureAI.ts'; // S193 P3-2
 import { HUB_BLAST_CREATURE_WEIGHT, STRUCTURE_SELFDESTRUCT_DRONE_MULTIPLE, STRUCTURE_SELFDESTRUCT_FIFTHS } from './state/potatoLifecycle.ts';
 import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats.ts';
 import { castleShotFifths } from './state/castleGuns.ts';
@@ -174,6 +175,8 @@ import {
 } from './state/racial/endlessDynasty.ts';
 import { isOrcRacialCreatureType } from './state/racial/bloodFrenzy.ts';
 import { HORDE_CASTLE_EMIT_SPEEDUP, HORDE_GOBLIN_MAX_PER_SPAWNER } from './state/racial/hordeGrows.ts';
+// ⭐ S193 T4 — the auto-build poll (canon §3g).
+import { AUTO_FEED_POLL_TICKS } from './state/goblinAutoFeed.ts';
 import {
   SCORCHED_EARTH_CAST_PER_MILLE,
   SCORCHED_GROUND_PER_MILLE,
@@ -222,6 +225,8 @@ import { VOLTKINS_PER_TV } from './state/voltkinTv.ts';
 import {
   STRUCTURE_BAR_MAX_W, STRUCTURE_BAR_MIN_W, STRUCTURE_BAR_POOL_MAX, STRUCTURE_BAR_POOL_MIN, structureBarWidth,
 } from './render/structureBarHealth.ts';
+// S193 R191-B / R192-W1 — the FIX job queue (canon §8 / §3d).
+import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -301,7 +306,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(59);
+    expect(PROTOCOL_VERSION).toBe(62);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -351,17 +356,58 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**1075**')).toBe(true);
   });
 
-  it('⭐ §4b — S191: the castle keep-out is HALVED (61) and every porch slot keeps a 34 px disc', () => {
+  it('⭐ §4b — S191 → S193: the castle keep-out is HALVED (61) and it is ONE disc, the same on every side', () => {
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
     expect(canonSays(`\`CASTLE_PORCH_KEEP_OUT_RADIUS\` = **${CASTLE_PORCH_KEEP_OUT_RADIUS}** px`)).toBe(true);
-    expect(canonSays(`any of that castle's **${CASTLE_PORCH_SLOTS}** porch slots`)).toBe(true);
-    // The rule is REAL, not prose: a porch slot is refused although it is outside the halved disc.
+    // ⭐ S193 P3-1 (owner: "it should be just as far as the horizontal") — the per-slot discs are OUT.
+    expect(canonSays('AND IT IS ONE DISC, THE SAME ON EVERY SIDE')).toBe(true);
+    expect(canonSays('THE PORCH DISCS ARE OUT OF THE BUILD RULE')).toBe(true);
+    expect(canonSays('a **PULL skips any slot a built shape stands within')).toBe(true);
+    // The rule is REAL, not prose: a porch slot (outside the disc) is buildable, and south = east.
     const a = zoneCastleAnchor(0, 'PITCH_2P');
     const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
     expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(false);
+    for (const d of [CASTLE_NO_BUILD_RADIUS - 1, CASTLE_NO_BUILD_RADIUS + 1]) {
+      expect(isInsideCastleKeepOut({ x: a.x, y: a.y + d }, 'PITCH_2P')).toBe(isInsideCastleKeepOut({ x: a.x + d, y: a.y }, 'PITCH_2P'));
+    }
+  });
+
+  it('⭐⭐ §5c — S193 P3-2: a structure-attacker goes to the NEAREST enemy, never a hash-chosen victim', () => {
+    expect(canonSays('THE NEAREST ENEMY FIRST — NOT POINTS, NOT A HASH')).toBe(true);
+    expect(canonSays('It WAS points, a hash and seat order')).toBe(true);
+    expect(canonSays('`nearestStrictEnemyBond`')).toBe(true);
+    expect(canonSays('the spread now serves only the CHEWER and the DRONE')).toBe(true);
+    // The rule is REAL: on a 3-seat board the spread may send a creature to the far seat; the ladder may not.
+    const w = makeWorld(0x5c2);
+    w.gameState = 'TITLE';
+    dispatch(w, { type: 'START_GAME', mode: 'bots', isHost: true, roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1, 2, 3] });
+    w.creatures.clear(); w.primitives.clear(); w.bonds.clear();
+    const mk = (seat: number, x: number, y: number) => {
+      const color = w.players.get(asPlayerId(seat))!.color;
+      const id = asPrimitiveId(w.nextPrimitiveId++);
+      w.primitives.set(id, { id, type: 0 as never, placerColor: color, placedBy: asPlayerId(seat), createdTick: 0, pos: { x, y }, prevPos: { x, y }, bonds: new Set(), ownerColor: color, lastOwnershipChange: 0, radius: 9, hp: 70, origin: null });
+      return w.primitives.get(id)!;
+    };
+    const pair = (seat: number, x: number, y: number): BondId => {
+      const a = mk(seat, x, y); const b = mk(seat, x + 40, y);
+      const id = asBondId(w.nextBondId++);
+      w.bonds.set(id, { id, aId: a.id, bId: b.id, a, b, restLength: 40, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 });
+      a.bonds.add(id); b.bonds.add(id);
+      return id;
+    };
+    const near = pair(0, 300, 420);
+    pair(1, 1600, 420);
+    pair(2, 1600, 700);
+    w.scoreByPlayer.set(asPlayerId(1), 900);
+    for (let i = 0; i < 24; i++) {
+      dispatch(w, { type: 'SPAWN_CREATURE', creatureType: 'goblinMelee', ownerPlayerId: asPlayerId(3), pos: { x: 260 + i * 4, y: 780 }, targetPos: { x: 300, y: 800 }, sourceSpawnerId: (9000 + i * 7) as never });
+    }
+    const army = [...w.creatures.values()];
+    expect(army.some((c) => findNearestBondTarget(w, c, true) !== near), 'anti-vacuity: the spread is engaged').toBe(true);
+    for (const c of army) expect(structureTargets(w, c).bondId).toBe(near);
   });
 
   it('⛔ §4b — records that the FOOTER is the bigger half, so nobody edits the wrong constant', () => {
@@ -664,15 +710,16 @@ describe('SPARK_CANON.md is bound to the code', () => {
    * ⭐ S189 P10 — §3d's castle buttons. S187 built the four stats in the sim and nothing dispatched
    * them; S188 put them on the panel. The canon's numbers are read off the reducer and the panel.
    */
-  it('⭐ §3d — the four castle buttons: order, price, cap, and what one point buys', () => {
-    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen']);
+  it('⭐ §3d — the five castle buttons: order, price, cap, and what one point buys', () => {
+    // ⭐ S192 — MRES is his fifth axis (*"either defense or resistance"*), after PEN.
+    expect(CASTLE_STATS).toEqual(['hp', 'atk', 'def', 'pen', 'mres']);
     expect(canonSays(
-      `**HP / ATK / DEF / PEN**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
+      `**HP / ATK / DEF / PEN / MRES**, ${CASTLE_UPGRADE_PRICE} VP a point, ${CASTLE_UPGRADE_MAX_LEVEL} per axis`,
     )).toBe(true);
-    // Four rows directly under REGEN, in HIS order.
+    // Five rows directly under REGEN, in HIS order.
     const regen = CASTLE_ROW_KEYS.indexOf('castleRegen');
-    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen']);
-    expect(canonSays('**four rows under REGEN — HP, ATK, DEF, PEN**')).toBe(true);
+    expect(CASTLE_ROW_KEYS.slice(regen + 1)).toEqual(['castleHp', 'castleAtk', 'castleDef', 'castlePen', 'castleMres']);
+    expect(canonSays('**five rows under REGEN — HP, ATK, DEF, PEN, MRES**')).toBe(true);
     expect(canonSays(`out of **${CASTLE_UPGRADE_MAX_LEVEL}** (\`CASTLE_UPGRADE_MAX_LEVEL\`)`)).toBe(true);
     expect(canonSays(`its price **${CASTLE_UPGRADE_PRICE}**`)).toBe(true);
     // Every disabled reason the canon names is one the panel can print.
@@ -1108,7 +1155,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 58 -> 59');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 61 -> 62');
+    expect(proto.indexOf('BUMPED 60 -> 61')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 59 -> 60')).toBeLessThan(constAt);
+    expect(proto.indexOf('BUMPED 58 -> 59')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 57 -> 58')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 56 -> 57')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 55 -> 56')).toBeLessThan(constAt);
@@ -1299,6 +1349,25 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(Math.ceil(trigger / 12)).toBe(3);
     expect(Math.ceil(trigger / 7)).toBe(5);
     expect(canonSays('(banked 50 of a 50 pool) to "below a third" (banked 34)')).toBe(true);
+  });
+
+  /**
+   * ⭐ S193 R191-B / R192-W1 — FIX is a gatherer job; the castle's FIX ALL. Every number the canon prints
+   * for it is read off its constant here, and the superseded "NEED 1 MORE" button cannot come back.
+   */
+  it('§8 records R191-B (FIX is a gatherer job) and §3d the FIX ALL row, with their numbers', () => {
+    expect(REPAIR_JOBS_MAX_PER_SEAT).toBe(32);
+    expect(canonSays(`at most **${REPAIR_JOBS_MAX_PER_SEAT}** jobs a seat (\`REPAIR_JOBS_MAX_PER_SEAT\`)`)).toBe(true);
+    expect(REPAIR_JOB_REPLAN_TICKS).toBe(15);
+    expect(canonSays(`re-plans every **${REPAIR_JOB_REPLAN_TICKS}** ticks (\`REPAIR_JOB_REPLAN_TICKS\``)).toBe(true);
+    expect(canonSays('R191-B (S191, built S193) — FIX IS A GATHERER JOB')).toBe(true);
+    expect(canonSays('No shape anywhere → it waits')).toBe(true);
+    expect(canonSays('bank, FIX now reads `NEED 1 MORE`.')).toBe(false);
+    expect(CASTLE_ROW_KEYS[0]).toBe('fixAll');
+    expect(canonSays('(`CASTLE_ROW_KEYS[0]` = `fixAll`')).toBe(true);
+    // §7b — R185-B as amended; §9d item 3 — the one pricing.
+    expect(canonSays('R191-A (S191) AMENDS IT: EACH TOWER IN A WELD IS STILL A TOWER.')).toBe(true);
+    expect(canonSays('recipe pool, 0 once an own connector is gone')).toBe(true);
   });
 
   it('§8 records that a dent costs ONE shape, and the fee is still derived', () => {
@@ -1641,7 +1710,7 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     };
     const hit = (amount: number) => {
       const { w, ids } = build();
-      expect(damageConnector(w, ids[0]!, amount, null)).toBe(true);
+      expect(damageConnector(w, ids[0]!, amount, null, 'physical')).toBe(true);
       const felled = severWithCarry(w, ids[0]!, (id) => dispatch(w, { type: 'SEVER_BOND', bondId: id, playerId: asPlayerId(1), cause: 'unit' }));
       let banked = 0;
       for (const b of w.bonds.values()) banked += b.damageFifths;
@@ -1664,6 +1733,81 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
   });
 });
 
+// ── ⭐⭐ S193 — §2b MAGIC RESISTANCE, every number bound to its constant ─────────────────────────
+import {
+  CREATURE_MRES, RACE_MRES_LEVEL, bossMres, defenderMres, magicDotFifths, magicHitFifths, mresFor, strikeClassFor, structureMres,
+} from './state/magicResist.ts';
+import {
+  CASTLE_BASE_MRES_LEVEL, CASTLE_UPGRADE_MAX_LEVEL as MRES_CASTLE_MAX, CASTLE_UPGRADE_PRICE as MRES_CASTLE_PRICE,
+  castleMagicDamageAfterResist, castleMresLevelOf, withCastlePurchase,
+} from './state/castleUpgrades.ts';
+import { RESIST_MIN_GAP_TICKS, RESIST_TEXT } from './render/damageNumbers.ts';
+
+describe('§2b MAGIC RESISTANCE is bound to the code', () => {
+  it('the rule and the worked case: the Archdemon DEF 8 / MRES 14 — magic 300 lands 205', () => {
+    const arch = getCreatureConfig('t9BossDemons');
+    expect(arch.def).toBe(8);
+    expect(mresFor('t9BossDemons', null)).toBe(14);
+    expect(magicHitFifths(300, 8, 14)).toBe(205);
+    expect(Math.floor((300 * 13) / 19)).toBe(205);
+    expect(canonSays('a magic 300 lands 205')).toBe(true);
+    expect(canonSays('floor(A × (5 + DEF) / (5 + MRES))')).toBe(true);
+    // MRES = DEF is the identity; the floor never drops a real hit to 0; a DoT beat may land 0.
+    for (const a of [1, 12, 35, 300]) for (const d of [0, 3, 8]) expect(magicHitFifths(a, d, d)).toBe(a);
+    expect(magicHitFifths(1, 0, 20)).toBe(1);
+    const beats = Array.from({ length: 19 }, (_, b) => magicDotFifths(1, 8, 14, b));
+    expect(beats.reduce((s, x) => s + x, 0)).toBe(13);
+    expect(beats.includes(0)).toBe(true);
+    expect(canonSays('some beats land 0')).toBe(true);
+  });
+
+  it('the class table: Voltkin zap magic (MINE), every other unit strike physical', () => {
+    for (const t of Object.keys(CREATURE_MRES) as CreatureType[]) {
+      expect(strikeClassFor(t)).toBe(t === 'voltkin' ? 'magic' : 'physical');
+    }
+    expect(canonSays('⚠ MINE: its first zap too')).toBe(true);
+    expect(canonSays('EACH share is defended by its own target')).toBe(true);
+    expect(canonSays('the **zombie boss death blast**')).toBe(true); // ⭐ S193 — physical (R192-M3), `zombieDeathBlast.ts`
+    expect(canonSays('with a floor PER')).toBe(true); // the differential's per-source floors
+  });
+
+  it('who has how much: structures n, globals/Helga = DEF, races 4·4·3·2·1·0, bosses 6 + 2 × level', () => {
+    for (const n of [1, 2, 3, 4, 5]) expect(structureMres(n)).toBe(n);
+    expect(defenderMres({ def: 3 })).toBe(3);
+    for (const t of ['goblinMelee', 'voltkin', 'chewer', 'lightningDrone', 'direwolf', 'locustCloud'] as CreatureType[]) {
+      expect(CREATURE_MRES[t]).toBe('def');
+      expect(mresFor(t, null)).toBe(getCreatureConfig(t).def);
+    }
+    expect(RACE_MRES_LEVEL).toEqual({ demons: 4, mummies: 4, vampires: 3, nagas: 2, orcs: 1, zombies: 0 });
+    expect(canonSays('demons **4** · mummies **4** · vampires **3** · nagas **2** · orcs **1** · zombies **0**')).toBe(true);
+    expect(mresFor('raceUnit', 'nagas')).toBe(2);
+    expect(bossMres('demons')).toBe(14);
+    expect(bossMres('mummies')).toBe(14);
+    expect(bossMres('zombies')).toBe(6);
+    expect(canonSays('**6 + 2 × race level** — Archdemon / Pharaoh **14** … zombie boss **6**')).toBe(true);
+  });
+
+  it('the castle MRES axis: starts 0, its own row, 100 VP, max 10; a DEF buy does not raise it', () => {
+    expect(CASTLE_BASE_MRES_LEVEL).toBe(0);
+    expect(MRES_CASTLE_PRICE).toBe(100);
+    expect(MRES_CASTLE_MAX).toBe(10);
+    const u0 = emptyCastleUpgrades();
+    expect(castleMresLevelOf(u0)).toBe(0);
+    expect(castleMresLevelOf(withCastlePurchase(u0, 'def', 1))).toBe(0);
+    const u1 = withCastlePurchase(u0, 'mres', 1);
+    expect(castleMresLevelOf(u1)).toBe(1);
+    expect(castleMagicDamageAfterResist(60, u1)).toBe(Math.floor((60 * 5) / 6));
+    expect(canonSays('the keep starts at MRES **0**')).toBe(true);
+    expect(canonSays('**100 VP** a point, **10** max')).toBe(true);
+  });
+
+  it('the RESIST cue: the word, at most once a second', () => {
+    expect(RESIST_TEXT).toBe('RESIST');
+    expect(RESIST_MIN_GAP_TICKS).toBe(PHYSICS_HZ);
+    expect(canonSays('a grey **"RESIST"** floats over the unit — at most **once a second**')).toBe(true);
+  });
+});
+
 describe('S192 units-ai — §5c is pinned to its constants', () => {
   it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
     expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
@@ -1675,6 +1819,13 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+  });
+
+  it('⭐ §3g — T4: the goblin tower auto-build poll the canon quotes is the live constant (6 ticks, MINE)', () => {
+    expect(AUTO_FEED_POLL_TICKS).toBe(6);
+    expect(canonSays(`\`AUTO_FEED_POLL_TICKS\` = **${AUTO_FEED_POLL_TICKS}** ticks`)).toBe(true);
+    expect(CANON.replace(/\r?\n\s*/g, ' ').includes('by sending an ordinary `FEED_TOWER`')).toBe(true);
+    expect(canonSays('`World.goblinAutoFeedMemory`')).toBe(true);
   });
 
   it('⛔ T13 — the S191 "dead units deliberately not filtered" report is marked superseded, and the two rulings are recorded', () => {

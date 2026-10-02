@@ -81,6 +81,12 @@ export interface JoinAttemptDeps {
    * optional (absent = never).
    */
   hostAbsentThisMatch?: () => boolean;
+  /**
+   * ⭐ S193 (net R-2) — told on every transport LEAVE (`onPeerChange`), which fires from the network
+   * callbacks even in a hidden tab whose render loop is not running. `main.ts` records the host's absence
+   * from it (`hostAbsentOnLeave`); optional (absent = never).
+   */
+  onPeerLeft?: (peerId: string) => void;
 }
 
 /**
@@ -271,11 +277,12 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
     // The clock the stall is measured from: the first moment ANY peer was connected. Without this the
     // stall detector cannot tell "nobody is here yet" (not a stall, ever) from "someone is here and
     // has been unverifiable for 8 seconds" (exactly the owner's bug).
-    transport.onPeerChange((_peerId, kind) => {
+    transport.onPeerChange((peerId, kind) => {
       const t = deps.session.joinTrust;
       if (kind === 'join' && t !== null && t.firstPeerAtMs === null) {
         t.firstPeerAtMs = performance.now();
       }
+      if (kind === 'leave') deps.onPeerLeft?.(peerId); // ⭐ S193 R-2 — hidden-tab-safe absence record
     });
     const kickVerify = (attest: HostAttest, peerId: string): void => {
       if (deps.session.hostVerifiedPeerId !== null || verifying.has(peerId)) return;

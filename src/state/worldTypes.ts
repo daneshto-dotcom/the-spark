@@ -18,6 +18,7 @@ import type { Spark } from '../game/spark.ts';
 import type { SudokuEvent } from './sudoku.ts';
 import type { DraftEvent } from './draftEvent.ts';
 import type { ZoneLayout } from './zones.ts';
+import type { MatchStats } from './matchStats.ts'; // ⭐ S191 — the stat board's record
 import type { Bond } from '../physics/bonds.ts';
 import type { Bomb } from './bomb.ts';
 import type { Creature } from './creatures/creature.ts';
@@ -25,10 +26,11 @@ import type { Hunter } from './hunters/hunter.ts';
 import type { Potato } from './potato.ts';
 import type { Rainbow } from './rainbow.ts';
 import type { Poop, Seagull } from './seagulls/seagull.ts';
-import type { CreatureSpawner } from './spawners/spawner.ts';
+import type { AutoFeedMemory, CreatureSpawner } from './spawners/spawner.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { StinkCloud } from './defenders/stinkCloud.ts';
 import type { Gatherer } from './gatherers/gatherer.ts';
+import type { RepairJob } from './repairJobTypes.ts';
 import type { CastleBank } from './castleBank.ts';
 import type { GodlyId, GodlyTriggerEvent } from './godlyRecipes/types.ts';
 import type { ComboKey } from '../combos.ts';
@@ -251,7 +253,10 @@ export interface World {
    *
    * Per-FRAME, the `structureKillHits` contract exactly: written on the host, wiped by the consumer and
    * at the five sites (three phase resets, the consumer, the worker frame boundary), never serialized,
-   * never hashed. ⚠ A JOINER has no record, so on a peer only the shape refills print — a stated limit.
+   * never hashed. ⭐ S193 — a JOINER (and a worker-sim host) has no record, so `DamageNumbers` DERIVES the
+   * same one number from synced state: a connector bank that FELL with no connector severed beside it,
+   * plus the shapes that rose, summed per structure. `keys` also carries the `b:` keys the repair cleared,
+   * so on the host the record wins and the derivation sees those bonds as first sightings.
    */
   structureHealHits: { x: number; y: number; owner: PlayerId; amount: number; keys: string[] }[];
   /**
@@ -313,6 +318,14 @@ export interface World {
    * win = first player to reach PHASE_1_WIN_SCORE.
    */
   scoreByPlayer: Map<PlayerId, number>;
+  /**
+   * ⭐ S191 — THE END-OF-MATCH STAT BOARD'S RECORD: each seat's running totals (units built and killed per
+   * type, towers built/fell, damage dealt/taken in fifths) and the per-wave history the two graphs draw.
+   * Written ONLY through `matchStats.ts`, from host reducers. ⛔ INERT: no reducer may read it (see that
+   * file). Four sites: factory `makeWorld`; resets `applyStartGame` / `applyReturnToTitle` / `softReset`;
+   * `save.ts` additive-optional; `stateHashFull` `ms`/`mh` parts. The worker crosses by snapshot.
+   */
+  matchStats: MatchStats;
   /**
    * S10 P5: debug toggle for structure cinematics.
    */
@@ -493,6 +506,14 @@ export interface World {
    */
   gathererOrders: Map<PlayerId, SparkType[]>;
   /**
+   * ⭐ S193 R191-B / R192-W1 — the FIX queue: every seat's repair jobs, in enqueue order (FIX clicks and
+   * FIX ALL). Host-authoritative, serialized, wide-hashed; cleared with the gatherer economy. See
+   * `repairJobs.ts`.
+   */
+  repairJobs: RepairJob[];
+  /** S193 — monotonic repair-job id counter (serialized: a re-derived one would re-issue ids). */
+  nextRepairJobId: number;
+  /**
    * S28 P0 — tick-deterministic pending-spawn schedule (Council Q2 UNANIMOUS A
    * single-slot). Replaces S25's wall-clock `setTimeout(handoff, cinematicMs)`
    * in cutsceneOverlay.ts (S25 reflexion: never mutate world from wall-clock
@@ -632,6 +653,15 @@ export interface World {
    * (sever/bomb cascade + potato AoE). Cleared on teardown.
    */
   fouledPrimitives: Set<PrimitiveId>;
+  /**
+   * ⭐ S193 (owner T4, ⚠ MINE) — a goblin tower's auto-build toggles, remembered by ANCHOR while the
+   * tower is down. `applyRemoveSpawner` writes an entry when a toggled goblin tower falls with its
+   * anchor still standing; `applyRegisterSpawner` restores it when a goblin tower of the SAME seat
+   * re-registers at that anchor (a FIX / re-ignition), and drops it either way. An entry whose anchor
+   * is gone is pruned on both paths. Host-only: disk + worker INIT, never the wire; wide-hashed.
+   * Cleared wherever `creatureSpawners` is (match start, title, abort, teardown).
+   */
+  goblinAutoFeedMemory: Map<PrimitiveId, AutoFeedMemory>;
   /**
    * S42 — host-side counter of "shared-resource race rejected" events.
    * Increments when applyPickupSpark or placePrimitive silently no-ops

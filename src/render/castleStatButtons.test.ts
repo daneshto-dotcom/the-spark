@@ -191,7 +191,7 @@ function oneShotThroughHostTick(w: World): number {
 describe('S188 P3 — four castle-stat rows beside regen, in the model and in the drawn panel', () => {
   it('the model returns exactly CASTLE_ROW_KEYS, in order — the index `activate` latches on', () => {
     expect(castleControlsModel(hostWorld(100)).map((r) => r.key)).toEqual([...CASTLE_ROW_KEYS]);
-    expect(CASTLE_STAT_ROWS.map((r) => r.stat)).toEqual(['hp', 'atk', 'def', 'pen']);
+    expect(CASTLE_STAT_ROWS.map((r) => r.stat)).toEqual(['hp', 'atk', 'def', 'pen', 'mres']); // S192: + MRES
   });
 
   it('the constructed panel DRAWS one clickable row per key (the S165 undrawn-row defect)', () => {
@@ -245,12 +245,12 @@ describe('S188 P3 — four castle-stat rows beside regen, in the model and in th
     add((w) => w.scoreByPlayer.set(P0, 0));
     add((w) => {
       const p = w.players.get(P0)!;
-      p.castleUpgrades = { hpLevel: 10, hpBonus: 6500, atkLevel: 10, defLevel: 10, penLevel: 10 };
+      p.castleUpgrades = { hpLevel: 10, hpBonus: 6500, atkLevel: 10, defLevel: 10, penLevel: 10, mresLevel: 10 };
     });
     add((w) => {
       // the widest DAMAGE strings: ATK +1 at PEN 13 is +18, PEN +1 at ATK 14 is +14
       const p = w.players.get(P0)!;
-      p.castleUpgrades = { hpLevel: 9, hpBonus: 5850, atkLevel: 9, defLevel: 9, penLevel: 9 };
+      p.castleUpgrades = { hpLevel: 9, hpBonus: 5850, atkLevel: 9, defLevel: 9, penLevel: 9, mresLevel: 9 };
       w.waveNumber = 25;
     });
     add((w) => { w.players.get(P0)!.castleHp = 0; });
@@ -304,7 +304,7 @@ describe('S188 P3 — REACH: pressing each button spends, levels, and changes th
     const w = hostWorld(1000);
     const m = mountPanel(w);
     for (const { key } of CASTLE_STAT_ROWS) press(m, w, key);
-    expect(m.sent.map((s) => s.stat)).toEqual(['hp', 'atk', 'def', 'pen']);
+    expect(m.sent.map((s) => s.stat)).toEqual(['hp', 'atk', 'def', 'pen', 'mres']); // S192: + MRES
     expect(w.players.get(P0)!.castleRegenLevel, 'no stat press bought regen').toBe(0);
   });
 
@@ -427,7 +427,7 @@ describe('S188 P3 — every disabled state names its reason and buys nothing', (
 
   it('CAP — ten on an axis says MAX, the others stay live', () => {
     const w = hostWorld(10_000);
-    w.players.get(P0)!.castleUpgrades = { hpLevel: 0, hpBonus: 0, atkLevel: 10, defLevel: 0, penLevel: 0 };
+    w.players.get(P0)!.castleUpgrades = { hpLevel: 0, hpBonus: 0, atkLevel: 10, defLevel: 0, penLevel: 0, mresLevel: 0 };
     const atk = row(w, 'castleAtk');
     expect(atk.enabled).toBe(false);
     expect(atk.reason).toBe('MAX');
@@ -477,7 +477,7 @@ describe('S188 P3 — every disabled state names its reason and buys nothing', (
       expect(row(w, key, P1).reason).toBe('NOT YOURS');
     }
     pressAllAndExpectNothing(w, P1);
-    expect(upgrades(w, P1)).toEqual({ hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0 });
+    expect(upgrades(w, P1)).toEqual({ hpLevel: 0, hpBonus: 0, atkLevel: 0, defLevel: 0, penLevel: 0, mresLevel: 0 });
   });
 
   it('NOT YOUR CASTLE, on the wire — an intent claiming another seat buys for the SENDER only', () => {
@@ -534,7 +534,7 @@ describe('S188 P3 — the castle card shows the upgraded HP / ATK / DEF / PEN', 
 
   it('an ENEMY keep’s card shows ITS purchases, not the viewer’s', () => {
     const w = hostWorld(0);
-    w.players.get(P1)!.castleUpgrades = { hpLevel: 1, hpBonus: 350, atkLevel: 2, defLevel: 0, penLevel: 0 };
+    w.players.get(P1)!.castleUpgrades = { hpLevel: 1, hpBonus: 350, atkLevel: 2, defLevel: 0, penLevel: 0, mresLevel: 0 };
     const view = characterSheetModel(w, P0, { kind: 'castle', seat: P1 })!;
     expect(view.health.max).toBe(CASTLE_MAX_HP + 350);
     expect(view.stats.find((r) => r.label === 'ATK')!.points).toBe(CASTLE_ATK + 2);
@@ -569,7 +569,7 @@ describe('S188 P3 — the castle card shows the upgraded HP / ATK / DEF / PEN', 
  * -------------------------------------------------------------------------------------------- */
 
 describe('S188 P3 — the keep’s HP bar and damage art divide by THIS seat’s max', () => {
-  const up = { hpLevel: 1, hpBonus: 250, atkLevel: 0, defLevel: 0, penLevel: 0 };
+  const up = { hpLevel: 1, hpBonus: 250, atkLevel: 0, defLevel: 0, penLevel: 0, mresLevel: 0 };
 
   it('a full upgraded keep reads 1.0, not 1.1 — and 2600 / 2750 reads as short, not full', () => {
     expect(keepHpFraction({ castleHp: CASTLE_MAX_HP + 250, castleUpgrades: up })).toBe(1);
@@ -606,7 +606,7 @@ describe('⛔ the S182 fill enumeration, applied to castlePanel.ts', () => {
     { what: 'the panel plate', hitTest: 'CastlePanel.isOverPanel — controls.ts swallows the click' },
     { what: 'a bank / inventory slot', hitTest: 'slot box pointertap -> pull()' },
     { what: 'a build tile (grid disabled since S149 P5)', hitTest: 'tile box pointertap -> armTile()' },
-    { what: 'a control row — all seven, castle stats included', hitTest: 'row box pointertap -> activate()' },
+    { what: 'a control row — all eight, castle stats and FIX ALL (S193) included', hitTest: 'row box pointertap -> activate()' },
   ];
 
   it('the module contains exactly the enumerated opaque fills, and no more', () => {

@@ -239,7 +239,7 @@ describe('S191 item 2 — production continues, the ceilings are the existing on
     const r = rig('pentagram', 1_000_000);
     r.step(SPAWN_INTERVAL_TICKS + 30);
     const chewer = of(r.w, r.spawners.get('pentagram'), 'chewer')[0]!;
-    damageEntity(r.w, { kind: 'creature', id: chewer.id }, 1_000, 'aura', null);
+    damageEntity(r.w, { kind: 'creature', id: chewer.id }, 1_000, 'aura', null, 'physical');
     expect(r.w.creatures.has(chewer.id)).toBe(false);
   });
 });
@@ -251,7 +251,7 @@ describe('S191 item 2 — HELLSPAWN, and a fallen pentagram, follow the same rul
     const pent = r.spawners.get('pentagram');
     r.step(SPAWN_INTERVAL_TICKS + 30);
     const parent = of(r.w, pent, 'chewer')[0]!;
-    damageEntity(r.w, { kind: 'creature', id: parent.id }, 1_000, 'aura', null);
+    damageEntity(r.w, { kind: 'creature', id: parent.id }, 1_000, 'aura', null, 'physical');
     r.step(2); // the split is queued and born after the sweep
     const children = [...r.w.creatures.values()].filter((c) => c.hellspawnGen === 1).map((c) => c.id);
     expect(children.length, 'anti-vacuity: the death split').toBe(2);

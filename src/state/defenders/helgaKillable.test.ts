@@ -115,9 +115,9 @@ describe('S158 P7 — damage', () => {
   it('⭐ subtracts from HELGA and reports the kill only on the blow that lands it', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL - 1, 'creature', null)).toBe(false);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL - 1, 'creature', null, 'physical')).toBe(false);
     expect(w.defenders.get(h.id)!.ehp).toBe(1);
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, 1, 'creature', null)).toBe(true);
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, 1, 'creature', null, 'physical')).toBe(true);
     // ⚠ S189 R190-J — RE-PINNED. This arm used to DELETE her. The owner ruled she comes back every
     // fight while her hall stands, so the record stays as her hall's identity: DORMANT, with no pool
     // (so nothing can target, raid or damage her) until the FIGHT→BUILD edge revives her.
@@ -129,7 +129,7 @@ describe('S158 P7 — damage', () => {
   it('⛔ a TOWER takes NOTHING and reports no kill, however hard it is hit', () => {
     const w = make1v1();
     const t = plant(w, 'turret', 1, 500, 500);
-    expect(damageEntity(w, { kind: 'defender', id: t.id }, 999_999, 'creature', null)).toBe(false);
+    expect(damageEntity(w, { kind: 'defender', id: t.id }, 999_999, 'creature', null, 'physical')).toBe(false);
     expect(w.defenders.has(t.id), 'towers still die by recipe-break, and by nothing else').toBe(true);
     expect(w.defenders.get(t.id)!.ehp).toBeNull();
   });
@@ -138,7 +138,7 @@ describe('S158 P7 — damage', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
     w.effects.length = 0;
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null, 'physical');
     expect(w.effects.filter((e) => e.kind === 'SEVER_ERASE')).toHaveLength(1);
   });
 
@@ -146,15 +146,15 @@ describe('S158 P7 — damage', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
     const anchorId = h.anchorPrimitiveId;
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null, 'physical');
     expect(w.primitives.has(anchorId), 'killing her must not punish the player\'s shapes too').toBe(true);
   });
 
   it('is idempotent on a defender already gone', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null);
-    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null)).toBe(false);
+    damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null, 'physical');
+    expect(damageEntity(w, { kind: 'defender', id: h.id }, HELGA_POOL, 'creature', null, 'physical')).toBe(false);
   });
 });
 
@@ -162,14 +162,14 @@ describe('S158 P7 — area damage reaches her again', () => {
   it('⭐ a blast in range hurts HELGA on the UNIT scale', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'distance');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL - 3);
   });
 
   it('⛔ the same blast does nothing to a TOWER — the S151 note still holds for towers', () => {
     const w = make1v1();
     const t = plant(w, 'turret', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'distance');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(t.id)!.ehp).toBeNull();
     expect(w.defenders.has(t.id)).toBe(true);
   });
@@ -177,14 +177,14 @@ describe('S158 P7 — area damage reaches her again', () => {
   it('a blast SPARES the owner\'s own princess', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 0, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'distance'); // spare = P0, who owns her
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance'); // spare = P0, who owns her
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 
   it('and one out of range is untouched', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 900, 900);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'distance');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P0, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 });
@@ -408,7 +408,7 @@ describe('S158 P7 — end to end, through the real host tick', () => {
     expect(perHit).toBeGreaterThan(0);
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    damageEntity(w, { kind: 'defender', id: h.id }, perHit, 'creature', null);
+    damageEntity(w, { kind: 'defender', id: h.id }, perHit, 'creature', null, 'physical');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL - perHit);
   });
 
@@ -446,7 +446,7 @@ describe('S158 P7 — end to end, through the real host tick', () => {
   it('CONTROL — P1 is spared by P1\'s own blast, so the spare is owner-scoped not seat-0-scoped', () => {
     const w = make1v1();
     const h = plant(w, 'princess', 1, 500, 500);
-    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P1, 'distance');
+    applyRadialDamage(w, 500, 500, 120, 10, 3, 'hazard', P1, 'physical', 'distance');
     expect(w.defenders.get(h.id)!.ehp).toBe(HELGA_POOL);
   });
 });

@@ -42,6 +42,9 @@ import { findAllVoltkinChains } from '../state/godlyRecipes/voltkin.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import { TOWER_SPRITE_ANCHOR, towerHpFrac, towerStateForHp } from './towerFrames.ts';
+import { fxActive, fxTop } from './fx/fxState.ts';
+import { fxSeed, fxSeedAt } from './fx/emitter.ts';
+import { tvCrackleFx } from './fx/lightningFx.ts';
 
 const ATLAS_BASE = '/art/voltkin-tv/voltkin-tv';
 
@@ -323,6 +326,23 @@ function voltkinEmergingTicksAt(world: World, cx: number, cy: number): number {
   return best;
 }
 
+/** ⭐ S193 (V07) — the crackle ring's radius, as a fraction of the TV's art height. ⚠ MINE. */
+const TV_CRACKLE_R_FRAC = 0.4;
+
+/**
+ * PURE — how hard the TV's screen crackles in a row (0 = not at all). ⚠ MINE: full while he climbs
+ * out (`spawning`), a little less on the `critical` beat before it blows, a faint spit on the
+ * explosion frames, and nothing on a set that is standing or already ruined. Exported for test.
+ */
+export function tvCrackleIntensity(row: TvRow): number {
+  switch (row) {
+    case 'spawning': return 1;
+    case 'critical': return 0.8;
+    case 'explosion': return 0.35;
+    default: return 0;
+  }
+}
+
 export class VoltkinTowerRenderer {
   readonly layer = new Container();
   private loadStarted = false;
@@ -559,6 +579,11 @@ export class VoltkinTowerRenderer {
        * put when `TV_ART_PX` is re-dialled.
        */
       sprite.y = tvSpriteY(row, cy + TV_ART_PX * 0.5);
+      // ⭐ S193 (V07) — the screen spits lightning while he climbs out and while the set is dying.
+      if (fxActive()) {
+        const crackle = tvCrackleIntensity(row);
+        if (crackle > 0) tvCrackleFx(fxTop(), cx, cy, TV_ART_PX * TV_CRACKLE_R_FRAC, fxSeed(Number(chain[0]), 0x7e1e), world.tick, crackle);
+      }
 
       /*
        * ⭐ Declared HERE, at the point the sprite is committed, and never re-derived inside
@@ -613,6 +638,10 @@ export class VoltkinTowerRenderer {
       sprite.height = TV_SPRITE_PX;
       sprite.x = ghost.x;
       sprite.y = tvSpriteY(ghostRow, ghost.y + TV_ART_PX * 0.5); // S178 — per-row foot, as the live site
+      if (fxActive()) {
+        const crackle = tvCrackleIntensity(ghostRow);
+        if (crackle > 0) tvCrackleFx(fxTop(), ghost.x, ghost.y, TV_ART_PX * TV_CRACKLE_R_FRAC, fxSeedAt(ghost.at, ghost.x, ghost.y), world.tick, crackle);
+      }
       live.add(key); // keep it off the reaper for one more frame
     }
 

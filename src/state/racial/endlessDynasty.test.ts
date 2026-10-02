@@ -57,7 +57,7 @@ function fightWorld(race: RaceId = 'mummies', picks: DraftPick[] = ['hp', 'racia
 
 /** One castle hit through the ONE castle-damage site, then the post-sweep drain. */
 function hitCastle(w: World, seat: PlayerId, amount: number): void {
-  damageEntity(w, { kind: 'castle', seat }, amount, 'creature', null);
+  damageEntity(w, { kind: 'castle', seat }, amount, 'creature', null, 'physical');
   drainRacialSpawnQueue(w);
 }
 
@@ -134,7 +134,7 @@ describe('ENDLESS DYNASTY — counting what the keep ACTUALLY lost', () => {
   it('A5 — the Pharaoh is QUEUED at the hit and born only at the drain', () => {
     const w = fightWorld();
     w.players.get(P0)!.dynastyHpLost = 990;
-    damageEntity(w, { kind: 'castle', seat: P0 }, 20, 'creature', null);
+    damageEntity(w, { kind: 'castle', seat: P0 }, 20, 'creature', null, 'physical');
     expect(pendingRacialSpawns(w)).toBe(1);
     expect(pharaohsOf(w)).toHaveLength(0);
     drainRacialSpawnQueue(w);

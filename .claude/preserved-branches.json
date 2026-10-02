@@ -1,5 +1,5 @@
 {
-  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S191: the eight S191 worktree branches carried to S192 (each has its worktree under .claude/worktrees/, a progress file and, where run, an audit in .claude/plans/S191_AUDIT_DIGEST.md; plan .claude/plans/S192_BACKLOG.md §A) + the Pitch Masters sessions' branches (another session's work; never touch). Delete an entry when its branch merges.",
+  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S193: three carried worktree branches (each has its worktree under .claude/worktrees/ + a progress file; plan .claude/plans/S194_BACKLOG.md §A) + the Pitch Masters sessions' branches (another project; never touch). Delete an entry when its branch merges.",
   "preserved": [
     {
       "branch": "pm-s2/arcade",
@@ -18,32 +18,16 @@
       "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
-      "branch": "s189/weld",
-      "reason": "S192 carried: round-5 fixes done, re-audit + SEAM-C7 + round 6 owed"
-    },
-    {
-      "branch": "s191/endstats",
-      "reason": "S192 carried: BLAST-2 + audit, merge late"
-    },
-    {
-      "branch": "s192/endgame",
-      "reason": "S192 carried: owner Qs + audit"
-    },
-    {
-      "branch": "s192/magic",
-      "reason": "S192 carried: merge master + re-tag + audit"
-    },
-    {
       "branch": "s192/teams",
-      "reason": "S192 carried: lands LAST"
+      "reason": "S193 carried — teams v1 round 2 done (5f8074e), lands LAST in S194 (S194_BACKLOG T1)"
     },
     {
-      "branch": "s192/units-ai",
-      "reason": "S192 carried: audit owed"
+      "branch": "s193/visuals-racial",
+      "reason": "S193 carried — visuals-3, needs the combined re-bench (S194_BACKLOG T2)"
     },
     {
-      "branch": "s192/zombies",
-      "reason": "S192 carried: audit owed, T3 pool awaiting owner"
+      "branch": "s193/mres-card",
+      "reason": "S193 carried — wave-26 MRES draft card, needs audit + art (S194_BACKLOG T3)"
     }
   ],
   "updated": "S192 2026-10-01"

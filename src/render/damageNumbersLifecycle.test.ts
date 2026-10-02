@@ -167,8 +167,11 @@ describe('S172 P5 — healing reads as healing', () => {
     // Same face, size and geometry means a heal landing in the same frame as a hit offsets by the
     // same row height instead of overlapping it.
     const s = src();
+    // ⭐ S192 — a THIRD style exists, the grey RESIST cue (same face, deliberately SMALLER, 14): so the
+    // damage/heal pair is still the only two at size 20, and face/weight now appear three times.
     expect((s.match(/fontSize: 20,/g) ?? []).length).toBe(2);
-    expect((s.match(/fontStyle: 'italic',/g) ?? []).length).toBe(2);
-    expect((s.match(/fontWeight: '900',/g) ?? []).length).toBe(2);
+    expect((s.match(/fontSize: 14,/g) ?? []).length).toBe(1);
+    expect((s.match(/fontStyle: 'italic',/g) ?? []).length).toBe(3);
+    expect((s.match(/fontWeight: '900',/g) ?? []).length).toBe(3);
   });
 });

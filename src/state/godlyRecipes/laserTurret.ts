@@ -30,7 +30,7 @@
  * ⚠ S189 C2 — THE "DIES AT SEVEN" HALF IS NOW TRUE ONLY OF BUILDING ONE. `stillValid` no longer calls
  * the exact predicate: a LIVE turret stands while its own six Spiral arms are contained, whatever is
  * welded on (`state/towerMembers.ts`). So a seventh Spiral bonded to a live turret's hub is a weld,
- * not a death — and stands in for an own arm if one is later cut. Ignition is unchanged: a Line of
+ * not a death — and it never stands in for a cut OWN arm (audit W1: no spare). Ignition is unchanged: a Line of
  * degree 7 still never BUILDS a turret, so "builds at six" holds and the copy migration still matters.
  *
  * Strictness (mirrors pentagram.ts's component-isolation predicate): componentOf follows EVERY

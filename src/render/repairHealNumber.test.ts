@@ -6,8 +6,12 @@
  *
  * Before S192 a repaired CONNECTOR printed nothing: a connector is a rising pool (`Bond.damageFifths`)
  * and `poolDelta` deliberately never reads a fall in one as a heal (a sever lowers banks too). Driven
- * for real: a real build, real connector damage, the real `REPAIR_STRUCTURE` through `dispatch`, into
- * the real `DamageNumbers` (only Pixi's `Text` is faked).
+ * for real: a real build, real connector damage, the real repair, into the real `DamageNumbers` (only
+ * Pixi's `Text` is faked).
+ *
+ * ⭐ S193 R191-B — RE-PINNED: `REPAIR_STRUCTURE` now QUEUES a gatherer job (the restore runs when the
+ * shapes arrive), so the instant-restore cases call `applyRepairStructure` — the restore they test —
+ * and a REACH case below finishes a real JOB through the host tick and reads the same green number.
  */
 import { describe, expect, it, vi } from 'vitest';
 
@@ -32,6 +36,12 @@ const { applyBuildBlueprint } = await import('../state/blueprintBuild.ts');
 const { makeCastleBank } = await import('../state/castleBank.ts');
 const { damageConnector } = await import('../state/damage.ts');
 const { runGodlyMatcherCore } = await import('../state/godlyMatcherCore.ts');
+const { applyRepairStructure } = await import('../state/structureRepair.ts');
+const { makeHostTickState, runHostTick } = await import('../state/hostTick.ts');
+const { makeGameStateExtras } = await import('../state/gameState.ts');
+const { castleAnchor, makeGatherer } = await import('../state/gatherers/gatherer.ts');
+const { asGathererId } = await import('../types.ts');
+const { GATHERER_DEPOSIT_OFFSET_Y } = await import('../constants.ts');
 const { DamageNumbers } = await import('./damageNumbers.ts');
 await import('../state/godlyRecipes/stinkTower.ts');
 await import('../state/godlyRecipes/laserTurret.ts');
@@ -70,12 +80,12 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐⭐ two chewed connectors: one green number equal to the banks the repair cleared', () => {
     const w = tower();
     const [b1, b2] = [...w.bonds.keys()];
-    expect(damageConnector(w, b1, 7, null)).toBe(false);
-    expect(damageConnector(w, b2, 5, null)).toBe(false);
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
     const dn: any = new DamageNumbers();
     dn.sync(w); // seed every watch
     const placed = recorder(dn);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
     for (const b of w.bonds.values()) expect(b.damageFifths, 'fixture: the repair landed').toBe(0);
     dn.sync(w);
     expect(placed.filter((p) => p.kind === 'heal')).toEqual([{ amount: 12, kind: 'heal' }]);
@@ -86,13 +96,13 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('⭐ a chipped shape AND a chewed connector: still ONE number, the sum — the shape does not print twice', () => {
     const w = tower();
     const b1 = [...w.bonds.keys()][0];
-    damageConnector(w, b1, 9, null);
+    damageConnector(w, b1, 9, null, 'physical');
     const shape = [...w.primitives.values()][1];
     shape.hp = PRIMITIVE_MAX_HP - 20;
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
     dn.sync(w);
     expect(placed).toEqual([{ amount: 29, kind: 'heal' }]);
   });
@@ -100,7 +110,7 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
   it('negative: a SEVER lowers banks and prints no green (poolDelta still never reads a rising fall)', () => {
     const w = tower();
     const ids = [...w.bonds.keys()];
-    for (const id of ids) damageConnector(w, id, 3, null);
+    for (const id of ids) damageConnector(w, id, 3, null, 'physical');
     const dn: any = new DamageNumbers();
     dn.sync(w);
     const placed = recorder(dn);
@@ -112,7 +122,54 @@ describe('S192 T11 — a repair prints ONE total green number (host)', () => {
 
   it('negative: a repair that restored nothing pushes no record', () => {
     const w = tower();
-    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
+    applyRepairStructure(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
     expect(w.structureHealHits).toEqual([]);
+  });
+});
+
+describe('⭐⭐ S193 R191-B × T11 — a repair JOB finished by a gatherer prints the same ONE green number', () => {
+  it('REACH (host tick): chew two connectors, FIX queues, the gatherer brings the fee Spiral, the turret heals — one green 12', () => {
+    const w: any = makeWorld(0x193f);
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    w.gameState = 'PLAYING';
+    w.matchPhase = 'BUILD';
+    w.phaseEndsAtTick = w.tick + 1_000_000;
+    w.creatures.clear();
+    w.freeSparks.clear();
+    w.gatherers.clear();
+    const bank = makeCastleBank();
+    for (const [type, count] of blueprintBill('laserTurret')) bank[type as number] = (bank[type as number] ?? 0) + count;
+    w.castleBanks.set(P0, bank);
+    applyBuildBlueprint(w, { type: 'BUILD_BLUEPRINT', playerId: P0, blueprintId: 'laserTurret', centre: { x: 500, y: 300 } });
+    const deps: any = {
+      spawner: { tick() {} }, controls: { state: { kind: 'Idle' }, applyPerSubstep() {} }, botManager: null,
+      gameStateExtras: makeGameStateExtras(), alivePeerIds: null, hostSeats: new Map(),
+    };
+    const st = makeHostTickState(w);
+    const cursor = { lastMatcherTick: -1 };
+    const step = (): void => { runHostTick(w, deps, st); runGodlyMatcherCore(w, cursor); w.effects.length = 0; w.creatures.clear(); };
+    for (let i = 0; i < 3; i++) step();
+    expect(w.defenders.size, 'fixture: the turret stands').toBe(1);
+    const [b1, b2] = [...w.bonds.keys()];
+    expect(damageConnector(w, b1, 7, null, 'physical')).toBe(false);
+    expect(damageConnector(w, b2, 5, null, 'physical')).toBe(false);
+    w.castleBanks.set(P0, makeCastleBank());
+    w.castleBanks.get(P0)[SparkType.Spiral as number] = 1; // R182-E: a dent costs one shape — the turret's Spiral
+    const c = castleAnchor(0, w.layout);
+    const gid = asGathererId(w.nextGathererId++);
+    w.gatherers.set(gid, makeGatherer({ id: gid, ownerPlayerId: P0, pos: { x: c.x, y: c.y + GATHERER_DEPOSIT_OFFSET_Y }, spawnedAtTick: 0 }));
+    const dn: any = new DamageNumbers();
+    dn.sync(w);
+    const placed = recorder(dn);
+    dispatch(w, { type: 'REPAIR_STRUCTURE', playerId: P0, primitiveId: seed(w) });
+    expect(w.repairJobs, 'the FIX queued a job').toHaveLength(1);
+    dn.sync(w);
+    expect(placed, 'nothing heals at the click').toEqual([]);
+    let ticks = 0;
+    while (w.repairJobs.length > 0 && ticks < 4000) { step(); dn.sync(w); ticks++; }
+    expect(w.repairJobs, 'the gatherer finished the job').toHaveLength(0);
+    expect(ticks, 'it took a walk, not a click').toBeGreaterThan(1);
+    for (const b of w.bonds.values()) expect(b.damageFifths).toBe(0);
+    expect(placed.filter((p) => p.kind === 'heal')).toEqual([{ amount: 12, kind: 'heal' }]);
   });
 });

@@ -140,9 +140,15 @@ export function seatFeedTowerAt(
    * spawner in it. Now two welded bat towers are one component, and taking the first in `Map`
    * order would offer FEED for whichever registered first — not the one clicked, and not the same
    * answer on a peer that rebuilt the map in another order. So: the tower whose OWN members hold
-   * the clicked shape wins; otherwise the lowest spawner id.
+   * the clicked shape wins (lowest spawner id among them).
+   *
+   * ⭐ S191 R191-A — AND ONLY THAT TOWER. *"When you click on the tower that's connected within the
+   * welded shape, you can only see the tower with its stats"* — its own FIX / SCRAP / FEED. The old
+   * "otherwise the lowest spawner id" fallback put a welded goblin tower's FEED row on the TURRET's
+   * card and on the free-form weld's card. In an UN-welded structure every shape is the tower's own,
+   * so nothing changes there.
    */
-  let best: { id: SpawnerId; recipeId: GodlyId; owns: boolean } | null = null;
+  let best: { id: SpawnerId; recipeId: GodlyId } | null = null;
   for (const sp of world.creatureSpawners.values()) {
     if (sp.ownerPlayerId !== seat) continue;
     if (!comp.primitiveIds.has(sp.anchorPrimitiveId)) continue;
@@ -151,14 +157,8 @@ export function seatFeedTowerAt(
     // ⭐ S189 C2 — the SURVIVAL test (contains), so a welded tower can still be fed.
     const own = towerMembersAt(world, sp.recipeId, sp.anchorPrimitiveId);
     if (own === null || !own.whole) continue;
-    const owns = own.prims.includes(primitiveId);
-    if (
-      best === null ||
-      (owns && !best.owns) ||
-      (owns === best.owns && Number(sp.id) < Number(best.id))
-    ) {
-      best = { id: sp.id, recipeId: sp.recipeId, owns };
-    }
+    if (!own.prims.includes(primitiveId)) continue; // S191 R191-A — its OWN shape, or not its card
+    if (best === null || Number(sp.id) < Number(best.id)) best = { id: sp.id, recipeId: sp.recipeId };
   }
   return best === null ? null : { id: best.id, recipeId: best.recipeId };
 }

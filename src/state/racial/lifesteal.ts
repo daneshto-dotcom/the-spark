@@ -63,7 +63,7 @@ import { creatureMaxEhp, noteCreatureHeal } from '../creatures/creature.ts';
 import type { DraftPick } from '../draft.ts';
 import type { RaceId } from '../races.ts';
 import type { World } from '../worldTypes.ts';
-import type { CreatureId, DefenderId } from '../../types.ts';
+import type { CreatureId, DefenderId, PlayerId } from '../../types.ts';
 
 /** ⭐ OWNER, S187 — BLOOD DEBT: *"They will heal 20% of each damage output."* */
 export const BLOOD_DEBT_LIFESTEAL_PCT = 20;
@@ -75,6 +75,9 @@ export const CRIMSON_TIDE_LIFESTEAL_PCT = 50;
 type Attacker =
   | { readonly kind: 'creature'; readonly id: CreatureId }
   | { readonly kind: 'defender'; readonly id: DefenderId }
+  // ⭐ S191 — a seat with no entity (castle gun, raid, a named blast): the stat board's credit only. Heals
+  // nobody, by the `kind !== 'creature'` early return below — exactly what `null` did at those sites.
+  | { readonly kind: 'seat'; readonly seat: PlayerId }
   | null;
 
 /**

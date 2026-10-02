@@ -1,0 +1,178 @@
+diff --git a/.claude/session-state.json b/.claude/session-state.json
+index e1b76e8..274bdcf 100644
+--- a/.claude/session-state.json
++++ b/.claude/session-state.json
+@@ -1,5 +1,5 @@
+ {
+-  "tool_calls_session_total": 659,
++  "tool_calls_session_total": 702,
+   "session_id": "S172",
+   "session_kind": "batch",
+   "session_start": "2026-09-10T13:00:00+02:00",
+diff --git a/src/constants.ts b/src/constants.ts
+index e589ec9..2f155db 100644
+--- a/src/constants.ts
++++ b/src/constants.ts
+@@ -1396,7 +1396,7 @@ export const GOBLIN_MAX_PER_SPAWNER = 10;
+  * ⚠ R135 gives the TIER-3 TOWER's output varied stats. That is a DIFFERENT population (R134) and a
+  * different unit, and its numbers are NOT ruled — nothing here applies to it.
+  */
+-export const RACE_UNIT_HP = 1;
++export const RACE_UNIT_HP = 8;
+ export const RACE_UNIT_DEF = 1;
+ export const RACE_UNIT_ATK = 1;
+ export const RACE_UNIT_PEN = 1;
+@@ -1447,17 +1447,17 @@ export const RACE_UNIT_PEN = 1;
+  */
+ export const T3_STATS = {
+   /** Zombies — R99's NUMBERS pole: cheapest to trade, fastest, dies easily. */
+-  hound: { hp: 2, def: 0, atk: 2, pen: 0, speedMul: 1.15 },
++  hound: { hp: 5, def: 0, atk: 2, pen: 0, speedMul: 1.15 },
+   /** Mummies — R99's DURABILITY pole: tankiest of the six and the slowest. */
+-  scarab: { hp: 4, def: 2, atk: 1, pen: 0, speedMul: 0.75 },
++  scarab: { hp: 11, def: 2, atk: 1, pen: 0, speedMul: 0.75 },
+   /** Nagas — mid HP, pen over raw damage: it bites through armour rather than out-hitting. */
+-  piranha: { hp: 3, def: 0, atk: 2, pen: 1, speedMul: 1.05 },
++  piranha: { hp: 10, def: 0, atk: 2, pen: 1, speedMul: 1.05 },
+   /** Vampires — fast and fragile, the flier's trade. */
+-  bat: { hp: 2, def: 0, atk: 2, pen: 1, speedMul: 1.2 },
++  bat: { hp: 5, def: 0, atk: 2, pen: 1, speedMul: 1.2 },
+   /** Orcs — the heavy: highest ATK of the six, paid for in speed. R116's twin-axe warband grunt. */
+-  warband: { hp: 4, def: 1, atk: 3, pen: 1, speedMul: 0.85 },
++  warband: { hp: 8, def: 1, atk: 3, pen: 1, speedMul: 0.85 },
+   /** Demons — the armour-ignorer: highest PEN, middling everything else. A drifting soul eater. */
+-  souleater: { hp: 3, def: 1, atk: 2, pen: 2, speedMul: 1.0 },
++  souleater: { hp: 8, def: 1, atk: 2, pen: 2, speedMul: 1.0 },
+ } as const;
+ 
+ /* ═══════════════════════════════════════════════════════════════════════════════
+@@ -1574,17 +1574,17 @@ export const T9_RELEASE_DELAY_TICKS = 5 * PHYSICS_HZ;
+  */
+ export const T9_BOSS_STATS = {
+   /** Vampires — Vlad. IMPERIAL: *"threat is authority rather than bulk"* — least durable, hits hardest. */
+-  vampires: { hp: 10, def: 4, atk: 10, pen: 10, speedMul: 0.95 },
++  vampires: { hp: 20, def: 4, atk: 10, pen: 10, speedMul: 0.95 },
+   /** Nagas — the Kraken. MONSTROUS: *"threat is sheer size"* — the HP pole, and the slowest. */
+-  nagas: { hp: 12, def: 6, atk: 7, pen: 8, speedMul: 0.65 },
++  nagas: { hp: 24, def: 6, atk: 7, pen: 8, speedMul: 0.65 },
+   /** Mummies — the Pharaoh. ANCIENT & CURSED: *"dread rather than aggression"* — the armour pole. */
+-  mummies: { hp: 11, def: 8, atk: 6, pen: 8, speedMul: 0.75 },
++  mummies: { hp: 22, def: 8, atk: 6, pen: 8, speedMul: 0.75 },
+   /** Zombies — the bloated brute. DISGUSTING: *"body horror and bloat"* — bulk, the softest hitter's PEN. */
+-  zombies: { hp: 12, def: 5, atk: 8, pen: 8, speedMul: 0.8 },
++  zombies: { hp: 24, def: 5, atk: 8, pen: 8, speedMul: 0.8 },
+   /** Orcs — the Warlord. BRUTAL: *"earned violence"* — the balanced fighter, no weakness to exploit. */
+-  orcs: { hp: 11, def: 6, atk: 8, pen: 9, speedMul: 0.9 },
++  orcs: { hp: 22, def: 6, atk: 8, pen: 9, speedMul: 0.9 },
+   /** Demons — the Archdemon. VICIOUS: *"active cruelty"* — highest PEN; armour is no defence. */
+-  demons: { hp: 10, def: 4, atk: 9, pen: 10, speedMul: 1.0 },
++  demons: { hp: 20, def: 4, atk: 9, pen: 10, speedMul: 1.0 },
+ } as const;
+ 
+ /**
+@@ -1673,7 +1673,7 @@ export const RACE_UNIT_MAX_PER_SEAT = 10_000;
+  * and it is real: see `Bond.damageFifths`. A constant that reads like the mechanism but drives
+  * nothing is how the S137 "5% per tick" footgun happened; this one is replaced rather than renamed.
+  */
+-export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid / Voltkin / laser / slap)
++export const CHEWER_HP = 10; // ⭐ S172 stat protocol: 1 → 10. Pool 50 ≡ a standard grunt (was 5).
+ /**
+  * ⭐ S150 R71 — 2 → 8. THE GODLY CREATURE WAS THREE TIMES FLIMSIER THAN A GRUNT.
+  *
+@@ -1694,7 +1694,11 @@ export const CHEWER_HP = 1; // a pencil chewer dies in 1 single-target hit (raid
+  * it: a v27 peer would give a freshly-spawned Voltkin 2 hp while a v28 host gives it 8, and the two
+  * would disagree about when it dies. See the 27→28 entry in `net/protocol.ts`.
+  */
+-export const VOLTKIN_HP = 8; // a godly Voltkin takes 3 HELGA slaps — tougher than a goblin (6)
++export const VOLTKIN_HP = 8; // ⛔ PINNED BY R78 — DO NOT RETUNE. The S172 protocol wanted 10 (TANK,
++// pool 80), but R78 is a PUBLISHED KILL TABLE: *"seven raids kill a voltkin"*. Raid damage is
++// attackFifths(RAID_ATK 2, RAID_PEN 0) = 10, and ceil(64/10) = 7 while ceil(80/10) = 8. Raising his
++// HP by two silently rewrites a number the owner published. His pool of 64 already sits at 5.3
++// goblin swings against the protocol's 6.4 target, so the ruling costs almost nothing to honour.
+ /* ────────────────────────────────────────────────────────────────────────────────────────────── *
+  *  ⭐ S151 P2 — THE OWNER'S UNIT STAT TABLE (R77), TRANSCRIBED
+  * ────────────────────────────────────────────────────────────────────────────────────────────── *
+@@ -1723,7 +1727,7 @@ export const GOBLIN_MELEE_DEF = 2;
+  *  and 0 pierce in an area of effect."
+  * The melee goblin's numbers live above with GOBLIN_MELEE_HP — it predates the tower. */
+ /** ARCHER (Line) — the ranged goblin. Trades toughness for reach and penetration. */
+-export const GOBLIN_ARCHER_HP = 1;
++export const GOBLIN_ARCHER_HP = 8;
+ export const GOBLIN_ARCHER_DEF = 1;
+ export const GOBLIN_ARCHER_ATK = 2;
+ export const GOBLIN_ARCHER_PEN = 2;
+@@ -1873,8 +1877,15 @@ export const CASTLE_ATTACK_RANGE = 300; // px — Q3. Shorter than the laser tur
+  * does NOT one-shot a shield goblin (16). A castle punishes leakers and loses to a real push, which
+  * is the shape the owner asked for.
+  */
+-export const CASTLE_ATK = 1;
+-export const CASTLE_PEN = 3;
++// ⭐⭐ S172 OWNER RULING — THE CASTLE HITS LIKE A CASTLE.
++// *"the castle should have ... twenty five attack and five penetration ... it attacks pretty slowly,
++// so it's fine. That way it kills a lot of things with one hit, but not [bosses]."*
++// 25 x (1 + 0.2*5) = 50, x5 = 250 stored. Against the S172 roster that one-shots every grunt
++// (pools 25-80) and takes 2 hits on the toughest boss (286) — exactly the shape he described.
++// ⚠ He said "fifty damage points" while giving 25/5; 25 x 2.0 = 50 is the POINTS reading and 250
++//   is the stored x5. The STATS were unambiguous, so the stats are what is implemented.
++export const CASTLE_ATK = 25;
++export const CASTLE_PEN = 5;
+ /**
+  * ⭐ NO STORED TIMER, AND THAT IS THE DESIGN — the castle's fire schedule is a pure function of
+  * `world.tick` and the seat index: it fires when `world.tick % interval === seat % interval`.
+@@ -1970,17 +1981,17 @@ export const GOBLIN_DAMAGE_VS_CASTLE = 6;
+ export const GOBLIN_TOWER_HUB_DEGREE = 4;
+ export const GOBLIN_TOWER_SIZE = GOBLIN_TOWER_HUB_DEGREE + 1; // 1 Circle hub + 4 leaves = 5
+ /** SHIELD (Square) — the wall. Highest DEF in the game; barely hits anything. */
+-export const GOBLIN_SHIELD_HP = 2;
++export const GOBLIN_SHIELD_HP = 10;
+ export const GOBLIN_SHIELD_DEF = 3;
+ export const GOBLIN_SHIELD_ATK = 1;
+ export const GOBLIN_SHIELD_PEN = 0;
+ /** HOUND (Circle) — the glass sprinter. Top goblin ATK, no defence at all. */
+-export const GOBLIN_HOUND_HP = 1;
++export const GOBLIN_HOUND_HP = 5;
+ export const GOBLIN_HOUND_DEF = 0;
+ export const GOBLIN_HOUND_ATK = 3;
+ export const GOBLIN_HOUND_PEN = 2;
+ /** BAT RIDER (Spiral) — the owner's "flying goblin". Low ATK, but the highest PEN on a goblin. */
+-export const GOBLIN_BAT_HP = 2;
++export const GOBLIN_BAT_HP = 5;
+ export const GOBLIN_BAT_DEF = 0;
+ export const GOBLIN_BAT_ATK = 1;
+ export const GOBLIN_BAT_PEN = 3;
+@@ -1999,7 +2010,7 @@ export const GOBLIN_BAT_PEN = 3;
+  * this note predicted — `suicideBlast.ts`'s shape, reused — while keeping its unconditional
+  * 3-connector sever, because that count is a separate owner ruling. See `DRONE_ATK` below.
+  */
+-export const GOBLIN_SUICIDE_HP = 2;
++export const GOBLIN_SUICIDE_HP = 5;
+ export const GOBLIN_SUICIDE_DEF = 0;
+ export const GOBLIN_SUICIDE_ATK = 4;
+ export const GOBLIN_SUICIDE_PEN = 0;
+@@ -2032,7 +2043,7 @@ export const GOBLIN_SUICIDE_BLAST_RADIUS = 70;
+  * balance regression, no owner ruling needed, and the drone is strictly better against armies and
+  * shapes than it was — which IS a buff to feel, on top of P9's 9-per-fight.
+  */
+-export const DRONE_HP = 2;
++export const DRONE_HP = 5;
+ export const DRONE_ATK = 5;
+ export const DRONE_PEN = 1;
+ export const DRONE_DEF = 0;
+@@ -2420,7 +2431,7 @@ export const ZOMBIE_AURA_RADIUS = 170;
+  * its damage. That is a strong summon and it is meant to be; he built the Warlord as the balanced
+  * fighter with no weakness.
+  */
+-export const DIREWOLF_STATS = { hp: 3, def: 3, atk: 3, pen: 3 } as const;
++export const DIREWOLF_STATS = { hp: 10, def: 3, atk: 3, pen: 3 } as const;
+ export const DIREWOLF_SUMMON_COUNT = 3;
+ export const DIREWOLF_SUMMON_INTERVAL_TICKS = 15 * PHYSICS_HZ;
+ 
+@@ -2822,7 +2833,7 @@ export const GOBLIN_DAMAGE_VS_PRIMITIVE = 167; // 6 × 167 = 1002 ≥ PRIMITIVE_
+  * Now an HP POINT on the shared 1..12 ladder (`state/stats.ts`), not a private hit count: with DEF 0
+  * its pool is 1 × (5+0) = 5 fifths, identical to a chewer's, which is exactly what R70 asked for.
+  */
+-export const GOBLIN_MELEE_HP = 1; // R70 — as fragile as a chewer (was 6, and was the damage backbone)
++export const GOBLIN_MELEE_HP = 7; // R70 — as fragile as a chewer (was 6, and was the damage backbone)
+ export const GOBLIN_ATTACK_CADENCE_TICKS = 60; // 1 s per swing — the Voltkin ATTACKING→SEEKING bounce
+ export const GOBLIN_ATTACK_FIRE_TICK = 30; // damage lands mid-cycle (Voltkin's shipped fire tick)
+ export const GOBLIN_ATTACK_RANGE = 35; // true melee — same as the chewer, closes onto its target

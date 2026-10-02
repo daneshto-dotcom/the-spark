@@ -202,7 +202,10 @@ export function applyPullFromBank(world: World, action: PullFromBankAction): Wor
   // Occupancy is tested against EVERY spark, not just this seat's — a stray spark that drifted onto
   // the porch still physically occupies the spot, and minting into it is the bug being prevented.
   const occupied = [...world.freeSparks.values()].map((s) => s.pos);
-  const slotIndex = firstFreePorchSlot(seat, occupied, world.layout);
+  // ⭐ S193 P3-1 — and every BUILT shape: a slot a tower covers is skipped, never minted into (the
+  // protection the S191 porch build-discs gave, moved here so the castle keep-out can be uniform).
+  const built = [...world.primitives.values()].map((p) => p.pos);
+  const slotIndex = firstFreePorchSlot(seat, occupied, world.layout, built);
   if (slotIndex === null) return world; // porch full → the shape stays in the inventory
   // Spend FIRST: if the seat holds none of this type there is nothing to mint and nothing changed.
   if (!bankRemove(world.castleBanks, action.playerId, action.sparkType)) return world;
@@ -412,7 +415,7 @@ const distSq = (a: Vec2, b: Vec2): number => {
 };
 
 /** True iff this spark is a legal quarry: Free, not already escrowed, and inside the spawn zone. */
-function isHarvestable(s: Spark): boolean {
+export function isHarvestable(s: Spark): boolean {
   if (s.state.kind !== 'Free' || s.escrow !== undefined) return false;
   return (
     distSq(s.pos, { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y }) <= SPAWNER_RADIUS * SPAWNER_RADIUS
@@ -471,7 +474,7 @@ export function pickGathererTarget(world: World, g: Gatherer): SparkId | null {
 }
 
 /** Move `g` toward `to`, capped at its speed. Returns true once it has ARRIVED (within reach). */
-function stepToward(g: Gatherer, to: Vec2, reach: number): boolean {
+export function stepToward(g: Gatherer, to: Vec2, reach: number): boolean {
   const dx = to.x - g.pos.x;
   const dy = to.y - g.pos.y;
   const d = Math.sqrt(dx * dx + dy * dy);
@@ -506,6 +509,8 @@ export function applyGathererTick(world: World, action: GathererTickAction): Wor
   // (R6/R12) and are released by `releaseShelteredGatherers` at the next BUILD edge. Placed FIRST
   // so no later branch can move, retarget or re-cargo a unit that is supposed to be off the field.
   if (g.state === 'SHELTERED') return world;
+  // ⭐ S193 R191-B — a FIX job holder is driven by `repairJobs.tickRepairJobs`, not by the haul cycle.
+  if (g.repairTask !== null) return world;
 
   /*
    * ⭐ S161 P2 (owner R127) — **THE ECONOMY GATE. THIS LINE IS THE RULING.**
@@ -699,6 +704,17 @@ export function tickGathererShelter(world: World): void {
     const g = world.gatherers.get(id);
     if (g === undefined || g.state === 'SHELTERED') continue;
 
+    /*
+     * ⭐ S193 R191-B — a FIX shape IN HAND stays in hand: *"a repair in flight at FIGHT waits in the
+     * castle with the shape and lands next BUILD"*. One not yet picked up is open again (first in line),
+     * so the next BUILD can hand it to whoever is nearest.
+     */
+    const task = g.repairTask;
+    if (task !== null && !task.carrying) {
+      const job = world.repairJobs.find((j) => j.id === task.jobId);
+      if (job !== undefined) job.need.unshift(task.type);
+      g.repairTask = null;
+    }
     // Carrying something? It comes in with them. Same path an ordinary arrival takes.
     if (g.carriedSparkId !== null) {
       const carried = world.freeSparks.get(g.carriedSparkId);
@@ -750,4 +766,7 @@ export function teardownGatherers(world: World): void {
   // S141 P2 — the order queues tear down with the units they instruct. A queue that outlived its
   // gatherers would be a standing instruction to nobody, and would leak across matches.
   world.gathererOrders.clear();
+  // S193 R191-B — and the FIX queue: a job is an instruction to the same units.
+  world.repairJobs = [];
+  world.nextRepairJobId = 0;
 }

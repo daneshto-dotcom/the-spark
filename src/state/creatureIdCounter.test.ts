@@ -97,7 +97,7 @@ function boardWithDeadHighestId(): { w: World; low: CreatureId; dead: CreatureId
   if (w.creatures.has(dead)) throw new Error('fixture: the castle gun never killed the goblin');
   // Units the castles emitted while we waited are above `dead`; kill them the ordinary way.
   for (const id of [...w.creatures.keys()]) {
-    if ((id as number) > (low as number)) damageEntity(w, { kind: 'creature', id }, 1_000_000, 'player', null);
+    if ((id as number) > (low as number)) damageEntity(w, { kind: 'creature', id }, 1_000_000, 'player', null, 'physical');
   }
   if (!w.creatures.has(low)) throw new Error('fixture: the low-id goblin must still be alive');
   if (w.creatures.size !== 1) throw new Error('fixture: only the low-id goblin should survive');
