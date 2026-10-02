@@ -29,7 +29,8 @@ import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
-import { reconcileLobbySeats, buildMatchRoster } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildMatchRoster, withTeams, arrangeRosterForTeams } from './lobbyRoster.ts';
+import { sessionTeamsPlayable } from './quickmatchGate.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
@@ -38,7 +39,7 @@ import { stampOrReject } from './intentStamp.ts';
 import type { IntentRateLimiter } from './intentRateLimiter.ts';
 import { asPlayerId, type PlayerId } from '../types.ts';
 import { PLAYER_COLORS, MAX_PLAYERS } from '../constants.ts';
-
+
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
 /**
  * S53 P1 — shared helper for symmetric protocol-mismatch UX text. Both
@@ -405,6 +406,16 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
        * happened to shake a beacon loose. It is also how a REFUSED claim corrects the claimer: there
        * is no reply message, so the presence beacon carrying the host's unchanged view IS the "no".
        */
+      // ⭐ S192 (owner R192-T4) — A JOINER PICKS ITS TEAM. The CLAIM_RACE twin: by transport peerId,
+      // LOBBY only, answered by the presence beacon. Any team is free — teams are not exclusive.
+      if (msg.kind === 'CLAIM_TEAM' && deps.world.gameState === 'LOBBY') {
+        if (msg.team === null) deps.session.teamByPeer.delete(peerId);
+        else deps.session.teamByPeer.set(peerId, msg.team);
+        broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
+        // ⭐ S193 (audit F2) — a pick that turns a one-team (refused) quickmatch room into two sides must
+        // RE-ARM the all-ready gate: readiness did not change, so nothing else would fire it again.
+        maybeQmAutoBegin(deps.session, deps.onAutoBegin);
+      }
       if (msg.kind === 'CLAIM_RACE' && deps.world.gameState === 'LOBBY') {
         if (raceIsFree(deps.session, msg.raceId, peerId)) {
           deps.session.raceByPeer.set(peerId, msg.raceId);
@@ -529,14 +540,26 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // byte-identical to the preview when no hole persisted to Begin. hostSeats freezes
     // from the DENSE roster so anti-spoof intent stamping keys peerId→in-game seat.
     deps.session.lobbySeats = reconcileLobbySeats(deps.session.lobbySeats, allPeers);
+    // ⭐ S194 (audit LOW-3, teams spec Q2) — THE TWO-SIDES GATE, RE-ASKED ON THE RECONCILED SEATS. main.ts asks
+    // `sessionTeamsPlayable` before calling Begin, but against the PRE-reconcile `lobbySeats`: a peer that left
+    // between the click and here (T1 / T1 / T2 with the T2 peer gone) let a ONE-team room start. The answer must
+    // come from the seats this Begin will actually roster. Refused ⇒ nothing is sent and the room stays LOBBY.
+    if (!sessionTeamsPlayable(deps.session)) return;
     // ⭐ S161 P6 — the lobby's claims become the MATCH's races. `buildMatchRoster` reads them by
     // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
-    const roster = buildMatchRoster(
-      deps.session.lobbySeats,
+    // ⭐ S192 — and the lobby's TEAM picks, then the side-by-side seating (`arrangeRosterForTeams`). Both
+    // before `hostSeats` freezes below, so intent stamping keys every peer to its FINAL seat.
+    const roster = arrangeRosterForTeams(withTeams(
+      buildMatchRoster(
+        deps.session.lobbySeats,
+        selfId,
+        deps.session.raceByPeer,
+        deps.session.selfRace ?? undefined,
+      ),
+      deps.session.teamByPeer,
+      deps.session.selfTeam,
       selfId,
-      deps.session.raceByPeer,
-      deps.session.selfRace ?? undefined,
-    );
+    ));
     const seatedRemotes = roster.length - 1;
     if (allPeers.length > seatedRemotes) {
       console.warn(
@@ -609,7 +632,8 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       // ⛔ W1-A (S160) — `raceId` MUST be carried here. tsc will NOT complain if it is dropped,
       // because the target field is optional — the spec calls this projection and its twin in
       // clientHandlers the single likeliest place for the whole feature to half-land.
-      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId })),
+      // ⭐ S192 — and the team, the same optional-field trap: drop it and the host plays free-for-all.
+      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team })),
     });
   } finally {
     deps.session.beginInFlight = false;

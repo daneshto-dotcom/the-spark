@@ -53,6 +53,7 @@ import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
 import { SPAWNER_RADIUS } from '../constants.ts';
 import type { GameAction, World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
 import { botConfigFor, type BotConfig } from './botConfig.ts';
 import { chooseBuildPos, chooseGoal, personaOf, raidTargetSeat, type BotGoal } from './botBrain.ts';
@@ -726,7 +727,7 @@ export class BotController {
 function nearestEnemyPrimPos(world: World, seat: PlayerId, from: Vec2): Vec2 | null {
   let best: { x: number; y: number; d: number } | null = null;
   for (const prim of world.primitives.values()) {
-    if (prim.placedBy === seat) continue;
+    if (sameTeam(world, prim.placedBy, seat)) continue; // S192 — nor a teammate's
     const dx = prim.pos.x - from.x;
     const dy = prim.pos.y - from.y;
     const d = dx * dx + dy * dy;

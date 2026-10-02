@@ -19,6 +19,7 @@ import {
   SCORE_TIER_STEP,
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
+import { TEAM_COUNT, teamOf } from '../state/teams.ts';
 import { asPlayerId } from '../types.ts';
 import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, megaPantsAtElapsed, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
 import { MONSTER_FINAL_WAVE } from '../constants.ts';
@@ -1147,7 +1148,11 @@ export class HUD {
       const winnerPid = world.lastWinnerId ?? asPlayerId(0);
       const winner = world.players.get(winnerPid);
       // S87 — a bot victory says so (rub it in / soothe accordingly).
-      const winLabel = isNetworked(world) && winner !== undefined
+      // ⭐ S192 — with teams on, the SIDE wins: "TEAM 2 WINS" (the lobby's 1-based number). A seat that
+      // picked no team (alone on its side) keeps its PLAYER/BOT label.
+      const winLabel = isNetworked(world) && winner !== undefined && world.teams !== undefined && teamOf(world, winnerPid) < TEAM_COUNT
+        ? `TEAM ${teamOf(world, winnerPid) + 1} WINS`
+        : isNetworked(world) && winner !== undefined
         ? world.botSeats.has(winnerPid)
           ? `BOT ${winnerPid + 1} WINS`
           : `PLAYER ${winnerPid + 1} WINS`

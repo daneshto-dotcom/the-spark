@@ -134,6 +134,20 @@ export interface World {
    * Host-authoritative. A client NEVER computes this; it reads it from the snapshot.
    */
   layout: ZoneLayout;
+  /**
+   * ⭐⭐ S192 (owner R192-T1..T4) — **WHO IS ON WHOSE SIDE.** `teams[seat]` is that seat's team
+   * (0..3). **`undefined` IS THE FREE-FOR-ALL** — every seat its own side — and it is what every match
+   * had before S192, so an FFA world is byte-identical (no key on the wire, no part in the hash).
+   *
+   * Read ONLY through `state/teams.ts` (`sameTeam` / `isEnemySeat` / `sameTeamColor`) — see that file
+   * for the site census. Stamped ONCE by `applyStartGame` from the host's roster (`normalizeTeams`),
+   * cleared by RETURN_TO_TITLE, and like `layout` above never written while a match runs.
+   *
+   * ⛔ HASHED and on the snapshot (so the wire, the worker INIT and a promoted successor all carry it):
+   * every targeting site reads it, so two sims that disagreed about it would diverge on the first blow.
+   * A rule both peers compute — the PROTOCOL bump is owed at merge (spec §d).
+   */
+  teams?: readonly number[];
   /** Monotonic counter for primitive IDs. */
   nextPrimitiveId: number;
   /** Monotonic counter for bond IDs. */

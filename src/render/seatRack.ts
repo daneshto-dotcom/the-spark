@@ -34,8 +34,13 @@ import { getSeatRect, SEAT_H, SEAT_W } from './lobbyGeometry.ts';
 import type { SeatView } from './lobbyStateMachine.ts';
 import { RACE_BANNER_SRC, seatRaceLabel } from './raceBanners.ts';
 import type { RaceId } from '../state/races.ts';
+import { teamChipLabel } from '../state/teams.ts';
+import { teamChipColor } from './teamChip.ts';
 // ⭐ S194 — your own seat (the race-picker opener) answers the pointer like every other button.
 import { attachChipHover } from './uiSkinButton.ts';
+import { skinButtonFx } from './uiSkin.ts';
+/** ⭐ S194 — the seat TEAM chip's plate, which is also its hit (its Graphics child IS its bounds). */
+export const SEAT_TEAM_CHIP_RECT = { x: 0, y: 0, w: 56, h: 32 } as const;
 
 const EMPTY_OUTLINE = 0x555555;
 const EMPTY_GLYPH = 0x777777;
@@ -132,6 +137,10 @@ interface SeatCell {
   /** S89 P1 — quickmatch READY tick, top-right of the cell (dark for guaranteed
    *  contrast on every bright PLAYER_COLOR swatch, same rationale as the label). */
   readonly readyTick: Text;
+  /** ⭐ S192 (R192-T4) — the TEAM chip, top-left; a button on your own seat only. */
+  readonly teamChip: Container;
+  readonly teamBg: Graphics;
+  readonly teamText: Text;
   occupied: boolean;
   animKind: SeatAnimKind | null;
   animStartMs: number;
@@ -164,7 +173,11 @@ function bannerTexture(raceId: RaceId): Texture | null {
   return null;
 }
 
-export function makeSeatRack(onSeatClick?: (seatIndex: number) => void): SeatRackHandle {
+export function makeSeatRack(
+  onSeatClick?: (seatIndex: number) => void,
+  /** ⭐ S192 — your own seat's TEAM chip was clicked (the caller cycles the pick). */
+  onTeamClick?: (seatIndex: number) => void,
+): SeatRackHandle {
   const container = new Container();
   const cells: SeatCell[] = [];
   let baselineSet = false;
@@ -243,8 +256,29 @@ export function makeSeatRack(onSeatClick?: (seatIndex: number) => void): SeatRac
     cell.on('pointertap', () => {
       if (cell.eventMode === 'static') onSeatClick?.(i);
     });
+    // ⭐ S192 (R192-T4) — the TEAM chip. Its own tap STOPS PROPAGATION, so picking a team never also
+    // opens the race menu the tile itself opens.
+    const teamChip = new Container();
+    teamChip.position.set(14, 10);
+    const teamBg = new Graphics();
+    const teamText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 18, fontWeight: 'bold', fill: LABEL_FILL }),
+    });
+    teamText.anchor.set(0.5);
+    teamText.position.set(28, 16);
+    teamChip.addChild(teamBg, teamText);
+    teamChip.visible = false;
+    // ⭐ S194 (owner: *"the same UI beautification"*) — T5's chip language: sheen + brighten on hover, only on
+    // YOUR seat's chip (the others are labels, inert); the glass plate is painted with the seat in `setSeats`.
+    attachChipHover(teamChip, teamBg, SEAT_TEAM_CHIP_RECT, 6, () => teamChip.eventMode === 'static');
+    teamChip.on('pointertap', (e) => {
+      e.stopPropagation();
+      if (teamChip.eventMode === 'static') onTeamClick?.(i);
+    });
+    cell.addChild(teamChip);
     container.addChild(cell);
-    cells.push({ cell, banner, bg, label, glyph, readyTick, wantRace: null, occupied: false, animKind: null, animStartMs: 0 });
+    cells.push({ cell, banner, bg, label, glyph, readyTick, teamChip, teamBg, teamText, wantRace: null, occupied: false, animKind: null, animStartMs: 0 });
   }
 
   // S85 P4c — per-frame cosmetic animation pass. Cheap no-op when no cell is
@@ -291,6 +325,21 @@ export function makeSeatRack(onSeatClick?: (seatIndex: number) => void): SeatRac
       // S89 P1 — show the READY tick only on an occupied seat that has readied
       // (seat.ready is undefined in friends lobbies → tick stays hidden there).
       readyTick.visible = nowOccupied && seat?.ready === true;
+      // ⭐ S192 — the team chip: shown on every occupied seat, clickable only on yours.
+      c.teamChip.visible = nowOccupied;
+      if (nowOccupied) {
+        const col = teamChipColor(seat.team);
+        c.teamBg.clear();
+        const r = SEAT_TEAM_CHIP_RECT;
+        c.teamBg.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0d121c, alpha: 0.9 });
+        // ⭐ S194 — glass in the TEAM colour; a picked team glows 'active', so T1 vs T2 reads across the rack.
+        skinButtonFx(c.teamBg, r.x, r.y, r.w, r.h, { accent: col, state: seat.team === undefined ? 'rest' : 'active', radius: 6, studs: false });
+        c.teamBg.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ width: 2, color: col, alpha: 0.95 });
+        c.teamText.text = teamChipLabel(seat.team);
+        c.teamText.style.fill = col;
+        c.teamChip.eventMode = seat.isYou && onTeamClick !== undefined ? 'static' : 'none';
+        c.teamChip.cursor = seat.isYou ? 'pointer' : 'default';
+      }
 
       if (nowOccupied) {
         // S82 P5 — style + label derivation through the exported pure helpers.

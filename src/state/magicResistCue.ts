@@ -30,6 +30,7 @@ import { unitPoolFifths } from './stats.ts';
 import { SCORCHED_EARTH_CAST_PER_MILLE, SCORCHED_GROUND_PER_MILLE, scorchedEarthZones, scorchedZones } from './racial/scorchedGround.ts';
 import { isScorchImmune } from './racial/scorchedEarthRules.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
+import { sameTeam } from './teams.ts';
 import type { World } from './worldTypes.ts';
 import { zoneOf } from './zones.ts';
 
@@ -64,7 +65,7 @@ export function magicBeatResistedAt(world: World, c: Creature, tick: number): bo
   if (dotDueThisTick(tick, id, c.type, ZOMBIE_AURA_PER_MILLE)) {
     for (const b of world.creatures.values()) {
       if (b.type !== T9_BOSS_TYPE.zombies || b.id === c.id || b.ehp <= 0) continue;
-      if (b.ownerPlayerId === c.ownerPlayerId || isStunned(b, tick)) continue;
+      if (sameTeam(world, b.ownerPlayerId, c.ownerPlayerId) || isStunned(b, tick)) continue; // S194 — the sim's rot spares the TEAM
       if (!within(c.pos.x, c.pos.y, b.pos.x, b.pos.y, ZOMBIE_AURA_RADIUS)) continue;
       if (zero(dotBeat(tick, id, c.type, ZOMBIE_AURA_PER_MILLE))) return true;
       break;
@@ -76,7 +77,7 @@ export function magicBeatResistedAt(world: World, c: Creature, tick: number): bo
   // sim's ONE predicate (`isScorchImmune`), never a copy, so a change to who is spared flows here too.
   if (dotDueThisTick(tick, id, c.type, SCORCHED_GROUND_PER_MILLE)) {
     for (const { seat, zone } of scorchedZones(world)) {
-      if (isScorchImmune(c.ownerPlayerId, seat) || zoneOf(c.pos, world.layout) !== zone) continue;
+      if (isScorchImmune(world, c.ownerPlayerId, seat) || zoneOf(c.pos, world.layout) !== zone) continue;
       if (zero(dotBeat(tick, id, c.type, SCORCHED_GROUND_PER_MILLE))) return true;
     }
   }
@@ -85,7 +86,7 @@ export function magicBeatResistedAt(world: World, c: Creature, tick: number): bo
   // mirrored, so a cast beat the victim's MRES swallowed never printed RESIST (R192-M12).
   if (dotDueThisTick(tick, id, c.type, SCORCHED_EARTH_CAST_PER_MILLE)) {
     for (const { caster, zone } of scorchedEarthZones(world)) {
-      if (isScorchImmune(c.ownerPlayerId, caster) || zoneOf(c.pos, world.layout) !== zone) continue;
+      if (isScorchImmune(world, c.ownerPlayerId, caster) || zoneOf(c.pos, world.layout) !== zone) continue;
       if (zero(dotBeat(tick, id, c.type, SCORCHED_EARTH_CAST_PER_MILLE))) return true;
     }
   }
@@ -93,12 +94,12 @@ export function magicBeatResistedAt(world: World, c: Creature, tick: number): bo
   // 3 · the STINK TOWER aura and 4 · the landed-bag cloud (`stinkTower.ts` / `stinkCloud.ts`)
   const stinkBeat = Math.floor(tick / STINK_AURA_CADENCE_TICKS);
   for (const d of world.defenders.values()) {
-    if (d.kind !== 'stinkTower' || d.ownerPlayerId === c.ownerPlayerId) continue;
+    if (d.kind !== 'stinkTower' || sameTeam(world, d.ownerPlayerId, c.ownerPlayerId)) continue; // S194 — mirrors applyRadialDamage's team spare
     if (tick % STINK_AURA_CADENCE_TICKS !== (d.id as unknown as number) % STINK_AURA_CADENCE_TICKS) continue;
     if (within(c.pos.x, c.pos.y, d.pos.x, d.pos.y, STINK_AURA_RADIUS) && zero(stinkBeat)) return true;
   }
   for (const s of world.stinkClouds.values()) {
-    if (s.ownerPlayerId === c.ownerPlayerId) continue;
+    if (sameTeam(world, s.ownerPlayerId, c.ownerPlayerId)) continue; // S194 — mirrors applyRadialDamage's team spare
     if (tick % STINK_AURA_CADENCE_TICKS !== (s.id as unknown as number) % STINK_AURA_CADENCE_TICKS) continue;
     if (within(c.pos.x, c.pos.y, s.pos.x, s.pos.y, s.radius) && zero(stinkBeat)) return true;
   }

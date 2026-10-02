@@ -144,7 +144,8 @@ export function runPharaohRitual(world: World): void {
      * ⚠ And it now cuts CONNECTORS, as the perk's does (his never did — it razed shapes instead); the
      * sever is credited to his seat with `cause: 'unit'` (⚠ MINE, `RaColumnSource.severCause`).
      */
-      landRaColumn(world, { spare: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);
+      // ⭐ S192 (owner R192-T1, ⚠ MINE) — "everything" except his seat's TEAMMATES; his own side still burns.
+      landRaColumn(world, { spare: null, alliesOf: boss.ownerPlayerId, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);
     }
 
     /*
