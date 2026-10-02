@@ -4,7 +4,9 @@
 _(filled at the end)_
 
 ## NEXT STEP (exact)
-Build `src/render/uiSkin.ts` + its bounds test; then apply surface by surface in the order of the table below.
+Draft overlay (#21) → exit button + confirm (#22) → title/home (#1-2, lazy backdrop) → lobby (#6-8) → bot setup (#5) → settings DOM (#4) → codex/conn-lost (#24-25). Then gates + screenshots.
+
+⚠ FILE BOUNDARY (coordinator, mid-run): `matchBoard.ts`, `matchBoardModel.ts`, `matchBoardHost.ts` + tests now belong to T10 — NOT touched by this branch (never were). T10 can import `src/render/uiSkin.ts` (`skinButtonFx`, `skinPanelFx`, `skinIcon`, `skinBase`, `SKIN`).
 
 ## Merge
 `git merge master` at start: already up to date (master = `0a37175e`). No conflicts.
@@ -52,4 +54,8 @@ One module, `src/render/uiSkin.ts`, used by every surface so tuning moves them t
 - Home screen: lazy-loaded animated backdrop on the fx substrate (deterministic hashed motes, halo, orbiting spark glyphs).
 
 ## Log
+- step 1 — `uiSkin.ts` + bounds test (305 cases; mutation: lip moved 3px out → 106 red).
+- step 2 — footer skinned (8 sites, fill count 11 unchanged); REACH `uiSkinReach.footer.test.ts` (mutation → 2 red).
+- step 3 — castle panel (fill count 4 unchanged, row icons); REACH `uiSkinReach.castle.test.ts` (mutation → 3 red).
+- step 4 — character card; REACH `uiSkinReach.sheet.test.ts` on a real goblin tower.
 - step 0 — worktree, npm install (exit 0), before-shots in `.tmp-gates/before/` (harness `.tmp-gates/shots.mjs`, private port 31947).
