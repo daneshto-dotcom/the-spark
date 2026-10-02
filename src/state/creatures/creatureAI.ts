@@ -612,12 +612,22 @@ function buildColourBucket(world: World, ownerColor: number): ColourBucket {
       own.ids.push(bondId);
       continue;
     }
-    enemy.bonds.push(bond);
-    enemy.ids.push(bondId);
     // `isEnemyBondWithColor` is true only when BOTH endpoints exist, so both reads are defined here —
     // as they always were for the pre-change `strictlyEnemy`, whose `?.` could never short-circuit.
     const primA = world.primitives.get(bond.aId)!;
     const primB = world.primitives.get(bond.bId)!;
+    /*
+     * ⚠ MINE (S194 audit LOW-2, R192-T1 *"teammates never damage each other"*) — **A WELD WITH A TEAMMATE'S
+     * END IS NOBODY'S TARGET.** The OR above files a weld between a TEAMMATE's shape and an ENEMY's shape as
+     * enemy, and the Voltkin (the one `enemyOnly: false` caller of this set) could cut it — felling a connector
+     * of his teammate's. For a TEAMMATE's endpoint this uses the STRICT reading: any teammate end ⇒ not a
+     * target. His OWN end is unchanged (the Voltkin may still cut his own mixed welds — the documented fallback
+     * below). FFA: a teammate colour is never a colour other than your own, so this never fires there.
+     */
+    const teammateEnd = (c: number): boolean => c !== ownerColor && sameTeamColor(world, c, ownerColor);
+    if (teammateEnd(primA.placerColor) || teammateEnd(primB.placerColor)) continue;
+    enemy.bonds.push(bond);
+    enemy.ids.push(bondId);
     /**
      * ⛔ S162 POST-AUDIT — **`isEnemyBondWithColor` IS AN OR, SO A *MIXED* BOND READS AS ENEMY.**
      *

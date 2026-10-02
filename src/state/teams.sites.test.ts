@@ -74,6 +74,8 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   'game/invariants.ts': 1,
   'input/controls.ts': 3,
   'render/castlePanel.ts': 1,
+  // S194 — `lifestealPctFor(…ownerPlayerId) === 0` (does THIS creature's seat hold lifesteal) — a regex false positive.
+  'render/goblinRenderer.ts': 1,
   'render/characterSheetModel.ts': 3,
   'state/bombLifecycle.ts': 2,
   'state/bossSkillsPharaoh.ts': 1,
@@ -128,11 +130,12 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'render/creatureProjectile.ts': 1,
   'render/damageNumbers.ts': 4,
   'render/matchBoardModel.ts': 1, // S194 — the stat board stars the winner's whole TEAM
+  'render/goblinRenderer.ts': 1, // S194 — master's lifesteal motes come from the nearest ENEMY creature (visuals-racial)
   'render/wallRenderer.ts': 1,
   'state/bossSkills.ts': 1,
   'state/bossSkillsArchdemon.ts': 3,
   'state/bossSkillsKraken.ts': 2,
-  'state/creatures/creatureAI.ts': 13,
+  'state/creatures/creatureAI.ts': 14, // S194 LOW-2 — + a weld with a TEAMMATE's end is no Voltkin target
   'state/creatures/creatureLifecycle.ts': 1,
   'state/creatures/retaliation.ts': 1,
   'state/creatures/suicideBlast.ts': 2,

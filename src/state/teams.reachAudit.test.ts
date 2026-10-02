@@ -27,7 +27,7 @@ import { asCreatureId, makeCreature, type Creature, type CreatureType } from './
 import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { makeDefender } from './defenders/defender.ts';
-import { addBond, addPrim } from './s191PerfOracle.fixtures.ts';
+import { addBond, addPrim, weld } from './s191PerfOracle.fixtures.ts';
 
 const P = [0, 1, 2, 3].map((s) => asPlayerId(s));
 const TEAMS: (number | undefined)[] = [0, 0, 1, 1];
@@ -122,7 +122,7 @@ describe('MED-1 · killableDefenderInReach — a unit beside a Helga swings at h
     const home = addPrim(w, 1, at.x, at.y);
     const h = makeDefender({
       id: asDefenderId(1), kind: 'princess', ownerPlayerId: P[1], anchorPrimitiveId: home.id,
-      recipeId: 'princessHelga', pos: { ...at }, registeredAtTick: w.tick,
+      recipeId: 'helga', pos: { ...at }, registeredAtTick: w.tick,
     });
     w.defenders.set(h.id, h);
     const full = h.ehp!;
@@ -155,7 +155,7 @@ describe('MED-1 · killableDefenderInReach — a unit beside a Helga swings at h
     const home = addPrim(w, 1, at.x, at.y);
     const h = makeDefender({
       id: asDefenderId(1), kind: 'princess', ownerPlayerId: P[1], anchorPrimitiveId: home.id,
-      recipeId: 'princessHelga', pos: { ...at }, registeredAtTick: w.tick,
+      recipeId: 'helga', pos: { ...at }, registeredAtTick: w.tick,
     });
     w.defenders.set(h.id, h);
     const full = h.ehp!;
@@ -181,4 +181,27 @@ describe('MED-1 · territory — a seat\'s territory never sags a teammate\'s bo
   }
   it('⛔ TEAMS — a teammate\'s bond inside your territory keeps full stiffness', () => expect(multiplier(TEAMS)).toBe(1));
   it('CONTROL — FFA, the same bond is an enemy\'s and sags', () => expect(multiplier(FFA)).toBe(TERRITORY_ENGULF_STIFFNESS));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('LOW-2 · the Voltkin never cuts a weld that has a TEAMMATE\'s end (⚠ MINE, R192-T1)', () => {
+  /** A weld between seat 1's shape and seat 2's shape, seat 0's Voltkin beside it; the weld's damage after 600 ticks. */
+  function weldHit(teams: (number | undefined)[]): { banked: number; standing: boolean } {
+    const w = fourSeat(teams);
+    const mate = addPrim(w, 1, 600, 330);
+    const foe = addPrim(w, 2, 640, 330);
+    const id = weld(w, mate, foe);
+    const full = w.bonds.get(id)!;
+    unit(w, P[0], { x: 620, y: 380 }, 'voltkin');
+    ticks(w, 600);
+    const b = w.bonds.get(id);
+    return { banked: b?.damageFifths ?? -1, standing: b !== undefined && full === b };
+  }
+  it('⛔ TEAMS — a teammate+enemy weld is not his target: untouched', () => {
+    expect(weldHit(TEAMS)).toEqual({ banked: 0, standing: true });
+  });
+  it('CONTROL — FFA, seat 1 is an enemy too, so the same weld is cut or damaged', () => {
+    const r = weldHit(FFA);
+    expect(!r.standing || r.banked > 0, JSON.stringify(r)).toBe(true);
+  });
 });
