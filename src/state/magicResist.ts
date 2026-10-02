@@ -34,6 +34,7 @@ import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { RaceId } from './races.ts';
 import { castleMresLevelOf, type CastleUpgrades } from './castleUpgrades.ts';
 import { dotIntervalTicks, maxPoolFifths } from './damageOverTime.ts';
+import { unitPoolFifths } from './stats.ts';
 
 /**
  * ⭐ A DoT tick's class: magic, rescaled across its beats. `beat` is the source's due-count for this
@@ -76,10 +77,18 @@ export function isMagicClass(cls: DamageClass): boolean {
  * never below 1 on a real hit. Exact (= `amount`) whenever `mres === def`.
  */
 export function magicHitFifths(amount: number, def: number, mres: number): number {
+  return magicHitFifthsPools(amount, 5 + def, 5 + mres);
+}
+
+/**
+ * ⭐ S193 (R192-D1) — the same hit with the two bar lengths named: `floor(amount × phys / magic)`, never
+ * below 1. `phys` = the bar as physical sees it (`HP×(5+DEF)`, or just `5+DEF` — HP cancels), `magic` =
+ * as magic sees it (`HP×(5+MRES)`, raised by a drafted MRES pick). With no pick it is `magicHitFifths`
+ * exactly: `floor(A·HP·(5+DEF) / (HP·(5+MRES)))` is the same rational.
+ */
+export function magicHitFifthsPools(amount: number, phys: number, magic: number): number {
   if (amount <= 0) return 0;
-  const num = amount * (5 + def);
-  const den = 5 + mres;
-  return Math.max(1, Math.floor(num / den));
+  return Math.max(1, Math.floor((amount * phys) / magic));
 }
 
 /**
@@ -88,9 +97,14 @@ export function magicHitFifths(amount: number, def: number, mres: number): numbe
  * beats; exactly `amount` on every beat when `mres === def`; may be 0 when `mres > def`.
  */
 export function magicDotFifths(amount: number, def: number, mres: number, beat: number): number {
+  return magicDotFifthsPools(amount, 5 + def, 5 + mres, beat);
+}
+
+/** ⭐ S193 — `magicDotFifths` with the two bar lengths named (see `magicHitFifthsPools`). */
+export function magicDotFifthsPools(amount: number, phys: number, magic: number, beat: number): number {
   if (amount <= 0) return 0;
-  const num = amount * (5 + def);
-  const den = 5 + mres;
+  const num = amount * phys;
+  const den = magic;
   const b = Math.max(0, Math.trunc(beat));
   return Math.floor(((b + 1) * num) / den) - Math.floor((b * num) / den);
 }
@@ -105,6 +119,41 @@ export function landedFifths(amount: number, cls: DamageClass, def: number, mres
   // them is what lets the MRES = DEF differential prove the arithmetic rather than skip it.
   if (cls === 'magic') return magicHitFifths(amount, def, mres);
   return magicDotFifths(amount, def, mres, cls.beat + phase);
+}
+
+/**
+ * ⭐ S193 (R192-D1) — `landedFifths` for a CREATURE, which may carry a drafted magic-defended pool
+ * (`Creature.mresFifths`). Absent, it is `landedFifths(amount, cls, cfg.def, mres, phase)` byte for byte
+ * (the `5+DEF` / `5+MRES` ratio); present, the bar magic sees is that stored pool against the type's
+ * physical pool `HP×(5+DEF)`.
+ */
+export function creatureLandedFifths(
+  amount: number,
+  cls: DamageClass,
+  c: { readonly type: CreatureType; readonly mresFifths?: number },
+  ownerRace: RaceId | null,
+  phase: number,
+): number {
+  const cfg = getCreatureConfig(c.type);
+  if (c.mresFifths === undefined) return landedFifths(amount, cls, cfg.def, mresFor(c.type, ownerRace), phase);
+  if (cls === 'physical') return amount;
+  const phys = unitPoolFifths(cfg.hp, cfg.def);
+  if (cls === 'magic') return magicHitFifthsPools(amount, phys, c.mresFifths);
+  return magicDotFifthsPools(amount, phys, c.mresFifths, cls.beat + phase);
+}
+
+/**
+ * ⭐ S193 — can a magic DoT beat land 0 on this creature? Exactly when the bar magic sees is LONGER than
+ * the physical one: `MRES > DEF` (§2b), or a drafted MRES pick (`mresFifths` above `HP×(5+DEF)`). The
+ * RESIST cue's gate, so it is never printed over a unit that cannot resist.
+ */
+export function creatureCanResistBeat(
+  c: { readonly type: CreatureType; readonly mresFifths?: number },
+  ownerRace: RaceId | null,
+): boolean {
+  const cfg = getCreatureConfig(c.type);
+  if (c.mresFifths !== undefined) return c.mresFifths > unitPoolFifths(cfg.hp, cfg.def);
+  return mresFor(c.type, ownerRace) > cfg.def;
 }
 
 // ── THE TABLE (spec §b) — every number ⚠ MINE until the owner rules ─────────────────────────────

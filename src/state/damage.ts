@@ -55,10 +55,9 @@ import { accrueDynastyLoss } from './racial/endlessDynasty.ts'; // ⭐ S188 — 
 import { applyLifesteal } from './racial/lifesteal.ts';
 // ⭐ S192 (owner R192-M1..M7) — MAGIC RESISTANCE. Every funnel below takes a REQUIRED `cls`.
 import {
-  castleMresLevel, defenderMres, isMagicClass, landedFifths, magicHitFifths, mresFor, structureMres,
+  castleMresLevel, creatureLandedFifths, defenderMres, isMagicClass, landedFifths, magicHitFifths, structureMres,
   type DamageClass,
 } from './magicResist.ts';
-import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { getDefenderConfig } from './defenders/defender.ts';
 export type { DamageClass } from './magicResist.ts';
 import { creatureKillCredit, type KillCredit } from './racial/killCredit.ts'; // ⭐ S192 T2
@@ -252,9 +251,11 @@ export function damageEntity(
       let landed = amount;
       if (victim !== undefined && isMagicClass(cls)) {
         const owner = world.players.get(victim.ownerPlayerId);
-        landed = landedFifths(
-          amount, cls, getCreatureConfig(victim.type).def,
-          mresFor(victim.type, owner?.raceId ?? null), target.id as unknown as number,
+        // ⭐ S193 (R192-D1) — through the creature form, which reads a drafted magic-defended pool
+        // (`victim.mresFifths`) when the victim was born after its seat's MRES pick; absent, it is the
+        // `landedFifths(…, cfg.def, mresFor(…), …)` call this line made before, byte for byte.
+        landed = creatureLandedFifths(
+          amount, cls, victim, owner?.raceId ?? null, target.id as unknown as number,
         );
         if (landed === 0) return false; // a skipped DoT beat — nothing landed, nothing heals
       }

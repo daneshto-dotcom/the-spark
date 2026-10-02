@@ -160,6 +160,16 @@ const COPY: Readonly<Record<GeneralPick, OptionCopy>> = {
       'Units already on the board keep what they were born with.',
     card: 'general-pen',
   },
+  // ⭐ S193 — R192-D1, HIS: *"another one at level 26 … the magic damage one … make his own art as well"*.
+  // Offered at the wave-26 draft only (`MRES_DRAFT_WAVE`). ⚠ MINE: the title and the words.
+  mres: {
+    title: 'WARDED',
+    line: `+${DRAFT_BUFF_PCT}% MAGIC RESIST`,
+    detail:
+      `Every unit you spawn from now on shrugs off ${DRAFT_BUFF_PCT}% more magic. ` +
+      'Units already on the board keep what they were born with.',
+    card: 'general-mres',
+  },
 };
 
 /** What a seat is offered — exactly `draftOptionsFor`'s shape, so the panel cannot drift from it. */

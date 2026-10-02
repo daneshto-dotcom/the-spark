@@ -23,9 +23,8 @@
 import { STINK_AURA_CADENCE_TICKS, STINK_AURA_RADIUS, ZOMBIE_AURA_PER_MILLE, ZOMBIE_AURA_RADIUS } from '../constants.ts';
 import type { Creature } from './creatures/creature.ts';
 import { isStunned } from './creatures/creature.ts';
-import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import { dotDueThisTick } from './damageOverTime.ts';
-import { dotBeat, landedFifths, magicDot, mresFor } from './magicResist.ts';
+import { creatureCanResistBeat, creatureLandedFifths, dotBeat, magicDot } from './magicResist.ts';
 import { SCORCHED_EARTH_CAST_PER_MILLE, SCORCHED_GROUND_PER_MILLE, scorchedEarthZones, scorchedZones } from './racial/scorchedGround.ts';
 import { isScorchImmune } from './racial/scorchedEarthRules.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
@@ -41,11 +40,12 @@ const within = (ax: number, ay: number, bx: number, by: number, r: number): bool
 /** Did a magic DoT beat, due for `c` on `tick`, land 0 because of its MRES? */
 export function magicBeatResistedAt(world: World, c: Creature, tick: number): boolean {
   if (c.ehp <= 0) return false;
-  const def = getCreatureConfig(c.type).def;
-  const mres = mresFor(c.type, world.players.get(c.ownerPlayerId)?.raceId ?? null);
-  if (mres <= def) return false; // never swallowed: every beat lands ≥ 1
+  const race = world.players.get(c.ownerPlayerId)?.raceId ?? null;
+  // ⭐ S193 (R192-D1) — through the creature forms, so a unit born after its seat's MRES pick (whose
+  // bar magic sees is longer: `mresFifths`) can show RESIST too; absent the pick, `MRES > DEF` as before.
+  if (!creatureCanResistBeat(c, race)) return false; // never swallowed: every beat lands ≥ 1
   const id = c.id as unknown as number;
-  const zero = (beat: number): boolean => landedFifths(1, magicDot(beat), def, mres, id) === 0;
+  const zero = (beat: number): boolean => creatureLandedFifths(1, magicDot(beat), c, race, id) === 0;
 
   // 1 · the zombie boss ROT (`bossSkills.ts` runZombieRotAura)
   if (dotDueThisTick(tick, id, c.type, ZOMBIE_AURA_PER_MILLE)) {
