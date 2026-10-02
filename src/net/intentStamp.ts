@@ -21,6 +21,17 @@ import type { PlayerId } from '../types.ts';
  * discriminated-union shape is preserved.
  */
 export function stampSenderSeat(action: GameAction, seat: PlayerId): GameAction {
+  /*
+   * ⛔ S194 (audit of s194/entropy, HIGH, pre-existing) — A CLIENT MAY ONLY EVER SEVER AS A PLAYER.
+   * Every other SEVER_BOND cause ('unit', 'raid', 'creature', 'chewer', 'drone', 'bomb', 'physics',
+   * 'entropy' …) is HOST-minted, and `canSeverBond` / `computeBaseCharge` let those through with no
+   * charge and no hostility check. Stamping only `playerId` left the wire's `cause` intact, so a
+   * modified client could send any of them — or a garbage string, or none — and cut any enemy
+   * connector for free (measured through parseNetMessage → isClientIntentAllowed → stampOrReject →
+   * dispatch, 0 charges). Raids are their own action (RAID_TARGET). Both host paths (original and
+   * migrated successor) stamp through here, so this one line closes both.
+   */
+  if (action.type === 'SEVER_BOND') return { ...action, playerId: seat, cause: 'player' };
   return 'playerId' in action ? ({ ...action, playerId: seat } as GameAction) : action;
 }
 
