@@ -8,3 +8,4 @@
 
 ## Next step
 - implement 'mres' GeneralPick + Creature.mresFifths (drafted magic-defended pool) + funnel/cue + card art.
+- WIP 63544147: sim wiring done, typecheck 0. NEXT: run draft/magic tests, write draftMresReaches.test.ts, canon §3d text + canon.test pins.
