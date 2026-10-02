@@ -60,6 +60,8 @@ const EDGE = 0xd8b45a;
 const AXIS = 0x3a4050;
 const GOOD = 0x6fd08a;
 const BAD = 0xe2684a;
+/** Losses and damage taken: a neutral slate, never red — four of the seat colours are warm, and a red seat's own bars would vanish into a red "taken". */
+const LOSS = 0x8f98ad;
 /** The three things damage lands on, always in this order and these colours. */
 const SPLIT_COLORS = { units: 0x6fb7e8, structures: 0xd8b45a, keep: 0xe2684a } as const;
 const FONT = ['Kanit', 'Impact', 'sans-serif'];
@@ -686,7 +688,7 @@ export class MatchBoard {
     t.position.set(R.x + 16, R.y + 10);
     const cols = [
       { head: 'RAISED', x: R.x + 250, color: row.color, of: (l: BoardRow['unitLines'][number]) => l.built },
-      { head: 'LOST', x: R.x + 250 + (R.w - 270) / 3, color: BAD, of: (l: BoardRow['unitLines'][number]) => l.lost },
+      { head: 'LOST', x: R.x + 250 + (R.w - 270) / 3, color: LOSS, of: (l: BoardRow['unitLines'][number]) => l.lost },
       { head: 'KILLED', x: R.x + 250 + (2 * (R.w - 270)) / 3, color: GOOD, of: (l: BoardRow['unitLines'][number]) => l.killed },
     ];
     const cw = (R.w - 270) / 3 - 12;
@@ -833,7 +835,7 @@ export class MatchBoard {
       const x = P.x + gw * i + gw * 0.18;
       const a = hw === null || hw === i ? 0.92 : 0.55;
       if (up > 0) g.rect(x, mid - up, gw * 0.64, up).fill(mix(row.color, a));
-      if (dn > 0) g.rect(x, mid, gw * 0.64, dn).fill(mix(BAD, a * 0.85));
+      if (dn > 0) g.rect(x, mid, gw * 0.64, dn).fill(mix(LOSS, a * 0.8));
     }
   }
 
