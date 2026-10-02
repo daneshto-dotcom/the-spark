@@ -148,6 +148,31 @@ function victimColor(world: World, seat: PlayerId): number | null {
   return world.players.get(seat)?.color ?? null;
 }
 
+/**
+ * ⭐ S194 R194-27 (perf, identical verdict) — the creatures each seat OWNS, indexed once per tick instead of
+ * every pants scanning the whole creature map (500 pants × ~500 creatures = the measured 34 % of a
+ * 500-pants host tick). Valid for one (world, tick, nextCreatureId): a creature born mid-tick bumps
+ * `nextCreatureId` and rebuilds it; one that died mid-tick is skipped at use (`world.creatures.get(id) === q`
+ * + the same liveness test). Ownership never changes after birth (no `ownerPlayerId =` write anywhere in the
+ * sim), so the candidate SET is exactly the old scan's, and the pick is the same total order (distSq, then
+ * id) — so the verdict is the old one, tick for tick. A memo, not state: nothing is hashed or sent.
+ */
+interface OwnedIndex { world: World; tick: number; nextId: number; bySeat: Map<PlayerId, Creature[]> }
+let ownedIndex: OwnedIndex | null = null;
+function ownedBy(world: World, seat: PlayerId): readonly Creature[] {
+  const nextId = world.nextCreatureId as unknown as number;
+  if (ownedIndex === null || ownedIndex.world !== world || ownedIndex.tick !== world.tick || ownedIndex.nextId !== nextId) {
+    const bySeat = new Map<PlayerId, Creature[]>();
+    for (const q of world.creatures.values()) {
+      let list = bySeat.get(q.ownerPlayerId);
+      if (list === undefined) bySeat.set(q.ownerPlayerId, (list = []));
+      list.push(q);
+    }
+    ownedIndex = { world, tick: world.tick, nextId, bySeat };
+  }
+  return ownedIndex.bySeat.get(seat) ?? [];
+}
+
 /** Nearest creature OWNED BY `seat` within `r2`, holding `held` inside the wider leash. */
 function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | null {
   const held = c.targetCreatureId;
@@ -165,8 +190,9 @@ function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | nul
   const r2 = GOBLIN_UNIT_ACQUIRE_RADIUS * GOBLIN_UNIT_ACQUIRE_RADIUS;
   let best: CreatureId | null = null;
   let bestD = Infinity;
-  for (const [id, q] of world.creatures) {
-    if (q.ownerPlayerId !== seat || !isLiveCreatureTarget(world, q)) continue;
+  for (const q of ownedBy(world, seat)) {
+    const id = q.id;
+    if (world.creatures.get(id) !== q || !isLiveCreatureTarget(world, q)) continue;
     const d = distSq(c.pos, q.pos);
     if (d > r2) continue;
     if (d < bestD || (d === bestD && best !== null && (id as unknown as number) < (best as unknown as number))) {
