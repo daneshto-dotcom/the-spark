@@ -158,8 +158,10 @@ export function runPharaohRitual(world: World): void {
      */
     if (!isChannellingRa(boss, world.tick)) {
       // ⭐ S194 (audit T10 LOW-1) — the ritual's end IS his death, and nobody struck it: a LOSS for his seat,
-      // a kill for nobody. INERT — read only by the stat board.
-      recordKill(world, null, boss.ownerPlayerId, boss.type);
+      // a kill for nobody. INERT — read only by the stat board. ⛔ Re-audit: only if he is still ALIVE — a blow
+      // earlier this tick may already have killed him through `damageEntity` (LOST + KILL counted there), and
+      // `liveIdsOfType` still hands back that corpse-in-waiting. Same guard as the potato / hub clear.
+      if (boss.ehp > 0) recordKill(world, null, boss.ownerPlayerId, boss.type);
       removeCreature(world, bossId);
     }
   }

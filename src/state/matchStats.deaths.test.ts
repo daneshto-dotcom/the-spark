@@ -14,6 +14,7 @@ import { runArchdemonHell } from './bossSkillsArchdemon.ts';
 import { runPharaohRitual } from './bossSkillsPharaohRitual.ts';
 import { damageCreature } from './creatures/creatureLifecycle.ts';
 import { applyRadialClear } from './potatoLifecycle.ts';
+import { damageEntity } from './damage.ts';
 import { T9_BOSS_TYPE } from './t9BossIds.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 
@@ -92,6 +93,20 @@ describe('⭐ S194 LOW-1 — deaths outside the damage funnel reach LOST / KILLS
     expect(w.creatures.has(ph), 'fixture: the ritual ended in his death').toBe(false);
     expect(lost(w, P0, T9_BOSS_TYPE.mummies)).toBe(1);
     for (const s of w.matchStats.seats.values()) expect(s.kills.get(T9_BOSS_TYPE.mummies) ?? 0).toBe(0);
+  });
+
+  it('⛔ re-audit: a Pharaoh killed by a blow EARLIER on his ritual-end tick is LOST once, not twice', () => {
+    const w = fight();
+    const ph = spawn(w, T9_BOSS_TYPE.mummies, P0, 500);
+    damageCreature(w, ph, 1_000_000); // the ritual begins
+    w.tick = w.creatures.get(ph)!.raRitualUntilTick! + 1; // it has ended: he is mortal at 1 ehp
+    w.pendingCreatureDeaths = new Set(); // the host tick's deferral: the corpse stays in the map this tick
+    damageEntity(w, { kind: 'creature', id: ph }, 50, 'creature', { kind: 'seat', seat: P1 }, 'physical');
+    expect(w.creatures.get(ph)?.ehp ?? 0, 'fixture: a corpse-in-waiting').toBeLessThanOrEqual(0);
+    runPharaohRitual(w); // still finds him (liveIdsOfType does not filter corpses)
+    w.pendingCreatureDeaths = null;
+    expect(lost(w, P0, T9_BOSS_TYPE.mummies)).toBe(1);
+    expect(kills(w, P1, T9_BOSS_TYPE.mummies)).toBe(1);
   });
 
   it('⛔ a SELF-DETONATION (suicide goblin, lightning drone) is neither a loss nor a kill', () => {

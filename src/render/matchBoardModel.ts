@@ -382,6 +382,10 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
       dealtTo: amountsFor([...(s?.dealtTo?.entries() ?? [])].filter(([k]) => k !== seat)),
       takenFrom: [
         ...amountsFor(takenFrom),
+        // ⭐ S194 (re-audit) — its own self-hits, so the list sums to TAKEN exactly (the grid's diagonal).
+        ...((s?.dealtTo?.get(seat) ?? 0) > 0
+          ? [{ seat, label: 'ITSELF', color: seatColor(world, seat), amount: s!.dealtTo.get(seat)! }]
+          : []),
         ...((s?.takenUnattributed ?? 0) > 0
           ? [{ seat: null, label: 'NO SOURCE', color: NO_SOURCE_COLOR, amount: s!.takenUnattributed }]
           : []),

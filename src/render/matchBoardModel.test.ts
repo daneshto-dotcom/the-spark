@@ -194,7 +194,9 @@ describe('⭐ S194 (audit T10 MED-1) — endgame MONSTERS, and a grid that adds 
     const col = m.matrix.cols.find((c) => c.label === 'MONSTERS')!;
     expect(col.color).toBe(MONSTER_COLOR);
     expect(m.rows[0]!.dealtTo.map((a) => a.label)).toEqual(['MONSTERS', 'P2']);
-    expect(m.rows[0]!.takenFrom.map((a) => a.label)).toEqual(['MONSTERS']);
+    expect(m.rows[0]!.takenFrom.map((a) => a.label)).toEqual(['MONSTERS', 'ITSELF']);
+    // ⭐ re-audit — the TAKEN FROM list sums to TAKEN, self-hits and NO SOURCE included.
+    for (const r of m.rows) expect(r.takenFrom.reduce((t, a) => t + a.amount, 0), `${r.label} TAKEN FROM`).toBe(r.taken);
     expect(m.rows[1]!.takenFrom.map((a) => a.label)).toEqual(['P1', 'MONSTERS', 'NO SOURCE']);
   });
 
