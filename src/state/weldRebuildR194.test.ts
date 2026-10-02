@@ -40,7 +40,6 @@ import { towerMembersAt } from './towerMembers.ts';
 import { damageConnector, severWithCarry } from './damage.ts';
 import { planStructureRepair, restoreFromDelivered } from './structureRepair.ts';
 import { creatureAttackFifths } from './creatures/creature.ts';
-import { getCreatureConfig } from './creatures/voltkin-config.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import {
   advanceRampCursor, rampHealthFrac, rampMembersAt, rampSpecFor, rampTargetFrame, type RampCursor,
