@@ -1501,7 +1501,12 @@ export class Controls {
         // the tower again, with nothing explaining why. So an illegal click keeps the tower in hand and
         // sends nothing (the ghost is already naming the blocker), and only a legal click commits.
         // Same `gateLocally` shape `dragPreview.ts` uses for single-primitive placement.
-        if (!canStampAt(this.world, centre, this.playerId, armed)) return;
+        if (!canStampAt(this.world, centre, this.playerId, armed)) {
+          // ⭐ S194 (T9 coherence, routed to T5) — a refused control SAYS so. This was the one silent
+          // refusal on the build path; it now plays the same cue every other refused control plays.
+          void playUiRefusedSFX();
+          return;
+        }
         this.onBuildBlueprint?.(armed, centre);
         // One pick = one tower. Staying armed would let a single pick spam structures across the map
         // on every subsequent click.
@@ -2034,6 +2039,12 @@ export class Controls {
             sparkId: spark.id,
             sentAt: performance.now(),
           };
+        } else if (!gates.commit) {
+          // ⭐ S194 (T9 coherence, routed to T5) — releasing a dragged shape on an ILLEGAL spot (out of
+          // reach, in a spawner zone, in another seat's territory) was silent: the shape just fell. It
+          // now plays the same refused cue as every other refused control. ⚠ Only the legality gates:
+          // a release over a panel / the footer / the card / a modal is a UI drop, not a refusal.
+          void playUiRefusedSFX();
         }
       }
       this.releasePointerCapture(e);
