@@ -70,3 +70,9 @@ Branch `s194/bots-tune`, worktree `.claude/worktrees/s194-bots-tune`, base maste
   S193 rule `feeds ≥ seatsWithTower` RESTORED literally, plus a per-seat check (each tower seat: own feeds + own fix jobs > 0;
   `LockResult.perSeat`). Mutation (lock clause removed) → HARD SABOTEUR + IMBA BALANCED red (0 feeds / 1 tower) via the restored rule.
 - NEXT: LOW — placeRefusedAt parity against the real reducer.
+- [fix round, LOW] parity test now drives the REAL reducer: per grid point (60 px) a spark is spawned, picked up (PICKUP_SPARK) and
+  placed (PLACE_PRIMITIVE); landed === !placeRefusedAt, BUILD and FIGHT; > 200 points, both outcomes in BUILD, none land in FIGHT.
+  Mutation `canBuildNow` dropped → red (BUILD + FIGHT). Mutation spawner-disc clause dropped → stays GREEN: verdict benign — the disc
+  lies inside the shared quarry, which `canBuildAt` already refuses (fails closed), so the clause is a redundant mirror of the
+  reducer's first gate, kept for exact order-parity with `placePrimitive`.
+- NEXT: merge master again (intentStamp security fix), full gates.

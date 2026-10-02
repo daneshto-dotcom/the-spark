@@ -23,16 +23,16 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, PLAYER_COLORS, SparkType } from '../constants.ts';
+import { makeFreeSpark } from '../game/spark.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Controls } from '../input/controls.ts';
-import { canBuildNow } from '../state/buildLegality.ts';
 import { makeGameStateExtras } from '../state/gameState.ts';
 import { runGodlyMatcherCore, type GodlyMatcherCursor } from '../state/godlyMatcherCore.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type World } from '../state/world.ts';
-import { asPlayerId } from '../types.ts';
+import { asPlayerId, asSparkId } from '../types.ts';
 import { bankCount } from '../state/castleBank.ts';
 import { BotController, placeRefusedAt } from './botController.ts';
 import type { BotDifficulty } from './botTypes.ts';
@@ -164,36 +164,61 @@ describe('⭐ S194 T7 — REACH: no refused PLACE stream in a real bots match', 
   }, 60_000);
 });
 
-describe('⭐ S194 T7 — placeRefusedAt is the reducer\'s two position gates', () => {
-  it('BUILD: agrees with canBuildNow everywhere outside the spawner disc; the disc is always refused', () => {
+describe('⭐ S194 T7 — placeRefusedAt agrees with the REAL reducer', () => {
+  /*
+   * ⭐ S194 audit LOW — the first version compared `placeRefusedAt` with a restatement of its own body
+   * (circular). This one asks the REDUCER: at every grid point a real spark is spawned, picked up by the
+   * seat through `PICKUP_SPARK`, and placed through `PLACE_PRIMITIVE` — and whether a primitive landed must
+   * equal `!placeRefusedAt` asked of the same world just before the PLACE. BUILD and FIGHT both.
+   */
+  function carryingWorld(phase: 'BUILD' | 'FIGHT', pos: { x: number; y: number }, seat: ReturnType<typeof asPlayerId>): World | null {
     const w = startMatch();
     w.gameState = 'PLAYING';
-    w.matchPhase = 'BUILD';
-    const seat = asPlayerId(1);
-    let legal = 0;
-    for (let x = 20; x < CANVAS_WIDTH; x += 40) {
-      for (let y = 20; y < CANVAS_HEIGHT; y += 40) {
-        const pos = { x, y };
-        const inDisc = Math.hypot(x - SPAWNER_CENTER_X, y - SPAWNER_CENTER_Y) < SPAWNER_RADIUS;
-        expect(placeRefusedAt(w, pos, seat), `${x},${y}`).toBe(inDisc || !canBuildNow(w, pos, seat));
-        if (!placeRefusedAt(w, pos, seat)) legal++;
-      }
-    }
-    expect(legal, 'some ground is legal for seat 1 in BUILD').toBeGreaterThan(10);
-    expect(placeRefusedAt(w, { x: SPAWNER_CENTER_X, y: SPAWNER_CENTER_Y }, seat)).toBe(true);
-  });
+    w.matchPhase = phase;
+    dispatch(w, { type: 'UPDATE_AVATAR_POS', playerId: seat, pos: { ...pos } });
+    const spark = makeFreeSpark({
+      id: asSparkId(900_000),
+      type: SparkType.Dot,
+      pos: { ...pos },
+      velocity: { x: 0, y: 0 },
+      dt: 1 / 60,
+      createdTick: 0,
+    });
+    dispatch(w, { type: 'SPAWN_SPARK', spark });
+    dispatch(w, { type: 'PICKUP_SPARK', sparkId: spark.id, playerId: seat, pos: { ...pos } });
+    return w.players.get(seat)?.kind === 'Carrying' ? w : null;
+  }
 
-  it('⚠ NEGATIVE: in FIGHT every point is refused (the 99.9 % case)', () => {
-    const w = startMatch();
-    w.gameState = 'PLAYING';
-    w.matchPhase = 'BUILD';
-    const seat = asPlayerId(1);
-    let legalInBuild: { x: number; y: number } | null = null;
-    for (let x = 20; x < CANVAS_WIDTH && legalInBuild === null; x += 40) {
-      for (let y = 20; y < CANVAS_HEIGHT; y += 40) if (!placeRefusedAt(w, { x, y }, seat)) { legalInBuild = { x, y }; break; }
-    }
-    expect(legalInBuild).not.toBeNull();
-    w.matchPhase = 'FIGHT';
-    expect(placeRefusedAt(w, legalInBuild!, seat)).toBe(true);
-  });
+  for (const phase of ['BUILD', 'FIGHT'] as const) {
+    it(`${phase}: a PLACE lands exactly where placeRefusedAt says it may`, () => {
+      const seat = asPlayerId(1);
+      let checked = 0;
+      let landed = 0;
+      let refused = 0;
+      for (let x = 30; x < CANVAS_WIDTH; x += 60) {
+        for (let y = 30; y < CANVAS_HEIGHT; y += 60) {
+          const w = carryingWorld(phase, { x, y }, seat);
+          if (w === null) continue; // the pickup itself was refused here; nothing to place
+          const me = w.players.get(seat)!;
+          const sparkPos = w.freeSparks.get((me as { carriedSparkId: never }).carriedSparkId)!.pos;
+          const predictedOk = !placeRefusedAt(w, sparkPos, seat);
+          const before = w.primitives.size;
+          dispatch(w, { type: 'PLACE_PRIMITIVE', playerId: seat, targetPrimitiveId: null, stiffnessTier: 'MID', placementPos: { x, y } });
+          const ok = w.primitives.size > before;
+          expect(ok, `${phase} ${x},${y}`).toBe(predictedOk);
+          checked++;
+          if (ok) landed++;
+          else refused++;
+        }
+      }
+      expect(checked, 'grid points driven through the reducer').toBeGreaterThan(200);
+      if (phase === 'BUILD') {
+        // Anti-vacuity: both outcomes occur, so agreement is not "everything refused".
+        expect(landed).toBeGreaterThan(10);
+        expect(refused).toBeGreaterThan(10);
+      } else {
+        expect(landed, 'nothing lands in FIGHT').toBe(0);
+      }
+    });
+  }
 });
