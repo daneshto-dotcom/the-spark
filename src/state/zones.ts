@@ -77,9 +77,10 @@ const QUARRY_R2 = SPAWNER_RADIUS * SPAWNER_RADIUS;
  *   · the score progress bar occupies x[12,92] y[920,960] and the bottom-left keep box is
  *     x[93,167] y[921,979] — they clear each other BY ONE PIXEL. That is luck, not design, so
  *     `zones.test.ts` pins the gap explicitly and will fail if either side moves;
- *   · porch + deposit sit at anchor.y + 74, i.e. y=1024 for the bottom keeps, inside the footer
- *     band (FOOTER_TOP_Y 996). Survivable ONLY because S136 P0 deleted the footer plate and its
- *     click guard — reviving a footer control means moving these anchors up;
+ *   · porch + deposit sit at anchor.y + 42 (⭐ S194 R194-16; was + 74), i.e. y=992 for the bottom keeps,
+ *     just above the footer band (FOOTER_TOP_Y 996) — a shape resting there still reaches 17 px into it.
+ *     Survivable because S136 P0 deleted the footer plate and its click guard, and the S149/S154 chips
+ *     are pinned clear of the porches (`footerBand.test.ts`, `shapeStrip.test.ts`);
  *   · the energy gauge at x[1896,1904] clears both right-hand keeps (max x 1827) — OK.
  */
 const ANCHORS: { readonly [K in ZoneLayout]: readonly Vec2[] } = {

@@ -1,7 +1,7 @@
 /**
  * ⭐ S193 P3-1 audit MED-1 — **A BOT NEVER WALLS ITS OWN PORCH.** (canon §4b item 3)
  *
- * The castle keep-out is one uniform 61 px disc now, so the porch row (anchor.y + 74) is legal ground,
+ * The castle keep-out is one uniform 61 px disc now, so the porch row (anchor.y + 74 then; + 42 since S194) is legal ground,
  * and a pull skips any slot a built shape stands within `CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of. The
  * audit measured HARD BALANCED seat 2 covering ALL FOUR of its slots with its own loose shapes by tick
  * 4620 — 574 of 586 pulls became no-ops for the rest of the match. `isLegalBuildPos` now refuses a
