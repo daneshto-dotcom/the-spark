@@ -44,3 +44,22 @@ T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f
 - T6 entropy: audit running. T4: audit running. T9, T10: queued. Open security hole (T6 report): client SEVER_BOND cause spoof in `stampSenderSeat` — audit confirming.
 - **Deploy S194-#2 `6ae616da` LIVE** — intentStamp SEVER_BOND security fix (HIGH, pre-existing) + s193/visuals-racial (visuals-3). Gates tc0 · vt0 7933 · build 1133.7 · gating 71/71 · races 5/5 · lobby 5/5 · verify-deploy 4/4. No bump (63).
 - QUEUE (after all trees): T12 team backdrops (after T1) · T13 NONET as its own game (R194-25, research worktree first).
+
+## PAUSE #2 (owner, 5-hour limit) — and the owner's CLOSE ORDER
+Owner: *"after this current batch of work trees … is done, we will not continue into the next batch … we will close off the session with a handoff."* → On resume: land the trees below, deploy, then /handoff. T12 (team backdrops), T13 (NONET own game) and anything new go to S195.
+- **Deploy S194-#3 `814f1871` LIVE** — s194/bots-tune. Gates tc0 · vt0 7949 · build 1133.7 · gating 71/71 · races 4/5 then the red spec (settings-toggles:140 race-music fallback) re-run 3/3 PASS → ruled timing flake · lobby 5/5 · verify-deploy 4/4.
+
+| tree | state at pause | to deploy |
+|---|---|---|
+| T8 fixes `s194/fixes` 68cc91e6 | DONE, NOT AUDITED. BUMP (Helga RISEN, fallen-seat pants lanes, chewer/drone no Helga). buttonFeedback real bug fixed. | audit → merge (bump 63→64) → gates → deploy |
+| T5 ui-upgrade ae816e8c | DONE round 2 (F1/F2/nit, arcade menu, every-clickable census). Audit was CLEAN; round 2 needs a LIGHT re-audit. | light re-audit → merge after T8 (buttonFeedback seam) → deploy |
+| T1 teams | fix-only round (MED-1 REACH ×4, CRLF, Voltkin weld, Begin gate, golden) — in flight at pause | finish → light re-audit → merge (BUMP) → T12 next session |
+| T6 entropy 110c6095 | audit CLEAN (HIGH was master's, fixed). Not yet merged. Canon.test keep-both conflict. | merge after T1 (BUMP, can share the T1 bump) |
+| T4 visuals-6 | fix round (M1 phantom title sparkle, L1, L2 fog re-reveal, reach per publisher, re-bench) + fix-me sparkle R194-22/23 — in flight | finish → light re-audit → merge |
+| T9 coherence | fix round (F1 pants sweep, F2 detonation, F3 fade kill, real-concealment test, id order) — in flight | finish → light re-audit → merge |
+| T10 matchboard | fix round (MONSTERS label + heatmap sums, LOW deaths recorded, axis labels) — in flight | finish → light re-audit → merge |
+| T11 rules | audit CLEAN; additions R194-26 (mega pants 251st) + R194-27 (measure cap) + bot re-pins on combined tree + LOW gatherer spawn — in flight | finish → light re-audit → merge (BUMP) |
+| T14 team-music ab7f6237 | DONE — Desktop/SPARK_Team_Music_Prompts.html from his real prompts. No src. | nothing to deploy (wiring is S195 with his tracks) |
+
+Bumps: T8, T1, T6, T11 each earn one; ride them as ONE bump per deploy (train), six sites + canon §6.
+Merge order on resume: T8 → T5 → T1 → T6 → T11 → T4 → T9 → T10, gates after each, deploys as trains.
