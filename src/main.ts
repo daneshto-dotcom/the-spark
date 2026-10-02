@@ -25,7 +25,7 @@
 // window.__TEST_SPAWN_RATE_PER_SECOND__ before constants.ts captures it at module init.
 // DEV-only; the whole module dead-code-eliminates in a production build. See its docblock.
 import './dev/probeBootstrap.ts';
-import { Application, Container, Graphics, Text, TextStyle, UPDATE_PRIORITY } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Text, TextStyle, UPDATE_PRIORITY } from 'pixi.js';
 import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
 import {
   SPAWN_RATE_PER_SECOND,
@@ -172,7 +172,7 @@ import { StructureRenderer } from './render/structureRenderer.ts';
 import { KeystoneTelegraphRenderer } from './render/keystoneTelegraphRenderer.ts';
 import { DragPreviewRenderer } from './render/dragPreviewRenderer.ts';
 import { TitleScreen } from './render/titleScreen.ts';
-import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen, settingsGearRect } from './render/ui.ts';
+import { AUDIO_ICON_Y, BETA_BADGE_Y, GAUGE_X_COLUMN, HUD, HUD_RIGHT_X, isOverlayScreen, settingsGearLocalHit, settingsGearRect } from './render/ui.ts';
 import { CastlePanel } from './render/castlePanel.ts';
 import { BlueprintGhost } from './render/blueprintGhost.ts';
 // S137 P0c — re-exported through the DEV __SPARK__ global as live keep geometry for e2e. Already in
@@ -473,6 +473,15 @@ async function bootstrap(): Promise<void> {
   settingsIcon.alpha = 0.55;
   settingsIcon.eventMode = 'static';
   settingsIcon.cursor = 'pointer';
+  // ⭐ S194 T5 — the gear lights on hover. ⛔ Audit F2: NO scale — a scaled gear grew Pixi's hit bounds
+  // ~3 px past `settingsGearRect()` (the modal-cover rect), so a click there opened settings AND reached
+  // the board. Its hit area is pinned to that same rect instead.
+  {
+    const h = settingsGearLocalHit(GAUGE_X_COLUMN, AUDIO_ICON_Y);
+    settingsIcon.hitArea = new Rectangle(h.x, h.y, h.w, h.h);
+  }
+  settingsIcon.on('pointerover', () => { settingsIcon.alpha = 1; });
+  settingsIcon.on('pointerout', () => { settingsIcon.alpha = 0.55; });
   settingsIcon.on('pointertap', () => {
     // initAudio() makes the gear icon double as a user-gesture trigger,
     // matching the pointerdown/keydown listeners below. Safe to call when

@@ -97,7 +97,10 @@ export function canSeverBond(
     // ⛔ REUSING 'player' HERE WAS A REAL BUG, CAUGHT BY raid.test.ts AND NOT BY REVIEW: the
     // player branch below gates on `disruptionCharges`, so a fully-damaged connector silently
     // REFUSED to break because the raider had none — a currency a raid does not and must not use.
-    action.cause === 'raid'
+    action.cause === 'raid' ||
+    // ⭐ S194 (R194-18) — the ENTROPY TAX is host-authoritative (only `runHostTick` rolls it) and costs
+    // nobody a charge, so it bypasses both gates like the other host-side causes.
+    action.cause === 'entropy'
   ) return true;
 
   const player = world.players.get(action.playerId);

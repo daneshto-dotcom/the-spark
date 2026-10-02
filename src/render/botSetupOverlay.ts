@@ -14,6 +14,9 @@
  */
 
 import { attachButtonFeedback } from './buttonFeedback.ts';
+// ⭐ S194 T5 — the shared skin (glass + sheen, inside each plate / hit rect).
+import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
+import { attachChipHover, attachHoverSheen } from './uiSkinButton.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
@@ -272,12 +275,11 @@ export class BotSetupOverlay {
     btn.position.set(cx, ROW_H / 2);
     const raceId = this.races[seat]!;
     const col = RACE_COLORS[raceId];
-    btn.addChild(
-      new Graphics()
-        .roundRect(-92, -18, 184, 36, 6)
-        .fill({ color: 0x0a0a0a, alpha: 0.9 })
-        .stroke({ width: 2, color: col, alpha: 0.9 }),
-    );
+    const plate = new Graphics().roundRect(-92, -18, 184, 36, 6).fill({ color: 0x0d121c, alpha: 0.92 });
+    skinButtonFx(plate, -92, -18, 184, 36, { accent: col, state: 'rest', radius: 6, studs: false });
+    plate.roundRect(-92, -18, 184, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
+    btn.addChild(plate);
+    attachChipHover(btn, plate, { x: -92, y: -18, w: 184, h: 36 }, 6);
     const t = new Text({
       text: raceDisplayName(raceId),
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 17, fontWeight: 'bold', fill: col }),
@@ -317,9 +319,15 @@ export class BotSetupOverlay {
     youRow.addChild(
       new Graphics()
         .roundRect(-PANEL_W / 2, 0, PANEL_W, ROW_H, 8)
-        .fill({ color: 0x111111, alpha: 0.9 })
+        .fill({ color: 0x0d121c, alpha: 0.9 })
         .stroke({ width: 1, color: 0x444455, alpha: 0.9 }),
     );
+    {
+      const frame = new Graphics();
+      frame.eventMode = 'none';
+      skinPanelFx(frame, -PANEL_W / 2, 0, PANEL_W, ROW_H, RACE_COLORS[this.races[0]!], 0, 8);
+      youRow.addChild(frame);
+    }
     youRow.addChild(
       new Graphics()
         .circle(-PANEL_W / 2 + 36, ROW_H / 2, 12)
@@ -341,9 +349,9 @@ export class BotSetupOverlay {
       row.position.set(CANVAS_WIDTH / 2, y);
 
       const bg = new Graphics();
-      bg.roundRect(-PANEL_W / 2, 0, PANEL_W, ROW_H, 8)
-        .fill({ color: 0x111111, alpha: 0.9 })
-        .stroke({ width: 1, color: 0x333344, alpha: 0.9 });
+      bg.roundRect(-PANEL_W / 2, 0, PANEL_W, ROW_H, 8).fill({ color: 0x0d121c, alpha: 0.9 });
+      skinPanelFx(bg, -PANEL_W / 2, 0, PANEL_W, ROW_H, BOT_ACCENT_COLOR, 0, 8);
+      bg.roundRect(-PANEL_W / 2, 0, PANEL_W, ROW_H, 8).stroke({ width: 1, color: 0x333344, alpha: 0.9 });
       row.addChild(bg);
 
       // Seat swatch — bot i sits seat i+1 (human is always seat 0).
@@ -412,15 +420,16 @@ export class BotSetupOverlay {
         const locked = this.difficulties[i] === 'NOOB';
         const col = locked ? 0x555555 : BOT_PERSONALITY_COLORS[pick];
         personaBg.clear();
-        personaBg.roundRect(-90, -18, 180, 36, 6)
-          .fill({ color: 0x0a0a0a, alpha: 0.9 })
-          .stroke({ width: 2, color: col, alpha: 0.9 });
+        personaBg.roundRect(-90, -18, 180, 36, 6).fill({ color: 0x0d121c, alpha: 0.92 });
+        skinButtonFx(personaBg, -90, -18, 180, 36, { accent: col, state: locked ? 'disabled' : 'rest', radius: 6, studs: false });
+        personaBg.roundRect(-90, -18, 180, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
         personaText.text = locked ? 'BALANCED' : pick;
         personaText.style.fill = col;
         personaBtn.cursor = locked ? 'default' : 'pointer';
         tagline.text = locked ? BOT_PERSONALITY_LOCKED_TAGLINE : BOT_PERSONALITY_TAGLINES[pick];
       };
       personaBtn.eventMode = 'static';
+      attachChipHover(personaBtn, personaBg, { x: -90, y: -18, w: 180, h: 36 }, 6, () => this.difficulties[i] !== 'NOOB');
       personaBtn.on('pointertap', () => {
         if (this.difficulties[i] === 'NOOB') return;
         const cur = BOT_PERSONALITY_CHOICES.indexOf(this.personalities[i]);
@@ -434,15 +443,16 @@ export class BotSetupOverlay {
         const d = this.difficulties[i];
         const col = BOT_DIFFICULTY_COLORS[d];
         diffBg.clear();
-        diffBg.roundRect(-80, -18, 160, 36, 6)
-          .fill({ color: 0x0a0a0a, alpha: 0.9 })
-          .stroke({ width: 2, color: col, alpha: 0.9 });
+        diffBg.roundRect(-80, -18, 160, 36, 6).fill({ color: 0x0d121c, alpha: 0.92 });
+        skinButtonFx(diffBg, -80, -18, 160, 36, { accent: col, state: 'rest', radius: 6, studs: false });
+        diffBg.roundRect(-80, -18, 160, 36, 6).stroke({ width: 2, color: col, alpha: 0.9 });
         diffText.text = d;
         diffText.style.fill = col;
       };
       paint();
       paintPersona();
       diffBtn.eventMode = 'static';
+      attachChipHover(diffBtn, diffBg, { x: -80, y: -18, w: 160, h: 36 }, 6);
       diffBtn.cursor = 'pointer';
       diffBtn.on('pointertap', () => {
         const cur = BOT_DIFFICULTIES.indexOf(this.difficulties[i]);
@@ -465,9 +475,9 @@ export class BotSetupOverlay {
     const c = new Container();
     c.position.set(cx, cy);
     const bg = new Graphics();
-    bg.roundRect(-24, -24, 48, 48, 8)
-      .fill({ color: 0x111111, alpha: 0.92 })
-      .stroke({ width: 2, color: 0x666688, alpha: 0.9 });
+    bg.roundRect(-24, -24, 48, 48, 8).fill({ color: 0x111a2a, alpha: 0.92 });
+    skinButtonFx(bg, -24, -24, 48, 48, { accent: BOT_ACCENT_COLOR, state: 'rest', radius: 8 });
+    bg.roundRect(-24, -24, 48, 48, 8).stroke({ width: 2, color: 0x666688, alpha: 0.9 });
     c.addChild(bg);
     const t = new Text({
       text: label,
@@ -480,11 +490,11 @@ export class BotSetupOverlay {
     });
     t.anchor.set(0.5);
     c.addChild(t);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.on('pointertap', onClick);
-    c.on('pointerover', () => { bg.tint = 0xddddee; });
-    c.on('pointerout', () => { bg.tint = 0xffffff; });
+    // ⭐ S194 (owner: *"the plus and minus button … doesn't have any graphic implemented"*) — the
+    // steppers and the close ✕ get the shared button grammar (hover pop, press squash, click blip) and
+    // the sheen, on exactly their 48×48 plate. They used to answer only with a near-invisible tint.
+    attachButtonFeedback(c, bg, onClick, { hit: { x: -24, y: -24, w: 48, h: 48 } });
+    attachHoverSheen(c, { x: -24, y: -24, w: 48, h: 48 }, 8);
     return c;
   }
 
@@ -492,9 +502,9 @@ export class BotSetupOverlay {
     const c = new Container();
     c.position.set(cx, cy);
     const bg = new Graphics();
-    bg.roundRect(-180, -36, 360, 72, 12)
-      .fill({ color: 0x111111, alpha: 0.92 })
-      .stroke({ width: 2, color: BOT_ACCENT_COLOR, alpha: 0.9 });
+    bg.roundRect(-180, -36, 360, 72, 12).fill({ color: 0x0d121c, alpha: 0.94 });
+    skinButtonFx(bg, -180, -36, 360, 72, { accent: BOT_ACCENT_COLOR, state: 'rest', radius: 12 });
+    bg.roundRect(-180, -36, 360, 72, 12).stroke({ width: 2, color: BOT_ACCENT_COLOR, alpha: 0.9 });
     c.addChild(bg);
     const t = new Text({
       text: label,
@@ -511,7 +521,7 @@ export class BotSetupOverlay {
      * ⭐ S185 — START MATCH pops like the title screen's buttons. Owner, auditing every screen:
      * *"if you get into versus bots, the start match doesn't [pop out]"* — while explicitly asking
      * to LEAVE the bot-count, race and difficulty chips alone: *"they do kind of change shade, so
-     * that's good … it shouldn't pop out for now."* `makeSmallButton` is therefore untouched.
+     * that's good … it shouldn't pop out for now."* ⭐ S194 SUPERSEDED for the −/+/✕ steppers by the owner's *"the plus and minus button … across the board"*: they now use `attachButtonFeedback` (hover pop, press squash, click). The race / difficulty chips still do not pop (`attachChipHover` never scales).
      *
      * ⚠ The hand-rolled tint pair here is REPLACED rather than extended: it was a look-alike of the
      * shared grammar that had drifted from it — no scale, no press state, and no click SOUND, which
@@ -519,6 +529,7 @@ export class BotSetupOverlay {
      * plate is already drawn about its own centre, so it scales from the middle with no pivot work.
      */
     attachButtonFeedback(c, bg, onClick, { hit: { x: -180, y: -36, w: 360, h: 72 } });
+    attachHoverSheen(c, { x: -180, y: -36, w: 360, h: 72 }, 12);
     return c;
   }
 }

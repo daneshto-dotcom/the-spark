@@ -46,6 +46,7 @@ import { damageCreature } from './creatures/creatureLifecycle.ts';
 import { recordCreatureRetaliation, recordDefenderRetaliation } from './creatures/retaliation.ts';
 import type { Defender } from './defenders/defender.ts';
 import { stinkDeathBlast } from './defenders/stinkTower.ts';
+import { riseOnHelgaKill } from './racial/theRisen.ts';
 import { razePrimitives } from './razePrimitives.ts';
 import type { World } from './worldTypes.ts';
 import { castleDamageAfterDefence } from './castleUpgrades.ts';
@@ -457,6 +458,9 @@ export function damageEntity(
       d.lastStrikePos = null;
       d.walkTargetPos = null;
       d.prevPos = { x: d.pos.x, y: d.pos.y };
+      // ⭐ S194 (T8, owner B) — a zombie seat's racial unit that fells her raises ONE castle soldier
+      // (THE RISEN). Queued, like every racial spawn; once per death because she is `ehp: null` now.
+      riseOnHelgaKill(world, d.ownerPlayerId, blow);
       return true;
     }
 

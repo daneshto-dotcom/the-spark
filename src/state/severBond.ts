@@ -148,6 +148,10 @@ export function severActor(action: SeverBondAction): PlayerId | undefined {
     // for every overstretch in the match. EXCLUDED, not defaulted.
     case 'physics':
       return undefined;
+    // ⭐ S194 (R194-18) — the ENTROPY TAX: nobody severed it, the structure wore out. `applyEntropyTax`
+    // passes the victim's own seat as `playerId` only because the action needs one — never an actor.
+    case 'entropy':
+      return undefined;
     // Verified at each dispatch site to carry the responsible seat: controls.ts:339 (local human),
     // botController.ts (bot sever)(the bot's own seat), creatureAttack.ts        (creature.ownerPlayerId, for
     // both 'creature' and 'chewer'), droneLifecycle.ts:96 (drone.ownerPlayerId), bombLifecycle.ts:146

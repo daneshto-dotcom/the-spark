@@ -67,6 +67,9 @@
  */
 
 import { attachButtonFeedback } from './buttonFeedback.ts';
+// ⭐ S194 T5 — the shared skin (glass + sheen, inside each tab / button hit rect).
+import { skinButtonFx } from './uiSkin.ts';
+import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
@@ -527,6 +530,7 @@ export class CodexOverlay {
       attachButtonFeedback(btn, box, () => this.switchTab(tab.key), {
         hit: { x: 0, y: 0, w: tabW, h: 48 },
       });
+      attachHoverSheen(btn, { x: 0, y: 0, w: tabW, h: 48 }, 8);
       this.container.addChild(btn);
       this.tabButtons.set(tab.key, { box, label });
       tx += tabW + tabGap;
@@ -537,7 +541,9 @@ export class CodexOverlay {
     // Close button (top-right).
     const closeBtn = new Container();
     const closeBg = new Graphics();
-    closeBg.roundRect(0, 0, 100, 36, 6).fill({ color: 0x222222, alpha: 0.9 }).stroke({ width: 2, color: 0x888888, alpha: 0.8 });
+    closeBg.roundRect(0, 0, 100, 36, 6).fill({ color: 0x141b26, alpha: 0.92 });
+    skinStaticPlate(closeBg, { x: 0, y: 0, w: 100, h: 36 }, 0x888888, 6);
+    closeBg.roundRect(0, 0, 100, 36, 6).stroke({ width: 2, color: 0x888888, alpha: 0.8 });
     closeBtn.addChild(closeBg);
     const closeText = new Text({
       text: 'CLOSE',
@@ -549,6 +555,7 @@ export class CodexOverlay {
     closeBtn.pivot.set(50, 18);
     closeBtn.position.set(CANVAS_WIDTH - 130 + 50, 30 + 18);
     attachButtonFeedback(closeBtn, closeBg, onClose, { hit: { x: 0, y: 0, w: 100, h: 36 } });
+    attachHoverSheen(closeBtn, { x: 0, y: 0, w: 100, h: 36 }, 6);
     this.container.addChild(closeBtn);
 
     this.content = new Container();
@@ -767,9 +774,9 @@ export class CodexOverlay {
       if (ui === undefined) continue;
       const on = tab.key === this.active;
       ui.box.clear();
-      ui.box.roundRect(0, 0, this.tabW, 48, 8)
-        .fill({ color: on ? tab.color : 0x14141a, alpha: on ? 0.9 : 0.85 })
-        .stroke({ width: 2, color: on ? 0xffffff : tab.color, alpha: on ? 0.95 : 0.55 });
+      ui.box.roundRect(0, 0, this.tabW, 48, 8).fill({ color: on ? tab.color : 0x14141a, alpha: on ? 0.9 : 0.85 });
+      skinButtonFx(ui.box, 0, 0, this.tabW, 48, { accent: tab.color, state: on ? 'active' : 'rest', radius: 8 });
+      ui.box.roundRect(0, 0, this.tabW, 48, 8).stroke({ width: 2, color: on ? 0xffffff : tab.color, alpha: on ? 0.95 : 0.55 });
       ui.label.style.fill = on ? 0x101014 : tab.color;
     }
   }
@@ -923,9 +930,9 @@ export class CodexOverlay {
     const tile = new Container();
     tile.position.set(x, y);
     const bg = new Graphics();
-    bg.roundRect(0, 0, w, h, 12)
-      .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: GOLD, alpha: 0.75 });
+    bg.roundRect(0, 0, w, h, 12).fill({ color: 0x0a0d14, alpha: 0.88 });
+    skinStaticPlate(bg, { x: 0, y: 0, w, h }, GOLD, 12);
+    bg.roundRect(0, 0, w, h, 12).stroke({ width: 2, color: GOLD, alpha: 0.75 });
     tile.addChild(bg);
 
     // ⭐ S174 (b) — the combo half of the owner's ruling: fourteen named results, never `???`.
@@ -983,6 +990,7 @@ export class CodexOverlay {
      */
     tile.eventMode = 'static';
     tile.cursor = 'pointer';
+    attachChipHover(tile, bg, { x: 0, y: 0, w, h }, 12);
     tile.on('pointerover', () => { this.hoveredCombo = entry.key; });
     tile.on('pointerout', () => { if (this.hoveredCombo === entry.key) this.hoveredCombo = null; });
     tile.on('pointertap', () => { this.pinnedCombo = this.pinnedCombo === entry.key ? null : entry.key; });

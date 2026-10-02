@@ -15,6 +15,9 @@ import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 // ⭐ S155 P2 — the ONE shared button grammar (hover pop + press + blip). See buttonFeedback.ts.
 import { attachButtonFeedback } from './buttonFeedback.ts';
+// ⭐ S194 T5 — the shared skin (glass, frame, hover sheen — all inside each plate / hit rect).
+import { skinPanelFx } from './uiSkin.ts';
+import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
 import {
   makeConnectionLostOverlay,
   type ConnectionLostOverlayHandle,
@@ -336,9 +339,9 @@ export class LobbyScreen {
     // Connect button — gates on inputEl.value.length === 6
     this.joinButton = new Container();
     this.joinButtonBg = new Graphics();
-    this.joinButtonBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
-      .fill({ color: 0x222222, alpha: 0.9 })
-      .stroke({ width: 2, color: PLAYER_COLORS[1], alpha: 0.8 });
+    this.joinButtonBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
+    skinStaticPlate(this.joinButtonBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, PLAYER_COLORS[1]!, 8);
+    this.joinButtonBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color: PLAYER_COLORS[1], alpha: 0.8 });
     this.joinButton.addChild(this.joinButtonBg);
     const joinBtnText = new Text({
       text: 'Connect',
@@ -367,6 +370,8 @@ export class LobbyScreen {
         callbacks.onJoinAttempt(code);
       }
     };
+    // ⭐ S194 — lights only once the code is complete (the button's own 0.4-alpha "disabled" look).
+    attachChipHover(this.joinButton, this.joinButtonBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 8, () => this.joinButton.alpha >= 1);
     this.joinButton.on('pointertap', attemptJoin);
     this.attemptJoinFn = attemptJoin;
 
@@ -457,6 +462,7 @@ export class LobbyScreen {
       },
       { hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT } },
     );
+    attachHoverSheen(this.readyButton, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, 8);
     this.readyButton.position.set(CANVAS_WIDTH / 2 - BUTTON_WIDTH / 2, paneY + PANE_HEIGHT + 70);
     this.readyButton.visible = false;
     this.container.addChild(this.readyButton);
@@ -951,9 +957,9 @@ export class LobbyScreen {
     const c = new Container();
     c.position.set(x, y);
     const bg = new Graphics();
-    bg.roundRect(0, 0, PANE_WIDTH, PANE_HEIGHT, 16)
-      .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: accentColor, alpha: 0.6 });
+    bg.roundRect(0, 0, PANE_WIDTH, PANE_HEIGHT, 16).fill({ color: 0x0a0e16, alpha: 0.88 });
+    skinPanelFx(bg, 0, 0, PANE_WIDTH, PANE_HEIGHT, accentColor, 64, 16);
+    bg.roundRect(0, 0, PANE_WIDTH, PANE_HEIGHT, 16).stroke({ width: 2, color: accentColor, alpha: 0.6 });
     c.addChild(bg);
     const headerText = new Text({
       text: label,
@@ -968,9 +974,10 @@ export class LobbyScreen {
   private makeButton(label: string, color: number, onClick: () => void): Container {
     const c = new Container();
     const bg = new Graphics();
-    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
-      .fill({ color: 0x222222, alpha: 0.9 })
-      .stroke({ width: 2, color, alpha: 0.8 });
+    const hit = { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
+    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
+    skinStaticPlate(bg, hit, color, 8);
+    bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
     c.addChild(bg);
     const text = new Text({
       text: label,
@@ -996,6 +1003,7 @@ export class LobbyScreen {
     attachButtonFeedback(c, bg, onClick, {
       hit: { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
     });
+    attachHoverSheen(c, hit, 8);
     return c;
   }
 
@@ -1005,8 +1013,9 @@ export class LobbyScreen {
     this.readyButtonBg.clear();
     this.readyButtonBg
       .roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8)
-      .fill({ color: this.selfReady ? 0x163a16 : 0x222222, alpha: 0.9 })
-      .stroke({ width: 2, color, alpha: 0.85 });
+      .fill({ color: this.selfReady ? 0x163a16 : 0x141b26, alpha: 0.92 });
+    skinStaticPlate(this.readyButtonBg, { x: 0, y: 0, w: BUTTON_WIDTH, h: BUTTON_HEIGHT }, color, 8, this.selfReady ? 'active' : 'rest');
+    this.readyButtonBg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.85 });
     this.readyButtonText.text = this.selfReady ? 'READY ✓' : 'READY?';
     this.readyButtonText.style.fill = color;
   }

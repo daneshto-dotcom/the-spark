@@ -24,6 +24,21 @@
 
 import { expect, test } from '@playwright/test';
 import { canvasToCss, waitForWorld } from './helpers.ts';
+import { installFrameClock, waitForTickAdvance } from './tickClock.ts';
+
+/**
+ * ⭐ S194 (T8) — `HUB_RAMP_TICKS_PER_FRAME` in `src/render/structureRamp.ts` (pinned equal by
+ * `src/e2eHubRampClock.test.ts`). The damage cursor walks ONE frame per this many SIM TICKS.
+ */
+const HUB_RAMP_TICKS_PER_FRAME = 2;
+
+/**
+ * ⭐ S194 (T8) — `StructureRampRenderer.ensureAtlas` FETCHES the hub's manifest + atlas the first time a
+ * hub is seen and draws nothing until both land, so the sprite count was a race against a fixed 900 ms
+ * (it lost on the merged S194 tree: `no ramp sprite / no texture frame` at the pristine read). Same
+ * defect and same cure as `tower-art.spec.ts`'s TOWER_ATLAS_WAIT_MS: poll, assertion unchanged. ⚠ MINE.
+ */
+const RAMP_ATLAS_WAIT_MS = 20_000;
 
 /** `SparkType` on the wire. The hub's bill is 1 Dot + 5 Circles. */
 const DOT = 0;
@@ -170,7 +185,10 @@ test.describe('@visual S182 — the lightning hub is DRAWN, not just built', () 
      * ⭐⭐⭐ THE ASSERTION THIS FILE EXISTS FOR. One live hub, one sprite. A zero here is the
      * `t3TowerAtlasBase` defect happening again: recipe fine, atlas fine, path fine, nothing drawn.
      */
-    expect(after.rampSprites, 'the ramp renderer must hold exactly one sprite').toBe(1);
+    // ⭐ S194 (T8) — polled: the ramp atlas is fetched LAZILY on first sight (see RAMP_ATLAS_WAIT_MS).
+    await expect.poll(async () => (await rampState(page)).rampSprites, {
+      message: 'the ramp renderer must hold exactly one sprite', timeout: RAMP_ATLAS_WAIT_MS,
+    }).toBe(1);
 
     await page.screenshot({ path: 'test-results/lightning-hub-on-board.png' });
   });
@@ -211,6 +229,8 @@ test.describe('@visual S182 — the lightning hub is DRAWN, not just built', () 
         return { x: f.x, y: f.y, w: f.width, h: f.height };
       });
 
+    // ⭐ S194 (T8) — wait for the lazily-loaded ramp atlas to put the sprite up before reading it.
+    await expect.poll(async () => (await rampState(page)).rampSprites, { timeout: RAMP_ATLAS_WAIT_MS }).toBe(1);
     const pristine = await frameOf();
     expect(pristine.x, 'a pristine hub draws frame 1 — column 0 of the damage row').toBe(0);
     expect(pristine.y, 'and row 0, not the collapse row').toBe(0);
@@ -234,8 +254,15 @@ test.describe('@visual S182 — the lightning hub is DRAWN, not just built', () 
         left -= take;
       }
     });
-    // The cursor PLAYS THROUGH (R182-D) at 3 ticks per frame, so give it room to walk 1 -> 12.
-    await page.waitForTimeout(1200);
+    /*
+     * The cursor PLAYS THROUGH (R182-D) at HUB_RAMP_TICKS_PER_FRAME sim ticks per frame, so it needs
+     * 11 × 2 = 22 TICKS to walk 1 → 12. ⛔ S194 (T8) — this was `waitForTimeout(1200)`: WALL time for a
+     * TICK-paced animation. Deploy #22's gating run drew column 10 (≈ 20 ticks in 1.2 s on a slow
+     * runner); reproduced locally under 14× / 20× CPU throttle (12 / 6 ticks → columns 9 / 6). The wait
+     * is now on the sim's own clock (`tickClock.ts`), so it measures the renderer, not the runner.
+     */
+    await installFrameClock(page);
+    await waitForTickAdvance(page, page, 11 * HUB_RAMP_TICKS_PER_FRAME + 2, 'hub damage cursor walks 1 → 12', false);
 
     const hurt = await frameOf();
     expect(hurt.y, 'still the damage row — 50 % is not the collapse row').toBe(0);

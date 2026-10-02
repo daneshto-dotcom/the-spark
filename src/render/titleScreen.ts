@@ -18,12 +18,16 @@
  * pure presentation (no direct dispatch dependency).
  */
 
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, FillGradient, Graphics, Text, TextStyle } from 'pixi.js';
 import {
   BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS, MAX_PLAYERS, PLAYER_COLORS,
 } from '../constants.ts';
 import { fitTextToWidth } from './textFit.ts';
 import { attachButtonFeedback } from './buttonFeedback.ts';
+// ⭐ S194 T5 — the shared skin (glass plate, icon, hover sheen — all inside the button's hit rect).
+import { skinIcon, type SkinIconKind } from './uiSkin.ts';
+import { attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import type { TitleBackdrop } from './titleBackdrop.ts';
 
 // S121 P4 — 360 was too narrow for the sublabels (the CODEX one ran ~490px wide and escaped the
 // box; Multiplayer/VS-Bots grazed the edges). Wider buttons + tighter copy + a fitTextToWidth
@@ -32,7 +36,11 @@ const BUTTON_WIDTH = 430;
 const BUTTON_HEIGHT = 72;
 const BUTTON_GAP = 24;
 const BUTTON_RADIUS = 12;
-const SUBLABEL_MAX_W = BUTTON_WIDTH - 36;
+// ⭐ S194 T5 — the icon takes the left ~64 px, so the text block moves right and narrows to match.
+const ICON_SIZE = 30;
+const ICON_CX = -BUTTON_WIDTH / 2 + 36;
+const TEXT_SHIFT = 26;
+const SUBLABEL_MAX_W = BUTTON_WIDTH - 36 - TEXT_SHIFT * 2 - 12;
 
 export interface TitleScreenCallbacks {
   onSoloSelected(): void;
@@ -71,7 +79,16 @@ export class TitleScreen {
         fontFamily: 'monospace',
         fontSize: 144,
         fontWeight: 'bold',
-        fill: 0xffffff,
+        // ⭐ S194 T5 — a cold-white-to-ice gradient with a soft blue glow, over the living backdrop.
+        // (A gradient needs a canvas to build; headless — vitest — falls back to plain white.)
+        fill: typeof document === 'undefined' ? 0xffffff : new FillGradient({
+          type: 'linear', start: { x: 0, y: 0 }, end: { x: 0, y: 1 }, textureSpace: 'local',
+          colorStops: [{ offset: 0, color: 0xffffff }, { offset: 0.55, color: 0xdff4ff }, { offset: 1, color: 0x7fc8ff }],
+        }),
+        stroke: { color: 0x0b1a2e, width: 6 },
+        dropShadow: { color: 0x3b9cff, alpha: 0.85, blur: 26, distance: 0, angle: 0 },
+        // Room for the glow inside the text texture, or its blur is cut off in a hard-edged box.
+        padding: 60,
         letterSpacing: 12,
       }),
     });
@@ -84,7 +101,7 @@ export class TitleScreen {
       style: new TextStyle({
         fontFamily: 'monospace',
         fontSize: 16,
-        fill: 0x888888,
+        fill: 0x9fb4cc,
         letterSpacing: 2,
       }),
     });
@@ -107,6 +124,7 @@ export class TitleScreen {
     this.container.addChild(this.notice);
 
     const btnSolo = this.makeButton(
+      'play',
       '1 Player',
       'a calm canvas — learn the craft of connection',
       PLAYER_COLORS[0],
@@ -137,6 +155,7 @@ export class TitleScreen {
     // was correcting is the SEAT count, and the board says so: `QUADRANTS_4P` has exactly four
     // zones, so a fifth seat has no quadrant to own.
     const btn1v1 = this.makeButton(
+      'globe',
       'Multiplayer',
       `friends lobby or quick match · 2–${MAX_PLAYERS} sparks`,
       PLAYER_COLORS[1],
@@ -156,6 +175,7 @@ export class TitleScreen {
     // clamped its picker to it (`Math.min(MAX_BOTS, n)`) — only the copy was stale, so the button
     // advertised a match the next screen would refuse to set up.
     const btnVsBots = this.makeButton(
+      'bots',
       'VS Bots',
       `battle 1–${MAX_BOTS} AI sparks · set each bot’s difficulty`,
       BOT_ACCENT_COLOR,
@@ -174,6 +194,7 @@ export class TitleScreen {
     // miniature — grep for the CLAUSE, not for the files you remember touching: the tab lived in
     // codexOverlay.ts and main.ts, and the only place a PLAYER read its name was here.
     const btnCodex = this.makeButton(
+      'book',
       'CODEX',
       'combos · towers — everything you have earned',
       0xffd60a,
@@ -188,6 +209,7 @@ export class TitleScreen {
     // reversed: "you may not delete NONET … we will add ARCADE option to the front page below
     // the Codex and add bunch of minigames like the NONET SODOKU".
     const btnArcade = this.makeButton(
+      'star',
       'ARCADE',
       'standalone trials · NONET and more to come',
       0x9b7bff,
@@ -224,6 +246,22 @@ export class TitleScreen {
   setVisible(visible: boolean): void {
     this.visible = visible;
     this.container.visible = visible;
+    this.backdrop?.setRunning(visible);
+    if (visible && this.backdrop === null && !this.backdropLoading) this.loadBackdrop();
+  }
+
+  /** ⭐ S194 T5 — the animated home backdrop, a lazy chunk; until it lands the screen is as before. */
+  private backdrop: TitleBackdrop | null = null;
+  private backdropLoading = false;
+  private loadBackdrop(): void {
+    this.backdropLoading = true;
+    import('./titleBackdrop.ts')
+      .then((m) => {
+        this.backdrop = new m.TitleBackdrop();
+        this.container.addChildAt(this.backdrop.container, 0);
+        this.backdrop.setRunning(this.visible);
+      })
+      .catch(() => { /* the plain title is a complete screen; a failed chunk costs only the motes */ });
   }
 
   isVisible(): boolean {
@@ -245,6 +283,7 @@ export class TitleScreen {
   }
 
   private makeButton(
+    icon: SkinIconKind,
     label: string,
     sublabel: string,
     accentColor: number,
@@ -257,7 +296,13 @@ export class TitleScreen {
 
     const bg = new Graphics();
     bg.roundRect(-BUTTON_WIDTH / 2, -BUTTON_HEIGHT / 2, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_RADIUS)
-      .fill({ color: 0x111111, alpha: 0.92 })
+      .fill({ color: 0x0d121c, alpha: 0.94 });
+    const hit = { x: -BUTTON_WIDTH / 2, y: -BUTTON_HEIGHT / 2, w: BUTTON_WIDTH, h: BUTTON_HEIGHT };
+    skinStaticPlate(bg, hit, accentColor, BUTTON_RADIUS);
+    // The icon sits in its own inset socket, so it reads as a badge on the plate.
+    bg.roundRect(ICON_CX - 24, -24, 48, 48, 10).stroke({ width: 1.5, color: accentColor, alpha: 0.45 });
+    skinIcon(bg, icon, ICON_CX, 0, ICON_SIZE, accentColor, 0.95);
+    bg.roundRect(-BUTTON_WIDTH / 2, -BUTTON_HEIGHT / 2, BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_RADIUS)
       .stroke({ width: 2, color: accentColor, alpha: 0.85 });
     c.addChild(bg);
 
@@ -271,7 +316,7 @@ export class TitleScreen {
       }),
     });
     labelText.anchor.set(0.5);
-    labelText.position.set(0, -10);
+    labelText.position.set(TEXT_SHIFT, -10);
     c.addChild(labelText);
 
     const subText = new Text({
@@ -279,7 +324,7 @@ export class TitleScreen {
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0x888888 }),
     });
     subText.anchor.set(0.5);
-    subText.position.set(0, 16);
+    subText.position.set(TEXT_SHIFT, 16);
     fitTextToWidth(subText, SUBLABEL_MAX_W, 9); // S121 P4 — sublabels can never escape the button
     c.addChild(subText);
 
@@ -310,6 +355,7 @@ export class TitleScreen {
     attachButtonFeedback(c, bg, onClick, {
       hit: { x: -BUTTON_WIDTH / 2, y: -BUTTON_HEIGHT / 2, w: BUTTON_WIDTH, h: BUTTON_HEIGHT },
     });
+    attachHoverSheen(c, hit, BUTTON_RADIUS);
     return c;
   }
 }
