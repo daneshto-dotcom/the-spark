@@ -707,3 +707,37 @@ describe('S193 — a CLIENT reads the same countdown, banner and clock from the 
     expect(monstersLeftToComeOut(client)).toBeGreaterThan(0);
   });
 });
+
+/* ══════════════════════ ⭐⭐ S194 R194-17 + R194-2 — A FALLEN SEAT'S LANE STOPS ══════════════════════ */
+
+describe('⭐⭐ S194 R194-17 × R194-2 — a seat knocked out mid-window: its un-emerged pants never come', () => {
+  it('REACH (3 seats, wave 28): after seat 2 falls, not one more pants is born for it, and the rest are still out by the window end', () => {
+    const world = board(3);
+    toFightEdge(world, 28);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const W = pantsWindowTicks(28);
+    const P2 = asPlayerId(2);
+    const seen = new Map<number, PlayerId | undefined>();
+    const sweep = (): void => {
+      for (const p of pants(world)) {
+        seen.set(p.id as unknown as number, p.monsterSeat);
+        dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+      }
+    };
+    while (world.tick - start < W / 2) { runHostTick(world, d, st); sweep(); }
+    const beforeFall = [...seen.values()].filter((s) => s === P2).length;
+    expect(beforeFall, 'anti-vacuity: seat 2 had pants before it fell').toBeGreaterThan(0);
+    world.players.get(P2)!.castleHp = 0;
+    const fallTick = world.tick;
+    while (world.tick - start <= W) { runHostTick(world, d, st); sweep(); }
+    expect([...seen.values()].filter((s) => s === P2).length, 'no pants for the fallen seat after the fall').toBe(beforeFall);
+    expect(world.tick).toBeGreaterThan(fallTick);
+    // the wave is now his count × the TWO living seats, all out by the window's end
+    expect(world.monsterWaveSpawned).toBe(monstersPerSeatForWave(28) * 2);
+    expect(monstersLeftToComeOut(world)).toBe(0);
+  });
+});

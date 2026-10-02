@@ -4282,6 +4282,7 @@ export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
  * clears in ~45). A tick rule, not a position test, so a pants shoved back into the circle cannot
  * stall a lane for the rest of the wave.
  */
+// ⛔ S194 R194-17 — RETIRED IN PLACE, UNREAD BY THE SIM: his window (`PANTS_WINDOW_SECONDS`) sets the pace now.
 export const MONSTER_EMERGE_TICKS = 45;
 /**
  * ⭐⭐ S194 R194-17 (owner, option B) — **THE PANTS WINDOW: ALL OF A WAVE'S PANTS COME OUT INSIDE IT.**
@@ -4344,8 +4345,9 @@ export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
  * just comes and destroys everything … the boss is gonna be basically unbeatable, but it's all about
  * surviving longer."*
  *
- * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. His 250 each
- * take 250 × 45 = 11 250 ticks (3:07.5) to come out, so the boss arrives ~50 s after the last pants.
+ * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. ⭐ S194 R194-17 —
+ * his 250 each are now all out by **120 s** (`PANTS_WINDOW_SECONDS`), so the boss arrives ~2 minutes after
+ * the last pants (was ~50 s after, when they took 250 × 45 = 11 250 ticks). Not retuned — flagged.
  */
 export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
 /**

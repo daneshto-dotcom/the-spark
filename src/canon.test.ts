@@ -1571,6 +1571,7 @@ import * as endgameConstants from './constants.ts';
 import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
 import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
 import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
+import { monsterFightTicks } from './state/endgame.ts'; // ⭐ S194 R194-17
 
 describe('S192 §3f — the endgame table is the constants', () => {
   it('the last draft, the lock and the five wave counts', () => {
@@ -1584,7 +1585,13 @@ describe('S192 §3f — the endgame table is the constants', () => {
   });
 
   it('⭐ S193 — the pace, the hold, the final fight and the mega pants', () => {
-    expect(canonSays(`**one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks** per lane (\`MONSTER_EMERGE_TICKS\`)`)).toBe(true);
+    // ⭐ S194 R194-17 — HIS window replaced the 45-tick pace (retired in place, struck through in the canon).
+    const pw = endgameConstants.PANTS_WINDOW_SECONDS;
+    expect([pw[27], pw[28], pw[29], pw[30], pw[31]]).toEqual([30, 45, 60, 90, 120]); // all his
+    expect(canonSays(`**27 → ${pw[27]} s · 28 → ${pw[28]} s · 29 → ${pw[29]} s · 30 → ${pw[30]} s · 31 → ${pw[31]} s** (\`PANTS_WINDOW_SECONDS\`)`)).toBe(true);
+    expect(canonSays(`~~one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks per lane (\`MONSTER_EMERGE_TICKS\`)~~`)).toBe(true);
+    const ft = (w: number): number => monsterFightTicks(w) / endgameConstants.PHYSICS_HZ;
+    expect(canonSays(`**27 → ${ft(27)} s · 28 → ${ft(28)} s · 29 → ${ft(29)} s · 30 → ${ft(30)} s** (31 → ${ft(31)} s`)).toBe(true);
     expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
     expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
     const m = ENDGAME_CONFIGS.megaPants;
