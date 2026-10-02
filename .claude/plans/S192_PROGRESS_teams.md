@@ -1,3 +1,18 @@
+# S194 FIX-ONLY ROUND — ⏸ PAUSED (owner session limit) — WIP log
+
+- DONE: 0 merge master 362a818c (canon.test keep-both) + 02acd574/01530fb1 (6e70d09c) + 814f1871 bots-tune (04ba1c46, botBrain
+  imports). FFA golden re-recorded on 814f1871 in a CLEAN temp worktree of master: master and merged series both md5
+  4781d982078f58dbe6618f37810ca2c5 (50c114be); on 01530fb1 both were e511479e3313aa4a1573e6463f253526 = the auditor's.
+- DONE: 1 MED-1 REACH pairs (9b5ba221) teams.reachAudit.test — all 4 mutants red (Helga needs the strike-reducer pair).
+- DONE: 2 LOW-1 hostHandlers CRLF (4a9fd72d) — blob CRLF, diff vs master 26+/8- (now 32+/8- with LOW-3).
+- DONE: merge seams from master visuals-racial (d911aebf^): zoneBackgroundRenderer isScorchImmune arity; lifestealSource sameTeam.
+- DONE: 3 LOW-2 Voltkin weld (d911aebf), 4 LOW-3 Begin gate (13c155a3), 5 protocol.ts docblock (dce3f73b).
+- GATES last run: on dce3f73b (before the 814f1871 merge): typecheck 0 · vitest 0 (8047 passed / 11 skipped) · build 0, entry
+  1139.8 KiB. After the 814f1871 merge: typecheck 0; full vitest STOPPED by the pause (no verdict); master 814f1871 entry = 1133.7 KiB.
+  botFix.test 'at least one bot tower is actually restored' TIMES OUT (60 s) on PURE master 814f1871 too (79 s) — timeout-only, benign.
+- ⭐ EXACT NEXT STEP on RESUME: `npm run typecheck` → `npx vitest run --maxWorkers=3` → `npm run build` (exits to .tmp-gates/*.exit),
+  entry KiB vs master 1133.7 → final report here + SubagentHandback.
+
 # S194 — FINAL REPORT (top) — T1 `s192/teams`, worktree agent, NOT the merge owner
 
 - Tip: see `git log -1` (report commit after 55a724b5). Merge be40841e = `git merge master` @ 0a37175e (deploy #23, PROTOCOL 62).
