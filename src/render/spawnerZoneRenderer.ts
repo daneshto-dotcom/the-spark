@@ -40,6 +40,8 @@ import {
   TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, towerFootForPrim,
 } from './towerCover.ts';
 import { hubArcFx } from './fx/hubArcFx.ts';
+import { BrokenTowerCache } from './brokenTowers.ts';
+import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
@@ -104,6 +106,7 @@ export class SpawnerZoneRenderer {
      */
     if (fxActive()) {
       this.syncSparkles(world);
+      this.syncFixSparkles(world);
       this.syncHubArcs(world);
       return;
     }
@@ -302,6 +305,43 @@ export class SpawnerZoneRenderer {
       towerSparkleFx(ground, top, key, foot.x, foot.y, foot.w, foot.h, tint, world.tick, s, bonds, prims);
     });
     for (const k of this.groupOwner.keys()) if (!seen.has(k)) this.groupOwner.delete(k);
+  }
+
+  private readonly broken = new BrokenTowerCache();
+
+  /**
+   * ⭐⭐ S194 (owner R194-22) — the soft FIX-ME sparkle on every fallen tower FIX can still stand up
+   * (`brokenTowers.ts`: synced state, the FIX card's own predicates), on its connectors, its shapes and
+   * its missing edges. ⭐ R194-23 (owner): shown to EVERY viewer — *"It doesn't matter because enemies
+   * can't … control their own units … so it's fine"* — and fogged exactly like the tower.
+   */
+  private syncFixSparkles(world: World): void {
+    const towers = this.broken.get(world);
+    if (towers.length === 0) return;
+    const top = fxTop();
+    const low = !fxHighQuality();
+    for (const t of towers) {
+      let sx = 0, sy = 0, n = 0;
+      const prims: Array<{ x: number; y: number; r: number }> = [];
+      for (const id of t.prims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        prims.push({ x: p.pos.x, y: p.pos.y, r: p.radius });
+        sx += p.pos.x; sy += p.pos.y; n++;
+      }
+      if (n === 0) continue;
+      if (isConcealed(sx / n, sy / n, t.owner)) continue;
+      const edges: FixEdge[] = [];
+      for (const e of t.edges) {
+        const a = world.primitives.get(e.a);
+        const b = world.primitives.get(e.b);
+        if (a === undefined || b === undefined) continue;
+        const missing = e.bond === null || !world.bonds.has(e.bond);
+        edges.push({ ax: a.pos.x, ay: a.pos.y, bx: b.pos.x, by: b.pos.y, missing });
+      }
+      const tint = world.players.get(t.owner)?.color ?? FALLBACK_TINT;
+      towerFixSparkleFx(top, t.key as unknown as number, tint, world.tick, low, edges, prims);
+    }
   }
 
   /**

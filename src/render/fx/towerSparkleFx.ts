@@ -124,3 +124,72 @@ export function towerSparkleFx(
     top.emit('core', p.x, p.y, size * 2.2, 2.4, -0.785, 0.7 * tw * a, bright, 'add');
   }
 }
+
+/*
+ * ⭐⭐ S194 (owner R194-22) — **THE FIX-ME SPARKLE: THE SAME EFFECT, SOFT, FOR AS LONG AS A FALLEN TOWER CAN
+ * BE FIXED.** *"when the tower is destroyed, those little sparks, little graphic comes back to life where
+ * the connectors are of the tower. That way users will know, oh, that's where I need to fix."*
+ *
+ * The destroy sparkle above plays the moment the building goes; this is what stays after it: the same
+ * vocabulary (connector glow, a bead running each connector, a twinkle on each shape, a few motes) at a
+ * fraction of the strength and at a slow breath, plus — on each blueprint edge that is MISSING between
+ * two surviving shapes — a row of twinkling motes along the gap, which is exactly where FIX re-welds.
+ * The tower list is `render/brokenTowers.ts` (synced state, the FIX card's own predicates).
+ * ⚠ MINE: every intensity and period here (owner: "soft persistent version").
+ */
+
+/** One breath of the fix-me sparkle, ticks. MINE. */
+export const FIX_SPARKLE_BREATH_TICKS = 150;
+/** Peak strength of the fix-me sparkle relative to the build sparkle. MINE. */
+export const FIX_SPARKLE_STRENGTH = 0.45;
+/** Motes along a MISSING edge. MINE. */
+export const FIX_SPARKLE_GAP_MOTES = 4;
+
+/** One blueprint edge resolved by the caller: its ends, and whether a connector stands there. */
+export interface FixEdge { readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number; readonly missing: boolean }
+
+export function towerFixSparkleFx(
+  top: FxSink, key: number, tint: number, tick: number, low: boolean,
+  edges: readonly FixEdge[], prims: ReadonlyArray<{ readonly x: number; readonly y: number; readonly r: number }>,
+): void {
+  const seed = fxSeed(key, 0xf1c);
+  const breath = 0.6 + 0.4 * Math.sin((((tick + key * 17) % FIX_SPARKLE_BREATH_TICKS) / FIX_SPARKLE_BREATH_TICKS) * Math.PI * 2);
+  const s = FIX_SPARKLE_STRENGTH * breath;
+  const bright = mixColor(tint, 0xffffff, 0.45);
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i]!;
+    const dx = e.bx - e.ax;
+    const dy = e.by - e.ay;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) continue;
+    const rot = Math.atan2(dy, dx);
+    if (!e.missing) {
+      top.emit('soft', (e.ax + e.bx) / 2, (e.ay + e.by) / 2, len + 8, 6, rot, 0.4 * s, tint, 'add');
+      const off = Math.floor(fxHash(seed, i, 1) * FIX_SPARKLE_BREATH_TICKS);
+      const u = (((tick + off) % FIX_SPARKLE_BREATH_TICKS) + FIX_SPARKLE_BREATH_TICKS) % FIX_SPARKLE_BREATH_TICKS / FIX_SPARKLE_BREATH_TICKS;
+      top.emit('core', e.ax + dx * u, e.ay + dy * u, 6, 6, 0, 0.9 * s, 0xffffff, 'add');
+    } else {
+      // the gap FIX would re-weld: motes along it, twinkling out of step
+      const motes = low ? 2 : FIX_SPARKLE_GAP_MOTES;
+      for (let k = 0; k < motes; k++) {
+        const f = (k + 0.5) / motes;
+        const tw = 0.5 + 0.5 * Math.sin(((tick / 60) * 2.4 + fxHash(seed, i, 10 + k)) * Math.PI * 2);
+        top.emit('core', e.ax + dx * f, e.ay + dy * f, 4 + 3 * tw, 4 + 3 * tw, 0, (0.35 + 0.6 * tw) * s * 1.6, bright, 'add');
+      }
+    }
+  }
+  for (let i = 0; i < prims.length; i++) {
+    const p = prims[i]!;
+    const tw = 0.5 + 0.5 * Math.sin(((tick / 60) * 0.9 + fxHash(seed, i, 7)) * Math.PI * 2);
+    const size = Math.max(8, p.r * 1.3) * (0.7 + 0.4 * tw);
+    top.emit('soft', p.x, p.y, size * 1.8, size * 1.8, 0, 0.35 * s, tint, 'add');
+    if (!low) top.emit('core', p.x, p.y, size * 2, 2.2, 0.785, 0.8 * tw * s, bright, 'add');
+  }
+  // a few slow motes drifting up off the shapes
+  if (!low && prims.length > 0) {
+    forEachLive(tick, 30, 90, 1, key * 13, (b, k, t) => {
+      const p = prims[Math.floor(fxHash(seed, b, k + 20) * prims.length)]!;
+      top.emit('core', p.x + Math.sin(t * 5 + b) * 4, p.y - 30 * t, 4, 6, 0, envelope(t, 0.3) * 0.8 * s, bright, 'add');
+    });
+  }
+}
