@@ -48,7 +48,8 @@ function board(): any {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function put(w: any, id: number, type: string, state: string, ehp: number, x = 400): void {
-  w.creatures.set(id, { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y: 400 }, ehp, state, ticksInState: 0 });
+  // despawnAtTick = now: a DESPAWNING unit here has run its lifetime out (the age-out path, see departureClasses).
+  w.creatures.set(id, { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y: 400 }, ehp, state, ticksInState: 0, despawnAtTick: w.tick });
 }
 
 beforeEach(() => { fogged = false; });
@@ -118,9 +119,10 @@ describe('S194 T9 — the shared departure rule, through DamageNumbers', () => {
 });
 
 describe('S194 T9 — classifyCreatureDeparture itself', () => {
-  const at = { x: 1, y: 1, owner: asPlayerId(0) };
-  it('names all four outcomes, in priority order', () => {
+  const at = { x: 1, y: 1, owner: asPlayerId(0), type: 'goblinMelee' as const, despawnAtTick: 0 };
+  it('names the outcomes, in priority order', () => {
     const w = board();
+    w.matchPhase = 'FIGHT';
     expect(classifyCreatureDeparture(w, { ...at, state: 'DESPAWNING' })).toBe('expired');
     expect(classifyCreatureDeparture(w, { ...at, state: 'ATTACKING' })).toBe('killed');
     fogged = true;
@@ -129,6 +131,18 @@ describe('S194 T9 — classifyCreatureDeparture itself', () => {
     expect(classifyCreatureDeparture(w, { ...at, state: 'SEEKING' })).toBe('offstage');
     // expiry outranks everything: a fade is never a death, wherever it happens
     expect(classifyCreatureDeparture(w, { ...at, state: 'DESPAWNING' })).toBe('expired');
+    w.gameState = 'PLAYING';
+    fogged = false;
+    // F3 — DESPAWNING but the lifetime is still far off: a kill during the fade
+    expect(classifyCreatureDeparture(w, { ...at, state: 'DESPAWNING', despawnAtTick: w.tick + 40 })).toBe('killed');
+    // F1 — pants at BUILD are swept; at FIGHT they were killed
+    expect(classifyCreatureDeparture(w, { ...at, state: 'SEEKING', type: 'megaPants' })).toBe('killed');
+    w.matchPhase = 'BUILD';
+    expect(classifyCreatureDeparture(w, { ...at, state: 'SEEKING', type: 'megaPants' })).toBe('swept');
+    // F2 — a selfExplode unit with no host kill record detonated; with one, it was shot down
+    expect(classifyCreatureDeparture(w, { ...at, state: 'SEEKING', type: 'goblinSuicide' })).toBe('detonated');
+    w.creatureKillHits.push({ pos: { x: 10, y: 1 }, amount: 12, owner: at.owner });
+    expect(classifyCreatureDeparture(w, { ...at, state: 'SEEKING', type: 'goblinSuicide' })).toBe('killed');
   });
 
   it('the epoch latch fires exactly once per bump, and never on its first look', () => {

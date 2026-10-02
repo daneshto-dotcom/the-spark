@@ -27,7 +27,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
-import { CreatureWatchEpoch, classifyCreatureDeparture } from './coherence/unitDeparture.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './coherence/unitDeparture.ts';
 import { isConcealed } from './concealment.ts';
 import { isStunned } from '../state/creatures/creature.ts';
 import { PLAYER_COLORS } from '../constants.ts';
@@ -302,6 +302,8 @@ export class CreatureRenderer {
   private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
   /** ⭐ S194 T9 — the shared mass-clear latch (`coherence/unitDeparture.ts`). */
   private readonly departureEpoch = new CreatureWatchEpoch();
+  /** ⭐ S194 T9 audit — type + synced lifetime end, the classifier's sweep / detonation / expiry proofs. */
+  private readonly lastSeenLife: Map<CreatureId, Pick<CreatureLastSeen, 'type' | 'despawnAtTick'>> = new Map();
   /** S103 #8 — active lightning-cloud bursts (a Voltkin that was KILLED). Render-only, wall-clock
    *  culled; outlives the rig that spawned it, mirroring the chewer goo-splat pattern. */
   private readonly lightningClouds: Array<{ x: number; y: number; bornSec: number; seed: number; id: number; bornTick: number }> = [];
@@ -497,6 +499,7 @@ export class CreatureRenderer {
       liveIds.add(creature.id);
       this.lastSeenState.set(creature.id, creature.state);
       this.lastSeenOwner.set(creature.id, creature.ownerPlayerId);
+      this.lastSeenLife.set(creature.id, { type: creature.type, despawnAtTick: creature.despawnAtTick });
       // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
       // see render/concealment.ts. Own entities are never concealed.
       if (isConcealed(creature.pos.x, creature.pos.y, creature.ownerPlayerId)) continue;
@@ -598,14 +601,16 @@ export class CreatureRenderer {
     {
       // ⭐ S194 T9 (coherence) — a mass clear is not a massacre: forget, never discharge (S182's rule).
       const cleared = this.departureEpoch.moved(world);
-      for (const [id, pos] of [...this.lastSeenPos]) {
+      // ⭐ S194 T9 audit — ascending id: departures are judged in a total order, never Map insertion order.
+      for (const [id, pos] of [...this.lastSeenPos].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
         if (liveIds.has(id)) continue;
         const wasState = this.lastSeenState.get(id);
+        const life = this.lastSeenLife.get(id);
         // ⭐ S178 — a death the player cannot see makes no light and no noise. ⭐ S194 T9 — that rule,
         // the DESPAWNING one and the PLAYING one now live in ONE shared classifier every watcher calls.
         const owner = this.lastSeenOwner.get(id);
-        if (!cleared && wasState !== undefined && owner !== undefined
-          && classifyCreatureDeparture(world, { state: wasState, x: pos.x, y: pos.y, owner }) === 'killed') {
+        if (!cleared && wasState !== undefined && owner !== undefined && life !== undefined
+          && classifyCreatureDeparture(world, { state: wasState, ...life, x: pos.x, y: pos.y, owner }) === 'killed') {
           this.lightningClouds.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 1.732 + 0.61, id: id as unknown as number, bornTick: world.tick });
           void playZapBurstSFX({ x: pos.x, y: pos.y });
         }
@@ -613,6 +618,7 @@ export class CreatureRenderer {
         this.facings.delete(id);
         this.lastSeenState.delete(id);
         this.lastSeenOwner.delete(id);
+        this.lastSeenLife.delete(id);
       }
     }
 

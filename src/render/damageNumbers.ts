@@ -76,7 +76,7 @@ import { magicBeatResistedAt } from '../state/magicResistCue.ts';
 import { PHYSICS_HZ } from '../constants.ts';
 // ⭐ S194 T9 (coherence) — the ONE answer to "did that unit die?", shared with every death watcher, and the
 // fog rule `healthBar` / `effectsRenderer` / both death watchers already apply. See `coherence/unitDeparture.ts`.
-import type { CreatureState } from '../state/creatures/creature.ts';
+import type { CreatureState, CreatureType } from '../state/creatures/creature.ts';
 import { CreatureWatchEpoch, classifyCreatureDeparture } from './coherence/unitDeparture.ts';
 import { isConcealed } from './concealment.ts';
 
@@ -95,7 +95,7 @@ const RESIST_SCAN_MAX_TICKS = PHYSICS_HZ;
 import { fxActive, fxTop } from './fx/fxState.ts';
 import { floaterSeed, floaterShake, healSparkleFx } from './fx/floaterFx.ts';
 // ⭐ S194 T9 (coherence) — the hit's floor: every red number also lands a pop on the victim (`fx/hitPopFx.ts`).
-import { HIT_POP_FRAMES, HIT_POP_MAX_LIVE, HIT_POP_SIZE, hitPopFx } from './fx/hitPopFx.ts';
+import { HIT_POP_TICKS, HIT_POP_MAX_LIVE, HIT_POP_SIZE, hitPopFx } from './fx/hitPopFx.ts';
 import { creatureSpriteScaleMul } from './towerFrames.ts';
 
 /** ⭐ Owner's pick, S172: *"DO Kanit 900 Italic with the color and outlines you've presented."* */
@@ -463,10 +463,13 @@ interface Watched {
   state: CreatureState;
   /** ⭐ S194 T9 — the unit's sprite scale, so its hit pop sits at its own size (a boss's is bigger). */
   scale: number;
+  /** ⭐ S194 T9 audit — the classifier's proofs: pants sweep / selfExplode by type, expiry by synced lifetime. */
+  type: CreatureType;
+  despawnAtTick: number;
 }
 
 /** ⭐ S194 T9 — one live hit pop at a victim, aged in render frames like the floaters. */
-interface HitPop { x: number; y: number; size: number; age: number; seed: number }
+interface HitPop { x: number; y: number; size: number; bornTick: number; seed: number }
 
 /**
  * ⭐⭐ S189 (owner R190-I) — PURE — split one creature's change between two observations into the HIT
@@ -552,6 +555,8 @@ export class DamageNumbers {
   /** ⭐ S194 T9 — the hit pops alive now (`fx/hitPopFx.ts`), and the scale of the unit the kill sweep is emitting for. */
   private readonly pops: HitPop[] = [];
   private vanishingScale = 1;
+  /** ⭐ S194 T9 audit — the tick a pop is born on (set at the top of `sync`); pops age by `world.tick`. */
+  private popTick = 0;
   private readonly live: Floater[] = [];
   private readonly pool: Text[] = [];
   /** Alternates, so two numbers on one victim fling opposite ways (the NameplateSCT trick). */
@@ -609,6 +614,7 @@ export class DamageNumbers {
    */
   sync(world: World): void {
     const seen = new Set<CreatureId>();
+    this.popTick = world.tick;
     // ⭐ S194 T9 — dropped WITHOUT emitting, before the sweep (the S182 structure rule, now for creatures).
     if (this.creatureEpoch.moved(world)) this.watched.clear();
 
@@ -619,6 +625,7 @@ export class DamageNumbers {
       const healed = c.healedFifths ?? 0;
       this.watched.set(c.id, {
         ehp: c.ehp, healed, x: c.pos.x, y: c.pos.y, owner, state: c.state, scale: creatureSpriteScaleMul(c.type),
+        type: c.type, despawnAtTick: c.despawnAtTick,
       });
       if (prev === undefined) continue; // first sighting is neither a hit nor a heal
       // ⭐ S189 R190-I — the hit AND the heal, each in its own colour (`creaturePoolChange`). Same
@@ -652,12 +659,13 @@ export class DamageNumbers {
      * not `targetCreatureId`, which is stripped from the wire). The remainder survives ONLY as the
      * fallback when nothing hostile was in reach.
      */
-    for (const [id, last] of this.watched) {
+    // ⭐ S194 T9 audit — ascending id, a total order (the kill-swing records are consumed in this order).
+    for (const [id, last] of [...this.watched].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
       if (seen.has(id)) continue;
       this.watched.delete(id);
       if (last.ehp <= 0) continue;
       // ⭐⭐ S194 T9 — only a KILL prints a killing blow; an expired Voltkin printed "40" (`unitDeparture.ts`).
-      if (classifyCreatureDeparture(world, { state: last.state, x: last.x, y: last.y, owner: last.owner }) !== 'killed') continue;
+      if (classifyCreatureDeparture(world, last) !== 'killed') continue;
       /*
        * ⭐⭐⭐ S181 (owner) — **PRINT THE SWING, AND ONLY FALL BACK TO THE REMAINDER.** His report in
        * one line: *"it says it hits 40 per shot but it only does 6 damage … we need to show the
@@ -709,7 +717,7 @@ export class DamageNumbers {
 
     this.syncResist(world);
     this.syncStructures(world);
-    this.advance();
+    this.advance(world.tick);
   }
 
   /**
@@ -1113,7 +1121,7 @@ export class DamageNumbers {
 
   /** ⭐ S194 T9 — queue one hit pop; the oldest goes first past the cap. */
   private pop(x: number, y: number, size: number): void {
-    this.pops.push({ x, y, size, age: 0, seed: floaterSeed(x, y, size) });
+    this.pops.push({ x, y, size, bornTick: this.popTick, seed: floaterSeed(x, y, size) });
     if (this.pops.length > HIT_POP_MAX_LIVE) this.pops.shift();
   }
 
@@ -1122,16 +1130,16 @@ export class DamageNumbers {
     return this.pops.length;
   }
 
-  private advance(): void {
+  private advance(now: number): void {
     const fx = fxActive();
     for (let i = this.pops.length - 1; i >= 0; i--) {
       const h = this.pops[i]!;
-      if (h.age >= HIT_POP_FRAMES) {
+      const age = now - h.bornTick;
+      if (age < 0 || age >= HIT_POP_TICKS) {
         this.pops.splice(i, 1);
         continue;
       }
-      if (fx) hitPopFx(fxTop(), h.seed, h.x, h.y, h.size, h.age / HIT_POP_FRAMES);
-      h.age++;
+      if (fx) hitPopFx(fxTop(), h.seed, h.x, h.y, h.size, age / HIT_POP_TICKS);
     }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const f = this.live[i]!;

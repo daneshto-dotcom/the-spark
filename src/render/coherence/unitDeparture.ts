@@ -29,26 +29,60 @@
  *   4. the local player is entitled to see the spot (`isConcealed`, owner S170: *"You shouldn't see
  *      anything in their zone"*) — the rule `healthBar`, `effectsRenderer` and both death watchers apply.
  *
- * ⛔ `src/render/coherence/unitDeparture.census.test.ts` counts the production call sites of
+ * ⛔ `src/render/coherence/unitDeath.census.test.ts` counts the production call sites of
  * `classifyCreatureDeparture` and pins them, and it fails if a render file grows its own
- * `!== 'DESPAWNING'` vanish test instead of calling this one. The two T2-owned renderers that still carry a
- * private copy (`chewerRenderer`, `goblinRenderer`) are allow-listed BY NAME there, so routing them to this
- * helper is a one-line change the merge owner can make and the census will notice.
+ * private DESPAWNING vanish test instead of calling this one. The one T2-owned renderer that still
+ * carries a private copy (`chewerRenderer`) is allow-listed BY NAME there, so routing it to this helper is a
+ * one-line change the merge owner can make and the census will notice. (`goblinRenderer`'s corpse has no
+ * departure test at all — it plays its `die` row on any removal; routed, not allow-listed.)
+ *
+ * ⭐ S194 T9 AUDIT — THREE MORE WAYS TO LEAVE THAT ARE NOT DEATHS, each named by the synced state that
+ * proves it (the audit's F1-F3):
+ *   · `'swept'`     — the endgame pants removed at the FIGHT→BUILD edge (`removeEndgameMonsters`, owner S193:
+ *                     *"they vanish when this wave ends"*). Proof: a pants type, and `matchPhase` is BUILD.
+ *   · `'detonated'` — a `selfExplode` unit (lightning drone, sapper goblin) deleted itself in its own blast.
+ *                     The blast draws the event; a beat and a number equal to its own pool would be a kill
+ *                     nobody made. See `DETONATION_KILL_MATCH_PX` for the one ambiguity.
+ *   · `'expired'`   — now only once the lifetime has actually run out (`despawnAtTick`, synced since S134),
+ *                     so a unit KILLED during its 60-tick fade-out is still a kill.
  *
  * RENDER-ONLY. Every input is synced state every peer already holds; nothing is written. No bump.
  */
 
-import type { CreatureState } from '../../state/creatures/creature.ts';
+import type { CreatureState, CreatureType } from '../../state/creatures/creature.ts';
+import { getCreatureConfig } from '../../state/creatures/voltkin-config.ts';
+import { isPantsType } from '../../state/endgameMonsters.ts';
 import type { World } from '../../state/world.ts';
+import { NET_SNAPSHOT_HZ, PHYSICS_HZ } from '../../constants.ts';
 import type { PlayerId } from '../../types.ts';
 import { isConcealed } from '../concealment.ts';
 
 /** What a vanished creature's departure was. Only `'killed'` earns a death beat or a killing-blow number. */
-export type CreatureDeparture = 'killed' | 'expired' | 'offstage' | 'concealed';
+export type CreatureDeparture = 'killed' | 'expired' | 'swept' | 'detonated' | 'offstage' | 'concealed';
+
+/**
+ * One snapshot interval in ticks (6 at 60 Hz / 10 Hz) — the slack on the expiry test. A joiner sees the
+ * removal on the first snapshot at or after `despawnAtTick`, the host on that tick exactly; a kill landing
+ * inside the last interval before the lifetime ends is therefore read as an expiry. ⚠ Accepted: 0.1 s.
+ */
+export const DEPARTURE_EXPIRY_SLACK_TICKS = Math.max(1, Math.round(PHYSICS_HZ / NET_SNAPSHOT_HZ));
+
+/**
+ * ⚠ THE DETONATION AMBIGUITY, stated at its constant. A `selfExplode` unit leaves the map the same way
+ * whether it blew itself up or was shot down: it is simply gone. The HOST can tell them apart — a lethal
+ * blow writes a `world.creatureKillHits` record at the victim (same owner, within this radius, the
+ * `damageNumbers` match radius) — so a shot-down sapper there is still `'killed'`. A JOINER has no record
+ * (host-local, never on the wire), so on a peer a shot-down sapper or drone reads as `'detonated'`: no beat,
+ * no killing-blow number. Closing that needs a wire field, which a cosmetic does not earn.
+ */
+export const DETONATION_KILL_MATCH_PX = 40;
 
 /** The last observation a watcher kept of a creature before it vanished. */
 export interface CreatureLastSeen {
   readonly state: CreatureState;
+  /** ⭐ S194 T9 audit — the type (pants sweep, selfExplode) and the synced lifetime end (expiry). */
+  readonly type: CreatureType;
+  readonly despawnAtTick: number;
   readonly x: number;
   readonly y: number;
   readonly owner: PlayerId;
@@ -62,10 +96,23 @@ export interface CreatureLastSeen {
  * so a cleared creature never reaches this function at all.
  */
 export function classifyCreatureDeparture(world: World, last: CreatureLastSeen): CreatureDeparture {
-  if (last.state === 'DESPAWNING') return 'expired';
+  if (last.state === 'DESPAWNING' && world.tick >= last.despawnAtTick - DEPARTURE_EXPIRY_SLACK_TICKS) return 'expired';
   if (world.gameState !== 'PLAYING') return 'offstage';
+  if (isPantsType(last.type) && world.matchPhase === 'BUILD') return 'swept';
+  if (getCreatureConfig(last.type).selfExplode && !hostKillRecordNear(world, last)) return 'detonated';
   if (isConcealed(last.x, last.y, last.owner)) return 'concealed';
   return 'killed';
+}
+
+function hostKillRecordNear(world: World, last: CreatureLastSeen): boolean {
+  const r2 = DETONATION_KILL_MATCH_PX * DETONATION_KILL_MATCH_PX;
+  for (const h of world.creatureKillHits) {
+    if (h.owner !== last.owner) continue;
+    const dx = h.pos.x - last.x;
+    const dy = h.pos.y - last.y;
+    if (dx * dx + dy * dy <= r2) return true;
+  }
+  return false;
 }
 
 /**

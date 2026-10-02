@@ -61,11 +61,12 @@ export class UnitDeathRenderer {
 
     for (const c of world.creatures.values()) {
       this.watched.set(c.id, {
-        state: c.state, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId,
+        state: c.state, type: c.type, despawnAtTick: c.despawnAtTick, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId,
         family: UNIT_FAMILY[c.type], scale: creatureSpriteScaleMul(c.type),
       });
     }
-    for (const [id, last] of this.watched) {
+    // ⭐ S194 T9 audit — ascending id BEFORE the cap, so which beats survive a wipe is a total order.
+    for (const [id, last] of [...this.watched].sort((a, b) => (a[0] as unknown as number) - (b[0] as unknown as number))) {
       if (world.creatures.has(id)) continue;
       this.watched.delete(id);
       if (classifyCreatureDeparture(world, last) !== 'killed') continue;

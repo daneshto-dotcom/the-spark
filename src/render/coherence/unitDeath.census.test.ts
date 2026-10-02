@@ -48,16 +48,21 @@ function board(): any {
   const w = makeWorld(0xdea7);
   dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true } as never);
   w.gameState = 'PLAYING';
+  w.matchPhase = 'FIGHT'; // a KILL happens in the fight (BUILD is where the pants are swept, not killed)
   w.creatures.clear();
   return w;
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function put(w: any, id: number, type: string, state = 'SEEKING', x = 400): void {
-  w.creatures.set(id, { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y: 400 }, ehp: 30, state, ticksInState: 0 });
+  w.creatures.set(id, { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y: 400 }, ehp: 30, state, ticksInState: 0, despawnAtTick: w.tick });
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function killAndLook(w: any, r: InstanceType<typeof UnitDeathRenderer>, id: number): void {
   r.sync(w);
+  const c = w.creatures.get(id);
+  // A KILL, as the host records it (`damageCreature` → `creatureKillHits`): without the record a
+  // selfExplode unit's vanish is a DETONATION (see `departureClasses.test.ts`), which draws no beat.
+  if (c !== undefined) w.creatureKillHits.push({ pos: { ...c.pos }, amount: 12, owner: c.ownerPlayerId });
   w.creatures.delete(id);
   w.tick += 1;
   r.sync(w); // the beat is born and drawn this frame

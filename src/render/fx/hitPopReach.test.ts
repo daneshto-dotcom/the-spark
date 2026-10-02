@@ -32,7 +32,7 @@ const { asPlayerId } = await import('../../types.ts');
 const { DamageNumbers } = await import('../damageNumbers.ts');
 const { recordingSink } = await import('./emitter.ts');
 const { setFxHooks, setFxLegacyFlag } = await import('./fxState.ts');
-const { HIT_POP_CORE, HIT_POP_FRAMES, HIT_POP_SIZE } = await import('./hitPopFx.ts');
+const { HIT_POP_CORE, HIT_POP_TICKS, HIT_POP_SIZE } = await import('./hitPopFx.ts');
 
 let top = recordingSink();
 beforeEach(() => {
@@ -52,7 +52,7 @@ function board(): any {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function put(w: any, id: number, type: string, x = 500, y = 500): any {
-  const c = { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y }, ehp: 300, state: 'SEEKING', ticksInState: 0 };
+  const c = { id, type, ownerPlayerId: asPlayerId(1), pos: { x, y }, ehp: 300, state: 'SEEKING', ticksInState: 0, despawnAtTick: w.tick };
   w.creatures.set(id, c);
   return c;
 }
@@ -129,14 +129,17 @@ describe('S194 T9 — the hit pop lands on the victim, for every family that can
     expect(cores()).toEqual([]);
   });
 
-  it('a pop lives HIT_POP_FRAMES render frames and is gone', () => {
+  it('a pop ages by world.tick: it holds while the tick holds, and is gone HIT_POP_TICKS later', () => {
     const w = board();
     const c = put(w, 1, 'goblinMelee');
     const dn = new DamageNumbers();
     dn.sync(w);
     c.ehp -= 12;
     dn.sync(w);
-    for (let i = 0; i < HIT_POP_FRAMES; i++) dn.sync(w);
+    for (let i = 0; i < 30; i++) dn.sync(w); // 30 render frames, same tick (the browser pane / a paused sim)
+    expect(dn.hitPopCount(), 'render frames alone do not age it').toBe(1);
+    w.tick += HIT_POP_TICKS;
+    dn.sync(w);
     expect(dn.hitPopCount()).toBe(0);
   });
 
