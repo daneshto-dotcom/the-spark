@@ -4334,7 +4334,29 @@ export const PANTS_WINDOW_SECONDS: Readonly<Record<number, number>> = {
  * alive — *"once he's out of the circle the next comes"* — and the countdown still counts what is
  * left to come out. 30 still one-shots every unit below a Voltkin, 30 times over.
  */
-export const MONSTER_MAX_LIVE_PER_SEAT = 30;
+export const MONSTER_MAX_LIVE_PER_SEAT = 30; // ⛔ S194 R194-27 — RETIRED IN PLACE, UNREAD: see MONSTER_MAX_LIVE_TOTAL
+/**
+ * ⭐⭐ S194 R194-27 (owner: *"I would like them to just come one after another nonstop … if you think the cap
+ * is needed … then sure … or think of better ways to … have the game run smoother"*) — MEASURED, THEN DECIDED.
+ * `SPARK_PANTS_MEASURE=1 npx vitest run src/net/pantsLoadMeasure.test.ts`, 4 seats, wave 31, keeps holding,
+ * pants topped up (worst case: nobody keeps up). Host `runHostTick` ms p50 / p95, NETSNAPSHOT KiB:
+ *   live      before the S194 perf fix     after it       wire
+ *   250        3.09 / 6.46                 1.52 / 2.15     41.7 KiB
+ *   500        7.88 / 12.06                3.09 / 5.53     81.1 KiB
+ *   1000      23.18 / 36.12                6.12 / 11.07   160.1 KiB
+ * (the fix: a per-tick owned-unit index for `victimUnit` + a fast path in `monsterVictimSeat` — identical
+ * verdicts, 45 % of the tick before.) 4 × 250 never fits: 1000 live is 6 ms of sim and 160 KiB a snapshot.
+ * So a cap stays — but ⚠ MINE, sized from the measurement, not 30: a pants is **162 B** on the wire
+ * ((81.1 − 1.9) KiB / 500); the snapshot budget is ~84 KiB and a late 4-seat board's own share is ~20 KiB
+ * (S193: 18 533 B), leaving ~64 KiB → ~400 pants; **360** keeps ~7 KiB of margin and ~2.2 ms p50 of sim.
+ * It is a TOTAL across the living seats, split evenly (`monsterMaxLivePerSeat`): 2 seats 180 each · 3 → 120
+ * · 4 → 90 · 6 → 60 — so a small board is not held to a 4-seat board's share (S193's 30 a seat was 120
+ * total at 4 seats and only 60 at 2). A lane still WAITS while its seat is at the cap; one per tick still.
+ * The wire was checked for a cheaper fix first: a pants is already near-minimal (id, type, pos, state,
+ * ticksInState, ownerPlayerId, despawnAtTick, monsterSeat); only the owner and despawn tick are derivable
+ * (~41 B), and the renderer and the lifecycle read the despawn tick — not worth a four-sites change.
+ */
+export const MONSTER_MAX_LIVE_TOTAL = 360;
 /**
  * ⚠ MINE (S193) — never more than one pants born on a tick. The normal pace is N / 45 a tick (< 1 for
  * any board), so this only bites when a capped lane frees up after waiting: the backlog then comes out

@@ -1,7 +1,7 @@
 /**
  * SPARK — ⭐ S193 audit fix round on `s192/endgame`. One describe per finding, each through the real
  * host tick / reducer, each with its negative.
- *   1 MED  — the live-pants cap (`MONSTER_MAX_LIVE_PER_SEAT`): peak live count and snapshot bounded.
+ *   1 MED  — the live-pants cap (`MONSTER_MAX_LIVE_TOTAL`, S194 measured; was 30 a seat): peak live count and snapshot bounded.
  *   2 LOW  — `?worker=1`: the held fight no longer forces a full snapshot every batch.
  *   3 LOW  — his "I have 66 left" is MY seat's count.
  *   4 LOW  — a pants strikes only ITS victim's keep.
@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  MONSTER_MAX_LIVE_PER_SEAT,
+  MONSTER_MAX_LIVE_TOTAL,
   MONSTER_MAX_RELEASES_PER_TICK,
   MONSTER_HOLD_LEAD_TICKS,
   PLAYER_COLORS,
@@ -28,6 +28,7 @@ import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, pantsWi
 import { netSnapshot, wireNumberReplacer } from './save.ts';
 import { structuralSignature } from './workerSim.ts';
 import { formatEndgameCue } from '../render/ui.ts';
+import { monsterMaxLivePerSeat } from './endgameMonsters.ts';
 import { enemyCastleInReach } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -63,14 +64,18 @@ const wireBytes = (w: World): number => JSON.stringify(netSnapshot(w), wireNumbe
 
 /* ══════════════════════════════════ 1 · MED — THE LIVE CAP ═══════════════════════════════════ */
 
-describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat', () => {
-  it('the arithmetic: 30 a seat, ~163 B each on the wire → a 4-seat board\'s pants ≈ 19.6 KB a snapshot', () => {
-    expect(MONSTER_MAX_LIVE_PER_SEAT).toBe(30);
+describe('S193 audit 1 → ⭐ S194 R194-27 — the MEASURED live cap: MONSTER_MAX_LIVE_TOTAL split over the living seats', () => {
+  it('the arithmetic: 360 total (2 → 180 · 3 → 120 · 4 → 90 · 6 → 60), ~162 B each → ≤ ~57 KiB of pants, inside ~84 KiB with a ~20 KiB board', () => {
+    expect(MONSTER_MAX_LIVE_TOTAL).toBe(360);
+    expect([1, 2, 3, 4, 6].map(monsterMaxLivePerSeat)).toEqual([360, 180, 120, 90, 60]);
+    expect(monsterMaxLivePerSeat(0)).toBe(0);
     expect(MONSTER_MAX_RELEASES_PER_TICK).toBe(1);
-    expect(4 * MONSTER_MAX_LIVE_PER_SEAT * 163).toBeLessThan(20_000);
+    expect(MONSTER_MAX_LIVE_TOTAL * 162 + 20 * 1024).toBeLessThan(84 * 1024);
+    // negative: the owner's "no cap" worst case (4 × 250 live) is ~160 KiB — about twice the budget
+    expect(4 * 250 * 162).toBeGreaterThan(84 * 1024);
   });
 
-  it('REACH — 4 seats, wave 31, keeps holding: peak live = 120, never two born on a tick, snapshot bounded; the countdown keeps counting', () => {
+  it('REACH — 4 seats, wave 31, keeps holding: peak live = 4 × 90 = 360, never two born on a tick, snapshot bounded; the countdown keeps counting', () => {
     const w = board(4);
     toFightEdge(w, 31);
     for (const p of w.players.values()) p.castleHp = 1e9;
@@ -80,21 +85,22 @@ describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat',
     let maxBytes = 0;
     let lastSpawned = 0;
     let maxPerTick = 0;
-    for (let t = 0; t < 3000; t++) {
+    for (let t = 0; t < 4000; t++) {
       runHostTick(w, d, st);
       maxPerTick = Math.max(maxPerTick, w.monsterWaveSpawned - lastSpawned);
       lastSpawned = w.monsterWaveSpawned;
       const live = pants(w);
       peak = Math.max(peak, live.length);
       for (const seat of [0, 1, 2, 3]) {
-        expect(live.filter((c) => (c.monsterSeat as unknown as number) === seat).length).toBeLessThanOrEqual(MONSTER_MAX_LIVE_PER_SEAT);
+        expect(live.filter((c) => (c.monsterSeat as unknown as number) === seat).length).toBeLessThanOrEqual(monsterMaxLivePerSeat(4));
       }
       if (t % 250 === 0) maxBytes = Math.max(maxBytes, wireBytes(w));
     }
-    expect(peak).toBe(4 * MONSTER_MAX_LIVE_PER_SEAT);
+    expect(peak).toBe(4 * monsterMaxLivePerSeat(4));
     expect(maxPerTick).toBeLessThanOrEqual(1);
-    // measured S193: ~21–22 KB at the cap (pants ~19.6 KB + the board); the uncapped audit probe was 176 KB
-    expect(maxBytes).toBeLessThan(28_000);
+    // ⭐ S194 R194-27 — at the cap: 360 × ~162 B + this (bare) board; the uncapped audit probe was 176 KB. Budget ~84 KiB.
+    expect(maxBytes).toBeLessThan(84 * 1024);
+    expect(maxBytes).toBeGreaterThan(50 * 1024); // anti-vacuity: the cap really was reached on the wire
     // the countdown still counts what is left to come out — the lanes are waiting, not done
     const left = monstersLeftToComeOut(w);
     expect(left).toBe(250 * 4 - w.monsterWaveSpawned);

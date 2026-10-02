@@ -488,7 +488,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/damage.ts': { n: 4, verdict: 'radial spares named seats only (never 255)' },
     'src/state/defenders/defenderLifecycle.ts': { n: 2, verdict: 'Helga/turret: victim owner !== defender owner → a pants' },
     'src/state/defenders/stinkTower.ts': { n: 1, verdict: 'skip OWN → gasses a pants' },
-    'src/state/endgameMonsters.ts': { n: 2, verdict: 'the pants\' own victim filter (=== its seat)' },
+    'src/state/endgameMonsters.ts': { n: 1, verdict: 'the pants\' own victim filter (=== its seat; ⭐ S194 R194-27: the unit half is now the per-tick index KEYED by ownerPlayerId, `ownedBy` — same filter, no comparison)' },
     'src/state/exploredMemory.ts': { n: 2, verdict: 'fog memory of enemy SHAPES — a pants places none' },
     'src/state/gameMode.ts': { n: 2, verdict: 'gatherer / spawner owner bookkeeping — seats only' },
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
