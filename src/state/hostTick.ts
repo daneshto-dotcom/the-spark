@@ -42,6 +42,7 @@ import {
   PEER_DROP_FORFEIT_TICKS,
   PEER_DROP_GRACE_TICKS,
   phaseDurationTicks,
+  MONSTER_HOLD_LEAD_TICKS, // ⭐ S193 — the monster fight hold
   REVALIDATE_INTERVAL_TICKS,
   SPAWN_INTERVAL_TICKS,
   STRUCTURE_SELFDESTRUCT_RADIUS,
@@ -143,6 +144,9 @@ import { openDraftIfDue, tickDraft } from './draftEvent.ts';
 import { drainRacialSpawnQueue, runRacialPerksFight } from './racial/racialTick.ts';
 import { clearScorchedEarthAtBuild } from './racial/scorchedGround.ts'; // ⭐ S191 — SCORCHED EARTH
 import { beginHostTickSpawnWindow, endHostTickSpawnWindow } from './racial/spawnQueue.ts';
+// ⭐ S192 (owner, A3) — the endgame monster waves.
+import { isPantsType, removeEndgameMonsters, runEndgameMonsterTargeting, tickEndgameSpawner } from './endgameMonsters.ts';
+import { isMonsterFightHeld, isMonsterWave } from './endgame.ts';
 import { applyPendingLifesteal } from './racial/lifesteal.ts'; // S188 F1
 import { applyZombieDeathBlast } from './racial/zombieDeathBlast.ts'; // ⭐ S192 T2 + T3
 import { towerUnitForSeat } from './racial/apexPredator.ts'; // S188 APEX PREDATOR
@@ -412,9 +416,25 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   tickDraft(world);
 
   if (world.gameState === 'PLAYING') {
+    /*
+     * ⭐⭐ S193 (owner, Q2 + ⚠ MINE) — A MONSTER FIGHT CAN HOLD ITS DEADLINE. *"If two players are still
+     * alive, then the clock doesn't end. It doesn't go into the next build phase."* (wave 31, his) — and
+     * waves 27–30 hold while pants are still to come out (mine; `MONSTER_HOLD_LEAD_TICKS`). The deadline
+     * is kept that lead AHEAD of the clock rather than frozen, so every phase-end window (the army's
+     * run-home, the gatherers' shelter, the bots' Ra timing) stays closed while held and fires
+     * normally once the hold lets go. Policy: `isMonsterFightHeld` (pure, synced state).
+     */
+    if (isMonsterFightHeld(world) && world.phaseEndsAtTick < world.tick + MONSTER_HOLD_LEAD_TICKS) {
+      world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    }
     let flipped = false;
     while (world.tick >= world.phaseEndsAtTick) {
+      const edgeTick = world.phaseEndsAtTick;
       world.matchPhase = world.matchPhase === 'BUILD' ? 'FIGHT' : 'BUILD';
+      // ⭐ S193 — the monster fight's own clock (`monsterFightStartTick`): stamped with the deadline
+      // tick the edge crossed (so a NONET multi-flip stamps the same value), cleared on leaving FIGHT.
+      world.monsterFightStartTick =
+        world.matchPhase === 'FIGHT' && isMonsterWave(world.waveNumber) ? edgeTick : 0;
       // ⭐ S149 — the phases have DIFFERENT lengths (BUILD 90 s, FIGHT 45 s), so the deadline
       // extends by the length of the phase just ENTERED. `matchPhase` was flipped on the line
       // above, so reading it here is already the new phase — which is exactly what is wanted.
@@ -441,6 +461,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
        * is exactly why nothing caught it. Both crossings are covered here.
        */
       bankCarriedSparksAtPhaseEdge(world);
+      /*
+       * ⭐ S192 (endgame) — every crossing restarts the monster count, and the fight's survivors leave
+       * the board at its end — ⭐ HIS ruling (S193 Q3): *"they vanish when this wave ends"*. Removed BEFORE `recallArmies` below, which would
+       * otherwise look for a home a monster does not have.
+       */
+      world.monsterWaveSpawned = 0;
+      if (world.matchPhase === 'BUILD') removeEndgameMonsters(world);
       if (world.matchPhase === 'BUILD') {
         /*
          * ⭐ S157 B8 (owner) — A NEW BUILD IS A NEW WAVE.
@@ -1550,6 +1577,13 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   // ⛔ WHY THE WHOLE BLOCK AND NOT A MOVEMENT CLAMP. A clamp would freeze them in place but leave
   // Step 1's target re-selection and Step 3's CREATURE_ATTACK dispatch running, so a creature
   // already adjacent to a bond would keep chewing it without moving an inch.
+  /*
+   * ⭐ S192 (owner, A3) — THE MONSTER WAVES POUR OUT OF THE QUARRY, BEFORE THE FAN-OUT, the position
+   * every spawner poll in this tick already uses: a monster born here is in SPAWNING (force-free) for
+   * its first `spawnTicks`, so it joins the loop below without acting on its birth tick. Gated inside
+   * (PLAYING + FIGHT + waves 27–31), so this call site holds no policy.
+   */
+  tickEndgameSpawner(world);
   if (world.gameState === 'PLAYING' && world.matchPhase === 'FIGHT' && world.creatures.size > 0) {
     const creatureIds = Array.from(world.creatures.keys());
     /*
@@ -1663,6 +1697,14 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
             creature.targetPos.y = at.y;
           }
         }
+      } else if (creature !== undefined && creature.state === 'SEEKING' && isPantsType(creature.type)) {
+        /*
+         * ⭐ S192 (owner, A3) — THE ENDGAME MONSTER HUNTS ONE SEAT. *"those monsters generate and attack
+         * a certain enemy."* Placed AHEAD of the structure-attacker arm because a monster belongs to no
+         * seat, so that arm's owner-colour scans would aim it at EVERY player's buildings. Its strike
+         * still runs through the shipped fire step below, unchanged.
+         */
+        runEndgameMonsterTargeting(world, creature);
       } else if (
         creature !== undefined &&
         creature.state === 'SEEKING' &&

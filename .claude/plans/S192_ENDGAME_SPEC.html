@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARK Endgame Spec</title>
+<style>
+  :root{--bg:#0e1015;--panel:#161a22;--panel2:#1c2130;--ink:#e8ecf3;--dim:#9aa4b5;--line:#2a3142;
+    --gold:#f2c14e;--red:#ff5d5d;--green:#5fd38d;--blue:#6aa8ff;--mine:#ffb347;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 16px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:.5px}
+  h1 span{color:var(--gold)}
+  .sub{color:var(--dim)}
+  h2{font-size:19px;margin:34px 0 12px;color:var(--gold);display:flex;gap:10px;align-items:center}
+  h2 .n{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 8px;color:var(--ink);font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tw{overflow-x:auto}
+  .mine{color:var(--mine);font-weight:600}
+  .lock{color:var(--red);font-weight:700}
+  .ok{color:var(--green)}
+  .q{counter-increment:q;position:relative;padding-left:40px}
+  .q::before{content:counter(q);position:absolute;left:0;top:14px;width:26px;height:26px;border-radius:50%;
+    background:var(--gold);color:#1a1a1a;font-weight:800;display:grid;place-items:center;font-size:13px}
+  .qs{counter-reset:q}
+  .rec{display:inline-block;margin-top:6px;background:#1f2a1f;border:1px solid #2f4a33;color:var(--green);
+    border-radius:6px;padding:2px 8px;font-size:13px}
+  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:13px}
+  .timeline{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+  .w{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .w b{display:block;font-size:20px}
+  .w.m{border-color:#5a2a2a;background:#241618}
+  .w small{color:var(--dim)}
+  .bar{height:8px;border-radius:4px;background:var(--red);margin-top:6px}
+  .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  .stat div{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:26px;color:var(--gold)}
+  footer{margin-top:40px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>SPARK — <span>The Endgame</span></h1>
+  <div class="sub">Waves 26–31: the last draft, the build lock, and the pants monster waves. Branch <code>s192/endgame</code>.
+  Anything in <span class="mine">orange</span> is my default and still needs your yes.</div>
+</header>
+
+<h2><span class="n">0</span> Questions for you, each with what I built</h2>
+<div class="qs">
+  <div class="card q"><b>Waves 29 and 31.</b> You gave 10 / 25 / — / 50 / —.<br><span class="rec">Built: 29 → 35 each, 31 → 75 each</span></div>
+  <div class="card q"><b>After wave 31, if two or more players are still alive?</b><br><span class="rec">Built: the match ends after wave 31's fight, and the most points among the living wins</span><br><span class="sub">The alternative is endless, growing monster waves.</span></div>
+  <div class="card q"><b>Do monsters that survive a fight stay?</b><br><span class="rec">Built: no — leftovers vanish when the fight ends</span></div>
+  <div class="card q"><b>What do they hit?</b> Their own target player's stuff: a unit in reach, then the nearest building (through connectors), then the castle. They hit for 40.<br><span class="rec">Built as described</span> <span class="sub">They can also hit another player's Helga or stink bag if they brush past it.</span></div>
+  <div class="card q"><b>Points for kills?</b><br><span class="rec">Built: none either way</span> <span class="sub">No kill scores in the game today.</span></div>
+  <div class="card q"><b>Pulling a shape out of the castle during the lock?</b><br><span class="rec">Built: refused</span> <span class="sub">You can't place it anyway. FIX pays from the bank directly, and feeding the goblin tower still works.</span></div>
+  <div class="card q"><b>The art.</b> The sheet has <b>20</b> frames (4 × 5), not 18. The checkerboard is painted in, and there is a small Gemini sparkle watermark.<br><span class="rec">Recommend: regenerate with true transparency (or flat white/green) and no watermark</span> <span class="sub">I shipped my best cut-out meanwhile.</span></div>
+  <div class="card q"><b>Spawn pace.</b><br><span class="rec">Built: each wave pours out over its first 20 s, one per player per pulse</span></div>
+  <div class="card q"><b>Their stats</b> (section 2).<br><span class="rec">Built: HP 10 / DEF 5 / ATK 5 / PEN 3, so a pool of 100 and a hit of 40</span></div>
+</div>
+
+<h2><span class="n">1</span> The timeline</h2>
+<div class="timeline">
+  <div class="w"><small>wave</small><b>25</b>normal</div>
+  <div class="w"><small>wave</small><b>26</b>LAST draft · last clean fight</div>
+  <div class="w m"><small>wave</small><b>27</b><span class="lock">LOCK</span> · 10 each<div class="bar" style="width:13%"></div></div>
+  <div class="w m"><small>wave</small><b>28</b><span class="lock">LOCK</span> · 25 each<div class="bar" style="width:33%"></div></div>
+  <div class="w m"><small>wave</small><b>29</b><span class="lock">LOCK</span> · <span class="mine">35 each</span><div class="bar" style="width:47%"></div></div>
+  <div class="w m"><small>wave</small><b>30</b><span class="lock">LOCK</span> · 50 each<div class="bar" style="width:67%"></div></div>
+  <div class="w m"><small>wave</small><b>31</b><span class="lock">LOCK</span> · <span class="mine">75 each</span><div class="bar" style="width:100%"></div></div>
+  <div class="w"><small>edge</small><b>32</b><span class="mine">match ends: top score wins</span></div>
+</div>
+<div class="card">The <span class="lock">LOCK</span> starts in BUILD of wave 27: <b>no new shapes, structures or connections</b>. <span class="ok">FIX is allowed</span>, towers keep producing, and feeding the goblin tower and upgrades still work.</div>
+
+<h2><span class="n">2</span> The monster, on the one ladder</h2>
+<div class="stat">
+  <div><b>10</b>HP</div><div><b>5</b>DEF</div><div><b>5</b>ATK</div><div><b>3</b>PEN</div>
+  <div><b>100</b>pool (fifths)</div><div><b>40</b>hit (= castle shot)</div>
+</div>
+<div class="card tw"><table>
+  <tr><th>unit</th><th>pool</th><th>hit</th><th>vs a pants</th></tr>
+  <tr><td>castle soldier</td><td class="num">6</td><td class="num">6</td><td>dies in one hit</td></tr>
+  <tr><td>tier-3 warband</td><td class="num">24</td><td class="num">18</td><td>dies in one hit; needs 6 swings to kill one</td></tr>
+  <tr><td>Voltkin</td><td class="num">64</td><td class="num">33</td><td>2 hits to die; 4 zaps to kill one</td></tr>
+  <tr><td>Helga</td><td class="num">156</td><td class="num">36</td><td>4 hits to die; 3 slaps to kill one</td></tr>
+  <tr><td>tier-9 boss</td><td class="num">260–462</td><td class="num">≤150</td><td><b>one swing kills a pants</b></td></tr>
+  <tr><td>castle</td><td class="num">2500</td><td class="num">40</td><td>3 shots to kill one; 10 pants fell a bare keep in ~6 s</td></tr>
+</table></div>
+<div class="card">How deadly the numbers are against a <b>fully upgraded keep</b> (DEF 10, 9000 HP):
+wave 27 needs ~69 s (survivable), wave 30 ~14 s, wave 31 ~9 s. <b>Instant death comes from the numbers</b>, with no special multiplier.</div>
+
+<h2><span class="n">3</span> How they come and whom they hunt</h2>
+<div class="card">
+They come from the quarry centre in pulses, with each living player in turn getting the next one, so the shares stay equal.
+Each pants remembers its target. If that player is knocked out, the leftovers spread across the survivors by id.
+Everyone's towers, castle guns and units fight them, because a pants belongs to no player.
+</div>
+
+<h2><span class="n">4</span> The draft, music, HUD</h2>
+<div class="card">
+<b>Wave 26 is the last draft</b>, and it is where the queued <b>MRES card</b> goes (the magic branch builds it).<br>
+<b>Music:</b> noted for later. Nothing is built yet.<br>
+<b>HUD:</b> “⛔ BUILD LOCKED — FIX ONLY · MONSTER WAVE NEXT: K PANTS EACH” in BUILD, and “MONSTER WAVE · K PANTS PER PLAYER” in the fight. Your sound plays when they emerge and when they hit.
+</div>
+
+<h2><span class="n">5</span> Wire</h2>
+<div class="card">New monster type + a target field + a spawn counter, plus three new rules that every peer runs → <b>protocol bump 53 → 54</b> (the merge owner takes it).</div>
+
+<footer>SPARK · S192 · endgame worktree · spec written before any code.</footer>
+</div>
+</body>
+</html>

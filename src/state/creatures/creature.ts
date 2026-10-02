@@ -412,6 +412,16 @@ export type CreatureType =
    * ⚠ A SUMMON, like the direwolf: `sourceSpawnerId: null`, no CreatureSpawner mints it — which is
    * exactly what puts it in front of the one-live-per-(owner,type) latch it must be exempt from. */
   | 'locustCloud'
+  /* ── S192 (owner, A3) — THE ENDGAME MONSTER ("this silly looking pair of pants") ─────────────────
+   * Spawned from the quarry centre in waves 27–31, owned by `MONSTER_OWNER_SEAT` (no seat), each one
+   * assigned a target seat (`monsterSeat`). Keyed by ROLE, not by art, so re-skinning it costs no
+   * protocol bump. ⛔ SERIALIZED, so it earns a PROTOCOL_VERSION bump on the grounds every new
+   * literal has (`deserializeCreature` has no type whitelist). */
+  | 'endgameMonster'
+  /* ── S193 (owner, Q2) — THE MEGA PANTS: *"a huge boss that just comes and destroys everything"*, the
+   * final fight's clock-breaker. One at a time, owned by `MONSTER_OWNER_SEAT`, no assigned seat.
+   * ⛔ SERIALIZED — a new literal, so it rides the same bump. */
+  | 'megaPants'
   | 'voltkin'
   | 'chewer'
   | 'lightningDrone'
@@ -723,6 +733,15 @@ export interface Creature {
    * left in place — harmless, overwritten when he next fires.
    */
   rageStartTick?: number;
+  /**
+   * ⭐⭐ S192 (owner, A3) — **THE SEAT THIS ENDGAME MONSTER WAS SENT AT.** *"those monsters generate
+   * and attack a certain enemy"*. Written ONCE at birth (round-robin over the living seats); the
+   * retarget when that seat is eliminated is DERIVED (`monsterVictimSeat`), never re-written, so both
+   * sims agree without a second write. Absent for every other creature.
+   *
+   * ⚠ SERIALIZED, ON THE WIRE (a promoted successor runs the AI) AND HASHED (`:ms`), ADDITIVE-OPTIONAL.
+   */
+  monsterSeat?: PlayerId;
   /**
    * ⭐ S151 P2 — REMAINING EFFECTIVE HIT POINTS, **IN FIFTHS**. Renamed from `hp`, and the rename is
    * load-bearing rather than cosmetic.

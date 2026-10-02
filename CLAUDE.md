@@ -93,9 +93,9 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1100 KiB**;
-  **975.2 KiB used, 124.8 KiB of headroom — measured S192 on the deploy-#6 tree by running `npm run build`**,
-  not carried from a handoff). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1250 KiB** since S193;
+  **1040.6 KiB used, 209.4 KiB of headroom — measured S193 on the deploy-#18 tree by running `npm run build`**,
+  not carried from a handoff; S193 raised 1100→1250 in its own commit, LOCKED_DECISIONS § Bundle charter). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
   raised 1000→1100 in S188 (`CAP_KIB` at `check-bundle-size.mjs:19`) and this doc never followed — the
   SECOND time (it also lagged the S180 900→1000 raise). **Read the constant, not this sentence** —
   and when parallel branches are open, remember the headroom is SHARED between them. It is a design constraint, not a platform limit — if a real feature needs the room,
@@ -320,7 +320,7 @@ every goblin and boss. **A tolerant default is where the next one will hide too.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**58** since S193's deploy #18 — 57 before it; 56 before it; 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**59** since S193's deploy #20 — 58 before it; 57 before it; 56 before it; 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
 this line said 46 from S173 until S190 while the constant moved four times — **READ THE CONSTANT, not this
 sentence**; the canon's §6 pins the live value in `canon.test.ts`) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no

@@ -83,6 +83,10 @@ const HASHED_NON_FAMILY: ReadonlySet<string> = new Set([
   // SPAWN RATE: a host and a `?worker=1` mirror disagreeing about the wave would diverge on how many
   // shapes exist, which is a real desync rather than a cosmetic HUD difference.
   'waveNumber',
+  // ⭐ S192 — the endgame monster spawn counter. A world SCALAR (the `mw` part), not a family.
+  'monsterWaveSpawned',
+  // ⭐ S193 — the endgame fight's start tick. A world SCALAR (the `mf` part), not a family.
+  'monsterFightStartTick',
   // S147 P1 — THE MATCH CLOCK. Both are world SCALARS, not entity families: `matchPhase` is a string
   // literal union and `phaseEndsAtTick` an absolute tick, projected as the `mp`/`pe` parts in
   // determinismParts. They belong here rather than in EXPECTED below, which enumerates only the

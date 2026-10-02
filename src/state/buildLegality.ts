@@ -31,6 +31,7 @@
 import type { PlayerId, Vec2 } from '../types.ts';
 import { canBuildAt } from './zones.ts';
 import type { World } from './worldTypes.ts';
+import { isBuildLocked } from './endgame.ts';
 
 /**
  * ⭐ MAY `seat` PLACE AT `pos`, RIGHT NOW?
@@ -45,5 +46,9 @@ import type { World } from './worldTypes.ts';
  */
 export function canBuildNow(world: World, pos: Vec2, seat: PlayerId): boolean {
   if (world.matchPhase !== 'BUILD') return false;
+  // ⭐ S192 (owner, A3) — and from BUILD of wave 27 nothing new is built at all (FIX is a different
+  // gate, `canReclaimNow`, and stays open). Asked HERE so the drag ghost, both placement reducers and
+  // the bots refuse together — `dispatch`'s lock gate is the authority, this keeps the UI honest.
+  if (isBuildLocked(world)) return false;
   return canBuildAt(pos, seat, world.layout);
 }
