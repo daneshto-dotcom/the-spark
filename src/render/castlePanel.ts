@@ -673,7 +673,7 @@ export const CASTLE_ROW_ICON: Readonly<Record<CastleRowKey, SkinIconKind>> = {
 /** The icon's box, and the room the label gives up for it (row-local px). */
 export const ROW_ICON_SIZE = 20;
 export const ROW_ICON_CX = 20;
-const ROW_LABEL_SHIFT = 12;
+const ROW_LABEL_SHIFT = 14;
 
 /**
  * ⭐ S188 P3 — which row buys which stat, and the word it is printed under. HIS order: *"castle HP …
@@ -1768,7 +1768,7 @@ export class CastlePanel {
         row.label.text = m.label;
         // ⭐ S194 T5 — the icon takes the left 32 px, so the label is re-fitted (from full size) when it changes.
         row.label.style.fontSize = 17;
-        fitTextToWidth(row.label, ROW_INNER_W - ROW_LABEL_SHIFT * 2 - 16);
+        fitTextToWidth(row.label, ROW_INNER_W - ROW_LABEL_SHIFT * 2 - 22);
       }
       row.label.style.fill = on ? 0xffffff : 0x6b7a88;
       // ⭐ S188 P3 — a row with a detail line lifts its label to make room; one without it draws

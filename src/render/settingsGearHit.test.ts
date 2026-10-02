@@ -40,3 +40,10 @@ describe('S194 F2 — the gear hit area equals the modal-cover rect', () => {
     expect(src).toMatch(/settingsIcon\.position\.set\(GAUGE_X_COLUMN, AUDIO_ICON_Y\)/);
   });
 });
+
+describe('S194 nit — the settings overlay shows keyboard focus', () => {
+  it('its scoped CSS carries a :focus-visible outline for buttons and inputs', () => {
+    const src = readFileSync(new URL('./settingsOverlay.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/\.spark-settings button:focus-visible,\.spark-settings input:focus-visible\{outline:2px solid/);
+  });
+});

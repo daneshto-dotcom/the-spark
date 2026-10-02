@@ -76,6 +76,8 @@ function installSettingsSkinCss(): void {
     '.spark-settings input[type=checkbox]:active{transform:scale(.9)}',
     '.spark-settings input[type=range]{accent-color:#3bd7ff;transition:filter .12s}',
     '.spark-settings input[type=range]:hover{filter:drop-shadow(0 0 4px rgba(59,215,255,.7))}',
+    // Keyboard focus is visible on every control (the "focus states" the docblock promises).
+    '.spark-settings button:focus-visible,.spark-settings input:focus-visible{outline:2px solid #3bd7ff;outline-offset:2px;box-shadow:0 0 6px rgba(59,215,255,.6)}',
   ].join(' ');
   document.head.appendChild(css);
 }
