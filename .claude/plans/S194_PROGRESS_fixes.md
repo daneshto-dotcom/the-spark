@@ -4,7 +4,7 @@ Base: master 0a37175e (`git merge master` = already up to date, 0 conflicts). np
 
 ## Items
 1. Rage projectile fire tick — DONE (render-only, NO BUMP: the sim already used ragedFireTick at hostTick:2112; only the picture was on the calm clock. LATENT: goblins never rage)
-2. Helga spin world.tick / PHYSICS_HZ — TODO
+2. Helga spin — DONE (render-only, NO BUMP; `princessRenderer.ts` fx path fed drawImpact `world.tick / 60`, a literal; now `slapSpinSeconds(tick)` = tick / PHYSICS_HZ. Identical today (PHYSICS_HZ = 60) — a drift hazard, not a visible bug)
 3. Worker-heap soak 2 reds — TODO
 4. Quarantine specs — TODO
 5. CI L2 SLOWEST_CI_TICKS_PER_S 6→5 + lane minutes — TODO
@@ -16,4 +16,6 @@ Base: master 0a37175e (`git merge master` = already up to date, 0 conflicts). np
 
 - item 1: `projectileFireTick(c)` = ragedFireTick(config fire, c) used by resolveShotIn + impact seed (`creatureProjectile.ts`). Test `creatureProjectileRage.test.ts` (4): REACH through runHostTick — strike ticks (bank rises) == landing ticks (shot t=1), calm at 30 / raged at 15; cycle gaps 61 calm / 31 raged (cadence + 1 SEEKING bounce tick — so "twice as fast" is 61/31 = 1.97x, pre-existing, both peers same); negative: live bit alone does not move the clock. Mutation (bare config fire tick) RED 1/4. Probe found a raged archer turning on an emitted enemy unit mid-run (units-first) — correct behaviour, fixture now clears other creatures.
 
-NEXT STEP: item 2 (Helga spin world.tick / PHYSICS_HZ).
+- item 2: test `princessSlapSpin.test.ts` (3) runs with PHYSICS_HZ MOCKED to 30 so the literal is behaviourally visible; REACH via PrincessRenderer.sync (ray endpoints at slapSpinSeconds(tick)*8); negative: legacy path follows performance.now. Mutation (`/ 60` restored) RED 1/3. visualsCombatReach 0.
+
+NEXT STEP: item 7 (boot finding: exit-match edge + hub-ramp frame CI reds) — then 5, 4, 3, 6.
