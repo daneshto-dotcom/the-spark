@@ -42,3 +42,5 @@ T1 0a4271fe · T4 63d92543 · T5 ae9e6ffc · T6 e322b504 · T7 9a607bc0 · T8 0f
 - T1 teams: CLEAN + MED-1 (4 REACH gaps) + LOW-1 CRLF + LOW-2 Voltkin weld + LOW-3 begin gate → fix-only round sent; bump 63→64 at landing; re-record golden.
 - T7 bots: CLEAN + MED (lock repair eats feed shape) + LOW circular parity test → fix-only round sent.
 - T6 entropy: audit running. T4: audit running. T9, T10: queued. Open security hole (T6 report): client SEVER_BOND cause spoof in `stampSenderSeat` — audit confirming.
+- **Deploy S194-#2 `6ae616da` LIVE** — intentStamp SEVER_BOND security fix (HIGH, pre-existing) + s193/visuals-racial (visuals-3). Gates tc0 · vt0 7933 · build 1133.7 · gating 71/71 · races 5/5 · lobby 5/5 · verify-deploy 4/4. No bump (63).
+- QUEUE (after all trees): T12 team backdrops (after T1) · T13 NONET as its own game (R194-25, research worktree first).

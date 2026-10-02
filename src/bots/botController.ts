@@ -50,6 +50,8 @@ import { isBuildLocked } from '../state/endgame.ts';
 import { ALL_SPARK_TYPES } from '../constants.ts';
 import { bankCountOf } from '../state/castleBank.ts';
 import { pickHostTargetPrimitive } from '../state/placePrimitive.ts';
+import { canBuildNow } from '../state/buildLegality.ts';
+import { SPAWNER_RADIUS } from '../constants.ts';
 import type { GameAction, World } from '../state/world.ts';
 import { sameTeam } from '../state/teams.ts';
 import type { BondId, PlayerId, PotatoId, PrimitiveId, RainbowId, SparkId, Vec2 } from '../types.ts';
@@ -93,6 +95,29 @@ const STUCK_TICKS = 900;
 /** Idle micro-wander: hop radius while resting between goals. */
 const WANDER_RADIUS = 110;
 
+/**
+ * ⭐ S194 (T7) — after a PLACE the reducer refused anyway (the pre-check below agreed and the host did
+ * not), the bot waits this long before it may send another. ⚠ MINE: half a second — long enough that a
+ * disagreement can never become a per-tick stream, short enough that a raced spot costs nothing visible.
+ */
+export const PLACE_RETRY_BACKOFF_TICKS = 30;
+
+/**
+ * ⭐ S194 (T7) — PURE: would `placePrimitive` refuse a shape standing at `pos` for `seat` right now?
+ * The reducer's two position gates, in its order: the spawner no-build disc (strict, `placePrimitive.ts`)
+ * and `canBuildNow` (FIGHT, the endgame lock, zones, keep-outs, edges — the SAME function the reducer
+ * calls, never a lookalike). The bot asks this BEFORE it sends, so a doomed PLACE is never on the stream.
+ *
+ * Measured before (300 s, three bots, real host tick): 13 226 (MID) / 19 741 (HARD) / 19 954 (IMBA)
+ * refused PLACEs, 99.9 % of them in FIGHT — a carried shape re-sent every tick at a spot no rule allows.
+ */
+export function placeRefusedAt(world: World, pos: Vec2, seat: PlayerId): boolean {
+  const dx = pos.x - SPAWNER_CENTER_X;
+  const dy = pos.y - SPAWNER_CENTER_Y;
+  if (dx * dx + dy * dy < SPAWNER_RADIUS * SPAWNER_RADIUS) return true;
+  return !canBuildNow(world, pos, seat);
+}
+
 type ErrandVerb = 'SEVER' | 'RAINBOW' | 'CLEAN' | 'POTATO_GRAB' | 'POTATO_PLANT' | 'FLEE';
 
 type BotState =
@@ -119,6 +144,8 @@ export class BotController {
   private vel = 0;
   private buildReadyAtTick = 0;
   private wanderTarget: Vec2 | null = null;
+  /** ⭐ S194 (T7) — no PLACE may be sent before this tick (see `PLACE_RETRY_BACKOFF_TICKS`). */
+  private placeRetryAtTick = 0;
 
   /** ⭐ S193 (owner R193-AI) — this bot's resolved personality (never RANDOM; see `resolvePersonality`). */
   readonly personality: BotPersonality;
@@ -325,6 +352,16 @@ export class BotController {
         send({ type: 'FEED_TOWER', playerId: this.seat, spawnerId: goal.spawnerId, sparkType: goal.sparkType });
         this.state = { kind: 'IDLE' };
         return;
+      case 'FIX':
+        // ⭐ S194 (T7) — a castle command like PULL: no travel. The SAME intents the card's FIX and the
+        // castle's FIX ALL row send for a human; the reducer re-checks every gate, so a refusal costs nothing.
+        send(
+          goal.primitiveId === null
+            ? { type: 'FIX_ALL', playerId: this.seat }
+            : { type: 'REPAIR_STRUCTURE', playerId: this.seat, primitiveId: goal.primitiveId },
+        );
+        this.state = { kind: 'IDLE' };
+        return;
       case 'SEVER':
         this.state = { kind: 'ERRAND', verb: 'SEVER', targetPos: goal.pos, refId: goal.bondId as number, since: t };
         return;
@@ -369,6 +406,11 @@ export class BotController {
       const spark = world.freeSparks.get(s.sparkId);
       if (spark === undefined || spark.state.kind !== 'Free') {
         this.state = { kind: 'IDLE' }; // raced away / consumed / now carried
+      }
+      // ⭐ S194 (T7) — a fetch begun in BUILD ends at the whistle: a shape picked up in FIGHT can only be
+      // refused and then banked at the next edge (`bankCarriedSparksAtPhaseEdge`). See botBrain `looseOk`.
+      else if (world.matchPhase !== 'BUILD') {
+        this.state = { kind: 'IDLE' };
       }
       return;
     }
@@ -498,6 +540,30 @@ export class BotController {
         return;
       }
       const placementPos = { x: me.avatarPos.x, y: me.avatarPos.y };
+      /*
+       * ⭐ S194 (T7) — NEVER SEND A PLACE THE REDUCER WILL REFUSE. Owner-facing symptom: ~40 refused
+       * PLACEs a second per bot in normal play, almost all in FIGHT, where `canBuildNow` is false for the
+       * whole board — the old reject arm below re-routed (an rng draw), walked to an equally illegal
+       * fallback and re-sent on arrival, every tick, until the 15 s stuck guard dropped the shape.
+       *   · FIGHT (or any non-BUILD phase): nothing can be built anywhere, so HOLD the shape where it
+       *     is and place it when BUILD opens. `since` is refreshed so the stuck guard does not drop it.
+       *   · BUILD, this spot refused (a zone/keep-out raced in): re-route without sending, at most once
+       *     per back-off window.
+       * The reducer reads the SPARK's position, so this does too.
+       */
+      if (placeRefusedAt(world, spark.pos, this.seat)) {
+        if (world.matchPhase !== 'BUILD') {
+          this.state = { kind: 'HAUL', sparkId: s.sparkId, buildPos: s.buildPos, since: world.tick };
+          return;
+        }
+        if (world.tick >= this.placeRetryAtTick) {
+          this.placeRetryAtTick = world.tick + PLACE_RETRY_BACKOFF_TICKS;
+          const buildPos = chooseBuildPos(world, this.seat, this.totalSeats, this.cfg, this.rng);
+          this.state = { kind: 'HAUL', sparkId: s.sparkId, buildPos, since: world.tick };
+        }
+        return;
+      }
+      if (world.tick < this.placeRetryAtTick) return;
       const predictedTargetId = pickHostTargetPrimitive(world, placementPos, me.color);
       const predicted = predictedTargetId !== null ? world.primitives.get(predictedTargetId) : null;
       const tier: StiffnessTier =
@@ -541,6 +607,8 @@ export class BotController {
       } else {
         // Still Carrying = silent reject (zone/territory race). Re-route to a
         // fresh build point rather than hammering the same illegal spot.
+        // ⭐ S194 (T7) — and back off: a refusal the pre-check did not foresee must not repeat per tick.
+        this.placeRetryAtTick = world.tick + PLACE_RETRY_BACKOFF_TICKS;
         const buildPos = chooseBuildPos(world, this.seat, this.totalSeats, this.cfg, this.rng);
         this.state = { kind: 'HAUL', sparkId: s.sparkId, buildPos, since: world.tick };
       }
