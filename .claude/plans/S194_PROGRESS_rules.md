@@ -1,11 +1,10 @@
 # S194 PROGRESS — T11 rules (branch `s194/rules`)
 
-## ⏸ PAUSED (owner session limit, round 2) — EXACT NEXT STEP
-- **Done this round (all committed):** R194-26 mega pants = 251st (slot floor(T·W/(T−1)): 2 seats 7214, 4 seats 7207; REACH + mutation); MED-2 botPersonality.test.ts reverted to master; LOW-1 stale docs; LOW-2 gatherer spawn beside the keep (x ±50+26c, y ∓13; 29.4 px from nearest slot; mutation-checked); R194-27 measured (`SPARK_PANTS_MEASURE=1 npx vitest run src/net/pantsLoadMeasure.test.ts`), perf fix (owned-unit index + living fast path, verdict-identical differential), cap MONSTER_MAX_LIVE_TOTAL 360 split over living seats; canon §3f rows + pins.
-- **Just merged master 814f1871 (T7 bots-tune) — clean merge, NOT yet tested on the combined tree.**
-- **NEXT:** on the merged tree run `npx vitest run --maxWorkers=3 src/bots src/state/endgame src/state/endgameS194Perf.test.ts`; handle the 3 T7 seams per coordinator: (1) `botFix.test.ts:135` count only sends with `w.tick >= stripGatherersFromTick`, mutation-check by deleting the gatherer guard; (2) any SABOTEUR pin (my IMBA pin is reverted — re-measure only if a T7 pin reds); (3) T7 pin "IMBA WARMONGER and TYCOON differ" — re-measure, REPORT numbers if red, never relax. Then full gates (typecheck, full vitest, build + entry KiB) and the final report.
-- **Last gates (pre-merge):** tsc 0; endgame/canon/gatherer/castle suites 0 (targeted); full vitest last ran 0 (7868 passed) BEFORE R194-26/27; build last 0 (1122.2 KiB) before this round.
-- No background processes running.
+## ✅ FINAL REPORT — batch 2 (R194-26/27, MED-2, LOW-1/2, T8 merge, T7 seams)
+- Merged master b968d940 (PROTOCOL 64 + entropy): one conflict, endgameMonsters.ts, resolved exactly per brief (lanes in `due`, `lanes[k % lanes.length]` + T8 dead-lane skip, cap `monsterMaxLivePerSeat(living.length)`). Mega slot now over LANES too (`megaPantsAtElapsed`).
+- Gates: typecheck 0 · vitest 1 = 3 failed / 8379 passed / 12 skipped — the 3 are the T7 bot-signature pins, NOT relaxed (see below) · build 0, entry 1151.2 KiB (headroom 98.8).
+- Bot pins: with `CASTLE_PORCH_OFFSET_Y` put back to 74 (everything else unchanged) botPersonality is 58/58 green — the porch move (porch + deposit 74→42) shifts the bot matches. Measured on the combined tree: HARD FORTRESS mean def 0.42 vs BALANCED 0.50; IMBA SABOTEUR no pentagram (goblin>stink>goblin | goblin | zombies×2); IMBA TYCOON mean def 0.00 (Q-E needs > 0). Route to T7.
+- botFix negative now counts only after the gatherer strip; mutation (guard deleted) → 2700 FIX, red.
 
 ## R194-27 measurement (4 seats, wave 31, nobody killing; host ms p50/p95 · NETSNAPSHOT KiB · worker positions KiB/frame · mirror apply ms p50)
 | live | before perf fix | after perf fix | wire | positions | mirror apply |
