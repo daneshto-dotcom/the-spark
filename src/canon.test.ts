@@ -1852,4 +1852,12 @@ describe('S193 teams — §5d is pinned to its constants', () => {
     expect(canonSays('**TEAM N WINS**')).toBe(true);
     expect(canonSays('`isScorchImmune(world, owner, spared)`, the ONE site')).toBe(true);
   });
+
+  it('⭐ S194 — the zombie boss death blast spares his whole TEAM (R193-B3 × R192-T1), not MINE any more', async () => {
+    const { T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE } = await import('./state/racial/zombieDeathBlast.ts');
+    expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
+    expect(canonSays("**The zombie boss's death blast spares his whole TEAM — NOT MINE any more.**")).toBe(true);
+    // the superseded S192 default is no longer stated as live
+    expect(canonSays("the Pharaoh's columns and the zombie boss's death blast")).toBe(false);
+  });
 });

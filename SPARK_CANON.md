@@ -1176,8 +1176,22 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 - A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
   least two sides"*), and the sim falls back to the free-for-all.
 - **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
-- The two **"hurts everything" blasts** — the Pharaoh's columns and the zombie boss's death blast — still
-  hit their OWN seat but spare its TEAMMATES.
+- The **Pharaoh boss's columns** ("kills everything") still hit his OWN seat but spare its TEAMMATES.
+- ⚠ MINE (S194) — an endgame WIPE (wave 27+, every keep down) crowns the top-scoring SEAT (S193 Q2); with
+  teams on, that seat's TEAM wins and the banner reads TEAM N WINS like any other team win.
+
+**⭐ S194 — the master sites that landed after round 2 (deploys #18–#23), each asks the one predicate:**
+- **The zombie boss's death blast spares his whole TEAM — NOT MINE any more.** R193-B3 (*"It does not hit
+  his own side"*) retired R138's *"hurting everything"*, so his own seat is spared by ruling and R192-T1
+  extends it to his teammates (`zombieBlastTargets`: every arm `sameTeam`, a structure when either end is).
+  The S192 default (teammates spared, his own seat burns) is SUPERSEDED. `T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE`
+  stays `false`.
+- The **Saboteur** bot's leader (`leaderTargetSeat`, also its Ra "front" focus) is the top ENEMY — never a
+  teammate; flat among enemies is flat.
+- The RESIST cue mirrors the sim's team spare (rot, stink aura, landed bag); a teammate's building card reads
+  **ALLY BUILDING**; the end-of-match board reads **TEAM N WINS** and stars the whole winning team.
+- The bot lobby row holds four chips — difficulty · personality · race · team (panel 960 px); a re-seated bot
+  keeps its personality (`permuteBots`).
 - CORPSE EATER never eats a teammate's unit; THE RISEN raises only from enemy-TEAM kills.
 - The overkill CARRY stays on the struck connector's OWNER (narrower than a team).
 - A human may cast Scorched Earth on a teammate's zone (only enemies standing there burn).
