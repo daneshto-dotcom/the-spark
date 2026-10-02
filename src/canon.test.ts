@@ -1600,6 +1600,8 @@ describe('S192 §3f — the endgame table is the constants', () => {
     expect(megaPantsSlotTicks(T2, W31)).toBe(Math.floor((T2 * W31) / (T2 - 1)));
     expect(canonSays(`**2 seats → ${megaPantsSlotTicks(T2, W31)} ticks · 4 seats → ${megaPantsSlotTicks(T4, W31)} ticks**`)).toBe(true);
     expect(canonSays('**he is the 251st**')).toBe(true);
+    // ⭐ S194 R194-27 — the measured cap, read back off the constant
+    expect(canonSays(`**\`MONSTER_MAX_LIVE_TOTAL\` = ${endgameConstants.MONSTER_MAX_LIVE_TOTAL}** live`)).toBe(true);
     expect(canonSays(`~~${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s, \`MEGA_PANTS_AFTER_TICKS\`~~ retired`)).toBe(true);
     const m = ENDGAME_CONFIGS.megaPants;
     expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
