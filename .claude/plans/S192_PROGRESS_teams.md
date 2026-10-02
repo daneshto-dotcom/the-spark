@@ -1,3 +1,10 @@
+# S194 — IN PROGRESS (T1 teams) — WIP log, final report will replace this block
+
+- STEP 1 DONE be40841e — merge master 0a37175e, 11 conflicts (listed in the commit). npm install 0. typecheck 0.
+- STEP 2+3 DONE 4d924bd5 — zombie death blast / leaderTargetSeat / RESIST cue / building cards / stat board / bot lobby relayout / permuteBots.
+- STEP 4 DONE cd0ce649 — FFA golden re-recorded on master 0a37175e, merged tree 90/90 identical, mutation diverges @3900.
+- NEXT: step 5 e2e teams-lobby on own hashed port; step 6 gates (typecheck, vitest --maxWorkers=3, build KiB).
+
 # S193 ROUND 2 — FINAL REPORT (top) — `s192/teams`, worktree agent, NOT the merge owner
 
 - Merge **031c9e37** = `git merge master` @ **656b106** (deploy #17, units-ai, PROTOCOL 57). 5 conflicts, resolved per the
