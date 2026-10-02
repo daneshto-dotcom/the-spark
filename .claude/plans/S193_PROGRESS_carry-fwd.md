@@ -1,3 +1,9 @@
+# MAGIC-SEAM ROUND (after the independent audit, which was CLEAN)
+- Merged master b95b0c3 (contains af4ab26: s192/magic, PROTOCOL 60) as 1b453ff, 0 conflicts; npm install exit 0.
+- 2028ba4: auditor patch applied (`'physical'` cls on 8 test calls) + LOW: the Trystero tripwire accepts backtick specifiers and pins computed dynamic imports across all of src (mutant RED 1/11).
+- Gates on 2028ba4: typecheck 0 · vitest 0 (7516 passed / 11 skipped, 494 files) · build 0, entry 1068.2 KiB / 1250 (headroom 181.8).
+- BUMP: CF-1 still needs one, 60 -> 61 or later at merge.
+
 # FINAL REPORT (s193/carry-fwd)
 - Commits: 88e59d2 T11 · 8966ae8 CF-1 · 9b53bc6 CF-2 · 3f4bda4 R-2 · 68dfc71 A3 · 269a330 L2. Merge of master b72e779 = 8497b57, 0 conflicts. Tip = this commit.
 - Gates on 8497b57: typecheck 0 · vitest --maxWorkers=3 0 (7464 passed / 11 skipped, 488 files) · build 0, entry 1063.4 KiB / 1250 (+1.5 KiB vs master-only source, measured with vite build + check-bundle-size).
