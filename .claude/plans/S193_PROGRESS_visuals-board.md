@@ -30,4 +30,5 @@
   LOW2 keep scaled to cap + spread test (unscaled -> red). LOW4 decal root boundsArea. Commits b358dfe7, cbff206c.
 
 ## NEXT STEP
-- audit-round gates running (r-*.exit). Then short report. V28 waits for weld.
+- audit-round gates DONE: tc 0 · vitest 0 (490 files, 7479 passed, 11 skipped) · build 0 1075.5 KiB · e2e:gating 0 (71/71, fog.spec 6/6) on port 27145.
+- V28 health-bar ghost: wait for weld to land, merge master, build on weld's healthBar.ts.
