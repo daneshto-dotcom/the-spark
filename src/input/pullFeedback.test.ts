@@ -77,11 +77,8 @@ describe('⭐ S193 L1 — the refused cue on a pull your own buildings block', (
 
 describe('S193 L1 — the castle panel’s pull click goes through requestPull (the one pull site)', () => {
   it('main.ts wires setPullHandler → requestPull with the refused thud, and dispatches PULL_FROM_BANK nowhere else', () => {
-    const src = readFileSync('src/main.ts', 'utf-8').replace(/
-/g, '
-');
-    expect(src).toMatch(/setPullHandler\(\(sparkType\) => \{
-\s*requestPull\(world, sparkType, dispatchFn, \(\) => \{ void playUiRefusedSFX\(\); \}\);/);
+    const src = readFileSync('src/main.ts', 'utf-8').replace(/\r\n/g, '\n');
+    expect(src).toMatch(/setPullHandler\(\(sparkType\) => \{\n\s*requestPull\(world, sparkType, dispatchFn, \(\) => \{ void playUiRefusedSFX\(\); \}\);/);
     expect(src.match(/'PULL_FROM_BANK'/g) ?? []).toHaveLength(0);
   });
 });
