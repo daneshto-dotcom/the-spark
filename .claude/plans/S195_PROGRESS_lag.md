@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Joiner CPU PROFILE run (w1,w10 x 1x,4x, fx high, gpu) RUNNING -> .tmp-gates/lag/joiner-profile.log. Then decide whether throttled numbers are trustworthy (machine shared by 8 worktrees), then write .claude/plans/S195_LAG_REPORT.md.
+gpu matrix 3 + swiftshader subset RUNNING (bg btm3820et) -> joiner-gpu3.log/.json, joiner-sw3.log. Then write .claude/plans/S195_LAG_REPORT.md. Machine is heavily shared (a plain grep timed out at 120 s) -> throttled fps numbers are NOISY; report robust conclusions only (bytes; handle ms; frame-with-snapshots == frame-idle).
 
 ## Log
 - step 0: worktree at dcd6af47 (= master), npm install exit 0.
@@ -15,3 +15,4 @@ Joiner CPU PROFILE run (w1,w10 x 1x,4x, fx high, gpu) RUNNING -> .tmp-gates/lag/
 - step 5: joiner run 1 INVALID — joiner page was background-throttled (timers/rAF 1.5-4 Hz even at w1) and the 'gpu' project silently got SwiftShader. Fixed: --disable-background-timer-throttling/--disable-renderer-backgrounding/--disable-backgrounding-occluded-windows, bringToFront + focus emulation + visibility guard, --use-angle=d3d11 --enable-gpu (RTX 4070 Ti SUPER). Sanity: w1 60 fps / 79 injected, w10 60 fps (p5 29.9) frame 17 ms med.
 - delta+deflate (python zlib-1 over the bursts): w5 9.1 KiB, w8 4.7, w10 4.3, w15 3.9 (vs full 78-119).
 - step 6: gpu matrix run 2 got 38/45 rows before the 30-min bg limit killed it (saved joiner-gpu-run2-matrix.*). 1x (RTX 4070 Ti): w1 60 fps frame 4.8 ms; w5 60 fps 12.5 ms; w8 60 fps 17 ms; w10 30 fps 20.6 ms (p5 20); w15 60 fps 18 ms; handle 0.2-0.8 ms. Throttled 4x/6x: fps collapses to 3-20 EVEN AT w1 (frame 5 ms) => main thread loses time outside frameMs+handle; suspect throttle x shared-machine load artifact. Profiling to find out.
+- step 7: profile runs. Profile 1 invalid at w10 (injected seq <= previous -> all dropped; fixed: monotonic seq + anti-vacuity check). Profile 2 (w10): at 4x the main thread is Pixi Graphics rebuild (stroke 12.8%, buildContextBatches 7.3%, buildLine, toFillStyle, structureRenderer.drawBonds, damageNumbers.track 2.9%, territory.computeAllPlayerComplexities 2.6%); applySnapshotCore 0.9%, handleRawMessage 1.1%. Frame with snapshots 24.2 ms vs idle (same board, no snapshots) 24.4 ms => the joiner's frame cost is RENDERING THE BOARD, not receiving it. At 1x one window was dominated by Trystero NOSTR crypto (add/sliceBytesNumBE/M/bytesToNumBE ~4.4 s of 13.8 s) — Trystero announces every 5.3 s per relay (4 relays) + offer pool RTCPeerConnection churn, all match long, on the main thread.
