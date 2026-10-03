@@ -95,7 +95,11 @@ async function startInjection(page: Page): Promise<void> {
       if (env.epoch !== undefined) m.epoch = env.epoch; else delete m.epoch;
       return m;
     });
-    let seq = env.snapshotSeq + 1_000_000;
+    // ⛔ MONOTONIC ACROSS CONFIGS. The first profile run started each injection at live+1e6; when the live seq
+    // had not moved past the previous injection's last seq, EVERY injected w10 snapshot was dropped on the seq
+    // gate and the page went on rendering the old board (counts read primitives 20 at "w10"). Checked below.
+    const l2 = lag as unknown as { nextSeq?: number };
+    let seq = Math.max(l2.nextSeq ?? 0, env.snapshotSeq + 1_000_000);
     let i = 0;
     lag.injecting = true;
     lag.handle = [];
@@ -103,6 +107,7 @@ async function startInjection(page: Page): Promise<void> {
     lag.timer = window.setInterval(() => {
       const m = seqs[i++ % seqs.length]!;
       m.snapshotSeq = seq++;
+      l2.nextSeq = seq;
       const raw = JSON.stringify(m); // a fresh string each time, as the wire would deliver
       const t0 = performance.now();
       lag.orig(raw, peer, strat);
@@ -202,6 +207,10 @@ ${topSelf(profile, 30)}`);
             longFrames: got.raf.filter((x) => x > 50).length, renderer, counts: got.counts,
             idleFpsMed: +pct(idleFps, 0.5).toFixed(1), idleFpsP5: +pct(idleFps, 0.05).toFixed(1), idleFrameMsMed: +pct(idle.frame, 0.5).toFixed(2),
           };
+          const want = (JSON.parse(seqs[0]!) as { snapshot: { primitives?: unknown[] } }).snapshot.primitives?.length ?? 0;
+          if (Math.abs(got.counts.primitives - want) > Math.max(5, want * 0.1)) {
+            throw new Error(`injected board NOT applied: page has ${got.counts.primitives} primitives, recording has ${want}`);
+          }
           rows.push(row);
           console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
           writeFileSync(join(DIR, `joiner-${info.project.name}-${LABEL}.json`), JSON.stringify({ renderer, rows }, null, 1));
