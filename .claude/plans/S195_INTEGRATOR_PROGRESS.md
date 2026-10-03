@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
 ## EXACT NEXT STEP
-L3: ui-upgrade worktree already has master merged (e1aacd76; tc0; r3-targeted vitest 17 files/273 green incl. uiScreenChrome + uiSkinCensus). Merge s194/ui-upgrade into master, run `.tmp-gates/s195run.sh L3 <fresh port>`, push, deploy, verify (`--sha`), log S195-#3.
+L3: merged into master 5f543462; gates RUNNING (`.tmp-gates/s195run.sh L3 31961` → `.tmp-gates/s195_L3/`). Then fetch/merge origin if moved, push, deploy, verify (`--sha`), log S195-#3. Then L4 (s194/mp, scripts only).
 
 ## STATE PER LANDING
 | landing | state |
