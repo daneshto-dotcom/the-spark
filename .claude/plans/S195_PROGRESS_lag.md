@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-gpu matrix 3 + swiftshader subset RUNNING (bg btm3820et) -> joiner-gpu3.log/.json, joiner-sw3.log. Then write .claude/plans/S195_LAG_REPORT.md. Machine is heavily shared (a plain grep timed out at 120 s) -> throttled fps numbers are NOISY; report robust conclusions only (bytes; handle ms; frame-with-snapshots == frame-idle).
+Fill JOINER_TABLE_PLACEHOLDER + OPTIONS_PLACEHOLDER in .claude/plans/S195_LAG_REPORT.md (use run-2 unthrottled rows + run-2 w5 4x rows + profile 2; matrix 3 + swiftshader are load-crushed, recorded as such), then git merge master, gates, final report.
 
 ## Log
 - step 0: worktree at dcd6af47 (= master), npm install exit 0.
@@ -16,3 +16,4 @@ gpu matrix 3 + swiftshader subset RUNNING (bg btm3820et) -> joiner-gpu3.log/.jso
 - delta+deflate (python zlib-1 over the bursts): w5 9.1 KiB, w8 4.7, w10 4.3, w15 3.9 (vs full 78-119).
 - step 6: gpu matrix run 2 got 38/45 rows before the 30-min bg limit killed it (saved joiner-gpu-run2-matrix.*). 1x (RTX 4070 Ti): w1 60 fps frame 4.8 ms; w5 60 fps 12.5 ms; w8 60 fps 17 ms; w10 30 fps 20.6 ms (p5 20); w15 60 fps 18 ms; handle 0.2-0.8 ms. Throttled 4x/6x: fps collapses to 3-20 EVEN AT w1 (frame 5 ms) => main thread loses time outside frameMs+handle; suspect throttle x shared-machine load artifact. Profiling to find out.
 - step 7: profile runs. Profile 1 invalid at w10 (injected seq <= previous -> all dropped; fixed: monotonic seq + anti-vacuity check). Profile 2 (w10): at 4x the main thread is Pixi Graphics rebuild (stroke 12.8%, buildContextBatches 7.3%, buildLine, toFillStyle, structureRenderer.drawBonds, damageNumbers.track 2.9%, territory.computeAllPlayerComplexities 2.6%); applySnapshotCore 0.9%, handleRawMessage 1.1%. Frame with snapshots 24.2 ms vs idle (same board, no snapshots) 24.4 ms => the joiner's frame cost is RENDERING THE BOARD, not receiving it. At 1x one window was dominated by Trystero NOSTR crypto (add/sliceBytesNumBE/M/bytesToNumBE ~4.4 s of 13.8 s) — Trystero announces every 5.3 s per relay (4 relays) + offer pool RTCPeerConnection churn, all match long, on the main thread.
+- step 8 (resumed after spend-limit stop): bg run survived and finished. Matrix 3 (gpu) CRUSHED by machine load: fps 0.2, 2-3 injections in 8 s even at w1; anti-vacuity correctly failed at w5 (page never processed the board) -> exit 1, run discarded. Swiftshader subset exit 0 but rAF ~3 fps even at w1 1x -> SwiftShader+load, unusable for fps; handle times still small (0.7-0.8 ms 1x at w10). Decision: time-box the throttled matrix; report robust numbers only.
