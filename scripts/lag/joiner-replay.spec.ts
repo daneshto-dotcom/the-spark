@@ -54,8 +54,7 @@ function topSelf(profile: CpuProfile, n: number): string {
     self.set(k, (self.get(k) ?? 0) + (x.hitCount ?? 0));
   }
   return [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
-    .map(([k, v]) => `    ${((100 * v) / total).toFixed(1).padStart(5)} %  ${((v * usPer) / 1000).toFixed(0).padStart(6)} ms  ${k}`).join('
-');
+    .map(([k, v]) => `    ${((100 * v) / total).toFixed(1).padStart(5)} %  ${((v * usPer) / 1000).toFixed(0).padStart(6)} ms  ${k}`).join(String.fromCharCode(10));
 }
 
 async function installInjector(page: Page): Promise<void> {

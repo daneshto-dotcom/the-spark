@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Full joiner matrix RUNNING in bg (gpu then swiftshader) -> .tmp-gates/lag/joiner-gpu.log, joiner-sw.log, joiner-*-natural.json. Then write .claude/plans/S195_LAG_REPORT.md (draft in progress).
+Joiner CPU PROFILE run (w1,w10 x 1x,4x, fx high, gpu) RUNNING -> .tmp-gates/lag/joiner-profile.log. Then decide whether throttled numbers are trustworthy (machine shared by 8 worktrees), then write .claude/plans/S195_LAG_REPORT.md.
 
 ## Log
 - step 0: worktree at dcd6af47 (= master), npm install exit 0.
@@ -14,3 +14,4 @@ Full joiner matrix RUNNING in bg (gpu then swiftshader) -> .tmp-gates/lag/joiner
 - owner has FIBRE at the domain (BRAIN quotebook: 'Le cable fibre optique'), so a raw home-uplink shortfall is unlikely; WS2 is same-room => same uplink.
 - step 5: joiner run 1 INVALID — joiner page was background-throttled (timers/rAF 1.5-4 Hz even at w1) and the 'gpu' project silently got SwiftShader. Fixed: --disable-background-timer-throttling/--disable-renderer-backgrounding/--disable-backgrounding-occluded-windows, bringToFront + focus emulation + visibility guard, --use-angle=d3d11 --enable-gpu (RTX 4070 Ti SUPER). Sanity: w1 60 fps / 79 injected, w10 60 fps (p5 29.9) frame 17 ms med.
 - delta+deflate (python zlib-1 over the bursts): w5 9.1 KiB, w8 4.7, w10 4.3, w15 3.9 (vs full 78-119).
+- step 6: gpu matrix run 2 got 38/45 rows before the 30-min bg limit killed it (saved joiner-gpu-run2-matrix.*). 1x (RTX 4070 Ti): w1 60 fps frame 4.8 ms; w5 60 fps 12.5 ms; w8 60 fps 17 ms; w10 30 fps 20.6 ms (p5 20); w15 60 fps 18 ms; handle 0.2-0.8 ms. Throttled 4x/6x: fps collapses to 3-20 EVEN AT w1 (frame 5 ms) => main thread loses time outside frameMs+handle; suspect throttle x shared-machine load artifact. Profiling to find out.
