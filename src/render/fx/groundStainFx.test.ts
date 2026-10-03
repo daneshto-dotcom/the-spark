@@ -114,10 +114,18 @@ describe('V24 — `drawRaceGround(…, { skipBase })` draws the motifs only', ()
     expect(calls('demons', true, 0)).not.toEqual(calls('demons', true, 30));
   });
 
-  it('REACH — the decal renderer passes `skipBase` from the same switch that draws the stain sprite', () => {
+  /*
+   * ⭐ S194 `s194/visuals-6` — the decal renderer's three paths: legacy = the S185 drawing exactly; fx HIGH =
+   * the stain sprite (this file) as the BODY under the animated per-race background; fx LOW = the flat S185
+   * body only (`baseOnly`). The S185 Graphics MOTIFS are legacy-only now — the background is the motif layer.
+   * Behavioural reach: `towerBackdrop.test.ts`; the stain path needs a canvas, so it is pinned here by source.
+   */
+  it('REACH — the decal renderer draws the stain from the HIGH switch, the flat body on LOW, S185 on legacy', () => {
     const src = readFileSync(new URL('../groundDecalRenderer.ts', import.meta.url), 'utf8');
-    expect(src).toMatch(/if \(this\.textured\) this\.stain\(/);
-    expect(src).toMatch(/\{ skipBase: this\.textured \}/);
-    expect(src).toMatch(/this\.textured = fxActive\(\) && fxHighQuality\(\);/);
+    expect(src).toMatch(/this\.textured = this\.live && fxHighQuality\(\);/);
+    expect(src).toMatch(/this\.live = fxActive\(\);/);
+    expect(src).toMatch(/if \(this\.textured\) \{\s*this\.stain\(/);
+    expect(src).toMatch(/\{ baseOnly: true \}/);
+    expect(src).toMatch(/if \(!this\.live\) \{[^}]*drawRaceGround\(this\.graphics as unknown as GroundTarget, race, id, cx, feetY, hw, hh, world\.tick\);/);
   });
 });

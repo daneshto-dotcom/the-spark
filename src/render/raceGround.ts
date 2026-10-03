@@ -110,9 +110,20 @@ export function drawRaceGround(
    * (bubbles, cracks, droplets, banks, rings, scuffs): the noise-textured stain sprite under them
    * (`fx/groundStainFx.ts`) is the body now. Omitted = the S185 drawing, unchanged.
    */
-  opts?: { readonly skipBase?: boolean },
+  opts?: {
+    readonly skipBase?: boolean;
+    /**
+     * ⭐ S194 — `baseOnly` draws the flat body and NONE of the motifs: on LOW quality the animated per-race
+     * background (`fx/towerBackdropFx.ts`) is the motif layer, so drawing both would stack two bubbles.
+     */
+    readonly baseOnly?: boolean;
+  },
 ): void {
   const flat = opts?.skipBase !== true;
+  if (opts?.baseOnly === true) {
+    drawRaceBase(g, race, cx, cy, hw, hh);
+    return;
+  }
   const base = RACE_COLORS[race];
   // the body sits well below the race colour so the tower reads on top of it, never against it
   const body = shade(base, 0.32);
@@ -212,4 +223,15 @@ export function drawRaceGround(
       break;
     }
   }
+}
+
+/**
+ * ⭐ S194 — the flat BODY of each race's mark, alone: the same first fill(s) `drawRaceGround` lays for
+ * that race (opaque, in the race's own darkened colour — the S185 rules), with no motif over it.
+ */
+export function drawRaceBase(g: GroundTarget, race: RaceId, cx: number, cy: number, hw: number, hh: number): void {
+  const base = RACE_COLORS[race];
+  const ry = hh * 0.34;
+  const body: Readonly<Record<RaceId, number>> = { zombies: 0.32, demons: 0.22, vampires: 0.26, mummies: 0.3, nagas: 0.24, orcs: 0.26 };
+  g.ellipse(cx, cy, hw, ry).fill({ color: shade(base, body[race]), alpha: 1 });
 }
