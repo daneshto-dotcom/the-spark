@@ -20,6 +20,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { Texture, TextureSource, type Container, type Graphics, type Sprite, type Text } from 'pixi.js';
+import { SKIN_SHEEN_MS } from './uiSkin.ts';
 import {
   DraftOverlay,
   PANEL_H,
@@ -918,19 +919,55 @@ describe('⭐ S194 T5 — the GLASS over the tiles is inside them, and the tiles
     });
   }
 
+  /*
+   * ⛔ S195 T21 (T22 #1) — THE UI CLOCK IS PINNED, NEVER READ. `render()` hands `performance.now()` to
+   * `skinButtonFx`, and the hovered glass differs from the resting glass ONLY by the sheen band
+   * (same plates, same studs, only alphas change). `skinSheen` clamps the band to the plate's straight
+   * span and draws nothing for the slice of its 1600 ms cycle where the band is wholly off the plate,
+   * so this test read the wall clock and went red on deploy #5 (8480/8481) — about 1 run in 250.
+   * Pinned at mid-cycle, where the band is centred on the tile; the assertion itself is unchanged.
+   * The test below it measures the clamped-out phases through the real overlay, so the pin is
+   * justified by a number, not by a guess, and turns red if the band ever stops clamping out.
+   */
+  function hoverGlassAt(now: number): { before: number; after: number; picks: DraftPick[] } {
+    const spy = vi.spyOn(performance, 'now').mockReturnValue(now);
+    try {
+      const { w, seat } = startedWorld();
+      const picks: DraftPick[] = [];
+      const o = new DraftOverlay((p) => picks.push(p), { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
+      o.render(w, seat);
+      const before = child<Graphics>(o.container, 'glass').context.instructions.length;
+      const g = generalTileRect();
+      move(o, { x: g.x + 2, y: g.y + 2 });
+      o.render(w, seat);
+      const after = child<Graphics>(o.container, 'glass').context.instructions.length;
+      tap(o, { x: g.x + 2, y: g.y + 2 });
+      tap(o, { x: g.x - 2, y: g.y + g.h / 2 });
+      return { before, after, picks };
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
   it('hovering a choosable tile lights its glass (the sheen), and the click still lands on the same tile', () => {
-    const { w, seat } = startedWorld();
-    const picks: DraftPick[] = [];
-    const o = new DraftOverlay((p) => picks.push(p), { optionsFor: offerAsIfBuilt, loadCard: recordingLoader().load });
-    o.render(w, seat);
-    const before = child<Graphics>(o.container, 'glass').context.instructions.length;
-    const g = generalTileRect();
-    move(o, { x: g.x + 2, y: g.y + 2 });
-    o.render(w, seat);
-    expect(child<Graphics>(o.container, 'glass').context.instructions.length, 'hover adds the glow/sheen').toBeGreaterThan(before);
-    tap(o, { x: g.x + 2, y: g.y + 2 });
-    tap(o, { x: g.x - 2, y: g.y + g.h / 2 });
+    const { before, after, picks } = hoverGlassAt(SKIN_SHEEN_MS / 2);
+    expect(after, 'hover adds the glow/sheen').toBeGreaterThan(before);
     expect(picks).toEqual([generalPickForWave(1)]);
+  });
+
+  it('⛔ why the clock is pinned: some phases clamp the sheen off the tile, so an unpinned read flakes', () => {
+    // Coarse-to-exact: the clamped-out window is a few ms wide, so scan every ms of one cycle.
+    const empty: number[] = [];
+    for (let t = 0; t < SKIN_SHEEN_MS; t++) {
+      const { before, after } = hoverGlassAt(t);
+      if (after <= before) empty.push(t);
+    }
+    // Non-vacuous: the flake is real (this is what deploy #5 hit) ...
+    expect(empty.length, 'no clamped-out phase found — the pin above may no longer be needed').toBeGreaterThan(0);
+    // ... rare (it matched ~1 in 250 runs) ...
+    expect(empty.length, `clamped-out phases: ${empty.length}`).toBeLessThan(SKIN_SHEEN_MS * 0.02);
+    // ... and the pinned phase is not one of them.
+    expect(empty).not.toContain(SKIN_SHEEN_MS / 2);
   });
 
   it('the glass is never a click target of its own: a point just outside every tile is not choosable', () => {
