@@ -634,13 +634,17 @@ jobs:
   # lobby tests (≤ 60 s each) = 20.5 min ⇒ 22. And the runner keeps ≥ 8 min ABOVE Playwright for
   # checkout + npm ci + browser install, which took 7.5 min in run 36882836513 — at 16/20 a full-length
   # Playwright run would have been SIGKILLed into `cancelled`, the S126 trap. `ci.e2eLanes.test.ts` pins both.
+  # ⛔ S195 T21 — 22/32 → 29/37. Run 37047025269 hit the 1320 s cap with the S46 Baseline NEVER STARTED:
+  # the budget held three attempts of the late-4th-joiner but only ONE of each of the other four, and on CI
+  # the STUN reds retry the others too (exit-match ×2, join-stall:109 ×3 in that run). Now every lobby test
+  # gets its retries: 3 × (330 s late joiner + 4 × 60 s) = 1710 s ≤ 29 min. Pinned in ci.e2eLanes.test.ts.
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 32
+    timeout-minutes: 37
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 22
+      PW_GLOBAL_TIMEOUT_MIN: 29
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -683,15 +687,21 @@ jobs:
   # workflow run (no failure emails); independent runner + timeout => it can never
   # cancel the gating job. It still RUNS + is visible (a consistent real regression
   # is still catchable) but cannot gate.
+  # ⛔ S195 T21 — 17/20 → 46/54, and it no longer re-runs the protocol lane's two tests. The lane never
+  # FINISHED (run 37047025269: 5 of 18 ran before "Timed out waiting 1020s"): its specs' own budgets sum to
+  # 2700 s — host-migration 240+300+360, Sym A/G/C 3 × 240, worker-duel 240, teams-lobby 120+150,
+  # hard-blip 150, reconnect 120, and six at the 60 s default (no retries here) — so a 1020 s cap could only
+  # ever give a third of them a verdict. `ci.e2eLanes.test.ts` re-derives that sum from the specs' own
+  # `test.setTimeout`s and fails when the cap stops holding it.
   e2e-quarantine:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 54
     continue-on-error: true
     env:
       # S126 — below timeout-minutes so this lane also exits via Playwright (flushing its
       # results) instead of being SIGKILLed at the 20m cap, which is what happened on
       # every weekly run from 2026-07-13 onward.
-      PW_GLOBAL_TIMEOUT_MIN: 17
+      PW_GLOBAL_TIMEOUT_MIN: 46
       # ⛔ S142 P2 — RETRIES OFF, the exact S127 precedent from the soak lane.
       # MEASURED 2026-08-13 (run 31707927282): this lane ran 17.0m — the FULL cap — and
       # still finished "8 failed / 9 passed / 1 DID NOT RUN". The tests that fail here fail

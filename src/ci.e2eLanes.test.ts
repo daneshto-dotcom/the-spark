@@ -352,6 +352,8 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     const MEASURED_CI_CRITICAL_PATH_MS = 282_000;
     const LANE_RETRIES = 2; // playwright.config.ts: `process.env.CI ? 2 : 0`, and e2e-lobby sets no PW_RETRIES
     const OTHER_LOBBY_TESTS = 4; // S46 Baseline + 2 x S155 join-stall + S155 exit-from-multiplayer
+    // ⛔ S195 T21 — the OTHER four retry too (run 37047025269: exit-match x2, join-stall:109 x3 on STUN reds),
+    // and budgeting them at one attempt is what left the S46 Baseline never started at the 1320 s cap.
     const DEFAULT_TEST_TIMEOUT_MS = 60_000;
     const SETUP_HEADROOM_MIN = 8;
     const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
@@ -379,7 +381,7 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     expect(block, 'e2e-lobby must not override retries').not.toContain('PW_RETRIES');
     const cap = Number((/\n {4}timeout-minutes:\s*(\d+)/.exec(block) as RegExpExecArray)[1]);
     const pw = Number((/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block) as RegExpExecArray)[1]);
-    const laneNeedMs = (LANE_RETRIES + 1) * budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS;
+    const laneNeedMs = (LANE_RETRIES + 1) * (budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS);
     expect(pw * 60_000, `e2e-lobby PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${laneNeedMs} ms`).toBeGreaterThanOrEqual(
       laneNeedMs,
     );
@@ -454,15 +456,19 @@ describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop der
  * quarantine lane gets its budget back for the specs that only it runs.
  */
 describe('S193 - the quarantine lane does not re-run what e2e-lobby gates', () => {
-  it('e2e:quarantine grep-inverts exactly the e2e:lobby grep', () => {
+  it('e2e:quarantine grep-inverts exactly the e2e:lobby grep + the e2e:protocol grep (S195: protocol too)', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
     const lobby = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:lobby'] ?? '');
+    const proto = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:protocol'] ?? '');
     const q = pkg.scripts['e2e:quarantine'] ?? '';
     const inv = /--grep-invert\s+"([^"]+)"/.exec(q);
     expect(lobby, 'e2e:lobby grep').not.toBeNull();
+    expect(proto, 'e2e:protocol grep').not.toBeNull();
     expect(q).toContain('--grep @quarantine-flaky');
-    expect(inv, 'e2e:quarantine must grep-invert the lobby-gated titles').not.toBeNull();
-    expect((inv as RegExpExecArray)[1]).toBe((lobby as RegExpExecArray)[1]);
+    expect(inv, 'e2e:quarantine must grep-invert the lobby- and protocol-gated titles').not.toBeNull();
+    // ⛔ S195 T21 — the two `Protocol mismatch` tests gate in e2e-protocol and ALSO ran here, the S193 lobby
+    // double-run in another lane. One test, one lane.
+    expect((inv as RegExpExecArray)[1]).toBe(`${(lobby as RegExpExecArray)[1]}|${(proto as RegExpExecArray)[1]}`);
   });
 });
 
@@ -583,5 +589,80 @@ describe('S195 T21 - e2e-soak: tick-sized window, derived test budgets, a lane t
     const { cap, pw } = laneMinutes('e2e-soak');
     expect(pw * 60_000, `e2e-soak PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
     expect(cap - pw, `e2e-soak: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
+
+/*
+ * ⛔ S195 T21 — EVERY `@quarantine-flaky` DESCRIBE IS IN EXACTLY ONE LANE, AND THE QUARANTINE CAP HOLDS ITS
+ * SPECS' OWN BUDGETS. The idiom (smoke.spec.ts header): a real-WebRTC spec keeps `@quarantine-flaky` so the
+ * SHARED lane never runs it, and is promoted to gating by its TITLE in a grep lane (e2e-lobby, e2e-protocol).
+ * So "tag agrees with lane" here means: a tagged describe is selected by exactly one of the lobby grep, the
+ * protocol grep, or (if neither) the quarantine lane — never two. And the quarantine lane, which runs every
+ * remaining one ONCE (PW_RETRIES 0), must be able to finish: it never did (run 37047025269: 5 of 18).
+ */
+describe('S195 T21 - quarantine-tagged specs: one lane each, and the quarantine lane can finish', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const pkg = (): Record<string, string> =>
+    (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts;
+  const grepOf = (script: string, flag: '--grep' | '--grep-invert'): RegExp => {
+    const m = new RegExp(`${flag}\\s+"([^"]+)"`).exec(pkg()[script] ?? '');
+    expect(m, `${script} ${flag}`).not.toBeNull();
+    return new RegExp((m as RegExpExecArray)[1]!);
+  };
+  /** Every `test.describe('…@quarantine-flaky…')` in e2e/, with its body up to the next top-level describe. */
+  function quarantineDescribes(): Array<{ file: string; title: string; body: string; src: string }> {
+    const out: Array<{ file: string; title: string; body: string; src: string }> = [];
+    for (const f of readdirSync(join(ROOT, 'e2e'))) {
+      if (!f.endsWith('.spec.ts')) continue;
+      const src = norm(readFileSync(join(ROOT, 'e2e', f), 'utf8'));
+      const parts = src.split(/\ntest\.describe\(/).slice(1);
+      for (const p of parts) {
+        const t = /^'([^']+)'/.exec(p);
+        if (t === null || !t[1]!.includes('@quarantine-flaky')) continue;
+        out.push({ file: f, title: t[1]!, body: p, src });
+      }
+    }
+    return out;
+  }
+
+  it('each @quarantine-flaky describe is selected by exactly one lane', () => {
+    const lobby = grepOf('e2e:lobby', '--grep');
+    const proto = grepOf('e2e:protocol', '--grep');
+    const qInv = grepOf('e2e:quarantine', '--grep-invert');
+    const ds = quarantineDescribes();
+    expect(ds.length, 'anti-vacuity').toBeGreaterThan(10);
+    for (const d of ds) {
+      const lanes = [lobby.test(d.title), proto.test(d.title), !qInv.test(d.title)].filter(Boolean).length;
+      expect(lanes, `${d.file}: '${d.title}' runs in ${lanes} lanes`).toBe(1);
+    }
+  });
+
+  it('the e2e-quarantine cap holds the sum of its specs’ own per-test budgets (no retries)', () => {
+    const qInv = grepOf('e2e:quarantine', '--grep-invert');
+    const DEFAULT_MS = 60_000; // playwright.config.ts `timeout`
+    let needMs = 0;
+    let tests = 0;
+    for (const d of quarantineDescribes()) {
+      if (qInv.test(d.title)) continue;
+      // A test is `  test(`; `test.fixme(` / `test.skip(` never run and cost nothing.
+      const chunks = d.body.split(/\n {2}test(?=[.(])/).slice(1);
+      for (const c of chunks) {
+        if (!c.startsWith('(') && !c.startsWith('.fail(')) continue;
+        tests++;
+        const t = /test\.setTimeout\(([^)]+)\)/.exec(c);
+        if (t === null) { needMs += DEFAULT_MS; continue; }
+        const arg = t[1]!.trim();
+        const lit = /^[\d_]+$/.test(arg) ? Number(arg.replace(/_/g, '')) : NaN;
+        const named = new RegExp(`\\nconst ${arg} = ([\\d_]+);`).exec(d.src);
+        const ms = Number.isFinite(lit) ? lit : named !== null ? Number(named[1]!.replace(/_/g, '')) : NaN;
+        expect(Number.isFinite(ms), `${d.file}: cannot resolve test.setTimeout(${arg})`).toBe(true);
+        needMs += ms;
+      }
+    }
+    expect(tests, 'anti-vacuity: quarantine tests counted').toBeGreaterThanOrEqual(10);
+    expect(jobBlock('e2e-quarantine')).toMatch(/\n {6}PW_RETRIES: '?0'?\n/);
+    const { cap, pw } = laneMinutes('e2e-quarantine');
+    expect(pw * 60_000, `e2e-quarantine PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms over ${tests} tests`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-quarantine: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
   });
 });
