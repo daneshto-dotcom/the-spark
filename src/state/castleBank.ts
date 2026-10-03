@@ -46,14 +46,12 @@
 
 import { ALL_SPARK_TYPES, SparkType } from '../constants.ts';
 import {
-  CASTLE_PORCH_OFFSET_Y,
-  CASTLE_PORCH_PITCH_X,
   CASTLE_PORCH_SLOT_CLEAR_RADIUS,
   CASTLE_PORCH_SLOTS,
 } from '../constants.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
-import { CASTLE_PORCH_KEEP_OUT_RADIUS, type ZoneLayout } from './zones.ts';
+import { CASTLE_PORCH_KEEP_OUT_RADIUS, porchSlotAt, type ZoneLayout } from './zones.ts';
 
 /**
  * A seat's stored shapes as a tally indexed by `SparkType`. Length is always
@@ -138,10 +136,9 @@ export function bankRemove(
 
 /** PURE — the world position of porch slot `i` for `seat`. Deterministic; hashed-state safe. */
 export function porchSlot(seat: number, i: number, layout: ZoneLayout): Vec2 {
-  const home = castleAnchor(seat, layout);
-  // Centre the row on the gate: slots fan symmetrically either side.
-  const offset = (i - (CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
-  return { x: home.x + offset, y: home.y + CASTLE_PORCH_OFFSET_Y };
+  // Centre the row on the gate: slots fan symmetrically either side. ⭐ S194 — the arithmetic lives
+  // in `zones.porchSlotAt`, which the build refusal (R194-16) reads too: one copy, no drift.
+  return porchSlotAt(castleAnchor(seat, layout), i);
 }
 
 /**

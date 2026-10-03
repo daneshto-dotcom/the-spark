@@ -1,7 +1,7 @@
 /**
  * SPARK — ⭐ S193 audit fix round on `s192/endgame`. One describe per finding, each through the real
  * host tick / reducer, each with its negative.
- *   1 MED  — the live-pants cap (`MONSTER_MAX_LIVE_PER_SEAT`): peak live count and snapshot bounded.
+ *   1 MED  — the live-pants cap (`MONSTER_MAX_LIVE_TOTAL`, S194 measured; was 30 a seat): peak live count and snapshot bounded.
  *   2 LOW  — `?worker=1`: the held fight no longer forces a full snapshot every batch.
  *   3 LOW  — his "I have 66 left" is MY seat's count.
  *   4 LOW  — a pants strikes only ITS victim's keep.
@@ -9,8 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  MONSTER_EMERGE_TICKS,
-  MONSTER_MAX_LIVE_PER_SEAT,
+  MONSTER_MAX_LIVE_TOTAL,
   MONSTER_MAX_RELEASES_PER_TICK,
   MONSTER_HOLD_LEAD_TICKS,
   PLAYER_COLORS,
@@ -25,10 +24,11 @@ import { mulberry32 } from './rng.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
 import { asPlayerId, asPrimitiveId, asSpawnerId } from '../types.ts';
 import { makeGameStateExtras } from './gameState.ts';
-import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut } from './endgame.ts';
+import { isMonsterFightHeld, monstersLeftForSeat, monstersLeftToComeOut, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { netSnapshot, wireNumberReplacer } from './save.ts';
 import { structuralSignature } from './workerSim.ts';
 import { formatEndgameCue } from '../render/ui.ts';
+import { MONSTER_OWNER_ID, monsterBirthPos, monsterMaxLivePerSeat, tickEndgameSpawner } from './endgameMonsters.ts';
 import { enemyCastleInReach } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
@@ -64,14 +64,18 @@ const wireBytes = (w: World): number => JSON.stringify(netSnapshot(w), wireNumbe
 
 /* ══════════════════════════════════ 1 · MED — THE LIVE CAP ═══════════════════════════════════ */
 
-describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat', () => {
-  it('the arithmetic: 30 a seat, ~163 B each on the wire → a 4-seat board\'s pants ≈ 19.6 KB a snapshot', () => {
-    expect(MONSTER_MAX_LIVE_PER_SEAT).toBe(30);
+describe('S193 audit 1 → ⭐ S194 R194-27 — the MEASURED live cap: MONSTER_MAX_LIVE_TOTAL split over the living seats', () => {
+  it('the arithmetic: 360 total (2 → 180 · 3 → 120 · 4 → 90 · 6 → 60), ~162 B each → ≤ ~57 KiB of pants, inside ~84 KiB with a ~20 KiB board', () => {
+    expect(MONSTER_MAX_LIVE_TOTAL).toBe(360);
+    expect([1, 2, 3, 4, 6].map(monsterMaxLivePerSeat)).toEqual([360, 180, 120, 90, 60]);
+    expect(monsterMaxLivePerSeat(0)).toBe(0);
     expect(MONSTER_MAX_RELEASES_PER_TICK).toBe(1);
-    expect(4 * MONSTER_MAX_LIVE_PER_SEAT * 163).toBeLessThan(20_000);
+    expect(MONSTER_MAX_LIVE_TOTAL * 162 + 20 * 1024).toBeLessThan(84 * 1024);
+    // negative: the owner's "no cap" worst case (4 × 250 live) is ~160 KiB — about twice the budget
+    expect(4 * 250 * 162).toBeGreaterThan(84 * 1024);
   });
 
-  it('REACH — 4 seats, wave 31, keeps holding: peak live = 120, never two born on a tick, snapshot bounded; the countdown keeps counting', () => {
+  it('REACH — 4 seats, wave 31, keeps holding: peak live = 4 × 90 = 360, never two born on a tick, snapshot bounded; the countdown keeps counting', () => {
     const w = board(4);
     toFightEdge(w, 31);
     for (const p of w.players.values()) p.castleHp = 1e9;
@@ -81,21 +85,22 @@ describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat',
     let maxBytes = 0;
     let lastSpawned = 0;
     let maxPerTick = 0;
-    for (let t = 0; t < 3000; t++) {
+    for (let t = 0; t < 4000; t++) {
       runHostTick(w, d, st);
       maxPerTick = Math.max(maxPerTick, w.monsterWaveSpawned - lastSpawned);
       lastSpawned = w.monsterWaveSpawned;
       const live = pants(w);
       peak = Math.max(peak, live.length);
       for (const seat of [0, 1, 2, 3]) {
-        expect(live.filter((c) => (c.monsterSeat as unknown as number) === seat).length).toBeLessThanOrEqual(MONSTER_MAX_LIVE_PER_SEAT);
+        expect(live.filter((c) => (c.monsterSeat as unknown as number) === seat).length).toBeLessThanOrEqual(monsterMaxLivePerSeat(4));
       }
       if (t % 250 === 0) maxBytes = Math.max(maxBytes, wireBytes(w));
     }
-    expect(peak).toBe(4 * MONSTER_MAX_LIVE_PER_SEAT);
+    expect(peak).toBe(4 * monsterMaxLivePerSeat(4));
     expect(maxPerTick).toBeLessThanOrEqual(1);
-    // measured S193: ~21–22 KB at the cap (pants ~19.6 KB + the board); the uncapped audit probe was 176 KB
-    expect(maxBytes).toBeLessThan(28_000);
+    // ⭐ S194 R194-27 — at the cap: 360 × ~162 B + this (bare) board; the uncapped audit probe was 176 KB. Budget ~84 KiB.
+    expect(maxBytes).toBeLessThan(84 * 1024);
+    expect(maxBytes).toBeGreaterThan(50 * 1024); // anti-vacuity: the cap really was reached on the wire
     // the countdown still counts what is left to come out — the lanes are waiting, not done
     const left = monstersLeftToComeOut(w);
     expect(left).toBe(250 * 4 - w.monsterWaveSpawned);
@@ -115,7 +120,9 @@ describe('S193 audit 1 — at most MONSTER_MAX_LIVE_PER_SEAT live pants a seat',
     const d = deps();
     const st = makeHostTickState(w);
     const n = 20;
-    for (let t = 0; t < Math.ceil(((n - 1) * MONSTER_EMERGE_TICKS) / 2) + 1; t++) {
+    // ⭐ S194 R194-17 — his window: release 19 of 200 over 90 s is due floor(19 × 5400 / 199) = 515 ticks
+    // in (was ceil(19 × 45 / 2) = 428); + 1 for the tick that crosses into FIGHT. Exactly n by then, not n + 1.
+    for (let t = 0; t < Math.floor(((n - 1) * pantsWindowTicks(30)) / (2 * 100 - 1)) + 1; t++) {
       runHostTick(w, d, st);
       for (const c of pants(w)) dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: c.id });
     }
@@ -216,7 +223,8 @@ describe('S193 audit 4 — a pants strikes only ITS victim\'s keep', () => {
     toFightEdge(w, 27);
     const d = deps();
     const st = makeHostTickState(w);
-    for (let t = 0; t < 40; t++) runHostTick(w, d, st);
+    // ⭐ S194 R194-17 — lane 1's first pants is due floor(1800 / 19) = 94 ticks in (was 22): wait for it
+    for (let t = 0; t < 40 + Math.floor(pantsWindowTicks(27) / 19); t++) runHostTick(w, d, st);
     const m = pants(w).find((c) => c.monsterSeat === P1)!;
     for (const c of pants(w)) if (c.id !== m.id) dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: c.id });
     w.monsterWaveSpawned = 20; // no more births
@@ -310,5 +318,86 @@ describe('S193 merge — the pants obey master\'s S192 T13 liveness rule', () =>
     victim.ehp = 50;
     runEndgameMonsterTargeting(w, m);
     expect(m.targetCreatureId).toBe(victim.id);
+  });
+});
+
+describe('⭐ S194 re-audit MED-1 — the 360 is a TRUE total, even after seats fall', () => {
+  it('REACH — 4 seats, wave 31, keeps holding, seats 2 and 3 fall mid-window: peak live never exceeds MONSTER_MAX_LIVE_TOTAL', () => {
+    const w = board(4);
+    toFightEdge(w, 31);
+    for (const p of w.players.values()) p.castleHp = 1e9;
+    const d = deps();
+    const st = makeHostTickState(w);
+    runHostTick(w, d, st);
+    const start = w.monsterFightStartTick;
+    const W = pantsWindowTicks(31);
+    let peak = 0;
+    let peakAfterFalls = 0;
+    for (let t = 0; t < W; t++) {
+      const e = w.tick - start;
+      if (e === Math.floor(W / 3)) w.players.get(asPlayerId(2))!.castleHp = 0;
+      if (e === Math.floor(W / 2)) w.players.get(asPlayerId(3))!.castleHp = 0;
+      runHostTick(w, d, st);
+      const n = pants(w).length;
+      peak = Math.max(peak, n);
+      if (w.tick - start > W / 2) peakAfterFalls = Math.max(peakAfterFalls, n);
+    }
+    expect(w.players.get(asPlayerId(3))!.castleHp, 'anti-vacuity: the seats fell').toBe(0);
+    // measured: peak 351 with the fix (castle guns trim it); 561 with it removed (the audit saw 450 / 570)
+    expect(peak, 'anti-vacuity: the cap binds').toBeGreaterThan(300);
+    expect(peakAfterFalls).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+    expect(peak).toBeLessThanOrEqual(MONSTER_MAX_LIVE_TOTAL);
+  });
+});
+
+describe('⭐ S194 re-audit — each half of the MED-1 cap, pinned on its own (tickEndgameSpawner directly)', () => {
+  function finalFight(seats: number): World {
+    const w = board(seats);
+    w.matchPhase = 'FIGHT';
+    w.waveNumber = 31;
+    w.tick = 100_000;
+    w.monsterFightStartTick = w.tick - 10 * 60 * 60; // the window is long over: every slot is due
+    for (const p of w.players.values()) p.castleHp = 1e9;
+    return w;
+  }
+  function inject(w: World, seat: number, n: number): void {
+    for (let i = 0; i < n; i++) {
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+        pos: monsterBirthPos(w, asPlayerId(seat)), targetPos: castleAnchor(seat, w.layout), sourceSpawnerId: null,
+        monsterSeat: asPlayerId(seat),
+      });
+    }
+  }
+
+  it('the TOTAL check alone: a survivor over his share (200) + the other under (160) = 360 → no release, though the next lane is under its share', () => {
+    const w = finalFight(2);
+    inject(w, 0, 200);
+    inject(w, 1, 160);
+    w.monsterWaveSpawned = 1; // next slot k = 1 → lane P1, at 160 < 180
+    const before = w.monsterWaveSpawned;
+    tickEndgameSpawner(w);
+    expect(pants(w).length).toBe(MONSTER_MAX_LIVE_TOTAL);
+    expect(w.monsterWaveSpawned, 'held by the total, not by P1\'s share').toBe(before);
+    // negative: one fewer live pants → P1 releases
+    dispatch(w, { type: 'DESPAWN_CREATURE', creatureId: pants(w)[0]!.id });
+    tickEndgameSpawner(w);
+    expect(w.monsterWaveSpawned).toBe(before + 1);
+  });
+
+  it('the VICTIM counting alone: a fallen seat\'s leftovers count against the survivors they retarget to', () => {
+    const w = finalFight(3);
+    inject(w, 0, 150);
+    inject(w, 2, 100); // seat 2's pants…
+    const p2 = w.players.get(asPlayerId(2))!;
+    p2.castleHp = 0;
+    p2.eliminatedAtTick = w.monsterFightStartTick + 1; // …and seat 2 fell DURING the fight: still a lane
+    let toP0 = 0;
+    for (const c of pants(w)) if (monsterVictimSeat(w, c) === P0) toP0++;
+    expect(toP0, 'fixture: the leftovers push P0 past its 180 share').toBeGreaterThanOrEqual(180);
+    expect(pants(w).length, 'fixture: the total is NOT what holds it').toBeLessThan(MONSTER_MAX_LIVE_TOTAL);
+    w.monsterWaveSpawned = 3; // next slot k = 3 → lane P0 (3 lanes), whose OWN-seat count is only 150
+    tickEndgameSpawner(w);
+    expect(w.monsterWaveSpawned, 'held by P0\'s victim count').toBe(3);
   });
 });

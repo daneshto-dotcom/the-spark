@@ -18,6 +18,7 @@
  * placePrimitive.ts and other state mutators).
  */
 
+import { simMemo } from './simMemo.ts';
 import {
   GATHERER_DEPOSIT_OFFSET_Y,
   PHASE_DURATION_TICKS,
@@ -509,6 +510,7 @@ export function applyReturnToTitle(world: World): World {
   // matcher refuses to fire new godlies).
   world.creatures.clear();
   world.nextCreatureId = 0;
+  simMemo.generation++; // ⭐ S194 — creature ids restart: no per-world memo (`endgameMonsters.ownedBy`) may match
   // S71 P1 — clear bombs on title-return so a hazard never persists into the next
   // match (mirror of the creatures cleanup above).
   world.bombs.clear();

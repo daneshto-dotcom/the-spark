@@ -1,5 +1,5 @@
 {
-  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S193: three carried worktree branches (each has its worktree under .claude/worktrees/ + a progress file; plan .claude/plans/S194_BACKLOG.md §A) + the Pitch Masters sessions' branches (another project; never touch). Delete an entry when its branch merges.",
+  "_doc": "Branches the project DECLARES preserved (handoff-ledger STEP 1.1.C). S194: five carried worktree branches (each keeps its worktree under .claude/worktrees/; plan .claude/plans/S195_BACKLOG.md §0/§A0) + the Pitch Masters sessions' branches (another project; never touch). Delete an entry when its branch merges.",
   "preserved": [
     {
       "branch": "pm-s2/arcade",
@@ -18,17 +18,25 @@
       "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
-      "branch": "s192/teams",
-      "reason": "S193 carried — teams v1 round 2 done (5f8074e), lands LAST in S194 (S194_BACKLOG T1)"
+      "branch": "s194/ui-upgrade",
+      "reason": "S194 carried — T5 round 3 tip 3d6c5696, audited CLEAN, owner-approved merge R194-35 (refused by the permission classifier); S195_BACKLOG §A0 step 3"
     },
     {
-      "branch": "s193/visuals-racial",
-      "reason": "S193 carried — visuals-3, needs the combined re-bench (S194_BACKLOG T2)"
+      "branch": "s194/rules",
+      "reason": "S194 carried — T11 tip 80aaa870, gates owed on the tip, BUMP 66->67 when it lands; S195_BACKLOG §A0 step 1"
     },
     {
-      "branch": "s193/mres-card",
-      "reason": "S193 carried — wave-26 MRES draft card, needs audit + art (S194_BACKLOG T3)"
+      "branch": "s194/visuals-6",
+      "reason": "S194 carried — T4 tip acda8b05, quick check interrupted at close; S195_BACKLOG §A0 step 2"
+    },
+    {
+      "branch": "s194/mp",
+      "reason": "S194 carried — T17 live-MP harness (scripts/live-mp/, no src) tip c44708f4, optional merge; S195_BACKLOG §A0 step 4"
+    },
+    {
+      "branch": "s194/team-music",
+      "reason": "S194 carried — T14 notes + assets-source/team-music/ tip ab7f6237; folds into S195's T12+T14 tree"
     }
   ],
-  "updated": "S192 2026-10-01"
+  "updated": "S194 2026-10-02"
 }

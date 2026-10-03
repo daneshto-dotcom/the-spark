@@ -21,6 +21,7 @@
  * authority — clients never mint IDs).
  */
 
+import { simMemo } from './simMemo.ts';
 import {
   PRIMITIVE_MAX_HP,
   SPAWN_INTERVAL_TICKS,
@@ -1737,6 +1738,7 @@ function readTeams(raw: unknown): readonly number[] | undefined {
 }
 
 function applySnapshotCore(snap: NetSnapshot, world: World): void {
+  simMemo.generation++; // ⭐ S194 — the entities are about to be replaced: no memo may survive this
   world.tick = snap.tick;
   world.gameState = snap.gameState;
   // S147 P1 — the match clock. Rehydrated UNCONDITIONALLY so a joiner and a promoted successor adopt

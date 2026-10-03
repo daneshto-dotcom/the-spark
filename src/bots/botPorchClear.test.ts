@@ -1,7 +1,7 @@
 /**
  * ⭐ S193 P3-1 audit MED-1 — **A BOT NEVER WALLS ITS OWN PORCH.** (canon §4b item 3)
  *
- * The castle keep-out is one uniform 61 px disc now, so the porch row (anchor.y + 74) is legal ground,
+ * The castle keep-out is one uniform 61 px disc now, so the porch row (anchor.y + 74 then; + 42 since S194) is legal ground,
  * and a pull skips any slot a built shape stands within `CASTLE_PORCH_KEEP_OUT_RADIUS` (34) of. The
  * audit measured HARD BALANCED seat 2 covering ALL FOUR of its slots with its own loose shapes by tick
  * 4620 — 574 of 586 pulls became no-ops for the rest of the match. `isLegalBuildPos` now refuses a
@@ -20,7 +20,14 @@ import { runGodlyMatcherCore, type GodlyMatcherCursor } from '../state/godlyMatc
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../state/hostTick.ts';
 import { mulberry32 } from '../state/rng.ts';
 import { dispatch, makeWorld, type GameAction, type World } from '../state/world.ts';
-import { CASTLE_PORCH_KEEP_OUT_RADIUS } from '../state/zones.ts';
+import { stampFootprintBox } from '../state/blueprintLegality.ts';
+import {
+  boxPointDistSq,
+  CASTLE_PORCH_BUILD_CLEAR_RADIUS,
+  CASTLE_PORCH_KEEP_OUT_RADIUS,
+  zoneCount,
+  type Box,
+} from '../state/zones.ts';
 import { asPlayerId } from '../types.ts';
 import { isLegalBuildPos } from './botBrain.ts';
 import { BotController } from './botController.ts';
@@ -30,6 +37,19 @@ import { BOT_PERSONALITIES, resolvePersonality, type BotPersonality } from './bo
 afterEach(async () => { await new Promise<void>((r) => setTimeout(r, 0)); });
 
 const R2 = CASTLE_PORCH_KEEP_OUT_RADIUS * CASTLE_PORCH_KEEP_OUT_RADIUS;
+
+/** ⭐ S194 R194-16 — does `box` reach the entrance clearance of ANY castle's porch slot? */
+function onAnyEntrance(w: World, box: Box): boolean {
+  const c2 = CASTLE_PORCH_BUILD_CLEAR_RADIUS * CASTLE_PORCH_BUILD_CLEAR_RADIUS;
+  for (let seat = 0; seat < zoneCount(w.layout); seat++) {
+    for (let k = 0; k < CASTLE_PORCH_SLOTS; k++) {
+      const s = porchSlot(seat, k, w.layout);
+      if (boxPointDistSq(box, s.x, s.y) <= c2) return true;
+    }
+  }
+  return false;
+}
+const pt = (p: { x: number; y: number }): Box => ({ minX: p.x, maxX: p.x, minY: p.y, maxY: p.y });
 
 function coveredSlots(w: World, seat: number): number {
   let n = 0;
@@ -49,7 +69,7 @@ function runMatch(p: BotPersonality, seconds: number) {
     type: 'START_GAME', mode: 'bots', isHost: true,
     roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s]! })), botSeats: [1, 2, 3],
   });
-  const rec = [1, 2, 3].map(() => ({ maxCovered: 0, pulls: 0, noop: 0, loose: 0 }));
+  const rec = [1, 2, 3].map(() => ({ maxCovered: 0, pulls: 0, noop: 0, loose: 0, attempts: 0, entrance: 0 }));
   const ctl = [1, 2, 3].map((seat, i) => new BotController(
     asPlayerId(seat), 'HARD', mulberry32(((SIG_BOT_SEED ^ ((i + 1) * 0xb07b07)) >>> 0) || 1), 4,
     resolvePersonality(p, SIG_BOT_SEED, i + 1),
@@ -64,10 +84,19 @@ function runMatch(p: BotPersonality, seconds: number) {
       return;
     }
     if (a.type === 'PLACE_FROM_FREE' || a.type === 'PLACE_PRIMITIVE') {
+      // ⭐ S194 R194-16 — where is this placement aimed? (PLACE_PRIMITIVE drops the carried spark where it is)
+      const carried = [...w.freeSparks.values()].find((sp) => sp.state.kind === 'Carried' && sp.state.carrierId === a.playerId);
+      const at = a.type === 'PLACE_FROM_FREE' ? a.placementPos : carried?.pos;
+      r.attempts++;
+      if (at !== undefined && onAnyEntrance(w, pt(at))) r.entrance++;
       const b = w.primitives.size;
       dispatch(w, a);
       if (w.primitives.size > b) r.loose++;
       return;
+    }
+    if (a.type === 'BUILD_BLUEPRINT') {
+      r.attempts++;
+      if (onAnyEntrance(w, stampFootprintBox(a.centre, a.blueprintId))) r.entrance++;
     }
     dispatch(w, a);
   };
@@ -100,6 +129,11 @@ describe('⭐ S193 MED-1 — REACH: over 300 s no bot covers every slot of its o
       // Anti-vacuity: the bots really pull and really build loose shapes in these matches.
       expect(rec.reduce((a, r) => a + r.pulls, 0)).toBeGreaterThan(0);
       expect(rec.reduce((a, r) => a + r.loose, 0)).toBeGreaterThan(0);
+      // ⭐ S194 R194-16 — the bots read the SAME predicate as the reducer (`isLegalBuildPos` → `canBuildNow`
+      // → `castleKeepOutHitsBox`; stamps → `stampRefusalAt`), so not one PLACE / BUILD_BLUEPRINT is ever
+      // aimed at an entrance — no refused spam there.
+      expect(rec.reduce((a, r) => a + r.attempts, 0), 'anti-vacuity: the bots do place').toBeGreaterThan(0);
+      for (const [i, r] of rec.entries()) expect(r.entrance, `seat ${i + 1}: placements aimed at an entrance`).toBe(0);
     }, 120_000);
   }
 });

@@ -138,10 +138,19 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
      *   ⭐ listed, hold 3000 def 0.00 · fed 17 · loose 18 · goblin>nagas>goblin>pentagram | goblin>mummies | zombies×3
      * (goblin>pentagram>hub at hold 2400 was rejected: it is SABOTEUR's order.)
      */
-    IMBA: { feed: 'eager', raidTarget: 'leader', saveHoldTicks: 3000 },
+    // ⭐ S194 R3 (porch +74 → +42, R194-16) — 3000 → 3300: measured WARMONGER fed 22 · loose 21 at 3000 vs 18 · 13 and a
+    // pentagram on 2 seats at 3300, which keeps the Q-E gap to TYCOON's loose game wide (⚠ MINE).
+    IMBA: { feed: 'eager', raidTarget: 'leader', saveHoldTicks: 3300 },
   },
   FORTRESS: {
-    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700 },
+    /*
+     * ⭐ S194 R3 (porch +74 → +42, R194-16) — `substitute: 'listed'` at every tier. The closer porch shortens every
+     * gatherer trip, and HARD BALANCED now affords a stink tower on all three seats (mean defence 0.50), while HARD
+     * FORTRESS opened on the cheap race tower through the take-what-you-can escape (0.42: nagas>nagas>stink>goblin |
+     * stink>mummies | stink>zombies). Listed: it saves for its stink instead — measured 0.56 (stink>nagas>stink>goblin |
+     * stink>mummies>stink | stink>zombies), stink FIRST on 3/3 seats. ⚠ MINE.
+     */
+    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700, substitute: 'listed' },
     /*
      * ⭐ S194 (T7) RE-TUNE — after deploy #23's nearest-enemy-first targeting, adjacent IMBA armies raze each
      * other's opening goblin towers, and the S193 row (goblin > stink > laser > helga, hold 2700, any
@@ -164,12 +173,23 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
   TYCOON: {
     // Empty order = cheapest first; repeating the FIRST = another cheap tower, many of them.
     base: { repeatTower: 'first', saveHoldTicks: 900, buildCooldownScale: 0.8 },
-    IMBA: { towerOrder: ['goblin'], feed: 'leftovers' },
+    /*
+     * ⭐ S194 R3 (porch +74 → +42) — measured with the S193 row: goblin>nagas>nagas | goblin | zombies×2, mean defence
+     * 0.00, so TYCOON had become a Warmonger without the feeding (Q-E). Stink tower SECOND (the cheapest defence, in the
+     * cheap-and-wide spirit) and a 1650 hold so its bill can land at all: goblin>stink | goblin | zombies×2, defence
+     * 0.17, loose 44 (WARMONGER 13). 1350 measured no stink; 2100 cost 7 loose shapes. ⚠ MINE.
+     */
+    IMBA: { towerOrder: ['goblin', 'stink'], feed: 'leftovers', saveHoldTicks: 1650 },
   },
   SABOTEUR: {
     base: { towerOrder: ['pentagram', 'hub'], repeatTower: 'first', raidTarget: 'leader', raAim: 'front' },
     HARD: { feed: 'leftovers' },
-    IMBA: { towerOrder: ['goblin', 'pentagram', 'hub'], feed: 'leftovers' },
+    /*
+     * ⭐ S194 R3 (porch +74 → +42) — with any substitute it re-raised goblin towers and a stink tower at the bell and
+     * reached no pentagram in 300 s (goblin>stink>goblin | goblin | zombies×2). `substitute: 'listed'` keeps its bell
+     * spend on its own rungs: goblin>goblin>pentagram | goblin>goblin | goblin, defence 0.00, fed 18. ⚠ MINE.
+     */
+    IMBA: { towerOrder: ['goblin', 'pentagram', 'hub'], feed: 'leftovers', substitute: 'listed' },
   },
 };
 

@@ -63,7 +63,12 @@ function runFixMatch(tier: BotDifficulty, seconds: number, opts: { stripGatherer
     (s, i) => new BotController(asPlayerId(s), tier, mulberry32(((0xbeef ^ ((i + 1) * 0xb07b07)) >>> 0) || 1), 4),
   );
   const t: FixTally = { fixAllSent: 0, fixOneSent: 0, fixNoop: 0, jobsQueued: 0, restored: 0, fixSentOutsideBuild: 0 };
+  // ⭐ S194 (T11 merge seam) — with `stripGatherersFromTick`, only intents sent AFTER the strip are counted:
+  // before it the seat HAS gatherers and a FIX is legitimate (measured on the merged tree: 1 FIX before the
+  // strip read as a false red against the negative's `toBe(0)`).
+  let counting = opts.stripGatherersFromTick === undefined;
   const send = (a: GameAction): void => {
+    if (!counting) { dispatch(w, a); return; }
     if (a.type === 'FIX_ALL' || a.type === 'REPAIR_STRUCTURE') {
       if (a.type === 'FIX_ALL') t.fixAllSent++;
       else t.fixOneSent++;
@@ -92,6 +97,7 @@ function runFixMatch(tier: BotDifficulty, seconds: number, opts: { stripGatherer
   for (let i = 0; i < 60 * seconds; i++) {
     if (opts.stripGatherersFromTick !== undefined && i >= opts.stripGatherersFromTick) {
       for (const [id, g] of [...w.gatherers]) if ((g.ownerPlayerId as unknown as number) !== 0) w.gatherers.delete(id);
+      counting = true;
     }
     const jobsBefore = new Map(w.repairJobs.map((j) => [j.id, j]));
     runHostTick(w, deps, st);
