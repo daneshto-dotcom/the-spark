@@ -77,13 +77,30 @@ const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING' | 'OWN_JOB'>> = {
    * the cap out with specs never started. Gating on its own runner, the `@races` shape.
    */
   '@worker-bots': 'OWN_JOB',
+  /*
+   * ⭐ S195 T21 — fog pixel reads, the hunter solo match and the CI frame profile: specs whose WALL time
+   * the software-GL renderer sets. On deploys #4/#5/#6 hunter spent 3 × 120 s timing out and the shared
+   * lane's 900 s cap cut 16 specs that never started. Gating on its own runner, the `@races` shape.
+   */
+  '@render-starved': 'OWN_JOB',
 };
 
 /** For each OWN_JOB tag, the workflow job that must run it and the script it must call. */
 const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
   '@races': { job: 'e2e-races', script: 'e2e:races' },
   '@worker-bots': { job: 'e2e-worker-bots', script: 'e2e:worker-bots' },
+  '@render-starved': { job: 'e2e-render', script: 'e2e:render' },
 };
+
+/*
+ * ⭐ S195 T21 — THE ONE `continue-on-error` A GATING JOB MAY CARRY: the step-level one on `Checkout`, which
+ * lets the next step retry a hung checkout once. It is stripped (that exact line, nothing looser) before
+ * any "is this lane gating?" check, so a `continue-on-error` anywhere else in a gating job still fails.
+ */
+const CHECKOUT_RETRY_COE = /\n {8}continue-on-error: true # S195 T21 — \.\.\.and is RETRIED ONCE by the next step; see the header(?=\n)/g;
+function withoutCheckoutRetry(block: string): string {
+  return block.replace(CHECKOUT_RETRY_COE, '');
+}
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
 // S192 — `@vite-ignore` is the magic comment on a dev-server dynamic import (`e2e/poolSafePc.spec.ts`).
@@ -181,7 +198,7 @@ describe('e2e lane composition is a decision, not an accident', () => {
      * ⛔ S182 — **NORMALISE LINE ENDINGS AT THE READ, AND THAT IS WHY IT IS DONE HERE RATHER THAN IN
      * THE ONE REGEX BELOW.**
      *
-     * SPARK has no `.gitattributes` and this project's Windows checkout has `core.autocrlf=true`, so
+     * SPARK had no `.gitattributes` (S195 added one for `*.snap` ONLY) and this project's Windows checkout has `core.autocrlf=true`, so
      * `e2e.yml` arrives CRLF while git stores LF. The job-boundary search below is
      * `/\n {2}[a-z][a-z0-9-]*:\n/` — a trailing `:\r\n` does not match `:\n`, so `nextJob` came back
      * `-1`, the "block" for `e2e-races` silently became THE WHOLE REST OF THE FILE, and it picked up
@@ -235,7 +252,7 @@ describe('e2e lane composition is a decision, not an accident', () => {
       const nextJob = rest.search(/[\r\n]  [a-z][a-z0-9-]*:[\r\n]/);
       const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
       expect(
-        block.includes('continue-on-error'),
+        withoutCheckoutRetry(block).includes('continue-on-error'),
         `\`${job}\` carries continue-on-error, so ${tag} is not actually gating anywhere`,
       ).toBe(false);
       /*
@@ -270,6 +287,16 @@ describe('e2e lane composition is a decision, not an accident', () => {
     expect(bare.length, 'one Checkout per job').toBe(jobs.length);
     expect(bounded.length, 'every Checkout step carries a timeout-minutes').toBe(bare.length);
     for (const c of bounded) expect(Number((/timeout-minutes: (\d+)/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
+    /*
+     * ⭐ S195 T21 — AND EVERY ONE IS RETRIED ONCE. Deploy #5's `worker-typecheck` died on a checkout that
+     * hung for exactly its 3 minutes. Each Checkout carries `id: checkout` + the step-level
+     * continue-on-error, and is followed IMMEDIATELY by a bounded retry gated on that step's outcome.
+     */
+    const retried = yml.match(
+      /- name: Checkout\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: \d+[^\n]*\n\s+id: checkout\n\s+continue-on-error: true # S195 T21[^\n]*\n\s+- name: Checkout \(retry after a hang\)\n\s+if: steps\.checkout\.outcome == 'failure'\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: (\d+)\n/g,
+    ) ?? [];
+    expect(retried.length, 'every Checkout is followed by its bounded retry').toBe(jobs.length);
+    for (const c of retried) expect(Number((/timeout-minutes: (\d+)\n$/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
   });
 });
 
@@ -306,7 +333,7 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     const end = rest.search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
     const block = end === -1 ? rest : rest.slice(0, end);
     expect(block).toContain('run: npm run e2e:lobby');
-    expect(block.includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
+    expect(withoutCheckoutRetry(block).includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
   });
 
   /*
@@ -436,5 +463,77 @@ describe('S193 - the quarantine lane does not re-run what e2e-lobby gates', () =
     expect(q).toContain('--grep @quarantine-flaky');
     expect(inv, 'e2e:quarantine must grep-invert the lobby-gated titles').not.toBeNull();
     expect((inv as RegExpExecArray)[1]).toBe((lobby as RegExpExecArray)[1]);
+  });
+});
+
+/*
+ * ⭐ S195 T21 — THE e2e-render LANE: hunter's waits are SIM-TICK budgets, its timeout is their sum, and the
+ * lane holds three attempts of it plus the fog and profile specs. Run 37047025269: hunter hit its 120 s
+ * literal at tick ~850 because ~95 s went to a gatherer-economy wait at ≈7.7 ticks/s. Pinned the way the
+ * worker-bots lane is (above): each wait's backstop derived from its OWN budget, the rate assumed ≤ 5.
+ */
+describe('S195 T21 - e2e-render: hunter budgets derive from ticks; fog reads are board-framed; the lane holds them', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const num = (spec: string, name: string): number => {
+    const m = new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec);
+    expect(m, `${name} is missing`).not.toBeNull();
+    return Number((m as RegExpExecArray)[1]!.replace(/_/g, ''));
+  };
+
+  it('hunter: every waitForHunter pairs X_BUDGET_TICKS with wallCapFor(X_BUDGET_TICKS), the bank is seeded, the timeout is derived', () => {
+    const spec = norm(readFileSync(join(ROOT, 'e2e/hunter.spec.ts'), 'utf8'));
+    const calls = [...spec.matchAll(/await waitForHunter\(([\s\S]*?)\);/g)].map((m) => m[1]!);
+    expect(calls.length, 'the spawn and catch waits').toBe(2);
+    for (const c of calls) {
+      const m = /([A-Z_]+_BUDGET_TICKS),\s*wallCapFor\(([A-Z_]+_BUDGET_TICKS)\),?\s*$/.exec(c);
+      expect(m, `a waitForHunter call does not end in X_BUDGET_TICKS, wallCapFor(X_BUDGET_TICKS):\n${c}`).not.toBeNull();
+      expect((m as RegExpExecArray)[2], 'backstop borrowed from another budget').toBe((m as RegExpExecArray)[1]);
+    }
+    expect(num(spec, 'SLOWEST_CI_TICKS_PER_S'), 'assumed rate must sit under the ≈7.7 ticks/s CI measured').toBeLessThanOrEqual(5);
+    expect(num(spec, 'CATCH_BUDGET_TICKS'), 'the catch budget stays inside the 1800-tick HUNT window').toBeLessThan(1800);
+    expect(spec).toContain('test.setTimeout(HUNTER_TEST_BUDGET_MS);');
+    expect(spec).toContain(
+      'const HUNTER_TEST_BUDGET_MS = SETUP_WAITS_MS + wallCapFor(SPAWN_BUDGET_TICKS) + wallCapFor(CATCH_BUDGET_TICKS);',
+    );
+    // The seed must land BEFORE the placement, or the economy wait is back.
+    const seed = spec.indexOf('w.castleBanks.set(w.localPlayerId,');
+    const place = spec.indexOf('await placeFreeSparkAndConfirm(');
+    expect(seed, 'hunter seeds the local castle bank').toBeGreaterThan(-1);
+    expect(place).toBeGreaterThan(seed);
+  });
+
+  it('fog: every composed-stage extract is framed to the board, with the title hidden first (mechanical count)', () => {
+    const spec = norm(readFileSync(join(ROOT, 'e2e/fog.spec.ts'), 'utf8'));
+    // Code lines only: the file's comments quote the old unframed call while explaining it.
+    const code = spec.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    const stageReads = [...code.matchAll(/extract\.pixels\(([^)]*)\)/g)].map((m) => m[1]!).filter((a) => a.includes('app.stage'));
+    // Two composed-stage reads today (potato, ghost). A third fails here until it is framed AND counted.
+    expect(stageReads, 'composed-stage reads in fog.spec').toHaveLength(2);
+    for (const a of stageReads) expect(a, 'unframed stage extract').toBe('{ target: app.stage, frame: board }');
+    expect(spec.match(/s\.titleScreen\.setVisible\(false\);\n\s+const board = new app\.screen\.constructor\(0, 0, 1920, 1080\);/g) ?? []).toHaveLength(2);
+    expect(spec.match(/toEqual\(\[1920, 1080\]\)/g) ?? [], 'each read asserts its extract is board-sized').toHaveLength(2);
+  });
+
+  it('the e2e-render lane holds 3 hunter attempts + every fog test + every profile test, with ≥ 8 min runner headroom', () => {
+    const hunter = norm(readFileSync(join(ROOT, 'e2e/hunter.spec.ts'), 'utf8'));
+    const rate = num(hunter, 'SLOWEST_CI_TICKS_PER_S');
+    const wall = (t: number): number => Math.ceil((t / rate) * 1000);
+    const hunterMs = num(hunter, 'SETUP_WAITS_MS') + wall(num(hunter, 'SPAWN_BUDGET_TICKS')) + wall(num(hunter, 'CATCH_BUDGET_TICKS'));
+    const fog = norm(readFileSync(join(ROOT, 'e2e/fog.spec.ts'), 'utf8'));
+    const fogTests = (fog.match(/\n {2}test\(/g) ?? []).length;
+    expect(fogTests, 'anti-vacuity: fog tests counted').toBeGreaterThanOrEqual(5);
+    expect(fog, 'fog tests run at the config default (60 s), which this budget assumes').not.toMatch(/test\.setTimeout\(/);
+    const prof = norm(readFileSync(join(ROOT, 'e2e/ci-frame-profile.spec.ts'), 'utf8'));
+    const modes = /for \(const mode of \[([^\]]+)\] as const/.exec(prof);
+    expect(modes, 'profile modes').not.toBeNull();
+    const profTests = (modes as RegExpExecArray)[1]!.split(',').length;
+    const profMs = num(prof, 'MAX_SAMPLE_MS') + 90_000;
+    expect(prof).toContain('const PROFILE_TEST_BUDGET_MS = 90_000 + MAX_SAMPLE_MS;');
+    const RETRIES = 2; // playwright.config.ts: CI ? 2 : 0, and e2e-render sets no PW_RETRIES
+    expect(jobBlock('e2e-render')).not.toContain('PW_RETRIES');
+    const needMs = (RETRIES + 1) * hunterMs + fogTests * 60_000 + profTests * profMs;
+    const { cap, pw } = laneMinutes('e2e-render');
+    expect(pw * 60_000, `e2e-render PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-render: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
   });
 });

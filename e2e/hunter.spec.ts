@@ -111,8 +111,7 @@ async function waitForHunter(
         ? `the sim advanced its full ${budgetTicks}-tick budget (${t0} → ${tick}) in ${s}s and it never held: a REAL failure.`
         : `WALL BACKSTOP FIRST: only ${spent}/${budgetTicks} ticks in ${s}s — the runner was slower than ` +
           `${SLOWEST_CI_TICKS_PER_S} ticks/s; this says nothing about the game.`) +
-      `
-Final: ${JSON.stringify(f)}`,
+      `\nFinal: ${JSON.stringify(f)}`,
   );
 }
 
