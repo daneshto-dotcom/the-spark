@@ -17,8 +17,8 @@ COL = {'demons': '#d73bff', 'mummies': '#ffe23b', 'nagas': '#3bd7ff', 'orcs': '#
 DL = r'C:\Users\onesh\Downloads'
 
 # ---- measured geometry (src/constants.ts:95-96, 137-139, 637-638; src/state/zones.ts ANCHORS) ----
-REQ_W, REQ_H = 1376, 768  # the 16:9 size gemini-3-pro-image returned for the S165 4p masters
-NW_W, NW_H = REQ_W // 2, REQ_H // 2  # 688 x 384
+REQ_W, REQ_H = 1168, 784  # Grok landscape: the counterpart of the owner's measured 784x1168 Grok 2v2 portraits (NOT measured)
+NW_W, NW_H = REQ_W // 2, REQ_H // 2  # 584 x 392
 
 combos = list(itertools.combinations_with_replacement(RACES, 3))  # already canonical: NE<=SE<=SW
 assert len(combos) == 56
@@ -77,15 +77,15 @@ def prompt(ne, se, sw):
         f"WHO GOES WHERE: TOP-RIGHT (north-east) = {CAP[ne].upper()}, BOTTOM-RIGHT (south-east) = {CAP[se].upper()}, "
         f"BOTTOM-LEFT (south-west) = {CAP[sw].upper()}, TOP-LEFT (north-west) = nobody. "
         "THE TOP-LEFT QUARTER IS NOT PART OF THIS SCENE - EXACT: the quarter from the left edge to the middle and "
-        "from the top edge to the middle (x 0-50%, y 0-50% of the frame; in a 1376 x 768 frame that is x 0-688 px, "
-        "y 0-384 px). In the game it is completely covered by a different picture. Fill it only with plain, dark, "
+        "from the top edge to the middle (x 0-50%, y 0-50% of the frame; in a 1168 x 784 frame that is x 0-584 px, "
+        "y 0-392 px). In the game it is completely covered by a different picture. Fill it only with plain, dark, "
         "low-detail ground that quietly continues the colours of the two quarters beside it and fades toward "
         "near-black: no landmarks, no ruins, no structures, no glow, no focal point, nothing worth looking at. Do "
         "not draw a box, an edge, a wall or a border around it, and do not leave it flat solid black - it is soft, "
         "neutral ground that could be covered without anything being lost. Every landmark, ruin and glow in the "
         "image belongs in the other three quarters. "
         + quarters + " " + seams + " "
-        "CAMERA AND FRAME - EXACT: a WIDE LANDSCAPE image, aspect ratio 16:9 (for example 1376 x 768) - the shape "
+        "CAMERA AND FRAME - EXACT: a WIDE LANDSCAPE image, aspect ratio 16:9 (a wide frame such as 1168 x 784 is fine) - the shape "
         "of the whole game board, never portrait, never square. Seen from HIGH ABOVE, almost straight down, like a "
         "painted map of the ground: ruins and objects show only a slight three-quarter tilt, and there is no sky, "
         "no horizon, no moon, no side view and no perspective receding into the distance. The only light is the "
@@ -138,11 +138,12 @@ SPEC = [
     ("Region one image covers", "The <b>WHOLE board</b>, 1920 x 1080 world px (16:9, <code>constants.ts:95-96</code>). Quarters are "
      "960 x 540 each, clock order 0 = NW, 1 = NE, 2 = SE, 3 = SW (<code>zoneBackgroundRenderer.ts:308-320</code>). The NW quarter "
      "(x 0-960, y 0-540) is covered in game by the solo player's own race art."),
-    ("What to ask Gemini for", f"<b>Landscape 16:9</b>, e.g. <b>{REQ_W} x {REQ_H}</b> - the size gemini-3-pro-image returned for the "
-     "six S165 4-player masters (<code>assets-source/race-zones/zone-*-4p.png</code>). Never portrait, never square."),
+    ("What to ask Grok for", f"<b>Landscape 16:9</b> on grok.com (Grok Imagine). Expect about <b>{REQ_W} x {REQ_H}</b> back - the landscape "
+     "counterpart of your Grok 2v2 files, which measured 784 x 1168 (an estimate, not measured on a landscape request). Any wide, "
+     "16:9-ish size works: the processing cover-crops it. Never portrait, never square."),
     ("The NW quarter, exactly", f"x 0-50%, y 0-50% of the frame = <b>x 0-{NW_W}, y 0-{NW_H} px</b> at {REQ_W} x {REQ_H} "
-     "(= x 0-960, y 0-540 on the board). If Gemini returns another size it is always the top-left W/2 x H/2."),
-    ("Crop + resize (wiring tree)", "Cover-scale to 1920 x 1080, centre-crop (1376 x 768 loses ~0.4% each side), LANCZOS-resize "
+     "(= x 0-960, y 0-540 on the board). If Grok returns another size it is always the top-left W/2 x H/2."),
+    ("Crop + resize (wiring tree)", "Cover-scale to 1920 x 1080, centre-crop (1168 x 784 loses ~8% top and bottom; a true 16:9 loses ~0), LANCZOS-resize "
      "to <b>960 x 540 PNG RGB</b> - half resolution, the same rule as every shipped zone image (the S166 texture-memory fix)."),
     ("Keep plain (measured)", "Centre: quarry disc r = 127 at (960,540) is punched out (about a quarter of the frame height "
      "across). Outer corners: castles at (1790,130), (1790,950), (130,950). Bottom 84 px: footer bar (y 996-1080, 7.8%)."),
@@ -182,8 +183,8 @@ WIRING = [
 ]
 
 GEN_STEPS = [
-    "Open gemini.google.com, start a <b>new chat for every image</b>, pick the image tool with the Pro / Thinking model (Nano Banana Pro) - the family the originals and your 2v2 set came from.",
-    "Recommended: attach the two 2v2 images listed on the card (your own finished <code>&lt;A&gt;X&lt;B&gt;.jpg</code> files) and add: <i>\"Use the attached images ONLY for palette, materials, level of detail and camera - not for their layout or framing.\"</i>",
+    "Open grok.com, start a <b>new chat for every image</b> and use Grok's image generation (Grok Imagine) - the tool your whole 2v2 set was made on (R194-19). Ask for a wide 16:9 landscape.",
+    "Recommended: attach (upload) to the Grok chat the two 2v2 images listed on the card (your own finished Grok <code>&lt;A&gt;X&lt;B&gt;.jpg</code> files) and add: <i>\"Use the attached images ONLY for palette, materials, level of detail and camera - not for their layout or framing.\"</i>",
     "Paste the prompt. If the result is not wide: reply <i>\"Same image, but as a wide landscape 16:9 frame.\"</i> If the top-left has anything in it: <i>\"Same image, but make the top-left quarter plain, dark, empty ground with nothing in it.\"</i>",
     "2-4 tries per trio, keep the best. Download at full size (download button, not a screenshot) and save with the card's file name.",
     "Tick the card. When a batch is done, send the folder path to a session; it crops, resizes, runs the checks and wires.",
@@ -200,7 +201,7 @@ REJECT = [
 
 # ------------------------------------------------------------------ markdown
 md = []
-md.append("# S195 - 3-PLAYER TEAM BACKDROP PROMPTS (3v1) - for the owner to generate by hand in Gemini\n")
+md.append("# S195 - 3-PLAYER TEAM BACKDROP PROMPTS (3v1) - for the owner to generate by hand in xAI Grok\n")
 md.append("Generated by the S195 ART tree, 2026-10-03, by `gen_team3.py` from the S192 2v2 sheet's worlds and seams (verbatim). "
           "Nothing was generated, nothing in `src` was edited. Desktop copy: `C:\\Users\\onesh\\OneDrive\\Desktop\\SPARK_Team3_Backdrop_Prompts.html`.\n")
 md.append("Owner (S195, R195-T2): *\"if it's three players, they will be north-east, south-east, and south-west quadrants. And the one player "
@@ -229,7 +230,7 @@ md.append("## 4. Wiring notes (NOT done here - for the teams tree)\n")
 for w in WIRING:
     md.append("- " + w.replace('<b>', '**').replace('</b>', '**').replace('<code>', '`').replace('</code>', '`'))
 md.append("\n### Processing (per received file)\n\n```python\n" + PROC + "\n```\n")
-md.append("## 5. How to generate in Gemini\n")
+md.append("## 5. How to generate in Grok\n")
 for i, s in enumerate(GEN_STEPS, 1):
     md.append(f"{i}. " + s.replace('<b>', '**').replace('</b>', '**').replace('<code>', '`').replace('</code>', '`').replace('<i>', '*').replace('</i>', '*').replace('&lt;', '<').replace('&gt;', '>'))
 md.append("\nReject if:")
@@ -254,7 +255,7 @@ H.append('<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta nam
          '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">\n'
          '<style>\n' + CSS + '\n</style></head>\n<body><div class="wrap">\n')
 H.append('<header class="top"><h1>SPARK <b>3-Player Team Backdrops</b></h1>\n'
-         '<p class="lede">Gemini prompts for the 3v1 team backdrops. The solo player always sits top-left (north-west, where player one is). '
+         '<p class="lede">Grok prompts for the 3v1 team backdrops. The solo player always sits top-left (north-west, where player one is). '
          'The team of three holds the other three quarters - top-right, bottom-right, bottom-left - as one continuous L with no walls. '
          'Each image is the <b>whole board</b>, wide 16:9, and its top-left quarter must stay plain because the solo player\'s own art covers it. '
          'Recommended: <b>56 images</b>, one per race trio, with the seat rule below. None are needed for v1 - teammates keep their own quadrant art until these exist.</p></header>\n')
@@ -296,7 +297,7 @@ for n, c in ROWS:
     H.append(f'<a class="chip" href="#card-{cid}" data-card="{cid}"><span class="num">#{n:02d}</span> '
              + ' '.join(f'<i style="background:{COL[r]}"></i>' for r in c) + f' {CAP[c[0]][:3]}/{CAP[c[1]][:3]}/{CAP[c[2]][:3]}</a>')
 H.append('</div><p class="legend">Chips read NE / SE / SW. Green = done (saved in this browser).</p>\n')
-H.append('<h2>How to generate in Gemini</h2>\n<div class="cols"><div class="box"><h4>Steps</h4><ol>' + ''.join(f'<li>{s}</li>' for s in GEN_STEPS) + '</ol></div>'
+H.append('<h2>How to generate in Grok</h2>\n<div class="cols"><div class="box"><h4>Steps</h4><ol>' + ''.join(f'<li>{s}</li>' for s in GEN_STEPS) + '</ol></div>'
          '<div class="box"><h4>Reject if</h4><ul>' + ''.join(f'<li>{e(r)}</li>' for r in REJECT) + '</ul></div></div>\n')
 H.append('<h2>Prompts</h2>\n<div class="progress"><span id="pcount">0 / 56 done</span><div class="bar"><i id="pbar"></i></div></div>\n')
 for n, c in ROWS:

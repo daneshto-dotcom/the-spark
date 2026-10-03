@@ -1,12 +1,12 @@
 # S195 ART tree — progress (3-player team backdrop prompt sheet)
 
-NEXT STEP: NONE - deliverable complete; awaiting merge owner (docs-only branch s195/art, never pushed).
+NEXT STEP: NONE - fix round (Gemini -> Grok) complete; awaiting merge owner (docs-only branch s195/art, never pushed).
 
 ## FINAL REPORT
 - Sheet commit 204eb2d7 on s195/art (tip = the commit that adds this report).
 - Desktop: C:\Users\onesh\OneDrive\Desktop\SPARK_Team3_Backdrop_Prompts.html (byte-identical to .claude/plans/S195_TEAM3_BACKDROP_PROMPTS.html); localStorage key spark-team3-backdrops-v1.
 - 56 images recommended (C(8,3): 20 three-race + 30 pair-plus-one + 6 same-race); alternatives 126 (elbow free) / 216 (any order). Seat rule: sort trio Demons<Mummies<Nagas<Orcs<Vampires<Zombies, fill NE -> SE (elbow) -> SW. File: Downloads\Team3_<NE>_<SE>_<SW>.jpg; shipped later zone-team3-<ne>-<se>-<sw>.png 960x540.
-- Resolution: 16:9 landscape, 1376x768 (= measured size of the S165 4p masters; board 1920x1080 constants.ts:95-96). NW = x 0-688, y 0-384 px (x/y 0-50%).
+- Resolution (FIX ROUND, retargeted to xAI Grok per R194-19): ask Grok for 16:9 landscape; expect ~1168x784 (landscape counterpart of his measured 784x1168 Grok 2v2 files - estimate, not measured). NW = x 0-584, y 0-392 px at 1168x784 (rule: x/y 0-50%). Processing cover-crops any 16:9-ish size (1168x784 loses ~8% top+bottom). Grep after regen: gemini=0, grok=12 in html/md/Desktop; 56 cards; 'x 0-584 px' in all 56 prompts.
 - Verified in browser pane: 56 cards, 56 chips, copy/checkbox/progress JS runs, no horizontal overflow at 486 px.
 - NOT DONE (out of scope): wiring; no images generated.
 
