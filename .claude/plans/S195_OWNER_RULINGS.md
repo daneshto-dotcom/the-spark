@@ -1,0 +1,45 @@
+# S195 — OWNER RULINGS + NEW PRIORITIES (2026-10-03, boot turn 2). Quotes verbatim. RULED items are never re-asked.
+
+## Standing orders (process)
+- **R195-0a Step 1 (§A0) APPROVED, start now**: *"you can start working the plan step one, land session 194's leftover branches … start them going while we … design step two"*.
+- **R195-0b All work in worktrees; the main session is the merge engineer only**: *"all work is done within work trees because I don't want your context window to reach too heavy … they're doing their own checks, their own … audits of their work. They're fixing their own bugs"*. New bugs/specs → their own worktree.
+- **R195-0c Save progress EVERY step, every 5 min at most**: *"each worktree agent/s need to save their progress EVERY step of the way each 5 min at most."*
+- **R195-0d Trees may hold several related priorities**; new ones may join existing trees.
+- **R195-0e Team music LATER**: *"it's going to take me a lot longer to create all the freaking 16 tracks … bring that priority later down the line … You can do the backdrops already"*. T14 music deferred; backdrops go ahead.
+
+## New priorities (owner list, S195) — N-numbers
+- **N1 Teammates see each other, no fog for your team during BUILD**: *"same team should be visible. No fog of war during build phase for your same team. This is in 2v2s or in team fights"*. + §B-27 *"shared vision between teammates … definitely yes"*. (OPEN: FIGHT too? — asked.)
+- **N2 Uneven teams must be coherent (1v3, 2v1, 3v1)**: walls removed between teammates; backdrops for every layout; *"if it's 1v2 … he should have his supposed … empty quadrant that has no player on it … part of his one player quadrant"*; *"we need rules for that … You can ask me, we can do back and forth questions"*. + §B-29 *"the solo side keeps his race quadrant. Yes, plus he also gets the other empty quadrant to play on. It's only fair"*. → design Q&A first.
+- **N3 Ready locks your team**: *"When you click ready in a lobby, … you cannot change your team … Once you click ready, you're stuck for three seconds, everyone, before the game starts … if you wanna click unready … it takes like three seconds before you can change a team … so people can stop it in case someone's … screwing with them."*
+- **N4 Helga is only heard by the two seats involved**: *"only if Helga is attacking your units or … it's your Helga attacking someone's units, you two should be able to hear. The other players shouldn't … she's fucking too loud … I think it's like that now, but I'm not sure. Just verify."* → verify first.
+- **N5 Every clickable shows a PRESS**: castle upgrades (e.g. gatherer speed), goblin feed, tier-3 tower feeds, *"everything clickable should actually show that it's clicking"* (hover already reads well).
+- **N6 Shift = place many; number-key build macros**: *"hold shift down when placing down a tower to place multiple … if you have enough … resources … rebuild really quickly"*; *"click like three, one … tier three towers … first tower in line … five, two … Helga … like in TD games"*.
+- **N7 Goblin tower shows its contents + hover tooltips**: which goblins are inside (to be released in the fight); hover a goblin or a shape → *"it shows you what unit will be produced … a preview of … the character sheet"*, gone when the mouse leaves. *"What is square? Like, people don't know that."*
+- **N9 ⭐ THE MOST IMPORTANT — LAG for other players**: *"The game fucking lags for other players. Never for me … even when I'm host and I'm playing … with my brother in Israel, after wave five … even worse … after wave eight or nine, it's unplayable for him."* Ask: host all games on **workstation 2** (*"Oleg's computer or something"*, details in BRAIN / Project Genesis files) as a server while it is up, falling back to today's P2P when it is down — *"Just for the development stage"*. ⛔ SECURITY: *"make sure nobody can like go into our backend … decent security measure"*. → measure first (network vs client render), then options.
+- **N10 A real gatherer per race (FUTURE, not this session)**: *"it looks stupid. It's just like a fucking spark that changes color"* — e.g. mummy with a wheelbarrow, naga manta ray that teleports back; *"I can generate those … definitely down the line"*. → record + design brief only.
+- **N11 Smarter chasing**: slow scarabs chased an incoming pencil chewer far too long until a stink tower killed it — *"they should know … if they can't chase it down before he gets to his target or before he's out of reach … more dynamic and smart"*. (Known cause to check: canon §5c T6 rule (2) "both in the chaser's own zone" engages regardless of speed.)
+- **N12 Entropy readable + verify it works**: *"I don't think it very much works correctly … obvious to the player how many shapes he lost … clicking on a whole structure, seeing what is the percent of him losing how many … connectors"*. Sound (§B-14): *"a minor sound when someone loses a connector … only the player that … lost the connector should hear it … a little boing … a spring … from an old bed … a lot deeper … boiyoiyoiyoingg"*. Stat (§B-17): *"only the player itself will see it, not all players"*.
+- **N13 Castle porch still blocks pulls**: *"I'm trying to take shapes out, but they don't come out because there's stuff too close"* → the R194-16 fix is in `s194/rules` (NOT yet live) — lands in step 1; re-verify after.
+- **N14 Match board polish**: a text ran out of its box at the top of a board; *"more coherent and definitely prettier"*; keep badges/death counts/charts (§B-20..23).
+- **N15 Q-list later**: *"you know what i'll tell you later"* (one more item).
+
+## Answers to the S194 §B list
+- **B-1 RULED keep own-pool bar**: *"the current welded structure health bar is fine … you can see the tower and … the overall structure bar within the same … tower sheet"*.
+- **B-2 RULED fix-me sparkle in FIGHT too** (it lands with `s194/visuals-6`, step 1 — not live yet, which is why he has not seen it).
+- **B-3 RULED add a short "repaired" sparkle**.
+- **B-7 RULED Helga visibly dies**: *"she needs to look like she dies when she dies"*.
+- **B-8 Stink-tower damage art**: he believes it exists — canon §7 RAMP_SPECS has 5 (hub, goblin tower, laser, pentagram, Helga); stink is NOT one → re-explained in chat.
+- **B-9 RULED (REVERSES the recommendation) the chewer DOES go to the keep and attacks it**: *"he attacks all the towers, and then when there's nothing, then he goes to the keep."* (Today it walks there and lands nothing — that is the bug.)
+- **B-10 RULED the drone's splash becomes ONE POOL split between the units around**: *"it should be like a total pool of damage that he does … spread out between all the units. Not like he kills all the units around … I saw him this game kill like four units around."* (Today: full hit per unit, falling off to 50 % at the rim.) Pool size → asked.
+- **B-11 RULED** rage cooldown through BUILD: keep. **B-12 RULED** pants cap 360.
+- **B-13 RULED**: keep RECONNECTING… while the rejoin runs; *"if he failed to rejoin, then all the other ones can continue playing and he's gone."*
+- **B-14 RULED** entropy sound (above, owner-only "boing"). **B-15** confirm wording — asked again simply. **B-17 RULED** owner-only stat line.
+- **B-18/19 RULED bots learn entropy by level + personality**: *"a bot and easy will not know … maybe … only towers, also depending on their personality … calculate at what … connectors it's not worth it"*; *"how smart they are, how tactical … dealing with entropy … how you build towers … needs to be … polished."*
+- **B-20..23 RULED keep, make it cooler** (N14).
+- **B-25 RULED** Pharaoh's ultimate spares his own side too.
+- **B-26 OPEN — team points race**: *"do they need … 5,000 points each … or … 10,000 … or if one has 7,000 and the other … 3,000, do they add up? Good question … Let's talk about this further."*
+- **B-27 RULED** shared vision (N1). **B-28** keep the defaults but rework under N2. **B-29 RULED** solo side gets its quadrant + the empty one.
+- **B-30 RULED every blast spares its own side**: zombie blast, stink tower, poop bag — *"they only attack enemies."*
+- **B-31 RULED (REVERSES) a welded TV keeps summoning**: *"you should be able to weld everything on everything, and the existing … towers keep summoning and resummoning … A TV is not different than a tier three piranha tower."* + future: *"I'll have to rework the TV looks like shit, that whole … Vulcan thing."*
+- **B-32 Corpse Eater**: wants the eating loop to repeat for the whole feed, heal throughout, bite still damages enemies around; he recalls *"80 %"* and *"four seconds"* — code says 100 % and 8 s → asked.
+- Re-asked in plain words: B-4, B-5, B-6, B-15, B-16, B-24, B-33.
