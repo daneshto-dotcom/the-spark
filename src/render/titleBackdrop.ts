@@ -35,6 +35,20 @@ const ORBIT_RX = 420;
 const ORBIT_RY = 120;
 const ORBIT_PERIOD_FRAMES = 2400;
 
+/**
+ * ⭐ S194 R194-32 — one backdrop, many screens: each screen keeps the shared language (halo, ring,
+ * embers, the six shapes orbiting its title) in its OWN accent, so it reads as unique.
+ */
+export interface TitleBackdropOpts {
+  readonly logoX?: number;
+  readonly logoY?: number;
+  readonly orbitRx?: number;
+  readonly orbitRy?: number;
+  readonly haloTint?: number;
+  readonly ringTint?: number;
+  readonly emberColors?: readonly number[];
+}
+
 export class TitleBackdrop {
   readonly container = new Container();
   private readonly halo = new Sprite(softTexture('soft'));
@@ -49,9 +63,16 @@ export class TitleBackdrop {
   private readonly cx: number;
   private readonly cy: number;
 
-  constructor(opts: { readonly logoX?: number; readonly logoY?: number } = {}) {
+  private readonly rx: number;
+  private readonly ry: number;
+  private readonly embersPalette: readonly number[];
+
+  constructor(opts: TitleBackdropOpts = {}) {
     this.cx = opts.logoX ?? LOGO_X;
     this.cy = opts.logoY ?? LOGO_Y;
+    this.rx = opts.orbitRx ?? ORBIT_RX;
+    this.ry = opts.orbitRy ?? ORBIT_RY;
+    this.embersPalette = opts.emberColors ?? PLAYER_COLORS;
     this.container.eventMode = 'none';
     this.container.label = 'title-backdrop';
     for (const s of [this.halo, this.ring]) {
@@ -60,8 +81,8 @@ export class TitleBackdrop {
       s.blendMode = 'add';
       s.eventMode = 'none';
     }
-    this.halo.tint = 0x3b8cff;
-    this.ring.tint = 0x9fd8ff;
+    this.halo.tint = opts.haloTint ?? 0x3b8cff;
+    this.ring.tint = opts.ringTint ?? 0x9fd8ff;
     this.orbit.eventMode = 'none';
     this.container.addChild(this.halo, this.ring, this.embers.container, this.orbit);
     this.draw(0);
@@ -108,7 +129,8 @@ export class TitleBackdrop {
       const rise = CANVAS_HEIGHT * (0.55 + 0.5 * h1);
       const x = x0 + Math.sin(t * Math.PI * 2 * (0.6 + h2) + h0 * 6.283) * 40;
       const y = CANVAS_HEIGHT + 20 - rise * t;
-      const color = PLAYER_COLORS[Math.floor(h2 * PLAYER_COLORS.length) % PLAYER_COLORS.length]!;
+      const pal = this.embersPalette;
+      const color = pal[Math.floor(h2 * pal.length) % pal.length]!;
       const size = 5 + 9 * h1;
       const a = envelope(t, 0.15) * (0.35 + 0.4 * h0);
       this.embers.emit('soft', x, y, size * 3, size * 3, 0, a * 0.5, color, 'add');
@@ -123,8 +145,8 @@ export class TitleBackdrop {
     for (let i = 0; i < n; i++) {
       const a = ((f % ORBIT_PERIOD_FRAMES) / ORBIT_PERIOD_FRAMES) * Math.PI * 2 + (i / n) * Math.PI * 2;
       const depth = 0.5 + 0.5 * Math.sin(a); // 1 = front
-      const x = this.cx + Math.cos(a) * ORBIT_RX;
-      const y = this.cy + 10 + Math.sin(a) * ORBIT_RY;
+      const x = this.cx + Math.cos(a) * this.rx;
+      const y = this.cy + 10 + Math.sin(a) * this.ry;
       const type = ALL_SPARK_TYPES[i]!;
       const color = mixColor(raceColorForShape(type) ?? 0xffffff, 0x0a0f18, 0.6 * (1 - depth));
       drawSparkGlyph(o, x, y, 10 + 8 * depth, type, color);

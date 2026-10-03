@@ -2,6 +2,17 @@
 
 ## STATUS: COMPLETE (tip = the commit carrying this report)
 
+## ROUND 3 REPORT — R194-32 (CODEX / VS BOTS / LOBBY chrome + codex tower cards)
+- **Merge:** `git merge master` → fast-forward to `4e631dd1` (master already held rounds 1-2 + T8/T7/entropy); no conflicts.
+- **Done:** `uiScreenChrome.ts` (`glowTitleStyle`, `LazyScreenBackdrop`, `ACCENT_CODEX` gold/parchment, `ACCENT_BOTS` steel/red, `ACCENT_LOBBY` cyan/pink). Each of CODEX, VS BOTS and MULTIPLAYER LOBBY has the home page's living backdrop (the SAME lazy `titleBackdrop` chunk, now taking halo/ring/ember palette + orbit radii) above its dimming plate / zone art and below every control, plus a glowing gradient title. The lobby's backdrop is shown in the room view too (it sits above the room's zone art).
+- **Codex tower/structure cards** (`codexCardFx.ts`): glass card, race-tinted title band, corner brackets, gold glowing frame, lit pedestal, and the recipe diagram GLOWING (halo per node + wide soft bonds, in the shapes' own colours, derived from the same layout the diagram draws). Every card: Souleater, Scarab, Piranha, Warband, Bat, Hound, Stink, Goblin, Pentagram, Lightning Hub, Helga, Laser Turret, Voltkin, the five-shape towers, Archdemon/Pharaoh/Kraken/Warlord/Vlad/Whopper.
+- **Tests:** `uiScreenChrome.test.ts` — the backdrop loads lazily, sits at index 1 with `eventMode: 'none'`, and REMOVES its ticker listener on hide (no leak; mutation → red); three distinct accents; every codex card's glow sits on its diagram nodes and all new chrome lies inside the card. No new clickable → census unchanged and green; no hit-test moved (the cards are not interactive).
+- **Gates:** typecheck 0 · vitest 0 (546 files / 8384 passed / 11 skipped) · build 0 · UI e2e gating 0 — 36/36.
+- **Bundle:** entry 1151.7 KiB vs `4e631dd1` built here 1150.0 KiB → **+1.7 KiB** (the backdrop stays in its lazy chunk). Headroom 98.3 KiB.
+- **Bump: NO** (render only).
+- **Screenshots:** `r3-before-*` / `r3-after-*` for 02-bot-setup, 03-lobby, 11-codex-towers, 11b-codex-towers-scrolled on the desktop folder.
+- **Not shot:** the in-lobby ROOM view (Host New Room needs the relays); its chrome is the same lobby container, verified by code path, not by screenshot.
+
 ## ROUND 2 REPORT — audit fix round + R194-24 arcade menu + across-the-board census
 - **Merge:** `git merge master` → `628b9072` (visuals-racial, intentStamp security fix), **no conflicts**. Merge-base for the bundle: `fbddede7`.
 - **F1 fixed:** the refused cue on an illegal release now also requires NOT over panel / footer / card / draft / modal / downUnderModal — a UI drop is silent. New negative test (illegal spot under the panel → silent, nothing placed); mutation (guard dropped) → red.
