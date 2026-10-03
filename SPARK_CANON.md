@@ -1268,7 +1268,9 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **66** (S194 deploy #6 — s194/rage, R194-31; see the S194 entries on the const). 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **67** (S195 L1 — s194/rules, R194-16/17/26/27; see the S195 entry on the const). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 67 (S195, L1)** — s194/rules: the porch row 74 → 42 with the porch no-build arm `CASTLE_PORCH_BUILD_CLEAR_RADIUS` 17 (R194-16); the pants window 30/45/60/90/120 s (R194-17); the mega pants is the 251st slot (R194-26); the live pants cap is 360 total (R194-27).
 
 ⭐⭐ **WHAT RIDES 66 (S194, deploy #6)** — s194/rage (R194-31): the Warlord rage window and his units' BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. T9 coherence, T15 weld-rebuild, T10 matchboard ride (render/UI).
 

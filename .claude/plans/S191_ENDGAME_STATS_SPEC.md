@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 `s191/endstats`. v1 of the END-OF-MATCH STAT BOARD. Built on the owner's standing go (merge-owner redirect, S191).**
+**STATUS: COMPLETE — S191 `s191/endstats` v1 END-OF-MATCH STAT BOARD shipped (deploy #22, S193; matchboard v2 S194). Original header: built on the owner's standing go (merge-owner redirect, S191).**
 
 # S191 — END-OF-MATCH STAT BOARD, v1 SPEC
 
