@@ -22,6 +22,26 @@ import { test, expect, type Page } from '@playwright/test';
 // FOG_COLOR = 0x000000 in src/render/fogRenderer.ts (S63: pure black, no tint)
 const FOG = { r: 0, g: 0, b: 0 };
 
+/*
+ * ⛔ S195 T21 — EVERY COMPOSED-STAGE READ IN THIS FILE IS FRAMED TO THE BOARD, AND THE TITLE IS HIDDEN.
+ *
+ * CI red on deploys #4, #5 and #6 (run 37047025269): the ghost read 0 (> 50) and the potato read 0
+ * (> 90), while the state-machine counts in the SAME synchronous evaluate all passed, and local runs
+ * were green. Not frame starvation — a mapping error. `extract.pixels(app.stage)` with no frame
+ * extracts the stage's BOUNDS, and these specs set `gameState` straight to PLAYING without the frame
+ * that hides the title, so the S194 living HOME backdrop (`titleBackdrop.ts`, `title-embers`: ~480
+ * drifting sprites, shipped in deploy #4 — the deploy this first went red on) was still on the stage.
+ * Its embers overhang the board by a DIFFERENT amount every frame: measured locally, stage bounds
+ * x = -6 … -38, width 1945 … 2007, at ticks 9 / 60 / 315. The read below divides by `width / 1920`,
+ * so a 2007-wide extract samples a board point ~25 px away from where it asked — off a radius-9
+ * ghost. How far off depends on where the embers happen to be, i.e. on timing: green on a fast box,
+ * red on the software-GL runner. S193 hit the same symptom from fog mist (`50ad0bf8`) and pinned one
+ * layer's bounds; pinning the PROBE's frame instead means no future overhang can move it again.
+ *   1. `titleScreen.setVisible(false)` — what the game's frame loop does on the PLAYING edge
+ *      (`main.ts`, `titleScreen.setVisible(showTitle)`), so the composed stage is the match's.
+ *   2. `frame: board` — extract exactly 0..1920 × 0..1080, whatever the stage's bounds are.
+ */
+
 async function waitForSparkFog(page: Page): Promise<void> {
   await page.waitForFunction(
     () => {
@@ -193,7 +213,10 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       s.potatoRenderer.sync(w);
       fog.sync(w, s.controls.cursor, 1 / 60);
 
-      const stagePx = app.renderer.extract.pixels(app.stage);
+      // ⛔ S195 T21 — board-framed, title hidden: see the note at the top of the file.
+      s.titleScreen.setVisible(false);
+      const board = new app.screen.constructor(0, 0, 1920, 1080);
+      const stagePx = app.renderer.extract.pixels({ target: app.stage, frame: board });
       const maskPx = app.renderer.extract.pixels(fog.maskTexture);
       const read = (out: any, x: number, y: number): number[] => {
         const rX = out.width / 1920, rY = out.height / 1080;
@@ -213,6 +236,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
         potatoOnStage: read(stagePx, 1400, 300),    // potato center — brown body if it shows through
         boardNearPotato: read(stagePx, 1560, 300),  // 160px away, no entity — fogged board
         maskAtPotato: read(maskPx, 1400, 300),       // potato is NOT a vision source — mask stays opaque
+        stageExtract: [stagePx.width, stagePx.height], // S195 T21 — proves the board frame took
       };
       /* eslint-enable @typescript-eslint/no-explicit-any */
     });
@@ -477,6 +501,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.potatoOnStage[0]).toBeGreaterThan(r.potatoOnStage[2]); // r > b → brown, not grey/fog
     // ...yet the board NEXT TO it stays concealed (no terrain leak), and the fog mask at the potato
     // is still OPAQUE — the entity reveals only itself, never the surrounding board.
+    expect(r.stageExtract, 'S195 T21 — the stage extract is framed to the 1920x1080 board').toEqual([1920, 1080]);
     expect(r.boardNearPotato[0]).toBeLessThan(20);  // fogged → near-black
     expect(r.maskAtPotato[3]).toBeGreaterThan(245); // mask opaque at the potato → zero board reveal
   });
@@ -526,7 +551,10 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       // enemy-tinted silhouette painted OVER the opaque fog) → lifted G+B channels; B
       // was never seen → plain near-black fog. The live fog mask stays OPAQUE at A, so
       // the real board beneath the ghost is NOT revealed (no M1-style leak).
-      const stage = app.renderer.extract.pixels(app.stage);
+      // ⛔ S195 T21 — board-framed, title hidden: see the note at the top of the file.
+      s.titleScreen.setVisible(false);
+      const board = new app.screen.constructor(0, 0, 1920, 1080);
+      const stage = app.renderer.extract.pixels({ target: app.stage, frame: board });
       const mask = app.renderer.extract.pixels(fog.maskTexture);
       const read = (out: any, x: number, y: number): number[] => {
         const rX = out.width / 1920, rY = out.height / 1080;
@@ -557,7 +585,7 @@ test.describe('S57 Fog of War — client-side render mask', () => {
       for (let f = 0; f < 3; f++) fog.sync(w, s.controls.cursor, 1 / 60); // PLAYING edge → resetMemory()
       const afterRestart = fog.rememberedCount;
 
-      return { afterScout, afterLeave, afterRaze, beforeRestart, afterRestart, ghostA, plainB, maskA };
+      return { afterScout, afterLeave, afterRaze, beforeRestart, afterRestart, ghostA, plainB, maskA, stageExtract: [stage.width, stage.height] };
       /* eslint-enable @typescript-eslint/no-explicit-any */
     });
 
@@ -569,6 +597,8 @@ test.describe('S57 Fog of War — client-side render mask', () => {
     expect(r.beforeRestart).toBe(1); // a re-placed structure is remembered within the match
     expect(r.afterRestart).toBe(0);  // the PLAYING edge wiped it — no cross-match ghost carry
 
+    // ⛔ S195 T21 — the read maps board points 1:1 only on a board-framed extract (top-of-file note).
+    expect(r.stageExtract, 'the stage extract is framed to the 1920x1080 board').toEqual([1920, 1080]);
     // Pixel: the remembered ghost paints at A; the unseen structure stays concealed.
     expect(r.ghostA[1]).toBeGreaterThan(50); // enemy-cyan ghost lifts the green channel
     expect(r.ghostA[2]).toBeGreaterThan(50); // ...and the blue channel
