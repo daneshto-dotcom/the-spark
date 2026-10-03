@@ -128,6 +128,11 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
       return ext ? String(gl!.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : 'unknown';
     });
     const cdp = await joinCtx.newCDPSession(joiner);
+    await joiner.bringToFront();
+    await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+    // Guard: a page Chrome treats as hidden throttles rAF/timers to ~1-4 Hz (run 1's invalid numbers).
+    const vis = await joiner.evaluate(() => document.visibilityState);
+    if (vis !== 'visible') throw new Error(`joiner page is ${vis} — numbers would measure background throttling`);
     for (const wave of WAVES) {
       const file = join(DIR, `burst-${LABEL}-w${wave}.json`);
       if (!existsSync(file)) { console.log(`skip w${wave}: no ${file}`); continue; }
