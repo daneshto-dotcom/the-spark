@@ -133,6 +133,80 @@ let current = { prims: new Set<PrimitiveId>(), bonds: new Set<BondId>() };
 const primPhase = new Map<PrimitiveId, Phase>();
 const bondPhase = new Map<BondId, Phase>();
 
+/*
+ * ⭐⭐ S194 `s194/visuals-6` (owner) — **EVERY TOWER WHOSE CONNECTORS FADE GETS THE SAME SPARKLE.**
+ *
+ * > *"when I placed the Soul Eater Tower level three. It did have those little sparks on the
+ * > connectors and … shapes before they disappeared. But … when I built a laser turret, it didn't
+ * > have those little sparks … make it consistent across all built … towers … Anything that has the
+ * > connectors go … transparent … before the towers … gets built … have that effect, that same effect."*
+ *
+ * The sparkle lived in `spawnerZoneRenderer`, which walks `world.creatureSpawners` only — so the
+ * laser turret, HELGA and the stink tower (all `world.defenders`, all publishing cover) never had one.
+ * The fix is to hang the sparkle off THIS module rather than off any one collection: every
+ * `markTowerCover` call is now also remembered as a GROUP (one tower: its shapes, its connectors and
+ * — new, optional — the FOOT of the sprite its caller just committed). `fx/towerSparkleFx.ts` draws
+ * the sparkle for every group, so a tower kind that hides its connectors gets the sparkle by
+ * construction; a fifth publisher cannot forget it. The foot is published for the same reason the
+ * cover set is: whoever drew the sprite knows where its base is; nobody re-derives it.
+ *
+ * ⚠ RENDER-ONLY, like everything here: the group is what a renderer DREW, never sim state.
+ */
+
+/** Where a committed tower sprite meets the ground (board px), and its drawn art size. */
+export interface TowerFoot {
+  readonly x: number;
+  /** The VISIBLE base line of the art — where the building stands. */
+  readonly y: number;
+  /** Drawn art width / height, px. */
+  readonly w: number;
+  readonly h: number;
+}
+
+interface CoverGroup {
+  prims: PrimitiveId[];
+  bonds: BondId[];
+  foot: TowerFoot | null;
+  /** `frameNo` of the last mark. */
+  lastMarkFrame: number;
+  /** Snapshot taken at the frame boundary: was it marked during the previous frame? */
+  standing: boolean;
+  /** Tick it stopped being marked (null while standing, or before it was ever seen standing). */
+  downSinceTick: number | null;
+  /**
+   * ⭐ S194 audit L2 — it came up standing on shapes this client had ALREADY seen standing this match: a
+   * re-reveal (an enemy tower back out of fog), not a build. The build sparkle does not play for it.
+   */
+  revealOnly: boolean;
+}
+
+/**
+ * How long a tower that stopped publishing is remembered — the reveal ramp plus a tail for the
+ * destroy sparkle to die away in. ⚠ MINE (the sparkle's tail, `TOWER_SPARKLE_TAIL_TICKS`, fits inside).
+ */
+export const TOWER_COVER_GROUP_LINGER_TICKS = TOWER_COVER_REVEAL_TICKS + 90;
+
+/** Keyed by the group's smallest primitive id (stable while the tower stands). */
+const groups = new Map<PrimitiveId, CoverGroup>();
+/** Standing groups by member primitive — rebuilt at the frame boundary. */
+const groupOfPrim = new Map<PrimitiveId, CoverGroup>();
+let frameNo = 0;
+/** ⭐ S194 audit L2 — every shape seen standing under a drawn tower this match (cleared on title return). */
+const everStood = new Set<PrimitiveId>();
+let lastGroupTick = 0;
+
+/**
+ * ⭐ S194 audit M1 — forget every tower group (title return). The shapes are cleared there while
+ * `world.tick` keeps rising, so without this each standing group went "down" with its phase pruned
+ * (alpha 1) and played a phantom destroy sparkle behind the title. Called by `SpawnerZoneRenderer.clear()`,
+ * which the title-return block in `main.ts` already calls.
+ */
+export function resetTowerCoverGroups(): void {
+  groups.clear();
+  groupOfPrim.clear();
+  everStood.clear();
+}
+
 let tick = 0;
 /**
  * Defaults to INACTIVE, exactly as `concealment.ts` does and for the same reason: if
@@ -167,6 +241,45 @@ export function beginTowerCoverFrame(world: World): void {
    */
   reconcile(primPhase, current.prims);
   reconcile(bondPhase, current.bonds);
+  reconcileGroups();
+}
+
+/**
+ * ⭐ S194 — snapshot which groups were marked during the frame that just ended. Read-order independent
+ * for the same reason `reconcile` is: every reader in the next frame sees the same `standing`.
+ */
+function reconcileGroups(): void {
+  // ⛔ S194 re-audit (c) — a clock that went BACKWARDS is a new match: forget every group and what was seen
+  // standing (the groups' own linger guard below only drops the ones already down).
+  if (tick < lastGroupTick) resetTowerCoverGroups();
+  lastGroupTick = tick;
+  const prev = frameNo;
+  frameNo++;
+  groupOfPrim.clear();
+  for (const g of groups.values()) {
+    if (g.lastMarkFrame !== prev) continue;
+    if (!g.standing) g.revealOnly = g.prims.some((id) => everStood.has(id)); // L2: a re-reveal, not a build
+    g.standing = true;
+    g.downSinceTick = null;
+    for (const id of g.prims) { groupOfPrim.set(id, g); everStood.add(id); }
+  }
+  for (const [key, g] of groups) {
+    if (g.lastMarkFrame === prev) continue;
+    /*
+     * ⛔ S194 audit L1 — a group is keyed by its smallest shape. A tower that re-forms WITHOUT that shape
+     * is a new key; the old one must not then "go down" and play a destroy sparkle under a building that
+     * still stands. Any of its shapes now under a standing group ⇒ it is that tower, not a fallen one.
+     */
+    if (g.prims.some((id) => groupOfPrim.has(id))) { groups.delete(key); continue; }
+    if (g.standing) {
+      g.standing = false;
+      g.downSinceTick = tick;
+    }
+    // Never seen standing (marked mid-frame for the first time and then not again) — nothing to show.
+    if (g.downSinceTick === null) { groups.delete(key); continue; }
+    // Gone long enough, or the clock went BACKWARDS (a new match restarts `world.tick`).
+    if (tick - g.downSinceTick > TOWER_COVER_GROUP_LINGER_TICKS || tick < g.downSinceTick) groups.delete(key);
+  }
 }
 
 /** Flip any tracked id whose covered-ness changed this frame, preserving ramp position. */
@@ -202,16 +315,81 @@ function rampTicks(covered: boolean): number {
  */
 export function markTowerCover(
   primIds: Iterable<PrimitiveId>, bondIds: Iterable<BondId>, anchorTick: number,
+  /**
+   * ⭐ S194 — where the sprite this caller just committed meets the ground. Optional so an old call
+   * still compiles, but `towerCover.test.ts` requires every production publisher to pass it: the
+   * per-race background and the sparkle stand on it.
+   */
+  foot?: TowerFoot,
 ): void {
   if (!active) return;
+  const prims: PrimitiveId[] = [];
+  const bonds: BondId[] = [];
+  let key: PrimitiveId | null = null;
   for (const id of primIds) {
     building.prims.add(id);
     seed(primPhase, id, anchorTick);
+    prims.push(id);
+    if (key === null || (id as number) < (key as number)) key = id;
   }
   for (const id of bondIds) {
     building.bonds.add(id);
     seed(bondPhase, id, anchorTick);
+    bonds.push(id);
   }
+  if (key === null) return;
+  const g = groups.get(key);
+  if (g === undefined) {
+    groups.set(key, { prims, bonds, foot: foot ?? null, lastMarkFrame: frameNo, standing: false, downSinceTick: null, revealOnly: false });
+  } else {
+    g.prims = prims;
+    g.bonds = bonds;
+    g.foot = foot ?? null;
+    g.lastMarkFrame = frameNo;
+  }
+}
+
+/** ⭐ S194 — what the sparkle reads about one tower. */
+export interface TowerCoverGroupView {
+  /** The group's smallest primitive id — a stable seed for its particles. */
+  readonly key: PrimitiveId;
+  readonly prims: readonly PrimitiveId[];
+  readonly bonds: readonly BondId[];
+  readonly foot: TowerFoot | null;
+  /** Was a sprite committed on it last frame? false = it has just gone (crumbled, fogged, unloaded). */
+  readonly standing: boolean;
+  /** Its shapes' cover alpha: 1 = fully drawn (no building), 0 = hidden under it. */
+  readonly alpha: number;
+  /** Ticks since it stopped standing; 0 while standing. */
+  readonly downTicks: number;
+  /** ⭐ S194 audit L2 — standing again on shapes already seen standing (a re-reveal): no BUILD sparkle. */
+  readonly revealOnly: boolean;
+}
+
+/**
+ * ⭐ S194 — every tower a renderer has drawn (and, for `TOWER_COVER_GROUP_LINGER_TICKS`, every one
+ * that has just stopped being drawn), in key order — a total order, so two screens visit the same
+ * towers in the same sequence. Empty while the feature is inactive.
+ */
+export function forEachTowerCoverGroup(cb: (g: TowerCoverGroupView) => void): void {
+  if (!active) return;
+  const keys = [...groups.keys()].sort((a, b) => (a as number) - (b as number));
+  for (const key of keys) {
+    const g = groups.get(key)!;
+    if (!g.standing && g.downSinceTick === null) continue; // first marked this very frame
+    cb({
+      key, prims: g.prims, bonds: g.bonds, foot: g.foot, standing: g.standing,
+      alpha: alphaOf(primPhase.get(key)),
+      downTicks: g.standing || g.downSinceTick === null ? 0 : Math.max(0, tick - g.downSinceTick),
+      revealOnly: g.revealOnly,
+    });
+  }
+}
+
+/** ⭐ S194 — the foot of the standing tower this primitive belongs to (null if none was drawn on it). */
+export function towerFootForPrim(id: PrimitiveId): TowerFoot | null {
+  if (!active) return null;
+  return groupOfPrim.get(id)?.foot ?? null;
 }
 
 /**
@@ -259,6 +437,11 @@ export function __resetTowerCoverForTests(): void {
   current = { prims: new Set<PrimitiveId>(), bonds: new Set<BondId>() };
   primPhase.clear();
   bondPhase.clear();
+  groups.clear();
+  groupOfPrim.clear();
+  everStood.clear();
+  lastGroupTick = 0;
+  frameNo = 0;
   tick = 0;
   active = false;
 }

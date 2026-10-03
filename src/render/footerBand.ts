@@ -8,8 +8,9 @@
  *
  * `zones.test.ts` has carried this warning since S148: *"the bottom keeps deposit below the footer
  * line, which is only safe while the footer is empty … If a footer control is ever revived, these
- * anchors move up."* Measured this session: on `QUADRANTS_4P` the seat-2 and seat-3 porches sit at
- * **(1790, 1024)** and **(130, 1024)** — inside the band (`FOOTER_TOP_Y` = 996).
+ * anchors move up."* Measured this session: on `QUADRANTS_4P` the seat-2 and seat-3 porches sat at
+ * **(1790, 1024)** and **(130, 1024)** — inside the band (`FOOTER_TOP_Y` = 996). ⭐ S194 R194-16: the porch
+ * row moved to anchor.y + 42 → **y 992**, just above the band, but a shape resting there still reaches 17 px in.
  *
  * Rather than move two shipped castle anchors (and every gatherer spawn, deposit and hit-test
  * derived from them), the chips occupy a CENTRED span that clears both corners with ~500 px to

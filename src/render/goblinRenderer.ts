@@ -65,6 +65,7 @@ import { lifestealPctFor } from '../state/racial/lifesteal.ts';
 import { RACE_TOWER_UNIT, t3UnitAtlasBase } from '../state/raceTowerIds.ts';
 // S167 — the tier-9 leaf, same side-effect-free contract.
 import { T9_BOSS_TYPE, t9BossAtlasBase } from '../state/t9BossIds.ts';
+import { sameTeam } from '../state/teams.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────────────────────── *
  *  ⭐ S151 P3 — THE veo ATLAS PATH. The owner's words about the procedural rig below: *"not like
@@ -495,7 +496,7 @@ export const LIFESTEAL_FX_MAX_BURSTS = 48;
  * its synced heal counter. Never `Map` order, never a clock.
  */
 export function lifestealSource(
-  world: Pick<World, 'creatures'>,
+  world: Pick<World, 'creatures' | 'teams'>,
   c: Pick<Creature, 'id' | 'type' | 'pos' | 'ownerPlayerId' | 'healedFifths'>,
 ): { x: number; y: number } {
   const reach = getCreatureConfig(c.type).attackRange + 30;
@@ -504,7 +505,8 @@ export function lifestealSource(
   let bestD = Infinity;
   let bestId = Infinity;
   for (const o of world.creatures.values()) {
-    if (o.ownerPlayerId === c.ownerPlayerId || o.ehp <= 0) continue;
+    // ⭐ S194 (teams merge) — an ENEMY creature: a teammate's unit never feeds the motes (FFA: exactly `===`).
+    if (sameTeam(world, o.ownerPlayerId, c.ownerPlayerId) || o.ehp <= 0) continue;
     const dx = o.pos.x - c.pos.x;
     const dy = o.pos.y - c.pos.y;
     const d = dx * dx + dy * dy;

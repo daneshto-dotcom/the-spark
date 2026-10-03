@@ -21,7 +21,7 @@ import {
   GOBLIN_UNIT_ACQUIRE_RADIUS,
   GOBLIN_UNIT_LEASH_RADIUS,
   MONSTER_BIRTH_RADIUS_PX,
-  MONSTER_MAX_LIVE_PER_SEAT,
+  MONSTER_MAX_LIVE_TOTAL,
   MONSTER_MAX_RELEASES_PER_TICK,
   MONSTER_OWNER_SEAT,
   SPAWNER_CENTER_X,
@@ -30,7 +30,8 @@ import {
 import { asPlayerId, type BondId, type CreatureId, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 import { dispatch, type World } from './world.ts';
 import { livingSeats } from './elimination.ts';
-import { megaPantsDue, monsterLaneSeats, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat } from './endgame.ts';
+import { simMemo } from './simMemo.ts';
+import { megaPantsDue, monsterLaneSeats, monstersDueBy, monstersPerSeatForWave, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 import { isLiveCreatureTarget, type Creature } from './creatures/creature.ts';
 import { bondMidpoint, distSq, spreadTargetPos } from './creatures/creatureAI.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
@@ -72,6 +73,11 @@ export function monsterBirthPos(world: World, seat: PlayerId): Vec2 {
  * while pants are still to come out (`isMonsterFightHeld`), so the deadline no longer says when the
  * fight began. Then, in the final fight only, the MEGA PANTS (`megaPantsDue`).
  */
+/** ⭐ S194 R194-27 — the measured live cap's per-seat share: `MONSTER_MAX_LIVE_TOTAL` split over the living seats. */
+export function monsterMaxLivePerSeat(living: number): number {
+  return living <= 0 ? 0 : Math.floor(MONSTER_MAX_LIVE_TOTAL / living);
+}
+
 export function tickEndgameSpawner(world: World): void {
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return;
   if (world.monsterFightStartTick <= 0) return;
@@ -83,14 +89,25 @@ export function tickEndgameSpawner(world: World): void {
   // seat's lane is skipped below, so its queued pants stop coming and nobody else's share or pace moves.
   const lanes = monsterLaneSeats(world);
   const elapsed = world.tick - world.monsterFightStartTick;
-  const due = monstersDueBy(elapsed, lanes.length, perSeat * lanes.length);
-  // ⚠ MINE (S193 audit) — live pants per assigned seat, for `MONSTER_MAX_LIVE_PER_SEAT`. Counted once,
+  // ⭐ S194 R194-17 — his window: the whole wave out, evenly, by `pantsWindowTicks` after the whistle. The
+  // schedule runs over the LANES (the seats that started the fight), never `living`: a fallen seat's slots
+  // are skipped below but still counted, so `monsterWaveSpawned` reaches the lane total and the mega pants
+  // (R194-26, `megaPantsDue`) still comes at his 251st slot.
+  const due = monstersDueBy(elapsed, lanes.length, perSeat * lanes.length, pantsWindowTicks(world.waveNumber));
+  // ⚠ MINE (S193 audit) — live pants per assigned seat, for the cap (⭐ S194 R194-27: `monsterMaxLivePerSeat`, measured). Counted once,
   // bumped as this tick releases. A lane whose seat is at the cap WAITS — and because release `k` must
   // go to lane `k mod N` (that is what makes each seat's remaining count derivable, `monstersLeftForSeat`),
   // the whole sequence waits with it until one of that seat's pants is gone.
+  // ⭐ S194 re-audit MED-1 — counted by the seat each pants is ACTUALLY going for (`monsterVictimSeat`), so
+  // a fallen seat's leftovers count against the survivor they retarget to, and a TOTAL is kept: the 360 is a
+  // true ceiling on live pants, not 360 plus whatever a fallen seat left behind (measured before: 450 / 570).
   const live = new Map<PlayerId, number>();
+  let liveTotal = 0;
   for (const c of world.creatures.values()) {
-    if (c.type === 'endgameMonster' && c.monsterSeat !== undefined) live.set(c.monsterSeat, (live.get(c.monsterSeat) ?? 0) + 1);
+    if (c.type !== 'endgameMonster') continue;
+    liveTotal++;
+    const v = monsterVictimSeat(world, c);
+    if (v !== null) live.set(v, (live.get(v) ?? 0) + 1);
   }
   let released = 0;
   while (world.monsterWaveSpawned < due && released < MONSTER_MAX_RELEASES_PER_TICK) {
@@ -100,8 +117,10 @@ export function tickEndgameSpawner(world: World): void {
       world.monsterWaveSpawned = k + 1; // ⭐ S194 — a fallen seat's slot: it stops coming, at no cost
       continue;
     }
-    if ((live.get(seat) ?? 0) >= MONSTER_MAX_LIVE_PER_SEAT) break;
+    if (liveTotal >= MONSTER_MAX_LIVE_TOTAL) break;
+    if ((live.get(seat) ?? 0) >= monsterMaxLivePerSeat(living.length)) break;
     live.set(seat, (live.get(seat) ?? 0) + 1);
+    liveTotal++;
     released++;
     const a = castleAnchor(seat as unknown as number, world.layout);
     dispatch(world, {
@@ -154,6 +173,34 @@ function victimColor(world: World, seat: PlayerId): number | null {
   return world.players.get(seat)?.color ?? null;
 }
 
+/**
+ * ⭐ S194 R194-27 (perf, identical verdict) — the creatures each seat OWNS, indexed once per tick instead of
+ * every pants scanning the whole creature map (500 pants × ~500 creatures = the measured 34 % of a
+ * 500-pants host tick). Valid for one (world, snapshot generation `simMemo`, nextCreatureId) — the tick is NOT a
+ * key (re-audit: redundant; positions are read live, deaths are skipped at use): a creature born bumps
+ * `nextCreatureId` and rebuilds it; one that died mid-tick is skipped at use (`world.creatures.get(id) === q`
+ * + the same liveness test). Ownership never changes after birth (no `ownerPlayerId =` write anywhere in the
+ * sim), so the candidate SET is exactly the old scan's, and the pick is the same total order (distSq, then
+ * id) — so the verdict is the old one, tick for tick. A memo, not state: nothing is hashed or sent.
+ */
+interface OwnedIndex { world: World; gen: number; nextId: number; bySeat: Map<PlayerId, Creature[]> }
+let ownedIndex: OwnedIndex | null = null;
+/** Test seam ONLY (the differential in `endgameS194Perf.test.ts`): false rebuilds the index on every call. */
+export const __ownedIndexMemo = { enabled: true };
+function ownedBy(world: World, seat: PlayerId): readonly Creature[] {
+  const nextId = world.nextCreatureId as unknown as number;
+  if (!__ownedIndexMemo.enabled || ownedIndex === null || ownedIndex.world !== world || ownedIndex.gen !== simMemo.generation || ownedIndex.nextId !== nextId) {
+    const bySeat = new Map<PlayerId, Creature[]>();
+    for (const q of world.creatures.values()) {
+      let list = bySeat.get(q.ownerPlayerId);
+      if (list === undefined) bySeat.set(q.ownerPlayerId, (list = []));
+      list.push(q);
+    }
+    ownedIndex = { world, gen: simMemo.generation, nextId, bySeat };
+  }
+  return ownedIndex.bySeat.get(seat) ?? [];
+}
+
 /** Nearest creature OWNED BY `seat` within `r2`, holding `held` inside the wider leash. */
 function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | null {
   const held = c.targetCreatureId;
@@ -171,8 +218,9 @@ function victimUnit(world: World, c: Creature, seat: PlayerId): CreatureId | nul
   const r2 = GOBLIN_UNIT_ACQUIRE_RADIUS * GOBLIN_UNIT_ACQUIRE_RADIUS;
   let best: CreatureId | null = null;
   let bestD = Infinity;
-  for (const [id, q] of world.creatures) {
-    if (q.ownerPlayerId !== seat || !isLiveCreatureTarget(world, q)) continue;
+  for (const q of ownedBy(world, seat)) {
+    const id = q.id;
+    if (world.creatures.get(id) !== q || !isLiveCreatureTarget(world, q)) continue;
     const d = distSq(c.pos, q.pos);
     if (d > r2) continue;
     if (d < bestD || (d === bestD && best !== null && (id as unknown as number) < (best as unknown as number))) {

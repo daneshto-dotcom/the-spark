@@ -200,7 +200,8 @@ describe('S158 A3 — and the PICKER stopped excluding what the reducer already 
     const src = readFileSync(fileURLToPath(new URL('../input/controls.ts', import.meta.url)), 'utf8');
     const picker = src.slice(src.indexOf('private pickCreature('), src.indexOf('private pickRaidableDefender('));
     expect(picker).not.toMatch(/if \(c\.sourceSpawnerId === null\) continue;/);
-    expect(picker, 'enemy-only must survive the widening').toMatch(/c\.ownerPlayerId === this\.playerId/);
+    // ⭐ S192 — enemy-only is now by TEAM (`sameTeam`); a free-for-all is the old `===` exactly.
+    expect(picker, 'enemy-only must survive the widening').toMatch(/sameTeam\(this\.world, c\.ownerPlayerId, this\.playerId\)\) continue;/);
   });
 
   it('the defender picker refuses a tower, so a point can never be aimed at one', async () => {

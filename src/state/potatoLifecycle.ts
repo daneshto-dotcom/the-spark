@@ -40,6 +40,7 @@ import {
 } from '../types.ts';
 import { makePotato, type Potato } from './potato.ts';
 import { removeCreature } from './creatures/creatureLifecycle.ts';
+import { recordKill } from './matchStats.ts'; // ⭐ S194 — the stat board (INERT)
 import { razePrimitives } from './razePrimitives.ts';
 // ⭐ S191 C-5 — the hub's blast is ladder damage through the ordinary funnels, and its connector
 // sever goes straight to the one sever reducer (see `applyHubLadderBlast`).
@@ -50,6 +51,7 @@ import { attackFifths } from './stats.ts';
 import type { Creature, CreatureType } from './creatures/creature.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from './worldTypes.ts';
+import { isEnemySeat, sameTeam } from './teams.ts';
 
 const POTATO_BLAST_RADIUS_SQ = POTATO_BLAST_RADIUS * POTATO_BLAST_RADIUS;
 
@@ -98,7 +100,7 @@ export type StructureSelfDestructAction =
       readonly blast: 'ladder';
       readonly pos: Vec2;
       readonly radius: number;
-      /** ⭐ S157 P0 (owner) — the seat whose hub is detonating. Spared, always. */
+      /** ⭐ S157 P0 (owner) — the seat whose hub is detonating. Spared, always — ⭐ S192 with its TEAM. */
       readonly ownerPlayerId: PlayerId;
     }
   | {
@@ -114,6 +116,11 @@ export type StructureSelfDestructAction =
        * zombie boss's blast passes.
        */
       readonly ownerPlayerId?: PlayerId;
+      /**
+       * ⭐ S192 (spec Q5, ⚠ MINE) — for an OWNER-AGNOSTIC blast (the zombie boss's R138 death blast): the seat
+       * whose TEAMMATES are spared while the seat itself still is not. Absent = the pre-S192 behaviour.
+       */
+      readonly alliesOf?: PlayerId;
     };
 
 /** Host-only: mint a FREE potato at the spawner-chosen position. */
@@ -269,7 +276,9 @@ export function applyPotatoDetonate(world: World, action: PotatoDetonateAction):
    * single potato wipes. Whether that is the intended counterplay is a ruling; the current answer is
    * simply what the old predicate already did, preserved.
    */
-  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => potatoClearsType(c.type));
+  // ⭐ S194 — the stat board credits NOBODY for a potato's victims (LOST only): the sim never records who
+  // planted it, and the carrier who cooked it off is the one it punishes, not its author.
+  return applyRadialClear(world, cx, cy, POTATO_BLAST_RADIUS_SQ, (c) => potatoClearsType(c.type), undefined, null);
 }
 
 /**
@@ -368,6 +377,12 @@ export function applyRadialClear(
    * shapes is an asymmetry with no design behind it.
    */
   primKill: (prim: Primitive) => boolean = () => true,
+  /**
+   * ⭐ S194 (audit T10 LOW-1) — the seat the stat board credits with these deaths, or null for nobody. This
+   * clear DELETES (it never passes `damageEntity`), so without this a whole squad vanished from both LOST
+   * and KILLS. INERT — read only by the board.
+   */
+  killer: PlayerId | null = null,
 ): World {
   const creatureVictims: CreatureId[] = [];
   for (const [cid, creature] of world.creatures) {
@@ -380,7 +395,13 @@ export function applyRadialClear(
   // ⭐ S171 — THE SITE THAT MADE A CHOKEPOINT NECESSARY. This loop "obliterates regardless of hp"
   // (see damageCreature's docstring), so it bypasses every damage-side guard there is. A potato
   // blast is exactly how a channelling Pharaoh would have been deleted mid-ritual.
-  for (const cid of creatureVictims) removeCreature(world, cid);
+  for (const cid of creatureVictims) {
+    const c = world.creatures.get(cid);
+    removeCreature(world, cid);
+    // ⭐ S194 — only a death the chokepoint really made (it refuses a channelling Pharaoh), and never a
+    // corpse-in-waiting (`ehp <= 0`), whose death `damageEntity` already counted.
+    if (c !== undefined && c.ehp > 0 && !world.creatures.has(cid)) recordKill(world, killer, c.ownerPlayerId, c.type);
+  }
 
   const victims: PrimitiveId[] = [];
   for (const [pid, prim] of world.primitives) {
@@ -496,16 +517,17 @@ export function planHubBlast(world: World, cx: number, cy: number, radius: numbe
     const d2 = dx * dx + dy * dy;
     if (d2 <= r2) found.push({ kind, id, d2 });
   };
-  for (const [id, c] of world.creatures) if (c.ownerPlayerId !== owner) at('creature', id as number, c.pos.x, c.pos.y);
+  // ⭐ S192 (owner R192-T1) — every arm spares the owner's whole TEAM (FFA: `isEnemySeat` is `!==`, byte-identical).
+  for (const [id, c] of world.creatures) if (isEnemySeat(world, owner, c.ownerPlayerId)) at('creature', id as number, c.pos.x, c.pos.y);
   for (const [id, d] of world.defenders) {
-    if (d.ehp !== null && d.ownerPlayerId !== owner) at('defender', id as number, d.pos.x, d.pos.y);
+    if (d.ehp !== null && isEnemySeat(world, owner, d.ownerPlayerId)) at('defender', id as number, d.pos.x, d.pos.y);
   }
   for (const [id, p] of world.primitives) {
-    if (p.bonds.size === 0 && p.placedBy !== owner) at('primitive', id as number, p.pos.x, p.pos.y);
+    if (p.bonds.size === 0 && isEnemySeat(world, owner, p.placedBy)) at('primitive', id as number, p.pos.x, p.pos.y);
   }
-  for (const [id, s] of world.stinkClouds) if (s.ownerPlayerId !== owner) at('stinkCloud', id as number, s.pos.x, s.pos.y);
+  for (const [id, s] of world.stinkClouds) if (isEnemySeat(world, owner, s.ownerPlayerId)) at('stinkCloud', id as number, s.pos.x, s.pos.y);
   for (const [id, b] of world.bonds) {
-    if (world.primitives.get(b.aId)?.placedBy === owner || world.primitives.get(b.bId)?.placedBy === owner) continue;
+    if (sameTeam(world, world.primitives.get(b.aId)?.placedBy, owner) || sameTeam(world, world.primitives.get(b.bId)?.placedBy, owner)) continue;
     at('connector', id as number, (b.a.pos.x + b.b.pos.x) / 2, (b.a.pos.y + b.b.pos.y) / 2);
   }
   found.sort((a, b) => a.d2 - b.d2 || HUB_BLAST_KIND_RANK[a.kind] - HUB_BLAST_KIND_RANK[b.kind] || a.id - b.id);
@@ -606,9 +628,24 @@ export function applyStructureSelfDestruct(world: World, action: StructureSelfDe
     cx,
     cy,
     action.radius * action.radius,
-    (c) => owner === undefined || c.ownerPlayerId !== owner,
-    (p) => owner === undefined || p.placedBy !== owner,
+    (c) => blastTakes(world, c.ownerPlayerId, owner, action.alliesOf),
+    (p) => blastTakes(world, p.placedBy, owner, action.alliesOf),
+    owner ?? null, // ⭐ S194 — the stat board credits the hub's owner with what its blast erased
   );
+}
+
+/**
+ * ⭐ S192 — does the self-destruct take this owner's thing? The OWNER's whole team is spared (FFA: the
+ * owner, exactly as before); `alliesOf` spares a seat's TEAMMATES but not the seat itself (spec Q5).
+ */
+function blastTakes(
+  world: World,
+  o: PlayerId | undefined,
+  owner: PlayerId | undefined,
+  allies: PlayerId | undefined,
+): boolean {
+  return (owner === undefined || !sameTeam(world, o, owner)) &&
+    (allies === undefined || o === allies || !sameTeam(world, o, allies));
 }
 
 /**

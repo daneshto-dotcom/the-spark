@@ -774,7 +774,8 @@ function fallenTowerRegistrationRefused(
  * stays in the settle step as its backstop: a FIX re-welds exactly the blueprint's edges, so the
  * restored group stands as the recipe by construction.
  */
-function fallenTowerFixCanRegister(world: World, seat: PlayerId, group: BlueprintGroup): boolean {
+/** S194 (R194-22) — exported for the render-side fix-me sparkle (`render/brokenTowers.ts`): same predicate, no behaviour change. */
+export function fallenTowerFixCanRegister(world: World, seat: PlayerId, group: BlueprintGroup): boolean {
   const shape = towerShapeFor(group.blueprintId);
   if (shape === null) return false;
   const survivors = [...group.byNode.values()].filter((id) => world.primitives.has(id)).sort((a, b) => Number(a) - Number(b));

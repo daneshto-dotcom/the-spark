@@ -598,7 +598,7 @@ export class VoltkinTowerRenderer {
         bonds.push(bond.id);
         if (bond.createdTick > newestTick) newestTick = bond.createdTick;
       }
-      markTowerCover(chain, bonds, newestTick);
+      markTowerCover(chain, bonds, newestTick, { x: cx, y: cy + TV_ART_PX * 0.5, w: TV_ART_PX, h: TV_ART_PX }); // ⭐ S194 — the foot
       this.lastPos.set(key, { x: cx, y: cy });
       live.add(key);
     }

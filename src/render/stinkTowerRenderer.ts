@@ -213,7 +213,7 @@ export class StinkTowerRenderer {
            * on another.
            */
           const cover = stinkTowerMembers(world, d.anchorPrimitiveId);
-          if (cover !== null) markTowerCover(cover.prims, cover.bonds, cover.newestTick);
+          if (cover !== null) markTowerCover(cover.prims, cover.bonds, cover.newestTick, { x: d.pos.x, y: d.pos.y, w: sp.width, h: sp.height }); // ⭐ S194 — the foot
         }
       } else {
         this.drawTower(g, d.pos.x, d.pos.y, d.bagsRemaining, depleted, charge, nowSec);

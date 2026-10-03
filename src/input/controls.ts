@@ -51,6 +51,7 @@ import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import { canStampAt } from '../state/blueprintLegality.ts';
 import type { World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isBenched } from '../state/hunters/hunter.ts';
 import { isUntargetable } from '../state/creatures/creature.ts';
@@ -1296,8 +1297,8 @@ export class Controls {
    * Deliberately your OWN keep only: there is nothing to upgrade on an opponent's castle, and
    * opening a panel of controls you cannot use would read as a bug. Tested BEFORE the gatherer
    * preference cycle and the world hit-tests, so the castle box always wins its own footprint —
-   * the two do not overlap today (a gatherer spawns at anchor.y + GATHERER_DEPOSIT_OFFSET_Y = +74,
-   * outside the KEEP_H/2 = 29 box), but ordering it explicitly keeps that a fact rather than a
+   * the two do not overlap today (⭐ S194 a gatherer spawns BESIDE the box, x ±50+ — `gathererSpawnPos` —
+   * outside its KEEP_W/2 = 37 half-width), but ordering it explicitly keeps that a fact rather than a
    * coincidence that a future keep resize could silently invert.
    */
   private handleCastleClick(): boolean {
@@ -2417,7 +2418,7 @@ export class Controls {
        */
       const aOwner = this.world.primitives.get(bond.aId)?.placedBy;
       const bOwner = this.world.primitives.get(bond.bId)?.placedBy;
-      if (aOwner === this.playerId || bOwner === this.playerId) continue;
+      if (sameTeam(this.world, aOwner, this.playerId) || sameTeam(this.world, bOwner, this.playerId)) continue; // S192 — nor a teammate's
       const d = distToSegment(
         this.cursor.x, this.cursor.y,
         bond.a.pos.x, bond.a.pos.y,
@@ -2456,7 +2457,7 @@ export class Controls {
        *
        * A half-widened rule is worse than an un-widened one, because the record says it shipped.
        */
-      if (c.ownerPlayerId === this.playerId) continue; // enemy-only
+      if (sameTeam(this.world, c.ownerPlayerId, this.playerId)) continue; // enemy-only (S192: by team)
       /*
        * ⭐ S171 (owner R142/R171-A) — the cursor cannot AIM at what cannot be targeted.
        *
@@ -2487,7 +2488,7 @@ export class Controls {
     let bestDist = CREATURE_PICK_DIST;
     for (const d of this.world.defenders.values()) {
       if (d.ehp === null) continue; // a tower — nothing to spend a raid point on
-      if (d.ownerPlayerId === this.playerId) continue; // enemy-only
+      if (sameTeam(this.world, d.ownerPlayerId, this.playerId)) continue; // enemy-only (S192: by team)
       const dist = Math.hypot(this.cursor.x - d.pos.x, this.cursor.y - d.pos.y);
       if (dist < bestDist) {
         bestDist = dist;

@@ -317,3 +317,57 @@ describe('S138 P2 — the castles sit at the extremities (owner playtest, re-pin
     }
   });
 });
+
+/* ═══════════════ ⭐ S194 (audit LOW-2) — A NEW GATHERER IS BORN BESIDE THE KEEP, NOT ON THE PORCH ═══════════════ */
+import { CANVAS_WIDTH as LOW2_CW, CASTLE_PORCH_SLOTS as LOW2_SLOTS, GATHERER_PRICE as LOW2_PRICE, GATHERER_SPAWN_PITCH, GATHERER_SPAWN_SIDE_GAP, KEEP_H as LOW2_KH, KEEP_W as LOW2_KW } from '../../constants.ts';
+import { gathererSpawnPos } from './gathererLifecycle.ts';
+
+describe('⭐ S194 LOW-2 — gatherer spawns clear the porch (a gatherer click, 26 px, beats a spark pickup)', () => {
+  /** `Controls.pickGatherer`'s radius — mirrored here; the guard below fails if a spawn comes within it. */
+  const CLICK = 26;
+  it('arithmetic: the first column stands KEEP_W/2 + 13 = 50 px out; nearest slot (45, 42) is 29.4 px > 26', () => {
+    expect(LOW2_KW / 2 + GATHERER_SPAWN_SIDE_GAP).toBe(50);
+    expect(Math.hypot(50 - 45, 42 - GATHERER_SPAWN_PITCH / 2)).toBeGreaterThan(CLICK);
+    // negative: the S136 row (anchor.y + 38, x −39/−13/13/39) sat within the click of a +42 slot
+    expect(Math.hypot(-13 - -15, 38 - 42)).toBeLessThan(CLICK);
+  });
+
+  for (const layout of ['PITCH_2P', 'QUADRANTS_4P'] as const) {
+    it(`REACH (${layout}): 12 gatherers bought per seat through the reducer — all clear of every porch slot and the keep box, on canvas`, () => {
+      const w = makeWorld(0);
+      w.gameState = 'PLAYING';
+      w.layout = layout as ZoneLayout;
+      for (let seat = 0; seat < zoneCount(layout); seat++) {
+        const p = asPlayerId(seat);
+        w.players.set(p, makeIdlePlayer(p, 0xffffff, { x: 0, y: 0 }));
+        w.scoreByPlayer.set(p, 12 * LOW2_PRICE);
+        for (let k = 0; k < 12; k++) dispatch(w, { type: 'BUY_GATHERER', playerId: p });
+      }
+      const seen = new Set<string>();
+      let n = 0;
+      for (const g of w.gatherers.values()) {
+        n++;
+        const seat = g.ownerPlayerId as unknown as number;
+        const a = castleAnchor(seat, layout);
+        for (let k = 0; k < LOW2_SLOTS; k++) {
+          const s = porchSlot(seat, k, layout);
+          expect(Math.hypot(g.pos.x - s.x, g.pos.y - s.y), `seat ${seat} gatherer ${g.id as unknown as number}`).toBeGreaterThan(CLICK);
+        }
+        const inKeep = Math.abs(g.pos.x - a.x) <= LOW2_KW / 2 && Math.abs(g.pos.y - a.y) <= LOW2_KH / 2;
+        expect(inKeep).toBe(false);
+        expect(g.pos.x).toBeGreaterThanOrEqual(0);
+        expect(g.pos.x).toBeLessThanOrEqual(LOW2_CW);
+        seen.add(`${seat}:${g.pos.x},${g.pos.y}`);
+      }
+      expect(n, 'anti-vacuity: the buys landed').toBe(12 * zoneCount(layout));
+      expect(seen.size, 'no two of a seat share a spot (unless the canvas clamp folds a far column)').toBeGreaterThanOrEqual(8 * zoneCount(layout));
+    });
+  }
+
+  it('the pure position is the reducer\'s (owned 0..3 → left/right × upper/lower, then outward)', () => {
+    const a = { x: 960, y: 540 };
+    expect([0, 1, 2, 3, 4].map((k) => gathererSpawnPos(a, k))).toEqual([
+      { x: 910, y: 527 }, { x: 1010, y: 527 }, { x: 910, y: 553 }, { x: 1010, y: 553 }, { x: 884, y: 527 },
+    ]);
+  });
+});

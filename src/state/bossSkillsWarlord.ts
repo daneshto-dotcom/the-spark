@@ -52,11 +52,22 @@ import { dispatch, type World } from './world.ts';
  * history: `WARLORD_RAGE_CLEAR_PCT` is retired in place and no longer read here. Both windows derive
  * from ONE stamp, `Creature.rageStartTick`, written only here.
  *
- * ⚠ FIGHT-GATED like every boss skill (`hostTick`), so a rage still running at the whistle is judged
- * again on the first FIGHT tick (BUILD outlasts both windows, so by then he is free to fire).
+ * ## ⛔⛔ S194 (owner, R194-31) — THE WINDOW ENDS IN EVERY PHASE; ONLY THE FIRING IS FIGHT-GATED
+ *
+ * *"Rage. When it's … turned on by a warlord, should last only 25 seconds. Either for himself or for the
+ * units that he affected. After twenty-five seconds, it has been cooled down, and then … if he's still
+ * there and low health, … he can enrage again. Next fight."* — his screenshot showed frenzied orc
+ * soldiers still red in BUILD. Until S194 this whole function ran only inside `hostTick`'s FIGHT gate,
+ * so a rage running at the whistle was never LOWERED: red through the whole BUILD (the S191 pattern this
+ * ruling supersedes). It now runs EVERY playing tick (`hostTick` calls it in the non-FIGHT branch too):
+ * the 25 s window and the cooldown are wall-sim time off the one `rageStartTick`, in any phase, and only
+ * the FIRING of a new rage (`mayFire`) waits for FIGHT. The cooldown clock therefore runs through BUILD
+ * as well — the same single stamp (⚠ MINE, reported S194).
  */
 export function runWarlordRage(world: World): void {
   if (world.gameState !== 'PLAYING') return;
+  // ⛔ S194 R194-31 — a new rage fires only in FIGHT; ending one (and the cooldown) does not wait for it.
+  const mayFire = world.matchPhase === 'FIGHT';
   for (const id of liveIdsOfType(world, T9_BOSS_TYPE.orcs)) {
     const boss = world.creatures.get(id);
     if (boss === undefined) continue;
@@ -71,7 +82,7 @@ export function runWarlordRage(world: World): void {
     }
     // ⭐ S191 (owner, *"cooldown first"*) — after the window, a cooldown in which he cannot fire again;
     // after THAT, strictly below the line (S179: *"the literall meaning of below 50"*) fires a new one.
-    if (!isRageCoolingDown(boss, world.tick) && boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) {
+    if (mayFire && !isRageCoolingDown(boss, world.tick) && boss.ehp * 100 < max * WARLORD_RAGE_TRIGGER_PCT) {
       boss.rageStartTick = world.tick;
       boss.enraged = true;
       continue;

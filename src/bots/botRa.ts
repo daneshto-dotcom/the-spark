@@ -37,6 +37,7 @@
 import { PHYSICS_HZ, RA_COLUMN_COUNT, RA_COLUMN_RADIUS, RA_RITUAL_TICKS } from '../constants.ts';
 import type { PlayerId } from '../types.ts';
 import type { GameAction, World } from '../state/world.ts';
+import { sameTeam } from '../state/teams.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { raAimPoint, raCastRefusal, raCastsInWave } from '../state/racial/powerOfRaRules.ts';
 import { raStrikeColumnPos } from '../state/racial/powerOfRa.ts';
@@ -79,11 +80,11 @@ export function botRaAction(
 
   // ── the enemy's targets, in id order (a total order, never Map order) ──
   const creatures: Target[] = [...world.creatures.values()]
-    .filter((c) => c.ownerPlayerId !== seat)
+    .filter((c) => !sameTeam(world, c.ownerPlayerId, seat)) // S192 — enemies only, never a teammate
     .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number))
     .map((c) => ({ id: c.id as unknown as number, x: c.pos.x, y: c.pos.y }));
   const bonds: Target[] = [...world.bonds.values()]
-    .filter((b) => world.primitives.get(b.aId)?.placedBy !== seat && world.primitives.get(b.bId)?.placedBy !== seat)
+    .filter((b) => !sameTeam(world, world.primitives.get(b.aId)?.placedBy, seat) && !sameTeam(world, world.primitives.get(b.bId)?.placedBy, seat))
     .sort((a, b) => (a.id as unknown as number) - (b.id as unknown as number))
     .map((b) => ({ id: b.id as unknown as number, x: (b.a.pos.x + b.b.pos.x) / 2, y: (b.a.pos.y + b.b.pos.y) / 2 }));
   const targets = [...creatures, ...bonds];

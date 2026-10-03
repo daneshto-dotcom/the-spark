@@ -8,6 +8,7 @@
  *   1. the ring the halving frees (61 ≤ d < 121) is buildable — by a single shape AND by a stamp;
  *   2. ⭐ S193 P3-1 RE-PIN — the porch is ordinary ground (S191's per-slot discs left the keep-out, which
  *      is now ONE uniform 61 disc — the owner's "short radius … immediately around it");
+ *      ⭐ S194 R194-16 RE-PIN — and the ENTRANCE is not built on: a 17 px clearance per slot, row at +42;
  *   3. REACH: a tower stamped OVER the porch, then all four slots pulled — every covered slot is skipped,
  *      no shape is minted into the tower, the rest stay on their slots; and no stamp lands ON a porch shape;
  *   4. units still leave the keep on clear ground: a real castle emission lands inside the keep-out;
@@ -30,6 +31,7 @@ import type { Controls } from '../input/controls.ts';
 import { Spawner, DEFAULT_SPAWNER_CONFIG } from '../game/spawner.ts';
 import { isLegalBuildPos } from '../bots/botBrain.ts';
 import { stampFootprintBox, stampRefusalAt } from './blueprintLegality.ts';
+import { canBuildNow } from './buildLegality.ts';
 import { blueprintBill, blueprintPositions } from './blueprints.ts';
 import { makeCastleBank, porchSlot } from './castleBank.ts';
 import { makeGameStateExtras } from './gameState.ts';
@@ -40,6 +42,7 @@ import { dispatch, makeWorld, type World } from './world.ts';
 import {
   boxPointDistSq,
   CASTLE_NO_BUILD_RADIUS,
+  CASTLE_PORCH_BUILD_CLEAR_RADIUS,
   CASTLE_PORCH_KEEP_OUT_RADIUS,
   castleKeepOutHitsBox,
   isInsideCastleKeepOut,
@@ -134,11 +137,11 @@ describe('S191 — the freed ring is buildable, through the real reducers', () =
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('⭐⭐ S193 P3-1 — the PORCH is ordinary ground now (the keep-out is ONE uniform disc)', () => {
+describe('⭐⭐ S193 P3-1 → S194 R194-16 — the 61 disc plus a small clearance on the entrance', () => {
   // S193 RE-PIN of S191's "the PORCH stays clear (each slot carries its own disc)". The owner ruled the
   // keep-out "a short radius … immediately around it", the same on every side; the slot discs made it
   // reach 108 px south. What they protected — no shape minted into a tower — is pinned below instead.
-  it('a stamp centred on a porch slot is refused CASTLE only because its box reaches the 61 disc', () => {
+  it('a stamp centred on a porch slot is refused CASTLE (its box reaches the 61 disc — and, since S194, the slot)', () => {
     for (const layout of LAYOUTS) {
       for (let s = 0; s < zoneCount(layout); s++) {
         const w = boardWorld(layout, asPlayerId(s), zoneCastleAnchor(s, layout));
@@ -153,27 +156,49 @@ describe('⭐⭐ S193 P3-1 — the PORCH is ordinary ground now (the keep-out is
     }
   });
 
-  it('a single shape placed ON a porch slot now LANDS (the porch is outside the 61 disc)', () => {
+  // ⭐⭐ S194 R194-16 RE-PIN of the two tests below (they said a shape ON a slot LANDS). Owner: *"Castle
+  // entrance is where the shapes come out. Oh yeah, you should definitely not be able to build over that.
+  // Leave that a little space."* — every slot carries `CASTLE_PORCH_BUILD_CLEAR_RADIUS` (17) again, on a
+  // row moved to +42, so the zone stays the S193 disc south and east (see zones.test.ts for the reach).
+  it('⭐ S194 — a single shape placed ON a porch slot is REFUSED by the real reducer, and the bot planner agrees', () => {
     for (const layout of LAYOUTS) {
       for (let s = 0; s < zoneCount(layout); s++) {
         for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
           const slot = porchSlot(s, i, layout);
-          expect(isInsideCastleKeepOut(slot, layout)).toBe(false);
-          expect(placeFromFree(boardWorld(layout, asPlayerId(s), slot), asPlayerId(s), slot), `${layout} ${s} slot ${i}`).toBe(true);
+          expect(isInsideCastleKeepOut(slot, layout)).toBe(true);
+          const w = boardWorld(layout, asPlayerId(s), slot);
+          expect(placeFromFree(w, asPlayerId(s), slot), `${layout} ${s} slot ${i}`).toBe(false);
+          expect(isLegalBuildPos(slot, asPlayerId(s), w)).toBe(false);
         }
       }
     }
   });
 
-  it('⛔ the keep-out is the 61 disc and NOTHING else — a porch slot is outside it', () => {
+  it('⭐ S194 — the OUTER slots sit just OUTSIDE the 61 disc, so only the porch arm refuses them (the arm is live)', () => {
     for (const layout of LAYOUTS) {
       const a = zoneCastleAnchor(0, layout);
-      for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) {
+      for (const i of [0, CASTLE_PORCH_SLOTS - 1]) {
         const s = porchSlot(0, i, layout);
         const box = { minX: s.x, maxX: s.x, minY: s.y, maxY: s.y };
         expect(boxPointDistSq(box, a.x, a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS * CASTLE_NO_BUILD_RADIUS);
-        expect(castleKeepOutHitsBox(box, layout)).toBe(false);
+        expect(castleKeepOutHitsBox(box, layout)).toBe(true);
+        // negative: one px past the clearance, straight out from the slot, is legal ground again
+        const off = { x: s.x + (i === 0 ? -1 : 1) * (CASTLE_PORCH_BUILD_CLEAR_RADIUS + 1), y: s.y };
+        expect(castleKeepOutHitsBox({ minX: off.x, maxX: off.x, minY: off.y, maxY: off.y }, layout)).toBe(false);
       }
+    }
+  });
+
+  it('⭐ S194 — the drag preview (single shape) and the stamp ghost both read it — a ghost on the porch says refused', () => {
+    for (const layout of LAYOUTS) {
+      const w = boardWorld(layout, asPlayerId(0), zoneCastleAnchor(0, layout));
+      const outer = porchSlot(0, CASTLE_PORCH_SLOTS - 1, layout);
+      expect(canBuildNow(w, outer, asPlayerId(0))).toBe(false); // the predicate `dragPreview` asks
+      // a stamp whose box just reaches the outer slot's clearance is refused CASTLE…
+      const box0 = stampFootprintBox({ x: 0, y: 0 }, 'laserTurret');
+      const dir = outer.x > zoneCastleAnchor(0, layout).x ? 1 : -1;
+      const near = { x: dir > 0 ? outer.x + CASTLE_PORCH_BUILD_CLEAR_RADIUS - 1 - box0.minX : outer.x - CASTLE_PORCH_BUILD_CLEAR_RADIUS + 1 - box0.maxX, y: outer.y };
+      expect(stampRefusalAt(w, near, asPlayerId(0), 'laserTurret')).toBe('CASTLE');
     }
   });
 });
@@ -192,7 +217,10 @@ describe('⭐⭐ S193 P3-1 — REACH: what the porch discs protected still holds
     const w = boardWorld(layout, seat, a);
     fund(w, seat);
     const slots = Array.from({ length: CASTLE_PORCH_SLOTS }, (_, i) => porchSlot(0, i, layout));
-    // The legal stamp centre (2 px grid) whose box covers the most porch slots — S193 lets it.
+    // ⭐ S194 R194-16 RE-PIN: no LEGAL stamp's box may now touch a slot (was "S193 lets a tower stand over
+    // the porch"). A legal tower can still stand 17–34 px from a slot — close enough that a pulled shape
+    // would sit inside it — so the pull's skip is still owed, and this picks the legal centre whose
+    // NODES crowd the most slots within CASTLE_PORCH_KEEP_OUT_RADIUS.
     let best: Vec2 | null = null;
     let bestCovered = -1;
     for (let dx = -160; dx <= 160; dx += 2) {
@@ -200,11 +228,13 @@ describe('⭐⭐ S193 P3-1 — REACH: what the porch discs protected still holds
         const c = { x: a.x + dx, y: a.y + dy };
         if (stampRefusalAt(w, c, seat, TOWER) !== null) continue;
         const box = stampFootprintBox(c, TOWER);
-        const covered = slots.filter((q) => boxPointDistSq(box, q.x, q.y) === 0).length;
+        expect(slots.some((q) => boxPointDistSq(box, q.x, q.y) <= CASTLE_PORCH_BUILD_CLEAR_RADIUS ** 2), 'R194-16: no legal box on the entrance').toBe(false);
+        const nodes = blueprintPositions(TOWER, c);
+        const covered = slots.filter((q) => nodes.some((n) => Math.hypot(n.x - q.x, n.y - q.y) < CASTLE_PORCH_KEEP_OUT_RADIUS)).length;
         if (covered > bestCovered) { bestCovered = covered; best = c; }
       }
     }
-    expect(bestCovered, 'anti-vacuity: S193 really lets a tower stand over the porch').toBeGreaterThan(0);
+    expect(bestCovered, 'anti-vacuity: a legal tower can still crowd a slot').toBeGreaterThan(0);
     const before = w.primitives.size;
     dispatch(w, { type: 'BUILD_BLUEPRINT', playerId: seat, blueprintId: TOWER, centre: best! });
     expect(w.primitives.size, 'the stamp really landed').toBeGreaterThan(before);
@@ -239,31 +269,43 @@ describe('⭐⭐ S193 P3-1 — REACH: what the porch discs protected still holds
     }
   });
 
-  it('and a tower may not be stamped ONTO a shape resting on the porch (BLOCKED, like any geometry)', () => {
+  it('⭐ S194 — no stamp lands on a shape resting on the porch: CASTLE now refuses it first, BLOCKED still guards a moved one', () => {
     const layout: ZoneLayout = 'PITCH_2P';
     const seat = asPlayerId(0);
     const a = zoneCastleAnchor(0, layout);
     const w = boardWorld(layout, seat, a);
     fund(w, seat);
-    // A centre that is LEGAL with an empty porch and puts a tower node within STAMP_CLEARANCE of slot 0.
-    const slot0 = porchSlot(0, 0, layout);
-    let pick: Vec2 | null = null;
-    for (let dx = -160; dx <= 160 && pick === null; dx += 2) {
-      for (let dy = 40; dy <= 200 && pick === null; dy += 2) {
+    for (let i = 0; i < CASTLE_PORCH_SLOTS; i++) dispatch(w, { type: 'PULL_FROM_BANK', playerId: seat, sparkType: SparkType.Dot });
+    const resting = [...w.freeSparks.values()].filter((sp) => sp.escrow === 'banked');
+    expect(resting).toHaveLength(CASTLE_PORCH_SLOTS);
+    // (1) ⭐ S194 R194-16: EVERY centre that would put a node within STAMP_CLEARANCE of a resting porch
+    // shape is refused, and since the stamp box cannot reach a slot it is the CASTLE arm that says so.
+    // (Was: a legal-on-an-empty-porch centre exists and BLOCKED refuses it — the clearance closed that band.)
+    let probed = 0;
+    for (let dx = -200; dx <= 200; dx += 2) {
+      for (let dy = 0; dy <= 200; dy += 2) {
         const c = { x: a.x + dx, y: a.y + dy };
-        if (stampRefusalAt(w, c, seat, TOWER) !== null) continue;
-        if (blueprintPositions(TOWER, c).some((n) => Math.hypot(n.x - slot0.x, n.y - slot0.y) < STAMP_CLEARANCE)) pick = c;
+        if (!blueprintPositions(TOWER, c).some((n) => resting.some((r) => Math.hypot(n.x - r.pos.x, n.y - r.pos.y) < STAMP_CLEARANCE))) continue;
+        probed++;
+        expect(stampRefusalAt(w, c, seat, TOWER), `centre (${dx},${dy})`).not.toBeNull();
       }
     }
-    expect(pick, 'anti-vacuity: such a centre exists').not.toBeNull();
-    dispatch(w, { type: 'PULL_FROM_BANK', playerId: seat, sparkType: SparkType.Dot }); // fills slot 0
-    const resting = [...w.freeSparks.values()].filter((sp) => sp.escrow === 'banked');
-    expect(resting).toHaveLength(1);
-    expect(Math.hypot(resting[0]!.pos.x - slot0.x, resting[0]!.pos.y - slot0.y)).toBe(0);
-    expect(stampRefusalAt(w, pick!, seat, TOWER)).toBe('BLOCKED');
+    expect(probed, 'anti-vacuity').toBeGreaterThan(0);
+    // (2) The S193 BLOCKED arm is still live for a porch shape the player has MOVED (escrow stays
+    // 'banked'): park one 120 px toward the board centre, stamp over it, and the reducer refuses BLOCKED.
+    const moved = resting[0]!;
+    const spot = towardCentre(layout, 0, 120);
+    moved.pos = { ...spot };
+    moved.prevPos = { ...spot };
+    const nodes0 = blueprintPositions(TOWER, { x: 0, y: 0 });
+    const pick = { x: spot.x - nodes0[0]!.x, y: spot.y - nodes0[0]!.y }; // a node lands exactly on it
+    expect(stampRefusalAt(w, pick, seat, TOWER)).toBe('BLOCKED');
     const before = w.primitives.size;
-    dispatch(w, { type: 'BUILD_BLUEPRINT', playerId: seat, blueprintId: TOWER, centre: pick! });
+    dispatch(w, { type: 'BUILD_BLUEPRINT', playerId: seat, blueprintId: TOWER, centre: pick });
     expect(w.primitives.size, 'the host reducer refuses it too').toBe(before);
+    // negative control: with the shape gone the same centre is legal (so BLOCKED really was the reason)
+    w.freeSparks.delete(moved.id);
+    expect(stampRefusalAt(w, pick, seat, TOWER)).toBeNull();
   });
 });
 
@@ -293,7 +335,13 @@ describe('⭐⭐ S193 P3-1 — REACH: the 4P board, every castle, every recipe �
           if (gap === null) { expect(last, `${bp} seat ${s} (${dx},${dy})`).toBe('OFF SCREEN'); continue; }
           sides++;
           expect(gap, `${bp} seat ${s} dir (${dx},${dy})`).toBeGreaterThanOrEqual(CASTLE_NO_BUILD_RADIUS);
-          expect(gap, `${bp} seat ${s} dir (${dx},${dy})`).toBeLessThan(CASTLE_NO_BUILD_RADIUS + 1.5);
+          // ⭐ S194 R194-16 — was `< 61 + 1.5`. Measured after the porch clearance landed: SOUTH unchanged at
+          // 61.0 for all three; the HORIZONTAL side (top castles' only on-board side besides south) grew
+          // laser 61.9 → 62.9, goblin 61.0 → 63.0, stink 61.9 → 61.9 — a tall box laid beside the keep
+          // clips the OUTER slot's 17 px disc (slot at x ±45, so its disc reaches 62). Re-pinned to the
+          // measured ceiling, not relaxed past it: +2.5 still fails the S191-style 74/108 px lobes.
+          expect(gap, `${bp} seat ${s} dir (${dx},${dy})`).toBeLessThan(CASTLE_NO_BUILD_RADIUS + 2.5);
+          if (dy === 1) expect(gap, `${bp} seat ${s} SOUTH`).toBeLessThan(CASTLE_NO_BUILD_RADIUS + 1.5);
         }
       }
     }

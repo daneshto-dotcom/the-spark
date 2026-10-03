@@ -125,7 +125,8 @@ describe('S194 T5 — every feedback button that gained a sheen was given the SA
     it(file, () => {
       const src = readFileSync(new URL(`./${file}`, import.meta.url), 'utf8');
       const fb = src.split('attachButtonFeedback(').length - 1;
-      const sheens = [...src.matchAll(/attachHoverSheen\(\s*[\w.]+,\s*([^\n]*?),\s*\w+\)/g)];
+      // ⭐ S194 (teams) — an optional 4th `enabled` argument (Begin's disabled state) is allowed; the RECT is still arg 2.
+      const sheens = [...src.matchAll(/attachHoverSheen\(\s*[\w.]+,\s*(\w+|\{[^}\n]*\}),\s*\w+(?:,[^\n]*)?\)/g)];
       expect(sheens.length, `${file}: one sheen per feedback button`).toBe(fb);
       const hitDecl = /const hit = (\{[^}]*\});/.exec(src)?.[1] ?? '';
       for (const m of sheens) {

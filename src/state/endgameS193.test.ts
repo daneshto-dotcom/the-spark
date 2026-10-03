@@ -13,10 +13,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CASTLE_ATTACK_RANGE,
-  MEGA_PANTS_AFTER_TICKS,
   MEGA_PANTS_STATS,
   MONSTER_BIRTH_RADIUS_PX,
-  MONSTER_EMERGE_TICKS,
   MONSTER_HOLD_LEAD_TICKS,
   PHYSICS_HZ,
   PLAYER_COLORS,
@@ -39,12 +37,12 @@ import {
 import { makeGameStateExtras, tickGameState } from './gameState.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './creatures/voltkin-config.ts';
 import { attackFifths, unitPoolFifths } from './stats.ts';
-import { isMonsterFightHeld, megaPantsDue, monstersLeftToComeOut, monstersPerSeatForWave } from './endgame.ts';
-import { MONSTER_OWNER_ID, monsterBirthPos } from './endgameMonsters.ts';
+import { isMonsterFightHeld, megaPantsAtElapsed, megaPantsDue, monstersDueBy, megaPantsSlotTicks, monsterFightTicks, monstersLeftToComeOut, monstersPerSeatForWave, pantsWindowTicks } from './endgame.ts';
+import { MONSTER_OWNER_ID, monsterBirthPos, monsterMaxLivePerSeat } from './endgameMonsters.ts';
 import { castleAnchor } from './gatherers/gatherer.ts';
 import { hashWorldStateFull } from './stateHashFull.ts';
-import { restore, snapshot } from './save.ts';
-import { formatEndgameCue, formatHeldClock, MEGA_PANTS_BANNER, PANTS_BANNER_LINES, PANTS_BANNER_TICKS, pantsBannerText } from '../render/ui.ts';
+import { applyNetSnapshot as applyNetSnapshotS194, netSnapshot as netSnapshotS194, restore, snapshot } from './save.ts';
+import { formatEndgameCue, formatHeldClock, megaPantsArrivalTick, MEGA_PANTS_BANNER, PANTS_BANNER_LINES, PANTS_BANNER_TICKS, pantsBannerText } from '../render/ui.ts';
 import { creatureSpriteScaleMul, MEGA_PANTS_SPRITE_SCALE_MUL } from '../render/towerFrames.ts';
 import { ATLASES, ENDGAME_MONSTER_ATLAS_BASE, GOBLIN_KINDS } from '../render/goblinRenderer.ts';
 import { makeCreature, type Creature } from './creatures/creature.ts';
@@ -138,14 +136,15 @@ function link(w: World, a: Primitive, b: Primitive): BondId {
 /* ══════════════════════════════════════════ HIS PACE ══════════════════════════════════════════ */
 
 describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a chunk', () => {
-  it('no two pants are born on one tick; each lane gets one every EMERGE ticks, born on the rim facing its keep', () => {
+  it('no two pants are born on one tick; each lane spreads its wave EVENLY over HIS window (R194-17), born on the rim facing its keep', () => {
     const world = board(2);
     toFightEdge(world, 28);
     unkillable(world);
     const d = deps();
     const st = makeHostTickState(world);
     const bornAt = new Map<number, { tick: number; seat: PlayerId | undefined; x: number; y: number }>();
-    for (let t = 0; t < 25 * MONSTER_EMERGE_TICKS + 10; t++) {
+    const W = pantsWindowTicks(28); // ⭐ S194 R194-17 — 45 s, HIS
+    for (let t = 0; t < W + 10; t++) {
       runHostTick(world, d, st);
       for (const c of pants(world)) {
         const id = c.id as unknown as number;
@@ -158,8 +157,12 @@ describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a c
     for (const seat of [P0, P1]) {
       const lane = [...bornAt.values()].filter((b) => b.seat === seat).map((b) => b.tick).sort((a, b) => a - b);
       expect(lane).toHaveLength(25);
-      for (let i = 1; i < lane.length; i++) expect(lane[i]! - lane[i - 1]!).toBe(MONSTER_EMERGE_TICKS);
+      // ⭐ S194 — was "every EMERGE (45) ticks". Now each lane every 2 × 2700 / 49 = 110.2 ticks: 110 or 111.
+      for (let i = 1; i < lane.length; i++) expect([110, 111]).toContain(lane[i]! - lane[i - 1]!);
     }
+    // the whole wave is out by the window's end, the last EXACTLY on it (first at the whistle)
+    const all = ticks.slice().sort((a, b) => a - b);
+    expect(all[all.length - 1]! - all[0]!).toBe(W);
     // born on the rim (20 px inside the 125 px circle), on the ray to the lane's keep
     const rim = monsterBirthPos(world, P1);
     expect(Math.round(Math.sqrt((rim.x - SPAWNER_CENTER_X) ** 2 + (rim.y - SPAWNER_CENTER_Y) ** 2))).toBe(MONSTER_BIRTH_RADIUS_PX);
@@ -186,33 +189,83 @@ describe('S193 Q1+Q8 — REACH: one pants at a time out of the circle, never a c
     restore(snapshot(world), joiner);
     expect(monstersLeftToComeOut(joiner)).toBe(left);
     expect(formatEndgameCue(joiner.matchPhase, joiner.waveNumber, monstersLeftToComeOut(joiner))).toBe(`PANTS LEFT TO COME OUT: ${left}`);
-    for (let t = 0; t < 20 * MONSTER_EMERGE_TICKS; t++) runHostTick(world, d, st);
+    for (let t = 0; t < pantsWindowTicks(27); t++) runHostTick(world, d, st); // ⭐ S194 — his 30 s window
     expect(monstersLeftToComeOut(world)).toBe(0);
     expect(monstersLeftToComeOut(board(2))).toBe(0); // outside a monster fight
   });
 
-  it('⚠ MINE (the hold): wave 30 runs past its 60 s while pants are still coming, then ends 10 s after the last', () => {
+  it('⭐⭐ S194 R194-17 — the fight length is PREDICTABLE: set at the whistle to window + 10 s, and the last pants comes out exactly at the window end', () => {
+    // Was "⚠ MINE (the hold): wave 30 runs past its 60 s while pants are still coming, then ends 10 s after
+    // the last" (an open-ended hold, lastDue = ceil(199 × 45 / 2) = 4478). His window (90 s at wave 30)
+    // fixes both numbers in advance: last pants at +5400, fight over at +6000 (⚠ MINE: + the old 10 s tail).
+    for (const wave of [27, 30]) {
+      const world = board(2);
+      toFightEdge(world, wave);
+      unkillable(world);
+      const d = deps();
+      const st = makeHostTickState(world);
+      runHostTick(world, d, st);
+      const start = world.monsterFightStartTick;
+      expect(start).toBeGreaterThan(0);
+      expect(world.phaseEndsAtTick - start, `wave ${wave}: the deadline is known at the whistle`).toBe(monsterFightTicks(wave));
+      const W = pantsWindowTicks(wave);
+      let lastBorn = -1;
+      let endedAt = -1;
+      const seen = new Set<number>();
+      for (let t = 0; t < monsterFightTicks(wave) + 30 && endedAt < 0; t++) {
+        runHostTick(world, d, st);
+        for (const p of pants(world)) {
+          if (!seen.has(p.id as unknown as number)) { seen.add(p.id as unknown as number); lastBorn = world.tick; }
+          // a defence that keeps up: the live cap never binds, so the window alone sets the pace
+          dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+        }
+        if (world.matchPhase === 'BUILD') endedAt = world.tick;
+      }
+      expect(seen.size, `wave ${wave}: every pants came out`).toBe(2 * monstersPerSeatForWave(wave));
+      expect(lastBorn - start, `wave ${wave}: the last pants at start + window`).toBe(W);
+      expect(world.waveNumber).toBe(wave + 1);
+      expect(endedAt - start).toBe(monsterFightTicks(wave));
+      expect(endedAt - start).toBe(Math.max(60 * PHYSICS_HZ, W + MONSTER_HOLD_LEAD_TICKS));
+      expect(world.monsterFightStartTick, 'cleared on leaving FIGHT').toBe(0);
+    }
+  });
+
+  it('⭐⭐ S194 R194-17 — REACH: wave 31, 250 a seat, ALL out by 120 s through the real host tick (and the fight goes on — his endless final)', () => {
     const world = board(2);
-    toFightEdge(world, 30);
+    toFightEdge(world, 31);
     unkillable(world);
     const d = deps();
     const st = makeHostTickState(world);
     runHostTick(world, d, st);
     const start = world.monsterFightStartTick;
-    expect(start).toBeGreaterThan(0);
-    // 200 pants over two lanes: the last is due ceil(199 × 45 / 2) = 4478 ticks in — past the 3600 fight
-    const lastDue = Math.ceil((199 * MONSTER_EMERGE_TICKS) / 2);
-    expect(lastDue).toBeGreaterThan(60 * PHYSICS_HZ);
-    let endedAt = -1;
-    for (let t = 0; t < lastDue + MONSTER_HOLD_LEAD_TICKS + 30 && endedAt < 0; t++) {
+    const W = pantsWindowTicks(31);
+    expect(W).toBe(120 * PHYSICS_HZ);
+    let maxPerTick = 0;
+    for (let t = 0; t < W; t++) {
+      const before = world.monsterWaveSpawned;
       runHostTick(world, d, st);
-      // a defence that keeps up: the live cap never binds, so the pace alone sets the hold
+      maxPerTick = Math.max(maxPerTick, world.monsterWaveSpawned - before);
       for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
-      if (world.matchPhase === 'BUILD') endedAt = world.tick;
     }
-    expect(world.waveNumber).toBe(31);
-    expect(endedAt - start).toBe(lastDue + MONSTER_HOLD_LEAD_TICKS);
-    expect(world.monsterFightStartTick, 'cleared on leaving FIGHT').toBe(0);
+    expect(world.tick - start).toBe(W);
+    expect(world.monsterWaveSpawned).toBe(2 * 250);
+    expect(monstersLeftToComeOut(world)).toBe(0);
+    expect(maxPerTick, 'one at a time, never a chunk').toBe(1);
+    // NEGATIVE: one tick short of the window, the last one is still to come
+    const w2 = board(2);
+    toFightEdge(w2, 31);
+    unkillable(w2);
+    const st2 = makeHostTickState(w2);
+    runHostTick(w2, d, st2);
+    for (let t = 0; t < W - 1; t++) {
+      runHostTick(w2, d, st2);
+      for (const p of pants(w2)) dispatch(w2, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+    }
+    expect(monstersLeftToComeOut(w2)).toBe(1);
+    // and the final fight is still HIS endless one: two seats alive, the clock never ends it
+    for (let t = 0; t < 30 * PHYSICS_HZ; t++) runHostTick(world, d, st);
+    expect(world.matchPhase).toBe('FIGHT');
+    expect(isMonsterFightHeld(world)).toBe(true);
   });
 
   it('NEGATIVE: an ordinary fight (wave 26) ends on its 60 s, held by nothing', () => {
@@ -272,11 +325,20 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     expect(world.lastWinnerId).toBe(P0);
   });
 
-  it('⚠ MINE (the threshold): the mega pants walks out exactly MEGA_PANTS_AFTER_TICKS in, never before; a felled one is replaced', () => {
+  it('⭐⭐ S194 R194-26 HIS (was MINE, 240 s): the mega pants walks out at the 251st slot, never before; a felled one is replaced', () => {
     const { world, d, st } = finalFight();
     world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     const start = world.monsterFightStartTick;
-    world.tick = start + MEGA_PANTS_AFTER_TICKS - 3;
+    // arithmetic: T = 250 × 2 = 500 over W = 7200 → slot r = T at floor(500 × 7200 / 499) = 7214
+    const T = monstersPerSeatForWave(31) * 2;
+    expect(megaPantsSlotTicks(T, pantsWindowTicks(31))).toBe(Math.floor((T * pantsWindowTicks(31)) / (T - 1)));
+    expect(megaPantsSlotTicks(T, pantsWindowTicks(31))).toBe(7214);
+    expect(megaPantsSlotTicks(1000, pantsWindowTicks(31))).toBe(7207); // 4 seats
+    expect(megaPantsSlotTicks(1, pantsWindowTicks(31))).toBe(pantsWindowTicks(31)); // a lone pants: the window end
+    expect(megaPantsAtElapsed(world)).toBe(7214);
+    // one interval past the 250th: the last pants is at W, the mega one cadence step later
+    expect(megaPantsAtElapsed(world) - pantsWindowTicks(31)).toBe(Math.floor(T * pantsWindowTicks(31) / (T - 1)) - pantsWindowTicks(31));
+    world.tick = start + megaPantsAtElapsed(world) - 3;
     world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
     runHostTick(world, d, st);
     expect(mega(world)).toHaveLength(0);
@@ -295,10 +357,15 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     world.waveNumber = 30;
     world.matchPhase = 'FIGHT';
     world.monsterFightStartTick = 1;
-    world.tick = 1 + MEGA_PANTS_AFTER_TICKS + 10;
+    world.tick = 1 + megaPantsAtElapsed(world) + 10;
+    world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     expect(megaPantsDue(world)).toBe(false);
     world.waveNumber = 31;
     expect(megaPantsDue(world)).toBe(true);
+    // ⭐ S194 R194-26 — "after the last pant came out": one wave pants still to come → not yet
+    world.monsterWaveSpawned -= 1;
+    expect(megaPantsDue(world)).toBe(false);
+    world.monsterWaveSpawned += 1;
     world.players.get(P1)!.castleHp = 0;
     expect(megaPantsDue(world)).toBe(false);
   });
@@ -316,7 +383,7 @@ describe('S193 Q2 — the final fight does not end on the clock while two seats 
     runHostTick(world, d, st);
     world.monsterWaveSpawned = monstersPerSeatForWave(31) * 2;
     for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
-    world.tick = world.monsterFightStartTick + MEGA_PANTS_AFTER_TICKS;
+    world.tick = world.monsterFightStartTick + megaPantsAtElapsed(world);
     world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
     runHostTick(world, d, st);
     const m = mega(world)[0]!;
@@ -376,14 +443,18 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
   it('the banner: one silly line per monster wave for its first 4 s, the mega pants line at its arrival, nothing else', () => {
     expect(PANTS_BANNER_TICKS).toBe(4 * PHYSICS_HZ);
     const at = (wave: number, elapsed: number, phase: 'FIGHT' | 'BUILD' = 'FIGHT') =>
-      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed });
+      pantsBannerText({ matchPhase: phase, waveNumber: wave, monsterFightStartTick: 1000, tick: 1000 + elapsed }, 1000 + 7214);
     expect(at(27, 0)).toBe('BEWARE THE PANTS!');
     expect(at(28, PANTS_BANNER_TICKS - 1)).toBe('INCOMING PANTS!');
     expect(at(28, PANTS_BANNER_TICKS)).toBe('');
     expect(at(27, 0, 'BUILD')).toBe('');
     expect(at(26, 0)).toBe('');
-    expect(at(31, MEGA_PANTS_AFTER_TICKS)).toBe(MEGA_PANTS_BANNER);
-    expect(at(30, MEGA_PANTS_AFTER_TICKS)).toBe('');
+    expect(at(31, 7214)).toBe(MEGA_PANTS_BANNER);
+    expect(at(31, 7213)).toBe(''); // one tick before he arrived
+    expect(at(31, 7214 + PANTS_BANNER_TICKS)).toBe('');
+    // ⭐ S194 re-audit LOW-1 — no mega pants on the board → no mega banner, whatever the clock says
+    expect(pantsBannerText({ matchPhase: 'FIGHT', waveNumber: 31, monsterFightStartTick: 1000, tick: 1000 + 7214 }, null)).toBe('');
+    expect(at(30, 7214)).toBe('');
     for (const w of [27, 28, 29, 30, 31]) expect(PANTS_BANNER_LINES[w]!.length).toBeGreaterThan(0);
   });
 
@@ -391,7 +462,58 @@ describe('S193 Q6 — shapes stop coming from the lock on; the big silly banner'
     const world = board(2);
     toFightEdge(world, 27);
     runHostTick(world, deps(), makeHostTickState(world));
-    expect(pantsBannerText(world)).toBe('BEWARE THE PANTS!');
+    expect(pantsBannerText(world, megaPantsArrivalTick(world))).toBe('BEWARE THE PANTS!');
+  });
+
+  it('⭐ S194 re-audit LOW-1 — REACH: the mega banner shows on his REAL arrival, not on his slot', () => {
+    // A held lane delays him past his slot (`megaPantsDue` waits for the last wave pants); the banner must
+    // follow the creature. Here every wave pants is out only 500 ticks after the slot.
+    const world = board(2);
+    toFightEdge(world, 31);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const slot = megaPantsAtElapsed(world);
+    world.tick = start + slot;
+    world.phaseEndsAtTick = world.tick + MONSTER_HOLD_LEAD_TICKS;
+    // The REAL hold: the last slot belongs to lane P1 (k = T − 1, odd), and P1 is kept AT the live cap
+    // (topped up before every tick — the castle guns thin it), so the spawner may not release it.
+    const T = monstersPerSeatForWave(31) * 2;
+    world.monsterWaveSpawned = T - 1;
+    const k1 = castleAnchor(1, world.layout);
+    const topUp = (): void => {
+      let n = pants(world).filter((c) => c.monsterSeat === P1).length;
+      for (; n < monsterMaxLivePerSeat(2); n++) {
+        dispatch(world, {
+          type: 'SPAWN_CREATURE', creatureType: 'endgameMonster', ownerPlayerId: MONSTER_OWNER_ID,
+          pos: monsterBirthPos(world, P1), targetPos: { ...k1 }, sourceSpawnerId: null, monsterSeat: P1,
+        });
+      }
+    };
+    let bannerAtSlot = 'unset';
+    for (let t = 0; t < 500; t++) {
+      topUp();
+      runHostTick(world, d, st);
+      if (t === 1) bannerAtSlot = pantsBannerText(world, megaPantsArrivalTick(world)); // inside the old slot window
+    }
+    expect(bannerAtSlot, 'at his slot, held back: the old slot-driven banner would fire here').toBe('');
+    expect(world.monsterWaveSpawned, 'the cap really held the last lane').toBe(T - 1);
+    expect(mega(world), 'held: no mega yet').toHaveLength(0);
+    expect(pantsBannerText(world, megaPantsArrivalTick(world)), 'past his slot, but he is not here — no banner').toBe('');
+    for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id }); // the defence catches up
+    runHostTick(world, d, st);
+    expect(world.monsterWaveSpawned).toBe(T);
+    expect(mega(world)).toHaveLength(1);
+    const arrived = megaPantsArrivalTick(world)!;
+    expect(arrived - start).toBeGreaterThan(slot + 400);
+    expect(pantsBannerText(world, arrived)).toBe(MEGA_PANTS_BANNER);
+    // and a joiner reads the same arrival off the wire (`despawnAtTick` rides it)
+    const client = board(2);
+    client.isHost = false;
+    applyNetSnapshotS194(JSON.parse(JSON.stringify(netSnapshotS194(world))), client);
+    expect(megaPantsArrivalTick(client)).toBe(arrived);
   });
 });
 
@@ -405,24 +527,21 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
    * comparison changes a count and turns this red until someone writes its verdict. The REACH tests
    * below then prove the six families the brief names through the real functions.
    */
+  /*
+   * ⭐ S194 (teams merge) — the files below that DROPPED out, or whose count fell, had their enemy decisions
+   * converted to `sameTeam` / `isEnemySeat` (`state/teams.ts`). The pants verdict is unchanged: `sameTeam(world,
+   * 255, seat)` reads `world.teams[255]`, which is never set, so a pants is nobody's teammate; and with teams off
+   * `sameTeam` IS `===`. The REACH tests below drive the six families through the converted functions. Converted
+   * whole: state/bossSkills.ts, state/bossSkillsArchdemon.ts, state/bossSkillsKraken.ts, state/racial/zombieDeathBlast.ts, state/creatures/creatureAI.ts, state/creatures/retaliation.ts, state/creatures/suicideBlast.ts, state/damage.ts, state/defenders/defenderLifecycle.ts, state/defenders/stinkTower.ts, state/potatoLifecycle.ts, state/racial/theRisen.ts, state/world.ts, bots/botController.ts, bots/botRa.ts.
+   */
   const SITES: Record<string, { n: number; verdict: string }> = {
-    'src/state/bossSkills.ts': { n: 1, verdict: 'skip OWN — a pants is never the boss owner → hit' },
-    'src/state/bossSkillsArchdemon.ts': { n: 3, verdict: 'skip OWN → hit; "own teammates" of a pants are pants' },
-    'src/state/bossSkillsKraken.ts': { n: 2, verdict: 'skip OWN → hit' },
     'src/state/bossSkillsPharaoh.ts': { n: 1, verdict: 'counts the boss\'s OWN locusts — a pants never counts' },
     'src/state/bossSkillsWarlord.ts': { n: 1, verdict: 'counts the boss\'s OWN wolves — a pants never counts' },
-    'src/state/racial/zombieDeathBlast.ts': { n: 6, verdict: 'spares the dead boss seat only (R193-B3) → a pants is hit, as a creature at weight 2' },
-    'src/state/creatures/creatureAI.ts': { n: 8, verdict: 'enemy-only scans skip OWN → a pants is a target (castle gun: findNearestEnemyCreatureFrom)' },
-    'src/state/creatures/creatureLifecycle.ts': { n: 3, verdict: 'summon latch (pants exempt) + kill credit to a different owner' },
-    'src/state/creatures/retaliation.ts': { n: 1, verdict: 'skip OWN → a seat retaliates on a pants' },
-    'src/state/creatures/suicideBlast.ts': { n: 2, verdict: 'spares the BOMBER\'s own bonds only' },
-    'src/state/creatures/voltkinChain.ts': { n: 2, verdict: 'skip OWN → chains onto a pants' },
-    'src/state/damage.ts': { n: 4, verdict: 'radial spares named seats only (never 255)' },
-    'src/state/defenders/defenderLifecycle.ts': { n: 2, verdict: 'Helga/turret: victim owner !== defender owner → a pants' },
-    'src/state/defenders/stinkTower.ts': { n: 1, verdict: 'skip OWN → gasses a pants' },
-    'src/state/endgameMonsters.ts': { n: 2, verdict: 'the pants\' own victim filter (=== its seat)' },
+    'src/state/creatures/creatureLifecycle.ts': { n: 2, verdict: 'summon latch (pants exempt) + kill credit to a different owner — S194 teams: the rest ask sameTeam' },
+    'src/state/creatures/voltkinChain.ts': { n: 1, verdict: 'skip OWN → chains onto a pants — S194 teams: the rest ask sameTeam' },
+    'src/state/endgameMonsters.ts': { n: 1, verdict: 'the pants\' own victim filter (=== its seat; ⭐ S194 R194-27: the unit half is now the per-tick index KEYED by ownerPlayerId, `ownedBy` — same filter, no comparison)' },
     'src/state/exploredMemory.ts': { n: 2, verdict: 'fog memory of enemy SHAPES — a pants places none' },
-    'src/state/gameMode.ts': { n: 2, verdict: 'gatherer / spawner owner bookkeeping — seats only' },
+    'src/state/gameMode.ts': { n: 1, verdict: 'gatherer / spawner owner bookkeeping — seats only — S194 teams: the rest ask sameTeam' },
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
     'src/state/goblinKinds.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
     'src/state/goblinTowerFeed.ts': { n: 1, verdict: 'FEED_TOWER: tower owner === feeder — seats only' },
@@ -430,24 +549,19 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/goblinAutoFeed.ts': { n: 1, verdict: 'SET_AUTO_FEED: tower owner === toggler — seats only' },
     'src/state/spawners/spawnerLifecycle.ts': { n: 1, verdict: 'remembered toggles restored only to the SAME seat — seats only' },
     'src/state/godlyMatcherCore.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
-    'src/state/magicResistCue.ts': { n: 5, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued' },
-    'src/state/potatoLifecycle.ts': { n: 8, verdict: 'hub blast + bomb: every arm skips the OWNER only → a pants is hit' },
+    'src/state/magicResistCue.ts': { n: 2, verdict: 'cosmetic RESIST cue mirrors each source skip-OWN / isScorchImmune; a pants has MRES = DEF so is never cued — S194 teams: the rest ask sameTeam' },
     'src/state/raceUnitEmit.ts': { n: 1, verdict: 'counts a seat\'s own race units — a pants never counts' },
     'src/state/racial/corpseEater.ts': { n: 1, verdict: 'enemy/own split by boss owner → a pants corpse is an enemy\'s' },
     'src/state/racial/endlessDynasty.ts': { n: 1, verdict: 'counts a seat\'s own mummies' },
     'src/state/racial/scorchedEarthRules.ts': { n: 1, verdict: 'isScorchImmune: owner === spared → never for 255' },
     'src/state/racial/scorchedGround.ts': { n: 6, verdict: 'every burn arm asks isScorchImmune → a pants burns' },
-    'src/state/racial/theRisen.ts': { n: 1, verdict: 'an ENEMY kill only; a pants killer has no seat to raise for' },
     // ⭐ S193 weld merge seam — `s189/weld` R191-A / R191-B. Every one is seat bookkeeping a pants (255,
     // never in `world.players`) can never be party to: it places no shapes, owns no gatherers, queues no jobs.
     'src/state/repairJobs.ts': { n: 3, verdict: 'FIX jobs: a seat\'s own gatherers / stamped shapes / bank reservations — seats only' },
     'src/state/structureRepair.ts': { n: 2, verdict: 'FIX / SCRAP: a seat\'s own shapes only (seatStructureAt + reclaimScopeAt)' },
     'src/state/towerUnit.ts': { n: 2, verdict: 'a fallen stamp is grouped from ONE placer\'s shapes — a pants places none' },
     'src/state/vision.ts': { n: 2, verdict: 'a seat\'s own sight sources — a pants grants none' },
-    'src/state/world.ts': { n: 2, verdict: 'RAID: target owner !== raider → a pants is raidable' },
-    'src/bots/botBrain.ts': { n: 13, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none' },
-    'src/bots/botController.ts': { n: 1, verdict: 'a bot\'s own shapes' },
-    'src/bots/botRa.ts': { n: 3, verdict: 'Ra aim: everything not the bot\'s → a pants is a target' },
+    'src/bots/botBrain.ts': { n: 9, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none — S194 teams: the rest ask sameTeam' },
   };
 
   it('the enumeration is complete and every site has a verdict (a new comparison turns this red)', () => {
@@ -468,7 +582,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
   });
 
   it('SCORCH — isScorchImmune spares no seat\'s enemy pants, and the passive burns one in a demon\'s land (REACH)', () => {
-    for (const seat of [0, 1, 2, 3, 4, 5]) expect(isScorchImmune(MONSTER_OWNER_ID, asPlayerId(seat))).toBe(false);
+    for (const seat of [0, 1, 2, 3, 4, 5]) expect(isScorchImmune({ teams: undefined }, MONSTER_OWNER_ID, asPlayerId(seat))).toBe(false);
     const w = board(2);
     w.matchPhase = 'FIGHT';
     w.phaseEndsAtTick = w.tick + 1_000_000;
@@ -648,8 +762,116 @@ describe('S193 — a CLIENT reads the same countdown, banner and clock from the 
     applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(host))), client);
     expect(client.monsterFightStartTick).toBe(host.monsterFightStartTick);
     expect(monstersLeftToComeOut(client)).toBe(monstersLeftToComeOut(host));
-    expect(pantsBannerText(client)).toBe(pantsBannerText(host));
+    expect(pantsBannerText(client, megaPantsArrivalTick(client))).toBe(pantsBannerText(host, megaPantsArrivalTick(host)));
     expect(isClockFrozenForDisplay(client)).toBe(isClockFrozenForDisplay(host));
     expect(monstersLeftToComeOut(client)).toBeGreaterThan(0);
+  });
+});
+
+/* ══════════════════════ ⭐⭐ S194 R194-17 + R194-2 — A FALLEN SEAT'S LANE STOPS ══════════════════════ */
+
+describe('⭐⭐ S194 R194-17 × R194-2 — a seat knocked out mid-window: its un-emerged pants never come', () => {
+  it('REACH (3 seats, wave 28): after seat 2 falls, not one more pants is born for it, and the rest are still out by the window end', () => {
+    const world = board(3);
+    toFightEdge(world, 28);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const W = pantsWindowTicks(28);
+    const P2 = asPlayerId(2);
+    const seen = new Map<number, PlayerId | undefined>();
+    const sweep = (): void => {
+      for (const p of pants(world)) {
+        seen.set(p.id as unknown as number, p.monsterSeat);
+        dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+      }
+    };
+    while (world.tick - start < W / 2) { runHostTick(world, d, st); sweep(); }
+    const beforeFall = [...seen.values()].filter((s) => s === P2).length;
+    expect(beforeFall, 'anti-vacuity: seat 2 had pants before it fell').toBeGreaterThan(0);
+    world.players.get(P2)!.castleHp = 0;
+    const fallTick = world.tick;
+    while (world.tick - start <= W) { runHostTick(world, d, st); sweep(); }
+    expect([...seen.values()].filter((s) => s === P2).length, 'no pants for the fallen seat after the fall').toBe(beforeFall);
+    expect(world.tick).toBeGreaterThan(fallTick);
+    // ⭐ S194 (T8 merge) — the schedule runs over the LANES that started the fight: the fallen lane's slots
+    // are skipped at no cost, so every slot is consumed by the window's end and each SURVIVOR gets his full
+    // count, at an unchanged pace (was: the total shrank to count × living and the survivors got fewer).
+    expect(world.monsterWaveSpawned).toBe(monstersPerSeatForWave(28) * 3);
+    for (const s of [0, 1]) expect([...seen.values()].filter((v) => v === asPlayerId(s)).length, `seat ${s}`).toBe(monstersPerSeatForWave(28));
+    expect(monstersLeftToComeOut(world)).toBe(0);
+  });
+});
+
+/* ═══════════════════════ ⭐⭐ S194 R194-26 — THE MEGA PANTS IS THE 251st (REACH) ═══════════════════════ */
+
+describe('⭐⭐ S194 R194-26 — REACH: the mega pants walks out exactly one cadence step after the 250th', () => {
+  for (const seats of [2, 4]) {
+    it(`${seats} seats: the last wave pants at start + W, the mega pants at start + floor(T × W / (T − 1)), nothing between`, () => {
+      const world = board(seats);
+      toFightEdge(world, 31);
+      unkillable(world);
+      const d = deps();
+      const st = makeHostTickState(world);
+      runHostTick(world, d, st);
+      const start = world.monsterFightStartTick;
+      const W = pantsWindowTicks(31);
+      const T = monstersPerSeatForWave(31) * seats;
+      const slot = Math.floor((T * W) / (T - 1)); // derived from the constants, not typed
+      let lastPants = -1;
+      let megaAt = -1;
+      const seen = new Set<number>();
+      for (let t = 0; t < slot + 60 && megaAt < 0; t++) {
+        runHostTick(world, d, st);
+        for (const p of pants(world)) {
+          const id = p.id as unknown as number;
+          if (!seen.has(id)) { seen.add(id); lastPants = world.tick; }
+          dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+        }
+        if (mega(world).length > 0) megaAt = world.tick;
+      }
+      expect(seen.size, 'every wave pants out first').toBe(T);
+      expect(lastPants - start).toBe(W);
+      expect(megaAt - start, 'the 251st slot').toBe(slot);
+      expect(megaAt - start).toBe(megaPantsAtElapsed(world));
+      expect(megaAt - start).toBeGreaterThan(lastPants - start); // after the last, never before
+      expect(mega(world)).toHaveLength(1);
+    });
+  }
+});
+
+describe('⭐⭐ S194 R194-26 × T8 lanes — a seat falls mid-window and the mega pants STILL comes at his 251st slot', () => {
+  it('REACH (3 seats, wave 31): seat 2 falls at half the window; the mega pants walks out at start + floor(T × W / (T − 1)), T = 250 × 3 lanes', () => {
+    const world = board(3);
+    toFightEdge(world, 31);
+    unkillable(world);
+    const d = deps();
+    const st = makeHostTickState(world);
+    runHostTick(world, d, st);
+    const start = world.monsterFightStartTick;
+    const W = pantsWindowTicks(31);
+    const T = monstersPerSeatForWave(31) * 3; // the LANES that started the fight, not the living seats
+    const slot = Math.floor((T * W) / (T - 1));
+    let megaAt = -1;
+    for (let t = 0; t < slot + 60 && megaAt < 0; t++) {
+      if (world.tick - start === Math.floor(W / 2)) world.players.get(asPlayerId(2))!.castleHp = 0;
+      runHostTick(world, d, st);
+      for (const p of pants(world)) dispatch(world, { type: 'DESPAWN_CREATURE', creatureId: p.id });
+      if (mega(world).length > 0) megaAt = world.tick;
+    }
+    expect(world.players.get(asPlayerId(2))!.castleHp, 'anti-vacuity: seat 2 really fell').toBe(0);
+    expect(world.monsterWaveSpawned, 'every lane slot consumed, the fallen lane\'s skipped').toBe(T);
+    expect(megaAt - start, 'the 251st slot, unmoved by the fall').toBe(slot);
+    expect(megaAt - start).toBe(megaPantsAtElapsed(world));
+  });
+
+  it('NEGATIVE (the hazard the T8 auditor named): a schedule over LIVING seats would leave spawned short of the lane total — no mega', () => {
+    // with `living` (2) in the due line the schedule tops out at 250 × 2 = 500 slots, while the wave's
+    // slot total (`monsterWaveTotal`, the lanes) stays 750 → `megaPantsDue` waits forever
+    const W = pantsWindowTicks(31);
+    expect(monstersDueBy(W + 1000, 2, 250 * 2, W)).toBeLessThan(250 * 3);
+    expect(monstersDueBy(W, 3, 250 * 3, W)).toBe(250 * 3);
   });
 });

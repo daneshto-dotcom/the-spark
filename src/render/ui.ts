@@ -19,9 +19,11 @@ import {
   SCORE_TIER_STEP,
 } from '../constants.ts';
 import { isNetworked, type MatchPhase, type World } from '../state/world.ts';
+import { TEAM_COUNT, teamOf } from '../state/teams.ts';
 import { asPlayerId } from '../types.ts';
 import { isBuildLocked, isClockFrozenForDisplay, isMonsterWave, monstersLeftForSeat, monstersLeftToComeOut, monstersPerSeatForWave } from '../state/endgame.ts';
-import { MEGA_PANTS_AFTER_TICKS, MONSTER_FINAL_WAVE } from '../constants.ts';
+import { MONSTER_FINAL_WAVE } from '../constants.ts';
+import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
@@ -149,14 +151,35 @@ export const PANTS_BANNER_LINES: Readonly<Record<number, string>> = {
 };
 export const MEGA_PANTS_BANNER = 'MEGA PANTS HAS ENTERED THE CHAT';
 
+/**
+ * ⭐ S194 re-audit LOW-1 — the tick the newest MEGA PANTS actually walked out, or null when none stands.
+ * Derived from the live creature, not from his scheduled slot: the live cap can hold the last lane back,
+ * and he comes only after it (`megaPantsDue`). `spawnedAtTick` does not ride the wire, but
+ * `despawnAtTick` does, and for him it is `spawnedAtTick + lifetimeTicks` (born in FIGHT, so
+ * `lifetimeStartTick` is his birth tick) — so a joiner reads the same arrival.
+ */
+export function megaPantsArrivalTick(world: Pick<World, 'creatures'>): number | null {
+  let at: number | null = null;
+  for (const c of world.creatures.values()) {
+    if (c.type !== 'megaPants') continue;
+    const born = c.despawnAtTick - CREATURE_CONFIGS.megaPants.lifetimeTicks;
+    if (at === null || born > at) at = born;
+  }
+  return at;
+}
+
 export function pantsBannerText(
   world: Pick<World, 'matchPhase' | 'waveNumber' | 'monsterFightStartTick' | 'tick'>,
+  /** ⭐ S194 re-audit LOW-1 — when the mega pants really arrived (`megaPantsArrivalTick`), null if he has not. */
+  megaArrivedAtTick: number | null,
 ): string {
   if (world.matchPhase !== 'FIGHT' || !isMonsterWave(world.waveNumber) || world.monsterFightStartTick <= 0) return '';
   const elapsed = world.tick - world.monsterFightStartTick;
   if (elapsed >= 0 && elapsed < PANTS_BANNER_TICKS) return PANTS_BANNER_LINES[world.waveNumber] ?? '';
-  const sinceMega = elapsed - MEGA_PANTS_AFTER_TICKS;
-  if (world.waveNumber === MONSTER_FINAL_WAVE && sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
+  if (world.waveNumber === MONSTER_FINAL_WAVE && megaArrivedAtTick !== null) {
+    const sinceMega = world.tick - megaArrivedAtTick;
+    if (sinceMega >= 0 && sinceMega < PANTS_BANNER_TICKS) return MEGA_PANTS_BANNER;
+  }
   return '';
 }
 
@@ -837,7 +860,7 @@ export class HUD {
    * only); the wobble is render-only, on frames. Below the win overlay, above the board.
    */
   private drawPantsBanner(world: World): void {
-    const text = world.gameState === 'PLAYING' ? pantsBannerText(world) : '';
+    const text = world.gameState === 'PLAYING' ? pantsBannerText(world, megaPantsArrivalTick(world)) : '';
     if (text === '') {
       this.pantsBannerText.visible = false;
       return;
@@ -1145,7 +1168,11 @@ export class HUD {
       const winnerPid = world.lastWinnerId ?? asPlayerId(0);
       const winner = world.players.get(winnerPid);
       // S87 — a bot victory says so (rub it in / soothe accordingly).
-      const winLabel = isNetworked(world) && winner !== undefined
+      // ⭐ S192 — with teams on, the SIDE wins: "TEAM 2 WINS" (the lobby's 1-based number). A seat that
+      // picked no team (alone on its side) keeps its PLAYER/BOT label.
+      const winLabel = isNetworked(world) && winner !== undefined && world.teams !== undefined && teamOf(world, winnerPid) < TEAM_COUNT
+        ? `TEAM ${teamOf(world, winnerPid) + 1} WINS`
+        : isNetworked(world) && winner !== undefined
         ? world.botSeats.has(winnerPid)
           ? `BOT ${winnerPid + 1} WINS`
           : `PLAYER ${winnerPid + 1} WINS`

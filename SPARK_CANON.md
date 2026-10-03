@@ -641,12 +641,21 @@ calm for `WARLORD_RAGE_COOLDOWN_TICKS` = **1500** ticks whatever his health, and
 he rages again at once. ⭐ The cooldown's length is HIS (S192): *"Rage cooldown 25 seconds, that's fine.
 Per warlord."* Both windows derive from ONE stamp per Warlord, `Creature.rageStartTick`, written only by
 `runWarlordRage` — serialized, hashed, on the wire.
-⭐ **THE PATTERN, RULED (S191):** the latch runs only in FIGHT, so a rage still running at the whistle
-stays red through the whole BUILD and the next FIGHT — re-judged on that FIGHT's first tick, which fires afresh —
-*"Yeah, that's fine. Who cares? You can't really see the creatures anyways."* A hurt Warlord therefore
-rages from each FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`
-inside `FIGHT_PHASE_TICKS` — today: raging 0–25 s, then from 50 s through the whistle and all of BUILD.
-Goblins never rage.
+⭐⭐ **THE PATTERN, RULED (S194, R194-31 — SUPERSEDES S191's "red through BUILD"):** his screenshot showed
+frenzied orc soldiers back at their tower in BUILD, still red.
+*"Rage. When it's … turned on by a warlord, should last only 25 seconds. Either for himself or for the units that he affected.
+After twenty-five seconds, it has been cooled down, and then … if he's still there and low health, … he can enrage again.
+Next fight."* — owner, S194. So the window is `WARLORD_RAGE_TICKS` of sim time from `rageStartTick`
+**in any phase**: `runWarlordRage` and `runBloodFrenzy` run on every playing tick (`hostTick` calls both
+in its non-FIGHT branch too), but a NEW rage fires only in FIGHT (`mayFire`).
+A rage started at FIGHT 50 s with the whistle at 60 s therefore ends at 75 s — 15 s into BUILD — for him
+AND for every orc his frenzy raised, and nobody is red for the rest of BUILD; a frenzied unit never outlives
+its source's window. ⚠ MINE (S194, reported): the cooldown runs through BUILD as well — it is the same single stamp.
+A hurt Warlord rages from each FIGHT's first tick, again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS`
+inside `FIGHT_PHASE_TICKS`, and a window still open at the whistle runs out in BUILD — today:
+raging 0–25 s, then from 50 s to 75 s (15 s past the whistle), calm for the rest of BUILD, then afresh on the
+next FIGHT's first tick. S191's *"Yeah, that's fine. Who cares?"* is history (`warlordRageClock.test.ts`,
+the S194 block, crosses a real whistle). Goblins never rage.
 
 ⛔ **THE FRENZY NEVER TOUCHES A WARLORD (S191).** *"I don't think each warlord should be able to enrage
 the other warlord. Yes, the warlord enrages all the orc units, but still rage for himself is … warlord
@@ -821,9 +830,9 @@ slot). His answers, each HIS:
   bags burn at the same half rate.
 - **Own zone = double**: the passive and the cast are separate clocks, so outsiders' units there burn ×2.
 - **Not burned:** the castle (HIS), gatherers and avatars (§4), a DORMANT Helga (a record, not a unit).
-- **Resistance is the CASTER'S SEAT only** — `isScorchImmune(owner, spared)`, the ONE site; R192-T1
-  (*teammates never damage each other … a demon teammate's zone does not burn you*) changes that function
-  and nothing else when teams are built.
+- **Resistance is the CASTER'S SEAT and its TEAM** — `isScorchImmune(world, owner, spared)`, the ONE site;
+  R192-T1 (*teammates never damage each other … a demon teammate's zone does not burn you*, superseding T7)
+  made it `sameTeam` and changed nothing else. In a free-for-all that is the caster's seat only.
 - **A fallen caster:** his cast on an ENEMY zone stops; his OWN zone keeps burning (HIS, S191). ⚠ MINE: the
   zone's owner falling after the cast leaves it burning.
 - ⚠ Consequence, measured: one cast banks 60 % of one connector of a 5-connector tower per FIGHT, and burn
@@ -947,11 +956,14 @@ flung debris. Measured, pinned and reported rather than taken.
 | build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
 | the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
 | monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
-| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. ⚠ MINE as a tick rule: one LANE per living seat, born on the quarry rim facing its keep, **one every 45 ticks** per lane (`MONSTER_EMERGE_TICKS`), lanes staggered |
+| the window | ⭐⭐ S194 R194-17 HIS (option B): every pants of the wave comes out inside a window — waves **27 → 30 s · 28 → 45 s · 29 → 60 s · 30 → 90 s · 31 → 120 s** (`PANTS_WINDOW_SECONDS`). ⚠ MINE: the window starts at the FIGHT's whistle; first pants at the whistle, last EXACTLY at the window's end (release `r` at `floor(r × W / (T − 1))`, `monstersDueBy`) — 250 in 120 s ≈ every 28.9 ticks |
+| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. One LANE per living seat, born on the quarry rim facing its keep, lanes staggered, one release per tick at most. ~~one every 45 ticks per lane (`MONSTER_EMERGE_TICKS`)~~ — S194: the window sets the pace; the constant is retired in place |
 | the countdown | ⭐ S193 HIS: *"how many are left to come out"* — `PANTS LEFT TO COME OUT: N` on the top banner (`monstersLeftToComeOut`, derived) |
-| the hold | ⚠ MINE: waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
+| the fight length | ⭐ S194 ⚠ MINE: a monster fight lasts `max(60 s, window + 10 s)` (`monsterFightTicks`) — **27 → 60 s · 28 → 60 s · 29 → 70 s · 30 → 100 s** (31 → 130 s, but see the final fight) — set at the whistle, so it is PREDICTABLE |
+| the live cap | ⭐ S194 R194-27 — he wanted none (*"just come one after another nonstop"*) *"if you think the cap is needed … then sure"*. MEASURED (`src/net/pantsLoadMeasure.test.ts`, 4 seats, nobody killing): 1000 live = 6.1 ms p50 of host sim and **160 KiB** a snapshot even after the S194 targeting perf fix (which cut 500 live from 7.9 to 3.1 ms) — over the ~84 KiB budget twice. ⚠ MINE: **`MONSTER_MAX_LIVE_TOTAL` = 360** live, split over the living seats (`monsterMaxLivePerSeat`: 2 → 180 · 4 → 90 · 6 → 60; was 30 a seat) |
+| the hold | ⚠ MINE, now a safety net only (the live cap can make a lane wait past its window): waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
 | the final fight | ⭐ S193 HIS: wave 31 **never ends on the clock while two or more seats live** — a keep-standing or score win ends it |
-| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*), ⚠ MINE numbers: walks out **240 s** into the final fight (`MEGA_PANTS_AFTER_TICKS`), HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
+| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*). ⭐⭐ S194 R194-26 HIS: **he is the 251st** — *"it's literally the last one in queue"* — the next slot of the window's cadence after the last pants, `floor(T × W / (T − 1))` (`megaPantsSlotTicks`): **2 seats → 7214 ticks · 4 seats → 7207 ticks**, and never before the last pants is actually out (~~240 s, `MEGA_PANTS_AFTER_TICKS`~~ retired). ⚠ MINE numbers: HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
 | the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
 | owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
 | retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
@@ -1075,6 +1087,20 @@ tower; with every slot covered the pull is the old full-porch no-op, the shape s
 ⚠ The trade, his call: a player who builds over his own porch loses those slots for pulls until the tower
 goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat).
 
+⭐⭐ **S194 R194-16 — THE ENTRANCE IS NOT BUILT ON, AND IT MOVED RIGHT UNDER THE CASTLE.** *"Castle entrance
+is where the shapes come out. Oh yeah, you should definitely not be able to build over that. Leave that a
+little space. Or make that entrance like right under the castle, like closer."* Both are built:
+- the porch row is `CASTLE_PORCH_OFFSET_Y` = **42** (was 74; ⚠ MINE, measured — the art's visible base is
+  the keep foot +29 on all six atlases, the tallest shape reaches 11 above its centre, +2 px air). The
+  gatherer deposit point (`GATHERER_DEPOSIT_OFFSET_Y`) IS that row now and moves with it;
+- `zones.castleKeepOutHitsBox` gained ONE small arm: nothing is built within
+  `CASTLE_PORCH_BUILD_CLEAR_RADIUS` = **17** px (⚠ MINE: the porch's own occupancy radius) of any porch slot of
+  ANY castle — host reducer, drag ghost, stamp ghost (`CASTLE`) and bots alike. Measured reach: **south 61,
+  east 61** for a single shape (the row's own reach, 42 + 17 = 59, is inside the disc); the only bulge is a
+  lobe round each OUTER slot, **78.5 px on the SE/SW diagonal**. A tall stamp laid beside the keep gains
+  1–2 px (laser 61.9 → 62.9, goblin tower 61.0 → 63.0; south unchanged at 61.0). The S193 pull skip
+  (`CASTLE_PORCH_KEEP_OUT_RADIUS` 34) still guards a slot a legal shape stands 17–34 px from.
+
 ---
 
 ## 5 · WHO SHOOTS WHAT
@@ -1187,9 +1213,68 @@ unchanged.
 
 ---
 
+## 5d · ⭐⭐ TEAMS — RED ALERT STYLE, TEAMS 1–4 (S192, `s192/teams`)
+
+**The rulings (owner, S192 — `S192_OWNER_RULINGS_teams_magic.md`):**
+- **R192-T1 — teammates never damage each other**: units, towers, and zone effects (*"a demon teammate's
+  zone does not burn you"*). It SUPERSEDES T7's *"he still gets hit"*: a teammate does not take your
+  Scorched Earth / SCORCHED GROUND.
+- **R192-T2 — no wall between teammates' zones** (*"one continuous zone"*). `wallSeparatesSides`.
+- **R192-T3 — v1: you cannot build in a teammate's zone.** v2 (leaning, NOT built): one buildable half per
+  team with an adaptive combined backdrop.
+- **R192-T4 — a team pick in BOTH lobbies**, `TEAM_COUNT` = **4** teams. The multiplayer lobby's chip sends
+  `CLAIM_TEAM`; the host answers with the presence beacon (no local optimism).
+
+**How it is built:** ONE predicate, `state/teams.ts` — `sameTeam` / `isEnemySeat` / `sameTeamColor`. Every
+"is this an ENEMY?" decision asks it; every "is this MINE?" decision stays seat equality.
+`teams.sites.test.ts` pins both kinds per file (field AND seat-variable comparisons) and
+`teams.reach*.test.ts` drive each damage site through the host tick with a teammate and an enemy.
+`world.teams` is stamped once by the HOST at START_GAME and rides the snapshot; a joiner, the worker and a
+successor read it, never compute it. **A free-for-all is byte-identical**: with no shared team
+`world.teams` is undefined and `sameTeam(a, b)` is `a === b` (`teams.ffaDifferential.test.ts`, 90
+checkpoints against master).
+
+**The win rule:** the match ends when every contender left is on ONE side (**last TEAM standing**); the
+winning side's LOWEST living seat names it, and the banner reads **TEAM N WINS**. The points race is
+per-seat, unchanged — the first seat to the bar wins for its team.
+
+**⚠ MINE (built as defaults, the owner has not ruled — each is one line to flip):**
+- A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
+  least two sides"*), and the sim falls back to the free-for-all.
+- **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
+- The **Pharaoh boss's columns** ("kills everything") still hit his OWN seat but spare its TEAMMATES.
+- ⚠ MINE (S194) — an endgame WIPE (wave 27+, every keep down) crowns the top-scoring SEAT (S193 Q2); with
+  teams on, that seat's TEAM wins and the banner reads TEAM N WINS like any other team win.
+
+**⭐ S194 — the master sites that landed after round 2 (deploys #18–#23), each asks the one predicate:**
+- **The zombie boss's death blast spares his whole TEAM — NOT MINE any more.** R193-B3 (*"It does not hit
+  his own side"*) retired R138's *"hurting everything"*, so his own seat is spared by ruling and R192-T1
+  extends it to his teammates (`zombieBlastTargets`: every arm `sameTeam`, a structure when either end is).
+  The S192 default (teammates spared, his own seat burns) is SUPERSEDED. `T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE`
+  stays `false`.
+- The **Saboteur** bot's leader (`leaderTargetSeat`, also its Ra "front" focus) is the top ENEMY — never a
+  teammate; flat among enemies is flat.
+- The RESIST cue mirrors the sim's team spare (rot, stink aura, landed bag); a teammate's building card reads
+  **ALLY BUILDING**; the end-of-match board reads **TEAM N WINS** and stars the whole winning team.
+- The bot lobby row holds four chips — difficulty · personality · race · team (panel 960 px); a re-seated bot
+  keeps its personality (`permuteBots`).
+- CORPSE EATER never eats a teammate's unit; THE RISEN raises only from enemy-TEAM kills.
+- The overkill CARRY stays on the struck connector's OWNER (narrower than a team).
+- A human may cast Scorched Earth on a teammate's zone (only enemies standing there burn).
+- A bot never aims its Scorched Earth at a teammate's zone.
+- A teammate's fallen castle: today's elimination, unchanged (that seat spectates; its zone stays
+  unbuildable).
+- **NOT built:** shared vision between teammates (Q8 — recommended yes), the v2 merged half (T3).
+
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **64** (S194 — s194/fixes; see the S194 entries on the const). 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **67** (S195 L1 — s194/rules, R194-16/17/26/27; see the S195 entry on the const). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 67 (S195, L1)** — s194/rules: the porch row 74 → 42 with the porch no-build arm `CASTLE_PORCH_BUILD_CLEAR_RADIUS` 17 (R194-16); the pants window 30/45/60/90/120 s (R194-17); the mega pants is the 251st slot (R194-26); the live pants cap is 360 total (R194-27).
+
+⭐⭐ **WHAT RIDES 66 (S194, deploy #6)** — s194/rage (R194-31): the Warlord rage window and his units' BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. T9 coherence, T15 weld-rebuild, T10 matchboard ride (render/UI).
+
+⭐⭐ **WHAT RIDES 65 (S194, deploy #5)** — s194/entropy: the ENTROPY TAX roll at each FIGHT whistle and the new `'entropy'` sever cause; s192/teams: `world.teams`, `RosterEntry.team`, the `CLAIM_TEAM` lobby message.
 
 ⭐⭐ **WHAT RIDES 62 (S193, deploy #23)** — s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first.
 

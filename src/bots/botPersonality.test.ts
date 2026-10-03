@@ -320,10 +320,11 @@ describe('S193 — the new brain functions, each with its negative', () => {
     expect(chooseTowerPlan(w, BOT, fort)?.blueprintId).toBe('stinkTower');
   });
 
-  it('S194: only WARMONGER and IMBA FORTRESS narrow their substitutes — every other cell keeps the pre-S194 "any"', () => {
+  it('S194: only WARMONGER, FORTRESS and IMBA SABOTEUR narrow their substitutes — every other cell keeps the pre-S194 "any"', () => {
     for (const tier of BOT_DIFFICULTIES) for (const p of BOT_PERSONALITIES) {
       // WARMONGER at every tier that has one (Q-E + the HARD re-pin), FORTRESS at IMBA. NOOB is BALANCED.
-      const want = tier !== 'NOOB' && (p === 'WARMONGER' || (tier === 'IMBA' && p === 'FORTRESS')) ? 'listed' : 'any';
+      // ⭐ S194 R3 (porch +42): FORTRESS at every tier, SABOTEUR at IMBA joined (see the table's comments).
+      const want = tier !== 'NOOB' && (p === 'WARMONGER' || p === 'FORTRESS' || (tier === 'IMBA' && p === 'SABOTEUR')) ? 'listed' : 'any';
       expect(botConfigFor(tier, p).persona!.substitute, `${tier} ${p}`).toBe(want);
     }
   });
@@ -406,6 +407,17 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     for (const m of [bal, fort, tyc]) expect(sum(m, (s) => s.feeds)).toBe(0);
     expect(Math.min(...war.seats.map((s) => (s.firstFeedTick < 0 ? Infinity : s.firstFeedTick)))).toBeLessThan(5400);
     // FORTRESS — measured mean defence ratio 0.44, the highest; stink first on 2/3 seats.
+    /*
+     * ⭐ S194 R3 RE-MEASURE (s194/rules, porch +74 → +42, R194-16; no pin relaxed — the TABLE was re-tuned).
+     * The closer porch shortens every gatherer trip: HARD BALANCED now stamps a stink tower on 3/3 seats (0.50) and the
+     * S193 FORTRESS row fell to 0.42 (nagas>nagas>stink>goblin | stink>mummies | stink>zombies). FORTRESS now
+     * `substitute: 'listed'`. Measured, 300 s, 0xb07 / 0xbeef:
+     *   BALANCED  nagas>stink>stink>goblin | mummies>stink | zombies>stink            def 0.50
+     *   WARMONGER goblin>nagas>pentagram | goblin>mummies | zombies                   def 0.00 · fed 16
+     *   FORTRESS  stink>nagas>stink>goblin | stink>mummies>stink | stink>zombies     def 0.56 · stink first 3/3
+     *   TYCOON    nagas>stink>goblin | mummies | zombies×2                            def 0.11 · loose 52
+     *   SABOTEUR  pentagram>nagas>stink | pentagram>mummies | pentagram>zombies       def 0.11
+     */
     for (const m of [bal, war, tyc, sab]) expect(meanDef(fort)).toBeGreaterThan(meanDef(m));
     expect(fort.seats.filter((s) => s.stamps[0] === 'stinkTower').length).toBeGreaterThanOrEqual(2);
     // TYCOON — measured 54 loose shapes vs BALANCED's 34: the fast, wide builder.
@@ -423,6 +435,14 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
       expect(sum(m, (s) => s.feeds), `IMBA ${p} feeds`).toBeGreaterThan(0);
     }
     const fort = sig('IMBA', 'FORTRESS');
+    /*
+     * ⭐ S194 R3 RE-MEASURE (s194/rules, porch +74 → +42; table re-tuned, no pin relaxed). Measured, 300 s:
+     *   BALANCED  goblin>nagas>stink | goblin>mummies | zombies×3                     def 0.11 · fed 16
+     *   WARMONGER goblin>nagas×2>pentagram | goblin>mummies×2>pentagram | zombies×3   def 0.00 · fed 18 (IMBA hold 3300)
+     *   FORTRESS  goblin>stink>goblin>laser | goblin>stink | goblin>laser             def 0.50 · the only laser
+     *   TYCOON    goblin>stink | goblin | zombies×2                                   def 0.17 (order goblin>stink, hold 1650)
+     *   SABOTEUR  goblin×2>pentagram | goblin×2 | goblin                              def 0.00 (substitute 'listed')
+     */
     /*
      * ⭐ S194 (T7) — THE FORTRESS IDENTITY IS RESTORED, and both S193 pins are back.
      * History: S193 measured Fortress as the only IMBA laser and the highest mean defence (0.44). Deploy #23's
@@ -518,7 +538,8 @@ describe('S193 — the lobby pick REACHES both bot managers', () => {
    */
   it('main.ts passes the lobby personalities to BOTH managers; simWorker forwards them', () => {
     const main = readFileSync('src/main.ts', 'utf-8');
-    expect(main).toMatch(/onStart: \(difficulties, races, personalities\) =>/);
+    expect(main).toMatch(/onStart: \(pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams\) =>/); // S194 — + teams
+    expect(main).toMatch(/const personalities = permuteBots\(pickedPersonalities, order\);/); // re-seated with its bot
     expect(main).toMatch(/new mod\.BotManager\(difficulties, matchSeed, personalities\)/);
     expect(main).toMatch(/botPersonalities: workerBotInit\.personalities/);
     const worker = readFileSync('src/simWorker.ts', 'utf-8');
@@ -602,12 +623,13 @@ describe('⛔ S193 audit HIGH — under the ENDGAME BUILD LOCK a bot stops placi
 });
 
 describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => {
-  it('no tagline is longer than BOT_TAGLINE_MAX_CHARS (27 = 196 px / 7.2 px a glyph)', () => {
+  it('no tagline is longer than BOT_TAGLINE_MAX_CHARS (27 ≤ 226 px / 7.2 px a glyph = 31)', () => {
     // The arithmetic, re-derived from the overlay's layout so a re-layout that moves the chips is caught
-    // by re-reading this line: (RACE_X − 92) − (−PANEL_W/2 + 64) − 8 with PANEL_W 860, RACE_X 430 − 500.
-    const free = (860 / 2 - 500 - 92) - (-860 / 2 + 64) - 8;
-    expect(free).toBe(196);
-    expect(Math.floor(free / (0.6 * 12))).toBe(BOT_TAGLINE_MAX_CHARS);
+    // by re-reading this line. ⭐ S194 (teams) — the LEFTMOST chip is now the TEAM chip (±36), so the room is
+    // (TEAM_X − 36) − (−PANEL_W/2 + 64) − 8 with PANEL_W 960, TEAM_X 480 − 626. 27 still fits, with 4 spare.
+    const free = (960 / 2 - 626 - 36) - (-960 / 2 + 64) - 8;
+    expect(free).toBe(226);
+    expect(Math.floor(free / (0.6 * 12))).toBeGreaterThanOrEqual(BOT_TAGLINE_MAX_CHARS);
     for (const t of [...Object.values(BOT_PERSONALITY_TAGLINES), BOT_PERSONALITY_LOCKED_TAGLINE]) {
       expect(t.length, t).toBeLessThanOrEqual(BOT_TAGLINE_MAX_CHARS);
     }
@@ -615,8 +637,9 @@ describe('S193 audit LOW-2 — every lobby tagline clears the race chip', () => 
 
   it('the overlay still lays the chips out where the arithmetic assumes', () => {
     const overlay = readFileSync('src/render/botSetupOverlay.ts', 'utf-8');
-    expect(overlay).toMatch(/const PANEL_W = 860;/);
-    expect(overlay).toMatch(/const RACE_X = PANEL_W \/ 2 - 500;/);
+    expect(overlay).toMatch(/const PANEL_W = 960;/); // S194 — 860 → 960 for the team chip
+    expect(overlay).toMatch(/const TEAM_X = PANEL_W \/ 2 - 626;/);
+    expect(overlay).toMatch(/TEAM_CHIP_RECT = \{ x: -36, y: -18, w: 72, h: 36 \}/); // the team chip's ±36 (S194: one rect, plate + hit)
     expect(overlay).toMatch(/roundRect\(-92, -18, 184, 36, 6\)/);
     expect(overlay).toMatch(/tagline\.position\.set\(-PANEL_W \/ 2 \+ 64,/);
   });

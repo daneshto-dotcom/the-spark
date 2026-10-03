@@ -40,6 +40,7 @@ import type { PrimitiveId } from '../types.ts';
 import { isConcealed } from './concealment.ts';
 import { markTowerCover } from './towerCover.ts';
 import { TOWER_SPRITE_ANCHOR } from './towerFrames.ts';
+import { heldOwnBanked } from './towerHealthHold.ts'; // ⭐ S194 T15 (R194-30)
 import {
   advanceRampCursor, rampCell, rampHealthFrac, rampMembersAt, rampSpecFor, rampTargetFrame,
   shouldStartGhost, type RampCursor, type RampSpec,
@@ -204,7 +205,13 @@ export class StructureRampRenderer {
     const at = rampMembersAt(world, anchorId, spec);
     if (at === null) return false;
     const { members, bonds, cx, cy, newestTick } = at;
-    const frac = rampHealthFrac(bonds.length, at.bankedFifths, spec);
+    /*
+     * ⭐ S194 T15 (owner R194-30) — the HELD own damage (`towerHealthHold.ts`), the number the bar and the
+     * card show. A re-form of the welded structure drains the tower's own connectors; read raw, that drain
+     * snapped this art from the collapse frames straight back to frame 1 — *"it rebuilds the tower
+     * automatically"*. Only a FIX (or a genuinely new tower) heals the art now.
+     */
+    const frac = rampHealthFrac(bonds.length, heldOwnBanked(spec.recipeId, anchorId, at.bankedFifths), spec);
     // ⭐ S182 — a DOOMED structure aims at the last frame, so its collapse plays from synced
     // health on every peer instead of only on the one that had a ghost record. See `rampTargetFrame`.
     const target = rampTargetFrame(frac, spec);
@@ -224,7 +231,7 @@ export class StructureRampRenderer {
     sprite.tint = tint;
 
     // Declared HERE, after the sprite is committed — never above the fog skip or the atlas bail.
-    markTowerCover(members, bonds, newestTick);
+    markTowerCover(members, bonds, newestTick, { x: cx, y: cy + spec.artPx * 0.5, w: spec.artPx, h: spec.artPx }); // ⭐ S194 — the foot
     this.lastSeen.set(key, { x: cx, y: cy, spec });
     return true;
   }

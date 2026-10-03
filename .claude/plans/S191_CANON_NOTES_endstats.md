@@ -1,4 +1,4 @@
-**STATUS: IN-PROGRESS — S191 `s191/endstats` canon notes for the merge owner (this branch may not edit `SPARK_CANON.md` / `src/canon.test.ts`).**
+**STATUS: COMPLETE — S191 `s191/endstats` canon notes, consumed (shipped deploy #22, S193).**
 
 # S191 — canon notes: THE END-OF-MATCH STAT BOARD
 

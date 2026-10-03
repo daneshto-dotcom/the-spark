@@ -76,6 +76,7 @@ import { RACE_COLORS, type RaceId } from '../state/races.ts';
 import { attackFifths, unitPoolFifths } from '../state/stats.ts';
 import { T9_BOSS_NAMES, T9_BOSS_TYPE } from '../state/t9BossIds.ts';
 import type { World } from '../state/worldTypes.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { CreatureId, DefenderId, PlayerId, PrimitiveId, StinkCloudId, Vec2 } from '../types.ts';
 import { codexCopyFor, type EmblemSpec } from './codexPresentation.ts';
 import { blueprintBill } from '../state/blueprints.ts';
@@ -85,7 +86,7 @@ import { isConcealed } from './concealment.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
-import { structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7
+import { heldOwnPoolAt, structureHealthAt } from './structureBarHealth.ts'; // ⭐ S191 C-7 · ⭐ S194 T15 the hold
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import {
   structureComposition, structureHealth, structureTowersAt, towerOwnHealth, towerOwnPoolAt, towerUnitAt, unitClickShape,
@@ -1286,7 +1287,7 @@ function creatureSheet(
   return {
     target,
     title: creatureDisplayName(c.type),
-    subtitle: `${tierOf(c.type)} · ${(race ?? 'unaligned').toUpperCase()}` + (c.ownerPlayerId === seat ? '' : ' · ENEMY'),
+    subtitle: `${tierOf(c.type)} · ${(race ?? 'unaligned').toUpperCase()}` + (c.ownerPlayerId === seat ? '' : sameTeam(world, c.ownerPlayerId, seat) ? ' · ALLY' : ' · ENEMY'),
     portrait: portraitForCreature(c.type, race),
     health: { cur: Math.max(0, c.ehp), max, frozen },
     stats,
@@ -1328,7 +1329,7 @@ function defenderSheet(
   return {
     target,
     title: d.kind.toUpperCase(),
-    subtitle: d.ownerPlayerId === seat ? 'YOUR UNIT' : 'ENEMY UNIT',
+    subtitle: d.ownerPlayerId === seat ? 'YOUR UNIT' : sameTeam(world, d.ownerPlayerId, seat) ? 'ALLY UNIT' : 'ENEMY UNIT',
     portrait: { kind: 'defenderFrame', defenderKind: d.kind },
     health: { cur: Math.max(0, d.ehp), max, frozen },
     stats,
@@ -1420,7 +1421,7 @@ function structureSheet(
   return {
     target,
     title: recipeId === null ? 'STRUCTURE' : codexCopyFor(recipeId).name,
-    subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
+    subtitle: mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING', // S194 — a teammate's is an ALLY's
     portrait: portraitForStructure(recipeId),
     health: { cur: health.cur, max: pool, frozen },
     stats,
@@ -1470,9 +1471,20 @@ function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId:
   return rows;
 }
 
+/**
+ * ⭐ S194 T15 (owner R194-30) — a LIVE tower's own pool as the board bar and the art show it: held through
+ * a re-form of its welded structure (`heldOwnPoolAt`). A fallen stamp reads exactly `towerOwnHealth` (0).
+ */
+function shownOwnHealth(world: World, u: TowerUnit): { cur: number; max: number } {
+  const pool = towerOwnHealth(world, u);
+  if (u.kind !== 'live') return pool;
+  const held = heldOwnPoolAt(world, u.recipeId, u.anchorId);
+  return held === null ? pool : { cur: held.cur, max: pool.max };
+}
+
 /** One welded-structure row for `u` — ONE derivation for both cards. */
 function weldedRowFor(world: World, u: TowerUnit): SheetWeldedTower {
-  const pool = towerOwnHealth(world, u);
+  const pool = shownOwnHealth(world, u);
   return {
     target: { kind: 'structure', primitiveId: unitClickShape(world, u) }, // S192 IDENTITY-2 — THIS tower, never a shared anchor
     name: codexCopyFor(u.recipeId).name,
@@ -1511,7 +1523,7 @@ function weldedTowerSheet(
 ): CharacterSheetView {
   const prim = world.primitives.get(target.primitiveId)!;
   const members = new Set(unit.members);
-  const pool = towerOwnHealth(world, unit);
+  const pool = shownOwnHealth(world, unit);
   const ownBonds = unit.kind === 'live'
     ? (towerOwnPoolAt(world, unit.recipeId, unit.anchorId)?.connectors ?? 0) // S193 SEAM-C7 — the pool's own walk
     : [...st.bondIds].filter((id) => {
@@ -1540,7 +1552,7 @@ function weldedTowerSheet(
   return {
     target,
     title: codexCopyFor(recipeId).name,
-    subtitle: `${mine ? 'YOUR BUILDING' : 'ENEMY BUILDING'} · WELDED`,
+    subtitle: `${mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING'} · WELDED`, // S194
     portrait: portraitForStructure(recipeId),
     health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
     stats,
@@ -1587,7 +1599,7 @@ function weldedStructureSheet(
   return {
     target,
     title: 'WELDED STRUCTURE',
-    subtitle: mine ? 'YOUR BUILDING' : 'ENEMY BUILDING',
+    subtitle: mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING', // S194 — a teammate's is an ALLY's
     portrait: portraitForStructure(null),
     health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
     stats,
@@ -1666,7 +1678,7 @@ function castleSheet(
   return {
     target,
     title: 'CASTLE',
-    subtitle: `${mine ? 'YOURS' : 'ENEMY'} · ${(p.raceId ?? 'unaligned').toUpperCase()}`,
+    subtitle: `${mine ? 'YOURS' : sameTeam(world, target.seat, seat) ? 'ALLY' : 'ENEMY'} · ${(p.raceId ?? 'unaligned').toUpperCase()}`,
     portrait: { kind: 'castleFrame', race: p.raceId ?? null },
     health: {
       cur: Math.max(0, p.castleHp),
@@ -1756,7 +1768,7 @@ function stinkCloudSheet(
   return {
     target,
     title: 'STINK BAG',
-    subtitle: mine ? 'YOURS · AURA' : 'ENEMY · AURA',
+    subtitle: mine ? 'YOURS · AURA' : sameTeam(world, bag.ownerPlayerId, seat) ? 'ALLY · AURA' : 'ENEMY · AURA',
     /*
      * ⭐ S182 — **THE BAG SHOWS THE BAG.** This said *"a bag has its own art in the stink-tower
      * sheet's family; until that is wired it keeps a plate"* — and the plate it kept was the stink

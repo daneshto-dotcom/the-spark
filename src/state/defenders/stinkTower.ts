@@ -54,6 +54,7 @@ import { magicDot, type DamageClass } from '../magicResist.ts';
 import { attackFifths } from '../stats.ts';
 import { mix32, pseudoRand } from '../rng.ts';
 import type { World } from '../worldTypes.ts';
+import { sameTeam } from '../teams.ts';
 import type { Defender } from './defender.ts';
 
 /**
@@ -361,7 +362,7 @@ export function stinkAggroTargets(world: World, d: Defender): number[] {
   const r2 = STINK_AURA_RADIUS * STINK_AURA_RADIUS;
   const out: number[] = [];
   for (const [cid, c] of world.creatures) {
-    if (c.ownerPlayerId === d.ownerPlayerId) continue;
+    if (sameTeam(world, c.ownerPlayerId, d.ownerPlayerId)) continue; // S192 — never a teammate
     const dx = c.pos.x - d.pos.x;
     const dy = c.pos.y - d.pos.y;
     if (dx * dx + dy * dy <= r2) out.push(cid as unknown as number);

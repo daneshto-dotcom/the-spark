@@ -732,8 +732,7 @@ export const GATHERER_SPEED_PER_LEVEL = 0.8;
 export const GATHERER_MAX_SPEED_LEVEL = 5;
 /** How close a gatherer must be to a spark to pick it up / to its keep to deposit. */
 export const GATHERER_REACH = 22;
-/** Where a hauled shape is parked, relative to the owner's keep anchor. */
-export const GATHERER_DEPOSIT_OFFSET_Y = 74;
+/* GATHERER_DEPOSIT_OFFSET_Y moved below the porch block (S194 R194-16) — it IS the porch row now. */
 
 /**
  * S141 P2 (V6-1.4) — how many entries one player's gatherer ORDER QUEUE may hold.
@@ -787,11 +786,48 @@ export const GATHERER_ORDER_QUEUE_MAX = 24;
  * construction, and refuses the pull when the porch is full.
  */
 export const CASTLE_PORCH_SLOTS = 4;
-/** Porch row offset below the keep anchor, and the horizontal pitch between slots. */
-export const CASTLE_PORCH_OFFSET_Y = 74;
+/**
+ * Porch row offset below the keep anchor, and the horizontal pitch between slots.
+ *
+ * ⭐⭐ S194 R194-16 (owner) — **THE ENTRANCE MOVED RIGHT UNDER THE CASTLE: 74 → 42.**
+ * > *"Castle entrance is where the shapes come out. Oh yeah, you should definitely not be able to build
+ * > over that. Leave that a little space. Or make that entrance like right under the castle, like closer."*
+ * He asked for both; both are built (the "little space" is `zones.CASTLE_PORCH_BUILD_CLEAR_RADIUS`).
+ *
+ * ⚠ MINE, MEASURED — 42 is as close as the art allows without a pulled shape overlapping it:
+ *   · the castle SPRITE is foot-anchored at the keep box's foot, `anchor.y + KEEP_H / 2` = **+29**, and
+ *     measured on all six shipped atlases (`public/art/castles/*-atlas.png`, alpha > 32) the intact and
+ *     damaged rows paint down to cell row 254–255 of 256 — i.e. the art's visible base IS +29;
+ *   · the tallest shape ABOVE its own centre is the Spiral (max r 10 + 1 px stroke = **11**,
+ *     `render/shapes.ts`; the Circle is 10, the Triangle's apex 9.2) — sparks are never rotated;
+ *   · 29 + 11 = 40, plus **2** px of air (the same ~2 px margin `STAMP_CLEARANCE` keeps) = **42**.
+ * The keep box's foot is +29 too, so a pulled shape's soft-collision radius (≤ 10.8) never reaches it.
+ * `castleBank.test.ts` re-derives 42 from those numbers. Before S194 it was 74 (S136, never measured).
+ */
+export const CASTLE_PORCH_OFFSET_Y = 42;
 export const CASTLE_PORCH_PITCH_X = 30;
 /** A porch slot counts as occupied if any spark is within this radius of it. */
 export const CASTLE_PORCH_SLOT_CLEAR_RADIUS = 17;
+
+/**
+ * Where a hauled shape is parked (the gatherer's walk target), relative to the owner's keep anchor.
+ * ⭐ S194 R194-16 — the ENTRANCE: it was a second literal 74 that happened to equal the porch row, so
+ * it now IS the porch row and moves with it (`CASTLE_PORCH_OFFSET_Y`).
+ */
+export const GATHERER_DEPOSIT_OFFSET_Y = CASTLE_PORCH_OFFSET_Y;
+
+/**
+ * ⭐ S194 (audit LOW-2) — WHERE A NEWLY BOUGHT GATHERER STANDS: BESIDE THE KEEP, NOT ON THE PORCH.
+ * It spawned in a row at anchor.y + 38 (x −39 / −13 / 13 / 39) — 4 px above the porch row once R194-16
+ * moved it to +42, and a gatherer click (26 px, `Controls.pickGatherer`) wins over a spark pickup, so a
+ * fresh gatherer covered the porch shapes. Now ⚠ MINE: the four of each column stand LEFT / RIGHT of the
+ * keep box at rows ∓`GATHERER_SPAWN_PITCH` / 2, the first column `KEEP_W / 2 + GATHERER_SPAWN_SIDE_GAP` = 50
+ * px out (the drawn gatherer's 11 px radius + 2 px of air off the box), each further column one
+ * `GATHERER_SPAWN_PITCH` farther out, clamped onto the canvas. Nearest porch slot to any spawn: (±50, +13)
+ * to (±45, +42) = **29.4** px — past the 26 px gatherer click (`gathererLifecycle.test.ts` re-derives it).
+ */
+export const GATHERER_SPAWN_PITCH = 26;
+export const GATHERER_SPAWN_SIDE_GAP = 13;
 
 // === Spawner physics ===
 export const SPAWNER_BOUNCE_DAMPING = 0.92;
@@ -3279,19 +3315,22 @@ export const WARLORD_RAGE_TICKS = WARLORD_RAGE_SECONDS * PHYSICS_HZ; // 1500 tic
  *
  * ⚠ THE CONSEQUENCE, STATED (Council, S191 ledger; corrected S191 round 2): nothing heals a Warlord
  * today (the S179 note at `WARLORD_RAGE_TRIGGER_PCT`), so once he is under half he STAYS under half. His
- * latch runs only inside the FIGHT gate (`hostTick`), so in each FIGHT a hurt Warlord fires on its first
- * tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
- * `FIGHT_PHASE_TICKS`; a rage still running at the whistle is NOT lowered in BUILD — he (and BLOOD FRENZY's
- * orcs) stay red through the whole BUILD — and the next FIGHT's first tick fires a fresh rage (BUILD,
- * `PHASE_DURATION_TICKS`, outlasts both windows). A rage that ended before the whistle stays ended.
- * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging from 50 s through the
- * whistle and all of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a real whistle.
+ * latch FIRES only in FIGHT (`mayFire` in `runWarlordRage`), so in each FIGHT a hurt Warlord fires on its
+ * first tick and again every `WARLORD_RAGE_TICKS + WARLORD_RAGE_COOLDOWN_TICKS` while that falls inside
+ * `FIGHT_PHASE_TICKS`. ⛔⛔ S194 (owner, R194-31): a rage still running at the whistle ENDS on its own clock
+ * in BUILD — he and BLOOD FRENZY's orcs calm `WARLORD_RAGE_TICKS` after the stamp, whatever the phase
+ * (`hostTick` runs the latch and the frenzy outside FIGHT too) — and the next FIGHT's first tick fires a
+ * fresh rage (BUILD, `PHASE_DURATION_TICKS`, outlasts the cooldown's remainder). ⚠ MINE (S194): the
+ * cooldown runs through BUILD as well — the same single stamp.
+ * Worked at today's values (3600 / 1500 / 1500): raging 0–25 s, calm 25–50 s, raging 50–75 s (15 s past
+ * the whistle), calm for the rest of BUILD, then afresh. `warlordRageClock.test.ts` pins it across a
+ * real whistle.
  *
- * ⭐ RULED S191 (owner, round 2 RAGE-1 — the audit's "red through BUILD" finding, and he KEEPS it):
- * *"if the rage started … during the fight and the countdown is still down while you're in … build
- * phase, then your creatures still look to be enraged. And then it … restarts the next fight. Yeah,
- * that's fine. Who cares? You can't really see the creatures anyways … they're like kind of standing
- * behind the castle or their tower."* Do not "fix" it without his word.
+ * ⛔ S191 round 2 RAGE-1 — SUPERSEDED S194. He first kept the "red through BUILD" finding (*"Yeah, that's
+ * fine. Who cares?"*); in S194 he saw it on screen and reversed it: *"Rage. When it's … turned on by a
+ * warlord, should last only 25 seconds. Either for himself or for the units that he affected. After
+ * twenty-five seconds, it has been cooled down, and then … if he's still there and low health, … he can
+ * enrage again. Next fight."*
  *
  * LEVER: replace `WARLORD_RAGE_SECONDS` on the line below with `N` for an N-second cooldown (both
  * windows derive from the one `rageStartTick`, so nothing else moves; `0` = re-trigger at once).
@@ -4259,7 +4298,33 @@ export const MONSTER_WAVE_PER_SEAT: Readonly<Record<number, number>> = {
  * clears in ~45). A tick rule, not a position test, so a pants shoved back into the circle cannot
  * stall a lane for the rest of the wave.
  */
+// ⛔ S194 R194-17 — RETIRED IN PLACE, UNREAD BY THE SIM: his window (`PANTS_WINDOW_SECONDS`) sets the pace now.
 export const MONSTER_EMERGE_TICKS = 45;
+/**
+ * ⭐⭐ S194 R194-17 (owner, option B) — **THE PANTS WINDOW: ALL OF A WAVE'S PANTS COME OUT INSIDE IT.**
+ * > *"maybe we should add … like a minute or something in the end of each of those fight phases where the
+ * > pants are spawned … Within that minute … all those pants should be able to be spawned no matter how
+ * > many … we should go with B … start with the first wave because it's only like, what, 10 of them … 30
+ * > seconds, next one is 45, next one is 60, next one is 90, next one is 120."*
+ * Waves 27 / 28 / 29 / 30 / 31 → **30 / 45 / 60 / 90 / 120 s — ALL HIS.** Each lane spreads its wave's
+ * pants EVENLY across the window so its last one comes out at the window's end (`monstersDueBy`), still
+ * one at a time, lanes still staggered. It REPLACES `MONSTER_EMERGE_TICKS` as the pace (that constant is
+ * retired in place, unread by the sim): at 250 in 120 s a lane releases every ≈ **28.9** ticks (7200 / 249).
+ *
+ * ⚠ MINE (one line each, reported): (1) the window starts at the FIGHT's start; (2) a wave 27–31 fight now
+ * lasts `max(FIGHT_PHASE_TICKS, window + MONSTER_HOLD_LEAD_TICKS)` (`monsterFightTicks`) — 60 / 60 / 70 /
+ * 100 / 130 s — so its length is PREDICTABLE, set at the whistle; the old open-ended hold survives only as a
+ * safety net (the measured live cap `MONSTER_MAX_LIVE_TOTAL` 360, `monsterMaxLivePerSeat`, can still make a lane wait); (3) wave 31 stays endless while two
+ * seats live — only its EMERGENCE follows the 120 s window; (4) the FIRST pants comes out at the whistle
+ * and the LAST exactly at the window's end (spacing window / (total − 1), `monstersDueBy`).
+ */
+export const PANTS_WINDOW_SECONDS: Readonly<Record<number, number>> = {
+  27: 30,
+  28: 45,
+  29: 60,
+  30: 90,
+  31: 120,
+};
 /**
  * ⚠ MINE (S193 audit, MED perf) — AT MOST 30 LIVE PANTS PER SEAT. His reason for the trickle was LAG
  * (*"Because we're gonna be lagging"*), and with no cap a 4-seat wave 31 whose keeps hold reached 945
@@ -4272,7 +4337,29 @@ export const MONSTER_EMERGE_TICKS = 45;
  * alive — *"once he's out of the circle the next comes"* — and the countdown still counts what is
  * left to come out. 30 still one-shots every unit below a Voltkin, 30 times over.
  */
-export const MONSTER_MAX_LIVE_PER_SEAT = 30;
+export const MONSTER_MAX_LIVE_PER_SEAT = 30; // ⛔ S194 R194-27 — RETIRED IN PLACE, UNREAD: see MONSTER_MAX_LIVE_TOTAL
+/**
+ * ⭐⭐ S194 R194-27 (owner: *"I would like them to just come one after another nonstop … if you think the cap
+ * is needed … then sure … or think of better ways to … have the game run smoother"*) — MEASURED, THEN DECIDED.
+ * `SPARK_PANTS_MEASURE=1 npx vitest run src/net/pantsLoadMeasure.test.ts`, 4 seats, wave 31, keeps holding,
+ * pants topped up (worst case: nobody keeps up). Host `runHostTick` ms p50 / p95, NETSNAPSHOT KiB:
+ *   live      before the S194 perf fix     after it       wire
+ *   250        3.09 / 6.46                 1.52 / 2.15     41.7 KiB
+ *   500        7.88 / 12.06                3.09 / 5.53     81.1 KiB
+ *   1000      23.18 / 36.12                6.12 / 11.07   160.1 KiB
+ * (the fix: a per-tick owned-unit index for `victimUnit` + a fast path in `monsterVictimSeat` — identical
+ * verdicts, 45 % of the tick before.) 4 × 250 never fits: 1000 live is 6 ms of sim and 160 KiB a snapshot.
+ * So a cap stays — but ⚠ MINE, sized from the measurement, not 30: a pants is **162 B** on the wire
+ * ((81.1 − 1.9) KiB / 500); the snapshot budget is ~84 KiB and a late 4-seat board's own share is ~20 KiB
+ * (S193: 18 533 B), leaving ~64 KiB → ~400 pants; **360** keeps ~7 KiB of margin and ~2.2 ms p50 of sim.
+ * It is a TOTAL across the living seats, split evenly (`monsterMaxLivePerSeat`): 2 seats 180 each · 3 → 120
+ * · 4 → 90 · 6 → 60 — so a small board is not held to a 4-seat board's share (S193's 30 a seat was 120
+ * total at 4 seats and only 60 at 2). A lane still WAITS while its seat is at the cap; one per tick still.
+ * The wire was checked for a cheaper fix first: a pants is already near-minimal (id, type, pos, state,
+ * ticksInState, ownerPlayerId, despawnAtTick, monsterSeat); only the owner and despawn tick are derivable
+ * (~41 B), and the renderer and the lifecycle read the despawn tick — not worth a four-sites change.
+ */
+export const MONSTER_MAX_LIVE_TOTAL = 360;
 /**
  * ⚠ MINE (S193) — never more than one pants born on a tick. The normal pace is N / 45 a tick (< 1 for
  * any board), so this only bites when a capped lane frees up after waiting: the backlog then comes out
@@ -4296,9 +4383,11 @@ export const MONSTER_HOLD_LEAD_TICKS = 10 * PHYSICS_HZ;
  * just comes and destroys everything … the boss is gonna be basically unbeatable, but it's all about
  * surviving longer."*
  *
- * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. His 250 each
- * take 250 × 45 = 11 250 ticks (3:07.5) to come out, so the boss arrives ~50 s after the last pants.
+ * ⚠ MINE — "a certain amount": the MEGA PANTS walks out 4 minutes into the final fight. ⭐ S194 R194-17 —
+ * his 250 each are now all out by **120 s** (`PANTS_WINDOW_SECONDS`), and (R194-26, HIS) the
+ * mega pants is the 251st, one cadence step after them (`endgame.megaPantsSlotTicks`) — this 240 s is unread.
  */
+// ⛔ S194 R194-26 — RETIRED IN PLACE, UNREAD: he is the 251st now (`endgame.megaPantsSlotTicks`).
 export const MEGA_PANTS_AFTER_TICKS = 240 * PHYSICS_HZ;
 /**
  * ⚠ MINE — THE MEGA PANTS, ON THE LADDER: HP 500 / DEF 20 → pool `unitPoolFifths(500, 20)` = 500 × 5 × 5

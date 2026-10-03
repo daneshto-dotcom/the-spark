@@ -249,7 +249,7 @@ export function stampRefusalAt(
     }
     /*
      * ⭐ S193 P3-1 — AND NOT OVER A SHAPE RESTING ON A PORCH. The castle keep-out is now one uniform
-     * disc (owner: *"a short radius … immediately around it"*), so the porch row (anchor.y + 74) is
+     * disc (owner: *"a short radius … immediately around it"*), so the porch row (anchor.y + 74 then; + 42 and refused to builds since S194 R194-16) was
      * buildable ground. A pulled shape waiting there (`escrow: 'banked'`, the only free sparks that
      * rest outside the quarry) is geometry like any other, so a stamp may not land on it — the other
      * half of what the S191 porch discs protected (the pull half is `firstFreePorchSlot`'s `built`).

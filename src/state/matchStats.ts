@@ -53,17 +53,48 @@ export interface SeatMatchStats {
   dealtFifths: number;
   /** Damage this seat's things ACTUALLY TOOK, from anyone (itself included), in fifths. */
   takenFifths: number;
+  /**
+   * ⭐ S194 v2 — the seat's OWN units that died to a hit, keyed by type (enemy, self or unattributed — a
+   * loss is a loss). SC2's "built vs lost" pair, the per-player page's most-read panel.
+   */
+  readonly lost: Map<CreatureType, number>;
+  /**
+   * ⭐ S194 v2 — WHO-HIT-WHOM: what this seat's hits took off each VICTIM seat. Its own key holds the seat's
+   * SELF-hits (the grid's diagonal), so the off-diagonal entries sum to `dealtFifths` exactly.
+   */
+  readonly dealtTo: Map<PlayerId, number>;
+  /** ⭐ S194 (audit) — TAKEN with no seat to name as its source. Column sum + this = `takenFifths`. */
+  takenUnattributed: number;
+  /**
+   * ⭐ S194 v2 — the part of `dealtFifths` / `takenFifths` that landed on a KEEP or on a STRUCTURE (shapes,
+   * connectors, landed bags); the rest landed on units. Why: the keep is the canon's one off-ladder pool AND
+   * it regenerates (`castleRegen.ts`), so a siege can bank tens of thousands on it — the owner's S194
+   * "TAKEN 70,847" reads as a bug unless the board says where it landed.
+   */
+  dealtKeep: number;
+  dealtStruct: number;
+  takenKeep: number;
+  takenStruct: number;
   /** The wave its castle fell on; `undefined` while it stands. */
   fellOnWave: number | undefined;
 }
 
-/** One seat's point on the two graphs. */
+/** One seat's point on the graphs. */
 export interface WaveSampleSeat {
   readonly seat: PlayerId;
   /** The seat's banked score, floored — the number the HUD and the win bar read. */
   readonly score: number;
   /** Connectors the seat has STANDING. See `sampleBuilt`. */
   readonly built: number;
+  /**
+   * ⭐ S194 v2 — the seat's RUNNING TOTALS at the sample (units minted, enemy kills, damage dealt / taken).
+   * Cumulative on the wire; the board derives PER-WAVE bars as differences, so a sample a peer missed cannot
+   * leave a wrong bar — the next one still carries the truth. An older host omits them (read as 0).
+   */
+  readonly units: number;
+  readonly kills: number;
+  readonly dealt: number;
+  readonly taken: number;
 }
 
 /** The graphs' x axis: one sample per wave edge, plus one at the win. */
@@ -99,6 +130,13 @@ function emptySeat(): SeatMatchStats {
     towersFell: 0,
     dealtFifths: 0,
     takenFifths: 0,
+    lost: new Map(),
+    dealtTo: new Map(),
+    takenUnattributed: 0,
+    dealtKeep: 0,
+    dealtStruct: 0,
+    takenKeep: 0,
+    takenStruct: 0,
     fellOnWave: undefined,
   };
 }
@@ -136,22 +174,62 @@ export function recordDamage(
   victim: PlayerId | undefined,
   attacker: PlayerId | null,
   appliedFifths: number,
+  on: DamageTargetClass,
 ): void {
   if (!(appliedFifths > 0)) return;
-  if (victim !== undefined) seat(world, victim).takenFifths += appliedFifths;
-  if (attacker !== null && attacker !== victim) seat(world, attacker).dealtFifths += appliedFifths;
+  /*
+   * ⭐ S194 (audit T10 MED-1) — THE WHO-HIT-WHOM GRID MUST ADD UP. Every point of TAKEN has exactly one
+   * source cell, and every point of DEALT exactly one victim cell:
+   *   · an ENEMY hit → `attacker.dealtTo[victim]`, and counts as the attacker's DEALT;
+   *   · a SELF hit → `victim.dealtTo[victim]` (the grid's diagonal), TAKEN only — never DEALT;
+   *   · an UNATTRIBUTED hit (no seat to name) → `victim.takenUnattributed`, TAKEN only;
+   *   · a hit on an OWNERLESS thing (an orphaned bond whose shapes are gone) → counts for nobody, because it
+   *     has no victim to take it. Until this audit it was DEALT with no column, so a row could not sum.
+   * Endgame monsters are a seat like any other here (`MONSTER_OWNER_SEAT`, 255): the board labels them.
+   */
+  if (victim === undefined) return;
+  const v = seat(world, victim);
+  v.takenFifths += appliedFifths;
+  if (on === 'keep') v.takenKeep += appliedFifths;
+  else if (on === 'structure') v.takenStruct += appliedFifths;
+  if (attacker === null) {
+    v.takenUnattributed += appliedFifths;
+    return;
+  }
+  const a = seat(world, attacker);
+  a.dealtTo.set(victim, (a.dealtTo.get(victim) ?? 0) + appliedFifths);
+  if (attacker === victim) return; // a loss for that seat and a gain for nobody
+  a.dealtFifths += appliedFifths;
+  if (on === 'keep') a.dealtKeep += appliedFifths;
+  else if (on === 'structure') a.dealtStruct += appliedFifths;
 }
 
-/** `killer` killed one of `victim`'s units. Exactly once per death — the caller guarantees it. */
+/**
+ * ⭐ S194 v2 — what a hit landed ON: a unit's pool (creatures, Helga), a STRUCTURE (shape, connector, landed
+ * stink bag) or a KEEP. Required at every site, so a new damage arm cannot silently file itself as "unit".
+ */
+export type DamageTargetClass = 'unit' | 'structure' | 'keep';
+
+/**
+ * One of `victim`'s units died to a hit. Exactly once per death — the caller guarantees it. ⭐ S194 v2: a
+ * death is always a LOSS for its owner, and a KILL only for an enemy seat.
+ */
 export function recordKill(
   world: World,
   killer: PlayerId | null,
   victim: PlayerId,
   victimType: CreatureType,
 ): void {
+  bump(seat(world, victim).lost, victimType);
   if (killer === null || killer === victim) return;
   bump(seat(world, killer).kills, victimType);
 }
+
+const sumOf = (m: ReadonlyMap<unknown, number>): number => {
+  let t = 0;
+  for (const n of m.values()) t += n;
+  return t;
+};
 
 export function recordTowerBuilt(world: World, owner: PlayerId): void {
   seat(world, owner).towersBuilt += 1;
@@ -195,11 +273,18 @@ export function recordWaveSample(world: World, wave: number): void {
   const built = sampleBuilt(world);
   const seats = [...world.players.keys()]
     .sort((a, b) => (a as number) - (b as number))
-    .map((id) => ({
-      seat: id,
-      score: Math.floor(world.scoreByPlayer.get(id) ?? 0),
-      built: built.get(id) ?? 0,
-    }));
+    .map((id): WaveSampleSeat => {
+      const s = world.matchStats.seats.get(id); // a READ — never `seat()`, which would create an entry
+      return {
+        seat: id,
+        score: Math.floor(world.scoreByPlayer.get(id) ?? 0),
+        built: built.get(id) ?? 0,
+        units: s === undefined ? 0 : sumOf(s.built),
+        kills: s === undefined ? 0 : sumOf(s.kills),
+        dealt: s?.dealtFifths ?? 0,
+        taken: s?.takenFifths ?? 0,
+      };
+    });
   const sample: WaveSample = { wave, tick: world.tick, seats };
   const h = world.matchStats.history;
   // Never out of order: replace a same-wave point, and drop anything a stale history put after it.
@@ -227,12 +312,51 @@ export interface SerializedSeatStats {
   readonly dealt?: number;
   readonly taken?: number;
   readonly fellOnWave?: number;
+  /** ⭐ S194 v2 — all optional and absent at zero (an older host sends none of them). */
+  readonly lost?: ReadonlyArray<readonly [string, number]>;
+  readonly dealtTo?: ReadonlyArray<readonly [number, number]>;
+  readonly dk?: number;
+  readonly ds?: number;
+  readonly tk?: number;
+  readonly ts?: number;
+  readonly tu?: number;
 }
 
 export interface SerializedMatchStats {
   readonly seats?: readonly SerializedSeatStats[];
   /** When present it is the WHOLE history, and the receiver replaces its own with it. */
-  readonly history?: readonly WaveSample[];
+  readonly history?: readonly SerializedWaveSample[];
+}
+
+/**
+ * ⭐ S194 — a wave sample ON THE WIRE. The S191 keys are unchanged (so an S191 build still reads its two graphs
+ * from an S194 host), and the four v2 running totals ride as ONE compact array `v = [units, kills, dealt,
+ * taken]`, omitted when all four are zero. Named keys would have cost ~2× the history bytes (measured:
+ * 13,697 B in-window vs 6,765 B before, `matchStats.wire.test.ts`); the array is what keeps it near S191.
+ */
+export interface SerializedWaveSample {
+  readonly wave: number;
+  readonly tick: number;
+  readonly seats: ReadonlyArray<{
+    readonly seat: number;
+    readonly score: number;
+    readonly built: number;
+    readonly v?: readonly [number, number, number, number];
+  }>;
+}
+
+function serializeSample(h: WaveSample): SerializedWaveSample {
+  return {
+    wave: h.wave,
+    tick: h.tick,
+    seats: h.seats.map((p) => {
+      const any = p.units > 0 || p.kills > 0 || p.dealt > 0 || p.taken > 0;
+      return {
+        seat: p.seat as number, score: p.score, built: p.built,
+        ...(any ? { v: [p.units, p.kills, p.dealt, p.taken] as const } : {}),
+      };
+    }),
+  };
 }
 
 function sortedEntries(m: Map<CreatureType, number>): Array<[string, number]> {
@@ -242,6 +366,11 @@ function sortedEntries(m: Map<CreatureType, number>): Array<[string, number]> {
 function serializeSeat(id: PlayerId, s: SeatMatchStats): SerializedSeatStats | null {
   const built = sortedEntries(s.built);
   const kills = sortedEntries(s.kills);
+  const lost = sortedEntries(s.lost);
+  const dealtTo = [...s.dealtTo.entries()]
+    .filter(([, n]) => n > 0)
+    .map(([k, n]): [number, number] => [k as number, n])
+    .sort(([a], [b]) => a - b);
   const out: SerializedSeatStats = {
     seat: id as number,
     ...(built.length > 0 ? { built } : {}),
@@ -251,6 +380,13 @@ function serializeSeat(id: PlayerId, s: SeatMatchStats): SerializedSeatStats | n
     ...(s.dealtFifths > 0 ? { dealt: s.dealtFifths } : {}),
     ...(s.takenFifths > 0 ? { taken: s.takenFifths } : {}),
     ...(s.fellOnWave !== undefined ? { fellOnWave: s.fellOnWave } : {}),
+    ...(lost.length > 0 ? { lost } : {}),
+    ...(dealtTo.length > 0 ? { dealtTo } : {}),
+    ...(s.dealtKeep > 0 ? { dk: s.dealtKeep } : {}),
+    ...(s.dealtStruct > 0 ? { ds: s.dealtStruct } : {}),
+    ...(s.takenKeep > 0 ? { tk: s.takenKeep } : {}),
+    ...(s.takenStruct > 0 ? { ts: s.takenStruct } : {}),
+    ...(s.takenUnattributed > 0 ? { tu: s.takenUnattributed } : {}),
   };
   return Object.keys(out).length > 1 ? out : null;
 }
@@ -263,8 +399,7 @@ export function serializeMatchStats(ms: MatchStats): SerializedMatchStats | unde
     .filter((s): s is SerializedSeatStats => s !== null);
   const out: SerializedMatchStats = {
     ...(seats.length > 0 ? { seats } : {}),
-    // A shallow copy of the array only: a sample is never mutated after `recordWaveSample` pushes it.
-    ...(ms.history.length > 0 ? { history: ms.history.slice() } : {}),
+    ...(ms.history.length > 0 ? { history: ms.history.map(serializeSample) } : {}),
   };
   return out.seats === undefined && out.history === undefined ? undefined : out;
 }
@@ -303,6 +438,16 @@ function readRecord(
   return m;
 }
 
+function readSeatRecord(arr: ReadonlyArray<readonly [number, number]> | undefined): Map<PlayerId, number> {
+  const m = new Map<PlayerId, number>();
+  if (!Array.isArray(arr)) return m;
+  for (const e of arr) {
+    if (!Array.isArray(e) || !isCount(e[0]) || !isCount(e[1]) || e[1] === 0) continue;
+    m.set(e[0] as PlayerId, e[1]);
+  }
+  return m;
+}
+
 /** Running totals: REPLACED from every snapshot (absent ⇒ every seat is at zero). */
 export function applySerializedSeats(world: World, s: SerializedMatchStats | undefined): void {
   const seats = world.matchStats.seats;
@@ -317,12 +462,19 @@ export function applySerializedSeats(world: World, s: SerializedMatchStats | und
       towersFell: isCount(r.towersFell) ? r.towersFell : 0,
       dealtFifths: isCount(r.dealt) ? r.dealt : 0,
       takenFifths: isCount(r.taken) ? r.taken : 0,
+      lost: readRecord(r.lost),
+      dealtTo: readSeatRecord(r.dealtTo),
+      dealtKeep: isCount(r.dk) ? r.dk : 0,
+      dealtStruct: isCount(r.ds) ? r.ds : 0,
+      takenKeep: isCount(r.tk) ? r.tk : 0,
+      takenStruct: isCount(r.ts) ? r.ts : 0,
+      takenUnattributed: isCount(r.tu) ? r.tu : 0,
       fellOnWave: isCount(r.fellOnWave) ? r.fellOnWave : undefined,
     });
   }
 }
 
-function readHistory(arr: readonly WaveSample[]): WaveSample[] {
+function readHistory(arr: readonly SerializedWaveSample[]): WaveSample[] {
   const out: WaveSample[] = [];
   for (const h of arr) {
     if (h === null || typeof h !== 'object' || !isCount(h.wave) || !isCount(h.tick) || !Array.isArray(h.seats)) continue;
@@ -330,7 +482,12 @@ function readHistory(arr: readonly WaveSample[]): WaveSample[] {
     const seats: WaveSampleSeat[] = [];
     for (const p of h.seats) {
       if (p === null || typeof p !== 'object' || !isCount(p.seat) || !isCount(p.score) || !isCount(p.built)) continue;
-      seats.push({ seat: p.seat as PlayerId, score: p.score, built: p.built });
+      // ⭐ S194 v2 — `v` is all-or-nothing: an older host sends none, a malformed one is read as zeros.
+      const v = Array.isArray(p.v) && p.v.length === 4 && p.v.every(isCount) ? p.v : [0, 0, 0, 0];
+      seats.push({
+        seat: p.seat as PlayerId, score: p.score, built: p.built,
+        units: v[0]!, kills: v[1]!, dealt: v[2]!, taken: v[3]!,
+      });
     }
     out.push({ wave: h.wave, tick: h.tick, seats });
   }
@@ -369,11 +526,17 @@ export function matchStatsHashParts(ms: MatchStats): string[] {
   for (const [id, s] of [...ms.seats.entries()].sort(([a], [b]) => (a as number) - (b as number))) {
     parts.push(
       `ms${id as number}:b${rec(s.built)}:k${rec(s.kills)}:tb${s.towersBuilt}:tf${s.towersFell}` +
-        `:d${s.dealtFifths}:t${s.takenFifths}:fw${s.fellOnWave ?? -1}`,
+        `:d${s.dealtFifths}:t${s.takenFifths}:fw${s.fellOnWave ?? -1}` +
+        // ⭐ S194 v2
+        `:l${rec(s.lost)}:to${[...s.dealtTo.entries()].sort(([a], [b]) => (a as number) - (b as number)).map(([k, n]) => `${k as number}=${n}`).join('.')}` +
+        `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}:tu${s.takenUnattributed}`,
     );
   }
   for (const h of ms.history) {
-    parts.push(`mh${h.wave}:${h.tick}:${h.seats.map((p) => `${p.seat as number}=${p.score}/${p.built}`).join(',')}`);
+    parts.push(
+      `mh${h.wave}:${h.tick}:` +
+        h.seats.map((p) => `${p.seat as number}=${p.score}/${p.built}/${p.units}/${p.kills}/${p.dealt}/${p.taken}`).join(','),
+    );
   }
   return parts;
 }

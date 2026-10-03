@@ -24,6 +24,7 @@
 
 import { PHASE_DURATION_TICKS, PLAYER_COLORS, RAID_ATK, RAID_CONNECTOR_MAX_FIFTHS, RAID_PEN, SPAWNER_CENTER_X, SPAWNER_CENTER_Y, SPAWNER_RADIUS, TERRITORY_SHRINK_DURATION_TICKS } from '../constants.ts';
 import { attackFifths } from './stats.ts';
+import { isEnemySeat, sameTeam } from './teams.ts';
 import { isBenchDeniedIntent } from './benchGate.ts';
 import { isEliminated, isEliminationDeniedIntent } from './elimination.ts';
 import { isBuildLocked, isEndgameLockDeniedIntent } from './endgame.ts';
@@ -725,7 +726,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       attacker.disruptionCharges--;
       const until = world.tick + TERRITORY_SHRINK_DURATION_TICKS;
       for (const [pid, enemy] of world.players) {
-        if (pid !== action.playerId) {
+        if (isEnemySeat(world, pid, action.playerId)) { // S192 — enemies only, never a teammate
           enemy.territorialShrinkUntilTick = until;
         }
       }
@@ -763,7 +764,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       if (action.target.kind === 'creature') {
         const target = world.creatures.get(action.target.id);
         if (target === undefined) return world;
-        if (target.ownerPlayerId === action.playerId) return world; // enemy-only — never your own
+        if (sameTeam(world, target.ownerPlayerId, action.playerId)) return world; // enemy-only — never your own, never a teammate's (S192)
         /*
          * ⭐⭐ S171 (owner R142/R171-A) — **CANNOT BE TARGETED, AND THIS IS THE AUTHORITATIVE HALF.**
          *
@@ -807,7 +808,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       if (action.target.kind === 'defender') {
         const target = world.defenders.get(action.target.id);
         if (target === undefined) return world;
-        if (target.ownerPlayerId === action.playerId) return world; // enemy-only
+        if (sameTeam(world, target.ownerPlayerId, action.playerId)) return world; // enemy-only (S192: by team)
         if (target.ehp === null) return world; // a tower — refuse rather than take the point
         const pos = { x: target.pos.x, y: target.pos.y };
         raider.raidPoints--;
@@ -824,7 +825,7 @@ function dispatchReducer(world: World, action: GameAction): World {
       // ownership is read off the primitives it joins — `placerColor` is the placing seat's colour.
       const aOwner = world.primitives.get(bond.aId)?.placedBy;
       const bOwner = world.primitives.get(bond.bId)?.placedBy;
-      if (aOwner === action.playerId || bOwner === action.playerId) return world;
+      if (sameTeam(world, aOwner, action.playerId) || sameTeam(world, bOwner, action.playerId)) return world; // S192 — nor a teammate's
       // Midpoint: a connector has no single position, and the cloud must land ON the thing that
       // was hit rather than at one arbitrary endpoint.
       const pos = {

@@ -52,6 +52,7 @@ import { applyRadialDamage, damageConnector, severWithCarry } from '../damage.ts
 import { blastHitAtDistance } from '../blastFalloff.ts'; // ⭐ S193 R193-B4
 import { creatureAttackFifths } from './creature.ts';
 import { dispatch, type World } from '../world.ts';
+import { sameTeam } from '../teams.ts';
 
 /*
  * ⭐ S190 (draft-atk) — THE BLAST IS THE BOMBER'S OWN STRIKE, READ ONCE PER DETONATION.
@@ -142,7 +143,7 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
   for (const [bondId, bond] of world.bonds) {
     const aOwner = world.primitives.get(bond.aId)?.placedBy;
     const bOwner = world.primitives.get(bond.bId)?.placedBy;
-    if (aOwner === bomber.ownerPlayerId || bOwner === bomber.ownerPlayerId) continue; // spare its own
+    if (sameTeam(world, aOwner, bomber.ownerPlayerId) || sameTeam(world, bOwner, bomber.ownerPlayerId)) continue; // spare its own side (S192: its team)
     const mx = (bond.a.pos.x + bond.b.pos.x) / 2;
     const my = (bond.a.pos.y + bond.b.pos.y) / 2;
     const dx = mx - cx;
@@ -193,6 +194,8 @@ export function applySuicideBlast(world: World, action: SuicideBlastAction): Wor
     }
   }
 
+  // ⭐ S194 (audit T10 LOW-1) — a SELF-DETONATION: the stat board records it as NEITHER a loss nor a kill.
+  // The unit spent itself as a weapon, and what it hit is already on the board through the blast it set off.
   world.creatures.delete(action.creatureId);
   return world;
 }
