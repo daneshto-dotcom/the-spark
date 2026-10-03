@@ -35,7 +35,9 @@ import { towerFootprintAt } from '../state/towerMembers.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
 import { drawRaceGround, type GroundTarget } from './raceGround.ts';
 import { isConcealed } from './concealment.ts';
-import { fxActive } from './fx/fxState.ts';
+import { fxActive, fxGround, fxTop, fxTopShade } from './fx/fxState.ts';
+import { towerFootForPrim } from './towerCover.ts';
+import { BACKDROP_CENTRE_LIFT, towerBackdropFx } from './fx/towerBackdropFx.ts';
 import { fxHighQuality } from './fx/fxRuntime.ts';
 import { GROUND_STAIN_SCALE, GROUND_STAIN_TEX_H, GROUND_STAIN_TEX_W, groundStainPick } from './fx/groundStainFx.ts';
 import { groundStainTexture } from './groundStainTextures.ts';
@@ -112,6 +114,8 @@ export class GroundDecalRenderer {
    */
   private readonly fade = new AlphaFilter({ alpha: GROUND_DECAL_ALPHA });
   private textured = false;
+  /** ⭐ S194 — the rebuilt effects are on (not `?fx=legacy`, not a test): draw the per-race background. */
+  private live = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.root = new Container();
@@ -132,7 +136,8 @@ export class GroundDecalRenderer {
     const g = this.graphics;
     g.clear();
     this.stainsUsed = 0;
-    this.textured = fxActive() && fxHighQuality();
+    this.live = fxActive();
+    this.textured = this.live && fxHighQuality();
     // the single fade that makes overlapping zones blend instead of darken
     if (this.textured) {
       g.alpha = 1;
@@ -260,12 +265,38 @@ export class GroundDecalRenderer {
     const hw = hullHW * ZONE_SPREAD;
     const hh = hw * 0.62;
 
-    if (this.textured) this.stain(race, id, cx, feetY, hw, hh * 0.34);
-    drawRaceGround(
-      this.graphics as unknown as GroundTarget,
-      race, id, cx, feetY, hw, hh, world.tick,
-      { skipBase: this.textured },
-    );
+    if (!this.live) {
+      // ?fx=legacy (and every Graphics-recording test): the S185 drawing, exactly.
+      drawRaceGround(this.graphics as unknown as GroundTarget, race, id, cx, feetY, hw, hh, world.tick);
+      return;
+    }
+    /*
+     * ⭐⭐ S194 `s194/visuals-6` (owner) — **THE BACKGROUND WRAPS THE BUILDING; IT IS NOT A DISC BEHIND IT.**
+     * *"it's not really around the tower, it's behind it"* (S193 Q1) and *"each race aura … a lot cooler
+     * around it, not just aura, but like background"* (S194).
+     *
+     * ⛔ WHY THE CENTRE MOVES OFF `ZONE_SINK` ON THIS PATH. `feetY` above (S185, five owner rounds) lands
+     * on the RING CENTROID — half a building ABOVE the sprite's foot, which `towerRenderer` puts at
+     * `cy + sizePx * 0.5` — so the art covers the mark's middle and it reads as hung behind the tower;
+     * that is S193's complaint exactly. His own S185 sentence is the rule this path follows: *"The base
+     * of the building needs to sit at the CENTER of the zone."* The centre is now the FOOT the sprite's
+     * renderer published (`towerCover.towerFootForPrim`), lifted `BACKDROP_CENTRE_LIFT` of the art
+     * height into the footprint. ⚠ MINE, reported as an owner LOOK item; `?fx=legacy` keeps the S185
+     * position, and the size stays his `ZONE_SPREAD` zone.
+     */
+    const foot = towerFootForPrim(anchor.id);
+    const artW = foot?.w ?? (art !== null ? art.sizePx : hullHW * 2);
+    const artH = foot?.h ?? artW;
+    const fx = foot?.x ?? cx;
+    const fy = foot?.y ?? (art !== null ? cy + art.sizePx * 0.5 : maxY + 10);
+    const zoneY = fy - artH * BACKDROP_CENTRE_LIFT;
+    if (this.textured) {
+      this.stain(race, id, fx, zoneY, hw, hh * 0.34);
+    } else {
+      // LOW: the flat S185 body, no motifs (the background's cheaper particles are the motifs now).
+      drawRaceGround(this.graphics as unknown as GroundTarget, race, id, fx, zoneY, hw, hh, world.tick, { baseOnly: true });
+    }
+    towerBackdropFx(fxGround(), fxTop(), fxTopShade(), race, id, fx, fy, artW, artH, world.tick, !this.textured);
   }
 
   /** One stain sprite covering the S185 ellipse (half-extents `rx`, `ry`), at alpha 1. */
