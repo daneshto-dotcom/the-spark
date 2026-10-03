@@ -43,3 +43,15 @@
 - **B-31 RULED (REVERSES) a welded TV keeps summoning**: *"you should be able to weld everything on everything, and the existing … towers keep summoning and resummoning … A TV is not different than a tier three piranha tower."* + future: *"I'll have to rework the TV looks like shit, that whole … Vulcan thing."*
 - **B-32 Corpse Eater**: wants the eating loop to repeat for the whole feed, heal throughout, bite still damages enemies around; he recalls *"80 %"* and *"four seconds"* — code says 100 % and 8 s → asked.
 - Re-asked in plain words: B-4, B-5, B-6, B-15, B-16, B-24, B-33.
+
+## Turn 3 (2026-10-03) — owner: *"See if you can answer them yourselves, and then give me the actual list."*
+- **R195-F1 Team vision RULED**: no fog for teammates in BUILD — *"during fight, there's no fog of war anywhere … I said no fog during build, because during build is when everything is foggy."* (FIGHT already has none; do not ask again.)
+- **R195-D1 `_from-desktop/`**: his Grok desktop-cleaner bot moves Desktop clutter into project folders every morning. Rule: if it is a duplicate of something the project already has → delete; if not → keep, git-ignored. Expect more such folders.
+- **Merge-owner calls (⚠ MINE, each flagged at its constant by the tree that builds it; he overrules live):**
+  - Drone splash pool (B-10) = **30** (the drone's own strike, `attackFifths(5,1)`), split by distance like the hub blast; the "3 connectors per lightning" sever count unchanged. → T25.
+  - Corpse Eater (B-32): keep the code's **100 % / 8 s**; the eat loop repeats for the whole feed, the bite keeps damaging enemies around, the heal lands throughout. → T25 (+ render).
+  - A NEW TV built already welded also spawns its first Voltkin (follows B-31 *"weld everything on everything"*). → T25.
+  - Unit-death and stink-tower / castle-gun fire SOUND SLOTS get wired silent; he auditions one file each later. → T19.
+  - Stink-tower damage-ramp stills: briefed for Grok in T23 (it has none today; the 5 ramp towers are hub, goblin tower, laser, pentagram, Helga).
+  - Softer number pop (B-33): dropped. Background tuning numbers (B-4) and death beat / hit pop (B-5): judged by eye live; no question.
+- **Still OPEN for him (asked only when its tree opens):** team points race in team games (B-26); the uneven-teams layout rules (N2) — T12 brings a short option list.
