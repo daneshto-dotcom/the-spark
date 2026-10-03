@@ -1,6 +1,14 @@
 # S195 ART tree — progress (3-player team backdrop prompt sheet)
 
-NEXT STEP: visual check of the Desktop HTML in the browser pane (copy button, checkbox persistence, mobile width), then final report.
+NEXT STEP: NONE - deliverable complete; awaiting merge owner (docs-only branch s195/art, never pushed).
+
+## FINAL REPORT
+- Sheet commit 204eb2d7 on s195/art (tip = the commit that adds this report).
+- Desktop: C:\Users\onesh\OneDrive\Desktop\SPARK_Team3_Backdrop_Prompts.html (byte-identical to .claude/plans/S195_TEAM3_BACKDROP_PROMPTS.html); localStorage key spark-team3-backdrops-v1.
+- 56 images recommended (C(8,3): 20 three-race + 30 pair-plus-one + 6 same-race); alternatives 126 (elbow free) / 216 (any order). Seat rule: sort trio Demons<Mummies<Nagas<Orcs<Vampires<Zombies, fill NE -> SE (elbow) -> SW. File: Downloads\Team3_<NE>_<SE>_<SW>.jpg; shipped later zone-team3-<ne>-<se>-<sw>.png 960x540.
+- Resolution: 16:9 landscape, 1376x768 (= measured size of the S165 4p masters; board 1920x1080 constants.ts:95-96). NW = x 0-688, y 0-384 px (x/y 0-50%).
+- Verified in browser pane: 56 cards, 56 chips, copy/checkbox/progress JS runs, no horizontal overflow at 486 px.
+- NOT DONE (out of scope): wiring; no images generated.
 
 ## Log
 - Worktree created at .claude/worktrees/s195-art on s195/art from master a06b538a.
