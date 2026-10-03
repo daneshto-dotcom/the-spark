@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Fill JOINER_TABLE_PLACEHOLDER + OPTIONS_PLACEHOLDER in .claude/plans/S195_LAG_REPORT.md (use run-2 unthrottled rows + run-2 w5 4x rows + profile 2; matrix 3 + swiftshader are load-crushed, recorded as such), then git merge master, gates, final report.
+Report DONE (120809cb). Merged master (0b89b9a9, no conflicts), typecheck exit 0. vitest + build RUNNING -> .tmp-gates/lag/vitest.exit/build.exit. Then write FINAL REPORT at top of this file + SubagentHandback, and STOP (owner picks).
 
 ## Log
 - step 0: worktree at dcd6af47 (= master), npm install exit 0.
