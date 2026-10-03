@@ -187,7 +187,7 @@ function summarise(label: string, samples: Sample[]): Record<string, unknown>[] 
 }
 
 describe.runIf(MEASURE)('S195 N9 — wave 1…15 wire + joiner CPU (opt-in)', () => {
-  it('a natural four-seat bots match, and the same match held at the brother\'s 120 creatures', () => {
+  it('a natural four-seat bots match, and the same match held at the brother\'s 120 creatures', async () => {
     const out: Record<string, unknown> = {};
     for (const [label, floor] of [['natural', 0], ['floor120', 120]] as const) {
       const { samples, bursts, reached } = await runMatch(label, floor);
