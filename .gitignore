@@ -62,3 +62,6 @@ assets-source/**/*.raw
 
 # S186 - local gate logs (captured $? output). Never commit: stale, large, and invisible to git diff.
 .tmp-gates/
+
+# Owner Grok desktop-cleaner drops Desktop clutter here (S195 R195-D1); unique copies kept, never committed
+_from-desktop/
