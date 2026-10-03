@@ -24,7 +24,7 @@
  *   · DELTA: the bytes of only the entities whose wire JSON changed since the previous 10 Hz snapshot,
  *     plus the removed ids — the "send what MOVED, not what EXISTS" option, measured, not argued
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { performance } from 'node:perf_hooks';
 import { deflateRawSync, constants as zc } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -34,6 +34,17 @@ import { runHostTick } from '../state/hostTick.ts';
 import { makeWorld, type World } from '../state/world.ts';
 import { applyNetSnapshot, netSnapshot, stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
 import { startC5Match, WAVE_TICKS, fightStartTick, topUpCreatures } from '../state/c5WaveFiveBoard.fixtures.ts';
+
+/*
+ * ⚠ THE WIN BAR IS LIFTED, ON PURPOSE AND ONLY HERE. The first run ended in a bot WIN at wave 9 (natural)
+ * and wave 4 (120-creature floor), so it could never see the waves the owner names ("wave eight or nine,
+ * it's unplayable"; this brief asks for 10 and 15). A human match that runs long does so because nobody
+ * reaches the bar; the board that results is what we want to weigh. Nothing else in the sim is touched.
+ */
+vi.mock('../constants.ts', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../constants.ts')>();
+  return { ...real, winScoreForWave: () => Number.MAX_SAFE_INTEGER };
+});
 
 const MEASURE = process.env.SPARK_LAG_MEASURE === '1';
 const OUT = process.env.SPARK_LAG_OUT ?? '';
@@ -64,7 +75,7 @@ interface Sample {
   deltaBytes: number | null; changedEntities: number | null; totalEntities: number;
 }
 
-function runMatch(label: string, creatureFloor: number): { samples: Sample[]; bursts: Record<number, string[]>; reached: string } {
+async function runMatch(label: string, creatureFloor: number): Promise<{ samples: Sample[]; bursts: Record<number, string[]>; reached: string }> {
   const { world: w, bots, deps, state } = startC5Match(false);
   const samples: Sample[] = [];
   const bursts: Record<number, string[]> = {};
@@ -76,6 +87,9 @@ function runMatch(label: string, creatureFloor: number): { samples: Sample[]; bu
 
   while (w.tick < endTick && (w.gameState as string) === 'PLAYING') {
     if (creatureFloor > 0 && w.matchPhase === 'FIGHT' && w.tick % 60 === 0) topUpCreatures(w, creatureFloor);
+    // Yield to the event loop now and then: a minutes-long synchronous block starved vitest's worker RPC
+    // ("Timeout calling onTaskUpdate") on the first run, which turned a PASSING instrument's exit code red.
+    if (w.tick % 3000 === 0) await new Promise<void>((r) => setImmediate(r));
     bots.tick(w);
     runHostTick(w, deps, state);
 
@@ -176,7 +190,7 @@ describe.runIf(MEASURE)('S195 N9 — wave 1…15 wire + joiner CPU (opt-in)', ()
   it('a natural four-seat bots match, and the same match held at the brother\'s 120 creatures', () => {
     const out: Record<string, unknown> = {};
     for (const [label, floor] of [['natural', 0], ['floor120', 120]] as const) {
-      const { samples, bursts, reached } = runMatch(label, floor);
+      const { samples, bursts, reached } = await runMatch(label, floor);
       const rows = summarise(label, samples);
       out[label] = { reached, rows };
       if (OUT !== '') {
