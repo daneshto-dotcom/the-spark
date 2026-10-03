@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** NEW items 8 (settings-toggles:140 race-music fallback wait: product vs test) and 9 (e2e-protocol CI red: network-independent or not; pin). Then item 7 bench (before-tree ready at .tmp-gates/before = 02acd574 = 01530fb1^1, npm ci 0; harness .tmp-gates/fx/bench2.spec.ts with FX_LOG/FX_LABEL), then final gates + report.
+**NEXT STEP:** item 9 (e2e-protocol CI red verdict + pin), then item 7 bench, then final gates + report.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
@@ -13,3 +13,4 @@
 - step 7 (item 3 DONE): soak window wall cap derived from warm-up rate (DESIGN_WINDOW_TICKS 2000, floor 300 s, ceil 600 s), SOAK_TEST_BUDGET_MS = 240+240+600 s, soak lane 58/66, pinned; GROWTH_LIMIT_MB untouched (pinned at 10). Local render-heap: window mechanics OK (wallCap=300s, 4401 ticks, STRICT) BUT ⛔ FINDING: census Δ239 vs limit 51 (1778→2017 display objects, textures 115→144) -> test RED locally (exit 1). Not caused by this branch (no src change); never observable on CI because the window never reached meaning there. Likely the S192–S194 fx pools/visuals growing to high-water (unverified) — route to T22 (heap metric owner) / merge owner.
 - step 8 (item 4 DONE): kept the established title-grep idiom; quarantine now also grep-inverts "Protocol mismatch" (2 tests ran twice); lobby budget gives every lobby test its retries: 3×(330+4×60)=1710 s -> PW 29/cap 37 (S46 Baseline never started in run 37047025269); quarantine budget = its specs' own setTimeouts summed (2700 s, 16 runnable) -> PW 46/cap 54. Pins: one-lane-per-quarantine-describe + derived quarantine sum; 5/5 mutations RED.
 - step 9: merged master again (S195-#4 bb40ccb5). Coordinator added items 8 + 9.
+- step 10 (item 8 DONE — PRODUCT BUG): playMusic returned on a stale URL while setMusicTrack returned early on musicSource===null -> toggle during the race-cover load = silence until next match. Fix: playMusic follows desiredMusicUrl in a loop (audioManager.ts). REACH test in audioManager.test.ts (held fetch, toggle inside window) RED before / GREEN after; positive control + flip-back case; audio suites 98/98. e2e fixed 2.5 s waits -> bounded expect.poll (30 s); settings-toggles race-track test 5/5 local. No bump (client audio only).

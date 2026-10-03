@@ -746,8 +746,21 @@ export async function playMusic(): Promise<void> {
    * enough for the player to flip the toggle mid-flight, and without this re-check the stale track
    * would start and then never be corrected - because the guard above would refuse the next call.
    */
-  const url = desiredMusicUrl;
-  const buffer = await getMusicBuffer(url);
+  /*
+   * ⛔ S195 T21 (item 8) — AND IF IT CHANGED, FOLLOW IT; NEVER JUST RETURN. The S165 version returned on
+   * a stale URL, and `setMusicTrack` returns early when `musicSource === null` ("the next playMusic
+   * will pick this up") — but during this await there IS no next `playMusic`: the PLAYING edge calls
+   * it once. So race music turned OFF while the ~3 MB race cover was still loading left the match
+   * SILENT until the next match (`e2e/settings-toggles.spec.ts:140`, 2/10 on a slow tree). Loop to the
+   * URL the game wants now; each pass is a fetch the module would have made anyway, and a failed load
+   * still ends in silence, as before.
+   */
+  let url = desiredMusicUrl;
+  let buffer = await getMusicBuffer(url);
+  while (buffer !== null && desiredMusicUrl !== url) {
+    url = desiredMusicUrl;
+    buffer = await getMusicBuffer(url);
+  }
   if (buffer === null || audioContext === null || musicGainNode === null) return;
   if (desiredMusicUrl !== url) return;
   if (musicSource !== null) return;

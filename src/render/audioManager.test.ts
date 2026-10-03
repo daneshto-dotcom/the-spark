@@ -920,3 +920,126 @@ describe('audioManager \u2014 the NONET realm theme (S173 P6)', () => {
     );
   });
 });
+
+/*
+ * ==========================================================================================
+ * ⛔ S195 T21 (item 8) — A TRACK CHANGE WHILE THE FIRST TRACK IS STILL LOADING MUST NOT SILENCE THE MATCH.
+ *
+ * Found from `e2e/settings-toggles.spec.ts:140` (races lane): after turning race music OFF the default
+ * track never arrived in 2 of 10 runs on the s194/rules tip, even with a 15 s poll. The cause is here,
+ * not in the test. The PLAYING edge calls `playMusic()` for the race cover, which awaits a ~3 MB fetch +
+ * decode with `musicSource === null`. A toggle in that window reaches `setMusicTrack(default)`, which
+ * saw "nothing playing", recorded the new URL and returned; the in-flight `playMusic` then saw its URL
+ * was stale and returned too. Nobody was left to start the default track — the match stayed SILENT
+ * until the next PLAYING edge. Whether a test hit it depended only on whether the race track's body
+ * had finished downloading when the click landed: a race on network + decode time, i.e. "flaky".
+ *
+ * The fake bus records which URL each source was STARTED with (the NONET block's pattern). The race
+ * fetch is held open by hand so the toggle provably lands inside the window.
+ * ==========================================================================================
+ */
+describe('audioManager — S195 a track change mid-load still starts the track the game wants', () => {
+  interface FakeBuf { __url: string }
+  const startedUrls: string[] = [];
+  const realWindow = (globalThis as { window?: unknown }).window;
+  const realFetch = (globalThis as { fetch?: unknown }).fetch;
+  /** Per-URL gates: a held URL's fetch resolves only when its release() is called. */
+  let held = new Map<string, () => void>();
+
+  function installHeldEnv(holdUrls: readonly string[]): void {
+    startedUrls.length = 0;
+    held = new Map();
+    const makeGain = (): unknown => ({
+      gain: { value: 1, setTargetAtTime: (): void => {}, cancelScheduledValues: (): void => {} },
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      connect: (): void => {},
+      disconnect: (): void => {},
+    });
+    const ctx = {
+      state: 'running',
+      currentTime: 0,
+      destination: {},
+      resume: async (): Promise<void> => {},
+      close: async (): Promise<void> => {},
+      createGain: makeGain,
+      createBufferSource: (): unknown => {
+        const node = {
+          buffer: null as FakeBuf | null,
+          loop: false,
+          connect: (): void => {},
+          disconnect: (): void => {},
+          start: (): void => { startedUrls.push(node.buffer?.__url ?? '<no-buffer>'); },
+          stop: (): void => {},
+        };
+        return node;
+      },
+      decodeAudioData: async (ab: unknown): Promise<FakeBuf> => ({ __url: (ab as FakeBuf).__url }),
+    };
+    (globalThis as { window?: unknown }).window = {
+      AudioContext: function FakeAudioContext(): unknown { return ctx; },
+      localStorage: { getItem: (): string | null => null, setItem: (): void => {} },
+    };
+    (globalThis as { fetch?: unknown }).fetch = async (input: unknown): Promise<unknown> => {
+      const url = String(input);
+      if (holdUrls.includes(url)) await new Promise<void>((r) => { held.set(url, r); });
+      return { ok: true, status: 200, arrayBuffer: async (): Promise<FakeBuf> => ({ __url: url }) };
+    };
+  }
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+    await new Promise((r) => { setTimeout(r, 0); });
+    for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  };
+
+  beforeEach(() => { _resetAudioForTest(); });
+  afterAll(() => {
+    _resetAudioForTest();
+    (globalThis as { window?: unknown }).window = realWindow;
+    (globalThis as { fetch?: unknown }).fetch = realFetch;
+  });
+
+  it('POSITIVE CONTROL: with no toggle, the held race track starts once its fetch lands', async () => {
+    installHeldEnv([RACE_MUSIC_SRC.vampires]);
+    initAudio();
+    setMusicTrack(RACE_MUSIC_SRC.vampires);
+    const p = playMusic();
+    await flush();
+    expect(held.has(RACE_MUSIC_SRC.vampires), 'the race fetch is held open (the window exists)').toBe(true);
+    expect(startedUrls, 'nothing can start while the fetch is held').toEqual([]);
+    held.get(RACE_MUSIC_SRC.vampires)!();
+    await p;
+    await flush();
+    expect(startedUrls).toEqual([RACE_MUSIC_SRC.vampires]);
+  });
+
+  it('⛔ race music turned OFF while the race track is still loading → the DEFAULT track starts (not silence)', async () => {
+    installHeldEnv([RACE_MUSIC_SRC.vampires]);
+    initAudio();
+    setMusicTrack(RACE_MUSIC_SRC.vampires);
+    const p = playMusic(); // the PLAYING edge
+    await flush();
+    expect(held.has(RACE_MUSIC_SRC.vampires)).toBe(true);
+    setMusicTrack(DEFAULT_MUSIC_SRC); // the toggle, inside the load window (main.ts re-resolves per frame)
+    held.get(RACE_MUSIC_SRC.vampires)!();
+    await p;
+    await flush();
+    expect(startedUrls, 'the stale race cover must never start').not.toContain(RACE_MUSIC_SRC.vampires);
+    expect(startedUrls, 'the track the game wants must start — before S195 nothing did').toEqual([DEFAULT_MUSIC_SRC]);
+    expect(inspectAudioChain().musicSourceActive).toBe(true);
+  });
+
+  it('a flip OFF then back ON inside the window plays the race track exactly once', async () => {
+    installHeldEnv([RACE_MUSIC_SRC.vampires]);
+    initAudio();
+    setMusicTrack(RACE_MUSIC_SRC.vampires);
+    const p = playMusic();
+    await flush();
+    setMusicTrack(DEFAULT_MUSIC_SRC);
+    setMusicTrack(RACE_MUSIC_SRC.vampires);
+    held.get(RACE_MUSIC_SRC.vampires)!();
+    await p;
+    await flush();
+    expect(startedUrls).toEqual([RACE_MUSIC_SRC.vampires]);
+  });
+});

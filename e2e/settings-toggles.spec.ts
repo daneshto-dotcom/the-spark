@@ -62,6 +62,9 @@ async function setToggle(
   }, [id, on] as [string, boolean]);
 }
 
+/** S195 T21 (item 8) - a ~3 MB track fetched + decoded off the dev server on a slow runner; healthy max measured 3.75 s. */
+const MUSIC_FETCH_BUDGET_MS = 30_000;
+
 test.describe('@races S165 — the settings panel carries both owner toggles', () => {
   test('both rows exist, default ON, and survive a reopen', async ({ page }) => {
     await page.goto('/');
@@ -157,13 +160,15 @@ test.describe('@races S165 — the settings panel carries both owner toggles', (
     const solo = await titleButtonCss(page, 'solo');
     await page.mouse.click(solo.x, solo.y);
     await waitForWorld(page, (w) => w.gameState === 'PLAYING', 'PLAYING');
-    await page.waitForTimeout(2500);
 
     // Seat 0 is vampires by `defaultRaceForSeat`, so a solo match plays that cover.
-    expect(
-      music.some((m) => m.startsWith('200 ') && m.includes('.ogg') && !m.includes('blue-steppe')),
-      `no race track was fetched. Saw: ${JSON.stringify(music)}`,
-    ).toBe(true);
+    // ⛔ S195 T21 — a BOUNDED POLL, not a fixed 2.5 s: this waits on a network fetch (see below).
+    await expect
+      .poll(
+        () => music.some((m) => m.startsWith('200 ') && m.includes('.ogg') && !m.includes('blue-steppe')),
+        { message: 'no race track was fetched', timeout: MUSIC_FETCH_BUDGET_MS },
+      )
+      .toBe(true);
 
     /*
      * ⭐ THE TOGGLE HAS TO BITE ON THE CLICK, not at the next match — that is what the owner asked
@@ -174,11 +179,16 @@ test.describe('@races S165 — the settings panel carries both owner toggles', (
     await setToggle(page, RACE_MUSIC_ID, false);
     // Wall-clocked deliberately, unlike the tick budgets above: this waits on a NETWORK fetch and
     // a decode, which do not advance with the sim clock.
-    await page.waitForTimeout(2500);
-
-    expect(
-      music.some((m) => m.includes('blue-steppe-orbit')),
-      `turning race music off did not fall back to the original track. Saw: ${JSON.stringify(music)}`,
-    ).toBe(true);
+    // ⛔ S195 T21 (item 8) — and BOUNDED, not a fixed 2.5 s. The fixed wait was only half of this red:
+    // the other half was a PRODUCT bug — a toggle while the race cover was still loading left the match
+    // silent for good (`playMusic` returned on a stale URL; `audioManager.test.ts` "S195 a track change
+    // mid-load" reproduces it). Measured by the integrator: slowest healthy fallback 3.75 s; 2/10 never
+    // within 15 s before the fix. The budget is generous because a red here should mean "never", not "slow".
+    await expect
+      .poll(() => music.some((m) => m.includes('blue-steppe-orbit')), {
+        message: `turning race music off did not fall back to the original track. Saw: ${JSON.stringify(music)}`,
+        timeout: MUSIC_FETCH_BUDGET_MS,
+      })
+      .toBe(true);
   });
 });
