@@ -11,10 +11,12 @@ import { join } from 'node:path';
 import {
   BUILD_LOCK_FROM_WAVE,
   ENDGAME_MONSTER_STATS,
+  FIGHT_PHASE_TICKS,
   LAST_DRAFT_WAVE,
   MONSTER_EMERGE_TICKS,
   MONSTER_HOLD_LEAD_TICKS,
   PHASE_DURATION_TICKS,
+  PHYSICS_HZ,
   PLAYER_COLORS,
   PRIMITIVE_MAX_HP,
   SparkType,
@@ -32,6 +34,8 @@ import {
   isBuildLocked,
   isEndgameLockDeniedIntent,
   monstersDueBy,
+  monsterFightTicks,
+  pantsWindowTicks,
   monstersLeftToComeOut,
   isMonsterFightHeld,
   monstersPerSeatForWave,
@@ -113,17 +117,41 @@ describe('S192 — the pants monster is ON THE LADDER (spec §2)', () => {
     expect([26, 27, 28, 29, 30, 31, 32].map(monstersPerSeatForWave)).toEqual([0, 10, 25, 50, 100, 250, 0]);
   });
 
-  it('⭐ HIS pace, as arithmetic: one lane per seat, one pants per lane every EMERGE ticks, lanes staggered', () => {
-    expect(MONSTER_EMERGE_TICKS).toBe(45);
-    // 2 seats, 20 total: due 1 at t=0, 2 at t=22.5→23, 3 at t=45 …
-    expect([0, 22, 23, 44, 45, 67, 68].map((t) => monstersDueBy(t, 2, 20))).toEqual([1, 1, 2, 2, 3, 3, 4]);
-    expect(monstersDueBy(10_000, 2, 20)).toBe(20); // capped at the wave
-    expect(monstersDueBy(-1, 2, 20)).toBe(0);
-    expect(monstersDueBy(10, 0, 20)).toBe(0);
-    // a seat falling mid-wave shrinks N: the due count DIPS, never bursts
-    expect(monstersDueBy(450, 1, 10)).toBeLessThan(monstersDueBy(450, 2, 20));
-    // his wave 31 at his pace: 250 per lane × 45 = 11 250 ticks of emergence
-    expect(250 * MONSTER_EMERGE_TICKS).toBe(11_250);
+  it('⭐⭐ S194 R194-17 — HIS window, as arithmetic: 30/45/60/90/120 s, the whole wave out evenly inside it', () => {
+    // HIS: "30 seconds, next one is 45, next one is 60, next one is 90, next one is 120"
+    expect([26, 27, 28, 29, 30, 31, 32].map((w) => pantsWindowTicks(w) / PHYSICS_HZ)).toEqual([0, 30, 45, 60, 90, 120, 0]);
+    // ⚠ MINE — the fight lasts max(60 s, window + the 10 s tail): 60 / 60 / 70 / 100 / 130 s; other waves 60 s
+    expect([26, 27, 28, 29, 30, 31].map((w) => monsterFightTicks(w) / PHYSICS_HZ)).toEqual([60, 60, 60, 70, 100, 130]);
+    for (const w of [27, 28, 29, 30, 31]) {
+      expect(monsterFightTicks(w)).toBe(Math.max(FIGHT_PHASE_TICKS, pantsWindowTicks(w) + MONSTER_HOLD_LEAD_TICKS));
+    }
+    // 250 in 120 s: 250 / 120 s ≈ every 28.8 ticks — first at the whistle, last at 7200, so the EXACT
+    // integer schedule is floor(r × 7200 / 249) (⚠ MINE: divisor T − 1, so both ends of his window hold).
+    const W31 = pantsWindowTicks(31);
+    expect(W31 / 250).toBe(28.8);
+    const due1 = (e: number) => monstersDueBy(e, 1, 250, W31);
+    // release r (0-based) is due at floor(r × 7200 / 249): 0, 28, 57, 86, 115 … and the 250th at 7200
+    const at: number[] = [];
+    for (let e = 0, prev = 0; e <= W31; e++) { const n = due1(e); if (n > prev) { for (let k = prev; k < n; k++) at.push(e); prev = n; } }
+    expect(at.slice(0, 5)).toEqual([0, 28, 57, 86, 115]);
+    expect(at).toHaveLength(250);
+    expect(at[249]).toBe(W31); // the LAST comes out exactly at the window's end
+    for (let k = 1; k < at.length; k++) expect(at[k]! - at[k - 1]!).toBeGreaterThanOrEqual(28); // one at a time,
+    for (let k = 1; k < at.length; k++) expect(at[k]! - at[k - 1]!).toBeLessThanOrEqual(29); // evenly
+    // 2 seats, wave 27 (10 each, 30 s): 20 releases at floor(r × 1800 / 19) — 0, 94, 189 … — lanes staggered
+    // by ~95 ticks, each lane every ~189; the 20th exactly at 1800
+    const W27 = pantsWindowTicks(27);
+    expect([0, 93, 94, 188, 189, 1799, 1800].map((t) => monstersDueBy(t, 2, 20, W27))).toEqual([1, 1, 2, 2, 3, 19, 20]);
+    expect(monstersDueBy(0, 1, 1, W27)).toBe(1); // a lone pants (T − 1 = 0) comes out at the whistle
+    expect(monstersDueBy(10_000, 2, 20, W27)).toBe(20); // capped at the wave
+    // negatives: before the whistle, no seats, no window
+    expect(monstersDueBy(-1, 2, 20, W27)).toBe(0);
+    expect(monstersDueBy(10, 0, 20, W27)).toBe(0);
+    expect(monstersDueBy(10_000, 2, 20, 0)).toBe(0);
+    // a seat falling mid-wave shrinks the total: the due count DIPS, never bursts
+    expect(monstersDueBy(900, 1, 10, W27)).toBeLessThan(monstersDueBy(900, 2, 20, W27));
+    // ⚠ the S193 pace constant is retired in place: his old wave 31 took 250 × 45 = 11 250 ticks (3:07.5)
+    expect(250 * MONSTER_EMERGE_TICKS).toBeGreaterThan(W31);
   });
 });
 
@@ -138,7 +166,7 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
       const d = deps();
       const st = makeHostTickState(world);
       const seen = new Map<number, PlayerId | undefined>();
-      const runFor = monstersPerSeatForWave(wave) * MONSTER_EMERGE_TICKS + 30;
+      const runFor = pantsWindowTicks(wave) + 30; // ⭐ S194 R194-17 — the whole wave is out by its window's end
       for (let t = 0; t < runFor; t++) {
         runHostTick(world, d, st);
         for (const c of monsters(world)) seen.set(c.id as unknown as number, c.monsterSeat);
@@ -183,7 +211,7 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
     expect(world.phaseEndsAtTick - world.tick).toBe(MONSTER_HOLD_LEAD_TICKS);
     // the last pants comes out, then the held lead counts down normally and the real edge is crossed
     let guard = 0;
-    while (world.matchPhase === 'FIGHT' && guard++ < 20 * MONSTER_EMERGE_TICKS + MONSTER_HOLD_LEAD_TICKS + 10) {
+    while (world.matchPhase === 'FIGHT' && guard++ < pantsWindowTicks(27) + MONSTER_HOLD_LEAD_TICKS + 10) {
       runHostTick(world, d, st);
     }
     expect(world.matchPhase).toBe('BUILD');
@@ -197,7 +225,9 @@ describe('S192 — REACH: each monster wave pours out of the quarry through the 
     toFightEdge(world, 27);
     const d = deps();
     const st = makeHostTickState(world);
-    for (let t = 0; t < 30; t++) runHostTick(world, d, st); // cross into FIGHT; both lanes' first pants are born
+    // cross into FIGHT; both lanes' first pants are born — ⭐ S194 R194-17: lane 1's first is release 1 of
+    // 20 over his 30 s window, due floor(1800 / 19) = 94 ticks in (was 22 at the S193 pace)
+    for (let t = 0; t < 30 + Math.floor(pantsWindowTicks(27) / 19); t++) runHostTick(world, d, st);
     const a = castleAnchor(1, world.layout);
     const m = monsters(world).find((c) => c.monsterSeat === P1)!;
     m.pos.x = a.x; m.pos.y = a.y; m.prevPos.x = a.x; m.prevPos.y = a.y;

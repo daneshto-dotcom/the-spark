@@ -18,8 +18,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_SPARK_TYPES,
+  CASTLE_PORCH_OFFSET_Y,
   CASTLE_PORCH_SLOT_CLEAR_RADIUS,
   CASTLE_PORCH_SLOTS,
+  GATHERER_DEPOSIT_OFFSET_Y,
+  KEEP_H,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SparkType,
@@ -79,7 +82,7 @@ function loadedGathererAtKeep(w: World): { gid: GathererId; sid: SparkId } {
   const g = makeGatherer({
     id: gid,
     ownerPlayerId: P0,
-    pos: { x: anchor.x, y: anchor.y + 74 },
+    pos: { x: anchor.x, y: anchor.y + GATHERER_DEPOSIT_OFFSET_Y },
     spawnedAtTick: 0,
   });
   const s = spark(SparkType.Square);
@@ -283,5 +286,36 @@ describe('S136 P1 — teardown', () => {
     fillBank(w, 5);
     dispatch(w, { type: 'RETURN_TO_TITLE' });
     expect(w.castleBanks.size).toBe(0);
+  });
+});
+
+describe('⭐⭐ S194 R194-16 — the entrance sits RIGHT UNDER the castle, as close as the art allows', () => {
+  // The measured inputs (constants.ts `CASTLE_PORCH_OFFSET_Y` docblock): the sprite's visible base is
+  // the keep box's foot (+KEEP_H/2, all six atlases paint to cell row 254–255 of 256), the tallest shape
+  // above its own centre is the Spiral (r 10 + 1 px stroke), plus 2 px of air.
+  const ART_BASE = KEEP_H / 2;
+  const SPIRAL_TOP = 10 + 1;
+  const AIR = 2;
+
+  it('arithmetic: 29 + 11 + 2 = 42, and the deposit point IS the porch row', () => {
+    expect(ART_BASE).toBe(29);
+    expect(CASTLE_PORCH_OFFSET_Y).toBe(ART_BASE + SPIRAL_TOP + AIR);
+    expect(CASTLE_PORCH_OFFSET_Y).toBe(42);
+    expect(GATHERER_DEPOSIT_OFFSET_Y).toBe(CASTLE_PORCH_OFFSET_Y);
+  });
+
+  it('REACH: a pulled shape lands on the new row, and its top clears the art base', () => {
+    const w = baseWorld();
+    fillBank(w, 1, [SparkType.Spiral]);
+    dispatch(w, { type: 'PULL_FROM_BANK', playerId: P0, sparkType: SparkType.Spiral });
+    const out = [...w.freeSparks.values()];
+    expect(out).toHaveLength(1);
+    const anchor = castleAnchor(0, L);
+    expect(out[0]!.pos.y - anchor.y).toBe(CASTLE_PORCH_OFFSET_Y);
+    expect(out[0]!.pos.y - SPIRAL_TOP - anchor.y).toBeGreaterThan(ART_BASE);
+  });
+
+  it('negative: one row closer (41) would leave less than the 2 px of air', () => {
+    expect(CASTLE_PORCH_OFFSET_Y - 1 - SPIRAL_TOP - ART_BASE).toBeLessThan(AIR);
   });
 });

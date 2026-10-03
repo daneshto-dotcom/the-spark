@@ -85,7 +85,7 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   'state/disruptionManager.ts': 3,
   // ⭐ S194 (master S192/S193 endgame) — the PANTS' chosen VICTIM seat: its units / its colour's buildings. A
   // monster (owner 255) has no team; "whose things this pants hunts" is one seat by the endgame spec (MINE).
-  'state/endgameMonsters.ts': 6,
+  'state/endgameMonsters.ts': 5, // S194 R194-27 (s194/rules) — the pants' unit victim filter is now the per-tick index KEYED by ownerPlayerId (`ownedBy`): one ownership comparison fewer, same verdict
   'state/exploredMemory.ts': 1,
   'state/gameMode.ts': 1,
   'state/gatherers/gathererLifecycle.ts': 5,
@@ -239,7 +239,7 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'state/creatures/creatureLifecycle.ts': 1, // whose bond a creature was cutting (victim bookkeeping)
   'state/creatures/retaliation.ts': 3, // creature ids
   'state/damage.ts': 4, // S194: + master CF-1 `mixedWeld` (a weld's carry owner). CARRY-1: the carry stays on the struck bond's OWNER (MINE, narrower than team); `alliesOf` excludes his own seat
-  'state/endgameMonsters.ts': 2, // S194 — the pants' victim seat's units (monster, no team)
+  'state/endgameMonsters.ts': 1, // S194 — the pants' victim seat's units (monster, no team); R194-27 (s194/rules) moved the unit half into the owner-keyed index
   'state/exploredMemory.ts': 1, // the local viewer's shapes
   'state/gatherers/gathererLifecycle.ts': 3, // your gatherer
   'state/goblinAutoFeed.ts': 1, // S194 — your own spawner

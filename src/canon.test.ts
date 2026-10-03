@@ -166,8 +166,8 @@ import {
 import { RA_PERK_STRIKE_FIFTHS, RA_WRATH_STRIKE_FIFTHS } from './state/racial/powerOfRa.ts';
 import { RA_PERK_COLUMN_ATK, RA_PERK_COLUMN_PEN, RA_WRATH_COLUMN_ATK, RA_WRATH_COLUMN_PEN } from './constants.ts';
 import { WRATH_OF_RA_CHARGES, raAimPoint } from './state/racial/powerOfRaRules.ts';
-import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
-import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS } from './constants.ts';
+import { CASTLE_NO_BUILD_RADIUS, CASTLE_PORCH_BUILD_CLEAR_RADIUS, CASTLE_PORCH_KEEP_OUT_RADIUS, isInsideCastleKeepOut, zoneCastleAnchor } from './state/zones.ts';
+import { CASTLE_PORCH_OFFSET_Y, CASTLE_PORCH_PITCH_X, CASTLE_PORCH_SLOT_CLEAR_RADIUS, CASTLE_PORCH_SLOTS, GATHERER_DEPOSIT_OFFSET_Y } from './constants.ts';
 import {
   DYNASTY_HP_PER_PHARAOH,
   DYNASTY_LIVE_PHARAOH_SENTINEL,
@@ -358,7 +358,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('**1075**')).toBe(true);
   });
 
-  it('⭐ §4b — S191 → S193: the castle keep-out is HALVED (61) and it is ONE disc, the same on every side', () => {
+  it('⭐ §4b — S191 → S193 → S194: the castle keep-out is HALVED (61), ONE disc, plus a small clearance on the entrance', () => {
     expect(CASTLE_NO_BUILD_RADIUS).toBe(Math.ceil(121 / 2)); // his "It needs to be halved"
     expect(CASTLE_PORCH_KEEP_OUT_RADIUS).toBe(2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS);
     expect(canonSays(`\`CASTLE_NO_BUILD_RADIUS\` = **${CASTLE_NO_BUILD_RADIUS}** px`)).toBe(true);
@@ -367,11 +367,19 @@ describe('SPARK_CANON.md is bound to the code', () => {
     expect(canonSays('AND IT IS ONE DISC, THE SAME ON EVERY SIDE')).toBe(true);
     expect(canonSays('THE PORCH DISCS ARE OUT OF THE BUILD RULE')).toBe(true);
     expect(canonSays('a **PULL skips any slot a built shape stands within')).toBe(true);
-    // The rule is REAL, not prose: a porch slot (outside the disc) is buildable, and south = east.
+    // ⭐ S194 R194-16 — the entrance moved right under the castle and is not built on.
+    expect(CASTLE_PORCH_OFFSET_Y).toBe(42);
+    expect(GATHERER_DEPOSIT_OFFSET_Y).toBe(CASTLE_PORCH_OFFSET_Y);
+    expect(CASTLE_PORCH_BUILD_CLEAR_RADIUS).toBe(CASTLE_PORCH_SLOT_CLEAR_RADIUS);
+    expect(canonSays(`\`CASTLE_PORCH_OFFSET_Y\` = **${CASTLE_PORCH_OFFSET_Y}**`)).toBe(true);
+    expect(canonSays(`\`CASTLE_PORCH_BUILD_CLEAR_RADIUS\` = **${CASTLE_PORCH_BUILD_CLEAR_RADIUS}** px`)).toBe(true);
+    expect(canonSays('THE ENTRANCE IS NOT BUILT ON, AND IT MOVED RIGHT UNDER THE CASTLE')).toBe(true);
+    // The rule is REAL, not prose: the OUTER porch slot sits just outside the 61 disc, and is refused
+    // anyway (the porch arm); and south still equals east.
     const a = zoneCastleAnchor(0, 'PITCH_2P');
     const slot = { x: a.x - ((CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X, y: a.y + CASTLE_PORCH_OFFSET_Y };
     expect(Math.hypot(slot.x - a.x, slot.y - a.y)).toBeGreaterThan(CASTLE_NO_BUILD_RADIUS);
-    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(false);
+    expect(isInsideCastleKeepOut(slot, 'PITCH_2P')).toBe(true);
     for (const d of [CASTLE_NO_BUILD_RADIUS - 1, CASTLE_NO_BUILD_RADIUS + 1]) {
       expect(isInsideCastleKeepOut({ x: a.x, y: a.y + d }, 'PITCH_2P')).toBe(isInsideCastleKeepOut({ x: a.x + d, y: a.y }, 'PITCH_2P'));
     }
@@ -1577,6 +1585,7 @@ import * as endgameConstants from './constants.ts';
 import { CREATURE_CONFIGS as ENDGAME_CONFIGS } from './state/creatures/voltkin-config.ts';
 import { attackFifths as egAtk, unitPoolFifths as egPool } from './state/stats.ts';
 import { PANTS_MUSIC_SRC, pantsMusicForWave } from './render/raceMusic.ts';
+import { megaPantsSlotTicks, monsterFightTicks } from './state/endgame.ts'; // ⭐ S194 R194-17 / R194-26
 
 describe('S192 §3f — the endgame table is the constants', () => {
   it('the last draft, the lock and the five wave counts', () => {
@@ -1590,9 +1599,24 @@ describe('S192 §3f — the endgame table is the constants', () => {
   });
 
   it('⭐ S193 — the pace, the hold, the final fight and the mega pants', () => {
-    expect(canonSays(`**one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks** per lane (\`MONSTER_EMERGE_TICKS\`)`)).toBe(true);
+    // ⭐ S194 R194-17 — HIS window replaced the 45-tick pace (retired in place, struck through in the canon).
+    const pw = endgameConstants.PANTS_WINDOW_SECONDS;
+    expect([pw[27], pw[28], pw[29], pw[30], pw[31]]).toEqual([30, 45, 60, 90, 120]); // all his
+    expect(canonSays(`**27 → ${pw[27]} s · 28 → ${pw[28]} s · 29 → ${pw[29]} s · 30 → ${pw[30]} s · 31 → ${pw[31]} s** (\`PANTS_WINDOW_SECONDS\`)`)).toBe(true);
+    expect(canonSays(`~~one every ${endgameConstants.MONSTER_EMERGE_TICKS} ticks per lane (\`MONSTER_EMERGE_TICKS\`)~~`)).toBe(true);
+    const ft = (w: number): number => monsterFightTicks(w) / endgameConstants.PHYSICS_HZ;
+    expect(canonSays(`**27 → ${ft(27)} s · 28 → ${ft(28)} s · 29 → ${ft(29)} s · 30 → ${ft(30)} s** (31 → ${ft(31)} s`)).toBe(true);
     expect(canonSays(`**${endgameConstants.MONSTER_HOLD_LEAD_TICKS / endgameConstants.PHYSICS_HZ} s** ahead (\`MONSTER_HOLD_LEAD_TICKS\`)`)).toBe(true);
-    expect(canonSays(`**${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s** into the final fight (\`MEGA_PANTS_AFTER_TICKS\`)`)).toBe(true);
+    // ⭐ S194 R194-26 — the mega pants is the 251st: one cadence step past the window, derived from the constants
+    const W31 = endgameConstants.PANTS_WINDOW_SECONDS[31]! * endgameConstants.PHYSICS_HZ;
+    const T2 = endgameConstants.MONSTER_WAVE_PER_SEAT[31]! * 2;
+    const T4 = endgameConstants.MONSTER_WAVE_PER_SEAT[31]! * 4;
+    expect(megaPantsSlotTicks(T2, W31)).toBe(Math.floor((T2 * W31) / (T2 - 1)));
+    expect(canonSays(`**2 seats → ${megaPantsSlotTicks(T2, W31)} ticks · 4 seats → ${megaPantsSlotTicks(T4, W31)} ticks**`)).toBe(true);
+    expect(canonSays('**he is the 251st**')).toBe(true);
+    // ⭐ S194 R194-27 — the measured cap, read back off the constant
+    expect(canonSays(`**\`MONSTER_MAX_LIVE_TOTAL\` = ${endgameConstants.MONSTER_MAX_LIVE_TOTAL}** live`)).toBe(true);
+    expect(canonSays(`~~${endgameConstants.MEGA_PANTS_AFTER_TICKS / endgameConstants.PHYSICS_HZ} s, \`MEGA_PANTS_AFTER_TICKS\`~~ retired`)).toBe(true);
     const m = ENDGAME_CONFIGS.megaPants;
     expect(canonSays(`HP ${m.hp} / DEF ${m.def} / ATK ${m.atk} / PEN ${m.pen} → pool **${egPool(m.hp, m.def)}**, strike **${egAtk(m.atk, m.pen)}** (\`MEGA_PANTS_STATS\`)`)).toBe(true);
     expect(canonSays('**never ends on the clock while two or more seats live**')).toBe(true);

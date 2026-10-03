@@ -3,7 +3,7 @@
  * pants, unkillable) are copied from `endgameS193.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
-import { MONSTER_EMERGE_TICKS, PLAYER_COLORS } from '../constants.ts';
+import { PLAYER_COLORS } from '../constants.ts';
 import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import { mulberry32 } from './rng.ts';
@@ -49,7 +49,7 @@ function toFightEdge(world: World, wave: number): void {
 const pants = (w: World): Creature[] => [...w.creatures.values()].filter((c) => c.type === 'endgameMonster');
 const unkillable = (w: World): void => { for (const p of w.players.values()) p.castleHp = 1_000_000_000; };
 
-import { monsterLaneSeats, monstersLeftForSeat, monsterVictimSeat } from './endgame.ts';
+import { monsterFightTicks, monsterLaneSeats, monstersLeftForSeat, monsterVictimSeat, pantsWindowTicks } from './endgame.ts';
 
 /**
  * S194 (T8, owner C) — *"if there's still pants that are supposedly queued, then they stop coming, but the
@@ -61,7 +61,7 @@ import { monsterLaneSeats, monstersLeftForSeat, monsterVictimSeat } from './endg
  * LIVING seats and the 12 already out counted against 10 × 2 = 20, so the survivors got 8 each.
  */
 const P2 = asPlayerId(2);
-function runWave(fallAt: number | null): { born: Map<number, number>; atFall: { left: number; mine: (number | null)[] } | null; retargeted: boolean | null; endedOnBuild: boolean } {
+function runWave(fallAt: number | null): { born: Map<number, number>; atFall: { left: number; mine: (number | null)[] } | null; retargeted: boolean | null; endedOnBuild: boolean; endedAt: number } {
   const world = board(3);
   toFightEdge(world, 27);
   unkillable(world);
@@ -72,8 +72,11 @@ function runWave(fallAt: number | null): { born: Map<number, number>; atFall: { 
   let atFall: { left: number; mine: (number | null)[] } | null = null;
   let retargeted: boolean | null = null;
   let fell = false;
+  let endedAt = -1;
+  let start = -1;
   for (let t = 0; t < 6000; t++) {
     runHostTick(world, d, st);
+    if (start < 0 && world.monsterFightStartTick > 0) start = world.monsterFightStartTick;
     for (const c of pants(world)) {
       const id = c.id as unknown as number;
       if (seen.has(id)) continue;
@@ -85,7 +88,10 @@ function runWave(fallAt: number | null): { born: Map<number, number>; atFall: { 
       world.players.get(P2)!.castleHp = 0;
       fell = true;
       atFall = { left: monstersLeftToComeOut(world), mine: [P0, P1, P2].map((s) => monstersLeftForSeat(world, s)) };
-      for (let k = 0; k < 2 * MONSTER_EMERGE_TICKS; k++) runHostTick(world, d, st); // past the emerge + a rescan
+      // ⭐ S194 R194-17 re-pin — past one lane interval of his window + a rescan (was 2 × the retired 45-tick
+      // pace): a lane releases every 3 × 1800 / 29 ≈ 186 ticks on 3 lanes at wave 27.
+      const laneInterval = Math.ceil((pantsWindowTicks(27) * 3) / (3 * monstersPerSeatForWave(27) - 1));
+      for (let k = 0; k < 2 * laneInterval; k++) runHostTick(world, d, st);
       const orphans = pants(world).filter((c) => c.monsterSeat === P2);
       const keep2 = castleAnchor(2, world.layout);
       retargeted = orphans.length > 0 && orphans.every((c) => {
@@ -94,7 +100,11 @@ function runWave(fallAt: number | null): { born: Map<number, number>; atFall: { 
         return v !== null && v !== P2 && (tp === null || Math.hypot(tp.x - keep2.x, tp.y - keep2.y) > 60);
       });
     }
-    if (world.matchPhase !== 'FIGHT') return { born, atFall, retargeted, endedOnBuild: world.matchPhase === 'BUILD' };
+    if (world.matchPhase !== 'FIGHT') {
+      // ⭐ S194 R194-17 — the fight ends on its fixed length (window + 10 s tail), fall or no fall
+      endedAt = world.tick - start;
+      return { born, atFall, retargeted, endedOnBuild: world.matchPhase === 'BUILD', endedAt };
+    }
   }
   throw new Error('fixture: the wave never ended');
 }
@@ -109,12 +119,14 @@ describe('S194 T8 C — a seat knocked out mid pants-wave (REACH through runHost
     expect(r.atFall!.left, "the countdown drops to the survivors' 6 + 6").toBe(12);
     expect(r.atFall!.mine).toEqual([6, 6, null]);
     expect(r.retargeted, 'every emerged pants of the fallen seat now goes for a survivor').toBe(true);
-    expect(r.endedOnBuild, 'the hold released and the wave ended').toBe(true);
+    expect(r.endedOnBuild, 'the wave ended').toBe(true);
+    expect(r.endedAt, 'on its fixed length (R194-17), the fall moves nothing').toBe(monsterFightTicks(27));
   });
 
   it('negative: nobody falls → 10 / 10 / 10, three lanes', () => {
     const r = runWave(null);
     expect([0, 1, 2].map((s) => r.born.get(s))).toEqual([10, 10, 10]);
+    expect(r.endedAt).toBe(monsterFightTicks(27));
   });
 
   it('a seat that fell BEFORE the fight is no lane at all', () => {

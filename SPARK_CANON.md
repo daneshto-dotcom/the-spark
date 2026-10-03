@@ -956,11 +956,14 @@ flung debris. Measured, pinned and reported rather than taken.
 | build lock | from **BUILD of wave 27** (`BUILD_LOCK_FROM_WAVE`): no PLACE / BUILD_BLUEPRINT / PULL_FROM_BANK. **FIX stays** (his self-correction), towers keep producing, FEED_TOWER and every CAST (Ra, SCORCHED EARTH) pass — a cast is not a build |
 | the quarry | ⭐ S193 HIS: *"Shapes don't come anymore, only fucking pants come."* — from the lock on it mints nothing (`stepPhysics`) |
 | monsters per LIVING seat | ⭐ S193 ALL HIS: **27 → 10 · 28 → 25 · 29 → 50 · 30 → 100 · 31 → 250** (`MONSTER_WAVE_PER_SEAT`) |
-| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. ⚠ MINE as a tick rule: one LANE per living seat, born on the quarry rim facing its keep, **one every 45 ticks** per lane (`MONSTER_EMERGE_TICKS`), lanes staggered |
+| the window | ⭐⭐ S194 R194-17 HIS (option B): every pants of the wave comes out inside a window — waves **27 → 30 s · 28 → 45 s · 29 → 60 s · 30 → 90 s · 31 → 120 s** (`PANTS_WINDOW_SECONDS`). ⚠ MINE: the window starts at the FIGHT's whistle; first pants at the whistle, last EXACTLY at the window's end (release `r` at `floor(r × W / (T − 1))`, `monstersDueBy`) — 250 in 120 s ≈ every 28.9 ticks |
+| the pace | ⭐ S193 HIS: one at a time out of the circle, never a chunk. One LANE per living seat, born on the quarry rim facing its keep, lanes staggered, one release per tick at most. ~~one every 45 ticks per lane (`MONSTER_EMERGE_TICKS`)~~ — S194: the window sets the pace; the constant is retired in place |
 | the countdown | ⭐ S193 HIS: *"how many are left to come out"* — `PANTS LEFT TO COME OUT: N` on the top banner (`monstersLeftToComeOut`, derived) |
-| the hold | ⚠ MINE: waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
+| the fight length | ⭐ S194 ⚠ MINE: a monster fight lasts `max(60 s, window + 10 s)` (`monsterFightTicks`) — **27 → 60 s · 28 → 60 s · 29 → 70 s · 30 → 100 s** (31 → 130 s, but see the final fight) — set at the whistle, so it is PREDICTABLE |
+| the live cap | ⭐ S194 R194-27 — he wanted none (*"just come one after another nonstop"*) *"if you think the cap is needed … then sure"*. MEASURED (`src/net/pantsLoadMeasure.test.ts`, 4 seats, nobody killing): 1000 live = 6.1 ms p50 of host sim and **160 KiB** a snapshot even after the S194 targeting perf fix (which cut 500 live from 7.9 to 3.1 ms) — over the ~84 KiB budget twice. ⚠ MINE: **`MONSTER_MAX_LIVE_TOTAL` = 360** live, split over the living seats (`monsterMaxLivePerSeat`: 2 → 180 · 4 → 90 · 6 → 60; was 30 a seat) |
+| the hold | ⚠ MINE, now a safety net only (the live cap can make a lane wait past its window): waves 27–30 do not end while pants are still to come out; the deadline is held **10 s** ahead (`MONSTER_HOLD_LEAD_TICKS`) and counts down after the last |
 | the final fight | ⭐ S193 HIS: wave 31 **never ends on the clock while two or more seats live** — a keep-standing or score win ends it |
-| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*), ⚠ MINE numbers: walks out **240 s** into the final fight (`MEGA_PANTS_AFTER_TICKS`), HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
+| the MEGA PANTS | ⭐ S193 HIS (*"basically unbeatable"*). ⭐⭐ S194 R194-26 HIS: **he is the 251st** — *"it's literally the last one in queue"* — the next slot of the window's cadence after the last pants, `floor(T × W / (T − 1))` (`megaPantsSlotTicks`): **2 seats → 7214 ticks · 4 seats → 7207 ticks**, and never before the last pants is actually out (~~240 s, `MEGA_PANTS_AFTER_TICKS`~~ retired). ⚠ MINE numbers: HP 500 / DEF 20 / ATK 60 / PEN 20 → pool **12500**, strike **1500** (`MEGA_PANTS_STATS`); replaced if felled |
 | the pants | HP 10 / DEF 5 / ATK 5 / PEN 3 → pool **100**, strike **40** (`ENDGAME_MONSTER_STATS`, ⭐ HIS since S193 Q9 — ⚠ he once said *"penetration 5"*, a 50 hit; built 40) |
 | owner | `MONSTER_OWNER_SEAT` (255) — no seat, so every seat's guns and units treat it as an enemy (enumerated per file in `endgameS193.test.ts`) |
 | retarget | DERIVED (`monsterVictimSeat`): its seat while alive, else a survivor by `mix32(id)` |
@@ -1083,6 +1086,20 @@ tower; with every slot covered the pull is the old full-porch no-op, the shape s
 **stamp is `BLOCKED` over a shape resting on the porch** (`blueprintLegality` arm 5, `STAMP_CLEARANCE`).
 ⚠ The trade, his call: a player who builds over his own porch loses those slots for pulls until the tower
 goes. `castleKeepOutS191.test.ts`, `zones.test.ts` (32 directions × every seat).
+
+⭐⭐ **S194 R194-16 — THE ENTRANCE IS NOT BUILT ON, AND IT MOVED RIGHT UNDER THE CASTLE.** *"Castle entrance
+is where the shapes come out. Oh yeah, you should definitely not be able to build over that. Leave that a
+little space. Or make that entrance like right under the castle, like closer."* Both are built:
+- the porch row is `CASTLE_PORCH_OFFSET_Y` = **42** (was 74; ⚠ MINE, measured — the art's visible base is
+  the keep foot +29 on all six atlases, the tallest shape reaches 11 above its centre, +2 px air). The
+  gatherer deposit point (`GATHERER_DEPOSIT_OFFSET_Y`) IS that row now and moves with it;
+- `zones.castleKeepOutHitsBox` gained ONE small arm: nothing is built within
+  `CASTLE_PORCH_BUILD_CLEAR_RADIUS` = **17** px (⚠ MINE: the porch's own occupancy radius) of any porch slot of
+  ANY castle — host reducer, drag ghost, stamp ghost (`CASTLE`) and bots alike. Measured reach: **south 61,
+  east 61** for a single shape (the row's own reach, 42 + 17 = 59, is inside the disc); the only bulge is a
+  lobe round each OUTER slot, **78.5 px on the SE/SW diagonal**. A tall stamp laid beside the keep gains
+  1–2 px (laser 61.9 → 62.9, goblin tower 61.0 → 63.0; south unchanged at 61.0). The S193 pull skip
+  (`CASTLE_PORCH_KEEP_OUT_RADIUS` 34) still guards a slot a legal shape stands 17–34 px from.
 
 ---
 

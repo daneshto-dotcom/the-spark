@@ -33,7 +33,10 @@
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
+  CASTLE_PORCH_OFFSET_Y,
+  CASTLE_PORCH_PITCH_X,
   CASTLE_PORCH_SLOT_CLEAR_RADIUS,
+  CASTLE_PORCH_SLOTS,
   SPAWNER_CENTER_X,
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
@@ -74,9 +77,10 @@ const QUARRY_R2 = SPAWNER_RADIUS * SPAWNER_RADIUS;
  *   · the score progress bar occupies x[12,92] y[920,960] and the bottom-left keep box is
  *     x[93,167] y[921,979] — they clear each other BY ONE PIXEL. That is luck, not design, so
  *     `zones.test.ts` pins the gap explicitly and will fail if either side moves;
- *   · porch + deposit sit at anchor.y + 74, i.e. y=1024 for the bottom keeps, inside the footer
- *     band (FOOTER_TOP_Y 996). Survivable ONLY because S136 P0 deleted the footer plate and its
- *     click guard — reviving a footer control means moving these anchors up;
+ *   · porch + deposit sit at anchor.y + 42 (⭐ S194 R194-16; was + 74), i.e. y=992 for the bottom keeps,
+ *     just above the footer band (FOOTER_TOP_Y 996) — a shape resting there still reaches 17 px into it.
+ *     Survivable because S136 P0 deleted the footer plate and its click guard, and the S149/S154 chips
+ *     are pinned clear of the porches (`footerBand.test.ts`, `shapeStrip.test.ts`);
  *   · the energy gauge at x[1896,1904] clears both right-hand keeps (max x 1827) — OK.
  */
 const ANCHORS: { readonly [K in ZoneLayout]: readonly Vec2[] } = {
@@ -265,6 +269,38 @@ const CASTLE_NO_BUILD_R2 = CASTLE_NO_BUILD_RADIUS * CASTLE_NO_BUILD_RADIUS;
  */
 export const CASTLE_PORCH_KEEP_OUT_RADIUS = 2 * CASTLE_PORCH_SLOT_CLEAR_RADIUS;
 
+/**
+ * ⭐⭐ S194 R194-16 (owner) — **NOTHING IS BUILT ON THE CASTLE ENTRANCE.**
+ * > *"Castle entrance is where the shapes come out. Oh yeah, you should definitely not be able to build
+ * > over that. Leave that a little space."*
+ *
+ * A shape (or any part of a stamp's box) within this radius of ANY castle's porch slot is refused — the
+ * second arm of `castleKeepOutHitsBox`, so the host reducer, the drag ghost, the stamp ghost and the bot
+ * planner all read it from the one predicate (S148 P2's rule). ⚠ MINE: it is the porch's OWN occupancy
+ * radius, `CASTLE_PORCH_SLOT_CLEAR_RADIUS` (17) — "a little space" is exactly the spot a pulled shape
+ * would occupy, and a built shape there would be read by the pull as sitting IN the slot. Kept that
+ * small on purpose: with the porch row moved to +42 (`CASTLE_PORCH_OFFSET_Y`) its discs reach only
+ * 59 px south of the anchor — INSIDE the 61 px disc — so the zone stays the uniform shape he asked for in
+ * S193, apart from a lobe round each OUTER slot (±45, +42) that reaches 78.5 px on the SE/SW diagonal.
+ * (S191's porch discs reached 108 south; see `CASTLE_NO_BUILD_RADIUS`.)
+ *
+ * ⚠ The S193 trade still stands beyond it: a shape built 17–34 px from a slot is legal and makes the
+ * pull skip that slot (`firstFreePorchSlot`'s `built` arm, `CASTLE_PORCH_KEEP_OUT_RADIUS`).
+ */
+export const CASTLE_PORCH_BUILD_CLEAR_RADIUS = CASTLE_PORCH_SLOT_CLEAR_RADIUS;
+const CASTLE_PORCH_BUILD_CLEAR_R2 = CASTLE_PORCH_BUILD_CLEAR_RADIUS * CASTLE_PORCH_BUILD_CLEAR_RADIUS;
+
+/**
+ * PURE — the world position of porch slot `i` under a castle at `anchor`. THE ONE copy of the slot
+ * arithmetic: `castleBank.porchSlot` (the pull landing, the occupancy tests) delegates here, so the
+ * build refusal and the spot a shape actually lands on cannot drift apart. Integer-exact for the shipped
+ * constants ((i − 1.5) × 30 = −45, −15, 15, 45).
+ */
+export function porchSlotAt(anchor: Vec2, i: number): Vec2 {
+  const offset = (i - (CASTLE_PORCH_SLOTS - 1) / 2) * CASTLE_PORCH_PITCH_X;
+  return { x: anchor.x + offset, y: anchor.y + CASTLE_PORCH_OFFSET_Y };
+}
+
 /** An axis-aligned box in world px. What a blueprint's footprint looks like to this file. */
 export interface Box {
   readonly minX: number;
@@ -294,8 +330,14 @@ export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
   const anchors = ANCHORS[layout];
   for (let i = 0; i < anchors.length; i++) {
     const a = anchors[i] as Vec2;
-    // ⭐⭐ S193 P3-1 — ONE disc, the same radius on every side. No porch lobe (see `CASTLE_NO_BUILD_RADIUS`).
+    // ⭐⭐ S193 P3-1 — ONE disc, the same radius on every side (see `CASTLE_NO_BUILD_RADIUS`).
     if (boxPointDistSq(box, a.x, a.y) < CASTLE_NO_BUILD_R2) return true;
+    // ⭐⭐ S194 R194-16 — AND NOT ON THE ENTRANCE: a small disc on each porch slot (`<=`, the same
+    // inclusive edge the porch's own occupancy test uses — a shape that would count as IN the slot).
+    for (let k = 0; k < CASTLE_PORCH_SLOTS; k++) {
+      const s = porchSlotAt(a, k);
+      if (boxPointDistSq(box, s.x, s.y) <= CASTLE_PORCH_BUILD_CLEAR_R2) return true;
+    }
   }
   return false;
 }
