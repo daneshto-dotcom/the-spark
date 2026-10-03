@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** item 7 bench (copy harness done in .tmp-gates/fx; master now has visuals-6; bench master-before-stack (814f1871? find pre-S194-visuals commit) vs master), then final gates + report.
+**NEXT STEP:** NEW items 8 (settings-toggles:140 race-music fallback wait: product vs test) and 9 (e2e-protocol CI red: network-independent or not; pin). Then item 7 bench (before-tree ready at .tmp-gates/before = 02acd574 = 01530fb1^1, npm ci 0; harness .tmp-gates/fx/bench2.spec.ts with FX_LOG/FX_LABEL), then final gates + report.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
@@ -12,3 +12,4 @@
 - step 6: merged master f3885952 (clean, no conflicts; nothing in my file set changed), npm install 0. Soak diagnosis (run 37047025269): bots worlds 3.6 ticks/s (S127 calibrated 7.2-7.7) -> 300 s window = 1098 ticks < MIN_VALID_TICKS 1300 (render-heap:348, worker-heap:304 — NOT timeouts, the floor); TD-heavy baseline 5.6 ticks/s (S127: 28.3) -> setup ~137 s + warm-up 226 s + window 300 s > 660 s test timeout (worker-heap:354).
 - step 7 (item 3 DONE): soak window wall cap derived from warm-up rate (DESIGN_WINDOW_TICKS 2000, floor 300 s, ceil 600 s), SOAK_TEST_BUDGET_MS = 240+240+600 s, soak lane 58/66, pinned; GROWTH_LIMIT_MB untouched (pinned at 10). Local render-heap: window mechanics OK (wallCap=300s, 4401 ticks, STRICT) BUT ⛔ FINDING: census Δ239 vs limit 51 (1778→2017 display objects, textures 115→144) -> test RED locally (exit 1). Not caused by this branch (no src change); never observable on CI because the window never reached meaning there. Likely the S192–S194 fx pools/visuals growing to high-water (unverified) — route to T22 (heap metric owner) / merge owner.
 - step 8 (item 4 DONE): kept the established title-grep idiom; quarantine now also grep-inverts "Protocol mismatch" (2 tests ran twice); lobby budget gives every lobby test its retries: 3×(330+4×60)=1710 s -> PW 29/cap 37 (S46 Baseline never started in run 37047025269); quarantine budget = its specs' own setTimeouts summed (2700 s, 16 runnable) -> PW 46/cap 54. Pins: one-lane-per-quarantine-describe + derived quarantine sum; 5/5 mutations RED.
+- step 9: merged master again (S195-#4 bb40ccb5). Coordinator added items 8 + 9.
