@@ -52,7 +52,7 @@ async function waitForSparkFog(page: Page): Promise<void> {
   );
 }
 
-test.describe('S57 Fog of War — client-side render mask', () => {
+test.describe('S57 Fog of War — client-side render mask @render-starved', () => {
   test('conceals the enemy base, reveals own vision, lifts on win', async ({ page }) => {
     await page.goto('/?debug=1');
     await waitForSparkFog(page);

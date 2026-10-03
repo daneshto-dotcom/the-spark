@@ -74,6 +74,15 @@
 #   job concluded `cancelled` — no failure, no email, no report. A normal checkout here takes ~14 s,
 #   so 3 minutes is a hang detector, not a budget: a hung checkout now FAILS, loudly, in 3.
 #
+#   ⭐ S195 T21 — AND A HUNG CHECKOUT IS NOW RETRIED ONCE. Deploy #5's `worker-typecheck` died on
+#   `actions/checkout` timing out at exactly 3 minutes — an infra hang, not a code fault, and a red
+#   for nothing. Every job's `Checkout` therefore carries `id: checkout` + a STEP-level
+#   `continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome ==
+#   'failure'` (also bounded at 3). Two hangs in a row still fail the job, loudly. ⚠ That step-level
+#   `continue-on-error` is the ONLY one allowed inside a gating job: `src/ci.e2eLanes.test.ts`
+#   strips exactly that line before asserting a gating lane carries no `continue-on-error`, and pins
+#   the retry shape on every job.
+#
 #   master is currently NOT branch-protected (no required status checks), so the
 #   gating signal is advisory; the job is named `e2e` so that if/when branch
 #   protection is added, the required check can point at the gating job.
@@ -195,6 +204,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -246,6 +261,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -273,6 +294,61 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+  # ⭐ S195 T21 — THE RENDER LANE. GATING (a red here reds the run), on its own runner.
+  #
+  # `@render-starved` = the specs whose WALL time is set by the software-GL renderer rather than by the
+  # sim: `fog.spec.ts` (composed-stage pixel reads) and `hunter.spec.ts` (a solo match driven through
+  # real input), plus the `ci-frame-profile.spec.ts` diagnostic. On deploys #4/#5/#6 (run 37047025269)
+  # the runner gave the page ~1 frame per second — every `page.evaluate` took 0.7–1.9 s, the sim ran
+  # ≈7.7 ticks/s — hunter spent 3 × 120 s timing out, and the shared lane's 900 s cap then cut 16 specs
+  # that never started. Split out on the `@races` / `@worker-bots` precedent so a starved spec can only
+  # spend its OWN budget. Both specs were also FIXED, not just moved (their headers say how).
+  # Budget, pinned by `src/ci.e2eLanes.test.ts`: 3 attempts of hunter's derived 300 s + 6 fog tests at
+  # the 60 s default + 3 profile tests at their 120 s = 1620 s ≤ 28 min of Playwright, and the runner
+  # sits ≥ 8 min above that for checkout + npm ci + browser install.
+  e2e-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 36
+    env:
+      # Below timeout-minutes so PLAYWRIGHT ends an overrun and flushes its report (S126/S191).
+      PW_GLOBAL_TIMEOUT_MIN: 28
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # ⚠ NOT chained behind `&&` — the project rule. The step's exit code IS Playwright's.
+      - name: Run E2E (render — fog pixel reads, the hunter match, the CI frame profile, GATING)
+        run: npm run e2e:render
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report (render)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-render
+          path: playwright-report/
+          retention-days: 14
+
   atlas-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -280,6 +356,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -331,6 +413,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -395,6 +483,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -455,6 +549,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -539,6 +639,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -592,6 +698,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -644,6 +756,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
