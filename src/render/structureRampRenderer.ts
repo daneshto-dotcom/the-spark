@@ -231,7 +231,7 @@ export class StructureRampRenderer {
     sprite.tint = tint;
 
     // Declared HERE, after the sprite is committed — never above the fog skip or the atlas bail.
-    markTowerCover(members, bonds, newestTick);
+    markTowerCover(members, bonds, newestTick, { x: cx, y: cy + spec.artPx * 0.5, w: spec.artPx, h: spec.artPx }); // ⭐ S194 — the foot
     this.lastSeen.set(key, { x: cx, y: cy, spec });
     return true;
   }

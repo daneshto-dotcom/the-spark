@@ -312,7 +312,7 @@ export class TowerRenderer {
        * would hide shapes beneath a tower nobody drew.
        */
       const ringBonds = ringBondsOf(world, ring);
-      markTowerCover(ring, ringBonds.ids, ringBonds.newestTick);
+      markTowerCover(ring, ringBonds.ids, ringBonds.newestTick, { x: cx, y: cy + art.sizePx * 0.5, w: art.sizePx, h: art.sizePx }); // ⭐ S194 — the foot
       // ⭐ S178 — `live.add(sp.id)` MOVED to the top of this loop; see the block at the fog gate.
       // Cached for the crumble, which happens after both the spawner and the ring are gone.
       this.lastSeen.set(sp.id, { x: cx, y: cy + art.sizePx * 0.5, art });

@@ -70,6 +70,8 @@ import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass + sheen, inside each tab / button hit rect).
 import { skinButtonFx } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen, skinStaticPlate } from './uiSkinButton.ts';
+import { ACCENT_CODEX, LazyScreenBackdrop, glowTitleStyle } from './uiScreenChrome.ts';
+import { cardGlowLayout, drawCardChrome, drawCardGlow } from './codexCardFx.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SPARK_COLORS, SparkType } from '../constants.ts';
 import type { GodlyId, GodlyRecipe } from '../state/godlyRecipes/types.ts';
@@ -115,6 +117,8 @@ const TILE_H = 320;
 const TILE_GAP = 28;
 const GRID_TOP = 235;
 const ART_CY = 116;
+/** ⭐ S194 R194-32 — the tower card's title band (the name sits in it at y=30). */
+const CARD_TITLE_BAND = 54;
 const POWER_Y = 200;
 const RECIPE_Y = 226;
 /*
@@ -139,6 +143,7 @@ export const ART_HALF_H = 56;
 export const TOWER_COLS = 4;
 export const COMBO_COLS = 5;
 export const TOWER_TILE_H = TILE_H;
+export const TOWER_TILE_W = TILE_W;
 export const TOWER_TILE_GAP = TILE_GAP;
 
 /*
@@ -470,9 +475,12 @@ export class CodexOverlay {
     bg.eventMode = 'static';
     this.container.addChild(bg);
 
+    // ⭐ S194 R194-32 — the home page's living backdrop in gold/parchment, under every tab and card.
+    this.screenBackdrop = new LazyScreenBackdrop(this.container, 1, { ...ACCENT_CODEX.backdrop, logoY: 70, orbitRx: 360, orbitRy: 48 });
     const title = new Text({
       text: 'CODEX',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 48, fill: 0xffffff, letterSpacing: 12 }),
+      // ⭐ S194 R194-32 — the glowing gradient title (parchment → gold), like SPARK and ARCADE.
+      style: glowTitleStyle(ACCENT_CODEX, 60, 14),
     });
     title.anchor.set(0.5);
     title.position.set(CANVAS_WIDTH / 2, 70);
@@ -725,7 +733,11 @@ export class CodexOverlay {
       this.savedAvatarIndex = -1;
     }
     this.container.visible = visible;
+    this.screenBackdrop.setShown(visible);
   }
+
+  /** ⭐ S194 R194-32 — the shared backdrop; animates only while the codex is open. */
+  private readonly screenBackdrop: LazyScreenBackdrop;
 
   /** S109 P0 — public visibility probe so main.ts can toggle the G+C chord and wire Escape-to-close
    *  without reaching into `.container.visible`. */
@@ -813,10 +825,17 @@ export class CodexOverlay {
   private makeSpriteTile(entry: CodexEntry, x: number, y: number): Container {
     const tile = new Container();
     tile.position.set(x, y);
+    // ⭐ S194 R194-32 — the card reworked to the combo cards' standard: a glass card with a race-tinted
+    // title band, corner brackets and a gold frame; a lit pedestal; the recipe diagram GLOWING in its
+    // shapes' own colours (`codexCardFx.ts`). The glow reads the same layout the diagram draws from.
+    const glow = cardGlowLayout(entry, TILE_W / 2, ART_CY, ART_HALF_W, ART_HALF_H, GOLD);
     const bg = new Graphics();
-    bg.roundRect(0, 0, TILE_W, TILE_H, 12)
-      .fill({ color: 0x0a0a0a, alpha: 0.85 })
-      .stroke({ width: 2, color: GOLD, alpha: 0.7 });
+    bg.roundRect(0, 0, TILE_W, TILE_H, 12).fill({ color: 0x0a0d14, alpha: 0.9 });
+    drawCardChrome(bg, TILE_W, TILE_H, glow.accent, GOLD, CARD_TITLE_BAND, ART_CY, ART_HALF_H);
+    drawCardGlow(bg, glow);
+    // The frame: a soft gold glow inside, then the crisp gold edge.
+    bg.roundRect(3, 3, TILE_W - 6, TILE_H - 6, 10).stroke({ width: 3, color: GOLD, alpha: 0.12 });
+    bg.roundRect(0, 0, TILE_W, TILE_H, 12).stroke({ width: 2, color: GOLD, alpha: 0.85 });
     tile.addChild(bg);
 
     // Name at the TOP (was below the art — long names collided with the hint block).
@@ -824,7 +843,10 @@ export class CodexOverlay {
     // complaint: he was reading `???` on the Archdemon and Bat towers he had built himself.
     const name = new Text({
       text: entry.displayName,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fill: GOLD, letterSpacing: 2, fontWeight: 'bold' }),
+      style: new TextStyle({
+        fontFamily: 'monospace', fontSize: 20, fill: GOLD, letterSpacing: 2, fontWeight: 'bold',
+        dropShadow: { color: 0xffb020, alpha: 0.6, blur: 8, distance: 0, angle: 0 }, padding: 10,
+      }),
     });
     name.anchor.set(0.5);
     name.position.set(TILE_W / 2, 30);
@@ -865,7 +887,10 @@ export class CodexOverlay {
     if (entry.power !== '') {
       const power = new Text({
         text: entry.power,
-        style: new TextStyle({ fontFamily: 'monospace', fontSize: 13, fill: 0xe8d9a0, letterSpacing: 1, align: 'center' }),
+        style: new TextStyle({
+          fontFamily: 'monospace', fontSize: 13, fontWeight: 'bold', fill: 0xf3e2b8, letterSpacing: 1, align: 'center',
+          dropShadow: { color: 0x000000, alpha: 0.8, blur: 2, distance: 1, angle: Math.PI / 2 },
+        }),
       });
       power.anchor.set(0.5);
       power.position.set(TILE_W / 2, POWER_Y);
@@ -876,7 +901,8 @@ export class CodexOverlay {
     // Divider between the name/art/power block and the recipe.
     const divider = new Graphics();
     divider.moveTo(20, POWER_Y + 16).lineTo(TILE_W - 20, POWER_Y + 16)
-      .stroke({ width: 1, color: 0x3a3624, alpha: 0.9 });
+      .stroke({ width: 1, color: GOLD, alpha: 0.35 });
+    divider.circle(TILE_W / 2, POWER_Y + 16, 2.5).fill({ color: GOLD, alpha: 0.7 });
     tile.addChild(divider);
 
     // S105 P2 — the recipe is what lets a player CHECK the build requirements BEFORE building (the
@@ -885,7 +911,7 @@ export class CodexOverlay {
     // S121 P4 — copy budget (≤150 chars, tested) + fitTextToBox make tile overflow impossible.
     const hint = new Text({
       text: entry.recipeHint,
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0xbfbfbf, wordWrap: true, wordWrapWidth: TILE_W - 28, align: 'center' }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: 0xd2d6de, wordWrap: true, wordWrapWidth: TILE_W - 28, align: 'center' }),
     });
     hint.anchor.set(0.5, 0);
     hint.position.set(TILE_W / 2, RECIPE_Y);

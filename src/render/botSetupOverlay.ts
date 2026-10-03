@@ -17,6 +17,7 @@ import { attachButtonFeedback } from './buttonFeedback.ts';
 // ⭐ S194 T5 — the shared skin (glass + sheen, inside each plate / hit rect).
 import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen } from './uiSkinButton.ts';
+import { ACCENT_BOTS, LazyScreenBackdrop, glowTitleStyle } from './uiScreenChrome.ts';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
@@ -158,15 +159,12 @@ export class BotSetupOverlay {
     backdrop.eventMode = 'static';
     this.container.addChild(backdrop);
 
+    // ⭐ S194 R194-32 — the home page's living backdrop in steel/red, under everything but the plate.
+    this.screenBackdrop = new LazyScreenBackdrop(this.container, 1, { ...ACCENT_BOTS.backdrop, logoY: 120, orbitRx: 380, orbitRy: 70 });
     const header = new Text({
       text: 'VS BOTS',
-      style: new TextStyle({
-        fontFamily: 'monospace',
-        fontSize: 56,
-        fontWeight: 'bold',
-        fill: BOT_ACCENT_COLOR,
-        letterSpacing: 8,
-      }),
+      // ⭐ S194 R194-32 — the glowing gradient title (steel → red), like SPARK and ARCADE.
+      style: glowTitleStyle(ACCENT_BOTS, 64, 10),
     });
     header.anchor.set(0.5);
     header.position.set(CANVAS_WIDTH / 2, 120);
@@ -174,10 +172,10 @@ export class BotSetupOverlay {
 
     const sub = new Text({
       text: 'they collect, build and disrupt like players — pick your poison',
-      style: new TextStyle({ fontFamily: 'monospace', fontSize: 14, fill: 0x888888 }),
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 15, fill: 0xb4c0d0, letterSpacing: 1 }),
     });
     sub.anchor.set(0.5);
-    sub.position.set(CANVAS_WIDTH / 2, 165);
+    sub.position.set(CANVAS_WIDTH / 2, 168);
     this.container.addChild(sub);
 
     // ── bot-count stepper ────────────────────────────────────────────────
@@ -296,7 +294,11 @@ export class BotSetupOverlay {
     }
     this.visible = visible;
     this.container.visible = visible;
+    this.screenBackdrop.setShown(visible);
   }
+
+  /** ⭐ S194 R194-32 — the shared backdrop; animates only while this screen is shown. */
+  private readonly screenBackdrop: LazyScreenBackdrop;
 
   isVisible(): boolean {
     return this.visible;

@@ -37,12 +37,19 @@ import { Application, Container, Graphics } from 'pixi.js';
 import { towerFootprintAt } from '../state/towerMembers.ts';
 import { isConcealed } from './concealment.ts';
 import {
-  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim,
+  TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, forEachTowerCoverGroup, resetTowerCoverGroups, towerFootForPrim,
 } from './towerCover.ts';
+import { hubArcFx } from './fx/hubArcFx.ts';
+import { BrokenTowerCache } from './brokenTowers.ts';
+import { towerFixSparkleFx, type FixEdge } from './fx/towerSparkleFx.ts';
+import { fxHighQuality } from './fx/fxRuntime.ts';
 import type { Primitive } from '../game/primitive.ts';
 import type { World } from '../state/world.ts';
-import { auraFx } from './fx/auraFx.ts';
+import type { PlayerId } from '../types.ts';
 import { fxActive, fxGround, fxTop } from './fx/fxState.ts';
+import {
+  TOWER_SPARKLE_EPSILON, towerSparkleFx, towerSparkleStrength, type SparkleBond, type SparklePrim,
+} from './fx/towerSparkleFx.ts';
 
 /** How many concentric rings radiate outward from the zone centre. */
 const RING_COUNT = 3;
@@ -80,10 +87,29 @@ export class SpawnerZoneRenderer {
     parent.addChild(this.root);
   }
 
+  /**
+   * ⭐ S194 — the owner of each sparkle group, remembered while its shapes exist: a crumbled tower's
+   * destroy sparkle still needs a colour and a fog test after its last shape has gone.
+   */
+  private readonly groupOwner = new Map<number, PlayerId>();
+
   /** Clear + redraw the aura for every live spawner. No-op when none. */
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
+    /*
+     * ⭐⭐ S194 `s194/visuals-6` (owner) — **THE FX PATH DRAWS THE SPARKLE FOR EVERY TOWER, AND NOTHING
+     * ELSE HERE.** The S192 aura (pool + embers) and the S100 charged connectors were this renderer's
+     * fx-path draws, for SPAWNERS only — so the laser turret never sparkled (*"make it consistent across
+     * all built … towers"*). Both now live in `fx/towerSparkleFx.ts`, keyed on `towerCover`'s groups,
+     * which cover every tower kind that hides its connectors. The legacy path below is unchanged.
+     */
+    if (fxActive()) {
+      this.syncSparkles(world);
+      this.syncFixSparkles(world);
+      this.syncHubArcs(world);
+      return;
+    }
     if (world.creatureSpawners.size === 0) return;
 
     // world.tick pulse (pauses with the sim) + wall-clock shimmer (client-fluid).
@@ -131,13 +157,10 @@ export class SpawnerZoneRenderer {
       radius = Math.max(radius + p0Pad(prims), 28); // pad past prim sprites, min floor
 
       const tint = anchorTint(world, anchor);
-      // ⭐ S192 PILOT 2 — the rebuilt aura: a pool of light and rising embers (`fx/auraFx.ts`). It REPLACES
-      // the disc, the rings and the core dot below. ⛔ S192 audit V-1 — and it FADES WITH THE BUILDING like
-      // every other layer here (S183, owner: the aura fades with the building on every tower): the last
-      // argument is the anchor's cover alpha, so the light hides under a finished tower and shows only
-      // while it is being built or crumbling. `towerCover.test.ts` pins that argument mechanically.
-      const rebuilt = fxActive();
-      if (rebuilt) auraFx(fxGround(), fxTop(), sp.id as unknown as number, cx, cy, radius, tint, world.tick, coverAlphaForPrim(anchor.id));
+      /*
+       * ⚠ S192 PILOT 2 — the rebuilt aura (`fx/auraFx.ts`) was called HERE, for spawners only. ⭐ S194 moved
+       * it into the shared sparkle (`syncSparkles` above), so this loop is the LEGACY drawing alone.
+       */
 
       /*
        * ⭐⭐⭐ S183 (owner) — **THE AURA FADES WITH THE BUILDING, ON EVERY TOWER, FRIENDLY AND
@@ -175,7 +198,7 @@ export class SpawnerZoneRenderer {
        * sprite is standing on, so a zone with no building art glows exactly as it did in S100.
        */
       const zoneAlpha = coverAlphaForPrim(anchor.id);
-      if (!rebuilt && zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
         // ── breathing tint disc under the structure (the "alive" glow floor) ──
         g.circle(cx, cy, radius * (0.85 + pulse * 0.1)).fill({
           color: tint,
@@ -223,7 +246,7 @@ export class SpawnerZoneRenderer {
       // ── a steady core glow at the anchor itself (the spawn point) ──
       // ⛔ S183 — *"that little graphic that have it, like, radiate"*. The core is the brightest
       // thing in this file and sits dead centre under the building, so it fades with the rest.
-      if (!rebuilt && zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
+      if (zoneAlpha > TOWER_COVER_DRAW_EPSILON) {
         g.circle(anchor.pos.x, anchor.pos.y, 5 + pulse * 3).fill({
           color: tint,
           alpha: (0.35 + pulse * 0.3) * zoneAlpha,
@@ -233,8 +256,116 @@ export class SpawnerZoneRenderer {
     }
   }
 
+  /**
+   * ⭐ S194 — the build / destroy sparkle, for every tower a renderer drew (`towerCover` groups): the
+   * race towers, the five ramp towers (spawners AND defenders), the Voltkin TV and the stink tower.
+   */
+  private syncSparkles(world: World): void {
+    const ground = fxGround();
+    const top = fxTop();
+    const seen = new Set<number>();
+    forEachTowerCoverGroup((grp) => {
+      const key = grp.key as unknown as number;
+      seen.add(key);
+      // Owner + footprint from whatever shapes still exist.
+      let sx = 0, sy = 0, n = 0, minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const pid of grp.prims) {
+        const p = world.primitives.get(pid);
+        if (p === undefined) continue;
+        if (n === 0) this.groupOwner.set(key, p.placedBy);
+        sx += p.pos.x; sy += p.pos.y; n++;
+        if (p.pos.x < minX) minX = p.pos.x;
+        if (p.pos.x > maxX) maxX = p.pos.x;
+        if (p.pos.y + p.radius > maxY) maxY = p.pos.y + p.radius;
+      }
+      // ⛔ S194 audit L2 — a re-reveal (back out of fog) shows the finished tower, not a build.
+      const s = grp.standing && grp.revealOnly ? 0 : towerSparkleStrength(grp.standing, grp.alpha, grp.downTicks);
+      if (!(s > TOWER_SPARKLE_EPSILON)) return;
+      const owner = this.groupOwner.get(key);
+      if (owner === undefined) return;
+      const foot = grp.foot ?? (n === 0 ? null : { x: sx / n, y: maxY, w: Math.max(56, maxX - minX + 40), h: Math.max(56, maxX - minX + 40) });
+      if (foot === null) return;
+      // ⛔ FOG — the sparkle is the tower's, so it is concealed with it (a tower lost into fog stops
+      // publishing, which would otherwise read as a crumble and sparkle in the dark).
+      if (isConcealed(foot.x, foot.y, owner)) return;
+      const bonds: SparkleBond[] = [];
+      for (const bid of grp.bonds) {
+        const b = world.bonds.get(bid);
+        if (b === undefined) continue;
+        const a = b.a as Primitive;
+        const c = b.b as Primitive;
+        bonds.push({ ax: a.pos.x, ay: a.pos.y, bx: c.pos.x, by: c.pos.y, a: grp.standing ? coverAlphaForBond(bid) : s });
+      }
+      const prims: SparklePrim[] = [];
+      for (const pid of grp.prims) {
+        const p = world.primitives.get(pid);
+        if (p === undefined) continue;
+        prims.push({ x: p.pos.x, y: p.pos.y, r: p.radius, a: grp.standing ? coverAlphaForPrim(pid) : s });
+      }
+      const tint = world.players.get(owner)?.color ?? FALLBACK_TINT;
+      towerSparkleFx(ground, top, key, foot.x, foot.y, foot.w, foot.h, tint, world.tick, s, bonds, prims);
+    });
+    for (const k of this.groupOwner.keys()) if (!seen.has(k)) this.groupOwner.delete(k);
+  }
+
+  private readonly broken = new BrokenTowerCache();
+
+  /**
+   * ⭐⭐ S194 (owner R194-22) — the soft FIX-ME sparkle on every fallen tower FIX can still stand up
+   * (`brokenTowers.ts`: synced state, the FIX card's own predicates), on its connectors, its shapes and
+   * its missing edges. ⭐ R194-23 (owner): shown to EVERY viewer — *"It doesn't matter because enemies
+   * can't … control their own units … so it's fine"* — and fogged exactly like the tower.
+   */
+  private syncFixSparkles(world: World): void {
+    const towers = this.broken.get(world);
+    if (towers.length === 0) return;
+    const top = fxTop();
+    const low = !fxHighQuality();
+    for (const t of towers) {
+      let sx = 0, sy = 0, n = 0;
+      const prims: Array<{ x: number; y: number; r: number }> = [];
+      for (const id of t.prims) {
+        const p = world.primitives.get(id);
+        if (p === undefined) continue;
+        prims.push({ x: p.pos.x, y: p.pos.y, r: p.radius });
+        sx += p.pos.x; sy += p.pos.y; n++;
+      }
+      if (n === 0) continue;
+      if (isConcealed(sx / n, sy / n, t.owner)) continue;
+      const edges: FixEdge[] = [];
+      for (const e of t.edges) {
+        const a = world.primitives.get(e.a);
+        const b = world.primitives.get(e.b);
+        if (a === undefined || b === undefined) continue;
+        const missing = e.bond === null || !world.bonds.has(e.bond);
+        edges.push({ ax: a.pos.x, ay: a.pos.y, bx: b.pos.x, by: b.pos.y, missing });
+      }
+      const tint = world.players.get(t.owner)?.color ?? FALLBACK_TINT;
+      towerFixSparkleFx(top, t.key as unknown as number, tint, world.tick, low, edges, prims);
+    }
+  }
+
+  /**
+   * ⭐ S194 (V07 leftover) — the lightning hub's arcs (`fx/hubArcFx.ts`). Only while its building is
+   * actually drawn (a published foot), and fogged with it.
+   */
+  private syncHubArcs(world: World): void {
+    for (const sp of world.creatureSpawners.values()) {
+      if (sp.recipeId !== 'lightningHub') continue;
+      const anchor = world.primitives.get(sp.anchorPrimitiveId);
+      if (anchor === undefined) continue;
+      const foot = towerFootForPrim(anchor.id);
+      if (foot === null) continue;
+      if (isConcealed(foot.x, foot.y, anchor.placedBy)) continue;
+      hubArcFx(fxTop(), anchor.id as unknown as number, foot.x, foot.y, foot.w, foot.h, world.tick, !fxHighQuality());
+    }
+  }
+
   /** Drop the aura graphic (title-return; closes the one-frame orphan window). */
   clear(): void {
+    // ⭐ S194 audit M1 — the title return clears the shapes; forget every tower group and owner with them.
+    this.groupOwner.clear();
+    resetTowerCoverGroups();
     this.graphics.clear();
   }
 
