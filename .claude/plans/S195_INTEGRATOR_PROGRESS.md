@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
 ## EXACT NEXT STEP
-L2: merged into master 6a46ecab; deploy-routine gates RUNNING (`.tmp-gates/s195run.sh L2 31953` → `.tmp-gates/s195_L2/`). Then push, deploy, verify, log S195-#2.
+L2 HELD (not pushed): master 6a46ecab gates tc0 · vt0 8721 · build 1181.8 · gating 74/74 · lobby 5/5 · teams 2/2, but races RED: settings-toggles.spec:140 (race-music OFF → blue-steppe fallback not fetched within 2.5 s). Pre-L2 tree (rules tip) 5/5; L2 tree 2/5 + 1/3 fail. Diagnosing with a scratch spec `e2e/zz-diag-s195.spec.ts` (UNTRACKED, delete after). Decide: real regression → report/stop L2; else rule with measurement.
 
 ## STATE PER LANDING
 | landing | state |
