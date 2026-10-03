@@ -462,14 +462,20 @@ jobs:
   # NOTE: @perf-measure tests self-skip unless SPARK_PERF=1, which is intentionally NOT
   # set here — enabling never-run benchmarks is out of scope for this priority. Routing
   # them is tidying, not a budget saving; the real cost is the 3 @soak tests.
+  # ⛔ S195 T21 — 44/50 → 58/66. Each of the three audits now has a DERIVED test budget,
+  # `SOAK_TEST_BUDGET_MS` = 240 s setup+samples + 240 s warm-up cap + 600 s window ceiling = 1080 s,
+  # because the window's wall cap is derived from the warm-up's measured rate (run 37047025269: the
+  # bots worlds ran 3.6 ticks/s, half the S127 calibration, so the fixed 300 s window measured 1 098
+  # ticks and tripped the 1 300 liveness floor). 3 × 1080 s = 54 min, + the 10 s code-input
+  # diagnostic, ≤ 58; the runner keeps 8 min above that for setup. Pinned by `ci.e2eLanes.test.ts`.
   e2e-soak:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 66
     continue-on-error: true
     env:
       # Below timeout-minutes for the same reason as the gating lane: an overrun must
       # report as a failure WITH an uploaded report, never as a silent SIGKILL.
-      PW_GLOBAL_TIMEOUT_MIN: 44
+      PW_GLOBAL_TIMEOUT_MIN: 58
       # S127 — NO RETRIES IN THIS LANE (the global default is `retries: CI ? 2 : 0`).
       # A retry only helps a NON-deterministic failure. This lane's failure mode was
       # structural: sim ticks are FRAME-bound (src/main.ts:1389 clamps dt to 0.05s with

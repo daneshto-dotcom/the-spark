@@ -537,3 +537,51 @@ describe('S195 T21 - e2e-render: hunter budgets derive from ticks; fog reads are
     expect(cap - pw, `e2e-render: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
   });
 });
+
+/*
+ * ⛔ S195 T21 — THE SOAK WINDOW IS SIZED IN TICKS, AND THE LANE HOLDS EVERY AUDIT'S DERIVED BUDGET. Run
+ * 37047025269: bots worlds at 3.6 ticks/s measured 1 098 ticks in the fixed 300 s window (floor 1 300), and
+ * the TD-heavy baseline ran out of its 660 s test time. Both soak files must derive the window's wall cap
+ * from the warm-up's rate with the SAME formula, keep the S127 300 s window as the floor, and never touch
+ * GROWTH_LIMIT_MB (the heap METRIC is T22's).
+ */
+describe('S195 T21 - e2e-soak: tick-sized window, derived test budgets, a lane that holds them', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const files = ['e2e/render-heap.spec.ts', 'e2e/worker-heap.spec.ts'];
+  const num = (spec: string, name: string): number => {
+    const m = new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec);
+    expect(m, `${name} is missing`).not.toBeNull();
+    return Number((m as RegExpExecArray)[1]!.replace(/_/g, ''));
+  };
+  it('both soak files derive the window cap from the warm-up rate and every audit uses SOAK_TEST_BUDGET_MS', () => {
+    let audits = 0;
+    for (const f of files) {
+      const spec = norm(readFileSync(join(ROOT, f), 'utf8'));
+      expect(num(spec, 'GROWTH_LIMIT_MB'), `${f}: GROWTH_LIMIT_MB is T22's metric, not a budget lever`).toBe(10);
+      expect(num(spec, 'WALL_CAP_MS'), `${f}: the S127 window stays the floor`).toBe(300_000);
+      expect(num(spec, 'DESIGN_WINDOW_TICKS'), `${f}: the S127-calibrated CI window`).toBe(2_000);
+      expect(spec).toContain('const SOAK_TEST_BUDGET_MS = SETUP_AND_SAMPLES_MS + WARMUP_WALL_CAP_MS + WINDOW_WALL_CEIL_MS;');
+      expect(spec).toContain('return Math.min(WINDOW_WALL_CEIL_MS, Math.max(WALL_CAP_MS, need));');
+      expect(spec, `${f}: the measurement window must use the derived cap`).toContain('s0.tick + TARGET_TICKS, windowCapMs)');
+      expect(spec, `${f}: no fixed-window wait left`).not.toContain('s0.tick + TARGET_TICKS, WALL_CAP_MS)');
+      const timeouts = spec.match(/test\.setTimeout\(([^)]+)\)/g) ?? [];
+      expect(timeouts.length, `${f}: anti-vacuity`).toBeGreaterThan(0);
+      for (const t of timeouts) expect(t, `${f}: every audit's timeout is the derived budget`).toBe('test.setTimeout(SOAK_TEST_BUDGET_MS)');
+      audits += timeouts.length;
+    }
+    expect(audits, 'render-heap 1 + worker-heap 2').toBe(3);
+  });
+  it('the e2e-soak lane holds every audit at its derived budget (no retries), with >= 8 min runner headroom', () => {
+    let needMs = 60_000; // the ~10 s code-input diagnostic, at the config default
+    for (const f of files) {
+      const spec = norm(readFileSync(join(ROOT, f), 'utf8'));
+      const budget = num(spec, 'SETUP_AND_SAMPLES_MS') + num(spec, 'WARMUP_WALL_CAP_MS') + num(spec, 'WINDOW_WALL_CEIL_MS');
+      needMs += budget * (spec.match(/test\.setTimeout\(SOAK_TEST_BUDGET_MS\)/g) ?? []).length;
+    }
+    const block = jobBlock('e2e-soak');
+    expect(block).toMatch(/\n {6}PW_RETRIES: '?0'?\n/);
+    const { cap, pw } = laneMinutes('e2e-soak');
+    expect(pw * 60_000, `e2e-soak PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-soak: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
