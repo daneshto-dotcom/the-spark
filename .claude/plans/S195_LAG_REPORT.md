@@ -76,11 +76,31 @@ recording). CPU weakness is emulated with Chrome DevTools' CPU throttle (4× ≈
 the game tick to the end of Pixi's render — where the joiner applies and interpolates); `idle` = the same board,
 same throttle, snapshots stopped.
 
-JOINER_TABLE_PLACEHOLDER
+**Unthrottled, real GPU (RTX 4070 Ti SUPER via D3D11), fx HIGH — run 2, the stable rows:**
+
+| wave | snapshot | handle med / p95 | frame med / p95 | fps med (p5) | snapshots taken in 8 s |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 11.1 KiB | 0.2 / 0.7 ms | 4.8 / 12.6 ms | 60 (60) | 80 / 80 |
+| 5 | 78.1 KiB | 0.4 / 1.5 ms | 12.5 / 21.3 ms | 60 (30) | 80 / 80 |
+| 8 | 107.4 KiB | 0.6 / 1.5 ms | 17.2 / 42.7 ms | 60 (20) | 77 / 80 |
+| 10 | 119.0 KiB | 0.7 / 3.2 ms | 20.6 / 38.2 ms | 30 (20) | 81 / 80 |
+| 15 | 111.4 KiB | 0.6 / 2.0 ms | 18.3 / 41.5 ms | 60 (20) | 80 / 80 |
+
+**Throttled 4×, wave 5 (run 2) — fx HIGH / LOW / legacy:** frame 53.1 / 50.3 / 50.9 ms, fps 15 / 15 / 15,
+handle ~1.9 ms. ⭐ **The fx setting barely moves the cost** — the base board drawing is the cost, not the
+S192–S194 effects. At 6×: frame 60–67 ms, fps 7.5–8.6.
+
+**Throttled 4×, wave 10 (profile run 2):** frame 24.2 ms with snapshots vs 24.4 ms idle; handle 0.7 / 2.4 ms.
+
+- On THIS machine (Ryzen 9 5900XT + RTX 4070 Ti SUPER), the joiner's frame CPU grows ~4× from wave 1 to wave 10
+  (4.8 → 20.6 ms) — the board alone puts a strong PC at the 30 fps edge on wave 10. Receiving a snapshot is
+  ≤ 1 ms of that.
+- The SwiftShader ("no usable GPU") project was not usable for fps on the shared machine (rAF ~3 fps even at
+  wave 1, unthrottled); its handle times agree with the GPU rows (0.7–0.8 ms at wave 10).
 
 ⚠ **Read the throttled rows as direction, not as a benchmark.** This machine was shared with seven other
 worktrees running test suites during the run (a plain `grep` over `src/render` timed out at 120 s once), and the
-CPU throttle compounds that load. Two runs of the same configuration disagreed by up to 3× on fps. The
+CPU throttle compounds that load. Two runs of the same configuration disagreed by up to 3× on fps, and a third full matrix was crushed outright (fps 0.2, 2–3 snapshots taken in 8 s even on wave 1; its anti-vacuity check failed at wave 5 and it was discarded). The
 unthrottled rows and the handle times were stable across runs. Two runs were thrown away and are recorded as
 invalid: run 1 measured Chrome's background-tab throttling (the joiner window was treated as hidden; fixed with
 the no-backgrounding flags + a visibility guard) and the first profile replayed snapshots that were all dropped on
@@ -141,4 +161,86 @@ his fps stays up = network. `snap rx` near 10 with low fps = his PC.
 
 ## 3 · OPTIONS
 
-OPTIONS_PLACEHOLDER
+Gains are from the §1 numbers. "Bump" = `PROTOCOL_VERSION` (the merge owner bumps; this tree never does).
+My recommendation is A and B together. C is cheap insurance. D is what was asked for, and it does not
+touch his lag.
+
+| | option | what it does, plainly | expected gain (measured) | cost | risk | bump |
+|---|---|---|---|---|---|---|
+| **A** | **Compress the snapshot** | The host squeezes each snapshot with the browser's own DEFLATE (`CompressionStream`, no new packages) before sending; the joiner unsqueezes it. Trystero already carries binary. | **5.3×** fewer bytes at every wave: w10 119 → 22 KiB, ~9.8 → ~1.8 Mbit/s per joiner. Host +~1 ms per snapshot (once, not per peer); joiner +<1 ms. | ~1 day: `transport.ts` send/receive + a codec + tests (round trip, malformed input, size budget). | Low. Async decode must keep snapshot ORDER (the seq gate already handles a late one). | **Yes**: an old peer cannot read a compressed frame. |
+| **B** | **Send what changed, not what exists (delta snapshots)** | Send the full board once (and as a keyframe every few seconds or on request), then each 100 ms only the entities that changed and the ids that vanished. CLAUDE.md names this as the structural fix. | w8–15: **~7×** alone (108–119 → 14–16 KiB); **with A ~25×** (→ ~4–5 KiB, ~0.35 Mbit/s). At w5 mid-fight (structures shaking): ~2.5× alone, ~8.6× with A. | **3–5 days**: per-family diff on the host, keyframe + resync (a joiner that misses a delta asks for a keyframe), the host-migration successor path, the four-sites rule for every family, tests including a long randomised "apply deltas == apply full" oracle. | Medium: a missed or misapplied delta means a joiner sees a wrong board until the next keyframe. The oracle test is what makes it safe. | **Yes.** |
+| **C** | **Client auto-quality, VISIBLE** | When a joiner's frame time stays high (e.g. > 33 ms for 3 s), the game shows "Performance mode ON" and switches to a cheaper draw; the player can turn it off. Never silent. | ⚠ **The fx setting alone buys almost nothing**: at w5 4×, fx HIGH/LOW/legacy = 53/50/51 ms. The cost is drawing the BOARD (Pixi redraws every connector as vector lines each frame). A useful performance mode has to draw connectors more cheaply: cache static structure geometry and redraw only when a structure changes. That is the real lever, and it helps the host too. | fx-only toggle: ½ day (worth little). Cached structure drawing: 2–3 days in `src/render/structureRenderer.ts` and related files (outside this tree's boundary). | Low (render-only; must not change what the player sees in normal mode). | No (render-only). |
+| **C2** | **Quiet the signalling during a match** | Trystero keeps re-announcing the room on 4 Nostr relays every 5.3 s and keeps a pool of pre-made peer offers, all match long, on the main thread. One profile window showed ~30 % of the joiner's main thread in its secp256k1 maths. | Unknown until measured on its own (bursty: another window showed ~15 ms). Measure first. | ½ day to measure; the fix touches reconnect discovery, which tree **T20** owns. | Medium: slower announces can slow a reconnect. | No. |
+| **D** | **Dedicated host on workstation 2** (details in §3.3) | A headless browser on WS2 joins every room as the host, so every human is a joiner; when WS2 is off, today's P2P. | **For the brother: about nothing.** WS2 is in the same house, so it has the same uplink, sends the same snapshot size over the same path to Israel, and his PC pays the same drawing cost. It frees the owner's CPU, which is not a problem today. | **~1–1.5 weeks**: a seat-less host mode (today the host is always seat 0, `lobbyRoster.ts:44`), discovery + a SIGNED beacon, the fallback, WS2 setup and hardening. | Medium-high (a new host role through lobby, roster and succession). | **Yes.** |
+| **E** | *(only if ever needed)* a real server in a datacentre | Same as D, but on a rented machine with a fast line (e.g. Frankfurt). | Fixes a weak home uplink and the 3–4-joiner fan-out. Does not fix his download or his drawing. | D's cost + hosting ~€5–20/month. | As D. | Yes. |
+
+### 3.1 · Recommended order
+1. **First, the free reading** (§1c): one match with `?debug=1`, numbers read at wave 8–9. It says whether his
+   problem is mostly network (A/B fix it) or mostly his PC (C fixes it). Two minutes for the owner.
+2. **A now** (one day, big gain, low risk), then **B** (the structural fix). With A, B makes snapshot size a
+   non-issue at every wave, the pants endgame included.
+3. **C (cached structure drawing)** if the reading shows his fps falling while snapshots arrive fine.
+4. **Not D** for this problem. If the owner wants WS2 hosting for other reasons (games that survive the human
+   host leaving, a consistent host), it can be built; §3.3 covers how and what it costs.
+
+### 3.2 · Bump verdicts
+- **This branch: NO BUMP.** The only source file added is `src/net/lagWaveMeasure.test.ts`, an opt-in test
+  (skipped unless `SPARK_LAG_MEASURE=1`); `scripts/lag/*` is not in the bundle. Nothing either peer computes
+  has changed.
+- A, B and D each earn a bump (a peer on the old build cannot read the new frames or messages). C and C2 do not.
+
+### 3.3 · Option D in full: the dedicated host on workstation 2
+
+**What WS2 is** (read-only: Project Genesis `GENESIS_BLUEPRINT.md` §13.1 and
+`.claude/audits/ws-orchestration/registry.json`): Oleg's machine, AMD Ryzen 9 **9950X3D** (Zen 5), "trusted
+**same-room** compute", reached today through a Google Drive exchange folder. No hostname, IP or GPU is recorded.
+
+**How it would work.**
+- WS2 runs headless Chrome on the live site with a `?house=1` flag. The page skips drawing (saves CPU) and runs
+  only the host loop. Reusing the real game page is much cheaper than a Node host, which would need WebRTC for
+  Node (a new npm package, needs approval) and the host loop pulled out of `main.ts` (4 000+ lines that mix
+  drawing and hosting).
+- **New piece: a seat-less host.** Today the host is always seat 0 and a player. The house must host without
+  holding a seat, and a human must still press "Begin" (a small new message from the lobby leader to the house).
+- **Picking it, and falling back.** When a player presses HOST, the page listens for ~1.5 s on a fixed "house"
+  room for a beacon. If the beacon is there with a valid signature and the same protocol, the house opens the
+  room and the player joins as a joiner. If not, the player hosts over P2P exactly as today. If WS2 dies
+  mid-match, the existing host migration promotes a human successor and the match goes on, so the fallback is
+  already built.
+
+**What it fixes and what it does not.** It moves the simulation off the owner's PC. It does **not** shrink the
+snapshot, it does **not** change the internet line (same house), and it does **not** make the brother's PC draw
+faster. The owner would become a joiner too and get the same snapshot stream (over the LAN, so no lag for him).
+
+**SECURITY, in plain words (checked against the code, not assumed):**
+- **No open doors on WS2.** Nothing on it listens to the internet: no web server, no port forwarding. The page
+  makes outgoing connections to the public Nostr relays (signalling), and WebRTC connects peers via STUN/TURN.
+  A peer can only reach it through the game's data channel.
+- **What a malicious player can send it:** game messages only. Every message is JSON-parsed inside a try/catch
+  (`transport.ts` `handleRawMessage`), a peer on the wrong protocol is latched out (`detectProtocolMismatch`),
+  each peer is rate-limited (`intentRateLimiter.ts`), only allowlisted client intents are accepted, and every
+  intent is re-stamped with the SENDER's own seat (`intentStamp.ts` `stampSenderSeat` / `stampOrReject`: a peer
+  can only act as itself, a client sever is always forced to `cause: 'player'`, an unseated peer is rejected).
+  The worst a hostile player can do is cheat within his own seat's legal moves or try to crash the page, so the
+  page must be a disposable process that restarts.
+- **Fake houses are the real danger.** The host decides the game for everyone. If anyone could post a "house
+  is here" beacon, they could capture every lobby. So the beacon **must be signed** with a private key that
+  exists **only on WS2**, and the game ships only the public key. (The room code is already the fingerprint of
+  the host's key, `hostIdentity.ts`, so the room itself stays authenticated; the beacon is the new piece.)
+- **No secrets in the game bundle**, only that public key. ⚠ Note: the TURN username/password are ALREADY in
+  the public bundle by design (`vite.config.ts` defines `VITE_TURN_*`). They are relay credentials with a hard
+  quota, not backend access, as `TURN_SETUP.md` already says.
+- **WS2 itself:** a **separate Windows standard (non-admin) user** just for the house, with an empty Chrome
+  profile and **no access** to Oleg's files, the Google Drive mount or the Genesis account; Windows Update and
+  Chrome auto-update on; **no RDP or remote desktop exposed to the internet**; a scheduled task restarts the
+  house process if it dies. Peers will see the house's public IP, which is the owner's house IP, already
+  visible to them today in P2P.
+- **The site stays on GitHub Pages.** Nothing about hosting the website changes.
+
+## 4 · NOT DONE
+- **The throttled joiner numbers only show direction** (shared machine; one full matrix discarded). A clean
+  re-run on an idle machine: `npx playwright test -c scripts/lag/playwright.lag.config.ts --project=gpu`.
+- **No real long-distance network measurement**: the data-channel-window hypothesis (§1c) is unverified.
+- **No board past wave 16, and no human-sized board.** The pants-endgame figure (~170–200 KiB) is computed
+  from the S194 measurement, not replayed.
+- **Nothing was built.** No fix qualified as no-regret without a bump: every byte-saver changes the wire.
