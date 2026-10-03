@@ -31,7 +31,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { runHostTick } from '../state/hostTick.ts';
-import { makeWorld, type World } from '../state/world.ts';
+import { makeWorld } from '../state/world.ts';
 import { applyNetSnapshot, netSnapshot, stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
 import { startC5Match, WAVE_TICKS, fightStartTick, topUpCreatures } from '../state/c5WaveFiveBoard.fixtures.ts';
 

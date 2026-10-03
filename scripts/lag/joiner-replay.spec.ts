@@ -31,6 +31,7 @@ const WAVES = (process.env.SPARK_LAG_WAVES ?? '1,5,8,10,15').split(',').map(Numb
 const LABEL = process.env.SPARK_LAG_LABEL ?? 'natural';
 const THROTTLES = (process.env.SPARK_LAG_THROTTLES ?? '1,4,6').split(',').map(Number);
 const FX = (process.env.SPARK_LAG_FX ?? 'high,low,legacy').split(',');
+const PROFILE = process.env.SPARK_LAG_PROFILE === '1';
 const WARM_MS = 3000;
 const MEASURE_MS = 8000;
 
@@ -38,6 +39,23 @@ interface Row {
   project: string; wave: number; throttle: number; fx: string; snapKiB: number; injected: number;
   handleMsMed: number; handleMsP95: number; frameMsMed: number; frameMsP95: number; fpsMed: number; fpsP5: number;
   longFrames: number; renderer: string; counts: Record<string, number>;
+  /** The same board with injection STOPPED: what rendering alone costs (no parse, no apply). */
+  idleFpsMed: number; idleFpsP5: number; idleFrameMsMed: number;
+}
+
+type CpuProfile = { nodes: Array<{ id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number; children?: number[] }>; startTime: number; endTime: number };
+/** Top self-time functions of a CDP CPU profile — what DOMINATES the joiner's main thread, not a guess. */
+function topSelf(profile: CpuProfile, n: number): string {
+  const total = profile.nodes.reduce((a, x) => a + (x.hitCount ?? 0), 0);
+  const usPer = (profile.endTime - profile.startTime) / Math.max(1, total);
+  const self = new Map<string, number>();
+  for (const x of profile.nodes) {
+    const k = `${x.callFrame.functionName || '(anon)'} ${x.callFrame.url.split('/').pop()?.split('?')[0]}:${x.callFrame.lineNumber + 1}`;
+    self.set(k, (self.get(k) ?? 0) + (x.hitCount ?? 0));
+  }
+  return [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
+    .map(([k, v]) => `    ${((100 * v) / total).toFixed(1).padStart(5)} %  ${((v * usPer) / 1000).toFixed(0).padStart(6)} ms  ${k}`).join('
+');
 }
 
 async function installInjector(page: Page): Promise<void> {
@@ -152,7 +170,13 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; });
           const f0 = await joiner.evaluate(() => (window as unknown as { __SPARK__: { frameMs: readonly number[] } }).__SPARK__.frameMs.length);
           void f0;
+          if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
+          if (PROFILE) {
+            const { profile } = await cdp.send('Profiler.stop') as unknown as { profile: CpuProfile };
+            console.log(`PROFILE ${info.project.name} w${wave} ${fx} ${thr}x:
+${topSelf(profile, 30)}`);
+          }
           const got = await joiner.evaluate(() => {
             const g = window as unknown as { __lag: { handle: number[]; raf: number[] }; __SPARK__: { frameMs: readonly number[]; world: { creatures: Map<unknown, unknown>; primitives: Map<unknown, unknown>; bonds: Map<unknown, unknown>; effects: unknown[] } } };
             const w = g.__SPARK__.world;
@@ -160,17 +184,27 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
               counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size } };
           });
           await stopInjection(joiner);
+          // Render-only baseline: same board, no snapshots arriving, same throttle.
+          await joiner.waitForTimeout(500);
+          await joiner.evaluate(() => { (window as unknown as { __lag: { raf: number[] } }).__lag.raf = []; });
+          await joiner.waitForTimeout(4000);
+          const idle = await joiner.evaluate(() => {
+            const g = window as unknown as { __lag: { raf: number[] }; __SPARK__: { frameMs: readonly number[] } };
+            return { raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-120) };
+          });
           await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
           const fps = got.raf.filter((x) => x > 0).map((x) => 1000 / x);
+          const idleFps = idle.raf.filter((x) => x > 0).map((x) => 1000 / x);
           const row: Row = {
             project: info.project.name, wave, throttle: thr, fx, snapKiB: +snapKiB.toFixed(1), injected: got.handle.length,
             handleMsMed: +pct(got.handle, 0.5).toFixed(2), handleMsP95: +pct(got.handle, 0.95).toFixed(2),
             frameMsMed: +pct(got.frame, 0.5).toFixed(2), frameMsP95: +pct(got.frame, 0.95).toFixed(2),
             fpsMed: +pct(fps, 0.5).toFixed(1), fpsP5: +pct(fps, 0.05).toFixed(1),
             longFrames: got.raf.filter((x) => x > 50).length, renderer, counts: got.counts,
+            idleFpsMed: +pct(idleFps, 0.5).toFixed(1), idleFpsP5: +pct(idleFps, 0.05).toFixed(1), idleFrameMsMed: +pct(idle.frame, 0.5).toFixed(2),
           };
           rows.push(row);
-          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  ${JSON.stringify(row.counts)}`);
+          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
           writeFileSync(join(DIR, `joiner-${info.project.name}-${LABEL}.json`), JSON.stringify({ renderer, rows }, null, 1));
         }
       }
