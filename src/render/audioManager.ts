@@ -752,12 +752,14 @@ export async function playMusic(): Promise<void> {
    * will pick this up") — but during this await there IS no next `playMusic`: the PLAYING edge calls
    * it once. So race music turned OFF while the ~3 MB race cover was still loading left the match
    * SILENT until the next match (`e2e/settings-toggles.spec.ts:140`, 2/10 on a slow tree). Loop to the
-   * URL the game wants now; each pass is a fetch the module would have made anyway, and a failed load
-   * still ends in silence, as before.
+   * URL the game wants now; each pass is a fetch the module would have made anyway. A failed load of
+   * a track the game no longer wants still moves on; only a failed load of the WANTED track is silence.
    */
   let url = desiredMusicUrl;
   let buffer = await getMusicBuffer(url);
-  while (buffer !== null && desiredMusicUrl !== url) {
+  // ⛔ S195 audit — loop on the URL alone: a FAILED load of the stale track must still move on to the
+  // wanted one (the first version stopped on `buffer === null` and stayed silent).
+  while (desiredMusicUrl !== url) {
     url = desiredMusicUrl;
     buffer = await getMusicBuffer(url);
   }

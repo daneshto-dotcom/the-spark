@@ -946,7 +946,7 @@ describe('audioManager — S195 a track change mid-load still starts the track t
   /** Per-URL gates: a held URL's fetch resolves only when its release() is called. */
   let held = new Map<string, () => void>();
 
-  function installHeldEnv(holdUrls: readonly string[]): void {
+  function installHeldEnv(holdUrls: readonly string[], failUrls: readonly string[] = []): void {
     startedUrls.length = 0;
     held = new Map();
     const makeGain = (): unknown => ({
@@ -983,6 +983,7 @@ describe('audioManager — S195 a track change mid-load still starts the track t
     (globalThis as { fetch?: unknown }).fetch = async (input: unknown): Promise<unknown> => {
       const url = String(input);
       if (holdUrls.includes(url)) await new Promise<void>((r) => { held.set(url, r); });
+      if (failUrls.includes(url)) return { ok: false, status: 404, arrayBuffer: async (): Promise<FakeBuf> => ({ __url: url }) };
       return { ok: true, status: 200, arrayBuffer: async (): Promise<FakeBuf> => ({ __url: url }) };
     };
   }
@@ -1027,6 +1028,20 @@ describe('audioManager — S195 a track change mid-load still starts the track t
     expect(startedUrls, 'the stale race cover must never start').not.toContain(RACE_MUSIC_SRC.vampires);
     expect(startedUrls, 'the track the game wants must start — before S195 nothing did').toEqual([DEFAULT_MUSIC_SRC]);
     expect(inspectAudioChain().musicSourceActive).toBe(true);
+  });
+
+  it('⛔ S195 audit — the race track FAILS to load after the toggle → the DEFAULT track still starts', async () => {
+    installHeldEnv([RACE_MUSIC_SRC.vampires], [RACE_MUSIC_SRC.vampires]);
+    initAudio();
+    setMusicTrack(RACE_MUSIC_SRC.vampires);
+    const p = playMusic();
+    await flush();
+    expect(held.has(RACE_MUSIC_SRC.vampires)).toBe(true);
+    setMusicTrack(DEFAULT_MUSIC_SRC);
+    held.get(RACE_MUSIC_SRC.vampires)!(); // released into a 404
+    await p;
+    await flush();
+    expect(startedUrls, 'a failed stale load must not leave the match silent').toEqual([DEFAULT_MUSIC_SRC]);
   });
 
   it('a flip OFF then back ON inside the window plays the race track exactly once', async () => {
