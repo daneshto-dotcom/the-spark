@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-PHASE 2 (owner N17 + R195-P1, coordinator brief): build real graphics tiers HIGH/LOW/MINIMAL, render-only, live, persisted. Step 1 now: trace settings toggle -> displayPrefs -> fxRuntime -> who reads it; then read structureRenderer.ts.
+Implement: (1) displayPrefs graphics tier store (HIGH/LOW/MINIMAL, migrate old fxHighQuality=false -> LOW); (2) src/render/graphicsTier.ts runtime + fxRuntime tier-legacy; (3) structureRenderer bucketed+signature bond cache for LOW/MINIMAL (HIGH path untouched); (4) settingsOverlay tier radio row; (5) main.ts 2-line poll swap. Then tests, then measure.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
@@ -23,3 +23,4 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 
 ## PHASE 2 log
 - p2 step 0: merged master eaf332a4 (no conflicts). Phase-1 tip was 08d4f3d3.
+- p2 step 1 WHY THE TOGGLE DID NOTHING: settings 'High-quality effects' checkbox -> displayPrefs 'display.fxHighQuality' -> main.ts polls every frame (applies LIVE, no reload needed) -> setFxHighQualityRuntime: removes ONLY the bloom filter on the fx light layer + shockwave/displacement/haze filters; groundDecalRenderer drops its texture; spawnerZoneRenderer draws a cheaper hub arc. displayPrefs' own docblock: 'LOW keeps every new particle and drops only the two filter passes'. On a built board those filters are a tiny share: the joiner frame is structureRenderer.drawBonds re-stroking EVERY connector every frame (+Pixi re-tessellating it) — profile w10 4x inclusive: main loop 46%: structureRenderer.sync 17.2% (drawBonds 16.2%, drawBondVisual 13.6%), keystoneTelegraph 6.2%, damageNumbers 4.4%, debugOverlay 7.5% (harness ?debug=1 only), goblinRenderer 3.3%, territory/scoring ~5%, healthBars 1.9%; rest is Pixi render (tessellation/upload of the rebuilt Graphics), program, GC.
