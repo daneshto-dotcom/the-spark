@@ -148,3 +148,33 @@ describe('S195 audit MED-2 — the hunter targets the team that tripped the TEAM
     expect(huntTarget(w)).toBe(1);
   });
 });
+
+// ─── S195 audit MED-3 — an endgame WIPE crowns the best TEAM ───
+import { TEAM_WIPE_JUDGE, teamWipeWinner } from './teamScore.ts';
+import { MONSTER_FIRST_WAVE } from '../constants.ts';
+
+describe('S195 audit MED-3 — the endgame wipe (wave 27+, every keep down) in a team game', () => {
+  function wiped(teams: (number | undefined)[], scores: number[]): World {
+    const w = match(teams, scores, MONSTER_FIRST_WAVE);
+    for (const p of w.players.values()) p.castleHp = 0;
+    return w;
+  }
+  it('the default judge is the flagged MINE ratio', () => expect(TEAM_WIPE_JUDGE).toBe('ratio'));
+  it('⭐ ratio (the win gate\'s measure): the 2v1 solo at 30,000 / 50,000 beats the pair\'s 50,000 / 100,000 — through the real gate', () => {
+    const w = gate(wiped([U, 0, 0], [30_000, 25_000, 25_000]));
+    expect(w.gameState).toBe('WIN');
+    expect(w.lastWinnerId).toBe(P(0));
+  });
+  it('total (the one-line flip): the pair\'s summed 50,000 beats the solo\'s 30,000; named by its lowest last-to-fall seat', () => {
+    const w = wiped([U, 0, 0], [30_000, 25_000, 25_000]);
+    w.players.get(P(1))!.eliminatedAtTick = 5;
+    w.players.get(P(2))!.eliminatedAtTick = 9; // seat 2 was the pair's survivor at the wipe
+    w.players.get(P(0))!.eliminatedAtTick = 9;
+    expect(teamWipeWinner(w, 'total')).toBe(P(2));
+    expect(teamWipeWinner(w, 'ratio')).toBe(P(0));
+  });
+  it('⛔ NEGATIVE — FFA wipe: the top single seat, unchanged', () => {
+    const w = gate(wiped([U, U, U], [100, 40_000, 39_000]));
+    expect(w.lastWinnerId).toBe(P(1));
+  });
+});

@@ -136,3 +136,32 @@ export function teamHunterTarget(world: Pick<World, 'teams' | 'players' | 'score
   }
   return target;
 }
+
+/**
+ * ⚠ MINE (S195 audit MED-3) — **HOW AN ENDGAME WIPE JUDGES TEAMS.** At wave 27+ with every keep down, S193 Q2
+ * crowns the top score (*"the match ends and the top score wins"*); in a team game that is the best TEAM.
+ *   · `'ratio'` (default) — the team's total ÷ its bar (bar × team size), consistent with the win gate: a pair
+ *     at 6,000 / 10,000 loses to a solo at 4,000 / 5,000.
+ *   · `'total'` — the raw summed score: the bigger team's sum usually wins.
+ * One line to flip.
+ */
+export const TEAM_WIPE_JUDGE: 'ratio' | 'total' = 'ratio';
+
+/**
+ * ⭐ S195 (audit MED-3) — the seat that names the winning team of an endgame WIPE (everyone's keep down), or
+ * `null` in a free-for-all. Best team by `judge` (lower team index on a tie); it is named by its lowest seat
+ * among those that fell LAST (the members living at the wipe). PURE, total order.
+ */
+export function teamWipeWinner(world: Pick<World, 'teams' | 'players' | 'scoreByPlayer' | 'waveNumber'>, judge: 'ratio' | 'total' = TEAM_WIPE_JUDGE): PlayerId | null {
+  let best: TeamStanding | null = null;
+  for (const s of teamStandings(world)) {
+    if (best === null) { best = s; continue; }
+    const better = judge === 'ratio' ? s.total * best.bar > best.total * s.bar : s.total > best.total;
+    if (better) best = s;
+  }
+  if (best === null) return null;
+  let lastFall = -Infinity;
+  for (const pid of best.seats) lastFall = Math.max(lastFall, world.players.get(pid)!.eliminatedAtTick ?? Infinity);
+  for (const pid of best.seats) if ((world.players.get(pid)!.eliminatedAtTick ?? Infinity) === lastFall) return pid;
+  return best.seats[0] ?? null;
+}

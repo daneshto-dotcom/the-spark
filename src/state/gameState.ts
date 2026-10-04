@@ -28,7 +28,7 @@ import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
 import { sameTeam } from './teams.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
-import { teamPointsWinner, teamStandings } from './teamScore.ts';
+import { teamPointsWinner, teamStandings, teamWipeWinner } from './teamScore.ts';
 import { resetMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
@@ -174,10 +174,13 @@ export function tickGameState(
          * score wins … If nobody beats … the huge mega pants boss."* From wave 27 on a zero-survivor
          * board (the pants razed every keep, possibly on one tick) crowns the highest banked score over
          * EVERY seat, lowest seat on a tie — the same total order the score gate uses. Before wave 27
-         * the S162 wipe rule above is unchanged. (⚠ S194 teams, MINE: the top SEAT names the winning
-         * team — its banner reads TEAM N WINS like any other team win.)
+         * the S162 wipe rule above is unchanged. (⭐ S195 audit MED-3 — in a team game the best TEAM wins,
+         * judged by `TEAM_WIPE_JUDGE` (⚠ MINE); this per-seat crown is the free-for-all's.)
          */
-        if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {
+        // ⭐ S195 (audit MED-3) — in a TEAM game the wipe crowns the best TEAM (`teamWipeWinner`, ⚠ MINE judge).
+        const teamWipe = wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE && world.teams !== undefined ? teamWipeWinner(world) : null;
+        if (teamWipe !== null) winnerId = teamWipe;
+        else if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {
           let best = -Infinity;
           for (const pid of [...world.players.keys()].sort((a, b) => (a as unknown as number) - (b as unknown as number))) {
             const sc = world.scoreByPlayer.get(pid) ?? 0;
