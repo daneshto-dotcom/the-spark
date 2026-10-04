@@ -34,7 +34,9 @@ import {
   HUNTER_DAMPING,
   HUNTER_DESPAWN_FADE_TICKS,
   HUNTER_MAX_SPEED,
+  hunterTriggerScoreForWave,
 } from '../../constants.ts';
+import { teamHunterTarget } from '../teamScore.ts';
 import { asHunterId, type HunterId, type PlayerId } from '../../types.ts';
 import { applyDropSpark } from '../sparkLifecycle.ts';
 import { applyDropPotato } from '../potatoLifecycle.ts';
@@ -90,7 +92,9 @@ export function applySpawnHunter(world: World, _action: SpawnHunterAction): Worl
   // Once-per-game (defense-in-depth; main.ts also guards on !world.hunterSpawned —
   // mirrors applySpawnCreature's max-1 invariant guard).
   if (world.hunterSpawned) return world;
-  const targetPlayerId = findLeadingPlayer(world);
+  // ⭐ S195 (audit MED-2) — in a team game the hunter chases the TRIGGERING team's best living seat
+  // (`teamHunterTarget`); a direct dispatch with no team past its trigger keeps the old leader. FFA: unchanged.
+  const targetPlayerId = (world.teams !== undefined ? teamHunterTarget(world, hunterTriggerScoreForWave) : null) ?? findLeadingPlayer(world);
   if (targetPlayerId === null) return world;
   const id = asHunterId(world.nextHunterId++);
   world.hunters.set(

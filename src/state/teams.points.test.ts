@@ -102,3 +102,49 @@ describe('S195 — the HUD readout', () => {
     expect(formatRaceReadout(1234.7, 1, { team: 0, total: 3400, bar: 5000 })).toBe('1234 · T1 3400/5000');
   });
 });
+
+// ─── S195 audit MED-2 — the hunter chases the TRIGGERING team, through the real host tick ───
+import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
+import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
+import { mulberry32 } from './rng.ts';
+import type { Controls } from '../input/controls.ts';
+
+function oneTick(w: World): void {
+  const d = {
+    spawner: new Spawner(DEFAULT_SPAWNER_CONFIG, mulberry32(7)), controls: { state: { kind: 'Idle' }, applyPerSubstep() {} } as unknown as Controls,
+    botManager: null, gameStateExtras: makeGameStateExtras(), alivePeerIds: null, hostSeats: new Map(),
+  } as unknown as HostTickDeps;
+  runHostTick(w, d, makeHostTickState(w));
+}
+const huntTarget = (w: World): number | null => {
+  const h = [...w.hunters.values()][0];
+  return h === undefined ? null : (h.targetPlayerId as unknown as number);
+};
+
+describe('S195 audit MED-2 — the hunter targets the team that tripped the TEAM trigger', () => {
+  const trig = hunterTriggerScoreForWave(1);
+  it('⛔ 2v1: the SOLO trips his trigger while the pair (with the biggest single seat) is below theirs → the hunter chases the SOLO', () => {
+    const w = match([U, 0, 0], [trig + 25, trig + 125, 0]); // pair: total below 2 × trig
+    w.creatures.clear();
+    expect(teamHunterTriggered(w, hunterTriggerScoreForWave)).toBe(true);
+    oneTick(w);
+    expect(huntTarget(w), 'the solo, not the pair\'s top seat').toBe(0);
+  });
+  it('⛔ 2v2 carry: team 0 (3000 + 800) trips 2 × trig; team 1\'s lone 3200 does not → the hunter chases team 0\'s top seat', () => {
+    const w = match([0, 0, 1, 1], [trig + 1125, 800, trig + 1325, 0]);
+    w.creatures.clear();
+    oneTick(w);
+    expect(huntTarget(w)).toBe(0);
+  });
+  it('a team with no living member never triggers', () => {
+    const w = match([U, 0, 0], [trig + 25, 0, 0]);
+    w.players.get(P(0))!.castleHp = 0;
+    expect(teamHunterTriggered(w, hunterTriggerScoreForWave)).toBe(false);
+  });
+  it('⛔ NEGATIVE — FFA: the leader by seat, unchanged', () => {
+    const w = match([U, U, U], [100, trig + 10, 50]);
+    w.creatures.clear();
+    oneTick(w);
+    expect(huntTarget(w)).toBe(1);
+  });
+});

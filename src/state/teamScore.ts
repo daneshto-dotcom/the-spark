@@ -100,9 +100,39 @@ export function teamPointsWinner(world: Pick<World, 'teams' | 'players' | 'score
  * would summon the anti-runaway hunter at 37.5 % of its own race.
  */
 export function teamHunterTriggered(world: Pick<World, 'teams' | 'players' | 'scoreByPlayer' | 'waveNumber'>, triggerForWave: (wave: number) => number): boolean {
+  return teamHunterTarget(world, triggerForWave) !== null;
+}
+
+/**
+ * ⭐ S195 (audit MED-2) — **WHOM THE HUNTER CHASES IN A TEAM GAME: the triggering team's best LIVING seat.**
+ * The trigger follows the team bar, so the target must come from the team that tripped it — `findLeadingPlayer`
+ * (the top single seat across ALL teams) chased the losing pair's best seat in a 2v1 the solo's team triggered.
+ *
+ * Among teams past their trigger (`trigger × size`) with at least one living member: the one furthest past it
+ * (integer cross-multiplication), then the lower team index; within it, the living seat with the highest banked
+ * score, then the lowest seat. `null` = no team has triggered (a team with no living member never does). PURE.
+ */
+export function teamHunterTarget(world: Pick<World, 'teams' | 'players' | 'scoreByPlayer' | 'waveNumber'>, triggerForWave: (wave: number) => number): PlayerId | null {
+  let best: TeamStanding | null = null;
+  let bestNeed = 0;
+  const trig = triggerForWave(world.waveNumber);
   for (const s of teamStandings(world)) {
-    const size = TEAM_BAR_SCALES_WITH_SIZE ? s.seats.length : 1;
-    if (s.total >= triggerForWave(world.waveNumber) * size) return true;
+    if (s.lead === null) continue;
+    const need = trig * (TEAM_BAR_SCALES_WITH_SIZE ? s.seats.length : 1);
+    if (s.total < need) continue;
+    if (best === null || s.total * bestNeed > best.total * need) {
+      best = s;
+      bestNeed = need;
+    }
   }
-  return false;
+  if (best === null) return null;
+  let target: PlayerId | null = null;
+  let top = -Infinity;
+  for (const pid of best.seats) {
+    const p = world.players.get(pid)!;
+    if (isEliminated(p)) continue;
+    const sc = world.scoreByPlayer.get(pid) ?? 0;
+    if (sc > top) { top = sc; target = pid; } // seats ascend, so a tie keeps the lower seat
+  }
+  return target;
 }
