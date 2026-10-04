@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Implement: (1) displayPrefs graphics tier store (HIGH/LOW/MINIMAL, migrate old fxHighQuality=false -> LOW); (2) src/render/graphicsTier.ts runtime + fxRuntime tier-legacy; (3) structureRenderer bucketed+signature bond cache for LOW/MINIMAL (HIGH path untouched); (4) settingsOverlay tier radio row; (5) main.ts 2-line poll swap. Then tests, then measure.
+Implemented (typecheck 0): displayPrefs tier store, graphicsTier.ts, fxRuntime legacy OR, structureRenderer cache, settings radio row, main.ts sync + tierAdvisor hint. NEXT: quick measure LOW/MINIMAL at w10 4x via harness (add SPARK_LAG_TIERS env to set displayPrefs tier in the joiner), then tests (REACH, invalidation, HIGH identical), then decide extra MINIMAL cuts (keystoneTelegraph, damageNumbers).
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
