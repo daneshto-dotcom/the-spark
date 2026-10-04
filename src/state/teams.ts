@@ -25,6 +25,7 @@
 
 import type { PlayerId } from '../types.ts';
 import { MAX_PLAYERS } from '../constants.ts';
+import { zoneCount, zoneOwner, type ZoneLayout } from './zones.ts';
 
 /** Team indices are 0-based on the sim side (team 0 = the lobby's "TEAM 1"). */
 export const TEAM_COUNT = 4;
@@ -212,4 +213,30 @@ export function permuteSeats<T>(list: readonly T[], order: readonly number[]): T
  */
 export function permuteBots<T>(perBot: readonly T[], order: readonly number[]): T[] {
   return order.slice(1).map((old) => perBot[old - 1]!);
+}
+
+/**
+ * ⭐⭐ S195 (owner N1 / R195-F1 / B-27) — **EVERY ZONE THE SEAT'S TEAM HOLDS**, ascending.
+ *
+ * > *"same team should be visible. No fog of war during build phase for your same team."* — owner, S195 N1
+ * > *"during fight, there's no fog of war anywhere … I said no fog during build, because during build is
+ * > when everything is foggy."* — owner, S195 R195-F1
+ *
+ * The fog renderer lights each of these edge to edge exactly as it lit the seat's own quarter (S170 P6).
+ * In a free-for-all `sameTeam(s, seat)` is `s === seat`, so this is `[zoneOwner(seat)]` (or `[]` for a seat
+ * with no ground) — the pre-S195 behaviour, byte for byte. Render input only: never read by the sim.
+ */
+export function teamZones(world: Pick<TeamsView, 'teams'> & { readonly layout: ZoneLayout }, seat: number): number[] {
+  const out: number[] = [];
+  if (zoneOwner(seat, world.layout) === null) return out; // a spectator / out-of-range seat lights nothing
+  const n = zoneCount(world.layout);
+  for (let z = 0; z < n; z++) {
+    for (let s = 0; s < n; s++) {
+      if (zoneOwner(s, world.layout) === z && sameTeam(world, s, seat)) {
+        out.push(z);
+        break;
+      }
+    }
+  }
+  return out;
 }

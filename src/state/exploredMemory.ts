@@ -33,6 +33,7 @@ import {
   type SparkType,
 } from '../constants.ts';
 import { isPointVisible, type VisionSource } from './vision.ts';
+import { sameTeam } from './teams.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { v2copy, type PlayerId, type PrimitiveId, type Vec2 } from '../types.ts';
 
@@ -184,11 +185,13 @@ export function updateGhostMemory(
   sources: readonly VisionSource[],
   localPlayerId: PlayerId,
   tick: number,
+  /** ⭐ S195 N1 — `world.teams`: a teammate's structure is never remembered either (it is always lit). */
+  teams?: readonly number[],
 ): void {
   // SEEN-ON-LIVE — every enemy structure currently inside live vision is the
   // ground truth: (re)snapshot it. Own structures are never remembered.
   for (const prim of primitives.values()) {
-    if (prim.placedBy === localPlayerId) continue;
+    if (sameTeam({ teams }, prim.placedBy, localPlayerId)) continue;
     if (!isPointVisible(sources, prim.pos.x, prim.pos.y)) continue;
     memory.set(prim.id, {
       id: prim.id,
