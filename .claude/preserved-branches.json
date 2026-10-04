@@ -18,25 +18,9 @@
       "reason": "Pitch Masters — another project/session owns it; NEVER touch"
     },
     {
-      "branch": "s194/ui-upgrade",
-      "reason": "S194 carried — T5 round 3 tip 3d6c5696, audited CLEAN, owner-approved merge R194-35 (refused by the permission classifier); S195_BACKLOG §A0 step 3"
-    },
-    {
-      "branch": "s194/rules",
-      "reason": "S194 carried — T11 tip 80aaa870, gates owed on the tip, BUMP 66->67 when it lands; S195_BACKLOG §A0 step 1"
-    },
-    {
-      "branch": "s194/visuals-6",
-      "reason": "S194 carried — T4 tip acda8b05, quick check interrupted at close; S195_BACKLOG §A0 step 2"
-    },
-    {
-      "branch": "s194/mp",
-      "reason": "S194 carried — T17 live-MP harness (scripts/live-mp/, no src) tip c44708f4, optional merge; S195_BACKLOG §A0 step 4"
-    },
-    {
       "branch": "s194/team-music",
       "reason": "S194 carried — T14 notes + assets-source/team-music/ tip ab7f6237; folds into S195's T12+T14 tree"
     }
   ],
-  "updated": "S194 2026-10-02"
+  "updated": "S195 2026-10-04 (four S194 carries merged)"
 }
