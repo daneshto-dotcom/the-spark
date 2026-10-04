@@ -54,7 +54,91 @@ import type { Vec2 } from '../types.ts';
  * protocol bump — a stale peer cannot parse a literal it has never heard of. Same class of change
  * as the `'WALK'` DefenderState literal that forced 12->13.
  */
-export type ZoneLayout = 'PITCH_2P' | 'QUADRANTS_4P';
+export type ZoneLayout = 'PITCH_2P' | 'QUADRANTS_4P' | TeamQuadLayout;
+
+/**
+ * ⭐⭐ S195 (owner R195-T2/T3/T4/T5, N2, B-29) — **THE QUADRANT BOARD WITH A SEAT → ZONE MAP.**
+ *
+ * `QUADRANTS_4P:<o0><o1><o2><o3>` — character `z` is the SEAT that owns zone `z` (a digit), or `-` for
+ * nobody. A seat's HOME zone (its castle) is the LOWEST zone it owns; a seat may own two (the 2v1 solo:
+ * *"the solo side keeps his race quadrant. Yes, plus he also gets the other empty quadrant to play on.
+ * It's only fair"* — B-29).
+ *
+ * > *"if it's a one player, he will always be in the northwest corner. Same as player one"*; a TWO-player
+ * > team always takes a whole SIDE *"because the image is generated that way"* — owner, R195-T2
+ * > *"it doesn't matter where the host is in the lobby … it should be modular enough to be able to move
+ * > places."* — owner, R195-T3
+ *
+ * ⭐ WHY THE MAP RIDES IN THE LAYOUT AND NOT IN A NEW FIELD. The seat stays the player's IDENTITY (the host
+ * is seat 0 on the wire, in migration and in every intent stamp); only WHERE ON THE BOARD that seat stands
+ * moves. Every zone question in the game is already asked as `f(seat, world.layout)` — the castle anchor,
+ * build legality, the scorch zone, the walls, the backdrops — so carrying the map inside the one hashed,
+ * wire-carried value those calls already receive re-routes every one of them with no call-site change and
+ * no fourth site to forget. A plain `'QUADRANTS_4P'` is the identity map (zone z ↔ seat z), so a
+ * free-for-all — and any team game whose arrangement happens to BE the identity — is byte-identical.
+ *
+ * ⚠ SERIALIZED + HASHED (`ly${layout}`): a new value is a protocol bump (S195 — reported to the merge owner).
+ */
+export type TeamQuadLayout = `QUADRANTS_4P:${string}`;
+
+/** The geometric board under a layout — what the anchors, the walls and the art key on. */
+export function baseLayout(layout: ZoneLayout): 'PITCH_2P' | 'QUADRANTS_4P' {
+  return layout === 'PITCH_2P' ? 'PITCH_2P' : 'QUADRANTS_4P';
+}
+
+const TEAM_QUAD_RE = /^QUADRANTS_4P:[0-3-]{4}$/;
+
+/** ⭐ S195 — a value a snapshot may carry as `layout` (the reader refuses anything else). */
+export function isZoneLayout(v: unknown): v is ZoneLayout {
+  if (v === 'PITCH_2P' || v === 'QUADRANTS_4P') return true;
+  if (typeof v !== 'string' || !TEAM_QUAD_RE.test(v)) return false;
+  // Every seat that owns anything owns its zones; a digit may repeat (two zones) — nothing else to check.
+  return true;
+}
+
+const OWNERS_CACHE = new Map<string, readonly (number | null)[]>();
+const IDENTITY_2P: readonly (number | null)[] = [0, 1];
+const IDENTITY_4P: readonly (number | null)[] = [0, 1, 2, 3];
+
+/**
+ * PURE — zone → owning seat (`null` = nobody), for every zone of the board. The plain layouts are the
+ * identity (zone z ↔ seat z, the pre-S195 mapping). Memoised per layout string (≤ a few dozen values).
+ */
+export function zoneOwners(layout: ZoneLayout): readonly (number | null)[] {
+  if (layout === 'PITCH_2P') return IDENTITY_2P;
+  if (layout === 'QUADRANTS_4P') return IDENTITY_4P;
+  let o = OWNERS_CACHE.get(layout);
+  if (o === undefined) {
+    const body = layout.slice('QUADRANTS_4P:'.length);
+    o = Array.from({ length: 4 }, (_, z) => {
+      const ch = body[z];
+      return ch === undefined || ch === '-' ? null : Number(ch);
+    });
+    OWNERS_CACHE.set(layout, o);
+  }
+  return o;
+}
+
+/** ⭐ S195 — does `seat` own `zone` on this board? (The 2v1 solo owns two.) */
+export function seatOwnsZone(seat: number, zone: number, layout: ZoneLayout): boolean {
+  if (!Number.isInteger(seat) || seat < 0) return false;
+  const o = zoneOwners(layout);
+  return zone >= 0 && zone < o.length && o[zone] === seat;
+}
+
+/** ⭐ S195 — which seat owns `zone`? `null` = nobody (the empty quadrant of a 3-seat free-for-all). */
+export function seatOfZone(zone: number, layout: ZoneLayout): number | null {
+  const o = zoneOwners(layout);
+  return zone >= 0 && zone < o.length ? (o[zone] ?? null) : null;
+}
+
+/** ⭐ S195 — every zone `seat` owns, ascending (its home first). */
+export function zonesOfSeat(seat: number, layout: ZoneLayout): number[] {
+  const o = zoneOwners(layout);
+  const out: number[] = [];
+  for (let z = 0; z < o.length; z++) if (o[z] === seat) out.push(z);
+  return out;
+}
 
 /** The dividing lines. Dead centre of the board, so both boards share one crosshair. */
 const SPLIT_X = CANVAS_WIDTH / 2; // 960
@@ -83,7 +167,7 @@ const QUARRY_R2 = SPAWNER_RADIUS * SPAWNER_RADIUS;
  *     are pinned clear of the porches (`footerBand.test.ts`, `shapeStrip.test.ts`);
  *   · the energy gauge at x[1896,1904] clears both right-hand keeps (max x 1827) — OK.
  */
-const ANCHORS: { readonly [K in ZoneLayout]: readonly Vec2[] } = {
+const ANCHORS: { readonly [K in 'PITCH_2P' | 'QUADRANTS_4P']: readonly Vec2[] } = {
   // Goalmouths — inset from the touchline by roughly one keep width.
   PITCH_2P: [
     { x: 120, y: 540 },
@@ -106,7 +190,7 @@ const ANCHORS: { readonly [K in ZoneLayout]: readonly Vec2[] } = {
  * `undefined` anchor at runtime with no compile error.
  */
 export function zoneCount(layout: ZoneLayout): number {
-  return ANCHORS[layout].length;
+  return ANCHORS[baseLayout(layout)].length;
 }
 
 /**
@@ -154,7 +238,11 @@ export function zoneOf(pos: Vec2, layout: ZoneLayout): number | null {
  */
 export function zoneOwner(seat: number, layout: ZoneLayout): number | null {
   if (!Number.isInteger(seat) || seat < 0 || seat >= zoneCount(layout)) return null;
-  return seat;
+  if (layout === 'PITCH_2P' || layout === 'QUADRANTS_4P') return seat;
+  // ⭐ S195 — a mapped board: the seat's HOME zone is the lowest zone it owns (`null` = it owns none).
+  const o = zoneOwners(layout);
+  for (let z = 0; z < o.length; z++) if (o[z] === seat) return z;
+  return null;
 }
 
 /**
@@ -173,7 +261,7 @@ export function zoneOwner(seat: number, layout: ZoneLayout): number | null {
  */
 export function zoneCastleAnchor(seat: number, layout: ZoneLayout): Vec2 {
   const zone = zoneOwner(seat, layout) ?? 0;
-  const a = ANCHORS[layout][zone] as Vec2;
+  const a = ANCHORS[baseLayout(layout)][zone] as Vec2;
   return { x: a.x, y: a.y };
 }
 
@@ -327,7 +415,7 @@ export interface Box {
  * written this way so a future adjacency (R11's 2v2) cannot open a hole nobody re-derives.
  */
 export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
-  const anchors = ANCHORS[layout];
+  const anchors = ANCHORS[baseLayout(layout)];
   for (let i = 0; i < anchors.length; i++) {
     const a = anchors[i] as Vec2;
     // ⭐⭐ S193 P3-1 — ONE disc, the same radius on every side (see `CASTLE_NO_BUILD_RADIUS`).
@@ -392,7 +480,9 @@ export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean
   if (owner === null) return false;
   const zone = zoneOf(pos, layout);
   if (zone === null) return false;
-  return zone === owner;
+  // ⭐ S195 (B-29) — ANY zone the seat owns: the 2v1 solo builds on his corner AND the empty one.
+  // On the plain boards this is exactly `zone === owner` (one zone per seat, the identity).
+  return zone === owner || seatOwnsZone(seat, zone, layout);
 }
 
 /**
@@ -404,4 +494,4 @@ export function canBuildAt(pos: Vec2, seat: number, layout: ZoneLayout): boolean
  * rather than inlined so the relationship is greppable from both ends.
  */
 export const WIDEST_LAYOUT: ZoneLayout = 'QUADRANTS_4P';
-export const MAX_SEATS_WITH_GROUND: number = ANCHORS[WIDEST_LAYOUT].length;
+export const MAX_SEATS_WITH_GROUND: number = ANCHORS[baseLayout(WIDEST_LAYOUT)].length;
