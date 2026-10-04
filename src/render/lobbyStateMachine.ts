@@ -542,7 +542,8 @@ export function lobbyView(state: LobbyState): LobbyView {
   // ⭐ S195 — every tile stands where its seat will stand on the board.
   const slots = seatBoardSlots(seats);
   // ⭐ S195 (N16) — only the host re-arranges, and only while a room is open (the host IS the room's authority).
-  const hostMoves = state.mode === 'hosting';
+  // Asked through `fallbackSelfSeat` — the ONE place local mode may say who you are (S182; its docblock).
+  const hostMoves = fallbackSelfSeat(state) !== null;
   return {
     ...state,
     seats: seats.map((s, i) => ({ ...s, slot: slots[i], movable: hostMoves && s.occupied })),
