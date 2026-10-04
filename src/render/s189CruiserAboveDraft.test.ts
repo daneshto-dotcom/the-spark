@@ -249,6 +249,7 @@ describe('⛔ ENUMERATED — every code-level zIndex on a Pixi object in src/ (a
    */
   const ALLOWED: ReadonlyArray<{ file: string; why: string }> = [
     { file: 'render/exitButton.ts', why: 'the leave-match modal root; pre-existing, draws over the cruiser (stated above, unchanged by C1)' },
+    { file: 'render/tierAdvisor.ts', why: 'S195 N17 — a DOM <div> style (the slow-frame hint line), not a Pixi object: it cannot reorder any Pixi child' },
   ];
   const srcRoot = join(__dirname, '..');
   const walk = (dir: string): string[] =>
