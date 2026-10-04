@@ -148,7 +148,7 @@ describe('S195 N17 — HIGH is the pre-S195 renderer, byte for byte', () => {
       const ref = new GraphicsRec();
       for (let f = 0; f < 4; f++) {
         (w as { tick: number }).tick += 7; // animated silhouettes read the clock
-        const p = w.primitives.get(f + 3) as unknown as P;
+        const p = w.primitives.get((f + 3) as never) as unknown as P;
         p.pos.x += 3.3; // a stretched connector: stress tint + width + pulse
         r.sync(w);
         drawBondsPreS195(ref as unknown as Graphics, w);
@@ -233,7 +233,7 @@ describe('S195 N17 — the cache redraws exactly what changed', () => {
   it('a STRETCH (stress), a COVER fade, a FOUL and a FOG change each force a redraw', () => {
     const { w, r } = settled('LOW');
     let n = redraws(r);
-    (w.primitives.get(60) as unknown as P).pos.x += 6; // stretches its connectors
+    (w.primitives.get(60 as never) as unknown as P).pos.x += 6; // stretches its connectors
     r.sync(w);
     expect(redraws(r), 'stretch').toBeGreaterThan(n);
     n = redraws(r);
