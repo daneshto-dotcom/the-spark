@@ -62,6 +62,7 @@ import { TOWER_COVER_DRAW_EPSILON, coverAlphaForBond, coverAlphaForPrim, pruneTo
  * in the game drew identically before and after this line was deleted.
  */
 import { makeShapeTextures, destroyShapeTextures, type ShapeTextures } from './shapes.ts';
+import { BOND_CACHE_KNOBS, graphicsTier, type BondCacheKnobs } from './graphicsTier.ts';
 
 const PLACED_PRIMITIVE_SCALE = 1.0;
 
@@ -83,6 +84,17 @@ export class StructureRenderer {
   // LMB-up, so the preview Graphics had no input to render.
   private readonly spriteByPrim: Map<PrimitiveId, Sprite> = new Map();
   private readonly textures: ShapeTextures;
+  /*
+   * S195 N17 — the LOW/MINIMAL connector cache. ⚠ It lives INSIDE `primitiveLayer`, as its first child,
+   * and that placement is load-bearing: `e2e/fog.spec.ts` roll-calls `fogHiddenLayer`'s children by type
+   * and index (index 1 must stay the `_Graphics` connectors), so the cache may not add a stage child. As the
+   * bottom child of the shapes layer it still draws above `bondGraphics` and under every shape — the same
+   * z-order the connectors always had.
+   */
+  private readonly bondCacheLayer: Container;
+  private readonly bondBuckets = new Map<number, { g: Graphics; hash: number }>();
+  private readonly cacheScratch = new Map<number, { draws: BondDraw[]; hash: number }>();
+  private bucketRedraws = 0;
 
   /*
    * ⭐⭐ S170 P1 (owner) — `parent` DEFAULTS TO `app.stage`, AND THE DEFAULT IS THE OLD BUG.
@@ -102,6 +114,10 @@ export class StructureRenderer {
 
     this.bondGraphics = new Graphics();
     this.primitiveLayer = new Container();
+    this.bondCacheLayer = new Container();
+    this.bondCacheLayer.label = 'bondCache';
+    this.bondCacheLayer.visible = false;
+    this.primitiveLayer.addChild(this.bondCacheLayer);
 
     parent.addChild(this.bondGraphics);
     parent.addChild(this.primitiveLayer);
@@ -178,119 +194,72 @@ export class StructureRenderer {
   }
 
   private drawBonds(world: World): void {
-    const g = this.bondGraphics;
-    const tick = world.tick;
-    const fouled = world.fouledPrimitives;
-    g.clear();
-    // S85 P4b — per-owner bond patterning (the S82 CVD carry-forward:
-    // "structure-ownership non-color cue"). Bonds are same-color by the S46 P3
-    // segregation invariant, so a bond belongs entirely to ONE seat; overlay a
-    // seat-keyed white pattern (rungs/beads/chevrons) so ownership reads
-    // without the color channel. Networked-only — solo has one owner (same
-    // gate as the S82 avatar nameplates). Color→seat is rebuilt per frame
-    // (≤MAX_PLAYERS entries) and stays correct through rainbow shuffles
-    // because player.color and placerColor remap in lockstep.
-    const patterned = world.gameMode !== 'solo';
-    const colorToSeat = patterned ? new Map<number, number>() : null;
-    if (colorToSeat !== null) {
-      for (const [pid, p] of world.players) colorToSeat.set(p.color, pid as number);
+    const knobs = BOND_CACHE_KNOBS[graphicsTier()];
+    if (knobs === null) {
+      // HIGH — every connector re-stroked every frame, exactly as before S195.
+      if (this.bondCacheLayer.visible) this.clearBondCache();
+      const g = this.bondGraphics;
+      g.clear();
+      forEachBondDraw(world, null, (d) => strokeBondDraw(g, d));
+      return;
     }
-    for (const bond of world.bonds.values()) {
-      // Bond gradient = blend of two endpoints' player colors. Single
-      // player Phase 1 = monochrome (a→a). Phase 2 multi-player = real
-      // gradient — the call site is identical. The cast is safe: bond.a /
-      // bond.b are always Primitives at runtime (the PhysicsBody type is
-      // a structural subset to keep the solver narrow).
-      const a = bond.a as Primitive;
-      const b = bond.b as Primitive;
-      /*
-       * ⭐ S170 (owner) — the CONNECTORS, named explicitly in his spec: *"I shouldn't see their
-       * buildings, their sparks, their spawn, their connectors."*
-       *
-       * ⚠ A bond is hidden unless BOTH ends are visible. The stricter test is the right one: a
-       * connector drawn from a visible shape to a concealed one would trace a line straight to
-       * something the player is not allowed to see, which leaks the position it exists to hide.
-       */
-      if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;
-      /*
-       * ⭐⭐ S175 P6 — the connector's phase-out. Fully hidden means SKIP: this bond draws into a
-       * shared Graphics and an alpha-0 stroke still costs the geometry.
-       */
-      /*
-       * ⛔⛔ S183 — **DAMAGE NO LONGER UN-HIDES A CONNECTOR.** This read
-       * `bond.damageFifths > 0 ? Math.max(coverAlphaForBond(bond.id), DAMAGED_BOND_MIN_ALPHA) : …`
-       * from S175 P9 until S183. See the retirement note at the top of this file for both of the
-       * owner's rulings and why the damage ramp is what let the later one replace the earlier.
-       */
-      const coverAlpha = coverAlphaForBond(bond.id);
-      if (coverAlpha <= TOWER_COVER_DRAW_EPSILON) continue;
-      const dx = b.pos.x - a.pos.x;
-      const dy = b.pos.y - a.pos.y;
-      const dist = Math.hypot(dx, dy);
-      const ratio = dist / bond.restLength;
-      const breakAt = STRAIN_BREAK_BY_TIER[bond.stiffnessTier];
-      const stress = Math.max(0, Math.min(1, (ratio - 1) / (breakAt - 1)));
-      // S17 P2 — Phase-2 §VI.4 / §X.2: source per-endpoint placerColor
-      // (immutable contribution record per Council R1 Gemini #1 BLOCKER —
-      // NOT transient ownerColor which mutates on Steal). Stress tint applied
-      // per-endpoint so the bond turns red as it approaches break threshold
-      // even when endpoint colors differ. Single-color bonds (P1 self-built
-      // or solo) render solid via drawDefaultLine fast-path.
-      // S79 P2 — a FOULED structure's bonds tint toward the splat colour first (either
-      // endpoint fouled = whole component fouled by construction), then stress-red layers
-      // on top so near-break feedback survives the foul.
-      const isFouled = fouled.size > 0 && (fouled.has(bond.aId) || fouled.has(bond.bId));
-      const baseA = foulAwareTint(a.placerColor, isFouled);
-      const baseB = foulAwareTint(b.placerColor, isFouled);
-      const stressedA = stress > 0.05 ? lerpTint(baseA, 0xff3030, stress * 0.85) : baseA;
-      const stressedB = stress > 0.05 ? lerpTint(baseB, 0xff3030, stress * 0.85) : baseB;
-      const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
+    if (!this.bondCacheLayer.visible) {
+      this.bondGraphics.clear();
+      this.bondCacheLayer.visible = true;
+    }
+    this.drawBondsCached(world, knobs);
+  }
 
-      // S7 P2: per-combo persistent silhouette. Direction is a→b matching the
-      // PLACE_PRIMITIVE dispatch order (carried→target). The 22 functional
-      // combos resolve to fx.bond.default and render as a plain line; the 14
-      // magic combos render their named silhouette stretched between
-      // endpoints. Stress tint + width are applied here so the silhouette
-      // inherits stress feedback uniformly.
-      drawBondVisual(g, {
-        ax: a.pos.x,
-        ay: a.pos.y,
-        bx: b.pos.x,
-        by: b.pos.y,
-        visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
-        colorA: stressedA,
-        colorB: stressedB,
-        alpha: 0.85 * coverAlpha,
-        width,
-        tick,
-      });
-
-      if (stress > 0.7) {
-        // Red overlay pulse on near-break stress — drawn over the silhouette
-        // so it's still visible even on busy combos (lattice, vortex, star).
-        const pulse = (stress - 0.7) / 0.3;
-        g.moveTo(a.pos.x, a.pos.y)
-          .lineTo(b.pos.x, b.pos.y)
-          .stroke({
-            width: 1,
-            color: 0xff8080,
-            alpha: (0.4 + 0.6 * pulse) * coverAlpha,
-          });
+  /*
+   * ⭐⭐ S195 N17 — THE CONNECTOR CACHE (LOW / MINIMAL). Measured: on a built board the joiner's frame was this
+   * renderer re-stroking all ~500 connectors every frame, and Pixi re-tessellating the result (profile, wave
+   * 10, 4× throttle: `drawBonds` 16 % inclusive plus the tessellation inside Pixi's render). A settled
+   * structure does not change between frames, so the strokes are kept and only REDRAWN WHEN THEY CHANGE.
+   *
+   * The board is split into `BOND_CACHE_CELL_PX` buckets by each connector's (snapped) midpoint; each bucket
+   * is its own Graphics with a hash of everything that decides what it draws — both ends' snapped positions,
+   * both colours (foul + stress tint included), the alpha (tower cover fade), the width, the silhouette, its
+   * stepped animation clock, the stress pulse and the ownership pattern — and the bucket's connectors in
+   * order. Same hash ⇒ the Graphics is left exactly as it was. A sever, a placement, damage stress, a cover
+   * change, a foul, a steal or a fog change all change the hash of the bucket they touch, and only that one.
+   * ⚠ A 32-bit hash can collide; the cost of a collision is one stale bucket until its next change.
+   */
+  private drawBondsCached(world: World, knobs: BondCacheKnobs): void {
+    const cells = this.cacheScratch;
+    for (const cell of cells.values()) { cell.draws.length = 0; cell.hash = FNV_OFFSET; }
+    forEachBondDraw(world, knobs, (d) => {
+      const key = Math.floor((d.ax + d.bx) / 2 / BOND_CACHE_CELL_PX) * 1024 + Math.floor((d.ay + d.by) / 2 / BOND_CACHE_CELL_PX);
+      let cell = cells.get(key);
+      if (cell === undefined) cells.set(key, (cell = { draws: [], hash: FNV_OFFSET }));
+      cell.draws.push(d);
+      cell.hash = hashBondDraw(cell.hash, d);
+    });
+    for (const [key, cell] of cells) {
+      let bucket = this.bondBuckets.get(key);
+      if (cell.draws.length === 0) {
+        if (bucket !== undefined && bucket.hash !== FNV_OFFSET) { bucket.g.clear(); bucket.hash = FNV_OFFSET; }
+        continue;
       }
-
-      // S85 P4b — ownership pattern overlay (see drawBonds header comment).
-      /*
-       * ⚠ THE OWNERSHIP PATTERN IS SKIPPED RATHER THAN FADED. `drawOwnershipPattern` strokes
-       * straight into the shared Graphics with its own alpha, so a phased-out connector would keep
-       * a fully opaque dash pattern floating where it used to be — the S175 version of the three
-       * separate draw calls this bond is made of not agreeing with each other.
-       */
-      if (colorToSeat !== null && coverAlpha > TOWER_COVER_DRAW_EPSILON) {
-        const seat = colorToSeat.get(a.placerColor);
-        drawOwnershipPattern(g, a.pos.x, a.pos.y, b.pos.x, b.pos.y, seatPatternKind(seat));
+      if (bucket === undefined) {
+        bucket = { g: new Graphics(), hash: FNV_OFFSET };
+        this.bondCacheLayer.addChild(bucket.g);
+        this.bondBuckets.set(key, bucket);
       }
+      if (bucket.hash === cell.hash) continue;
+      bucket.g.clear();
+      for (const d of cell.draws) strokeBondDraw(bucket.g, d);
+      bucket.hash = cell.hash;
+      this.bucketRedraws++;
     }
   }
+
+  private clearBondCache(): void {
+    for (const b of this.bondBuckets.values()) { b.g.clear(); b.hash = FNV_OFFSET; }
+    this.bondCacheLayer.visible = false;
+  }
+
+  /** Test/probe seam: how many buckets were re-stroked since construction. */
+  bondBucketRedraws(): number { return this.bucketRedraws; }
 
   // S53 P2 — drawPreview() DELETED. Was the RMB ConnectDrag preview line +
   // target highlight + spawner-zone no-build glyph. Post-S52 P1 atomic
@@ -310,6 +279,161 @@ export class StructureRenderer {
     destroyShapeTextures(this.textures);
     this.spriteByPrim.clear();
   }
+}
+
+// ===== S195 N17 — one walk over the connectors, shared by HIGH and the LOW/MINIMAL cache =====
+
+/** Everything one connector draws. HIGH strokes it at once; the cache hashes it, then strokes it if needed. */
+export interface BondDraw {
+  readonly ax: number; readonly ay: number; readonly bx: number; readonly by: number;
+  readonly visualEffectId: string;
+  readonly colorA: number; readonly colorB: number;
+  readonly alpha: number; readonly width: number; readonly tick: number;
+  /** The near-break red overlay's alpha, or -1 when the connector is not near breaking. */
+  readonly pulseAlpha: number;
+  readonly pattern: BondPatternKind;
+}
+
+/** ⚠ MINE — the cache bucket size: 10 × 6 buckets on the 1920 × 1080 board. */
+export const BOND_CACHE_CELL_PX = 192;
+
+const DEFAULT_BOND_FX = 'fx.bond.default';
+
+/**
+ * Walk the drawable connectors in `world.bonds` order and hand each one's draw to `emit`. With `knobs`
+ * null (HIGH) the values are exactly what `drawBonds` computed before S195 — raw positions, the raw tick —
+ * so HIGH strokes the identical geometry in the identical order. With knobs (LOW / MINIMAL) the positions
+ * are snapped to `posQuantum` and the animation clock steps by `animStepTicks` (0 = frozen); every rule
+ * that decides WHETHER and in WHAT COLOUR a connector draws (fog, tower cover, foul, stress, ownership
+ * pattern) is the same single code path for every tier.
+ */
+export function forEachBondDraw(world: World, knobs: BondCacheKnobs | null, emit: (d: BondDraw) => void): void {
+  const q = knobs === null ? 0 : knobs.posQuantum;
+  const snap = (v: number): number => (q > 0 ? Math.round(v / q) * q : v);
+  const tick = knobs === null
+    ? world.tick
+    : knobs.animStepTicks > 0 ? Math.floor(world.tick / knobs.animStepTicks) * knobs.animStepTicks : 0;
+  const fouled = world.fouledPrimitives;
+  // S85 P4b — per-owner bond patterning (the S82 CVD carry-forward:
+  // "structure-ownership non-color cue"). Bonds are same-color by the S46 P3
+  // segregation invariant, so a bond belongs entirely to ONE seat; overlay a
+  // seat-keyed white pattern (rungs/beads/chevrons) so ownership reads
+  // without the color channel. Networked-only — solo has one owner (same
+  // gate as the S82 avatar nameplates). Color→seat is rebuilt per frame
+  // (≤MAX_PLAYERS entries) and stays correct through rainbow shuffles
+  // because player.color and placerColor remap in lockstep.
+  const patterned = world.gameMode !== 'solo';
+  const colorToSeat = patterned ? new Map<number, number>() : null;
+  if (colorToSeat !== null) {
+    for (const [pid, p] of world.players) colorToSeat.set(p.color, pid as number);
+  }
+  for (const bond of world.bonds.values()) {
+    // Bond gradient = blend of two endpoints' player colors. The cast is safe: bond.a / bond.b are always
+    // Primitives at runtime (the PhysicsBody type is a structural subset to keep the solver narrow).
+    const a = bond.a as Primitive;
+    const b = bond.b as Primitive;
+    /*
+     * ⭐ S170 (owner) — the CONNECTORS, named explicitly in his spec: *"I shouldn't see their
+     * buildings, their sparks, their spawn, their connectors."*
+     *
+     * ⚠ A bond is hidden unless BOTH ends are visible. The stricter test is the right one: a
+     * connector drawn from a visible shape to a concealed one would trace a line straight to
+     * something the player is not allowed to see, which leaks the position it exists to hide.
+     */
+    if (isConcealed(a.pos.x, a.pos.y, a.placedBy) || isConcealed(b.pos.x, b.pos.y, b.placedBy)) continue;
+    /*
+     * ⭐⭐ S175 P6 — the connector's phase-out. Fully hidden means SKIP: this bond draws into a
+     * shared Graphics and an alpha-0 stroke still costs the geometry.
+     *
+     * ⛔⛔ S183 — **DAMAGE NO LONGER UN-HIDES A CONNECTOR.** This read
+     * `bond.damageFifths > 0 ? Math.max(coverAlphaForBond(bond.id), DAMAGED_BOND_MIN_ALPHA) : …`
+     * from S175 P9 until S183. See the retirement note at the top of this file for both of the
+     * owner's rulings and why the damage ramp is what let the later one replace the earlier.
+     */
+    const coverAlpha = coverAlphaForBond(bond.id);
+    if (coverAlpha <= TOWER_COVER_DRAW_EPSILON) continue;
+    const dx = b.pos.x - a.pos.x;
+    const dy = b.pos.y - a.pos.y;
+    const dist = Math.hypot(dx, dy);
+    const ratio = dist / bond.restLength;
+    const breakAt = STRAIN_BREAK_BY_TIER[bond.stiffnessTier];
+    const stress = Math.max(0, Math.min(1, (ratio - 1) / (breakAt - 1)));
+    // S17 P2 — Phase-2 §VI.4 / §X.2: source per-endpoint placerColor (immutable contribution record per
+    // Council R1 Gemini #1 BLOCKER — NOT transient ownerColor which mutates on Steal). Stress tint applied
+    // per-endpoint so the bond turns red as it approaches break threshold even when endpoint colors differ.
+    // S79 P2 — a FOULED structure's bonds tint toward the splat colour first (either endpoint fouled =
+    // whole component fouled by construction), then stress-red layers on top so near-break feedback
+    // survives the foul.
+    const isFouled = fouled.size > 0 && (fouled.has(bond.aId) || fouled.has(bond.bId));
+    const baseA = foulAwareTint(a.placerColor, isFouled);
+    const baseB = foulAwareTint(b.placerColor, isFouled);
+    const stressedA = stress > 0.05 ? lerpTint(baseA, 0xff3030, stress * 0.85) : baseA;
+    const stressedB = stress > 0.05 ? lerpTint(baseB, 0xff3030, stress * 0.85) : baseB;
+    const width = stiffnessToWidth(bond.stiffnessTier) + (stress > 0.5 ? (stress - 0.5) * 2 : 0);
+    // S7 P2: per-combo persistent silhouette. Direction is a→b matching the PLACE_PRIMITIVE dispatch order
+    // (carried→target). The 22 functional combos resolve to fx.bond.default and render as a plain line; the
+    // 14 magic combos render their named silhouette stretched between endpoints.
+    // Red overlay pulse on near-break stress — drawn over the silhouette so it's still visible even on busy
+    // combos (lattice, vortex, star).
+    const pulseAlpha = stress > 0.7 ? (0.4 + 0.6 * ((stress - 0.7) / 0.3)) * coverAlpha : -1;
+    /*
+     * S85 P4b — ownership pattern overlay (see the header comment above).
+     * ⚠ THE OWNERSHIP PATTERN IS SKIPPED RATHER THAN FADED. `drawOwnershipPattern` strokes
+     * straight into the shared Graphics with its own alpha, so a phased-out connector would keep
+     * a fully opaque dash pattern floating where it used to be — the S175 version of the three
+     * separate draw calls this bond is made of not agreeing with each other.
+     */
+    const pattern: BondPatternKind = colorToSeat !== null && coverAlpha > TOWER_COVER_DRAW_EPSILON
+      ? seatPatternKind(colorToSeat.get(a.placerColor))
+      : 'none';
+    emit({
+      ax: snap(a.pos.x), ay: snap(a.pos.y), bx: snap(b.pos.x), by: snap(b.pos.y),
+      visualEffectId: lookupCombo(a.type, b.type).visualEffectId,
+      colorA: stressedA, colorB: stressedB,
+      alpha: 0.85 * coverAlpha, width, tick, pulseAlpha, pattern,
+    });
+  }
+}
+
+/** Stroke one connector: the silhouette, then the near-break pulse, then the ownership pattern (pre-S195 order). */
+export function strokeBondDraw(g: Graphics, d: BondDraw): void {
+  drawBondVisual(g, {
+    ax: d.ax, ay: d.ay, bx: d.bx, by: d.by,
+    visualEffectId: d.visualEffectId,
+    colorA: d.colorA, colorB: d.colorB,
+    alpha: d.alpha, width: d.width, tick: d.tick,
+  });
+  if (d.pulseAlpha >= 0) {
+    g.moveTo(d.ax, d.ay).lineTo(d.bx, d.by).stroke({ width: 1, color: 0xff8080, alpha: d.pulseAlpha });
+  }
+  drawOwnershipPattern(g, d.ax, d.ay, d.bx, d.by, d.pattern);
+}
+
+const FNV_OFFSET = 0x811c9dc5;
+function mix(h: number, v: number): number {
+  return Math.imul(h ^ (v | 0), 0x01000193) >>> 0;
+}
+const fxIdIndex = new Map<string, number>();
+const PATTERN_INDEX: Record<BondPatternKind, number> = { none: 0, rungs: 1, beads: 2, chevrons: 3 };
+
+/** Fold one connector's draw into a bucket hash. Positions are already snapped; ×8 keeps every quantum distinct. */
+export function hashBondDraw(h: number, d: BondDraw): number {
+  let fx = fxIdIndex.get(d.visualEffectId);
+  if (fx === undefined) fxIdIndex.set(d.visualEffectId, (fx = fxIdIndex.size + 1));
+  h = mix(h, Math.round(d.ax * 8));
+  h = mix(h, Math.round(d.ay * 8));
+  h = mix(h, Math.round(d.bx * 8));
+  h = mix(h, Math.round(d.by * 8));
+  h = mix(h, d.colorA);
+  h = mix(h, d.colorB);
+  h = mix(h, Math.round(d.alpha * 1000));
+  h = mix(h, Math.round(d.width * 100));
+  h = mix(h, fx);
+  // The default line never reads the clock; only the animated silhouettes are keyed on it.
+  h = mix(h, d.visualEffectId === DEFAULT_BOND_FX ? 0 : d.tick);
+  h = mix(h, Math.round(d.pulseAlpha * 1000));
+  h = mix(h, PATTERN_INDEX[d.pattern]);
+  return h;
 }
 
 // S53 P2 — isInsideSpawnerZone(x, y) helper REMOVED (only consumed by
