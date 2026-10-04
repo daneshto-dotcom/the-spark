@@ -7,6 +7,13 @@ import { readFileSync } from 'node:fs';
 
 const store = new Map<string, string>();
 let storageThrows = false;
+// A minimal DOM for the hint line (tierAdvisor builds one <div> on document.body).
+interface FakeEl { style: Record<string, string>; textContent: string; id: string; setAttribute(): void }
+const bodyChildren: FakeEl[] = [];
+(globalThis as unknown as { document: unknown }).document = {
+  createElement: (): FakeEl => ({ style: {}, textContent: '', id: '', setAttribute: () => undefined }),
+  body: { appendChild: (e: FakeEl) => { bodyChildren.push(e); return e; } },
+};
 (globalThis as unknown as { window: unknown }).window = {
   localStorage: {
     getItem: (k: string) => { if (storageThrows) throw new Error('blocked'); return store.get(k) ?? null; },
@@ -14,18 +21,19 @@ let storageThrows = false;
   },
 };
 
-import { getGraphicsTier, setGraphicsTier, isFxHighQuality, setFxHighQuality } from './displayPrefs.ts';
+import { getGraphicsTier, setGraphicsTier, isFxHighQuality, setFxHighQuality, resetGraphicsTierSessionForTests } from './displayPrefs.ts';
 import { applyGraphicsTier, graphicsTier, resetGraphicsTierForTests, syncGraphicsTier } from './graphicsTier.ts';
 import { fxHighQuality, setFxLegacy, setFxTierLegacy } from './fx/fxRuntime.ts';
 import { fxLegacy } from './fx/fxState.ts';
 import {
-  TierAdvisor, TIER_HINT_SLOW_FRAME_MS, TIER_HINT_WINDOW_MS, tierHintText,
+  TierAdvisor, TIER_HINT_SLOW_FRAME_MS, TIER_HINT_WINDOW_MS, tierHintText, noteFrameForTierHint,
 } from './tierAdvisor.ts';
 import { GRAPHICS_TIER_HINT } from './settingsOverlay.ts';
 
 beforeEach(() => {
   store.clear();
   storageThrows = false;
+  resetGraphicsTierSessionForTests();
   resetGraphicsTierForTests();
   setFxLegacy(false);
   setFxTierLegacy(false);
@@ -51,6 +59,29 @@ describe('S195 N17 — the tier store (displayPrefs)', () => {
     expect(getGraphicsTier()).toBe('LOW');
     setFxHighQuality(true);
     expect(getGraphicsTier()).toBe('HIGH');
+  });
+
+  it('⛔ S195 audit — blocked storage: choosing MINIMAL in Settings survives the next frame poll', () => {
+    storageThrows = true;
+    syncGraphicsTier();
+    setGraphicsTier('MINIMAL'); // what the Settings radio does
+    syncGraphicsTier();          // next frame (main.ts)
+    expect(graphicsTier()).toBe('MINIMAL');
+    for (let i = 0; i < 5; i++) syncGraphicsTier();
+    expect(graphicsTier()).toBe('MINIMAL');
+    expect(getGraphicsTier()).toBe('MINIMAL');
+  });
+
+  it('a store that READS but cannot WRITE (quota) also keeps the session choice', () => {
+    store.set('display.graphicsTier', 'HIGH');
+    const real = (window as unknown as { localStorage: { setItem: (k: string, v: string) => void } }).localStorage;
+    const keep = real.setItem;
+    real.setItem = () => { throw new Error('quota'); };
+    try {
+      setGraphicsTier('LOW');
+      syncGraphicsTier();
+      expect(graphicsTier()).toBe('LOW');
+    } finally { real.setItem = keep; }
   });
 
   it('blocked storage still yields a usable tier', () => {
@@ -129,5 +160,18 @@ describe('S195 N17 — the "try a lower tier" hint (⚠ MINE): one line, never a
   });
   it('every tier has a one-line description in Settings', () => {
     for (const t of ['HIGH', 'LOW', 'MINIMAL'] as const) expect(GRAPHICS_TIER_HINT[t].length).toBeGreaterThan(10);
+  });
+});
+
+describe('⛔ S195 audit — the hint goes away the moment the match is not what is on screen', () => {
+  it('shown after a slow stretch of play; hidden on the very next non-playing frame (WIN board, title, NONET, cinematic)', () => {
+    let t = 1_000_000;
+    for (let i = 0; i < 200; i++) { t += 80; noteFrameForTierHint(t, true, 'HIGH'); }
+    const el = bodyChildren.find((e) => e.id === 'tier-hint');
+    expect(el, 'the slow stretch built and showed the line').toBeDefined();
+    expect(el!.style.display).toBe('block');
+    t += 16;
+    noteFrameForTierHint(t, false, 'HIGH'); // main passes false off PLAYING or while chordBlocked()
+    expect(el!.style.display).toBe('none');
   });
 });

@@ -4358,7 +4358,7 @@ Network routes: ${v.detail}`;
     // read, so a change in Settings lands on the next frame (render/graphicsTier.ts).
     syncGraphicsTier();
     // S195 N17 - MINE: a slow match shows ONE line suggesting the next tier down; it never switches by itself.
-    noteFrameForTierHint(performance.now(), world.gameState === 'PLAYING', graphicsTier());
+    noteFrameForTierHint(performance.now(), world.gameState === 'PLAYING' && !chordBlocked(), graphicsTier());
     fxBeginFrame();
 
     const wantZoneBg = isZoneBackgroundEnabled();

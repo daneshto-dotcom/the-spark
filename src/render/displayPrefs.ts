@@ -97,21 +97,40 @@ const STORAGE_KEY_TIER = 'display.graphicsTier';
  * what that box meant; everybody else on HIGH.
  */
 export function getGraphicsTier(): GraphicsTier {
+  // ⛔ S195 audit (LOW) — when the store cannot be used, THIS SESSION's choice wins (see `sessionTier`).
+  if (storageBroken && sessionTier !== null) return sessionTier;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY_TIER);
     if (raw === 'HIGH' || raw === 'LOW' || raw === 'MINIMAL') return raw;
   } catch {
-    return 'HIGH';
+    return sessionTier ?? 'HIGH';
   }
   return readBool(STORAGE_KEY_FX_HQ, DEFAULT_FX_HQ) ? 'HIGH' : 'LOW';
 }
 
+/*
+ * ⛔ S195 audit (LOW) — THE IN-MEMORY TIER. `main.ts` re-reads the tier EVERY FRAME, so with storage blocked
+ * (Safari private window, site data blocked) the old swallow-and-forget meant the choice reverted to HIGH on
+ * the very next frame while the radio still showed MINIMAL — the exact "the toggle does nothing" the owner
+ * reported, on another path. The session's choice is kept here and used whenever the store cannot hold it.
+ */
+let sessionTier: GraphicsTier | null = null;
+let storageBroken = false;
+
 export function setGraphicsTier(tier: GraphicsTier): void {
+  sessionTier = tier;
   try {
     window.localStorage.setItem(STORAGE_KEY_TIER, tier);
   } catch {
-    /* benign, as `writeBool`: the session still applies it, it just is not remembered */
+    // Not remembered across reloads — but it applies for the rest of this session (getGraphicsTier above).
+    storageBroken = true;
   }
+}
+
+/** Test seam: forget this session's in-memory tier. */
+export function resetGraphicsTierSessionForTests(): void {
+  sessionTier = null;
+  storageBroken = false;
 }
 
 /** Bloom + ripples on? Only on the HIGH tier. Kept for the fx lab and the renderers that ask. */

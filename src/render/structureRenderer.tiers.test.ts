@@ -290,6 +290,8 @@ describe('S195 N17 — source guards (paired with the REACH tests above)', () =>
   it('main.ts polls the tier every frame, before the fx frame opens', () => {
     expect(MAIN).toMatch(/syncGraphicsTier\(\);\r?\n[^\n]*\r?\n\s*noteFrameForTierHint\(/);
     expect(MAIN).toMatch(/noteFrameForTierHint\(.*\);\r?\n\s*fxBeginFrame\(\);/);
+    // S195 audit (LOW): the hint is live only in a match the player is looking at — not NONET, a cinematic, typing.
+    expect(MAIN).toMatch(/noteFrameForTierHint\(performance\.now\(\), world\.gameState === 'PLAYING' && !chordBlocked\(\), graphicsTier\(\)\);/);
   });
   it('the Settings tier choice writes the tier store (and the old checkbox is gone)', () => {
     expect(SETTINGS).toMatch(/tierRow\.onChange\(\(tier\) => \{\r?\n\s*setGraphicsTier\(tier\);/);
@@ -338,5 +340,104 @@ describe('S195 N17 — the keystone telegraph on MINIMAL: still links, cached', 
     p2.pos.x += 5; // the structure moved
     k.sync(w);
     expect(g.clears, 'MINIMAL: a moved link redraws').toBe(minClears + 1);
+  });
+});
+
+/*
+ * ⛔ S195 audit (MED) — the first HIGH oracle only ever drew 1v1 boards with no foul, cover alpha 1 and fog off,
+ * so three real HIGH mutations stayed green (foul checked on one end only; cover alpha dropped from the
+ * near-break pulse; the ownership pattern forced on in solo). These boards vary every input HIGH reads.
+ * Body by the independent auditor (`audit-lag/.tmp-audit/zzAudit.lag.test.ts`), adopted as-is.
+ */
+const sortedBuckets = (x: StructureRenderer): string[] => [...internals(x).bondBuckets.entries()]
+  .filter(([, b]) => b.g.ops.length > 0).sort((a, b) => a[0] - b[0]).map(([k, b]) => k + ':' + opsOf(b.g));
+
+describe('S195 audit (MED) — HIGH vs frozen pre-S195 on boards with foul / cover / fog / solo / ffa / big stress', () => {
+  it('matches across varied inputs', () => {
+    setTier('HIGH');
+    for (const seed of [3, 17, 99]) for (const mode of ['1v1', 'solo', 'ffa']) {
+      const w = board(seed, 140);
+      (w as { gameMode: string }).gameMode = mode;
+      const r = new StructureRenderer(app, new ContainerStub() as never);
+      const ref = new GraphicsRec();
+      for (let f = 0; f < 6; f++) {
+        (w as { tick: number }).tick += 5;
+        (w.fouledPrimitives as Set<number>).add(f * 11 + 2);
+        coverByBond.set(f * 7 + 1, 0.4); coverByBond.set(f * 7 + 3, 0.005);
+        fog.concealedOwner = f % 2 === 0 ? 3 : null;
+        const p = w.primitives.get((f * 13 + 5) as never) as unknown as P;
+        p.pos.x += 25; // big stretch: pulse + width
+        r.sync(w);
+        drawBondsPreS195(ref as unknown as Graphics, w);
+        expect(opsOf(internals(r).bondGraphics)).toBe(opsOf(ref));
+      }
+      coverByBond.clear(); fog.concealedOwner = null;
+    }
+  });
+});
+
+describe('S195 audit — cache fuzz: after ANY change, the cache equals a fresh renderer', () => {
+  for (const tier of ['LOW', 'MINIMAL'] as const) it(`${tier}: random mutations over 60 frames`, () => {
+    setTier(tier);
+    const rnd = lcg(4242);
+    let w = board(21, 160);
+    const r = new StructureRenderer(app, new ContainerStub() as never);
+    for (let f = 0; f < 60; f++) {
+      const k = Math.floor(rnd() * 11);
+      const prims = [...w.primitives.values()] as unknown as P[];
+      const pick = prims[Math.floor(rnd() * prims.length)]!;
+      if (k === 0) pick.pos.x += rnd() * 4 - 2;
+      else if (k === 1) { const ids = [...w.bonds.keys()]; if (ids.length) w.bonds.delete(ids[Math.floor(rnd() * ids.length)]!); }
+      else if (k === 2) coverByBond.set(Math.floor(rnd() * 160), rnd());
+      else if (k === 3) (w.fouledPrimitives as Set<number>).add(pick.id);
+      else if (k === 4) fog.concealedOwner = fog.concealedOwner === null ? Math.floor(rnd() * 4) : null;
+      else if (k === 5) { pick.placerColor = COLORS[Math.floor(rnd() * 4)]!; } // steal-ish / rainbow remap
+      else if (k === 6) { // rainbow shuffle: player colours rotate (pattern seats change)
+        const ps = w.players as unknown as Map<number, { color: number }>;
+        const cs = [...ps.values()].map((p) => p.color); cs.push(cs.shift()!);
+        let i = 0; for (const p of ps.values()) p.color = cs[i++]!;
+      }
+      else if (k === 7) (w as { gameMode: string }).gameMode = (w.gameMode === 'solo' ? '1v1' : 'solo');
+      else if (k === 8) { w = board(Math.floor(rnd() * 1000), 160); } // rematch / host-migration snapshot jump
+      else if (k === 9) { pick.type = (pick.type + 1) % 6; } // combo identity change at same geometry
+      else (w as { tick: number }).tick += Math.floor(rnd() * 20);
+      r.sync(w);
+      const fresh = new StructureRenderer(app, new ContainerStub() as never);
+      fresh.sync(w);
+      expect(sortedBuckets(r), `frame ${f} mutation ${k}`).toEqual(sortedBuckets(fresh));
+    }
+  });
+
+  it('tier switches mid-match LOW -> MINIMAL -> HIGH -> LOW stay equal to a fresh renderer', () => {
+    const w = board(77, 120);
+    const r = new StructureRenderer(app, new ContainerStub() as never);
+    for (const t of ['LOW', 'MINIMAL', 'HIGH', 'LOW', 'MINIMAL'] as const) {
+      setTier(t);
+      (w as { tick: number }).tick += 13;
+      r.sync(w);
+      const fresh = new StructureRenderer(app, new ContainerStub() as never);
+      fresh.sync(w);
+      expect(sortedBuckets(r), t).toEqual(sortedBuckets(fresh));
+      expect(opsOf(internals(r).bondGraphics), t).toBe(opsOf(internals(fresh).bondGraphics));
+    }
+  });
+
+  it('memory: buckets are bounded over a long match of drift + rematches', () => {
+    setTier('LOW');
+    const r = new StructureRenderer(app, new ContainerStub() as never);
+    for (let m = 0; m < 30; m++) { const w = board(m, 200); for (let f = 0; f < 5; f++) { (w as { tick: number }).tick += 6; r.sync(w); } }
+    expect(internals(r).bondBuckets.size).toBeLessThanOrEqual(16 * 10);
+    expect(internals(r).bondCacheLayer.children.length).toBe(internals(r).bondBuckets.size);
+  });
+});
+
+describe('S195 audit — every BondDraw field moves the bucket hash (the cache key is complete)', () => {
+  it('per field', async () => {
+    const { hashBondDraw } = await import('./structureRenderer.ts');
+    type BD = Parameters<typeof hashBondDraw>[1];
+    const base: BD = { ax: 10, ay: 20, bx: 30, by: 40, visualEffectId: 'fx.wheel', colorA: 0x112233, colorB: 0x445566, alpha: 0.85, width: 2, tick: 600, pulseAlpha: -1, pattern: 'none' };
+    const h0 = hashBondDraw(0x811c9dc5, base);
+    const perturb: Partial<BD>[] = [{ ax: 11 }, { ay: 21 }, { bx: 31 }, { by: 41 }, { visualEffectId: 'fx.star' }, { colorA: 0x112234 }, { colorB: 0x445567 }, { alpha: 0.5 }, { width: 2.5 }, { tick: 606 }, { pulseAlpha: 0.5 }, { pattern: 'rungs' }];
+    for (const p of perturb) expect(hashBondDraw(0x811c9dc5, { ...base, ...p }), JSON.stringify(p)).not.toBe(h0);
   });
 });

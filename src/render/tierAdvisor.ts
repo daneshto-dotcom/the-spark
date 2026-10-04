@@ -95,8 +95,19 @@ export function showTierHint(next: GraphicsTier): void {
 const advisor = new TierAdvisor();
 let lastFrameMs = -1;
 
-/** Called once per frame by `main.ts`. */
+/** Hide the line now (a no-op when it was never built or is already hidden). */
+export function hideTierHint(): void {
+  if (hintEl !== null && hintEl.style.display !== 'none') hintEl.style.display = 'none';
+}
+
+/**
+ * Called once per frame by `main.ts`, with `playing` = a live match the player is actually looking at
+ * (PLAYING, and no NONET trial / cinematic / typing — main passes `!chordBlocked()`).
+ * ⛔ S195 audit (LOW) — the line used to stay up for its full 12 s over the WIN/POSTGAME board, or on the
+ * title after Leave; it now goes the moment the match is no longer what is on screen.
+ */
 export function noteFrameForTierHint(nowMs: number, playing: boolean, tier: GraphicsTier): void {
+  if (!playing) hideTierHint();
   const dt = lastFrameMs < 0 ? 0 : nowMs - lastFrameMs;
   lastFrameMs = nowMs;
   const next = advisor.note(dt, playing, tier);
