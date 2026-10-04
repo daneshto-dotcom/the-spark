@@ -39,6 +39,11 @@ function fourSeat(): World {
     roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s]!, team: s < 2 ? 0 : 1 })),
     botSeats: [1, 2, 3],
   } as never);
+  // ⭐ S195 — pin the S192 IDENTITY board (teammates NW+NE) these site tests were authored on. Since S195 a
+  // [0,0,1,1] roster maps seat 1 to SW (`layoutForMatch`), which moves an enemy castle next to OPEN and lets its
+  // race units into the measurement; the predicates under test do not depend on where the castles stand.
+  // The arranged board is pinned on its own in `teams.zones.test.ts`.
+  w.layout = 'QUADRANTS_4P';
   w.matchPhase = 'FIGHT';
   w.phaseEndsAtTick = w.tick + phaseDurationTicks('FIGHT') * 10;
   w.creatures.clear();
