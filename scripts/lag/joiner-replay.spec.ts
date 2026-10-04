@@ -30,7 +30,11 @@ const DIR = process.env.SPARK_LAG_OUT ?? '.tmp-gates/lag';
 const WAVES = (process.env.SPARK_LAG_WAVES ?? '1,5,8,10,15').split(',').map(Number);
 const LABEL = process.env.SPARK_LAG_LABEL ?? 'natural';
 const THROTTLES = (process.env.SPARK_LAG_THROTTLES ?? '1,4,6').split(',').map(Number);
-const FX = (process.env.SPARK_LAG_FX ?? 'high,low,legacy').split(',');
+const TIERS = process.env.SPARK_LAG_TIERS === undefined ? null : process.env.SPARK_LAG_TIERS.split(',');
+/** S195 N17 — with SPARK_LAG_TIERS the fx dimension becomes the graphics TIER (HIGH/LOW/MINIMAL). */
+const FX = TIERS ?? (process.env.SPARK_LAG_FX ?? 'high,low,legacy').split(',');
+/** Without the DEV debug overlay on the joiner (it is ~7 % of a frame and no player runs it). */
+const JOINER_URL = process.env.SPARK_LAG_JOINER_URL ?? '/';
 const PROFILE = process.env.SPARK_LAG_PROFILE === '1';
 const WARM_MS = 3000;
 const MEASURE_MS = 8000;
@@ -161,7 +165,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
   const rows: Row[] = [];
   try {
     const code = await hostNewRoom(host);
-    await joinRoom(joiner, code);
+    await joinRoom(joiner, code, JOINER_URL);
     await waitForWorld(host, (w) => w.peerCount >= 1, 'host sees joiner', 90_000);
     await waitForWorld(joiner, (w) => w.peerCount >= 1, 'joiner sees host', 90_000);
     const begin = await canvasToCss(host, CANVAS_WIDTH / 2, 814);
@@ -187,11 +191,17 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
       const snapKiB = seqs.reduce((a, s) => a + s.length, 0) / seqs.length / 1024;
       await loadSequence(joiner, seqs);
       for (const fx of FX) {
-        await joiner.evaluate((f) => {
+        await joiner.evaluate(([f, tiers]) => {
           const lab = (window as unknown as { __SPARK__: { fx: { setLegacy(v: boolean): void; setHighQuality(v: boolean): void } } }).__SPARK__.fx;
+          if (tiers) {
+            // The tier is what a player sets: the stored value main.ts polls every frame.
+            lab.setLegacy(false);
+            window.localStorage.setItem('display.graphicsTier', f);
+            return;
+          }
           lab.setLegacy(f === 'legacy');
           lab.setHighQuality(f === 'high');
-        }, fx);
+        }, [fx, TIERS !== null] as [string, boolean]);
         for (const thr of THROTTLES) {
           await cdp.send('Emulation.setCPUThrottlingRate', { rate: thr });
           await startInjection(joiner);
