@@ -1,7 +1,11 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
-## NEXT STEP (exact)
-Merged master d77f9136 (017d0599, clean). Gates so far: typecheck 0 · full vitest 0 (8820 pass / 12 skip, on 017d0599+) · build 0 entry 1192.5 KiB (57.5 headroom). Two audit fixes after (pitch rack identity, lobby backdrop slot) - targeted tests green. NEXT: e2e:gating (log .tmp-gates/e2e-gating.log) then teams-lobby lane (`npx playwright test e2e/teams-lobby.spec.ts`), then final report.
+## FINAL REPORT (S195 T12 teams) — ALL 7 ITEMS DONE
+Tip: see `git log -1` (after this commit). Last master merge 3bd3981a (master 626646be, Pitch Masters + logs only, no conflicts); earlier 017d0599 (d77f9136, clean).
+Gates on the merged tree: typecheck 0 · vitest 0 (581 files, 8820 pass / 12 skip) · build 0 entry 1192.4 KiB (57.6 headroom; ~+9 KiB vs master's last measured 1183.4) · e2e:gating 0 (67/67, own port) · teams-lobby lane 0 (2/2, own port; @quarantine-flaky).
+BUMP: YES — world.layout gains QUADRANTS_4P:<owners> values (zone ownership = sim: castles, build legality), RosterEntry.slot, LOBBY_PRESENCE.countdownMs, team points win gate (client runs tickGameState).
+MINE: scorch home-quadrant only; pair art ungraded; 2v2 lowest-slot pair west; 1v1 cannot swap sides; malformed snapshot layout -> QUADRANTS_4P; avatar start pos not remapped; TEAM_BAR_SCALES_WITH_SIZE; TEAM_TOTAL_COUNTS_FALLEN; hunter follows team bar; countdown starts only when 2+ sides.
+Docs owed (merge owner): SPARK_CANON §5d (arrangeTeamSeats retired -> world.layout map; shared vision built; team points race), CLAUDE.md protocol line.
 
 ## Log
 - setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
