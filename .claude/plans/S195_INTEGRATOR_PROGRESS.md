@@ -1,6 +1,9 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## STATUS: COMPLETE — all four landings + housekeeping done. No next step.
+## EXACT NEXT STEP (L5, owner R195-0g)
+L5 s195/ci-perf f8d6de5c: merged 53ba655b (clean) + docs fixes bf8cb2fd (e2e.yml:83 backtick, LOCKED_DECISIONS §15.1 amendment, CLAUDE.md e2e:render) + origin PM merge 3904c4cc. Gates RUNNING: `.tmp-gates/s195run5.sh L5 31965` → `.tmp-gates/s195_L5/` (tc, vt, build, gating, render, races, lobby, teams). Then push, deploy, verify --sha, log S195-#5, record CI per lane incl. [frame-profile] + [hunter] lines.
+
+## (L1–L4) STATUS: COMPLETE
 
 ## FINAL REPORT
 - **L1 s194/rules** — merge e3d04de0 (no conflicts) + BUMP 66→67 / housekeeping 560206ac. Tip gates (80aaa870): tc0 · vt0 8643 · build0 1166.8. Master: tc0 · vt0 8643/12 skip · build0 1166.8 KiB · gating 74/74 · races 5/5 (1st run webServer 60 s startup timeout, re-run 5/5) · lobby 5/5 · teams 2/2. Deploy **S195-#1 9598444b** run 37134797639 success · verify 4/4 · CI E2E failure (CI-only: tickClock timeout + 900 s cap, lobby/quarantine/soak).
