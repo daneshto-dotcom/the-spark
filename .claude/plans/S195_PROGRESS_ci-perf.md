@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** fix round F1-F6 committed (a9cf226a, b71d74ef, da39ae46); run gates -> .tmp-gates/final2/{tc,vt,build,render}.exit; report.
+**NEXT STEP:** NONE — fix round DONE and reported. Gates on the fix-round tree: tc 0 · vitest 0 (575 files / 8758 passed) · build 0 (1183.4 KiB) · e2e:render 0 (10/10). F1 mutations 4/4 red; F5 mutant red. Deviation: e2e-render set to 39/47, not 36/44 — 36 cannot hold 3×hunter + 2×(fog+profile) = 2340 s.
 
 ## FINAL REPORT (T21 ci-perf)
 Gates on final tree (master fdc7c8d3 merged in): typecheck 0 · vitest --maxWorkers=3 0 (575 files / 8756 passed, 12 skipped) · build 0, entry 1183.4 KiB (+0.0 vs master; headroom 66.6) · e2e:render 0 (10/10, own port) · full vitest leaves the tree clean (snap EOL fix). Merges: master x3, no conflicts. Bump: NO (only client audio playMusic + tests/CI). Items 1-9 DONE; item 7 verdict = over contract, PROPOSE cuts. Findings: render-heap census delta 239 vs limit 51 locally (route to T22); nplayer.spec:379 + rainbow-castle.spec:70 unframed stage extracts (net/other trees).
