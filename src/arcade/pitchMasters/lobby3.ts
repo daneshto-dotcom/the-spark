@@ -467,6 +467,12 @@ export class Lobby3 {
         this.log(`slot ${l.slot} dropped: waiting for a reconnect`);
         this.scheduleRejoin(this.deps.now());
       },
+      onPeerError: (peer, error) => {
+        // PM-S4 net-blip (see matchmaker.ts HANDSHAKE_MS): a client stuck in the handshake with its host rejoins now.
+        if (epoch !== this.epoch || this.role !== 'client' || !this.links.has(peer) || !/handshake/i.test(error)) return;
+        this.log(`transport gave up on the host: ${error}`);
+        this.rejoinNow(this.deps.now(), 'handshake with the host failed');
+      },
     };
     this.roomId = roomId;
     this.roomHandlers = handlers;
@@ -503,8 +509,16 @@ export class Lobby3 {
     const host = this.links.values().next().value;
     if (this.role !== 'client' || this.state !== 'matched' || host === undefined || this.blipUntil > 0
       || this.roomHandlers === null || host.present || this.rejoinAt === 0 || now < this.rejoinAt) return;
+    this.rejoinNow(now, `host still gone ${((now - host.lastHeard) / 1000).toFixed(0)} s`);
+  }
+
+  /** Client: leave the room and join it again (fresh signaling, and the host's handshake state reset). */
+  private rejoinNow(now: number, why: string): void {
+    const host = this.links.values().next().value;
+    if (this.role !== 'client' || this.state !== 'matched' || host === undefined || this.blipUntil > 0
+      || this.roomHandlers === null || host.present) return;
     this.rejoins++;
-    this.log(`host still gone ${((now - host.lastHeard) / 1000).toFixed(0)} s: rejoining the room (try ${this.rejoins})`);
+    this.log(`${why}: rejoining the room (try ${this.rejoins})`);
     this.room?.leave();
     this.room = this.deps.join(this.roomId, this.roomHandlers);
     this.rejoinAt = now + REJOIN_NEXT_MS;
