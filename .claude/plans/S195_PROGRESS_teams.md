@@ -1,7 +1,7 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
 ## NEXT STEP (exact)
-All 7 items done. NOW: git merge master (master side for .claude/** conflicts), npm install, then gates: typecheck, npx vitest run --maxWorkers=3, npm run build (KiB), e2e:gating + teams-lobby lane on own port; self-audit; final report.
+Merged master d77f9136 (017d0599, clean). Gates so far: typecheck 0 · full vitest 0 (8820 pass / 12 skip, on 017d0599+) · build 0 entry 1192.5 KiB (57.5 headroom). Two audit fixes after (pitch rack identity, lobby backdrop slot) - targeted tests green. NEXT: e2e:gating (log .tmp-gates/e2e-gating.log) then teams-lobby lane (`npx playwright test e2e/teams-lobby.spec.ts`), then final report.
 
 ## Log
 - setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
