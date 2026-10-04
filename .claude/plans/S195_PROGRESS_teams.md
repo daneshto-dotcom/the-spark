@@ -1,7 +1,8 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
-## NEXT STEP (exact)
-Item 6 (N3 ready locks team, quickmatch lobby): read maybeQmAutoBegin / LOBBY_READY / qmReadyPeers in src/net/quickmatchGate.ts + hostHandlers; host refuses CLAIM_TEAM while ready or within 3 s of unready; all-ready -> 3 s countdown (tick-free: host timer) before Begin, any unready cancels; client chip greyed while locked.
+## NEXT STEP (exact) — PAUSED by owner order (usage limit); tip committed, no background jobs
+Item 6 (N3, quickmatch lobby only — friends + bot lobbies have no READY): in src/net/quickmatchGate.ts add QM_READY_LOCK_MS=3000 / QM_UNREADY_TEAM_COOLDOWN_MS=3000 (owner's "three seconds"), session fields qmUnreadyAt Map + qmSelfUnreadyAt + qmCountdownTimer; maybeQmAutoBegin(session,onBegin,now) -> starts a 3 s countdown when all ready (setTimeout, re-check on fire), cancels on any unready; noteQmReady(session, peerId|null, ready, now) records unready time + cancels; qmTeamChangeAllowed(...) refuses team change while ready or <3 s after unready. Wire into hostHandlers LOBBY_READY + CLAIM_TEAM (refuse, beacon is the "no") and main.ts onToggleReady/onPickTeam. Re-pin src/net/sameMatchProof.test.ts + teamsQuickmatchRearm.test.ts with fake timers. Visible joiner countdown = NOT DONE (needs a wire field) — report.
+Then item 7 (team points race, gameState.ts win gate, BUMP), then merge master, full gates, audit, report.
 
 ## Log
 - setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
