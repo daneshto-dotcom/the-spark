@@ -68,7 +68,7 @@ import { detectComboDiscoveries } from './comboDiscovery.ts';
 import { destroyDefender } from './damage.ts';
 import { makeBond } from './placePrimitive.ts';
 import { razePrimitives } from './razePrimitives.ts';
-import { zoneOf, zoneOwner } from './zones.ts';
+import { seatOwnsZone, zoneOf, zoneOwner } from './zones.ts';
 import type { Defender } from './defenders/defender.ts';
 import type { GodlyId } from './godlyRecipes/types.ts';
 import { getDefenderRecipe } from './godlyRecipes/index.ts';
@@ -151,7 +151,8 @@ export function canReclaimNow(world: World, pos: Vec2, seat: PlayerId): boolean 
   if (owner === null) return false;
   const zone = zoneOf(pos, world.layout);
   if (zone === null) return false;
-  return zone === owner;
+  // ⭐ S195 (B-29) — any zone the seat owns (the 2v1 solo's empty corner is his ground, so his to reclaim).
+  return zone === owner || seatOwnsZone(seat, zone, world.layout);
 }
 
 /**

@@ -53,7 +53,7 @@ import type { Creature } from './creature.ts';
 import { isLiveCreatureTarget } from './creature.ts';
 import { castleAnchor } from '../gatherers/gatherer.ts';
 import { getCreatureConfig, isNonCombatantType, isUntargetableType } from './voltkin-config.ts';
-import { zoneOf, zoneOwner } from '../zones.ts';
+import { seatOwnsZone, zoneOf, zoneOwner } from '../zones.ts';
 import { monsterVictimSeat } from '../endgame.ts';
 import { creatureCanTarget } from '../stats.ts';
 
@@ -943,6 +943,8 @@ interface ChaseLimits {
   readonly reachSq: number;
   /** The chaser's OWN seat zone (`zoneOwner`), or `null` if the seat owns no ground. */
   readonly homeZone: number | null;
+  /** ⭐ S195 — the chaser's seat: "home" is ANY zone it owns (the 2v1 solo's half is two zones). */
+  readonly homeSeat: number;
   readonly layout: World['layout'];
 }
 
@@ -956,6 +958,7 @@ function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
     reach,
     reachSq: reach * reach,
     homeZone: zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout),
+    homeSeat: chaser.ownerPlayerId as unknown as number,
     layout: world.layout,
   };
 }
@@ -975,6 +978,11 @@ function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
  * cut off, so this is false and only reach/zone can engage it. Pure arithmetic on synced state, so
  * the host, a worker and a successor all agree.
  */
+/** ⭐ S195 — is `zone` the chaser's home ground? Its home zone, or any other zone its seat owns (2v1 solo). */
+function isHomeZone(limits: ChaseLimits, zone: number | null): boolean {
+  return zone !== null && (zone === limits.homeZone || seatOwnsZone(limits.homeSeat, zone, limits.layout));
+}
+
 function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: number): boolean {
   const ax = quarry.pos.x;
   const ay = quarry.pos.y;
@@ -1029,8 +1037,8 @@ function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolea
   // border re-acquire a drone crossing into its home zone at 88–202 px and turn back (2–4 pickups a drone).
   if (
     limits.homeZone !== null &&
-    zoneOf(limits.pos, limits.layout) === limits.homeZone &&
-    zoneOf(quarry.pos, limits.layout) === limits.homeZone
+    isHomeZone(limits, zoneOf(limits.pos, limits.layout)) &&
+    isHomeZone(limits, zoneOf(quarry.pos, limits.layout))
   ) return false;
   if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off
   return true;
