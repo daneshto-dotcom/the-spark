@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** try clean stack-reverted tree in .tmp-gates/before (git checkout --detach <my HEAD>; git revert -m 1 --no-commit 6a46ecab ae013e51 01530fb1); if conflicts -> abandon, report the confounded bench; then final gates + report.
+**NEXT STEP:** bench2 running: bash .tmp-gates/fx/cycle2.sh (labels branchR vs masterR; masterR = my HEAD minus visuals-6 + coherence merges (visuals-3 revert conflicts, so it stays in both) + 2 dependent lastSeenLife lines dropped; tc 0). Then python .tmp-gates/fx/an3.py R; final gates; report.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
