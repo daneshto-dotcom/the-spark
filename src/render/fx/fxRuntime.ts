@@ -15,10 +15,12 @@
  *     the fog. Motes, sparks, flashes, embers. It carries the one `AdvancedBloomFilter` on HIGH.
  *   Both are under the fog, so an effect is concealed exactly when its owner renderer culls it.
  *
- * ## Quality
+ * ## Quality — driven by the S195 graphics TIER (`render/graphicsTier.ts`, Settings → Graphics)
  *   HIGH (default) — bloom on the top layer + `ShockwaveFilter` ripples on the ground art.
- *   LOW — additive soft particles only; no filter pass at all. The Settings panel's
- *   "High-quality effects" row (`displayPrefs.ts`). A display preference: never on the wire.
+ *   LOW — additive soft particles only; no filter pass at all.
+ *   MINIMAL — legacy: every rebuilt effect draws the pre-S192 way (`setFxTierLegacy`).
+ *   ⚠ Until S195 this was a "High-quality effects" checkbox that only toggled the filters — the owner's
+ *   brother switched it and nothing changed. A display preference: never on the wire.
  *
  * ⛔ RENDER-ONLY. Nothing here reads or writes sim state; the layouts read synced fields and ticks.
  */

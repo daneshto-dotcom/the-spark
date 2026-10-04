@@ -4,6 +4,9 @@
  *   - One Graphics for ALL bonds (clear/redraw on bond commit/sever — but
  *     bonds drift each substep, so we redraw per frame; cheap given <100
  *     bonds Phase 1).
+ *     ⚠ S195 N17 — that last clause stopped being true: a late board has ~500 connectors and the per-frame
+ *     redraw was the biggest single cost on a joiner's frame. The per-frame redraw is now the HIGH tier only;
+ *     LOW and MINIMAL draw from a bucketed cache that redraws only what changed (`drawBondsCached`).
  *   - Pixi v8 batches Sprites automatically — no per-primitive filter.
  *
  * Spec § VI.4 (v0.5.1): placed primitives render in their PLACER's player
