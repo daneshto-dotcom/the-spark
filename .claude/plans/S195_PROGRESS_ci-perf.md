@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** item 7 bench (before-tree .tmp-gates/before = 02acd574, npm ci 0; harness .tmp-gates/fx/bench2.spec.ts FX_LOG/FX_LABEL; interleave 3 cycles), then final gates (typecheck, vitest --maxWorkers=3, build, e2e:render, races settings-toggles) + report.
+**NEXT STEP:** bench running in background (bash .tmp-gates/fx/cycle.sh -> .tmp-gates/fx/bench3.jsonl, cycle.exit; labels branch=current master w/ stack, master=02acd574 before stack); when done: python .tmp-gates/fx/an3.py; then final gates + report. If killed: rerun cycle.sh (it appends).
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
