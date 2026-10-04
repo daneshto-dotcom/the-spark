@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { getSeatRect } from './lobbyGeometry.ts';
 import { initialLobbyState, lobbyView, seatBoardSlots, type LobbyState } from './lobbyStateMachine.ts';
 import { zoneRect } from './zoneBackgroundRenderer.ts';
+import { lobbyBackdropRegions } from './lobbyBackdrop.ts';
 import { layoutForMatch } from '../state/teams.ts';
 import { zoneOwner } from '../state/zones.ts';
 
@@ -60,6 +61,10 @@ describe('S195 — seatBoardSlots previews the board the match will be played on
       ],
     };
     expect(lobbyView(state).seats.map((s) => s.slot)).toEqual([1, 2, 3, 0]);
+    // …and the lobby BACKDROP paints each seat's race behind that same quadrant (the solo, seat 3, top-left)
+    const regions = lobbyBackdropRegions(lobbyView(state).seats);
+    const solo = regions.find((r) => r.seat === 3)!;
+    expect([solo.x, solo.y]).toEqual([0, 0]);
   });
   it('REACH (source) — seatRack positions each tile from its view\'s slot', () => {
     const src = readFileSync(new URL('./seatRack.ts', import.meta.url), 'utf8');
