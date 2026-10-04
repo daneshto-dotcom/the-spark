@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** bench running in background (bash .tmp-gates/fx/cycle.sh -> .tmp-gates/fx/bench3.jsonl, cycle.exit; labels branch=current master w/ stack, master=02acd574 before stack); when done: python .tmp-gates/fx/an3.py; then final gates + report. If killed: rerun cycle.sh (it appends).
+**NEXT STEP:** try clean stack-reverted tree in .tmp-gates/before (git checkout --detach <my HEAD>; git revert -m 1 --no-commit 6a46ecab ae013e51 01530fb1); if conflicts -> abandon, report the confounded bench; then final gates + report.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
@@ -16,3 +16,4 @@
 - step 10 (item 8 DONE — PRODUCT BUG): playMusic returned on a stale URL while setMusicTrack returned early on musicSource===null -> toggle during the race-cover load = silence until next match. Fix: playMusic follows desiredMusicUrl in a loop (audioManager.ts). REACH test in audioManager.test.ts (held fetch, toggle inside window) RED before / GREEN after; positive control + flip-back case; audio suites 98/98. e2e fixed 2.5 s waits -> bounded expect.poll (30 s); settings-toggles race-track test 5/5 local. No bump (client audio only).
 - step 11 (item 9 DONE): e2e-protocol red on run 37157047661 = STUN binding timeouts / UDP unreachable, green #1/#2/#4 same version, local 2/2 -> CI network class. Cannot be network-independent (C9 rejects mocking). Took the documented S142 escape hatch: job-level continue-on-error, job kept, tests not retagged; detectProtocolMismatch stays gating in vitest. Pinned (19/19).
 - step 12 (item 7, partial): interleaved bench cycles 1-2 of 3 done. CONFOUNDED: the before-tree (02acd574) builds only 8-9/12 race towers (11 vs 15 towers), 75-84 vs 85-116 creatures, fx top 0-24 vs 250-380 -> the scene is lighter, so the delta over-states the stack. Raw: per HIGH +1.37 ms (5.30 vs 6.67, IQR [4.6,6.3] vs [6.0,7.7]), LOW +1.10; whole HIGH +1.90, LOW +1.73; frames/8 s window 28 vs 60 at HIGH (swiftshader fps halves). Next: try a clean stack-reverted tree (current master minus 01530fb1/ae013e51/6a46ecab) for an equal scene.
+- step 13: bench 3/3 cycles done (all exit 0). Confounded (before-tree scene lighter). per HIGH 5.40 -> 6.70 (+1.30, IQR [4.7,6.5] vs [6.0,7.8]); LOW +1.05; whole HIGH +1.70 (IQR [9.3,12.1] vs [11.0,13.8]); LOW +1.50. n=9 runs each.
