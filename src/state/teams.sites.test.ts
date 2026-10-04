@@ -133,6 +133,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'render/matchBoardModel.ts': 1, // S194 — the stat board stars the winner's whole TEAM
   'render/goblinRenderer.ts': 1, // S194 — master's lifesteal motes come from the nearest ENEMY creature (visuals-racial)
   'render/wallRenderer.ts': 1,
+  'render/zoneBackgroundRenderer.ts': 2, // ⭐ S195 — the team backdrop plan: a pair half is two TEAMMATES (+ the team-size count)
   'state/bossSkills.ts': 1,
   'state/bossSkillsArchdemon.ts': 3,
   'state/bossSkillsKraken.ts': 2,
@@ -217,6 +218,7 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'input/controls.ts': 3, // your gatherer, the spark you carry
   'input/controlsCore.ts': 1, // the spark you carry
   'main.ts': 2, // the spark you carry; your own seat row
+  'net/lobbyRoster.ts': 1, // ⭐ S195 N16 — the host's MOVE finds the roster entry IN that lobby seat (identity, not allegiance)
   'net/successionWarrant.ts': 1, // seat-table lookup
   'net/sync.ts': 1, // the spark you carry
   'render/avatarRenderer.ts': 3, // the local avatar
