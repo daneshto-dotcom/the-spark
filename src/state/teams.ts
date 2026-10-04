@@ -268,9 +268,10 @@ export function boardSlotsForSeats(teams: readonly (number | undefined)[], prefs
   const n = teams.length;
   const owners = arrangeTeamZones(teams, n, prefs);
   if (owners !== null) return Array.from({ length: n }, (_, d) => { const z = owners.indexOf(d); return z >= 0 ? z : d; });
-  // The pitch (≤ 2 seats): the prefs, if a clean injection into 0..3; the identity otherwise.
-  const ok = prefs.length === n && prefs.every((p, d) => typeof p === 'number' && Number.isInteger(p) && p >= 0 && p < 4 && prefs.indexOf(p) === d);
-  return Array.from({ length: n }, (_, d) => (ok ? (prefs[d] as number) : d));
+  // The pitch (≤ 2 seats) has no quadrant map (`layoutForMatch` → PITCH_2P, seat 0 west / seat 1 east), so the
+  // rack shows the identity there too — ⚠ MINE: a 1v1 cannot swap sides (the preference is kept, inert).
+  void prefs;
+  return Array.from({ length: n }, (_, d) => d);
 }
 
 /**
