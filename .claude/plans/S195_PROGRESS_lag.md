@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Measurements DONE. Now: git merge master, gates (typecheck, vitest --maxWorkers=3, build, e2e:gating own port), then report section 5 + final report.
+Merged master e1dc25fa. vitest run 1 = exit 1: two enumeration guards tripped by MY code (tierAdvisor DOM zIndex; settingsOverlay radio .type=) — both updated with reasons, 17/17 pass. build + e2e:gating still running in bg (btgtpgm0x). Then rerun full vitest, then final report.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
