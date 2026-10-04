@@ -39,7 +39,6 @@
 import { MAX_PLAYERS } from '../constants.ts';
 import type { RosterEntry } from './protocol.ts';
 import { ALL_RACES, RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
-import { arrangeTeamSeats } from '../state/teams.ts';
 
 // Host is always seat 0; remote peers occupy seats 1..MAX_PLAYERS-1.
 const FIRST_REMOTE_SEAT = 1;
@@ -148,20 +147,6 @@ export function withTeams(
   });
 }
 
-/**
- * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE: re-seat a dense MATCH roster by
- * `arrangeTeamSeats`. Seat 0 (the host) never moves. A moved entry keeps the race (and so the colour)
- * it showed in the lobby — its seat default would otherwise change with the seat — so `raceId` is made
- * explicit for it. No shared team ⇒ the identity ⇒ the roster is returned unchanged.
- */
-export function arrangeRosterForTeams(roster: readonly RosterEntry[]): RosterEntry[] {
-  const order = arrangeTeamSeats(roster.map((e) => e.team));
-  if (order.every((old, i) => old === i)) return [...roster];
-  return order.map((old, seat) => {
-    const e = roster[old]!;
-    return { ...e, seat, raceId: e.raceId ?? defaultRaceForSeat(e.seat) };
-  });
-}
 
 export function buildLobbyRoster(
   seatByPeer: ReadonlyMap<string, number>,

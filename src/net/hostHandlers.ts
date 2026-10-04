@@ -29,7 +29,7 @@ import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
-import { reconcileLobbySeats, buildMatchRoster, withTeams, arrangeRosterForTeams } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildMatchRoster, withTeams } from './lobbyRoster.ts';
 import { sessionTeamsPlayable } from './quickmatchGate.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
@@ -547,9 +547,9 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     if (!sessionTeamsPlayable(deps.session)) return;
     // ⭐ S161 P6 — the lobby's claims become the MATCH's races. `buildMatchRoster` reads them by
     // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
-    // ⭐ S192 — and the lobby's TEAM picks, then the side-by-side seating (`arrangeRosterForTeams`). Both
-    // before `hostSeats` freezes below, so intent stamping keys every peer to its FINAL seat.
-    const roster = arrangeRosterForTeams(withTeams(
+    // ⭐ S192 — and the lobby's TEAM picks, before `hostSeats` freezes below. ⭐ S195 (R195-T2/T3): nobody is
+    // re-seated any more — the board maps each seat to its quadrant at START_GAME (`layoutForMatch`).
+    const roster = (withTeams(
       buildMatchRoster(
         deps.session.lobbySeats,
         selfId,

@@ -25,7 +25,7 @@
 
 import type { PlayerId } from '../types.ts';
 import { MAX_PLAYERS } from '../constants.ts';
-import { zoneCount, zoneOwner, type ZoneLayout } from './zones.ts';
+import { layoutForSeatCount, seatOfZone, zoneCount, zoneOwner, type ZoneLayout } from './zones.ts';
 
 /** Team indices are 0-based on the sim side (team 0 = the lobby's "TEAM 1"). */
 export const TEAM_COUNT = 4;
@@ -231,12 +231,101 @@ export function teamZones(world: Pick<TeamsView, 'teams'> & { readonly layout: Z
   if (zoneOwner(seat, world.layout) === null) return out; // a spectator / out-of-range seat lights nothing
   const n = zoneCount(world.layout);
   for (let z = 0; z < n; z++) {
-    for (let s = 0; s < n; s++) {
-      if (zoneOwner(s, world.layout) === z && sameTeam(world, s, seat)) {
-        out.push(z);
-        break;
-      }
-    }
+    // ⭐ S195 — the zone's OWNER on this board (a mapped board moves seats; the 2v1 solo owns two zones).
+    const owner = seatOfZone(z, world.layout);
+    if (owner !== null && sameTeam(world, owner, seat)) out.push(z);
   }
   return out;
+}
+
+/**
+ * ⭐⭐ S195 (owner R195-T2 / R195-T3 / R195-T4 / R195-T5, N2, B-29) — **WHERE EACH SEAT STANDS ON THE
+ * QUADRANT BOARD**, as zone → owning seat (`null` = nobody). Replaces S192's seat PERMUTATION: the seat is
+ * the player's identity and never moves now (the host stays seat 0 on the wire); only its ZONE does, and it
+ * rides in `world.layout` (`zones.ts` `TeamQuadLayout`).
+ *
+ * The owner's rules, verbatim where he gave them:
+ *   · *"if it's a one player, he will always be in the northwest corner. Same as player one"*;
+ *   · a TWO-player team always takes a whole SIDE — west = NW+SW, east = NE+SE — *"because the image is
+ *     generated that way"* (the pair art is a portrait top/bottom half);
+ *   · **2v1**: the pair takes a side, the solo his corner (NW) **and** the empty one (SW) — B-29 *"plus he
+ *     also gets the other empty quadrant to play on. It's only fair"*;
+ *   · **1v1v2**: the pair takes the east side; the two solos keep one corner each (NW, SW);
+ *   · **3v1**: solo NW; the trio NE → SE → SW in seat order, so the MIDDLE seat gets the sheltered SE
+ *     (R195-T4 *"That's fine."*);
+ *   · **2v2**: one pair per side.
+ *
+ * `slots[seat]` is the lobby's board-slot order (owner N16 — the host re-arranges seats in the lobby);
+ * absent = the seat number. Within a role, the seat with the lower slot goes first (top before bottom,
+ * NE before SE before SW). ⚠ MINE — in 2v2 the pair holding the lowest slot takes the WEST side (the S192
+ * default kept: the host's team on the left unless the host re-seats).
+ *
+ * A free-for-all (no shared team, or one team for everyone) stands where its slots say — the identity
+ * when nobody was moved. Returns `null` on the pitch (≤ 2 seats: there is no quadrant to choose).
+ * PURE, total order, no clock.
+ */
+export function arrangeTeamZones(picks: readonly (number | undefined)[], seatCount: number, slots?: readonly (number | undefined)[]): (number | null)[] | null {
+  if (seatCount <= 2 || seatCount > 4) return null;
+  const slotOf = (s: number): number => {
+    const v = slots?.[s];
+    return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 4 ? v : s;
+  };
+  const seats = Array.from({ length: seatCount }, (_, s) => s);
+  const ranked = (list: readonly number[]): number[] => [...list].sort((a, b) => slotOf(a) - slotOf(b) || a - b);
+  const owners: (number | null)[] = [null, null, null, null];
+  const teams = normalizeTeams(picks, seatCount);
+  if (teams === undefined) {
+    // Free-for-all: each seat on its slot, if the slots are a clean injection; the identity otherwise.
+    const used = new Set(seats.map(slotOf));
+    for (const s of seats) owners[used.size === seatCount ? slotOf(s) : s] = s;
+    return owners;
+  }
+  const groups = new Map<number, number[]>();
+  for (const s of seats) {
+    const t = teams[s]!;
+    const g = groups.get(t);
+    if (g === undefined) groups.set(t, [s]);
+    else g.push(s);
+  }
+  const bySize = (n: number): number[][] => [...groups.values()].filter((g) => g.length === n).map(ranked).sort((a, b) => slotOf(a[0]!) - slotOf(b[0]!) || a[0]! - b[0]!);
+  const pairs = bySize(2);
+  const solos = bySize(1).map((g) => g[0]!);
+  const trios = bySize(3);
+  if (trios.length === 1 && solos.length === 1) {
+    // 3v1 — solo NW; trio NE, SE, SW.
+    owners[0] = solos[0]!;
+    [owners[1], owners[2], owners[3]] = trios[0]! as [number, number, number];
+  } else if (pairs.length === 1 && solos.length === 1 && seatCount === 3) {
+    // 2v1 — solo NW + the empty SW; the pair east (NE top, SE bottom).
+    owners[0] = solos[0]!;
+    owners[3] = solos[0]!;
+    [owners[1], owners[2]] = pairs[0]! as [number, number];
+  } else if (pairs.length === 1 && solos.length === 2) {
+    // 1v1v2 — the pair east; the solos NW then SW.
+    [owners[1], owners[2]] = pairs[0]! as [number, number];
+    owners[0] = solos[0]!;
+    owners[3] = solos[1]!;
+  } else if (pairs.length === 2) {
+    // 2v2 — the pair holding the lowest slot west (NW top, SW bottom), the other east (NE top, SE bottom).
+    [owners[0], owners[3]] = pairs[0]! as [number, number];
+    [owners[1], owners[2]] = pairs[1]! as [number, number];
+  } else {
+    for (const s of seats) owners[s] = s; // unreachable for ≤ 4 seats with two sides; fail to the identity
+  }
+  return owners;
+}
+
+/**
+ * ⭐ S195 — THE BOARD A MATCH IS PLAYED ON, from its seat count, team picks and lobby slots. The plain
+ * layouts whenever the arrangement IS the identity (every free-for-all nobody re-seated, and a 2v2 already
+ * sitting west/east) — so those matches are byte-identical to pre-S195; the mapped
+ * `QUADRANTS_4P:<owners>` otherwise. Stamped once by `applyStartGame`.
+ */
+export function layoutForMatch(seatCount: number, picks: readonly (number | undefined)[], slots?: readonly (number | undefined)[]): ZoneLayout {
+  const plain = layoutForSeatCount(seatCount);
+  const owners = arrangeTeamZones(picks, seatCount, slots);
+  if (owners === null) return plain;
+  const identity = owners.every((o, z) => (z < seatCount ? o === z : o === null));
+  if (identity) return plain;
+  return `QUADRANTS_4P:${owners.map((o) => (o === null ? '-' : String(o))).join('')}`;
 }

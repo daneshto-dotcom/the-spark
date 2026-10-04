@@ -1,10 +1,11 @@
 /**
  * ⭐ S192 (owner R192-T4) — the TEAMS wire: `RosterEntry.team`, `CLAIM_TEAM`, the presence/Begin roster
- * stamping (`withTeams`) and the side-by-side re-seat (`arrangeRosterForTeams`), plus the lobby view.
+ * stamping (`withTeams`), plus the lobby view. (S195: the S192 re-seat is gone — the board maps seats.)
  */
 import { describe, expect, it } from 'vitest';
 import { parseNetMessage, type RosterEntry } from './protocol.ts';
-import { arrangeRosterForTeams, withTeams } from './lobbyRoster.ts';
+import { withTeams } from './lobbyRoster.ts';
+import { layoutForMatch } from '../state/teams.ts';
 import { defaultRaceForSeat, RACE_COLORS } from '../state/races.ts';
 import { lobbyView, initialLobbyState, type LobbyState } from '../render/lobbyStateMachine.ts';
 
@@ -40,24 +41,13 @@ describe('S192 teams — the wire', () => {
     expect(some.map((e) => e.team)).toEqual([1, undefined, 3]);
   });
 
-  it('⚠ MINE — arrangeRosterForTeams re-seats teammates side by side, keeping each player’s race', () => {
-    // host + 'b' are team 0, 'a' + 'c' team 1 → host's teammate goes to BL (seat 3)
+  it('⭐ S195 — nobody is re-seated: the roster keeps every seat; the BOARD maps the 2v2 (host team west)', () => {
+    // host + 'b' are team 0, 'a' + 'c' team 1. S192 moved 'b' to seat 3; S195 leaves the seats alone and
+    // stands seat 2 in the SW quadrant instead (`layoutForMatch` → zone 3 is seat 2's).
     const roster = [
       entry(0, 'host', { team: 0 }), entry(1, 'a', { team: 1 }), entry(2, 'b', { team: 0 }), entry(3, 'c', { team: 1 }),
     ];
-    const out = arrangeRosterForTeams(roster);
-    expect(out.map((e) => e.seat)).toEqual([0, 1, 2, 3]);
-    expect(out[0]!.peerId).toBe('host');
-    expect(out[3]!.team).toBe(0);
-    // a moved player keeps the race it showed in the lobby (its OLD seat's default), and its colour
-    for (const e of out) {
-      const before = roster.find((r) => r.peerId === e.peerId)!;
-      expect(e.raceId ?? defaultRaceForSeat(e.seat)).toBe(before.raceId ?? defaultRaceForSeat(before.seat));
-      expect(e.color).toBe(before.color);
-    }
-    // no shared team → unchanged
-    const ffa = [entry(0, 'host'), entry(1, 'a'), entry(2, 'b')];
-    expect(arrangeRosterForTeams(ffa)).toEqual(ffa);
+    expect(layoutForMatch(4, roster.map((e) => e.team))).toBe('QUADRANTS_4P:0132');
   });
 
   it('the lobby view carries each seat’s team to the rack', () => {

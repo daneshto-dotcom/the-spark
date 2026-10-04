@@ -285,7 +285,6 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
-import { arrangeTeamSeats, permuteBots, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1744,16 +1743,15 @@ async function bootstrap(): Promise<void> {
               const mod = await import('./bots/botManager.ts');
               const totalSeats = pickedDifficulties.length + 1;
               /*
-               * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE. Seat 0 (you) never
-               * moves; the bots are re-seated so allies share a border, carrying their race, team and
-               * difficulty with them. No shared team ⇒ the identity ⇒ exactly the pre-S192 seating.
+               * ⭐⭐ S195 (owner R195-T2/T3) — NOBODY IS RE-SEATED ANY MORE. S192 permuted the bots so teammates
+               * shared a border; the board now does that itself — `applyStartGame` maps each SEAT to its
+               * quadrant from the teams (`layoutForMatch`), so a seat keeps its race, team, difficulty and
+               * personality by construction and you can stand anywhere (the 3v1 trio, the east pair).
                */
-              const order = arrangeTeamSeats(pickedTeams.slice(0, totalSeats));
-              const races = permuteSeats(pickedRaces.slice(0, totalSeats), order);
-              const teams = permuteSeats(pickedTeams.slice(0, totalSeats), order);
-              // ⭐ S194 — a bot's difficulty AND its personality (S193) travel with it (`permuteBots`).
-              const difficulties = permuteBots(pickedDifficulties, order);
-              const personalities = permuteBots(pickedPersonalities, order);
+              const races = pickedRaces.slice(0, totalSeats);
+              const teams = pickedTeams.slice(0, totalSeats);
+              const difficulties = [...pickedDifficulties];
+              const personalities = [...pickedPersonalities];
               /*
                * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
                *
