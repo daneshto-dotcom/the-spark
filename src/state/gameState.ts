@@ -28,6 +28,7 @@ import type { GameState, World } from './world.ts';
 import type { PlayerId } from '../types.ts';
 import { sameTeam } from './teams.ts';
 import { isEliminated, livingSeats, markFallenSeats, matchPlacings } from './elimination.ts';
+import { teamPointsWinner, teamStandings } from './teamScore.ts';
 import { resetMatchStats } from './matchStats.ts'; // ⭐ S191
 
 const WIN_DWELL_TICKS = PHYSICS_HZ * 2; // 2 seconds of WIN before POSTGAME
@@ -225,6 +226,22 @@ export function tickGameState(
       // ⭐ S186 (owner) — THE BAR IS A FUNCTION OF THE WAVE, NOT A CONSTANT. See
       // `WIN_SCORE_BANDS`. `world.waveNumber` is synced and hashed, so every peer derives the same
       // bar on the same tick and this gate stays replay-byte-equivalent.
+      /*
+       * ⭐⭐ S195 (owner R195-T1) — IN A TEAM GAME THE POINTS RACE IS A TEAM TOTAL: *"team games, the points is
+       * team total"*. The team's summed score vs the wave's bar × its player count (⚠ MINE, `teamScore.ts`);
+       * the winning team's LOWEST living seat names it, like the castle win. ⛔ The client runs this function
+       * too, so this is a protocol bump (reported). A free-for-all skips this block — unchanged.
+       */
+      if (world.teams !== undefined) {
+        const teamWinner = teamPointsWinner(world);
+        if (teamWinner !== null) {
+          console.info(`[SPARK] WIN-BY-TEAM-POINTS tick=${world.tick} winner=P${(teamWinner as number) + 1} | ` +
+            teamStandings(world).map((s) => `T${s.team + 1}: ${s.total}/${s.bar}`).join(' | '));
+          dispatch(world, { type: 'WIN_TRIGGER', winnerId: teamWinner });
+          extras.winEnteredTick = world.tick;
+        }
+        return world.gameState;
+      }
       if (Math.floor(world.scoreProgress) >= winScoreForWave(world.waveNumber)) {
         let winnerId: PlayerId = primaryPlayerId;
         if (isNetworked(world)) {
