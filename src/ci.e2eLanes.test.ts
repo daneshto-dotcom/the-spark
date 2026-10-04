@@ -77,13 +77,36 @@ const LANE: Readonly<Record<string, 'EXCLUDED' | 'GATING' | 'OWN_JOB'>> = {
    * the cap out with specs never started. Gating on its own runner, the `@races` shape.
    */
   '@worker-bots': 'OWN_JOB',
+  /*
+   * ⭐ S195 T21 — fog pixel reads, the hunter solo match and the CI frame profile: specs whose WALL time
+   * the software-GL renderer sets. On deploys #4/#5/#6 hunter spent 3 × 120 s timing out and the shared
+   * lane's 900 s cap cut 16 specs that never started. Gating on its own runner, the `@races` shape.
+   */
+  '@render-starved': 'OWN_JOB',
 };
 
 /** For each OWN_JOB tag, the workflow job that must run it and the script it must call. */
 const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
   '@races': { job: 'e2e-races', script: 'e2e:races' },
   '@worker-bots': { job: 'e2e-worker-bots', script: 'e2e:worker-bots' },
+  '@render-starved': { job: 'e2e-render', script: 'e2e:render' },
 };
+
+/*
+ * ⭐ S195 T21 — THE ONE `continue-on-error` A GATING JOB MAY CARRY: the step-level one on `Checkout`, which
+ * lets the next step retry a hung checkout once. It is stripped (that exact line, nothing looser) before
+ * any "is this lane gating?" check, so a `continue-on-error` anywhere else in a gating job still fails.
+ */
+// ⛔ S195 audit — ANCHORED to the line above it (`id: checkout`): the unanchored first version also
+// stripped the magic line when it was pasted under a Run step, and the gating checks stayed green.
+const CHECKOUT_RETRY_COE = /(\n {8}id: checkout)\n {8}continue-on-error: true # S195 T21 — \.\.\.and is RETRIED ONCE by the next step; see the header(?=\n)/g;
+const CHECKOUT_RETRY_MAGIC = 'continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step';
+function withoutCheckoutRetry(block: string): string {
+  // Exactly one magic line per job, and it must be the anchored one on the Checkout step.
+  expect(block.split(CHECKOUT_RETRY_MAGIC).length - 1, 'the checkout-retry continue-on-error occurs once per job').toBe(1);
+  expect(block.match(CHECKOUT_RETRY_COE) ?? [], 'that line sits directly under `id: checkout`').toHaveLength(1);
+  return block.replace(CHECKOUT_RETRY_COE, '$1');
+}
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
 // S192 — `@vite-ignore` is the magic comment on a dev-server dynamic import (`e2e/poolSafePc.spec.ts`).
@@ -181,7 +204,7 @@ describe('e2e lane composition is a decision, not an accident', () => {
      * ⛔ S182 — **NORMALISE LINE ENDINGS AT THE READ, AND THAT IS WHY IT IS DONE HERE RATHER THAN IN
      * THE ONE REGEX BELOW.**
      *
-     * SPARK has no `.gitattributes` and this project's Windows checkout has `core.autocrlf=true`, so
+     * SPARK had no `.gitattributes` (S195 added one for `*.snap` ONLY) and this project's Windows checkout has `core.autocrlf=true`, so
      * `e2e.yml` arrives CRLF while git stores LF. The job-boundary search below is
      * `/\n {2}[a-z][a-z0-9-]*:\n/` — a trailing `:\r\n` does not match `:\n`, so `nextJob` came back
      * `-1`, the "block" for `e2e-races` silently became THE WHOLE REST OF THE FILE, and it picked up
@@ -235,7 +258,7 @@ describe('e2e lane composition is a decision, not an accident', () => {
       const nextJob = rest.search(/[\r\n]  [a-z][a-z0-9-]*:[\r\n]/);
       const block = nextJob === -1 ? rest : rest.slice(0, nextJob);
       expect(
-        block.includes('continue-on-error'),
+        withoutCheckoutRetry(block).includes('continue-on-error'),
         `\`${job}\` carries continue-on-error, so ${tag} is not actually gating anywhere`,
       ).toBe(false);
       /*
@@ -270,6 +293,16 @@ describe('e2e lane composition is a decision, not an accident', () => {
     expect(bare.length, 'one Checkout per job').toBe(jobs.length);
     expect(bounded.length, 'every Checkout step carries a timeout-minutes').toBe(bare.length);
     for (const c of bounded) expect(Number((/timeout-minutes: (\d+)/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
+    /*
+     * ⭐ S195 T21 — AND EVERY ONE IS RETRIED ONCE. Deploy #5's `worker-typecheck` died on a checkout that
+     * hung for exactly its 3 minutes. Each Checkout carries `id: checkout` + the step-level
+     * continue-on-error, and is followed IMMEDIATELY by a bounded retry gated on that step's outcome.
+     */
+    const retried = yml.match(
+      /- name: Checkout\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: \d+[^\n]*\n\s+id: checkout\n\s+continue-on-error: true # S195 T21[^\n]*\n\s+- name: Checkout \(retry after a hang\)\n\s+if: steps\.checkout\.outcome != 'success'\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: (\d+)\n/g,
+    ) ?? [];
+    expect(retried.length, 'every Checkout is followed by its bounded retry').toBe(jobs.length);
+    for (const c of retried) expect(Number((/timeout-minutes: (\d+)\n$/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
   });
 });
 
@@ -306,7 +339,7 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     const end = rest.search(/\n  (?:#|[a-z][a-z0-9-]*:)/);
     const block = end === -1 ? rest : rest.slice(0, end);
     expect(block).toContain('run: npm run e2e:lobby');
-    expect(block.includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
+    expect(withoutCheckoutRetry(block).includes('continue-on-error'), 'e2e-lobby is not gating').toBe(false);
   });
 
   /*
@@ -325,6 +358,8 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     const MEASURED_CI_CRITICAL_PATH_MS = 282_000;
     const LANE_RETRIES = 2; // playwright.config.ts: `process.env.CI ? 2 : 0`, and e2e-lobby sets no PW_RETRIES
     const OTHER_LOBBY_TESTS = 4; // S46 Baseline + 2 x S155 join-stall + S155 exit-from-multiplayer
+    // ⛔ S195 T21 — the OTHER four retry too (run 37047025269: exit-match x2, join-stall:109 x3 on STUN reds),
+    // and budgeting them at one attempt is what left the S46 Baseline never started at the 1320 s cap.
     const DEFAULT_TEST_TIMEOUT_MS = 60_000;
     const SETUP_HEADROOM_MIN = 8;
     const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
@@ -352,7 +387,7 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     expect(block, 'e2e-lobby must not override retries').not.toContain('PW_RETRIES');
     const cap = Number((/\n {4}timeout-minutes:\s*(\d+)/.exec(block) as RegExpExecArray)[1]);
     const pw = Number((/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block) as RegExpExecArray)[1]);
-    const laneNeedMs = (LANE_RETRIES + 1) * budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS;
+    const laneNeedMs = (LANE_RETRIES + 1) * (budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS);
     expect(pw * 60_000, `e2e-lobby PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${laneNeedMs} ms`).toBeGreaterThanOrEqual(
       laneNeedMs,
     );
@@ -427,14 +462,247 @@ describe('S193 - e2e-worker-bots: each tick-budgeted wait carries a backstop der
  * quarantine lane gets its budget back for the specs that only it runs.
  */
 describe('S193 - the quarantine lane does not re-run what e2e-lobby gates', () => {
-  it('e2e:quarantine grep-inverts exactly the e2e:lobby grep', () => {
+  it('e2e:quarantine grep-inverts exactly the e2e:lobby grep + the e2e:protocol grep (S195: protocol too)', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
     const lobby = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:lobby'] ?? '');
+    const proto = /--grep\s+"([^"]+)"/.exec(pkg.scripts['e2e:protocol'] ?? '');
     const q = pkg.scripts['e2e:quarantine'] ?? '';
     const inv = /--grep-invert\s+"([^"]+)"/.exec(q);
     expect(lobby, 'e2e:lobby grep').not.toBeNull();
+    expect(proto, 'e2e:protocol grep').not.toBeNull();
     expect(q).toContain('--grep @quarantine-flaky');
-    expect(inv, 'e2e:quarantine must grep-invert the lobby-gated titles').not.toBeNull();
-    expect((inv as RegExpExecArray)[1]).toBe((lobby as RegExpExecArray)[1]);
+    expect(inv, 'e2e:quarantine must grep-invert the lobby- and protocol-gated titles').not.toBeNull();
+    // ⛔ S195 T21 — the two `Protocol mismatch` tests gate in e2e-protocol and ALSO ran here, the S193 lobby
+    // double-run in another lane. One test, one lane.
+    expect((inv as RegExpExecArray)[1]).toBe(`${(lobby as RegExpExecArray)[1]}|${(proto as RegExpExecArray)[1]}`);
+  });
+});
+
+/*
+ * ⭐ S195 T21 — THE e2e-render LANE: hunter's waits are SIM-TICK budgets, its timeout is their sum, and the
+ * lane holds three attempts of it plus the fog and profile specs. Run 37047025269: hunter hit its 120 s
+ * literal at tick ~850 because ~95 s went to a gatherer-economy wait at ≈7.7 ticks/s. Pinned the way the
+ * worker-bots lane is (above): each wait's backstop derived from its OWN budget, the rate assumed ≤ 5.
+ */
+describe('S195 T21 - e2e-render: hunter budgets derive from ticks; fog reads are board-framed; the lane holds them', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const num = (spec: string, name: string): number => {
+    const m = new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec);
+    expect(m, `${name} is missing`).not.toBeNull();
+    return Number((m as RegExpExecArray)[1]!.replace(/_/g, ''));
+  };
+
+  it('hunter: every waitForHunter pairs X_BUDGET_TICKS with wallCapFor(X_BUDGET_TICKS), the bank is seeded, the timeout is derived', () => {
+    const spec = norm(readFileSync(join(ROOT, 'e2e/hunter.spec.ts'), 'utf8'));
+    const calls = [...spec.matchAll(/await waitForHunter\(([\s\S]*?)\);/g)].map((m) => m[1]!);
+    expect(calls.length, 'the spawn and catch waits').toBe(2);
+    for (const c of calls) {
+      const m = /([A-Z_]+_BUDGET_TICKS),\s*wallCapFor\(([A-Z_]+_BUDGET_TICKS)\),?\s*$/.exec(c);
+      expect(m, `a waitForHunter call does not end in X_BUDGET_TICKS, wallCapFor(X_BUDGET_TICKS):\n${c}`).not.toBeNull();
+      expect((m as RegExpExecArray)[2], 'backstop borrowed from another budget').toBe((m as RegExpExecArray)[1]);
+    }
+    expect(num(spec, 'SLOWEST_CI_TICKS_PER_S'), 'assumed rate must sit under the ≈7.7 ticks/s CI measured').toBeLessThanOrEqual(5);
+    expect(num(spec, 'CATCH_BUDGET_TICKS'), 'the catch budget stays inside the 1800-tick HUNT window').toBeLessThan(1800);
+    expect(spec).toContain('test.setTimeout(HUNTER_TEST_BUDGET_MS);');
+    expect(spec).toContain(
+      'const HUNTER_TEST_BUDGET_MS = SETUP_WAITS_MS + wallCapFor(SPAWN_BUDGET_TICKS) + wallCapFor(CATCH_BUDGET_TICKS);',
+    );
+    // The seed must land BEFORE the placement, or the economy wait is back.
+    const seed = spec.indexOf('w.castleBanks.set(w.localPlayerId,');
+    const place = spec.indexOf('await placeFreeSparkAndConfirm(');
+    expect(seed, 'hunter seeds the local castle bank').toBeGreaterThan(-1);
+    expect(place).toBeGreaterThan(seed);
+  });
+
+  it('fog: every composed-stage extract is framed to the board, with the title hidden first (mechanical count)', () => {
+    const spec = norm(readFileSync(join(ROOT, 'e2e/fog.spec.ts'), 'utf8'));
+    // Code lines only: the file's comments quote the old unframed call while explaining it.
+    const code = spec.split('\n').filter((l) => !/^\s*(\*|\/\/|\/\*)/.test(l)).join('\n');
+    const stageReads = [...code.matchAll(/extract\.pixels\(([^)]*)\)/g)].map((m) => m[1]!).filter((a) => a.includes('app.stage'));
+    // Two composed-stage reads today (potato, ghost). A third fails here until it is framed AND counted.
+    expect(stageReads, 'composed-stage reads in fog.spec').toHaveLength(2);
+    for (const a of stageReads) expect(a, 'unframed stage extract').toBe('{ target: app.stage, frame: board }');
+    expect(spec.match(/s\.titleScreen\.setVisible\(false\);\n\s+const board = new app\.screen\.constructor\(0, 0, 1920, 1080\);/g) ?? []).toHaveLength(2);
+    expect(spec.match(/toEqual\(\[1920, 1080\]\)/g) ?? [], 'each read asserts its extract is board-sized').toHaveLength(2);
+  });
+
+  it('the e2e-render lane holds 3 hunter attempts + every fog test + every profile test, with ≥ 8 min runner headroom', () => {
+    const hunter = norm(readFileSync(join(ROOT, 'e2e/hunter.spec.ts'), 'utf8'));
+    const rate = num(hunter, 'SLOWEST_CI_TICKS_PER_S');
+    const wall = (t: number): number => Math.ceil((t / rate) * 1000);
+    const hunterMs = num(hunter, 'SETUP_WAITS_MS') + wall(num(hunter, 'SPAWN_BUDGET_TICKS')) + wall(num(hunter, 'CATCH_BUDGET_TICKS'));
+    const fog = norm(readFileSync(join(ROOT, 'e2e/fog.spec.ts'), 'utf8'));
+    const fogTests = (fog.match(/\n {2}test\(/g) ?? []).length;
+    expect(fogTests, 'anti-vacuity: fog tests counted').toBeGreaterThanOrEqual(5);
+    expect(fog, 'fog tests run at the config default (60 s), which this budget assumes').not.toMatch(/test\.setTimeout\(/);
+    const prof = norm(readFileSync(join(ROOT, 'e2e/ci-frame-profile.spec.ts'), 'utf8'));
+    const modes = /for \(const mode of \[([^\]]+)\] as const/.exec(prof);
+    expect(modes, 'profile modes').not.toBeNull();
+    const profTests = (modes as RegExpExecArray)[1]!.split(',').length;
+    const profMs = num(prof, 'MAX_SAMPLE_MS') + 90_000;
+    expect(prof).toContain('const PROFILE_TEST_BUDGET_MS = 90_000 + MAX_SAMPLE_MS;');
+    const RETRIES = 2; // playwright.config.ts: CI ? 2 : 0, and e2e-render sets no PW_RETRIES
+    expect(jobBlock('e2e-render')).not.toContain('PW_RETRIES');
+    // ⛔ S195 audit — fog and profile get a retry's room too (they had none): hunter 3 attempts, the rest 2.
+    const needMs = (RETRIES + 1) * hunterMs + RETRIES * (fogTests * 60_000 + profTests * profMs);
+    const { cap, pw } = laneMinutes('e2e-render');
+    expect(pw * 60_000, `e2e-render PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-render: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
+
+/*
+ * ⛔ S195 T21 — THE SOAK WINDOW IS SIZED IN TICKS, AND THE LANE HOLDS EVERY AUDIT'S DERIVED BUDGET. Run
+ * 37047025269: bots worlds at 3.6 ticks/s measured 1 098 ticks in the fixed 300 s window (floor 1 300), and
+ * the TD-heavy baseline ran out of its 660 s test time. Both soak files must derive the window's wall cap
+ * from the warm-up's rate with the SAME formula, keep the S127 300 s window as the floor, and never touch
+ * GROWTH_LIMIT_MB (the heap METRIC is T22's).
+ */
+describe('S195 T21 - e2e-soak: tick-sized window, derived test budgets, a lane that holds them', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const files = ['e2e/render-heap.spec.ts', 'e2e/worker-heap.spec.ts'];
+  const num = (spec: string, name: string): number => {
+    const m = new RegExp(`\\nconst ${name} = ([\\d_]+);`).exec(spec);
+    expect(m, `${name} is missing`).not.toBeNull();
+    return Number((m as RegExpExecArray)[1]!.replace(/_/g, ''));
+  };
+  it('both soak files derive the window cap from the warm-up rate and every audit uses SOAK_TEST_BUDGET_MS', () => {
+    let audits = 0;
+    for (const f of files) {
+      const spec = norm(readFileSync(join(ROOT, f), 'utf8'));
+      expect(num(spec, 'GROWTH_LIMIT_MB'), `${f}: GROWTH_LIMIT_MB is T22's metric, not a budget lever`).toBe(10);
+      expect(num(spec, 'WALL_CAP_MS'), `${f}: the S127 window stays the floor`).toBe(300_000);
+      expect(num(spec, 'DESIGN_WINDOW_TICKS'), `${f}: the S127-calibrated CI window`).toBe(2_000);
+      expect(spec).toContain('const SOAK_TEST_BUDGET_MS = SETUP_AND_SAMPLES_MS + WARMUP_WALL_CAP_MS + WINDOW_WALL_CEIL_MS;');
+      expect(spec).toContain('return Math.min(WINDOW_WALL_CEIL_MS, Math.max(WALL_CAP_MS, need));');
+      expect(spec, `${f}: the measurement window must use the derived cap`).toContain('s0.tick + TARGET_TICKS, windowCapMs)');
+      expect(spec, `${f}: no fixed-window wait left`).not.toContain('s0.tick + TARGET_TICKS, WALL_CAP_MS)');
+      const timeouts = spec.match(/test\.setTimeout\(([^)]+)\)/g) ?? [];
+      expect(timeouts.length, `${f}: anti-vacuity`).toBeGreaterThan(0);
+      for (const t of timeouts) expect(t, `${f}: every audit's timeout is the derived budget`).toBe('test.setTimeout(SOAK_TEST_BUDGET_MS)');
+      audits += timeouts.length;
+    }
+    expect(audits, 'render-heap 1 + worker-heap 2').toBe(3);
+  });
+  it('the e2e-soak lane holds every audit at its derived budget (no retries), with >= 8 min runner headroom', () => {
+    let needMs = 60_000; // the ~10 s code-input diagnostic, at the config default
+    for (const f of files) {
+      const spec = norm(readFileSync(join(ROOT, f), 'utf8'));
+      const budget = num(spec, 'SETUP_AND_SAMPLES_MS') + num(spec, 'WARMUP_WALL_CAP_MS') + num(spec, 'WINDOW_WALL_CEIL_MS');
+      needMs += budget * (spec.match(/test\.setTimeout\(SOAK_TEST_BUDGET_MS\)/g) ?? []).length;
+    }
+    const block = jobBlock('e2e-soak');
+    expect(block).toMatch(/\n {6}PW_RETRIES: '?0'?\n/);
+    const { cap, pw } = laneMinutes('e2e-soak');
+    expect(pw * 60_000, `e2e-soak PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-soak: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
+
+/*
+ * ⛔ S195 T21 — EVERY `@quarantine-flaky` DESCRIBE IS IN EXACTLY ONE LANE, AND THE QUARANTINE CAP HOLDS ITS
+ * SPECS' OWN BUDGETS. The idiom (smoke.spec.ts header): a real-WebRTC spec keeps `@quarantine-flaky` so the
+ * SHARED lane never runs it, and is promoted to gating by its TITLE in a grep lane (e2e-lobby, e2e-protocol).
+ * So "tag agrees with lane" here means: a tagged describe is selected by exactly one of the lobby grep, the
+ * protocol grep, or (if neither) the quarantine lane — never two. And the quarantine lane, which runs every
+ * remaining one ONCE (PW_RETRIES 0), must be able to finish: it never did (run 37047025269: 5 of 18).
+ */
+describe('S195 T21 - quarantine-tagged specs: one lane each, and the quarantine lane can finish', () => {
+  const norm = (s: string): string => s.replace(/\r\n/g, '\n');
+  const pkg = (): Record<string, string> =>
+    (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts;
+  const grepOf = (script: string, flag: '--grep' | '--grep-invert'): RegExp => {
+    const m = new RegExp(`${flag}\\s+"([^"]+)"`).exec(pkg()[script] ?? '');
+    expect(m, `${script} ${flag}`).not.toBeNull();
+    return new RegExp((m as RegExpExecArray)[1]!);
+  };
+  /** Every `test.describe('…@quarantine-flaky…')` in e2e/, with its body up to the next top-level describe. */
+  function quarantineDescribes(): Array<{ file: string; title: string; body: string; src: string }> {
+    const out: Array<{ file: string; title: string; body: string; src: string }> = [];
+    for (const f of readdirSync(join(ROOT, 'e2e'))) {
+      if (!f.endsWith('.spec.ts')) continue;
+      const src = norm(readFileSync(join(ROOT, 'e2e', f), 'utf8'));
+      const parts = src.split(/\ntest\.describe\(/).slice(1);
+      for (const p of parts) {
+        const t = /^'([^']+)'/.exec(p);
+        if (t === null || !t[1]!.includes('@quarantine-flaky')) continue;
+        out.push({ file: f, title: t[1]!, body: p, src });
+      }
+    }
+    return out;
+  }
+
+  it('each @quarantine-flaky describe is selected by exactly one lane', () => {
+    const lobby = grepOf('e2e:lobby', '--grep');
+    const proto = grepOf('e2e:protocol', '--grep');
+    const qInv = grepOf('e2e:quarantine', '--grep-invert');
+    const ds = quarantineDescribes();
+    expect(ds.length, 'anti-vacuity').toBeGreaterThan(10);
+    for (const d of ds) {
+      const lanes = [lobby.test(d.title), proto.test(d.title), !qInv.test(d.title)].filter(Boolean).length;
+      expect(lanes, `${d.file}: '${d.title}' runs in ${lanes} lanes`).toBe(1);
+    }
+  });
+
+  it('the e2e-quarantine cap holds the sum of its specs’ own per-test budgets (no retries)', () => {
+    const qInv = grepOf('e2e:quarantine', '--grep-invert');
+    const DEFAULT_MS = 60_000; // playwright.config.ts `timeout`
+    let needMs = 0;
+    let tests = 0;
+    for (const d of quarantineDescribes()) {
+      if (qInv.test(d.title)) continue;
+      // A test is `  test(`; `test.fixme(` / `test.skip(` never run and cost nothing.
+      const chunks = d.body.split(/\n {2}test(?=[.(])/).slice(1);
+      for (const c of chunks) {
+        if (!c.startsWith('(') && !c.startsWith('.fail(')) continue;
+        tests++;
+        const t = /test\.setTimeout\(([^)]+)\)/.exec(c);
+        if (t === null) { needMs += DEFAULT_MS; continue; }
+        const arg = t[1]!.trim();
+        const lit = /^[\d_]+$/.test(arg) ? Number(arg.replace(/_/g, '')) : NaN;
+        const named = new RegExp(`\\nconst ${arg} = ([\\d_]+);`).exec(d.src);
+        const ms = Number.isFinite(lit) ? lit : named !== null ? Number(named[1]!.replace(/_/g, '')) : NaN;
+        expect(Number.isFinite(ms), `${d.file}: cannot resolve test.setTimeout(${arg})`).toBe(true);
+        needMs += ms;
+      }
+    }
+    expect(tests, 'anti-vacuity: quarantine tests counted').toBeGreaterThanOrEqual(10);
+    expect(jobBlock('e2e-quarantine')).toMatch(/\n {6}PW_RETRIES: '?0'?\n/);
+    const { cap, pw } = laneMinutes('e2e-quarantine');
+    expect(pw * 60_000, `e2e-quarantine PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms over ${tests} tests`).toBeGreaterThanOrEqual(needMs);
+    expect(cap - pw, `e2e-quarantine: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
+  });
+});
+
+/*
+ * ⛔ S195 T21 (item 9) — e2e-protocol IS NON-GATING BY DECISION, AND THE NETWORK-FREE HALF STAYS GATING.
+ * Real-P2P cannot be made network-independent without mocking the transport (C9, rejected), and run
+ * 37157047661 red-flagged a protocol version that #1/#2/#4 passed. The job keeps running (and stays
+ * visible); the logic it guards is gated by vitest instead.
+ */
+describe('S195 T21 - e2e-protocol: continue-on-error by decision, detectProtocolMismatch gated in vitest', () => {
+  it('the job exists, runs e2e:protocol, carries JOB-level continue-on-error, and the hatch decision is written down', () => {
+    const block = jobBlock('e2e-protocol');
+    expect(block).toContain('run: npm run e2e:protocol');
+    expect(block).toMatch(/\n {4}continue-on-error: true/);
+    const yml = readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8').replace(/\r\n/g, '\n');
+    expect(yml).toContain('THE ESCAPE HATCH ABOVE IS NOW TAKEN, AND THIS IS THE RECORDED DECISION.');
+  });
+  it('the mismatch detector itself is unit-tested (network-free, gating on every push)', () => {
+    const t = readFileSync(join(ROOT, 'src/net/transport.test.ts'), 'utf8');
+    expect(t).toMatch(/describe\('detectProtocolMismatch/);
+    expect((t.match(/detectProtocolMismatch\(\{/g) ?? []).length, 'both direction arms + same-version').toBeGreaterThanOrEqual(3);
+  });
+});
+
+/*
+ * ⛔ S195 audit — THE MAIN `e2e` GATING JOB WAS NEVER CHECKED for continue-on-error (only OWN_JOB lanes and
+ * e2e-lobby were). A plain `continue-on-error` on `npm run e2e:gating` was green. It is checked now.
+ */
+describe('S195 audit - the shared e2e gating job carries no continue-on-error', () => {
+  it('e2e runs e2e:gating, and nothing but the anchored checkout retry carries continue-on-error', () => {
+    const block = jobBlock('e2e');
+    expect(block).toContain('run: npm run e2e:gating');
+    expect(withoutCheckoutRetry(block).includes('continue-on-error'), 'the gating job is not gating').toBe(false);
   });
 });

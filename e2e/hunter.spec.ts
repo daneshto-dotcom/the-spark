@@ -48,30 +48,85 @@ async function readHunters(page: Page): Promise<HunterView> {
   });
 }
 
+/*
+ * ⛔ S195 T21 — EVERY WAIT IN THIS SPEC IS A SIM-TICK BUDGET, AND THE TEST'S TIMEOUT IS DERIVED FROM THEM.
+ *
+ * CI run 37047025269 (deploy #6, and #4/#5 before it): 3 of 3 attempts hit the 120 s test timeout in
+ * `mouse.move` / `page.evaluate`, at world tick ~850. The trace shows why: on the software-GL runner
+ * every `page.evaluate` round-trip took 0.7–1.9 s (the page's main thread is that busy), the sim ran
+ * ≈7.7 ticks/s, and ~95 of the 120 s went to `pullFromBank` waiting for a gatherer to bank a shape —
+ * an ECONOMY wait of ~700 ticks that this spec is not about. Local is green because the same ticks
+ * take ~12 s there. A wall-clock budget sized on a fast machine cannot pass on a runner that gives the
+ * sim an eighth of the ticks per second; the sim is FRAME-bound (LOCKED_DECISIONS §15.1).
+ *
+ * Two changes, neither touching an assertion:
+ *   1. The shape the spec places is SEEDED into the local castle bank (the `feed-tower` / `raid` /
+ *      `click-to-build` precedent), so the porch pull, the drag and the confirm — the PLACE WIRING the
+ *      placement is here to exercise — all still run, but the ~700-tick gatherer wait does not.
+ *   2. The spawn and catch waits budget SIM TICKS with a wall backstop derived from the slowest rate
+ *      the runner has shown (the `worker-bots.spec.ts` pattern, pinned there by `ci.e2eLanes.test.ts`),
+ *      and `test.setTimeout` is the sum, so the backstop can never be borrowed or outrun.
+ */
+const SLOWEST_CI_TICKS_PER_S = 5; // measured ≈7.7 here in run 37047025269; worker-bots measured 6.12 (S193)
+const wallCapFor = (ticks: number): number => Math.ceil((ticks / SLOWEST_CI_TICKS_PER_S) * 1000);
+/** The trigger is read on the next scoring tick in FIGHT; a few ticks in practice. */
+const SPAWN_BUDGET_TICKS = 300;
+/**
+ * The pure-pursuit catch of the held avatar: MEASURED 114 ticks (3 of 3 local runs, S195 — the sim is
+ * deterministic, so it is the same number on any machine; the S75 comment below estimated ~400). ~5x
+ * that, and well inside the 1800-tick HUNT window, so an expiry would be a real miss, not a slow runner.
+ */
+const CATCH_BUDGET_TICKS = 600;
+/** Title → solo → BUILD hold → seeded porch pull → drag + confirm, at ~1.5 s per CI round-trip. */
+const SETUP_WAITS_MS = 120_000;
+const HUNTER_TEST_BUDGET_MS = SETUP_WAITS_MS + wallCapFor(SPAWN_BUDGET_TICKS) + wallCapFor(CATCH_BUDGET_TICKS);
+
+async function worldTick(page: Page): Promise<number> {
+  return await page.evaluate(() => (window as { __SPARK__?: { world: { tick: number } } }).__SPARK__!.world.tick);
+}
+
 async function waitForHunter(
   page: Page,
   pred: (h: HunterView) => boolean,
   desc: string,
-  timeoutMs = 15_000,
-): Promise<void> {
+  budgetTicks: number,
+  wallCapMs: number,
+): Promise<number> {
+  const t0 = await worldTick(page);
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  let tick = t0;
+  while (Date.now() - start < wallCapMs) {
     const h = await readHunters(page).catch(() => null);
-    if (h !== null && pred(h)) return;
+    if (h !== null && pred(h)) return (await worldTick(page)) - t0;
+    tick = await worldTick(page).catch(() => tick);
+    if (tick - t0 >= budgetTicks) break; // the sim had its whole runway — a real failure
     await page.waitForTimeout(200);
   }
   const f = await readHunters(page).catch(() => null);
-  throw new Error(`waitForHunter timeout (${timeoutMs}ms): ${desc}\nFinal: ${JSON.stringify(f)}`);
+  const spent = tick - t0;
+  const s = ((Date.now() - start) / 1000).toFixed(1);
+  throw new Error(
+    `waitForHunter: ${desc} — ` +
+      (spent >= budgetTicks
+        ? `the sim advanced its full ${budgetTicks}-tick budget (${t0} → ${tick}) in ${s}s and it never held: a REAL failure.`
+        : spent <= 0
+          ? `SIM FROZEN: world.tick did not advance at all (${t0}) in ${s}s — a game fault (dead loop, crashed ` +
+            `page or a stuck pause), not a slow runner.`
+          : `WALL BACKSTOP FIRST: only ${spent}/${budgetTicks} ticks in ${s}s — the runner was slower than ` +
+          `${SLOWEST_CI_TICKS_PER_S} ticks/s; this says nothing about the game.`) +
+      `\nFinal: ${JSON.stringify(f)}`,
+  );
 }
 
-test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
+test.describe('S72 P2 — Pac-Man hunter (solo, gating) @render-starved', () => {
   test('spawns once at the 75% trigger, chases the solo avatar, and catches → benches', async ({ page }) => {
     // S75 P2 — the hunter is now 5x slower (MAX_SPEED 7->1.4), so the pure-pursuit catch of
     // the held center avatar takes ~7s of sim time (~400 ticks, well within the 1800-tick HUNT
     // window) and MORE wall-time under CI software-WebGL sim-clock slowdown (main.ts:496 dtSec
     // clamp; S74 lesson). Extend the per-test budget + the catch wait — a STATIONARY target is
     // always caught; only the wall-time grows.
-    test.setTimeout(120_000);
+    // ⛔ S195 T21 — derived, not a literal: see HUNTER_TEST_BUDGET_MS above.
+    test.setTimeout(HUNTER_TEST_BUDGET_MS);
     // pageerror = uncaught JS exception = a real crash (renderer / sim wiring). The
     // single high-signal assertion; console noise (audio autoplay, etc.) is ignored.
     const pageErrors: string[] = [];
@@ -122,6 +177,13 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     // and the border convention gives a point exactly on a split line to the HIGHER-indexed zone —
     // so x=960 is seat 1's ground, and solo P0 (seat 0, LEFT half) was refused. Nothing here cares
     // where the prim sits, only that it exists and is outside the quarry.
+    // ⛔ S195 T21 — SEED the shape this spec places, so the porch pull + drag + confirm run without
+    // the ~700-tick gatherer wait that ate the CI budget (see the note above SLOWEST_CI_TICKS_PER_S).
+    await page.evaluate(() => {
+      const w = (window as unknown as { __SPARK__: { world: { localPlayerId: number; castleBanks: Map<number, number[]> } } })
+        .__SPARK__.world;
+      w.castleBanks.set(w.localPlayerId, [1, 1, 1, 1, 1, 1]);
+    });
     await placeFreeSparkAndConfirm(page, CANVAS_WIDTH / 4, CANVAS_HEIGHT / 2 - 360);
 
     // S78 — the income rate was cut 3x (0.15->0.05) for game-length tuning, which tripled the SIM-time
@@ -156,7 +218,7 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     });
 
     // (a) main.ts 75% trigger fires once → exactly one hunter, SEEKING, targeting P0.
-    await waitForHunter(page, (h) => h.count === 1, 'hunter spawned');
+    const spawnTicks = await waitForHunter(page, (h) => h.count === 1, 'hunter spawned', SPAWN_BUDGET_TICKS, wallCapFor(SPAWN_BUDGET_TICKS));
     const spawned = await readHunters(page);
     expect(spawned.first?.state).toBe('SEEKING');
     expect(spawned.first?.targetPlayerId).toBe(0);
@@ -167,7 +229,15 @@ test.describe('S72 P2 — Pac-Man hunter (solo, gating)', () => {
     const hold = await canvasToCss(page, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
     await page.mouse.move(hold.x, hold.y);
     await page.mouse.move(hold.x + 3, hold.y); // >2px nudge so UPDATE_AVATAR_POS dispatches
-    await waitForHunter(page, (h) => h.benched0 !== undefined, 'solo player benched by the hunter', 90_000);
+    const catchTicks = await waitForHunter(
+      page,
+      (h) => h.benched0 !== undefined,
+      'solo player benched by the hunter',
+      CATCH_BUDGET_TICKS,
+      wallCapFor(CATCH_BUDGET_TICKS),
+    );
+    // One line for the CI log: how much of each budget the run actually used.
+    console.log(`[hunter] spawn ${spawnTicks}/${SPAWN_BUDGET_TICKS} ticks, catch ${catchTicks}/${CATCH_BUDGET_TICKS} ticks`);
 
     expect(pageErrors, `uncaught errors during hunter life:\n${pageErrors.join('\n')}`).toEqual([]);
   });
