@@ -1,7 +1,10 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-build 0 (entry 1189.5 KiB, 60.5 headroom), e2e:gating 0 (67 passed). Re-running full vitest + e2e/settings-toggles.spec.ts in bg (vitest4.exit, e2e-settings.exit). Then FINAL REPORT + SubagentHandback.
+PHASE 2 DONE. Waiting for the merge owner. Network options A/B still await the owner's pick.
+
+## PHASE 2 FINAL
+merge e1dc25fa (master 53ba655b, no conflicts). typecheck 0; vitest 0 (577 files passed / 6 skipped, 8782 tests); build 0 entry 1189.5 KiB (60.5 headroom); e2e:gating 0 (67 passed, own port 26135); e2e/settings-toggles.spec.ts 0 (3 passed). Bump NO (render-only). Report section 5 has the per-tier table.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
