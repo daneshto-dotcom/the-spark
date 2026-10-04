@@ -88,6 +88,18 @@ export const STALL_MS = 3000;
  */
 export const REJOIN_FIRST_MS = 12000;
 export const REJOIN_NEXT_MS = 9000;
+/**
+ * PM-S4 net-blip: how long a WebRTC room handshake (Trystero's `@_hsready` exchange) may take before the
+ * transport gives up on that peer (`RoomHandlers.onPeerError`). Spark's own rooms use 30 s. The exchange is one
+ * message each way over an already-open data channel, so a healthy one takes a round trip. A stuck one is the
+ * blip failure root-caused in `docs/worktrees/pm-s4-net-blip.md`: the host re-attached the partner's still-open
+ * connection while the partner was leaving the room, spent its single `@_hsready` on the partner's dying room,
+ * and then waited forever; when the partner came back, the host went live on the partner's ready but the partner
+ * never got one, so it dropped everything the host sent (both sides `matched` + stalled until a rejoin).
+ * Short enough that the host's stray handshake has expired before a 6 s blip ends, and that a client stuck on
+ * the other side learns it within seconds (it then rejoins at once instead of after REJOIN_FIRST_MS).
+ */
+export const HANDSHAKE_MS = 5000;
 /** Packets kept for re-sending until acknowledged (20 Hz snapshots: ~200 s worth). */
 export const OUTBOX_MAX = 4000;
 export const NACK_EVERY_MS = 500;
@@ -101,19 +113,84 @@ export type Role = 'host' | 'client' | '';
 export type Mode = 'quick' | 'friend' | '';
 export type Channel = 'ctl' | 'pk';
 
-/** One Trystero room, reduced to what the matchmaker needs. */
+/**
+ * One Trystero room, reduced to what the matchmaker needs. `leave()` may finish later (Trystero's does: it
+ * sends `@_leave`, waits ~100 ms, then tears down); `serialRooms` makes a re-join of the same room wait for it.
+ */
 export interface RoomLike {
   send(channel: Channel, data: string, to?: string): void;
-  leave(): void;
+  leave(): void | Promise<void>;
 }
 
 export interface RoomHandlers {
   onMessage(channel: Channel, data: string, from: string): void;
   onPeerJoin(peer: string): void;
   onPeerLeave(peer: string): void;
+  /** PM-S4: the transport gave up on this peer (e.g. `handshake timed out after 5000ms`). Optional. */
+  onPeerError?(peer: string, error: string): void;
 }
 
 export type RoomFactory = (roomId: string, handlers: RoomHandlers) => RoomLike;
+
+/**
+ * PM-S4 net-blip: one room id, one live room at a time. Trystero's `joinRoom` returns the room it still holds
+ * for that id while an earlier `leave()` of it is in progress, so `leave(); join()` in one go (the client's
+ * rejoin retry) got the DYING room back: the retry only told the host "left" and joined nothing (live harness:
+ * the first retry never brought the host back, the second, 9 s later, did), and leaving that dead room again on
+ * the next retry ran Trystero's teardown a second time, which unregistered the NEW room. Here every leave runs
+ * once, and a join of a room id still being left waits for that leave to finish (sends meanwhile are dropped:
+ * nobody is in a room we have not joined yet, and the matchmaker re-sends what matters after the handshake).
+ */
+export function serialRooms(join: RoomFactory): RoomFactory {
+  const leaving = new Map<string, Promise<void>>();
+  return (roomId, handlers) => {
+    let real: RoomLike | null = null;
+    let left = false;
+    let done: Promise<void> | null = null;
+    const leaveReal = (r: RoomLike): Promise<void> => {
+      let started: Promise<void>;
+      try {
+        started = Promise.resolve(r.leave());
+      } catch {
+        started = Promise.resolve();
+      }
+      const p: Promise<void> = started
+        .catch(() => undefined)
+        .then(() => {
+          if (leaving.get(roomId) === p) leaving.delete(roomId);
+        });
+      leaving.set(roomId, p);
+      return p;
+    };
+    const pending = leaving.get(roomId);
+    if (pending === undefined) real = join(roomId, handlers);
+    else {
+      void pending.then(() => {
+        if (left) return;
+        // Another join of this id may have run meanwhile and is now being left: wait for that too.
+        const again = leaving.get(roomId);
+        if (again !== undefined) {
+          void again.then(() => {
+            if (!left) real = join(roomId, handlers);
+          });
+          return;
+        }
+        real = join(roomId, handlers);
+      });
+    }
+    return {
+      send: (channel, data, to) => {
+        if (!left) real?.send(channel, data, to);
+      },
+      leave: () => {
+        if (done !== null) return done;
+        left = true;
+        done = real === null ? Promise.resolve() : leaveReal(real);
+        return done;
+      },
+    };
+  };
+}
 
 export interface MatchmakerDeps {
   readonly selfId: string;
@@ -566,6 +643,12 @@ export class Matchmaker {
           this.lost('Your opponent left the match.');
         }
       },
+      onPeerError: (peer, error) => {
+        if (epoch !== this.epoch || peer !== this.partner) return;
+        this.log(`transport gave up on the partner: ${error}`);
+        // A client whose handshake with the host got stuck rejoins now (a clean leave resets the host's side).
+        if (/handshake/i.test(error)) this.rejoinNow(this.deps.now(), 'handshake with the host failed');
+      },
     };
     this.roomId = roomId;
     this.roomHandlers = handlers;
@@ -605,8 +688,15 @@ export class Matchmaker {
   private tickRejoin(now: number): void {
     if (this.role !== 'client' || this.state !== 'matched' || this.partner === null || this.blipUntil > 0
       || this.roomHandlers === null || this.partnerPresent || this.rejoinAt === 0 || now < this.rejoinAt) return;
+    this.rejoinNow(now, `host still gone ${((now - this.lastHeard) / 1000).toFixed(0)} s`);
+  }
+
+  /** Client: leave the match room and join it again (fresh signaling, and the host's handshake state reset). */
+  private rejoinNow(now: number, why: string): void {
+    if (this.role !== 'client' || this.state !== 'matched' || this.partner === null || this.blipUntil > 0
+      || this.roomHandlers === null || this.partnerPresent) return;
     this.rejoins++;
-    this.log(`host still gone ${((now - this.lastHeard) / 1000).toFixed(0)} s: rejoining the match room (try ${this.rejoins})`);
+    this.log(`${why}: rejoining the match room (try ${this.rejoins})`);
     this.room?.leave();
     this.room = this.deps.join(this.roomId, this.roomHandlers);
     this.rejoinAt = now + REJOIN_NEXT_MS;
