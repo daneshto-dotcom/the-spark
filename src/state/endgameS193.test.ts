@@ -540,7 +540,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/creatures/creatureLifecycle.ts': { n: 2, verdict: 'summon latch (pants exempt) + kill credit to a different owner — S194 teams: the rest ask sameTeam' },
     'src/state/creatures/voltkinChain.ts': { n: 1, verdict: 'skip OWN → chains onto a pants — S194 teams: the rest ask sameTeam' },
     'src/state/endgameMonsters.ts': { n: 1, verdict: 'the pants\' own victim filter (=== its seat; ⭐ S194 R194-27: the unit half is now the per-tick index KEYED by ownerPlayerId, `ownedBy` — same filter, no comparison)' },
-    'src/state/exploredMemory.ts': { n: 2, verdict: 'fog memory of enemy SHAPES — a pants places none' },
+    'src/state/exploredMemory.ts': { n: 1, verdict: 'fog memory of enemy SHAPES — a pants places none (S195: the own-shape skip asks sameTeam, which never counts seat 255 a teammate)' },
     'src/state/gameMode.ts': { n: 1, verdict: 'gatherer / spawner owner bookkeeping — seats only — S194 teams: the rest ask sameTeam' },
     'src/state/gatherers/gathererLifecycle.ts': { n: 5, verdict: 'gatherer ownership — seats only' },
     'src/state/goblinKinds.ts': { n: 2, verdict: 'a seat\'s own spawners — seats only' },
