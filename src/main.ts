@@ -64,6 +64,7 @@ import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls
 // referenced directly from main.ts after lobby-callback extraction (Battle
 // Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
 import { selfId, type NetTransport } from './net/transport.ts';
+import { buildLobbyRoster, hostMoveSeat, withSlots, withTeams } from './net/lobbyRoster.ts'; // ⭐ S195 (N16) — the host's MOVE
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 // ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
@@ -2068,9 +2069,27 @@ async function bootstrap(): Promise<void> {
     }
   };
 
+  /*
+   * ⭐⭐ S195 (owner N16) — THE HOST RE-ARRANGES THE SEATS. *"the host of the server should be able to … move
+   * players to be from player one, player two, player three"*. Host-authoritative and host-ONLY: there is no
+   * client message for it, so a peer can never move himself (or anybody) into a taken seat. The host writes
+   * every occupied peer's board-slot preference and rebroadcasts the presence beacon, exactly like a team pick.
+   */
+  const onMoveSeat = (seat: number): void => {
+    if (!world.isHost) return; // a joiner never moves anybody (and has no chip to press)
+    const roster = withSlots(withTeams(
+      buildLobbyRoster(session.lobbySeats, selfId, session.raceByPeer, session.selfRace ?? undefined),
+      session.teamByPeer, session.selfTeam, selfId,
+    ), session.slotByPeer, session.selfSlot, selfId);
+    if (hostMoveSeat(roster, seat, selfId, session.slotByPeer, (s) => { session.selfSlot = s; })) {
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
+    }
+  };
+
   lobbyScreen = new LobbyScreen(app, {
     onPickRace,
     onPickTeam,
+    onMoveSeat,
     // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
     // the flag so a deliberate friends room never inherits quickmatch gating.
     onHostStart: () => {

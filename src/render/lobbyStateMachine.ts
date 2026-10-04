@@ -406,6 +406,8 @@ export interface SeatView {
   readonly slot?: number;
   /** ⭐ S195 (N16) — the host's slot preference this view was built from (for the re-seat click). */
   readonly slotPref?: number;
+  /** ⭐ S195 (N16) — the local player is the HOST and may MOVE this (occupied) seat on the board. */
+  readonly movable?: boolean;
 }
 
 /**
@@ -539,9 +541,11 @@ export function lobbyView(state: LobbyState): LobbyView {
   const picks = seats.filter((s) => s.occupied).map((s) => s.team);
   // ⭐ S195 — every tile stands where its seat will stand on the board.
   const slots = seatBoardSlots(seats);
+  // ⭐ S195 (N16) — only the host re-arranges, and only while a room is open (the host IS the room's authority).
+  const hostMoves = state.mode === 'hosting';
   return {
     ...state,
-    seats: seats.map((s, i) => ({ ...s, slot: slots[i] })),
+    seats: seats.map((s, i) => ({ ...s, slot: slots[i], movable: hostMoves && s.occupied })),
     totalPlayers,
     roomFull: totalPlayers >= MAX_PLAYERS,
     teamsPlayable: teamsPlayable(picks, picks.length),

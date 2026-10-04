@@ -112,6 +112,11 @@ export interface LobbyScreenCallbacks {
    * split as `onPickRace`: the host applies it to its session, a joiner sends `CLAIM_TEAM`.
    */
   onPickTeam(team: number | null): void;
+  /**
+   * ⭐ S195 (owner N16) — the HOST moved the seat at stable index `seat` one board slot on. Host-only: the
+   * rack shows the MOVE chip to the host alone, and the caller re-checks `world.isHost`.
+   */
+  onMoveSeat?(seat: number): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -312,6 +317,8 @@ export class LobbyScreen {
         const mine = lobbyView(this.state).seats.find((s) => s.isYou && s.occupied);
         callbacks.onPickTeam(nextTeamPick(mine?.team) ?? null);
       },
+      // ⭐ S195 (N16) — the host's MOVE chip.
+      (seatIndex) => callbacks.onMoveSeat?.(seatIndex),
     );
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
