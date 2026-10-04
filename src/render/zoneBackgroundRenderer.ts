@@ -801,7 +801,7 @@ export class ZoneBackgroundRenderer {
       // ⭐ S195 — `|part|m`: a half-board image is cropped (and mirrored) to the quadrant BEFORE the hole.
       const graded = fxActive();
       const grade = graded ? piece.grade : null;
-      const bakeKey = `${url}|${layout}|${zone}|${graded ? 'g' : 'n'}|${piece.part}|${piece.mirror ? 'm' : ''}`;
+      const bakeKey = `${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
         const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
