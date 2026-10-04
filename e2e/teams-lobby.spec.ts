@@ -71,8 +71,13 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
       const ownIndex = async (p: Page): Promise<number> => (await readSeats(p)).find((s) => s.isYou && s.occupied)!.index;
       const [hi, i1, i2] = [await ownIndex(host), await ownIndex(j1), await ownIndex(j2)];
       expect(new Set([hi, i1, i2]).size, 'three distinct seats').toBe(3);
+      // ⭐ S195 (R194-19 / R195-T2) — the rack previews the BOARD, so a team pick can MOVE tiles (T1 / T1 on a
+      // 3-seat board is a 2v1: the solo jumps to NW). Each click waits for the previous pick's beacon to land
+      // on the next clicker's rack, so it reads its own tile where it now stands.
       await clickOwnTeamChip(host);
+      await waitForSeats(j1, (s) => teamOfSeat(s as SeatWithTeam[], hi) === 0, 'joiner 1 sees the host T1', 30_000);
       await clickOwnTeamChip(j1);
+      await waitForSeats(j2, (s) => teamOfSeat(s as SeatWithTeam[], i1) === 0, 'joiner 2 sees joiner 1 T1', 30_000);
       await clickOwnTeamChip(j2);
       // Joiner 2 must SEE its first pick land before cycling again — the chip has no local optimism.
       await waitForSeats(j2, (s) => teamOfSeat(s as SeatWithTeam[], i2) === 0, 'joiner 2 sees its T1 land', 30_000);
@@ -127,10 +132,14 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
               wallSegments: (l: unknown) => Array<{ zoneA: number; zoneB: number }>;
               wallSeparatesSides: (w: unknown, s: { zoneA: number; zoneB: number }) => boolean;
             };
+            // ⭐ S195 — the board maps seats to zones now (`world.layout`), so a wall is judged by its zones' OWNERS.
+            const zp = '/src/state/zones.ts';
+            const zones = (await import(/* @vite-ignore */ zp)) as { seatOfZone: (z: number, l: unknown) => number | null };
+            const owner = (z: number): number | null => zones.seatOfZone(z, w.layout);
             return {
               teams: w.teams ?? null,
               me: w.localPlayerId,
-              walls: walls.wallSegments(w.layout).map((s) => ({ a: s.zoneA, b: s.zoneB, sep: walls.wallSeparatesSides(w, s) })),
+              walls: walls.wallSegments(w.layout).map((s) => ({ a: owner(s.zoneA), b: owner(s.zoneB), sep: walls.wallSeparatesSides(w, s) })),
             };
           }),
         ),
@@ -147,7 +156,8 @@ test.describe('S193 teams lobby — claim teams over real WebRTC, start, teammat
       for (const v of views) {
         expect(v.walls.length, 'anti-vacuity: the board has walls').toBeGreaterThan(0);
         for (const w of v.walls) {
-          const teammates = (w.a === mateA && w.b === mateB) || (w.a === mateB && w.b === mateA);
+          // (S195: `a`/`b` are the zones' OWNER seats; the 2v1 solo owns two zones — no wall inside his own half)
+          const teammates = (w.a === mateA && w.b === mateB) || (w.a === mateB && w.b === mateA) || (w.a !== null && w.a === w.b);
           expect(w.sep, `wall ${w.a}|${w.b} on peer ${v.me}: ${teammates ? 'teammates — no wall (T2)' : 'a side boundary'}`).toBe(!teammates);
         }
         // ⭐ the teammates DO share a border (the side-by-side re-seat): a wall between them exists and is down
