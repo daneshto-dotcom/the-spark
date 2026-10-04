@@ -165,7 +165,8 @@ import { beginTowerHealthHoldFrame } from './render/towerHealthHold.ts'; // ⭐ 
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
 import { fxBeginFrame, fxClear, fxEndFrame, installFx } from './render/fx/fxRuntime.ts';
-import { syncGraphicsTier } from './render/graphicsTier.ts';
+import { graphicsTier, syncGraphicsTier } from './render/graphicsTier.ts';
+import { noteFrameForTierHint } from './render/tierAdvisor.ts';
 import { makeFxLab } from './dev/fxLab.ts';
 import { resolveMatchMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
@@ -4356,6 +4357,8 @@ Network routes: ${v.detail}`;
     // S195 N17 - the graphics TIER (HIGH / LOW / MINIMAL) replaces the old fx on/off poll: same per-frame
     // read, so a change in Settings lands on the next frame (render/graphicsTier.ts).
     syncGraphicsTier();
+    // S195 N17 - MINE: a slow match shows ONE line suggesting the next tier down; it never switches by itself.
+    noteFrameForTierHint(performance.now(), world.gameState === 'PLAYING', graphicsTier());
     fxBeginFrame();
 
     const wantZoneBg = isZoneBackgroundEnabled();
