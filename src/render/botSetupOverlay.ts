@@ -18,7 +18,7 @@ import { attachButtonFeedback } from './buttonFeedback.ts';
 import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen } from './uiSkinButton.ts';
 import { ACCENT_BOTS, LazyScreenBackdrop, glowTitleStyle } from './uiScreenChrome.ts';
-import { Application, Circle, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Rectangle, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
@@ -617,19 +617,21 @@ export class BotSetupOverlay {
    * there. The owner's shape rules still decide (`arrangeTeamZones`): the 2v1 solo stays NW whatever is pressed.
    */
   private makeCornerButton(seat: number, corner: number): Container {
-    const c = new Container();
-    c.position.set(-PANEL_W / 2 + 36, ROW_H / 2);
+    const cornerBtn = new Container();
+    cornerBtn.position.set(-PANEL_W / 2 + 36, ROW_H / 2);
     const glyph = new Text({
       text: BOARD_CORNER_GLYPH[corner] ?? '',
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold', fill: 0xffffff }),
     });
     glyph.anchor.set(0.5);
-    c.addChild(glyph);
-    c.eventMode = 'static';
-    c.cursor = 'pointer';
-    c.hitArea = new Circle(0, 0, 22);
-    c.on('pointertap', () => this.moveSeat(seat));
-    return c;
+    cornerBtn.addChild(glyph);
+    cornerBtn.eventMode = 'static';
+    cornerBtn.cursor = 'pointer';
+    cornerBtn.hitArea = new Rectangle(-22, -22, 44, 44); // = the hover sheen rect (uiSkinReach pins sheen = hit)
+    // T5's chip language (sheen + brighten on hover) over the race swatch — no plate: the swatch IS the button.
+    attachChipHover(cornerBtn, null, { x: -22, y: -22, w: 44, h: 44 }, 22);
+    cornerBtn.on('pointertap', () => this.moveSeat(seat));
+    return cornerBtn;
   }
 
   /** ⭐ S195 (N16) — move `seat` one board corner on. Exposed for the REACH test (it is the corner tap's body). */
