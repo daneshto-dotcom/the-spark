@@ -128,7 +128,6 @@ export function drawBondsPreS195(g: Graphics, world: World): void {
         drawOwnershipPattern(g, a.pos.x, a.pos.y, b.pos.x, b.pos.y, seatPatternKind(seat));
       }
     }
-  }
 }
 
 function stiffnessToWidth(tier: StiffnessTier): number {
