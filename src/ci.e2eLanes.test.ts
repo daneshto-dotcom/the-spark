@@ -97,9 +97,15 @@ const OWN_JOBS: Readonly<Record<string, { job: string; script: string }>> = {
  * lets the next step retry a hung checkout once. It is stripped (that exact line, nothing looser) before
  * any "is this lane gating?" check, so a `continue-on-error` anywhere else in a gating job still fails.
  */
-const CHECKOUT_RETRY_COE = /\n {8}continue-on-error: true # S195 T21 — \.\.\.and is RETRIED ONCE by the next step; see the header(?=\n)/g;
+// ⛔ S195 audit — ANCHORED to the line above it (`id: checkout`): the unanchored first version also
+// stripped the magic line when it was pasted under a Run step, and the gating checks stayed green.
+const CHECKOUT_RETRY_COE = /(\n {8}id: checkout)\n {8}continue-on-error: true # S195 T21 — \.\.\.and is RETRIED ONCE by the next step; see the header(?=\n)/g;
+const CHECKOUT_RETRY_MAGIC = 'continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step';
 function withoutCheckoutRetry(block: string): string {
-  return block.replace(CHECKOUT_RETRY_COE, '');
+  // Exactly one magic line per job, and it must be the anchored one on the Checkout step.
+  expect(block.split(CHECKOUT_RETRY_MAGIC).length - 1, 'the checkout-retry continue-on-error occurs once per job').toBe(1);
+  expect(block.match(CHECKOUT_RETRY_COE) ?? [], 'that line sits directly under `id: checkout`').toHaveLength(1);
+  return block.replace(CHECKOUT_RETRY_COE, '$1');
 }
 
 /** Tag-shaped strings that are not lane tags: decorator/rule names that live in comments. */
@@ -293,7 +299,7 @@ describe('e2e lane composition is a decision, not an accident', () => {
      * continue-on-error, and is followed IMMEDIATELY by a bounded retry gated on that step's outcome.
      */
     const retried = yml.match(
-      /- name: Checkout\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: \d+[^\n]*\n\s+id: checkout\n\s+continue-on-error: true # S195 T21[^\n]*\n\s+- name: Checkout \(retry after a hang\)\n\s+if: steps\.checkout\.outcome == 'failure'\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: (\d+)\n/g,
+      /- name: Checkout\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: \d+[^\n]*\n\s+id: checkout\n\s+continue-on-error: true # S195 T21[^\n]*\n\s+- name: Checkout \(retry after a hang\)\n\s+if: steps\.checkout\.outcome != 'success'\n\s+uses: actions\/checkout@[^\n]+\n\s+timeout-minutes: (\d+)\n/g,
     ) ?? [];
     expect(retried.length, 'every Checkout is followed by its bounded retry').toBe(jobs.length);
     for (const c of retried) expect(Number((/timeout-minutes: (\d+)\n$/.exec(c) as RegExpExecArray)[1]), c).toBeLessThanOrEqual(3);
@@ -537,7 +543,8 @@ describe('S195 T21 - e2e-render: hunter budgets derive from ticks; fog reads are
     expect(prof).toContain('const PROFILE_TEST_BUDGET_MS = 90_000 + MAX_SAMPLE_MS;');
     const RETRIES = 2; // playwright.config.ts: CI ? 2 : 0, and e2e-render sets no PW_RETRIES
     expect(jobBlock('e2e-render')).not.toContain('PW_RETRIES');
-    const needMs = (RETRIES + 1) * hunterMs + fogTests * 60_000 + profTests * profMs;
+    // ⛔ S195 audit — fog and profile get a retry's room too (they had none): hunter 3 attempts, the rest 2.
+    const needMs = (RETRIES + 1) * hunterMs + RETRIES * (fogTests * 60_000 + profTests * profMs);
     const { cap, pw } = laneMinutes('e2e-render');
     expect(pw * 60_000, `e2e-render PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms`).toBeGreaterThanOrEqual(needMs);
     expect(cap - pw, `e2e-render: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
@@ -685,5 +692,17 @@ describe('S195 T21 - e2e-protocol: continue-on-error by decision, detectProtocol
     const t = readFileSync(join(ROOT, 'src/net/transport.test.ts'), 'utf8');
     expect(t).toMatch(/describe\('detectProtocolMismatch/);
     expect((t.match(/detectProtocolMismatch\(\{/g) ?? []).length, 'both direction arms + same-version').toBeGreaterThanOrEqual(3);
+  });
+});
+
+/*
+ * ⛔ S195 audit — THE MAIN `e2e` GATING JOB WAS NEVER CHECKED for continue-on-error (only OWN_JOB lanes and
+ * e2e-lobby were). A plain `continue-on-error` on `npm run e2e:gating` was green. It is checked now.
+ */
+describe('S195 audit - the shared e2e gating job carries no continue-on-error', () => {
+  it('e2e runs e2e:gating, and nothing but the anchored checkout retry carries continue-on-error', () => {
+    const block = jobBlock('e2e');
+    expect(block).toContain('run: npm run e2e:gating');
+    expect(withoutCheckoutRetry(block).includes('continue-on-error'), 'the gating job is not gating').toBe(false);
   });
 });

@@ -36,8 +36,11 @@
 #                            opt-in benchmarks. Split out in S126 because 3 soak tests
 #                            were 15.2m of a 16.8m suite and made the 15m gating cap
 #                            unmeetable — which silently killed the gate for 3+ weeks.
-#   • job `e2e-protocol`   — GATING (S142 P2). The 2-peer PROTOCOL-MISMATCH pair, selected by
-#                            grep so it gates without losing its @quarantine-flaky tag.
+#   • job `e2e-protocol`   — NON-GATING since S195 (job-level continue-on-error; the CI-network
+#                            decision is recorded on the job). The 2-peer PROTOCOL-MISMATCH pair,
+#                            selected by grep; `detectProtocolMismatch` itself gates in vitest.
+#   • job `e2e-render`     — GATING (S195 T21). `@render-starved`: fog pixel reads, the hunter
+#                            solo match and the CI frame profile, inverted out of `e2e`.
 #   • job `e2e-lobby`      — GATING (S155 P1). The 2-peer LOBBY + MATCH-START baseline, same
 #                            grep-lane idiom. Added because multiplayer had NO blocking
 #                            coverage at all and a broken lobby reached the owner's living
@@ -77,8 +80,8 @@
 #   ⭐ S195 T21 — AND A HUNG CHECKOUT IS NOW RETRIED ONCE. Deploy #5's `worker-typecheck` died on
 #   `actions/checkout` timing out at exactly 3 minutes — an infra hang, not a code fault, and a red
 #   for nothing. Every job's `Checkout` therefore carries `id: checkout` + a STEP-level
-#   `continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome ==
-#   'failure'` (also bounded at 3). Two hangs in a row still fail the job, loudly. ⚠ That step-level
+#   continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome !=
+#   'success'` (also bounded at 3; `!= 'success'` also covers a timeout reported as cancelled). Two hangs in a row still fail the job, loudly. ⚠ That step-level
 #   `continue-on-error` is the ONLY one allowed inside a gating job: `src/ci.e2eLanes.test.ts`
 #   strips exactly that line before asserting a gating lane carries no `continue-on-error`, and pins
 #   the retry shape on every job.
@@ -207,7 +210,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -264,7 +267,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -303,15 +306,16 @@ jobs:
   # ≈7.7 ticks/s — hunter spent 3 × 120 s timing out, and the shared lane's 900 s cap then cut 16 specs
   # that never started. Split out on the `@races` / `@worker-bots` precedent so a starved spec can only
   # spend its OWN budget. Both specs were also FIXED, not just moved (their headers say how).
-  # Budget, pinned by `src/ci.e2eLanes.test.ts`: 3 attempts of hunter's derived 300 s + 6 fog tests at
-  # the 60 s default + 3 profile tests at their 120 s = 1620 s ≤ 28 min of Playwright, and the runner
-  # sits ≥ 8 min above that for checkout + npm ci + browser install.
+  # Budget, pinned by `src/ci.e2eLanes.test.ts`: 3 attempts (CI retries 2) of EVERY test — hunter's
+  # derived 300 s + 6 fog tests at the 60 s default + 3 profile tests at their 120 s — = 3 × 1020 s =
+  # 3060 s ≤ 51 min… is the worst case; the lane budgets 3 × hunter + 2 attempts of fog and profile
+  # (S195 audit: they had no retry room at all) = 900 + 2 × 720 = 2340 s ≤ 39 min (Playwright 39 / job 47) — see the pin.
   e2e-render:
     runs-on: ubuntu-latest
-    timeout-minutes: 36
+    timeout-minutes: 47
     env:
       # Below timeout-minutes so PLAYWRIGHT ends an overrun and flushes its report (S126/S191).
-      PW_GLOBAL_TIMEOUT_MIN: 28
+      PW_GLOBAL_TIMEOUT_MIN: 39
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -319,7 +323,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -359,7 +363,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -416,7 +420,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -492,7 +496,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -522,7 +526,8 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # ⭐ S142 P2 — THE PROTOCOL-GATE LANE. GATING (no continue-on-error).
+  # ⭐ S142 P2 — THE PROTOCOL-GATE LANE. Was GATING (no continue-on-error) until S195; NON-GATING since —
+  # see the S195 T21 decision at the end of this comment.
   #
   # THIS JOB EXISTS TO DELETE A RECURRING MANUAL CHORE. Every session close for many sessions
   # ended with "⚠ 2-PEER CHECK ON vN — ONLY YOU CAN DO THIS; CI cannot verify a protocol bump."
@@ -572,7 +577,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -666,7 +671,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -731,7 +736,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
@@ -789,7 +794,7 @@ jobs:
         id: checkout
         continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
       - name: Checkout (retry after a hang)
-        if: steps.checkout.outcome == 'failure'
+        if: steps.checkout.outcome != 'success'
         uses: actions/checkout@v6
         timeout-minutes: 3
 
