@@ -1,6 +1,9 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** final gates running -> .tmp-gates/final/{tc,vt,build}.exit (rerun the same chain if killed); then e2e:render on my port; then FINAL REPORT + handback. Scratch before-worktree removed.
+**NEXT STEP:** NONE — DONE, handed back. FINAL REPORT below.
+
+## FINAL REPORT (T21 ci-perf)
+Gates on final tree (master fdc7c8d3 merged in): typecheck 0 · vitest --maxWorkers=3 0 (575 files / 8756 passed, 12 skipped) · build 0, entry 1183.4 KiB (+0.0 vs master; headroom 66.6) · e2e:render 0 (10/10, own port) · full vitest leaves the tree clean (snap EOL fix). Merges: master x3, no conflicts. Bump: NO (only client audio playMusic + tests/CI). Items 1-9 DONE; item 7 verdict = over contract, PROPOSE cuts. Findings: render-heap census delta 239 vs limit 51 locally (route to T22); nplayer.spec:379 + rainbow-castle.spec:70 unframed stage extracts (net/other trees).
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
