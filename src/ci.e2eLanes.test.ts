@@ -666,3 +666,24 @@ describe('S195 T21 - quarantine-tagged specs: one lane each, and the quarantine 
     expect(cap - pw, `e2e-quarantine: runner ${cap} must sit >= 8 min above Playwright ${pw}`).toBeGreaterThanOrEqual(8);
   });
 });
+
+/*
+ * ⛔ S195 T21 (item 9) — e2e-protocol IS NON-GATING BY DECISION, AND THE NETWORK-FREE HALF STAYS GATING.
+ * Real-P2P cannot be made network-independent without mocking the transport (C9, rejected), and run
+ * 37157047661 red-flagged a protocol version that #1/#2/#4 passed. The job keeps running (and stays
+ * visible); the logic it guards is gated by vitest instead.
+ */
+describe('S195 T21 - e2e-protocol: continue-on-error by decision, detectProtocolMismatch gated in vitest', () => {
+  it('the job exists, runs e2e:protocol, carries JOB-level continue-on-error, and the hatch decision is written down', () => {
+    const block = jobBlock('e2e-protocol');
+    expect(block).toContain('run: npm run e2e:protocol');
+    expect(block).toMatch(/\n {4}continue-on-error: true/);
+    const yml = readFileSync(join(ROOT, '.github/workflows/e2e.yml'), 'utf8').replace(/\r\n/g, '\n');
+    expect(yml).toContain('THE ESCAPE HATCH ABOVE IS NOW TAKEN, AND THIS IS THE RECORDED DECISION.');
+  });
+  it('the mismatch detector itself is unit-tested (network-free, gating on every push)', () => {
+    const t = readFileSync(join(ROOT, 'src/net/transport.test.ts'), 'utf8');
+    expect(t).toMatch(/describe\('detectProtocolMismatch/);
+    expect((t.match(/detectProtocolMismatch\(\{/g) ?? []).length, 'both direction arms + same-version').toBeGreaterThanOrEqual(3);
+  });
+});

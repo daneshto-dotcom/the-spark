@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** item 9 (e2e-protocol CI red verdict + pin), then item 7 bench, then final gates + report.
+**NEXT STEP:** item 7 bench (before-tree .tmp-gates/before = 02acd574, npm ci 0; harness .tmp-gates/fx/bench2.spec.ts FX_LOG/FX_LABEL; interleave 3 cycles), then final gates (typecheck, vitest --maxWorkers=3, build, e2e:render, races settings-toggles) + report.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
@@ -14,3 +14,4 @@
 - step 8 (item 4 DONE): kept the established title-grep idiom; quarantine now also grep-inverts "Protocol mismatch" (2 tests ran twice); lobby budget gives every lobby test its retries: 3×(330+4×60)=1710 s -> PW 29/cap 37 (S46 Baseline never started in run 37047025269); quarantine budget = its specs' own setTimeouts summed (2700 s, 16 runnable) -> PW 46/cap 54. Pins: one-lane-per-quarantine-describe + derived quarantine sum; 5/5 mutations RED.
 - step 9: merged master again (S195-#4 bb40ccb5). Coordinator added items 8 + 9.
 - step 10 (item 8 DONE — PRODUCT BUG): playMusic returned on a stale URL while setMusicTrack returned early on musicSource===null -> toggle during the race-cover load = silence until next match. Fix: playMusic follows desiredMusicUrl in a loop (audioManager.ts). REACH test in audioManager.test.ts (held fetch, toggle inside window) RED before / GREEN after; positive control + flip-back case; audio suites 98/98. e2e fixed 2.5 s waits -> bounded expect.poll (30 s); settings-toggles race-track test 5/5 local. No bump (client audio only).
+- step 11 (item 9 DONE): e2e-protocol red on run 37157047661 = STUN binding timeouts / UDP unreachable, green #1/#2/#4 same version, local 2/2 -> CI network class. Cannot be network-independent (C9 rejects mocking). Took the documented S142 escape hatch: job-level continue-on-error, job kept, tests not retagged; detectProtocolMismatch stays gating in vitest. Pinned (19/19).

@@ -544,9 +544,23 @@ jobs:
   # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice,
   # add `continue-on-error: true` here — do NOT delete it, and do NOT re-tag the tests. A noisy
   # signal is still strictly better than the manual chore it replaces.
+  #
+  # ⛔ S195 T21 (item 9) — THE ESCAPE HATCH ABOVE IS NOW TAKEN, AND THIS IS THE RECORDED DECISION.
+  # Run 37157047661 (deploy S195-#3, f3885952): both tests red ×3 attempts on `Test timeout of
+  # 60000ms` with STUN `Binding request timed out` / UDP `ERR_ADDRESS_UNREACHABLE`, while #1, #2 and
+  # #4 were green on the SAME protocol version and local `npm run e2e:protocol` passed 2/2. That is the
+  # runner's network, not the code. The question was whether the lane can be made NETWORK-INDEPENDENT
+  # to keep it gating: it cannot without mocking the transport, which playwright.config.ts C9 /
+  # LOCKED_DECISIONS reject (real Trystero P2P IS the surface under test). So, exactly as the hatch
+  # says: `continue-on-error: true`, the job kept, the tests NOT re-tagged — a red here still shows as
+  # `X e2e-protocol` in `gh run view`, it just cannot red the run on a relay's bad day. What stays
+  # GATING about a protocol bump is network-free: `detectProtocolMismatch` in
+  # `src/net/transport.test.ts` (vitest, every push) and the six-site bump checklist pins.
+  # `src/ci.e2eLanes.test.ts` pins both halves of this decision.
   e2e-protocol:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    continue-on-error: true # S195 T21 — CI-network class; see the decision above
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
