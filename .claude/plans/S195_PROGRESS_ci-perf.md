@@ -1,6 +1,6 @@
 # S195 PROGRESS — T21 ci-perf (`s195/ci-perf`)
 
-**NEXT STEP:** remove .tmp-gates/before worktree (git worktree remove --force); final gates: typecheck, vitest --maxWorkers=3, build, e2e:render on my port; write FINAL REPORT at top; SubagentHandback.
+**NEXT STEP:** final gates running -> .tmp-gates/final/{tc,vt,build}.exit (rerun the same chain if killed); then e2e:render on my port; then FINAL REPORT + handback. Scratch before-worktree removed.
 
 ## Log
 - step 0: worktree at master dcd6af47, npm install exit 0. Read rules, brief (BACKLOG §A T21 + T22#1), dispatch log, ci.e2eLanes.test.ts, e2e.yml.
