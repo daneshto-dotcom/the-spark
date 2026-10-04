@@ -30,3 +30,4 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 - p2 step 4: keystone MINIMAL static + cell 128. Back-to-back 4x w10 (2 reps each): HIGH frame 84.7/90.8 ms, idle 90.6/82.7 -> MINIMAL frame 49.2/42.9 (-45..-50%), idle 22.7/19.5 (-75%). fps 8.6-10 -> 20.
 - PAUSE (owner order): stopped bg tier matrix B + killed my vite on 26135. All work committed.
 - p2 B1 (exit 0): frame med ms HIGH/LOW/MIN — w5 1x 11.0/8.9/5.9; w5 4x 60.7/61.2/46.2; w5 6x 66.5/75.1/61.6; w10 1x 11.0/5.6/4.8; w10 4x 62.5/43.7/27.9 (fps 12/20/30); w10 6x 68.3/58.4/51.9. idle w10 4x 56.5/29.0/16.5.
+- p2 B2 (exit 0): HIGH/LOW/MIN frame — w5 1x 7.1/9.7/5.8; w5 4x 43.3/60.5/46.8; w5 6x 71.5/71.5/56.4; w10 1x 8.1/6.5/4.9; w10 4x 52.8/52.7/42.0 (fps 15/15/20); w10 6x 59.6/78.8/57.9; idle w10 4x 47.5/54.9/19.8. LOW barely helps throttled (0.5 px quantum -> ~55% buckets redrawn). Trying LOW posQuantum 1.

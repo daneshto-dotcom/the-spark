@@ -53,7 +53,7 @@ export function syncGraphicsTier(): void {
 export interface BondCacheKnobs { readonly posQuantum: number; readonly animStepTicks: number }
 export const BOND_CACHE_KNOBS: Readonly<Record<GraphicsTier, BondCacheKnobs | null>> = {
   HIGH: null,
-  LOW: { posQuantum: 0.5, animStepTicks: 6 },
+  LOW: { posQuantum: 1, animStepTicks: 6 },
   MINIMAL: { posQuantum: 1, animStepTicks: 0 },
 };
 
