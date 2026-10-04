@@ -44,6 +44,31 @@ interface Row {
 }
 
 type CpuProfile = { nodes: Array<{ id: number; callFrame: { functionName: string; url: string; lineNumber: number }; hitCount?: number; children?: number[] }>; startTime: number; endTime: number };
+/** Inclusive time per function (counted once per stack) — which RENDERER's sync owns the frame. */
+function topInclusive(profile: CpuProfile, n: number, filter: RegExp): string {
+  const byId = new Map(profile.nodes.map((x) => [x.id, x]));
+  const total = profile.nodes.reduce((a, x) => a + (x.hitCount ?? 0), 0);
+  const usPer = (profile.endTime - profile.startTime) / Math.max(1, total);
+  const key = (x: CpuProfile['nodes'][number]): string => `${x.callFrame.functionName || '(anon)'} ${x.callFrame.url.split('/').pop()?.split('?')[0]}:${x.callFrame.lineNumber + 1}`;
+  const sub = new Map<number, number>();
+  const subOf = (id: number): number => {
+    const c = sub.get(id); if (c !== undefined) return c;
+    const x = byId.get(id)!; let t = x.hitCount ?? 0;
+    for (const ch of x.children ?? []) t += subOf(ch);
+    sub.set(id, t); return t;
+  };
+  const incl = new Map<string, number>();
+  const walk = (id: number, on: Set<string>): void => {
+    const x = byId.get(id)!; const k = key(x); const fresh = !on.has(k);
+    if (fresh) { incl.set(k, (incl.get(k) ?? 0) + subOf(id)); on.add(k); }
+    for (const ch of x.children ?? []) walk(ch, on);
+    if (fresh) on.delete(k);
+  };
+  walk(profile.nodes[0]!.id, new Set());
+  return [...incl.entries()].filter(([k]) => filter.test(k)).sort((a, b) => b[1] - a[1]).slice(0, n)
+    .map(([k, v]) => `    ${((100 * v) / total).toFixed(1).padStart(5)} %  ${((v * usPer) / 1000).toFixed(0).padStart(6)} ms  ${k}`).join(String.fromCharCode(10));
+}
+
 /** Top self-time functions of a CDP CPU profile — what DOMINATES the joiner's main thread, not a guess. */
 function topSelf(profile: CpuProfile, n: number): string {
   const total = profile.nodes.reduce((a, x) => a + (x.hitCount ?? 0), 0);
@@ -180,6 +205,7 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
             const { profile } = await cdp.send('Profiler.stop') as unknown as { profile: CpuProfile };
             console.log(`PROFILE ${info.project.name} w${wave} ${fx} ${thr}x:
 ${topSelf(profile, 30)}`);
+            console.log(`INCLUSIVE (src files) ${info.project.name} w${wave} ${fx} ${thr}x:` + String.fromCharCode(10) + topInclusive(profile, 40, /\.ts:/));
           }
           const got = await joiner.evaluate(() => {
             const g = window as unknown as { __lag: { handle: number[]; raf: number[] }; __SPARK__: { frameMs: readonly number[]; world: { creatures: Map<unknown, unknown>; primitives: Map<unknown, unknown>; bonds: Map<unknown, unknown>; effects: unknown[] } } };
