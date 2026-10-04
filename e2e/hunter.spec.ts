@@ -109,7 +109,10 @@ async function waitForHunter(
     `waitForHunter: ${desc} — ` +
       (spent >= budgetTicks
         ? `the sim advanced its full ${budgetTicks}-tick budget (${t0} → ${tick}) in ${s}s and it never held: a REAL failure.`
-        : `WALL BACKSTOP FIRST: only ${spent}/${budgetTicks} ticks in ${s}s — the runner was slower than ` +
+        : spent <= 0
+          ? `SIM FROZEN: world.tick did not advance at all (${t0}) in ${s}s — a game fault (dead loop, crashed ` +
+            `page or a stuck pause), not a slow runner.`
+          : `WALL BACKSTOP FIRST: only ${spent}/${budgetTicks} ticks in ${s}s — the runner was slower than ` +
           `${SLOWEST_CI_TICKS_PER_S} ticks/s; this says nothing about the game.`) +
       `\nFinal: ${JSON.stringify(f)}`,
   );

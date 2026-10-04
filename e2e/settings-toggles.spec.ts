@@ -184,11 +184,13 @@ test.describe('@races S165 — the settings panel carries both owner toggles', (
     // silent for good (`playMusic` returned on a stale URL; `audioManager.test.ts` "S195 a track change
     // mid-load" reproduces it). Measured by the integrator: slowest healthy fallback 3.75 s; 2/10 never
     // within 15 s before the fix. The budget is generous because a red here should mean "never", not "slow".
+    // ⛔ S195 audit — the "Saw:" list is built INSIDE the polled function, so a red reports the responses
+    // as they were at the deadline (a `message` string is evaluated once, before polling starts).
     await expect
-      .poll(() => music.some((m) => m.includes('blue-steppe-orbit')), {
-        message: `turning race music off did not fall back to the original track. Saw: ${JSON.stringify(music)}`,
-        timeout: MUSIC_FETCH_BUDGET_MS,
-      })
-      .toBe(true);
+      .poll(
+        () => (music.some((m) => m.includes('blue-steppe-orbit')) ? 'fell back' : `no fallback yet. Saw: ${JSON.stringify(music)}`),
+        { message: 'turning race music off did not fall back to the original track', timeout: MUSIC_FETCH_BUDGET_MS },
+      )
+      .toBe('fell back');
   });
 });
