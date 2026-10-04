@@ -227,6 +227,7 @@ export class StructureRenderer {
   private drawBondsCached(world: World, knobs: BondCacheKnobs): void {
     const cells = this.cacheScratch;
     for (const cell of cells.values()) { cell.draws.length = 0; cell.hash = FNV_OFFSET; }
+    BOND_CACHE_STATS.frames++;
     forEachBondDraw(world, knobs, (d) => {
       const key = Math.floor((d.ax + d.bx) / 2 / BOND_CACHE_CELL_PX) * 1024 + Math.floor((d.ay + d.by) / 2 / BOND_CACHE_CELL_PX);
       let cell = cells.get(key);
@@ -245,11 +246,13 @@ export class StructureRenderer {
         this.bondCacheLayer.addChild(bucket.g);
         this.bondBuckets.set(key, bucket);
       }
+      BOND_CACHE_STATS.buckets++;
       if (bucket.hash === cell.hash) continue;
       bucket.g.clear();
       for (const d of cell.draws) strokeBondDraw(bucket.g, d);
       bucket.hash = cell.hash;
       this.bucketRedraws++;
+      BOND_CACHE_STATS.redraws++;
     }
   }
 
@@ -293,6 +296,9 @@ export interface BondDraw {
   readonly pulseAlpha: number;
   readonly pattern: BondPatternKind;
 }
+
+/** Measurement probe (read by `scripts/lag/joiner-replay.spec.ts` through a dev-server module import). */
+export const BOND_CACHE_STATS = { frames: 0, buckets: 0, redraws: 0 };
 
 /** ⚠ MINE — the cache bucket size: 10 × 6 buckets on the 1920 × 1080 board. */
 export const BOND_CACHE_CELL_PX = 192;

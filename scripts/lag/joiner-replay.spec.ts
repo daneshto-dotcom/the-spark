@@ -209,6 +209,13 @@ test('S195 N9 — joiner cost of a wave-N board, replayed at 10 Hz', async ({ br
           await joiner.evaluate(() => { const l = (window as unknown as { __lag: { handle: number[]; raf: number[] } }).__lag; l.handle = []; l.raf = []; });
           const f0 = await joiner.evaluate(() => (window as unknown as { __SPARK__: { frameMs: readonly number[] } }).__SPARK__.frameMs.length);
           void f0;
+          const readStats = async (): Promise<{ frames: number; buckets: number; redraws: number; tier?: string; stored?: string | null; urls?: string }> => joiner.evaluate(async () => {
+            const m = await import(/* @vite-ignore */ '/src/render/structureRenderer.ts') as { BOND_CACHE_STATS?: { frames: number; buckets: number; redraws: number } };
+            const t = await import(/* @vite-ignore */ '/src/render/graphicsTier.ts') as { graphicsTier(): string };
+            const urls = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.includes('structureRenderer') || n.includes('graphicsTier'));
+            return { ...(m.BOND_CACHE_STATS ?? { frames: 0, buckets: 0, redraws: 0 }), tier: t.graphicsTier(), stored: window.localStorage.getItem('display.graphicsTier'), urls: urls.join(' ') };
+          });
+          const st0 = await readStats();
           if (PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 500 }); await cdp.send('Profiler.start'); }
           await joiner.waitForTimeout(MEASURE_MS);
           if (PROFILE) {
@@ -223,6 +230,8 @@ ${topSelf(profile, 30)}`);
             return { handle: [...g.__lag.handle], raf: [...g.__lag.raf], frame: [...g.__SPARK__.frameMs].slice(-240),
               counts: { creatures: w.creatures.size, primitives: w.primitives.size, bonds: w.bonds.size } };
           });
+          const st1 = await readStats();
+          const cacheLine = `tier ${st1.tier} stored ${st1.stored} urls ${st1.urls} cache frames ${st1.frames - st0.frames} buckets ${st1.buckets - st0.buckets} redrawn ${st1.redraws - st0.redraws}`;
           await stopInjection(joiner);
           // Render-only baseline: same board, no snapshots arriving, same throttle.
           await joiner.waitForTimeout(500);
@@ -248,7 +257,7 @@ ${topSelf(profile, 30)}`);
             throw new Error(`injected board NOT applied: page has ${got.counts.primitives} primitives, recording has ${want}`);
           }
           rows.push(row);
-          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
+          console.log(`${row.project} w${wave} ${fx.padEnd(6)} ${thr}x  snap ${row.snapKiB} KiB  handle ${row.handleMsMed}/${row.handleMsP95} ms  frame ${row.frameMsMed}/${row.frameMsP95} ms  fps ${row.fpsMed} (p5 ${row.fpsP5})  long>50ms ${row.longFrames}  injected ${row.injected}  | ${cacheLine} | idle fps ${row.idleFpsMed} (p5 ${row.idleFpsP5}) frame ${row.idleFrameMsMed}  ${JSON.stringify(row.counts)}`);
           writeFileSync(join(DIR, `joiner-${info.project.name}-${LABEL}.json`), JSON.stringify({ renderer, rows }, null, 1));
         }
       }

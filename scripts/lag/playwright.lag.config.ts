@@ -21,6 +21,12 @@ const chrome = devices['Desktop Chrome'];
  * headless "gpu" project silently got SwiftShader — `--use-angle=d3d11 --enable-gpu` is what reaches the
  * real GPU headless on Windows (probed: RTX 4070 Ti SUPER, D3D11).
  */
+/*
+ * ⛔ S195 phase 2 — NEVER REUSE A SERVER. An orphaned vite from a killed run kept serving the PRE-EDIT
+ * modules (its file watcher missed the edits under OneDrive), so a whole tier measurement ran old code
+ * (caught: `displayPrefs.ts does not provide an export named 'getGraphicsTier'`). With reuse off, an orphan
+ * on the port makes the run fail loudly (strictPort) instead of measuring stale code.
+ */
 const NO_BG_THROTTLE = ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'];
 
 export default defineConfig({
@@ -35,5 +41,5 @@ export default defineConfig({
     { name: 'gpu', use: { ...chrome, viewport: { width: 1920, height: 1080 }, launchOptions: { args: ['--ignore-gpu-blocklist', '--use-angle=d3d11', '--enable-gpu', ...NO_BG_THROTTLE] } } },
     { name: 'swiftshader', use: { ...chrome, viewport: { width: 1920, height: 1080 }, launchOptions: { args: ['--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist', ...NO_BG_THROTTLE] } } },
   ],
-  webServer: base.webServer === undefined ? undefined : { ...(base.webServer as object), cwd: fileURLToPath(new URL('../..', import.meta.url)) } as never,
+  webServer: base.webServer === undefined ? undefined : { ...(base.webServer as object), cwd: fileURLToPath(new URL('../..', import.meta.url)), reuseExistingServer: false } as never,
 });
