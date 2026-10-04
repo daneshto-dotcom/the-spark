@@ -1,7 +1,7 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
 ## NEXT STEP (exact)
-Item 5 (N16 host re-seats): RosterEntry.slot (protocol.ts validate 0..3), session.slotByPeer/selfSlot, presence + Begin roster stamp slot, host MOVE chip on each tile in seatRack (cycles clockwise via seatBoardSlots swap), bot lobby corner chip per row -> onStart slots -> main.ts roster slot.
+Item 6 (N3 ready locks team, quickmatch lobby): read maybeQmAutoBegin / LOBBY_READY / qmReadyPeers in src/net/quickmatchGate.ts + hostHandlers; host refuses CLAIM_TEAM while ready or within 3 s of unready; all-ready -> 3 s countdown (tick-free: host timer) before Begin, any unready cancels; client chip greyed while locked.
 
 ## Log
 - setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
@@ -13,3 +13,4 @@ Item 5 (N16 host re-seats): RosterEntry.slot (protocol.ts validate 0..3), sessio
 - art: 36 webp in public/art/race-zones/teams/ (867 KB), transcode script .tmp-gates/transcode_teams.py (Pillow 12.2, already installed).
 - item 3 DONE: zoneBackdropPlan (pair art top/bottom crop, east mirrored; 2v1 solo = zone-<race>-2p across his half; 1v1v2 solos + 3v1 = 4p single art; FFA identical) + cropHalfTexture + per-quadrant sync with per-zone tint (extra corner never washed). trioBackdropUrl seam returns null. teamBackdrop.test.ts 10 tests; mutation (east mirror dropped) -> 5 red. Pair art grade = none (MINE). No bump (render-only).
 - item 4 DONE: getSeatRect clock order; SeatView.slot from seatBoardSlots (arrangeTeamZones over dense occupied seats); seatRack positions tiles by slot; e2e teams-lobby clicks chip at slot; lobbyBoardOrder.test.ts 7 tests; mutation (row-major col) -> red. Bot lobby is a vertical list (no rack geometry) -> gets a board-corner chip in item 5.
+- item 5 DONE: RosterEntry.slot (wire, validated) + session.slotByPeer/selfSlot + withSlots on presence & Begin + hostMoveSeat/moveSeatSlot; MP rack MOVE chip (host only, own seat included); bot lobby corner button (glyph on swatch) + row labels show corner; slots -> START_GAME roster. teamsReseat.test.ts 8 tests; census claims added (uiSkinCensus); mutation (applyStartGame drops slot) -> red.
