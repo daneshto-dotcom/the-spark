@@ -1482,6 +1482,11 @@ Measured throughput (all empirical, CI run 30374235685 + a local run, 2026-07-28
 2. **You cannot buy ticks with wall-clock.** 10k ticks in CI needs ~22 min of window and gets
    *worse than linear* as entities accumulate (throughput falls as the world grows). **Do NOT
    "fix" a short window by raising `WALL_CAP_MS`** — S127 proposed exactly that, then retracted it.
+   ⭐ **AMENDED S195 (T21, `s195/ci-perf`):** the soak window's wall cap is now **DERIVED** from the measured
+   warm-up tick rate, targeting the S127-calibrated ~2000-tick CI window (never below 300 s, never above 600 s),
+   because CI run 37047025269 ran the bots worlds at 3.6 ticks/s and the window reached only 1098 ticks.
+   `GROWTH_LIMIT_MB` stays 10 and the census limit stays normalised to the measured window — this RESTORES the
+   calibrated window, it does not relax a threshold.
 3. **Never assert a floor on ticks-achieved as a pass/fail criterion.** That measures the
    runner's GPU, not the code under test. It is what silently reduced the soak lane to a
    hardware-speed test and produced 5/5 identical failures while every real threshold passed.

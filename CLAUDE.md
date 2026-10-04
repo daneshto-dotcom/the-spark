@@ -80,6 +80,12 @@ npm run e2e:races        # S165 — the @races lane: castle emitter, backdrops, 
                          # GATING via its own `e2e-races` CI job, inverted OUT of e2e:gating
                          # because each observation costs ~30 s of SIM time and it starved the
                          # shared lane's 720 s cap. `src/ci.e2eLanes.test.ts` pins the mapping.
+npm run e2e:render       # S195 T21 — the e2e-render lane (`@render-starved`: fog, hunter, ci-frame-profile).
+                         # GATING via its own `e2e-render` CI job (Playwright 39 / job 47 min); budgets are
+                         # TICK-based, not wall-clock, so a starved software-GL runner cannot fake a red.
+                         # ⚠ S195: `e2e-protocol` is NON-gating (S142 escape hatch) — `detectProtocolMismatch`
+                         # stays gated in vitest. Lane budgets (Playwright / job, min): lobby 29/37,
+                         # quarantine 46/54, soak 58/66.
 npm run build            # includes the bundle-size charter check
 npm run check:atlas      # S165 — the sprite-sheet pixel guard. NOT part of `build` (see below)
 npm run verify-deploy    # 4/4 with content-hash equality

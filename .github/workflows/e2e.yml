@@ -80,7 +80,7 @@
 #   ⭐ S195 T21 — AND A HUNG CHECKOUT IS NOW RETRIED ONCE. Deploy #5's `worker-typecheck` died on
 #   `actions/checkout` timing out at exactly 3 minutes — an infra hang, not a code fault, and a red
 #   for nothing. Every job's `Checkout` therefore carries `id: checkout` + a STEP-level
-#   continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome !=
+#   `continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome !=
 #   'success'` (also bounded at 3; `!= 'success'` also covers a timeout reported as cancelled). Two hangs in a row still fail the job, loudly. ⚠ That step-level
 #   `continue-on-error` is the ONLY one allowed inside a gating job: `src/ci.e2eLanes.test.ts`
 #   strips exactly that line before asserting a gating lane carries no `continue-on-error`, and pins

@@ -1,6 +1,9 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## STATUS: COMPLETE — all four landings + housekeeping done. No next step.
+## EXACT NEXT STEP (L5, owner R195-0g)
+L5 LANDED as S195-#5 7ceae8eb (deploy 37225108836 success, verify 4/4). Remaining: record CI E2E run 37225108817 per lane (incl. CI `[frame-profile]` / `[hunter]` lines from the e2e-render job) in the dispatch log. Then HOLD (open nothing new).
+
+## (L1–L4) STATUS: COMPLETE
 
 ## FINAL REPORT
 - **L1 s194/rules** — merge e3d04de0 (no conflicts) + BUMP 66→67 / housekeeping 560206ac. Tip gates (80aaa870): tc0 · vt0 8643 · build0 1166.8. Master: tc0 · vt0 8643/12 skip · build0 1166.8 KiB · gating 74/74 · races 5/5 (1st run webServer 60 s startup timeout, re-run 5/5) · lobby 5/5 · teams 2/2. Deploy **S195-#1 9598444b** run 37134797639 success · verify 4/4 · CI E2E failure (CI-only: tickClock timeout + 900 s cap, lobby/quarantine/soak).
