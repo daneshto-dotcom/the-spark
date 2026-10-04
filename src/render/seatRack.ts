@@ -321,6 +321,10 @@ export function makeSeatRack(
       const { bg, label, glyph, readyTick } = c;
       const nowOccupied = seat !== undefined && seat.occupied;
       bg.clear();
+      // ⭐⭐ S195 (R194-19 / R195-T2) — the tile stands on its seat's BOARD quadrant (clock order), so the rack
+      // reads as the board: a 2v2 pair shares a side, the 3v1 solo sits top-left.
+      const at = getSeatRect(seat?.slot ?? i);
+      c.cell.position.set(at.x + SEAT_W / 2, at.y + SEAT_H / 2);
 
       // S89 P1 — show the READY tick only on an occupied seat that has readied
       // (seat.ready is undefined in friends lobbies → tick stays hidden there).
