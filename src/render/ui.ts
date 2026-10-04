@@ -27,6 +27,7 @@ import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
+import { teamStandings } from '../state/teamScore.ts'; // ⭐ S195 (R195-T1) — the team total on the board
 
 const GAUGE_X = CANVAS_WIDTH - 24;
 
@@ -52,6 +53,16 @@ export const PHASE_EDGE_PULSE_SCALE = 1.6;
  */
 export function formatTierBanner(tier: number, waveNumber: number): string {
   return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${winScoreForWave(waveNumber)}`;
+}
+
+/**
+ * ⭐⭐ S195 (owner R195-T1) — the leaderboard's race readout for one seat: `score/bar` in a free-for-all (the
+ * pre-S195 text, byte for byte), and in a team game the seat's own score plus its TEAM's total against the
+ * team bar (`teamScore.ts`): `1200 · T1 3400/5000`. PURE.
+ */
+export function formatRaceReadout(score: number, waveNumber: number, team: { readonly team: number; readonly total: number; readonly bar: number } | null): string {
+  if (team === null) return `${Math.floor(score)}/${winScoreForWave(waveNumber)}`;
+  return `${Math.floor(score)} · T${team.team + 1} ${team.total}/${team.bar}`;
 }
 
 /** V6-0.2 — solo score readout. Floors, matching the leaderboard's own formatting. */
@@ -1206,6 +1217,8 @@ export class HUD {
     // avatar nameplates AND the win banner, so every identity surface agrees;
     // the row colour stays live as the redundant cue. The leader also gets a
     // "*" crown marker so rank reads even when scores are close.
+    // ⭐ S195 (R195-T1) — every team's total/bar, once per frame (`[]` in a free-for-all).
+    const standings = teamStandings(world);
     const ranked = show1v1
       ? [...world.players.values()].sort(
           (a, b) =>
@@ -1247,7 +1260,9 @@ export class HUD {
       const crown = i === 0 ? '*' : ' ';
       // S87 — bot rows read B{n} (matches the avatar nameplates).
       const tag = world.botSeats.has(p.id) ? 'B' : 'P';
-      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${winScoreForWave(world.waveNumber)}${isLocal ? ' <YOU' : ''}`;
+      // ⭐ S195 (R195-T1) — in a team game the race is the TEAM's total vs the team bar (`formatRaceReadout`).
+      const standing = standings.find((s) => s.seats.includes(p.id)) ?? null;
+      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${formatRaceReadout(score, world.waveNumber, standing)}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP);
       t.visible = true;

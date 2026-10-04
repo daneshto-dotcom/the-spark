@@ -21,6 +21,7 @@
 
 import type { CreatureType } from '../state/creatures/creature.ts';
 import { matchPlacings } from '../state/elimination.ts';
+import { teamStandings } from '../state/teamScore.ts';
 import type { SeatMatchStats, WaveSampleSeat } from '../state/matchStats.ts';
 import type { RaceId } from '../state/races.ts';
 import { sameTeam, TEAM_COUNT, teamOf } from '../state/teams.ts';
@@ -440,7 +441,9 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
 
   const standing = rows.filter((r) => !r.out).length;
   const lastWave = waves.length > 0 ? waves[waves.length - 1]! : world.waveNumber;
-  const subline = `WAVE ${lastWave}  ·  ${rows.length} SEATS  ·  ${standing} STANDING`;
+  // ⭐ S195 (R195-T1) — a team game's race was a TEAM TOTAL: name each team's final total under the headline.
+  const teamTotals = teamStandings(world).map((s) => `T${s.team + 1} ${s.total}`).join('  ');
+  const subline = `WAVE ${lastWave}  ·  ${rows.length} SEATS  ·  ${standing} STANDING${teamTotals !== '' ? `  ·  ${teamTotals}` : ''}`;
 
   return {
     headline,
