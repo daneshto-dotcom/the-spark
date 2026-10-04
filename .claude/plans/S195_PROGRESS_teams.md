@@ -1,7 +1,7 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
 ## NEXT STEP (exact)
-Item 7 (team points race R195-T1/B-26): gameState.ts win gate (winScoreForWave) -> in team games sum scores per team vs bar x team player count (MINE constant); hunter trigger follows team bar; HUD/banner/end board team total. BUMP.
+All 7 items done. NOW: git merge master (master side for .claude/** conflicts), npm install, then gates: typecheck, npx vitest run --maxWorkers=3, npm run build (KiB), e2e:gating + teams-lobby lane on own port; self-audit; final report.
 
 ## Log
 - setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
@@ -15,3 +15,4 @@ Item 7 (team points race R195-T1/B-26): gameState.ts win gate (winScoreForWave) 
 - item 4 DONE: getSeatRect clock order; SeatView.slot from seatBoardSlots (arrangeTeamZones over dense occupied seats); seatRack positions tiles by slot; e2e teams-lobby clicks chip at slot; lobbyBoardOrder.test.ts 7 tests; mutation (row-major col) -> red. Bot lobby is a vertical list (no rack geometry) -> gets a board-corner chip in item 5.
 - item 5 DONE: RosterEntry.slot (wire, validated) + session.slotByPeer/selfSlot + withSlots on presence & Begin + hostMoveSeat/moveSeatSlot; MP rack MOVE chip (host only, own seat included); bot lobby corner button (glyph on swatch) + row labels show corner; slots -> START_GAME roster. teamsReseat.test.ts 8 tests; census claims added (uiSkinCensus); mutation (applyStartGame drops slot) -> red.
 - item 6 DONE: QM_READY_LOCK_MS/QM_UNREADY_TEAM_COOLDOWN_MS=3000 (owner), noteQmReady/qmTeamChangeAllowed/cancelQmCountdown, maybeQmAutoBegin starts a 3 s lock (never in a one-team room), any unready/join cancels; host refuses CLAIM_TEAM while ready/cooldown; host own onPickTeam obeys; LOBBY_PRESENCE.countdownMs (new optional wire field, validated 0..10000) -> lobbyScreen 'TEAMS LOCKED — STARTING IN N' on every rack. Quickmatch only (friends/bot lobbies have no READY). Tests: teamsQuickmatchRearm (rewritten), sameMatchProof re-pinned; mutation (CLAIM_TEAM gate bypassed) -> red.
+- item 7 DONE: teamScore.ts (teamStandings/teamPointsWinner/teamHunterTriggered; MINE TEAM_BAR_SCALES_WITH_SIZE, TEAM_TOTAL_COUNTS_FALLEN), gameState.ts team block before the per-seat gate, hostTick hunter, ui.ts formatRaceReadout, matchBoardModel subline. teams.points.test.ts 11 tests; mutation (size->1) -> red. BUMP.
