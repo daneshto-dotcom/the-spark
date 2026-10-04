@@ -1737,7 +1737,7 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams) => {
+          onStart: (pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams, pickedSlots) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
@@ -1765,7 +1765,8 @@ async function bootstrap(): Promise<void> {
               const roster = Array.from({ length: totalSeats }, (_, seat) => {
                 const raceId = races[seat] ?? defaultRaceForSeat(seat);
                 const team = teams[seat];
-                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}) };
+                const slot = pickedSlots?.[seat]; // ⭐ S195 (N16) — the corner arrangement from the bot lobby
+                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}), ...(slot !== undefined ? { slot } : {}) };
               });
               const botSeats = difficulties.map((_, i) => i + 1);
               // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND

@@ -18,12 +18,12 @@ import { attachButtonFeedback } from './buttonFeedback.ts';
 import { skinButtonFx, skinPanelFx } from './uiSkin.ts';
 import { attachChipHover, attachHoverSheen } from './uiSkinButton.ts';
 import { ACCENT_BOTS, LazyScreenBackdrop, glowTitleStyle } from './uiScreenChrome.ts';
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Circle, Container, Graphics, Text, TextStyle } from 'pixi.js';
 import { defaultRaceForSeat, RACE_COLORS, type RaceId } from '../state/races.ts';
 import { raceDisplayName } from './raceBanners.ts';
 import { makeRacePicker, type RacePickerHandle } from './racePicker.ts';
 import { BOT_ACCENT_COLOR, CANVAS_HEIGHT, CANVAS_WIDTH, MAX_BOTS } from '../constants.ts';
-import { nextTeamPick, teamChipLabel, teamsPlayable } from '../state/teams.ts';
+import { boardSlotsForSeats, moveSeatSlot, nextTeamPick, teamChipLabel, teamsPlayable } from '../state/teams.ts';
 import { teamChipColor, TEAMS_UNPLAYABLE_HINT } from './teamChip.ts';
 import {
   BOT_DIFFICULTIES,
@@ -87,9 +87,18 @@ export interface BotSetupCallbacks {
      * (0..3) or `undefined` (its own side). All `undefined` is the free-for-all, exactly as before.
      */
     teams: readonly (number | undefined)[],
+    /**
+     * ⭐ S195 (owner N16) — per SEAT like `teams`: the board-slot preference the host set with a row's corner
+     * button (0..3), or `undefined` (its seat number). All `undefined` = nobody was moved.
+     */
+    slots?: readonly (number | undefined)[],
   ): void;
   onClose(): void;
 }
+
+/** ⭐ S195 — the board corner each rack slot is, as a glyph and a name (clock order: NW, NE, SE, SW). */
+export const BOARD_CORNER_GLYPH = ['◤', '◥', '◢', '◣'] as const;
+export const BOARD_CORNER_NAME = ['NW', 'NE', 'SE', 'SW'] as const;
 
 /** S87 — e2e geometry points (DEV-only getter, S85 P4c live-read pattern). */
 export interface BotSetupUiPoints {
@@ -128,6 +137,8 @@ export class BotSetupOverlay {
   private readonly racePicker: RacePickerHandle;
   /** ⭐ S192 (R192-T4) — SEAT-indexed team picks, like `races`. `undefined` = no team (its own side). */
   private readonly teams: (number | undefined)[] = Array.from({ length: MAX_BOTS + 1 }, () => undefined);
+  /** ⭐ S195 (N16) — SEAT-indexed board-slot preferences, set by the row's corner button. `undefined` = its seat. */
+  private readonly slotPrefs: (number | undefined)[] = Array.from({ length: MAX_BOTS + 1 }, () => undefined);
   /** ⭐ S194 — START's plate painter (T5 disabled look while blocked) and the blocked flag its sheen reads. */
   private paintStartPlate: ((disabled: boolean) => void) | null = null;
   private startBlocked = false;
@@ -217,6 +228,7 @@ export class BotSetupOverlay {
         this.races.slice(0, this.botCount + 1),
         this.personalities.slice(0, this.botCount),
         teams,
+        this.slotPrefs.slice(0, this.botCount + 1), // ⭐ S195 (N16) — the corner arrangement
       );
     });
     this.container.addChild(start);
@@ -438,8 +450,10 @@ export class BotSetupOverlay {
         .circle(-PANEL_W / 2 + 36, ROW_H / 2, 12)
         .fill({ color: RACE_COLORS[this.races[0]!], alpha: 0.95 }),
     );
+    const corners = this.boardCorners();
+    youRow.addChild(this.makeCornerButton(0, corners[0]!));
     const youLabel = new Text({
-      text: 'YOU',
+      text: `YOU · ${BOARD_CORNER_NAME[corners[0]!] ?? ''}`,
       style: new TextStyle({ fontFamily: 'monospace', fontSize: 20, fontWeight: 'bold', fill: 0xdddddd }),
     });
     youLabel.anchor.set(0, 0.5);
@@ -475,9 +489,11 @@ export class BotSetupOverlay {
       const swatch = new Graphics();
       swatch.circle(-PANEL_W / 2 + 36, ROW_H / 2, 12).fill({ color: seatColor, alpha: 0.95 });
       row.addChild(swatch);
+      row.addChild(this.makeCornerButton(i + 1, corners[i + 1]!));
 
       const label = new Text({
-        text: `BOT ${i + 2}`, // seat number as players see it (B2..B7 nameplates)
+        // seat number as players see it (B2..B7 nameplates) · ⭐ S195 — and the board corner it will stand on
+        text: `BOT ${i + 2} · ${BOARD_CORNER_NAME[corners[i + 1]!] ?? ''}`,
         style: new TextStyle({
           fontFamily: 'monospace',
           fontSize: 20,
@@ -584,6 +600,44 @@ export class BotSetupOverlay {
       });
       this.rowsHost.addChild(row);
     }
+  }
+
+  /**
+   * ⭐⭐ S195 (R194-19 / R195-T2 / N16) — WHERE EACH ROW WILL STAND ON THE BOARD (clock order), from the same
+   * function `applyStartGame` stamps the board with — so this vertical list reads the same as the board.
+   */
+  boardCorners(): number[] {
+    const n = this.botCount + 1;
+    return boardSlotsForSeats(this.teams.slice(0, n), this.slotPrefs.slice(0, n));
+  }
+
+  /**
+   * ⭐⭐ S195 (owner N16) — the row's CORNER button (on its colour swatch): *"the host … should be able to … move
+   * players"*. A tap moves that seat one board corner on (NW → NE → SE → SW), swapping with whoever stands
+   * there. The owner's shape rules still decide (`arrangeTeamZones`): the 2v1 solo stays NW whatever is pressed.
+   */
+  private makeCornerButton(seat: number, corner: number): Container {
+    const c = new Container();
+    c.position.set(-PANEL_W / 2 + 36, ROW_H / 2);
+    const glyph = new Text({
+      text: BOARD_CORNER_GLYPH[corner] ?? '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 16, fontWeight: 'bold', fill: 0xffffff }),
+    });
+    glyph.anchor.set(0.5);
+    c.addChild(glyph);
+    c.eventMode = 'static';
+    c.cursor = 'pointer';
+    c.hitArea = new Circle(0, 0, 22);
+    c.on('pointertap', () => this.moveSeat(seat));
+    return c;
+  }
+
+  /** ⭐ S195 (N16) — move `seat` one board corner on. Exposed for the REACH test (it is the corner tap's body). */
+  moveSeat(seat: number): void {
+    const n = this.botCount + 1;
+    const next = moveSeatSlot(this.teams.slice(0, n), this.slotPrefs.slice(0, n), seat);
+    for (let s = 0; s < n; s++) this.slotPrefs[s] = next[s];
+    this.rebuildRows();
   }
 
   private makeSmallButton(label: string, cx: number, cy: number, onClick: () => void): Container {
