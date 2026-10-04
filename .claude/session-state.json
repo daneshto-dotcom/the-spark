@@ -37,11 +37,89 @@
         "#2": "c66f6dd6",
         "#3": "f3885952",
         "#4": "bb40ccb5"
-      }
+      },
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 67"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.ts",
+          "needle": "CASTLE_PORCH_BUILD_CLEAR_RADIUS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/structureRepair.ts",
+          "needle": "fallenTowerFixCanRegister"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/uiScreenChrome.ts",
+          "needle": "glowTitleStyle"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/live-mp/live-2peer.mjs",
+          "needle": "live"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S195_DISPATCH_LOG.md",
+          "needle": "S195-#4"
+        }
+      ]
+    },
+    {
+      "id": "T21",
+      "title": "ci-perf: CI lanes/budgets, render lane, soak window, race-music product bug, flake pins, snap EOL",
+      "branch": "s195/ci-perf",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-03_S195_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "Independent audit (2275f131) found 1 MED (checkout-retry COE strip unanchored; main e2e job unguarded) + LOWs -> fix-only round -> light re-audit CLEAN (mutations red, gates green). Integrator landed f8d6de5c as deploy S195-#5 7ceae8eb: tc0, vitest 8764, build 1183.4 KiB, e2e gating 67/67, render 10/10, races 5/5, lobby 5/5, teams-lobby 2/2; CI: every gating lane green for the first time in S195. verify-deploy --sha 7ceae8eb: RUN/VERDICT/LIVE PASS, REMOTE failed only because a Pitch Masters commit b884f98f (public/pitch-masters only) landed on top - ruled benign; plain re-check queued after its run.",
+      "checkpoint_commit": "7ceae8eb",
+      "deploy": "S195-#5",
+      "real_context_tokens_at_close": 520648,
+      "real_context_pct_at_close": 52.06,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".github/workflows/e2e.yml",
+          "needle": "render-starved"
+        },
+        {
+          "type": "file_contains",
+          "path": ".gitattributes",
+          "needle": "*.snap text eol=lf"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/audioManager.ts",
+          "needle": "desiredMusicUrl"
+        },
+        {
+          "type": "file_contains",
+          "path": "CLAUDE.md",
+          "needle": "e2e:render"
+        },
+        {
+          "type": "file_contains",
+          "path": "LOCKED_DECISIONS.md",
+          "needle": "AMENDED S195 (T21"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
-    "#s195-limit-resume: three agents died together on a spend limit mid-step; every one resumed exactly from the top of its progress file because each saved every <=5 min — the save cadence is what made the limit cost minutes, not the session."
+    "#s195-limit-resume: three agents died together on a spend limit mid-step; every one resumed exactly from the top of its progress file because each saved every <=5 min — the save cadence is what made the limit cost minutes, not the session.",
+    "#s195-audit-catches-guard-holes: the ci-perf audit found a test guard that a magic comment line could defeat on ANY step — a green guard is only as good as the mutation that tries to fool it; mutate the guard, not just the code."
   ],
   "budget_total": 1000000
 }
