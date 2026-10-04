@@ -32,7 +32,7 @@ import { asDefenderId } from '../types.ts';
 import { wallSegments, wallSeparatesSides } from './walls.ts';
 import { netSnapshot, applyNetSnapshot } from './save.ts';
 import {
-  arrangeTeamSeats, isEnemySeat, normalizeTeams, sameTeam, sameTeamColor, teamOf, teamsPlayable,
+  arrangeTeamZones, isEnemySeat, normalizeTeams, sameTeam, sameTeamColor, teamOf, teamsPlayable,
 } from './teams.ts';
 
 const P = [0, 1, 2, 3].map((s) => asPlayerId(s));
@@ -116,20 +116,14 @@ describe('S192 teams — the predicate', () => {
     expect(teamsPlayable([1, 1, undefined], 3)).toBe(true);
   });
 
-  it('⚠ MINE — arrangeTeamSeats puts teammates side by side, host fixed, host team on the LEFT', () => {
-    // seats 0+1 vs 2+3 → host's teammate moves to BL (seat 3): TL+BL vs TR+BR
-    const order = arrangeTeamSeats([0, 0, 1, 1]);
-    expect(order[0]).toBe(0);
-    const teamsAfter = order.map((old) => [0, 0, 1, 1][old]);
-    expect(teamsAfter[0]).toBe(teamsAfter[3]);
-    expect(teamsAfter[1]).toBe(teamsAfter[2]);
-    // a diagonal pair (0 and 2) is never left on the diagonal
-    const o2 = arrangeTeamSeats([0, 1, 0, 1]);
-    const t2 = o2.map((old) => [0, 1, 0, 1][old]);
-    expect(t2[0]).not.toBe(t2[2]);
-    // no shared team → the identity, so a free-for-all lobby seats exactly as before
-    expect(arrangeTeamSeats([undefined, undefined, undefined, undefined])).toEqual([0, 1, 2, 3]);
-    expect(arrangeTeamSeats([0, 1])).toEqual([0, 1]);
+  it('⭐ S195 — arrangeTeamZones (replaces S192 arrangeTeamSeats): teammates share a side, nobody re-seated', () => {
+    // seats 0+1 vs 2+3 → west = {0,1} (NW, SW), east = {2,3} (NE, SE)
+    expect(arrangeTeamZones([0, 0, 1, 1], 4)).toEqual([0, 2, 3, 1]);
+    // a diagonal pair (0 and 2) is never left on the diagonal: west = {0,2}
+    expect(arrangeTeamZones([0, 1, 0, 1], 4)).toEqual([0, 1, 3, 2]);
+    // no shared team → the identity, so a free-for-all lobby stands exactly as before
+    expect(arrangeTeamZones([undefined, undefined, undefined, undefined], 4)).toEqual([0, 1, 2, 3]);
+    expect(arrangeTeamZones([0, 1], 2)).toBeNull();
   });
 });
 

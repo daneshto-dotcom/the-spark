@@ -126,64 +126,6 @@ export function isTeamIndex(v: unknown): v is number {
 }
 
 /**
- * ⭐ ⚠ MINE (spec §(b) rule 5) — **TEAMMATES SIT SIDE BY SIDE.** A permutation of the seats, applied
- * by the host BEFORE the roster is minted, so that teammates share a border on the four-zone board
- * and never sit on its diagonal (TL=0 · TR=1 · BR=2 · BL=3 — zones 0/2 and 1/3 touch only at the
- * quarry). R192-T2's *"one continuous zone"* is only possible between neighbours.
- *
- * `teams[seat]` is each seat's pick (`undefined` = alone). Seat 0 (the host / the human) never moves.
- * Returns `order` where `order[newSeat] = oldSeat`. Among the permutations with the fewest same-team
- * diagonal pairs it prefers the host's team on the LEFT half (seats 0 and 3 — his v2 picture,
- * *"team one on the left, team two on the right"*), then the identity, then lexicographic order — a
- * total order, so the same picks always give the same seating.
- *
- * Two seats (the pitch board) and three-or-fewer-seat boards with no shared team return the identity.
- */
-export function arrangeTeamSeats(teams: readonly (number | undefined)[]): number[] {
-  const n = teams.length;
-  const identity = Array.from({ length: n }, (_, i) => i);
-  if (n <= 2) return identity;
-  const team = (s: number): number => (isTeamIndex(teams[s]) ? (teams[s] as number) : TEAM_COUNT + s);
-  let best = identity;
-  let bestKey: [number, number, number] | null = null;
-  for (const perm of permutationsFixingZero(n)) {
-    // perm[newSeat] = oldSeat
-    let diagonal = 0;
-    for (const [x, y] of [[0, 2], [1, 3]] as const) {
-      if (x < n && y < n && team(perm[x]!) === team(perm[y]!)) diagonal++;
-    }
-    const hostLeft = n > 3 && team(perm[3]!) === team(perm[0]!) ? 0 : 1;
-    const moved = perm.some((v, i) => v !== i) ? 1 : 0;
-    const key: [number, number, number] = [diagonal, hostLeft, moved];
-    if (bestKey === null || lexLess(key, bestKey)) {
-      bestKey = key;
-      best = perm;
-    }
-  }
-  return best;
-}
-
-function lexLess(a: readonly number[], b: readonly number[]): boolean {
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! < b[i]!;
-  return false;
-}
-
-/** Every permutation of 0..n-1 with 0 fixed, in lexicographic order (n ≤ 4 ⇒ at most 6). */
-function permutationsFixingZero(n: number): number[][] {
-  const rest = Array.from({ length: n - 1 }, (_, i) => i + 1);
-  const out: number[][] = [];
-  const go = (prefix: number[], left: number[]): void => {
-    if (left.length === 0) {
-      out.push([0, ...prefix]);
-      return;
-    }
-    for (let i = 0; i < left.length; i++) go([...prefix, left[i]!], [...left.slice(0, i), ...left.slice(i + 1)]);
-  };
-  go([], rest);
-  return out;
-}
-
-/**
  * ⭐ S192 (owner R192-T4) — the lobby chip's click: no team → TEAM 1 → … → TEAM 4 → no team. Shared by
  * the bot lobby and the multiplayer lobby so both cycle identically.
  */
@@ -197,23 +139,10 @@ export function teamChipLabel(pick: number | undefined): string {
   return isTeamIndex(pick) ? `T${pick + 1}` : '—';
 }
 
-/**
- * ⭐ S192 — apply `arrangeTeamSeats` to a seat-indexed list (races, teams, …): `out[newSeat] = list[order[newSeat]]`.
- * With no shared team the order is the identity, so a free-for-all lobby seats exactly as before.
+/*
+ * ⭐ S195 — `arrangeTeamSeats` / `permuteSeats` / `permuteBots` (S192/S194) are RETIRED: nobody is re-seated.
+ * The board maps each seat to its quadrant instead (`arrangeTeamZones` → `layoutForMatch` → `world.layout`).
  */
-export function permuteSeats<T>(list: readonly T[], order: readonly number[]): T[] {
-  return order.map((old) => list[old]!);
-}
-
-/**
- * ⭐ S194 — the same permutation for a per-BOT list (index 0 = the bot in seat 1): difficulties AND, since
- * the S193 personality chip, personalities. Seat 0 (the human) never moves (`order[0] === 0`), so bot `i`
- * of the new seating is the bot that sat in `order[i + 1]`. A pick travels with its bot — a re-seated
- * WARMONGER stays a WARMONGER. Identity order ⇒ the list unchanged (the free-for-all).
- */
-export function permuteBots<T>(perBot: readonly T[], order: readonly number[]): T[] {
-  return order.slice(1).map((old) => perBot[old - 1]!);
-}
 
 /**
  * ⭐⭐ S195 (owner N1 / R195-F1 / B-27) — **EVERY ZONE THE SEAT'S TEAM HOLDS**, ascending.
