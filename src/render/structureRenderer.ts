@@ -300,8 +300,8 @@ export interface BondDraw {
 /** Measurement probe (read by `scripts/lag/joiner-replay.spec.ts` through a dev-server module import). */
 export const BOND_CACHE_STATS = { frames: 0, buckets: 0, redraws: 0 };
 
-/** ⚠ MINE — the cache bucket size: 10 × 6 buckets on the 1920 × 1080 board. */
-export const BOND_CACHE_CELL_PX = 192;
+/** ⚠ MINE — the cache bucket size: 15 × 9 buckets on the 1920 × 1080 board (192 px redrew ~40 connectors per change). */
+export const BOND_CACHE_CELL_PX = 128;
 
 const DEFAULT_BOND_FX = 'fx.bond.default';
 

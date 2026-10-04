@@ -28,6 +28,7 @@ import type { Primitive } from '../game/primitive.ts';
 import { isAnchorCombo, isFilamentCombo, isMagical } from '../combos.ts';
 import { KEYSTONE_INCOME_MAX_NEIGHBORS } from '../constants.ts';
 import type { World } from '../state/world.ts';
+import { graphicsTier } from './graphicsTier.ts';
 
 export const KEYSTONE_RIGIDITY_PULSE_COLOR = 0xffd873; // gold — Anchor rigidity conferral
 export const KEYSTONE_INCOME_PULSE_COLOR = 0x74e0a4; // green — Filament income conferral
@@ -149,8 +150,38 @@ export class KeystoneTelegraphRenderer {
     parent.addChild(this.graphics);
   }
 
+  /** S195 N17 — the MINIMAL tier's last drawn hash (0 = nothing cached). */
+  private staticHash = 0;
+
   sync(world: World): void {
     const g = this.graphics;
+    /*
+     * ⭐ S195 N17 — MINIMAL draws only the faint persistent LINK lines (no travelling pulse dot), and redraws
+     * them only when the set of links changes. Measured: this renderer was 9.5 % of a MINIMAL frame at wave
+     * 10 under 4× throttle, all of it re-stroking the same lines with a dot that moves every frame. The link
+     * still marks which connectors a keystone blesses; the animation is the part a slow PC gives up.
+     * HIGH and LOW are untouched.
+     */
+    if (graphicsTier() === 'MINIMAL') {
+      const pulses = computeKeystonePulses(world);
+      let h = 0x811c9dc5;
+      for (const p of pulses) {
+        for (const v of [Math.round(p.fromX), Math.round(p.fromY), Math.round(p.toX), Math.round(p.toY), p.color]) {
+          h = Math.imul(h ^ v, 0x01000193) >>> 0;
+        }
+      }
+      h = Math.imul(h ^ pulses.length, 0x01000193) >>> 0 || 1;
+      if (h === this.staticHash) return;
+      this.staticHash = h;
+      g.clear();
+      for (const p of pulses) {
+        g.moveTo(Math.round(p.fromX), Math.round(p.fromY))
+          .lineTo(Math.round(p.toX), Math.round(p.toY))
+          .stroke({ width: 1, color: p.color, alpha: LINK_TINT_ALPHA });
+      }
+      return;
+    }
+    this.staticHash = 0;
     g.clear();
     const tick = world.tick;
     for (const p of computeKeystonePulses(world)) {
