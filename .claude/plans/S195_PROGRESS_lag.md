@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Implemented (typecheck 0): displayPrefs tier store, graphicsTier.ts, fxRuntime legacy OR, structureRenderer cache, settings radio row, main.ts sync + tierAdvisor hint. NEXT: quick measure LOW/MINIMAL at w10 4x via harness (add SPARK_LAG_TIERS env to set displayPrefs tier in the joiner), then tests (REACH, invalidation, HIGH identical), then decide extra MINIMAL cuts (keystoneTelegraph, damageNumbers).
+Tier matrix A done (p2-tiers-A.log). MINIMAL not yet >=40% at 4x w10 (HIGH 68.8 -> MIN 60.1 frame; idle 74 -> 46). Next: keystoneTelegraph MINIMAL = static link lines + hash-skip; bond cell 192->128; re-measure; then write tests (structureRenderer.tiers.test.ts with the preS195 fixture oracle, graphicsTier/displayPrefs/tierAdvisor tests, fxRuntime legacy OR).
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
@@ -24,3 +24,6 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 ## PHASE 2 log
 - p2 step 0: merged master eaf332a4 (no conflicts). Phase-1 tip was 08d4f3d3.
 - p2 step 1 WHY THE TOGGLE DID NOTHING: settings 'High-quality effects' checkbox -> displayPrefs 'display.fxHighQuality' -> main.ts polls every frame (applies LIVE, no reload needed) -> setFxHighQualityRuntime: removes ONLY the bloom filter on the fx light layer + shockwave/displacement/haze filters; groundDecalRenderer drops its texture; spawnerZoneRenderer draws a cheaper hub arc. displayPrefs' own docblock: 'LOW keeps every new particle and drops only the two filter passes'. On a built board those filters are a tiny share: the joiner frame is structureRenderer.drawBonds re-stroking EVERY connector every frame (+Pixi re-tessellating it) — profile w10 4x inclusive: main loop 46%: structureRenderer.sync 17.2% (drawBonds 16.2%, drawBondVisual 13.6%), keystoneTelegraph 6.2%, damageNumbers 4.4%, debugOverlay 7.5% (harness ?debug=1 only), goblinRenderer 3.3%, territory/scoring ~5%, healthBars 1.9%; rest is Pixi render (tessellation/upload of the rebuilt Graphics), program, GC.
+- p2 step 2: tiers implemented. STALE SERVER FOUND: an orphan vite (pid 59424, from the killed phase-1 run) served pre-edit modules; first tier run INVALID. Killed it; lag config now reuseExistingServer:false.
+- p2 step 3: tier matrix A (gpu, joiner without debug overlay) frame med ms: w5 1x HIGH 16.6 / LOW 8.5 / MIN 7.4; w10 1x 11.2 / 8.6 / 8.1; w10 4x 68.8 / 13.3(noisy) / 60.1 (idle 74.1/79.4/46.0); w10 6x 80.5/102.5/65.2. Cache redraw share: LOW 23% (1x) .. 55% (4x); MINIMAL 8-10%.
+- p2 profile MINIMAL w10 4x inclusive: structureRenderer.sync 10.5% (drawBondsCached 9.2%), keystoneTelegraph 9.5%, damageNumbers 5.9%, goblinRenderer 4.3%, healthBars 2.8%, tickGameState 2.9%.
