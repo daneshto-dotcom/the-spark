@@ -86,7 +86,7 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   // ⭐ S194 (master S192/S193 endgame) — the PANTS' chosen VICTIM seat: its units / its colour's buildings. A
   // monster (owner 255) has no team; "whose things this pants hunts" is one seat by the endgame spec (MINE).
   'state/endgameMonsters.ts': 5, // S194 R194-27 (s194/rules) — the pants' unit victim filter is now the per-tick index KEYED by ownerPlayerId (`ownedBy`): one ownership comparison fewer, same verdict
-  'state/exploredMemory.ts': 1,
+  // ⭐ S195 N1 — exploredMemory's own-shape skip asks sameTeam now (a teammate's shape is never a fog ghost).
   'state/gameMode.ts': 1,
   'state/gatherers/gathererLifecycle.ts': 5,
   'state/goblinAutoFeed.ts': 1, // S194 (master S193 T4) — your OWN spawner's auto-build toggle
@@ -116,7 +116,7 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   'state/structureRepair.ts': 2, // S194 — + master: a weld with someone else's shape is not yours to repair
   'state/territory.ts': 2,
   'state/towerUnit.ts': 2, // S194 (master S191) — a tower's members share ONE placer (structural identity)
-  'state/vision.ts': 2,
+  // ⭐ S195 N1 — vision.ts's two own-beacon filters ask sameTeam now (a teammate's eyes are yours).
 };
 
 /** Team-predicate calls per converted file (spec §A–D). */
@@ -127,6 +127,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'bots/botScorchedEarth.ts': 1, // S193 — the bot never scorches a teammate's zone
   'input/controls.ts': 4,
   'render/characterSheetModel.ts': 7, // S194 — + master's three building cards print ALLY BUILDING
+  'render/concealment.ts': 1, // ⭐ S195 N1 — a teammate's things are never concealed
   'render/creatureProjectile.ts': 1,
   'render/damageNumbers.ts': 4,
   'render/matchBoardModel.ts': 1, // S194 — the stat board stars the winner's whole TEAM
@@ -145,6 +146,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'state/defenders/stinkTower.ts': 1,
   'state/disruptionManager.ts': 1,
   'state/droneLifecycle.ts': 2,
+  'state/exploredMemory.ts': 1, // ⭐ S195 N1 — a teammate's shape is never a fog ghost
   'state/gameMode.ts': 1,
   'state/gameState.ts': 1,
   'state/magicResistCue.ts': 3, // S194 — the RESIST cue mirrors the sim's team spare (rot, stink aura, bag)
@@ -158,6 +160,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'state/racial/theRisen.ts': 1,
   'state/racial/zombieDeathBlast.ts': 6, // S194 — R193-B3 "his own side" = his TEAM (5 arms; a structure: either end)
   'state/territory.ts': 3,
+  'state/vision.ts': 2, // ⭐ S195 N1 — a teammate's primitives and creatures are your beacons
   'state/walls.ts': 2,
   'state/world.ts': 5,
 };
@@ -221,7 +224,7 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
   'render/characterSheetModel.ts': 7, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware)
   'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
-  'render/concealment.ts': 1, // the local viewer's own things are never concealed
+  // ⭐ S195 N1 — concealment's own-check asks sameTeam now (a teammate's things are never concealed).
   'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id
   'render/lobbyStateMachine.ts': 2, // seat-table rows
   // ⭐ S194 T10 — the stat board v2 (render-only, reads INERT counters; none of these is an ENEMY decision):
@@ -240,7 +243,6 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'state/creatures/retaliation.ts': 3, // creature ids
   'state/damage.ts': 4, // S194: + master CF-1 `mixedWeld` (a weld's carry owner). CARRY-1: the carry stays on the struck bond's OWNER (MINE, narrower than team); `alliesOf` excludes his own seat
   'state/endgameMonsters.ts': 1, // S194 — the pants' victim seat's units (monster, no team); R194-27 (s194/rules) moved the unit half into the owner-keyed index
-  'state/exploredMemory.ts': 1, // the local viewer's shapes
   'state/gatherers/gathererLifecycle.ts': 3, // your gatherer
   'state/goblinAutoFeed.ts': 1, // S194 — your own spawner
   'state/goblinKinds.ts': 2, // the goblin tower's owner
