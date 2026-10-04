@@ -1,7 +1,6 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## EXACT NEXT STEP (L5, owner R195-0g)
-L5 LANDED as S195-#5 7ceae8eb (deploy 37225108836 success, verify 4/4). Remaining: record CI E2E run 37225108817 per lane (incl. CI `[frame-profile]` / `[hunter]` lines from the e2e-render job) in the dispatch log. Then HOLD (open nothing new).
+## STATUS (L5): COMPLETE — S195-#5 7ceae8eb LIVE, verify 4/4, CI gating lanes all green (details in S195_DISPATCH_LOG.md). HOLDING per R195-0g; no next step.
 
 ## (L1–L4) STATUS: COMPLETE
 
