@@ -297,3 +297,46 @@ describe('S195 N17 — source guards (paired with the REACH tests above)', () =>
   });
 });
 
+
+describe('S195 N17 — the keystone telegraph on MINIMAL: still links, cached', () => {
+  it('HIGH draws the travelling pulse dots every frame; MINIMAL draws the link lines only and does not redraw for the clock', async () => {
+    const { KeystoneTelegraphRenderer, computeKeystonePulses } = await import('./keystoneTelegraphRenderer.ts');
+    const { isAnchorCombo, isMagical } = await import('../combos.ts');
+    let pick: [number, number, number] | null = null;
+    for (let a = 0; a < 6 && pick === null; a++) for (let b = 0; b < 6 && pick === null; b++) for (let c = 0; c < 6 && pick === null; c++) {
+      if (isAnchorCombo(a, b) && isMagical(b, c)) pick = [a, b, c];
+    }
+    expect(pick, 'an anchor hub with a magic neighbour exists in the combo table').not.toBeNull();
+    const [ta, tb, tc] = pick!;
+    const mk = (id: number, type: number, x: number): P => ({ id, type, pos: { x, y: 300 }, placedBy: 0, placerColor: COLORS[0]!, ownerColor: COLORS[0]!, bonds: new Set() });
+    const p0 = mk(0, ta, 300), p1 = mk(1, tb, 360), p2 = mk(2, tc, 420);
+    const hub: B = { id: 0, aId: 0, bId: 1, a: p0, b: p1, restLength: 60, stiffnessTier: 'MID' };
+    const nb: B = { id: 1, aId: 1, bId: 2, a: p1, b: p2, restLength: 60, stiffnessTier: 'MID' };
+    p0.bonds.add(0); p1.bonds.add(0); p1.bonds.add(1); p2.bonds.add(1);
+    const w = { tick: 10, gameMode: '1v1', fouledPrimitives: new Set(), players: new Map([[0, { color: COLORS[0] }]]),
+      primitives: new Map([[0, p0], [1, p1], [2, p2]]), bonds: new Map([[0, hub], [1, nb]]) } as unknown as World;
+    expect(computeKeystonePulses(w).length).toBeGreaterThan(0);
+
+    const parent = new ContainerStub();
+    const k = new KeystoneTelegraphRenderer(app, parent as never);
+    const g = parent.children[0] as GraphicsRec;
+    setTier('HIGH');
+    k.sync(w);
+    expect(g.ops.some((o) => o.name === 'circle'), 'HIGH: the pulse dot').toBe(true);
+    const highClears = g.clears;
+    (w as { tick: number }).tick++;
+    k.sync(w);
+    expect(g.clears, 'HIGH redraws every frame').toBe(highClears + 1);
+
+    setTier('MINIMAL');
+    k.sync(w);
+    expect(g.ops.some((o) => o.name === 'circle'), 'MINIMAL: no dot').toBe(false);
+    expect(g.ops.filter((o) => o.name === 'stroke').length, 'MINIMAL: one link line per pulse').toBe(computeKeystonePulses(w).length);
+    const minClears = g.clears;
+    for (let i = 0; i < 5; i++) { (w as { tick: number }).tick++; k.sync(w); }
+    expect(g.clears, 'MINIMAL: the clock alone never redraws').toBe(minClears);
+    p2.pos.x += 5; // the structure moved
+    k.sync(w);
+    expect(g.clears, 'MINIMAL: a moved link redraws').toBe(minClears + 1);
+  });
+});
