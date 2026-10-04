@@ -1,7 +1,10 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Fix round: mutations all RED (foul-one-end, pulse-no-cover, pattern-in-solo, colorA-out-of-hash: each 1 failed); auditor zzAudit3 + hint test RED on pre-fix code (2 failed), GREEN after. Gates RUNNING in bg (fr-*.exit). Then final report.
+FIX ROUND DONE, gates green (see FIX ROUND FINAL). Waiting for the merge owner.
+
+## FIX ROUND FINAL
+merge cf06a64b; typecheck 0, vitest 0, build 0, e2e:gating 0, settings-toggles 0. Mutations: foul-one-end / pulse-no-cover / pattern-in-solo / colorA-out-of-hash all RED. zzAudit3 + hint-hide RED on pre-fix code, GREEN after.
 
 ## PHASE 2 FINAL
 merge e1dc25fa (master 53ba655b, no conflicts). typecheck 0; vitest 0 (577 files passed / 6 skipped, 8782 tests); build 0 entry 1189.5 KiB (60.5 headroom); e2e:gating 0 (67 passed, own port 26135); e2e/settings-toggles.spec.ts 0 (3 passed). Bump NO (render-only). Report section 5 has the per-tier table.
