@@ -37,7 +37,39 @@
         "#2": "c66f6dd6",
         "#3": "f3885952",
         "#4": "bb40ccb5"
-      }
+      },
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "PROTOCOL_VERSION = 67"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/zones.ts",
+          "needle": "CASTLE_PORCH_BUILD_CLEAR_RADIUS"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/structureRepair.ts",
+          "needle": "fallenTowerFixCanRegister"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/uiScreenChrome.ts",
+          "needle": "glowTitleStyle"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/live-mp/live-2peer.mjs",
+          "needle": "live"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S195_DISPATCH_LOG.md",
+          "needle": "S195-#4"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
