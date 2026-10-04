@@ -34,9 +34,9 @@
  */
 
 import { joinRoom, selfId } from '@trystero-p2p/nostr';
-import { APP_ID, HANDSHAKE_TIMEOUT_MS, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
+import { APP_ID, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
 import { Lobby3, isThreeCode } from './lobby3.ts';
-import { Matchmaker, type Channel, type MatchmakerDeps, type RoomHandlers, type RoomLike } from './matchmaker.ts';
+import { HANDSHAKE_MS, Matchmaker, serialRooms, type Channel, type MatchmakerDeps, type RoomHandlers, type RoomLike } from './matchmaker.ts';
 
 export interface PitchNetApi {
   quickMatch(): void;
@@ -91,8 +91,12 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
     },
     roomId,
     {
-      handshakeTimeoutMs: HANDSHAKE_TIMEOUT_MS,
-      onJoinError: (e) => console.warn('[pitchnet] join error', e.error),
+      // PM-S4 net-blip: 5 s, not SPARK's 30 s (matchmaker.ts HANDSHAKE_MS: a stuck handshake after a blip).
+      handshakeTimeoutMs: HANDSHAKE_MS,
+      onJoinError: (e) => {
+        console.warn('[pitchnet] join error', e.error);
+        if (e.peerId) h.onPeerError?.(e.peerId, String(e.error));
+      },
     },
   );
   const ctl = room.makeAction<string>('ctl');
@@ -106,9 +110,7 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
     send: (channel, data, to) => {
       void actions[channel].send(data, to === undefined ? undefined : { target: to }).catch(() => undefined);
     },
-    leave: () => {
-      void room.leave().catch(() => undefined);
-    },
+    leave: () => room.leave().catch(() => undefined),
   };
 }
 
@@ -118,7 +120,8 @@ export function installPitchNet(): PitchNetApi {
   const debug = new URLSearchParams(location.search).has('netdebug');
   const deps: MatchmakerDeps = {
     selfId,
-    join: trysteroRoom,
+    // PM-S4 net-blip: a re-join of a room id waits for its leave to finish (matchmaker.ts serialRooms).
+    join: serialRooms(trysteroRoom),
     now: () => performance.now(),
     wallNow: () => Date.now(),
     random: () => {

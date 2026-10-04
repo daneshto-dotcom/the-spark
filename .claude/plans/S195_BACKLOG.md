@@ -366,3 +366,9 @@ Bumps this session: T11 (67) at §A0; T22 #4 if ruled; T19 #1 only if the S186 t
   agent from the brief + progress file. Commit every 5–10 minutes.
 - A timeout-only red under shared load is re-run alone and ruled with the measurement (firstTowerSpeed 34.7 s, botFix 79 s) —
   never silenced, never relaxed.
+
+## §E · S195 FINDINGS LOGGED DURING THE RUN (routed, not dropped)
+- **F1 possible render leak** (s195/ci-perf report): a local full 4401-tick render-heap soak failed its census — display objects 1778 → 2017 (+239 vs limit 51), textures 115 → 144. Not caused by ci-perf; never visible on CI (window always too short). Maybe fx pools filling to their caps (S192–S194), unconfirmed. → T19 polish (render) — measure pool caps first.
+- **F2 unframed stage pixel reads** (same drift fog.spec had: title embers widen the stage each frame): `e2e/nplayer.spec.ts:379`, `e2e/rainbow-castle.spec.ts:70` → T20 multiplayer (nplayer) / T19 (rainbow-castle): hide title + pin extract to 1920×1080 like fog.spec.
+- **F3 visual stack over its perf contract** (~+1.4–1.5 ms HIGH vs +1.0, noisy machine): re-measure on a quiet machine; candidate cuts visuals-6 ground fx (~190 sprites), vampire sigil star, demon embers → owner LOOK before cutting; T19.
+- **F4 CLAUDE.md gates section** must gain the `e2e-render` lane, the new budgets, and `e2e-protocol` non-gating (S142 escape hatch) — merge owner, after ci-perf lands.

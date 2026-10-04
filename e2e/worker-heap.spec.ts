@@ -82,6 +82,33 @@ const GROWTH_LIMIT_MB = 10;
 // is now LOGGED rather than silently swallowed.
 const WARMUP_WALL_CAP_MS = 240_000;
 
+// ⛔ S195 T21 — THE WINDOW IS SIZED IN TICKS; ITS WALL CAP IS DERIVED FROM THE RATE THE WARM-UP MEASURED.
+//
+// Run 37047025269 (deploy #6): the bots worlds ran 3.6 ticks/s on CI — HALF the 7.2–7.7 every number
+// in this file (and LOCKED_DECISIONS §15) was calibrated at — so the fixed 300 s window measured 1 098
+// ticks and the MIN_VALID_TICKS (1 300) liveness floor fired on a sim that was alive, i.e. the floor
+// had become the runner-speed criterion §15.1 rule 3 forbids. The TD-heavy baseline fell further
+// (28.3 → 5.6 ticks/s) and ran out of TEST time instead (setup ~137 s + warm-up 226 s + window).
+//
+// ⚠ THIS IS NOT THE "BUY 10k TICKS WITH WALL-CLOCK" FIX §15.1 rule 2 rejects. The target stays
+// TARGET_TICKS and stays unreachable for bots worlds; what is restored is the window S127 CALIBRATED
+// against — ~2 200 CI ticks (2 154–2 301), which the census arithmetic (§15.3) and the floor were
+// derived from. The wall cap is that design window divided by the warm-up's own measured rate
+// (+15 %, because throughput falls as the world grows), clamped to [WALL_CAP_MS, WINDOW_WALL_CEIL_MS].
+// A runner as fast as S127's gets exactly the old 300 s window; a slower one gets the TICKS, not a
+// stretched limit. Every threshold below is still normalised to `measured`, unchanged.
+const DESIGN_WINDOW_TICKS = 2_000;
+const WINDOW_WALL_CEIL_MS = 600_000;
+/** Browser launch + goto + mode setup + the two stabilizedSample calls (measured ~137 s of setup on CI). */
+const SETUP_AND_SAMPLES_MS = 240_000;
+const SOAK_TEST_BUDGET_MS = SETUP_AND_SAMPLES_MS + WARMUP_WALL_CAP_MS + WINDOW_WALL_CEIL_MS;
+function windowWallCapMs(warmTicks: number, warmMs: number): number {
+  const rate = warmTicks / Math.max(warmMs / 1000, 0.001);
+  if (!(rate > 0)) return WINDOW_WALL_CEIL_MS;
+  const need = Math.ceil(((DESIGN_WINDOW_TICKS / rate) * 1000) * 1.15);
+  return Math.min(WINDOW_WALL_CEIL_MS, Math.max(WALL_CAP_MS, need));
+}
+
 // Floor of MEANING, hard-asserted: below this nothing here carries information, so a red is honest
 // — the run produced NO measurement and must be RE-RUN, never re-tuned.
 //
@@ -262,7 +289,9 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
   const t0 = await page.evaluate(
     () => (window as unknown as { __SPARK__: { world: { tick: number } } }).__SPARK__.world.tick,
   );
+  const warmStart = Date.now();
   const warm = await waitForTick(page, t0 + WARMUP_TICKS, WARMUP_WALL_CAP_MS);
+  const windowCapMs = windowWallCapMs(warm.tick - t0, Date.now() - warmStart);
   // Never swallow a truncated warm-up: it invalidates the s0 baseline below.
   console.log(
     `[S123-P3 ${tag} warm-up] ticks=${warm.tick - t0}/${WARMUP_TICKS} ` +
@@ -280,8 +309,8 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
   }
 
   const s0 = await stabilizedSample(page);
-  const meas = await waitForTick(page, s0.tick + TARGET_TICKS, WALL_CAP_MS);
-  console.log(`[S123-P3 ${tag} window] capped=${meas.capped} curve=[${meas.curve}]`);
+  const meas = await waitForTick(page, s0.tick + TARGET_TICKS, windowCapMs);
+  console.log(`[S123-P3 ${tag} window] capped=${meas.capped} wallCap=${Math.round(windowCapMs / 1000)}s curve=[${meas.curve}]`);
   const s1 = await stabilizedSample(page);
 
   const measured = s1.tick - s0.tick;
@@ -361,7 +390,7 @@ test.describe('S123 P3 — worker-mode GC/heap audit @soak', () => {
     // throughput dip would then time out DURING s1 — and with PW_RETRIES: 0 and the evidence line
     // printed only AFTER s1, that yields a red with NO measurement, the exact outcome S127 exists
     // to prevent. Written as an expression so it cannot drift when a cap is retuned.
-    test.setTimeout(WARMUP_WALL_CAP_MS + WALL_CAP_MS + 120_000);
+    test.setTimeout(SOAK_TEST_BUDGET_MS); // ⛔ S195 T21 — derived; see DESIGN_WINDOW_TICKS
     await page.addInitScript({
       content:
         'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' +
@@ -458,7 +487,7 @@ test.describe('S123 P3 — worker-mode GC/heap audit @soak', () => {
     // throughput dip would then time out DURING s1 — and with PW_RETRIES: 0 and the evidence line
     // printed only AFTER s1, that yields a red with NO measurement, the exact outcome S127 exists
     // to prevent. Written as an expression so it cannot drift when a cap is retuned.
-    test.setTimeout(WARMUP_WALL_CAP_MS + WALL_CAP_MS + 120_000);
+    test.setTimeout(SOAK_TEST_BUDGET_MS); // ⛔ S195 T21 — derived; see DESIGN_WINDOW_TICKS
     await page.addInitScript({
       content:
         'window.__TEST_SPAWN_RATE_PER_SECOND__ = 2;' +

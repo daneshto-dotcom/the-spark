@@ -9,14 +9,17 @@ import {
   CODE_ALPHABET,
   DISCOVERY_ROOM,
   FRIEND_JOIN_TIMEOUT_MS,
+  HANDSHAKE_MS,
   isElder,
   Matchmaker,
   MATCH_ROOM_TIMEOUT_MS,
   parseFriendCode,
   REJOIN_FIRST_MS,
+  serialRooms,
   SILENCE_MS,
   type Channel,
   type RoomHandlers,
+  type RoomLike,
 } from './matchmaker.ts';
 
 /** Every room of a fake relay; messages are queued and delivered by `flush()`, in order. */
@@ -34,6 +37,20 @@ class Bus {
   deaf(peer: string, joins = 1): void {
     this.deafJoins.set(peer, joins);
   }
+
+  /**
+   * PM-S4 net-blip: the next join of `peer` gets a STUCK transport handshake (the live failure): the others see
+   * `peer` join and hear nothing from it, `peer` never sees them, cannot send, and drops what they send;
+   * HANDSHAKE_MS later its transport reports `handshake timed out` for each of them (onPeerError).
+   */
+  wedge(peer: string, joins = 1): void {
+    this.wedgeJoins.set(peer, joins);
+  }
+
+  private readonly wedgeJoins = new Map<string, number>();
+  /** `room:peer` joins whose side of the handshake is stuck (see wedge). */
+  private readonly stuck = new Set<string>();
+  private timers: { at: number; fn: () => void }[] = [];
 
   /** A frozen tab (its main thread blocked): nothing reaches `peer` until release(peer). */
   hold(peer: string): void {
@@ -60,19 +77,34 @@ class Bus {
       this.deafJoins.set(peer, deafLeft - 1);
       return { send: () => undefined, leave: () => undefined };
     }
+    const wedgeLeft = this.wedgeJoins.get(peer) ?? 0;
+    const stuck = wedgeLeft > 0;
+    if (stuck) {
+      this.wedgeJoins.set(peer, wedgeLeft - 1);
+      this.stuck.add(`${roomId}:${peer}`);
+    } else this.stuck.delete(`${roomId}:${peer}`);
     for (const [other, oh] of r) {
       this.queue.push(() => {
         if (r.get(other) === oh && r.get(peer) === h) {
           oh.onPeerJoin(peer);
-          h.onPeerJoin(other);
+          if (!stuck) h.onPeerJoin(other);
         }
       });
+      if (stuck) {
+        this.timers.push({
+          at: this.now + HANDSHAKE_MS,
+          fn: () => {
+            if (r.get(peer) === h && this.stuck.has(`${roomId}:${peer}`)) h.onPeerError?.(other, `handshake timed out after ${HANDSHAKE_MS}ms`);
+          },
+        });
+      }
     }
     r.set(peer, h);
     return {
       send: (c, d, to) => {
+        if (this.stuck.has(`${roomId}:${peer}`)) return; // not live on our side: the transport refuses to send
         for (const [other, oh] of r) {
-          if (other === peer || (to !== undefined && to !== other)) continue;
+          if (other === peer || (to !== undefined && to !== other) || this.stuck.has(`${roomId}:${other}`)) continue;
           const deliver = (): void => {
             if (r.get(other) === oh && r.get(peer) === h) oh.onMessage(c, d, peer);
           };
@@ -95,6 +127,9 @@ class Bus {
   }
 
   flush(): void {
+    const due = this.timers.filter((x) => x.at <= this.now);
+    this.timers = this.timers.filter((x) => x.at > this.now);
+    for (const x of due) this.queue.push(x.fn);
     for (let i = 0; i < 10_000 && this.queue.length > 0; i++) this.queue.shift()!();
   }
 
@@ -439,6 +474,44 @@ describe('PM-S2 online2: blips, round trip, visibility, head count', () => {
     expect(b.status()).toMatchObject({ state: 'matched', stalled: false });
   });
 
+  it('PM-S4 net-blip: a rejoin stuck in the transport handshake is retried as soon as the transport gives up', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    bus.wedge('peerB', 1); // the blip's own rejoin: the host goes live on it, the client never does (live failure)
+    expect(b.blip(6000)).toBe(true);
+    const got: string[] = [];
+    let backAt = -1;
+    for (let t = 0; t < 30_000; t += 250) {
+      if (t < 4000) a.send(`m${t}`);
+      run(bus, [a, b], 250);
+      got.push(...b.poll());
+      if (backAt < 0 && t > 6000 && !a.status().stalled && !b.status().stalled) backAt = t;
+    }
+    // The client rejoined at once when its handshake timed out (HANDSHAKE_MS after the blip's rejoin), not after
+    // REJOIN_FIRST_MS; the clean leave reset the host's side and the fresh join brought both back, nothing lost.
+    expect(backAt).toBeGreaterThan(6000 + HANDSHAKE_MS - 500);
+    expect(backAt).toBeLessThan(6000 + HANDSHAKE_MS + 1500);
+    expect(6000 + HANDSHAKE_MS + 1500).toBeLessThan(6000 + REJOIN_FIRST_MS);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: false });
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: false });
+    expect(got).toEqual(Array.from({ length: 16 }, (_, i) => `m${i * 250}`));
+  });
+
+  it('PM-S4 net-blip: a handshake error never moves the host (the anchor)', () => {
+    const bus = new Bus();
+    const [a, b] = pair(bus);
+    const hostJoins = (): number => bus.joins.filter((j) => j.startsWith('peerA:pitchmasters-m-')).length;
+    const before = hostJoins();
+    b.blip(6000);
+    run(bus, [a, b], 500);
+    // The host's own transport reports a stuck handshake with the client (its stray re-attach timing out).
+    (a as unknown as { roomHandlers: RoomHandlers }).roomHandlers.onPeerError?.('peerB', 'handshake timed out after 5000ms');
+    run(bus, [a, b], 20_000);
+    expect(hostJoins()).toBe(before);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: false });
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: false });
+  });
+
   it('a partner who drops and never comes back ends the match after the grace', () => {
     const bus = new Bus();
     const [a, b] = pair(bus);
@@ -520,5 +593,77 @@ describe('PM-S2 online2: blips, round trip, visibility, head count', () => {
     expect(a.status().seekers).toBe(0); // out of the queue
     a.cancel();
     expect(a.status().seekers).toBe(0);
+  });
+});
+
+describe('serialRooms (PM-S4 net-blip)', () => {
+  /** A transport whose leave() finishes only when the test says so (Trystero: @_leave, ~100 ms, teardown). */
+  function slowTransport(): { join: (id: string, h: RoomHandlers) => RoomLike; joins: string[]; leaves: string[]; finish: () => Promise<void> } {
+    const joins: string[] = [];
+    const leaves: string[] = [];
+    let pending: (() => void)[] = [];
+    return {
+      joins,
+      leaves,
+      join: (id) => {
+        const n = joins.push(id);
+        return {
+          send: () => undefined,
+          leave: () => {
+            leaves.push(`${id}#${n}`);
+            return new Promise<void>((res) => pending.push(res));
+          },
+        };
+      },
+      finish: async () => {
+        const p = pending;
+        pending = [];
+        for (const r of p) r();
+        await new Promise((r) => setTimeout(r, 0));
+      },
+    };
+  }
+  const h: RoomHandlers = { onMessage: () => undefined, onPeerJoin: () => undefined, onPeerLeave: () => undefined };
+
+  it('a re-join of a room still being left waits for the leave, then joins once', async () => {
+    const t = slowTransport();
+    const join = serialRooms(t.join);
+    const r1 = join('m-1', h);
+    expect(t.joins).toEqual(['m-1']);
+    void r1.leave();
+    join('m-1', h); // the retry: leave + join in one go
+    expect(t.joins).toEqual(['m-1']); // NOT the dying room again
+    await t.finish();
+    expect(t.joins).toEqual(['m-1', 'm-1']);
+  });
+
+  it('a leave runs once however often it is called', async () => {
+    const t = slowTransport();
+    const join = serialRooms(t.join);
+    const r1 = join('m-1', h);
+    void r1.leave();
+    void r1.leave();
+    await t.finish();
+    void r1.leave();
+    expect(t.leaves).toEqual(['m-1#1']);
+  });
+
+  it('a waiting join that is left before it ever joined never joins', async () => {
+    const t = slowTransport();
+    const join = serialRooms(t.join);
+    void join('m-1', h).leave();
+    void join('m-1', h).leave();
+    await t.finish();
+    await t.finish();
+    expect(t.joins).toEqual(['m-1']);
+    expect(t.leaves).toEqual(['m-1#1']);
+  });
+
+  it('other room ids are not held up', () => {
+    const t = slowTransport();
+    const join = serialRooms(t.join);
+    void join('m-1', h).leave();
+    join('m-2', h);
+    expect(t.joins).toEqual(['m-1', 'm-2']);
   });
 });
