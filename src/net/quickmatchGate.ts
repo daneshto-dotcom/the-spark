@@ -11,7 +11,7 @@
  * Unit-tested in quickmatch.test.ts.
  */
 
-import { buildLobbyRoster, reconcileLobbySeats, withTeams } from './lobbyRoster.ts';
+import { buildLobbyRoster, reconcileLobbySeats, withSlots, withTeams } from './lobbyRoster.ts';
 import type { HostPhase, RosterEntry } from './protocol.ts';
 import type { NetSession } from './session.ts';
 import { selfId, type NetTransport } from './transport.ts';
@@ -142,6 +142,10 @@ export function broadcastQmPresence(
     for (const peer of [...session.teamByPeer.keys()]) {
       if (!present.has(peer)) session.teamByPeer.delete(peer);
     }
+    // ⭐ S195 (N16) — and a departed peer's board slot.
+    for (const peer of [...session.slotByPeer.keys()]) {
+      if (!present.has(peer)) session.slotByPeer.delete(peer);
+    }
   }
   // ⭐ S161 P6 — the race claims ride the ONE presence path. `broadcastQmPresence` is documented
   // above as "The SINGLE presence-broadcast path for the host", which is precisely why the claims
@@ -149,12 +153,13 @@ export function broadcastQmPresence(
   // readiness, and now a race pick) already funnels through this function, so there is no second
   // place a claim could be forgotten.
   // ⭐ S192 — the team picks ride the same one presence path as the race claims.
-  const base = withTeams(
+  // ⭐ S195 (N16) — and the host's board-slot arrangement, on the same one path.
+  const base = withSlots(withTeams(
     buildLobbyRoster(session.lobbySeats, selfId, session.raceByPeer, session.selfRace ?? undefined),
     session.teamByPeer,
     session.selfTeam,
     selfId,
-  );
+  ), session.slotByPeer, session.selfSlot, selfId);
   const roster = session.quickmatch
     ? rosterWithReady(base, session.qmReadyPeers, session.qmSelfReady, selfId)
     : base;

@@ -474,7 +474,7 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
           // ⛔ W1-A (S160) — see hostHandlers' twin: optional target field, so tsc is silent if
           // this drops the race. A joiner that drops it renders every castle its own default.
           // ⭐ S192 — and the team (same trap): a joiner that dropped it would play free-for-all.
-          roster: msg.roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team })),
+          roster: msg.roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team, slot: e.slot })),
         });
       }
       // S118 P1 (host-migration D2) — accept the host's SuccessionWarrant off the Begin signal. NOT

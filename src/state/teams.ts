@@ -258,3 +258,36 @@ export function layoutForMatch(seatCount: number, picks: readonly (number | unde
   if (identity) return plain;
   return `QUADRANTS_4P:${owners.map((o) => (o === null ? '-' : String(o))).join('')}`;
 }
+
+/**
+ * ⭐⭐ S195 (R194-19 / R195-T2 / N16) — **WHERE EACH SEAT WILL STAND, for the lobby rack.** `teams[d]` and
+ * `prefs[d]` for the occupied seats in ascending (dense) order; returns each one's HOME quadrant — exactly
+ * `zoneOwner(d, layoutForMatch(n, teams, prefs))`, the board `applyStartGame` will stamp. PURE.
+ */
+export function boardSlotsForSeats(teams: readonly (number | undefined)[], prefs: readonly (number | undefined)[]): number[] {
+  const n = teams.length;
+  const owners = arrangeTeamZones(teams, n, prefs);
+  if (owners !== null) return Array.from({ length: n }, (_, d) => { const z = owners.indexOf(d); return z >= 0 ? z : d; });
+  // The pitch (≤ 2 seats): the prefs, if a clean injection into 0..3; the identity otherwise.
+  const ok = prefs.length === n && prefs.every((p, d) => typeof p === 'number' && Number.isInteger(p) && p >= 0 && p < 4 && prefs.indexOf(p) === d);
+  return Array.from({ length: n }, (_, d) => (ok ? (prefs[d] as number) : d));
+}
+
+/**
+ * ⭐⭐ S195 (owner N16) — **THE HOST MOVES A PLAYER ONE SLOT ON** (clockwise: NW → NE → SE → SW → NW).
+ * *"the host of the server should be able to … move players to be from player one, player two, player
+ * three"*. The mover swaps board slots with whoever stands on the next one (or takes it if it is empty);
+ * returns every occupied seat's new slot PREFERENCE (dense order). The board still obeys the owner's
+ * shape rules (`arrangeTeamZones`): a move that would break them (the 2v1 solo off NW) re-orders the
+ * preference but the tile stays where the rules put it. PURE, total.
+ */
+export function moveSeatSlot(teams: readonly (number | undefined)[], prefs: readonly (number | undefined)[], mover: number): number[] {
+  const cur = boardSlotsForSeats(teams, prefs);
+  const next = [...cur];
+  if (mover < 0 || mover >= cur.length) return next;
+  const target = (cur[mover]! + 1) % 4;
+  const other = cur.indexOf(target);
+  if (other >= 0) next[other] = cur[mover]!;
+  next[mover] = target;
+  return next;
+}

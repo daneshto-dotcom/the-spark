@@ -29,7 +29,7 @@ import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
-import { reconcileLobbySeats, buildMatchRoster, withTeams } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildMatchRoster, withTeams, withSlots } from './lobbyRoster.ts';
 import { sessionTeamsPlayable } from './quickmatchGate.ts';
 import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
@@ -549,7 +549,8 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
     // ⭐ S192 — and the lobby's TEAM picks, before `hostSeats` freezes below. ⭐ S195 (R195-T2/T3): nobody is
     // re-seated any more — the board maps each seat to its quadrant at START_GAME (`layoutForMatch`).
-    const roster = (withTeams(
+    // ⭐ S195 (N16) — and the host's board-slot arrangement, so the board matches the lobby the host built.
+    const roster = withSlots(withTeams(
       buildMatchRoster(
         deps.session.lobbySeats,
         selfId,
@@ -559,7 +560,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       deps.session.teamByPeer,
       deps.session.selfTeam,
       selfId,
-    ));
+    ), deps.session.slotByPeer, deps.session.selfSlot, selfId);
     const seatedRemotes = roster.length - 1;
     if (allPeers.length > seatedRemotes) {
       console.warn(
@@ -633,7 +634,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       // because the target field is optional — the spec calls this projection and its twin in
       // clientHandlers the single likeliest place for the whole feature to half-land.
       // ⭐ S192 — and the team, the same optional-field trap: drop it and the host plays free-for-all.
-      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team })),
+      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team, slot: e.slot })),
     });
   } finally {
     deps.session.beginInFlight = false;

@@ -1845,6 +1845,7 @@ async function bootstrap(): Promise<void> {
         ready: e.ready,
         raceId: e.raceId,
         team: e.team, // ⭐ S192 — the team chip
+        slot: e.slot, // ⭐ S195 (N16) — the host's board-slot arrangement
       })),
     );
   };

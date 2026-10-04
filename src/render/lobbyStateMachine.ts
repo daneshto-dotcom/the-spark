@@ -37,7 +37,7 @@ import { isValidRoomCode } from './lobbyGeometry.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
-import { arrangeTeamZones, teamsPlayable } from '../state/teams.ts';
+import { boardSlotsForSeats, teamsPlayable } from '../state/teams.ts';
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 // Status-line colours — exported so the shell + tests share the exact values
@@ -417,23 +417,11 @@ export interface SeatView {
 export function seatBoardSlots(seats: readonly { readonly occupied: boolean; readonly team?: number; readonly slotPref?: number }[]): number[] {
   const n = seats.length;
   const occ = seats.map((s, i) => ({ s, i })).filter((x) => x.s.occupied);
+  const home = boardSlotsForSeats(occ.map((x) => x.s.team), occ.map((x) => x.s.slotPref));
   const out: number[] = new Array<number>(n).fill(-1);
-  const owners = arrangeTeamZones(occ.map((x) => x.s.team), occ.length, occ.map((x) => x.s.slotPref));
   const taken = new Set<number>();
-  occ.forEach((x, d) => {
-    let z = d;
-    if (owners !== null) {
-      const home = owners.indexOf(d);
-      if (home >= 0) z = home;
-    } else {
-      const pref = x.s.slotPref;
-      if (typeof pref === 'number' && Number.isInteger(pref) && pref >= 0 && pref < n && occ.every((o, k) => k === d || o.s.slotPref !== pref)) z = pref;
-    }
-    if (taken.has(z)) z = [...Array(n).keys()].find((k) => !taken.has(k)) ?? d;
-    out[x.i] = z;
-    taken.add(z);
-  });
-  // The 2v1 solo also owns the empty SW — keep it free of an empty tile only if nothing else needs it.
+  occ.forEach((x, d) => { out[x.i] = home[d]!; taken.add(home[d]!); });
+  // Empty tiles fill the quadrants nobody stands on, lowest first (the 2v1 solo's second corner included).
   for (let i = 0; i < n; i++) {
     if (out[i] !== -1) continue;
     const free = [...Array(n).keys()].find((k) => !taken.has(k));

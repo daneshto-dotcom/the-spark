@@ -38,6 +38,7 @@
 // colour here now derives from a race. `noUnusedLocals` is on, so tsc enforces that.
 import { MAX_PLAYERS } from '../constants.ts';
 import type { RosterEntry } from './protocol.ts';
+import { moveSeatSlot } from '../state/teams.ts';
 import { ALL_RACES, RACE_COLORS, defaultRaceForSeat, type RaceId } from '../state/races.ts';
 
 // Host is always seat 0; remote peers occupy seats 1..MAX_PLAYERS-1.
@@ -147,6 +148,46 @@ export function withTeams(
   });
 }
 
+
+/**
+ * ⭐ S195 (owner N16) — stamp the HOST's board-slot arrangement onto a roster by peerId (`withTeams`' twin).
+ * Nobody re-arranged ⇒ no key at all ⇒ byte-identical to pre-S195.
+ */
+export function withSlots(
+  roster: readonly RosterEntry[],
+  slotByPeer: ReadonlyMap<string, number>,
+  selfSlot: number | null,
+  selfId: string,
+): RosterEntry[] {
+  return roster.map((e) => {
+    const s = e.peerId === selfId ? selfSlot : slotByPeer.get(e.peerId);
+    return s === null || s === undefined ? e : { ...e, slot: s };
+  });
+}
+
+/**
+ * ⭐⭐ S195 (owner N16) — THE HOST MOVES THE PLAYER IN STABLE LOBBY SEAT `seat` ONE BOARD SLOT ON. Reads the
+ * current arrangement off the roster the rack shows (dense order = ascending seat), writes every occupied
+ * peer's new preference into the session maps. Host-only by construction: peers have no message for it,
+ * so nobody can move himself — or anybody else — into a taken seat.
+ */
+export function hostMoveSeat(
+  roster: readonly RosterEntry[],
+  seat: number,
+  selfId: string,
+  slotByPeer: Map<string, number>,
+  setSelfSlot: (slot: number) => void,
+): boolean {
+  const dense = [...roster].sort((a, b) => a.seat - b.seat);
+  const mover = dense.findIndex((e) => e.seat === seat);
+  if (mover < 0) return false;
+  const next = moveSeatSlot(dense.map((e) => e.team), dense.map((e) => e.slot), mover);
+  dense.forEach((e, d) => {
+    if (e.peerId === selfId) setSelfSlot(next[d]!);
+    else slotByPeer.set(e.peerId, next[d]!);
+  });
+  return true;
+}
 
 export function buildLobbyRoster(
   seatByPeer: ReadonlyMap<string, number>,
