@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-RESUMED. Tier matrix B x2 RUNNING (bg bldl7oi2j -> .tmp-gates/lag/p2-tiers-B{1,2}.log). Headers updated. Next: when B done -> git merge master, gates (typecheck, vitest --maxWorkers=3, build, e2e:gating own port), report section 5, final report.
+Measurements DONE. Now: git merge master, gates (typecheck, vitest --maxWorkers=3, build, e2e:gating own port), then report section 5 + final report.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
@@ -31,3 +31,4 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 - PAUSE (owner order): stopped bg tier matrix B + killed my vite on 26135. All work committed.
 - p2 B1 (exit 0): frame med ms HIGH/LOW/MIN — w5 1x 11.0/8.9/5.9; w5 4x 60.7/61.2/46.2; w5 6x 66.5/75.1/61.6; w10 1x 11.0/5.6/4.8; w10 4x 62.5/43.7/27.9 (fps 12/20/30); w10 6x 68.3/58.4/51.9. idle w10 4x 56.5/29.0/16.5.
 - p2 B2 (exit 0): HIGH/LOW/MIN frame — w5 1x 7.1/9.7/5.8; w5 4x 43.3/60.5/46.8; w5 6x 71.5/71.5/56.4; w10 1x 8.1/6.5/4.9; w10 4x 52.8/52.7/42.0 (fps 15/15/20); w10 6x 59.6/78.8/57.9; idle w10 4x 47.5/54.9/19.8. LOW barely helps throttled (0.5 px quantum -> ~55% buckets redrawn). Trying LOW posQuantum 1.
+- p2 LOW 1px (2 reps, w10 4x): HIGH 83.0/80.3 -> LOW 70.2/62.3 ms; LOW still redraws ~53% of buckets because its animated silhouettes step every 6 ticks and a 12-fps frame crosses a step every frame. Kept (no visual cost); MINIMAL is the slow-PC tier.
