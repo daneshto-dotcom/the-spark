@@ -34,7 +34,7 @@ import {
   setSfxMuted,
   setSfxVolume,
 } from './audioManager.ts';
-import { isFxHighQuality, isZoneBackgroundEnabled, setFxHighQuality, setZoneBackgroundEnabled } from './displayPrefs.ts';
+import { GRAPHICS_TIERS, getGraphicsTier, isZoneBackgroundEnabled, setGraphicsTier, setZoneBackgroundEnabled, type GraphicsTier } from './displayPrefs.ts';
 
 /**
  * ⭐ S189 fix round (audit NET-3) — the settings panel's Escape: close it. Used by BOTH of its Escape
@@ -158,10 +158,14 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
   const zoneBgRow = createToggleRow('Race background', 'zone-bg');
   root.appendChild(raceMusicRow.el);
   root.appendChild(zoneBgRow.el);
-  // ⭐ S192 `s192/visuals` — bloom + ground ripples on/off (`fx/fxRuntime.ts`). main.ts polls the store
-  // every frame, exactly as it does for the race background, so the switch is visible immediately.
-  const fxHqRow = createToggleRow('High-quality effects', 'fx-hq');
-  root.appendChild(fxHqRow.el);
+  /*
+   * ⭐⭐ S195 N17 (owner) — THE GRAPHICS TIER, replacing S192's "High-quality effects" box. *"when my brother
+   * toggled it, it didn't really change anything … So he kept lagging"* — that box only removed two filter
+   * passes. The three tiers are described in `render/graphicsTier.ts`; main.ts polls the store every frame,
+   * so a click is on screen on the next frame (no reload), and the choice is remembered per viewer.
+   */
+  const tierRow = createTierRow();
+  root.appendChild(tierRow.el);
 
   // Footer hint
   const hint = document.createElement('div');
@@ -188,7 +192,7 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
      */
     raceMusicRow.checkbox.checked = s.raceMusicEnabled;
     zoneBgRow.checkbox.checked = isZoneBackgroundEnabled();
-    fxHqRow.checkbox.checked = isFxHighQuality();
+    tierRow.set(getGraphicsTier());
   }
 
   // Wire interactions.
@@ -216,8 +220,9 @@ export function createSettingsOverlay(): SettingsOverlayHandle {
     // Same shape: persist here, and main.ts's render loop hands it to the renderer next frame.
     setZoneBackgroundEnabled(zoneBgRow.checkbox.checked);
   });
-  fxHqRow.checkbox.addEventListener('change', () => {
-    setFxHighQuality(fxHqRow.checkbox.checked);
+  tierRow.onChange((tier) => {
+    setGraphicsTier(tier);
+    tierRow.set(tier);
   });
 
   // Stop keydown propagation inside the overlay (PRIME-AUDIT #3): typing
@@ -330,6 +335,82 @@ function createToggleRow(label: string, idPrefix: string): ToggleRow {
   el.appendChild(labelEl);
   el.appendChild(checkbox);
   return { el, checkbox };
+}
+
+/** S195 N17 — what each tier tells the player, in one line (the help text under the choice). */
+export const GRAPHICS_TIER_HINT: Readonly<Record<GraphicsTier, string>> = {
+  HIGH: 'Full effects: glow, ripples, animated connectors.',
+  LOW: 'No glow or ripples; connectors redrawn only when they change.',
+  MINIMAL: 'For slow computers: classic effects, still connectors.',
+};
+
+interface TierRow {
+  el: HTMLDivElement;
+  set(tier: GraphicsTier): void;
+  onChange(cb: (tier: GraphicsTier) => void): void;
+}
+
+/**
+ * S195 N17 — a LABELLED THREE-WAY CHOICE, not a checkbox: the owner asked for tiers *"for different tiers of
+ * machines"*, and a box that says "on" cannot say which. Radio inputs (`#gfx-high`, `#gfx-low`,
+ * `#gfx-minimal`, one `name`) so the keyboard and screen readers get the standard behaviour for free.
+ */
+function createTierRow(): TierRow {
+  const el = document.createElement('div');
+  el.style.marginTop = '6px';
+  const title = document.createElement('div');
+  title.textContent = 'Graphics';
+  title.style.fontSize = '11px';
+  title.style.letterSpacing = '0.08em';
+  title.style.color = 'rgba(255, 255, 255, 0.8)';
+  el.appendChild(title);
+  const choices = document.createElement('div');
+  choices.setAttribute('role', 'radiogroup');
+  choices.setAttribute('aria-label', 'Graphics quality');
+  choices.style.display = 'flex';
+  choices.style.gap = '10px';
+  choices.style.marginTop = '4px';
+  el.appendChild(choices);
+  const inputs = new Map<GraphicsTier, HTMLInputElement>();
+  for (const tier of GRAPHICS_TIERS) {
+    const id = `gfx-${tier.toLowerCase()}`;
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'graphics-tier';
+    input.id = id;
+    input.value = tier;
+    input.style.cursor = 'pointer';
+    input.style.accentColor = '#3bd7ff';
+    const label = document.createElement('label');
+    label.htmlFor = id;
+    label.textContent = tier;
+    label.style.fontSize = '11px';
+    label.style.letterSpacing = '0.06em';
+    label.style.color = 'rgba(255, 255, 255, 0.85)';
+    label.style.cursor = 'pointer';
+    label.style.marginLeft = '3px';
+    const wrap = document.createElement('span');
+    wrap.appendChild(input);
+    wrap.appendChild(label);
+    choices.appendChild(wrap);
+    inputs.set(tier, input);
+  }
+  const hint = document.createElement('div');
+  hint.id = 'gfx-hint';
+  hint.style.fontSize = '10px';
+  hint.style.marginTop = '3px';
+  hint.style.color = 'rgba(255, 255, 255, 0.5)';
+  el.appendChild(hint);
+  return {
+    el,
+    set(tier) {
+      for (const [t, input] of inputs) input.checked = t === tier;
+      hint.textContent = GRAPHICS_TIER_HINT[tier];
+    },
+    onChange(cb) {
+      for (const [t, input] of inputs) input.addEventListener('change', () => { if (input.checked) cb(t); });
+    },
+  };
 }
 
 function createChannelRow(label: string, idPrefix: string): ChannelRow {
