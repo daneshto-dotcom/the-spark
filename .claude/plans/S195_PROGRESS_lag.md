@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-FIX ROUND (audit of 90e0aaf6): all 3 fixes committed, tests green. Next: mutation proofs (3 HIGH mutations + colorA-out-of-hash -> red; pre-fix displayPrefs/tierAdvisor -> new tests red), then gates (typecheck, vitest, build, e2e:gating + settings-toggles), final report.
+Fix round: mutations all RED (foul-one-end, pulse-no-cover, pattern-in-solo, colorA-out-of-hash: each 1 failed); auditor zzAudit3 + hint test RED on pre-fix code (2 failed), GREEN after. Gates RUNNING in bg (fr-*.exit). Then final report.
 
 ## PHASE 2 FINAL
 merge e1dc25fa (master 53ba655b, no conflicts). typecheck 0; vitest 0 (577 files passed / 6 skipped, 8782 tests); build 0 entry 1189.5 KiB (60.5 headroom); e2e:gating 0 (67 passed, own port 26135); e2e/settings-toggles.spec.ts 0 (3 passed). Bump NO (render-only). Report section 5 has the per-tier table.
