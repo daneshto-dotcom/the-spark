@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
 ## EXACT NEXT STEP (L5, owner R195-0g)
-L5 s195/ci-perf f8d6de5c: merged 53ba655b (clean) + docs fixes bf8cb2fd (e2e.yml:83 backtick, LOCKED_DECISIONS §15.1 amendment, CLAUDE.md e2e:render) + origin PM merge 3904c4cc. Gates RUNNING: `.tmp-gates/s195run5.sh L5 31965` → `.tmp-gates/s195_L5/` (tc, vt, build, gating, render, races, lobby, teams). Then push, deploy, verify --sha, log S195-#5, record CI per lane incl. [frame-profile] + [hunter] lines.
+L5 LANDED as S195-#5 7ceae8eb (deploy 37225108836 success, verify 4/4). Remaining: record CI E2E run 37225108817 per lane (incl. CI `[frame-profile]` / `[hunter]` lines from the e2e-render job) in the dispatch log. Then HOLD (open nothing new).
 
 ## (L1–L4) STATUS: COMPLETE
 
