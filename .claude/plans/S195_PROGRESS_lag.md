@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Write tests: src/render/structureRenderer.tiers.test.ts (pixi mock, preS195 oracle, invalidation, REACH via syncGraphicsTier), graphicsTier/displayPrefs/tierAdvisor/fx legacy-OR tests, keystone MINIMAL test, main.ts + settings source guards. Then full tier matrix B (w5,w10 x 1/4/6 x 3 tiers) twice.
+PAUSED by owner order (usage limit). On RESUME: (1) rerun tier matrix B twice: `SPARK_LAG_TIERS=HIGH,LOW,MINIMAL SPARK_LAG_WAVES=5,10 SPARK_LAG_THROTTLES=1,4,6 npx playwright test -c scripts/lag/playwright.lag.config.ts --project=gpu` (bg, timeout 2h; logs .tmp-gates/lag/p2-tiers-B{1,2}.log) — the B run was STOPPED mid-way at pause, discard its partial log; (2) update docblocks: fxRuntime.ts header 'Quality' section + structureRenderer.ts header ('redraw per frame' now HIGH only); (3) git merge master; gates: typecheck, `npx vitest run --maxWorkers=3`, build KiB, `npm run e2e:gating` (own port); (4) write per-tier table + why-old-toggle-did-nothing into S195_LAG_REPORT.md section 5; (5) final report + SubagentHandback. State: tiers implemented + tests green (structureRenderer.tiers.test.ts 13, graphicsTier.test.ts 11; mutation-checked); typecheck 0. 4x w10 back-to-back: HIGH frame 84.7/90.8 -> MINIMAL 49.2/42.9 ms (-45..-50%).
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
@@ -28,3 +28,4 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 - p2 step 3: tier matrix A (gpu, joiner without debug overlay) frame med ms: w5 1x HIGH 16.6 / LOW 8.5 / MIN 7.4; w10 1x 11.2 / 8.6 / 8.1; w10 4x 68.8 / 13.3(noisy) / 60.1 (idle 74.1/79.4/46.0); w10 6x 80.5/102.5/65.2. Cache redraw share: LOW 23% (1x) .. 55% (4x); MINIMAL 8-10%.
 - p2 profile MINIMAL w10 4x inclusive: structureRenderer.sync 10.5% (drawBondsCached 9.2%), keystoneTelegraph 9.5%, damageNumbers 5.9%, goblinRenderer 4.3%, healthBars 2.8%, tickGameState 2.9%.
 - p2 step 4: keystone MINIMAL static + cell 128. Back-to-back 4x w10 (2 reps each): HIGH frame 84.7/90.8 ms, idle 90.6/82.7 -> MINIMAL frame 49.2/42.9 (-45..-50%), idle 22.7/19.5 (-75%). fps 8.6-10 -> 20.
+- PAUSE (owner order): stopped bg tier matrix B + killed my vite on 26135. All work committed.
