@@ -1,0 +1,6 @@
+# S195 T21 — vitest snapshots are written with LF by vitest itself. With `core.autocrlf=true` (this
+# project's Windows checkouts) git checked them out CRLF, so every full vitest run rewrote
+# `src/state/spawners/__snapshots__/pentagramBuildability.test.ts.snap` EOL-only and left the tree
+# dirty (`git status` M, `git diff` empty). Pinning them to LF in the working copy makes vitest's
+# write a byte-for-byte no-op. Index content is unchanged (it was already LF).
+*.snap text eol=lf

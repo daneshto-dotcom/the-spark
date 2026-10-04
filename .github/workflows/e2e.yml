@@ -36,8 +36,11 @@
 #                            opt-in benchmarks. Split out in S126 because 3 soak tests
 #                            were 15.2m of a 16.8m suite and made the 15m gating cap
 #                            unmeetable — which silently killed the gate for 3+ weeks.
-#   • job `e2e-protocol`   — GATING (S142 P2). The 2-peer PROTOCOL-MISMATCH pair, selected by
-#                            grep so it gates without losing its @quarantine-flaky tag.
+#   • job `e2e-protocol`   — NON-GATING since S195 (job-level continue-on-error; the CI-network
+#                            decision is recorded on the job). The 2-peer PROTOCOL-MISMATCH pair,
+#                            selected by grep; `detectProtocolMismatch` itself gates in vitest.
+#   • job `e2e-render`     — GATING (S195 T21). `@render-starved`: fog pixel reads, the hunter
+#                            solo match and the CI frame profile, inverted out of `e2e`.
 #   • job `e2e-lobby`      — GATING (S155 P1). The 2-peer LOBBY + MATCH-START baseline, same
 #                            grep-lane idiom. Added because multiplayer had NO blocking
 #                            coverage at all and a broken lobby reached the owner's living
@@ -73,6 +76,15 @@
 #   9m23s in `actions/checkout` on the gating job, leaving the tests ~9 of their 18 minutes, and the
 #   job concluded `cancelled` — no failure, no email, no report. A normal checkout here takes ~14 s,
 #   so 3 minutes is a hang detector, not a budget: a hung checkout now FAILS, loudly, in 3.
+#
+#   ⭐ S195 T21 — AND A HUNG CHECKOUT IS NOW RETRIED ONCE. Deploy #5's `worker-typecheck` died on
+#   `actions/checkout` timing out at exactly 3 minutes — an infra hang, not a code fault, and a red
+#   for nothing. Every job's `Checkout` therefore carries `id: checkout` + a STEP-level
+#   continue-on-error`, and the very next step re-runs checkout only `if: steps.checkout.outcome !=
+#   'success'` (also bounded at 3; `!= 'success'` also covers a timeout reported as cancelled). Two hangs in a row still fail the job, loudly. ⚠ That step-level
+#   `continue-on-error` is the ONLY one allowed inside a gating job: `src/ci.e2eLanes.test.ts`
+#   strips exactly that line before asserting a gating lane carries no `continue-on-error`, and pins
+#   the retry shape on every job.
 #
 #   master is currently NOT branch-protected (no required status checks), so the
 #   gating signal is advisory; the job is named `e2e` so that if/when branch
@@ -195,6 +207,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -246,6 +264,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -273,6 +297,62 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
+  # ⭐ S195 T21 — THE RENDER LANE. GATING (a red here reds the run), on its own runner.
+  #
+  # `@render-starved` = the specs whose WALL time is set by the software-GL renderer rather than by the
+  # sim: `fog.spec.ts` (composed-stage pixel reads) and `hunter.spec.ts` (a solo match driven through
+  # real input), plus the `ci-frame-profile.spec.ts` diagnostic. On deploys #4/#5/#6 (run 37047025269)
+  # the runner gave the page ~1 frame per second — every `page.evaluate` took 0.7–1.9 s, the sim ran
+  # ≈7.7 ticks/s — hunter spent 3 × 120 s timing out, and the shared lane's 900 s cap then cut 16 specs
+  # that never started. Split out on the `@races` / `@worker-bots` precedent so a starved spec can only
+  # spend its OWN budget. Both specs were also FIXED, not just moved (their headers say how).
+  # Budget, pinned by `src/ci.e2eLanes.test.ts`: 3 attempts (CI retries 2) of EVERY test — hunter's
+  # derived 300 s + 6 fog tests at the 60 s default + 3 profile tests at their 120 s — = 3 × 1020 s =
+  # 3060 s ≤ 51 min… is the worst case; the lane budgets 3 × hunter + 2 attempts of fog and profile
+  # (S195 audit: they had no retry room at all) = 900 + 2 × 720 = 2340 s ≤ 39 min (Playwright 39 / job 47) — see the pin.
+  e2e-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 47
+    env:
+      # Below timeout-minutes so PLAYWRIGHT ends an overrun and flushes its report (S126/S191).
+      PW_GLOBAL_TIMEOUT_MIN: 39
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # ⚠ NOT chained behind `&&` — the project rule. The step's exit code IS Playwright's.
+      - name: Run E2E (render — fog pixel reads, the hunter match, the CI frame profile, GATING)
+        run: npm run e2e:render
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report (render)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-render
+          path: playwright-report/
+          retention-days: 14
+
   atlas-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -280,6 +360,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -331,6 +417,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -374,14 +466,20 @@ jobs:
   # NOTE: @perf-measure tests self-skip unless SPARK_PERF=1, which is intentionally NOT
   # set here — enabling never-run benchmarks is out of scope for this priority. Routing
   # them is tidying, not a budget saving; the real cost is the 3 @soak tests.
+  # ⛔ S195 T21 — 44/50 → 58/66. Each of the three audits now has a DERIVED test budget,
+  # `SOAK_TEST_BUDGET_MS` = 240 s setup+samples + 240 s warm-up cap + 600 s window ceiling = 1080 s,
+  # because the window's wall cap is derived from the warm-up's measured rate (run 37047025269: the
+  # bots worlds ran 3.6 ticks/s, half the S127 calibration, so the fixed 300 s window measured 1 098
+  # ticks and tripped the 1 300 liveness floor). 3 × 1080 s = 54 min, + the 10 s code-input
+  # diagnostic, ≤ 58; the runner keeps 8 min above that for setup. Pinned by `ci.e2eLanes.test.ts`.
   e2e-soak:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 66
     continue-on-error: true
     env:
       # Below timeout-minutes for the same reason as the gating lane: an overrun must
       # report as a failure WITH an uploaded report, never as a silent SIGKILL.
-      PW_GLOBAL_TIMEOUT_MIN: 44
+      PW_GLOBAL_TIMEOUT_MIN: 58
       # S127 — NO RETRIES IN THIS LANE (the global default is `retries: CI ? 2 : 0`).
       # A retry only helps a NON-deterministic failure. This lane's failure mode was
       # structural: sim ticks are FRAME-bound (src/main.ts:1389 clamps dt to 0.05s with
@@ -395,6 +493,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -422,7 +526,8 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # ⭐ S142 P2 — THE PROTOCOL-GATE LANE. GATING (no continue-on-error).
+  # ⭐ S142 P2 — THE PROTOCOL-GATE LANE. Was GATING (no continue-on-error) until S195; NON-GATING since —
+  # see the S195 T21 decision at the end of this comment.
   #
   # THIS JOB EXISTS TO DELETE A RECURRING MANUAL CHORE. Every session close for many sessions
   # ended with "⚠ 2-PEER CHECK ON vN — ONLY YOU CAN DO THIS; CI cannot verify a protocol bump."
@@ -444,9 +549,23 @@ jobs:
   # ESCAPE HATCH, stated so nobody has to rediscover it: if this lane proves flaky in practice,
   # add `continue-on-error: true` here — do NOT delete it, and do NOT re-tag the tests. A noisy
   # signal is still strictly better than the manual chore it replaces.
+  #
+  # ⛔ S195 T21 (item 9) — THE ESCAPE HATCH ABOVE IS NOW TAKEN, AND THIS IS THE RECORDED DECISION.
+  # Run 37157047661 (deploy S195-#3, f3885952): both tests red ×3 attempts on `Test timeout of
+  # 60000ms` with STUN `Binding request timed out` / UDP `ERR_ADDRESS_UNREACHABLE`, while #1, #2 and
+  # #4 were green on the SAME protocol version and local `npm run e2e:protocol` passed 2/2. That is the
+  # runner's network, not the code. The question was whether the lane can be made NETWORK-INDEPENDENT
+  # to keep it gating: it cannot without mocking the transport, which playwright.config.ts C9 /
+  # LOCKED_DECISIONS reject (real Trystero P2P IS the surface under test). So, exactly as the hatch
+  # says: `continue-on-error: true`, the job kept, the tests NOT re-tagged — a red here still shows as
+  # `X e2e-protocol` in `gh run view`, it just cannot red the run on a relay's bad day. What stays
+  # GATING about a protocol bump is network-free: `detectProtocolMismatch` in
+  # `src/net/transport.test.ts` (vitest, every push) and the six-site bump checklist pins.
+  # `src/ci.e2eLanes.test.ts` pins both halves of this decision.
   e2e-protocol:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    continue-on-error: true # S195 T21 — CI-network class; see the decision above
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
@@ -455,6 +574,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -528,17 +653,27 @@ jobs:
   # lobby tests (≤ 60 s each) = 20.5 min ⇒ 22. And the runner keeps ≥ 8 min ABOVE Playwright for
   # checkout + npm ci + browser install, which took 7.5 min in run 36882836513 — at 16/20 a full-length
   # Playwright run would have been SIGKILLed into `cancelled`, the S126 trap. `ci.e2eLanes.test.ts` pins both.
+  # ⛔ S195 T21 — 22/32 → 29/37. Run 37047025269 hit the 1320 s cap with the S46 Baseline NEVER STARTED:
+  # the budget held three attempts of the late-4th-joiner but only ONE of each of the other four, and on CI
+  # the STUN reds retry the others too (exit-match ×2, join-stall:109 ×3 in that run). Now every lobby test
+  # gets its retries: 3 × (330 s late joiner + 4 × 60 s) = 1710 s ≤ 29 min. Pinned in ci.e2eLanes.test.ts.
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 32
+    timeout-minutes: 37
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 22
+      PW_GLOBAL_TIMEOUT_MIN: 29
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -571,15 +706,21 @@ jobs:
   # workflow run (no failure emails); independent runner + timeout => it can never
   # cancel the gating job. It still RUNS + is visible (a consistent real regression
   # is still catchable) but cannot gate.
+  # ⛔ S195 T21 — 17/20 → 46/54, and it no longer re-runs the protocol lane's two tests. The lane never
+  # FINISHED (run 37047025269: 5 of 18 ran before "Timed out waiting 1020s"): its specs' own budgets sum to
+  # 2700 s — host-migration 240+300+360, Sym A/G/C 3 × 240, worker-duel 240, teams-lobby 120+150,
+  # hard-blip 150, reconnect 120, and six at the 60 s default (no retries here) — so a 1020 s cap could only
+  # ever give a third of them a verdict. `ci.e2eLanes.test.ts` re-derives that sum from the specs' own
+  # `test.setTimeout`s and fails when the cap stops holding it.
   e2e-quarantine:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 54
     continue-on-error: true
     env:
       # S126 — below timeout-minutes so this lane also exits via Playwright (flushing its
       # results) instead of being SIGKILLed at the 20m cap, which is what happened on
       # every weekly run from 2026-07-13 onward.
-      PW_GLOBAL_TIMEOUT_MIN: 17
+      PW_GLOBAL_TIMEOUT_MIN: 46
       # ⛔ S142 P2 — RETRIES OFF, the exact S127 precedent from the soak lane.
       # MEASURED 2026-08-13 (run 31707927282): this lane ran 17.0m — the FULL cap — and
       # still finished "8 failed / 9 passed / 1 DID NOT RUN". The tests that fail here fail
@@ -592,6 +733,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -644,6 +791,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         timeout-minutes: 3 # S191 A-4 — a hung checkout fails fast; see the header
+        id: checkout
+        continue-on-error: true # S195 T21 — ...and is RETRIED ONCE by the next step; see the header
+      - name: Checkout (retry after a hang)
+        if: steps.checkout.outcome != 'success'
+        uses: actions/checkout@v6
+        timeout-minutes: 3
 
       - name: Setup Node
         uses: actions/setup-node@v6
