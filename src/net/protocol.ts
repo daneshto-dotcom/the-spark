@@ -1726,6 +1726,12 @@ interface LobbyPresenceMsg {
   readonly phase?: HostPhase;
   /** ⭐ S191 (NETFR-1) — the host's current match id, when it has one. Additive-optional. */
   readonly matchId?: string;
+  /**
+   * ⭐ S195 (owner N3) — the all-ready LOCK is counting: ms until the match begins (0..`QM_READY_LOCK_MS`), so a
+   * joiner shows the same "STARTING IN 3…" the host does. Additive-optional (absent = no countdown); part of the
+   * S195 teams protocol bump (reported; the merge owner bumps).
+   */
+  readonly countdownMs?: number;
 }
 
 /**
@@ -2321,6 +2327,8 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // ⭐ S191 — optional host phase (one of the two literals) and match id; malformed rejects.
       if (obj.phase !== undefined && obj.phase !== 'LOBBY' && obj.phase !== 'MATCH') return null;
       if (obj.matchId !== undefined && !isValidMatchId(obj.matchId)) return null;
+      // ⭐ S195 (N3) — the lock countdown: a finite number 0..10 s, or the whole beacon is refused.
+      if (obj.countdownMs !== undefined && !(typeof obj.countdownMs === 'number' && Number.isFinite(obj.countdownMs) && obj.countdownMs >= 0 && obj.countdownMs <= 10_000)) return null;
       return obj as unknown as LobbyPresenceMsg;
     }
     case 'LOBBY_READY': {

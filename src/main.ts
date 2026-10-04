@@ -105,7 +105,7 @@ import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
-import { broadcastQmPresence, maybeQmAutoBegin, sessionTeamsPlayable } from './net/quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, noteQmReady, qmTeamChangeAllowed, sessionTeamsPlayable } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
 import {
@@ -1833,7 +1833,9 @@ async function bootstrap(): Promise<void> {
   // at this composition root, computing isYou via peerId === selfId. This keeps
   // BOTH the pure reducer AND lobbyScreen free of net/ imports (Council Fork C).
   // Late-bound like onLobbyError so it can reference lobbyScreen before it exists.
-  const onPresence = (roster: readonly RosterEntry[]): void => {
+  const onPresence = (roster: readonly RosterEntry[], countdownMs?: number): void => {
+    // ⭐ S195 (owner N3) — the host's all-ready lock countdown, on every rack (host and joiners alike).
+    lobbyScreen.setLockCountdown(countdownMs);
     lobbyScreen.updatePresence(
       // S87 P4 — carry the quickmatch ready flag through to the seat presence
       // (undefined in friends lobbies → no UI change there).
@@ -2014,10 +2016,12 @@ async function bootstrap(): Promise<void> {
   // S87 P4 — READY toggle (host + client). `ready` is the post-flip UI state
   // (single source of truth — lobbyScreen owns the button, passes the value).
   const onToggleReady = (ready: boolean): void => {
-    session.qmSelfReady = ready;
+    // ⭐ S195 (owner N3) — an un-ready stamps the 3 s team cooldown (on the host it also stops the lock
+    // countdown; a joiner keeps the stamp locally so its own chip refuses too — the host enforces it anyway).
+    noteQmReady(session, null, ready);
     if (world.isHost && session.netTransport !== null) {
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
-      maybeQmAutoBegin(session, onAutoBegin);
+      maybeQmAutoBegin(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState));
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'LOBBY_READY', ready });
     }
@@ -2061,10 +2065,13 @@ async function bootstrap(): Promise<void> {
    * `CLAIM_TEAM` and waits for the presence beacon.
    */
   const onPickTeam = (team: number | null): void => {
+    // ⭐⭐ S195 (owner N3) — READY LOCKS YOUR TEAM (and for 3 s after un-ready). The host's own pick obeys the
+    // same rule its CLAIM_TEAM arm enforces on joiners; a joiner's click is refused locally too (no message).
+    if (!qmTeamChangeAllowed(session, null)) return;
     if (world.isHost) {
       session.selfTeam = team;
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
-      maybeQmAutoBegin(session, onAutoBegin); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
+      maybeQmAutoBegin(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState)); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_TEAM', team });
     }

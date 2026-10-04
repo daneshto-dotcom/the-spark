@@ -124,6 +124,13 @@ export interface NetSession {
   slotByPeer: Map<string, number>;
   /** ⭐ S195 (N16) — the HOST's own board-slot preference (seat 0). `null` = its seat number. */
   selfSlot: number | null;
+  /** ⭐ S195 (N3) — when each peer last UN-readied (ms, the host's clock): its team stays locked 3 s after. */
+  qmUnreadyAt: Map<string, number>;
+  /** ⭐ S195 (N3) — when the HOST last un-readied (ms), or `null`. */
+  qmSelfUnreadyAt: number | null;
+  /** ⭐ S195 (N3) — the all-ready lock countdown: its timer, and when it ends (ms, the host's clock). */
+  qmCountdownTimer: ReturnType<typeof setTimeout> | null;
+  qmCountdownEndsAt: number | null;
   /** S87 P4 — this peer's own readiness (host: gates auto-Begin; client: mirrors the last sent LOBBY_READY). */
   qmSelfReady: boolean;
   /**
@@ -220,6 +227,10 @@ export function makeNetSession(): NetSession {
     selfTeam: null,
     slotByPeer: new Map(),
     selfSlot: null,
+    qmUnreadyAt: new Map(),
+    qmSelfUnreadyAt: null,
+    qmCountdownTimer: null,
+    qmCountdownEndsAt: null,
     qmSelfReady: false,
     // S118 P1 (host-migration D2) — succession detection state (dormant until a peer proves a pubkey).
     peerPubkeys: new Map(),
@@ -280,6 +291,11 @@ export function teardownNet(
   session.selfTeam = null;
   session.slotByPeer.clear();
   session.selfSlot = null;
+  session.qmUnreadyAt.clear();
+  session.qmSelfUnreadyAt = null;
+  if (session.qmCountdownTimer !== null) clearTimeout(session.qmCountdownTimer);
+  session.qmCountdownTimer = null;
+  session.qmCountdownEndsAt = null;
   // S79 P4 — clear the latched host identity so a rejoin re-latches fresh (a new room may
   // have a different host; a stale latch would drop ALL of the new host's messages).
   session.hostPeerId = null;

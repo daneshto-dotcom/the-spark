@@ -56,7 +56,7 @@ export interface JoinAttemptDeps {
    * main.ts digests it to the render shape, computing isYou via peerId === selfId
    * — which is how this joiner finally learns WHICH seat is its own pre-Begin.
    */
-  onPresence: (roster: readonly RosterEntry[]) => void;
+  onPresence: (roster: readonly RosterEntry[], countdownMs?: number) => void; // ⭐ S195 (N3) — + the lock countdown
   /**
    * S118 P1 (host-migration D2) — this joiner's ephemeral identity (generateClientIdentity, minted once
    * at boot). Its pubkey (+ a PoP signature) rides the HELLO so the host can warrant it as a potential
@@ -511,7 +511,7 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
       // the AUTHORITATIVE seat still arrives via START_GAME_SIGNAL at Begin, so a
       // dropped beacon only delays the live rack until the next join/leave re-broadcast.
       if (msg.kind === 'LOBBY_PRESENCE' && deps.world.gameState === 'LOBBY') {
-        deps.onPresence(msg.roster);
+        deps.onPresence(msg.roster, msg.countdownMs); // ⭐ S195 (N3) — the host's lock countdown, if counting
       }
       // S122 P2 (host-migration D3) / S124 P1 (D4 — PRODUCTION-ON) — a MIGRATION_CLAIM from a
       // warranted survivor. The D3 __TEST_MIGRATION__ seam is now a TIMING OVERRIDE only

@@ -78,8 +78,9 @@ export function qmReadyCount(roster: readonly RosterEntry[]): { ready: number; t
 export function broadcastQmPresence(
   session: NetSession,
   transport: NetTransport | null,
-  onPresence: (roster: readonly RosterEntry[]) => void,
+  onPresence: (roster: readonly RosterEntry[], countdownMs?: number) => void,
   gameState: GameState,
+  now: number = Date.now(),
 ): void {
   // ⭐ S162 P1 — **THE TRANSPORT MAY LEGITIMATELY BE NULL, AND THE REPAINT STILL HAS TO HAPPEN.**
   //
@@ -183,8 +184,10 @@ export function broadcastQmPresence(
    * makes "both halves always run" true; the ORDER then only decides which one gets the fresher
    * frame, and local-first is right because it is the half with no dependency.
    */
+  // ⭐ S195 (N3) — the lock countdown rides the same beacon (ms LEFT, so no clock is shared across peers).
+  const countdownMs = session.qmCountdownEndsAt !== null ? Math.max(0, session.qmCountdownEndsAt - now) : undefined;
   try {
-    onPresence(roster);
+    onPresence(roster, countdownMs);
   } catch (err) {
     console.error('[lobby] presence repaint threw — the wire broadcast still goes out', err);
   }
@@ -195,6 +198,7 @@ export function broadcastQmPresence(
         roster,
         phase: hostPhaseOf(gameState),
         ...(session.matchId !== null ? { matchId: session.matchId } : {}),
+        ...(countdownMs !== undefined ? { countdownMs } : {}),
       });
     } catch (err) {
       // Disconnected mid-cycle is the ordinary case here; the local rack is already correct.
@@ -218,12 +222,77 @@ export function sessionTeamsPlayable(session: Pick<NetSession, 'selfTeam' | 'lob
   return teamsPlayable(picks, picks.length);
 }
 
-/** Host: if a quickmatch room is fully ready, fire the (idempotent) Begin. */
-export function maybeQmAutoBegin(session: NetSession, onBegin: () => void): void {
-  if (
-    session.quickmatch &&
-    isQuickmatchAllReady(session.lobbySeats, session.qmReadyPeers, session.qmSelfReady)
-  ) {
-    onBegin();
+/**
+ * ⭐⭐ S195 (owner N3) — **READY LOCKS YOUR TEAM, AND EVERYONE READY STARTS A 3-SECOND LOCK.**
+ *
+ * > *"When you click ready in a lobby, … you cannot change your team … Once you click ready, you're stuck for
+ * > three seconds, everyone, before the game starts … if you wanna click unready … it takes like three seconds
+ * > before you can change a team … so people can stop it in case someone's … screwing with them."*
+ *
+ * Both numbers are HIS ("three seconds"). Lobby-only, host-enforced; the host's clock (the lobby has no sim
+ * tick and never reaches the hash).
+ */
+export const QM_READY_LOCK_MS = 3000;
+/** ⭐ S195 (owner N3) — after un-readying, the team stays locked this long. */
+export const QM_UNREADY_TEAM_COOLDOWN_MS = 3000;
+
+/** ⭐ S195 (N3) — stop a running lock countdown (somebody un-readied, left, or the room changed). */
+export function cancelQmCountdown(session: NetSession): boolean {
+  if (session.qmCountdownTimer === null) return false;
+  clearTimeout(session.qmCountdownTimer);
+  session.qmCountdownTimer = null;
+  session.qmCountdownEndsAt = null;
+  return true;
+}
+
+/**
+ * ⭐ S195 (N3) — record a READY toggle (`peerId` null = the host itself). An UN-ready stamps the cooldown and
+ * STOPS a running countdown: *"so people can stop it"*. Returns true when a countdown was stopped.
+ */
+export function noteQmReady(session: NetSession, peerId: string | null, ready: boolean, now: number = Date.now()): boolean {
+  const was = peerId === null ? session.qmSelfReady : session.qmReadyPeers.get(peerId) === true;
+  if (peerId === null) session.qmSelfReady = ready;
+  else session.qmReadyPeers.set(peerId, ready);
+  if (was && !ready) {
+    if (peerId === null) session.qmSelfUnreadyAt = now;
+    else session.qmUnreadyAt.set(peerId, now);
   }
+  return !ready ? cancelQmCountdown(session) : false;
+}
+
+/**
+ * ⭐ S195 (N3) — may this player change team right now? Never while READY (quick match), never within
+ * `QM_UNREADY_TEAM_COOLDOWN_MS` of un-readying. A friends lobby has no READY, so it is always free there.
+ */
+export function qmTeamChangeAllowed(session: NetSession, peerId: string | null, now: number = Date.now()): boolean {
+  if (!session.quickmatch) return true;
+  const ready = peerId === null ? session.qmSelfReady : session.qmReadyPeers.get(peerId) === true;
+  if (ready) return false;
+  const at = peerId === null ? session.qmSelfUnreadyAt : session.qmUnreadyAt.get(peerId);
+  return at === null || at === undefined || now - at >= QM_UNREADY_TEAM_COOLDOWN_MS;
+}
+
+/**
+ * Host: if a quickmatch room is fully ready, START THE 3-SECOND LOCK; when it runs out and the room is still
+ * all ready, fire the (idempotent) Begin. ⭐ S195 (N3) — it was an immediate Begin. Not all ready ⇒ any running
+ * countdown is cancelled. `onTick` repaints/rebroadcasts at the start and the cancel so every rack shows it.
+ * Returns true when a countdown is running after the call.
+ */
+export function maybeQmAutoBegin(session: NetSession, onBegin: () => void, onTick?: () => void, now: number = Date.now()): boolean {
+  // A one-team room never counts down (spec Q2: no enemy, no match — main.ts's Begin refuses it too).
+  const allReady = session.quickmatch && isQuickmatchAllReady(session.lobbySeats, session.qmReadyPeers, session.qmSelfReady) && sessionTeamsPlayable(session);
+  if (!allReady) {
+    if (cancelQmCountdown(session)) onTick?.();
+    return false;
+  }
+  if (session.qmCountdownTimer !== null) return true; // already counting — a duplicate READY never restarts it
+  session.qmCountdownEndsAt = now + QM_READY_LOCK_MS;
+  session.qmCountdownTimer = setTimeout(() => {
+    session.qmCountdownTimer = null;
+    session.qmCountdownEndsAt = null;
+    if (session.quickmatch && isQuickmatchAllReady(session.lobbySeats, session.qmReadyPeers, session.qmSelfReady) && sessionTeamsPlayable(session)) onBegin();
+    else onTick?.();
+  }, QM_READY_LOCK_MS);
+  onTick?.();
+  return true;
 }
