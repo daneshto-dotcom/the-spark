@@ -998,6 +998,8 @@ export interface SeatViewSnapshot {
   occupied: boolean;
   isHost: boolean;
   isYou: boolean;
+  /** ⭐ S195 — the board slot (clock order) the seat's tile stands on; absent = its index. */
+  slot?: number;
 }
 
 /**

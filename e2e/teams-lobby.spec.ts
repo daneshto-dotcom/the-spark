@@ -41,7 +41,7 @@ async function clickOwnTeamChip(page: Page): Promise<void> {
     const p = '/src/render/lobbyGeometry.ts';
     const g = (await import(/* @vite-ignore */ p)) as { getSeatRect: (i: number) => { x: number; y: number } };
     return g.getSeatRect(i);
-  }, mine.index);
+  }, mine.slot ?? mine.index); // ⭐ S195 — the tile stands on its seat's BOARD slot (clock order)
   const at = await canvasToCss(page, rect.x + 14 + 28, rect.y + 10 + 16);
   await page.mouse.click(at.x, at.y);
 }
