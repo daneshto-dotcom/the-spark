@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-PAUSED by owner order (usage limit). On RESUME: (1) rerun tier matrix B twice: `SPARK_LAG_TIERS=HIGH,LOW,MINIMAL SPARK_LAG_WAVES=5,10 SPARK_LAG_THROTTLES=1,4,6 npx playwright test -c scripts/lag/playwright.lag.config.ts --project=gpu` (bg, timeout 2h; logs .tmp-gates/lag/p2-tiers-B{1,2}.log) — the B run was STOPPED mid-way at pause, discard its partial log; (2) update docblocks: fxRuntime.ts header 'Quality' section + structureRenderer.ts header ('redraw per frame' now HIGH only); (3) git merge master; gates: typecheck, `npx vitest run --maxWorkers=3`, build KiB, `npm run e2e:gating` (own port); (4) write per-tier table + why-old-toggle-did-nothing into S195_LAG_REPORT.md section 5; (5) final report + SubagentHandback. State: tiers implemented + tests green (structureRenderer.tiers.test.ts 13, graphicsTier.test.ts 11; mutation-checked); typecheck 0. 4x w10 back-to-back: HIGH frame 84.7/90.8 -> MINIMAL 49.2/42.9 ms (-45..-50%).
+RESUMED. Tier matrix B x2 RUNNING (bg bldl7oi2j -> .tmp-gates/lag/p2-tiers-B{1,2}.log). Headers updated. Next: when B done -> git merge master, gates (typecheck, vitest --maxWorkers=3, build, e2e:gating own port), report section 5, final report.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
