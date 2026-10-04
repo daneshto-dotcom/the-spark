@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Tier matrix A done (p2-tiers-A.log). MINIMAL not yet >=40% at 4x w10 (HIGH 68.8 -> MIN 60.1 frame; idle 74 -> 46). Next: keystoneTelegraph MINIMAL = static link lines + hash-skip; bond cell 192->128; re-measure; then write tests (structureRenderer.tiers.test.ts with the preS195 fixture oracle, graphicsTier/displayPrefs/tierAdvisor tests, fxRuntime legacy OR).
+Write tests: src/render/structureRenderer.tiers.test.ts (pixi mock, preS195 oracle, invalidation, REACH via syncGraphicsTier), graphicsTier/displayPrefs/tierAdvisor/fx legacy-OR tests, keystone MINIMAL test, main.ts + settings source guards. Then full tier matrix B (w5,w10 x 1/4/6 x 3 tiers) twice.
 
 ## FINAL REPORT
 merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typecheck 0; vitest 0 (575 files passed / 6 skipped, 8743 tests passed / 13 skipped); build 0, entry 1183.4 KiB (+0 vs master; 66.6 KiB headroom). Bump: NONE (only an opt-in test + scripts/lag). Report: .claude/plans/S195_LAG_REPORT.md.
@@ -27,3 +27,4 @@ merge 0b89b9a9 (master f3885952, no conflicts). Gates on the merged tree: typech
 - p2 step 2: tiers implemented. STALE SERVER FOUND: an orphan vite (pid 59424, from the killed phase-1 run) served pre-edit modules; first tier run INVALID. Killed it; lag config now reuseExistingServer:false.
 - p2 step 3: tier matrix A (gpu, joiner without debug overlay) frame med ms: w5 1x HIGH 16.6 / LOW 8.5 / MIN 7.4; w10 1x 11.2 / 8.6 / 8.1; w10 4x 68.8 / 13.3(noisy) / 60.1 (idle 74.1/79.4/46.0); w10 6x 80.5/102.5/65.2. Cache redraw share: LOW 23% (1x) .. 55% (4x); MINIMAL 8-10%.
 - p2 profile MINIMAL w10 4x inclusive: structureRenderer.sync 10.5% (drawBondsCached 9.2%), keystoneTelegraph 9.5%, damageNumbers 5.9%, goblinRenderer 4.3%, healthBars 2.8%, tickGameState 2.9%.
+- p2 step 4: keystone MINIMAL static + cell 128. Back-to-back 4x w10 (2 reps each): HIGH frame 84.7/90.8 ms, idle 90.6/82.7 -> MINIMAL frame 49.2/42.9 (-45..-50%), idle 22.7/19.5 (-75%). fps 8.6-10 -> 20.
