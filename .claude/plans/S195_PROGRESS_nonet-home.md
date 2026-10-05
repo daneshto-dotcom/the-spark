@@ -1,11 +1,17 @@
-NEXT STEP: Lane 3 — web research (Tetris 99/Effect, Puyo, sudoku apps, open-source) with WebSearch/WebFetch; then write S195_NONET_HOME_OPTIONS.md.
+NEXT STEP: NONE — T13 research complete; owner picks an option from `.claude/plans/S195_NONET_HOME_OPTIONS.md`.
+
+## FINAL REPORT (T13)
+- Deliverable: `.claude/plans/S195_NONET_HOME_OPTIONS.md` (options A front door · B home+campaign · C own /nonet/ page · D PvP first).
+- Recommendation: B now, built in `src/nonet/` so C is a move later; daily race (free) as first PvP; live 2-4 player race next.
+- No src edited; no gates run (research tree, no node_modules); nothing pushed.
+- Ten owner questions with recommendations are in section (d) of the options file.
 
 # S195 PROGRESS — s195/nonet-home (T13, research only, no src edits, no gates)
 
 - Lane 1 (NONET as it is): DONE — findings below
 - Lane 2 (what to carry): DONE (code read) — findings below
-- Lane 3 (puzzle-game research): IN PROGRESS
-- Deliverable `.claude/plans/S195_NONET_HOME_OPTIONS.md`: NOT STARTED
+- Lane 3 (puzzle-game research): DONE (web; tetris.wiki / wikipedia / play.google blocked by egress proxy — environment, snippets used)
+- Deliverable `.claude/plans/S195_NONET_HOME_OPTIONS.md`: WRITTEN + COMMITTED
 
 ## Lane 1 findings (read from the tree, nothing edited)
 
