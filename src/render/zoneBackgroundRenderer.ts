@@ -789,6 +789,7 @@ export class ZoneBackgroundRenderer {
     // own race art, the 2v1 solo's 1v1 art across his half, or a pair image across a team half (east mirrored).
     // A free-for-all plan is exactly the pre-S195 loop: each seat's race art on its home zone.
     const plan = zoneBackdropPlan(world);
+    const usedKeys = new Set<string>();
     for (const piece of plan) {
       const { zone, url } = piece;
       this.ensureTexture(url);
@@ -802,10 +803,13 @@ export class ZoneBackgroundRenderer {
       const graded = fxActive();
       const grade = graded ? piece.grade : null;
       const bakeKey = `${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
+      usedKeys.add(bakeKey);
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
         const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
         tex = punchPortal(src, zone, layout, grade);
+        // ⭐ S195 (audit L10) — the crop canvas was only an input to the bake: free it once baked into `tex`.
+        if (src !== raw && src !== tex) src.destroy(true);
         this.baked.set(bakeKey, tex);
       }
 
@@ -849,7 +853,25 @@ export class ZoneBackgroundRenderer {
         this.sprites.delete(zone);
       }
     }
+    this.pruneBaked(usedKeys);
     this.syncVignette();
+  }
+
+  /**
+   * ⭐ S195 (audit L10) — free every baked texture no quadrant painted this frame (a rematch on another board, a
+   * team change, the grade toggle), so the cache cannot grow match after match. A piece whose art is still
+   * loading has no bake yet, so nothing it needs is evicted. Never a LOADED asset (`punchPortal` degrades to
+   * returning its input), and never a bake still on a sprite.
+   */
+  private pruneBaked(used: ReadonlySet<string>): void {
+    if (used.size === 0) return;
+    const loaded = new Set(this.textures.values());
+    const onSprite = new Set([...this.sprites.values()].map((s) => s.texture));
+    for (const [key, tex] of [...this.baked]) {
+      if (used.has(key)) continue;
+      this.baked.delete(key);
+      if (!loaded.has(tex) && !onSprite.has(tex)) tex.destroy(true);
+    }
   }
 
   /** ⭐ S193 V26 — the vignette: on with the new effects, off under `?fx=legacy`. Above the backdrops. */

@@ -153,3 +153,24 @@ describe('S195 — REACH through the real renderer sync', () => {
     expect(src).toMatch(/const src = piece\.part === 'full' \? raw : cropHalfTexture\(raw, piece\.part, piece\.mirror\);/);
   });
 });
+
+describe('S195 audit L10 — the bake cache is pruned on a rematch', () => {
+  it('a 2v1 board then a free-for-all: only the FFA bakes remain', () => {
+    const { r } = renderer();
+    const a = start([U, 0, 0], ['mummies', 'demons', 'vampires']);
+    r.sync(a);
+    r.sync(a);
+    const baked = (r as unknown as { baked: Map<string, unknown> }).baked;
+    expect(baked.size).toBe(4);
+    const b = start([U, U, U, U], ['orcs', 'zombies', 'nagas', 'vampires']);
+    r.sync(b);
+    r.sync(b);
+    expect(baked.size).toBe(4);
+    expect([...baked.keys()].every((k) => k.includes('|QUADRANTS_4P|') && k.includes('-4p.png|full'))).toBe(true);
+  });
+  it('REACH (source) — the crop canvas is freed once baked', () => {
+    const src = readFileSync(new URL('./zoneBackgroundRenderer.ts', import.meta.url), 'utf8');
+    expect(src).toMatch(/if \(src !== raw && src !== tex\) src\.destroy\(true\);/);
+    expect(src).toMatch(/this\.pruneBaked\(usedKeys\);/);
+  });
+});
