@@ -30,6 +30,7 @@ were still in flight on the desktop and were NOT touched here — their file set
 
 ## IN FLIGHT (wave 1, opened 06:30 UTC 2026-10-05, each on `.claude/worktrees/s195-<tree>` in the cloud container)
 - `s195/coherence-2` — T19: B-7 Helga death cue (additive-optional) · shared departure rule (chewer + goblin corpse) · chewer stun-star scale · SILENT sound slots (unit-death, stink fire, castle gun, entropy boing owner-only) · N4 Helga-heard-by-two-seats verify · stink ramp wiring behind manifest · refused-placement REACH · B-3 repaired sparkle · B-1 pin · §E F1 render-leak measurement.
+- **`s195/fight-wipe` (N18, owner 2026-10-05, opened here)** — bug report: 2v1 (Nagas vs mummies + zombies), ~wave 8, a fully built quadrant lost "half" at the FIGHT whistle; looked like the TVs or lightning hubs exploding. Hunt with measured verdicts on H1 entropy-at-the-whistle (per-connector 50 % cap × split-deletes-smaller-side on ONE welded quadrant), H2 hub self-destruct chain, H3 Voltkin/phase-edge hooks, H4 a 1v2 team-check error. A proven BUG is fixed (bump YES); the rule working as R194-18 specifies is NOT changed — owner-facing explanation + options instead.
 - Wave 2 (opens as wave-1 trees land): `s195/controls-macros` (N6) · `s195/info-ui` (N7 + N12 UI + N14 board polish + the entropy board row) · `s195/net-mp` (T20).
 
 ## SAFETY NET — `.claude/cloud-bundles/s195-cloud-unmerged-2026-10-05.bundle`
