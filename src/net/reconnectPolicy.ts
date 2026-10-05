@@ -301,7 +301,9 @@ export function stepHostPresence(prev: HostPresence, hostPeerId: string | null, 
  *     (`RECONNECT_FIRST_RETRY_DELAY_MS`); a client retries every `RECONNECT_RETRY_MS`, past the grace too;
  *   · the MIGRATION case (host lost, other survivors connected) never retries — tearing the transport
  *     would drop the claim — and shows MIGRATING until the ladder's worst case (`migrationExtraMs`);
- *   · a host never retries; peers coming back hide the overlay and end the episode.
+ *   · a host never retries; peers coming back hide the overlay and end the episode;
+ *   · ⭐ S195 T20 (owner B-13) — a CLIENT with a rejoin attempt in flight stays RECONNECTING past the grace
+ *     (`rejoinAttemptInFlight`); it goes TERMINAL only at the give-up. The host side is unchanged.
  */
 export type ConnectionOverlay =
   | { readonly kind: 'hidden' }
@@ -313,6 +315,9 @@ export type ConnectionOverlay =
       /**
        * ⭐ S192 SEAM-1 — a CLIENT whose loop is still retrying behind the overlay (until `RECONNECT_GIVE_UP_MS`).
        * The help line must not say "return to title to retry": Return to Title ENDS the retry.
+       * ⚠ S195 T20 (B-13) — a client with an attempt in flight now stays RECONNECTING instead of going terminal,
+       * so this is true only in the frame-exact gap between an attempt lapsing and the next firing (none in
+       * practice: the loop fires on the lapse frame). Kept as the honest flag it is; the overlay text for it stays.
        */
       readonly retrying: boolean;
       /** ⭐ S192 SEAM-1 — a HOST still inside the give-up window: its clients may still be retrying back to it. */
@@ -349,6 +354,35 @@ export interface ConnectionFramePlan {
   readonly overlay: ConnectionOverlay;
 }
 
+/**
+ * ⭐ S195 T20 (owner B-13, RULED) — is a rejoin attempt DEMONSTRABLY IN PROGRESS this frame? Owner: keep
+ * RECONNECTING… *"while the rejoin runs; if he failed to rejoin, then all the other ones can continue playing
+ * and he's gone."* Derived from the episode state main.ts already carries, so no new field crosses main.ts:
+ *   · an attempt has FIRED iff `nextRetryMs` has moved past the schedule the episode opened with
+ *     (`lossAt + RECONNECT_FIRST_RETRY_DELAY_MS`; the only writer that moves it is the retry itself, by
+ *     `RECONNECT_RETRY_MS` > the first delay), and
+ *   · it is still IN FLIGHT while `nowMs < nextRetryMs` — the loop has not yet superseded it.
+ * ⚠ MINE — what "failed" means: this codebase has no per-attempt failure signal (`onPeerJoinError` is a
+ * per-strategy diagnostic that main.ts does not feed the plan), so an attempt counts as failed only when the
+ * loop SUPERSEDES it (`RECONNECT_RETRY_MS`) or the episode hits `RECONNECT_GIVE_UP_MS`. Since the loop fires
+ * the next attempt the frame the previous one lapses, a client therefore reads RECONNECTING from the loss to
+ * the give-up (3 min) unless a peer comes back first; the terminal CONNECTION LOST is reached by a CLIENT only
+ * at the give-up. Recommended to the owner as the default; the lever is `RECONNECT_GIVE_UP_MS`.
+ */
+export function rejoinAttemptInFlight(i: {
+  readonly nowMs: number;
+  readonly reconnectUntilMs: number;
+  readonly nextRetryMs: number;
+  readonly isHost: boolean;
+  readonly hasRoomCode: boolean;
+  readonly migrationCase: boolean;
+}): boolean {
+  if (i.isHost || !i.hasRoomCode || i.migrationCase || i.reconnectUntilMs === 0) return false;
+  const lossAt = i.reconnectUntilMs - RECONNECT_GRACE_MS;
+  const fired = i.nextRetryMs > lossAt + RECONNECT_FIRST_RETRY_DELAY_MS;
+  return fired && i.nowMs < i.nextRetryMs;
+}
+
 export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePlan {
   if (i.zombieDeposed) {
     return {
@@ -380,6 +414,16 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
   // S191 NETFR-3 — the window covers the claim ladder counted from the claim clock, if that began later.
   const anchorMs = i.claimClockSinceMs > 0 ? Math.max(reconnectUntilMs, i.claimClockSinceMs + RECONNECT_GRACE_MS) : reconnectUntilMs;
   const migrationDeadlineMs = anchorMs + i.migrationExtraMs;
+  // S195 T20 (B-13) — the give-up deadline, counted like `gaveUp` above, from the episode's first frame.
+  const giveUpAtMs = reconnectUntilMs - RECONNECT_GRACE_MS + RECONNECT_GIVE_UP_MS;
+  const inFlight = rejoinAttemptInFlight({
+    nowMs: i.nowMs,
+    reconnectUntilMs,
+    nextRetryMs,
+    isHost: i.isHost,
+    hasRoomCode: i.hasRoomCode,
+    migrationCase: i.migrationCase,
+  });
   let overlay: ConnectionOverlay;
   if (i.nowMs < reconnectUntilMs) {
     overlay = i.migrationCase
@@ -387,6 +431,11 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
       : { kind: 'reconnecting', secondsLeft: (reconnectUntilMs - i.nowMs) / 1000 };
   } else if (i.migrationCase && i.nowMs < migrationDeadlineMs) {
     overlay = { kind: 'migrating', secondsLeft: (migrationDeadlineMs - i.nowMs) / 1000 };
+  } else if (!gaveUp && inFlight) {
+    // ⭐ S195 T20 (owner B-13) — past the grace with a rejoin in progress: STILL RECONNECTING, never the
+    // terminal CONNECTION LOST a recovery at 25 s used to flash (T17 live: 17.6 s → 34.5 s, then cleared).
+    // The countdown past the grace is the give-up remainder — the real deadline after which it IS lost.
+    overlay = { kind: 'reconnecting', secondsLeft: (giveUpAtMs - i.nowMs) / 1000 };
   } else {
     overlay = {
       kind: 'terminal',

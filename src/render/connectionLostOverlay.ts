@@ -23,6 +23,11 @@ export interface ConnectionLostOverlayHandle {
    * S82 P4(b) — flip between the RECONNECTING grace state (auto-rejoin in progress;
    * cyan title + countdown help line) and the terminal CONNECTION LOST state. The
    * Return-to-Title button stays available in both (a user can always bail early).
+   * ⭐ S195 T20 (owner B-13, RULED) — the RECONNECTING… heading now also covers the window PAST the 15 s
+   * grace while a rejoin attempt is in flight (`planConnectionFrame` → `rejoinAttemptInFlight`,
+   * `src/net/reconnectPolicy.ts`): `secondsLeft` is then the give-up remainder (3 min from the loss), not
+   * the grace remainder. The heading text is unchanged on purpose — the owner's words were *"keep
+   * RECONNECTING…"*; only WHEN it is shown moved, and that decision lives in the policy, not here.
    */
   setReconnecting(reconnecting: boolean, secondsLeft?: number): void;
   /**

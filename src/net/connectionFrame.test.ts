@@ -16,6 +16,7 @@ import {
   RECONNECT_FIRST_RETRY_DELAY_MS,
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
+  rejoinAttemptInFlight,
   type ConnectionFrameInput,
   type ConnectionFramePlan,
 } from './reconnectPolicy.ts';
@@ -67,7 +68,10 @@ describe('S189 fix round — planConnectionFrame, frame by frame', () => {
     expect(retries.some((d) => d > RECONNECT_GRACE_MS), 'the loop keeps trying past the grace (C4)').toBe(true);
     const at = (d: number) => frames.find((f) => f.t >= lossAt + d)!.plan.overlay.kind;
     expect(at(1_000)).toBe('reconnecting');
-    expect(at(RECONNECT_GRACE_MS + 100)).toBe('terminal');
+    // ⭐ S195 T20 (owner B-13) — re-pinned: this said 'terminal' at grace + 100 ms. A client whose attempt is
+    // in flight now STAYS reconnecting past the grace; the terminal state is the give-up (tests below).
+    expect(at(RECONNECT_GRACE_MS + 100)).toBe('reconnecting');
+    expect(frames[frames.length - 1]!.plan.overlay.kind, 'still retrying at 60 s → still RECONNECTING').toBe('reconnecting');
   });
 
   it('peers come back → the overlay hides and the next loss starts a FRESH grace', () => {
@@ -204,12 +208,14 @@ describe('S189 fix round (audit NET-5) — the overlay edge says what actually h
  */
 describe('S192 SEAM-1 — the terminal plan says whether the loop is still working', () => {
   const GIVE_UP_MS = 180_000;
-  it('⛔ a client past the grace: terminal, retrying=true until the give-up, then false', () => {
+  it('⛔ a client past the grace: RECONNECTING while its attempt is in flight (S195 B-13 re-pin), terminal with retrying=false at the give-up', () => {
+    // ⚠ S195 T20 — this pinned `terminal, retrying: true` from grace + 100 ms to the give-up. Owner B-13 RULED:
+    // keep RECONNECTING while the rejoin runs. The `retrying` flag itself is unchanged (see its docblock).
     const frames = run({ toMs: 5_000 + GIVE_UP_MS + 2_000, lost: (t) => t >= 5_000 });
     const lossAt = frames.find((f) => f.t >= 5_000)!.t;
     const at = (d: number) => frames.find((f) => f.t >= lossAt + d)!.plan.overlay;
-    expect(at(RECONNECT_GRACE_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: true, waitingForPeers: false });
-    expect(at(GIVE_UP_MS - 100)).toMatchObject({ kind: 'terminal', retrying: true });
+    expect(at(RECONNECT_GRACE_MS + 100).kind).toBe('reconnecting');
+    expect(at(GIVE_UP_MS - 100).kind).toBe('reconnecting');
     expect(at(GIVE_UP_MS + 100)).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: false });
     // The flag agrees with the loop: no retry fires once it says false.
     expect(frames.some((f) => f.t >= lossAt + GIVE_UP_MS + 100 && f.plan.retry)).toBe(false);
@@ -237,5 +243,96 @@ describe('S192 SEAM-1 — the terminal plan says whether the loop is still worki
     const src = readFileSync(new URL('../main.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     expect(src).toContain('lobbyScreen.setConnectionLostTerminal(overlay.retrying, overlay.waitingForPeers);');
     expect(src).not.toContain('setConnectionLostReconnecting(false)');
+  });
+});
+
+/**
+ * ⭐ S195 T20 — owner B-13 (RULED): *"keep RECONNECTING… while the rejoin runs; if he failed to rejoin, then
+ * all the other ones can continue playing and he's gone."* T17 measured a live recovery at 34.5 s that showed
+ * CONNECTION LOST from 17.6 s and then auto-cleared; the hard-blip spec measures 20–53 s. Every transition:
+ */
+describe('S195 T20 — B-13: RECONNECTING while a rejoin is demonstrably in progress', () => {
+  const GIVE_UP_MS = 180_000;
+  const lossAt0 = 5_000;
+  const at = (frames: ReturnType<typeof run>, d: number) => frames.find((f) => f.t >= lossAt0 + d)!.plan;
+
+  it('loss → RECONNECTING with the grace countdown (unchanged inside the grace)', () => {
+    const frames = run({ toMs: 30_000, lost: (t) => t >= lossAt0 });
+    const p = at(frames, 2_000);
+    expect(p.overlay.kind).toBe('reconnecting');
+    expect(p.overlay.kind === 'reconnecting' && p.overlay.secondsLeft).toBeCloseTo((RECONNECT_GRACE_MS - 2_000) / 1000, 0);
+  });
+
+  it('⭐ attempt in flight PAST the grace → still RECONNECTING, counting down to the give-up, never terminal', () => {
+    const frames = run({ toMs: lossAt0 + GIVE_UP_MS + 2_000, lost: (t) => t >= lossAt0 });
+    for (const d of [RECONNECT_GRACE_MS + 16, 25_000, 60_000, 120_000, GIVE_UP_MS - 1_000]) {
+      const p = at(frames, d);
+      expect(p.overlay.kind, `at loss + ${d} ms`).toBe('reconnecting');
+      expect(p.overlay.kind === 'reconnecting' && p.overlay.secondsLeft, `countdown at ${d}`).toBeCloseTo((GIVE_UP_MS - d) / 1000, 0);
+    }
+    // the loop really IS working behind that heading: a retry fires every RECONNECT_RETRY_MS
+    const retries = frames.filter((f) => f.plan.retry).map((f) => f.t - lossAt0);
+    expect(retries.length).toBeGreaterThanOrEqual(5);
+    expect(frames.some((f) => f.t < lossAt0 + GIVE_UP_MS && f.plan.overlay.kind === 'terminal'), 'no terminal frame before the give-up').toBe(false);
+  });
+
+  it('⭐ success at 25 s → cleared (hidden), and the next loss opens a fresh grace', () => {
+    const frames = run({ toMs: 80_000, lost: (t) => (t >= lossAt0 && t < lossAt0 + 25_000) || t >= 60_000 });
+    expect(at(frames, 24_900).overlay.kind).toBe('reconnecting');
+    expect(at(frames, 25_100).overlay.kind).toBe('hidden');
+    const second = frames.find((f) => f.t >= 61_000)!.plan.overlay;
+    expect(second.kind).toBe('reconnecting');
+    expect(second.kind === 'reconnecting' && second.secondsLeft).toBeLessThanOrEqual(RECONNECT_GRACE_MS / 1000);
+  });
+
+  it('give-up (RECONNECT_GIVE_UP_MS) → TERMINAL, retrying=false, and no retry fires after it', () => {
+    const frames = run({ toMs: lossAt0 + GIVE_UP_MS + 5_000, lost: (t) => t >= lossAt0 });
+    expect(at(frames, GIVE_UP_MS + 16).overlay).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: false });
+    expect(frames.some((f) => f.t >= lossAt0 + GIVE_UP_MS + 16 && f.plan.retry)).toBe(false);
+  });
+
+  it('NEGATIVE — a HOST (no attempt can be in flight) still goes terminal at the grace, waitingForPeers=true', () => {
+    const frames = run({ toMs: 40_000, lost: (t) => t >= lossAt0, isHost: true });
+    expect(at(frames, RECONNECT_GRACE_MS + 100).overlay).toEqual({ kind: 'terminal', cause: 'peerCount0', retrying: false, waitingForPeers: true });
+  });
+
+  it('NEGATIVE — the MIGRATION case is untouched: MIGRATING to its deadline, then terminal', () => {
+    const frames = run({ toMs: 60_000, lost: (t) => t >= lossAt0, migrationCase: () => true, peerCount: 2 });
+    expect(at(frames, RECONNECT_GRACE_MS + 100).overlay.kind).toBe('migrating');
+    expect(frames[frames.length - 1]!.plan.overlay).toMatchObject({ kind: 'terminal', cause: 'migrationDeadline' });
+  });
+
+  it('NEGATIVE — a client with NO room code never fires an attempt, so nothing is "in progress": terminal at the grace', () => {
+    let reconnectUntilMs = 0;
+    let nextRetryMs = 0;
+    let lastKind = '';
+    for (let t = lossAt0; t <= lossAt0 + RECONNECT_GRACE_MS + 1_000; t += 16) {
+      const plan = planConnectionFrame({
+        nowMs: t, zombieDeposed: false, peersGone: true, isHost: false, hasRoomCode: false, migrationCase: false,
+        peerCount: 0, reconnectUntilMs, nextRetryMs, migrationExtraMs: MIGRATION_EXTRA_MS, claimClockSinceMs: 0,
+      });
+      expect(plan.retry).toBe(false);
+      reconnectUntilMs = plan.reconnectUntilMs;
+      nextRetryMs = plan.nextRetryMs;
+      lastKind = plan.overlay.kind;
+    }
+    expect(lastKind).toBe('terminal');
+  });
+
+  it('rejoinAttemptInFlight — the derivation, frame-exact: not before the first attempt, true from it until it lapses', () => {
+    const lossAt = 1_000;
+    const base = { isHost: false, hasRoomCode: true, migrationCase: false, reconnectUntilMs: lossAt + RECONNECT_GRACE_MS };
+    // the episode's opening schedule: no attempt yet
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt, nextRetryMs: lossAt + RECONNECT_FIRST_RETRY_DELAY_MS })).toBe(false);
+    // the first attempt fired at lossAt + 1 s and scheduled the next RECONNECT_RETRY_MS later
+    const next = lossAt + RECONNECT_FIRST_RETRY_DELAY_MS + RECONNECT_RETRY_MS;
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 1_016, nextRetryMs: next })).toBe(true);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: next - 1, nextRetryMs: next })).toBe(true);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: next, nextRetryMs: next }), 'lapsed = no longer in flight').toBe(false);
+    // never for a host, a codeless seat, the migration case, or outside an episode
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 2_000, nextRetryMs: next, isHost: true })).toBe(false);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 2_000, nextRetryMs: next, hasRoomCode: false })).toBe(false);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 2_000, nextRetryMs: next, migrationCase: true })).toBe(false);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 2_000, nextRetryMs: next, reconnectUntilMs: 0 })).toBe(false);
   });
 });
