@@ -47,6 +47,7 @@ import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { isConcealed } from './concealment.ts';
 // ⭐ S193 visuals-3 V22 — the HELLSPAWN split burst (`fx/perkFx.ts`). Render-only.
 import { fxActive, fxTop } from './fx/fxState.ts';
@@ -214,10 +215,14 @@ export class ChewerRenderer {
        * Graphics deliberately — a new display object would shift `fogHiddenLayer`'s child indices
        * and break the two hardcoded probes in `tower-art.spec.ts` for a fourth time.
        */
+      // ⭐ S195 T19 (#3) — the SAME call every other family makes (`goblinRenderer`): the stars ride the unit's
+      // sprite scale and its fade, where this passed a flat alpha 1 and the default scale.
       if (isStunned(c, world.tick)) {
-        drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), 1);
+        const stunFade = c.state === 'DESPAWNING'
+          ? Math.max(0, Math.min(1, (CREATURE_DESPAWNING_TICKS - c.ticksInState) / CREATURE_FADE_TICKS))
+          : 1;
+        drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), stunFade, creatureSpriteScaleMul(c.type));
       }
-
 
       // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED
       // state + ticksInState. (⚠ S133: chewProgress IS on the wire now — the old reason
