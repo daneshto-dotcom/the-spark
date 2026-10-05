@@ -99,9 +99,9 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1250 KiB** since S193;
-  **1040.6 KiB used, 209.4 KiB of headroom — measured S193 on the deploy-#18 tree by running `npm run build`**,
-  not carried from a handoff; S193 raised 1100→1250 in its own commit, LOCKED_DECISIONS § Bundle charter). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1350 KiB** since S195;
+  **1183.4 KiB used before the S195 cloud train (deploy S195-#5, measured by `npm run build`); the train lands ~1202.6 KiB** —
+  S195 raised 1250→1350 in its own commit (S193 raised 1100→1250), LOCKED_DECISIONS § Bundle charter). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
   raised 1000→1100 in S188 (`CAP_KIB` at `check-bundle-size.mjs:19`) and this doc never followed — the
   SECOND time (it also lagged the S180 900→1000 raise). **Read the constant, not this sentence** —
   and when parallel branches are open, remember the headroom is SHARED between them. It is a design constraint, not a platform limit — if a real feature needs the room,
