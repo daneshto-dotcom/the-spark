@@ -18,10 +18,14 @@ were still in flight on the desktop and were NOT touched here — their file set
   integration branch by this run's merge owner before the final push, and is listed here.
 
 ## LANDED (on the integration branch)
-_(none yet)_
+- **L1 `s195/nonet-home` (T13)** — merge b07b038, docs only (2 files, no src, no gates owed). Report: `.claude/plans/S195_NONET_HOME_OPTIONS.md` — recommends Option B "Home + campaign" inside the arcade (`src/nonet/`, ~5–7 agent-days, no bump, match trial untouched); 10 owner questions in its §d. Nothing built — the owner picks.
 
-## IN FLIGHT
-_(filled as trees open)_
+## IN FLIGHT (wave 1, opened 06:30 UTC 2026-10-05, each on `.claude/worktrees/s195-<tree>` in the cloud container)
+- `s195/rules-2` — T25 + B-9 chewer attacks the keep · B-10 drone splash = one pool 30 split · B-32 corpse-eater loop · B-31 welded TV keeps summoning (+ new welded TV mints) · B-25/B-30 every blast spares own side (enumerated) · N11 smarter chasing. BUMP expected YES.
+- `s195/fixes` — T22: draftOverlay sheen clock pin · botFix timeout measured · worker-heap CDP metric (10 MB untouched) · B-17 per-seat `lostToEntropy` counter in matchStats (board row = later tree) · B-18/19 bots learn entropy by level+personality · PLACE-refused re-measure · settings-toggles race-music flake (product path + poll) · §E F2 pixel-read framing. No bump expected.
+- `s195/coherence-2` — T19: B-7 Helga death cue (additive-optional) · shared departure rule (chewer + goblin corpse) · chewer stun-star scale · SILENT sound slots (unit-death, stink fire, castle gun, entropy boing owner-only) · N4 Helga-heard-by-two-seats verify · stink ramp wiring behind manifest · refused-placement REACH · B-3 repaired sparkle · B-1 pin · §E F1 render-leak measurement.
+- `s195/ui-4` — T18 + N5: mechanical clickable→press enumeration + wiring · census REACH tests · R81 hover-grow inside hit rect (⚠ MINE) · hover-highlight proposal only.
+- Wave 2 (opens as wave-1 trees land): `s195/controls-macros` (N6) · `s195/info-ui` (N7 + N12 UI + N14 board polish + the entropy board row) · `s195/net-mp` (T20).
 
 ## NOT DONE / FOR THE DESKTOP SESSION
 _(filled at close)_
