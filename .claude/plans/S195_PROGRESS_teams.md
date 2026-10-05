@@ -1,5 +1,7 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
+## FIX-ONLY ROUND (audit) — NEXT STEP: L4 (ui.ts formatRaceReadout: one-seat team -> plain score/bar; matchBoardModel subline: solo -> P<n>), L5 formatTierBanner team bar, L6 keep-out only castle anchors, L7 MOVE cancels countdown, L9 save.ts fallback by seat count + isZoneLayout rejects seated-owns-nothing, L10 destroy crop textures/prune baked, L11 mapped-board damage reach test. DONE: MED-2 (0b8ef158), MED-3 (eee28ff7+e19483ec). Merged master 6531e796. Then STOP and wait for coordinator 'merge master' (ccr-26eaab43 deploy #6 will conflict).
+
 ## FINAL REPORT (S195 T12 teams) — ALL 7 ITEMS DONE
 Tip: see `git log -1` (after this commit). Last master merge 3bd3981a (master 626646be, Pitch Masters + logs only, no conflicts); earlier 017d0599 (d77f9136, clean).
 Gates on the merged tree: typecheck 0 · vitest 0 (581 files, 8820 pass / 12 skip) · build 0 entry 1192.4 KiB (57.6 headroom; ~+9 KiB vs master's last measured 1183.4) · e2e:gating 0 (67/67, own port) · teams-lobby lane 0 (2/2, own port; @quarantine-flaky).
