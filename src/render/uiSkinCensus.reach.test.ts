@@ -32,8 +32,6 @@ const key = (r: Row): string => `${r.file} :: ${r.match}`;
 const NOT_DONE: ReadonlyArray<Row & { why: string }> = [
   { file: 'src/render/lobbyScreen.ts', match: 'this.joinButton.', why: 'teams tree owns lobby*.ts (S195 off-limits) — Connect chip: drive LobbyScreen, chip inside/outside + sheen' },
   { file: 'src/render/lobbyScreen.ts', match: 'attachButtonFeedback(', why: 'teams tree owns lobby*.ts — Host/Join/Begin/Back/Quick/Test/READY: sheen rect = hitArea, sweep inside' },
-  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointermove'", why: 'match board tree (N14) — hover through the real pointermove onto matchBoardTips.hoverAt rects' },
-  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointertap'", why: 'match board tree (N14) — tabs / rows / CONTINUE skinned on the rects hoverAt claims' },
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", why: 'lag tree owns settings*.ts; and a DOM REACH needs jsdom (no new npm packages without the merge owner)' },
   { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", why: 'lag tree owns settings*.ts; DOM REACH needs jsdom' },
 ];

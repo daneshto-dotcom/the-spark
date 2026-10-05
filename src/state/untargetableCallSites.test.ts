@@ -107,6 +107,10 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'S192 T3 — AREA. The zombie boss death blast splits one pool over EVERYTHING in its radius (the ' +
     'ownership filter is the optional `spare` seat, off by default — R138 *"hurting everything"*). It ' +
     'picks no victim; an area effect must still reach untargetable units, the standing ruling.',
+  'render/characterSheetModel.ts':
+    'PURELY PRESENTATIONAL (S195 N7a, info-ui). `goblinContentsRows` walks `world.creatures` only to COUNT ' +
+    'the goblins whose `sourceSpawnerId` is the goblin tower on the card ("which goblins are inside"), by kind. ' +
+    'No victim, no damage, no write — an untargetable goblin is still inside its tower and must still be counted.',
   'render/damageNumbers.ts':
     'PURELY PRESENTATIONAL, and it never picks a victim. `damageAnchor` finds the nearest creature '+
     'of another owner ONLY to decide WHICH DIRECTION to draw a floating number, after the damage '+
