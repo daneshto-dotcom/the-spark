@@ -60,14 +60,16 @@ export function referenceCannotCatch(world: World, chaser: Creature, quarry: Cre
   const nonCombatant = quarry.type === 'chewer' || (qc.selfExplode && !qc.targetsStructures);
   if (!nonCombatant) return false;
   if (!(qc.maxAccel > cc.maxAccel * CHASE_GIVEUP_SPEED_RATIO)) return false;
-  // S192 refinement — at home it is engaged.
+  // S192 refinement — at home it is engaged. ⭐ S195 N11 — only when it is going nowhere (no path); a moving
+  // quarry at home must pass the intercept test below like one abroad.
   const home = zoneOwner(chaser.ownerPlayerId as unknown as number, world.layout);
-  // S193 audit — the CHASER must be at home too ("you're still in your zone" = the unit's own zone).
-  if (home !== null && zoneOf(chaser.pos, world.layout) === home && zoneOf(quarry.pos, world.layout) === home) return false;
-  // S192 refinement — and when it can be cut off before it reaches its target.
   const vx = quarry.targetPos.x - quarry.pos.x;
   const vy = quarry.targetPos.y - quarry.pos.y;
   const len2 = vx * vx + vy * vy;
+  // S193 audit — the CHASER must be at home too ("you're still in your zone" = the unit's own zone).
+  // S195 audit — "going nowhere" by STATE (a committed gnawer is ATTACKING and coasts) or by no path at all.
+  if (home !== null && zoneOf(chaser.pos, world.layout) === home && zoneOf(quarry.pos, world.layout) === home && (quarry.state === 'ATTACKING' || !(len2 >= 1))) return false;
+  // S192 refinement — and when it can be cut off before it reaches its target.
   if (len2 >= 1) {
     const t = Math.min(1, Math.max(0, ((chaser.pos.x - quarry.pos.x) * vx + (chaser.pos.y - quarry.pos.y) * vy) / len2));
     const px = quarry.pos.x + t * vx;

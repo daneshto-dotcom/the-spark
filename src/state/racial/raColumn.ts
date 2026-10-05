@@ -216,9 +216,9 @@ export interface RaColumnSource {
   readonly spare: PlayerId | null;
   /**
    * ⭐ S192 (owner R192-T1, ⚠ MINE for the boss) — the seat whose TEAMMATES are spared although the seat
-   * itself is not: the Pharaoh boss's own seat (his column *"kills everything"*, but teammates never
-   * damage each other). `null` for the perk, whose `spare` already covers the caster's whole team.
-   * REQUIRED, so `tsc` makes every new column source decide.
+   * itself is not. ⭐ S195 B-25 (owner) — `null` for BOTH production sources now: the Pharaoh boss's column
+   * spares his own side like the perk's spares the caster's (`spare` covers the whole team). Kept REQUIRED,
+   * so `tsc` makes every new column source decide; a non-null value is a rule nobody holds today.
    */
   readonly alliesOf: PlayerId | null;
   /** The seat whose picks decide the pool (`raColumnPoolFor`) and who is credited with a sever. */
