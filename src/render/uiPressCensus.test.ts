@@ -210,6 +210,30 @@ describe('⛔ S195 N5 — every SKINNED clickable also shows a PRESS (derived fr
     }
   });
 
+  /**
+   * ⭐ S195 (audit) — a Controls-driven surface drawn with a BARE `state: 'rest'` every frame is a control that can
+   * never show hover or press (the collapse tab was one: hit-tested FIRST by controls.ts, skinned 'rest' forever).
+   * Each such call must be a READOUT, exempted here by a substring of its own rect expression and a reason.
+   */
+  const BARE_REST_EXEMPT: ReadonlyArray<{ file: string; rect: string; why: string }> = [
+    { file: 'src/render/footerBand.ts', rect: 'carry.y - CHIP_H / 2', why: 'the CARRY READOUT plate — isOverBandSurface claims it (a surface, not a control); it has no click' },
+    { file: 'src/render/characterSheet.ts', rect: 'x + PAD, top, PORTRAIT, PORTRAIT', why: 'the card PORTRAIT frame — no hit-test names it; it is decoration, not a control' },
+  ];
+
+  it('⛔ no Controls-driven control is skinned with a bare literal rest (an exempt READOUT names its rect and why)', () => {
+    for (const s of CONTROLS_DRIVEN_PRESS) {
+      const src = code(join(ROOT, s.file));
+      const bare = callArgs(src, 'skinButtonFx').filter((c) => /state:\s*'rest'/.test(c.args));
+      const offenders = bare.filter((c) => !BARE_REST_EXEMPT.some((e) => e.file === s.file && c.args.includes(e.rect)));
+      expect(offenders.map((c) => `${s.file}:${c.line}`), `${s.file}: bare 'rest' on a control`).toEqual([]);
+    }
+    for (const e of BARE_REST_EXEMPT) {
+      expect(e.why.length).toBeGreaterThan(20);
+      const src = code(join(ROOT, e.file));
+      expect(callArgs(src, 'skinButtonFx').some((c) => c.args.includes(e.rect) && /state:\s*'rest'/.test(c.args)), `${e.file} :: ${e.rect} is still a bare-rest site (else drop the exemption)`).toBe(true);
+    }
+  });
+
   it('⛔ every skinButtonFx site that knows HOVER knows PRESS (a pointer model without a press is the N5 defect)', () => {
     const offenders: string[] = [];
     for (const abs of FILES) {

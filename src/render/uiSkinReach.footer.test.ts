@@ -126,7 +126,7 @@ describe('S194 T5 — the footer skin is drawn exactly on its hit rects (real Fo
     for (const k of ['chip', 'pal', 'q', 'ra']) expect([...targets.keys()].some((id) => id.startsWith(k)), `a ${k} to hover`).toBe(true);
     expect([...targets.values()].some((t) => !t.disabled), 'at least one ENABLED control (anti-vacuity for the state check)').toBe(true);
     for (const [id, p] of targets) {
-      if (id === 'carry' || id === 'tab') continue; // readout / tab: no hover state of their own
+      if (id === 'carry') continue; // the carry READOUT is not a control (isOverBandSurface, not isOverChip): no hover state
       for (const held of [false, true]) {
         b.setHover(p.x, p.y);
         b.setPressed(held);

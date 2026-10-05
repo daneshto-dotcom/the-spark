@@ -1,4 +1,11 @@
-NEXT STEP: DONE — final report below. Merge owner: apply the SEAMS section (characterSheet / matchBoard / main.ts / settingsOverlay hunks) in their trees.
+NEXT STEP: DONE (fix round 1 applied) — merge owner: apply the SEAMS section in the other trees.
+
+## FIX ROUND 1 (independent audit, 2 defects) — tip = this commit
+1. MED collapse tab: `footerBand.ts` `hoverTab` set in `setHover` from `isOverCollapseTab`; `drawCollapseTab` state = hoverTab ? (pressed ? 'press' : 'hover') : 'rest' (stroke 2 while hovered). R81 pin no longer skips `tab` (only the carry READOUT, with its reason). `uiPressCensus.test.ts`: new test — a Controls-driven `skinButtonFx(` with a bare literal `'rest'` fails unless in `BARE_REST_EXEMPT` (carry readout; characterSheet portrait frame), exemptions stale-checked. Mutation (tab back to 'rest') → RED in both the pin ("tab hovered: hover/press state reached") and the census ("bare 'rest' on a control"); restored.
+2. LOW seat rack REACH (`uiSkinReach.chips.test.ts`): now drives `rack.update` with a YOU seat, proves exactly one clickable cell, runs `checkButtons` (inside/outside by Pixi's children-bounds rule + sheen sweep inside) on your cell + team chip, and that another seat's cell never lights. `seatRack.ts` untouched.
+Gates (this round, touched files only, box loaded): typecheck 0 · vitest (uiSkinReach.footer, footerBand, uiPressCensus, uiSkinReach.chips, uiSkinCensus, uiSkinCensus.reach) 0 — 72 passed; after restore (footer pin + census) 0.
+Entry KiB: not re-measured this round (a few bytes in footerBand); the 1184.6 figure below stands within rounding.
+
 
 # FINAL REPORT — s195/ui-4 (T18) — tip = see `git log -1` (this commit); merged `ccr-26eaab43-fa9mg3` (911bc30, clean, docs only, lockfile unchanged)
 

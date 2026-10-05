@@ -456,6 +456,8 @@ export class FooterBand {
   private hoverCard: GodlyId | null = null;
   /** S153 P4 — pointer is held down. */
   private pressed = false;
+  /** ⭐ S195 (audit) — the COLLAPSE TAB is under the pointer; fed from `isOverCollapseTab`, the click path's own predicate. */
+  private hoverTab = false;
   private readonly container: Container;
   private readonly graphics: Graphics;
   private readonly labels: Text[] = [];
@@ -517,6 +519,7 @@ export class FooterBand {
     this.hoverQueue = this.queueChipAt(x, y);
     this.hoverRa = this.isOverRaButton(x, y);
     this.hoverSe = this.isOverScorchedEarthButton(x, y); // ⭐ S191 — SCORCHED EARTH
+    this.hoverTab = this.isOverCollapseTab(x, y); // ⭐ S195 — the tab hovers and presses like every other control
   }
 
   /** Pointer is DOWN. Drives the pressed look; cleared on release wherever it happens. */
@@ -959,8 +962,10 @@ export class FooterBand {
   private drawCollapseTab(g: Graphics): void {
     const r = collapseTabRect(this.collapsed);
     g.roundRect(r.x, r.y, r.w, r.h, 6).fill({ color: 0x0b0f16, alpha: 0.92 });
-    skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: 0x8fa2c4, state: 'rest', radius: 6, studs: false });
-    g.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ color: 0x8fa2c4, width: 1.5, alpha: 0.85 });
+    // ⭐ S195 N5 (audit) — the tab was a bare 'rest' every frame while `controls.ts` hit-tests it FIRST; hover lifts, press sinks.
+    const tabState: SkinState = this.hoverTab ? (this.pressed ? 'press' : 'hover') : 'rest';
+    skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: 0x8fa2c4, state: tabState, radius: 6, studs: false });
+    g.roundRect(r.x, r.y, r.w, r.h, 6).stroke({ color: 0x8fa2c4, width: this.hoverTab ? 2 : 1.5, alpha: 0.85 });
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
     const k = 5;

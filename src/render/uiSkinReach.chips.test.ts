@@ -30,7 +30,7 @@ vi.stubGlobal('cancelAnimationFrame', () => {});
 
 const { BotSetupOverlay } = await import('./botSetupOverlay.ts');
 const { makeRacePicker } = await import('./racePicker.ts');
-const { makeSeatRack } = await import('./seatRack.ts');
+const { makeSeatRack, SEAT_TEAM_CHIP_RECT } = await import('./seatRack.ts');
 const { makeConnectionLostOverlay } = await import('./connectionLostOverlay.ts');
 
 function sheenButtons(root: Container): Container[] {
@@ -134,14 +134,27 @@ describe('S194 census round — every newly-skinned button keeps its exact click
     checkButtons(stage, 'connection lost', 1);
   });
 
-  it('seat rack: the seat cells carry the sheen on their own rect', () => {
-    const rack = makeSeatRack(() => {});
-    const cells = sheenButtons(rack.container);
+  /**
+   * ⭐ S195 (audit) — the seat rack, DRIVEN: after a real `update` YOUR seat (and its TEAM chip) are the clickable
+   * cells; `checkButtons` then proves inside/outside by Pixi's children-bounds rule and the sheen sweep inside the
+   * rect. Another seat's cell is inert and never lights.
+   */
+  it('seat rack: YOUR seat cell takes a click inside its rect and not outside, sheen sweeps inside; another seat is inert', () => {
+    const rack = makeSeatRack(() => {}, () => {});
+    rack.update([
+      { index: 0, color: 0xff0000, occupied: true, isHost: true, isYou: true, team: 0 },
+      { index: 1, color: 0x00ff00, occupied: true, isHost: false, isYou: false, team: 1 },
+    ] as never);
+    const all = sheenButtons(rack.container);
+    const cells = all.filter((c) => sheenRectOf(c)!.w !== SEAT_TEAM_CHIP_RECT.w);
     expect(cells.length).toBeGreaterThanOrEqual(2);
-    for (const c of cells) {
-      const r = sheenRectOf(c)!;
-      expect(r.x).toBe(0);
-      expect(r.y).toBe(0);
-    }
+    for (const c of cells) expect([sheenRectOf(c)!.x, sheenRectOf(c)!.y]).toEqual([0, 0]);
+    expect(cells.filter((c) => c.eventMode === 'static').length, 'exactly one clickable cell — yours').toBe(1);
+    checkButtons(rack.container, 'seat rack (your cell + your team chip)', 2);
+    const theirs = cells.find((c) => c.eventMode !== 'static' && c.visible)!;
+    const sheen = theirs.getChildByLabel('sheen') as Graphics;
+    theirs.emit('pointerover', {} as never);
+    Ticker.shared.update(Ticker.shared.lastTime + 400);
+    expect(sheen.context.instructions.length, 'another seat does not light').toBe(0);
   });
 });
