@@ -29,7 +29,11 @@ test.describe('S122 P2 — host-migration D3 takeover @quarantine-flaky', () => 
   test('kill host → seat-1 claims + adopts authority → survivor re-latches at epoch 1', async ({
     browser,
   }) => {
-    test.setTimeout(240_000);
+    // ⭐ S195 (ci-budgets) — 240 → 300 s. CI run 37047025269 hit the 240 s cap (4.1 min) with `MIGRATION TAKEOVER
+    // complete` and `MIGRATION accepted — re-latched host` ALREADY in the log — the takeover finished just past
+    // the budget; the two sibling tests below (same 3-mesh, 360 / 300 s) PASSED at 5.0 / 4.5 min. Time budget,
+    // not a code fault. The quarantine lane's cap re-derives from this literal (`src/ci.e2eLanes.test.ts`).
+    test.setTimeout(300_000);
     const mk = async (): Promise<BrowserContext> => {
       const ctx = await browser.newContext();
       await ctx.addInitScript((seam) => {

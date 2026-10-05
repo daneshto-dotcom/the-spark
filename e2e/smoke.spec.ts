@@ -74,6 +74,7 @@ import {
   waitForRejected,
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
+  LOBBY_2PEER_BUDGET_MS,
 } from './helpers';
 
 /**
@@ -158,6 +159,7 @@ async function open2Peers(browser: import('@playwright/test').Browser): Promise<
 
 test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phase A.0) @quarantine-flaky', () => {
   test('Both peers reach PLAYING after host hosts + joiner joins + Begin Match', async ({ browser }) => {
+    test.setTimeout(LOBBY_2PEER_BUDGET_MS); // S195 ci-budgets — see the constant in helpers.ts
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       // Phase 1: host opens lobby + gets code.
@@ -482,11 +484,11 @@ test.describe('Sym E — score display layout (PLACEHOLDER: asserts null, cannot
 
 test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
-    // ⚠ S195 T20 — NO TWO_PEER_BUILD_BUDGET_MS timeout here YET (the lane pin reads the call text), although this test builds like Sym A/C/G
-    // and needs it (measured on the cloud box: the two-peer connect alone is 40–60 s, each porch pull up to 30 s
-    // of sim). `src/ci.e2eLanes.test.ts` re-derives the quarantine lane's cap from every spec's own budget and
-    // the lane (e2e.yml `e2e-quarantine`, 46/54 min) has 60 s of slack; the budget lands together with the cap:
-    // PW_GLOBAL_TIMEOUT_MIN 46 → 51 and timeout-minutes 54 → 59 (owned by the ci-perf tree), then this line.
+    // ⭐ S195 (ci-budgets) — this test builds like Sym A/C/G and needs their budget (measured on the cloud box and
+    // CI: the two-peer connect alone is 40–60 s, each porch pull up to 30 s of sim). T20 held this line back because
+    // `src/ci.e2eLanes.test.ts` re-derives the quarantine lane's cap from every spec's own budget and the lane had
+    // 60 s of slack; it landed together with the cap (e2e.yml `e2e-quarantine` 46/54 → 52/60).
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS);
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -567,8 +569,9 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
 
 test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host reaching WIN_SCORE triggers WIN on both peers (joiner via ENDGAME envelope)', async ({ browser }) => {
-    // ⚠ S195 T20 — needs the TWO_PEER_BUILD_BUDGET_MS timeout (a two-peer connect alone runs 40–60 s on CI and
-    // the cloud box) — held back with Sym F's for the same quarantine-cap reason; see the note there.
+    // ⭐ S195 (ci-budgets) — the TWO_PEER_BUILD_BUDGET_MS timeout (a two-peer connect alone runs 40–60 s on CI and
+    // the cloud box; T20 saw the HOST still in LOBBY at the 60 s default). Landed with the quarantine cap; see Sym F.
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS);
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
