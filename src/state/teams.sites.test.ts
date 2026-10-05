@@ -74,6 +74,8 @@ const PINNED_INLINE: Readonly<Record<string, number>> = {
   'game/invariants.ts': 1,
   'input/controls.ts': 3,
   'render/castlePanel.ts': 1,
+  // ⭐ S195 T19 (owner N4) — `d.ownerPlayerId === seat`: is the LOCAL seat HER owner (who HEARS Helga) — MINE, never an enemy decision.
+  'render/coherence/helgaAudience.ts': 1,
   // S194 — `lifestealPctFor(…ownerPlayerId) === 0` (does THIS creature's seat hold lifesteal) — a regex false positive.
   'render/goblinRenderer.ts': 1,
   'render/characterSheetModel.ts': 3,
@@ -220,6 +222,8 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/botSetupOverlay.ts': 1, // lobby seat swap
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
   'render/characterSheetModel.ts': 8, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware). S195 info-ui: + `entropyRowsFor` `owner === seat` — the owner-only LOST-TO-ENTROPY row (B-17: "only the player itself will see it"), is-this-MINE, never allegiance
+  'render/audioManager.ts': 1, // S195 T19 (owner B-14): `effect.victim === localSeat` — is the snapped connector MINE (only the loser hears the entropy boing)
+  'render/coherence/helgaAudience.ts': 2, // S195 T19 (owner N4): is the LOCAL seat her owner / the seat whose unit she hits — who HEARS her (ownership, not allegiance)
   'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
   'render/concealment.ts': 1, // the local viewer's own things are never concealed
   'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id

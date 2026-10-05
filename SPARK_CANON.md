@@ -1469,6 +1469,12 @@ attacks, you can see the tower actively get more and more destroyed until it get
 destroyed. So very well done with the lightning hub. Keep it like that for now,"* and then presented
 the other four. **The one-at-a-time rule was satisfied, not overridden.**
 
+⭐ **S195 (owner B-8): the stink tower is WIRED for a ramp but HAS NO SHEET.** He believed it had damage art;
+it is the one tower with none. `RAMP_SPECS_PENDING_ART` in `render/structureRamp.ts` holds its row
+(`/art/stink-tower/stink-tower`, 3 connectors, no self-destruct), `rampSpecFor` resolves it, and
+`stinkTowerRenderer` keeps today's look until the packed sheet answers its manifest probe — so the art
+(briefed for Grok, T23) is the whole remaining change. `RAMP_SPECS` stays FIVE until the sheet is on disk.
+
 ⛔ **THE SELF-DESTRUCT DID NOT COME WITH THE RAMP.** R182-A is hub-only — *"it is a suicide drone
 building, so it makes sense. We won't do it for every building."* The four new towers carry
 `selfDestructBelow: null` and a test asserts exactly one entry opts in. `hostTick` additionally hard-
