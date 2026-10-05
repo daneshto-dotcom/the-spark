@@ -1,4 +1,7 @@
-# S195 PROGRESS — teams (T12), branch s195/teams
+# S195 PROGRESS — teams (T12)
+
+## LATEST: re-audit LOWs done — LOW-1 ba550b84 (chaseHomeTeams.test.ts, mutation red), LOW-2 d957c34c (prune only on bake-set change, mutation red). Gates: typecheck 0 · vitest 0 (607 files, 9098 pass/12 skip) · build 0 entry 1213.2 KiB / 1350. Ready for the integrator (deploy #8).
+
 
 ## MERGED master S195-#6 (c45818cb) as ae2ce6e2 — DONE, all gates green
 Conflicts: creatureAI.ts (master N11 home-engage kept, its home test uses teams isHomeZone; both helpers kept) · endgameS193.test.ts (master botBrain n:12; vision.ts pin stays removed) · teams.sites.test.ts (master droneLifecycle 5 + this branch exploredMemory). Seam fixes 2f99d83c: uiPressCensus claims cornerBtn/moveChip (CHIP), new uiSkinReach.teamsMove.test.ts (REACH + markers, mutation red), entropyFightWipe 1v2 fixture -> seat 0 HOME quadrant only.
