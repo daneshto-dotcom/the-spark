@@ -817,10 +817,14 @@ export class Controls {
   private shiftHeld = false;
   private shiftChainedId: GodlyId | null = null;
 
-  /** Is Shift down for this placement? The keyboard's word, or the pointer event's own modifier. */
+  /**
+   * Is Shift down for this placement? The pointer event's own modifier is the FRESHEST truth and wins in
+   * both directions (a click stamped `shiftKey: false` after a Shift keyup that landed elsewhere clears a
+   * stale latch); a synthetic event without one falls back to the keyboard's word.
+   */
   private shiftPlaceMany(e: { readonly shiftKey?: boolean }): boolean {
-    if (e.shiftKey === true) this.shiftHeld = true; // a real event said so
-    return this.shiftHeld || e.shiftKey === true;
+    if (typeof e.shiftKey === 'boolean') this.shiftHeld = e.shiftKey;
+    return this.shiftHeld;
   }
 
   /** After a Shift placement: keep the item in hand only while one more is affordable. */
