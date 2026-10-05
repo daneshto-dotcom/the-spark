@@ -84,8 +84,11 @@ npm run e2e:render       # S195 T21 — the e2e-render lane (`@render-starved`: 
                          # GATING via its own `e2e-render` CI job (Playwright 39 / job 47 min); budgets are
                          # TICK-based, not wall-clock, so a starved software-GL runner cannot fake a red.
                          # ⚠ S195: `e2e-protocol` is NON-gating (S142 escape hatch) — `detectProtocolMismatch`
-                         # stays gated in vitest. Lane budgets (Playwright / job, min): lobby 29/37,
-                         # quarantine 46/54, soak 58/66.
+                         # stays gated in vitest. Lane budgets (Playwright / job, min): lobby 41/49,
+                         # quarantine 52/60, soak 58/66 — S195 ci-budgets raised lobby + quarantine (the
+                         # four 2-peer lobby tests share `LOBBY_2PEER_BUDGET_MS` = 120 s in e2e/helpers.ts;
+                         # Sym F/I + hostmigration:29 got real budgets). ⚠ READ THE YML, NOT THIS LINE —
+                         # `ci.e2eLanes.test.ts` derives every cap from the specs' own `test.setTimeout`s.
 npm run build            # includes the bundle-size charter check
 npm run check:atlas      # S165 — the sprite-sheet pixel guard. NOT part of `build` (see below)
 npm run verify-deploy    # 4/4 with content-hash equality
