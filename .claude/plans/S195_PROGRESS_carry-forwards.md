@@ -1,6 +1,6 @@
 # S195 PROGRESS — s195/carry-forwards (cloud, 2026-10-05)
 
-NEXT STEP: item 1b — move/refresh the orphaned `tickEndgameSpawner` docblock in `src/state/endgameMonsters.ts` (window, not emerge pace); then item 2 canon §9e + pins; item 3 welded REACH test; final gates.
+NEXT STEP: item 2 — write canon §9e (stat board) before §10 + pins in `src/canon.test.ts` (same commit); then item 3 welded REACH test; final gates.
 
 ## Verdicts so far (read, not yet committed as changes)
 - Item 1a `voltkin-config.ts:1244` — ALREADY TRUE: the line reads "was BOTH until S194 (R194-9 made it STRUCTURES_ONLY)"; `stats.ts:419` `lightningDrone: STRUCTURES_ONLY`; drone homes on bonds (`droneLifecycle.ts:6-9`). History is labelled as history. No edit.
