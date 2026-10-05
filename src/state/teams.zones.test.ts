@@ -144,3 +144,15 @@ describe('S195 — REACH through the real START_GAME reducer', () => {
     expect(joiner.layout).toBe('QUADRANTS_4P');
   });
 });
+
+describe('S195 audit L6 — the empty corner has no castle, so no keep-out', () => {
+  it('⭐ the 2v1 solo may build right on the SW anchor (no keep there); the NW keep still refuses', () => {
+    const w = start([0, 0, U]); // solo seat 2 owns NW (home) + SW
+    expect(canBuildAt({ x: 130, y: 950 }, 2, w.layout)).toBe(true);
+    expect(canBuildAt({ x: 130, y: 130 }, 2, w.layout)).toBe(false);
+  });
+  it('⛔ NEGATIVE — the plain board keeps every anchor refusing (byte-identical)', () => {
+    const w = start([U, U, U, U]);
+    expect(canBuildAt({ x: 130, y: 950 }, 3, w.layout)).toBe(false);
+  });
+});

@@ -416,7 +416,15 @@ export interface Box {
  */
 export function castleKeepOutHitsBox(box: Box, layout: ZoneLayout): boolean {
   const anchors = ANCHORS[baseLayout(layout)];
+  const mapped = layout !== 'PITCH_2P' && layout !== 'QUADRANTS_4P';
   for (let i = 0; i < anchors.length; i++) {
+    // ⭐ S195 (audit L6) — on a MAPPED board only an anchor that HOLDS a castle (its owner's home zone) keeps
+    // ground clear: the 2v1 solo's extra SW corner has no keep, so its anchor must not refuse his building.
+    // The plain boards keep every anchor (byte-identical; their empty corner is nobody's ground anyway).
+    if (mapped) {
+      const owner = seatOfZone(i, layout);
+      if (owner === null || zoneOwner(owner, layout) !== i) continue;
+    }
     const a = anchors[i] as Vec2;
     // ⭐⭐ S193 P3-1 — ONE disc, the same radius on every side (see `CASTLE_NO_BUILD_RADIUS`).
     if (boxPointDistSq(box, a.x, a.y) < CASTLE_NO_BUILD_R2) return true;
