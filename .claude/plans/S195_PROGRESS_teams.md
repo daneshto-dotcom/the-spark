@@ -1,6 +1,6 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
-## MERGED master S195-#6 c45818cb as ae2ce6e2 (3 conflicts: creatureAI.ts, endgameS193.test.ts, teams.sites.test.ts — resolved). NEXT: full vitest, build, e2e gating + teams-lobby + races, report.
+## MERGED master S195-#6 c45818cb as ae2ce6e2 (3 conflicts: creatureAI.ts, endgameS193.test.ts, teams.sites.test.ts — resolved). Seam fixes 2f99d83c (press/reach census rows for N16 controls; entropy 1v2 fixture -> home quadrant). Build 0 = 1213.2 KiB / 1350. NEXT: full vitest (full6.log) green? then e2e gating + teams-lobby + races, report.
 
 ## FIX-ONLY ROUND (audit) — ALL ITEMS DONE; (was) WAITING for coordinator "merge master" (ccr-26eaab43 / deploy #6 will conflict in census tests, matchBoardModel, ui.ts, hostTick, gameState — resolve on merits in one pass)
 Done (commit · mutation):
