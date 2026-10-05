@@ -1,4 +1,12 @@
-NEXT: DONE — final report below; awaiting the merge owner's audit. (If re-opened: the only open seam is main.ts' modalCover line, see "Seams".)
+NEXT: DONE — fix round 1 applied (audit 2 LOW: stale `shiftChainedId` on external disarm / fresh arm; stub `armExternal` now toggles). Awaiting re-audit.
+
+## FIX ROUND 1 (audit: 2 LOW) — typecheck exit 0 · `npx vitest run src/input` exit 0 (18 files / 431 tests)
+- LOW 1: `shiftChainedId` nulled in `pressCard` (covers the arm AND the production toggle's put-back) and beside the `disarm()`
+  in `toggleRaAim` / `toggleScorchedEarthAim`. Two scenario tests added (audit 1a external disarm → re-pick via "3","1" → Shift-up
+  keeps it; audit 1b mouse-press chained card off/on → Shift-up keeps it). Mutation: remove the `pressCard` null → both RED.
+  ⚠ `castlePanel.ts:1613` (exit-PLAYING disarm) is off-limits/not mine: harmless — outside PLAYING every digit is inert and the
+  latch is compared against `armedBlueprint()` which is null, and a new match's first `pressCard` clears it.
+- LOW 2: the test stub's `armExternal` now toggles like production (`s.armed === id ? null : id`).
 
 # FINAL REPORT — s195/controls-macros (N6: Shift = place many; number-key build macros)
 

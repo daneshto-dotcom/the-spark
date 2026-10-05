@@ -82,7 +82,8 @@ function castleStub(): CastlePanelLike & { armed: GodlyId | null } {
     isOpen: () => false, toggle() {}, close() {}, isOverPanel: () => false,
     armedBlueprint: () => s.armed,
     disarm() { s.armed = null; },
-    armExternal(id: GodlyId | null) { s.armed = id; },
+    // ⭐ audit fix — the PRODUCTION semantics (`castlePanel.armExternal`): pressing the armed card again puts it back.
+    armExternal(id: GodlyId | null) { s.armed = s.armed === id ? null : id; },
     requestShapesFor() {},
   };
   return s;
@@ -246,6 +247,40 @@ describe('⭐⭐ S195 N6 — SHIFT = PLACE MANY (REACH through the real Controls
     r.castle.armed = BAT; frame(r); // picked again, deliberately, while Shift is still down
     keyUp(r, key('Shift'));
     expect(r.castle.armed, 'the fresh pick is not the chain\'s').toBe(BAT);
+  });
+
+  it('⚠ (audit 1a) an EXTERNAL disarm (the Ra / Scorched Earth toggles) ends the chain: a re-pick via "3","1" is fresh and survives Shift-up', () => {
+    const r = rig(3);
+    const [a] = legalPoints(r, BAT, 1);
+    r.castle.armed = BAT; frame(r);
+    keyDown(r, key('Shift'));
+    click(r, a, { shiftKey: true });
+    expect(r.castle.armed).toBe(BAT);
+    r.castle.disarm(); frame(r); // what `toggleRaAim` / `toggleScorchedEarthAim` do to a held tower
+    keyDown(r, key('3', { shiftKey: true, key: '#' }));
+    keyDown(r, key('1', { shiftKey: true, key: '!' }));
+    expect(r.castle.armed, 'fixture: re-armed through the keyboard').toBe(BAT);
+    keyUp(r, key('Shift'));
+    expect(r.castle.armed, 'the fresh pick is kept (null `shiftChainedId` in `pressCard` → otherwise red)').toBe(BAT);
+  });
+
+  it('⚠ (audit 1b) mouse-pressing the chained card twice (off, then on = a fresh pick) survives Shift-up', () => {
+    const r = rig(3);
+    const [a] = legalPoints(r, BAT, 1);
+    keyDown(r, key('3'));
+    const card = r.band.getUiPoints().cards[0]!;
+    const onCard = { x: card.x + card.w / 2, y: card.y + card.h / 2 };
+    keyDown(r, key('Shift'));
+    click(r, onCard, { shiftKey: true });
+    expect(r.castle.armed).toBe(BAT);
+    click(r, a, { shiftKey: true });
+    expect(r.castle.armed, 'chained').toBe(BAT);
+    click(r, onCard, { shiftKey: true }); // production toggle: OFF
+    expect(r.castle.armed).toBeNull();
+    click(r, onCard, { shiftKey: true }); // ON again — a fresh pick
+    expect(r.castle.armed).toBe(BAT);
+    keyUp(r, key('Shift'));
+    expect(r.castle.armed, 'a fresh pick is not the chain\'s').toBe(BAT);
   });
 
   it('window blur / tab hidden end the chain the way a Shift release does (no stuck Shift)', () => {

@@ -719,6 +719,9 @@ export class Controls {
       setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
       setScorchedEarthAim(null); // ⭐ S191 — and the Scorched Earth aim, for the same reason
       this.castlePanel?.armExternal(card);
+      // ⭐ S195 N6 (audit fix) — a FRESH arm (or the toggle's put-back) is never the Shift chain's: the latch
+      // would otherwise outlive the tower it named and put back a tower the player picked on purpose.
+      this.shiftChainedId = null;
       this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
     } else {
       // S153 P5a (R91) — pass the world: the panel derives the shortfall on demand now rather
@@ -873,6 +876,7 @@ export class Controls {
     }
     // One gesture in hand at a time: a held tower is put back, so the next click cannot stamp it.
     if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    this.shiftChainedId = null; // ⭐ S195 N6 (audit fix) — put back by hand: no chain to end on Shift-up
     setRaAimPreview({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
     void playUiClickSFX();
   }
@@ -930,6 +934,7 @@ export class Controls {
     }
     // One gesture in hand at a time: a held tower and a Ra aim are put back.
     if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    this.shiftChainedId = null; // ⭐ S195 N6 (audit fix) — see toggleRaAim
     setRaAimPreview(null);
     setScorchedEarthAim({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
     void playUiClickSFX();
