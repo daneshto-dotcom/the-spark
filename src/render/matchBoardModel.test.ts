@@ -124,6 +124,7 @@ describe('S191 matchBoardModel — the rules a player reads', () => {
     w.matchStats.seats.set(P1, {
       built: new Map(), kills: new Map(), towersBuilt: 0, towersFell: 0, dealtFifths: 0, takenFifths: 0, fellOnWave: 7,
       lost: new Map(), dealtTo: new Map(), takenUnattributed: 0, dealtKeep: 0, dealtStruct: 0, takenKeep: 0, takenStruct: 0,
+      lostToEntropy: 0, // ⭐ S195 T22 — the one fixture line this tree touched outside its boundary (the field is required)
     });
     w.gameState = 'POSTGAME';
     const m = matchBoardModel(w)!;

@@ -7,6 +7,9 @@
  * ⚠ T8 (S194) owns the scale/hit-rect seam in `buttonFeedback.ts`; this file never asserts on scale,
  * only on the rest-size rectangle the button was given.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/titleScreen.ts :: attachButtonFeedback(
+// CENSUS-REACH src/render/exitButton.ts :: attachButtonFeedback(
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { Container, Graphics, Rectangle, Ticker } from 'pixi.js';
