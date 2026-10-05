@@ -41,12 +41,19 @@ were still in flight on the desktop and were NOT touched here — their file set
 - **`s195/fight-wipe` (N18, owner 2026-10-05, opened here)** — bug report: 2v1 (Nagas vs mummies + zombies), ~wave 8, a fully built quadrant lost "half" at the FIGHT whistle; looked like the TVs or lightning hubs exploding. Hunt with measured verdicts on H1 entropy-at-the-whistle (per-connector 50 % cap × split-deletes-smaller-side on ONE welded quadrant), H2 hub self-destruct chain, H3 Voltkin/phase-edge hooks, H4 a 1v2 team-check error. A proven BUG is fixed (bump YES); the rule working as R194-18 specifies is NOT changed — owner-facing explanation + options instead.
 - Wave 2: `s195/info-ui` (N7 + N12 UI + N14 board polish + the entropy board row) — audited, fix round in progress. `s195/coherence-2` — final gates after the limit cut-off. `s195/fight-wipe` (N18) — hunting.
 
-## SAFETY NET — `.claude/cloud-bundles/s195-cloud-unmerged-2026-10-05.bundle`
+## SAFETY NET — `.claude/cloud-bundles/s195-coherence-2-unmerged-2026-10-05.bundle` (refreshed at the PAUSE)
 At 10:23 UTC the spend limit killed every running agent (two auditors + the coherence-2 tree). The three branches that had not
 yet landed (`s195/rules-2` 9a2e56e2, `s195/fixes` ab2b16f9, `s195/coherence-2` 59650a93) live only in this container, so their
 commits were bundled (164 KB) and committed here UNMERGED and UNAUDITED. If this run dies before they land, the desktop merge
 owner recovers them with `git fetch .claude/cloud-bundles/s195-cloud-unmerged-2026-10-05.bundle 's195/*:refs/heads/*'` and
 audits them as any tree. Once a branch lands here, its merge commit supersedes the bundle copy; the bundle is deleted at close.
 
+## ⏸ PAUSED (owner, 2026-10-05 ~12:50 UTC, 5-hour limit) — STATE AT THE PAUSE
+- **Ten trees LANDED** on the integration branch (L1–L10 above), every one audited (independent or merge-owner light), full vitest on the final tree exit 0 (8971 passed / 12 skipped, 593 files), typecheck 0, build 0 at **1195.6 KiB (54.4 headroom)**, PROTOCOL **68**. Gating e2e lane: 63/67 with the 4 reds ruled environment (red on pre-cloud master too). **Nothing touches master.**
+- **ONE tree NOT merged: `s195/coherence-2` (T19)** — tip `6590f9bd`, author report at the top of `S195_PROGRESS_coherence-2.md` (its branch gates green: tc 0, 742 touched tests, build 1202.6 KiB = +7.0 KiB, render-heap e2e 1/1; full vitest not completed by the author). Its independent AUDIT was IN PROGRESS when the limit hit — no verdict. The branch lives only in this container + the bundle above: recover with `git fetch .claude/cloud-bundles/s195-coherence-2-unmerged-2026-10-05.bundle s195/coherence-2:s195/coherence-2`, then AUDIT before merging (items to check: sim untouched; Helga DORMANT-edge beat; N4 audience gate on BOTH the theme and the slap — both were leaking to every peer; the four silent slots incl. the `castleGunsTick` mirror; stink ramp legacy byte-identical without a sheet; the `main.ts` 4-line `SyncedCuesRenderer` seam — confirm it is IN the branch).
+- **Owner decisions owed** (all written with recommendations in the tree progress files): N18 entropy rule options (a–e, `S195_PROGRESS_fight-wipe.md`) · bot entropy loss-per-fight limits (`S195_PROGRESS_fixes.md`) · drone pool 30, Voltkin path rules, chase ratio 1, B-30 zombie→stink reading (`S195_PROGRESS_rules-2.md`) · N6 two-stroke digit reading + badge look · tooltip delay/wording · bundle charter raise (54.4 KiB headroom, warning prints) · TURN re-paste (account action, text in `TURN_SETUP.md`) · 10 NONET questions.
+- **Owed to the desktop**: merge `ccr-26eaab43-fa9mg3` into master after its own gates (full e2e lanes on the desktop are the final verdict; first master run of e2e-lobby/e2e-quarantine measures the L9 budget raise); hard-blip silent-drop reproduction with the live-mp harness; the settings/lobby census REACH rows (lag/teams trees); delete the bundle once coherence-2 lands.
+- Environment notes for whoever resumes HERE: Playwright needs the Chromium symlink (`/opt/pw-browsers/chromium_headless_shell-1223/...` → build 1194) re-created if the container was reclaimed; long background vitest runs were killed twice by the harness (exit 144) — run them detached (`setsid nohup`) and watch the exit file.
+
 ## NOT DONE / FOR THE DESKTOP SESSION
-_(filled at close)_
+See the PAUSED block above.
