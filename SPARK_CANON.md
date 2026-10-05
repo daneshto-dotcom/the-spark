@@ -723,10 +723,11 @@ And also Pharaoh's become 75. Okay? If the player chose that ability."* His ritu
 `landRaColumn` (`racial/raColumn.ts`), one target per structure, and his pool is `raColumnPoolFor(world,
 boss.ownerPlayerId)` — the same function as the perk's, the only source of the number: **35**, or **75**
 (`attackFifths(RA_WRATH_COLUMN_ATK 5, RA_WRATH_COLUMN_PEN 10)`, ⚠ MINE pair) when the column's OWNER seat holds
-WRATH OF RA, read at landing. His columns still **spare nobody** (his own seat included), and they now cut
+WRATH OF RA, read at landing. His columns **spared nobody** (his own seat included) until ⭐ **S195 B-25 (owner):
+they now spare his own side**, seat and teammates alike (§5d). They cut
 connectors (`cause: 'unit'`, ⚠ MINE) instead of razing shapes. `RA_COLUMN_ATK/PEN` (15/15 = 300) are retired
 from the sim. **Once per FIGHT** (one cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two
-differences from his, both MINE: it **spares the caster** (the Pharaoh's own columns spare nobody), and it
+differences from his, both MINE: it **spares the caster** (as the Pharaoh's own columns spare him since B-25), and it
 cuts CONNECTORS as well (through the structure's one share), because a building dies through its
 connectors (§4). ⛔ **The host REFUSES an aim that is off the
 canvas, non-finite or not a number** — a no-op, never a clamp to the corner, because a strike landing
@@ -1249,7 +1250,10 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 - A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
   least two sides"*), and the sim falls back to the free-for-all.
 - **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
-- The **Pharaoh boss's columns** ("kills everything") still hit his OWN seat but spare its TEAMMATES.
+- The **Pharaoh boss's columns** ("kills everything") — ⭐ **S195 B-25 (owner, RULED): spare his OWN SIDE, seat
+  and teammates alike**, aligned with R193-B3 and B-30 (*"they only attack enemies"*). Until S195 they hit his
+  own seat and spared only its teammates (⚠ MINE then, spec Q5). `bossSkillsPharaohRitual.ts` passes
+  `spare: boss.ownerPlayerId`; `teams.reachMaster.test.ts` pins it through the real host tick.
 - ⚠ MINE (S194) — an endgame WIPE (wave 27+, every keep down) crowns the top-scoring SEAT (S193 Q2); with
   teams on, that seat's TEAM wins and the banner reads TEAM N WINS like any other team win.
 

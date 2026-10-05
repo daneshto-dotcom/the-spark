@@ -1661,6 +1661,11 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('312 blast pool, but split over, you know, everyone who')).toBe(true);
     expect(canonSays('creatures get twice as much')).toBe(true);
     expect(canonSays('It does not hit his own side')).toBe(true);
+    // ⭐ S195 B-25 — the Pharaoh's column is aligned with it: `spare` is his seat, and the canon says so.
+    expect(readFileSync(new URL('./state/bossSkillsPharaohRitual.ts', import.meta.url), 'utf8'))
+      .toContain("landRaColumn(world, { spare: boss.ownerPlayerId, alliesOf: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);");
+    expect(canonSays('S195 B-25 (owner, RULED): spare his OWN SIDE, seat')).toBe(true);
+    expect(canonSays('they now spare his own side')).toBe(true);
     expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
     expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT).toBe(2);
     expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
