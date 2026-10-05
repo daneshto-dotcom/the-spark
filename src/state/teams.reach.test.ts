@@ -376,3 +376,44 @@ describe('S192 teams — the wall and the win', () => {
     expect(w.gameState).toBe('PLAYING');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('⭐ S195 audit L11 — the team predicates on a MAPPED board (2v1, host in the pair)', () => {
+  /** Seats 0+1 vs the solo seat 2, on the board `layoutForMatch` really stamps (NOT pinned to the identity). */
+  function mappedThree(): World {
+    const w = makeWorld(0x5195);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME', mode: 'bots', isHost: true,
+      roster: [0, 1, 2].map((s) => ({ seat: s, color: PLAYER_COLORS[s], ...(s < 2 ? { team: 0 } : {}) })),
+      botSeats: [1, 2],
+    });
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + phaseDurationTicks('FIGHT') * 10;
+    w.creatures.clear();
+    w.draft = null;
+    return w;
+  }
+  // Open ground in the host's (seat 0's) NE quadrant on this board, > 300 px from every keep.
+  const NE_OPEN = { x: 1400, y: 330 };
+  function fight(other: PlayerId): { targeted: boolean; lost: number } {
+    const w = mappedThree();
+    expect(w.layout, 'fixture: the mapped 2v1 board').toBe('QUADRANTS_4P:2012');
+    const a = unit(w, P[0]!, NE_OPEN);
+    const b = unit(w, other, { x: NE_OPEN.x + 20, y: NE_OPEN.y });
+    const full = a.ehp + b.ehp;
+    let targeted = false;
+    ticks(w, 240, () => {
+      if (w.creatures.get(a.id)?.targetCreatureId === b.id || w.creatures.get(b.id)?.targetCreatureId === a.id) targeted = true;
+    });
+    return { targeted, lost: full - ((w.creatures.get(a.id)?.ehp ?? 0) + (w.creatures.get(b.id)?.ehp ?? 0)) };
+  }
+  it('⛔ teammates (seats 0 and 1, standing NE and SE) never target or hurt each other', () => {
+    expect(fight(P[1]!)).toEqual({ targeted: false, lost: 0 });
+  });
+  it('CONTROL — the solo (seat 2, standing NW + SW) is an enemy: they fight', () => {
+    const r = fight(P[2]!);
+    expect(r.targeted).toBe(true);
+    expect(r.lost).toBeGreaterThan(0);
+  });
+});
