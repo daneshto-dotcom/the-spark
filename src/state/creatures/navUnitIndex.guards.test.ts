@@ -147,7 +147,7 @@ describe('S191 perf — the nav-unit enemy index fingerprint is exact only while
     // Every `.type =` in production is a Web Audio oscillator/filter or a DOM <input> — render code,
     // never a creature (whose `type` is `readonly`). Measured on the s191/perf tree.
     expect(countsOf(assignTo('type')), '`.type =` writes: audio nodes and <input>s only, never a creature').toEqual({
-      'src/render/audioManager.ts': 17, 'src/render/lobbyScreen.ts': 1, 'src/render/nonetJuice.ts': 1, 'src/render/settingsOverlay.ts': 3,
+      'src/render/audioManager.ts': 17, 'src/render/lobbyScreen.ts': 1, 'src/render/nonetJuice.ts': 1, 'src/render/settingsOverlay.ts': 4, // S195 N17: +1, the Graphics tier radio <input>s
     });
   });
 });

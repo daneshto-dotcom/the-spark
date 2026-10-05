@@ -72,10 +72,74 @@ export function setZoneBackgroundEnabled(value: boolean): void {
 const STORAGE_KEY_FX_HQ = 'display.fxHighQuality';
 const DEFAULT_FX_HQ = true;
 
-export function isFxHighQuality(): boolean {
-  return readBool(STORAGE_KEY_FX_HQ, DEFAULT_FX_HQ);
+/*
+ * ⭐⭐ S195 N17 (owner) — THE GRAPHICS TIER REPLACES THE ON/OFF SWITCH, BECAUSE THE SWITCH DID NOTHING.
+ *
+ * > *"there should be a low-end visual version of the game for slow computers … that toggle on-off should
+ * > actually do something. Because when my brother toggled it, it didn't really change anything on the
+ * > visuals for him … So he kept lagging … For different tiers of machines."*
+ *
+ * The old boolean (above) removed the bloom and the ripple filters and nothing else — its own docblock says
+ * *"LOW keeps every new particle and drops only the two filter passes."* Measured S195 (`s195/lag`): on a
+ * built board the frame is the structure renderer re-stroking every connector every frame, so HIGH, LOW and
+ * legacy cost the same (53 / 50 / 51 ms at wave 5, 4× CPU throttle). The tiers attack that cost:
+ *   · HIGH    — today's game, byte for byte. The default (R195-P1: *"one point four MS is fine. For better systems"*).
+ *   · LOW     — no bloom/ripples (the old LOW) AND connectors drawn from a cache, redrawn only when they change.
+ *   · MINIMAL — the pre-S192 effects (`?fx=legacy`'s look), connectors cached with their animations frozen.
+ * Render-only, like everything in this file: never on the wire, never in a hash, two peers may differ.
+ */
+export type GraphicsTier = 'HIGH' | 'LOW' | 'MINIMAL';
+export const GRAPHICS_TIERS: readonly GraphicsTier[] = ['HIGH', 'LOW', 'MINIMAL'];
+const STORAGE_KEY_TIER = 'display.graphicsTier';
+
+/**
+ * The viewer's tier. A viewer who never chose one but had switched the old box OFF arrives on LOW, which is
+ * what that box meant; everybody else on HIGH.
+ */
+export function getGraphicsTier(): GraphicsTier {
+  // ⛔ S195 audit (LOW) — when the store cannot be used, THIS SESSION's choice wins (see `sessionTier`).
+  if (storageBroken && sessionTier !== null) return sessionTier;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_TIER);
+    if (raw === 'HIGH' || raw === 'LOW' || raw === 'MINIMAL') return raw;
+  } catch {
+    return sessionTier ?? 'HIGH';
+  }
+  return readBool(STORAGE_KEY_FX_HQ, DEFAULT_FX_HQ) ? 'HIGH' : 'LOW';
 }
 
+/*
+ * ⛔ S195 audit (LOW) — THE IN-MEMORY TIER. `main.ts` re-reads the tier EVERY FRAME, so with storage blocked
+ * (Safari private window, site data blocked) the old swallow-and-forget meant the choice reverted to HIGH on
+ * the very next frame while the radio still showed MINIMAL — the exact "the toggle does nothing" the owner
+ * reported, on another path. The session's choice is kept here and used whenever the store cannot hold it.
+ */
+let sessionTier: GraphicsTier | null = null;
+let storageBroken = false;
+
+export function setGraphicsTier(tier: GraphicsTier): void {
+  sessionTier = tier;
+  try {
+    window.localStorage.setItem(STORAGE_KEY_TIER, tier);
+  } catch {
+    // Not remembered across reloads — but it applies for the rest of this session (getGraphicsTier above).
+    storageBroken = true;
+  }
+}
+
+/** Test seam: forget this session's in-memory tier. */
+export function resetGraphicsTierSessionForTests(): void {
+  sessionTier = null;
+  storageBroken = false;
+}
+
+/** Bloom + ripples on? Only on the HIGH tier. Kept for the fx lab and the renderers that ask. */
+export function isFxHighQuality(): boolean {
+  return getGraphicsTier() === 'HIGH';
+}
+
+/** The fx lab's old switch, mapped onto the tiers: on = HIGH, off = LOW. */
 export function setFxHighQuality(value: boolean): void {
   writeBool(STORAGE_KEY_FX_HQ, value);
+  setGraphicsTier(value ? 'HIGH' : 'LOW');
 }

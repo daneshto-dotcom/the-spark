@@ -1,5 +1,8 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## EXACT NEXT STEP (L7 — s195/lag)
+LANDED as S195-#7 a4a59b77 (deploy attempt 2 success after attempt 1 was cancelled in the runner queue; verify-deploy 4/4). CI E2E 37368664346 attempt 1: 7 jobs cancelled in the runner queue (zero steps) — logged. CI attempt 1 completed; `gh run rerun --failed` done 21:04 UTC → attempt 2 running (detached `.tmp-gates/s195_L7/ci.sh` writes `ci-final.txt` + `ci.done`). Attempt 2: render/races/protocol/lobby/worker-bots/worker-typecheck ✅, gating `e2e` CANCELLED in the queue again (logged); quarantine still running (≈21:30 UTC). NEXT: when ci.done exists, log attempt-2 per lane (+ quarantine's attempt-1 result) in the dispatch log, commit only my paths. Then HOLD for teams #8. Then HOLD for teams #8 (68→69 bump).
+
 ## EXACT NEXT STEP (L6 — cloud train)
 LANDED as S195-#6 e06fab28 (PROTOCOL 68, 1202.6/1350 KiB, all local lanes green, deploy 37350728256 success, verify 4/4). CI E2E per lane recorded in the dispatch log. HOLDING for s195/lag, then s195/teams, one at a time when the merge owner sends them. ⚠ The merge owner stages files in this checkout: commit ONLY my paths (`git commit <paths>`).
 

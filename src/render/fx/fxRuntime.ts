@@ -15,10 +15,12 @@
  *     the fog. Motes, sparks, flashes, embers. It carries the one `AdvancedBloomFilter` on HIGH.
  *   Both are under the fog, so an effect is concealed exactly when its owner renderer culls it.
  *
- * ## Quality
+ * ## Quality — driven by the S195 graphics TIER (`render/graphicsTier.ts`, Settings → Graphics)
  *   HIGH (default) — bloom on the top layer + `ShockwaveFilter` ripples on the ground art.
- *   LOW — additive soft particles only; no filter pass at all. The Settings panel's
- *   "High-quality effects" row (`displayPrefs.ts`). A display preference: never on the wire.
+ *   LOW — additive soft particles only; no filter pass at all.
+ *   MINIMAL — legacy: every rebuilt effect draws the pre-S192 way (`setFxTierLegacy`).
+ *   ⚠ Until S195 this was a "High-quality effects" checkbox that only toggled the filters — the owner's
+ *   brother switched it and nothing changed. A display preference: never on the wire.
  *
  * ⛔ RENDER-ONLY. Nothing here reads or writes sim state; the layouts read synced fields and ticks.
  */
@@ -114,14 +116,38 @@ export function installFx(opts: { groundParent: Container; topParent: Container;
   setFxHooks({ top, shade, ground, shock: shockSink });
   setFxDisplaceHook(displaceSink);
   setFxHazeHook(hazeSink);
-  setFxLegacyFlag(readLegacyFromUrl());
+  urlLegacy = readLegacyFromUrl();
+  applyLegacy();
   setFxHighQualityRuntime(opts.highQuality);
+}
+
+/*
+ * ⭐ S195 N17 — LEGACY HAS THREE SOURCES NOW, AND THEY MUST NOT FIGHT. `?fx=legacy` (read at install), the fx
+ * lab's side-by-side switch, and the MINIMAL graphics tier (`render/graphicsTier.ts`). Each owns its own bit;
+ * the drawn state is their OR. Before S195 the lab wrote the flag directly, so a tier flip would have silently
+ * undone a lab or URL legacy and vice versa.
+ */
+let urlLegacy = false;
+let labLegacy = false;
+let tierLegacy = false;
+
+function applyLegacy(): void {
+  const v = urlLegacy || labLegacy || tierLegacy;
+  const was = fxLegacy();
+  setFxLegacyFlag(v);
+  if (v && !was && installed !== null) { installed.ground.clear(); installed.top.clear(); installed.shade.clear(); applyShocks(installed, true); applyHaze(installed, true); }
 }
 
 /** The side-by-side switch: true draws every rebuilt effect the pre-S192 way. */
 export function setFxLegacy(v: boolean): void {
-  setFxLegacyFlag(v);
-  if (v && installed !== null) { installed.ground.clear(); installed.top.clear(); installed.shade.clear(); applyShocks(installed, true); applyHaze(installed, true); }
+  labLegacy = v;
+  applyLegacy();
+}
+
+/** S195 N17 — the MINIMAL tier's legacy bit (see above). Render-only. */
+export function setFxTierLegacy(v: boolean): void {
+  tierLegacy = v;
+  applyLegacy();
 }
 export function fxHighQuality(): boolean { return highQuality; }
 

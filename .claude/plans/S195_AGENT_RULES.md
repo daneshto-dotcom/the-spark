@@ -4,6 +4,12 @@ Repo root (main checkout, MASTER — never edit, never commit there):
 `C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark`
 Your worktree is under `.claude/worktrees/<name>`. Work ONLY there, on your own branch.
 
+## ⛔⛔ OWNER ORDER — COMMIT EVERY 5 MINUTES, NO EXCEPTIONS (S195, repeated by the owner after limit hits)
+*"every agent has to save his work and every work tree has to save and commit his work. Every five minutes, so we don't have to go back and salvage work … So we can literally just continue working from where we left off every time we hit limit."*
+- A WIP commit at least every 5 minutes, even mid-edit; the exact next step at the TOP of your progress file in the same commit.
+- Before any command that may run > 5 min: commit FIRST, then run it detached with its log + exit file under `.tmp-gates/`.
+- Auditors: the same for `.tmp-audit/AUDIT_<tree>.md`.
+
 ## Read first
 1. `SPARK_CANON.md` (main checkout) — how the game IS. Never re-ask anything it answers.
 2. `CLAUDE.md` (main checkout) — the project rules (determinism, four sites, stat ladder, gates, hunts).

@@ -88,7 +88,7 @@ const CENSUS: readonly Claim[] = [
   { file: 'src/render/matchBoard.ts', match: "this.container.on('pointerupoutside'", status: E, what: 'the board press latch (released off the board): lifts' },
   // ── settings (DOM) ────────────────────────────────────────────────────────────────────────────
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", status: S, what: 'close ✕ — scoped CSS hover/press/focus (.spark-settings)' },
-  { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", status: S, what: 'close, toggles, mutes, sliders — scoped CSS hover/press/focus (.spark-settings)' },
+  { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", status: S, what: 'close, toggles, mutes, sliders, the Graphics tier radios, labels — scoped CSS hover/press/focus (.spark-settings)' },
 ];
 
 /** Surfaces hit-tested by `controls.ts` (no Pixi listener to grep): each file must call the skin. */
