@@ -44,6 +44,7 @@ import type { PlayerId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import { avatarNameplateText } from './avatarRenderer.ts';
 import { HUD_PLATE_FILL } from './ui.ts';
+import { playSlotSFX } from './audioManager.ts';
 
 /**
  * Hold window, in SIM TICKS (see the header on why not frames). 150 ticks = 2.5 s at PHYSICS_HZ 60,
@@ -89,6 +90,31 @@ export function severToastPose(elapsed: number, duration: number): SeverToastPos
     alpha: Math.min(PEAK_ALPHA, t / 0.12, (1 - t) / 0.22),
     scale: 0.7 + 0.3 * Math.min(1, t / 0.15),
   };
+}
+
+/**
+ * ⭐⭐ S195 N18 (d) (owner R195-E1: *"definitely show N snapped, M lost … so … the user knows why … he
+ * lost such a big structure"*) — the entropy toast's line. `snapped` = connectors the whistle roll cut,
+ * `lost` = connectors the seat stopped standing (snaps + every connector a split deleted with the smaller
+ * side), so `lost ≥ snapped` and the gap IS the explanation of a big loss.
+ */
+export function entropyToastCopy(snapped: number, lost: number): string {
+  return `ENTROPY: ${snapped} SNAPPED, ${lost} LOST`;
+}
+
+/**
+ * ⭐ S195 N18 (d) — PURE: the entropy toast `seat` should read now, from SYNCED state only
+ * (`SeatMatchStats.entropyWave/Snapped/Lost`, on every snapshot). `key` is the wave of the pass, so a
+ * renderer shows each pass exactly once. Only the CURRENT wave's pass counts: a joiner arriving later
+ * (or a host migration) never replays an old one. Null ⇒ nothing to show.
+ *
+ * It replaces the `world.effects` route for this cause, which reached a joiner ~1/6 of the time (the
+ * file header) — the owner's brother would almost never have read why his structure fell apart.
+ */
+export function entropyToastFor(world: World, seat: PlayerId): { key: number; text: string } | null {
+  const s = world.matchStats.seats.get(seat);
+  if (s === undefined || s.entropyWave === undefined || s.entropyWave !== world.waveNumber) return null;
+  return { key: s.entropyWave, text: entropyToastCopy(s.entropySnapped, s.entropyLost) };
 }
 
 /** The BOND_SEVERED cause union, named once so the copy table and the reducer cannot drift apart. */
@@ -231,6 +257,9 @@ export function captureSeverToast(
     if (e.kind !== 'BOND_SEVERED') continue;
     if (e.victim === undefined || e.victim !== localPlayerId) continue; // victim gate
     if (e.cause === 'bomb') continue; // suppression (b)
+    // ⭐ S195 N18 (d) — the entropy tax is told from SYNCED state (`entropyToastFor`), on every peer;
+    // reading it here too would show it twice on the host and ~1/6 of the time on a joiner.
+    if (e.cause === 'entropy') continue;
     if (e.actor !== undefined && e.actor === e.victim) continue; // suppression (a)
 
     if (count === 0) {
@@ -293,6 +322,8 @@ export class SeverToastRenderer {
   private readonly text: Text;
   /** Sim tick the current window started on; undefined ⇒ no window in flight. */
   private shownTick: number | undefined = undefined;
+  /** ⭐ S195 N18 (d) — the wave whose entropy pass this renderer last showed (undefined ⇒ none this match). */
+  private entropyShownWave: number | undefined = undefined;
 
   constructor(app: Application) {
     this.container = new Container();
@@ -343,13 +374,25 @@ export class SeverToastRenderer {
       // between-matches reset — without it a window in flight at match end would resume over the
       // next match's board (the stale-watermark bug the tier banner had to fix in S129 CHECK).
       this.shownTick = undefined;
+      this.entropyShownWave = undefined;
       this.container.visible = false;
       return;
     }
 
     const cap = captureSeverToast(world.effects, world.localPlayerId, world.botSeats);
-    if (cap.text !== null) {
-      this.text.text = cap.text;
+    // ⭐ S195 N18 (d) — the entropy pass, from synced state, once per pass, for the OWNER seat only
+    // (B-17: `localPlayerId` is the seat looking at this screen). It wins a same-frame collision with an
+    // ordinary sever: it is the bigger news, and the sever toast's next batch restarts the window anyway.
+    const ent = entropyToastFor(world, world.localPlayerId);
+    let text = cap.text;
+    if (ent !== null && ent.key !== this.entropyShownWave) {
+      this.entropyShownWave = ent.key;
+      text = ent.text;
+      // The owner's boing (B-14/N12), keyed off the SAME synced change, so every peer hears its own loss.
+      void playSlotSFX('entropyBoing');
+    }
+    if (text !== null) {
+      this.text.text = text;
       this.shownTick = world.tick;
       // P3 (S131) — resize the plate to the new label. Only here can the text change, and Pixi v8
       // Text measures synchronously so .width/.height are already correct for the string just set.
