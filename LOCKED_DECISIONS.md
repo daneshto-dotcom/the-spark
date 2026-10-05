@@ -1615,6 +1615,12 @@ empirically refuted: the census delta is entity-bounded, and the LARGEST observe
 at the SMALLEST window (2 184) while 7 653 gave +11 and 8 150 gave 0.
 
 ### 15.4 LANE RULES
+- ⭐ **S195 (ci-budgets) — EVERY LANE'S CAP IS DERIVED, NEVER GUESSED.** `src/ci.e2eLanes.test.ts` re-derives each
+  lane's `PW_GLOBAL_TIMEOUT_MIN` from its specs' own `test.setTimeout`s (× attempts) and requires `timeout-minutes`
+  ≥ 8 min above it. Current (read `.github/workflows/e2e.yml`, not this line): **lobby 41/49** — 3 × (330 s late
+  joiner + 4 × `LOBBY_2PEER_BUDGET_MS` 120 s, `e2e/helpers.ts`) = 2430 s; **quarantine 52/60** — the sum of its
+  specs' budgets, 3120 s after Sym F/I took `TWO_PEER_BUILD_BUDGET_MS` and hostmigration:29 went 240 → 300 s;
+  **soak 58/66**. Raising a spec's budget without the yml, or the yml without the spec, is RED.
 - `e2e-soak` sets **`PW_RETRIES: 0`**. Retries only help non-deterministic failures; a frame-bound
   shortfall reproduces identically, and 3 such attempts burned ~21.2 of the lane's 44 minutes.
 - **The `PW_RETRIES` guard has THREE required properties. Do not "simplify" it — each one was a

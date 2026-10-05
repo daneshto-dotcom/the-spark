@@ -178,21 +178,21 @@ const ARCADE = /^(arcade|nonet|sudokuOverlay)/;
 const files = walk(RENDER).filter((p) => !ARCADE.test(rel(p)));
 
 describe('S194 T9 — the shared departure rule is the ONLY one (consumer census)', () => {
-  it('exactly three production consumers call classifyCreatureDeparture', () => {
+  it('exactly five production consumers call classifyCreatureDeparture (S195 T19: + chewer goo, + goblin corpse)', () => {
     const callers = files
       .filter((p) => /classifyCreatureDeparture\(world,/.test(readFileSync(p, 'utf8'))) // a CALL, not the definition
       .map(rel)
       .sort();
-    expect(callers).toEqual(['coherence/unitDeathRenderer.ts', 'creatureRenderer.ts', 'damageNumbers.ts']);
+    expect(callers).toEqual([
+      'chewerRenderer.ts', 'coherence/unitDeathRenderer.ts', 'creatureRenderer.ts', 'damageNumbers.ts', 'goblinRenderer.ts',
+    ]);
   });
 
-  it('⛔ no render file grows its own vanish test — except the T2-owned chewer copy, routed to the merge owner', () => {
+  it('⛔ no render file grows its own vanish test — the allow-list is EMPTY since S195 T19 routed the chewer', () => {
     const own = files
       .filter((p) => /wasState !== 'DESPAWNING'/.test(readFileSync(p, 'utf8')))
       .map(rel);
-    // ⚠ ROUTED, NOT FIXED HERE: `chewerRenderer.ts` is T2 (visuals-3)'s file in S194. When it switches to
-    // `classifyCreatureDeparture`, delete it from this list and add it to the three above.
-    expect(own).toEqual(['chewerRenderer.ts']);
+    expect(own).toEqual([]);
   });
 
   it('main.ts syncs the watcher every frame and clears it on title return', () => {

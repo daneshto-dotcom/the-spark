@@ -21,7 +21,10 @@ vi.mock('pixi.js', async (orig) => {
     Assets: { load: async () => new m.Texture({ source: new m.TextureSource({ width: 16384, height: 16384 }) }) },
   };
 });
-vi.mock('./audioManager.ts', () => new Proxy({}, { get: () => vi.fn(async () => {}) }));
+// ⛔ S195 (coherence-2 audit, HIGH) — the Proxy must NOT answer `then`: a mocked module that is a thenable makes
+// vitest's `await import()` hang forever. Latent until `stinkTowerRenderer.ts` became this graph's first
+// `audioManager` importer (the stink-fire SFX slot); the merged tree's full suite then hung at this file.
+vi.mock('./audioManager.ts', () => new Proxy({}, { get: (_t, k) => (k === 'then' ? undefined : vi.fn(async () => {})) }));
 
 import { Container } from 'pixi.js';
 import { makeWorld, dispatch, type World } from '../state/world.ts';

@@ -42,11 +42,12 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { CHEW_INTERVAL_TICKS } from '../constants.ts';
 import { CREATURE_DESPAWNING_TICKS, CREATURE_FADE_TICKS } from '../state/creatures/creature.ts';
-import type { CreatureState } from '../state/creatures/creature.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './coherence/unitDeparture.ts';
 import type { World } from '../state/world.ts';
 // S154 AMENDMENT B — the owner-coloured ground marker, shared by all three creature renderers.
 import { drawGroundMarker, ownerTint } from './creatureLift.ts';
 import { drawStunStars } from './stunStars.ts';
+import { creatureSpriteScaleMul } from './towerFrames.ts';
 import { isConcealed } from './concealment.ts';
 // ⭐ S193 visuals-3 V22 — the HELLSPAWN split burst (`fx/perkFx.ts`). Render-only.
 import { fxActive, fxTop } from './fx/fxState.ts';
@@ -111,10 +112,13 @@ export class ChewerRenderer {
   private readonly hopPhase: Map<CreatureId, number> = new Map();
   /** Last horizontal facing per chewer (+1 right, -1 left). Anti-jitter hold. */
   private readonly facing: Map<CreatureId, 1 | -1> = new Map();
-  /** S104 P1 — last-seen FSM state per chewer. The death-watcher reads it to tell a KILL (vanished
-   *  from a LIVE state — raid/potato/laser/slap hard-deleted it) from a natural lifetime despawn
-   *  (which now passes through DESPAWNING — fade, NOT green-goo splat). Mirrors creatureRenderer. */
-  private readonly lastSeenState: Map<CreatureId, CreatureState> = new Map();
+  /** S104 P1 — the last observation per chewer. The death-watcher hands it to the ONE shared departure rule
+   *  (`coherence/unitDeparture.ts classifyCreatureDeparture`, S195 T19 #2 — this file kept a private DESPAWNING
+   *  vanish test of its own until then) to tell a KILL (raid/potato/laser/slap hard-deleted it) from
+   *  an expiry, a mass clear, a title return or a death inside the fog. Same rule as every other watcher. */
+  private readonly lastSeenState: Map<CreatureId, CreatureLastSeen> = new Map();
+  /** S195 T19 — rule 3 of the shared departure rule: a mass clear drops every watch without a splat. */
+  private readonly epoch = new CreatureWatchEpoch();
   /** S104 P1 — last CHEW_INTERVAL bucket (floor(ticksInState / CHEW_INTERVAL_TICKS)) per chewer, for
    *  the render-driven gnaw. Keyed on the WIRED state+ticksInState, so the gnaw fires on host AND
    *  the 1v1 joiner as each bite lands.
@@ -158,6 +162,11 @@ export class ChewerRenderer {
     this.prevNowSec = nowSec;
 
     const liveIds = new Set<CreatureId>();
+    // ⭐ S195 T19 — a mass clear (match reset) is not a massacre: forget every watch, splat nothing (S182 rule).
+    if (this.epoch.moved(world)) {
+      this.lastSeenPos.clear(); this.lastSeenOwner.clear(); this.lastSeenState.clear();
+      this.hopPhase.clear(); this.facing.clear(); this.lastChewBucket.clear();
+    }
     // S104 P1 — per-frame gnaw budget (Council M4 voice cap): at most MAX_GNAW_VOICES new
     // chewing rasps start per frame so a full swarm doesn't clip into raspy static.
     let gnawsThisFrame = 0;
@@ -182,7 +191,9 @@ export class ChewerRenderer {
        * `continue` below now skips nothing but the drawing.
        */
       liveIds.add(c.id);
-      this.lastSeenState.set(c.id, c.state);
+      this.lastSeenState.set(c.id, {
+        state: c.state, type: c.type, despawnAtTick: c.despawnAtTick, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId,
+      });
       this.lastSeenOwner.set(c.id, c.ownerPlayerId);
       // ⭐ S193 V22 — a split child's first sighting is its birth (above the fog skip, like presence).
       if (c.hellspawnGen !== undefined && !this.splitSeen.has(c.id)) {
@@ -214,10 +225,14 @@ export class ChewerRenderer {
        * Graphics deliberately — a new display object would shift `fogHiddenLayer`'s child indices
        * and break the two hardcoded probes in `tower-art.spec.ts` for a fourth time.
        */
+      // ⭐ S195 T19 (#3) — the SAME call every other family makes (`goblinRenderer`): the stars ride the unit's
+      // sprite scale and its fade, where this passed a flat alpha 1 and the default scale.
       if (isStunned(c, world.tick)) {
-        drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), 1);
+        const stunFade = c.state === 'DESPAWNING'
+          ? Math.max(0, Math.min(1, (CREATURE_DESPAWNING_TICKS - c.ticksInState) / CREATURE_FADE_TICKS))
+          : 1;
+        drawStunStars(g, c.pos.x, c.pos.y, world.tick, Number(c.id), stunFade, creatureSpriteScaleMul(c.type));
       }
-
 
       // ── S104 P1: render-driven CHEWING gnaw (host + 1v1 client). Keyed on the WIRED
       // state + ticksInState. (⚠ S133: chewProgress IS on the wire now — the old reason
@@ -315,24 +330,17 @@ export class ChewerRenderer {
      * bought a skipped iteration over a handful of ids and cost a missed death. Dropped.
      */
     {
-      const playing = world.gameState === 'PLAYING';
       for (const [id, pos] of [...this.lastSeenPos]) {
         if (liveIds.has(id)) continue;
-        // S104 P1 — KILL vs natural timeout: a chewer that vanished from a LIVE state (raid /
-        // potato / laser / slap hard-deleted it) splats green goo; one that aged out passes
-        // through DESPAWNING (faded above) and dies QUIETLY — no kill-VFX on natural expiry
-        // (mirrors the Voltkin death-watcher's DESPAWNING discriminator).
-        const wasState = this.lastSeenState.get(id);
         /*
-         * ⭐ S178 — AND A DEATH THE PLAYER CANNOT SEE MAKES NO NOISE. Now that presence survives the
-         * fog, this watcher fires only on a REAL removal — including one that happens inside the
-         * fog, which would otherwise splat and play a panned SFX at an enemy position the player is
-         * not entitled to. Same rule `effectsRenderer` already applies to one-shot effects by
-         * position: *"a bond-commit flash, a sever erase or a chew bite is a precise position tell"*.
+         * S104 P1 — KILL vs natural timeout: a chewer that vanished from a LIVE state (raid / potato / laser /
+         * slap hard-deleted it) splats green goo; one that aged out passes through DESPAWNING (faded above) and
+         * dies QUIETLY. ⭐ S178 — and a death the player cannot see makes no noise (a panned SFX at an enemy
+         * position is a tell). ⭐ S195 T19 (#2) — BOTH tests, and the match-reset and title-return ones, are
+         * now the ONE shared rule every death watcher asks (`unitDeath.census.test.ts` counts this call).
          */
-        const owner = this.lastSeenOwner.get(id);
-        const hidden = owner !== undefined && isConcealed(pos.x, pos.y, owner);
-        if (playing && !hidden && wasState !== undefined && wasState !== 'DESPAWNING') {
+        const last = this.lastSeenState.get(id);
+        if (last !== undefined && classifyCreatureDeparture(world, last) === 'killed') {
           this.gooSplats.push({ x: pos.x, y: pos.y, bornSec: nowSec, seed: (id as unknown as number) * 2.39 });
           void playSplatSFX({ x: pos.x, y: pos.y });
         }

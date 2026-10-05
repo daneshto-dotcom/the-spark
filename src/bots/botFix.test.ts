@@ -126,11 +126,18 @@ describe('⭐ S194 T7 — REACH: bots FIX through the real host tick', () => {
     }, 60_000);
   }
 
+  /*
+   * ⚠ S195 T22 #2 — THE CAP IS A LOAD MARGIN, NOT A BUDGET. Two 600 s matches (72 000 host ticks) measured
+   * 18.7 s ALONE on a quiet 4-core box (file 47.8 s; HARD 9.3 s, IMBA 9.7 s), and 79 s on master 814f1871
+   * under 8 parallel worktree suites — a 4.2× load slowdown that turned the old 60 s cap red while the
+   * assertion itself was green. 150 s = 8× the quiet measurement; the assertion is unchanged, and the
+   * match is not shortened because the per-tier runs above are what the restored count is read from.
+   */
   it('at least one bot tower is actually restored by its gatherers (the job is carried, not just queued)', () => {
     let restored = 0;
     for (const tier of ['HARD', 'IMBA'] as const) restored += runFixMatch(tier, 600).restored;
     expect(restored).toBeGreaterThan(0);
-  }, 60_000);
+  }, 150_000);
 
   it('⚠ NEGATIVE: a seat with no gatherer sends no FIX (the reducer would refuse it)', () => {
     // The bots' gatherers are removed at 200 s, after their towers stand (a seat with no economy at all

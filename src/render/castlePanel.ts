@@ -988,7 +988,7 @@ export class CastlePanel {
   private readonly plate: Graphics;
   private readonly titleText: Text;
   private readonly rows: Array<{
-    box: Container; bg: Graphics; label: Text; detail: Text; hover: boolean;
+    box: Container; bg: Graphics; label: Text; detail: Text; hover: boolean; press: boolean;
   }> = [];
   /**
    * S146 P2 — INVENTORY swatches: exactly ONE PER `SparkType`, showing that type's count.
@@ -1000,6 +1000,7 @@ export class CastlePanel {
     glyph: Graphics;
     count: Text;
     hover: boolean;
+    press: boolean;
     filled: boolean;
   }> = [];
   private onPull: ((sparkType: SparkType) => void) | null = null;
@@ -1009,7 +1010,7 @@ export class CastlePanel {
    * that adds children in sync() leaks Pixi objects every frame).
    */
   private readonly tiles: Array<{
-    box: Container; bg: Graphics; art: Graphics; cost: Text; hover: boolean; enabled: boolean;
+    box: Container; bg: Graphics; art: Graphics; cost: Text; hover: boolean; press: boolean; enabled: boolean;
   }> = [];
   private sectionLabel: Text;
   private captionName: Text;
@@ -1104,8 +1105,18 @@ export class CastlePanel {
       box.on('pointertap', () => this.activate(idx));
       box.on('pointerover', () => { this.rows[idx].hover = true; });
       box.on('pointerout', () => { this.rows[idx].hover = false; });
+      /*
+       * ⭐ S195 N5 (owner: *"castle upgrades … everything clickable should actually show that it's
+       * clicking"*) — THE PRESS. Latched on `pointerdown`, read by `sync` as the skin's `press` state,
+       * and cleared on `pointerup` AND `pointerupoutside` — the second arm is what keeps a row that
+       * was dragged off while held from staying sunk (the S152 A5 trap). The hit target is untouched:
+       * the press is a LOOK on the same plate, never a scale (T8's rule for a children-bounds hit).
+       */
+      box.on('pointerdown', () => { this.rows[idx].press = true; });
+      box.on('pointerup', () => { this.rows[idx].press = false; });
+      box.on('pointerupoutside', () => { this.rows[idx].press = false; });
       this.container.addChild(box);
-      this.rows.push({ box, bg, label, detail, hover: false });
+      this.rows.push({ box, bg, label, detail, hover: false, press: false });
     }
 
     // S146 P2 — THE INVENTORY STRIP. One box PER SHAPE TYPE (six, always), each showing that
@@ -1132,8 +1143,12 @@ export class CastlePanel {
       box.on('pointertap', () => this.pull(sparkType));
       box.on('pointerover', () => { this.slots[idx].hover = true; });
       box.on('pointerout', () => { this.slots[idx].hover = false; });
+      // ⭐ S195 N5 — press latch (see the control rows above for the rule).
+      box.on('pointerdown', () => { this.slots[idx].press = true; });
+      box.on('pointerup', () => { this.slots[idx].press = false; });
+      box.on('pointerupoutside', () => { this.slots[idx].press = false; });
       this.container.addChild(box);
-      this.slots.push({ box, bg, glyph, count, hover: false, filled: false });
+      this.slots.push({ box, bg, glyph, count, hover: false, press: false, filled: false });
     }
 
     // S144 P2 — THE BUILD GRID + its caption. Same Container+Graphics-child idiom as every other
@@ -1167,8 +1182,12 @@ export class CastlePanel {
       box.on('pointertap', () => this.armTile(idx));
       box.on('pointerover', () => { this.tiles[idx].hover = true; });
       box.on('pointerout', () => { this.tiles[idx].hover = false; });
+      // ⭐ S195 N5 — press latch (see the control rows above for the rule).
+      box.on('pointerdown', () => { this.tiles[idx].press = true; });
+      box.on('pointerup', () => { this.tiles[idx].press = false; });
+      box.on('pointerupoutside', () => { this.tiles[idx].press = false; });
       this.container.addChild(box);
-      this.tiles.push({ box, bg, art, cost, hover: false, enabled: false });
+      this.tiles.push({ box, bg, art, cost, hover: false, press: false, enabled: false });
     }
 
     this.captionName = new Text({
@@ -1639,10 +1658,12 @@ export class CastlePanel {
       slot.box.cursor = slot.filled ? 'pointer' : 'default';
       const sbg = slot.bg;
       sbg.clear();
+      // ⭐ S195 N5 — hover lifts, PRESS sinks (held AND under the pointer), on the same plate.
+      const slotDown = slot.hover && slot.press;
       sbg.roundRect(0, 0, SLOT_W, SLOT_H, 5)
-        .fill({ color: slot.filled ? (slot.hover ? 0x1f5f9e : 0x14283c) : 0x101a26, alpha: 0.95 });
+        .fill({ color: slot.filled ? (slotDown ? 0x143d66 : slot.hover ? 0x1f5f9e : 0x14283c) : 0x101a26, alpha: 0.95 });
       skinButtonFx(sbg, 0, 0, SLOT_W, SLOT_H, {
-        accent: tint, state: !slot.filled ? 'disabled' : slot.hover ? 'hover' : 'rest', radius: 5, t: uiNow, studs: false,
+        accent: tint, state: !slot.filled ? 'disabled' : slotDown ? 'press' : slot.hover ? 'hover' : 'rest', radius: 5, t: uiNow, studs: false,
       });
       sbg.roundRect(0, 0, SLOT_W, SLOT_H, 5)
         .stroke({
@@ -1685,13 +1706,15 @@ export class CastlePanel {
       // Only a LOCKED tile is genuinely inert.
       t.box.cursor = m.reason === 'LOCKED' ? 'default' : 'pointer';
       t.bg.clear();
+      // ⭐ S195 N5 — hover lifts, PRESS sinks (held AND under the pointer), on the same plate.
+      const tileDown = t.hover && t.press;
       t.bg.roundRect(0, 0, TILE, TILE, 6)
         .fill({
-          color: isArmed ? 0x1f5f9e : m.enabled ? (t.hover ? 0x17497a : 0x14283c) : 0x101a26,
+          color: isArmed ? 0x1f5f9e : m.enabled ? (tileDown ? 0x0f3252 : t.hover ? 0x17497a : 0x14283c) : 0x101a26,
           alpha: 0.95,
         });
       skinButtonFx(t.bg, 0, 0, TILE, TILE, {
-        accent: tint, state: isArmed ? 'active' : !m.enabled ? 'disabled' : t.hover ? 'hover' : 'rest', radius: 6, t: uiNow,
+        accent: tint, state: isArmed ? 'active' : !m.enabled ? 'disabled' : tileDown ? 'press' : t.hover ? 'hover' : 'rest', radius: 6, t: uiNow,
       });
       t.bg.roundRect(0, 0, TILE, TILE, 6)
         .stroke({
@@ -1752,11 +1775,13 @@ export class CastlePanel {
       const on = m.enabled;
       const bg = row.bg;
       bg.clear();
+      // ⭐ S195 N5 — hover lifts, PRESS sinks (held AND under the pointer), on the same plate.
+      const rowDown = row.hover && row.press;
       bg.roundRect(0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, 6)
-        .fill({ color: on ? (row.hover ? 0x1f5f9e : 0x17497a) : 0x1a2530, alpha: 0.95 });
+        .fill({ color: on ? (rowDown ? 0x143d66 : row.hover ? 0x1f5f9e : 0x17497a) : 0x1a2530, alpha: 0.95 });
       // ⭐ S194 T5 — the glass, then the row's icon at the left, both inside the row box's own plate.
       skinButtonFx(bg, 0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, {
-        accent: on ? tint : 0x3a4a58, state: on ? (row.hover ? 'hover' : 'rest') : 'disabled', radius: 6, t: uiNow,
+        accent: on ? tint : 0x3a4a58, state: on ? (rowDown ? 'press' : row.hover ? 'hover' : 'rest') : 'disabled', radius: 6, t: uiNow,
       });
       skinIcon(bg, CASTLE_ROW_ICON[CASTLE_ROW_KEYS[i]!], ROW_ICON_CX, ROW_H / 2, ROW_ICON_SIZE, on ? 0xffffff : 0x56636f, on ? 0.92 : 0.7);
       bg.roundRect(0, 0, PANEL_W - PANEL_PAD * 2, ROW_H, 6)

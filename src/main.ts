@@ -29,6 +29,7 @@ import { Application, Container, Graphics, Rectangle, Text, TextStyle, UPDATE_PR
 import { DamageNumbers, loadDamageFont } from './render/damageNumbers.ts';
 // ⭐ S194 T9 (coherence) — every unit kill gets the same shared death beat (`fx/unitDeathFx.ts`).
 import { UnitDeathRenderer } from './render/coherence/unitDeathRenderer.ts';
+import { SyncedCuesRenderer } from './render/coherence/syncedCuesRenderer.ts';
 import {
   SPAWN_RATE_PER_SECOND,
   CANVAS_HEIGHT,
@@ -486,6 +487,10 @@ async function bootstrap(): Promise<void> {
   }
   settingsIcon.on('pointerover', () => { settingsIcon.alpha = 1; });
   settingsIcon.on('pointerout', () => { settingsIcon.alpha = 0.55; });
+  // ⭐ S195 N5 (ui-4 seam) — the gear PRESSES too: sink on down, lift on up, rest if the pointer left.
+  settingsIcon.on('pointerdown', () => { settingsIcon.alpha = 0.8; });
+  settingsIcon.on('pointerup', () => { settingsIcon.alpha = 1; });
+  settingsIcon.on('pointerupoutside', () => { settingsIcon.alpha = 0.55; });
   settingsIcon.on('pointertap', () => {
     // initAudio() makes the gear icon double as a user-gesture trigger,
     // matching the pointerdown/keydown listeners below. Safe to call when
@@ -848,6 +853,7 @@ async function bootstrap(): Promise<void> {
   // exclusion filters and there is no registry, so a 4th CreatureType draws nothing.
   const goblinRenderer = new GoblinRenderer(app, fogHiddenLayer);
   const unitDeathRenderer = new UnitDeathRenderer();
+  const syncedCuesRenderer = new SyncedCuesRenderer(); // ⭐ S195 T19 — castle-gun fire slot + the repaired sparkle (B-3)
   // ⭐ S172 — GoblinRenderer draws every health bar but only measures its OWN sprites. Bosses,
   // tier-3 units, Voltkin, the direwolf and the chewer live in CreatureRenderer, and without this
   // line their bars fall back to a 26 px box and are drawn inside the creature.
@@ -2213,7 +2219,9 @@ Network routes: ${v.detail}`;
    */
   const exitButton = makeExitButton(app, leaveToTitle);
   // ⛔ S191 R2 (INPUT-1 / INPUT-3) — the modals and the HUD controls cover the board; see `Controls.setModalCover`.
-  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
+  // ⭐ S195 N6 (controls-macros audit) — the settings OVERLAY covers the board too: its DOM root only swallows keys while
+  // focus is INSIDE it, so with focus on `body` a digit macro reached the board behind the panel.
+  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || settingsOverlay.isVisible() || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
 
   // ⛔ S168 (owner: "also remove this line from the bottom left LMB drag spark blah blah blah").
   // THE CONTROLS HELP LINE IS GONE. It ran along the bottom-left for the whole match — 581 px of
@@ -3163,6 +3171,7 @@ Network routes: ${v.detail}`;
         chewerRenderer.clear();
         goblinRenderer.clear();
         unitDeathRenderer.clear(); // ⭐ S194 T9 — an army's deaths never replay over the title
+        syncedCuesRenderer.clear(); // ⭐ S195 T19 — nor a repair's sparkle
         // S103 P3 — drop turret graphics + per-turret SFX-edge state on title-return.
         turretRenderer.clear();
         voltkinTowerRenderer.clear();
@@ -4399,6 +4408,7 @@ Network routes: ${v.detail}`;
     chewerRenderer.sync(world);
     goblinRenderer.sync(world);
     unitDeathRenderer.sync(world); // ⭐ S194 T9 — the shared death beat, for every creature type alike
+    syncedCuesRenderer.sync(world); // ⭐ S195 T19 — castle-gun fire slot + the repaired sparkle, derived per frame
     // ⭐ S172 — after both creature renderers, so a number spawned this frame is drawn on top.
     damageNumbers.sync(world);
     /*
@@ -4441,7 +4451,7 @@ Network routes: ${v.detail}`;
     stinkCloudRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
-    drainAudioEffects(world.effects, world.tick);
+    drainAudioEffects(world.effects, world.tick); // ⭐ S195 T19 — the owner-only entropy boing reads the local seat off the concealment frame
     // S112 — situational music: HELGA's theme while she's engaged (walk/attack), else base music.
     // Render-layer, edge-driven, idempotent; reads SYNCED defender state so host + client switch together.
     updateHelgaTheme(world);

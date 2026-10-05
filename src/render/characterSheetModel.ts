@@ -83,6 +83,11 @@ import { blueprintBill } from '../state/blueprints.ts';
 import { RACE_TOWER_UNIT, raceForTowerId } from '../state/raceTowerIds.ts';
 import { towerUnitForSeat } from '../state/racial/apexPredator.ts'; // S188 APEX PREDATOR (audit F3)
 import { isConcealed } from './concealment.ts';
+// ⭐ S195 N12 — the ENTROPY TAX's own function, never a re-derivation of the formula (canon §2).
+import { ENTROPY_FREE_CONNECTORS, ENTROPY_SCALE, entropyChance } from '../state/entropy.ts';
+// ⭐ S195 N7 — the shape → goblin map, from the side-effect-free leaf (the S144 trap, `goblinKinds.ts`).
+import { GOBLIN_FEED_MAP } from '../state/goblinKinds.ts';
+import type { CreatureSpawner } from '../state/spawners/spawner.ts';
 import { CASTLE_ROW_KEYS, PANEL_W, castleBlockOrigin, panelHeight } from './castlePanel.ts';
 import { structureActionModel, type StructureActionView } from './structurePanel.ts';
 import { towerArtForRecipe } from './towerFrames.ts';
@@ -465,7 +470,7 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
 };
 
 /** The tier word under the name. Derived from the type, never stored. */
-function tierOf(type: CreatureType): string {
+export function tierOf(type: CreatureType): string {
   if (BOSS_TYPES.has(type)) return 'T9';
   if (type.startsWith('t3')) return 'T3';
   if (type === 'raceUnit') return 'CASTLE';
@@ -858,8 +863,8 @@ export function buildInfoFor(
   return { description, buildEmblem: copy.emblem ?? null, buildBill };
 }
 
-/** Player-facing word for each shape, for the build bill. Lower case is applied at the call site. */
-const SPARK_WORD: Readonly<Record<SparkType, string>> = {
+/** Player-facing word for each shape, for the build bill. Lower case is applied at the call site. S195 N7 — exported for the hover preview ("what is square?"). */
+export const SPARK_WORD: Readonly<Record<SparkType, string>> = {
   [SparkType.Dot]: 'DOT',
   [SparkType.Line]: 'BAR',
   [SparkType.Triangle]: 'TRIANGLE',
@@ -1411,6 +1416,9 @@ function structureSheet(
    * as a trap. The real aura is `STINK_AURA_UNIT_FIFTHS` once per `STINK_AURA_CADENCE_TICKS`.
    */
   stats.push(...towerRowsFor(world, comp.primitiveIds, recipeId));
+  // ⭐ S195 N7 / N12 — what the goblin tower holds, then the ENTROPY TAX this structure runs (the component).
+  stats.push(...goblinContentsRows(world, comp.primitiveIds, frozen));
+  stats.push(...entropyRowsFor(world, comp.bondIds.size, owner, seat));
   // ⭐ S188 (audit F3) — the tower OWNER's seat decides what it emits (APEX PREDATOR), exactly as the sim's
   // two emit sites ask it. The card is read by any seat, so it is the owner's rule, never the viewer's.
   const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
@@ -1467,6 +1475,114 @@ function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId:
     rows.push({ label: 'ATK', points: emplacement.atk, derived: `${attackFifths(emplacement.atk, emplacement.pen)} a shot` });
     rows.push({ label: 'PEN', points: emplacement.pen, derived: null });
     rows.push({ label: 'RANGE', points: emplacement.range, derived: 'px' });
+  }
+  return rows;
+}
+
+/**
+ * ⭐⭐ S195 N12 (owner) — **THE ENTROPY TAX, READABLE ON THE CARD.**
+ *
+ * > *"obvious to the player how many shapes he lost … clicking on a whole structure, seeing what is the
+ * > percent of him losing how many … connectors"* — owner, S195 (N12)
+ *
+ * PURE. `structureConnectors` is the WHOLE structure's connector count — the number `planEntropy` prices
+ * (`componentOf(…).bondIds.size`), so a tower welded into a lattice reads the lattice's chance, which is
+ * the chance its own connectors actually run. The percent is `entropyChance` from `state/entropy.ts`,
+ * never the formula restated: when the owner moves the rate or the cap, this row moves with it.
+ *
+ *   ENTROPY %   4.4   ~2.4 lost/fight      (n = 54: 0.1 % × (54 − 10) per connector, × 54 connectors)
+ *   ENTROPY %   0     5 of 10 free          (a lone tower — under the free allowance)
+ *   LOST        7     to entropy            ⭐ owner-only (B-17): the viewing seat OWNS the structure
+ *
+ * ⛔ B-17 RULED — *"only the player itself will see it, not all players"* — so the LOST row (the seat's
+ * running `lostToEntropy` from `matchStats`, the T22 counter) is emitted only when `owner === seat`; an
+ * enemy's or an ally's card carries the chance (public arithmetic on a visible structure) and nothing else.
+ */
+export function entropyRowsFor(
+  world: World,
+  structureConnectors: number,
+  owner: PlayerId,
+  seat: PlayerId,
+): SheetStatRow[] {
+  const chance = entropyChance(structureConnectors); // out of ENTROPY_SCALE
+  const pct = (chance * 100) / ENTROPY_SCALE;
+  const expected = (structureConnectors * chance) / ENTROPY_SCALE;
+  const rows: SheetStatRow[] = [{
+    label: 'ENTROPY %',
+    points: pct,
+    derived: chance === 0
+      ? `${structureConnectors} of ${ENTROPY_FREE_CONNECTORS} free`
+      : `~${expected.toFixed(1)} lost/fight`,
+  }];
+  if (owner === seat) {
+    rows.push({ label: 'LOST', points: world.matchStats.seats.get(seat)?.lostToEntropy ?? 0, derived: 'to entropy' });
+  }
+  return rows;
+}
+
+/**
+ * ⭐⭐ S195 N7 (owner) — **WHAT IS INSIDE THE GOBLIN TOWER.**
+ *
+ * > *"which goblins are inside (to be released in the fight)"* — owner, S195 (N7)
+ *
+ * PURE, derived every frame from synced state: a goblin BELONGS to the tower that fed it
+ * (`sourceSpawnerId`, the provenance `applyFeedTower` stamps and the per-spawner caps count), so the
+ * tower's contents are exactly the live creatures carrying its spawner id — during BUILD they stand at
+ * home ("in the tower"), at the FIGHT whistle the same creatures are released ("in the fight"); S191's
+ * stock rule means nothing resets between the two, so one count serves both phases.
+ *
+ * One header row (the total) then one row per kind present, each with the shape that makes it — the
+ * `GOBLIN_FEED_MAP` row read backwards, so *"what is square?"* is answered on the card too. Kinds are
+ * ordered by shape (the map's order), a promoted kind (APEX PREDATOR, no shape of its own) after them by
+ * name — a total order, never `Map` insertion. Empty for every other structure, and for a CONCEALED tower
+ * (S170: the fog must not leak a head-count).
+ *
+ * ⚠ KEYED ON THE SPAWNER, NOT ON `origin.blueprintId`: a goblin tower bonded by hand has no blueprint
+ * origin and still ignites (`isGoblinTowerComponent`), so the live `creatureSpawners` record — the thing
+ * that actually mints goblins — is the only honest test of "this is a goblin tower".
+ */
+export function goblinContentsRows(
+  world: World,
+  members: ReadonlySet<PrimitiveId>,
+  concealed: boolean,
+): SheetStatRow[] {
+  if (concealed) return [];
+  let tower: CreatureSpawner | null = null;
+  for (const sp of world.creatureSpawners.values()) {
+    if (sp.recipeId !== 'goblinTower' || !members.has(sp.anchorPrimitiveId)) continue;
+    if (tower === null || Number(sp.id) < Number(tower.id)) tower = sp;
+  }
+  if (tower === null) return [];
+  const counts = new Map<CreatureType, number>();
+  for (const c of world.creatures.values()) {
+    if (c.sourceSpawnerId === tower.id) counts.set(c.type, (counts.get(c.type) ?? 0) + 1);
+  }
+  let total = 0;
+  for (const n of counts.values()) total += n;
+  const rows: SheetStatRow[] = [{
+    label: 'GOBLINS',
+    points: total,
+    derived: world.matchPhase === 'FIGHT' ? 'in the fight' : 'in the tower',
+  }];
+  const shapeOf = (type: CreatureType): SparkType | null => {
+    for (const t of ALL_SPARK_TYPES) if (GOBLIN_FEED_MAP[t] === type) return t;
+    return null;
+  };
+  const kinds = [...counts.keys()].sort((a, b) => {
+    const sa = shapeOf(a);
+    const sb = shapeOf(b);
+    if (sa !== null && sb !== null) return sa - sb;
+    if (sa !== null) return -1;
+    if (sb !== null) return 1;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  for (const type of kinds) {
+    const shape = shapeOf(type);
+    rows.push({
+      label: `· ${creatureDisplayName(type).replace(/ GOBLIN$/, '')}`,
+      points: counts.get(type)!,
+      derived: shape === null ? null : `from ${SPARK_WORD[shape]}`,
+    });
   }
   return rows;
 }
@@ -1540,6 +1656,10 @@ function weldedTowerSheet(
     { label: 'SHAPES', points: members.size, derived: null },
   ];
   stats.push(...towerRowsFor(world, members, recipeId)); // S191 — scoped to THIS tower's own shapes
+  // ⭐ S195 N7 / N12 — its goblins; the ENTROPY it runs is the WHOLE welded structure's (what `planEntropy` prices).
+  const concealed = isConcealed(prim.pos.x, prim.pos.y, owner);
+  stats.push(...goblinContentsRows(world, members, concealed));
+  stats.push(...entropyRowsFor(world, st.bondIds.size, owner, seat));
   const unitFor = (u: CreatureType): CreatureType => towerUnitForSeat(world, owner, u);
   const info = buildInfoFor(recipeId, unitFor);
   const structure = structureHealth(world, st.bondIds);
@@ -1554,7 +1674,7 @@ function weldedTowerSheet(
     title: codexCopyFor(recipeId).name,
     subtitle: `${mine ? 'YOUR BUILDING' : sameTeam(world, owner, seat) ? 'ALLY BUILDING' : 'ENEMY BUILDING'} · WELDED`, // S194
     portrait: portraitForStructure(recipeId),
-    health: { cur: pool.cur, max: pool.max, frozen: isConcealed(prim.pos.x, prim.pos.y, owner) },
+    health: { cur: pool.cur, max: pool.max, frozen: concealed },
     stats,
     owned,
     actions,
@@ -1589,6 +1709,8 @@ function weldedStructureSheet(
   for (const { type, count } of structureComposition(world, st.primitiveIds)) {
     stats.push({ label: `${SPARK_WORD[type]}${count > 1 ? 'S' : ''}`, points: count, derived: null });
   }
+  // ⭐ S195 N12 — the owner's *"clicking on a whole structure"* case: the lattice's own ENTROPY TAX.
+  stats.push(...entropyRowsFor(world, st.bondIds.size, owner, seat));
   const actions = mine ? structureActionModel(world, seat, target.primitiveId) : null;
   const welded: SheetWelded = {
     role: 'structure',

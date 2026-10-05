@@ -39,10 +39,42 @@ import type { DefenderState } from '../state/defenders/defender.ts';
 import type { DefenderId } from '../types.ts';
 import { helgaPose, type HelgaPose } from './helgaPose.ts';
 import { helgaCell, type HelgaAnimConfig, type HelgaAnimState } from './helgaFrame.ts';
-import { playSlapSFX } from './audioManager.ts';
-import { fxActive, fxTop } from './fx/fxState.ts';
-import { fxSeed } from './fx/emitter.ts';
+import { playSlapSFX, playSlotSFX } from './audioManager.ts';
+import { fxActive, fxTop, fxTopShade } from './fx/fxState.ts';
+import { easeOutCubic, fxSeed } from './fx/emitter.ts';
 import { slapImpactFx } from './fx/combatFx.ts';
+import { UNIT_DEATH_LIFE_TICKS, unitDeathFx } from './fx/unitDeathFx.ts';
+import { helgaInvolvesSeat, helgaVictimSeat, type HelgaVictimMemo } from './coherence/helgaAudience.ts';
+
+/*
+ * ⭐⭐ S195 T19 — **OWNER B-7, RULED: *"she needs to look like she dies when she dies."***
+ *
+ * Until now she BLINKED OUT: `damage.ts` (R190-J) flips a killed Helga to `state: 'DORMANT'` on the kill
+ * tick, this renderer skipped DORMANT records before adding them to `live`, and the cull at the bottom
+ * destroyed her sprite the same frame. No fall, no beat, no sound — on every peer.
+ *
+ * ⭐ THE KILL IS ALREADY A SYNCED STATE EDGE, SO THIS COSTS NO WIRE FIELD. `DefenderState` is serialized
+ * and hashed; a kill is the one writer of `'DORMANT'` (`damage.ts:455`); the BUILD-edge revive is the one
+ * writer OUT of it (`reviveDormantHelgas`); a hall that FALLS removes her record outright (never DORMANT)
+ * and prints nothing, exactly as the S182 number sweep treats it — a removal is not a death. So every peer
+ * sees `prev !== 'DORMANT' && now === 'DORMANT'` on the same record, within one snapshot of the host. The
+ * S186 test ("can two builds that shake hands disagree about anything either computes?") — no: nothing is
+ * computed from new data, no shared constant moves. NO BUMP. (The brief's premise — that a kill LEAVES
+ * `world.defenders` — was S158's; R190-J changed it in S189.)
+ *
+ * THE BEAT: the shared unit death beat (`fx/unitDeathFx.ts`, `'boss'` family — she is the one hero unit, a
+ * ring is earned) in her seat colour, PLUS her sprite handed over as a corpse that keels over about her feet
+ * and fades (`HELGA_FALL_TICKS`; her atlas has idle/walk/slap and no `die` row), PLUS the `unitFalls` sound
+ * slot (silent until the owner drops the file in — `audioManager.SFX_SLOTS`). Aged by `world.tick`, so two
+ * players watch the same fall. Fogged like her: a kill inside the fog shows nothing (owner S170). A first
+ * sighting that is ALREADY DORMANT (a joiner, a save/load) is not an edge and draws nothing.
+ */
+/** ⚠ MINE — how long she lies falling, ticks (0.8 s): the `die` rows the units play are 12 frames at 4. */
+export const HELGA_FALL_TICKS = 48;
+/** ⚠ MINE — the beat's scale against `UNIT_DEATH_BASE_R`: her sprite (221×256 at 0.34) is ~2.3 goblins tall. */
+export const HELGA_DEATH_BEAT_SCALE = 1.6;
+/** The seat colour when the owner is unknown (a left player). Same neutral `unitDeathRenderer` falls back to. */
+const NEUTRAL = 0xc8c8d0;
 
 // ── palette (CtCD: thick dark outline, saturated flats) — used by the procedural fallback puppet ──
 const OUTLINE = 0x241a14;
@@ -122,6 +154,12 @@ export class PrincessRenderer {
   }
   private readonly lastState: Map<DefenderId, string> = new Map();
   private readonly facing: Map<DefenderId, 1 | -1> = new Map();
+  /** ⭐ S195 T19 (B-7) — the death beats of Helgas who fell, aged by `world.tick`. */
+  private readonly deathBeats: Array<{ x: number; y: number; bornTick: number; seed: number; color: number }> = [];
+  /** ⭐ S195 T19 (B-7) — her sprite after the kill edge: it keels over and fades, then is destroyed. */
+  private readonly fallen: Array<{ sprite: Sprite; bornTick: number; face: 1 | -1 }> = [];
+  /** ⭐ S195 T19 (N4) — the seat whose unit each Helga is on, remembered through the strike (`helgaAudience.ts`). */
+  private readonly victimMemo: HelgaVictimMemo = new Map();
 
   private atlas: LoadedAtlas | null = null;
   private atlasLoadStarted = false;
@@ -190,7 +228,15 @@ export class PrincessRenderer {
 
     for (const d of world.defenders.values()) {
       if (d.kind !== 'princess') continue;
-      if (d.state === 'DORMANT') continue; // S189 R190-J — she is dead; her HALL still draws
+      // N4 — track her victim's seat every frame (fogged or not), so the slap below knows its audience.
+      helgaVictimSeat(world, d, this.victimMemo);
+      if (d.state === 'DORMANT') {
+        // S189 R190-J — she is dead; her HALL still draws. ⭐ S195 T19 (B-7) — and the EDGE into DORMANT is
+        // her death: the one frame `lastState` still holds a live state for this record.
+        const was = this.lastState.get(d.id);
+        if (was !== undefined && was !== 'DORMANT') this.onHelgaFell(world, d);
+        continue; // not `live`, so the cull below forgets her state until she is revived
+      }
       /*
        * ⭐ S170 (owner) — FOG: an enemy DEFENDER is not drawn unless it is in live vision.
        * He named Helga specifically: *"Also, Helga and stuff, like, all of those need to be
@@ -236,7 +282,11 @@ export class PrincessRenderer {
       // Slap SFX on the FIRE edge (synced state = the event bus; fires exactly once per slap on both
       // peers — DEFENDER_FIRE_HOLD_TICKS spans ≥2 snapshots, the prev!=='FIRE' edge triggers once).
       const prev = this.lastState.get(d.id);
-      if (firing && prev !== 'FIRE') void playSlapSFX({ x: d.pos.x, y: d.pos.y });
+      // ⭐ S195 T19 (owner N4, VERIFIED — it leaked): only her OWNER and the seat whose unit she is hitting hear
+      // the slap. `coherence/helgaAudience.ts` is the one rule her theme also asks.
+      if (firing && prev !== 'FIRE' && helgaInvolvesSeat(world, d, world.localPlayerId, this.victimMemo)) {
+        void playSlapSFX({ x: d.pos.x, y: d.pos.y });
+      }
       this.lastState.set(d.id, d.state);
 
       if (this.atlas !== null) {
@@ -263,6 +313,8 @@ export class PrincessRenderer {
       }
     }
 
+    this.drawDeaths(world);
+
     // Drop sprites + bookkeeping for defenders gone this frame (death/despawn) so nothing leaks.
     if (this.sprites.size > 0) {
       for (const [id, sp] of [...this.sprites]) {
@@ -275,6 +327,52 @@ export class PrincessRenderer {
       }
     }
   }
+
+  /**
+   * ⭐ S195 T19 (B-7) — the kill edge, on every peer: the beat, the fall, the sound. Rule 2 (PLAYING) and rule 4
+   * (not concealed) of `coherence/unitDeparture.ts` apply; rule 3 (mass clear) cannot arise — a cleared map has
+   * no record to flip — and rule 1 (expiry) has no analogue, she has no lifetime.
+   */
+  private onHelgaFell(world: World, d: { id: DefenderId; pos: { x: number; y: number }; ownerPlayerId: import('../types.ts').PlayerId }): void {
+    const sp = this.sprites.get(d.id);
+    if (world.gameState !== 'PLAYING' || isConcealed(d.pos.x, d.pos.y, d.ownerPlayerId)) {
+      if (sp !== undefined) { sp.destroy(); this.sprites.delete(d.id); }
+      return;
+    }
+    const color = world.players.get(d.ownerPlayerId)?.color ?? NEUTRAL;
+    this.deathBeats.push({
+      x: d.pos.x, y: d.pos.y, bornTick: world.tick, seed: fxSeed(d.id as unknown as number, 0x4e16a), color,
+    });
+    if (sp !== undefined) {
+      this.sprites.delete(d.id);
+      this.fallen.push({ sprite: sp, bornTick: world.tick, face: this.facing.get(d.id) ?? 1 });
+    }
+    void playSlotSFX('unitFalls', { x: d.pos.x, y: d.pos.y });
+  }
+
+  /** Age and draw every death in flight; retire what has played out. Tick-driven, never wall-clock. */
+  private drawDeaths(world: World): void {
+    for (let i = this.deathBeats.length - 1; i >= 0; i--) {
+      const b = this.deathBeats[i]!;
+      const age = world.tick - b.bornTick;
+      if (age < 0 || age >= UNIT_DEATH_LIFE_TICKS) { this.deathBeats.splice(i, 1); continue; }
+      if (fxActive()) {
+        unitDeathFx(fxTop(), fxTopShade(), b.seed, 'boss', b.x, b.y, HELGA_DEATH_BEAT_SCALE, b.color, age / UNIT_DEATH_LIFE_TICKS);
+      }
+    }
+    for (let i = this.fallen.length - 1; i >= 0; i--) {
+      const f = this.fallen[i]!;
+      const t = (world.tick - f.bornTick) / HELGA_FALL_TICKS;
+      if (t < 0 || t >= 1) { f.sprite.destroy(); this.fallen.splice(i, 1); continue; }
+      // She keels over about her feet (the sprite anchor IS her foot) and fades in the last two fifths.
+      f.sprite.rotation = -f.face * (Math.PI / 2) * easeOutCubic(Math.min(1, t * 1.6));
+      f.sprite.alpha = t < 0.6 ? 1 : Math.max(0, 1 - (t - 0.6) / 0.4);
+    }
+  }
+
+  /** Test + bench seams (B-7): deaths in flight. */
+  deathBeatCount(): number { return this.deathBeats.length; }
+  fallenCount(): number { return this.fallen.length; }
 
   /** Position/scale/face a HELGA's veo sprite from SYNCED state (pure cell selection). */
   private syncSprite(
@@ -375,5 +473,10 @@ export class PrincessRenderer {
     this.sprites.clear();
     this.lastState.clear();
     this.facing.clear();
+    // ⭐ S195 T19 (B-7) — a title return forgets every death in flight (the S167 goblin-corpse lesson).
+    for (const f of this.fallen) f.sprite.destroy();
+    this.fallen.length = 0;
+    this.deathBeats.length = 0;
+    this.victimMemo.clear();
   }
 }

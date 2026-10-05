@@ -31,6 +31,7 @@
 
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { World } from '../state/world.ts';
+import { CreatureWatchEpoch, classifyCreatureDeparture, type CreatureLastSeen } from './coherence/unitDeparture.ts';
 import type { DefenderId } from '../types.ts';
 import type { CreatureId } from '../types.ts';
 import type { CreatureType } from '../state/creatures/creature.ts';
@@ -585,6 +586,15 @@ export class GoblinRenderer {
   /** Previous position per goblin — the facing source (movement direction, not target direction). */
   private readonly lastSeenPos: Map<CreatureId, { x: number; y: number }> = new Map();
   private readonly facing: Map<CreatureId, 1 | -1> = new Map();
+  /**
+   * ⭐ S195 T19 (#2) — the last observation per goblin (recorded ABOVE the fog skip, like presence), so the
+   * corpse below asks the ONE shared departure rule (`coherence/unitDeparture.ts`) before it plays the `die`
+   * row: an EXPIRY (last seen DESPAWNING, lifetime run out), a CONCEALED spot, a pants SWEEP, a sapper's own
+   * DETONATION and a title return all drop the sprite with no corpse. Until S195 the row played on ANY removal.
+   */
+  private readonly lastSeen: Map<CreatureId, CreatureLastSeen> = new Map();
+  /** S195 T19 — rule 3: a mass clear (match reset) retires every sprite with no corpse. */
+  private readonly epoch = new CreatureWatchEpoch();
 
   /** veo sprites live ABOVE the procedural layer so a fallback frame can never overdraw one. */
   private readonly spriteLayer: Container;
@@ -1248,8 +1258,16 @@ export class GoblinRenderer {
     const nowSec = performance.now() / 1000;
     const live = new Set<CreatureId>();
 
+    // ⭐ S195 T19 — a mass clear is not a massacre (S182): every sprite goes, no corpse plays.
+    if (this.epoch.moved(world)) {
+      for (const id of [...this.sprites.keys()]) this.dropSprite(id);
+      this.lastSeen.clear();
+    }
     for (const c of world.creatures.values()) {
       if (!GOBLIN_KINDS.has(c.type)) continue;
+      this.lastSeen.set(c.id, {
+        state: c.state, type: c.type, despawnAtTick: c.despawnAtTick, x: c.pos.x, y: c.pos.y, owner: c.ownerPlayerId,
+      });
       // ⭐ S170 — FOG: an enemy's is simply NOT DRAWN unless it is in live vision. The C&C model;
       // see render/concealment.ts. Own entities are never concealed.
       if (isConcealed(c.pos.x, c.pos.y, c.ownerPlayerId)) { this.dropSprite(c.id); continue; }
@@ -1481,10 +1499,16 @@ export class GoblinRenderer {
       if (live.has(id)) continue;
       this.sprites.delete(id);
       const dieRow = this.dyingRowFor(id);
-      if (dieRow === null) { sp.destroy(); continue; }
+      // ⭐ S195 T19 (#2) — the shared rule decides whether this was a DEATH. A goblin still in the world here is
+      // one that just went into the fog (`dropSprite` above handles the common case; this is the same-frame
+      // race) — not a departure at all, so no corpse either.
+      const last = this.lastSeen.get(id);
+      const killed = !world.creatures.has(id) && (last === undefined || classifyCreatureDeparture(world, last) === 'killed');
+      if (dieRow === null || !killed) { sp.destroy(); continue; }
       sp.texture = dieRow[0]!;
       this.dying.push({ sprite: sp, frames: dieRow, elapsed: 0 });
     }
+    for (const id of [...this.lastSeen.keys()]) if (!world.creatures.has(id)) this.lastSeen.delete(id);
 
     // Advance every corpse by one render frame, then retire it.
     for (let i = this.dying.length - 1; i >= 0; i--) {
@@ -1612,6 +1636,7 @@ export class GoblinRenderer {
     this.raStrikeLayer?.clear();
     this.lastSeenPos.clear();
     this.facing.clear();
+    this.lastSeen.clear();
     for (const sp of this.sprites.values()) sp.destroy();
     this.sprites.clear();
     this.spriteAtlas.clear();

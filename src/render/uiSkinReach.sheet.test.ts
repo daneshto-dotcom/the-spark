@@ -5,6 +5,8 @@
  * `actionAt` test — clicked just inside it is that button, just outside it is not — and the card
  * plate wears the panel frame inside `isOver`.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/characterSheet.ts :: *
 import { describe, expect, it, vi } from 'vitest';
 import { Container } from 'pixi.js';
 import { PLAYER_COLORS } from '../constants.ts';
