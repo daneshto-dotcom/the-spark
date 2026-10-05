@@ -219,7 +219,7 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/avatarRenderer.ts': 3, // the local avatar
   'render/botSetupOverlay.ts': 1, // lobby seat swap
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
-  'render/characterSheetModel.ts': 7, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware)
+  'render/characterSheetModel.ts': 8, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware). S195 info-ui: + `entropyRowsFor` `owner === seat` — the owner-only LOST-TO-ENTROPY row (B-17: "only the player itself will see it"), is-this-MINE, never allegiance
   'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
   'render/concealment.ts': 1, // the local viewer's own things are never concealed
   'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id
