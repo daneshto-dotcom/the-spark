@@ -132,6 +132,7 @@ import {
   CHEWER_DEF,
   CHEWER_HP,
   CHEWER_PEN,
+  CHEW_INTERVAL_TICKS,
   GOBLIN_ATTACK_CADENCE_TICKS,
   GOBLIN_ATTACK_FIRE_TICK,
   GOBLIN_MAX_PER_SPAWNER,
@@ -1860,6 +1861,18 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
     expect(RESIST_TEXT).toBe('RESIST');
     expect(RESIST_MIN_GAP_TICKS).toBe(PHYSICS_HZ);
     expect(canonSays('a grey **"RESIST"** floats over the unit — at most **once a second**')).toBe(true);
+  });
+});
+
+describe('S195 rules-2 — §5 B-9: the chewer gnaws the keep, last', () => {
+  it('⭐ the bite the canon quotes is the chewer\'s ladder number on its cadence, and the hold exists in the FSM', () => {
+    expect(attackFifths(CHEWER_ATK, CHEWER_PEN)).toBe(7);
+    expect(CHEW_INTERVAL_TICKS).toBe(60);
+    expect(canonSays('WITH NOTHING TO CHEW, THE CHEWER GNAWS THE KEEP')).toBe(true);
+    expect(canonSays(`\`attackFifths(CHEWER_ATK ${CHEWER_ATK}, CHEWER_PEN ${CHEWER_PEN})\` = **${attackFifths(CHEWER_ATK, CHEWER_PEN)}** fifths every \`CHEW_INTERVAL_TICKS\` (${CHEW_INTERVAL_TICKS})`)).toBe(true);
+    const fsm = readFileSync(new URL('./state/creatures/creatureLifecycle.ts', import.meta.url), 'utf8');
+    expect(fsm).toContain('const onKeep =');
+    expect(fsm).toContain("world.effects.push({ kind: 'CHEW_BITE', tick: world.tick, pos: { x: a.x, y: a.y }, creatureId: creature.id });");
   });
 });
 
