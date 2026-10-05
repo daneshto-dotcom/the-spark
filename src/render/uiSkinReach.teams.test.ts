@@ -5,6 +5,9 @@
  * and NOT just outside (the skin moved no target), the sheen sweeps only inside that rect while hovered and
  * clears on pointerout, and an inert / refused control does not light.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/botSetupOverlay.ts :: teamBtn.
+// CENSUS-REACH src/render/seatRack.ts :: teamChip.on('pointertap'
 import { describe, expect, it, vi } from 'vitest';
 import { Container, Graphics, Ticker } from 'pixi.js';
 import 'pixi.js/events';
