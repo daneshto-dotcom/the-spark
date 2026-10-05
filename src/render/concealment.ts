@@ -48,6 +48,7 @@
  */
 
 import { computeVisionSources, fogActive, isPointVisible, type VisionSource } from '../state/vision.ts';
+import { sameTeam } from '../state/teams.ts';
 import type { World } from '../state/world.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 
@@ -56,6 +57,8 @@ interface Ctx {
   active: boolean;
   localPlayerId: PlayerId | null;
   sources: readonly VisionSource[];
+  /** ⭐ S195 N1 — the frame's `world.teams` (undefined in a free-for-all), so a teammate's thing is never culled. */
+  teams?: readonly number[];
 }
 
 /*
@@ -78,6 +81,7 @@ export function beginConcealmentFrame(world: World, cursor: Vec2): void {
     active,
     localPlayerId: world.localPlayerId,
     sources: active ? computeVisionSources(world, cursor) : [],
+    teams: world.teams,
   };
 }
 
@@ -105,7 +109,9 @@ export function beginConcealmentFrame(world: World, cursor: Vec2): void {
  */
 export function isConcealed(x: number, y: number, owner: PlayerId | null): boolean {
   if (!ctx.active) return false;
-  if (owner !== null && owner === ctx.localPlayerId) return false;
+  // ⭐⭐ S195 (owner N1) — a TEAMMATE's things are never concealed either: *"same team should be visible."*
+  // `sameTeam` is plain seat equality when `teams` is undefined (FFA), so this is the S170 own-check there.
+  if (owner !== null && ctx.localPlayerId !== null && sameTeam(ctx, owner, ctx.localPlayerId)) return false;
   return !isPointVisible(ctx.sources, x, y);
 }
 

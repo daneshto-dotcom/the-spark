@@ -38,6 +38,7 @@ import type { World } from './world.ts';
 // S62 — sourced from gameMode (light leaf graph) to keep vision a pure
 // render-input leaf rather than pulling world.ts's full runtime graph.
 import { isNetworked } from './gameMode.ts';
+import { sameTeam } from './teams.ts';
 
 export interface VisionSource {
   readonly x: number;
@@ -88,14 +89,20 @@ export function computeVisionSourcesForSeat(
     { x: cursor.x, y: cursor.y, radius: R_PERSONAL },
   ];
   const me = seat;
+  /*
+   * ⭐⭐ S195 (owner N1 / R195-F1) — **A TEAMMATE'S EYES ARE YOURS.** *"same team should be visible. No fog
+   * of war during build phase for your same team."* Every beacon a teammate owns lights your fog too, the
+   * way Red Alert shares an ally's vision. `sameTeam(world, me, x)` is `me === x` in a free-for-all
+   * (`world.teams` undefined), so an FFA match gets exactly the pre-S195 source list.
+   */
   for (const prim of world.primitives.values()) {
-    if (prim.placedBy !== me) continue;
+    if (!sameTeam(world, me, prim.placedBy)) continue;
     sources.push({ x: prim.pos.x, y: prim.pos.y, radius: R_BEACON });
   }
   // S58 (#3) — own creatures (e.g. Voltkin) reveal the fog around them so the
   // player can watch the fight. Enemy creatures are excluded (concealment).
   for (const creature of world.creatures.values()) {
-    if (creature.ownerPlayerId !== me) continue;
+    if (!sameTeam(world, me, creature.ownerPlayerId)) continue;
     sources.push({ x: creature.pos.x, y: creature.pos.y, radius: R_CREATURE_VISION });
   }
   return sources;

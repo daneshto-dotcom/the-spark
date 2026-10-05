@@ -29,9 +29,9 @@ import { verifyPubkeyPop, type HostIdentity } from './hostIdentity.ts';
 import { verifyMigrationClaim } from './migrationClaim.ts';
 import type { MigrationClaimMsg } from './protocol.ts';
 import { signWarrant, type WarrantSeat } from './successionWarrant.ts';
-import { reconcileLobbySeats, buildMatchRoster, withTeams, arrangeRosterForTeams } from './lobbyRoster.ts';
+import { reconcileLobbySeats, buildMatchRoster, withTeams, withSlots } from './lobbyRoster.ts';
 import { sessionTeamsPlayable } from './quickmatchGate.ts';
-import { broadcastQmPresence, maybeQmAutoBegin } from './quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, noteQmReady, qmTeamChangeAllowed } from './quickmatchGate.ts';
 import type { NetSession } from './session.ts';
 import { NetTransport, selfId } from './transport.ts';
 import { dispatch, type GameAction as GameActionForIntent, type World } from '../state/world.ts';
@@ -161,7 +161,7 @@ export interface HostStartDeps {
    * (Council R6 CRITICAL). main.ts wires it to lobbyScreen.updatePresence (which
    * digests RosterEntry → the render-local SeatPresence shape).
    */
-  onPresence: (roster: readonly RosterEntry[]) => void;
+  onPresence: (roster: readonly RosterEntry[], countdownMs?: number) => void; // ⭐ S195 (N3) — + the lock countdown
   /**
    * S87 P4 — fired by the QUICKMATCH all-ready gate (host side) to begin the
    * match without a manual click. main.ts wires it to the begin handler,
@@ -274,7 +274,8 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // last unready player, the remaining all-ready ≥2 start) — idempotent +
       // LOBBY-gated in main.ts.
       broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
-      maybeQmAutoBegin(deps.session, deps.onAutoBegin);
+      // ⭐ S195 (N3) — a JOIN (an unready newcomer) or a leave during the lock re-asks it; a cancel is rebroadcast.
+      maybeQmAutoBegin(deps.session, deps.onAutoBegin, () => broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState));
     });
     transport.on((msg, peerId) => {
       // S118 P1 (host-migration D2) — a joiner's HELLO may advertise its ephemeral pubkey + a PoP
@@ -389,9 +390,10 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // roster's ready flags, and the all-ready gate auto-Begins. Ignored
       // outside a quickmatch room (friends lobbies keep the manual Begin).
       if (msg.kind === 'LOBBY_READY' && deps.session.quickmatch) {
-        deps.session.qmReadyPeers.set(peerId, msg.ready);
+        // ⭐ S195 (N3) — an un-ready stamps the 3 s team cooldown and stops a running lock countdown.
+        noteQmReady(deps.session, peerId, msg.ready);
         broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
-        maybeQmAutoBegin(deps.session, deps.onAutoBegin);
+        maybeQmAutoBegin(deps.session, deps.onAutoBegin, () => broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState));
       }
       /*
        * ⭐ S161 P6 (owner) — A JOINER PICKS ITS RACE. Host-authoritative, one race per player.
@@ -409,12 +411,16 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
       // ⭐ S192 (owner R192-T4) — A JOINER PICKS ITS TEAM. The CLAIM_RACE twin: by transport peerId,
       // LOBBY only, answered by the presence beacon. Any team is free — teams are not exclusive.
       if (msg.kind === 'CLAIM_TEAM' && deps.world.gameState === 'LOBBY') {
-        if (msg.team === null) deps.session.teamByPeer.delete(peerId);
-        else deps.session.teamByPeer.set(peerId, msg.team);
+        // ⭐⭐ S195 (owner N3) — READY LOCKS YOUR TEAM: refused while that peer is ready, and for 3 s after it
+        // un-readies. Host-enforced, so a client cannot bypass its greyed chip by sending the message anyway;
+        // the presence beacon below (its unchanged team) IS the "no".
+        if (qmTeamChangeAllowed(deps.session, peerId)) {
+          if (msg.team === null) deps.session.teamByPeer.delete(peerId);
+          else deps.session.teamByPeer.set(peerId, msg.team);
+        }
         broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState);
-        // ⭐ S193 (audit F2) — a pick that turns a one-team (refused) quickmatch room into two sides must
-        // RE-ARM the all-ready gate: readiness did not change, so nothing else would fire it again.
-        maybeQmAutoBegin(deps.session, deps.onAutoBegin);
+        // ⭐ S193 (audit F2) — re-ask the all-ready gate after a pick (a no-op while it counts).
+        maybeQmAutoBegin(deps.session, deps.onAutoBegin, () => broadcastQmPresence(deps.session, transport, deps.onPresence, deps.world.gameState));
       }
       if (msg.kind === 'CLAIM_RACE' && deps.world.gameState === 'LOBBY') {
         if (raceIsFree(deps.session, msg.raceId, peerId)) {
@@ -547,9 +553,10 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
     if (!sessionTeamsPlayable(deps.session)) return;
     // ⭐ S161 P6 — the lobby's claims become the MATCH's races. `buildMatchRoster` reads them by
     // peerId so a claim survives the dense-seat compaction (its docblock's B6 note).
-    // ⭐ S192 — and the lobby's TEAM picks, then the side-by-side seating (`arrangeRosterForTeams`). Both
-    // before `hostSeats` freezes below, so intent stamping keys every peer to its FINAL seat.
-    const roster = arrangeRosterForTeams(withTeams(
+    // ⭐ S192 — and the lobby's TEAM picks, before `hostSeats` freezes below. ⭐ S195 (R195-T2/T3): nobody is
+    // re-seated any more — the board maps each seat to its quadrant at START_GAME (`layoutForMatch`).
+    // ⭐ S195 (N16) — and the host's board-slot arrangement, so the board matches the lobby the host built.
+    const roster = withSlots(withTeams(
       buildMatchRoster(
         deps.session.lobbySeats,
         selfId,
@@ -559,7 +566,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       deps.session.teamByPeer,
       deps.session.selfTeam,
       selfId,
-    ));
+    ), deps.session.slotByPeer, deps.session.selfSlot, selfId);
     const seatedRemotes = roster.length - 1;
     if (allPeers.length > seatedRemotes) {
       console.warn(
@@ -633,7 +640,7 @@ async function beginMatch(deps: BeginMatchDeps): Promise<void> {
       // because the target field is optional — the spec calls this projection and its twin in
       // clientHandlers the single likeliest place for the whole feature to half-land.
       // ⭐ S192 — and the team, the same optional-field trap: drop it and the host plays free-for-all.
-      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team })),
+      roster: roster.map((e) => ({ seat: e.seat, color: e.color, raceId: e.raceId, team: e.team, slot: e.slot })),
     });
   } finally {
     deps.session.beginInFlight = false;

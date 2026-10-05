@@ -335,15 +335,16 @@ describe('S69 P2 / S147 R41 — getSeatRect (4-seat 2x2 rack layout)', () => {
     }
   });
 
-  it('lays out row-major 2x2: seats 0-1 top row, 2-3 bottom row', () => {
-    // S147 R41 — was 2x3 for 6 seats. Same row-major CONTRACT, one column narrower.
+  it('⭐ S195 — lays out in the BOARD CLOCK ORDER: 0 NW, 1 NE, 2 SE (bottom-RIGHT), 3 SW (bottom-LEFT)', () => {
+    // R194-19 (RULED: "the lobby must match the board") — it was row-major (2 bottom-left, 3 bottom-right)
+    // while `zones.ts` is clock order, so P3's tile sat where P4's castle stands.
     expect(rects[0].y).toBe(rects[1].y); // top row shares y
     expect(rects[2].y).toBe(rects[3].y); // bottom row shares y
     expect(rects[2].y).toBeGreaterThan(rects[0].y); // and sits below it
-    expect(rects[0].x).toBeLessThan(rects[1].x); // left-to-right within a row
-    expect(rects[2].x).toBeLessThan(rects[3].x);
-    expect(rects[0].x).toBe(rects[2].x); // same column across rows shares x
-    expect(rects[1].x).toBe(rects[3].x);
+    expect(rects[0].x).toBeLessThan(rects[1].x); // NW left of NE
+    expect(rects[3].x).toBeLessThan(rects[2].x); // SW left of SE
+    expect(rects[0].x).toBe(rects[3].x); // the west column: NW over SW
+    expect(rects[1].x).toBe(rects[2].x); // the east column: NE over SE
   });
 
   /**

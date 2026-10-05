@@ -41,6 +41,10 @@ import { attachChipHover } from './uiSkinButton.ts';
 import { skinButtonFx } from './uiSkin.ts';
 /** ⭐ S194 — the seat TEAM chip's plate, which is also its hit (its Graphics child IS its bounds). */
 export const SEAT_TEAM_CHIP_RECT = { x: 0, y: 0, w: 56, h: 32 } as const;
+/** ⭐ S195 (N16) — the host's MOVE chip plate (bottom-right of a tile); its Graphics child IS its bounds. */
+export const SEAT_MOVE_CHIP_RECT = { x: 0, y: 0, w: 64, h: 28 } as const;
+/** ⭐ S195 — where the MOVE chip sits inside a tile (bottom-right, clear of the label and the team chip). */
+export const SEAT_MOVE_CHIP_AT = { x: SEAT_W - 14 - 64, y: SEAT_H - 10 - 28 } as const;
 
 const EMPTY_OUTLINE = 0x555555;
 const EMPTY_GLYPH = 0x777777;
@@ -141,6 +145,8 @@ interface SeatCell {
   readonly teamChip: Container;
   readonly teamBg: Graphics;
   readonly teamText: Text;
+  /** ⭐ S195 (N16) — the host's MOVE chip: moves this seat one board slot on (host only). */
+  readonly moveChip: Container;
   occupied: boolean;
   animKind: SeatAnimKind | null;
   animStartMs: number;
@@ -177,6 +183,8 @@ export function makeSeatRack(
   onSeatClick?: (seatIndex: number) => void,
   /** ⭐ S192 — your own seat's TEAM chip was clicked (the caller cycles the pick). */
   onTeamClick?: (seatIndex: number) => void,
+  /** ⭐ S195 (N16) — the HOST clicked a seat's MOVE chip (the caller moves that seat one board slot on). */
+  onMoveClick?: (seatIndex: number) => void,
 ): SeatRackHandle {
   const container = new Container();
   const cells: SeatCell[] = [];
@@ -277,8 +285,32 @@ export function makeSeatRack(
       if (teamChip.eventMode === 'static') onTeamClick?.(i);
     });
     cell.addChild(teamChip);
+    // ⭐⭐ S195 (owner N16) — *"the host of the server should be able to … move players"*: a MOVE chip on every
+    // occupied tile, live for the HOST only (`seat.movable`). Its tap stops propagation (never opens the race menu).
+    const moveChip = new Container();
+    moveChip.position.set(SEAT_MOVE_CHIP_AT.x, SEAT_MOVE_CHIP_AT.y);
+    const moveBg = new Graphics();
+    const mr = SEAT_MOVE_CHIP_RECT;
+    moveBg.roundRect(mr.x, mr.y, mr.w, mr.h, 6).fill({ color: 0x0d121c, alpha: 0.9 });
+    skinButtonFx(moveBg, mr.x, mr.y, mr.w, mr.h, { accent: 0xd8c27a, state: 'rest', radius: 6, studs: false });
+    moveBg.roundRect(mr.x, mr.y, mr.w, mr.h, 6).stroke({ width: 2, color: 0xd8c27a, alpha: 0.9 });
+    const moveText = new Text({
+      text: 'MOVE',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 15, fontWeight: 'bold', fill: 0xd8c27a }),
+    });
+    moveText.anchor.set(0.5);
+    moveText.position.set(mr.w / 2, mr.h / 2);
+    moveChip.addChild(moveBg, moveText);
+    moveChip.visible = false;
+    moveChip.eventMode = 'none';
+    attachChipHover(moveChip, moveBg, SEAT_MOVE_CHIP_RECT, 6, () => moveChip.eventMode === 'static');
+    moveChip.on('pointertap', (e) => {
+      e.stopPropagation();
+      if (moveChip.eventMode === 'static') onMoveClick?.(i);
+    });
+    cell.addChild(moveChip);
     container.addChild(cell);
-    cells.push({ cell, banner, bg, label, glyph, readyTick, teamChip, teamBg, teamText, wantRace: null, occupied: false, animKind: null, animStartMs: 0 });
+    cells.push({ cell, banner, bg, label, glyph, readyTick, teamChip, teamBg, teamText, moveChip, wantRace: null, occupied: false, animKind: null, animStartMs: 0 });
   }
 
   // S85 P4c — per-frame cosmetic animation pass. Cheap no-op when no cell is
@@ -321,10 +353,19 @@ export function makeSeatRack(
       const { bg, label, glyph, readyTick } = c;
       const nowOccupied = seat !== undefined && seat.occupied;
       bg.clear();
+      // ⭐⭐ S195 (R194-19 / R195-T2) — the tile stands on its seat's BOARD quadrant (clock order), so the rack
+      // reads as the board: a 2v2 pair shares a side, the 3v1 solo sits top-left.
+      const at = getSeatRect(seat?.slot ?? i);
+      c.cell.position.set(at.x + SEAT_W / 2, at.y + SEAT_H / 2);
 
       // S89 P1 — show the READY tick only on an occupied seat that has readied
       // (seat.ready is undefined in friends lobbies → tick stays hidden there).
       readyTick.visible = nowOccupied && seat?.ready === true;
+      // ⭐ S195 (N16) — the MOVE chip: the host's, on every occupied seat (his own included — R195-T3).
+      const movable = nowOccupied && seat.movable === true && onMoveClick !== undefined;
+      c.moveChip.visible = movable;
+      c.moveChip.eventMode = movable ? 'static' : 'none';
+      c.moveChip.cursor = movable ? 'pointer' : 'default';
       // ⭐ S192 — the team chip: shown on every occupied seat, clickable only on yours.
       c.teamChip.visible = nowOccupied;
       if (nowOccupied) {
@@ -362,7 +403,8 @@ export function makeSeatRack(
         label.visible = true;
         glyph.visible = false;
         // Only your own occupied seat accepts a click (see the handler's docblock).
-        c.cell.eventMode = seat.isYou ? 'static' : 'none';
+        // ⭐ S195 — a host's MOVE chip on someone else's tile needs the tile to pass events to its children.
+        c.cell.eventMode = seat.isYou ? 'static' : movable ? 'passive' : 'none';
         c.cell.cursor = seat.isYou ? 'pointer' : 'default';
       } else {
         c.wantRace = null;

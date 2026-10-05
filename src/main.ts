@@ -65,6 +65,7 @@ import { Controls, pointInRect, type ControlsDispatchFn } from './input/controls
 // referenced directly from main.ts after lobby-callback extraction (Battle
 // Ledger C2). NetTransport type retained only for the __SPARK__ DEV accessor.
 import { selfId, type NetTransport } from './net/transport.ts';
+import { buildLobbyRoster, hostMoveSeat, withSlots, withTeams } from './net/lobbyRoster.ts'; // ⭐ S195 (N16) — the host's MOVE
 import type { RosterEntry } from './net/protocol.ts';
 import { makeNetSession, teardownNet } from './net/session.ts';
 // ⭐ S189 A1 — the double-Escape leave handler (tested behind the real Controls).
@@ -105,7 +106,7 @@ import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
-import { broadcastQmPresence, maybeQmAutoBegin, sessionTeamsPlayable } from './net/quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, noteQmReady, qmTeamChangeAllowed, restartQmLockAfterMove, sessionTeamsPlayable } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
 import {
@@ -288,7 +289,6 @@ import { asPlayerId } from './types.ts';
 import { isSimWorkerRequestedHere } from './workerFlag.ts';
 
 import { defaultRaceForSeat, isRaceId, RACE_COLORS, type RaceId } from './state/races.ts';
-import { arrangeTeamSeats, permuteBots, permuteSeats } from './state/teams.ts';
 // S50 P2 — PHYSICS_DT / SUBSTEP_DT extracted to physicsLoop.ts; PHYSICS_DT
 // re-imported (above) for the outer ticker accumulator.
 const P1 = asPlayerId(0);
@@ -1745,23 +1745,22 @@ async function bootstrap(): Promise<void> {
       if (botSetupOverlay === null) {
         const ui = await import('./render/botSetupOverlay.ts');
         botSetupOverlay = new ui.BotSetupOverlay(app, {
-          onStart: (pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams) => {
+          onStart: (pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams, pickedSlots) => {
             void (async () => {
               // Await BEFORE dispatch so the first PLAYING tick already has a
               // live manager (no dead-bot frames).
               const mod = await import('./bots/botManager.ts');
               const totalSeats = pickedDifficulties.length + 1;
               /*
-               * ⭐ S192 (⚠ MINE, teams spec §b rule 5) — TEAMMATES SIT SIDE BY SIDE. Seat 0 (you) never
-               * moves; the bots are re-seated so allies share a border, carrying their race, team and
-               * difficulty with them. No shared team ⇒ the identity ⇒ exactly the pre-S192 seating.
+               * ⭐⭐ S195 (owner R195-T2/T3) — NOBODY IS RE-SEATED ANY MORE. S192 permuted the bots so teammates
+               * shared a border; the board now does that itself — `applyStartGame` maps each SEAT to its
+               * quadrant from the teams (`layoutForMatch`), so a seat keeps its race, team, difficulty and
+               * personality by construction and you can stand anywhere (the 3v1 trio, the east pair).
                */
-              const order = arrangeTeamSeats(pickedTeams.slice(0, totalSeats));
-              const races = permuteSeats(pickedRaces.slice(0, totalSeats), order);
-              const teams = permuteSeats(pickedTeams.slice(0, totalSeats), order);
-              // ⭐ S194 — a bot's difficulty AND its personality (S193) travel with it (`permuteBots`).
-              const difficulties = permuteBots(pickedDifficulties, order);
-              const personalities = permuteBots(pickedPersonalities, order);
+              const races = pickedRaces.slice(0, totalSeats);
+              const teams = pickedTeams.slice(0, totalSeats);
+              const difficulties = [...pickedDifficulties];
+              const personalities = [...pickedPersonalities];
               /*
                * ⭐ S161 P6 (owner) — THE vs-BOTS ROSTER CARRIES THE CHOSEN RACES.
                *
@@ -1774,7 +1773,8 @@ async function bootstrap(): Promise<void> {
               const roster = Array.from({ length: totalSeats }, (_, seat) => {
                 const raceId = races[seat] ?? defaultRaceForSeat(seat);
                 const team = teams[seat];
-                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}) };
+                const slot = pickedSlots?.[seat]; // ⭐ S195 (N16) — the corner arrangement from the bot lobby
+                return { seat, color: RACE_COLORS[raceId], raceId, ...(team !== undefined ? { team } : {}), ...(slot !== undefined ? { slot } : {}) };
               });
               const botSeats = difficulties.map((_, i) => i + 1);
               // S105 P1 — fresh random base seed per vs-bots match: reseeds the spawn sequence AND
@@ -1841,7 +1841,9 @@ async function bootstrap(): Promise<void> {
   // at this composition root, computing isYou via peerId === selfId. This keeps
   // BOTH the pure reducer AND lobbyScreen free of net/ imports (Council Fork C).
   // Late-bound like onLobbyError so it can reference lobbyScreen before it exists.
-  const onPresence = (roster: readonly RosterEntry[]): void => {
+  const onPresence = (roster: readonly RosterEntry[], countdownMs?: number): void => {
+    // ⭐ S195 (owner N3) — the host's all-ready lock countdown, on every rack (host and joiners alike).
+    lobbyScreen.setLockCountdown(countdownMs);
     lobbyScreen.updatePresence(
       // S87 P4 — carry the quickmatch ready flag through to the seat presence
       // (undefined in friends lobbies → no UI change there).
@@ -1855,6 +1857,7 @@ async function bootstrap(): Promise<void> {
         ready: e.ready,
         raceId: e.raceId,
         team: e.team, // ⭐ S192 — the team chip
+        slot: e.slot, // ⭐ S195 (N16) — the host's board-slot arrangement
       })),
     );
   };
@@ -2021,10 +2024,12 @@ async function bootstrap(): Promise<void> {
   // S87 P4 — READY toggle (host + client). `ready` is the post-flip UI state
   // (single source of truth — lobbyScreen owns the button, passes the value).
   const onToggleReady = (ready: boolean): void => {
-    session.qmSelfReady = ready;
+    // ⭐ S195 (owner N3) — an un-ready stamps the 3 s team cooldown (on the host it also stops the lock
+    // countdown; a joiner keeps the stamp locally so its own chip refuses too — the host enforces it anyway).
+    noteQmReady(session, null, ready);
     if (world.isHost && session.netTransport !== null) {
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
-      maybeQmAutoBegin(session, onAutoBegin);
+      maybeQmAutoBegin(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState));
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'LOBBY_READY', ready });
     }
@@ -2068,18 +2073,41 @@ async function bootstrap(): Promise<void> {
    * `CLAIM_TEAM` and waits for the presence beacon.
    */
   const onPickTeam = (team: number | null): void => {
+    // ⭐⭐ S195 (owner N3) — READY LOCKS YOUR TEAM (and for 3 s after un-ready). The host's own pick obeys the
+    // same rule its CLAIM_TEAM arm enforces on joiners; a joiner's click is refused locally too (no message).
+    if (!qmTeamChangeAllowed(session, null)) return;
     if (world.isHost) {
       session.selfTeam = team;
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
-      maybeQmAutoBegin(session, onAutoBegin); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
+      maybeQmAutoBegin(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState)); // ⭐ S193 (audit F2) — the host's own pick re-arms it too
     } else if (session.netTransport !== null) {
       session.netTransport.send({ kind: 'CLAIM_TEAM', team });
+    }
+  };
+
+  /*
+   * ⭐⭐ S195 (owner N16) — THE HOST RE-ARRANGES THE SEATS. *"the host of the server should be able to … move
+   * players to be from player one, player two, player three"*. Host-authoritative and host-ONLY: there is no
+   * client message for it, so a peer can never move himself (or anybody) into a taken seat. The host writes
+   * every occupied peer's board-slot preference and rebroadcasts the presence beacon, exactly like a team pick.
+   */
+  const onMoveSeat = (seat: number): void => {
+    if (!world.isHost) return; // a joiner never moves anybody (and has no chip to press)
+    const roster = withSlots(withTeams(
+      buildLobbyRoster(session.lobbySeats, selfId, session.raceByPeer, session.selfRace ?? undefined),
+      session.teamByPeer, session.selfTeam, selfId,
+    ), session.slotByPeer, session.selfSlot, selfId);
+    if (hostMoveSeat(roster, seat, selfId, session.slotByPeer, (s) => { session.selfSlot = s; })) {
+      // ⭐ S195 (audit L7) — a move during the all-ready lock CANCELS it and starts a fresh 3 s (quick match).
+      restartQmLockAfterMove(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState));
+      broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
     }
   };
 
   lobbyScreen = new LobbyScreen(app, {
     onPickRace,
     onPickTeam,
+    onMoveSeat,
     // Friends-lobby Host/Join: stop any in-flight quickmatch discovery + clear
     // the flag so a deliberate friends room never inherits quickmatch gating.
     onHostStart: () => {

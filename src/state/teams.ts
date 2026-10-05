@@ -25,6 +25,7 @@
 
 import type { PlayerId } from '../types.ts';
 import { MAX_PLAYERS } from '../constants.ts';
+import { layoutForSeatCount, seatOfZone, zoneCount, zoneOwner, type ZoneLayout } from './zones.ts';
 
 /** Team indices are 0-based on the sim side (team 0 = the lobby's "TEAM 1"). */
 export const TEAM_COUNT = 4;
@@ -125,64 +126,6 @@ export function isTeamIndex(v: unknown): v is number {
 }
 
 /**
- * ⭐ ⚠ MINE (spec §(b) rule 5) — **TEAMMATES SIT SIDE BY SIDE.** A permutation of the seats, applied
- * by the host BEFORE the roster is minted, so that teammates share a border on the four-zone board
- * and never sit on its diagonal (TL=0 · TR=1 · BR=2 · BL=3 — zones 0/2 and 1/3 touch only at the
- * quarry). R192-T2's *"one continuous zone"* is only possible between neighbours.
- *
- * `teams[seat]` is each seat's pick (`undefined` = alone). Seat 0 (the host / the human) never moves.
- * Returns `order` where `order[newSeat] = oldSeat`. Among the permutations with the fewest same-team
- * diagonal pairs it prefers the host's team on the LEFT half (seats 0 and 3 — his v2 picture,
- * *"team one on the left, team two on the right"*), then the identity, then lexicographic order — a
- * total order, so the same picks always give the same seating.
- *
- * Two seats (the pitch board) and three-or-fewer-seat boards with no shared team return the identity.
- */
-export function arrangeTeamSeats(teams: readonly (number | undefined)[]): number[] {
-  const n = teams.length;
-  const identity = Array.from({ length: n }, (_, i) => i);
-  if (n <= 2) return identity;
-  const team = (s: number): number => (isTeamIndex(teams[s]) ? (teams[s] as number) : TEAM_COUNT + s);
-  let best = identity;
-  let bestKey: [number, number, number] | null = null;
-  for (const perm of permutationsFixingZero(n)) {
-    // perm[newSeat] = oldSeat
-    let diagonal = 0;
-    for (const [x, y] of [[0, 2], [1, 3]] as const) {
-      if (x < n && y < n && team(perm[x]!) === team(perm[y]!)) diagonal++;
-    }
-    const hostLeft = n > 3 && team(perm[3]!) === team(perm[0]!) ? 0 : 1;
-    const moved = perm.some((v, i) => v !== i) ? 1 : 0;
-    const key: [number, number, number] = [diagonal, hostLeft, moved];
-    if (bestKey === null || lexLess(key, bestKey)) {
-      bestKey = key;
-      best = perm;
-    }
-  }
-  return best;
-}
-
-function lexLess(a: readonly number[], b: readonly number[]): boolean {
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! < b[i]!;
-  return false;
-}
-
-/** Every permutation of 0..n-1 with 0 fixed, in lexicographic order (n ≤ 4 ⇒ at most 6). */
-function permutationsFixingZero(n: number): number[][] {
-  const rest = Array.from({ length: n - 1 }, (_, i) => i + 1);
-  const out: number[][] = [];
-  const go = (prefix: number[], left: number[]): void => {
-    if (left.length === 0) {
-      out.push([0, ...prefix]);
-      return;
-    }
-    for (let i = 0; i < left.length; i++) go([...prefix, left[i]!], [...left.slice(0, i), ...left.slice(i + 1)]);
-  };
-  go([], rest);
-  return out;
-}
-
-/**
  * ⭐ S192 (owner R192-T4) — the lobby chip's click: no team → TEAM 1 → … → TEAM 4 → no team. Shared by
  * the bot lobby and the multiplayer lobby so both cycle identically.
  */
@@ -196,20 +139,156 @@ export function teamChipLabel(pick: number | undefined): string {
   return isTeamIndex(pick) ? `T${pick + 1}` : '—';
 }
 
-/**
- * ⭐ S192 — apply `arrangeTeamSeats` to a seat-indexed list (races, teams, …): `out[newSeat] = list[order[newSeat]]`.
- * With no shared team the order is the identity, so a free-for-all lobby seats exactly as before.
+/*
+ * ⭐ S195 — `arrangeTeamSeats` / `permuteSeats` / `permuteBots` (S192/S194) are RETIRED: nobody is re-seated.
+ * The board maps each seat to its quadrant instead (`arrangeTeamZones` → `layoutForMatch` → `world.layout`).
  */
-export function permuteSeats<T>(list: readonly T[], order: readonly number[]): T[] {
-  return order.map((old) => list[old]!);
+
+/**
+ * ⭐⭐ S195 (owner N1 / R195-F1 / B-27) — **EVERY ZONE THE SEAT'S TEAM HOLDS**, ascending.
+ *
+ * > *"same team should be visible. No fog of war during build phase for your same team."* — owner, S195 N1
+ * > *"during fight, there's no fog of war anywhere … I said no fog during build, because during build is
+ * > when everything is foggy."* — owner, S195 R195-F1
+ *
+ * The fog renderer lights each of these edge to edge exactly as it lit the seat's own quarter (S170 P6).
+ * In a free-for-all `sameTeam(s, seat)` is `s === seat`, so this is `[zoneOwner(seat)]` (or `[]` for a seat
+ * with no ground) — the pre-S195 behaviour, byte for byte. Render input only: never read by the sim.
+ */
+export function teamZones(world: Pick<TeamsView, 'teams'> & { readonly layout: ZoneLayout }, seat: number): number[] {
+  const out: number[] = [];
+  if (zoneOwner(seat, world.layout) === null) return out; // a spectator / out-of-range seat lights nothing
+  const n = zoneCount(world.layout);
+  for (let z = 0; z < n; z++) {
+    // ⭐ S195 — the zone's OWNER on this board (a mapped board moves seats; the 2v1 solo owns two zones).
+    const owner = seatOfZone(z, world.layout);
+    if (owner !== null && sameTeam(world, owner, seat)) out.push(z);
+  }
+  return out;
 }
 
 /**
- * ⭐ S194 — the same permutation for a per-BOT list (index 0 = the bot in seat 1): difficulties AND, since
- * the S193 personality chip, personalities. Seat 0 (the human) never moves (`order[0] === 0`), so bot `i`
- * of the new seating is the bot that sat in `order[i + 1]`. A pick travels with its bot — a re-seated
- * WARMONGER stays a WARMONGER. Identity order ⇒ the list unchanged (the free-for-all).
+ * ⭐⭐ S195 (owner R195-T2 / R195-T3 / R195-T4 / R195-T5, N2, B-29) — **WHERE EACH SEAT STANDS ON THE
+ * QUADRANT BOARD**, as zone → owning seat (`null` = nobody). Replaces S192's seat PERMUTATION: the seat is
+ * the player's identity and never moves now (the host stays seat 0 on the wire); only its ZONE does, and it
+ * rides in `world.layout` (`zones.ts` `TeamQuadLayout`).
+ *
+ * The owner's rules, verbatim where he gave them:
+ *   · *"if it's a one player, he will always be in the northwest corner. Same as player one"*;
+ *   · a TWO-player team always takes a whole SIDE — west = NW+SW, east = NE+SE — *"because the image is
+ *     generated that way"* (the pair art is a portrait top/bottom half);
+ *   · **2v1**: the pair takes a side, the solo his corner (NW) **and** the empty one (SW) — B-29 *"plus he
+ *     also gets the other empty quadrant to play on. It's only fair"*;
+ *   · **1v1v2**: the pair takes the east side; the two solos keep one corner each (NW, SW);
+ *   · **3v1**: solo NW; the trio NE → SE → SW in seat order, so the MIDDLE seat gets the sheltered SE
+ *     (R195-T4 *"That's fine."*);
+ *   · **2v2**: one pair per side.
+ *
+ * `slots[seat]` is the lobby's board-slot order (owner N16 — the host re-arranges seats in the lobby);
+ * absent = the seat number. Within a role, the seat with the lower slot goes first (top before bottom,
+ * NE before SE before SW). ⚠ MINE — in 2v2 the pair holding the lowest slot takes the WEST side (the S192
+ * default kept: the host's team on the left unless the host re-seats).
+ *
+ * A free-for-all (no shared team, or one team for everyone) stands where its slots say — the identity
+ * when nobody was moved. Returns `null` on the pitch (≤ 2 seats: there is no quadrant to choose).
+ * PURE, total order, no clock.
  */
-export function permuteBots<T>(perBot: readonly T[], order: readonly number[]): T[] {
-  return order.slice(1).map((old) => perBot[old - 1]!);
+export function arrangeTeamZones(picks: readonly (number | undefined)[], seatCount: number, slots?: readonly (number | undefined)[]): (number | null)[] | null {
+  if (seatCount <= 2 || seatCount > 4) return null;
+  const slotOf = (s: number): number => {
+    const v = slots?.[s];
+    return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 4 ? v : s;
+  };
+  const seats = Array.from({ length: seatCount }, (_, s) => s);
+  const ranked = (list: readonly number[]): number[] => [...list].sort((a, b) => slotOf(a) - slotOf(b) || a - b);
+  const owners: (number | null)[] = [null, null, null, null];
+  const teams = normalizeTeams(picks, seatCount);
+  if (teams === undefined) {
+    // Free-for-all: each seat on its slot, if the slots are a clean injection; the identity otherwise.
+    const used = new Set(seats.map(slotOf));
+    for (const s of seats) owners[used.size === seatCount ? slotOf(s) : s] = s;
+    return owners;
+  }
+  const groups = new Map<number, number[]>();
+  for (const s of seats) {
+    const t = teams[s]!;
+    const g = groups.get(t);
+    if (g === undefined) groups.set(t, [s]);
+    else g.push(s);
+  }
+  const bySize = (n: number): number[][] => [...groups.values()].filter((g) => g.length === n).map(ranked).sort((a, b) => slotOf(a[0]!) - slotOf(b[0]!) || a[0]! - b[0]!);
+  const pairs = bySize(2);
+  const solos = bySize(1).map((g) => g[0]!);
+  const trios = bySize(3);
+  if (trios.length === 1 && solos.length === 1) {
+    // 3v1 — solo NW; trio NE, SE, SW.
+    owners[0] = solos[0]!;
+    [owners[1], owners[2], owners[3]] = trios[0]! as [number, number, number];
+  } else if (pairs.length === 1 && solos.length === 1 && seatCount === 3) {
+    // 2v1 — solo NW + the empty SW; the pair east (NE top, SE bottom).
+    owners[0] = solos[0]!;
+    owners[3] = solos[0]!;
+    [owners[1], owners[2]] = pairs[0]! as [number, number];
+  } else if (pairs.length === 1 && solos.length === 2) {
+    // 1v1v2 — the pair east; the solos NW then SW.
+    [owners[1], owners[2]] = pairs[0]! as [number, number];
+    owners[0] = solos[0]!;
+    owners[3] = solos[1]!;
+  } else if (pairs.length === 2) {
+    // 2v2 — the pair holding the lowest slot west (NW top, SW bottom), the other east (NE top, SE bottom).
+    [owners[0], owners[3]] = pairs[0]! as [number, number];
+    [owners[1], owners[2]] = pairs[1]! as [number, number];
+  } else {
+    for (const s of seats) owners[s] = s; // unreachable for ≤ 4 seats with two sides; fail to the identity
+  }
+  return owners;
+}
+
+/**
+ * ⭐ S195 — THE BOARD A MATCH IS PLAYED ON, from its seat count, team picks and lobby slots. The plain
+ * layouts whenever the arrangement IS the identity (every free-for-all nobody re-seated, and a 2v2 already
+ * sitting west/east) — so those matches are byte-identical to pre-S195; the mapped
+ * `QUADRANTS_4P:<owners>` otherwise. Stamped once by `applyStartGame`.
+ */
+export function layoutForMatch(seatCount: number, picks: readonly (number | undefined)[], slots?: readonly (number | undefined)[]): ZoneLayout {
+  const plain = layoutForSeatCount(seatCount);
+  const owners = arrangeTeamZones(picks, seatCount, slots);
+  if (owners === null) return plain;
+  const identity = owners.every((o, z) => (z < seatCount ? o === z : o === null));
+  if (identity) return plain;
+  return `QUADRANTS_4P:${owners.map((o) => (o === null ? '-' : String(o))).join('')}`;
+}
+
+/**
+ * ⭐⭐ S195 (R194-19 / R195-T2 / N16) — **WHERE EACH SEAT WILL STAND, for the lobby rack.** `teams[d]` and
+ * `prefs[d]` for the occupied seats in ascending (dense) order; returns each one's HOME quadrant — exactly
+ * `zoneOwner(d, layoutForMatch(n, teams, prefs))`, the board `applyStartGame` will stamp. PURE.
+ */
+export function boardSlotsForSeats(teams: readonly (number | undefined)[], prefs: readonly (number | undefined)[]): number[] {
+  const n = teams.length;
+  const owners = arrangeTeamZones(teams, n, prefs);
+  if (owners !== null) return Array.from({ length: n }, (_, d) => { const z = owners.indexOf(d); return z >= 0 ? z : d; });
+  // The pitch (≤ 2 seats) has no quadrant map (`layoutForMatch` → PITCH_2P, seat 0 west / seat 1 east), so the
+  // rack shows the identity there too — ⚠ MINE: a 1v1 cannot swap sides (the preference is kept, inert).
+  void prefs;
+  return Array.from({ length: n }, (_, d) => d);
+}
+
+/**
+ * ⭐⭐ S195 (owner N16) — **THE HOST MOVES A PLAYER ONE SLOT ON** (clockwise: NW → NE → SE → SW → NW).
+ * *"the host of the server should be able to … move players to be from player one, player two, player
+ * three"*. The mover swaps board slots with whoever stands on the next one (or takes it if it is empty);
+ * returns every occupied seat's new slot PREFERENCE (dense order). The board still obeys the owner's
+ * shape rules (`arrangeTeamZones`): a move that would break them (the 2v1 solo off NW) re-orders the
+ * preference but the tile stays where the rules put it. PURE, total.
+ */
+export function moveSeatSlot(teams: readonly (number | undefined)[], prefs: readonly (number | undefined)[], mover: number): number[] {
+  const cur = boardSlotsForSeats(teams, prefs);
+  const next = [...cur];
+  if (mover < 0 || mover >= cur.length) return next;
+  const target = (cur[mover]! + 1) % 4;
+  const other = cur.indexOf(target);
+  if (other >= 0) next[other] = cur[mover]!;
+  next[mover] = target;
+  return next;
 }

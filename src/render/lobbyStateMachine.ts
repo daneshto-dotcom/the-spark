@@ -37,7 +37,7 @@ import { isValidRoomCode } from './lobbyGeometry.ts';
 import { MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 
 import { defaultRaceForSeat, type RaceId } from '../state/races.ts';
-import { teamsPlayable } from '../state/teams.ts';
+import { boardSlotsForSeats, teamsPlayable } from '../state/teams.ts';
 export type LobbyMode = 'select' | 'hosting' | 'joining';
 
 // Status-line colours — exported so the shell + tests share the exact values
@@ -365,6 +365,8 @@ export interface SeatPresence {
   readonly raceId?: RaceId;
   /** ⭐ S192 (R192-T4) — the seat's team pick (0..3), carried from `RosterEntry.team`. Absent = no team. */
   readonly team?: number;
+  /** ⭐ S195 (N16) — the host's board-slot order for this seat (0..3), carried from `RosterEntry.slot`. */
+  readonly slot?: number;
 }
 
 /**
@@ -397,6 +399,38 @@ export interface SeatView {
   readonly raceId?: RaceId;
   /** ⭐ S192 (R192-T4) — the seat's team (0..3), or undefined = no team. Drives the seat's team chip. */
   readonly team?: number;
+  /**
+   * ⭐⭐ S195 (R194-19 / R195-T2 / N16) — WHERE THIS SEAT'S TILE STANDS IN THE RACK = the board quadrant it
+   * will stand on (`seatBoardSlots`): *"the lobby must match the board"*. Absent = its own index.
+   */
+  readonly slot?: number;
+  /** ⭐ S195 (N16) — the host's slot preference this view was built from (for the re-seat click). */
+  readonly slotPref?: number;
+  /** ⭐ S195 (N16) — the local player is the HOST and may MOVE this (occupied) seat on the board. */
+  readonly movable?: boolean;
+}
+
+/**
+ * ⭐⭐ S195 (R194-19 / R195-T2 / N16) — **THE RACK PREVIEWS THE BOARD.** Each occupied seat's tile stands on
+ * the quadrant `arrangeTeamZones` will give it at Begin (the same function `applyStartGame` stamps the board
+ * with), computed over the occupied seats in ascending order — the dense roster Begin mints. Empty tiles fill
+ * the quadrants nobody takes, lowest first. A free-for-all nobody re-seated is the identity. PURE.
+ */
+export function seatBoardSlots(seats: readonly { readonly occupied: boolean; readonly team?: number; readonly slotPref?: number }[]): number[] {
+  const n = seats.length;
+  const occ = seats.map((s, i) => ({ s, i })).filter((x) => x.s.occupied);
+  const home = boardSlotsForSeats(occ.map((x) => x.s.team), occ.map((x) => x.s.slotPref));
+  const out: number[] = new Array<number>(n).fill(-1);
+  const taken = new Set<number>();
+  occ.forEach((x, d) => { out[x.i] = home[d]!; taken.add(home[d]!); });
+  // Empty tiles fill the quadrants nobody stands on, lowest first (the 2v1 solo's second corner included).
+  for (let i = 0; i < n; i++) {
+    if (out[i] !== -1) continue;
+    const free = [...Array(n).keys()].find((k) => !taken.has(k));
+    out[i] = free ?? i;
+    taken.add(out[i]!);
+  }
+  return out;
 }
 
 export interface LobbyView extends LobbyState {
@@ -478,6 +512,7 @@ export function lobbyView(state: LobbyState): LobbyView {
         // ⭐ S161 P6 — absent on the wire means "never chose", which IS this seat's default race.
         raceId: entry !== undefined ? (entry.raceId ?? defaultRaceForSeat(i)) : undefined,
         team: entry !== undefined ? entry.team : undefined,
+        slotPref: entry !== undefined ? entry.slot : undefined,
       });
     }
     // roster.length = occupied-seat count (buildLobbyRoster already caps at MAX).
@@ -504,9 +539,14 @@ export function lobbyView(state: LobbyState): LobbyView {
   }
 
   const picks = seats.filter((s) => s.occupied).map((s) => s.team);
+  // ⭐ S195 — every tile stands where its seat will stand on the board.
+  const slots = seatBoardSlots(seats);
+  // ⭐ S195 (N16) — only the host re-arranges, and only while a room is open (the host IS the room's authority).
+  // Asked through `fallbackSelfSeat` — the ONE place local mode may say who you are (S182; its docblock).
+  const hostMoves = fallbackSelfSeat(state) !== null;
   return {
     ...state,
-    seats,
+    seats: seats.map((s, i) => ({ ...s, slot: slots[i], movable: hostMoves && s.occupied })),
     totalPlayers,
     roomFull: totalPlayers >= MAX_PLAYERS,
     teamsPlayable: teamsPlayable(picks, picks.length),

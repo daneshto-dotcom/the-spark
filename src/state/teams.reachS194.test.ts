@@ -22,7 +22,7 @@ import { botConfigFor } from '../bots/botConfig.ts';
 import { magicBeatResistedAt } from './magicResistCue.ts';
 import { characterSheetModel } from '../render/characterSheetModel.ts';
 import { matchBoardModel } from '../render/matchBoardModel.ts';
-import { arrangeTeamSeats, permuteBots, permuteSeats } from './teams.ts';
+import { arrangeTeamZones } from './teams.ts';
 
 const P = [0, 1, 2, 3].map((s) => asPlayerId(s));
 const FFA: (number | undefined)[] = [undefined, undefined, undefined, undefined];
@@ -149,27 +149,15 @@ describe('S194 teams — the end-of-match board crowns the winning SIDE (S191 bo
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S194 teams — a re-seated bot keeps its personality (`permuteBots`, main.ts bot START)', () => {
-  it('⛔ teammates side by side: the bot moved to seat 1 carries ITS difficulty and personality', () => {
-    // You (seat 0, TL) and bot 2 (seat 2, BR — the DIAGONAL) on team 0 → arrangeTeamSeats must re-seat so
-    // teammates share a border. Whatever the order, each bot's pair must travel together.
-    const picked = [0, 1, 0, 1];
-    const order = arrangeTeamSeats(picked);
-    expect(order[0]).toBe(0);
-    expect(order, 'a diagonal pair IS re-seated').not.toEqual([0, 1, 2, 3]);
-    const diffs = ['NOOB', 'MID', 'IMBA'];
-    const personas = ['WARMONGER', 'FORTRESS', 'SABOTEUR'];
-    const d = permuteBots(diffs, order);
-    const p = permuteBots(personas, order);
-    for (let i = 0; i < 3; i++) expect(personas[diffs.indexOf(d[i]!)]).toBe(p[i]);
-    // …and the pair sits where its TEAM went: seat s holds the bot that sat in `order[s]`.
-    for (let s = 1; s < 4; s++) expect(d[s - 1]).toBe(diffs[order[s]! - 1]);
-    const seated = permuteSeats(picked, order);
-    expect(seated[2], 'no teammate left on your diagonal').not.toBe(seated[0]);
+describe('S195 teams — a bot is never re-seated, so it keeps its personality by construction', () => {
+  it('⛔ the diagonal 2v2 maps ZONES, not seats: every seat keeps its own bot', () => {
+    // You (seat 0) and bot 2 (seat 2) on team 0. S192 permuted the bots (`permuteBots`); S195 leaves every
+    // seat alone and stands seat 2 in the SW quadrant instead, so a bot's difficulty and personality cannot
+    // be separated from it — there is no list to permute.
+    expect(arrangeTeamZones([0, 1, 0, 1], 4)).toEqual([0, 1, 3, 2]);
   });
-  it('NEGATIVE — no teams: the identity, both lists unchanged', () => {
-    const order = arrangeTeamSeats([undefined, undefined, undefined, undefined]);
-    expect(permuteBots(['NOOB', 'MID', 'IMBA'], order)).toEqual(['NOOB', 'MID', 'IMBA']);
+  it('NEGATIVE — no teams: the identity board', () => {
+    expect(arrangeTeamZones([undefined, undefined, undefined, undefined], 4)).toEqual([0, 1, 2, 3]);
   });
 });
 

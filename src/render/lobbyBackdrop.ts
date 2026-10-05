@@ -189,7 +189,9 @@ export function lobbyBackdropRegions(seats: readonly SeatView[]): readonly Lobby
   const out: LobbyRegion[] = [];
   for (let dense = 0; dense < n; dense++) {
     const s = occupied[dense]!;
-    const zone = zoneOwner(dense, layout);
+    // ⭐ S195 (R194-19 / R195-T2) — the quadrant this seat will stand on (`lobbyView`'s board-slot preview), so
+    // the lobby backdrop sits behind the same tile the rack shows; absent (older callers) = the identity.
+    const zone = layout === 'QUADRANTS_4P' && s.slot !== undefined ? s.slot : zoneOwner(dense, layout);
     // ⚠ NOT DEAD CODE, and not to be "simplified" into a modulo for the same reason `zones.ts`
     // refuses one: a seat with no ground owns no region. Unreachable while MAX_PLAYERS (4) is
     // within `MAX_SEATS_WITH_GROUND` (4), which `zones.test.ts` pins; a roster that ever overflowed

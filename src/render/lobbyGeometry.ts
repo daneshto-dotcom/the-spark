@@ -231,13 +231,18 @@ export function getJoinPaneOrigin(): { x: number; y: number } {
 }
 
 /**
- * S69 P2 — canvas-space rect of seat `i` in the 2x2 rack (i in 0..MAX_PLAYERS-1).
+ * S69 P2 — canvas-space rect of board SLOT `i` in the 2x2 rack (i in 0..MAX_PLAYERS-1).
  * Pure; exported for seatRack.ts rendering AND vitest bounds/non-overlap coverage.
- * Row-major: seats 0,1,2 on the top row; 3,4,5 on the bottom row.
+ *
+ * ⭐⭐ S195 (R194-19, RULED: *"the lobby must match the board"*) — **CLOCK ORDER, LIKE THE BOARD.** The slot IS
+ * the board quadrant (`zones.ts`): 0 = top-left (NW), 1 = top-right (NE), 2 = BOTTOM-RIGHT (SE), 3 =
+ * BOTTOM-LEFT (SW). It was row-major (2 bottom-left, 3 bottom-right) until S195, so P3 sat in the lobby
+ * where P4's castle stands on the board.
  */
 export function getSeatRect(i: number): { x: number; y: number; w: number; h: number } {
-  const col = i % SEAT_COLS;
-  const row = Math.floor(i / SEAT_COLS);
+  const col = i === 1 || i === 2 ? 1 : 0;
+  const row = i >= 2 ? 1 : 0;
+  void SEAT_COLS; // the rack is still 2 wide — the literal stays the documented shape (see its note)
   return {
     x: SEAT_RACK_X + col * (SEAT_W + SEAT_GAP),
     y: SEAT_RACK_Y + row * (SEAT_H + SEAT_GAP),

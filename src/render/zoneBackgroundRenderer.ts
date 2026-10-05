@@ -53,7 +53,8 @@ import {
   SPAWNER_CENTER_Y,
   SPAWNER_RADIUS,
 } from '../constants.ts';
-import { zoneOwner, type ZoneLayout } from '../state/zones.ts';
+import { baseLayout, seatOfZone, zoneCount, zoneOwner, type ZoneLayout } from '../state/zones.ts';
+import { sameTeam } from '../state/teams.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from '../state/races.ts';
 import { seatHoldsPerk } from '../state/racialPerks.ts';
 // ⭐ S191 — SCORCHED EARTH: the live cast (the burn's own predicate) and this client's aim.
@@ -137,11 +138,15 @@ export const SCORCHED_EARTH_PREVIEW_TINT = 0xff2a2a;
  *   3. the passive, FIGHT only (`zoneBackdropTintNow`, S191 1a).
  * DERIVED every frame from synced state plus this client's own aim — never from a pushed effect.
  */
-export function zoneTintFor(world: World, seat: PlayerId, hoverSeat: PlayerId | null): number {
+export function zoneTintFor(world: World, seat: PlayerId, hoverSeat: PlayerId | null, forZone?: number): number {
   const player = world.players.get(seat);
   if (player === undefined) return 0xffffff;
-  if (hoverSeat === seat) return SCORCHED_EARTH_PREVIEW_TINT;
   const zone = zoneOwner(seat as unknown as number, world.layout);
+  // ⭐ S195 (B-29) — the 2v1 solo's EXTRA corner is his ground but not his race quadrant: every scorch
+  // (the passive, a cast, the preview) burns a seat's HOME quadrant only (⚠ MINE), so the extra corner is
+  // never washed. `forZone` absent = the home zone (every pre-S195 caller).
+  if (forZone !== undefined && forZone !== zone) return 0xffffff;
+  if (hoverSeat === seat) return SCORCHED_EARTH_PREVIEW_TINT;
   if (zone !== null) {
     for (const caster of world.players.values()) {
       if (scorchedEarthActiveZone(world, caster) === zone) return SCORCHED_ZONE_TINT;
@@ -284,6 +289,130 @@ const ZONE_BG_HOLD_TICKS = 3 * 60;
 function zoneArtUrl(race: RaceId, layout: ZoneLayout): string {
   return `/art/race-zones/zone-${race}-${layout === 'PITCH_2P' ? '2p' : '4p'}.png`;
 }
+
+/**
+ * ⭐⭐ S195 (owner R194-19 / R195-T2) — the owner's 2v2 PAIR art: `{TOP race}X{BOTTOM race}` of a team half,
+ * transcoded once to `public/art/race-zones/teams/<top>-<bottom>.webp` (480×540, the half rect at the
+ * backdrop's half resolution — the same size as `zone-<race>-2p.png`).
+ */
+export function teamPairArtUrl(top: RaceId, bottom: RaceId): string {
+  return `/art/race-zones/teams/${top}-${bottom}.webp`;
+}
+
+/**
+ * ⭐ S195 (R195-T5) — THE SEAM FOR THE DEFERRED THREE-PLAYER BACKDROPS. The owner will generate 56 images
+ * (`SPARK_Team3_Backdrop_Prompts.html`); until then the trio shows each member's own quadrant art, so this
+ * returns `null`. The day they land: return `/art/race-zones/teams/zone-team3-<ne>-<se>-<sw>.png` here,
+ * route it through `zoneBackdropPlan`'s trio arm, and ⚠ ERASE THE IMAGE'S NW QUARTER at texture prep (it
+ * belongs to the solo; backdrops draw at 0.55 alpha, so a covered quarter would still show through).
+ */
+export function trioBackdropUrl(_ne: RaceId, _se: RaceId, _sw: RaceId): string | null {
+  return null;
+}
+
+/** One quadrant's backdrop: which image, which part of it, mirrored or not, graded by which race. */
+export interface ZoneBackdrop {
+  readonly zone: number;
+  /** The zone's owner — whose scorch tint the quadrant takes. */
+  readonly seat: PlayerId;
+  readonly url: string;
+  /** `full` = the whole image fills the quadrant; `top` / `bottom` = that half of a HALF-board image. */
+  readonly part: 'full' | 'top' | 'bottom';
+  /** EAST half of a pair image: mirrored on the VERTICAL axis (left ↔ right), never rotated 180°. */
+  readonly mirror: boolean;
+  /** The race grade baked into it, or `null` (the pair art keeps its own two-race palette — ⚠ MINE). */
+  readonly grade: RaceId | null;
+}
+
+/**
+ * ⭐⭐ S195 (owner R195-T2 / R195-T5, backlog T12 Agent A) — **WHAT EVERY QUADRANT SHOWS.** PURE over synced
+ * state (`layout`, `teams`, each seat's race), so every peer paints the same board.
+ *
+ *   · free-for-all, and the pitch: each seat's own race art on its zone — byte-identical to pre-S195;
+ *   · a TWO-player team holding a whole side: the owner's pair image across that half, `{top}X{bottom}`,
+ *     the WEST half as-is and the EAST half MIRRORED left ↔ right (*"not 180°"*, R194-19);
+ *   · the 2v1 SOLO (one seat owning a whole side): the current 1v1 race art (`zone-<race>-2p`) across his
+ *     half — ⛔ NOT `{Race}X{Race}`: *"we want the two v two to look a little different … that's made for
+ *     two players that are sharing"* (R195-T2);
+ *   · everyone else — a 1v1v2 solo, every member of a 3v1 trio (R195-T5 *"single race art for each player
+ *     in the 3v1"*): his own single-quadrant race art, as in the 4-player all-v-all.
+ *
+ * Each half-board image is drawn as TWO quadrant sprites (its top and bottom halves), so the per-seat ember
+ * wash (SCORCHED GROUND) and the fog stay per quadrant on top of it, exactly as before.
+ */
+export function zoneBackdropPlan(world: Pick<World, 'layout' | 'teams' | 'players'>): ZoneBackdrop[] {
+  const layout = world.layout;
+  const base = baseLayout(layout);
+  const out: ZoneBackdrop[] = [];
+  const raceOf = (seat: number): RaceId => {
+    const r = world.players.get(seat as unknown as PlayerId)?.raceId;
+    return isRaceId(r) ? r : defaultRaceForSeat(seat);
+  };
+  const present = (seat: number | null): seat is number => seat !== null && world.players.has(seat as unknown as PlayerId);
+  const teamSize = (seat: number): number => {
+    let n = 0;
+    for (const pid of world.players.keys()) if (sameTeam(world, pid, seat)) n++;
+    return n;
+  };
+  for (let zone = 0; zone < zoneCount(layout); zone++) {
+    const owner = seatOfZone(zone, layout);
+    if (!present(owner)) continue;
+    const seat = owner as unknown as PlayerId;
+    const race = raceOf(owner);
+    const single: ZoneBackdrop = { zone, seat, url: zoneArtUrl(race, base), part: 'full', mirror: false, grade: race };
+    if (base === 'PITCH_2P' || world.teams === undefined) {
+      // A free-for-all seat shows art on its HOME zone only (the pre-S195 one-sprite-per-seat board).
+      if (zoneOwner(owner, layout) === zone) out.push(single);
+      continue;
+    }
+    const west = zone === 0 || zone === 3;
+    const topZone = west ? 0 : 1;
+    const bottomZone = west ? 3 : 2;
+    const part = zone === topZone ? 'top' : 'bottom';
+    const top = seatOfZone(topZone, layout);
+    const bottom = seatOfZone(bottomZone, layout);
+    if (top === bottom) {
+      // The 2v1 solo's whole side: his 1v1 race art across it (never mirrored — it is one race's world).
+      out.push({ zone, seat, url: zoneArtUrl(race, 'PITCH_2P'), part, mirror: false, grade: race });
+    } else if (present(top) && present(bottom) && sameTeam(world, top, bottom) && teamSize(top) === 2) {
+      out.push({ zone, seat, url: teamPairArtUrl(raceOf(top), raceOf(bottom)), part, mirror: !west, grade: null });
+    } else {
+      out.push(single); // a solo corner, or a trio member (until `trioBackdropUrl` returns art)
+    }
+  }
+  return out;
+}
+
+/**
+ * ⭐ S195 — one half (top or bottom) of a half-board image, optionally mirrored left ↔ right, as its own
+ * texture: a 480×270 quadrant out of a 480×540 half, so `punchPortal`'s cover-scale fits it exactly to the
+ * quadrant. Baked once per (url, part, mirror) on a canvas — no per-frame cost. Degrades to the whole
+ * texture without a DOM (the suite), like `punchPortal`.
+ */
+function cropHalfTexture(tex: Texture, part: 'top' | 'bottom', mirror: boolean): Texture {
+  const resource = (tex.source as unknown as { resource?: unknown }).resource;
+  if (typeof document === 'undefined' || resource === undefined || resource === null) return tex;
+  const w = Math.trunc(tex.width);
+  const h = Math.trunc(tex.height);
+  const hh = Math.trunc(h / 2);
+  if (w <= 0 || hh <= 0) return tex;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = hh;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return tex;
+  try {
+    if (mirror) {
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1); // ⛔ the VERTICAL axis only: left ↔ right, top stays top (R194-19, not 180°)
+    }
+    ctx.drawImage(resource as CanvasImageSource, 0, part === 'top' ? 0 : h - hh, w, hh, 0, 0, w, hh);
+  } catch {
+    return tex;
+  }
+  return Texture.from(canvas);
+}
+
 
 /**
  * The rectangle a zone index occupies.
@@ -523,6 +652,8 @@ export class ZoneBackgroundRenderer {
    * would hand seat 2 the hole punched for seat 0.
    */
   private readonly baked: Map<string, Texture> = new Map();
+  /** ⭐ S195 (audit LOW-2) — the bake keys painted last time `pruneBaked` ran (its change gate). */
+  private lastUsedSig = '';
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
   /** ⭐ S193 V26 — the board vignette (one sprite, above the backdrops, inside this layer only). */
@@ -656,15 +787,13 @@ export class ZoneBackgroundRenderer {
     // ⭐ S191 — the SCORCHED EARTH hover preview, read once per frame from this client's aim.
     const hoverSeat = scorchedEarthHoverSeat(world);
 
-    for (const [playerId, player] of world.players) {
-      const seat = playerId as unknown as number;
-      const zone = zoneOwner(seat, layout);
-      // ⚠ `null` is NOT dead code: a seat can own no ground on a given board (`zones.ts` says so in
-      // as many words, and warns against "simplifying" it into a modulo).
-      if (zone === null) continue;
-
-      const race: RaceId = isRaceId(player.raceId) ? player.raceId : defaultRaceForSeat(seat);
-      const url = zoneArtUrl(race, layout);
+    // ⭐⭐ S195 (R195-T2 / R195-T5) — ONE SPRITE PER QUADRANT, from the pure plan (`zoneBackdropPlan`): a seat's
+    // own race art, the 2v1 solo's 1v1 art across his half, or a pair image across a team half (east mirrored).
+    // A free-for-all plan is exactly the pre-S195 loop: each seat's race art on its home zone.
+    const plan = zoneBackdropPlan(world);
+    const usedKeys = new Set<string>();
+    for (const piece of plan) {
+      const { zone, url } = piece;
       this.ensureTexture(url);
       const raw = this.textures.get(url);
       if (raw === undefined) continue; // still loading — the black board shows meanwhile
@@ -672,11 +801,17 @@ export class ZoneBackgroundRenderer {
       // ⛔ EVERY PATH BELOW USES THE HOLED TEXTURE. Handing `raw` to either branch is how the
       // backdrop grows back over the quarry, and it would look exactly like the S165 seam bug.
       // ⭐ S193 V26 — `|g` / `|n`: the graded bake (new effects on) or the original (`?fx=legacy`).
+      // ⭐ S195 — `|part|m`: a half-board image is cropped (and mirrored) to the quadrant BEFORE the hole.
       const graded = fxActive();
-      const bakeKey = `${url}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
+      const grade = graded ? piece.grade : null;
+      const bakeKey = `${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
+      usedKeys.add(bakeKey);
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
-        tex = punchPortal(raw, zone, layout, graded ? race : null);
+        const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
+        tex = punchPortal(src, zone, layout, grade);
+        // ⭐ S195 (audit L10) — the crop canvas was only an input to the bake: free it once baked into `tex`.
+        if (src !== raw && src !== tex) src.destroy(true);
         this.baked.set(bakeKey, tex);
       }
 
@@ -690,9 +825,12 @@ export class ZoneBackgroundRenderer {
         // A seat can change race in the lobby, and a rematch can change the board.
         sp.texture = tex;
       }
+      // ⭐ S195 — what this quadrant shows, readable by the REACH test (and a stage dump) without a GPU.
+      sp.label = `zone-bg:${url}|${piece.part}${piece.mirror ? '|mirror' : ''}`;
 
       // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
-      sp.tint = zoneTintFor(world, playerId, hoverSeat);
+      // ⭐ S195 — per QUADRANT: the owner's tint on his home zone only (the 2v1 solo's extra corner stays clear).
+      sp.tint = zoneTintFor(world, piece.seat, hoverSeat, zone);
       // ⭐ S193 V12 — the heat shimmer, on exactly the zones the burn is ticking in. ⭐ S194: it is
       // `fxRuntime`'s haze now (one module owns every ground distortion; HIGH-only and the legacy switch
       // are enforced THERE, and a zone not asked this frame loses its filter at `fxEndFrame`).
@@ -710,17 +848,38 @@ export class ZoneBackgroundRenderer {
       sp.y = r.y + (r.h - sp.height) / 2;
     }
 
-    // Drop any zone that no longer has an owner (a seat left, or the board shrank on rematch).
+    // Drop any zone the plan no longer paints (a seat left, the board shrank, or the teams changed on rematch).
     for (const [zone, sp] of [...this.sprites]) {
-      const stillOwned = [...world.players.keys()].some(
-        (pid) => zoneOwner(pid as unknown as number, layout) === zone,
-      );
-      if (!stillOwned) {
+      if (!plan.some((p) => p.zone === zone)) {
         sp.destroy();
         this.sprites.delete(zone);
       }
     }
+    // ⭐ S195 (audit LOW-2) — only when the set of painted bakes CHANGED (≤ 4 keys, so the signature is cheap);
+    // a steady board does no per-frame Set/Map copying.
+    const usedSig = JSON.stringify([...usedKeys]); // unambiguous (the keys themselves contain '|')
+    if (usedSig !== this.lastUsedSig) {
+      this.lastUsedSig = usedSig;
+      this.pruneBaked(usedKeys);
+    }
     this.syncVignette();
+  }
+
+  /**
+   * ⭐ S195 (audit L10) — free every baked texture no quadrant painted this frame (a rematch on another board, a
+   * team change, the grade toggle), so the cache cannot grow match after match. A piece whose art is still
+   * loading has no bake yet, so nothing it needs is evicted. Never a LOADED asset (`punchPortal` degrades to
+   * returning its input), and never a bake still on a sprite.
+   */
+  private pruneBaked(used: ReadonlySet<string>): void {
+    if (used.size === 0) return;
+    const loaded = new Set(this.textures.values());
+    const onSprite = new Set([...this.sprites.values()].map((s) => s.texture));
+    for (const [key, tex] of [...this.baked]) {
+      if (used.has(key)) continue;
+      this.baked.delete(key);
+      if (!loaded.has(tex) && !onSprite.has(tex)) tex.destroy(true);
+    }
   }
 
   /** ⭐ S193 V26 — the vignette: on with the new effects, off under `?fx=legacy`. Above the backdrops. */

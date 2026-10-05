@@ -39,7 +39,7 @@ import { openDraftIfDue } from './draftEvent.ts';
 import { castleMaxHpFor, emptyCastleUpgrades } from './castleUpgrades.ts';
 import { castleAnchor, makeGatherer } from './gatherers/gatherer.ts';
 import { layoutForSeatCount } from './zones.ts';
-import { isEnemySeat, normalizeTeams } from './teams.ts';
+import { isEnemySeat, layoutForMatch, normalizeTeams } from './teams.ts';
 import { asGathererId, asPlayerId, type PlayerId, type Vec2 } from '../types.ts';
 import type { GameMode, World } from './world.ts';
 import type { CreatureSpawner } from './spawners/spawner.ts';
@@ -64,6 +64,11 @@ export type StartGameAction = {
     readonly raceId?: RaceId;
     /** ⭐ S192 — this seat's team (0..3). Absent = its own side. Host-authoritative (the roster IS the host's). */
     readonly team?: number;
+    /**
+     * ⭐ S195 (owner N16) — this seat's BOARD SLOT in the lobby (0..3), as the host arranged it. Absent = its
+     * seat number. Read once, with the teams, by `layoutForMatch` — where each seat stands on the board.
+     */
+    readonly slot?: number;
   }[];
   // S87 — seats driven by AI bots (mode 'bots' only; subset of roster seats,
   // never seat 0). Host-local action — START_GAME is not a client intent and
@@ -373,6 +378,22 @@ export function applyStartGame(world: World, action: StartGameAction): World {
   // Stamped ONCE per match and never written again while it runs: see the `layout` field docblock
   // for why a live-roster derivation would move every castle when somebody joins or drops.
   world.layout = layoutForSeatCount(world.players.size);
+  /*
+   * ⭐⭐ S195 (owner R195-T2/T3, N2, N16) — AND WHERE EACH SEAT STANDS ON IT. A team game (or a lobby the host
+   * re-arranged) maps seats to quadrants by the owner's rules (`arrangeTeamZones`): solo NW, a pair takes a
+   * whole side, the 2v1 solo also owns the empty corner. The map rides INSIDE `layout`, so every castle,
+   * build gate and zone reader below follows it with no other change. Roster-less starts (solo, tests) and
+   * every un-moved free-for-all keep the plain layout above, byte-identical.
+   */
+  if (action.roster !== undefined) {
+    const picks: (number | undefined)[] = [];
+    const slots: (number | undefined)[] = [];
+    for (const e of action.roster) {
+      picks[e.seat] = e.team;
+      slots[e.seat] = e.slot;
+    }
+    world.layout = layoutForMatch(world.players.size, picks, slots);
+  }
   // ⭐⭐ S192 (owner R192-T4) — WHO IS ON WHOSE SIDE, stamped once from the HOST's roster, beside the board
   // and for the same reason: every enemy predicate reads it from tick 0. A roster with no shared team (or
   // one team for everyone, spec Q2) normalises to `undefined` — the free-for-all, byte-identical to pre-S192.

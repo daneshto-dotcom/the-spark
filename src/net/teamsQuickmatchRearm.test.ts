@@ -37,7 +37,8 @@ vi.mock('./transport.ts', () => ({
 }));
 
 import { createHostStartHandler } from './hostHandlers.ts';
-import { sessionTeamsPlayable } from './quickmatchGate.ts';
+import { QM_READY_LOCK_MS, QM_UNREADY_TEAM_COOLDOWN_MS, restartQmLockAfterMove, sessionTeamsPlayable } from './quickmatchGate.ts';
+import { readFileSync } from 'node:fs';
 import { makeNetSession } from './session.ts';
 import { makeWorld } from '../state/world.ts';
 
@@ -49,7 +50,7 @@ afterEach(() => {
 });
 
 /** A quickmatch host on T1, ready, with one joiner. `onAutoBegin` is main.ts's gate: refuse one team. */
-function qmHost(quickmatch = true): { route: (msg: unknown, peer: string) => void; begins: () => number; arms: () => number } {
+function qmHost(quickmatch = true) {
   const session = makeNetSession();
   const world = makeWorld(1);
   world.gameState = 'LOBBY';
@@ -71,21 +72,80 @@ function qmHost(quickmatch = true): { route: (msg: unknown, peer: string) => voi
   session.qmSelfReady = true;
   session.selfTeam = 0;
   for (const h of fake.peerChange) h('peer-a', 'join');
-  return { route: fake.route!, begins: () => begins, arms: () => arms };
+  return { session, route: fake.route!, begins: () => begins, arms: () => arms };
 }
 
-describe('S193 F2 — CLAIM_TEAM re-arms the quickmatch auto-begin', () => {
-  it('⛔ REACH: ready + ONE team is refused; the joiner then picks T2 → the gate fires again and the match begins', () => {
+const presences = (): Array<{ countdownMs?: number; roster: Array<{ peerId: string; team?: number }> }> =>
+  fake.sent.filter((m) => (m as { kind: string }).kind === 'LOBBY_PRESENCE') as never;
+
+describe('S193 F2 + ⭐ S195 N3 — the quickmatch gate, with READY locking your team', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('⛔ REACH: ready + ONE team never counts down; a READY joiner cannot switch (N3); un-ready → 3 s → switch → ready → 3 s lock → begin', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     const h = qmHost();
-    h.route({ kind: 'CLAIM_TEAM', team: 0 }, 'peer-a'); // both on T1 — not ready yet
-    expect(h.arms(), 'nobody ready on the joiner side yet').toBe(0);
+    h.route({ kind: 'CLAIM_TEAM', team: 0 }, 'peer-a'); // both on T1 — not ready yet, so the pick lands
+    expect(h.session.teamByPeer.get('peer-a')).toBe(0);
     h.route({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
-    expect(h.arms(), 'all ready → the gate fired').toBeGreaterThan(0);
-    expect(h.begins(), 'but one team: refused').toBe(0);
-    const armed = h.arms();
+    expect(h.session.qmCountdownTimer, 'one team: no countdown').toBeNull();
+    vi.advanceTimersByTime(QM_READY_LOCK_MS);
+    expect(h.arms(), 'one team: never begins').toBe(0);
+    // ⛔ N3 — ready locks the team: the claim is REFUSED (the beacon carries the unchanged team)
     h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
-    expect(h.arms(), 'the team pick RE-ARMED the gate').toBe(armed + 1);
-    expect(h.begins(), 'two sides now → it begins').toBe(1);
+    expect(h.session.teamByPeer.get('peer-a'), 'a ready player cannot change team').toBe(0);
+    expect(presences().at(-1)!.roster.find((e) => e.peerId === 'peer-a')!.team).toBe(0);
+    // un-ready → still locked for 3 s
+    h.route({ kind: 'LOBBY_READY', ready: false }, 'peer-a');
+    vi.advanceTimersByTime(QM_UNREADY_TEAM_COOLDOWN_MS - 1);
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    expect(h.session.teamByPeer.get('peer-a'), 'inside the un-ready cooldown').toBe(0);
+    vi.advanceTimersByTime(1);
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    expect(h.session.teamByPeer.get('peer-a'), 'after 3 s the switch lands').toBe(1);
+    // ready again → two sides → the 3 s LOCK, carried on the beacon, then Begin
+    h.route({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
+    expect(h.session.qmCountdownTimer).not.toBeNull();
+    expect(presences().at(-1)!.countdownMs).toBe(QM_READY_LOCK_MS);
+    vi.advanceTimersByTime(QM_READY_LOCK_MS - 1);
+    expect(h.begins(), 'still counting').toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(h.begins(), 'the lock ran out — it begins').toBe(1);
+  });
+
+  it('⛔ anyone UN-readying during the lock STOPS it (N3 "people can stop it")', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const h = qmHost();
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    h.route({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
+    expect(h.session.qmCountdownTimer).not.toBeNull();
+    vi.advanceTimersByTime(1500);
+    h.route({ kind: 'LOBBY_READY', ready: false }, 'peer-a');
+    expect(h.session.qmCountdownTimer).toBeNull();
+    expect(presences().at(-1)!.countdownMs, 'the cancel is broadcast: no countdown on the beacon').toBeUndefined();
+    vi.advanceTimersByTime(10_000);
+    expect(h.arms()).toBe(0);
+  });
+
+  it('⛔ S195 audit L7 — a host MOVE during the lock cancels it and starts a fresh 3 s (never sticks)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const h = qmHost();
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    h.route({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
+    vi.advanceTimersByTime(2000);
+    let begins = 0;
+    expect(restartQmLockAfterMove(h.session, () => { begins += 1; })).toBe(true);
+    vi.advanceTimersByTime(QM_READY_LOCK_MS - 1);
+    expect(begins + h.begins(), 'the old countdown died; the new one has 1 ms left').toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(begins, 'the fresh lock ran out').toBe(1);
+    const main = readFileSync('src/main.ts', 'utf-8');
+    expect(main).toMatch(/restartQmLockAfterMove\(session, onAutoBegin, /); // the MOVE handler restarts the lock
+  });
+
+  it('⛔ NEGATIVE — the friends lobby has no READY, so a team pick is always free', () => {
+    const h = qmHost(false);
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    expect(h.session.teamByPeer.get('peer-a')).toBe(1);
   });
 
   it('CONTROL — a team pick while someone is NOT ready does not begin', () => {

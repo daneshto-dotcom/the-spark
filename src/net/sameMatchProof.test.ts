@@ -51,7 +51,7 @@ vi.mock('./transport.ts', () => ({
 
 import { connectAsClient, type JoinAttemptDeps } from './clientHandlers.ts';
 import { createBeginMatchHandler, createHostStartHandler } from './hostHandlers.ts';
-import { broadcastQmPresence } from './quickmatchGate.ts';
+import { broadcastQmPresence, QM_READY_LOCK_MS } from './quickmatchGate.ts';
 import { makeNetSession, teardownNet } from './session.ts';
 import { ClientSync, HostSync } from './sync.ts';
 import { parseNetMessage, type RosterEntry } from './protocol.ts';
@@ -428,9 +428,14 @@ describe('S191 FIX-1 — one Begin at a time: one START_GAME_SIGNAL, one id, the
   }
 
   it('⛔ two LOBBY_READY copies (both strategies) inside the sign window → ONE signal, ONE id; the client holds the host’s id and a later rejoin is applied', async () => {
+    // ⭐ S195 (owner N3) — all-ready now starts a 3 s LOCK before Begin; a duplicate READY never restarts it.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const h = signingHost();
     h.hostRoute({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
     h.hostRoute({ kind: 'LOBBY_READY', ready: true }, 'peer-a'); // the second strategy's copy
+    expect(h.signals(), 'the lock is counting — nothing on the wire yet').toHaveLength(0);
+    vi.advanceTimersByTime(QM_READY_LOCK_MS);
+    vi.useRealTimers();
     await h.resolveSigns();
     expect(h.signals(), 'exactly one Begin reaches the wire').toHaveLength(1);
     const wireId = h.signals()[0]!.matchId as string;

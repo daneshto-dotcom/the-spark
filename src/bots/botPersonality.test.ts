@@ -546,8 +546,8 @@ describe('S193 — the lobby pick REACHES both bot managers', () => {
    */
   it('main.ts passes the lobby personalities to BOTH managers; simWorker forwards them', () => {
     const main = readFileSync('src/main.ts', 'utf-8');
-    expect(main).toMatch(/onStart: \(pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams\) =>/); // S194 — + teams
-    expect(main).toMatch(/const personalities = permuteBots\(pickedPersonalities, order\);/); // re-seated with its bot
+    expect(main).toMatch(/onStart: \(pickedDifficulties, pickedRaces, pickedPersonalities, pickedTeams, pickedSlots\) =>/); // S194 — + teams; S195 — + the corner slots (N16)
+    expect(main).toMatch(/const personalities = \[\.\.\.pickedPersonalities\];/); // S195 — nobody is re-seated; a bot keeps its seat
     expect(main).toMatch(/new mod\.BotManager\(difficulties, matchSeed, personalities\)/);
     expect(main).toMatch(/botPersonalities: workerBotInit\.personalities/);
     const worker = readFileSync('src/simWorker.ts', 'utf-8');

@@ -32,7 +32,7 @@ import { asDefenderId } from '../types.ts';
 import { wallSegments, wallSeparatesSides } from './walls.ts';
 import { netSnapshot, applyNetSnapshot } from './save.ts';
 import {
-  arrangeTeamSeats, isEnemySeat, normalizeTeams, sameTeam, sameTeamColor, teamOf, teamsPlayable,
+  arrangeTeamZones, isEnemySeat, normalizeTeams, sameTeam, sameTeamColor, teamOf, teamsPlayable,
 } from './teams.ts';
 
 const P = [0, 1, 2, 3].map((s) => asPlayerId(s));
@@ -46,6 +46,11 @@ function fourSeat(teams: (number | undefined)[] = [0, 0, 1, 1]): World {
     roster: [0, 1, 2, 3].map((s) => ({ seat: s, color: PLAYER_COLORS[s], ...(teams[s] !== undefined ? { team: teams[s] } : {}) })),
     botSeats: [1, 2, 3],
   });
+  // ⭐ S195 — pin the S192 IDENTITY board (teammates NW+NE) these site tests were authored on. Since S195 a
+  // [0,0,1,1] roster maps seat 1 to SW (`layoutForMatch`), which moves an enemy castle next to OPEN and lets its
+  // race units into the measurement; the predicates under test do not depend on where the castles stand.
+  // The arranged board is pinned on its own in `teams.zones.test.ts`.
+  w.layout = 'QUADRANTS_4P';
   w.matchPhase = 'FIGHT';
   w.phaseEndsAtTick = w.tick + phaseDurationTicks('FIGHT') * 10;
   w.creatures.clear();
@@ -116,20 +121,14 @@ describe('S192 teams — the predicate', () => {
     expect(teamsPlayable([1, 1, undefined], 3)).toBe(true);
   });
 
-  it('⚠ MINE — arrangeTeamSeats puts teammates side by side, host fixed, host team on the LEFT', () => {
-    // seats 0+1 vs 2+3 → host's teammate moves to BL (seat 3): TL+BL vs TR+BR
-    const order = arrangeTeamSeats([0, 0, 1, 1]);
-    expect(order[0]).toBe(0);
-    const teamsAfter = order.map((old) => [0, 0, 1, 1][old]);
-    expect(teamsAfter[0]).toBe(teamsAfter[3]);
-    expect(teamsAfter[1]).toBe(teamsAfter[2]);
-    // a diagonal pair (0 and 2) is never left on the diagonal
-    const o2 = arrangeTeamSeats([0, 1, 0, 1]);
-    const t2 = o2.map((old) => [0, 1, 0, 1][old]);
-    expect(t2[0]).not.toBe(t2[2]);
-    // no shared team → the identity, so a free-for-all lobby seats exactly as before
-    expect(arrangeTeamSeats([undefined, undefined, undefined, undefined])).toEqual([0, 1, 2, 3]);
-    expect(arrangeTeamSeats([0, 1])).toEqual([0, 1]);
+  it('⭐ S195 — arrangeTeamZones (replaces S192 arrangeTeamSeats): teammates share a side, nobody re-seated', () => {
+    // seats 0+1 vs 2+3 → west = {0,1} (NW, SW), east = {2,3} (NE, SE)
+    expect(arrangeTeamZones([0, 0, 1, 1], 4)).toEqual([0, 2, 3, 1]);
+    // a diagonal pair (0 and 2) is never left on the diagonal: west = {0,2}
+    expect(arrangeTeamZones([0, 1, 0, 1], 4)).toEqual([0, 1, 3, 2]);
+    // no shared team → the identity, so a free-for-all lobby stands exactly as before
+    expect(arrangeTeamZones([undefined, undefined, undefined, undefined], 4)).toEqual([0, 1, 2, 3]);
+    expect(arrangeTeamZones([0, 1], 2)).toBeNull();
   });
 });
 
@@ -375,5 +374,46 @@ describe('S192 teams — the wall and the win', () => {
     w.players.get(P[3])!.castleHp = 0;
     tickGameState(w, makeGameStateExtras(), P[0]);
     expect(w.gameState).toBe('PLAYING');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────
+describe('⭐ S195 audit L11 — the team predicates on a MAPPED board (2v1, host in the pair)', () => {
+  /** Seats 0+1 vs the solo seat 2, on the board `layoutForMatch` really stamps (NOT pinned to the identity). */
+  function mappedThree(): World {
+    const w = makeWorld(0x5195);
+    w.gameState = 'TITLE';
+    dispatch(w, {
+      type: 'START_GAME', mode: 'bots', isHost: true,
+      roster: [0, 1, 2].map((s) => ({ seat: s, color: PLAYER_COLORS[s], ...(s < 2 ? { team: 0 } : {}) })),
+      botSeats: [1, 2],
+    });
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + phaseDurationTicks('FIGHT') * 10;
+    w.creatures.clear();
+    w.draft = null;
+    return w;
+  }
+  // Open ground in the host's (seat 0's) NE quadrant on this board, > 300 px from every keep.
+  const NE_OPEN = { x: 1400, y: 330 };
+  function fight(other: PlayerId): { targeted: boolean; lost: number } {
+    const w = mappedThree();
+    expect(w.layout, 'fixture: the mapped 2v1 board').toBe('QUADRANTS_4P:2012');
+    const a = unit(w, P[0]!, NE_OPEN);
+    const b = unit(w, other, { x: NE_OPEN.x + 20, y: NE_OPEN.y });
+    const full = a.ehp + b.ehp;
+    let targeted = false;
+    ticks(w, 240, () => {
+      if (w.creatures.get(a.id)?.targetCreatureId === b.id || w.creatures.get(b.id)?.targetCreatureId === a.id) targeted = true;
+    });
+    return { targeted, lost: full - ((w.creatures.get(a.id)?.ehp ?? 0) + (w.creatures.get(b.id)?.ehp ?? 0)) };
+  }
+  it('⛔ teammates (seats 0 and 1, standing NE and SE) never target or hurt each other', () => {
+    expect(fight(P[1]!)).toEqual({ targeted: false, lost: 0 });
+  });
+  it('CONTROL — the solo (seat 2, standing NW + SW) is an enemy: they fight', () => {
+    const r = fight(P[2]!);
+    expect(r.targeted).toBe(true);
+    expect(r.lost).toBeGreaterThan(0);
   });
 });

@@ -33,7 +33,7 @@
 
 import { Application, Assets, Container, Graphics, TilingSprite, type Texture } from 'pixi.js';
 import { wallSegments, wallSeparatesSides, wallsAreUp } from '../state/walls.ts';
-import { zoneOf, zoneOwner } from '../state/zones.ts';
+import { seatOfZone, zoneOf } from '../state/zones.ts';
 import { ALL_RACES } from '../state/races.ts';
 import type { World } from '../state/world.ts';
 import { asPlayerId } from '../types.ts';
@@ -246,7 +246,7 @@ export class WallRenderer {
 
   /** The race sheet for whoever holds `zone`, or null (unowned seat, or art not resolved yet). */
   private artFor(world: World, zone: number): Texture | null {
-    const seat = zoneOwner(zone, world.layout);
+    const seat = seatOfZone(zone, world.layout); // S195 - the zone's OWNER (a mapped board moves seats)
     if (seat === null) return null;
     const race = world.players.get(asPlayerId(seat))?.raceId ?? null;
     if (race === null) return null;
@@ -291,7 +291,7 @@ export class WallRenderer {
  * Exported for headless unit testing (this class needs Pixi; this function does not).
  */
 export function tintForZone(world: World, zone: number): number {
-  const seat = zoneOwner(zone, world.layout);
+  const seat = seatOfZone(zone, world.layout); // S195 - the zone's OWNER, not seat = zone index
   if (seat === null) return UNOWNED_TINT;
   return world.players.get(asPlayerId(seat))?.color ?? UNOWNED_TINT;
 }
