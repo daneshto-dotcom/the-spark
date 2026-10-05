@@ -105,16 +105,16 @@ const sever = (victim: typeof P0, tick = 100) =>
   ({ kind: 'BOND_SEVERED', tick, pos: { x: 300, y: 300 }, cause: 'entropy', victim } as never);
 
 describe('REACH — the entropy boing (owner B-14 / N12): only the seat that lost the connector', () => {
-  it('the local seat IS the victim → fires; a THIRD seat → silent; no seat given → silent', async () => {
+  it('⭐ S195 N18 (d) — the boing MOVED to the synced entropy record (render/entropyToast.test.ts): the effects arm is silent for every seat', async () => {
     initAudio();
     drainAudioEffects([sever(P1)], 100, P1);
     await flushAudio();
-    expect(slotSfxCounts().fired.entropyBoing).toBe(1);
+    expect(slotSfxCounts().fired.entropyBoing).toBe(0);
     drainAudioEffects([sever(P1, 101)], 101, P2);
     drainAudioEffects([sever(P1, 102)], 102, null);
     drainAudioEffects([sever(P1, 103)], 103);
     await flushAudio();
-    expect(slotSfxCounts().fired.entropyBoing).toBe(1);
+    expect(slotSfxCounts().fired.entropyBoing).toBe(0);
   });
 
   it('a player / unit / chewer sever never reaches the boing (the arm is entropy-only)', async () => {

@@ -203,10 +203,10 @@ describe('⭐ S194 R194-18 — REACH: the tax fires at the FIGHT whistle through
     expect(perWave.every((p) => p.tower === 0), 'a 10-connector structure is never taxed').toBe(true);
     // every 'entropy' sever is one of these two structures' connectors
     for (const p of perWave) expect(p.fx).toBeLessThanOrEqual(p.big + p.mid);
-    // the owner of the structure reads the toast, with the count
+    // the owner of the structure reads the toast — ⭐ S195 N18 (d): from SYNCED state (`entropyToastFor`,
+    // REACH in `render/entropyToast.test.ts`), so the effects route is now silent for this cause.
     expect(first.fx).toBeGreaterThan(0);
-    expect(first.toast).toBe(severToastCopy('entropy', null, first.fx));
-    expect(first.toast).toMatch(/^ENTROPY: \d+ CONNECTORS? SNAPPED$/);
+    expect(first.toast).toBeNull();
   });
 
   it('negative — a board of free structures (≤ 10 connectors) loses nothing at any whistle', () => {

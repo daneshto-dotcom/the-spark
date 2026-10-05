@@ -18,7 +18,7 @@ import { ENTROPY_FREE_CONNECTORS, applyEntropyTax, planEntropy } from './entropy
 import { makeGameStateExtras } from './gameState.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts';
 import {
-  applySerializedSeats, matchStatsHashParts, recordEntropyLoss, sampleBuilt, serializeMatchStats,
+  applySerializedSeats, matchStatsHashParts, recordEntropyLoss, recordEntropyPass, sampleBuilt, serializeMatchStats,
 } from './matchStats.ts';
 import { makeIdlePlayer } from '../game/player.ts';
 import { mulberry32 } from './rng.ts';
@@ -139,6 +139,57 @@ describe('⭐ S195 T22 — lostToEntropy: the arithmetic and the four sites', ()
     recordEntropyLoss(w, P(0), 1);
     expect(hashWorldStateFull(w)).not.toBe(h1);
     expect(matchStatsHashParts(w.matchStats).find((p) => p.startsWith('ms0:'))).toMatch(/:le2$/);
+  });
+});
+
+describe('⭐ S195 N18 (d) — the last pass (ew/es/el): four sites', () => {
+  it('recordEntropyPass: adds to the ONE running total, stamps the pass; a no-cost pass records nothing', () => {
+    const w = makeWorld(0);
+    w.waveNumber = 4;
+    recordEntropyPass(w, P(1), 0, 0);
+    expect(w.matchStats.seats.size).toBe(0);
+    recordEntropyPass(w, P(1), 3, 9);
+    w.waveNumber = 5;
+    recordEntropyPass(w, P(1), 2, 2);
+    const s = w.matchStats.seats.get(P(1))!;
+    expect([s.entropyWave, s.entropySnapped, s.entropyLost, s.lostToEntropy]).toEqual([5, 2, 2, 11]);
+  });
+
+  it('WIRE + save + net round trip; a partial or garbage triple reads as never taxed', () => {
+    const w = makeWorld(0);
+    w.waveNumber = 6;
+    recordEntropyPass(w, P(2), 4, 7);
+    expect(serializeMatchStats(w.matchStats)!.seats).toEqual([{ seat: 2, le: 7, ew: 6, es: 4, el: 7 }]);
+    const back = makeWorld(0);
+    restore(JSON.parse(JSON.stringify(snapshot(w))), back);
+    const peer = makeWorld(0);
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(w))), peer);
+    for (const x of [back, peer]) {
+      const s = x.matchStats.seats.get(P(2))!;
+      expect([s.entropyWave, s.entropySnapped, s.entropyLost]).toEqual([6, 4, 7]);
+    }
+    const bad = makeWorld(0);
+    applySerializedSeats(bad, { seats: [{ seat: 1, ew: 3, es: 1 }, { seat: 2, ew: 3, es: -1, el: 2 }] });
+    for (const seat of [1, 2]) expect(bad.matchStats.seats.get(P(seat))!.entropyWave).toBeUndefined();
+  });
+
+  it('HASH: each of the three moves the WIDE oracle; an untaxed seat part is unchanged (no `:ew`)', () => {
+    const w = makeWorld(0);
+    recordEntropyLoss(w, P(0), 1);
+    expect(matchStatsHashParts(w.matchStats)[0]).not.toContain(':ew');
+    const base = (): string => matchStatsHashParts(w.matchStats)[0]!;
+    w.waveNumber = 2;
+    recordEntropyPass(w, P(0), 1, 1);
+    const h0 = hashWorldStateFull(w);
+    expect(base()).toMatch(/:ew2:es1:el1$/);
+    const s = w.matchStats.seats.get(P(0))!;
+    for (const k of ['entropyWave', 'entropySnapped', 'entropyLost'] as const) {
+      const was = s[k];
+      (s as unknown as Record<string, number>)[k] = (was ?? 0) + 1;
+      expect(hashWorldStateFull(w), k).not.toBe(h0);
+      (s as unknown as Record<string, number | undefined>)[k] = was;
+    }
+    expect(hashWorldStateFull(w)).toBe(h0);
   });
 });
 
