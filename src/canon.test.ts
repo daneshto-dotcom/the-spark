@@ -115,7 +115,7 @@ import { attackFifths, structurePoolFifths, unitPoolFifths } from './state/stats
 import { castleShotFifths } from './state/castleGuns.ts';
 import { castleRegenPerSecond } from './state/castleRegen.ts';
 // S182 — §7 the damage ramp, §8 the repair fee, §9 the open blast.
-import { RAMP_SPECS, rampDeathFirstFrame, rampFrameForHealth } from './render/structureRamp.ts';
+import { RAMP_SPECS, RAMP_SPECS_PENDING_ART, rampDeathFirstFrame, rampFrameForHealth } from './render/structureRamp.ts';
 import { TOWER_DAMAGED_BELOW } from './render/towerFrames.ts';
 import { STAR_SELFDESTRUCT_BELOW_FRAC } from './state/structureStarHealth.ts';
 import { repairFeeShapeFor } from './state/structureRepair.ts';
@@ -1350,6 +1350,10 @@ describe('SPARK_CANON.md is bound to the code', () => {
       .toEqual(['lightningHub', 'goblinTower', 'laserTurret', 'pentagram', 'helga']);
     expect(RAMP_SPECS.filter((s) => s.selfDestructBelow !== null).map((s) => s.recipeId))
       .toEqual(['lightningHub']);
+    // ⭐ S195 T19 (B-8) — the stink tower is WIRED (a pending-art row) but has NO sheet: still five with art.
+    expect(RAMP_SPECS_PENDING_ART.map((s) => s.recipeId)).toEqual(['stinkTower']);
+    expect(RAMP_SPECS_PENDING_ART.every((s) => s.selfDestructBelow === null)).toBe(true);
+    expect(canonSays('the stink tower is WIRED for a ramp')).toBe(true);
     expect(canonSays('the hub self-destructs. HUB ONLY')).toBe(true);
     expect(canonSays('We won\'t do it for every')).toBe(true);
     // The table's own boundary, derived rather than typed: 8 of 24 frames IS the threshold.

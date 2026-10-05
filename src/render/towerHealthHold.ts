@@ -55,6 +55,12 @@
  * welded STRUCTURE's pool on the card, the spawner (same id, same timers — it never re-registered), the
  * cover set and the hub's sim-side fuse (`structureStarHealth.ts`) are all untouched. No PROTOCOL bump.
  *
+ * ⭐ S195 — **OWNER B-1 RULED: KEEP THE OWN-POOL BAR.** *"the current welded structure health bar is fine … you
+ * can see the tower and … the overall structure bar within the same … tower sheet."* The bar, the card and the
+ * ramp art keep reading the tower's OWN pool (this module's held figure); the welded STRUCTURE's pool stays
+ * on the card as its own row. Nothing to build — pinned here (`towerHealthHold.ruling.test.ts`) so no session
+ * re-asks whether the bar should show the whole weld. It should not.
+ *
  * ⚠ CLIENT-LOCAL, LIKE THE RAMP CURSOR IT FEEDS. Every peer that watched the drain holds the same figure
  * from the same synced data; a peer that JOINED after the drain never saw the damage and reads the tower
  * as the sim has it (the S183 `seedCursor` rule, for the same reason: the ramp is for damage arriving

@@ -343,6 +343,21 @@ export const HELGA_TOWER_SUBJECT_FILL = 0.9331;
 export const HELGA_TOWER_ART_PX = 99;
 export const HELGA_TOWER_SPRITE_PX = Math.round(HELGA_TOWER_ART_PX / HELGA_TOWER_SUBJECT_FILL);
 
+/*
+ * ⭐ S195 T19 (owner B-8) — **THE STINK TOWER'S RAMP ROW, WIRED AHEAD OF ITS ART.** He believed the stink
+ * tower already had damage art; it is the one tower in the matrix with none (canon §7: five buildings). The
+ * stills are briefed for Grok in T23; this row is what makes dropping the packed sheet at
+ * `public/art/stink-tower/stink-tower-{atlas.png,anim.json}` the WHOLE change — `structureRampRenderer`
+ * already walks `world.defenders` through `rampSpecFor`, and `stinkTowerRenderer` yields its own atlas sprite
+ * the moment the ramp manifest answers (its probe), keeping today's look (legacy) while it does not.
+ * ⚠ MINE, placeholders until the sheet is packed: `STINK_TOWER_SUBJECT_FILL` (the packer writes the real
+ * one into the manifest; `structureRampAtlas.test.ts` pins it once the row joins `RAMP_SPECS`) and
+ * `STINK_TOWER_ART_PX` (98 → a 106 px box, the footprint ladder every other row follows — asserted).
+ */
+export const STINK_TOWER_SUBJECT_FILL = 0.925;
+export const STINK_TOWER_ART_PX = 98;
+export const STINK_TOWER_SPRITE_PX = Math.round(STINK_TOWER_ART_PX / STINK_TOWER_SUBJECT_FILL);
+
 /**
  * Every ramp sheet the owner has sent is 8×3 read in reading order and ships as the 12-per-row
  * shape the rest of the pipeline is built around. Each tower's `assets-source/…/atlas-specs.json`
@@ -445,6 +460,29 @@ export const RAMP_SPECS: readonly RampSpec[] = [
     spritePx: HELGA_TOWER_SPRITE_PX,
     artPx: HELGA_TOWER_ART_PX,
     selfDestructBelow: null,
+    muzzle: null,
+  },
+];
+
+/**
+ * ⭐ S195 T19 (B-8) — rows WIRED but whose sheet is NOT on disk yet. Kept OUT of `RAMP_SPECS` on purpose:
+ * `structureRampAtlas.test.ts` reads every `RAMP_SPECS` manifest from `public/`, and canon §7's "five
+ * buildings" stays true. `rampSpecFor` resolves these too, so the renderer, the hit test and the muzzle
+ * lookup need no second code path; a missing sheet simply never passes the renderer's manifest bail.
+ * When the art lands, MOVE the row into `RAMP_SPECS` (canon §7 → six) and delete it here.
+ */
+export const RAMP_SPECS_PENDING_ART: readonly RampSpec[] = [
+  {
+    recipeId: 'stinkTower' as GodlyId,
+    shape: 'star',
+    connectors: 3, // STINK_TOWER_HUB_DEGREE — the Square hub at degree 3 (three Circle leaves)
+    atlasBase: '/art/stink-tower/stink-tower',
+    frames: 24,
+    rows: RAMP_ROWS_24,
+    ticksPerFrame: HUB_RAMP_TICKS_PER_FRAME,
+    spritePx: STINK_TOWER_SPRITE_PX,
+    artPx: STINK_TOWER_ART_PX,
+    selfDestructBelow: null, // R182-A — the hub alone self-destructs (the stink DEATH BLAST is the sim's, not a fuse)
     muzzle: null,
   },
 ];
@@ -585,7 +623,9 @@ export function rampHitAtPoint(world: World, x: number, y: number): { anchorId: 
   let bestSize = Infinity;
   let bestId = Infinity;
   const consider = (anchorId: PrimitiveId, recipeId: GodlyId): void => {
-    const spec = rampSpecFor(recipeId);
+    // ⚠ S195 T19 — the click box is the ART's, so only a row WITH art is a box: a pending-art row
+    // (`RAMP_SPECS_PENDING_ART`, the stink tower today) keeps its own hit test (`stinkTowerAt`) until its sheet lands.
+    const spec = rampSpecWithArtFor(recipeId);
     if (spec === null) return;
     const at = rampMembersAt(world, anchorId, spec);
     if (at === null) return;
@@ -662,8 +702,19 @@ export function rampHealthFrac(liveConnectors: number, bankedFifths: number, spe
   return Math.max(0, Math.min(1, 1 - bankedFifths / pool));
 }
 
-/** PURE — the ramp spec for a recipe, or `null` for the twelve towers that do not have one. */
+/**
+ * PURE — the ramp spec for a recipe, or `null` for the towers that have none. ⭐ S195 T19 — a row in
+ * `RAMP_SPECS_PENDING_ART` resolves too (its sheet is simply not there yet, which the renderer's manifest
+ * bail already handles frame by frame).
+ */
 export function rampSpecFor(recipeId: GodlyId): RampSpec | null {
+  for (const spec of RAMP_SPECS) if (spec.recipeId === recipeId) return spec;
+  for (const spec of RAMP_SPECS_PENDING_ART) if (spec.recipeId === recipeId) return spec;
+  return null;
+}
+
+/** PURE — a spec whose sheet is ON DISK (`RAMP_SPECS` only): the hit test's lookup, since a click box is the art's. */
+export function rampSpecWithArtFor(recipeId: GodlyId): RampSpec | null {
   for (const spec of RAMP_SPECS) if (spec.recipeId === recipeId) return spec;
   return null;
 }
