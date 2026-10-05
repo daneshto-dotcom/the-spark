@@ -1,5 +1,8 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## EXACT NEXT STEP (L8 — s195/teams a6c560ea, BUMP 68→69)
+#7 done (verify 4/4, logged; quarantine CI pending, non-gating). NEXT: merge s195/teams into master; bump 68→69 at the TEN sites + §5d TEAMS rewrite + §6 + canon.test pins in ONE commit; protocolVersionSync green; full gates detached (`.tmp-gates/s195run6.sh L8 <port>` = tc/vt/build/gating/render/races/lobby/teams/protocol); push; verify --sha FULL; log #8. Commit only my paths.
+
 ## EXACT NEXT STEP (L7 — s195/lag)
 LANDED as S195-#7 a4a59b77 (deploy attempt 2 success after attempt 1 was cancelled in the runner queue; verify-deploy 4/4). CI E2E 37368664346 attempt 1: 7 jobs cancelled in the runner queue (zero steps) — logged. CI attempt 1 completed; `gh run rerun --failed` done 21:04 UTC → attempt 2 running (detached `.tmp-gates/s195_L7/ci.sh` writes `ci-final.txt` + `ci.done`). Attempt 2: render/races/protocol/lobby/worker-bots/worker-typecheck ✅, gating `e2e` CANCELLED in the queue again (logged); quarantine still running (≈21:30 UTC). NEXT: when ci.done exists, log attempt-2 per lane (+ quarantine's attempt-1 result) in the dispatch log, commit only my paths. Then HOLD for teams #8. Then HOLD for teams #8 (68→69 bump).
 
