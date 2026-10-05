@@ -1,6 +1,6 @@
 # S195 PROGRESS — s195/carry-forwards (cloud, 2026-10-05)
 
-NEXT STEP: `git merge ccr-26eaab43-fa9mg3`, then final gates (typecheck · vitest on the touched files · build), then the final report at the top of this file.
+NEXT STEP: final gates re-run on the merged tree, then the final report at the top of this file and the hand-back.
 
 ## Verdicts so far (read, not yet committed as changes)
 - Item 1a `voltkin-config.ts:1244` — ALREADY TRUE: the line reads "was BOTH until S194 (R194-9 made it STRUCTURES_ONLY)"; `stats.ts:419` `lightningDrone: STRUCTURES_ONLY`; drone homes on bonds (`droneLifecycle.ts:6-9`). History is labelled as history. No edit.

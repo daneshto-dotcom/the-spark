@@ -2132,7 +2132,7 @@ and no protocol bump was ever owed for it. The day a reducer gates on one, that 
 | `dealtTo` per victim seat | `dealtTo` | ⭐ v2 WHO-HIT-WHOM: the seat's own key is its SELF-hits (the grid's diagonal), so the off-diagonal sums to `dealtFifths` exactly |
 | `takenUnattributed` | `tu` | TAKEN with no seat to name; column sum + this = `takenFifths` |
 | `dealtKeep` / `dealtStruct` / `takenKeep` / `takenStruct` | `dk` / `ds` / `tk` / `ts` | ⭐ v2 the KEEP / STRUCTURE split — the rest landed on units. Why: the keep is the one off-ladder pool AND it regenerates, so his S194 "TAKEN 70,847" was REAL (R194-28, do not re-investigate) and the board must say where it landed |
-| `lostToEntropy` | `le` | ⭐ S195 T22 (B-17, owner: *"only the player itself will see it, not all players"*) — connectors the ENTROPY TAX took, snapped AND deleted with a split's smaller side. **Recorded and on the wire; the owner-only board row is NOT YET DRAWN** (backlog item 17, "yes, later") |
+| `lostToEntropy` | `le` | ⭐ S195 T22 (B-17, owner: *"only the player itself will see it, not all players"*) — connectors the ENTROPY TAX took, snapped AND deleted with a split's smaller side. **Drawn OWNER-ONLY** (S195 s195/info-ui, N12 + N14): the board's model carries it on every row, the view prints **LOST TO ENTROPY · N connectors** on the LOCAL seat's page header only (`row.isLocal`, `ENTROPY_BLOCK_W` 180 ⚠ MINE), and a structure card reads `LOST n to entropy` only when its owner is the viewer. Another seat's page never prints it, whatever its counter says |
 | `fellOnWave` | `fellOnWave` | the wave its castle fell on; absent while it stands |
 
 A hit on an OWNERLESS thing (an orphaned bond) counts for nobody; a SELF hit is TAKEN only, never DEALT
@@ -2172,8 +2172,8 @@ Re-measured live S195 (cloud run) — and `canon.test.ts` pins the three figures
 - **B-23 ← / → / Tab page the board** (Shift+Tab back), OVERVIEW → GRAPHS → one page per seat, wrapping; **R is
   never consumed** — CONTINUE or R stays the only exit, and both wait `ARM_MS`.
 
-Still owed, logged in the S195 backlog, not here: the `le` board row (owner-only); unit portraits on the board
-not verified live (T10); N14 "more coherent and prettier".
+Still owed, logged in the S195 backlog, not here: unit portraits on the board not verified live (T10); his live
+look at the N14 polish (fit-to-width on every model text, the press latch).
 
 ## 10 · ⛔ OPEN — needs the owner, do not guess
 

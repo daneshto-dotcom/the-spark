@@ -2035,7 +2035,7 @@ describe('S195 — §9e the stat board is pinned to its code (counters, wire, B-
     expect(canonSays('(`MONSTER_OWNER_SEAT` 255) and the board labels them **MONSTERS**')).toBe(true);
   });
 
-  it('the wire: every key absent at zero; a self hit is TAKEN only; `le` rides as a key and is NOT yet drawn', () => {
+  it('the wire: every key absent at zero; a self hit is TAKEN only; `le` rides as a key and is drawn owner-only', () => {
     const w = two();
     expect(serializeMatchStats(w.matchStats), 'an untouched match says nothing').toBeUndefined();
     recordDamage(w, P0, P0, 40, 'unit'); // self hit
@@ -2057,13 +2057,25 @@ describe('S195 — §9e the stat board is pinned to its code (counters, wire, B-
     const after = serializeMatchStats(w.matchStats)!.seats!.find((r) => r.seat === 1)!;
     expect(after.le).toBe(3);
     expect(canonSays('| `lostToEntropy` | `le` |')).toBe(true);
-    // ⛔ the canon says the owner-only row is NOT YET DRAWN — this goes red the day a matchBoard file reads it.
-    const boardSrc = readdirSync(new URL('./render', import.meta.url))
-      .filter((n) => /^matchBoard.*\.ts$/.test(n) && !n.endsWith('.test.ts'))
-      .map((n) => readFileSync(new URL(`./render/${n}`, import.meta.url), 'utf8'));
-    expect(boardSrc.length).toBeGreaterThan(3);
-    expect(boardSrc.some((src) => src.includes('lostToEntropy'))).toBe(false);
-    expect(canonSays('the owner-only board row is NOT YET DRAWN')).toBe(true);
+    // ⭐ s195/info-ui landed the row (this pin said NOT YET DRAWN until that merge, and went red on it, as built):
+    // the MODEL carries the counter on every row; the VIEW gates the print on `row.isLocal` (B-17). The REACH
+    // through the real board is `matchBoardPolish.test.ts` (P0's page prints it, P1's page does not).
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    expect(w.matchStats.seats.size, 'match start is a reset path: every counter above is gone').toBe(0);
+    recordEntropyLoss(w, P0, 5);
+    recordEntropyLoss(w, P1, 3);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    expect(m.rows.find((r) => r.seat === P0)!.lostToEntropy).toBe(5);
+    expect(m.rows.find((r) => r.seat === P1)!.lostToEntropy, 'the model carries it for EVERY row; the view decides').toBe(3);
+    const board = readFileSync(new URL('./render/matchBoard.ts', import.meta.url), 'utf8');
+    expect(board.includes('const ENTROPY_BLOCK_W = 180;')).toBe(true);
+    expect(board.includes('const entropyW = row.isLocal ? ENTROPY_BLOCK_W : 0;')).toBe(true);
+    expect(/if \(row\.isLocal\) \{\s*const ex = pill\.x - 24;\s*const el = this\.texts\.take\('LOST TO ENTROPY'/.test(board), 'the print sits inside the isLocal gate').toBe(true);
+    const polish = readFileSync(new URL('./render/matchBoardPolish.test.ts', import.meta.url), 'utf8');
+    expect(polish.includes("negative: not on another seat\\'s page")).toBe(true);
+    expect(canonSays('**Drawn OWNER-ONLY** (S195 s195/info-ui, N12 + N14)')).toBe(true);
+    expect(canonSays('(`row.isLocal`, `ENTROPY_BLOCK_W` 180 ⚠ MINE)')).toBe(true);
   });
 
   it('the history: `v` is cumulative and the board draws PER-WAVE bars as the difference', () => {
