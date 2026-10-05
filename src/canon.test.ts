@@ -1900,7 +1900,8 @@ describe('S192 units-ai — §5c is pinned to its constants', () => {
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
     expect(canonSays('S195 N11 (owner): home is not enough any more')).toBe(true);
     const ai = readFileSync(new URL('./state/creatures/creatureAI.ts', import.meta.url), 'utf8');
-    expect(ai).toContain('if (home && !quarryHasPath(quarry)) return false;');
+    expect(ai).toContain("if (home && (quarry.state === 'ATTACKING' || !quarryHasPath(quarry))) return false;");
+    expect(canonSays('in ATTACKING — a chewer gnawing a connector of mine coasts there')).toBe(true);
     expect(ai).toContain('if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)');
   });
 

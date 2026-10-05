@@ -1199,7 +1199,8 @@ unchanged.
   × the chaser (`maxAccel`; ⭐ S195 N11 lowered it from 1.25 — see below) — is engaged when ANY of: (1) within
   the chaser's reach + `CHASE_GIVEUP_SLACK_PX` = **20** px;
   (2) the chaser AND the quarry both stand in the chaser's OWN zone (*"you're still in your zone"*) **and**
-  the quarry is going nowhere (no path — a chewer already gnawing a connector of mine) or can be cut off;
+  the quarry is going nowhere (in ATTACKING — a chewer gnawing a connector of mine coasts there — or with no
+  path at all) or can be cut off;
   (3) the chaser can cut its path off before it arrives. Otherwise it is neither acquired nor held, so it cannot be re-taken until one of the three holds
   again — no ping-pong, no memory. Both numbers ⚠ MINE. ⭐⭐ **S195 N11 (owner): home is not enough any more.**
   *"they should know … if they can't chase it down before he gets to his target or before he's out of reach

@@ -13,7 +13,8 @@ import { asPlayerId, asPrimitiveId, type BondId, type PrimitiveId } from '../../
 import { AUTO_BOND_RADIUS, PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
-import { voltkinPredicate, findVoltkinChain, findLongestVoltkinPartial, findAllVoltkinChains } from './voltkin.ts';
+import { voltkinPredicate, findLongestVoltkinPartial, findAllVoltkinChains } from './voltkin.ts';
+import { findAllVoltkinChainsCanonical } from './voltkinChainWalk.ts'; // S195 — the matcher's list (findVoltkinChain is gone)
 
 function makePrim(
   id: number,
@@ -87,7 +88,7 @@ describe('voltkin predicate (typed chain)', () => {
 
   it('returns null on an empty world', () => {
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
-    expect(findVoltkinChain(world)).toBeNull();
+    expect(findAllVoltkinChainsCanonical(world)).toHaveLength(0);
   });
 
   it('returns null when only 4 squares are chained (no triangles)', () => {
@@ -529,8 +530,9 @@ describe("S175 P4a — findAllVoltkinChains (the renderer's enumerator)", () => 
     buildChain(0, 0, 0);
     buildChain(100, 3000, 900);
     expect(findAllVoltkinChains(world)).toHaveLength(2);
-    // ...while the matcher still answers with exactly one, which is correct for an ignition event.
-    expect(findVoltkinChain(world)).toHaveLength(8);
+    // ...and the matcher's canonical list sees both, each of eight (S195: ignition reads this list, one TV per event).
+    expect(findAllVoltkinChainsCanonical(world)).toHaveLength(2);
+    expect(findAllVoltkinChainsCanonical(world)[0]).toHaveLength(8);
   });
 
   it('the two results are DISJOINT — no primitive is claimed by both TVs', () => {
@@ -549,7 +551,7 @@ describe("S175 P4a — findAllVoltkinChains (the renderer's enumerator)", () => 
 
   it('⛔ it agrees with the matcher — the shared DFS means they cannot drift', () => {
     buildChain(0, 0, 0);
-    const first = findVoltkinChain(world);
+    const first = findAllVoltkinChainsCanonical(world)[0] ?? null;
     const all = findAllVoltkinChains(world);
     expect(first).not.toBeNull();
     expect(new Set(all[0]!.map(Number))).toEqual(new Set(first!.map(Number)));

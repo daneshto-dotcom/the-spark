@@ -69,51 +69,13 @@ export function findAllVoltkinChains(world: World): ReadonlyArray<ReadonlyArray<
   }
   return out;
 }
-/**
- * DFS from `startId` looking for a non-revisiting path through the bond graph
- * whose primitive types match EXPECTED_CHAIN in order. Returns the 8-prim path
- * or null. Exported for vitest path-shape regression coverage.
+/*
+ * ⭐ S195 B-31 (audit LOW) — `findVoltkinChain(world, nearPos)` is DELETED. It was the predicate's `Map`-ordered
+ * first-match search; ignition now reads the census's canonical list (`standingVoltkinTvs` +
+ * `standingVoltkinTvTouching`), and nothing in production called it any more. Its S161 P3 lesson (the proximity
+ * filter must live INSIDE the search, not after it) survives in `standingVoltkinTvTouching`, which walks the
+ * canonical list and returns the first TV with a member within the radius.
  */
-export function findVoltkinChain(
-  world: World,
-  /*
-   * ⭐ S161 P3 — WHEN GIVEN, ONLY A CHAIN TOUCHING THIS POINT COUNTS, and the filter lives INSIDE
-   * the search rather than after it. That placement is not cosmetic: this function returns the
-   * FIRST chain its start-primitive loop finds, so filtering the RESULT would mean that with two
-   * chains standing, completing the second one tests the FIRST one's position, fails, and never
-   * fires. `voltkin.test.ts`'s "a SECOND chain built elsewhere still fires" case found exactly that
-   * — the after-the-fact version of this gate passed five tests and broke the six-tower board.
-   *
-   * ⚠ Note what the pre-fix code did in that same situation: it fired, but it fired with the FIRST
-   * chain's identity, spawning the Voltkin at the wrong chain's centroid. So this is not a new
-   * constraint on multi-chain boards; it is the first time they are handled at all.
-   */
-  nearPos?: { x: number; y: number },
-): ReadonlyArray<PrimitiveId> | null {
-  const rSq = AUTO_BOND_RADIUS * AUTO_BOND_RADIUS;
-  const touchesNearPos = (path: readonly PrimitiveId[]): boolean => {
-    if (nearPos === undefined) return true;
-    for (const id of path) {
-      const p = world.primitives.get(id);
-      if (p === undefined) continue;
-      const dx = p.pos.x - nearPos.x;
-      const dy = p.pos.y - nearPos.y;
-      if (dx * dx + dy * dy <= rSq) return true;
-    }
-    return false;
-  };
-
-  for (const prim of world.primitives.values()) {
-    if (prim.type !== EXPECTED_CHAIN[0]) continue;
-    const visited = new Set<PrimitiveId>([prim.id]);
-    const path: PrimitiveId[] = [prim.id];
-    const result = walkChain(world, prim.id, 1, visited, path);
-    // ⚠ `continue`, NOT `return`: a chain that does not touch `nearPos` is not this event's chain,
-    // and another start primitive may still reach the one that is.
-    if (result !== null && touchesNearPos(result)) return result;
-  }
-  return null;
-}
 
 /**
  * S23 P2 — diagnostic helper for the debug overlay. Returns the longest

@@ -4176,7 +4176,8 @@ export const GOBLIN_UNIT_LEASH_RADIUS = 300;
  *   (1) it is within the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` (*"if it's around them"*);
  *   (2) the chaser AND the quarry both stand inside the chaser's OWN zone (*"you're still in your zone"*;
  *       S193 audit — the chaser's own position too, not only the quarry's) — ⭐ S195 N11: AND the quarry is
- *       either going nowhere (no path: a chewer already gnawing a connector) or can be cut off, (3);
+ *       either going nowhere (in ATTACKING — a chewer gnawing a connector coasts there — or with no path) or
+ *       can be cut off, (3);
  *   (3) the chaser can cut its path off before it reaches its target (*"before he reaches his target"*);
  * and is neither acquired nor held otherwise (`cannotCatch`, `creatureAI.ts`). A unit that can strike
  * back is never skipped — so R184-A (the melee boss chasing an archer it cannot catch, ruled S184) is

@@ -15,7 +15,7 @@
  * drone's branch rather than reordering it.
  */
 
-import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
+import { blastHitAtDistance, blastSplitWeight, splitBlastPool } from '../blastFalloff.ts'; // S193 R193-B4 · S195 B-10
 import { describe, expect, it } from 'vitest';
 import { makeWorld, dispatch, type World } from '../world.ts';
 import { makeHostTickState, runHostTick, type HostTickDeps } from '../hostTick.ts';
@@ -39,6 +39,7 @@ import {
   GOBLIN_SUICIDE_PEN,
   PRIMITIVE_MAX_HP,
   SparkType,
+  LONE_PRIMITIVE_POOL_FIFTHS, // S195 B-10
 } from '../../constants.ts';
 import { attackFifths } from '../stats.ts';
 
@@ -354,6 +355,8 @@ describe('⭐⭐ S193 (owner R193-B4) — REACH through the real host tick: clos
     addBondAt(w, 1, 560, 500);
     const near = addPrimAt(w, 1, 575, 560);
     const pos = { ...near.pos };
+    // Captured BEFORE the blast: the sever (his COUNT ruling) razes the connector's orphaned shapes afterwards.
+    const p1Shapes = [...w.primitives.values()].filter((p) => p.placedBy === asPlayerId(1)).map((p) => ({ id: p.id as unknown as number, pos: { ...p.pos } }));
     const at = runToBlast(w, DRONE_EXPLODE_RADIUS);
     const full = attackFifths(DRONE_ATK, DRONE_PEN);
     const dd = d2(pos, at);
@@ -361,12 +364,22 @@ describe('⭐⭐ S193 (owner R193-B4) — REACH through the real host tick: clos
     expect(dd, 'fixture: not at the centre').toBeGreaterThan(0);
     // ⭐ S195 B-10 — the connector's two shapes (550 and 570, 500) are in the radius with it, so the 30 is split three
     // ways by distance (`planDroneSplash`): `near` takes a share — an integer, real, and strictly under the full 30.
-    // Its share is under its LONE pool (`LONE_PRIMITIVE_POOL_FIFTHS`, 5), so it STANDS — where the full 30, or the
-    // S193 distance-scaled 27, would have razed it outright (the goblin's 20 does exactly that one test above).
-    // Survival IS the proof of a share; its hp field is lone-pool bookkeeping, not the fifths it took.
-    expect(blastHitAtDistance(full, dd, DRONE_EXPLODE_RADIUS), 'fixture: the old rule would have killed it').toBeGreaterThan(5);
+    // THE EXACT SHARE: the three P1 shapes in the radius are the connector's two (550 / 570, 500) and `near`;
+    // `planDroneSplash` splits the 30 over them by `blastSplitWeight` in (d2, kind, id) order — recomputed here
+    // from the positions captured before the blast (shapes do not move). A share under the LONE pool
+    // (`LONE_PRIMITIVE_POOL_FIFTHS` 5) leaves it standing with `hp = 5 − share` (the shape arm clamps a lone
+    // shape onto its pool first), where the full 30 / the S193 scaled 27 would have razed it.
+    const shapes = p1Shapes
+      .map((p) => ({ id: p.id, d2: d2(p.pos, at) }))
+      .filter((p) => p.d2 <= DRONE_EXPLODE_RADIUS ** 2)
+      .sort((a, b) => a.d2 - b.d2 || a.id - b.id);
+    expect(shapes.length, 'fixture: exactly the three shapes share the pool').toBe(3);
+    const shares = splitBlastPool(full, shapes.map((p) => blastSplitWeight(p.d2, DRONE_EXPLODE_RADIUS)));
+    const share = shares[shapes.findIndex((p) => p.id === (near.id as unknown as number))]!;
+    expect(share, 'fixture: its share is under its lone pool, so it stands').toBeLessThan(LONE_PRIMITIVE_POOL_FIFTHS);
     expect(killHit(w, near), 'no kill blow — it was not felled').toBeUndefined();
-    expect(w.primitives.has(near.id), 'B-10: a shared pool left the lone shape standing').toBe(true);
+    expect(w.primitives.get(near.id)?.hp, 'B-10: exactly its share of the one pool').toBe(LONE_PRIMITIVE_POOL_FIFTHS - share);
+    expect(blastHitAtDistance(full, dd, DRONE_EXPLODE_RADIUS), 'the old rule would have killed it').toBeGreaterThan(LONE_PRIMITIVE_POOL_FIFTHS);
   });
 });
 

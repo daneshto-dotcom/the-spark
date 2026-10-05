@@ -1038,15 +1038,18 @@ function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolea
    * ⭐⭐ S195 N11 (owner) — **HOME NO LONGER ENGAGES BY ITSELF.** *"they should know … if they can't chase it
    * down before he gets to his target or before he's out of reach … more dynamic and smart"* — his slow
    * scarabs chased an incoming chewer across their own zone until a stink tower killed it. At home a MOVING
-   * quarry is engaged only if the intercept (3) is feasible; a quarry GOING NOWHERE (no path — a chewer
-   * already gnawing a connector of mine, `targetPos` on itself) is not getting away and is engaged as before.
-   * Abroad, a pathless quarry is still dropped (S192: a drone idling at its hub is not chased across the map).
+   * quarry is engaged only if the intercept (3) is feasible; a quarry GOING NOWHERE is not getting away and is
+   * engaged as before. ⛔ S195 audit (HIGH) — "going nowhere" is a STATE, not a vector: a chewer committed to a
+   * connector is in ATTACKING and coasts (its `targetPos` stays on the bond midpoint, ~16 px off, so a
+   * "path under a pixel" test never fired for a real gnawer — only for hand-set fixtures). So: `ATTACKING`
+   * (a drone never enters it — drone cases unchanged) OR no path at all (`quarryHasPath`).
+   * Abroad, a stationary quarry is still dropped (S192: a drone idling at its hub is not chased across the map).
    */
   const home =
     limits.homeZone !== null &&
     zoneOf(limits.pos, limits.layout) === limits.homeZone &&
     zoneOf(quarry.pos, limits.layout) === limits.homeZone;
-  if (home && !quarryHasPath(quarry)) return false;
+  if (home && (quarry.state === 'ATTACKING' || !quarryHasPath(quarry))) return false;
   if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)
   return true;
 }
