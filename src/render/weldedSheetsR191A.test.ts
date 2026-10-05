@@ -36,6 +36,7 @@ import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { Controls, type CastlePanelLike, type CharacterSheetLike, type SheetSelectable } from '../input/controls.ts';
 import { characterSheetModel, type SheetTarget } from './characterSheetModel.ts';
 import { codexCopyFor } from './codexPresentation.ts';
+import { ENTROPY_SCALE, entropyChance } from '../state/entropy.ts'; // ⭐ S195 N12
 import '../state/godlyRecipes/registerAll.ts';
 
 const P0 = asPlayerId(0);
@@ -149,6 +150,27 @@ describe('⭐⭐ S191 R191-A — the TOWER card and the STRUCTURE card of a weld
     const g2 = characterSheetModel(w, P0, { kind: 'structure', primitiveId: goblinHub })!;
     expect(g2.health.cur, 'the goblin tower is not dented').toBe(structurePoolFifths(4));
     expect(g2.welded!.structure.cur, 'the structure is').toBe(total - 10);
+  });
+
+  it('⭐ S195 N12 — every card of the weld reads the WHOLE structure\'s ENTROPY (the count `planEntropy` prices); LOST is P0\'s alone', () => {
+    const { w, turretHub, goblinHub, square } = welded();
+    const n = componentOf(square, w.primitives, w.bonds).bondIds.size;
+    expect(n, 'anti-vacuity: more connectors than either tower alone').toBeGreaterThan(6);
+    for (const id of [turretHub, goblinHub, square.id]) {
+      const v = characterSheetModel(w, P0, { kind: 'structure', primitiveId: id })!;
+      const e = v.stats.find((r) => r.label === 'ENTROPY %')!;
+      expect(e, `ENTROPY row on ${v.title}`).toBeDefined();
+      expect(e.points).toBe((entropyChance(n) * 100) / ENTROPY_SCALE);
+      expect(v.stats.find((r) => r.label === 'LOST'), 'owner view').toBeDefined();
+      const theirs = characterSheetModel(w, asPlayerId(1), { kind: 'structure', primitiveId: id })!;
+      expect(theirs.stats.find((r) => r.label === 'LOST'), 'B-17: not on another seat\'s view').toBeUndefined();
+    }
+    // ⭐ S195 N7a — the welded goblin tower's card still lists its contents (empty here: nothing fed).
+    const goblin = characterSheetModel(w, P0, { kind: 'structure', primitiveId: goblinHub })!;
+    expect(goblin.welded?.role).toBe('tower');
+    expect(goblin.stats.find((r) => r.label === 'GOBLINS')).toEqual({ label: 'GOBLINS', points: 0, derived: 'in the tower' });
+    const turret = characterSheetModel(w, P0, { kind: 'structure', primitiveId: turretHub })!;
+    expect(turret.stats.find((r) => r.label === 'GOBLINS'), 'the turret holds no goblins').toBeUndefined();
   });
 
   it('the WELD’s card: the structure’s pool, what it is made of, every tower with its own pool; SCRAP only', () => {
