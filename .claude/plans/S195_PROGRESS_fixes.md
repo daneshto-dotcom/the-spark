@@ -1,6 +1,10 @@
 # S195 PROGRESS — s195/fixes (T22)
 
-NEXT STEP: wait for `.tmp-gates/e2e-worker-heap.{log,exit}` (bg run of e2e/worker-heap.spec.ts, Chromium 1194); record the snapshot-metric numbers; then FINAL GATES on the merged tree (merge 18b5bf1 of ccr-26eaab43-fa9mg3, docs only, clean): `npm run typecheck` · `npx vitest run --maxWorkers=2` · `npm run build` (entry KiB) — each exit to .tmp-gates/; then write the final report at the top of this file.
+NEXT STEP: final build + full vitest running in bg (.tmp-gates/final-build.*, final-vitest.*); then write the final report at the top.
+
+WORKER-HEAP MEASURED (Chromium 1194, this box, 30.7 min, exit 0, 2/2): BASELINE td-heavy ticks=2307 snapshot 58.8→63.0 MB (Δ4.28; native +3.32 = GL/batcher buffers, code +0.85, object +0.01) vs usedJSHeapSize Δ4.93; BOTS 3×MID ticks=2088 snapshot 147.2→148.1 (Δ0.92; code +0.61) vs usedJSHeapSize Δ3.08; worker Δ0.20 / 0.33; snapshots 3.4–7.3 s each (budget +60 s holds).
+
+(old) wait for `.tmp-gates/e2e-worker-heap.{log,exit}` (bg run of e2e/worker-heap.spec.ts, Chromium 1194); record the snapshot-metric numbers; then FINAL GATES on the merged tree (merge 18b5bf1 of ccr-26eaab43-fa9mg3, docs only, clean): `npm run typecheck` · `npx vitest run --maxWorkers=2` · `npm run build` (entry KiB) — each exit to .tmp-gates/; then write the final report at the top of this file.
 
 DONE: item 2 (cap 150 s, commit), item 8 (framed reads, e2e 1/1 + 1/1), item 4 (lostToEntropy + tests + ffa golden re-pinned with proof), item 5 code + tests (botEntropy.test 10/10; aware HARD max component 12/10/10 vs unaware 29/23/11), item 6 verified (refused PLACE 0/0/0; sent=landed 26/31/38), item 7 verified (settings-toggles ×3: 9/9 on Chromium 1194).
 
