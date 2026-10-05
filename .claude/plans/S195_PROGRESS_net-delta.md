@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
 
 ## NEXT STEP (exact)
-- DONE: A+B, item 3, mutations, merge da8a2267, MEASURED (table below: w10 27x). NEXT: fix typecheck (matchBoardModel.test fixture needs entropy fields; codec test casts; measure segs type; unused import), then vitest full, build, e2e.
+- DONE: A+B, item 3, mutations, merge da8a2267, MEASURED, typecheck 0. RUNNING detached: vitest full (.tmp-gates/vitest2.log/.exit). NEXT: read it, fix reds, then build, then e2e gating+lobby+protocol.
 ## DESIGN (decided)
 - Transport boundary only. Host segments the stripped+rounded wire JSON into envelope prefix/suffix + top keys; entity arrays (all objects w/ unique id) → per-id text. Full text = concatenation (== JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer), proven by test).
 - Frame = page-unique fid (module counter). Delta vs the peer's last ACKED fid (host ring 32); keyframe = delta vs empty base. Newline-delimited text: header JSON, prefix, suffix, raw segments.

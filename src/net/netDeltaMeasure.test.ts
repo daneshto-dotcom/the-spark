@@ -77,7 +77,7 @@ describe.skipIf(!MEASURE)('S195 net-delta — A / B / A+B, measured wave by wave
         const h0 = performance.now();
         const full = JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer);
         const h1 = performance.now();
-        const segs = segmentSnapshotMessage(stripWirePrevPos(msg), wireNumberReplacer, prevSegs)!;
+        const segs: Segments = segmentSnapshotMessage(stripWirePrevPos(msg), wireNumberReplacer, prevSegs)!;
         const keyText = encodeDelta(segs, null, fid, 0);
         const deltaText = prevSegs === null ? keyText : encodeDelta(segs, prevSegs, fid, prevFid);
         const abFrame = await packFrame(deltaText, true);

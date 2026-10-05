@@ -21,7 +21,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { runHostTick } from '../state/hostTick.ts';
 import { makeWorld } from '../state/world.ts';
-import { applyNetSnapshot, netSnapshot, stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
+import { applyNetSnapshot, stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
 import { hashWorldState } from '../state/stateHash.ts';
 import { startC5Match } from '../state/c5WaveFiveBoard.fixtures.ts';
 import { HostSync } from './sync.ts';

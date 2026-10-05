@@ -125,6 +125,7 @@ describe('S191 matchBoardModel — the rules a player reads', () => {
       built: new Map(), kills: new Map(), towersBuilt: 0, towersFell: 0, dealtFifths: 0, takenFifths: 0, fellOnWave: 7,
       lost: new Map(), dealtTo: new Map(), takenUnattributed: 0, dealtKeep: 0, dealtStruct: 0, takenKeep: 0, takenStruct: 0,
       lostToEntropy: 0, // ⭐ S195 T22 — the one fixture line this tree touched outside its boundary (the field is required)
+      entropyWave: undefined, entropySnapped: 0, entropyLost: 0, // ⭐ S195 N18 (d), same reason (s195/net-delta)
     });
     w.gameState = 'POSTGAME';
     const m = matchBoardModel(w)!;

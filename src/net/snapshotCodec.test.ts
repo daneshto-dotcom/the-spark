@@ -92,8 +92,8 @@ describe('S195 codec — segmentation reproduces the legacy wire string exactly'
   it('unchanged entity texts are SHARED with the previous frame (memory, and identity-first compares)', () => {
     const a = seg(msg(board()));
     const b = seg(msg(board({ tick: 121 })), a);
-    const ta = (a.vals.get('primitives') as { texts: Map<number, string> }).texts;
-    const tb = (b.vals.get('primitives') as { texts: Map<number, string> }).texts;
+    const ta = (a.vals.get('primitives') as unknown as { texts: Map<number, string> }).texts;
+    const tb = (b.vals.get('primitives') as unknown as { texts: Map<number, string> }).texts;
     expect(tb.get(1)).toBe(ta.get(1));
   });
 
