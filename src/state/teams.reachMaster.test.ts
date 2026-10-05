@@ -6,8 +6,8 @@
  * teams branch's base, and `git merge master` brought them in still asking "is this the SAME SEAT?":
  *
  *   1. `raColumnTargets` (`racial/raColumn.ts`) — the POWER OF RA / WRATH OF RA column;
- *   2. the PHARAOH BOSS's column, which "spares nobody" — ⚠ MINE: his own seat still burns, his TEAMMATES
- *      do not (the zombie boss's R138 posture, spec Q5);
+ *   2. the PHARAOH BOSS's column — S193 ⚠ MINE: his own seat still burned, his TEAMMATES did not (spec Q5).
+ *      ⭐ S195 B-25 (owner, RULED): his OWN SIDE is spared too, aligned with R193-B3 — re-pinned below;
  *   3. `planHubBlast` (`potatoLifecycle.ts`) — the lightning hub's 120-fifth split blast;
  *   4. `damageStinkCloud`'s R2-C second spare — a bag the hub pops bursts without hitting the hub owner;
  *   5. `botScorchTarget` (`bots/botScorchedEarth.ts`) — the bot would aim its once-a-FIGHT scorch at a
@@ -127,7 +127,7 @@ describe('S193 — 1 · the POWER OF RA column (raColumnTargets) through the REA
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
-describe('S193 — 2 · ⚠ MINE — the PHARAOH BOSS column "spares nobody" … except his seat’s TEAMMATES', () => {
+describe('S193 — 2 · the PHARAOH BOSS column — ⭐ S195 B-25 (owner): spares his OWN SIDE, seat and teammates alike', () => {
   function ritualColumn0(teams: (number | undefined)[]): { own: CreatureId; mate: CreatureId; foe: CreatureId; w: World } {
     const w = fourSeat(teams);
     const d = deps();
@@ -154,18 +154,19 @@ describe('S193 — 2 · ⚠ MINE — the PHARAOH BOSS column "spares nobody" …
     return { own, mate, foe, w };
   }
 
-  it('⛔ his own seat still burns (R171 "kills everything"), his TEAMMATE does not (R192-T1), the enemy does', () => {
+  it('⭐⭐ S195 B-25 (RE-PINNED, REACH through runHostTick) — his own seat AND his teammate are spared; the enemy takes the whole column', () => {
     const { own, mate, foe, w } = ritualColumn0([0, 0, 1, 1]);
-    expect(lost(w, mate), 'teammates never damage each other').toBe(0);
-    expect(lost(w, own), 'his own side is not spared').toBeGreaterThan(0);
-    expect(lost(w, foe)).toBeGreaterThan(0);
-    expect(lost(w, own) + lost(w, foe), 'two targets share the one column (the teammate is not counted)').toBe(RA_PERK_STRIKE_FIFTHS);
+    expect(lost(w, mate), 'teammates never damage each other (R192-T1)').toBe(0);
+    expect(lost(w, own), 'B-25: his own side is spared (R193-B3 alignment)').toBe(0);
+    expect(lost(w, foe), 'the one enemy in the circle takes the whole column').toBe(RA_PERK_STRIKE_FIFTHS);
   });
 
-  it('CONTROL — in a free-for-all all three take a share (byte-identical to master: spare nobody)', () => {
+  it('CONTROL (B-25) — in a free-for-all his own unit is spared and the two ENEMIES split the column', () => {
     const { own, mate, foe, w } = ritualColumn0(FFA);
-    for (const id of [own, mate, foe]) expect(lost(w, id)).toBeGreaterThan(0);
-    expect(lost(w, own) + lost(w, mate) + lost(w, foe)).toBe(RA_PERK_STRIKE_FIFTHS);
+    expect(lost(w, own), 'his own seat, spared in FFA too').toBe(0);
+    expect(lost(w, mate), 'seat 1 is an enemy in a free-for-all').toBeGreaterThan(0);
+    expect(lost(w, foe)).toBeGreaterThan(0);
+    expect(lost(w, mate) + lost(w, foe), 'two enemies share the one column').toBe(RA_PERK_STRIKE_FIFTHS);
   });
 
   it('the pure planner: `alliesOf` drops ONLY the teammate; `null` is master’s "spare nobody"', () => {
@@ -179,7 +180,8 @@ describe('S193 — 2 · ⚠ MINE — the PHARAOH BOSS column "spares nobody" …
     expect(ids(null)).toEqual([own, mate, foe].map(Number));
     // and the perk's `spare` spares the caster's whole team
     expect(raColumnTargets(w, P[0]!, at).map((t) => t.id)).toEqual([foe].map(Number));
-    // landRaColumn REQUIRES the field (tsc) and threads it: the boss source on this board
+    // landRaColumn REQUIRES the field (tsc) and threads it. (⚠ Since S195 B-25 NO production source passes a
+    // non-null `alliesOf` — the Pharaoh's is `spare: his seat` — this exercises the planner's API only.)
     expect(landRaColumn(w, { spare: null, alliesOf: P[0]!, owner: P[0]!, severCause: 'unit' }, at)).toBe(RA_PERK_STRIKE_FIFTHS);
     expect(lost(w, mate)).toBe(0);
   });

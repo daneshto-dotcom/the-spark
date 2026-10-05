@@ -16,7 +16,7 @@
  * counts the config derivations left in the tree, so a new arm cannot quietly re-derive.
  */
 import { blastHitAtDistance } from '../blastFalloff.ts'; // S193 R193-B4
-import { DRONE_EXPLODE_RADIUS, GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
+import { GOBLIN_SUICIDE_BLAST_RADIUS } from '../../constants.ts';
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLORS, PRIMITIVE_MAX_HP, STINK_BAG_RADIUS, SparkType } from '../../constants.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
@@ -272,11 +272,9 @@ describe('⛔ …and the three strikes that live outside it', () => {
       dispatch(w, { type: 'DRONE_EXPLODE', creatureId: drone.id });
       return DEEP - bag.ehp;
     });
-    // ⭐ S193 R193-B4 — the bag is 20 px from the drone: its own strike scaled by distance.
-    expect(r).toEqual({
-      drafted: blastHitAtDistance(draftedStrike('lightningDrone'), 400, DRONE_EXPLODE_RADIUS),
-      plain: blastHitAtDistance(typeStrike('lightningDrone'), 400, DRONE_EXPLODE_RADIUS),
-    });
+    // ⭐ S193 R193-B4 scaled the strike by distance (20 px → 27 of 30). ⭐ S195 B-10 (owner) — ONE POOL, SPLIT: the
+    // bag is the only thing in the radius, so it takes the WHOLE pool — the drone's own (drafted) strike.
+    expect(r).toEqual({ drafted: draftedStrike('lightningDrone'), plain: typeStrike('lightningDrone') });
     expect(r.drafted).toBeGreaterThan(r.plain);
   });
 });

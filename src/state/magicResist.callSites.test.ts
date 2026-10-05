@@ -138,10 +138,12 @@ describe('S192 — the attack-class census of every production damage call', () 
   // connector overkill carry (`severWithCarry`).
   // ⭐ S193 (zombies merge) — 35 → 37: the zombie boss DEATH BLAST (`racial/zombieDeathBlast.ts`, a split pool,
   // physical — R192-M3 "blows up"). `falloff` (R193-B4) rides AFTER `cls` on the radial funnel, so slot 8 is still the class.
-  it('finds all 37 sites (21 + 9 + 7) and every one names a class this file recognises', () => {
-    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(21);
+  // ⭐ S195 B-10 — 21 + 9 + 7 → 22 + 9 + 6: the drone's splash left the radial helper for a split pool paid through
+  // `damageEntity` (physical, unchanged class).
+  it('finds all 37 sites (22 + 9 + 6) and every one names a class this file recognises', () => {
+    expect(sites.filter((s) => s.funnel === 'damageEntity').length).toBe(22);
     expect(sites.filter((s) => s.funnel === 'damageConnector').length).toBe(9);
-    expect(sites.filter((s) => s.funnel === 'radial').length).toBe(7);
+    expect(sites.filter((s) => s.funnel === 'radial').length).toBe(6);
     expect(sites.filter((s) => s.cls === 'OTHER'), 'an unrecognised class argument — decide and pin it').toEqual([]);
   });
 
@@ -185,7 +187,7 @@ describe('S192 — the attack-class census of every production damage call', () 
       'src/state/world.ts damageConnector physical': 1, // raid on a connector
       'src/state/creatures/suicideBlast.ts radial physical': 1,
       'src/state/creatures/suicideBlast.ts damageConnector physical': 1,
-      'src/state/droneLifecycle.ts radial physical': 1,
+      'src/state/droneLifecycle.ts damageEntity physical': 1, // ⭐ S195 B-10 — the split-pool share (was a radial call)
       'src/state/damage.ts radial physical': 1, // a landed bag bursting
       'src/state/damage.ts damageConnector physical': 1, // the overkill carry — already-landed damage, never re-rescaled
       'src/state/potatoLifecycle.ts damageConnector physical': 1, // the hub self-destruct LADDER blast (S191 C-5)

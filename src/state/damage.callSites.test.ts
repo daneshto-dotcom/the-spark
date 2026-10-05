@@ -123,7 +123,8 @@ describe('S183 — the damageEntity call-site census', () => {
     // ⭐ S191 +2: SCORCHED EARTH's lone-shape and stink-bag arms (null — the same burning ground).
     // ⭐ S192 +1: the HELGA arm (owner: she is NOT immune) — null, the same burning ground.
     // ⭐ S192 (zombies) +1: the zombie death blast (null attacker, explicit KillCredit).
-    expect(sites.length).toBe(21);
+    // ⭐ S195 B-10 +1: the drone's split-pool share (a seat — the drone's owner, nobody to turn on).
+    expect(sites.length).toBe(22);
     expect(sites.every((s) => s.file.startsWith('src/state/'))).toBe(true);
   });
 
@@ -147,7 +148,7 @@ describe('S183 — the damageEntity call-site census', () => {
     // helper). ⭐ S193 BLAST-2 — and every area sweep names its seat too (the hub blast, the Ra column's
     // split share, SCORCHED EARTH's four arms, the zombie boss's death blast — which also passes his
     // explicit KillCredit). NO `null` IS LEFT: every hit has a seat to credit.
-    expect(seated.length).toBe(10);
+    expect(seated.length).toBe(11); // S195 B-10 — + the drone's split share
     expect(forwarded.length).toBe(3);
     expect(nulled.length).toBe(0);
   });
@@ -173,6 +174,7 @@ describe('S183 — the damageEntity call-site census', () => {
     // ⭐ S191 — a SEAT: still nobody to turn on (a keep, the untargetable avatar), but a seat to credit.
     expect(tally((s) => s.attacker.includes("kind: 'seat'"))).toEqual({
       'src/state/castleGuns.ts': 1, // a KEEP is not an entity — but it is a seat
+      'src/state/droneLifecycle.ts': 1, // ⭐ S195 B-10 — the drone's split-pool share: its owner's seat (was `blastBy` via applyRadialDamage)
       'src/state/potatoLifecycle.ts': 1, // ⭐ S193 BLAST-2 — the lightning hub's 120-fifth blast: the hub's owner
       'src/state/racial/raColumn.ts': 1, // ⭐ S193 BLAST-2 — a Ra column's split share: the caster / the Pharaoh's seat
       // ⭐ S193 BLAST-2 — burning ground: the perk's seat (passive) or the caster. The creature arm, the Helga
