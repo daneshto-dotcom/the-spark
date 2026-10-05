@@ -1,9 +1,9 @@
 # S195 PROGRESS — s195/rules-2 (sim rulings B-9, B-10, B-25/30, B-31, B-32, N11)
 
-NEXT STEP: A (B-9 chewer gnaws the keep): creatureLifecycle.ts chewer ATTACKING arm — stay in ATTACKING when targetBondId is null but enemyCastleInReach; re-pin chewerDroneTargets.test.ts 'keepLost' to the real number.
+NEXT STEP: B (B-10 drone splash = ONE pool of 30 split by distance like the hub): rewrite applyDroneExplode's applyRadialDamage call into a planHubBlast-style split over units + killable defenders + shapes (⚠ MINE: shapes share the pool); re-pin lightningDrone.test.ts S160 cases; census test (blastFalloff.census) rows.
 
 ## Status per item
-- A B-9 chewer attacks keep — NOT STARTED
+- A B-9 chewer attacks keep — DONE (34e5b2b + canon). FSM `onKeep` hold in creatureLifecycle chewer arm; bite = attackFifths(1,2)=7 per 60 ticks through the castle arm; keep LAST (lets go when any enemy connector exists, bond handed over directly); engage clause: a chewer HOLDING a bond is not castle-engaged (latent stuck state, now reachable). Re-pinned 0 → 16×7=112 in chewerDroneTargets; new chewerKeep.test.ts (arith + REACH + 2 negatives + control). Mutant (onKeep forced false) → see log mut-A. Benign: endgameAudit.test.ts 20 s timeout under load, alone = exit 0 (18/18).
 - B B-10 drone splash one pool — NOT STARTED
 - C B-32 Corpse Eater loop — NOT STARTED
 - D B-31 welded TV summons — DONE (27ef3bf); mutants M1/M2/M3 → 3/2/1 red ✓ (code + tests + canon row + pin). isIsolatedVoltkinChain DELETED; ignition reads standingVoltkinTvs + tvsOwedAVoltkin + isTvPlayingNow (identity). ⚠ MINE: overlapping 8-paths = ONE TV (greedy disjoint). Mutant M1 (owed check dropped) → 3 red ✓. ⚠ Lesson: `git checkout` during mutation reverted my own uncommitted edits once — redone, now committed first.
