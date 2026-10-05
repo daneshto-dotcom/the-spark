@@ -30,7 +30,7 @@
  *     SAW were real — hubs do explode at the whistle — but they are a CONSEQUENCE of H1, not a cause. H2 OUT as
  *     a cause, IN as the visual.
  *   · no other edge hook removes a bond or a shape at the BUILD→FIGHT edge (enumerated below). H3 OUT.
- *   · the loss is byte-identical with `world.teams` = [0,1,1] and with teams off (FFA). H4 OUT.
+ *   · the loss (every census, every count) is identical with `world.teams` = [0,1,1] and with teams off (FFA). H4 OUT.
  */
 import { describe, expect, it } from 'vitest';
 import './godlyRecipes/registerAll.ts';
@@ -54,7 +54,6 @@ import { makeHostTickState, runHostTick, type HostTickDeps } from './hostTick.ts
 import { mulberry32 } from './rng.ts';
 import { sampleBuilt } from './matchStats.ts';
 import { makeBond } from './placePrimitive.ts';
-import { hashWorldStateFull } from './stateHashFull.ts';
 import { sameTeam } from './teams.ts';
 import { standingVoltkinTvs } from './voltkinTv.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
@@ -88,7 +87,6 @@ const TOWER_MIX: readonly GodlyId[] = ['lightningHub', 't3TowerNagas', 'voltkin'
 
 interface Quadrant {
   readonly towers: Array<{ id: GodlyId; prims: PrimitiveId[] }>;
-  readonly welds: BondId[];
 }
 
 /**
@@ -227,8 +225,6 @@ interface WhistleReport {
   after: Census;
   /** The board `FIGHT_SETTLE_TICKS` later — the hubs whose recipe a snap broke have self-destructed by now. */
   settled: Census;
-  /** Connectors lost by the owner to a hub blast (cause 'drone'), over the whole window. */
-  settleDroneSevers: number;
   /** Severs in the window by any cause other than 'entropy' / 'drone' — physics, creature, raid … must be 0. */
   otherSevers: number;
   planned: number;
@@ -236,8 +232,8 @@ interface WhistleReport {
   droneSevers: number;
   blasts: number;
   hubsBefore: number;
+  /** Connectors lost by the owner to a hub blast (cause 'drone'), over the whole window. */
   seat0DroneSevers: number;
-  hash: string;
 }
 
 /** 2 s of FIGHT after the whistle — long enough for every spawner poll to revalidate a broken hub recipe. */
@@ -284,11 +280,9 @@ function whistle(w: World): WhistleReport {
     entropySevers: severs.filter((e) => e.cause === 'entropy').length,
     droneSevers: severs.filter((e) => e.cause === 'drone').length,
     seat0DroneSevers: severs.filter((e) => e.cause === 'drone' && e.victim === P0).length,
-    settleDroneSevers: severs.filter((e) => e.cause === 'drone' && e.victim === P0).length,
     otherSevers: severs.filter((e) => e.cause !== 'entropy' && e.cause !== 'drone').length,
     blasts: fx.filter((e) => e.kind === 'BOMB_EXPLODE').length,
     hubsBefore,
-    hash: hashWorldStateFull(w),
   };
 }
 
