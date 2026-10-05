@@ -229,6 +229,8 @@ interface WhistleReport {
   settled: Census;
   /** Connectors lost by the owner to a hub blast (cause 'drone'), over the whole window. */
   settleDroneSevers: number;
+  /** Severs in the window by any cause other than 'entropy' / 'drone' — physics, creature, raid … must be 0. */
+  otherSevers: number;
   planned: number;
   entropySevers: number;
   droneSevers: number;
@@ -283,6 +285,7 @@ function whistle(w: World): WhistleReport {
     droneSevers: severs.filter((e) => e.cause === 'drone').length,
     seat0DroneSevers: severs.filter((e) => e.cause === 'drone' && e.victim === P0).length,
     settleDroneSevers: severs.filter((e) => e.cause === 'drone' && e.victim === P0).length,
+    otherSevers: severs.filter((e) => e.cause !== 'entropy' && e.cause !== 'drone').length,
     blasts: fx.filter((e) => e.kind === 'BOMB_EXPLODE').length,
     hubsBefore,
     hash: hashWorldStateFull(w),
@@ -355,6 +358,8 @@ describe('⭐⭐ S195 fight-wipe — the owner\'s 1v2 wave-8 quadrant, crossed t
       expect(lost, 'connectors lost ≥ connectors snapped').toBeGreaterThanOrEqual(r.entropySevers);
       // H4 — a hub blast at the whistle never cut one of the owner's own connectors (owner + team spared)
       expect(r.seat0DroneSevers).toBe(0);
+      // H3 — nothing else severed anything in the window: no physics, creature, raid or player cut
+      expect(r.otherSevers).toBe(0);
     }
     console.log(['⭐ S195 fight-wipe — H1 measured through runHostTick (1v2, seat 0 Nagas, wave 8):', ...rows].join('\n'));
     console.log(`  TOTAL: ${sumSnapped} snapped → ${sumLost} lost of ${sumBefore} at the whistle (${pct(sumLost, sumBefore)} %), ${sumSettled} (${pct(sumSettled, sumBefore)} %) once the broken hubs have blown; split multiplier ×${(sumLost / sumSnapped).toFixed(2)} (×${(sumSettled / sumSnapped).toFixed(2)} with the hubs); worst board ${worstLossPct.toFixed(1)} %`);
@@ -389,7 +394,9 @@ describe('⭐⭐ S195 fight-wipe — the owner\'s 1v2 wave-8 quadrant, crossed t
     }
     console.log(`⭐ S195 fight-wipe — H2: ${hubsBefore} hubs ignited before the whistle, ${hubsAfter} standing 2 s into the FIGHT; ${blasts} hub blasts fired in that window; connectors cut by a blast: ${droneSevers} (seat 0: ${seat0DroneSevers})`);
     expect(blasts, 'the explosions he saw are real: a snapped hub arm breaks the recipe and the hub detonates').toBeGreaterThan(0);
-    expect(blasts, 'one blast per hub that fell, no chain beyond that').toBe(hubsBefore - hubsAfter);
+    // a hub whose Dot itself went with a split side is REMOVED without a blast (`dying === undefined`); only a hub
+    // still standing on a broken recipe detonates — so blasts ≤ hubs fallen, and never a blast per blast (no chain)
+    expect(blasts).toBeLessThanOrEqual(hubsBefore - hubsAfter);
     expect(droneSevers, 'but nobody\'s connector fell to a hub blast — no enemy is in range, and the owner\'s side is spared').toBe(0);
     expect(seat0DroneSevers).toBe(0);
   });
@@ -417,6 +424,26 @@ describe('⭐⭐ S195 fight-wipe — the owner\'s 1v2 wave-8 quadrant, crossed t
       expect(a.entropySevers).toBe(b.entropySevers);
       expect(a.blasts).toBe(b.blasts);
     }
+  });
+
+  it('THE TABLE — n connectors → the canon\'s snap % and the REALISED loss % on a welded quadrant of real towers (owner-facing)', () => {
+    const rows: string[] = ['| towers | n | chance/connector | snapped (canon) | lost at the whistle | lost +2 s (hubs blown) | towers lost |', '|---|---|---|---|---|---|---|'];
+    const seeds = [1, 2, 3, 4];
+    for (const towers of [4, 8, 14, 20, 30]) {
+      let n = 0, snapped = 0, lost = 0, settled = 0, towersBefore = 0, towersAfter = 0;
+      for (const seed of seeds) {
+        const r = whistle(ownersBoard(seed, WAVE, ROSTER_1V2, towers));
+        n += r.before.connectors; snapped += r.entropySevers;
+        lost += r.before.connectors - r.after.connectors; settled += r.before.connectors - r.settled.connectors;
+        towersBefore += r.before.spawners + r.before.defenders + r.before.tvs;
+        towersAfter += r.settled.spawners + r.settled.defenders + r.settled.tvs;
+      }
+      const nAvg = n / seeds.length;
+      rows.push(`| ${towers} | ${nAvg} | ${(entropyChance(Math.round(nAvg)) * 100 / ENTROPY_SCALE).toFixed(1)} % | ${pct(snapped, n)} % | ${pct(lost, n)} % | ${pct(settled, n)} % | ${towersBefore - towersAfter} of ${towersBefore} |`);
+      if (nAvg <= 10) { expect(snapped).toBe(0); expect(lost).toBe(0); }
+      else expect(lost).toBeGreaterThanOrEqual(snapped);
+    }
+    console.log(['⭐ S195 fight-wipe — THE TABLE (4 seeds each, wave 8, 1v2):', ...rows].join('\n'));
   });
 
   it('H1 control — the S194 lattice (cycle-rich, 65 shapes / 145 connectors) loses ≈ its snaps: the multiplier is TOPOLOGY, not a bug in the roll', () => {
