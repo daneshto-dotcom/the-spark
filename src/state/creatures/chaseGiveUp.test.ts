@@ -412,52 +412,60 @@ describe('S192 T6 — REACH, through the real host tick', () => {
 
   /**
    * ⭐⭐ S195 N11 — HIS SCENE, through the real host tick: four seat-0 SCARABS at home (`maxAccel` 105) while a
-   * seat-1 CHEWER (120) crosses their zone toward a connector of theirs FAR from them. Before N11 (ratio
-   * 1.25, home engaged regardless) they chased it the whole way — *"far too long until a stink tower killed
-   * it"*. Now none locks on it beyond reach + slack; the CONTROL flies the same chewer straight through them.
+   * seat-1 CHEWER (120) hops INSIDE their acquire radius toward a connector of theirs that is NEARER TO IT than
+   * they are to it — so they cannot get ahead of it (intercept infeasible) — and then SITS on that connector.
+   * Before N11 (ratio 1.25: 120 ≤ 131 "catchable") they locked on it the whole way — *"far too long until a
+   * stink tower killed it"*. Now: 0 locks while it hops; once it sits gnawing (pathless, at home, going
+   * nowhere) they engage it — it is attacking their structure and is not getting away.
+   * Geometry (worked): scarabs at (500, 500), the chewer from (620, 320) west to (500, 320) — 216 px away at
+   * start (inside `GOBLIN_UNIT_ACQUIRE_RADIUS` 220), its path 120 px; the nearest point of that path to the
+   * scarabs is its goal, 180 px north of them: chaserTravel (180 − reach ≈ 55) × 120 > quarryTravel 120 × 105.
    * ⚠ The chewer's flight is SCRIPTED (as the drone's is in the fly-bys); the scarabs run the unmodified tick.
    */
   const CHEWER_CRUISE_PX_PER_TICK = 1.96; // 120 / 240 of the drone's measured 3.92
-  function scarabsVsChewer(pathY: number): { farLocks: number; anyLocks: number } {
+  function scarabsVsChewer(): { locksMoving: number; locksSitting: number; movingTicks: number } {
     const w = board();
     const scarabs: CreatureId[] = [];
-    for (let i = 0; i < 4; i++) scarabs.push(put(w, 0, 't3Scarab', { x: 500 + 25 * i, y: 500 }, { x: 500 + 25 * i, y: 500 }).id);
-    const reach = engageRange(CREATURE_CONFIGS.t3Scarab) + CHASE_GIVEUP_SLACK_PX;
-    const start = { x: 930, y: pathY }; // just inside seat 0's zone (the border is at 960), heading west
-    const goal = { x: 150, y: pathY }; // "its target": a connector deep in seat 0's zone
+    for (let i = 0; i < 4; i++) scarabs.push(put(w, 0, 't3Scarab', { x: 480 + 15 * i, y: 500 }, { x: 480 + 15 * i, y: 500 }).id);
+    const start = { x: 620, y: 320 };
+    const goal = { x: 500, y: 320 }; // "its target": a connector of theirs, 120 px ahead of it
+    expect(Math.hypot(start.x - 500, start.y - 500), 'fixture: inside the acquire radius from the first tick').toBeLessThan(GOBLIN_UNIT_ACQUIRE_RADIUS);
     const chewer = put(w, 1, 'chewer', start, goal);
     const d = deps();
     const s = makeHostTickState(w);
-    let farLocks = 0;
-    let anyLocks = 0;
-    for (let t = 0; t < 400; t++) {
+    let locksMoving = 0;
+    let locksSitting = 0;
+    let movingTicks = 0;
+    for (let t = 0; t < 300; t++) {
+      const x = Math.max(goal.x, start.x - CHEWER_CRUISE_PX_PER_TICK * t);
+      const moving = x - goal.x >= 1; // the rule's own line: a path under a pixel is "no path" (`quarryHasPath`)
       if (w.creatures.has(chewer.id)) {
-        const x = Math.max(goal.x, start.x - CHEWER_CRUISE_PX_PER_TICK * t);
-        chewer.prevPos.x = x + CHEWER_CRUISE_PX_PER_TICK; chewer.prevPos.y = pathY;
-        chewer.pos.x = x; chewer.pos.y = pathY;
-        chewer.targetPos.x = goal.x; chewer.targetPos.y = goal.y;
+        chewer.prevPos.x = moving ? x + CHEWER_CRUISE_PX_PER_TICK : x; chewer.prevPos.y = start.y;
+        chewer.pos.x = x; chewer.pos.y = start.y;
+        chewer.targetPos.x = goal.x; chewer.targetPos.y = goal.y; // at the goal this is "no path" — it sits and gnaws
+        chewer.ehp = 1_000_000; // held on the board: this measures what the scarabs AIM at
       }
       runHostTick(w, d, s);
       for (const id of [...w.creatures.keys()]) if (!scarabs.includes(id) && id !== chewer.id) w.creatures.delete(id);
+      if (moving) movingTicks++;
       for (const id of scarabs) {
         const me = w.creatures.get(id);
         if (me === undefined || me.targetCreatureId !== chewer.id) continue;
-        anyLocks++;
-        const dist = Math.sqrt((chewer.pos.x - me.pos.x) ** 2 + (chewer.pos.y - me.pos.y) ** 2);
-        if (dist > reach + 5) farLocks++;
+        if (moving) locksMoving++; else locksSitting++;
       }
     }
-    return { farLocks, anyLocks };
+    return { locksMoving, locksSitting, movingTicks };
   }
 
-  it('⭐⭐ S195 N11 REACH — his scarabs do not chase a chewer crossing their zone that they cannot cut off', () => {
-    const far = scarabsVsChewer(150); // 350 px north of them: it is past before they could ever get ahead of it
-    expect(far.farLocks, 'ticks a scarab spent locked on a chewer it could not catch').toBe(0);
+  it('⭐⭐ S195 N11 REACH — his scarabs do not chase a chewer they cannot cut off before it reaches its connector…', () => {
+    const r = scarabsVsChewer();
+    expect(r.movingTicks, 'anti-vacuity: the chewer really hopped ~61 ticks').toBeGreaterThan(50);
+    expect(r.locksMoving, 'scarab-ticks locked on a chewer they could not catch (S192 ratio 1.25 locked all of them)').toBe(0);
   });
 
-  it('CONTROL — the same chewer flying straight through them IS taken (intercept / reach)', () => {
-    const through = scarabsVsChewer(500);
-    expect(through.anyLocks, 'anti-vacuity: a catchable chewer is still chased').toBeGreaterThan(0);
+  it('…and DO engage it once it sits gnawing their connector at home — going nowhere, not getting away', () => {
+    const r = scarabsVsChewer();
+    expect(r.locksSitting, 'anti-vacuity + the stationary-at-home rule').toBeGreaterThan(0);
   });
 
   /**
