@@ -144,7 +144,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'state/defenders/defenderLifecycle.ts': 2,
   'state/defenders/stinkTower.ts': 1,
   'state/disruptionManager.ts': 1,
-  'state/droneLifecycle.ts': 2,
+  'state/droneLifecycle.ts': 5, // ⭐ S195 B-10 — + `planDroneSplash`: the three arms of the split pool spare the drone's TEAM (sameTeam)
   'state/gameMode.ts': 1,
   'state/gameState.ts': 1,
   'state/magicResistCue.ts': 3, // S194 — the RESIST cue mirrors the sim's team spare (rot, stink aura, bag)

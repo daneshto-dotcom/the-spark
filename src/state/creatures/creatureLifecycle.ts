@@ -44,7 +44,8 @@ import {
   isChannellingRa,
 } from './creature.ts';
 import { CREATURE_CONFIGS, getCreatureConfig } from './voltkin-config.ts';
-import { distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
+import { bondMidpoint, distSq, enemyCastleInReach, engageRange, enemyStinkCloudInReach, findNearestBondTarget, isWithinAttackRange, isWithinAttackRangeOfCreature, killableDefenderInReach } from './creatureAI.ts';
+import { castleAnchor } from '../gatherers/gatherer.ts'; // ⭐ S195 B-9 — the keep the chewer gnaws
 import {
   CHEW_INTERVAL_TICKS,
   CHEWER_MAX_GLOBAL,
@@ -961,7 +962,13 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
    *
    * Derived from position like the strike itself, so it costs no creature field.
    */
-  const castleInReach = enemyCastleInReach(world, creature, engageRange(config)) !== null;
+  // ⭐ S195 B-9 — A CHEWER THAT HOLDS A CONNECTOR IS NOT CASTLE-ENGAGED. In ATTACKING a creature coasts, so a
+  // chewer committed to a far bond while standing in a keep's reach used to sit there, striking at a bond out
+  // of range (refused) and never walking to it — latent before S195, reachable now that the keep is gnawed and
+  // let go of the moment a connector exists (its chewer arm hands it that bond; this lets it WALK there).
+  const castleInReach =
+    enemyCastleInReach(world, creature, engageRange(config)) !== null &&
+    !(config.chewsConnectors && creature.targetBondId !== null);
 
   /*
    * ⭐ S158 P7 (CF-S157-c) — AND HELGA, for exactly the reason the castle term above exists.
@@ -1011,6 +1018,62 @@ export function applyCreatureTick(world: World, action: CreatureTickAction): Wor
   //      severed it. No `despawnAtTick`/cadence bounce: persistent + commit-to-bond.
   if (config.chewsConnectors) {
     if (creature.state === 'ATTACKING') {
+      /*
+       * ⭐⭐ S195 B-9 (owner, RULED — REVERSES the S194 T8 recommendation) — **THE CHEWER GNAWS THE KEEP.**
+       *
+       * > *"he attacks all the towers, and then when there's nothing, then he goes to the keep."* — owner, S195
+       *
+       * ⛔ WHAT WAS WRONG. With no enemy connector left, `hostTick`'s S157 B5 fallback marched the chewer to
+       * the enemy keep and the engage predicate (`castleInReach`) put it in ATTACKING — and THIS arm released
+       * it on the very next tick, because a chewer on a keep has no bond (`targetBondId === null`). It
+       * bounced SEEKING ↔ ATTACKING with `ticksInState` never passing 1, so `hostTick`'s fire gate (a bite
+       * every `CHEW_INTERVAL_TICKS`) never fired: measured 0 keep hits in 600 ticks parked on it
+       * (`chewerDroneTargets.test.ts`, pinned at 0 until this commit). The strike path itself was already
+       * there — `applyCreatureAttack`'s castle arm, `creatureAttackFifths` on the one ladder — four sites
+       * built, the fifth (the HOLD) missing. This is that fifth site.
+       *
+       * THE RULE: with NO bond and an enemy keep in reach, the chewer stays in ATTACKING and gnaws on its
+       * ordinary cadence; each bite is `hostTick`'s `CREATURE_ATTACK` with `bondId: null` → the castle arm →
+       * `attackFifths(CHEWER_ATK 1, CHEWER_PEN 2)` = 7 fifths against the one off-ladder pool (2500, canon §3),
+       * after the keep's bought DEF. ⛔ THE KEEP IS STILL LAST: on every bite tick it first asks whether any
+       * enemy connector exists anywhere (`findNearestBondTarget(…, enemyOnly)` — the same question that sent
+       * it here when the answer was "none"), and if one does it releases to SEEKING instead of biting, so a
+       * rebuilt tower pulls it off the keep. A chewer whose COMMITTED bond vanished (non-null id, bond gone)
+       * still takes the release below and re-seeks, exactly as before.
+       */
+      const onKeep =
+        creature.targetBondId === null &&
+        enemyCastleInReach(world, creature, engageRange(config)) !== null;
+      if (onKeep) {
+        if (creature.ticksInState === CHEW_INTERVAL_TICKS * (creature.chewProgress + 1)) {
+          const elsewhere = findNearestBondTarget(world, creature, true);
+          if (elsewhere !== null) {
+            // Something to chew exists again — the keep is last, so let go and go chew it. The bond is
+            // handed over HERE (not left to `hostTick`'s phase-slotted reselect): SEEKING lasts one tick
+            // before the keep would re-engage it, and that slot almost never falls on that tick.
+            creature.chewProgress = 0;
+            creature.state = 'SEEKING';
+            creature.ticksInState = 0;
+            creature.targetBondId = elsewhere;
+            const bond = world.bonds.get(elsewhere);
+            if (bond !== undefined) {
+              const mid = bondMidpoint(bond);
+              creature.targetPos.x = mid.x;
+              creature.targetPos.y = mid.y;
+            }
+            return world;
+          }
+          creature.chewProgress++;
+          const seat = enemyCastleInReach(world, creature, engageRange(config));
+          if (seat !== null) {
+            const a = castleAnchor(seat as unknown as number, world.layout);
+            // Host-local graphite-dust bite at the keep (Layer 7 renders it) — the same effect as a bond
+            // bite; `hostTick` lands the real `CREATURE_ATTACK` on this same tick.
+            world.effects.push({ kind: 'CHEW_BITE', tick: world.tick, pos: { x: a.x, y: a.y }, creatureId: creature.id });
+          }
+        }
+        return world;
+      }
       // Bond gone (severed by the final chew elsewhere, by another actor, or
       // physics) → release the commit and re-seek next tick.
       if (creature.targetBondId === null || !world.bonds.has(creature.targetBondId)) {

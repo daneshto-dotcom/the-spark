@@ -208,16 +208,16 @@ describe('S192 — ⭐⭐ REACH: the Pharaoh BOSS\'s column, through the real ho
     expect(10_000 - w.creatures.get(b)!.ehp).toBe(17);
   });
 
-  it('⭐ he still spares NOBODY — his own seat\'s unit takes a share, and a structure is ONE target', () => {
+  it('⭐ S195 B-25 (RE-PINNED) — he spares his OWN SIDE: his unit takes nothing, and the enemy structure is ONE target for the whole 35', () => {
     const { w, d, s, pos } = bossColumn0(false, P0);
     const own = victim(w, P0, pos.x, pos.y);
     place(w, own, pos);
     const tower = hub(w, P1, { x: pos.x + 40, y: pos.y });
     runHostTick(w, d, s);
-    const shares = raSplitShares(RA_PERK_STRIKE_FIFTHS, 2);
-    expect(10_000 - w.creatures.get(own)!.ehp, 'his OWN seat\'s unit is hit (spares nobody, unchanged)').toBe(shares[0]);
-    expect(banked(w, tower), 'the enemy hub: one share, on one connector').toBe(shares[1]);
+    expect(10_000 - w.creatures.get(own)!.ehp, 'B-25: his OWN seat\'s unit is spared').toBe(0);
+    expect(banked(w, tower), 'the enemy hub: the whole column, on one connector').toBe(RA_PERK_STRIKE_FIFTHS);
     expect(tower.every((id) => w.bonds.has(id)), 'a 50-pool hub stands').toBe(true);
+    void raSplitShares;
   });
 
   it('⭐⭐ a WRATH seat\'s Pharaoh: 75 IN TOTAL — 38 / 37 between two victims', () => {

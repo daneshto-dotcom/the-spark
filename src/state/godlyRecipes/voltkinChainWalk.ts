@@ -83,8 +83,8 @@ export function walkChain(
  * bond list sorted ascending, de-duplicated by member set exactly as the renderer's is, and returned
  * sorted by that member set (ascending ids, compared element by element).
  *
- * ⚠ READ-ONLY, and no isolation test of its own (it is the walk, like the renderer's). The wave
- * census filters it through `isIsolatedVoltkinChain` below, so it counts what would IGNITE.
+ * ⚠ READ-ONLY. ⭐ S195 B-31 — there is no isolation test any more (see below); the wave census takes
+ * these paths DISJOINTLY in this order (`standingVoltkinTvs`), and ignition reads that same list.
  */
 export function findAllVoltkinChainsCanonical(world: World): ReadonlyArray<ReadonlyArray<PrimitiveId>> {
   const starts: PrimitiveId[] = [];
@@ -113,37 +113,20 @@ export function findAllVoltkinChainsCanonical(world: World): ReadonlyArray<Reado
   return found.map((f) => f.path);
 }
 
-/**
- * ⛔⛔ S192 audit M1 — THE S48 P4 ISOLATION TEST, ONE COPY, SHARED BY IGNITION AND THE WAVE CENSUS.
+/*
+ * ⭐⭐ S195 B-31 (owner, REVERSES S48 P4 / S192 audit M1) — **THE ISOLATION TEST IS GONE.**
  *
- * Owner, S48: *"strict 4 squares followed by 4 triangles — if you accidentally connect anything else
- * to the structure it shouldn't go off"*. Moved VERBATIM out of `voltkinPredicate` (S48 P4, Sym G):
- * every chain member must have exactly its in-chain degree (1 at the two ends, 2 in the middle) and
- * every bond it has must land on another member. That rejects an extra shape welded on, a
- * triangulated or loop-closed chain, and a blob with two 8-paths through it.
+ * > *"you should be able to weld everything on everything, and the existing … towers keep summoning
+ * > and resummoning … A TV is not different than a tier three piranha tower."* — owner, S195 (B-31)
  *
- * ⭐ MERGE-OWNER DECISION (S192 audit): **A TV RE-SUMMONS IFF IT WOULD IGNITE NOW.** Before this, the
- * census had no isolation test, so a chain that could never ignite summoned every wave and one
- * 12-shape blob counted as two TVs. ⚠ THE CONSEQUENCE, STATED: a TV with an extra shape welded on
- * stops re-summoning, exactly as it would not ignite. (Helga's R190-J revival does survive a weld —
- * the TV deliberately does not, because the TV's recipe is the strict S48 one.)
+ * `isIsolatedVoltkinChain` (S48 P4 "if you accidentally connect anything else to the structure it
+ * shouldn't go off", moved here by the S192 audit) rejected any chain member with an off-chain bond, so a
+ * TV with one shape welded on neither ignited nor re-summoned. It is RETIRED, not kept unread: the walk
+ * above is the whole recipe now, for ignition (`voltkinPredicate`) and the wave census
+ * (`standingVoltkinTvs`) alike, and the two still read ONE list. What keeps a weld from minting a
+ * second Voltkin for a TV that already has one is the census's own claim binding (`tvsOwedAVoltkin`),
+ * which ignition now consults too — see `voltkinTv.ts`.
  */
-export function isIsolatedVoltkinChain(world: World, chain: ReadonlyArray<PrimitiveId>): boolean {
-  const chainSet = new Set(chain);
-  for (let i = 0; i < chain.length; i++) {
-    const id = chain[i]!;
-    const p = world.primitives.get(id);
-    if (p === undefined) return false;
-    const expectedDegree = (i === 0 || i === chain.length - 1) ? 1 : 2;
-    if (p.bonds.size !== expectedDegree) return false;
-    for (const bondId of p.bonds) {
-      const bond = world.bonds.get(bondId);
-      if (bond === undefined) continue;
-      if (!chainSet.has(otherEndpoint(bond, id))) return false;
-    }
-  }
-  return true;
-}
 
 /**
  * ⭐ S192 audit L1 — THE ONE OWNER RULE, for ignition AND the wave census. The player whose colour is
