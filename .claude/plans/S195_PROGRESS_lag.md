@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-Post-#6 merge f823f88f: install 0, typecheck 0, vitest 0 (601 files / 9054 tests). build + e2e:gating + settings-toggles RUNNING (dm-*.exit). Then report tip for deploy #7. (A+B went to s195/net-delta — not mine.)
+READY FOR DEPLOY #7. Post-#6 merge f823f88f: install 0, typecheck 0, vitest 0 (601 files / 9054 tests), build 0 (entry 1209.2 KiB / cap 1350, 140.8 headroom), e2e:gating 0 (67 passed), settings-toggles 0 (3 passed). Nothing further owed by this tree.
 
 ## FIX ROUND FINAL
 merge cf06a64b; typecheck 0, vitest 0, build 0, e2e:gating 0, settings-toggles 0. Mutations: foul-one-end / pulse-no-cover / pattern-in-solo / colorA-out-of-hash all RED. zzAudit3 + hint-hide RED on pre-fix code, GREEN after.
