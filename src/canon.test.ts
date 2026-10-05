@@ -132,6 +132,7 @@ import {
   CHEWER_DEF,
   CHEWER_HP,
   CHEWER_PEN,
+  CHEW_INTERVAL_TICKS,
   GOBLIN_ATTACK_CADENCE_TICKS,
   GOBLIN_ATTACK_FIRE_TICK,
   GOBLIN_MAX_PER_SPAWNER,
@@ -801,6 +802,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const t of ['raceUnit', 't3Hound', 't9BossZombies'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(true);
     for (const t of ['voltkin', 'chewer', 'goblinMelee'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(false);
     expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ); // his "for like eight seconds"
+    // ⭐ S195 B-32 — the feed LOOPS (verified through runHostTick in `corpseEater.test.ts`); the canon says so.
+    expect(canonSays('S195 B-32 (owner): THE FEED IS A LOOP')).toBe(true);
+    expect(CORPSE_EATER_TICKS / getCreatureConfig('t9BossZombies').attackCadenceTicks, 'eight bites in the window').toBe(8);
     expect(canonSays(
       `\`CORPSE_EATER_TRIGGER_PCT\` = **${CORPSE_EATER_TRIGGER_PCT}** · \`CORPSE_EATER_TICKS\` = **${CORPSE_EATER_TICKS}**` +
       ` · \`CORPSE_EATER_HEAL_PCT\` = **${CORPSE_EATER_HEAL_PCT}** · \`CORPSE_EATER_LEASH_RADIUS\` = **${CORPSE_EATER_LEASH_RADIUS}** px`,
@@ -1038,18 +1042,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
 
   /* ══ S192 T16 — §5b, every TV gives its Voltkin back, every wave (s192/voltkin) ══════════════════ */
 
-  it('⭐ §5b T16 — one Voltkin per TV at FIGHT→BUILD; the census and ignition share isolation and owner', () => {
+  it('⭐ §5b T16 / S195 B-31 — one Voltkin per TV at FIGHT→BUILD; ignition reads the census list; a welded TV is a TV', () => {
     expect(VOLTKINS_PER_TV).toBe(1);
     expect(canonSays(`\`VOLTKINS_PER_TV\` = **${VOLTKINS_PER_TV}** (⚠ MINE)`)).toBe(true);
     expect(canonSays('A TV RE-SUMMONS IFF IT')).toBe(true);
     expect(canonSays('**lowest seat on a tie**')).toBe(true);
+    expect(canonSays('S195 B-31 (owner) REVERSED WHAT IGNITES')).toBe(true);
     const tv = readFileSync(new URL('./state/voltkinTv.ts', import.meta.url), 'utf8');
     const recipe = readFileSync(new URL('./state/godlyRecipes/voltkin.ts', import.meta.url), 'utf8');
+    const walk = readFileSync(new URL('./state/godlyRecipes/voltkinChainWalk.ts', import.meta.url), 'utf8');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-    // ONE isolation test and ONE owner rule, called by both sides.
-    expect(tv).toContain('if (!isIsolatedVoltkinChain(world, chain)) continue;');
-    expect(recipe).toContain('if (!isIsolatedVoltkinChain(world, chain)) {');
-    expect(recipe).toContain('const triggererId = voltkinTvOwner(world, chain);');
+    // ⭐ S195 B-31 — the isolation test is GONE (not left unread), and ignition reads the census's list and
+    // its claim binding, so both sides can only ever agree.
+    expect(walk).not.toMatch(/export function isIsolatedVoltkinChain/);
+    expect(tv).not.toContain('isIsolatedVoltkinChain(world, chain)');
+    expect(recipe).toContain('const tvs = standingVoltkinTvs(world);');
+    expect(recipe).toContain('standingVoltkinTvTouching(world, tvs, bondPos, AUTO_BOND_RADIUS)');
+    expect(recipe).toContain('if (!tvsOwedAVoltkin(world, tvs).includes(ti) || isTvPlayingNow(world, tv)) {');
+    expect(recipe).toContain('triggererPlayerId: tv.owner,');
     // The edge call sits after the recall (which would teleport a fresh Voltkin to the castle).
     expect(host).toMatch(/recallArmies\(world\);\n(?:\s*\/\/[^\n]*\n)*\s*resummonVoltkins\(world\);/);
   });
@@ -1655,12 +1665,22 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('312 blast pool, but split over, you know, everyone who')).toBe(true);
     expect(canonSays('creatures get twice as much')).toBe(true);
     expect(canonSays('It does not hit his own side')).toBe(true);
+    // ⭐ S195 B-25 — the Pharaoh's column is aligned with it: `spare` is his seat, and the canon says so.
+    expect(readFileSync(new URL('./state/bossSkillsPharaohRitual.ts', import.meta.url), 'utf8'))
+      .toContain("landRaColumn(world, { spare: boss.ownerPlayerId, alliesOf: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);");
+    expect(canonSays('S195 B-25 (owner, RULED): spare his OWN SIDE, seat')).toBe(true);
+    expect(canonSays('they now spare his own side')).toBe(true);
     expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
     expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT).toBe(2);
     expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
     expect(canonSays('take **208 / 104**')).toBe(true);
     expect(splitBlastPool(312, [blastSplitWeight(100 * 100, 380, 2), blastSplitWeight(100 * 100, 380, 1)])).toEqual([208, 104]);
     expect(canonSays('`BLAST_EDGE_FLOOR_PERCENT` = **50 %**')).toBe(true);
+    // ⭐ S195 B-10 — the drone is a SPLIT pool now, of its own strike (30), and the canon's table says so.
+    expect(canonSays('| lightning drone (`droneLifecycle.ts`) — units and shapes | **split pool 30**')).toBe(true);
+    expect(canonSays('the DRONE joined the split-pool kind')).toBe(true);
+    expect(attackFifths(DRONE_ATK, DRONE_PEN)).toBe(30);
+    expect(readFileSync(new URL('./state/droneLifecycle.ts', import.meta.url), 'utf8')).toContain('for (const t of planDroneSplash(world, cx, cy, DRONE_EXPLODE_RADIUS, drone.ownerPlayerId, blastFifths)) {');
     expect(BLAST_EDGE_FLOOR_PERCENT).toBe(50);
     expect(canonSays("the suicide goblin's 20 is 17 at 20 px")).toBe(true);
     expect(blastHitAtDistance(20, 20 * 20, 70)).toBe(17);
@@ -1852,17 +1872,37 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
   });
 });
 
+describe('S195 rules-2 — §5 B-9: the chewer gnaws the keep, last', () => {
+  it('⭐ the bite the canon quotes is the chewer\'s ladder number on its cadence, and the hold exists in the FSM', () => {
+    expect(attackFifths(CHEWER_ATK, CHEWER_PEN)).toBe(7);
+    expect(CHEW_INTERVAL_TICKS).toBe(60);
+    expect(canonSays('WITH NOTHING TO CHEW, THE CHEWER GNAWS THE KEEP')).toBe(true);
+    expect(canonSays(`\`attackFifths(CHEWER_ATK ${CHEWER_ATK}, CHEWER_PEN ${CHEWER_PEN})\` = **${attackFifths(CHEWER_ATK, CHEWER_PEN)}** fifths every \`CHEW_INTERVAL_TICKS\` (${CHEW_INTERVAL_TICKS})`)).toBe(true);
+    const fsm = readFileSync(new URL('./state/creatures/creatureLifecycle.ts', import.meta.url), 'utf8');
+    expect(fsm).toContain('const onKeep =');
+    expect(fsm).toContain("world.effects.push({ kind: 'CHEW_BITE', tick: world.tick, pos: { x: a.x, y: a.y }, creatureId: creature.id });");
+  });
+});
+
 describe('S192 units-ai — §5c is pinned to its constants', () => {
-  it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
-    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+  it('⭐ T6 / S195 N11 — the chase numbers the canon quotes are the live constants (1 and 20 px, both MINE)', () => {
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1);
     expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
-    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1.25**')).toBe(true);
+    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1**')).toBe(true);
     expect(canonSays('`CHASE_GIVEUP_SLACK_PX` = **20** px')).toBe(true);
-    // The drone outruns every chaser at 1.25 (fastest t3Bat 168 × 1.25 = 210 < 240); the chewer does not
-    // outrun the melee goblin (120 ≤ 119 × 1.25) — the two arithmetic facts the canon's reading rests on.
+    // The drone outruns every chaser (fastest t3Bat 168 < 240); ⭐ S195 N11 — the chewer (120) now outruns the
+    // melee goblin (119) and HIS scarab (105, the 1.14 that sat inside the old 1.25), not the t3Bat — the
+    // arithmetic facts the canon's reading rests on.
     expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
-    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('t3Scarab').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+    expect(canonSays('S195 N11 (owner): home is not enough any more')).toBe(true);
+    const ai = readFileSync(new URL('./state/creatures/creatureAI.ts', import.meta.url), 'utf8');
+    expect(ai).toContain("if (home && (quarry.state === 'ATTACKING' || !quarryHasPath(quarry))) return false;");
+    expect(canonSays('in ATTACKING — a chewer gnawing a connector of mine coasts there')).toBe(true);
+    expect(ai).toContain('if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)');
   });
 
   it('⭐ §3g — T4: the goblin tower auto-build poll the canon quotes is the live constant (6 ticks, MINE)', () => {

@@ -223,6 +223,20 @@ describe('S171 R142 — the five columns', () => {
     void RA_COLUMN_RADIUS;
   });
 
+  it('⭐ S195 B-25 (owner) — a column spares his OWN unit on its landing spot and kills the enemy beside it', () => {
+    const world = twoSeat();
+    const id = pharaohAtDeathsDoor(world, 500, 500);
+    damageCreature(world, id, 100_000);
+    const p0 = raColumnPos(id as unknown as number, 0, 500, 500);
+    const own = spawn(world, 'goblinMelee', P0, p0.x, p0.y);
+    const foe = spawn(world, 'goblinMelee', P1, p0.x + 4, p0.y);
+    const ownBefore = world.creatures.get(own)!.ehp;
+    tickN(world, RA_COLUMN_TICKS + 2);
+    expect(world.creatures.has(foe), 'the enemy is caught by the first column').toBe(false);
+    expect(world.creatures.has(own), 'B-25: his own unit is spared').toBe(true);
+    expect(world.creatures.get(own)!.ehp, 'and took nothing from it').toBe(ownBefore);
+  });
+
   it('⛔ AND THEN HE DIES — "when the ultimate attack is finished then he dies"', () => {
     const world = twoSeat();
     const id = pharaohAtDeathsDoor(world);

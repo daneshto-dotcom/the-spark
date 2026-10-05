@@ -98,6 +98,11 @@ const NOT_ACQUISITION: Readonly<Record<string, string>> = {
     'Scorched Ground, stink aura/cloud) landed 0 on a creature, to print a RESIST floater; its enemy ' +
     'scan finds the zombie boss whose AURA covers the creature, exactly as the area effect it mirrors ' +
     'does (`bossSkills.ts`, already a verdict here). Read-only; gating it would hide a real resist.',
+  'state/droneLifecycle.ts':
+    'S195 B-10 — AREA. `planDroneSplash` splits the drone\'s ONE pool over everything in its blast radius ' +
+    '(the ownership filter is the drone\'s own TEAM, the area-hazard contract). It picks no victim; an area ' +
+    'effect must still reach untargetable units, the standing ruling — the case `applyRadialDamage` covered ' +
+    'for this blast until S195.',
   'state/racial/zombieDeathBlast.ts':
     'S192 T3 — AREA. The zombie boss death blast splits one pool over EVERYTHING in its radius (the ' +
     'ownership filter is the optional `spare` seat, off by default — R138 *"hurting everything"*). It ' +

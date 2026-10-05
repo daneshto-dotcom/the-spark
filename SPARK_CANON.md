@@ -565,7 +565,7 @@ just change it … don't argue if it's too OP"*.
 | **CRIMSON TIDE** | vampires · 5 | the lifesteal rate becomes 50 %, and it REPLACES 20 — never 70 | `CRIMSON_TIDE_LIFESTEAL_PCT` = **50** % | — |
 | **THE SWARM** | vampires · 10 | the seat's bat tower emits the BAT SWARM from now on — every stat ×6 from the bat (R190-D), drawn twice the size; its own atlas and the `l10-vampires` card | `THE_SWARM_STAT_MUL` = **6** → **12 / 0 / 12 / 6** · pool **10 → 60** · bite **12 → 132** · `BAT_SWARM_SPRITE_SCALE_MUL` = **2** | its speed is the bat's; the ×2 draw size |
 | **THE RISEN** | zombies · 0 | an ENEMY creature killed by one of the seat's RACIAL units (castle soldier, hound, zombie boss) rises as one castle soldier at the seat's keep — **a PANTS counts** (owner 255 is everyone's enemy; owner S194 *"of course"*), and **so does an enemy HELGA** (S194, `riseOnHelgaKill`, once per death; owner *"it's just one zombie"*) | pool **6** — `unitPoolFifths(RACE_UNIT_HP, RACE_UNIT_DEF)`, R125's 1/1/1/1, before the seat's draft buffs | which three types count as "racial" (`isZombieRacialType`); a kill with no creature attacker (castle gun, raid, area) or a raze raises nobody; one corpse raises ONE |
-| **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
+| **CORPSE EATER** | zombies · 5 | the zombie boss's third skill: at ≤ 20 % of his own pool he sits and feeds for 8 s — his ordinary bite, all of it healed, enemies first, then his own units. ⭐ S195 B-32 (owner): THE FEED IS A LOOP — a bite on every cadence of the 480 ticks, the heal pulsing throughout, the eat animation ping-ponging for the whole middle; numbers unchanged (100 % / 8 s, merge-owner call) | `CORPSE_EATER_TRIGGER_PCT` = **20** · `CORPSE_EATER_TICKS` = **480** · `CORPSE_EATER_HEAL_PCT` = **100** · `CORPSE_EATER_LEASH_RADIUS` = **60** px | the leash; once per LIFE; "his own units" excludes tier-9 bosses; the heal counts the bite's overkill; the window's clock runs through a stun |
 | **POWER OF RA** | mummies · 0 | once per FIGHT, the seat aims five sun columns anywhere on the board — each column's damage is SPLIT between the enemy creatures, Helga, lone shapes, stink bags and structures it catches (S191) | `RA_COLUMN_COUNT` = **5**, one every `RA_COLUMN_TICKS` = **120** · `RA_PERK_STRIKE_FIFTHS` = **35** a column IN TOTAL, split, over `RA_COLUMN_RADIUS` = **70** px (**75** — `RA_WRATH_STRIKE_FIFTHS` — once the seat holds WRATH OF RA) | spares the caster (and does not count its things); the number is `raColumnPoolFor(world, seat)`, the ONE source; a STRUCTURE is ONE target, its share on its connector nearest the centre; a column due after the FIGHT never lands; columns already called still land if the caster's keep falls |
 | **ENDLESS DYNASTY** | mummies · 5 | every whole 1,000 HP the keep ACTUALLY loses raises a Pharaoh at the keep, owned by the seat | `DYNASTY_HP_PER_PHARAOH` = **1000** · `DYNASTY_LIVE_PHARAOH_SENTINEL` = **40** | counting starts at the pick; regen never un-counts; a fallen keep raises nobody; the sentinel |
 | **WRATH OF RA** | mummies · 10 | POWER OF RA three times per FIGHT — offered ONLY to a seat that took POWER OF RA at level 0; cast from the WoW-style skill square left of the tier chips, whose picture is the PRE-CUT `public/art/skills/wrath-of-ra.webp` | `WRATH_OF_RA_CHARGES` = **3** a FIGHT, each POWER OF RA's strike at the WRATH number (5 columns × **75** fifths, split, over **70** px) — and the seat's POWER OF RA cast and its Pharaoh bosses' columns are **75** too (S192) | the three may be in the air at once; pattern seeded `seat + MAX_PLAYERS × charge` (charge 0 = POWER OF RA's own); a bot casts all three, one in the air at a time |
@@ -723,10 +723,11 @@ And also Pharaoh's become 75. Okay? If the player chose that ability."* His ritu
 `landRaColumn` (`racial/raColumn.ts`), one target per structure, and his pool is `raColumnPoolFor(world,
 boss.ownerPlayerId)` — the same function as the perk's, the only source of the number: **35**, or **75**
 (`attackFifths(RA_WRATH_COLUMN_ATK 5, RA_WRATH_COLUMN_PEN 10)`, ⚠ MINE pair) when the column's OWNER seat holds
-WRATH OF RA, read at landing. His columns still **spare nobody** (his own seat included), and they now cut
+WRATH OF RA, read at landing. His columns **spared nobody** (his own seat included) until ⭐ **S195 B-25 (owner):
+they now spare his own side**, seat and teammates alike (§5d). They cut
 connectors (`cause: 'unit'`, ⚠ MINE) instead of razing shapes. `RA_COLUMN_ATK/PEN` (15/15 = 300) are retired
 from the sim. **Once per FIGHT** (one cast per `waveNumber`, and the wave turns on entry into BUILD). ⚠ Two
-differences from his, both MINE: it **spares the caster** (the Pharaoh's own columns spare nobody), and it
+differences from his, both MINE: it **spares the caster** (as the Pharaoh's own columns spare him since B-25), and it
 cuts CONNECTORS as well (through the structure's one share), because a building dies through its
 connectors (§4). ⛔ **The host REFUSES an aim that is off the
 canvas, non-finite or not a number** — a no-op, never a clamp to the corner, because a strike landing
@@ -1115,7 +1116,7 @@ little space. Or make that entrance like right under the castle, like closer."* 
 
 Units: see `S180_TARGETING_TABLE.md`, which is the live working document while the owner rules on it.
 
-⭐ **PENCIL CHEWER AND LIGHTNING DRONE — STRUCTURES ONLY (S194, his):** *"they only target … buildings, towers, and connectors. And … free shapes. That's their whole point."* Both are `STRUCTURES_ONLY` in `CREATURE_TARGETS` (the drone was BOTH under R72 — superseded), and `killableDefenderInReach` honours the matrix, so neither ever strikes HELGA (both did until S194). A drone's detonation SPLASH still hurts units near its connector — an area effect, not a target. ⚠ OPEN: with nothing to chew, a chewer walks to the enemy keep and lands NOTHING there (`chewerDroneTargets.test.ts`) — needs his ruling.
+⭐ **PENCIL CHEWER AND LIGHTNING DRONE — STRUCTURES ONLY (S194, his):** *"they only target … buildings, towers, and connectors. And … free shapes. That's their whole point."* Both are `STRUCTURES_ONLY` in `CREATURE_TARGETS` (the drone was BOTH under R72 — superseded), and `killableDefenderInReach` honours the matrix, so neither ever strikes HELGA (both did until S194). A drone's detonation SPLASH still hurts units near its connector — an area effect, not a target (⭐ S195 B-10: ONE pool of **30** fifths split by distance, §9d-5). ⭐⭐ **S195 B-9 (owner, RULED): WITH NOTHING TO CHEW, THE CHEWER GNAWS THE KEEP** — *"he attacks all the towers, and then when there's nothing, then he goes to the keep."* Towers, connectors and free shapes first; the keep only when no enemy connector exists anywhere, and it lets go of the keep the moment one does (`creatureLifecycle.ts`, the chewer arm's `onKeep` hold). Each bite is its own ladder number, `attackFifths(CHEWER_ATK 1, CHEWER_PEN 2)` = **7** fifths every `CHEW_INTERVAL_TICKS` (60), through the ordinary castle arm after the keep's bought DEF. Until S195 it walked there and landed NOTHING (the S194 T8 finding, pinned at 0); `chewerKeep.test.ts` + `chewerDroneTargets.test.ts` pin the real number.
 
 ### 5b · ⭐ THREE UNIT RULES HE REPORTED, FIXED IN S189 (`s189/units`, deploy #4)
 
@@ -1140,10 +1141,17 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
   gets one at its centre: `VOLTKINS_PER_TV` = **1** (⚠ MINE). `resummonVoltkins` (`voltkinTv.ts`), one call
   in `hostTick` after `recallArmies`. Live Voltkins and summons already on their way are bound to their own
   seat's TVs, nearest first, over a total order, so no TV is summoned for twice. ⛔ **A TV RE-SUMMONS IFF IT
-  WOULD IGNITE NOW** (merge-owner ruling, S192 audit): the census and the ignition predicate share ONE
-  isolation test, `isIsolatedVoltkinChain` — S48's *"if you accidentally connect anything else to the
-  structure it shouldn't go off"*. ⚠ So a TV with an extra shape welded on stops re-summoning, as it would
-  not ignite (unlike Helga, whose hall survives a weld). And ONE owner rule, `voltkinTvOwner`: majority
+  WOULD IGNITE NOW** (merge-owner ruling, S192 audit) — and ⭐⭐ **S195 B-31 (owner) REVERSED WHAT IGNITES: A
+  WELDED TV IS A TV.** *"you should be able to weld everything on everything, and the existing … towers keep
+  summoning and resummoning … A TV is not different than a tier three piranha tower."* S48's isolation test
+  (`isIsolatedVoltkinChain`, *"if you accidentally connect anything else to the structure it shouldn't go
+  off"*) is DELETED from both sides: a TV with shapes welded on ignites, summons and re-summons; a NEW TV
+  built already welded spawns its first Voltkin (merge-owner call, S195 turn 3). Ignition now reads the
+  census's own list (`standingVoltkinTvs`, `voltkinPredicate` via `standingVoltkinTvTouching`) and its claim
+  binding (`tvsOwedAVoltkin`), so a weld onto a TV whose Voltkin lives, is emerging or is queued mints
+  NOTHING — that binding is what the isolation test was silently doing for the S161 topology gate. ⚠ MINE:
+  overlapping 8-paths through the same shapes are **one** TV (greedily disjoint in canonical order), so a
+  12-shape blob mints one Voltkin, not two. And ONE owner rule, `voltkinTvOwner`: majority
   colour, **lowest seat on a tie**, for ignition and the wave alike. A fallen or broken TV summons nothing.
   The same branch fixed the two defects that ate TVs at ignition — the matcher ignored every TV closed while
   another Voltkin was emerging, and a queued same-seat emerge latched the slot for the match.
@@ -1187,12 +1195,21 @@ unchanged.
   tower's leftover shapes stay targetable until destroyed** (R192-U1, *"just as it is today"*).
 - **CHASE A DRONE SMARTLY — NEVER ACROSS THE MAP (T6).** *"I didn't say ignore drones or pencil chewers all
   the time. It just has to be smart"* — owner, S192. A FAST NON-COMBATANT — cannot strike a unit
-  (`isNonCombatantType`: lightning drone, pencil chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` = **1.25**
-  × the chaser (`maxAccel`) — is engaged when ANY of: (1) within the chaser's reach +
-  `CHASE_GIVEUP_SLACK_PX` = **20** px; (2) the chaser AND the quarry both stand in the chaser's OWN zone
-  (*"you're still in your zone"*); (3) the chaser can cut its path off before it arrives. Otherwise it is
-  neither acquired nor held, so it cannot be re-taken until one of the three holds again — no ping-pong, no
-  memory. Both numbers ⚠ MINE. A unit that can strike back is never skipped (R184-A untouched); turrets,
+  (`isNonCombatantType`: lightning drone, pencil chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` = **1**
+  × the chaser (`maxAccel`; ⭐ S195 N11 lowered it from 1.25 — see below) — is engaged when ANY of: (1) within
+  the chaser's reach + `CHASE_GIVEUP_SLACK_PX` = **20** px;
+  (2) the chaser AND the quarry both stand in the chaser's OWN zone (*"you're still in your zone"*) **and**
+  the quarry is going nowhere (in ATTACKING — a chewer gnawing a connector of mine coasts there — or with no
+  path at all) or can be cut off;
+  (3) the chaser can cut its path off before it arrives. Otherwise it is neither acquired nor held, so it cannot be re-taken until one of the three holds
+  again — no ping-pong, no memory. Both numbers ⚠ MINE. ⭐⭐ **S195 N11 (owner): home is not enough any more.**
+  *"they should know … if they can't chase it down before he gets to his target or before he's out of reach
+  … more dynamic and smart"* — his scarabs (105) chased an incoming chewer (120, a 1.14 ratio INSIDE the old
+  1.25 slack, so no condition ever ran) across their own zone until a stink tower killed it. A moving quarry
+  at home is now intercept-gated like one abroad; a quarry faster than you at all is a fast quarry. Measured
+  (`chaseGiveUp.test.ts`, scripted chewer, 400 ticks): four scarabs lock 0 ticks on a chewer they cannot cut
+  off, and still take one flying through them. The melee goblin (119) now lets a departing chewer go abroad.
+  Not re-ruled: the S192 numbers below were measured at 1.25 and are history. A unit that can strike back is never skipped (R184-A untouched); turrets,
   stink towers, castle guns and Helga (*"that's the whole point of Helga"*) are unchanged. Measured, a
   scripted drone flying past a unit 40 px inside enemy ground, 400 ticks: melee goblin −57.0 % of its advance
   before → **−6.6 %**; orc boss −57.8 % → **−7.3 %** (S192's −37.6 % / −38.2 % was before the S193 audit added
@@ -1242,7 +1259,10 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 - A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
   least two sides"*), and the sim falls back to the free-for-all.
 - **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
-- The **Pharaoh boss's columns** ("kills everything") still hit his OWN seat but spare its TEAMMATES.
+- The **Pharaoh boss's columns** ("kills everything") — ⭐ **S195 B-25 (owner, RULED): spare his OWN SIDE, seat
+  and teammates alike**, aligned with R193-B3 and B-30 (*"they only attack enemies"*). Until S195 they hit his
+  own seat and spared only its teammates (⚠ MINE then, spec Q5). `bossSkillsPharaohRitual.ts` passes
+  `spare: boss.ownerPlayerId`; `teams.reachMaster.test.ts` pins it through the real host tick.
 - ⚠ MINE (S194) — an endgame WIPE (wave 27+, every keep down) crowns the top-scoring SEAT (S193 Q2); with
   teams on, that seat's TEAM wins and the banner reads TEAM N WINS like any other team win.
 
@@ -2076,14 +2096,14 @@ fails on a blast producer that does not):
 | zombie boss death blast (`racial/zombieDeathBlast.ts`) | split pool 312 | weight `kind × max(1, floor(R − d))`, kind 2 : 1 (ruled) |
 | lightning hub self-destruct (`potatoLifecycle.ts`) | split pool 120 | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE) |
 | suicide goblin (`creatures/suicideBlast.ts`) — units, shapes AND connectors | full hit | `blastHitAtDistance` |
-| lightning drone (`droneLifecycle.ts`) — units and shapes | full hit | `blastHitAtDistance` |
+| lightning drone (`droneLifecycle.ts`) — units and shapes | **split pool 30** (⭐ S195 B-10, owner; the pool is the drone's own strike `attackFifths(DRONE_ATK 5, DRONE_PEN 1)`, ⚠ MINE) | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE); `planDroneSplash` |
 | stink bag throw + landed bag's burst (`defenders/stinkTower.ts`, `damage.ts`) | full hit | `blastHitAtDistance` |
 | stink tower death blast (`defenders/stinkTower.ts`) | full hit | `blastHitAtDistance` |
 
 A **full-hit** blast deals its full ladder number at the centre and falls linearly to
 `BLAST_EDGE_FLOOR_PERCENT` = **50 %** of it at the rim (⚠ MINE — the curve and the 50 are mine; he ruled
 only the direction), floored, never below 1 on a real hit. Worked: the suicide goblin's 20 is 17 at 20 px
-and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. Not blasts, so flat: the
+and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. ⭐⭐ **S195 B-10 (owner): the DRONE joined the split-pool kind** — *"it should be like a total pool of damage that he does … spread out between all the units. Not like he kills all the units around"* — ONE pool of **30** over every enemy-side unit, Helga and shape in its 110 px (the same set it hit in full until S195), shares summing to exactly 30, a lone victim still taking the whole 30; the connector sever count is untouched. Not blasts, so flat: the
 stink tower's aura and a landed bag's lingering cloud (1 fifth a second — damage over time), SCORCHED
 ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is an open question). The drone's
 connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.
