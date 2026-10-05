@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
 
 ## NEXT STEP (exact)
-- DONE: A+B, item 3, mutations M1-M5. NEXT: git merge master (+npm install), re-run touched tests, then measurements (lagWaveMeasure codec columns), then final gates.
+- DONE: A+B, item 3, mutations, merge master da8a2267. RUNNING detached: netDeltaMeasure (log .tmp-gates/measure.log, exit .tmp-gates/measure.exit, out .tmp-gates/netdelta). NEXT: when done paste table into this file; then final gates (typecheck, vitest --maxWorkers=3, build, e2e gating+lobby+protocol on own port).
 ## DESIGN (decided)
 - Transport boundary only. Host segments the stripped+rounded wire JSON into envelope prefix/suffix + top keys; entity arrays (all objects w/ unique id) → per-id text. Full text = concatenation (== JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer), proven by test).
 - Frame = page-unique fid (module counter). Delta vs the peer's last ACKED fid (host ring 32); keyframe = delta vs empty base. Newline-delimited text: header JSON, prefix, suffix, raw segments.
