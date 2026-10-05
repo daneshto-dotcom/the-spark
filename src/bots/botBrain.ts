@@ -942,7 +942,8 @@ export function chooseBuildPos(
    * NEW STRUCTURE on a fresh site (`freshStructurePos`) instead of feeding the tax. NOOB (`'none'`) keeps every
    * source and this block is a no-op for it — byte-identical to the pre-S195 bot.
    */
-  const structures = ownStructures(world, seat);
+  // A tier that knows nothing pays nothing: no census, no rng, the pre-S195 path byte for byte.
+  const structures = cfg.entropyAwareness === 'none' ? NO_STRUCTURES : ownStructures(world, seat);
   const growable = entropySafeSources(world, seat, cfg, structures);
   if (growable.length === 0) {
     const fresh = freshStructurePos(world, seat, totalSeats, cfg, rng);
@@ -1005,6 +1006,8 @@ export interface OwnStructures {
   /** prim id → index into `comps`. */
   readonly compOf: ReadonlyMap<PrimitiveId, number>;
 }
+
+const NO_STRUCTURES: OwnStructures = { comps: [], compOf: new Map() };
 
 /**
  * ⭐ S195 T22 — PURE: this seat's structures (connected components of its own shapes), each walked once
