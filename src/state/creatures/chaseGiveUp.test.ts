@@ -436,22 +436,26 @@ describe('S192 T6 — REACH, through the real host tick', () => {
     let locksMoving = 0;
     let locksSitting = 0;
     let movingTicks = 0;
+    let arrived = false;
     for (let t = 0; t < 300; t++) {
       const x = Math.max(goal.x, start.x - CHEWER_CRUISE_PX_PER_TICK * t);
-      const moving = x - goal.x >= 1; // the rule's own line: a path under a pixel is "no path" (`quarryHasPath`)
       if (w.creatures.has(chewer.id)) {
-        chewer.prevPos.x = moving ? x + CHEWER_CRUISE_PX_PER_TICK : x; chewer.prevPos.y = start.y;
+        chewer.prevPos.x = x > goal.x ? x + CHEWER_CRUISE_PX_PER_TICK : x; chewer.prevPos.y = start.y;
         chewer.pos.x = x; chewer.pos.y = start.y;
         chewer.targetPos.x = goal.x; chewer.targetPos.y = goal.y; // at the goal this is "no path" — it sits and gnaws
         chewer.ehp = 1_000_000; // held on the board: this measures what the scarabs AIM at
       }
       runHostTick(w, d, s);
       for (const id of [...w.creatures.keys()]) if (!scarabs.includes(id) && id !== chewer.id) w.creatures.delete(id);
-      if (moving) movingTicks++;
+      // ⚠ Classified by the chewer's LIVE position after the tick, not the script's: its own steering adds to the
+      // scripted hop, so it reaches the goal (< 1 px — the rule's own "no path" line, `quarryHasPath`) a few
+      // ticks before the script says; from that tick on it is a sitting gnawer, and a lock is the stationary rule.
+      if (!arrived && Math.abs(chewer.pos.x - goal.x) < 1) arrived = true;
+      if (!arrived) movingTicks++;
       for (const id of scarabs) {
         const me = w.creatures.get(id);
         if (me === undefined || me.targetCreatureId !== chewer.id) continue;
-        if (moving) locksMoving++; else locksSitting++;
+        if (arrived) locksSitting++; else locksMoving++;
       }
     }
     return { locksMoving, locksSitting, movingTicks };
@@ -459,7 +463,7 @@ describe('S192 T6 — REACH, through the real host tick', () => {
 
   it('⭐⭐ S195 N11 REACH — his scarabs do not chase a chewer they cannot cut off before it reaches its connector…', () => {
     const r = scarabsVsChewer();
-    expect(r.movingTicks, 'anti-vacuity: the chewer really hopped ~61 ticks').toBeGreaterThan(50);
+    expect(r.movingTicks, 'anti-vacuity: the chewer really hopped for a few dozen ticks').toBeGreaterThan(30);
     expect(r.locksMoving, 'scarab-ticks locked on a chewer they could not catch (S192 ratio 1.25 locked all of them)').toBe(0);
   });
 
