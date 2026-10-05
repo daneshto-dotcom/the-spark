@@ -69,7 +69,7 @@ function census(): { inline: Record<string, number>; predicate: Record<string, n
  * ALLY/ENEMY split).
  */
 const PINNED_INLINE: Readonly<Record<string, number>> = {
-  'bots/botBrain.ts': 9, // S194 — + master S193 FEED: the bot's OWN spawners (`sp.ownerPlayerId === seat`)
+  'bots/botBrain.ts': 12, // S194 — + master S193 FEED: the bot's OWN spawners (`sp.ownerPlayerId === seat`); S195 T22 — +3 `prim.placedBy !== seat` (ownStructures / entropySafeSources / freshStructurePos: the bot's OWN structures, is-this-MINE)
   'dev/probeHarness.ts': 1,
   'game/invariants.ts': 1,
   'input/controls.ts': 3,
@@ -208,7 +208,7 @@ function seatVarCensus(): Record<string, number> {
 
 /** Every hit READ and classified MINE / not-a-side-decision (S193). The reason is per file. */
 const PINNED_SEATVAR: Readonly<Record<string, number>> = {
-  'bots/botBrain.ts': 10, // S194: + `h.targetPlayerId === seat` (is the hunter after ME?). The bot's OWN shapes/gatherers/hunter; `targetSeat` filters the already-chosen enemy's things
+  'bots/botBrain.ts': 13, // S194: + `h.targetPlayerId === seat` (is the hunter after ME?). The bot's OWN shapes/gatherers/hunter; `targetSeat` filters the already-chosen enemy's things. S195 T22: +3 own-structure sites (entropy knowledge), is-this-MINE
   'dev/fxLab.ts': 1, // dev-only effect lab: pick any other seat to stage an effect
   'dev/probeHarness.ts': 1, // dev probe: the local seat's shapes
   'input/controls.ts': 3, // your gatherer, the spark you carry
