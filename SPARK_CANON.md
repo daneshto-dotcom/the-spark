@@ -1288,7 +1288,7 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **67** (S195 L1 — s194/rules, R194-16/17/26/27; see the S195 entry on the const). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **68** (S195 cloud run — s195/rules-2: B-9 chewer bites the keep, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1 + state-based home arm; see the S195 entry on the const). 67 was S195 L1 (s194/rules, R194-16/17/26/27). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
 
 ⭐⭐ **WHAT RIDES 67 (S195, L1)** — s194/rules: the porch row 74 → 42 with the porch no-build arm `CASTLE_PORCH_BUILD_CLEAR_RADIUS` 17 (R194-16); the pants window 30/45/60/90/120 s (R194-17); the mega pants is the 251st slot (R194-26); the live pants cap is 360 total (R194-27).
 
