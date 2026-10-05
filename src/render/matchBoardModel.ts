@@ -442,7 +442,8 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
   const standing = rows.filter((r) => !r.out).length;
   const lastWave = waves.length > 0 ? waves[waves.length - 1]! : world.waveNumber;
   // ⭐ S195 (R195-T1) — a team game's race was a TEAM TOTAL: name each team's final total under the headline.
-  const teamTotals = teamStandings(world).map((s) => `T${s.team + 1} ${s.total}`).join('  ');
+  // (S195 audit L4 — a one-seat team is the PLAYER, never a phantom "T5": it reads P<n>.)
+  const teamTotals = teamStandings(world).map((s) => `${s.seats.length === 1 ? `P${(s.seats[0] as unknown as number) + 1}` : `T${s.team + 1}`} ${s.total}`).join('  ');
   const subline = `WAVE ${lastWave}  ·  ${rows.length} SEATS  ·  ${standing} STANDING${teamTotals !== '' ? `  ·  ${teamTotals}` : ''}`;
 
   return {

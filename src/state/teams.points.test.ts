@@ -178,3 +178,19 @@ describe('S195 audit MED-3 — the endgame wipe (wave 27+, every keep down) in a
     expect(w.lastWinnerId).toBe(P(1));
   });
 });
+
+// ─── S195 audit L4 / L5 — no phantom "T5" for a solo; the tier banner reads the viewer's team bar ───
+import { formatTierBanner } from '../render/ui.ts';
+describe('S195 audit L4/L5 — the readouts', () => {
+  it('⛔ a one-seat team reads as the player (score/bar), never "T5"', () => {
+    const w = match([U, 0, 0], [1000, 700, 300]);
+    const solo = teamStandings(w).find((s) => s.seats.length === 1)!;
+    expect(formatRaceReadout(1000, 1, solo)).toBe('1000/2500');
+    const pair = teamStandings(w).find((s) => s.seats.length === 2)!;
+    expect(formatRaceReadout(700, 1, pair)).toBe('700 · T1 1000/5000');
+  });
+  it('the tier banner shows the viewer\'s team bar when given; the seat bar otherwise (FFA unchanged)', () => {
+    expect(formatTierBanner(2, 1)).toBe('TIER 2  —  1000/2500');
+    expect(formatTierBanner(2, 1, 5000)).toBe('TIER 2  —  1000/5000');
+  });
+});
