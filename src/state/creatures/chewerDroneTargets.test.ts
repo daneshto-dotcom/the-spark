@@ -16,11 +16,14 @@
  * 14 × 30. Now gated on `creatureCanTarget(type, 'units')`, and the drone is STRUCTURES_ONLY in the matrix.
  * A drone's DETONATION splash still hurts units near its connector — an area effect credited to its seat,
  * not a target (out of scope of the ruling; reported).
- * REPORTED: with no enemy structure the CHEWER walks to the enemy keep and lands nothing (see the last case);
- * the DRONE stays at its hub.
+ * ⭐ S195 B-9 (owner): with no enemy structure the CHEWER walks to the enemy keep and GNAWS IT — *"he attacks
+ * all the towers, and then when there's nothing, then he goes to the keep"* (the S194 "lands nothing" finding,
+ * re-pinned in the last case to the real number; `chewerKeep.test.ts` has the exact arithmetic). The DRONE
+ * stays at its hub.
  */
 import { describe, expect, it } from 'vitest';
-import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, phaseDurationTicks } from '../../constants.ts';
+import { CHEWER_ATK, CHEWER_PEN, PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType, phaseDurationTicks } from '../../constants.ts';
+import { attackFifths } from '../stats.ts';
 import { dispatch, makeWorld, type World } from '../world.ts';
 import { asCreatureId, makeCreature, type Creature, type CreatureType } from './creature.ts';
 import { getCreatureConfig } from './voltkin-config.ts';
@@ -142,6 +145,7 @@ describe('S194 T8 D — chewers and drones never target a unit or Helga (REACH t
     expect(o.goblinLost, 'nothing of P0 but the chewer is on the board').toBe(0);
     expect(o.helgaLost).toBe(0);
     expect(o.struck, 'it spends itself on the building').toBeGreaterThan(0);
+    expect(o.keepLost, 'B-9: towers FIRST — with a building standing it never reaches the keep').toBe(0);
   });
 
   it('⭐ the DRONE: no creature target ever, the goblin and Helga untouched, the building struck', () => {
@@ -157,19 +161,21 @@ describe('S194 T8 D — chewers and drones never target a unit or Helga (REACH t
     expect(observe('lightningDrone', false, 300).hitTaken).toBe(true);
   });
 
-  it('REPORTED — no enemy structure: neither goes for a unit; the chewer walks to the keep and lands NOTHING there', () => {
+  it('⭐ S195 B-9 (RE-PINNED) — no enemy structure: neither goes for a unit; the chewer walks to the keep and GNAWS it', () => {
     const chew = observe('chewer', false, 1500);
     expect(chew.creatureTargetTicks).toBe(0);
     expect(chew.goblinLost + chew.helgaLost).toBe(0);
     /*
-     * ⚠ FINDING (S194, reported, NOT fixed — needs his ruling): with nothing to chew the chewer takes the
-     * S154 castle fallback, walks to the enemy keep, enters ATTACKING there and never lands a blow — 0
-     * castle hits in 600 ticks parked on the keep (measured with a probe on `damageEntity`). That is his
-     * S177 "nothing swings at nothing" in the one place it still happens. Either the fallback should not
-     * send a chewer to a keep (his D list — "buildings, towers, connectors, free shapes" — may or may not
-     * include the keep), or the chew should land on it. Pinned at 0 so the fix is a deliberate re-pin.
+     * S194 pinned this at 0 as a FINDING: the chewer took the S154 castle fallback, entered ATTACKING on the
+     * keep and never landed a blow (its FSM released it every tick for want of a bond). ⭐ S195 B-9 — the
+     * owner ruled *"when there's nothing, then he goes to the keep"*, so the FSM now HOLDS it there and every
+     * `CHEW_INTERVAL_TICKS` a bite of `attackFifths(CHEWER_ATK, CHEWER_PEN)` = 7 lands through the ordinary
+     * castle arm. 16 bites in 1500 ticks — the first ~500 are the 900 px walk to the keep (`CHEWER_MAX_ACCEL`
+     * 120) — measured, and the keep (regen level 0) regenerates nothing, so the floor IS the total.
      */
-    expect(chew.keepLost, '⚠ FINDING — re-pin when he rules on chewers and keeps').toBe(0);
+    const bite = attackFifths(CHEWER_ATK, CHEWER_PEN);
+    expect(bite).toBe(7);
+    expect(chew.keepLost, 'B-9: the keep IS gnawed').toBe(16 * bite);
     const drone = observe('lightningDrone', false, 900);
     expect(drone.creatureTargetTicks).toBe(0);
     expect(drone.goblinLost + drone.helgaLost).toBe(0);
