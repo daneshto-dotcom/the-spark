@@ -131,3 +131,22 @@ describe('REACH — the `stinkTowerFire` slot on the synced FIRE edge', () => {
     expect(slot).toHaveBeenCalledTimes(2);
   });
 });
+
+// ⭐ S195 (coherence-2 audit, LOW) — the ramp HIT TEST must keep using `rampSpecWithArtFor` (RAMP_SPECS only):
+// a "simplify" back to `rampSpecFor` would give the stink tower a 106 px ramp click box before any art lands.
+describe('S195 — the stink tower has NO ramp click box until its sheet ships', () => {
+  it('rampSpecWithArtFor(stinkTower) is null while the row sits in RAMP_SPECS_PENDING_ART', async () => {
+    const { rampSpecWithArtFor, rampSpecFor } = await import('./structureRamp.ts');
+    expect(rampSpecWithArtFor('stinkTower')).toBeNull();
+    expect(rampSpecFor('stinkTower')).not.toBeNull(); // the pending row still resolves for the renderer
+  });
+  it('rampHitAtPoint reads rampSpecWithArtFor, never rampSpecFor', async () => {
+    const { readFileSync } = await import('node:fs');
+    const src = readFileSync(new URL('./structureRamp.ts', import.meta.url), 'utf8');
+    const start = src.indexOf('export function rampHitAtPoint');
+    const next = src.indexOf('\nexport ', start + 1); // the function body ends at the next top-level export
+    const fn = src.slice(start, next);
+    expect(fn).toContain('rampSpecWithArtFor(');
+    expect(fn).not.toMatch(/[^A-Za-z]rampSpecFor\(/);
+  });
+});

@@ -2192,6 +2192,9 @@ export function resetAudioDrainCursor(): void {
   // re-evaluates from synced state next frame and re-starts it if a princess is still engaged.
   lastHelgaEngagedTick = -1;
   stopHelgaTheme(false);
+  // ⭐ S195 (coherence-2 audit, LOW) — the N4 victim memo is per MATCH: DefenderIds restart, so a stale
+  // id→seat entry would hand a new Helga's theme to last match's victim seat. Same class as the S182 fuse leak.
+  helgaVictimMemo.clear();
 }
 
 // Audit Pass 2 fix 622a7c7f — register with the state-layer publisher at
