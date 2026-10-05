@@ -307,7 +307,16 @@ export function stepHostPresence(prev: HostPresence, hostPeerId: string | null, 
  */
 export type ConnectionOverlay =
   | { readonly kind: 'hidden' }
-  | { readonly kind: 'reconnecting'; readonly secondsLeft: number }
+  | {
+      readonly kind: 'reconnecting';
+      /**
+       * Grace remainder inside the grace; ⭐ S195 T20 fix round (audit LOW) — ABSENT past the grace while a rejoin is in
+       * flight: the help line then reads "retrying automatically" with no number, instead of jumping from "(1s)" to
+       * "(165s)" at 15 s. `undefined` (not null) so main.ts's existing `setConnectionLostReconnecting(true,
+       * overlay.secondsLeft)` type-checks unchanged against lobbyScreen's `secondsLeft?: number`.
+       */
+      readonly secondsLeft?: number;
+    }
   | { readonly kind: 'migrating'; readonly secondsLeft: number }
   | {
       readonly kind: 'terminal';
@@ -369,6 +378,9 @@ export interface ConnectionFramePlan {
  * the give-up (3 min) unless a peer comes back first; the terminal CONNECTION LOST is reached by a CLIENT only
  * at the give-up. Recommended to the owner as the default; the lever is `RECONNECT_GIVE_UP_MS`.
  */
+/** ⭐ S195 T20 fix round — the float-noise guard `rejoinAttemptInFlight` uses on `nextRetryMs`; see there. */
+export const RETRY_FIRED_EPSILON_MS = 1;
+
 export function rejoinAttemptInFlight(i: {
   readonly nowMs: number;
   readonly reconnectUntilMs: number;
@@ -379,7 +391,9 @@ export function rejoinAttemptInFlight(i: {
 }): boolean {
   if (i.isHost || !i.hasRoomCode || i.migrationCase || i.reconnectUntilMs === 0) return false;
   const lossAt = i.reconnectUntilMs - RECONNECT_GRACE_MS;
-  const fired = i.nextRetryMs > lossAt + RECONNECT_FIRST_RETRY_DELAY_MS;
+  // ⭐ S195 T20 fix round (audit INFO) — both sides are `performance.now()` floats; a ≥ 1 ms epsilon keeps float
+  // noise on the opening schedule from reading as a fired attempt (the real first retry moves it by 35 000 ms).
+  const fired = i.nextRetryMs > lossAt + RECONNECT_FIRST_RETRY_DELAY_MS + RETRY_FIRED_EPSILON_MS;
   return fired && i.nowMs < i.nextRetryMs;
 }
 
@@ -414,8 +428,6 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
   // S191 NETFR-3 — the window covers the claim ladder counted from the claim clock, if that began later.
   const anchorMs = i.claimClockSinceMs > 0 ? Math.max(reconnectUntilMs, i.claimClockSinceMs + RECONNECT_GRACE_MS) : reconnectUntilMs;
   const migrationDeadlineMs = anchorMs + i.migrationExtraMs;
-  // S195 T20 (B-13) — the give-up deadline, counted like `gaveUp` above, from the episode's first frame.
-  const giveUpAtMs = reconnectUntilMs - RECONNECT_GRACE_MS + RECONNECT_GIVE_UP_MS;
   const inFlight = rejoinAttemptInFlight({
     nowMs: i.nowMs,
     reconnectUntilMs,
@@ -434,8 +446,9 @@ export function planConnectionFrame(i: ConnectionFrameInput): ConnectionFramePla
   } else if (!gaveUp && inFlight) {
     // ⭐ S195 T20 (owner B-13) — past the grace with a rejoin in progress: STILL RECONNECTING, never the
     // terminal CONNECTION LOST a recovery at 25 s used to flash (T17 live: 17.6 s → 34.5 s, then cleared).
-    // The countdown past the grace is the give-up remainder — the real deadline after which it IS lost.
-    overlay = { kind: 'reconnecting', secondsLeft: (giveUpAtMs - i.nowMs) / 1000 };
+    // S195 fix round (audit LOW) — NO countdown past the grace (it would jump "(1s)" → "(165s)"); the give-up
+    // (`giveUpAtMs`) still ends the episode as TERMINAL below.
+    overlay = { kind: 'reconnecting' };
   } else {
     overlay = {
       kind: 'terminal',

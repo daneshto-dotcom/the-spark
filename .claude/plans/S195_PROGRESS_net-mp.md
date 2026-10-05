@@ -2,7 +2,24 @@
 
 NEXT STEP: DONE — final report below; merge owner integrates (seams listed). Nothing in flight.
 
-## FINAL REPORT (S195 T20 · s195/net-mp) — 2026-10-05
+## FIX ROUND (audit: 2 MED reporting/scope · 1 LOW UX · 1 INFO) — applied, see `git log -1`
+- MED-1 (reporting) CORRECTED: the traced 53.3 s run had TWO attempts (+8.1 s, and the 35 s `RECONNECT_RETRY_MS` retry at
+  +43.3 s); the FIRST attempt's ICE connected at +44.7/+45.9 s THROUGH the second attempt's `disconnect strategy=nostr` and
+  survived only because Trystero's shared peer kept pc#82 alive (the S192 class the RECONNECT_RETRY_MS docblock warns
+  about). No second SDP exchange in either traced run. "No transport.ts hunk owed" is downgraded to OPEN (e.g. do not tear
+  down an attempt whose ICE is still progressing). Spec header reworded (`e2e/reconnect-hard-blip.spec.ts`).
+- MED-2 (scope) WRITTEN INTO THE SPEC HEADER: T8's connectedPeer/offerAnswered early-return is ruled out ONLY for the
+  `pc.close()` blip shape (SCTP abort → host `onPeerLeave` at +1.9/+5.8 s). A SILENT drop leaves the host's channel `open`
+  until ICE fails (+13.2 s disconnected / +21.7 s failed measured even with the abort) and announces in that window are
+  ignored. NOT observed here, NOT ruled out for production; owed desktop reproduction = block UDP on one side (live-mp).
+- LOW (UX) FIXED: `'reconnecting'` variant `secondsLeft?: number` — ABSENT past the grace (no "(1s)" → "(165s)" jump); the
+  overlay already omits the parenthetical for undefined; `undefined` rather than null so `main.ts:4017` type-checks
+  UNCHANGED against lobbyScreen's `secondsLeft?: number` (no main.ts hunk). B-13 countdown assertion re-pinned + negative.
+- INFO FIXED: `RETRY_FIRED_EPSILON_MS = 1` in `rejoinAttemptInFlight`'s `fired` test; float-noise test added.
+- Gates after the fix round: `npm run typecheck` **0** (tc-fix) · `npx vitest run src/net src/render/connectionLostTerminal.test.ts
+  --maxWorkers=2` **0** — 52 files passed / 2 skipped, 742 tests passed / 4 skipped (vt-fix).
+
+## FINAL REPORT (S195 T20 · s195/net-mp) — 2026-10-05 (read with the FIX ROUND corrections above)
 - **tip**: see `git log -1` (this commit); merge of `ccr-26eaab43-fa9mg3` = 03a4ca3a, clean (no conflicts; it moved smoke.spec's
   LOCAL_PROTO_V 67→68 and protocol.ts — not mine).
 - **Gates (merged tree, exit codes in .tmp-gates/)**: `npm run typecheck` **0** (tc-final) · `npx vitest run --maxWorkers=2`

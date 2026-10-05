@@ -17,6 +17,7 @@ import {
   RECONNECT_GRACE_MS,
   RECONNECT_RETRY_MS,
   rejoinAttemptInFlight,
+  RETRY_FIRED_EPSILON_MS,
   type ConnectionFrameInput,
   type ConnectionFramePlan,
 } from './reconnectPolicy.ts';
@@ -263,13 +264,16 @@ describe('S195 T20 — B-13: RECONNECTING while a rejoin is demonstrably in prog
     expect(p.overlay.kind === 'reconnecting' && p.overlay.secondsLeft).toBeCloseTo((RECONNECT_GRACE_MS - 2_000) / 1000, 0);
   });
 
-  it('⭐ attempt in flight PAST the grace → still RECONNECTING, counting down to the give-up, never terminal', () => {
+  it('⭐ attempt in flight PAST the grace → still RECONNECTING with NO countdown (fix round: no "(1s)" → "(165s)" jump), never terminal', () => {
     const frames = run({ toMs: lossAt0 + GIVE_UP_MS + 2_000, lost: (t) => t >= lossAt0 });
     for (const d of [RECONNECT_GRACE_MS + 16, 25_000, 60_000, 120_000, GIVE_UP_MS - 1_000]) {
       const p = at(frames, d);
       expect(p.overlay.kind, `at loss + ${d} ms`).toBe('reconnecting');
-      expect(p.overlay.kind === 'reconnecting' && p.overlay.secondsLeft, `countdown at ${d}`).toBeCloseTo((GIVE_UP_MS - d) / 1000, 0);
+      expect(p.overlay.kind === 'reconnecting' ? p.overlay.secondsLeft : 'wrong-kind', `no number past the grace at ${d}`).toBeUndefined();
     }
+    // NEGATIVE — the frame BEFORE the grace ends still carries its (small) grace countdown; the one after carries none.
+    const before = at(frames, RECONNECT_GRACE_MS - 100).overlay;
+    expect(before.kind === 'reconnecting' && before.secondsLeft !== undefined && before.secondsLeft <= 0.2).toBe(true);
     // the loop really IS working behind that heading: a retry fires every RECONNECT_RETRY_MS
     const retries = frames.filter((f) => f.plan.retry).map((f) => f.t - lossAt0);
     expect(retries.length).toBeGreaterThanOrEqual(5);
@@ -324,6 +328,10 @@ describe('S195 T20 — B-13: RECONNECTING while a rejoin is demonstrably in prog
     const base = { isHost: false, hasRoomCode: true, migrationCase: false, reconnectUntilMs: lossAt + RECONNECT_GRACE_MS };
     // the episode's opening schedule: no attempt yet
     expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt, nextRetryMs: lossAt + RECONNECT_FIRST_RETRY_DELAY_MS })).toBe(false);
+    // fix round (audit INFO) — performance.now() float noise on that schedule is NOT a fired attempt
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt, nextRetryMs: lossAt + RECONNECT_FIRST_RETRY_DELAY_MS + 0.4 })).toBe(false);
+    expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt, nextRetryMs: lossAt + RECONNECT_FIRST_RETRY_DELAY_MS + RETRY_FIRED_EPSILON_MS })).toBe(false);
+    expect(RETRY_FIRED_EPSILON_MS).toBeGreaterThanOrEqual(1);
     // the first attempt fired at lossAt + 1 s and scheduled the next RECONNECT_RETRY_MS later
     const next = lossAt + RECONNECT_FIRST_RETRY_DELAY_MS + RECONNECT_RETRY_MS;
     expect(rejoinAttemptInFlight({ ...base, nowMs: lossAt + 1_016, nextRetryMs: next })).toBe(true);
