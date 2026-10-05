@@ -967,29 +967,41 @@ export function chooseBuildPos(
     source.pos.y - SPAWNER_CENTER_Y,
     source.pos.x - SPAWNER_CENTER_X,
   );
-  for (let i = 0; i < 8; i++) {
-    // Spiral the probe: 0, ±0.7, ±1.4, ±2.1, π rad off the outward ray.
-    const off = (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * 0.7;
-    const ang = baseAngle + off;
-    const candidate = jitter(
-      {
-        x: source.pos.x + Math.cos(ang) * GROWTH_STEP,
-        y: source.pos.y + Math.sin(ang) * GROWTH_STEP,
-      },
-      cfg.aimJitterPx,
-      rng,
-    );
-    if (!isLegalBuildPos(candidate, seat, world)) continue;
-    // ⭐ S195 T22 — a growth step may land within the host's auto-bond / merge reach of a DIFFERENT own
-    // structure (the host bonds to the NEAREST own shape and merges every structure within 100 px), so the
-    // candidate itself is checked: it may not weld into, or merge up to, a structure past the limit.
-    if (checkGrowth && !entropyGrowthOk(candidate, structures, cfg)) continue;
-    return candidate;
-  }
+  const probe = (check: boolean): Vec2 | null => {
+    for (let i = 0; i < 8; i++) {
+      // Spiral the probe: 0, ±0.7, ±1.4, ±2.1, π rad off the outward ray.
+      const off = (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * 0.7;
+      const ang = baseAngle + off;
+      const candidate = jitter(
+        {
+          x: source.pos.x + Math.cos(ang) * GROWTH_STEP,
+          y: source.pos.y + Math.sin(ang) * GROWTH_STEP,
+        },
+        cfg.aimJitterPx,
+        rng,
+      );
+      if (!isLegalBuildPos(candidate, seat, world)) continue;
+      // ⭐ S195 T22 — a growth step may land within the host's auto-bond / merge reach of a DIFFERENT own
+      // structure (the host bonds to the NEAREST own shape and merges every structure within 100 px), so the
+      // candidate itself is checked: it may not weld into, or merge up to, a structure past the limit.
+      if (check && !entropyGrowthOk(candidate, structures, cfg)) continue;
+      return candidate;
+    }
+    return null;
+  };
+  const grown = probe(checkGrowth);
+  if (grown !== null) return grown;
   if (checkGrowth) {
     // Every growth step would feed a taxed structure — start a new one instead, if the sector has room.
     const fresh = freshStructurePos(world, seat, totalSeats, cfg, rng);
     if (fresh !== null) return fresh;
+    // ⚠ MINE (S195 T22) — THE SECTOR IS FULL: no fresh site, every step merges past the limit. The bot then
+    // grows as an unaware one would (the pre-S195 probe, no check) rather than fall to the home anchor,
+    // which sits INSIDE its first structure's reach and would weld everything into one blob. Measured
+    // (botEntropy.test REACH, HARD TYCOON 420 s): the aware table's biggest structures 40 / 27 / 28 vs the
+    // unaware 47 / 77 / 35 — saturation is where the knowledge runs out, not where it inverts.
+    const anyway = probe(false);
+    if (anyway !== null) return anyway;
   }
   // Everything blocked — restart the colony at the home anchor.
   return homeAnchor(seat, totalSeats, cfg, rng);
