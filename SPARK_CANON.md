@@ -2087,14 +2087,14 @@ fails on a blast producer that does not):
 | zombie boss death blast (`racial/zombieDeathBlast.ts`) | split pool 312 | weight `kind × max(1, floor(R − d))`, kind 2 : 1 (ruled) |
 | lightning hub self-destruct (`potatoLifecycle.ts`) | split pool 120 | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE) |
 | suicide goblin (`creatures/suicideBlast.ts`) — units, shapes AND connectors | full hit | `blastHitAtDistance` |
-| lightning drone (`droneLifecycle.ts`) — units and shapes | full hit | `blastHitAtDistance` |
+| lightning drone (`droneLifecycle.ts`) — units and shapes | **split pool 30** (⭐ S195 B-10, owner; the pool is the drone's own strike `attackFifths(DRONE_ATK 5, DRONE_PEN 1)`, ⚠ MINE) | weight `max(1, floor(R − d))`, kind 1 : 1 (⚠ MINE); `planDroneSplash` |
 | stink bag throw + landed bag's burst (`defenders/stinkTower.ts`, `damage.ts`) | full hit | `blastHitAtDistance` |
 | stink tower death blast (`defenders/stinkTower.ts`) | full hit | `blastHitAtDistance` |
 
 A **full-hit** blast deals its full ladder number at the centre and falls linearly to
 `BLAST_EDGE_FLOOR_PERCENT` = **50 %** of it at the rim (⚠ MINE — the curve and the 50 are mine; he ruled
 only the direction), floored, never below 1 on a real hit. Worked: the suicide goblin's 20 is 17 at 20 px
-and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. Not blasts, so flat: the
+and 11 at 60 px of its 70. A **split-pool** blast weights its split instead. ⭐⭐ **S195 B-10 (owner): the DRONE joined the split-pool kind** — *"it should be like a total pool of damage that he does … spread out between all the units. Not like he kills all the units around"* — ONE pool of **30** over every enemy-side unit, Helga and shape in its 110 px (the same set it hit in full until S195), shares summing to exactly 30, a lone victim still taking the whole 30; the connector sever count is untouched. Not blasts, so flat: the
 stink tower's aura and a landed bag's lingering cloud (1 fifth a second — damage over time), SCORCHED
 ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is an open question). The drone's
 connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.

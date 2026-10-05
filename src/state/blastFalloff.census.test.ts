@@ -120,7 +120,7 @@ const BLAST_EXEMPT: Readonly<Record<string, string>> = {
 describe('⛔ S193 R193-B4 — every blast reaches the ONE falloff (mechanical census)', () => {
   const sites = radialSites();
 
-  it('anti-vacuity: the radial census sees every call — 7 production sites today', () => {
+  it('anti-vacuity: the radial census sees every call — 6 production sites today (S195 B-10 moved the drone to a split pool)', () => {
     expect(sites.map((s) => s.key)).toEqual([
       'src/state/creatures/suicideBlast.ts#0',
       'src/state/damage.ts#0', // a landed bag's BURST (`damageStinkCloud`)
@@ -128,7 +128,7 @@ describe('⛔ S193 R193-B4 — every blast reaches the ONE falloff (mechanical c
       'src/state/defenders/stinkTower.ts#radial0', // the tower's death blast
       'src/state/defenders/stinkTower.ts#radial1', // a thrown bag's landing
       'src/state/defenders/stinkTower.ts#radial2', // the aura
-      'src/state/droneLifecycle.ts#0',
+      // ⭐ S195 B-10 — `src/state/droneLifecycle.ts#0` is GONE: the drone's splash is a split pool now (below).
     ]);
   });
 
@@ -171,8 +171,8 @@ describe('⛔ S193 R193-B4 — every blast reaches the ONE falloff (mechanical c
     expect(callText(code, at)).toContain('blastHitAtDistance(');
   });
 
-  it('both split-pool blasts weight their split through the shared helpers', () => {
-    for (const rel of ['src/state/potatoLifecycle.ts', 'src/state/racial/zombieDeathBlast.ts']) {
+  it('all three split-pool blasts weight their split through the shared helpers (S195 B-10: + the drone)', () => {
+    for (const rel of ['src/state/potatoLifecycle.ts', 'src/state/racial/zombieDeathBlast.ts', 'src/state/droneLifecycle.ts']) {
       const code = SOURCES.find((s) => s.rel === rel)!.code;
       expect(code, rel).toContain('splitBlastPool(');
       expect(code, rel).toContain('blastSplitWeight(');

@@ -47,7 +47,7 @@ import {
 } from './godlyRecipes/lightningHub.ts';
 import { recipeStillSatisfied } from './spawners/spawnerLifecycle.ts';
 import { makeSpawner } from './spawners/spawner.ts';
-import { underDroneCaps } from './droneLifecycle.ts';
+import { droneSplashPoolFifths, planDroneSplash, underDroneCaps } from './droneLifecycle.ts';
 import { underChewerCaps } from './creatures/creatureLifecycle.ts';
 import { makeCreature } from './creatures/creature.ts';
 import { LIGHTNING_DRONE_CONFIG, CHEWER_CONFIG } from './creatures/voltkin-config.ts';
@@ -478,10 +478,90 @@ describe('S160 P5 — the drone finally spends its 5 atk / 1 pen in an area of e
     // ⭐ RE-POINTED S177 P1 — one ladder. 30 of 70, so three drones still fell a shape, exactly as
     // 418 of 1000 did. The relationship survived the rescale; only the obscure number went away.
     expect(hit, 'one blast is 30 of 70, so the shape survives it').toBeDefined();
-    // ⭐ S193 (owner R193-B4) — the shape is 30 px from the drone: the 30 scaled by distance.
-    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - blastHitAtDistance(attackFifths(DRONE_ATK, DRONE_PEN), 30 * 30, DRONE_EXPLODE_RADIUS));
-    expect(blastHitAtDistance(attackFifths(DRONE_ATK, DRONE_PEN), 30 * 30, DRONE_EXPLODE_RADIUS)).toBe(25);
+    // ⭐ S193 (owner R193-B4) scaled the 30 by distance (25 at 30 px). ⭐ S195 B-10 (owner) — ONE POOL, SPLIT: the
+    // shape is the ONLY thing in the radius, so it takes the WHOLE 30. "Three drones fell a lone structure member"
+    // still holds; a crowd now shares what one of them used to take.
+    expect(hit!.hp).toBe(PRIMITIVE_MAX_HP - attackFifths(DRONE_ATK, DRONE_PEN));
+    expect(blastHitAtDistance(attackFifths(DRONE_ATK, DRONE_PEN), 30 * 30, DRONE_EXPLODE_RADIUS), 'the full-hit curve this blast no longer uses').toBe(25);
     expect(Math.ceil(PRIMITIVE_MAX_HP / attackFifths(DRONE_ATK, DRONE_PEN))).toBe(3);
+  });
+
+  /* ══ ⭐⭐ S195 B-10 (owner) — ONE POOL, SPLIT BETWEEN THE UNITS AROUND ══════════════════════════════════════ */
+
+  it('⭐ the pool is the drone\'s own strike — 30 fifths undrafted (⚠ MINE, merge-owner call)', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    expect(droneSplashPoolFifths(world.creatures.get(asCreatureId(500))!)).toBe(attackFifths(DRONE_ATK, DRONE_PEN));
+    expect(droneSplashPoolFifths(world.creatures.get(asCreatureId(500))!)).toBe(30);
+  });
+
+  it('⭐⭐ four enemy units in the radius SHARE the 30 — the SUM of what they lose is exactly the pool, nearer takes more', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    const dists = [10, 40, 70, 100];
+    for (let i = 0; i < dists.length; i++) addEnemyUnit(world, 910 + i, dists[i]!);
+    for (let i = 0; i < dists.length; i++) world.creatures.get(asCreatureId(910 + i))!.ehp = 1_000_000;
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    const lost = dists.map((_, i) => 1_000_000 - world.creatures.get(asCreatureId(910 + i))!.ehp);
+    expect(lost.reduce((a, b) => a + b, 0), 'ONE pool, split — never 30 each').toBe(attackFifths(DRONE_ATK, DRONE_PEN));
+    for (let i = 1; i < lost.length; i++) expect(lost[i]!, 'closer = more (R193-B4)').toBeLessThanOrEqual(lost[i - 1]!);
+    expect(Math.max(...lost), 'nobody takes the whole pool in a crowd').toBeLessThan(attackFifths(DRONE_ATK, DRONE_PEN));
+    // The shares are the planner's, in its total order (d2, kind, id), and are integers.
+    const plan = planDroneSplash(world, 0, 0, DRONE_EXPLODE_RADIUS, OWNER, 30);
+    expect(plan.map((t) => t.id)).toEqual([910, 911, 912, 913]);
+    expect(plan.map((t) => t.amount)).toEqual(lost);
+    expect(plan.every((t) => Number.isInteger(t.amount))).toBe(true);
+  });
+
+  it('⭐ a unit and a shape share one pool too (1 : 1 kind weight, ⚠ MINE — the hub\'s default)', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    addEnemyUnit(world, 920, 20);
+    world.creatures.get(asCreatureId(920))!.ehp = 1_000_000;
+    world.primitives.set(asPrimitiveId(77), makePrim(77, 20, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
+    world.primitives.set(asPrimitiveId(78), makePrim(78, 400, 0, SparkType.Dot, ENEMY_COLOR, ENEMY));
+    addBond(world, 320, 77, 78); // a structure member, far partner (midpoint outside the radius — no sever)
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    const unitLost = 1_000_000 - world.creatures.get(asCreatureId(920))!.ehp;
+    const shapeLost = PRIMITIVE_MAX_HP - world.primitives.get(asPrimitiveId(77))!.hp;
+    expect(unitLost + shapeLost).toBe(attackFifths(DRONE_ATK, DRONE_PEN));
+    // Same distance: the creature ranks before the primitive, so it takes the odd fifth.
+    expect(unitLost).toBe(15);
+    expect(shapeLost).toBe(15);
+  });
+
+  it('negative — the drone\'s OWN side shares nothing: an own unit nearer than the enemy leaves the enemy the whole pool', () => {
+    const world = makeWorld(1);
+    addDrone(world, 500);
+    const mine = makeCreature(CHEWER_CONFIG, {
+      id: asCreatureId(930), ownerPlayerId: OWNER, pos: { x: 5, y: 0 },
+      targetPos: { x: 5, y: 0 }, spawnedAtTick: 0, sourceSpawnerId: asSpawnerId(0),
+    });
+    mine.state = 'SEEKING';
+    mine.ehp = 1_000_000;
+    world.creatures.set(mine.id, mine);
+    addEnemyUnit(world, 931, 60);
+    world.creatures.get(asCreatureId(931))!.ehp = 1_000_000;
+    dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+    expect(1_000_000 - mine.ehp).toBe(0);
+    expect(1_000_000 - world.creatures.get(asCreatureId(931))!.ehp).toBe(attackFifths(DRONE_ATK, DRONE_PEN));
+  });
+
+  it('⭐ determinism — the same four units inserted in reverse order get the SAME shares (ids, not Map order)', () => {
+    const build = (reverse: boolean): number[] => {
+      const world = makeWorld(1);
+      addDrone(world, 500);
+      const order = reverse ? [3, 2, 1, 0] : [0, 1, 2, 3];
+      for (const i of order) addEnemyUnit(world, 940 + i, 30); // ALL at the same distance — only the id can order them
+      for (const i of order) world.creatures.get(asCreatureId(940 + i))!.ehp = 1_000_000;
+      dispatch(world, { type: 'DRONE_EXPLODE', creatureId: asCreatureId(500) });
+      return [0, 1, 2, 3].map((i) => 1_000_000 - world.creatures.get(asCreatureId(940 + i))!.ehp);
+    };
+    const a = build(false);
+    const b = build(true);
+    expect(a).toEqual(b);
+    expect(a.reduce((x, y) => x + y, 0)).toBe(30);
+    expect(a, 'the remainder goes to the LOWER ids').toEqual([8, 8, 7, 7]);
   });
 
   it('⛔ and the CONNECTOR SEVER IS STILL UNCONDITIONAL — additive, not a conversion', () => {

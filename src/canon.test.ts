@@ -1673,6 +1673,11 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('take **208 / 104**')).toBe(true);
     expect(splitBlastPool(312, [blastSplitWeight(100 * 100, 380, 2), blastSplitWeight(100 * 100, 380, 1)])).toEqual([208, 104]);
     expect(canonSays('`BLAST_EDGE_FLOOR_PERCENT` = **50 %**')).toBe(true);
+    // ⭐ S195 B-10 — the drone is a SPLIT pool now, of its own strike (30), and the canon's table says so.
+    expect(canonSays('| lightning drone (`droneLifecycle.ts`) — units and shapes | **split pool 30**')).toBe(true);
+    expect(canonSays('the DRONE joined the split-pool kind')).toBe(true);
+    expect(attackFifths(DRONE_ATK, DRONE_PEN)).toBe(30);
+    expect(readFileSync(new URL('./state/droneLifecycle.ts', import.meta.url), 'utf8')).toContain('for (const t of planDroneSplash(world, cx, cy, DRONE_EXPLODE_RADIUS, drone.ownerPlayerId, blastFifths)) {');
     expect(BLAST_EDGE_FLOOR_PERCENT).toBe(50);
     expect(canonSays("the suicide goblin's 20 is 17 at 20 px")).toBe(true);
     expect(blastHitAtDistance(20, 20 * 20, 70)).toBe(17);
