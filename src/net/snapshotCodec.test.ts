@@ -122,7 +122,13 @@ describe('S195 codec — deltas round-trip every kind of change', () => {
     // Only what changed travels: id 3 is untouched, so its text is not in the frame.
     expect(text).not.toContain('"id":3');
     expect(text).toContain('[2]'); // the removed id, explicit
-    expect(segmentsToText(applyDelta(text, sa))).toBe(wire(b));
+    const rebuilt = applyDelta(text, sa);
+    expect(segmentsToText(rebuilt)).toBe(wire(b));
+    // The removed entity is GONE from the rebuilt base, not just skipped by the id list — a stale text
+    // left behind would break the next frame that names an explicit order (size check), and leak.
+    const rebuiltPrims = rebuilt.vals.get('primitives') as { ids: readonly number[]; texts: ReadonlyMap<number, string> };
+    expect(rebuiltPrims.texts.has(2)).toBe(false);
+    expect(rebuiltPrims.texts.size).toBe(rebuiltPrims.ids.length);
   });
 
   it('a reordered collection sends its order; the natural order is not sent', () => {
