@@ -46,6 +46,7 @@ const CENSUS: readonly Claim[] = [
   { file: 'src/render/botSetupOverlay.ts', match: 'teamBtn.', status: S, what: 'the TEAM chip per seat (S192/S194) — glass in the team colour + chip hover; a team ring on the seat swatch' },
   { file: 'src/render/botSetupOverlay.ts', match: 'personaBtn.', status: S, what: 'personality chip — glass + chip hover (inert while NOOB)' },
   { file: 'src/render/botSetupOverlay.ts', match: 'diffBtn.', status: S, what: 'difficulty chip — glass + chip hover' },
+  { file: 'src/render/botSetupOverlay.ts', match: 'cornerBtn.', status: S, what: 'S195 N16 — the board-corner button on the race swatch of each row (moves the seat one corner on) — chip hover' },
   { file: 'src/render/botSetupOverlay.ts', match: 'attachButtonFeedback(c, bg, onClick, { hit: { x: -24', status: S, what: 'the − / + bot-count steppers and the ✕ close (owner S194) — grammar + glass + sheen' },
   { file: 'src/render/botSetupOverlay.ts', match: 'attachButtonFeedback(c, bg, onClick, { hit: { x: -180', status: S, what: 'START MATCH — glass + sheen' },
   // ── infrastructure ────────────────────────────────────────────────────────────────────────────
@@ -73,6 +74,7 @@ const CENSUS: readonly Claim[] = [
   { file: 'src/render/lobbyScreen.ts', match: 'this.joinButton.', status: S, what: 'Connect — glass + chip hover (lights only when the code is complete)' },
   { file: 'src/render/lobbyScreen.ts', match: 'attachButtonFeedback(', status: S, what: 'Host/Join/Begin/Back/Quick/Test/READY — glass + sheen' },
   { file: 'src/render/seatRack.ts', match: "cell.on('pointertap'", status: S, what: 'your own seat (race-picker opener) — chip hover over its banner' },
+  { file: 'src/render/seatRack.ts', match: "moveChip.on('pointertap'", status: S, what: 'S195 N16 — the MOVE chip of the host on each occupied seat — glass + chip hover, live for the host only' },
   { file: 'src/render/seatRack.ts', match: "teamChip.on('pointertap'", status: S, what: 'the multiplayer seat TEAM chip (CLAIM_TEAM, S192/S194) — glass in the team colour + chip hover on YOUR seat' },
   { file: 'src/render/racePicker.ts', match: 'container.eventMode', status: E, what: 'the picker root (modal)' },
   { file: 'src/render/racePicker.ts', match: 'scrim.', status: E, what: 'the modal scrim (closes the picker)' },

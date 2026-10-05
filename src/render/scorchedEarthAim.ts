@@ -18,9 +18,9 @@
  */
 
 import { pendingRecordAnchor } from './pendingRecordClock.ts';
-import type { PlayerId } from '../types.ts';
+import { asPlayerId, type PlayerId } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
-import { zoneOf, zoneOwner } from '../state/zones.ts';
+import { seatOfZone, zoneOf, zoneOwner } from '../state/zones.ts';
 import {
   SCORCHED_EARTH_CHARGES,
   scorchedEarthCastRefusal,
@@ -57,12 +57,14 @@ export function scorchedEarthAim(): ScorchedEarthAim | null {
 export function zoneSeatAt(world: World, x: number, y: number): PlayerId | null {
   const zone = zoneOf({ x, y }, world.layout);
   if (zone === null) return null;
-  const seats = [...world.players.keys()].sort((a, b) => Number(a) - Number(b));
-  for (const seat of seats) {
-    if (zoneOwner(seat as unknown as number, world.layout) !== zone) continue;
-    return scorchedEarthTargetZone(world, seat) !== null ? seat : null;
-  }
-  return null;
+  // ⭐ S195 — the zone's OWNER on this board (a mapped board moves seats). ⚠ MINE: the 2v1 solo's EXTRA
+  // corner is his ground but not his race quadrant, and Scorched Earth burns a seat's HOME quadrant — so
+  // aiming at the extra corner targets nobody (only the home quadrant turns red).
+  const owner = seatOfZone(zone, world.layout);
+  if (owner === null || zoneOwner(owner, world.layout) !== zone) return null;
+  const seat = asPlayerId(owner);
+  if (!world.players.has(seat)) return null;
+  return scorchedEarthTargetZone(world, seat) !== null ? seat : null;
 }
 
 /**

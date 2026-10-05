@@ -45,6 +45,7 @@ const PRESS: readonly Claim[] = [
   { file: 'src/render/arcadeOverlay.ts', match: 'attachButtonFeedback(', press: 'GRAMMAR', via: [] },
   { file: 'src/render/botSetupOverlay.ts', match: 'raceBtn.', press: 'CHIP', via: ['raceBtn'] },
   { file: 'src/render/botSetupOverlay.ts', match: 'teamBtn.', press: 'CHIP', via: ['teamBtn'] },
+  { file: 'src/render/botSetupOverlay.ts', match: 'cornerBtn.', press: 'CHIP', via: ['cornerBtn'] }, // ⭐ S195 N16 (teams)
   { file: 'src/render/botSetupOverlay.ts', match: 'personaBtn.', press: 'CHIP', via: ['personaBtn'] },
   { file: 'src/render/botSetupOverlay.ts', match: 'diffBtn.', press: 'CHIP', via: ['diffBtn'] },
   { file: 'src/render/botSetupOverlay.ts', match: 'attachButtonFeedback(c, bg, onClick, { hit: { x: -24', press: 'GRAMMAR', via: [] },
@@ -60,6 +61,7 @@ const PRESS: readonly Claim[] = [
   { file: 'src/render/lobbyScreen.ts', match: 'attachButtonFeedback(', press: 'GRAMMAR', via: [] },
   { file: 'src/render/seatRack.ts', match: "cell.on('pointertap'", press: 'CHIP', via: ['cell'] },
   { file: 'src/render/seatRack.ts', match: "teamChip.on('pointertap'", press: 'CHIP', via: ['teamChip'] },
+  { file: 'src/render/seatRack.ts', match: "moveChip.on('pointertap'", press: 'CHIP', via: ['moveChip'] }, // ⭐ S195 N16 (teams)
   { file: 'src/render/racePicker.ts', match: 'root.', press: 'CHIP', via: ['root'] },
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", press: 'CSS', via: [] },
   { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", press: 'CSS', via: [] },

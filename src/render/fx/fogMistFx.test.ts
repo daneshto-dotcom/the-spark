@@ -98,7 +98,9 @@ describe('V27 — fog-edge mist', () => {
   it('REACH — fogRenderer feeds it the SAME sources and own-zone rect the mask is cut from, and adds it after the shroud', () => {
     const src = readFileSync(new URL('../fogRenderer.ts', import.meta.url), 'utf8');
     expect(src).toMatch(/const sources = computeVisionSources\(world, localCursor\);/);
-    expect(src).toMatch(/computeMistField\(this\.mistField, sources, ownZone === null \? null : zoneRect\(ownZone, world\.layout\), VISION_FADE_PX\)/);
+    // ⭐ S195 N1 — the lit rects are the team's zones (the own quarter alone in a free-for-all).
+    expect(src).toMatch(/const litRects = teamZones\(world, world\.localPlayerId as unknown as number\)\.map\(\(z\) => zoneRect\(z, world\.layout\)\);/);
+    expect(src).toMatch(/computeMistField\(this\.mistField, sources, litRects, VISION_FADE_PX\)/);
     expect(src.indexOf('this.container.addChild(this.fogSprite);')).toBeLessThan(src.indexOf('this.container.addChild(this.mist.container);'));
     expect(src).toMatch(/fogMistFx\(this\.mist, this\.mistField, world\.tick, this\.alpha\)/);
     // ⛔ pinned bounds: without it the edge puffs grew the stage and broke fog.spec's pixel probes

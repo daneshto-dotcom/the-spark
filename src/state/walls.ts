@@ -50,7 +50,7 @@ import {
   SPAWNER_RADIUS,
 } from '../constants.ts';
 import type { Vec2 } from '../types.ts';
-import { zoneOf, type ZoneLayout } from './zones.ts';
+import { seatOfZone, zoneOf, type ZoneLayout } from './zones.ts';
 import type { World } from './worldTypes.ts';
 import { sameTeam } from './teams.ts';
 
@@ -107,8 +107,13 @@ export function wallSegments(layout: ZoneLayout): readonly WallSegment[] {
  *
  * RENDER-ONLY, like the wall itself (`clampAcrossWalls` below has no sim consumer).
  */
-export function wallSeparatesSides(world: Pick<World, 'teams'>, seg: WallSegment): boolean {
-  return !sameTeam(world, seg.zoneA, seg.zoneB);
+export function wallSeparatesSides(world: Pick<World, 'teams' | 'layout'>, seg: WallSegment): boolean {
+  // ⭐ S195 (R195-T2, B-29) — the zones' OWNERS, not the zone indices: a mapped board moves seats, and the
+  // 2v1 solo owns two zones (no wall inside his own half). Nobody's zone stays walled (`undefined` is nobody's
+  // teammate). On the plain boards `seatOfZone` is the identity, so this is the S192 test unchanged.
+  const a = seatOfZone(seg.zoneA, world.layout);
+  const b = seatOfZone(seg.zoneB, world.layout);
+  return !sameTeam(world, a ?? undefined, b ?? undefined);
 }
 
 /**

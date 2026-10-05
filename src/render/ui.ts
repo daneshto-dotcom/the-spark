@@ -27,6 +27,7 @@ import { CREATURE_CONFIGS } from '../state/creatures/voltkin-config.ts';
 import { MAGIC_COMBO_KEYS } from '../combos.ts';
 // ⭐ S155 P2 — the exit button's rect, registered in hudSurfaces() below so the overlap gate sees it.
 import { exitButtonRect } from './exitButton.ts';
+import { teamStandings } from '../state/teamScore.ts'; // ⭐ S195 (R195-T1) — the team total on the board
 
 const GAUGE_X = CANVAS_WIDTH - 24;
 
@@ -50,8 +51,21 @@ export const PHASE_EDGE_PULSE_SCALE = 1.6;
  * the Browser pane cannot be driven headlessly (a hidden pane pauses requestAnimationFrame, so
  * the Pixi ticker never advances) — so the arithmetic is verified here rather than by eye.
  */
-export function formatTierBanner(tier: number, waveNumber: number): string {
-  return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${winScoreForWave(waveNumber)}`;
+export function formatTierBanner(tier: number, waveNumber: number, bar: number = winScoreForWave(waveNumber)): string {
+  // ⭐ S195 (audit L5) — `bar` is the VIEWER's team bar in a team game (the race he is in); the seat bar otherwise.
+  return `TIER ${tier}  —  ${tier * SCORE_TIER_STEP}/${bar}`;
+}
+
+/**
+ * ⭐⭐ S195 (owner R195-T1) — the leaderboard's race readout for one seat: `score/bar` in a free-for-all (the
+ * pre-S195 text, byte for byte), and in a team game the seat's own score plus its TEAM's total against the
+ * team bar (`teamScore.ts`): `1200 · T1 3400/5000`. PURE.
+ */
+export function formatRaceReadout(score: number, waveNumber: number, team: { readonly team: number; readonly total: number; readonly bar: number; readonly seats?: readonly unknown[] } | null): string {
+  // ⭐ S195 (audit L4) — a ONE-seat team (a solo who picked no team, or a team of one) is just the player: his
+  // score against his bar, no phantom "T5" tag. (Its bar is the seat bar × 1.)
+  if (team === null || (team.seats !== undefined && team.seats.length === 1)) return `${Math.floor(score)}/${team?.bar ?? winScoreForWave(waveNumber)}`;
+  return `${Math.floor(score)} · T${team.team + 1} ${team.total}/${team.bar}`;
 }
 
 /** V6-0.2 — solo score readout. Floors, matching the leaderboard's own formatting. */
@@ -400,6 +414,8 @@ export function captureTierBanner(
   worldTick: number,
   lastTierTick: number,
   waveNumber: number,
+  /** ⭐ S195 (audit L5) — the viewer's team bar in a team game; absent = the seat bar. */
+  bar?: number,
 ): TierBannerCapture {
   let watermark = resetWatermarkIfRegressed(worldTick, lastTierTick);
   let text: string | null = null;
@@ -409,7 +425,7 @@ export function captureTierBanner(
     if (e.kind !== 'SCORE_TIER') continue;
     if (e.tick <= watermark) continue;
     watermark = e.tick;
-    text = formatTierBanner(e.tier, waveNumber);
+    text = formatTierBanner(e.tier, waveNumber, bar);
     color = e.color;
     tier = e.tier;
   }
@@ -1004,7 +1020,8 @@ export class HUD {
     // `world.tick = snap.tick` (save.ts:830) for both restore() and applyNetSnapshot(): play solo
     // for ten minutes, then join a freshly-started host, and the adopted tick lands far BELOW the
     // watermark. Right conclusion, wrong cause — so guard the cause that actually exists.
-    const cap = captureTierBanner(world.effects, world.tick, this.lastTierTick, world.waveNumber);
+    const myTeamBar = teamStandings(world).find((s) => s.seats.includes(world.localPlayerId))?.bar; // ⭐ S195 L5
+    const cap = captureTierBanner(world.effects, world.tick, this.lastTierTick, world.waveNumber, myTeamBar);
     this.lastTierTick = cap.watermark;
     // `text === null` means no crossing this frame. Do NOT touch the banner state — it may be
     // mid-animation from an earlier crossing, and clobbering it here would truncate the beat.
@@ -1206,6 +1223,8 @@ export class HUD {
     // avatar nameplates AND the win banner, so every identity surface agrees;
     // the row colour stays live as the redundant cue. The leader also gets a
     // "*" crown marker so rank reads even when scores are close.
+    // ⭐ S195 (R195-T1) — every team's total/bar, once per frame (`[]` in a free-for-all).
+    const standings = teamStandings(world);
     const ranked = show1v1
       ? [...world.players.values()].sort(
           (a, b) =>
@@ -1247,7 +1266,9 @@ export class HUD {
       const crown = i === 0 ? '*' : ' ';
       // S87 — bot rows read B{n} (matches the avatar nameplates).
       const tag = world.botSeats.has(p.id) ? 'B' : 'P';
-      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${Math.floor(score)}/${winScoreForWave(world.waveNumber)}${isLocal ? ' <YOU' : ''}`;
+      // ⭐ S195 (R195-T1) — in a team game the race is the TEAM's total vs the team bar (`formatRaceReadout`).
+      const standing = standings.find((s) => s.seats.includes(p.id)) ?? null;
+      t.text = `${isLocal ? '>' : ' '}${crown}${tag}${seat + 1} ${formatRaceReadout(score, world.waveNumber, standing)}${isLocal ? ' <YOU' : ''}`;
       t.style.fill = p.color;
       t.position.set(SCORE_ROW_X, SCORE_ROW_TOP_Y + i * SCORE_ROW_STEP);
       t.visible = true;

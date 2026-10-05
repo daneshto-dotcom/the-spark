@@ -1685,6 +1685,13 @@ export interface RosterEntry {
    * message. This branch never edits `PROTOCOL_VERSION`.
    */
   readonly team?: number;
+  /**
+   * ⭐⭐ S195 (owner N16 / R195-T3) — THE SEAT'S BOARD-SLOT PREFERENCE (0..3, clock order), as the HOST arranged
+   * the lobby. Absent = its seat number. `applyStartGame` reads it with the teams (`layoutForMatch`) to decide
+   * where each seat stands; the rack previews the same. Validated in `isValidRoster` (an integer 0..3 or the
+   * whole message is rejected). ⛔ Part of the S195 teams protocol bump (reported; the merge owner bumps).
+   */
+  readonly slot?: number;
 }
 
 export interface StartGameMsg {
@@ -1736,6 +1743,12 @@ interface LobbyPresenceMsg {
   readonly phase?: HostPhase;
   /** ⭐ S191 (NETFR-1) — the host's current match id, when it has one. Additive-optional. */
   readonly matchId?: string;
+  /**
+   * ⭐ S195 (owner N3) — the all-ready LOCK is counting: ms until the match begins (0..`QM_READY_LOCK_MS`), so a
+   * joiner shows the same "STARTING IN 3…" the host does. Additive-optional (absent = no countdown); part of the
+   * S195 teams protocol bump (reported; the merge owner bumps).
+   */
+  readonly countdownMs?: number;
 }
 
 /**
@@ -2209,6 +2222,8 @@ function isValidRoster(roster: unknown): roster is readonly RosterEntry[] {
     if (r.raceId !== undefined && !isRaceId(r.raceId)) return false;
     // ⭐ S192 — the team: absent is fine, present-but-not-0..3 rejects the whole message (fail-closed).
     if (r.team !== undefined && !isTeamIndex(r.team)) return false;
+    // ⭐ S195 (N16) — the board slot: absent is fine, present-but-not-0..3 rejects the whole message.
+    if (r.slot !== undefined && !(typeof r.slot === 'number' && Number.isInteger(r.slot) && r.slot >= 0 && r.slot < 4)) return false;
     /*
      * ⛔ S163 P4 — **`seat` WAS CHECKED FOR ITS TYPE AND NOTHING ELSE**, so `-1`, `99`, `1.5` and
      * `NaN` all passed a validator whose whole job is to make the wire safe to trust. Both writers
@@ -2329,6 +2344,8 @@ export function parseNetMessage(raw: unknown): NetMessage | null {
       // ⭐ S191 — optional host phase (one of the two literals) and match id; malformed rejects.
       if (obj.phase !== undefined && obj.phase !== 'LOBBY' && obj.phase !== 'MATCH') return null;
       if (obj.matchId !== undefined && !isValidMatchId(obj.matchId)) return null;
+      // ⭐ S195 (N3) — the lock countdown: a finite number 0..10 s, or the whole beacon is refused.
+      if (obj.countdownMs !== undefined && !(typeof obj.countdownMs === 'number' && Number.isFinite(obj.countdownMs) && obj.countdownMs >= 0 && obj.countdownMs <= 10_000)) return null;
       return obj as unknown as LobbyPresenceMsg;
     }
     case 'LOBBY_READY': {

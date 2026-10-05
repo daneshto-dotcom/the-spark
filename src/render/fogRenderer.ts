@@ -51,7 +51,8 @@ import {
 } from '../state/exploredMemory.ts';
 import { destroyShapeTextures, makeShapeTextures, type ShapeTextures } from './shapes.ts';
 import { zoneRect } from './zoneBackgroundRenderer.ts';
-import { zoneOwner } from '../state/zones.ts';
+import { MAX_SEATS_WITH_GROUND } from '../state/zones.ts';
+import { teamZones } from '../state/teams.ts';
 import type { World } from '../state/world.ts';
 import type { PrimitiveId, Vec2 } from '../types.ts';
 import { FxLayer } from './fx/fxLayer.ts';
@@ -153,7 +154,12 @@ export class FogRenderer {
    * an empty corner of your OWN ground stayed shrouded until you swept the mouse across it. No number
    * of extra radii fixes that; the unit of "mine" is the ZONE.
    */
-  private readonly ownZoneErase: Sprite;
+  /**
+   * ⭐⭐ S195 (owner N1 / R195-F1) — ONE erase per lit zone, at most one per zone on the widest board:
+   * your own quarter and every teammate's. *"No fog of war during build phase for your same team."*
+   * In a free-for-all only `[0]` is ever shown, exactly the S170 P6 single erase.
+   */
+  private readonly ownZoneErases: Sprite[] = [];
   private gridNeedsRedraw = true;
   /** Tracks the PLAYING edge so remembered areas reset at the start of each match. */
   private wasActive = false;
@@ -253,11 +259,14 @@ export class FogRenderer {
      * currently visible" DIM tier over the dark base, so an erase added before it would be painted
      * back over and the owner's own zone would still read as dim-explored rather than as lit.
      */
-    this.ownZoneErase = new Sprite(Texture.WHITE);
-    this.ownZoneErase.blendMode = 'erase';
-    this.ownZoneErase.eventMode = 'none';
-    this.ownZoneErase.visible = false;
-    this.maskScene.addChild(this.ownZoneErase);
+    for (let i = 0; i < MAX_SEATS_WITH_GROUND; i++) {
+      const erase = new Sprite(Texture.WHITE);
+      erase.blendMode = 'erase';
+      erase.eventMode = 'none';
+      erase.visible = false;
+      this.maskScene.addChild(erase);
+      this.ownZoneErases.push(erase);
+    }
 
     // Displayed layer: the low-res mask upscaled to full screen (bilinear-smooth).
     // Alpha = fog strength (tweened for the win-lift).
@@ -377,18 +386,19 @@ export class FogRenderer {
      * spectator or an out-of-range seat must not silently light zone 0 — that would hand one player
      * a free reveal of someone else's ground, which is the opposite of what the fog is for.
      */
-    const ownZone = zoneOwner(world.localPlayerId as unknown as number, world.layout);
-    if (ownZone === null) {
-      this.ownZoneErase.visible = false;
-    } else {
-      const r = zoneRect(ownZone, world.layout);
-      this.ownZoneErase.visible = true;
-      this.ownZoneErase.position.set(r.x, r.y);
-      this.ownZoneErase.width = r.w;
-      this.ownZoneErase.height = r.h;
+    // ⭐⭐ S195 (owner N1) — and every TEAMMATE's quarter with it (`teamZones` is `[own]` in a free-for-all).
+    const litRects = teamZones(world, world.localPlayerId as unknown as number).map((z) => zoneRect(z, world.layout));
+    for (let i = 0; i < this.ownZoneErases.length; i++) {
+      const erase = this.ownZoneErases[i]!;
+      const r = litRects[i];
+      erase.visible = r !== undefined;
+      if (r === undefined) continue;
+      erase.position.set(r.x, r.y);
+      erase.width = r.w;
+      erase.height = r.h;
     }
     if (fxActive()) {
-      computeMistField(this.mistField, sources, ownZone === null ? null : zoneRect(ownZone, world.layout), VISION_FADE_PX);
+      computeMistField(this.mistField, sources, litRects, VISION_FADE_PX);
       this.mistReady = true;
     }
     // S59 P1 — accumulate explored cells; only re-upload the grid texture when the
@@ -399,7 +409,7 @@ export class FogRenderer {
     }
     // S60 P2 — advance the last-seen enemy-structure memory + reconcile its ghost
     // sprites at the same ~20Hz cadence (cheap: O(structures + ghosts)).
-    updateGhostMemory(this.memory, world.primitives, sources, world.localPlayerId, world.tick);
+    updateGhostMemory(this.memory, world.primitives, sources, world.localPlayerId, world.tick, world.teams);
     this.syncGhostSprites(sources);
     this.ensurePool(sources.length);
     for (let i = 0; i < this.pool.length; i++) {

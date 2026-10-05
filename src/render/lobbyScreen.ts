@@ -11,7 +11,7 @@
  * collapse. zIndex=1000 guards Pixi stacking. A11y attrs per Council R1 Gemini #1.
  */
 
-import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+import { Application, Container, Graphics, Text, TextStyle, Ticker } from 'pixi.js';
 import { CANVAS_HEIGHT, CANVAS_WIDTH, MAX_PLAYERS, PLAYER_COLORS } from '../constants.ts';
 // ⭐ S155 P2 — the ONE shared button grammar (hover pop + press + blip). See buttonFeedback.ts.
 import { attachButtonFeedback } from './buttonFeedback.ts';
@@ -112,6 +112,11 @@ export interface LobbyScreenCallbacks {
    * split as `onPickRace`: the host applies it to its session, a joiner sends `CLAIM_TEAM`.
    */
   onPickTeam(team: number | null): void;
+  /**
+   * ⭐ S195 (owner N16) — the HOST moved the seat at stable index `seat` one board slot on. Host-only: the
+   * rack shows the MOVE chip to the host alone, and the caller re-checks `world.isHost`.
+   */
+  onMoveSeat?(seat: number): void;
 }
 
 /** S85 P4c — shape returned by the DEV-only getUiPoints e2e geometry getter. */
@@ -146,6 +151,9 @@ export class LobbyScreen {
   // top of it. Fed the SAME `SeatView[]` the rack gets, from the one `applyView` below.
   private readonly backdrop: LobbyBackdropHandle;
   private countText: Text;
+  /** ⭐ S195 (owner N3) — "TEAMS LOCKED — STARTING IN N", while the host's all-ready lock counts down. */
+  private countdownText!: Text;
+  private countdownEndsAt: number | null = null;
   private hostPane: Container;
   private joinPane: Container;
   private joinButton: Container;
@@ -312,6 +320,8 @@ export class LobbyScreen {
         const mine = lobbyView(this.state).seats.find((s) => s.isYou && s.occupied);
         callbacks.onPickTeam(nextTeamPick(mine?.team) ?? null);
       },
+      // ⭐ S195 (N16) — the host's MOVE chip.
+      (seatIndex) => callbacks.onMoveSeat?.(seatIndex),
     );
     this.seatRack.container.visible = false;
     this.container.addChild(this.seatRack.container);
@@ -335,6 +345,33 @@ export class LobbyScreen {
     this.countText.position.set(CANVAS_WIDTH / 2, 710);
     this.countText.visible = false;
     this.container.addChild(this.countText);
+
+    // ⭐ S195 (owner N3) — the all-ready lock: *"you're stuck for three seconds, everyone, before the game
+    // starts"*. Shown on every rack (the host's beacon carries the ms left), wall-clock cosmetic like the
+    // seat animations — the lobby has no sim tick.
+    this.countdownText = new Text({
+      text: '',
+      style: new TextStyle({ fontFamily: 'monospace', fontSize: 24, fontWeight: 'bold', fill: 0xffd45a, letterSpacing: 2 }),
+    });
+    this.countdownText.anchor.set(0.5);
+    this.countdownText.position.set(CANVAS_WIDTH / 2, 748);
+    this.countdownText.visible = false;
+    this.container.addChild(this.countdownText);
+    Ticker.shared.add(() => {
+      if (this.countdownEndsAt === null) {
+        if (this.countdownText.visible) this.countdownText.visible = false;
+        return;
+      }
+      const left = this.countdownEndsAt - performance.now();
+      if (left <= 0) {
+        this.countdownEndsAt = null;
+        this.countdownText.visible = false;
+        return;
+      }
+      const t = lockCountdownLabel(left);
+      if (this.countdownText.text !== t) this.countdownText.text = t;
+      this.countdownText.visible = this.isShown;
+    });
 
     // Join pane visual border (pane-relative; HTML input overlays this rect).
     const joinInputBg = new Graphics();
@@ -688,6 +725,11 @@ export class LobbyScreen {
       if (s.occupied && !s.isYou && s.raceId !== undefined) taken.add(s.raceId);
     }
     this.racePicker.open(taken, mine?.raceId);
+  }
+
+  /** ⭐ S195 (N3) — the host's lock countdown from the latest beacon: ms left, or `undefined` = not counting. */
+  setLockCountdown(ms: number | undefined): void {
+    this.countdownEndsAt = ms === undefined ? null : performance.now() + ms;
   }
 
   updatePresence(presence: readonly SeatPresence[] | null): void {
@@ -1168,4 +1210,9 @@ function paintLobbyPlate(bg: Graphics, color: number, state: SkinState): void {
   bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).fill({ color: 0x141b26, alpha: 0.92 });
   skinStaticPlate(bg, hit, color, 8, state);
   bg.roundRect(0, 0, BUTTON_WIDTH, BUTTON_HEIGHT, 8).stroke({ width: 2, color, alpha: 0.8 });
+}
+
+/** ⭐ S195 (owner N3) — the lock countdown's line: whole seconds left, rounded UP (3, 2, 1). PURE. */
+export function lockCountdownLabel(msLeft: number): string {
+  return `TEAMS LOCKED — STARTING IN ${Math.max(1, Math.ceil(msLeft / 1000))}`;
 }

@@ -57,6 +57,7 @@ import { makeBond } from './placePrimitive.ts';
 import { sameTeam } from './teams.ts';
 import { standingVoltkinTvs } from './voltkinTv.ts';
 import { dispatch, makeWorld, type World } from './world.ts';
+import { zoneOf, zoneOwner } from './zones.ts';
 
 const P0 = asPlayerId(0);
 const P1 = asPlayerId(1);
@@ -103,6 +104,9 @@ function stampQuadrant(w: World, maxTowers: number): Quadrant['towers'] {
       // the host's own legality: ENEMY GROUND, CASTLE, QUARRY, OFF SCREEN and BLOCKED (per-node STAMP_CLEARANCE
       // against every standing shape) — so the towers pack exactly as tightly as a player's can
       if (stampRefusalAt(w, centre, P0, id) !== null) continue;
+      // ⭐ S195 (teams merge seam) — the owner's QUADRANT: seat 0's HOME zone only. On the S195 1v2 board the solo
+      // also owns the empty SW (B-29), which would double his ground and break the teams-vs-FFA comparison (H4).
+      if (zoneOf(centre, w.layout) !== zoneOwner(0, w.layout)) continue;
       const bank = w.castleBanks.get(P0) ?? makeCastleBank();
       for (const [type, count] of blueprintBill(id)) bank[type as number] = (bank[type as number] ?? 0) + count;
       w.castleBanks.set(P0, bank);

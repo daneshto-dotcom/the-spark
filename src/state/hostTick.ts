@@ -136,6 +136,7 @@ import { T9_BOSS_TYPE, isT9BossType, isT9TowerId, raceForT9TowerId } from './t9B
 import { spawnerIntervalTicks } from './spawners/spawner.ts';
 import { awardSpawnerKillReward } from './gameMode.ts';
 import { tickGameState, type GameStateExtras } from './gameState.ts';
+import { teamHunterTriggered } from './teamScore.ts';
 import { shouldCookOffInHand } from './potatoLifecycle.ts';
 import { tickScoring } from './scoring.ts';
 import { canAvatarCleanSplat } from './seagulls/seagullLifecycle.ts';
@@ -2340,7 +2341,10 @@ export function runHostTick(world: World, deps: HostTickDeps, state: HostTickSta
   if (world.gameState === 'PLAYING') {
     if (
       !world.hunterSpawned &&
-      Math.floor(world.scoreProgress) >= hunterTriggerScoreForWave(world.waveNumber)
+      // ⭐ S195 (R195-T1, ⚠ MINE) — in a team game the trigger follows the TEAM bar (`teamHunterTriggered`).
+      (world.teams !== undefined
+        ? teamHunterTriggered(world, hunterTriggerScoreForWave)
+        : Math.floor(world.scoreProgress) >= hunterTriggerScoreForWave(world.waveNumber))
     ) {
       dispatch(world, { type: 'SPAWN_HUNTER' });
     }

@@ -72,7 +72,7 @@ export function mistWeight(d: number): number {
  * inside what you can see). `fadePx` is `VISION_FADE_PX`. Points out of every source's reach keep
  * +Infinity (deep fog: no mist there). PURE over its inputs.
  */
-export function computeMistField(field: MistField, sources: readonly MistSource[], ownZone: MistRect | null, fadePx: number): void {
+export function computeMistField(field: MistField, sources: readonly MistSource[], ownZones: MistRect | null | readonly MistRect[], fadePx: number): void {
   const { cols, rows, d } = field;
   d.fill(Number.POSITIVE_INFINITY);
   const C = FOG_MIST_CELL;
@@ -93,7 +93,13 @@ export function computeMistField(field: MistField, sources: readonly MistSource[
       }
     }
   }
-  if (ownZone !== null) {
+  /*
+   * ⭐ S195 (owner N1) — every LIT rect: your own quarter AND each teammate's (a team shares its whole
+   * ground's light). Adjacent lit rects need no seam handling: a lattice point near the shared edge is
+   * negative from the rect it is inside, and `mistWeight` is 0 below `FOG_MIST_D0` (60 > 0).
+   */
+  const lit: readonly MistRect[] = ownZones === null ? [] : Array.isArray(ownZones) ? ownZones : [ownZones as MistRect];
+  for (const ownZone of lit) {
     // The own quarter is lit edge to edge; its edge is the rectangle (no fade band: it is a hard erase).
     // ⚠ Only its INTERIOR edges count: the side that is the board's own border is not a vision edge,
     // and counting it would lay mist over the rim of your own quarter.

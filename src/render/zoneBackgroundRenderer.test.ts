@@ -169,8 +169,11 @@ describe('S166 — the zone backdrop covers neither the shape queue nor the fram
     // The bake is reached from sync, and cached on all three axes that change the hole.
     // ⭐ S193 V26 — plus a FOURTH, the race grade (`|g` graded, `|n` the `?fx=legacy` original): the
     // grade rides the same one-time bake, so the cache must tell the two apart or legacy shows graded art.
-    expect(src).toContain('punchPortal(raw, zone, layout, graded ? race : null)');
-    expect(src).toContain("`${url}|${layout}|${zone}|${graded ? 'g' : 'n'}`");
+    // ⭐ S195 — and the quadrant crop of a half-board image (part + mirror) BEFORE the hole: the grade is the
+    // plan's (`null` for the pair art), and `|g`/`|n` stays the key's LAST axis.
+    expect(src).toContain('tex = punchPortal(src, zone, layout, grade);');
+    expect(src).toContain('const grade = graded ? piece.grade : null;');
+    expect(src).toContain("`${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`");
     // `raw` must never reach a Sprite: that is the seam bug growing back.
     expect(src).not.toContain('new Sprite(raw)');
     expect(src).not.toContain('sp.texture = raw');
