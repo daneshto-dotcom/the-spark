@@ -50,6 +50,11 @@ import { componentOf } from '../game/structure.ts';
 import { cssToCanvasCoords } from '../render/lobbyScreen.ts';
 import { dispatch, isNetworked } from '../state/world.ts';
 import { canStampAt } from '../state/blueprintLegality.ts';
+// ⭐ S195 N6 — "if you have enough resources": the SAME affordability predicate the footer card and the
+// reducer use (`castleStructuresModel`, `applyBuildBlueprint`), asked again after each Shift placement.
+import { planBlueprintPayment } from '../state/blueprintBuild.ts';
+// ⭐ S195 N6 — number-key build macros: the pure digit → chip/card map (Pixi-free, DOM-free).
+import { digitOfKey, type KeyMacroTarget } from './keyMacros.ts';
 import type { World } from '../state/world.ts';
 import { sameTeam } from '../state/teams.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
@@ -145,6 +150,12 @@ export interface FooterBandLike {
    * Hit-test and action are one call so a guard and an action cannot disagree about a pixel.
    */
   pressShapeStrip(x: number, y: number): boolean;
+  /**
+   * ⭐ S195 N6 — what each digit key 1–9 addresses THIS frame (index `d − 1`): the open menu's cards,
+   * then the chip printed with that number. Optional so every harness stub stays assignable; a band
+   * without it has no macros.
+   */
+  keyMacroTargets?(): ReadonlyArray<KeyMacroTarget | null>;
 }
 
 /**
@@ -664,26 +675,7 @@ export class Controls {
     // menu shut — precisely the "it isnt clickable" the owner reported.
     const card = this.footerBand.cardAt(this.cursor.x, this.cursor.y);
     if (card !== null) {
-      // ⭐ S149 P6 — AFFORDABLE ⇒ ARM IT. NOT AFFORDABLE ⇒ ORDER THE SHAPES.
-      //
-      // The castle's shipped two-mode tile behaviour, carried over rather than reinvented. Owner:
-      // "before when it was in castle you could click on the towers you want built and it already
-      // give the priority shapes to the gatherer and shows them in castle but now it is gone. those
-      // mechanics should persist — we literally just move the tower purchase section to where
-      // classical tower defence footbars are."
-      // R81 — the footer had no audible response at all; the popover got one in S152 A5 and the
-      // chips did not. Accept and refuse now sound different here too.
-      void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
-      if (this.footerBand.cardEnabled(card)) {
-        setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
-        setScorchedEarthAim(null); // ⭐ S191 — and the Scorched Earth aim, for the same reason
-        this.castlePanel?.armExternal(card);
-        this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
-      } else {
-        // S153 P5a (R91) — pass the world: the panel derives the shortfall on demand now rather
-        // than reading a draw-time latch, so this works whether or not the castle was ever opened.
-        this.castlePanel?.requestShapesFor(this.world, card);
-      }
+      this.pressCard(card);
       return true;
     }
 
@@ -706,6 +698,157 @@ export class Controls {
     this.footerBand.select(complexity);
     return true;
   }
+
+  /**
+   * ⭐ S149 P6 — A TOWER CARD IS PRESSED: AFFORDABLE ⇒ ARM IT. NOT AFFORDABLE ⇒ ORDER THE SHAPES.
+   *
+   * The castle's shipped two-mode tile behaviour, carried over rather than reinvented. Owner:
+   * "before when it was in castle you could click on the towers you want built and it already
+   * give the priority shapes to the gatherer and shows them in castle but now it is gone. those
+   * mechanics should persist — we literally just move the tower purchase section to where
+   * classical tower defence footbars are."
+   * R81 — the footer had no audible response at all; the popover got one in S152 A5 and the
+   * chips did not. Accept and refuse now sound different here too.
+   *
+   * ⭐ S195 N6 — ONE method for the mouse (`handleFooterChipClick`) and the keyboard (`handleDigitKey`),
+   * so a digit can never arm what a click would have refused: same `cardEnabled` verdict, same aims
+   * dropped, same sounds, same `requestShapesFor` fallback.
+   */
+  private pressCard(card: GodlyId): void {
+    if (this.footerBand === null) return;
+    void (this.footerBand.cardEnabled(card) ? playUiClickSFX() : playUiRefusedSFX());
+    if (this.footerBand.cardEnabled(card)) {
+      setRaAimPreview(null); // S188 P6 — one gesture in hand at a time: picking a tower drops the aim
+      setScorchedEarthAim(null); // ⭐ S191 — and the Scorched Earth aim, for the same reason
+      this.castlePanel?.armExternal(card);
+      // ⭐ S195 N6 (audit fix) — a FRESH arm (or the toggle's put-back) is never the Shift chain's: the latch
+      // would otherwise outlive the tower it named and put back a tower the player picked on purpose.
+      this.shiftChainedId = null;
+      this.footerBand.setArmed(this.castlePanel?.armedBlueprint() ?? null);
+    } else {
+      // S153 P5a (R91) — pass the world: the panel derives the shortfall on demand now rather
+      // than reading a draw-time latch, so this works whether or not the castle was ever opened.
+      this.castlePanel?.requestShapesFor(this.world, card);
+    }
+  }
+
+  // ── ⭐⭐ S195 N6 (owner) — NUMBER-KEY BUILD MACROS + SHIFT = PLACE MANY ───────────────────────────────
+  /**
+   * > *"click like three, one … tier three towers … first tower in line … five, two … Helga … like in TD
+   * > games"* — owner, S195 (N6)
+   *
+   * A digit 1–9 (main row or numpad) addresses what the footer DREW this frame (`keyMacroTargets`,
+   * `keyMacros.ts`): a card in the open menu by position, else the chip printed with that number. A chip
+   * digit is the chip's click (`select` — opens, or shuts the open one); a card digit is the card's click
+   * (`pressCard` — arm, or order the missing shapes) — and the digit of the ALREADY-ARMED card puts it
+   * back, the way Escape does, so the key is a toggle.
+   *
+   * ⛔ INERT, AND SILENT, WHEREVER ANOTHER SURFACE OWNS THE KEYBOARD. Enumerated, each pinned in
+   * `controls.keyMacros.test.ts`:
+   *   · outside PLAYING (the lobby's room-code / name fields and the POSTGAME match board — whose ← → Tab
+   *     paging `main.ts` consumes — both live outside PLAYING; the band itself draws nothing there);
+   *   · the NONET trial (`world.sudoku`, digits 1–6 are ITS keys) and a benched seat (`isInputLocked`);
+   *   · a focused text field or form control (`document.activeElement` INPUT / TEXTAREA / SELECT — the
+   *     settings overlay's own controls stop propagation on its DOM root as well);
+   *   · a modal over the board — the codex, CONNECTION LOST, the exit confirm — asked through the SAME
+   *     `modalCover` predicate the click gates use, at the board's centre (no HUD control sits there, so
+   *     the point-dependent arms of that predicate cannot answer for a corner button);
+   *   · an auto-repeat (a held digit arms once), and a Ctrl / Meta / Alt chord (the browser's tab keys;
+   *     Alt is the footer toggle).
+   *   ⚠ The band collapsed draws no chip and no card, so `keyMacroTargets` is empty and every digit is
+   *   inert — a digit never arms a tower the player cannot see.
+   *
+   * ⚠ Shift+digit is the plain digit: the arm is identical, and "keep armed" is decided at each PLACEMENT
+   * by whether Shift is held then (`shiftPlaceMany`), so the chord simply has Shift already down.
+   *
+   * Nothing here is new on the wire: a digit ends in exactly the call the mouse makes on the same chip
+   * or card, and a Shift placement sends the SAME `BUILD_BLUEPRINT` a single placement sends.
+   */
+  private handleDigitKey(e: KeyboardEvent): boolean {
+    const digit = digitOfKey(e);
+    if (digit === null) return false;
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return false;
+    if (this.world.gameState !== 'PLAYING' || this.isInputLocked()) return false;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+    if (this.modalCover?.(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2) === true) return false;
+    const band = this.footerBand;
+    if (band === null || band.keyMacroTargets === undefined) return false;
+    const target = band.keyMacroTargets()[digit - 1] ?? null;
+    if (target === null) return false; // names nothing on screen: inert, not a refusal
+    e.preventDefault();
+    if (target.kind === 'chip') {
+      void playUiClickSFX(); // the chip's own click sound (`handleFooterChipClick`'s select arm is silent today; a key needs a cue)
+      band.select(target.complexity);
+      return true;
+    }
+    const id = target.id as GodlyId;
+    if (this.castlePanel?.armedBlueprint() === id) {
+      this.castlePanel.disarm(); // the armed card's own digit puts it back — a toggle
+      this.shiftChainedId = null;
+      band.setArmed(null);
+      void playUiClickSFX();
+      return true;
+    }
+    this.pressCard(id);
+    return true;
+  }
+
+  /**
+   * ⭐⭐ S195 N6 (owner) — **SHIFT = PLACE MANY.**
+   *
+   * > *"hold shift down when placing down a tower to place multiple … if you have enough resources …
+   * > rebuild really quickly"* — owner, S195 (N6)
+   *
+   * Shift is read from the REAL keyboard events this class already listens to (`onKeyDown` / `onKeyUp`
+   * on 'Shift'), and the pointer event's own `shiftKey` modifier is accepted as the same truth (a browser
+   * that stamps the click with Shift down is a browser whose Shift is down). It is CLEARED on window blur
+   * and on the tab going hidden (the S191 R2 INPUT-5 pattern for Alt), so a Shift whose release landed in
+   * another window cannot stay stuck down.
+   *
+   * At a legal placement the SAME `BUILD_BLUEPRINT` goes out that a single placement sends; then, instead
+   * of the one-pick-one-tower `disarm()`, the item STAYS armed exactly when Shift is held AND the seat can
+   * still pay for one more (`planBlueprintPayment` — the predicate the card's READY and the reducer's
+   * refusal both come from; never a second count). Running out, or releasing Shift, puts it back.
+   *
+   * ⚠ `shiftChainedId` remembers WHICH tower Shift kept in hand, so the Shift release puts back that
+   * tower and only that tower — a tower the player picked afresh after a chain is theirs to keep.
+   *
+   * ⚠ KNOWN LIMIT, reported: on a JOINER (or the host behind its sim worker) the bank is the last
+   * snapshot's, so inside one snapshot interval a second click can send a `BUILD_BLUEPRINT` the host then
+   * refuses as its documented no-op — the next click after the snapshot lands sees the real bank and puts
+   * the tower back. Nothing is ever built twice.
+   */
+  private shiftHeld = false;
+  private shiftChainedId: GodlyId | null = null;
+
+  /**
+   * Is Shift down for this placement? The pointer event's own modifier is the FRESHEST truth and wins in
+   * both directions (a click stamped `shiftKey: false` after a Shift keyup that landed elsewhere clears a
+   * stale latch); a synthetic event without one falls back to the keyboard's word.
+   */
+  private shiftPlaceMany(e: { readonly shiftKey?: boolean }): boolean {
+    if (typeof e.shiftKey === 'boolean') this.shiftHeld = e.shiftKey;
+    return this.shiftHeld;
+  }
+
+  /** After a Shift placement: keep the item in hand only while one more is affordable. */
+  private keepArmedAfterPlacement(e: { readonly shiftKey?: boolean }, armed: GodlyId): boolean {
+    if (!this.shiftPlaceMany(e)) return false;
+    return planBlueprintPayment(this.world, this.playerId, armed) !== null;
+  }
+
+  /** Shift came up (or the window went away): a Shift-held chain ends and its tower goes back. */
+  private endShiftChain(): void {
+    this.shiftHeld = false;
+    const chained = this.shiftChainedId;
+    this.shiftChainedId = null;
+    if (chained !== null && this.castlePanel?.armedBlueprint() === chained) {
+      this.castlePanel.disarm();
+      this.footerBand?.setArmed(null);
+    }
+  }
+  // ── end S195 N6 ─────────────────────────────────────────────────────────────────────────────────
 
   /**
    * ⭐⭐ S188 P6 (owner, `mummies.l0`) — **THE POWER OF RA GESTURE.**
@@ -735,6 +878,7 @@ export class Controls {
     }
     // One gesture in hand at a time: a held tower is put back, so the next click cannot stamp it.
     if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    this.shiftChainedId = null; // ⭐ S195 N6 (audit fix) — put back by hand: no chain to end on Shift-up
     setRaAimPreview({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
     void playUiClickSFX();
   }
@@ -792,6 +936,7 @@ export class Controls {
     }
     // One gesture in hand at a time: a held tower and a Ra aim are put back.
     if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    this.shiftChainedId = null; // ⭐ S195 N6 (audit fix) — see toggleRaAim
     setRaAimPreview(null);
     setScorchedEarthAim({ seat: this.playerId, x: this.cursor.x, y: this.cursor.y });
     void playUiClickSFX();
@@ -1014,7 +1159,10 @@ export class Controls {
   private putBackHand(): void {
     if (raAimPreview() !== null) setRaAimPreview(null);
     else if (scorchedEarthAim() !== null) setScorchedEarthAim(null);
-    else if (this.castlePanel?.armedBlueprint() != null) this.castlePanel.disarm();
+    else if (this.castlePanel?.armedBlueprint() != null) {
+      this.castlePanel.disarm();
+      this.shiftChainedId = null; // ⭐ S195 N6 — put back by hand: no chain to end on Shift-up
+    }
   }
 
   /**
@@ -1512,6 +1660,14 @@ export class Controls {
           return;
         }
         this.onBuildBlueprint?.(armed, centre);
+        // ⭐⭐ S195 N6 (owner) — SHIFT = PLACE MANY: *"hold shift down when placing down a tower to place
+        // multiple … if you have enough resources"*. The intent above is the SAME one a single placement
+        // sends; only what happens to the hand differs. See `keepArmedAfterPlacement`.
+        if (this.keepArmedAfterPlacement(e, armed)) {
+          this.shiftChainedId = armed;
+          return;
+        }
+        this.shiftChainedId = null;
         // One pick = one tower. Staying armed would let a single pick spam structures across the map
         // on every subsequent click.
         this.castlePanel?.disarm();
@@ -2099,6 +2255,8 @@ export class Controls {
   // prevents charge drain in solo / LOBBY / WIN states and when typing into
   // an input field.
   private onKeyDown = (e: KeyboardEvent): void => {
+    // ⭐ S195 N6 — Shift down: remembered for "place many" (see `shiftPlaceMany`). Never consumed.
+    if (e.key === 'Shift') { this.shiftHeld = true; return; }
     // ⭐⭐ S191 A-2 / S192 owner ruling — Alt drops / raises the footer, exactly as the collapse arrow does.
     if (this.handleAltFooterKey(e)) return;
     // ⭐ S188 P6 — Escape puts the Ra aim away, like a held tower.
@@ -2117,11 +2275,15 @@ export class Controls {
     // there is always a keyboard way out of a picked-up state, even if the pointer path is confused.
     if (e.key === 'Escape' && this.castlePanel?.armedBlueprint() != null) {
       this.castlePanel.disarm();
+      this.shiftChainedId = null; // ⭐ S195 N6 — put back by hand: no chain to end on Shift-up
       consumeCancel(e); // ⛔ S189 A1 — see consumeCancel
       return;
     }
     // S93 — the NONET overlay owns the keyboard during a trial (digits 1–6).
     if (this.world.sudoku !== null) return;
+    // ⭐⭐ S195 N6 (owner) — digits 1–9 are the footer's build macros ("three, one"). After the NONET
+    // guard above (its digits are its own) and before the Q key's guards, which it does not share.
+    if (this.handleDigitKey(e)) return;
     // S55 P3 — the full guard set is the pure decideKeyShrink (testable without
     // a DOM / Pixi Application). Behavior-preserving: same five guards, same
     // order, same dispatch.
@@ -2174,6 +2336,8 @@ export class Controls {
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {
+    // ⭐ S195 N6 — Shift up: the "place many" chain ends and its tower goes back (`endShiftChain`).
+    if (e.key === 'Shift') { this.endShiftChain(); return; }
     if (e.key !== 'Alt' || !this.altKeyConsumed) return;
     e.preventDefault();
     this.altKeyConsumed = false;
@@ -2182,11 +2346,15 @@ export class Controls {
   /** ⭐ S191 R2 (INPUT-5) — the window lost focus: a consumed Alt's release will not come here. */
   private onAltFocusLost = (): void => {
     this.altKeyConsumed = false;
+    this.endShiftChain(); // ⭐ S195 N6 — nor will Shift's: a stuck Shift cannot happen
   };
 
   /** ⭐ S191 R2 (INPUT-5) — the tab went hidden: the same. Going VISIBLE clears nothing. */
   private onAltVisibility = (): void => {
-    if (document.visibilityState === 'hidden') this.altKeyConsumed = false;
+    if (document.visibilityState === 'hidden') {
+      this.altKeyConsumed = false;
+      this.endShiftChain(); // ⭐ S195 N6
+    }
   };
   // ── end S191 A-2 ────────────────────────────────────────────────────────────────────────────────
 

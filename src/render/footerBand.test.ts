@@ -405,6 +405,8 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
      *      `isOverBandSurface`, both collapse states)  ← S191
      *  11. a SCORCHED EARTH charge pip → `isOverScorchedEarthButton` — INSIDE plate 10, same rectangle
      *      (drawn only once the charges lever is above one; its flame fallback is STROKED, not filled)
+     *  12. the tower card's KEY BADGE plate → `cardAt` — drawn INSIDE plate 5 at `CARD_KEY_BADGE`'s
+     *      offset, same rectangle (S195 N6; `controls.keyMacros.test.ts` pins badge ⊆ card on live geometry)
      *
      * ⚠ IF THIS GOES RED, DO NOT BUMP THE NUMBER. A sixth opaque fill means a sixth surface the
      * player cannot see through, and something must hit-test it before this test is updated — that
@@ -415,9 +417,14 @@ describe('S182 — the carry readout is laid out FROM the band, not beside it', 
     const fills = src.match(/\.fill\(\{/g) ?? [];
     expect(
       fills.length,
-      `the band now fills ${fills.length} opaque rectangles, not 11 — register the new one in ` +
+      `the band now fills ${fills.length} opaque rectangles, not 12 — register the new one in ` +
         '`isOverChip` (a control) or `isOverBandSurface` (a readout) BEFORE updating this count',
-    ).toBe(11);
+    ).toBe(12);
+    /*
+     * ⭐ S195 N6 — 11 → 12, the rule followed: the card's KEY BADGE plate is drawn inside the card
+     * plate's own rectangle (plate 5), so `cardAt` already answers for every pixel of it; the live
+     * containment is asserted in `controls.keyMacros.test.ts`.
+     */
     /*
      * ⭐ S191 — 9 → 11, the rule followed: both are the SCORCHED EARTH square (its plate, and its pip,
      * drawn inside that plate), hit-tested by `isOverScorchedEarthButton`, which `isOverChip` and
