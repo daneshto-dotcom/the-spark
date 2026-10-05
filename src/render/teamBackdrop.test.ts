@@ -171,6 +171,6 @@ describe('S195 audit L10 — the bake cache is pruned on a rematch', () => {
   it('REACH (source) — the crop canvas is freed once baked', () => {
     const src = readFileSync(new URL('./zoneBackgroundRenderer.ts', import.meta.url), 'utf8');
     expect(src).toMatch(/if \(src !== raw && src !== tex\) src\.destroy\(true\);/);
-    expect(src).toMatch(/this\.pruneBaked\(usedKeys\);/);
+    expect(src).toMatch(/if \(usedSig !== this\.lastUsedSig\) \{\s*this\.lastUsedSig = usedSig;\s*this\.pruneBaked\(usedKeys\);/);
   });
 });

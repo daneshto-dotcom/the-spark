@@ -652,6 +652,8 @@ export class ZoneBackgroundRenderer {
    * would hand seat 2 the hole punched for seat 0.
    */
   private readonly baked: Map<string, Texture> = new Map();
+  /** ⭐ S195 (audit LOW-2) — the bake keys painted last time `pruneBaked` ran (its change gate). */
+  private lastUsedSig = '';
   private readonly loadStarted: Set<string> = new Set();
   private enabled = true;
   /** ⭐ S193 V26 — the board vignette (one sprite, above the backdrops, inside this layer only). */
@@ -853,7 +855,13 @@ export class ZoneBackgroundRenderer {
         this.sprites.delete(zone);
       }
     }
-    this.pruneBaked(usedKeys);
+    // ⭐ S195 (audit LOW-2) — only when the set of painted bakes CHANGED (≤ 4 keys, so the signature is cheap);
+    // a steady board does no per-frame Set/Map copying.
+    const usedSig = JSON.stringify([...usedKeys]); // unambiguous (the keys themselves contain '|')
+    if (usedSig !== this.lastUsedSig) {
+      this.lastUsedSig = usedSig;
+      this.pruneBaked(usedKeys);
+    }
     this.syncVignette();
   }
 
