@@ -1,6 +1,14 @@
 # S195 PROGRESS — s195/fixes (T22)
 
-NEXT STEP: final build + full vitest running in bg (.tmp-gates/final-build.*, final-vitest.*); then write the final report at the top.
+NEXT STEP: read .tmp-gates/final-vitest-2.{log,exit} (full suite after the derived-limit commit 4334183b); if only a bot signature pin moved, re-measure it; then `npm run build` → .tmp-gates/final-build-2.*; then the FINAL REPORT at the top of this file.
+
+## Decisions taken this tree (for the auditor)
+- Bot entropy limits are NOT the free allowance (10). Measured on the C5 four-seat harness: at 10, HARD/IMBA bots lost all three castles by tick 17 665 (baseline on the integration tip: 8476 / 17324 / 26040 — the match runs its three waves). Pool grows n², tax grows n → the derived break-even (`entropyBreakEvenConnectors`) is the stop: BALANCED/SABOTEUR 37 (1 connector lost a fight), FORTRESS 50 (2), WARMONGER/TYCOON 27 (0.5). ⚠ MINE, all three accepted-loss numbers. With these the C5 harness is byte-identical to the baseline (ffa golden C holds).
+- ffa golden re-pinned ONCE (series C): proven hash-string-only (A == B, md5 606b70d8…).
+- Q-E pin (botPersonality.test) re-stated once already (18 vs 15) under limit 10 — must be re-measured under the derived limits (pending full run).
+- Census pins (endgameS193 n 9→12, teams.sites 9→12 / 10→13): three `placedBy === seat` own-structure sites, is-this-MINE.
+- Saturation fallback: when no fresh site exists the bot grows as an unaware one (never the home anchor). Known limit: the growth check is taken at pickup, the haul lands seconds later → a stale check can overshoot (HARD TYCOON 420 s: 40 / 27 / 28 vs unaware 47 / 77 / 35).
+
 
 WORKER-HEAP MEASURED (Chromium 1194, this box, 30.7 min, exit 0, 2/2): BASELINE td-heavy ticks=2307 snapshot 58.8→63.0 MB (Δ4.28; native +3.32 = GL/batcher buffers, code +0.85, object +0.01) vs usedJSHeapSize Δ4.93; BOTS 3×MID ticks=2088 snapshot 147.2→148.1 (Δ0.92; code +0.61) vs usedJSHeapSize Δ3.08; worker Δ0.20 / 0.33; snapshots 3.4–7.3 s each (budget +60 s holds).
 
