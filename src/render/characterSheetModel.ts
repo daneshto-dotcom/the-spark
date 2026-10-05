@@ -470,7 +470,7 @@ const CREATURE_NAME: Readonly<Record<CreatureType, string>> = {
 };
 
 /** The tier word under the name. Derived from the type, never stored. */
-function tierOf(type: CreatureType): string {
+export function tierOf(type: CreatureType): string {
   if (BOSS_TYPES.has(type)) return 'T9';
   if (type.startsWith('t3')) return 'T3';
   if (type === 'raceUnit') return 'CASTLE';

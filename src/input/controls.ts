@@ -201,6 +201,8 @@ export interface CharacterSheetLike {
   actionFeedSpawnerId(): SpawnerId | null;
   /** S181 — the pointer moved; light the control under it (owner: "slightly changes hue"). */
   setHover(x: number, y: number): void;
+  /** ⭐ S195 N5 — the pointer is down / up; sink / lift the control under it. Optional so every harness stub stays assignable. */
+  setPressed?(down: boolean): void;
 }
 
 /*
@@ -1359,6 +1361,7 @@ export class Controls {
     // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
     // acts on the click is the frame that shows it being taken.
     this.footerBand?.setPressed(true);
+    this.characterSheet?.setPressed?.(true); // ⭐ S195 N5 — the card's FIX / SCRAP / FEED sink too
     // ⛔⛔ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL NOTHING ON THE BOARD ACTS, for EVERY
     // button: the modal's own Pixi hit (its buttons, its backdrop) is the whole of the click. `onUp`
     // does NOT return like this — a drag begun before the modal must still end (see its two gates).
@@ -1838,6 +1841,7 @@ export class Controls {
     // release off the board still arrives — otherwise dragging off a pressed chip would leave it
     // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
     this.footerBand?.setPressed(false);
+    this.characterSheet?.setPressed?.(false); // ⭐ S195 N5
     // ⛔ S192 A-1 — a release whose PRESS was under a modal commits nothing (read once, cleared at once).
     const downUnderModal = this.downUnderModal;
     this.downUnderModal = false;

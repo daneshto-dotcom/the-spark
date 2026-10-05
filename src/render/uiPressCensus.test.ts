@@ -78,9 +78,9 @@ const OTHER_TREE: ReadonlyArray<{ file: string; match: string; tree: string }> =
 /** Controls-driven surfaces (the census pins these separately): the latch expression each must carry. */
 const CONTROLS_DRIVEN_PRESS: ReadonlyArray<{ file: string; via: string | null; tree?: string }> = [
   { file: 'src/render/footerBand.ts', via: "this.pressed ? 'press'" },
-  // ⛔ NOT DONE HERE — the card's FIX / SCRAP / FEED + auto-build toggles (owner: *"goblin feed, tier-3 tower
-  // feeds"*). `characterSheet.ts` belongs to another tree; the one-line hunk is in the ui-4 report.
-  { file: 'src/render/characterSheet.ts', via: null, tree: 'character sheet tree' },
+  // ⭐ S195 info-ui — the card's FIX / SCRAP / FEED + auto-build toggles, owned row, weld rows (owner: *"goblin
+  // feed, tier-3 tower feeds"*): `setPressed` latched by controls.onDown / onUp beside the footer's.
+  { file: 'src/render/characterSheet.ts', via: "this.pressed ? 'press'" },
 ];
 
 /**
@@ -145,7 +145,7 @@ function skinnedCensusRows(): Array<{ file: string; match: string }> {
 
 const FILES = [join(ROOT, 'src', 'main.ts'), ...walk(join(ROOT, 'src', 'render'))];
 const OWNER_EXCLUDED = /src\/render\/(arcade|nonet|sudokuOverlay)/; // R194-24: the games themselves
-const OTHER_TREE_FILES = new Set(['src/render/characterSheet.ts', 'src/render/matchBoard.ts']);
+const OTHER_TREE_FILES = new Set(['src/render/matchBoard.ts']);
 
 describe('⛔ S195 N5 — every SKINNED clickable also shows a PRESS (derived from the skin census)', () => {
   const skinned = skinnedCensusRows();

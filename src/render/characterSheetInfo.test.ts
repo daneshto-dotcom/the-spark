@@ -84,7 +84,7 @@ function chain(w: World, n: number, owner: PlayerId = P0): Primitive {
   return first;
 }
 
-const rows = (w: World, seat: PlayerId, primitiveId: Primitive['id']): SheetStatRow[] =>
+const rows = (w: World, seat: PlayerId, primitiveId: Primitive['id']): readonly SheetStatRow[] =>
   characterSheetModel(w, seat, { kind: 'structure', primitiveId })!.stats;
 const byLabel = (rs: readonly SheetStatRow[], label: string): SheetStatRow | undefined => rs.find((r) => r.label === label);
 
