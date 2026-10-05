@@ -1,7 +1,7 @@
 # S195 LAG tree — progress (newest at top)
 
 ## NEXT STEP (exact)
-FIX ROUND DONE, gates green (see FIX ROUND FINAL). Waiting for the merge owner.
+Seam round committed (radio hover/press, range/label :active, census text, test). WAIT for the coordinator's 'merge master' (after deploy #6), then: git merge master, npm install, gates (typecheck, vitest --maxWorkers=3, build KiB, e2e:gating + settings-toggles on 26135), report tip.
 
 ## FIX ROUND FINAL
 merge cf06a64b; typecheck 0, vitest 0, build 0, e2e:gating 0, settings-toggles 0. Mutations: foul-one-end / pulse-no-cover / pattern-in-solo / colorA-out-of-hash all RED. zzAudit3 + hint-hide RED on pre-fix code, GREEN after.
