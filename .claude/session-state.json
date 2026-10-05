@@ -9,7 +9,7 @@
   "backlog_file": ".claude/plans/S195_BACKLOG.md",
   "rulings_file": ".claude/plans/S195_OWNER_RULINGS.md",
   "session_status": "open",
-  "protocol_version": 67,
+  "protocol_version": 68,
   "owner_approval_verbatim": "you can start working the plan step one, land session 194's leftover branches. Um, you can already start them going while we uh, design step two",
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -115,11 +115,57 @@
           "needle": "AMENDED S195 (T21"
         }
       ]
+    },
+    {
+      "id": "CLOUD",
+      "title": "S195 cloud integration train (11 trees: nonet-home, ui-4, fixes, rules-2+BUMP 68, controls-macros, net-mp, info-ui, fight-wipe, ci-budgets, carry-forwards, coherence-2) + bundle charter 1250->1350",
+      "branch": "ccr-26eaab43-fa9mg3",
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-03_S195_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "check_method": "Each tree audited independently in the owner's cloud run (dispatch log). Desktop: merge owner confirmed all 12 merge commits on origin before the owner closed the cloud session; integrator raised the charter in its own commit (bbedaa29), merged df7ce01a (d727cc6b, no conflicts), ten bump sites green (179/179), 122 touched files i/lf, full desktop gates tc0, vitest 9020, build 1202.6/1350 KiB, e2e gating 67/67, render 10/10, races 5/5, lobby 5/5, teams-lobby 2/2, protocol 2/2 (the 4 cloud 'environment' reds green here). Deploy S195-#6 e06fab28 run 37350728256 success; merge owner re-ran verify-deploy --sha <full> exit 0 (4/4). CI: tickClock CI-only red recorded; lobby/quarantine finished inside the L9 budgets.",
+      "checkpoint_commit": "e06fab28",
+      "deploy": "S195-#6",
+      "real_context_tokens_at_close": 602621,
+      "real_context_pct_at_close": 60.26,
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 67 -> 68"
+        },
+        {
+          "type": "file_contains",
+          "path": "scripts/check-bundle-size.mjs",
+          "needle": "CAP_KIB = 1350"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/state/droneLifecycle.ts",
+          "needle": "planDroneSplash"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/render/audioManager.ts",
+          "needle": "helgaAudience"
+        },
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S195_CLOUD_DISPATCH_LOG.md",
+          "needle": "ALL ELEVEN TREES LANDED"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
     "#s195-limit-resume: three agents died together on a spend limit mid-step; every one resumed exactly from the top of its progress file because each saved every <=5 min — the save cadence is what made the limit cost minutes, not the session.",
-    "#s195-audit-catches-guard-holes: the ci-perf audit found a test guard that a magic comment line could defeat on ANY step — a green guard is only as good as the mutation that tries to fool it; mutate the guard, not just the code."
+    "#s195-audit-catches-guard-holes: the ci-perf audit found a test guard that a magic comment line could defeat on ANY step — a green guard is only as good as the mutation that tries to fool it; mutate the guard, not just the code.",
+    "#s195-pin-what-was-delivered: a priority binding pinned 'PROTOCOL_VERSION = 67' and went red when later work correctly moved it to 68 — bind the permanent record of what a priority delivered (its changelog line), never a value the plan expects to change."
   ],
   "budget_total": 1000000
 }
