@@ -230,6 +230,15 @@ import {
 import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
 // S194 R194-18 — the entropy tax (canon §2).
 import { ENTROPY_CAP, ENTROPY_FREE_CONNECTORS, ENTROPY_RATE_PER_CONNECTOR, ENTROPY_SCALE, entropyChance } from './state/entropy.ts';
+// S195 carry-forwards — §9e the end-of-match stat board (S191 v1 · S194 v2 · S195 `le`).
+import {
+  HISTORY_WINDOW_TICKS, historyRidesNetSnapshot, recordDamage, recordEntropyLoss, recordKill, recordUnitBuilt,
+  recordWaveSample, serializeMatchStats,
+} from './state/matchStats.ts';
+import { heavyMatch, wireBytes } from './state/matchStats.wire.fixtures.ts';
+import { netSnapshot, snapshot } from './state/save.ts';
+import { BADGE_CATEGORIES, assignBadges, matchBoardModel, type BoardRow } from './render/matchBoardModel.ts';
+import { MONSTER_OWNER_SEAT } from './constants.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -2004,5 +2013,189 @@ describe('S194 R194-18 — §2 THE ENTROPY TAX is pinned to its constants', () =
     expect(canonSays('| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |')).toBe(true);
     expect(structurePoolFifths(145)).toBe(21_750);
     expect(canonSays('costs **21 750** a connector')).toBe(true);
+  });
+});
+
+/* ────────────────────── ⭐ S195 carry-forwards — §9e THE END-OF-MATCH STAT BOARD, pinned to the code ────────────────────── */
+
+describe('S195 — §9e the stat board is pinned to its code (counters, wire, B-20..23)', () => {
+  const P0 = asPlayerId(0);
+  const P1 = asPlayerId(1);
+  const two = (): World => {
+    const w = makeWorld(0x59e);
+    w.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]!));
+    w.players.set(P1, makeIdlePlayer(P1, PLAYER_COLORS[1]!));
+    return w;
+  };
+
+  it('the section exists and names the inert / additive-optional contract, and the monsters seat', () => {
+    expect(canonSays('## 9e · ⭐ THE END-OF-MATCH STAT BOARD')).toBe(true);
+    expect(canonSays('THE COUNTERS ARE INERT, AND THE NO-BUMP VERDICT RESTS ON THAT')).toBe(true);
+    expect(MONSTER_OWNER_SEAT).toBe(255);
+    expect(canonSays('(`MONSTER_OWNER_SEAT` 255) and the board labels them **MONSTERS**')).toBe(true);
+  });
+
+  it('the wire: every key absent at zero; a self hit is TAKEN only; `le` rides as a key and is NOT yet drawn', () => {
+    const w = two();
+    expect(serializeMatchStats(w.matchStats), 'an untouched match says nothing').toBeUndefined();
+    recordDamage(w, P0, P0, 40, 'unit'); // self hit
+    recordDamage(w, P0, P1, 30, 'keep');
+    recordDamage(w, P0, null, 7, 'structure'); // unattributed
+    const s0 = w.matchStats.seats.get(P0)!;
+    expect(s0.takenFifths).toBe(77);
+    expect(s0.dealtFifths, 'a self hit is a loss for that seat and a gain for nobody').toBe(0);
+    expect(s0.dealtTo.get(P0), 'the diagonal').toBe(40);
+    expect(s0.takenUnattributed).toBe(7);
+    expect(s0.takenKeep + s0.takenStruct).toBe(37);
+    const s1 = w.matchStats.seats.get(P1)!;
+    expect(s1.dealtFifths).toBe(30);
+    expect(s1.dealtKeep).toBe(30);
+    // `le` — recorded, on the wire as `le`, absent at zero
+    const before = serializeMatchStats(w.matchStats)!.seats!.find((r) => r.seat === 1)!;
+    expect('le' in before).toBe(false);
+    recordEntropyLoss(w, P1, 3);
+    const after = serializeMatchStats(w.matchStats)!.seats!.find((r) => r.seat === 1)!;
+    expect(after.le).toBe(3);
+    expect(canonSays('| `lostToEntropy` | `le` |')).toBe(true);
+    // ⛔ the canon says the owner-only row is NOT YET DRAWN — this goes red the day a matchBoard file reads it.
+    const boardSrc = readdirSync(new URL('./render', import.meta.url))
+      .filter((n) => /^matchBoard.*\.ts$/.test(n) && !n.endsWith('.test.ts'))
+      .map((n) => readFileSync(new URL(`./render/${n}`, import.meta.url), 'utf8'));
+    expect(boardSrc.length).toBeGreaterThan(3);
+    expect(boardSrc.some((src) => src.includes('lostToEntropy'))).toBe(false);
+    expect(canonSays('the owner-only board row is NOT YET DRAWN')).toBe(true);
+  });
+
+  it('the history: `v` is cumulative and the board draws PER-WAVE bars as the difference', () => {
+    const w = two();
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    recordDamage(w, P1, P0, 100, 'unit');
+    recordKill(w, P0, P1, 'goblinMelee');
+    recordUnitBuilt(w, P0, 'raceUnit');
+    w.tick = 1000;
+    recordWaveSample(w, 1);
+    recordDamage(w, P1, P0, 150, 'unit');
+    w.tick = 2000;
+    recordWaveSample(w, 2);
+    const ser = serializeMatchStats(w.matchStats)!.history!;
+    expect(ser[0]!.seats.find((p) => p.seat === 0)!.v).toEqual([1, 1, 100, 0]);
+    expect(ser[1]!.seats.find((p) => p.seat === 0)!.v, 'cumulative on the wire').toEqual([1, 1, 250, 0]);
+    expect(canonSays('`v = [units, kills, dealt, taken]`')).toBe(true);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    const p0 = m.graphs.damage.series.find((s) => s.seat === P0)!;
+    expect(p0.values, 'per-wave = the difference of two totals').toEqual([100, 150]);
+    expect(canonSays('the board derives PER-WAVE bars as the\ndifference of two totals') || canonSays('the board derives PER-WAVE bars as the\r\ndifference of two totals')).toBe(true);
+  });
+
+  it('what it costs on the wire — the three measured figures, off the shared fixture', () => {
+    expect(HISTORY_WINDOW_TICKS).toBe(2 * PHYSICS_HZ);
+    expect(HISTORY_WINDOW_TICKS).toBe(120);
+    expect(canonSays('`HISTORY_WINDOW_TICKS` = **2 × PHYSICS_HZ = 120 ticks** (2 s)')).toBe(true);
+    const w = heavyMatch();
+    w.tick += HISTORY_WINDOW_TICKS;
+    expect(historyRidesNetSnapshot(w)).toBe(false);
+    const totals = wireBytes(netSnapshot(w).matchStats);
+    w.tick -= 1;
+    expect(historyRidesNetSnapshot(w)).toBe(true);
+    const inWindow = wireBytes(netSnapshot(w).matchStats);
+    const full = wireBytes(snapshot(w).matchStats);
+    expect(totals).toBe(2_503);
+    expect(inWindow).toBe(11_101);
+    expect(full).toBe(11_101);
+    const w60 = heavyMatch(60);
+    w60.tick -= 1;
+    expect(wireBytes(netSnapshot(w60).matchStats)).toBe(19_741);
+    expect(canonSays('ride EVERY snapshot at **2,503 B**')).toBe(true);
+    expect(canonSays('at **11,101 B** in-window (the full save form is the same 11,101 B)')).toBe(true);
+    expect(canonSays('60-wave match measures **19,741 B** in-window')).toBe(true);
+    // the bounds the wire test holds, as the canon prints them
+    const wireTest = readFileSync(new URL('./state/matchStats.wire.test.ts', import.meta.url), 'utf8');
+    for (const kib of [3, 12, 22]) expect(wireTest.includes(`toBeLessThan(${kib} * 1024)`), `${kib} KiB bound`).toBe(true);
+    expect(canonSays('Bounded at **3 KiB / 12 KiB / 22 KiB** by that test')).toBe(true);
+    w.gameState = 'POSTGAME';
+    expect(historyRidesNetSnapshot(w), 'and throughout POSTGAME').toBe(true);
+  });
+
+  it('B-20 — one badge per row, only a stat it leads outright, ties get none, the runner-up is never promoted', () => {
+    expect(BADGE_CATEGORIES.map((c) => c.badge)).toEqual(['MOST KILLS', 'MOST DAMAGE', 'BIGGEST ARMY', 'MASTER BUILDER', 'KEEP BREAKER', 'IRON WALL']);
+    expect(canonSays('**MOST KILLS · MOST DAMAGE · BIGGEST ARMY · MASTER BUILDER ·\n  KEEP BREAKER · IRON WALL**') || canonSays('**MOST KILLS · MOST DAMAGE · BIGGEST ARMY · MASTER BUILDER ·\r\n  KEEP BREAKER · IRON WALL**')).toBe(true);
+    const row = (seat: number, kills: number, dealt: number, units: number): BoardRow =>
+      ({ seat: asPlayerId(seat), kills, dealt, units, towersBuilt: 0, peakBuilt: 0, dealtSplit: { total: dealt, units: dealt, structures: 0, keep: 0 } } as unknown as BoardRow);
+    // A leads kills AND damage; B leads the army; C ties A on nothing it leads.
+    const a = row(0, 9, 500, 1);
+    const b = row(1, 2, 400, 7);
+    const c = row(2, 2, 100, 1);
+    const badges = assignBadges([a, b, c]);
+    expect(badges.get(a.seat), 'the first category it leads, and only one').toBe('MOST KILLS');
+    expect(badges.get(b.seat), 'MOST DAMAGE is not handed to the runner-up; B gets what B leads').toBe('BIGGEST ARMY');
+    expect(badges.has(c.seat)).toBe(false);
+    // a tie at the top awards nothing in that category
+    expect(assignBadges([row(0, 5, 0, 0), row(1, 5, 0, 0)]).size).toBe(0);
+    // an all-zero category awards nothing
+    expect(assignBadges([row(0, 0, 0, 0), row(1, 0, 0, 0)]).size).toBe(0);
+  });
+
+  it('B-21 — a SELF-DETONATION (suicide goblin, lightning drone) is neither a loss nor a kill', () => {
+    for (const [type, action] of [['goblinSuicide', 'SUICIDE_BLAST'], ['lightningDrone', 'DRONE_EXPLODE']] as const) {
+      const w = two();
+      w.isHost = true;
+      w.gameState = 'PLAYING';
+      w.matchPhase = 'FIGHT';
+      w.phaseEndsAtTick = w.tick + 1_000_000;
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: type, ownerPlayerId: P1,
+        pos: { x: 700, y: 500 }, targetPos: { x: 700, y: 500 }, sourceSpawnerId: 9_100 as never,
+      });
+      const id = [...w.creatures.keys()][0]!;
+      dispatch(w, { type: action, creatureId: id } as never);
+      expect(w.creatures.has(id), `fixture: the ${type} is gone`).toBe(false);
+      expect(w.matchStats.seats.get(P1)?.lost.get(type) ?? 0).toBe(0);
+      for (const s of w.matchStats.seats.values()) expect(s.kills.get(type) ?? 0).toBe(0);
+    }
+    expect(canonSays('a SELF-DETONATION is neither a loss nor a\n  kill') || canonSays('a SELF-DETONATION is neither a loss nor a\r\n  kill')).toBe(true);
+  });
+
+  it('B-22 — the four charts in their four forms, and the grid that adds up', () => {
+    const w = two();
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    recordDamage(w, P1, P0, 100, 'unit');
+    recordDamage(w, P0, P1, 60, 'structure');
+    recordDamage(w, P0, P0, 5, 'unit');
+    recordDamage(w, P0, null, 9, 'unit');
+    w.tick = 1000;
+    recordWaveSample(w, 1);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    expect([m.graphs.score, m.graphs.damage, m.graphs.built, m.graphs.kills].map((g) => [g.title, g.form])).toEqual([
+      ['SCORE RACE', 'lines'], ['DAMAGE PER WAVE', 'bars'], ['BUILT, STANDING', 'stackedArea'], ['KILLS PER WAVE', 'stackedBars'],
+    ]);
+    for (const t of ['**SCORE RACE** (lines', '**DAMAGE PER WAVE** (grouped bars', 'STANDING** (stacked area', '**KILLS PER WAVE** (stacked bars', '**WHO HIT WHOM**, a heatmap']) {
+      expect(canonSays(t), t).toBe(true);
+    }
+    // the grid adds up: P0's row minus its diagonal = its DEALT; P0's column incl. diagonal + NO SOURCE = its TAKEN
+    const r0 = m.matrix.rows.findIndex((a) => a.seat === P0);
+    const c0 = m.matrix.cols.findIndex((a) => a.seat === P0);
+    const row0 = m.matrix.cells[r0]!;
+    const rowSum = row0.reduce((t, n, i) => (i === c0 ? t : t + n), 0);
+    const dealt0 = m.rows.find((r) => r.seat === P0)!;
+    expect(rowSum).toBe(dealt0.dealt);
+    expect(dealt0.dealt).toBe(100);
+    const colSum = m.matrix.cells.reduce((t, cells) => t + cells[c0]!, 0);
+    expect(colSum).toBe(dealt0.taken);
+    expect(dealt0.taken).toBe(74);
+    expect(m.matrix.rows.at(-1)!.label, 'NO SOURCE joins when any damage had no seat').toBe('NO SOURCE');
+    expect(dealt0.takenSplit.units + dealt0.takenSplit.structures + dealt0.takenSplit.keep).toBe(74);
+  });
+
+  it('B-23 — ← / → / Tab page the board, Shift+Tab back, R is never consumed; the REACH is matchBoard.test.ts', () => {
+    const board = readFileSync(new URL('./render/matchBoard.ts', import.meta.url), 'utf8');
+    expect(board.includes("if (key === 'ArrowRight' || (key === 'Tab' && !shift)) {")).toBe(true);
+    expect(board.includes("if (key === 'ArrowLeft' || (key === 'Tab' && shift)) {")).toBe(true);
+    expect(/handleKey\(key: string, shift = false\): boolean \{\s*if \(this\.model === null\) return false;/.test(board)).toBe(true);
+    const reach = readFileSync(new URL('./render/matchBoard.test.ts', import.meta.url), 'utf8');
+    expect(reach.includes('← → and Tab cycle every page and wrap; R is never consumed (it stays the exit)')).toBe(true);
+    expect(canonSays('**B-23 ← / → / Tab page the board** (Shift+Tab back)')).toBe(true);
+    expect(canonSays('**R is\n  never consumed**') || canonSays('**R is\r\n  never consumed**')).toBe(true);
   });
 });

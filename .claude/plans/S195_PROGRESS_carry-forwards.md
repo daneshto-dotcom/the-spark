@@ -1,6 +1,6 @@
 # S195 PROGRESS — s195/carry-forwards (cloud, 2026-10-05)
 
-NEXT STEP: item 2 — write canon §9e (stat board) before §10 + pins in `src/canon.test.ts` (same commit); then item 3 welded REACH test; final gates.
+NEXT STEP: item 3 — write `src/render/uiSkinReach.welded.test.ts` (REACH for the welded icons + rows, marker `CENSUS-REACH src/render/characterSheet.ts :: *`); then merge ccr-26eaab43-fa9mg3 and final gates.
 
 ## Verdicts so far (read, not yet committed as changes)
 - Item 1a `voltkin-config.ts:1244` — ALREADY TRUE: the line reads "was BOTH until S194 (R194-9 made it STRUCTURES_ONLY)"; `stats.ts:419` `lightningDrone: STRUCTURES_ONLY`; drone homes on bonds (`droneLifecycle.ts:6-9`). History is labelled as history. No edit.

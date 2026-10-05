@@ -2109,6 +2109,72 @@ ground, the Ra column (his S191 equal split — ⚠ whether R193-B4 covers it is
 connector severs stay his COUNT ruling (*"3 connectors per lightning"*), unconditional.
 
 
+## 9e · ⭐ THE END-OF-MATCH STAT BOARD — WHAT IT COUNTS, WHAT IT COSTS, WHAT HE RULED (S191 v1 · S194 v2 · S195 `le`)
+
+Owner, S179: *"a stat board to show how many units were built by each character, how many buildings or
+connectors were built, how much damage was done … taken … with even graphs"*. S191 built v1
+(`src/state/matchStats.ts` records, `src/render/matchBoardModel.ts` derives, `matchBoard.ts` draws and
+decides nothing); S194 T10 made it v2 — pages, badges, four charts; S195 T22 added the one entropy counter.
+This section was owed since the T10 seam (S195 backlog §C) and was written against the code, not the plan.
+
+⛔ **THE COUNTERS ARE INERT, AND THE NO-BUMP VERDICT RESTS ON THAT.** Nothing in the sim reads a stat — only
+the renderer does — so the whole block is **additive-optional on the wire** (absent at zero, every key)
+and no protocol bump was ever owed for it. The day a reducer gates on one, that stops being true.
+
+**What the host records, per seat (`SeatMatchStats`), every number in FIFTHS where it is damage:**
+
+| counter | wire key | what it is |
+|---|---|---|
+| `built` / `kills` by unit type | `built` / `kills` | units minted FOR the seat · ENEMY units it killed, by the victim's type (a self-kill is not a kill) |
+| `lost` by unit type | `lost` | ⭐ v2 — the seat's OWN units that died to a hit or a skill, enemy, self or unattributed |
+| `towersBuilt` / `towersFell` | `towersBuilt` / `towersFell` | towers ignited · towers that stopped standing (⚠ MINE: includes one its owner scrapped — the sim never records WHO broke a recipe) |
+| `dealtFifths` / `takenFifths` | `dealt` / `taken` | what the seat's things ACTUALLY APPLIED to enemies · ACTUALLY TOOK from anyone, after DEF and every clamp — never the swing |
+| `dealtTo` per victim seat | `dealtTo` | ⭐ v2 WHO-HIT-WHOM: the seat's own key is its SELF-hits (the grid's diagonal), so the off-diagonal sums to `dealtFifths` exactly |
+| `takenUnattributed` | `tu` | TAKEN with no seat to name; column sum + this = `takenFifths` |
+| `dealtKeep` / `dealtStruct` / `takenKeep` / `takenStruct` | `dk` / `ds` / `tk` / `ts` | ⭐ v2 the KEEP / STRUCTURE split — the rest landed on units. Why: the keep is the one off-ladder pool AND it regenerates, so his S194 "TAKEN 70,847" was REAL (R194-28, do not re-investigate) and the board must say where it landed |
+| `lostToEntropy` | `le` | ⭐ S195 T22 (B-17, owner: *"only the player itself will see it, not all players"*) — connectors the ENTROPY TAX took, snapped AND deleted with a split's smaller side. **Recorded and on the wire; the owner-only board row is NOT YET DRAWN** (backlog item 17, "yes, later") |
+| `fellOnWave` | `fellOnWave` | the wave its castle fell on; absent while it stands |
+
+A hit on an OWNERLESS thing (an orphaned bond) counts for nobody; a SELF hit is TAKEN only, never DEALT
+(a loss for that seat and a gain for nobody). The endgame monsters are a seat like any other here
+(`MONSTER_OWNER_SEAT` 255) and the board labels them **MONSTERS**, never "P256".
+
+**The history (`WaveSample`)** is one point per wave edge plus one at the win: each seat's banked `score`,
+its connectors STANDING (`built` — ⚠ MINE, the "BUILT" graph's quantity: linear, rises when it builds and
+falls when it is chewed) and ⭐ v2 **`v = [units, kills, dealt, taken]`**, the four RUNNING TOTALS packed as
+one array, omitted when all four are zero. Cumulative on the wire; **the board derives PER-WAVE bars as the
+difference of two totals**, so a sample a peer missed cannot leave a wrong bar. Named per-point keys measured
+13,697 B against 11,101 B, which is why it is an array.
+
+**What it costs on the wire** (`matchStats.wire.test.ts`, fixture `matchStats.wire.fixtures.ts`: 4 seats, 8
+types, 30 waves, every target class, every victim seat): the running totals ride EVERY snapshot at **2,503 B**;
+the whole history rides only inside `HISTORY_WINDOW_TICKS` = **2 × PHYSICS_HZ = 120 ticks** (2 s) after a
+sample and throughout WIN / POSTGAME, at **11,101 B** in-window (the full save form is the same 11,101 B); a
+60-wave match measures **19,741 B** in-window. Bounded at **3 KiB / 12 KiB / 22 KiB** by that test.
+Re-measured live S195 (cloud run) — and `canon.test.ts` pins the three figures to the shared fixture.
+
+**What he ruled, S195 (B-20..23, *"keep, make it cooler"*; N14 polish is a separate tree):**
+
+- **B-20 ONE BADGE PER ROW, ONLY FOR A STAT THE ROW LEADS OUTRIGHT; TIES GET NONE.** `BADGE_CATEGORIES`, tried
+  in this order (⚠ MINE, the list and its order): **MOST KILLS · MOST DAMAGE · BIGGEST ARMY · MASTER BUILDER ·
+  KEEP BREAKER · IRON WALL** (kills · dealt · units · towersBuilt · dealt-on-keep · peak connectors standing).
+  A category whose leader already wears a badge awards nothing — the runner-up is never promoted. ⛔ No
+  composite MVP score, ever (S179 research, the LTD2 "pressure applied" failure).
+- **B-21 UNITS LOST counts every death a hit or a skill caused; a SELF-DETONATION is neither a loss nor a
+  kill.** The suicide goblin's `SUICIDE_BLAST` and the drone's `DRONE_EXPLODE` delete the unit without a
+  death, so they reach neither `lost` nor `kills` (`matchStats.deaths.test.ts`). The deaths that bypass the
+  damage funnel — Archdemon HELL, the Pharaoh's ritual, the radial clear — ARE recorded where they happen.
+- **B-22 THE CHARTS**, each a different FORM because each answers a different question: **SCORE RACE** (lines,
+  banked score at each wave's end) · **DAMAGE PER WAVE** (grouped bars, dealt in that wave alone) · **BUILT,
+  STANDING** (stacked area, each seat's share of everything standing) · **KILLS PER WAVE** (stacked bars) · and
+  **WHO HIT WHOM**, a heatmap whose rows and columns ADD UP (a seat's row minus its diagonal = its DEALT; its
+  column, diagonal and NO SOURCE included = its TAKEN). He swaps any after seeing them live.
+- **B-23 ← / → / Tab page the board** (Shift+Tab back), OVERVIEW → GRAPHS → one page per seat, wrapping; **R is
+  never consumed** — CONTINUE or R stays the only exit, and both wait `ARM_MS`.
+
+Still owed, logged in the S195 backlog, not here: the `le` board row (owner-only); unit portraits on the board
+not verified live (T10); N14 "more coherent and prettier".
+
 ## 10 · ⛔ OPEN — needs the owner, do not guess
 
 ⛔⛔ **R182-C AND R182-F ARE NO LONGER OPEN. THEY MOVED TO §9d IN S187 AND MUST NOT COME BACK
