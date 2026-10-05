@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
 
 ## NEXT STEP (exact)
-- DONE: ... typecheck 0; vitest 9096 pass + 1 red (teams.sites census, fixed+rerun green); build 0 (1220.1/1350 KiB). e2e:gating 67 passed exit 0. e2e:lobby 5/5, e2e:protocol 2/2 (on da8a2267 merge). Merged master c6de8044 (teams, 69) clean. RUNNING: re-gates on merged tree (typecheck, vitest -> .tmp-gates/vitest3.*, build, e2e gating -> e2e-gating2.*). NEXT: final report.
+- DONE: ... typecheck 0; vitest 9096 pass + 1 red (teams.sites census, fixed+rerun green); build 0 (1220.1/1350 KiB). e2e:gating 67 passed exit 0. e2e:lobby 5/5, e2e:protocol 2/2 (on da8a2267 merge). Merged master c6de8044 (teams, 69) clean. merged tree: typecheck 0, vitest 9176 pass / 0 fail (exit 0). RUNNING: build3 + e2e-gating2. NEXT: final report.
 ## DESIGN (decided)
 - Transport boundary only. Host segments the stripped+rounded wire JSON into envelope prefix/suffix + top keys; entity arrays (all objects w/ unique id) → per-id text. Full text = concatenation (== JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer), proven by test).
 - Frame = page-unique fid (module counter). Delta vs the peer's last ACKED fid (host ring 32); keyframe = delta vs empty base. Newline-delimited text: header JSON, prefix, suffix, raw segments.
