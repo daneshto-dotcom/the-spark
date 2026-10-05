@@ -42,7 +42,7 @@
         {
           "type": "file_contains",
           "path": "src/net/protocol.ts",
-          "needle": "PROTOCOL_VERSION = 67"
+          "needle": "BUMPED 66 -> 67"
         },
         {
           "type": "file_contains",
