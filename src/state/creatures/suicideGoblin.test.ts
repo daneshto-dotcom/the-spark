@@ -348,7 +348,7 @@ describe('⭐⭐ S193 (owner R193-B4) — REACH through the real host tick: clos
     expect(killHit(w, target)!, 'closer = more: a rim hit is less than point-blank').toBeLessThan(full);
   });
 
-  it('⭐ the LIGHTNING DRONE: an enemy shape near its connector takes exactly the distance-scaled 30', () => {
+  it('⭐ the LIGHTNING DRONE: an enemy shape near its connector takes a SHARE of the one 30-pool (S195 B-10), never the scaled full hit', () => {
     const w = make1v1();
     spawn(w, 'lightningDrone', 0, 500, 500);
     addBondAt(w, 1, 560, 500);
@@ -359,8 +359,14 @@ describe('⭐⭐ S193 (owner R193-B4) — REACH through the real host tick: clos
     const dd = d2(pos, at);
     expect(dd, 'fixture: inside the drone blast').toBeLessThanOrEqual(DRONE_EXPLODE_RADIUS ** 2);
     expect(dd, 'fixture: not at the centre').toBeGreaterThan(0);
-    expect(killHit(w, near)).toBe(blastHitAtDistance(full, dd, DRONE_EXPLODE_RADIUS));
-    expect(killHit(w, near)!).toBeLessThan(full);
+    // ⭐ S195 B-10 — the connector's two shapes (550 and 570, 500) are in the radius with it, so the 30 is split three
+    // ways by distance (`planDroneSplash`): `near` takes a share — an integer, real, and strictly under the full 30.
+    // Its share is under its LONE pool (`LONE_PRIMITIVE_POOL_FIFTHS`, 5), so it STANDS — where the full 30, or the
+    // S193 distance-scaled 27, would have razed it outright (the goblin's 20 does exactly that one test above).
+    // Survival IS the proof of a share; its hp field is lone-pool bookkeeping, not the fifths it took.
+    expect(blastHitAtDistance(full, dd, DRONE_EXPLODE_RADIUS), 'fixture: the old rule would have killed it').toBeGreaterThan(5);
+    expect(killHit(w, near), 'no kill blow — it was not felled').toBeUndefined();
+    expect(w.primitives.has(near.id), 'B-10: a shared pool left the lone shape standing').toBe(true);
   });
 });
 

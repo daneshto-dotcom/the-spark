@@ -1,6 +1,24 @@
 # S195 PROGRESS — s195/rules-2 (sim rulings B-9, B-10, B-25/30, B-31, B-32, N11)
 
-NEXT STEP: git merge ccr-26eaab43-fa9mg3, then final gates ONCE on the merged tree (typecheck, vitest --maxWorkers=2, build) into .tmp-gates/, self-audit, final report.
+NEXT STEP: NONE — all six items DONE, merged ccr-26eaab43-fa9mg3 (27aeed3c, clean, no lockfile move), final gates run; report below.
+
+## FINAL REPORT (rules-2)
+- Tip: see `git log -1` (this commit). Merge: ccr-26eaab43-fa9mg3 @27aeed3c, no conflicts.
+- Gates on the merged tree (exit codes in `.tmp-gates/final-*.exit`): typecheck **0** · build **0** — entry **1184.7 KiB** (+1.3 vs 1183.4; headroom 65.3 of 1250, shared) · vitest --maxWorkers=2 **VITEST_PLACEHOLDER**. No e2e spec names these files (sim-only change); none run. Benign: `endgameAudit.test.ts` hit its 20 s timeout under load mid-work; alone = exit 0 (18/18).
+- BUMP: **YES** — every item changes what the host computes, so a stale host and a new host disagree: A chewer bites land on the keep (castleHp); B drone shares differ per unit (pool vs full hit); C none (verified, no sim change — if B-32 alone, NO); D a welded TV ignites/re-summons (creature births, nextCreatureId); E the Pharaoh's own-side units survive his columns; F different chase decisions (targetCreatureId, movement). No wire field, no discriminant, no serialized shape changed — a version bump only. `PROTOCOL_VERSION` untouched.
+- ⚠ MINE numbers (one question + recommendation each):
+  1. B-10 drone pool = `creatureAttackFifths(drone)` = 30 undrafted (merge-owner call). Q: 30 (a lone victim unchanged) or 2× (a pair keeps today's per-unit hit)? Rec: keep 30.
+  2. B-10 shapes share the pool with units at kind weight 1:1 (hub default); target set kept as before (structure members included). Q: free shapes only like the hub? Rec: keep — one rule changed, not two.
+  3. B-31 overlapping 8-paths = ONE TV (greedy disjoint, canonical order). Q: or one Voltkin per legal path (two from a 12-shape blob)? Rec: one.
+  4. B-31 a weld onto a TV whose Voltkin FELL re-summons at once (not at the wave edge). Rec: accept (only moves the moment).
+  5. N11 `CHASE_GIVEUP_SPEED_RATIO` 1.25 → 1 (his scarab 105 vs chewer 120 = 1.14 sat inside the old slack, so no condition ever ran). Q: keep 1, or a middle value? Rec: 1 — "faster than you at all" is the honest line. Consequence: the melee goblin (119) lets a departing chewer go abroad.
+  6. N11 at home a quarry GOING NOWHERE (pathless: a chewer gnawing my connector) stays engaged; a moving one is intercept-gated. Rec: keep.
+  7. B-9 "keep is last": a chewer on the keep lets go the moment ANY enemy connector exists (re-checked each bite). Rec: keep.
+  8. E/B-30 item 11: the zombie-blast → stink-tower death chain spares the TOWER owner's side (each blast its own side); the zombie's units in it take it. If he meant the zombie's side is spared by a tower it blew up, that is a new rule — ask.
+- Merge seams: `src/constants.ts` one-line constant change (CHASE_GIVEUP_SPEED_RATIO) + its docblock; `src/state/creatures/creatureAI.ts` cannotCatch (teams/lag trees do not touch it); census tests moved by exact counts (damage.callSites 21→22 / seated 10→11, teams.sites drone 2→5, blastFalloff.census 7→6 radial + drone in the split trio, untargetableCallSites verdict) — another tree adding a damageEntity/sameTeam site collides on the same numbers; `SPARK_CANON.md` rows §5 (B-9/B-10), §5b T16 (B-31), §5c T6 (N11), §3e row + §(Pharaoh) lines (B-25), §9d-5 table row (B-10); `src/canon.test.ts` pins for each. `src/net/protocol.ts:972` docblock still says 1.25 (not mine to edit — merge owner, with the bump).
+- NOT DONE: nothing from the brief. Not built (reported, not asked): removing the now-unused `alliesOf`/"teammates spared, own seat burns" API paths (fix ONLY this).
+- Process notes: a `git checkout` during a mutant run once reverted my own UNCOMMITTED edits (redone; now commit-before-mutate); one red test was committed (518087e) behind an unchecked chain and fixed next commit (a16bd7a); the first N11 scarab scene was VACUOUS (quarry outside acquire radius) — the ratio mutant staying green exposed it.
+
 
 ## Status per item
 - A B-9 chewer attacks keep — DONE (34e5b2b + canon). FSM `onKeep` hold in creatureLifecycle chewer arm; bite = attackFifths(1,2)=7 per 60 ticks through the castle arm; keep LAST (lets go when any enemy connector exists, bond handed over directly); engage clause: a chewer HOLDING a bond is not castle-engaged (latent stuck state, now reachable). Re-pinned 0 → 16×7=112 in chewerDroneTargets; new chewerKeep.test.ts (arith + REACH + 2 negatives + control). Mutant (onKeep forced false) → see log mut-A. Benign: endgameAudit.test.ts 20 s timeout under load, alone = exit 0 (18/18).

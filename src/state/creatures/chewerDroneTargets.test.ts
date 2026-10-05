@@ -122,6 +122,10 @@ function observe(who: CreatureType, withBuilding: boolean, ticks = 900) {
   let keepMin = keep0;
   for (let i = 0; i < ticks; i++) {
     runHostTick(w, d, st);
+    // ⭐ S195 N11 — the goblin (119) no longer chases a faster chewer (120) it cannot cut off; left to itself it
+    // marches on P0's keep and walks into the CASTLE GUN (80 per two shots), which this test never meant to
+    // measure. Held where it was put, like Helga: the scene is about what the CHEWER aims at.
+    g.pos.x = 915; g.pos.y = 540; g.prevPos.x = 915; g.prevPos.y = 540;
     const c = w.creatures.get(me.id);
     if (c === undefined) break;
     if (c.targetCreatureId !== null) creatureTargetTicks++;
