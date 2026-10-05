@@ -81,14 +81,51 @@ export function attachChipHover(
   enabled: () => boolean = () => true,
 ): Graphics {
   const sheen = attachHoverSheen(c, r, radius, enabled);
+  /*
+   * ⭐ S195 N5 (owner: *"everything clickable should actually show that it's clicking"* — hover already
+   * reads well) — THE PRESS HALF, for every chip that is not an `attachButtonFeedback` button. A chip's
+   * hit is its children's bounds, so it cannot sink by SCALE the way the grammar buttons do (T8: the
+   * rest-size plate is the hit target, and a 0.97 scale on a children-bounds hit would shrink the
+   * target under the finger). It sinks by LOOK instead: the plate tint drops below rest and a dark
+   * veil is drawn strictly INSIDE `r` (so no dead pixel ever looks clickable — uiSkin contract 2) on
+   * `pointerdown`, and both are lifted on `pointerup` / `pointerupoutside` / `pointerout`. ⚠ The
+   * `pointerupoutside` arm is the one that matters: without it a chip dragged off while held stays
+   * sunk forever (the S152 A5 trap, restated for chips).
+   */
+  const veil = new Graphics();
+  veil.eventMode = 'none';
+  veil.label = CHIP_PRESS_VEIL_LABEL;
+  c.addChild(veil);
+  let hovered = false;
+  const sink = (): void => {
+    if (!enabled()) return;
+    if (plate !== null) plate.tint = CHIP_PRESS_TINT;
+    veil.clear();
+    veil.roundRect(r.x + 1, r.y + 1, Math.max(0, r.w - 2), Math.max(0, r.h - 2), Math.max(0, radius - 1)).fill({ color: 0x000000, alpha: CHIP_PRESS_VEIL_ALPHA });
+  };
+  const lift = (): void => {
+    veil.clear();
+    if (plate !== null) plate.tint = hovered && enabled() ? CHIP_HOVER_TINT : 0xffffff;
+  };
   c.on('pointerover', () => {
+    hovered = true;
     if (enabled() && plate !== null) plate.tint = CHIP_HOVER_TINT;
   });
   c.on('pointerout', () => {
-    if (plate !== null) plate.tint = 0xffffff;
+    hovered = false;
+    lift();
   });
+  c.on('pointerdown', sink);
+  c.on('pointerup', lift);
+  c.on('pointerupoutside', lift);
   return sheen;
 }
 
 /** The chip hover brightening — the same value `buttonFeedback` uses for its plates. */
 export const CHIP_HOVER_TINT = 0xbfd4ff;
+/** ⭐ S195 N5 — the chip PRESS tint: below rest (0xffffff), so the plate visibly sinks under the pointer. */
+export const CHIP_PRESS_TINT = 0x8c9cb8;
+/** ⭐ S195 N5 — the press veil's darkness, laid inside the chip rect while the pointer is down. */
+export const CHIP_PRESS_VEIL_ALPHA = 0.3;
+/** The label of the press-veil Graphics `attachChipHover` adds — read by the REACH tests, never by the game. */
+export const CHIP_PRESS_VEIL_LABEL = 'press';
