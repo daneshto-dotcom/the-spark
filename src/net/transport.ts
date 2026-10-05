@@ -61,6 +61,24 @@ import {
   type StrategyName,
 } from './iceConfig.ts';
 import { POOL_SAFE_PC } from './poolSafePeerConnection.ts';
+import {
+  HOST_RING,
+  JOINER_RING,
+  KEYFRAME_INTERVAL,
+  KEY_REQUEST_MIN_MS,
+  SNAPSHOT_CODEC_ENABLED,
+  applyDelta,
+  buildSnapAck,
+  canDeflate,
+  encodeDelta,
+  packFrame,
+  parseSnapAck,
+  readDeltaHeader,
+  segmentSnapshotMessage,
+  segmentsToText,
+  unpackFrame,
+  type Segments,
+} from './snapshotCodec.ts';
 
 export { classifyJoinError };
 
@@ -83,6 +101,45 @@ export const PENDING_LEAVE_CAP_MS = 2_000;
  * leaving must never be adopted by a new join.
  */
 const leavingRooms = new WeakSet<object>();
+/**
+ * ⭐ S195 (net-delta) — the snapshot frame id, PAGE-unique (module scope, never reset). A joiner keys
+ * its rebuilt frames by (sender peerId, fid); a sender's peerId is per page load, so a host that
+ * reconnects (a NEW NetTransport, same peerId) can never reuse an fid the joiner still holds from
+ * its previous transport, and a late ack from before the reconnect can never name the wrong frame.
+ */
+let nextSnapFid = 1;
+
+/**
+ * ⭐ S195 — one snapshot waiting for, or in, a per-peer slot. `segs` is the codec's view (null when
+ * the codec is off or the message is not snapshot-shaped); `legacy()` the pre-S195 wire string,
+ * built at most once and only if some handle has no binary action.
+ */
+interface SnapJob {
+  readonly fid: number;
+  readonly segs: Segments | null;
+  readonly legacy: () => string;
+}
+
+/** ⭐ S195 — what the host knows about one receiving peer (across strategies). */
+interface TxPeer {
+  /** Newest frame this peer said it rebuilt (0 = none yet). */
+  ackFid: number;
+  /** It said it can inflate a deflated frame. */
+  inflate: boolean;
+  /** It asked for a keyframe (no usable base). */
+  needKey: boolean;
+  /** Frames sent to it since its last keyframe. */
+  sinceKey: number;
+}
+
+/** ⭐ S195 — what a joiner keeps per SENDER: its rebuilt frames, oldest first. */
+interface RxPeer {
+  readonly ring: Map<number, Segments>;
+  lastFid: number;
+  /** Frames are decoded strictly one after another, in arrival order (inflate is async). */
+  chain: Promise<void>;
+  lastKeyRequestMs: number;
+}
 // S62 — re-export Trystero's local peer id so net handlers can self-identify in
 // the broadcast roster (each client matches its own seat by peerId === selfId).
 // selfId is a stable per-page-load constant, identical across all strategies.
@@ -197,9 +254,15 @@ interface StrategyHandle {
    * Trystero for that peer, and the newest one waiting behind it. OPTIONAL so a handle built without
    * it (tests inject handles directly) reads as "idle, nothing waiting". See `sendSnapshotOn`.
    */
-  snapSlots?: Map<string, { inFlight: boolean; pending: string | null }>;
+  snapSlots?: Map<string, { inFlight: boolean; pending: SnapJob | null }>;
   /** Snapshots superseded before they were sent, summed over peers — how a starved uplink shows up. */
   snapSkipped?: number;
+  /**
+   * ⭐ S195 — the BINARY snapshot action (`snap`, delta + deflate frames) and the ack action (`sack`).
+   * OPTIONAL: a handle without them (test fakes, SNAPSHOT_CODEC_ENABLED off) sends the legacy string.
+   */
+  snapAction?: MessageAction<Uint8Array> | null;
+  ackAction?: MessageAction<string> | null;
 }
 
 type JoinFn = (
@@ -287,6 +350,14 @@ export class NetTransport {
   private readonly pcState = new Map<string, { conn: string; ice: string }>();
   /** ⭐ S189 (E3) — when each peer last sent us anything (performance.now()). */
   private readonly lastRxAtMs = new Map<string, number>();
+  /** ⭐ S195 — host side of the snapshot codec: per receiving peer, and the frames it may delta against. */
+  private readonly txPeers = new Map<string, TxPeer>();
+  private readonly txRing = new Map<number, Segments>();
+  private lastTxSegs: Segments | null = null;
+  /** Encoded frames for the newest fids, keyed `fid|base|z` — peers sharing a base share the work. */
+  private readonly encodeMemo = new Map<string, Promise<Uint8Array>>();
+  /** ⭐ S195 — joiner side: per sender, the frames rebuilt from its deltas. */
+  private readonly rxPeers = new Map<string, RxPeer>();
 
   public onError: ErrorHandler | null = null;
 
@@ -354,12 +425,14 @@ export class NetTransport {
    * P1) fires onProtocolMismatch + latches the peer, dropping ALL of its
    * subsequent messages.
    */
-  handleRawMessage(data: string, peerId: string, strategyName = ''): void {
+  handleRawMessage(data: string, peerId: string, strategyName = '', countBytes = true): boolean {
     this.lastRxAtMs.set(peerId, performance.now()); // ⭐ S189 (E3) — for the drop line's lastRxAgoMs
     // S182 STEP 0 — count inbound bytes BEFORE the parse and before any gate, so the reading
     // includes the redundant second-strategy copy. That copy is not free on the joiner: it is a
     // full JSON.parse of a ~100 KiB payload that is then discarded on ClientSync's seq gate.
-    if (netStats.isEnabled()) netStats.recordReceive(data.length, performance.now());
+    // ⭐ S195 — a snapshot rebuilt from a codec frame was counted at its WIRE size when the frame
+    // arrived (`onSnapFrame`), so it passes countBytes=false: the reading stays the network's.
+    if (countBytes && netStats.isEnabled()) netStats.recordReceive(data.length, performance.now());
     // Parse on the receive boundary so malformed peer messages don't
     // poison handlers (Audit Pass-1 fix d3f0e22b preserved).
     let parsed: unknown;
@@ -369,7 +442,7 @@ export class NetTransport {
       this.emitError(
         `Malformed peer message from ${peerId}: ${err instanceof Error ? err.message : String(err)}`,
       );
-      return;
+      return false;
     }
     // S53 P1 — per-peer protocol-mismatch latch (Council R1 Grok #4 +
     // Gemini #2 CONVERGENT BLOCKER). Drop ALL subsequent messages from a
@@ -379,7 +452,7 @@ export class NetTransport {
     // stale-build-peer-injection desync hazard.
     if (this.protocolMismatchPeers.has(peerId)) {
       this.rejectedCount++;
-      return;
+      return false;
     }
     // S53 P1 — HELLO protoVersion sniff BEFORE parseNetMessage (which
     // also null-rejects but with no diagnostic surface). On detect: fire
@@ -391,13 +464,13 @@ export class NetTransport {
     if (protoCheck.mismatch) {
       this.emitProtocolMismatch(peerId, protoCheck.version);
       this.rejectedCount++;
-      return;
+      return false;
     }
     const msg = parseNetMessage(parsed);
     if (msg === null) {
       this.rejectedCount++;
       console.warn('[net]', strategyName, 'rejected malformed NetMessage from', peerId, parsed);
-      return;
+      return false;
     }
     this.acceptedCount++;
     this.lastKind = msg.kind;
@@ -406,6 +479,7 @@ export class NetTransport {
     // INTENTs are timestamped, HELLO is idempotent. Duplicate delivery from
     // a second strategy is harmless. Routing through full handler list.
     for (const h of this.messageHandlers) h(msg, peerId);
+    return true;
   }
 
   connect(roomCode: string): void {
@@ -576,7 +650,18 @@ export class NetTransport {
       // S54 P1 — delegate to the extracted, unit-testable receive seam
       // (handleRawMessage). The closure stays minimal: it only adapts
       // Trystero's (data, ctx) shape to (data, peerId, strategyName).
-      action.onMessage = (data, ctx) => this.handleRawMessage(data, ctx.peerId, name);
+      action.onMessage = (data, ctx) => {
+        this.handleRawMessage(data, ctx.peerId, name);
+      };
+      // ⭐ S195 (net-delta) — the snapshot codec's two actions. Names are ≤ 12 bytes (Trystero limit).
+      if (SNAPSHOT_CODEC_ENABLED) {
+        const snapAction = room.makeAction<Uint8Array>('snap') as MessageAction<Uint8Array>;
+        const ackAction = room.makeAction<string>('sack') as MessageAction<string>;
+        handle.snapAction = snapAction;
+        handle.ackAction = ackAction;
+        snapAction.onMessage = (data, ctx) => this.onSnapFrame(data, ctx.peerId, name);
+        ackAction.onMessage = (data, ctx) => this.onSnapAck(data, ctx.peerId);
+      }
 
       room.onPeerJoin = (peerId) => {
         console.info(`[net] ${name} onPeerJoin: ${peerId} strategyPeers=${handle.peers.size + 1}`);
@@ -587,6 +672,9 @@ export class NetTransport {
         this.watchPeerConnection(handle, peerId);
         // Dedup at transport boundary — only fire onPeerChange the first
         // time we see this peerId across all strategies.
+        // ⭐ S195 — tell this peer, before it sends us a single snapshot, whether we can inflate: a
+        // late joiner's first keyframe (the whole board, ~120 KiB at wave 10) then goes out deflated.
+        this.sendSnapAck(handle, peerId, 0, false);
         if (!this.peerSet.has(peerId)) {
           this.peerSet.add(peerId);
           for (const h of this.peerHandlers) h(peerId, 'join');
@@ -615,6 +703,9 @@ export class NetTransport {
           // mid-deploy window). No functional impact on live paths — the
           // mismatched peer cannot re-emerge with the same peerId.
           this.protocolMismatchPeers.delete(peerId);
+          // ⭐ S195 — its codec state goes with it: a rejoin starts from a keyframe both ways.
+          this.txPeers.delete(peerId);
+          this.rxPeers.delete(peerId);
           for (const h of this.peerHandlers) h(peerId, 'leave');
         }
       };
@@ -833,10 +924,26 @@ export class NetTransport {
     // S182 LEVER 2 — round coordinates to 2 dp for the high-rate snapshot only. Non-mutating by
     // construction: the replacer sees values on their way into the string and never writes back, so
     // it cannot reach the worker mirror, the disk save or any hash. See `wireNumberReplacer`.
-    const serialized =
-      msg.kind === 'NETSNAPSHOT'
-        ? JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)
-        : JSON.stringify(msg);
+    // ⭐ S195 — a snapshot becomes a SnapJob: segmented once for the codec (shared by every peer), its
+    // legacy string built lazily, only for a handle without the binary action.
+    let job: SnapJob | null = null;
+    let serialized = '';
+    if (msg.kind === 'NETSNAPSHOT') {
+      const stripped = stripWirePrevPos(msg);
+      const wantCodec =
+        SNAPSHOT_CODEC_ENABLED && Array.from(this.strategies.values()).some((h) => h.snapAction != null);
+      const segs = wantCodec ? segmentSnapshotMessage(stripped, wireNumberReplacer, this.lastTxSegs) : null;
+      let legacyText: string | null = null;
+      const fid = nextSnapFid++;
+      job = {
+        fid,
+        segs,
+        legacy: () => (legacyText ??= JSON.stringify(stripped, wireNumberReplacer)),
+      };
+      if (segs !== null) this.rememberTxFrame(fid, segs);
+    } else {
+      serialized = JSON.stringify(msg);
+    }
     /*
      * S182 LEVER 1 — snapshot routing. `null` means "broadcast on every ready strategy", which is
      * the pre-S182 behaviour.
@@ -871,8 +978,8 @@ export class NetTransport {
       if (only !== null && handle.name !== only) continue;
       dispatched++;
       // ⭐ S189 — a snapshot goes through the backpressure gate; control traffic never does.
-      if (msg.kind === 'NETSNAPSHOT') {
-        this.sendSnapshotOn(handle, serialized);
+      if (job !== null) {
+        this.sendSnapshotOn(handle, job);
         continue;
       }
       // S182 STEP 0 — per-strategy upload. `action.send()` transmits to EVERY peer in that
@@ -936,7 +1043,7 @@ export class NetTransport {
    * one received 3 of 100 snapshots. Each peer now has its own slot and its own targeted send
    * (`{ target: peerId }`, Trystero 0.25). Wire cost is unchanged: Trystero already sent per peer.
    */
-  private sendSnapshotOn(handle: StrategyHandle, serialized: string): void {
+  private sendSnapshotOn(handle: StrategyHandle, serialized: SnapJob): void {
     for (const peerId of handle.peers) {
       const slots = (handle.snapSlots ??= new Map());
       let slot = slots.get(peerId);
@@ -950,23 +1057,28 @@ export class NetTransport {
     }
   }
 
-  private transmitSnapshot(handle: StrategyHandle, peerId: string, serialized: string): void {
+  private transmitSnapshot(handle: StrategyHandle, peerId: string, job: SnapJob): void {
     const action = handle.action;
     const slot = handle.snapSlots?.get(peerId);
     if (action === null || slot === undefined) return;
     slot.inFlight = true;
-    const now = performance.now();
-    if (netStats.isEnabled()) netStats.recordSend(handle.name, serialized.length, 1, now);
-    // Once per snapshot, however many strategies carry it (the S182 `snap tx` contract).
-    if (netStats.isEnabled() && serialized !== this.lastEnvelopeCounted) {
-      this.lastEnvelopeCounted = serialized;
-      netStats.recordSendEnvelope('NETSNAPSHOT', serialized.length, now);
-    }
     let sent: Promise<unknown>;
-    try {
-      sent = Promise.resolve(action.send(serialized, { target: peerId }));
-    } catch (err) {
-      sent = Promise.reject(err);
+    const snapAction = handle.snapAction;
+    if (snapAction != null && job.segs !== null) {
+      // ⭐ S195 — the codec path. Encoding is async (deflate), and it happens INSIDE the slot's
+      // in-flight window, so this peer's frames still leave strictly one after another, newest wins.
+      sent = this.encodeFor(peerId, job).then((bytes) => {
+        this.countSnapshotSend(handle.name, bytes.byteLength, job.fid);
+        return snapAction.send(bytes, { target: peerId });
+      });
+    } else {
+      const serialized = job.legacy();
+      this.countSnapshotSend(handle.name, serialized.length, job.fid);
+      try {
+        sent = Promise.resolve(action.send(serialized, { target: peerId }));
+      } catch (err) {
+        sent = Promise.reject(err);
+      }
     }
     sent
       .catch((err: unknown) => this.onSendFailed(handle, err))
@@ -988,8 +1100,176 @@ export class NetTransport {
       });
   }
 
-  /** The newest snapshot string whose envelope was counted — so a broadcast counts it once. */
-  private lastEnvelopeCounted: string | null = null;
+  /** The newest snapshot frame whose envelope was counted — so a broadcast counts it once. */
+  private lastEnvelopeCounted = 0;
+
+  private countSnapshotSend(strategy: StrategyName, size: number, fid: number): void {
+    if (!netStats.isEnabled()) return;
+    const now = performance.now();
+    netStats.recordSend(strategy, size, 1, now);
+    // Once per snapshot, however many strategies and peers carry it (the S182 `snap tx` contract).
+    // ⚠ S195: with per-peer deltas the envelope's SIZE is the first peer's frame, not a shared string.
+    if (fid !== this.lastEnvelopeCounted) {
+      this.lastEnvelopeCounted = fid;
+      netStats.recordSendEnvelope('NETSNAPSHOT', size, now);
+    }
+  }
+
+  /** ⭐ S195 — keep a frame the host may delta against; the ring holds the newest HOST_RING. */
+  private rememberTxFrame(fid: number, segs: Segments): void {
+    this.lastTxSegs = segs;
+    this.txRing.set(fid, segs);
+    while (this.txRing.size > HOST_RING) {
+      const oldest = this.txRing.keys().next().value as number;
+      this.txRing.delete(oldest);
+    }
+    // Memoised encodings are only ever reused for the newest frames.
+    for (const key of this.encodeMemo.keys()) {
+      if (Number(key.slice(0, key.indexOf('|'))) < fid - 2) this.encodeMemo.delete(key);
+    }
+  }
+
+  private txPeer(peerId: string): TxPeer {
+    let p = this.txPeers.get(peerId);
+    if (p === undefined) this.txPeers.set(peerId, (p = { ackFid: 0, inflate: false, needKey: false, sinceKey: 0 }));
+    return p;
+  }
+
+  /**
+   * ⭐ S195 — the frame for `peerId`: a DELTA against the newest frame it acknowledged, or a KEYFRAME
+   * when it has acknowledged none, asked for one, its ack fell out of the ring, or KEYFRAME_INTERVAL
+   * frames have gone by. Deflated when it said it can inflate and this browser can deflate.
+   */
+  private encodeFor(peerId: string, job: SnapJob): Promise<Uint8Array> {
+    const segs = job.segs as Segments;
+    const p = this.txPeer(peerId);
+    const base = p.ackFid > 0 && p.ackFid < job.fid ? this.txRing.get(p.ackFid) : undefined;
+    const key = base === undefined || p.needKey || p.sinceKey >= KEYFRAME_INTERVAL;
+    if (key) {
+      p.needKey = false;
+      p.sinceKey = 0;
+    } else {
+      p.sinceKey++;
+    }
+    const baseFid = key ? 0 : p.ackFid;
+    const z = p.inflate && canDeflate();
+    const memoKey = `${job.fid}|${baseFid}|${z ? 1 : 0}`;
+    let out = this.encodeMemo.get(memoKey);
+    if (out === undefined) {
+      const text = encodeDelta(segs, key ? null : (base as Segments), job.fid, baseFid);
+      out = packFrame(text, z);
+      this.encodeMemo.set(memoKey, out);
+    }
+    return out;
+  }
+
+  /** ⭐ S195 — an ack from a peer we send snapshots to. */
+  private onSnapAck(data: unknown, peerId: string): void {
+    this.lastRxAtMs.set(peerId, performance.now());
+    const ack = parseSnapAck(data);
+    if (ack === null) return;
+    const p = this.txPeer(peerId);
+    p.inflate = ack.z;
+    // Only a frame we still hold can be a base; fids are page-unique, so a stale ack names nothing.
+    if (ack.f > p.ackFid && this.txRing.has(ack.f)) p.ackFid = ack.f;
+    if (ack.k) p.needKey = true;
+  }
+
+  private sendSnapAck(handle: StrategyHandle, peerId: string, fid: number, wantKey: boolean): void {
+    const ackAction = handle.ackAction;
+    if (ackAction == null) return;
+    try {
+      void Promise.resolve(ackAction.send(buildSnapAck(fid, wantKey), { target: peerId })).catch(() => {
+        /* an ack lost is a keyframe later, never an error */
+      });
+    } catch {
+      /* same */
+    }
+  }
+
+  /**
+   * ⭐ S195 — a codec frame from `peerId`. Decoded strictly in arrival order per sender (inflate is
+   * async), rebuilt into the FULL wire string, and handed to the unchanged receive path. A frame
+   * whose base this joiner does not hold, or that fails to decode, is dropped and a keyframe is
+   * requested — the board holds at the last good snapshot until it comes (about one round trip).
+   */
+  private onSnapFrame(data: unknown, peerId: string, strategyName: StrategyName): void {
+    const now = performance.now();
+    this.lastRxAtMs.set(peerId, now);
+    if (!(data instanceof Uint8Array)) return;
+    if (netStats.isEnabled()) netStats.recordReceive(data.byteLength, now);
+    let rx = this.rxPeers.get(peerId);
+    if (rx === undefined) {
+      rx = { ring: new Map(), lastFid: 0, chain: Promise.resolve(), lastKeyRequestMs: -Infinity };
+      this.rxPeers.set(peerId, rx);
+    }
+    const r = rx;
+    const gen = this.connectGen;
+    r.chain = r.chain.then(() => this.decodeSnapFrame(data, peerId, strategyName, r, gen));
+  }
+
+  /** Visible for tests: resolves when every frame received so far from `peerId` is processed. */
+  snapFramesSettled(peerId: string): Promise<void> {
+    return this.rxPeers.get(peerId)?.chain ?? Promise.resolve();
+  }
+
+  private async decodeSnapFrame(
+    data: Uint8Array,
+    peerId: string,
+    strategyName: StrategyName,
+    rx: RxPeer,
+    gen: number,
+  ): Promise<void> {
+    let text: string;
+    try {
+      text = await unpackFrame(data);
+    } catch (err) {
+      this.requestKeyframe(peerId, strategyName, rx, `undecodable frame: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+    // A disconnect, or the sender leaving, while this frame was inflating: it belongs to nobody now.
+    if (this.connectGen !== gen || this.rxPeers.get(peerId) !== rx) return;
+    const header = readDeltaHeader(text);
+    if (header === null) {
+      this.requestKeyframe(peerId, strategyName, rx, 'bad frame header');
+      return;
+    }
+    // A duplicate (the same frame on a second strategy) or an older frame: nothing new in it.
+    if (header.fid <= rx.lastFid) return;
+    let base: Segments | null = null;
+    if (header.baseFid !== 0) {
+      const held = rx.ring.get(header.baseFid);
+      if (held === undefined) {
+        this.requestKeyframe(peerId, strategyName, rx, `no base frame ${header.baseFid}`);
+        return;
+      }
+      base = held;
+    }
+    let segs: Segments;
+    let full: string;
+    try {
+      segs = applyDelta(text, base);
+      full = segmentsToText(segs);
+    } catch (err) {
+      this.requestKeyframe(peerId, strategyName, rx, err instanceof Error ? err.message : String(err));
+      return;
+    }
+    rx.lastFid = header.fid;
+    rx.ring.set(header.fid, segs);
+    while (rx.ring.size > JOINER_RING) rx.ring.delete(rx.ring.keys().next().value as number);
+    const handle = this.strategies.get(strategyName);
+    if (handle !== undefined) this.sendSnapAck(handle, peerId, header.fid, false);
+    this.handleRawMessage(full, peerId, strategyName, false);
+  }
+
+  private requestKeyframe(peerId: string, strategyName: StrategyName, rx: RxPeer, why: string): void {
+    const now = performance.now();
+    if (now - rx.lastKeyRequestMs < KEY_REQUEST_MIN_MS) return;
+    rx.lastKeyRequestMs = now;
+    console.warn(`[net] snapshot frame from ${peerId} dropped (${why}) — asking for a keyframe`);
+    const handle = this.strategies.get(strategyName);
+    if (handle !== undefined) this.sendSnapAck(handle, peerId, 0, true);
+  }
 
   private onSendFailed(handle: StrategyHandle, err: unknown): void {
     // Per-strategy send failure: warn, do not escalate UI unless all
@@ -1113,6 +1393,12 @@ export class NetTransport {
     this.connectGen++;
     this.strategies.clear();
     this.peerSet.clear();
+    // ⭐ S195 — codec state is per connection. (`nextSnapFid` is NOT reset: fids stay page-unique.)
+    this.txPeers.clear();
+    this.txRing.clear();
+    this.lastTxSegs = null;
+    this.encodeMemo.clear();
+    this.rxPeers.clear();
     // S53 P1 — clear protocol-mismatch latch on disconnect. Lifetime of the
     // ban set = lifetime of the NetTransport instance + active session.
     // Reconnecting after disconnect (e.g. lobby Back → re-Host) starts fresh.
