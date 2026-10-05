@@ -76,6 +76,13 @@ function installSettingsSkinCss(): void {
     '.spark-settings input[type=checkbox]:active{transform:scale(.9)}',
     '.spark-settings input[type=range]{accent-color:#3bd7ff;transition:filter .12s}',
     '.spark-settings input[type=range]:hover{filter:drop-shadow(0 0 4px rgba(59,215,255,.7))}',
+    // S195 N17 - the Graphics tier radios get the same hover/press as the checkboxes.
+    '.spark-settings input[type=radio]{transition:transform .08s,filter .12s}',
+    '.spark-settings input[type=radio]:hover{filter:drop-shadow(0 0 4px #3bd7ff)}',
+    '.spark-settings input[type=radio]:active{transform:scale(.9)}',
+    // S195 ui-4 SEAM #4 - a slider being dragged and a label being pressed show it.
+    '.spark-settings input[type=range]:active{filter:drop-shadow(0 0 6px #3bd7ff) brightness(1.2)}',
+    '.spark-settings label:active{color:#3bd7ff}',
     // Keyboard focus is visible on every control (the "focus states" the docblock promises).
     '.spark-settings button:focus-visible,.spark-settings input:focus-visible{outline:2px solid #3bd7ff;outline-offset:2px;box-shadow:0 0 6px rgba(59,215,255,.6)}',
   ].join(' ');

@@ -175,3 +175,17 @@ describe('⛔ S195 audit — the hint goes away the moment the match is not what
     expect(el!.style.display).toBe('none');
   });
 });
+
+describe('S195 — the Settings skin CSS covers the tier radios, a dragged slider and a pressed label', () => {
+  const SRC = readFileSync(new URL('./settingsOverlay.ts', import.meta.url), 'utf8');
+  it('hover + press on the radios; press on sliders and labels', () => {
+    expect(SRC).toContain("'.spark-settings input[type=radio]:hover{filter:drop-shadow(0 0 4px #3bd7ff)}'");
+    expect(SRC).toContain("'.spark-settings input[type=radio]:active{transform:scale(.9)}'");
+    expect(SRC).toContain("'.spark-settings input[type=range]:active{filter:drop-shadow(0 0 6px #3bd7ff) brightness(1.2)}'");
+    expect(SRC).toContain("'.spark-settings label:active{color:#3bd7ff}'");
+    // inside the one installed <style>, not a stray string elsewhere
+    const body = SRC.slice(SRC.indexOf('function installSettingsSkinCss'), SRC.indexOf('export function createSettingsOverlay'));
+    expect(body).toContain('input[type=radio]:active');
+    expect(body).toContain('label:active');
+  });
+});
