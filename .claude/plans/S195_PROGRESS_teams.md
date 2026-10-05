@@ -1,6 +1,8 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
-## MERGED master S195-#6 c45818cb as ae2ce6e2 (3 conflicts: creatureAI.ts, endgameS193.test.ts, teams.sites.test.ts — resolved). Seam fixes 2f99d83c (press/reach census rows for N16 controls; entropy 1v2 fixture -> home quadrant). Build 0 = 1213.2 KiB / 1350. NEXT: full vitest (full6.log) green? then e2e gating + teams-lobby + races, report.
+## MERGED master S195-#6 (c45818cb) as ae2ce6e2 — DONE, all gates green
+Conflicts: creatureAI.ts (master N11 home-engage kept, its home test uses teams isHomeZone; both helpers kept) · endgameS193.test.ts (master botBrain n:12; vision.ts pin stays removed) · teams.sites.test.ts (master droneLifecycle 5 + this branch exploredMemory). Seam fixes 2f99d83c: uiPressCensus claims cornerBtn/moveChip (CHIP), new uiSkinReach.teamsMove.test.ts (REACH + markers, mutation red), entropyFightWipe 1v2 fixture -> seat 0 HOME quadrant only.
+Gates: typecheck 0 · vitest 0 (606 files, 9096 pass/12 skip) · build 0 entry 1213.2 KiB / 1350 (136.8 headroom) · e2e:gating 0 (67/67) · teams-lobby 0 (2/2) · races 0 (5/5), own port. PROTOCOL_VERSION untouched (68; bump to 69 is the merge owner's).
 
 ## FIX-ONLY ROUND (audit) — ALL ITEMS DONE; (was) WAITING for coordinator "merge master" (ccr-26eaab43 / deploy #6 will conflict in census tests, matchBoardModel, ui.ts, hostTick, gameState — resolve on merits in one pass)
 Done (commit · mutation):
