@@ -24,7 +24,8 @@ import type { World } from '../world.ts';
 import type { CinematicGodlyRecipe, RecipePredicate } from './types.ts';
 import type { PrimitiveId } from '../../types.ts';
 import { registerRecipe } from './index.ts';
-import { EXPECTED_CHAIN, isIsolatedVoltkinChain, otherEndpoint, voltkinTvOwner, walkChain } from './voltkinChainWalk.ts';
+import { EXPECTED_CHAIN, otherEndpoint, walkChain } from './voltkinChainWalk.ts';
+import { isTvPlayingNow, standingVoltkinTvs, standingVoltkinTvTouching, tvsOwedAVoltkin } from '../voltkinTv.ts';
 
 /**
  * S140 P1 — exported so the bank-cap tests can pin "Voltkin still requires staging" against the real
@@ -211,55 +212,54 @@ function isVoltkinDebug(): boolean {
  * (`godlyMatcherCore.ts:63`), no field is added, no hash changes, no PROTOCOL bump.
  */
 export const voltkinPredicate: RecipePredicate = (world, bondPos) => {
-  // ⛔ THE TOPOLOGY-CHANGE GATE — see the docblock above. `bondPos` is passed THROUGH to the search
-  // so a board with two chains resolves the one this event actually touched.
-  const chain = findVoltkinChain(world, bondPos);
-  if (chain === null) {
+  /*
+   * ⭐⭐ S195 B-31 (owner, REVERSES S48 P4) — **A WELDED TV IGNITES, AND IGNITION READS THE CENSUS'S LIST.**
+   *
+   * > *"you should be able to weld everything on everything, and the existing … towers keep summoning
+   * > and resummoning … A TV is not different than a tier three piranha tower."* — owner, S195 (B-31)
+   *
+   * The S48 strict-isolation check (an off-chain bond on any member → no ignition) is RETIRED here and in
+   * the wave census alike (`isIsolatedVoltkinChain` is deleted, not left unread). ⭐ Merge-owner call
+   * (S195 turn 3): a NEW TV built already welded spawns its first Voltkin — so this predicate accepts
+   * exactly what `standingVoltkinTvs` counts, found by `standingVoltkinTvTouching` (the first TV in the
+   * canonical order with a member within `AUTO_BOND_RADIUS` of the event), never by the `Map`-ordered
+   * `findVoltkinChain` — with overlapping paths now legal, two sims could otherwise pick different shapes.
+   *
+   * ⛔ WHAT THE ISOLATION TEST WAS SILENTLY DOING FOR THE TOPOLOGY-CHANGE GATE ABOVE, AND WHAT REPLACES IT.
+   * That gate's docblock leans on isolation: a placement near enough to re-trigger a standing chain had
+   * auto-bonded to it, which "breaks the strict-isolation check below and returns null anyway". Without
+   * the check, every shape welded onto a standing TV would re-fire its recipe — the S161 P3 "dozen
+   * Voltkins" defect by another door. So ignition now asks the census's own question: IS THIS TV OWED A
+   * VOLTKIN (`tvsOwedAVoltkin` — no live Voltkin of its seat bound to it, none scheduled, none queued —
+   * and `isTvPlayingNow`: not the very cinematic playing this instant, matched by member set)?
+   * A weld onto a TV whose Voltkin lives mints nothing; a TV closed for the first time, welded or not,
+   * mints one; a weld onto a TV whose Voltkin FELL mints its replacement at once (⚠ MINE — the wave edge
+   * would have re-summoned it anyway; this only moves the moment).
+   */
+  const tvs = standingVoltkinTvs(world);
+  const ti = standingVoltkinTvTouching(world, tvs, bondPos, AUTO_BOND_RADIUS);
+  if (ti < 0) {
     if (isVoltkinDebug()) {
       console.log('[voltkin] predicate: no chain touching this topology change');
     }
     return null;
   }
-
-  // S48 P4 (Sym G fix) — strict chain isolation enforcement.
-  //
-  // User-reported bug: 5 squares all bonded together as one structure +
-  // 4 triangles bonded to one of the squares → Voltkin fired. The spec ("strict 4 squares followed
-  // by 4 triangles — if you accidentally connect anything else to the structure it shouldn't go
-  // off") demands that no chain primitive bond to any off-chain primitive, and that the chain be a
-  // plain path (endpoint degree 1, middle degree 2).
-  //
-  // ⭐ S192 audit M1 — the check MOVED VERBATIM to `isIsolatedVoltkinChain` (voltkinChainWalk.ts) so
-  // the per-wave TV census runs the SAME test: a TV re-summons iff it would ignite now.
-  if (!isIsolatedVoltkinChain(world, chain)) {
-    if (isVoltkinDebug()) console.log('[voltkin] predicate: isolation/linearity check failed');
+  const tv = tvs[ti]!;
+  if (!tvsOwedAVoltkin(world, tvs).includes(ti) || isTvPlayingNow(world, tv)) {
+    if (isVoltkinDebug()) console.log('[voltkin] predicate: this TV already has its Voltkin');
     return null;
   }
-
-  let sumX = 0;
-  let sumY = 0;
-  for (const id of chain) {
-    const p = world.primitives.get(id);
-    if (p === undefined) continue;
-    sumX += p.pos.x;
-    sumY += p.pos.y;
+  if (isVoltkinDebug()) {
+    console.log(`[voltkin] predicate: chain=${tv.members.length} prims, triggerer=P${tv.owner}`);
   }
   /*
    * ⭐ S192 audit L1 — THE OWNER RULE IS `voltkinTvOwner`, shared with the per-wave census: majority
-   * colour, LOWEST seat on a tie, lowest-id player when no colour matches (the S23 P3 fallback,
-   * made total). It replaced a first-in-walk-order tie-break, which could give a 4/4 TV to the
-   * other seat from the one the census binds it to.
+   * colour, LOWEST seat on a tie (the census computed `tv.owner` with it).
    */
-  const triggererId = voltkinTvOwner(world, chain);
-  if (isVoltkinDebug()) {
-    console.log(`[voltkin] predicate: chain=${chain.length} prims, triggerer=${triggererId === null ? 'NULL' : `P${triggererId}`}`);
-  }
-  if (triggererId === null) return null;
-
   return {
-    triggererPlayerId: triggererId,
-    targetComponentPrimitiveIds: chain,
-    targetPos: { x: sumX / chain.length, y: sumY / chain.length },
+    triggererPlayerId: tv.owner,
+    targetComponentPrimitiveIds: tv.members,
+    targetPos: { x: tv.centre.x, y: tv.centre.y },
   };
 };
 

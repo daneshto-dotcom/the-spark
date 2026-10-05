@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { makeWorld, type World } from '../world.ts';
 import { makeIdlePlayer } from '../../game/player.ts';
-import { asPlayerId, type BondId, type PrimitiveId } from '../../types.ts';
+import { asPlayerId, asPrimitiveId, type BondId, type PrimitiveId } from '../../types.ts';
 import { AUTO_BOND_RADIUS, PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
 import type { Primitive } from '../../game/primitive.ts';
 import type { Bond } from '../../physics/bonds.ts';
@@ -171,19 +171,12 @@ describe('voltkin predicate (typed chain)', () => {
     expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
   });
 
-  it('S48 P4 (Sym G) — REJECTS a chain when any chain prim has an off-chain bond', () => {
-    // SPEC CHANGE in S48 P4: user-confirmed Voltkin recipe must enforce
-    // STRICT CHAIN ISOLATION — chain primitives may only bond to other
-    // chain primitives. Pre-S48 (S23 P1 rewrite), the DFS happily found
-    // an 8-prim chain embedded in a branched topology and matched. User-
-    // reported regression: "if you accidentally connect anything else to
-    // the structure it shouldn't go off." The 5-square blob + 4-triangle
-    // chain pattern that fired Voltkin in S47 live smoke is the canonical
-    // case; this test exercises the same isolation rule with a Circle
-    // branch off prim 2.
-    //
-    // Pre-S48 behavior (deleted): predicate matched, target chain
-    // excluded the off-chain branch. Post-S48: predicate returns null.
+  it('⭐ S195 B-31 (REVERSES S48 P4) — a chain with an off-chain bond IGNITES: "weld everything on everything"', () => {
+    // S48 P4 enforced STRICT CHAIN ISOLATION here ("if you accidentally connect anything else to the
+    // structure it shouldn't go off"). Owner, S195 (B-31): *"you should be able to weld everything on
+    // everything, and the existing … towers keep summoning and resummoning … A TV is not different than
+    // a tier three piranha tower."* So a Circle welded onto prim 2 no longer stops the TV: the predicate
+    // matches, and the TV is its eight chain shapes — the weld is not a member.
     for (let i = 0; i < 4; i++) {
       addPrim(world, makePrim(i, p0Color, i * 50, 0, SparkType.Square));
     }
@@ -193,20 +186,20 @@ describe('voltkin predicate (typed chain)', () => {
     for (let i = 0; i < 7; i++) {
       addBond(world, makeBond(i, i, i + 1));
     }
-    // branch off prim 2: extra circle dangling — chain isolation violated.
+    // branch off prim 2: extra circle welded on — S48 refused this; B-31 accepts it.
     addPrim(world, makePrim(100, p0Color, 100, 80, SparkType.Circle));
     addBond(world, makeBond(100, 2, 100));
 
-    expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
+    expect(match, 'B-31: a welded TV ignites').not.toBeNull();
+    expect([...match!.targetComponentPrimitiveIds].map(Number).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
 
-  it('S48 P4 (Sym G) — REJECTS the user-reported "5 squares + 4 triangles blob" pattern', () => {
-    // Live reproduction of the S47 P4 user smoke: 5 squares all bonded
-    // together in a mesh, then 4 triangles bonded linearly to one of the
-    // squares. Pre-S48 the DFS found a 4-Sq + 4-Tr path within this blob
-    // and Voltkin fired; user marked this as wrong. Post-S48 the strict-
-    // isolation gate rejects because chain-square prims have off-chain
-    // bonds to the 5th (off-chain) square.
+  it('⭐ S195 B-31 (REVERSES S48 P4) — the "5 squares + 4 triangles blob" IGNITES, as ONE TV', () => {
+    // The S47 live smoke that S48 P4 made a refusal: 5 squares in a mesh, 4 triangles bonded linearly to
+    // one of them. Under B-31 a 4S→4T path inside a weld is a TV; the extra square is what was welded on.
+    // ⚠ MINE (`standingVoltkinTvs`): overlapping paths through the same shapes are ONE TV, so this blob
+    // mints one Voltkin, not one per legal path.
     //
     // Topology: squares 0-4 form a small mesh (0-1, 1-2, 2-3, 3-4, AND
     // 0-4 closing the loop). Then linear triangles 5-6-7-8 bonded to
@@ -229,11 +222,14 @@ describe('voltkin predicate (typed chain)', () => {
     // square 0 → triangle 5 (bridge from square mesh to triangle line)
     addBond(world, makeBond(8, 0, 5));
 
-    expect(voltkinPredicate(world, { x: 0, y: 0 })).toBeNull();
+    const match = voltkinPredicate(world, { x: 0, y: 0 });
+    expect(match, 'B-31: the blob is a TV').not.toBeNull();
+    expect(match!.targetComponentPrimitiveIds.length).toBe(8);
+    expect(match!.targetComponentPrimitiveIds).toContain(asPrimitiveId(5)); // its triangle tail
   });
 
   it('S48 P4 (Sym G) — MATCHES a clean linear 4Sq→4Tr chain (regression guard)', () => {
-    // Sanity: the strict-isolation gate must not over-reject. A pristine
+    // Sanity (kept from S48; the isolation gate is gone since S195 B-31). A pristine
     // 4-square + 4-triangle linear chain with no extra bonds must still
     // match. Endpoints (chain[0], chain[7]) have degree 1; middles
     // (chain[1..6]) have degree 2; all bonds connect within chain.

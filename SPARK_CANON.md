@@ -1140,10 +1140,17 @@ Units: see `S180_TARGETING_TABLE.md`, which is the live working document while t
   gets one at its centre: `VOLTKINS_PER_TV` = **1** (⚠ MINE). `resummonVoltkins` (`voltkinTv.ts`), one call
   in `hostTick` after `recallArmies`. Live Voltkins and summons already on their way are bound to their own
   seat's TVs, nearest first, over a total order, so no TV is summoned for twice. ⛔ **A TV RE-SUMMONS IFF IT
-  WOULD IGNITE NOW** (merge-owner ruling, S192 audit): the census and the ignition predicate share ONE
-  isolation test, `isIsolatedVoltkinChain` — S48's *"if you accidentally connect anything else to the
-  structure it shouldn't go off"*. ⚠ So a TV with an extra shape welded on stops re-summoning, as it would
-  not ignite (unlike Helga, whose hall survives a weld). And ONE owner rule, `voltkinTvOwner`: majority
+  WOULD IGNITE NOW** (merge-owner ruling, S192 audit) — and ⭐⭐ **S195 B-31 (owner) REVERSED WHAT IGNITES: A
+  WELDED TV IS A TV.** *"you should be able to weld everything on everything, and the existing … towers keep
+  summoning and resummoning … A TV is not different than a tier three piranha tower."* S48's isolation test
+  (`isIsolatedVoltkinChain`, *"if you accidentally connect anything else to the structure it shouldn't go
+  off"*) is DELETED from both sides: a TV with shapes welded on ignites, summons and re-summons; a NEW TV
+  built already welded spawns its first Voltkin (merge-owner call, S195 turn 3). Ignition now reads the
+  census's own list (`standingVoltkinTvs`, `voltkinPredicate` via `standingVoltkinTvTouching`) and its claim
+  binding (`tvsOwedAVoltkin`), so a weld onto a TV whose Voltkin lives, is emerging or is queued mints
+  NOTHING — that binding is what the isolation test was silently doing for the S161 topology gate. ⚠ MINE:
+  overlapping 8-paths through the same shapes are **one** TV (greedily disjoint in canonical order), so a
+  12-shape blob mints one Voltkin, not two. And ONE owner rule, `voltkinTvOwner`: majority
   colour, **lowest seat on a tie**, for ignition and the wave alike. A fallen or broken TV summons nothing.
   The same branch fixed the two defects that ate TVs at ignition — the matcher ignored every TV closed while
   another Voltkin was emerging, and a queued same-seat emerge latched the slot for the match.

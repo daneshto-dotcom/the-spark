@@ -1038,18 +1038,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
 
   /* ══ S192 T16 — §5b, every TV gives its Voltkin back, every wave (s192/voltkin) ══════════════════ */
 
-  it('⭐ §5b T16 — one Voltkin per TV at FIGHT→BUILD; the census and ignition share isolation and owner', () => {
+  it('⭐ §5b T16 / S195 B-31 — one Voltkin per TV at FIGHT→BUILD; ignition reads the census list; a welded TV is a TV', () => {
     expect(VOLTKINS_PER_TV).toBe(1);
     expect(canonSays(`\`VOLTKINS_PER_TV\` = **${VOLTKINS_PER_TV}** (⚠ MINE)`)).toBe(true);
     expect(canonSays('A TV RE-SUMMONS IFF IT')).toBe(true);
     expect(canonSays('**lowest seat on a tie**')).toBe(true);
+    expect(canonSays('S195 B-31 (owner) REVERSED WHAT IGNITES')).toBe(true);
     const tv = readFileSync(new URL('./state/voltkinTv.ts', import.meta.url), 'utf8');
     const recipe = readFileSync(new URL('./state/godlyRecipes/voltkin.ts', import.meta.url), 'utf8');
+    const walk = readFileSync(new URL('./state/godlyRecipes/voltkinChainWalk.ts', import.meta.url), 'utf8');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-    // ONE isolation test and ONE owner rule, called by both sides.
-    expect(tv).toContain('if (!isIsolatedVoltkinChain(world, chain)) continue;');
-    expect(recipe).toContain('if (!isIsolatedVoltkinChain(world, chain)) {');
-    expect(recipe).toContain('const triggererId = voltkinTvOwner(world, chain);');
+    // ⭐ S195 B-31 — the isolation test is GONE (not left unread), and ignition reads the census's list and
+    // its claim binding, so both sides can only ever agree.
+    expect(walk).not.toMatch(/export function isIsolatedVoltkinChain/);
+    expect(tv).not.toContain('isIsolatedVoltkinChain(world, chain)');
+    expect(recipe).toContain('const tvs = standingVoltkinTvs(world);');
+    expect(recipe).toContain('standingVoltkinTvTouching(world, tvs, bondPos, AUTO_BOND_RADIUS)');
+    expect(recipe).toContain('if (!tvsOwedAVoltkin(world, tvs).includes(ti) || isTvPlayingNow(world, tv)) {');
+    expect(recipe).toContain('triggererPlayerId: tv.owner,');
     // The edge call sits after the recall (which would teleport a fresh Voltkin to the castle).
     expect(host).toMatch(/recallArmies\(world\);\n(?:\s*\/\/[^\n]*\n)*\s*resummonVoltkins\(world\);/);
   });
