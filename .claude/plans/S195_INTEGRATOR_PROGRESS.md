@@ -1,5 +1,8 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## EXACT NEXT STEP (L7 — s195/lag 250fe334, graphics tiers N17, no bump)
+Merged 2914319b (no conflicts; 19 files i/lf). Gates RUNNING: `.tmp-gates/s195run7.sh L7 31969` → `.tmp-gates/s195_L7/` (tc, vt, build, gating, render, races, lobby, teams, settings-toggles). Then fetch, push, deploy, `verify-deploy --sha <FULL sha>`, log S195-#7 + CI per lane. Then HOLD for teams (#8). Commit only my paths.
+
 ## EXACT NEXT STEP (L6 — cloud train)
 LANDED as S195-#6 e06fab28 (PROTOCOL 68, 1202.6/1350 KiB, all local lanes green, deploy 37350728256 success, verify 4/4). CI E2E per lane recorded in the dispatch log. HOLDING for s195/lag, then s195/teams, one at a time when the merge owner sends them. ⚠ The merge owner stages files in this checkout: commit ONLY my paths (`git commit <paths>`).
 
