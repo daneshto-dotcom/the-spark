@@ -802,6 +802,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const t of ['raceUnit', 't3Hound', 't9BossZombies'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(true);
     for (const t of ['voltkin', 'chewer', 'goblinMelee'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(false);
     expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ); // his "for like eight seconds"
+    // ⭐ S195 B-32 — the feed LOOPS (verified through runHostTick in `corpseEater.test.ts`); the canon says so.
+    expect(canonSays('S195 B-32 (owner): THE FEED IS A LOOP')).toBe(true);
+    expect(CORPSE_EATER_TICKS / getCreatureConfig('t9BossZombies').attackCadenceTicks, 'eight bites in the window').toBe(8);
     expect(canonSays(
       `\`CORPSE_EATER_TRIGGER_PCT\` = **${CORPSE_EATER_TRIGGER_PCT}** · \`CORPSE_EATER_TICKS\` = **${CORPSE_EATER_TICKS}**` +
       ` · \`CORPSE_EATER_HEAL_PCT\` = **${CORPSE_EATER_HEAL_PCT}** · \`CORPSE_EATER_LEASH_RADIUS\` = **${CORPSE_EATER_LEASH_RADIUS}** px`,

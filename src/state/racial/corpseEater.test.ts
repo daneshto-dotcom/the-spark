@@ -32,6 +32,7 @@ import { KRAKEN_SONAR_STUN_TICKS, PHASE_DURATION_TICKS, PHYSICS_HZ, PHYSICS_SUBS
 import { KRAKEN_SONAR_KNOCKBACK_PX, applySonarShove } from '../bossSkillsKraken.ts';
 import {
   CORPSE_EATER_HEAL_PCT,
+  CORPSE_EATER_HEAL_PULSE_TICKS,
   CORPSE_EATER_LEASH_RADIUS,
   CORPSE_EATER_TICKS,
   CORPSE_EATER_TRIGGER_PCT,
@@ -521,5 +522,93 @@ describe('S188 CORPSE EATER — audit F5: a window that straddles the FIGHT→BU
     expect(food.ehp, 'no bite in BUILD').toBe(foodAtEdge);
     expect(b.ehp, 'no heal in BUILD').toBe(bossAtEdge);
     expect(b.pos, 'and the leash did not drag him back to the fight').toEqual(home);
+  });
+});
+
+/*
+ * ⭐⭐ S195 B-32 (owner + merge-owner call, turn 3) — **THE FEED IS A LOOP, NOT A ONE-SHOT.** He wants *"the
+ * eating loop to repeat for the whole feed, heal throughout, bite still damages enemies around"*; the numbers
+ * stay the code's 100 % / 8 s. VERIFIED here through the real host tick, against an ENEMY pinned in his arm
+ * for the whole window: a bite lands on EVERY cadence of the 480 ticks (first in the first cadence, last in
+ * the last), the enemy loses every one of them, and the green heal pulses land from the first bite's bank to
+ * the window's end — nothing plays once and stops. The render half (`corpseEaterFrames.test.ts`) pins the
+ * ping-pong loop covering ≥ 2 full periods of the middle. ⭐ MUTATION-TESTED (progress file): cutting the bite
+ * to the first cadence only (`feedStep` fire gate) turns this red.
+ */
+describe('S195 B-32 — the feed LOOPS for the whole window (REACH through runHostTick)', () => {
+  function runFor(w: World, ticks: number, each?: (w: World) => void): void {
+    const d = deps();
+    const st = makeHostTickState(w);
+    for (let t = 0; t < ticks; t++) {
+      runHostTick(w, d, st);
+      each?.(w);
+    }
+  }
+
+  it('⭐⭐ an ENEMY in his arm is bitten on every cadence across all 480 ticks, and the heal lands throughout', () => {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    const e = put(w, 't3Scarab', P1, CX + 20);
+    e.ehp = 1_000_000;
+    const cadence = getCreatureConfig(BOSS).attackCadenceTicks;
+    let lastEhp = e.ehp;
+    let lastBoss = b.ehp;
+    const biteTicks: number[] = [];
+    let rotFifths = 0; // his ROT AURA (his first skill) ticks 1 fifth on the same scarab — counted apart from the bites
+    const healTicks: number[] = [];
+    let t0 = -1;
+    runFor(w, 5 + CORPSE_EATER_TICKS, (ww) => {
+      for (const id of [...ww.creatures.keys()]) if (id !== b.id && id !== e.id) ww.creatures.delete(id);
+      // the prey is pinned in his arm; its own strikes on him still land (retaliation is live)
+      e.pos.x = CX + 20; e.pos.y = CY; e.prevPos.x = e.pos.x; e.prevPos.y = CY;
+      if (t0 < 0 && b.corpseEaterUntilTick !== undefined) t0 = b.corpseEaterUntilTick - CORPSE_EATER_TICKS;
+      const lost = lastEhp - e.ehp;
+      if (lost >= BITE) biteTicks.push(ww.tick - t0);
+      else if (lost > 0) rotFifths += lost;
+      if (b.ehp > lastBoss) healTicks.push(ww.tick - t0);
+      lastEhp = e.ehp;
+      lastBoss = b.ehp;
+    });
+    expect(t0, 'anti-vacuity: he sat down').toBeGreaterThanOrEqual(0);
+    const expected = CORPSE_EATER_TICKS / cadence; // 8 bites at a 60-tick cadence
+    expect(biteTicks.length, 'one bite per cadence, the whole window — not once').toBe(expected);
+    expect(biteTicks[0]!, 'the first bite in the first cadence').toBeLessThan(cadence);
+    expect(biteTicks.at(-1)!, 'the last bite in the last cadence').toBeGreaterThanOrEqual(CORPSE_EATER_TICKS - cadence);
+    for (let i = 1; i < biteTicks.length; i++) expect(biteTicks[i]! - biteTicks[i - 1]!, 'evenly on his clock').toBe(cadence);
+    expect(1_000_000 - e.ehp - rotFifths, 'every bite cost the enemy his strike (100 %)').toBe(expected * BITE);
+    expect(rotFifths, 'the rot aura is small change beside the bites').toBeLessThan(BITE);
+    // The heal: six pulses per bite's bank, landing right through — until he is FULL (the cap, "capped at his
+    // own max": from 20 % the loop heals him to 100 % inside the window, after which a pulse adds nothing) or,
+    // had the cap not come, to the window's last cadence.
+    expect(healTicks.length, 'many green pulses, not one heal').toBeGreaterThanOrEqual(expected * 2);
+    expect(healTicks[0]!, 'the first pulse soon after the first bite').toBeLessThan(cadence + CORPSE_EATER_HEAL_PULSE_TICKS);
+    const full = b.ehp === creatureMaxEhp(b);
+    expect(full || healTicks.at(-1)! >= CORPSE_EATER_TICKS - cadence, 'healed to FULL, or still pulsing in the final cadence').toBe(true);
+    expect(full, 'the loop takes him from 20 % to his max inside the 8 s').toBe(true);
+    expect(CORPSE_EATER_HEAL_PCT).toBe(100);
+    expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ);
+  });
+
+  it('negative — the window really ENDS: no bite and no pulse after tick 480', () => {
+    const w = make1v1();
+    const b = bossAtTrigger(w);
+    const e = put(w, 't3Scarab', P1, CX + 20);
+    e.ehp = 1_000_000;
+    runFor(w, 5 + CORPSE_EATER_TICKS + 1, (ww) => {
+      for (const id of [...ww.creatures.keys()]) if (id !== b.id && id !== e.id) ww.creatures.delete(id);
+      e.pos.x = CX + 20; e.pos.y = CY; e.prevPos.x = e.pos.x; e.prevPos.y = CY;
+    });
+    const ehpAtEnd = e.ehp;
+    const bossAtEnd = b.ehp;
+    // After release he is an ordinary boss again: his FSM may bite the scarab (retaliation / nav unit), but the
+    // FEED heal is over — no green pulse follows a bite any more.
+    runFor(w, 3 * getCreatureConfig(BOSS).attackCadenceTicks, (ww) => {
+      for (const id of [...ww.creatures.keys()]) if (id !== b.id && id !== e.id) ww.creatures.delete(id);
+      e.pos.x = CX + 20; e.pos.y = CY; e.prevPos.x = e.pos.x; e.prevPos.y = CY;
+    });
+    expect(isCorpseEaterFeeding(b, w.tick)).toBe(false);
+    expect(b.corpseEaterHealBank).toBeUndefined();
+    expect(b.ehp, 'no feed heal after the window (the scarab keeps striking him)').toBeLessThanOrEqual(bossAtEnd);
+    void ehpAtEnd;
   });
 });
