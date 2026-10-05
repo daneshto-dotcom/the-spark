@@ -1101,7 +1101,19 @@ export type { NetSnapshot };
  *   No wire field or discriminant changed — version only. `s195/fixes` (`lostToEntropy`, additive-optional wire key `le`,
  *   bots) and `s195/ui-4` ride along with no rule change.
  */
-export const PROTOCOL_VERSION = 68 as const;
+/**
+ * ⭐⭐ S195 — **BUMPED 68 -> 69: `s195/teams` (T12; owner R195-T1..T6, R195-F1, N3, N16; landed S195 #8).** Each alone
+ * is something a v68 peer cannot parse or would compute differently:
+ *   1. ZONE OWNERSHIP IS SIM STATE — `world.layout` gains `QUADRANTS_4P:<owner seat per zone>` values
+ *      (`arrangeTeamZones` / `layoutForMatch`): castles, build legality and scorch read it. A v68 peer cannot parse
+ *      the value. The S192 re-seating (`arrangeTeamSeats` / `permuteBots`) is retired — seat stays identity.
+ *   2. `RosterEntry.slot` (N16, the host's board-slot arrangement, validated 0..3) on START_GAME / presence.
+ *   3. `LOBBY_PRESENCE.countdownMs` (N3, the 3 s ready lock; optional, validated 0..10000).
+ *   4. THE TEAM POINTS RACE (R195-T1) — team total vs the wave's bar × team size, and the team endgame wipe judged
+ *      closest to its own target (R195-T6): both are in `tickGameState`, which the client also runs.
+ *   5. The hunter targets the triggering team's top living seat (`teamHunterTarget`).
+ */
+export const PROTOCOL_VERSION = 69 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1446,6 +1458,7 @@ export interface HelloMsg {
    * S194: 65->66 (s194/rage: R194-31 the Warlord rage window + BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. Full reasons on the const's JSDoc.)
    * S195: 66->67 (s194/rules, landed S195: R194-16 porch row 42 + build-clear 17, R194-17 pants window 30/45/60/90/120 s, R194-26 mega pants the 251st, R194-27 live cap 360 total. Full reasons on the const's JSDoc.)
    * S195: 67->68 (s195/rules-2, cloud run: B-9 chewer bites the keep, B-10 drone splash one 30 pool split, B-31 welded TV keeps summoning, B-25/B-30 own side spared, N11 chase ratio 1 + ATTACKING/pathless home arm. Full reasons on the const's JSDoc.)
+   * S195: 68->69 (s195/teams, deploy #8: world.layout QUADRANTS_4P:<owners> zone map, RosterEntry.slot, LOBBY_PRESENCE.countdownMs, team points race + team wipe judge, hunter team target. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1484,7 +1497,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 68;
+  readonly protoVersion: 69;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

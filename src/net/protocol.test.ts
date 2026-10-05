@@ -72,7 +72,7 @@ describe('S15 P2 — room code parsing', () => {
 });
 
 describe('S22 P3 — parseNetMessage validator', () => {
-  it('PROTOCOL_VERSION is 68 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
+  it('PROTOCOL_VERSION is 69 — THE ONE DELIBERATE PIN: a bump must be a decision, never a side effect', () => {
     // ⭐ S140 P1 — THIS IS NOW THE ONLY HARDCODED COPY OF THE VERSION IN THE UNIT SUITE (the e2e
     // lane keeps its own single `LOCAL_PROTO_V`). There were FOUR, and every one of their titles had
     // gone stale — all three of the others said "is 17" while asserting 18. Copies of a number do not
@@ -123,7 +123,8 @@ describe('S22 P3 — parseNetMessage validator', () => {
     // ⭐ S194 — 65 → 66: s194/rage — R194-31 rage window + BLOOD FRENZY end on their 25 s clock in any phase.
     // ⭐ S195 — 66 → 67: s194/rules — porch row 42 + build-clear 17, pants window, mega pants 251st, live cap 360 total.
     // ⭐ S195 cloud — 67 → 68: s195/rules-2 — B-9 keep bites land, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1.
-    expect(PROTOCOL_VERSION).toBe(68);
+    // ⭐ S195 — 68 → 69: s195/teams — world.layout zone map, RosterEntry.slot, countdownMs, team points race + wipe judge, hunter team target.
+    expect(PROTOCOL_VERSION).toBe(69);
   });
 
   it('S152 P1 — RAID_TARGET is an allowed CLIENT INTENT (a 1v1 joiner can raid; was RAID_CREATURE until S152)', () => {

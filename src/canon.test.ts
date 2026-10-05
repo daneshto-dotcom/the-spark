@@ -318,7 +318,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(68);
+    expect(PROTOCOL_VERSION).toBe(69);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -1192,7 +1192,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 67 -> 68');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 68 -> 69');
+    expect(proto.indexOf('BUMPED 67 -> 68')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 66 -> 67')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 65 -> 66')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 64 -> 65')).toBeLessThan(constAt);
@@ -2213,5 +2214,28 @@ describe('S195 — §9e the stat board is pinned to its code (counters, wire, B-
     expect(reach.includes('← → and Tab cycle every page and wrap; R is never consumed (it stays the exit)')).toBe(true);
     expect(canonSays('**B-23 ← / → / Tab page the board** (Shift+Tab back)')).toBe(true);
     expect(canonSays('**R is\n  never consumed**') || canonSays('**R is\r\n  never consumed**')).toBe(true);
+  });
+});
+
+describe('⭐⭐ S195 §5d — THE TEAMS UPGRADE (s195/teams, PROTOCOL 69): every number the canon states is the constant', () => {
+  it('the team race, the wipe judge and the ready lock read what the canon says', async () => {
+    const ts = await import('./state/teamScore.ts');
+    const qm = await import('./net/quickmatchGate.ts');
+    const teams = await import('./state/teams.ts');
+    expect(ts.TEAM_BAR_SCALES_WITH_SIZE).toBe(true);
+    expect(canonSays('`TEAM_BAR_SCALES_WITH_SIZE` = `true`')).toBe(true);
+    expect(ts.TEAM_TOTAL_COUNTS_FALLEN).toBe(true);
+    expect(canonSays('`TEAM_TOTAL_COUNTS_FALLEN` = `true`')).toBe(true);
+    expect(ts.TEAM_WIPE_JUDGE).toBe('ratio');
+    expect(canonSays("`TEAM_WIPE_JUDGE` = `'ratio'`")).toBe(true);
+    expect(qm.QM_READY_LOCK_MS).toBe(3000);
+    expect(canonSays('`QM_READY_LOCK_MS` =')).toBe(true);
+    expect(qm.QM_UNREADY_TEAM_COOLDOWN_MS).toBe(3000);
+    expect(canonSays('`QM_UNREADY_TEAM_COOLDOWN_MS`')).toBe(true);
+    expect(typeof teams.arrangeTeamZones).toBe('function');
+    expect(typeof teams.layoutForMatch).toBe('function');
+    expect('arrangeTeamSeats' in teams, 'the S192 re-seating is retired').toBe(false);
+    expect(canonSays('**NOT built:** shared vision')).toBe(false);
+    expect(canonSays('WHAT RIDES 69 (S195, deploy #8)')).toBe(true);
   });
 });

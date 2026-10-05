@@ -1258,7 +1258,7 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 **⚠ MINE (built as defaults, the owner has not ruled — each is one line to flip):**
 - A match needs **two sides**: both lobbies refuse (Begin dimmed with *"everyone is on one team — pick at
   least two sides"*), and the sim falls back to the free-for-all.
-- **Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.
+- ~~**Teammates sit side by side** (`arrangeTeamSeats`): the host never moves, the host's team takes the LEFT.~~ ⛔ RETIRED S195 — see **THE S195 TEAMS UPGRADE** below: nobody is re-seated any more.
 - The **Pharaoh boss's columns** ("kills everything") — ⭐ **S195 B-25 (owner, RULED): spare his OWN SIDE, seat
   and teammates alike**, aligned with R193-B3 and B-30 (*"they only attack enemies"*). Until S195 they hit his
   own seat and spared only its teammates (⚠ MINE then, spec Q5). `bossSkillsPharaohRitual.ts` passes
@@ -1284,11 +1284,40 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 - A bot never aims its Scorched Earth at a teammate's zone.
 - A teammate's fallen castle: today's elimination, unchanged (that seat spectates; its zone stays
   unbuildable).
-- **NOT built:** shared vision between teammates (Q8 — recommended yes), the v2 merged half (T3).
+- **NOT built:** the v2 merged half (T3).
+
+**⭐⭐ THE S195 TEAMS UPGRADE (`s195/teams`, T12; deploy #8, PROTOCOL 69):**
+- **SEAT IS IDENTITY; THE BOARD IS A MAP (owner R195-T2/T3/T4).** The S192 re-seating (`arrangeTeamSeats` /
+  `permuteBots`) is RETIRED. The host stamps `world.layout = QUADRANTS_4P:<owner seat per zone>` at START_GAME
+  (`arrangeTeamZones` / `layoutForMatch`, `state/teams.ts`); castles, build legality and scorch read the map. Fixed by
+  the art: **a solo is always NW**; **a pair always takes a whole side** (west = NW+SW or east = NE+SE, no wall).
+  **2v1**: the solo also gets the EMPTY corner — buildable; ⚠ MINE his scorch stays home-quadrant only. **1v1v2**: the
+  pair takes a side, each solo one corner. **3v1**: solo NW, the trio NE+SE+SW with the walls between them removed;
+  SE (borders only teammates) goes to the middle race in seat order — accepted, R195-T4.
+- **THE HOST RE-SEATS (N16)** — a MOVE chip in the lobby rack (bot lobby: a corner button) sets each seat's board
+  slot; it rides as `RosterEntry.slot` (0..3, clock order, validated).
+- **SHARED VISION (R195-F1, HIS)** — teammates see each other's ground in BUILD (*"no fog during build"*); FIGHT has
+  no fog anyway. Vision / concealment / ghost memory ask `sameTeam`.
+- **THE POINTS RACE IS A TEAM TOTAL (R195-T1)** — the team's summed score vs the wave's bar × the team's size
+  (`TEAM_BAR_SCALES_WITH_SIZE` = `true`, ⚠ MINE); a fallen teammate's banked score still counts
+  (`TEAM_TOTAL_COUNTS_FALLEN` = `true`, ⚠ MINE). Judged in `tickGameState`, which the client runs too.
+- **THE TEAM ENDGAME WIPE IS JUDGED CLOSEST TO ITS OWN TARGET (R195-T6, HIS)** — `TEAM_WIPE_JUDGE` = `'ratio'`
+  (team total ÷ (bar × team size)): a pair at 6,000 / 10,000 loses to a solo at 4,000 / 5,000.
+- **THE HUNTER** targets the triggering team's top living seat (`teamHunterTarget`).
+- **READY LOCKS YOUR TEAM (N3, quick match only)** — everyone ready starts a **3 s** lock (`QM_READY_LOCK_MS` =
+  3000) shown as `LOBBY_PRESENCE.countdownMs`; un-readying keeps the team locked for `QM_UNREADY_TEAM_COOLDOWN_MS`
+  = 3000; never in a one-team room; a host MOVE restarts the lock.
+- **BACKDROPS** (`zoneBackdropPlan`): a 2v2 pair = the pair art (top/bottom crop, the east side mirrored); a 2v1 solo =
+  his 1v1 2-player race art across his half; 1v1v2 solos and 3v1 = the 4-player single-quadrant art (R195-T5);
+  the trio seam `trioBackdropUrl` returns null until trio art exists (N19 plans six blendable tiles instead).
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **68** (S195 cloud run — s195/rules-2: B-9 chewer bites the keep, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1 + state-based home arm; see the S195 entry on the const). 67 was S195 L1 (s194/rules, R194-16/17/26/27). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **69** (S195 deploy #8 — s195/teams: the `world.layout` zone map `QUADRANTS_4P:<owners>`, `RosterEntry.slot`, `LOBBY_PRESENCE.countdownMs`, the team points race + team wipe judge, the hunter's team target; see the S195 entry on the const). 68 was the S195 cloud run (s195/rules-2: B-9 chewer bites the keep, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1 + state-based home arm; see the S195 entry on the const). 67 was S195 L1 (s194/rules, R194-16/17/26/27). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 69 (S195, deploy #8)** — s195/teams: the zone map `world.layout = QUADRANTS_4P:<owner seat per zone>` (`arrangeTeamZones` / `layoutForMatch`; seat stays identity, `arrangeTeamSeats`/`permuteBots` retired), the host's board slot `RosterEntry.slot` (N16), the ready-lock countdown `LOBBY_PRESENCE.countdownMs` (N3), the team points race and the team endgame wipe judge (R195-T1/T6, in `tickGameState`), the hunter's team target. s195/lag (graphics tiers) rode #7 with no bump.
+
+⭐⭐ **WHAT RIDES 68 (S195, cloud run → deploy #6)** — s195/rules-2: B-9 the chewer bites the keep, B-10 the drone splash is one pool split, B-31 a welded TV keeps summoning, B-25/B-30 own side spared, N11 chase ratio 1 + the state-based home arm.
 
 ⭐⭐ **WHAT RIDES 67 (S195, L1)** — s194/rules: the porch row 74 → 42 with the porch no-build arm `CASTLE_PORCH_BUILD_CLEAR_RADIUS` 17 (R194-16); the pants window 30/45/60/90/120 s (R194-17); the mega pants is the 251st slot (R194-26); the live pants cap is 360 total (R194-27).
 
