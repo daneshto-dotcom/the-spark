@@ -34,6 +34,8 @@ import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
 import { componentOf } from '../game/structure.ts'; // ⭐ S195 T22 — the bot reads its own structures' connector counts
+import type { Primitive } from '../game/primitive.ts';
+import { MERGE_REACH_RADIUS } from '../constants.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, CASTLE_PORCH_SLOTS, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
@@ -940,12 +942,15 @@ export function chooseBuildPos(
    * NEW STRUCTURE on a fresh site (`freshStructurePos`) instead of feeding the tax. NOOB (`'none'`) keeps every
    * source and this block is a no-op for it — byte-identical to the pre-S195 bot.
    */
-  const growable = entropySafeSources(world, seat, cfg);
+  const structures = ownStructures(world, seat);
+  const growable = entropySafeSources(world, seat, cfg, structures);
   if (growable.length === 0) {
     const fresh = freshStructurePos(world, seat, totalSeats, cfg, rng);
     if (fresh !== null) return fresh;
   }
   const sources = growable.length > 0 ? growable : own;
+  // Only when a source was found under the knowledge does the candidate have to honour it too.
+  const checkGrowth = growable.length > 0 && cfg.entropyAwareness !== 'none';
 
   // Growth: pick the source prim. Smart = fewest bonds (frontier); sloppy =
   // random own prim.
@@ -973,37 +978,88 @@ export function chooseBuildPos(
       cfg.aimJitterPx,
       rng,
     );
-    if (isLegalBuildPos(candidate, seat, world)) return candidate;
+    if (!isLegalBuildPos(candidate, seat, world)) continue;
+    // ⭐ S195 T22 — a growth step may land within the host's auto-bond / merge reach of a DIFFERENT own
+    // structure (the host bonds to the NEAREST own shape and merges every structure within 100 px), so the
+    // candidate itself is checked: it may not weld into, or merge up to, a structure past the limit.
+    if (checkGrowth && !entropyGrowthOk(candidate, structures, cfg)) continue;
+    return candidate;
+  }
+  if (checkGrowth) {
+    // Every growth step would feed a taxed structure — start a new one instead, if the sector has room.
+    const fresh = freshStructurePos(world, seat, totalSeats, cfg, rng);
+    if (fresh !== null) return fresh;
   }
   // Everything blocked — restart the colony at the home anchor.
   return homeAnchor(seat, totalSeats, cfg, rng);
 }
 
+/** ⭐ S195 T22 — one of this seat's structures, as the bot sees it: its connector count and whether a tower node is in it. */
+export interface OwnStructure {
+  readonly bonds: number;
+  readonly tower: boolean;
+  readonly prims: readonly Primitive[];
+}
+export interface OwnStructures {
+  readonly comps: readonly OwnStructure[];
+  /** prim id → index into `comps`. */
+  readonly compOf: ReadonlyMap<PrimitiveId, number>;
+}
+
+/**
+ * ⭐ S195 T22 — PURE: this seat's structures (connected components of its own shapes), each walked once
+ * (`componentOf`), listed in `world.primitives` order — a census, never a choice, so no ordering here decides
+ * anything. A lone shape is a structure of 0 connectors.
+ */
+export function ownStructures(world: World, seat: PlayerId): OwnStructures {
+  const comps: OwnStructure[] = [];
+  const compOf = new Map<PrimitiveId, number>();
+  for (const prim of world.primitives.values()) {
+    if (prim.placedBy !== seat || compOf.has(prim.id)) continue;
+    const comp = componentOf(prim, world.primitives, world.bonds);
+    const prims: Primitive[] = [];
+    let tower = false;
+    for (const id of comp.primitiveIds) {
+      const p = world.primitives.get(id);
+      if (p === undefined) continue;
+      prims.push(p);
+      if (p.origin != null) tower = true;
+      compOf.set(id, comps.length);
+    }
+    comps.push({ bonds: comp.bondIds.size, tower, prims });
+  }
+  return { comps, compOf };
+}
+
+/** Does this structure COUNT for the bot's entropy knowledge? `'all'` — every one; `'towers'` — only one with a tower node in it. */
+function entropyCounts(c: OwnStructure, aware: BotConfig['entropyAwareness']): boolean {
+  return aware === 'all' || (aware === 'towers' && c.tower);
+}
+
 /**
  * ⭐ S195 T22 — PURE: the own shapes this bot may still GROW FROM under its entropy knowledge. Every own prim
- * when the tier knows nothing (`'none'`); otherwise every own prim whose component is under the personality's
- * `entropyMaxConnectors` — counting a component only when it holds a stamped tower node (`origin !== null`) for
- * `'towers'` (MID), and every component for `'all'` (HARD / IMBA). Components are walked once each
- * (`componentOf`), in `world.primitives` order like the caller's `own` list — a filter, never a choice, so the
- * caller's existing total order (fewest bonds, first in insertion order) is what still picks the source.
+ * when the tier knows nothing (`'none'`); otherwise every own prim whose structure is under the personality's
+ * `entropyMaxConnectors` — judging a structure only when it holds a stamped tower node (`origin !== null`) for
+ * `'towers'` (MID), and every structure for `'all'` (HARD / IMBA). A filter in `world.primitives` order, never a
+ * choice: the caller's existing total order (fewest bonds, first in insertion order) still picks the source.
+ * ⚠ MINE: a structure AT the limit is full (`>=`), and one placement can add up to 1 + `REDUNDANT_BOND_K` (3)
+ * connectors, so a smart bot may overshoot the limit by ≤ 3 — at 13 connectors that is 0.3 % per connector
+ * per fight, ~0.04 connectors lost: not worth a stricter rule that would stop BALANCED at 6.
  */
-export function entropySafeSources(world: World, seat: PlayerId, cfg: BotConfig): Array<{ pos: Vec2; bonds: number }> {
+export function entropySafeSources(
+  world: World,
+  seat: PlayerId,
+  cfg: BotConfig,
+  structures: OwnStructures = ownStructures(world, seat),
+): Array<{ pos: Vec2; bonds: number }> {
   const out: Array<{ pos: Vec2; bonds: number }> = [];
   const aware = cfg.entropyAwareness;
   const limit = personaOf(cfg).entropyMaxConnectors;
-  const grown = new Set<PrimitiveId>(); // prims of a component already judged TOO BIG
-  const fine = new Set<PrimitiveId>(); // prims of a component already judged growable
   for (const prim of world.primitives.values()) {
     if (prim.placedBy !== seat) continue;
-    if (aware === 'none') { out.push({ pos: prim.pos, bonds: prim.bonds.size }); continue; }
-    if (grown.has(prim.id)) continue;
-    if (!fine.has(prim.id)) {
-      const comp = componentOf(prim, world.primitives, world.bonds);
-      let counts = aware === 'all';
-      if (!counts) for (const id of comp.primitiveIds) { if (world.primitives.get(id)?.origin != null) { counts = true; break; } }
-      const tooBig = counts && comp.bondIds.size >= limit;
-      for (const id of comp.primitiveIds) (tooBig ? grown : fine).add(id);
-      if (tooBig) continue;
+    if (aware !== 'none') {
+      const c = structures.comps[structures.compOf.get(prim.id) ?? -1];
+      if (c !== undefined && entropyCounts(c, aware) && c.bonds >= limit) continue;
     }
     out.push({ pos: prim.pos, bonds: prim.bonds.size });
   }
@@ -1011,19 +1067,50 @@ export function entropySafeSources(world: World, seat: PlayerId, cfg: BotConfig)
 }
 
 /**
- * ⚠ MINE (S195 T22) — how far past `AUTO_BOND_RADIUS` (60) a fresh structure's first shape is planted from
- * every own shape, so the host's auto-bond re-pick cannot weld it into the structure the bot is leaving
- * alone. 12 px covers HARD's 10 px aim jitter with room; MID's 28 px jitter is applied BEFORE the check.
+ * ⚠ MINE (S195 T22) — the clearance past the host's reach that a bot keeps from a structure it will not grow:
+ * `MERGE_REACH_RADIUS` (100 — `collectHostMergeCandidates` welds ONE bond into every own structure within it,
+ * and the primary target is the nearest own shape within `AUTO_BOND_RADIUS` 60) plus 12 px, which covers
+ * HARD's 10 px aim jitter; MID's 28 px jitter is applied BEFORE the check, so it is covered by construction.
  */
 export const FRESH_SITE_MARGIN = 12;
 /** ⚠ MINE (S195 T22) — the fresh-site probe: rings this far apart, stepping outward from the home anchor. */
 export const FRESH_SITE_RING_STEP = 72;
-const FRESH_SITE_RINGS = 6;
-const FRESH_SITE_ANGLES: readonly number[] = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05];
+const FRESH_SITE_RINGS = 8;
+const FRESH_SITE_ANGLES: readonly number[] = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4];
+const CLEAR_REACH = MERGE_REACH_RADIUS + FRESH_SITE_MARGIN;
+
+/**
+ * ⭐ S195 T22 — PURE: may a loose shape land at `candidate` under the bot's entropy knowledge? The host will
+ * bond it to the nearest own shape within 60 px and MERGE it into every own structure within 100 px, so the
+ * structures within `CLEAR_REACH` are what it would join: none of them may already be at the limit, and when
+ * the join counts (`'all'`, or a tower among them) their connectors plus the new bonds may not pass the limit.
+ */
+export function entropyGrowthOk(candidate: Vec2, structures: OwnStructures, cfg: BotConfig): boolean {
+  const aware = cfg.entropyAwareness;
+  if (aware === 'none') return true;
+  const limit = personaOf(cfg).entropyMaxConnectors;
+  const r2 = CLEAR_REACH * CLEAR_REACH;
+  let bonds = 0;
+  let touched = 0;
+  let counts = aware === 'all';
+  for (const c of structures.comps) {
+    let near = false;
+    for (const p of c.prims) {
+      const dx = candidate.x - p.pos.x, dy = candidate.y - p.pos.y;
+      if (dx * dx + dy * dy <= r2) { near = true; break; }
+    }
+    if (!near) continue;
+    if (entropyCounts(c, aware) && c.bonds >= limit) return false; // welding into a full structure
+    if (c.tower) counts = true;
+    bonds += c.bonds;
+    touched += 1;
+  }
+  return !counts || touched === 0 || bonds + touched <= limit;
+}
 
 /**
  * ⭐ S195 T22 — PURE (rng: jitter only): a legal site for a NEW structure — clear of every own shape by more
- * than the auto-bond reach — or null when the sector has none. Probes the seat's home ray outward, ring by
+ * than the host's merge reach — or null when the sector has none. Probes the seat's home ray outward, ring by
  * ring and angle by angle in a fixed order, so two runs of one seed agree.
  */
 export function freshStructurePos(
@@ -1035,8 +1122,7 @@ export function freshStructurePos(
 ): Vec2 | null {
   const own: Vec2[] = [];
   for (const prim of world.primitives.values()) if (prim.placedBy === seat) own.push(prim.pos);
-  const clear = AUTO_BOND_RADIUS + FRESH_SITE_MARGIN;
-  const clear2 = clear * clear;
+  const clear2 = CLEAR_REACH * CLEAR_REACH;
   const baseAngle = Math.PI + ((seat as number) / Math.max(1, totalSeats)) * 2 * Math.PI;
   for (let ring = 0; ring < FRESH_SITE_RINGS; ring++) {
     const r = SPAWNER_RADIUS + HOME_ANCHOR_REACH + ring * FRESH_SITE_RING_STEP;
