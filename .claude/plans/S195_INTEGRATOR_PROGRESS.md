@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
 ## EXACT NEXT STEP (L8 — s195/teams, PROTOCOL 69)
-All local gates 0 (`.tmp-gates/s195_L8/`: tc · vt 9133/13 · build 1219.8/1350 · gating 67 · render 10 · races 5 · lobby 5 · teams 2 · protocol 2). PUSHED 2d03f1041c81ddaca93e8540eaba20e89fdea2a9. NEXT: wait for its Deploy run (if cancelled in the queue with zero steps → `gh run rerun`), `node scripts/verify-deploy.mjs --sha 2d03f1041c81ddaca93e8540eaba20e89fdea2a9` 4/4, log #8 + CI per lane, commit only my paths. Then HOLD for network #9.
+LANDED as S195-#8 2d03f104 (deploy 37384486434 success, verify 4/4, logged). NEXT: record CI E2E 37384486419 per lane in the dispatch log (rerun --failed if jobs are cancelled with zero steps in the queue). Then HOLD for network #9. Commit only my paths.
 
 ## EXACT NEXT STEP (L7 — s195/lag)
 LANDED as S195-#7 a4a59b77 (deploy attempt 2 success after attempt 1 was cancelled in the runner queue; verify-deploy 4/4). CI E2E 37368664346 attempt 1: 7 jobs cancelled in the runner queue (zero steps) — logged. CI attempt 1 completed; `gh run rerun --failed` done 21:04 UTC → attempt 2 running (detached `.tmp-gates/s195_L7/ci.sh` writes `ci-final.txt` + `ci.done`). Attempt 2: render/races/protocol/lobby/worker-bots/worker-typecheck ✅, gating `e2e` CANCELLED in the queue again (logged); quarantine still running (≈21:30 UTC). NEXT: when ci.done exists, log attempt-2 per lane (+ quarantine's attempt-1 result) in the dispatch log, commit only my paths. Then HOLD for teams #8. Then HOLD for teams #8 (68→69 bump).
