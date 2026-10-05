@@ -1,6 +1,8 @@
 # S195 PROGRESS — teams (T12), branch s195/teams
 
-## FIX-ONLY ROUND (audit) — ALL ITEMS DONE; WAITING for coordinator "merge master" (ccr-26eaab43 / deploy #6 will conflict in census tests, matchBoardModel, ui.ts, hostTick, gameState — resolve on merits in one pass)
+## MERGED master S195-#6 c45818cb as ae2ce6e2 (3 conflicts: creatureAI.ts, endgameS193.test.ts, teams.sites.test.ts — resolved). NEXT: full vitest, build, e2e gating + teams-lobby + races, report.
+
+## FIX-ONLY ROUND (audit) — ALL ITEMS DONE; (was) WAITING for coordinator "merge master" (ccr-26eaab43 / deploy #6 will conflict in census tests, matchBoardModel, ui.ts, hostTick, gameState — resolve on merits in one pass)
 Done (commit · mutation):
 - MED-2 hunter targets triggering team's best living seat (teamHunterTarget) 0b8ef158 · red
 - MED-3 endgame wipe crowns best team, TEAM_WIPE_JUDGE 'ratio' = owner RULED R195-T6 eee28ff7/e19483ec/fe69a365 · red
