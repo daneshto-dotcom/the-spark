@@ -9,7 +9,7 @@
  * really drive `setPressed` (the two plumbing lines), through the real class.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Container, type Text } from 'pixi.js';
+import { Container } from 'pixi.js';
 import { PLAYER_COLORS, PRIMITIVE_MAX_HP, SparkType } from '../constants.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { asPlayerId, asPrimitiveId, type PlayerId } from '../types.ts';
