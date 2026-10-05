@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## EXACT NEXT STEP (L7 — s195/lag, master a4a59b7704a25adc0b12ecf8679c1ef2b60d6c69 PUSHED)
-Local gates ALL 0 (`.tmp-gates/s195_L7/`: tc0 · vt0 9054/13 skip · build 1209.2/1350 · gating 67 · render 10 · races 5 · lobby 5 · teams 2 · settings-toggles 3). Deploy run 37368664339 attempt 1 = failure: `build` job CANCELLED after 15 min QUEUED with ZERO steps (never got a runner — infra, while the 10-job E2E run 37368664346 held runners); `deploy` skipped. Live still #6 (index-B9sXDdVA.js). Re-ran it (`gh run rerun 37368664339`) → attempt 2 in_progress. NEXT: wait for attempt 2 (`gh run watch 37368664339`), then `node scripts/verify-deploy.mjs --sha a4a59b7704a25adc0b12ecf8679c1ef2b60d6c69` must be 4/4, log S195-#7 + CI E2E 37368664346 per lane, commit only my paths. Then HOLD for teams #8 (68→69 bump).
+## EXACT NEXT STEP (L7 — s195/lag)
+LANDED as S195-#7 a4a59b77 (deploy attempt 2 success after attempt 1 was cancelled in the runner queue; verify-deploy 4/4). NEXT: record CI E2E 37368664346 per lane in the dispatch log (many jobs CANCELLED — check whether queue starvation), commit only my paths. Then HOLD for teams #8 (68→69 bump).
 
 ## EXACT NEXT STEP (L6 — cloud train)
 LANDED as S195-#6 e06fab28 (PROTOCOL 68, 1202.6/1350 KiB, all local lanes green, deploy 37350728256 success, verify 4/4). CI E2E per lane recorded in the dispatch log. HOLDING for s195/lag, then s195/teams, one at a time when the merge owner sends them. ⚠ The merge owner stages files in this checkout: commit ONLY my paths (`git commit <paths>`).
