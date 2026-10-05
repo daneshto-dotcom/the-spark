@@ -1,6 +1,13 @@
 # S195 PROGRESS — s195/rules-2 (sim rulings B-9, B-10, B-25/30, B-31, B-32, N11)
 
-NEXT STEP: NONE — all six items DONE, merged ccr-26eaab43-fa9mg3 (27aeed3c, clean, no lockfile move), final gates run; report below.
+NEXT STEP: NONE — six items DONE + audit fix round DONE (21e72872); report below.
+
+## FIX ROUND (audit: 1 HIGH + 2 LOW) — DONE at 21e72872 (+ this docs commit)
+- Merged ccr-26eaab43-fa9mg3 again (clean; fixes + ui-4 landed, disjoint files, no lockfile move).
+- HIGH (N11 "pathless at home" vacuous for a real chewer — its `targetPos` stays on the bond midpoint ~16 px off, so `quarryHasPath` was always true and the home arm NEVER engaged a real gnawer: a regression of his scenario #2): "going nowhere" is now a STATE — `quarry.state === 'ATTACKING' || !quarryHasPath(quarry)` in `cannotCatch`, mirrored in `referenceCannotCatch`; `constants.ts` docblock, canon §5c sentence and `canon.test.ts` pin updated. New fixture `realGnawingChewer` (P0 four-connector building at (500,500), P1 chewer from (760,500) driven to ATTACKING/chewProgress ≥ 1 by `runHostTick`, asserts the vector test is blind to it) → scarab AND melee goblin 150 px off acquire + hold it; negatives: same chewer forced to SEEKING with a 16 px hop → let go; a committed gnawer ABROAD (seat 0's building standing in seat 1's zone) → still dropped. The scripted-sitter case is kept and labelled as the vector half. Mutant (ATTACKING clause dropped, both sides) → the real-chewer test red. The N11 REACH scene's `locksSitting` classification is by the scripted chewer's live arrival (it never enters ATTACKING — no bonds) — unchanged, honest for that scene.
+- LOW: `suicideGoblin.test.ts` drone case pins the EXACT `planDroneSplash` share (recomputed from the three P1 shapes' positions captured before the blast, `splitBlastPool` × `blastSplitWeight`), read as `LONE_PRIMITIVE_POOL_FIFTHS − hp`.
+- LOW: `findVoltkinChain` DELETED from `voltkin.ts` (dead since B-31); its three test usages re-pointed to `findAllVoltkinChainsCanonical`.
+- Gates (`.tmp-gates/fix-*.exit`): typecheck **0** · touched files + `src/state/creatures` **0** (38 files / 568 passed). Full suite NOT re-run this round (coordinator: not required).
 
 ## FINAL REPORT (rules-2)
 - Tip: see `git log -1` (this commit). Merge: ccr-26eaab43-fa9mg3 @27aeed3c, no conflicts.
