@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
 
 ## NEXT STEP (exact)
-- codec + transport wiring written, tsc green. NEXT: snapshotCodec.test.ts (unit + long-match differential), then transport two-peer test, then fix legacy tests (snapshotBackpressure seqOf etc).
+- DONE: codec, transport wiring, unit test (22 green), long-match oracle (green). NEXT: snapshotCodec.transport.test.ts (key request, z=0 fallback, dup, legacy handle, reconnect), then full vitest to find legacy tests broken by the codec (snapshotBackpressure seqOf etc).
 ## DESIGN (decided)
 - Transport boundary only. Host segments the stripped+rounded wire JSON into envelope prefix/suffix + top keys; entity arrays (all objects w/ unique id) → per-id text. Full text = concatenation (== JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer), proven by test).
 - Frame = page-unique fid (module counter). Delta vs the peer's last ACKED fid (host ring 32); keyframe = delta vs empty base. Newline-delimited text: header JSON, prefix, suffix, raw segments.
