@@ -7,6 +7,8 @@
  * Graphics child — `castlePanel.ts`'s "do not remove" docblock); and the e2e seam's row centres still
  * land on the row the skin was drawn for.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/castlePanel.ts :: box.
 import { describe, expect, it, vi } from 'vitest';
 import { Container } from 'pixi.js';
 import { PLAYER_COLORS } from '../constants.ts';

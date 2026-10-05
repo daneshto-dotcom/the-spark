@@ -4,6 +4,8 @@
  * not. A source guard proves the skin call EXISTS; this proves the drawn glass and the click target
  * are the same pixels, on the real band.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/footerBand.ts :: *
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { Container } from 'pixi.js';
@@ -99,6 +101,49 @@ describe('S194 T5 — the footer skin is drawn exactly on its hit rects (real Fo
     b.sync(world());
     checkAll(b, ['tab', 'ra']);
     expect(drawn.length).toBe(2);
+  });
+
+  /**
+   * ⚠ S195 T18 #3 (R81 HOVER_GROW, MINE — owner said LOOK): a HOVERED control's drawn rect lies INSIDE the
+   * rect its hit-test claims, for every kind the band draws. With the old grow of 2 px the plate's four
+   * corners sat outside the hit rect and this fails; with the −1 press sink they sit inside, and pass.
+   */
+  it('⛔ R81 — while HOVERED (and while HELD), every skinned rect stays inside the rect its hit-test claims', () => {
+    const stage = new Container();
+    const b = new FooterBand({ stage } as never, stage);
+    const w = world();
+    b.sync(w);
+    // One target per kind, found from the REST draw's own centres.
+    drawn.length = 0;
+    b.sync(w);
+    const rest = [...drawn];
+    // Every control the rest draw produced (a DISABLED chip keeps its hover geometry too — R81 — so it is checked).
+    const targets = new Map<string, { x: number; y: number; disabled: boolean }>();
+    for (const r of rest) {
+      const id = claim(b, r.x + r.w / 2, r.y + r.h / 2);
+      if (id !== null && !targets.has(id)) targets.set(id, { x: r.x + r.w / 2, y: r.y + r.h / 2, disabled: r.state === 'disabled' });
+    }
+    for (const k of ['chip', 'pal', 'q', 'ra']) expect([...targets.keys()].some((id) => id.startsWith(k)), `a ${k} to hover`).toBe(true);
+    expect([...targets.values()].some((t) => !t.disabled), 'at least one ENABLED control (anti-vacuity for the state check)').toBe(true);
+    for (const [id, p] of targets) {
+      if (id === 'carry') continue; // the carry READOUT is not a control (isOverBandSurface, not isOverChip): no hover state
+      for (const held of [false, true]) {
+        b.setHover(p.x, p.y);
+        b.setPressed(held);
+        drawn.length = 0;
+        b.sync(w);
+        const mine = drawn.filter((d) => claim(b, d.x + d.w / 2, d.y + d.h / 2) === id);
+        expect(mine.length, `${id} hovered${held ? '+held' : ''}: drawn`).toBeGreaterThan(0);
+        for (const r of mine) {
+          if (!p.disabled) expect(r.state, `${id}: hover/press state reached`).toBe(held ? 'press' : 'hover');
+          const e = 0.25;
+          for (const [px, py] of [[r.x + e, r.y + e], [r.x + r.w - e, r.y + e], [r.x + e, r.y + r.h - e], [r.x + r.w - e, r.y + r.h - e]]) {
+            expect(claim(b, px!, py!), `${id} hovered${held ? '+held' : ''}: corner (${px},${py}) of the drawn rect is inside its hit rect`).toBe(id);
+          }
+        }
+        b.setPressed(false);
+      }
+    }
   });
 
   it('a hovered-and-held chip skins in the PRESS state, a hovered one in HOVER', () => {
