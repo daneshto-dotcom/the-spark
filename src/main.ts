@@ -105,7 +105,7 @@ import { IntentRateLimiter } from './net/intentRateLimiter.ts';
 // S87 P4 — QUICK MATCH. The ready-gate/presence helpers are eager-safe (no
 // Trystero import); the QuickmatchDiscovery class is the LAZY half, imported on
 // the first "Quick Match" click so the index chunk stays under charter.
-import { broadcastQmPresence, maybeQmAutoBegin, noteQmReady, qmTeamChangeAllowed, sessionTeamsPlayable } from './net/quickmatchGate.ts';
+import { broadcastQmPresence, maybeQmAutoBegin, noteQmReady, qmTeamChangeAllowed, restartQmLockAfterMove, sessionTeamsPlayable } from './net/quickmatchGate.ts';
 import type { QuickmatchDiscovery } from './net/quickmatch.ts';
 import { generateHostIdentity, generateClientIdentity } from './net/hostIdentity.ts';
 import {
@@ -2090,6 +2090,8 @@ async function bootstrap(): Promise<void> {
       session.teamByPeer, session.selfTeam, selfId,
     ), session.slotByPeer, session.selfSlot, selfId);
     if (hostMoveSeat(roster, seat, selfId, session.slotByPeer, (s) => { session.selfSlot = s; })) {
+      // ⭐ S195 (audit L7) — a move during the all-ready lock CANCELS it and starts a fresh 3 s (quick match).
+      restartQmLockAfterMove(session, onAutoBegin, () => broadcastQmPresence(session, session.netTransport, onPresence, world.gameState));
       broadcastQmPresence(session, session.netTransport, onPresence, world.gameState);
     }
   };

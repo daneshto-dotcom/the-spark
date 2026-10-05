@@ -37,7 +37,8 @@ vi.mock('./transport.ts', () => ({
 }));
 
 import { createHostStartHandler } from './hostHandlers.ts';
-import { QM_READY_LOCK_MS, QM_UNREADY_TEAM_COOLDOWN_MS, sessionTeamsPlayable } from './quickmatchGate.ts';
+import { QM_READY_LOCK_MS, QM_UNREADY_TEAM_COOLDOWN_MS, restartQmLockAfterMove, sessionTeamsPlayable } from './quickmatchGate.ts';
+import { readFileSync } from 'node:fs';
 import { makeNetSession } from './session.ts';
 import { makeWorld } from '../state/world.ts';
 
@@ -123,6 +124,22 @@ describe('S193 F2 + ⭐ S195 N3 — the quickmatch gate, with READY locking your
     expect(presences().at(-1)!.countdownMs, 'the cancel is broadcast: no countdown on the beacon').toBeUndefined();
     vi.advanceTimersByTime(10_000);
     expect(h.arms()).toBe(0);
+  });
+
+  it('⛔ S195 audit L7 — a host MOVE during the lock cancels it and starts a fresh 3 s (never sticks)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    const h = qmHost();
+    h.route({ kind: 'CLAIM_TEAM', team: 1 }, 'peer-a');
+    h.route({ kind: 'LOBBY_READY', ready: true }, 'peer-a');
+    vi.advanceTimersByTime(2000);
+    let begins = 0;
+    expect(restartQmLockAfterMove(h.session, () => { begins += 1; })).toBe(true);
+    vi.advanceTimersByTime(QM_READY_LOCK_MS - 1);
+    expect(begins + h.begins(), 'the old countdown died; the new one has 1 ms left').toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(begins, 'the fresh lock ran out').toBe(1);
+    const main = readFileSync('src/main.ts', 'utf-8');
+    expect(main).toMatch(/restartQmLockAfterMove\(session, onAutoBegin, /); // the MOVE handler restarts the lock
   });
 
   it('⛔ NEGATIVE — the friends lobby has no READY, so a team pick is always free', () => {

@@ -296,3 +296,14 @@ export function maybeQmAutoBegin(session: NetSession, onBegin: () => void, onTic
   onTick?.();
   return true;
 }
+
+/**
+ * ⭐ S195 (audit L7) — THE HOST RE-ARRANGED THE BOARD (N16 MOVE) — the lock restarts. A running countdown is
+ * CANCELLED (a move changes where people stand, exactly what the 3 s lock lets everyone see — the same as an
+ * un-ready stopping it) and, if the room is still all ready, a FRESH 3 s countdown starts so the room never
+ * sticks. Returns true when a countdown is running after the call.
+ */
+export function restartQmLockAfterMove(session: NetSession, onBegin: () => void, onTick?: () => void, now: number = Date.now()): boolean {
+  cancelQmCountdown(session);
+  return maybeQmAutoBegin(session, onBegin, onTick, now);
+}
