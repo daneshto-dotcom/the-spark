@@ -175,9 +175,9 @@ export function tickGameState(
          * board (the pants razed every keep, possibly on one tick) crowns the highest banked score over
          * EVERY seat, lowest seat on a tie — the same total order the score gate uses. Before wave 27
          * the S162 wipe rule above is unchanged. (⭐ S195 audit MED-3 — in a team game the best TEAM wins,
-         * judged by `TEAM_WIPE_JUDGE` (⚠ MINE); this per-seat crown is the free-for-all's.)
+         * judged by `TEAM_WIPE_JUDGE` — RULED R195-T6 "closest to its own target"; this per-seat crown is the free-for-all's.)
          */
-        // ⭐ S195 (audit MED-3) — in a TEAM game the wipe crowns the best TEAM (`teamWipeWinner`, ⚠ MINE judge).
+        // ⭐ S195 (audit MED-3) — in a TEAM game the wipe crowns the best TEAM (`teamWipeWinner`; owner R195-T6: closest to its own target).
         const teamWipe = wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE && world.teams !== undefined ? teamWipeWinner(world) : null;
         if (teamWipe !== null) winnerId = teamWipe;
         else if (wipe && !soloBoard && world.waveNumber >= MONSTER_FIRST_WAVE) {

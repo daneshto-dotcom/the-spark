@@ -138,12 +138,12 @@ export function teamHunterTarget(world: Pick<World, 'teams' | 'players' | 'score
 }
 
 /**
- * ⚠ MINE (S195 audit MED-3) — **HOW AN ENDGAME WIPE JUDGES TEAMS.** At wave 27+ with every keep down, S193 Q2
- * crowns the top score (*"the match ends and the top score wins"*); in a team game that is the best TEAM.
- *   · `'ratio'` (default) — the team's total ÷ its bar (bar × team size), consistent with the win gate: a pair
- *     at 6,000 / 10,000 loses to a solo at 4,000 / 5,000.
- *   · `'total'` — the raw summed score: the bigger team's sum usually wins.
- * One line to flip.
+ * ⭐⭐ RULED (owner, S195 R195-T6) — **AN ENDGAME WIPE CROWNS THE TEAM CLOSEST TO ITS OWN TARGET.**
+ * > *"closest to its own target, obviously, if it's one v two, it only makes sense."*
+ * At wave 27+ with every keep down (S193 Q2 *"the match ends and the top score wins"*), a team game is judged by
+ * the team's total ÷ its bar (the wave's bar × team size) — the win gate's own measure: a pair at 6,000 / 10,000
+ * loses to a solo at 4,000 / 5,000. `'total'` (the raw summed score) is kept only as a dead lever; the owner's
+ * ruling is `'ratio'` — do not flip it without a new ruling.
  */
 export const TEAM_WIPE_JUDGE: 'ratio' | 'total' = 'ratio';
 

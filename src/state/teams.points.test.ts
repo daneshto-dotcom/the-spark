@@ -159,7 +159,7 @@ describe('S195 audit MED-3 — the endgame wipe (wave 27+, every keep down) in a
     for (const p of w.players.values()) p.castleHp = 0;
     return w;
   }
-  it('the default judge is the flagged MINE ratio', () => expect(TEAM_WIPE_JUDGE).toBe('ratio'));
+  it('the judge is the owner RULED ratio (R195-T6: closest to its own target)', () => expect(TEAM_WIPE_JUDGE).toBe('ratio'));
   it('⭐ ratio (the win gate\'s measure): the 2v1 solo at 27,000 / 50,000 beats the pair 52,000 / 100,000 though a PAIR seat holds the top single score (28,000) — through the real gate', () => {
     const w = gate(wiped([U, 0, 0], [27_000, 28_000, 24_000]));
     expect(w.gameState).toBe('WIN');
