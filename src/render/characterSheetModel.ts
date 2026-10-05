@@ -1490,7 +1490,14 @@ function towerRowsFor(world: World, members: ReadonlySet<PrimitiveId>, recipeId:
  * the chance its own connectors actually run. The percent is `entropyChance` from `state/entropy.ts`,
  * never the formula restated: when the owner moves the rate or the cap, this row moves with it.
  *
- *   ENTROPY %   4.4   ~2.4 lost/fight      (n = 54: 0.1 % × (54 − 10) per connector, × 54 connectors)
+ *   ENTROPY %   4.4   ~2.4 snap/fight      (n = 54: 0.1 % × (54 − 10) per connector, × 54 connectors)
+ *
+ * ⭐ S195 N18 (d) (net-delta, ⚠ MINE wording) — the figure is the expected number of SNAPS, so it says
+ * "snap", not "lost": a snap that splits the structure deletes the smaller side too, and the REALISED loss
+ * was measured at ×2.07 the snaps on the owner's wave-8 quadrant (×2.34 once broken hubs blow,
+ * `state/entropyFightWipe.test.ts`). That amplification is a property of the structure's SHAPE (where
+ * its cut edges fall), not of its connector count, so it is not derivable cheaply here; the card states
+ * the honest half, and the whistle toast reports the real pair ("ENTROPY: N SNAPPED, M LOST").
  *   ENTROPY %   0     5 of 10 free          (a lone tower — under the free allowance)
  *   LOST        7     to entropy            ⭐ owner-only (B-17): the viewing seat OWNS the structure
  *
@@ -1512,7 +1519,7 @@ export function entropyRowsFor(
     points: pct,
     derived: chance === 0
       ? `${structureConnectors} of ${ENTROPY_FREE_CONNECTORS} free`
-      : `~${expected.toFixed(1)} lost/fight`,
+      : `~${expected.toFixed(1)} snap/fight`,
   }];
   if (owner === seat) {
     rows.push({ label: 'LOST', points: world.matchStats.seats.get(seat)?.lostToEntropy ?? 0, derived: 'to entropy' });

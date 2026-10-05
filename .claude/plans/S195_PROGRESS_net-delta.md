@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
 
 ## NEXT STEP (exact)
-- DONE: codec+transport+tests green; suite reds fixed (netStats 9 sites, wireSize tripwire, backpressure via snap action). Item 3 recording (ew/es/el) done. NEXT: severToastRenderer synced entropy toast "ENTROPY: N SNAPPED, M LOST" + boing (audioManager arm silenced), tests; then mutation tests, merge master, measurements, gates.
+- DONE: A+B codec+transport+tests; suite reds fixed; item 3 (synced ew/es/el, toast+boing, card "snap/fight") + tests. NEXT: mutation tests (codec guards + toast), then git merge master + npm install, then measurements (lagWaveMeasure codec columns), then final gates.
 ## DESIGN (decided)
 - Transport boundary only. Host segments the stripped+rounded wire JSON into envelope prefix/suffix + top keys; entity arrays (all objects w/ unique id) → per-id text. Full text = concatenation (== JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer), proven by test).
 - Frame = page-unique fid (module counter). Delta vs the peer's last ACKED fid (host ring 32); keyframe = delta vs empty base. Newline-delimited text: header JSON, prefix, suffix, raw segments.
