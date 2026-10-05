@@ -1,6 +1,6 @@
 # S195 PROGRESS — s195/fixes (T22)
 
-NEXT STEP: item 5 — re-run `npx vitest run src/bots --maxWorkers=2` (bg) and RE-MEASURE the signature pins that moved (Q-E: IMBA WARMONGER feeds vs TYCOON — first run showed TYCOON s3 fed 13, relation 18 ≥ 2×15+5 failed); then item 3 worker-heap CDP snapshot metric.
+NEXT STEP: wait for `.tmp-gates/e2e-worker-heap.{log,exit}` (bg run of e2e/worker-heap.spec.ts, Chromium 1194); record the snapshot-metric numbers; then FINAL GATES on the merged tree (merge 18b5bf1 of ccr-26eaab43-fa9mg3, docs only, clean): `npm run typecheck` · `npx vitest run --maxWorkers=2` · `npm run build` (entry KiB) — each exit to .tmp-gates/; then write the final report at the top of this file.
 
 DONE: item 2 (cap 150 s, commit), item 8 (framed reads, e2e 1/1 + 1/1), item 4 (lostToEntropy + tests + ffa golden re-pinned with proof), item 5 code + tests (botEntropy.test 10/10; aware HARD max component 12/10/10 vs unaware 29/23/11), item 6 verified (refused PLACE 0/0/0; sent=landed 26/31/38), item 7 verified (settings-toggles ×3: 9/9 on Chromium 1194).
 
