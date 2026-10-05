@@ -484,6 +484,14 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     const tyc = sig('IMBA', 'TYCOON');
     expect(meanDef(war), 'the army bot stamps no defence').toBe(0);
     expect(meanDef(tyc)).toBeGreaterThan(0);
+    /*
+     * ⚠ S195 T22 RE-MEASURED (bots learn the ENTROPY TAX, B-18/19) — the pin is UNCHANGED. With the derived break-even
+     * limits (`entropyBreakEvenConnectors`: TYCOON/WARMONGER 27, BALANCED 37) the IMBA rows are byte-identical to the
+     * pre-T22 tree inside 300 s (WARMONGER fed 14 / 3 / 1 = 18, TYCOON 1 / 1 / 0 = 2). Recorded because an earlier T22
+     * draft that stopped every bot at the free allowance (10) moved this row (TYCOON seat 3 fed 13 of its bank overflow)
+     * and would have forced a weaker relation — the derived limits were chosen on the C5 castle measurement, not to
+     * keep this pin, but they do keep it.
+     */
     expect(sum(war, (s) => s.feeds), 'units bought').toBeGreaterThanOrEqual(2 * sum(tyc, (s) => s.feeds) + 5);
     expect(sum(tyc, (s) => s.loosePlaced), 'loose shapes').toBeGreaterThanOrEqual(2 * sum(war, (s) => s.loosePlaced));
     expect(war.seats.some((s) => s.stamps.includes('pentagram')), 'WARMONGER climbs an army rung').toBe(true);

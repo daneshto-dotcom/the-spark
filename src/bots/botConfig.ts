@@ -152,6 +152,19 @@ export interface BotConfig {
    */
   readonly repairsTowers: 'never' | 'broken' | 'any';
   /**
+   * ⭐ S195 T22 (owner B-18/B-19, RULED) — DOES THIS BOT KNOW ABOUT THE ENTROPY TAX (canon §2: every
+   * connector of a structure past `ENTROPY_FREE_CONNECTORS` may snap at the FIGHT whistle)? Owner: *"a bot
+   * and easy will not know … maybe only towers, also depending on their personality … calculate at what
+   * connectors it's not worth it"*.
+   *   `'none'`   — NOOB: it grows whatever stands, as before (*"easy will not know"*).
+   *   `'towers'` — MID: it stops growing a structure that CONTAINS A TOWER once it is past its personality's
+   *                `entropyMaxConnectors`, and starts a new one; a freeform blob it still grows blindly.
+   *   `'all'`    — HARD / IMBA: every structure of its own; past the limit it starts a new structure instead.
+   * A CAPABILITY (tier knob, rule 1 of `botPersonality.ts`); the limit itself is the personality's. Host-only
+   * bot planning (`chooseBuildPos`), the reducers are untouched — no protocol bump. ⚠ MINE: which tier gets which.
+   */
+  readonly entropyAwareness: 'none' | 'towers' | 'all';
+  /**
    * ⭐ S193 (owner R193-AI) — this bot's PERSONALITY knobs (`botPersonality.ts`). ABSENT = the pre-S193
    * bot exactly (`IDENTITY_KNOBS`), which is what every `BOT_CONFIGS[tier]` literal below is, so the
    * brain's unit tests that pass a bare tier config keep testing the bot they always tested.
@@ -183,6 +196,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     rushesFirstTower: false,
     scoutsWhileIdle: false,
     repairsTowers: 'never',
+    entropyAwareness: 'none',
   },
   MID: {
     cursorSpeed: 5.0,
@@ -207,6 +221,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     rushesFirstTower: false,
     scoutsWhileIdle: false,
     repairsTowers: 'broken',
+    entropyAwareness: 'towers',
   },
   HARD: {
     cursorSpeed: 7.0,
@@ -231,6 +246,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     rushesFirstTower: true,
     scoutsWhileIdle: true,
     repairsTowers: 'any',
+    entropyAwareness: 'all',
   },
   IMBA: {
     cursorSpeed: 10.5,
@@ -255,6 +271,7 @@ export const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
     rushesFirstTower: true,
     scoutsWhileIdle: true,
     repairsTowers: 'any',
+    entropyAwareness: 'all',
   },
 };
 

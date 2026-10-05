@@ -46,6 +46,7 @@ import {
   canvasToCss,
   hostNewRoom,
   joinRoom,
+  LOBBY_2PEER_BUDGET_MS,
   readLobbyStatus,
   readWorldState,
   waitForWorld,
@@ -83,6 +84,7 @@ async function pressBegin(hostPage: Page): Promise<void> {
 
 test.describe('S155 join-stall — an unverifiable host is refused, and SAID SO @quarantine-flaky', () => {
   test('⛔ SECURITY: an unverifiable host cannot start the match on the joiner', async ({ browser }) => {
+    test.setTimeout(LOBBY_2PEER_BUDGET_MS); // S195 ci-budgets — see the constant in helpers.ts
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       const code = await hostNewRoom(hostPage);
@@ -107,6 +109,7 @@ test.describe('S155 join-stall — an unverifiable host is refused, and SAID SO 
   });
 
   test('⭐ the joiner is TOLD it is stuck, and told the way out', async ({ browser }) => {
+    test.setTimeout(LOBBY_2PEER_BUDGET_MS); // S195 ci-budgets — see the constant in helpers.ts
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       const code = await hostNewRoom(hostPage);

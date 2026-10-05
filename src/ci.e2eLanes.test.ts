@@ -360,7 +360,37 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     const OTHER_LOBBY_TESTS = 4; // S46 Baseline + 2 x S155 join-stall + S155 exit-from-multiplayer
     // ⛔ S195 T21 — the OTHER four retry too (run 37047025269: exit-match x2, join-stall:109 x3 on STUN reds),
     // and budgeting them at one attempt is what left the S46 Baseline never started at the 1320 s cap.
-    const DEFAULT_TEST_TIMEOUT_MS = 60_000;
+    // ⛔ S195 (ci-budgets) — AND THEY ARE NOT 60 s TESTS. The same run's logs show them losing to the 60 s config
+    // default with the peers connected (join-stall:109 ×3, exit-match ×2 then PASSED at 59 s). Each of the four
+    // now calls `test.setTimeout(LOBBY_2PEER_BUDGET_MS)` — ONE constant, exported from e2e/helpers.ts — and this
+    // test READS it from there (never a literal here), enumerates the four call sites mechanically, and derives
+    // the lane cap from it: a fifth 2-peer lobby test, a test that drops the call, or a budget raised without
+    // e2e.yml all go red here.
+    const helpers = norm(readFileSync(join(ROOT, 'e2e/helpers.ts'), 'utf8'));
+    const lb = /\nexport const LOBBY_2PEER_BUDGET_MS = ([\d_]+);/.exec(helpers);
+    expect(lb, 'LOBBY_2PEER_BUDGET_MS is missing from e2e/helpers.ts').not.toBeNull();
+    const LOBBY_2PEER_BUDGET_MS = Number((lb as RegExpExecArray)[1]!.replace(/_/g, ''));
+    expect(LOBBY_2PEER_BUDGET_MS, 'the 2-peer budget must clear the 59 s pass CI measured').toBeGreaterThan(60_000);
+    const otherLobbyCalls = [
+      { file: 'e2e/smoke.spec.ts', title: 'S46 Baseline' },
+      { file: 'e2e/join-stall.spec.ts', title: 'S155 join-stall' },
+      { file: 'e2e/exit-match.spec.ts', title: 'S155 exit-from-multiplayer' },
+    ].flatMap(({ file, title }) => {
+      const src = norm(readFileSync(join(ROOT, file), 'utf8'));
+      const at = src.indexOf(`\ntest.describe('${title}`);
+      expect(at, `${file}: describe '${title}' not found`).toBeGreaterThan(-1);
+      const body = src.slice(at).split(/\ntest\.describe\(/)[1]!;
+      // Every `  test(` in that describe must set the shared budget (its FIRST test.setTimeout, so a later
+      // override cannot pose as it); count the tests, count the calls.
+      const tests = body.split(/\n {2}test\(/).slice(1);
+      for (const t of tests) {
+        expect(/test\.setTimeout\(([^)]+)\)/.exec(t)?.[1], `${file} '${title}': a test does not call test.setTimeout(LOBBY_2PEER_BUDGET_MS)`).toBe(
+          'LOBBY_2PEER_BUDGET_MS',
+        );
+      }
+      return tests;
+    });
+    expect(otherLobbyCalls.length, 'S46 Baseline + 2 x S155 join-stall + S155 exit-from-multiplayer').toBe(OTHER_LOBBY_TESTS);
     const SETUP_HEADROOM_MIN = 8;
     const spec = norm(readFileSync(join(ROOT, 'e2e/nplayer.spec.ts'), 'utf8'));
     const b = /\nconst LATE_JOINER_BUDGET_MS = ([\d_]+);/.exec(spec);
@@ -387,7 +417,7 @@ describe('S192 T1 - the 4-player late-joiner mesh gates via e2e-lobby', () => {
     expect(block, 'e2e-lobby must not override retries').not.toContain('PW_RETRIES');
     const cap = Number((/\n {4}timeout-minutes:\s*(\d+)/.exec(block) as RegExpExecArray)[1]);
     const pw = Number((/\n {6}PW_GLOBAL_TIMEOUT_MIN:\s*'?(\d+)'?/.exec(block) as RegExpExecArray)[1]);
-    const laneNeedMs = (LANE_RETRIES + 1) * (budget + OTHER_LOBBY_TESTS * DEFAULT_TEST_TIMEOUT_MS);
+    const laneNeedMs = (LANE_RETRIES + 1) * (budget + OTHER_LOBBY_TESTS * LOBBY_2PEER_BUDGET_MS);
     expect(pw * 60_000, `e2e-lobby PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${laneNeedMs} ms`).toBeGreaterThanOrEqual(
       laneNeedMs,
     );
@@ -667,6 +697,23 @@ describe('S195 T21 - quarantine-tagged specs: one lane each, and the quarantine 
       }
     }
     expect(tests, 'anti-vacuity: quarantine tests counted').toBeGreaterThanOrEqual(10);
+    // ⛔ S195 (ci-budgets) — the three under-budgeted specs the derivation above now carries (run 37047025269):
+    // Sym F and Sym I build like Sym A/C/G and take their constant; hostmigration:29's takeover completed just
+    // past 240 s, so it is 300 s. Dropping any of them lowers the sum and the cap check above would stay GREEN —
+    // so each is named here, and the quarantine lane's budget is what these three ADD to the S195 T21 sum.
+    const smoke = norm(readFileSync(join(ROOT, 'e2e/smoke.spec.ts'), 'utf8'));
+    for (const sym of ['Sym F', 'Sym I']) {
+      const at = smoke.indexOf(`\ntest.describe('${sym}`);
+      expect(at, `${sym} describe not found`).toBeGreaterThan(-1);
+      const body = smoke.slice(at).split(/\ntest\.describe\(/)[1]!;
+      expect(/test\.setTimeout\(([^)]+)\)/.exec(body)?.[1], `${sym} must call test.setTimeout(TWO_PEER_BUILD_BUDGET_MS)`).toBe(
+        'TWO_PEER_BUILD_BUDGET_MS',
+      );
+    }
+    const hm = norm(readFileSync(join(ROOT, 'e2e/hostmigration.spec.ts'), 'utf8'));
+    const takeover = /kill host → seat-1 claims[\s\S]*?test\.setTimeout\(([\d_]+)\)/.exec(hm);
+    expect(takeover, 'hostmigration takeover test must set a literal timeout').not.toBeNull();
+    expect(Number((takeover as RegExpExecArray)[1]!.replace(/_/g, '')), 'the takeover completed just past 240 s on CI').toBeGreaterThanOrEqual(300_000);
     expect(jobBlock('e2e-quarantine')).toMatch(/\n {6}PW_RETRIES: '?0'?\n/);
     const { cap, pw } = laneMinutes('e2e-quarantine');
     expect(pw * 60_000, `e2e-quarantine PW_GLOBAL_TIMEOUT_MIN=${pw} cannot hold ${needMs} ms over ${tests} tests`).toBeGreaterThanOrEqual(needMs);

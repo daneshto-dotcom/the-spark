@@ -392,19 +392,19 @@ describe('⭐ S193 BLAST-2 — a Ra column credits its OWNER (real host tick)', 
     expect(taken(w, P1) - t1).toBe(RA_PERK_STRIKE_FIFTHS);
   });
 
-  it('⛔ negative — he spares NOBODY, but his share on his OWN seat\'s unit is TAKEN, never DEALT', () => {
+  it('⭐ S195 B-25 (RE-PINNED) — he spares his OWN SIDE: nothing TAKEN by his seat, the whole column DEALT to the enemy', () => {
     const w = raWorld();
     const d = deps();
     const s = makeHostTickState(w);
     const pos = pharaohColumn0(w, d, s, P0);
-    victim(w, P0, pos); // his own seat's unit, nearest — the 18
-    victim(w, P1, { x: pos.x + 30, y: pos.y }); // the enemy — the 17
+    victim(w, P0, pos); // his own seat's unit, nearest — spared since B-25
+    victim(w, P1, { x: pos.x + 30, y: pos.y }); // the enemy — the only target, the whole 35
     const d0 = dealt(w, P0);
     const t0 = taken(w, P0);
     runHostTick(w, d, s);
-    const [own, enemy] = raSplitShares(RA_PERK_STRIKE_FIFTHS, 2);
-    expect(taken(w, P0) - t0, 'his own unit\'s share is a loss for his seat').toBe(own);
-    expect(dealt(w, P0) - d0, 'and only the enemy\'s share is credited').toBe(enemy);
+    expect(taken(w, P0) - t0, 'B-25: his own unit is spared, so his seat loses nothing').toBe(0);
+    expect(dealt(w, P0) - d0, 'and the enemy\'s whole column is credited').toBe(RA_PERK_STRIKE_FIFTHS);
+    void raSplitShares;
   });
 });
 

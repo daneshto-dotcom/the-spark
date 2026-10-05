@@ -132,6 +132,7 @@ import {
   CHEWER_DEF,
   CHEWER_HP,
   CHEWER_PEN,
+  CHEW_INTERVAL_TICKS,
   GOBLIN_ATTACK_CADENCE_TICKS,
   GOBLIN_ATTACK_FIRE_TICK,
   GOBLIN_MAX_PER_SPAWNER,
@@ -229,6 +230,15 @@ import {
 import { REPAIR_JOB_REPLAN_TICKS, REPAIR_JOBS_MAX_PER_SEAT } from './state/repairJobs.ts';
 // S194 R194-18 — the entropy tax (canon §2).
 import { ENTROPY_CAP, ENTROPY_FREE_CONNECTORS, ENTROPY_RATE_PER_CONNECTOR, ENTROPY_SCALE, entropyChance } from './state/entropy.ts';
+// S195 carry-forwards — §9e the end-of-match stat board (S191 v1 · S194 v2 · S195 `le`).
+import {
+  HISTORY_WINDOW_TICKS, historyRidesNetSnapshot, recordDamage, recordEntropyLoss, recordKill, recordUnitBuilt,
+  recordWaveSample, serializeMatchStats,
+} from './state/matchStats.ts';
+import { heavyMatch, wireBytes } from './state/matchStats.wire.fixtures.ts';
+import { netSnapshot, snapshot } from './state/save.ts';
+import { BADGE_CATEGORIES, assignBadges, matchBoardModel, type BoardRow } from './render/matchBoardModel.ts';
+import { MONSTER_OWNER_SEAT } from './constants.ts';
 
 const CANON = readFileSync(new URL('../SPARK_CANON.md', import.meta.url), 'utf8');
 
@@ -308,7 +318,7 @@ describe('SPARK_CANON.md is bound to the code', () => {
     // and it moved for its own reason (a new CLIENT INTENT), which the canon records separately.
     // ⭐ S188 — 50, again for its own reason (the racial upgrades; canon §6).
     // ⭐ S190 — 51, deploy #4's one bump (WRATH OF RA, THE SWARM, the drafted strike; canon §6).
-    expect(PROTOCOL_VERSION).toBe(67);
+    expect(PROTOCOL_VERSION).toBe(68);
   });
 
   it('⭐ §3c — the quarry bands land on the owner’s four waves, and band 1 is untouched', () => {
@@ -801,6 +811,9 @@ describe('SPARK_CANON.md is bound to the code', () => {
     for (const t of ['raceUnit', 't3Hound', 't9BossZombies'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(true);
     for (const t of ['voltkin', 'chewer', 'goblinMelee'] as CreatureType[]) expect(isZombieRacialType(t), t).toBe(false);
     expect(CORPSE_EATER_TICKS).toBe(8 * PHYSICS_HZ); // his "for like eight seconds"
+    // ⭐ S195 B-32 — the feed LOOPS (verified through runHostTick in `corpseEater.test.ts`); the canon says so.
+    expect(canonSays('S195 B-32 (owner): THE FEED IS A LOOP')).toBe(true);
+    expect(CORPSE_EATER_TICKS / getCreatureConfig('t9BossZombies').attackCadenceTicks, 'eight bites in the window').toBe(8);
     expect(canonSays(
       `\`CORPSE_EATER_TRIGGER_PCT\` = **${CORPSE_EATER_TRIGGER_PCT}** · \`CORPSE_EATER_TICKS\` = **${CORPSE_EATER_TICKS}**` +
       ` · \`CORPSE_EATER_HEAL_PCT\` = **${CORPSE_EATER_HEAL_PCT}** · \`CORPSE_EATER_LEASH_RADIUS\` = **${CORPSE_EATER_LEASH_RADIUS}** px`,
@@ -1038,18 +1051,24 @@ describe('SPARK_CANON.md is bound to the code', () => {
 
   /* ══ S192 T16 — §5b, every TV gives its Voltkin back, every wave (s192/voltkin) ══════════════════ */
 
-  it('⭐ §5b T16 — one Voltkin per TV at FIGHT→BUILD; the census and ignition share isolation and owner', () => {
+  it('⭐ §5b T16 / S195 B-31 — one Voltkin per TV at FIGHT→BUILD; ignition reads the census list; a welded TV is a TV', () => {
     expect(VOLTKINS_PER_TV).toBe(1);
     expect(canonSays(`\`VOLTKINS_PER_TV\` = **${VOLTKINS_PER_TV}** (⚠ MINE)`)).toBe(true);
     expect(canonSays('A TV RE-SUMMONS IFF IT')).toBe(true);
     expect(canonSays('**lowest seat on a tie**')).toBe(true);
+    expect(canonSays('S195 B-31 (owner) REVERSED WHAT IGNITES')).toBe(true);
     const tv = readFileSync(new URL('./state/voltkinTv.ts', import.meta.url), 'utf8');
     const recipe = readFileSync(new URL('./state/godlyRecipes/voltkin.ts', import.meta.url), 'utf8');
+    const walk = readFileSync(new URL('./state/godlyRecipes/voltkinChainWalk.ts', import.meta.url), 'utf8');
     const host = readFileSync(new URL('./state/hostTick.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-    // ONE isolation test and ONE owner rule, called by both sides.
-    expect(tv).toContain('if (!isIsolatedVoltkinChain(world, chain)) continue;');
-    expect(recipe).toContain('if (!isIsolatedVoltkinChain(world, chain)) {');
-    expect(recipe).toContain('const triggererId = voltkinTvOwner(world, chain);');
+    // ⭐ S195 B-31 — the isolation test is GONE (not left unread), and ignition reads the census's list and
+    // its claim binding, so both sides can only ever agree.
+    expect(walk).not.toMatch(/export function isIsolatedVoltkinChain/);
+    expect(tv).not.toContain('isIsolatedVoltkinChain(world, chain)');
+    expect(recipe).toContain('const tvs = standingVoltkinTvs(world);');
+    expect(recipe).toContain('standingVoltkinTvTouching(world, tvs, bondPos, AUTO_BOND_RADIUS)');
+    expect(recipe).toContain('if (!tvsOwedAVoltkin(world, tvs).includes(ti) || isTvPlayingNow(world, tv)) {');
+    expect(recipe).toContain('triggererPlayerId: tv.owner,');
     // The edge call sits after the recall (which would teleport a fresh Voltkin to the castle).
     expect(host).toMatch(/recallArmies\(world\);\n(?:\s*\/\/[^\n]*\n)*\s*resummonVoltkins\(world\);/);
   });
@@ -1173,7 +1192,8 @@ describe('SPARK_CANON.md is bound to the code', () => {
     const constAt = proto.indexOf('export const PROTOCOL_VERSION');
     // ⭐ S190 — re-pointed: the docblock NEAREST the const is the newest bump's; the 50 docblock is KEPT above it.
     // ⭐ S192 — 52 -> 53 (deploy #7, s191/addons) is the nearest now; 51 -> 52 stays above it.
-    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 66 -> 67');
+    expect(proto.slice(proto.lastIndexOf('/**', constAt), constAt)).toContain('BUMPED 67 -> 68');
+    expect(proto.indexOf('BUMPED 66 -> 67')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 65 -> 66')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 64 -> 65')).toBeLessThan(constAt);
     expect(proto.indexOf('BUMPED 63 -> 64')).toBeLessThan(constAt);
@@ -1659,12 +1679,22 @@ describe('S191 R2-D — canon truth the audit found drifting', () => {
     expect(canonSays('312 blast pool, but split over, you know, everyone who')).toBe(true);
     expect(canonSays('creatures get twice as much')).toBe(true);
     expect(canonSays('It does not hit his own side')).toBe(true);
+    // ⭐ S195 B-25 — the Pharaoh's column is aligned with it: `spare` is his seat, and the canon says so.
+    expect(readFileSync(new URL('./state/bossSkillsPharaohRitual.ts', import.meta.url), 'utf8'))
+      .toContain("landRaColumn(world, { spare: boss.ownerPlayerId, alliesOf: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);");
+    expect(canonSays('S195 B-25 (owner, RULED): spare his OWN SIDE, seat')).toBe(true);
+    expect(canonSays('they now spare his own side')).toBe(true);
     expect(T9_ZOMBIE_DEATH_BLAST_POOL_FIFTHS).toBe(312);
     expect(T9_ZOMBIE_DEATH_BLAST_CREATURE_WEIGHT).toBe(2);
     expect(T9_ZOMBIE_DEATH_BLAST_HITS_OWN_SIDE).toBe(false);
     expect(canonSays('take **208 / 104**')).toBe(true);
     expect(splitBlastPool(312, [blastSplitWeight(100 * 100, 380, 2), blastSplitWeight(100 * 100, 380, 1)])).toEqual([208, 104]);
     expect(canonSays('`BLAST_EDGE_FLOOR_PERCENT` = **50 %**')).toBe(true);
+    // ⭐ S195 B-10 — the drone is a SPLIT pool now, of its own strike (30), and the canon's table says so.
+    expect(canonSays('| lightning drone (`droneLifecycle.ts`) — units and shapes | **split pool 30**')).toBe(true);
+    expect(canonSays('the DRONE joined the split-pool kind')).toBe(true);
+    expect(attackFifths(DRONE_ATK, DRONE_PEN)).toBe(30);
+    expect(readFileSync(new URL('./state/droneLifecycle.ts', import.meta.url), 'utf8')).toContain('for (const t of planDroneSplash(world, cx, cy, DRONE_EXPLODE_RADIUS, drone.ownerPlayerId, blastFifths)) {');
     expect(BLAST_EDGE_FLOOR_PERCENT).toBe(50);
     expect(canonSays("the suicide goblin's 20 is 17 at 20 px")).toBe(true);
     expect(blastHitAtDistance(20, 20 * 20, 70)).toBe(17);
@@ -1856,17 +1886,37 @@ describe('§2b MAGIC RESISTANCE is bound to the code', () => {
   });
 });
 
+describe('S195 rules-2 — §5 B-9: the chewer gnaws the keep, last', () => {
+  it('⭐ the bite the canon quotes is the chewer\'s ladder number on its cadence, and the hold exists in the FSM', () => {
+    expect(attackFifths(CHEWER_ATK, CHEWER_PEN)).toBe(7);
+    expect(CHEW_INTERVAL_TICKS).toBe(60);
+    expect(canonSays('WITH NOTHING TO CHEW, THE CHEWER GNAWS THE KEEP')).toBe(true);
+    expect(canonSays(`\`attackFifths(CHEWER_ATK ${CHEWER_ATK}, CHEWER_PEN ${CHEWER_PEN})\` = **${attackFifths(CHEWER_ATK, CHEWER_PEN)}** fifths every \`CHEW_INTERVAL_TICKS\` (${CHEW_INTERVAL_TICKS})`)).toBe(true);
+    const fsm = readFileSync(new URL('./state/creatures/creatureLifecycle.ts', import.meta.url), 'utf8');
+    expect(fsm).toContain('const onKeep =');
+    expect(fsm).toContain("world.effects.push({ kind: 'CHEW_BITE', tick: world.tick, pos: { x: a.x, y: a.y }, creatureId: creature.id });");
+  });
+});
+
 describe('S192 units-ai — §5c is pinned to its constants', () => {
-  it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
-    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+  it('⭐ T6 / S195 N11 — the chase numbers the canon quotes are the live constants (1 and 20 px, both MINE)', () => {
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1);
     expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
-    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1.25**')).toBe(true);
+    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1**')).toBe(true);
     expect(canonSays('`CHASE_GIVEUP_SLACK_PX` = **20** px')).toBe(true);
-    // The drone outruns every chaser at 1.25 (fastest t3Bat 168 × 1.25 = 210 < 240); the chewer does not
-    // outrun the melee goblin (120 ≤ 119 × 1.25) — the two arithmetic facts the canon's reading rests on.
+    // The drone outruns every chaser (fastest t3Bat 168 < 240); ⭐ S195 N11 — the chewer (120) now outruns the
+    // melee goblin (119) and HIS scarab (105, the 1.14 that sat inside the old 1.25), not the t3Bat — the
+    // arithmetic facts the canon's reading rests on.
     expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
-    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('t3Scarab').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+    expect(canonSays('S195 N11 (owner): home is not enough any more')).toBe(true);
+    const ai = readFileSync(new URL('./state/creatures/creatureAI.ts', import.meta.url), 'utf8');
+    expect(ai).toContain("if (home && (quarry.state === 'ATTACKING' || !quarryHasPath(quarry))) return false;");
+    expect(canonSays('in ATTACKING — a chewer gnawing a connector of mine coasts there')).toBe(true);
+    expect(ai).toContain('if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)');
   });
 
   it('⭐ §3g — T4: the goblin tower auto-build poll the canon quotes is the live constant (6 ticks, MINE)', () => {
@@ -1967,5 +2017,201 @@ describe('S194 R194-18 — §2 THE ENTROPY TAX is pinned to its constants', () =
     expect(canonSays('| connectors lost, on average | 0 | 0.2 | 2.4 | 19.6 |')).toBe(true);
     expect(structurePoolFifths(145)).toBe(21_750);
     expect(canonSays('costs **21 750** a connector')).toBe(true);
+  });
+});
+
+/* ────────────────────── ⭐ S195 carry-forwards — §9e THE END-OF-MATCH STAT BOARD, pinned to the code ────────────────────── */
+
+describe('S195 — §9e the stat board is pinned to its code (counters, wire, B-20..23)', () => {
+  const P0 = asPlayerId(0);
+  const P1 = asPlayerId(1);
+  const two = (): World => {
+    const w = makeWorld(0x59e);
+    w.players.set(P0, makeIdlePlayer(P0, PLAYER_COLORS[0]!));
+    w.players.set(P1, makeIdlePlayer(P1, PLAYER_COLORS[1]!));
+    return w;
+  };
+
+  it('the section exists and names the inert / additive-optional contract, and the monsters seat', () => {
+    expect(canonSays('## 9e · ⭐ THE END-OF-MATCH STAT BOARD')).toBe(true);
+    expect(canonSays('THE COUNTERS ARE INERT, AND THE NO-BUMP VERDICT RESTS ON THAT')).toBe(true);
+    expect(MONSTER_OWNER_SEAT).toBe(255);
+    expect(canonSays('(`MONSTER_OWNER_SEAT` 255) and the board labels them **MONSTERS**')).toBe(true);
+  });
+
+  it('the wire: every key absent at zero; a self hit is TAKEN only; `le` rides as a key and is drawn owner-only', () => {
+    const w = two();
+    expect(serializeMatchStats(w.matchStats), 'an untouched match says nothing').toBeUndefined();
+    recordDamage(w, P0, P0, 40, 'unit'); // self hit
+    recordDamage(w, P0, P1, 30, 'keep');
+    recordDamage(w, P0, null, 7, 'structure'); // unattributed
+    const s0 = w.matchStats.seats.get(P0)!;
+    expect(s0.takenFifths).toBe(77);
+    expect(s0.dealtFifths, 'a self hit is a loss for that seat and a gain for nobody').toBe(0);
+    expect(s0.dealtTo.get(P0), 'the diagonal').toBe(40);
+    expect(s0.takenUnattributed).toBe(7);
+    expect(s0.takenKeep + s0.takenStruct).toBe(37);
+    const s1 = w.matchStats.seats.get(P1)!;
+    expect(s1.dealtFifths).toBe(30);
+    expect(s1.dealtKeep).toBe(30);
+    // `le` — recorded, on the wire as `le`, absent at zero
+    const before = serializeMatchStats(w.matchStats)!.seats!.find((r) => r.seat === 1)!;
+    expect('le' in before).toBe(false);
+    recordEntropyLoss(w, P1, 3);
+    const after = serializeMatchStats(w.matchStats)!.seats!.find((r) => r.seat === 1)!;
+    expect(after.le).toBe(3);
+    expect(canonSays('| `lostToEntropy` | `le` |')).toBe(true);
+    // ⭐ s195/info-ui landed the row (this pin said NOT YET DRAWN until that merge, and went red on it, as built):
+    // the MODEL carries the counter on every row; the VIEW gates the print on `row.isLocal` (B-17). The REACH
+    // through the real board is `matchBoardPolish.test.ts` (P0's page prints it, P1's page does not).
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    expect(w.matchStats.seats.size, 'match start is a reset path: every counter above is gone').toBe(0);
+    recordEntropyLoss(w, P0, 5);
+    recordEntropyLoss(w, P1, 3);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    expect(m.rows.find((r) => r.seat === P0)!.lostToEntropy).toBe(5);
+    expect(m.rows.find((r) => r.seat === P1)!.lostToEntropy, 'the model carries it for EVERY row; the view decides').toBe(3);
+    const board = readFileSync(new URL('./render/matchBoard.ts', import.meta.url), 'utf8');
+    expect(board.includes('const ENTROPY_BLOCK_W = 180;')).toBe(true);
+    expect(board.includes('const entropyW = row.isLocal ? ENTROPY_BLOCK_W : 0;')).toBe(true);
+    expect(/if \(row\.isLocal\) \{\s*const ex = pill\.x - 24;\s*const el = this\.texts\.take\('LOST TO ENTROPY'/.test(board), 'the print sits inside the isLocal gate').toBe(true);
+    const polish = readFileSync(new URL('./render/matchBoardPolish.test.ts', import.meta.url), 'utf8');
+    expect(polish.includes("negative: not on another seat\\'s page")).toBe(true);
+    expect(canonSays('**Drawn OWNER-ONLY** (S195 s195/info-ui, N12 + N14)')).toBe(true);
+    expect(canonSays('(`row.isLocal`, `ENTROPY_BLOCK_W` 180 ⚠ MINE)')).toBe(true);
+  });
+
+  it('the history: `v` is cumulative and the board draws PER-WAVE bars as the difference', () => {
+    const w = two();
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    recordDamage(w, P1, P0, 100, 'unit');
+    recordKill(w, P0, P1, 'goblinMelee');
+    recordUnitBuilt(w, P0, 'raceUnit');
+    w.tick = 1000;
+    recordWaveSample(w, 1);
+    recordDamage(w, P1, P0, 150, 'unit');
+    w.tick = 2000;
+    recordWaveSample(w, 2);
+    const ser = serializeMatchStats(w.matchStats)!.history!;
+    expect(ser[0]!.seats.find((p) => p.seat === 0)!.v).toEqual([1, 1, 100, 0]);
+    expect(ser[1]!.seats.find((p) => p.seat === 0)!.v, 'cumulative on the wire').toEqual([1, 1, 250, 0]);
+    expect(canonSays('`v = [units, kills, dealt, taken]`')).toBe(true);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    const p0 = m.graphs.damage.series.find((s) => s.seat === P0)!;
+    expect(p0.values, 'per-wave = the difference of two totals').toEqual([100, 150]);
+    expect(canonSays('the board derives PER-WAVE bars as the\ndifference of two totals') || canonSays('the board derives PER-WAVE bars as the\r\ndifference of two totals')).toBe(true);
+  });
+
+  it('what it costs on the wire — the three measured figures, off the shared fixture', () => {
+    expect(HISTORY_WINDOW_TICKS).toBe(2 * PHYSICS_HZ);
+    expect(HISTORY_WINDOW_TICKS).toBe(120);
+    expect(canonSays('`HISTORY_WINDOW_TICKS` = **2 × PHYSICS_HZ = 120 ticks** (2 s)')).toBe(true);
+    const w = heavyMatch();
+    w.tick += HISTORY_WINDOW_TICKS;
+    expect(historyRidesNetSnapshot(w)).toBe(false);
+    const totals = wireBytes(netSnapshot(w).matchStats);
+    w.tick -= 1;
+    expect(historyRidesNetSnapshot(w)).toBe(true);
+    const inWindow = wireBytes(netSnapshot(w).matchStats);
+    const full = wireBytes(snapshot(w).matchStats);
+    expect(totals).toBe(2_503);
+    expect(inWindow).toBe(11_101);
+    expect(full).toBe(11_101);
+    const w60 = heavyMatch(60);
+    w60.tick -= 1;
+    expect(wireBytes(netSnapshot(w60).matchStats)).toBe(19_741);
+    expect(canonSays('ride EVERY snapshot at **2,503 B**')).toBe(true);
+    expect(canonSays('at **11,101 B** in-window (the full save form is the same 11,101 B)')).toBe(true);
+    expect(canonSays('60-wave match measures **19,741 B** in-window')).toBe(true);
+    // the bounds the wire test holds, as the canon prints them
+    const wireTest = readFileSync(new URL('./state/matchStats.wire.test.ts', import.meta.url), 'utf8');
+    for (const kib of [3, 12, 22]) expect(wireTest.includes(`toBeLessThan(${kib} * 1024)`), `${kib} KiB bound`).toBe(true);
+    expect(canonSays('Bounded at **3 KiB / 12 KiB / 22 KiB** by that test')).toBe(true);
+    w.gameState = 'POSTGAME';
+    expect(historyRidesNetSnapshot(w), 'and throughout POSTGAME').toBe(true);
+  });
+
+  it('B-20 — one badge per row, only a stat it leads outright, ties get none, the runner-up is never promoted', () => {
+    expect(BADGE_CATEGORIES.map((c) => c.badge)).toEqual(['MOST KILLS', 'MOST DAMAGE', 'BIGGEST ARMY', 'MASTER BUILDER', 'KEEP BREAKER', 'IRON WALL']);
+    expect(canonSays('**MOST KILLS · MOST DAMAGE · BIGGEST ARMY · MASTER BUILDER ·\n  KEEP BREAKER · IRON WALL**') || canonSays('**MOST KILLS · MOST DAMAGE · BIGGEST ARMY · MASTER BUILDER ·\r\n  KEEP BREAKER · IRON WALL**')).toBe(true);
+    const row = (seat: number, kills: number, dealt: number, units: number): BoardRow =>
+      ({ seat: asPlayerId(seat), kills, dealt, units, towersBuilt: 0, peakBuilt: 0, dealtSplit: { total: dealt, units: dealt, structures: 0, keep: 0 } } as unknown as BoardRow);
+    // A leads kills AND damage; B leads the army; C ties A on nothing it leads.
+    const a = row(0, 9, 500, 1);
+    const b = row(1, 2, 400, 7);
+    const c = row(2, 2, 100, 1);
+    const badges = assignBadges([a, b, c]);
+    expect(badges.get(a.seat), 'the first category it leads, and only one').toBe('MOST KILLS');
+    expect(badges.get(b.seat), 'MOST DAMAGE is not handed to the runner-up; B gets what B leads').toBe('BIGGEST ARMY');
+    expect(badges.has(c.seat)).toBe(false);
+    // a tie at the top awards nothing in that category
+    expect(assignBadges([row(0, 5, 0, 0), row(1, 5, 0, 0)]).size).toBe(0);
+    // an all-zero category awards nothing
+    expect(assignBadges([row(0, 0, 0, 0), row(1, 0, 0, 0)]).size).toBe(0);
+  });
+
+  it('B-21 — a SELF-DETONATION (suicide goblin, lightning drone) is neither a loss nor a kill', () => {
+    for (const [type, action] of [['goblinSuicide', 'SUICIDE_BLAST'], ['lightningDrone', 'DRONE_EXPLODE']] as const) {
+      const w = two();
+      w.isHost = true;
+      w.gameState = 'PLAYING';
+      w.matchPhase = 'FIGHT';
+      w.phaseEndsAtTick = w.tick + 1_000_000;
+      dispatch(w, {
+        type: 'SPAWN_CREATURE', creatureType: type, ownerPlayerId: P1,
+        pos: { x: 700, y: 500 }, targetPos: { x: 700, y: 500 }, sourceSpawnerId: 9_100 as never,
+      });
+      const id = [...w.creatures.keys()][0]!;
+      dispatch(w, { type: action, creatureId: id } as never);
+      expect(w.creatures.has(id), `fixture: the ${type} is gone`).toBe(false);
+      expect(w.matchStats.seats.get(P1)?.lost.get(type) ?? 0).toBe(0);
+      for (const s of w.matchStats.seats.values()) expect(s.kills.get(type) ?? 0).toBe(0);
+    }
+    expect(canonSays('a SELF-DETONATION is neither a loss nor a\n  kill') || canonSays('a SELF-DETONATION is neither a loss nor a\r\n  kill')).toBe(true);
+  });
+
+  it('B-22 — the four charts in their four forms, and the grid that adds up', () => {
+    const w = two();
+    dispatch(w, { type: 'START_GAME', mode: '1v1', isHost: true });
+    recordDamage(w, P1, P0, 100, 'unit');
+    recordDamage(w, P0, P1, 60, 'structure');
+    recordDamage(w, P0, P0, 5, 'unit');
+    recordDamage(w, P0, null, 9, 'unit');
+    w.tick = 1000;
+    recordWaveSample(w, 1);
+    w.gameState = 'POSTGAME';
+    const m = matchBoardModel(w)!;
+    expect([m.graphs.score, m.graphs.damage, m.graphs.built, m.graphs.kills].map((g) => [g.title, g.form])).toEqual([
+      ['SCORE RACE', 'lines'], ['DAMAGE PER WAVE', 'bars'], ['BUILT, STANDING', 'stackedArea'], ['KILLS PER WAVE', 'stackedBars'],
+    ]);
+    for (const t of ['**SCORE RACE** (lines', '**DAMAGE PER WAVE** (grouped bars', 'STANDING** (stacked area', '**KILLS PER WAVE** (stacked bars', '**WHO HIT WHOM**, a heatmap']) {
+      expect(canonSays(t), t).toBe(true);
+    }
+    // the grid adds up: P0's row minus its diagonal = its DEALT; P0's column incl. diagonal + NO SOURCE = its TAKEN
+    const r0 = m.matrix.rows.findIndex((a) => a.seat === P0);
+    const c0 = m.matrix.cols.findIndex((a) => a.seat === P0);
+    const row0 = m.matrix.cells[r0]!;
+    const rowSum = row0.reduce((t, n, i) => (i === c0 ? t : t + n), 0);
+    const dealt0 = m.rows.find((r) => r.seat === P0)!;
+    expect(rowSum).toBe(dealt0.dealt);
+    expect(dealt0.dealt).toBe(100);
+    const colSum = m.matrix.cells.reduce((t, cells) => t + cells[c0]!, 0);
+    expect(colSum).toBe(dealt0.taken);
+    expect(dealt0.taken).toBe(74);
+    expect(m.matrix.rows.at(-1)!.label, 'NO SOURCE joins when any damage had no seat').toBe('NO SOURCE');
+    expect(dealt0.takenSplit.units + dealt0.takenSplit.structures + dealt0.takenSplit.keep).toBe(74);
+  });
+
+  it('B-23 — ← / → / Tab page the board, Shift+Tab back, R is never consumed; the REACH is matchBoard.test.ts', () => {
+    const board = readFileSync(new URL('./render/matchBoard.ts', import.meta.url), 'utf8');
+    expect(board.includes("if (key === 'ArrowRight' || (key === 'Tab' && !shift)) {")).toBe(true);
+    expect(board.includes("if (key === 'ArrowLeft' || (key === 'Tab' && shift)) {")).toBe(true);
+    expect(/handleKey\(key: string, shift = false\): boolean \{\s*if \(this\.model === null\) return false;/.test(board)).toBe(true);
+    const reach = readFileSync(new URL('./render/matchBoard.test.ts', import.meta.url), 'utf8');
+    expect(reach.includes('← → and Tab cycle every page and wrap; R is never consumed (it stays the exit)')).toBe(true);
+    expect(canonSays('**B-23 ← / → / Tab page the board** (Shift+Tab back)')).toBe(true);
+    expect(canonSays('**R is\n  never consumed**') || canonSays('**R is\r\n  never consumed**')).toBe(true);
   });
 });

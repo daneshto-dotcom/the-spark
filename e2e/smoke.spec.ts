@@ -74,6 +74,7 @@ import {
   waitForRejected,
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
+  LOBBY_2PEER_BUDGET_MS,
 } from './helpers';
 
 /**
@@ -89,7 +90,7 @@ import {
 // 23→24 bump while the number read 25). A comment that names ONE historic bump rots at the next
 // one by construction, so it now names the invariant instead: this must equal
 // `src/net/protocol.ts`'s PROTOCOL_VERSION, and `protocolVersionSync.test.ts` enforces the pair.
-const LOCAL_PROTO_V = 67; // S195 — 66 → 67: s194/rules (R194-16 porch row 42 + build-clear 17, R194-17 pants window 30/45/60/90/120 s, R194-26 mega pants the 251st, R194-27 live cap 360 total). S194 — 65 → 66: s194/rage (R194-31: the rage window + BLOOD FRENZY end on their 25 s clock in any phase). S194 — 64 → 65: s194/entropy + s192/teams (the entropy roll + 'entropy' sever cause; world.teams, RosterEntry.team, CLAIM_TEAM). S194 — 63 → 64: s194/fixes (Helga RISEN, fallen-seat pants lanes, chewer/drone never strike Helga). S194 — 62 → 63: s193/mres-card (the wave-26 'mres' draft pick, Creature.mresFifths, castle soldier MRES 1 for every race). S193 — 61 → 62: deploy #23 (s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first). S193 — 60 → 61: deploy #22 (deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride). S193 — 59 → 60: deploy #22 (s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade). S193 — 58 → 59: deploy #20 (s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight). S193 — 57 → 58: deploy #18 (s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank). S193 — 56 → 57: deploy #17 (s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules). S192 — 55 → 56: deploy #12 (s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist)). S192 — 54 → 55: deploy #9 (s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6). S192 — 53 → 54: deploy #8 (carry: hub blast ladder split, strict spread, overkill carry). S192 — 52 → 53: deploy #7 (addons: rageStartTick, the 25 s rage latch + cooldown, the frenzy source). S191 — 51 → 52: deploy #5 (weld: ownBondIdLimit, the DORMANT Helga state, built-with survival; net: the per-match id, the C6 beacon election). S190 — 50 → 51: deploy #4 (raStrike → raStrikes for WRATH OF RA, the t3BatSwarm type for THE SWARM, two changed wave-11 offers, the drafted strike baked into Creature.atkFifths). S188 — 49 → 50: the racial upgrades ('racial' on CHOOSE_DRAFT.pick + twelve new sim rules both peers compute). S187 — 48 → 49: the upgrade draft adds the CHOOSE_DRAFT client intent, so a v48 host would drop a v49 joiner's pick and that seat could never draft. Independently: a drafted upgrade changes a unit's pool, carried by the new Creature.maxEhp a v48 peer does not know about. (S186 — 47 → 48: the win bar, spawn rate and free-spark cap became functions of world.waveNumber.)
+const LOCAL_PROTO_V = 68; // S195 cloud — 67 → 68: s195/rules-2 (B-9 chewer bites the keep, B-10 drone splash one 30 pool, B-31 welded TV keeps summoning, B-25/B-30 own side spared, N11 chase ratio 1 + ATTACKING/pathless home arm). S195 — 66 → 67: s194/rules (R194-16 porch row 42 + build-clear 17, R194-17 pants window 30/45/60/90/120 s, R194-26 mega pants the 251st, R194-27 live cap 360 total). S194 — 65 → 66: s194/rage (R194-31: the rage window + BLOOD FRENZY end on their 25 s clock in any phase). S194 — 64 → 65: s194/entropy + s192/teams (the entropy roll + 'entropy' sever cause; world.teams, RosterEntry.team, CLAIM_TEAM). S194 — 63 → 64: s194/fixes (Helga RISEN, fallen-seat pants lanes, chewer/drone never strike Helga). S194 — 62 → 63: s193/mres-card (the wave-26 'mres' draft pick, Creature.mresFifths, castle soldier MRES 1 for every race). S193 — 61 → 62: deploy #23 (s193/playtest3: castle keep-out one 61 px disc on every side, creatures attack the nearest enemy first). S193 — 60 → 61: deploy #22 (deploy #22 train: weld (repair jobs, FIX_ALL, ownPrimitiveIds), goblin auto-build (SET_AUTO_FEED), CF-1 no carry through a struck mixed weld; bots, visuals-4/5, endstats ride). S193 — 59 → 60: deploy #22 (s192/magic: magic resistance on the DEF ladder (attack classes, per-race MRES), the 'mres' castle upgrade). S193 — 58 → 59: deploy #20 (s192/endgame: the pants waves 27-31 — monster + mega pants types, the build lock, trickle + live cap, endless final fight). S193 — 57 → 58: deploy #18 (s192/zombies: every blast falls off with distance, zombie blast 312 split 2:1 sparing his side, THE RISEN from every zombie kill, CORPSE EATER heal bank). S193 — 56 → 57: deploy #17 (s192/units-ai: T13 never attack the dead + fallen-keep march, T6 smart chase (own zone), T5 Helga BUILD patrol — host-tick targeting rules). S192 — 55 → 56: deploy #12 (s191/owner: CAST_SCORCHED_EARTH + Player.scorchedEarth, the scorch burn rules incl. Helga, the stock rule (chewers/drones persist)). S192 — 54 → 55: deploy #9 (s191/tune: Ra column 35 total split (75 for a WRATH seat, its Pharaoh too), castle no-build 61 + porch discs, APEX x6). S192 — 53 → 54: deploy #8 (carry: hub blast ladder split, strict spread, overkill carry). S192 — 52 → 53: deploy #7 (addons: rageStartTick, the 25 s rage latch + cooldown, the frenzy source). S191 — 51 → 52: deploy #5 (weld: ownBondIdLimit, the DORMANT Helga state, built-with survival; net: the per-match id, the C6 beacon election). S190 — 50 → 51: deploy #4 (raStrike → raStrikes for WRATH OF RA, the t3BatSwarm type for THE SWARM, two changed wave-11 offers, the drafted strike baked into Creature.atkFifths). S188 — 49 → 50: the racial upgrades ('racial' on CHOOSE_DRAFT.pick + twelve new sim rules both peers compute). S187 — 48 → 49: the upgrade draft adds the CHOOSE_DRAFT client intent, so a v48 host would drop a v49 joiner's pick and that seat could never draft. Independently: a drafted upgrade changes a unit's pool, carried by the new Creature.maxEhp a v48 peer does not know about. (S186 — 47 → 48: the win bar, spawn rate and free-spark cap became functions of world.waveNumber.)
 const NEWER_PEER_V = LOCAL_PROTO_V + 1;
 
 /**
@@ -158,6 +159,7 @@ async function open2Peers(browser: import('@playwright/test').Browser): Promise<
 
 test.describe('S46 Baseline — lobby + match start (must pass after S46 P1 Phase A.0) @quarantine-flaky', () => {
   test('Both peers reach PLAYING after host hosts + joiner joins + Begin Match', async ({ browser }) => {
+    test.setTimeout(LOBBY_2PEER_BUDGET_MS); // S195 ci-budgets — see the constant in helpers.ts
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       // Phase 1: host opens lobby + gets code.
@@ -482,6 +484,11 @@ test.describe('Sym E — score display layout (PLACEHOLDER: asserts null, cannot
 
 test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
+    // ⭐ S195 (ci-budgets) — this test builds like Sym A/C/G and needs their budget (measured on the cloud box and
+    // CI: the two-peer connect alone is 40–60 s, each porch pull up to 30 s of sim). T20 held this line back because
+    // `src/ci.e2eLanes.test.ts` re-derives the quarantine lane's cap from every spec's own budget and the lane had
+    // 60 s of slack; it landed together with the cap (e2e.yml `e2e-quarantine` 46/54 → 52/60).
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS);
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -492,7 +499,12 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 8, 'sparks spawned');
+      // ⭐ S195 T20 — STALE HARNESS, ported (the Sym A/C/G port, S194 T8): this waited for
+      // `freeSparks.length >= 8` and then dragged the HOST's shape out of the quarry with a bare
+      // `dragSparkTo`. Since S136 the player's shape source is his own porch (`pullFromBank`), and a
+      // match no longer opens with a free-spark field (S192), so the wait could never be met and the
+      // default 60 s cap fired every run (measured S195 on the cloud box: red at 1.1 min, no assertion
+      // reached). The three joiner placements below already used the shipped path.
 
       // Joiner places 3 BLUE prims tightly clustered to establish territory.
       // AUTO_BOND_RADIUS=60, so prims at (1500,400) (1530,410) (1490,380)
@@ -531,7 +543,12 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
       // Sym F predicate at placePrimitive.ts host-authoritative path silently
       // rejects (spark stays carried). diagnostics.territoryBlockRejects
       // increments.
-      await dragSparkTo(hostPage, 1500, 400);
+      // S195 T20 — the host's shape comes from ITS porch (pull first), and the drag is deliberately NOT
+      // `placeFreeSparkAndConfirm`: that helper waits for the placement to LAND, and a rejection is the
+      // point. The pick is asserted so a null drag can never pass this test by placing nothing.
+      await pullFromBank(hostPage);
+      const picked = await dragSparkTo(hostPage, 1500, 400);
+      expect(picked, 'the host must actually have grabbed a porch shape to attempt the placement').not.toBeNull();
 
       // Wait a beat for the (would-be) place attempt to propagate. If the
       // mechanic works, no new RED prim appears.
@@ -552,6 +569,9 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
 
 test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host reaching WIN_SCORE triggers WIN on both peers (joiner via ENDGAME envelope)', async ({ browser }) => {
+    // ⭐ S195 (ci-budgets) — the TWO_PEER_BUILD_BUDGET_MS timeout (a two-peer connect alone runs 40–60 s on CI and
+    // the cloud box; T20 saw the HOST still in LOBBY at the 60 s default). Landed with the quarantine cap; see Sym F.
+    test.setTimeout(TWO_PEER_BUILD_BUDGET_MS);
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
@@ -567,7 +587,11 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       // runs BEFORE bundled scripts (including constants.ts module load).
       // Override value 3 chosen so 3 anchor placements (SCORE_ANCHOR=1
       // each, non-bonding because >60px apart) reach the WIN gate quickly.
-      const TEST_WIN_SCORE = 3;
+      // ⛔ S195 T20 — THAT WAS 3, AND EVERY SEAT STARTS WITH `STARTING_VICTORY_POINTS` = 100 (the S192
+      // nplayer finding), so the host hit WIN on its first tick and the joiner's `PLAYING` wait raced a
+      // match that was already over. The bar is now far above any natural score (the nplayer idiom) and
+      // the win is forced by injection below (×1000 the bar, above the largest WIN_SCORE_BANDS multiplier).
+      const TEST_WIN_SCORE = 1_000_000;
       await hostCtx.addInitScript((winScore) => {
         (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__ = winScore;
       }, TEST_WIN_SCORE);
@@ -590,43 +614,34 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host');
+      // ⭐ S195 T20 — STALE HARNESS, ported. This waited for `freeSparks.length >= 8` (a match no longer
+      // opens with a free-spark field — S192) and dragged three "anchors" out of the quarry with a bare
+      // `dragSparkTo` (the player's source has been his porch since S136). The anchors never fed the win
+      // — the S76 injection below did — so, as the S192 nplayer port ruled, they were test rot, not
+      // coverage: removed. The subject of this test is the WIN → ENDGAME → joiner PIPELINE.
 
-      // Host places 3 anchors (non-bonding placements, 200px apart > 60
-      // AUTO_BOND_RADIUS). SCORE_ANCHOR=1 each → score=3 → WIN gate fires.
-      //
-      // S51 P1 — X moved from 800 to 300. (800, 400) is at distance
-      // √(160² + 140²) = 213 px from spawner center (960, 540); SPAWNER_RADIUS
-      // is 250, so anchor placement at X=800 is silently rejected because
-      // placePrimitive's spawner-zone exit check fires (anchors only place
-      // OUTSIDE the spawner). (300, 400) is √(660² + 140²) = 675 px out —
-      // safely outside the zone. Same for (300, 600) and (300, 800).
-      await dragSparkTo(hostPage, 300, 400);
-      await waitForWorld(
-        hostPage,
-        (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 300) < 50 && Math.abs(p.pos.y - 400) < 50),
-        'host placed 1st anchor',
-      );
-      await dragSparkTo(hostPage, 300, 600);
-      await dragSparkTo(hostPage, 300, 800);
-
-      // S76 — placement now raises standing COMPLEXITY (income model); score accrues per-tick,
-      // so WIN is no longer instant on the 3rd anchor. This test verifies the WIN→ENDGAME→joiner
-      // PIPELINE (unchanged by S76), so inject the host's score past the gate deterministically.
-      // The build→complexity→income→WIN path is covered by scoring.test.ts + session9 + the solo
-      // hunter e2e (whose 75% trigger fires off real in-browser income).
-      await hostPage.evaluate(() => {
-        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number> } } }).__SPARK__?.world;
-        w?.scoreByPlayer.set(0, 999);
-      });
+      // S76 — score accrues per-tick, so WIN is not instant on a placement. This test verifies the
+      // WIN→ENDGAME→joiner PIPELINE (unchanged by S76), so inject the host's score past the gate
+      // deterministically. The build→complexity→income→WIN path is covered by scoring.test.ts + session9
+      // + the solo hunter e2e (whose 75% trigger fires off real in-browser income).
+      // ⚠ S195 T20 — `scoreProgress` TOO, not only `scoreByPlayer`: the win gate reads `scoreProgress`, and
+      // since S147 only `tickScoring` (FIGHT only) re-derives it, so a match still in BUILD never noticed
+      // the injected `scoreByPlayer` alone (measured S192, nplayer.spec). Attribution scans `scoreByPlayer`.
+      await hostPage.evaluate((score) => {
+        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number>; scoreProgress: number } } }).__SPARK__?.world;
+        if (w === undefined) throw new Error('Sym I: no world');
+        w.scoreByPlayer.set(0, score);
+        w.scoreProgress = score;
+      }, TEST_WIN_SCORE * 1000);
 
       // Host crosses the WIN gate → WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts
       // ticker's PLAYING→WIN transition guard then sends the ENDGAME envelope to the peer.
+      // S195 — WIN or POSTGAME (the S192 endgame flow may already have advanced past WIN when sampled).
       await waitForWorld(
         hostPage,
-        (w) => w.gameState === 'WIN',
+        (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
         'host transitions to WIN',
-        15_000,
+        20_000,
       );
 
       // Joiner receives ENDGAME envelope (clientHandlers.ts dispatches
@@ -635,17 +650,16 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       // is defence-in-depth.
       await waitForWorld(
         joinerPage,
-        (w) => w.gameState === 'WIN',
+        (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
         'joiner transitions to WIN (via ENDGAME envelope)',
-        10_000,
+        20_000,
       );
 
-      // Final assertion: lastWinnerId reflects host (player 0, RED).
+      // Final assertion: both peers left PLAYING for the endgame — the envelope reached the joiner.
       const joinerFinalState = await readWorldState(joinerPage);
       const hostFinalState = await readWorldState(hostPage);
-      // Both peers should agree on the winner.
-      expect(hostFinalState.gameState).toBe('WIN');
-      expect(joinerFinalState.gameState).toBe('WIN');
+      expect(['WIN', 'POSTGAME']).toContain(hostFinalState.gameState);
+      expect(['WIN', 'POSTGAME']).toContain(joinerFinalState.gameState);
     } finally {
       await hostCtx.close();
       await joinerCtx.close();

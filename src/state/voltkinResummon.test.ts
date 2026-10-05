@@ -42,9 +42,11 @@ import {
   dispatchVoltkinSpawn,
   resummonVoltkins,
   standingVoltkinTvs,
+  tvsOwedAVoltkin,
   VOLTKINS_PER_TV,
   voltkinTvOwner,
 } from './voltkinTv.ts';
+import { runGodlyMatcherCore } from './godlyMatcherCore.ts';
 import type { GameAction } from './world.ts';
 // ⚠ SIDE-EFFECT IMPORT — the registry is filled by the recipe module's tail `registerRecipe`.
 import './godlyRecipes/voltkin.ts';
@@ -475,9 +477,12 @@ describe('S192 T16 — determinism of the TV census', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 /*
  * ⭐ S192 audit M1 / L1 (merge-owner decision): A TV RE-SUMMONS IFF IT WOULD IGNITE NOW, AND FOR THE
- * SAME SEAT. Owner, S48: *"if you accidentally connect anything else to the structure it shouldn't go
- * off"*. The census and the ignition predicate share ONE isolation test and ONE owner rule; these
- * boards are the auditor's A1 / A2 / A3 / A4.
+ * SAME SEAT — still true. ⭐⭐ S195 B-31 (owner) REVERSED what "would ignite" means: *"you should be able to
+ * weld everything on everything, and the existing … towers keep summoning and resummoning"*. The S48
+ * isolation test is gone from BOTH sides; ignition now reads the census's own list (`standingVoltkinTvs`)
+ * and its claim binding (`tvsOwedAVoltkin`), so A1 and A4 below are RE-PINNED to the welded answer, and the
+ * B-31 cases after them pin the hole that closing isolation opened (a weld re-firing a TV that has its
+ * Voltkin) shut.
  */
 describe('S192 audit — the census counts exactly what ignition accepts', () => {
   function chain8(w: World, owners: PlayerId[], y: number): Primitive[] {
@@ -501,20 +506,23 @@ describe('S192 audit — the census counts exactly what ignition accepts', () =>
     return n;
   }
 
-  it('A1 — an extra square on the end: ignition refuses, so the census counts 0 and nothing summons', () => {
+  it('⭐ A1 (RE-PINNED S195 B-31) — an extra square welded on the end: ignition FIRES, the census counts 1, the edge summons 1', () => {
     const w = twoSeat();
     const prims = chain8(w, Array(8).fill(P0), 300);
-    connect(w, addShape(w, P0, SparkType.Square, 170, 300), prims[0]!);
-    expect(voltkinPredicate(w, prims[0]!.pos)).toBeNull();
-    expect(standingVoltkinTvs(w).length).toBe(0);
+    const weld = addShape(w, P0, SparkType.Square, 170, 300);
+    connect(w, weld, prims[0]!);
+    const match = voltkinPredicate(w, prims[0]!.pos);
+    expect(match, 'B-31: a welded TV ignites').not.toBeNull();
+    expect([...match!.targetComponentPrimitiveIds], 'the TV is the chain; the weld is not a member').not.toContain(weld.id);
+    expect(standingVoltkinTvs(w).length).toBe(1);
     expect(standingVoltkinTvs(w).length).toBe(ignitionAccepted(w));
     w.matchPhase = 'FIGHT';
     w.phaseEndsAtTick = w.tick + 1;
     crossEdge(w);
-    expect(liveVoltkins(w)).toBe(0);
+    expect(liveVoltkins(w), 'a welded TV re-summons like any other').toBe(1);
   });
 
-  it('A4 — a 12-shape blob (two triangle tails on one square spine) is not two TVs; it is none', () => {
+  it('⭐ A4 (RE-PINNED S195 B-31) — a 12-shape blob (two triangle tails on one square spine) is ONE TV, not two (⚠ MINE)', () => {
     const w = twoSeat();
     const sq = [0, 1, 2, 3].map((i) => addShape(w, P0, SparkType.Square, 300 + i * 30, 500));
     for (let i = 0; i < 3; i++) connect(w, sq[i]!, sq[i + 1]!);
@@ -525,8 +533,73 @@ describe('S192 audit — the census counts exactly what ignition accepts', () =>
     connect(w, sq[0]!, tb[0]!);
     for (let i = 0; i < 3; i++) connect(w, tb[i]!, tb[i + 1]!);
     expect(findAllVoltkinChainsCanonical(w).length, 'fixture: the walk sees two 8-paths').toBe(2);
-    expect(standingVoltkinTvs(w).length).toBe(0);
+    expect(standingVoltkinTvs(w).length, 'overlapping paths are one tower').toBe(1);
     expect(standingVoltkinTvs(w).length).toBe(ignitionAccepted(w));
+    // …and it is the FIRST path in the canonical (sorted-ids) order — the spine plus tail A — on every sim.
+    expect(standingVoltkinTvs(w)[0]!.members).toEqual([...sq, ...ta].map((p) => p.id));
+    // The whole blob summons exactly ONE Voltkin at the edge.
+    w.matchPhase = 'FIGHT';
+    w.phaseEndsAtTick = w.tick + 1;
+    crossEdge(w);
+    expect(liveVoltkins(w)).toBe(1);
+  });
+
+  /* ══ S195 B-31 — the hole that closing isolation opened, pinned shut ═══════════════════════════════ */
+
+  it('⛔ B-31 — a shape welded onto a standing TV whose Voltkin LIVES does not re-fire its recipe (the S161 "dozen Voltkins" door)', () => {
+    const w = twoSeat();
+    const prims = chain8(w, Array(8).fill(P0), 300);
+    const first = voltkinPredicate(w, prims[3]!.pos);
+    expect(first, 'the fresh TV ignites').not.toBeNull();
+    dispatchVoltkinSpawn(w, first!.triggererPlayerId, first!.targetPos); // its Voltkin is on the board
+    expect(liveVoltkins(w)).toBe(1);
+    // Now weld a shape onto the standing TV: the BOND_FORMED lands within AUTO_BOND_RADIUS of a member.
+    const weld = addShape(w, P0, SparkType.Circle, prims[3]!.pos.x, prims[3]!.pos.y + 30);
+    connect(w, weld, prims[3]!);
+    expect(voltkinPredicate(w, weld.pos), 'the TV already has its Voltkin — nothing to mint').toBeNull();
+    expect(standingVoltkinTvs(w).length, 'it is still one standing TV').toBe(1);
+    // NEGATIVE CONTROL: the same weld event on a TV whose Voltkin has FALLEN mints its replacement.
+    w.creatures.clear();
+    expect(voltkinPredicate(w, weld.pos)).not.toBeNull();
+  });
+
+  it('⛔ B-31 — the cinematic PLAYING now is a claim too: a weld during the emerge gap mints nothing', () => {
+    const w = twoSeat();
+    const prims = chain8(w, Array(8).fill(P0), 300);
+    const first = voltkinPredicate(w, prims[3]!.pos);
+    expect(first).not.toBeNull();
+    // `GODLY_TRIGGER` sets `currentCinematicEvent`; `pendingCreatureSpawn` is scheduled a frame later.
+    dispatch(w, { type: 'GODLY_TRIGGER', event: { godlyId: 'voltkin', triggererPlayerId: P0, targetComponentPrimitiveIds: first!.targetComponentPrimitiveIds, targetPos: first!.targetPos, triggerTick: w.tick } } as never);
+    expect(w.currentCinematicEvent?.godlyId).toBe('voltkin');
+    expect(w.pendingCreatureSpawn).toBeNull();
+    const weld = addShape(w, P0, SparkType.Circle, prims[3]!.pos.x, prims[3]!.pos.y + 30);
+    connect(w, weld, prims[3]!);
+    expect(voltkinPredicate(w, weld.pos), 'the summon is on its way — no second one').toBeNull();
+    // By IDENTITY, not by a positional claim: the census still lists the TV as owed (nothing is scheduled),
+    // and a SECOND TV of the same seat closed in this gap is still owed too — the three-TV rig depends on it.
+    expect(tvsOwedAVoltkin(w, standingVoltkinTvs(w))).toEqual([0]);
+    const other = chain8(w, Array(8).fill(P0), 600);
+    expect(voltkinPredicate(w, other[3]!.pos), 'another TV in the same gap still ignites').not.toBeNull();
+  });
+
+  it('⭐⭐ B-31 REACH — a NEW TV built already welded fires through the real matcher core, once, for its seat', () => {
+    const w = twoSeat();
+    // A seat-0 shape already standing where the TV's first square will land next to it.
+    const pre = addShape(w, P0, SparkType.Circle, 170, 300);
+    const prims = chain8(w, Array(8).fill(P0), 300);
+    connect(w, pre, prims[0]!); // born welded
+    // The BOND_FORMED the build emitted — the real matcher reads `world.effects`.
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: prims[0]!.pos.x, y: prims[0]!.pos.y }, bondCount: 8 } as never);
+    const fired = runGodlyMatcherCore(w, { lastMatcherTick: 0 });
+    expect(fired, 'merge-owner call: a new TV built already welded spawns its first Voltkin').not.toBeNull();
+    expect(fired!.godlyId).toBe('voltkin');
+    expect(fired!.triggererPlayerId).toBe(P0);
+    expect(w.activeCinematicPlayerId).toBe(P0);
+    // A second topology change on the same TV, same frame or next: the recipe does not fire again.
+    w.effects.length = 0;
+    w.effects.push({ kind: 'BOND_FORMED', tick: w.tick, pos: { x: prims[5]!.pos.x, y: prims[5]!.pos.y }, bondCount: 1 } as never);
+    expect(runGodlyMatcherCore(w, { lastMatcherTick: 0 })).toBeNull();
+    expect(w.pendingCinematics.length).toBe(0);
   });
 
   it('A2 — every blueprint stamped alone: census count == ignition-accepted count (the TV is 1)', () => {

@@ -62,6 +62,33 @@ const TARGET_TICKS = 10_000;
 const WALL_CAP_MS = 300_000; // measurement window wall cap; actual ticks recorded
 const GROWTH_LIMIT_MB = 10;
 
+/*
+ * ⛔ S195 T22 (#3) — THE MAIN-THREAD METRIC IS A CDP HEAP SNAPSHOT'S LIVE SIZE, NOT `usedJSHeapSize`.
+ *
+ * T8 (S195) proved the red runs were NOT a leak: the post-GC `usedJSHeapSize` delta was a function of the
+ * WINDOW LENGTH (2 850–4 450 ticks → 0.4–3.6 MB green; 4 689–6 039 → 8.3–13.7 MB red) — it folds in heap
+ * pages V8 keeps reserved after the sawtooth, fragmentation and code space, none of which is a retained
+ * object. A CDP heap-snapshot diff of one red run showed only +4.34 MB actually retained, +3.56 MB of it a
+ * second high-water Pixi Graphics batcher (geometry-peak growth, legitimate). So the assertion now reads the
+ * snapshot: `HeapProfiler.collectGarbage` → `HeapProfiler.takeHeapSnapshot` → Σ `self_size` over every live
+ * node (the Memory panel's "Total size"). `usedJSHeapSize` is still READ and LOGGED beside it, as the
+ * continuity figure and the discrepancy witness, but no longer asserted. GROWTH_LIMIT_MB stays 10 — the
+ * ceiling was right, the ruler was wrong — and the per-type / per-constructor deltas are printed so the next
+ * red names what grew without a hand-run CDP session. Each snapshot is budgeted in SETUP_AND_SAMPLES_MS.
+ */
+interface HeapSnapshotRead {
+  /** Σ self_size of every node, MB. */
+  totalMB: number;
+  /** Σ self_size per V8 node type ('object', 'array', 'string', 'code', …), MB. */
+  byType: Record<string, number>;
+  /** Σ self_size per constructor NAME for 'object' nodes (the Pixi / app classes), MB. Top entries only. */
+  byName: Record<string, number>;
+  /** Snapshot node count. */
+  nodes: number;
+  /** Wall time the snapshot cost, ms. */
+  ms: number;
+}
+
 // ── S127 calibration — IDENTICAL reasoning to render-heap.spec.ts; kept in sync deliberately ──
 //
 // THE GOVERNING FACT: sim ticks are FRAME-bound, not time-bound. src/main.ts:1389 clamps
@@ -99,8 +126,13 @@ const WARMUP_WALL_CAP_MS = 240_000;
 // stretched limit. Every threshold below is still normalised to `measured`, unchanged.
 const DESIGN_WINDOW_TICKS = 2_000;
 const WINDOW_WALL_CEIL_MS = 600_000;
-/** Browser launch + goto + mode setup + the two stabilizedSample calls (measured ~137 s of setup on CI). */
-const SETUP_AND_SAMPLES_MS = 240_000;
+/**
+ * Browser launch + goto + mode setup + the two stabilizedSample calls (measured ~137 s of setup on CI).
+ * ⛔ S195 T22 — +60 s: each stabilizedSample now also takes a CDP heap snapshot of the main isolate (two per
+ * audit; measured locally on Chromium 1194 — see the `snapshots a/b ms` field of the evidence line). The
+ * e2e-soak lane holds this (`src/ci.e2eLanes.test.ts` sums the three audits' budgets against PW 58 min).
+ */
+const SETUP_AND_SAMPLES_MS = 300_000;
 const SOAK_TEST_BUDGET_MS = SETUP_AND_SAMPLES_MS + WARMUP_WALL_CAP_MS + WINDOW_WALL_CEIL_MS;
 function windowWallCapMs(warmTicks: number, warmMs: number): number {
   const rate = warmTicks / Math.max(warmMs / 1000, 0.001);
@@ -127,6 +159,8 @@ const MIN_STRICT_TICKS = 4_000;
 
 interface HeapSample {
   heapMB: number;
+  /** ⛔ S195 T22 — the asserted MAIN metric: the CDP heap snapshot's live size. */
+  snap: HeapSnapshotRead;
   workerHeapMB: number;
   floorRounds: number;
   tick: number;
@@ -149,6 +183,71 @@ async function readMainFloorMB(page: Page): Promise<number> {
     await new Promise((r) => setTimeout(r, 150));
     return w.performance.memory.usedJSHeapSize / (1024 * 1024);
   });
+}
+
+/**
+ * ⛔ S195 T22 — one CDP heap snapshot of the MAIN isolate, reduced to sizes. The V8 format (`snapshot.meta`)
+ * is a flat `nodes` array of `node_fields` per node; `type` indexes `node_types[0]`, `name` indexes `strings`,
+ * `self_size` is bytes. GC first, so the snapshot is of the live graph (the snapshot itself also forces one).
+ */
+async function readMainSnapshot(page: Page): Promise<HeapSnapshotRead> {
+  const t0 = Date.now();
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send('HeapProfiler.enable');
+    await cdp.send('HeapProfiler.collectGarbage');
+    const chunks: string[] = [];
+    const onChunk = (e: { chunk: string }): void => { chunks.push(e.chunk); };
+    cdp.on('HeapProfiler.addHeapSnapshotChunk', onChunk);
+    await cdp.send('HeapProfiler.takeHeapSnapshot', { reportProgress: false, captureNumericValue: false });
+    cdp.off('HeapProfiler.addHeapSnapshotChunk', onChunk);
+    const snap = JSON.parse(chunks.join('')) as {
+      snapshot: { meta: { node_fields: string[]; node_types: [string[], ...unknown[]] }; node_count: number };
+      nodes: number[];
+      strings: string[];
+    };
+    const fields = snap.snapshot.meta.node_fields;
+    const stride = fields.length;
+    const iType = fields.indexOf('type');
+    const iName = fields.indexOf('name');
+    const iSize = fields.indexOf('self_size');
+    if (iType < 0 || iName < 0 || iSize < 0) throw new Error(`heap snapshot node_fields unexpected: ${fields.join(',')}`);
+    const typeNames = snap.snapshot.meta.node_types[0];
+    const objectType = typeNames.indexOf('object');
+    const byTypeB = new Map<string, number>();
+    const byNameB = new Map<string, number>();
+    let total = 0;
+    const nodes = snap.nodes;
+    for (let i = 0; i < nodes.length; i += stride) {
+      const size = nodes[i + iSize]!;
+      total += size;
+      const type = typeNames[nodes[i + iType]!] ?? 'unknown';
+      byTypeB.set(type, (byTypeB.get(type) ?? 0) + size);
+      if (nodes[i + iType] === objectType) {
+        const name = snap.strings[nodes[i + iName]!] ?? '?';
+        byNameB.set(name, (byNameB.get(name) ?? 0) + size);
+      }
+    }
+    const mb = (b: number): number => b / (1024 * 1024);
+    const byType: Record<string, number> = {};
+    for (const [k, v] of byTypeB) byType[k] = mb(v);
+    const byName: Record<string, number> = {};
+    for (const [k, v] of [...byNameB.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40)) byName[k] = mb(v);
+    return { totalMB: mb(total), byType, byName, nodes: nodes.length / stride, ms: Date.now() - t0 };
+  } finally {
+    await cdp.detach().catch(() => undefined);
+  }
+}
+
+/** The largest |delta| entries between two size tables, as one printable line. */
+function topDeltas(a: Record<string, number>, b: Record<string, number>, n: number): string {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys]
+    .map((k) => [k, (b[k] ?? 0) - (a[k] ?? 0)] as const)
+    .sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]))
+    .slice(0, n)
+    .map(([k, d]) => `${k} ${d >= 0 ? '+' : ''}${d.toFixed(2)}`)
+    .join(', ');
 }
 
 /**
@@ -214,6 +313,7 @@ async function stabilizedSample(page: Page): Promise<HeapSample> {
     if (settled) break;
   }
   const workerHeapMB = await readWorkerFloorMB();
+  const snap = await readMainSnapshot(page); // ⛔ S195 T22 — the asserted MAIN metric
   const rest = await page.evaluate(() => {
     const w = window as unknown as {
       __LT_COUNT__?: number;
@@ -239,7 +339,7 @@ async function stabilizedSample(page: Page): Promise<HeapSample> {
       longtasks: w.__LT_COUNT__ ?? 0,
     };
   });
-  return { heapMB: prev, workerHeapMB, floorRounds: rounds, ...rest };
+  return { heapMB: prev, snap, workerHeapMB, floorRounds: rounds, ...rest };
 }
 
 interface WaitResult {
@@ -314,17 +414,25 @@ async function auditWindow(page: Page, tag: string): Promise<void> {
   const s1 = await stabilizedSample(page);
 
   const measured = s1.tick - s0.tick;
-  const growthMB = s1.heapMB - s0.heapMB;
+  // ⛔ S195 T22 — `growthMB` IS the snapshot's live-size delta (asserted); `usedGrowthMB` is the old
+  // `usedJSHeapSize` reading, logged beside it as the continuity figure (it was the flaky ruler).
+  const growthMB = s1.snap.totalMB - s0.snap.totalMB;
+  const usedGrowthMB = s1.heapMB - s0.heapMB;
   const workerGrowthMB = s1.workerHeapMB - s0.workerHeapMB;
   const perKtickKB = (growthMB * 1024) / (measured / 1000);
   // The recorded actuals — the Council-mandated evidence line.
   console.log(
     `[S123-P3 ${tag}] ticks=${measured} ` +
-      `MAIN ${s0.heapMB.toFixed(1)}→${s1.heapMB.toFixed(1)}MB (Δ${growthMB.toFixed(2)}MB, ${perKtickKB.toFixed(1)}KB/ktick, floors ${s0.floorRounds}/${s1.floorRounds}) ` +
+      `MAIN snapshot ${s0.snap.totalMB.toFixed(1)}→${s1.snap.totalMB.toFixed(1)}MB (Δ${growthMB.toFixed(2)}MB, ${perKtickKB.toFixed(1)}KB/ktick; ` +
+      `${s0.snap.nodes}→${s1.snap.nodes} nodes, snapshots ${s0.snap.ms}/${s1.snap.ms} ms) ` +
+      `usedJSHeapSize ${s0.heapMB.toFixed(1)}→${s1.heapMB.toFixed(1)}MB (Δ${usedGrowthMB.toFixed(2)}MB, floors ${s0.floorRounds}/${s1.floorRounds}; recorded, not asserted) ` +
       `WORKER ${s0.workerHeapMB.toFixed(1)}→${s1.workerHeapMB.toFixed(1)}MB (Δ${workerGrowthMB.toFixed(2)}MB) ` +
       `counts ${JSON.stringify(s0.counts)}→${JSON.stringify(s1.counts)} ` +
       `longtasks ${s0.longtasks}→${s1.longtasks}`,
   );
+  // ⛔ S195 T22 — WHAT grew: the next red names its class without a hand-run CDP session.
+  console.log(`[S123-P3 ${tag} snapshot Δ by node type, MB] ${topDeltas(s0.snap.byType, s1.snap.byType, 8)}`);
+  console.log(`[S123-P3 ${tag} snapshot Δ by constructor, MB] ${topDeltas(s0.snap.byName, s1.snap.byName, 12)}`);
 
   // ── S127 two-regime validity gate (replaces the hard MIN_MEASURED_TICKS floor) ───────────
   // The old `expect(measured).toBeGreaterThanOrEqual(4_000)` made the RUNNER'S RENDER THROUGHPUT

@@ -487,6 +487,10 @@ async function bootstrap(): Promise<void> {
   }
   settingsIcon.on('pointerover', () => { settingsIcon.alpha = 1; });
   settingsIcon.on('pointerout', () => { settingsIcon.alpha = 0.55; });
+  // ⭐ S195 N5 (ui-4 seam) — the gear PRESSES too: sink on down, lift on up, rest if the pointer left.
+  settingsIcon.on('pointerdown', () => { settingsIcon.alpha = 0.8; });
+  settingsIcon.on('pointerup', () => { settingsIcon.alpha = 1; });
+  settingsIcon.on('pointerupoutside', () => { settingsIcon.alpha = 0.55; });
   settingsIcon.on('pointertap', () => {
     // initAudio() makes the gear icon double as a user-gesture trigger,
     // matching the pointerdown/keydown listeners below. Safe to call when
@@ -2215,7 +2219,9 @@ Network routes: ${v.detail}`;
    */
   const exitButton = makeExitButton(app, leaveToTitle);
   // ⛔ S191 R2 (INPUT-1 / INPUT-3) — the modals and the HUD controls cover the board; see `Controls.setModalCover`.
-  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
+  // ⭐ S195 N6 (controls-macros audit) — the settings OVERLAY covers the board too: its DOM root only swallows keys while
+  // focus is INSIDE it, so with focus on `body` a digit macro reached the board behind the panel.
+  controls.setModalCover((x, y) => (codexOverlay?.isVisible() ?? false) || settingsOverlay.isVisible() || lobbyScreen.isConnectionLostVisible() || exitButton.isConfirmOpen() || (world.gameState === 'PLAYING' && pointInRect(x, y, exitButtonRect())) || pointInRect(x, y, settingsGearRect()));
 
   // ⛔ S168 (owner: "also remove this line from the bottom left LMB drag spark blah blah blah").
   // THE CONTROLS HELP LINE IS GONE. It ran along the bottom-left for the whole match — 581 px of

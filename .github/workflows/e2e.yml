@@ -657,13 +657,19 @@ jobs:
   # the budget held three attempts of the late-4th-joiner but only ONE of each of the other four, and on CI
   # the STUN reds retry the others too (exit-match ×2, join-stall:109 ×3 in that run). Now every lobby test
   # gets its retries: 3 × (330 s late joiner + 4 × 60 s) = 1710 s ≤ 29 min. Pinned in ci.e2eLanes.test.ts.
+  # ⛔ S195 (ci-budgets) — 29/37 → 41/49. The SAME run's job logs (read by the net-mp tree) show the other four
+  # tests losing to the clock, not to an assertion: join-stall:109 red ×3 at `Test timeout of 60000ms` while its
+  # console already carried the JOIN STALLED line; exit-match red ×2 at 60 s then PASSED at 59 s; join-stall:85
+  # PASSED at 58.6 s. A two-peer connect alone is 40–60 s on a runner. The four now share
+  # `LOBBY_2PEER_BUDGET_MS` = 120 s (e2e/helpers.ts), so the lane holds 3 × (330 + 4 × 120) = 2430 s ≤ 41 min,
+  # and the runner keeps the 8 min above Playwright. `ci.e2eLanes.test.ts` reads that constant, not a literal.
   e2e-lobby:
     runs-on: ubuntu-latest
-    timeout-minutes: 37
+    timeout-minutes: 49
     env:
       # Below timeout-minutes so Playwright ends an overrun and flushes results, per the
       # standing rule for every lane in this file.
-      PW_GLOBAL_TIMEOUT_MIN: 29
+      PW_GLOBAL_TIMEOUT_MIN: 41
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -712,15 +718,20 @@ jobs:
   # hard-blip 150, reconnect 120, and six at the 60 s default (no retries here) — so a 1020 s cap could only
   # ever give a third of them a verdict. `ci.e2eLanes.test.ts` re-derives that sum from the specs' own
   # `test.setTimeout`s and fails when the cap stops holding it.
+  # ⛔ S195 (ci-budgets) — 46/54 → 52/60. Three of those specs were under-budgeted, measured in the same run's
+  # logs by the net-mp tree: Sym F and Sym I in smoke.spec build like Sym A/C/G but sat at the 60 s default
+  # (the host was still in LOBBY when it fired) — now `TWO_PEER_BUILD_BUDGET_MS` each (+360 s); and
+  # hostmigration:29's takeover COMPLETED just past its 240 s cap (`MIGRATION TAKEOVER complete` in the log,
+  # 4.1 min) — now 300 s (+60 s). Sum 2700 → 3120 s ≤ 52 min; the runner keeps 8 min above Playwright.
   e2e-quarantine:
     runs-on: ubuntu-latest
-    timeout-minutes: 54
+    timeout-minutes: 60
     continue-on-error: true
     env:
       # S126 — below timeout-minutes so this lane also exits via Playwright (flushing its
       # results) instead of being SIGKILLed at the 20m cap, which is what happened on
       # every weekly run from 2026-07-13 onward.
-      PW_GLOBAL_TIMEOUT_MIN: 46
+      PW_GLOBAL_TIMEOUT_MIN: 52
       # ⛔ S142 P2 — RETRIES OFF, the exact S127 precedent from the soak lane.
       # MEASURED 2026-08-13 (run 31707927282): this lane ran 17.0m — the FULL cap — and
       # still finished "8 failed / 9 passed / 1 DID NOT RUN". The tests that fail here fail

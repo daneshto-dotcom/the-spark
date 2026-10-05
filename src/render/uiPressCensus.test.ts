@@ -63,6 +63,9 @@ const PRESS: readonly Claim[] = [
   { file: 'src/render/racePicker.ts', match: 'root.', press: 'CHIP', via: ['root'] },
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", press: 'CSS', via: [] },
   { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", press: 'CSS', via: [] },
+  // ⭐ S195 info-ui (N14) — the board: page tabs, overview rows, CONTINUE share one latch on the board root.
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointermove'", press: 'STATE', via: ["this.pressed ? 'press'"] },
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointertap'", press: 'STATE', via: ["this.pressed ? 'press'"] },
 ];
 
 /**
@@ -71,25 +74,24 @@ const PRESS: readonly Claim[] = [
  * the row must go, so this list cannot outlive the gap it records.
  */
 const OTHER_TREE: ReadonlyArray<{ file: string; match: string; tree: string }> = [
-  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointermove'", tree: 'match board tree (T14/N14): page tabs, overview rows, CONTINUE — hot ? hover : rest, no press latch' },
-  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointertap'", tree: 'match board tree (T14/N14)' },
+  // S195 info-ui closed the last two (matchBoard). Empty is the goal state; a row here is a NOT DONE with its owner.
 ];
 
 /** Controls-driven surfaces (the census pins these separately): the latch expression each must carry. */
 const CONTROLS_DRIVEN_PRESS: ReadonlyArray<{ file: string; via: string | null; tree?: string }> = [
   { file: 'src/render/footerBand.ts', via: "this.pressed ? 'press'" },
-  // ⛔ NOT DONE HERE — the card's FIX / SCRAP / FEED + auto-build toggles (owner: *"goblin feed, tier-3 tower
-  // feeds"*). `characterSheet.ts` belongs to another tree; the one-line hunk is in the ui-4 report.
-  { file: 'src/render/characterSheet.ts', via: null, tree: 'character sheet tree' },
+  // ⭐ S195 info-ui — the card's FIX / SCRAP / FEED + auto-build toggles, owned row, weld rows (owner: *"goblin
+  // feed, tier-3 tower feeds"*): `setPressed` latched by controls.onDown / onUp beside the footer's.
+  { file: 'src/render/characterSheet.ts', via: "this.pressed ? 'press'" },
 ];
 
 /**
  * Clickables the census EXEMPTS from a plate but which still take a click and still show no press. Named
  * so the gap is visible, stale-checked so it cannot be carried once closed.
  */
-const HOVER_ONLY_KNOWN: ReadonlyArray<{ file: string; match: string; why: string }> = [
-  { file: 'src/main.ts', match: 'settingsIcon.', why: 'the HUD gear: alpha 0.55 → 1 on hover, nothing on press; main.ts is outside the ui-4 file boundary — the alpha-dip hunk is in the report' },
-];
+// ⭐ S195 — the HUD gear (main.ts `settingsIcon`) was the one known hover-only control; the merge owner applied
+// the alpha-dip press hunk when ui-4 landed, so the list is EMPTY. A new entry here needs its reason.
+const HOVER_ONLY_KNOWN: ReadonlyArray<{ file: string; match: string; why: string }> = [];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -145,7 +147,8 @@ function skinnedCensusRows(): Array<{ file: string; match: string }> {
 
 const FILES = [join(ROOT, 'src', 'main.ts'), ...walk(join(ROOT, 'src', 'render'))];
 const OWNER_EXCLUDED = /src\/render\/(arcade|nonet|sudokuOverlay)/; // R194-24: the games themselves
-const OTHER_TREE_FILES = new Set(['src/render/characterSheet.ts', 'src/render/matchBoard.ts']);
+/** Files another tree owns whose hover-only sites are a KNOWN gap. Empty since S195 info-ui closed the board. */
+const OTHER_TREE_FILES = new Set<string>([]);
 
 describe('⛔ S195 N5 — every SKINNED clickable also shows a PRESS (derived from the skin census)', () => {
   const skinned = skinnedCensusRows();
@@ -244,10 +247,9 @@ describe('⛔ S195 N5 — every SKINNED clickable also shows a PRESS (derived fr
       }
     }
     const mine = offenders.filter((o) => !OTHER_TREE_FILES.has(o.split(':')[0]!));
-    expect(mine, 'hover-without-press skin sites in ui-4 files').toEqual([]);
-    // The other trees' sites are the known gap — recorded, and stale-checked above through OTHER_TREE / CONTROLS_DRIVEN_PRESS.
-    const theirs = offenders.filter((o) => OTHER_TREE_FILES.has(o.split(':')[0]!));
-    expect(theirs.length, 'the known other-tree gap still exists (else drop OTHER_TREE_FILES)').toBeGreaterThan(0);
+    expect(mine, 'hover-without-press skin sites').toEqual([]);
+    // A file listed as another tree's known gap must still HAVE the gap, or the row is stale.
+    for (const f of OTHER_TREE_FILES) expect(offenders.some((o) => o.startsWith(f + ':')), `${f}: the known gap still exists (else drop it)`).toBe(true);
   });
 
   it('every still plate (skinStaticPlate) lives in a file whose buttons carry a grammar or chip press', () => {
