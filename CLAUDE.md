@@ -84,8 +84,11 @@ npm run e2e:render       # S195 T21 — the e2e-render lane (`@render-starved`: 
                          # GATING via its own `e2e-render` CI job (Playwright 39 / job 47 min); budgets are
                          # TICK-based, not wall-clock, so a starved software-GL runner cannot fake a red.
                          # ⚠ S195: `e2e-protocol` is NON-gating (S142 escape hatch) — `detectProtocolMismatch`
-                         # stays gated in vitest. Lane budgets (Playwright / job, min): lobby 29/37,
-                         # quarantine 46/54, soak 58/66.
+                         # stays gated in vitest. Lane budgets (Playwright / job, min): lobby 41/49,
+                         # quarantine 52/60, soak 58/66 — S195 ci-budgets raised lobby + quarantine (the
+                         # four 2-peer lobby tests share `LOBBY_2PEER_BUDGET_MS` = 120 s in e2e/helpers.ts;
+                         # Sym F/I + hostmigration:29 got real budgets). ⚠ READ THE YML, NOT THIS LINE —
+                         # `ci.e2eLanes.test.ts` derives every cap from the specs' own `test.setTimeout`s.
 npm run build            # includes the bundle-size charter check
 npm run check:atlas      # S165 — the sprite-sheet pixel guard. NOT part of `build` (see below)
 npm run verify-deploy    # 4/4 with content-hash equality
@@ -99,9 +102,9 @@ npm run probe-relays     # WebSocket handshake against the matchmaking relays
   again: `npm run e2e:gating` printed `1 failed / 61 passed` and then `[exited with code 0]`, while
   the `echo $?` line above it said `GATING_EXIT=1`. The trailing line belongs to the harness, not to
   Playwright. Only a captured `$?` is a verdict.
-- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1250 KiB** since S193;
-  **1040.6 KiB used, 209.4 KiB of headroom — measured S193 on the deploy-#18 tree by running `npm run build`**,
-  not carried from a handoff; S193 raised 1100→1250 in its own commit, LOCKED_DECISIONS § Bundle charter). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
+- The **bundle cap** is a self-imposed charter in `scripts/check-bundle-size.mjs` (**1350 KiB** since S195;
+  **1183.4 KiB used before the S195 cloud train (deploy S195-#5, measured by `npm run build`); the train lands ~1202.6 KiB** —
+  S195 raised 1250→1350 in its own commit (S193 raised 1100→1250), LOCKED_DECISIONS § Bundle charter). ⚠ This line said *"1000 KiB; 852.2 KiB used"* until S190: the charter was
   raised 1000→1100 in S188 (`CAP_KIB` at `check-bundle-size.mjs:19`) and this doc never followed — the
   SECOND time (it also lagged the S180 900→1000 raise). **Read the constant, not this sentence** —
   and when parallel branches are open, remember the headroom is SHARED between them. It is a design constraint, not a platform limit — if a real feature needs the room,
@@ -326,7 +329,7 @@ every goblin and boss. **A tolerant default is where the next one will hide too.
 
 ## Protocol version
 
-`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**67** since S195's L1 (s194/rules) — 66 before it; 65 before it; 64 before it; 63 before it; 62 before it; 61 before it; 60 before it; 59 before it; 58 before it; 57 before it; 56 before it; 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
+`PROTOCOL_VERSION` lives in `src/net/protocol.ts` (**68** since the S195 cloud run's s195/rules-2 — 67 from S195's L1 (s194/rules); 66 before it; 65 before it; 64 before it; 63 before it; 62 before it; 61 before it; 60 before it; 59 before it; 58 before it; 57 before it; 56 before it; 55 before it; 54 before it; 53 from deploy #7, 52 from S191's deploy #5; ⚠
 this line said 46 from S173 until S190 while the constant moved four times — **READ THE CONSTANT, not this
 sentence**; the canon's §6 pins the live value in `canon.test.ts`) and a mismatched peer is REFUSED —
 `detectProtocolMismatch` drops its HELLO before parsing and latches the peer, so there is no

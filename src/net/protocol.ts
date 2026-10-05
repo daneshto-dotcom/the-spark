@@ -969,7 +969,7 @@ export type { NetSnapshot };
  *      every target-picking site, and a fallen keep is never marched on (nearest live keep, then lowest seat).
  *   2. T6 — DON'T CHASE WHAT YOU CAN'T CATCH, SMARTLY (R192-U4): a fast drone/chewer is engaged when in reach,
  *      when BOTH it and the chaser are in the chaser's home zone, or when interceptable; never across the map
- *      (`CHASE_GIVEUP_SPEED_RATIO` 1.25, `CHASE_GIVEUP_SLACK_PX` 20 — ⚠ MINE).
+ *      (`CHASE_GIVEUP_SPEED_RATIO` 1.25 then, 1 since v68/N11, `CHASE_GIVEUP_SLACK_PX` 20 — ⚠ MINE).
  *   3. T5 — HELGA PATROLS IN BUILD TOO (owner S192: "She should always like walk around her tower patrolling").
  */
 /**
@@ -1085,7 +1085,23 @@ export type { NetSnapshot };
  *   4. R194-27 — the live pants cap is 360 TOTAL (`MONSTER_MAX_LIVE_TOTAL`) split over the living seats and counted by
  *      victim seat (was 30 a seat).
  */
-export const PROTOCOL_VERSION = 67 as const;
+/**
+ * ⭐⭐ S195 — **BUMPED 67 -> 68: `s195/rules-2` (T25 + owner rulings B-9/B-10/B-25/B-30/B-31/N11; landed on the cloud run's
+ * integration branch, 2026-10-05).** Each alone is a rule both peers compute:
+ *   1. B-9 — a chewer with no reachable enemy connector holds ATTACKING at the enemy keep and its bites LAND on the castle
+ *      (`attackFifths` through the ordinary castle arm; a v67 host swings at nothing) — castle HP diverges.
+ *   2. B-10 — the lightning drone's detonation is ONE POOL of 30 fifths (`droneSplashPoolFifths`) split by distance over
+ *      the units in the radius (`planDroneSplash`); a v67 host deals the full hit to each — per-unit HP diverges.
+ *   3. B-31 — a welded TV keeps summoning (`isIsolatedVoltkinChain` deleted; census = `standingVoltkinTvs`), and a new TV
+ *      built already welded mints its first Voltkin — births and `nextCreatureId` diverge.
+ *   4. B-25/B-30 — the Pharaoh's column spares his WHOLE side (`spare: owner, alliesOf: null`); own-side units survive a
+ *      v68 host's column and die under a v67 one.
+ *   5. N11 — `CHASE_GIVEUP_SPEED_RATIO` 1.25 -> 1 and the home arm engages a quarry that is ATTACKING or pathless
+ *      (`cannotCatch`): chase decisions diverge.
+ *   No wire field or discriminant changed — version only. `s195/fixes` (`lostToEntropy`, additive-optional wire key `le`,
+ *   bots) and `s195/ui-4` ride along with no rule change.
+ */
+export const PROTOCOL_VERSION = 68 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1429,6 +1445,7 @@ export interface HelloMsg {
    * S194: 64->65 (s194/entropy + s192/teams: the entropy roll at FIGHT start + the 'entropy' sever cause; world.teams, RosterEntry.team, CLAIM_TEAM. Full reasons on the const's JSDoc.)
    * S194: 65->66 (s194/rage: R194-31 the Warlord rage window + BLOOD FRENZY end on their 25 s clock in any phase; a new rage fires only in FIGHT. Full reasons on the const's JSDoc.)
    * S195: 66->67 (s194/rules, landed S195: R194-16 porch row 42 + build-clear 17, R194-17 pants window 30/45/60/90/120 s, R194-26 mega pants the 251st, R194-27 live cap 360 total. Full reasons on the const's JSDoc.)
+   * S195: 67->68 (s195/rules-2, cloud run: B-9 chewer bites the keep, B-10 drone splash one 30 pool split, B-31 welded TV keeps summoning, B-25/B-30 own side spared, N11 chase ratio 1 + ATTACKING/pathless home arm. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1467,7 +1484,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 67;
+  readonly protoVersion: 68;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**

@@ -26,6 +26,7 @@
  * absolute hash pins).
  */
 
+import { ENTROPY_FREE_CONNECTORS, ENTROPY_RATE_PER_CONNECTOR, ENTROPY_SCALE } from '../state/entropy.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isRaceTowerId } from '../state/raceTowerIds.ts';
 import type { BotDifficulty, BotPersonality } from './botTypes.ts';
@@ -89,6 +90,23 @@ export interface PersonalityKnobs {
    * ⚠ MINE.
    */
   readonly substitute: 'any' | 'listed';
+  /**
+   * ⭐ S195 T22 (owner B-18/B-19) — THE CONNECTOR COUNT AT WHICH THIS PERSONALITY STOPS GROWING A STRUCTURE
+   * and starts a new one, when its tier knows about the tax at all (`BotConfig.entropyAwareness`). Owner:
+   * *"calculate at what connectors it's not worth it"*. DERIVED, never a bare literal: `entropyBreakEvenConnectors`
+   * solves canon §2's expected loss per FIGHT, n × 0.1 % × (n − 10), for the loss this personality accepts.
+   * ⚠ MINE, the accepted loss per fight (connectors), and why it is not the free allowance (10): on the C5
+   * four-seat harness (`teams.ffaDifferential`, 40 creatures topped up every FIGHT second) HARD/IMBA bots that
+   * stopped at 10 lost all three castles by tick 17 665 where the unaware bots lost none in three waves — a
+   * 10-connector structure is a 150 pool, a 29-connector one is 986, and the sponge is what keeps goblins off
+   * the keep. The pool grows with n², the tax with n, so the honest stop is where the tax starts to eat what a
+   * BUILD adds (~1 connector a fight):
+   *   BALANCED / SABOTEUR  accept 1.0 a fight → 37 connectors (pool 1 554)
+   *   FORTRESS             accept 2.0 a fight → 50 (its style IS the big pool; 2 450)
+   *   WARMONGER / TYCOON   accept 0.5 a fight → 27 (army first / cheap and wide — many structures, not one)
+   * `entropyAwareness: 'none'` ignores this knob entirely, so NOOB is unchanged by it.
+   */
+  readonly entropyMaxConnectors: number;
 }
 
 /**
@@ -97,6 +115,24 @@ export interface PersonalityKnobs {
  * bit, enough that the substitute's own legality sweep has time to land.
  */
 export const IMBA_ADAPT_WINDOW_TICKS = 900;
+
+/**
+ * ⭐ S195 T22 — PURE: the structure size at which canon §2's expected entropy loss per FIGHT,
+ * `n × (RATE / SCALE) × (n − FREE)`, reaches `lossPerFight` connectors — the larger root of
+ * `(RATE / SCALE) n² − (RATE / SCALE) FREE n − loss = 0`, floored. At 0 loss it is the free allowance itself.
+ * (`ENTROPY_CAP` is not reached below 510 connectors and is ignored here.)
+ */
+export function entropyBreakEvenConnectors(lossPerFight: number): number {
+  if (!(lossPerFight > 0)) return ENTROPY_FREE_CONNECTORS;
+  const rate = ENTROPY_RATE_PER_CONNECTOR / ENTROPY_SCALE;
+  const f = ENTROPY_FREE_CONNECTORS;
+  return Math.floor((f + Math.sqrt(f * f + (4 * lossPerFight) / rate)) / 2);
+}
+
+/** ⚠ MINE (S195 T22) — connectors per FIGHT each personality accepts losing to entropy before it stops growing (see the knob). */
+export const ENTROPY_LOSS_ACCEPTED: Readonly<Record<BotPersonality, number>> = {
+  BALANCED: 1, WARMONGER: 0.5, FORTRESS: 2, TYCOON: 0.5, SABOTEUR: 1,
+};
 
 /** The pre-S193 bot. A config with no `persona` behaves exactly as this. */
 export const IDENTITY_KNOBS: PersonalityKnobs = {
@@ -110,6 +146,7 @@ export const IDENTITY_KNOBS: PersonalityKnobs = {
   raAim: 'home',
   adaptsAtBell: false,
   substitute: 'any',
+  entropyMaxConnectors: entropyBreakEvenConnectors(ENTROPY_LOSS_ACCEPTED.BALANCED),
 };
 
 type Overrides = Partial<Omit<PersonalityKnobs, 'personality'>>;
@@ -124,7 +161,7 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
   WARMONGER: {
     // ⭐ S194 (T7) — `substitute: 'listed'`: measured HARD def 0.17 → 0.00 (it had stamped a stink tower through
     // the S154 take-what-you-can escape after nearest-first armies razed its goblin tower), fed 10 → 17.
-    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front', substitute: 'listed' },
+    base: { towerOrder: ['goblin', 'race', 'pentagram', 'hub', 'voltkin'], repeatTower: 'first', saveHoldTicks: 1200, raAim: 'front', substitute: 'listed', entropyMaxConnectors: entropyBreakEvenConnectors(ENTROPY_LOSS_ACCEPTED.WARMONGER) },
     MID: { feed: 'leftovers' },
     HARD: { feed: 'eager' },
     /*
@@ -150,7 +187,7 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
      * stink>mummies | stink>zombies). Listed: it saves for its stink instead — measured 0.56 (stink>nagas>stink>goblin |
      * stink>mummies>stink | stink>zombies), stink FIRST on 3/3 seats. ⚠ MINE.
      */
-    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700, substitute: 'listed' },
+    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700, substitute: 'listed', entropyMaxConnectors: entropyBreakEvenConnectors(ENTROPY_LOSS_ACCEPTED.FORTRESS) },
     /*
      * ⭐ S194 (T7) RE-TUNE — after deploy #23's nearest-enemy-first targeting, adjacent IMBA armies raze each
      * other's opening goblin towers, and the S193 row (goblin > stink > laser > helga, hold 2700, any
@@ -172,7 +209,7 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
   },
   TYCOON: {
     // Empty order = cheapest first; repeating the FIRST = another cheap tower, many of them.
-    base: { repeatTower: 'first', saveHoldTicks: 900, buildCooldownScale: 0.8 },
+    base: { repeatTower: 'first', saveHoldTicks: 900, buildCooldownScale: 0.8, entropyMaxConnectors: entropyBreakEvenConnectors(ENTROPY_LOSS_ACCEPTED.TYCOON) },
     /*
      * ⭐ S194 R3 (porch +74 → +42) — measured with the S193 row: goblin>nagas>nagas | goblin | zombies×2, mean defence
      * 0.00, so TYCOON had become a Warmonger without the feeding (Q-E). Stink tower SECOND (the cheapest defence, in the

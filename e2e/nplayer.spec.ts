@@ -364,19 +364,29 @@ test.describe('S63 / S147 R41 - FULL-TABLE render: MAX_PLAYERS seated + avatars/
     // appears on the canvas (avatars + leaderboard rows). Same extract.pixels()
     // technique e2e/fog.spec.ts uses as its Pixi pixel arbiter. ±16/channel
     // tolerance is safe: the palette's min pairwise distance is ~92 (no cross-match).
+    // ⛔ S195 T22 (§E F2) — BOARD-FRAMED, TITLE HIDDEN, exactly as `e2e/fog.spec.ts` does. This test sets
+    // `gameState = 'PLAYING'` directly (above), without the frame that hides the title, so the S194 living
+    // HOME backdrop's embers were still composed and widened the stage's bounds by a different amount every
+    // frame; an unframed `extract.pixels(app.stage)` extracts those BOUNDS, so the read sampled an
+    // ember-sized, timing-dependent canvas. Framed to 0..1920 × 0..1080 it reads the board, every run.
     const renderedColors = await page.evaluate((colors) => {
       const spark = (
         window as unknown as {
           __SPARK__?: {
             app: {
               stage: unknown;
-              renderer: { extract: { pixels: (t: unknown) => { pixels: Uint8ClampedArray } } };
+              screen: { constructor: new (x: number, y: number, w: number, h: number) => unknown };
+              renderer: { extract: { pixels: (t: unknown) => { pixels: Uint8ClampedArray; width: number; height: number } } };
             };
+            titleScreen: { setVisible: (v: boolean) => void };
           };
         }
       ).__SPARK__;
       if (!spark) throw new Error('__SPARK__ not exposed');
-      const out = spark.app.renderer.extract.pixels(spark.app.stage);
+      spark.titleScreen.setVisible(false);
+      const board = new spark.app.screen.constructor(0, 0, 1920, 1080);
+      const out = spark.app.renderer.extract.pixels({ target: spark.app.stage, frame: board });
+      if (out.width !== 1920 || out.height !== 1080) throw new Error(`stage extract not board-framed: ${out.width}x${out.height}`);
       const px = out.pixels;
       const want = colors.map((c) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff]);
       const found = want.map(() => false);

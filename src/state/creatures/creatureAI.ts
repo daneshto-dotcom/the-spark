@@ -963,6 +963,18 @@ function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
   };
 }
 
+/** ⭐ S195 — is `zone` the chaser's home ground? Its home zone, or any other zone its seat owns (2v1 solo). */
+function isHomeZone(limits: ChaseLimits, zone: number | null): boolean {
+  return zone !== null && (zone === limits.homeZone || seatOwnsZone(limits.homeSeat, zone, limits.layout));
+}
+
+/** ⭐ S195 N11 — is the quarry going anywhere? Its path is `pos → targetPos`; under a pixel is "no path" (also rejects NaN). */
+function quarryHasPath(quarry: Creature): boolean {
+  const vx = quarry.targetPos.x - quarry.pos.x;
+  const vy = quarry.targetPos.y - quarry.pos.y;
+  return vx * vx + vy * vy >= 1;
+}
+
 /**
  * ⭐ S192 T6 (owner, refinement) — **CAN THE CHASER CUT THE QUARRY OFF BEFORE IT ARRIVES?**
  *
@@ -978,18 +990,13 @@ function chaseLimitsOf(world: World, chaser: Creature): ChaseLimits {
  * cut off, so this is false and only reach/zone can engage it. Pure arithmetic on synced state, so
  * the host, a worker and a successor all agree.
  */
-/** ⭐ S195 — is `zone` the chaser's home ground? Its home zone, or any other zone its seat owns (2v1 solo). */
-function isHomeZone(limits: ChaseLimits, zone: number | null): boolean {
-  return zone !== null && (zone === limits.homeZone || seatOwnsZone(limits.homeSeat, zone, limits.layout));
-}
-
 function interceptFeasible(limits: ChaseLimits, quarry: Creature, quarrySpeed: number): boolean {
   const ax = quarry.pos.x;
   const ay = quarry.pos.y;
   const vx = quarry.targetPos.x - ax;
   const vy = quarry.targetPos.y - ay;
   const len2 = vx * vx + vy * vy;
-  if (!(len2 >= 1)) return false; // no path to cut (also rejects NaN)
+  if (!(len2 >= 1)) return false; // no path to cut (also rejects NaN) — `quarryHasPath`
   let t = ((limits.pos.x - ax) * vx + (limits.pos.y - ay) * vy) / len2;
   if (t < 0) t = 0;
   else if (t > 1) t = 1;
@@ -1031,16 +1038,27 @@ function cannotCatch(limits: ChaseLimits, quarry: Creature, dSq: number): boolea
   if (dSq <= limits.reachSq) return false; // 1 — *"maybe they target it if it's around them"*
   if (!isNonCombatantType(quarry.type)) return false; // it can hit back — R184-A
   const quarrySpeed = getCreatureConfig(quarry.type).maxAccel;
-  if (quarrySpeed <= limits.giveUpAboveAccel) return false; // catchable: chase as before
+  if (quarrySpeed <= limits.giveUpAboveAccel) return false; // catchable: chase as before (ratio 1 since S195 N11)
   // 2 — home. ⭐ S193 audit: BOTH the quarry AND the chaser must stand in the chaser's own zone (*"you're
   // still in your zone"* = the unit's own position). Testing the quarry alone let a unit abroad near the
   // border re-acquire a drone crossing into its home zone at 88–202 px and turn back (2–4 pickups a drone).
-  if (
+  /*
+   * ⭐⭐ S195 N11 (owner) — **HOME NO LONGER ENGAGES BY ITSELF.** *"they should know … if they can't chase it
+   * down before he gets to his target or before he's out of reach … more dynamic and smart"* — his slow
+   * scarabs chased an incoming chewer across their own zone until a stink tower killed it. At home a MOVING
+   * quarry is engaged only if the intercept (3) is feasible; a quarry GOING NOWHERE is not getting away and is
+   * engaged as before. ⛔ S195 audit (HIGH) — "going nowhere" is a STATE, not a vector: a chewer committed to a
+   * connector is in ATTACKING and coasts (its `targetPos` stays on the bond midpoint, ~16 px off, so a
+   * "path under a pixel" test never fired for a real gnawer — only for hand-set fixtures). So: `ATTACKING`
+   * (a drone never enters it — drone cases unchanged) OR no path at all (`quarryHasPath`).
+   * Abroad, a stationary quarry is still dropped (S192: a drone idling at its hub is not chased across the map).
+   */
+  const home =
     limits.homeZone !== null &&
     isHomeZone(limits, zoneOf(limits.pos, limits.layout)) &&
-    isHomeZone(limits, zoneOf(quarry.pos, limits.layout))
-  ) return false;
-  if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off
+    isHomeZone(limits, zoneOf(quarry.pos, limits.layout)); // ⭐ S195 (teams) — any zone the seat owns (2v1 solo)
+  if (home && (quarry.state === 'ATTACKING' || !quarryHasPath(quarry))) return false;
+  if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)
   return true;
 }
 

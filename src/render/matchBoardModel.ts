@@ -104,6 +104,13 @@ export interface BoardRow {
   readonly takenFrom: readonly BoardSeatAmount[];
   /** ⭐ S194 — the most connectors it ever had standing at a wave edge (the BUILD chart's peak). */
   readonly peakBuilt: number;
+  /**
+   * ⭐ S195 N12 / B-17 — connectors this seat lost to the ENTROPY TAX (`SeatMatchStats.lostToEntropy`, the T22
+   * counter; 0 from an older host). ⛔ OWNER-ONLY on the board: the view prints it on the LOCAL seat's page only
+   * (*"only the player itself will see it, not all players"*) — the model carries it for every row so the rule
+   * lives in one place, the draw.
+   */
+  readonly lostToEntropy: number;
 }
 
 export interface BoardSeries {
@@ -399,6 +406,7 @@ export function matchBoardModel(world: World): MatchBoardModel | null {
           : []),
       ],
       peakBuilt: peakOf(seat),
+      lostToEntropy: s?.lostToEntropy ?? 0,
     };
   });
   const badges = assignBadges(baseRows);

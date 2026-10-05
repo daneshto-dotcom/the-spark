@@ -15,6 +15,35 @@
  * owner asked: does the match come back inside the RECONNECTING grace, before the terminal overlay?
  *
  * Tagged quarantine-flaky like reconnect.spec.ts: real 2-context WebRTC over public relays.
+ *
+ * ⚠ S195 T20 — STILL RED, and measured where it runs: CI run 37047025269 recovered at 37.5 s (attempt at 5.07 s);
+ * the cloud box (local relay — `node scripts/live-mp/local-nostr-relay.mjs`, then
+ * `VITE_TEST_NOSTR_RELAYS=ws://127.0.0.1:<port> npx playwright test e2e/reconnect-hard-blip.spec.ts`) recovered at
+ * 41.5 / 28.4 / 53.3 s. Two runs traced with an RTCPeerConnection tracer on both pages plus the relay's own
+ * message trace. Run 1 (28.4 s): ONE attempt, its handshake completed. Run 2 (53.3 s): TWO attempts — the
+ * first at +8.1 s, the 35 s `RECONNECT_RETRY_MS` retry at +43.3 s — and the FIRST attempt's ICE reached
+ * `connected` only at +44.7/+45.9 s, i.e. THROUGH the second attempt's `disconnect strategy=nostr`; the match
+ * came back at +53.3 s only because Trystero's shared peer kept that RTCPeerConnection alive across the room
+ * leave (the S192 class the `reconnectPolicy.ts` RECONNECT_RETRY_MS docblock warns about — a retry can only
+ * hurt an attempt that is about to land). No second SDP exchange and no `after exchanging SDP` error in either
+ * run. The time is the sum of loss detection (`pc.close()` fires NO local connectionstatechange — the joiner
+ * learns of its own blip from the datachannel close event, 1.4–4.6 s here), the 1 s first-retry delay, the
+ * leave→connect handoff (2.7–5 s), the wait for the other side's next announce (≤ 5.3 s), and 5–10 s of
+ * page-side processing per signalling hop on a starved renderer. A FRESH join on that box takes 15–25 s against
+ * the 6.3 s this header quotes, so the grace is shorter than one re-handshake on a slow machine. OPEN: whether a
+ * transport.ts change (e.g. not tearing down an attempt whose ICE is still progressing) is owed — the traced
+ * teardown-survival was luck, not design. The player-facing half is handled by policy (owner B-13:
+ * RECONNECTING… stays up while the attempt is in flight — `rejoinAttemptInFlight`, src/net/reconnectPolicy.ts),
+ * and this spec keeps measuring the TIME.
+ *
+ * ⚠ S195 T20 — T8's suspect (Trystero `signal-handler.mjs` ~:392-410: an announce or offer from a peer whose
+ * `connectedPeer` channel is still `open` is IGNORED until the connection reads stale, or transient + 7.5 s) is
+ * ruled out ONLY for THIS blip shape: `pc.close()` sends an SCTP abort, so the host saw `onPeerLeave` at +1.9 /
+ * +5.8 s and its state was clean before the joiner's first announce. A SILENT drop (sleeping laptop, dead Wi-Fi)
+ * sends nothing: the host's channel stays `open` until ICE fails (measured here +13.2 s disconnected / +21.7 s
+ * failed even WITH the abort), and every announce in that window hits the early-return. NOT observed here, NOT
+ * ruled out for production. Owed reproduction (desktop, live-mp harness): block UDP on one side instead of
+ * `pc.close()`, and read the host's signal-handler path for the joiner's first announces.
  */
 import { test, expect } from '@playwright/test';
 import { canvasToCss, hostNewRoom, joinRoom, readWorldState, waitForWorld } from './helpers.ts';

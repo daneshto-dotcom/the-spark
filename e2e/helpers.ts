@@ -19,6 +19,23 @@ export const CANVAS_WIDTH = 1920;
 export const CANVAS_HEIGHT = 1080;
 /** Mirrors src/constants.ts SPAWNER_RADIUS (halved 250 → 125 in S135) + the disc centre. */
 export const SPAWNER_RADIUS = 125;
+
+/**
+ * ⭐ S195 (ci-budgets) — THE WHOLE-TEST BUDGET FOR A 2-PEER LOBBY TEST THAT DOES NOT BUILD, shared by the
+ * four `e2e-lobby` tests that are not the late-4th-joiner (S46 Baseline, S155 join-stall ×2, S155
+ * exit-from-multiplayer). Measured on CI run 37047025269 (net-mp tree, from the job logs): the two-peer
+ * connect alone runs 40–60 s on a GitHub runner, so the 60 s config default fired with the peers still
+ * handshaking — join-stall:109 red ×3 at `Test timeout of 60000ms` while retry #2's console already carried
+ * the JOIN STALLED line; exit-match PASSED retry #2 at 59 s; join-stall:85 PASSED at 58.6 s. That is a clock
+ * running out, not an assertion failing (CI-slowness, not CI-network — the pairs DO connect).
+ *
+ * ONE constant so one number serves all four; `src/ci.e2eLanes.test.ts` reads it from HERE, asserts every
+ * one of the four calls `test.setTimeout(LOBBY_2PEER_BUDGET_MS)`, and derives the `e2e-lobby` lane cap
+ * (3 attempts × (late-joiner + 4 × this)) from it — so moving this number without moving e2e.yml is RED.
+ * A build-ing two-peer spec uses smoke.spec's `TWO_PEER_BUILD_BUDGET_MS` (240 s) instead. ⚠ MINE (2× the
+ * slowest measured pass, 59 s).
+ */
+export const LOBBY_2PEER_BUDGET_MS = 120_000;
 const ZONE_CX = CANVAS_WIDTH / 2;
 const ZONE_CY = CANVAS_HEIGHT / 2;
 

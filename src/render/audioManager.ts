@@ -36,7 +36,9 @@
 
 import { CANVAS_HEIGHT, CANVAS_WIDTH, RAINBOW_YELL_FRESH_TICKS } from '../constants.ts';
 import type { GameEffect } from '../game/effects.ts';
-import type { Vec2 } from '../types.ts';
+import type { PlayerId, Vec2 } from '../types.ts';
+import { helgaInvolvesSeat, type HelgaAudienceDefender, type HelgaAudienceWorld, type HelgaVictimMemo } from './coherence/helgaAudience.ts';
+import { concealmentContext } from './concealment.ts';
 // Audit Pass 2 fix 622a7c7f — register the cursor-reset handler with the
 // state-layer publisher. Replaces the pre-Pass-2 pattern where save.ts
 // directly imported `resetAudioDrainCursor` from this file (a state→render
@@ -1014,11 +1016,18 @@ let helgaThemeSource: AudioBufferSourceNode | null = null;
 let helgaThemeActive = false;
 let lastHelgaEngagedTick = -1;
 
-/** Minimal structural view of the world the theme resolver reads (decoupled from the state layer). */
-interface HelgaThemeWorldView {
+/**
+ * Minimal structural view of the world the theme resolver reads (decoupled from the state layer).
+ * ⭐ S195 T19 (owner N4) — `localPlayerId` and `creatures` are what the AUDIENCE gate reads (see
+ * `coherence/helgaAudience.ts`); a view without a seat (the pre-S195 tests) keeps the pre-S195 "any Helga" read.
+ */
+interface HelgaThemeWorldView extends HelgaAudienceWorld {
   tick: number;
-  defenders: ReadonlyMap<unknown, { kind: string; state: string; targetCreatureId: unknown }>;
+  defenders: ReadonlyMap<unknown, HelgaAudienceDefender>;
+  localPlayerId?: PlayerId | null;
 }
+/** N4 — the last victim seat per Helga, so her theme stays on for the seat whose unit she just felled. */
+const helgaVictimMemo: HelgaVictimMemo = new Map();
 
 async function getHelgaThemeBuffer(): Promise<AudioBuffer | null> {
   if (audioContext === null) return null;
@@ -1072,11 +1081,22 @@ function stopHelgaTheme(resumeBase: boolean): void {
  * pin it: S192 T5 walks her in BUILD and relies on this staying FALSE through that walk — she patrols
  * in `IDLE` with a null target precisely so her theme does not play all build stage.
  */
-export function isHelgaEngagedRaw(world: HelgaThemeWorldView): boolean {
+export function isHelgaEngagedRaw(
+  world: HelgaThemeWorldView,
+  /**
+   * ⭐ S195 T19 (owner N4, VERIFIED and FIXED): the seat that must be in her AUDIENCE — her owner, or the
+   * owner of the unit she is on — for her theme to count. `null` = no gate, the pre-S195 "any Helga" read
+   * (kept for the sim-side pins that ask whether ANY Helga is engaged).
+   */
+  audienceSeat: PlayerId | null = null,
+): boolean {
   for (const d of world.defenders.values()) {
     if (d.kind !== 'princess') continue;
-    if (d.state === 'DORMANT') continue; // S189 R190-J — a dead Helga must not hold her theme on
-    if (d.state !== 'IDLE' || d.targetCreatureId !== null) return true;
+    if (d.state === 'DORMANT') { helgaVictimMemo.delete(d.id); continue; } // S189 R190-J — a dead Helga must not hold her theme on
+    const engaged = d.state !== 'IDLE' || d.targetCreatureId !== null;
+    // Resolved for every Helga, engaged or not, so the memo tracks her exchange from the first WALK tick.
+    const involved = audienceSeat === null || helgaInvolvesSeat(world, d, audienceSeat, helgaVictimMemo);
+    if (engaged && involved) return true;
   }
   return false;
 }
@@ -1091,7 +1111,7 @@ export function updateHelgaTheme(world: HelgaThemeWorldView): void {
     if (helgaThemeActive) stopHelgaTheme(false);
     return;
   }
-  const engagedRaw = isHelgaEngagedRaw(world);
+  const engagedRaw = isHelgaEngagedRaw(world, world.localPlayerId ?? null); // N4 — only the two seats involved
   if (engagedRaw) lastHelgaEngagedTick = world.tick;
   const engaged = engagedRaw
     || (lastHelgaEngagedTick >= 0 && world.tick - lastHelgaEngagedTick < HELGA_DISENGAGE_DEBOUNCE_TICKS);
@@ -1389,6 +1409,10 @@ export function _resetAudioForTest(): void {
   nonetFetchPromise = null;
   nonetSource = null;
   nonetRealmActive = false;
+  // ⭐ S195 T19 — the sound-slot latches and counters, and the Helga audience memo (N4).
+  slotAbsent.clear(); slotPresent.clear(); slotProbe.clear();
+  for (const k of Object.keys(slotFired) as SfxSlot[]) { slotFired[k] = 0; slotSilenced[k] = 0; }
+  helgaVictimMemo.clear();
   nonetSilentEntries = 0;
   nonetLoadFailures = 0;
   musicBuffers.clear();
@@ -1925,11 +1949,107 @@ export async function playPantsSFX(pos?: Vec2): Promise<void> {
   await playOneShot(PANTS_SFX_URL, pos);
 }
 
+/*
+ * ⭐ S195 T19 (merge-owner call, S195_OWNER_RULINGS "Turn 3": *"Unit-death and stink-tower / castle-gun fire
+ * SOUND SLOTS get wired silent; he auditions one file each later"*) — **THE SOUND SLOTS. DROPPING A FILE IN IS
+ * THE WHOLE CHANGE.**
+ *
+ * Every trigger below is wired today and plays NOTHING until the file named here exists under `public/`.
+ * A missing file is SILENT, not an error: the first trigger of a slot probes the URL once, and a 404 (or a
+ * SPA fallback page, which is what GitHub Pages and the dev server answer with) latches the slot absent for
+ * the session — no per-trigger fetch, no console warning per death. The owner drops the .ogg at the path,
+ * reloads, and the slot is live. `_resetAudioForTest` clears the latches.
+ *
+ * | slot | the trigger (every one derived per frame from SYNCED state — never a one-shot `world.effects` push,
+ *          which a joiner loses ~5/6 of the time; see `CLAUDE.md` "Protocol version") | who hears |
+ * |---|---|---|
+ * | `unitFalls` | `coherence/unitDeathRenderer.ts` — a `'killed'` departure of any unit WITHOUT its own death
+ *   sound (the chewer's splat, the Voltkin's zap burst and the pants keep theirs: `UNIT_FALLS_OWN_SOUND`), and
+ *   Helga's DORMANT edge (`princessRenderer.ts`, B-7) | everyone who can see the spot (fog rule) |
+ * | `stinkTowerFire` | `stinkTowerRenderer.ts` — the synced FIRE edge, like the laser | everyone not fogged |
+ * | `castleGunFire` | `coherence/syncedCuesRenderer.ts` — `ticksSinceCastleShot` edge, the gates of
+ *   `castleGunsTick` mirrored | everyone (the keep is never fogged) |
+ * | `entropyBoing` | `drainAudioEffects` — `BOND_SEVERED cause:'entropy'` whose `victim` IS the local seat
+ *   (owner B-14/N12: *"only the player that … lost the connector should hear it … a little boing"*) | the loser |
+ *
+ * ⚠ `entropyBoing` is the ONE slot that rides `world.effects`: the entropy tax leaves no synced per-seat
+ * trace yet (N12's tree adds the readable stat; when its field lands, move this trigger onto it). On the
+ * HOST the effect is 100 %; a JOINER hears it ~1/6 of the time. Stated here, not hidden.
+ */
+export const SFX_SLOTS = {
+  unitFalls: '/audio/sfx/unit-falls.ogg',
+  stinkTowerFire: '/audio/sfx/stink-tower-fire.ogg',
+  castleGunFire: '/audio/sfx/castle-gun-fire.ogg',
+  entropyBoing: '/audio/sfx/entropy-boing.ogg',
+} as const;
+export type SfxSlot = keyof typeof SFX_SLOTS;
+
+/** Slots whose file probed absent this session (latched: one fetch per slot, then silence). */
+const slotAbsent = new Set<SfxSlot>();
+/** Slots probed present (the one-shot cache then serves every later trigger). */
+const slotPresent = new Set<SfxSlot>();
+const slotProbe = new Map<SfxSlot, Promise<boolean>>();
+/** Slot triggers that reached `playOneShot` — the REACH seam for tests, per slot. */
+const slotFired: Record<SfxSlot, number> = { unitFalls: 0, stinkTowerFire: 0, castleGunFire: 0, entropyBoing: 0 };
+/** Slot triggers swallowed because the file is absent — the "silent, not an error" seam. */
+const slotSilenced: Record<SfxSlot, number> = { unitFalls: 0, stinkTowerFire: 0, castleGunFire: 0, entropyBoing: 0 };
+
+/** Does the slot's file exist? One probe per slot per session; a non-OK status or an HTML answer is "absent". */
+async function probeSlot(slot: SfxSlot): Promise<boolean> {
+  if (slotPresent.has(slot)) return true;
+  if (slotAbsent.has(slot)) return false;
+  let pending = slotProbe.get(slot);
+  if (pending === undefined) {
+    pending = (async (): Promise<boolean> => {
+      try {
+        const res = await fetch(SFX_SLOTS[slot]);
+        const type = typeof res.headers?.get === 'function' ? (res.headers.get('content-type') ?? '') : '';
+        const ok = res.ok && !/text\/html/i.test(type);
+        (ok ? slotPresent : slotAbsent).add(slot);
+        return ok;
+      } catch {
+        slotAbsent.add(slot);
+        return false;
+      } finally {
+        slotProbe.delete(slot);
+      }
+    })();
+    slotProbe.set(slot, pending);
+  }
+  return pending;
+}
+
+/**
+ * Play a slot's file, positional, through the SFX bus — or nothing at all when the file is not there.
+ * Resolves true only when the sample actually started (the `playOneShot` contract).
+ */
+export async function playSlotSFX(slot: SfxSlot, pos?: Vec2): Promise<boolean> {
+  if (slotAbsent.has(slot)) { slotSilenced[slot] += 1; return false; }
+  if (ensureAudio() === null) return false;
+  if (!(await probeSlot(slot))) { slotSilenced[slot] += 1; return false; }
+  slotFired[slot] += 1;
+  return playOneShot(SFX_SLOTS[slot], pos);
+}
+
+/** Test seam: how often each slot reached the player, and how often it was silenced by a missing file. */
+export function slotSfxCounts(): { fired: Readonly<Record<SfxSlot, number>>; silenced: Readonly<Record<SfxSlot, number>>; absent: readonly SfxSlot[] } {
+  return { fired: { ...slotFired }, silenced: { ...slotSilenced }, absent: [...slotAbsent].sort() };
+}
+
 /**
  * Drain effects for audio. Iterates effects, fires SFX for new ticks, advances
  * the cursor. Replay-safe: effects with tick <= cursor are skipped silently.
  */
-export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTick: number): void {
+export function drainAudioEffects(
+  effects: ReadonlyArray<GameEffect>, currentTick: number,
+  /**
+   * ⭐ S195 T19 — the LOCAL seat, for the one owner-only slot (`entropyBoing`). Defaults to this frame's
+   * concealment context (`beginConcealmentFrame` runs before every renderer in `main.ts`), so the call site's
+   * literal `drainAudioEffects(world.effects, world.tick)` — pinned by `ui.drainOrder.test.ts` — is unchanged.
+   * Tests pass the seat explicitly; no context (a test, the title) = no seat = silent.
+   */
+  localSeat: PlayerId | null = concealmentContext().localPlayerId,
+): void {
   // S23 P4 — strict `<` not `<=`. Same-tick events emitted by click handlers
   // between physics ticks (world.tick stable across the dispatch boundary)
   // would otherwise hit `eff.tick === lastDrainedTick` and be silently
@@ -1955,11 +2075,14 @@ export function drainAudioEffects(effects: ReadonlyArray<GameEffect>, currentTic
       void playFartSFX(effect.pos);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'entropy') {
       /*
-       * ⭐ S194 (R194-18) — DELIBERATELY SILENT, for the reason the `'unit'` arm below is: a sound is an
-       * owner taste call, and the entropy tax can snap a dozen connectors on one tick — one SFX per snap
-       * would be a burst of noise at every FIGHT whistle. The toast carries the news. Written out so it
-       * cannot fall through into the Voltkin crackle arm by accident.
+       * ⭐ S194 (R194-18) — was DELIBERATELY SILENT (a sound is an owner taste call; the toast carried the news).
+       * ⭐ S195 T19 (owner B-14 / N12, RULED): *"a minor sound when someone loses a connector … only the player
+       * that … lost the connector should hear it … a little boing … a spring … from an old bed"* — the
+       * `entropyBoing` SLOT, silent until he drops the file in (`SFX_SLOTS`). Gated on `victim` being the
+       * LOCAL seat, so the three other players hear nothing; a dozen snaps on one tick are one tick's worth
+       * of triggers, capped by the one-shot voice pool. Written out so it cannot fall into the crackle arm.
        */
+      if (localSeat !== null && effect.victim === localSeat) void playSlotSFX('entropyBoing', effect.pos);
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'unit') {
       /*
        * ⛔⛔ S182 — DELIBERATELY SILENT, AND WRITTEN OUT RATHER THAN LEFT TO FALL THROUGH.
@@ -2069,6 +2192,9 @@ export function resetAudioDrainCursor(): void {
   // re-evaluates from synced state next frame and re-starts it if a princess is still engaged.
   lastHelgaEngagedTick = -1;
   stopHelgaTheme(false);
+  // ⭐ S195 (coherence-2 audit, LOW) — the N4 victim memo is per MATCH: DefenderIds restart, so a stale
+  // id→seat entry would hand a new Helga's theme to last match's victim seat. Same class as the S182 fuse leak.
+  helgaVictimMemo.clear();
 }
 
 // Audit Pass 2 fix 622a7c7f — register with the state-layer publisher at

@@ -561,7 +561,7 @@ describe('S193 merge — every owner predicate on master treats a pants as an en
     'src/state/structureRepair.ts': { n: 2, verdict: 'FIX / SCRAP: a seat\'s own shapes only (seatStructureAt + reclaimScopeAt)' },
     'src/state/towerUnit.ts': { n: 2, verdict: 'a fallen stamp is grouped from ONE placer\'s shapes — a pants places none' },
     // ⭐ S195 N1 — vision.ts's sight filters ask `sameTeam` now (no inline compare): seat 255 is nobody's teammate, so a pants still grants none.
-    'src/bots/botBrain.ts': { n: 9, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none — S194 teams: the rest ask sameTeam' },
+    'src/bots/botBrain.ts': { n: 12, verdict: 'a bot\'s own shapes/gatherers — seats only; chooseFeed: own spawners; a pants owns none — S194 teams: the rest ask sameTeam; S195 T22: +3 `placedBy === seat` in ownStructures / entropySafeSources / freshStructurePos (the bot\'s OWN structures, is-this-MINE)' },
   };
 
   it('the enumeration is complete and every site has a verdict (a new comparison turns this red)', () => {

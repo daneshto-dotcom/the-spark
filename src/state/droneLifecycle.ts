@@ -20,9 +20,8 @@
  */
 
 import type { World } from './world.ts';
-import { sameTeamColor } from './teams.ts';
 import { dispatch } from './world.ts';
-import type { BondId, CreatureId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
+import type { BondId, CreatureId, DefenderId, PlayerId, PrimitiveId, SpawnerId, Vec2 } from '../types.ts';
 import { bondMidpoint, isEnemyBond } from './creatures/creatureAI.ts';
 import {
   PLAYER_COLORS,
@@ -31,8 +30,10 @@ import {
   DRONE_MAX_GLOBAL,
   DRONE_MAX_PER_SPAWNER,
 } from '../constants.ts';
-import { applyRadialDamage } from './damage.ts';
-import { creatureAttackFifths } from './creatures/creature.ts';
+import { damageEntity, type DamageTarget } from './damage.ts';
+import { creatureAttackFifths, type Creature } from './creatures/creature.ts';
+import { BLAST_KIND_WEIGHT_DEFAULT, blastSplitWeight, splitBlastPool } from './blastFalloff.ts'; // ⭐ S195 B-10
+import { sameTeam, sameTeamColor } from './teams.ts';
 
 /*
  * ⭐ S160 P5 (owner R77) — **THE DRONE'S AoE DAMAGE, WHICH IT NEVER HAD.** The last unbuilt item on
@@ -73,6 +74,83 @@ export function underDroneCaps(world: World, sourceSpawnerId: SpawnerId): boolea
 }
 
 /**
+ * ⭐⭐ S195 B-10 (owner, RULED) — **THE DRONE'S SPLASH IS ONE POOL, SPLIT — NOT A FULL HIT PER UNIT.**
+ *
+ * > *"it should be like a total pool of damage that he does … spread out between all the units. Not like
+ * > he kills all the units around … I saw him this game kill like four units around."* — owner, S195
+ *
+ * ⚠ MINE (merge-owner call, S195 turn 3) — THE POOL IS THE DRONE'S OWN STRIKE: `creatureAttackFifths(drone)`
+ * = `attackFifths(DRONE_ATK 5, DRONE_PEN 1)` = **30** fifths undrafted (R77's *"5 damage(atk) and 1 pierce in an
+ * area of effect"*), drafted-buffed like every S190 strike. Reasoning: 30 was already the number ONE unit in the
+ * blast took, so a lone victim is unchanged and a crowd now shares what one of them used to take — the smallest
+ * move that gives him "a total pool". His alternatives: a bespoke pool constant (off the ladder — this project's
+ * most-repeated defect), or 2 × the strike (a crowd of two keeps today's per-unit hit). Overrule on sight.
+ */
+export function droneSplashPoolFifths(drone: Creature): number {
+  return creatureAttackFifths(drone);
+}
+
+type DroneSplashKind = 'creature' | 'defender' | 'primitive';
+/** Total-order tiebreak after distance — the hub's convention (`HUB_BLAST_KIND_RANK`), connectors excluded. */
+const DRONE_SPLASH_KIND_RANK: Readonly<Record<DroneSplashKind, number>> = { creature: 0, defender: 1, primitive: 2 };
+
+export interface DroneSplashShare {
+  readonly kind: DroneSplashKind;
+  readonly id: number;
+  readonly d2: number;
+  /** Its share of the pool, in fifths — integers that sum to EXACTLY the pool (`splitBlastPool`). */
+  readonly amount: number;
+}
+
+/**
+ * ⭐ S195 B-10 — WHO THE DRONE'S SPLASH REACHES, IN WHAT ORDER, FOR HOW MUCH. Pure: reads the world, mutates
+ * nothing; `applyDroneExplode` executes it (collect first, mutate second — `applyRadialDamage`'s discipline).
+ *
+ * WHO — exactly the set `applyRadialDamage` hit until S195, so ONLY the amount rule changes: every creature,
+ * every unit-class defender (Helga — `ehp !== null`; a tower has no pool, R75) and every SHAPE inside
+ * `DRONE_EXPLODE_RADIUS` whose side is not the drone's (`sameTeam` — FFA: its owner, byte-identical to the
+ * old `spared`). ⚠ Shapes INSIDE a structure are hit, as before (the S179 "three drones fell a shape" rule was
+ * about a structure member); the hub's free-shapes-only rule is NOT adopted here — that would be a second
+ * change nobody ruled. The connector arm below is untouched: his COUNT ruling (*"3 connectors per lightning"*).
+ *
+ * ORDER — a TOTAL order: squared distance (nearest first), then kind, then id. Never `Map` order.
+ *
+ * HOW MUCH — the pool split by distance exactly as the hub's (`blastSplitWeight`: `max(1, floor(R − d))`,
+ * kind weight `BLAST_KIND_WEIGHT_DEFAULT` 1 : 1 — ⚠ MINE, the hub's default), the leftover fifths one apiece
+ * nearest-first, so the shares are integers summing to EXACTLY the pool (R193-B4: closer = more, §9d-5).
+ */
+export function planDroneSplash(world: World, cx: number, cy: number, radius: number, owner: PlayerId, pool: number): DroneSplashShare[] {
+  const r2 = radius * radius;
+  const found: Array<{ kind: DroneSplashKind; id: number; d2: number }> = [];
+  const at = (kind: DroneSplashKind, id: number, x: number, y: number): void => {
+    const dx = x - cx;
+    const dy = y - cy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= r2) found.push({ kind, id, d2 });
+  };
+  for (const [id, c] of world.creatures) if (!sameTeam(world, c.ownerPlayerId, owner)) at('creature', id as number, c.pos.x, c.pos.y);
+  for (const [id, d] of world.defenders) {
+    if (d.ehp !== null && !sameTeam(world, d.ownerPlayerId, owner)) at('defender', id as number, d.pos.x, d.pos.y);
+  }
+  for (const [id, p] of world.primitives) if (!sameTeam(world, p.placedBy, owner)) at('primitive', id as number, p.pos.x, p.pos.y);
+  found.sort((a, b) => a.d2 - b.d2 || DRONE_SPLASH_KIND_RANK[a.kind] - DRONE_SPLASH_KIND_RANK[b.kind] || a.id - b.id);
+  if (found.length === 0) return [];
+  const shares = splitBlastPool(pool, found.map((t) => blastSplitWeight(t.d2, radius, BLAST_KIND_WEIGHT_DEFAULT)));
+  return found.map((t, i) => ({ ...t, amount: shares[i]! }));
+}
+
+function droneSplashTarget(kind: DroneSplashKind, id: number): DamageTarget {
+  switch (kind) {
+    case 'creature':
+      return { kind, id: id as unknown as CreatureId };
+    case 'defender':
+      return { kind, id: id as unknown as DefenderId };
+    case 'primitive':
+      return { kind, id: id as unknown as PrimitiveId };
+  }
+}
+
+/**
  * The drone detonates: a radial sever of <= DRONE_MAX_CONNECTORS ENEMY bonds within
  * DRONE_EXPLODE_RADIUS of the drone, nearest-first (lowest-BondId tie-break), then despawn.
  * No-op (idempotent) if the drone is already gone (stale fan-out snapshot — defense-in-depth).
@@ -80,7 +158,7 @@ export function underDroneCaps(world: World, sourceSpawnerId: SpawnerId): boolea
 export function applyDroneExplode(world: World, action: DroneExplodeAction): World {
   const drone = world.creatures.get(action.creatureId);
   if (drone === undefined) return world;
-  const blastFifths = creatureAttackFifths(drone); // ⭐ S190 — the drone's own baked strike
+  const blastFifths = droneSplashPoolFifths(drone); // ⭐ S190 — the drone's own baked strike; ⭐ S195 B-10 — now the POOL
   const cx = drone.pos.x;
   const cy = drone.pos.y;
 
@@ -201,18 +279,18 @@ export function applyDroneExplode(world: World, action: DroneExplodeAction): Wor
    * primitive takes its bonds with it. The sever loop re-checks `world.bonds.get(bondId)` and skips
    * what is already gone, which is the same stale-entry defence it already had for sibling drones.
    */
-  applyRadialDamage(
-    world,
-    cx,
-    cy,
-    DRONE_EXPLODE_RADIUS,
-    blastFifths, // ⭐ S177 P1 — ONE LADDER: the shape arm is the unit arm.
-    blastFifths,
-    'creature',
-    drone.ownerPlayerId, // spares the side that sent it — the contract every area hazard here holds
-    'physical', // S192 — it BLOWS UP (R192-M3); not on his magic list
-    'distance', // ⭐ S193 R193-B4 — closer = more; the connector severs below stay his COUNT ruling
-  );
+  /*
+   * ⭐⭐ S195 B-10 (owner) — ONE POOL, SPLIT. Until S195 this was `applyRadialDamage(…, blastFifths, blastFifths,
+   * 'creature', owner, 'physical', 'distance')`: the full 30 to EVERY unit and shape in the radius, falling to
+   * 15 at the rim — *"I saw him this game kill like four units around."* Now `planDroneSplash` shares the ONE
+   * pool (`droneSplashPoolFifths`, ⚠ MINE above) over the same set by distance, the hub's way. Same source
+   * (`'creature'`), same seat credit (⭐ S191 — a blast names no ENTITY, nobody retaliates), same class
+   * (`'physical'`, R192-M3), same sparing (the side that sent it — the contract every area hazard here holds).
+   */
+  for (const t of planDroneSplash(world, cx, cy, DRONE_EXPLODE_RADIUS, drone.ownerPlayerId, blastFifths)) {
+    if (t.amount === 0) continue; // a far target among many may take 0 — a fifth is the ladder's smallest unit
+    damageEntity(world, droneSplashTarget(t.kind, t.id), t.amount, 'creature', { kind: 'seat', seat: drone.ownerPlayerId }, 'physical');
+  }
 
   const arcStart: Vec2 = { x: cx, y: cy };
   let severed = 0;

@@ -1,5 +1,8 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## EXACT NEXT STEP (L6 — cloud train)
+LANDED as S195-#6 e06fab28 (PROTOCOL 68, 1202.6/1350 KiB, all local lanes green, deploy 37350728256 success, verify 4/4). CI E2E per lane recorded in the dispatch log. HOLDING for s195/lag, then s195/teams, one at a time when the merge owner sends them. ⚠ The merge owner stages files in this checkout: commit ONLY my paths (`git commit <paths>`).
+
 ## STATUS (L5): COMPLETE — S195-#5 7ceae8eb LIVE, verify 4/4, CI gating lanes all green (details in S195_DISPATCH_LOG.md). HOLDING per R195-0g; no next step.
 
 ## (L1–L4) STATUS: COMPLETE

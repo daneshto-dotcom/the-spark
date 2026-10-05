@@ -374,6 +374,8 @@ export class DraftOverlay {
   private readonly racialMark: Text;
   private readonly tipPlate = new Graphics();
   private hover: DraftTile | null = null;
+  /** ⭐ S195 N5 — the pointer is DOWN on the panel; the lit tile skins as `press` while it is. */
+  private pressed = false;
   /** The options last DRAWN. The pointer handlers read these, never a fresh recomputation. */
   private opts: DraftOptions | null = null;
   private readonly cards = new Map<string, CardState>();
@@ -484,6 +486,17 @@ export class DraftOverlay {
     this.container.on('pointerleave', () => {
       this.hover = null;
     });
+    /*
+     * ⭐ S195 N5 (owner: *"everything clickable should actually show that it's clicking"*) — the press
+     * latch. `pointerupoutside` clears it too, so a drag off the panel never leaves a tile sunk.
+     * Primary button only, matching the tap below: a right-click cannot pick, so it must not look
+     * like it is about to.
+     */
+    this.container.on('pointerdown', (e: FederatedPointerEvent) => {
+      if (e.button === 0) this.pressed = true;
+    });
+    this.container.on('pointerup', () => { this.pressed = false; });
+    this.container.on('pointerupoutside', () => { this.pressed = false; });
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
       /*
        * ⛔ PRIMARY BUTTON ONLY. Pixi v8 dispatches `pointertap` for EVERY button
@@ -614,9 +627,10 @@ export class DraftOverlay {
 
     const uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     this.glass.clear();
-    skinButtonFx(this.glass, g.x, g.y, g.w, g.h, { accent: PLATE_EDGE, state: litGeneral ? 'hover' : 'rest', radius: CORNER, t: uiNow });
+    // ⭐ S195 N5 — a lit tile under a held pointer sinks (`press`); same rects, only the state moves.
+    skinButtonFx(this.glass, g.x, g.y, g.w, g.h, { accent: PLATE_EDGE, state: litGeneral ? (this.pressed ? 'press' : 'hover') : 'rest', radius: CORNER, t: uiNow });
     skinButtonFx(this.glass, r.x, r.y, r.w, r.h, {
-      accent: RACE_COLORS[race], state: !liveRacial ? 'disabled' : litRacial ? 'hover' : 'rest', radius: CORNER, t: uiNow,
+      accent: RACE_COLORS[race], state: !liveRacial ? 'disabled' : litRacial ? (this.pressed ? 'press' : 'hover') : 'rest', radius: CORNER, t: uiNow,
     });
     this.frames.clear();
     this.frames

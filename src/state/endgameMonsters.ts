@@ -64,20 +64,26 @@ export function monsterBirthPos(world: World, seat: PlayerId): Vec2 {
   };
 }
 
-/**
- * Release this tick's due pants — ⭐ HIS PACE, one at a time out of the circle (`monstersDueBy`), on
- * his counts (`MONSTER_WAVE_PER_SEAT`). Release `k` goes to lane `lanes[k mod N]` (S194: the seats that started the fight), so every seat's
- * share grows at the same rate (*"10 … for each of those two players"*).
- *
- * The clock is `monsterFightStartTick` (synced), NOT the deadline: a monster fight HOLDS its deadline
- * while pants are still to come out (`isMonsterFightHeld`), so the deadline no longer says when the
- * fight began. Then, in the final fight only, the MEGA PANTS (`megaPantsDue`).
- */
 /** ⭐ S194 R194-27 — the measured live cap's per-seat share: `MONSTER_MAX_LIVE_TOTAL` split over the living seats. */
 export function monsterMaxLivePerSeat(living: number): number {
   return living <= 0 ? 0 : Math.floor(MONSTER_MAX_LIVE_TOTAL / living);
 }
 
+/**
+ * Release this tick's due pants — ⭐ HIS PACE (S194 R194-17, `PANTS_WINDOW_SECONDS`): the whole wave comes
+ * out EVENLY across the wave's window (`pantsWindowTicks`, 30/45/60/90/120 s), the first at the whistle and
+ * the last exactly at the window's end (`monstersDueBy`), on his counts (`MONSTER_WAVE_PER_SEAT`). Still one
+ * release per tick, lanes staggered; the old emerge cadence (`MONSTER_EMERGE_TICKS`) is retired in place and
+ * unread. Release `k` goes to lane `lanes[k mod N]` (S194: the seats that started the fight), so every
+ * seat's share grows at the same rate (*"10 … for each of those two players"*).
+ *
+ * The clock is `monsterFightStartTick` (synced), NOT the deadline: a monster fight's length is set at the
+ * whistle (`monsterFightTicks`) and still HOLDS while pants are to come out (`isMonsterFightHeld`), so the
+ * deadline does not say when the fight began. Then, in the final fight only, the MEGA PANTS (`megaPantsDue`).
+ *
+ * (S195 carry-forward: until this edit the block above sat over `monsterMaxLivePerSeat` — orphaned by the
+ * S194 insert — and still described the retired emerge pace as current.)
+ */
 export function tickEndgameSpawner(world: World): void {
   if (world.gameState !== 'PLAYING' || world.matchPhase !== 'FIGHT') return;
   if (world.monsterFightStartTick <= 0) return;

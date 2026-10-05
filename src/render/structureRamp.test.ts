@@ -15,6 +15,7 @@ import {
   HUB_SPRITE_PX,
   HUB_SUBJECT_FILL,
   RAMP_SPECS,
+  RAMP_SPECS_PENDING_ART,
   advanceRampCursor,
   rampCell,
   rampDeathFirstFrame,
@@ -109,9 +110,27 @@ describe('the registry', () => {
   });
 
   it('returns null for a recipe with no ramp art — the towers still on the old path', () => {
-    expect(rampSpecFor('stinkTower' as GodlyId)).toBeNull();
     expect(rampSpecFor('voltkin' as GodlyId)).toBeNull();
     expect(rampSpecFor('t3TowerOrcs' as GodlyId)).toBeNull();
+  });
+
+  /**
+   * ⭐ S195 T19 (owner B-8) — the STINK TOWER is wired AHEAD of its art: a row in `RAMP_SPECS_PENDING_ART`,
+   * resolved by `rampSpecFor`, kept out of `RAMP_SPECS` (whose sheets must be on disk — the atlas test).
+   */
+  it('⭐ S195 — the stink tower resolves through the PENDING-ART list, derived from its blueprint like the five', () => {
+    expect(RAMP_SPECS_PENDING_ART.map((s) => s.recipeId)).toEqual(['stinkTower']);
+    expect(RAMP_SPECS.map((s) => s.recipeId)).not.toContain('stinkTower'); // no sheet on disk → not in the atlas census
+    const spec = rampSpecFor('stinkTower' as GodlyId)!;
+    expect(spec).toBe(RAMP_SPECS_PENDING_ART[0]);
+    expect(spec.atlasBase).toBe('/art/stink-tower/stink-tower');
+    expect(spec.selfDestructBelow).toBeNull(); // R182-A — hub only
+    const bp = blueprintFor(spec.recipeId);
+    expect(spec.connectors).toBe(bp.bonds.length);
+    const footprint = 2 * (blueprintRadius(spec.recipeId) - FOOTPRINT_MARGIN);
+    expect(spec.spritePx).toBeCloseTo(footprint * 1.2, -0.5);
+    expect(spec.artPx).toBeLessThan(spec.spritePx);
+    expect(spec.rows.reduce((n, r) => n + r.count, 0)).toBe(spec.frames);
   });
 
   it('⭐ the four S183 towers really are reachable by `rampSpecFor`, by their REAL recipe id', () => {

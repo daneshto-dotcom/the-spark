@@ -132,9 +132,9 @@ export function runPharaohRitual(world: World): void {
     if (k >= 0 && k < RA_COLUMN_COUNT) {
       const pos = raColumnPos(bossId as unknown as number, k, boss.pos.x, boss.pos.y);
     /*
-     * *"kills everything in that circle that it lands on."* — EVERYTHING, so no player is spared.
-     * `spare: null` is the same posture the zombie death blast takes, and it is his ruling rather than
-     * my choice: a column of divine fire does not check whose banner you carry. ⭐ S192 — UNCHANGED.
+     * *"kills everything in that circle that it lands on."* — EVERYTHING, so no player was spared
+     * (`spare: null`, the posture the zombie death blast took until R193-B3). ⭐ S195 B-25 — SUPERSEDED:
+     * "everything" is every ENEMY thing; his own side is spared, see the landing below.
      *
      * ⭐⭐ S192 (owner) — **NOT 300 ANY MORE: THE PERK'S COLUMN, ON THE PERK'S PATH.** *"the [Ra] column,
      * Pharaoh boss should not keep … his 300. That's ridiculous. He goes down to 35 per column, just like
@@ -145,8 +145,15 @@ export function runPharaohRitual(world: World): void {
      * ⚠ And it now cuts CONNECTORS, as the perk's does (his never did — it razed shapes instead); the
      * sever is credited to his seat with `cause: 'unit'` (⚠ MINE, `RaColumnSource.severCause`).
      */
-      // ⭐ S192 (owner R192-T1, ⚠ MINE) — "everything" except his seat's TEAMMATES; his own side still burns.
-      landRaColumn(world, { spare: null, alliesOf: boss.ownerPlayerId, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);
+      /*
+       * ⭐⭐ S195 B-25 (owner, RULED) — **HIS OWN SIDE IS SPARED TOO.** Until S195 this passed `spare: null,
+       * alliesOf: boss.ownerPlayerId` (⚠ MINE, S192 spec Q5): teammates spared, his OWN seat's units and
+       * shapes still burned under "kills everything". The owner aligned him with R193-B3 (the zombie boss:
+       * *"It does not hit his own side"*) and B-30 (*"they only attack enemies"*): `spare` is his seat, and
+       * `sameTeam` inside `raColumnTargets` extends that to his whole team. `alliesOf` is `null` — no
+       * production column source spares-teammates-but-burns-own any more (`RaColumnSource`).
+       */
+      landRaColumn(world, { spare: boss.ownerPlayerId, alliesOf: null, owner: boss.ownerPlayerId, severCause: 'unit' }, pos);
     }
 
     /*

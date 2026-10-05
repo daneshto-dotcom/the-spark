@@ -99,7 +99,7 @@ function run(w: World, id: CreatureId, until: number): Frame[] {
     const before = spy.mock.calls.length;
     runHostTick(w, d, st);
     const landed = spy.mock.calls.slice(before)
-      .filter((c) => c[1].spare === null).length; // S192 — the boss's column: it spares nobody
+      .filter((c) => c[1].severCause === 'unit').length; // the boss's column (S195 B-25: it spares his side now — `severCause: 'unit'` is his alone)
     const g = recorder();
     const strike = recorder();
     drawBossAuras(g.g, w, strike.g);

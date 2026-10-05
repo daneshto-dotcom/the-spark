@@ -4,6 +4,8 @@
  * is that entry and just outside is not (the menu's own `hitTest`); the hover sheen sweeps only inside
  * the rest-size rect. The games themselves are not touched by this file or by the change it guards.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/arcadeOverlay.ts :: attachButtonFeedback(
 import { describe, expect, it, vi } from 'vitest';
 import { Container, Graphics, Rectangle, Ticker } from 'pixi.js';
 import { installFakeTextCanvas } from './fakeTextCanvas.fixtures.ts';

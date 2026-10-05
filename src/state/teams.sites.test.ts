@@ -69,11 +69,13 @@ function census(): { inline: Record<string, number>; predicate: Record<string, n
  * ALLY/ENEMY split).
  */
 const PINNED_INLINE: Readonly<Record<string, number>> = {
-  'bots/botBrain.ts': 9, // S194 — + master S193 FEED: the bot's OWN spawners (`sp.ownerPlayerId === seat`)
+  'bots/botBrain.ts': 12, // S194 — + master S193 FEED: the bot's OWN spawners (`sp.ownerPlayerId === seat`); S195 T22 — +3 `prim.placedBy !== seat` (ownStructures / entropySafeSources / freshStructurePos: the bot's OWN structures, is-this-MINE)
   'dev/probeHarness.ts': 1,
   'game/invariants.ts': 1,
   'input/controls.ts': 3,
   'render/castlePanel.ts': 1,
+  // ⭐ S195 T19 (owner N4) — `d.ownerPlayerId === seat`: is the LOCAL seat HER owner (who HEARS Helga) — MINE, never an enemy decision.
+  'render/coherence/helgaAudience.ts': 1,
   // S194 — `lifestealPctFor(…ownerPlayerId) === 0` (does THIS creature's seat hold lifesteal) — a regex false positive.
   'render/goblinRenderer.ts': 1,
   'render/characterSheetModel.ts': 3,
@@ -146,7 +148,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'state/defenders/defenderLifecycle.ts': 2,
   'state/defenders/stinkTower.ts': 1,
   'state/disruptionManager.ts': 1,
-  'state/droneLifecycle.ts': 2,
+  'state/droneLifecycle.ts': 5, // ⭐ S195 B-10 — + `planDroneSplash`: the three arms of the split pool spare the drone's TEAM (sameTeam)
   'state/exploredMemory.ts': 1, // ⭐ S195 N1 — a teammate's shape is never a fog ghost
   'state/gameMode.ts': 1,
   'state/gameState.ts': 1,
@@ -212,7 +214,7 @@ function seatVarCensus(): Record<string, number> {
 
 /** Every hit READ and classified MINE / not-a-side-decision (S193). The reason is per file. */
 const PINNED_SEATVAR: Readonly<Record<string, number>> = {
-  'bots/botBrain.ts': 10, // S194: + `h.targetPlayerId === seat` (is the hunter after ME?). The bot's OWN shapes/gatherers/hunter; `targetSeat` filters the already-chosen enemy's things
+  'bots/botBrain.ts': 13, // S194: + `h.targetPlayerId === seat` (is the hunter after ME?). The bot's OWN shapes/gatherers/hunter; `targetSeat` filters the already-chosen enemy's things. S195 T22: +3 own-structure sites (entropy knowledge), is-this-MINE
   'dev/fxLab.ts': 1, // dev-only effect lab: pick any other seat to stage an effect
   'dev/probeHarness.ts': 1, // dev probe: the local seat's shapes
   'input/controls.ts': 3, // your gatherer, the spark you carry
@@ -224,7 +226,9 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/avatarRenderer.ts': 3, // the local avatar
   'render/botSetupOverlay.ts': 1, // lobby seat swap
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
-  'render/characterSheetModel.ts': 7, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware)
+  'render/characterSheetModel.ts': 8, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware). S195 info-ui: + `entropyRowsFor` `owner === seat` — the owner-only LOST-TO-ENTROPY row (B-17: "only the player itself will see it"), is-this-MINE, never allegiance
+  'render/audioManager.ts': 1, // S195 T19 (owner B-14): `effect.victim === localSeat` — is the snapped connector MINE (only the loser hears the entropy boing)
+  'render/coherence/helgaAudience.ts': 2, // S195 T19 (owner N4): is the LOCAL seat her owner / the seat whose unit she hits — who HEARS her (ownership, not allegiance)
   'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
   // ⭐ S195 N1 — concealment's own-check asks sameTeam now (a teammate's things are never concealed).
   'render/damageNumbers.ts': 2, // a kill-hit keyed by its owner; `o.id === victim` is a creature id

@@ -51,6 +51,9 @@ import type { DefenderId } from '../types.ts';
 import { getDefenderConfig } from '../state/defenders/defender.ts';
 import { markTowerCover } from './towerCover.ts';
 import { stinkTowerMembers } from './stinkTowerCover.ts';
+import { rampSpecFor } from './structureRamp.ts';
+import type { GodlyId } from '../state/godlyRecipes/types.ts';
+import { playSlotSFX } from './audioManager.ts';
 import {
   DEFENDER_FIRE_HOLD_TICKS,
   STINK_AURA_RADIUS,
@@ -99,6 +102,17 @@ export class StinkTowerRenderer {
   private readonly sprites: Map<DefenderId, Sprite> = new Map();
   private atlas: { cells: Record<string, Texture[]>; manifest: StinkAtlasManifest } | null = null;
   private atlasLoadStarted = false;
+  /**
+   * ⭐ S195 T19 (owner B-8) — **THE DAMAGE-RAMP HANDOVER, BEHIND A MANIFEST CHECK.** The stink tower is the
+   * one tower with no damage-ramp art. Its ramp row is wired (`RAMP_SPECS_PENDING_ART`, drawn by the generic
+   * `structureRampRenderer` exactly as the five ramp buildings are); what is missing is the SHEET. This probe
+   * asks once whether `<atlasBase>-anim.json` exists: while it does not (today), this renderer draws exactly
+   * what it drew before — the character atlas or the pencil rig (LEGACY); once it does, the ramp renderer owns
+   * the building (frames, cover, ghost) and this file keeps only the state readouts — the aura and the lob.
+   * `null` = not yet answered (legacy until then; the ramp renderer bails on its own missing manifest too).
+   */
+  private rampSheetPresent: boolean | null = null;
+  private rampProbeStarted = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.graphics = new Graphics();
@@ -136,10 +150,33 @@ export class StinkTowerRenderer {
     })();
   }
 
+  /** One-time probe for the ramp sheet's manifest (see `rampSheetPresent`). Never retried; a 404 is legacy. */
+  private ensureRampProbe(): void {
+    if (this.rampProbeStarted) return;
+    this.rampProbeStarted = true;
+    const spec = rampSpecFor('stinkTower' as GodlyId);
+    if (spec === null) { this.rampSheetPresent = false; return; }
+    void (async () => {
+      try {
+        const res = await fetch(`${spec.atlasBase}-anim.json`);
+        const type = typeof res.headers?.get === 'function' ? (res.headers.get('content-type') ?? '') : '';
+        this.rampSheetPresent = res.ok && !/text\/html/i.test(type);
+      } catch {
+        this.rampSheetPresent = false;
+      }
+    })();
+  }
+
+  /** Test seam (B-8): what the probe answered — `null` until it has. */
+  rampHandoverState(): boolean | null { return this.rampSheetPresent; }
+
   sync(world: World): void {
     const g = this.graphics;
     g.clear();
     this.ensureAtlas();
+    this.ensureRampProbe();
+    // B-8 — the ramp renderer draws the building once its sheet exists; this file then draws no sprite.
+    const rampOwnsBuilding = this.rampSheetPresent === true;
     const nowSec = performance.now() / 1000;
     const live = new Set<DefenderId>();
 
@@ -159,6 +196,10 @@ export class StinkTowerRenderer {
       const charge = Math.max(0, Math.min(1, 1 - remaining / config.fireIntervalTicks));
       const depleted = d.bagsRemaining <= 0;
       const firing = d.state === 'FIRE';
+      // ⭐ S195 T19 (#4) — the `stinkTowerFire` SOUND SLOT on the synced FIRE edge, the laser's idiom
+      // (`turretRenderer`): once per lob on every peer that is not fogged; silent until the owner drops the file in.
+      const prevState = this.lastState.get(d.id);
+      if (firing && prevState !== 'FIRE') void playSlotSFX('stinkTowerFire', { x: d.pos.x, y: d.pos.y });
       this.lastState.set(d.id, d.state);
 
       // A DEPLETED tower advertises its aura, because the aura is the only thing it still does and an
@@ -170,7 +211,11 @@ export class StinkTowerRenderer {
           .stroke({ color: STINK_DEEP, width: 1.2, alpha: 0.25 + pulse * 0.2 });
       }
 
-      if (this.atlas !== null) {
+      if (rampOwnsBuilding) {
+        // B-8 — the ramp sheet is on disk: `structureRampRenderer` draws the tower and publishes its cover.
+        const own = this.sprites.get(d.id);
+        if (own !== undefined) { own.destroy(); this.sprites.delete(d.id); }
+      } else if (this.atlas !== null) {
         // ⚠ Frame index from the SYNCED `ticksInState`, never wall-clock — two peers watching the
         // same tower must see the same frame, exactly as for HELGA and the goblins. The aura ring
         // and the lob arc above/below stay procedural because they are STATE readouts, not art.

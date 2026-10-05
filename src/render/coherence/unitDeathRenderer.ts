@@ -16,6 +16,8 @@
  */
 
 import type { CreatureId, PlayerId } from '../../types.ts';
+import type { CreatureType } from '../../state/creatures/creature.ts';
+import { playSlotSFX } from '../audioManager.ts';
 import type { World } from '../../state/world.ts';
 import { creatureSpriteScaleMul } from '../towerFrames.ts';
 import { fxActive, fxTop, fxTopShade } from '../fx/fxState.ts';
@@ -29,6 +31,16 @@ import { CreatureWatchEpoch, classifyCreatureDeparture, departedInIdOrder, type 
  * worst case inside the +0.3 ms budget (S194 T9 bench, `S194_PROGRESS_coherence.md`).
  */
 export const UNIT_DEATH_MAX_LIVE = 12;
+
+/**
+ * ⭐ S195 T19 (#4, merge-owner call) — the `unitFalls` SOUND SLOT plays under every kill of a unit that has
+ * NO death sound of its own. These three families keep theirs (the chewer's goo splat, the Voltkin's zap burst,
+ * the pants — per the T19 brief's roster) and are the ONLY exclusions; everyone else gets the slot, silent
+ * until the owner drops the file in (`audioManager.SFX_SLOTS`).
+ */
+export const UNIT_FALLS_OWN_SOUND: ReadonlySet<CreatureType> = new Set<CreatureType>(['chewer', 'voltkin', 'endgameMonster', 'megaPants']);
+/** ⚠ MINE — death sounds started per frame, at most: a wave wipe is one thud, not a drum roll (`MAX_GNAW_VOICES` idiom). */
+export const UNIT_FALLS_MAX_PER_FRAME = 3;
 
 /** The seat colour when the owner is unknown (a left player). Same neutral `spawnerZoneRenderer` falls back to. */
 const NEUTRAL = 0xc8c8d0;
@@ -66,10 +78,15 @@ export class UnitDeathRenderer {
       });
     }
     // ⭐ S194 T9 audit — ascending id BEFORE the cap, so which beats survive a wipe is a total order.
+    let fallsThisFrame = 0;
     for (const id of departedInIdOrder(this.watched, (k) => world.creatures.has(k))) {
       const last = this.watched.get(id)!;
       this.watched.delete(id);
       if (classifyCreatureDeparture(world, last) !== 'killed') continue;
+      if (!UNIT_FALLS_OWN_SOUND.has(last.type) && fallsThisFrame < UNIT_FALLS_MAX_PER_FRAME) {
+        fallsThisFrame++;
+        void playSlotSFX('unitFalls', { x: last.x, y: last.y });
+      }
       this.beats.push({
         x: last.x, y: last.y, bornTick: world.tick, seed: fxSeed(id as unknown as number, 0xdea7),
         family: last.family, scale: last.scale, color: seatColor(world, last.owner),
