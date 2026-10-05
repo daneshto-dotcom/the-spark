@@ -15,6 +15,19 @@
  * owner asked: does the match come back inside the RECONNECTING grace, before the terminal overlay?
  *
  * Tagged quarantine-flaky like reconnect.spec.ts: real 2-context WebRTC over public relays.
+ *
+ * ⚠ S195 T20 — STILL RED, and measured where it runs: CI run 37047025269 recovered at 37.5 s (attempt at 5.07 s);
+ * the cloud box (local relay — `node scripts/live-mp/local-nostr-relay.mjs`, then
+ * `VITE_TEST_NOSTR_RELAYS=ws://127.0.0.1:<port> npx playwright test e2e/reconnect-hard-blip.spec.ts`) recovered at
+ * 41.5 / 28.4 / 53.3 s. Two runs traced with an RTCPeerConnection tracer on both pages plus the relay's own
+ * message trace: the single attempt's handshake COMPLETED (no `after exchanging SDP` error, no second
+ * handshake); the time is the sum of loss detection (`pc.close()` fires NO local connectionstatechange — the
+ * joiner learns of its own blip from the datachannel close event, 1.4–4.6 s here), the 1 s first-retry delay,
+ * the leave→connect handoff (2.7–5 s), the wait for the other side's next announce (≤ 5.3 s), and 5–10 s of
+ * page-side processing per signalling hop on a starved renderer. A FRESH join on that box takes 15–25 s against
+ * the 6.3 s this header quotes, so the grace is simply shorter than one re-handshake on a slow machine; the
+ * player-facing half is now handled by policy (owner B-13: RECONNECTING… stays up while the attempt is in
+ * flight — `rejoinAttemptInFlight`, src/net/reconnectPolicy.ts), and this spec keeps measuring the TIME.
  */
 import { test, expect } from '@playwright/test';
 import { canvasToCss, hostNewRoom, joinRoom, readWorldState, waitForWorld } from './helpers.ts';
