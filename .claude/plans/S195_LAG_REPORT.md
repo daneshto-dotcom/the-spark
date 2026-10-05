@@ -244,3 +244,65 @@ faster. The owner would become a joiner too and get the same snapshot stream (ov
 - **No board past wave 16, and no human-sized board.** The pants-endgame figure (~170–200 KiB) is computed
   from the S194 measurement, not replayed.
 - **Nothing was built.** No fix qualified as no-regret without a bump: every byte-saver changes the wire.
+
+## 5 · ⭐ BUILT (S195 phase 2, owner N17): GRAPHICS TIERS THAT ACTUALLY DO SOMETHING
+
+### 5a · Why the old switch did nothing for his brother
+The Settings box "High-quality effects" did apply live (main.ts read it every frame). But all it did was
+remove the glow (bloom) filter on the effects layer and the ripple/haze filters, plus two small cheaper draws
+(`groundDecalRenderer`, the hub arc). Its own docblock said so: *"LOW keeps every new particle and drops only
+the two filter passes."* On a built board those filters are a sliver of the frame. The frame is the
+connector renderer re-drawing all ~500 connectors as vector lines every frame, and Pixi re-tessellating them.
+(Wave-10 joiner profile, 4× throttle, inclusive: `structureRenderer.sync` 17 %, keystone telegraph 6 %,
+damage numbers 4 %, goblins 3 %.) Ticking the box changed neither the look nor the lag, which is what he saw.
+
+### 5b · What the three tiers do (Settings → Graphics: HIGH · LOW · MINIMAL)
+- **HIGH** (default): today's game. A test proves it **byte-for-byte**: the HIGH draw calls equal a frozen copy of
+  the pre-S195 connector code on randomised boards (`structureRenderer.tiers.test.ts`). R195-P1 is honoured:
+  nothing was cut from HIGH.
+- **LOW:** no glow or ripples, and connectors are drawn from a **cache**. The board is cut into 128 px squares,
+  and a square is redrawn only when something in it changed. That includes moves (snapped to whole
+  pixels), severs, stress, tower fade, foul, colour steals and fog. Animated connector shapes step at 10 Hz.
+- **MINIMAL** ("potato"): LOW, plus the classic pre-S192 effects (the `?fx=legacy` look, no new particles),
+  connector shapes held still, and the keystone telegraph drawn as static links (no travelling dot).
+- **Live, remembered, obvious.** A labelled three-way choice with a one-line description. It applies on the
+  next frame with no reload, and is stored per viewer. Someone who had switched the old box OFF lands on LOW.
+- **The hint (⚠ MINE):** if a match spends 70 % of 5 s in frames slower than 40 ms, one line appears:
+  "The game is running slowly. Try Graphics: LOW in Settings (top right)." It shows once per tier per page
+  load and hides after 12 s. **It never switches by itself.**
+- **Render-only.** No sim read, no wire field, no hash, so **no protocol bump**. Two players on different
+  tiers play the identical match.
+
+### 5c · Measured: the joiner replay at waves 5 and 10, RTX 4070 Ti machine, CPU throttle to emulate weak PCs
+Joiner page without the DEV debug overlay; the same recorded snapshots at 10 Hz. Median CPU per frame. Two
+full repetitions (B1 / B2), plus a back-to-back pair at wave 10 4×. ⚠ The machine was shared with other
+worktrees the whole time, so single throttled rows swing by up to ~40 %. Read the repeated rows together.
+
+| wave | throttle | HIGH frame ms (fps) | LOW frame ms (fps) | MINIMAL frame ms (fps) | MINIMAL vs HIGH |
+|---:|---:|---|---|---|---:|
+| 5 | 1× | 11.0 / 7.1 | 8.9 / 9.7 | **5.9 / 5.8** | −46 % / −18 % |
+| 5 | 4× | 60.7 (15) / 43.3 (20) | 61.2 (12) / 60.5 (15) | **46.2 (20) / 46.8 (15)** | −24 % / +8 % |
+| 5 | 6× | 66.5 (6.7) / 71.5 (6.7) | 75.1 / 71.5 | **61.6 (10) / 56.4 (15)** | −7 % / −21 % |
+| 10 | 1× | 11.0 / 8.1 | 5.6 / 6.5 | **4.8 / 4.9** | −56 % / −40 % |
+| 10 | 4× | 62.5 (12) / 52.8 (15) | 43.7 (20) / 52.7 (15) | **27.9 (30) / 42.0 (20)** | **−55 % / −20 %** |
+| 10 | 4× back-to-back pair | 84.7 (8.6) · 90.8 (10) | — | **49.2 (20) · 42.9 (20)** | **−42 % · −53 %** |
+| 10 | 6× | 68.3 (8.6) / 59.6 (10) | 58.4 / 78.8 | **51.9 (15) / 57.9 (12)** | −24 % / −3 % |
+
+**Board alone (snapshots stopped), wave 10 4×:** HIGH 56.5 / 47.5 / 90.6 / 82.7 ms → MINIMAL 16.5 / 19.8 / 22.7 /
+19.5 ms, **−58 % to −76 %**, with fps going from 10–20 to 30–60.
+
+**Acceptance (≥ 40 % less at wave 10, 4×):** met in 3 of the 4 wave-10 4× measurements (−55, −42, −53), missed
+in one (−20, run B2, where HIGH itself came in fast at 52.8). Medians across all four: HIGH ~73.6 → MINIMAL ~42.5 ms, **−42 %**, and fps roughly doubles (10–15 → 20–30). With snapshots arriving, the saving is
+smaller than on the idle board. Moving units and shaking structures keep invalidating ~10 % of MINIMAL's buckets,
+and receiving and applying a snapshot (2–3 ms at 4×) is outside what a graphics tier can remove.
+
+**LOW** helps clearly unthrottled (wave 10: 11.0 → 5.6 ms) but little under heavy throttle (wave 10 4×, after
+LOW was moved to whole-pixel snapping: HIGH 83.0 / 80.3 → LOW 70.2 / 62.3 ms). Its animated connectors step every
+6 ticks, so a 12-fps frame crosses a step every frame and ~53 % of buckets redraw. That is by design: LOW
+keeps the animation, and MINIMAL is the tier for slow PCs.
+
+### 5d · What is still on a MINIMAL frame (the next levers, if more is wanted)
+From the MINIMAL profile (wave 10, 4×): the connector cache when things move (~9–13 %), damage numbers
+`syncStructures`/`track` (~5 %), the goblin puppets (~4 %), health bars (~3 %), and `tickGameState`'s
+complexity/territory maths (~3 %, a sim read, so not a render tier's to cut). Then Pixi's own render pass.
+Caching the health bars and the goblin puppet would be the next render-only step.

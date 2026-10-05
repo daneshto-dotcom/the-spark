@@ -165,7 +165,9 @@ import { beginTowerCoverFrame } from './render/towerCover.ts';
 import { beginTowerHealthHoldFrame } from './render/towerHealthHold.ts'; // ⭐ S194 T15 (R194-30)
 import { ZoneBackgroundRenderer } from './render/zoneBackgroundRenderer.ts';
 import { isFxHighQuality, isZoneBackgroundEnabled } from './render/displayPrefs.ts';
-import { fxBeginFrame, fxClear, fxEndFrame, fxHighQuality, installFx, setFxHighQualityRuntime } from './render/fx/fxRuntime.ts';
+import { fxBeginFrame, fxClear, fxEndFrame, installFx } from './render/fx/fxRuntime.ts';
+import { graphicsTier, syncGraphicsTier } from './render/graphicsTier.ts';
+import { noteFrameForTierHint } from './render/tierAdvisor.ts';
 import { makeFxLab } from './dev/fxLab.ts';
 import { resolveMatchMusicTrack } from './render/raceMusic.ts';
 import { createSettingsOverlay } from './render/settingsOverlay.ts';
@@ -4361,8 +4363,11 @@ Network routes: ${v.detail}`;
      * renderers share each layer); `fxEndFrame` after `effectsRenderer.sync` hides what went unused.
      * The quality preference is polled exactly like the race-background one below.
      */
-    const wantFxHq = isFxHighQuality();
-    if (wantFxHq !== fxHighQuality()) setFxHighQualityRuntime(wantFxHq);
+    // S195 N17 - the graphics TIER (HIGH / LOW / MINIMAL) replaces the old fx on/off poll: same per-frame
+    // read, so a change in Settings lands on the next frame (render/graphicsTier.ts).
+    syncGraphicsTier();
+    // S195 N17 - MINE: a slow match shows ONE line suggesting the next tier down; it never switches by itself.
+    noteFrameForTierHint(performance.now(), world.gameState === 'PLAYING' && !chordBlocked(), graphicsTier());
     fxBeginFrame();
 
     const wantZoneBg = isZoneBackgroundEnabled();
