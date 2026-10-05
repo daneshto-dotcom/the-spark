@@ -61,7 +61,7 @@ import {
   type Vec2,
 } from '../types.ts';
 import { type GameMode, type GameState, type MatchPhase, type World } from './world.ts';
-import { isZoneLayout, type ZoneLayout } from './zones.ts';
+import { isZoneLayout, layoutForSeatCount, type ZoneLayout } from './zones.ts';
 import { type Player } from '../game/player.ts';
 import { defaultRaceForSeat, isRaceId, type RaceId } from './races.ts';
 import type { SpawnerState } from '../game/spawner.ts';
@@ -1750,9 +1750,12 @@ function applySnapshotCore(snap: NetSnapshot, world: World): void {
   world.phaseEndsAtTick = snap.phaseEndsAtTick ?? snap.tick + PHASE_DURATION_TICKS;
   // S148 P1 — the board, rehydrated UNCONDITIONALLY so a joiner and a promoted successor adopt the
   // host's board exactly. See the `layout` field docblock for why the pre-S148 fallback is PITCH_2P.
-  // ⭐ S195 — validated: the mapped quadrant board (`QUADRANTS_4P:<owners>`) is a string, so a malformed one is
-  // refused to the plain board its seat count implies rather than parsed into a nonsense zone map.
-  world.layout = snap.layout === undefined ? 'PITCH_2P' : isZoneLayout(snap.layout) ? snap.layout : 'QUADRANTS_4P';
+  // ⭐ S195 — validated: the mapped quadrant board (`QUADRANTS_4P:<owners>`) is a string, so a malformed one —
+  // or a map in which a seated player owns no zone — is refused to the PLAIN board the snapshot's seat count
+  // implies (`layoutForSeatCount`: 2 seats → the pitch, 3–4 → the quadrants), never parsed into a nonsense map.
+  world.layout = snap.layout === undefined
+    ? 'PITCH_2P'
+    : isZoneLayout(snap.layout, snap.players.length) ? snap.layout : layoutForSeatCount(snap.players.length);
   // ⭐ S192 — teams, rehydrated UNCONDITIONALLY (absent = free-for-all), so a joiner, the worker mirror
   // and a promoted successor all adopt the host's sides exactly. A malformed list is dropped to FFA.
   world.teams = readTeams(snap.teams);

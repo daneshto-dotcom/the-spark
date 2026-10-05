@@ -80,8 +80,12 @@ describe('S195 — arrangeTeamZones: the owner\'s rules per shape (owners by zon
 
 describe('S195 — the mapped layout through the zone readers', () => {
   it('isZoneLayout accepts the plain and mapped boards, refuses garbage', () => {
-    for (const ok of ['PITCH_2P', 'QUADRANTS_4P', 'QUADRANTS_4P:0120', 'QUADRANTS_4P:30-2']) expect(isZoneLayout(ok)).toBe(true);
+    for (const ok of ['PITCH_2P', 'QUADRANTS_4P', 'QUADRANTS_4P:0120', 'QUADRANTS_4P:3012', 'QUADRANTS_4P:20-1']) expect(isZoneLayout(ok)).toBe(true);
     for (const bad of ['QUADRANTS_4P:012', 'QUADRANTS_4P:0129', 'X', 4, null]) expect(isZoneLayout(bad)).toBe(false);
+    // ⛔ S195 audit L9 — every seated player must own ground: nobody, a skipped seat, or a 2-seat map is refused
+    for (const bad of ['QUADRANTS_4P:----', 'QUADRANTS_4P:30-2', 'QUADRANTS_4P:0011']) expect(isZoneLayout(bad), bad).toBe(false);
+    expect(isZoneLayout('QUADRANTS_4P:0120', 3)).toBe(true);
+    expect(isZoneLayout('QUADRANTS_4P:0120', 4), 'a 3-seat map on a 4-seat snapshot').toBe(false);
   });
   it('zoneOwner = the HOME (lowest owned) zone; zonesOfSeat lists both of the 2v1 solo\'s zones', () => {
     const L: ZoneLayout = 'QUADRANTS_4P:2012';
@@ -142,6 +146,13 @@ describe('S195 — REACH through the real START_GAME reducer', () => {
     expect(joiner.layout).toBe('QUADRANTS_4P:2012');
     applyNetSnapshot({ ...netSnapshot(host), layout: 'QUADRANTS_4P:99' as ZoneLayout }, joiner);
     expect(joiner.layout).toBe('QUADRANTS_4P');
+    applyNetSnapshot({ ...netSnapshot(host), layout: 'QUADRANTS_4P:----' as ZoneLayout }, joiner);
+    expect(joiner.layout, 'nobody owns anything → refused').toBe('QUADRANTS_4P');
+    // ⭐ audit L9 — the fallback is the plain board for the SEAT COUNT: a 2-seat snapshot falls back to the pitch
+    const two = start([U, U]);
+    const j2 = makeWorld(1);
+    applyNetSnapshot({ ...netSnapshot(two), layout: 'garbage' as ZoneLayout }, j2);
+    expect(j2.layout).toBe('PITCH_2P');
   });
 });
 

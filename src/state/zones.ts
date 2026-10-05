@@ -88,12 +88,21 @@ export function baseLayout(layout: ZoneLayout): 'PITCH_2P' | 'QUADRANTS_4P' {
 
 const TEAM_QUAD_RE = /^QUADRANTS_4P:[0-3-]{4}$/;
 
-/** ⭐ S195 — a value a snapshot may carry as `layout` (the reader refuses anything else). */
-export function isZoneLayout(v: unknown): v is ZoneLayout {
+/**
+ * ⭐ S195 — a value a snapshot may carry as `layout` (the reader refuses anything else). A MAPPED board must give
+ * every seated player ground: the owner digits are exactly the seats `0 .. k−1` (seats are dense), with
+ * `k === seatCount` when the caller knows it — so `QUADRANTS_4P:----` (nobody owns anything) or a map that skips
+ * a seat is refused (audit L9). A digit may repeat (the 2v1 solo owns two zones).
+ */
+export function isZoneLayout(v: unknown, seatCount?: number): v is ZoneLayout {
   if (v === 'PITCH_2P' || v === 'QUADRANTS_4P') return true;
   if (typeof v !== 'string' || !TEAM_QUAD_RE.test(v)) return false;
-  // Every seat that owns anything owns its zones; a digit may repeat (two zones) — nothing else to check.
-  return true;
+  const seats = new Set<number>();
+  for (const ch of v.slice('QUADRANTS_4P:'.length)) if (ch !== '-') seats.add(Number(ch));
+  const k = seats.size;
+  if (k < 3) return false; // a mapped board exists only for 3–4 seats (`layoutForMatch`)
+  for (let s = 0; s < k; s++) if (!seats.has(s)) return false; // a seat with no ground
+  return seatCount === undefined || k === seatCount;
 }
 
 const OWNERS_CACHE = new Map<string, readonly (number | null)[]>();
