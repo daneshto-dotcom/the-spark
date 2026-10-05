@@ -34,6 +34,8 @@ import { footerBandModel, structuresAtComplexity, type FooterComplexity } from '
 import { raceColorForShape } from '../state/races.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { drawBlueprintThumb } from './blueprintGlyph.ts';
+// ⭐ S195 N6 — the number-key macro map (pure; `controls.ts` reads it back through `keyMacroTargets`).
+import { cardKeyDigit, keyMacroTargets, type KeyMacroTarget } from '../input/keyMacros.ts';
 import type { World } from '../state/world.ts';
 import type { SparkType } from '../constants.ts';
 // ⭐ S188 P6 — POWER OF RA: the button reads the REDUCER's own predicate, never a second copy of it.
@@ -158,6 +160,19 @@ export const CARRY_PLATE_PAD = 10;
  * would shift every later card's labels sideways the moment one card's shortfall changed length.
  */
 const CARD_LABELS = 2 + SHORTFALL_MAX_SHAPES;
+
+/**
+ * ⭐ S195 N6 (owner) — THE CARD'S KEY BADGE: the digit that arms this card from the keyboard, as a small
+ * plate in the card's top-left corner, in the chip's own skin grammar (plate + stroke in the card's tint).
+ * The chips carry no badge: the number printed on a chip IS its key (see `keyMacros.ts`).
+ *
+ * ⚠ MINE (look): 18 × 16 at (+4, +4), 11 px monospace bold. Inside the card's hit rect, so it is drawn
+ * exactly where `cardAt` already answers — it adds no clickable pixel and removes none (uiSkin contract 2).
+ * The TOWER THUMB is centred at x+30 over the card's full height, so the badge overlaps the thumb's top-left
+ * corner by design: a badge beside the name would collide with the name's centring, and the thumb's
+ * corner is empty for every recipe (thumbs are inscribed in a circle of radius `card.h/2 − 6`).
+ */
+export const CARD_KEY_BADGE = { dx: 4, dy: 4, w: 18, h: 16, fontSize: 11, radius: 4 } as const;
 /** Space between the word `NEED` and the first glyph+count pair. */
 const SHORTFALL_PREFIX_GAP = 8;
 
@@ -461,6 +476,13 @@ export class FooterBand {
   private readonly container: Container;
   private readonly graphics: Graphics;
   private readonly labels: Text[] = [];
+  /**
+   * ⭐ S195 N6 — the cards' KEY BADGE digits: their OWN pool, outside `labels`' stride arithmetic, so the
+   * badge cannot shift a name or a shortfall count sideways (the `CARD_LABELS` reservation is untouched).
+   */
+  private readonly keyLabels: Text[] = [];
+  /** What each digit 1–9 addressed THIS frame (index d − 1); `[]` when the band drew no controls. */
+  private keyMap: ReadonlyArray<KeyMacroTarget | null> = [];
   private chips: FooterChipGeom[] = [];
   private cards: FooterCardGeom[] = [];
   /** The tower held on the cursor, mirrored from the castle panel so the card can light up. */
@@ -534,6 +556,7 @@ export class FooterBand {
     // ⭐ S194 T5 — the render clock for the hover sheen. Render-only: never read by the sim.
     this.uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     this.chips = [];
+    this.keyMap = []; // ⭐ S195 N6 — a digit addresses only what THIS frame draws
     this.strip = { palette: [], queue: [] };
     this.carry = null;
     this.ra = null;
@@ -585,6 +608,7 @@ export class FooterBand {
 
     if (world.gameState !== 'PLAYING') {
       this.hideLabelsFrom(0);
+      this.hideKeyLabels();
       return;
     }
 
@@ -604,6 +628,7 @@ export class FooterBand {
       // ⭐ S191 — and SCORCHED EARTH survives it too, as the same compact square beside the tab.
       if (seSlot !== null) this.drawScorchedEarthButton(g, layoutScorchedEarthButton([], true, this.ra)!, seSlot);
       this.hideLabelsFrom(0);
+      this.hideKeyLabels(); // collapsed: no card, no chip, so no digit addresses anything
       return;
     }
 
@@ -842,6 +867,21 @@ export class FooterBand {
           g.roundRect(card.x - cg, card.y - cg, card.w + cg * 2, card.h + cg * 2, 10)
             .stroke({ width: armedHere ? 3 : hotCard ? 3 : 2, color: tint, alpha: 0.95 });
 
+          // ⭐ S195 N6 — THE KEY BADGE: the digit that arms this card ("first tower in line" = 1).
+          const keyDigit = cardKeyDigit(this.cards.indexOf(card));
+          if (keyDigit !== null) {
+            const bx = card.x + CARD_KEY_BADGE.dx;
+            const by = card.y + CARD_KEY_BADGE.dy;
+            g.roundRect(bx, by, CARD_KEY_BADGE.w, CARD_KEY_BADGE.h, CARD_KEY_BADGE.radius)
+              .fill({ color: skinBase(armedHere ? 'active' : 'rest'), alpha: 0.95 })
+              .stroke({ width: 1, color: tint, alpha: 0.9 });
+            const kl = this.keyLabelAt(this.cards.indexOf(card));
+            kl.text = String(keyDigit);
+            kl.style.fill = tint;
+            kl.position.set(bx + CARD_KEY_BADGE.w / 2, by + CARD_KEY_BADGE.h / 2);
+            kl.visible = true;
+          }
+
           // ⭐ S149 P6 — DRAW THE TOWER'S SHAPE. Owner: *"it should show the tower shape not only
           // the explanation and name as it did when it was in the castle."* Same `drawBlueprintThumb`
           // the castle tile used, so the two surfaces cannot draw different art for one recipe.
@@ -940,6 +980,18 @@ export class FooterBand {
       }
     }
     this.hideLabelsFrom(this.cardLabelBase() + this.cards.length * CARD_LABELS);
+    this.hideKeyLabels(this.cards.length);
+    // ⭐ S195 N6 — the digit map is read off THIS frame's chips and cards, never recomputed by the caller.
+    this.keyMap = keyMacroTargets(this.chips, this.cards);
+  }
+
+  /**
+   * ⭐ S195 N6 — what each digit key 1–9 addresses right now (index `d − 1`), by what this frame DREW:
+   * the open menu's cards first, then the chip printed with that number (`keyMacros.ts`). Empty while
+   * collapsed or outside PLAYING, so a digit can never arm a tower the player cannot see.
+   */
+  keyMacroTargets(): ReadonlyArray<KeyMacroTarget | null> {
+    return this.keyMap;
   }
 
   /**
@@ -1545,6 +1597,9 @@ export class FooterBand {
     scorchedEarth: RaButtonGeom | null;
     scorchedEarthSlot: ScorchedEarthSlotState | null;
     scorchedEarthCaption: string;
+    /** ⭐ S195 N6 — the key badge each open card drew this frame, by card index, and the digit map. */
+    keyBadges: Array<{ id: GodlyId; digit: number; x: number; y: number; w: number; h: number }>;
+    keyMap: ReadonlyArray<KeyMacroTarget | null>;
   } {
     return {
       chips: [...this.chips],
@@ -1559,6 +1614,11 @@ export class FooterBand {
       scorchedEarth: this.se,
       scorchedEarthSlot: this.seSlot,
       scorchedEarthCaption: this.seCaption,
+      keyBadges: this.cards.flatMap((c, i) => {
+        const d = cardKeyDigit(i);
+        return d === null ? [] : [{ id: c.id, digit: d, x: c.x + CARD_KEY_BADGE.dx, y: c.y + CARD_KEY_BADGE.dy, w: CARD_KEY_BADGE.w, h: CARD_KEY_BADGE.h }];
+      }),
+      keyMap: this.keyMap,
     };
   }
 
@@ -1591,10 +1651,13 @@ export class FooterBand {
     this.armed = null;
     this.selected = null;
     this.hideLabelsFrom(0);
+    this.hideKeyLabels(); // ⭐ S195 N6
+    this.keyMap = [];
   }
 
   destroy(): void {
     for (const l of this.labels) l.destroy();
+    for (const l of this.keyLabels) l.destroy(); // ⭐ S195 N6
     this.raLabel?.destroy();
     this.raIcon?.destroy();
     this.raOverlay?.destroy();
@@ -1624,6 +1687,24 @@ export class FooterBand {
 
   private hideLabelsFrom(i: number): void {
     for (let k = i; k < this.labels.length; k++) this.labels[k].visible = false;
+  }
+
+  /** ⭐ S195 N6 — the key badge digit for card `i`, pooled like `labelAt` but in its own array. */
+  private keyLabelAt(i: number): Text {
+    while (this.keyLabels.length <= i) {
+      const t = new Text({
+        text: '',
+        style: { fontFamily: 'monospace', fontSize: CARD_KEY_BADGE.fontSize, fontWeight: 'bold', fill: TINT_ENABLED },
+      });
+      t.anchor.set(0.5);
+      this.container.addChild(t);
+      this.keyLabels.push(t);
+    }
+    return this.keyLabels[i];
+  }
+
+  private hideKeyLabels(from = 0): void {
+    for (let k = from; k < this.keyLabels.length; k++) this.keyLabels[k].visible = false;
   }
 }
 
