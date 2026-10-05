@@ -188,8 +188,21 @@ export interface FooterChipGeom {
   readonly enabled: boolean;
 }
 
-/** R81 — pixels a hovered chip grows on each side. Small: the row is dense and must not reflow. */
-const HOVER_GROW = 2;
+/**
+ * R81 — pixels a hovered chip grows on each side. Small: the row is dense and must not reflow.
+ *
+ * ⚠ MINE (S195 T18 #3, owner said LOOK) — **0 since S195: a hovered chip no longer grows PAST its hit
+ * rect.** At 2 the hovered plate (and the glass drawn on it) extended 2 px beyond the rectangle
+ * `chipAt` / `cardAt` / `paletteAt` / `queueChipAt` / `isOverRaButton` / `isOverScorchedEarthButton`
+ * answer for — a ring of pixels that looked clickable and was not, the exact thing uiSkin's contract 2
+ * forbids ("never make a dead pixel look clickable"). The lift still reads: the skin's `hover` state
+ * (brighter gloss, accent glow), the plate alpha and the thicker stroke all move on hover; only the
+ * geometry stays put. The press SINK (−1, inside the rect) is unchanged. `uiSkinReach.footer.test.ts`
+ * pins "hovered drawn rect ⊆ hit rect" for every kind, so raising this again fails a test until the hit
+ * rects are made to grow with it (the T8 way: picture and target move together, or neither does).
+ * ALTERNATIVE for the owner: grow the HIT with the picture (chipAt & co. would read `hoverChip`).
+ */
+const HOVER_GROW = 0;
 
 /**
  * ⭐⭐ S187 (owner) — **THE COLLAPSE TAB.** His design, and his brother's problem:
@@ -606,8 +619,9 @@ export class FooterBand {
       const tint = !c.enabled ? TINT_DISABLED : isSel ? TINT_SELECTED : TINT_ENABLED;
 
       /*
-       * R81 — HOVER LIFTS, PRESS SINKS. A hovered chip grows by HOVER_GROW on every side and
-       * brightens its plate; pressing it puts that back, so the chip visibly takes the click.
+       * R81 — HOVER LIFTS, PRESS SINKS. A hovered chip grows by HOVER_GROW on every side (⚠ S195: 0 —
+       * the lift is the skin's hover state + stroke, inside the hit rect; see the constant) and
+       * brightens its plate; pressing it sinks it by 1 px, so the chip visibly takes the click.
        *
        * ⚠ A DISABLED CHIP STILL RESPONDS TO HOVER, deliberately. The standing contract in this
        * codebase is that a refused control must SAY why rather than read as absent (the castle
