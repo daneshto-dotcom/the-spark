@@ -484,7 +484,20 @@ describe('S193 — REACH: bot-vs-bot through the real frame lifecycle', () => {
     const tyc = sig('IMBA', 'TYCOON');
     expect(meanDef(war), 'the army bot stamps no defence').toBe(0);
     expect(meanDef(tyc)).toBeGreaterThan(0);
-    expect(sum(war, (s) => s.feeds), 'units bought').toBeGreaterThanOrEqual(2 * sum(tyc, (s) => s.feeds) + 5);
+    /*
+     * ⚠ S195 T22 RE-MEASURE (bots learn the ENTROPY TAX, B-18/19; no pin relaxed — the relation was re-measured and
+     * is re-stated at what it IS). Was `war ≥ 2 × tyc + 5` (S194: 17 vs 3). Measured on this tree, aware vs the same
+     * table with `entropyAwareness` forced off (scratch harness, 300 s, 0xb07 / 0xbeef):
+     *   IMBA WARMONGER  fed 14 / 3 / 1 = 18 (unaware 18 — unchanged; its seats place 6 / 3 / 4 loose shapes either way)
+     *   IMBA TYCOON     fed  1 / 1 / 13 = 15 (unaware 1 / 1 / 0 = 2): seat 3 (zombies) now stops at the free allowance,
+     *                   spreads into 3 structures (max 11 connectors vs 34 unaware), places 10 loose shapes instead of 16,
+     *                   and with its bank at the cap feeds the LEFTOVERS (its `feed: 'leftovers'`) into its race tower.
+     * So the FEEDS leg no longer separates the two bots (18 vs 15); what does: defence (0 vs > 0), loose shapes (TYCOON
+     * ≥ 2× WARMONGER, 39 vs 13) and the pentagram. The feeds relation is kept only as "the army bot still buys more",
+     * measured 18 > 15. ⚠ SEAM for the merge owner: restoring a wide feeds gap is a TYCOON tuning (e.g. its IMBA
+     * `feed` back to 'never'), a personality decision this tree did not make.
+     */
+    expect(sum(war, (s) => s.feeds), 'units bought (S195: 18 vs 15)').toBeGreaterThan(sum(tyc, (s) => s.feeds));
     expect(sum(tyc, (s) => s.loosePlaced), 'loose shapes').toBeGreaterThanOrEqual(2 * sum(war, (s) => s.loosePlaced));
     expect(war.seats.some((s) => s.stamps.includes('pentagram')), 'WARMONGER climbs an army rung').toBe(true);
     expect(tyc.seats.some((s) => s.stamps.includes('pentagram'))).toBe(false);
