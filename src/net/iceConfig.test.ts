@@ -11,6 +11,8 @@
  * at the bottom asserts it of the real module-level constant too.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   HAS_TURN_CONFIGURED,
   ICE_SERVERS,
@@ -318,5 +320,51 @@ describe('S168 — a multi-url TURN paste survives', () => {
     const p = parseTurnConfig('turn:relay.example.com:80,http://not-a-relay', U, C);
     expect(p.servers[0]!.urls).toEqual(['turn:relay.example.com:80']);
     expect(p.note).toMatch(/not valid ICE urls/i);
+  });
+});
+
+/**
+ * ⭐ S195 T20 — THE TURN RE-PASTE. `TURN_SETUP.md` ("2026-10-05 (S195 T20) — THE RE-PASTE") tells the owner the
+ * exact `VITE_TURN_URLS` value to put in the repository secret: the live bundle's single UDP:80 url plus the
+ * TCP / 443 / TLS fallbacks T17 measured as allocating with the same credentials. The text is read FROM THE
+ * RUNBOOK, so the sentence the owner copies and the value this test proves are one and the same string.
+ */
+describe('S195 T20 — the TURN re-paste', () => {
+  const runbook = readFileSync(fileURLToPath(new URL('../../TURN_SETUP.md', import.meta.url)), 'utf8');
+  const m = /\| `VITE_TURN_URLS` \| `([^`]+)` \|/.exec(runbook.slice(runbook.indexOf('THE RE-PASTE')));
+  const REPASTE_URLS = m?.[1] ?? '';
+
+  it('CONTROL — the runbook carries the re-paste row, and it is a bare comma-separated list', () => {
+    expect(m, 'TURN_SETUP.md lost its re-paste table row').not.toBeNull();
+    expect(REPASTE_URLS).not.toMatch(/["'{}\s]/);
+  });
+
+  it('⭐ the re-paste parses CLEAN: four urls, one server entry, NO repair note', () => {
+    const p = parseTurnConfig(REPASTE_URLS, 'user', 'pass');
+    expect(p.note, 'a clean paste must not print the dashboard-snippet warning').toBeNull();
+    expect(p.servers).toHaveLength(1);
+    expect(allUrls(p.servers)).toEqual([
+      'turn:global.relay.metered.ca:80',
+      'turn:global.relay.metered.ca:80?transport=tcp',
+      'turn:global.relay.metered.ca:443',
+      'turns:global.relay.metered.ca:443?transport=tcp',
+    ]);
+    // every one of them is a url the browser accepts (the S162 construction-throw class)
+    for (const u of allUrls(p.servers)) expect(parseTurnConfig(u, 'u', 'c').servers).toHaveLength(1);
+  });
+
+  it('⛔ the WRAPPED live shape (deploy #4/#5, all three keys in dashboard snippets) still unwraps — the old paste cannot take multiplayer down while the owner has not re-pasted', () => {
+    const p = parseTurnConfig('urls: "turn:global.relay.metered.ca:80"', 'username: "user"', ' credential: "pass"');
+    expect(allUrls(p.servers)).toEqual(['turn:global.relay.metered.ca:80']);
+    expect(p.servers[0]!.username).toBe('user');
+    expect(p.servers[0]!.credential).toBe('pass');
+    expect(p.note).toContain('provider dashboard');
+  });
+
+  it('…and the re-paste pasted WITH the dashboard wrapper per url still yields the same four urls (repaired, noted)', () => {
+    const wrapped = REPASTE_URLS.split(',').map((u) => `urls: "${u}"`).join(', ');
+    const p = parseTurnConfig(wrapped, 'user', 'pass');
+    expect(allUrls(p.servers)).toEqual(allUrls(parseTurnConfig(REPASTE_URLS, 'user', 'pass').servers));
+    expect(p.note).toContain('provider dashboard');
   });
 });

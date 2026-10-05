@@ -27,6 +27,8 @@
  *     mapping raw errors to user-friendly UX hints.
  */
 
+import { devNostrRelayOverride } from './devRelayOverride.ts';
+
 export const APP_ID = 'spark-game-v1';
 
 /**
@@ -56,7 +58,8 @@ export const APP_ID = 'spark-game-v1';
  * a peer on an older build still meets this build on all four (signaling is not versioned), so no bump.
  * `src/net/relayLists.test.ts` keeps all three off this list for good.
  */
-export const NOSTR_RELAYS = [
+// ⭐ S195 T20 — DEV builds may point this at a local relay (`devRelayOverride.ts`); production never does.
+export const NOSTR_RELAYS = devNostrRelayOverride() ?? [
   'wss://nos.lol',
   'wss://purplerelay.com',
   'wss://nostr.mom',

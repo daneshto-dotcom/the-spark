@@ -140,6 +140,42 @@ deploy, a green wiring report, and a completely dead lobby on every network. Sin
 **repairs** this shape at runtime and the deploy log calls it out with a `⛔` line, so a dashboard
 paste is no longer fatal — but fix the secrets anyway, so the intent is explicit rather than rescued.
 
+### ⭐ 2026-10-05 (S195 T20) — THE RE-PASTE: what to put in the three secrets NOW
+
+Measured in the live bundle (deploy #4/#5, S194 T17): the site ships **ONE** relay url,
+`turn:global.relay.metered.ca:80` (UDP only), and all three secrets are **still wrapped** in the
+dashboard's `urls: "…"` / `username: "…"` / `credential: "…"` snippet shape. The game repairs the wrapper
+at runtime and prints `[net] TURN configuration: …looked pasted from a provider dashboard…` on every
+page load — it works, but a single UDP:80 relay is the thinnest possible relay: any network that
+filters outbound UDP (hotel / office / some mobile carriers) gets **no relay at all**.
+
+T17 also measured that the same credentials allocate on every one of these transports (131 ms each):
+`:80` udp · `:80?transport=tcp` · `:443` · `turns:…:443?transport=tcp`. So the fix is a paste, not code.
+
+**Replace the three repository secrets with EXACTLY these shapes** (Settings → Secrets and variables →
+Actions → the pencil next to each name). Bare values — no key name, no quotes, no braces, no trailing
+comma, no spaces around the commas:
+
+| Secret | Paste exactly this (replace the two placeholders) |
+|---|---|
+| `VITE_TURN_URLS` | `turn:global.relay.metered.ca:80,turn:global.relay.metered.ca:80?transport=tcp,turn:global.relay.metered.ca:443,turns:global.relay.metered.ca:443?transport=tcp` |
+| `VITE_TURN_USERNAME` | `<your metered username>` |
+| `VITE_TURN_CREDENTIAL` | `<your metered credential>` |
+
+The username and credential are the ones in your metered.ca dashboard today (the same pair the live
+bundle already carries — only its wrapper and the missing urls change). `src/net/iceConfig.test.ts`
+("S195 T20 — the TURN re-paste") proves this exact url list parses with **no repair note**, and that the
+old wrapped single-url shape still unwraps, so neither paste can take multiplayer down.
+
+**Then** redeploy (Step 3) and confirm (Step 4). On the deploy's **TURN wiring report** the `⛔ …looked
+pasted from a provider dashboard` line must be GONE; in the game, **TEST CONNECTION** should pass. For a
+transport-by-transport proof, run the S194 live harness against the live site after the deploy:
+`MODE=code RELAY=1 SECS=30 node scripts/live-mp/live-2peer.mjs` (forces `iceTransportPolicy: 'relay'`
+on both peers, so a PASS means the relay carried the match).
+
+⚠ Agents never paste or read these values — this is an owner account action; the url list above is
+public information, the other two are not.
+
 ## Step 3 — redeploy
 
 Any push to `master` that touches the game rebuilds and redeploys. If nothing needs changing, use

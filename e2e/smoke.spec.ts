@@ -482,6 +482,11 @@ test.describe('Sym E — score display layout (PLACEHOLDER: asserts null, cannot
 
 test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host placement inside joiner territory is silently rejected', async ({ browser }) => {
+    // ⚠ S195 T20 — NO TWO_PEER_BUILD_BUDGET_MS timeout here YET (the lane pin reads the call text), although this test builds like Sym A/C/G
+    // and needs it (measured on the cloud box: the two-peer connect alone is 40–60 s, each porch pull up to 30 s
+    // of sim). `src/ci.e2eLanes.test.ts` re-derives the quarantine lane's cap from every spec's own budget and
+    // the lane (e2e.yml `e2e-quarantine`, 46/54 min) has 60 s of slack; the budget lands together with the cap:
+    // PW_GLOBAL_TIMEOUT_MIN 46 → 51 and timeout-minutes 54 → 59 (owned by the ci-perf tree), then this line.
     const { hostCtx, hostPage, joinerCtx, joinerPage } = await open2Peers(browser);
     try {
       await applyTestSpawnRate(hostCtx, joinerCtx);
@@ -492,7 +497,12 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(joinerPage, (w) => w.freeSparks.length >= 8, 'sparks spawned');
+      // ⭐ S195 T20 — STALE HARNESS, ported (the Sym A/C/G port, S194 T8): this waited for
+      // `freeSparks.length >= 8` and then dragged the HOST's shape out of the quarry with a bare
+      // `dragSparkTo`. Since S136 the player's shape source is his own porch (`pullFromBank`), and a
+      // match no longer opens with a free-spark field (S192), so the wait could never be met and the
+      // default 60 s cap fired every run (measured S195 on the cloud box: red at 1.1 min, no assertion
+      // reached). The three joiner placements below already used the shipped path.
 
       // Joiner places 3 BLUE prims tightly clustered to establish territory.
       // AUTO_BOND_RADIUS=60, so prims at (1500,400) (1530,410) (1490,380)
@@ -531,7 +541,12 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
       // Sym F predicate at placePrimitive.ts host-authoritative path silently
       // rejects (spark stays carried). diagnostics.territoryBlockRejects
       // increments.
-      await dragSparkTo(hostPage, 1500, 400);
+      // S195 T20 — the host's shape comes from ITS porch (pull first), and the drag is deliberately NOT
+      // `placeFreeSparkAndConfirm`: that helper waits for the placement to LAND, and a rejection is the
+      // point. The pick is asserted so a null drag can never pass this test by placing nothing.
+      await pullFromBank(hostPage);
+      const picked = await dragSparkTo(hostPage, 1500, 400);
+      expect(picked, 'the host must actually have grabbed a porch shape to attempt the placement').not.toBeNull();
 
       // Wait a beat for the (would-be) place attempt to propagate. If the
       // mechanic works, no new RED prim appears.
@@ -552,6 +567,8 @@ test.describe('Sym F — territorial hard-block (S49 mechanic, S50 P4 e2e covera
 
 test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e coverage) @quarantine-flaky', () => {
   test('Host reaching WIN_SCORE triggers WIN on both peers (joiner via ENDGAME envelope)', async ({ browser }) => {
+    // ⚠ S195 T20 — needs the TWO_PEER_BUILD_BUDGET_MS timeout (a two-peer connect alone runs 40–60 s on CI and
+    // the cloud box) — held back with Sym F's for the same quarantine-cap reason; see the note there.
     const hostCtx = await browser.newContext();
     const joinerCtx = await browser.newContext();
     try {
@@ -567,7 +584,11 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       // runs BEFORE bundled scripts (including constants.ts module load).
       // Override value 3 chosen so 3 anchor placements (SCORE_ANCHOR=1
       // each, non-bonding because >60px apart) reach the WIN gate quickly.
-      const TEST_WIN_SCORE = 3;
+      // ⛔ S195 T20 — THAT WAS 3, AND EVERY SEAT STARTS WITH `STARTING_VICTORY_POINTS` = 100 (the S192
+      // nplayer finding), so the host hit WIN on its first tick and the joiner's `PLAYING` wait raced a
+      // match that was already over. The bar is now far above any natural score (the nplayer idiom) and
+      // the win is forced by injection below (×1000 the bar, above the largest WIN_SCORE_BANDS multiplier).
+      const TEST_WIN_SCORE = 1_000_000;
       await hostCtx.addInitScript((winScore) => {
         (window as { __TEST_WIN_SCORE__?: number }).__TEST_WIN_SCORE__ = winScore;
       }, TEST_WIN_SCORE);
@@ -590,43 +611,34 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       await hostPage.mouse.click(beginBtn.x, beginBtn.y);
       await waitForWorld(hostPage, (w) => w.gameState === 'PLAYING', 'PLAYING on host');
       await waitForWorld(joinerPage, (w) => w.gameState === 'PLAYING', 'PLAYING on joiner');
-      await waitForWorld(hostPage, (w) => w.freeSparks.length >= 8, 'sparks spawned on host');
+      // ⭐ S195 T20 — STALE HARNESS, ported. This waited for `freeSparks.length >= 8` (a match no longer
+      // opens with a free-spark field — S192) and dragged three "anchors" out of the quarry with a bare
+      // `dragSparkTo` (the player's source has been his porch since S136). The anchors never fed the win
+      // — the S76 injection below did — so, as the S192 nplayer port ruled, they were test rot, not
+      // coverage: removed. The subject of this test is the WIN → ENDGAME → joiner PIPELINE.
 
-      // Host places 3 anchors (non-bonding placements, 200px apart > 60
-      // AUTO_BOND_RADIUS). SCORE_ANCHOR=1 each → score=3 → WIN gate fires.
-      //
-      // S51 P1 — X moved from 800 to 300. (800, 400) is at distance
-      // √(160² + 140²) = 213 px from spawner center (960, 540); SPAWNER_RADIUS
-      // is 250, so anchor placement at X=800 is silently rejected because
-      // placePrimitive's spawner-zone exit check fires (anchors only place
-      // OUTSIDE the spawner). (300, 400) is √(660² + 140²) = 675 px out —
-      // safely outside the zone. Same for (300, 600) and (300, 800).
-      await dragSparkTo(hostPage, 300, 400);
-      await waitForWorld(
-        hostPage,
-        (w) => w.primitives.some((p) => p.placerColor === 0xff3b6b && Math.abs(p.pos.x - 300) < 50 && Math.abs(p.pos.y - 400) < 50),
-        'host placed 1st anchor',
-      );
-      await dragSparkTo(hostPage, 300, 600);
-      await dragSparkTo(hostPage, 300, 800);
-
-      // S76 — placement now raises standing COMPLEXITY (income model); score accrues per-tick,
-      // so WIN is no longer instant on the 3rd anchor. This test verifies the WIN→ENDGAME→joiner
-      // PIPELINE (unchanged by S76), so inject the host's score past the gate deterministically.
-      // The build→complexity→income→WIN path is covered by scoring.test.ts + session9 + the solo
-      // hunter e2e (whose 75% trigger fires off real in-browser income).
-      await hostPage.evaluate(() => {
-        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number> } } }).__SPARK__?.world;
-        w?.scoreByPlayer.set(0, 999);
-      });
+      // S76 — score accrues per-tick, so WIN is not instant on a placement. This test verifies the
+      // WIN→ENDGAME→joiner PIPELINE (unchanged by S76), so inject the host's score past the gate
+      // deterministically. The build→complexity→income→WIN path is covered by scoring.test.ts + session9
+      // + the solo hunter e2e (whose 75% trigger fires off real in-browser income).
+      // ⚠ S195 T20 — `scoreProgress` TOO, not only `scoreByPlayer`: the win gate reads `scoreProgress`, and
+      // since S147 only `tickScoring` (FIGHT only) re-derives it, so a match still in BUILD never noticed
+      // the injected `scoreByPlayer` alone (measured S192, nplayer.spec). Attribution scans `scoreByPlayer`.
+      await hostPage.evaluate((score) => {
+        const w = (window as { __SPARK__?: { world: { scoreByPlayer: Map<number, number>; scoreProgress: number } } }).__SPARK__?.world;
+        if (w === undefined) throw new Error('Sym I: no world');
+        w.scoreByPlayer.set(0, score);
+        w.scoreProgress = score;
+      }, TEST_WIN_SCORE * 1000);
 
       // Host crosses the WIN gate → WIN_TRIGGER → gameState='WIN' + lastWinnerId=0. Main.ts
       // ticker's PLAYING→WIN transition guard then sends the ENDGAME envelope to the peer.
+      // S195 — WIN or POSTGAME (the S192 endgame flow may already have advanced past WIN when sampled).
       await waitForWorld(
         hostPage,
-        (w) => w.gameState === 'WIN',
+        (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
         'host transitions to WIN',
-        15_000,
+        20_000,
       );
 
       // Joiner receives ENDGAME envelope (clientHandlers.ts dispatches
@@ -635,17 +647,16 @@ test.describe('Sym I — win-condition + ENDGAME envelope (S47 wire, S50 P4 e2e 
       // is defence-in-depth.
       await waitForWorld(
         joinerPage,
-        (w) => w.gameState === 'WIN',
+        (w) => w.gameState === 'WIN' || w.gameState === 'POSTGAME',
         'joiner transitions to WIN (via ENDGAME envelope)',
-        10_000,
+        20_000,
       );
 
-      // Final assertion: lastWinnerId reflects host (player 0, RED).
+      // Final assertion: both peers left PLAYING for the endgame — the envelope reached the joiner.
       const joinerFinalState = await readWorldState(joinerPage);
       const hostFinalState = await readWorldState(hostPage);
-      // Both peers should agree on the winner.
-      expect(hostFinalState.gameState).toBe('WIN');
-      expect(joinerFinalState.gameState).toBe('WIN');
+      expect(['WIN', 'POSTGAME']).toContain(hostFinalState.gameState);
+      expect(['WIN', 'POSTGAME']).toContain(joinerFinalState.gameState);
     } finally {
       await hostCtx.close();
       await joinerCtx.close();
