@@ -1,0 +1,238 @@
+/**
+ * S195 (net-delta) — the codec THROUGH the real `NetTransport`: two transports started with their own
+ * `startStrategy` on fake rooms (`linkedPair`), so the `snap`/`sack` closures, `onPeerJoin`, the per-peer
+ * backpressure slot and `handleRawMessage` are all production code. Each case below is a policy branch
+ * of `encodeFor` / `decodeSnapFrame`, driven and then checked on what the joiner's handlers received.
+ */
+import { describe, expect, it } from 'vitest';
+import { stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
+import type { NetMessage, NetSnapshotMsg } from './protocol.ts';
+import { linkedPair, startedTransport, fakeRoom, until, type LinkedPair } from './snapshotCodec.fixtures.ts';
+import { FRAME_DEFLATE, FRAME_TEXT, KEYFRAME_INTERVAL, readDeltaHeader, unpackFrame } from './snapshotCodec.ts';
+
+function snap(seq: number, opts: { prims?: number; moved?: number; drop?: number[] } = {}): NetSnapshotMsg {
+  const n = opts.prims ?? 300;
+  const primitives = [];
+  for (let i = 1; i <= n; i++) {
+    if (opts.drop?.includes(i)) continue;
+    const dx = i <= (opts.moved ?? 0) ? seq * 0.37 : 0;
+    primitives.push({
+      id: i,
+      type: i % 6,
+      placerColor: 3921919,
+      placedBy: i % 4,
+      createdTick: 1000 + i,
+      pos: { x: 100 + i + dx, y: 200 + (i % 17) },
+      prevPos: { x: 1, y: 1 },
+      bonds: [i - 1, i],
+      ownerColor: 3921919,
+      lastOwnershipChange: 1000 + i,
+      radius: 8,
+      origin: { x: 100 + i, y: 200 },
+    });
+  }
+  const bonds = [];
+  for (let i = 1; i < n; i++) bonds.push({ id: i, aId: i, bId: i + 1, restLength: 58.891234, stiffnessTier: 'HIGH', createdTick: 1000 + i });
+  return {
+    kind: 'NETSNAPSHOT',
+    snapshotSeq: seq,
+    snapshot: { schemaVersion: 1, tick: seq * 6, primitives, bonds, freeSparks: [], players: [] } as never,
+    matchId: 'm.1',
+  };
+}
+const fullWire = (m: NetSnapshotMsg): string => JSON.stringify(stripWirePrevPos(m), wireNumberReplacer);
+
+/** host.send → the frame(s) it transmitted for this snapshot. */
+async function sendAndTake(p: LinkedPair, m: NetSnapshotMsg): Promise<Uint8Array[]> {
+  const before = p.hostRoom.actions.get('snap')!.sent.length;
+  p.host.send(m);
+  await until(() => p.hostRoom.actions.get('snap')!.sent.length > before, 'host transmitted');
+  return p.takeFrames();
+}
+async function deliver(p: LinkedPair, frames: Uint8Array[]): Promise<void> {
+  for (const f of frames) p.deliverFrame(f);
+  await p.joiner.snapFramesSettled('H');
+}
+const headerOf = async (f: Uint8Array) => readDeltaHeader(await unpackFrame(f))!;
+function received(p: LinkedPair): NetMessage[] {
+  const out: NetMessage[] = [];
+  p.joiner.on((m) => out.push(m));
+  return out;
+}
+/** Hand every ack the joiner has sent to the host. */
+function flushAcks(p: LinkedPair): void {
+  for (const a of p.takeAcks()) p.deliverAck(a);
+}
+
+describe('S195 net-delta — through the real transport', () => {
+  it('first frame is a KEYFRAME; once acked, frames are DELTAS a fraction of the size; the joiner gets the exact snapshot', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p); // the joiner's hello: z=1
+    const [k] = await sendAndTake(p, snap(1, { moved: 10 }));
+    expect((await headerOf(k!)).baseFid).toBe(0);
+    await deliver(p, [k!]);
+    flushAcks(p);
+    const [d] = await sendAndTake(p, snap(2, { moved: 10 }));
+    const h = await headerOf(d!);
+    expect(h.baseFid).toBeGreaterThan(0);
+    await deliver(p, [d!]);
+    expect(got).toHaveLength(2);
+    expect(p.rawSeen[1]).toBe(fullWire(snap(2, { moved: 10 })));
+    expect(d![0]).toBe(FRAME_DEFLATE);
+    // 10 of 300 shapes moved: the delta is a small fraction of the keyframe, deflated or not.
+    expect(d!.byteLength * 10).toBeLessThan(k!.byteLength);
+    expect(d!.byteLength * 50).toBeLessThan(fullWire(snap(2)).length);
+  });
+
+  it('⛔ NEGATIVE — a frame whose base the joiner does not hold is DROPPED (nothing applied) and a keyframe is requested; the next frame is a keyframe', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    // Frame 2 is lost; the host is (falsely) told the joiner rebuilt it — e.g. a joiner that reloaded.
+    const lost = await sendAndTake(p, snap(2));
+    const lostFid = (await headerOf(lost[0]!)).fid;
+    p.deliverAck(JSON.stringify({ f: lostFid, z: 1 }));
+    const [d] = await sendAndTake(p, snap(3));
+    expect((await headerOf(d!)).baseFid).toBe(lostFid);
+    await deliver(p, [d!]);
+    expect(got).toHaveLength(1); // frame 3 was NOT applied
+    const acks = p.takeAcks().map((a) => JSON.parse(a));
+    expect(acks).toContainEqual({ f: 0, z: 1, k: 1 });
+    for (const a of acks) p.deliverAck(JSON.stringify(a));
+    const [k] = await sendAndTake(p, snap(4));
+    expect((await headerOf(k!)).baseFid).toBe(0);
+    await deliver(p, [k!]);
+    expect(got).toHaveLength(2);
+    expect(p.rawSeen.at(-1)).toBe(fullWire(snap(4)));
+  });
+
+  it('a joiner that cannot inflate (ack z=0) gets UNCOMPRESSED frames — it still plays', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    p.takeAcks();
+    p.deliverAck(JSON.stringify({ f: 0, z: 0 }));
+    const [k] = await sendAndTake(p, snap(1));
+    expect(k![0]).toBe(FRAME_TEXT);
+    await deliver(p, [k!]);
+    expect(got).toHaveLength(1);
+    expect(p.rawSeen[0]).toBe(fullWire(snap(1)));
+  });
+
+  it('a frame delivered twice (two strategies) is applied once; an OLDER frame after a newer one is ignored', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p);
+    const [a] = await sendAndTake(p, snap(1));
+    const [b] = await sendAndTake(p, snap(2)); // both keyframes: nothing acked yet
+    await deliver(p, [a!, a!, b!, a!]);
+    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 2]);
+  });
+
+  it('frames keep ARRIVAL order through the async inflate, many in one burst', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    const burst: Uint8Array[] = [];
+    for (let s = 2; s <= 12; s++) burst.push(...(await sendAndTake(p, snap(s, { moved: s * 3, prims: 200 + s }))));
+    await deliver(p, burst);
+    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(p.rawSeen.at(-1)).toBe(fullWire(snap(12, { moved: 36, prims: 212 })));
+  });
+
+  it('a destroyed entity is REMOVED on the joiner (explicit removal, not a stale copy)', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(2, { drop: [5, 6, 300] })));
+    const last = got.at(-1) as NetSnapshotMsg;
+    const ids = last.snapshot.primitives.map((x) => x.id as unknown as number);
+    expect(ids).not.toContain(5);
+    expect(ids).not.toContain(300);
+    expect(ids).toHaveLength(297);
+  });
+
+  it(`a keyframe at least every KEYFRAME_INTERVAL (${KEYFRAME_INTERVAL}) frames even while every frame is acked`, async () => {
+    const p = linkedPair();
+    flushAcks(p);
+    let keyframes = 0;
+    for (let s = 1; s <= KEYFRAME_INTERVAL + 5; s++) {
+      const frames = await sendAndTake(p, snap(s, { prims: 20 }));
+      if ((await headerOf(frames[0]!)).baseFid === 0) keyframes++;
+      await deliver(p, frames);
+      flushAcks(p);
+    }
+    expect(keyframes).toBe(2);
+  });
+
+  it('a host that RECONNECTS (new transport, same peer id) starts with a keyframe, and a stale ack from before names nothing', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    flushAcks(p);
+    const [k] = await sendAndTake(p, snap(1));
+    const oldFid = (await headerOf(k!)).fid;
+    await deliver(p, [k!]);
+    // The host's transport is replaced; the joiner keeps its ring for peer 'H'.
+    const room2 = fakeRoom();
+    const host2 = startedTransport(room2);
+    room2.room.onPeerJoin('J');
+    room2.actions.get('sack')!.onMessage!(JSON.stringify({ f: oldFid, z: 1 }), { peerId: 'J' });
+    host2.send(snap(2));
+    await until(() => room2.actions.get('snap')!.sent.length > 0, 'host2 transmitted');
+    const f = room2.actions.get('snap')!.sent[0]!.data as Uint8Array;
+    const h = await headerOf(f);
+    expect(h.baseFid).toBe(0);
+    expect(h.fid).toBeGreaterThan(oldFid); // page-unique fids
+    p.deliverFrame(f);
+    await p.joiner.snapFramesSettled('H');
+    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 2]);
+  });
+
+  it('a handle WITHOUT the binary action (legacy) still gets the exact pre-S195 string on `msg`', async () => {
+    const t = startedTransport(fakeRoom());
+    const priv = t as unknown as { strategies: Map<string, { snapAction?: unknown }> };
+    const h = priv.strategies.get('nostr')!;
+    h.snapAction = null;
+    const room = (t as unknown as { strategies: Map<string, { room: { onPeerJoin: (id: string) => void } }> }).strategies.get('nostr')!.room;
+    room.onPeerJoin('J');
+    const msgAction = (t as unknown as { strategies: Map<string, { action: { sent: Array<{ data: unknown }> } }> }).strategies.get('nostr')!.action;
+    t.send(snap(1));
+    await until(() => msgAction.sent.length > 0, 'legacy send');
+    expect(msgAction.sent[0]!.data).toBe(fullWire(snap(1)));
+  });
+
+  it('control traffic (HELLO) never enters the codec: it stays a plain string on `msg`', async () => {
+    const p = linkedPair();
+    p.host.send({ kind: 'HELLO', protoVersion: 1, playerId: 0, color: 1 } as never);
+    expect(p.hostRoom.actions.get('snap')!.sent).toHaveLength(0);
+    expect(typeof p.hostRoom.actions.get('msg')!.sent[0]!.data).toBe('string');
+  });
+
+  it('a peer leaving clears its codec state: on its return the first frame is a keyframe', async () => {
+    const p = linkedPair();
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    expect((await headerOf((await sendAndTake(p, snap(2)))[0]!)).baseFid).toBeGreaterThan(0);
+    p.hostRoom.room.onPeerLeave('J');
+    p.hostRoom.room.onPeerJoin('J');
+    expect((await headerOf((await sendAndTake(p, snap(3)))[0]!)).baseFid).toBe(0);
+  });
+
+  it('⛔ NEGATIVE — garbage on the snap action (not bytes, unknown format) is dropped and asks for a keyframe, never throws', async () => {
+    const p = linkedPair();
+    const got = received(p);
+    p.takeAcks();
+    p.deliverFrame('a string' as never);
+    p.deliverFrame(new Uint8Array([0x99, 1, 2]));
+    await p.joiner.snapFramesSettled('H');
+    expect(got).toHaveLength(0);
+    expect(p.takeAcks().map((a) => JSON.parse(a))).toEqual([{ f: 0, z: 1, k: 1 }]); // rate-limited: one
+  });
+});
