@@ -345,11 +345,20 @@ export const TEAM_TILES_FOR_PAIRS = false;
  */
 export const TEAM_SEAM_FEATHER = 0.22;
 
+/**
+ * ⚠ MINE (N19) — cross-fade an open seam even when both sides are TODAY'S 4-player art (the 3v1 trio before
+ * tiles land). Decided from the prototype screenshots (`SPARK_S195_TeamTiles` on the Desktop): see the
+ * progress file. Tiles always blend; this only governs today's horizon-view art.
+ */
+export const TEAM_SEAM_BLEND_LEGACY_ART = false;
+
 /** What the plan needs to know about tiles: which races have one, where, and whether pairs use them. */
 export interface TileAvailability {
   readonly has: (race: RaceId) => boolean;
   readonly url: (race: RaceId) => string;
   readonly forPairs: boolean;
+  /** Blend an open seam between two pieces of today's art too (`TEAM_SEAM_BLEND_LEGACY_ART`). */
+  readonly blendLegacy: boolean;
 }
 
 /** The shipped availability: the manifest above, nothing failed. */
@@ -357,6 +366,7 @@ export const MANIFEST_TILES: TileAvailability = {
   has: (race) => TEAM_TILE_RACES.includes(race),
   url: teamTileUrl,
   forPairs: TEAM_TILES_FOR_PAIRS,
+  blendLegacy: TEAM_SEAM_BLEND_LEGACY_ART,
 };
 
 /** A teammate's art across one seam of a quadrant, for the cross-fade. */
@@ -430,12 +440,14 @@ export function zoneBackdropPlan(
   const out = zoneBackdropPieces(world, tiles);
   if (baseLayout(world.layout) !== 'QUADRANTS_4P' || world.teams === undefined) return out;
   const byZone = new Map(out.map((p) => [p.zone, p]));
+  const isTile = (p: ZoneBackdrop): boolean => p.grade !== null && p.url === tiles.url(p.grade);
   return out.map((p) => {
     if (p.part !== 'full') return p;
     const blend: SeamNeighbour[] = [];
     for (const { side, zone } of quadNeighbours(p.zone)) {
       const q = byZone.get(zone);
       if (q === undefined || q.part !== 'full' || q.seat === p.seat || !sameTeam(world, q.seat, p.seat)) continue;
+      if (!tiles.blendLegacy && !(isTile(p) && isTile(q))) continue; // today's art blends only on the flag
       blend.push({ side, url: q.url, grade: q.grade });
     }
     return blend.length === 0 ? p : { ...p, blend };
@@ -1008,6 +1020,7 @@ export class ZoneBackgroundRenderer {
       has: (race) => base.has(race) && !this.failed.has(base.url(race)),
       url: base.url,
       forPairs: base.forPairs,
+      blendLegacy: base.blendLegacy,
     };
     const plan = zoneBackdropPlan(world, tiles);
     const usedKeys = new Set<string>();
