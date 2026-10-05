@@ -310,6 +310,63 @@ export function trioBackdropUrl(_ne: RaceId, _se: RaceId, _sw: RaceId): string |
   return null;
 }
 
+/**
+ * ⭐⭐ S195 N19 (owner, verbatim) — **SIX BLENDABLE SINGLE-RACE TILES INSTEAD OF 56 TRIO IMAGES.**
+ * *"wouldn't it be easier to just take the single-player and put them beside each other? … regenerate a
+ * single racial … map? And then you can change them up depending on … where the player is … you just take
+ * the walls down between them … if it doesn't look perfect, I'll just generate six. And that's it."*
+ *
+ * THE MANIFEST: a race is listed here the day its `public/art/race-zones/tiles/<race>.webp` lands (480×270,
+ * the 4-player quadrant art's own size — the owner's prompt sheet `SPARK_Six_Race_Tiles_Prompts.html`).
+ * ⛔ A LIST, NOT A PROBE: the renderer cannot ask the server whether a file exists without a request per
+ * frame, and a listed file that still fails to load falls back to today's art (`ZoneBackgroundRenderer`
+ * marks the url failed). EMPTY until he delivers — so every board is byte-identical to deploy #8 today.
+ */
+export const TEAM_TILE_RACES: readonly RaceId[] = [];
+
+/** Where a race's blendable team tile lives (N19). */
+export function teamTileUrl(race: RaceId): string {
+  return `/art/race-zones/tiles/${race}.webp`;
+}
+
+/**
+ * ⚠ MINE (N19) — should a 2v2 / 2v1 / 1v1v2 PAIR also be painted from tiles, instead of the owner's 36 pair
+ * images? `false`: the pair art he generated (R194-19) stays — it is one composed picture per pair, which no
+ * pair of tiles can beat. Tiles replace only what has NO art: the 3v1 trio (R195-T5 shows his 4-player art
+ * there today, walls down). One line to flip.
+ */
+export const TEAM_TILES_FOR_PAIRS = false;
+
+/**
+ * ⚠ MINE (N19) — how deep the cross-fade reaches into each quadrant at a seam between TEAMMATES, as a fraction
+ * of the quadrant's extent across that seam (so a vertical seam fades 0.22 × 960 ≈ 211 px into each side). At
+ * the seam line both quadrants show a 50/50 mix of both races, so the edge has no step; it fades back to each
+ * race's own art over this depth. Never across an ENEMY seam — the wall between enemies stays a hard line.
+ */
+export const TEAM_SEAM_FEATHER = 0.22;
+
+/** What the plan needs to know about tiles: which races have one, where, and whether pairs use them. */
+export interface TileAvailability {
+  readonly has: (race: RaceId) => boolean;
+  readonly url: (race: RaceId) => string;
+  readonly forPairs: boolean;
+}
+
+/** The shipped availability: the manifest above, nothing failed. */
+export const MANIFEST_TILES: TileAvailability = {
+  has: (race) => TEAM_TILE_RACES.includes(race),
+  url: teamTileUrl,
+  forPairs: TEAM_TILES_FOR_PAIRS,
+};
+
+/** A teammate's art across one seam of a quadrant, for the cross-fade. */
+export interface SeamNeighbour {
+  /** Which edge of THIS quadrant the teammate's quadrant touches. */
+  readonly side: 'n' | 's' | 'e' | 'w';
+  readonly url: string;
+  readonly grade: RaceId | null;
+}
+
 /** One quadrant's backdrop: which image, which part of it, mirrored or not, graded by which race. */
 export interface ZoneBackdrop {
   readonly zone: number;
@@ -322,6 +379,24 @@ export interface ZoneBackdrop {
   readonly mirror: boolean;
   /** The race grade baked into it, or `null` (the pair art keeps its own two-race palette — ⚠ MINE). */
   readonly grade: RaceId | null;
+  /**
+   * ⭐ S195 N19 — the teammates' single-quadrant art across this quadrant's open seams, cross-faded in at bake
+   * time. Absent (never an empty array) when there is nothing to blend, so every pre-N19 piece is unchanged.
+   */
+  readonly blend?: readonly SeamNeighbour[];
+}
+
+/**
+ * ⭐ S195 N19 — PURE: which quadrant touches `zone` across which of its edges (clock order 0 NW, 1 NE, 2 SE,
+ * 3 SW). The quadrant board only; the cross at the centre is the only seam set there is.
+ */
+function quadNeighbours(zone: number): ReadonlyArray<{ side: SeamNeighbour['side']; zone: number }> {
+  switch (zone) {
+    case 0: return [{ side: 'e', zone: 1 }, { side: 's', zone: 3 }];
+    case 1: return [{ side: 'w', zone: 0 }, { side: 's', zone: 2 }];
+    case 2: return [{ side: 'n', zone: 1 }, { side: 'w', zone: 3 }];
+    default: return [{ side: 'n', zone: 0 }, { side: 'e', zone: 2 }];
+  }
 }
 
 /**
@@ -340,7 +415,34 @@ export interface ZoneBackdrop {
  * Each half-board image is drawn as TWO quadrant sprites (its top and bottom halves), so the per-seat ember
  * wash (SCORCHED GROUND) and the fog stay per quadrant on top of it, exactly as before.
  */
-export function zoneBackdropPlan(world: Pick<World, 'layout' | 'teams' | 'players'>): ZoneBackdrop[] {
+/*
+ * ⭐⭐ S195 N19 — AND WHERE TILES CHANGE IT (`tiles`, default = the manifest): a 3v1 TRIO paints each member
+ * from his race's tile when EVERY trio race has one (⚠ MINE — never a mix of top-down tiles and today's
+ * horizon art inside one open region); a PAIR only when `forPairs` and both races have one. Solos (walls up),
+ * the 2v1 solo's half and the free-for-all never read a tile. Then every quadrant painted from single-quadrant
+ * art (`part: 'full'`) gets `blend`: each orthogonal TEAMMATE quadrant (another seat, same team) also painted
+ * from single-quadrant art — the open seams the cross-fade softens. Enemy seams never blend.
+ */
+export function zoneBackdropPlan(
+  world: Pick<World, 'layout' | 'teams' | 'players'>,
+  tiles: TileAvailability = MANIFEST_TILES,
+): ZoneBackdrop[] {
+  const out = zoneBackdropPieces(world, tiles);
+  if (baseLayout(world.layout) !== 'QUADRANTS_4P' || world.teams === undefined) return out;
+  const byZone = new Map(out.map((p) => [p.zone, p]));
+  return out.map((p) => {
+    if (p.part !== 'full') return p;
+    const blend: SeamNeighbour[] = [];
+    for (const { side, zone } of quadNeighbours(p.zone)) {
+      const q = byZone.get(zone);
+      if (q === undefined || q.part !== 'full' || q.seat === p.seat || !sameTeam(world, q.seat, p.seat)) continue;
+      blend.push({ side, url: q.url, grade: q.grade });
+    }
+    return blend.length === 0 ? p : { ...p, blend };
+  });
+}
+
+function zoneBackdropPieces(world: Pick<World, 'layout' | 'teams' | 'players'>, tiles: TileAvailability): ZoneBackdrop[] {
   const layout = world.layout;
   const base = baseLayout(layout);
   const out: ZoneBackdrop[] = [];
@@ -353,6 +455,11 @@ export function zoneBackdropPlan(world: Pick<World, 'layout' | 'teams' | 'player
     let n = 0;
     for (const pid of world.players.keys()) if (sameTeam(world, pid, seat)) n++;
     return n;
+  };
+  // ⭐ N19 — every race on `seat`'s team has a tile (⚠ MINE: all or none, so one open region is one style).
+  const trioHasTiles = (seat: number): boolean => {
+    for (const pid of world.players.keys()) if (sameTeam(world, pid, seat) && !tiles.has(raceOf(pid as unknown as number))) return false;
+    return true;
   };
   for (let zone = 0; zone < zoneCount(layout); zone++) {
     const owner = seatOfZone(zone, layout);
@@ -375,9 +482,15 @@ export function zoneBackdropPlan(world: Pick<World, 'layout' | 'teams' | 'player
       // The 2v1 solo's whole side: his 1v1 race art across it (never mirrored — it is one race's world).
       out.push({ zone, seat, url: zoneArtUrl(race, 'PITCH_2P'), part, mirror: false, grade: race });
     } else if (present(top) && present(bottom) && sameTeam(world, top, bottom) && teamSize(top) === 2) {
-      out.push({ zone, seat, url: teamPairArtUrl(raceOf(top), raceOf(bottom)), part, mirror: !west, grade: null });
+      if (tiles.forPairs && tiles.has(raceOf(top)) && tiles.has(raceOf(bottom))) {
+        out.push({ ...single, url: tiles.url(race) }); // N19 ⚠ MINE off — see TEAM_TILES_FOR_PAIRS
+      } else {
+        out.push({ zone, seat, url: teamPairArtUrl(raceOf(top), raceOf(bottom)), part, mirror: !west, grade: null });
+      }
+    } else if (teamSize(owner) === 3 && trioHasTiles(owner)) {
+      out.push({ ...single, url: tiles.url(race) }); // ⭐ N19 — a trio member's blendable tile
     } else {
-      out.push(single); // a solo corner, or a trio member (until `trioBackdropUrl` returns art)
+      out.push(single); // a solo corner, or a trio member (until every trio race has a tile)
     }
   }
   return out;
@@ -413,6 +526,98 @@ function cropHalfTexture(tex: Texture, part: 'top' | 'bottom', mirror: boolean):
   return Texture.from(canvas);
 }
 
+/** PURE — the band depth, in a texture's own pixels, the cross-fade reaches across a seam on `side`. */
+export function seamBandPx(texW: number, texH: number, side: SeamNeighbour['side']): number {
+  return Math.max(1, Math.round((side === 'e' || side === 'w' ? texW : texH) * TEAM_SEAM_FEATHER));
+}
+
+/** Bake a race grade into a 2D context's whole canvas (the same two passes `punchPortal` uses). */
+function applyGrade(ctx: CanvasRenderingContext2D, w: number, h: number, grade: RaceId): void {
+  const gr = ZONE_GRADE[grade];
+  ctx.save();
+  ctx.globalCompositeOperation = 'color';
+  ctx.globalAlpha = gr.hueAlpha;
+  ctx.fillStyle = hex(gr.hue);
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'soft-light';
+  ctx.globalAlpha = gr.lightAlpha;
+  ctx.fillStyle = hex(gr.light);
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+/**
+ * ⭐ S195 N19 — **THE SEAM CROSS-FADE**, baked once like the portal hole (no per-frame cost, no mask).
+ *
+ * The quadrant's own art (graded with its race), then for each teammate across an open seam a band
+ * `seamBandPx` deep along that edge: the teammate's art REFLECTED about the seam (the pixel `d` inside this
+ * quadrant shows the teammate's pixel `d` inside his), graded with HIS race, at alpha 0.5 on the seam line
+ * fading to 0 at the band's inner edge. The teammate bakes the mirror image of the same band, so on the seam
+ * line both sides are the same 50/50 mix — no step — and each fades back to its own race inward.
+ *
+ * Returns a NEW texture (the caller hands it to `punchPortal` with `grade = null`, the grade is already in), or
+ * `null` without a DOM / on any draw failure — the caller then bakes the unblended piece exactly as before.
+ */
+function blendSeams(
+  own: Texture,
+  ownGrade: RaceId | null,
+  neighbours: ReadonlyArray<{ readonly side: SeamNeighbour['side']; readonly tex: Texture; readonly grade: RaceId | null }>,
+): Texture | null {
+  const res = (t: Texture): unknown => (t.source as unknown as { resource?: unknown }).resource;
+  const ownRes = res(own);
+  if (typeof document === 'undefined' || ownRes === undefined || ownRes === null) return null;
+  const w = Math.trunc(own.width);
+  const h = Math.trunc(own.height);
+  if (w <= 0 || h <= 0) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return null;
+  try {
+    ctx.drawImage(ownRes as CanvasImageSource, 0, 0, w, h);
+    if (ownGrade !== null) applyGrade(ctx, w, h, ownGrade);
+    for (const n of neighbours) {
+      const nRes = res(n.tex);
+      if (nRes === undefined || nRes === null) continue;
+      const horiz = n.side === 'e' || n.side === 'w';
+      const band = seamBandPx(w, h, n.side);
+      const bw = horiz ? band : w;
+      const bh = horiz ? h : band;
+      const bc = document.createElement('canvas');
+      bc.width = bw;
+      bc.height = bh;
+      const b = bc.getContext('2d');
+      if (b === null) continue;
+      // The teammate's art scaled to THIS texture's size, so one band pixel = one quadrant pixel on both sides.
+      const sx = n.tex.width / w;
+      const sy = n.tex.height / h;
+      // Reflect about the seam: the strip of the teammate's art that touches the seam, flipped across it.
+      b.save();
+      if (n.side === 'e') { b.translate(bw, 0); b.scale(-1, 1); b.drawImage(nRes as CanvasImageSource, 0, 0, band * sx, n.tex.height, 0, 0, band, h); }
+      if (n.side === 'w') { b.translate(bw, 0); b.scale(-1, 1); b.drawImage(nRes as CanvasImageSource, n.tex.width - band * sx, 0, band * sx, n.tex.height, 0, 0, band, h); }
+      if (n.side === 's') { b.translate(0, bh); b.scale(1, -1); b.drawImage(nRes as CanvasImageSource, 0, 0, n.tex.width, band * sy, 0, 0, w, band); }
+      if (n.side === 'n') { b.translate(0, bh); b.scale(1, -1); b.drawImage(nRes as CanvasImageSource, 0, n.tex.height - band * sy, n.tex.width, band * sy, 0, 0, w, band); }
+      b.restore();
+      if (n.grade !== null) applyGrade(b, bw, bh, n.grade);
+      // 0.5 on the seam line → 0 at the inner edge (smooth: a mid stop keeps the fade from reading as a stripe).
+      const g = n.side === 'e' ? b.createLinearGradient(0, 0, bw, 0)
+        : n.side === 'w' ? b.createLinearGradient(bw, 0, 0, 0)
+          : n.side === 's' ? b.createLinearGradient(0, 0, 0, bh)
+            : b.createLinearGradient(0, bh, 0, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(0.6, 'rgba(0,0,0,0.16)');
+      g.addColorStop(1, 'rgba(0,0,0,0.5)');
+      b.globalCompositeOperation = 'destination-in';
+      b.fillStyle = g;
+      b.fillRect(0, 0, bw, bh);
+      ctx.drawImage(bc, n.side === 'e' ? w - band : 0, n.side === 's' ? h - band : 0);
+    }
+  } catch {
+    return null;
+  }
+  return Texture.from(canvas);
+}
 
 /**
  * The rectangle a zone index occupies.
@@ -655,6 +860,13 @@ export class ZoneBackgroundRenderer {
   /** ⭐ S195 (audit LOW-2) — the bake keys painted last time `pruneBaked` ran (its change gate). */
   private lastUsedSig = '';
   private readonly loadStarted: Set<string> = new Set();
+  /** ⭐ S195 N19 — urls whose load FAILED: a listed tile that 404s falls back to today's art (never a black zone). */
+  private readonly failed: Set<string> = new Set();
+  /**
+   * ⭐ S195 N19 — which tiles the plan may use: the shipped manifest. An instance field (not a module read) so a
+   * dev-server prototype can point it elsewhere from the console; production never reassigns it.
+   */
+  private tileBase: TileAvailability = MANIFEST_TILES;
   private enabled = true;
   /** ⭐ S193 V26 — the board vignette (one sprite, above the backdrops, inside this layer only). */
   private vignette: Sprite | null = null;
@@ -723,6 +935,7 @@ export class ZoneBackgroundRenderer {
       try {
         this.textures.set(url, (await Assets.load(url)) as Texture);
       } catch {
+        this.failed.add(url); // ⭐ N19 — the plan stops asking for it (a missing tile falls back to today's art)
         // Deliberately silent, and the failure mode is benign by design: with no texture the zone
         // simply stays the black board it has always been. A backdrop is the one thing in this
         // renderer stack whose absence costs the player nothing.
@@ -790,13 +1003,29 @@ export class ZoneBackgroundRenderer {
     // ⭐⭐ S195 (R195-T2 / R195-T5) — ONE SPRITE PER QUADRANT, from the pure plan (`zoneBackdropPlan`): a seat's
     // own race art, the 2v1 solo's 1v1 art across his half, or a pair image across a team half (east mirrored).
     // A free-for-all plan is exactly the pre-S195 loop: each seat's race art on its home zone.
-    const plan = zoneBackdropPlan(world);
+    const base = this.tileBase;
+    const tiles: TileAvailability = {
+      has: (race) => base.has(race) && !this.failed.has(base.url(race)),
+      url: base.url,
+      forPairs: base.forPairs,
+    };
+    const plan = zoneBackdropPlan(world, tiles);
     const usedKeys = new Set<string>();
     for (const piece of plan) {
       const { zone, url } = piece;
       this.ensureTexture(url);
       const raw = this.textures.get(url);
       if (raw === undefined) continue; // still loading — the black board shows meanwhile
+      // ⭐ N19 — the open-seam teammates' art must be in before the bake (a failed one is simply left out).
+      const blendIn: Array<{ side: SeamNeighbour['side']; tex: Texture; grade: RaceId | null }> = [];
+      let waiting = false;
+      for (const nb of piece.blend ?? []) {
+        this.ensureTexture(nb.url);
+        const nt = this.textures.get(nb.url);
+        if (nt !== undefined) blendIn.push({ side: nb.side, tex: nt, grade: nb.grade });
+        else if (!this.failed.has(nb.url)) waiting = true;
+      }
+      if (waiting) continue;
 
       // ⛔ EVERY PATH BELOW USES THE HOLED TEXTURE. Handing `raw` to either branch is how the
       // backdrop grows back over the quarry, and it would look exactly like the S165 seam bug.
@@ -804,12 +1033,22 @@ export class ZoneBackgroundRenderer {
       // ⭐ S195 — `|part|m`: a half-board image is cropped (and mirrored) to the quadrant BEFORE the hole.
       const graded = fxActive();
       const grade = graded ? piece.grade : null;
-      const bakeKey = `${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`;
+      const blendSig = blendIn.length === 0 ? '' : `|b:${blendIn.map((b) => `${b.side}=${b.tex.uid}`).join(',')}`;
+      const bakeKey = `${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}${blendSig}`;
       usedKeys.add(bakeKey);
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
-        const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
-        tex = punchPortal(src, zone, layout, grade);
+        let src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
+        let bakeGrade = grade;
+        if (blendIn.length > 0) {
+          // ⭐ N19 — the seam cross-fade, grades baked per race inside it (so punchPortal must not grade again).
+          const blended = blendSeams(src, grade, blendIn.map((b) => ({ ...b, grade: graded ? b.grade : null })));
+          if (blended !== null) {
+            src = blended;
+            bakeGrade = null;
+          }
+        }
+        tex = punchPortal(src, zone, layout, bakeGrade);
         // ⭐ S195 (audit L10) — the crop canvas was only an input to the bake: free it once baked into `tex`.
         if (src !== raw && src !== tex) src.destroy(true);
         this.baked.set(bakeKey, tex);
@@ -826,7 +1065,7 @@ export class ZoneBackgroundRenderer {
         sp.texture = tex;
       }
       // ⭐ S195 — what this quadrant shows, readable by the REACH test (and a stage dump) without a GPU.
-      sp.label = `zone-bg:${url}|${piece.part}${piece.mirror ? '|mirror' : ''}`;
+      sp.label = `zone-bg:${url}|${piece.part}${piece.mirror ? '|mirror' : ''}${blendIn.length > 0 ? `|blend:${blendIn.map((b) => b.side).join('')}` : ''}`;
 
       // S188 SCORCHED GROUND, derived each frame; S191 1a FIGHT-only; S191 1b a cast's zone + the preview.
       // ⭐ S195 — per QUADRANT: the owner's tint on his home zone only (the 2v1 solo's extra corner stays clear).

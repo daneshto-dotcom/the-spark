@@ -1,6 +1,6 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** item 2 — prototype side-by-side boards (Playwright on own port) + screenshots to Desktop/SPARK_S195_TeamTiles.
+**NEXT STEP:** item 2 — renderer has tile resolver + seam blend (WIP, typechecks); next: Playwright prototype script .tmp-gates/proto.mjs on own port, screenshots to Desktop/SPARK_S195_TeamTiles.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
