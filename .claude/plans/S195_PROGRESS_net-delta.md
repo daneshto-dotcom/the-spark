@@ -1,4 +1,15 @@
-# S195 PROGRESS — net-delta (A compression + B delta snapshots + N18(d) entropy toast)
+# S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
+
+## NEXT STEP (exact)
+- Nothing left for this tree. The merge owner: audit, bump PROTOCOL 69 → 70, add the canon §6 "WHAT RIDES 70" line, merge.
+
+## Report
+- Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
+- Gates on the c6de8044 merge: typecheck 0 · vitest --maxWorkers=3 613 files / 9176 passed / 0 failed (exit 0) · build 0, entry 1230.7 / 1350 KiB (codec ≈ +10 KiB est.: snapshotCodec minified 7.1 KiB + transport) · e2e:gating 67/67 (exit 0) · e2e:lobby 5/5 incl. 4-player FFA over real WebRTC through the codec (exit 0) · e2e:protocol 2/2 (exit 0). Own per-worktree port (playwright config hash).
+- A (deflate) DONE · B (delta vs ACKED frame + keyframes) DONE · N18(d) DONE · measurements DONE (table below; w10 175 KiB → 6.5 KiB = 27×, target ≥ 10×).
+- BUMP: YES. A v69 peer reads snapshots on the `msg` string action; this build sends them as binary frames on `snap` and expects `sack` acks — a mixed pair would shake hands and the old joiner would never see a board. (ew/es/el alone are additive-optional, no bump.) Teams took 69 → this needs 70.
+
+# (history)
 
 ## NEXT STEP (exact)
 - DONE: ... typecheck 0; vitest 9096 pass + 1 red (teams.sites census, fixed+rerun green); build 0 (1220.1/1350 KiB). e2e:gating 67 passed exit 0. e2e:lobby 5/5, e2e:protocol 2/2 (on da8a2267 merge). Merged master c6de8044 (teams, 69) clean. merged tree: typecheck 0, vitest 9176 pass / 0 fail (exit 0). build 0 (1230.7/1350 KiB), e2e:gating 67/67. RUNNING lobby2+protocol2. NEXT: final report at top.
