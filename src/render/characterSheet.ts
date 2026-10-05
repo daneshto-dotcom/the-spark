@@ -26,8 +26,10 @@ import type { PlayerId } from '../types.ts';
 import type { World } from '../state/worldTypes.ts';
 import { codexCopyFor, drawEmblem } from './codexPresentation.ts';
 import { drawSparkGlyph } from './sparkGlyph.ts';
-import { SparkType } from '../constants.ts';
+import { CANVAS_HEIGHT, CANVAS_WIDTH, SparkType } from '../constants.ts';
 import type { PrimitiveId, SpawnerId } from '../types.ts';
+// ⭐ S195 N7 — the hover preview ("what is square?"): the pure resolver; the tooltip is drawn below.
+import { HOVER_PREVIEW_DELAY_MS, hoverPreviewFor, type HoverPreview } from './hoverPreview.ts';
 // ⭐ S194 T5 — the shared skin (translucent; drawn INSIDE plates this card already hit-tests).
 import { skinButtonFx, skinIcon, skinPanelFx } from './uiSkin.ts';
 import {
@@ -42,6 +44,7 @@ import {
   platePlacement,
   portraitPlateFor,
   SHEET_W,
+  SPARK_WORD,
   statValueColumnPx,
   type SheetActionSlot,
   type CharacterSheetView,
@@ -68,6 +71,13 @@ const BAR_H = 12;
 /** ⭐ S193 (T4) — the auto-build toggle's lit colour: the old FEED green, so ON reads as "feeding". */
 const AUTO_FEED_TINT = 0x8fe36a;
 const ROW_H = 20;
+/** ⭐ S195 N7 — the hover preview tooltip's geometry (⚠ MINE). Compact: a name, a tier line, four rows. */
+const TIP_W = 176;
+const TIP_PAD = 8;
+const TIP_HEAD_H = 30;
+const TIP_ROW_H = 14;
+const TIP_OFFSET = 16;
+const TIP_NAME_CHARS = Math.floor((TIP_W - TIP_PAD * 2) / (12 * MONO_EM_RATIO));
 /**
  * ⭐ S185 — the radar's breathing room inside the stat block. LEFT clears the value column's own
  * digits, RIGHT clears the widest `derived` caption on any card (`not bought`). Both are gaps, not
@@ -246,8 +256,29 @@ export class CharacterSheet {
    * disagree with what a click would hit is worse than no highlight at all.
    */
   private hover: { x: number; y: number } | null = null;
+  /**
+   * ⭐ S195 N5 (ui-4 seam) — the pointer is DOWN. `controls.onDown` / `onUp` latch it (released wherever
+   * the release lands, like the footer's), and every control's skin state reads `hot ? (pressed ? 'press' :
+   * 'hover') : 'rest'` — a pressed FIX / SCRAP / FEED chip / owned row / weld row LOOKS pressed.
+   */
+  private pressed = false;
   /** ⭐ S194 T5 — this frame's render clock (ms), for the skin's hover sheen. */
   private uiNow = 0;
+  /**
+   * ⭐⭐ S195 N7 — THE HOVER PREVIEW TOOLTIP. Its own container beside the card's (added to the same
+   * parent, above it) because it must show with NO card open — a free shape in the quarry has no card.
+   * `eventMode: 'none'`: it is drawn beside the pointer and never takes a hit.
+   */
+  private readonly tip: Container;
+  private readonly tipG: Graphics;
+  private readonly tipGlyph: Graphics;
+  private readonly tipLabels: Text[] = [];
+  private tipUsed = 0;
+  private preview: HoverPreview | null = null;
+  /** The preview the pointer has rested on and since when (render ms) — the `HOVER_PREVIEW_DELAY_MS` latch. */
+  private previewKey = '';
+  private previewSince = 0;
+  private previewShown = false;
 
   constructor(app: Application, parent: Container = app.stage) {
     this.container = new Container();
@@ -267,6 +298,15 @@ export class CharacterSheet {
     this.container.addChild(this.buildGlyph);
     this.container.addChild(this.portrait);
     parent.addChild(this.container);
+    // ⭐ S195 N7 — the tooltip, above the card.
+    this.tip = new Container();
+    this.tip.eventMode = 'none';
+    this.tip.visible = false;
+    this.tipG = new Graphics();
+    this.tipGlyph = new Graphics();
+    this.tip.addChild(this.tipG);
+    this.tip.addChild(this.tipGlyph);
+    parent.addChild(this.tip);
   }
 
   setPortraitSource(fn: PortraitSource): void {
@@ -293,6 +333,21 @@ export class CharacterSheet {
 
   clearHover(): void {
     this.hover = null;
+  }
+
+  /** ⭐ S195 N5 (ui-4 seam) — the pointer went down / came up; the control under it sinks / lifts. */
+  setPressed(down: boolean): void {
+    this.pressed = down;
+  }
+
+  /** ⭐ S195 N7 — the preview under the pointer this frame (shown or still waiting out the delay), for tests and the e2e seam. */
+  hoverPreview(): HoverPreview | null {
+    return this.preview;
+  }
+
+  /** ⭐ S195 N7 — is the tooltip drawn right now? */
+  isPreviewShown(): boolean {
+    return this.previewShown;
   }
 
   /** The owned-unit row's target if (x, y) is on it — his *"you can either click on that"*. */
@@ -337,13 +392,124 @@ export class CharacterSheet {
     if (view === null) this.selected = null;
     this.view = view;
     this.reset();
+    this.uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     if (view === null) {
       this.container.visible = false;
       this.ownedHit = null;
+    } else {
+      this.container.visible = true;
+      this.draw(view);
+    }
+    // ⭐ S195 N7 — after the card, so the FEED chips it just laid out can be the preview's first source.
+    // ⛔ S195 audit (info-ui LOW-1) — ONLY WHILE PLAYING. `sync` runs every frame in every game state and the
+    // match board's scrim is not a modal `controls.ts` knows, so in POSTGAME a creature under the pointer drew
+    // a 20 %-visible ghost card under the board. Off the PLAYING state the tip is hidden and the preview null.
+    if (world.gameState === 'PLAYING') {
+      this.syncPreview(world, seat);
+    } else {
+      this.hidePreview();
+    }
+  }
+
+  /** The preview is gone: no subject, no rest timer, nothing drawn. */
+  private hidePreview(): void {
+    this.preview = null;
+    this.previewKey = '';
+    this.previewShown = false;
+    this.tipG.clear();
+    this.tipGlyph.clear();
+    this.tipUsed = 0;
+    this.tip.visible = false;
+    for (const t of this.tipLabels) t.visible = false;
+  }
+
+  /**
+   * ⭐⭐ S195 N7 — resolve and draw the hover preview. ONE resolver (`hoverPreviewFor`) decides what the
+   * pointer is on; this only asks the card whether the pointer is on a FEED chip first (the card owns that
+   * layout — `this.slots` AS DRAWN, the same rects `actionAt` hit-tests), and keeps the board's own picks
+   * from firing THROUGH the card (a goblin standing under the open card is not hovered).
+   *
+   * The delay: the preview must rest on the SAME subject for `HOVER_PREVIEW_DELAY_MS` before it draws, so a
+   * pointer sweeping a crowd does not strobe; leaving (null) hides it on the very next frame.
+   */
+  private syncPreview(world: World, seat: PlayerId): void {
+    const h = this.hover;
+    let pv: HoverPreview | null = null;
+    if (h !== null && h.x >= 0 && h.y >= 0) {
+      const spawnerId = this.view?.actions?.feedSpawnerId;
+      const chipSlot = this.slots.find((b) =>
+        b.kind === 'FEED' && b.sparkType !== undefined && h.x >= b.x && h.x <= b.x + b.w && h.y >= b.y && h.y <= b.y + b.h);
+      if (chipSlot !== undefined && spawnerId !== undefined) {
+        pv = hoverPreviewFor(world, h.x, h.y, seat, { spawnerId, sparkType: chipSlot.sparkType as SparkType });
+      } else if (!this.isOver(h.x, h.y)) {
+        pv = hoverPreviewFor(world, h.x, h.y, seat, null);
+      }
+    }
+    this.preview = pv;
+    const key = pv === null ? '' : `${pv.source}:${pv.type}:${pv.madeFrom ?? '-'}:${pv.subject === null ? '' : `${pv.subject.kind}${pv.subject.id}`}`;
+    if (key !== this.previewKey) {
+      this.previewKey = key;
+      this.previewSince = this.uiNow;
+    }
+    const show = pv !== null && h !== null && this.uiNow - this.previewSince >= HOVER_PREVIEW_DELAY_MS;
+    this.previewShown = show;
+    this.tipG.clear();
+    this.tipGlyph.clear();
+    this.tipUsed = 0;
+    if (!show) {
+      this.tip.visible = false;
+      for (const t of this.tipLabels) t.visible = false;
       return;
     }
-    this.container.visible = true;
-    this.draw(view);
+    this.tip.visible = true;
+    this.drawTip(pv!, h!.x, h!.y);
+    for (let i = this.tipUsed; i < this.tipLabels.length; i++) this.tipLabels[i]!.visible = false;
+  }
+
+  /**
+   * The compact card: name · tier line (and the shape that makes it, as a glyph) · the four ladder rows with
+   * their derived strike / pool. Hung off the pointer, flipped inside the canvas like the board's tooltip.
+   */
+  private drawTip(pv: HoverPreview, px: number, py: number): void {
+    const accent = this.view?.accent ?? EDGE;
+    const w = TIP_W;
+    const h = TIP_PAD * 2 + TIP_HEAD_H + pv.stats.length * TIP_ROW_H;
+    let x = px + TIP_OFFSET;
+    let y = py + TIP_OFFSET;
+    if (x + w > CANVAS_WIDTH - 8) x = px - TIP_OFFSET - w;
+    if (y + h > CANVAS_HEIGHT - 8) y = py - TIP_OFFSET - h;
+    this.tipG.roundRect(x, y, w, h, 6).fill({ color: PLATE, alpha: 0.96 });
+    skinPanelFx(this.tipG, x, y, w, h, accent, TIP_PAD + 14, 6);
+    this.tipG.roundRect(x, y, w, h, 6).stroke({ color: accent, width: 1, alpha: 0.9 });
+    const made = pv.madeFrom;
+    this.tipText(fitChars(pv.name, TIP_NAME_CHARS), x + TIP_PAD, y + TIP_PAD - 1, 12, INK, 0);
+    const from = made === null ? '' : ` · FROM ${SPARK_WORD[made]}`;
+    this.tipText(`${pv.tier}${from}`, x + TIP_PAD, y + TIP_PAD + 15, 9, DIM, 0);
+    if (made !== null) drawSparkGlyph(this.tipGlyph, x + w - TIP_PAD - 8, y + TIP_PAD + 9, 7, made, accent);
+    const valueCol = statValueColumnPx(pv.stats.map((r) => r.label), 10);
+    let sy = y + TIP_PAD + TIP_HEAD_H;
+    for (const row of pv.stats) {
+      this.tipText(row.label, x + TIP_PAD, sy, 10, DIM, 0);
+      this.tipText(String(row.points), x + TIP_PAD + valueCol, sy, 11, INK, 0);
+      if (row.derived !== null) this.tipText(row.derived, x + w - TIP_PAD, sy, 9, DIM, 1);
+      sy += TIP_ROW_H;
+    }
+  }
+
+  private tipText(s: string, x: number, y: number, size: number, fill: number, anchorX: 0 | 1): void {
+    let t = this.tipLabels[this.tipUsed];
+    if (t === undefined) {
+      t = new Text({ text: '', style: new TextStyle({ fontFamily: 'monospace', fontSize: 12, fill: INK }) });
+      this.tipLabels.push(t);
+      this.tip.addChild(t);
+    }
+    this.tipUsed++;
+    t.visible = true;
+    t.text = s;
+    t.style.fontSize = size;
+    t.style.fill = fill;
+    t.anchor.set(anchorX, 0);
+    t.position.set(x, y);
   }
 
   private draw(v: CharacterSheetView): void {
@@ -365,7 +531,6 @@ export class CharacterSheet {
     }
     this.g.roundRect(x, y, w, h, 8).fill({ color: PLATE, alpha: 0.95 });
     // ⭐ S194 T5 — depth, a race-tinted header band and corner brackets, inside the card's own rect.
-    this.uiNow = typeof performance === 'undefined' ? 0 : performance.now();
     skinPanelFx(this.g, x, y, w, h, accent, PAD + 34, 8);
     this.g.roundRect(x, y, w, h, 8).stroke({ color: accent, width: v.accent === null ? 1 : 2 });
 
@@ -522,7 +687,7 @@ export class CharacterSheet {
           .stroke({ color: accent, width: 2, alpha: 0.35 });
       }
       this.g.roundRect(x + PAD, oy, w - PAD * 2, oh, 6).fill({ color: ownedHot ? 0x1b2c3c : 0x14212e });
-      skinButtonFx(this.g, x + PAD, oy, w - PAD * 2, oh, { accent, state: ownedHot ? 'hover' : 'rest', radius: 6, t: this.uiNow, studs: false });
+      skinButtonFx(this.g, x + PAD, oy, w - PAD * 2, oh, { accent, state: ownedHot ? (this.pressed ? 'press' : 'hover') : 'rest', radius: 6, t: this.uiNow, studs: false });
       this.g.roundRect(x + PAD, oy, w - PAD * 2, oh, 6).stroke({ color: ownedHot ? accent : EDGE, width: ownedHot ? 1.5 : 1 });
       this.text(v.owned.name, x + PAD + 46, oy + 6, 12, INK);
       const ow = w - PAD * 2 - 52;
@@ -662,7 +827,7 @@ export class CharacterSheet {
     // ⭐ S194 T5 — the glass, on exactly the rect `actionAt` / `autoFeedAt` hit-test.
     skinButtonFx(this.g, b.x, b.y, b.w, b.h, {
       accent: feed && b.autoFeed === true ? AUTO_FEED_TINT : accent,
-      state: !b.enabled ? 'disabled' : hot ? 'hover' : 'rest',
+      state: !b.enabled ? 'disabled' : hot ? (this.pressed ? 'press' : 'hover') : 'rest',
       radius: r,
       t: this.uiNow,
       studs: !feed,
@@ -875,7 +1040,7 @@ export class CharacterSheet {
         const ix = x + PAD + i * per;
         const lit = hot(ix, iy, WELD_ICON_PX, WELD_ICON_PX);
         this.g.roundRect(ix, iy, WELD_ICON_PX, WELD_ICON_PX, 4).fill({ color: lit ? 0x1b2c3c : 0x101a26 });
-        skinButtonFx(this.g, ix, iy, WELD_ICON_PX, WELD_ICON_PX, { accent, state: lit ? 'hover' : 'rest', radius: 4, t: this.uiNow, studs: false });
+        skinButtonFx(this.g, ix, iy, WELD_ICON_PX, WELD_ICON_PX, { accent, state: lit ? (this.pressed ? 'press' : 'hover') : 'rest', radius: 4, t: this.uiNow, studs: false });
         this.g.roundRect(ix, iy, WELD_ICON_PX, WELD_ICON_PX, 4)
           .stroke({ color: lit ? accent : t.down ? HP_LOW : EDGE, width: lit ? 1.5 : 1 });
         this.drawIcon(i, t.portrait, t.name, ix, iy, WELD_ICON_PX);
@@ -890,7 +1055,7 @@ export class CharacterSheet {
       const rh = WELD_ROW_H - 4;
       const lit = hot(x + PAD, ry, inner, rh);
       this.g.roundRect(x + PAD, ry, inner, rh, 5).fill({ color: lit ? 0x1b2c3c : 0x14212e });
-      skinButtonFx(this.g, x + PAD, ry, inner, rh, { accent, state: lit ? 'hover' : 'rest', radius: 5, t: this.uiNow, studs: false });
+      skinButtonFx(this.g, x + PAD, ry, inner, rh, { accent, state: lit ? (this.pressed ? 'press' : 'hover') : 'rest', radius: 5, t: this.uiNow, studs: false });
       this.g.roundRect(x + PAD, ry, inner, rh, 5)
         .stroke({ color: lit ? accent : EDGE, width: lit ? 1.5 : 1 });
       this.drawIcon(i, t.portrait, t.name, x + PAD + 2, ry + 2, rh - 4);
@@ -1014,6 +1179,11 @@ export class CharacterSheet {
       autoFeed?: boolean;
       x: number; y: number; w: number; h: number;
     }[];
+    /** ⭐ S195 N7 — the hover preview under the pointer, if any, and whether the delay has let it draw. */
+    preview: {
+      source: 'chip' | 'creature' | 'shape'; name: string; tier: string; madeFrom: number | null;
+      stats: { label: string; points: number; derived: string | null }[]; shown: boolean;
+    } | null;
   } {
     return {
       selected: this.selected,
@@ -1029,6 +1199,11 @@ export class CharacterSheet {
       },
       hasActions: this.view?.actions != null,
       actions: this.slots.map((b) => ({ ...b })),
+      // ⭐ S195 N7 — the hover preview (null when nothing is under the pointer), and whether it is drawn yet.
+      preview: this.preview === null ? null : {
+        source: this.preview.source, name: this.preview.name, tier: this.preview.tier,
+        madeFrom: this.preview.madeFrom, stats: this.preview.stats.map((r) => ({ ...r })), shown: this.previewShown,
+      },
     };
   }
 
@@ -1088,6 +1263,7 @@ export class CharacterSheet {
 
   bringToFront(): void {
     this.container.parent?.addChild(this.container);
+    this.tip.parent?.addChild(this.tip); // the tooltip stays above the card
   }
 
   clear(): void {
@@ -1095,10 +1271,12 @@ export class CharacterSheet {
     this.view = null;
     this.reset();
     this.container.visible = false;
+    this.hidePreview();
   }
 
   destroy(): void {
     this.container.destroy({ children: true });
+    this.tip.destroy({ children: true });
   }
 }
 

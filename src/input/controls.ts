@@ -212,6 +212,8 @@ export interface CharacterSheetLike {
   actionFeedSpawnerId(): SpawnerId | null;
   /** S181 — the pointer moved; light the control under it (owner: "slightly changes hue"). */
   setHover(x: number, y: number): void;
+  /** ⭐ S195 N5 — the pointer is down / up; sink / lift the control under it. Optional so every harness stub stays assignable. */
+  setPressed?(down: boolean): void;
 }
 
 /*
@@ -1006,6 +1008,19 @@ export class Controls {
     );
   }
 
+  /**
+   * ⛔ S195 audit (info-ui LOW-2) — is the pointer over an opaque HUD SURFACE that is drawn over the board:
+   * the footer band's plate or the OPEN castle panel? Asked by `updateHoverCursor` ONLY to blank the card's
+   * hover (the N7 preview is staged over both), never for the cursor itself — GATE D forbids the cursor
+   * from asking a SURFACE question, because a surface is not a control (`s182UiSurfaceGuards.test.ts`).
+   */
+  private isPointerUnderHudSurface(): boolean {
+    return (
+      this.isPointerOverFooterSurface() ||
+      (this.castlePanel?.isOpen() === true && this.castlePanel.isOverPanel(this.cursor.x, this.cursor.y))
+    );
+  }
+
   /** ⭐ S191 R2 (INPUT-1 / INPUT-3) — is the pointer under a modal or a HUD control? See `setModalCover`. */
   private isPointerUnderModal(): boolean {
     return this.modalCover !== null && this.modalCover(this.cursor.x, this.cursor.y);
@@ -1507,6 +1522,7 @@ export class Controls {
     // R81 — a pressed control must LOOK pressed. Set before any handler runs, so the frame that
     // acts on the click is the frame that shows it being taken.
     this.footerBand?.setPressed(true);
+    this.characterSheet?.setPressed?.(true); // ⭐ S195 N5 — the card's FIX / SCRAP / FEED sink too
     // ⛔⛔ S191 R2 (INPUT-1 / INPUT-3) — UNDER A MODAL OR A HUD CONTROL NOTHING ON THE BOARD ACTS, for EVERY
     // button: the modal's own Pixi hit (its buttons, its backdrop) is the whole of the click. `onUp`
     // does NOT return like this — a drag begun before the modal must still end (see its two gates).
@@ -1972,6 +1988,11 @@ export class Controls {
     // change hue. So it looks like it's popping out."* Fed from the SAME predicate evaluated three
     // lines above, never a parallel hit test — see this function's own docblock.
     this.characterSheet?.setHover(lift.x, lift.y);
+    // ⛔ S195 audit (info-ui LOW-2) — and UNDER A HUD SURFACE the card sees nothing either: the footer band
+    // and the open castle panel are drawn over the board, and the card's hover preview (N7) is staged over
+    // THEM, so a free shape or goblin hidden under either drew its tooltip on top of the HUD. Blanked exactly
+    // as the draft plate blanks it; the footer keeps its own real cursor (its chips still light).
+    if (this.isPointerUnderHudSurface()) this.characterSheet?.setHover(-1, -1);
     // ⭐ S188 P6 — a crosshair over the board while aiming Ra: the next click lands the strike.
     // ⭐ S191 — and while aiming SCORCHED EARTH.
     const aimingSkill = raAimPreview() !== null || scorchedEarthAim() !== null;
@@ -1994,6 +2015,7 @@ export class Controls {
     // release off the board still arrives — otherwise dragging off a pressed chip would leave it
     // stuck depressed forever, the trap the title-screen buttons documented in S152 A5.
     this.footerBand?.setPressed(false);
+    this.characterSheet?.setPressed?.(false); // ⭐ S195 N5
     // ⛔ S192 A-1 — a release whose PRESS was under a modal commits nothing (read once, cleared at once).
     const downUnderModal = this.downUnderModal;
     this.downUnderModal = false;
