@@ -1,11 +1,11 @@
 # S195 PROGRESS — s195/fight-wipe (the "half my build exploded at the whistle" hunt)
 
-NEXT STEP: gates are running (`.tmp-gates/typecheck|vitest|build.{log,exit}`); read the exit files, fill the gate line below, hand back.
+NEXT STEP: DONE — handed back to the merge owner. Nothing owed in this tree; seams listed below are the merge owner's / info-ui's.
 
 ## FINAL REPORT (fills in as the gates land)
 
-- **tip**: see `git log -1` (merge of `ccr-26eaab43-fa9mg3` @ 1cee3822 on top of 591e5851 / the table commit; no source conflicts, no lockfile change → no `npm install`).
-- **gates**: typecheck `__` · vitest `--maxWorkers=2` `__` · build `__` entry `__ KiB` (+0.0 — this tree adds ONE test file and this document; nothing ships in the bundle).
+- **tip**: the commit after 84a206b3 (this gate line); merge SHA 81fbe5cd = `ccr-26eaab43-fa9mg3` @ 1cee3822 merged, no conflicts, no lockfile change → no `npm install`.
+- **gates** (captured `$?` in `.tmp-gates/*.exit`): typecheck **0** · vitest `--maxWorkers=2` **0** (587 files passed / 5 skipped; 8900 tests passed / 12 skipped; the new file 8/8) · build **0** — entry **1189.9 KiB** (1 218 412 B), cap 1250, headroom 60.1 KiB — **+0.0 KiB from this tree** (one test file + this document; nothing ships in the bundle; the 1189.9 is the integration branch's own weight).
 - **bump verdict: NO.** No sim line changed. Two builds that shake hands compute byte-identical worlds (the hunt test pins `hashWorldStateFull` only to compare teams-on vs teams-off on the same build).
 - **files**: `src/state/entropyFightWipe.test.ts` (new, 8 tests, ~2.3 s), this file. Nothing in `src/state/entropy.ts`, `damage.ts`, `hostTick.ts`, `potatoLifecycle.ts` — **no bug was found to fix** (see the verdict).
 
