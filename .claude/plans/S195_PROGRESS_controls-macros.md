@@ -1,4 +1,4 @@
-NEXT: write src/input/keyMacros.ts (pure digit → target mapping), then wire footerBand.keyMacroTargets + card digit badge, then controls.ts Shift chain + digit handler, then tests.
+NEXT: write src/input/controls.keyMacros.test.ts (REACH through real Controls + real FooterBand): shift chain, run-out, release, illegal spot, digits, overlays, mutation.
 
 # S195 — controls-macros tree (N6: Shift = place many; number-key build macros)
 
