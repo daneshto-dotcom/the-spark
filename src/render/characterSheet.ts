@@ -401,7 +401,26 @@ export class CharacterSheet {
       this.draw(view);
     }
     // ⭐ S195 N7 — after the card, so the FEED chips it just laid out can be the preview's first source.
-    this.syncPreview(world, seat);
+    // ⛔ S195 audit (info-ui LOW-1) — ONLY WHILE PLAYING. `sync` runs every frame in every game state and the
+    // match board's scrim is not a modal `controls.ts` knows, so in POSTGAME a creature under the pointer drew
+    // a 20 %-visible ghost card under the board. Off the PLAYING state the tip is hidden and the preview null.
+    if (world.gameState === 'PLAYING') {
+      this.syncPreview(world, seat);
+    } else {
+      this.hidePreview();
+    }
+  }
+
+  /** The preview is gone: no subject, no rest timer, nothing drawn. */
+  private hidePreview(): void {
+    this.preview = null;
+    this.previewKey = '';
+    this.previewShown = false;
+    this.tipG.clear();
+    this.tipGlyph.clear();
+    this.tipUsed = 0;
+    this.tip.visible = false;
+    for (const t of this.tipLabels) t.visible = false;
   }
 
   /**
@@ -1252,10 +1271,7 @@ export class CharacterSheet {
     this.view = null;
     this.reset();
     this.container.visible = false;
-    this.preview = null;
-    this.previewKey = '';
-    this.previewShown = false;
-    this.tip.visible = false;
+    this.hidePreview();
   }
 
   destroy(): void {

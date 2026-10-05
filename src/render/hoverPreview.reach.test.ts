@@ -210,6 +210,75 @@ describe('⭐⭐ N7 REACH — the tooltip through the real card', () => {
   });
 });
 
+describe('⛔ S195 audit LOW-1 / LOW-2 — the preview never draws under the match board or over a HUD surface', () => {
+  it('LOW-1: in POSTGAME a creature under the pointer resolves to NOTHING and nothing is drawn, however long it rests', () => {
+    const { w } = goblinWorld();
+    const stage = new Container();
+    const sheet = new CharacterSheet({ stage } as never, stage);
+    dispatch(w, { type: 'SPAWN_CREATURE', creatureType: 'goblinSuicide', ownerPlayerId: P0, pos: { x: 1500, y: 300 }, targetPos: { x: 1500, y: 300 }, sourceSpawnerId: [...w.creatureSpawners.keys()][0] } as never);
+    expect(w.creatures.size, 'anti-vacuity').toBe(1);
+    sheet.setHover(1500, 300);
+    sheet.sync(w, P0);
+    now += HOVER_PREVIEW_DELAY_MS;
+    sheet.sync(w, P0);
+    expect(sheet.isPreviewShown(), 'PLAYING: shown').toBe(true);
+    w.gameState = 'POSTGAME';
+    sheet.sync(w, P0);
+    expect(sheet.getUiPoints().preview).toBeNull();
+    expect(sheet.isPreviewShown()).toBe(false);
+    expect(visibleTexts(stage)).not.toContain('SAPPER GOBLIN');
+    now += HOVER_PREVIEW_DELAY_MS * 10;
+    sheet.sync(w, P0);
+    expect(sheet.isPreviewShown(), 'still nothing, however long the rest').toBe(false);
+    w.gameState = 'PLAYING';
+    sheet.sync(w, P0);
+    now += HOVER_PREVIEW_DELAY_MS;
+    sheet.sync(w, P0);
+    expect(sheet.isPreviewShown(), 'back in PLAYING the rest starts again and it shows').toBe(true);
+  });
+
+  it('LOW-2: Controls blanks the card\'s hover (-1,-1) under the open castle panel and under the footer surface — through the real class', () => {
+    const { w } = goblinWorld();
+    const hovers: Array<[number, number]> = [];
+    const sheet: CharacterSheetLike = {
+      select() {}, selection: () => null, ownedRowAt: () => null, isOver: () => false, actionAt: () => null,
+      isOverAnyAction: () => false, actionPrimitiveId: () => null, actionFeedSpawnerId: () => null,
+      setHover(x, y) { hovers.push([x, y]); },
+    };
+    let panelOpen = false;
+    let overPanel = false;
+    let overBand = false;
+    const canvas = {
+      addEventListener() {}, setPointerCapture() {}, releasePointerCapture() {}, style: { cursor: '' },
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 1920, height: 1080, right: 1920, bottom: 1080, x: 0, y: 0 }),
+    };
+    const c = new Controls({ canvas } as never, w, P0, (a) => dispatch(w, a));
+    c.setCastlePanel({
+      isOpen: () => panelOpen, toggle() {}, close() {}, isOverPanel: () => overPanel, armedBlueprint: () => null,
+      disarm() {}, armExternal() {}, requestShapesFor() {},
+    } as unknown as CastlePanelLike);
+    c.setFooterBand({
+      isOverBandSurface: () => overBand, isOverChip: () => false, chipAt: () => null, isOverCollapseTab: () => false, pressCollapseTab: () => false,
+      select: () => null, cardAt: () => null, cardEnabled: () => false, setArmed() {}, setHover() {}, setPressed() {},
+      pressShapeStrip: () => false, isOverRaSquare: () => false, isOverScorchedEarthSquare: () => false, isOverSkillSquare: () => false,
+    } as never);
+    c.setCharacterSheet(sheet);
+    type Ptr = { button: number; clientX: number; clientY: number; pointerId: number };
+    const moveTo = (x: number, y: number): void => { (c as unknown as { onMove(e: Ptr): void }).onMove({ button: 0, clientX: x, clientY: y, pointerId: 1 }); };
+    moveTo(1500, 300);
+    expect(hovers.at(-1), 'open board: the real cursor').toEqual([1500, 300]);
+    panelOpen = true; overPanel = true;
+    moveTo(1500, 301);
+    expect(hovers.at(-1), 'under the open castle panel: blanked').toEqual([-1, -1]);
+    panelOpen = false; overPanel = false; overBand = true;
+    moveTo(1500, 302);
+    expect(hovers.at(-1), 'under the footer surface: blanked').toEqual([-1, -1]);
+    overBand = false;
+    moveTo(1500, 303);
+    expect(hovers.at(-1), 'off both: the real cursor again').toEqual([1500, 303]);
+  });
+});
+
 describe('⭐ N5 (ui-4 seam) REACH — the card\'s controls sink while the pointer is down', () => {
   it('FIX and a FEED chip: hover → "hover", pressed → "press", released → "hover", off → "rest"', () => {
     const { w, anchor } = goblinWorld();

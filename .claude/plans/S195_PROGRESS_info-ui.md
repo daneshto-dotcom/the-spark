@@ -1,4 +1,11 @@
-NEXT STEP: none — tree complete; merge owner audits and lands. (Merged ccr-26eaab43-fa9mg3 = 25b60c41, clean, lockfile unchanged, none of this tree's files touched by the merge.)
+NEXT STEP: none — FIX ROUND 1 applied (2 LOW); merge owner re-audits and lands.
+
+## FIX ROUND 1 (independent audit, 2 LOW) — tip = this commit; merged `ccr-26eaab43-fa9mg3` again (4c5b7916: controls-macros landed, clean, no conflicts)
+1. LOW-1 (POSTGAME ghost tooltip under the board scrim): `CharacterSheet.sync` now runs `syncPreview` ONLY when `world.gameState === 'PLAYING'`, else `hidePreview()` (preview null, rest timer reset, tip hidden). REACH (`hoverPreview.reach.test.ts`): PLAYING shows → POSTGAME with the pointer still on the creature: preview null, `isPreviewShown()` false, no text on the stage however long the rest; back to PLAYING it rests and shows again.
+2. LOW-2 (tooltip over the footer band / open castle panel): `controls.updateHoverCursor` keeps GATE D's pinned `this.characterSheet?.setHover(lift.x, lift.y);` line and then blanks the card with `setHover(-1, -1)` when the NEW helper `isPointerUnderHudSurface()` (footer surface OR open castle panel `isOverPanel`) is true — the surface predicate lives in the helper, not in the hover block (GATE D forbids the CURSOR asking `isPointerOverFooterSurface`; the first draft of this hunk broke two GATE D pins and was reworked). The footer band keeps its own real cursor. REACH through the real `Controls.onMove` with stub panel/band: open panel + over it → (-1,-1); over the band surface → (-1,-1); off both → the real cursor.
+Gates (touched + controls guards): typecheck **0** (fix-tc2.exit) · vitest `hoverPreview*`, `characterSheet*`, `uiSkinReach.sheet`, `uiPressCensus`, `weldedSheetsR191A`, all of `src/input` (GATE D, altFooter, rightClickSurfaces, …) **0** — 29 files / 560 passed (fix-vitest2.exit). Entry KiB not re-measured (a few hundred bytes); 1191.7 stands within rounding. Bump: still NO (render-only + input gating).
+Seam update for the merge owner: `controls.ts` now carries ONE more private helper (`isPointerUnderHudSurface`, beside `isPointerUnderModal`) and one line after the pinned sheet `setHover` in `updateHoverCursor`; nothing else in that file moved.
+
 
 # FINAL REPORT — s195/info-ui (N7 · N12 · N14 · ui-4 seams) — tip = `git log -1` (this commit)
 
