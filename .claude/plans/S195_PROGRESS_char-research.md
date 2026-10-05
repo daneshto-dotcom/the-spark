@@ -1,5 +1,5 @@
 # S195 PROGRESS — char-research (N20)
-NEXT STEP: finish web research (Mixamo, Pixi mesh/filters/lights, Lottie, Live2D, DragonBones, Blender NPR/GP, splats, Dead Cells 3D->2D), then write .claude/plans/S195_CHARACTER_ART_RESEARCH.md and commit.
+NEXT STEP: DONE — research doc committed; hand back to coordinator (owner reads summary in chat).
 ## Facts gathered (cited in the final doc)
 - Blender NOT installed on this machine (no `where blender`, no Program Files/Blender Foundation, not in Steam common).
 - Game: units face L/R only via sprite.scale.x flip (creatureRenderer.ts:442,522); side-on walk; 12 frames/state. Units atlas 2400x800 (200px cells, 4 states) ~1.6 MB PNG; voltkin-tv 3072x1536 (256 cells, 6 rows) 352 KB. public/art 86 MB. Bundle cap 1350 KiB (check-bundle-size.mjs:19). pixi.js ^8.19.0, pixi-filters 6.1.5. GraphicsTier HIGH/LOW/MINIMAL (displayPrefs.ts:91).
