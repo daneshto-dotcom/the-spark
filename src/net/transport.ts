@@ -1104,14 +1104,13 @@ export class NetTransport {
   private lastEnvelopeCounted = 0;
 
   private countSnapshotSend(strategy: StrategyName, size: number, fid: number): void {
-    if (!netStats.isEnabled()) return;
-    const now = performance.now();
-    netStats.recordSend(strategy, size, 1, now);
+    // ⛔ The S182 zero-cost contract (`netStats.test.ts`): each recorder call reads isEnabled() first.
+    if (netStats.isEnabled()) netStats.recordSend(strategy, size, 1, performance.now());
     // Once per snapshot, however many strategies and peers carry it (the S182 `snap tx` contract).
     // ⚠ S195: with per-peer deltas the envelope's SIZE is the first peer's frame, not a shared string.
-    if (fid !== this.lastEnvelopeCounted) {
+    if (netStats.isEnabled() && fid !== this.lastEnvelopeCounted) {
       this.lastEnvelopeCounted = fid;
-      netStats.recordSendEnvelope('NETSNAPSHOT', size, now);
+      netStats.recordSendEnvelope('NETSNAPSHOT', size, performance.now());
     }
   }
 
