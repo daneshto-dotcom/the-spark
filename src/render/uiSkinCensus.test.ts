@@ -82,6 +82,10 @@ const CENSUS: readonly Claim[] = [
   { file: 'src/render/matchBoard.ts', match: 'this.container.eventMode', status: E, what: 'the board root — the full-screen scrim that swallows the world under POSTGAME; its controls are drawn plates, skinned below' },
   { file: 'src/render/matchBoard.ts', match: "this.container.on('pointermove'", status: S, what: 'hover for the tabs, overview rows and CONTINUE (skinButtonFx hover state) and the chart crosshairs (hoverAt)' },
   { file: 'src/render/matchBoard.ts', match: "this.container.on('pointertap'", status: S, what: 'page tabs, overview rows (→ the page of that seat) and CONTINUE — glass via skinButtonFx; the plate via skinPanelFx; hit-tested by matchBoardTips.hoverAt'},
+  // ⭐ S195 N5 (info-ui) — the PRESS half of that same listener pair: a latch, not a control; the plates it sinks are the two rows above.
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointerdown'", status: E, what: 'the board press latch (down): sinks the tab / row / CONTINUE under the pointer — the controls are the pointermove/pointertap rows' },
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointerup'", status: E, what: 'the board press latch (up): lifts' },
+  { file: 'src/render/matchBoard.ts', match: "this.container.on('pointerupoutside'", status: E, what: 'the board press latch (released off the board): lifts' },
   // ── settings (DOM) ────────────────────────────────────────────────────────────────────────────
   { file: 'src/render/settingsOverlay.ts', match: "createElement('button')", status: S, what: 'close ✕ — scoped CSS hover/press/focus (.spark-settings)' },
   { file: 'src/render/settingsOverlay.ts', match: "style.cursor = 'pointer'", status: S, what: 'close, toggles, mutes, sliders, the Graphics tier radios, labels — scoped CSS hover/press/focus (.spark-settings)' },

@@ -80,3 +80,21 @@ describe('S188 audit F5 — the feed is drawn only while it is really happening'
     expect(showsCorpseEaterFeed({ corpseEaterUntilTick: undefined, stunnedUntilTick: undefined }, { tick: 5, matchPhase: 'FIGHT' })).toBe(false);
   });
 });
+
+describe('⭐ S195 B-32 — the eat LOOP repeats for the whole feed (render half)', () => {
+  it('the feedLoop ping-pong covers at least two full periods of the middle, and never leaves the loop row', () => {
+    const inTicks = T.feedIn.frames * T.feedIn.ticksPerFrame;
+    const outStart = CORPSE_EATER_TICKS - T.feedOut.frames * T.feedOut.ticksPerFrame;
+    const periodTicks = (2 * T.feedLoop.frames - 2) * T.feedLoop.ticksPerFrame; // one down-and-up pass
+    expect(Math.floor((outStart - inTicks) / periodTicks), 'full loops in the middle').toBeGreaterThanOrEqual(2);
+    // Every frame of the row is visited at least twice — a loop, not one pass.
+    const seen = new Map<number, number>();
+    for (let e = inTicks; e < outStart; e++) {
+      const f = corpseEaterFrame(e, T);
+      expect(f.row).toBe('feedLoop');
+      seen.set(f.index, (seen.get(f.index) ?? 0) + 1);
+    }
+    expect(seen.size).toBe(T.feedLoop.frames);
+    for (const [index, n] of seen) expect(n, `loop frame ${index} drawn more than once`).toBeGreaterThan(T.feedLoop.ticksPerFrame);
+  });
+});

@@ -41,11 +41,7 @@
  */
 
 import { dispatch, type World } from './world.ts';
-import {
-  findAllVoltkinChainsCanonical,
-  isIsolatedVoltkinChain,
-  voltkinTvOwner,
-} from './godlyRecipes/voltkinChainWalk.ts';
+import { findAllVoltkinChainsCanonical, voltkinTvOwner } from './godlyRecipes/voltkinChainWalk.ts';
 import { computeStubTargetPos } from '../physics/creatureVerlet.ts';
 import type { PlayerId, PrimitiveId } from '../types.ts';
 
@@ -72,14 +68,27 @@ export interface StandingVoltkinTv {
  */
 export { voltkinTvOwner };
 
-/** Every TV standing on the board, in the canonical order. */
+/**
+ * Every TV standing on the board, in the canonical order.
+ *
+ * ⭐⭐ S195 B-31 (owner, REVERSES the S192 audit M1 rule) — **A WELDED TV IS A TV.** *"you should be able to
+ * weld everything on everything, and the existing … towers keep summoning and resummoning … A TV is not
+ * different than a tier three piranha tower."* The S48 isolation test (`isIsolatedVoltkinChain`) that
+ * dropped a chain with an extra shape welded on is RETIRED from both the census and ignition
+ * (`voltkinPredicate` now reads THIS list), so a welded TV ignites, summons and re-summons like any other.
+ *
+ * ⚠ MINE — OVERLAPPING 8-PATHS ARE ONE TV. Without the degree test a blob can hold two legal 4S→4T paths
+ * through the same shapes (the S192 audit's A4 board: one square spine, two triangle tails). The owner's
+ * rule is "a TV is a tower", and a tower's shapes belong to one tower, so the census takes the canonical
+ * paths GREEDILY DISJOINT: a path sharing any member with a TV already taken is skipped. Deterministic —
+ * the canonical order is sorted ids, never `Map` order. His alternative: every distinct path is its own
+ * TV (two Voltkins from twelve shapes). Overrule on sight.
+ */
 export function standingVoltkinTvs(world: World): StandingVoltkinTv[] {
   const out: StandingVoltkinTv[] = [];
+  const taken = new Set<PrimitiveId>();
   for (const chain of findAllVoltkinChainsCanonical(world)) {
-    // ⛔ S192 audit M1 — a TV re-summons IFF it would ignite now: the same S48 isolation test the
-    // ignition predicate runs (`isIsolatedVoltkinChain`, one copy). A welded or blobbed chain is
-    // drawn by the renderer but summons nothing, exactly as it would not ignite.
-    if (!isIsolatedVoltkinChain(world, chain)) continue;
+    if (chain.some((id) => taken.has(id))) continue; // ⚠ MINE (above) — one TV per set of shapes
     const members = [...chain].sort((a, b) => Number(a) - Number(b));
     let sumX = 0;
     let sumY = 0;
@@ -94,9 +103,53 @@ export function standingVoltkinTvs(world: World): StandingVoltkinTv[] {
     if (n === 0) continue;
     const owner = voltkinTvOwner(world, members);
     if (owner === null) continue;
+    for (const id of members) taken.add(id);
     out.push({ members, centre: { x: sumX / n, y: sumY / n }, owner });
   }
   return out;
+}
+
+/**
+ * ⭐ S195 B-31 — IS THE CINEMATIC PLAYING RIGHT NOW THIS TV'S OWN IGNITION? `GODLY_TRIGGER` sets
+ * `currentCinematicEvent` first and `startCinematicIfNeeded` schedules its `pendingCreatureSpawn` a
+ * main-loop frame later, so in between the summon is in neither claim list. Harmless while only the wave
+ * edge asked; ignition now asks on every weld, and a weld in that gap would have minted a second Voltkin for
+ * the same TV. Matched by IDENTITY (the event's member set is this TV's), never by position, so it can never
+ * bind another TV the way a positional claim did (see `voltkinClaims`).
+ */
+export function isTvPlayingNow(world: World, tv: StandingVoltkinTv): boolean {
+  const ev = world.currentCinematicEvent;
+  if (ev === null || ev.godlyId !== 'voltkin') return false;
+  if (ev.targetComponentPrimitiveIds.length !== tv.members.length) return false;
+  const theirs = [...ev.targetComponentPrimitiveIds].map(Number).sort((a, b) => a - b);
+  for (let i = 0; i < theirs.length; i++) if (theirs[i] !== Number(tv.members[i])) return false;
+  return true;
+}
+
+/**
+ * ⭐ S195 B-31 — THE TV AN IGNITION EVENT TOUCHED: the first standing TV (canonical order) with a member
+ * within `radius` of `pos`, or -1. Replaces `findVoltkinChain(world, bondPos)` as ignition's search, so
+ * ignition and the wave census read ONE list and can never disagree about which eight shapes are the TV
+ * — with overlapping paths now legal, the old first-match-in-`Map`-order search could have minted the
+ * Voltkin at a different centroid on a sim restored from a save.
+ */
+export function standingVoltkinTvTouching(
+  world: World,
+  tvs: readonly StandingVoltkinTv[],
+  pos: { readonly x: number; readonly y: number },
+  radius: number,
+): number {
+  const r2 = radius * radius;
+  for (let ti = 0; ti < tvs.length; ti++) {
+    for (const id of tvs[ti]!.members) {
+      const p = world.primitives.get(id);
+      if (p === undefined) continue;
+      const dx = p.pos.x - pos.x;
+      const dy = p.pos.y - pos.y;
+      if (dx * dx + dy * dy <= r2) return ti;
+    }
+  }
+  return -1;
 }
 
 /**
@@ -129,7 +182,10 @@ interface VoltkinClaim {
 /**
  * Who already holds a TV's Voltkin: every live (not fading) Voltkin, plus every summon already on its
  * way — the single-slot `pendingCreatureSpawn` and any Voltkin event still waiting in
- * `pendingCinematics`. Counting the in-flight ones is what stops a TV closed in the last instant of
+ * `pendingCinematics`. ⚠ S195 B-31 — NOT the cinematic playing now (`currentCinematicEvent`): once its
+ * `pendingCreatureSpawn` is scheduled, or its Voltkin minted early, that would be the same summon counted
+ * twice, and the second claim would bind — and silence — the seat's NEXT TV (measured: the three-TV rig lost
+ * TV 2). The emerge GAP before the schedule is closed by identity instead, in `isTvPlayingNow`. Counting the in-flight ones is what stops a TV closed in the last instant of
  * a phase being summoned for twice.
  */
 function voltkinClaims(world: World): VoltkinClaim[] {

@@ -66,8 +66,15 @@ test.describe('S137 P2 — the rainbow makes the castle party (visual) @archived
         const sx = Math.round(anchor.x - 37);
         const sy = Math.round(anchor.y + 6);
 
+        // ⛔ S195 T22 (§E F2) — BOARD-FRAMED, TITLE HIDDEN, as `e2e/fog.spec.ts` does. An unframed
+        // `extract.pixels(app.stage)` extracts the stage's BOUNDS, which the title embers widen by a different
+        // amount every frame, so `width / 1920` was a timing-dependent ratio and the sample could land a few
+        // px off the 2 px stroke it aims at. The frame pins the extract to 0..1920 × 0..1080.
+        s.titleScreen.setVisible(false);
+        const board = new app.screen.constructor(0, 0, 1920, 1080);
         const readAt = (): [number, number, number] => {
-          const out = app.renderer.extract.pixels(app.stage);
+          const out = app.renderer.extract.pixels({ target: app.stage, frame: board });
+          if (out.width !== 1920 || out.height !== 1080) throw new Error(`stage extract not board-framed: ${out.width}x${out.height}`);
           const rX = out.width / 1920;
           const rY = out.height / 1080;
           const i = (Math.round(sy * rY) * out.width + Math.round(sx * rX)) * 4;

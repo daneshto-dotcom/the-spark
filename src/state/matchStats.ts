@@ -75,6 +75,15 @@ export interface SeatMatchStats {
   dealtStruct: number;
   takenKeep: number;
   takenStruct: number;
+  /**
+   * ⭐ S195 T22 (owner B-17, RULED *"only the player itself will see it, not all players"*) — CONNECTORS
+   * THIS SEAT LOST TO THE ENTROPY TAX (canon §2, `entropy.ts`): every connector the whistle roll snapped
+   * AND every connector a split deleted with the smaller side, counted as the seat's standing-bond delta
+   * across the one `applyEntropyTax` pass. Inert like every counter here. The board row that shows it to
+   * its own seat is a LATER tree's (`matchBoard*`); this is the seam: `world.matchStats.seats.get(seat)
+   * ?.lostToEntropy`, wire key `le`.
+   */
+  lostToEntropy: number;
   /** The wave its castle fell on; `undefined` while it stands. */
   fellOnWave: number | undefined;
 }
@@ -137,6 +146,7 @@ function emptySeat(): SeatMatchStats {
     dealtStruct: 0,
     takenKeep: 0,
     takenStruct: 0,
+    lostToEntropy: 0,
     fellOnWave: undefined,
   };
 }
@@ -239,6 +249,16 @@ export function recordTowerFell(world: World, owner: PlayerId): void {
   seat(world, owner).towersFell += 1;
 }
 
+/**
+ * ⭐ S195 T22 — `owner` lost `connectors` to the ENTROPY TAX in one whistle pass. Called once per seat per
+ * pass by `applyEntropyTax` (`entropy.ts`) with the seat's standing-bond delta, so a split's deleted
+ * smaller side counts too. Zero records nothing — an untaxed match stays byte-identical on the wire.
+ */
+export function recordEntropyLoss(world: World, owner: PlayerId, connectors: number): void {
+  if (!(connectors > 0)) return;
+  seat(world, owner).lostToEntropy += connectors;
+}
+
 /** Called by `markFallenSeats` on the tick it stamps the seat. Write-once, like the stamp. */
 export function recordSeatFell(world: World, id: PlayerId): void {
   const s = seat(world, id);
@@ -320,6 +340,8 @@ export interface SerializedSeatStats {
   readonly tk?: number;
   readonly ts?: number;
   readonly tu?: number;
+  /** ⭐ S195 T22 — connectors lost to the ENTROPY TAX; optional, absent at zero (an older host sends none). */
+  readonly le?: number;
 }
 
 export interface SerializedMatchStats {
@@ -387,6 +409,7 @@ function serializeSeat(id: PlayerId, s: SeatMatchStats): SerializedSeatStats | n
     ...(s.takenKeep > 0 ? { tk: s.takenKeep } : {}),
     ...(s.takenStruct > 0 ? { ts: s.takenStruct } : {}),
     ...(s.takenUnattributed > 0 ? { tu: s.takenUnattributed } : {}),
+    ...(s.lostToEntropy > 0 ? { le: s.lostToEntropy } : {}),
   };
   return Object.keys(out).length > 1 ? out : null;
 }
@@ -469,6 +492,7 @@ export function applySerializedSeats(world: World, s: SerializedMatchStats | und
       takenKeep: isCount(r.tk) ? r.tk : 0,
       takenStruct: isCount(r.ts) ? r.ts : 0,
       takenUnattributed: isCount(r.tu) ? r.tu : 0,
+      lostToEntropy: isCount(r.le) ? r.le : 0,
       fellOnWave: isCount(r.fellOnWave) ? r.fellOnWave : undefined,
     });
   }
@@ -529,7 +553,9 @@ export function matchStatsHashParts(ms: MatchStats): string[] {
         `:d${s.dealtFifths}:t${s.takenFifths}:fw${s.fellOnWave ?? -1}` +
         // ⭐ S194 v2
         `:l${rec(s.lost)}:to${[...s.dealtTo.entries()].sort(([a], [b]) => (a as number) - (b as number)).map(([k, n]) => `${k as number}=${n}`).join('.')}` +
-        `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}:tu${s.takenUnattributed}`,
+        `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}:tu${s.takenUnattributed}` +
+        // ⭐ S195 T22
+        `:le${s.lostToEntropy}`,
     );
   }
   for (const h of ms.history) {

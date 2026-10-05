@@ -58,7 +58,9 @@ import { makeCastleBank } from '../castleBank.ts';
 import { zoneOf } from '../zones.ts';
 import { makeDefender } from '../defenders/defender.ts';
 import { applyDefenderTick } from '../defenders/defenderLifecycle.ts';
-import { asDefenderId, asPrimitiveId } from '../../types.ts';
+import { asBondId, asDefenderId, asPrimitiveId, type BondId, type PlayerId } from '../../types.ts';
+import { PRIMITIVE_MAX_HP, SparkType } from '../../constants.ts';
+import type { Primitive } from '../../game/primitive.ts';
 // ⚠ SIDE-EFFECT IMPORT, REQUIRED — the recipes register themselves; without it nothing ignites.
 import '../godlyRecipes/registerAll.ts';
 
@@ -114,6 +116,57 @@ function put(w: World, seat: number, type: CreatureType, pos: Vec2, targetPos: V
   return c;
 }
 
+/** A hand-built shape of `seat` (S195 — for the real-chewer fixtures: something for it to gnaw). */
+function shapeAt(w: World, seat: PlayerId, x: number, y: number): Primitive {
+  const color = w.players.get(seat)!.color;
+  const id = asPrimitiveId(w.nextPrimitiveId++);
+  const p = {
+    id, type: SparkType.Square, placerColor: color, placedBy: seat, createdTick: 0, pos: { x, y }, prevPos: { x, y },
+    bonds: new Set<BondId>(), ownerColor: color, lastOwnershipChange: 0, radius: 9, hp: PRIMITIVE_MAX_HP, origin: null,
+  } as unknown as Primitive;
+  w.primitives.set(id, p);
+  return p;
+}
+/** A chain of `n` connectors of `seat` starting at (x, y), 32 px apart. */
+function buildingAt(w: World, seat: PlayerId, x: number, y: number, n: number): BondId[] {
+  let prev = shapeAt(w, seat, x, y);
+  const out: BondId[] = [];
+  for (let i = 1; i <= n; i++) {
+    const next = shapeAt(w, seat, x + 32 * i, y);
+    const id = asBondId(w.nextBondId++);
+    w.bonds.set(id, { id, aId: prev.id, bId: next.id, a: prev, b: next, restLength: 32, stiffnessTier: 'MID', damageFifths: 0, createdTick: 0 } as never);
+    prev.bonds.add(id);
+    next.bonds.add(id);
+    out.push(id);
+    prev = next;
+  }
+  return out;
+}
+/**
+ * ⭐ S195 audit (HIGH) — A REAL GNAWER, driven to ATTACKING by the real host tick: a P1 chewer spawned 260 px east
+ * of a P0 four-connector building walks up and commits (state ATTACKING, chewProgress ≥ 1 — the auditor's probe
+ * recipe, ~tick 172). Its `targetPos` stays on the bond midpoint ~16 px off, so a "path under a pixel" test never
+ * fires for it — which is why "going nowhere" is read off its STATE. Castle-emitted units are swept each tick.
+ */
+function realGnawingChewer(w: World): Creature {
+  buildingAt(w, P0, 500, 500, 4);
+  const chewer = put(w, 1, 'chewer', { x: 760, y: 500 });
+  chewer.ehp = 1_000_000;
+  const d = deps();
+  const s = makeHostTickState(w);
+  for (let t = 0; t < 600; t++) {
+    runHostTick(w, d, s);
+    for (const id of [...w.creatures.keys()]) if (id !== chewer.id) w.creatures.delete(id);
+    if (chewer.state === 'ATTACKING' && chewer.chewProgress >= 1) break;
+  }
+  expect(chewer.state, 'fixture: the chewer is committed to a connector').toBe('ATTACKING');
+  expect(chewer.chewProgress).toBeGreaterThanOrEqual(1);
+  const vx = chewer.targetPos.x - chewer.pos.x;
+  const vy = chewer.targetPos.y - chewer.pos.y;
+  expect(vx * vx + vy * vy, 'fixture: a REAL gnawer still has a "path" to its bond midpoint — the vector test is blind to it').toBeGreaterThanOrEqual(1);
+  return chewer;
+}
+
 /** Stamp + ignite `blueprint` for `seat` at the legal site nearest `near` (production reducer + matcher). */
 function stamp(w: World, seat: number, blueprint: string, near: Vec2): Vec2 {
   const P = asPlayerId(seat);
@@ -135,14 +188,22 @@ function stamp(w: World, seat: number, blueprint: string, near: Vec2): Vec2 {
 }
 
 describe('S192 T6 — the arithmetic over the real configs', () => {
-  it('the drone and the chewer are the non-combatants; nobody else is; the two numbers are 1.25 and 20', () => {
+  it('the drone and the chewer are the non-combatants; nobody else is; the two numbers are 1 (S195 N11, was 1.25) and 20', () => {
     const nonCombatants = (Object.keys(CREATURE_CONFIGS) as CreatureType[]).filter(isNonCombatantType).sort();
     expect(nonCombatants).toEqual(['chewer', 'lightningDrone']);
-    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1);
     expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
+    // ⭐ S195 N11 — HIS CASE: the scarab (105) vs the chewer (120) is 1.14 — inside the old 1.25 slack, so the
+    // three engage conditions never ran for it; at 1 the chewer is a FAST quarry for a scarab, and for the
+    // melee goblin (119) too, while the t3Bat (168) still simply runs it down.
+    expect(CREATURE_CONFIGS.t3Scarab.maxAccel).toBe(105);
+    expect(CREATURE_CONFIGS.chewer.maxAccel).toBeGreaterThan(CREATURE_CONFIGS.t3Scarab.maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(CREATURE_CONFIGS.chewer.maxAccel).toBeLessThanOrEqual(CREATURE_CONFIGS.t3Scarab.maxAccel * 1.25);
+    expect(CREATURE_CONFIGS.chewer.maxAccel).toBeGreaterThan(CREATURE_CONFIGS.goblinMelee.maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(CREATURE_CONFIGS.chewer.maxAccel).toBeLessThanOrEqual(CREATURE_CONFIGS.t3Bat.maxAccel * CHASE_GIVEUP_SPEED_RATIO);
   });
 
-  it('ABROAD, a pathless drone just beyond reach is dropped by every structure-attacker; a chewer only by the slowest', () => {
+  it('ABROAD, a pathless drone just beyond reach is dropped by every structure-attacker; a chewer by everyone slower than it (S195 N11)', () => {
     const w = board();
     const at0 = { x: 1300, y: 200 }; // seat 1's half: enemy ground for a seat-0 chaser
     expect(zoneOf(at0, w.layout)).toBe(1);
@@ -154,12 +215,12 @@ describe('S192 T6 — the arithmetic over the real configs', () => {
       const at = Math.max(200, Math.floor(reach) + 1); // beyond reach + slack, inside the 220 acquire radius
       expect(at).toBeLessThanOrEqual(GOBLIN_UNIT_ACQUIRE_RADIUS);
       const q = put(w, 1, 'lightningDrone', { x: at0.x + at, y: at0.y });
-      expect(drone).toBeGreaterThan(CREATURE_CONFIGS[type].maxAccel * 1.25);
+      expect(drone).toBeGreaterThan(CREATURE_CONFIGS[type].maxAccel * CHASE_GIVEUP_SPEED_RATIO);
       expect(pickNavUnit(w, me, null, ACQ, LEASH), `${type} acquires a pathless drone abroad`).toBeNull();
       expect(pickNavUnit(w, me, q.id, ACQ, LEASH), `${type} holds a pathless drone abroad`).toBeNull();
       w.creatures.delete(q.id);
       const ch = put(w, 1, 'chewer', { x: at0.x + at, y: at0.y });
-      const shouldChase = chewer <= CREATURE_CONFIGS[type].maxAccel * 1.25;
+      const shouldChase = chewer <= CREATURE_CONFIGS[type].maxAccel * CHASE_GIVEUP_SPEED_RATIO;
       expect(pickNavUnit(w, me, null, ACQ, LEASH) === ch.id, `${type} vs chewer`).toBe(shouldChase);
       w.creatures.delete(ch.id);
       w.creatures.delete(me.id);
@@ -214,6 +275,64 @@ describe('S192 T6 — his three engage conditions', () => {
     expect(pickNavUnit(w, me, away.id, ACQ, LEASH), 'and a lock on it is dropped').toBeNull();
   });
 
+  it('⭐⭐ S195 N11 — HOME is not enough any more: a MOVING drone at home beyond reach is engaged only if it can be cut off', () => {
+    const w = board();
+    const home = { x: 500, y: 200 };
+    const me = put(w, 0, 'goblinMelee', home);
+    // 200 px east of the goblin, flying further EAST (toward the border): nobody at home can get ahead of it.
+    const away = put(w, 1, 'lightningDrone', { x: home.x + 200, y: home.y + 30 }, { x: 940, y: home.y + 30 });
+    expect(zoneOf(away.pos, w.layout)).toBe(0);
+    expect(pickNavUnit(w, me, null, ACQ, LEASH), 'S192/S193 engaged this on "home" alone; N11 asks whether it can be caught').toBeNull();
+    expect(pickNavUnit(w, me, away.id, ACQ, LEASH), 'and a lock on it is dropped').toBeNull();
+    w.creatures.delete(away.id);
+    // The same drone flying WEST past the goblin is cut off — intercept feasible, engaged.
+    const past = put(w, 1, 'lightningDrone', { x: home.x + 200, y: home.y + 30 }, { x: 100, y: home.y + 30 });
+    expect(pickNavUnit(w, me, null, ACQ, LEASH)).toBe(past.id);
+    w.creatures.delete(past.id);
+    // ⛔ A quarry GOING NOWHERE at home is not getting away — a scripted sitter (`targetPos` on itself), 200 px off,
+    // is still engaged (the HOME case above pins the same for a pathless drone). ⚠ This is the VECTOR half only;
+    // the REAL gnawer — in ATTACKING with its target 16 px off — is the next case.
+    const gnawing = put(w, 1, 'chewer', { x: home.x + 200, y: home.y });
+    expect(pickNavUnit(w, me, null, ACQ, LEASH)).toBe(gnawing.id);
+    expect(pickNavUnit(w, me, gnawing.id, ACQ, LEASH)).toBe(gnawing.id);
+  });
+
+  it('⭐⭐ S195 audit (HIGH) — a REAL chewer gnawing my connector at home is engaged by a slower unit 150 px off (by STATE, not vector)', () => {
+    const w = board();
+    const chewer = realGnawingChewer(w);
+    expect(zoneOf(chewer.pos, w.layout), 'fixture: it is gnawing in seat 0\'s zone').toBe(0);
+    // His scenario #2: a scarab (105 < 120) and a melee goblin (119 < 120) of seat 0, 150 px south, at home.
+    for (const type of ['t3Scarab', 'goblinMelee'] as const) {
+      const me = put(w, 0, type, { x: chewer.pos.x, y: chewer.pos.y + 150 });
+      expect(pickNavUnit(w, me, null, ACQ, LEASH), `${type} acquires the committed gnawer`).toBe(chewer.id);
+      expect(pickNavUnit(w, me, chewer.id, ACQ, LEASH), `${type} holds it`).toBe(chewer.id);
+      w.creatures.delete(me.id);
+    }
+    // NEGATIVE — the same chewer, same spot, forced back to SEEKING with a path (hopping toward a far connector):
+    // the intercept decides, and a scarab 150 px south cannot cut off a 16 px hop → not engaged.
+    chewer.state = 'SEEKING';
+    chewer.chewProgress = 0;
+    const me = put(w, 0, 't3Scarab', { x: chewer.pos.x, y: chewer.pos.y + 150 });
+    expect(pickNavUnit(w, me, null, ACQ, LEASH), 'moving and uncatchable — let go').toBeNull();
+    // and ABROAD a committed gnawer is still dropped (the rule is a HOME rule): move the scarab's seat's view by
+    // placing the scene in seat 1's zone instead.
+    const w2 = board();
+    buildingAt(w2, P0, 1300, 500, 4); // seat 0's building standing in seat 1's zone
+    const abroad = put(w2, 1, 'chewer', { x: 1560, y: 500 });
+    abroad.ehp = 1_000_000;
+    const d = deps();
+    const s = makeHostTickState(w2);
+    for (let t = 0; t < 600; t++) {
+      runHostTick(w2, d, s);
+      for (const id of [...w2.creatures.keys()]) if (id !== abroad.id) w2.creatures.delete(id);
+      if (abroad.state === 'ATTACKING' && abroad.chewProgress >= 1) break;
+    }
+    expect(abroad.state).toBe('ATTACKING');
+    expect(zoneOf(abroad.pos, w2.layout)).toBe(1);
+    const far = put(w2, 0, 't3Scarab', { x: abroad.pos.x, y: abroad.pos.y + 150 });
+    expect(pickNavUnit(w2, far, null, ACQ, LEASH), 'abroad: a gnawer beyond reach is not chased across the map').toBeNull();
+  });
+
   it('inside reach a drone is always picked and held ("maybe they target it if it\'s around them")', () => {
     const w = board();
     const at0 = { x: 1300, y: 200 };
@@ -226,11 +345,17 @@ describe('S192 T6 — his three engage conditions', () => {
 });
 
 describe('S192 T6 — negatives', () => {
-  it('a chewer 200 px from a melee goblin is still chased, even abroad (120 ≤ 119 × 1.25)', () => {
+  it('⭐ S195 N11 (RE-PINNED) — a chewer 200 px from a melee goblin, flying AWAY abroad, is let go (120 > 119 × 1); a t3Bat still runs it down', () => {
     const w = board();
     const me = put(w, 0, 'goblinMelee', { x: 1300, y: 200 });
     const q = put(w, 1, 'chewer', { x: 1500, y: 200 }, { x: 1880, y: 200 });
+    expect(pickNavUnit(w, me, null, ACQ, LEASH), 'S192 chased this (ratio 1.25); N11 lets it go').toBeNull();
+    // …but one flying PAST the goblin is cut off (intercept), and the bat (168 > 120) simply catches it.
+    q.targetPos.x = 300;
     expect(pickNavUnit(w, me, null, ACQ, LEASH)).toBe(q.id);
+    q.targetPos.x = 1880;
+    const bat = put(w, 0, 't3Bat', { x: 1300, y: 240 });
+    expect(pickNavUnit(w, bat, null, ACQ, LEASH)).toBe(q.id);
   });
 
   it('⛔ R184-A untouched: a quarry that can strike — the archer — is acquired and held, abroad and fleeing', () => {
@@ -374,6 +499,68 @@ describe('S192 T6 — REACH, through the real host tick', () => {
       expect(farPickups, `${type}: ticks locked on a drone beyond reach + slack (${reach.toFixed(0)} px)`).toBe(0);
     });
   }
+
+  /**
+   * ⭐⭐ S195 N11 — HIS SCENE, through the real host tick: four seat-0 SCARABS at home (`maxAccel` 105) while a
+   * seat-1 CHEWER (120) hops INSIDE their acquire radius toward a connector of theirs that is NEARER TO IT than
+   * they are to it — so they cannot get ahead of it (intercept infeasible) — and then SITS on that connector.
+   * Before N11 (ratio 1.25: 120 ≤ 131 "catchable") they locked on it the whole way — *"far too long until a
+   * stink tower killed it"*. Now: 0 locks while it hops; once it sits gnawing (pathless, at home, going
+   * nowhere) they engage it — it is attacking their structure and is not getting away.
+   * Geometry (worked): scarabs at (500, 500), the chewer from (620, 320) west to (500, 320) — 216 px away at
+   * start (inside `GOBLIN_UNIT_ACQUIRE_RADIUS` 220), its path 120 px; the nearest point of that path to the
+   * scarabs is its goal, 180 px north of them: chaserTravel (180 − reach ≈ 55) × 120 > quarryTravel 120 × 105.
+   * ⚠ The chewer's flight is SCRIPTED (as the drone's is in the fly-bys); the scarabs run the unmodified tick.
+   */
+  const CHEWER_CRUISE_PX_PER_TICK = 1.96; // 120 / 240 of the drone's measured 3.92
+  function scarabsVsChewer(): { locksMoving: number; locksSitting: number; movingTicks: number } {
+    const w = board();
+    const scarabs: CreatureId[] = [];
+    for (let i = 0; i < 4; i++) scarabs.push(put(w, 0, 't3Scarab', { x: 480 + 15 * i, y: 500 }, { x: 480 + 15 * i, y: 500 }).id);
+    const start = { x: 620, y: 320 };
+    const goal = { x: 500, y: 320 }; // "its target": a connector of theirs, 120 px ahead of it
+    expect(Math.hypot(start.x - 500, start.y - 500), 'fixture: inside the acquire radius from the first tick').toBeLessThan(GOBLIN_UNIT_ACQUIRE_RADIUS);
+    const chewer = put(w, 1, 'chewer', start, goal);
+    const d = deps();
+    const s = makeHostTickState(w);
+    let locksMoving = 0;
+    let locksSitting = 0;
+    let movingTicks = 0;
+    let arrived = false;
+    for (let t = 0; t < 300; t++) {
+      const x = Math.max(goal.x, start.x - CHEWER_CRUISE_PX_PER_TICK * t);
+      if (w.creatures.has(chewer.id)) {
+        chewer.prevPos.x = x > goal.x ? x + CHEWER_CRUISE_PX_PER_TICK : x; chewer.prevPos.y = start.y;
+        chewer.pos.x = x; chewer.pos.y = start.y;
+        chewer.targetPos.x = goal.x; chewer.targetPos.y = goal.y; // at the goal this is "no path" — it sits and gnaws
+        chewer.ehp = 1_000_000; // held on the board: this measures what the scarabs AIM at
+      }
+      runHostTick(w, d, s);
+      for (const id of [...w.creatures.keys()]) if (!scarabs.includes(id) && id !== chewer.id) w.creatures.delete(id);
+      // ⚠ Classified by the chewer's LIVE position after the tick, not the script's: its own steering adds to the
+      // scripted hop, so it reaches the goal (< 1 px — the rule's own "no path" line, `quarryHasPath`) a few
+      // ticks before the script says; from that tick on it is a sitting gnawer, and a lock is the stationary rule.
+      if (!arrived && Math.abs(chewer.pos.x - goal.x) < 1) arrived = true;
+      if (!arrived) movingTicks++;
+      for (const id of scarabs) {
+        const me = w.creatures.get(id);
+        if (me === undefined || me.targetCreatureId !== chewer.id) continue;
+        if (arrived) locksSitting++; else locksMoving++;
+      }
+    }
+    return { locksMoving, locksSitting, movingTicks };
+  }
+
+  it('⭐⭐ S195 N11 REACH — his scarabs do not chase a chewer they cannot cut off before it reaches its connector…', () => {
+    const r = scarabsVsChewer();
+    expect(r.movingTicks, 'anti-vacuity: the chewer really hopped for a few dozen ticks').toBeGreaterThan(30);
+    expect(r.locksMoving, 'scarab-ticks locked on a chewer they could not catch (S192 ratio 1.25 locked all of them)').toBe(0);
+  });
+
+  it('…and DO engage it once it sits gnawing their connector at home — going nowhere, not getting away', () => {
+    const r = scarabsVsChewer();
+    expect(r.locksSitting, 'anti-vacuity + the stationary-at-home rule').toBeGreaterThan(0);
+  });
 
   /**
    * The advance table: a seat-0 unit marching east IN ENEMY GROUND with one seat-1 drone flying west

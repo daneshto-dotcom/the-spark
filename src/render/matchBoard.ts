@@ -66,6 +66,9 @@ const LOSS = 0x8f98ad;
 /** The three things damage lands on, always in this order and these colours. */
 const SPLIT_COLORS = { units: 0x6fb7e8, structures: 0xd8b45a, keep: 0xe2684a } as const;
 const FONT = ['Kanit', 'Impact', 'sans-serif'];
+/** ⭐ S195 N14 (⚠ MINE) — a legend / line-end label's widest, and the LOST TO ENTROPY block on the local page's header. */
+const LEGEND_LABEL_MAX = 120;
+const ENTROPY_BLOCK_W = 180;
 
 /** Looks up a creature portrait (an idle frame) — injected by `main.ts` so this chunk imports no renderer. */
 export type BoardPortraitSource = (type: CreatureType, race: RaceId | null) => Texture | null;
@@ -129,11 +132,24 @@ class SpritePool {
  */
 export const estWidth = (text: string, size: number): number => Math.ceil(text.length * size * 0.62);
 
-/** Scale `t` down (never up) so its estimated width fits `max`. */
-function fitTo(t: Text, max: number): void {
-  const w = estWidth(t.text, Number(t.style.fontSize));
-  t.scale.set(w > max ? max / w : 1);
+/**
+ * ⭐ S195 N14 — the width a text WILL render at: Pixi's own measurement when a canvas exists (the browser —
+ * Kanit 900 runs wider than the 0.62 em estimate, which is how a label "ran out of its box" while the estimate
+ * said it fit), the estimate otherwise (the unit suite, or before any canvas). Never NaN, never 0 for a word.
+ */
+export function textWidth(t: Text): { width: number; measured: boolean } {
+  const est = estWidth(t.text, Number(t.style.fontSize));
+  try {
+    const w = t.width / (t.scale.x === 0 ? 1 : t.scale.x);
+    if (Number.isFinite(w) && w > 0) return { width: Math.max(w, 1), measured: true };
+  } catch {
+    // no canvas to measure with
+  }
+  return { width: est, measured: false };
 }
+
+/** One fitted text, as drawn — what `matchBoardFit.test.ts` measures against its box. */
+export interface FitRecord { readonly text: string; readonly size: number; readonly max: number; readonly width: number; readonly scale: number; readonly measured: boolean }
 
 const mix = (c: number, alpha: number): { color: number; alpha: number } => ({ color: c, alpha });
 
@@ -168,6 +184,10 @@ export class MatchBoard {
   private pointer = { x: 0, y: 0 };
   private drawnKey = '';
   private portraits: BoardPortraitSource | null = null;
+  /** ⭐ S195 N5 — the pointer is down on the board; the tab / row / CONTINUE under it is drawn 'press'. */
+  private pressed = false;
+  /** ⭐ S195 N14 — every text fitted this draw (the test's evidence; cleared per draw). */
+  private fits: FitRecord[] = [];
 
   constructor(private readonly onContinue: () => void) {
     this.container.visible = false;
@@ -177,6 +197,14 @@ export class MatchBoard {
     this.icons = new SpritePool(this.iconLayer);
     this.tipTexts = new TextPool(this.tipLayer);
     this.container.on('pointermove', (e: FederatedPointerEvent) => this.pointerMove(e.global.x, e.global.y));
+    // ⭐ S195 N5 — the press latch: sink on the primary button's down, lift on up wherever the release lands.
+    this.container.on('pointerdown', (e: FederatedPointerEvent) => {
+      if (e.button !== 0) return;
+      this.pressed = true;
+      this.pointerMove(e.global.x, e.global.y);
+    });
+    this.container.on('pointerup', () => { this.pressed = false; });
+    this.container.on('pointerupoutside', () => { this.pressed = false; });
     this.container.on('pointertap', (e: FederatedPointerEvent) => {
       // ⛔ PRIMARY ONLY: right-click is the game's put-it-back / raid gesture (draftOverlay, S187).
       if (e.button !== 0) return;
@@ -271,7 +299,7 @@ export class MatchBoard {
     // The pointer is in the key only while a tooltip follows it.
     const tipAt = tooltipFor(this.model, this.tab, this.hover) === null ? '' : `${this.pointer.x},${this.pointer.y}`;
     const iconsReady = this.portraits === null ? 0 : this.countPortraits(this.model);
-    const key = `${this.modelJson}|${JSON.stringify(this.tab)}|${JSON.stringify(this.hover)}|${armed}|${tipAt}|${iconsReady}`;
+    const key = `${this.modelJson}|${JSON.stringify(this.tab)}|${JSON.stringify(this.hover)}|${armed}|${tipAt}|${iconsReady}|${this.pressed}`;
     this.pulseGlow(nowMs);
     if (key === this.drawnKey) return;
     this.drawnKey = key;
@@ -310,6 +338,29 @@ export class MatchBoard {
     this.glow.scale.set(14, 2.4);
   }
 
+  /** ⭐ S195 N14 — the texts fitted by the last draw (tests). */
+  fitsDrawn(): readonly FitRecord[] {
+    return this.fits;
+  }
+
+  /** ⭐ S195 N5 — is the board's pointer down? (tests) */
+  isPressed(): boolean {
+    return this.pressed;
+  }
+
+  /**
+   * ⭐ S195 N14 — THE ONE FIT RULE (⚠ MINE): scale a text DOWN (never up) so it fits `max`; never an ellipsis —
+   * a shortened number or name on a stat board is a wrong number or name. Every text whose words come from the
+   * model goes through here, and `matchBoardFit.test.ts` pins that mechanically (every dynamic `take` is followed
+   * by a `fit`) and measures each record against its box.
+   */
+  private fit(t: Text, max: number): void {
+    const { width, measured } = textWidth(t);
+    const scale = width > max ? max / width : 1;
+    t.scale.set(scale);
+    this.fits.push({ text: t.text, size: Number(t.style.fontSize), max, width, scale, measured });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
   // DRAW
   // ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -321,6 +372,7 @@ export class MatchBoard {
     this.texts.reset();
     this.icons.reset();
     this.tipTexts.reset();
+    this.fits = [];
 
     // The scrim swallows the board underneath; the plate carries everything.
     g.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT).fill(mix(0x05060a, 0.8));
@@ -334,9 +386,11 @@ export class MatchBoard {
     const head = this.texts.take(`★  ${m.headline}  ★`, 46, m.headlineColor);
     head.anchor.set(0.5, 0);
     head.position.set(PANEL.x + PANEL.w / 2, PANEL.y + 24);
+    this.fit(head, PANEL.w - 120);
     const sub = this.texts.take(m.subline, 16, DIM, '400');
     sub.anchor.set(0.5, 0);
     sub.position.set(PANEL.x + PANEL.w / 2, PANEL.y + 80);
+    this.fit(sub, PANEL.w - 120);
 
     this.drawTabs(m);
     if (this.tab.kind === 'overview') this.drawOverview(m);
@@ -349,11 +403,13 @@ export class MatchBoard {
       : 'every number is in the units that float off a unit  ·  ← → or TAB to change page  ·  hover a chart';
     const n = this.texts.take(note, 15, DIM, '400');
     n.position.set(PANEL.x + 30, CONTINUE_RECT.y + 18);
+    this.fit(n, CONTINUE_RECT.x - 24 - (PANEL.x + 30));
     const c = CONTINUE_RECT;
     const hot = this.hover?.kind === 'continue' && armed;
     g.roundRect(c.x, c.y, c.w, c.h, 10).fill({ color: armed ? EDGE : AXIS, alpha: armed ? (hot ? 1 : 0.92) : 0.6 });
     // ⭐ S194 — the shared skin (T5), laid INSIDE the rect `hoverAt` tests; disabled (hatched) until armed.
-    skinButtonFx(g, c.x, c.y, c.w, c.h, { accent: 0xffffff, state: armed ? (hot ? 'hover' : 'rest') : 'disabled', radius: 10 });
+    // ⭐ S195 N5 — and 'press' while the pointer is down on it.
+    skinButtonFx(g, c.x, c.y, c.w, c.h, { accent: 0xffffff, state: armed ? (hot ? (this.pressed ? 'press' : 'hover') : 'rest') : 'disabled', radius: 10 });
     const ct = this.texts.take('CONTINUE  (R)', 22, armed ? PLATE : DIM);
     ct.anchor.set(0.5, 0.5);
     ct.position.set(c.x + c.w / 2, c.y + c.h / 2);
@@ -374,14 +430,14 @@ export class MatchBoard {
       const hot = this.hover?.kind === 'tab' && this.hover.index === i;
       const accent = row?.color ?? EDGE;
       g.roundRect(r.x, r.y, r.w, r.h, 9).fill(mix(on ? accent : CARD, on ? 0.28 : hot ? 0.95 : 0.85));
-      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent, state: on ? 'active' : hot ? 'hover' : 'rest', radius: 9 });
+      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent, state: on ? 'active' : hot ? (this.pressed ? 'press' : 'hover') : 'rest', radius: 9 });
       g.roundRect(r.x, r.y, r.w, r.h, 9).stroke({ color: on ? accent : hot ? INK : AXIS, width: on ? 2 : 1, alpha: 0.9 });
       if (row !== undefined) g.rect(r.x + 10, r.y + 12, 6, r.h - 24).fill(mix(row.color, 1));
       const label = i === 0 ? 'OVERVIEW' : i === 1 ? 'GRAPHS' : `${row!.label} ${row!.race}${row!.isLocal ? ' ·YOU' : ''}`;
       const t = this.texts.take(label, r.w < 170 ? 15 : 18, on ? INK : row !== undefined ? row.color : DIM);
       t.anchor.set(0.5, 0.5);
       t.position.set(r.x + r.w / 2 + (row !== undefined ? 6 : 0), r.y + r.h / 2);
-      fitTo(t, r.w - 28);
+      this.fit(t, r.w - 28 - (row !== undefined ? 12 : 0));
     });
   }
 
@@ -401,7 +457,7 @@ export class MatchBoard {
       const r = L.rows[i]!;
       const hot = this.hover?.kind === 'row' && this.hover.index === i;
       g.roundRect(r.x, r.y, r.w, r.h, 8).fill(mix(row.color, hot ? 0.16 : row.isLocal ? 0.09 : 0.04));
-      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: row.color, state: hot ? 'hover' : 'rest', radius: 8, studs: false });
+      skinButtonFx(g, r.x, r.y, r.w, r.h, { accent: row.color, state: hot ? (this.pressed ? 'press' : 'hover') : 'rest', radius: 8, studs: false });
       if (hot) g.roundRect(r.x, r.y, r.w, r.h, 8).stroke({ color: row.color, width: 2, alpha: 0.9 });
       g.rect(r.x, r.y + 6, 5, r.h - 12).fill(mix(row.color, 1)); // the seat's colour, always on the edge
       for (const c of OV_COLUMNS) {
@@ -413,15 +469,19 @@ export class MatchBoard {
           const t = this.texts.take(ovText(row, c.key), 23, row.color);
           t.anchor.set(1, 0.5);
           t.position.set(x0 + c.w - 6, r.y + r.h / 2);
+          this.fit(t, c.w - 12);
         } else if (c.key === 'place') {
           const t = this.texts.take(row.placeLabel, 24, row.isWinner ? EDGE : INK);
           t.anchor.set(0, 0.5);
           t.position.set(x0, r.y + r.h / 2);
+          this.fit(t, c.w - 4);
         } else if (c.key === 'player') {
           const name = this.texts.take(`${row.isWinner ? '★ ' : ''}${row.label}  ${row.race}${row.isLocal ? '   YOU' : ''}`, 22, row.color);
           name.position.set(x0, r.y + 5);
+          this.fit(name, c.w - 8);
           const badge = this.texts.take(row.badge ?? ' ', 13, EDGE, '400');
           badge.position.set(x0 + 2, r.y + 31);
+          this.fit(badge, c.w - 8);
         } else if (c.key === 'status') {
           const standing = !row.out;
           g.roundRect(x0, r.y + 12, c.w - 10, r.h - 24, (r.h - 24) / 2).fill(mix(standing ? GOOD : BAD, 0.18));
@@ -429,6 +489,7 @@ export class MatchBoard {
           const t = this.texts.take(row.status, 14, standing ? GOOD : BAD);
           t.anchor.set(0.5, 0.5);
           t.position.set(x0 + (c.w - 10) / 2, r.y + r.h / 2);
+          this.fit(t, c.w - 22);
         }
       }
     });
@@ -450,21 +511,24 @@ export class MatchBoard {
     const g = this.g;
     g.roundRect(R.x, R.y, R.w, R.h, 10).fill(mix(CARD, 0.92));
     g.roundRect(R.x, R.y, R.w, R.h, 10).stroke({ color: AXIS, width: 1, alpha: 0.8 });
-    const t = this.texts.take(title, 19, INK);
-    t.position.set(R.x + 16, R.y + 10);
-    const c = this.texts.take(caption, 13, DIM, '400');
-    c.position.set(R.x + 16, R.y + 36);
-    // Legend chips, right-aligned on the title line.
+    // Legend chips, right-aligned on the title line; the title and caption fit what the legend leaves.
     let lx = R.x + R.w - 16;
     for (let i = legend.length - 1; i >= 0; i--) {
       const s = legend[i]!;
       const lt = this.texts.take(s.label, 13, s.color);
       lt.anchor.set(1, 0);
       lt.position.set(lx, R.y + 14);
-      lx -= estWidth(lt.text, 13) + 6;
+      this.fit(lt, LEGEND_LABEL_MAX);
+      lx -= Math.min(LEGEND_LABEL_MAX, estWidth(lt.text, 13)) + 6;
       g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(s.color, 1));
       lx -= 26;
     }
+    const t = this.texts.take(title, 19, INK);
+    t.position.set(R.x + 16, R.y + 10);
+    this.fit(t, lx - 8 - (R.x + 16));
+    const c = this.texts.take(caption, 13, DIM, '400');
+    c.position.set(R.x + 16, R.y + 36);
+    this.fit(c, R.w - 32);
     const P = plotRect(R);
     // ⛔ canon §7c C7: every path segment starts with moveTo, so no pen line joins two shapes.
     for (const f of [0.5, 1]) {
@@ -475,6 +539,7 @@ export class MatchBoard {
       const yl = this.texts.take(groupThousands(v), 13, DIM, '400');
       yl.anchor.set(1, 0.5);
       yl.position.set(P.x - 8, y);
+      this.fit(yl, P.x - 8 - (R.x + 4));
     }
     return P;
   }
@@ -487,6 +552,7 @@ export class MatchBoard {
       const t = this.texts.take(`W${w}`, 12, DIM, '400');
       t.anchor.set(0.5, 0);
       t.position.set(groups ? P.x + (P.w * (i + 0.5)) / n : pointX(P, n, i), P.y + P.h + 6);
+      this.fit(t, Math.max(16, (P.w / n) * step - 4));
     });
   }
 
@@ -531,6 +597,7 @@ export class MatchBoard {
           const end = this.texts.take(s.label, 13, s.color);
           end.anchor.set(1, 1);
           end.position.set(pointX(P, n, n - 1) - 6, yAt(s.values[n - 1] ?? 0) - 6);
+          this.fit(end, LEGEND_LABEL_MAX);
         }
         break;
       }
@@ -608,14 +675,14 @@ export class MatchBoard {
       const lt = this.texts.take(`→ ${col.label}`, 14, col.color);
       lt.anchor.set(0.5, 0);
       lt.position.set(r.x + r.w / 2, colLabelY);
-      fitTo(lt, r.w);
+      this.fit(lt, r.w);
     });
     M.rows.forEach((rowAxis, i) => {
       const row = cells[i]!;
       const rl = this.texts.take(rowAxis.label, 15, rowAxis.color);
       rl.anchor.set(0, 0.5);
       rl.position.set(rowLabelX, row[0]!.y + row[0]!.h / 2);
-      fitTo(rl, 104);
+      this.fit(rl, 104);
       row.forEach((r, j) => {
         const v = M.cells[i]![j]!;
         // ⭐ S194 (audit) — the diagonal is the seat's SELF-hits: taken, never dealt, so drawn as a dim cell.
@@ -628,6 +695,7 @@ export class MatchBoard {
           const vt = this.texts.take(groupThousands(v), Math.min(18, Math.max(11, r.h / 3)), self ? DIM : frac > 0.55 ? PLATE : INK);
           vt.anchor.set(0.5, 0.5);
           vt.position.set(r.x + r.w / 2, r.y + r.h / 2);
+          this.fit(vt, r.w - 6);
         }
       });
     });
@@ -645,18 +713,39 @@ export class MatchBoard {
     const place = this.texts.take(row.placeLabel, 40, row.isWinner ? EDGE : INK);
     place.anchor.set(0, 0.5);
     place.position.set(H.x + 28, H.y + H.h / 2);
+    this.fit(place, 92);
+    const standing = !row.out;
+    const pill: Rect = { x: H.x + H.w - 190, y: H.y + 18, w: 170, h: H.h - 36 };
+    /*
+     * ⭐ S195 N12 / B-17 — LOST TO ENTROPY, on the LOCAL seat's page ONLY (*"only the player itself will see it,
+     * not all players"*): a dim label over the number, left of the status pill. Another seat's page never
+     * prints it, whatever its counter says.
+     */
+    const entropyW = row.isLocal ? ENTROPY_BLOCK_W : 0;
+    if (row.isLocal) {
+      const ex = pill.x - 24;
+      const el = this.texts.take('LOST TO ENTROPY', 13, DIM, '400');
+      el.anchor.set(1, 0.5);
+      el.position.set(ex, H.y + H.h / 2 - 14);
+      this.fit(el, ENTROPY_BLOCK_W);
+      const ev = this.texts.take(`${groupThousands(row.lostToEntropy)} connector${row.lostToEntropy === 1 ? '' : 's'}`, 20, INK);
+      ev.anchor.set(1, 0.5);
+      ev.position.set(ex, H.y + H.h / 2 + 10);
+      this.fit(ev, ENTROPY_BLOCK_W);
+    }
     const name = this.texts.take(`${row.isWinner ? '★ ' : ''}${row.label}  ${row.race}${row.isLocal ? '   YOU' : ''}`, 32, row.color);
     name.anchor.set(0, 0.5);
     name.position.set(H.x + 128, H.y + H.h / 2 - 8);
+    this.fit(name, pill.x - 24 - entropyW - 24 - (H.x + 128));
     const bl = this.texts.take(row.badge ?? `finished ${row.placeLabel} of ${m.rows.length}`, 15, row.badge !== null ? EDGE : DIM, '400');
     bl.position.set(H.x + 130, H.y + H.h / 2 + 14);
-    const standing = !row.out;
-    const pill: Rect = { x: H.x + H.w - 190, y: H.y + 18, w: 170, h: H.h - 36 };
+    this.fit(bl, pill.x - 24 - entropyW - 24 - (H.x + 130));
     g.roundRect(pill.x, pill.y, pill.w, pill.h, pill.h / 2).fill(mix(standing ? GOOD : BAD, 0.2));
     g.roundRect(pill.x, pill.y, pill.w, pill.h, pill.h / 2).stroke({ color: standing ? GOOD : BAD, width: 2 });
     const st = this.texts.take(row.status, 18, standing ? GOOD : BAD);
     st.anchor.set(0.5, 0.5);
     st.position.set(pill.x + pill.w / 2, pill.y + pill.h / 2);
+    this.fit(st, pill.w - 24);
 
     // KPI tiles.
     const tiles: Array<[string, string]> = [
@@ -674,9 +763,11 @@ export class MatchBoard {
       const v = this.texts.take(value, 32, INK);
       v.anchor.set(0.5, 0);
       v.position.set(r.x + r.w / 2, r.y + 12);
+      this.fit(v, r.w - 24);
       const l = this.texts.take(label, 13, DIM, '400');
       l.anchor.set(0.5, 0);
       l.position.set(r.x + r.w / 2, r.y + 58);
+      this.fit(l, r.w - 16);
     });
 
     this.drawUnitLedger(row, L.units);
@@ -718,11 +809,12 @@ export class MatchBoard {
         const ini = this.texts.take(l.name.slice(0, 1), 14, INK);
         ini.anchor.set(0.5, 0.5);
         ini.position.set(cx, cy);
+        this.fit(ini, 24);
       }
       const nm = this.texts.take(l.name, 16, INK, '400');
       nm.anchor.set(0, 0.5);
       nm.position.set(R.x + 54, cy);
-      fitTo(nm, 186);
+      this.fit(nm, 186);
       for (const c of cols) {
         const v = c.of(l);
         const w = (cw - 48) * (v / maxV);
@@ -730,6 +822,7 @@ export class MatchBoard {
         const vt = this.texts.take(v === 0 ? '·' : groupThousands(v), 15, v === 0 ? FAINT : INK);
         vt.anchor.set(0, 0.5);
         vt.position.set(c.x + Math.max(2, w) + 6, cy);
+        this.fit(vt, Math.max(12, cw - Math.max(2, w) - 6));
       }
     });
     if (lines.length === 0) {
@@ -738,6 +831,7 @@ export class MatchBoard {
     } else if (lines.length > fit) {
       const more = this.texts.take(`+ ${lines.length - fit} more types`, 13, DIM, '400');
       more.position.set(R.x + 16, R.y + R.h - 22);
+      this.fit(more, R.w - 32);
     }
   }
 
@@ -752,6 +846,7 @@ export class MatchBoard {
       const lt = this.texts.take(label, 13, SPLIT_COLORS[k]);
       lt.anchor.set(1, 0);
       lt.position.set(lx, R.y + 14);
+      this.fit(lt, LEGEND_LABEL_MAX);
       lx -= estWidth(lt.text, 13) + 6;
       g.roundRect(lx - 12, R.y + 17, 12, 12, 3).fill(mix(SPLIT_COLORS[k], 1));
       lx -= 26;
@@ -763,6 +858,7 @@ export class MatchBoard {
       const lt = this.texts.take(label, 16, DIM);
       lt.anchor.set(0, 0.5);
       lt.position.set(R.x + 16, y + 15);
+      this.fit(lt, barX - 8 - (R.x + 16));
       g.roundRect(barX, y, barW, 30, 6).fill(mix(FAINT, 0.25));
       let x = barX;
       for (const k of ['units', 'structures', 'keep'] as const) {
@@ -772,12 +868,14 @@ export class MatchBoard {
           const st = this.texts.take(groupThousands(sp[k]), 13, PLATE);
           st.anchor.set(0.5, 0.5);
           st.position.set(x + w / 2, y + 15);
+          this.fit(st, w - 8);
         }
         x += w;
       }
       const tt = this.texts.take(groupThousands(sp.total), 20, INK);
       tt.anchor.set(1, 0.5);
       tt.position.set(R.x + R.w - 16, y + 15);
+      this.fit(tt, 150 - 24);
     });
   }
 
@@ -788,6 +886,7 @@ export class MatchBoard {
     ([['DEALT TO', row.dealtTo, R.x + 10], ['TAKEN FROM', row.takenFrom, R.x + 20 + half]] as const).forEach(([title, list, x0]) => {
       const t = this.texts.take(title, 16, INK);
       t.position.set(x0 + 6, R.y + 10);
+      this.fit(t, half - 12);
       const maxA = Math.max(1, ...list.map((a) => a.amount));
       const lineH = Math.min(26, (R.h - 44) / Math.max(1, list.length));
       if (list.length === 0) {
@@ -799,11 +898,13 @@ export class MatchBoard {
         const lt = this.texts.take(a.label, 14, a.color);
         lt.anchor.set(0, 0.5);
         lt.position.set(x0 + 6, y + lineH / 2);
+        this.fit(lt, 78 - 10);
         const bw = (half - 170) * (a.amount / maxA);
         g.roundRect(x0 + 78, y + 4, Math.max(2, bw), lineH - 8, 4).fill(mix(a.color, 0.8));
         const vt = this.texts.take(groupThousands(a.amount), 14, INK);
         vt.anchor.set(0, 0.5);
         vt.position.set(x0 + 84 + Math.max(2, bw), y + lineH / 2);
+        this.fit(vt, Math.max(12, x0 + half - 6 - (x0 + 84 + Math.max(2, bw))));
       });
     });
   }
@@ -827,11 +928,13 @@ export class MatchBoard {
       const al = this.texts.take(label, 13, color);
       al.anchor.set(1, 0.5);
       al.position.set(P.x - 8, y);
+      this.fit(al, P.x - 8 - (R.x + 4));
     }
     for (const [v, y] of [[maxV, P.y], [maxV, P.y + P.h]] as const) {
       const yl = this.texts.take(groupThousands(v), 12, DIM, '400');
       yl.anchor.set(1, 0.5);
       yl.position.set(P.x - 8, y);
+      this.fit(yl, P.x - 8 - (R.x + 4));
     }
     const n = m.graphs.damage.waves.length;
     if (n === 0) return;

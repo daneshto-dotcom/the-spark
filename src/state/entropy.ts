@@ -34,6 +34,7 @@
  */
 import { componentOf } from '../game/structure.ts';
 import type { BondId } from '../types.ts';
+import { recordEntropyLoss, sampleBuilt } from './matchStats.ts'; // ⭐ S195 T22
 import { mix32 } from './rng.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
@@ -91,14 +92,28 @@ export function planEntropy(world: World): BondId[] {
  * A bond already gone (a split razed its shape) is skipped.
  */
 export function applyEntropyTax(world: World): number {
+  const plan = planEntropy(world);
+  if (plan.length === 0) return 0;
+  /*
+   * ⭐ S195 T22 (owner B-17) — the LOST-TO-ENTROPY stat is the per-seat STANDING-BOND DELTA across this
+   * pass, not the snap count: a snap that splits a structure deletes its smaller side, connectors and
+   * all, and the owner lost those too. `sampleBuilt` is the board's own "connectors standing" census
+   * (owner = `bond.aId → placedBy`), so the stat and the BUILT graph fall by the same number. Read-only
+   * on the sim: the counter is inert (`matchStats.ts` header), so no bump.
+   */
+  const before = sampleBuilt(world);
   let snapped = 0;
-  for (const id of planEntropy(world)) {
+  for (const id of plan) {
     const bond = world.bonds.get(id);
     if (bond === undefined) continue;
     const owner = world.primitives.get(bond.aId)?.placedBy ?? world.primitives.get(bond.bId)?.placedBy;
     if (owner === undefined) continue;
     applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'entropy' });
     if (!world.bonds.has(id)) snapped += 1;
+  }
+  const after = sampleBuilt(world);
+  for (const [seat, n] of [...before.entries()].sort(([a], [b]) => (a as number) - (b as number))) {
+    recordEntropyLoss(world, seat, n - (after.get(seat) ?? 0));
   }
   return snapped;
 }

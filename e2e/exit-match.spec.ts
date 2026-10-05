@@ -15,6 +15,7 @@ import {
   canvasToCss,
   hostNewRoom,
   joinRoom,
+  LOBBY_2PEER_BUDGET_MS,
   readWorldState,
   waitForWorld,
 } from './helpers.ts';
@@ -173,6 +174,7 @@ test.describe('S155 exit-from-multiplayer — leaving tears the network down @qu
   test('a joiner in a live networked match can leave, and the transport is disposed', async ({
     browser,
   }) => {
+    test.setTimeout(LOBBY_2PEER_BUDGET_MS); // S195 ci-budgets — see the constant in helpers.ts
     const ctxs: BrowserContext[] = [await browser.newContext(), await browser.newContext()];
     for (const c of ctxs) {
       await c.addInitScript(() => {
