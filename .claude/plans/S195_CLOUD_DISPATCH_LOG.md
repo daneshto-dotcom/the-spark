@@ -27,5 +27,12 @@ were still in flight on the desktop and were NOT touched here — their file set
 - `s195/coherence-2` — T19: B-7 Helga death cue (additive-optional) · shared departure rule (chewer + goblin corpse) · chewer stun-star scale · SILENT sound slots (unit-death, stink fire, castle gun, entropy boing owner-only) · N4 Helga-heard-by-two-seats verify · stink ramp wiring behind manifest · refused-placement REACH · B-3 repaired sparkle · B-1 pin · §E F1 render-leak measurement.
 - Wave 2 (opens as wave-1 trees land): `s195/controls-macros` (N6) · `s195/info-ui` (N7 + N12 UI + N14 board polish + the entropy board row) · `s195/net-mp` (T20).
 
+## SAFETY NET — `.claude/cloud-bundles/s195-cloud-unmerged-2026-10-05.bundle`
+At 10:23 UTC the spend limit killed every running agent (two auditors + the coherence-2 tree). The three branches that had not
+yet landed (`s195/rules-2` 9a2e56e2, `s195/fixes` ab2b16f9, `s195/coherence-2` 59650a93) live only in this container, so their
+commits were bundled (164 KB) and committed here UNMERGED and UNAUDITED. If this run dies before they land, the desktop merge
+owner recovers them with `git fetch .claude/cloud-bundles/s195-cloud-unmerged-2026-10-05.bundle 's195/*:refs/heads/*'` and
+audits them as any tree. Once a branch lands here, its merge commit supersedes the bundle copy; the bundle is deleted at close.
+
 ## NOT DONE / FOR THE DESKTOP SESSION
 _(filled at close)_
