@@ -26,6 +26,7 @@
  * absolute hash pins).
  */
 
+import { ENTROPY_FREE_CONNECTORS } from '../state/entropy.ts';
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { isRaceTowerId } from '../state/raceTowerIds.ts';
 import type { BotDifficulty, BotPersonality } from './botTypes.ts';
@@ -89,6 +90,21 @@ export interface PersonalityKnobs {
    * ⚠ MINE.
    */
   readonly substitute: 'any' | 'listed';
+  /**
+   * ⭐ S195 T22 (owner B-18/B-19) — THE CONNECTOR COUNT AT WHICH THIS PERSONALITY STOPS GROWING A STRUCTURE
+   * and starts a new one, when its tier knows about the tax at all (`BotConfig.entropyAwareness`). Owner:
+   * *"calculate at what connectors it's not worth it"*. The arithmetic (canon §2, `entropy.ts`): a structure of
+   * n connectors expects to lose n × 0.1 % × (n − 10) connectors per FIGHT — 0 at 10, 0.2 at 20, 1.0 at ~37
+   * (a bot adding one shape per BUILD then only treads water). ⚠ MINE, every value:
+   *   10 (= `ENTROPY_FREE_CONNECTORS`) — BALANCED, WARMONGER, TYCOON, SABOTEUR: never pay the tax at all. A
+   *      structure past 10 is a worse deal per shape than a second structure for a bot that is not trying to
+   *      build one big pool (an army bot, a cheap-and-wide builder, a raider).
+   *   20 — FORTRESS ("defence first, saves long"): its style IS the bigger pool — 20 connectors is 500 pool vs
+   *      150 at 10 — and at 20 the expected loss is 0.2 connectors a fight (1 % each), a tax a defence-first
+   *      builder can carry; past 20 the loss doubles every ~8 connectors, so it stops there.
+   * `entropyAwareness: 'none'` ignores this knob entirely, so NOOB is unchanged by it.
+   */
+  readonly entropyMaxConnectors: number;
 }
 
 /**
@@ -110,7 +126,11 @@ export const IDENTITY_KNOBS: PersonalityKnobs = {
   raAim: 'home',
   adaptsAtBell: false,
   substitute: 'any',
+  entropyMaxConnectors: ENTROPY_FREE_CONNECTORS,
 };
+
+/** ⚠ MINE (S195 T22) — FORTRESS grows a structure to 20 connectors before starting another (see the knob). */
+export const FORTRESS_ENTROPY_MAX_CONNECTORS = 20;
 
 type Overrides = Partial<Omit<PersonalityKnobs, 'personality'>>;
 
@@ -150,7 +170,7 @@ const TABLE: Record<BotPersonality, { base: Overrides; MID?: Overrides; HARD?: O
      * stink>mummies | stink>zombies). Listed: it saves for its stink instead — measured 0.56 (stink>nagas>stink>goblin |
      * stink>mummies>stink | stink>zombies), stink FIRST on 3/3 seats. ⚠ MINE.
      */
-    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700, substitute: 'listed' },
+    base: { towerOrder: ['stink', 'laser', 'helga'], repeatTower: 'first', saveHoldTicks: 2700, substitute: 'listed', entropyMaxConnectors: FORTRESS_ENTROPY_MAX_CONNECTORS },
     /*
      * ⭐ S194 (T7) RE-TUNE — after deploy #23's nearest-enemy-first targeting, adjacent IMBA armies raze each
      * other's opening goblin towers, and the S193 row (goblin > stink > laser > helga, hold 2700, any

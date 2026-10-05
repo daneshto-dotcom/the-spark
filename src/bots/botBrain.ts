@@ -33,6 +33,7 @@ import { ALL_BLUEPRINT_IDS, blueprintBill, blueprintCost } from '../state/bluepr
 import { planBlueprintPayment } from '../state/blueprintBuild.ts';
 import { stampRefusalAt } from '../state/blueprintLegality.ts';
 import { castleAnchor } from '../state/gatherers/gatherer.ts';
+import { componentOf } from '../game/structure.ts'; // ⭐ S195 T22 — the bot reads its own structures' connector counts
 import type { GodlyId } from '../state/godlyRecipes/types.ts';
 import { ALL_SPARK_TYPES, CASTLE_PORCH_SLOTS, type SparkType } from '../constants.ts';
 import { canBuildNow } from '../state/buildLegality.ts';
@@ -931,13 +932,28 @@ export function chooseBuildPos(
     return home; // hard fallback: dispatch validation rejects, bot re-decides
   }
 
+  /*
+   * ⭐ S195 T22 (owner B-18/B-19) — THE BOT KNOWS ABOUT THE ENTROPY TAX, BY TIER AND PERSONALITY. A loose shape
+   * placed within `AUTO_BOND_RADIUS` of an own shape JOINS that structure, so growing from a source prim is
+   * growing its component. A source whose component is already at the personality's limit (`entropyMaxConnectors`,
+   * for the structures the tier's `entropyAwareness` covers) is dropped; with no source left the bot STARTS A
+   * NEW STRUCTURE on a fresh site (`freshStructurePos`) instead of feeding the tax. NOOB (`'none'`) keeps every
+   * source and this block is a no-op for it — byte-identical to the pre-S195 bot.
+   */
+  const growable = entropySafeSources(world, seat, cfg);
+  if (growable.length === 0) {
+    const fresh = freshStructurePos(world, seat, totalSeats, cfg, rng);
+    if (fresh !== null) return fresh;
+  }
+  const sources = growable.length > 0 ? growable : own;
+
   // Growth: pick the source prim. Smart = fewest bonds (frontier); sloppy =
   // random own prim.
   let source: { pos: Vec2; bonds: number };
   if (cfg.smartPlacement) {
-    source = own.reduce((a, b) => (b.bonds < a.bonds ? b : a));
+    source = sources.reduce((a, b) => (b.bonds < a.bonds ? b : a));
   } else {
-    source = own[Math.floor(rng() * own.length)];
+    source = sources[Math.floor(rng() * sources.length)]!;
   }
 
   // Preferred growth direction: away from the spawner (expands the sector).
@@ -961,6 +977,86 @@ export function chooseBuildPos(
   }
   // Everything blocked — restart the colony at the home anchor.
   return homeAnchor(seat, totalSeats, cfg, rng);
+}
+
+/**
+ * ⭐ S195 T22 — PURE: the own shapes this bot may still GROW FROM under its entropy knowledge. Every own prim
+ * when the tier knows nothing (`'none'`); otherwise every own prim whose component is under the personality's
+ * `entropyMaxConnectors` — counting a component only when it holds a stamped tower node (`origin !== null`) for
+ * `'towers'` (MID), and every component for `'all'` (HARD / IMBA). Components are walked once each
+ * (`componentOf`), in `world.primitives` order like the caller's `own` list — a filter, never a choice, so the
+ * caller's existing total order (fewest bonds, first in insertion order) is what still picks the source.
+ */
+export function entropySafeSources(world: World, seat: PlayerId, cfg: BotConfig): Array<{ pos: Vec2; bonds: number }> {
+  const out: Array<{ pos: Vec2; bonds: number }> = [];
+  const aware = cfg.entropyAwareness;
+  const limit = personaOf(cfg).entropyMaxConnectors;
+  const grown = new Set<PrimitiveId>(); // prims of a component already judged TOO BIG
+  const fine = new Set<PrimitiveId>(); // prims of a component already judged growable
+  for (const prim of world.primitives.values()) {
+    if (prim.placedBy !== seat) continue;
+    if (aware === 'none') { out.push({ pos: prim.pos, bonds: prim.bonds.size }); continue; }
+    if (grown.has(prim.id)) continue;
+    if (!fine.has(prim.id)) {
+      const comp = componentOf(prim, world.primitives, world.bonds);
+      let counts = aware === 'all';
+      if (!counts) for (const id of comp.primitiveIds) { if (world.primitives.get(id)?.origin != null) { counts = true; break; } }
+      const tooBig = counts && comp.bondIds.size >= limit;
+      for (const id of comp.primitiveIds) (tooBig ? grown : fine).add(id);
+      if (tooBig) continue;
+    }
+    out.push({ pos: prim.pos, bonds: prim.bonds.size });
+  }
+  return out;
+}
+
+/**
+ * ⚠ MINE (S195 T22) — how far past `AUTO_BOND_RADIUS` (60) a fresh structure's first shape is planted from
+ * every own shape, so the host's auto-bond re-pick cannot weld it into the structure the bot is leaving
+ * alone. 12 px covers HARD's 10 px aim jitter with room; MID's 28 px jitter is applied BEFORE the check.
+ */
+export const FRESH_SITE_MARGIN = 12;
+/** ⚠ MINE (S195 T22) — the fresh-site probe: rings this far apart, stepping outward from the home anchor. */
+export const FRESH_SITE_RING_STEP = 72;
+const FRESH_SITE_RINGS = 6;
+const FRESH_SITE_ANGLES: readonly number[] = [0, 0.35, -0.35, 0.7, -0.7, 1.05, -1.05];
+
+/**
+ * ⭐ S195 T22 — PURE (rng: jitter only): a legal site for a NEW structure — clear of every own shape by more
+ * than the auto-bond reach — or null when the sector has none. Probes the seat's home ray outward, ring by
+ * ring and angle by angle in a fixed order, so two runs of one seed agree.
+ */
+export function freshStructurePos(
+  world: World,
+  seat: PlayerId,
+  totalSeats: number,
+  cfg: BotConfig,
+  rng: () => number,
+): Vec2 | null {
+  const own: Vec2[] = [];
+  for (const prim of world.primitives.values()) if (prim.placedBy === seat) own.push(prim.pos);
+  const clear = AUTO_BOND_RADIUS + FRESH_SITE_MARGIN;
+  const clear2 = clear * clear;
+  const baseAngle = Math.PI + ((seat as number) / Math.max(1, totalSeats)) * 2 * Math.PI;
+  for (let ring = 0; ring < FRESH_SITE_RINGS; ring++) {
+    const r = SPAWNER_RADIUS + HOME_ANCHOR_REACH + ring * FRESH_SITE_RING_STEP;
+    for (const off of FRESH_SITE_ANGLES) {
+      const a = baseAngle + off;
+      const candidate = jitter(
+        { x: SPAWNER_CENTER_X + Math.cos(a) * r, y: SPAWNER_CENTER_Y + Math.sin(a) * r },
+        cfg.aimJitterPx,
+        rng,
+      );
+      if (!isLegalBuildPos(candidate, seat, world)) continue;
+      let near = false;
+      for (const p of own) {
+        const dx = candidate.x - p.x, dy = candidate.y - p.y;
+        if (dx * dx + dy * dy < clear2) { near = true; break; }
+      }
+      if (!near) return candidate;
+    }
+  }
+  return null;
 }
 
 /** This seat's radial home anchor just outside the spawner rim (+ jitter). */
