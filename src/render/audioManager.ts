@@ -38,6 +38,7 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, RAINBOW_YELL_FRESH_TICKS } from '../consta
 import type { GameEffect } from '../game/effects.ts';
 import type { PlayerId, Vec2 } from '../types.ts';
 import { helgaInvolvesSeat, type HelgaAudienceDefender, type HelgaAudienceWorld, type HelgaVictimMemo } from './coherence/helgaAudience.ts';
+import { concealmentContext } from './concealment.ts';
 // Audit Pass 2 fix 622a7c7f — register the cursor-reset handler with the
 // state-layer publisher. Replaces the pre-Pass-2 pattern where save.ts
 // directly imported `resetAudioDrainCursor` from this file (a state→render
@@ -2041,8 +2042,13 @@ export function slotSfxCounts(): { fired: Readonly<Record<SfxSlot, number>>; sil
  */
 export function drainAudioEffects(
   effects: ReadonlyArray<GameEffect>, currentTick: number,
-  /** ⭐ S195 T19 — the LOCAL seat, for the one owner-only slot (`entropyBoing`). Omitted = no seat = silent. */
-  localSeat: PlayerId | null = null,
+  /**
+   * ⭐ S195 T19 — the LOCAL seat, for the one owner-only slot (`entropyBoing`). Defaults to this frame's
+   * concealment context (`beginConcealmentFrame` runs before every renderer in `main.ts`), so the call site's
+   * literal `drainAudioEffects(world.effects, world.tick)` — pinned by `ui.drainOrder.test.ts` — is unchanged.
+   * Tests pass the seat explicitly; no context (a test, the title) = no seat = silent.
+   */
+  localSeat: PlayerId | null = concealmentContext().localPlayerId,
 ): void {
   // S23 P4 — strict `<` not `<=`. Same-tick events emitted by click handlers
   // between physics ticks (world.tick stable across the dispatch boundary)

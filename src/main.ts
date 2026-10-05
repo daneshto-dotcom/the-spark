@@ -4445,7 +4445,7 @@ Network routes: ${v.detail}`;
     stinkCloudRenderer.sync(world);
     // S18 P1 — drain audio effects BEFORE effectsRenderer (which wipes
     // world.effects). Cursor-gated; replay-safe.
-    drainAudioEffects(world.effects, world.tick, world.localPlayerId); // ⭐ S195 T19 — the local seat, for the owner-only entropy boing
+    drainAudioEffects(world.effects, world.tick); // ⭐ S195 T19 — the owner-only entropy boing reads the local seat off the concealment frame
     // S112 — situational music: HELGA's theme while she's engaged (walk/attack), else base music.
     // Render-layer, edge-driven, idempotent; reads SYNCED defender state so host + client switch together.
     updateHelgaTheme(world);
