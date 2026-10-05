@@ -1,5 +1,8 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## EXACT NEXT STEP (L6 — cloud train ccr-26eaab43-fa9mg3 df7ce01a)
+Charter raise 1250→1350 bbedaa29 (own commit). Merged cloud branch d727cc6b (no conflicts). Integration checks: protocolVersionSync + protocol + canon + ci.e2eLanes 179/179 exit 0; PROTOCOL 68; 122 merged src/e2e/scripts files all i/lf. FULL gates RUNNING: `.tmp-gates/s195run6.sh L6 31967` → `.tmp-gates/s195_L6/` (tc, vt, build, gating, render, races, lobby, teams, protocol). Watch the 4 cloud-ruled gating specs (feed-tower:218, raid:111, tickClock:21, worker:21) — must be green; red twice = STOP, do not push. Then push, deploy, verify --sha, log S195-#6 with CI per lane (lobby/quarantine finish = L9 budget measurement). Then HOLD for s195/lag, s195/teams.
+
 ## STATUS (L5): COMPLETE — S195-#5 7ceae8eb LIVE, verify 4/4, CI gating lanes all green (details in S195_DISPATCH_LOG.md). HOLDING per R195-0g; no next step.
 
 ## (L1–L4) STATUS: COMPLETE
