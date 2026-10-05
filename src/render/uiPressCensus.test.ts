@@ -87,9 +87,9 @@ const CONTROLS_DRIVEN_PRESS: ReadonlyArray<{ file: string; via: string | null; t
  * Clickables the census EXEMPTS from a plate but which still take a click and still show no press. Named
  * so the gap is visible, stale-checked so it cannot be carried once closed.
  */
-const HOVER_ONLY_KNOWN: ReadonlyArray<{ file: string; match: string; why: string }> = [
-  { file: 'src/main.ts', match: 'settingsIcon.', why: 'the HUD gear: alpha 0.55 → 1 on hover, nothing on press; main.ts is outside the ui-4 file boundary — the alpha-dip hunk is in the report' },
-];
+// ⭐ S195 — the HUD gear (main.ts `settingsIcon`) was the one known hover-only control; the merge owner applied
+// the alpha-dip press hunk when ui-4 landed, so the list is EMPTY. A new entry here needs its reason.
+const HOVER_ONLY_KNOWN: ReadonlyArray<{ file: string; match: string; why: string }> = [];
 
 function walk(dir: string): string[] {
   const out: string[] = [];
