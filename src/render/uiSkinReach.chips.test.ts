@@ -6,6 +6,15 @@
  *     the click on that button just inside each edge of its rect, and NOT just outside — the skin moved no target;
  *   · the sheen sweeps only inside that rect, and clears on pointerout.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/botSetupOverlay.ts :: raceBtn.
+// CENSUS-REACH src/render/botSetupOverlay.ts :: personaBtn.
+// CENSUS-REACH src/render/botSetupOverlay.ts :: diffBtn.
+// CENSUS-REACH src/render/botSetupOverlay.ts :: attachButtonFeedback(c, bg, onClick, { hit: { x: -24
+// CENSUS-REACH src/render/botSetupOverlay.ts :: attachButtonFeedback(c, bg, onClick, { hit: { x: -180
+// CENSUS-REACH src/render/racePicker.ts :: root.
+// CENSUS-REACH src/render/connectionLostOverlay.ts :: returnBtn.
+// CENSUS-REACH src/render/seatRack.ts :: cell.on('pointertap'
 import { describe, expect, it, vi } from 'vitest';
 import { Container, Graphics, Ticker } from 'pixi.js';
 // The FederatedEvent container mixin (isInteractive, …) that a real app installs at init.

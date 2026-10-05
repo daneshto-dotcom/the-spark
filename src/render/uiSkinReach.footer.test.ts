@@ -4,6 +4,8 @@
  * not. A source guard proves the skin call EXISTS; this proves the drawn glass and the click target
  * are the same pixels, on the real band.
  */
+// ⭐ S195 T18 #2 — census pairing (read by uiSkinCensus.reach.test.ts): the SKINNED rows this file REACHES.
+// CENSUS-REACH src/render/footerBand.ts :: *
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { Container } from 'pixi.js';
