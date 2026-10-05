@@ -1882,16 +1882,23 @@ describe('S195 rules-2 — §5 B-9: the chewer gnaws the keep, last', () => {
 });
 
 describe('S192 units-ai — §5c is pinned to its constants', () => {
-  it('⭐ T6 — the chase numbers the canon quotes are the live constants (1.25 and 20 px, both MINE)', () => {
-    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1.25);
+  it('⭐ T6 / S195 N11 — the chase numbers the canon quotes are the live constants (1 and 20 px, both MINE)', () => {
+    expect(CHASE_GIVEUP_SPEED_RATIO).toBe(1);
     expect(CHASE_GIVEUP_SLACK_PX).toBe(20);
-    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1.25**')).toBe(true);
+    expect(canonSays('`CHASE_GIVEUP_SPEED_RATIO` = **1**')).toBe(true);
     expect(canonSays('`CHASE_GIVEUP_SLACK_PX` = **20** px')).toBe(true);
-    // The drone outruns every chaser at 1.25 (fastest t3Bat 168 × 1.25 = 210 < 240); the chewer does not
-    // outrun the melee goblin (120 ≤ 119 × 1.25) — the two arithmetic facts the canon's reading rests on.
+    // The drone outruns every chaser (fastest t3Bat 168 < 240); ⭐ S195 N11 — the chewer (120) now outruns the
+    // melee goblin (119) and HIS scarab (105, the 1.14 that sat inside the old 1.25), not the t3Bat — the
+    // arithmetic facts the canon's reading rests on.
     expect(getCreatureConfig('lightningDrone').maxAccel).toBeGreaterThan(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
-    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('goblinMelee').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeGreaterThan(getCreatureConfig('t3Scarab').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
+    expect(getCreatureConfig('chewer').maxAccel).toBeLessThanOrEqual(getCreatureConfig('t3Bat').maxAccel * CHASE_GIVEUP_SPEED_RATIO);
     expect(canonSays("the chaser AND the quarry both stand in the chaser's OWN zone")).toBe(true);
+    expect(canonSays('S195 N11 (owner): home is not enough any more')).toBe(true);
+    const ai = readFileSync(new URL('./state/creatures/creatureAI.ts', import.meta.url), 'utf8');
+    expect(ai).toContain('if (home && !quarryHasPath(quarry)) return false;');
+    expect(ai).toContain('if (interceptFeasible(limits, quarry, quarrySpeed)) return false; // 3 — cut it off (home or abroad)');
   });
 
   it('⭐ §3g — T4: the goblin tower auto-build poll the canon quotes is the live constant (6 ticks, MINE)', () => {

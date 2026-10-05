@@ -4175,18 +4175,25 @@ export const GOBLIN_UNIT_LEASH_RADIUS = 300;
  * measured S192 — drone 3.92 px/tick at 240, goblinMelee 1.61 at 119) — is engaged when ANY of:
  *   (1) it is within the chaser's engage reach + `CHASE_GIVEUP_SLACK_PX` (*"if it's around them"*);
  *   (2) the chaser AND the quarry both stand inside the chaser's OWN zone (*"you're still in your zone"*;
- *       S193 audit — the chaser's own position too, not only the quarry's);
+ *       S193 audit — the chaser's own position too, not only the quarry's) — ⭐ S195 N11: AND the quarry is
+ *       either going nowhere (no path: a chewer already gnawing a connector) or can be cut off, (3);
  *   (3) the chaser can cut its path off before it reaches its target (*"before he reaches his target"*);
  * and is neither acquired nor held otherwise (`cannotCatch`, `creatureAI.ts`). A unit that can strike
  * back is never skipped — so R184-A (the melee boss chasing an archer it cannot catch, ruled S184) is
  * untouched by construction, not by exception.
  *
- * ⚠ BOTH NUMBERS ARE MINE (S192), not his. 1.25: the drone (240) clears it against every chaser
- * (fastest t3Bat 168 × 1.25 = 210); the chewer (120) clears it only against the shield goblin and the
- * naga boss, so every other unit still chases a chewer (120 ≤ 119 × 1.25). 20 px: a body length of
- * slack so a quarry grazing the edge of reach is not dropped and re-acquired every tick.
+ * ⚠ BOTH NUMBERS ARE MINE, not his. S192 set the ratio at 1.25: the drone (240) cleared it against every
+ * chaser (fastest t3Bat 168 × 1.25 = 210); the chewer (120) only against the shield goblin and the naga
+ * boss, so every other unit chased a chewer (120 ≤ 119 × 1.25). ⭐⭐ S195 N11 (owner) LOWERED IT TO **1**:
+ * *"they should know … if they can't chase it down before he gets to his target or before he's out of
+ * reach … more dynamic and smart"* — his scarabs (`maxAccel` 105) chased an incoming chewer (120, ratio
+ * 1.14) *"far too long until a stink tower killed it"*, and 1.14 sat INSIDE the old slack, so the three
+ * engage conditions never ran for them. At 1, any non-combatant faster than you at all is intercept-gated;
+ * one that is not faster you WILL run down (at worst where it stops), so it is chased as before. The melee
+ * goblin (119) now lets a departing chewer (120) go abroad; a t3Bat (168) still chases it. 20 px: a body
+ * length of slack so a quarry grazing the edge of reach is not dropped and re-acquired every tick.
  */
-export const CHASE_GIVEUP_SPEED_RATIO = 1.25;
+export const CHASE_GIVEUP_SPEED_RATIO = 1;
 /** ⚠ MINE (S192 T6) — see `CHASE_GIVEUP_SPEED_RATIO`. */
 export const CHASE_GIVEUP_SLACK_PX = 20;
 

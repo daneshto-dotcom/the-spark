@@ -1195,12 +1195,20 @@ unchanged.
   tower's leftover shapes stay targetable until destroyed** (R192-U1, *"just as it is today"*).
 - **CHASE A DRONE SMARTLY — NEVER ACROSS THE MAP (T6).** *"I didn't say ignore drones or pencil chewers all
   the time. It just has to be smart"* — owner, S192. A FAST NON-COMBATANT — cannot strike a unit
-  (`isNonCombatantType`: lightning drone, pencil chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` = **1.25**
-  × the chaser (`maxAccel`) — is engaged when ANY of: (1) within the chaser's reach +
-  `CHASE_GIVEUP_SLACK_PX` = **20** px; (2) the chaser AND the quarry both stand in the chaser's OWN zone
-  (*"you're still in your zone"*); (3) the chaser can cut its path off before it arrives. Otherwise it is
-  neither acquired nor held, so it cannot be re-taken until one of the three holds again — no ping-pong, no
-  memory. Both numbers ⚠ MINE. A unit that can strike back is never skipped (R184-A untouched); turrets,
+  (`isNonCombatantType`: lightning drone, pencil chewer) and faster than `CHASE_GIVEUP_SPEED_RATIO` = **1**
+  × the chaser (`maxAccel`; ⭐ S195 N11 lowered it from 1.25 — see below) — is engaged when ANY of: (1) within
+  the chaser's reach + `CHASE_GIVEUP_SLACK_PX` = **20** px;
+  (2) the chaser AND the quarry both stand in the chaser's OWN zone (*"you're still in your zone"*) **and**
+  the quarry is going nowhere (no path — a chewer already gnawing a connector of mine) or can be cut off;
+  (3) the chaser can cut its path off before it arrives. Otherwise it is neither acquired nor held, so it cannot be re-taken until one of the three holds
+  again — no ping-pong, no memory. Both numbers ⚠ MINE. ⭐⭐ **S195 N11 (owner): home is not enough any more.**
+  *"they should know … if they can't chase it down before he gets to his target or before he's out of reach
+  … more dynamic and smart"* — his scarabs (105) chased an incoming chewer (120, a 1.14 ratio INSIDE the old
+  1.25 slack, so no condition ever ran) across their own zone until a stink tower killed it. A moving quarry
+  at home is now intercept-gated like one abroad; a quarry faster than you at all is a fast quarry. Measured
+  (`chaseGiveUp.test.ts`, scripted chewer, 400 ticks): four scarabs lock 0 ticks on a chewer they cannot cut
+  off, and still take one flying through them. The melee goblin (119) now lets a departing chewer go abroad.
+  Not re-ruled: the S192 numbers below were measured at 1.25 and are history. A unit that can strike back is never skipped (R184-A untouched); turrets,
   stink towers, castle guns and Helga (*"that's the whole point of Helga"*) are unchanged. Measured, a
   scripted drone flying past a unit 40 px inside enemy ground, 400 ticks: melee goblin −57.0 % of its advance
   before → **−6.6 %**; orc boss −57.8 % → **−7.3 %** (S192's −37.6 % / −38.2 % was before the S193 audit added
