@@ -1,6 +1,7 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** FIX ROUND (audit of fef61cc9) — code done + committed; gates round 3 running detached (.tmp-gates/g3-*.exit); then report the tip.
+**NEXT STEP:** DONE (fix round) — handed back to the merge owner.
+Fix-round gates (exit codes from files): typecheck 0 · vitest --maxWorkers=3 0 (9151 passed / 13 skipped, 610 files) · build 0, entry 1223.3 / 1350 KiB (+3.5 vs #8) · e2e:gating 0 (67 passed, hashed port) · teams-lobby 0 (2 passed). Bump NO. With the flag OFF the deploy is visually byte-identical to #8.
 
 ## FIX ROUND (auditor: main `.tmp-audit/AUDIT_team-tiles.md`)
 - MED-1: `TEAM_SEAM_BLEND_LEGACY_ART = false` (OFF until he approves `SPARK_S195_TeamTiles/COMPARE_*`) — the deploy changes nothing visible; tests drive the blend with the flag explicitly / via the tile path; defaults test pins `false`; new test pins the plain 3v1 plan.
