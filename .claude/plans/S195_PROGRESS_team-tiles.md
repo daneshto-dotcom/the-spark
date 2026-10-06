@@ -1,6 +1,12 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** DONE — handed to the merge owner. Report below.
+**NEXT STEP:** FIX ROUND (audit of fef61cc9) — code done + committed; gates round 3 running detached (.tmp-gates/g3-*.exit); then report the tip.
+
+## FIX ROUND (auditor: main `.tmp-audit/AUDIT_team-tiles.md`)
+- MED-1: `TEAM_SEAM_BLEND_LEGACY_ART = false` (OFF until he approves `SPARK_S195_TeamTiles/COMPARE_*`) — the deploy changes nothing visible; tests drive the blend with the flag explicitly / via the tile path; defaults test pins `false`; new test pins the plain 3v1 plan.
+- LOW-1: `pruneBaked` keeps a bake still ON a sprite (not a loaded asset) so it is freed on a later prune after the swap; new test "2v2 → 3v1 rematch whose SE race loads late" (stub 2D canvas): 0 orphans while waiting, 0 after, labels = this match's art. Mutations: M5 (revert prune) RED, M6 (flag on) RED (`.tmp-gates/mutate2.log`). Also cures master's pre-existing single-orphan path.
+- LOW-2: Desktop README corrected (the session converts to 480x270; blend OFF until approval); manifest test asserts each listed WebP header is 480x270.
+
 
 ## FINAL REPORT (team-tiles, N19)
 - Branch `s195/team-tiles`; master d712ad1a merged (docs only, no conflicts); tip = the commit carrying this line.
