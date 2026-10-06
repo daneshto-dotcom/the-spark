@@ -1,13 +1,13 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** item 3 — write Desktop/SPARK_Six_Race_Tiles_Prompts.html (model on the 2v2/trio sheets), then item 4 tests.
+**NEXT STEP:** item 4 — tests in src/render/zoneBackgroundRenderer.test.ts (resolver table, REACH via renderer.sync, FFA negative, missing-file fallback, mutation red), then gates.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
 ## Items
 1. [x] 29 trio images — identify + judge
 2. [x] side-by-side prototype + screenshots -> Desktop/SPARK_S195_TeamTiles
-3. [ ] six-tile Grok prompt sheet -> Desktop/SPARK_Six_Race_Tiles_Prompts.html
+3. [x] six-tile Grok prompt sheet -> Desktop/SPARK_Six_Race_Tiles_Prompts.html
 4. [ ] tile path behind a manifest (render-only, no bump)
 
 ## Item 1 — the 29 trio files (viewed by eye via contact sheets `.tmp-gates/trio/sheet1-7.jpg`)
@@ -64,3 +64,5 @@ his Grok trios are top-down and read as one world → generate SIX top-down tile
 pairs → `TEAM_TILES_FOR_PAIRS = false` ⚠ MINE.
 ⚠ Finding during the run: the first pass was stale HMR (old class instance) — labels showed blend on the
 "today" variant; restarted vite --force and re-ran; labels now match each variant (proto.log).
+
+## Item 3 — `C:/Users/onesh/OneDrive/Desktop/SPARK_Six_Race_Tiles_Prompts.html` (Grok; 6 cards, Copy + localStorage ticks, smoke-tested headless: no page errors, tick counter works). Race worlds reused verbatim from his trio sheet; 16:9, top-down, plain 15-18 % edge band on all 4 sides, landmarks in the central half, corners quiet; game reads `public/art/race-zones/tiles/<race>.webp` at 480x270.
