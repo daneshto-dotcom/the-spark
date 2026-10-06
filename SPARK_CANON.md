@@ -122,7 +122,7 @@ are. Measured through the real host tick (`entropy.test.ts`): the 145-connector 
   SPLITS a structure deletes its smaller side like any other sever — so whole chunks can go
   (*"or maybe whole parts of it"*).
 - ⚠ MINE (unruled, Q4/Q5): **any** connector may snap, a welded tower's own included; the roll is
-  **once, at the FIGHT whistle**; the owner reads **"ENTROPY: N CONNECTORS SNAPPED"**. No exemption for
+  **once, at the FIGHT whistle**; the owner reads **"ENTROPY: N SNAPPED, M LOST"** (⭐ S195 owner R195-E1 / N18 (d): owner-only, synced on `SeatMatchStats` `ew`/`es`/`el` so it is reliable on every peer; the structure card reads `~N snap/fight`). No exemption for
   the endgame or monster waves — they are FIGHTs too.
 
 ### Shapes
@@ -1317,7 +1317,9 @@ per-seat, unchanged — the first seat to the bar wins for its team.
 
 ## 6 · THE WIRE
 
-`PROTOCOL_VERSION` is **69** (S195 deploy #8 — s195/teams: the `world.layout` zone map `QUADRANTS_4P:<owners>`, `RosterEntry.slot`, `LOBBY_PRESENCE.countdownMs`, the team points race + team wipe judge, the hunter's team target; see the S195 entry on the const). 68 was the S195 cloud run (s195/rules-2: B-9 chewer bites the keep, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1 + state-based home arm; see the S195 entry on the const). 67 was S195 L1 (s194/rules, R194-16/17/26/27). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+`PROTOCOL_VERSION` is **70** (S195 deploy #10 — s195/net-delta: snapshots ride binary `snap` delta frames with `sack` acks; see the S195 entry on the const). 69 was S195 deploy #8 (s195/teams: the `world.layout` zone map `QUADRANTS_4P:<owners>`, `RosterEntry.slot`, `LOBBY_PRESENCE.countdownMs`, the team points race + team wipe judge, the hunter's team target; see the S195 entry on the const). 68 was the S195 cloud run (s195/rules-2: B-9 chewer bites the keep, B-10 drone pool split, B-31 welded TV summons, B-25/B-30 own side spared, N11 chase ratio 1 + state-based home arm; see the S195 entry on the const). 67 was S195 L1 (s194/rules, R194-16/17/26/27). 66 was S194 deploy #6 (s194/rage, R194-31); 65 was S194 deploy #5 (s194/entropy + s192/teams); 64 was s194/fixes; 63 was s193/mres-card; 62 was S193's deploy #23.
+
+⭐⭐ **WHAT RIDES 70 (S195, deploy #10)** — s195/net-delta (owner-approved network A + B): every snapshot rides a binary Trystero `snap` frame — a delta against the frame the joiner last ACKED, deflated — with a keyframe every 100 frames, on join, on a gap and on host migration, acked by `sack`; only the snapshot authority (the latched host) may be a delta source. Measured wave-10 per-joiner 14.36 → 0.53 Mbit/s (27×). `SeatMatchStats` `ew`/`es`/`el` (N18 (d)) ride additive-optional.
 
 ⭐⭐ **WHAT RIDES 69 (S195, deploy #8)** — s195/teams: the zone map `world.layout = QUADRANTS_4P:<owner seat per zone>` (`arrangeTeamZones` / `layoutForMatch`; seat stays identity, `arrangeTeamSeats`/`permuteBots` retired), the host's board slot `RosterEntry.slot` (N16), the ready-lock countdown `LOBBY_PRESENCE.countdownMs` (N3), the team points race and the team endgame wipe judge (R195-T1/T6, in `tickGameState`), the hunter's team target. s195/lag (graphics tiers) rode #7 with no bump.
 

@@ -1113,7 +1113,17 @@ export type { NetSnapshot };
  *      closest to its own target (R195-T6): both are in `tickGameState`, which the client also runs.
  *   5. The hunter targets the triggering team's top living seat (`teamHunterTarget`).
  */
-export const PROTOCOL_VERSION = 69 as const;
+/**
+ * ⭐⭐ S195 — **BUMPED 69 -> 70: `s195/net-delta` (owner-approved network A + B; landed S195 #10).** The reason is one
+ * that two builds would NOT catch at the handshake:
+ *   1. SNAPSHOTS LEAVE THE `msg` STRING ACTION. A v70 host sends every snapshot as a binary Trystero `snap` frame —
+ *      a delta against the last frame the joiner ACKED, deflated, with a keyframe every 100 frames, on join, on a
+ *      gap and on migration — and expects `sack` acks back. A v69 joiner listens for snapshots on `msg`: a mixed
+ *      pair would shake hands and the old joiner would never see a board. Only the snapshot authority (the
+ *      latched host) may be a delta source.
+ *   2. `SeatMatchStats` `ew` / `es` / `el` (N18 (d), "ENTROPY: N SNAPPED, M LOST") ride along additive-optional.
+ */
+export const PROTOCOL_VERSION = 70 as const;
 
 /**
  * S82 P4(a) — host attestation: {public key, signature} binding the ROOM CODE (which is
@@ -1459,6 +1469,7 @@ export interface HelloMsg {
    * S195: 66->67 (s194/rules, landed S195: R194-16 porch row 42 + build-clear 17, R194-17 pants window 30/45/60/90/120 s, R194-26 mega pants the 251st, R194-27 live cap 360 total. Full reasons on the const's JSDoc.)
    * S195: 67->68 (s195/rules-2, cloud run: B-9 chewer bites the keep, B-10 drone splash one 30 pool split, B-31 welded TV keeps summoning, B-25/B-30 own side spared, N11 chase ratio 1 + ATTACKING/pathless home arm. Full reasons on the const's JSDoc.)
    * S195: 68->69 (s195/teams, deploy #8: world.layout QUADRANTS_4P:<owners> zone map, RosterEntry.slot, LOBBY_PRESENCE.countdownMs, team points race + team wipe judge, hunter team target. Full reasons on the const's JSDoc.)
+   * S195: 69->70 (s195/net-delta, deploy #10: snapshots ride binary `snap` frames (delta vs the acked frame + deflate, keyframes) with `sack` acks; SeatMatchStats ew/es/el. Full reasons on the const's JSDoc.)
    *
    * ⚠ THIS LIST DRIFTS IF YOU LET IT, AND THE COUNT IN THIS PARAGRAPH USED TO DRIFT TOO. It said
    * "THREE times" for three sessions running while the true figure kept climbing. Measured floor as
@@ -1497,7 +1508,7 @@ export interface HelloMsg {
  * check. That test's own docblock already said "sites 1, 2, 3 and 5" and `LOCKED_DECISIONS.md` already
  * marked site 3 gated — this comment was the only one still under-claiming.
  * `protocolVersionSync.test.ts` enforces sites 1, 2, 3 and 5. Sites 4 and 6 remain tsc + prose. */
-  readonly protoVersion: 69;
+  readonly protoVersion: 70;
   /** S82 P4(a) — present on the HOST's HELLO only (additive-optional). */
   readonly hostAttest?: HostAttest;
   /**
