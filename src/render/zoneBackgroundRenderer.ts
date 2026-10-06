@@ -351,12 +351,13 @@ export const TEAM_SEAM_FEATHER = 0.22;
 
 /**
  * ⚠ MINE (N19) — cross-fade an open seam even when both sides are TODAY'S 4-player art (the 3v1 trio before
- * tiles land). `true`, decided from the real-game prototype frames (`SPARK_S195_TeamTiles` on the Desktop):
- * the hard step between two teammates' quadrants becomes a soft fade, and nothing else on the board moves.
- * It cannot hide that today's art is horizon-view (a sky band mid-trio) — that is what the six top-down
- * tiles fix. Tiles always blend; this only governs today's art. One line to flip.
+ * tiles land). ⛔ OFF until the owner approves the Desktop screenshots (`SPARK_S195_TeamTiles\COMPARE_*`) —
+ * one line to flip. N19 says he sees the screenshots BEFORE anything visible is wired, and R195-T5 ruled plain
+ * single-race art for the 3v1, so the deploy that carries this code changes nothing on the board. On, the hard
+ * step between two teammates' quadrants becomes a soft fade; it cannot hide that today's art is horizon-view
+ * (a sky band mid-trio) — that is what the six top-down tiles fix. Tiles always blend; this governs today's art.
  */
-export const TEAM_SEAM_BLEND_LEGACY_ART = true;
+export const TEAM_SEAM_BLEND_LEGACY_ART = false;
 
 /** What the plan needs to know about tiles: which races have one, where, and whether pairs use them. */
 export interface TileAvailability {
@@ -1124,13 +1125,18 @@ export class ZoneBackgroundRenderer {
    * team change, the grade toggle), so the cache cannot grow match after match. A piece whose art is still
    * loading has no bake yet, so nothing it needs is evicted. Never a LOADED asset (`punchPortal` degrades to
    * returning its input), and never a bake still on a sprite.
+   *
+   * ⭐ S195 N19 audit LOW-1 — and a bake still ON a sprite stays IN the cache too. A quadrant waiting for its art
+   * (or a teammate's, for the seam blend) keeps showing its previous texture without adding that key to `used`;
+   * dropping the key then left the texture with no owner once the sprite swapped (an orphan per waiting quadrant).
+   * Kept, it is freed by the next prune after the swap (the swap adds a new key, so the signature changes).
    */
   private pruneBaked(used: ReadonlySet<string>): void {
     if (used.size === 0) return;
     const loaded = new Set(this.textures.values());
     const onSprite = new Set([...this.sprites.values()].map((s) => s.texture));
     for (const [key, tex] of [...this.baked]) {
-      if (used.has(key)) continue;
+      if (used.has(key) || onSprite.has(tex)) continue;
       this.baked.delete(key);
       if (!loaded.has(tex) && !onSprite.has(tex)) tex.destroy(true);
     }
