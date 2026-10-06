@@ -1,3 +1,31 @@
+## S195 (2026-10-06) - ten deploys live and verified 4/4 (S195-#1..#10, PROTOCOL 66→70): the four S194 carries, ci-perf, the owner's 11-tree cloud train, graphics tiers, teams, team tiles (dormant), network A+B codec (27x less bandwidth per joiner).
+
+- #s195-limit-resume: three agents died together on a spend limit mid-step; every one resumed exactly from the top of its progress file because each saved every <=5 min — the save cadence is what made the limit cost minutes, not the session.
+
+- #s195-audit-catches-guard-holes: the ci-perf audit found a test guard that a magic comment line could defeat on ANY step — a green guard is only as good as the mutation that tries to fool it; mutate the guard, not just the code.
+
+- #s195-pin-what-was-delivered: a priority binding pinned 'PROTOCOL_VERSION = 67' and went red when later work correctly moved it to 68 — bind the permanent record of what a priority delivered (its changelog line), never a value the plan expects to change.
+
+- #s195-cloud-parallel-train: an 11-tree cloud run landed on ONE integration branch with per-tree audits; the desktop merge owner re-ran the full e2e lanes it could not (its 4 'environment' reds were green here) and landed it as one deploy — a parallel session is safe when it integrates on its own branch and the desktop owns the final verdict.
+
+- #s195-fix-rounds-add-defects: net-delta needed two fix rounds — round 1 fixed F1-F4 and the re-audit found a NEW security MED (non-host delta-base eviction: 'accepted' meant parsed, not authorized) and a half-fixed rejoin; re-audit every fix round, never trust 'fixed' from the author.
+
+- A0 #s195-A0-carries-land-first: landing the four S194 carries one at a time (rules+bump 67, visuals-6, ui r3, mp) before any new tree gave every S195 tree a current base; the integrator agent shipped four verified deploys while the merge owner talked to the owner.
+
+- T21 #s195-T21-ci-was-test-bugs: the 'CI-only' fog/hunter reds were a test reading the whole stage while title embers drifted it (fog) and a 95 s economy wait on a slow runner (hunter) — measure the runner before blaming it; the music 'flake' was a real product bug.
+
+- T24 #s195-T24-toggle-must-reach-the-cost: the old graphics checkbox applied live but only removed two filters; the frame cost was re-stroking ~500 bond lines every frame. A quality setting must be measured against the real cost centre (MINIMAL cut weak-PC frame time ~42%).
+
+- T12 #s195-T12-layout-map-not-reseat: moving board position into world.layout (seat = identity, zone map = position) made every existing f(seat, layout) reader follow the new team shapes with no call-site edits and kept FFA byte-identical.
+
+- N19 #s195-N19-owner-gate-flag: the tiles audit caught a visible change the owner had not approved; it shipped OFF behind a one-line flag with Desktop screenshots instead of being reverted or shipped.
+
+- NET #s195-NET-byte-identity-oracle: delta snapshots were proven by rebuilding the exact legacy wire string over a lossy simulated link (14,707/14,707 frames) — reconstruct-and-compare at the transport boundary beats reasoning about a codec.
+
+- N20 #s195-N20-research-states-the-clash: the character-art research named where it conflicts with earlier owner rulings (S96/S108) and asked for an explicit yes instead of quietly building around them.
+
+- CLOUD #s195-CLOUD-integration-branch: see cloud-parallel-train; the desktop re-ran the e2e the cloud box could not and its four 'environment' reds were green here.
+
 ## S194 (2026-10-02) - 6 deploys live and verified 4/4 (#1-#6, PROTOCOL 62→66): mres-card, intentStamp SEVER_BOND security fix + visuals-3, bots-tune, fixes + ui r1/r2, teams + entropy, coherence + weld-rebuild + rage + matchboard; ui r3, rules, visuals-6, mp, team-music carried to S195.
 
 - #s194-integrator-agent: moving merges, gates and deploys to one integrator agent kept the merge owner's context light and shipped 3 deploys while the worktrees were still running.
@@ -75,32 +103,3 @@
 - P12 #s192-guard-green-over-new-path: The cover-fade guard stayed green while the new fx path skipped the fade; guards must count new call sites.
 
 - SESSION #s192-worktrees-keep-the-merge-owner-light: 20 worktree branches, 30+ agents, 11 deploys within ~80% context: the merge owner only routed, merged, bumped and gated.
-
-## S191 (2026-10-01) - seven worktree agents + a Council + independent audits on the owner-approved batch; the org spend limit hit twice (weekly 98 %) mid-run; deploy #5 live and verified 4/4 (weld at its last audited-green commit + net minus the re-audit-red FIX-3 + the Pitch Masters merge, PROTOCOL 52); weld round 5/6, carry, perf, addons, owner, endstats and tune carried to S192 with every audit finding digested.
-
-- P8 #s191-ship-the-audited-prefix-not-the-red-tip: when a branch's newest round audits red and the budget is gone, merge its last audited-green commit (weld c7436a2) instead of shipping the tip or holding everything; the red round carries forward intact on its branch.
-
-- P0 #s191-the-merge-owners-own-fix-shape-needs-an-audit-too: FIX-3 was a shape the merge owner chose and forwarded as "adopted"; the re-audit showed it re-opened NETFR-3 in the most common real drop order (starvation before Trystero removes the peers). A merge owner's design call is still a change that owes an independent check.
-
-- P10 #s191-fetch-before-push: another session pushed 38 commits (Pitch Masters) to master while this one was paused; the push was rejected. Fetch, list the remote-only commits, merge, re-run every gate including e2e, then push — never force.
-
-- SESSION #s191-audit-fanout-is-the-spend: three multi-lens audits with two verifiers per finding at once burned ~2-4 M subagent tokens each and hit the org limit twice; run one audit at a time and verify only MED/HIGH findings.
-
-## S190 (2026-09-25) - the S189 batch dispatched on 12 parallel worktree agents + 20 independent audits; deploy #3 (C9 footer arrow, Ra art, canon) and deploy #4 (wrath, swarm, render, units, perf, draft-atk; PROTOCOL 51) live and verified 4/4; weld + net carried to deploy #5; the org spend limit hit three times and cost one step per branch each time.
-
-- P2 #s190-a-fix-for-a-guard-can-break-the-gesture-under-it: the S188 draft-panel click guard also swallowed the right-click put-back of a held tower — a regression hiding inside a correct fix. Every guard that swallows input must enumerate the gestures under it, not only the one it was written for.
-
-- P5 #s190-render-state-that-outlives-sim-state-needs-the-sims-proof: the Pharaoh finale tail assumed PLAYING was the sim's landing gate; the real gate was hostTick's FIGHT block. A renderer that remembers past the sim must key on the sim's own evidence (his absence, the mass-clear epoch), never on a proxy.
-
-- P3 #s190-a-merge-resolution-that-compiles-can-drop-an-argument: wrath's draftOverlay conflict had exactly one resolution that compiled — and it silently dropped the seat's picks (an optional parameter). tsc cannot see a missing optional argument; only a test through the real panel with nothing injected can.
-
-- P4 #s190-a-red-by-design-tripwire-is-a-chain-not-a-line: the canon registry test failed on its FIRST expect; fixing that exposed nine more behind it. Count the whole chain before calling a canon fix "one row".
-
-- P6 #s190-two-independent-confirmations-before-a-big-change: draft-atk's own phase 1 and its triage confirmed the dead ATK/PEN picks separately before a line changed across 12 strike sites — the cheapest insurance on a wide change.
-
-- P7 #s190-a-test-at-rest-hides-a-velocity-bug: all four sonar tests used a victim standing still, so an additive shove looked right; a walking unit slid INTO the Kraken. Test physics with the motion the game actually has.
-
-- P9 #s190-removing-a-zindex-changes-who-gets-the-click: deleting the draft panel's zIndex fixed C1 and silently let passive overlays above it pass clicks through to hidden draft tiles. A z-order change is an input change.
-
-- SESSION #s190-commit-every-step-is-what-makes-a-spend-limit-cheap: the org spend limit killed every in-flight agent THREE times; each time the loss was one step per branch, because every brief said commit after every step and every workflow journals per agent. Parallelism is only as safe as its smallest unit of saved progress.
-

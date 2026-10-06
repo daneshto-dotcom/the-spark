@@ -1,32 +1,36 @@
 ═══════════════════════════════════════════════════════════
-SPARK — Handoff Prompt
-Generated: 2026-10-02 | Live: e9855ba9 (deploy #6, verify-deploy 4/4) | PROTOCOL 66
+SPARK — Handoff Prompt (S196)
+Generated: 2026-10-06 | Live: S195-#10 81dfb8d3, PROTOCOL 70
 Working dir: C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark
 ═══════════════════════════════════════════════════════════
+
 ## QUICK SUMMARY
-S194 shipped 6 deploys (PROTOCOL 62→66): MRES card, a client-sever security fix, visuals-3, bots-tune, UI upgrade r1–r2,
-T8 fixes, 2v2 teams, ENTROPY TAX, coherence, welded-tower rebuild fix, rage 25 s, match board v2. Multiplayer verified live.
-5 branches carried (audited/committed, not merged).
+SPARK is the live multiplayer builder game (spark-online.space). S195 shipped ten verified deploys (PROTOCOL 66→70): the four S194 carries, ci-perf, the owner's 11-tree cloud run, graphics tiers HIGH/LOW/MINIMAL, teams (layout map, shared vision, team points), team tiles (dormant), and the network codec (27× less bandwidth per joiner).
+
 ## WHAT TO DO NEXT (priority order)
-1. Full boot. Then read .claude/plans/S195_BACKLOG.md (§A0 first) + S194_OWNER_RULINGS.md (R194-1..35, never re-ask).
-2. §A0 — land the carried branches one at a time (gates between, one bump): s194/ui-upgrade r3 3d6c5696 (CLEAN, owner
-   approved R194-35 — the merge owner merges it) · s194/rules 80aaa870 (gates on tip, light re-check, BUMP 67) ·
-   s194/visuals-6 acda8b05 (finish quick check) · s194/mp · s194/team-music. Deploy + verify-deploy.
-3. Open the 8 S195 trees (§A): T12+T14 2v2 backdrops + team music (owner brings tracks) · T13 NONET home (research first)
-   · T18 UI-4 · T19 coherence-2 · T20 net/MP · T21 CI/perf · T22 fixes · T23 art.
-4. Use an integrator agent for merges/gates/deploys; ≤3 auditors; every branch audited before it merges.
-5. Ask the §B questions in chat as they become relevant.
+1. Verify the lag fix live: owner + brother one match with `?debug=1`, brother on Settings → Graphics → MINIMAL; read `snap rx`/`snap gap` and `net out` at waves 8–10 (expect ~0.5 Mbit/s per joiner).
+2. Ask `.claude/plans/S196_BACKLOG.md` §A owner decisions IN CHAT (N20 Voltkin Blender pilot + Blender install, team-tile blend approval, six race tiles, NONET option, MINE defaults, TURN re-paste).
+3. CI tree `s196/ci`: runner 15-min queue cancellation, tickClock CI starvation, nplayer:140 late-joiner, verify-deploy short-SHA (F5/F6/F8).
+4. Net follow-ups: host CPU with 3+ joiners (F7), hard-blip silent-drop reproduction.
+5. Art as the owner delivers it (six tiles → `public/art/race-zones/tiles/` + `TEAM_TILE_RACES`; team music `s194/team-music`; MRES/stink stills).
+
 ## ACTIVE PLAN
-→ .claude/plans/S195_BACKLOG.md (start) · .claude/plans/2026-10-02_S194_BATCH_PDR.md (IN-PROGRESS, carried)
-## FULL HANDOFF → HANDOFF_S194_2026-10-02.md
-## PRE-FLIGHT
-- boot-snapshot.md ## Muscle memory · traces ~/.claude/traces/2026-10-02/The-Spark.jsonl
-- git clean on master · 5 worktrees under .claude/worktrees/ (carried) · preserved-branches.json lists them + pm-*
-- ⛔ Pitch Masters (src/arcade/**, pm-* branches) is OFF-LIMITS
+→ `.claude/plans/S196_BACKLOG.md` (S195 PDR archived COMPLETED)
+
+## FULL HANDOFF DOC
+→ C:\Users\onesh\OneDrive\Desktop\Claude\Founder DNA\Extension Projects\The Spark\HANDOFF_S195_2026-10-06.md
+
+## PRE-FLIGHT CHECKLIST
+- [ ] Read the handoff, boot-snapshot.md (incl. ## Muscle memory), SPARK_CANON.md, S195_OWNER_RULINGS.md
+- [ ] `git status` clean; master == origin/master
+- [ ] Copy S195_AGENT_RULES.md → S196_AGENT_RULES.md (new master SHA) — ⛔ every agent commits every ≤5 min
+- [ ] Skim last 5 jsonl records for The-Spark (summarize — no raw dump)
+- [ ] Unverified carry-forward: #10 CI per-lane colours (integrator's reading) — re-check `gh run list`
+
 ## SESSION RULES
-⛔ Nothing merges without an auditor that did not write it · merge one at a time, gates after each
-⛔ Exit codes from a captured $? · a bump = SIX sites · check CRLF in every diff · long gates detached
-⛔ Owner tests live — deploy every landing · never re-ask a ruled question
+- Parallel worktrees, one audited merge at a time, deploy every landing; re-audit every fix round
+- A protocol bump is TEN sites; `verify-deploy --sha` needs the FULL sha
+- Pitch Masters is off-limits
 ═══════════════════════════════════════════════════════════
 Paste this into your next Claude session's first message.
 ═══════════════════════════════════════════════════════════

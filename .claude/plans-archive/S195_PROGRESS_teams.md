@@ -1,0 +1,42 @@
+# S195 PROGRESS — teams (T12)
+
+## LATEST: re-audit LOWs done — LOW-1 ba550b84 (chaseHomeTeams.test.ts, mutation red), LOW-2 d957c34c (prune only on bake-set change, mutation red). Gates: typecheck 0 · vitest 0 (607 files, 9098 pass/12 skip) · build 0 entry 1213.2 KiB / 1350. Ready for the integrator (deploy #8).
+
+
+## MERGED master S195-#6 (c45818cb) as ae2ce6e2 — DONE, all gates green
+Conflicts: creatureAI.ts (master N11 home-engage kept, its home test uses teams isHomeZone; both helpers kept) · endgameS193.test.ts (master botBrain n:12; vision.ts pin stays removed) · teams.sites.test.ts (master droneLifecycle 5 + this branch exploredMemory). Seam fixes 2f99d83c: uiPressCensus claims cornerBtn/moveChip (CHIP), new uiSkinReach.teamsMove.test.ts (REACH + markers, mutation red), entropyFightWipe 1v2 fixture -> seat 0 HOME quadrant only.
+Gates: typecheck 0 · vitest 0 (606 files, 9096 pass/12 skip) · build 0 entry 1213.2 KiB / 1350 (136.8 headroom) · e2e:gating 0 (67/67) · teams-lobby 0 (2/2) · races 0 (5/5), own port. PROTOCOL_VERSION untouched (68; bump to 69 is the merge owner's).
+
+## FIX-ONLY ROUND (audit) — ALL ITEMS DONE; (was) WAITING for coordinator "merge master" (ccr-26eaab43 / deploy #6 will conflict in census tests, matchBoardModel, ui.ts, hostTick, gameState — resolve on merits in one pass)
+Done (commit · mutation):
+- MED-2 hunter targets triggering team's best living seat (teamHunterTarget) 0b8ef158 · red
+- MED-3 endgame wipe crowns best team, TEAM_WIPE_JUDGE 'ratio' = owner RULED R195-T6 eee28ff7/e19483ec/fe69a365 · red
+- L4/L5 no phantom T5; tier banner = viewer team bar ac81e1ee · red
+- L6 keep-out only on castle-holding anchors (mapped boards) f11951c7 · red
+- L7 MOVE during lock cancels + restarts 3 s (restartQmLockAfterMove) 48e4e560 · red
+- L9 save.ts fallback = layoutForSeatCount(snap players); isZoneLayout refuses seat with no ground 68b93881 · red
+- L10 crop canvas destroyed after bake; pruneBaked each sync 50d06ef2 · red
+- L11 mapped-board (2v1) damage reach test 662fb001 · red
+- L8 (late joiner discards host FFA arrangement) left as is per coordinator.
+Gates on base 6531e796-merge (pre-T6 doc edit): typecheck 0 · vitest 0 (8837 pass/12 skip) · build 0 entry 1193.9 KiB (56.1 headroom). e2e owed after the master merge.
+
+## FINAL REPORT (S195 T12 teams) — ALL 7 ITEMS DONE
+Tip: see `git log -1` (after this commit). Last master merge 3bd3981a (master 626646be, Pitch Masters + logs only, no conflicts); earlier 017d0599 (d77f9136, clean).
+Gates on the merged tree: typecheck 0 · vitest 0 (581 files, 8820 pass / 12 skip) · build 0 entry 1192.4 KiB (57.6 headroom; ~+9 KiB vs master's last measured 1183.4) · e2e:gating 0 (67/67, own port) · teams-lobby lane 0 (2/2, own port; @quarantine-flaky).
+BUMP: YES — world.layout gains QUADRANTS_4P:<owners> values (zone ownership = sim: castles, build legality), RosterEntry.slot, LOBBY_PRESENCE.countdownMs, team points win gate (client runs tickGameState).
+MINE: scorch home-quadrant only; pair art ungraded; 2v2 lowest-slot pair west; 1v1 cannot swap sides; malformed snapshot layout -> QUADRANTS_4P; avatar start pos not remapped; TEAM_BAR_SCALES_WITH_SIZE; TEAM_TOTAL_COUNTS_FALLEN; hunter follows team bar; countdown starts only when 2+ sides.
+Docs owed (merge owner): SPARK_CANON §5d (arrangeTeamSeats retired -> world.layout map; shared vision built; team points race), CLAUDE.md protocol line.
+
+## Log
+- setup: worktree created from master 57754ec7, merged master e0c8d1c1 (ff), npm install OK.
+- item 1 DONE (commit below): vision/concealment/ghost-memory/fog lit zones ask sameTeam; teams.vision.test.ts 7 tests; census re-pinned; mutation (vision prim filter reverted) -> red. Bump: NO (render-side per peer; bot vision host-only).
+- merged master fdc7c8d3 (session-state/preserved-branches only, clean).
+- item 2 DONE: seat stays identity; `world.layout` = `QUADRANTS_4P:<owner seat per zone>` (zones.ts) from `arrangeTeamZones`/`layoutForMatch` (teams.ts), stamped in applyStartGame from roster team+slot (new optional StartGame roster `slot`). Retired arrangeTeamSeats/permuteSeats/permuteBots + arrangeRosterForTeams (main.ts bots path, hostHandlers). Readers decided: canBuildAt + canReclaimNow + creatureAI chase-home = ANY owned zone; wallSeparatesSides/wallRenderer/tintForZone/scorchedEarthAim = seatOfZone; castleAnchor/zoneOwner = HOME zone (lowest owned); Scorched Ground/Earth = HOME quadrant only (MINE). save.ts validates layout. Old S192 reach fixtures pinned to the identity board. teams.zones.test.ts 12 tests; mutation (canBuildAt owned-zone arm) -> red. BUMP: YES (layout value set + zone ownership sim).
+- ⚠ avatar start pos (radialSpawnPos by seat) not remapped on a mapped board — cosmetic, first cursor move fixes it.
+- full suite run 1 after item 2: 1 red (endgameS193 owner-compare census: vision/exploredMemory pins) -> re-pinned; pentagram snapshot file EOL-only churn restored.
+- art: 36 webp in public/art/race-zones/teams/ (867 KB), transcode script .tmp-gates/transcode_teams.py (Pillow 12.2, already installed).
+- item 3 DONE: zoneBackdropPlan (pair art top/bottom crop, east mirrored; 2v1 solo = zone-<race>-2p across his half; 1v1v2 solos + 3v1 = 4p single art; FFA identical) + cropHalfTexture + per-quadrant sync with per-zone tint (extra corner never washed). trioBackdropUrl seam returns null. teamBackdrop.test.ts 10 tests; mutation (east mirror dropped) -> 5 red. Pair art grade = none (MINE). No bump (render-only).
+- item 4 DONE: getSeatRect clock order; SeatView.slot from seatBoardSlots (arrangeTeamZones over dense occupied seats); seatRack positions tiles by slot; e2e teams-lobby clicks chip at slot; lobbyBoardOrder.test.ts 7 tests; mutation (row-major col) -> red. Bot lobby is a vertical list (no rack geometry) -> gets a board-corner chip in item 5.
+- item 5 DONE: RosterEntry.slot (wire, validated) + session.slotByPeer/selfSlot + withSlots on presence & Begin + hostMoveSeat/moveSeatSlot; MP rack MOVE chip (host only, own seat included); bot lobby corner button (glyph on swatch) + row labels show corner; slots -> START_GAME roster. teamsReseat.test.ts 8 tests; census claims added (uiSkinCensus); mutation (applyStartGame drops slot) -> red.
+- item 6 DONE: QM_READY_LOCK_MS/QM_UNREADY_TEAM_COOLDOWN_MS=3000 (owner), noteQmReady/qmTeamChangeAllowed/cancelQmCountdown, maybeQmAutoBegin starts a 3 s lock (never in a one-team room), any unready/join cancels; host refuses CLAIM_TEAM while ready/cooldown; host own onPickTeam obeys; LOBBY_PRESENCE.countdownMs (new optional wire field, validated 0..10000) -> lobbyScreen 'TEAMS LOCKED — STARTING IN N' on every rack. Quickmatch only (friends/bot lobbies have no READY). Tests: teamsQuickmatchRearm (rewritten), sameMatchProof re-pinned; mutation (CLAIM_TEAM gate bypassed) -> red.
+- item 7 DONE: teamScore.ts (teamStandings/teamPointsWinner/teamHunterTriggered; MINE TEAM_BAR_SCALES_WITH_SIZE, TEAM_TOTAL_COUNTS_FALLEN), gameState.ts team block before the per-seat gate, hostTick hunter, ui.ts formatRaceReadout, matchBoardModel subline. teams.points.test.ts 11 tests; mutation (size->1) -> red. BUMP.
