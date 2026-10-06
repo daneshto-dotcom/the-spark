@@ -1,0 +1,72 @@
+:root{--bg:#0b0c10;--panel:#14161d;--panel2:#1b1e27;--line:#2a2e3a;--ink:#e7e9ee;--mut:#9aa0ad;--acc:#8fd3ff;--good:#56e39f;}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Inter",system-ui,sans-serif}
+body{padding:0 16px 80px}
+.wrap{max-width:1100px;margin:0 auto}
+header.top{padding:40px 0 18px;border-bottom:1px solid var(--line);margin-bottom:26px}
+h1{font:600 clamp(26px,5vw,40px)/1.1 "Space Grotesk",sans-serif;margin:0 0 8px;letter-spacing:-.02em}
+h1 b{background:linear-gradient(90deg,#d73bff,#ff3b6b,#ff8c1a,#ffe23b,#44ff5e,#3bd7ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--mut);max-width:760px;margin:0}
+h2{font:600 20px "Space Grotesk",sans-serif;margin:36px 0 12px}
+code{font:12.5px "JetBrains Mono",monospace;background:var(--panel2);padding:1px 5px;border-radius:4px;color:#cfe6ff;word-break:break-word}
+.spec{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.spec div{padding:11px 14px;border-bottom:1px solid var(--line)}
+.spec div:nth-child(odd){color:var(--mut);font-weight:600;background:var(--panel2)}
+.spec div:nth-last-child(-n+2){border-bottom:0}
+@media (max-width:640px){.spec{grid-template-columns:1fr}.spec div:nth-child(odd){border-bottom:0;padding-bottom:2px}}
+.diagram{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-top:16px}
+.diagram svg{width:260px;max-width:100%;height:auto;flex:none}
+.diagram p{flex:1;min-width:240px;color:var(--mut);margin:0}
+.gridwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+table.grid{border-collapse:collapse;width:100%;min-width:560px}
+.grid th,.grid td{border:1px solid var(--line);padding:8px 6px;text-align:center;font-size:13px}
+.grid th{background:var(--panel2);color:var(--c,var(--mut));font-weight:600}
+.grid th.corner{color:var(--mut);font-weight:500;font-size:11px}
+.grid td a{color:inherit;text-decoration:none;display:block}
+.grid td span{font-size:10.5px;color:var(--mut)}
+.grid td.need{background:#1f2a36;color:var(--acc);font-weight:700}
+.grid td.flip{color:#6f7a8c}
+.grid td.same{background:#191b22;color:#7d8696;font-size:11.5px}
+.grid td.done{background:#123024;color:var(--good)}
+.legend{color:var(--mut);font-size:13px;margin-top:8px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.box ol,.box ul{margin:6px 0 0;padding-left:20px}.box li{margin:5px 0}
+.box h4{margin:0;font:600 15px "Space Grotesk",sans-serif}
+.neg{white-space:pre-wrap;font:12.5px/1.6 "JetBrains Mono",monospace;color:#c9ccd6;background:var(--panel2);border-radius:8px;padding:12px;margin:8px 0 0}
+.progress{display:flex;align-items:center;gap:12px;margin:8px 0 18px;color:var(--mut)}
+.bar{flex:1;height:8px;border-radius:9px;background:var(--panel2);overflow:hidden}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3bd7ff,#56e39f);transition:width .3s}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:0 0 18px;overflow:hidden;position:relative}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(var(--a) 33.3%,var(--b) 33.3% 66.6%,var(--c) 66.6%)}
+.card header{display:flex;gap:14px;align-items:flex-start;padding:16px 18px 10px 22px}
+.card.done{border-color:#24563f}.card.done h3{color:var(--good)}
+.ttl{flex:1;min-width:0}
+.row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.num{font:600 13px "JetBrains Mono",monospace;color:var(--mut)}
+.card h3{margin:0;font:600 18px "Space Grotesk",sans-serif}
+.badge{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}.badge.req{color:var(--acc);border-color:#2f4d66}.badge.opt{color:var(--mut)}
+.sub{color:var(--mut);font-size:13.5px;margin-top:3px}
+.file{font-size:12.5px;color:var(--mut);margin-top:4px}
+.swatch{display:flex;flex-direction:column;width:26px;height:40px;border-radius:6px;overflow:hidden;flex:none;border:1px solid var(--line)}
+.swatch i{flex:1}.swatch i:nth-child(1){background:var(--a)}.swatch i:nth-child(2){background:var(--b)}.swatch i:nth-child(3){background:var(--c)}
+.tick{position:relative;width:26px;height:26px;flex:none;margin-top:2px;cursor:pointer}
+.tick input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.tick span{position:absolute;inset:0;border:2px solid #4a5163;border-radius:7px}
+.tick input:checked+span{background:var(--good);border-color:var(--good)}
+.tick input:checked+span::after{content:"";position:absolute;left:8px;top:3px;width:6px;height:12px;border:solid #0b0c10;border-width:0 3px 3px 0;transform:rotate(45deg)}
+.tick input:focus-visible+span{outline:2px solid var(--acc);outline-offset:2px}
+pre.prompt{margin:0 18px 0 22px;white-space:pre-wrap;word-wrap:break-word;font:12.5px/1.65 "JetBrains Mono",monospace;color:#d4d7df;background:var(--panel2);border-radius:9px;padding:13px 14px;max-height:220px;overflow:auto}
+.actions{display:flex;align-items:center;gap:12px;padding:12px 18px 16px 22px}
+button.copy{font:600 14px "Inter",sans-serif;background:var(--acc);color:#0b0c10;border:0;border-radius:9px;padding:9px 16px;cursor:pointer}
+button.copy:hover{filter:brightness(1.1)}button.copy:active{transform:translateY(1px)}
+.ok{color:var(--good);font-size:13px}
+footer{color:var(--mut);font-size:12.5px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+.diagram svg{width:330px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink);text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+.chip i{display:inline-block;width:8px;height:14px;border-radius:2px}
+.chip .num{font-size:11px}
+.chip.done{background:#123024;border-color:#24563f;color:var(--good)}
+details.box summary{cursor:pointer}
+.card header{flex-wrap:wrap}

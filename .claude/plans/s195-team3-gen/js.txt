@@ -1,0 +1,30 @@
+<script>
+(function(){
+  var KEY='spark-team3-backdrops-v1', state={};
+  try{state=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){state={};}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+  var boxes=document.querySelectorAll('.tick input');
+  function paint(){
+    var req=0,done=0;
+    boxes.forEach(function(b){
+      var id=b.dataset.id, on=!!state[id]; b.checked=on;
+      var card=document.getElementById('card-'+id); if(card) card.classList.toggle('done',on);
+      document.querySelectorAll('.chip[data-card="'+id+'"]').forEach(function(c){c.classList.toggle('done',on);});
+      req++; if(on) done++;
+    });
+    document.getElementById('pcount').textContent=done+' / '+req+' done';
+    document.getElementById('pbar').style.width=(req?100*done/req:0)+'%';
+  }
+  boxes.forEach(function(b){b.addEventListener('change',function(){state[b.dataset.id]=b.checked;save();paint();});});
+  paint();
+  function fallback(t){var ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);return ok;}
+  document.querySelectorAll('button.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var t=document.getElementById(btn.dataset.target).textContent, ok=btn.parentNode.querySelector('.ok');
+      function done(s){ok.textContent=s;setTimeout(function(){ok.textContent='';},1800);}
+      if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(function(){done('Copied');},function(){done(fallback(t)?'Copied':'Select and copy manually');});}
+      else{done(fallback(t)?'Copied':'Select and copy manually');}
+    });
+  });
+})();
+</script>

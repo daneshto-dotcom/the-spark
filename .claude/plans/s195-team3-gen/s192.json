@@ -1,0 +1,27 @@
+{
+ "worlds": {
+  "demons": "an infernal wasteland: cracked black basalt and cooling lava fissures, jagged obsidian shards, the ruined ribs of a bone-and-iron arch lying collapsed flat on the ground, ash drifting slowly, thin black smoke. Everything is deep charcoal and volcanic near-black. Faint MAGENTA accents only: a violet-magenta glow deep inside the fissures and a magenta cast in the drifting smoke.",
+  "mummies": "a moonlit desert necropolis: low wind-rippled dunes and half-buried sandstone blocks, the stepped square summit of a weathered step-pyramid, the toppled fragments of a colossal broken statue lying in the sand, wind-blown sand hazing the air. Everything is deep umber-black and cold grey-brown. Faint AMBER-GOLD accents only: a dull gold glimmer on one carved stone lintel and a warm amber haze low over the sand.",
+  "nagas": "a drowned military citadel on the deep sea floor: toppled basalt columns lying on the silt, the ribbed hull of a sunken war-galley, the harsh angular foundations of fortress walls, a broken sea-god statue lying face-down, silt drifting in slow currents, the water almost black. Everything is deep teal-black and slate. Faint CYAN accents only: a cold cyan glow leaking from arrow-slits in the sunken wall tops and a thin cyan shimmer on the drifting silt.",
+  "orcs": "a badlands war-camp at dusk: cracked red-brown hardpan and scattered bones, the pointed stake-tips of a crude timber palisade, round hide-tent roofs, the plank platform of a rough watchtower, the broken rim of a mesa cliff, dust hanging low. Everything is deep rust-black and dull brown. Faint BURNT-ORANGE accents only: two or three low banked cook-fires glowing dully behind the palisade and a thin orange glow in the dust.",
+  "vampires": "a mountain valley at night: black jagged pine forest seen as dense dark treetops, steep bare crag ledges of grey rock, a thin cold mist lying in the hollows, the slate roofs of a few distant stone houses. Everything is deep blue-black and charcoal. Faint CRIMSON accents only: a dull red glow in a handful of small roof-windows and a cold crimson tint along the edge of the mist.",
+  "zombies": "a rotting swamp of ruined cottages: black still water and mats of dead reeds, the broken shingle roofs of collapsed timber cottages, flat gravestone slabs half-sunk in mud, the bare branching silhouettes of dead trees, a low clinging fog lying over the water. Everything is deep bog-green-black and wet grey. Faint SICKLY GREEN accents only: a dull swamp-glow rising off the water in two or three patches and a faint green phosphorescence on the rotten timber."
+ },
+ "seams": {
+  "demons|mummies": "the black basalt cools and crumbles into ash-dusted dark sand, with a few glassy, heat-fused patches where the two grounds meet.",
+  "demons|nagas": "the black basalt slopes down into shallow black water; where the last fissures meet the sea a faint low steam haze hangs and the rock cools into dark rounded pillow-stone.",
+  "demons|orcs": "the basalt fissures fade out and the ground turns into scorched, cracked red-brown hardpan, with ash settling over the dust.",
+  "demons|vampires": "the basalt gives way to burnt black pine stumps and then to living dark treetops; drifting ash mixes into the cold mist.",
+  "demons|zombies": "the cooling basalt meets black swamp water and steams faintly; scorched rock gives way to wet mud and dead reeds.",
+  "mummies|nagas": "the sand slopes down into a dark drowned shoreline; half-buried sandstone blocks slip under black still water and settle into silt.",
+  "mummies|orcs": "the dunes flatten out into cracked red-brown hardpan; sand drifts in thin tongues across the dry clay and scattered bones.",
+  "mummies|vampires": "the dunes give way to rocky scree and then to the first black pine treetops; cold mist lies low over the last of the sand.",
+  "mummies|zombies": "the dry sand darkens into wet mud and then into black swamp water; dead reeds take root in the damp sand.",
+  "nagas|orcs": "the sea floor shelves up into a dark muddy tidal flat that dries out into cracked red-brown hardpan.",
+  "nagas|vampires": "the sea floor rises into the wet rock of a black mountain-lake shore; dark pine treetops crowd the waterline under the mist.",
+  "nagas|zombies": "the deep sea floor shallows into black brackish swamp water; drowned reeds and drifting silt mix together.",
+  "orcs|vampires": "the hardpan grows rocky and rises into bare crag ledges and then the first dark pine treetops; the dust thins into cold mist.",
+  "orcs|zombies": "the cracked hardpan softens into wet mud and stagnant black pools; the hanging dust gives way to low fog.",
+  "vampires|zombies": "the pine forest drops into a sodden hollow where the trees die and the ground turns to black swamp water; the mist and the swamp fog merge into one."
+ }
+}
