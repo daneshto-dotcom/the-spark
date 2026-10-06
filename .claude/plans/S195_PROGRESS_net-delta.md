@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- FIX ROUND (audit of b9e470c3): merged master d712ad1a. Doing F1 (chain .catch + try/catch around handleRawMessage, P1 regression + mutation) → F2 (ring only on accept, one latched sender, inflate cap 2 MiB after measuring) → F4 (seed entropyShownWave on first PLAYING frame) → F3 (comment + dead arm) → gates.
+- FIX ROUND: F1+F2 done + tests + mutations. RUNNING detached: keyframe size measure (.tmp-gates/measure2.log/.exit). NEXT: F4 (seed entropyShownWave), F3, then set MAX_INFLATED_BYTES 2 MiB if measure fits, gates.
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
@@ -32,3 +32,4 @@
 | 8 | 230 / 379 / 38 | 152.1 KiB | 23.0 | 38.6 | 7.0 | 7.1 | 12.46 → 0.58 | 21.3× | 1.28 → 2.89 | 1.28 → 1.86 |
 | 10 | 261 / 408 / 34 | 175.3 KiB | 26.2 | 34.3 | 6.3 | 6.5 | 14.36 → 0.53 | 27.0× | 1.45 → 2.93 | 1.27 → 1.77 |
 | 15 | 392 / 615 / 80 | 285.8 KiB | 41.0 | 55.8 | 9.7 | 10.0 | 23.41 → 0.82 | 28.6× | 2.39 → 4.72 | 2.14 → 2.85 |
+- FIX ROUND mutations: F1 — removing BOTH the chain .catch and the handler try/catch → P1 regression red ("handler boom"); removing either ONE alone stays green BY DESIGN (each guard alone keeps the chain alive: belt and braces). F2 — ring.set before the accept check → P3 test red; dropping the latch's ring.clear → one-ring test red.
