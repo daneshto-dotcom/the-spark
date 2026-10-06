@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- FIX ROUND: F1, F2 (cap 2 MiB, keyframe w15=291 KiB), F4, F3 done + tests green. NEXT: F4 mutation, then gates (typecheck, vitest, build, e2e gating/lobby/protocol), report.
+- FIX ROUND: F1 F2 F4 F3 done, mutations recorded. typecheck 0, vitest 9180/0. RUNNING detached: build b4, e2e eg4/el4/ep4. NEXT: report.
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
