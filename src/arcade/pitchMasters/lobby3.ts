@@ -230,9 +230,18 @@ export class Lobby3 {
   }
 
   cancel(): void {
+    this.stop(true);
+  }
+
+  /** PM-S5 net-reconnect: the tab is going away (pagehide): leave with no bye, the seats wait SILENCE_MS. */
+  suspend(): void {
+    this.stop(false);
+  }
+
+  private stop(sayBye: boolean): void {
     this.pairer.cancel();
     this.stopAdvert();
-    this.leaveRoom(true);
+    this.leaveRoom(sayBye);
     this.epoch++;
     this.state = 'idle';
     this.role = '';
@@ -275,6 +284,8 @@ export class Lobby3 {
       stalled: matched && partners.some((p) => p.stalled),
       stalledFor: matched && worst !== null && worst.stalled ? worst.stalledFor : 0,
       partnerHidden: matched && partners.some((p) => p.hidden),
+      partnerGone: matched && partners.some((p) => !p.present),
+      partnerEpoch: 0, // PM-S5: a three-sided seat is not rejoined by a new id yet (lobby3 has no record)
       seekers: ps !== null ? ps.seekers : 0,
       seats: 3,
       slot: this.role === 'host' ? HOST_SLOT : this.mySlot,

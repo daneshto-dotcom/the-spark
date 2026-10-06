@@ -31,12 +31,18 @@
  * seekers (quick match head count incl. us). `blip(ms)` (only with ?netdebug=1) drops off the match room
  * for ms and rejoins: the reconnect test. `setHidden(bool)` is called by the page's keep-alive when the tab
  * goes to the background (the partner's status shows partnerHidden).
+ * PM-S5 net-reconnect (`src/net/NetResume.gd`): the page keeps the match record in localStorage (RESUME_KEY).
+ *   rejoin() -> bool              re-enter the saved match with its seat token (status: seeking -> matched / error)
+ *   resumeInfo() -> string        the live record as JSON, '' when there is none
+ *   clearResume()                 forget it
+ *   setGame(json)                 the game's standing, kept with the record
+ * A closing tab no longer says bye (pagehide -> suspend): the partner waits SILENCE_MS for a rejoin.
  */
 
 import { joinRoom, selfId } from '@trystero-p2p/nostr';
 import { APP_ID, ICE_SERVERS, NOSTR_RELAYS } from '../../net/iceConfig.ts';
 import { Lobby3, isThreeCode } from './lobby3.ts';
-import { HANDSHAKE_MS, Matchmaker, serialRooms, type Channel, type MatchmakerDeps, type RoomHandlers, type RoomLike } from './matchmaker.ts';
+import { HANDSHAKE_MS, Matchmaker, RESUME_KEY, serialRooms, type Channel, type MatchmakerDeps, type ResumeStore, type RoomHandlers, type RoomLike } from './matchmaker.ts';
 
 export interface PitchNetApi {
   quickMatch(): void;
@@ -53,6 +59,10 @@ export interface PitchNetApi {
   friendHost3(): string;
   quickMatch3(): void;
   lock(): void;
+  rejoin(): boolean;
+  resumeInfo(): string;
+  clearResume(): void;
+  setGame(json: string): void;
   readonly selfId: string;
 }
 
@@ -114,6 +124,27 @@ function trysteroRoom(roomId: string, h: RoomHandlers): RoomLike {
   };
 }
 
+/** PM-S5 net-reconnect: the match record in localStorage (a private window, or storage denied, = no rejoin). */
+function localStore(): ResumeStore {
+  return {
+    get: () => {
+      try {
+        return localStorage.getItem(RESUME_KEY);
+      } catch {
+        return null;
+      }
+    },
+    set: (v) => {
+      try {
+        if (v === null) localStorage.removeItem(RESUME_KEY);
+        else localStorage.setItem(RESUME_KEY, v);
+      } catch {
+        // storage denied: the match still plays, it just cannot be rejoined after a restart
+      }
+    },
+  };
+}
+
 /** Installs `window.PitchNet` once and starts its timer. */
 export function installPitchNet(): PitchNetApi {
   if (window.PitchNet !== undefined) return window.PitchNet;
@@ -122,6 +153,7 @@ export function installPitchNet(): PitchNetApi {
     selfId,
     // PM-S4 net-blip: a re-join of a room id waits for its leave to finish (matchmaker.ts serialRooms).
     join: serialRooms(trysteroRoom),
+    store: localStore(), // PM-S5 net-reconnect
     now: () => performance.now(),
     wallNow: () => Date.now(),
     random: () => {
@@ -141,10 +173,12 @@ export function installPitchNet(): PitchNetApi {
     mm.tick();
     m3.tick();
   }, TICK_MS);
-  // A closing tab says goodbye, so the opponent is told at once instead of after the silence limit.
+  // PM-S5 net-reconnect: a closing tab leaves WITHOUT a bye (it may be back inside the window: the partner's game
+  // shows WAITING FOR <name> and this page's record lets a fresh tab rejoin). A leave on purpose goes through
+  // cancel() (BACK TO MENU, LEAVE, the arcade button), which does say bye.
   addEventListener('pagehide', () => {
-    mm.cancel();
-    m3.cancel();
+    mm.suspend();
+    m3.suspend();
   });
   const api: PitchNetApi = {
     selfId,
@@ -190,6 +224,14 @@ export function installPitchNet(): PitchNetApi {
       m3.quickMatch();
     },
     lock: () => m3.lock(),
+    // PM-S5 net-reconnect (1v1; a three-sided room has no record yet)
+    rejoin: () => {
+      m3.cancel();
+      return mm.rejoin();
+    },
+    resumeInfo: () => mm.resumeInfo(),
+    clearResume: () => mm.clearResume(),
+    setGame: (json) => mm.setGame(String(json)),
   };
   if (debug) api.blip = (ms) => (three() ? m3.blip(Number(ms) || 0) : mm.blip(Number(ms) || 0));
   // PM-S2 online2: the page (keepAlive.ts) says when this tab is in the background; the partner is told.

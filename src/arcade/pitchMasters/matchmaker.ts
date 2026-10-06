@@ -45,6 +45,18 @@
  *     GPU under load, and a 10 s limit dropped real games right at kick-off.
  * The heartbeat also measures the round trip (`ping {ts}` -> `pong {ts}`, status `rtt` in ms) and tells
  * the partner whether this tab is hidden (`h`), so the other side can say so.
+ *
+ * ## Rejoining after a browser restart (PM-S5 net-reconnect)
+ * The host makes a seat `token` for the match and both sides carry it in every `hi`. While matched, the page
+ * keeps a RECORD of the match in its store (`deps.store`, localStorage on the page: room, role, mode, token,
+ * build, `alive` = the last moment this tab was in the match, `game` = the game's own standing from setGame):
+ * a closed tab says NO bye any more (`suspend()` on pagehide), so the partner sees a lost link and waits
+ * SILENCE_MS for us. A fresh page calls `rejoin()`: it joins the saved room with the saved role and token; the
+ * side that stayed, whose partner is absent, ADOPTS the newcomer when its `hi` carries the right token (a new
+ * peer id: the packet streams restart from seq 1 on both sides and `partnerEpoch` bumps so the game re-sends
+ * the round). A stranger without the token is still told the game is full. `cancel()` (a leave on purpose,
+ * BACK TO MENU, the arcade button) says bye and clears the record; so do a bye from the partner, the silence
+ * limit and an error.
  */
 
 /** PM-S4: 2 (three-sided rooms). A build of another version is refused cleanly, as before. */
@@ -100,6 +112,13 @@ export const REJOIN_NEXT_MS = 9000;
  * the other side learns it within seconds (it then rejoins at once instead of after REJOIN_FIRST_MS).
  */
 export const HANDSHAKE_MS = 5000;
+/**
+ * PM-S5 net-reconnect: a record this much older than SILENCE_MS is dead (the partner has taken its forfeit);
+ * = NetResume.SLACK_S in the game. `rejoin()` waits in the room for the rest of that time at least REJOIN_MIN_MS.
+ */
+export const REJOIN_SLACK_MS = 6000;
+export const REJOIN_MIN_MS = 4000;
+export const RESUME_KEY = 'pm.resume';
 /** Packets kept for re-sending until acknowledged (20 Hz snapshots: ~200 s worth). */
 export const OUTBOX_MAX = 4000;
 export const NACK_EVERY_MS = 500;
@@ -192,9 +211,30 @@ export function serialRooms(join: RoomFactory): RoomFactory {
   };
 }
 
+/** PM-S5 net-reconnect: where the match record lives (localStorage on the page, a Map in tests). */
+export interface ResumeStore {
+  get(): string | null;
+  set(value: string | null): void;
+}
+
+export interface ResumeRecord {
+  room: string;
+  role: 'host' | 'client';
+  mode: Mode;
+  token: string;
+  build: string;
+  v: number;
+  /** Wall-clock epoch ms: the last moment this tab was in the match. */
+  alive: number;
+  /** The game's own standing (opaque to the page; `setGame`). */
+  game: string;
+}
+
 export interface MatchmakerDeps {
   readonly selfId: string;
   readonly join: RoomFactory;
+  /** PM-S5 net-reconnect: the match record store (absent = no rejoin after a restart). */
+  readonly store?: ResumeStore;
   /** Monotonic ms, for timeouts. */
   readonly now: () => number;
   /** Wall-clock epoch ms: the announced search start. */
@@ -229,6 +269,10 @@ export interface PitchNetStatus {
   partnerHidden: boolean;
   /** Quick match: players searching right now in this build, including us (0 when not searching). */
   seekers: number;
+  /** PM-S5: matched, but the partner's connection is gone (a drop, not just silence). */
+  partnerGone: boolean;
+  /** PM-S5: bumps when the partner came back on a NEW peer id (a browser restart that rejoined with its token). */
+  partnerEpoch: number;
 }
 
 interface Seeker {
@@ -314,6 +358,12 @@ export class Matchmaker {
   private rejoinAt = 0;
   /** Rejoins made since the partner was last present (status + tests). */
   rejoins = 0;
+  // PM-S5 net-reconnect
+  private seatToken = '';
+  private resuming = false;
+  private partnerEpoch = 0;
+  private lastTouch = -Infinity;
+  private game = '';
 
   constructor(private readonly deps: MatchmakerDeps) {}
 
@@ -358,9 +408,23 @@ export class Matchmaker {
     this.set('seeking', `Looking for game ${code}…`);
   }
 
+  /** A leave on purpose: bye to the partner (the match ends for them at once) and the record goes. */
   cancel(): void {
+    this.stop(true);
+    this.clearRecord();
+  }
+
+  /**
+   * PM-S5 net-reconnect: this tab is going away (pagehide): leave the rooms with NO bye, keep the record. The
+   * partner sees a lost link and waits the reconnect window; a fresh page can `rejoin()` meanwhile.
+   */
+  suspend(): void {
+    this.stop(false);
+  }
+
+  private stop(sayBye: boolean): void {
     this.leaveDiscovery();
-    this.leaveMatchRoom(true);
+    this.leaveMatchRoom(sayBye);
     this.epoch++;
     this.state = 'idle';
     this.role = '';
@@ -368,6 +432,80 @@ export class Matchmaker {
     this.code = '';
     this.detail = '';
     this.inbox = [];
+    this.resuming = false;
+    this.seatToken = '';
+  }
+
+  /**
+   * PM-S5 net-reconnect: re-enter the match in the record (a browser / tab restart). The room, role and token
+   * are the saved ones; the partner, if still waiting, adopts us. False (and `error`) when there is no live record.
+   */
+  rejoin(): boolean {
+    const rec = this.readRecord();
+    if (rec === null) {
+      this.stop(false);
+      this.set('error', 'Your match is over.');
+      return false;
+    }
+    this.stop(false);
+    this.mode = rec.mode;
+    this.startedAt = this.deps.now();
+    this.seatToken = rec.token;
+    this.resuming = true;
+    const left = SILENCE_MS + REJOIN_SLACK_MS - (this.deps.wallNow() - rec.alive);
+    this.enterMatchRoom(rec.room, rec.role, null, this.deps.now() + Math.max(REJOIN_MIN_MS, left));
+    this.set('seeking', 'Reconnecting to your match…');
+    this.log(`rejoin ${rec.room} as ${rec.role} (${(left / 1000).toFixed(0)} s left)`);
+    return true;
+  }
+
+  /** The live record as JSON ('' when there is none): the game's RECONNECT TO YOUR MATCH entry. */
+  resumeInfo(): string {
+    const rec = this.readRecord();
+    return rec === null ? '' : JSON.stringify(rec);
+  }
+
+  clearResume(): void {
+    this.clearRecord();
+  }
+
+  /** The game's standing (round, wins, opponent), kept with the record. */
+  setGame(json: string): void {
+    this.game = json;
+    if (this.state === 'matched') this.saveRecord();
+  }
+
+  private readRecord(): ResumeRecord | null {
+    const raw = this.deps.store?.get() ?? null;
+    if (raw === null) return null;
+    const m = parse(raw);
+    if (m === null || typeof m.room !== 'string' || (m.role !== 'host' && m.role !== 'client') || typeof m.token !== 'string'
+      || typeof m.alive !== 'number' || this.deps.wallNow() - m.alive > SILENCE_MS + REJOIN_SLACK_MS) {
+      this.clearRecord(); // malformed, or dead: the partner has taken its forfeit by now
+      return null;
+    }
+    // Another protocol / build cannot rejoin (the partner would refuse the hi); the record dies by itself. Not
+    // cleared here: the page asks before setBuild() has run, and a record must survive that.
+    if (m.v !== PM_PROTO || m.build !== this.build) return null;
+    return {
+      room: m.room, role: m.role, mode: m.mode === 'quick' || m.mode === 'friend' ? m.mode : '', token: m.token,
+      build: this.build, v: PM_PROTO, alive: m.alive, game: typeof m.game === 'string' ? m.game : '',
+    };
+  }
+
+  private saveRecord(): void {
+    if (this.deps.store === undefined || this.roomId === '' || this.seatToken === '' || (this.role !== 'host' && this.role !== 'client')) return;
+    const rec: ResumeRecord = {
+      room: this.roomId, role: this.role, mode: this.mode, token: this.seatToken, build: this.build, v: PM_PROTO,
+      alive: this.deps.wallNow(), game: this.game,
+    };
+    this.deps.store.set(JSON.stringify(rec));
+    this.lastTouch = this.deps.now();
+  }
+
+  private clearRecord(): void {
+    this.deps.store?.set(null);
+    this.game = '';
   }
 
   status(): PitchNetStatus {
@@ -376,6 +514,8 @@ export class Matchmaker {
     const matched = this.state === 'matched';
     const stalled = matched && (!this.partnerPresent || now - this.lastHeard > STALL_MS);
     return {
+      partnerGone: matched && !this.partnerPresent,
+      partnerEpoch: this.partnerEpoch,
       state: this.state,
       role: this.role,
       mode: this.mode,
@@ -617,6 +757,9 @@ export class Matchmaker {
     this.partnerHidden = false;
     this.blipUntil = 0;
     this.resetRejoin();
+    this.partnerEpoch = 0;
+    // PM-S5 net-reconnect: the host names the seat token; the client learns it from the host's `hi`.
+    if (role === 'host' && !this.resuming) this.seatToken = this.token(16);
     const epoch = ++this.epoch;
     const handlers: RoomHandlers = {
       onMessage: (ch, data, from) => {
@@ -629,7 +772,8 @@ export class Matchmaker {
           // The partner is back after a blip: shake hands again, then both re-send what is unacked.
           this.hiSent.delete(peer);
           this.sayHi(peer);
-        } else if (this.role === 'host') this.room?.send('ctl', JSON.stringify({ t: 'full' }), peer);
+        } else if (!this.partnerPresent) this.sayHi(peer); // PM-S5: maybe our partner on a new id (its hi tells)
+        else if (this.role === 'host') this.room?.send('ctl', JSON.stringify({ t: 'full' }), peer);
       },
       onPeerLeave: (peer) => {
         if (epoch !== this.epoch || peer !== this.partner) return;
@@ -705,7 +849,33 @@ export class Matchmaker {
   private sayHi(peer: string): void {
     if (this.room === null || this.hiSent.has(peer)) return;
     this.hiSent.add(peer);
-    this.room.send('ctl', JSON.stringify({ t: 'hi', v: PM_PROTO, build: this.build, role: this.role, ack: this.recvSeq }), peer);
+    const hi: Record<string, unknown> = { t: 'hi', v: PM_PROTO, build: this.build, role: this.role, ack: this.recvSeq };
+    if (this.seatToken !== '') hi.token = this.seatToken; // PM-S5 net-reconnect: the seat token (resume proof)
+    this.room.send('ctl', JSON.stringify(hi), peer);
+  }
+
+  /**
+   * PM-S5 net-reconnect: our partner is back on a NEW peer id (a restarted page that rejoined with the token).
+   * Both packet streams restart from 1 (the newcomer's game is fresh; the game re-sends the round on partnerEpoch).
+   */
+  private adopt(from: string): void {
+    this.log(`partner back on a new id ${from.slice(0, 6)}: resumed (epoch ${this.partnerEpoch + 1})`);
+    this.partner = from;
+    this.partnerPresent = true;
+    this.lastHeard = this.deps.now();
+    this.lastPing = 0;
+    this.sendSeq = 0;
+    this.recvSeq = 0;
+    this.outbox = [];
+    this.inbox = [];
+    this.lastNack = -Infinity;
+    this.rtt = -1;
+    this.partnerHidden = false;
+    this.hiSent.clear();
+    this.partnerEpoch++;
+    this.resetRejoin();
+    this.sayHi(from);
+    this.saveRecord();
   }
 
   /** The partner has everything up to `ack`: forget it. */
@@ -746,6 +916,7 @@ export class Matchmaker {
     switch (m.t) {
       case 'hi': {
         const theirs = m.role === 'host' || m.role === 'client' ? m.role : '';
+        const theirToken = typeof m.token === 'string' ? m.token : '';
         if (this.partner !== null) {
           if (from === this.partner) {
             // Resume after a blip.
@@ -756,6 +927,12 @@ export class Matchmaker {
             this.resend();
             if (back) this.log('partner back: resumed');
             this.resetRejoin();
+            return;
+          }
+          // PM-S5 net-reconnect: our absent partner, back on a new id with the seat token.
+          if (!this.partnerPresent && this.seatToken !== '' && theirToken === this.seatToken && theirs !== '' && theirs !== this.role
+            && m.v === PM_PROTO && m.build === this.build) {
+            this.adopt(from);
             return;
           }
           if (this.role === 'host') this.room.send('ctl', JSON.stringify({ t: 'full' }), from);
@@ -769,13 +946,18 @@ export class Matchmaker {
           }
           return;
         }
+        // PM-S5 net-reconnect: a rejoin binds only the match it left (the token), never a stranger in the room.
+        if (this.resuming && theirToken !== this.seatToken) return;
+        if (this.seatToken === '' && theirToken !== '') this.seatToken = theirToken;
         this.partner = from;
         this.partnerPresent = true;
         this.lastHeard = this.deps.now();
         this.lastPing = 0;
         this.sayHi(from);
         this.set('matched', 'Connected');
-        this.log(`matched as ${this.role} with ${from.slice(0, 6)}`);
+        this.log(`matched as ${this.role} with ${from.slice(0, 6)}${this.resuming ? ' (rejoined)' : ''}`);
+        this.resuming = false;
+        this.saveRecord();
         return;
       }
       case 'full':
@@ -814,6 +996,12 @@ export class Matchmaker {
   private tickRoom(now: number): void {
     if (this.partner === null) {
       if (now <= this.roomDeadline) return;
+      if (this.resuming) {
+        // PM-S5 net-reconnect: the partner is not waiting any more (its window closed): nothing to go back to.
+        this.clearRecord();
+        this.fail('Your match is over.');
+        return;
+      }
       if (this.mode === 'quick') {
         this.log('partner never arrived: back to the queue');
         this.leaveMatchRoom(false);
@@ -828,10 +1016,12 @@ export class Matchmaker {
       this.lastPing = now;
       this.room?.send('ctl', JSON.stringify({ t: 'ping', ack: this.recvSeq, ts: now, h: this.selfHidden }), this.partner);
     }
+    if (this.state === 'matched' && now - this.lastTouch >= HEARTBEAT_MS) this.saveRecord(); // PM-S5: `alive`
     if (now - this.lastHeard > SILENCE_MS) this.lost('Connection to your opponent was lost.');
   }
 
   private lost(msg: string): void {
+    this.clearRecord(); // PM-S5 net-reconnect: the match is over (a bye, or the partner's silence ran out)
     if (this.state !== 'matched' && this.state !== 'connecting') {
       this.leaveMatchRoom(false);
       if (this.mode === 'quick') this.enterDiscovery();
@@ -842,6 +1032,7 @@ export class Matchmaker {
   }
 
   private fail(msg: string): void {
+    this.clearRecord();
     this.leaveDiscovery();
     this.leaveMatchRoom(false);
     this.set('error', msg);

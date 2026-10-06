@@ -15,6 +15,8 @@ import {
   MATCH_ROOM_TIMEOUT_MS,
   parseFriendCode,
   REJOIN_FIRST_MS,
+  REJOIN_SLACK_MS,
+  type ResumeStore,
   serialRooms,
   SILENCE_MS,
   type Channel,
@@ -138,7 +140,19 @@ class Bus {
   }
 }
 
-function player(bus: Bus, id: string, build = 'b1', seed = [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 2147483646, 7) + 1): Matchmaker {
+/** PM-S5 net-reconnect: a browser's localStorage, one per "browser" (a restarted page gets the same one). */
+function memStore(): ResumeStore & { value: string | null } {
+  const st = {
+    value: null as string | null,
+    get: () => st.value,
+    set: (v: string | null) => {
+      st.value = v;
+    },
+  };
+  return st;
+}
+
+function player(bus: Bus, id: string, build = 'b1', seed = [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 2147483646, 7) + 1, store?: ResumeStore): Matchmaker {
   let s = seed;
   const mm = new Matchmaker({
     selfId: id,
@@ -149,6 +163,7 @@ function player(bus: Bus, id: string, build = 'b1', seed = [...id].reduce((h, c)
       s = (s * 16807) % 2147483647;
       return s / 2147483647;
     },
+    store,
   });
   mm.build = build;
   return mm;
@@ -665,5 +680,154 @@ describe('serialRooms (PM-S4 net-blip)', () => {
     void join('m-1', h).leave();
     join('m-2', h);
     expect(t.joins).toEqual(['m-1', 'm-2']);
+  });
+});
+
+describe('PM-S5 net-reconnect: the match record, a rejoin on a NEW peer id with the seat token, suspend vs cancel', () => {
+  /** A quick-match pair whose two "browsers" each keep a record. */
+  function pairWithStores(bus: Bus): { a: Matchmaker; b: Matchmaker; sa: ReturnType<typeof memStore>; sb: ReturnType<typeof memStore> } {
+    const sa = memStore();
+    const sb = memStore();
+    const a = player(bus, 'peerA', 'b1', undefined, sa);
+    const b = player(bus, 'peerB', 'b1', undefined, sb);
+    a.quickMatch();
+    run(bus, [a], 500);
+    b.quickMatch();
+    run(bus, [a, b], 6000);
+    expect(a.status()).toMatchObject({ state: 'matched', role: 'host' });
+    expect(b.status()).toMatchObject({ state: 'matched', role: 'client' });
+    return { a, b, sa, sb };
+  }
+
+  it('both sides keep a record (room, role, the same seat token, alive) while matched; cancel() clears it', () => {
+    const bus = new Bus();
+    const { a, b, sa, sb } = pairWithStores(bus);
+    const ra = JSON.parse(sa.value ?? '{}');
+    const rb = JSON.parse(sb.value ?? '{}');
+    expect(ra).toMatchObject({ role: 'host', mode: 'quick', build: 'b1' });
+    expect(rb).toMatchObject({ role: 'client', mode: 'quick', build: 'b1' });
+    expect(ra.room).toBe(rb.room);
+    expect(ra.token).toBe(rb.token);
+    expect(ra.token).toMatch(/^[0-9a-f]{16}$/);
+    expect(a.resumeInfo()).not.toBe('');
+    // `alive` follows the clock (touched every heartbeat), and the game's standing rides along.
+    b.setGame('{"round":2}');
+    run(bus, [a, b], 5000);
+    expect(JSON.parse(sb.value ?? '{}')).toMatchObject({ game: '{"round":2}' });
+    expect(JSON.parse(sb.value ?? '{}').alive).toBeGreaterThanOrEqual(bus.wall - 1500);
+    b.cancel(); // a leave on purpose: bye + the record goes
+    run(bus, [a, b], 1000);
+    expect(sb.value).toBeNull();
+    expect(a.status().state).toBe('closed'); // ... and the host's record with its match
+    expect(sa.value).toBeNull();
+  });
+
+  it('the client\'s tab dies and a fresh page rejoins with the token inside the window: adopted on a new id, streams restart, partnerEpoch bumps', () => {
+    const bus = new Bus();
+    const { a, b, sb } = pairWithStores(bus);
+    a.send('old1');
+    bus.flush();
+    expect(b.poll()).toEqual(['old1']);
+    b.suspend(); // pagehide: no bye, the record stays
+    expect(sb.value).not.toBeNull();
+    run(bus, [a], 4000);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: true, partnerGone: true, partnerEpoch: 0 });
+    a.send('while-away'); // what the host sends meanwhile is for the OLD game instance: never delivered to the new one
+    // 10 s later a fresh page (new peer id, same browser store) rejoins.
+    run(bus, [a], 10000);
+    const b2 = player(bus, 'peerB2', 'b1', undefined, sb);
+    expect(b2.rejoin()).toBe(true);
+    expect(b2.status()).toMatchObject({ state: 'seeking', role: 'client' });
+    run(bus, [a, b2], 2000);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: false, partnerGone: false, partnerEpoch: 1 });
+    expect(b2.status()).toMatchObject({ state: 'matched', role: 'client', stalled: false, partnerEpoch: 0 });
+    // Fresh streams: the new page gets nothing from before, and everything from now on, in order, both ways.
+    expect(b2.poll()).toEqual([]);
+    a.send('r1');
+    a.send('r2');
+    b2.send('c1');
+    bus.flush();
+    expect(b2.poll()).toEqual(['r1', 'r2']);
+    expect(a.poll()).toEqual(['c1']);
+    run(bus, [a, b2], 5000);
+    expect(a.status()).toMatchObject({ state: 'matched', stalled: false });
+    expect(JSON.parse(sb.value ?? '{}').token).toBe(JSON.parse(a.resumeInfo()).token);
+  });
+
+  it('the HOST\'s tab dies and rejoins: the client adopts the new host id', () => {
+    const bus = new Bus();
+    const { a, b, sa } = pairWithStores(bus);
+    a.suspend();
+    run(bus, [b], 8000);
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: true, partnerGone: true });
+    const a2 = player(bus, 'peerA2', 'b1', undefined, sa);
+    expect(a2.rejoin()).toBe(true);
+    run(bus, [a2, b], 2000);
+    expect(b.status()).toMatchObject({ state: 'matched', stalled: false, partnerEpoch: 1 });
+    expect(a2.status()).toMatchObject({ state: 'matched', role: 'host', stalled: false });
+    a2.send('h1');
+    b.send('c1');
+    bus.flush();
+    expect(b.poll()).toEqual(['h1']);
+    expect(a2.poll()).toEqual(['c1']);
+  });
+
+  it('a stranger in the room without the token is told the game is full while the partner is away; the partner still rejoins', () => {
+    const bus = new Bus();
+    const { a, b, sb } = pairWithStores(bus);
+    const room = JSON.parse(sb.value ?? '{}').room as string;
+    b.suspend();
+    run(bus, [a], 3000);
+    const x = player(bus, 'peerX');
+    // A stranger that knows the room name (no token): friendJoin cannot name a match room, so drive it as a client.
+    (x as unknown as { enterMatchRoom(r: string, role: string, e: null, d: number): void }).enterMatchRoom(room, 'client', null, Infinity);
+    run(bus, [a, x], 3000);
+    expect(a.status()).toMatchObject({ state: 'matched', partnerGone: true, partnerEpoch: 0 });
+    expect(x.status().state).not.toBe('matched');
+    const b2 = player(bus, 'peerB2', 'b1', undefined, sb);
+    expect(b2.rejoin()).toBe(true);
+    run(bus, [a, x, b2], 3000);
+    expect(a.status()).toMatchObject({ state: 'matched', partnerGone: false, partnerEpoch: 1 });
+    expect(b2.status().state).toBe('matched');
+  });
+
+  it('a record older than the window (SILENCE_MS + REJOIN_SLACK_MS) is dead: rejoin() fails, says so and clears it', () => {
+    const bus = new Bus();
+    const { b, sb } = pairWithStores(bus);
+    b.suspend();
+    bus.wall += SILENCE_MS + REJOIN_SLACK_MS + 1000;
+    const b2 = player(bus, 'peerB2', 'b1', undefined, sb);
+    expect(b2.resumeInfo()).toBe('');
+    expect(b2.rejoin()).toBe(false);
+    expect(b2.status()).toMatchObject({ state: 'error', detail: 'Your match is over.' });
+    expect(sb.value).toBeNull();
+  });
+
+  it('a rejoin whose partner is no longer waiting gives up after its deadline (no quick-match re-queue) and clears the record', () => {
+    const bus = new Bus();
+    const { a, b, sb } = pairWithStores(bus);
+    b.suspend();
+    a.cancel(); // the host left for good meanwhile
+    run(bus, [a], 1000);
+    const b2 = player(bus, 'peerB2', 'b1', undefined, sb);
+    expect(b2.rejoin()).toBe(true);
+    run(bus, [b2], SILENCE_MS + REJOIN_SLACK_MS + 2000);
+    expect(b2.status()).toMatchObject({ state: 'error', detail: 'Your match is over.' });
+    expect(sb.value).toBeNull();
+    expect(bus.members(DISCOVERY_ROOM)).toEqual([]);
+  });
+
+  it('the partner\'s silence limit still closes the match and clears the record (the stayer takes the forfeit)', () => {
+    const bus = new Bus();
+    const { a, b, sa } = pairWithStores(bus);
+    b.suspend();
+    run(bus, [a], SILENCE_MS + 1000);
+    expect(a.status().state).toBe('closed');
+    expect(sa.value).toBeNull();
+  });
+
+  it('the window is the game\'s: SILENCE_MS is 30 s (Net.RECONNECT_GRACE_S) and the slack 6 s (NetResume.SLACK_S)', () => {
+    expect(SILENCE_MS).toBe(30000);
+    expect(REJOIN_SLACK_MS).toBe(6000);
   });
 });
