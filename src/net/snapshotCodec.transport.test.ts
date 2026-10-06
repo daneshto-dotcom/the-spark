@@ -4,11 +4,13 @@
  * backpressure slot and `handleRawMessage` are all production code. Each case below is a policy branch
  * of `encodeFor` / `decodeSnapFrame`, driven and then checked on what the joiner's handlers received.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { stripWirePrevPos, wireNumberReplacer } from '../state/save.ts';
 import type { NetMessage, NetSnapshotMsg } from './protocol.ts';
 import { linkedPair, startedTransport, fakeRoom, until, type LinkedPair } from './snapshotCodec.fixtures.ts';
-import { FRAME_DEFLATE, FRAME_TEXT, KEYFRAME_INTERVAL, readDeltaHeader, unpackFrame } from './snapshotCodec.ts';
+import {
+  FRAME_DEFLATE, FRAME_TEXT, KEYFRAME_INTERVAL, encodeDelta, packFrame, readDeltaHeader, segmentSnapshotMessage, unpackFrame,
+} from './snapshotCodec.ts';
 
 function snap(seq: number, opts: { prims?: number; moved?: number; drop?: number[] } = {}): NetSnapshotMsg {
   const n = opts.prims ?? 300;
@@ -223,6 +225,59 @@ describe('S195 net-delta — through the real transport', () => {
     p.hostRoom.room.onPeerLeave('J');
     p.hostRoom.room.onPeerJoin('J');
     expect((await headerOf((await sendAndTake(p, snap(3)))[0]!)).baseFid).toBe(0);
+  });
+
+  it('⛔ S195 audit F1 (P1) — a message handler that THROWS once does not freeze the board: later frames still apply', async () => {
+    const p = linkedPair();
+    const got: NetMessage[] = [];
+    let throwOnce = true;
+    p.joiner.on((m) => {
+      if (throwOnce && (m as NetSnapshotMsg).snapshotSeq === 2) { throwOnce = false; throw new Error('handler boom'); }
+      got.push(m);
+    });
+    const errors: string[] = [];
+    p.joiner.onError = (e) => errors.push(e);
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    flushAcks(p);
+    for (let s = 1; s <= 6; s++) {
+      await deliver(p, await sendAndTake(p, snap(s, { moved: 5 })));
+      flushAcks(p);
+    }
+    quiet.mockRestore();
+    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 3, 4, 5, 6]);
+    expect(errors.some((e) => e.includes('handler boom')), 'the throw is REPORTED, not swallowed').toBe(true);
+    expect(p.rawSeen.at(-1)).toBe(fullWire(snap(6, { moved: 5 })));
+  });
+
+  it('⛔ S195 audit F2 (P3) — a frame that rebuilds into a NON-message is never kept as a base, from any peer', async () => {
+    const p = linkedPair();
+    const segs = segmentSnapshotMessage({ kind: 'GARBAGE', snapshot: { junk: 'x'.repeat(100_000) } } as never, wireNumberReplacer)!;
+    const frame = await packFrame(encodeDelta(segs, null, 999_999, 0), false);
+    const quiet = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    p.joinerRoom.actions.get('snap')!.onMessage!(frame, { peerId: 'EVIL' });
+    await p.joiner.snapFramesSettled('EVIL');
+    quiet.mockRestore();
+    const rx = (p.joiner as unknown as { rxPeers: Map<string, { ring: Map<number, unknown> }> }).rxPeers.get('EVIL');
+    expect(rx?.ring.size ?? 0).toBe(0);
+    expect(p.takeAcks().filter((a) => JSON.parse(a).f === 999_999), 'and it is never acked').toHaveLength(0);
+  });
+
+  it('⛔ S195 audit F2 — only ONE sender holds a ring: a successor accepted keyframe moves it, the old host ring is dropped', async () => {
+    const p = linkedPair();
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    const rings = (p.joiner as unknown as { rxPeers: Map<string, { ring: Map<number, unknown> }> }).rxPeers;
+    expect(rings.get('H')!.ring.size).toBe(1);
+    // A second sender (a migration successor) sends a keyframe the receive path accepts.
+    const room2 = fakeRoom();
+    const host2 = startedTransport(room2);
+    room2.room.onPeerJoin('J');
+    host2.send(snap(2));
+    await until(() => room2.actions.get('snap')!.sent.length > 0, 'host2 transmitted');
+    p.joinerRoom.actions.get('snap')!.onMessage!(room2.actions.get('snap')!.sent[0]!.data, { peerId: 'H2' });
+    await p.joiner.snapFramesSettled('H2');
+    expect(rings.get('H2')!.ring.size).toBe(1);
+    expect(rings.get('H')!.ring.size, 'the deposed sender keeps no bases').toBe(0);
   });
 
   it('⛔ NEGATIVE — garbage on the snap action (not bytes, unknown format) is dropped and asks for a keyframe, never throws', async () => {
