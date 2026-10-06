@@ -1,6 +1,6 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** gates running detached (.tmp-gates/g-*.log + .exit); merged master d712ad1a at 06b0b828 (docs only, no conflicts); mutations M1-M4 all red (mutate.log). Then e2e:gating + teams-lobby.
+**NEXT STEP:** gates round 2 detached (.tmp-gates/g2-*): typecheck 0, build 0 (1223.2/1350 KiB, +3.4), vitest round 1 = 2 census reds (teams.sites: my new sameTeam + seat-var sites) -> classified + pinned; rerunning vitest + e2e:gating + teams-lobby on own port.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
