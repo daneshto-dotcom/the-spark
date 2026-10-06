@@ -227,7 +227,9 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/botSetupOverlay.ts': 1, // lobby seat swap
   'render/castlePanel.ts': 3, // your gatherers, the viewed seat, the selected seat
   'render/characterSheetModel.ts': 8, // S194: + master's structure/tower cards. YOURS vs not (the ALLY/ENEMY split is below it, team-aware). S195 info-ui: + `entropyRowsFor` `owner === seat` — the owner-only LOST-TO-ENTROPY row (B-17: "only the player itself will see it"), is-this-MINE, never allegiance
-  'render/audioManager.ts': 1, // S195 T19 (owner B-14): `effect.victim === localSeat` — is the snapped connector MINE (only the loser hears the entropy boing)
+  // ⭐ S195 N18 (d) (net-delta) — `render/audioManager.ts`'s one site (`effect.victim === localSeat`, the entropy
+  // boing) is GONE: the boing now keys off the synced per-seat record (`entropyToastFor(world, localPlayerId)`,
+  // a Map lookup by the local seat, not a seat comparison), so the file leaves the census.
   'render/coherence/helgaAudience.ts': 2, // S195 T19 (owner N4): is the LOCAL seat her owner / the seat whose unit she hits — who HEARS her (ownership, not allegiance)
   'render/coherence/unitDeparture.ts': 1, // S194 T9: a host kill record matched to the SAME creature by its owner (identity, not allegiance)
   // ⭐ S195 N1 — concealment's own-check asks sameTeam now (a teammate's things are never concealed).

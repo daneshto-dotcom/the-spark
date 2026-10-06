@@ -391,11 +391,19 @@ describe('⛔ S182 LEVER 2 — what the quantiser must NEVER reach', () => {
     // Scoped to the one high-rate kind. Applying it to every message would be harmless but would
     // put a per-number callback on the rare control traffic for no gain.
     // BOTH wire transforms live here, in one place, gated on the one high-rate kind.
-    expect(TRANSPORT_SRC).toContain('JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)');
-    const guardAt = TRANSPORT_SRC.indexOf("msg.kind === 'NETSNAPSHOT'");
-    const callAt = TRANSPORT_SRC.indexOf('JSON.stringify(stripWirePrevPos(msg), wireNumberReplacer)');
+    // ⭐ S195 (net-delta) — the snapshot is stripped ONCE into `stripped`, which then feeds BOTH the
+    // codec's segmentation and the legacy string; each must still pass the replacer. The codec's output
+    // is pinned byte-identical to the legacy string by `snapshotCodec.differential.test.ts`.
+    const guardAt = TRANSPORT_SRC.indexOf("if (msg.kind === 'NETSNAPSHOT') {");
+    const stripAt = TRANSPORT_SRC.indexOf('const stripped = stripWirePrevPos(msg);');
+    const segAt = TRANSPORT_SRC.indexOf('segmentSnapshotMessage(stripped, wireNumberReplacer');
+    const legacyAt = TRANSPORT_SRC.indexOf('JSON.stringify(stripped, wireNumberReplacer)');
     expect(guardAt).toBeGreaterThan(-1);
-    expect(callAt).toBeGreaterThan(guardAt);
+    expect(stripAt).toBeGreaterThan(guardAt);
+    expect(segAt).toBeGreaterThan(stripAt);
+    expect(legacyAt).toBeGreaterThan(stripAt);
+    // Control traffic is stringified plain, never through the replacer.
+    expect(TRANSPORT_SRC).toContain('serialized = JSON.stringify(msg);');
   });
 });
 

@@ -219,6 +219,9 @@ export function createHostStartHandler(deps: HostStartDeps): () => string {
     });
     const transport = new NetTransport();
     deps.session.netTransport = transport;
+    // ⛔ S195 re-audit R1 (net-delta) — a host keeps no snapshot bases unless it is demoted and adopts a
+    // new host (`session.hostPeerId`), whose frames then — and only then — may become bases.
+    transport.isSnapshotAuthority = (peerId) => deps.session.hostPeerId === peerId;
     deps.session.hostSync = new HostSync();
     deps.session.roomCode = code;
     deps.world.isHost = true;

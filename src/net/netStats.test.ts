@@ -281,7 +281,9 @@ describe('S182 step 0 — zero-cost-when-disabled contract', () => {
     // 6 sites: send envelope · send per-strategy · receive · snapshot accept · seq drop · epoch drop.
     // ⭐ S189 — +2: a snapshot is now recorded where it is TRANSMITTED (`transmitSnapshot`, per strategy
     // + its envelope once), because behind a starved uplink most are superseded and never sent.
-    expect(checked).toBe(8);
+    // ⭐ S195 (net-delta) — +1: a codec FRAME is counted at its wire size where it arrives (`onSnapFrame`);
+    // the snapshot rebuilt from it passes `countBytes=false` so nothing is counted twice.
+    expect(checked).toBe(9);
   });
 
   it('the recorders still self-guard, so an unguarded future call site is inert rather than wrong', () => {

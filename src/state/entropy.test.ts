@@ -14,7 +14,7 @@ import { DEFAULT_SPAWNER_CONFIG, Spawner } from '../game/spawner.ts';
 import type { Primitive } from '../game/primitive.ts';
 import { componentOf } from '../game/structure.ts';
 import type { Controls } from '../input/controls.ts';
-import { captureSeverToast, severToastCopy } from '../render/severToastRenderer.ts';
+import { captureSeverToast } from '../render/severToastRenderer.ts';
 import { asBondId, asPlayerId, asPrimitiveId, type BondId } from '../types.ts';
 import { damageConnector, severWithCarry } from './damage.ts';
 import {
@@ -203,10 +203,10 @@ describe('⭐ S194 R194-18 — REACH: the tax fires at the FIGHT whistle through
     expect(perWave.every((p) => p.tower === 0), 'a 10-connector structure is never taxed').toBe(true);
     // every 'entropy' sever is one of these two structures' connectors
     for (const p of perWave) expect(p.fx).toBeLessThanOrEqual(p.big + p.mid);
-    // the owner of the structure reads the toast, with the count
+    // the owner of the structure reads the toast — ⭐ S195 N18 (d): from SYNCED state (`entropyToastFor`,
+    // REACH in `render/entropyToast.test.ts`), so the effects route is now silent for this cause.
     expect(first.fx).toBeGreaterThan(0);
-    expect(first.toast).toBe(severToastCopy('entropy', null, first.fx));
-    expect(first.toast).toMatch(/^ENTROPY: \d+ CONNECTORS? SNAPPED$/);
+    expect(first.toast).toBeNull();
   });
 
   it('negative — a board of free structures (≤ 10 connectors) loses nothing at any whistle', () => {
@@ -290,9 +290,10 @@ describe('⭐ S194 R194-18 — determinism', () => {
 describe('⭐ S194 R194-18 — the new cause reached every consumer (CLAUDE.md §7: tolerant defaults too)', () => {
   it('no actor, its own toast (never the tolerant "BROKE YOUR BOND")', () => {
     expect(severActor({ type: 'SEVER_BOND', bondId: asBondId(1), playerId: P0, cause: 'entropy' })).toBeUndefined();
-    expect(severToastCopy('entropy', null, 1)).toBe('ENTROPY: 1 CONNECTOR SNAPPED');
-    expect(severToastCopy('entropy', null, 7)).toBe('ENTROPY: 7 CONNECTORS SNAPPED');
-    expect(severToastCopy('entropy', 'P2', 3)).not.toContain('BROKE');
+    // ⭐ S195 N18 (d) — the effects route never words an entropy sever (no "BROKE YOUR BOND", no line at
+    // all): it is told from synced state as "ENTROPY: N SNAPPED, M LOST" (render/entropyToast.test.ts).
+    const fx = [{ kind: 'BOND_SEVERED', tick: 1, pos: { x: 0, y: 0 }, cause: 'entropy', victim: P0 }] as never;
+    expect(captureSeverToast(fx, P0, new Set()).text).toBeNull();
   });
 
   it('source guards (each paired with a REACH test above): the hook in the FIGHT arm, the gate bypass, the silent audio arm', () => {

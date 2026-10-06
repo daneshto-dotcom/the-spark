@@ -110,10 +110,10 @@ describe('⭐⭐ S195 N12 — the ENTROPY rows (arithmetic from `state/entropy.t
     const chance = entropyChance(54);
     expect(chance, 'anti-vacuity: taxed').toBeGreaterThan(0);
     expect(e.points).toBe((chance * 100) / ENTROPY_SCALE);
-    expect(e.derived).toBe(`~${((54 * chance) / ENTROPY_SCALE).toFixed(1)} lost/fight`);
+    expect(e.derived).toBe(`~${((54 * chance) / ENTROPY_SCALE).toFixed(1)} snap/fight`);
     // The consequence the canon table prints (§2: 54 → 4.4 %, 2.4 lost) falls out of the derivation.
     expect(e.points).toBe(4.4);
-    expect(e.derived).toBe('~2.4 lost/fight');
+    expect(e.derived).toBe('~2.4 snap/fight');
     // And a 10-connector structure sits exactly on the edge: free.
     expect(entropyRowsFor(w, ENTROPY_FREE_CONNECTORS, P0, P1)[0]!.points).toBe(0);
     expect(entropyRowsFor(w, ENTROPY_FREE_CONNECTORS + 1, P0, P1)[0]!.points).toBeGreaterThan(0);

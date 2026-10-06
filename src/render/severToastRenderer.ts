@@ -44,6 +44,7 @@ import type { PlayerId } from '../types.ts';
 import type { World } from '../state/world.ts';
 import { avatarNameplateText } from './avatarRenderer.ts';
 import { HUD_PLATE_FILL } from './ui.ts';
+import { playSlotSFX } from './audioManager.ts';
 
 /**
  * Hold window, in SIM TICKS (see the header on why not frames). 150 ticks = 2.5 s at PHYSICS_HZ 60,
@@ -91,6 +92,31 @@ export function severToastPose(elapsed: number, duration: number): SeverToastPos
   };
 }
 
+/**
+ * ⭐⭐ S195 N18 (d) (owner R195-E1: *"definitely show N snapped, M lost … so … the user knows why … he
+ * lost such a big structure"*) — the entropy toast's line. `snapped` = connectors the whistle roll cut,
+ * `lost` = connectors the seat stopped standing (snaps + every connector a split deleted with the smaller
+ * side), so `lost ≥ snapped` and the gap IS the explanation of a big loss.
+ */
+export function entropyToastCopy(snapped: number, lost: number): string {
+  return `ENTROPY: ${snapped} SNAPPED, ${lost} LOST`;
+}
+
+/**
+ * ⭐ S195 N18 (d) — PURE: the entropy toast `seat` should read now, from SYNCED state only
+ * (`SeatMatchStats.entropyWave/Snapped/Lost`, on every snapshot). `key` is the wave of the pass, so a
+ * renderer shows each pass exactly once. Only the CURRENT wave's pass counts: a joiner arriving later
+ * (or a host migration) never replays an old one. Null ⇒ nothing to show.
+ *
+ * It replaces the `world.effects` route for this cause, which reached a joiner ~1/6 of the time (the
+ * file header) — the owner's brother would almost never have read why his structure fell apart.
+ */
+export function entropyToastFor(world: World, seat: PlayerId): { key: number; text: string } | null {
+  const s = world.matchStats.seats.get(seat);
+  if (s === undefined || s.entropyWave === undefined || s.entropyWave !== world.waveNumber) return null;
+  return { key: s.entropyWave, text: entropyToastCopy(s.entropySnapped, s.entropyLost) };
+}
+
 /** The BOND_SEVERED cause union, named once so the copy table and the reducer cannot drift apart. */
 export type SeverCause = Extract<GameEffect, { kind: 'BOND_SEVERED' }>['cause'];
 
@@ -131,12 +157,10 @@ export function severToastCopy(
 ): string {
   const burst = count > 1 ? ` ×${count}` : '';
   /*
-   * ⭐ S194 (R194-18, ⚠ MINE wording) — THE ENTROPY TAX names no culprit, because there is none: the
-   * structure wore out at the FIGHT whistle. It states the count instead of a ×N burst, because the
-   * count IS the news (*"big structures lose … a certain amount of connectors"*). Checked BEFORE the
-   * actor branches so it can never fall into the tolerant default's "BROKE YOUR BOND".
+   * ⭐ S195 N18 (d) — the S194 entropy arm ("ENTROPY: N CONNECTORS SNAPPED") is GONE: `captureSeverToast`
+   * skips the 'entropy' cause, so this function never sees it. The entropy line is `entropyToastCopy`,
+   * read from synced state (`entropyToastFor`).
    */
-  if (cause === 'entropy') return `ENTROPY: ${count} CONNECTOR${count === 1 ? '' : 'S'} SNAPPED`;
   // Nothing to name: physics overstretch, or a mixed batch. State the outcome, claim no culprit.
   if (agent === null) {
     const line =
@@ -231,6 +255,9 @@ export function captureSeverToast(
     if (e.kind !== 'BOND_SEVERED') continue;
     if (e.victim === undefined || e.victim !== localPlayerId) continue; // victim gate
     if (e.cause === 'bomb') continue; // suppression (b)
+    // ⭐ S195 N18 (d) — the entropy tax is told from SYNCED state (`entropyToastFor`), on every peer;
+    // reading it here too would show it twice on the host and ~1/6 of the time on a joiner.
+    if (e.cause === 'entropy') continue;
     if (e.actor !== undefined && e.actor === e.victim) continue; // suppression (a)
 
     if (count === 0) {
@@ -293,6 +320,25 @@ export class SeverToastRenderer {
   private readonly text: Text;
   /** Sim tick the current window started on; undefined ⇒ no window in flight. */
   private shownTick: number | undefined = undefined;
+  /** ⭐ S195 N18 (d) — the wave whose entropy pass this renderer last showed (undefined ⇒ none this match). */
+  private entropyShownWave: number | undefined = undefined;
+  /**
+   * ⛔ S195 audit F4 — false until the first PLAYING frame of a (re)join. That frame SEEDS
+   * `entropyShownWave` with whatever pass the snapshot already carries, without showing it, so a reload or
+   * a rejoin in the same wave does not replay a toast + boing the player already got. A pass that lands
+   * after it is news and shows. (Host migration keeps the renderer in PLAYING, so it never reseeds.)
+   */
+  private entropySeeded = false;
+  /**
+   * ⛔ S195 re-audit R3 — on a JOINER the seed must wait for a real SNAPSHOT: the rejoin path enters
+   * PLAYING from START_GAME_SIGNAL with matchStats reset and waveNumber 1, so seeding on that first frame
+   * seeded "nothing" and the first snapshot then replayed this wave's pass. `snapshotApplies` (wired in
+   * main.ts to `session.clientSync?.snapshotsApplied()`) returns null on a host — seed at once — and a
+   * count on a joiner: the seed happens on the first frame the count has MOVED from where it stood when
+   * this renderer entered PLAYING (moved, not grown: a ClientSync reset sends it back to 0).
+   */
+  snapshotApplies: (() => number | null) | null = null;
+  private seedBaseline: number | null | undefined = undefined;
 
   constructor(app: Application) {
     this.container = new Container();
@@ -343,13 +389,38 @@ export class SeverToastRenderer {
       // between-matches reset — without it a window in flight at match end would resume over the
       // next match's board (the stale-watermark bug the tier banner had to fix in S129 CHECK).
       this.shownTick = undefined;
+      this.entropyShownWave = undefined;
+      this.entropySeeded = false;
+      this.seedBaseline = undefined;
       this.container.visible = false;
       return;
     }
 
     const cap = captureSeverToast(world.effects, world.localPlayerId, world.botSeats);
-    if (cap.text !== null) {
-      this.text.text = cap.text;
+    // ⭐ S195 N18 (d) — the entropy pass, from synced state, once per pass, for the OWNER seat only
+    // (B-17: `localPlayerId` is the seat looking at this screen). It wins a same-frame collision with an
+    // ordinary sever: it is the bigger news, and the sever toast's next batch restarts the window anyway.
+    const ent = entropyToastFor(world, world.localPlayerId);
+    if (!this.entropySeeded) {
+      const applies = this.snapshotApplies?.() ?? null;
+      if (this.seedBaseline === undefined) this.seedBaseline = applies;
+      if (applies === null || applies !== this.seedBaseline) {
+        this.entropySeeded = true;
+        this.entropyShownWave = ent?.key;
+      } else {
+        // A joiner with no snapshot applied since it entered PLAYING: nothing synced to trust yet.
+        this.entropyShownWave = ent?.key ?? this.entropyShownWave;
+      }
+    }
+    let text = cap.text;
+    if (ent !== null && ent.key !== this.entropyShownWave) {
+      this.entropyShownWave = ent.key;
+      text = ent.text;
+      // The owner's boing (B-14/N12), keyed off the SAME synced change, so every peer hears its own loss.
+      void playSlotSFX('entropyBoing');
+    }
+    if (text !== null) {
+      this.text.text = text;
       this.shownTick = world.tick;
       // P3 (S131) — resize the plate to the new label. Only here can the text change, and Pixi v8
       // Text measures synchronously so .width/.height are already correct for the string just set.

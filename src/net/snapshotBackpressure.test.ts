@@ -140,6 +140,12 @@ vi.mock('@trystero-p2p/nostr', async () => {
           const m = JSON.parse(payload as string) as { kind: string; snapshotSeq?: number };
           link.received.push({ kind: m.kind, seq: m.snapshotSeq ?? null, atMs: Date.now(), peer: peerId });
         });
+        // ⭐ S195 (net-delta) — snapshots now ride the binary `snap` action as codec frames. No ack ever
+        // comes back on this link, so every frame is an uncompressed KEYFRAME: the same bytes the old
+        // string carried, so the backpressure measurements below keep their meaning.
+        clientWire.makeInternalAction('snap').onMessage((payload) => {
+          link.received.push({ kind: 'NETSNAPSHOT', seq: seqOf(payload as Uint8Array), atMs: Date.now(), peer: peerId });
+        });
         const channel = new SimChannel(rate, (c) => {
           setTimeout(() => clientWire.handleData('host-self', c.slice().buffer as ArrayBuffer), link.propagationMs);
         });
@@ -370,7 +376,11 @@ function gated(): { t: NetTransport; sent: string[]; settle: () => void } {
 }
 const snap = (seq: number): NetMessage =>
   ({ kind: 'NETSNAPSHOT', snapshotSeq: seq, snapshot: { tick: seq } }) as unknown as NetMessage;
-const seqOf = (s: string): number => (JSON.parse(s) as { snapshotSeq: number }).snapshotSeq;
+/** A snapshot's seq from the legacy string OR a codec frame (S195: FRAME_TEXT keyframes carry the envelope as text). */
+function seqOf(s: string | Uint8Array): number {
+  const text = typeof s === 'string' ? s : new TextDecoder().decode(s.subarray(1));
+  return Number(/"snapshotSeq":(\d+)/.exec(text)![1]);
+}
 
 /**
  * ⭐ S191 NETFR-6 — the gate with a REAL room wiring: `startStrategy` (the production path) is handed a
@@ -398,7 +408,7 @@ function gatedRoom(peers: string[]): {
     onPeerLeave: (_id: string): void => {},
     getPeers: () => ({}),
     leave: () => Promise.resolve(),
-    makeAction: () => ({
+    makeAction: (name: string) => name === 'sack' ? { onMessage: null, send: () => Promise.resolve() } : ({
       onMessage: null,
       send: (d: string, opts?: { target?: string }) => {
         const to = opts?.target ?? '*';
@@ -484,6 +494,8 @@ describe('S189 C5 — the gate itself', () => {
     const g = gatedRoom(['peer-0', 'peer-1']);
     g.t.send(snap(1)); // → both peers, both in flight
     g.t.send(snap(2)); // waits behind 1 on both
+    // ⭐ S195 — the codec encodes a frame asynchronously before handing it to Trystero: let it out.
+    await tick();
     g.settleFor('peer-0');
     await tick();
     expect(g.sentTo('peer-0'), 'the healthy sibling is unaffected').toEqual([1, 2]);
@@ -497,6 +509,7 @@ describe('S189 C5 — the gate itself', () => {
     expect(g.sentTo('peer-1'), 'the waiting snapshot must never go to a departed peer').toEqual([1]);
     g.room.onPeerJoin('peer-1');
     g.t.send(snap(3));
+    await tick();
     expect(g.sentTo('peer-1'), 'the rejoined peer gets the next snapshot AT ONCE').toEqual([1, 3]);
     expect(g.slotOf('peer-1'), 'on a FRESH slot').not.toBe(deadSlot);
 
@@ -505,6 +518,7 @@ describe('S189 C5 — the gate itself', () => {
     g.room.onPeerLeave('peer-1');
     g.room.onPeerJoin('peer-1');
     g.t.send(snap(5));
+    await tick();
     expect(g.sentTo('peer-1'), 'not queued behind the dead channel').toEqual([1, 3, 5]);
     g.settleFor('peer-1'); // the dead channel's send of 3 finally settles
     await tick();

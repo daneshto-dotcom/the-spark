@@ -1969,12 +1969,12 @@ export async function playPantsSFX(pos?: Vec2): Promise<void> {
  * | `stinkTowerFire` | `stinkTowerRenderer.ts` — the synced FIRE edge, like the laser | everyone not fogged |
  * | `castleGunFire` | `coherence/syncedCuesRenderer.ts` — `ticksSinceCastleShot` edge, the gates of
  *   `castleGunsTick` mirrored | everyone (the keep is never fogged) |
- * | `entropyBoing` | `drainAudioEffects` — `BOND_SEVERED cause:'entropy'` whose `victim` IS the local seat
- *   (owner B-14/N12: *"only the player that … lost the connector should hear it … a little boing"*) | the loser |
+ * | `entropyBoing` | `severToastRenderer.ts` — the SYNCED entropy pass of the local seat (`entropyToastFor`,
+ *   `SeatMatchStats.entropyWave`), once per pass (owner B-14/N12: *"only the player that … lost the connector
+ *   should hear it … a little boing"*) | the loser |
  *
- * ⚠ `entropyBoing` is the ONE slot that rides `world.effects`: the entropy tax leaves no synced per-seat
- * trace yet (N12's tree adds the readable stat; when its field lands, move this trigger onto it). On the
- * HOST the effect is 100 %; a JOINER hears it ~1/6 of the time. Stated here, not hidden.
+ * ⭐ S195 N18 (d) — `entropyBoing` USED to ride `world.effects` (a joiner heard it ~1/6 of the time); it now
+ * keys off the synced per-seat record like every other slot here.
  */
 export const SFX_SLOTS = {
   unitFalls: '/audio/sfx/unit-falls.ogg',
@@ -2082,7 +2082,13 @@ export function drainAudioEffects(
        * LOCAL seat, so the three other players hear nothing; a dozen snaps on one tick are one tick's worth
        * of triggers, capped by the one-shot voice pool. Written out so it cannot fall into the crackle arm.
        */
-      if (localSeat !== null && effect.victim === localSeat) void playSlotSFX('entropyBoing', effect.pos);
+      /*
+       * ⭐ S195 N18 (d) — MOVED. The boing now fires from the SYNCED entropy record
+       * (`SeverToastRenderer.drainSeverToast` → `entropyToastFor`), once per pass, on every peer; this
+       * one-shot effect reached a joiner ~1/6 of the time. The arm stays, SILENT and written out, so the
+       * cause can never fall into the crackle arm below. `localSeat` is kept for the call-site contract.
+       */
+      void localSeat;
     } else if (effect.kind === 'BOND_SEVERED' && effect.cause === 'unit') {
       /*
        * ⛔⛔ S182 — DELIBERATELY SILENT, AND WRITTEN OUT RATHER THAN LEFT TO FALL THROUGH.

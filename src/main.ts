@@ -1375,6 +1375,8 @@ async function bootstrap(): Promise<void> {
   // (constructed after the HUD, main-stage container, not aboveFogLayer). Its drain is PRE-WIPE
   // and lives beside hud.drainTierBanner — see the ordering block further down.
   const severToastRenderer = new SeverToastRenderer(app);
+  // ⛔ S195 re-audit R3 (net-delta) — the entropy toast seeds after the first APPLIED snapshot on a joiner.
+  severToastRenderer.snapshotApplies = () => (world.isHost ? null : (session.clientSync?.snapshotsApplied() ?? null));
 
   // ===== S22 P3 — godly cinematic overlay + counter-window vignette + Codex =====
   // S104 P3 / S105 P2 — every godly/tower shows a PRECISE, checkable build recipe (even locked).

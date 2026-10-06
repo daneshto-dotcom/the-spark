@@ -84,6 +84,19 @@ export interface SeatMatchStats {
    * ?.lostToEntropy`, wire key `le`.
    */
   lostToEntropy: number;
+  /**
+   * ⭐⭐ S195 N18 (d) (owner R195-E1: *"definitely show N snapped, M lost … so … the user knows why … he
+   * lost such a big structure"*) — THE LAST WHISTLE PASS THAT COST THIS SEAT ANYTHING: its wave, how many
+   * of the seat's connectors the roll SNAPPED, and how many it LOST in that pass (snaps + every connector
+   * a split deleted with the smaller side). `entropyLost` is NOT a second tally: it is this pass's share of
+   * `lostToEntropy`, which stays the one running total; the pair exists so the toast can say what THIS
+   * fight cost. Synced on every snapshot (wire `ew`/`es`/`el`), so the owner's toast fires on every peer —
+   * the old toast rode `world.effects` and reached a joiner ~1/6 of the time. Inert like every counter here.
+   * `entropyWave === undefined` ⇒ the tax has never cost this seat a connector.
+   */
+  entropyWave: number | undefined;
+  entropySnapped: number;
+  entropyLost: number;
   /** The wave its castle fell on; `undefined` while it stands. */
   fellOnWave: number | undefined;
 }
@@ -147,6 +160,9 @@ function emptySeat(): SeatMatchStats {
     takenKeep: 0,
     takenStruct: 0,
     lostToEntropy: 0,
+    entropyWave: undefined,
+    entropySnapped: 0,
+    entropyLost: 0,
     fellOnWave: undefined,
   };
 }
@@ -259,6 +275,23 @@ export function recordEntropyLoss(world: World, owner: PlayerId, connectors: num
   seat(world, owner).lostToEntropy += connectors;
 }
 
+/**
+ * ⭐ S195 N18 (d) — one whistle pass's cost to `owner`: `snapped` connectors the roll severed, `lost`
+ * connectors the seat stopped standing (the standing-bond delta). Adds `lost` to the running total through
+ * `recordEntropyLoss` (ONE writer of `lostToEntropy`) and stamps the pass for the toast. A pass that cost
+ * the seat nothing records nothing, so an untaxed seat stays byte-identical on the wire.
+ */
+export function recordEntropyPass(world: World, owner: PlayerId, snapped: number, lost: number): void {
+  const s0 = snapped > 0 ? snapped : 0;
+  const l0 = lost > 0 ? lost : 0;
+  if (s0 === 0 && l0 === 0) return;
+  recordEntropyLoss(world, owner, l0);
+  const s = seat(world, owner);
+  s.entropyWave = world.waveNumber;
+  s.entropySnapped = s0;
+  s.entropyLost = l0;
+}
+
 /** Called by `markFallenSeats` on the tick it stamps the seat. Write-once, like the stamp. */
 export function recordSeatFell(world: World, id: PlayerId): void {
   const s = seat(world, id);
@@ -342,6 +375,10 @@ export interface SerializedSeatStats {
   readonly tu?: number;
   /** ⭐ S195 T22 — connectors lost to the ENTROPY TAX; optional, absent at zero (an older host sends none). */
   readonly le?: number;
+  /** ⭐ S195 N18 (d) — the last whistle pass that cost the seat anything: wave, snapped, lost. All or none. */
+  readonly ew?: number;
+  readonly es?: number;
+  readonly el?: number;
 }
 
 export interface SerializedMatchStats {
@@ -410,6 +447,7 @@ function serializeSeat(id: PlayerId, s: SeatMatchStats): SerializedSeatStats | n
     ...(s.takenStruct > 0 ? { ts: s.takenStruct } : {}),
     ...(s.takenUnattributed > 0 ? { tu: s.takenUnattributed } : {}),
     ...(s.lostToEntropy > 0 ? { le: s.lostToEntropy } : {}),
+    ...(s.entropyWave !== undefined ? { ew: s.entropyWave, es: s.entropySnapped, el: s.entropyLost } : {}),
   };
   return Object.keys(out).length > 1 ? out : null;
 }
@@ -493,6 +531,10 @@ export function applySerializedSeats(world: World, s: SerializedMatchStats | und
       takenStruct: isCount(r.ts) ? r.ts : 0,
       takenUnattributed: isCount(r.tu) ? r.tu : 0,
       lostToEntropy: isCount(r.le) ? r.le : 0,
+      // ⭐ S195 N18 (d) — all-or-nothing: a malformed or partial triple reads as "never taxed".
+      ...(isCount(r.ew) && isCount(r.es) && isCount(r.el)
+        ? { entropyWave: r.ew, entropySnapped: r.es, entropyLost: r.el }
+        : { entropyWave: undefined, entropySnapped: 0, entropyLost: 0 }),
       fellOnWave: isCount(r.fellOnWave) ? r.fellOnWave : undefined,
     });
   }
@@ -555,7 +597,10 @@ export function matchStatsHashParts(ms: MatchStats): string[] {
         `:l${rec(s.lost)}:to${[...s.dealtTo.entries()].sort(([a], [b]) => (a as number) - (b as number)).map(([k, n]) => `${k as number}=${n}`).join('.')}` +
         `:dk${s.dealtKeep}:ds${s.dealtStruct}:tk${s.takenKeep}:ts${s.takenStruct}:tu${s.takenUnattributed}` +
         // ⭐ S195 T22
-        `:le${s.lostToEntropy}`,
+        `:le${s.lostToEntropy}` +
+        // ⭐ S195 N18 (d) — only once the tax has cost the seat something, so an untaxed seat's part (and
+        // every recorded hash series of an untaxed match) is unchanged.
+        (s.entropyWave !== undefined ? `:ew${s.entropyWave}:es${s.entropySnapped}:el${s.entropyLost}` : ''),
     );
   }
   for (const h of ms.history) {

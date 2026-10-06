@@ -22,7 +22,8 @@
  *   · ANY connector of a taxed structure may snap — a welded tower's own included (his *"do I keep
  *     building onto this tower"* puts the tower at risk);
  *   · the roll happens ONCE, on the BUILD→FIGHT edge (`hostTick.ts`), so the loss is visible before the
- *     fight, and the owner of the structure reads "ENTROPY: N CONNECTORS SNAPPED" (`severToastRenderer`).
+ *     fight, and the owner of the structure reads "ENTROPY: N SNAPPED, M LOST" (`severToastRenderer`,
+ *     from the synced `SeatMatchStats.entropyWave/Snapped/Lost` — S195 N18 (d)).
  *
  * DETERMINISM. No `Math.random`, no clock, no float: one stateless roll per bond,
  * `mix32(mix32(rngSeed, waveNumber), bondId) % 10 000` (`rngSeed` is host-only — a client cannot
@@ -33,8 +34,8 @@
  * calls this; peers receive the result in the snapshot.
  */
 import { componentOf } from '../game/structure.ts';
-import type { BondId } from '../types.ts';
-import { recordEntropyLoss, sampleBuilt } from './matchStats.ts'; // ⭐ S195 T22
+import type { BondId, PlayerId } from '../types.ts';
+import { recordEntropyPass, sampleBuilt } from './matchStats.ts'; // ⭐ S195 T22 / N18 (d)
 import { mix32 } from './rng.ts';
 import { applySeverBond } from './severBond.ts';
 import type { World } from './worldTypes.ts';
@@ -103,17 +104,23 @@ export function applyEntropyTax(world: World): number {
    */
   const before = sampleBuilt(world);
   let snapped = 0;
+  // ⭐ S195 N18 (d) — the roll's snaps per owner, for "N SNAPPED, M LOST". Recording only.
+  const snappedBy = new Map<PlayerId, number>();
   for (const id of plan) {
     const bond = world.bonds.get(id);
     if (bond === undefined) continue;
     const owner = world.primitives.get(bond.aId)?.placedBy ?? world.primitives.get(bond.bId)?.placedBy;
     if (owner === undefined) continue;
     applySeverBond(world, { type: 'SEVER_BOND', bondId: id, playerId: owner, cause: 'entropy' });
-    if (!world.bonds.has(id)) snapped += 1;
+    if (!world.bonds.has(id)) {
+      snapped += 1;
+      snappedBy.set(owner, (snappedBy.get(owner) ?? 0) + 1);
+    }
   }
   const after = sampleBuilt(world);
-  for (const [seat, n] of [...before.entries()].sort(([a], [b]) => (a as number) - (b as number))) {
-    recordEntropyLoss(world, seat, n - (after.get(seat) ?? 0));
+  const seats = new Set<PlayerId>([...before.keys(), ...snappedBy.keys()]);
+  for (const seat of [...seats].sort((a, b) => (a as number) - (b as number))) {
+    recordEntropyPass(world, seat, snappedBy.get(seat) ?? 0, (before.get(seat) ?? 0) - (after.get(seat) ?? 0));
   }
   return snapped;
 }
