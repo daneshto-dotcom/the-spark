@@ -1053,17 +1053,13 @@ export class ZoneBackgroundRenderer {
       usedKeys.add(bakeKey);
       let tex = this.baked.get(bakeKey);
       if (tex === undefined) {
-        let src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
-        let bakeGrade = grade;
-        if (blendIn.length > 0) {
-          // ⭐ N19 — the seam cross-fade, grades baked per race inside it (so punchPortal must not grade again).
-          const blended = blendSeams(src, grade, blendIn.map((b) => ({ ...b, grade: graded ? b.grade : null })));
-          if (blended !== null) {
-            src = blended;
-            bakeGrade = null;
-          }
-        }
-        tex = punchPortal(src, zone, layout, bakeGrade);
+        const src = piece.part === 'full' ? raw : cropHalfTexture(raw, piece.part, piece.mirror);
+        // ⭐ N19 — the seam cross-fade (single-quadrant art only), each race's grade baked inside it, so the
+        // portal pass must not grade again. `null` (no DOM, a draw failure) = the unblended bake, as before.
+        const blended = blendIn.length === 0 ? null
+          : blendSeams(src, grade, blendIn.map((b) => ({ ...b, grade: graded ? b.grade : null })));
+        tex = punchPortal(blended ?? src, zone, layout, blended === null ? grade : null);
+        if (blended !== null && blended !== tex) blended.destroy(true);
         // ⭐ S195 (audit L10) — the crop canvas was only an input to the bake: free it once baked into `tex`.
         if (src !== raw && src !== tex) src.destroy(true);
         this.baked.set(bakeKey, tex);

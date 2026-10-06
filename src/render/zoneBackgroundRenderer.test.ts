@@ -170,10 +170,13 @@ describe('S166 — the zone backdrop covers neither the shape queue nor the fram
     // ⭐ S193 V26 — plus a FOURTH, the race grade (`|g` graded, `|n` the `?fx=legacy` original): the
     // grade rides the same one-time bake, so the cache must tell the two apart or legacy shows graded art.
     // ⭐ S195 — and the quadrant crop of a half-board image (part + mirror) BEFORE the hole: the grade is the
-    // plan's (`null` for the pair art), and `|g`/`|n` stays the key's LAST axis.
-    expect(src).toContain('tex = punchPortal(src, zone, layout, grade);');
+    // plan's (`null` for the pair art).
+    // ⭐ S195 N19 — and a FIFTH, the teammate seam cross-fade (`|b:` + each neighbour's side and texture): the
+    // blend is baked before the hole and carries the grades itself, so the portal pass grades only an
+    // unblended piece. The key's `|g`/`|n` axis is followed by the blend signature (empty when nothing blends).
+    expect(src).toContain('tex = punchPortal(blended ?? src, zone, layout, blended === null ? grade : null);');
     expect(src).toContain('const grade = graded ? piece.grade : null;');
-    expect(src).toContain("`${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}`");
+    expect(src).toContain("`${url}|${piece.part}${piece.mirror ? '|m' : ''}|${layout}|${zone}|${graded ? 'g' : 'n'}${blendSig}`");
     // `raw` must never reach a Sprite: that is the seam bug growing back.
     expect(src).not.toContain('new Sprite(raw)');
     expect(src).not.toContain('sp.texture = raw');

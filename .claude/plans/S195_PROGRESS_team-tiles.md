@@ -1,6 +1,6 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** item 4 — tests in src/render/zoneBackgroundRenderer.test.ts (resolver table, REACH via renderer.sync, FFA negative, missing-file fallback, mutation red), then gates.
+**NEXT STEP:** item 4 — mutation runs (enemy-seam guard, all-or-none, failed fallback), then full gates (typecheck, vitest --maxWorkers=3, build, e2e:gating + teams-lobby on own port) detached.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
