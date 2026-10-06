@@ -2239,3 +2239,16 @@ describe('⭐⭐ S195 §5d — THE TEAMS UPGRADE (s195/teams, PROTOCOL 69): ever
     expect(canonSays('WHAT RIDES 69 (S195, deploy #8)')).toBe(true);
   });
 });
+
+describe('⭐ S195 §5d — N19 team tiles (s195/team-tiles): both shipping flags read what the canon says', () => {
+  it('the manifest ships empty, pairs keep pair art, the seam blend is OFF', async () => {
+    const z = await import('./render/zoneBackgroundRenderer.ts');
+    expect(z.TEAM_TILE_RACES.length).toBe(0);
+    expect(canonSays('`TEAM_TILE_RACES` ships EMPTY')).toBe(true);
+    expect(z.TEAM_TILES_FOR_PAIRS).toBe(false);
+    expect(canonSays('`TEAM_TILES_FOR_PAIRS` = `false`')).toBe(true);
+    expect(z.TEAM_SEAM_BLEND_LEGACY_ART).toBe(false);
+    expect(canonSays('`TEAM_SEAM_BLEND_LEGACY_ART` = `false`')).toBe(true);
+    expect(canonSays('N19 plans six blendable tiles instead')).toBe(false);
+  });
+});

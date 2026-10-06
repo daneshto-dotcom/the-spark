@@ -1309,7 +1309,11 @@ per-seat, unchanged — the first seat to the bar wins for its team.
   = 3000; never in a one-team room; a host MOVE restarts the lock.
 - **BACKDROPS** (`zoneBackdropPlan`): a 2v2 pair = the pair art (top/bottom crop, the east side mirrored); a 2v1 solo =
   his 1v1 2-player race art across his half; 1v1v2 solos and 3v1 = the 4-player single-quadrant art (R195-T5);
-  the trio seam `trioBackdropUrl` returns null until trio art exists (N19 plans six blendable tiles instead).
+  ⭐ S195 N19 (`s195/team-tiles`, deploy #9) — SIX BLENDABLE SINGLE-RACE TILES, not trio images: the manifest
+  `TEAM_TILE_RACES` ships EMPTY until the owner generates the six tiles from `Desktop\SPARK_Six_Race_Tiles_Prompts.html`
+  (files `public/art/race-zones/tiles/<race>.webp`, 480×270). A 3v1 trio switches to tiles ONLY when all three of its
+  races have one; pairs keep the pair art (`TEAM_TILES_FOR_PAIRS` = `false`). The teammate-only seam cross-fade
+  `TEAM_SEAM_BLEND_LEGACY_ART` = `false` — OFF until the owner approves the Desktop COMPARE screenshots.
 
 ## 6 · THE WIRE
 
