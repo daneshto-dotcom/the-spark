@@ -68,11 +68,13 @@ export const FRAME_TEXT = 0x11;
 export const FRAME_DEFLATE = 0x12;
 
 /**
- * ⚠ MINE — the most a frame may inflate to. The biggest snapshot measured is ~139 KiB (S195 lag
- * report) and the computed late-game worst case ~200 KiB; 8 MiB is 40× that. It exists so a hostile
- * or broken host cannot hand a joiner a deflate bomb.
+ * ⚠ MINE — the most a frame may inflate to, so a hostile or broken peer cannot hand a joiner a deflate
+ * bomb. ⭐ S195 audit F2: lowered 8 → 2 MiB on a MEASUREMENT — the largest inflated frame (a keyframe's
+ * text) is 179.3 KiB at wave 10 and 291.0 KiB at wave 15 on the C5 bots match (`netDeltaMeasure.test.ts`,
+ * `keyTextMax`); 2 MiB is ~7× the wave-15 keyframe, room for the pants endgame (+~57 KiB computed) and a
+ * far bigger human board.
  */
-export const MAX_INFLATED_BYTES = 8 * 1024 * 1024;
+export const MAX_INFLATED_BYTES = 2 * 1024 * 1024;
 
 const SNAPSHOT_MARK = '"snapshot":';
 
