@@ -198,6 +198,8 @@ export function connectAsClient(deps: JoinAttemptDeps, code: string): void {
   {
     const transport = new NetTransport();
     deps.session.netTransport = transport;
+    // ⛔ S195 re-audit R1 (net-delta) — only the latched host's snapshot frames may become delta bases.
+    transport.isSnapshotAuthority = (peerId) => deps.session.hostPeerId === peerId;
     // S82 P4(b) — on RECONNECT a ClientSync already exists with a live lastSeq watermark;
     // keep it (host snapshotSeq is monotonic per HostSync instance, so later snapshots
     // still pass the seq gate). Fresh join → fresh ClientSync as before.

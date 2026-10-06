@@ -360,6 +360,17 @@ export class NetTransport {
   private readonly rxPeers = new Map<string, RxPeer>();
   /** ⭐ S195 audit F2 — the one sender whose frames may be kept as bases (see `decodeSnapFrame`). */
   private rxSource: string | null = null;
+  /**
+   * ⛔ S195 re-audit R1 — who may send this page SNAPSHOTS that are kept as delta bases: the client wires
+   * it to the latched host (`connectAsClient`: `session.hostPeerId === peerId`). `null` = no gate (test
+   * transports only; every production transport sets it).
+   */
+  isSnapshotAuthority: ((peerId: string) => boolean) | null = null;
+  /** ⭐ S195 re-audit R2 — snapshot handler / frame failures, logged and counted (never raised to the UI). */
+  private snapHandlerErrors = 0;
+  snapshotHandlerErrors(): number {
+    return this.snapHandlerErrors;
+  }
 
   public onError: ErrorHandler | null = null;
 
@@ -1214,7 +1225,14 @@ export class NetTransport {
     r.chain = r.chain
       .then(() => this.decodeSnapFrame(data, peerId, strategyName, r, gen))
       .catch((err: unknown) => {
-        this.emitError(`snapshot frame from ${peerId} failed: ${err instanceof Error ? err.message : String(err)}`);
+        // ⛔ S195 re-audit R2(b) — console ONLY. Routing this through `emitError` would let a throwing
+        // `onError` (a UI callback) re-reject the chain and freeze the board all over again.
+        this.snapHandlerErrors++;
+        try {
+          console.error(`[net] snapshot frame from ${peerId} failed:`, err);
+        } catch {
+          /* nothing left to tell */
+        }
       });
   }
 
@@ -1250,6 +1268,8 @@ export class NetTransport {
     if (header.baseFid !== 0) {
       const held = rx.ring.get(header.baseFid);
       if (held === undefined) {
+        // ⛔ R1 — only the authority is ever asked for a keyframe (anyone else would be fed an upload).
+        if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) return;
         this.requestKeyframe(peerId, strategyName, rx, `no base frame ${header.baseFid}`);
         return;
       }
@@ -1272,7 +1292,11 @@ export class NetTransport {
     try {
       accepted = this.handleRawMessage(full, peerId, strategyName, false);
     } catch (err) {
-      this.emitError(`snapshot handler threw for ${peerId}: ${err instanceof Error ? err.message : String(err)}`);
+      // ⛔ S195 re-audit R2(c) — logged and COUNTED, never raised into `onError`: that is the sticky
+      // lobby error line (`onLobbyError` → `lobbyScreen.setErrorMessage`), which a handler throw on the
+      // legacy string path never produced (Trystero swallowed it per call).
+      this.snapHandlerErrors++;
+      console.error(`[net] snapshot handler threw for ${peerId}:`, err);
       accepted = true;
     }
     /*
@@ -1286,6 +1310,14 @@ export class NetTransport {
       if (this.rxSource === peerId) this.requestKeyframe(peerId, strategyName, rx, 'rebuilt snapshot rejected');
       return;
     }
+    /*
+     * ⛔ S195 re-audit R1 (security) — "accepted" above means PARSED, not AUTHORIZED: the sender-auth gate
+     * (`hostAuthFilter`) runs in the handlers, after this. So only the SNAPSHOT AUTHORITY (the latched host,
+     * `session.hostPeerId`; after a migration the successor, once the client adopts it) may hold bases and
+     * get acks. Any other sender's frame is decoded, handed on (and dropped by the auth gate), and leaves
+     * no trace here — it can neither evict the host's bases nor start a keyframe ping-pong.
+     */
+    if (this.isSnapshotAuthority !== null && !this.isSnapshotAuthority(peerId)) return;
     if (this.rxSource !== peerId) {
       if (this.rxSource !== null) this.rxPeers.get(this.rxSource)?.ring.clear();
       this.rxSource = peerId;
