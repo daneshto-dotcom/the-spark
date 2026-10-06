@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- SECOND FIX ROUND: R1 R2 R3 + mutations. typecheck 0, vitest 9185/0. RUNNING build+e2e (b5 eg5 el5 ep5). NEXT: report.
+- SECOND FIX ROUND DONE: R1 R2 R3 + mutations. typecheck 0, vitest 613 files 9185/0, build 0 (1232.0/1350 KiB), e2e gating 67/67, lobby 5/5, protocol 2/2. Awaiting merge owner (bump 69->70).
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
