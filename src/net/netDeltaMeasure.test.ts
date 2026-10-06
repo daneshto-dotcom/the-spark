@@ -46,6 +46,8 @@ interface Row {
   wave: number; prims: number; bonds: number; creatures: number;
   full: number; a: number; b: number; ab: number; key: number; abAmortised: number;
   hostFullMs: number; hostAbMs: number; joinerFullMs: number; joinerAbMs: number;
+  /** ⭐ S195 audit F2 — the largest INFLATED frame (a keyframe's text, bytes): what MAX_INFLATED_BYTES must hold. */
+  keyTextMax: number;
 }
 const median = (xs: number[]): number => { const s = [...xs].sort((p, q) => p - q); return s[Math.floor(s.length / 2)] ?? 0; };
 const kib = (n: number): string => (n / 1024).toFixed(1);
@@ -70,6 +72,7 @@ describe.skipIf(!MEASURE)('S195 net-delta — A / B / A+B, measured wave by wave
       expect(w.waveNumber).toBe(wave);
       const s: Record<string, number[]> = { full: [], a: [], b: [], ab: [], key: [], hf: [], ha: [], jf: [], ja: [] };
       let prevSegs: Segments | null = null;
+      let keyTextMax = 0;
       let prevFid = 0;
       for (let k = 0; k < BURST; k++) {
         for (let t = 0; t < 6; t++) { bots.tick(w); runHostTick(w, deps, state); }
@@ -79,6 +82,7 @@ describe.skipIf(!MEASURE)('S195 net-delta — A / B / A+B, measured wave by wave
         const h1 = performance.now();
         const segs: Segments = segmentSnapshotMessage(stripWirePrevPos(msg), wireNumberReplacer, prevSegs)!;
         const keyText = encodeDelta(segs, null, fid, 0);
+        keyTextMax = Math.max(keyTextMax, new TextEncoder().encode(keyText).byteLength);
         const deltaText = prevSegs === null ? keyText : encodeDelta(segs, prevSegs, fid, prevFid);
         const abFrame = await packFrame(deltaText, true);
         const h2 = performance.now();
@@ -111,6 +115,7 @@ describe.skipIf(!MEASURE)('S195 net-delta — A / B / A+B, measured wave by wave
         full: median(s.full!), a: median(s.a!), b: median(s.b!), ab, key,
         abAmortised: (ab * (KEYFRAME_INTERVAL - 1) + key) / KEYFRAME_INTERVAL,
         hostFullMs: median(s.hf!), hostAbMs: median(s.ha!), joinerFullMs: median(s.jf!), joinerAbMs: median(s.ja!),
+        keyTextMax,
       });
       if (wave === maxWave) break;
     }
@@ -126,6 +131,7 @@ describe.skipIf(!MEASURE)('S195 net-delta — A / B / A+B, measured wave by wave
       writeFileSync(join(OUT, 'netDeltaMeasure.json'), JSON.stringify(rows, null, 2));
       writeFileSync(join(OUT, 'netDeltaMeasure.md'), lines.join('\n') + '\n');
     }
+    console.log('[netDeltaMeasure] largest inflated keyframe per wave (KiB): ' + rows.map((r) => `w${r.wave}=${kib(r.keyTextMax)}`).join(' '));
     expect(rows.length).toBe(WAVES.length);
     void WAVE_TICKS;
   }, 3_600_000);
