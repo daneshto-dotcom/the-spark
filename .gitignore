@@ -65,3 +65,6 @@ assets-source/**/*.raw
 
 # Owner Grok desktop-cleaner drops Desktop clutter here (S195 R195-D1); unique copies kept, never committed
 _from-desktop/
+
+# Independent auditors' scratch notes/probes (S195) — evidence, never committed
+.tmp-audit/
