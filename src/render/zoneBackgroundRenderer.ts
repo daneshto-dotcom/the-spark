@@ -1136,7 +1136,7 @@ export class ZoneBackgroundRenderer {
     const loaded = new Set(this.textures.values());
     const onSprite = new Set([...this.sprites.values()].map((s) => s.texture));
     for (const [key, tex] of [...this.baked]) {
-      if (used.has(key) || onSprite.has(tex)) continue;
+      if (used.has(key) || (onSprite.has(tex) && !loaded.has(tex))) continue; // a loaded asset is never freed here
       this.baked.delete(key);
       if (!loaded.has(tex) && !onSprite.has(tex)) tex.destroy(true);
     }

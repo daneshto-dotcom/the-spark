@@ -6,15 +6,15 @@
  *   · the resolver: a 3v1 trio paints from tiles when EVERY trio race has one (⚠ MINE all-or-none), pairs keep
  *     the owner's pair art unless `forPairs` (⚠ MINE off), solos / the 2v1 solo half / FFA never read a tile;
  *   · the seam cross-fade: every open seam between TEAMMATES on single-quadrant art, never an enemy seam;
- *   · the manifest ships EMPTY, so every board is byte-identical to deploy #8 except the 3v1 cross-fade
- *     (`TEAM_SEAM_BLEND_LEGACY_ART`, ⚠ MINE on);
+ *   · the manifest ships EMPTY and today's-art blend ships OFF (`TEAM_SEAM_BLEND_LEGACY_ART`, until the owner
+ *     approves the Desktop screenshots), so every board is byte-identical to deploy #8;
  *   · REACH through the real renderer `sync`, the FFA negative, and the missing-file fallback through the real
  *     `Assets.load` rejection path.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, readdirSync } from 'node:fs';
-import { Assets, Container, Texture, type Application } from 'pixi.js';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { Assets, BufferImageSource, Container, Texture, type Application } from 'pixi.js';
 import { dispatch, makeWorld, type World } from '../state/world.ts';
 import {
   MANIFEST_TILES,
@@ -54,10 +54,10 @@ const brief = (plan: ZoneBackdrop[]) => plan.map((p) =>
   `${p.zone}:${p.url.replace('/art/race-zones/', '')}|${p.part}${p.mirror ? '|M' : ''}${p.blend ? `|b:${p.blend.map((b) => `${b.side}=${b.url.replace('/art/race-zones/', '')}`).join(',')}` : ''}`);
 
 describe('S195 N19 — the shipped defaults', () => {
-  it('the manifest ships EMPTY, pairs keep pair art, today\'s 3v1 art blends (each ⚠ MINE, pinned)', () => {
+  it('the manifest ships EMPTY, pairs keep pair art, today\'s 3v1 art does NOT blend until he approves (pinned)', () => {
     expect(TEAM_TILE_RACES).toEqual([]);
     expect(TEAM_TILES_FOR_PAIRS).toBe(false);
-    expect(TEAM_SEAM_BLEND_LEGACY_ART).toBe(true);
+    expect(TEAM_SEAM_BLEND_LEGACY_ART).toBe(false);
     expect(TEAM_SEAM_FEATHER).toBe(0.22);
     expect(MANIFEST_TILES.blendLegacy).toBe(TEAM_SEAM_BLEND_LEGACY_ART);
     expect(teamTileUrl('orcs')).toBe('/art/race-zones/tiles/orcs.webp');
@@ -65,15 +65,26 @@ describe('S195 N19 — the shipped defaults', () => {
 
   it('every race the manifest lists ships its tile in public/ (vacuous until he delivers; the folder exists)', () => {
     expect(existsSync('public/art/race-zones/tiles')).toBe(true);
-    for (const r of TEAM_TILE_RACES) expect(existsSync(`public${teamTileUrl(r)}`), r).toBe(true);
+    for (const r of TEAM_TILE_RACES) {
+      const f = `public${teamTileUrl(r)}`;
+      expect(existsSync(f), r).toBe(true);
+      expect(webpSize(readFileSync(f)), `${r} must be transcoded to the 480×270 quadrant size`).toEqual({ w: 480, h: 270 });
+    }
     // ⛔ and no stray tile sits there unlisted (a delivered file that nobody wired is a silent no-op)
     const files = readdirSync('public/art/race-zones/tiles').filter((f) => f.endsWith('.webp'));
     expect(files.sort()).toEqual(TEAM_TILE_RACES.map((r) => `${r}.webp`).sort());
   });
 
-  it('⭐ the default plan (no tiles): 3v1 = today\'s 4p art, cross-faded on the two trio seams only', () => {
+  it('⛔ the default plan (no tiles, blend off): 3v1 = today\'s plain 4p art — byte-identical to deploy #8 (R195-T5)', () => {
     const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
     expect(brief(zoneBackdropPlan(w))).toEqual([
+      '0:zone-vampires-4p.png|full', '1:zone-orcs-4p.png|full', '2:zone-zombies-4p.png|full', '3:zone-nagas-4p.png|full',
+    ]);
+  });
+
+  it('⭐ the legacy flag ON: 3v1 today\'s art cross-faded on the two trio seams only', () => {
+    const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
+    expect(brief(zoneBackdropPlan(w, tilesFor([], { blendLegacy: true })))).toEqual([
       '0:zone-vampires-4p.png|full', // the solo NW — walls up, nothing blends into him
       '1:zone-orcs-4p.png|full|b:s=zone-zombies-4p.png',
       '2:zone-zombies-4p.png|full|b:n=zone-orcs-4p.png,w=zone-nagas-4p.png',
@@ -184,6 +195,15 @@ function renderer(tiles?: TileAvailability) {
 }
 const flush = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
 
+/** A WebP's canvas size from its header (VP8X / VP8 / VP8L) — no decoder needed. */
+function webpSize(b: Buffer): { w: number; h: number } {
+  const kind = b.toString('ascii', 12, 16);
+  if (kind === 'VP8X') return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
+  if (kind === 'VP8 ') return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+  if (kind === 'VP8L') { const v = b.readUInt32LE(21); return { w: 1 + (v & 0x3fff), h: 1 + ((v >> 14) & 0x3fff) }; }
+  return { w: -1, h: -1 };
+}
+
 describe('S195 N19 — REACH through the real renderer sync', () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -208,14 +228,14 @@ describe('S195 N19 — REACH through the real renderer sync', () => {
       return Texture.WHITE;
     }) as never);
     const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
-    const { r, inner, labelOf } = renderer(tilesFor(ALL6, { blendLegacy: TEAM_SEAM_BLEND_LEGACY_ART }));
+    const { r, inner, labelOf } = renderer(tilesFor(ALL6, { blendLegacy: true }));
     r.sync(w);
     await flush();
     r.sync(w);
     await flush();
     r.sync(w);
     expect(inner.failed.has('/art/race-zones/tiles/nagas.webp')).toBe(true);
-    // all-or-none: the whole trio is back on today's art, cross-faded by the legacy flag (on)
+    // all-or-none: the whole trio is back on today's art, cross-faded by the legacy flag (on here)
     expect(labelOf(1)).toBe('zone-bg:/art/race-zones/zone-orcs-4p.png|full|blend:s');
     expect(labelOf(2)).toBe('zone-bg:/art/race-zones/zone-zombies-4p.png|full|blend:nw');
     expect(labelOf(3)).toBe('zone-bg:/art/race-zones/zone-nagas-4p.png|full|blend:e');
@@ -230,7 +250,7 @@ describe('S195 N19 — REACH through the real renderer sync', () => {
       return Texture.WHITE;
     }) as never);
     const w = start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']);
-    const { r, labelOf } = renderer();
+    const { r, labelOf } = renderer(tilesFor([], { blendLegacy: true }));
     r.sync(w);
     await flush();
     r.sync(w);
@@ -257,5 +277,54 @@ describe('S195 N19 — REACH through the real renderer sync', () => {
       'zone-bg:/art/race-zones/zone-nagas-4p.png|full', 'zone-bg:/art/race-zones/zone-vampires-4p.png|full',
     ]);
     expect(load.mock.calls.some(([u]) => String(u).includes('/tiles/'))).toBe(false);
+  });
+});
+
+describe('S195 N19 audit LOW-1 — no orphaned bake when a rematch waits for a cold race', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it('2v2 → 3v1 rematch whose SE race loads late: zero orphans, and no stale art once it lands', async () => {
+    // A stub 2D canvas so the bakes really allocate (and can really leak) under node.
+    const ctx = new Proxy({}, { get: (_t, k) => (String(k).includes('Gradient') ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
+    vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) });
+    const created = new Set<Texture>();
+    const destroyed = new Set<Texture>();
+    const mkTex = (w: number, h: number): Texture => {
+      const t = new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width: w, height: h }) });
+      created.add(t);
+      const d = t.destroy.bind(t);
+      t.destroy = ((x?: boolean) => { destroyed.add(t); d(x); }) as never;
+      return t;
+    };
+    vi.spyOn(Texture, 'from').mockImplementation(((c: { width: number; height: number }) => mkTex(c.width || 1, c.height || 1)) as never);
+    let hold: Promise<void> | null = null;
+    vi.spyOn(Assets, 'load').mockImplementation((async (u: string) => {
+      if (hold !== null && String(u).includes('zombies')) await hold;
+      return new Texture({ source: new BufferImageSource({ resource: new Uint8Array(4), width: 480, height: 270 }) });
+    }) as never);
+    const { r, inner } = renderer(tilesFor([], { blendLegacy: true }));
+    const sprites = (r as unknown as { sprites: Map<number, { texture: Texture; label: string }> }).sprites;
+    const vignette = (): Texture | undefined => (r as unknown as { vignette: { texture: Texture } | null }).vignette?.texture;
+    const run = async (w: World) => { for (let i = 0; i < 4; i++) { r.sync(w); await flush(); } };
+    const orphans = () => [...created].filter((t) => !destroyed.has(t) && ![...inner.baked.values()].includes(t)
+      && ![...sprites.values()].some((s) => s.texture === t) && vignette() !== t);
+
+    await run(start([0, 1, 1, 0], ['orcs', 'nagas', 'mummies', 'vampires'])); // 2v2: four pair-art bakes
+    let release!: () => void;
+    hold = new Promise((res) => { release = res; });
+    await run(start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires'])); // 3v1, zombies (SE) cold
+    expect(orphans().length).toBe(0);
+    release();
+    await flush();
+    hold = null;
+    await run(start([0, 0, 0, U], ['orcs', 'zombies', 'nagas', 'vampires']));
+    expect(orphans().length).toBe(0);
+    // once it lands, every quadrant shows THIS match's art — nothing left over from the 2v2
+    expect([0, 1, 2, 3].map((z) => sprites.get(z)?.label)).toEqual([
+      'zone-bg:/art/race-zones/zone-vampires-4p.png|full',
+      'zone-bg:/art/race-zones/zone-orcs-4p.png|full|blend:s',
+      'zone-bg:/art/race-zones/zone-zombies-4p.png|full|blend:nw',
+      'zone-bg:/art/race-zones/zone-nagas-4p.png|full|blend:e',
+    ]);
   });
 });
