@@ -135,7 +135,7 @@ const PINNED_PREDICATE: Readonly<Record<string, number>> = {
   'render/matchBoardModel.ts': 1, // S194 — the stat board stars the winner's whole TEAM
   'render/goblinRenderer.ts': 1, // S194 — master's lifesteal motes come from the nearest ENEMY creature (visuals-racial)
   'render/wallRenderer.ts': 1,
-  'render/zoneBackgroundRenderer.ts': 2, // ⭐ S195 — the team backdrop plan: a pair half is two TEAMMATES (+ the team-size count)
+  'render/zoneBackgroundRenderer.ts': 4, // ⭐ S195 — the team backdrop plan: a pair half is two TEAMMATES (+ the team-size count); N19: every trio race has a tile (+ a seam blends only between TEAMMATES)
   'state/bossSkills.ts': 1,
   'state/bossSkillsArchdemon.ts': 3,
   'state/bossSkillsKraken.ts': 2,
@@ -242,7 +242,7 @@ const PINNED_SEATVAR: Readonly<Record<string, number>> = {
   'render/severToastRenderer.ts': 2, // a toast for YOUR bond; actor === victim (self-sever wording)
   'render/sudokuOverlay.ts': 1, // who solved it
   'render/ui.ts': 1, // the local row
-  'render/zoneBackgroundRenderer.ts': 1, // the hovered zone
+  'render/zoneBackgroundRenderer.ts': 2, // the hovered zone; N19: a seam inside ONE seat's ground (`q.seat === p.seat`) is not a teammate seam — MINE, not ENEMY
   'state/bossSkillsArchdemon.ts': 2, // `allies` is a COUNT compared for the best cluster
   'state/creatures/creatureAI.ts': 1, // S194 (master endgame) — the PANTS marches on its ONE chosen seat (monster, no team)
   'state/creatures/creatureLifecycle.ts': 1, // whose bond a creature was cutting (victim bookkeeping)
