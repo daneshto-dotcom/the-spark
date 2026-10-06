@@ -1,7 +1,9 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
+## STATUS: ALL LANDINGS DONE — S195-#1..#10 live, PROTOCOL 70, last deploy 81dfb8d3 (verify 4/4). Final report in the merge owner's hands.
+
 ## EXACT NEXT STEP (L10 net-delta — LANDED)
-#9 8c3c6f94 and #10 81dfb8d3 LIVE, both verify-deploy 4/4. PROTOCOL 70. All landings DONE. Remaining only: final CI verdicts for #9 (quarantine) and #10 (`.tmp-gates/s195_L9/ci-final.txt`, `.tmp-gates/s195_L10/ci-final.txt`) → append to the dispatch log. Then the session handoff (merge owner).
+#9 8c3c6f94 and #10 81dfb8d3 LIVE, both verify-deploy 4/4. PROTOCOL 70. All landings DONE. #9 CI SUCCESS logged. #10 CI: gating red (tickClock CI-only), lobby red (nplayer:140 page boot) — logged. Remaining only: #10 soak/quarantine (`.tmp-gates/s195_L9/ci-final.txt`, `.tmp-gates/s195_L10/ci-final.txt`) → append to the dispatch log. Then the session handoff (merge owner).
 
 ## EXACT NEXT STEP (L8 — s195/teams, PROTOCOL 69)
 LANDED as S195-#8 2d03f104 (deploy 37384486434 success, verify 4/4, logged). CI: gating/render/races/lobby/worker-bots/atlas/typecheck green, protocol red (non-gating) — logged. CI E2E 37384486419 concluded SUCCESS (quarantine/protocol red, non-gating) — logged. HOLDING for network #9. Then HOLD for network #9. Commit only my paths.
