@@ -118,6 +118,16 @@ export class ClientSync {
   private needsFullApply = false;
   /** S39 P1 — count of applyNetSnapshot throws caught by interpolateInto. */
   private applyErrorCount = 0;
+  /**
+   * ⭐ S195 re-audit R3 (net-delta) — snapshots successfully APPLIED to the world. The sever toast seeds
+   * its "already shown" entropy pass on the first frame after this moves following a (re)join, so the
+   * rejoin path (START_GAME resets matchStats, PLAYING before any snapshot) cannot replay a pass.
+   */
+  private appliedCount = 0;
+
+  snapshotsApplied(): number {
+    return this.appliedCount;
+  }
 
   /**
    * Accept the snapshot if seq > lastSeq. Stale / out-of-order rejected.
@@ -271,6 +281,7 @@ export class ClientSync {
       try {
         applyNetSnapshot(this.currentSnap, world);
         this.needsFullApply = false;
+        this.appliedCount++; // ⭐ S195 re-audit R3 — see snapshotsApplied()
       } catch (err) {
         this.applyErrorCount++;
         console.error(

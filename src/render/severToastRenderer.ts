@@ -329,6 +329,16 @@ export class SeverToastRenderer {
    * after it is news and shows. (Host migration keeps the renderer in PLAYING, so it never reseeds.)
    */
   private entropySeeded = false;
+  /**
+   * ⛔ S195 re-audit R3 — on a JOINER the seed must wait for a real SNAPSHOT: the rejoin path enters
+   * PLAYING from START_GAME_SIGNAL with matchStats reset and waveNumber 1, so seeding on that first frame
+   * seeded "nothing" and the first snapshot then replayed this wave's pass. `snapshotApplies` (wired in
+   * main.ts to `session.clientSync?.snapshotsApplied()`) returns null on a host — seed at once — and a
+   * count on a joiner: the seed happens on the first frame the count has MOVED from where it stood when
+   * this renderer entered PLAYING (moved, not grown: a ClientSync reset sends it back to 0).
+   */
+  snapshotApplies: (() => number | null) | null = null;
+  private seedBaseline: number | null | undefined = undefined;
 
   constructor(app: Application) {
     this.container = new Container();
@@ -381,6 +391,7 @@ export class SeverToastRenderer {
       this.shownTick = undefined;
       this.entropyShownWave = undefined;
       this.entropySeeded = false;
+      this.seedBaseline = undefined;
       this.container.visible = false;
       return;
     }
@@ -391,8 +402,15 @@ export class SeverToastRenderer {
     // ordinary sever: it is the bigger news, and the sever toast's next batch restarts the window anyway.
     const ent = entropyToastFor(world, world.localPlayerId);
     if (!this.entropySeeded) {
-      this.entropySeeded = true;
-      this.entropyShownWave = ent?.key;
+      const applies = this.snapshotApplies?.() ?? null;
+      if (this.seedBaseline === undefined) this.seedBaseline = applies;
+      if (applies === null || applies !== this.seedBaseline) {
+        this.entropySeeded = true;
+        this.entropyShownWave = ent?.key;
+      } else {
+        // A joiner with no snapshot applied since it entered PLAYING: nothing synced to trust yet.
+        this.entropyShownWave = ent?.key ?? this.entropyShownWave;
+      }
     }
     let text = cap.text;
     if (ent !== null && ent.key !== this.entropyShownWave) {
