@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## EXACT NEXT STEP (L9 team-tiles → L10 net-delta, LAST)
-L9: all local gates 0 (tc · vt 9152 · build 1223.3/1350 · gating 67 · render 10 · races 5 · lobby 5 · teams 2). PUSHED 8c3c6f94bf3d9cb1f2d4f879290cabfe7d5ded42; detached `.tmp-gates/s195_L9/dv.sh` waits for the Deploy run and writes deploy.txt + verify.exit. L10 NEXT: merge s195/net-delta (keep master's session-state/plans), run scratchpad `bump70.py` (ten sites + §6 WHAT RIDES 70 + canon :125 toast + pins), integration tests, commit; start L10 gates ONLY after L9 verify.exit exists (a rebuild would change the local asset verify compares). Then push, verify, log #9 + #10, final report.
+## EXACT NEXT STEP (L10 net-delta, LAST)
+#9 LANDED 8c3c6f94 (verify 4/4, logged). L10 merged (no conflicts; 26 i/lf + hostHandlers.ts CRLF pre-existing), BUMP 69→70 2d6b2152 (integration tests 189/189). Gates RUNNING `.tmp-gates/s195run6.sh L10 31975` → `.tmp-gates/s195_L10/` (tc/vt/build/gating/render/races/lobby — DECISIVE real-WebRTC lane — /teams/protocol). Then push, verify --sha FULL, log #10 + CI per lane for #9 and #10, final report.
 
 ## EXACT NEXT STEP (L8 — s195/teams, PROTOCOL 69)
 LANDED as S195-#8 2d03f104 (deploy 37384486434 success, verify 4/4, logged). CI: gating/render/races/lobby/worker-bots/atlas/typecheck green, protocol red (non-gating) — logged. CI E2E 37384486419 concluded SUCCESS (quarantine/protocol red, non-gating) — logged. HOLDING for network #9. Then HOLD for network #9. Commit only my paths.
