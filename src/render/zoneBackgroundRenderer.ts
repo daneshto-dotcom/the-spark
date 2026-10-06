@@ -305,6 +305,10 @@ export function teamPairArtUrl(top: RaceId, bottom: RaceId): string {
  * returns `null`. The day they land: return `/art/race-zones/teams/zone-team3-<ne>-<se>-<sw>.png` here,
  * route it through `zoneBackdropPlan`'s trio arm, and ⚠ ERASE THE IMAGE'S NW QUARTER at texture prep (it
  * belongs to the solo; backdrops draw at 0.55 alpha, so a covered quarter would still show through).
+ *
+ * ⚠ S195 N19 — PROBABLY SUPERSEDED: the owner proposed six blendable race tiles instead of 56 trio images
+ * (`TEAM_TILE_RACES` below). He generated 27 of the 56 before asking (identified in
+ * `.claude/plans/S195_PROGRESS_team-tiles.md`); this seam stays `null` and unrouted until he picks one path.
  */
 export function trioBackdropUrl(_ne: RaceId, _se: RaceId, _sw: RaceId): string | null {
   return null;
