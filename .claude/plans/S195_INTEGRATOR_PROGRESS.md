@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
 ## EXACT NEXT STEP (L9 — s195/team-tiles bedcfd4e, no bump; then L10 s195/net-delta 1d3a363d, BUMP 69→70, LAST)
-L9 merged (no conflicts; branch's session-state/plan edits did not reach master — diff = its 6 own files). Canon §5d tiles + pins committed. Gates RUNNING `.tmp-gates/s195run9.sh L9 31973` → `.tmp-gates/s195_L9/` (tc/vt/build/gating/render/races/lobby/teams). Then push, verify --sha FULL, log #9. Then L10: merge net-delta (keep master's session-state/plans), bump ten sites + §6 WHAT RIDES 70 + canon :125 entropy toast text, gates incl. lobby + protocol, push, verify, log #10, final report.
+L9 merged (no conflicts; branch's session-state/plan edits did not reach master — diff = its 6 own files). Canon §5d tiles + pins committed. Gates RUNNING (tc 0 so far) `.tmp-gates/s195run9.sh L9 31973` → `.tmp-gates/s195_L9/` (tc/vt/build/gating/render/races/lobby/teams). Then push, verify --sha FULL, log #9. Then L10 (bump script prepared at scratchpad `bump70.py`; net-delta trial merge onto master is clean): merge net-delta (keep master's session-state/plans), bump ten sites + §6 WHAT RIDES 70 + canon :125 entropy toast text, gates incl. lobby + protocol, push, verify, log #10, final report.
 
 ## EXACT NEXT STEP (L8 — s195/teams, PROTOCOL 69)
 LANDED as S195-#8 2d03f104 (deploy 37384486434 success, verify 4/4, logged). CI: gating/render/races/lobby/worker-bots/atlas/typecheck green, protocol red (non-gating) — logged. CI E2E 37384486419 concluded SUCCESS (quarantine/protocol red, non-gating) — logged. HOLDING for network #9. Then HOLD for network #9. Commit only my paths.
