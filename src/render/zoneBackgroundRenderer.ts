@@ -347,10 +347,12 @@ export const TEAM_SEAM_FEATHER = 0.22;
 
 /**
  * ⚠ MINE (N19) — cross-fade an open seam even when both sides are TODAY'S 4-player art (the 3v1 trio before
- * tiles land). Decided from the prototype screenshots (`SPARK_S195_TeamTiles` on the Desktop): see the
- * progress file. Tiles always blend; this only governs today's horizon-view art.
+ * tiles land). `true`, decided from the real-game prototype frames (`SPARK_S195_TeamTiles` on the Desktop):
+ * the hard step between two teammates' quadrants becomes a soft fade, and nothing else on the board moves.
+ * It cannot hide that today's art is horizon-view (a sky band mid-trio) — that is what the six top-down
+ * tiles fix. Tiles always blend; this only governs today's art. One line to flip.
  */
-export const TEAM_SEAM_BLEND_LEGACY_ART = false;
+export const TEAM_SEAM_BLEND_LEGACY_ART = true;
 
 /** What the plan needs to know about tiles: which races have one, where, and whether pairs use them. */
 export interface TileAvailability {

@@ -1,12 +1,12 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** item 2 — renderer has tile resolver + seam blend (WIP, typechecks); next: Playwright prototype script .tmp-gates/proto.mjs on own port, screenshots to Desktop/SPARK_S195_TeamTiles.
+**NEXT STEP:** item 3 — write Desktop/SPARK_Six_Race_Tiles_Prompts.html (model on the 2v2/trio sheets), then item 4 tests.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
 ## Items
 1. [x] 29 trio images — identify + judge
-2. [ ] side-by-side prototype + screenshots -> Desktop/SPARK_S195_TeamTiles
+2. [x] side-by-side prototype + screenshots -> Desktop/SPARK_S195_TeamTiles
 3. [ ] six-tile Grok prompt sheet -> Desktop/SPARK_Six_Race_Tiles_Prompts.html
 4. [ ] tile path behind a manifest (render-only, no bump)
 
@@ -55,3 +55,12 @@ consistent and on-style; the regions BLEND naturally across the quadrant lines (
 free). Defects: ~9 images paint a dark "quarry" disc far larger than the game's 72 px portal hole (so a dark
 blob would sit around the portal), one (9vbUs) puts it on the south seam; aspect 1168×784 = 1.49 vs the
 board's 1.78, so cover-scale crops ~8 % top and bottom.
+
+## Item 2 — prototype (real game, `.tmp-gates/proto.mjs`, vite on private port 31957)
+Frames + COMPARE sheets + README in `C:/Users/onesh/OneDrive/Desktop/SPARK_S195_TeamTiles/`.
+Verdict: cross-fade removes the hard step (kept ON for today's 3v1 art, `TEAM_SEAM_BLEND_LEGACY_ART` ⚠ MINE)
+but today's 4p art is HORIZON-VIEW (sky at the top of every quadrant) so a trio reads as stacked postcards;
+his Grok trios are top-down and read as one world → generate SIX top-down tiles. Pair art beats tiles for
+pairs → `TEAM_TILES_FOR_PAIRS = false` ⚠ MINE.
+⚠ Finding during the run: the first pass was stale HMR (old class instance) — labels showed blend on the
+"today" variant; restarted vite --force and re-ran; labels now match each variant (proto.log).
