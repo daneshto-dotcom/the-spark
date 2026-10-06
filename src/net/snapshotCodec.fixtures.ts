@@ -99,6 +99,8 @@ export function linkedPair(): LinkedPair {
   const joinerRoom = fakeRoom();
   const host = startedTransport(hostRoom);
   const joiner = startedTransport(joinerRoom);
+  // As production wires it (`connectAsClient`): only the latched host's frames may become bases.
+  joiner.isSnapshotAuthority = (peerId) => peerId === 'H';
   const rawSeen: string[] = [];
   const orig = joiner.handleRawMessage.bind(joiner);
   joiner.handleRawMessage = (data: string, peerId: string, strategyName = '', countBytes = true): boolean => {

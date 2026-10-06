@@ -56,6 +56,7 @@ async function deliver(p: LinkedPair, frames: Uint8Array[]): Promise<void> {
   await p.joiner.snapFramesSettled('H');
 }
 const headerOf = async (f: Uint8Array) => readDeltaHeader(await unpackFrame(f))!;
+const rings = (p: LinkedPair) => (p.joiner as unknown as { rxPeers: Map<string, { ring: Map<number, unknown> }> }).rxPeers;
 function received(p: LinkedPair): NetMessage[] {
   const out: NetMessage[] = [];
   p.joiner.on((m) => out.push(m));
@@ -245,7 +246,9 @@ describe('S195 net-delta — through the real transport', () => {
     }
     quiet.mockRestore();
     expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([1, 3, 4, 5, 6]);
-    expect(errors.some((e) => e.includes('handler boom')), 'the throw is REPORTED, not swallowed').toBe(true);
+    // ⛔ R2(c) — logged + counted, NEVER raised into onError (the sticky lobby line).
+    expect(errors, 'a handler throw must not reach the lobby error line').toEqual([]);
+    expect(p.joiner.snapshotHandlerErrors()).toBe(1);
     expect(p.rawSeen.at(-1)).toBe(fullWire(snap(6, { moved: 5 })));
   });
 
@@ -274,10 +277,78 @@ describe('S195 net-delta — through the real transport', () => {
     room2.room.onPeerJoin('J');
     host2.send(snap(2));
     await until(() => room2.actions.get('snap')!.sent.length > 0, 'host2 transmitted');
+    // The client adopted the successor (`session.hostPeerId = winner.peerId`) — it is now the authority.
+    p.joiner.isSnapshotAuthority = (id) => id === 'H2';
     p.joinerRoom.actions.get('snap')!.onMessage!(room2.actions.get('snap')!.sent[0]!.data, { peerId: 'H2' });
     await p.joiner.snapFramesSettled('H2');
     expect(rings.get('H2')!.ring.size).toBe(1);
     expect(rings.get('H')!.ring.size, 'the deposed sender keeps no bases').toBe(0);
+  });
+
+  it('⛔ S195 re-audit R2(a) (G1) — the INNER try/catch alone: the frame whose handler threw is still committed + acked, the next delta bases on it', async () => {
+    const p = linkedPair();
+    let throwOnce = true;
+    p.joiner.on((m) => { if (throwOnce && (m as NetSnapshotMsg).snapshotSeq === 2) { throwOnce = false; throw new Error('boom'); } });
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    const f2 = await sendAndTake(p, snap(2));
+    const fid2 = (await headerOf(f2[0]!)).fid;
+    await deliver(p, f2);
+    const acks = p.takeAcks().map((a) => JSON.parse(a));
+    for (const a of acks) p.deliverAck(JSON.stringify(a));
+    quiet.mockRestore();
+    expect(acks.map((a) => a.f)).toContain(fid2);
+    expect(rings(p).get('H')!.ring.has(fid2)).toBe(true);
+    expect((await headerOf((await sendAndTake(p, snap(3)))[0]!)).baseFid).toBe(fid2);
+  });
+
+  it('⛔ S195 re-audit R2(b) (G2) — a THROWING onError on top of a handler throw does not freeze the board', async () => {
+    const p = linkedPair();
+    const got: number[] = [];
+    let throwOnce = true;
+    p.joiner.on((m) => {
+      const s = (m as NetSnapshotMsg).snapshotSeq;
+      if (throwOnce && s === 2) { throwOnce = false; throw new Error('boom'); }
+      got.push(s);
+    });
+    p.joiner.onError = () => { throw new Error('ui callback threw'); };
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    flushAcks(p);
+    for (let s = 1; s <= 6; s++) {
+      await deliver(p, await sendAndTake(p, snap(s)));
+      flushAcks(p);
+    }
+    quiet.mockRestore();
+    expect(got).toEqual([1, 3, 4, 5, 6]);
+  });
+
+  it('⛔ S195 re-audit R1 (G3) — a NON-HOST peer’s valid keyframe cannot take the base slot: the host’s next delta applies with no keyframe request', async () => {
+    const p = linkedPair();
+    flushAcks(p);
+    await deliver(p, await sendAndTake(p, snap(1)));
+    flushAcks(p);
+    expect(rings(p).get('H')!.ring.size).toBe(1);
+    const evilRoom = fakeRoom();
+    const evil = startedTransport(evilRoom);
+    evilRoom.room.onPeerJoin('J');
+    evil.send(snap(999));
+    await until(() => evilRoom.actions.get('snap')!.sent.length > 0, 'evil sent');
+    p.joinerRoom.actions.get('snap')!.onMessage!(evilRoom.actions.get('snap')!.sent[0]!.data, { peerId: 'EVIL' });
+    await p.joiner.snapFramesSettled('EVIL');
+    expect(rings(p).get('H')!.ring.size).toBe(1);
+    expect((p.joiner as unknown as { rxSource: string }).rxSource).toBe('H');
+    expect(rings(p).get('EVIL')?.ring.size ?? 0).toBe(0);
+    const got: NetMessage[] = [];
+    p.joiner.on((m) => got.push(m));
+    const [d] = await sendAndTake(p, snap(2));
+    expect((await headerOf(d!)).baseFid).toBeGreaterThan(0);
+    await deliver(p, [d!]);
+    expect(got.map((m) => (m as NetSnapshotMsg).snapshotSeq)).toEqual([2]);
+    const acks = p.takeAcks().map((a) => JSON.parse(a));
+    expect(acks.filter((a) => a.k === 1), 'no keyframe request').toEqual([]);
+    expect(evilRoom.actions.get('sack')!.onMessage, 'evil side exists').toBeDefined();
   });
 
   it('⛔ NEGATIVE — garbage on the snap action (not bytes, unknown format) is dropped and asks for a keyframe, never throws', async () => {
