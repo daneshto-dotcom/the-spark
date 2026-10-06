@@ -157,12 +157,10 @@ export function severToastCopy(
 ): string {
   const burst = count > 1 ? ` ×${count}` : '';
   /*
-   * ⭐ S194 (R194-18, ⚠ MINE wording) — THE ENTROPY TAX names no culprit, because there is none: the
-   * structure wore out at the FIGHT whistle. It states the count instead of a ×N burst, because the
-   * count IS the news (*"big structures lose … a certain amount of connectors"*). Checked BEFORE the
-   * actor branches so it can never fall into the tolerant default's "BROKE YOUR BOND".
+   * ⭐ S195 N18 (d) — the S194 entropy arm ("ENTROPY: N CONNECTORS SNAPPED") is GONE: `captureSeverToast`
+   * skips the 'entropy' cause, so this function never sees it. The entropy line is `entropyToastCopy`,
+   * read from synced state (`entropyToastFor`).
    */
-  if (cause === 'entropy') return `ENTROPY: ${count} CONNECTOR${count === 1 ? '' : 'S'} SNAPPED`;
   // Nothing to name: physics overstretch, or a mixed batch. State the outcome, claim no culprit.
   if (agent === null) {
     const line =
@@ -324,6 +322,13 @@ export class SeverToastRenderer {
   private shownTick: number | undefined = undefined;
   /** ⭐ S195 N18 (d) — the wave whose entropy pass this renderer last showed (undefined ⇒ none this match). */
   private entropyShownWave: number | undefined = undefined;
+  /**
+   * ⛔ S195 audit F4 — false until the first PLAYING frame of a (re)join. That frame SEEDS
+   * `entropyShownWave` with whatever pass the snapshot already carries, without showing it, so a reload or
+   * a rejoin in the same wave does not replay a toast + boing the player already got. A pass that lands
+   * after it is news and shows. (Host migration keeps the renderer in PLAYING, so it never reseeds.)
+   */
+  private entropySeeded = false;
 
   constructor(app: Application) {
     this.container = new Container();
@@ -375,6 +380,7 @@ export class SeverToastRenderer {
       // next match's board (the stale-watermark bug the tier banner had to fix in S129 CHECK).
       this.shownTick = undefined;
       this.entropyShownWave = undefined;
+      this.entropySeeded = false;
       this.container.visible = false;
       return;
     }
@@ -384,6 +390,10 @@ export class SeverToastRenderer {
     // (B-17: `localPlayerId` is the seat looking at this screen). It wins a same-frame collision with an
     // ordinary sever: it is the bigger news, and the sever toast's next batch restarts the window anyway.
     const ent = entropyToastFor(world, world.localPlayerId);
+    if (!this.entropySeeded) {
+      this.entropySeeded = true;
+      this.entropyShownWave = ent?.key;
+    }
     let text = cap.text;
     if (ent !== null && ent.key !== this.entropyShownWave) {
       this.entropyShownWave = ent.key;

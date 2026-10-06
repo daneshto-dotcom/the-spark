@@ -22,7 +22,8 @@
  *   · ANY connector of a taxed structure may snap — a welded tower's own included (his *"do I keep
  *     building onto this tower"* puts the tower at risk);
  *   · the roll happens ONCE, on the BUILD→FIGHT edge (`hostTick.ts`), so the loss is visible before the
- *     fight, and the owner of the structure reads "ENTROPY: N CONNECTORS SNAPPED" (`severToastRenderer`).
+ *     fight, and the owner of the structure reads "ENTROPY: N SNAPPED, M LOST" (`severToastRenderer`,
+ *     from the synced `SeatMatchStats.entropyWave/Snapped/Lost` — S195 N18 (d)).
  *
  * DETERMINISM. No `Math.random`, no clock, no float: one stateless roll per bond,
  * `mix32(mix32(rngSeed, waveNumber), bondId) % 10 000` (`rngSeed` is host-only — a client cannot
