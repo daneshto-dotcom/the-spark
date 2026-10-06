@@ -358,6 +358,8 @@ export class NetTransport {
   private readonly encodeMemo = new Map<string, Promise<Uint8Array>>();
   /** ⭐ S195 — joiner side: per sender, the frames rebuilt from its deltas. */
   private readonly rxPeers = new Map<string, RxPeer>();
+  /** ⭐ S195 audit F2 — the one sender whose frames may be kept as bases (see `decodeSnapFrame`). */
+  private rxSource: string | null = null;
 
   public onError: ErrorHandler | null = null;
 
@@ -706,6 +708,7 @@ export class NetTransport {
           // ⭐ S195 — its codec state goes with it: a rejoin starts from a keyframe both ways.
           this.txPeers.delete(peerId);
           this.rxPeers.delete(peerId);
+          if (this.rxSource === peerId) this.rxSource = null;
           for (const h of this.peerHandlers) h(peerId, 'leave');
         }
       };
@@ -1204,7 +1207,15 @@ export class NetTransport {
     }
     const r = rx;
     const gen = this.connectGen;
-    r.chain = r.chain.then(() => this.decodeSnapFrame(data, peerId, strategyName, r, gen));
+    // ⛔ S195 audit F1 — the chain must SURVIVE a throw. Without the catch, one throw anywhere below
+    // rejected `chain` for good and every later frame from this host was skipped: a frozen board that
+    // never reads as host-lost (lastRxAtMs keeps updating). The legacy string path survives the same
+    // throw because Trystero catches per call; this restores that property.
+    r.chain = r.chain
+      .then(() => this.decodeSnapFrame(data, peerId, strategyName, r, gen))
+      .catch((err: unknown) => {
+        this.emitError(`snapshot frame from ${peerId} failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
   }
 
   /** Visible for tests: resolves when every frame received so far from `peerId` is processed. */
@@ -1254,11 +1265,35 @@ export class NetTransport {
       return;
     }
     rx.lastFid = header.fid;
+    // ⛔ S195 audit F1 — a handler that throws must not take the frame (or the chain) down with it. The
+    // throw can only come from a message handler AFTER the rebuilt string parsed and validated, so the
+    // frame itself is good: it is committed as a base and acked like any accepted frame.
+    let accepted: boolean;
+    try {
+      accepted = this.handleRawMessage(full, peerId, strategyName, false);
+    } catch (err) {
+      this.emitError(`snapshot handler threw for ${peerId}: ${err instanceof Error ? err.message : String(err)}`);
+      accepted = true;
+    }
+    /*
+     * ⛔ S195 audit F2 — a frame becomes a BASE only once the receive path ACCEPTED what it rebuilt, and
+     * only ONE sender holds a ring: the latest peer whose rebuilt snapshot was accepted (the host; after
+     * a migration, the successor's first keyframe moves it). Any other peer can make this joiner decode
+     * a frame, but never park state in it. A sender other than the latched one can only be accepted on
+     * a KEYFRAME (its deltas have no base here), so switching never needs a base it does not have.
+     */
+    if (!accepted) {
+      if (this.rxSource === peerId) this.requestKeyframe(peerId, strategyName, rx, 'rebuilt snapshot rejected');
+      return;
+    }
+    if (this.rxSource !== peerId) {
+      if (this.rxSource !== null) this.rxPeers.get(this.rxSource)?.ring.clear();
+      this.rxSource = peerId;
+    }
     rx.ring.set(header.fid, segs);
     while (rx.ring.size > JOINER_RING) rx.ring.delete(rx.ring.keys().next().value as number);
     const handle = this.strategies.get(strategyName);
     if (handle !== undefined) this.sendSnapAck(handle, peerId, header.fid, false);
-    this.handleRawMessage(full, peerId, strategyName, false);
   }
 
   private requestKeyframe(peerId: string, strategyName: StrategyName, rx: RxPeer, why: string): void {
@@ -1398,6 +1433,7 @@ export class NetTransport {
     this.lastTxSegs = null;
     this.encodeMemo.clear();
     this.rxPeers.clear();
+    this.rxSource = null;
     // S53 P1 — clear protocol-mismatch latch on disconnect. Lifetime of the
     // ban set = lifetime of the NetTransport instance + active session.
     // Reconnecting after disconnect (e.g. lobby Back → re-Host) starts fresh.
