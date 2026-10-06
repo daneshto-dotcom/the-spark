@@ -1,6 +1,20 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** vitest round 2 = exit 0 (9149 passed / 13 skipped, 610 files); waiting on e2e:gating then teams-lobby (.tmp-gates/g2-e2e.exit, g2-teams.exit); then final report.
+**NEXT STEP:** DONE — handed to the merge owner. Report below.
+
+## FINAL REPORT (team-tiles, N19)
+- Branch `s195/team-tiles`; master d712ad1a merged (docs only, no conflicts); tip = the commit carrying this line.
+- Item 1: 29 files = 27 usable trios (cards 1–13, 15–28, generated in sheet order) + `mLOs2 (1)` byte-identical dup + `hqBp3` 0-byte (card 14 Demons·Nagas·Vampires MISSING). All kept the NW quarter plain; ~9 paint an oversized dark quarry disc; 9vbUs puts it on the south seam.
+- Item 2 verdict: side-by-side with today's art + the new seam cross-fade beats the hard step, but today's 4p art is HORIZON-VIEW (sky per quadrant) → a trio reads as stacked postcards; his Grok trios (top-down) read as one world → generate the SIX top-down tiles. Pair art beats tiles for pairs. Frames + COMPARE sheets + README: `C:/Users/onesh/OneDrive/Desktop/SPARK_S195_TeamTiles/`.
+- Item 3: `C:/Users/onesh/OneDrive/Desktop/SPARK_Six_Race_Tiles_Prompts.html` (Grok, 6 cards).
+- Item 4: `TEAM_TILE_RACES` manifest (EMPTY) + `teamTileUrl` → `public/art/race-zones/tiles/<race>.webp` (480×270; folder holds `.gitkeep`); trio uses tiles when every trio race has one; seam cross-fade baked once (`blendSeams`, reflected teammate band, 0.5→0 over `TEAM_SEAM_FEATHER` 0.22) only between TEAMMATES on single-quadrant art; listed tile that fails to load → `failed` set → today's art. FFA / pitch / solos / 2v1 solo half / pairs unchanged.
+- Tests: `src/render/teamTiles.test.ts` (resolver table, defaults pinned, REACH via real `sync` + real `Assets.load` path, missing-file fallback, wait-for-neighbour, FFA negative ×2); `zoneBackgroundRenderer.test.ts` bake-call guard re-pinned; `teams.sites.test.ts` census +2 predicate / +1 seat-var (classified). Mutations M1 enemy-seam, M2 all-or-none, M3 failed-fallback, M4 legacy flag → all RED (`.tmp-gates/mutate.log`).
+- Gates (exit codes from files): typecheck 0 · vitest --maxWorkers=3 0 (9149 passed / 13 skipped, 610 files; round 1 had 2 census reds → fixed) · build 0, entry 1223.2 / 1350 KiB (+3.4 vs #8's 1219.8) · e2e:gating 0 (67 passed, hashed port) · teams-lobby 0 (2 passed). fog.spec roll call untouched (no new layer).
+- BUMP: NO — render-only, reads synced state, writes nothing.
+- MINE: `TEAM_SEAM_BLEND_LEGACY_ART = true` (today's 3v1 art now cross-faded — the only visible change on deploy); `TEAM_TILES_FOR_PAIRS = false`; trio tiles all-or-none; `TEAM_SEAM_FEATHER = 0.22`; tiles stored 480×270; FFA keeps today's art.
+- Merge seams: canon §5d BACKDROPS line still says the trio seam returns null / "N19 plans six tiles" — add the cross-fade + manifest; `teams.sites.test.ts` pin counts for zoneBackgroundRenderer (4 / 2).
+- NOT DONE: no tiles exist yet (owner generates); his 27 trio images are not wired (trioBackdropUrl stays null pending his choice); visual check of the cross-fade at ?fx=legacy not screenshotted (code path = ungraded blend).
+
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
