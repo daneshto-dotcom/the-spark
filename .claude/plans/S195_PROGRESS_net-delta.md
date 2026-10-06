@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- Nothing left for this tree. The merge owner: audit, bump PROTOCOL 69 → 70, add the canon §6 "WHAT RIDES 70" line, merge.
+- FIX ROUND (audit of b9e470c3): merged master d712ad1a. Doing F1 (chain .catch + try/catch around handleRawMessage, P1 regression + mutation) → F2 (ring only on accept, one latched sender, inflate cap 2 MiB after measuring) → F4 (seed entropyShownWave on first PLAYING frame) → F3 (comment + dead arm) → gates.
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
