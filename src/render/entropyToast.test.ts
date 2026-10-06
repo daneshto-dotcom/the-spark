@@ -213,6 +213,42 @@ describe('⭐⭐ S195 N18 (d) — ENTROPY: N SNAPPED, M LOST, from synced state,
     expect(r.isActive()).toBe(true);
   });
 
+  it('⛔ S195 re-audit R3 — the REAL rejoin path: PLAYING from a START_GAME reset (wave 1, no pass) BEFORE any snapshot, then a snapshot carrying this wave’s pass → no replay', async () => {
+    const { w, whistle } = taxedHost(0x195e1);
+    whistle();
+    // The rejoined page: START_GAME_SIGNAL reset matchStats and waveNumber, PLAYING, no snapshot yet.
+    const j = makeWorld(0);
+    j.gameState = 'PLAYING';
+    j.localPlayerId = P0;
+    j.waveNumber = 1;
+    let applied = 0;
+    initAudio();
+    const r = new SeverToastRenderer(fakeApp());
+    r.snapshotApplies = () => applied;
+    r.drainSeverToast(j);
+    expect(r.isActive()).toBe(false);
+    // The first snapshot arrives and is applied: it carries the pass the player already saw.
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(w))), j);
+    j.effects.length = 0;
+    j.gameState = 'PLAYING';
+    applied++;
+    expect(entropyToastFor(j, P0), 'anti-vacuity: the snapshot DOES carry a current pass').not.toBeNull();
+    r.drainSeverToast(j);
+    j.tick += 6;
+    applied++;
+    r.drainSeverToast(j);
+    await flushAudio();
+    expect(r.isActive()).toBe(false);
+    expect(slotSfxCounts().fired.entropyBoing).toBe(0);
+    // The next wave's pass is news.
+    j.waveNumber += 1;
+    j.matchStats.seats.get(P0)!.entropyWave = j.waveNumber;
+    r.drainSeverToast(j);
+    await flushAudio();
+    expect(r.isActive()).toBe(true);
+    expect(slotSfxCounts().fired.entropyBoing).toBe(1);
+  });
+
   it('the HOST is not told twice: its entropy BOND_SEVERED effects no longer drive the toast', () => {
     const { w, whistle } = taxedHost(0x195e1);
     whistle();
