@@ -139,13 +139,17 @@ describe('⭐⭐ S195 N18 (d) — ENTROPY: N SNAPPED, M LOST, from synced state,
 
   it('REACH — a JOINER (no effects) that owns the structure reads it, and hears the boing once', async () => {
     const { w, whistle } = taxedHost(0x195e1);
-    whistle();
-    const s = w.matchStats.seats.get(P0)!;
+    // The joiner is already IN the match before the whistle (its first PLAYING frame seeds the toast).
     const j = joinerOf(w, 0);
-    expect(j.effects).toHaveLength(0);
-    expect(entropyToastFor(j, P0)).toEqual({ key: w.waveNumber, text: entropyToastCopy(s.entropySnapped, s.entropyLost) });
     initAudio();
     const r = new SeverToastRenderer(fakeApp());
+    r.drainSeverToast(j);
+    expect(r.isActive()).toBe(false);
+    whistle();
+    const s = w.matchStats.seats.get(P0)!;
+    applyNetSnapshot(JSON.parse(JSON.stringify(netSnapshot(w))), j);
+    j.effects.length = 0;
+    expect(entropyToastFor(j, P0)).toEqual({ key: w.waveNumber, text: entropyToastCopy(s.entropySnapped, s.entropyLost) });
     r.drainSeverToast(j);
     expect(r.isActive()).toBe(true);
     expect((r as unknown as { text: { text: string } }).text.text).toBe(`ENTROPY: ${s.entropySnapped} SNAPPED, ${s.entropyLost} LOST`);
@@ -179,6 +183,34 @@ describe('⭐⭐ S195 N18 (d) — ENTROPY: N SNAPPED, M LOST, from synced state,
     const r = new SeverToastRenderer(fakeApp());
     r.drainSeverToast(j);
     expect(r.isActive()).toBe(false);
+  });
+
+  it('⛔ S195 audit F4 — a RELOAD / REJOIN in the same wave does not replay the toast or the boing', async () => {
+    const { w, whistle } = taxedHost(0x195e1);
+    whistle();
+    // A fresh page (new renderer) whose first snapshot already carries this wave's pass.
+    const j = joinerOf(w, 0);
+    expect(entropyToastFor(j, P0)).not.toBeNull();
+    initAudio();
+    const r = new SeverToastRenderer(fakeApp());
+    r.drainSeverToast(j);
+    j.tick += 6;
+    r.drainSeverToast(j);
+    await flushAudio();
+    expect(r.isActive()).toBe(false);
+    expect(slotSfxCounts().fired.entropyBoing).toBe(0);
+    // Same page, back through a non-PLAYING state (the rejoin path) and in again: still not replayed.
+    j.gameState = 'LOBBY' as never;
+    r.drainSeverToast(j);
+    j.gameState = 'PLAYING';
+    r.drainSeverToast(j);
+    expect(r.isActive()).toBe(false);
+    // …but the NEXT wave's pass is news, and shows.
+    const s = j.matchStats.seats.get(P0)!;
+    j.waveNumber += 1;
+    s.entropyWave = j.waveNumber;
+    r.drainSeverToast(j);
+    expect(r.isActive()).toBe(true);
   });
 
   it('the HOST is not told twice: its entropy BOND_SEVERED effects no longer drive the toast', () => {

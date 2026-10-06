@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- FIX ROUND: F1+F2 done + tests + mutations. RUNNING detached: keyframe size measure (.tmp-gates/measure2.log/.exit). NEXT: F4 (seed entropyShownWave), F3, then set MAX_INFLATED_BYTES 2 MiB if measure fits, gates.
+- FIX ROUND: F1, F2 (cap 2 MiB, keyframe w15=291 KiB), F4, F3 done + tests green. NEXT: F4 mutation, then gates (typecheck, vitest, build, e2e gating/lobby/protocol), report.
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
