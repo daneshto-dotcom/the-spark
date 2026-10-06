@@ -33,3 +33,4 @@
 | 10 | 261 / 408 / 34 | 175.3 KiB | 26.2 | 34.3 | 6.3 | 6.5 | 14.36 → 0.53 | 27.0× | 1.45 → 2.93 | 1.27 → 1.77 |
 | 15 | 392 / 615 / 80 | 285.8 KiB | 41.0 | 55.8 | 9.7 | 10.0 | 23.41 → 0.82 | 28.6× | 2.39 → 4.72 | 2.14 → 2.85 |
 - FIX ROUND mutations: F1 — removing BOTH the chain .catch and the handler try/catch → P1 regression red ("handler boom"); removing either ONE alone stays green BY DESIGN (each guard alone keeps the chain alive: belt and braces). F2 — ring.set before the accept check → P3 test red; dropping the latch's ring.clear → one-ring test red.
+- F4 mutation: removing the seed (entropyShownWave = ent?.key) → same-wave rejoin test red. F3: no production reader of severToastCopy('entropy') remained (only entropy.test.ts, rewritten to assert captureSeverToast skips it).
