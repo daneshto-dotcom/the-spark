@@ -9,7 +9,7 @@
   "backlog_file": ".claude/plans/S195_BACKLOG.md",
   "rulings_file": ".claude/plans/S195_OWNER_RULINGS.md",
   "session_status": "open",
-  "protocol_version": 69,
+  "protocol_version": 70,
   "owner_approval_verbatim": "you can start working the plan step one, land session 194's leftover branches. Um, you can already start them going while we uh, design step two",
   "pdr_approved": true,
   "deliberation_completed": true,
@@ -235,13 +235,104 @@
           "needle": "TEAM_WIPE_JUDGE"
         }
       ]
+    },
+    {
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-03_S195_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "real_context_tokens_at_close": 708792,
+      "real_context_pct_at_close": 70.88,
+      "id": "N19",
+      "title": "six-tile team backdrops: 29 trio images assessed, side-by-side prototype + screenshots, Grok six-tile sheet, tile manifest + teammate seam blend (shipped OFF)",
+      "branch": "s195/team-tiles",
+      "checkpoint_commit": "8c3c6f94",
+      "deploy": "S195-#9",
+      "check_method": "Independent audit CLEAN code + MED owner-gate (blend would ship visibly) -> fix round (blend OFF, pruneBaked on-sprite fix, README + 480x270 header test) -> light re-audit CLEAN (15,800 shapes == master, 0 orphans). Integrator: canon §5d BACKDROPS + pins, full gates, deploy S195-#9 8c3c6f94 verify 4/4, CI E2E success.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/render/zoneBackgroundRenderer.ts",
+          "needle": "TEAM_SEAM_BLEND_LEGACY_ART"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "TEAM_TILE_RACES"
+        }
+      ]
+    },
+    {
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-03_S195_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "real_context_tokens_at_close": 708792,
+      "real_context_pct_at_close": 70.88,
+      "id": "NET",
+      "title": "network A (deflate) + B (delta snapshots, acks, keyframes, snapshot-authority) + N18(d) ENTROPY: N SNAPPED, M LOST",
+      "branch": "s195/net-delta",
+      "checkpoint_commit": "81dfb8d3",
+      "deploy": "S195-#10",
+      "check_method": "Full independent audit (F1 MED board freeze + 3 LOW) -> fix round -> re-audit (R1 MED non-host delta-base eviction, R3 MED rejoin replay, R2 LOW guards) -> fix round 2 -> re-audit #2 CLEAN (long oracle 14,707/14,707 byte-identical; G1-G5 incl. host migration). Integrator: BUMP 69->70 at ten sites + canon §6 WHAT RIDES 70 + §2 toast wording; full gates incl. real-WebRTC lobby 5/5 + protocol 2/2; deploy S195-#10 81dfb8d3; merge owner verify-deploy --sha full exit 0 (4/4). CI: gating tickClock + lobby nplayer:140 (4th page never loaded, pre-snapshot) = pre-existing CI flakes, logged. Measured wave-10 per-joiner 14.36 -> 0.53 Mbit/s (27x).",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": "src/net/protocol.ts",
+          "needle": "BUMPED 69 -> 70"
+        },
+        {
+          "type": "file_contains",
+          "path": "src/net/transport.ts",
+          "needle": "isSnapshotAuthority"
+        },
+        {
+          "type": "file_contains",
+          "path": "SPARK_CANON.md",
+          "needle": "N SNAPPED, M LOST"
+        }
+      ]
+    },
+    {
+      "tier": "Full",
+      "plan_file": ".claude/plans/2026-10-03_S195_BATCH_PDR.md",
+      "status": "completed",
+      "priority_state": "completed",
+      "pdr_approved": true,
+      "deliberation_completed": true,
+      "unlock_source": "user",
+      "check_completed": true,
+      "real_context_tokens_at_close": 708792,
+      "real_context_pct_at_close": 70.88,
+      "id": "N20",
+      "title": "character-art research (Blender/3D/shaders/Spine/Rive/three.js); Voltkin pilot proposal",
+      "branch": "s195/char-research",
+      "checkpoint_commit": "fbfc4e36",
+      "deploy": null,
+      "check_method": "Research-only agent; report with official sources copied to master .claude/plans/S195_CHARACTER_ART_RESEARCH.md; merge owner corrected Hunyuan3D (EU excluded; owner in France per BRAIN). Owner decision owed: yes to 3D-as-production-tool + Blender install for the Voltkin pilot.",
+      "verification": [
+        {
+          "type": "file_contains",
+          "path": ".claude/plans/S195_CHARACTER_ART_RESEARCH.md",
+          "needle": "Voltkin"
+        }
+      ]
     }
   ],
   "reflexion_entries_to_archive": [
     "#s195-limit-resume: three agents died together on a spend limit mid-step; every one resumed exactly from the top of its progress file because each saved every <=5 min — the save cadence is what made the limit cost minutes, not the session.",
     "#s195-audit-catches-guard-holes: the ci-perf audit found a test guard that a magic comment line could defeat on ANY step — a green guard is only as good as the mutation that tries to fool it; mutate the guard, not just the code.",
     "#s195-pin-what-was-delivered: a priority binding pinned 'PROTOCOL_VERSION = 67' and went red when later work correctly moved it to 68 — bind the permanent record of what a priority delivered (its changelog line), never a value the plan expects to change.",
-    "#s195-cloud-parallel-train: an 11-tree cloud run landed on ONE integration branch with per-tree audits; the desktop merge owner re-ran the full e2e lanes it could not (its 4 'environment' reds were green here) and landed it as one deploy — a parallel session is safe when it integrates on its own branch and the desktop owns the final verdict."
+    "#s195-cloud-parallel-train: an 11-tree cloud run landed on ONE integration branch with per-tree audits; the desktop merge owner re-ran the full e2e lanes it could not (its 4 'environment' reds were green here) and landed it as one deploy — a parallel session is safe when it integrates on its own branch and the desktop owns the final verdict.",
+    "#s195-fix-rounds-add-defects: net-delta needed two fix rounds — round 1 fixed F1-F4 and the re-audit found a NEW security MED (non-host delta-base eviction: 'accepted' meant parsed, not authorized) and a half-fixed rejoin; re-audit every fix round, never trust 'fixed' from the author."
   ],
   "budget_total": 1000000
 }
