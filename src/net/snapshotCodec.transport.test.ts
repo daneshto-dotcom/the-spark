@@ -324,6 +324,29 @@ describe('S195 net-delta — through the real transport', () => {
     expect(got).toEqual([1, 3, 4, 5, 6]);
   });
 
+  it('⛔ S195 re-audit R2(b) — the CHAIN catch alone: a decode step that rejects (outside the handler guard) with a THROWING onError still leaves the chain alive', async () => {
+    const p = linkedPair();
+    const got: number[] = [];
+    p.joiner.on((m) => got.push((m as NetSnapshotMsg).snapshotSeq));
+    p.joiner.onError = () => { throw new Error('ui callback threw'); };
+    const priv = p.joiner as unknown as { decodeSnapFrame: (...a: unknown[]) => Promise<void> };
+    const real = priv.decodeSnapFrame.bind(p.joiner);
+    let failOnce = true;
+    priv.decodeSnapFrame = (...a: unknown[]) => {
+      if (failOnce) { failOnce = false; return Promise.reject(new Error('unexpected decode failure')); }
+      return real(...a);
+    };
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    flushAcks(p);
+    for (let s = 1; s <= 4; s++) {
+      await deliver(p, await sendAndTake(p, snap(s)));
+      flushAcks(p);
+    }
+    quiet.mockRestore();
+    expect(got).toEqual([2, 3, 4]);
+    expect(p.joiner.snapshotHandlerErrors()).toBe(1);
+  });
+
   it('⛔ S195 re-audit R1 (G3) — a NON-HOST peer’s valid keyframe cannot take the base slot: the host’s next delta applies with no keyframe request', async () => {
     const p = linkedPair();
     flushAcks(p);

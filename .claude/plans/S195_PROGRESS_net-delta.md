@@ -1,7 +1,7 @@
 # S195 PROGRESS — net-delta — FINAL REPORT (agent done; awaiting merge owner)
 
 ## NEXT STEP (exact)
-- FIX ROUND DONE (merged master d712ad1a): F1 F2 F4 F3 + mutations. Gates: typecheck 0, vitest 613 files 9180 pass 0 fail, build 0 (1231.3/1350 KiB), e2e gating 67/67, lobby 5/5, protocol 2/2. Awaiting merge owner (bump 69->70).
+- SECOND FIX ROUND: R1 R2 R3 done + mutations. RUNNING detached gates (tc5 vt5 b5 eg5 el5 ep5 in .tmp-gates). NEXT: report.
 
 ## Report
 - Branch `s195/net-delta`, tip = this commit's parent chain (see `git log -1`); merges of master: da8a2267 (clean), c6de8044 teams/69 → merge 6fa47019 (clean, no conflicts).
@@ -34,3 +34,5 @@
 | 15 | 392 / 615 / 80 | 285.8 KiB | 41.0 | 55.8 | 9.7 | 10.0 | 23.41 → 0.82 | 28.6× | 2.39 → 4.72 | 2.14 → 2.85 |
 - FIX ROUND mutations: F1 — removing BOTH the chain .catch and the handler try/catch → P1 regression red ("handler boom"); removing either ONE alone stays green BY DESIGN (each guard alone keeps the chain alive: belt and braces). F2 — ring.set before the accept check → P3 test red; dropping the latch's ring.clear → one-ring test red.
 - F4 mutation: removing the seed (entropyShownWave = ent?.key) → same-wave rejoin test red. F3: no production reader of severToastCopy('entropy') remained (only entropy.test.ts, rewritten to assert captureSeverToast skips it).
+- SECOND FIX ROUND (re-audit of 5d9ea481): R1 snapshot-authority gate (`isSnapshotAuthority`, wired in connectAsClient + hostHandlers to `session.hostPeerId`); R2 handler/chain failures console + counted only (never onError), chain catch safe against a throwing onError; R3 entropy seed waits for the first APPLIED snapshot (`ClientSync.snapshotsApplied`, `severToastRenderer.snapshotApplies` wired in main.ts beside the constructor — the pinned drain line untouched). Auditor G4 with the authority = successor: applied S=40, key requests H=0 S=0 (ping-pong gone).
+- Mutations (each red): R1 gate removed (G3); R2a inner try rethrows (G1); R2b chain catch → then (chain-alone test), emitError outside the try (chain-alone test with throwing onError); R2c handler throw → emitError (no-lobby-line assertion); R3 seed on first frame (rejoin test).
