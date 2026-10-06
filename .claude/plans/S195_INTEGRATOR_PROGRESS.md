@@ -1,7 +1,7 @@
 # S195 INTEGRATOR — progress (§A0 steps 1–5)
 
-## EXACT NEXT STEP (L10 net-delta, LAST)
-#9 LANDED 8c3c6f94 (verify 4/4, logged). L10 merged (no conflicts; 26 i/lf + hostHandlers.ts CRLF pre-existing), BUMP 69→70 2d6b2152 (integration tests 189/189). Gates: tc0 · vt0 9205 · build0 1235.5 KiB · gating 0 · render 0 · races 0; lobby 5/5 (decisive real-WebRTC lane) · teams 2/2 · protocol 2/2 — ALL GREEN. PUSHED (sha in `.tmp-gates/s195_L10/pushed.sha`); detached dv.sh waits for deploy + verify. Then verify --sha FULL, log #10 + CI per lane for #9 and #10, final report.
+## EXACT NEXT STEP (L10 net-delta — LANDED)
+#9 8c3c6f94 and #10 81dfb8d3 LIVE, both verify-deploy 4/4. PROTOCOL 70. All landings DONE. Remaining only: final CI verdicts for #9 (quarantine) and #10 (`.tmp-gates/s195_L9/ci-final.txt`, `.tmp-gates/s195_L10/ci-final.txt`) → append to the dispatch log. Then the session handoff (merge owner).
 
 ## EXACT NEXT STEP (L8 — s195/teams, PROTOCOL 69)
 LANDED as S195-#8 2d03f104 (deploy 37384486434 success, verify 4/4, logged). CI: gating/render/races/lobby/worker-bots/atlas/typecheck green, protocol red (non-gating) — logged. CI E2E 37384486419 concluded SUCCESS (quarantine/protocol red, non-gating) — logged. HOLDING for network #9. Then HOLD for network #9. Commit only my paths.
