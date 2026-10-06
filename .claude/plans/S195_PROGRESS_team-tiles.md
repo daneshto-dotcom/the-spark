@@ -1,6 +1,6 @@
 # S195 PROGRESS — team-tiles (N19)
 
-**NEXT STEP:** gates round 2 detached (.tmp-gates/g2-*): typecheck 0, build 0 (1223.2/1350 KiB, +3.4), vitest round 1 = 2 census reds (teams.sites: my new sameTeam + seat-var sites) -> classified + pinned; rerunning vitest + e2e:gating + teams-lobby on own port.
+**NEXT STEP:** vitest round 2 = exit 0 (9149 passed / 13 skipped, 610 files); waiting on e2e:gating then teams-lobby (.tmp-gates/g2-e2e.exit, g2-teams.exit); then final report.
 
 Branch `s195/team-tiles` from master 2ab8e73a (deploy S195-#8, PROTOCOL 69). npm install running.
 
