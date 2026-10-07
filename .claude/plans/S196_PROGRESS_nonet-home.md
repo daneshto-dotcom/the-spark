@@ -1,4 +1,4 @@
-NEXT STEP: main.ts glue (arcade callback -> routeArcadeSelect, lazy mount home, onDoor -> planLaunch, ESC, solve handler ZEN, BOARD ENTER, modalUp, __SPARK__ getters), then typecheck.
+NEXT STEP: write tests src/nonet/*.test.ts (dailySeed, modes, zen never submits, match call single-arg, reach via ArcadeOverlay + home buttons, ranking gate), update e2e zones-visual arcade spec.
 
 # S196 PROGRESS — s196/nonet-home (backlog #16, Option A "a front door")
 

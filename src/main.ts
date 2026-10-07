@@ -216,6 +216,11 @@ import { CharacterSheet } from './render/characterSheet.ts';
 // ⭐ S182 — type-only, for the exhaustive defenderFrame portrait switch (erased at build).
 import type { DefenderKind } from './state/defenders/defender.ts';
 import { ArcadeOverlay, makeArcadeNonet } from './render/arcadeOverlay.ts';
+// ⭐ S196 #16 — the NONET home (Option A). The decisions are tiny and pure (entry); the page is a lazy chunk.
+import { planLaunch, routeArcadeSelect, solveOutcome, type NonetDoor } from './nonet/nonetModes.ts';
+import { dayKeyOfBoard, utcDayKey } from './nonet/dailySeed.ts';
+import { loadDailySolvedKey, saveDailySolvedKey } from './nonet/dailyProgress.ts';
+import type { NonetHome } from './nonet/homeScreen.ts';
 import { ArcadeRunOverlay } from './render/arcadeRunOverlay.ts';
 import {
   beginSubmit,
@@ -788,29 +793,78 @@ async function bootstrap(): Promise<void> {
   // hashed, wire-carried field describing a host-authoritative MATCH event, and a title-screen
   // puzzle is none of those things. The event is handed to the overlay's `override` parameter
   // instead, so starting a real match afterwards inherits nothing.
-  const arcadeOverlay = new ArcadeOverlay(app, app.stage, (id) => {
-    if (id === 'back') {
+  const arcadeOverlay = new ArcadeOverlay(app, app.stage, (id) => routeArcadeSelect(id, {
+    back: () => {
       arcadeOverlay.hide();
       arcadeNonet = null;
       arcadeRun = null;
-      return;
-    }
-    if (id === 'nonet') {
-      // A fresh puzzle per launch. `performance.now()` is legitimate here in a way it never is in
-      // sim code: this seed feeds NOTHING host-authoritative and crosses no wire — it exists only so
-      // two consecutive arcade runs are not the same board.
-      arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
-      // ⭐ S150 P3 — AND THE CLOCK STARTS. Owner: "we will make it a trial on time." Same
-      // justification as the seed above: a wall clock is a determinism hazard inside the hashed sim
-      // tick and perfectly safe here, because an arcade run touches no sim state at all. A SIM clock
-      // would in fact be wrong — the sim does not advance on the title screen.
-      arcadeRun = startRun(performance.now());
-      arcadeOverlay.hide();
-    }
-  });
+    },
+    // ⭐ S196 #16 — THE NONET ROW OPENS THE NONET HOME. It used to mint a puzzle and start the clock
+    // right here — the "drop-straight-in" the owner called wrong (R194-25). The minting moved, unchanged,
+    // into `launchNonetDoor` below, behind the home's PLAY door.
+    openNonetHome: () => openNonetHome(null),
+  }));
   let arcadeNonet: ReturnType<typeof makeArcadeNonet> | null = null;
   /** S150 P3 — the live timed run: clock, initials entry, board. Null whenever no run is in flight. */
   let arcadeRun: ArcadeRun | null = null;
+  /**
+   * ⭐ S196 #16 — THE NONET HOME (`src/nonet/homeScreen.ts`), mounted ONCE from its lazy chunk.
+   * Render state only, like the arcade menu: nothing here touches `world`.
+   */
+  let nonetHome: NonetHome | null = null;
+  let nonetHomeLoad: Promise<NonetHome | null> | null = null;
+  const loadNonetHome = (): Promise<NonetHome | null> => {
+    if (nonetHomeLoad === null) {
+      nonetHomeLoad = import('./nonet/homeScreen.ts')
+        .then((m) => {
+          nonetHome = m.mountNonetHome(app.stage, {
+            onDoor: (door) => launchNonetDoor(door),
+            onBack: () => {
+              nonetHome?.hide();
+              arcadeOverlay.show();
+            },
+          });
+          return nonetHome;
+        })
+        .catch((err: unknown) => {
+          // A failed chunk un-latches so the next click retries; the arcade menu is complete without it.
+          console.error('[nonet] home failed to load; will retry', err);
+          nonetHomeLoad = null;
+          return null;
+        });
+    }
+    return nonetHomeLoad;
+  };
+  /** Show the NONET home (from the arcade row, or on leaving a run). Drops any run in flight. */
+  const openNonetHome = (notice: string | null): void => {
+    arcadeNonet = null;
+    arcadeRun = null;
+    void loadNonetHome().then((home) => {
+      // Something else happened while the chunk loaded (a run began, a match started): stand down.
+      if (world.gameState !== 'TITLE' || arcadeNonet !== null || arcadeRun !== null) return;
+      if (home === null) {
+        arcadeOverlay.show();
+        return;
+      }
+      arcadeOverlay.hide();
+      // ⚠ `Date.now()` is the MENU's clock (which UTC day it is for DAILY) — UI, never the sim.
+      home.show({ todayKey: utcDayKey(Date.now()), dailySolvedKey: loadDailySolvedKey(), notice });
+    });
+  };
+  /**
+   * ⭐ S196 #16 — a door on the NONET home starts a run. PLAY is the pre-S196 launch, byte for byte: a
+   * fresh puzzle from `performance.now()` (legitimate here in a way it never is in sim code — this seed
+   * feeds NOTHING host-authoritative and crosses no wire) and the clock started (owner S150: "we will
+   * make it a trial on time"; a wall clock is safe because an arcade run touches no sim state, and a
+   * SIM clock would be wrong — the sim does not advance on the title screen). DAILY swaps in the day's
+   * seed and board; ZEN has no board. `planLaunch` decides; this only applies it.
+   */
+  const launchNonetDoor = (door: NonetDoor): void => {
+    const plan = planLaunch(door, performance.now(), Date.now(), loadDailySolvedKey());
+    arcadeNonet = makeArcadeNonet(plan.seed);
+    arcadeRun = plan.boardId === null ? startRun(performance.now(), 'ZEN') : startRun(performance.now(), plan.mode, plan.boardId);
+    nonetHome?.hide();
+  };
   const arcadeRunOverlay = new ArcadeRunOverlay(app, app.stage);
   const spawnerZoneRenderer = new SpawnerZoneRenderer(app, fogHiddenLayer);
   /*
@@ -1564,9 +1618,13 @@ async function bootstrap(): Promise<void> {
     if (arcadeNonet !== null || arcadeRun !== null) {
       // S150 P3 — abandoning mid-run discards it deliberately: an unfinished trial has no time, so
       // there is nothing to register. Both are cleared together so no state survives into the menu.
-      arcadeNonet = null;
-      arcadeRun = null;
-      arcadeOverlay.show(); // back to the menu, not all the way to the title
+      // ⭐ S196 — back to the NONET home (the run's own front door), not all the way to the title.
+      openNonetHome(null);
+      return;
+    }
+    // ⭐ S196 — ESC on the NONET home: RANKING → home, home → the ARCADE menu.
+    if (nonetHome !== null && nonetHome.isOpen()) {
+      nonetHome.escape();
       return;
     }
     if (arcadeOverlay.isOpen()) arcadeOverlay.hide();
@@ -1645,9 +1703,14 @@ async function bootstrap(): Promise<void> {
     }
 
     // BOARD — ENTER starts another run, which is what a cabinet's coin slot amounts to.
+    // ⭐ S196 — for PLAY only (unchanged). A DAILY is one grid a day, so its ENTER goes home instead.
     if (run.phase === 'BOARD' && e.key === 'Enter') {
-      arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
-      arcadeRun = startRun(performance.now());
+      if (run.mode === 'PLAY') {
+        arcadeNonet = makeArcadeNonet(Math.floor(performance.now()) >>> 0);
+        arcadeRun = startRun(performance.now());
+      } else {
+        openNonetHome(null);
+      }
     }
   });
 
@@ -1827,6 +1890,8 @@ async function bootstrap(): Promise<void> {
     },
     onArcadeSelected: () => {
       arcadeOverlay.show();
+      // ⭐ S196 — prefetch the NONET home's chunk while the player reads the menu.
+      void loadNonetHome();
     },
   });
 
@@ -2378,6 +2443,9 @@ Network routes: ${v.detail}`;
       get arcadeOverlay() { return arcadeOverlay; },
       // S150 P3 — live timer / initials / board geometry for e2e.
       get arcadeRunOverlay() { return arcadeRunOverlay; },
+      // ⭐ S196 #16 — the NONET home's live geometry, and which mode/board the live run is on.
+      get nonetHome() { return nonetHome; },
+      get arcadeRunInfo() { return arcadeRun === null ? null : { mode: arcadeRun.mode, boardId: arcadeRun.boardId, phase: arcadeRun.phase }; },
       // S77 P2 — fog-exemption e2e: sync a global-reach entity + assert it renders
       // through the fog (aboveFogLayer sits above the fog container).
       get potatoRenderer() { return potatoRenderer; },
@@ -2943,8 +3011,16 @@ Network routes: ${v.detail}`;
               // straight back to the arcade menu and the run was simply forgotten: no time, no
               // board, nothing to beat. `finishRun` is idempotent, so a double submit or a render
               // racing this transition cannot re-time the run or award a second row.
-              if (arcadeRun !== null) arcadeRun = finishRun(arcadeRun, performance.now());
-              else arcadeOverlay.show(); // no run in flight (shouldn't happen) — fail back to the menu
+              // ⭐ S196 — a ZEN solve (no clock, no board) goes back to the NONET home instead, as
+              // does a solve with no run in flight (shouldn't happen).
+              if (arcadeRun !== null && solveOutcome(arcadeRun) === 'INITIALS') {
+                // A DAILY counts as played the moment it is solved here — the grid has been seen.
+                const day = dayKeyOfBoard(arcadeRun.boardId ?? '');
+                if (day !== null) saveDailySolvedKey(day);
+                arcadeRun = finishRun(arcadeRun, performance.now());
+              } else {
+                openNonetHome(arcadeRun !== null ? 'SOLVED — no clock, no board. well played.' : null);
+              }
             }
             return ok;
           }
@@ -3887,6 +3963,7 @@ Network routes: ${v.detail}`;
       (botSetupOverlay?.isVisible() ?? false) ||
       (codexOverlay?.isVisible() ?? false) ||
       arcadeOverlay.isOpen() ||
+      (nonetHome?.isOpen() ?? false) ||
       arcadeRunning;
     const showTitle = world.gameState === 'TITLE' && !modalUp;
     const showLobby = world.gameState === 'LOBBY';
@@ -4288,7 +4365,8 @@ Network routes: ${v.detail}`;
     // its inverse: an overlay that BELONGS on the title screen and must never survive into a match.
     // There is no show()/hide() pair to forget on a new exit path, because visibility is recomputed
     // from (run, gameState) sixty times a second.
-    arcadeRunOverlay.render(arcadeRun, performance.now(), world.gameState === 'TITLE');
+    // ⭐ S196 — a ZEN run has no clock and no board, so the run overlay has nothing to draw for it.
+    arcadeRunOverlay.render(arcadeRun !== null && arcadeRun.mode === 'ZEN' ? null : arcadeRun, performance.now(), world.gameState === 'TITLE');
     // S93 — realm-shift audio: rising edge → swap to the trial theme; falling edge → restore the
     // duel track. Edge-driven (the audio fns are idempotent). All modes: the host sets world.sudoku
     // locally; a 1v1 client receives it via NetSnapshot, so both peers hear the realm theme.
