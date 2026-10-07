@@ -1,8 +1,10 @@
 # S196 PROGRESS — boss-release (branch s196/boss-release)
 
 ## NEXT STEP (exact)
-- RESUMED: merged master fb8f6b42 (485dbddc, no conflicts). Pre-pause vitest found a REAL red: teams.sites census
-  (seat compare in bossReleaseTrack) -> fixed via releaseKey (identity, documented merge seam). Now: dev seam + capture.
+- Captures RUNNING (`npx playwright test -c .tmp-gates/cap/pw.config.ts`, CAP_MODE=after then before; exits in
+  .tmp-gates/cap-after.exit / cap-before.exit; raw PNGs in Desktop/SPARK_S196_BossRelease/raw). Then: GIFs via Pillow,
+  bench (`BENCH_OUT=.tmp-gates/bench.json npx playwright test -c .tmp-gates/cap/pw.config.ts bench`), e2e:gating + e2e:render,
+  final vitest/build (g2-* exits: tc 0 / vt ? / build ?), README, report.
 - NEXT (capture, nothing written yet): write `.tmp-gates/cap/capture.spec.ts` + `.tmp-gates/cap/pw.config.ts`
   (testDir .tmp-gates/cap, viewport 1920x1080, webServer `npx vite --port 27196 --strictPort`, reuseExistingServer:false so
   vite is fresh). In the spec: `page.clock.install()` before goto; bootSolo (copy from e2e/tower-art.spec.ts); per race:
