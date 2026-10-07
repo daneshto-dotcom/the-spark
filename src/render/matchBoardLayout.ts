@@ -119,7 +119,9 @@ export function waveIndexAt(plot: Rect, n: number, x: number, form: 'points' | '
  *
  * Pure and a TOTAL ORDER (y, then series index), so equal ends always spread the same way: walk top-down pushing
  * each label at least `gap` below the one above it; if that runs past `maxBottom`, walk back up from the floor.
- * A label already clear of its neighbours never moves. Returned in the INPUT order.
+ * A label already clear of its neighbours does not move on the way down; it CAN move on the walk back up, when a
+ * stack at the floor needs its room (S196 audit LOW-1: [860,880,899,899] → [852,868,884,900]). Returned in the
+ * INPUT order.
  */
 export const LINE_LABEL_GAP = 16;
 export function spreadLabelBottoms(ys: readonly number[], gap: number, maxBottom: number): number[] {
