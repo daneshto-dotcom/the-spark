@@ -4,6 +4,13 @@
 - Read S195_PROGRESS_net-mp.md, reconnect-hard-blip.spec.ts, reconnectPolicy.ts, transport.ts, scripts/live-mp/*; npm install running.
 
 ## Log
+- BASELINE B2 (pre-fix, LIGHT_ON_FIRST_DROP, split metric = one side holds the peer, the other none, >= 30 s after LIGHT):
+  · #1 ⛔ SPLIT (joiner dropped first at +10.9, host never): joiner RECONNECTING, attempts +12.3/+48.0/+83.3/+118.4/+153.8/
+    +189.0, TERMINAL CONNECTION LOST +191.4 (RECONNECT_GIVE_UP_MS); host kept peers=1 the whole 256 s. splitForS 242.
+  · #2 no split (second close 0.3 s later) — recovered +32.0.
+  · #3 ⛔ SPLIT (host dropped first at +13.3, joiner never): host terminal from +28.5 to the end (+195 s); splitForS 180.
+  => SPLIT REPRODUCED 4x pre-fix (s-12000, r1, B2#1, B2#3), BOTH DIRECTIONS; never self-heals; a joiner-side split ends at
+  the 3-min terminal, a host-side split leaves the joiner playing a dead board with NO overlay at all.
 - BASELINE B x3 (pre-fix, LIGHT_ON_FIRST_DROP; B-30000-*.log): NO split — the second side's close fired 0.2-0.4 s after
   the first (before its ICE could recover), so both left and the rejoin handshook fresh: recovered +51.3 / +88.5 / +42.7 s
   (host terminal CONNECTION LOST shown from ~+29 s each time — host-side grace, unchanged behaviour). The split needs the
