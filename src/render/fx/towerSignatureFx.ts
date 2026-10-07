@@ -20,7 +20,7 @@
  * | lightning hub | `hubArcFx` (S194) — unchanged | — |
  * | Voltkin TV | a live screen: glow, snow, a rolling scanline, a stray arc | (the emergence crackle already existed) |
  * | tier-3 race towers | the race's own motif at the crown (below) | its unit is born → the motif bursts |
- * | tier-9 boss towers | the same motif, heavier, over a turning boss seal and a heartbeat pillar | the boss is released |
+ * | tier-9 boss towers | the same motif, heavier, over a turning boss seal and a heartbeat pillar | none — no synced release moment (audit MED-1) |
  *
  * Race motifs (colours from `RACE_COLORS`): vampires — bats circling the crown + blood mist; nagas — a
  * fountain of droplets; mummies — a golden sand helix with scarab glints; zombies — toxic bubbles boiling
@@ -28,9 +28,13 @@
  * the walls + soul wisps.
  *
  * ⛔ THE FLARE IS DERIVED, NEVER PUSHED. A one-shot `world.effects` entry is lost ~5/6 of the time on a
- * peer (effects sample at 10 Hz). The caller passes `actAge` — ticks since the tower last acted — read off
- * synced state every frame: a creature's `spawnedAtTick` + `sourceSpawnerId` (both on the wire) for a
- * spawner, a defender's `state` + `ticksInState` + `nextFireTick` (all on the wire) for a defender.
+ * peer (effects sample at 10 Hz). The caller passes `actAge` — ticks since the tower last acted:
+ *   · a spawner: the first frame THIS client saw one of its creatures (`sourceSpawnerId` is on the wire;
+ *     ⚠ `spawnedAtTick` is NOT — a peer reads 0 — S196 audit HIGH-1). Host and peer each flare when the
+ *     creature reaches their own screen: the same beat, up to one snapshot apart on a peer;
+ *   · a defender: its FSM — `state` + `ticksInState` + `nextFireTick`, all on the wire.
+ * ⚠ The tier-9 boss tower has NO flare: its boss carries no `sourceSpawnerId` and the tower is removed the
+ * tick it releases (`hostTick.ts`), so there is no synced moment to read (S196 audit MED-1).
  *
  * ⛔ PURE — no Pixi, no DOM, no clock, no `Math.random` (`fxGuards.test.ts`). Every particle is a function
  * of (the structure id, the tick); every cycle is periodic in the tick, never accumulated. Smoke and dark
@@ -81,6 +85,12 @@ export const TOWER_SIGNATURE: Readonly<Record<GodlyId, TowerSigKind>> = {
 export const TOWER_SIG_FLARE_TICKS = 36;
 /** "Never acted" (or too long ago to show). */
 export const TOWER_SIG_NO_ACT = -1;
+/**
+ * Birth tracking (`SpawnerZoneRenderer.trackBirths`) is primed only if its previous frame was at most this
+ * many ticks ago; a longer gap (a join, a title return, a stretch in legacy/MINIMAL) re-primes it silently, so
+ * the creatures already on the board never flare. A 10 Hz peer advances ~6 ticks a snapshot. MINE.
+ */
+export const TOWER_SIG_BIRTH_PRIME_GAP_TICKS = 30;
 
 const TAU = Math.PI * 2;
 
@@ -138,9 +148,10 @@ export function towerSignatureFx(
     case 'tvStatic': tvStatic(s, id, footX, footY, artW, artH, tick, low); break;
     case 'race3': if (race !== null) raceMotif(s, race, id, footX, footY, artW, artH, tick, low, flare, actAge, 1); break;
     case 'boss9':
+      // ⛔ NO FLARE (audit MED-1): the release has no synced moment a renderer can read (see the header).
       if (race !== null) {
-        bossSeal(s, race, id, footX, footY, artW, artH, tick, low, flare);
-        raceMotif(s, race, id, footX, footY, artW, artH, tick, low, flare, actAge, 1.35);
+        bossSeal(s, race, id, footX, footY, artW, artH, tick, low);
+        raceMotif(s, race, id, footX, footY, artW, artH, tick, low, 0, TOWER_SIG_NO_ACT, 1.35);
       }
       break;
     default: {
@@ -730,7 +741,7 @@ export function bossHeartbeat(u: number): number {
   return Math.min(1, beat(0.1) + 0.7 * beat(0.3));
 }
 
-function bossSeal(s: TowerSigSinks, race: RaceId, id: number, x: number, fy: number, w: number, h: number, tick: number, low: boolean, flare: number): void {
+function bossSeal(s: TowerSigSinks, race: RaceId, id: number, x: number, fy: number, w: number, h: number, tick: number, low: boolean): void {
   const U = sigUnit(h);
   const base = RACE_COLORS[race];
   const bright = mixColor(base, 0xffffff, 0.4);
@@ -738,7 +749,7 @@ function bossSeal(s: TowerSigSinks, race: RaceId, id: number, x: number, fy: num
   const hb = bossHeartbeat(u);
   const R = w * 0.8;
   // Two seal rings on the ground, the inner one throbbing with the heartbeat.
-  s.ground.emit('ring', x, fy, R * 2.3, R * 0.85, 0, Math.min(1, 0.55 + 0.25 * hb + 0.4 * flare), base, 'add');
+  s.ground.emit('ring', x, fy, R * 2.3, R * 0.85, 0, Math.min(1, 0.55 + 0.25 * hb), base, 'add');
   s.ground.emit('ring', x, fy, R * 1.5 * (1 + 0.08 * hb), R * 0.55 * (1 + 0.08 * hb), 0, 0.45 + 0.5 * hb, bright, 'add');
   // Glyphs turning on the outer ring.
   const glyphs = low ? 4 : 8;
@@ -748,7 +759,7 @@ function bossSeal(s: TowerSigSinks, race: RaceId, id: number, x: number, fy: num
     s.ground.emit('core', x + Math.cos(a) * R * 1.08, fy + Math.sin(a) * R * 0.39, 13 * U, 8 * U, 0, 0.7 + 0.3 * hb, bright, 'add');
   }
   // A pillar of the race's light, beating, and a ripple running out off each heartbeat.
-  s.top.emit('soft', x, fy - h * 0.55, w * 0.5, h * 1.4, 0, 0.18 + 0.3 * hb + 0.5 * flare, base, 'add');
+  s.top.emit('soft', x, fy - h * 0.55, w * 0.5, h * 1.4, 0, 0.18 + 0.3 * hb, base, 'add');
   if (u >= 0.1 && u < 0.6) {
     const q = (u - 0.1) / 0.5;
     const r2 = R * (0.6 + 1.2 * q);
