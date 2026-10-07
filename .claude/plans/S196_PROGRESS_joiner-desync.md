@@ -82,3 +82,4 @@ BEFORE trace (`scripts/live-mp/live-joiner-lag.mjs`, joiner CPU 6x throttled, re
   Mutations: M5 no authority check → MED-1(a) red; M6 no cap → MED-1(b) red; M7 latest-arrival → LOW-2 red;
   M8 no disconnect guard → LOW-3 red.
 - fix-round gates (merged master f549b5ea): typecheck 0 · vitest 0 (9501 passed, 15 skipped). build/e2e running.
+- build 0 (entry 1266.2 KiB on merged master) · e2e:gating 0 (72 passed, 1 skipped). lobby/protocol running.
