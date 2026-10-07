@@ -1,12 +1,46 @@
 # S196 PROGRESS — s196/joiner-desync
 
 ## NEXT STEP
-PLAYTEST-2 lead ("existing creatures frozen 30 s on the joiner while additions land"): host-side probe
-(src/net/zzFreeze.scratch.test.ts, UNCOMMITTED scratch, log .tmp-gates/freeze-probe.log) shows the HOST freezes the
-SAME way, once per wave (BUILD phase?) — confirm with matchPhase in the probe (T=22000), then delete the scratch,
-write the verdict here, re-run vitest alone for backlog file (done: green), final report.
-Also: joiner world.tick runs LOCALLY (main.ts client branch world.tick++), so a joiner dump's tick moving does NOT
-prove a snapshot applied — harness lag should use host seq vs joiner transport lastSeq (todo, optional).
+DONE — awaiting merge-owner audit. (If resumed: nothing left; re-run gates only if master moved src.)
+
+## FINAL REPORT
+- ROOT CAUSE (one, with trace): S195 codec receive path decoded every snapshot frame through ONE serial promise chain
+  on the joiner; each DecompressionStream inflate waits on the joiner's main thread for several task hops, so on a
+  slower joiner a frame took longer than the 100 ms cadence and the queue grew WITHOUT BOUND. Everything the joiner
+  applied (its buildings, bank, shapes) was tens of seconds old. Feedback: once > 3.2 s behind its acks named frames
+  out of HOST_RING -> host sent keyframes. Trace (2 real Chromium, real WebRTC, joiner CPU 6x, 100 ms one-way + 0-50
+  jitter + 1 % loss): BEFORE lag 96 -> 1509 ticks (25 s) and climbing; AFTER median 39 ticks, max 120, flat; in
+  snapshots (exact seq measure) 3-29, no growth. Files: .claude/plans/S196_joiner-desync_lag-{BEFORE,AFTER,AFTER-seq}.jsonl.
+- PLAYTEST-2 "existing creatures frozen 30 s on the joiner while additions land": NOT a wire bug. The HOST freezes the
+  same way in every BUILD phase and only there (probe over a real bots match to tick 66000: frozen sets appear only at
+  matchPhase=BUILD, e.g. tick 19800/21600 BUILD; 0 frozen in every FIGHT sample) — creatures park through BUILD and
+  the next wave stages SPAWNING/ticksInState 0. ALSO: a joiner's world.tick runs LOCALLY between snapshots (main.ts
+  client branch `world.tick++`), so a joiner dump's tick moving proves nothing about snapshot application. Pinned by a
+  REACH test that existing creatures' changes reach a slow joiner through deltas during FIGHT.
+- Ruled out by reading/probe: (b) authority predicate (session.hostPeerId, stable) + net-blip close (onPeerLeave,
+  network-died only); (c) intents ride `msg` ungated, rate limiter 90 cap / 40 per s; (d) bank/SeatMatchStats ride the
+  generic codec as entity/atomic text (REACH proves the spent bank lands); (e) frames ~22 KiB deflated keyframes,
+  Trystero chunks, no size issue.
+- FIX: src/net/transport.ts — inflate starts on ARRIVAL (concurrent); drainSnapFrames applies only the NEWEST frame
+  it can rebuild (keyframe or held base), older queued ones superseded (safe: deltas name an ACKED base); a
+  non-rebuildable frame never discards a rebuildable older one. Counters snapRxStats()/snapTxStats() (DEV trace).
+- TESTS: src/net/snapshotCodec.backlog.test.ts (7): pickSnapFrame decision x3 incl. NEGATIVE; REACH 5 fps joiner
+  80 frames 2 % loss (lag <= 4 frames; own tower + spent bank within 3 joiner frames); LATEST WINS; NEGATIVE (bogus
+  newer delta vs inflating keyframe); REACH real bots match FIGHT (creatures byte-equal to host, lag <= 4, existing
+  creatures change > 20 times). transport.test: R2(b) re-pointed at processSnapFrame; burst test = latest-wins contract.
+- MUTATIONS: M1 master transport -> REACH red (lag 39 frames); M2 pick oldest -> decision + LATEST WINS red;
+  M3 ignore held base -> both NEGATIVE red; M4 master transport -> FIGHT REACH red (lag 5 > 4).
+- GATES (merged tree): typecheck 0 · vitest full 1 = 6 timeout-only (re-run alone: mine 7/7 after 120 s budget,
+  botPorchClear/spawnEconomy/racialB green; endgameAudit 2 timeouts alone = known load flake) 9467 passed ·
+  build 0, entry 1264.7 / 1350 KiB (+1.4 KiB from this tree, measured vs master transport) · e2e:gating 0 (72 passed,
+  1 skipped) · e2e:lobby 0 (5) · e2e:protocol 0 (2). After the last master merge (tests-only): typecheck 0,
+  vitest src/net + theRisen 842 passed.
+- BUMP VERDICT: NO bump. Frame format, ack format and keyframe policy unchanged; only the receiver's scheduling
+  changed. An old host and a new joiner (and vice versa) agree on every frame either computes.
+- MINE: none (no gameplay numbers). HOST_RING (32) left as is — staleAcks counter makes it observable (2 in a 45 s
+  throttled run). Question for owner/merge owner: none.
+- NOT DONE: no UI-driven placement/upgrade in the live harness (covered in the REACH tests); harness spikes to ~29
+  snapshots at 1-2 fps under 6x throttle are render-rate, not growth.
 
 ## WHY THE JOINER WAS BEHIND (evidence: 2 real Chromium pages, real WebRTC, local relay)
 S195's snapshot codec decoded every received frame through ONE serial promise chain on the joiner: frame N+1's
