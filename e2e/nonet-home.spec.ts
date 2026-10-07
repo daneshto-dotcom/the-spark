@@ -1,14 +1,16 @@
 /**
  * S196 #16 — THE NONET HOME, ON SCREEN. ARCADE → NONET opens the home; each door opens its own first
- * screen; ESC from a run returns to the home. Captures go to the owner's REAL desktop
- * (`C:/Users/onesh/OneDrive/Desktop/SPARK_S196_NonetHome`) when it exists, `test-results/` otherwise (CI).
+ * screen; ESC from a run returns to the home. Captures go to `test-results/nonet-home` by DEFAULT.
+ * ⭐ S196 LOW-1 (audit): writing to the owner's REAL desktop is OPT-IN — `NONET_SHOTS=1` sends them to
+ * `C:/Users/onesh/OneDrive/Desktop/SPARK_S196_NonetHome` (when it exists). An ordinary local gating run
+ * must never overwrite the captures the owner is looking at.
  */
 import { existsSync, mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import { canvasToCss, titleButtonCss, waitForWorld } from './helpers.ts';
 
 const DESKTOP = 'C:/Users/onesh/OneDrive/Desktop';
-const SHOTS = existsSync(DESKTOP) ? `${DESKTOP}/SPARK_S196_NonetHome` : 'test-results/nonet-home';
+const SHOTS = process.env.NONET_SHOTS === '1' && existsSync(DESKTOP) ? `${DESKTOP}/SPARK_S196_NonetHome` : 'test-results/nonet-home';
 
 interface Row { id: string; x: number; y: number; w: number; h: number }
 type Spark = {
